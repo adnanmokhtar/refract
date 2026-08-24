@@ -136,7 +136,21 @@ warn_stale_abs_paths() {
     [[ -d "$root" ]] && continue
     missing="$missing $root"
   done < <( { grep -oE '/(Users|home)/[A-Za-z0-9._-]+' "$file" 2>/dev/null || true; } | sort -u )
-  [[ -n "$missing" ]] && printf ' | WARN preserved body cites home dir(s) absent on this machine:%s — re-verify the sections quoting them' "$missing"
+  # NAME THE LINES, NOT JUST THE PREFIX. This warning fired on every run of a live repo
+  # ("cites home dir(s) absent on this machine: /Users/mac") and no step in any phase resolved
+  # it, because the reader was told a directory name and left to find the citations themselves
+  # in a several-hundred-line file. A warning that repeats forever and cannot be acted on
+  # trains the reader to skip it. Print the file:line of each offending citation (capped), so
+  # the fix is a finite edit rather than a search.
+  if [[ -n "$missing" ]]; then
+    printf ' | WARN preserved body cites home dir(s) absent on this machine:%s — re-verify the sections quoting them' "$missing"
+    local root2 hits
+    for root2 in $missing; do
+      hits=$({ grep -nF "$root2" "$file" 2>/dev/null || true; } | head -4 \
+             | sed 's/^\([0-9]*\):.*/:\1/' | tr -d '\n')
+      [[ -n "$hits" ]] && printf ' [%s at %s%s]' "$root2" "${file##*/}" "$hits"
+    done
+  fi
   return 0
 }
 

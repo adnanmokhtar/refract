@@ -376,10 +376,22 @@ anchor_citation_tokens() {
   # guarded, is the only shape in which "add a third extractor" is a safe edit.
   printf '%s\n' "$block" | { grep -oE '`[a-zA-Z0-9_./-]+/[a-zA-Z0-9_.-]+`' 2>/dev/null || true; } | tr -d '`'
   printf '%s\n' "$block" | { grep -oE "$CITATION_RE" 2>/dev/null || true; }
+  # SPLIT ON WHITESPACE AS WELL AS COMMAS -- and this line is the auditor half of a bug that
+  # was only ever fixed on the writer half. apply-anchors.sh emits the comma form today, but
+  # the form it emitted before that was space-separated (`top-level: src/assets src/components
+  # src/composables.`). Splitting on commas alone turns those three real directories into one
+  # 43-character token that resolves as nothing, so every artifact carrying the older form is
+  # reported as a cross-project leak. MEASURED on tenant-portal: 94 false leaks, every one of
+  # them that same string, all three directories present on disk (src/assets 437 files,
+  # src/components 184, src/composables 7) -- and audit-setup.sh C2d turns them into ERR, so a
+  # run that anchored correctly could not pass. apply-anchors.sh:anchor_toplevel_is_stale
+  # splits with `tr ',[:space:]' '\n\n'`; this must use the SAME separator set or the writer
+  # and the auditor disagree about what the same line says.
+  # Fixture: scripts/test-anchor-citations.sh § 7.
   printf '%s\n' "$block" \
     | { grep -oE 'top-level:[^.]*' 2>/dev/null || true; } \
     | sed 's/^top-level:[[:space:]]*//' \
-    | tr ',' '\n' \
+    | tr ',[:space:]' '\n\n' \
     | tr -d '`' \
     | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s|/*$||' \
     | { grep -vE '^$|^<' || true; }
@@ -551,6 +563,12 @@ declare -a leak_list
   else
     [[ $total_unanchored -gt 0 ]] && printf '⚠ %d pack-derived artifact(s) lack an anchor block, carry a placeholder skeleton, are too thin (<3 lines), or cite nothing real.\n' "$total_unanchored"
     [[ $total_leaks -gt 0 ]] && printf '⚠ %d cross-project leak(s) — anchor cites a fact absent from the target codebase.\n' "$total_leaks"
+    # SAME FINDING, TWO SEVERITIES, DEPENDING ON THE ENTRY POINT — say so here rather than
+    # letting a reader conclude from `EXIT=0` that the finding is cosmetic. Standalone this
+    # script is warn-only (M25.1) and returns 0; audit-setup.sh C2d turns the SAME leak count
+    # into an ERR that refuses the whole run. A reader who runs this by hand, sees exit 0, and
+    # then watches /setup-project refuse has no way to connect the two.
+    [[ $total_leaks -gt 0 ]] && printf '\n> Severity depends on who is asking. Standalone this script is **warn-only** and exits 0. `audit-setup.sh` C2d treats the same %d leak(s) as an **ERR** and REFUSES the run in refresh/refine/enhance mode. Do not read the exit code here as the verdict.\n' "$total_leaks"
     # The remediation MUST be the command that actually clears the finding it follows.
     # `apply-anchors.sh <target>` without `--apply` is a dry run — it prints and writes
     # nothing, so a reader who copies this line sees no change and learns to ignore C2d.

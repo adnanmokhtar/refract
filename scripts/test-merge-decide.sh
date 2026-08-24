@@ -31,7 +31,7 @@ export LC_ALL=C
 _ss="${BASH_SOURCE[0]}"
 while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
 REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
-ENGINE="$REPO_ROOT/scripts/merge-decide.py"
+ENGINE="${ENGINE_OVERRIDE:-$REPO_ROOT/scripts/merge-decide.py}"
 QUIET=0
 for a in "$@"; do [ "$a" = "--quiet" ] && QUIET=1; done
 say() { [ $QUIET -eq 1 ] || printf '%s\n' "$*"; }
@@ -623,6 +623,244 @@ if [ -f "$AUDIT" ]; then
     && ok "and the token fallback still catches the same loss" || bad "C2n token fallback ran"
 else
   say "SKIP: audit-setup.sh not found"
+fi
+
+# ── 17. Phase 4.6 must not be scored as a Phase 5 loss ──────────────────────────────────
+# THE SHOWSTOPPER THIS PINS. apply-anchors.sh (Phase 4.6, hard contract M25) rewrites the
+# `> Cite-able sources:` line of every anchor block from the values the CURRENT run resolved.
+# On capsolah-api the old value cited `src/`, a directory that does not exist in that repo,
+# and the repair was correct — 176 artifacts carried the false line before it. C2n then
+# reported each of the 227 repairs as KNOWLEDGE_LOSS and ordered the file restored from the
+# backup, which would have re-installed the lie: 227 of the audit's 255 failures, 89%, and
+# no reachable state in which /setup-project could exit 0 on that repo.
+#
+# Three assertions, and the last two are the ones that stop the fix from being a suppression:
+#   (a) a regenerated anchor line changing its VALUE is not a loss;
+#   (b) the anchor block disappearing entirely still IS;
+#   (c) a hand-added line inside the anchor block still IS.
+say ""
+say "fixture: a regenerated anchor citation is not knowledge loss — but dropping the block is"
+A17="$TD/anchor-regen"
+rm -rf "$A17"; mkdir -p "$A17/.claude/agents" "$A17/bak/.claude/agents" "$A17/apps/tenant"
+printf '{"name":"mono"}\n' > "$A17/package.json"
+printf 'export class T {}\n' > "$A17/apps/tenant/t.ts"
+cat > "$A17/bak/.claude/agents/api-architect.md" <<'ART'
+---
+name: api-architect
+---
+
+# API Architect
+
+<!-- project-specific:start -->
+## Project-specific (auto-generated, regenerate with `/setup-project --refine`)
+
+> Auto-populated by `scripts/apply-anchors.sh` from `.claude/codebase-profile.md` + `.claude/_codebase-scan.md`.
+>
+> - **Architecture** (`.claude/codebase-profile.md:12`): modular monolith
+> - **Naming** (`.claude/codebase-profile.md:18`): kebab-case files
+> Cite-able sources: `package.json`, `tsconfig.json`, top-level: src/.
+
+<!-- project-specific:end -->
+
+## Do the work
+
+Generic pack guidance.
+ART
+# (a) exactly what apply-anchors.sh does: the citation line, and only it, is re-resolved.
+sed 's|top-level: src/\.|top-level: `apps/`, `apps/tenant/`.|' \
+  "$A17/bak/.claude/agents/api-architect.md" > "$A17/.claude/agents/api-architect.md"
+printf '.claude/agents/api-architect.md\t%s\t%s\n' \
+  "$A17/bak/.claude/agents/api-architect.md" "$A17/.claude/agents/api-architect.md" > "$A17/pairs.tsv"
+n17=$(python3 "$ENGINE" --verify-pairs="$A17/pairs.tsv" --target="$A17" 2>/dev/null | grep -c . || true)
+[ "${n17:-1}" -eq 0 ] \
+  && ok "a re-resolved Cite-able-sources line is NOT reported as loss" \
+  || bad "a re-resolved Cite-able-sources line is NOT reported as loss" \
+         "$(python3 "$ENGINE" --verify-pairs="$A17/pairs.tsv" --target="$A17" 2>/dev/null | head -1)"
+
+# (b) the whole block gone — the excuse must not survive this.
+python3 - "$A17/.claude/agents/api-architect.md" "$A17/dropped.md" <<'PYX'
+import sys, re
+src, dst = sys.argv[1], sys.argv[2]
+t = open(src, encoding="utf-8").read()
+open(dst, "w", encoding="utf-8").write(
+    re.sub(r"<!-- project-specific:start -->.*?<!-- project-specific:end -->\n\n", "", t, flags=re.S))
+PYX
+printf '.claude/agents/api-architect.md\t%s\t%s\n' \
+  "$A17/bak/.claude/agents/api-architect.md" "$A17/dropped.md" > "$A17/pairs-b.tsv"
+n17b=$(python3 "$ENGINE" --verify-pairs="$A17/pairs-b.tsv" --target="$A17" 2>/dev/null | grep -c . || true)
+[ "${n17b:-0}" -ge 1 ] \
+  && ok "deleting the whole anchor block IS still reported" \
+  || bad "deleting the whole anchor block IS still reported" "the shape-key excuse went blind"
+
+# (c) a hand-added line inside the block — no generated shape, still protected verbatim.
+sed 's|^> - \*\*Naming\*\*.*|&\n> - Owner note: DomainMiddleware resolves tenant before the guard runs.|' \
+  "$A17/bak/.claude/agents/api-architect.md" > "$A17/bak-hand.md"
+printf '.claude/agents/api-architect.md\t%s\t%s\n' \
+  "$A17/bak-hand.md" "$A17/.claude/agents/api-architect.md" > "$A17/pairs-c.tsv"
+n17c=$(python3 "$ENGINE" --verify-pairs="$A17/pairs-c.tsv" --target="$A17" 2>/dev/null | grep -c . || true)
+[ "${n17c:-0}" -ge 1 ] \
+  && ok "a hand-added line inside the anchor block IS still protected" \
+  || bad "a hand-added line inside the anchor block IS still protected" \
+         "the excuse is matching by position, not by generated shape"
+
+# ── 18. a resolved skill-shape twin must not take a project FACT with it ────────────────
+# MEASURED LOSS, tenant-portal. `visual-check` existed in both shapes. The flat twin scored 15
+# on project knowledge and won; the folder twin scored 2 and was archived — and the folder twin
+# was the one that said `Check dev server on :5173`. tenant-portal is a Vite app with no port
+# override, so 5173 is the truth and the kept file now tells the reader 3000. twin_score could
+# not see it: `5173` is neither a path token nor a CamelCase identifier. Archiving the bytes
+# under .claude/backups/ is not preserving them — that directory is one rolled-up untracked
+# line in git status and one `git clean -fd` from gone.
+ASD="${ASD_OVERRIDE:-$REPO_ROOT/scripts/apply-study-decisions.sh}"
+if [ -f "$ASD" ]; then
+  say ""
+  say "fixture: the archived twin's project facts are carried into the kept twin"
+  T18="$TD/twin-facts"
+  rm -rf "$T18"; mkdir -p "$T18/.claude/skills/visual-check" "$T18/src"
+  printf '{"name":"tp","scripts":{"dev":"vite"}}\n' > "$T18/package.json"
+  printf 'export const a = 1\n' > "$T18/src/main.ts"
+  cat > "$T18/.claude/skills/visual-check.md" <<'FLAT'
+---
+name: visual-check
+---
+# visual-check
+
+Uses `src/main.ts` and PageHeader and BaseModal and useCrud and FormField.
+Look at src/main.ts for the entry point.
+
+1. Confirm the dev server URL (default `http://localhost:3000`).
+FLAT
+  cat > "$T18/.claude/skills/visual-check/SKILL.md" <<'FOLD'
+---
+name: visual-check
+---
+# visual-check
+
+1. Check dev server on :5173 (`curl -s http://localhost:5173`). If not up, ask user to `npm run dev`.
+2. Generic pack sentence with nothing project-specific in it at all.
+FOLD
+  bash "$ASD" "$T18" --resolve-shape-conflicts --apply >/dev/null 2>&1 || true
+  KEPT18="$T18/.claude/skills/visual-check/SKILL.md"
+  if grep -q '5173' "$KEPT18" 2>/dev/null; then
+    ok "the losing twin's port fact survives in the kept file"
+  else
+    bad "the losing twin's port fact survives in the kept file" \
+        "5173 is only in .claude/backups/ — archiving is not preserving"
+  fi
+  # it must land under a heading the merge engine protects, or the next OVERRIDE deletes it
+  if grep -qiE '^##[[:space:]]+Project-specific' "$KEPT18" 2>/dev/null; then
+    ok "it lands under a \`## Project-specific\` heading (protected by compose_override)"
+  else
+    bad "it lands under a \`## Project-specific\` heading" "an unprotected append is deleted by the next OVERRIDE"
+  fi
+  # and it must NOT drag the loser's generic prose across
+  if grep -q 'Generic pack sentence' "$KEPT18" 2>/dev/null; then
+    bad "generic prose from the loser is NOT carried" "the winner is accreting the loser's boilerplate"
+  else
+    ok "generic prose from the loser is NOT carried"
+  fi
+  # end-to-end: the carried block survives a pack OVERRIDE
+  if python3 - "$KEPT18" "$ENGINE" <<'PYX'
+import sys, importlib.util
+kept, eng = sys.argv[1], sys.argv[2]
+spec = importlib.util.spec_from_file_location("md", eng)
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+t = open(kept, encoding="utf-8").read()
+hb = [b for k, _key, b in m.project_regions(t) if k == "heading"]
+pack = "---\nname: visual-check\n---\n# visual-check\n\n1. Confirm the dev server URL (default 3000).\n"
+sys.exit(0 if "5173" in m.compose_override(pack, [], hb) else 1)
+PYX
+  then ok "and it survives a subsequent pack OVERRIDE"
+  else bad "and it survives a subsequent pack OVERRIDE" "compose_override dropped the recovered block"
+  fi
+else
+  say "SKIP: apply-study-decisions.sh not found"
+fi
+
+# ── 19. the record's line-delta claim must match the bytes on disk ──────────────────────
+# `_merge-decisions.md` printed "the file gains N line(s) in exchange" from a GROSS added-line
+# count, in the grammar of a NET trade, immediately after the sentence saying what was deleted.
+# MEASURED against git diff --numstat on both live repos: wrong in 113 of 119 capsolah rows and
+# 29 of 29 tenant-portal rows, and in 22 of those the file SHRANK while the row advertised a
+# gain -- .claude/agents/websocket-engineer.md claimed "+79" on a net of -40 (+83/-123). The
+# engine's own comment states the guarantee the number failed to keep: "the record has to state
+# the trade rather than a comfortable half of it."
+say ""
+say "fixture: the record's NET line claim equals the real before-to-after delta"
+P19="$TD/netclaim"; K19="$TD/packs19/fixture"
+rm -rf "$P19" "$TD/packs19"
+mkdir -p "$K19/commands" "$P19/.claude/commands" "$P19/src"
+: > "$P19/src/app.ts"
+# The pack is SHORTER than the target: adopting it must report a NEGATIVE net, which is exactly
+# the case the gross count reported as a gain.
+cat > "$K19/commands/thing.md" <<'P19PACK'
+---
+name: thing
+description: Generic pack description.
+---
+
+# Thing
+
+## Steps
+
+1. Only step.
+P19PACK
+{
+  printf -- '---\nname: thing\ndescription: Generic pack description.\n---\n\n# Thing\n\n## Steps\n\n1. Only step.\n'
+  i=0; while [ "$i" -lt 40 ]; do printf 'Generic pack line %s that the framework wrote.\n' "$i"; i=$((i+1)); done
+} > "$P19/.claude/commands/thing.md"
+printf '# Study\n\n## fixture\n\n### commands\n\n  - `thing.md` — target 50 / pack 11 lines → **MERGE**\n' \
+  > "$P19/.claude/_study-existing-report.md"
+before19=$(wc -l < "$P19/.claude/commands/thing.md" | tr -d ' ')
+# A corpus that KNOWS the target's extra lines are historical pack text — the real situation
+# OVERRIDE is licensed in, and the one where the pack no longer carries those lines back. The
+# file therefore SHRINKS, which is precisely the case the gross count reported as a gain.
+python3 - "$ENGINE" "$TD/packs19" "$P19" > "$TD/out19.txt" 2>&1 <<'D19'
+import importlib.util, sys
+engine, packs, proj = sys.argv[1], sys.argv[2], sys.argv[3]
+spec = importlib.util.spec_from_file_location("md", engine)
+md = importlib.util.module_from_spec(spec); spec.loader.exec_module(md)
+real = md.build_corpus
+def seeded(packs_root, **kw):
+    c = real(packs_root, use_git=False, quiet=True)
+    with open(proj + "/.claude/commands/thing.md", encoding="utf-8") as f:
+        for ln in f:
+            c.hashes.add(md.lhash(ln.rstrip("\n")))
+    return c
+md.build_corpus = seeded
+sys.exit(md.main([proj, "--packs-root=" + packs, "--apply", "--no-git"]))
+D19
+out19=$(cat "$TD/out19.txt")
+after19=$(wc -l < "$P19/.claude/commands/thing.md" | tr -d ' ')
+MD19="$P19/.claude/_merge-decisions.md"
+if [ ! -f "$MD19" ]; then
+  bad "the engine produced its record" "no _merge-decisions.md: $(printf '%s' "$out19" | tail -3 | tr '\n' ' ')"
+else
+  if grep -q 'line(s) in exchange' "$MD19"; then
+    bad "the gross count is no longer printed as a net trade" "$(grep -m1 -o 'gains [0-9]* line(s) in exchange' "$MD19")"
+  else
+    ok "the gross count is no longer printed as a net trade"
+  fi
+  claim19=$(grep -o 'NET file length [+-][0-9]*' "$MD19" | head -1 | sed 's/NET file length //')
+  real19=$(( after19 - before19 ))
+  if [ -z "$claim19" ]; then
+    # a row that was NOT written (DEFER/NO-OP) legitimately has no net claim; say which happened
+    if [ "$after19" -eq "$before19" ]; then
+      bad "a written row states a measured NET file-length delta" "nothing was written: $(grep -m1 -oE '\*\*[A-Z-]+\*\*' "$MD19" || true)"
+    else
+      bad "a written row states a measured NET file-length delta" "file changed by $real19 line(s) and no NET claim was recorded"
+    fi
+  elif [ "$claim19" -eq "$real19" ] 2>/dev/null; then
+    ok "the NET claim ($claim19) equals the real delta ($real19 line(s))"
+  else
+    bad "the NET claim equals the real delta" "record says $claim19, disk says $real19"
+  fi
+  # and the direction must be reportable at all: this fixture SHRINKS the file
+  if [ "$real19" -lt 0 ]; then
+    ok "a shrinking write is reported as a shrink, not as a gain"
+  else
+    bad "a shrinking write is reported as a shrink" "fixture did not shrink ($before19 -> $after19)"
+  fi
 fi
 
 say ""

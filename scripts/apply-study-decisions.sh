@@ -72,11 +72,31 @@
 # Migration is explicit, one-way, and backed up — never a side effect of an apply:
 #   apply-study-decisions.sh <target> --migrate-skill-shape [--apply]
 #
-# Exit codes: 0 ok / 1 target not found / 2 usage / 3 study report missing
-#             4 skill-shape conflict (duplicate skill name on disk — nothing written)
-#             6 auto-merge requested but the merge decision engine cannot run — nothing
-#               written. Not a degradation: the caller asked for merges and would otherwise
-#               have got an exit-0 run that merged nothing. `--conservative` is the opt-out.
+# Exit codes — the CALLER'S CONTRACT. The full table, with the orchestrator's required action
+# per code, is templates/phases/phase-4.0-preflight.md § "Exit-code contract"; it is ratcheted
+# by scripts/lint-setup-contracts.sh Rule 11, so a new non-zero exit here fails the build until
+# that table names it. Read this list as "what happened", the table as "what to do next".
+#
+#   0  ok
+#   1  target not found
+#   2  usage
+#   3  TWO distinct conditions, and NEITHER means "stop the run":
+#        (a) the study report is missing — prints `ERR: study report not found`, writes
+#            NOTHING, and sends you back to Phase 3;
+#        (b) the merge engine refused, rolled back or aborted at least one row — FILES DID
+#            LAND (the engine's `Files written:` line is the count), each verified after its
+#            write and backed up first; the unclosed rows are DEFER in
+#            `.claude/_merge-decisions.md` and THEIR files are untouched.
+#      Case (b) is the safety net working, not a fault. The orchestrator CONTINUES to Phase 4.1
+#      and Phase 4.6 — a runner that aborts here leaves the target with pack content applied,
+#      no rule imports and no anchors, which is strictly worse than either finishing or never
+#      starting. MEASURED: one live run produced exit 3 from a single by-design refusal
+#      ("Refused or rolled back: 1") with 154 files already written.
+#   4  skill-shape conflict blocked a row this run wanted to write — NOTHING written.
+#      Run the printed `--resolve-shape-conflicts --apply` remedy, then re-run.
+#   6  auto-merge requested but the merge decision engine cannot run — NOTHING written. Not a
+#      degradation: the caller asked for merges and would otherwise have got an exit-0 run that
+#      merged nothing. `--conservative` is the opt-out.
 
 set -euo pipefail
 export LC_ALL=C
@@ -332,6 +352,58 @@ twin_score() {
   printf '%s\n' "$(( score + ${idents:-0} ))"
 }
 
+# ---- what the ARCHIVED twin knew and the KEPT twin does not ------------------------------
+#
+# THE MEASURED LOSS THIS CLOSES. tenant-portal's `visual-check` skill existed in both shapes.
+# The FLAT twin scored 15 on project knowledge and won; the FOLDER twin scored 2 and was
+# archived. The folder twin was the one that said
+#     1. Check dev server on :5173 (`curl -s http://localhost:5173 …`)
+# and tenant-portal is a Vite app with no port override, so 5173 is the truth. The kept twin
+# was then overridden with pack text and now says `default http://localhost:3000`. visual-check
+# is the harness every UI verification runs through, so a wrong port makes the render fail or
+# silently grade the wrong thing. twin_score COULD NOT SEE THE FACT: `5173` is neither a path
+# token nor a CamelCase identifier, so the resolver was choosing correctly on the evidence it
+# had and losing the one number that mattered anyway.
+#
+# The bytes were archived under .claude/backups/, which is one rolled-up `?? .claude/backups/`
+# line in git status and one `git clean -fd` from gone. Archiving is not preserving.
+#
+# So the loser's project FACTS are carried forward into the winner, under a heading the merge
+# engine already protects verbatim (`## Project-specific …` — see merge-decide.py
+# PROJECT_HEADING / compose_override), which is what makes them survive the OVERRIDE that
+# comes after this step. Salience is deliberately narrow: a line qualifies only if it names a
+# port/URL, a path that RESOLVES in this target, or a runnable command. Generic pack prose
+# does not qualify, so the winner does not accrete the loser's boilerplate.
+# Fixture: scripts/test-merge-decide.sh § 18.
+TWIN_FACT_RE='https?://|localhost|127\.0\.0\.1|:[0-9]{4,5}\b|`(npm|pnpm|yarn|npx|bun|make|curl|docker|composer|poetry|pytest|go|cargo) '
+
+twin_unique_facts() {  # $1=loser $2=winner  → verbatim lines the winner does not carry
+  local loser="$1" winner="$2" line trimmed
+  local wnorm; wnorm=$(mktemp "${TMPDIR:-/tmp}/twin-win.XXXXXX")
+  sed 's/^[[:space:]]*//; s/[[:space:]]*$//' "$winner" 2>/dev/null | grep -v '^$' | sort -u > "$wnorm"
+  while IFS= read -r line; do
+    trimmed="$(printf '%s' "$line" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+    [[ -z "$trimmed" ]] && continue
+    case "$trimmed" in '```'*) continue ;; esac          # never emit a half-open fence
+    grep -qxF -- "$trimmed" "$wnorm" && continue          # the winner already says it
+    if printf '%s' "$line" | grep -qE "$TWIN_FACT_RE"; then
+      printf '%s\n' "$line"; continue
+    fi
+    # a path citation that RESOLVES here is a fact about this repo; one that does not is prose
+    local tok found=0
+    while IFS= read -r tok; do
+      [[ -z "$tok" ]] && continue
+      if [[ -e "$TARGET/$tok" || -e "$TARGET/.claude/$tok" ]]; then found=1; break; fi
+    done < <(printf '%s\n' "$line" | { grep -ohE "$TWIN_PATH_RE" 2>/dev/null || true; })
+    [[ "$found" -eq 1 ]] && printf '%s\n' "$line"
+  done < <(awk '
+      /^<!-- project-specific:start -->[[:space:]]*$/ { skip=1; next }
+      skip { if (/^<!-- project-specific:end -->[[:space:]]*$/) skip=0; next }
+      { print }
+    ' "$loser" 2>/dev/null)
+  rm -f "$wnorm"
+}
+
 # Is this file byte-identical to any pack source shipping the same skill name?
 # A twin that still matches the pack verbatim carries no project edits and loses ties.
 twin_matches_pack() {
@@ -404,9 +476,36 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
           mkdir -p "$SKILLS_DIR/$name"
           mv "$flat" "$folder"
         fi
+        # CARRY THE LOSER'S PROJECT FACTS ACROSS, don't just archive them. The winner has
+        # already been moved to its final path above, so `_kept_path` is where the block goes.
+        twinshape=$([[ "$loser" == "$flat" ]] && echo flat || echo folder)
+        _arch="$mig_bak/resolved-twins/$name.$twinshape.md"
+        _kept_path="$folder"
+        _facts=$(twin_unique_facts "$_arch" "$_kept_path" | head -40)
+        _nfacts=$(printf '%s' "$_facts" | grep -c . || true)
+        if [[ "${_nfacts:-0}" -gt 0 ]]; then
+          {
+            printf '\n## Project-specific (recovered from the archived %s twin)\n\n' "$twinshape"
+            printf '<!-- Written by scripts/apply-study-decisions.sh --resolve-shape-conflicts.\n'
+            printf '     This skill existed in BOTH shapes. The other shape stated the fact(s)\n'
+            printf '     below and the kept shape does not, so they are carried here instead of\n'
+            printf '     being archived out of sight — a fact only recoverable from\n'
+            printf '     .claude/backups/ is one `git clean -fd` from gone. Verify each against\n'
+            printf '     the codebase and delete any that are stale.\n'
+            printf '     Archived copy: %s -->\n\n' "${_arch#$TARGET/}"
+            printf '%s\n' "$_facts"
+          } >> "$_kept_path"
+        fi
         echo "  RESOLVE  $name — kept ${winner#$TARGET/}$([[ "$winner" == "$flat" ]] && echo " (migrated to canonical folder shape)"), archived ${loser#$TARGET/}"
         echo "           reason: $why"
         echo "           archived copy: ${mig_bak#$TARGET/}/resolved-twins/"
+        if [[ "${_nfacts:-0}" -gt 0 ]]; then
+          echo "           CARRIED FORWARD $_nfacts project fact(s) the kept twin did not state, into"
+          echo "           \`## Project-specific (recovered from the archived $twinshape twin)\` at the end of"
+          echo "           ${_kept_path#$TARGET/} — the merge engine protects that heading verbatim, so they"
+          echo "           survive the OVERRIDE that follows. First:"
+          printf '%s\n' "$_facts" | head -3 | sed 's/^/                 /'
+        fi
         # SAY WHAT WENT WITH IT. This resolver optimises for project knowledge and is right to,
         # but the twin it archives is often the PACK version — and the pack version is where the
         # hardening lives. MEASURED: component-playground kept a 1,617-byte project twin over a
@@ -1083,6 +1182,12 @@ if [[ "$ENGINE_RC" -eq 3 ]]; then
   echo "          Those rows are DEFER in .claude/_merge-decisions.md; their files are unchanged."
   echo "        * aborted — the run stopped early. The record names the rows that DID complete."
   echo "      Read .claude/_merge-decisions.md, then re-run once the named rows are dealt with."
+  echo ""
+  echo "      ORCHESTRATOR: this is NOT a stop. CONTINUE to Phase 4.1 (wire-rule-imports.sh) and"
+  echo "      Phase 4.6 (apply-anchors.sh). Aborting here leaves the target with pack content"
+  echo "      applied, no rule imports and no anchor blocks — strictly worse than either"
+  echo "      finishing or never starting. Contract: templates/phases/phase-4.0-preflight.md"
+  echo "      § \"Exit-code contract\"."
   exit 3
 elif [[ "$ENGINE_RC" -ne 0 ]]; then
   echo ""

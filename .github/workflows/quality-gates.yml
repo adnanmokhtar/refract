@@ -168,6 +168,33 @@ jobs:
       - name: Anchor citations (source-density picker, both layouts)
         run: bash scripts/test-anchor-citations.sh
 
+      # `.claude/rules/` exists to be READ, and on two live repos none of it was. Three
+      # distinct seams, none visible to any gate that asked whether the FILE EXISTED:
+      # `globs:` was not recognised as path scoping (8 rules burned 3,427 tok/turn as
+      # always-loaded while 22 principle rules did not fit and never loaded); the
+      # over-budget refusal that wire-rule-imports.sh makes deliberately was then FAILED by
+      # audit-setup.sh C2u, with no reachable state satisfying both; and the escape hatch
+      # (path-scope it) was dead because inject-path-rules.sh was registered in no
+      # settings.json anywhere.
+      - name: Rule loading (globs: scoping, recorded refusal, live path-scoped tier)
+        run: bash scripts/test-rule-loading.sh
+
+      # 29 of the trigger vocabulary's 32 `*_detected` signals had NO producer anywhere, so
+      # every pack topic gated on one could not fire on any project — and lint-setup-contracts
+      # Rule 4, the ratchet for exactly that, had all 29 in its baseline. The two that had been
+      # fixed lived only in templates/appendices.md, a COLD doc no script runs. The producer is
+      # now scripts/detect-signals.sh; this pins its coverage against the vocabulary in BOTH
+      # directions and its answers over two repo shapes.
+      - name: Detected signals (every declared trigger has a real extractor)
+        run: bash scripts/test-detect-signals.sh
+
+      # An artifact must not read as finished when it is not, and a check must not report
+      # "clean" when it never looked: an all-`<TBD>` codebase scan that discloses nothing, 19
+      # security probes over a directory that does not exist (zero hits reads as clean), and a
+      # link check that greps for one spelling of failure while 43% of links resolve nowhere.
+      - name: Report honesty (unfilled scans, dead probes, unresolved links)
+        run: bash scripts/test-report-honesty.sh
+
       # M35 promises "the agent never decides whether to back up". run-preflight.sh decides, and
       # it decided wrong: freshness came from the directory's MTIME, which a `git reset` had just
       # refreshed, so a backup named 20260823-0515 looked younger than 60 minutes at 14:09. The

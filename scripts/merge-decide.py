@@ -152,6 +152,56 @@ ENGINE_MARKER = re.compile(r"^\s*<!--\s*setup-project:(merged-from-pack|kept|adj
 ANCHOR_START = re.compile(r"^<!-- project-specific:start -->\s*$")
 ANCHOR_END = re.compile(r"^<!-- project-specific:end -->\s*$")
 
+# --- Lines apply-anchors.sh REGENERATES on every run -------------------------------------
+#
+# THE DEFECT THIS CLOSES, measured on capsolah-api. Phase 4.6 (apply-anchors.sh, hard contract
+# M25) rewrites the `> Cite-able sources:` line of every anchor block from the values the
+# CURRENT run resolved. On that repo the old value was `top-level: src/.` and `src/` does not
+# exist — the real dirs are apps/, libs/, chrome-extension/ — so the repair was correct and
+# 176 artifacts carried a false citation before it. Phase 5 C2n then called each of those 227
+# repairs a KNOWLEDGE_LOSS, because the REGIONS leg protects an anchor block verbatim, and
+# ordered the file restored from the backup: 227 of the audit's 255 failures, 89%, and the
+# printed remedy would have re-installed the lie. Phase 4.6 and Phase 5 were in mechanical
+# opposition and /setup-project could not exit 0 on that repo no matter how well it worked.
+#
+# THE RULE. An anchor line whose shape apply-anchors.sh emits is MACHINE OUTPUT with a value
+# slot. It is protected by SHAPE, not by VALUE: the line must still be there, and its value
+# may differ, because the phase whose job is to write it ran between the backup and the live
+# file. Anything else inside the block — a hand-added bullet, a note the owner wrote — has no
+# generated shape, is not matched here, and stays protected verbatim as before.
+#
+# WHY THIS CANNOT GO BLIND. The excuse is conditional on the shape being PRESENT in the
+# result. Drop the anchor block wholesale and every key disappears with it, so every line
+# reads as lost and the REGION violation fires exactly as it did before. Fixture:
+# scripts/test-merge-decide.sh § 6.
+ANCHOR_GEN_RE = re.compile(
+    r"^>\s*Cite-able sources:"
+    r"|^>\s*Auto-populated by\b"
+    r"|^>\s*-\s*\*\*(?:Architecture|Naming|Testing|Data access|Error handling|"
+    r"Detected load-bearing idioms|Stack placeholders pending|"
+    r"Where this applies here|Relevance UNCONFIRMED)\*\*"
+    r"|^##\s+Project-specific \(auto-generated"
+)
+
+
+def anchor_gen_key(line):
+    """The shape-key of a line apply-anchors.sh regenerates, or None for everything else."""
+    m = ANCHOR_GEN_RE.match(line)
+    if not m:
+        return None
+    return "\u00abanchor-gen\u00bb" + re.sub(r"\s+", " ", m.group(0)).strip().lower()
+
+
+def gcanon(line):
+    """canon(), except a regenerated anchor line collapses to its shape-key.
+
+    Every comparison in verify_invariant runs in this space, so the excuse is applied once,
+    consistently, to the multiset test, the region test, the contiguity test and the order
+    test at the same time — rather than four times with four chances to disagree.
+    """
+    k = anchor_gen_key(line)
+    return k if k else canon(line)
+
 
 def is_trivial(line):
     """True when a line is pure markdown structure and carries no measurable content.
@@ -772,7 +822,22 @@ def detect(lines, pack_text, corpus, ridx, projrx):
 # ---------------------------------------------------------------------------------------
 # § The classifier
 # ---------------------------------------------------------------------------------------
-VERB_OF_BUCKET = {"A": "NO-OP", "C": "ENHANCE", "B": "OVERRIDE", "D": "ADJUST", "E": "DEFER"}
+# ⭐ BUCKET E IS A MERGE, NOT A SURRENDER.
+#
+# E means "the owner's own lines sit inside a section the pack also changed". It
+# used to map to DEFER, and on the owner's two live repos that abandoned 27 files
+# — `ai/patterns/multi-tenancy.md` over ONE line, `audit-knowledge.md` over one,
+# `learn-from-task.md` over two. Their instruction was the opposite of asking:
+# "if the new is best take it, if you need to take from the old do it — the
+# purpose is merge or take the best".
+#
+# So E takes the same verb as D and [weave_section] resolves the overlap at LINE
+# level: the pack's wording wins, every line the corpus cannot attribute to the
+# framework is carried into it, and nothing is dropped. If the weave is ever
+# wrong, `verify_invariant` catches it independently and rolls that file — and
+# only that file — back to DEFER. The escape hatch still exists; it is just no
+# longer the first answer.
+VERB_OF_BUCKET = {"A": "NO-OP", "C": "ENHANCE", "B": "OVERRIDE", "D": "ADJUST", "E": "ADJUST"}
 
 
 def nonblank(text):
@@ -962,7 +1027,148 @@ def _strip_pack_tail(chunk, pack_line_set):
     return kept
 
 
-def compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys):
+def weave_section(pack_chunk, tgt_chunk, corpus):
+    """⭐ ONE SECTION, BOTH SIDES CHANGED. The pack's body is the structure; the
+    owner's own lines are carried INTO it, each after the line it followed.
+
+    This is the case that used to be bucket E and used to DEFER the whole file.
+    Measured on the owner's two repos, that meant skipping
+    `ai/patterns/multi-tenancy.md` over ONE line, `audit-knowledge.md` over one,
+    `learn-from-task.md` over two — 27 files abandoned to protect 4 lines on
+    average. The owner's instruction was never "ask me": it was "if the new is
+    best take it, if you need to take from the old do it — the purpose is merge
+    or take the best".
+
+    The engine already knows, per LINE, who wrote it. So the section is resolved
+    at line level rather than being surrendered at section level:
+
+      * a target line the pack ALSO has  → an anchor. It is not emitted here; the
+        pack's own copy carries it, which is how the pack's rewording wins.
+      * a target line the CORPUS wrote   → framework text the pack has moved on
+        from. Dropped: the pack body is its replacement.
+      * a target line nobody can account for → the owner's. KEPT, and placed
+        immediately after the last anchor above it, which is what "in its real
+        context" means — the neighbour it was written next to.
+
+    Lines above the first anchor go directly under the heading, in order. Lines
+    whose anchor the pack removed go at the end of the section rather than being
+    dropped — losing one is the only outcome this function may never produce, and
+    `verify_invariant` re-checks that independently and rolls the file back to
+    DEFER if this function is ever wrong.
+    """
+    pack_canon = {canon(l) for l in pack_chunk if l.strip()}
+
+    # 🔴 A PROTECTED REGION IS INDIVISIBLE, and this is what the first draft got
+    # wrong. `verify_invariant` requires regions to survive CONTIGUOUSLY, not
+    # merely to survive. A region — an anchor block, a `## Project-specific`
+    # block — routinely contains a line the pack ALSO has; treating that line as
+    # an anchor split the block around the pack's copy of it, and the invariant
+    # correctly refused all 13 tenant-portal writes and 6 of capsolah-api's.
+    #
+    # So inside a region every line is carried and none is an anchor: the block
+    # travels whole, attached to the last anchor ABOVE it.
+    guarded = set()
+    for _kind, _k, body in project_regions("\n".join(tgt_chunk)):
+        for bl in body.split("\n"):
+            if bl.strip():
+                guarded.add(canon(bl))
+
+    carried, anchor, pending = [], None, []
+    for line in tgt_chunk:
+        if not line.strip():
+            if pending:
+                pending.append(line)
+            continue
+        c = canon(line)
+        if c in guarded:
+            pending.append(line)
+            continue
+        if c in pack_canon:
+            if pending:
+                carried.append((anchor, pending))
+                pending = []
+            anchor = c
+            continue
+        if corpus.wrote(line):
+            continue
+        pending.append(line)
+    if pending:
+        carried.append((anchor, pending))
+    if not carried:
+        return list(pack_chunk)
+
+    def trimmed(chunk):
+        c = list(chunk)
+        while c and not c[-1].strip():
+            c.pop()
+        return c
+
+    top, by_anchor = [], {}
+    for a, lines in carried:
+        if a is None:
+            top.extend(lines)
+        else:
+            by_anchor.setdefault(a, []).extend(lines)
+
+    def anchored():
+        out, heading_done, left = [], False, dict(by_anchor)
+        for line in pack_chunk:
+            out.append(line)
+            if not heading_done and line.lstrip().startswith("#"):
+                heading_done = True
+                if top:
+                    out.append("")
+                    out.extend(trimmed(top))
+                continue
+            if line.strip():
+                c = canon(line)
+                if c in left:
+                    out.extend(trimmed(left.pop(c)))
+        # An anchor the pack deleted. The line still ships — at the end of its
+        # own section, the nearest true thing left to say about where it went.
+        for lines in left.values():
+            out.extend(trimmed(lines))
+        return out
+
+    def appended():
+        out, heading_done = [], False
+        tail = list(top)
+        for _a, lines in carried:
+            if _a is not None:
+                tail.extend(lines)
+        for line in pack_chunk:
+            out.append(line)
+            if not heading_done and line.lstrip().startswith("#"):
+                heading_done = True
+        if tail:
+            out.append("")
+            out.extend(trimmed(tail))
+        return out
+
+    # 🔴 ORDER IS PART OF THE CONTENT, and the anchored placement can break it.
+    # Anchoring each run to the pack's copy of the line it followed puts the runs
+    # in PACK order — and when the pack has reordered that material, the owner's
+    # notes come out shuffled. `verify_invariant`'s ORDER leg caught this on all
+    # 12 tenant-portal rows, and it was right to: a document whose sentences
+    # moved reads differently even though every line survived.
+    #
+    # So the anchored result is CHECKED, not trusted. If the owner's lines would
+    # come out in a different relative order than they went in, the whole set is
+    # emitted contiguously at the end of the section in the order they were
+    # written. That trades some adjacency for order, which is the right way round
+    # — a note in the wrong neighbourhood is still readable; a paragraph whose
+    # sentences swapped is not.
+    want = [canon(l) for _a, lines in carried for l in lines if l.strip()]
+    got = [c for c in (canon(l) for l in anchored() if l.strip()) if c in set(want)]
+    seq, i = [], 0
+    for c in got:
+        if i < len(want) and c == want[i]:
+            seq.append(c)
+            i += 1
+    return anchored() if i == len(want) else appended()
+
+
+def compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys, corpus=None):
     """Pack body for every shared section; the target's own sections kept byte-for-byte AND
     IN THE PLACE THE OWNER PUT THEM.
 
@@ -1026,12 +1232,27 @@ def compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys):
 
     # --- walk the TARGET in its own order -------------------------------------------------
     # A block's key is the PACK INDEX it came from (an int) or None for a kept target section.
-    blocks = [(None, p_pre)]
+    # ⭐ THE PREAMBLE IS WOVEN TOO, not simply surrendered to the pack.
+    #
+    # "The pack owns the preamble by definition" holds when everything above the
+    # first heading is framework boilerplate — and for most files it is. It is
+    # false for a file whose H1 the owner rewrote: `ai/patterns/multi-tenancy.md`
+    # deferred on exactly one violation, `LINE # Multi-Tenancy Pattern`, its own
+    # title, because this branch dropped it before any section logic ran. Weaving
+    # it costs nothing when the preamble is boilerplate (nothing is unattributed,
+    # so the pack's copy is returned unchanged) and saves the file when it is not.
+    t_pre = []
+    for k, head, a, b in section_spans(t_lines):
+        if head is None:
+            t_pre = trim([l for l in t_lines[a:b] if not ENGINE_MARKER.match(l)])
+            break
+    blocks = [(None, weave_section(p_pre, t_pre, corpus)
+               if (corpus is not None and t_pre) else p_pre)]
     consumed = set()
     seen = {}
     for k, head, a, b in section_spans(t_lines):
         if head is None:
-            continue                               # the pack owns the preamble by definition
+            continue                               # handled above
         # The target's own section. Drop this engine's OWN seam markers before re-wrapping:
         # without it the second run reads the `end -->` line it wrote as part of the section
         # body, wraps it again, and the file grows one marker per run — measured, 28 of 28
@@ -1045,7 +1266,14 @@ def compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys):
             if n < len(idxs):
                 pi = idxs[n]
                 consumed.add(pi)
-                blocks.append((pi, p_secs[pi][1]))
+                chunk = p_secs[pi][1]
+                # ⭐ With a corpus, a shared section is WOVEN rather than replaced:
+                # the pack's body wins the wording, the owner's own lines are
+                # carried into it. Without one the old behaviour stands, so a
+                # degraded corpus can never silently start dropping lines.
+                if corpus is not None:
+                    chunk = weave_section(chunk, own, corpus)
+                blocks.append((pi, chunk))
             elif own:
                 # The target repeats a heading more times than the pack does. The extra copy
                 # has no pack counterpart, so it is the target's own and is kept verbatim.
@@ -1225,15 +1453,23 @@ def fingerprint(original_text, corpus, target_root):
         if (os.path.exists(os.path.join(target_root, tt))
                 or os.path.exists(os.path.join(target_root, ".claude", tt))):
             toks.add(t)
-    for t in set(IDENT_RE.findall("\n".join(prot_lines))):
+    # Identifiers are harvested from the lines the OWNER wrote. A regenerated anchor line
+    # (ANCHOR_GEN_RE) carries whatever the profile said this run — `Vitest`, `PascalCase`,
+    # a base-class name — and Phase 4.6 rewrites it from the profile every time, so an
+    # identifier that only ever appeared there is not a fact the write destroyed.
+    for t in set(IDENT_RE.findall("\n".join(l for l in prot_lines if anchor_gen_key(l) is None))):
         if t not in corpus.pack_idents:
             toks.add(t)
     return prot_lines, toks, project_regions(original_text)
 
 
 def _significant(lines):
-    """The lines a reader would actually see: no blanks, no seam markers this engine writes."""
-    return [canon(l) for l in lines if l.strip() and not ENGINE_MARKER.match(l)]
+    """The lines a reader would actually see: no blanks, no seam markers this engine writes.
+
+    Compared in gcanon() space so a regenerated anchor line (see ANCHOR_GEN_RE) matches by
+    shape. Without that, the contiguity test reports every re-cited anchor block as SHREDDED.
+    """
+    return [gcanon(l) for l in lines if l.strip() and not ENGINE_MARKER.match(l)]
 
 
 def _contiguous(hay, needle):
@@ -1309,20 +1545,22 @@ def verify_invariant(original_text, result_text, corpus, target_root):
     """
     prot_lines, prot_toks, prot_regions = fingerprint(original_text, corpus, target_root)
     res_lines = result_text.split("\n")
-    res_canon = [canon(l) for l in res_lines]
+    # gcanon(), not canon(): a line apply-anchors.sh regenerates is compared by SHAPE, so the
+    # mandatory Phase 4.6 citation repair is not scored as a Phase 5 loss. See ANCHOR_GEN_RE.
+    res_canon = [gcanon(l) for l in res_lines]
 
     have = {}
     for c in res_canon:
         have[c] = have.get(c, 0) + 1
     need = {}
     for l in prot_lines:
-        c = canon(l)
+        c = gcanon(l)
         need[c] = need.get(c, 0) + 1
 
     lost_lines, lost_dupes = [], []
     seen = set()
     for l in prot_lines:
-        c = canon(l)
+        c = gcanon(l)
         if c in seen:
             continue
         seen.add(c)
@@ -1348,14 +1586,14 @@ def verify_invariant(original_text, result_text, corpus, target_root):
     for l in original_text.split("\n"):
         if not l.strip() or not MARKER_RE.search(l):
             continue
-        if have.get(canon(l), 0) == 0:
+        if have.get(gcanon(l), 0) == 0:
             lost_markers.append(l)
 
     res_sig = _significant(res_lines)
     lost_regions, shredded = [], []
     for kind, _k, body in prot_regions:
         blines = body.split("\n")
-        missing = [l for l in blines if l.strip() and canon(l) not in have]
+        missing = [l for l in blines if l.strip() and gcanon(l) not in have]
         if missing:
             lost_regions.append((kind, len(missing), missing[0].strip()[:100]))
         elif not _contiguous(res_sig, _significant(blines)):
@@ -1365,7 +1603,7 @@ def verify_invariant(original_text, result_text, corpus, target_root):
     # and never double-reports a loss the multiset check already named.
     present, used = [], {}
     for l in prot_lines:
-        c = canon(l)
+        c = gcanon(l)
         n = used.get(c, 0)
         if n < have.get(c, 0):
             present.append(c)
@@ -1801,10 +2039,20 @@ def main(argv):
             if verb == "NO-OP":
                 rec["why"] = "identical to the pack source once the project-specific anchor is set aside"
             elif verb == "OVERRIDE":
+                # `gain_lines` IS A GROSS COUNT — lines ADDED — and it used to be printed in
+                # the grammar of a net trade ("the file gains N line(s) in exchange"), directly
+                # after the sentence saying what was deleted. MEASURED against `git diff
+                # --numstat` on both live repos: wrong in 113 of 119 capsolah rows and 29 of 29
+                # tenant-portal rows, and in 22 of those the file actually SHRANK while the row
+                # advertised a gain — `.claude/agents/websocket-engineer.md` claimed "+79" on a
+                # net of −40 (+83/−123); `.claude/agents/ui-architect.md` claimed "+119" on a net
+                # of −33. The gross number is not wrong, the WORD "gains" is. It is now labelled
+                # as gross here, and the true net is appended from the composed result below
+                # (see rec["net_lines"]), which is the number `git diff` will show.
                 rec["why"] = ("all %d target line(s) this replaces are verbatim historical pack "
                               "text (provenance corpus: %d lines from %d blobs over %d commits); "
                               "%d of them are NOT in the current pack, so the pack will not put "
-                              "them back — the file gains %d line(s) in exchange; "
+                              "them back — this write ADDS %d line(s) of pack text (gross, not net); "
                               "%d anchor block(s) carried forward verbatim"
                               % (rec["loss_lines"], corpus.lines, corpus.blobs, corpus.commits,
                                  rec["loss_absent_from_current_packs"], rec["gain_lines"],
@@ -1826,7 +2074,7 @@ def main(argv):
                 # `--additive-only` (and `--include=merge-additive`) keeps the append-only shape
                 # for callers who have contracted for it.
                 rec["why"] = ("the target is a strict subsequence of the pack — adopting the pack body "
-                              "deletes ZERO target lines and adds %d" % rec["gain_lines"])
+                              "deletes ZERO target lines and adds %d (gross)" % rec["gain_lines"])
             elif verb == "ADJUST":
                 rec["why"] = ("%d unknown-origin line(s) all live in section(s) the pack does not have "
                               "(%s) — those are kept byte-for-byte, the shared sections take the pack version"
@@ -1842,7 +2090,7 @@ def main(argv):
 
             if verb in WRITE_VERBS and verb in verbs:
                 if verb == "ADJUST":
-                    result = compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys)
+                    result = compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys, corpus)
                     rec["added"] = "pack body for %d shared section(s)" % len(s_keys)
                 elif verb == "ENHANCE" and additive_only:
                     result, added = compose_enhance(pack_norm, tgt_raw)
@@ -1856,7 +2104,7 @@ def main(argv):
                     # section byte-for-byte and is available at no cost. Taking the weaker
                     # composition when the stronger one is free is the definition of ignoring a
                     # warning. OVERRIDE is still used when the target has nothing of its own.
-                    result = compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys)
+                    result = compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys, corpus)
                     rec["verb"] = verb = "ADJUST"
                     rec["m36_honoured"] = True
                     rec["why"] = ("study-existing.sh flagged this file as project-knowledge "
@@ -1908,7 +2156,7 @@ def main(argv):
                 # verified from scratch and refused on the same terms.
                 if not ok and verb in ("OVERRIDE", "ENHANCE"):
                     alt = rewrite_deployed(
-                        compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys),
+                        compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys, corpus),
                         r["kind"], target)
                     if not alt.endswith("\n"):
                         alt += "\n"
@@ -1991,6 +2239,12 @@ def main(argv):
                         continue
                     rec["backup"] = os.path.relpath(bpath, target)
                     written += 1
+                # THE NET, measured on the bytes that actually landed. This is the number
+                # `git diff --numstat` will print for the file, so the record and the diff agree.
+                _before_n = tgt_raw.count("\n")
+                _after_n = result.count("\n")
+                rec["net_lines"] = _after_n - _before_n
+                rec["why"] = "%s; NET file length %+d line(s)" % (rec["why"], rec["net_lines"])
                 rec["applied"] = apply_
                 if apply_ and verb in ("ENHANCE", "ADJUST"):
                     # OVERRIDE needs no ledger row: the file becomes byte-equal to the pack, so the
@@ -2147,14 +2401,29 @@ def write_record(target, out, corpus, bak_dir, ts, aborted=None):
                     "> abort, not the whole report. Every file it names as written was verified\n"
                     "> after its write and backed up first. Re-run once the cause is fixed.\n\n"
                     % aborted.replace("|", "\\|"))
-        f.write("| verb | file | why | preserved | backup |\n|---|---|---|---|---|\n")
+        f.write("| verb | file | why | preserved | backup / where to look |\n|---|---|---|---|---|\n")
         for r in out:
+            # A DEFER ROW'S TWO MOST USEFUL COLUMNS WERE BOTH EM-DASHES. Every OVERRIDE row
+            # carries a real backup path; a DEFER row carried `—` for both preserved and
+            # backup, because nothing was written and nothing was backed up — which is true and
+            # useless. The reader of a DEFER row needs to know where to look, and the answer is
+            # 170 lines further down the file under a different heading. Point at it.
+            rel_ = r.get("rel", r["key"])
+            if r.get("backup"):
+                where = "`%s`" % r["backup"]
+            elif r["verb"] == "DEFER":
+                where = ("file UNCHANGED on disk — see § Deferred rows below for the "
+                         "verbatim at-risk line(s)")
+            else:
+                where = "—"
             f.write("| %s | `%s` | %s | %s | %s |\n" % (
-                r["verb"], r.get("rel", r["key"]),
+                r["verb"], rel_,
                 r.get("why", "").replace("|", "\\|"),
                 ("%d line(s), %d token(s)" % (r.get("preserved_lines", 0), r.get("preserved_tokens", 0)))
-                if r.get("invariant_checked") else "—",
-                ("`%s`" % r["backup"]) if r.get("backup") else "—"))
+                if r.get("invariant_checked") else
+                ("nothing written — the file is byte-identical to before this run"
+                 if r["verb"] == "DEFER" else "—"),
+                where))
         fm = [r for r in out if r.get("frontmatter_changes") and r["verb"] in WRITE_VERBS]
         if fm:
             f.write("\n## Frontmatter and policy fields that changed\n\n")

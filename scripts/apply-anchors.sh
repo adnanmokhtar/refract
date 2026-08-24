@@ -301,16 +301,39 @@ if [[ -s "$_CAND_FILE" ]]; then
 fi
 SRC_DIRS=""
 _srcn=0
-while IFS=$'\t' read -r _sc _tc _d; do
-  [[ -z "${_d:-}" ]] && continue
-  # A candidate with nothing in it at all is never cited. A candidate with files but no
-  # recognised source extension is cited only in the fallback pass below.
-  [[ "${_sc:-0}" -gt 0 ]] || continue
-  [[ -n "$SRC_DIRS" ]] && SRC_DIRS="$SRC_DIRS, "
-  SRC_DIRS="$SRC_DIRS\`$_d/\`"
-  _srcn=$(( _srcn + 1 ))
+# BREADTH BEFORE DEPTH — one slot per distinct top-level ROOT first, then fill.
+#
+# The cap is 4 and the candidate list contains nested dirs, so on capsolah-api the ranking
+# spent three of the four slots inside ONE tree (`apps/`, `apps/tenant/`, `apps/master/`) plus
+# `chrome-extension/`, and `libs/` — the shared-library root that half that codebase lives in —
+# was cut. The same anchor block cites `DataAccess<…> at libs/database/src/repository/
+# data-access.ts` three lines above, so the block was telling a reader to cite from a directory
+# it had just declined to list as cite-able. Every path it printed resolved, so no gate saw it.
+# Pass 1 takes the best candidate from each distinct first segment; pass 2 spends whatever is
+# left on the next-best candidates of any depth. Ranking is unchanged; only the ORDER of
+# spending is.
+_seen_roots=""
+for _pass in 1 2; do
+  while IFS=$'\t' read -r _sc _tc _d; do
+    [[ -z "${_d:-}" ]] && continue
+    # A candidate with nothing in it at all is never cited. A candidate with files but no
+    # recognised source extension is cited only in the fallback pass below.
+    [[ "${_sc:-0}" -gt 0 ]] || continue
+    _root="${_d%%/*}"
+    if [[ "$_pass" -eq 1 ]]; then
+      case " $_seen_roots " in *" $_root "*) continue ;; esac
+    else
+      case ", $SRC_DIRS," in *"\`$_d/\`,"*) continue ;; esac
+      [[ "$SRC_DIRS" == "\`$_d/\`"* ]] && continue
+    fi
+    [[ -n "$SRC_DIRS" ]] && SRC_DIRS="$SRC_DIRS, "
+    SRC_DIRS="$SRC_DIRS\`$_d/\`"
+    _seen_roots="$_seen_roots $_root"
+    _srcn=$(( _srcn + 1 ))
+    [[ "$_srcn" -ge 4 ]] && break
+  done < <(sort -t$'\t' -k1,1nr -k2,2nr -k3,3 "$_RANK_FILE" 2>/dev/null || true)
   [[ "$_srcn" -ge 4 ]] && break
-done < <(sort -t$'\t' -k1,1nr -k2,2nr -k3,3 "$_RANK_FILE" 2>/dev/null || true)
+done
 if [[ -z "$SRC_DIRS" ]]; then
   while IFS=$'\t' read -r _sc _tc _d; do
     [[ -z "${_d:-}" ]] && continue
@@ -581,6 +604,49 @@ anchor_toplevel_is_stale() {
   return 1
 }
 
+# ---- anchor UNIQUENESS: the per-artifact line, retro-fitted -----------------------------
+#
+# THE DEFECT. Anchoring coverage reads 100% and says almost nothing. MEASURED: capsolah-api
+# 195 anchored artifacts / 20 distinct anchor bodies / largest identical group 110 (56%);
+# tenant-portal 88 / 11 / 57 (65%). The target's own report already names it — "Distinct anchor
+# bodies: 16 of 106 anchored (15%) … a global constant wearing a citation costume" — while
+# audit-setup.sh C2d printed "ok anchoring coverage 100%" in the same run.
+#
+# THE CAUSE IS A MISSING MIGRATION, not a missing idea. `artifact_relevance_line` already
+# produces a line that differs for every artifact whose subject differs, and every block this
+# script INJECTS carries one. But an artifact anchored by an EARLIER release is "already
+# anchored", so it is skipped forever and keeps the generator's old, identical body — the exact
+# shape of the `src/.` citation defect one function above, which was fixed the same way.
+#
+# So: one line, added in place, to a block that has none. Everything else in the block —
+# including hand-written depth under the anchor — is left byte-for-byte alone.
+# Fixture: scripts/test-anchor-citations.sh § 9.
+anchor_lacks_relevance() {
+  local f="$1"
+  awk '
+    /^<!-- project-specific:start -->[[:space:]]*$/ { inb=1; next }
+    inb && /^<!-- project-specific:end -->[[:space:]]*$/ { inb=0 }
+    inb && (/^>[[:space:]]*-[[:space:]]*\*\*Where this applies here\*\*/ ||
+            /^>[[:space:]]*-[[:space:]]*\*\*Relevance UNCONFIRMED\*\*/) { found=1 }
+    END { exit found ? 1 : 0 }
+  ' "$f" 2>/dev/null
+}
+
+# Insert the relevance line immediately BEFORE the Cite-able-sources line (the block's last
+# content line), or immediately before the end marker when there is no citation line yet.
+insert_relevance_line() {
+  local f="$1" line="$2" tmp
+  tmp=$(mktemp "${TMPDIR:-/tmp}/anchor-relev.XXXXXX")
+  REL_LINE="$line" awk '
+    /^<!-- project-specific:start -->[[:space:]]*$/ { inb=1; print; next }
+    inb && !done && /^>[[:space:]]*Cite-able sources:/ { print ENVIRON["REL_LINE"]; done=1; print; next }
+    inb && !done && /^<!-- project-specific:end -->[[:space:]]*$/ { print ENVIRON["REL_LINE"]; done=1; inb=0; print; next }
+    inb && /^<!-- project-specific:end -->[[:space:]]*$/ { inb=0 }
+    { print }
+  ' "$f" > "$tmp" && cat "$tmp" > "$f"
+  rm -f "$tmp"
+}
+
 # Rewrite the Cite-able-sources line in place from the values this run computed.
 # Only that line changes; the rest of the block (including hand-added depth) is untouched.
 repair_citeable_line() {
@@ -640,15 +706,35 @@ inject_block() {
   local block="$3"
   local tmp
   tmp=$(mktemp)
+  # THE BLANK LINE GOES AFTER THE BLOCK, NOT BEFORE IT — and this one line is why the whole
+  # programme's headline metric could not move off zero.
+  #
+  # Every reader of a deployed artifact strips the anchor to recover "the pack-derived
+  # content": study-existing.sh stripped_target(), merge-decide.py split_anchors(). Both drop
+  # the single blank line that FOLLOWS the `:end -->` marker, because that is the shape
+  # compose_override() writes. This function wrote the blank BEFORE the `:start -->` marker
+  # and none after, so the strip left one extra blank line in every single artifact and NO
+  # anchored file could ever compare equal to its pack source. MEASURED across two live repos:
+  # byte-for-byte currency 0 → 0 over 207 pack commands+agents after 154 files were rewritten
+  # from current pack source — `.claude/agents/websocket-engineer.md` stripped was 190 lines
+  # against a 189-line pack and the complete unified diff was `@@ -9,0 +10 @@` / `+`. A fully
+  # successful run reported as total failure.
+  #
+  # The leading blank is emitted only when the preceding line is not already blank, because
+  # find_insertion_line() returns `h2 - 1` and that line is usually — not always — the pack's
+  # own separator. Fixture: scripts/test-anchor-citations.sh § 8.
   if [[ "$insert_after" -eq 0 ]]; then
     {
-      printf '%s\n' "$block"
+      printf '%s\n\n' "$block"
       cat "$f"
     } > "$tmp"
   else
     {
       head -n "$insert_after" "$f"
-      printf '\n%s\n' "$block"
+      local prev
+      prev="$(sed -n "${insert_after}p" "$f")"
+      [[ -n "${prev//[[:space:]]/}" ]] && printf '\n'
+      printf '%s\n\n' "$block"
       tail -n +$((insert_after + 1)) "$f"
     } > "$tmp"
   fi
@@ -687,6 +773,7 @@ backup_dir="$TARGET/.claude/backups/anchors-$ts"
 injected=0
 already=0
 repaired=0
+relev=0
 orphans=0
 processed=0
 
@@ -739,22 +826,42 @@ for kind in commands agents skills rules ai-patterns; do
     # line in place. Everything else in the block — including any hand-written depth a
     # human added under the anchor — is left byte-for-byte alone.
     if has_live_anchor "$f"; then
+      touched_this_file=0
       if anchor_toplevel_is_stale "$f"; then
         if [[ "$APPLY" -eq 1 ]]; then
           mkdir -p "$backup_dir"
           rel="${f#$TARGET/}"
           bak="$backup_dir/$rel"
           mkdir -p "$(dirname "$bak")"
-          cp "$f" "$bak"
+          [[ -f "$bak" ]] || { mkdir -p "$(dirname "$bak")"; cp "$f" "$bak"; }
           repair_citeable_line "$f"
           echo "  REPAIR  $rel  (stale top-level citation refreshed)"
         else
           echo "  would-REPAIR $kind/$base  (stale top-level citation)"
         fi
         repaired=$((repaired + 1))
-      else
-        already=$((already + 1))
+        touched_this_file=1
       fi
+      # The uniqueness migration. An anchor written by an earlier release carries no
+      # per-artifact line, so it is byte-identical to every other block that release wrote —
+      # and "already anchored" meant it could never be improved. Add the one line that makes
+      # the block about THIS artifact; touch nothing else.
+      if anchor_lacks_relevance "$f"; then
+        if [[ "$APPLY" -eq 1 ]]; then
+          mkdir -p "$backup_dir"
+          rel="${f#$TARGET/}"
+          bak="$backup_dir/$rel"
+          mkdir -p "$(dirname "$bak")"
+          [[ -f "$bak" ]] || cp "$f" "$bak"
+          insert_relevance_line "$f" "$(artifact_relevance_line "$f")"
+          echo "  RELEV   $rel  (per-artifact relevance line added to an existing anchor)"
+        else
+          echo "  would-RELEV $kind/$base  (anchor has no per-artifact relevance line)"
+        fi
+        relev=$((relev + 1))
+        touched_this_file=1
+      fi
+      [[ "$touched_this_file" -eq 0 ]] && already=$((already + 1))
       continue
     fi
 
@@ -786,6 +893,7 @@ echo "Processed:                     $processed"
 echo "Injected (or would-inject):    $injected"
 echo "Already anchored (skipped):    $already"
 echo "Stale citations repaired:      $repaired"
+echo "Relevance lines retro-fitted:  $relev"
 echo "Orphans (project-only):        $orphans"
 echo "Profile facts resolved:        $facts_resolved/5"
 if [[ -n "$facts_missing" ]]; then

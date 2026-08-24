@@ -90,6 +90,12 @@ HAS_SHADCN=$([ -f components.json ] && grep -q 'shadcn\|"ui":' components.json 2
 CSS_FRAMEWORK_DETECTED=$([ -n "$HAS_TAILWIND$HAS_BOOTSTRAP$HAS_PRIMEVUE$HAS_MUI$HAS_VUETIFY$HAS_CHAKRA$HAS_SHADCN" ] && echo yes)
 
 # ----- i18n / RTL -----
+# NOTE — THESE SNIPPETS ARE DOCUMENTATION, NOT THE PRODUCER. This file is Tier-3 COLD: no
+# script executes it, so an extractor that lives only here fires when a human pastes it into a
+# shell and never otherwise. The EXECUTABLE producer for every `*_detected` trigger is
+# `scripts/detect-signals.sh`, run by `run-preflight.sh` STEP 0.4, and its answers land in
+# `<target>/.claude/_detected-signals.md`. Keep the two in step; the snippets below stay as the
+# readable explanation of what each signal means.
 # HISTORY: `i18n_lib_detected` and `rtl_locale_detected` are declared in
 # templates/packs/_trigger-vocabulary.md:76-77 and consumed by templates/packs/ui-ux/_topics.md
 # and templates/packs/frontend/_topics.md, and NOTHING anywhere produced them. The vocabulary's

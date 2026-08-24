@@ -332,6 +332,33 @@ if [[ $run_detection -eq 1 ]]; then
   echo ""
 fi
 
+# STEP 0.4: compute every `*_detected` trigger the pack vocabulary declares, and WRITE the
+# answers where a machine can read them (`<target>/.claude/_detected-signals.md`).
+#
+# WHY IT IS A PREFLIGHT STEP AND NOT AN APPENDIX. The extractors for these signals used to live
+# ONLY in `templates/appendices.md`, a Tier-3 COLD documentation file that no script executes.
+# They were correct and unreachable: they produced an answer when a human pasted the snippet
+# into a shell, and never otherwise. MEASURED — 29 of the vocabulary's 32 `*_detected` triggers
+# had no producer of any kind, so every pack topic gated on one of them could not fire on any
+# project, and `lint-setup-contracts.sh` Rule 4 had all 29 recorded in its baseline so nothing
+# ever turned red. A detector that only runs when an agent chooses to read a cold appendix is
+# not part of the deterministic chain. This is.
+if [[ -x "$SCRIPTS/detect-signals.sh" ]]; then
+  echo "[0.4/5] detect-signals.sh (every *_detected trigger, written to .claude/_detected-signals.md)"
+  "$SCRIPTS/detect-signals.sh" "$TARGET" 2>&1 | tail -3
+  echo ""
+else
+  # LOUD, NOT SILENT. `[[ -x ]] || skip` is precisely the shape that cost a whole delivery
+  # run: merge-decide.py existed at HEAD, was absent from the global install, and the step it
+  # powered degraded to a no-op while the run exited 0. A step that cannot run must say so.
+  echo "[0.4/5] detect-signals.sh — NOT FOUND at $SCRIPTS/detect-signals.sh"
+  echo "  WARN every \`*_detected\` trigger is UNCOMPUTED for this run, so any pack topic gated on"
+  echo "       one cannot fire. This almost always means the global install is stale:"
+  echo "         bash <checkout>/scripts/sync-to-global.sh --apply"
+  echo "       then re-run the preflight. (STEP -2 above reports the full list.)"
+  echo ""
+fi
+
 # STEP 0.5 (M29): MCP server recommendations driven by the same signals.
 # Emits the report AND merges recommended servers into <target>/.mcp.json.
 # Merge semantics: user-added servers are preserved; only adds entries whose

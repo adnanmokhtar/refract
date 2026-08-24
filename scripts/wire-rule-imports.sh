@@ -73,10 +73,23 @@ CLAUDE_MD="$TARGET/CLAUDE.md"
 MARK_OPEN='<!-- setup-project:managed start id=rule-imports -->'
 MARK_CLOSE='<!-- setup-project:managed end -->'
 
-# Same two-tier test check-rule-budget.sh uses: a `paths:` key in the leading frontmatter.
+# Same two-tier test check-rule-budget.sh and audit-setup.sh C2u use: a path-scoping key in
+# the leading frontmatter.
+#
+# `globs:` COUNTS. The framework writes `paths:`, but the ADAPTER contract maps a rule's
+# `paths:` to `globs:` for Cursor, Continue and Windsurf — so `globs:` is the same declaration
+# in the vocabulary this repo already ships, and a project whose rules were authored against
+# that vocabulary was being read as if it had declared nothing. MEASURED on capsolah-api: 8
+# rules declaring `globs: "**/controllers/**/*.ts"` and the like were wired as ALWAYS-loaded,
+# spending 3,427 tok of a 12,000 tok budget on every turn regardless of which file was open,
+# while 22 genuinely global principle rules (backend-principles, security-principles,
+# testing-principles, quality-principles …) did not fit and never loaded at all — and the
+# audit then failed the run for exactly that. `grep -rln 'globs:' scripts/` returned nothing:
+# no script in the framework had ever looked for the key its own adapters emit.
+# Fixture: scripts/test-rule-loading.sh § 1.
 is_path_scoped() {
   head -1 "$1" | grep -qE '^---[[:space:]]*$' || return 1
-  awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^paths:/{found=1} END{exit !found}' "$1"
+  awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^(paths|globs):/{found=1} END{exit !found}' "$1"
 }
 tok() { echo $(( $(wc -c < "$1") / 4 )); }
 
@@ -101,7 +114,8 @@ done
 while IFS= read -r f; do
   [[ -f "$f" ]] || continue
   base="$(basename "$f")"
-  [[ "$base" == "README.md" ]] && continue
+  # README.md and `_`-prefixed records (e.g. _unloaded.md, written below) are not rules.
+  [[ "$base" == "README.md" || "$base" == _* ]] && continue
   case " $FOUNDATIONAL " in *" ${base%.md} "*) continue ;; esac
   if is_path_scoped "$f"; then SCOPED+=("$base"); continue; fi
   t=$(tok "$f")
@@ -145,6 +159,153 @@ if [[ ${#OVERFLOW[@]} -gt 0 ]]; then
   echo "Claude touches matching source. Re-run this script afterwards. Raise --budget only"
   echo "with the per-turn cost above in front of you."
   rc=3
+fi
+
+# ---- the refusal LEDGER -----------------------------------------------------------------
+#
+# THE DEADLOCK THIS BREAKS. This script declines over-budget rules and says so in plain words.
+# audit-setup.sh C2u then FAILS the run for exactly that decision — "N always-tier rule(s) are
+# installed but NOT imported by CLAUDE.md, so they never load" — and the escape hatch it printed
+# was dead too, because a path-scoped rule needs inject-path-rules.sh registered and that hook
+# was registered in no settings.json in either live repo. Two mandatory steps of the same run,
+# in direct opposition, with no reachable state that satisfies both: 20 rules on capsolah-api,
+# 4 on tenant-portal, and /setup-project unable to exit 0 either way.
+#
+# A refusal a reader can FIND is a different object from a refusal that is only a line of
+# scrollback. This writes the decision to `.claude/rules/_unloaded.md` — next to the rules it
+# is about — with the per-rule token cost and both remedies. C2u reads that file: a rule
+# recorded there is a WARN (an owned decision), a rule that is simply missing from CLAUDE.md
+# with no record is still an ERR (an oversight). The ledger is REGENERATED from the live budget
+# computation on every run, so it cannot rubber-stamp: scope a rule, or raise the budget, and
+# the rule leaves the ledger by itself. Fixture: scripts/test-rule-loading.sh § 2.
+UNLOADED_MD="$RULES_DIR/_unloaded.md"
+if [[ "$APPLY" -eq 1 ]]; then
+  if [[ ${#OVERFLOW[@]} -gt 0 ]]; then
+    {
+      printf '# Rules on disk that do NOT load
+
+'
+      printf '<!-- Written by scripts/wire-rule-imports.sh. Regenerated on every run: a rule that
+'
+      printf '     later fits the budget, or gains `paths:`/`globs:` frontmatter, disappears from this
+'
+      printf '     list by itself. Do not hand-edit — edit the rules or the budget. -->
+
+'
+      printf 'The always-loaded import budget is **%s tok/turn**. %d rule(s) below it did not fit, so
+' "$BUDGET" "${#OVERFLOW[@]}"
+      printf 'CLAUDE.md does not `@`-import them and **Claude never reads them**. This is a recorded
+'
+      printf 'decision, not an oversight — but it is a decision, and these are the words it costs:
+
+'
+      printf '| rule | ~tok/turn if imported | status |
+|---|---:|---|
+'
+      for row in "${OVERFLOW[@]}"; do
+        printf '| `.claude/rules/%s` | %s | NOT LOADED |
+' "${row%%|*}" "${row##*|}"
+      done
+      printf '
+Total withheld: **~%d tok/turn** across %d rule(s).
+
+' "$ov_tok" "${#OVERFLOW[@]}"
+      printf 'Two ways to make one of them load:
+
+'
+      printf '1. **Path-scope it** (free until matched) —
+'
+      printf '   `scripts/scope-rules.sh ".claude/rules/<name>.md" "<glob>,<glob>"`, then re-run
+'
+      printf '   `scripts/wire-rule-imports.sh <target> --apply`. Requires `.claude/hooks/inject-path-rules.sh`
+'
+      printf '   to be registered as a PreToolUse hook — this script registers it for you when the hook
+'
+      printf '   file is present.
+'
+      printf '2. **Raise the budget** — `scripts/wire-rule-imports.sh <target> --apply --budget=N`,
+'
+      printf '   with the per-turn cost in the table above in front of you.
+'
+    } > "$UNLOADED_MD"
+    echo ""
+    echo "  RECORD  .claude/rules/_unloaded.md  (${#OVERFLOW[@]} rule(s), ~$ov_tok tok/turn withheld)"
+  elif [[ -f "$UNLOADED_MD" ]]; then
+    rm -f "$UNLOADED_MD"
+    echo ""
+    echo "  CLEAR   .claude/rules/_unloaded.md  (every always-tier rule now loads)"
+  fi
+fi
+
+# ---- make the path-scoped tier actually LIVE --------------------------------------------
+#
+# The documented escape hatch above is a lie unless inject-path-rules.sh is registered. It was
+# registered in no settings.json in either live repo, so "path-scope it and it loads on match"
+# was advice that could not be followed — and audit-setup.sh C2u printed the WARN proving it in
+# the same run that printed the advice. Scoping a rule into a tier that does not run is worse
+# than leaving it unloaded, because the reader believes the opposite.
+# Fixture: scripts/test-rule-loading.sh § 3.
+HOOK_REL='.claude/hooks/inject-path-rules.sh'
+SETTINGS="$TARGET/.claude/settings.json"
+if [[ ${#SCOPED[@]} -gt 0 && -f "$TARGET/$HOOK_REL" ]]; then
+  if grep -qF 'inject-path-rules' "$SETTINGS" 2>/dev/null \
+     || grep -qF 'inject-path-rules' "$TARGET/.claude/settings.local.json" 2>/dev/null; then
+    :
+  elif [[ "$APPLY" -eq 1 ]] && command -v python3 >/dev/null 2>&1; then
+    if python3 - "$SETTINGS" "$HOOK_REL" <<'PYHOOK'
+import json, os, sys
+path, hook = sys.argv[1], sys.argv[2]
+cmd = 'cd "${CLAUDE_PROJECT_DIR:-.}" && ' + hook
+data = {}
+if os.path.exists(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        sys.exit(2)          # never overwrite a settings.json we could not parse
+    if not isinstance(data, dict):
+        sys.exit(2)
+hooks = data.setdefault("hooks", {})
+pre = hooks.setdefault("PreToolUse", [])
+if not isinstance(pre, list):
+    sys.exit(2)
+target = None
+for entry in pre:
+    if isinstance(entry, dict) and entry.get("matcher") == "Edit|Write|MultiEdit":
+        target = entry
+        break
+if target is None:
+    target = {"matcher": "Edit|Write|MultiEdit", "hooks": []}
+    pre.append(target)
+lst = target.setdefault("hooks", [])
+if any(isinstance(h, dict) and "inject-path-rules" in str(h.get("command", "")) for h in lst):
+    sys.exit(1)              # already there — nothing to do
+lst.append({"type": "command", "command": cmd})
+os.makedirs(os.path.dirname(path), exist_ok=True)
+if os.path.exists(path):
+    import shutil, time
+    bdir = os.path.join(os.path.dirname(path), "backups", "rule-imports-" + time.strftime("%Y%m%d-%H%M%S"))
+    os.makedirs(bdir, exist_ok=True)
+    shutil.copy2(path, os.path.join(bdir, "settings.json"))
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PYHOOK
+    then
+      echo "  WIRE    .claude/settings.json  (PreToolUse Edit|Write|MultiEdit → $HOOK_REL)"
+      echo "          ${#SCOPED[@]} path-scoped rule(s) can now load on match. Without this the"
+      echo "          path-scoped tier is inert and \`scope-rules.sh\` is advice that cannot be followed."
+    else
+      rcp=$?
+      [[ "$rcp" -eq 2 ]] && echo "  WARN    could not register $HOOK_REL in .claude/settings.json (unreadable or unexpected shape) — the ${#SCOPED[@]} path-scoped rule(s) will NOT load. Register it as a PreToolUse hook by hand."
+    fi
+  else
+    echo "  NOTE    ${#SCOPED[@]} path-scoped rule(s) need $HOOK_REL registered as a PreToolUse hook"
+    echo "          or they never load. Pass --apply and this script registers it."
+  fi
+elif [[ ${#SCOPED[@]} -gt 0 ]]; then
+  echo "  WARN    ${#SCOPED[@]} path-scoped rule(s) installed but $HOOK_REL is not on disk — the"
+  echo "          path-scoped tier cannot run, so those rules never load by any route."
 fi
 
 # ---- compose the managed block ----

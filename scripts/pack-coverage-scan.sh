@@ -173,6 +173,60 @@ enumerate_kind_dir() {
   } | sort
 }
 
+# ---------- Pack CURRENCY (is an installed artifact still the pack's current text?) ------
+#
+# WHY THIS EXISTS AT ALL. The programme's headline metric — "N pack files current, M stale" —
+# was measured OUTSIDE the framework, by comparing a deployed artifact byte-for-byte with its
+# pack source. That comparison can only ever return zero current, because Phase 4.6 injects an
+# anchor block into every pack-derived artifact and Phase 4.2 rewrites its snippet/governance
+# links on deploy. MEASURED across two live repos: 0 current before, 0 current after, over 207
+# artifacts of which 154 had just been rewritten from current pack source. The owner read
+# "nothing arrived"; almost everything had. Shipping the ruler with the tool is the only way a
+# reader and a run can agree on what "current" means.
+#
+# The comparison is the SAME one study-existing.sh makes when it decides a row is NO-OP:
+#   strip the anchor block (+ the one blank line the injection appends)
+#     vs the pack source with its deploy-time link rewrites applied.
+# Whitespace-and-blank-line tolerance is the second tier, not the first, so the report can say
+# which of the two it is.
+PCS_NORM_TMP=""
+pcs_normalized_src() {   # pack source with the deploy-time link rewrites applied
+  local src="$1" kind="$2"
+  if [[ "$kind" != "commands" && "$kind" != "agents" ]] || ! command -v perl >/dev/null 2>&1; then
+    printf '%s' "$src"; return
+  fi
+  [[ -z "$PCS_NORM_TMP" ]] && PCS_NORM_TMP=$(mktemp -d "${TMPDIR:-/tmp}/pcs-norm.XXXXXX")
+  local out="$PCS_NORM_TMP/$(basename "$src")"
+  perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' \
+    "$src" > "$out" 2>/dev/null || { printf '%s' "$src"; return; }
+  printf '%s' "$out"
+}
+PCS_STRIP_TMP=""
+pcs_stripped_target() {  # deployed artifact with its generated anchor block removed
+  local tgt="$1"
+  if ! grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$tgt" 2>/dev/null; then
+    printf '%s' "$tgt"; return
+  fi
+  [[ -z "$PCS_STRIP_TMP" ]] && PCS_STRIP_TMP=$(mktemp -d "${TMPDIR:-/tmp}/pcs-strip.XXXXXX")
+  local out="$PCS_STRIP_TMP/$(basename "$tgt")"
+  awk '
+    /^<!-- project-specific:start -->[[:space:]]*$/ { skip=1; next }
+    skip { if (/^<!-- project-specific:end -->[[:space:]]*$/) { skip=0; drop_blank=1 } next }
+    drop_blank && /^[[:space:]]*$/ { drop_blank=0; next }
+    { drop_blank=0; print }
+  ' "$tgt" > "$out" 2>/dev/null || { printf '%s' "$tgt"; return; }
+  printf '%s' "$out"
+}
+# CURRENT | CURRENT-WS | STALE
+pcs_currency() {
+  local tgt="$1" src="$2" kind="$3" a b
+  a="$(pcs_stripped_target "$tgt")"
+  b="$(pcs_normalized_src "$src" "$kind")"
+  if cmp -s "$a" "$b"; then printf 'CURRENT'; return; fi
+  if diff -q -w -B "$a" "$b" >/dev/null 2>&1; then printf 'CURRENT-WS'; return; fi
+  printf 'STALE'
+}
+
 # ---------- Shape-aware target resolution (M40) ----------
 # The pack side already enumerates both shapes (above). The TARGET side used to be
 # tested one-shape-only (`[[ -f "$tgt_dir/$base" ]]`), which is the whole 56-duplicate
@@ -336,6 +390,9 @@ ledger_lookup() {
   printf -- '---\n\n'
 
   total_missing=0
+  total_current=0
+  total_current_ws=0
+  total_stale=0
   total_legacy=0
   total_conflict=0
   total_declined=0
@@ -428,7 +485,17 @@ ledger_lookup() {
           tgt_size=$(wc -l < "$p_path" | tr -d ' ')
           shape_note=""
           [[ "$p_form" == "legacy-flat" ]] && shape_note=" — **legacy flat shape** of pack \`$p_base\`; same skill, not missing"
-          printf -- '- `%s` (target: %d lines, pack: %d lines)%s\n' "${p_path#$TARGET/}" "$tgt_size" "$src_size" "$shape_note"
+          # CURRENCY — measured the way the framework itself defines "unchanged": anchor
+          # stripped, deploy-time link rewrites applied. A byte comparison against the raw
+          # pack source is structurally incapable of returning anything but STALE.
+          cur="$(pcs_currency "$p_path" "$kind_dir/$p_base" "$kind")"
+          case "$cur" in
+            CURRENT)    total_current=$(( total_current + 1 )); cur_note=" — **CURRENT**" ;;
+            CURRENT-WS) total_current=$(( total_current + 1 )); total_current_ws=$(( total_current_ws + 1 ))
+                        cur_note=" — **CURRENT** (whitespace-only difference)" ;;
+            *)          total_stale=$(( total_stale + 1 ));   cur_note=" — STALE (pack text has moved on)" ;;
+          esac
+          printf -- '- `%s` (target: %d lines, pack: %d lines)%s%s\n' "${p_path#$TARGET/}" "$tgt_size" "$src_size" "$cur_note" "$shape_note"
         done
         printf '\n'
       fi
@@ -500,6 +567,12 @@ ledger_lookup() {
   printf 'Declined by ledger (absent on purpose, not missing): **%d**\n' "$total_declined"
   printf 'Skills on the legacy flat shape (present, not missing): **%d**\n' "$total_legacy"
   printf 'Skill shape conflicts (same name installed twice): **%d**\n\n' "$total_conflict"
+  # The ruler the programme was missing. Reported next to the coverage numbers so a reader
+  # never has to invent a byte-for-byte comparison that cannot move off zero.
+  printf 'Installed pack artifacts CURRENT (anchor-stripped, deploy-normalised): **%d**%s\n' \
+    "$total_current" "$([[ "$total_current_ws" -gt 0 ]] && printf ' (%d of them whitespace-only)' "$total_current_ws")"
+  printf 'Installed pack artifacts STALE (pack text has moved on): **%d**\n\n' "$total_stale"
+  printf '> CURRENT means: strip the `<!-- project-specific -->` block Phase 4.6 injects, apply the deploy-time `../../../snippets/` -> `../templates/snippets/` rewrite Phase 4.2 applies, and the file then equals its pack source. A raw byte comparison against the pack CANNOT return CURRENT for any anchored artifact and must not be used as a currency metric.\n\n'
 
   if [[ "$total_conflict" -gt 0 ]]; then
     printf '⚠ Coverage: CONFLICT. Resolve every SHAPE CONFLICT above BEFORE any Phase-4.2 write — a duplicate `name:` is a broken registration, not a cosmetic issue.\n\n'
@@ -524,6 +597,7 @@ fi
 # Default mode keeps them on stdout: run-preflight.sh reads them with `| tail -3`.
 say() { if [[ $SINK_STDOUT -eq 1 ]]; then echo "$@" >&2; else echo "$@"; fi; }
 say "Report written: $REPORT_LABEL"
+say "Pack currency: $total_current current / $total_stale stale (anchor-stripped, deploy-normalised)"
 if [[ "$total_declined" -gt 0 ]]; then
   say "Total missing files: $total_missing (+$total_declined declined by ledger — absent on purpose, not missing)"
 else

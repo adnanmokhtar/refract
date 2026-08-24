@@ -639,7 +639,15 @@ decide() {
           elif [[ "$SHAPE_FORM" == "legacy-flat" ]]; then
             shape_note=" (present on the legacy flat shape \`${SHAPE_TGT#"$TARGET"/}\`; staying flat is legitimate — do not copy the pack file beside it)"
           fi
-          kind_rows+=$'\n'"  - \`$base\` — target $tgt_lines / pack $src_lines lines → **$decision**$protected_note$shape_note"
+          # SAY WHICH NUMBER THIS IS. `$tgt_lines` is the ANCHOR-STRIPPED count — it must be,
+          # or every anchored file re-flags as MERGE forever — but the row said plain "target
+          # N", so a reader who ran `wc -l` on the file got a different number and concluded
+          # the report was wrong. MEASURED: the row for capsolah's add-feature.md read "target
+          # 468", `wc -l` said 484, and the 16-line difference is exactly the anchor block.
+          # The figure was right; the label was missing.
+          anchor_note=""
+          [[ "$has_anchor" == "1" ]] && anchor_note=" (anchor-stripped)"
+          kind_rows+=$'\n'"  - \`$base\` — target $tgt_lines$anchor_note / pack $src_lines lines → **$decision**$protected_note$shape_note"
 
           case "$decision" in
             REPLACE-OR-ENHANCE|KEEP-OURS-PLUS-INJECT|MERGE)

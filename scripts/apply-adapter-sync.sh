@@ -999,6 +999,16 @@ if [[ ${total_bad_fm:-0} -gt 0 ]]; then
     _fm_detail="$_fm_detail$_fm_parse whose YAML does not parse — the usual cause is an unquoted value containing a colon-space (\`description: … Output: …\`); quote the value. The exact parser message is on each WARN above."
   fi
   echo "MALFORMED FRONTMATTER: $total_bad_fm  ($_fm_detail)"
+  # AND IT MUST MOVE THE EXIT CODE. This block counted, named and explained the defect and then
+  # returned 0, so every caller read the run as clean: a live run reported "MALFORMED
+  # FRONTMATTER: 5" followed by EXIT=0, and Phase 5 C2e downgraded the related condition to a
+  # WARN ("adapter coverage: 1 adapter(s) below 80%"). Five adapter artifacts were silently
+  # degraded — an artifact whose YAML does not parse does not register in the tool it was
+  # translated for — and no gate anywhere caught it. Exit 3, which is the framework's
+  # "files DID land, and something needs a human" code (see
+  # templates/phases/phase-4.0-preflight.md § Exit-code contract): the projection is on disk
+  # and correct except for these N, so the orchestrator continues and reports them.
+  ADAPTER_FM_RC=3
 fi
 
 if [[ $APPLY -eq 1 && ($total_added -gt 0 || $total_refreshed -gt 0) ]]; then
@@ -1015,6 +1025,15 @@ if [[ $STRICT -eq 1 && $total_missing_author -gt 0 ]]; then
   echo ""
   echo "REFUSED — --strict + $total_missing_author MISSING-AUTHOR row(s)." >&2
   exit 1
+fi
+
+if [[ "${ADAPTER_FM_RC:-0}" -eq 3 ]]; then
+  echo ""
+  echo "EXIT 3 — the projection landed, but $total_bad_fm artifact(s) above carry frontmatter that does"
+  echo "         not parse. Those are silently degraded in the tool they were translated for."
+  echo "         ORCHESTRATOR: this is NOT a stop — the files are on disk and the rest of the sync is"
+  echo "         correct. Fix the named files (usually one unquoted colon-space value) and re-run."
+  exit 3
 fi
 
 exit 0

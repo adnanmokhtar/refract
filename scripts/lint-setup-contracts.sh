@@ -35,6 +35,21 @@
 #           Measured: 49,450 bytes (17.6% of one run's installs) of Core Web Vitals / bundle /
 #           INP content landed on a NestJS service with zero .vue and zero .tsx files.
 #
+#   Rule 19 every snippet/governance file a pack artifact LINKS TO must be deployed into a
+#           target by templates/repo-baseline/. Measured: templates/snippets/ shipped 11 files
+#           and the baseline deployed 4, so the deploy-time rewrite
+#           (../../../snippets/ → ../templates/snippets/) pointed 41 of 95 links under
+#           .claude/ at files that were never installed — and C2t, the check that exists for
+#           exactly this, greps for the OLD path shape only and reported "no broken links".
+#
+#   Rule 18 every non-zero exit an ORCHESTRATED script can return must be named in the
+#           exit-code contract table (templates/phases/phase-4.0-preflight.md § Exit-code
+#           contract). Measured: apply-study-decisions.sh exited 3 on a live run because the
+#           merge engine's safety net refused one row — 154 files had already landed — and no
+#           phase file said what exit 3 meant. `grep -n 'exit 3' templates/phases/*.md` was
+#           EMPTY. A `set -euo pipefail` runner aborts Phase 4 there, before rule imports and
+#           anchors, and leaves the repo half-configured.
+#
 #   Rule 6  a machine contract must be read BY KEY, not by section number. Measured: a phase
 #           file instructed "read verbatim from codebase-profile.md § 17" and halt if absent;
 #           the producer wrote the block under § 19 and § 17 was "Project intent", so the
@@ -215,6 +230,55 @@ if [ -f scripts/merge-decide.py ]; then
   if [ -n "$hits" ]; then
     add "R9-emphasis-strip-outside-hash" "scripts/merge-decide.py" "strips [*_\`] outside pack_substantive_sha8/sec_key ($(printf '%s' "$hits" | head -1)) — that normalization eats E2E_EMAIL and .env.tenant"
   fi
+fi
+
+# ---- Rule 19 — every linked snippet/governance file is actually DEPLOYED ---------------------
+# A pack command links `](../../../snippets/plan-flag.md)`; apply-study-decisions.sh rewrites
+# that to `](../templates/snippets/plan-flag.md)` on deploy. The rewrite is correct and the link
+# is still dead unless `templates/repo-baseline/.claude/templates/snippets/plan-flag.md` exists
+# to be copied in. MEASURED on capsolah-api after a complete run: 41 of 95 relative links under
+# .claude/ unresolved (43%), up from 20 of 61 at HEAD — the run more than DOUBLED them — with
+# `../templates/snippets/review-action-plan.md` x16 and `../templates/snippets/plan-flag.md` x8
+# at the top, while audit-setup.sh C2t printed "ok no broken snippet/governance links".
+BASE_SNIP="templates/repo-baseline/.claude/templates"
+if [ -d templates/packs ] && [ -d "$BASE_SNIP" ]; then
+  while IFS= read -r ref; do
+    [ -z "$ref" ] && continue
+    kind="${ref%%/*}"          # snippets | governance
+    file="${ref##*/}"
+    [ -f "$BASE_SNIP/$kind/$file" ] && continue
+    add "R19-undeployed-snippet" "$BASE_SNIP/$kind/$file" "pack artifacts link to '$kind/$file' and the repo-baseline does not ship it — the deploy-time rewrite points every one of those links at a file that is never installed"
+  done < <(grep -rhoE '\]\(\.\./\.\./\.\./(snippets|governance)/[A-Za-z0-9_-]+\.md\)' templates/packs 2>/dev/null \
+           | sed -E 's#^\]\(\.\./\.\./\.\./##; s#\)$##' | sort -u || true)
+fi
+
+# ---- Rule 18 — every non-zero exit of an orchestrated script is documented -------------------
+# THE MEASURED FAILURE. apply-study-decisions.sh exited 3 mid-run because merge-decide.py's
+# pre-write invariant check refused ONE row — the safety net working exactly as designed, with
+# 154 files already written and verified. Nothing in templates/phases/ or commands/ said what
+# exit 3 meant, so the orchestrator had to guess; a scripted runner under `set -e` would have
+# aborted Phase 4 before Phase 4.1 wired the rule imports and Phase 4.6 injected the anchors,
+# leaving the target half-configured and reporting a crash.
+#
+# An exit code is a contract with the caller. This rule fails the build when a script the
+# orchestrator sequences grows a non-zero literal exit that the contract table does not name.
+# NOTE the deliberate limit: only LITERAL `exit N` is detected. `exit "$rc"` cannot be resolved
+# statically, so those paths are documented by hand in the same table and are not machine-checked
+# here — stated so the next reader knows the boundary rather than trusting a false completeness.
+EXIT_CONTRACT="templates/phases/phase-4.0-preflight.md"
+if [ -f "$EXIT_CONTRACT" ]; then
+  contract_body="$(awk '/^## Exit-code contract/{f=1} f{print}' "$EXIT_CONTRACT" 2>/dev/null || true)"
+  for esc in run-preflight.sh apply-baseline-sync.sh apply-study-decisions.sh apply-anchors.sh \
+             apply-adapter-sync.sh audit-setup.sh wire-rule-imports.sh; do
+    [ -f "scripts/$esc" ] || continue
+    while IFS= read -r code; do
+      [ -z "$code" ] && continue
+      [ "$code" = "0" ] && continue
+      printf '%s' "$contract_body" | grep -qE "^\| \`$esc\` \| *$code \|" && continue
+      add "R18-undocumented-exit" "scripts/$esc" "can \`exit $code\` but $EXIT_CONTRACT § Exit-code contract has no row for it — the orchestrator cannot know whether to halt or continue"
+    done < <(grep -oE '(^|[^A-Za-z_])exit [0-9]+' "scripts/$esc" 2>/dev/null \
+             | grep -oE '[0-9]+$' | sort -un || true)
+  done
 fi
 
 # ---- Rule 10 — a script's repo root must survive the global-install symlink ------------------
@@ -398,7 +462,13 @@ while IFS= read -r f; do
     [ -z "$nm" ] && continue
     [ -e "scripts/$nm" ] && continue
     add "R13-dead-remediation" "$f" "prescribes scripts/$nm, which does not exist in this repo"
-  done < <(grep -ohE '(\$SCRIPTS_DIR|\$REPO_ROOT/scripts|\$SELF_DIR|scripts)/[a-z0-9_-]+\.(sh|py)' "$f" 2>/dev/null \
+  #  `.claude/scripts/<x>` IS NOT A FRAMEWORK SIBLING. It is a path INSIDE THE TARGET, and
+  #  several of them are materialize-on-first-use by design (`/grab-site` writes its own
+  #  mirror script there before running it). The extractor matched the trailing
+  #  `scripts/grab-site.py` of `.claude/scripts/grab-site.py` and demanded the framework ship
+  #  it, which it must not. Neutralise the target-side prefix before extracting.
+  done < <(sed 's|\.claude/scripts/|«target-scripts»/|g' "$f" 2>/dev/null \
+           | grep -ohE '(\$SCRIPTS_DIR|\$REPO_ROOT/scripts|\$SELF_DIR|scripts)/[a-z0-9_-]+\.(sh|py)' 2>/dev/null \
            | sed 's|.*/||' | sort -u || true)
 done < <(find scripts -maxdepth 1 -type f -name '*.sh' 2>/dev/null | grep -v 'lint-setup-contracts.sh' | grep -v 'sync-to-global.sh' | sort || true)
 

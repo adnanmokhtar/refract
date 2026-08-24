@@ -4,6 +4,21 @@ Every `_topics.md` declares `triggers:` — a boolean expression over signals th
 
 Boolean ops in topic specs: `AND`, `OR`, `NOT`. Default join across multiple keys = AND. List operands: `signal_confirmed_any`, `signal_confirmed_all`.
 
+**Where the `*_detected` answers come from.** `scripts/detect-signals.sh` computes every
+`*_detected` name in this file from the repository on disk and writes them to
+`<target>/.claude/_detected-signals.md` (a markdown table plus a `name=yes|no` machine block).
+`run-preflight.sh` runs it at STEP 0.4, so the answers exist before any pack decision is made.
+
+> **Why this is written down.** Measured 2026-08-23: **29 of the 32 `*_detected` triggers below
+> had no producer anywhere in the repo**, so every topic gated on one of them could never fire,
+> on any project — and `scripts/lint-setup-contracts.sh` Rule 4, the ratchet for exactly that,
+> had all 29 recorded in its baseline, so nothing turned red. The two that *had* been fixed
+> lived only in `templates/appendices.md`, a Tier-3 COLD doc no script executes: correct, and
+> unreachable. **Adding a name here without an extractor in `scripts/detect-signals.sh` puts it
+> straight back into that state** — Rule 4 fails the build if you do, and
+> `scripts/test-detect-signals.sh § 1` checks the two lists against each other in both
+> directions.
+
 ---
 
 ## Always-applies

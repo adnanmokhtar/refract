@@ -113,7 +113,21 @@ warn_stale_abs_paths() {
     [[ -d "$root" ]] && continue
     missing="$missing $root"
   done < <( { grep -oE '/(Users|home)/[A-Za-z0-9._-]+' "$file" 2>/dev/null || true; } | sort -u )
-  [[ -n "$missing" ]] && printf ' | WARN preserved body cites home dir(s) absent on this machine:%s — re-verify the sections quoting them' "$missing"
+  # NAME THE LINES, NOT JUST THE PREFIX. This warning fired on every run of a live repo
+  # ("cites home dir(s) absent on this machine: /Users/mac") and no step in any phase resolved
+  # it, because the reader was told a directory name and left to find the citations themselves
+  # in a several-hundred-line file. A warning that repeats forever and cannot be acted on
+  # trains the reader to skip it. Print the file:line of each offending citation (capped), so
+  # the fix is a finite edit rather than a search.
+  if [[ -n "$missing" ]]; then
+    printf ' | WARN preserved body cites home dir(s) absent on this machine:%s — re-verify the sections quoting them' "$missing"
+    local root2 hits
+    for root2 in $missing; do
+      hits=$({ grep -nF "$root2" "$file" 2>/dev/null || true; } | head -4 \
+             | sed 's/^\([0-9]*\):.*/:\1/' | tr -d '\n')
+      [[ -n "$hits" ]] && printf ' [%s at %s%s]' "$root2" "${file##*/}" "$hits"
+    done
+  fi
   return 0
 }
 
@@ -240,6 +254,62 @@ missing_llm_sections() {
   printf '%s' "${out# }"
 }
 
+# ---- the INCOMPLETE banner ---------------------------------------------------------------
+#
+# THE DEFECT. tenant-portal shipped `.claude/_codebase-scan.md` with its entire semantic half
+# unwritten — eight sections that were the literal string `<TBD>` — and the file reads as a
+# finished report to anyone who does not run the Phase 5 audit. capsolah-api's equivalent is 303
+# lines of real project content (module map naming `apps/master/src/*` on port 4000, 486
+# `*.service.ts`, a measured dashboard waterfall), so this is not a design limit; it is a
+# per-run gap that the artifact itself did not disclose. The header's "Phase 5 audit FAILS the
+# run if…" sentence is a statement about the PROCESS. This is a statement about THIS FILE.
+#
+# Managed block: rewritten from the live `<TBD>` count on every run, and REMOVED the moment the
+# sections are filled. It is not a substitute for filling them — it is the artifact refusing to
+# look complete while it is not.
+BANNER_OPEN='<!-- deep-codebase-scan:incomplete start -->'
+BANNER_CLOSE='<!-- deep-codebase-scan:incomplete end -->'
+stamp_incomplete_banner() {
+  local f="$1" n unfilled="" tmp
+  [[ -f "$f" ]] || return 0
+  for n in 8 9 10 11 12 13 14 15; do
+    # a section is unfilled when its heading is followed by a bare <TBD> before the next `## `
+    awk -v want="^## $n\\." '
+      $0 ~ want { inb=1; next }
+      inb && /^## / { exit }
+      inb && /^<TBD>$/ { found=1; exit }
+      END { exit found ? 0 : 1 }
+    ' "$f" 2>/dev/null && unfilled="$unfilled $n"
+  done
+  tmp=$(mktemp "${TMPDIR:-/tmp}/scan-banner.XXXXXX")
+  # drop any previous banner first, so the block never accumulates
+  awk -v o="$BANNER_OPEN" -v c="$BANNER_CLOSE" '
+    index($0,o) { skip=1; next }
+    skip { if (index($0,c)) { skip=0; getline; if ($0 != "") print } ; next }
+    { print }
+  ' "$f" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  if [[ -n "$unfilled" ]]; then
+    local nfill; nfill=$(printf '%s' "$unfilled" | wc -w | tr -d ' ')
+    awk -v o="$BANNER_OPEN" -v c="$BANNER_CLOSE" -v secs="${unfilled# }" -v n="$nfill" '
+      NR==1 { print; print ""
+              print o
+              print "> ⚠ **THIS REPORT IS INCOMPLETE.** " n " of the 8 LLM-fill sections (§§ " secs ") are still the literal placeholder `<TBD>`."
+              print "> The mechanical sections below are real; the semantic half — module map, architecture, conventions,"
+              print "> repeated patterns, implicit decisions, rule/code drift, stale references, structural recommendations —"
+              print "> has not been written. **Do not read an unfilled section as \"nothing found\".** Phase 5 `audit-setup.sh`"
+              print "> C2c refuses the run until they are filled; this banner disappears by itself when they are."
+              print c
+              next }
+      { print }
+    ' "$tmp" > "$tmp.2" 2>/dev/null && cat "$tmp.2" > "$f"
+    rm -f "$tmp.2"
+  else
+    cat "$tmp" > "$f"
+  fi
+  rm -f "$tmp"
+  printf '%s' "${unfilled# }"
+}
+
 if [[ -f "$REPORT_PATH" && "$FORCE" -eq 0 ]]; then
   # grep -c exits 1 when 0 matches; capture cleanly (see refresh-extract-checklist.sh comment).
   tbd_count=$(grep -c '^<TBD>$' "$REPORT_PATH" 2>/dev/null) || tbd_count=0
@@ -255,6 +325,8 @@ if [[ -f "$REPORT_PATH" && "$FORCE" -eq 0 ]]; then
   if [[ "$tbd_count" -lt 8 ]]; then
     # Preserve the BODY, never the machine-specific header — see restamp_header above.
     hdr_note="$(restamp_header "$REPORT_PATH")"
+    banner_secs="$(stamp_incomplete_banner "$REPORT_PATH")"
+    [[ -n "$banner_secs" ]] && hdr_note="$hdr_note | INCOMPLETE: §§ $(printf '%s' "$banner_secs" | tr ' ' ',') still <TBD> — banner stamped at the top of the file so it cannot read as finished"
     stale_note="$(warn_stale_abs_paths "$REPORT_PATH")"
     # Under --stdout the caller asked for the report ON stdout; on this branch the
     # report is the PRESERVED file, so emit that and keep the notes on stderr.
@@ -521,6 +593,8 @@ if [[ -n "$REPORT_TMP" ]]; then
   REPORT_TMP=""
 fi
 say() { if [[ $SINK_STDOUT -eq 1 ]]; then echo "$@" >&2; else echo "$@"; fi; }
+[[ $SINK_STDOUT -eq 1 ]] || stamp_incomplete_banner "$REPORT" >/dev/null
 say "Codebase scan written: $REPORT_LABEL"
 say "Mechanical sections (1-7) auto-filled. LLM must fill sections 8-15."
+say "INCOMPLETE until they are: an ⚠ banner is stamped at the top of the file and removes itself when the sections are written. Phase 5 C2c refuses the run until then."
 exit 0

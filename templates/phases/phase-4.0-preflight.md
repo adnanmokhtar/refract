@@ -110,6 +110,40 @@ These four scripts are the deterministic-propagation contract. Each closes a spe
 
 | `apply-adapter-sync.sh` | `.claude/{agents,skills,commands,rules}/` → `.opencode/`, `.cursor/`, `.github/`, `.clinerules/`, `.windsurf/`, `.continue/`, … | 4.8 | Agent translates 1-2 adapters and skips rest |
 
+## Exit-code contract — what the orchestrator does with each non-zero exit
+
+**Why this table exists.** A live run hit `apply-study-decisions.sh` exit 3 and *no phase file said
+what exit 3 meant for the run*. `grep -n 'exit 3\|exit 6\|exit code' templates/phases/phase-4.2-apply.md
+templates/phases/phase-4-apply.md commands/setup-project.md` returned ZERO hits in the phase files.
+The exit was produced by the merge engine's safety net doing its job — one row refused before write,
+`Refused or rolled back: 1` — and 154 files had already landed. A `set -euo pipefail` phase runner
+would have aborted Phase 4 there, before Phase 4.1 wired the rule imports and Phase 4.6 injected the
+anchors, and left the repo half-configured while reporting a crash. **An exit code is a contract;
+an undocumented one is a coin flip.** Gate: `scripts/lint-setup-contracts.sh` Rule 11 fails the build
+if a script grows a non-zero exit this table does not name.
+
+| Script | Exit | Meaning | Orchestrator MUST |
+|---|---:|---|---|
+| `run-preflight.sh` | 1 | target missing / unusable | HALT — nothing downstream can run |
+| `run-preflight.sh` | 2 | usage error | HALT — fix the invocation |
+| `apply-baseline-sync.sh` | 1 | target missing / unusable | HALT |
+| `apply-baseline-sync.sh` | 2 | usage error | HALT |
+| `apply-study-decisions.sh` | 1 | target not found | HALT |
+| `apply-study-decisions.sh` | 2 | usage error | HALT |
+| `apply-study-decisions.sh` | 3 | **two distinct meanings, both non-fatal to the run.** (a) the study report is missing — nothing was written, re-run `study-existing.sh` first; (b) the merge engine refused, rolled back or aborted at least one row — **files DID land** (the engine's `Files written:` line is the count), every one verified after its write and backed up first, and the unclosed rows are `DEFER` in `.claude/_merge-decisions.md` with their files untouched. | **CONTINUE to Phase 4.1 and Phase 4.6.** Case (b) is the safety net working. Do NOT roll back, do NOT abort the run, do NOT re-run with different flags to make it go away. Report the DEFER rows. Only case (a) — recognisable because it prints `ERR: study report not found` and writes nothing — sends you back to Phase 3. |
+| `apply-study-decisions.sh` | 4 | skill-shape conflict blocked a row this run wanted to write — **nothing written** | HALT, run the printed `--resolve-shape-conflicts --apply` remedy, then re-run |
+| `apply-study-decisions.sh` | 6 | auto-merge requested but `merge-decide.py` cannot run — **nothing written** | HALT — fix python3 / the engine. Never fall back to `--conservative` silently |
+| `apply-anchors.sh` | 1 | target missing / prerequisites absent — nothing written | HALT |
+| `apply-anchors.sh` | 2 | usage error | HALT |
+| `apply-anchors.sh` | 3 | blocks were injected but every profile fact was `<not declared>` — **files DID land** | CONTINUE; fix `codebase-profile.md` in Phase 2 and re-run `apply-anchors.sh --apply` (idempotent) |
+| `apply-adapter-sync.sh` | 1 | target missing / unusable | HALT |
+| `apply-adapter-sync.sh` | 2 | usage error | HALT |
+| `apply-adapter-sync.sh` | 3 | the projection landed, but N artifact(s) carry frontmatter that does not parse — **files DID land** and are silently degraded in the tool they were translated for | CONTINUE; fix the named files (usually one unquoted `colon-space` value) and re-run. Before this exit existed the run printed `MALFORMED FRONTMATTER: 5` and returned 0, and C2e downgraded it to a WARN |
+| `wire-rule-imports.sh` | 1 | target error | HALT |
+| `wire-rule-imports.sh` | 3 | foundational set wired; pack rules overflow the always-loaded budget — **CLAUDE.md WAS written**, and the refusal is recorded in `.claude/rules/_unloaded.md` | CONTINUE. This is advisory. `audit-setup.sh` C2u reports a recorded refusal as a WARN, not a failure |
+| `audit-setup.sh` | 1 | the audit REFUSED — at least one mandatory check failed | Do not declare success. Fix and re-audit |
+| `audit-setup.sh` | 2 | usage error | HALT |
+
 **`apply-anchors.sh` exit 3 — injected, but empty.** The script builds every anchor block from five
 headings in `.claude/codebase-profile.md` (`phase-2-profile.md § Profile content` § Heading contract).
 If ZERO of the five resolve, the blocks it wrote are five `<not declared in codebase-profile.md>` lines

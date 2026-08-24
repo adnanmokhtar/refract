@@ -43,7 +43,11 @@ for a in "$@"; do case "$a" in --target=*) TARGET_REPO="${a#--target=}" ;; esac;
 is_path_scoped() {
   # frontmatter must start on line 1 and contain a top-level `paths:` key
   head -1 "$1" | grep -qE '^---[[:space:]]*$' || return 1
-  awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^paths:/{found=1} END{exit !found}' "$1"
+  # `globs:` counts as a path-scoping declaration too — it is the key the adapter contract
+  # maps `paths:` to for Cursor/Continue/Windsurf, so a rule authored against that vocabulary
+  # is path-scoped. See wire-rule-imports.sh is_path_scoped for the measured cost of not
+  # recognising it. Fixture: scripts/test-rule-loading.sh § 1.
+  awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^(paths|globs):/{found=1} END{exit !found}' "$1"
 }
 
 tok() { echo $(( $(wc -c < "$1") / 4 )); }
@@ -69,7 +73,7 @@ if [ -n "$TARGET_REPO" ]; then
   r_imported=0; r_ondisk=0; r_bytes_unloaded=0
   for f in "$TARGET_REPO"/.claude/rules/*.md; do
     [ -e "$f" ] || continue
-    b=$(basename "$f"); [ "$b" = "README.md" ] && continue
+    b=$(basename "$f"); case "$b" in README.md|_*) continue ;; esac
     is_path_scoped "$f" && continue
     r_ondisk=$((r_ondisk + 1))
     if grep -qF "@.claude/rules/$b" "$TARGET_REPO/CLAUDE.md" 2>/dev/null; then
@@ -126,7 +130,7 @@ fi
 for f in "$RULES_DIR"/*.md; do
   [ -e "$f" ] || continue
   base=$(basename "$f")
-  [ "$base" = "README.md" ] && continue
+  case "$base" in README.md|_*) continue ;; esac
   if is_path_scoped "$f"; then continue; fi
   t=$(tok "$f"); total=$((total+t))
   printf "  %-40s ~%5d tok\n" ".claude/rules/$base" "$t"
@@ -137,7 +141,7 @@ any_scoped=0
 for f in "$RULES_DIR"/*.md; do
   [ -e "$f" ] || continue
   base=$(basename "$f")
-  [ "$base" = "README.md" ] && continue
+  case "$base" in README.md|_*) continue ;; esac
   if is_path_scoped "$f"; then
     any_scoped=1
     printf "  %-40s ~%5d tok  (free until matched)\n" ".claude/rules/$base" "$(tok "$f")"

@@ -471,7 +471,13 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
   # Report the two index sizes. A silently-empty index is the difference between a gate that
   # checks two conditions and one that checks none, and there is no way to tell from the ERRs.
   if [[ "$C2N_LINE_MODE" -eq 1 ]]; then
-    ok "loss test: LINE-level provenance (scripts/merge-decide.py --verify-pairs)"
+    # ANNOUNCES THE MECHANISM, NOT THE RESULT — and it has to say so. This line used to read
+    # `ok   loss test: LINE-level provenance (…)` and was printed BEFORE the engine ran, so a
+    # run in which the engine went on to report 227 losses showed an `ok` for the loss test
+    # followed immediately by 227 `ERR  KNOWLEDGE_LOSS` rows. Two statements that cannot both
+    # be true, in one block, with nothing telling the reader which to believe. The verdict is
+    # now printed AFTER the engine call, from its actual result.
+    ok "loss test WILL RUN in LINE-level provenance mode (scripts/merge-decide.py --verify-pairs) — verdict below"
   else
     ok "loss test: token fallback — $(grep -c . "${C2N_PACK_IDX:-/dev/null}" 2>/dev/null || echo 0) pack token(s), $(grep -c . "${C2N_REPO_IDX:-/dev/null}" 2>/dev/null || echo 0) project-source identifier(s)"
   fi
@@ -588,6 +594,11 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
     ok "per-file project knowledge: no backed-up .md files to compare (nothing was overwritten this run)"
   elif [[ "$kn_lost" -eq 0 ]]; then
     ok "per-file project knowledge: $kn_checked backed-up file(s) compared, none lost project paths/identifiers"
+  else
+    # The counterpart to the mode announcement above: one closing sentence that states the
+    # verdict in the same units the ERRs above are counted in, so the block cannot be read as
+    # having passed. Not an extra failure — `err` already moved the exit code for each row.
+    echo "  ---  loss test VERDICT: $kn_lost of $kn_checked compared file(s) lost content the pack corpus cannot account for (each one an ERR above). The mode line at the top of C2n announced which mechanism ran; THIS is its result."
   fi
   echo ""
 fi
@@ -1201,6 +1212,19 @@ if [[ -d "$TARGET/.claude/commands" ]]; then
       [[ -e "$TARGET/$ref" ]] && continue
       # A path under templates/ or ~/.claude/ is a FRAMEWORK reference, not a target file.
       case "$ref" in templates/*|~/*|/*) continue ;; esac
+      # MATERIALIZE-ON-FIRST-USE IS NOT A DEAD PATH. `/grab-site` ships its whole mirror
+      # script inside the command file and tells the reader to "write verbatim to
+      # .claude/scripts/grab-site.py", then run it — so the file legitimately does not exist
+      # until the command is first used. MEASURED: this check raised a hard ERR on
+      # tenant-portal for exactly that, and the printed remedy ("ship the helper") would have
+      # duplicated a script the command already carries. A command that CONTAINS the bytes and
+      # says where to put them has not made a broken promise.
+      # NB `.*`, not `[^\\n]*`: inside an ERE bracket expression `\\n` is the two characters
+      # backslash and n, so `[^\\n]*` means "not a backslash and not the letter n", which matches
+      # almost nothing in English prose. grep is line-oriented anyway.
+      if grep -qiE '(materiali[sz]e|write (it )?verbatim( to)?|writes? (it )?to).*'"$(printf '%s' "${ref##*/}" | sed 's/[.[\*^$]/\\&/g')" "$cf" 2>/dev/null; then
+        continue
+      fi
       err "$crel instructs the reader to run \`$ref\`, which does not exist in this target. A command whose first instruction is a dead path is worse than no command — the reader trusts it. Either ship the helper, or rewrite the step to something this repo can run."
       cmd_broken=$((cmd_broken + 1))
     done < <({ awk '
@@ -1246,10 +1270,15 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
   for rf in "$TARGET"/.claude/rules/*.md; do
     [[ -e "$rf" ]] || continue
     rb="$(basename "$rf")"
-    [[ "$rb" == "README.md" ]] && continue
+    # README.md and `_`-prefixed records (.claude/rules/_unloaded.md is written by
+    # wire-rule-imports.sh) are not rules — counting the ledger as a rule made C2u ERR on
+    # the file whose whole purpose is to record why some rules do not load.
+    [[ "$rb" == "README.md" || "$rb" == _* ]] && continue
     # path-scoped == `paths:` key in the LEADING frontmatter (same test as check-rule-budget.sh)
+    # `globs:` counts (same test as wire-rule-imports.sh / check-rule-budget.sh — it is the
+    # key the adapter contract maps `paths:` to, so it is the same declaration).
     if head -1 "$rf" | grep -qE '^---[[:space:]]*$' \
-       && awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^paths:/{f=1} END{exit !f}' "$rf"; then
+       && awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^(paths|globs):/{f=1} END{exit !f}' "$rf"; then
       rule_scoped=$((rule_scoped + 1)); continue
     fi
     rule_always=$((rule_always + 1))
@@ -1261,8 +1290,37 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
     rbytes=$(cat "$TARGET"/.claude/rules/*.md 2>/dev/null | wc -c | tr -d ' ')
     err "NO rule is loaded: CLAUDE.md carries 0 \`@.claude/rules/\` imports while $rule_always always-tier rule(s) (~$(( ${rbytes:-0} / 4 )) tok) sit on disk. .claude/rules/README.md: 'Claude Code does not auto-load .claude/rules/ on its own — the CLAUDE.md import is what makes these always-on.' Fix: $SCRIPTS_DIR/wire-rule-imports.sh \"$TARGET\" --apply"
   elif [[ -n "$rule_unimported" ]]; then
-    n=$(printf '%s' "$rule_unimported" | wc -w | tr -d ' ')
-    err "$n always-tier rule(s) are installed but NOT imported by CLAUDE.md, so they never load:$rule_unimported. Either import them (wire-rule-imports.sh \"$TARGET\" --apply) or path-scope them (scope-rules.sh) — a rule that is neither is dead weight the reader believes is active."
+    # THE MUTUAL UNSATISFIABILITY, and how it is broken. wire-rule-imports.sh DECLINES rules
+    # that do not fit the always-loaded token budget and says so in plain words; this check
+    # then failed the run for exactly that decision, and the escape hatch it printed
+    # (scope-rules.sh → path-scoped tier) was dead too because inject-path-rules.sh was
+    # registered in no settings.json. MEASURED: 20 rules on capsolah-api, 4 on tenant-portal,
+    # and no reachable state satisfying both steps of the same run.
+    #
+    # The distinguishing fact is whether the refusal was RECORDED. wire-rule-imports.sh now
+    # writes `.claude/rules/_unloaded.md` — next to the rules, with each rule's per-turn cost
+    # and both remedies — and regenerates it from the live budget computation on every run, so
+    # it cannot rubber-stamp: a rule that later fits, or gains `paths:`/`globs:`, leaves the
+    # ledger by itself. A rule listed there is an owned decision (WARN). A rule that is simply
+    # absent from CLAUDE.md with no record anywhere is still an oversight (ERR).
+    # Fixture: scripts/test-rule-loading.sh § 2.
+    unloaded_md="$TARGET/.claude/rules/_unloaded.md"
+    recorded=""; unrecorded=""
+    for ru in $rule_unimported; do
+      if [[ -f "$unloaded_md" ]] && grep -qF "\`.claude/rules/$ru\`" "$unloaded_md" 2>/dev/null; then
+        recorded="$recorded $ru"
+      else
+        unrecorded="$unrecorded $ru"
+      fi
+    done
+    if [[ -n "$unrecorded" ]]; then
+      n=$(printf '%s' "$unrecorded" | wc -w | tr -d ' ')
+      err "$n always-tier rule(s) are installed, NOT imported by CLAUDE.md, and recorded nowhere, so they never load and nothing says so:$unrecorded. Either import them (wire-rule-imports.sh \"$TARGET\" --apply) or path-scope them (scope-rules.sh) — a rule that is neither is dead weight the reader believes is active."
+    fi
+    if [[ -n "$recorded" ]]; then
+      n=$(printf '%s' "$recorded" | wc -w | tr -d ' ')
+      warn_msg "$n always-tier rule(s) do NOT load, by recorded decision in .claude/rules/_unloaded.md (over the always-loaded token budget):$recorded. Not a failure — the refusal is written where a reader will find it, with the per-turn cost. To make one load: scope-rules.sh (free until matched) or wire-rule-imports.sh --budget=N."
+    fi
   elif [[ "$rule_always" -gt 0 ]]; then
     ok "$rule_always always-tier rule(s) imported by CLAUDE.md; $rule_scoped path-scoped"
   else
@@ -1395,6 +1453,61 @@ if [[ -f "$EXTRACT" ]]; then
   echo ""
 fi
 
+# C2y — A SHELL PROBE IN AN ARTIFACT MUST NAME A DIRECTORY THAT EXISTS.
+#
+# THE FAILURE MODE IS SILENT AND IT IS A FALSE NEGATIVE. MEASURED on capsolah-api: 19 live
+# artifacts — including `.claude/agents/tenant-isolation-reviewer.md`, the highest-severity
+# reviewer that repo owns — issue probes like
+#     rg "SELECT.*FROM (orders|products)" src/ | grep -v "tenant_id"
+# under the banner "Every hit = BLOCKER candidate". `src/` DOES NOT EXIST in that repo; the
+# real top level is apps/, libs/, chrome-extension/. The probe returns zero hits, and a
+# zero-hit probe over a missing directory is indistinguishable from a clean result. The run
+# that shipped this KNEW the layout — apply-anchors.sh repaired the citation line in these very
+# files from `top-level: src/.` to the real dirs — and did not carry the knowledge one line
+# down into the embedded commands.
+#
+# This is PRE-EXISTING owner content and the merge engine is right to preserve it verbatim, so
+# the fix is not a rewrite: it is that nothing may report such a probe as clean. The check names
+# the file, the line and the directories that DO exist, and leaves the edit to a human.
+echo "C2y: shell probes in artifacts cite directories that exist"
+c2w_hits=""; c2w_n=0
+# The real top-level source directories, computed the same way apply-anchors.sh computes them:
+# a top-level dir that holds at least one source file.
+c2w_real=""
+for d in "$TARGET"/*/; do
+  d="${d%/}"; bn="$(basename "$d")"
+  case "$bn" in .*|node_modules|dist|build|vendor|coverage|tmp|docs|assets) continue ;; esac
+  if find "$d" -maxdepth 3 -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.vue' \
+        -o -name '*.py' -o -name '*.go' -o -name '*.rb' -o -name '*.php' -o -name '*.java' \
+        -o -name '*.cs' -o -name '*.rs' -o -name '*.kt' \) 2>/dev/null | head -1 | grep -q .; then
+    c2w_real="$c2w_real ${bn}/"
+  fi
+done
+while IFS= read -r hit; do
+  [[ -z "$hit" ]] && continue
+  f="${hit%%:*}"; rest="${hit#*:}"; lno="${rest%%:*}"; body="${rest#*:}"
+  # Every path-shaped operand of the probe, e.g. `src/`, `src/modules/*/infrastructure/`
+  while IFS= read -r dir; do
+    [[ -z "$dir" ]] && continue
+    root="${dir%%/*}"
+    [[ -z "$root" ]] && continue
+    # only judge a REPO-ROOT-relative first segment, and only when it is plainly a directory
+    case "$root" in .|..|\$*|\**|-*|/*) continue ;; esac
+    [[ -e "$TARGET/$root" ]] && continue
+    c2w_n=$((c2w_n + 1))
+    c2w_hits="$c2w_hits"$'\n'"      ${f#$TARGET/}:$lno probes \`$dir\` — no \`$root\` in this repo"
+    break
+  done < <(printf '%s\n' "$body" | grep -oE '(^|[[:space:]])[A-Za-z0-9_][A-Za-z0-9_.*-]*/[A-Za-z0-9_./*-]*' 2>/dev/null | sed 's/^[[:space:]]*//' | sort -u || true)
+done < <(grep -rInE '(^|[[:space:]`])(rg|grep|find|ls|fd)[[:space:]]' \
+           "$CL/commands" "$CL/agents" "$CL/skills" "$CL/rules" "$TARGET/ai" 2>/dev/null \
+         | grep -vE '/backups/' || true)
+if [[ "$c2w_n" -gt 0 ]]; then
+  err "$c2w_n shell probe(s) in installed artifacts name a top-level directory that does NOT exist here. A probe over a missing directory returns zero hits, and zero hits reads as CLEAN — this is a false negative, not a broken command. Real top-level source dirs:${c2w_real:- (none detected)}. Edit the probes (they are project-authored content; nothing rewrites them for you):$(printf '%s' "$c2w_hits" | head -12)"
+else
+  ok "every shell probe in an installed artifact names a directory that exists"
+fi
+echo ""
+
 # C2j — App-code stub scan (#46). The "no placeholders" promise was enforced only on the 7
 # foundational ai/ docs (C2i), not on generated app code — so a scaffolded route handler left as
 # `throw new Error('not implemented')` shipped green. This scans the target's SOURCE for
@@ -1448,6 +1561,23 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
     # are zero eligible artifacts.
     if [[ -z "$pct" ]] && grep -qE '^Pack-derived artifacts:[[:space:]]+\*\*0\*\*' "$ANCHOR_REPORT" 2>/dev/null; then
       ok "anchoring coverage n/a — 0 pack-derived artifacts (all are project-specific orphans)"
+    fi
+    # UNIQUENESS, REPORTED NEXT TO COVERAGE — because on its own "100% anchored" is a
+    # sentence about file structure that a reader hears as a sentence about content.
+    # MEASURED: capsolah-api 195 anchored / 20 distinct bodies / largest identical group 110
+    # (56%); tenant-portal 88 / 11 / 57 (65%). audit-anchoring.sh's own report calls that
+    # "a global constant wearing a citation costume" — and C2d printed "ok anchoring coverage
+    # 100%" in the same run, with the two verdicts never appearing beside each other.
+    uniq_line=$(grep -E '^Distinct anchor bodies:' "$ANCHOR_REPORT" 2>/dev/null | head -1 || true)
+    top_line=$(grep -E '^Largest identical group:' "$ANCHOR_REPORT" 2>/dev/null | head -1 || true)
+    uniq_pct=$(printf '%s' "$uniq_line" | grep -oE '\(([0-9]+)%\)' | grep -oE '[0-9]+' | head -1 || true)
+    top_pct=$(printf '%s' "$top_line" | grep -oE '\(([0-9]+)%\)' | grep -oE '[0-9]+' | head -1 || true)
+    if [[ -n "$uniq_pct" ]]; then
+      if [[ "${top_pct:-0}" -ge 60 ]]; then
+        warn_msg "anchor uniqueness ${uniq_pct}% distinct, and ${top_pct}% of anchored artifacts share ONE byte-identical block. Coverage says every artifact has an anchor; this says most of those anchors say the same thing, so the anchoring is structural rather than informative. Re-run apply-anchors.sh --apply (it retro-fits the per-artifact relevance line into blocks written by an earlier release), then deepen with /setup-project --refine."
+      else
+        ok "anchor uniqueness ${uniq_pct}% distinct (largest identical group ${top_pct:-0}%)"
+      fi
     fi
     if [[ -n "$pct" ]]; then
       if [[ "$unanchored" == "0" ]]; then
@@ -1602,7 +1732,38 @@ if [[ -n "$broken_links" ]]; then
   warn_msg "$bl_n .claude/ artifact(s) carry broken \`../../../{snippets,governance}/\` links (should be \`../templates/...\`). Fix: perl -i -pe 's{\]\(\.\./\.\./\.\./(snippets|governance)/}{](../templates/\$1/}g' <files>"
   printf '%s\n' "$broken_links" | sed "s#^$TARGET/#      #" | head -8
 else
-  ok "no broken snippet/governance links in deployed artifacts"
+  ok "no artifact still carries the un-rewritten \`../../../\` link shape"
+fi
+
+# THE HALF THIS CHECK WAS MISSING, and it was the half that mattered. The grep above tests only
+# for the OLD path SHAPE. It never asked whether the REWRITTEN target resolves — so a link
+# rewritten exactly as the fix instructs, to a snippet that was never deployed into the target,
+# passed as clean. MEASURED on capsolah-api after a full run: 41 of 95 relative links under
+# .claude/ did not resolve (43%), up from 20 of 61 at HEAD — the run DOUBLED them — and this
+# check printed "ok no broken snippet/governance links in deployed artifacts". Top offenders:
+# `../templates/snippets/review-action-plan.md` x16, `../templates/snippets/plan-flag.md` x8.
+# ROOT CAUSE: templates/snippets/ shipped 11 files and the repo-baseline deployed 4 of them, so
+# the rewrite's destination did not exist. Both halves are fixed: the baseline now carries all
+# 11, and this check resolves every link instead of pattern-matching one spelling of failure.
+c2t_dead=0; c2t_report=""
+while IFS= read -r af; do
+  [[ -f "$af" ]] || continue
+  adir="$(cd "$(dirname "$af")" && pwd -P)"
+  while IFS= read -r ln; do
+    [[ -z "$ln" ]] && continue
+    # strip the markdown wrapper, drop any #anchor, ignore absolute/URL/mailto targets
+    tgt="${ln#*](}"; tgt="${tgt%)}"; tgt="${tgt%%#*}"
+    [[ -z "$tgt" ]] && continue
+    case "$tgt" in http*|mailto:*|/*|\<*) continue ;; esac
+    [[ -e "$adir/$tgt" ]] && continue
+    c2t_dead=$((c2t_dead + 1))
+    c2t_report="$c2t_report"$'\n'"      ${af#$TARGET/} → $tgt"
+  done < <(grep -oE '\]\(\.\./[A-Za-z0-9_./-]+\.md(#[A-Za-z0-9_-]+)?\)' "$af" 2>/dev/null | sort -u || true)
+done < <(find "$CL/commands" "$CL/agents" "$CL/skills" "$CL/rules" -type f -name '*.md' 2>/dev/null | sort)
+if [[ "$c2t_dead" -gt 0 ]]; then
+  warn_msg "$c2t_dead relative link(s) under .claude/ do NOT resolve on disk. A rewritten link whose destination was never deployed is exactly as dead as the un-rewritten one — and this check used to pass it. If the target is a framework snippet, re-run apply-baseline-sync.sh --apply (templates/repo-baseline/.claude/templates/snippets/ ships all of them):$(printf '%s' "$c2t_report" | head -12)"
+else
+  ok "every relative .md link under .claude/ resolves on disk"
 fi
 echo ""
 

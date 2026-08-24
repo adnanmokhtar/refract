@@ -221,6 +221,17 @@ After Phase 5 audit passes (`audit-setup.sh` exits 0) in CREATE / REFRESH / REFI
 
 This is a **mechanical** gate: `audit-setup.sh` C2m FAILS the run (not warns) when adapters are enabled, no sanctioned skip applies, and the chain produced no native artifacts. Pass `--no-adapters` through to the audit so C2m records the skip.
 
+> **ORDER — read this before you follow "after Phase 5 audit passes" literally.** Taken at face value the two sentences deadlock: the chain runs *after* the audit passes, and the audit *cannot* pass until the chain has run. MEASURED on capsolah-api: audit pass 1 emitted `ERR M34 adapter chain skipped or incomplete — 337 native artifact(s) pending`, so the run could never reach exit 0 by waiting.
+>
+> The order that works, and the one the orchestrator must use:
+>
+> 1. Phase 5 `audit-setup.sh` — first pass. Every check EXCEPT C2m/C2h is meaningful here; treat a C2m failure as "the chain has not run yet", not as a verdict on the run.
+> 2. Phase 4.8 `apply-adapter-sync.sh "$TARGET_REPO" --apply` — the deterministic 1:1 projection.
+> 3. Phase 5 `audit-setup.sh` — second pass. C2m and C2h now have artifacts to see, and this pass is the one whose exit code is the verdict.
+> 4. `/setup-project-adapters` for whatever `apply-adapter-sync.sh` reported as MISSING-AUTHOR (the ~20% that needs format conversion, not copying).
+>
+> "After the audit passes" means after the SECOND pass. `--no-adapters` short-circuits all of it and C2m records the skip.
+
 Skip only when (sanctioned — C2m treats these as a pass):
 - `--no-adapters` flag is passed (logged in the run output, forwarded to `audit-setup.sh --no-adapters`).
 - Target's `.claude/settings.json` has `claude_config.adapters: false`.
