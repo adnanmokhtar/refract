@@ -176,7 +176,7 @@ fi
 say ""
 say "§ 2b scope-rules.sh output is readable by inject-path-rules.sh"
 SCOPE="${SCOPE_OVERRIDE:-$REPO_ROOT/scripts/scope-rules.sh}"
-HOOK_SRC="$REPO_ROOT/templates/repo-baseline/.claude/hooks/inject-path-rules.sh"
+HOOK_SRC="${HOOK_OVERRIDE:-$REPO_ROOT/templates/repo-baseline/.claude/hooks/inject-path-rules.sh}"
 if [ -f "$SCOPE" ] && [ -f "$HOOK_SRC" ]; then
   R2C="$TD/roundtrip"; mkdir -p "$R2C/.claude/rules"
   printf -- '---\nname: demo\nkind: rule\n---\n\n# Demo\n\nBody.\n' > "$R2C/.claude/rules/demo.md"
@@ -202,6 +202,45 @@ if [ -f "$SCOPE" ] && [ -f "$HOOK_SRC" ]; then
     ok "§2b the frontmatter still declares paths: (budget side sees it as scoped)"
   else
     bad "§2b the frontmatter lost its paths: key" ""
+  fi
+fi
+
+# ── § 2c  the hook reads EVERY glob shape this framework writes ─────────────────────────
+# Four shapes are in active use and each one used to produce a rule that loaded never, because
+# rule_globs() understood exactly one of them while wire-rule-imports.sh and audit C2u accept
+# `^(paths|globs):` and drop ALL of them from the always-loaded imports. Both tiers disowned the
+# rule; the file sat on disk looking configured.
+#
+# 📏 Measured on capsolah-api: 8 of 9 scoped rules dead — base-classes, cache, controllers,
+# database, dtos-mappers, events, module-structure, multi-tenancy — 3,427 tok of PROJECT-SPECIFIC
+# rules, the ones extracted from that codebase and the most valuable in the install.
+say ""
+say "§ 2c every glob shape in use is readable by inject-path-rules.sh"
+HOOK_SRC2="${HOOK_OVERRIDE:-$REPO_ROOT/templates/repo-baseline/.claude/hooks/inject-path-rules.sh}"
+if [ -f "$HOOK_SRC2" ]; then
+  FNG2="$(awk '/^rule_globs\(\) \{$/{f=1} f{print} f&&/^\}$/{exit}' "$HOOK_SRC2")"
+  if [ -z "$FNG2" ]; then
+    bad "§2c rule_globs() not found in inject-path-rules.sh" "renamed?"
+  else
+    eval "$FNG2"
+    SH="$TD/shapes"; mkdir -p "$SH"
+    # 1 — `globs:` inline CSV, mixed quoting: what Phase 4.2 extraction writes.
+    printf -- '---\ndescription: d\nglobs: apps/tenant/**/*.ts, "**/context*.ts", "**/x.middleware.ts"\n---\n\nBody\n' > "$SH/a.md"
+    # 2 — `paths:` flow sequence: what scope-rules.sh used to write.
+    printf -- '---\npaths: ["a/**", "b/**"]\nname: n\n---\n\nBody\n' > "$SH/b.md"
+    # 3 — `paths:` block list: the only shape that ever worked.
+    printf -- '---\npaths:\n  - "c/**"\n  - "d/**"\nname: n\n---\n\nBody\n' > "$SH/c.md"
+    # 4 — `globs:` block list.
+    printf -- '---\nglobs:\n  - "e/**"\nname: n\n---\n\nBody\n' > "$SH/d.md"
+    # and a rule with NO scoping must still yield nothing, or every always-loaded rule
+    # would suddenly look path-scoped and stop being imported.
+    printf -- '---\nname: plain\n---\n\nBody\n' > "$SH/e.md"
+    for c in "a.md 3 globs-inline-csv" "b.md 2 paths-flow-seq" "c.md 2 paths-block-list" "d.md 1 globs-block-list" "e.md 0 unscoped-yields-nothing"; do
+      set -- $c
+      got=$(rule_globs "$SH/$1" | grep -c . )
+      if [ "$got" = "$2" ]; then ok "§2c $3 -> $got glob(s)"
+      else bad "§2c $3" "expected $2 glob(s), got $got — a rule in this shape loads NEVER"; fi
+    done
   fi
 fi
 
