@@ -147,7 +147,19 @@ else
   printf 'snippet body\n' > "$P3/.claude/templates/snippets/plan-flag.md"
   printf -- '---\nname: x\n---\n# X\n\nSee [plan](../templates/snippets/plan-flag.md) and [gone](../templates/snippets/review-action-plan.md).\n' \
     > "$P3/.claude/commands/x.md"
-  o3=$(bash "$AUDIT" "$P3" --read-only 2>&1 | sed -n '/^C2t:/,/^$/p')
+  a3=$(bash "$AUDIT" "$P3" --read-only 2>&1 || true)
+  o3=$(printf '%s\n' "$a3" | sed -n '/^C2t:/,/^$/p')
+  # SAY WHICH SECTIONS RAN, NOT JUST THAT ONE IS MISSING.
+  #
+  # Same lesson as test-rule-loading.sh § 2: when the captured section is EMPTY, every
+  # assertion about its contents fails with an empty detail line — which renders as no
+  # detail at all — and the emptiness IS the finding. On CI this reported three failures
+  # and printed nothing that distinguished "C2t ran and disagreed" from "C2t never ran".
+  # Listing the section headers the audit actually emitted answers that in one line.
+  if [ -z "$o3" ]; then
+    bad "§3 the audit never emitted a C2t: section" \
+        "sections seen: $(printf '%s\n' "$a3" | grep -oE '^C2[a-z]:' | tr '\n' ' ')| ended: $(printf '%s\n' "$a3" | grep -vE '^[[:space:]]*$' | tail -2 | tr '\n' ' ' | cut -c1-150)"
+  fi
   if printf '%s' "$o3" | grep -q 'do NOT resolve on disk'; then
     ok "§3 an unresolved rewritten link is reported"
   else
@@ -159,7 +171,7 @@ else
     bad "§3 it names the link that is dead" "$(printf '%s' "$o3" | head -4 | tr '\n' ' ')"
   fi
   printf 'snippet body\n' > "$P3/.claude/templates/snippets/review-action-plan.md"
-  o3b=$(bash "$AUDIT" "$P3" --read-only 2>&1 | sed -n '/^C2t:/,/^$/p')
+  o3b=$(bash "$AUDIT" "$P3" --read-only 2>&1 | sed -n '/^C2t:/,/^$/p' || true)
   if printf '%s' "$o3b" | grep -q 'ok .*every relative .md link'; then
     ok "§3 deploying the missing snippet clears it"
   else
