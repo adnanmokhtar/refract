@@ -1080,11 +1080,40 @@ if [[ "$MODE" != "create" ]]; then
   # Resolve the templates dir via the symlink at ~/.claude/templates (or use
   # CLAUDE_CONFIG_ROOT if exported).
   PACKS_ROOT="$(framework_path templates/packs)"
+  # 🔴 `stat -f %m` MEANS SOMETHING ELSE ON LINUX, AND IT SUCCEEDS.
+  #
+  # On macOS `-f <fmt>` is the output format, so `stat -f %m` is the mtime. On GNU
+  # coreutils `-f` is `--file-system`, so the same call reports the FILESYSTEM and exits
+  # 0 — the `||` fallback never fires — printing text that begins `File: `. That string
+  # then reached `[[ $m -gt $pack_newest ]]`, where `[[ ]]` evaluates arithmetically and
+  # bash reads `File` as a variable name:
+  #
+  #     audit-setup.sh: line 1088: File: unbound variable
+  #
+  # `set -u` then killed the audit MID-RUN, at C2f, before C2u and everything after it.
+  # Every Linux user of this repo had a Phase 5 audit that stopped a third of the way
+  # through, and the only symptom was output that just... ended.
+  #
+  # Two changes. GNU is tried FIRST — `stat -c` is rejected outright by BSD stat, so the
+  # fallback is honest in that direction, while the reverse silently succeeds. And the
+  # result is forced numeric before it can reach an arithmetic context, so no future
+  # variant of this can turn a string into code.
+  _mtime() {
+    local t
+    t=$(stat -c %Y "$1" 2>/dev/null) || t=$(stat -f %m "$1" 2>/dev/null) || t=""
+    case "$t" in ''|*[!0-9]*) printf '0' ;; *) printf '%s' "$t" ;; esac
+  }
+  # Same shape: GNU `date -d @<epoch>` first, because BSD `date -r` takes an epoch while
+  # GNU `date -r` takes a FILE — and given a number GNU fails, which is the safe direction.
+  _iso() {
+    date -d "@$1" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -r "$1" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf 'unknown'
+  }
+
   pack_newest=0
   if [[ -d "$PACKS_ROOT" ]]; then
     # find the newest .md file across pack sources (resolves symlinks via -L)
     while IFS= read -r f; do
-      m=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || true)
+      m=$(_mtime "$f")
       [[ $m -gt $pack_newest ]] && pack_newest=$m
     done < <(find -L "$PACKS_ROOT" -type f -name '*.md' -not -name '_*' 2>/dev/null | head -2000)
   fi
@@ -1111,11 +1140,11 @@ if [[ "$MODE" != "create" ]]; then
         fi
         continue
       fi
-      file_mtime=$(stat -f %m "$f" 2>/dev/null || stat -c %Y "$f" 2>/dev/null || true)
+      file_mtime=$(_mtime "$f")
       if [[ $file_mtime -lt $pack_newest ]]; then
         # Format both timestamps for the message
-        pack_iso=$(date -r "$pack_newest" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "@$pack_newest" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "?")
-        file_iso=$(date -r "$file_mtime" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -d "@$file_mtime" -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "?")
+        pack_iso=$(_iso "$pack_newest")
+        file_iso=$(_iso "$file_mtime")
         if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
           err "STALE_KNOWLEDGE: $rel ($file_iso) older than newest pack source ($pack_iso) — Phase 4.4/4.4b/4.7/4.7b silently skipped"
         else

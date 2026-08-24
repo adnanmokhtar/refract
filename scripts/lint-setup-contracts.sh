@@ -25,6 +25,11 @@
 #           would silently install ZERO domains. It only ever worked because the session shell
 #           happened to shim grep to ugrep.
 #
+#   Rule 3b no BSD-first `stat -f` / `date -r`. Rule 3's more dangerous half: `grep -P` FAILS
+#           on macOS and is loud, while `stat -f %m` SUCCEEDS on GNU meaning --file-system, so
+#           the `||` fallback never runs. Measured: it printed `File: ...` into an arithmetic
+#           test and `set -u` killed audit-setup.sh mid-run at C2f on every Linux machine.
+#
 #   Rule 4  a trigger name declared in templates/packs/_trigger-vocabulary.md must have a
 #           producer. The vocabulary's own hard rule says so: "A trigger no extractor produces
 #           is dead code." Measured: rtl_locale_detected and i18n_lib_detected had ZERO
@@ -116,6 +121,34 @@ done < <(grep -rnE 'grep[[:space:]]+-[a-zA-Z]*P[a-zA-Z]*[[:space:]]' scripts/ te
          | grep -v '_setup-contracts-baseline' | grep -v 'lint-setup-contracts.sh' \
          | grep -vE ':[[:space:]]*#' \
          | grep -vE '`grep -[a-zA-Z]*P' || true)
+
+# ---- Rule 3b — no BSD-first fallback that SUCCEEDS on GNU with a different meaning -------------
+# Rule 3's family, and the more dangerous half. `grep -P` FAILS on macOS, so the breakage is
+# loud. `stat -f %m` does not: on macOS `-f` is the output format and this is the mtime, while
+# on GNU `-f` is `--file-system`, so the call exits 0 and prints filesystem info beginning
+# `File: `. A `X || Y` fallback never reaches Y when X succeeds.
+#
+# MEASURED on the first CI run this repo ever completed: that string reached
+# `[[ $m -gt $pack_newest ]]`, `[[ ]]` evaluated it arithmetically, bash read `File` as a
+# variable name, and `set -u` killed audit-setup.sh mid-run at C2f —
+#     audit-setup.sh: line 1088: File: unbound variable
+# — before C2u and every check after it. Every Linux user had an audit that stopped a third
+# of the way through, and the only symptom was output that simply ended.
+#
+# `date -r` is the same shape: BSD takes an epoch, GNU takes a FILE.
+#
+# The rule is about ORDER, not about the tools: put the form that FAILS CLEANLY on the other
+# platform first. GNU `stat -c` and `date -d` are rejected outright by BSD, so GNU-first is
+# the honest direction, and the result should be forced numeric before any arithmetic sees it.
+while IFS= read -r hit; do
+  [ -z "$hit" ] && continue
+  f="${hit%%:*}"; rest="${hit#*:}"; ln="${rest%%:*}"
+  add "R3b-bsd-first" "$f:$ln" "BSD-first \`stat -f\`/\`date -r\` — on GNU it SUCCEEDS with another meaning, so the || fallback never runs; put the GNU form (stat -c / date -d) first"
+done < <(grep -rnE '(stat[[:space:]]+-f[[:space:]]|date[[:space:]]+-r[[:space:]])' scripts/ templates/ commands/ 2>/dev/null \
+         | grep -v '_setup-contracts-baseline' | grep -v 'lint-setup-contracts.sh' \
+         | grep -vE ':[[:space:]]*#' \
+         | grep -vE '`(stat|date) -[a-z]' \
+         | grep -vE 'stat -c[^|]*\|\|.*stat -f|date -d[^|]*\|\|.*date -r' || true)
 
 # ---- Rule 4 — every declared trigger has a producer -------------------------------------------
 VOCAB="templates/packs/_trigger-vocabulary.md"
