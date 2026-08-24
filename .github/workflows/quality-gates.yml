@@ -250,6 +250,16 @@ jobs:
       - name: README stats (front-page figures match disk)
         run: bash scripts/verify-readme-stats.sh
 
+      # The numbers drawn INSIDE the SVGs. verify-readme-stats covers the README's prose and
+      # table, verify-pack-matrix covers pack-matrix.svg; nothing covered the other three, and
+      # they carry counts too — as text in a figure, where no reader can tell they are stale.
+      # Measured two days after the figures were last re-derived: architecture.svg read "73
+      # validators + sync scripts" against 75, and command-map.svg claimed 25 pack commands
+      # advertise --plan against 27. Both on the front page. A figure is the first thing a
+      # reader trusts and the last thing anyone regenerates.
+      - name: Figure stats (numbers drawn into the SVGs match disk)
+        run: bash scripts/verify-figure-stats.sh
+
       # Three regression suites that existed and that nothing ran. All three pass today, which
       # is exactly why they belong here: a green suite nobody executes stays green by accident
       # until the day it does not, and then reports nothing. Same empty dispatch as a validator
