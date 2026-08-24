@@ -273,6 +273,14 @@ jobs:
       - name: Migration paths (11 migrations)
         run: bash scripts/test-migration-paths.sh
 
+      # /setup-project against four fixture repos — empty, django, nextjs, monorepo — asserting
+      # the shape of what it produces. The suite existed, passed 4/4, and ran nowhere: the whole
+      # point of it is catching a regression in the orchestrator, and nothing was watching. Same
+      # empty dispatch as verify-readme-stats (which was FAILING on the real repo unwatched) and
+      # as the three artifact validators that had no self-test.
+      - name: setup-project fixtures (empty · django · nextjs · monorepo)
+        run: bash tests/setup-project/run.sh
+
       # Every validate-*-artifacts.sh proves itself on a GOOD fixture it must accept and a BAD
       # one it must reject. Six of the seven had no self-test at all — only validate-refactor
       # did — and writing the missing six found three defects, each of which REJECTED a
