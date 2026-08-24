@@ -24,6 +24,48 @@
 set -euo pipefail
 export LC_ALL=C
 
+# 🔴 AN AUDIT THAT DIES MID-RUN MUST SAY SO. IT USED TO JUST STOP.
+#
+# `set -euo pipefail` turns any unhandled non-zero — an unset variable, a failed command
+# outside a conditional — into an immediate exit with NO message beyond bash's own one-liner
+# on stderr, and every check after that point simply never runs. There is no summary, no
+# failure count, and nothing in the output that distinguishes "the audit finished and found
+# these things" from "the audit stopped a third of the way through".
+#
+# 📏 That is not hypothetical. On Linux, `stat -f %m` succeeded with a filesystem report
+# instead of an mtime (see _mtime below), bash read `File` as a variable in an arithmetic
+# test, and this script died at C2f — before C2u, C2y, C2j and C2t. Diagnosing it needed a
+# raw CI log and reasoning backwards from which assertions had passed. Every Linux user had
+# been getting a truncated audit and the output never once said so.
+#
+# The trap costs nothing on a clean run and turns the next occurrence into a line number.
+# `>&2` and the ABORTED banner are deliberate: the callers that scrape this output look for
+# section headers, so a silent stop reads as a section that produced no findings.
+# EXIT, NOT ERR. `set -u` does not go through the ERR trap — bash prints its one-line
+# "unbound variable" and exits the shell directly, so an ERR trap here caught nothing, which
+# is the exact failure being guarded against. Verified by injecting `[[ $NoSuchVar -gt 0 ]]`
+# before C2u: with `trap ... ERR` the banner never printed.
+#
+# So the audit declares completion explicitly and the EXIT trap reports its absence. That
+# covers every abnormal end — set -u, set -e, a killed subshell — with one mechanism.
+_AUDIT_COMPLETED=0
+_audit_exit_report() {
+  local rc=$?
+  [[ "$_AUDIT_COMPLETED" -eq 1 ]] && return 0
+  echo "" >&2
+  echo "=== AUDIT ABORTED — this run did NOT complete ===" >&2
+  echo "    exited $rc before reaching the summary." >&2
+  echo "    Every check after that point did not run. Treat the output above as PARTIAL:" >&2
+  echo "    a missing section means 'never executed', NOT 'nothing to report'." >&2
+  # 🔴 NEVER EXIT 0 FROM HERE. Measured on the injected-abort fixture: without this the
+  # process exited **0** — the trap's own last command masked the status — so a run that
+  # stopped at C2f, having executed 6 of 19 sections, reported SUCCESS to its caller. That
+  # is the fail-open shape this file already carries a long note about at C2n, arriving by
+  # a different road. A partial audit is a failed audit.
+  exit $(( rc == 0 ? 1 : rc ))
+}
+trap _audit_exit_report EXIT
+
 # Symlink-resolved: ~/.claude/scripts/<name> links into this repo, so an unresolved
 # BASH_SOURCE puts this dir at ~/.claude/scripts and every sibling asset below resolves only
 # if it too was linked (see CONTRIBUTING § "Scripts run from two places").
@@ -896,7 +938,16 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   while IFS= read -r line; do
     # overlap family only — rationale claims the capability exists here under another name
     printf '%s' "$line" | grep -qiE 'repo has|covered by|handled by|v1 has curated' || continue
-    key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`')
+    # ⚠ `| head -N` UNDER `set -o pipefail` IS AN ABORT WAITING FOR A BIG ENOUGH INPUT.
+    #
+    # head exits after N lines and closes the pipe; the upstream writer takes SIGPIPE; pipefail
+    # promotes that to a non-zero pipeline status; `set -e` ends the script. It is invisible
+    # whenever the producer finishes before head closes — which is why these survived every
+    # macOS run and surfaced on Linux, where the CI log carried the tell verbatim:
+    #     head: error writing 'standard output': Broken pipe
+    # The audit then stopped mid-run with no summary. `|| true` is correct here because every
+    # one of these is DISPLAY TRUNCATION: showing the first N of something already computed.
+    key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`') || true
     [[ -z "$key" ]] && continue
     name=$(basename "$key" .md)
     [[ -f "$CL/commands/$name.md" ]] && continue                           # native replacement exists
@@ -942,7 +993,7 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   # counterpart has. Matched against header lines only, so prose mentions don't count.
   c2s_sections=$'Phase 2 / Organize::Phase 2|Organize|Decompose\nPhase 5 / Update::Phase 5|Update\nPhase 6 / Validate::Phase 6|Validate\nPhase 7 / Improve::Phase 7|Improve\nFailure modes::Failure modes\nOutput::Output\nInvariants::Invariants'
   while IFS= read -r line; do
-    key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`')
+    key=$(printf '%s' "$line" | grep -oE '`[^`]+/commands/[^`]+\.md`' | head -1 | tr -d '`') || true
     [[ -z "$key" ]] && continue
     name=$(basename "$key" .md)
     case "$c2s_seen" in *" $name "*) continue ;; esac           # dedupe (same cmd in >1 pack)
@@ -1058,7 +1109,7 @@ if [[ -x "$SCRIPTS_DIR/apply-baseline-sync.sh" ]]; then
       warn_msg "$add_count baseline file(s) missing in target (CREATE mode — first scaffold)"
     fi
     # Show first 5 missing files for context
-    echo "$baseline_out" | grep -E '^  ADD ' | head -5 | sed 's/^/    /'
+    echo "$baseline_out" | grep -E '^  ADD ' | head -5 | sed 's/^/    /' || true
   else
     ok "all repo-baseline files present"
   fi
@@ -1486,7 +1537,7 @@ if [[ -f "$EXTRACT" ]]; then
       err "_extracted-codebase.md: 'confirmed' verdict with NO <matched>/<present> ratio — Step 9's hard rule calls this the same violation as an uncited factual claim: $(printf '%s' "$cline" | sed 's/^[[:space:]]*//' | cut -c1-140)"
       continue
     fi
-    m=$(printf '%s' "$cline" | grep -oE '[0-9]+[[:space:]]*/[[:space:]]*[0-9]+' | head -1 | tr -d ' ')
+    m=$(printf '%s' "$cline" | grep -oE '[0-9]+[[:space:]]*/[[:space:]]*[0-9]+' | head -1 | tr -d ' ') || true
     num="${m%%/*}"; den="${m##*/}"
     if [[ -n "$num" && -n "$den" && "$den" -gt 0 && "$num" -ne "$den" ]]; then
       err "_extracted-codebase.md: 'confirmed' printed with ratio $num/$den — below 100% is 'partial' mislabelled (Step 9 + check 7 bullet 6): $(printf '%s' "$cline" | sed 's/^[[:space:]]*//' | cut -c1-140)"
@@ -1681,7 +1732,7 @@ app_stubs=$(grep -rInE "$STUB_MARKERS" "$TARGET" \
 if [[ -n "$app_stubs" ]]; then
   n=$(printf '%s\n' "$app_stubs" | grep -c . )
   warn_msg "app-code stub markers found ($n shown, ≤20) — a scaffolded surface may be hollow. Review:"
-  printf '%s\n' "$app_stubs" | sed 's#^#      #' | head -8
+  printf '%s\n' "$app_stubs" | sed 's#^#      #' | head -8 || true
 else
   ok "no app-code stub markers in source"
 fi
@@ -1888,7 +1939,7 @@ broken_links=$(grep -rlE '\]\(\.\./\.\./\.\./(snippets|governance)/' \
 if [[ -n "$broken_links" ]]; then
   bl_n=$(printf '%s\n' "$broken_links" | grep -c .)
   warn_msg "$bl_n .claude/ artifact(s) carry broken \`../../../{snippets,governance}/\` links (should be \`../templates/...\`). Fix: perl -i -pe 's{\]\(\.\./\.\./\.\./(snippets|governance)/}{](../templates/\$1/}g' <files>"
-  printf '%s\n' "$broken_links" | sed "s#^$TARGET/#      #" | head -8
+  printf '%s\n' "$broken_links" | sed "s#^$TARGET/#      #" | head -8 || true
 else
   ok "no artifact still carries the un-rewritten \`../../../\` link shape"
 fi
@@ -1924,6 +1975,9 @@ else
   ok "every relative .md link under .claude/ resolves on disk"
 fi
 echo ""
+
+# Reaching the summary IS completion: every section above has run.
+_AUDIT_COMPLETED=1
 
 # Summary
 echo "=== summary ==="
