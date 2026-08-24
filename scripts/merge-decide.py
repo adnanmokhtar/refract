@@ -1467,21 +1467,75 @@ def _significant(lines):
     """The lines a reader would actually see: no blanks, no seam markers this engine writes.
 
     Compared in gcanon() space so a regenerated anchor line (see ANCHOR_GEN_RE) matches by
-    shape. Without that, the contiguity test reports every re-cited anchor block as SHREDDED.
+    shape. Without that, the region test reports every re-cited anchor block as SCATTERED.
     """
     return [gcanon(l) for l in lines if l.strip() and not ENGINE_MARKER.match(l)]
 
 
-def _contiguous(hay, needle):
-    """Is `needle` a contiguous run inside `hay`? Both are lists of canonical lines."""
-    if not needle:
-        return True
-    n = len(needle)
-    first = needle[0]
-    for i in range(len(hay) - n + 1):
-        if hay[i] == first and hay[i:i + n] == needle:
-            return True
-    return False
+RULE_IMPORT_RE = re.compile(r'^\s*@(\.claude/rules/[A-Za-z0-9._-]+\.md)\s*$')
+
+
+def _budget_evicted_rule(line, target_root):
+    """⭐ A rule import that vanished while its rule FILE is still on disk was EVICTED,
+    not lost — and the difference decides whether the advice we print is right or wrong.
+
+    `wire-rule-imports.sh` imports the foundational rules unconditionally and then buys
+    as many pack rules as a 12,000-token budget affords, smallest first. What does not
+    fit is dropped from `CLAUDE.md` ON PURPOSE, and the script says so in full: it names
+    every dropped rule, prices it, and points at `scope-rules.sh` to make it free.
+
+    📏 On tenant-portal it dropped four — `i18n.md` (~2,986 tok) among them — and C2n
+    reported the missing `@.claude/rules/i18n.md` as KNOWLEDGE_LOSS with the standing
+    remedy: "Restore it from the backup." Following that would re-import ~2,986 tokens on
+    every turn and undo a refusal the framework had just made deliberately. Two parts of
+    the same tool, giving opposite instructions about the same line.
+
+    So the test is whether the KNOWLEDGE is gone or only the IMPORT. The rule file still
+    on disk means nothing was destroyed and `scope-rules.sh` will load it on match; the
+    file gone too means the pack was removed under the owner's feet, which is real loss
+    and stays an ERR.
+    """
+    if target_root is None:
+        return None
+    m = RULE_IMPORT_RE.match(line)
+    if not m:
+        return None
+    return m.group(1) if os.path.exists(os.path.join(target_root, m.group(1))) else None
+
+
+def _subsequence(hay, needle):
+    """Does `needle` appear inside `hay` in order, insertions allowed? Canonical lines."""
+    it = iter(hay)
+    return all(any(h == n for h in it) for n in needle)
+
+
+def _intact_in_one_region(res_regions, needle):
+    """⭐ Is `needle` still whole, in order, INSIDE A SINGLE region of the result?
+
+    This is the question the SHREDDED check should have been asking, and for a long
+    time was not. It asked `_contiguous(whole_result, needle)` — is the block an
+    UNBROKEN run in the finished file — which makes any line INSERTED into a
+    project-specific block read as destruction of that block.
+
+    📏 Measured on tenant-portal: **94 KNOWLEDGE_LOSS errors**, one per agent file,
+    all of them this. The insertion in every case was
+    `> - **Where this applies here** (`baseline`): …` — a citation
+    `apply-anchors.sh` adds to the anchor block on purpose. The diff against the
+    run's own backup is a single `+` line and nothing else. So the audit was
+    reporting the framework's own designed behaviour as knowledge destroyed, on
+    every file it touched, on a healthy project.
+
+    Shredding is a real failure and still needs catching: it is the owner's block
+    being SCATTERED — lines pushed out of the region into the body, or split across
+    two regions — which is what happens when a writer replaces a block wholesale and
+    sprays the survivors. That is `not in one region`, not `not adjacent`.
+
+    So: every significant line of the original block must still sit inside ONE
+    region of the result, in its original order. Insertions between them are the
+    merge working. A line that escaped the block, or a block torn in half, still
+    fails — and the ORDER leg still catches reordering within it.
+    """
+    return any(_subsequence(r, needle) for r in res_regions)
 
 
 def _in_order(hay, needle):
@@ -1557,7 +1611,7 @@ def verify_invariant(original_text, result_text, corpus, target_root):
         c = gcanon(l)
         need[c] = need.get(c, 0) + 1
 
-    lost_lines, lost_dupes = [], []
+    lost_lines, lost_dupes, evicted_rules = [], [], []
     seen = set()
     for l in prot_lines:
         c = gcanon(l)
@@ -1566,7 +1620,8 @@ def verify_invariant(original_text, result_text, corpus, target_root):
         seen.add(c)
         short = have.get(c, 0)
         if short == 0:
-            lost_lines.append(l)
+            ev = _budget_evicted_rule(l, target_root)
+            (evicted_rules if ev else lost_lines).append(ev or l)
         elif short < need[c]:
             lost_dupes.append((l, need[c], short))
 
@@ -1589,14 +1644,17 @@ def verify_invariant(original_text, result_text, corpus, target_root):
         if have.get(gcanon(l), 0) == 0:
             lost_markers.append(l)
 
-    res_sig = _significant(res_lines)
+    # The result's OWN regions, so "is the block still whole" is asked inside the block
+    # rather than across the whole file. See _intact_in_one_region for why.
+    res_regions = [_significant(rbody.split("\n"))
+                   for _rk, _rkey, rbody in project_regions(result_text)]
     lost_regions, shredded = [], []
     for kind, _k, body in prot_regions:
         blines = body.split("\n")
         missing = [l for l in blines if l.strip() and gcanon(l) not in have]
         if missing:
             lost_regions.append((kind, len(missing), missing[0].strip()[:100]))
-        elif not _contiguous(res_sig, _significant(blines)):
+        elif not _intact_in_one_region(res_regions, _significant(blines)):
             shredded.append((kind, _significant(blines)[0][:100]))
 
     # ORDER runs only over the INSTANCES that are actually present, so it reports reordering
@@ -1617,8 +1675,8 @@ def verify_invariant(original_text, result_text, corpus, target_root):
     for kind, n, first in lost_regions:
         v.append("REGION %s block lost %d line(s), first: %s" % (kind, n, first))
     for kind, first in shredded:
-        v.append("REGION %s block was SHREDDED — every line survives but the block is no longer "
-                 "contiguous, first: %s" % (kind, first))
+        v.append("REGION %s block was SCATTERED — every line survives, but they no longer sit "
+                 "together inside one project-specific region, first: %s" % (kind, first))
     if out_of_order is not None:
         v.append("ORDER protected content was REORDERED — the result no longer reads in the "
                  "original's order; first line out of place: %s" % out_of_order.strip()[:140])
@@ -1632,6 +1690,14 @@ def verify_invariant(original_text, result_text, corpus, target_root):
         v.append("TOKEN %s" % t)
     if len(lost_toks) > 12:
         v.append("TOKEN ... and %d more" % (len(lost_toks) - 12))
+    # Reported, never failing. An eviction is the budget doing its job, and the caller
+    # prints this so the owner learns which rule stopped loading and what to do about it —
+    # which is `scope-rules.sh`, NOT "restore it from the backup". See _budget_evicted_rule.
+    if evicted_rules:
+        v.append("BUDGET %d rule import(s) dropped by the 12k always-tier budget, files "
+                 "still on disk: %s — make them free with scripts/scope-rules.sh rather "
+                 "than restoring the import" % (len(evicted_rules), ", ".join(evicted_rules[:6])))
+
     ok = not (lost_lines or lost_dupes or lost_toks or lost_regions or shredded
               or lost_markers or out_of_order is not None)
     return ok, v
@@ -1841,6 +1907,13 @@ def verify_pairs(tsv_path, target, packs_root, use_git=True, quiet=False):
                 continue
             ok, viol = verify_invariant(before, after, corpus, target)
             if ok:
+                # A clean file can still have something worth SAYING. Budget evictions are
+                # reported, never failed: nl/nt/nr are all 0 and the caller branches on the
+                # BUDGET prefix to print a warn instead of an err. Without this row the note
+                # would be built and then dropped on the floor — a check that dispatches into
+                # empty space, which is the failure mode this repo keeps finding in itself.
+                for b in (x for x in viol if x.startswith("BUDGET ")):
+                    sys.stdout.write("%s\t0\t0\t0\t%s\n" % (rel, b.replace("\t", " ")[:220]))
                 continue
             nl = sum(1 for v in viol if v.startswith("LINE "))
             nt = sum(1 for v in viol if v.startswith("TOKEN "))
@@ -2587,7 +2660,7 @@ def self_test():
                 "\n## Generic\n\npack prose line\n\n## Other\n\n- Repos extend DataAccess<E, T, D>.\n")
         oks, vs_ = verify_invariant(o_sh, r_sh, corpus, tgt_root)
         chk("REGION: a block whose lines all survive but scattered is caught",
-            not oks and any("SHREDDED" in v for v in vs_), "; ".join(vs_))
+            not oks and any("SCATTERED" in v for v in vs_), "; ".join(vs_))
 
         adr = "Tenant order is fixed by ADR-007; do not short-circuit it."
         c_adr = Corpus({lhash(l) for l in ["# T", "pack prose line", adr]}, set(), set(), "packs-only")

@@ -336,6 +336,60 @@ c2n_twin_archived() {
 # every call and the index is rebuilt per token. That is not hypothetical — the first version
 # of this did exactly that and turned a 3-second audit into one that had not finished in two
 # minutes. apply-study-decisions.sh carries the same warning on resolve_variant_path.
+# 🔴 THIS RUN'S BACKUPS ONLY — not "every backup dir that still exists".
+#
+# C2n reads backups oldest-first and takes the FIRST sighting of a path as its
+# pre-run state. That is right within one run, and badly wrong across runs: a
+# backup from a PREVIOUS run then supplies the baseline, so every legitimate
+# change made since gets reported as knowledge the refresh destroyed.
+#
+# 📏 Measured on capsolah-api after a third setup in three days: 15 backup dirs
+# spanning 2026-08-22 to 08-24, and the audit reported **227 KNOWLEDGE_LOSS
+# errors**, every one of them reading `lost 0 line(s), 0 project token(s) and
+# 1 project-specific region(s)`. Diffed by hand, the regions were BYTE-IDENTICAL
+# to the committed file — 16 lines before, 16 lines after, empty diff. Zero real
+# losses, 227 alarms, on a project where nothing was wrong.
+#
+# That is worse than not checking. A gate that cries wolf on a correct run
+# teaches its reader to scroll past it, and the one true ERR in the next run
+# scrolls past with them. `--refresh` is DOCUMENTED as a repeatable command, so
+# this fired for anyone using the tool the way we tell them to.
+#
+# Every run opens with a Phase-0 backup named as a BARE timestamp
+# (`YYYYMMDD-HHMMSS`, or `YYYYMMDD-HHMM` from older installs); every later
+# backup that run takes is `<script>-<stamp>`
+# with a later stamp. So the newest bare-timestamp dir is this run's floor, and
+# a dir at or after it belongs to this run. No new state to write and nothing to
+# keep in sync — the naming convention already carried the answer.
+#
+# No floor found (a project whose Phase-0 backup was pruned) falls back to the
+# old every-dir behaviour: over-reporting beats silently checking nothing.
+c2n_run_backups() {
+  # `|| true` is load-bearing under `set -euo pipefail`: grep exits 1 when a project
+  # has no bare-timestamp backup, pipefail promotes that to the substitution, and a bare
+  # assignment propagates it — so the function died HERE and returned an empty list, which
+  # reads downstream as "no backups to compare" and silently skips C2n entirely. Caught by
+  # test-merge-decide.sh's fail-closed fixture: 3 checks went from pass to silent no-op.
+  local floor
+  floor="$( { ls -1d "$CL/backups"/*/ 2>/dev/null \
+                | sed 's#.*/\([^/]*\)/$#\1#' \
+                | grep -xE '[0-9]{8}-[0-9]{4,6}' | sort | tail -1; } || true )"
+  if [[ -z "$floor" ]]; then
+    ls -1dtr "$CL/backups"/*/ 2>/dev/null || true
+    return 0
+  fi
+  local d n stamp
+  for d in $(ls -1dtr "$CL/backups"/*/ 2>/dev/null || true); do
+    n="$(basename "$d")"
+    # `<script>-<date>-<time>` → the last two dash-separated fields are the stamp.
+    case "$n" in
+      *-*-*) stamp="$(printf '%s' "$n" | awk -F- '{print $(NF-1)"-"$NF}')" ;;
+      *)     stamp="$n" ;;
+    esac
+    [[ "$stamp" < "$floor" ]] || printf '%s\n' "$d"
+  done
+}
+
 c2n_build_indexes() {
   [ "$C2N_IDX_READY" -eq 1 ] && return 0
   C2N_IDX_READY=1
@@ -528,7 +582,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
         err "KNOWLEDGE_LOSS: $rel carried the project-specific anchor in ${bkdir#$TARGET/} and no longer does — the block was replaced, not merged."
       fi
     done < <(find "$bkdir" -type f -name '*.md' 2>/dev/null | sort)
-  done < <(ls -1dtr "$CL/backups"/*/ 2>/dev/null || true)
+  done < <(c2n_run_backups)
 
   # --- the NON-markdown half: hooks and settings ------------------------------------------
   # `.claude/hooks/*.sh` and `.claude/settings*.json` are executable project configuration.
@@ -552,7 +606,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
       kn_checked=$((kn_checked + 1))
       c2n_token_pair "$rel" "$bf" "$live" "${bkdir#$TARGET/}"
     done < <(find "$bkdir" \( -path '*/.claude/hooks/*' -o -name 'settings.json' -o -name 'settings.local.json' \) -type f 2>/dev/null | sort)
-  done < <(ls -1dtr "$CL/backups"/*/ 2>/dev/null || true)
+  done < <(c2n_run_backups)
   rm -f "$seen_np"
   # M43 — one engine call for every pair the loop collected.
   if [[ "$C2N_LINE_MODE" -eq 1 && -s "${C2N_PAIRS:-}" ]]; then
@@ -560,6 +614,14 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
     if python3 "$C2N_ENGINE" --verify-pairs="$C2N_PAIRS" --target="$TARGET" > "$c2n_out" 2>/dev/null; then
       while IFS=$'\t' read -r rel nl nt nr first; do
         [[ -z "$rel" ]] && continue
+        # Reported, not failed. A rule import that wire-rule-imports.sh dropped for budget
+        # while its rule file is still on disk is a deliberate, already-announced trade —
+        # and the standing KNOWLEDGE_LOSS advice ("restore it from the backup") is the exact
+        # opposite of what the owner should do. See _budget_evicted_rule in merge-decide.py.
+        if [[ "$first" == BUDGET* ]]; then
+          warn_msg "RULE_BUDGET: $rel — ${first#BUDGET }"
+          continue
+        fi
         kn_lost=$((kn_lost + 1))
         err "KNOWLEDGE_LOSS: $rel lost $nl line(s), $nt project token(s) and $nr project-specific region(s) that the pack corpus cannot account for — e.g. $first. Restore it from the backup and merge the pack depth in instead of replacing."
       done < "$c2n_out"
@@ -1107,6 +1169,20 @@ if [[ -d "$BASELINE_AI" ]]; then
     _rel="${_bf#"$BASELINE_AI"/}"
     _name="${_rel%.md}"
     case "$_rel" in README.md|*/README.md) continue ;; esac
+    # 🔴 A BLANK FORM IS SUPPOSED TO STAY BLANK.
+    #
+    # `_template.md` is the form you COPY to open a new ADR, runbook, pattern or eval case.
+    # Byte-identical to the baseline is the ONLY correct state for it — a filled-in one would
+    # mean somebody wrote an ADR into the template instead of into a numbered file. The check
+    # that says "shipped, never written" was calling that a defect, and on tenant-portal it
+    # produced 3 ERRs (decisions, evals/cases, runbooks) that no action could ever clear:
+    # populate them and the next audit is right to complain about the opposite.
+    #
+    # This repo already draws the line — the ADR census reads `find ai/decisions -name '*.md'
+    # -not -name '_*'` — it just was never drawn here. Only `_template.md` is exempt, NOT every
+    # `_`-prefixed file: `_decision-index.md`, `_session-digest.md`, `_convention-cheatsheet.md`,
+    # `_scorecard.md` and `_index.md` are GENERATED, and an unpopulated one of those is real.
+    case "$_rel" in _template.md|*/_template.md) continue ;; esac
     # skip the seven already covered above
     case " ${FOUNDATIONAL[*]} " in *" $_name "*) continue ;; esac
     SECONDARY_AI+=("$_name")
@@ -1483,9 +1559,60 @@ for d in "$TARGET"/*/; do
     c2w_real="$c2w_real ${bn}/"
   fi
 done
-while IFS= read -r hit; do
-  [[ -z "$hit" ]] && continue
-  f="${hit%%:*}"; rest="${hit#*:}"; lno="${rest%%:*}"; body="${rest#*:}"
+# ⚠ A PROBE IS CODE. THE WORD "grep" IN AN ENGLISH SENTENCE IS NOT A PROBE.
+#
+# This used to grep whole LINES for `rg|grep|find|ls|fd` and then harvest every `a/b`
+# token out of the matched line. Both halves misfire on prose, and artifacts are mostly
+# prose. Measured on tenant-portal: of 55 reported probes, 26 came from sentences —
+#
+#   "Known limit of that grep: it is line-scoped, so a multi-line JSX/template `<input>`…"
+#   "…adds a collection form/endpoint, a logger call, an analytics/telemetry event…"
+#   "…a new tool/function the model can call, a RAG retrieval…"
+#
+# — where `JSX/template`, `analytics/telemetry` and `tool/function` are English, not paths,
+# and the trigger word was "grep"/"find" used as a normal verb or noun. "find" in
+# particular appears in ordinary instructions constantly.
+#
+# So the unit of judgement is the CODE on the line, not the line: a fenced block, an
+# indented block, or the contents of the inline `…` spans. The command word must appear in
+# that code, and the paths are harvested only from that code.
+#
+# 📏 It costs no recall. capsolah-api's real finding — probes over a `src/` that repo does
+# not have — went 115 → 117 (two more, because inline spans are now read as one piece of
+# code instead of one line of prose), while its total fell 150 → 133. tenant-portal fell
+# 55 → 29, and the survivors are genuine: `routes/`, `config/`, `migrations/`, `k8s/`,
+# `api/`, `models/` — backend-shaped probes shipped into a Vue frontend, which is exactly
+# the silent zero-hit this check exists to catch.
+c2y_code_probes() {
+  # Text files only; `grep -rIl ''` drops binaries the way `grep -I` used to.
+  { grep -rIl '' "$CL/commands" "$CL/agents" "$CL/skills" "$CL/rules" "$TARGET/ai" 2>/dev/null \
+      | grep -vE '/backups/' || true; } | sort | while IFS= read -r _file; do
+    [[ -f "$_file" ]] || continue
+    awk -v F="$_file" '
+      /^[[:space:]]*(```|~~~)/ { fence = !fence; next }
+      {
+        code = ""
+        if (fence || $0 ~ /^(    |\t)/) { code = $0 }
+        else {
+          # every inline `…` span on the line, concatenated: one command may be split
+          # across two spans, and a path in one span belongs to a command in another.
+          s = $0
+          while (match(s, /`[^`]*`/)) {
+            code = code " " substr(s, RSTART + 1, RLENGTH - 2)
+            s = substr(s, RSTART + RLENGTH)
+          }
+        }
+        if (code == "") next
+        if (code ~ /(^|[[:space:](|`"'"'"'])(rg|grep|find|ls|fd)[[:space:]]/) printf "%s:%d\t%s\n", F, NR, code
+      }
+    ' "$_file"
+  done
+}
+
+_c2y_self="$(basename "$TARGET")"
+while IFS=$'\t' read -r loc code; do
+  [[ -z "$loc" ]] && continue
+  f="${loc%:*}"; lno="${loc##*:}"
   # Every path-shaped operand of the probe, e.g. `src/`, `src/modules/*/infrastructure/`
   while IFS= read -r dir; do
     [[ -z "$dir" ]] && continue
@@ -1493,14 +1620,16 @@ while IFS= read -r hit; do
     [[ -z "$root" ]] && continue
     # only judge a REPO-ROOT-relative first segment, and only when it is plainly a directory
     case "$root" in .|..|\$*|\**|-*|/*) continue ;; esac
+    # A path written from the PARENT of this repo — `tenant-portal/src/utils/x.ts` inside
+    # tenant-portal — resolves fine for the human who wrote it. Three such hits on that
+    # project, and none of them a missing directory.
+    [[ "$root" == "$_c2y_self" ]] && continue
     [[ -e "$TARGET/$root" ]] && continue
     c2w_n=$((c2w_n + 1))
     c2w_hits="$c2w_hits"$'\n'"      ${f#$TARGET/}:$lno probes \`$dir\` — no \`$root\` in this repo"
     break
-  done < <(printf '%s\n' "$body" | grep -oE '(^|[[:space:]])[A-Za-z0-9_][A-Za-z0-9_.*-]*/[A-Za-z0-9_./*-]*' 2>/dev/null | sed 's/^[[:space:]]*//' | sort -u || true)
-done < <(grep -rInE '(^|[[:space:]`])(rg|grep|find|ls|fd)[[:space:]]' \
-           "$CL/commands" "$CL/agents" "$CL/skills" "$CL/rules" "$TARGET/ai" 2>/dev/null \
-         | grep -vE '/backups/' || true)
+  done < <(printf '%s\n' "$code" | grep -oE '(^|[[:space:]])[A-Za-z0-9_][A-Za-z0-9_.*-]*/[A-Za-z0-9_./*-]*' 2>/dev/null | sed 's/^[[:space:]]*//')
+done < <(c2y_code_probes)
 if [[ "$c2w_n" -gt 0 ]]; then
   err "$c2w_n shell probe(s) in installed artifacts name a top-level directory that does NOT exist here. A probe over a missing directory returns zero hits, and zero hits reads as CLEAN — this is a false negative, not a broken command. Real top-level source dirs:${c2w_real:- (none detected)}. Edit the probes (they are project-authored content; nothing rewrites them for you):$(printf '%s' "$c2w_hits" | head -12)"
 else

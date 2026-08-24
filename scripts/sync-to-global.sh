@@ -170,7 +170,19 @@ drift=0
 # ── Claude Code ─────────────────────────────────────────────────────────────
 sync_claude() {
   local target="${CLAUDE_HOME:-$HOME/.claude}"
-  [ -d "$target" ] || return 0
+  # SAY WHY, rather than returning 0 into silence. Claude Code creates ~/.claude
+  # on first run, so a missing one means the tool has not been started yet — and
+  # a first-time installer who sees the Gemini and Qwen sections scroll past with
+  # no Claude Code section at all has no way to tell a skip from a success. The
+  # skip itself is right; only its silence was wrong.
+  if [ ! -d "$target" ]; then
+    log ""
+    log "=== Claude Code — SKIPPED ==="
+    log "    $target does not exist, so there is nothing to link into."
+    log "    Claude Code creates it on first run: start it once, then re-run this."
+    log "    (Installing somewhere else? Set CLAUDE_HOME to that directory.)"
+    return 0
+  fi
 
   log ""
   log "=== Claude Code (~/.claude) ==="
