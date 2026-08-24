@@ -225,6 +225,73 @@ check_ledger_gap_parity() {
 
 usage() { sed -n '2,18p' "$0"; exit 2; }
 
+# ── --self-test ───────────────────────────────────────────────────────────────
+# A GOOD fixture that must pass and a BAD one that must fail, both under $repo_root/tmp/.
+# Six of the seven validate-*-artifacts.sh scripts shipped without one; writing them found
+# three real defects in the five that had none.
+run_audit_self_test() {
+  local td repo_root rc me
+  # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+  # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"
+  me="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
+  mkdir -p "$repo_root/tmp"
+  td=$(mktemp -d "$repo_root/tmp/audit-selftest.XXXXXX")
+  mkdir -p "$td/ai/audit/findings" "$td/src"
+  printf 'const a = 1\n' > "$td/src/app.ts"
+  cat > "$td/ai/audit/plan.md" <<'FIX'
+# Audit plan
+
+Scope: `src/app.ts:1`.
+
+## Findings
+
+- P0-1 `src/app.ts:1` — unbounded retry loop exhausts the connection pool at 10000 rps, and the service stops accepting traffic.
+FIX
+  cat > "$td/ai/audit/final-report.md" <<'FIX'
+# Final report
+
+One P0 found and fixed.
+
+## Actionable next steps
+
+```bash
+npm run test -- src/app.ts
+```
+FIX
+
+  rc=0
+  ( cd "$td" && PLAN_PATH="$td/ai/audit/plan.md" REPORT_PATH="$td/ai/audit/final-report.md" \
+      LEDGER_PATH="$td/ai/audit/ledger.md" FINDINGS_DIR="$td/ai/audit/findings" \
+      bash "$me" >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: the GOOD fixture was rejected (exit $rc)" >&2
+    exit 1
+  fi
+
+  # §675 — a P0 whose failure mode is "might be slow": no mechanism, no quantified trigger.
+  # This is the hand-wave the check exists for, and it reads like a real finding.
+  sed 's/exhausts the connection pool at 10000 rps, and the service stops accepting traffic/might be slow/' \
+    "$td/ai/audit/plan.md" > "$td/bad.md"
+  mv "$td/bad.md" "$td/ai/audit/plan.md"
+  rc=0
+  ( cd "$td" && PLAN_PATH="$td/ai/audit/plan.md" REPORT_PATH="$td/ai/audit/final-report.md" \
+      LEDGER_PATH="$td/ai/audit/ledger.md" FINDINGS_DIR="$td/ai/audit/findings" \
+      bash "$me" >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: a P0 with no concrete scale failure mode was accepted" >&2
+    exit 1
+  fi
+
+  rm -rf "$td"
+  echo "validate-audit-artifacts.sh --self-test OK"
+  exit 0
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --plan=*)         PLAN_PATH="${1#*=}"; shift ;;
@@ -233,6 +300,7 @@ while [[ $# -gt 0 ]]; do
     --findings-dir=*) FINDINGS_DIR="${1#*=}"; shift ;;
     --strict)         STRICT=1; shift ;;
     --quiet|-q)       QUIET=1; shift ;;
+    --self-test)      run_audit_self_test ;;
     -h|--help)        usage ;;
     *) echo "Unknown argument: $1" >&2; usage ;;
   esac

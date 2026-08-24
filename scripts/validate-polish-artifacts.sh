@@ -21,6 +21,75 @@ if [[ -z "$PROJECT_KIND" && -f .claude/_extracted-codebase.md ]]; then
 fi
 PROJECT_KIND="${PROJECT_KIND:-frontend-vue}"
 
+# ── --self-test ───────────────────────────────────────────────────────────────
+# A GOOD fixture that must pass and a BAD one that must fail. Both are written under
+# $repo_root/tmp/ and removed either way.
+#
+# This validator shipped without one for as long as it has existed, and six of the seven
+# validate-*-artifacts.sh scripts were in the same state — the only tested one was
+# validate-refactor. Writing these found three real defects in the untested five, each of
+# which rejected a CORRECTLY WRITTEN artifact. See the notes at those sites.
+run_polish_self_test() {
+  local td repo_root rc me
+  # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+  # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"
+  me="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
+  mkdir -p "$repo_root/tmp"
+  td=$(mktemp -d "$repo_root/tmp/polish-selftest.XXXXXX")
+  mkdir -p "$td/ai/polish" "$td/src"
+  printf 'export const Button = 1\n' > "$td/src/Button.vue"
+  cat > "$td/ai/polish/_visual-decisions.md" <<'FIX'
+# Visual decisions
+
+## Visual baseline evidence
+
+Captured 1440x900 and 390x844 before/after. Baseline: `docs/polish/baseline-home.png`.
+
+## a11y audit evidence
+
+axe-core run, 0 critical. Contrast measured 8.9:1 at `src/Button.vue:1`.
+
+## Design-token usage evidence
+
+`src/Button.vue:1` uses the token scale; no raw hex remains.
+
+## Per-surface findings
+
+- `src/Button.vue:1` — focus ring restored.
+
+closure_verb: align-focus-ring
+FIX
+
+  rc=0
+  ( cd "$td" && POLISH_DIR="$td/ai/polish" PROJECT_KIND=frontend-vue bash "$me" >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: the GOOD fixture was rejected (exit $rc)" >&2
+    exit 1
+  fi
+
+  # A verb outside the ui-design-sweep closed vocabulary. `parallelize` is a real verb in
+  # the ALIGN set, which is the mistake worth catching: plausible, and from a sibling list.
+  sed 's/align-focus-ring/parallelize/' "$td/ai/polish/_visual-decisions.md" > "$td/bad.md"
+  mv "$td/bad.md" "$td/ai/polish/_visual-decisions.md"
+  rc=0
+  ( cd "$td" && POLISH_DIR="$td/ai/polish" PROJECT_KIND=frontend-vue bash "$me" >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: a closure_verb outside the closed vocabulary was accepted" >&2
+    exit 1
+  fi
+
+  rm -rf "$td"
+  echo "validate-polish-artifacts.sh --self-test OK"
+  exit 0
+}
+
+[[ "${1:-}" == "--self-test" ]] && run_polish_self_test
+
 TOTAL_PASS=0
 TOTAL_FAIL=0
 FAILURES=()

@@ -236,3 +236,18 @@ jobs:
 
       - name: Migration paths (11 migrations)
         run: bash scripts/test-migration-paths.sh
+
+      # Every validate-*-artifacts.sh proves itself on a GOOD fixture it must accept and a BAD
+      # one it must reject. Six of the seven had no self-test at all — only validate-refactor
+      # did — and writing the missing six found three defects, each of which REJECTED a
+      # correctly written artifact: optimize demanded its Phase-0 titles at column 1 while the
+      # generator writes `## ` headings; align's warn-only path returned 1 from a bare `return`
+      # and `set -e` killed the run mid-check; migration matched `^id: F001$` while the format
+      # its own template documents is `  - id: F001`. All three were invisible because nothing
+      # ever fed these scripts an artifact and checked the answer.
+      - name: Artifact validators (self-test, all 7)
+        run: |
+          for v in scripts/validate-*-artifacts.sh; do
+            echo "── $v"
+            bash "$v" --self-test
+          done

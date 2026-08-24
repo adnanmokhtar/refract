@@ -56,12 +56,80 @@ QUIET=0
 CHECK_FILTER=""
 
 # ── Args ────────────────────────────────────────────────────────────────────
+# ── --self-test ───────────────────────────────────────────────────────────────
+# A GOOD fixture that must pass and a BAD one that must fail, both under $repo_root/tmp/.
+# Six of the seven validate-*-artifacts.sh scripts shipped without one; writing them found
+# three real defects in the five that had none.
+run_unify_self_test() {
+  local td repo_root rc me
+  # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+  # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"
+  me="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
+  mkdir -p "$repo_root/tmp"
+  td=$(mktemp -d "$repo_root/tmp/unify-selftest.XXXXXX")
+  mkdir -p "$td/ai/unify-surfaces" "$td/src"
+  printf 'export const Btn = 1\n' > "$td/src/Btn.vue"
+  cat > "$td/ai/unify-surfaces/progress.md" <<'FIX'
+# Unify surfaces progress
+
+### buttons [done]
+
+Canonical: `src/Btn.vue:1`
+Consumers migrated: 3/3
+Commits: abc1234
+FIX
+  cat > "$td/ai/unify-surfaces/final-report.md" <<'FIX'
+# Final report
+
+One category unified: buttons.
+
+Not validated: visual regression on the print stylesheet.
+Risks: the wrapper changes focus order on nested menus.
+Revert: `git revert HEAD`
+
+## Actionable next steps
+
+```bash
+npm run test -- src/Btn.vue
+```
+FIX
+
+  rc=0
+  ( cd "$td" && bash "$me" --all >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: the GOOD fixture was rejected (exit $rc)" >&2
+    exit 1
+  fi
+
+  # Drop one of the three mandatory honesty lines. A report that lists what it DID while
+  # omitting what it did not validate is the failure this clause exists to prevent, and it
+  # is invisible unless something checks for the line's absence.
+  grep -v '^Risks:' "$td/ai/unify-surfaces/final-report.md" > "$td/bad.md"
+  mv "$td/bad.md" "$td/ai/unify-surfaces/final-report.md"
+  rc=0
+  ( cd "$td" && bash "$me" --all >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: a final report missing the 'Risks:' honesty line was accepted" >&2
+    exit 1
+  fi
+
+  rm -rf "$td"
+  echo "validate-unify-surfaces-artifacts.sh --self-test OK"
+  exit 0
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --category=*)  CATEGORY="${1#--category=}"; shift ;;
     --all)         SCAN_ALL=1; shift ;;
     --strict)      STRICT=1; shift ;;
     --quiet)       QUIET=1; shift ;;
+    --self-test)  run_unify_self_test ;;
     --check=*)     CHECK_FILTER="${1#--check=}"; shift ;;
     -h|--help)
       grep -E '^#' "$0" | sed 's/^# //; s/^#//'

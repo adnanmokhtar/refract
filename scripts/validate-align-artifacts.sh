@@ -70,6 +70,77 @@ CHECK_FILTER=""
 PHASE_BASE=""
 
 # ── Args ────────────────────────────────────────────────────────────────────
+# ── --self-test ───────────────────────────────────────────────────────────────
+# A GOOD fixture that must pass and a BAD one that must fail, both under $repo_root/tmp/.
+#
+# Writing this one found the bare-`return` bug in check_no_new_symbols: on the warn-only
+# path the function returned 1 and `set -e` killed the run mid-check, so a fixture whose
+# every check passed exited 1 with no summary. See the note at that site.
+run_align_self_test() {
+  local td repo_root rc me
+  # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+  # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"
+  me="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
+  mkdir -p "$repo_root/tmp"
+  td=$(mktemp -d "$repo_root/tmp/align-selftest.XXXXXX")
+  mkdir -p "$td/ai/align" "$td/src"
+  printf 'const a = 1\nconst b = 2\n' > "$td/src/a.ts"
+  cat > "$td/ai/align/ledger.md" <<'FIX'
+# Align ledger
+
+```yaml
+- id: A001
+  class: naming
+  scope: [src/a.ts]
+  evidence:
+    - src/a.ts:1
+  closure_verb: remove
+  tier: trivial
+  tier_reason: "single-line rename, no behaviour change"
+  status: verified
+  phase: 1
+  detected_at: 2026-05-01T19:46:00Z
+  gaps_in: 1
+  gaps_closed: 1
+```
+FIX
+  cat > "$td/ai/align/scan-report.md" <<'FIX'
+# Align scan report
+
+Oracle consulted: `.claude/_extracted-idioms.md`.
+
+Detector: dead-code | Modules scanned: 1 | Fingerprint matches: 1
+Detector: duplicated-logic | Modules scanned: 1 | Fingerprint matches: 0
+FIX
+
+  rc=0
+  ( cd "$td" && bash "$me" --all >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: the GOOD fixture was rejected (exit $rc)" >&2
+    exit 1
+  fi
+
+  # `parallelise` — the British spelling of a verb that IS in the vocabulary. A closed set
+  # is only closed if a near-miss is refused; a substring or fuzzy match would let this by.
+  sed 's/closure_verb: remove/closure_verb: parallelise/' "$td/ai/align/ledger.md" > "$td/bad.md"
+  mv "$td/bad.md" "$td/ai/align/ledger.md"
+  rc=0
+  ( cd "$td" && bash "$me" --all >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: a closure_verb outside the closed 21 was accepted" >&2
+    exit 1
+  fi
+
+  rm -rf "$td"
+  echo "validate-align-artifacts.sh --self-test OK"
+  exit 0
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --phase=*)       PHASE="${1#--phase=}"; shift ;;
@@ -77,6 +148,7 @@ while [[ $# -gt 0 ]]; do
     --all)           SCAN_ALL=1; shift ;;
     --strict)        STRICT=1; shift ;;
     --quiet)         QUIET=1; shift ;;
+    --self-test)    run_align_self_test ;;
     --check=*)       CHECK_FILTER="${1#--check=}"; shift ;;
     --phase-base=*)  PHASE_BASE="${1#--phase-base=}"; shift ;;
     -h|--help)
@@ -442,12 +514,20 @@ check_no_new_symbols() {
   if [[ -z "$PHASE_BASE" ]]; then
     log_warn "$id: --phase-base not provided; no-new-symbols UNVERIFIED"
     [[ $STRICT -eq 1 ]] && { log_fail "[strict] $id: cannot verify no-new-symbols without --phase-base"; return 1; }
-    return
+    # `return 0`, NOT a bare `return`. The line above is `[[ $STRICT -eq 1 ]] && { … }`, and
+    # when strict is OFF that test is false, so the compound command exits 1 — which a bare
+    # `return` then hands back as the function's status. Under this file's `set -e` the caller
+    # aborts, so the validator DIED HERE mid-run and exited 1 on a warn-only path: no summary,
+    # no remaining checks, and an exit code indistinguishable from a real finding.
+    #
+    # Reproduced on a fixture whose every check passed — 4 ✓, one ⚠, then nothing. Found by
+    # writing this script's first --self-test.
+    return 0
   fi
   if ! command -v git >/dev/null 2>&1; then
     log_warn "$id: git not on PATH; no-new-symbols UNVERIFIED"
     [[ $STRICT -eq 1 ]] && { log_fail "[strict] $id: cannot verify no-new-symbols without git"; return 1; }
-    return
+    return 0
   fi
 
   # #18 — scan ALL added lines, not just added FILES. The Reinvented-Wrapper anti-pattern most

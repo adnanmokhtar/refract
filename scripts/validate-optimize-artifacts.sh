@@ -162,9 +162,22 @@ check_phase_0_blocks_nonempty() {
       missing+=("$title")
       continue
     fi
+    # 🔴 THE BLOCK IS ALMOST ALWAYS A MARKDOWN HEADING, SO MATCH ONE.
+    #
+    # This read `index($0, T) == 1`, which demands the title start at COLUMN 1 — and the
+    # artifact this validator polices writes `## Phase 0 — Dependency map evidence`, exactly
+    # as the skill that generates it specifies (code-quality/skills/architectural-diagnosis
+    # § "Phase 0"). Behind `## ` the title starts at column 4, so grab never turned on, body
+    # came back empty, and a CORRECTLY WRITTEN artifact was reported as "Phase 0 evidence
+    # blocks empty (heading only)" — all four blocks, every run.
+    #
+    # The `grep -qF` presence test above matches the same line as a substring, so the verdict
+    # was never "missing" and always "empty": the check could see every heading and none of
+    # their bodies. Found by writing this script's first --self-test — the fixture used the
+    # documented format and could not be made to pass.
     body=$(awk -v T="$title" '
       BEGIN { grab = 0 }
-      index($0, T) == 1 || $0 == T { grab = 1; next }
+      (index($0, T) > 0 && ($0 ~ /^#+[ \t]/ || $0 == T)) { grab = 1; next }
       grab && /^#{1,3} / { exit }
       grab { print }
     ' "$file")
@@ -669,6 +682,75 @@ usage() {
   exit 2
 }
 
+# ── --self-test ───────────────────────────────────────────────────────────────
+# A GOOD fixture that must pass and a BAD one that must fail, both under $repo_root/tmp/.
+#
+# Writing this one found the Phase-0 block extractor bug: it demanded the evidence title at
+# column 1 while the artifact is written with `## ` headings, so every correctly formatted
+# file was reported "empty (heading only)". The fixture below uses the documented format and
+# could not be made to pass until that was fixed — see the note at the extractor.
+run_optimize_self_test() {
+  local td repo_root rc me
+  # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+  # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"
+  me="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
+  mkdir -p "$repo_root/tmp"
+  td=$(mktemp -d "$repo_root/tmp/optimize-selftest.XXXXXX")
+  mkdir -p "$td/ai/optimize/findings" "$td/.claude" "$td/src"
+  printf 'const q = 1\n' > "$td/src/q.ts"
+  printf '# Extracted idioms\n\nOne service per module.\n' > "$td/.claude/_extracted-idioms.md"
+  cat > "$td/ai/optimize/_architecture-decisions.md" <<'FIX'
+# Architecture decisions
+
+## Phase 0 — Dependency map evidence
+
+`src/q.ts:1` imports nothing; the module graph is a single node.
+
+## Phase 0 — Responsibility map evidence
+
+`src/q.ts:1` owns query construction only.
+
+## Phase 0 — Layer attribution evidence
+
+`src/q.ts:1` sits in the data layer.
+
+## Phase 0 — Detector run evidence
+
+Ran the duplicate-query detector over `src/`: 1 hit at `src/q.ts:1`.
+FIX
+
+  rc=0
+  ( cd "$td" && ARCH_ARTIFACT="$td/ai/optimize/_architecture-decisions.md" \
+      LEDGER_PATH="$td/ai/optimize/ledger.md" FINDINGS_DIR="$td/ai/optimize/findings" \
+      FINAL_REPORT="$td/ai/optimize/final-report.md" bash "$me" >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: the GOOD fixture was rejected (exit $rc)" >&2
+    exit 1
+  fi
+
+  # A heading with nothing under it. This is the exact state the extractor bug reported for
+  # every file, so the BAD case pins that the check still fires when it is genuinely true.
+  grep -v 'Ran the duplicate-query detector' "$td/ai/optimize/_architecture-decisions.md" > "$td/bad.md"
+  mv "$td/bad.md" "$td/ai/optimize/_architecture-decisions.md"
+  rc=0
+  ( cd "$td" && ARCH_ARTIFACT="$td/ai/optimize/_architecture-decisions.md" \
+      LEDGER_PATH="$td/ai/optimize/ledger.md" FINDINGS_DIR="$td/ai/optimize/findings" \
+      FINAL_REPORT="$td/ai/optimize/final-report.md" bash "$me" >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: a Phase 0 evidence block that is heading-only was accepted" >&2
+    exit 1
+  fi
+
+  rm -rf "$td"
+  echo "validate-optimize-artifacts.sh --self-test OK"
+  exit 0
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --artifact=*)       ARCH_ARTIFACT="${1#*=}"; shift ;;
@@ -676,6 +758,7 @@ while [[ $# -gt 0 ]]; do
     --findings-dir=*)   FINDINGS_DIR="${1#*=}"; shift ;;
     --report=*)         FINAL_REPORT="${1#*=}"; shift ;;
     --coverage-baseline=*) COVERAGE_BASELINE="${1#*=}"; shift ;;
+    --self-test) run_optimize_self_test ;;
     --strict)           STRICT=1; shift ;;
     --quiet|-q)         QUIET=1; shift ;;
     --phase-base=*)     PHASE_BASE="${1#*=}"; shift ;;

@@ -77,6 +77,65 @@ STRICT=0
 QUIET=0
 
 # ── Args ────────────────────────────────────────────────────────────────────
+# ── --self-test ───────────────────────────────────────────────────────────────
+# A GOOD fixture that must pass and a BAD one that must fail, both under $repo_root/tmp/.
+#
+# Writing this one found the ledger-row extractor bug: it matched `^id: <id>$` while the
+# documented row is `  - id: F001` with indented fields, so the row was DISCOVERED and then
+# read as having no fields at all. See the note at check_ledger_row.
+run_migration_self_test() {
+  local td repo_root rc me
+  # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
+  # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"
+  me="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
+  mkdir -p "$repo_root/tmp"
+  td=$(mktemp -d "$repo_root/tmp/migration-selftest.XXXXXX")
+  mkdir -p "$td/ai/migration/contracts" "$td/src"
+  printf 'export function reportOrders() { return 1 }\n' > "$td/src/legacy.ts"
+  # Indented list form, exactly as migration-ledger.md specifies it.
+  cat > "$td/ai/migration/ledger.md" <<'FIX'
+# Migration ledger
+
+```yaml
+# ai/migration/ledger.md — features:
+  - id: F001
+    feature: report-orders
+    state: V1-only
+    phase: 1
+    owner: unassigned
+    v1_path: src/legacy.ts:1
+```
+FIX
+
+  rc=0
+  ( cd "$td" && bash "$me" --all >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -ne 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: the GOOD fixture was rejected (exit $rc)" >&2
+    exit 1
+  fi
+
+  # Advance the state without adding what that state requires. `in-progress` demands
+  # contract, plan and v1_commit_pinned — a row claiming progress it cannot evidence is
+  # precisely what the per-state field table exists to refuse.
+  sed 's/state: V1-only/state: in-progress/' "$td/ai/migration/ledger.md" > "$td/bad.md"
+  mv "$td/bad.md" "$td/ai/migration/ledger.md"
+  rc=0
+  ( cd "$td" && bash "$me" --all >/dev/null 2>&1 ) || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    rm -rf "$td"
+    echo "self-test FAIL: an in-progress row with no contract/plan/v1_commit_pinned was accepted" >&2
+    exit 1
+  fi
+
+  rm -rf "$td"
+  echo "validate-migration-artifacts.sh --self-test OK"
+  exit 0
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --phase=*)   PHASE="${1#--phase=}"; shift ;;
@@ -84,6 +143,7 @@ while [[ $# -gt 0 ]]; do
     --all)       SCAN_ALL=1; shift ;;
     --strict)    STRICT=1; shift ;;
     --quiet)     QUIET=1; shift ;;
+    --self-test) run_migration_self_test ;;
     -h|--help)
       grep -E '^#' "$0" | sed 's/^# //; s/^#//'
       exit 0
@@ -2948,10 +3008,29 @@ check_ledger_row() {
   local id="$1"; local feature="$2"; local status="$3"
   # Check that minimum required fields exist in the ledger row for this id
   local ledger_block
+  # 🔴 THE ROW IS A YAML LIST ITEM, SO PARSE ONE.
+  #
+  # This matched `^id: <id>$` — no leading whitespace, no `- ` marker — while the format
+  # migration-ledger.md specifies is `  - id: F001` with the fields indented beneath it.
+  # Discovery upstream already handles that shape, so the row WAS found; only its body was
+  # invisible here. Every field then read as absent and the row failed with "missing
+  # required fields for status=V1-only: feature" — naming a field sitting in the file two
+  # lines below the id it had just matched.
+  #
+  # Two checks disagreeing about one file's format is worse than either being wrong: the
+  # row is real enough to report and not real enough to pass. Indented list form and bare
+  # `id:` are both accepted now, fields are normalised to column 1 for the `^field:` greps
+  # below, and the block ends at the fence OR at the next row — so a later row's fields
+  # cannot satisfy this one's requirements. Found by writing this file's first --self-test.
   ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
+    $0 ~ ("^[[:space:]]*-?[[:space:]]*id:[[:space:]]*" id "[[:space:]]*$") {
+      in_block=1; line=$0; sub(/^[[:space:]]*-?[[:space:]]*/, "", line); print line; next
+    }
+    in_block {
+      if ($0 ~ /^[[:space:]]*```/) exit
+      if ($0 ~ /^[[:space:]]*-[[:space:]]*id:/) exit
+      line=$0; sub(/^[[:space:]]*/, "", line); print line
+    }
   ' "$LEDGER_PATH")
   local required_for_state=()
   case "$status" in
