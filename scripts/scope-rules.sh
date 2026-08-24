@@ -17,17 +17,34 @@ set -uo pipefail
 target="${1:?usage: scope-rules.sh <file|dir> <glob[,glob...]>}"
 globs="${2:?usage: scope-rules.sh <file|dir> <glob[,glob...]>}"
 
-# Build a YAML flow-seq: paths: ["a/**", "b/**"]
-yaml_arr() {
-  local out="" g
+# 🔴 BLOCK LIST, NOT FLOW SEQUENCE. THE HOOK CAN ONLY READ ONE OF THEM.
+#
+# This wrote `paths: ["a/**", "b/**"]`. The consumer — inject-path-rules.sh `rule_globs()` —
+# walks the frontmatter for `^paths:` and then reads the `- item` lines beneath it. Given a
+# flow sequence it finds the key, finds no `- ` lines, and returns NOTHING.
+#
+# 📏 A rule scoped by this script therefore loaded NEVER. wire-rule-imports.sh sees the
+# `paths:` key and correctly drops it from the CLAUDE.md always-loaded imports; the hook then
+# cannot match it, so it is never injected either. Both tiers disown it and the file sits on
+# disk looking configured. Measured on a fixture: `scope-rules.sh … "**/payment*/**"` then
+# rule_globs → 0 globs.
+#
+# What makes it worse than a normal bug is WHOSE advice it is. wire-rule-imports.sh prints
+# this exact command as the remedy when a rule will not fit the budget, and audit-setup.sh
+# repeats it. Anyone who followed the framework's own instruction silently deleted the rule
+# they were trying to keep — and the audit's own note about the path-scoped tier being "dead"
+# was written about the hook not being registered. It was registered. This was the other half.
+#
+# The nine scoped rules on the live projects are all block form, written by project
+# generation rather than by this script, which is why the breakage never surfaced there.
+yaml_block() {
+  local g
   IFS=',' read -ra parts <<< "$1"
   for g in "${parts[@]}"; do
     g="$(echo "$g" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
     [ -z "$g" ] && continue
-    [ -n "$out" ] && out="$out, "
-    out="$out\"$g\""
+    printf '  - "%s"\n' "$g"
   done
-  echo "[$out]"
 }
 
 inject() {
@@ -39,10 +56,11 @@ inject() {
   awk '/^---$/{c++; next} c==1 && /^paths:/{found=1} c==2{exit} END{exit !found}' "$f" \
     && { echo "skip (already scoped): $f" >&2; return 0; }
 
-  local arr; arr="$(yaml_arr "$globs")"
-  # Insert `paths:` right after the opening `---`.
-  awk -v line="paths: $arr" 'NR==1{print; print line; next} {print}' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-  echo "scoped: $f -> paths: $arr" >&2
+  local blk; blk="$(yaml_block "$globs")"
+  [ -z "$blk" ] && { echo "skip (no usable globs): $f" >&2; return 0; }
+  # Insert `paths:` plus its block list right after the opening `---`.
+  { head -n1 "$f"; printf 'paths:\n'; printf '%s\n' "$blk"; tail -n +2 "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
+  echo "scoped: $f -> paths: $(printf '%s' "$globs")" >&2
 }
 
 if [ -d "$target" ]; then

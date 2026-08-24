@@ -160,6 +160,51 @@ if [ -f "$AUDIT" ]; then
   fi
 fi
 
+# ── § 2b  scope-rules.sh WRITES what inject-path-rules.sh READS ─────────────────────────
+# The producer/consumer round trip, asserted as one property, because the two halves lived in
+# different files and disagreed for as long as both have existed.
+#
+# scope-rules.sh wrote a YAML FLOW SEQUENCE — `paths: ["a/**", "b/**"]`. rule_globs() in
+# inject-path-rules.sh finds `^paths:` and then reads the `- item` lines beneath it, so on a
+# flow sequence it returned NOTHING. wire-rule-imports.sh still saw the `paths:` key and
+# correctly dropped the rule from CLAUDE.md, and the hook could not match it, so the rule
+# loaded NEVER — both tiers disowned it while the file sat on disk looking configured.
+#
+# And it is the framework's OWN advice: wire-rule-imports.sh prints this command as the remedy
+# for an over-budget rule, and audit-setup.sh repeats it. Following the instruction deleted the
+# rule you were trying to keep.
+say ""
+say "§ 2b scope-rules.sh output is readable by inject-path-rules.sh"
+SCOPE="${SCOPE_OVERRIDE:-$REPO_ROOT/scripts/scope-rules.sh}"
+HOOK_SRC="$REPO_ROOT/templates/repo-baseline/.claude/hooks/inject-path-rules.sh"
+if [ -f "$SCOPE" ] && [ -f "$HOOK_SRC" ]; then
+  R2C="$TD/roundtrip"; mkdir -p "$R2C/.claude/rules"
+  printf -- '---\nname: demo\nkind: rule\n---\n\n# Demo\n\nBody.\n' > "$R2C/.claude/rules/demo.md"
+  ( cd "$R2C" && bash "$SCOPE" .claude/rules/demo.md "**/payment*/**,**/billing/**" ) >/dev/null 2>&1 || true
+
+  # rule_globs(), lifted from the hook so the test reads what the hook reads — not a copy
+  # of it that can drift into agreeing with the writer.
+  FNG="$(awk '/^rule_globs\(\) \{$/{f=1} f{print} f&&/^\}$/{exit}' "$HOOK_SRC")"
+  if [ -z "$FNG" ]; then
+    bad "§2b rule_globs() not found in inject-path-rules.sh" "did it get renamed?"
+  else
+    eval "$FNG"
+    got="$(rule_globs "$R2C/.claude/rules/demo.md" | tr '\n' ' ')"
+    if printf '%s' "$got" | grep -q 'payment' && printf '%s' "$got" | grep -q 'billing'; then
+      ok "§2b the hook reads back both globs scope-rules.sh wrote"
+    else
+      bad "§2b the hook cannot read what scope-rules.sh wrote" \
+          "rule_globs returned: [${got}] — a scoped rule that no glob matches loads NEVER"
+    fi
+  fi
+  # and the budget side must still treat it as scoped, or it would be double-counted
+  if grep -qE '^paths:' "$R2C/.claude/rules/demo.md"; then
+    ok "§2b the frontmatter still declares paths: (budget side sees it as scoped)"
+  else
+    bad "§2b the frontmatter lost its paths: key" ""
+  fi
+fi
+
 # ── § 3  the path-scoped tier is made LIVE, not just recommended ─────────────────────────
 say "§ 3  scoping a rule wires the hook that loads it"
 R3="$TD/scoped"; seed_target "$R3"
