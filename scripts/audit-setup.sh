@@ -1476,6 +1476,36 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
     if [[ -n "$recorded" ]]; then
       n=$(printf '%s' "$recorded" | wc -w | tr -d ' ')
       warn_msg "$n always-tier rule(s) do NOT load, by recorded decision in .claude/rules/_unloaded.md (over the always-loaded token budget):$recorded. Not a failure — the refusal is written where a reader will find it, with the per-turn cost. To make one load: scope-rules.sh (free until matched) or wire-rule-imports.sh --budget=N."
+
+    # 🔴 "RECORDED" IS NOT "REACHABLE".
+    #
+    # The branch above downgrades an unimported rule to a WARN when `_unloaded.md` records
+    # it — an owned decision rather than an oversight, which is right as far as it goes. But
+    # the ledger's OWN remedy is `scope-rules.sh`, and nothing ever checked whether anyone
+    # ran it. A rule that is recorded AND unscoped is still delivered on no turn: not in
+    # CLAUDE.md, and carrying no `paths:` for the hook to match. The record documents the
+    # loss; it does not undo it.
+    #
+    # 📏 MEASURED on capsolah-api: 14 of 36 rules in exactly that state — 34,773 tok
+    # including backend-principles, security-principles and testing-principles, on a backend
+    # project — every one of them dutifully listed in `_unloaded.md`, and the audit's only
+    # comment was a WARN saying the decision was recorded. tenant-portal: 4 of 17, including
+    # frontend-principles, on a frontend project.
+    #
+    # So this asks the question the two tiers between them never asked: CAN THIS RULE ARRIVE
+    # AT ALL? An ERR, because the answer is no and there is a one-command fix.
+    unreachable=""
+    for ru in $recorded; do
+      rf="$TARGET/.claude/rules/$ru"
+      [[ -f "$rf" ]] || continue
+      if ! awk 'NR==1{next} /^---[[:space:]]*$/{exit} {print}' "$rf" 2>/dev/null | grep -qE '^(paths|globs):'; then
+        unreachable="$unreachable $ru"
+      fi
+    done
+    if [[ -n "$unreachable" ]]; then
+      n=$(printf '%s' "$unreachable" | wc -w | tr -d ' ')
+      err "$n rule(s) are UNREACHABLE — not imported by CLAUDE.md and carrying no \`paths:\`, so they are delivered on NO turn: $(printf '%s' "$unreachable" | cut -c1-140). Being recorded in _unloaded.md documents the loss, it does not undo it. Fix: $SCRIPTS_DIR/scope-domain-rules.sh \"$TARGET\" --apply && $SCRIPTS_DIR/wire-rule-imports.sh \"$TARGET\" --apply"
+    fi
     fi
   elif [[ "$rule_always" -gt 0 ]]; then
     ok "$rule_always always-tier rule(s) imported by CLAUDE.md; $rule_scoped path-scoped"

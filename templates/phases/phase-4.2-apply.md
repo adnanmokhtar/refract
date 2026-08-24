@@ -264,6 +264,31 @@ if [ "<is-multi-track>" = "true" ]; then
   done
 fi
 
+# 🔴 UNCONDITIONAL, AND DETERMINISTIC. The block above is neither, and that cost two repos
+# every rule that did not fit the budget.
+#
+# It runs only when `is_multi_track: true`, it covers only PACK rules, and the halt this file
+# demands when the key is ABSENT is an instruction to an agent rather than a check in a
+# script. MEASURED on capsolah-api: the profile carries no `is_multi_track`, no `repo_shape`
+# and no `track_roots`, so the condition was never true, the halt never fired, and the step
+# was skipped in silence. 14 of 36 installed rules — 34,773 tok including
+# backend-principles, security-principles and testing-principles — ended up delivered on NO
+# turn: over the always-loaded budget, and carrying no `paths:` for the hook to match.
+# tenant-portal: 4 of 17, including frontend-principles.
+#
+# So the routing runs every time, from a script that decides for itself. It refuses to guess:
+# a domain whose modules it cannot find, or one spanning >40% of the map, stays always-loaded.
+# Its second pass gives a route to any rule that has none — because for those the alternative
+# is not "a narrower glob", it is "never".
+~/.claude/scripts/scope-domain-rules.sh . --apply 2>&1 | tail -20
+
+# Re-wire AFTER scoping: CLAUDE.md must drop what is now path-scoped, and the freed budget
+# buys the next rules in the queue.
+~/.claude/scripts/wire-rule-imports.sh . --apply 2>&1 | tail -5
+
+# Audit C2u now ERRs on any rule that is neither imported nor scoped, so a regression here
+# fails the run rather than going quiet again.
+
 # Copy ai-patterns INTO ai/patterns (renamed destination)
 mkdir -p ai/patterns
 cp -R ~/.claude/templates/packs/<track>/ai-patterns/*.md ai/patterns/ 2>/dev/null || true
