@@ -126,6 +126,19 @@ fi
 if [ -f "$AUDIT" ]; then
   a2=$(bash "$AUDIT" "$R2" --read-only 2>&1 || true)
   c2u=$(printf '%s\n' "$a2" | sed -n '/^C2u:/,/^$/p')
+  # A TEST THAT CANNOT SAY WHY IT FAILED IS HALF A TEST.
+  #
+  # When this suite failed on CI and passed locally, the report was
+  #     FAIL §2 C2u reports it as a WARN naming the ledger
+  # with no detail line — because the detail is `head -4` of $c2u and $c2u was EMPTY.
+  # That emptiness IS the finding (the audit never reached C2u at all), and it was the one
+  # thing the output did not say. Diagnosing it took a log fetch and a guess; it should have
+  # taken reading the failure. So: if the section is missing, say the section is missing, and
+  # show where the audit actually stopped.
+  if [ -z "$c2u" ]; then
+    bad "§2 the audit never emitted a C2u: section" \
+        "audit ended at: $(printf '%s\n' "$a2" | grep -vE '^[[:space:]]*$' | tail -3 | tr '\n' ' | ' | cut -c1-220)"
+  fi
   if printf '%s' "$c2u" | grep -q 'ERR .*NOT imported'; then
     bad "§2 C2u does not ERR on a recorded refusal" "$(printf '%s' "$c2u" | grep 'ERR' | head -1)"
   else

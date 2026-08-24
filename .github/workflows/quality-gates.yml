@@ -14,7 +14,14 @@ jobs:
   gates:
     runs-on: ubuntu-latest
     steps:
+      # FULL history, not the default shallow depth-1 clone. merge-decide.py's provenance
+      # corpus answers "did the packs ever write this line?" by reading every *.md at every
+      # commit — 5,485 blobs across 347 commits. With one commit available it cannot answer
+      # that question, and the checks built on it behave differently here than on any
+      # developer's machine, which is the one thing CI must never do.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # ---- BLOCKING gates (green today; keep them green) ----
       # FIRST, because a workflow that does not parse runs NOTHING and says so only through a
