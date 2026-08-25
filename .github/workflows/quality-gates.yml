@@ -260,6 +260,16 @@ jobs:
       - name: Figure stats (numbers drawn into the SVGs match disk)
         run: bash scripts/verify-figure-stats.sh
 
+      # The plugin manifest, which is the one file a plugin directory quotes back to users
+      # verbatim — and the only public count in this repo that no gate read. Every neighbour
+      # in the same sentence stayed correct because every neighbour also appears somewhere
+      # README or SVG gates look; "68 scripts" drifted 22 behind and was found during the
+      # plugin-directory pre-submission audit, on its way out the door. Checks the counts and
+      # also that every `/command` the description enumerates still resolves — a count alone
+      # survives a rename, so the advertised surface is verified by name too.
+      - name: Plugin manifest (advertised figures + command names match disk)
+        run: bash scripts/verify-plugin-manifest.sh
+
       # Three regression suites that existed and that nothing ran. All three pass today, which
       # is exactly why they belong here: a green suite nobody executes stays green by accident
       # until the day it does not, and then reports nothing. Same empty dispatch as a validator

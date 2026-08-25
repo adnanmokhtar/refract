@@ -1,0 +1,5 @@
+{
+  "name": "fx",
+  "description": "Ships the 2 global orchestration commands (/alpha) plus 2 role-based packs, 1 technical domains, 1 business domains, 1 tool adapters, 1 scripts.",
+  "version": "1.0.0"
+}
