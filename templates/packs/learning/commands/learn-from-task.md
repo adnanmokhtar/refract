@@ -105,6 +105,8 @@ This command produces knowledge entries, not code.
 
 7. If the task surfaced a drift between code and convention: append to `ai/dynamic/drift-log.md`.
 
+7b. If a project term was used in a sense its plain reading would get wrong — or two terms that look like synonyms turned out to differ — append to `ai/dynamic/vocabulary.md`: the term, the meaning it carries **here**, the reading it is NOT, and a `<file:line>` where it appears. Increment `Seen:` if the term is already listed. Do NOT log every domain noun; the entity table in `ai/core/glossary.md` already holds those. The curator promotes at 2 independent sightings.
+
 8. Append a one-line summary to `ai/dynamic/changelog.md`.
 
 ## Phase 6 — Validate (verify correctness)

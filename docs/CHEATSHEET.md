@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**194 commands** — core 15 · 23 packs (133) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**195 commands** — core 15 · 23 packs (134) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -30,7 +30,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — mobile](#pack--mobile) — 4
 - [Pack — observability](#pack--observability) — 4
 - [Pack — performance](#pack--performance) — 3
-- [Pack — product](#pack--product) — 4
+- [Pack — product](#pack--product) — 5
 - [Pack — security](#pack--security) — 4
 - [Pack — testing](#pack--testing) — 4
 - [Pack — ui-ux](#pack--ui-ux) — 10
@@ -48,7 +48,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/optimize` | Diagnose architecture first, then sweep code quality and measured performance. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/optimize the orders module` |
 | `/polish` | Introduce finish the project does not have yet, on the axis its PROJECT_KIND dictates. | `--plan`, `--direction`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--no-iterate`, `--surface-blockers`, `--stack=<override>` | `/polish the orders module` |
 | `/refactor` | Apply the closed Fowler verb set to ONE named file, module, or symbol. | `--plan`, `--dry-run`, `--allow-dirty`, `--status`, `--resume`, `--strict`, `--quiet`, `--phase-base=<git-ref>`, `--ledger=<path>` | `/refactor [<scope>]` |
-| `/refine-prompt` | Turn a rough idea, one-liner, or ticket into an execution-ready prompt file. | — | `/refine-prompt "<rough idea>"` |
+| `/refine-prompt` | Turn a rough idea, one-liner, or ticket into an execution-ready prompt file. | `--interview` | `/refine-prompt "<rough idea>"` |
 | `/roadmap` | Map what is INTENDED but not yet built, then phase the build order. | `--goal`, `--build`, `--status`, `--refresh`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--no-table-stakes` | `/roadmap the payments domain` |
 | `/scaffold-project` | Generate a working codebase from nothing, up to a booting dev server. | `--name=<repo-name>`, `--into=<path>`, `--stack=<key>`, `--no-claude-orchestration`, `--no-prompt`, `--dry-run` | `/scaffold-project "<idea-or-refined-spec-path>"` |
 | `/setup-project` | Install or refresh the Claude orchestration layer for a repo. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --upgrade` |
@@ -271,6 +271,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/define-success` | Define what success and damage look like before a change ships — the success metric with a baseline… | — | `/define-success [<change or feature>]` |
 | `/frame-problem` | Produce the problem brief before anyone designs a solution — who has it, what evidence says so… | — | `/frame-problem [<problem or feature request>]` |
 | `/synthesize-research` | Turn raw research material — interview notes, support tickets, session recordings, sales notes… | — | `/synthesize-research [<corpus or path>]` |
+| `/to-questionnaire` | Turn the decisions you cannot make alone into a questionnaire for the person who can — each… | — | `/to-questionnaire [<decision, or path to a brief / interview ledger>]` |
 
 ## Pack — security
 

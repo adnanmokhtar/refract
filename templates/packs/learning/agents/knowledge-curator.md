@@ -83,6 +83,15 @@ For each entry in `ai/dynamic/feedback-learned.md` with `Repeated >= 2`:
 - On approval: insert into rule, mark feedback entry `PROMOTED → <rule path>`.
 - Cross-write to `~/.claude/projects/<project>/memory/feedback_*.md` if not already there.
 
+### 3b. Promote vocabulary
+
+For each entry in `ai/dynamic/vocabulary.md` with `Seen: >= 2` across **independent** sightings (different files, or different sessions — the same line counted twice is one sighting) and at least one `<file:line>` citation:
+- Confirm the citation still resolves and the term still carries that meaning; a term the code has since renamed is stale, not promotable.
+- Add it to `ai/core/glossary.md § Vocabulary distinctions (don't conflate)` as **`<Term>`** vs the reading it is NOT — that section's existing shape, not a new heading.
+- If the term names an entity rather than a distinction, it belongs in that file's `## Core entities` table instead; route it there.
+- Mark the sink entry `PROMOTED → ai/core/glossary.md`.
+- **HALT** on a term with no citation, or with one sighting — surface as `STILL WATCHING`. A glossary that accumulates remembered terms is worse than one that lags, because every agent reads it as ground truth.
+
 ### 4. Resolve drift
 
 For each entry in `ai/dynamic/drift-log.md` with status `OPEN`:

@@ -6,6 +6,31 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.2.0 — 2026-08-26
+
+**The pack could interrogate the person in the room, and had nothing for the one who is not.**
+
+- **NEW `/to-questionnaire`.** Every upstream artifact in this pack terminates in unknowns it cannot
+  close: `/frame-problem` labels claims `assumption`, `assumption-ledger` ranks `fatal × high` rows,
+  and `templates/snippets/interview-loop.md` closes what the user in the session can answer and marks
+  the rest `DEFERRED(<owner>)`. Nothing carried that residue to the named owner. Grepping the whole
+  command surface for a question-packaging capability returned one hit, and it was the word used as a
+  pejorative inside `/add-endpoint`. The blocked artifact therefore kept its open questions
+  indefinitely, which is indistinguishable, to every later reader, from an unknown nobody had looked
+  at. The command writes `ai/product/questions/<date>-<slug>.md` and writes pointers back into the
+  blocked artifact, so an out-for-answer question stops reading as an untouched one.
+- **Three halts, because a questionnaire fails in three predictable ways.** Recipient named as a group
+  (nobody answers), more than ten questions (skimmed, then answered in one useless line), and a
+  question the repository already answers (Phase 3 drops it and reports the count). The third is the
+  cheapest output the command produces.
+- **Every question carries a default that fires on the deadline.** A questionnaire without defaults
+  converts one blocked decision into an indefinite wait, and the wait is then blamed on the
+  recipient. A fired default is appended to `ai/product/assumptions.md`, because a default that fired
+  is an assumption the project is now carrying and it needs an expiry like any other row there.
+- **Not essential-tier.** It presumes a blocked artifact AND a named person outside the session;
+  `--minimal` can assume neither, so it ships in standard mode alongside `/synthesize-research` and
+  `/define-success`.
+
 ## 1.1.0 — 2026-08-23
 
 **The best-written pack in the batch, and four fifths of it never reached a project.**

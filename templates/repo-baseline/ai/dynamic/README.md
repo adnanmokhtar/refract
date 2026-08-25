@@ -11,6 +11,7 @@ Session-scoped state — the parts of the knowledge base that change between ses
 - `interaction-log.md` — high-level summary of completed AI-assisted tasks.
 - `feedback-learned.md` — user corrections taken (project-scoped mirror of global feedback memory).
 - `decisions-pending.md` — informal decisions waiting to graduate to formal ADRs.
+- `vocabulary.md` — project terms whose meaning is not the obvious one; promoted to `ai/core/glossary.md` at 2 independent sightings.
 
 ### Session-driven (seeded + appended)
 

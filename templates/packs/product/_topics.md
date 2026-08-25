@@ -110,6 +110,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [understand, organize, retrieve, generate, update, validate]
   fallback: commands/define-success.md
 
+- name: to-questionnaire
+  kind: command
+  triggers: { always: true }
+  extracts_from: ai/core/glossary.md (the recipient's vocabulary) + ai/product/briefs/ + ai/product/assumptions.md (the ranked unknowns worth sending) + ai/decisions/ (questions already settled)
+  sections: [understand, organize, retrieve, generate, update]
+  fallback: commands/to-questionnaire.md
+
 - name: acceptance-criteria-check
   kind: skill
   triggers: { always: true }

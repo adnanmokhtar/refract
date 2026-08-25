@@ -1,6 +1,6 @@
 ---
 description: Turn a rough idea, one-liner, or ticket into an execution-ready prompt file. Names the command to run it next, and is output-only by contract — it writes the prompt, never executes it. Trigger on 'refine this prompt', 'turn this one-liner into a proper brief before I run it', or when a richer input is wanted ahead of /scaffold-project or /audit. Do NOT trigger merely because a request is vague; vagueness alone routes to /do. Not when a spec already exists, not for a tracker ref (/task).
-compatibility: Writes one file under ai/, so it is the wrong command for a sensitive idea that must stay off disk — refine those in conversation instead. Runs in any repo including an empty one, since the new-project class hands off to /scaffold-project. Names a target command but never invokes it, and stops at one confirmation gate.
+compatibility: Writes one file under ai/, so it is the wrong command for a sensitive idea that must stay off disk — refine those in conversation instead. Runs in any repo including an empty one, since the new-project class hands off to /scaffold-project. Names a target command but never invokes it, and stops at one confirmation gate — `--interview` is the sole exception, adding question rounds before the draft.
 kind: command
 pack: orchestration
 ---
@@ -11,6 +11,8 @@ Turn a vague ask into a **deep, execution-ready prompt** that any specialized co
 
 **Output-only by contract.** This command produces a prompt; it never executes it. It tells you which command to feed the prompt to and stops. (If you want routing + execution from a raw description, that's `/do`. If you want a prompt artifact you can read, refine, and trigger yourself, that's this command.)
 
+**`--interview` closes the unknowns instead of listing them.** By default this command *records* what it could not determine into `## Open questions` and hands them to whoever runs the prompt next. With `--interview`, it asks you those questions first (Phase 3.6) and drafts from your answers, so the `Run:` line is backed by decisions rather than by placeholders. Use it when you are the person who can answer; skip it when you are not.
+
 **Universal by design.** Unlike a single-template spec generator, this command detects the **task class** (Phase 1) and selects the matching **prompt contract** (Phase 2). A frontend-feature prompt carries surfaces / states / a11y / tokens; a backend-endpoint prompt carries the request/response contract / auth / idempotency; an audit prompt carries axes + target metrics. The new-project domain spec is one class among many — not the only shape.
 
 ## When to use
@@ -18,6 +20,7 @@ Turn a vague ask into a **deep, execution-ready prompt** that any specialized co
 - You have a one-liner ("add a refund button", "the order list crashes", "audit security") and want a *deep* prompt before committing to the work.
 - You want to read / edit / version a prompt before running it — not fire-and-route like `/do`.
 - A stakeholder dropped an idea and you want a refined, execution-ready brief back.
+- You want the unknowns **resolved now** rather than logged for later — add `--interview` and answer them in place.
 - You're about to run a heavy command (`/scaffold-project`, `/audit`, `/migrate`) and want a richer input than a sentence.
 
 ## When NOT to use
@@ -35,10 +38,11 @@ All 7, with **one final confirmation gate**:
 1. Phase 1 — Understand (classify the task)
 2. Phase 2 — Organize (pick the prompt contract + target command)
 3. Phase 3 — Retrieve (read project context)
-4. **Phase 4 — Draft + refine + sweep (single cycle, internal iteration, one user gate: "Ready to run?")**
-5. Phase 5 — Update / save
-6. Phase 6 — Validate
-7. Phase 7 — Improve
+4. Phase 3.6 — Interview (**only with `--interview`**; question rounds that close the unknowns before drafting)
+5. **Phase 4 — Draft + refine + sweep (single cycle, internal iteration, one user gate: "Ready to run?")**
+6. Phase 5 — Update / save
+7. Phase 6 — Validate
+8. Phase 7 — Improve
 
 ## Phase 1 — Understand (classify the task)
 
@@ -98,6 +102,23 @@ Graceful-fallback reads — skip any that are absent (e.g. empty directory):
 
 For the `new-project` class, domain framework depth (B2C / B2B / marketplace / real-time) comes from the inline weighting in Phase 4 — no external template file required.
 
+## Phase 3.6 — Interview (only when `--interview` is set; otherwise skip)
+
+> Without the flag this phase does not exist: proceed from Phase 3 straight to Phase 4 and let the
+> unknowns land in `## Open questions` as usual.
+
+Run the canonical loop in [`templates/snippets/interview-loop.md`](../templates/snippets/interview-loop.md) — read first, ask only the residue, one branch ledger, stop at zero `OPEN`.
+
+Command-specific bindings for that loop:
+
+- **The branch set** is the union of (a) every `<placeholder>` the Phase 2 prompt contract requires for this class, and (b) every hedge the draft would otherwise bury inline. Derive it from the class row's *"what the contract needs"* column, not from the topic at large.
+- **The consequence** each question must name is a **section of the prompt file** — `## Scope — IN`, `## Constraints`, `## Pinned contracts`, an acceptance criterion, a class block field. A question that cannot name one is deleted before it is asked.
+- **Already answered by Phase 3 is not a question.** `_extracted-idioms.md`, `.claude/commands/`, and `ai/decisions/` were just read; asking what they state is the loop's step-1 halt.
+- **`DEFERRED` survives into the artifact.** Those rows, and only those, become `## Open questions`, each naming who closes it.
+
+This phase adds user turns, which is why it is opt-in: it trades the single Phase 4 gate for a bounded
+set of rounds. It never executes anything, and `--no-prompt` disables it (there is no one to ask).
+
 ## Phase 4 — Draft + refine + sweep (single cycle)
 
 Run draft → deep refine → adversarial sweep as **one internal cycle**. No inter-stage user pause; iterate silently, then surface ONE final gate.
@@ -139,7 +160,7 @@ Every refined prompt — regardless of class — opens with the **universal core
 - <how to confirm it works: `/verify <route>`, the exact tests to run, lint + typecheck clean>
 - <RTL / dark-mode / locale checks when relevant>
 
-## Open questions (forced — at least 3)
+## Open questions (forced — at least 3; with `--interview`, the DEFERRED rows only, and zero is valid)
 - <unknown 1 — harvest every "verify / likely / if X" hedge from the body into here>
 - <unknown 2>
 - <unknown 3>
@@ -257,7 +278,7 @@ Universal checks (every class):
 - Scope IN and Scope OUT both non-empty (forces an explicit boundary).
 - ≥1 acceptance criterion, each in given/when/then form and traceable to a scope-IN item.
 - Verification & done section names a concrete check (a `/verify` route, the tests, lint + typecheck).
-- Open questions ≥3 (forces honesty about unknowns); no inline hedge ("verify…/likely…/if X") left buried in the body.
+- Open questions ≥3 (forces honesty about unknowns); no inline hedge ("verify…/likely…/if X") left buried in the body. **Under `--interview` the floor is lifted**: the check becomes "every row is a `DEFERRED` branch carrying its owner, and no `CLOSED` branch was re-listed as open" — re-listing an answered question misreports a settled decision as an unknown.
 - Constraints reference real idioms when inside a project (no invented APIs / wrappers).
 - A pinned external contract (if any) carries the explicit "STOP and report, do not change it" rule.
 - `Run:` line names a command that **exists** in this project (or a stated fallback).
@@ -329,11 +350,12 @@ Run: /<cmd> ai/prompts/<date>-<slug>.md
 
 - **Output-only.** Produce the prompt, save it, print the `Run:` line, stop. Never execute the target command. (Execution is `/do` / `/task`.)
 - **Classify first.** Phase 1 assigns exactly one task class; Phase 2 maps it to a target command + prompt contract. A class-less prompt is a generic prompt routed to `/do`, never a fabricated wrong class.
-- **One final confirmation gate ("Ready to run?").** Draft / deep refine / sweep iterate internally without inter-stage pauses. `--no-prompt` is the only skip, and it is logged.
+- **One final confirmation gate ("Ready to run?").** Draft / deep refine / sweep iterate internally without inter-stage pauses. `--no-prompt` is the only skip, and it is logged. `--interview` is the only *addition*: its rounds run in Phase 3.6, before drafting begins, and the final gate still fires once afterwards.
 - **Deep refine fans out to parallel specialists (medium/heavy weight).** Independent sub-agents dispatched in one message; the adversarial reconcile sharpens open questions. Light weight stays single-pass inline. Silent — discipline internal, output brief.
 - **Opus reasons, Sonnet drafts.** Drafting specialists on `sonnet`; the adversarial reconcile on `opus`. Pass `model` explicitly; overrides hold under `opusplan`.
 - **Execution-ready, not implementation-prescriptive.** The prompt states *what* and *acceptance*, grounded in real idioms — it does not write the diff. The target command writes the code.
-- **Adversarial questioning, not stenography.** Surface contradictions; don't smooth them over. Open questions are mandatory (≥3).
+- **Adversarial questioning, not stenography.** Surface contradictions; don't smooth them over. Open questions are mandatory (≥3) — **except under `--interview`**, where a question that was asked and answered is not an open question; the floor is replaced by the ledger's `DEFERRED` set, which may legitimately be empty.
+- **Never answer for the user.** Under `--interview`, a branch the user did not close is `DEFERRED`, never `CLOSED`. Silence is not assent and an unconfirmed "I'll assume X" is not an answer — drafting as though it were turns a guess into a pinned contract.
 - **Ground in reality.** Every referenced idiom, wrapper, module, file, **and code snippet** must trace to something real (per `_extracted-idioms.md` / `.claude/commands/` / the actual file). Unknowns become open questions; a code shape you can't confirm gets one placeholder + a `// confirm against <file>` note — never an invented or doubly-guessed shape.
 - **Output integrity is non-negotiable.** The reconcile pass fixes corruption artifacts (doubled punctuation, stray/truncated tokens, duplicated lines), enforces one consistent spelling per identifier, and harvests buried inline hedges into Open questions before ship. Phase 6 asserts none survived. A strong prompt is clean prompt — these are bugs, not style.
 - **Pin what's off-limits.** When the task names a live external contract (API / schema / public interface), the prompt must state "do NOT change it → STOP and report" explicitly.

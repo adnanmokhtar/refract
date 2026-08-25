@@ -11,7 +11,7 @@ native format of every AI coding tool on your machine.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tools](https://img.shields.io/badge/tools-12-blue.svg)](#supported-tools)
 [![Packs](https://img.shields.io/badge/packs-23-blueviolet.svg)](#whats-inside)
-[![Commands](https://img.shields.io/badge/commands-148-orange.svg)](#the-commands)
+[![Commands](https://img.shields.io/badge/commands-149-orange.svg)](#the-commands)
 [![quality-gates](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml)
 
 </div>
@@ -167,7 +167,7 @@ path or a plain-English description of the area you mean.
 | `/setup-project-adapters` | Re-sync tool adapters for the current repository. |
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
 
-Another 133 commands ship inside the packs and install per-project when their pack is selected.
+Another 134 commands ship inside the packs and install per-project when their pack is selected.
 
 **Every command supports `--plan`**, which is where this gets economical: plan on a strong model,
 execute on a cheap one.
@@ -214,7 +214,7 @@ re-verify rather than silently shipping a broken translation.
 | **23 packs** | Role-based knowledge tracks, not framework tracks |
 | **88 agents** | Specialised reviewers and architects |
 | **115 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **148 commands** | 15 global + 133 pack-level |
+| **149 commands** | 15 global + 134 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
 | **90 scripts** | Validators, linters, sync, search and audit tooling |

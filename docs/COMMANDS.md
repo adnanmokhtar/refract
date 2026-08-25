@@ -253,6 +253,8 @@ Full contract: [`commands/refine-prompt.md`](../commands/refine-prompt.md).
 
 Take any rough idea / one-liner / ticket and produce a **deep, execution-ready prompt** tailored to the detected **task class** — then name the exact command to run it. **Output-only**: it writes the prompt and prints the `Run:` line; it never executes (that is `/do`). Adversarial — forces ≥3 open questions and grounds every referenced idiom in `_extracted-idioms.md` instead of inventing APIs.
 
+**`--interview`** flips that default. Instead of *recording* the unknowns for whoever runs the prompt next, Phase 3.6 **asks you** them in rounds of ≤4 and drafts from your answers, following [`templates/snippets/interview-loop.md`](../templates/snippets/interview-loop.md): read first so nothing already in `_extracted-idioms.md` / `ai/decisions/` is asked, every question names the prompt section its answer changes, and the loop stops when no branch is still `OPEN`. Under the flag the ≥3 floor is lifted — only branches you explicitly deferred remain as open questions, each naming who closes it, and zero is a valid count. It never answers on your behalf: a branch you did not close is `DEFERRED`, never `CLOSED`. `--no-prompt` disables it (there is nobody to ask).
+
 ```
 /refine-prompt "add a product filter sidebar"     # → frontend-feature → /add-feature
 /refine-prompt "the order list crashes on empty"  # → bugfix → /fix-bug
@@ -260,6 +262,7 @@ Take any rough idea / one-liner / ticket and produce a **deep, execution-ready p
 /refine-prompt "a booking tool for barbers"        # → new-project → /scaffold-project
 /refine-prompt -                                    # read the idea from stdin
 /refine-prompt "…" --no-prompt                      # skip the final "Ready to run?" gate (logged)
+/refine-prompt "add a refund button" --interview     # ask the unknowns now; draft from the answers
 ```
 
 **Phase 1 classifies** the task into one of 15 classes (`frontend-feature`, `backend-endpoint`, `module`, `bugfix`, `audit-multi`, `audit-focused`, `optimize`, `refactor`, `align`, `unify-surfaces`, `polish`, `migrate`, `migrate-spot`, `spec`, `new-project`) plus a `generic` fallback. **Phase 2** maps the class to its target command and prompt contract. Every prompt carries a universal core (Objective / Context / Scope IN+OUT / Constraints / testable Acceptance criteria / Open questions) plus class-specific sections (e.g. a frontend prompt adds all four states + a11y + design tokens; a backend prompt adds the request/response/error/auth/idempotency contract). Medium/heavy tasks fan out to parallel specialist sub-agents (Sonnet) + an adversarial reconcile (Opus); light tasks stay single-pass. A final **output-integrity pass** fixes corruption artifacts (doubled punctuation, stray/truncated tokens, duplicated lines), enforces one consistent spelling per identifier, grounds every code snippet in the real file (or marks it `// confirm against <file>`), and harvests buried "verify/likely/if X" hedges into Open questions — so the emitted prompt is clean and unambiguous.
@@ -691,6 +694,7 @@ These ship with their respective packs when the track is selected/detected.
 | `/audit-requirements` | Audit a spec or acceptance criteria for the defects that survive into code — unfalsifiable criteria, two-reading ambiguity, solution smuggled into the problem, missing edge/error/empty/reversal states, absent non-functional bounds. |
 | `/synthesize-research` | Turn raw research material into findings at the strength the material supports — sources, counts with denominators, evidence class, disconfirming material, explicit limits. Never invents a quote, a participant, or a number. |
 | `/define-success` | Define success *and* damage before a change ships — success metric with baseline and target, counter-metric with a rollback threshold, the instrumentation each requires, kill criteria with a named owner and review date. |
+| `/to-questionnaire` | Package the decisions you cannot make alone into a questionnaire for the one person who can — each question carrying the decision it unblocks, what changes each way, the answer shape, a deadline, and the default that fires if it goes unanswered. Writes a document to send, never a decision. |
 
 **Learning track (Phase 6 maintenance)**
 

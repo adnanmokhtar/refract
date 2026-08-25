@@ -1,12 +1,12 @@
 ---
-purpose: The ONE canonical learning sink set — the 8 append-only raw sinks `/learn-from-task` writes and `knowledge-curator` promotes from. Every consumer links here instead of restating the table, so the producer and the promoter can never silently diverge on WHERE an observation lands or WHAT it graduates to.
+purpose: The ONE canonical learning sink set — the 9 append-only raw sinks `/learn-from-task` writes and `knowledge-curator` promotes from. Every consumer links here instead of restating the table, so the producer and the promoter can never silently diverge on WHERE an observation lands or WHAT it graduates to.
 imported-by: templates/packs/learning/commands/learn-from-task.md (the command; pack-scoped, there is no root commands/learn-from-task.md — verify-global-scope keeps pack commands out of the global surface) + templates/packs/learning/agents/knowledge-curator.md (canonical curator) + templates/repo-baseline/.claude/agents/knowledge-curator.md (installed curator).
 ---
 
 # Canonical learning sink set (shared, single source of truth)
 
 The learning loop has ONE sink set. Every observation lands in exactly one of the
-8 append-only `ai/dynamic/` files below (plus the single failure catalog). `/learn-from-task`
+9 append-only `ai/dynamic/` files below (plus the single failure catalog). `/learn-from-task`
 is the **producer** — it writes ONLY these raw sinks. `knowledge-curator` is the **promoter** —
 it reads this same superset and graduates mature entries into the formal layer at the stated
 threshold. The two writers never diverge on WHERE things go because they share this table.
@@ -21,6 +21,25 @@ threshold. The two writers never diverge on WHERE things go because they share t
 | `ai/failures/_index.md`           | approaches that did NOT work             | stays (append-only don't-retry catalog — never delete) |
 | `ai/dynamic/interaction-log.md`   | per-task summary (the spine)             | archive entries >90 days |
 | `ai/dynamic/changelog.md`         | one-line activity log                    | prune at >200 lines |
+| `ai/dynamic/vocabulary.md`        | project terms whose meaning is not the obvious one | `ai/core/glossary.md` at 2 independent sightings + ≥1 cited `<file:line>` |
+
+### Why vocabulary is its own sink
+
+A term is not a convention, a code shape, a decision, a drift, or a failure — the other eight sinks
+each reject it, and before this row existed a new domain term had nowhere to land. It went into
+`learnings.md`, whose promotion target is `ai/conventions.md` (naming *style*), so the project's
+`ai/core/glossary.md` was written once at `/setup-project` from the business-domain pack and never
+updated again. A glossary that only moves at setup is stale by the second sprint, and every agent
+reading it inherits the stale reading.
+
+What belongs here is narrow: a term the codebase uses in a sense the plain English reading would get
+wrong, or two terms that look like synonyms and are not. Not every noun in the domain — the entity
+table already holds those. The promotion target is the glossary's `## Vocabulary distinctions
+(don't conflate)` section, which is exactly the shape this sink produces.
+
+Threshold is **2** independent sightings, not the 3 used for patterns: a code shape needs a third
+occurrence to prove it is not coincidence, whereas a term either carries a project-specific meaning
+or it does not. The `<file:line>` citation is what separates a real term from a remembered one.
 
 ## Additional writer: `/eval` (measurement half of the loop)
 
