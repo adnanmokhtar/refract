@@ -134,12 +134,12 @@ read from each vendor's own docs plus the prior-art skills on **2026-08-20** —
 | Claude Code | `claude` | `-p --output-format json --permission-mode acceptEdits`, brief on stdin | `--permission-mode plan` | `--resume <id>` |
 | Codex | `codex` | `exec --json --sandbox workspace-write` | `--sandbox read-only` | `exec resume <id>` |
 | Cursor Agent | `cursor-agent` | `-p --output-format json --force --trust` | `--plan` (`--mode=plan`) | `--resume <id>` |
-| OpenCode | `opencode` | `run --agent build` (needs `--model`) | `--agent plan` | relay: unsupported |
-| Aider | `aider` | `--message --yes-always --no-auto-commits --no-dirty-commits --no-suggest-shell-commands --no-detect-urls --no-stream` | `--dry-run` | relay: unsupported |
-| Cline | `cline` | `--json -v --auto-approve true` | `--plan` + `--auto-approve false` | relay: unsupported |
+| OpenCode | `opencode` | `run --agent build` (needs `--model`) | `--agent plan` | relay: not wired · CLI **has** it (`-c` / `-s <id>`) |
+| Aider | `aider` | `--message --yes-always --no-auto-commits --no-dirty-commits --no-suggest-shell-commands --no-detect-urls --no-stream` | `--dry-run` | relay: not wired · CLI: `--restore-chat-history` (repo-scoped) |
+| Cline | `cline` | `--json -v --auto-approve true` | `--plan` + `--auto-approve false` | relay: not wired · CLI `--id`, but **broken under `--json`** |
 | Gemini CLI | `gemini` | `-p --output-format json --approval-mode yolo` | `--approval-mode plan` | `--resume <id>` |
-| Kimi Code | `kimi` | `-p` (headless is always auto-permission; `_parallel-tool-config.sh` still drives it with `--headless --prompt`) | **none** | relay: unsupported |
-| Qwen Code | `qwen` | `-p --output-format json --approval-mode yolo` | `--approval-mode plan` *(unverified)* | relay: unsupported |
+| Kimi Code | `kimi` | `-p` (headless is always auto-permission; `_parallel-tool-config.sh` still drives it with `--headless --prompt`) | **none** | relay: not wired · CLI docs: `--session <id>` / `-c` |
+| Qwen Code | `qwen` | `-p --output-format json --approval-mode yolo` | `--approval-mode plan` *(unverified)* | relay: not wired · CLI docs: `--resume <id>` + `-p` |
 | GitHub Copilot | `copilot` | `-p --output-format json --no-color --allow-all-tools` | `--mode plan` | `--resume <id>` |
 
 Three honesty notes, because the rows above are easy to over-read:
@@ -148,9 +148,23 @@ Three honesty notes, because the rows above are easy to over-read:
   second one commits *your* pre-existing uncommitted work before it starts. The relay pins both off
   and does not expose a way to turn them back on. This is the one implementer where invariant 2 needs
   a flag, not just a brief clause.
-- **"relay: unsupported" means unverified, not impossible.** Several of these CLIs do expose resume;
-  the relay only wires the four whose flag shape was read from vendor docs. Guessing a resume flag
-  produces a silent fresh run that looks like a resume, which is worse than a refusal.
+- **"relay: not wired" is a statement about the relay, not about the CLI.** It used to read
+  "unsupported", which every reader took to mean the CLI could not do it. Measured **2026-08-26**,
+  four of the five can, and one is genuinely broken:
+
+  | CLI | What it actually exposes | How that was established | Wireable? |
+  |---|---|---|---|
+  | `opencode` | `-c` / `--continue`, `-s <id>` / `--session`, on the `run` subcommand the relay already uses | **`opencode run --help`, v1.18.21** — the installed binary, not a doc | **Yes** |
+  | `qwen` | `--resume <id>` combined with `-p`; the vendor's own example is a follow-up refactor | Vendor docs (headless mode) | **Yes**, after a `--help` probe |
+  | `kimi` | `--session <id>` / `-S`, `--continue` / `-c`, `-r`/`--resume` as hidden aliases | Vendor docs. `--prompt` is documented as incompatible with `--yolo`/`--auto`/`--plan`; `--session` is **absent from that conflict list**, which is not the same as confirmed | **Unknown** — one round-trip test settles it |
+  | `aider` | `--restore-chat-history` — restores the repo's chat-history file. **No session id**, so it is repo-scoped, and two concurrent runs in one repo would collide | **`aider --help`, v0.86.2** — the installed binary | **Partly**, with that caveat stated |
+  | `cline` | `--id <session>` — but the relay launches cline with `--json`, and [cline#10856](https://github.com/cline/cline/issues/10856) *"`--json` mode can't resume an existing session ID"* has been **OPEN since 2026-05-18** | Vendor issue tracker | **No** — the exact combination is a known bug |
+
+  The rule that produced the old label still holds and is why cline stays out: guessing a resume flag,
+  or wiring one whose documented combination is broken, produces a silent fresh run wearing the shape
+  of a continuation — worse than a refusal, because the fix brief then addresses a context that was
+  never loaded. What changed is the honesty of the label, not the wiring: **no new resume is wired by
+  this correction**, and a rework round on any of the five is still a fresh process today.
 - **The repo's own [`_registry.md`](../templates/tool-adapters/_registry.md) calls Cursor and Cline "IDE-bound".** That is true of the
   *editor* integration and stale for the *CLIs*: `cursor-agent` and `cline` both ship headless
   binaries, which is why they can be implementers here even though they are not in
@@ -285,16 +299,18 @@ which is the exact substitution the tri-state tripwire and G6 exist to prevent.
 Round N+1 continues differently depending on whether that CLI exposes a session id
 (§ Implementer matrix, *Resume* column):
 
-| | Resume wired (`claude`, `codex`, `cursor-agent`, `gemini`, `copilot`) | Resume unsupported (`opencode`, `aider`, `cline`, `kimi`, `qwen`) |
+| | Resume **wired** (`claude`, `codex`, `cursor-agent`, `gemini`, `copilot`) | Resume **not wired** (`opencode`, `aider`, `cline`, `kimi`, `qwen`) |
 |---|---|---|
 | How round N+1 starts | `--session=<sessionId>` from round N's result JSON | A **fresh process** with no memory of round N |
 | What the fix brief carries | A **delta** — the findings only | **Self-contained** — task, current state, findings, what NOT to touch |
 | Cost per round | Lower; the implementer keeps its context | Higher; the brief re-establishes everything |
 
-**Never pass `--session=` to a CLI whose resume the relay has not wired.** A guessed resume flag
-produces a silent fresh run wearing the shape of a continuation, which is worse than a refusal — the
-relay already refuses on that principle, and the loop must not smuggle it back in. On those five CLIs
-a fix round is a **new run**, and the brief is written accordingly. Say which shape a round took in
+**Never pass `--session=` to a CLI whose resume the relay has not wired** — including the four that
+demonstrably HAVE one (§ Implementer matrix, the measured table). The flag surface is the relay's, not
+the vendor's: until `build_argv` wires it, `--session=` reaches those CLIs as nothing, and a guessed
+resume flag produces a silent fresh run wearing the shape of a continuation. That is worse than a
+refusal, because the fix brief then addresses a context that was never loaded. On those five CLIs a fix
+round is a **new run**, and the brief is written accordingly. Say which shape a round took in
 the summary; a reader who assumes continuity that did not happen misreads every later round.
 
 ### What ends the loop

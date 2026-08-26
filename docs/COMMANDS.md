@@ -343,8 +343,12 @@ unchanged behaviour). The loop is agent-side because deciding FIX means reading 
 cannot do. It takes **two shapes depending on the implementer**: the five CLIs whose resume the relay has
 wired (`claude`, `codex`, `cursor-agent`, `gemini`, `copilot`) continue via `--session=`, so a fix brief is
 a delta; on `opencode`, `aider`, `cline`, `kimi` and `qwen` a fix round is a **fresh process** and the brief
-must be self-contained. Never pass `--session=` to the second group — a guessed resume flag produces a
-silent fresh run wearing the shape of a continuation. The loop halts early on no progress (an empty diff, or
+must be self-contained. Four of that second group do expose a resume of their own (measured 2026-08-26;
+`opencode` and `aider` off their installed `--help`, `kimi` and `qwen` off vendor docs, while `cline`'s is
+a known open bug under the `--json` the relay uses) — but the relay has not wired any of them, so
+`--session=` still reaches them as nothing. Never pass it there: a guessed resume flag produces a silent
+fresh run wearing the shape of a continuation, and the fix brief then addresses a context that was never
+loaded. The loop halts early on no progress (an empty diff, or
 the same finding surviving two rounds), because that is a defective brief rather than a stubborn
 implementer, and it never commits on any round.
 
