@@ -2,10 +2,10 @@
 description: "Dispatch ONE bounded coding task to a different AI coding CLI, then review its diff and land it. Trigger ONLY when the human names another tool as the implementer — \"have Codex do this\", \"delegate to Cursor\", \"run it through Aider\", \"get a second opinion from another CLI\", \"burn the cheap CLI's quota on this\", \"cross-tool diff\". Anti-triggers (do NOT fire): a plain \"implement X\" with no other tool named (that is /do or the specialist command); \"the repo has an adapter for it\" (adapters CONFIGURE a tool, they do not authorize dispatching to it); fanning an existing ledger out in parallel (that is scripts/*-parallel.sh); wiring a tool up (that is /setup-project-adapters); and any ask not yet reducible to one reviewable diff."
 kind: command
 pack: orchestration
-version: 1.1.0
+version: 1.2.0
 ---
 
-# /delegate <task> [--to=<cli>] [--read-only] [--gate=<cmd>] [--model=<id>] [--session=<id>] [--plan]
+# /delegate <task> [--to=<cli>] [--read-only] [--gate=<cmd>] [--model=<id>] [--session=<id>] [--max-rounds=<N>] [--plan]
 
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/delegate <task> --plan` composes the brief, writes it to `.claude/plans/`, and **exits before any CLI is launched**. The brief *is* the plan artifact, so `--plan` here is the natural dry-run.
 
@@ -104,6 +104,7 @@ written down or it does not exist.
 | `--gate=<cmd>` | A real command the implementer must run and you will re-run. Repeatable. Copy them from the project's own config; do not invent a `make test` that does not exist. |
 | `--model=<id>` | Pin the implementer's model. **Required for `opencode`** — it has no safe default and the relay refuses to launch without it (exit 2). Optional everywhere else. |
 | `--session=<id>` | Resume a prior run of the same CLI with a **delta** brief (rework, not a restatement). Only where the CLI exposes a session id. |
+| `--max-rounds=<N>` | Bounded rework loop: after review, dispatch a **fix brief** and re-review, up to N rounds. Default **1** — one dispatch, one review, exactly today's behaviour. Agent-side; the relay has no such flag (see § Rework rounds). |
 | `--files=<globs>` | Declare the in-scope paths in the brief. Scoping and review aid — **not** a permission boundary. |
 | `--allow-dirty` | Proceed with a dirty tree. The relay fingerprints the pre-existing dirt so touched-files stays a true delta. Default is halt-on-dirty. |
 | `--timeout=<dur>` | Watchdog. Default 30m. On expiry the process tree is killed and the partial result is still written. |
@@ -268,6 +269,56 @@ It never tells you nothing else did. **`touchedFiles` and the diff are what you 
 G5 is mechanical and worth stating twice: **if HEAD moved, the run failed.** The implementer took the
 decision that belongs to the reviewer, and no amount of good diff redeems that.
 
+## Rework rounds (`--max-rounds`)
+
+Default is **1**: dispatch once, review once, hand the diff to the human. That is the whole command
+and it does not change. `--max-rounds=N` bounds an APPROVED/FIX loop on top of it.
+
+**The loop is agent-side, and it has to be.** Deciding FIX means reading the diff against the brief —
+that is judgement, and [`delegate-relay.sh`](../scripts/delegate-relay.sh) is mechanical by design.
+The relay has no `--max-rounds`; each round is a separate relay invocation the agent makes. Pushing
+this into the script would mean the implementer's own success report deciding whether it succeeded,
+which is the exact substitution the tri-state tripwire and G6 exist to prevent.
+
+### One loop, two shapes — and the split is the implementer's, not yours
+
+Round N+1 continues differently depending on whether that CLI exposes a session id
+(§ Implementer matrix, *Resume* column):
+
+| | Resume wired (`claude`, `codex`, `cursor-agent`, `gemini`, `copilot`) | Resume unsupported (`opencode`, `aider`, `cline`, `kimi`, `qwen`) |
+|---|---|---|
+| How round N+1 starts | `--session=<sessionId>` from round N's result JSON | A **fresh process** with no memory of round N |
+| What the fix brief carries | A **delta** — the findings only | **Self-contained** — task, current state, findings, what NOT to touch |
+| Cost per round | Lower; the implementer keeps its context | Higher; the brief re-establishes everything |
+
+**Never pass `--session=` to a CLI whose resume the relay has not wired.** A guessed resume flag
+produces a silent fresh run wearing the shape of a continuation, which is worse than a refusal — the
+relay already refuses on that principle, and the loop must not smuggle it back in. On those five CLIs
+a fix round is a **new run**, and the brief is written accordingly. Say which shape a round took in
+the summary; a reader who assumes continuity that did not happen misreads every later round.
+
+### What ends the loop
+
+| Outcome | Condition | What you do |
+|---|---|---|
+| **APPROVED** | Gates re-run green by you (G6) and the diff satisfies the brief (G7) | Stop. Report. **You** commit. |
+| **ROUNDS EXHAUSTED** | N rounds spent, still not approved | Stop. Report the surviving findings and the last diff. Do not silently spend an N+1th. |
+| **NO PROGRESS** | A round returns an **empty diff**, or the *same* finding survives two consecutive rounds | **Halt the loop immediately.** The brief is wrong, not the implementer — a third attempt at a misunderstood instruction buys nothing. Rewrite the brief or take it back in-house. |
+| **HEAD MOVED** | G5 fires in any round | Halt the whole loop, not just that round. Never dispatch a fix round on top of a tree the implementer committed to. |
+
+### Rules that do not relax inside the loop
+
+- **Every round is a full round.** G5, G6 and G7 apply per round. A round whose gates you did not
+  re-run yourself is an un-reviewed round, and the loop may not advance past it.
+- **The reviewer writes the fix brief.** Never ask the implementer what went wrong and forward its
+  answer — that is the implementer grading its own work with an extra step.
+- **The loop never commits.** Not on the final round, not on APPROVED. Landing stays the human's,
+  which is the invariant the whole command is built around.
+- **Findings are cited.** A fix brief that says "tests are failing" without the failing test name and
+  `<path:line>` produces another round of guessing. Same cite-or-halt bar as the original brief.
+- **`--max-rounds` above 3 is a diagnosis, not a setting.** A task needing four supervised attempts
+  was not the ONE bounded task this command takes. Halt and split it.
+
 ## HALT conditions
 
 - **No implementer named and none installed** → halt. List what `--list` looked for. Do not fall back
@@ -291,6 +342,12 @@ decision that belongs to the reviewer, and no amount of good diff redeems that.
   was refused and why, and offer the throwaway-repo procedure below.
 - **Implementer reports success with an empty diff** → halt. Nothing was delegated; report it as a
   failure, not a no-op success.
+- **Same finding survives two consecutive rework rounds** → halt the loop. The brief is the defect;
+  rewrite it or take the task back. Rounds are not retries.
+- **A rework round returns an empty diff** → halt. The implementer either did not understand the fix
+  brief or believes it is already done; another round tests neither hypothesis.
+- **`--max-rounds` requested above 3** → halt and say why: the task is not bounded, which is a
+  splitting problem, not a persistence problem.
 - **Diff exceeds what you can review honestly** → halt before landing. Say so out loud and propose a
   narrower re-run.
 

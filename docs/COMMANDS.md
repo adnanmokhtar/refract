@@ -327,7 +327,26 @@ artifacts into 12 tools' native formats. `/delegate` is the only command that **
 /delegate "port the retry helper to the new client" --to=codex --gate="npm test"
 /delegate "review src/auth/ for token-lifetime bugs" --to=cursor-agent --read-only
 /delegate .claude/plans/optimize-orders-20260820-1431.md --to=aider   # a --plan file is a valid task
+/delegate "implement the refund endpoint" --to=claude --model=sonnet --gate="npm test"
+/delegate "implement the refund endpoint" --to=kimi --gate="npm test" --max-rounds=3
 ```
+
+**The cheap-implementer loop.** `claude` is itself an entry in the implementer matrix, so
+`--to=claude --model=sonnet` runs the implementation as a **separate process on a cheaper model** while
+this Opus session writes the brief and reviews the diff. That is a different trade from Claude Code's
+`opusplan` alias, which switches models *inside* the conversation: there, everything Sonnet writes stays
+in the shared context that Opus later re-reads. Here the implementer never sees the conversation at all
+and only the diff comes back — a cleaner context, not just a cheaper token.
+
+**`--max-rounds=<N>`** bounds an APPROVED/FIX rework loop on top of the single dispatch (default `1` =
+unchanged behaviour). The loop is agent-side because deciding FIX means reading the diff, which the relay
+cannot do. It takes **two shapes depending on the implementer**: the five CLIs whose resume the relay has
+wired (`claude`, `codex`, `cursor-agent`, `gemini`, `copilot`) continue via `--session=`, so a fix brief is
+a delta; on `opencode`, `aider`, `cline`, `kimi` and `qwen` a fix round is a **fresh process** and the brief
+must be self-contained. Never pass `--session=` to the second group — a guessed resume flag produces a
+silent fresh run wearing the shape of a continuation. The loop halts early on no progress (an empty diff, or
+the same finding surviving two rounds), because that is a defective brief rather than a stubborn
+implementer, and it never commits on any round.
 
 **Four invariants** (adopted from `amElnagdy/delegate-skills`, MIT):
 
