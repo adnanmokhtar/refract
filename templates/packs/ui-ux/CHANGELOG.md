@@ -14,6 +14,51 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.26.0 — 2026-08-26
+
+**Two floors the pack never had — one verified absent by grep, one hiding inside a table cell.**
+
+- **NEW `ai-patterns/data-visualization.md` + `skills/chart-encoding-audit/SKILL.md` — the chart-encoding floor.**
+  The pack already made a chart MATCH the design language: `/redesign` Phase 3 and `ui-design-sweep §
+  normalize-surface` both catch a library-default chart dropped onto an art-directed page. Nothing asked
+  whether it was the RIGHT chart. Measured across the whole repository, not just this pack: `chart type` →
+  **0 files**, `sequential palette` → **0**, `diverging palette` → **0**. A nine-slice pie, recoloured to
+  the new palette, with a truncated y-axis and a Reds-vs-Greens legend, passed every gate this pack has.
+  The new pattern carries the **chart-selection map** (the question the reader is asking → the mark, with
+  an explicit *Never* column), the **three data-colour scale families** — data colour is not the UI accent
+  ramp, categorical ceiling ~8, a rainbow is never sequential because hue carries no order — and **eight
+  encoding-honesty rules**: bars start at zero, area encodes area not radius, one scale per axis, missing
+  data drawn as missing. `spanGaps: true` and null-to-zero coercion are called out as living in the data
+  transform rather than the chart options, which is why they survive every config review.
+- **The audit prints `NOT RUN` as a real state.** A colour-vision section that quietly omits its check
+  reads as a pass — the same defect class as the `SKIPPED` / `RENDER BLOCKED` distinction
+  `creative-director` and `design-iterate` already enforce for renders. The auditor eyeballing two hues is
+  the exact failure the audit exists to catch, so it is a halt.
+- **Filed as a THIRD companion floor, not a 17th axis.** `axis-catalog.md` already documents one companion
+  (per-surface completeness); this adds the per-chart encoding floor beside it. `tokens` asks *does this
+  value come from the system*; the encoding floor asks *does this drawing tell the truth*. Different
+  oracle, different fix. **The closed `16 axes / 19 verbs` counts are unchanged.**
+- **NEW `ai-patterns/direction-vocabulary.md` — the four structural divergence axes, enumerated.**
+  `creative-director`'s divergence check requires each pair of directions to differ on ≥2 of {grid/layout
+  logic, shape language, density/spatial rhythm, signature interaction/IA archetype}, and the check is
+  mechanical and good. But the POSITIONS those axes can take existed only as a parenthetical inside one
+  table cell (`compare-grid / triage-stream / focus-canvas / guided-flow / dashboard-of-one-number`), in
+  exactly one file. Detection without vocabulary means the regenerate-and-retry loop keeps drawing from an
+  exhausted well, which is how a model asked for three directions returns clean-modern-minimal in three
+  tints. Now enumerated: **10 IA archetypes, 7 grid logics, 6 shape languages, 4 density registers and 7
+  signature interactions**, each with the verb it serves, its failure mode, and where it does NOT fit.
+- **Structural, never a style catalogue — and that distinction is the point.** The public repos in this
+  space ship named looks (one advertises "67 styles, 96 palettes"), which is precisely what
+  `creative-director` halts on as `borrowed-skin / derivative`, and their palettes ship unverified — one is
+  labelled `⚠ Low contrast` in its own data and shipped anyway. A position here says how a screen is
+  ORGANISED and never what it looks like, so using one cannot produce that diagnosis.
+- **Registers named as non-axes.** Type class, colour concept and motion personality are expressive
+  registers that do NOT count toward the ≥2-structural-axes requirement. The colour-ramp-swap test already
+  implied this; no file said it, so two directions differing only in palette could be argued through.
+- **Wired, not orphaned.** `creative-director` points at the vocabulary from both the IA-archetype cell and
+  the divergence-check invariant, and § 3 now instructs picking the four positions BEFORE the concept prose.
+  `axis-catalog.md` gains the third floor and a common-mistake row for filing a chart defect as `tokens`.
+
 ## 1.25.2 — 2026-08-22
 
 **The reconciliation that skipped the artifact which does the writing.** 1.25.0 claimed "four

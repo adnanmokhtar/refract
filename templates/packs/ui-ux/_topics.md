@@ -64,6 +64,23 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { dark_mode_capability_detected: true }
   fallback: _examples/dark-mode.md
 
+- name: data-visualization
+  kind: pattern
+  triggers: { chart_lib_detected_OR_dashboard_surface_present: true }
+  fallback: ai-patterns/data-visualization.md   # source IS the fallback: the chart-selection map,
+                                                # the three scale families and the honesty rules are
+                                                # each cited by chart-encoding-audit as thresholds —
+                                                # an abridgement that dropped a row would leave the
+                                                # audit citing a check that no longer exists.
+
+- name: direction-vocabulary
+  kind: pattern
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: ai-patterns/direction-vocabulary.md   # source IS the fallback: creative-director's
+                                                  # divergence check compares POSITIONS from this
+                                                  # file; a stub with fewer rows collapses the
+                                                  # space the check is meant to force apart.
+
 - name: motion
   kind: pattern
   triggers: { animation_lib_detected_OR_motion_components_present: true }
@@ -174,6 +191,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   sections: [when_to_use, procedure, inputs, outputs, failure_modes]
   fallback: skills/design-token-audit/SKILL.md
+
+- name: chart-encoding-audit
+  kind: skill
+  triggers: { chart_lib_detected_OR_dashboard_surface_present: true }
+  extracts_from: the project's chart configs + the resolved token layer (whether a data ramp exists separately from the UI accent ramp) + ai-patterns/data-visualization.md (every threshold it cites)
+  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  fallback: skills/chart-encoding-audit/SKILL.md
 
 - name: motion-audit
   kind: skill

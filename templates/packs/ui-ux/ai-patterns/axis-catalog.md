@@ -53,10 +53,13 @@ The catalog above is the per-ELEMENT usability floor. Whether a whole COMPOSITE 
 
 It is NOT a 17th axis and does not change the `16 axes / 19 verbs` counts.
 
+There is a **third** floor on the same footing: whether a CHART is the right mark for its question, honestly scaled, and readable without colour vision is a per-chart **encoding** floor, owned by [`data-visualization.md`](data-visualization.md) and audited by `chart-encoding-audit`. A chart re-themed to the design language satisfies the `tokens` axis and can still fail every one of that file's halts — different oracle (`tokens` asks *does this value come from the system*; that floor asks *does this drawing tell the truth*). Also not a 17th axis, and it does not change the counts either.
+
 ## Common mistakes
 
 - **Naming a finding by its fix instead of its axis.** "Swap the hex for a token" is the verb, not the axis; the axis is `tokens`. Reports that lead with verbs cannot be counted or deduplicated across runs.
 - **Filing a composite-surface gap as a `surface` axis finding.** A dashboard that is missing its period control is a COMPLETENESS gap (the companion floor), not a prototypical-skeleton divergence. Different oracle, different fix.
+- **Filing a chart-encoding defect as a `tokens` finding.** A pie chart recoloured to the new palette passes `tokens` and still has nine slices, a truncated axis and a red-vs-green legend. That is the encoding floor — `data-visualization.md`, audited by `chart-encoding-audit`.
 - **Treating a floor axis as a creative finding.** `contrast`, `states`, `tap-target`, `focus`, `hierarchy`, `type-scale` and `rhythm` are the floor. `creative-director` halts when a redline stops at one of them — it must escalate to the aesthetic verdict or route to `ux-reviewer` / `/redesign`.
 - **Widening the set to fit a finding.** The route-out rule exists precisely for findings that do not fit; a 17th axis breaks every consumer that cites `16 axes / 19 verbs`.
 
