@@ -56,18 +56,34 @@ awk '/^## 5\. Artifacts behind the grid/{f=1} f&&/^```$/{c++; next} f&&c==1{prin
         printf '%s\t%s\n' "$dom" "$a"
       done
     done > "$TMP/named.tsv"
+# Two artifact forms. Domain surfaces name a bare file; structural surfaces name `pack:file`,
+# because their material lives in templates/packs/ (see _review-matrix.md §4).
 missing=0
-while IFS=$'\t' read -r dom art; do
-  if [ ! -f "$REPO_ROOT/templates/domains/$dom/rules/$art.md" ] \
-     && [ ! -f "$REPO_ROOT/templates/domains/$dom/agents/$art.md" ]; then
-    fail "named artifact does not resolve: $dom/$art"; missing=1
-  fi
+while IFS=$'\t' read -r sfc art; do
+  case "$art" in
+    *:*)
+      pk="${art%%:*}"; nm="${art#*:}"
+      if [ ! -f "$REPO_ROOT/templates/packs/$pk/skills/$nm/SKILL.md" ] \
+         && [ ! -f "$REPO_ROOT/templates/packs/$pk/agents/$nm.md" ] \
+         && [ ! -f "$REPO_ROOT/templates/packs/$pk/rules/$nm.md" ]; then
+        fail "named artifact does not resolve: $sfc/$art"; missing=1
+      fi ;;
+    *)
+      if [ ! -f "$REPO_ROOT/templates/domains/$sfc/rules/$art.md" ] \
+         && [ ! -f "$REPO_ROOT/templates/domains/$sfc/agents/$art.md" ]; then
+        fail "named artifact does not resolve: $sfc/$art"; missing=1
+      fi ;;
+  esac
 done < "$TMP/named.tsv"
 n_named=$(wc -l < "$TMP/named.tsv" | tr -d ' ')
 [ "$missing" -eq 0 ] && pass "all $n_named named artifacts resolve on disk"
 
 # ---- 3  reverse: every domain artifact on disk appears in the matrix ----
 say "reverse — no artifact orphaned"
+# Reverse covers every DOMAIN artifact, plus every artifact in the packs the structural surfaces
+# read. It deliberately does NOT cover cross-cutting packs (security, performance, testing, …):
+# those are axis-major, dispatched in wave B, and belong to no cell by design — demanding a cell
+# for them would force exactly the over-counting §4 refuses.
 find "$REPO_ROOT/templates/domains" \( -path '*/rules/*.md' -o -path '*/agents/*.md' \) 2>/dev/null \
   | sed -e "s#^$REPO_ROOT/templates/domains/##" -e 's#/rules/#\'$'\t''#' -e 's#/agents/#\'$'\t''#' -e 's#\.md$##' \
   | sort -u > "$TMP/disk.tsv"
@@ -75,19 +91,32 @@ orphan=0
 while IFS=$'\t' read -r dom art; do
   grep -qF "$(printf '%s\t%s' "$dom" "$art")" "$TMP/named.tsv" || { fail "artifact in no cell: $dom/$art"; orphan=1; }
 done < "$TMP/disk.tsv"
-n_disk=$(wc -l < "$TMP/disk.tsv" | tr -d ' ')
-[ "$orphan" -eq 0 ] && pass "all $n_disk domain artifacts on disk appear in the matrix"
+for pk in $(grep -oE '`[a-z-]+`' <(awk '/^\| `_[a-z]+` \|/{print}' "$MATRIX") | tr -d '`' | grep -v '^_' | sort -u); do
+  find "$REPO_ROOT/templates/packs/$pk" \( -name SKILL.md -o -path '*/agents/*.md' -o -path '*/rules/*.md' \) 2>/dev/null \
+  | while IFS= read -r f; do
+      case "$f" in *"/skills/"*) nm="${f#*/skills/}"; nm="${nm%%/*}" ;; *) nm="$(basename "$f" .md)" ;; esac
+      grep -qF "$pk:$nm" "$TMP/named.tsv" || printf 'ORPHAN %s:%s\n' "$pk" "$nm"
+    done
+done > "$TMP/pk_orphans.txt"
+if [ -s "$TMP/pk_orphans.txt" ]; then
+  while read -r _ o; do fail "pack artifact in no cell: $o"; orphan=1; done < "$TMP/pk_orphans.txt"
+fi
+n_disk=$(( $(wc -l < "$TMP/disk.tsv" | tr -d ' ') + $(grep -c ":" "$TMP/named.tsv" || echo 0) ))
+[ "$orphan" -eq 0 ] && pass "all $n_disk domain + structural-pack artifacts on disk appear in the matrix"
 
 # ---- 4  vocabulary agrees with the model ----
 say "vocabulary agrees with _review-model.md"
-awk '/^### 2\.1 /{f=1} f&&/^```$/{c++; next} f&&c==1{print} c==2{exit}' "$MODEL" \
-  | tr -s ' ' '\n' | grep -E '^[a-z0-9-]+$' | sort -u > "$TMP/model_surfaces.txt"
+# The grid carries BOTH halves of the vocabulary: §2.1 signal surfaces and §2.2 structural ones.
+{ awk '/^### 2\.1 /{f=1} f&&/^```$/{c++; next} f&&c==1{print} c==2{exit}' "$MODEL" \
+    | tr -s ' ' '\n' | grep -E '^[a-z0-9-]+$'
+  awk '/^### 2\.2 /{f=1} f&&/^## /{exit} f' "$MODEL" | grep -oE '^\| `_[a-z0-9]+`' | tr -d '|` '
+} | sort -u > "$TMP/model_surfaces.txt"
 awk '/^## 2\. The grid/{f=1} f&&/^```$/{c++; next} f&&c==1{print} c==2{exit}' "$MATRIX" \
   | awk 'NF && $1 !~ /^-+$/ && $1 != "surface" && $1 != "legend" {print $1}' | sort -u > "$TMP/matrix_surfaces.txt"
 if diff -q "$TMP/model_surfaces.txt" "$TMP/matrix_surfaces.txt" >/dev/null 2>&1; then
-  pass "grid rows are exactly the model's §2.1 surface vocabulary ($(wc -l < "$TMP/matrix_surfaces.txt" | tr -d ' '))"
+  pass "grid rows are exactly the model's §2.1 + §2.2 surface vocabulary ($(wc -l < "$TMP/matrix_surfaces.txt" | tr -d ' '))"
 else
-  fail "grid rows diverge from _review-model.md §2.1"
+  fail "grid rows diverge from _review-model.md §2.1 + §2.2"
   diff "$TMP/model_surfaces.txt" "$TMP/matrix_surfaces.txt" | head >&2
 fi
 

@@ -339,10 +339,11 @@ be silently absent. The N/A column carries a reason string per row, never a bare
 
 > **Read the zero carefully — `_review-matrix.md` §3 spells it out.** It means every
 > (concern, surface) pair now has named material with a concrete fingerprint. It does **not** mean
-> the review is complete: a fingerprint is a detector *spec*, not a running detector; **224 cells
-> are still `proposed`** and that queue did not shrink; and the 4 structural surfaces remain
-> unpopulated, so the true grid is 468 cells, not 420. Zero empty is where the matrix stops
-> finding gaps by absence and has to start finding them by running.
+> the review is complete: a fingerprint is a detector *spec*, not a running detector, and no run
+> has yet confirmed one earns its place; and **242 cells are still `proposed`** — one signal, no
+> human read — which is now the larger number and did not shrink when the empty column closed.
+> Zero empty is where the matrix stops finding gaps by absence and has to start finding them by
+> running.
 **Deliverable:** new skills/rules, only where Phase 1 showed an empty cell
 **Effort:** open-ended; sized by what Phase 1 actually finds
 **Depends on:** Phase 3 (so the priority order is evidence-based, not guessed)
@@ -384,8 +385,18 @@ Plus whatever cells Phase 1 reveals. Highest-value candidates from the analysis 
 ---
 
 ### Phase 5 — Per-kind rendering
-**Status:** 🟡 **mechanism shipped, applied where earned** (2026-08-30) — per-`project_kind`
-tables in both Phase 4 concern rules. Deliberately not front-loaded, per this section's own rule.
+**Status:** ✅ **done** (2026-08-30) — per-`project_kind` tables in all 12 concern rules, and the
+grid completed to its full **468 cells**: the 4 structural surfaces are now populated from packs,
+mapped by `_review-model.md` §2.2's *Material lives in* column.
+
+> **The structural half needed a different threshold, and finding that out was the work.** A
+> domain surface is backed by 2 files; a structural one by 8–46. Concatenating each pack's files
+> into one blob scored `_routes` **12/12 confirmed** — meaningless, because among 17 backend
+> artifacts *some* description matches every concern. Measured per artifact instead, with
+> `confirmed` requiring **≥ 2 artifacts individually about the concern**, the same surface scores
+> 8/12 and `_deployment` scores 4/12. Cross-cutting packs (`security`, `performance`, `testing`, …)
+> are deliberately excluded from the mapping — they are axis-major, dispatched in wave B, and
+> listing them under every structural surface would mark every cell confirmed by construction.
 **Deliverable:** fingerprint columns per cell for backend / frontend / mobile
 **Effort:** incremental, surface by surface
 **Depends on:** Phase 2

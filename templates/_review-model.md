@@ -84,12 +84,19 @@ Four surfaces exist in essentially every project of their kind and are covered b
 signal. They are the **only** names in this file not drawn from the registry, and they are listed
 here separately so the validator can exempt exactly these four and nothing else:
 
-| Structural surface | Present when | Why no registry key |
-|---|---|---|
-| `_database` | a persistence layer exists (migrations / ORM models / schema) | Persistence is not a cross-cutting *signal*; it is the substrate. `multi-tenant` and `caching` are signals **on** it. |
-| `_deployment` | Dockerfile / IaC / CI deploy manifests exist | Ships nothing under `templates/domains/`. Material lives in the `infrastructure` pack. |
-| `_routes` | `project_kind` includes `server` | The HTTP entry surface. `public-api` is the *versioned-contract* signal on top of it, not a synonym. |
-| `_screens` | `project_kind` includes `browser` or `mobile` | The render entry surface. |
+| Structural surface | Present when | Material lives in | Why no registry key |
+|---|---|---|---|
+| `_database` | a persistence layer exists (migrations / ORM models / schema) | `database`, `migration` | Persistence is not a cross-cutting *signal*; it is the substrate. `multi-tenant` and `caching` are signals **on** it. |
+| `_deployment` | Dockerfile / IaC / CI deploy manifests exist | `infrastructure`, `devops` | Ships nothing under `templates/domains/`. |
+| `_routes` | `project_kind` includes `server` | `backend` | The HTTP entry surface. `public-api` is the *versioned-contract* signal on top of it, not a synonym. |
+| `_screens` | `project_kind` includes `browser` or `mobile` | `frontend`, `mobile`, `ui-ux` | The render entry surface. |
+
+**The "Material lives in" column is read by the matrix generator** — it is the structural
+counterpart to `_registry.md`, and it names only packs that are *about that surface*.
+Cross-cutting packs (`security`, `performance`, `observability`, `testing`, `code-quality`,
+`finops`, …) are deliberately **excluded**: they are axis-major, they apply to every surface, and
+listing them under each one would mark every cell confirmed by construction — the same
+over-counting that made the first full-text pass score 312/420.
 
 **Leading `_` is load-bearing**: it makes "is this a registry key or a structural exception"
 mechanically decidable, and guarantees a structural name can never silently shadow a future

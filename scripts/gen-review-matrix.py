@@ -49,7 +49,18 @@ CONCERNS = {
  "C11 Data Lifecycle":  r"(retention|\bttl\b|expire|purge|archiv|backfill|lifecycle|checkpoint|watermark|backup|immutab|reversing-entries|content-versioning)",
  "C12 Tenancy":         r"(tenant|cross-tenant|isolation|per-tenant)",
 }
-STRUCTURAL = ["_database", "_deployment", "_routes", "_screens"]
+def structural_map():
+    """_review-model.md §2.2 "Material lives in" — the structural counterpart to _registry.md.
+
+    Read from the model rather than hardcoded here, so the mapping is reviewed in the file that
+    owns the vocabulary and a change there cannot silently diverge from what the grid renders.
+    """
+    t = open("templates/_review-model.md", encoding="utf-8").read()
+    m = re.search(r"### 2\.2 .*?\n(.*?)(?=\n\*\*The \"Material)", t, re.S)
+    out = {}
+    for row in re.findall(r"^\| `(_[a-z]+)` \|[^|]*\|([^|]*)\|", m.group(1) if m else "", re.M):
+        out[row[0]] = re.findall(r"`([a-z-]+)`", row[1])
+    return out
 GLYPH = {"confirmed": "●", "proposed": "○", "empty": "·", "n/a": "–"}
 
 
@@ -99,10 +110,33 @@ def concern_rules():
     return covered, na
 
 
+def pack_evidence(packs):
+    """Two signals over pack artifacts, mirroring the domain method exactly.
+
+    curated  = the artifact's `description:` frontmatter — deliberate, high precision.
+    fulltext = the artifact body, >= 3 matches — high recall, low precision.
+
+    Every pack artifact carries a description, so the parallel is exact and no third method is
+    introduced for the structural half of the grid.
+    """
+    per, arts = [], []
+    for pk in packs:
+        for f in sorted(glob.glob(f"templates/packs/{pk}/skills/*/SKILL.md") +
+                        glob.glob(f"templates/packs/{pk}/agents/*.md") +
+                        glob.glob(f"templates/packs/{pk}/rules/*.md")):
+            body = open(f, encoding="utf-8", errors="replace").read()
+            d = re.search(r"^description:\s*(.+)$", body, re.M)
+            per.append(((d.group(1) if d else "").lower(), body.lower()))
+            name = (f.split("/skills/")[1].split("/")[0] if "/skills/" in f
+                    else os.path.basename(f)[:-3])
+            arts.append(f"{pk}:{name}")
+    return per, arts
+
+
 def build():
     ships = registry_ships()
     covered, na = concern_rules()
-    grid, arts = {}, {}
+    grid, arts, backing = {}, {}, {}
     for dom in sorted(ships):
         files = sorted(glob.glob(f"templates/domains/{dom}/rules/*.md") +
                        glob.glob(f"templates/domains/{dom}/agents/*.md"))
@@ -120,12 +154,35 @@ def build():
             else:
                 grid[(dom, c)] = ("confirmed" if (a and n >= 3) else
                                   "proposed" if (a or n >= 3) else "empty")
-    return ships, grid, arts
+
+    # ---- structural surfaces: same two signals, pack artifacts as the source ----
+    for sfc, packs in sorted(structural_map().items()):
+        per, names = pack_evidence(packs)
+        arts[sfc] = names
+        for c, pat in CONCERNS.items():
+            cid = c.split()[0]
+            if sfc in covered.get(cid, ()):
+                grid[(sfc, c)] = "confirmed"
+                backing[(sfc, c)] = -1
+                continue
+            if sfc in na.get(cid, ()):
+                grid[(sfc, c)] = "n/a"
+                continue
+            # PER-ARTIFACT, never a concatenated blob. Joining 17-46 pack files into one string
+            # makes any threshold meaningless: the first attempt scored _routes 12/12 confirmed
+            # because some description among 17 backend artifacts matches every concern.
+            # `confirmed` here means >= 2 artifacts are individually ABOUT the concern.
+            about = sum(1 for d, _ in per if re.search(pat, d))
+            deep = sum(1 for _, b in per if len(re.findall(pat, b)) >= 3)
+            backing[(sfc, c)] = about
+            grid[(sfc, c)] = ("confirmed" if about >= 2 else
+                              "proposed" if (about or deep) else "empty")
+    return ships, grid, arts, backing
 
 
 def main():
-    ships, grid, arts = build()
-    doms = sorted(ships)
+    ships, grid, arts, backing = build()
+    doms = sorted(ships) + sorted(structural_map())
     cs = list(CONCERNS)
     tally = collections.Counter(grid.values())
     total = len(grid)
@@ -211,23 +268,66 @@ def main():
         w(f"   not {total}. A gap that is out of scope is still a gap.\n")
         w("> Zero empty is the point at which the matrix stops finding gaps *by absence* and starts")
         w("> having to find them *by running*. That is a harder question, and it is the next one.\n")
+    w("### The `proposed` queue — what actually remains\n")
+    prop = collections.defaultdict(list)
+    for (d, c), st in grid.items():
+        if st == "proposed":
+            prop[c].append(d)
+    w(f"**{tally['proposed']} cells.** One signal fired, no human has read them. Closing the empty")
+    w("column did not touch this queue — the two are independent, and this is now the larger")
+    w("number. Ranked by concern severity × queue length, so a reader can start where a single")
+    w("session buys the most:\n")
+    SEV = {"C1": 5, "C8": 5, "C12": 5, "C7": 4, "C11": 4, "C9": 4,
+           "C4": 3, "C5": 3, "C10": 3, "C3": 2, "C2": 2, "C6": 2}
+    w("| Concern | Queued | Severity | Read first |")
+    w("|---|---|---|---|")
+    for c in sorted(cs, key=lambda c: -SEV[c.split()[0]] * len(prop[c])):
+        if prop[c]:
+            head = ", ".join("`%s`" % x for x in sorted(prop[c])[:4])
+            more = f" +{len(prop[c]) - 4}" if len(prop[c]) > 4 else ""
+            w(f"| **{c}** | {len(prop[c])} | {SEV[c.split()[0]]} | {head}{more} |")
+    w("")
+    w("> Resolving one is a read, not a rewrite: open the surface's material, decide whether it")
+    w("> genuinely addresses the concern, and either add the surface to the concern rule's")
+    w("> fingerprint table (→ `confirmed`) or record it as N/A **with a reason**. Both outcomes")
+    w("> are progress; only leaving it `proposed` is not.\n")
     w("---\n")
-    w("## 4. Structural surfaces — NOT populated in this pass\n")
-    w("`" + "`, `".join(STRUCTURAL) + "` have no `templates/domains/` folder, so neither signal")
-    w("can see them. Their material lives in packs (`database`, `infrastructure`, `backend`,")
-    w("`frontend`, `mobile`). Mapping packs onto structural surfaces is a separate pass with a")
-    w("different evidence source; it is **listed here as unpopulated rather than omitted**, so the")
-    w("gap is visible rather than silent.\n")
-    w(f"Full grid when they land: 39 surfaces × 12 concerns = 468 cells (currently {total}).\n")
-    w("---\n")
+    w("## 4. Structural surfaces — populated from packs\n")
+    w("The 4 structural surfaces have no `templates/domains/` folder, so the domain signals cannot")
+    w("see them. Their material lives in packs, mapped by the **Material lives in** column of")
+    w("[`_review-model.md`](_review-model.md) §2.2 — read from there, not hardcoded here, so the")
+    w("mapping is reviewed in the file that owns the vocabulary.\n")
+    w("The evidence method is **the same two signals**, not a third one: `description:`")
+    w("frontmatter is the curated signal (every pack artifact carries one), the artifact body is")
+    w("the full-text signal. Same thresholds, same three states.\n")
+    w("| Structural surface | Packs read | Artifacts | Concerns backed by ≥2 |")
+    w("|---|---|---|---|")
+    for sfc, packs in sorted(structural_map().items()):
+        n2 = sum(1 for c in cs if backing.get((sfc, c), 0) >= 2)
+        w(f"| `{sfc}` | {', '.join('`%s`' % p for p in packs)} | {len(arts[sfc])} | {n2} / 12 |")
+    w("")
+    w("**Evidence strength is not symmetric with the domain half, and the grid does not pretend")
+    w("otherwise.** A domain surface is backed by 2 files; a structural one by 8 to 46. So the")
+    w("structural signal is measured **per artifact, never over a concatenated blob** — the first")
+    w("attempt joined each pack's files into one string and scored `_routes` 12/12 confirmed,")
+    w("because among 17 backend artifacts *some* description matches every concern. `confirmed`")
+    w("here means **≥ 2 artifacts are individually about that concern**; one lone artifact out of")
+    w("46 is `proposed`, not coverage.\n")
+    w("> **Cross-cutting packs are deliberately excluded** — `security`, `performance`,")
+    w("> `observability`, `testing`, `code-quality`, `finops` and the rest are axis-major and apply")
+    w("> to every surface. Listing them under each structural surface would mark every cell")
+    w("> confirmed by construction, which is the same over-counting that made the first full-text")
+    w("> pass score 312/420. They are dispatched in wave B as global axes instead.\n")
     w("## 5. Artifacts behind the grid\n")
     n_files = sum(len(v) for v in arts.values())
-    w(f"{n_files} domain artifacts across {len(doms)} domains. Every path is asserted to exist by")
+    w(f"{n_files} artifacts across {len(doms)} surfaces — domain files for the 35 signal surfaces,")
+    w("pack files (written `pack:name`) for the 4 structural ones. Every path is asserted to exist by")
     w("`validate-review-matrix.sh`, in both directions — a renamed file breaks the build, and an")
     w("artifact in no cell is reported.\n")
     w("```")
     for d in doms:
-        w(f"{d.ljust(22)}{', '.join(os.path.basename(f)[:-3] for f in arts[d])}")
+        names = [x if ":" in x else os.path.basename(x)[:-3] for x in arts[d]]
+        w(f"{d.ljust(22)}{', '.join(names)}")
     w("```")
     open("templates/_review-matrix.md", "w", encoding="utf-8").write("\n".join(o) + "\n")
     print(f"wrote templates/_review-matrix.md — {total} cells: "
