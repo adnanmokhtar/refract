@@ -185,6 +185,25 @@ AXES      ←  _review-model.md §4  +  the conditional gates in §5
 DISPATCH  ←  _review-matrix.md §2 — the concern checklist for each resolved surface
 ```
 
+**§ 11 has two spellings in the wild, and BOTH must be accepted.**
+[`phase-2-profile.md`](../templates/phases/phase-2-profile.md) specifies `technical_signals: [...]`
+on its own line; live profiles also emit a markdown-decorated variant
+(``**`technical_signals` (canonical registry keys):**`` followed by the array on the next line).
+Measured on a real NestJS monorepo: the specified grep returned **0 matches** against a profile that
+carried the data, so a parser accepting only the spec'd form drops to degraded mode on a repo that
+needs no degrading. Accept both and **report which was found** — a silent accept hides the drift.
+The same run had **no `technical_signal_confidence:` block at all**; the ratios were prose, so no
+cell got a denominator, which is the defect `phase-2-profile.md` documents about itself.
+
+**Cross-check the array against its own evidence table.** That run declared 8 canonical keys while
+the verdict table directly above it listed 11 signals as confirmed or partial. `ai`, `i18n`,
+`payment` and `search` were evidenced and **absent from the array Phase 4.4 actually reads** — their
+domains never applied, their cells never dispatched. `media-processing` and `webhook` were in the
+array with no evidence row. Report both directions; neither is visible from the array alone.
+
+[`scripts/resolve-review-matrix.sh`](../scripts/resolve-review-matrix.sh) performs this resolution
+and prints the Phase 2b ledger for a target repo.
+
 Vocabulary is fixed by [`templates/_review-model.md`](../templates/_review-model.md): surface names
 are literal keys from `templates/domains/_registry.md`, and kind gates use the closed set
 `browser | server | mobile | cli | any` from `templates/packs/_project-kind.md`. The
