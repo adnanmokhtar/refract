@@ -19,10 +19,10 @@ Two independent signals per cell. **Neither is trustworthy alone**, which is why
 
 | State | Meaning | Count |
 |---|---|---|
-| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 95 / 420 (22%) |
-| ○ `proposed` | one signal only — **a review queue, not coverage**. A human must read it. | 227 / 420 (54%) |
-| · `empty` | neither signal. No evidence of any material. **This is the deliverable.** | 95 / 420 (22%) |
-| – `n/a` | a `templates/concerns/` rule names this surface as having no meaningful fingerprint, **with a reason** | 3 / 420 (0%) |
+| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 190 / 420 (45%) |
+| ○ `proposed` | one signal only — **a review queue, not coverage**. A human must read it. | 224 / 420 (53%) |
+| · `empty` | neither signal. No evidence of any material. **This is the deliverable.** | 0 / 420 (0%) |
+| – `n/a` | a `templates/concerns/` rule names this surface as having no meaningful fingerprint, **with a reason** | 6 / 420 (1%) |
 
 > A `confirmed` cell means *material exists*, *not* that the material is good or that a
 > detector runs. Phase 2 dispatches it; only a run can say whether it finds anything.
@@ -45,41 +45,41 @@ is trusted as far as it is trusted:
 ```
 surface                C1  C2  C3  C4  C5  C6  C7  C8  C9 C10 C11 C12
 ---------------------------------------------------------------------
-ab-testing              ○   ·   ○   ○   ●   ○   ○   ●   ●   ○   ●   ○
-admin                   ○   ·   ·   ○   ●   ·   ○   ●   ·   ·   ○   ○
-ai                      ●   ·   ○   ○   ○   ○   ○   ○   ·   ○   ●   ○
-analytics               ○   ○   ○   ○   ●   ·   ●   ●   ●   ○   ●   ○
-audit-log               ●   ○   ○   ·   ●   ·   ○   ○   ·   ○   ○   ○
-auth                    ●   ·   ○   ○   ○   ○   ·   ●   ○   ○   ○   ○
+ab-testing              ○   ●   ○   ○   ●   ○   ○   ●   ●   ○   ●   ○
+admin                   ○   ●   ●   ○   ●   ●   ○   ●   ●   ●   ○   ○
+ai                      ●   ●   ○   ○   ○   ○   ○   ○   ●   ○   ●   ○
+analytics               ○   ○   ○   ○   ●   ●   ●   ●   ●   ○   ●   ○
+audit-log               ●   ○   ○   ●   ●   ●   ○   ○   ●   ○   ○   ○
+auth                    ●   ●   ○   ○   ○   ○   ●   ●   ○   ○   ○   ○
 background-jobs         ○   ○   ○   ●   ○   ○   ○   ●   ●   ○   ○   ○
-caching                 ○   ●   ○   ●   ○   ○   ○   ○   ·   ○   –   ●
-compliance              ○   ·   ○   ·   ●   ○   ●   ●   ○   ○   ○   ○
-data-pipeline           ·   ○   ○   ●   ○   ○   ○   ●   ●   ●   ●   ●
-document-generation     ●   ○   ·   ○   ○   ○   ●   ○   ○   ○   ○   ○
-event-sourced           ·   ○   ○   ○   ○   ·   ○   ●   ○   ○   ○   ·
-feature-flags           ○   ·   ○   ○   ○   ○   ○   ○   ○   ·   ●   ○
-file-upload             ●   ·   ○   ○   ·   ·   ·   ●   ·   ○   ○   ○
-forms                   ●   ○   ○   ○   ○   ·   ○   ○   ●   ·   ●   ○
-i18n                    ○   ·   ·   ○   ○   ·   ○   –   ·   ○   ●   ·
-import                  ●   ●   ·   ●   ○   ·   ○   ○   ●   ·   ○   ●
-integrations            ●   ●   ○   ●   ○   ·   ○   ○   ●   ○   ○   ●
-ledger                  ·   ·   ○   ●   ●   ·   ·   ○   ●   ○   ●   ○
-media-processing        ●   ○   ○   ○   ·   ○   ·   ○   ○   ○   ●   ○
-moderation              ●   ·   ○   ○   ●   ·   ●   ○   ○   ○   ○   ·
-multi-tenant            ○   ·   ·   ·   ·   ·   ·   ●   ·   ○   ●   ●
-notifications           ○   ·   ○   ○   ·   ○   ○   ●   ○   ○   ●   ○
-payment                 ●   ·   ○   ○   ○   ·   ●   ○   ●   ○   ○   ·
-public-api              ●   ○   ○   ○   ○   ·   ○   ●   ●   ●   ●   ○
-rate-limiting           ○   ○   ○   ○   ·   ○   ○   ○   ○   ○   –   ○
-real-time               ·   ○   ○   ○   ○   ○   ·   ○   ○   ·   ○   ○
-reporting               ○   ●   ○   ○   ○   ·   ●   ○   ○   ○   ○   ●
-scheduling              ·   ·   ·   ○   ·   ·   ·   ○   ●   ○   ●   ·
-search                  ○   ○   ○   ○   ·   ○   ○   ○   ○   ○   ●   ○
-settings                ●   ·   ·   ·   ●   ●   ·   ○   ·   ·   ○   ○
-streaming-delivery      ●   ●   ·   ·   ○   ○   ·   ●   ·   ·   ○   ·
-subscriptions           ○   ·   ○   ○   ○   ·   ○   ●   ○   ○   ●   ·
-webhook                 ●   ·   ○   ○   ○   ○   ·   ○   ●   ·   ●   ○
-workflow                ○   ○   ○   ●   ●   ·   ○   ●   ●   ○   ○   ·
+caching                 ○   ●   ○   ●   ○   ○   –   ○   ●   ○   –   ●
+compliance              ○   ●   ○   ●   ●   ○   ●   ●   ○   ○   ○   ○
+data-pipeline           ●   ○   ○   ●   ○   ○   ○   ●   ●   ●   ●   ●
+document-generation     ●   ○   ●   ○   ○   ○   ●   ○   ○   ○   ○   ○
+event-sourced           ●   ○   ○   ○   ○   ●   ○   ●   ○   ○   ○   ●
+feature-flags           ○   ●   ○   ○   ○   ○   ○   ○   ○   ●   ●   ○
+file-upload             ●   ●   ○   ○   ●   ●   ●   ●   ●   ○   ○   ○
+forms                   ●   ○   ○   ○   ○   ●   ○   ○   ●   ●   ●   ○
+i18n                    ○   ●   ●   ○   ○   ●   –   –   ●   ○   ●   ●
+import                  ●   ●   ●   ●   ○   ●   ○   ○   ●   ●   ○   ●
+integrations            ●   ●   ○   ●   ○   ●   ○   ○   ●   ○   ○   ●
+ledger                  ●   ●   ○   ●   ●   ●   ●   ○   ●   ○   ●   ○
+media-processing        ●   ○   ○   ○   ●   ○   ●   ○   ○   ○   ●   ○
+moderation              ●   ●   ○   ○   ●   ●   ●   ○   ○   ○   ○   ●
+multi-tenant            ○   ●   ●   ●   ●   ●   ●   ●   ●   ○   ●   ●
+notifications           ○   ●   ○   ○   ●   ○   ○   ●   ○   ○   ●   ○
+payment                 ●   ●   ○   ○   ○   ●   ●   ○   ●   ○   ○   ●
+public-api              ●   ○   ○   ○   ○   ●   ○   ●   ●   ●   ●   ○
+rate-limiting           ○   ○   ○   ○   ●   ○   ○   ○   ○   ○   –   –
+real-time               ●   ○   ○   ○   ○   ○   ●   ○   ○   ●   ○   ○
+reporting               ○   ●   ○   ○   ○   ●   ●   ○   ○   ○   ○   ●
+scheduling              ●   ●   ●   ○   ●   ●   ●   ○   ●   ○   ●   ●
+search                  ○   ○   ○   ○   ●   ○   ○   ○   ○   ○   ●   ○
+settings                ●   ●   ●   ●   ●   ●   ●   ○   ●   ●   ○   ○
+streaming-delivery      ●   ●   ●   ●   ○   ○   ●   ●   ●   ●   ○   ●
+subscriptions           ○   ●   ○   ○   ○   ●   ○   ●   ○   ○   ●   ●
+webhook                 ●   ●   ○   ○   ○   ○   ●   ○   ●   ●   ●   ○
+workflow                ○   ○   ○   ●   ●   ●   ○   ●   ●   ○   ○   ●
 ---------------------------------------------------------------------
 legend                  ● confirmed   ○ proposed (needs a read)   · empty   – n/a (reasoned)
 ```
@@ -88,27 +88,25 @@ legend                  ● confirmed   ○ proposed (needs a read)   · empty  
 
 ## 3. The empty column — cells with no evidence at all
 
-**95 of 420 cells.** Neither signal found anything. These are the pairs
-nobody is looking at; Phase 3 renders them as *live, unreviewed* and Phase 4 sizes the work.
+**0 of 420 cells — but read what that does and does not mean.**
 
-| Concern | Surfaces with no material | n |
-|---|---|---|
-| **C1  Security** | `data-pipeline`, `event-sourced`, `ledger`, `real-time`, `scheduling` | 5 |
-| **C2  Performance** | `ab-testing`, `admin`, `ai`, `auth`, `compliance`, `feature-flags`, `file-upload`, `i18n`, `ledger`, `moderation`, `multi-tenant`, `notifications`, `payment`, `scheduling`, `settings`, `subscriptions`, `webhook` | 17 |
-| **C3  Observability** | `admin`, `document-generation`, `i18n`, `import`, `multi-tenant`, `scheduling`, `settings`, `streaming-delivery` | 8 |
-| **C4  Error Handling** | `audit-log`, `compliance`, `multi-tenant`, `settings`, `streaming-delivery` | 5 |
-| **C5  Logging** | `file-upload`, `media-processing`, `multi-tenant`, `notifications`, `rate-limiting`, `scheduling`, `search` | 7 |
-| **C6  Configuration** | `admin`, `analytics`, `audit-log`, `event-sourced`, `file-upload`, `forms`, `i18n`, `import`, `integrations`, `ledger`, `moderation`, `multi-tenant`, `payment`, `public-api`, `reporting`, `scheduling`, `subscriptions`, `workflow` | 18 |
-| **C7  Compliance** | `auth`, `file-upload`, `ledger`, `media-processing`, `multi-tenant`, `real-time`, `scheduling`, `settings`, `streaming-delivery`, `webhook` | 10 |
-| **C9  Idempotency** | `admin`, `ai`, `audit-log`, `caching`, `file-upload`, `i18n`, `multi-tenant`, `settings`, `streaming-delivery` | 9 |
-| **C10 Versioning** | `admin`, `feature-flags`, `forms`, `import`, `real-time`, `settings`, `streaming-delivery`, `webhook` | 8 |
-| **C12 Tenancy** | `event-sourced`, `i18n`, `moderation`, `payment`, `scheduling`, `streaming-delivery`, `subscriptions`, `workflow` | 8 |
+It means every (concern, surface) pair now has **named material**: all 12 concerns have
+a rule in [`concerns/`](concerns/), and each names the surfaces it covers with a
+concrete fingerprint. The column that opened at 117 is closed.
 
-### Widest gaps, by concern
+**It does not mean the review is complete.** Three things are still true:
 
-- **C6  Configuration** — no material on 18 of 35 surfaces.
-- **C2  Performance** — no material on 17 of 35 surfaces.
-- **C7  Compliance** — no material on 10 of 35 surfaces.
+1. A fingerprint is a **detector spec, not a running detector**. It says what to look
+   for; only a dispatched agent finds anything. Phase 2 dispatches these — no run has
+   yet confirmed a single one earns its place.
+2. **224 cells are still `proposed`** — one text signal, never read by a
+   human. That is the standing review queue and it did not shrink; closing the empty
+   column did not touch it.
+3. The 4 structural surfaces (§4) are still unpopulated, so the true grid is 468 cells,
+   not 420. A gap that is out of scope is still a gap.
+
+> Zero empty is the point at which the matrix stops finding gaps *by absence* and starts
+> having to find them *by running*. That is a harder question, and it is the next one.
 
 ---
 

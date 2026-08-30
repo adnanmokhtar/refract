@@ -334,8 +334,15 @@ be silently absent. The N/A column carries a reason string per row, never a bare
 ---
 
 ### Phase 4 — Fill the empty cells
-**Status:** 🟡 **first tranche done, phase remains open by design** (2026-08-30).
-2 of 12 concerns built: `C11 Data Lifecycle`, `C8 Authorization`. 117 empty cells → **95**.
+**Status:** ✅ **empty column closed** (2026-08-30). **All 12 concerns built** in
+[`templates/concerns/`](../../templates/concerns/); 117 empty cells → **0**.
+
+> **Read the zero carefully — `_review-matrix.md` §3 spells it out.** It means every
+> (concern, surface) pair now has named material with a concrete fingerprint. It does **not** mean
+> the review is complete: a fingerprint is a detector *spec*, not a running detector; **224 cells
+> are still `proposed`** and that queue did not shrink; and the 4 structural surfaces remain
+> unpopulated, so the true grid is 468 cells, not 420. Zero empty is where the matrix stops
+> finding gaps by absence and has to start finding them by running.
 **Deliverable:** new skills/rules, only where Phase 1 showed an empty cell
 **Effort:** open-ended; sized by what Phase 1 actually finds
 **Depends on:** Phase 3 (so the priority order is evidence-based, not guessed)
@@ -352,7 +359,15 @@ be silently absent. The N/A column carries a reason string per row, never a bare
 > [`templates/concerns/`](../../templates/concerns/) closes that, and the matrix generator reads
 > it, so a new concern rule flips its cells on the next regeneration.
 >
-> Remaining: 10 concerns, priority order in `templates/concerns/_README.md`.
+> Built in descending `severity × empty-surface-count`: C11 Data Lifecycle (13 surfaces),
+> C8 Authorization (9), C7 Compliance (10), C12 Tenancy (8), C9 Idempotency (9),
+> C6 Configuration (18), C2 Performance (17), C1 Security (5), C10 Versioning (8),
+> C5 Logging (7), C3 Observability (8), C4 Error Handling (5).
+>
+> Two results worth keeping. **C1 Security was empty on only 5 surfaces** — security review here
+> was already broad, and the narrowness of that file is the finding. And **C3 Observability**
+> exposed the two signals disagreeing hardest: curated said 0/35, full-text said nearly all —
+> observability is *mentioned* almost everywhere and *owned* by no surface.
 
 Known-empty going in — the four axes with no material at all:
 

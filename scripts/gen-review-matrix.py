@@ -176,24 +176,41 @@ def main():
     w("```\n")
     w("---\n")
     w("## 3. The empty column — cells with no evidence at all\n")
-    w(f"**{tally['empty']} of {total} cells.** Neither signal found anything. These are the pairs")
-    w("nobody is looking at; Phase 3 renders them as *live, unreviewed* and Phase 4 sizes the work.\n")
     by_c = collections.defaultdict(list)
     for (d, c), st in grid.items():
         if st == "empty":
             by_c[c].append(d)
-    w("| Concern | Surfaces with no material | n |")
-    w("|---|---|---|")
-    for c in cs:
-        if by_c[c]:
-            w(f"| **{c}** | {', '.join('`%s`' % x for x in sorted(by_c[c]))} | {len(by_c[c])} |")
-    w("")
-    w("### Widest gaps, by concern\n")
-    order = sorted(cs, key=lambda c: -len(by_c[c]))
-    for c in order[:3]:
-        if by_c[c]:
-            w(f"- **{c}** — no material on {len(by_c[c])} of 35 surfaces.")
-    w("")
+    if tally["empty"]:
+        w(f"**{tally['empty']} of {total} cells.** Neither signal found anything. These are the")
+        w("pairs nobody is looking at; Phase 3 renders them as *live, unreviewed* and Phase 4 sizes")
+        w("the work.\n")
+        w("| Concern | Surfaces with no material | n |")
+        w("|---|---|---|")
+        for c in cs:
+            if by_c[c]:
+                w(f"| **{c}** | {', '.join('`%s`' % x for x in sorted(by_c[c]))} | {len(by_c[c])} |")
+        w("")
+        w("### Widest gaps, by concern\n")
+        for c in sorted(cs, key=lambda c: -len(by_c[c]))[:3]:
+            if by_c[c]:
+                w(f"- **{c}** — no material on {len(by_c[c])} of 35 surfaces.")
+        w("")
+    else:
+        w("**0 of %d cells — but read what that does and does not mean.**\n" % total)
+        w("It means every (concern, surface) pair now has **named material**: all 12 concerns have")
+        w("a rule in [`concerns/`](concerns/), and each names the surfaces it covers with a")
+        w("concrete fingerprint. The column that opened at 117 is closed.\n")
+        w("**It does not mean the review is complete.** Three things are still true:\n")
+        w(f"1. A fingerprint is a **detector spec, not a running detector**. It says what to look")
+        w("   for; only a dispatched agent finds anything. Phase 2 dispatches these — no run has")
+        w("   yet confirmed a single one earns its place.")
+        w(f"2. **{tally['proposed']} cells are still `proposed`** — one text signal, never read by a")
+        w("   human. That is the standing review queue and it did not shrink; closing the empty")
+        w("   column did not touch it.")
+        w("3. The 4 structural surfaces (§4) are still unpopulated, so the true grid is 468 cells,")
+        w(f"   not {total}. A gap that is out of scope is still a gap.\n")
+        w("> Zero empty is the point at which the matrix stops finding gaps *by absence* and starts")
+        w("> having to find them *by running*. That is a harder question, and it is the next one.\n")
     w("---\n")
     w("## 4. Structural surfaces — NOT populated in this pass\n")
     w("`" + "`, `".join(STRUCTURAL) + "` have no `templates/domains/` folder, so neither signal")
