@@ -296,8 +296,30 @@ run_audit_self_test() {
   td=$(mktemp -d "$repo_root/tmp/audit-selftest.XXXXXX")
   mkdir -p "$td/ai/audit/findings" "$td/src"
   printf 'const a = 1\n' > "$td/src/app.ts"
+  # The GOOD fixture must represent a CORRECT artifact under the CURRENT contract, which since
+  # commands/audit.md § "Phase 2b — The cell ledger" means the ledger leads the plan. Without it
+  # this fixture asserted the old shape and check_cell_ledger correctly rejected it — the same
+  # defect class this file's own header records: a validator that REJECTS a correctly written
+  # artifact, invisible until something fed it one.
   cat > "$td/ai/audit/plan.md" <<'FIX'
 # Audit plan
+
+## Cell ledger — 1 surface × 12 concerns = 12 cells
+
+Reviewed           9   findings ranked below
+N/A                1   each with a reason
+Live, unreviewed   2   nobody is looking at these
+
+### N/A
+| Cell | Reason |
+|---|---|
+| Tenancy × _routes | single-tenant fixture, no tenant anchor anywhere in the scope |
+
+### Live, unreviewed
+| Cell | Surface population | Why nothing ran |
+|---|---|---|
+| Data Lifecycle × _routes | 1 source file | no retention rule ships for this surface |
+| Logging × _routes | 1 source file | no detector exists in any pack or domain |
 
 Scope: `src/app.ts:1`.
 
