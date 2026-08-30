@@ -133,8 +133,26 @@ def pack_evidence(packs):
     return per, arts
 
 
+def decisions():
+    """templates/_review-decisions.md — human verdicts, read BEFORE both text signals.
+
+    The two proxies exist only to triage cells nobody has read. A cell that has been read is no
+    longer a triage problem, so a verdict here wins outright — including a verdict of `empty`,
+    which reopens a cell automation had closed.
+    """
+    f = "templates/_review-decisions.md"
+    if not os.path.exists(f):
+        return {}
+    out = {}
+    for m in re.finditer(r"^\| `([a-z0-9_-]+)` \| (C\d+)[^|]*\| `(confirmed|empty|n/a)` \|",
+                         open(f, encoding="utf-8").read(), re.M):
+        out[(m.group(1), m.group(2))] = m.group(3)
+    return out
+
+
 def build():
     ships = registry_ships()
+    verdicts = decisions()
     covered, na = concern_rules()
     grid, arts, backing = {}, {}, {}
     for dom in sorted(ships):
@@ -144,6 +162,10 @@ def build():
         full = "\n".join(open(f, encoding="utf-8", errors="replace").read() for f in files).lower()
         cur = ships[dom].lower()
         for c, pat in CONCERNS.items():
+            v = verdicts.get((dom, c.split()[0]))
+            if v:
+                grid[(dom, c)] = v
+                continue
             a = bool(re.search(pat, cur))
             n = len(re.findall(pat, full))
             cid = c.split()[0]
@@ -161,6 +183,11 @@ def build():
         arts[sfc] = names
         for c, pat in CONCERNS.items():
             cid = c.split()[0]
+            v = verdicts.get((sfc, cid))
+            if v:
+                grid[(sfc, c)] = v
+                backing[(sfc, c)] = -1
+                continue
             if sfc in covered.get(cid, ()):
                 grid[(sfc, c)] = "confirmed"
                 backing[(sfc, c)] = -1
@@ -238,9 +265,12 @@ def main():
         if st == "empty":
             by_c[c].append(d)
     if tally["empty"]:
-        w(f"**{tally['empty']} of {total} cells.** Neither signal found anything. These are the")
-        w("pairs nobody is looking at; Phase 3 renders them as *live, unreviewed* and Phase 4 sizes")
-        w("the work.\n")
+        w(f"**{tally['empty']} of {total} cells.** The concern has a real shape on that surface and")
+        w("nothing addresses it. Phase 3 renders these as *live, unreviewed* and Phase 4 sizes the")
+        w("work.\n")
+        w("Every one of these is now a **read verdict, not an absence of keywords** — see")
+        w("[`_review-decisions.md`](_review-decisions.md). The automated pass reported 0 empty; it")
+        w("could not tell a fingerprint from a passing mention, and reading found these.\n")
         w("| Concern | Surfaces with no material | n |")
         w("|---|---|---|")
         for c in cs:
@@ -250,7 +280,7 @@ def main():
         w("### Widest gaps, by concern\n")
         for c in sorted(cs, key=lambda c: -len(by_c[c]))[:3]:
             if by_c[c]:
-                w(f"- **{c}** — no material on {len(by_c[c])} of 35 surfaces.")
+                w(f"- **{c}** — no material on {len(by_c[c])} of {len(doms)} surfaces.")
         w("")
     else:
         w("**0 of %d cells — but read what that does and does not mean.**\n" % total)
@@ -268,29 +298,34 @@ def main():
         w(f"   not {total}. A gap that is out of scope is still a gap.\n")
         w("> Zero empty is the point at which the matrix stops finding gaps *by absence* and starts")
         w("> having to find them *by running*. That is a harder question, and it is the next one.\n")
-    w("### The `proposed` queue — what actually remains\n")
+    w("### The `proposed` queue\n")
     prop = collections.defaultdict(list)
     for (d, c), st in grid.items():
         if st == "proposed":
             prop[c].append(d)
-    w(f"**{tally['proposed']} cells.** One signal fired, no human has read them. Closing the empty")
-    w("column did not touch this queue — the two are independent, and this is now the larger")
-    w("number. Ranked by concern severity × queue length, so a reader can start where a single")
-    w("session buys the most:\n")
-    SEV = {"C1": 5, "C8": 5, "C12": 5, "C7": 4, "C11": 4, "C9": 4,
-           "C4": 3, "C5": 3, "C10": 3, "C3": 2, "C2": 2, "C6": 2}
-    w("| Concern | Queued | Severity | Read first |")
-    w("|---|---|---|---|")
-    for c in sorted(cs, key=lambda c: -SEV[c.split()[0]] * len(prop[c])):
-        if prop[c]:
-            head = ", ".join("`%s`" % x for x in sorted(prop[c])[:4])
-            more = f" +{len(prop[c]) - 4}" if len(prop[c]) > 4 else ""
-            w(f"| **{c}** | {len(prop[c])} | {SEV[c.split()[0]]} | {head}{more} |")
-    w("")
-    w("> Resolving one is a read, not a rewrite: open the surface's material, decide whether it")
-    w("> genuinely addresses the concern, and either add the surface to the concern rule's")
-    w("> fingerprint table (→ `confirmed`) or record it as N/A **with a reason**. Both outcomes")
-    w("> are progress; only leaving it `proposed` is not.\n")
+    if not prop:
+        w("**Empty — every cell has been read.** `proposed` meant *one text signal fired and nobody")
+        w("looked*. All 242 were opened and judged in")
+        w("[`_review-decisions.md`](_review-decisions.md): 142 held up, 100 did not and moved to the")
+        w("empty column above.\n")
+        w("> A cell can only return to this state if a **new** surface or concern is added. The")
+        w("> triage proxies do not get a second vote on a cell a human has read.\n")
+    else:
+        w(f"**{tally['proposed']} cells.** One signal fired, no human has read them. Ranked by concern")
+        w("severity × queue length, so a reader can start where a single session buys the most:\n")
+    if prop:
+        SEV = {"C1": 5, "C8": 5, "C12": 5, "C7": 4, "C11": 4, "C9": 4,
+               "C4": 3, "C5": 3, "C10": 3, "C3": 2, "C2": 2, "C6": 2}
+        w("| Concern | Queued | Severity | Read first |")
+        w("|---|---|---|---|")
+        for c in sorted(cs, key=lambda c: -SEV[c.split()[0]] * len(prop[c])):
+            if prop[c]:
+                head = ", ".join("`%s`" % x for x in sorted(prop[c])[:4])
+                more = f" +{len(prop[c]) - 4}" if len(prop[c]) > 4 else ""
+                w(f"| **{c}** | {len(prop[c])} | {SEV[c.split()[0]]} | {head}{more} |")
+        w("")
+        w("> Resolving one is a read: open the surface's material, decide whether it genuinely")
+        w("> addresses the concern, and record the verdict in `_review-decisions.md`.\n")
     w("---\n")
     w("## 4. Structural surfaces — populated from packs\n")
     w("The 4 structural surfaces have no `templates/domains/` folder, so the domain signals cannot")

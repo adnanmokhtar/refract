@@ -3,6 +3,9 @@
 **Status:** Phase 0 of [`docs/plans/audit-review-matrix.md`](../docs/plans/audit-review-matrix.md).
 **Consumed by:** `commands/audit.md` Phase 0 (resolution), `templates/_review-matrix.md` (Phase 1,
 cell population), `scripts/validate-review-model.sh` (mechanical acceptance).
+**Cell verdicts:** [`_review-decisions.md`](_review-decisions.md) — human reads, which outrank both
+text signals; the proxies triage cells nobody has opened, and a cell that has been read is no
+longer a triage problem.
 **Not a rule file.** It is read by the command at resolve time, never installed into a project's
 `.claude/rules/`. See the token-budget risk in the plan §7.
 

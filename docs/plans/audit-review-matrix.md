@@ -337,13 +337,17 @@ be silently absent. The N/A column carries a reason string per row, never a bare
 **Status:** ✅ **empty column closed** (2026-08-30). **All 12 concerns built** in
 [`templates/concerns/`](../../templates/concerns/); 117 empty cells → **0**.
 
-> **Read the zero carefully — `_review-matrix.md` §3 spells it out.** It means every
-> (concern, surface) pair now has named material with a concrete fingerprint. It does **not** mean
-> the review is complete: a fingerprint is a detector *spec*, not a running detector, and no run
-> has yet confirmed one earns its place; and **242 cells are still `proposed`** — one signal, no
-> human read — which is now the larger number and did not shrink when the empty column closed.
-> Zero empty is where the matrix stops finding gaps by absence and has to start finding them by
-> running.
+> **The zero did not survive review, and that is the point.** The automated pass reported 0
+> empty. Reading all 242 `proposed` cells (verdicts in
+> [`templates/_review-decisions.md`](../../templates/_review-decisions.md)) found **100 real
+> gaps** the keyword signals could not see: 142 held up, 100 did not. Automation could close the
+> cells where someone had written a fingerprint; it could not tell a fingerprint from a passing
+> mention. `payment × Authorization` is the clearest case — "authorization" there means *holding
+> funds*, not access control, and no keyword signal can see that.
+>
+> Final: **362 confirmed · 100 empty · 6 n/a · 0 proposed**, of 468. Still true that a
+> fingerprint is a detector *spec*, not a running detector — no run has yet confirmed one earns
+> its place.
 **Deliverable:** new skills/rules, only where Phase 1 showed an empty cell
 **Effort:** open-ended; sized by what Phase 1 actually finds
 **Depends on:** Phase 3 (so the priority order is evidence-based, not guessed)

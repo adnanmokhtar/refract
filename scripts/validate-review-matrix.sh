@@ -104,6 +104,31 @@ fi
 n_disk=$(( $(wc -l < "$TMP/disk.tsv" | tr -d ' ') + $(grep -c ":" "$TMP/named.tsv" || echo 0) ))
 [ "$orphan" -eq 0 ] && pass "all $n_disk domain + structural-pack artifacts on disk appear in the matrix"
 
+# ---- 3b  every verdict in _review-decisions.md addresses a real cell ----
+say "decisions"
+DEC="$REPO_ROOT/templates/_review-decisions.md"
+if [ -f "$DEC" ]; then
+  awk '/^\| `[a-z0-9_-]+` \| C[0-9]/{print}' "$DEC" \
+    | sed -E 's/^\| `([a-z0-9_-]+)` \| (C[0-9]+)[^|]*\| `([a-z/]+)` \|.*/\1\t\2\t\3/' > "$TMP/dec.tsv"
+  dbad=0
+  # a verdict must name a surface the grid actually has
+  awk '/^## 2\. The grid/{f=1} f&&/^```$/{c++; next} f&&c==1{print} c==2{exit}' "$MATRIX" \
+    | awk 'NF && $1 !~ /^-+$/ && $1 != "surface" && $1 != "legend" {print $1}' | sort -u > "$TMP/gridsfc.txt"
+  while IFS=$'\t' read -r sfc cid v; do
+    grep -qx "$sfc" "$TMP/gridsfc.txt" || { fail "verdict names a surface not in the grid: $sfc"; dbad=1; }
+    case "$v" in confirmed|empty|n/a) ;; *) fail "unknown verdict '$v' for $sfc x $cid"; dbad=1 ;; esac
+  done < "$TMP/dec.tsv"
+  # no duplicate verdicts for the same cell
+  dup=$(cut -f1,2 "$TMP/dec.tsv" | sort | uniq -d)
+  [ -z "$dup" ] || { fail "duplicate verdicts: $(echo "$dup" | tr '\n' ' ')"; dbad=1; }
+  # every verdict must carry a reason
+  noreason=$(awk -F'|' '/^\| `[a-z0-9_-]+` \| C[0-9]/{r=$5; gsub(/^[ \t]+|[ \t]+$/,"",r); if (length(r) < 15) print}' "$DEC" | wc -l | tr -d ' ')
+  [ "${noreason:-0}" -eq 0 ] || { fail "$noreason verdict(s) carry no usable reason"; dbad=1; }
+  [ "$dbad" -eq 0 ] && pass "$(wc -l < "$TMP/dec.tsv" | tr -d ' ') verdicts: all resolve, no duplicates, all carry a reason"
+else
+  pass "no _review-decisions.md yet"
+fi
+
 # ---- 4  vocabulary agrees with the model ----
 say "vocabulary agrees with _review-model.md"
 # The grid carries BOTH halves of the vocabulary: §2.1 signal surfaces and §2.2 structural ones.
