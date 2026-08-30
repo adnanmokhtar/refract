@@ -175,9 +175,60 @@ Examples:
 - Read `_extracted-idioms.md`, `ai/architecture.md`, `ai/observability.md`, `ai/decisions/` (skim), `CLAUDE.md`.
 - Detect `PROJECT_KIND` (frontend-* / backend-* / data-* / mobile-*) from anchors — drives which detector packs activate.
 
-### Phase 1 — Multi-axis scan (parallel)
+**Resolve the review matrix.** No new detection — three file reads:
 
-Dispatched in **one fan-out wave** (8 concurrent subagents):
+```
+SURFACES  ←  `.claude/_extracted-codebase.md` § 11 `technical_signals`   (∩ _review-model.md §2.1)
+           +  structural surfaces `_database` `_deployment` `_routes` `_screens`,
+              gated on the project_kind set from `detect-project-kind.sh`
+AXES      ←  _review-model.md §4  +  the conditional gates in §5
+DISPATCH  ←  _review-matrix.md §2 — the concern checklist for each resolved surface
+```
+
+Vocabulary is fixed by [`templates/_review-model.md`](../templates/_review-model.md): surface names
+are literal keys from `templates/domains/_registry.md`, and kind gates use the closed set
+`browser | server | mobile | cli | any` from `templates/packs/_project-kind.md`. The
+`frontend-*` / `backend-*` / `data-*` families above are **prose for detector-pack routing only**
+and MUST NOT be used to gate a matrix cell — nothing emits them, so a cell gated on one is never
+dispatched and never reported missing.
+
+**§ 11's confidence ratio becomes a denominator, not a label.** `multi-tenant: partial 117/242`
+means 125 entity files sit outside tenant scope. Today that number is prose and changes nothing —
+[`phase-2-profile.md`](../templates/phases/phase-2-profile.md) says so in its own words: *"The
+demotion was cosmetic."* Here it is the denominator of every cell on that surface, so
+`Tenancy × _database` stops being "is isolation present" and becomes "isolation covers 117 —
+here are the other 125."
+
+**Degraded mode.** If `§ 11` is absent (no `/setup-project` run), surfaces resolve from
+`project_kind` + structural only. Say so in the report and mark every signal-surface cell
+`unresolved — § 11 missing`. Never silently fall back to the flat 8 buckets.
+
+### Phase 1 — Matrix scan (parallel, surface-major)
+
+**Dispatch is surface-major; cells are the output granularity, not the dispatch granularity.**
+12 concerns × ~12 surfaces is ~144 cells and cannot be 144 agents. One agent per **resolved
+surface** carries that surface's whole concern checklist, so the agent reading the queue code
+checks all 12 concerns while it is in there instead of 12 agents re-reading the same files —
+cheaper, and a finding that needs two concerns at once (a job payload carrying a raw token =
+Authorization + Security + Data Privacy) is visible to a single reader.
+
+```
+wave A — one agent per resolved surface, checklist from _review-matrix.md §2
+   agent(public-api)  agent(_database)  agent(background-jobs)  agent(file-upload)
+   agent(real-time)   agent(integrations)  agent(_deployment)   … (N ≈ 8–14)
+
+wave B — the axes with no single surface, dispatched globally
+   01 Architecture · 22 Modularity · 08 Testing · 10 Maintainability
+   30 Developer Experience · 21 Requirements / Business Fit
+```
+
+Wave B is the table below — it is unchanged and still correct, because those agents were always
+global. **Only the axis agents that were secretly surface-shaped moved into wave A.**
+
+Every finding is tagged with its cell: `(concern | axis) × surface`. A finding that cannot be
+placed in a cell is a bug in the matrix, not a finding — report it as such.
+
+Wave B (global axes, unchanged — 8 concurrent subagents):
 
 | Sub-wave | Agent / skill | Reads | Emits to |
 |---|---|---|---|
@@ -193,10 +244,56 @@ Dispatched in **one fan-out wave** (8 concurrent subagents):
 Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<estimated-impact>` + `<estimated-cost>`. NOT shown to user.
 
 ### Phase 2 — Cross-axis rank
-- Single ranker reads all 8 axis files; produces `ai/audit/plan.md` with findings ranked into P0–P4 tiers per the rule above.
+- Single ranker reads all wave-A surface files **and** all wave-B axis files; produces `ai/audit/plan.md` with findings ranked into P0–P4 tiers per the rule above.
+- **Every finding carries its cell** `(concern | axis) × surface`. A concern's headline number is the roll-up of its cells — `Security: 14` is computed from `Security × {every resolved surface}`, never filled by a separate agent. A concern is never also a standalone axis bucket; double-counting there is what made the ranker compare a finding against itself.
+- **`blast-radius` uses the surface's real population as denominator**, not an estimate — the § 11 confidence ratio from Phase 0. "125 of 242 entity files" outranks "could affect many models".
 - Each finding has: id, axis, summary (1 line), file:line, closure verb, dependency-on (other findings that must land first), tier, impact-at-target-rps, blast-radius, fix-cost.
 - Validates: `impact-at-target-rps` for every P0/P2 finding cites a measured baseline OR an explicit estimate (RPS × cost-per-call). No hand-waved "would be slow at scale".
 - Writes plan; emits brief summary to user (headline counts per tier + 3 example P0/P1 findings).
+
+### Phase 2b — The cell ledger (leads every artifact)
+
+**This is the architecture review.** The ranked findings say what is wrong with what was looked
+at; the ledger says *what was looked at* — and, more usefully, what was not.
+
+Written as the **first section** of `ai/audit/plan.md` and of `ai/audit/assessment.md`, before any
+finding. Every cell in the matrix resolved at Phase 0 lands in exactly one of three columns:
+
+| Column | Meaning | Row must carry |
+|---|---|---|
+| **Reviewed** | cell had material, an agent ran it | findings below, or an explicit clean verdict |
+| **N/A** | the cell has no meaningful fingerprint in *this* project | **a reason string, always** |
+| **Live, unreviewed** | the surface exists and the concern applies, but **no detector exists** | the surface's population, so the gap is sized |
+
+```
+## Cell ledger — 11 surfaces × 12 concerns = 132 cells
+
+Reviewed          78   findings ranked below
+N/A               31   each with a reason
+Live, unreviewed  23   ← nobody is looking at these
+
+### Live, unreviewed
+| Cell | Surface population | Why nothing ran |
+|---|---|---|
+| Authorization × background-jobs | 34 job classes | no detector exists in any pack or domain |
+| Data Lifecycle × _database      | 242 entity files | no retention rule ships for this surface |
+| Configuration × file-upload     | 12 upload sites | matrix cell empty (both signals silent) |
+```
+
+**Hard rules.**
+- A cell may **never** be silently absent. Absent = a bug in Phase 0 resolution, and the run says so.
+- **No bare `N/A`.** Every N/A row carries its reason. This inherits the discipline already
+  documented for the 13 scale detectors above — *"A detector that has no meaningful fingerprint
+  for a given `PROJECT_KIND` is marked N/A and skipped — not silently ignored"* — applied one
+  level up, to cells instead of detectors.
+- **`Live, unreviewed` is never merged into `N/A`.** They are opposite claims: N/A says *this does
+  not apply here*; live-unreviewed says *this applies and nobody is looking*. Collapsing the second
+  into the first is how a coverage gap disguises itself as a scoping decision, and it is the single
+  failure this ledger exists to prevent.
+- The three counts must sum to the resolved cell count. Print the arithmetic.
+
+**This ships value before a single new detector is written** — it names the unreviewed cells using
+only what exists today. `--plan-only` and `--assess` both emit it.
 
 ### Phase 3 — Plan-only short-circuit
 If `--plan-only`: stop here. User reads `ai/audit/plan.md`. Re-run without flag to execute.
@@ -214,7 +311,11 @@ Either spelling still stops here — no fix, no commit, no tier advance. What di
 
 If `--assess`: skip ranking + skip execution. Instead, read all 8 axis subfiles + the project's `_extracted-idioms.md` / `_extracted-codebase.md § Gold standards` / `ai/architecture.md` / `ai/conventions.md` and **author a narrative senior-engineer report** at `ai/audit/assessment.md`. Stop after writing. No `plan.md`, no `progress.md` advance, no commits.
 
-**Report contract — exactly 8 top-level sections, in this order:**
+**Report contract — the cell ledger (Phase 2b), then exactly 8 top-level sections in this order.**
+The ledger leads: a reader must be able to answer *"what is nobody looking at"* from the top of the
+report, without reading a single finding. In `--assess` it is rendered as narrative prose rather
+than the table, but the same three columns and the same no-bare-N/A rule apply.
+
 
 1. **What's already good** — load-bearing strengths the codebase has earned. Concrete: "feature modules are well-isolated with one-import-graph-per-module; cross-cutting concerns (auth / logging / error envelope) are centralised in `<path>`; tests cover the critical paths in `<path>`; design tokens cover ~80% of color + spacing usage; the validation pipeline at `<path>` is reused across N forms". Cite `<file:line>` per claim. **No empty-praise prose** ("the code is well organised") — every line names a specific artefact + cites it. If the codebase has < 3 genuine strengths, say so honestly: "Strengths are thin — see § What needs improvement; foundation work required before optimisation has leverage."
 
@@ -679,6 +780,25 @@ All internal. Just results.
 - `--allow-dirty` — proceed with uncommitted changes.
 - `--max-parallel=<N>` — cap concurrent dispatch in P2/P4 (default 5).
 - `--focus=<list>` — narrow to specific axes (e.g., `--focus=security,db,scale`). Default: all 8.
+  **The 8 legacy keys keep working and are now documented aliases for cell sets** — nothing that
+  worked before changes meaning:
+
+  | `--focus=` | Resolves to |
+  |---|---|
+  | `security` | `C1 Security × {every resolved surface}` |
+  | `perf` | `C2 Performance × {every resolved surface}` |
+  | `obs` | `C3 Observability × {every resolved surface}` |
+  | `db` | `{every concern} × _database` |
+  | `infra` | `{every concern} × _deployment` |
+  | `arch` | axes `01 Architecture`, `22 Modularity / Boundaries` (wave B) |
+  | `quality` | axes `10 Maintainability`, `03 Correctness` (wave B) |
+  | `scale` | axes `04 Scalability`, `17 Resilience`, `19 Capacity Planning` + the 13 scale-lens detectors |
+
+- `--surface=<list>` — restrict to named surfaces (`--surface=public-api,background-jobs`). Names
+  must be literal `_registry.md` keys or a structural surface; an unknown name HALTS rather than
+  resolving to nothing.
+- `--concern=<list>` — restrict to named concerns (`--concern=C8,C9` or
+  `--concern=authorization,idempotency`). Combines with `--surface` to address a cell directly.
 - `--exclude=<scope>` — exclude areas (e.g., `--exclude=tests,migrations,_examples`).
 - `--surface-blockers` — show all halted findings, not just the summary.
 - `--skip-p4` — skip P4 tactical cleanup (focus on P0–P3 only).

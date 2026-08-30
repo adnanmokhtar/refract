@@ -8,6 +8,7 @@
 #   - check_finding_citations (strict, §641) — every P0/P1/P2 cites <file:line>
 #   - check_actionable_next_steps     — final-report ends with paste-ready commands
 #   - check_ledger_gap_parity         — gaps_in == gaps_closed for terminal rows (if a ledger exists)
+#   - check_cell_ledger               (Phase 2b) — ledger leads, no bare N/A, counts sum
 #
 # Usage:
 #   validate-audit-artifacts.sh [--plan=PATH] [--report=PATH] [--ledger=PATH] [--findings-dir=PATH]
@@ -97,6 +98,60 @@ check_ledger_mandatory_when_findings() {
     return 1
   fi
   return 0
+}
+
+# ── Phase 2b — the cell ledger ───────────────────────────────────────────────
+# commands/audit.md § "Phase 2b — The cell ledger" makes three claims mechanical:
+#   1. every artifact that carries findings leads with a ledger;
+#   2. no bare "N/A" — every N/A row states WHY, inheriting the rule the 13 scale
+#      detectors already carry ("marked N/A and skipped — not silently ignored");
+#   3. Reviewed + N/A + Live-unreviewed sums to the resolved cell count.
+# Rule 2 is the load-bearing one. A bare N/A is indistinguishable from work that was
+# skipped, which is exactly how a coverage gap disguises itself as a scoping decision.
+check_cell_ledger() {
+  local file="$1" label="$2"
+  [[ ! -f "$file" ]] && return 0
+
+  if ! grep -qiE '^#+ .*cell ledger' "$file"; then
+    log_fail "$label has no cell ledger — commands/audit.md Phase 2b requires it as the FIRST section of $file"
+    return 1
+  fi
+
+  # 1 — the ledger must lead: no finding tier may appear before it
+  local ledger_line first_tier
+  ledger_line=$(grep -niE -m1 '^#+ .*cell ledger' "$file" | cut -d: -f1)
+  first_tier=$(grep -nE '^#+ .*\bP[0-4]\b|^\*\*P[0-4]' "$file" | head -1 | cut -d: -f1)
+  if [[ -n "$first_tier" && "$first_tier" -lt "$ledger_line" ]]; then
+    log_fail "$label: findings start at line $first_tier but the cell ledger is at $ledger_line — the ledger must LEAD $file"
+    return 1
+  fi
+
+  # 2 — no bare N/A: every N/A row needs a reason beyond the marker itself
+  local bare
+  bare=$(grep -nE '(^|\|)[[:space:]]*(N/A|n/a)[[:space:]]*(\||$)' "$file" \
+         | grep -vE '\|[^|]*[A-Za-z]{4}[^|]*\|[^|]*[A-Za-z]{4}' | wc -l | tr -d ' ')
+  bare=${bare:-0}
+  if [[ "$bare" -gt 0 ]]; then
+    log_fail "$label has $bare bare N/A row(s) in $file — every N/A carries its reason (audit.md Phase 2b)"
+    return 1
+  fi
+
+  # 3 — the three counts must sum to the stated resolved cell count
+  local total rev na live sum
+  total=$(grep -oiE '=[[:space:]]*([0-9]+)[[:space:]]*cells' "$file" | head -1 | tr -cd '0-9')
+  rev=$(grep -oiE '^[[:space:]]*Reviewed[[:space:]]+([0-9]+)' "$file" | head -1 | tr -cd '0-9')
+  na=$(grep -oiE '^[[:space:]]*N/A[[:space:]]+([0-9]+)' "$file" | head -1 | tr -cd '0-9')
+  live=$(grep -oiE '^[[:space:]]*Live, unreviewed[[:space:]]+([0-9]+)' "$file" | head -1 | tr -cd '0-9')
+  if [[ -n "$total" && -n "$rev" && -n "$na" && -n "$live" ]]; then
+    sum=$(( rev + na + live ))
+    if [[ "$sum" -ne "$total" ]]; then
+      log_fail "$label ledger arithmetic: $rev reviewed + $na N/A + $live live-unreviewed = $sum, but $total cells were resolved — a cell is silently absent"
+      return 1
+    fi
+    log_pass "cell ledger in $label: $rev + $na + $live = $total cells, no bare N/A"
+  else
+    log_pass "cell ledger present in $label (counts not in machine-readable form — arithmetic unchecked)"
+  fi
 }
 
 # ── §679 — no hand-waves in the ranked plan ──────────────────────────────────
@@ -313,6 +368,8 @@ main() {
   log_section "Ranked plan — hand-waves"
   check_no_handwaves_audit_plan "$PLAN_PATH" "audit plan" || true
   check_no_handwaves_audit_plan "$ASSESSMENT_PATH" "assessment" || true
+  check_cell_ledger "$PLAN_PATH" "audit plan" || true
+  check_cell_ledger "$ASSESSMENT_PATH" "assessment" || true
 
   log_section "Findings — P0 failure mode + citations"
   check_p0_failure_mode_cited || true
