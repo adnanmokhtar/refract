@@ -1,0 +1,25 @@
+# Import-budget baseline — scripts/lint-import-budget.sh
+#
+# templates/import-tiers.md caps a WARM file at 600 lines, because a phase file is loaded whole
+# the moment its phase becomes active. HOT has no entries here and must not get any: it is the
+# tier every session pays for before any phase runs, and it is the reason the budget exists.
+#
+# FORMAT      <path>   # reason
+#
+# THE REASON IS MANDATORY and mechanically enforced, on the same contract as
+# scripts/_import-edge-baseline.txt, scripts/_hook-parity-baseline.txt and
+# scripts/_handoff-baseline.md: a line with no `# reason` suppresses nothing, the finding stays
+# red, and the gate WARNs that the line is inert.
+#
+# `REPAIR:` is not the same as accepted. It records a file that is over budget and is meant to be
+# split, with the split named — the convention scripts/_handoff-baseline.md defines. "This file is
+# long" is not a reason; it is the finding restated. A line here without a concrete split plan is
+# the failure mode this ratchet exists to prevent.
+
+# The backlog is 3 lines — 3 of them REPAIR:.
+# All three predate the gate. Each is a phase file that grew past the cap while nothing was
+# summing it; none is an accepted state, and none should be closed by raising the cap.
+
+templates/phases/phase-4.2-apply.md      # REPAIR: 686/600. The largest phase file and the one carrying two distinct jobs — the deterministic copy contract (§ artifact map, the `## Modules` → ai/modules.md rows) and the anchoring/merge rules that Phase 4.6 consumes. Split along that seam: the copy contract stays, the merge half moves to a sibling the same way phase-4.0-preflight was split out of phase-4-apply.
+templates/phases/phase-2-profile.md      # REPAIR: 634/600. Over almost entirely on the detection appendix — the per-signal grep table that phase-4.4b.1 selects overlays from. That table is reference data, not phase logic: it belongs in a COLD file the phase cites, which is what the tier system is for.
+templates/phases/phase-4.0-preflight.md  # REPAIR: 624/600. Closest to the cap and the cheapest of the three. The gitignore block and the baseline-sync file inventory are both enumerations a reader scrolls past; either one moved to COLD brings the file under.

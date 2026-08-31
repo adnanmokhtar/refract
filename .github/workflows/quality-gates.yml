@@ -214,6 +214,19 @@ jobs:
       - name: Hook parity (a shipped hook needs a translation in every adapter)
         run: bash scripts/lint-hook-parity.sh
 
+      # import-tiers.md caps HOT at 600 lines COMBINED because HOT is loaded before any phase, on
+      # every single run, used or not. That ceiling lived in a markdown table and in no tooling —
+      # nothing had ever added the four files up. Measured when the gate landed: 542 of 600, i.e.
+      # 58 lines of headroom, one ordinary section away from every future session costing more
+      # forever with no signal anywhere, because nothing breaks when a budget is exceeded, it just
+      # gets more expensive. The budget is parsed FROM the doc's table rather than hardcoded, so
+      # the two cannot drift apart. WARM is per-file and had three pre-existing violations; they
+      # are carried as REPAIR: lines with a named split, not as accepted state. COLD is counted
+      # and deliberately not enforced — the doc gives it no ceiling and it is paid only by the run
+      # that asks for it.
+      - name: Import budget (HOT is paid every session)
+        run: bash scripts/lint-import-budget.sh
+
       # The file-selection order extraction uses when a repo is too big to read whole. The cap
       # it replaced was "cap walk depth to 4", and depth is a topological accident: it measures
       # how deeply someone nested a folder, not how much the file matters. The fixture here is
