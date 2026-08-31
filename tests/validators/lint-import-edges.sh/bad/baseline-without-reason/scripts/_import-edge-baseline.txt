@@ -1,0 +1,2 @@
+# A line with no `# reason` must suppress nothing — the finding stays red.
+templates/orphan.md|commands/health.md

@@ -158,6 +158,29 @@ jobs:
       - name: Handoff edges (a citation must be true of the file it names)
         run: bash scripts/lint-handoffs.sh
 
+      # The BACK-edge, which no forward-looking gate can see. 41 files open with an
+      # `imported-by:` frontmatter line naming who consumes them — the repo's only
+      # machine-readable answer to "I change this, who breaks?" — and until this gate landed
+      # `grep -rn imported-by scripts/` returned zero: the line was hand-written, copied
+      # verbatim between mirrored snippets, and never re-checked when a consumer moved.
+      # lint-handoffs.sh above opens a file that a citation NAMES; this opens a file that
+      # names the CLAIMANT, evidence the claiming file never points at. Measured at the
+      # commit it landed: 49 resolvable targets, 39 holding directly, 8 through one index
+      # hop, 2 not at all — both asserting that /setup-project-health loads the checklist and
+      # observability, against a command that loads neither and declares no imports at all.
+      # Those two led to three more statements of the same false edge that this gate cannot
+      # see (prose, not `imported-by:`): import-tiers.md:25, its Tier-audit section, and
+      # observability.md's telemetry-consumer sentence. All five repaired; the baseline ships
+      # empty. A
+      # reference counts as full path, two-segment relative tail, or same-dir basename;
+      # never a bare basename, which read commands/audit.md's `ai/observability.md` (the
+      # file written into the CONSUMING repo) as this repo's templates/observability.md and
+      # produced 18 false findings in the first draft. Known violations ratchet through
+      # scripts/_import-edge-baseline.txt (a line with no `# reason` suppresses nothing);
+      # anything new is a hard FAIL.
+      - name: Import back-edges (an `imported-by:` claim must be true)
+        run: bash scripts/lint-import-edges.sh
+
       # Setup-contract ratchet (this run's defect class): a producer and its consumer that
       # disagree, where neither side is wrong on its own and nothing compared them. Six
       # mechanical rules, each written after a MEASURED failure in a live end-to-end run —

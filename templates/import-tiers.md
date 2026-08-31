@@ -22,7 +22,13 @@ Without tiers, "imports: [list of 26 files]" loads 26 files. With tiers:
 
 - A simple `/setup-project` invocation in CREATE mode loads HOT (5 files) + WARM phase 1, 2, 3, 4, 5, 6 (the phases that actually run). Skips Phase 4-DEEP variants (REFINE-only). Skips appendices. Skips canonical-command-template (only consumed BY phase 4 when generating commands).
 - A `/setup-project --refine` run loads HOT + WARM 1-6 + WARM 4.6-DEEP, 4.7-DEEP, 4.8-DEEP.
-- `/setup-project-health` loads only HOT + the checklist + observability.
+- `/setup-project-health` declares **no `imports:` block at all** — it is not tier-governed. It
+  cites four files inline where it uses them (`templates/idempotency.md` for the budget
+  thresholds, `templates/governance/hard-rules.md`, `templates/snippets/plan-flag.md`,
+  `templates/phases/phase-2-profile.md` for the oracle stamp). It loads neither
+  `templates/phases/phase-5-checklist.md` nor `templates/observability.md`. Stated here as
+  `HOT + the checklist + observability` until 2026-08-31; nothing had ever opened the command
+  to check, and `scripts/lint-import-edges.sh` now does.
 
 ## How loading actually works (today)
 
@@ -43,7 +49,17 @@ For now: tiers are documented intent. The model is expected to honor them.
 
 ## Tier audit
 
-`/setup-project-health` includes a tier-budget check (C7 — knowledge-base discipline). If HOT exceeds the budget, the report flags it; the user re-classifies one rule down to WARM.
+**Not enforced today — no script measures the HOT budget (planned).** `grep -rn 'HOT' scripts/`
+returns no enforcer, and `/setup-project-health` has no such check: its ten checks are numbered
+1–10 with no `C` prefix, and the closest one — check 4, Budget status — measures the CONSUMING
+repo's `ai/` file and line counts against `templates/idempotency.md`, which is a different budget
+on a different tree. `scripts/check-rule-budget.sh` is likewise unrelated: it guards the
+always-loaded rule set shipped in `templates/repo-baseline/.claude/rules/`, not this repo's
+orchestrator import tiers.
+
+So the `HOT must be ≤ 600 lines combined` rule above is a convention a human upholds by reading.
+Enforcing it means summing the line counts of `commands/setup-project.md`'s `hot:` list in CI —
+a gate that does not exist yet. Do not cite this section as a live check.
 
 ## Adding a new import
 

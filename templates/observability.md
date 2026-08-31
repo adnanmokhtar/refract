@@ -1,7 +1,7 @@
 ---
 artifact: observability
-purpose: Per-run history log so /setup-project-health, the curator agent, and humans can answer "what changed when, and why."
-imported-by: commands/setup-project.md, /setup-project-health.
+purpose: Per-run history log so humans (and, once wired, the curator agent) can answer "what changed when, and why."
+imported-by: commands/setup-project.md (orchestrator — WARM tier).
 ---
 
 # Observability
@@ -56,7 +56,11 @@ Schema:
 {"ts":"2026-04-28T13:42:11Z","phase":"5","event":"audit-row","data":{"id":"C3.N16","status":"fail","retry":1}}
 ```
 
-Telemetry is consumed by `/setup-project-health` (rolls up to drift signals) and the curator agent (signals what to prune).
+Telemetry is written here by Phase 4/5. **No consumer reads it back yet (planned).**
+`/setup-project-health` does not: none of its ten checks opens `ai/_setup-history.md`, and the
+command never names this file — check 1 reads digest freshness by file mtime instead. The curator
+agent's prune signal is the same shape and the same status. Wiring either one is the work; until
+then this log is written and read by humans only.
 
 ## Retention
 

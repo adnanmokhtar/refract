@@ -1,0 +1,23 @@
+# Import back-edge baseline — scripts/lint-import-edges.sh
+#
+# `imported-by:` is the repo's only machine-readable BACK-edge: the answer to "I am about to
+# change this file, who breaks?". Every claim not listed here must hold — the named importer
+# must exist and must actually reference the claiming file, directly or through one
+# intermediate. Lines here are suppressed into the counted `baselined` figure in the reach
+# line; anything not listed is a hard FAIL.
+#
+# FORMAT      <claiming-file>|<claimed-importer>   # reason
+#
+# THE REASON IS MANDATORY and mechanically enforced, on the same contract as
+# scripts/_handoff-baseline.md: a line with no `# reason` suppresses nothing, the finding
+# stays red, and the gate WARNs that the line is inert. A line added to silence a finding
+# nobody read is the failure mode this gate exists to prevent.
+#
+# Repairing a claim → fix it, then delete its line here.
+
+# No entries. The two findings this file opened with — templates/observability.md and
+# templates/phases/phase-5-checklist.md each naming /setup-project-health as a consumer —
+# were repaired on 2026-08-31 rather than carried: the command loads neither file, and the
+# three further statements asserting the same edge (templates/import-tiers.md:25 and its
+# Tier-audit section, templates/observability.md's purpose line and its telemetry-consumer
+# sentence) were corrected alongside them. An empty ratchet is the intended steady state.

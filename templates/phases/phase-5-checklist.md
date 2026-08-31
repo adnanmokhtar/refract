@@ -4,7 +4,7 @@ name: checklist
 artifact: phase-5-checklist
 applies-to-modes: [all]
 purpose: Phase 5 audit as a checklist that pass/fails per item, not prose. Phase 5 prose lives in phases/phase-5-verify.md; this file is the executable contract.
-imported-by: templates/phases/phase-5-verify.md, /setup-project-health (subset).
+imported-by: templates/phases/phase-5-verify.md
 ---
 
 # Phase 5 audit checklist
