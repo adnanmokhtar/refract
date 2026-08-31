@@ -198,6 +198,20 @@ jobs:
       - name: Phase DAG (a declared input needs a declared producer)
         run: bash scripts/lint-phase-dag.sh
 
+      # The file-selection order extraction uses when a repo is too big to read whole. The cap
+      # it replaced was "cap walk depth to 4", and depth is a topological accident: it measures
+      # how deeply someone nested a folder, not how much the file matters. The fixture here is
+      # the layout that cap was worst at — a workspace where every real file sits at depth 5 —
+      # and on it a depth-4 cap keeps 1 file of 6, the only worthless one, and drops all five
+      # carrying the architecture. So the assertion is the INVERSION, not merely that the
+      # ranker runs: a top-5 budget must exclude what depth kept and include what depth
+      # deleted. Also pinned: the reserved root-band slot (entry points are imported by
+      # nothing, so in-degree alone buries the routes that describe the system's surface),
+      # that unresolvable specifiers are dropped rather than guessed, and determinism across
+      # runs — a rank that leaks set-iteration order is a rank that cannot be reviewed.
+      - name: Source-file ranking (centrality, not directory depth)
+        run: bash scripts/test-rank-source-files.sh
+
       # Setup-contract ratchet (this run's defect class): a producer and its consumer that
       # disagree, where neither side is wrong on its own and nothing compared them. Six
       # mechanical rules, each written after a MEASURED failure in a live end-to-end run —

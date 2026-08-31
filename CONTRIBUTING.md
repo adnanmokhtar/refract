@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **24 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **25 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 24 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 25 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -92,6 +92,7 @@ for g in \
   scripts/lint-handoffs.sh \
   scripts/lint-import-edges.sh \
   scripts/lint-phase-dag.sh \
+  scripts/test-rank-source-files.sh \
   scripts/lint-setup-contracts.sh \
   scripts/test-merge-decide.sh \
   scripts/test-anchor-citations.sh \
@@ -125,6 +126,7 @@ file and line; none of them require you to guess.
 | `lint-handoffs.sh` | A reference that resolves as *text* but not as *contract* — a `§` anchor naming a section its target does not have, a key handed to a skill its `## Inputs` never declared, an artifact name no script writes, an ordinal gloss the scaffolder spells differently. The other gates verify the catalog; this one opens the cited file. | Fix the citation. If it is correct as-is, add a line **with a reason** to `scripts/_handoff-baseline.md` — a reasonless line suppresses nothing by design. |
 | `lint-import-edges.sh` | A dead BACK-edge — an `imported-by:` frontmatter line naming a consumer that was renamed away, or one that exists and never references the claiming file. It is the repo's only machine-readable "I change this, who breaks?" edge, and nothing read it before this gate. Resolution accepts a full path, a two-segment relative tail, a same-dir basename, or one hop through an index; a bare basename never counts (`ai/observability.md` in a consuming repo is not `templates/observability.md`). Prose fragments ("every phase that loads files"), `repo-baseline/` mirrors and negated mentions are skipped and disclosed in the reach line, never counted as passes. | Fix the claim. If it is correct as-is, add a line **with a reason** to `scripts/_import-edge-baseline.txt` — a reasonless line suppresses nothing by design. |
 | `lint-phase-dag.sh` | A phase consuming a file no phase declares producing, or one produced only in a narrower set of modes than the consumer runs in (a REFINE-only artifact read by an `[all]` phase). The `inputs:`/`outputs:`/`applies-to-modes:` frontmatter is the pipeline's only declared wiring and nothing joined the two sides before. Vocabulary entries (`mode`, `approved-plan`, `phase-4-outputs`) are disclosed, not guessed; ordering is not checked, because phase-5.5 legitimately consumes its own prior run's output. | Name the real file in the producing phase's `outputs:`. If the input truly is conditional, say so in the entry — `… (REFINE only)` — which the gate accepts as disclosure. |
+| `test-rank-source-files.sh` | The extraction sample regressing to directory depth. `scripts/rank-source-files.py` orders a repo's source by how many distinct directories import each file, reserving a quarter of the budget for entry points; the fixture is a workspace where every real file sits at depth 5, so a depth-4 cap would keep the one worthless file and drop the five carrying the architecture. Nine assertions, including determinism and that unresolvable specifiers are dropped rather than guessed. | Fix the ranker, not the fixture. If the order genuinely changed, say why in the assertion's message. |
 | `lint-setup-contracts.sh` | A producer and its consumer that disagree, where neither is wrong alone and nothing compared them. Six rules, each written after a MEASURED end-to-end failure: `find` without `-L` over a symlinked packs dir; a gate extractor blind to a field its own generator emits; GNU-only `grep -P`; a declared trigger with no producer; a browser-only pack artifact with no `project_kind:`; a machine contract addressed by section NUMBER. | Fix it. If the violation is deliberate, re-baseline: `scripts/lint-setup-contracts.sh --record`. |
 | `test-merge-decide.sh` | The engine deciding wrong AND its safety net not catching it. Self-test plus two fixtures that make the net catch something: a lying corpus that reaches OVERRIDE on a file it must never overwrite (asserts refusal before any write), and the same with the pre-write check stubbed to approve (asserts the post-write read-back rolled the file back from its backup). | Fix the engine, not the fixture. If a decision genuinely changed, say why in the case comment. |
 | `test-anchor-citations.sh` | The `Cite-able sources:` line naming directories that hold no source. Four layouts: a single-root SPA whose tooling dot-dirs sort before `src/`, a legacy space-separated citation that must NOT read as stale, a monorepo (no-regression), and a genuinely dead citation that must still be repaired. | Fix the picker. The ranking is by source-file count; a directory holding no source is not a source directory, whatever its name sorts as. |
