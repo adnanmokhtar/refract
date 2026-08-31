@@ -10,7 +10,7 @@ scopes the domain's rule to those real paths.
 A domain rule is scoped **by definition** — `payment-idempotency` matters when you are in payment
 code and nowhere else. Yet measured 2026-08-24, **0 of 35 domain rules and 0 of 28 pack rules
 carried `paths:`**, so ~156,738 tokens of rules loaded on every turn regardless of what was being
-edited. On capsolah-api that was ~11,576 tok/turn, of which 3,681 were domain rules with nothing
+edited. On the reference monorepo that was ~11,576 tok/turn, of which 3,681 were domain rules with nothing
 to do with most edits.
 
 The obvious fix — guess a glob from the domain name — was tried and **measured to fail in both
@@ -30,7 +30,7 @@ recorded 80 real module paths for that repo. **Tokens matched against recorded m
 
 1. **No module matched → the rule stays always-loaded.** Absence of evidence is not evidence the
    rule is unneeded. Scoping a rule to a path that does not exist makes it load NEVER — the exact
-   knowledge loss this whole mechanism must not cause. Measured on capsolah-api:
+   knowledge loss this whole mechanism must not cause. Measured on the reference monorepo:
    `background-jobs`, `file-upload` and `search` matched no module and correctly stayed as they
    were.
 2. **A domain spanning most of the repo stays always-loaded.** If the matched modules cover more

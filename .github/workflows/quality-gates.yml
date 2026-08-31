@@ -301,7 +301,7 @@ jobs:
         run: bash scripts/test-preflight-backup.sh
 
       # Every ERR an audit prints must be actionable, and three checks were failing that.
-      # C2n compared against ANY surviving backup, so on capsolah-api's third setup in three
+      # C2n compared against ANY surviving backup, so on the reference monorepo's third setup in three
       # days a backup from 08-22 supplied the baseline and 227 KNOWLEDGE_LOSS errors landed
       # on regions that were byte-identical. Its region test demanded an unbroken run, so a
       # line apply-anchors.sh adds ON PURPOSE read as the block being destroyed — 94 more.

@@ -104,8 +104,8 @@ and the setup for the knowledge and other it keep mind the current but adjust it
 safe do it and not loose any thing important."*
 
 **Why** — a MERGE row was a dead end. `study-existing.sh` produced them and nothing could close
-one except a person. Measured across two live repos: **235 MERGE rows**, 166 in capsolah-api
-(its own Summary: "Files with action needed: 166") and 69 in tenant-portal, against which
+one except a person. Measured across two live repos: **235 MERGE rows**, 166 in the reference monorepo
+(its own Summary: "Files with action needed: 166") and 69 in the sibling repo, against which
 `apply-study-decisions.sh --include=replace,add` applied 22 ADD rows in 1.77s and printed
 "Listed for human review: 171". The Phase-5 audit then refused the run for not doing work no
 script could do, so in practice those files stayed stale forever.
@@ -135,15 +135,15 @@ line, one resolving project token, or one `project-specific` region went missing
 3 if that happens, so a rollback can never be reported as success. `scripts/test-merge-decide.sh`
 watches both nets catch a bad write by feeding the classifier a corpus that lies.
 
-**Five real files the engine must never destroy, and does not**: capsolah's
-`tenant-isolation-reviewer.md` (75 lines of an *unanchored* `## Project-specific (Capsolah V1)`
+**Five real files the engine must never destroy, and does not**: the reference monorepo's
+`tenant-isolation-reviewer.md` (75 lines of an *unanchored* `## Project-specific (<Project> V1)`
 block, preserved byte-for-byte under ADJUST) and `env-diff/SKILL.md`, `ai/patterns/multi-tenancy.md`,
-tenant-portal's `art-direct.md` and `code-reviewer.md` (all DEFER, files untouched). Audited
+the sibling repo's `art-direct.md` and `code-reviewer.md` (all DEFER, files untouched). Audited
 across both repos: **1,248 markdown files compared, 205 changed, 0 lost project knowledge.**
 
 **Three things that are load-bearing and were each learned by watching something break:**
 
-- **The HTML anchor is not sufficient protection.** capsolah-api carries a `## Project-specific`
+- **The HTML anchor is not sufficient protection.** the reference monorepo carries a `## Project-specific`
   heading in 274 artifacts and `<!-- project-specific:start -->` in only 254. Those 20
   hand-extended blocks are now protected as regions in their own right.
 - **Detection must run on RAW lines.** `pack_substantive_sha8` strips ``[*_`]`` — correct for a

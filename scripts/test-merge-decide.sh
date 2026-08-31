@@ -628,7 +628,7 @@ fi
 # ── 17. Phase 4.6 must not be scored as a Phase 5 loss ──────────────────────────────────
 # THE SHOWSTOPPER THIS PINS. apply-anchors.sh (Phase 4.6, hard contract M25) rewrites the
 # `> Cite-able sources:` line of every anchor block from the values the CURRENT run resolved.
-# On capsolah-api the old value cited `src/`, a directory that does not exist in that repo,
+# On the reference monorepo the old value cited `src/`, a directory that does not exist in that repo,
 # and the repair was correct — 176 artifacts carried the false line before it. C2n then
 # reported each of the 227 repairs as KNOWLEDGE_LOSS and ordered the file restored from the
 # backup, which would have re-installed the lie: 227 of the audit's 255 failures, 89%, and
@@ -704,9 +704,9 @@ n17c=$(python3 "$ENGINE" --verify-pairs="$A17/pairs-c.tsv" --target="$A17" 2>/de
          "the excuse is matching by position, not by generated shape"
 
 # ── 18. a resolved skill-shape twin must not take a project FACT with it ────────────────
-# MEASURED LOSS, tenant-portal. `visual-check` existed in both shapes. The flat twin scored 15
+# MEASURED LOSS, the sibling repo. `visual-check` existed in both shapes. The flat twin scored 15
 # on project knowledge and won; the folder twin scored 2 and was archived — and the folder twin
-# was the one that said `Check dev server on :5173`. tenant-portal is a Vite app with no port
+# was the one that said `Check dev server on :5173`. the sibling repo is a Vite app with no port
 # override, so 5173 is the truth and the kept file now tells the reader 3000. twin_score could
 # not see it: `5173` is neither a path token nor a CamelCase identifier. Archiving the bytes
 # under .claude/backups/ is not preserving them — that directory is one rolled-up untracked
@@ -780,8 +780,8 @@ fi
 # ── 19. the record's line-delta claim must match the bytes on disk ──────────────────────
 # `_merge-decisions.md` printed "the file gains N line(s) in exchange" from a GROSS added-line
 # count, in the grammar of a NET trade, immediately after the sentence saying what was deleted.
-# MEASURED against git diff --numstat on both live repos: wrong in 113 of 119 capsolah rows and
-# 29 of 29 tenant-portal rows, and in 22 of those the file SHRANK while the row advertised a
+# MEASURED against git diff --numstat on both live repos: wrong in 113 of 119 the reference monorepo rows and
+# 29 of 29 the sibling repo rows, and in 22 of those the file SHRANK while the row advertised a
 # gain -- .claude/agents/websocket-engineer.md claimed "+79" on a net of -40 (+83/-123). The
 # engine's own comment states the guarantee the number failed to keep: "the record has to state
 # the trade rather than a comfortable half of it."

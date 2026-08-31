@@ -7,7 +7,7 @@
 #
 #   § 1  `globs:` was not recognised as path scoping. The framework writes `paths:`; the
 #        ADAPTER contract this repo ships maps `paths:` → `globs:` for Cursor, Continue and
-#        Windsurf, so `globs:` is the same declaration in the same vocabulary. capsolah-api's
+#        Windsurf, so `globs:` is the same declaration in the same vocabulary. the reference monorepo's
 #        8 `globs:`-scoped rules were wired as ALWAYS-loaded — 3,427 tok/turn spent regardless
 #        of which file was open — while 22 genuinely global principle rules did not fit the
 #        budget and never loaded at all. `grep -rln 'globs:' scripts/` returned NOTHING.
@@ -211,7 +211,7 @@ fi
 # `^(paths|globs):` and drop ALL of them from the always-loaded imports. Both tiers disowned the
 # rule; the file sat on disk looking configured.
 #
-# 📏 Measured on capsolah-api: 8 of 9 scoped rules dead — base-classes, cache, controllers,
+# 📏 Measured on the reference monorepo: 8 of 9 scoped rules dead — base-classes, cache, controllers,
 # database, dtos-mappers, events, module-structure, multi-tenancy — 3,427 tok of PROJECT-SPECIFIC
 # rules, the ones extracted from that codebase and the most valuable in the install.
 say ""

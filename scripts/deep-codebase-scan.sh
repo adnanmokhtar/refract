@@ -256,9 +256,9 @@ missing_llm_sections() {
 
 # ---- the INCOMPLETE banner ---------------------------------------------------------------
 #
-# THE DEFECT. tenant-portal shipped `.claude/_codebase-scan.md` with its entire semantic half
+# THE DEFECT. the sibling repo shipped `.claude/_codebase-scan.md` with its entire semantic half
 # unwritten — eight sections that were the literal string `<TBD>` — and the file reads as a
-# finished report to anyone who does not run the Phase 5 audit. capsolah-api's equivalent is 303
+# finished report to anyone who does not run the Phase 5 audit. the reference monorepo's equivalent is 303
 # lines of real project content (module map naming `apps/master/src/*` on port 4000, 486
 # `*.service.ts`, a measured dashboard waterfall), so this is not a design limit; it is a
 # per-run gap that the artifact itself did not disclose. The header's "Phase 5 audit FAILS the

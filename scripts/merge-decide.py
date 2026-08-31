@@ -11,8 +11,8 @@ automatically between ENHANCE / CHANGE / OVERRIDE. Keep project knowledge. If re
 SAFE, replace without asking. Never lose anything important.
 
 WHY THIS EXISTS. A live run against two real repos produced 235 `MERGE` rows and handed
-every one of them to "human review": 166 in capsolah-api (its report's own Summary line says
-"Files with action needed: 166", all MERGE) and 69 in tenant-portal. Nothing in the framework
+every one of them to "human review": 166 in the reference monorepo (its report's own Summary line says
+"Files with action needed: 166", all MERGE) and 69 in the sibling repo. Nothing in the framework
 could close a MERGE row except a person, so in practice those files stay stale forever. That
 is not a merge policy; it is the absence of one.
 
@@ -123,7 +123,7 @@ def canon_token(tok):
     the link TEXT beside it says `templates/snippets/x.md`. Three spellings, one file. Without
     this the "absent from the pack corpus" half of the token test is true for the deployed
     spelling of a framework file, and the invariant refuses to replace a file over a reference
-    the framework itself wrote and then rewrote. MEASURED: 3 rows in capsolah-api
+    the framework itself wrote and then rewrote. MEASURED: 3 rows in the reference monorepo
     (backend/commands/refactor.md, observability add-metrics.md and add-tracing.md) were
     refused on exactly this, and the run stopped being idempotent because of it.
     """
@@ -154,7 +154,7 @@ ANCHOR_END = re.compile(r"^<!-- project-specific:end -->\s*$")
 
 # --- Lines apply-anchors.sh REGENERATES on every run -------------------------------------
 #
-# THE DEFECT THIS CLOSES, measured on capsolah-api. Phase 4.6 (apply-anchors.sh, hard contract
+# THE DEFECT THIS CLOSES, measured on the reference monorepo. Phase 4.6 (apply-anchors.sh, hard contract
 # M25) rewrites the `> Cite-able sources:` line of every anchor block from the values the
 # CURRENT run resolved. On that repo the old value was `top-level: src/.` and `src/` does not
 # exist — the real dirs are apps/, libs/, chrome-extension/ — so the repair was correct and
@@ -534,7 +534,7 @@ def project_regions(text):
     Two kinds, and the second exists because the first is not enough:
       * the `<!-- project-specific:start --> ... :end -->` block apply-anchors.sh writes;
       * a bare `## Project-specific ...` heading section with no markers around it.
-    MEASURED: capsolah-api carries the heading in 274 artifacts and the markers in only 254.
+    MEASURED: the reference monorepo carries the heading in 274 artifacts and the markers in only 254.
     Twenty files hold hand-extended blocks that the anchor strip walks straight past and an
     override would delete — one of them documents the repo's entire tenant-resolution chain.
     """
@@ -547,7 +547,7 @@ def project_regions(text):
             # A REGION ENDS WHERE A NEW H1 BEGINS. section_spans splits on `## ` alone, so a
             # project block written ABOVE the pack's own document title swallows that title
             # and everything under it: ai/patterns/structured-logging.md's
-            # `## Project-specific (Capsolah V1)` ran from line 17 to line 73 and the last
+            # `## Project-specific (<Project> V1)` ran from line 17 to line 73 and the last
             # three lines of it were `# Pattern: Structured Logging` and the pack's own
             # one-line summary. Protecting those as OWNER content is wrong twice over — they
             # are pack text, and it forces any composer that de-duplicates the title into a
@@ -565,7 +565,7 @@ def project_regions(text):
 def project_heading_sections(lines):
     """Keys of `## Project-specific ...` sections that are NOT inside an anchor block.
 
-    MEASURED: capsolah-api has 274 artifacts carrying a `## Project-specific` heading but only
+    MEASURED: the reference monorepo has 274 artifacts carrying a `## Project-specific` heading but only
     254 carrying `<!-- project-specific:start -->`. Twenty files hold hand-extended blocks the
     anchor strip does not protect, and an override would delete them. The heading is therefore
     treated as a protected region in its own right.
@@ -693,7 +693,7 @@ def collision_score(pack_path, tgt_path, kind, target_root):
 
     M41 picks a winner among packs that ship the same command name. The winner used to be
     "whichever row the study report listed first", which is not a decision — it is an
-    accident of section order. MEASURED on capsolah-api: `.claude/commands/refactor.md` was
+    accident of section order. MEASURED on the reference monorepo: `.claude/commands/refactor.md` was
     installed from code-quality (`description: Language-agnostic targeted refactor …`), and
     `backend/commands/refactor.md` claimed the path first and OVERRODE it with the backend
     variant. `/refactor` changed what it does and nobody was told. Reordering the report's
@@ -1001,7 +1001,7 @@ def compose_override(pack_norm, anchors, heading_blocks=()):
 def _strip_pack_tail(chunk, pack_line_set):
     """Drop a trailing block a kept chunk carries only because the pack's own H1 lives there.
 
-    `section_spans` splits on `## ` alone, so a target whose owner wrote a `## Capsolah V1 —
+    `section_spans` splits on `## ` alone, so a target whose owner wrote a `## <Project> V1 —
     primary guidance lives elsewhere` note ABOVE the pack's `# Pattern: Saga` title has that
     H1, and the pack paragraph under it, sitting inside the kept section's span. Re-emitting
     the chunk verbatim then puts a SECOND copy of the document title into the file: verified
@@ -1063,7 +1063,7 @@ def weave_section(pack_chunk, tgt_chunk, corpus):
     # merely to survive. A region — an anchor block, a `## Project-specific`
     # block — routinely contains a line the pack ALSO has; treating that line as
     # an anchor split the block around the pack's copy of it, and the invariant
-    # correctly refused all 13 tenant-portal writes and 6 of capsolah-api's.
+    # correctly refused all 13 the sibling repo writes and 6 of the reference monorepo's.
     #
     # So inside a region every line is carried and none is an anchor: the block
     # travels whole, attached to the last anchor ABOVE it.
@@ -1149,7 +1149,7 @@ def weave_section(pack_chunk, tgt_chunk, corpus):
     # Anchoring each run to the pack's copy of the line it followed puts the runs
     # in PACK order — and when the pack has reordered that material, the owner's
     # notes come out shuffled. `verify_invariant`'s ORDER leg caught this on all
-    # 12 tenant-portal rows, and it was right to: a document whose sentences
+    # 12 the sibling repo rows, and it was right to: a document whose sentences
     # moved reads differently even though every line survived.
     #
     # So the anchored result is CHECKED, not trusted. If the owner's lines would
@@ -1178,12 +1178,12 @@ def compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys, corpus=None)
 
     PLACEMENT IS TARGET ORDER. This used to append every kept section at end-of-file, and
     compose_enhance's own docstring already called that a correctness defect rather than a
-    cosmetic one — the same reasoning applies here and harder. MEASURED on capsolah-api: 43
+    cosmetic one — the same reasoning applies here and harder. MEASURED on the reference monorepo: 43
     kept sections across 23 of 28 ADJUST rows moved more than a quarter of the file downward.
-    ai/patterns/migrations.md sent `## Project-specific (Capsolah V1)` from the second heading
+    ai/patterns/migrations.md sent `## Project-specific (<Project> V1)` from the second heading
     to the LAST, under sixteen sections of generic guidance, while the pack's EMPTY
     `## Project-specific (auto-generated…)` placeholder took the top. ai/patterns/saga.md sent
-    `## Capsolah V1 — primary guidance lives elsewhere` — a note whose entire purpose is to be
+    `## <Project> V1 — primary guidance lives elsewhere` — a note whose entire purpose is to be
     read before the generic advice — to the bottom of the generic advice.
 
     verify_invariant could not see any of it, because its LINES leg is set membership over
@@ -1293,7 +1293,7 @@ def compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys, corpus=None)
     # pack is a security lens and the installed file is the project's own row-level isolation
     # contract — there is no neighbour to anchor to, and inserting after the preamble would
     # push every one of the owner's sections below the entire generic body. That is the
-    # defect, restated: `## Capsolah V1 — primary guidance lives elsewhere` is a note whose
+    # defect, restated: `## <Project> V1 — primary guidance lives elsewhere` is a note whose
     # only job is to be read BEFORE the generic advice. Target order wins; the pack body
     # follows it.
     for pi, (k, chunk) in enumerate(p_secs):
@@ -1484,7 +1484,7 @@ def _budget_evicted_rule(line, target_root):
     fit is dropped from `CLAUDE.md` ON PURPOSE, and the script says so in full: it names
     every dropped rule, prices it, and points at `scope-rules.sh` to make it free.
 
-    📏 On tenant-portal it dropped four — `i18n.md` (~2,986 tok) among them — and C2n
+    📏 On the sibling repo it dropped four — `i18n.md` (~2,986 tok) among them — and C2n
     reported the missing `@.claude/rules/i18n.md` as KNOWLEDGE_LOSS with the standing
     remedy: "Restore it from the backup." Following that would re-import ~2,986 tokens on
     every turn and undo a refusal the framework had just made deliberately. Two parts of
@@ -1517,7 +1517,7 @@ def _intact_in_one_region(res_regions, needle):
     UNBROKEN run in the finished file — which makes any line INSERTED into a
     project-specific block read as destruction of that block.
 
-    📏 Measured on tenant-portal: **94 KNOWLEDGE_LOSS errors**, one per agent file,
+    📏 Measured on the sibling repo: **94 KNOWLEDGE_LOSS errors**, one per agent file,
     all of them this. The insertion in every case was
     `> - **Where this applies here** (`baseline`): …` — a citation
     `apply-anchors.sh` adds to the anchor block on purpose. The diff against the
@@ -1591,8 +1591,8 @@ def verify_invariant(original_text, result_text, corpus, target_root):
       * REGIONS must survive CONTIGUOUSLY. Line-by-line membership passes a region that has
         been shredded across the file — every line present, the block gone.
       * ORDER. This is the one that bit. compose_adjust relocated 43 kept sections across 23
-        of 28 ADJUST rows to end-of-file, moving `## Project-specific (Capsolah V1)` from the
-        second heading to the last and `## Capsolah V1 — primary guidance lives elsewhere`
+        of 28 ADJUST rows to end-of-file, moving `## Project-specific (<Project> V1)` from the
+        second heading to the last and `## <Project> V1 — primary guidance lives elsewhere`
         below the generic guidance it exists to precede. Every line was still present, so a
         set-membership check returned True on all 23. Order is not decoration in a file an
         agent reads top-down.
@@ -1826,7 +1826,7 @@ def record_ledger(ledger_path, entries, bak_dir=None):
     # The prior line for a key is REPLACED (one line per key, last write wins — the ledger's
     # own contract). But a prior line a HUMAN wrote carries a rationale, and dropping it is
     # knowledge loss of exactly the kind this engine exists to prevent: measured on
-    # capsolah-api, 22 lines were rewritten and 8 of them were hand-written KEEP-OURS entries
+    # the reference monorepo, 22 lines were rewritten and 8 of them were hand-written KEEP-OURS entries
     # explaining WHY the project's version won. The verb is superseded; the reasoning is not,
     # so it is carried into the new line rather than deleted with it.
     prior = {}
@@ -2054,7 +2054,7 @@ def main(argv):
             src = os.path.join(packs_root, r["pack"], r["kind"], r["base"])
             tgt = resolve_target(target, r["kind"], r["base"])
             # M36 — study-existing.sh's own project-knowledge alarm, which the engine used to
-            # parse into rows[]['rest'] and never read. Eight capsolah-api rows carry it. Two
+            # parse into rows[]['rest'] and never read. Eight the reference monorepo rows carry it. Two
             # of them reached OVERRIDE and both happened to be correct; an engine that reaches
             # the right answer while ignoring the upstream alarm is luck, not design. It is now
             # read, recorded, printed, and it changes the composition (see § M36 below).
@@ -2073,7 +2073,7 @@ def main(argv):
             # code-quality, frontend and mobile; `add-feature.md` in three packs. They are
             # DIFFERENT commands that resolve to ONE installed path, so the study report emits
             # two MERGE rows for one file. Letting both write makes the run non-idempotent and
-            # non-deterministic in what survives: measured on capsolah-api, backend and
+            # non-deterministic in what survives: measured on the reference monorepo, backend and
             # code-quality both wrote `.claude/commands/refactor.md`, and run 2 produced a
             # different file from run 1 because each row re-classified against the other's
             # output. First row to claim the path owns it; the loser is reported, never written.
@@ -2115,8 +2115,8 @@ def main(argv):
                 # `gain_lines` IS A GROSS COUNT — lines ADDED — and it used to be printed in
                 # the grammar of a net trade ("the file gains N line(s) in exchange"), directly
                 # after the sentence saying what was deleted. MEASURED against `git diff
-                # --numstat` on both live repos: wrong in 113 of 119 capsolah rows and 29 of 29
-                # tenant-portal rows, and in 22 of those the file actually SHRANK while the row
+                # --numstat` on both live repos: wrong in 113 of 119 the reference monorepo rows and 29 of 29
+                # the sibling repo rows, and in 22 of those the file actually SHRANK while the row
                 # advertised a gain — `.claude/agents/websocket-engineer.md` claimed "+79" on a
                 # net of −40 (+83/−123); `.claude/agents/ui-architect.md` claimed "+119" on a net
                 # of −33. The gross number is not wrong, the WORD "gains" is. It is now labelled

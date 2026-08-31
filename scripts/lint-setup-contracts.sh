@@ -246,7 +246,7 @@ fi
 # pack_substantive_sha8() in study-existing.sh strips [*_`] before hashing, which is correct
 # for a stability hash and catastrophic anywhere else: it turns E2E_EMAIL into E2EEMAIL and
 # eats .env.tenant. MEASURED — copying that normalization into the merge detector silently
-# un-protected two real files (tenant-portal art-direct.md, capsolah env-diff/SKILL.md), both
+# un-protected two real files (the sibling repo art-direct.md, the reference monorepo env-diff/SKILL.md), both
 # of which carry exactly those tokens, and classified both as safe to overwrite. The engine may
 # use it for the ledger's pack@sha8 stamp and for nothing else.
 if [ -f scripts/merge-decide.py ]; then
@@ -269,7 +269,7 @@ fi
 # A pack command links `](../../../snippets/plan-flag.md)`; apply-study-decisions.sh rewrites
 # that to `](../templates/snippets/plan-flag.md)` on deploy. The rewrite is correct and the link
 # is still dead unless `templates/repo-baseline/.claude/templates/snippets/plan-flag.md` exists
-# to be copied in. MEASURED on capsolah-api after a complete run: 41 of 95 relative links under
+# to be copied in. MEASURED on the reference monorepo after a complete run: 41 of 95 relative links under
 # .claude/ unresolved (43%), up from 20 of 61 at HEAD — the run more than DOUBLED them — with
 # `../templates/snippets/review-action-plan.md` x16 and `../templates/snippets/plan-flag.md` x8
 # at the top, while audit-setup.sh C2t printed "ok no broken snippet/governance links".

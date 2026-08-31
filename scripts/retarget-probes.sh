@@ -10,7 +10,7 @@
 # not exist is indistinguishable from a clean result. The reviewer reports "no findings" and
 # has checked nothing.
 #
-# 📏 MEASURED on capsolah-api, a NestJS monorepo whose top level is apps/ · libs/ · prisma/ ·
+# 📏 MEASURED on the reference monorepo, a NestJS monorepo whose top level is apps/ · libs/ · prisma/ ·
 # tools/: 133 probes across its installed artifacts named a directory that does not exist, 117
 # of them `src/`. audit-setup.sh C2y reports them, and nothing fixed them.
 #
@@ -88,7 +88,7 @@ for d in sorted(os.listdir(t)):
         if n > 4000: break
     if n: roots.append((n, d))
 # Every root holding at least 10% of the densest one. A monorepo's code does not live in one
-# place: capsolah-api is apps/ (4,317 files) AND libs/ (1,532) — replacing `src/` with apps/
+# place: the reference monorepo is apps/ (4,317 files) AND libs/ (1,532) — replacing `src/` with apps/
 # alone would point every probe away from a quarter of the codebase. rg/grep/find all accept
 # several paths, so the replacement is "apps/ libs/".
 roots.sort(reverse=True)
@@ -117,7 +117,7 @@ apply_ = apply_s == "1"
 # Two different things wear the same prefix, and only one of them can be mechanically fixed:
 #
 #   rg "SELECT" src/ | rg -v tenant_id            <- a search root. 108 of these on
-#                                                    capsolah-api. Retargeting it is exact.
+#                                                    the reference monorepo. Retargeting it is exact.
 #   src/modules/payments/charge.service.ts        <- an EXAMPLE of what a finding looks like.
 #                                                    ~125 of these. `apps/modules/payments/…`
 #                                                    does not exist either, so rewriting it

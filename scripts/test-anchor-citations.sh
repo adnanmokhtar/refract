@@ -279,7 +279,7 @@ fi
 # The writer half of the space-separated-citation bug was fixed (§ 2). The auditor half was
 # not, and nothing here exercised it: audit-anchoring.sh split the `top-level:` tail on commas
 # alone, so `src/assets src/components src/composables` became ONE 43-character token that
-# resolves as nothing. MEASURED on tenant-portal: 94 "cross-project leaks", every one that same
+# resolves as nothing. MEASURED on the sibling repo: 94 "cross-project leaks", every one that same
 # string, all three directories present on disk — and audit-setup.sh C2d promotes each to ERR,
 # so a correctly-anchored run could not pass its own audit and the remedy it printed (re-run
 # apply-anchors.sh) provably could not help, because apply-anchors.sh agrees the citation is
@@ -419,8 +419,8 @@ else
 fi
 
 # ── § 9  a legacy anchor gains the per-artifact line that makes it artifact-specific ─────
-# ANCHORING COVERAGE READ 100% AND MEANT ALMOST NOTHING. Measured: capsolah-api 195 anchored
-# artifacts / 20 distinct anchor bodies / largest identical group 110 (56%); tenant-portal
+# ANCHORING COVERAGE READ 100% AND MEANT ALMOST NOTHING. Measured: the reference monorepo 195 anchored
+# artifacts / 20 distinct anchor bodies / largest identical group 110 (56%); the sibling repo
 # 88 / 11 / 57 (65%). The target's own report said so — "a global constant wearing a citation
 # costume" — while audit-setup.sh C2d printed "ok anchoring coverage 100%" in the same run.
 # The cause was a MISSING MIGRATION: artifact_relevance_line already makes each INJECTED block

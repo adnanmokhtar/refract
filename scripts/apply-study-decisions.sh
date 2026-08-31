@@ -354,11 +354,11 @@ twin_score() {
 
 # ---- what the ARCHIVED twin knew and the KEPT twin does not ------------------------------
 #
-# THE MEASURED LOSS THIS CLOSES. tenant-portal's `visual-check` skill existed in both shapes.
+# THE MEASURED LOSS THIS CLOSES. the sibling repo's `visual-check` skill existed in both shapes.
 # The FLAT twin scored 15 on project knowledge and won; the FOLDER twin scored 2 and was
 # archived. The folder twin was the one that said
 #     1. Check dev server on :5173 (`curl -s http://localhost:5173 …`)
-# and tenant-portal is a Vite app with no port override, so 5173 is the truth. The kept twin
+# and the sibling repo is a Vite app with no port override, so 5173 is the truth. The kept twin
 # was then overridden with pack text and now says `default http://localhost:3000`. visual-check
 # is the harness every UI verification runs through, so a wrong port makes the render fail or
 # silently grade the wrong thing. twin_score COULD NOT SEE THE FACT: `5173` is neither a path
@@ -865,7 +865,7 @@ bak_dir="$TARGET/.claude/backups/study-decisions-$ts"
 
 # ---------- M40 PREFLIGHT: a blocking twin halts BEFORE the first byte is written --------
 #
-# HISTORY, measured 2026-08-23 on tenant-portal. The twin check lived INSIDE the write loop,
+# HISTORY, measured 2026-08-23 on the sibling repo. The twin check lived INSIDE the write loop,
 # so a run wrote 35 ADD rows and 54 engine merges — 89 files — and THEN exited 4 on three
 # skills that were already in both shapes before the run started. Two things were wrong with
 # that and they compound:
@@ -1020,7 +1020,7 @@ for action in "${actions[@]:-}"; do
       # read-back; this had none, and the study report's `target N lines` measurement is
       # taken BEFORE anything else in the run touches the file.
       #
-      # MEASURED, and it is a real loss, not a hypothetical. tenant-portal:
+      # MEASURED, and it is a real loss, not a hypothetical. the sibling repo:
       # `--resolve-shape-conflicts` correctly resolved the design-iterate twin, keeping the
       # 98-line FLAT file (project anchor + `## Project-specific` block, score 7) over the
       # 35-line generic folder file (score 0), and migrated it into the folder shape. The

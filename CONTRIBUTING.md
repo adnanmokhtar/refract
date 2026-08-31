@@ -595,6 +595,15 @@ The repo has a voice. Match it.
 - **Stack-neutral in universal docs.** If a sentence only makes sense to a React developer, it
   belongs in a pack or a `references/` file.
 - **Bidirectional links.** When an agent references a sibling in `## Related`, add the reverse link.
+- **Never name a private repo.** This repo is published and installed by other people; measurements
+  taken against real codebases must cite the evidence without the identity. The two standing sources
+  are **"the reference monorepo"** (a ~4.3k-file TypeScript monorepo, `apps/` · `libs/` · `prisma/`)
+  and **"the sibling repo"** (a smaller frontend project set up from the same baseline). Keep the
+  number and the finding, drop the name — `MEASURED on the reference monorepo: 8 of its 9 scoped
+  rules were dead` says everything the original said. Illustrative project-specific headings use the
+  `<Project>` placeholder. Before pushing: `git grep -iE '<your-client-names>'`. This was not
+  hypothetical — 176 occurrences of two client repo names had to be removed from 26 files, six of
+  them shipped to users, one of them a hook that installs into every consuming project.
 
 **Commits:** Conventional Commits, scoped to the pack or subsystem, with the resulting version in
 brackets when a pack version moves:

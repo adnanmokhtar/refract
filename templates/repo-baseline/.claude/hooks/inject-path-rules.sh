@@ -62,7 +62,7 @@ glob_to_re() {
 # globs, so it never injected it either. Both tiers disown the rule while the file sits on disk
 # looking configured.
 #
-# 📏 MEASURED on capsolah-api: 8 of its 9 scoped rules were dead — base-classes, cache,
+# 📏 MEASURED on the reference monorepo: 8 of its 9 scoped rules were dead — base-classes, cache,
 # controllers, database, dtos-mappers, events, module-structure, multi-tenancy — 3,427 tok of
 # PROJECT-SPECIFIC rules, the ones extracted from that codebase and the most valuable in the
 # install. They had been excluded from every turn's context and injected on no turn at all.

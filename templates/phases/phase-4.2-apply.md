@@ -132,7 +132,7 @@ Four things are load-bearing and must not be quietly undone:
    `E2E_EMAIL` into `E2EEMAIL` and eats `.env.tenant`, which silently un-protected two files that
    carry exactly those tokens. `lint-setup-contracts.sh` Rule 9 fails the build if that
    normalization reappears outside the hash.
-3. **The HTML anchor is not sufficient protection.** capsolah-api carries a `## Project-specific`
+3. **The HTML anchor is not sufficient protection.** the reference monorepo carries a `## Project-specific`
    heading in 274 artifacts and `<!-- project-specific:start -->` in only 254. Those 20
    hand-extended blocks are protected as regions in their own right.
 4. **Every write is verified against the bytes it produced**, not against the intent it had —
@@ -262,7 +262,7 @@ cp -R ~/.claude/templates/packs/<track>/rules/*.md .claude/rules/ 2>/dev/null ||
 # 🔴 THE HALT ABOVE IS NOW A CHECK, NOT A SENTENCE ADDRESSED TO YOU.
 #
 # Everything from "If the KEY `is_multi_track:` is absent … Halt" onward was an instruction, and
-# an instruction is not a check. MEASURED on capsolah-api: the profile contains ZERO occurrences
+# an instruction is not a check. MEASURED on the reference monorepo: the profile contains ZERO occurrences
 # of `repo_shape`, `is_multi_track` AND `track_roots`. The condition below was never true, the
 # halt never fired, the scoping step was skipped in silence, and 14 of 36 installed rules ended
 # up delivered on no turn — the outcome this file predicted in writing, one line above the branch
@@ -285,12 +285,12 @@ fi
 #
 # It runs only when `is_multi_track: true`, it covers only PACK rules, and the halt this file
 # demands when the key is ABSENT is an instruction to an agent rather than a check in a
-# script. MEASURED on capsolah-api: the profile carries no `is_multi_track`, no `repo_shape`
+# script. MEASURED on the reference monorepo: the profile carries no `is_multi_track`, no `repo_shape`
 # and no `track_roots`, so the condition was never true, the halt never fired, and the step
 # was skipped in silence. 14 of 36 installed rules — 34,773 tok including
 # backend-principles, security-principles and testing-principles — ended up delivered on NO
 # turn: over the always-loaded budget, and carrying no `paths:` for the hook to match.
-# tenant-portal: 4 of 17, including frontend-principles.
+# the sibling repo: 4 of 17, including frontend-principles.
 #
 # So the routing runs every time, from a script that decides for itself. It refuses to guess:
 # a domain whose modules it cannot find, or one spanning >40% of the map, stays always-loaded.
@@ -311,7 +311,7 @@ fi
 # zero-hit probe over a directory that does not exist is indistinguishable from a clean
 # result: the reviewer reports "no findings" having checked nothing.
 #
-# 📏 MEASURED on capsolah-api (top level apps/ · libs/ · prisma/):
+# 📏 MEASURED on the reference monorepo (top level apps/ · libs/ · prisma/):
 #     grep -rl '@Controller' src/         ->   0 files
 #     grep -rl '@Controller' apps/ libs/  -> 242 files
 # 133 probes named a directory that does not exist. audit-setup.sh C2y had been reporting

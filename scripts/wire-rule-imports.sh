@@ -79,7 +79,7 @@ MARK_CLOSE='<!-- setup-project:managed end -->'
 # `globs:` COUNTS. The framework writes `paths:`, but the ADAPTER contract maps a rule's
 # `paths:` to `globs:` for Cursor, Continue and Windsurf — so `globs:` is the same declaration
 # in the vocabulary this repo already ships, and a project whose rules were authored against
-# that vocabulary was being read as if it had declared nothing. MEASURED on capsolah-api: 8
+# that vocabulary was being read as if it had declared nothing. MEASURED on the reference monorepo: 8
 # rules declaring `globs: "**/controllers/**/*.ts"` and the like were wired as ALWAYS-loaded,
 # spending 3,427 tok of a 12,000 tok budget on every turn regardless of which file was open,
 # while 22 genuinely global principle rules (backend-principles, security-principles,
@@ -168,8 +168,8 @@ fi
 # installed but NOT imported by CLAUDE.md, so they never load" — and the escape hatch it printed
 # was dead too, because a path-scoped rule needs inject-path-rules.sh registered and that hook
 # was registered in no settings.json in either live repo. Two mandatory steps of the same run,
-# in direct opposition, with no reachable state that satisfies both: 20 rules on capsolah-api,
-# 4 on tenant-portal, and /setup-project unable to exit 0 either way.
+# in direct opposition, with no reachable state that satisfies both: 20 rules on the reference monorepo,
+# 4 on the sibling repo, and /setup-project unable to exit 0 either way.
 #
 # A refusal a reader can FIND is a different object from a refusal that is only a line of
 # scrollback. This writes the decision to `.claude/rules/_unloaded.md` — next to the rules it

@@ -157,7 +157,7 @@ printf "baseline always-loaded: ~%d tokens   (budget: %d)\n" "$total" "$BUDGET"
 # "OK — within budget" while being blind to every templates/packs/<pack>/rules/ file.
 # Those are not free: phase-4.2-apply.md path-scopes pack rules ONLY when the project
 # is multi-track, so a SINGLE-track project always-loads them unscoped. Measured on a
-# real 11-track project (capsolah-api): ~24,344 tokens of pack rules on top of the
+# real 11-track project (the reference monorepo): ~24,344 tokens of pack rules on top of the
 # ~4,943 baseline — roughly 5x the declared cap, reported as OK.
 #
 # The baseline number above is still the gate's hard budget: it is the floor every

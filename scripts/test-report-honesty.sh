@@ -7,10 +7,10 @@
 #
 #   § 1  `.claude/_codebase-scan.md` shipped with its whole semantic half as the literal string
 #        `<TBD>` — 8 sections — and reads as a finished report to anyone who does not run the
-#        Phase 5 audit. capsolah-api's equivalent is 303 lines of real content, so this is a
+#        Phase 5 audit. the reference monorepo's equivalent is 303 lines of real content, so this is a
 #        per-run gap, not a design limit; the file simply never said so about itself.
 #
-#   § 2  19 installed artifacts on capsolah-api — including the tenant-isolation reviewer, the
+#   § 2  19 installed artifacts on the reference monorepo — including the tenant-isolation reviewer, the
 #        highest-severity check that repo owns — run `rg ... src/` on a repo with no `src/`.
 #        A probe over a missing directory returns zero hits, and zero hits reads as CLEAN.
 #
@@ -189,7 +189,7 @@ else
 fi
 
 # ── § 4  a command that SHIPS its helper is not a dead path ──────────────────────────────
-# C2w raised a hard ERR on tenant-portal because `.claude/commands/grab-site.md` says to run
+# C2w raised a hard ERR on the sibling repo because `.claude/commands/grab-site.md` says to run
 # `.claude/scripts/grab-site.py`, which is absent — but that command CARRIES the whole mirror
 # script inside itself and says "write verbatim to" that path before running it. The remedy
 # C2w printed ("ship the helper") would have duplicated a script the command already holds.

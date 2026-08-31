@@ -9,7 +9,7 @@
 # default to false … Halt and complete the repo-shape block" — addressed to an agent. An
 # instruction is not a check, and this one was not followed.
 #
-# 📏 MEASURED on capsolah-api: the profile contains NONE of `repo_shape`, `is_multi_track` or
+# 📏 MEASURED on the reference monorepo: the profile contains NONE of `repo_shape`, `is_multi_track` or
 # `track_roots` — zero occurrences of all three. So Phase 4.2's condition was never true, the
 # halt never fired, the scoping step was skipped in silence, and 14 of 36 installed rules ended
 # up delivered on no turn. The phase file had predicted that exact outcome, in writing, one line

@@ -11,7 +11,7 @@
 # backup from a PREVIOUS run then supplies the baseline and every legitimate change
 # made since is reported as knowledge the refresh destroyed.
 #
-# 📏 Measured on capsolah-api after a third setup in three days: 15 backup dirs
+# 📏 Measured on the reference monorepo after a third setup in three days: 15 backup dirs
 # spanning 2026-08-22 to 08-24, and the audit reported 227 KNOWLEDGE_LOSS errors,
 # every one reading `lost 0 line(s), 0 project token(s) and 1 project-specific
 # region(s)`. Diffed by hand the regions were BYTE-IDENTICAL — 16 lines before,
@@ -127,7 +127,7 @@ else bad "§3b legacy 4-digit stamp not recognised as a floor" "expected 2 dirs,
 #
 # C2y greps whole LINES for rg/grep/find/ls/fd and then harvests `a/b` tokens from the
 # matched line. Artifacts are mostly prose, and "find" is an ordinary English verb, so on
-# tenant-portal 26 of 55 reported probes came from sentences — `JSX/template`,
+# the sibling repo 26 of 55 reported probes came from sentences — `JSX/template`,
 # `analytics/telemetry`, `tool/function` read as directories. The unit of judgement is now
 # the CODE on the line: a fenced block, an indented block, or the inline `…` spans.
 #

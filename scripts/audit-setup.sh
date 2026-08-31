@@ -353,7 +353,7 @@ c2n_token_pair() {
 # carries more PROJECT KNOWLEDGE and archiving the other byte-for-byte under
 # `.claude/backups/skill-shape-*/resolved-twins/<name>.{flat,folder}.md`. To C2n the winning
 # path then looks like a file that lost 13 lines, because the pre-run backup holds the loser's
-# text — measured on tenant-portal, that is exactly 2 of the ERRs a clean run produced.
+# text — measured on the sibling repo, that is exactly 2 of the ERRs a clean run produced.
 #
 # This is NOT a suppression rule. It fires only when the archived copy is byte-identical to the
 # pre-run backup, i.e. only when the bytes provably still exist at a named path. Anything less
@@ -385,7 +385,7 @@ c2n_twin_archived() {
 # backup from a PREVIOUS run then supplies the baseline, so every legitimate
 # change made since gets reported as knowledge the refresh destroyed.
 #
-# 📏 Measured on capsolah-api after a third setup in three days: 15 backup dirs
+# 📏 Measured on the reference monorepo after a third setup in three days: 15 backup dirs
 # spanning 2026-08-22 to 08-24, and the audit reported **227 KNOWLEDGE_LOSS
 # errors**, every one of them reading `lost 0 line(s), 0 project token(s) and
 # 1 project-specific region(s)`. Diffed by hand, the regions were BYTE-IDENTICAL
@@ -1254,7 +1254,7 @@ if [[ -d "$BASELINE_AI" ]]; then
     # `_template.md` is the form you COPY to open a new ADR, runbook, pattern or eval case.
     # Byte-identical to the baseline is the ONLY correct state for it — a filled-in one would
     # mean somebody wrote an ADR into the template instead of into a numbered file. The check
-    # that says "shipped, never written" was calling that a defect, and on tenant-portal it
+    # that says "shipped, never written" was calling that a defect, and on the sibling repo it
     # produced 3 ERRs (decisions, evals/cases, runbooks) that no action could ever clear:
     # populate them and the next audit is right to complain about the opposite.
     #
@@ -1358,7 +1358,7 @@ if [[ -d "$TARGET/.claude/commands" ]]; then
     # INSIDE `.json`, so `ai/optimize/_dep-graph.json` was extracted as `ai/optimize/_dep-graph.js`,
     # failed the existence test, and raised a KNOWLEDGE-shaped ERR about a file that had never
     # existed and that nothing ever asked the reader to run. Measured: this was the ONLY new ERR
-    # a whole 149-file merge run introduced on capsolah-api (audit fail 38 -> 39), and the pack
+    # a whole 149-file merge run introduced on the reference monorepo (audit fail 38 -> 39), and the pack
     # sentence it fired on explicitly handles the file's absence ("If the graph artifact is
     # absent, record diagram UNVERIFIED"). `grep -o` prints the guard character too, so the sed
     # below strips it from both ends.
@@ -1372,7 +1372,7 @@ if [[ -d "$TARGET/.claude/commands" ]]; then
       # script inside the command file and tells the reader to "write verbatim to
       # .claude/scripts/grab-site.py", then run it — so the file legitimately does not exist
       # until the command is first used. MEASURED: this check raised a hard ERR on
-      # tenant-portal for exactly that, and the printed remedy ("ship the helper") would have
+      # the sibling repo for exactly that, and the printed remedy ("ship the helper") would have
       # duplicated a script the command already carries. A command that CONTAINS the bytes and
       # says where to put them has not made a broken promise.
       # NB `.*`, not `[^\\n]*`: inside an ERE bracket expression `\\n` is the two characters
@@ -1424,7 +1424,7 @@ echo ""
 # missing field was an instruction addressed to an agent — "do NOT default to false … Halt" —
 # which is not a check, and was not followed.
 #
-# 📏 MEASURED on capsolah-api: ZERO occurrences of repo_shape, is_multi_track and track_roots.
+# 📏 MEASURED on the reference monorepo: ZERO occurrences of repo_shape, is_multi_track and track_roots.
 # Phase 4.2's scoping branch was therefore never true, the step was skipped in silence, and 14
 # of 36 installed rules ended up delivered on no turn. The audit's job is to notice that the
 # input a phase depends on was never written — a WARN because the run can still be correct
@@ -1480,7 +1480,7 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
     # that do not fit the always-loaded token budget and says so in plain words; this check
     # then failed the run for exactly that decision, and the escape hatch it printed
     # (scope-rules.sh → path-scoped tier) was dead too because inject-path-rules.sh was
-    # registered in no settings.json. MEASURED: 20 rules on capsolah-api, 4 on tenant-portal,
+    # registered in no settings.json. MEASURED: 20 rules on the reference monorepo, 4 on the sibling repo,
     # and no reachable state satisfying both steps of the same run.
     #
     # The distinguishing fact is whether the refusal was RECORDED. wire-rule-imports.sh now
@@ -1516,10 +1516,10 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
     # CLAUDE.md, and carrying no `paths:` for the hook to match. The record documents the
     # loss; it does not undo it.
     #
-    # 📏 MEASURED on capsolah-api: 14 of 36 rules in exactly that state — 34,773 tok
+    # 📏 MEASURED on the reference monorepo: 14 of 36 rules in exactly that state — 34,773 tok
     # including backend-principles, security-principles and testing-principles, on a backend
     # project — every one of them dutifully listed in `_unloaded.md`, and the audit's only
-    # comment was a WARN saying the decision was recorded. tenant-portal: 4 of 17, including
+    # comment was a WARN saying the decision was recorded. the sibling repo: 4 of 17, including
     # frontend-principles, on a frontend project.
     #
     # So this asks the question the two tiers between them never asked: CAN THIS RULE ARRIVE
@@ -1671,7 +1671,7 @@ fi
 
 # C2y — A SHELL PROBE IN AN ARTIFACT MUST NAME A DIRECTORY THAT EXISTS.
 #
-# THE FAILURE MODE IS SILENT AND IT IS A FALSE NEGATIVE. MEASURED on capsolah-api: 19 live
+# THE FAILURE MODE IS SILENT AND IT IS A FALSE NEGATIVE. MEASURED on the reference monorepo: 19 live
 # artifacts — including `.claude/agents/tenant-isolation-reviewer.md`, the highest-severity
 # reviewer that repo owns — issue probes like
 #     rg "SELECT.*FROM (orders|products)" src/ | grep -v "tenant_id"
@@ -1703,7 +1703,7 @@ done
 #
 # This used to grep whole LINES for `rg|grep|find|ls|fd` and then harvest every `a/b`
 # token out of the matched line. Both halves misfire on prose, and artifacts are mostly
-# prose. Measured on tenant-portal: of 55 reported probes, 26 came from sentences —
+# prose. Measured on the sibling repo: of 55 reported probes, 26 came from sentences —
 #
 #   "Known limit of that grep: it is line-scoped, so a multi-line JSX/template `<input>`…"
 #   "…adds a collection form/endpoint, a logger call, an analytics/telemetry event…"
@@ -1717,9 +1717,9 @@ done
 # indented block, or the contents of the inline `…` spans. The command word must appear in
 # that code, and the paths are harvested only from that code.
 #
-# 📏 It costs no recall. capsolah-api's real finding — probes over a `src/` that repo does
+# 📏 It costs no recall. the reference monorepo's real finding — probes over a `src/` that repo does
 # not have — went 115 → 117 (two more, because inline spans are now read as one piece of
-# code instead of one line of prose), while its total fell 150 → 133. tenant-portal fell
+# code instead of one line of prose), while its total fell 150 → 133. the sibling repo fell
 # 55 → 29, and the survivors are genuine: `routes/`, `config/`, `migrations/`, `k8s/`,
 # `api/`, `models/` — backend-shaped probes shipped into a Vue frontend, which is exactly
 # the silent zero-hit this check exists to catch.
@@ -1760,8 +1760,8 @@ while IFS=$'\t' read -r loc code; do
     [[ -z "$root" ]] && continue
     # only judge a REPO-ROOT-relative first segment, and only when it is plainly a directory
     case "$root" in .|..|\$*|\**|-*|/*) continue ;; esac
-    # A path written from the PARENT of this repo — `tenant-portal/src/utils/x.ts` inside
-    # tenant-portal — resolves fine for the human who wrote it. Three such hits on that
+    # A path written from the PARENT of this repo — `the sibling repo/src/utils/x.ts` inside
+    # the sibling repo — resolves fine for the human who wrote it. Three such hits on that
     # project, and none of them a missing directory.
     [[ "$root" == "$_c2y_self" ]] && continue
     [[ -e "$TARGET/$root" ]] && continue
@@ -1833,8 +1833,8 @@ if [[ -x "$SCRIPTS_DIR/audit-anchoring.sh" ]]; then
     fi
     # UNIQUENESS, REPORTED NEXT TO COVERAGE — because on its own "100% anchored" is a
     # sentence about file structure that a reader hears as a sentence about content.
-    # MEASURED: capsolah-api 195 anchored / 20 distinct bodies / largest identical group 110
-    # (56%); tenant-portal 88 / 11 / 57 (65%). audit-anchoring.sh's own report calls that
+    # MEASURED: the reference monorepo 195 anchored / 20 distinct bodies / largest identical group 110
+    # (56%); the sibling repo 88 / 11 / 57 (65%). audit-anchoring.sh's own report calls that
     # "a global constant wearing a citation costume" — and C2d printed "ok anchoring coverage
     # 100%" in the same run, with the two verdicts never appearing beside each other.
     uniq_line=$(grep -E '^Distinct anchor bodies:' "$ANCHOR_REPORT" 2>/dev/null | head -1 || true)
@@ -2017,7 +2017,7 @@ fi
 # THE HALF THIS CHECK WAS MISSING, and it was the half that mattered. The grep above tests only
 # for the OLD path SHAPE. It never asked whether the REWRITTEN target resolves — so a link
 # rewritten exactly as the fix instructs, to a snippet that was never deployed into the target,
-# passed as clean. MEASURED on capsolah-api after a full run: 41 of 95 relative links under
+# passed as clean. MEASURED on the reference monorepo after a full run: 41 of 95 relative links under
 # .claude/ did not resolve (43%), up from 20 of 61 at HEAD — the run DOUBLED them — and this
 # check printed "ok no broken snippet/governance links in deployed artifacts". Top offenders:
 # `../templates/snippets/review-action-plan.md` x16, `../templates/snippets/plan-flag.md` x8.

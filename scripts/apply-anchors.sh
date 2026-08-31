@@ -303,7 +303,7 @@ SRC_DIRS=""
 _srcn=0
 # BREADTH BEFORE DEPTH — one slot per distinct top-level ROOT first, then fill.
 #
-# The cap is 4 and the candidate list contains nested dirs, so on capsolah-api the ranking
+# The cap is 4 and the candidate list contains nested dirs, so on the reference monorepo the ranking
 # spent three of the four slots inside ONE tree (`apps/`, `apps/tenant/`, `apps/master/`) plus
 # `chrome-extension/`, and `libs/` — the shared-library root that half that codebase lives in —
 # was cut. The same anchor block cites `DataAccess<…> at libs/database/src/repository/
@@ -606,9 +606,9 @@ anchor_toplevel_is_stale() {
 
 # ---- anchor UNIQUENESS: the per-artifact line, retro-fitted -----------------------------
 #
-# THE DEFECT. Anchoring coverage reads 100% and says almost nothing. MEASURED: capsolah-api
+# THE DEFECT. Anchoring coverage reads 100% and says almost nothing. MEASURED: the reference monorepo
 # 195 anchored artifacts / 20 distinct anchor bodies / largest identical group 110 (56%);
-# tenant-portal 88 / 11 / 57 (65%). The target's own report already names it — "Distinct anchor
+# the sibling repo 88 / 11 / 57 (65%). The target's own report already names it — "Distinct anchor
 # bodies: 16 of 106 anchored (15%) … a global constant wearing a citation costume" — while
 # audit-setup.sh C2d printed "ok anchoring coverage 100%" in the same run.
 #

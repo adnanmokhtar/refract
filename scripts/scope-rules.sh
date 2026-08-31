@@ -56,7 +56,7 @@ inject() {
   # scoped. scope-domain-rules.sh reported `SCOPE ai-cost-discipline.md` while the file was
   # untouched, and the next wire-rule-imports.sh run imported it as always-loaded again.
   #
-  # 📏 MEASURED on capsolah-api: 16 of 36 installed rules start with a heading rather than
+  # 📏 MEASURED on the reference monorepo: 16 of 36 installed rules start with a heading rather than
   # `---`, so they were unscopeable — 30,992 tok of rules that could never leave the
   # always-loaded tier no matter what any tool did. All 63 rule TEMPLATES in this repo carry
   # frontmatter, so the loss happens on install, not at source; refusing here just made a

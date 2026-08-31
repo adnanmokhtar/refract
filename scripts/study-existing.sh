@@ -260,8 +260,8 @@ stripped_target() {
 # NB: the decision legend below deliberately writes the anchor marker BROKEN — `<!-- project-specific:`
 # … `-->` — rather than whole. A whole `<!-- project-specific:start -->` in the report's prose is
 # an unpaired start tag in a file the tooling scans, and it broke start/end balance in both live
-# repos the first time this legend shipped (capsolah _study-existing-report.md:736,
-# tenant-portal:554 — start 256 vs end 255). Harmless in substance, but it silently defeats every
+# repos the first time this legend shipped (the reference monorepo _study-existing-report.md:736,
+# the sibling repo:554 — start 256 vs end 255). Harmless in substance, but it silently defeats every
 # naive pair count, including the integrity check an auditor reaches for first.
 #
 # THE ANCHOR IS NOT A THIRD SIGNAL. `<!-- project-specific:start -->` is written
@@ -642,7 +642,7 @@ decide() {
           # SAY WHICH NUMBER THIS IS. `$tgt_lines` is the ANCHOR-STRIPPED count — it must be,
           # or every anchored file re-flags as MERGE forever — but the row said plain "target
           # N", so a reader who ran `wc -l` on the file got a different number and concluded
-          # the report was wrong. MEASURED: the row for capsolah's add-feature.md read "target
+          # the report was wrong. MEASURED: the row for the reference monorepo's add-feature.md read "target
           # 468", `wc -l` said 484, and the 16-line difference is exactly the anchor block.
           # The figure was right; the label was missing.
           anchor_note=""

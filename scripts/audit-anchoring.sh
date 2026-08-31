@@ -381,7 +381,7 @@ anchor_citation_tokens() {
   # the form it emitted before that was space-separated (`top-level: src/assets src/components
   # src/composables.`). Splitting on commas alone turns those three real directories into one
   # 43-character token that resolves as nothing, so every artifact carrying the older form is
-  # reported as a cross-project leak. MEASURED on tenant-portal: 94 false leaks, every one of
+  # reported as a cross-project leak. MEASURED on the sibling repo: 94 false leaks, every one of
   # them that same string, all three directories present on disk (src/assets 437 files,
   # src/components 184, src/composables 7) -- and audit-setup.sh C2d turns them into ERR, so a
   # run that anchored correctly could not pass. apply-anchors.sh:anchor_toplevel_is_stale

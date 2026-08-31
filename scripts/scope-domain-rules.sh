@@ -5,13 +5,13 @@
 # WHY. A domain rule is scoped by definition: `payment-idempotency` matters in payment code and
 # nowhere else. Measured 2026-08-24: 0 of 35 domain rules and 0 of 28 pack rules carried `paths:`,
 # so ~156,738 tok of rules loaded on EVERY turn regardless of what was being edited. On
-# capsolah-api that was ~11,576 tok/turn, of which 3,681 were domain rules irrelevant to most edits.
+# the reference monorepo that was ~11,576 tok/turn, of which 3,681 were domain rules irrelevant to most edits.
 #
 # Phase 4.2 already scoped PACK rules — but only when `is_multi_track: true`, and it never touched
 # domain rules at all. So on a single-track project nothing was scoped, and domain rules were
 # scoped nowhere, ever.
 #
-# WHY NOT A GLOB GUESSED FROM THE DOMAIN NAME. Tried and measured against capsolah-api's 6,187
+# WHY NOT A GLOB GUESSED FROM THE DOMAIN NAME. Tried and measured against the reference monorepo's 6,187
 # source files: `**/*ai*` matched 257 files because `account/domain/**` contains "ai", and
 # `**/*tenant*` matched 3,193 (52%) because the app IS multi-tenant. A substring is not a word,
 # and a template cannot know a project's layout. The module map does: matching hyphen-split TOKENS
@@ -132,7 +132,7 @@ for dom in sorted(vrows):
             # 🔴 VERIFY THE WRITE. This used to report SCOPE on the strength of having CALLED
             # scope-rules.sh. That script exits 0 after refusing a file (it returned 0 for
             # "no frontmatter"), so a refusal was indistinguishable from a success — and on
-            # capsolah-api this printed `SCOPE ai-cost-discipline.md` over a file it had not
+            # the reference monorepo this printed `SCOPE ai-cost-discipline.md` over a file it had not
             # touched. wire-rule-imports.sh then correctly re-imported it as always-loaded,
             # and the reported saving never happened.
             after = open(path, encoding='utf-8', errors='replace').read(4000)
@@ -150,7 +150,7 @@ for dom in sorted(vrows):
 # when a matching file is touched, charged once per session). A rule that has neither is
 # installed, correct, and unreachable.
 #
-# 📏 MEASURED on capsolah-api: 14 of 36 installed rules were in that state — 34,773 tok
+# 📏 MEASURED on the reference monorepo: 14 of 36 installed rules were in that state — 34,773 tok
 # including backend-principles (3,368), concurrency-discipline (3,240) and
 # security-principles (2,763) — on a backend project. wire-rule-imports.sh had recorded them
 # honestly in `.claude/rules/_unloaded.md` and printed the remedy, and the remedy was

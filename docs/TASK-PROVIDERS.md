@@ -117,7 +117,7 @@ empty creds → 401.** (`/task` also self-heals this — see Troubleshooting.)
 Drain a list/sprint by looping `/task next`.
 
 ### Status-flow mapping
-`/task` resolves your board's status lists/states **by name at runtime**. Example (SahlCart Trello board):
+`/task` resolves your board's status lists/states **by name at runtime**. Example (Trello board):
 start → `in progress`, review → `Need Testing`, done → `done`. If your board uses different
 names, `/task` matches case-insensitively; rename or tell it which list maps to which.
 
