@@ -167,6 +167,83 @@ run_recall() {
 }
 run_recall
 
+# module-boundaries needs a project that actually declares boundaries, so — like recall-inject
+# above — the cases run inside a seeded scratch tree rather than the harness's default scratch
+# dir. The three inert paths (opt-out flag, no ai/modules.md, an empty boundaries section) are
+# asserted after the case files, because each needs a DIFFERENT project state and so cannot be
+# expressed as a payload.
+seed_boundaries_project() {
+  local proj="$1"
+  mkdir -p "$proj/ai" "$proj/.claude"
+  cat > "$proj/ai/modules.md" <<'FIXEOF'
+# Modules
+
+## Module catalog
+
+| Module | Path | Owns | Public surface | Cross-cuts |
+|---|---|---|---|---|
+| <name> | `<src/path/>` | <one-line responsibility> | <exported types> | <auth> |
+| orders | `src/orders/` | order lifecycle | createOrder | auth |
+| billing | `src/billing/` | invoicing | chargeCard | auth |
+| shared | `src/shared/` | primitives | Money | — |
+
+## Module boundaries (which modules MUST NOT import which)
+
+- `<module-A>` MUST NOT import from `<module-B>` — reason: <one line>
+- `<module-A>` MAY import from `<module-B>` only via `<facade-or-port>`
+- `orders` MUST NOT import from `billing` — reason: billing owns money movement; orders asks via events
+- `billing` MAY import from `shared` only via `src/shared/index.ts`
+FIXEOF
+  return 0
+}
+
+run_boundaries() {
+  local hook="$HOOKS/module-boundaries.sh" dir="$CASES/module-boundaries"
+  [ -d "$dir" ] || return 0
+  local proj; proj=$(mktemp -d)
+  seed_boundaries_project "$proj" || { echo "SKIP  module-boundaries (could not seed)"; return 0; }
+
+  local f base want got
+  for f in "$dir"/*.json; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f")
+    case "$base" in
+      *block*) want=2 ;;
+      *allow*) want=0 ;;
+      *) echo "SKIP  module-boundaries/$base (no block/allow in name)"; continue ;;
+    esac
+    got=0
+    ( cd "$proj" && bash "$hook" < "$f" >/dev/null 2>&1 ) || got=$?
+    if [ "$got" = "$want" ]; then pass=$((pass+1)); else
+      fail=$((fail+1))
+      echo "FAIL  module-boundaries/$base — expected exit $want, got $got"
+    fi
+  done
+
+  # The same payload that blocks above must be inert in each of these three states. A blocking
+  # hook that cannot be switched off, or that fires on a project which declared no boundaries,
+  # is worse than no hook: it gets disabled wholesale and then guards nothing.
+  local violation="$dir/02-block-must-not-relative.json"
+  assert_inert() {
+    local what="$1" rc=0
+    ( cd "$proj" && bash "$hook" < "$violation" >/dev/null 2>&1 ) || rc=$?
+    if [ "$rc" = 0 ]; then pass=$((pass+1)); else
+      fail=$((fail+1)); echo "FAIL  module-boundaries/$what — expected exit 0 (inert), got $rc"
+    fi
+  }
+  : > "$proj/.claude/.no-module-boundaries"; assert_inert "opt-out-flag"
+  rm -f "$proj/.claude/.no-module-boundaries"
+
+  mv "$proj/ai/modules.md" "$proj/ai/modules.bak"; assert_inert "no-modules-file"
+
+  grep -v 'MUST NOT import from `billing`' "$proj/ai/modules.bak" \
+    | grep -v 'MAY import from `shared`' > "$proj/ai/modules.md"
+  assert_inert "no-declared-boundaries"
+
+  rm -rf "$proj"
+}
+run_boundaries
+
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

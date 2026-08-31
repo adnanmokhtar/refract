@@ -24,12 +24,25 @@ Add one row when a module is introduced. The five columns answer the questions a
 
 ## Module boundaries (which modules MUST NOT import which)
 
-When the architecture defines hard boundaries (clean-architecture layers, bounded contexts, public-vs-internal modules), enumerate them here. Crossing a boundary is a code-review fail.
+When the architecture defines hard boundaries (clean-architecture layers, bounded contexts, public-vs-internal modules), enumerate them here.
+
+**These two lines are executable.** `.claude/hooks/module-boundaries.sh` parses this section on every Edit / Write / MultiEdit and refuses the write when the incoming import crosses a boundary declared below — so keep the shape exactly as shown, backticks included. The module names must be names from the catalog table above; that table is where a name is resolved to a path.
 
 - `<module-A>` MUST NOT import from `<module-B>` — reason: <one line>
 - `<module-A>` MAY import from `<module-B>` only via `<facade-or-port>`
 
-If the project has no declared boundaries, leave this section empty (do NOT invent constraints).
+`MAY … only via` is enforced as the stricter reading: every route into `<module-B>` is refused **except** the named facade. That is what a port is for.
+
+What the hook does NOT do, so you know where a human still has to look:
+
+- **It reads the incoming edit, not the file on disk.** A crossing that was already committed does not block an unrelated edit to the same file — it is a refactor to schedule, not a reason to reject today's work.
+- **TypeScript / JavaScript and Python only.** Any other extension is allowed without inspection.
+- **It resolves relative specifiers and the `@/` `~/` `#/` sigils, and strips one leading `src/` / `app/` / `lib/`.** A build alias that RENAMES rather than shortens (`@core/*` → `src/billing/*` in `tsconfig.json`) is not resolved, and the hook stays silent rather than guessing.
+- **It never invents a boundary.** No catalog row, no rule line, or no `ai/modules.md` at all → it exits without looking.
+
+Bypass one session with `.claude/.no-module-boundaries`. If a boundary is simply wrong, change it here instead — deliberately, in its own commit, with the reason updated.
+
+If the project has no declared boundaries, leave this section empty (do NOT invent constraints). An empty section disables the hook rather than blocking anything.
 
 ## "Where does new code go?" — quick lookup
 
