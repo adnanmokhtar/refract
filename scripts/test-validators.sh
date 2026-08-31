@@ -43,6 +43,14 @@ invoke() {  # $1=script-name $2=case-dir → prints exit code
     # rather than as a quietly dirtied fixture tree.
     audit-anchoring.sh)
       bash "$REPO_ROOT/scripts/audit-anchoring.sh" "$case" --strict --quiet --stdout >/dev/null 2>&1; echo $? ;;
+    # audit-adapter-coverage.sh: positional <target> + --strict (no --repo-root). --strict is what
+    # gives it a non-zero exit, which is the bad-case contract. --stdout keeps the run read-only so
+    # the harness does not write a report into every fixture on every pass (same reasoning as
+    # audit-anchoring.sh above). These cases pin the `anchor` verdict specifically: a tool that was
+    # never selected as a full adapter must not read as `ok | 1/1 (100%)` beside a real 249/249, and
+    # must not count as a failure under --strict either — it is neither covered nor broken.
+    audit-adapter-coverage.sh)
+      bash "$REPO_ROOT/scripts/audit-adapter-coverage.sh" "$case" --strict --stdout >/dev/null 2>&1; echo $? ;;
     # All other fixtured scripts honour --repo-root. New non-repo-root scripts get an arm here.
     *) bash "$REPO_ROOT/scripts/$script" --repo-root="$case" >/dev/null 2>&1; echo $? ;;
   esac

@@ -17,6 +17,13 @@
 #   ≥80%   warn (some artifacts didn't translate)
 #   <80%   err  (significant drift — adapter is stale)
 #
+# Two verdicts are not percentages, and both exist so a row cannot read as coverage it does not
+# have. `skip` = nothing of that kind exists to translate. `anchor` = the tool was never selected
+# as a full adapter, so the only gradeable thing is the cross-tool anchor this repo writes anyway
+# (AGENTS.md, GEMINI.md); grading its whole native surface would report ~1% for files nobody asked
+# for, and reporting `ok | 1/1 (100%)` would sit beside a real `249/249 (100%)` and read as fully
+# translated. Same measurement either way — the word is what changes.
+#
 # Usage:
 #   audit-adapter-coverage.sh <target> [--strict] [--stdout | --report=<path>]
 #
@@ -308,7 +315,7 @@ audit_codex() {
   # adapter — i.e. its native .agents/skills/ dir exists. Otherwise grade only the AGENTS.md
   # anchor (codex's sole always-on deliverable) so an unselected codex isn't scored ~1%.
   if [[ ! -d "$TARGET/.agents/skills" ]]; then
-    echo "1|1"
+    echo "1|1|anchor"
     return
   fi
   local hits=0 expected=$((SRC_COMMANDS + SRC_SKILLS + 1))
@@ -330,7 +337,7 @@ audit_gemini() {
   # selected — i.e. its .gemini/commands/ dir exists. Otherwise grade the anchor at 1/1, so an
   # unselected gemini isn't scored ~3% and false-REFUSED under --strict (#5; mirrors audit_codex).
   if [[ ! -d "$TARGET/.gemini/commands" ]]; then
-    echo "1|1"
+    echo "1|1|anchor"
     return
   fi
   local hits=0 expected=$((SRC_COMMANDS + 1))
@@ -475,11 +482,19 @@ run_one() {
   if ! result=$($fn 2>/dev/null); then
     return  # adapter not present
   fi
-  local hits expected
-  IFS='|' read -r hits expected <<<"$result"
-  local v
+  local hits expected mode
+  IFS='|' read -r hits expected mode <<<"$result"
+  local v kind pct
+  # `anchor` = the tool was NOT selected as a full adapter, and only its always-on cross-tool
+  # anchor (AGENTS.md / GEMINI.md) is gradeable. Scoring it 1/1 is right — grading the whole
+  # native surface would report ~1% for a surface nobody asked to be written. Reporting it as
+  # `ok` is not: `1/1 (100%)` sits in the table beside `249/249 (100%)` and reads as "fully
+  # translated" when the truth is "never selected". Same verdict, different word.
+  if [[ "$mode" == "anchor" ]]; then
+    SUMMARY_ROWS+=("anchor|$name|anchor only — not selected as a full adapter")
+    return
+  fi
   v=$(verdict_for "$hits" "$expected")
-  local kind pct
   IFS='|' read -r kind pct <<<"$v"
   case "$kind" in
     ok)   SUMMARY_ROWS+=("ok|$name|$hits/$expected ($pct%)") ;;
@@ -522,11 +537,12 @@ run_one qwen      audit_qwen
         ok)   printf '| ✅ ok | `%s` | %s |\n' "$name" "$detail" ;;
         warn) printf '| ⚠️  warn | `%s` | %s |\n' "$name" "$detail" ;;
         err)  printf '| ❌ err | `%s` | %s |\n' "$name" "$detail" ;;
-        skip) printf '| ➖ skip | `%s` | %s |\n' "$name" "$detail" ;;
+        skip)   printf '| ➖ skip | `%s` | %s |\n' "$name" "$detail" ;;
+        anchor) printf '| 🔗 anchor | `%s` | %s |\n' "$name" "$detail" ;;
       esac
     done
     printf '\n## Thresholds\n\n'
-    printf -- '- **≥95%%** = ok\n- **≥80%%** = warn (some artifacts missing)\n- **<80%%** = err (adapter is stale; re-run `/setup-project-adapters`)\n'
+    printf -- '- **≥95%%** = ok\n- **≥80%%** = warn (some artifacts missing)\n- **<80%%** = err (adapter is stale; re-run `/setup-project-adapters`)\n- **anchor** = only the always-on cross-tool anchor (`AGENTS.md` / `GEMINI.md`) is gradeable; the tool was never selected as a full adapter, so there is no native surface to score\n- **skip** = no source artifacts of that kind exist to translate\n'
   fi
 } > "$REPORT"
 
