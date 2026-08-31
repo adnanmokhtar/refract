@@ -34,7 +34,7 @@ suppressed into one counted summary WARN; anything **not** listed is a hard FAIL
   `<citing-file>::<artifact>::<ordinal>` for SCAFFOLD-ORDINAL. No line numbers, deliberately:
   a citation that merely moves down a file is the same citation.
 
-**The backlog is 8 lines — 0 of them `REPAIR:`.** If a comment anywhere in the repo advertises a
+**The backlog is 7 lines — 0 of them `REPAIR:`.** If a comment anywhere in the repo advertises a
 different number, that comment is stale; this file is the authority. **Both numbers are checked
 against the entries below on every run** and the gate FAILs when they disagree, so this sentence is
 a contract rather than a note: it cannot rot into a worklist that is not there, and a ledger read
@@ -53,7 +53,6 @@ as an invitation.
 ```
 templates/tool-adapters/_memory-recall-coverage.md::commands/setup-project-adapters.md::phase-4-8-0-marks-eight-tools          SECTION-ANCHOR  # KEEP: the number IS resolvable - setup-project-adapters.md:33-39 publishes the map itself ("Phase 4.8 / Phase 4.8.0 -> **Phase B - Per-adapter completeness contract**") under a heading that says in as many words "when another doc points at a number, resolve it here". What the gate cannot do is follow a published redirect; the citation is correct as-is. Revisit if the anchor set ever learns to resolve through that table.
 templates/tool-adapters/_registry.md::commands/setup-project-adapters.md::phase-4-8-0                                          SECTION-ANCHOR  # KEEP: identical case to _memory-recall-coverage.md above, same published map at setup-project-adapters.md:33-39. Correct as-is.
-_arch.md::_anchors.md                                       NAME-DRIFT  # KEEP: distinct artifacts. `ai/audit/_arch.md` is the audit architecture sub-wave's output (commands/audit.md:184, emitted by the `architectural-diagnosis` skill); `_anchors.md` is align's anchor ledger. The 0.74 similarity is four shared letters, not a drifted spelling.
 _domain-coverage-report.md::_pack-coverage-report.md        NAME-DRIFT  # KEEP: `_domain-coverage-report.md` DOES have a writer - an inline shell snippet inside the phase itself (templates/phases/phase-4.2-apply.md:343, `: > "$TARGET_REPO/.claude/_domain-coverage-report.md"`). The rule's writer population is scripts/*.{sh,py}; a phase-embedded emitter sits outside it by construction. Distinct from the pack coverage report.
 _extracted-business.md::_extracted-codebase.md              NAME-DRIFT  # KEEP: three separate extraction artifacts, all written by skills rather than scripts - `_extracted-codebase.md` (the technical picture), `_extracted-idioms.md` (idioms), `_extracted-business.md` (the WHY, from the `extract-business-context` skill, templates/phases/phase-2-profile.md:160). Not a misspelling of each other.
 _phase-1-decisions.md::_phase-4-6-decisions.md              NAME-DRIFT  # KEEP: one decision log per phase, by design. `ai/decisions/_phase-1-decisions.md` holds Phase 1's ADR drafts (docs/REFERENCE.md:385); `_phase-4-6-decisions.md` holds Phase 4.6's anchoring rows. The 0.91 similarity is the shared naming convention working as intended.
