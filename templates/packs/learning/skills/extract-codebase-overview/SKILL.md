@@ -441,7 +441,7 @@ Extracted codebase overview → .claude/_extracted-codebase.md
 ## Failure modes
 
 - **Empty project (no source files)** → write skeleton overview with `## Stack` only + note "extraction deferred until code exists." Phase 4 falls through to CREATE-mode behavior.
-- **Massive monorepo (>10k source files)** → do NOT truncate by walk depth. Rank the census with `scripts/rank-source-files.py <repo> --limit <budget> --format list` and read that selection, highest first.
+- **Massive monorepo (>10k source files)** → do NOT truncate by walk depth. Rank the census with `~/.claude/scripts/rank-source-files.py <repo> --limit <budget> --format list` and read that selection, highest first.
 
   Depth is a topological accident: it measures how deeply someone nested a folder, not how much the file matters. On a `packages/<pkg>/src/modules/<m>/service.ts` workspace every service sits at depth 5 and the whole layer disappears, while a top-level `tools/` folder survives intact — the fixture in `scripts/test-rank-source-files.sh` is exactly this shape, and a depth-4 cap there keeps 1 file of 6, the one worth nothing, and drops all five that carry the architecture. The ranker orders by how many distinct DIRECTORIES import a file (a file pulled in by 40 files from one folder is a local helper; one pulled in by 12 files from 9 folders is load-bearing), and reserves a quarter of the budget for entry points — routes, commands, job handlers — which nothing imports and which in-degree alone would bury, though they describe the system's surface better than any util.
 

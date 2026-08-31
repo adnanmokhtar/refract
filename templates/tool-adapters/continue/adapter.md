@@ -233,6 +233,7 @@ Path: `.continue/prompts/skill-<name>.md`.
   prisma/migrations/
   database/migrations/
   ```
+- `module-boundaries.sh` → **not enforceable in-loop.** `.continueignore` cannot express it (that file hides paths; the rule is about the imports *inside* a file). Restate the declared boundaries as an always-apply `.continue/rules/` rule so the model is discouraged, and back it with a Husky `pre-commit` scan of the staged diff — the shipped script reads the pending edit, so the commit-time port must work from files on disk.
 - `post-edit-check.sh` + `format-on-save` + `auto-test.sh` → **IDE-level** (VS Code / JetBrains format-on-save + ESLint-on-save) and Husky `pre-commit` for the test/lint gate.
 - `inject-path-rules.sh` → **NOT ported** — Continue's native `globs:` frontmatter in `.continue/rules/*.md` is the path-scoping equivalent (see § Translation recipe).
 - `notify.sh` → git `post-commit` hook, or omit (no in-agent notification surface).

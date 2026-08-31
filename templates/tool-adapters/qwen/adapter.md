@@ -143,6 +143,7 @@ Supporting files (referenced from SKILL.md via standard Markdown links):
 | Claude hook | Qwen event | Native? |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + secret-scan | `PreToolUse` — exit `2` + `decision:"deny"` (or `hookSpecificOutput.permissionDecision:"deny"`) blocks the tool | ✓ native |
+| `module-boundaries.sh` | `PreToolUse` (matcher `Edit\|Write\|MultiEdit`) — `decision:"deny"` on an import that crosses a boundary declared in `ai/modules.md` | ✓ native |
 | `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write`) | ✓ native |
 | `inject-path-rules.sh` | `PreToolUse` returning `hookSpecificOutput.additionalContext` | ✓ native — **CONFIRMED** current: Qwen's PreToolUse supports `additionalContext`, so the `paths:` rule injection works exactly like Claude Code. The adapter's earlier "verify, else degrade to a global `QWEN.md` section" fallback is no longer required. |
 | `notify.sh` | `Notification` (or `Stop`) | ✓ native |

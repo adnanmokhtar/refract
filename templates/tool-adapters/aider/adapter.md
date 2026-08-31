@@ -240,6 +240,7 @@ test-cmd: "pnpm test"           # PostToolUse-equiv — needs --auto-test
   database/migrations/
   *.lock
   ```
+- `module-boundaries.sh` → **no PreToolUse equivalent**, and unlike the other guards `.aiderignore` cannot express it (the rule is about which import a file may *contain*, not which file may be touched). Enforce at commit via `.husky/pre-commit`, rewritten to scan the **staged diff** — the shipped script inspects the pending edit, so a commit-time port must re-read the boundaries from `ai/modules.md` against files on disk.
 - `inject-path-rules.sh` → not event-driven; fold path scope into the always-loaded `CONVENTIONS.md`.
 - `session-start.sh` (SessionStart) + `update-session-log.sh` (Stop) + `notify.sh` → **not replicable** — document as manual discipline in `CONVENTIONS.md`:
   ```markdown

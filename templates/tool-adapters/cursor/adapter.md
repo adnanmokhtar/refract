@@ -231,6 +231,7 @@ Cursor surfaces this skill in its Skills picker. When the user activates it, Cur
 - `guard-destructive.sh` → `beforeShellExecution` with `matcher` on destructive commands (e.g. `"rm |dd |git push --force|drop table"`) returning `permission: "deny"`. Set `failClosed: true` so a hook crash blocks rather than allows.
 - `pre-edit-guard.sh` → `preToolUse` with `matcher: "Write"` (protected paths → `permission: "deny"`).
 - `secret-scan` → `beforeReadFile` (redact / deny reads of `.env`, `*.key`, `*.pem`) — returns `permission: "deny"` or redacted content.
+- `module-boundaries.sh` → `preToolUse` with `matcher: "Write"`, returning `permission: "deny"` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`. `afterFileEdit` is the wrong event — it cannot block, and by then the crossing is written.
 - `post-edit-check.sh` + `format-on-save` → `afterFileEdit` (informational — run the formatter/linter on the edited file; note it cannot block, so a hard lint gate must use `preToolUse`).
 - `auto-test.sh` → `postToolUse` (audit result / inject coverage into `additional_context`) or `stop` (`followup_message: "run the test suite"`).
 - `inject-path-rules.sh` → **NOT a hook.** Cursor's native `globs:` in `.cursor/rules/*.mdc` is the path-scoping equivalent (see § Rules). A `sessionStart` `additional_context` payload is the fallback if a rule must be injected dynamically.
@@ -246,7 +247,8 @@ Sample `.cursor/hooks.json`:
       { "command": ".cursor/hooks/guard-destructive.sh", "matcher": "rm |dd |git push --force|drop table", "failClosed": true, "timeout": 5 }
     ],
     "preToolUse": [
-      { "command": ".cursor/hooks/pre-edit-guard.sh", "matcher": "Write", "timeout": 5 }
+      { "command": ".cursor/hooks/pre-edit-guard.sh", "matcher": "Write", "timeout": 5 },
+      { "command": ".cursor/hooks/module-boundaries.sh", "matcher": "Write", "timeout": 5 }
     ],
     "beforeReadFile": [
       { "command": ".cursor/hooks/secret-scan.sh", "timeout": 5 }

@@ -174,6 +174,7 @@ Same format as Codex adapter.
 | Claude Code hook | Gemini native event | Wiring |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` | **BeforeTool** (`matcher: "run_shell_command|replace|write_file"`) | emit `decision: "deny"` (or `"block"`, or exit `2` with a `stderr` reason) to prevent a destructive shell / protected-path edit / secret leak |
+| `module-boundaries.sh` | **BeforeTool** (`matcher: "replace|write_file"`) | emit `decision: "deny"` when the edit adds an import crossing a boundary declared in `ai/modules.md`; needs `tool_input`'s new content — the check is on the incoming edit, never the file on disk |
 | `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **AfterTool** (`matcher: "replace|write_file"`) | run lint/format/test after an edit; return output as context or `block` to feed a failure back |
 | `inject-path-rules.sh` | **BeforeAgent** or **SessionStart** → `systemMessage` / injected context | Gemini has no path-scoped rules primitive; inject the relevant `.claude/rules/*` for touched paths |
 | `notify.sh` | **Notification** / **AfterAgent** | fire on turn completion / system alert |

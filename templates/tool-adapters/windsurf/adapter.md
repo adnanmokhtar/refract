@@ -179,6 +179,7 @@ trigger_words: ["scaffold module", "new module", "module-scaffold"]
 
 **Translation of the repo's hooks:**
 - `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` → **native** `pre_write_code` (block `.env*`/migration edits) + `pre_run_command` (block destructive shell); `exit 2` to deny.
+- `module-boundaries.sh` → **native** `pre_write_code` — `exit 2` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`; stderr carries the rule + the offending specifier. Cascade's stdin `tool_info` must supply the pending content, or the shim has nothing to inspect.
 - `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` → **native** `post_write_code` — lint/format/test after each edit.
 - `inject-path-rules.sh` → keep as **path-scoped activation-mode rules** (`.windsurf/rules/*.md`, `activation_mode: glob`); Cascade hooks block/log but do not inject conversation context.
 - `session-start.sh` (SessionStart) → **no session-start event** — nearest is `pre_user_prompt` (fires each turn) or keep the always-apply `00-project.md` "read `ai/status.md`" rule.

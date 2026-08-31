@@ -237,6 +237,7 @@ If the project has no agents flagged for chatmode translation, the adapter write
 **Translation of the repo's hooks** (copy `.claude/hooks/*.sh` into `.github/hooks/` and reference from the JSON):
 
 - `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan` → **`preToolUse`** returning `deny` for destructive shell / protected-path writes / secret reads. This is now a real enforced gate, not the advisory instruction it used to be.
+- `module-boundaries.sh` → **`preToolUse`** returning `deny` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`. The Cloud Agent reads `.github/hooks/*.json` too, so the boundary holds for background agents, not only the CLI.
 - `post-edit-check.sh` + `format-on-save` + `auto-test.sh` → **`postToolUse`** (run formatter/linter/tests after a tool completes; inject results as context).
 - `inject-path-rules.sh` → path-scoped `.github/instructions/*.instructions.md` (`applyTo` globs, native N — unchanged) or a `sessionStart` context injection for dynamic rules.
 - `notify.sh` → **`agentStop`**.

@@ -197,6 +197,7 @@ Shell steps in `.cline/skills/module-scaffold/*.sh` (copied verbatim) — user r
 
 **Translation of the repo's hooks:**
 - `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` → **`PreToolUse`** (native) — inspect `tool name + params` from stdin, emit `{"cancel":true,"errorMessage":"blocked .env write"}` to hard-block. Keep `.husky/pre-commit` as a defence-in-depth git hook.
+- `module-boundaries.sh` → **`PreToolUse`** (native) — read the edit's `params` from stdin and emit `{"cancel":true,"errorMessage":"orders MUST NOT import from billing"}` when the incoming import crosses a boundary declared in `ai/modules.md`. Inert until that file declares one.
 - `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` → **`PostToolUse`** (native) — receives tool result + timing; run lint/format/test.
 - `session-start.sh` (SessionStart) → **`TaskStart`** (native) — inject "read `ai/status.md`" via `contextModification`.
 - `inject-path-rules.sh` → best as **path-scoped `.clinerules`** (always-apply rules), or `PreToolUse` `contextModification` keyed on the edited path.

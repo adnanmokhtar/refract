@@ -238,6 +238,7 @@ OpenCode surfaces this in its skills picker. Supporting scripts run via OpenCode
 | Claude Code hook | OpenCode native event | Wiring |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` | **`tool.execute.before`** | `throw` inside the handler to block the tool call (e.g. destructive bash, protected-path edit, secret leak); can also mutate args to rewrite |
+| `module-boundaries.sh` | **`tool.execute.before`** | `throw` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`; the plugin must pass the edit **body** through to the script — it inspects the pending content, not the file on disk |
 | `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **`tool.execute.after`** (or **`file.edited`** for format-on-save) | run lint/format/test after an edit tool completes |
 | `inject-path-rules.sh` | no path-scoped-rules primitive → **`instructions` globs** in `opencode.json` (always-apply) **or** a `chat.message` handler injecting context | OpenCode loads all `instructions` markdown as context; path-conditional injection needs a plugin |
 | `notify.sh` | **`session.idle`** | fire a notification when the turn goes idle |
