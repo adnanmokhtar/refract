@@ -3,7 +3,7 @@ phase: 2
 name: profile
 applies-to-modes: [ENHANCE, REFRESH, REFINE]
 inputs: [target-repo, mode]
-outputs: [codebase-profile.md, detected-tracks, technical-signals, business-domain, deep-extraction (REFINE only)]
+outputs: [codebase-profile.md, .claude/_extracted-codebase.md, .claude/_extracted-business.md, .claude/_extracted-idioms.md, detected-tracks, technical-signals, business-domain, .claude/_refine-extract.md (REFINE only)]
 exit-criteria: profile written; tracks scored against templates/tracks/*/detect.md; uncertainty flags surfaced
 sub-phases:
   - 2.0: top-level signals

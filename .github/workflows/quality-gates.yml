@@ -181,6 +181,23 @@ jobs:
       - name: Import back-edges (an `imported-by:` claim must be true)
         run: bash scripts/lint-import-edges.sh
 
+      # The phase pipeline's declared wiring. Every templates/phases/ file opens with
+      # `inputs:` / `outputs:` / `applies-to-modes:` — the only machine-readable statement of
+      # which phase hands what to which, under which mode — and nothing had ever joined an
+      # input to an output. What that let through: phase-2-profile.md states in prose (:16)
+      # that it produces four extraction files, and its own `outputs:` named none of them,
+      # saying `deep-extraction (REFINE only)` instead, while three of the four are consumed
+      # BY NAME in a later phase's `inputs:`. The declared graph could not say who writes the
+      # artifacts the whole REFINE path is built on. Check [2] is the one worth the slot: a
+      # file produced only under REFINE and consumed by a phase declaring `[all]` is a hole
+      # that opens only in the modes nobody exercises by hand — exempt when the input
+      # discloses its own conditionality (`… (REFINE only)`), which is the author being
+      # honest rather than the contract being wrong. Vocabulary inputs (`mode`,
+      # `approved-plan`, `phase-4-outputs`) are counted and disclosed, never guessed at:
+      # deciding that `plan.md` satisfies `approved-plan` is a judgement about English.
+      - name: Phase DAG (a declared input needs a declared producer)
+        run: bash scripts/lint-phase-dag.sh
+
       # Setup-contract ratchet (this run's defect class): a producer and its consumer that
       # disagree, where neither side is wrong on its own and nothing compared them. Six
       # mechanical rules, each written after a MEASURED failure in a live end-to-end run —
