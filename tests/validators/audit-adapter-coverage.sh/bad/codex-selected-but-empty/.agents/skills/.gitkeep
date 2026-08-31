@@ -1,0 +1,5 @@
+This directory must EXIST and contain no SKILL.md. That is the whole fixture: audit_codex reads
+a present-but-empty .agents/skills/ as "codex was selected and translated nothing" (err), and an
+ABSENT one as "codex was never selected" (anchor). Git does not track empty directories, so
+without this file the case ships as a missing directory, flips to the anchor path, and exits 0 —
+which is what happened on CI while it passed locally off an untracked directory on disk.
