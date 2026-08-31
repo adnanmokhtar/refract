@@ -49,6 +49,21 @@ jobs:
       - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules)
         run: bash tests/hooks/run.sh
 
+      # Every gate above compares this repo to itself. On 2026-08-31 three defects shipped through
+      # all of them green, and none was a logic error in the usual sense — each was code that was
+      # correct about an input that does not occur. The clearest: module-boundaries.sh compared a
+      # facade path literally, so `MAY … only via <facade>` refused the one import it permits, and
+      # the fixture certifying that rule said `import "src/shared/index.ts"`. Reading 33,474 real
+      # import specifiers out of a 5.8k-file TypeScript monorepo settled it: 33,466 carry NO
+      # extension, 8 carry one, 3 end in an explicit /index. The fixture was pinned to a form that
+      # occurs 8 times in 33,474 and never touched the form real code uses always. This suite runs
+      # the SHIPPED artifacts against a project laid out like that corpus, with each specifier form
+      # weighted by its measured share. It invokes no model — the LLM half of setup stays untested
+      # and tests/setup-project/run.sh says so — because all three defects were deterministic bugs
+      # that needed realistic shape, not intelligence.
+      - name: Real-shape artifacts (shipped hook + ranker against a real layout)
+        run: bash tests/real-shape/run.sh
+
       - name: Always-loaded rule budget (path-scoped rules exempt)
         run: bash scripts/check-rule-budget.sh
 

@@ -60,7 +60,7 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **27 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **28 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
 > **All 25 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
@@ -74,6 +74,7 @@ pull request. Every one of them is blocking: a red gate is a merge blocker, not 
 for g in \
   scripts/test-validators.sh \
   tests/hooks/run.sh \
+  tests/real-shape/run.sh \
   scripts/check-rule-budget.sh \
   scripts/audit-stack-leakage.sh \
   scripts/audit-command-dry.sh \
@@ -109,7 +110,8 @@ file and line; none of them require you to guess.
 | Gate | What it actually catches | Typical fix |
 |---|---|---|
 | `test-validators.sh` | A validator regressed to always-pass. Replays `tests/validators/<script>/{good,bad}/<case>/` mini-repos and asserts the exit code matches the folder's contract. | Fix the validator, or add the case you just legitimised. |
-| `tests/hooks/run.sh` | A security hook regressed to always-allow. 40 fixtures across `guard-destructive` (17), `pre-edit-guard` (11), `secret-scan` (7), `inject-path-rules` (5). Filename encodes the expected exit: `*block*` → 2, `*allow*` → 0. | Fix the hook. If the new behaviour is correct, add a fixture proving it. |
+| `tests/hooks/run.sh` | A security hook regressed to always-allow. 60 fixtures across `guard-destructive` (17), `module-boundaries` (15), `pre-edit-guard` (11), `secret-scan` (7), `inject-path-rules` (5), `recall-inject` (5), plus 3 programmatic assertions that `module-boundaries` stays inert with no `ai/modules.md`, an empty boundaries section, or the opt-out flag — 63 checks total. Filename encodes the expected exit: `*block*` → 2, `*allow*` → 0. | Fix the hook. If the new behaviour is correct, add a fixture proving it. |
+| `tests/real-shape/run.sh` | A shipped artifact that is correct about an input nobody writes. Every other gate compares this repo to itself; this one runs `module-boundaries.sh` and `rank-source-files.py` against a project laid out like a real TypeScript monorepo — `apps/<app>/src/`, `libs/<lib>/src/`, a service seven directories deep, a `tools/` script nothing imports. **Its inputs are measured, not invented:** each specifier form carries its share of 33,474 real imports (`../x` 37.5%, `a/b/c` 21.8%, `@org/pkg` 19.2%, `./x` 14.1%, `pkg` 7.4%), and 100% of them carry no extension — the fact the facade bug hid behind. Reverting that fix turns this suite red on the two forms real code uses while the `/index.ts` form keeps passing. | Fix the artifact. If a NEW specifier form appears in real code, add it here with its share — never invent one to make a case. |
 | `check-rule-budget.sh` | The always-loaded rule set busting its token budget. Currently ~4,943 of 6,000 tokens. | Give your rule `paths:` frontmatter (path-scoped, exempt) or trim a foundational rule. |
 | `audit-stack-leakage.sh` | Single-stack wording in universal docs — `commands/*.md`, `templates/phases/`, `templates/governance/`, the migration/align/code-quality packs, adapter `_*.md`. A stack token whose ±1-line window names only one stack is a FAIL there; in the other packs it is a WARN. Naming two frontends, two backends, or one of each passes. | Name several stacks, or move the framework-specific text into `references/` (skipped by design). |
 | `audit-command-dry.sh` | A command re-explaining SOLID / clean-code / the Phase 3 ALWAYS list instead of linking the shared source. | Point at `templates/governance/core-discipline.md` and `templates/snippets/phase-3-always-reads.md`. |
