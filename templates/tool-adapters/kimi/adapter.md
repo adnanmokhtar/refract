@@ -197,6 +197,9 @@ Kimi-specific addendum: a "Skills available" section pointing at `.kimi/skills/`
 | `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit`) | ✓ native |
 | `inject-path-rules.sh` | `PreToolUse` — emit the matched `paths:` rule on **stdout with exit 0** (Kimi appends non-empty stdout to context) | ~ works, but via stdout-append, NOT a structured `additionalContext` field — Kimi has no JSON control-output schema |
 | `notify.sh` | `Notification` (or `Stop`) | ✓ native |
+| `session-start.sh` | `SessionStart` — briefing lands via stdout-append (exit `0`), same envelope as `inject-path-rules.sh` above | ✓ native |
+| `update-session-log.sh` | `SessionEnd` | ✓ native |
+| `verify-gate.sh` | `Stop` — exit `2` blocks the finish, stderr carries the failing test output as the LLM correction; `StopFailure` covers the error path | ✓ native |
 
 The adapter does NOT write `~/.kimi/config.toml` — it emits a paste-ready snippet the user installs:
 

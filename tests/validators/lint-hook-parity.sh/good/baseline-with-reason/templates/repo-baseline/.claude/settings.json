@@ -1,0 +1,5 @@
+{ "hooks": {
+  "PreToolUse":      [{ "hooks": [{ "command": ".claude/hooks/pre-edit-guard.sh" }] }],
+  "Stop":            [{ "hooks": [{ "command": ".claude/hooks/verify-gate.sh" }] }],
+  "UserPromptSubmit":[{ "hooks": [{ "command": ".claude/hooks/recall-inject.sh" }] }]
+} }

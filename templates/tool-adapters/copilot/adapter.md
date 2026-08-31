@@ -241,6 +241,9 @@ If the project has no agents flagged for chatmode translation, the adapter write
 - `post-edit-check.sh` + `format-on-save` + `auto-test.sh` → **`postToolUse`** (run formatter/linter/tests after a tool completes; inject results as context).
 - `inject-path-rules.sh` → path-scoped `.github/instructions/*.instructions.md` (`applyTo` globs, native N — unchanged) or a `sessionStart` context injection for dynamic rules.
 - `notify.sh` → **`agentStop`**.
+- `session-start.sh` → **`sessionStart`** — inject `ai/status.md` / current phase as context, or use a `prompt`-type entry to auto-submit the briefing.
+- `update-session-log.sh` → **`agentStop`** — append the turn's summary to `ai/dynamic/session-log.md`.
+- `verify-gate.sh` (Stop) → **`agentStop`** — the one event in this set that can block and force continuation, which is exactly what the gate needs: refuse the finish while uncommitted source changes sit next to a failing test command.
 
 Sample `.github/hooks/guard.json`:
 

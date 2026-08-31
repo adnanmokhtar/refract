@@ -180,6 +180,7 @@ Same format as Codex adapter.
 | `notify.sh` | **Notification** / **AfterAgent** | fire on turn completion / system alert |
 | `session-start.sh` | **SessionStart** | surface `ai/status.md` / phase at session open |
 | `update-session-log.sh` | **SessionEnd** | append to `ai/dynamic/session-log.md` |
+| `verify-gate.sh` | **AfterAgent** (or **SessionEnd**) | Gemini's event list has no documented block-the-finish contract — `decision: "deny"` is specified for tool events, not agent-end. Wire it for the *report*, and keep `.husky/pre-commit` as the actual gate; do not claim the stop is guarded |
 
 All map **natively** — no `.husky/` fallback needed for Gemini-driven sessions.
 

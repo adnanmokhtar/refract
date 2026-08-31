@@ -244,6 +244,7 @@ OpenCode surfaces this in its skills picker. Supporting scripts run via OpenCode
 | `notify.sh` | **`session.idle`** | fire a notification when the turn goes idle |
 | `session-start.sh` | **`session.created`** | surface `ai/status.md` / phase at session open |
 | `update-session-log.sh` | **`session.idle`** | append to `ai/dynamic/session-log.md` |
+| `verify-gate.sh` | **`session.idle`** | fires at turn end, but no documented way to refuse the finish — `throw` is specified for `tool.execute.before`. Report there and keep `.husky/pre-commit` as the gate rather than claiming a blocked stop |
 
 ```typescript
 // .opencode/plugins/guardrails.ts

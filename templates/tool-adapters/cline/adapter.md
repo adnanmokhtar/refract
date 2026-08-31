@@ -203,6 +203,7 @@ Shell steps in `.cline/skills/module-scaffold/*.sh` (copied verbatim) — user r
 - `inject-path-rules.sh` → best as **path-scoped `.clinerules`** (always-apply rules), or `PreToolUse` `contextModification` keyed on the edited path.
 - `update-session-log.sh` (Stop) → nearest native is **`TaskCancel`** (cleanup on task end); no exact Stop event — otherwise keep the manual "append to `ai/dynamic/session-log.md`" rule.
 - `notify.sh` → **n/a** (no notification event) — drop or route through `PostToolUse`.
+- `verify-gate.sh` (Stop) → **no Stop-equivalent.** Cline's six events end at `TaskCancel`, which is cleanup and cannot refuse a finish. Keep the check at `.husky/pre-commit`; a `PostToolUse` test run is feedback, not a gate.
 
 **Caveats:** hooks run on **macOS and Linux only — no Windows support**; provide the `.husky/` git-hook fallback for Windows contributors. Repo scripts read Claude Code's hook payload schema; they must be adapted to Cline's stdin JSON (`cancel`/`errorMessage`/`contextModification` contract) — not drop-in. Disclose residual gaps in `.clinerules/00-project.md`.
 

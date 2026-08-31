@@ -1,0 +1,24 @@
+# Hook-parity baseline — scripts/lint-hook-parity.sh
+#
+# `templates/repo-baseline/.claude/hooks/*.sh` is the guardrail layer that ships into every
+# consuming project. A hook wired in `repo-baseline/.claude/settings.json` must be translated
+# in all twelve `templates/tool-adapters/<tool>/adapter.md § Hooks` sections — that section is
+# the only place a porter learns the hook exists.
+#
+# FORMAT      <adapter-slug>|<hook-stem>   # reason
+#
+# THE REASON IS MANDATORY and mechanically enforced, on the same contract as
+# scripts/_import-edge-baseline.txt and scripts/_handoff-baseline.md: a line with no `# reason`
+# suppresses nothing, the finding stays red, and the gate WARNs that the line is inert.
+#
+# "This tool cannot do it" is NOT a reason to add a line here — it is the entry to write in the
+# adapter. Aider and Continue have no pre-write event at all and still carry a row for every
+# blocking hook, saying so and naming the commit-time fallback. A porter needs to know the hook
+# exists and that their tool cannot enforce it; silence tells them neither.
+#
+# Translating the hook → write the entry, then delete its line here.
+
+# No entries. The twenty gaps this gate opened with on 2026-08-31 — module-boundaries.sh absent
+# from all twelve adapters, verify-gate.sh present in exactly one, session-start.sh missing from
+# four and update-session-log.sh from five — were all translated rather than carried. An empty
+# ratchet is the intended steady state.

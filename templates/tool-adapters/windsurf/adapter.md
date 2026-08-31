@@ -185,6 +185,7 @@ trigger_words: ["scaffold module", "new module", "module-scaffold"]
 - `session-start.sh` (SessionStart) → **no session-start event** — nearest is `pre_user_prompt` (fires each turn) or keep the always-apply `00-project.md` "read `ai/status.md`" rule.
 - `update-session-log.sh` (Stop) → **native** `post_cascade_response` (fires after each response completes).
 - `notify.sh` → **native** `post_cascade_response`, or n/a.
+- `verify-gate.sh` (Stop) → **`post_cascade_response`** for the report only — Cascade post-hooks **cannot block** (§ Caveats), so the stop stays unguarded. `.husky/pre-commit` running the test command is the enforceable half; say which one is which rather than marking the row native.
 
 **Caveats:** hooks are block-or-log only — **no context-injection field**, so briefing/path-rule hooks stay as activation-mode rules. `~` home expansion is **not** supported (use absolute paths); working dir defaults to repo root. Windows needs the `powershell` field (the `command` bash field is only a fallback). Repo scripts must be adapted from Claude Code's payload schema to Cascade's stdin JSON + exit-code-2 blocking contract.
 

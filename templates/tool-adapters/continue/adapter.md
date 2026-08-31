@@ -237,8 +237,10 @@ Path: `.continue/prompts/skill-<name>.md`.
 - `post-edit-check.sh` + `format-on-save` + `auto-test.sh` → **IDE-level** (VS Code / JetBrains format-on-save + ESLint-on-save) and Husky `pre-commit` for the test/lint gate.
 - `inject-path-rules.sh` → **NOT ported** — Continue's native `globs:` frontmatter in `.continue/rules/*.md` is the path-scoping equivalent (see § Translation recipe).
 - `notify.sh` → git `post-commit` hook, or omit (no in-agent notification surface).
+- `update-session-log.sh` → **no Stop event** — git `post-commit` hook, or the manual discipline rule ("append a bullet to `ai/dynamic/session-log.md`") in an always-apply `.continue/rules/` file.
+- `verify-gate.sh` (Stop) → **not enforceable** — Continue cannot refuse a finish. Husky `pre-commit` / `pre-push` running the test command is the only real gate; state in the rules file that the stop itself is unguarded.
 
-**Session-start** → there is no `sessionStart` hook; put the briefing in `config.yaml` so it loads every session:
+`session-start.sh` (SessionStart) → there is no `sessionStart` hook; put the briefing in `config.yaml` so it loads every session:
 ```yaml
 systemMessage: |
   Read ai/status.md before starting any non-trivial task. Follow the rules in AGENTS.md + .continue/rules/.

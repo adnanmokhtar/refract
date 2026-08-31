@@ -198,6 +198,22 @@ jobs:
       - name: Phase DAG (a declared input needs a declared producer)
         run: bash scripts/lint-phase-dag.sh
 
+      # The guardrail layer ships into every consuming project; each of the twelve adapters is
+      # where a non-Claude tool learns to reproduce it. Nothing joined the two lists, and the
+      # cost showed up immediately: module-boundaries.sh shipped, was wired in settings.json,
+      # and reached 0 of 12 adapters — a blocking PreToolUse hook eleven tools had never heard
+      # of. Same pass: verify-gate.sh in exactly one adapter, session-start.sh missing from
+      # four, update-session-log.sh from five. The required set is derived from settings.json
+      # rather than from `ls`, so the two git hooks (post-commit-learn, post-merge-learn) drop
+      # out mechanically instead of via a hand-written exemption — they fire through git for
+      # every tool, and demanding a per-tool translation would be demanding a translation of
+      # `git commit`. recall-inject.sh is exempt for a documented reason (it blocks nothing;
+      # _registry.md routes it off the memory-recall matrix, never the hooks column) and check
+      # [3] opens that matrix to confirm it really covers all twelve — an exemption pointing at
+      # another document is only as good as the check that the document is complete.
+      - name: Hook parity (a shipped hook needs a translation in every adapter)
+        run: bash scripts/lint-hook-parity.sh
+
       # The file-selection order extraction uses when a repo is too big to read whole. The cap
       # it replaced was "cap walk depth to 4", and depth is a topological accident: it measures
       # how deeply someone nested a folder, not how much the file matters. The fixture here is

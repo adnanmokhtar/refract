@@ -147,6 +147,9 @@ Supporting files (referenced from SKILL.md via standard Markdown links):
 | `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write`) | ✓ native |
 | `inject-path-rules.sh` | `PreToolUse` returning `hookSpecificOutput.additionalContext` | ✓ native — **CONFIRMED** current: Qwen's PreToolUse supports `additionalContext`, so the `paths:` rule injection works exactly like Claude Code. The adapter's earlier "verify, else degrade to a global `QWEN.md` section" fallback is no longer required. |
 | `notify.sh` | `Notification` (or `Stop`) | ✓ native |
+| `session-start.sh` | `SessionStart` → `hookSpecificOutput.additionalContext` | ✓ native |
+| `update-session-log.sh` | `SessionEnd` | ✓ native |
+| `verify-gate.sh` | `Stop` — `decision:"block"` + `reason` carrying the failing test output; `StopFailure` covers the error path | ✓ native |
 
 ```json
 {

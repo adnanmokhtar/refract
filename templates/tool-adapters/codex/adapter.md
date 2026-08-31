@@ -299,6 +299,7 @@ Shell scripts at `.claude/skills/module-scaffold/` — user runs manually.
 | `notify.sh` | **Stop** / **Notification** | turn-complete notification |
 | `session-start.sh` | **SessionStart** (`matcher: "startup|resume"`) → `additionalContext` | surface `ai/status.md` / current phase at session open |
 | `update-session-log.sh` | **Stop** | append to `ai/dynamic/session-log.md` when a turn completes |
+| `verify-gate.sh` | **Stop** | emit `decision: "block"` with the failing test output as `reason` when the turn ends with uncommitted source changes and a red suite — Codex feeds it back and the turn continues instead of declaring success |
 
 All map **natively** — no `.husky/` fallback needed for Codex-driven sessions. Keep the git pre-commit hook only as defence-in-depth for non-hook-aware drivers.
 

@@ -236,6 +236,8 @@ Cursor surfaces this skill in its Skills picker. When the user activates it, Cur
 - `auto-test.sh` → `postToolUse` (audit result / inject coverage into `additional_context`) or `stop` (`followup_message: "run the test suite"`).
 - `inject-path-rules.sh` → **NOT a hook.** Cursor's native `globs:` in `.cursor/rules/*.mdc` is the path-scoping equivalent (see § Rules). A `sessionStart` `additional_context` payload is the fallback if a rule must be injected dynamically.
 - `notify.sh` → `stop` or `sessionEnd`.
+- `update-session-log.sh` → `stop` or `sessionEnd` — append the turn's summary to `ai/dynamic/session-log.md`.
+- `verify-gate.sh` (Stop) → `stop` — return a `followup_message` carrying the failing test output so the agent keeps working; `sessionEnd` is too late to block anything.
 
 Sample `.cursor/hooks.json`:
 

@@ -1,0 +1,1 @@
+beta|verify-gate   # beta has no turn-end event at all; enforced at commit instead
