@@ -203,13 +203,22 @@ while IFS= read -r rule; do
       facade=$(printf '%s' "$body" | grep -oE '`[^`]+`' | sed -n '3p' | tr -d '`')
       [ -n "$facade" ] || continue
       f_path=$(norm "$facade")
+      # A declared facade is written the way a human writes a FILE — `libs/shared/src/index.ts`.
+      # An import is written the way TypeScript/JS require — no extension, and a directory when the
+      # target is its index. Comparing the two literally rejects the one path the rule permits, so
+      # both sides are compared extension-free, and an `index` facade also answers to its directory.
+      f_base=$(printf '%s' "$f_path" | sed -E 's/\.(ts|tsx|js|jsx|mjs|cjs|py)$//')
+      f_dir=""
+      case "$f_base" in */index) f_dir="${f_base%/index}" ;; esac
       for s in $specs; do
         r=$(resolve "$s"); [ -n "$r" ] || continue
         case "$r/" in
           "$b_path"/*)
-            case "$r" in
-              "$f_path"|"$f_path"/*|*"$f_path") continue ;;
+            r_base=$(printf '%s' "$r" | sed -E 's/\.(ts|tsx|js|jsx|mjs|cjs|py)$//')
+            case "$r_base" in
+              "$f_base"|"$f_base"/*|*"/$f_base") continue ;;
             esac
+            [ -n "$f_dir" ] && [ "$r_base" = "$f_dir" ] && continue
             block "\`$SELF\` may reach \`$b\` only via \`$facade\` — $rel_path imports '$s' directly (ai/modules.md:$ln)" ;;
         esac
       done ;;
