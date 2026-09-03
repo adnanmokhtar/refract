@@ -105,20 +105,24 @@ if [ "$RESYNC" -eq 0 ]; then
           printf -- '---\n\n'
           printf '# %s\n\n' "$NAME"
           printf '%s\n' "$DESC"
-        } > "$TARGET"
+        } > "$TARGET" || die "could not write $TARGET"
       fi
       echo "created  $TARGET" ;;
     command)
       TARGET="templates/packs/$PACK/commands/$NAME.md"
       [ -e "$TARGET" ] && die "already exists: $TARGET"
       if [ "$DRY" -eq 0 ]; then
+        # A pack need not already have a commands/ directory — several ship skills only. Without
+        # this the redirect failed on such a pack while the run went on to insert the docs row and
+        # print PASS, reporting a command that does not exist.
+        mkdir -p "$(dirname "$TARGET")" || die "cannot create $(dirname "$TARGET")"
         { printf -- '---\n'
           printf 'description: %s\n' "$DESC"
           printf 'kind: command\n'
           printf 'pack: %s\n' "$PACK"
           printf -- '---\n\n'
           printf '# /%s\n\n## What this does\n\n%s\n' "$NAME" "$DESC"
-        } > "$TARGET"
+        } > "$TARGET" || die "could not write $TARGET"
         # docs/COMMANDS.md — verify-doc-sync.sh fails on any command absent from it. Insert into
         # the pack's own `### <pack> track` table when there is one, else the catch-all section.
         python3 - "$PACK" "$NAME" "$DESC" <<'PY'
@@ -155,7 +159,7 @@ echo "                  $N_SCRIPTS scripts ($N_TOOLING excluding test-*)"
 
 # ---- rewrite every figure to the computed value ----
 python3 - "$N_SKILLS" "$N_PACKCMD" "$N_GLOBAL" "$N_TOTAL" "$N_AGENTS" "$N_TRACKS" "$N_SCRIPTS" "$N_TOOLING" <<'PY'
-import re, sys
+import os, re, sys
 sk, pc, gl, tot, ag, tr, sc, to = (int(x) for x in sys.argv[1:9])
 edits = [
     ("README.md",                      r'\*\*\d+ skills\*\*',                         '**%d skills**' % sk),
@@ -169,6 +173,16 @@ edits = [
     (".claude-plugin/plugin.json",     r'\d+ scripts',                                '%d scripts' % sc),
     ("assets/architecture.svg",        r'\d+ validators',                             '%d validators' % to),
 ]
+# Read EVERY file first. The original buffered edits and wrote them only after the read loop, so
+# one absent path raised mid-loop and discarded every edit already computed — and the shell
+# ignored python's exit status, so the run still printed PASS with README untouched. A partial
+# rewrite of a set of figures that must agree with each other is worse than no rewrite: it leaves
+# some sites current and some stale, which is the drift this tool exists to remove.
+missing = [p for p, _, _ in edits if not os.path.exists(p)]
+if missing:
+    sys.stderr.write("cannot resync — missing: %s\n" % ", ".join(sorted(set(missing))))
+    sys.exit(1)
+
 touched = {}
 for path, pat, rep in edits:
     s = touched.get(path) or open(path).read()
@@ -177,6 +191,7 @@ for path, pat, rep in edits:
 for path, s in touched.items():
     open(path, "w").write(s); print("  updated  %s" % path)
 PY
+[ $? -eq 0 ] || die "figure rewrite failed — nothing was changed"
 
 [ -f scripts/gen-pack-matrix.py ] && python3 scripts/gen-pack-matrix.py >/dev/null 2>&1 && echo "  regenerated  assets/pack-matrix.svg"
 [ -f scripts/gen-cheatsheet.py  ] && python3 scripts/gen-cheatsheet.py  >/dev/null 2>&1 && echo "  regenerated  docs/CHEATSHEET.md"

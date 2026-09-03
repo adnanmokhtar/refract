@@ -51,7 +51,9 @@ MODULES="ai/modules.md"
 payload=$(cat)
 
 # ---- payload → file_path + the text being written -------------------------------------------
+needs_unescape=1
 if command -v jq >/dev/null 2>&1; then
+  needs_unescape=0          # jq -r already emits the decoded string
   file_path=$(printf '%s' "$payload" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
   content=$(printf '%s' "$payload" | jq -r '
       [ .tool_input.content // empty,
@@ -71,8 +73,14 @@ case "$file_path" in
   *) exit 0 ;;
 esac
 
-# JSON string escapes survive the jq -r path already; the sed fallback needs them undone.
-content=$(printf '%s' "$content" | sed 's/\\n/\n/g; s/\\"/"/g; s/\\\\/\\/g')
+# ONLY on the sed fallback. `jq -r` has already decoded the string, so running this again is a
+# SECOND un-escape: a source file whose own string literal contains the two characters \ and n —
+# `raise ValueError("bad\nimport billing.service")` — gains a real line break, and the scanner
+# then sees an import line the file does not contain and refuses a legitimate write. Un-escaping
+# is a property of how the payload was parsed, not of the payload.
+if [ "$needs_unescape" -eq 1 ]; then
+  content=$(printf '%s' "$content" | sed 's/\\n/\n/g; s/\\"/"/g; s/\\\\/\\/g')
+fi
 
 # Repo-relative, no leading slash — the catalog's paths are repo-relative.
 rel_path="$file_path"

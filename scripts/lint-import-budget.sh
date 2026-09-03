@@ -164,6 +164,12 @@ else:
 # ---- [2] WARM, per file ----
 warm_budget = budgets.get("warm")
 print("[2] every WARM file is within the per-file budget")
+# Symmetry with check [1], and for the same reason: an unstated budget is not an infinite one.
+# Without this, deleting `≤ 600 lines` from the WARM row of import-tiers.md made three
+# REPAIR-baselined over-budget files vanish and the gate print "0 over budget / PASS" — the table
+# silently disarming the check that reads it.
+if warm_budget is None:
+    fail("%s states no per-file line budget for WARM — an unstated budget is not an infinite one" % TIERS)
 warm_files = [f for f in tiers.get("warm", []) if os.path.exists(f)]
 suppressed = over = 0
 for f in sorted(warm_files, key=lambda x: -lines_of(x)):

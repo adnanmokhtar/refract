@@ -1,0 +1,7 @@
+{
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "src/billing/charge.py",
+    "content": "raise ValueError(\"bad\\nimport src.shared.thing\")"
+  }
+}

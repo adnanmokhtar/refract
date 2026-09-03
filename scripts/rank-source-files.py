@@ -27,8 +27,10 @@ With --limit, the budget splits 75/25 hub/root. The split is a judgement, stated
 be argued with, and printed in the header so a reader knows what they got.
 
 HONEST LIMITS — read these before trusting the order:
-  * TypeScript / JavaScript and Python only. Any other extension is counted in the census and
-    ranked 0; this tool does not pretend to parse a language it cannot.
+  * TypeScript / JavaScript and Python only. Any other extension is NOT walked and does not
+    appear in the census at all — so on a Go or Java repo `present` reads 0 and the ranking is
+    empty rather than wrong. This tool does not pretend to parse a language it cannot, and it
+    does not pretend to have counted one either.
   * A specifier that does not resolve to a file in the repo is dropped, not guessed. Package
     imports, build aliases that RENAME (`@core/*` → `src/billing/*` via tsconfig), and generated
     barrels therefore contribute nothing. Under-counting is the intended failure direction: it
@@ -177,6 +179,12 @@ def main():
     rest = sorted([r for r in rows if r["kind"] == "isolated"], key=lambda r: r["path"])
 
     if args.limit:
+        # Clamp first. A share outside [0,1] made n_root negative, and `roots[:negative]` slices
+        # from the END of the list rather than returning nothing — so `--limit 8 --hub-share 1.5`
+        # returned 20 rows, silently over-spending a budget the caller set precisely.
+        if not 0.0 <= args.hub_share <= 1.0:
+            sys.stderr.write("--hub-share must be between 0 and 1 (got %r)\n" % args.hub_share)
+            return 2
         n_hub = min(len(hubs), int(round(args.limit * args.hub_share)))
         n_root = min(len(roots), args.limit - n_hub)
         n_hub = min(len(hubs), args.limit - n_root)

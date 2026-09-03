@@ -118,10 +118,17 @@ baselined() {
 }
 
 # section <file> — print the § Hooks block only (bounded by the next same-or-higher heading).
+#
+# Fenced blocks are skipped when deciding what a heading is. A `#` at the start of a line inside
+# ``` is a COMMENT in whatever language the fence holds, not a markdown heading — and these
+# adapter files are full of them: kimi/adapter.md embeds a TOML snippet whose first line is
+# `# Recommended hooks for projects using Refract`, which ended the section after 22 lines of 184.
+# A hook translated below that point would have been reported missing when it is right there.
 section() {
   awk '
-    /^#{2,3} .*[Hh]ooks/ && !seen { seen=1; lvl=length($1); print; next }
-    seen && /^#+ / { if (length($1) <= lvl) exit }
+    /^```/ { fence = !fence; if (seen) print; next }
+    !fence && /^#{2,3} .*[Hh]ooks/ && !seen { seen=1; lvl=length($1); print; next }
+    !fence && seen && /^#+ / { if (length($1) <= lvl) exit }
     seen { print }
   ' "$1"
 }

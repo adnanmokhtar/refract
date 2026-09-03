@@ -75,7 +75,7 @@ fi
 # ---------- a bare package specifier must contribute nothing ---------------------------------
 unres=$(python3 "$RANK" "$W" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
 [ "$unres" -ge 2 ] && ok "bare package imports counted as unresolved, not resolved to a guess" \
-                    || bad "expected the 2 `express` imports to be unresolved, got $unres"
+                    || bad "expected the 2 'express' imports to be unresolved, got $unres"
 
 # ---------- determinism ----------------------------------------------------------------------
 a=$(python3 "$RANK" "$W" --format list); b=$(python3 "$RANK" "$W" --format list)
