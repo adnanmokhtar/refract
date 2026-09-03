@@ -38,7 +38,7 @@ FEATURE="$1"; shift
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 2; }
 
 # Read paths
-declare -a PATHS
+declare -a PATHS=()
 if [[ "${1:-}" == "-" ]]; then
   while IFS= read -r p; do
     [[ -n "$p" ]] && PATHS+=("$p")

@@ -257,8 +257,7 @@ env_var_set 'MYSQL_(ROOT_PASSWORD|USER|PASSWORD|DATABASE|HOST)' \
 # wired=1 → a real, installable package AND a known config shape; may be written.
 # wired=0 → no known package; REPORT ONLY, never emitted as config anywhere.
 # `rationale` is last so it may contain `|` without breaking the split.
-declare -a RECS
-
+declare -a RECS=()
 add_rec() {          # <id> <name> <package> <rationale>   — runnable, writable
   RECS+=("$1|$2|$3|1|$4")
   trace "$1 → $2"

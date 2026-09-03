@@ -448,9 +448,8 @@ total_anchored=0
 total_unanchored=0
 total_orphans=0
 total_leaks=0
-declare -a unanchored_list
-declare -a leak_list
-
+declare -a unanchored_list=()
+declare -a leak_list=()
 {
   printf '# Anchoring audit — %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'Target: `%s`\n\n' "$TARGET"

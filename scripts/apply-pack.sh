@@ -169,9 +169,15 @@ log "=== apply: $TRACK -> $TARGET ==="
 [[ "$APPLY" -eq 0 ]] && log "(dry run — pass --apply to write)"
 
 REPORT="$TARGET/.claude/_apply-pack-report.md"
-declare -a APPLIED
-declare -a GAPS
-declare -a UNSUPPORTED
+# `=()` is not decoration. `declare -a NAME` alone leaves the array with NO VALUE, and on the
+# bash the Linux runners ship, `${#NAME[@]}` on such an array is an UNBOUND VARIABLE under
+# `set -u` — the script aborts. bash 3.2 on macOS returns 0 instead, so this passed locally and
+# failed only on CI, and only for the array that happened to stay empty: a track whose emits are
+# all supported never appends to UNSUPPORTED, so the report line for it killed the run.
+# APPLIED and GAPS carried the same latent bug and were saved only by being non-empty here.
+declare -a APPLIED=()
+declare -a GAPS=()
+declare -a UNSUPPORTED=()
 
 # Helper to write managed-block file
 write_managed_block() {

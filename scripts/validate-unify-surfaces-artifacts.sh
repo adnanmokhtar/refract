@@ -158,8 +158,7 @@ fi
 TOTAL_CHECKED=0
 TOTAL_PASS=0
 TOTAL_FAIL=0
-declare -a FAILURES
-
+declare -a FAILURES=()
 log_pass() {
   TOTAL_PASS=$((TOTAL_PASS + 1))
   if [[ $QUIET -eq 0 ]]; then

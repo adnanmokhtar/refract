@@ -60,8 +60,7 @@ done
 trace() { [[ $QUIET -eq 0 ]] && echo "  • $*" >&2; return 0; }
 add()   { TRACKS+=("$1"); }
 
-declare -a TRACKS
-
+declare -a TRACKS=()
 # ---------- Universal tracks (always applicable) ----------
 # `security` is ALWAYS-ON. templates/phases/phase-2-profile.md § 2.6.a and
 # templates/phases/phase-4.0-preflight.md § minimum-artifacts Rule 1 both say so in as many
