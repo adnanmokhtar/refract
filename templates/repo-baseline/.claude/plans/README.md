@@ -43,13 +43,27 @@ Every plan must have these sections:
 | `## Approach` **(optional)** | Chosen design + why + alternatives considered + key risk (omit when the Steps are self-evident) |
 | `## Inputs` | Files the implementing tool reads BEFORE doing anything |
 | `## Outputs` | Files to CREATE / MODIFY / DELETE — the spec |
-| `## Steps` | Ordered execution recipe |
 | `## Constraints` | DON'T-style rules (`/verify-plan` audits these) |
-| `## Verification` | Lint / typecheck / test / curl commands to run after implementing |
+| `## Steps` | Ordered execution recipe |
 | `## Known unknowns` **(optional)** | Decisions deferred to implementation time |
+| `## Verification` | Lint / typecheck / test / curl commands to run after implementing |
 | `## Status` | Checkboxes the implementing tool ticks off |
 
-`/verify-plan` validates this structure; a missing **required** header = malformed plan. The eight required sections are **Goal**, Context, Inputs, Outputs, Steps, Constraints, Verification, Status. `## Approach` and `## Known unknowns` are optional: a plan with them is valid; a plan without them is valid. (`## Goal` is what makes the plan an *implementation* plan and not just a diff recipe — it states what success is, separate from the mechanical `## Verification` commands.)
+**The order above is the contract for a WRITER, and it is not cosmetic.** `## Constraints`
+sits before `## Steps` because the executor reads top-down and every Step is bound by them:
+`/execute-plan` calls Constraints "hard", halts when a Step as written would breach one, and hands
+the **full list** to every parallel sub-agent along with only that agent's slice of the Steps. A
+recipe read before its prohibitions is a recipe read twice. The two optional sections have fixed
+positions for the same reason — `## Approach` explains the choice before the mechanics, and
+`## Known unknowns` sits before `## Verification` because an unresolved one can stop the run
+(`/execute-plan` Phase 4: no stated criterion → stop and ask), so it must be read before anyone
+starts checking whether the work passed.
+
+**Readers stay tolerant.** `/execute-plan` and `/verify-plan` validate PRESENCE, not order, so a
+plan saved before this ordering — or hand-written in another sequence — still runs. Emitting the
+order is the generator's job; accepting any order is the executor's.
+
+`/verify-plan` validates this structure; a missing **required** header = malformed plan. The eight required sections are **Goal**, Context, Inputs, Outputs, Constraints, Steps, Verification, Status. `## Approach` and `## Known unknowns` are optional: a plan with them is valid; a plan without them is valid. (`## Goal` is what makes the plan an *implementation* plan and not just a diff recipe — it states what success is, separate from the mechanical `## Verification` commands.)
 
 ## Lifecycle
 

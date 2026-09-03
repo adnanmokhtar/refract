@@ -75,6 +75,39 @@ jobs:
       - name: Artifact scaffolder (figures land where disk says)
         run: bash scripts/test-new-artifact.sh
 
+      # Seven baseline ai/ files carry claims that cannot be read off a codebase — a persona's
+      # goals, a competitor's strengths, what a customer will pay for — and CLAUDE.md loads them as
+      # product context, so every "should we build X" decision inherits them. Phase 2's provenance
+      # contract ([found:]/[inferred:]/[unconfirmed], where an unmarked factual claim is invalid)
+      # applied to .claude/_extracted-* only. Measured on a live consuming repo: six of these files,
+      # 1,063 lines, ZERO markers — including a named competitor with attributed strengths, written
+      # by a model, with nothing recording whether it came from that repo's own docs or from
+      # training-data memory. extract-business-context names that exact failure by name, so the rule
+      # already existed; the files needing it most were outside it. This gate checks the half that is
+      # decidable here — every template STATES the contract, and none drops [unconfirmed], the
+      # honest default these files need most. The filled copies are graded in the target by
+      # /setup-project-health check 11.
+      - name: Product-context provenance (a claim about the world names its source)
+        run: bash scripts/lint-context-provenance.sh
+
+      # The plan file is the seam between an Opus planning pass and a Sonnet executor, and EIGHT
+      # files tell a generator what shape to emit — five `<cmd> --plan` commands, execute-plan.md,
+      # verify-plan.md, and the canonical table in plans/README.md. Nothing joined them, and they
+      # were already drifting quietly: the README positioned the two OPTIONAL sections while every
+      # other file listed the mandatory eight as a flat set and said nothing about where the
+      # optional ones go, so two valid plans could differ in shape and both pass.
+      #
+      # `## Constraints` now precedes `## Steps`, and that is not cosmetic: the executor reads
+      # top-down, execute-plan calls Constraints "hard", halts when a Step as written would breach
+      # one, and hands the FULL list to every parallel sub-agent beside only that agent's slice of
+      # the Steps. Prohibitions after the recipe means the recipe is read twice.
+      #
+      # Writers are ordered, READERS STAY TOLERANT — check [3] pins that execute-plan keeps
+      # validating presence and not order, because requiring order would reject every plan already
+      # saved in a consuming repo and buy nothing.
+      - name: Plan schema (one contract, one order)
+        run: bash scripts/lint-plan-schema.sh
+
       - name: Always-loaded rule budget (path-scoped rules exempt)
         run: bash scripts/check-rule-budget.sh
 

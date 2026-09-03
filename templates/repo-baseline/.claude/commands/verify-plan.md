@@ -28,7 +28,7 @@ Verify that an implementation (done by Claude Code, OpenCode, Cursor, Aider, or 
 ## Phase 1 — Understand (parse the plan)
 
 - Resolve plan file path (explicit / `--latest` / `--plan-id` lookup).
-- Validate plan file structure: must contain headers `## Goal`, `## Context`, `## Inputs`, `## Outputs`, `## Steps`, `## Constraints`, `## Verification`, `## Status`. Missing headers = malformed plan = halt. `## Approach` and `## Known unknowns` are accepted OPTIONAL sections — a plan with them must not fail; a plan without them must not fail.
+- Validate plan file structure: must contain headers `## Goal`, `## Context`, `## Inputs`, `## Outputs`, `## Constraints`, `## Steps`, `## Verification`, `## Status`. Missing headers = malformed plan = halt. `## Approach` and `## Known unknowns` are accepted OPTIONAL sections — a plan with them must not fail; a plan without them must not fail.
 - Read `## Goal`'s **acceptance criterion** — the audit's top-level question is "is this observably true?", above the per-command Verification. A plan whose Outputs all landed and commands all pass but whose acceptance criterion is **not** met is **DRIFTED**, not FULFILLED.
 - Extract:
   - Plan ID (`Plan ID: <hash>` from frontmatter — used in cross-references).
