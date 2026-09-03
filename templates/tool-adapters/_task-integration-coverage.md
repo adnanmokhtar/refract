@@ -18,7 +18,28 @@ Everything else — provider resolution, fetch, TaskSpec normalization, attachme
 
 ## Capability mapping per tool
 
-| Tool | MCP reach | `/task` primitive | Notes |
+> **`✓` in the MCP-reach column means the TOOL supports MCP — not that this repo has configured it
+> for that tool.** `scripts/detect-mcp.sh` writes one file: `<target>/.mcp.json`, which is Claude
+> Code's project format. Every other client reads somewhere else, and two of them cannot be
+> configured per-project at all:
+>
+> | Tool | Reads MCP config from | Level | Written by detect-mcp.sh? |
+> |---|---|---|---|
+> | Claude Code | `.mcp.json` | project | **yes** |
+> | Cursor | `.cursor/mcp.json` | project | **yes** — same `mcpServers` schema |
+> | Copilot / VS Code | `.vscode/mcp.json` | project | **yes** — root key is `servers`, not `mcpServers`, and each entry carries `"type": "stdio"`. VS Code reading an `mcpServers`-keyed file ignores every server **silently**, so the entries are transformed, never copied. |
+> | Windsurf | `~/.codeium/windsurf/mcp_config.json` | **user** | **cannot be** — per-machine, not per-repo |
+> | Cline | `cline_mcp_settings.json` in VS Code global storage | **user** | **cannot be** — same reason |
+> | OpenCode · Codex · Gemini · Qwen · Kimi | per that tool's own config | varies | no |
+>
+> So on Claude Code, Cursor and VS Code the servers are **written**; everywhere else they are **detected and reported** — the
+> recommendations report at `.claude/_mcp-recommendations.md` carries the same JSON block, and a
+> human pastes it into the path above. The two user-level clients are configured once per machine
+> and are outside a project-scoped tool's reach by construction, not by omission.
+>
+> Verified 2026-09-03. MCP client config paths move; re-check before trusting this table.
+
+| Tool | MCP reach (tool supports it) | `/task` primitive | Notes |
 |---|---|---|---|
 | Claude Code | ✓ (`.mcp.json`) | `.claude/commands/task.md` (native) | Source of truth. Routes via `/do`. |
 | OpenCode | ✓ | `.opencode/commands/task.md` (`agent: build`) | `agent: build` REQUIRED (read+write+shell). Routes to OpenCode specialist commands. |

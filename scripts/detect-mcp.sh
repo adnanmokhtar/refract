@@ -585,6 +585,73 @@ if not quiet:
     print("  + added to .mcp.json: %s" % ", ".join(added), file=sys.stderr)
     if preserved:
         print("  = preserved (already present): %s" % ", ".join(preserved), file=sys.stderr)
+
+# ---- sibling clients that read a DIFFERENT project file -------------------------------------
+#
+# `.mcp.json` is Claude Code's format. Two other clients keep a PROJECT-level config and can
+# therefore be written the same way, under the same contract: add only, never clobber a user's
+# entry, never touch the file when there is nothing to add, and only under --apply.
+#
+#   Cursor            .cursor/mcp.json     "mcpServers"  — same schema, a straight copy
+#   Copilot/VS Code   .vscode/mcp.json     "servers"     — DIFFERENT root key, plus "type"
+#
+# That schema difference is not cosmetic. VS Code reading a file keyed `mcpServers` ignores every
+# server in it and says nothing — a silent no-op, which is the same failure this file's header
+# refuses for guessed package names. So the entries are TRANSFORMED, not copied.
+#
+# Written only when the tool's directory already exists: that is the evidence the adapter was
+# selected for this repo. Creating .cursor/ for a project that does not use Cursor would be
+# inventing a tool the user never chose. Windsurf and Cline are absent on purpose — their config
+# is per-machine (~/.codeium/..., VS Code global storage), so no project-scoped script can reach
+# them; the report says so rather than pretending they were missed.
+
+def write_sibling(path, root_key, transform, label):
+    if not path.parent.is_dir():
+        return                                   # tool not selected for this repo
+    cur, err = {}, ""
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text())
+            if isinstance(loaded, dict):
+                cur = loaded
+            else:
+                err = "is not a JSON object"
+        except Exception as e:
+            err = "is not valid JSON (%s)" % e
+    if err:
+        emit("sibling_%s" % label, "skipped:%s" % err)
+        if not quiet:
+            print("  ! %s %s — left untouched." % (path, err), file=sys.stderr)
+        return
+    srv = cur.get(root_key, {})
+    if not isinstance(srv, dict):
+        emit("sibling_%s" % label, "skipped:root key is not an object")
+        return
+    new_keys = [k for k in recommended if k not in srv]
+    if not new_keys:
+        emit("sibling_%s" % label, "noop")
+        return
+    for k in new_keys:
+        srv[k] = transform(recommended[k])
+    cur[root_key] = srv
+    t = path.with_suffix(".json.tmp")
+    t.write_text(json.dumps(cur, indent=2) + "\n")
+    t.replace(path)
+    emit("sibling_%s" % label, "added:" + ",".join(new_keys))
+    if not quiet:
+        print("  + added to %s: %s" % (path, ", ".join(new_keys)), file=sys.stderr)
+
+def as_vscode(cfg):
+    # VS Code wants an explicit transport. Every server this script emits is a local subprocess.
+    out = {"type": "stdio"}
+    out.update({k: v for k, v in cfg.items() if not k.startswith("_")})
+    return out
+
+def as_is(cfg):
+    return {k: v for k, v in cfg.items() if not k.startswith("_")}
+
+write_sibling(mcp_file.parent / ".cursor" / "mcp.json", "mcpServers", as_is,     "cursor")
+write_sibling(mcp_file.parent / ".vscode" / "mcp.json", "servers",    as_vscode, "vscode")
 finish()
 PY
 else
@@ -670,6 +737,20 @@ commafy() { [[ -n "$1" ]] || { echo ""; return 0; }; echo "$1" | sed 's/,/`, `/g
   fi
   printf '\n'
 
+  printf '## Where each tool reads this from\n\n'
+  printf 'This script writes ONE file: `.mcp.json`, which is **Claude Code'"'"'s** project format.\n'
+  printf 'Cursor and VS Code keep a PROJECT config too, so those are written as well when their\n'
+  printf 'directory exists. The rest read per-machine or per-tool files a project-scoped script\n'
+  printf 'cannot reach — for those the block below is a recommendation to paste:\n\n'
+  printf '| Tool | Reads MCP config from | Level | Written here? |\n|---|---|---|---|\n'
+  printf '| Claude Code | `.mcp.json` | project | **yes** |\n'
+  printf '| Cursor | `.cursor/mcp.json` | project | **yes, under --apply** (when `.cursor/` exists) |\n'
+  printf '| Copilot / VS Code | `.vscode/mcp.json` | project | **yes, under --apply** — root key `servers`, each entry gains `"type": "stdio"` |\n'
+  printf '| Windsurf | `~/.codeium/windsurf/mcp_config.json` | **user** | cannot be — per-machine |\n'
+  printf '| Cline | `cline_mcp_settings.json` (VS Code global storage) | **user** | cannot be — per-machine |\n'
+  printf '| OpenCode · Codex · Gemini · Qwen · Kimi | that tool'"'"'s own config | varies | no — paste it |\n\n'
+  printf '_The last two are configured once per machine, so a project-scoped script cannot reach\n'
+  printf 'them by construction — not by omission. Paths verified 2026-09-03; MCP clients move them._\n\n'
   printf '## Copy-pasteable `.mcp.json` block\n\n'
   if [[ $WIRED_N -eq 0 ]]; then
     printf '_Nothing to paste — no wired server was recommended._\n\n'
@@ -785,6 +866,9 @@ if [[ -n "$REPORT_TMP" ]]; then
   REPORT_TMP=""
 fi
 
-[[ $QUIET -eq 0 ]] && echo "Recommended ${#RECS[@]} MCP server(s) — ${WIRED_N} wired, ${UNWIRED_N} unwired (not written); report: $REPORT_LABEL" >&2
+# "wired" means: a real package with a known config shape, written into .mcp.json — which is
+# CLAUDE CODE's format. On every other client this is a recommendation to paste, so the summary
+# says so rather than letting "wired" read as "configured everywhere".
+[[ $QUIET -eq 0 ]] && echo "Recommended ${#RECS[@]} MCP server(s) — ${WIRED_N} wired, ${UNWIRED_N} unwired (not written). Written to .mcp.json (Claude Code); other tools read elsewhere — see the report:  $REPORT_LABEL" >&2
 
 exit 0
