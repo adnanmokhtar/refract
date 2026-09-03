@@ -244,8 +244,24 @@ Every run MUST emit the **Safe-Delivery Gate** scorecard (see Phase 4 Output): o
 - **CI not green** → halt unless `--skip-ci-check`.
 - **Staging cluster unreachable** → halt; check VPN / credentials.
 - **Image build fails** → halt with build log tail.
-- **Pod fails to start** → halt; surface logs; suggest rollback.
-- **Health check times out** → mark RED; suggest rollback.
+- **Pod fails to start** → halt; surface logs; **name the state** (below), then suggest rollback.
+- **Health check times out** → mark RED; **name the state** (below), then suggest rollback.
+
+**Any halt AFTER the deploy command ran must say what staging is running now.** "Suggest rollback"
+is advice; a halted operator needs a fact. Both failures above happen *after* the apply, and what
+the environment is left running is mechanism-dependent, not obvious:
+
+- **Helm without `--atomic`** — the release sits in `failed` state with the NEW manifest applied.
+  You are **not** back on the old revision. Undo: `helm rollback <release> <prev-rev>`.
+- **`kubectl apply` / rollout** — the new ReplicaSet exists and is unhealthy; the old pods keep
+  serving only while the rollout has not completed. Undo: `kubectl rollout undo deploy/<name>`.
+- **Vercel / Netlify / serverless** — the new deployment exists but may or may not hold the alias.
+  Say whether traffic actually moved, and give that platform's promote-previous command.
+
+Report three things before ending a halted run: **what is deployed**, **what is serving traffic**,
+and **the exact one-line command to undo it** for the detected mechanism. This is the contract
+`/execute-plan` applies to local git state — and it matters more here, because this state sits on
+infrastructure other people are using, not in a working tree only you can see.
 - **Health green but a safety item (S1-S5) unmet** → `INCOMPLETE`, not GREEN; name the unmet items; do not report the deploy as done.
 - **No prior healthy revision (first-ever deploy)** → S1 rollback cannot be EXERCISED → `INCOMPLETE (rollback-unexercised)`; say so, don't fake a rollback drill.
 - **`--no-monitor`** → S1/S2 evidence cannot be produced → exits `INCOMPLETE (unverified-deploy)`.

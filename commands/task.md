@@ -88,6 +88,33 @@ All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP
 - **`--to=<command>`** (pin the target) → skip `/do` routing; dispatch the synthesized description **directly** to `/<command>` (must exist in this repo). Without `--to`, **dispatch to `/do`** so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
 - If the task obviously spans multiple specialists (e.g. "add endpoint AND its UI"), run them in dependency order; record each in the worklist.
 
+### If the run halts after the card was marked
+
+Phase 5's "On start" move happens BEFORE the work — so from that moment the card reads
+**In Progress on a board other people watch**. Every halt below it (routing refusal, a `/do`
+failure, a Constraint collision, an interrupted session) leaves that state behind on shared
+infrastructure. `/execute-plan` has this contract for local git state; this is the same contract
+for state that is not on your machine, and it matters more, because a teammate cannot see your
+working tree but can see the card.
+
+**On any halt after the start-move, and before the finish-move:**
+
+1. **Do not leave the board lying.** Post ONE comment on the card via the same channel Phase 1
+   resolved (MCP if healthy, else REST): what was attempted, what stopped it, and any commit
+   SHA(s) already made. A card silently stuck In Progress is worse than a failed one — it reads
+   as work in flight and blocks whoever would pick it up.
+2. **Move it back to `statusFlow.start`'s predecessor** (the list/state it came from, captured in
+   Phase 1) **unless code was already committed** — in which case leave it In Progress, because
+   the branch really does carry partial work and moving it back would misreport that too.
+3. **Tell the user both facts explicitly**: where the card now sits, and what exists locally
+   (branch, commits, files). Never end a halted run without saying what state the tracker is in.
+4. **If the comment or the move itself fails**, fall through to the same four steps Phase 5 uses
+   for a failed write-back: print the exact body, print the exact command to run it by hand, and
+   record `writeback=FAILED(<reason>)` in the local audit line.
+
+Under `--no-writeback` there is nothing to undo — no start-move happened. Under `--prompt-only`
+the run ends before Phase 4 dispatches, so it never reaches the start-move either.
+
 ## Phase 5 — Update (write back to the source)
 Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless `--no-writeback`:
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
@@ -118,6 +145,8 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
 - **Secrets stay in `.env`.** `/task` reads creds only via the provider MCP's env; it never prints or echoes tokens.
 
 ## Failure modes
+
+- **Run halts after the card was marked In Progress** → the card is sitting on a shared board claiming work is in flight. Comment what stopped it, move it back unless commits exist, and state both the card's position and the local state. See § *If the run halts after the card was marked* — this is the one failure whose blast radius is other people.
 - **Provider MCP missing or 401 (stale/empty env)** → do NOT halt; load `.env` and use the REST fallback (Phase 1 step 3). Halt only when there is ALSO no `.env` creds for the provider.
 - **Ambiguous `next` (multiple providers)** → ask which provider (one question).
 - **Card not found / no access** → halt; surface the provider's error verbatim.
