@@ -20,6 +20,8 @@ The migration pack is **non-negotiable** in the sense that its discipline rule (
 | Aider | rule only | full reliance on self-sufficient rule |
 | Codex | rule only (+ agents convention) | full reliance on self-sufficient rule |
 | Gemini | rule only | full reliance on self-sufficient rule |
+| Kimi | rule + skills (dual-surface: `.kimi/skills/<name>/SKILL.md` + `.kimi/subagents/<name>.yaml`); no per-project hooks — the hooks engine is user-level `~/.kimi/config.toml` | partial — a regular skill is "contextual guidance", so the rule must self-suffice unless the optional Flow Skill upgrade is taken |
+| Qwen | rule + skills + commands + agents + hooks (`.qwen/settings.json` `hooks` block, project-level) | n/a — the fullest non-Claude surface in the matrix |
 
 **Conclusion**: every tool MUST receive a faithful translation of `migration-discipline.md` (the self-sufficient rule). The 9 contract sections, 13 hard halts, frontend audit axes, frontend anti-pattern catalogue, and tool-agnostic procedures are inlined in the rule precisely so rule-only tools have the full surface.
 

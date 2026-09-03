@@ -184,6 +184,42 @@ for f in "$README" "$CHEAT"; do
   fi
 done
 
+# 8. Per-tool coverage tables must carry a row for EVERY adapter.
+#
+# The shared _<pack>-pack-coverage.md files grade each adapter's translation of a pack. A table
+# that silently omits an adapter reads as complete, and the omitted tool ships with no recorded
+# verdict at all. Measured when this check was added: `kimi` had been an adapter since 2026-05-03
+# and had NO row in _align-pack-coverage.md or _migration-pack-coverage.md — both of which were
+# edited as late as 2026-08-20, three and a half months later. Same shape as the hook-parity gap
+# (a blocking hook in 0 of 12 adapters) and the script count asserted in four files: one fact,
+# several places, nothing joining them.
+#
+# Scoped to files that actually carry a per-tool table — the `| Tool |` header. A coverage file
+# organised some other way is skipped rather than guessed at.
+for f in "$ROOT"/templates/tool-adapters/_*coverage*.md; do
+  [ -f "$f" ] || continue
+  grep -qE '^\| Tool \|' "$f" || continue
+  rel="$(echo "$f" | sed "s|$ROOT/||")"
+  # The table block only — from the `| Tool |` header to the first non-table line.
+  BLOCK=$(awk '/^\| Tool \|/{t=1} t&&/^\|/{print} t&&!/^\|/{exit}' "$f")
+  # "${ADAPTERS[@]}" — ADAPTERS is an ARRAY. `$ADAPTERS` yields only its first element, which is
+  # how the first draft of this check passed while blind to eleven of the twelve adapters.
+  #
+  # NAMED IN THE TABLE, not starting a row. These files legitimately group tools that share a
+  # verdict — `| OpenCode / Cursor / Copilot / Qwen / Kimi | Native commands … |` is one row
+  # covering five adapters, and demanding one row each reported 32 findings of which nearly all
+  # were this shape. The decidable question is whether the file records a verdict for the
+  # adapter at all, and grouping answers it.
+  for a in "${ADAPTERS[@]}"; do
+    label="$a"
+    case "$a" in
+      claude-code) label="Claude Code" ;;
+      opencode)    label="OpenCode" ;;
+    esac
+    printf '%s\n' "$BLOCK" | grep -qiE "\b${label}\b" || fail "$rel: per-tool table never names '$label' — the adapter exists and ships with no recorded verdict"
+  done
+done
+
 echo
 if [ "$ERRORS" -eq 0 ]; then
   green "Tool-parity lint: PASS ($ADAPTER_COUNT adapters + $TRACK_COUNT tracks consistent across registry, README, parity matrix, and 4.8.0 contract)"

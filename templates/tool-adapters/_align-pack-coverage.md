@@ -20,6 +20,8 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 | Aider | rule only | full reliance on self-sufficient rule |
 | Codex | rule only | full reliance on self-sufficient rule |
 | Gemini | rule only | full reliance on self-sufficient rule |
+| Kimi | rule + skills (dual-surface: `.kimi/skills/<name>/SKILL.md` + `.kimi/subagents/<name>.yaml`); no per-project hooks — the hooks engine is user-level `~/.kimi/config.toml` | partial — a regular skill is "contextual guidance", so the rule must self-suffice unless the optional Flow Skill upgrade is taken |
+| Qwen | rule + skills + commands + agents + hooks (`.qwen/settings.json` `hooks` block, project-level) | n/a — the fullest non-Claude surface in the matrix |
 
 **Conclusion**: every tool MUST receive a faithful translation of `align-discipline.md` (the self-sufficient rule). The 11 named finding categories, 21-verb closure vocabulary, 11 per-finding audit halts, 14-check phase-exit gate, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate) are all inlined in the rule precisely so rule-only tools have the full surface.
 
