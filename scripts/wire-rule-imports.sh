@@ -360,7 +360,10 @@ if [[ -s "$CLAUDE_MD" && ! -s "$tmp" ]]; then
   rm -f "$tmp" "$blkfile"
   exit 1
 fi
-cat "$tmp" > "$CLAUDE_MD"
+# `mv`, not `cat >`. The redirect TRUNCATES CLAUDE.md and then refills it, so an interruption
+# between the two leaves a partial or empty file — the user's whole project entry point. `$tmp` is
+# already complete one line above, so a rename is both atomic and simpler.
+mv "$tmp" "$CLAUDE_MD"
 rm -f "$tmp" "$blkfile"
 
 echo ""

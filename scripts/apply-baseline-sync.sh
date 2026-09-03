@@ -80,6 +80,7 @@ backup_dir="$TARGET/.claude/backups/baseline-sync-$ts"
 
 added=0
 updated=0
+wire_failed=0
 synced=0
 kept=0
 nooped=0
@@ -284,7 +285,14 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
   echo ""
   echo "=== rule imports (a rule nothing imports never loads) ==="
   if [[ -x "$SELF_DIR/wire-rule-imports.sh" || -f "$SELF_DIR/wire-rule-imports.sh" ]]; then
-    bash "$SELF_DIR/wire-rule-imports.sh" "$TARGET" $([[ $APPLY -eq 1 ]] && echo --apply) || true
+    # `|| true` swallowed everything, including wire-rule-imports.sh's DELIBERATE refusals — its
+    # "refusing to write an empty CLAUDE.md" guard exits 1, and this parent then printed a clean
+    # summary and exited 0 while the rules were never imported. A refusal that nobody can hear is
+    # not a guard. Report it and carry it into this script's exit status.
+    if ! bash "$SELF_DIR/wire-rule-imports.sh" "$TARGET" $([[ $APPLY -eq 1 ]] && echo --apply); then
+      echo "  WARN wire-rule-imports.sh refused or failed (exit $?) — .claude/rules/ may not load."
+      wire_failed=1
+    fi
   else
     echo "  WARN wire-rule-imports.sh not found beside this script — run it manually or .claude/rules/ will not load."
   fi
@@ -298,6 +306,15 @@ fi
 if [[ $STRICT -eq 1 && $strict_violations -gt 0 ]]; then
   echo ""
   echo "REFUSED — --strict + $strict_violations KEEP-OURS row(s)." >&2
+  exit 1
+fi
+
+# A rules-import refusal is a real failure of this run: the baseline landed but .claude/rules/ is
+# not wired, so the project loads none of them. Exiting 0 on that reported a success that had not
+# happened.
+if [[ $wire_failed -eq 1 ]]; then
+  echo ""
+  echo "INCOMPLETE — baseline synced, but wire-rule-imports.sh did not complete; .claude/rules/ may not load." >&2
   exit 1
 fi
 

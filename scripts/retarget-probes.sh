@@ -71,7 +71,8 @@ else
   # while looking for matching `" from a python block that is perfectly well-formed.
   _rootpy="$(mktemp "${TMPDIR:-/tmp}/retarget-root.XXXXXX.py")"
   cat > "$_rootpy" <<'ROOTPY'
-import os, sys
+import os
+import sys
 t = sys.argv[1]
 SKIP = {'node_modules','dist','build','vendor','coverage','tmp','docs','assets',
         'public','logs','test-results','ai','.git'}
@@ -108,7 +109,9 @@ echo "  src/  →  $NEWROOT"
 echo ""
 
 python3 - "$TARGET" "$NEWROOT" "$APPLY" <<'PY'
-import os, re, sys
+import os, re, shutil, sys, time
+
+STAMP = time.strftime('%Y%m%d-%H%M%S')
 target, newroot, apply_s = sys.argv[1], sys.argv[2], sys.argv[3]
 apply_ = apply_s == "1"
 
@@ -143,7 +146,14 @@ for d in dirs:
 changed = hits = 0
 for p in sorted(files):
     try:
-        lines = open(p, encoding='utf-8', errors='replace').read().split('\n')
+        # `errors='replace'` turns any non-UTF-8 byte into U+FFFD, and the rewrite then writes
+        # that replacement back — permanently corrupting a file this script was only meant to
+        # retarget a few lines of. Skip what cannot be decoded cleanly instead of mangling it.
+        try:
+            lines = open(p, encoding='utf-8').read().split('\n')
+        except UnicodeDecodeError:
+            print("  SKIP %-56s not valid UTF-8 — left untouched" % os.path.relpath(p, target))
+            continue
     except OSError:
         continue
     out, fence, touched = [], False, 0
@@ -167,7 +177,18 @@ for p in sorted(files):
         changed += 1; hits += touched
         print("  %-58s %d line(s)" % (os.path.relpath(p, target), touched))
         if apply_:
-            open(p, 'w', encoding='utf-8').write('\n'.join(out))
+            # Back up before writing. Every sibling script in this repo takes one, and this is the
+            # only rewrite path that did not — a bad probe pattern was unrecoverable.
+            bak = os.path.join(target, '.claude', 'backups',
+                               'retarget-probes-' + STAMP, os.path.relpath(p, target))
+            os.makedirs(os.path.dirname(bak), exist_ok=True)
+            shutil.copy2(p, bak)
+            # Write to a temp and rename: a truncating in-place write leaves a partial file if
+            # anything interrupts it.
+            tmp = p + '.retarget.tmp'
+            with open(tmp, 'w', encoding='utf-8') as fh:
+                fh.write('\n'.join(out))
+            os.replace(tmp, p)
 
 print("")
 print("  %d file(s), %d probe line(s) retargeted" % (changed, hits))

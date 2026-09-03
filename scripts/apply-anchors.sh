@@ -904,7 +904,10 @@ if [[ -n "$facts_missing" ]]; then
   echo "        ## Architecture / ## Naming / ## Testing / ## Data access / ## Error handling"
   echo "      Shape reference: templates/appendices.md § Appendix D."
 fi
-if [[ "$APPLY" -eq 1 && "$injected" -gt 0 ]]; then
+# Gated on `injected` alone, a REPAIR/RELEV-only run took backups and never said where — the
+# mirror of the bug above: there, a path was announced that did not exist; here, one exists and is
+# never announced. Both leave a user unable to roll back. Announce whenever the directory is real.
+if [[ "$APPLY" -eq 1 && -d "$backup_dir" ]]; then
   echo "Backups:                       $backup_dir/"
 fi
 [[ "$APPLY" -eq 0 ]] && echo "Dry run — pass --apply to execute."

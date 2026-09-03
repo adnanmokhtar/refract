@@ -438,7 +438,11 @@ opencode_normalize_agent_frontmatter() {
   local tmp; tmp=$(mktemp)
   awk '
     BEGIN { fm=0; has_mode=0 }
-    /^---[[:space:]]*$/ {
+    # ONLY the first two `---` lines are frontmatter fences, and only when the first is line 1.
+    # Unqualified, this matched every horizontal rule in the body: a file with no frontmatter had
+    # `mode: subagent` injected into the middle of its prose, and body lines beginning `tools:` or
+    # `model:` were rewritten as if they were metadata.
+    /^---[[:space:]]*$/ && (NR==1 || fm==1) {
       # Closing frontmatter fence: inject mode if the block never declared one.
       if (fm==1 && !has_mode) print "mode: subagent"
       fm++; print; next
@@ -482,7 +486,17 @@ opencode_normalize_agent_frontmatter() {
 sync_generated() {  # $1 = emitter function, $2 = destination, $3.. = emitter args
   local gen="$1" dst="$2"; shift 2
   local tmp; tmp=$(mktemp)
-  "$gen" "$@" > "$tmp"
+  if ! "$gen" "$@" > "$tmp"; then
+    echo "  WARN  $gen failed for $dst — destination left as it was." >&2
+    rm -f "$tmp"; return 1
+  fi
+  # An emitter that exits 0 having produced NOTHING used to blank the destination and report a
+  # normal REFRESH. Refuse to write emptiness over content: a generator with nothing to say is a
+  # bug in the generator, never an instruction to delete.
+  if [[ ! -s "$tmp" ]]; then
+    echo "  WARN  $gen produced no output for $dst — destination left as it was." >&2
+    rm -f "$tmp"; return 1
+  fi
   sync_file "$tmp" "$dst"
   rm -f "$tmp"
 }
@@ -1013,7 +1027,13 @@ fi
 
 if [[ $APPLY -eq 1 && ($total_added -gt 0 || $total_refreshed -gt 0) ]]; then
   echo ""
-  echo "Backups: $backup_dir/"
+  # Only announce a backup directory that EXISTS — the guard apply-baseline-sync.sh documents.
+  # Its counters include rows whose write path never creates the dir, so this printed a path that
+  # was not there and a user who went to roll back found nothing. That comment says "two scripts
+  # shipped that bug; both now check" — this was the one that still did not.
+  if [[ -d "$backup_dir" ]]; then
+    echo "Backups: $backup_dir/"
+  fi
 fi
 
 if [[ $APPLY -eq 0 ]]; then

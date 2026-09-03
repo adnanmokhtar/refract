@@ -568,24 +568,6 @@ emit("added", ",".join(added))
 emit("preserved", ",".join(preserved))
 emit("user_only", ",".join(k for k in servers_now if k not in recommended))
 
-if not added:
-    # Nothing to add → do not touch the file at all (no reformat, no mtime bump).
-    emit("applied", "noop")
-    if not quiet:
-        print("  = .mcp.json already has every wired recommendation — not written.", file=sys.stderr)
-    finish()
-
-existing["mcpServers"] = servers_now
-tmp = mcp_file.with_suffix(".json.tmp")
-tmp.write_text(json.dumps(existing, indent=2) + "\n")
-tmp.replace(mcp_file)
-emit("applied", "yes")
-
-if not quiet:
-    print("  + added to .mcp.json: %s" % ", ".join(added), file=sys.stderr)
-    if preserved:
-        print("  = preserved (already present): %s" % ", ".join(preserved), file=sys.stderr)
-
 # ---- sibling clients that read a DIFFERENT project file -------------------------------------
 #
 # `.mcp.json` is Claude Code's format. Two other clients keep a PROJECT-level config and can
@@ -604,6 +586,12 @@ if not quiet:
 # inventing a tool the user never chose. Windsurf and Cline are absent on purpose — their config
 # is per-machine (~/.codeium/..., VS Code global storage), so no project-scoped script can reach
 # them; the report says so rather than pretending they were missed.
+
+def write_siblings():
+    # Called on BOTH exits — the one where .mcp.json changed and the one where it did not.
+    write_sibling(mcp_file.parent / ".cursor" / "mcp.json", "mcpServers", as_is,     "cursor")
+    write_sibling(mcp_file.parent / ".vscode" / "mcp.json", "servers",    as_vscode, "vscode")
+
 
 def write_sibling(path, root_key, transform, label):
     if not path.parent.is_dir():
@@ -650,8 +638,29 @@ def as_vscode(cfg):
 def as_is(cfg):
     return {k: v for k, v in cfg.items() if not k.startswith("_")}
 
-write_sibling(mcp_file.parent / ".cursor" / "mcp.json", "mcpServers", as_is,     "cursor")
-write_sibling(mcp_file.parent / ".vscode" / "mcp.json", "servers",    as_vscode, "vscode")
+if not added:
+    # Nothing to add to .mcp.json → do not touch it (no reformat, no mtime bump). But the sibling
+    # clients are SEPARATE files: Cursor's or VS Code's config can be missing or incomplete while
+    # Claude's is finished, and returning here skipped them entirely — so a second run, or a repo
+    # where only .mcp.json existed, never got them. "Claude is up to date" is not "everything is".
+    emit("applied", "noop")
+    if not quiet:
+        print("  = .mcp.json already has every wired recommendation — not written.", file=sys.stderr)
+    write_siblings()
+    finish()
+
+existing["mcpServers"] = servers_now
+tmp = mcp_file.with_suffix(".json.tmp")
+tmp.write_text(json.dumps(existing, indent=2) + "\n")
+tmp.replace(mcp_file)
+emit("applied", "yes")
+
+if not quiet:
+    print("  + added to .mcp.json: %s" % ", ".join(added), file=sys.stderr)
+    if preserved:
+        print("  = preserved (already present): %s" % ", ".join(preserved), file=sys.stderr)
+
+write_siblings()
 finish()
 PY
 else

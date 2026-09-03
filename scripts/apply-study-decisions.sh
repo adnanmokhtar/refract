@@ -169,6 +169,23 @@ KEEP-OURS / RESOLVED entries re-open automatically when the pack source changes
 Append via: apply-study-decisions.sh <target> --reject='pack/kind/file.md:rationale'
 (or --keep-ours= / --resolve= / --keep=). Manual edits are fine — keep the line shape.
 
+# Byte-identical to study-existing.sh:182. Duplicated rather than sourced because these two
+# scripts are invoked independently; if either copy changes, BOTH must — the ledger is only
+# meaningful while the writer and the reader hash the same way.
+pack_substantive_sha8() {
+  awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; next }
+    fm { if (/^---[[:space:]]*$/) fm=0; next }
+    /^<!-- project-specific:start -->[[:space:]]*$/ { anc=1; next }
+    anc { if (/^<!-- project-specific:end -->[[:space:]]*$/) anc=0; next }
+    { print }
+  ' "$1" 2>/dev/null \
+    | sed -E 's/[[:space:]]+$//; s/[*_`]//g' \
+    | grep -v '^[[:space:]]*$' \
+    | shasum 2>/dev/null | cut -c1-8
+}
+
+
 ---
 HDR
   fi
@@ -184,15 +201,29 @@ HDR
     if [[ "$verb" == "KEEP-OURS" || "$verb" == "RESOLVED" ]]; then
       pack_src="$REPO_ROOT/templates/packs/$key"
       if [[ -f "$pack_src" ]]; then
-        sha=$(shasum "$pack_src" | cut -c1-8)
+        # The SAME function study-existing.sh:590 compares against. It used to be a raw
+        # `shasum`, while the reader used pack_substantive_sha8 — which strips frontmatter, the
+        # project-specific block, trailing space and emphasis. The two never agreed, so every
+        # decision recorded here printed RECORDED and was re-opened as STALE on the next run,
+        # permanently. A ledger nobody can satisfy is worse than no ledger: it teaches the reader
+        # to ignore it.
+        sha=$(pack_substantive_sha8 "$pack_src")
         stamp="($today, pack@$sha)"
       else
         echo "  WARN pack source not found for $key — stamping without pack@sha (entry will hold until manually removed)" >&2
       fi
     fi
     # Replace any prior entry for the same key (last-write-wins, one line per key)
-    if grep -qF "\`$key\`" "$LEDGER" 2>/dev/null; then
-      grep -vF "\`$key\`" "$LEDGER" > "$LEDGER.tmp" && mv "$LEDGER.tmp" "$LEDGER"
+    # Anchor on the line's OWN key, not a substring anywhere in it. `grep -vF` on the bare
+    # backticked key also removed any line whose RATIONALE mentioned that artifact — a human's
+    # note about `x.md` vanished when an unrelated decision on `x.md` was re-recorded. And the
+    # `&&` left a stray .tmp whenever grep matched nothing.
+    if grep -qF -- "- \`$key\` →" "$LEDGER" 2>/dev/null; then
+      if grep -vF -- "- \`$key\` →" "$LEDGER" > "$LEDGER.tmp"; then
+        mv "$LEDGER.tmp" "$LEDGER"
+      else
+        rm -f "$LEDGER.tmp"
+      fi
     fi
     printf -- '- `%s` → %s %s — %s\n' "$key" "$verb" "$stamp" "$why" >> "$LEDGER"
     echo "  RECORDED $verb $key — $why"
@@ -473,6 +504,19 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
         rm -f "$loser"
         [[ "$loser" == "$folder" ]] && rmdir "$SKILLS_DIR/$name" 2>/dev/null || true
         if [[ "$winner" == "$flat" ]]; then
+          # A skill folder is not just SKILL.md — it may carry references/, scripts/, assets/.
+          # Deleting the folder twin took only its SKILL.md and left those behind, so they ended
+          # up paired with the OTHER twin's body, silently. Archive whatever else was in there
+          # before the flat file takes the directory's place.
+          if [[ -d "$SKILLS_DIR/$name" ]]; then
+            for _extra in "$SKILLS_DIR/$name"/*; do
+              [[ -e "$_extra" ]] || continue
+              case "$_extra" in */SKILL.md) continue ;; esac
+              mkdir -p "$mig_bak/resolved-twins/$name.folder-assets"
+              cp -R "$_extra" "$mig_bak/resolved-twins/$name.folder-assets/" 2>/dev/null || true
+              echo "  NOTE  archived $name/$(basename "$_extra") — it belonged to the discarded folder twin" >&2
+            done
+          fi
           mkdir -p "$SKILLS_DIR/$name"
           mv "$flat" "$folder"
         fi
@@ -481,7 +525,12 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
         twinshape=$([[ "$loser" == "$flat" ]] && echo flat || echo folder)
         _arch="$mig_bak/resolved-twins/$name.$twinshape.md"
         _kept_path="$folder"
-        _facts=$(twin_unique_facts "$_arch" "$_kept_path" | head -40)
+        # `| head -40` under `set -euo pipefail` is a trap here: head closes the pipe, the
+        # producer takes SIGPIPE, the pipeline reports 141, and the shell ABORTS — after
+        # `rm -f "$loser"` and `mv "$flat" "$folder"` have already run. The twin resolution is
+        # then half-applied with no RESOLVE line and no summary. Capture first, trim after.
+        _facts=$(twin_unique_facts "$_arch" "$_kept_path")
+        _facts=$(printf '%s\n' "$_facts" | sed -n '1,40p')
         _nfacts=$(printf '%s' "$_facts" | grep -c . || true)
         if [[ "${_nfacts:-0}" -gt 0 ]]; then
           {
