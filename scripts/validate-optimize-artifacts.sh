@@ -197,7 +197,7 @@ check_phase_0_blocks_nonempty() {
   fi
 
   local detectors_scanned
-  detectors_scanned=$(grep -cE '^[[:space:]]*Modules scanned:[[:space:]]*[1-9][0-9]*' "$file" 2>/dev/null || echo 0)
+  detectors_scanned=$(grep -cE '^[[:space:]]*Modules scanned:[[:space:]]*[1-9][0-9]*' "$file" 2>/dev/null | tail -1)
   detectors_scanned=${detectors_scanned:-0}
   if [[ "$detectors_scanned" -lt 1 ]]; then
     log_fail "Phase 0 detector evidence has zero modules scanned in $file"
@@ -229,7 +229,7 @@ check_per_finding_citations_phase0() {
     END { if (in_section) check_section() }
   ' "$file" > "$tmp"
 
-  breaches=$(grep -cve '^[[:space:]]*$' "$tmp" 2>/dev/null || echo 0)
+  breaches=$(grep -cve '^[[:space:]]*$' "$tmp" 2>/dev/null | tail -1)
   rm -f "$tmp"
   if [[ "${breaches:-0}" -gt 0 ]]; then
     log_fail "One or more ### F-A-* sections in $file lack <path:line> citations"

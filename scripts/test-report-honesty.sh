@@ -86,7 +86,7 @@ open(p, "w", encoding="utf-8").write(t.replace("<TBD>", "Filled.", 1))
 PY2
   bash "$SCAN" "$S1B" >/dev/null 2>&1
   bash "$SCAN" "$S1B" >/dev/null 2>&1
-  n1=$(grep -c 'deep-codebase-scan:incomplete start' "$S1B/.claude/_codebase-scan.md" 2>/dev/null || echo 0)
+  n1=$(grep -c 'deep-codebase-scan:incomplete start' "$S1B/.claude/_codebase-scan.md" 2>/dev/null | tail -1)
   [ "${n1:-0}" -eq 1 ] && ok "§1 re-running does not stack banners (exactly 1)" \
                        || bad "§1 re-running does not stack banners" "found ${n1:-0}"
 fi

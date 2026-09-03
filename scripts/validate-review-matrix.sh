@@ -101,7 +101,7 @@ done > "$TMP/pk_orphans.txt"
 if [ -s "$TMP/pk_orphans.txt" ]; then
   while read -r _ o; do fail "pack artifact in no cell: $o"; orphan=1; done < "$TMP/pk_orphans.txt"
 fi
-n_disk=$(( $(wc -l < "$TMP/disk.tsv" | tr -d ' ') + $(grep -c ":" "$TMP/named.tsv" || echo 0) ))
+n_disk=$(( $(wc -l < "$TMP/disk.tsv" | tr -d ' ') + $(grep -c ":" "$TMP/named.tsv" | tail -1) ))
 [ "$orphan" -eq 0 ] && pass "all $n_disk domain + structural-pack artifacts on disk appear in the matrix"
 
 # ---- 3b  every verdict in _review-decisions.md addresses a real cell ----

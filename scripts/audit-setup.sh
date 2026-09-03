@@ -575,7 +575,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
     # now printed AFTER the engine call, from its actual result.
     ok "loss test WILL RUN in LINE-level provenance mode (scripts/merge-decide.py --verify-pairs) — verdict below"
   else
-    ok "loss test: token fallback — $(grep -c . "${C2N_PACK_IDX:-/dev/null}" 2>/dev/null || echo 0) pack token(s), $(grep -c . "${C2N_REPO_IDX:-/dev/null}" 2>/dev/null || echo 0) project-source identifier(s)"
+    ok "loss test: token fallback — $(grep -c . "${C2N_PACK_IDX:-/dev/null}" 2>/dev/null | tail -1) pack token(s), $(grep -c . "${C2N_REPO_IDX:-/dev/null}" 2>/dev/null | tail -1) project-source identifier(s)"
   fi
   [[ -s "$C2N_REPO_IDX" ]] || warn_msg "C2n: could not index this project's own identifiers — the identifier half of the loss test falls back to an unfiltered set difference (noisier, never quieter)"
   seen_rel=$(mktemp "${TMPDIR:-/tmp}/c2n-seen.XXXXXX")

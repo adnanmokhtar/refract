@@ -61,7 +61,13 @@ case "$ext" in
     else out=$(cd "$root" && npm test -- "$rel_test" 2>&1); code=$?; fi ;;
   py)
     if command -v pytest >/dev/null 2>&1; then out=$(cd "$root" && pytest "$rel_test" 2>&1); code=$?
-    elif command -v python3 >/dev/null 2>&1; then out=$(cd "$root" && python3 -m unittest "$rel_test" 2>&1); code=$?; fi ;;
+    elif command -v python3 >/dev/null 2>&1; then
+      # `python3 -m unittest` takes a DOTTED MODULE, not a path — handed `tests/test_a.py` it
+      # always errors, so this arm reported a phantom failure on every Python edit where pytest
+      # was absent. Convert the path: strip .py, slashes to dots.
+      mod=$(printf '%s' "${rel_test%.py}" | tr '/' '.')
+      out=$(cd "$root" && python3 -m unittest "$mod" 2>&1); code=$?
+    fi ;;
   go) out=$(cd "$dir" && go test ./... 2>&1); code=$? ;;
   rs) out=$(cd "$root" && cargo test 2>&1); code=$? ;;
   *)  exit 0 ;;

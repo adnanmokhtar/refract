@@ -41,6 +41,15 @@ glob_to_re() {
   g=${g//$'\x01'/(.*\/)?}
   g=${g//$'\x02'/(\/.*)?}
   g=${g//$'\x03'/.*}
+  # {ts,tsx} → (ts|tsx). A brace group is ordinary glob syntax and appears throughout this
+  # framework's rules, but in an ERE `{…}` is an interval expression — `\.{ts,tsx}` is INVALID,
+  # grep errors out, the match silently fails, and the rule injects on no edit at all. That is the
+  # same dead-rule outcome this file's header describes fixing for three other value shapes; the
+  # brace form was the fourth.
+  while [ "${g#*\{}" != "$g" ] && [ "${g#*\}}" != "$g" ]; do
+    _pre=${g%%\{*}; _rest=${g#*\{}; _alts=${_rest%%\}*}; _post=${_rest#*\}}
+    g="${_pre}(${_alts//,/|})${_post}"
+  done
   printf '^%s$' "$g"
 }
 

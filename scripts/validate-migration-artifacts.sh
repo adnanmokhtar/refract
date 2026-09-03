@@ -957,7 +957,7 @@ check_section_0_evidence() {
 
   # Require Leaf-set diff table — at least one row indicating both sides were enumerated
   local diff_rows
-  diff_rows=$(awk '/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Leaf[- ]?set diff/,/^#{2,4}/' "$file" 2>/dev/null | grep -cE '^\|.+\|.+\|.+\|.+\|' || echo 0)
+  diff_rows=$(awk '/^#{2,4}[[:space:]]+Section 0[[:space:]]*[-—][[:space:]]*Leaf[- ]?set diff/,/^#{2,4}/' "$file" 2>/dev/null | grep -cE '^\|.+\|.+\|.+\|.+\|' | tail -1)
   diff_rows=${diff_rows:-0}
   if [[ "$diff_rows" -lt 2 ]]; then  # 2 = header row + ≥1 data row
     log_fail "audit Section 0 Leaf-set diff table is missing or empty in $file (rows: $diff_rows). Auditor MUST emit a 4-column table: V1 leaf | V2 leaf | Verdict | Closure verb. One row per leaf on either side. See parity-auditor.md § \"Section 0 — Leaf-set diff\"."
@@ -1117,7 +1117,7 @@ check_per_axis_enumeration() {
     fi
     [[ -z "$vf_res" || ! -f "$vf_res" ]] && continue
     local form_hits
-    form_hits=$(grep -cE '<input\b|<v-text-field|v-model=|<InputText\b|<InputSwitch\b|<InputNumber\b|<Dropdown\b|<TranslatedInput\b|<FormField\b|<Textarea\b|<Select\b|<Checkbox\b' "$vf_res" 2>/dev/null || echo 0)
+    form_hits=$(grep -cE '<input\b|<v-text-field|v-model=|<InputText\b|<InputSwitch\b|<InputNumber\b|<Dropdown\b|<TranslatedInput\b|<FormField\b|<Textarea\b|<Select\b|<Checkbox\b' "$vf_res" 2>/dev/null | tail -1)
     form_hits=${form_hits:-0}
     [[ "$form_hits" =~ ^[0-9]+$ ]] || form_hits=0
     form_hits_total=$((form_hits_total + form_hits))
@@ -2019,8 +2019,8 @@ check_adr_signoff_completed() {
 
       # Count checked vs unchecked
       local unchecked_count checked_count
-      unchecked_count=$(echo "$signoff_block" | grep -cE '^[[:space:]]*-[[:space:]]+\[[[:space:]]\]' || echo 0)
-      checked_count=$(echo "$signoff_block" | grep -cE '^[[:space:]]*-[[:space:]]+\[[xX]\]' || echo 0)
+      unchecked_count=$(echo "$signoff_block" | grep -cE '^[[:space:]]*-[[:space:]]+\[[[:space:]]\]' | tail -1)
+      checked_count=$(echo "$signoff_block" | grep -cE '^[[:space:]]*-[[:space:]]+\[[xX]\]' | tail -1)
       unchecked_count=${unchecked_count:-0}; checked_count=${checked_count:-0}
       [[ "$unchecked_count" =~ ^[0-9]+$ ]] || unchecked_count=0
       [[ "$checked_count" =~ ^[0-9]+$ ]] || checked_count=0
@@ -2468,7 +2468,7 @@ check_v2_structure() {
         esac
       fi
       local hits
-      hits=$(grep -cE "$pattern" "$file" 2>/dev/null | head -1 | tr -d ' \n' || echo 0)
+      hits=$(grep -cE "$pattern" "$file" 2>/dev/null | head -1 | tr -d ' \n' | tail -1)
       hits=${hits:-0}
       if [[ $hits -gt 0 ]]; then
         if [[ "$severity" == "fail" ]]; then

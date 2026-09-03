@@ -15,9 +15,9 @@ file_path=$(echo "$payload" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\
 case "$file_path" in
   *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs)
     if command -v bun >/dev/null 2>&1 && [ -f "package.json" ]; then
-      bun run lint "$file_path" 2>&1 || exit 2
+      bun run lint "$file_path" 2>&1 1>&2 || exit 2
     elif command -v npx >/dev/null 2>&1 && [ -f "package.json" ]; then
-      npx eslint "$file_path" 2>&1 || exit 2
+      npx --no-install eslint "$file_path" 2>&1 1>&2 || exit 2
     fi
     ;;
   *.py)

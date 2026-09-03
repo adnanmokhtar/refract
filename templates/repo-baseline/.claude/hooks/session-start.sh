@@ -34,7 +34,7 @@ fi
 # NOTE: this hook only PRINTS the queue — nothing auto-runs the curator. Drain it
 # manually with /audit-knowledge (sweep) or /learn-from-task (scoped to current work).
 if [ -f "ai/dynamic/.review-queue" ] && [ -s "ai/dynamic/.review-queue" ]; then
-  QUEUE_COUNT=$(grep -c . ai/dynamic/.review-queue 2>/dev/null || echo "0")
+  QUEUE_COUNT=$(grep -c . ai/dynamic/.review-queue 2>/dev/null | tail -1)
   echo ""
   echo "--- 🔁 Learning queue ($QUEUE_COUNT pending — surfaced for MANUAL dispatch) ---"
   tail -10 ai/dynamic/.review-queue
@@ -43,7 +43,7 @@ fi
 
 # Surface OPEN drift findings (HIGH severity only — keep noise low)
 if [ -f "ai/dynamic/drift-log.md" ]; then
-  HIGH_DRIFT=$(grep -c "^Severity: high" ai/dynamic/drift-log.md 2>/dev/null || echo "0")
+  HIGH_DRIFT=$(grep -c "^Severity: high" ai/dynamic/drift-log.md 2>/dev/null | tail -1)
   if [ "$HIGH_DRIFT" -gt "0" ]; then
     echo ""
     echo "--- ⚠️  Drift findings (HIGH severity, OPEN) ---"

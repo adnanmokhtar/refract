@@ -263,7 +263,7 @@ else
 fi
 # idempotent — a second run must not add a second copy
 bash "$WIRE" "$R3" --apply >/dev/null 2>&1 || true
-n3=$(grep -c 'inject-path-rules' "$R3/.claude/settings.json" 2>/dev/null || echo 0)
+n3=$(grep -c 'inject-path-rules' "$R3/.claude/settings.json" 2>/dev/null | tail -1)
 if [ "${n3:-0}" -eq 1 ]; then
   ok "§3 re-running does not register it twice"
 else

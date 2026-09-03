@@ -19,14 +19,22 @@
 set -uo pipefail
 
 LOG_FILE="ai/dynamic/session-log.md"
+# Create the sink only where this framework is actually installed. Unconditionally making
+# ai/dynamic/ meant any repo that ran the hook grew a directory it never asked for — and one the
+# hook's own contract says must already be gitignored, so it also dirtied the tree.
+if [ ! -d "ai" ]; then exit 0; fi
 [ ! -d "ai/dynamic" ] && mkdir -p "ai/dynamic"
 
 # Only log if there's something meaningful (branch OR modified files)
 if git rev-parse --git-dir >/dev/null 2>&1; then
   BRANCH=$(git branch --show-current 2>/dev/null || echo "detached")
-  CHANGED_FILES=$(git diff --name-only 2>/dev/null | head -8)
-  CHANGED_COUNT=$(git diff --name-only 2>/dev/null | wc -l | tr -d ' ')
-  UNTRACKED=$(git status -s 2>/dev/null | grep '^??' | head -3 | wc -l | tr -d ' ')
+  # `git diff` alone shows UNSTAGED work only, so a session that staged everything logged nothing.
+  # HEAD compares the working tree AND the index against the last commit.
+  CHANGED_FILES=$(git diff --name-only HEAD 2>/dev/null | head -8)
+  CHANGED_COUNT=$(git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')
+  # `head -3 | wc -l` caps the COUNT at 3 — it truncates before counting, so 40 new files logged
+  # as "3". Count first; the display cap belongs where the list is printed, not in the number.
+  UNTRACKED=$(git status -s 2>/dev/null | grep -c '^??' | tail -1)
 else
   BRANCH="(no git)"
   CHANGED_FILES=""
