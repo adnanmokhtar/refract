@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **33 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **49 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 25 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 49 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -79,6 +79,8 @@ for g in \
   scripts/lint-context-provenance.sh \
   scripts/lint-plan-schema.sh \
   python3 scripts/gen-baseline-hashes.py --check \
+  scripts/test-baseline-sync-advisory.sh \
+  scripts/verify-gate-count.sh \
   scripts/lint-shell-portability.sh \
   scripts/check-rule-budget.sh \
   scripts/audit-stack-leakage.sh \
@@ -121,6 +123,8 @@ file and line; none of them require you to guess.
 | `lint-context-provenance.sh` | A shipped `ai/` product-context file claiming things about the WORLD with no source. Seven templates — project-goals, users-and-personas, business-model, competitive-context, business-domain, business-flows, roadmap — carry claims no codebase can settle, and `CLAUDE.md` loads them as product context. Phase 2's `[found:]`/`[inferred:]`/`[unconfirmed]` contract covered only `.claude/_extracted-*`; a live repo had 1,063 lines across six of these with **zero** markers, named competitors included. Checks that each template states the contract, that none drops `[unconfirmed]`, and that `/setup-project-health` check 11 grades the same list. | Add the provenance block to the template. Never drop `[unconfirmed]` to tidy it up — "nobody here knows" is the honest default and becomes a question for the team, and a model's recollection is not a source. |
 | `lint-plan-schema.sh` | Eight files stating the plan contract and disagreeing about it. Five `<cmd> --plan` commands, `execute-plan.md`, `verify-plan.md` and `plans/README.md` all tell a generator what to emit; only the README positioned the two optional sections, so two valid plans could differ in shape. Canonical order is **Goal · Context · Inputs · Outputs · Constraints · Steps · Verification · Status**, with `## Approach` after Context and `## Known unknowns` before Verification. Reads the LINE that enumerates the schema, never first-mention order across a file — that drafting error reported `execute-plan.md` as drifted when it was not. | Fix the file to the canonical order. Do **not** make the executor require an order: check [3] fails on that deliberately, because writers are ordered and readers stay tolerant, and tightening the reader rejects every plan already saved in a consuming repo. |
 | `gen-baseline-hashes.py --check` | A shipped fix that cannot reach an installed project. `apply-baseline-sync.sh` could not distinguish an **older version of ours** (update it — the user never touched it) from a file the **user edited** (keep it), so it kept both. Demonstrated with the `notify.sh` command-injection repair: the sync printed `KEEP-OURS`, exited 0, and left the vulnerable file intact. The managed-region mechanism intended to solve this has never executed — **zero** of 101 baseline files carry a marker. `.baseline-hashes` records every version this repo has published (101 files, 206 versions) so the decision is a lookup. | Regenerate: `python3 scripts/gen-baseline-hashes.py`. Never hand-edit it, and never add a hash that was not shipped — an unknown hash is treated as user content and preserved, which is the safe direction; a wrongly-added one overwrites somebody's work. |
+| `test-baseline-sync-advisory.sh` | A fix withheld in silence. KEEP-OURS is the right call for a guard a human edited — overwriting it would destroy their work — but the row was printed once and dropped, so the project stopped receiving every later fix to that guard while the run printed a clean summary and exited 0. MEASURED across three real installed projects: 4 / 1 / 0 executable guards sat in that state, one of them a security guard. The gate asserts the advisory **names** them; it deliberately does not assert an overwrite. |
+| `verify-gate-count.sh` | A doc that miscounts the very workflow it documents. CONTRIBUTING carried 33, 25 and 19 simultaneously while CI ran 48 — each typed by hand, each drifting alone. A contributor reading "all 25 gates are green" beside 48 results cannot tell which figure lies. The workflow is the one source that cannot be wrong about itself. |
 | `lint-shell-portability.sh` | A shell construct that behaves differently on macOS and Linux. The local suite runs on one and CI on the other, and today a defect escaped in EACH direction — GNU-only regex (`\|`, `IGNORECASE`) matching nothing on macOS, and `declare -a` without `=()` aborting under `set -u` on Linux. **Measured scope, not assumed:** shellcheck catches neither the uninitialised array nor the regex dialects. It does catch `SC2128` (array expanded without an index — the shape that left a gate checking 1 adapter of 12), unreachable `case` arms (`SC2221`/`SC2222` — one was a real defect), and a malformed `# shellcheck disable=` directive that had never suppressed anything. | Fix it. If the construct is deliberate, re-record with `--record` and **write the reason on the line** — a reasonless entry is how a ratchet becomes a mute button. Requires shellcheck; its absence is exit 2, never a pass. |
 | `check-rule-budget.sh` | The always-loaded rule set busting its token budget. Currently ~4,943 of 6,000 tokens. | Give your rule `paths:` frontmatter (path-scoped, exempt) or trim a foundational rule. |
 | `audit-stack-leakage.sh` | Single-stack wording in universal docs — `commands/*.md`, `templates/phases/`, `templates/governance/`, the migration/align/code-quality packs, adapter `_*.md`. A stack token whose ±1-line window names only one stack is a FAIL there; in the other packs it is a WARN. Naming two frontends, two backends, or one of each passes. | Name several stacks, or move the framework-specific text into `references/` (skipped by design). |
@@ -451,7 +455,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 19 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 49 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---

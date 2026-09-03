@@ -120,6 +120,25 @@ jobs:
       - name: Baseline hashes fresh (a shipped fix must reach installed projects)
         run: python3 scripts/gen-baseline-hashes.py --check
 
+      # The hash manifest above answers "is this an old version of ours?" — and where the answer is
+      # no, the file is the user's and is correctly left alone. What was missing is the sentence
+      # afterwards. KEEP-OURS was reported once and then dropped from the summary, so a project
+      # whose guard had been edited quietly stopped receiving every later fix to that guard while
+      # the run printed a clean summary and exited 0.
+      #
+      # MEASURED on three real installed projects: 4 / 1 / 0 executable guards were in that state,
+      # one of them a security guard. This gate asserts the advisory names them; it deliberately
+      # does NOT assert an overwrite, because keeping the user's file is the behaviour we want.
+      - name: Withheld guards named (KEEP-OURS must not be silent)
+        run: bash scripts/test-baseline-sync-advisory.sh
+
+      # CONTRIBUTING carried three different counts for this very workflow at once — 33, 25 and 19
+      # — while it ran 48 steps. Each was typed by hand and drifted on its own schedule, and a
+      # contributor reading "all 25 gates are green" beside 48 results cannot tell which is lying.
+      # The workflow is the one source that cannot be wrong about itself.
+      - name: Gate count honest (CONTRIBUTING matches this workflow)
+        run: bash scripts/verify-gate-count.sh
+
       # The local suite runs on macOS and this runs on Linux, and a class of defect is invisible to
       # whichever one you are on. Today it fired BOTH ways: GNU-only constructs (`\|` in a BRE sed,
       # awk IGNORECASE) match nothing on macOS and work here, while `declare -a NAME` without `=()`

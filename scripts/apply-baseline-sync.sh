@@ -87,6 +87,10 @@ nooped=0
 processed=0
 strict_violations=0
 
+# KEEP-OURS rows that are EXECUTABLE guards, not prose. Collected so the run can say what it
+# is withholding — see the advisory block after the summary for why silence here is not safe.
+kept_executables=()
+
 # Markers used by Phase 4 idempotency.
 MARK_OPEN='<!-- setup-project:managed start'
 MARK_CLOSE='<!-- setup-project:managed end -->'
@@ -249,6 +253,9 @@ while IFS= read -r src; do
 
   echo "  KEEP-OURS $rel  (differs from every version we shipped — treated as yours)"
   kept=$((kept + 1))
+  case "$rel" in
+    .claude/hooks/*.sh) kept_executables+=("$rel") ;;
+  esac
   if [[ $STRICT -eq 1 ]]; then
     strict_violations=$((strict_violations + 1))
   fi
@@ -262,6 +269,26 @@ echo "UPDATE (stale):   $updated"
 echo "SYNC (managed):   $synced"
 echo "KEEP-OURS:        $kept"
 echo "NO-OP:            $nooped"
+
+# KEEP-OURS is the right call for a file a human edited — but staying SILENT about it is not.
+# These are executable guards that run on every edit, not prose. Ours have changed since the
+# copy in this repo was taken, and a change to a guard is usually a fix to something it failed
+# to catch. Keeping the user's version while saying nothing means a fix we shipped is withheld
+# and nobody knows. MEASURED: on a real installed project, 4 hooks sat in this state — one of
+# them a security guard — while the run printed a clean summary and exited 0.
+#
+# This does not overwrite anything. It names what is being withheld so the choice is the
+# user's rather than the script's.
+if [[ ${#kept_executables[@]} -gt 0 ]]; then
+  echo ""
+  echo "=== withheld from ${#kept_executables[@]} guard(s) — yours, so not touched ==="
+  echo "These run on every edit and differ from every version we shipped, so they are treated as"
+  echo "yours. Our copies have changed since; a change to a guard is usually a fix. Diff each"
+  echo "against the baseline and port what you want — nothing here was modified:"
+  for k in "${kept_executables[@]}"; do
+    echo "  diff \"$TARGET/$k\" \"$BASELINE_ROOT/$k\""
+  done
+fi
 
 if [[ $APPLY -eq 1 && ($added -gt 0 || $synced -gt 0 || $updated -gt 0) ]]; then
   echo ""
