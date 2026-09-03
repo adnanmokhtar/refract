@@ -49,6 +49,11 @@ REPO_ROOT="$(cd -P "$REPO_ROOT" && pwd)" || exit 1
 cd "$REPO_ROOT" || exit 1
 
 BASELINE="scripts/_shell-portability-baseline.txt"
+# The baseline is version-sensitive: a newer shellcheck reports checks an older one does not, and
+# an unrecorded finding is a hard FAIL. CI pins the same version this was recorded with, so the
+# two agree; a local run on a different version will report extra findings, which is honest — they
+# are real, just not what the ratchet was recorded against.
+SHELLCHECK_BASELINE_VERSION="0.11.0"
 
 if ! command -v shellcheck >/dev/null 2>&1; then
   echo "ERR: shellcheck is not installed — shell portability cannot be checked." >&2
@@ -57,11 +62,21 @@ if ! command -v shellcheck >/dev/null 2>&1; then
   exit 2
 fi
 
+sc_ver=$(shellcheck --version 2>/dev/null | sed -n 's/^version: //p')
 echo "=== lint-shell-portability ==="
 echo "Repo: $REPO_ROOT"
+if [ -n "$sc_ver" ] && [ "$sc_ver" != "$SHELLCHECK_BASELINE_VERSION" ]; then
+  echo "NOTE  shellcheck $sc_ver; the baseline was recorded with $SHELLCHECK_BASELINE_VERSION."
+  echo "      Extra findings below are real but were not recorded against this version."
+fi
 echo ""
 
-FILES=$(find scripts tests templates/repo-baseline/.claude/hooks -type f -name '*.sh' 2>/dev/null | sort)
+# tests/validators/ holds FIXTURE scripts that are deliberately wrong — a dead `case` arm and an
+# unindexed array expansion are the very defects two of them exist to prove this gate catches.
+# Linting them made the gate fail on its own evidence. Exclude the fixture tree; the harnesses in
+# tests/hooks and tests/setup-project are real scripts and stay in scope.
+FILES=$(find scripts tests templates/repo-baseline/.claude/hooks -type f -name '*.sh' 2>/dev/null \
+        | grep -v '^tests/validators/' | sort)
 [ -n "$FILES" ] || { echo "FAIL  no shell scripts found — is this the right repo root?"; exit 1; }
 n_files=$(printf '%s\n' "$FILES" | wc -l | tr -d ' ')
 

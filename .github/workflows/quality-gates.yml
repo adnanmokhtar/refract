@@ -142,7 +142,17 @@ jobs:
         # silent pass — and a runner image change would then read as a broken gate rather than as
         # the missing dependency it is.
         run: |
-          command -v shellcheck >/dev/null 2>&1 || sudo apt-get install -y -q shellcheck
+          # PINNED. shellcheck versions differ in what they report, and an unrecorded finding is a
+          # hard FAIL — so the runner's own build produced findings the baseline (recorded with
+          # 0.11.0) had never seen, and the gate failed on a version difference rather than on a
+          # defect. Pin it, and the two platforms agree.
+          SC_VER=0.11.0
+          if [ "$(shellcheck --version 2>/dev/null | sed -n 's/^version: //p')" != "$SC_VER" ]; then
+            curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v$SC_VER/shellcheck-v$SC_VER.linux.x86_64.tar.xz" \
+              | tar -xJ -C /tmp
+            sudo install "/tmp/shellcheck-v$SC_VER/shellcheck" /usr/local/bin/shellcheck
+          fi
+          shellcheck --version | sed -n 's/^version: /shellcheck /p'
           bash scripts/lint-shell-portability.sh
 
       - name: Always-loaded rule budget (path-scoped rules exempt)
