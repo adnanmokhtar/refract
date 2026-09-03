@@ -131,5 +131,40 @@ sys.exit(0 if all(checks.values()) else 1)
 PYCHK
 if [ $? -eq 0 ]; then pass=$((pass+4)); else fail=$((fail+1)); fi
 
+# ---- case F: an advisory rules-import code is not a failed run ----------------------------------
+# wire-rule-imports.sh exit 3 is documented as advisory: foundational rules wired, pack rules left
+# out because importing them would cost ~45k tokens every turn. Treating it as a failure marked a
+# healthy sync INCOMPLETE and returned 1. MEASURED on a real monorepo with 20 rules on disk.
+F="$TMP/advisory"; mkdir -p "$F/.claude/rules"
+cp "$BASELINE"/.claude/rules/*.md "$F/.claude/rules/" 2>/dev/null || true
+# The baseline ships ~6k tokens of rules — under the 12k budget, so copying it alone never reaches
+# the over-budget branch and this case silently asserted nothing. Pad past the budget on purpose.
+i=0
+while [ $i -lt 8 ]; do
+  {
+    printf '# Padding rule %s\n\n' "$i"
+    j=0; while [ $j -lt 200 ]; do
+      printf 'This line exists to push the always-tier rule set past the import budget.\n'
+      j=$((j+1))
+    done
+  } > "$F/.claude/rules/zz-padding-$i.md"
+  i=$((i+1))
+done
+printf '# Project\n' > "$F/CLAUDE.md"
+rcF=0; outF="$(bash "$REPO_ROOT/scripts/apply-baseline-sync.sh" "$F" 2>&1)" || rcF=$?
+[ "$rcF" -eq 0 ] && ok "an over-budget rule set is not a failed run" \
+                 || bad "advisory rules-import code escalated to exit $rcF"
+echo "$outF" | grep -q "INCOMPLETE" \
+  && bad "healthy sync reported INCOMPLETE over an advisory code" \
+  || ok "no INCOMPLETE banner on an advisory code"
+
+# ---- case G: the reported exit code is the REAL one ---------------------------------------------
+# `$?` inside `if ! cmd; then` is the result of the negated test — always 0 — so the WARN line
+# printed "exit 0" for every refusal and every crash alike: a diagnostic that says the run
+# succeeded inside the sentence explaining that it failed.
+grep -q 'wire_rc=\$?' "$REPO_ROOT/scripts/apply-baseline-sync.sh" \
+  && ok "wire-rule-imports status is captured before it is tested" \
+  || bad "exit status read after the test — it can only ever report 0"
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

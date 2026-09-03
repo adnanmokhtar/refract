@@ -376,8 +376,21 @@ if [[ -d "$TARGET/.claude/rules" ]]; then
     # "refusing to write an empty CLAUDE.md" guard exits 1, and this parent then printed a clean
     # summary and exited 0 while the rules were never imported. A refusal that nobody can hear is
     # not a guard. Report it and carry it into this script's exit status.
-    if ! bash "$SELF_DIR/wire-rule-imports.sh" "$TARGET" $([[ $APPLY -eq 1 ]] && echo --apply); then
-      echo "  WARN wire-rule-imports.sh refused or failed (exit $?) — .claude/rules/ may not load."
+    # Capture the status BEFORE testing it. Inside `if ! cmd; then`, `$?` is the result of the
+    # negated test — always 0 — so this line reported "exit 0" for every refusal and every crash
+    # alike. A diagnostic that cannot be right is worse than none: it says the run succeeded
+    # inside the sentence explaining that it failed.
+    wire_rc=0
+    bash "$SELF_DIR/wire-rule-imports.sh" "$TARGET" $([[ $APPLY -eq 1 ]] && echo --apply) || wire_rc=$?
+    # Exit 3 is DOCUMENTED as advisory: the foundational rules were wired and only the pack rules
+    # overflow the token budget — a deliberate refusal to import ~45k tokens on every turn, not a
+    # breakage. Escalating it to a failed run marked a healthy sync INCOMPLETE and returned 1, which
+    # is how a real failure stops being distinguishable from a working project with many rules.
+    if [[ $wire_rc -eq 3 ]]; then
+      echo "  NOTE wire-rule-imports.sh wired the foundational rules; pack rules exceed the budget"
+      echo "       and were deliberately NOT imported. See its output above to scope them by path."
+    elif [[ $wire_rc -ne 0 ]]; then
+      echo "  WARN wire-rule-imports.sh refused or failed (exit $wire_rc) — .claude/rules/ may not load."
       wire_failed=1
     fi
   else
