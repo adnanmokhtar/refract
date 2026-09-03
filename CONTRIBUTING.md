@@ -153,6 +153,10 @@ file and line; none of them require you to guess.
 ```bash
 bash scripts/test-refine-fixture.sh     # /setup-project --refine marker-safety + structural contract
 bash tests/setup-project/run.sh         # setup-project fixtures/snapshots
+
+# The model-driven half — NOT in the blocking suite, and deliberately so.
+bash tests/live/run.sh                  # Phase 1 mode detection, Phase 2 stack detection, provenance
+
 bash scripts/dry-run-setup.sh           # what a /setup-project run would emit
 bash scripts/pack-coverage-scan.sh <target-repo> --stdout   # pack content vs a real target tree
 bash scripts/verify-readme-stats.sh     # README's "What's inside" + the cheatsheet's pack-catalog figures vs disk

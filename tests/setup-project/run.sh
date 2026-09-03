@@ -14,7 +14,11 @@
 #   - Phase 2 deep extraction (LLM-driven)
 #   - Phase 4.6 anchoring of project-specific blocks (LLM-driven)
 #   - Multi-track conflict resolution
-# Those need a real CLI invocation strategy. M6+ candidate.
+# Those need a real CLI invocation strategy. PARTLY ADDRESSED: tests/live/run.sh drives a real
+# `claude -p` against fixtures and asserts the mode decision, the stack decision and the
+# provenance rule. It is not in the blocking suite — it costs money and wall-clock, needs
+# credentials, and depends on a service being up, so a red run there would not mean a defect.
+# Multi-track conflict resolution and Phase 4.6 anchoring are still uncovered.
 #
 # Modes:
 #   --shape-only        Validate fixture/snapshot shape (default if no flag).
