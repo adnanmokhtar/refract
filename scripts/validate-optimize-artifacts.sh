@@ -197,7 +197,7 @@ check_phase_0_blocks_nonempty() {
   fi
 
   local detectors_scanned
-  detectors_scanned=$(grep -cE '^[[:space:]]*Modules scanned:[[:space:]]*[1-9][0-9]*' "$file" 2>/dev/null | tail -1)
+  detectors_scanned=$( { grep -cE '^[[:space:]]*Modules scanned:[[:space:]]*[1-9][0-9]*' "$file" 2>/dev/null || echo 0; } | tail -1 )
   detectors_scanned=${detectors_scanned:-0}
   if [[ "$detectors_scanned" -lt 1 ]]; then
     log_fail "Phase 0 detector evidence has zero modules scanned in $file"
@@ -229,7 +229,7 @@ check_per_finding_citations_phase0() {
     END { if (in_section) check_section() }
   ' "$file" > "$tmp"
 
-  breaches=$(grep -cve '^[[:space:]]*$' "$tmp" 2>/dev/null | tail -1)
+  breaches=$( { grep -cve '^[[:space:]]*$' "$tmp" 2>/dev/null || echo 0; } | tail -1 )
   rm -f "$tmp"
   if [[ "${breaches:-0}" -gt 0 ]]; then
     log_fail "One or more ### F-A-* sections in $file lack <path:line> citations"
@@ -719,6 +719,7 @@ run_optimize_self_test() {
 
 ## Phase 0 — Detector run evidence
 
+Modules scanned: 1
 Ran the duplicate-query detector over `src/`: 1 hit at `src/q.ts:1`.
 FIX
 
@@ -734,7 +735,10 @@ FIX
 
   # A heading with nothing under it. This is the exact state the extractor bug reported for
   # every file, so the BAD case pins that the check still fires when it is genuinely true.
-  grep -v 'Ran the duplicate-query detector' "$td/ai/optimize/_architecture-decisions.md" > "$td/bad.md"
+  # Strip EVERY body line under the heading, not just one. The GOOD fixture carries two
+  # (`Modules scanned:` and the detector line); removing only the detector left the block with a
+  # body, so "heading-only" was no longer what the BAD case was testing.
+  grep -vE 'Ran the duplicate-query detector|^Modules scanned:' "$td/ai/optimize/_architecture-decisions.md" > "$td/bad.md"
   mv "$td/bad.md" "$td/ai/optimize/_architecture-decisions.md"
   rc=0
   ( cd "$td" && ARCH_ARTIFACT="$td/ai/optimize/_architecture-decisions.md" \

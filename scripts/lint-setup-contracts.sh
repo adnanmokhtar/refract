@@ -684,7 +684,7 @@ if [ "$RECORD" = "1" ]; then
     echo "# A line here suppresses that ONE violation. Anything new is a hard FAIL."
     printf '%s\n' "$sorted_findings" | grep . || true
   } > "$BASELINE"
-  say "recorded $(printf '%s\n' "$sorted_findings" | grep -c . | tail -1) violation(s) -> $BASELINE"
+  say "recorded $(printf '%s\n' "$sorted_findings" | grep -c . | tail -1 || echo 0) violation(s) -> $BASELINE"
   exit 0
 fi
 
@@ -702,7 +702,7 @@ while IFS= read -r line; do
   fi
 done < <(printf '%s\n' "$sorted_findings")
 
-total=$(printf '%s\n' "$sorted_findings" | grep -c . | tail -1)
+total=$(printf '%s\n' "$sorted_findings" | grep -c . | tail -1 || echo 0)
 say ""
 say "setup-contracts: $total violation(s), $new_count new"
 if [ "$new_count" -gt 0 ]; then

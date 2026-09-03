@@ -73,7 +73,9 @@
 .claude/hooks/session-start.sh  02aea216c686bcbda6118825b907475a3a672eece28b2eb3a2a14e61e0a191f5
 .claude/hooks/session-start.sh  86b95b2d1b741db144e9fd902f924d271f4c9279cc25b1a028fe34fed8fb240f
 .claude/hooks/session-start.sh  bf268bdc86ab619a3f9130c49f4054f6b48258b08653a19813f5ced68e0c6260
+.claude/hooks/session-start.sh  fc47a05f9674bf4260245fc1e4db401d04b6afe62dea535c19aad0ed37792266
 .claude/hooks/update-session-log.sh  488dc68d38e1f4a6ba8cc0ca1338ab3fccd27b84018cce44e187a0573b5cf7f3
+.claude/hooks/update-session-log.sh  9b23ee35ef8d02e48eb8e1a33545bded5ded3122bb201d6a92bc8f536405c253
 .claude/hooks/update-session-log.sh  9d7667745b27d9349379015ce26b6f8125a3be0fd6af1ed9dafc37c5b5a62e23
 .claude/hooks/update-session-log.sh  beae73fb2a97b4822632b8f6724c583a0e1e1ea3660e7acdd8f39298ee57fce9
 .claude/hooks/update-session-log.sh  cc88ab49a57d3ed68fc268c6cfbb2d60589fadc028fcf7adf18c32012c8dede2

@@ -120,7 +120,14 @@ run_one() {
   log "  running apply-pack: $track -> $tmp"
   cp -R "$fixture_dir/." "$tmp/"
   if ! "$APPLY_PACK" "$track" "$tmp" --apply >"$tmp/_run.log" 2>&1; then
-    fail "$fixture_name: apply-pack returned non-zero — see $tmp/_run.log"
+    # PRINT the reason. Pointing at a file inside a temp dir is useless on CI — the runner is gone
+    # by the time anyone reads the log, so a real failure arrived as "see /tmp/m5-runner.RE1xJg/
+    # _run.log" and nothing else. A failure message that cannot be acted on is a failure message
+    # that costs a second run to diagnose.
+    fail "$fixture_name: apply-pack returned non-zero"
+    printf '%s\n' "----- apply-pack output -----" >&2
+    tail -40 "$tmp/_run.log" >&2 2>/dev/null || true
+    printf '%s\n' "-----------------------------" >&2
     failed=$((failed + 1)); return
   fi
   ok "apply-pack succeeded"

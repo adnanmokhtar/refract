@@ -172,7 +172,7 @@ check_frontend_evidence() {
   fi
 
   local cited
-  cited=$(grep -cE '<[^>]+:[0-9]+>|`[^`]+:[0-9]+`' "$file" 2>/dev/null | tail -1)
+  cited=$( { grep -cE '<[^>]+:[0-9]+>|`[^`]+:[0-9]+`' "$file" 2>/dev/null || echo 0; } | tail -1 )
   cited=$(printf '%s\n' "$cited" | tail -1)
   cited=${cited:-0}
   if [[ "$cited" -lt 1 ]]; then
@@ -329,7 +329,7 @@ check_data_evidence() {
   fi
 
   local tables
-  tables=$(grep -cE '^[[:space:]]*Table:[[:space:]]+\w+' "$file" 2>/dev/null | tail -1)
+  tables=$( { grep -cE '^[[:space:]]*Table:[[:space:]]+\w+' "$file" 2>/dev/null || echo 0; } | tail -1 )
   tables=$(printf '%s\n' "$tables" | tail -1)
   tables=${tables:-0}
   if [[ "$tables" -lt 1 ]]; then
