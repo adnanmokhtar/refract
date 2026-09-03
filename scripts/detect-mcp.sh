@@ -300,8 +300,8 @@ fi
 
 # ---------- Storybook (frontend + .storybook dir) ----------
 if [[ $FRONTEND -eq 1 && -d "$TARGET/.storybook" ]]; then
-  add_rec_unwired "storybook" "Storybook MCP" "no official server — search npm for a Storybook MCP" \
-    "Frontend with Storybook detected (.storybook/) — query component catalog, render stories, inspect args/controls."
+  add_rec "storybook" "Storybook MCP" "@storybook/mcp" \
+    "Frontend with Storybook detected (.storybook/) — query component catalog, render stories, inspect args/controls. Official (storybookjs); runs beside the Storybook dev server."
 fi
 
 # ---------- Figma (frontend + figma config / tokens dir) ----------
@@ -320,21 +320,30 @@ if has_engine postgres; then
     "Postgres is the declared engine — read-only query agent for schema inspection + analysis."
 fi
 if has_engine mysql; then
-  add_rec_unwired "mysql" "MySQL MCP" "no official \`@modelcontextprotocol/server-mysql\` — search npm for a MySQL MCP" \
-    "MySQL is the declared engine — schema introspection + query helper. **Nothing is written**: no MCP server package is known for MySQL, and a guessed name would fail at startup."
+  add_rec "mysql" "MySQL MCP" "@neverinfamous/mysql-mcp" \
+    "MySQL is the declared engine — schema introspection + query helper. **COMMUNITY package, not official** — Oracle publishes none. It receives your database credentials, so review the package before trusting it with a production DSN; prefer a read-only user. Wired deliberately, with that provenance stated rather than hidden."
 fi
 if has_engine mongo; then
-  add_rec_unwired "mongodb" "MongoDB MCP" "no official server — search npm for a MongoDB MCP" \
-    "MongoDB is the declared engine — collection introspection + sample queries."
+  add_rec "mongodb" "MongoDB MCP" "mongodb-mcp-server" \
+    "MongoDB is the declared engine — collection introspection + sample queries. Official (MongoDB Inc.), covers self-hosted and Atlas; ships read-only by default."
+fi
+
+# ---------- Redis (cache / queue) ----------
+# Detected from a dependency or a compose service, never from the word appearing in a comment.
+if has_dep redis || has_dep ioredis || has_dep '@nestjs/bull' || has_dep bullmq \
+   || grep -rqiE '^[[:space:]]*(redis|cache):' "$TARGET/docker-compose.yml" "$TARGET/compose.yaml" 2>/dev/null; then
+  add_rec "redis" "Redis MCP" "redis-mcp-server" \
+    "Redis detected (dependency or compose service) — inspect keys, TTLs and queue depth without a redis-cli detour. Official (Redis Inc.). NOT an npm package: it is published to PyPI, so its config runs via \`uvx\` (see server_config)."
 fi
 
 # ---------- Mobile (iOS + Android) ----------
 if [[ -d "$TARGET/ios" && -d "$TARGET/android" ]] || has_dep react-native \
    || has_dep '@capacitor/core' || has_dep expo; then
-  add_rec_unwired "ios-simulator" "iOS Simulator MCP" "no official server — search npm for an iOS Simulator MCP" \
-    "Mobile project — drive iOS Simulator (boot, install, screenshot, gesture)."
-  add_rec_unwired "android-emulator" "Android Emulator MCP" "no official server — search npm for an Android Emulator MCP" \
-    "Mobile project — drive Android Emulator (avd, install, adb commands, screenshot)."
+  # One server covers BOTH platforms and both simulator and real device, so it replaces what used
+  # to be two unwired entries. It controls a device, never a credential — the reason this is a
+  # safer wiring decision than a database server is that there is no secret to hand over.
+  add_rec "mobile" "Mobile MCP (iOS + Android)" "@mobile-next/mcp" \
+    "Mobile project — drive iOS simulators and Android emulators (and real devices): launch, tap, type, screenshot, inspect the view tree. Requires Xcode >= 15 for iOS and ANDROID_HOME / JAVA_HOME for Android; the server reports the gap itself when a toolchain is absent."
 fi
 
 # ---------- DevOps / Infrastructure ----------
@@ -343,8 +352,8 @@ if [[ -f "$TARGET/Dockerfile" || -f "$TARGET/docker-compose.yml" || -f "$TARGET/
     "Dockerfile / compose detected — list containers, inspect, exec, log-tail without leaving the dev loop."
 fi
 if compgen -G "$TARGET/*.tf" >/dev/null 2>&1 || [[ -d "$TARGET/terraform" ]]; then
-  add_rec_unwired "terraform" "Terraform MCP" "no official npm server — check HashiCorp's registry" \
-    "Terraform config detected — plan/show/state inspection without ad-hoc shell."
+  add_rec "terraform" "Terraform MCP" "hashicorp/terraform-mcp-server" \
+    "Terraform config detected — registry/provider/module lookup and IaC context. Official (HashiCorp). NOT an npm package: it ships as a Docker image, so its config uses \`docker run\` rather than npx (see server_config)."
 fi
 
 # ---------- Project management (Trello) ----------
@@ -463,6 +472,27 @@ def server_config(rec):
     if rid == "linear":
         return {"command": "npx", "args": ["-y", pkg],
                 "env": {"LINEAR_API_KEY": "${LINEAR_API_KEY}"}}
+    if rid == "mysql":
+        return {"command": "npx", "args": ["-y", pkg],
+                "env": {"MYSQL_URL": "${DATABASE_URL}"}}
+    if rid == "mongodb":
+        return {"command": "npx", "args": ["-y", pkg],
+                "env": {"MDB_MCP_CONNECTION_STRING": "${DATABASE_URL}"}}
+    if rid == "storybook":
+        return {"command": "npx", "args": ["-y", pkg]}
+    if rid == "mobile":
+        return {"command": "npx", "args": ["-y", pkg]}
+    # Two servers below are official but are NOT npm packages. Emitting an npx line for them
+    # would be the exact failure this file's header forbids — configuration that looks valid and
+    # fails at startup. Each gets the shape its own project actually publishes.
+    if rid == "redis":
+        # Published to PyPI by Redis Inc.; uvx runs it without a global install.
+        return {"command": "uvx", "args": [pkg],
+                "env": {"REDIS_URL": "${REDIS_URL}"}}
+    if rid == "terraform":
+        # HashiCorp ships a Docker image (and a Go binary); there is no npm artifact.
+        return {"command": "docker",
+                "args": ["run", "-i", "--rm", "hashicorp/terraform-mcp-server"]}
     if rid == "migration-fs":
         # package is the filesystem server; the extra arg carries the V1 dir.
         # Distinct key so it cannot collide with `filesystem`.
