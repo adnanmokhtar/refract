@@ -108,6 +108,18 @@ jobs:
       - name: Plan schema (one contract, one order)
         run: bash scripts/lint-plan-schema.sh
 
+      # apply-baseline-sync could not tell an OLD VERSION OF OURS from a file a USER EDITED, so it
+      # kept both — and a fix therefore never reached anyone who had already installed. Shown, not
+      # argued: with the command-injection repair in notify.sh sitting in HEAD, a sync against a
+      # project installed one commit earlier printed KEEP-OURS, exited 0, and left the vulnerable
+      # file byte-for-byte. The managed-region mechanism meant to cover this has never run once —
+      # zero of the 101 baseline files carry a marker. `.baseline-hashes` records every version
+      # this repo has shipped, turning the question into a lookup; this gate keeps that record
+      # from going stale, because a manifest missing today's version silently stops delivering
+      # today's fix.
+      - name: Baseline hashes fresh (a shipped fix must reach installed projects)
+        run: python3 scripts/gen-baseline-hashes.py --check
+
       - name: Always-loaded rule budget (path-scoped rules exempt)
         run: bash scripts/check-rule-budget.sh
 
