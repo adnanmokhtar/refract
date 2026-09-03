@@ -1,7 +1,7 @@
 <!-- setup-project:managed start id=web-backend-django.ai.patterns.django-models v=1.0.0 track=web-backend-django -->
 ---
 name: models
-description: Pattern: Django models
+description: "Pattern: Django models"
 kind: ai-pattern
 ---
 

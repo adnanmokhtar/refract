@@ -424,8 +424,20 @@ def extract_sessions(root):
         head = clean(heading)
         if not head or is_placeholder(head):
             continue
-        # Keep only the metadata lines the Stop hook writes — never the changed-file bodies.
+        # "POINTER ONLY — session CONTENT is never copied" was not true. Splitting on " - "
+        # drops the changed-file bullets and nothing else, so two things the Stop hook writes
+        # still landed in the searchable text: the absolute `Transcript: /Users/<name>/…` path,
+        # and `Opened with: <the user's first prompt, verbatim>`. Both are content, and one of
+        # them carries a home directory into a file that gets committed. Drop them by name.
         meta = [x for x in body.split(" - ")[0].split(" ") if x]
+        _drop = ("Transcript:", "Opened", "with:")
+        if any(d in body for d in ("Transcript:", "Opened with:")):
+            _cut = body.split(" - ")[0]
+            for _marker in ("Transcript:", "Opened with:"):
+                _i = _cut.find(_marker)
+                if _i != -1:
+                    _cut = _cut[:_i]
+            meta = [x for x in _cut.split(" ") if x]
         rows.append(row(
             id="memory-session:sessions:%s:%d" % (slug(head), lineno),
             kind="memory-session", scope="project", owner="sessions", name=head,

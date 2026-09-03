@@ -92,14 +92,18 @@ else
 fi
 if [ -f "$BUDGET_SH" ]; then
   # check-rule-budget.sh must agree: a globs: rule is exempt from the always-loaded budget.
-  b1=$(bash "$BUDGET_SH" "$R1" 2>&1 || true)
-  if printf '%s' "$b1" | grep -qiE 'controllers\.md' && printf '%s' "$b1" | grep -qiE 'controllers\.md.*(scoped|exempt)|scoped.*controllers\.md'; then
-    ok "§1 check-rule-budget.sh also treats it as path-scoped"
-  elif printf '%s' "$b1" | grep -qi 'controllers'; then
-    say "       (check-rule-budget.sh mentions controllers.md; shape not asserted)"
-    ok "§1 check-rule-budget.sh ran over the fixture"
+  # Capture the exit code. `|| true` alone meant a check-rule-budget.sh that ABORTED produced
+  # empty output, fell to the else arm, and was reported "ran over the fixture" — all three
+  # branches called `ok`, so no outcome of this tool could ever fail this test.
+  b1=$(bash "$BUDGET_SH" "$R1" 2>&1); b1_rc=$?
+  if [ "$b1_rc" -gt 1 ]; then
+    bad "§1 check-rule-budget.sh ran over the fixture" "it exited $b1_rc (crash, not a verdict)"
+  fi
+  if printf '%s' "$b1" | grep -q 'Path-scoped (exempt'; then
+    ok "§1 check-rule-budget.sh classifies path-scoped rules as exempt from the budget"
   else
-    ok "§1 check-rule-budget.sh ran over the fixture"
+    bad "§1 check-rule-budget.sh classifies path-scoped rules as exempt" \\
+        "its output has no 'Path-scoped (exempt' section — the exemption this rule depends on is gone"
   fi
 fi
 

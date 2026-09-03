@@ -491,6 +491,7 @@ fi
 
 # ── § 5  every cited directory must resolve on disk, in every fixture above ──────────────
 say "§ 5  every emitted citation resolves on disk"
+_a5_fail_before=$fail
 for pair in "$P1" "$P2" "$P3" "$P4" "$P6"; do
   for f in "$pair"/.claude/commands/*.md; do
     [ -f "$f" ] || continue
@@ -501,7 +502,12 @@ for pair in "$P1" "$P2" "$P3" "$P4" "$P6"; do
     done || bad "§5 $(basename "$pair") citations resolve"
   done
 done
-ok "§5 all citations resolve on disk"
+# Was unconditional, directly after a loop whose body calls `bad`. It bumped `pass` even when
+# the citations had just been reported unresolvable, so the suite showed the failure and the
+# success for the same assertion.
+if [ "$fail" -eq "$_a5_fail_before" ]; then
+  ok "§5 all citations resolve on disk"
+fi
 
 say ""
 say "anchor-citation fixtures: $pass passed, $fail failed"

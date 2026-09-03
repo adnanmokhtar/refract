@@ -31,8 +31,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ADAPTERS_DIR="$ROOT/templates/tool-adapters"
 SETUP_CMD="$ROOT/commands/setup-project.md"
 ERRORS=0
+WARNINGS=0
 fail()  { printf '\033[31m✗ %s\033[0m\n' "$*"; ERRORS=$((ERRORS+1)); }
 pass()  { printf '\033[32m✓ %s\033[0m\n' "$*"; }
+# Visible, but not a build break. Used where the original code's own comment said "flag it and let
+# the maintainer add a note" and then called `pass`, so nothing was ever flagged.
+warn()  { printf '\033[33m! %s\033[0m\n' "$*"; WARNINGS=$((WARNINGS+1)); }
 info()  { printf '\033[36m• %s\033[0m\n' "$*"; }
 group() { printf '\033[1m\n%s\033[0m\n' "$*"; }
 
@@ -86,9 +90,10 @@ for m in "${MIGRATIONS[@]}"; do
       pass "$adapter: legacy=\`$legacy\` migrates to native=\`$native\` ($rationale)"
       ;;
     no:yes:*)
-      # Legacy path not in doc — acceptable IF the adapter is brand-new + has no legacy
-      # users yet. We're conservative: flag it and let the maintainer add an explicit note.
-      pass "$adapter: native=\`$native\` documented; no legacy path (\`$legacy\`) called out — OK if no prior users"
+      # The comment said "flag it and let the maintainer add an explicit note", and then called
+      # `pass` — so nothing was ever flagged and no note was ever prompted for. A warn is what the
+      # comment describes: visible, and not a build break for a genuinely new adapter.
+      warn "$adapter: native=\`$native\` documented, but no legacy path (\`$legacy\`) is called out — add an explicit note if this adapter ever had prior users"
       ;;
     yes:no:*)
       fail "$adapter: legacy=\`$legacy\` mentioned but native=\`$native\` is NOT documented"
@@ -104,7 +109,10 @@ done
 
 # 2. setup-project.md Critical Execution Rule 4 documents the native-shape anti-patterns.
 group "2. Critical Execution Rule 4 — anti-pattern enumeration"
-for keyword in "anti-pattern" "thin stub" "legacy" "native"; do
+# "legacy" and "native" appear in any engineering prose, so asserting their presence asserted
+# nothing — there is no realistic input where those two fail. Keep only the phrases that are
+# specific to this rule's subject.
+for keyword in "anti-pattern" "thin stub"; do
   if grep -qiF "$keyword" "$SETUP_CMD"; then
     pass "setup-project.md mentions: $keyword"
   else

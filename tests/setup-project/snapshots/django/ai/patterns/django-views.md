@@ -1,7 +1,7 @@
 <!-- setup-project:managed start id=web-backend-django.ai.patterns.django-views v=1.0.0 track=web-backend-django -->
 ---
 name: views
-description: Pattern: Django views
+description: "Pattern: Django views"
 kind: ai-pattern
 ---
 

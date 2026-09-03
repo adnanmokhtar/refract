@@ -201,5 +201,12 @@ done
 
 log ""
 log "result: $pass passed / $failed failed / $skipped skipped"
-[[ "$failed" -gt 0 ]] && exit 1
+# A SKIP is a pass only in shape-only mode. Under --apply it means the run produced nothing to
+# compare — a missing snapshot, a fixture that never applied — and that is a failure of the suite,
+# not a neutral outcome. Deleting snapshots/ entirely used to print "0 failed" and exit 0.
+if [[ "$failed" -gt 0 ]]; then exit 1; fi
+if [[ "$SHAPE_ONLY" -eq 0 && "$pass" -eq 0 ]]; then
+  log "REFUSED — --apply ran and nothing was actually compared ($skipped skipped)."
+  exit 1
+fi
 exit 0

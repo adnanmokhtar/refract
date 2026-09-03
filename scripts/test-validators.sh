@@ -64,6 +64,7 @@ for sdir in "$TESTS_DIR"/*/; do
   script="$(basename "$sdir")"
   [ -f "$REPO_ROOT/scripts/$script" ] || { echo "  WARN  fixture dir '$script' has no scripts/$script — skipping"; continue; }
 
+  ran_any=1
   for good in "$sdir"good/*/; do
     [ -d "$good" ] || continue
     rc=$(invoke "$script" "$good")
@@ -90,6 +91,13 @@ for sdir in "$TESTS_DIR"/*/; do
 done
 
 echo ""
+# A fixture directory whose backing script was renamed WARNs and is skipped WITHOUT touching
+# `fail`, and a run that matched zero fixtures still printed a pass line and exited 0. A harness
+# that can pass having executed nothing is the always-pass shape this repo keeps closing.
+if [ "$pass" -eq 0 ] && [ "$fail" -eq 0 ]; then
+  echo "validators-test: REFUSED — no fixture ran at all (renamed script? empty tests/validators/?)"
+  exit 1
+fi
 echo "validators-test: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ] || exit 1
 exit 0

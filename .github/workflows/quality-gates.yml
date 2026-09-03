@@ -443,7 +443,11 @@ jobs:
       # empty dispatch as verify-readme-stats (which was FAILING on the real repo unwatched) and
       # as the three artifact validators that had no self-test.
       - name: setup-project fixtures (empty · django · nextjs · monorepo)
-        run: bash tests/setup-project/run.sh
+        # --apply, not bare. With no flag this falls into SHAPE_ONLY: apply-pack.sh is never
+        # invoked and no snapshot is ever diffed. Verified by deleting tests/setup-project/
+        # snapshots/ entirely — the suite still printed "4 passed / 0 failed" and exited 0. A
+        # fixture suite that passes with its expectations deleted is testing the fixture names.
+        run: bash tests/setup-project/run.sh --apply
 
       # Every validate-*-artifacts.sh proves itself on a GOOD fixture it must accept and a BAD
       # one it must reject. Six of the seven had no self-test at all — only validate-refactor

@@ -128,6 +128,7 @@ done
 info ""
 info "5. Plateau classifier vocabulary (PLATEAU-DEEP / PLATEAU-WEAK / NOT-PLATEAU)"
 
+_cls_errors_before=$ERRORS
 for v in PLATEAU-DEEP PLATEAU-WEAK NOT-PLATEAU; do
   for f in \
     "$SPEC" \
@@ -140,7 +141,12 @@ for v in PLATEAU-DEEP PLATEAU-WEAK NOT-PLATEAU; do
     fi
   done
 done
-pass "all three classifiers present in spec / skill / pattern / README"
+# Was unconditional, directly after a loop that calls `fail` up to twelve times — so the suite
+# could report both the failures and a pass for the same assertion. Only claim it when nothing
+# in the loop failed.
+if [ "$ERRORS" -eq "$_cls_errors_before" ]; then
+  pass "all three classifiers present in spec / skill / pattern / README"
+fi
 
 # Bare "Plateau reached" without DEEP/WEAK qualifier should not appear in the
 # user-facing report formats — that's the misleading-message bug.

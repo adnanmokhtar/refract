@@ -57,8 +57,19 @@ def structural_map():
     """
     t = open("templates/_review-model.md", encoding="utf-8").read()
     m = re.search(r"### 2\.2 .*?\n(.*?)(?=\n\*\*The \"Material)", t, re.S)
+    # `m.group(1) if m else ""` turned a failed anchor into an EMPTY surface list, and the
+    # generator then emitted a complete, internally coherent matrix missing four structural
+    # surfaces with every percentage recomputed to agree. validate-review-matrix.sh checks
+    # freshness by re-running this generator, so the wrong matrix verified against itself and
+    # stayed green. A missing anchor is a broken generator, not an empty section.
+    if m is None:
+        raise SystemExit(
+            "gen-review-matrix: the '### 2.2' anchor in templates/_review-model.md no longer "
+            "matches. Refusing to emit a matrix built from zero surfaces — it would be wrong and "
+            "self-consistent, which validate-review-matrix.sh cannot detect."
+        )
     out = {}
-    for row in re.findall(r"^\| `(_[a-z]+)` \|[^|]*\|([^|]*)\|", m.group(1) if m else "", re.M):
+    for row in re.findall(r"^\| `(_[a-z]+)` \|[^|]*\|([^|]*)\|", m.group(1), re.M):
         out[row[0]] = re.findall(r"`([a-z-]+)`", row[1])
     return out
 GLYPH = {"confirmed": "●", "proposed": "○", "empty": "·", "n/a": "–"}

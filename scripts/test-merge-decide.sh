@@ -594,7 +594,7 @@ RPTW3
     && ok "3 folder-form skill ADDs print 3 DISTINCT destinations" \
     || bad "ADD display collapses destinations" "$n_rows rows, $n_dest distinct: $(printf '%s' "$outw3" | grep 'would-ADD')"
 else
-  say "SKIP: apply-study-decisions.sh or its fixture pack sources not found"
+  bad "SKIPPED — : apply-study-decisions.sh or its fixture pack sources not found (a renamed pack path silently drops these assertions; fix the path or delete the section)"
 fi
 
 # ── 16. audit-setup.sh C2n fails CLOSED ─────────────────────────────────────────────────
@@ -622,7 +622,7 @@ if [ -f "$AUDIT" ]; then
   printf '%s' "$a_bad" | grep -q 'ERR  KNOWLEDGE_LOSS' \
     && ok "and the token fallback still catches the same loss" || bad "C2n token fallback ran"
 else
-  say "SKIP: audit-setup.sh not found"
+  bad "SKIPPED — : audit-setup.sh not found (a renamed pack path silently drops these assertions; fix the path or delete the section)"
 fi
 
 # ── 17. Phase 4.6 must not be scored as a Phase 5 loss ──────────────────────────────────
@@ -672,7 +672,10 @@ sed 's|top-level: src/\.|top-level: `apps/`, `apps/tenant/`.|' \
 printf '.claude/agents/api-architect.md\t%s\t%s\n' \
   "$A17/bak/.claude/agents/api-architect.md" "$A17/.claude/agents/api-architect.md" > "$A17/pairs.tsv"
 n17=$(python3 "$ENGINE" --verify-pairs="$A17/pairs.tsv" --target="$A17" 2>/dev/null | grep -c . || true)
-[ "${n17:-1}" -eq 0 ] \
+  # `${n17:-1}` defaulted to 1 on an unset variable but the surrounding capture suppressed
+  # stderr, so a --verify-pairs that never RAN produced an empty n17, the default did not apply,
+  # and this compared "" -eq 0 as a pass. Require the variable to have been set at all.
+[ -n "${n17:-}" ] && [ "$n17" -eq 0 ] \
   && ok "a re-resolved Cite-able-sources line is NOT reported as loss" \
   || bad "a re-resolved Cite-able-sources line is NOT reported as loss" \
          "$(python3 "$ENGINE" --verify-pairs="$A17/pairs.tsv" --target="$A17" 2>/dev/null | head -1)"
@@ -774,7 +777,7 @@ PYX
   else bad "and it survives a subsequent pack OVERRIDE" "compose_override dropped the recovered block"
   fi
 else
-  say "SKIP: apply-study-decisions.sh not found"
+  bad "SKIPPED — : apply-study-decisions.sh not found (a renamed pack path silently drops these assertions; fix the path or delete the section)"
 fi
 
 # ── 19. the record's line-delta claim must match the bytes on disk ──────────────────────
