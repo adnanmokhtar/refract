@@ -279,6 +279,43 @@ echo "NO-OP:            $nooped"
 #
 # This does not overwrite anything. It names what is being withheld so the choice is the
 # user's rather than the script's.
+# A hook DELIVERED but NOT WIRED never runs. `settings.json` is where every hook is registered,
+# and it is almost always KEEP-OURS — the user has edited it, and overwriting it would take their
+# permissions and env with it. So a hook added by this run lands on disk and stays inert, with the
+# ADD row above reading like a success.
+#
+# MEASURED: module-boundaries.sh was ADDed to three installed projects; two never wired it. Nothing
+# said so. The withheld-guards advisory below does not cover this — settings.json is not a *.sh
+# under .claude/hooks, so it is invisible to that list. This is the check that sees it.
+if [[ -f "$TARGET/.claude/settings.json" && -f "$BASELINE_ROOT/.claude/settings.json" ]]; then
+  unwired=()
+  while IFS= read -r hook_rel; do
+    [[ -n "$hook_rel" ]] || continue
+    hb="$(basename "$hook_rel")"
+    # only worth reporting when the file is actually present in the target
+    [[ -f "$TARGET/.claude/hooks/$hb" ]] || continue
+    # A user may register hooks in settings.local.json instead — checking only settings.json
+    # would report a wired hook as inert. VERIFIED on two installed projects: local settings
+    # there carry `permissions` and no hooks, so the finding below is real, not an artifact.
+    wired_somewhere=0
+    for sf in "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.local.json"; do
+      [[ -f "$sf" ]] || continue
+      grep -q "hooks/$hb" "$sf" 2>/dev/null && { wired_somewhere=1; break; }
+    done
+    [[ $wired_somewhere -eq 0 ]] && unwired+=("$hb")
+  done < <(grep -oE '\.claude/hooks/[a-z0-9-]+\.sh' "$BASELINE_ROOT/.claude/settings.json" | sort -u)
+
+  if [[ ${#unwired[@]} -gt 0 ]]; then
+    echo ""
+    echo "=== ${#unwired[@]} hook(s) on disk but NOT WIRED — they will never run ==="
+    echo "Your .claude/settings.json is yours and was not touched, so a hook this run added is"
+    echo "present but unregistered. Copy its entry from the baseline to switch it on:"
+    for u in "${unwired[@]}"; do
+      echo "  $u   — see $BASELINE_ROOT/.claude/settings.json"
+    done
+  fi
+fi
+
 if [[ ${#kept_executables[@]} -gt 0 ]]; then
   echo ""
   echo "=== withheld from ${#kept_executables[@]} guard(s) — yours, so not touched ==="

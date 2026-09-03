@@ -57,5 +57,35 @@ echo "$out2" | grep -q "withheld from" \
   && bad "advisory printed when nothing was withheld" \
   || ok "no advisory when nothing is withheld"
 
+# ---- case C: a hook DELIVERED but not registered -> reported as inert ---------------------------
+# A hook that no settings file names never runs. settings.json is nearly always KEEP-OURS, so a
+# hook this script ADDs lands on disk and stays dead while the ADD row reads like a success.
+# MEASURED: 7 and 11 such hooks on two installed projects, including secret-scan and pre-edit-guard.
+C="$TMP/unwired"; mkdir -p "$C/.claude/hooks"
+cp "$BASELINE/.claude/hooks/secret-scan.sh" "$C/.claude/hooks/secret-scan.sh"
+printf '{"permissions":{}}\n' > "$C/.claude/settings.json"
+out3="$(bash "$REPO_ROOT/scripts/apply-baseline-sync.sh" "$C" 2>&1)" || true
+
+echo "$out3" | grep -q "NOT WIRED" \
+  && ok "a delivered-but-unregistered hook is reported" \
+  || bad "SILENT: hook on disk, absent from settings.json, not reported"
+
+echo "$out3" | sed -n '/NOT WIRED/,$p' | grep -q "secret-scan.sh" \
+  && ok "the unwired report names the hook" \
+  || bad "unwired report does not name the hook"
+
+# ---- case D: wired in settings.local.json -> NOT reported (precision) ---------------------------
+# A user may register hooks in local settings. Reading only settings.json would call a live hook
+# dead — a false alarm on a healthy project, which is worse than saying nothing.
+D="$TMP/localwired"; mkdir -p "$D/.claude/hooks"
+cp "$BASELINE/.claude/hooks/secret-scan.sh" "$D/.claude/hooks/secret-scan.sh"
+printf '{"permissions":{}}\n' > "$D/.claude/settings.json"
+printf '{"hooks":{"PreToolUse":[{"hooks":[{"command":".claude/hooks/secret-scan.sh"}]}]}}\n' > "$D/.claude/settings.local.json"
+out4="$(bash "$REPO_ROOT/scripts/apply-baseline-sync.sh" "$D" 2>&1)" || true
+
+echo "$out4" | sed -n '/NOT WIRED/,$p' | grep -q "secret-scan.sh" \
+  && bad "false alarm: hook wired in settings.local.json reported as inert" \
+  || ok "a hook wired in local settings is not called dead"
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
