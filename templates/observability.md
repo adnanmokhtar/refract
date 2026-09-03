@@ -57,7 +57,7 @@ Schema:
 ```
 
 Telemetry is written here by Phase 4/5. **No consumer reads it back yet (planned).**
-`/setup-project-health` does not: none of its ten checks opens `ai/_setup-history.md`, and the
+`/setup-project-health` does not: none of its eleven checks opens `ai/_setup-history.md`, and the
 command never names this file — check 1 reads digest freshness by file mtime instead. The curator
 agent's prune signal is the same shape and the same status. Wiring either one is the work; until
 then this log is written and read by humans only.

@@ -50,8 +50,8 @@ For now: tiers are documented intent. The model is expected to honor them.
 ## Tier audit
 
 **Not enforced today — no script measures the HOT budget (planned).** `grep -rn 'HOT' scripts/`
-returns no enforcer, and `/setup-project-health` has no such check: its ten checks are numbered
-1–10 with no `C` prefix, and the closest one — check 4, Budget status — measures the CONSUMING
+returns no enforcer, and `/setup-project-health` has no such check: its eleven checks are numbered
+1–11 with no `C` prefix, and the closest one — check 4, Budget status — measures the CONSUMING
 repo's `ai/` file and line counts against `templates/idempotency.md`, which is a different budget
 on a different tree. `scripts/check-rule-budget.sh` is likewise unrelated: it guards the
 always-loaded rule set shipped in `templates/repo-baseline/.claude/rules/`, not this repo's

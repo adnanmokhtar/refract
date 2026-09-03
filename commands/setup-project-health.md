@@ -161,6 +161,24 @@ Per-adapter `--plan` translation check (only for adapters actually selected, rea
 
 `claude-code` is native **only where the command file itself carries the Phase 3.5 body** — the flag is honoured by the command's prose, not by the harness, so a top-of-file banner advertising `--plan` with no write-the-plan-and-exit section is precisely the dead flag this check exists to catch. Grade it like any other adapter: `ok` when the command file has a handoff section that names `.claude/plans/` and exits before implementing; `fail` when it advertises the flag and has neither. (`templates/snippets/plan-flag.md § Where it is real today` tracks which global commands currently qualify.) A selected non-Claude adapter whose commands don't honor `--plan` = `fail` (the flag is dead in that tool). No adapters selected → the per-adapter sub-check is `n/a`; the verify-plan/execute-plan presence sub-checks still run.
 
+### 11. Product-context provenance (`ai/` business files)
+
+Seven baseline files carry claims that **cannot be read off the codebase** — `ai/project-goals.md`, `ai/users-and-personas.md`, `ai/business-model.md`, `ai/competitive-context.md`, `ai/business-domain.md`, `ai/business-flows.md`, `ai/roadmap.md`. They name real people's goals, real companies' strengths, and what a real customer will pay for. `CLAUDE.md` loads them as *product context*, so every "should we build X" decision inherits them, and nothing downstream ever re-checks them.
+
+Check 9 covers the extraction oracle. It does **not** cover these — measured on a live repo: 1,063 lines across six of these files, **zero** carrying any marker, including named competitors with attributed strengths and weaknesses. Source rule: each file's own `> **Provenance is mandatory in this file.**` block (`templates/repo-baseline/ai/<file>.md`) + `extract-business-context § Fabrication`.
+
+```
+file absent or still the untouched baseline stub   → n/a  (nothing claimed yet)
+[unconfirmed] count                                → reported; > 0 → warn (list each — this is the question queue)
+[inferred: <basis>] count                          → reported (informational)
+[found: <source>] count                            → reported (informational)
+factual claims carrying NO marker                  → warn, with the count and the first few lines
+```
+
+An unmarked claim is the finding, and the fix is never to delete it — downgrade it to `[unconfirmed]` and it becomes a question a human can answer. **A model's recollection is not a source**, so a confident sentence with no marker is exactly the case this check exists to surface: it reads as established fact and nobody can say where it came from.
+
+Grade `warn`, never `fail`. These files are frequently hand-written by the team, and refusing a run because a founder typed a sentence about their own market would be the wrong trade — the point is visibility, not a gate.
+
 ## Output format
 
 ```markdown
