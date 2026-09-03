@@ -220,6 +220,41 @@ re-verify rather than silently shipping a broken translation.
 | **109 scripts** | Validators, linters, sync, search and audit tooling |
 | **4 overlays** | GDPR · HIPAA · PCI-DSS · SOC 2 |
 
+### The guards that install with it
+
+Setting up a project also installs hooks that run on every edit. Most are quiet; two can **refuse
+a write**, so they are worth knowing before one stops you:
+
+| Guard | Refuses | Turn it off |
+|---|---|---|
+| `pre-edit-guard` | Edits to `.env`, keys, certs, lockfiles, generated and build output | `.claude/.no-pre-edit-guard` |
+| `secret-scan` | A write that **introduces** a credential — an API key, a token, a connection string. Removing one is always allowed | `.claude/.no-secret-scan` |
+| `guard-destructive` | `rm -rf /`, force-push to a protected branch, `DROP TABLE`, `curl \| sh`, writes to a raw device | `.claude/.no-guard-destructive` |
+| `module-boundaries` | An import that crosses a boundary **you declared** in `ai/modules.md` — `orders MUST NOT import from billing`. Silent until you declare one; it never invents a rule | `.claude/.no-module-boundaries` |
+
+The last one is the only guard whose rules you write yourself. Nothing is enforced until
+`ai/modules.md` has a `## Module boundaries` section, and the block message always names the file
+and line the rule came from, so a refusal is arguable rather than mysterious.
+
+### MCP servers
+
+`/setup-project` works out which MCP servers your stack can actually use — a database server only
+when it can identify the engine from evidence, a browser driver only when a frontend is present, a
+task provider only when its credentials exist.
+
+On an existing repo it **proposes and writes nothing**. The findings go to
+`.claude/_mcp-recommendations.md` for you to act on; `.mcp.json` is yours. `/scaffold-project`,
+which is creating the repo, does write them.
+
+An ecosystem it can see but has no server package for is listed under **Unwired** and written
+nowhere — a `<TODO: …>` sitting inside `args` is a startup failure disguised as config, so it is
+never emitted. When a write does happen it is additive: existing keys are never edited or removed.
+
+`.mcp.json` is Claude Code's format; Cursor (`.cursor/mcp.json`) and VS Code (`.vscode/mcp.json`)
+are written alongside it, each with the schema it actually reads — VS Code's root key is `servers`,
+not `mcpServers`. Windsurf and Cline keep MCP config per machine rather than per project, so those
+are printed for you to paste.
+
 ```
 refract/
 ├── commands/                # the 15 global commands
