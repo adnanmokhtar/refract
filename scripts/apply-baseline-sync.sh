@@ -64,10 +64,12 @@ SELF_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
 TARGET="$1"; shift
 APPLY=0
 STRICT=0
+WIRE=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply)  APPLY=1; shift ;;
     --strict) STRICT=1; shift ;;
+    --wire-hooks) WIRE=1; shift ;;
     *)        echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -305,6 +307,26 @@ if [[ -f "$TARGET/.claude/settings.json" && -f "$BASELINE_ROOT/.claude/settings.
     [[ $wired_somewhere -eq 0 ]] && unwired+=("$hb")
   done < <(grep -oE '\.claude/hooks/[a-z0-9-]+\.sh' "$BASELINE_ROOT/.claude/settings.json" | sort -u)
 
+  # --wire-hooks REGISTERS the missing ones. Opt-in and separate from --apply on purpose:
+  # settings.json holds the user's permissions and their own hook entries, and merging into it is
+  # a different kind of act than replacing a file we shipped. The merge is additive and matches on
+  # hook BASENAME, so an entry the user wrote their own way — `bash .claude/hooks/x.sh` where we
+  # ship `cd "$CLAUDE_PROJECT_DIR" && .claude/hooks/x.sh` — is left exactly as it is, not doubled.
+  if [[ ${#unwired[@]} -gt 0 && $WIRE -eq 1 && $APPLY -eq 1 ]]; then
+    mkdir -p "$backup_dir/.claude"
+    cp "$TARGET/.claude/settings.json" "$backup_dir/.claude/settings.json"
+    if python3 "$SELF_DIR/_merge-hook-wiring.py" \
+         "$BASELINE_ROOT/.claude/settings.json" "$TARGET/.claude/settings.json"; then
+      echo ""
+      echo "=== wired ${#unwired[@]} hook(s) into .claude/settings.json ==="
+      for u in "${unwired[@]}"; do echo "  + $u"; done
+      echo "Backup of the previous settings.json: $backup_dir/.claude/settings.json"
+      unwired=()
+    else
+      echo "WARN — could not merge hook wiring; settings.json left untouched." >&2
+    fi
+  fi
+
   if [[ ${#unwired[@]} -gt 0 ]]; then
     echo ""
     echo "=== ${#unwired[@]} hook(s) on disk but NOT WIRED — they will never run ==="
@@ -313,6 +335,7 @@ if [[ -f "$TARGET/.claude/settings.json" && -f "$BASELINE_ROOT/.claude/settings.
     for u in "${unwired[@]}"; do
       echo "  $u   — see $BASELINE_ROOT/.claude/settings.json"
     done
+    echo "Or re-run with --apply --wire-hooks to merge the missing entries (additive; backed up)."
   fi
 fi
 

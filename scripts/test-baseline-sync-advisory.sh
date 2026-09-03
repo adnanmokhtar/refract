@@ -87,5 +87,49 @@ echo "$out4" | sed -n '/NOT WIRED/,$p' | grep -q "secret-scan.sh" \
   && bad "false alarm: hook wired in settings.local.json reported as inert" \
   || ok "a hook wired in local settings is not called dead"
 
+# ---- case E: --wire-hooks registers what is missing, and touches nothing else -------------------
+# The file being edited holds the user's permissions and their own hook entries. Adding to it must
+# not reformat their entries, duplicate a hook they wired their own way, or drop a key.
+E="$TMP/wire"; mkdir -p "$E/.claude/hooks"
+cp "$BASELINE"/.claude/hooks/*.sh "$E/.claude/hooks/" 2>/dev/null || true
+cat > "$E/.claude/settings.json" <<'JSON'
+{
+  "permissions": { "allow": ["Bash(ls:*)"] },
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Edit", "hooks": [ { "type": "command", "command": "bash .claude/hooks/post-edit-check.sh" } ] }
+    ]
+  }
+}
+JSON
+before="$(cat "$E/.claude/settings.json")"
+bash "$REPO_ROOT/scripts/apply-baseline-sync.sh" "$E" >/dev/null 2>&1 || true
+[ "$before" = "$(cat "$E/.claude/settings.json")" ] \
+  && ok "without --wire-hooks, settings.json is not touched" \
+  || bad "settings.json changed without --wire-hooks"
+
+bash "$REPO_ROOT/scripts/apply-baseline-sync.sh" "$E" --apply --wire-hooks >/dev/null 2>&1 || true
+python3 - "$E/.claude/settings.json" <<'PYCHK'
+import json, re, sys
+d = json.load(open(sys.argv[1]))
+names = []
+for ev, gs in (d.get("hooks") or {}).items():
+    for g in gs:
+        for e in g.get("hooks") or []:
+            names += re.findall(r"hooks/([a-z0-9-]+\.sh)", e.get("command", ""))
+checks = {
+    "permissions survived": d.get("permissions", {}).get("allow") == ["Bash(ls:*)"],
+    "no duplicate hook": len(names) == len(set(names)),
+    "user's own command form kept": any(
+        e.get("command") == "bash .claude/hooks/post-edit-check.sh"
+        for gs in d["hooks"].values() for g in gs for e in (g.get("hooks") or [])),
+    "missing hooks added": "secret-scan.sh" in names,
+}
+for k, v in checks.items():
+    print(("ok   " if v else "FAIL ") + k)
+sys.exit(0 if all(checks.values()) else 1)
+PYCHK
+if [ $? -eq 0 ]; then pass=$((pass+4)); else fail=$((fail+1)); fi
+
 printf '\n%s passed, %s failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
