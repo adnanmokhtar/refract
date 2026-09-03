@@ -1740,12 +1740,18 @@ primitive_to_axis() {
     dropdown)                  echo "Form fields|UI affordances" ;;
     button)                    echo "UI affordances" ;;
     click_handler)             echo "Event handlers" ;;
-    permission_gate)           echo "Per-button permission gates" ;;
+    # Both sections, not one. `auth_guard|permission_gate) → "Auth + permissions"` sits four lines
+    # below and could NEVER run: this arm matches permission_gate first and a case stops at the
+    # first match. So a permission_gate finding was only ever checked against "Per-button
+    # permission gates" and never against "Auth + permissions" — silently, since an unreachable
+    # arm is not an error. The `|` separator is how every other multi-section answer here is
+    # written; permission_gate simply needed one.
+    permission_gate)           echo "Per-button permission gates|Auth + permissions" ;;
     tabs)                      echo "Section 0|Navigation Inventory|UI affordances" ;;
     conditional_render)        echo "Reactive lifecycle|UI affordances" ;;
     route_def)                 echo "Section 0|Navigation Inventory" ;;
     route_handler|dto_class)   echo "Inputs|Outputs" ;;
-    auth_guard|permission_gate) echo "Auth + permissions" ;;
+    auth_guard)                echo "Auth + permissions" ;;
     validator)                 echo "Inputs" ;;
     db_query)                  echo "Side effects" ;;
     exception_throw)           echo "Error contract" ;;
@@ -2429,7 +2435,10 @@ check_v2_structure() {
       */core/api/apiClient.ts|*/core/api/publicClient.ts|*/core/api/tokenProvider.ts|*/core/utils/secureStorage.ts)
         is_canonical_client=1
         ;;
-      */helpers/sections/*.ts|*/helpers/HTMLThemes/*.ts|*/helper/sections/*.ts|*/helper/HTMLThemes/*.ts|*/helpers/sections/html/*.ts|*/helper/builder/sections/*.ts|*/helper/builder/HTMLThemes/*.ts)
+      # `*/helpers/sections/*.ts` already matches `…/helpers/sections/html/….ts` — a glob `*`
+      # crosses slashes — so listing the html/ path again was an arm that could never run.
+      # The `builder/` arms are NOT redundant: no earlier pattern covers that segment.
+      */helpers/sections/*.ts|*/helpers/HTMLThemes/*.ts|*/helper/sections/*.ts|*/helper/HTMLThemes/*.ts|*/helper/builder/sections/*.ts|*/helper/builder/HTMLThemes/*.ts)
         # HTML-emitter helper files: these legitimately produce HTML strings
         # with style="..." attributes for GrapesJS / page-builder consumption.
         # The "inline style" smell does not apply — they are not Vue components.

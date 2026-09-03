@@ -120,6 +120,31 @@ jobs:
       - name: Baseline hashes fresh (a shipped fix must reach installed projects)
         run: python3 scripts/gen-baseline-hashes.py --check
 
+      # The local suite runs on macOS and this runs on Linux, and a class of defect is invisible to
+      # whichever one you are on. Today it fired BOTH ways: GNU-only constructs (`\|` in a BRE sed,
+      # awk IGNORECASE) match nothing on macOS and work here, while `declare -a NAME` without `=()`
+      # is unbound under `set -u` here and harmless there. Neither errors; both quietly do the
+      # wrong thing.
+      #
+      # HONEST SCOPE — measured, not assumed. shellcheck does NOT catch the uninitialised array
+      # that broke CI today, and does not read regex dialects, so the sed/awk cases stay invisible
+      # to it too. What it does catch, and did: an array expanded without an index (SC2128 — the
+      # shape that left a gate checking 1 adapter of 12), unreachable `case` arms (SC2221/2222 —
+      # six here, one of them a real defect where `permission_gate` was graded against one section
+      # instead of two), and a malformed `# shellcheck disable=` directive that had never once
+      # suppressed anything. Positive value, smaller than it first looked.
+      #
+      # 48 existing findings are recorded with reasons; anything new fails. `note` severity is not
+      # read — 456 of them, none a defect.
+      - name: Shell portability (shellcheck ratchet)
+        # Installed explicitly rather than assumed present. ubuntu-latest ships it today, but the
+        # gate exits 2 when it is missing — deliberately, so an absent tool is a refusal and not a
+        # silent pass — and a runner image change would then read as a broken gate rather than as
+        # the missing dependency it is.
+        run: |
+          command -v shellcheck >/dev/null 2>&1 || sudo apt-get install -y -q shellcheck
+          bash scripts/lint-shell-portability.sh
+
       - name: Always-loaded rule budget (path-scoped rules exempt)
         run: bash scripts/check-rule-budget.sh
 

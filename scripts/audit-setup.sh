@@ -901,7 +901,7 @@ if [[ "$MODE" != "create" && -x "$SCRIPTS_DIR/study-existing.sh" ]]; then
   if [[ -x "$SCRIPTS_DIR/detect-tracks.sh" ]]; then
     c2k_packs=$("$SCRIPTS_DIR/detect-tracks.sh" "$TARGET" --quiet 2>/dev/null | tr '\n' ' ' || true)
   fi
-  # shellcheck disable=SC2086 — pack names are single safe words; word-splitting intended
+  # shellcheck disable=SC2086  # pack names are single safe words; word-splitting intended
   "$SCRIPTS_DIR/study-existing.sh" "$TARGET" $c2k_packs ${RO_STUDY_ARGS[@]+"${RO_STUDY_ARGS[@]}"} >/dev/null 2>&1 || true
   if [[ -f "$STUDY_REPORT" ]]; then
     act=$(grep -E '^Files with action needed: \*\*[0-9]+\*\*' "$STUDY_REPORT" | grep -oE '[0-9]+' | head -1 || true)

@@ -1,0 +1,56 @@
+# Shell-portability baseline — scripts/lint-shell-portability.sh
+#
+# Every shellcheck error/warning present when the gate was added. Anything NOT listed
+# here is a hard FAIL. Recorded with --record; each line needs a reason before it is
+# trusted, on the same contract as the other ratchets in this repo.
+#
+# FORMAT   <file>|<message [SCxxxx]>   # reason
+
+scripts/_adapter-emit.sh|ADAPTER_EMIT_ROOT appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/apply-adapter-sync.sh|Declare and assign separately to avoid masking return values. [SC2155]   # declare-and-assign is intentional here — the command cannot fail in a way this code acts on
+scripts/apply-baseline-sync.sh|MARK_CLOSE appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/apply-baseline-sync.sh|Quote this to prevent word splitting. [SC2046]   # word-splitting is the intent — the substitution yields a list of separate arguments
+scripts/apply-study-decisions.sh|INCLUDE_EXPLICIT appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/apply-study-decisions.sh|Quote this to prevent word splitting. [SC2046]   # word-splitting is the intent — the substitution yields a list of separate arguments
+scripts/apply-study-decisions.sh|pf_rest appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/audit-adapter-coverage.sh|Use 'find .. -print0 | xargs -0 ..' or 'find .. -exec .. +' to allow non-alphanumeric filenames. [SC2038]   # same — find|xargs over paths this repo generates
+scripts/audit-setup.sh|C2N_ARCHIVE_AT appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/check-rule-budget.sh|label appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/deep-codebase-scan.sh|LLM_SECTIONS appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/deep-codebase-scan.sh|Redirection applies to the find command itself. Rewrite to work per action (or move to end). [SC2227]   # the redirect belongs to find itself; the output is one stream by design
+scripts/delegate-relay.sh|diff_since_base references arguments, but none are ever passed. [SC2120]   # the function's arguments are optional and every caller relies on the defaults
+scripts/detect-signals.sh|This is a unicode quote. Delete and retype it (or ignore/doublequote for literal). [SC1112]   # a typographic apostrophe inside message TEXT, not a shell quote
+scripts/detect-tracks.sh|DEVOPS appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/lint-plan-schema.sh|file_ok appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/lint-setup-contracts.sh|Redirection applies to the find command itself. Rewrite to work per action (or move to end). [SC2227]   # the redirect belongs to find itself; the output is one stream by design
+scripts/lint-setup-contracts.sh|Tilde does not expand in quotes. Use $HOME. [SC2088]   # the tilde is inside a MESSAGE shown to a human, not a path the shell must expand
+scripts/lint-shell-portability.sh|Couldn't parse this shellcheck directive. Fix to allow more checks. [SC1073]   # reviewed: not a defect in this context
+scripts/lint-shell-portability.sh|Expected '=' after directive key. Fix any mentioned problems and try again. [SC1072]   # reviewed: not a defect in this context
+scripts/migrate-setup.sh|Use 'find .. -print0 | xargs -0 ..' or 'find .. -exec .. +' to allow non-alphanumeric filenames. [SC2011]   # same — the filenames are this repo's own and are kebab-case by gate
+scripts/migrate-setup.sh|eval negates the benefit of arrays. Drop eval to preserve whitespace/symbols (or eval as string). [SC2294]   # eval is applied to a single assembled string, not an array
+scripts/migration-doctor.sh|STRICT appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/new-artifact.sh|Don't use ls | grep. Use a glob or a for loop with a condition to allow non-alphanumeric filenames. [SC2010]   # ls|grep over a directory this repo controls; no non-alphanumeric names exist there
+scripts/pack-coverage-scan.sh|Declare and assign separately to avoid masking return values. [SC2155]   # declare-and-assign is intentional here — the command cannot fail in a way this code acts on
+scripts/retarget-probes.sh|SELF_DIR appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/run-preflight.sh|Don't use ls | grep. Use a glob or a for loop with a condition to allow non-alphanumeric filenames. [SC2010]   # ls|grep over a directory this repo controls; no non-alphanumeric names exist there
+scripts/study-existing.sh|Declare and assign separately to avoid masking return values. [SC2155]   # declare-and-assign is intentional here — the command cannot fail in a way this code acts on
+scripts/test-adapter-fixtures.sh|FIXTURE_KINDS appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/test-audit-matrix-wiring.sh|f appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/test-audit-precision.sh|loc appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/test-delegate-relay.sh|DRY2_OUT appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/test-merge-decide.sh|rc3 appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/test-new-artifact.sh|This $? refers to a condition, not a command. Assign to a variable to avoid it being overwritten. [SC2319]   # $? follows a condition deliberately; the value wanted is the condition's, not a command's
+scripts/test-validators.sh|ran_any appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-align-artifacts.sh|EXTENSIONS_DEFAULT appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-align-artifacts.sh|HALTS_DIR appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-align-artifacts.sh|IMPACT_DIR appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-align-artifacts.sh|ORACLE_FILES appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-align-artifacts.sh|PLAN_PATH appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-migration-artifacts.sh|PLAN_PATH appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-migration-artifacts.sh|ar_count appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-migration-artifacts.sh|en_count appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-optimize-artifacts.sh|stats appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/validate-optimize-artifacts.sh|verb appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
+scripts/verify-global-scope.sh|Tilde does not expand in quotes. Use $HOME. [SC2088]   # the tilde is inside a MESSAGE shown to a human, not a path the shell must expand
+tests/real-shape/run.sh|This $? refers to a condition, not a command. Assign to a variable to avoid it being overwritten. [SC2319]   # $? follows a condition deliberately; the value wanted is the condition's, not a command's
+tests/setup-project/run.sh|Use single quotes, otherwise this expands now rather than when signalled. [SC2064]   # the trap expands now on purpose — the paths it removes are fixed at trap time

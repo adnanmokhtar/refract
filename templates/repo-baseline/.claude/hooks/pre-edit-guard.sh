@@ -29,7 +29,9 @@ case "$base" in
     block "editing a secret/credential/key file ($file_path) — ask the user first" ;;
 esac
 case "$file_path" in
-  *.env|*/.env|*/.env.*|*/secrets/*|secrets/*)
+  # `*.env` already matches `foo/.env`, so a separate `*/.env` arm was unreachable. `*/.env.*`
+  # is NOT redundant — `*.env` does not match `foo/.env.local`.
+  *.env|*/.env.*|*/secrets/*|secrets/*)
     block "editing a secret file ($file_path) — ask the user first" ;;
   */.git/*|.git/*)
     block "editing files inside .git/ ($file_path)" ;;

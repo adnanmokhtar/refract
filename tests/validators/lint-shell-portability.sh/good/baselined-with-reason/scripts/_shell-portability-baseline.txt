@@ -1,0 +1,2 @@
+# baseline
+scripts/known.sh|Expanding an array without an index only gives the first element. [SC2128]   # deliberate: single-element list

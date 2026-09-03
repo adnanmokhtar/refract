@@ -408,7 +408,10 @@ check_actionable_next_steps() {
     return 1
   fi
 
-  local extracted bad=0
+  # `bad` is an ARRAY in check_frontend_verb_vocabulary above. Reusing the name here as a counter
+  # made shellcheck read the two as one variable (SC2178/SC2128) and, more to the point, makes a
+  # reader do the same. Different thing, different name.
+  local extracted bad_lines=0
   extracted=$(awk '
     /^##[[:space:]]+Actionable next steps/ { in_sec=1; next }
     in_sec && /^##[[:space:]]/ { in_sec=0 }
@@ -433,10 +436,10 @@ check_actionable_next_steps() {
       continue
     fi
     log_fail "actionable next-step line looks like prose, not a paste-ready command (no path / flag / extension marker): $line"
-    bad=$((bad + 1))
+    bad_lines=$((bad_lines + 1))
   done <<< "$extracted"
 
-  [[ $bad -gt 0 ]] && return 1
+  [[ $bad_lines -gt 0 ]] && return 1
   log_pass "final report ends with paste-ready actionable next steps"
   return 0
 }

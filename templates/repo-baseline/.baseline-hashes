@@ -65,6 +65,7 @@
 .claude/hooks/post-edit-check.sh  e5a55457af756f3fa6ca14bd89a5e4530424c0c28b0c8ac1d75ac6123fb917cc
 .claude/hooks/post-merge-learn.sh  82f074237663db9f93e3be32c575890ab301df146f7b423c0891651bf4e1082e
 .claude/hooks/pre-edit-guard.sh  6e19bb3dfd3555ca0ef72503730769176800a9f02ce28e235a3ee688c4620b6e
+.claude/hooks/pre-edit-guard.sh  88f708db68966c7c9bbb64bdeefa0a66485483f27f03fa3ece0b37d46151708d
 .claude/hooks/pre-edit-guard.sh  d4487b1d2a4195a80cf736aa735a7b2fcdb38ea15b071325d85d942f598637a4
 .claude/hooks/recall-inject.sh  03d383ae2d2feed8a27a8eb45408f31a356e7d95c1997b6c6f416149025068ae
 .claude/hooks/secret-scan.sh  0b53f1496ec23e8f437791cc18160efb41fe71949062298e7db754ab55d6fca1
