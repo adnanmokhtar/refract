@@ -53,13 +53,19 @@ while IFS= read -r f; do
     case " $REPORTERS " in *" $name "*) ;; *) continue ;; esac
     checked=$((checked + 1))
     printf '%s\n' "$defined" | grep -qxF "$name" && continue
-    # a name that is only ever assigned is a variable being called as a command
+    # Reaching here means the name is NOT a defined function. The old code only failed when it
+    # was also a `^name=` assignment — so the worse case, a name that exists nowhere at all, fell
+    # through the loop and the gate printed "all resolve to a defined function". Verified with a
+    # fixture: a script calling an undefined `note "..."` passed this gate and exited 127 itself.
+    fail=$((fail + 1))
     if grep -qE "^${name}=" "$f" 2>/dev/null; then
-      fail=$((fail + 1))
       printf '  FAIL %s:%s calls `%s`, which is a VARIABLE in this file, not a function\n' \
         "${f#"$REPO_ROOT"/}" "$ln" "$name"
-      printf '       exit 127 at run time; under `set -e` that ends the script mid-run.\n'
+    else
+      printf '  FAIL %s:%s calls `%s`, which is defined nowhere in this file\n' \
+        "${f#"$REPO_ROOT"/}" "$ln" "$name"
     fi
+    printf '       exit 127 at run time; under `set -e` that ends the script mid-run.\n'
   done < <(grep -nE '^[[:space:]]*[a-z_][a-z_0-9]*[[:space:]]+"' "$f" 2>/dev/null || true)
 done < <(find "$REPO_ROOT/scripts" -maxdepth 1 -type f -name '*.sh' 2>/dev/null | sort)
 

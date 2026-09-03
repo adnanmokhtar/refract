@@ -179,7 +179,10 @@ for adapter in cursor claude-code; do
       found=$((found+1))
     fi
   done
-  if [ "$found" -ge 3 ]; then
+  # `-ge 3` out of 4 let any ONE canonical hooks.json event go missing from an adapter's doc
+  # while this still reported PASS — and the message printed "$found/$total" beside it, so the
+  # gap was visible in the output and forgiven by the comparison.
+  if [ "$found" -eq "$total" ]; then
     pass "$adapter: hooks.json schema documents $found/$total canonical event(s) ($events)"
   else
     fail "$adapter: hooks.json schema underdocumented — only $found/$total canonical event(s) found ($events)"

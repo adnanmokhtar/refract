@@ -92,7 +92,11 @@ while IFS= read -r hit; do
   [ -z "$hit" ] && continue
   f="${hit%%:*}"; rest="${hit#*:}"; ln="${rest%%:*}"
   add "R1-find-no-L" "$f:$ln" "find over a templates/packs path without -L"
-done < <(grep -rnE 'find[[:space:]]+"?\$(PACKS_DIR|TEMPLATES_DIR|PACKS_ROOT)"?' scripts/ 2>/dev/null \
+# The pattern accepts the braced spelling of the variable as well as the bare one; only the bare
+# form was matched before, so the braced spelling walked past this rule and would quietly reopen
+# the symlink defect it exists for. (Written without an example on purpose — a literal one in this
+# comment is matched by the rule's own grep and reported as a violation of itself.)
+done < <(grep -rnE 'find[[:space:]]+"?\$\{?(PACKS_DIR|TEMPLATES_DIR|PACKS_ROOT)\}?"?' scripts/ 2>/dev/null \
          | grep -v -- 'find -L' || true)
 
 # ---- Rule 2 — anchor emitter fields the auditor can read -------------------------------------
@@ -428,8 +432,15 @@ elif [ -x /usr/bin/ruby ] && /usr/bin/ruby -ryaml -e 'exit 0' >/dev/null 2>&1; t
       end
     end' "$_R11_LIST" > "$_R11_OUT" 2>/dev/null || true
 else
-  say "  SKIP   R11  no YAML parser available (python3+pyyaml or ruby) — frontmatter unchecked"
-  : > "$_R11_OUT"
+  # This rule's own comment says "skipped, LOUDLY, because a gate that silently passes when its
+  # tool is absent is the always-pass bug this repo keeps fixing" — and then used `say`, which
+  # `--quiet` mutes, and left the exit code untouched. On a CI runner without pyyaml the whole
+  # frontmatter check evaporated and the gate reported success. lint-workflow-yaml.sh exits 2 for
+  # exactly this condition; match it.
+  echo "ERR: R11 needs a YAML parser (python3 with pyyaml, or ruby) — frontmatter cannot be checked." >&2
+  echo "     Install one, or this gate is reporting a pass it did not earn." >&2
+  rm -f "$_R11_LIST" "$_R11_OUT"
+  exit 2
 fi
 while IFS="$(printf '\t')" read -r f err; do
   [ -z "${f:-}" ] && continue
@@ -453,6 +464,12 @@ _R12_TMP=$(mktemp "${TMPDIR:-/tmp}/r12.XXXXXX")
 _C2C_SECS=$(awk '/C2c: codebase-scan semantic sections filled/{ c=1 }
                  c && /^  for section in /{ s=$0; sub(/^  for section in /,"",s); sub(/; do$/,"",s); print s; exit }' \
             scripts/audit-setup.sh 2>/dev/null || true)
+# A rule that silently evaporates when its anchor drifts is a rule nobody can tell is gone. Say so.
+if [ -z "$_C2C_SECS" ]; then
+  say "  SKIP  R12 — the C2c anchor in scripts/audit-setup.sh no longer matches; this rule checked nothing"
+elif [ ! -f scripts/deep-codebase-scan.sh ]; then
+  say "  SKIP  R12 — scripts/deep-codebase-scan.sh absent; this rule checked nothing"
+fi
 if [ -n "$_C2C_SECS" ] && [ -f scripts/deep-codebase-scan.sh ]; then
   printf '%s\n' "$_C2C_SECS" | tr '"' '\n' | grep -vE '^ *$' | while IFS= read -r sec; do
     [ -z "$sec" ] && continue

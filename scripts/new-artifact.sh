@@ -168,6 +168,10 @@ edits = [
     ("README.md",                      r'Another \d+ commands ship inside the packs', 'Another %d commands ship inside the packs' % pc),
     ("assets/command-map.svg",         r'Another \d+ commands ship inside the \d+ packs', 'Another %d commands ship inside the %d packs' % (pc, tr)),
     ("assets/command-map.svg",         r'— \d+ commands in total',                    '— %d commands in total' % tot),
+    # The second number in "N of the M pack commands". It sat wrong (133 vs 134) because
+    # verify-figure-stats.sh only compared the FIRST integer in that sentence — so nothing owned
+    # it and nothing checked it. Both halves are covered now.
+    ("assets/command-map.svg",         r'of the \d+ pack commands',                   'of the %d pack commands' % pc),
     ("docs/setup-project-cheatsheet.md", r'\d+ commands, \d+ agents',                 '%d commands, %d agents' % (pc, ag)),
     ("README.md",                      r'\*\*\d+ scripts\*\*',                        '**%d scripts**' % sc),
     (".claude-plugin/plugin.json",     r'\d+ scripts',                                '%d scripts' % sc),

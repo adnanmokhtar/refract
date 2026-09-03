@@ -131,7 +131,21 @@ if [ -d "$CLAUDE_HOME/commands" ]; then
   surface_ok=1
   for l in "$CLAUDE_HOME"/commands/*.md; do
     { [ -e "$l" ] || [ -L "$l" ]; } || continue
-    [ -L "$l" ] || continue
+    # A COPIED pack command is exactly as wrong as a symlinked one, and more likely: the check
+    # skipped every regular file, so copying 100+ pack commands into ~/.claude/commands still
+    # printed "carries no pack command". A real file is judged by its content instead.
+    if [ ! -L "$l" ]; then
+      # Judge a real file by NAME against the pack tree. Frontmatter does not settle it — pack
+      # commands carry no `kind:`/`pack:` key, which my first attempt at this check assumed and
+      # which made it catch nothing. A global command whose basename also exists under
+      # templates/packs/*/commands/ is a pack artifact that was copied, not linked.
+      _b=$(basename "$l")
+      if [ -n "$(find "$REPO_ROOT/templates/packs" -path '*/commands/'"$_b" -print -quit 2>/dev/null)" ]; then
+        echo "  FAIL — $_b is a pack command copied into the global surface (it exists under templates/packs/*/commands/)"
+        surface_ok=0; fails=$((fails + 1))
+      fi
+      continue
+    fi
     tgt="$(readlink "$l")"
     case "$tgt" in
       */templates/packs/*)

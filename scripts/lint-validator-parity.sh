@@ -51,8 +51,8 @@ README.md"
 # 3. Distinct cited names.
 CITED="$(grep -rhoE 'check_[a-z0-9_]+' $SURFACES 2>/dev/null | sort -u || true)"
 
-n_cited=$(grep -c . <<<"$CITED" | tail -1)
-n_defined=$(grep -c . <<<"$DEFINED" | tail -1)
+n_cited=$(grep -c . <<<"$CITED" | tail -1 | tail -1 || true)
+n_defined=$(grep -c . <<<"$DEFINED" | tail -1 | tail -1 || true)
 dangling=0
 dangling_names=""
 

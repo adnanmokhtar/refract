@@ -100,7 +100,10 @@ check_track() {
       while IFS= read -r line; do
         merge="$(sed -nE 's/.*merge:[[:space:]]*([a-z-]+).*/\1/p' <<<"$line")"
         [[ -z "$merge" ]] && continue
-        if ! grep -qw "$merge" <<<"$VALID_MERGE_MODES"; then
+        # One mode PER LINE, then match whole-line and literal. `grep -qw` against the
+        # space-joined string accepted `block`, `once`, `managed`, `section`, `append`, `replace`
+        # and `if`, because a hyphen does not end a word — so half the invalid values passed.
+        if ! printf '%s\n' $VALID_MERGE_MODES | grep -qxF "$merge"; then
           err "pack.md unknown merge mode '$merge' (valid: $VALID_MERGE_MODES)"
         fi
       done < <(grep -E 'merge:' <<<"$fm")

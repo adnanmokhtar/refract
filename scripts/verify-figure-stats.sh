@@ -63,12 +63,26 @@ check assets/architecture.svg '[0-9]+ adapters'                  "$ADAPTERS" 'ad
 check assets/architecture.svg '[0-9]+ global commands'           "$GLOBCMD"  'global commands'
 check assets/architecture.svg '[0-9]+ role-based packs'          "$PACKS"    'role-based packs'
 check assets/architecture.svg '[0-9]+ validators \+ sync scripts' "$TOOLING" 'validators + sync scripts'
+# `check` keeps only the FIRST integer it finds, so in "N of the M pack commands" the M was
+# compared to nothing. It was wrong the whole time: the SVG read "27 of the 133" while disk had
+# 134 — and this gate printed "every derivable count matches disk" over it. Check both numbers.
 check assets/command-map.svg  '[0-9]+ of the [0-9]+ pack commands' "$PLANCMD" 'pack commands advertising --plan'
+got_t=$(grep -oE '[0-9]+ of the [0-9]+ pack commands' assets/command-map.svg 2>/dev/null | head -1 | grep -oE '[0-9]+' | sed -n '2p')
+if [ -z "$got_t" ]; then
+  printf '  FAIL assets/command-map.svg: the "N of the M pack commands" sentence is gone or reworded — the M can no longer be checked\n'; fail=$((fail+1))
+elif [ "$got_t" != "$PACKCMD" ]; then
+  printf '  FAIL assets/command-map.svg: "of the %s pack commands" — disk says %s\n' "$got_t" "$PACKCMD"; fail=$((fail+1))
+else say "  ok   assets/command-map.svg: total in the --plan sentence = $got_t"; fi
 # the "Another N commands ship inside the M packs" sentence carries two numbers
 got_a=$(grep -oE 'Another [0-9]+ commands ship' assets/command-map.svg 2>/dev/null | head -1 | grep -oE '[0-9]+')
-if [ -n "$got_a" ] && [ "$got_a" != "$PACKCMD" ]; then
+# Both arms used to be guarded on `-n "$got_a"`, so rewording the sentence away made the check
+# vanish silently — unlike `check`, which FAILs when its pattern is missing. A figure that stops
+# being checked because someone edited the prose around it is the drift this gate exists to catch.
+if [ -z "$got_a" ]; then
+  printf '  FAIL assets/command-map.svg: the "Another N commands ship" sentence is gone or reworded — nothing verifies that figure now\n'; fail=$((fail+1))
+elif [ "$got_a" != "$PACKCMD" ]; then
   printf '  FAIL assets/command-map.svg: "Another %s commands ship" — disk says %s\n' "$got_a" "$PACKCMD"; fail=$((fail+1))
-elif [ -n "$got_a" ]; then say "  ok   assets/command-map.svg: pack commands = $got_a"; fi
+else say "  ok   assets/command-map.svg: pack commands = $got_a"; fi
 
 say ""
 if [ "$fail" -eq 0 ]; then say "  figure-stats: every derivable count matches disk"
