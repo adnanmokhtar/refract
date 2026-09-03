@@ -64,6 +64,17 @@ jobs:
       - name: Real-shape artifacts (shipped hook + ranker against a real layout)
         run: bash tests/real-shape/run.sh
 
+      # Adding one artifact was a two-minute edit followed by a scavenger hunt: measured by adding
+      # a bare artifact and running every gate, a new SKILL turns 2 red and a new COMMAND turns 5
+      # red across 8 assertions in 6 files. new-artifact.sh does that registration, and the
+      # property this pins is not "it creates a file" — it is that every figure lands at the value
+      # DISK dictates, because the tool COMPUTES each count instead of incrementing it. The fixture
+      # therefore starts with every number wrong and must come out right; that is what makes
+      # --resync a repair tool rather than one more place holding a number. The first thing the
+      # scaffolder ever did was fix the script count its own file had just moved.
+      - name: Artifact scaffolder (figures land where disk says)
+        run: bash scripts/test-new-artifact.sh
+
       - name: Always-loaded rule budget (path-scoped rules exempt)
         run: bash scripts/check-rule-budget.sh
 
