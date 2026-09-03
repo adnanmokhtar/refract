@@ -1,0 +1,7 @@
+{
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "src/orders/service.py",
+    "content": "from billing import charge"
+  }
+}

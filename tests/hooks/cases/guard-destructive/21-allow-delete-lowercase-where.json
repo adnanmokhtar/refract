@@ -1,0 +1,4 @@
+{
+  "tool_name": "Bash",
+  "tool_input": { "command": "DELETE FROM users where id=1" }
+}

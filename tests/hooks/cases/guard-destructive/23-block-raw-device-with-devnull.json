@@ -1,0 +1,4 @@
+{
+  "tool_name": "Bash",
+  "tool_input": { "command": "cat x.iso > /dev/disk2 2>/dev/null" }
+}

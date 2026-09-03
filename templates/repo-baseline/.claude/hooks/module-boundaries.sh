@@ -62,8 +62,15 @@ if command -v jq >/dev/null 2>&1; then
       ] | join("\n")' 2>/dev/null || true)
 else
   file_path=$(printf '%s' "$payload" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+  # `sed -E`, not BRE. The original used `\|` for alternation — a GNU extension BSD sed does not
+  # support, so on macOS this branch matched NOTHING and the guard was a silent no-op whenever jq
+  # was absent. The `"$` anchor was wrong too: after splitting on commas the last field ends in `"}}`,
+  # not a quote, so WITHOUT jq this hook extracted nothing and every boundary crossing walked
+  # through. A guard that silently does not guard is worse than an absent one — it is the same
+  # fail-open shape the repo's own gates are written to catch. Allow the trailing JSON
+  # punctuation the split leaves behind.
   content=$(printf '%s' "$payload" | tr ',' '\n' \
-            | sed -n 's/.*"\(content\|new_string\)"[[:space:]]*:[[:space:]]*"\(.*\)"[[:space:]]*$/\2/p')
+            | sed -nE 's/.*"(content|new_string)"[[:space:]]*:[[:space:]]*"(.*)".*/\2/p')
 fi
 [ -z "$file_path" ] && exit 0
 [ -z "$content" ] && exit 0
@@ -176,7 +183,17 @@ resolve() {  # specifier → normalised repo path, or empty when unresolvable
     ./*|../*) canon "$dir_of_file/$s" | sed 's|^src/||; s|^app/||; s|^lib/||' ;;
     /*|@*/*|~/*|\#/*) norm "$s" ;;
     */*) norm "$s" ;;
-    *) printf '' ;;                      # bare package name — never a local module
+    *)
+      # In JS/TS a bare specifier is a node_modules package and never local. In PYTHON it is the
+      # ordinary way to import a local top-level package when src/ is on sys.path — and
+      # `from billing import charge` is the most common import form there was, so the most common
+      # Python crossing was never checked. Resolve it for .py only, and only far enough that the
+      # normal catalog comparison decides: `norm` strips a leading src/app/lib from both sides, so
+      # `billing` meets `src/billing/` on equal terms.
+      case "$file_path" in
+        (*.py) norm "$s" ;;
+        (*)    printf '' ;;
+      esac ;;
   esac
 }
 

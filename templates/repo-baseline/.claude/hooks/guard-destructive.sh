@@ -63,7 +63,25 @@ fi
 # ── Destructive filesystem operations ───────────────────────────────────
 # Normalise quotes so "$HOME/x", '/', etc. are all inspected.
 cmd_nq=$(printf '%s' "$cmd" | tr -d "'\"")
-if printf '%s' "$cmd_nq" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]*[[:space:]]+)*-?[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+(/([[:space:]]|\*|$)|~|\$HOME|\$[A-Za-z_][A-Za-z0-9_]*|\.\./\.\.)'; then
+# Recursive AND force, in any order, in one token or spread across several. The previous pattern
+# required `r` before `f` inside a single flag group, so `rm -fr /`, `rm -f -r /` and `rm -r -f /`
+# all walked straight through the guard. Collect every flag token first, then ask the two
+# questions separately.
+# Walk the tokens instead of pattern-matching the whole invocation. The first attempt used a sed
+# expression with \b — a GNU extension BSD sed does not support, so on macOS it matched nothing
+# and every rm walked through, which is worse than the bug it replaced. Field-splitting behaves
+# identically on both awks.
+rm_target=$(printf '%s\n' "$cmd_nq" | awk '{
+  for (i = 1; i <= NF; i++) {
+    if ($i == "rm") {
+      flags = ""; j = i + 1
+      while (j <= NF && substr($j, 1, 1) == "-") { flags = flags substr($j, 2); j++ }
+      if (j <= NF && flags ~ /r/ && flags ~ /f/) { print $j; exit }
+    }
+  }
+}')
+if [ -n "$rm_target" ] \
+   && printf '%s' "$rm_target" | grep -qE '^(/(\*)?$|~|\$HOME|\$[A-Za-z_][A-Za-z0-9_]*|\.\./\.\.)'; then
   block "recursive force-delete on /, ~, \$HOME, an unresolved \$VAR, or ../.. — specify a concrete safe path"
 fi
 if printf '%s' "$cmd_nq" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*-?[a-zA-Z]*r[a-zA-Z]*f[a-zA-Z]*[[:space:]]+/(usr|etc|var|bin|sbin|lib|opt|root|boot)([[:space:]/]|$)'; then
@@ -75,7 +93,11 @@ if hasi 'DROP[[:space:]]+(TABLE|DATABASE|SCHEMA)[[:space:]]+'; then
   block "DROP TABLE/DATABASE/SCHEMA — run manually if intended"
 fi
 # DELETE FROM without a WHERE on the SAME statement (split on ';').
-if printf '%s\n' "$cmd" | awk 'BEGIN{IGNORECASE=1;RS=";"} /DELETE[[:space:]]+FROM[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*/{if($0!~/WHERE/){print "BAD";exit}}' | grep -q BAD; then
+# `BEGIN{IGNORECASE=1}` is a GAWK extension. macOS ships BWK awk, which ignores it silently — so
+# on the platform this repo targets first, `DELETE FROM users where id=1` was BLOCKED (the lower-
+# case `where` never matched) while `delete from users` was ALLOWED. Wrong in both directions at
+# once. Fold the case in the shell, where the behaviour is the same everywhere.
+if printf '%s\n' "$cmd" | tr 'a-z' 'A-Z' | awk 'BEGIN{RS=";"} /DELETE[[:space:]]+FROM[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*/{if($0!~/WHERE/){print "BAD";exit}}' | grep -q BAD; then
   block "DELETE FROM without a WHERE clause — add a WHERE or run manually"
 fi
 hasi 'TRUNCATE[[:space:]]+TABLE' && block "TRUNCATE TABLE — run manually if intended"
@@ -88,8 +110,11 @@ fi
 has '(curl|wget)[[:space:]].*\|[[:space:]]*(sudo[[:space:]]+)?(bash|sh|zsh|ksh|fish|dash|csh)([[:space:]]|$)' \
   && block "piping downloaded content straight to a shell is dangerous"
 # Redirect into a raw device (but 2>/dev/null and /dev/null etc. are fine).
-if printf '%s' "$cmd" | grep -qE '(^|[^0-9&])>[[:space:]]*/dev/[a-zA-Z][a-zA-Z0-9]*' \
-   && ! printf '%s' "$cmd" | grep -qE '>[[:space:]]*/dev/(null|stdout|stderr|tty|zero|random|urandom)([[:space:]]|$)'; then
+# The safe-list used to be grepped against the WHOLE command, so any harmless `2>/dev/null`
+# anywhere in the line vouched for a `> /dev/disk2` elsewhere in it. Ask the question per
+# redirect: is there a data-carrying redirect whose target is NOT one of the safe devices?
+if printf '%s' "$cmd" | grep -oE '(^|[^0-9&])>[[:space:]]*/dev/[a-zA-Z][a-zA-Z0-9]*' \
+   | grep -qvE '/dev/(null|stdout|stderr|tty|zero|random|urandom)$'; then
   block "redirection into a raw device file can destroy data"
 fi
 if has '(^|[;&|[:space:]])(mkfs|mkfs\.[a-z0-9]+)([[:space:]]|$)' \
