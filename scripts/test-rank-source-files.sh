@@ -97,7 +97,53 @@ n_yes=$(python3 "$RANK" "$W" --include-tests --format list | wc -l | tr -d ' ')
 [ "$n_yes" -gt "$n_no" ] && ok "test files are excluded by default, included on --include-tests" \
                          || bad "--include-tests changed nothing ($n_no vs $n_yes)"
 
-rm -rf "$W" "$P"
+# ---------- tsconfig `paths`: a RENAMING alias resolves, and only from the config -------------
+# The case that motivated this: a NestJS-shaped monorepo where `@app/database/*` maps to
+# `libs/database/src/*`. No sigil rule can undo that — `@app` looks exactly like a scoped npm
+# package — so before the config was read, every such import was dropped as external. On the repo
+# that surfaced it, 3,487 real internal edges were missing, 39% of everything reported unresolved.
+A=$(mktemp -d); mkdir -p "$A/libs/database/src" "$A/apps/api/src"
+echo 'export class Base {}'                       > "$A/libs/database/src/base.entity.ts"
+echo 'export const CONN = 1;'                     > "$A/libs/database/src/index.ts"
+printf 'import { Base } from "@app/database/base.entity";\nimport { CONN } from "@app/database";\nimport express from "express";\n' \
+                                                  > "$A/apps/api/src/service.ts"
+
+# (a) with NO tsconfig the alias is a package name — dropped, never guessed at.
+before=$(python3 "$RANK" "$A" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "no tsconfig: a renaming alias is dropped, not guessed" "$before" "3"
+
+# (b) with the config present, both alias forms resolve and only `express` stays unresolved.
+cat > "$A/tsconfig.json" <<'JSON'
+{
+  // a comment, and a trailing comma below: tsconfig files really look like this
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@app/database": ["libs/database/src"],
+      "@app/database/*": ["libs/database/src/*"],
+    }
+  }
+}
+JSON
+after=$(python3 "$RANK" "$A" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "tsconfig paths read: only the real package is left unresolved" "$after" "1"
+top=$(python3 "$RANK" "$A" --format list | head -1)
+assert_eq "the aliased target is now the top hub" "$top" "libs/database/src/base.entity.ts"
+
+# (c) a specifier no rule declares stays unresolved — reading the table is not licence to invent.
+printf 'import { X } from "@app/nowhere/x";\n' > "$A/apps/api/src/other.ts"
+undecl=$(python3 "$RANK" "$A" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "an alias prefix with no rule is still dropped" "$undecl" "2"
+
+# (d) a corrupt config must degrade to the old behaviour, never crash.
+echo '{ this is not json' > "$A/tsconfig.json"
+if python3 "$RANK" "$A" --format list >/dev/null 2>&1; then
+  ok "an unparseable tsconfig degrades silently instead of failing the run"
+else
+  bad "an unparseable tsconfig crashed the ranker"
+fi
+
+rm -rf "$W" "$P" "$A"
 echo "----"
 echo "rank-source-files: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -93,7 +93,103 @@ def specifiers(rel, text):
     return [next(g for g in m if g) for m in TS_IMPORT.findall(text)]
 
 
-def resolve(spec, rel, index):
+# A tsconfig/jsconfig `paths` entry RENAMES rather than shortens (`@app/database/*` ->
+# `libs/database/src/*`), so no sigil rule can resolve it — the mapping exists only in the config
+# file. Reading that file is deterministic: it is the same table the compiler and bundler use. When
+# it is missing, unparseable, or has no `paths`, aliases stay empty and resolution behaves exactly
+# as it did before — silent, never inventing a target.
+JSONC_BLOCK = re.compile(r'/\*.*?\*/', re.S)
+JSONC_LINE = re.compile(r'(?m)(?<![:"\w])//[^\n]*')
+TRAILING_COMMA = re.compile(r',(\s*[}\]])')
+
+
+def _read_jsonc(path):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            raw = fh.read()
+    except OSError:
+        return None
+    raw = JSONC_BLOCK.sub("", raw)
+    raw = JSONC_LINE.sub("", raw)
+    raw = TRAILING_COMMA.sub(r"\1", raw)
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None                       # unparseable is not a licence to guess
+
+
+def path_aliases(root, _depth=0, _file=None):
+    """[(prefix, suffix, [target templates])] from tsconfig/jsconfig `paths`, longest first.
+
+    `extends` is followed (capped), because a monorepo routinely keeps `paths` in a base config.
+    Targets are made repo-relative through `baseUrl`, so the caller can match them against the
+    file index directly.
+    """
+    if _depth > 4:
+        return []
+    if _file is None:
+        for name in ("tsconfig.json", "jsconfig.json"):
+            cand = os.path.join(root, name)
+            if os.path.isfile(cand):
+                _file = cand
+                break
+        else:
+            return []
+    cfg = _read_jsonc(_file)
+    if not isinstance(cfg, dict):
+        return []
+
+    rules = []
+    ext = cfg.get("extends")
+    if isinstance(ext, str) and not ext.startswith("@") and "/" not in ext[:1]:
+        parent = os.path.normpath(os.path.join(os.path.dirname(_file), ext))
+        if not parent.endswith(".json"):
+            parent += ".json"
+        if os.path.isfile(parent):
+            rules.extend(path_aliases(root, _depth + 1, parent))
+
+    co = cfg.get("compilerOptions")
+    if isinstance(co, dict):
+        base_url = co.get("baseUrl") or "."
+        base_dir = os.path.normpath(os.path.join(os.path.dirname(_file), base_url))
+        paths = co.get("paths")
+        if isinstance(paths, dict):
+            for key, targets in paths.items():
+                if not isinstance(targets, list) or key.count("*") > 1:
+                    continue
+                pre, _, suf = key.partition("*")
+                tmpl = []
+                for t in targets:
+                    if not isinstance(t, str) or t.count("*") > 1:
+                        continue
+                    abs_t = os.path.normpath(os.path.join(base_dir, t))
+                    r = os.path.relpath(abs_t, root).replace(os.sep, "/")
+                    if not r.startswith(".."):
+                        tmpl.append(r)
+                if tmpl:
+                    rules.append((pre, suf, tmpl))
+    # Longest literal prefix wins, which is TypeScript's own precedence rule.
+    rules.sort(key=lambda r: len(r[0]), reverse=True)
+    return rules
+
+
+def apply_aliases(spec, aliases):
+    """Every repo-relative base path `spec` could name under `paths`. Empty when none matches."""
+    out = []
+    for pre, suf, targets in aliases:
+        if not spec.startswith(pre) or not spec.endswith(suf):
+            continue
+        if len(spec) < len(pre) + len(suf):
+            continue
+        star = spec[len(pre):len(spec) - len(suf)] if (pre or suf) else spec
+        for t in targets:
+            out.append(t.replace("*", star) if "*" in t else t)
+        if out:
+            break                          # first (longest) matching rule wins, as tsc does
+    return out
+
+
+def resolve(spec, rel, index, aliases=()):
     """Specifier → a repo-relative source path, or None. Never guesses."""
     here = os.path.dirname(rel)
     if rel.endswith(PY_EXT):
@@ -108,19 +204,27 @@ def resolve(spec, rel, index):
         candidates = [cand + ".py", cand + "/__init__.py"]
     else:
         if spec.startswith("."):
-            cand = os.path.normpath(os.path.join(here, spec))
-        elif spec[:2] in ("@/", "~/", "#/"):
-            cand = spec[2:]
-        elif "/" in spec and not spec.startswith("@"):
-            cand = spec                       # rooted, e.g. `src/billing/charge`
+            bases = [os.path.normpath(os.path.join(here, spec))]
         else:
-            return None                       # bare package name
-        cand = cand.replace(os.sep, "/")
-        base, ext = os.path.splitext(cand)
-        candidates = [cand] if ext in SOURCE_EXT else []
-        for e in TS_EXT:
-            candidates.append(cand + e)
-            candidates.append(cand + "/index" + e)
+            # The config table first: it is the only thing that can undo a RENAMING alias, and
+            # it is read, not inferred. With no tsconfig the list is empty and the two rules
+            # below are exactly the behaviour that shipped before aliases existed.
+            bases = list(apply_aliases(spec, aliases))
+            if spec[:2] in ("@/", "~/", "#/"):
+                bases.append(spec[2:])
+            elif "/" in spec and not spec.startswith("@"):
+                bases.append(spec)            # rooted, e.g. `src/billing/charge`
+        if not bases:
+            return None                       # bare package name, or an alias nothing declares
+        candidates = []
+        for cand in bases:
+            cand = cand.replace(os.sep, "/")
+            _, ext = os.path.splitext(cand)
+            if ext in SOURCE_EXT:
+                candidates.append(cand)
+            for e in TS_EXT:
+                candidates.append(cand + e)
+                candidates.append(cand + "/index" + e)
     for c in candidates:
         c = c.lstrip("./")
         if c in index:
@@ -139,6 +243,13 @@ def main():
     ap.add_argument("--include-tests", action="store_true")
     ap.add_argument("--hub-share", type=float, default=0.75,
                     help="fraction of --limit given to hubs (default 0.75)")
+    ap.add_argument("--emit-edges", metavar="PATH",
+                    help="write every RESOLVED import edge as TSV (kind, importer, imported, '') "
+                         "and exit. A specifier that did not resolve is not an edge and is not "
+                         "written; the count of those is reported on stderr rather than dropped "
+                         "silently. --limit does not apply: a ranking is a selection, a graph is "
+                         "not, and emitting only the top N would produce a map whose missing "
+                         "edges look like absent dependencies.")
     args = ap.parse_args()
 
     root = os.path.abspath(args.repo)
@@ -148,6 +259,7 @@ def main():
 
     files = walk(root, args.include_tests)
     index = set(files)
+    aliases = path_aliases(root)
     parseable = [f for f in files if f.endswith(SOURCE_EXT)]
 
     importers = {f: set() for f in files}          # file -> set of files importing it
@@ -155,12 +267,23 @@ def main():
     unresolved = 0
     for f in parseable:
         for spec in specifiers(f, read(os.path.join(root, f))):
-            tgt = resolve(spec, f, index)
+            tgt = resolve(spec, f, index, aliases)
             if tgt is None or tgt == f:
                 unresolved += 1
                 continue
             importers[tgt].add(f)
             out_deg[f].add(tgt)
+
+    if args.emit_edges:
+        with open(args.emit_edges, "w", encoding="utf-8") as fh:
+            for f in sorted(out_deg):
+                for tgt in sorted(out_deg[f]):
+                    fh.write("code\t%s\t%s\t\n" % (f, tgt))
+        n = sum(len(v) for v in out_deg.values())
+        sys.stderr.write("%d resolved edge(s) written; %d specifier(s) did not resolve "
+                         "(dropped, not guessed); %d path alias rule(s) read from tsconfig\n"
+                         % (n, unresolved, len(aliases)))
+        return 0
 
     rows = []
     for f in files:
@@ -206,8 +329,9 @@ def main():
         return 0
 
     print("# rank-source-files — %d/%d source files selected" % (len(picked), len(files)))
-    print("# hubs %d · roots %d · isolated %d · %d specifiers did not resolve (dropped, not guessed)"
-          % (len(hubs), len(roots), len(rest), unresolved))
+    print("# hubs %d · roots %d · isolated %d · %d specifiers did not resolve (dropped, not "
+          "guessed) · %d path alias rule(s) read from tsconfig"
+          % (len(hubs), len(roots), len(rest), unresolved, len(aliases)))
     print("# walk_scope: centrality-ranked (importing dirs, then importer count); "
           "hub share %.2f" % args.hub_share)
     print("%-4s %-9s %7s %7s %7s  %s" % ("#", "kind", "impBy", "impDirs", "imports", "path"))

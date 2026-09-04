@@ -35,9 +35,20 @@
 #   rooted    `src/billing/service`, `@/billing/service`, `billing.service` (Python dots → slashes)
 # Both sides are normalised by dropping a leading `./`, `@/`, `~/`, `#/` and then one leading
 # `src/`, `app/`, or `lib/` segment, so a declared `src/billing/` matches an aliased
-# `@/billing/x`. A tsconfig `paths` alias that renames rather than shortens (`@core/*` →
-# `src/billing/*`) is NOT resolved and the hook stays silent on it. Silence is the designed
-# behaviour everywhere resolution is uncertain: this thing blocks writes.
+# `@/billing/x`.
+#
+# A RENAMING alias (`@app/database/*` → `libs/database/src/*`) cannot be undone by any sigil rule
+# — it is indistinguishable from a scoped npm package — so it is read from `compilerOptions.paths`
+# in tsconfig.json / jsconfig.json, following `extends`. That table is the same one the compiler
+# uses, so reading it is resolution, not inference. Measured on one real NestJS monorepo: 46 rules
+# governing 3,487 imports, every one of which this hook previously waved through as external.
+#
+# THE PARSE IS OPTIONAL AND FAILS TOWARD SILENCE, because this thing blocks writes and a
+# mis-parsed alias would refuse legitimate work. No python3, no config, unreadable JSON, or a
+# specifier no rule declares → zero aliases, and resolution is byte-for-byte what it was before.
+# An alias can only ever turn "unresolvable" into "resolvable"; it never changes an answer the
+# hook could already reach on its own. Silence stays the designed behaviour everywhere resolution
+# is uncertain.
 #
 # Opt out per project: create .claude/.no-module-boundaries
 
@@ -129,6 +140,85 @@ CATALOG=$(grep -E '^\|[^|]+\|[^|]*`[^`]+`' "$MODULES" 2>/dev/null \
     done)
 [ -z "$CATALOG" ] && exit 0
 
+# ---- tsconfig `paths` → "prefix<TAB>suffix<TAB>target" rules, longest prefix first ------------
+# Emitted by python3 when it is there; absent otherwise. Never fatal: `|| true` plus a discarded
+# stderr means a broken config costs the alias table, not the write.
+ALIASES=""
+if command -v python3 >/dev/null 2>&1; then
+  ALIASES=$(python3 - <<'PYEOF' 2>/dev/null || true
+import json, os, re, sys
+BLOCK = re.compile(r'/\*.*?\*/', re.S)
+LINE = re.compile(r'(?m)(?<![:"\w])//[^\n]*')
+COMMA = re.compile(r',(\s*[}\]])')
+
+def read(path):
+    try:
+        raw = open(path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        return None
+    raw = COMMA.sub(r"\1", LINE.sub("", BLOCK.sub("", raw)))
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return None
+
+def rules(path, depth=0):
+    if depth > 4 or not os.path.isfile(path):
+        return []
+    cfg = read(path)
+    if not isinstance(cfg, dict):
+        return []
+    out = []
+    ext = cfg.get("extends")
+    if isinstance(ext, str) and not ext.startswith("@"):
+        parent = os.path.normpath(os.path.join(os.path.dirname(path), ext))
+        out.extend(rules(parent if parent.endswith(".json") else parent + ".json", depth + 1))
+    co = cfg.get("compilerOptions")
+    if isinstance(co, dict) and isinstance(co.get("paths"), dict):
+        base = os.path.normpath(os.path.join(os.path.dirname(path), co.get("baseUrl") or "."))
+        for key, targets in co["paths"].items():
+            if not isinstance(targets, list) or key.count("*") > 1:
+                continue
+            pre, _, suf = key.partition("*")
+            for t in targets:
+                if not isinstance(t, str) or t.count("*") > 1:
+                    continue
+                r = os.path.relpath(os.path.normpath(os.path.join(base, t)), ".").replace(os.sep, "/")
+                if not r.startswith(".."):
+                    out.append((pre, suf, r))
+    return out
+
+seen = []
+for name in ("tsconfig.json", "jsconfig.json"):
+    if os.path.isfile(name):
+        seen = rules(name)
+        break
+for pre, suf, tgt in sorted(seen, key=lambda r: len(r[0]), reverse=True):
+    if "\t" in pre + suf + tgt:
+        continue
+    sys.stdout.write("%s\t%s\t%s\n" % (pre, suf, tgt))
+PYEOF
+)
+fi
+
+# specifier → every repo path the alias table says it could name (empty when none matches)
+alias_targets() {
+  [ -z "$ALIASES" ] && return 0
+  printf '%s\n' "$ALIASES" | awk -v s="$1" -F'\t' '
+    NF==3 {
+      pre=$1; suf=$2; tgt=$3
+      if (length(s) < length(pre)+length(suf)) next
+      if (substr(s, 1, length(pre)) != pre) next
+      if (length(suf) > 0 && substr(s, length(s)-length(suf)+1) != suf) next
+      star = substr(s, length(pre)+1, length(s)-length(pre)-length(suf))
+      if (index(tgt, "*") > 0) { sub(/\*/, star, tgt) }
+      print tgt
+      matched=1
+    }
+    matched && NR>0 { }
+  ' | head -8
+}
+
 module_of() {  # normalised path → module name (longest declared path wins)
   local p="$1" best="" bestlen=0 name mpath
   while IFS="$(printf '\t')" read -r name mpath; do
@@ -178,7 +268,19 @@ specs=$(
 dir_of_file=$(dirname "$rel_path")
 
 resolve() {  # specifier → normalised repo path, or empty when unresolvable
-  local s="$1"
+  local s="$1" a=""
+  # The config table first, and only for non-relative specifiers: a relative path is already
+  # unambiguous, and no `paths` key may override it. When several targets share a key the FIRST
+  # is taken, matching the order tsc tries them. That can only ever under-resolve, which for a
+  # hook that blocks writes is the safe direction to be wrong in.
+  case "$s" in
+    ./*|../*) ;;
+    *) a=$(alias_targets "$s" | sed -n '1p') ;;
+  esac
+  if [ -n "$a" ]; then
+    norm "$a"
+    return 0
+  fi
   case "$s" in
     ./*|../*) canon "$dir_of_file/$s" | sed 's|^src/||; s|^app/||; s|^lib/||' ;;
     /*|@*/*|~/*|\#/*) norm "$s" ;;

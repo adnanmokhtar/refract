@@ -194,6 +194,21 @@ seed_boundaries_project() {
 - `orders` MUST NOT import from `billing` — reason: billing owns money movement; orders asks via events
 - `billing` MAY import from `shared` only via `src/shared/index.ts`
 FIXEOF
+  # A RENAMING alias: `@app/*` resolves to `src/*` only because this file says so. Without it the
+  # hook cannot tell `@app/billing/charge` from a scoped npm package, and cases 18 and 20 —
+  # crossings written the way this project's code actually writes them — walk straight through.
+  # `@vendor/*` is deliberately absent, so case 19 proves an undeclared prefix stays external.
+  cat > "$proj/tsconfig.json" <<'TSEOF'
+{
+  // trailing comma and comment on purpose: real tsconfig files carry both
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["src/*"],
+    }
+  }
+}
+TSEOF
   return 0
 }
 
