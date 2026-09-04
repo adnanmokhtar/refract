@@ -97,7 +97,92 @@ n_yes=$(python3 "$RANK" "$W" --include-tests --format list | wc -l | tr -d ' ')
 [ "$n_yes" -gt "$n_no" ] && ok "test files are excluded by default, included on --include-tests" \
                          || bad "--include-tests changed nothing ($n_no vs $n_yes)"
 
-rm -rf "$W" "$P"
+# ---------- tsconfig `paths`: a RENAMING alias resolves, and only from the config -------------
+# The case that motivated this: a NestJS-shaped monorepo where `@app/database/*` maps to
+# `libs/database/src/*`. No sigil rule can undo that — `@app` looks exactly like a scoped npm
+# package — so before the config was read, every such import was dropped as external. On the repo
+# that surfaced it, 3,487 real internal edges were missing, 39% of everything reported unresolved.
+A=$(mktemp -d); mkdir -p "$A/libs/database/src" "$A/apps/api/src"
+echo 'export class Base {}'                       > "$A/libs/database/src/base.entity.ts"
+echo 'export const CONN = 1;'                     > "$A/libs/database/src/index.ts"
+printf 'import { Base } from "@app/database/base.entity";\nimport { CONN } from "@app/database";\nimport express from "express";\n' \
+                                                  > "$A/apps/api/src/service.ts"
+
+# (a) with NO tsconfig the alias is a package name — dropped, never guessed at.
+before=$(python3 "$RANK" "$A" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "no tsconfig: a renaming alias is dropped, not guessed" "$before" "3"
+
+# (b) with the config present, both alias forms resolve and only `express` stays unresolved.
+cat > "$A/tsconfig.json" <<'JSON'
+{
+  // a comment, and a trailing comma below: tsconfig files really look like this
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@app/database": ["libs/database/src"],
+      "@app/database/*": ["libs/database/src/*"],
+    }
+  }
+}
+JSON
+after=$(python3 "$RANK" "$A" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "tsconfig paths read: only the real package is left unresolved" "$after" "1"
+top=$(python3 "$RANK" "$A" --format list | head -1)
+assert_eq "the aliased target is now the top hub" "$top" "libs/database/src/base.entity.ts"
+
+# (c) a specifier no rule declares stays unresolved — reading the table is not licence to invent.
+printf 'import { X } from "@app/nowhere/x";\n' > "$A/apps/api/src/other.ts"
+undecl=$(python3 "$RANK" "$A" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "an alias prefix with no rule is still dropped" "$undecl" "2"
+
+# (d) a corrupt config must degrade to the old behaviour, never crash.
+echo '{ this is not json' > "$A/tsconfig.json"
+if python3 "$RANK" "$A" --format list >/dev/null 2>&1; then
+  ok "an unparseable tsconfig degrades silently instead of failing the run"
+else
+  bad "an unparseable tsconfig crashed the ranker"
+fi
+
+# ---------- jest moduleNameMapper: the REGEX table, only where it converts exactly ------------
+# A monorepo commonly declares the same mapping twice — tsconfig `paths` for the compiler, jest
+# `moduleNameMapper` for the test runner. A project with only the latter had no alias table at all.
+# The shapes taken are the ones that convert without inventing anything: `^pfx(|/.*)$ -> tgt/$1`
+# and `^pfx$ -> tgt`. A key using any other regex feature is SKIPPED, not approximated.
+J=$(mktemp -d); mkdir -p "$J/libs/database/src" "$J/apps/api/src"
+echo 'export class Base {}'  > "$J/libs/database/src/base.entity.ts"
+printf 'import { Base } from "@app/database/base.entity";\nimport x from "lodash";\n' \
+                             > "$J/apps/api/src/service.ts"
+cat > "$J/package.json" <<'JSON'
+{
+  "name": "fixture",
+  "jest": {
+    "moduleNameMapper": {
+      "^@app/database(|/.*)$": "<rootDir>/libs/database/src/$1",
+      "^(.*)\\.(css|less)$": "identity-obj-proxy"
+    }
+  }
+}
+JSON
+jm=$(python3 "$RANK" "$J" --format json | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "moduleNameMapper resolves the alias; only the real package is unresolved" "$jm" "1"
+jtop=$(python3 "$RANK" "$J" --format list | head -1)
+assert_eq "the mapped target is the top hub" "$jtop" "libs/database/src/base.entity.ts"
+
+# ---------- a JS-declared alias is DISCLOSED, never scraped -----------------------------------
+# vite/webpack aliases live in JavaScript. Reading them means executing JS; a regex scrape would
+# be a guess, and a guessed alias in the boundary hook refuses legitimate writes. So the file is
+# reported and its edges stay missing — a disclosed blind spot can be worked around.
+cat > "$J/vite.config.ts" <<'VITE'
+export default { resolve: { alias: { '@app': '/libs' } } }
+VITE
+warn=$(python3 "$RANK" "$J" --format list 2>&1 | grep -c 'NOT READ')
+assert_eq "a JS alias config is reported as unread, not silently ignored" "$warn" "1"
+# Match on the DISCLOSURE line only. `vite.config.ts` is itself a .ts file and so appears in the
+# census; grepping the whole output for its name passed while nothing was disclosed at all.
+named=$(python3 "$RANK" "$J" --format list 2>&1 | grep 'NOT READ' | grep -c 'vite.config.ts')
+assert_eq "the disclosure names the file" "$named" "1"
+
+rm -rf "$W" "$P" "$A" "$J"
 echo "----"
 echo "rank-source-files: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

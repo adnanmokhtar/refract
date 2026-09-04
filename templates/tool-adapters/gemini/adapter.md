@@ -177,6 +177,7 @@ Same format as Codex adapter.
 | `module-boundaries.sh` | **BeforeTool** (`matcher: "replace|write_file"`) | emit `decision: "deny"` when the edit adds an import crossing a boundary declared in `ai/modules.md`; needs `tool_input`'s new content — the check is on the incoming edit, never the file on disk |
 | `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **AfterTool** (`matcher: "replace|write_file"`) | run lint/format/test after an edit; return output as context or `block` to feed a failure back |
 | `inject-path-rules.sh` | **BeforeAgent** or **SessionStart** → `systemMessage` / injected context | Gemini has no path-scoped rules primitive; inject the relevant `.claude/rules/*` for touched paths |
+| `inject-blast-radius.sh` | **PreToolUse** (BeforeAgent/SessionStart will NOT do) → injected context | The text depends on WHICH file is being edited, so it cannot be hoisted to session start the way `inject-path-rules.sh` can. Without a per-edit event, drop it rather than inject a whole-repo summary nobody asked for. |
 | `notify.sh` | **Notification** / **AfterAgent** | fire on turn completion / system alert |
 | `session-start.sh` | **SessionStart** | surface `ai/status.md` / phase at session open |
 | `update-session-log.sh` | **SessionEnd** | append to `ai/dynamic/session-log.md` |

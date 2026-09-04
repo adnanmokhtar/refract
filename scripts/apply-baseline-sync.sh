@@ -200,7 +200,8 @@ echo ""
 while IFS= read -r src; do
   rel="${src#$BASELINE_ROOT/}"
   # Skip *.tpl files — those are templated by the agent at scaffold time
-  # (PROJECTS.md.tpl, CLAUDE.md.tpl) and are not direct copies.
+  # (PROJECTS.md.tpl) and are not direct copies. scripts/lint-orphan-templates.sh keeps this
+  # list honest: a .tpl no phase, command or script renders is a FAIL, not a quiet passenger.
   [[ "$rel" == *.tpl ]] && continue
 
   tgt="$TARGET/$rel"

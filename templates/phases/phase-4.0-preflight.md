@@ -438,6 +438,8 @@ ai/references/tool-parity.md
   ai/dynamic/session-log.md
   # Derived retrieval cache — rebuilt from ai/ on a size+mtime fingerprint mismatch.
   .claude/_memory-index.json
+  # Derived import graph — rebuilt from source on a size+mtime fingerprint mismatch.
+  .claude/_graph.json
   # Transient setup-project snapshots + per-engineer working artifacts — never commit.
   .claude/backups/
   .claude/plans/*.md
@@ -446,6 +448,8 @@ ai/references/tool-parity.md
   .claude/_telemetry.jsonl
   ```
   Rationale: these are local learning/session state + transient snapshots, not shared history. `.claude/_memory-index.json` is the `/recall` index — a *derived cache* over the `ai/` tree, not a store: committing it would add a drift surface with nothing to gain, since it rebuilds from the source files it points at (same argument `docs/RETRIEVAL.md` already makes for not committing the pack catalog). A team that deliberately wants a committed changelog must instead move the post-commit append to a pre-commit/staged step (a post-commit write to a tracked file is always a dirty-tree loop); a team that wants plans tracked flips the `.claude/plans/*.md` line — record either decision in the ledger.
+- **Warm the import graph** (ADVISORY — never fails the phase). `python3 ~/.claude/scripts/build-graph.py --corpus=project --repo=. --stats` builds `.claude/_graph.json` once so the first `--who-breaks` in a real session answers immediately instead of paying the cold build. Report the node/edge counts and the unresolved-specifier line in the setup summary: on a TS/JS or Python repo a graph of **0 edges** is a signal worth surfacing — it usually means the project aliases through webpack/vite rather than `tsconfig`, or is in a language the resolver does not parse. Skip silently when `python3` is absent or the repo has no TS/JS/Python sources; a project that cannot build a graph must still finish setup.
+
 - **Pre-fill `.claude/settings.json` permission allowlist** with detected safe project commands so users don't see permission prompts on day one. Detect from `package.json` scripts / `Makefile` / `pyproject.toml` / `Cargo.toml`:
   ```json
   {

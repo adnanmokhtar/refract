@@ -282,6 +282,24 @@ In this exact order:
 
 If the task contradicts what you read in 1-6, STOP. Ask the user before acting.
 
+## Before changing a shared file — ask the graph, don't grep
+
+```bash
+python3 ~/.claude/scripts/build-graph.py --corpus=project --repo=. --who-breaks <path>
+python3 ~/.claude/scripts/build-graph.py --corpus=project --repo=. --central   # load-bearing files
+```
+
+`--who-breaks` states the total and the per-hop shape first — `360 at 1 hop · 670 at 2 hops · …`
+— then lists `--limit` rows (20 by default). That summary line is usually the whole answer: it
+sizes the blast radius before you read a single file. Edges are resolved from the AST (TS/JS +
+Python, `tsconfig`/`jsconfig` path aliases included), cached at `.claude/_graph.json` (gitignored)
+and rebuilt automatically when any source file changes. First call a few seconds, then <0.2s.
+
+**An empty answer is not a clearance.** It means no edge RESOLVED. Dynamic imports, DI containers,
+and every language outside TS/JS/Python produce no edge at all, and the output cannot distinguish
+"nothing depends on this" from "I could not see". Read it as *nothing declared*, never as *safe to
+change*.
+
 ## Read-before-edit rule (#1 invariant)
 
 Before creating or modifying any file, read the same TYPE of file (controller, service, repo, mapper) elsewhere in the codebase and match the existing pattern exactly. Consistency with existing code beats personal preference.

@@ -67,6 +67,7 @@ For each `.claude/rules/<name>.md` + `ai/patterns/<name>.md`:
    - `alwaysApply: true` → rules with **no** `paths:` (the always-loaded foundation: project-structure, jsdoc, naming).
    - `globs: [...]` (inferred) → only when a rule lacks `paths:` but is clearly domain-scoped (database → `src/**/entities/**/*.ts`, controllers → `src/**/controllers/**/*.ts`).
    - **Do NOT port `inject-path-rules.sh`.** That hook is the Claude-Code-only mechanism for applying `paths:` rules; Cursor's native `globs:` is its equivalent, so the rule is already path-scoped here without it.
+   - **`inject-blast-radius.sh` IS ported, unlike `inject-path-rules.sh`.** The native `globs:` mechanism replaces path-scoped RULES; it cannot replace a payload computed per file from `.claude/_graph.json`. Port it to `preToolUse` returning `additional_context` (never `permission: deny` — it is advisory).
 2. Write a thin MDC file that:
    - Has the frontmatter with correct activation.
    - Body uses `@file` to include the canonical `.claude/rules/<name>.md` rather than copying content.
@@ -281,6 +282,7 @@ Sample `.cursor/hooks.json`:
 **Defense in depth**: also install Husky git hooks for commit-time enforcement (lint, `.env` guard) — `.cursor/hooks.json` covers in-IDE editing; Husky covers commits/CI even when the user is not in Cursor. Both layers should reference the same scripts where possible.
 
 **Source:** https://cursor.com/docs/hooks
+- `inject-blast-radius.sh` → `preToolUse` returning `additional_context` (never `permission: "deny"` — it is advisory and must never block a write). Unlike `inject-path-rules.sh`, this one IS ported: native `globs:` replaces path-scoped RULES, and cannot express a dependent count computed per file from `.claude/_graph.json` at edit time.
 
 ### Rules — `.claude/rules/<name>.md` → `.cursor/rules/<NN>-<name>.mdc` (existing flow — unchanged)
 

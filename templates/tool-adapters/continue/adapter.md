@@ -84,6 +84,7 @@ Body = prose rules. Like Cursor's MDC but with `.md` extension and no special `@
    - Body: copy the rule prose verbatim (Continue doesn't support `@file` inlining — must embed).
 3. **`.continue/rules/project.md`** — always-apply rule summarizing CLAUDE.md's top-level conventions.
 4. **Do NOT port `inject-path-rules.sh`** — the Claude-only mechanism for applying `paths:` rules; Continue's `globs:` frontmatter is its native equivalent. (Continue has no hooks anyway.)
+5. **`inject-blast-radius.sh` IS ported, unlike `inject-path-rules.sh`.** Continue's `globs:` frontmatter replaces static path-scoped rules; it cannot express a dependent count read from `.claude/_graph.json` at edit time. If Continue exposes no per-edit hook, document it in the rules file as a manual step (`build-graph.py --who-breaks <file>` before touching a shared file) rather than dropping it silently.
 
 ## Idempotency
 
@@ -249,6 +250,7 @@ systemMessage: |
 **Caveats:** none of this is enforced *inside* the agent loop — `.continueignore` limits context but the git hooks are the only hard gate. If Continue ships a hook API later, `guard-destructive` / `pre-edit-guard` / `secret-scan` should move to a native `preToolUse`-equivalent and this section should be promoted from fallback to native.
 
 **Source:** https://docs.continue.dev/reference · https://docs.continue.dev/customize/deep-dives/rules
+- `inject-blast-radius.sh` → **no hook mechanism, and no rules fallback either.** Continue's `globs:` frontmatter absorbs `inject-path-rules.sh` because those are static rules; a dependent count read from `.claude/_graph.json` at edit time cannot be written into a rules file. Carry it as an explicit instruction in the always-apply rule: before editing a shared file, run `python3 ~/.claude/scripts/build-graph.py --corpus=project --repo=. --who-breaks <file>`. The check is manual here; say so rather than implying coverage.
 
 ## Cross-references
 

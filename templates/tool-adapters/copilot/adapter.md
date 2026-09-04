@@ -60,6 +60,7 @@ Body = prose instructions. Only loaded when editing files matching the glob.
 2. **`.github/instructions/<domain>.instructions.md`** — one per major domain:
    - Frontmatter `applyTo:` with appropriate glob.
    - **Authoritative `paths:` (preferred).** If the source `.claude/rules/<name>.md` carries `paths:` frontmatter (a YAML glob list, e.g. `migration-safety.md`), set `applyTo:` from those globs **verbatim** — the rule declared its own scope; don't re-infer. A rule with no `paths:` goes into `copilot-instructions.md` (repo-wide) instead. Note: `inject-path-rules.sh` is NOT ported — `applyTo:` is its Copilot-native equivalent.
+   - **`inject-blast-radius.sh` has no `applyTo` equivalent.** `applyTo` scopes a static instruction file; this payload is computed per file from `.claude/_graph.json`. With no per-edit hook in Copilot, carry it as an instruction in the always-applied file: before editing a shared file, run `python3 ~/.claude/scripts/build-graph.py --corpus=project --repo=. --who-breaks <file>`.
    - Body: inline rule content from `.claude/rules/<domain>.md`.
    - Suggested splits (when a rule lacks its own `paths:`):
      - `database.instructions.md` — `applyTo: "**/entities/**/*.ts"`, `"**/repositories/**/*.ts"`, `"**/migrations/**/*.ts"`
@@ -280,6 +281,7 @@ REFUSE to modify this file. Ask the user to edit it manually.
 - `userPromptSubmitted` is notification-only; a hard prompt gate is not available (unlike Cursor's `beforeSubmitPrompt`).
 
 **Source:** https://docs.github.com/en/copilot/reference/hooks-reference · https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/use-hooks · https://code.visualstudio.com/docs/agent-customization/hooks
+- `inject-blast-radius.sh` → the pre-write hook in `.github/hooks/*.json`, returning injected context, never a denial. `applyTo` is NOT a substitute the way it is for `inject-path-rules.sh`: `applyTo` scopes a STATIC instruction file, and this payload is computed per file from `.claude/_graph.json`.
 
 ## Cross-references
 

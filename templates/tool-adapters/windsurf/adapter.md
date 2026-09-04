@@ -54,6 +54,7 @@ Activation modes:
    - AI / Claude integration → `["src/**/claude/**/*.ts", "src/**/prompt-builder/**/*.ts"]`
 4. Copy rule content from `.claude/rules/<domain>.md` verbatim (Windsurf doesn't support file includes).
 5. **Do NOT port `inject-path-rules.sh`** — it is the Claude-Code-only mechanism for applying `paths:` rules; `activation_mode: glob` is its Windsurf-native equivalent.
+6. **`inject-blast-radius.sh` IS ported, unlike `inject-path-rules.sh`.** `activation_mode: glob` replaces path-scoped rules, not a per-file computed payload. Port to the pre-write hook returning injected context; it must never block.
 
 ## Idempotency
 
@@ -190,6 +191,7 @@ trigger_words: ["scaffold module", "new module", "module-scaffold"]
 **Caveats:** hooks are block-or-log only — **no context-injection field**, so briefing/path-rule hooks stay as activation-mode rules. `~` home expansion is **not** supported (use absolute paths); working dir defaults to repo root. Windows needs the `powershell` field (the `command` bash field is only a fallback). Repo scripts must be adapted from Claude Code's payload schema to Cascade's stdin JSON + exit-code-2 blocking contract.
 
 **Source:** https://docs.windsurf.com/windsurf/cascade/hooks
+- `inject-blast-radius.sh` → the pre-write Cascade hook, returning injected context; it must never block. Unlike `inject-path-rules.sh`, `activation_mode: glob` is NOT a substitute — that replaces path-scoped rules, not a payload computed per file from `.claude/_graph.json`.
 
 ## Cross-references
 

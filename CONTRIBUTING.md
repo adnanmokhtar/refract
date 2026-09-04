@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **49 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **52 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 49 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 52 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -81,6 +81,8 @@ for g in \
   python3 scripts/gen-baseline-hashes.py --check \
   scripts/test-baseline-sync-advisory.sh \
   scripts/verify-gate-count.sh \
+  scripts/verify-fixture-counts.sh \
+  scripts/lint-orphan-templates.sh \
   scripts/lint-shell-portability.sh \
   scripts/check-rule-budget.sh \
   scripts/audit-stack-leakage.sh \
@@ -103,6 +105,7 @@ for g in \
   scripts/lint-hook-parity.sh \
   scripts/lint-import-budget.sh \
   scripts/test-rank-source-files.sh \
+  scripts/test-build-graph.sh \
   scripts/lint-setup-contracts.sh \
   scripts/test-merge-decide.sh \
   scripts/test-anchor-citations.sh \
@@ -117,7 +120,7 @@ file and line; none of them require you to guess.
 | Gate | What it actually catches | Typical fix |
 |---|---|---|
 | `test-validators.sh` | A validator regressed to always-pass. Replays `tests/validators/<script>/{good,bad}/<case>/` mini-repos and asserts the exit code matches the folder's contract. | Fix the validator, or add the case you just legitimised. |
-| `tests/hooks/run.sh` | A security hook regressed to always-allow. 60 fixtures across `guard-destructive` (17), `module-boundaries` (15), `pre-edit-guard` (11), `secret-scan` (7), `inject-path-rules` (5), `recall-inject` (5), plus 3 programmatic assertions that `module-boundaries` stays inert with no `ai/modules.md`, an empty boundaries section, or the opt-out flag — 63 checks total. Filename encodes the expected exit: `*block*` → 2, `*allow*` → 0. | Fix the hook. If the new behaviour is correct, add a fixture proving it. |
+| `tests/hooks/run.sh` | A security hook regressed to always-allow. 73 fixtures across `guard-destructive` (23), `module-boundaries` (21), `pre-edit-guard` (11), `secret-scan` (8), `inject-path-rules` (5), `recall-inject` (5), plus 3 programmatic assertions that `module-boundaries` stays inert with no `ai/modules.md`, an empty boundaries section, or the opt-out flag, plus 10 payload assertions for the context-only `inject-blast-radius` (exit code proves nothing there — a hook that exits 0 saying nothing looks identical to one that works) — 86 checks total. Filename encodes the expected exit: `*block*` → 2, `*allow*` → 0. | Fix the hook. If the new behaviour is correct, add a fixture proving it. |
 | `tests/real-shape/run.sh` | A shipped artifact that is correct about an input nobody writes. Every other gate compares this repo to itself; this one runs `module-boundaries.sh` and `rank-source-files.py` against a project laid out like a real TypeScript monorepo — `apps/<app>/src/`, `libs/<lib>/src/`, a service seven directories deep, a `tools/` script nothing imports. **Its inputs are measured, not invented:** each specifier form carries its share of 33,474 real imports (`../x` 37.5%, `a/b/c` 21.8%, `@org/pkg` 19.2%, `./x` 14.1%, `pkg` 7.4%), and 100% of them carry no extension — the fact the facade bug hid behind. Reverting that fix turns this suite red on the two forms real code uses while the `/index.ts` form keeps passing. | Fix the artifact. If a NEW specifier form appears in real code, add it here with its share — never invent one to make a case. |
 | `test-new-artifact.sh` | The scaffolder drifting from the registration surface it exists to cover. `scripts/new-artifact.sh --kind=skill\|command --pack=<p> --name=<n> --description="…"` creates the artifact and re-derives every counted figure; `--resync` alone repairs them. Counts are **computed from disk, never incremented**, so the fixture starts with every number wrong and must come out right. Also pins the four refusals — no description (A02), unknown pack, non-kebab name, existing artifact — and that `--dry-run` writes nothing. | Update `new-artifact.sh` when a new counted figure appears anywhere; a figure the tool cannot compute is a figure someone has to remember, which is the drift this repo pays for most often. |
 | `lint-context-provenance.sh` | A shipped `ai/` product-context file claiming things about the WORLD with no source. Seven templates — project-goals, users-and-personas, business-model, competitive-context, business-domain, business-flows, roadmap — carry claims no codebase can settle, and `CLAUDE.md` loads them as product context. Phase 2's `[found:]`/`[inferred:]`/`[unconfirmed]` contract covered only `.claude/_extracted-*`; a live repo had 1,063 lines across six of these with **zero** markers, named competitors included. Checks that each template states the contract, that none drops `[unconfirmed]`, and that `/setup-project-health` check 11 grades the same list. | Add the provenance block to the template. Never drop `[unconfirmed]` to tidy it up — "nobody here knows" is the honest default and becomes a question for the team, and a model's recollection is not a source. |
@@ -456,7 +459,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 49 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 52 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---
