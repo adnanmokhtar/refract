@@ -18,3 +18,7 @@ __pycache__/
 
 # Python tooling caches
 .ruff_cache/
+
+# Derived import graph. `build-graph.py --corpus=project` writes this into whatever repo it is
+# pointed at, and the fixture projects under tests/ are repos. A derived cache, never committed.
+**/.claude/_graph.json

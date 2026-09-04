@@ -65,10 +65,12 @@ while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readli
 REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 
 QUIET=0
+EMIT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo-root=*) REPO_ROOT="${1#*=}"; shift ;;
     --quiet) QUIET=1; shift ;;
+    --emit-edges=*) EMIT="${1#*=}"; shift ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -80,10 +82,11 @@ cd "$REPO_ROOT" || exit 1
 
 command -v python3 >/dev/null 2>&1 || { echo "FAIL  python3 not available"; exit 1; }
 
-python3 - "$REPO_ROOT" "$QUIET" <<'PY'
+python3 - "$REPO_ROOT" "$QUIET" "$EMIT" <<'PY'
 import os, re, sys, glob
 
 ROOT, QUIET = sys.argv[1], sys.argv[2] == "1"
+EMIT = sys.argv[3] if len(sys.argv) > 3 else ""
 ALL_MODES = {"CREATE", "ENHANCE", "REFRESH", "REFINE", "UPGRADE"}
 FILE_RE = re.compile(r'\.?[A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:md|json|jsonl)')
 # A parenthetical the author used to disclose that the input is conditional.
@@ -173,7 +176,7 @@ for p in phases:
         for f in FILE_RE.findall(entry):
             produced.setdefault(os.path.basename(f), set()).update(modes)
 
-fails, checked, vocab = [], 0, 0
+fails, checked, vocab, edges = [], 0, 0, []
 for p in phases:
     for entry in p["inputs"]:
         files = FILE_RE.findall(entry)
@@ -187,6 +190,13 @@ for p in phases:
                 fails.append("FAIL  [1] %s declares input `%s` — no phase declares it in outputs:"
                              % (p["file"], f))
                 continue
+            # Resolved: some phase declares producing this basename. Record producer -> consumer
+            # for every such phase. Emitted only here, where check [1] has just proven the
+            # producer exists; an input with no declared producer is a FAIL, never an edge.
+            for q in phases:
+                if any(base == os.path.basename(g)
+                       for entry_o in q["outputs"] for g in FILE_RE.findall(entry_o)):
+                    edges.append(("phase", q["file"], p["file"], base))
             if QUALIFIER_RE.search(entry):
                 continue
             missing = p["modes"] - produced[base]
@@ -195,6 +205,11 @@ for p in phases:
                              "unreachable in %s"
                              % (p["file"], ",".join(sorted(p["modes"])), f,
                                 ",".join(sorted(produced[base])), ",".join(sorted(missing))))
+
+if EMIT:
+    with open(EMIT, "w", encoding="utf-8") as fh:
+        for kind, a, b, label in sorted(set(edges)):
+            fh.write("%s\t%s\t%s\t%s\n" % (kind, a, b, label))
 
 print("=== lint-phase-dag ===")
 print("Repo: %s\n" % ROOT)

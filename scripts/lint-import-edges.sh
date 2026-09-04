@@ -84,10 +84,12 @@ while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readli
 REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
 
 QUIET=0
+EMIT=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo-root=*) REPO_ROOT="${1#*=}"; shift ;;
     --quiet) QUIET=1; shift ;;
+    --emit-edges=*) EMIT="${1#*=}"; shift ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -107,6 +109,14 @@ skipped_prose=0; skipped_mirror=0; skipped_negated=0
 claim_lines=0; targets=0
 
 say() { [ $QUIET -eq 0 ] && echo "$@"; return 0; }
+
+# An edge is emitted ONLY where this gate has just PROVEN it: the importer names the target,
+# directly or via one hop. A baselined claim is one this gate could NOT verify, so it is counted
+# in the reach line and deliberately withheld here — whoever consumes this stream must never
+# receive an edge weaker than the one CI enforces.
+# Columns: kind, importer, imported, via (empty when direct).
+emit() { [ -n "$EMIT" ] && printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "${4:-}" >> "$EMIT"; return 0; }
+[ -n "$EMIT" ] && : > "$EMIT"
 
 # expand_braces <token> — templates/packs/{backend,frontend}/x.md → one line per alternative.
 # No eval: the token comes from repo prose.
@@ -253,6 +263,7 @@ while IFS= read -r r; do
 
   if refs "$tgt" "$src"; then
     direct=$((direct+1))
+    emit import "$tgt" "$src" ""
     say "  ok    $src  ←  $tgt"
     continue
   fi
@@ -260,6 +271,7 @@ while IFS= read -r r; do
   mid=$(refs_hop2 "$tgt" "$src")
   if [ -n "$mid" ]; then
     indirect=$((indirect+1))
+    emit import "$tgt" "$src" "$mid"
     say "  hop   $src  ←  $tgt  (via $mid)"
     continue
   fi

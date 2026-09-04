@@ -335,6 +335,88 @@ A row is never a substitute for its file — it is the *address* of its file. Ev
 
 ---
 
+## Traversal — `build-graph.py`
+
+Search answers *"where is the thing I need?"*. It cannot answer *"I am about to change this file,
+who breaks?"* — that is a question about edges, and BM25 has none. The repo already **proved**
+those edges and then discarded them: three gates each walk the files, verify one property, print
+a report, and keep nothing.
+
+`scripts/build-graph.py` assembles what they proved into one traversable graph.
+
+| | `pack-search.py` | `build-graph.py` |
+|---|---|---|
+| Unit | a row of prose | an **edge between two files** |
+| Answers | "where is the thing I need?" | **"who breaks?", "how does A reach B?"** |
+| Built from | 8 extractors over the corpus | **the gates' own `--emit-edges` output** |
+| Ranking | BM25 relevance | graph distance / degree |
+
+```bash
+python3 scripts/build-graph.py --who-breaks templates/capabilities.md
+python3 scripts/build-graph.py --neighbors  commands/setup-project.md
+python3 scripts/build-graph.py --path commands/setup-project.md templates/quick-start.md
+python3 scripts/build-graph.py --central --limit=15
+python3 scripts/build-graph.py --stats            # counts + which gates are green
+python3 scripts/build-graph.py --check            # CI: the `Graph assembly` step
+```
+
+### It parses nothing
+
+This is the design decision the whole artifact rests on. Both edge formats are *already* parsed,
+and parsed hard — protected commas, `+` separators, brace expansion, one-hop indirection, mode
+qualifiers. A second parser here would be a second opinion, and the day it disagrees with the gate
+is the day the graph lies about a file someone is mid-edit on. So each gate gained `--emit-edges`
+and writes the edge at the exact line where it PROVED it:
+
+| Edge kind | Meaning | Proven by |
+|---|---|---|
+| `import` | an `imported-by:` back-edge, direct or via one hop | `scripts/lint-import-edges.sh` |
+| `phase` | a producer → consumer artifact handoff | `scripts/lint-phase-dag.sh` |
+
+An edge its gate could **not** verify — a baselined back-edge, a prose fragment, a vocabulary
+input like `approved-plan` — is absent by design. `--stats` says so rather than papering over it,
+and `test-build-graph.sh` case 3b fails if a baselined pair ever appears as an edge.
+
+### Why it cannot go stale
+
+The same contract §"How it works" states for the BM25 index, and for the same reason. **The graph
+is never committed.** It is a cache under `tmp/graph/` keyed on a SHA-256 over this script, both
+gate scripts, and the size + mtime of every file they read — 1,325 markdown files plus the
+baseline list, 1,329 inputs in all. Edit any one of them and
+the fingerprint moves, the cache is rejected, and the next query rebuilds from the gates in ~1.3 s.
+
+A committed graph file was rejected twice before for exactly the reason a stale one is worse than
+none: it keeps answering after it stops being true, and it answers *confidently*. The two
+invariants are therefore tested by making them fail — remove one `emit` call and case 3 goes red
+on the count; drop size+mtime from the fingerprint and case 4 goes red on the cache hit.
+
+### Honest limits
+
+1. **The graph is only as wide as the declarations.** 50 nodes and 51 edges, not the whole repo.
+   `imported-by:` is hand-written frontmatter on 41 claim lines; a file that declares nothing has
+   no edges and `--who-breaks` on it correctly returns nothing. That is a coverage limit, not a
+   bug — but "no declared consumer" must never be read as "safe to change".
+2. **The phase layer is thin on purpose.** 4 edges from 15 phases, because only file-shaped
+   `inputs:` entries can be joined; the other 34 are vocabulary and `lint-phase-dag.sh` discloses them rather
+   than guessing.
+3. **`--corpus=project` is derived, not verified, and the gap is not symmetric.** Its edges come
+   from `rank-source-files.py` resolving real import statements — deterministic, no model — but no
+   gate in this repo runs over that code, so nothing re-checks the resolver. Three ways an edge
+   can be missing there: a language that is not TS/JS or Python; a specifier built at runtime
+   (dynamic `import()`, a DI container, a string-joined path); and an import of a package that
+   genuinely is external. Only the last is correct to omit. **`--who-breaks` returning nothing
+   means "no edge resolved", never "safe to change"** — and the two are indistinguishable from
+   the output, which is why `--stats` prints the warning every time.
+4. **Path aliases resolve only when a config declares them.** `rank-source-files.py` reads
+   `compilerOptions.paths` from `tsconfig.json` / `jsconfig.json` (following `extends`, tolerating
+   comments and trailing commas) because a RENAMING alias — `@app/database/*` → `libs/database/src/*`
+   — is indistinguishable from a scoped npm package without that table. On one real NestJS monorepo
+   this was the difference between 23,345 and 26,830 edges: 3,487 internal edges, 39% of everything
+   the resolver had reported as unresolved, were being dropped as though external. A project that
+   aliases through webpack/vite config instead of tsconfig still loses them, silently.
+
+---
+
 ## Honest limits
 
 1. **BM25 is lexical, not semantic.** There is no embedding model in a stdlib script. A query

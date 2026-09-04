@@ -366,6 +366,19 @@ jobs:
       - name: Source-file ranking (centrality, not directory depth)
         run: bash scripts/test-rank-source-files.sh
 
+      # The three gates above each PROVE a relationship and then throw it away: each walks the
+      # files itself, checks one property, prints a report. Nothing ever joined them, so the
+      # repo could verify "this back-edge holds" but could not answer "I am changing this file,
+      # who breaks?" without a fresh grep. build-graph.py assembles the answer from what the
+      # gates already proved — it parses nothing itself, precisely so it can never disagree with
+      # them. The graph is a gitignored cache keyed on the size+mtime of every file its gates
+      # read, so an edit to any input rejects it; that is what keeps a derived map from going
+      # quietly stale, and test-build-graph.sh case 4 fails if the fingerprint stops covering
+      # content. Case 3 is the other half: the edge count must EQUAL the gates' own reach
+      # figures, so a graph carrying one edge more than CI enforces is a red gate.
+      - name: Graph assembly (edges match the gates that proved them)
+        run: bash scripts/test-build-graph.sh
+
       # Setup-contract ratchet (this run's defect class): a producer and its consumer that
       # disagree, where neither side is wrong on its own and nothing compared them. Six
       # mechanical rules, each written after a MEASURED failure in a live end-to-end run —
