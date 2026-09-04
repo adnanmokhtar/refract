@@ -118,6 +118,89 @@ def _read_jsonc(path):
         return None                       # unparseable is not a licence to guess
 
 
+# Jest's moduleNameMapper is a REGEX table, not a glob one, so only the shapes that convert
+# EXACTLY are taken. Anything else is left to alias_blind_spots() to disclose. Guessing at a
+# regex is how a resolver starts inventing edges.
+MNM_SHAPES = (
+    # ^pfx(|/.*)$ -> tgt/$1   and   ^pfx/(.*)$ -> tgt/$1   and   ^pfx$ -> tgt
+    re.compile(r'^\^(?P<pfx>[^()\[\]{}|+?*\\^$]+?)/?\(\|?/?\.\*\)\$$'),
+    re.compile(r'^\^(?P<pfx>[^()\[\]{}|+?*\\^$]+?)\$$'),
+)
+
+
+def _mnm_rules(mapper, root):
+    """moduleNameMapper -> the same (prefix, suffix, target) rules, for exactly-convertible keys."""
+    out, skipped = [], 0
+    for key, val in mapper.items():
+        if not isinstance(val, str):
+            skipped += 1
+            continue
+        m = MNM_SHAPES[0].match(key) or MNM_SHAPES[1].match(key)
+        if not m:
+            skipped += 1
+            continue
+        pfx = m.group("pfx")
+        tgt = val.replace("<rootDir>/", "").replace("<rootDir>", "")
+        wild = MNM_SHAPES[0].match(key) is not None
+        if wild:
+            # `tgt/$1` is the only replacement shape that round-trips to a `*` template.
+            if "$1" not in tgt:
+                skipped += 1
+                continue
+            tmpl = tgt.replace("$1", "*").replace("//", "/").rstrip("/")
+            if "*" not in tmpl:
+                skipped += 1
+                continue
+            out.append((pfx + "/", "", [tmpl]))
+        else:
+            if "$" in tgt:
+                skipped += 1
+                continue
+            out.append((pfx, "", [tgt]))
+    return out, skipped
+
+
+def package_json_aliases(root):
+    """jest.moduleNameMapper from package.json — JSON, so parseable without executing anything."""
+    pj = os.path.join(root, "package.json")
+    cfg = _read_jsonc(pj)
+    if not isinstance(cfg, dict):
+        return [], 0
+    jest = cfg.get("jest")
+    if not isinstance(jest, dict):
+        return [], 0
+    mapper = jest.get("moduleNameMapper")
+    if not isinstance(mapper, dict):
+        return [], 0
+    return _mnm_rules(mapper, root)
+
+
+# Config files that DECLARE aliases in JavaScript. Reading them would mean executing JS or
+# shipping a JS parser; a regex scrape would be a guess, and a guessed alias in the boundary hook
+# refuses legitimate writes. So they are DETECTED and REPORTED, never parsed. A disclosed blind
+# spot can be worked around; a silent one cannot.
+JS_ALIAS_CONFIGS = ("vite.config.ts", "vite.config.js", "vite.config.mjs",
+                    "webpack.config.js", "webpack.config.ts", "rollup.config.js",
+                    "jest.config.js", "jest.config.ts", "next.config.js", "craco.config.js")
+JS_ALIAS_HINT = re.compile(r'\balias\b|moduleNameMapper')
+
+
+def alias_blind_spots(root):
+    """Config files that look like they declare aliases and that nothing here can read."""
+    out = []
+    for name in JS_ALIAS_CONFIGS:
+        p = os.path.join(root, name)
+        if not os.path.isfile(p):
+            continue
+        try:
+            with open(p, encoding="utf-8", errors="replace") as fh:
+                if JS_ALIAS_HINT.search(fh.read(200000)):
+                    out.append(name)
+        except OSError:
+            continue
+    return out
+
+
 def path_aliases(root, _depth=0, _file=None):
     """[(prefix, suffix, [target templates])] from tsconfig/jsconfig `paths`, longest first.
 
@@ -134,7 +217,9 @@ def path_aliases(root, _depth=0, _file=None):
                 _file = cand
                 break
         else:
-            return []
+            # No tsconfig is not "no aliases": a project can declare them only in package.json's
+            # jest block. Returning [] here made that table unreachable, which the fixture caught.
+            return package_json_aliases(root)[0]
     cfg = _read_jsonc(_file)
     if not isinstance(cfg, dict):
         return []
@@ -168,6 +253,9 @@ def path_aliases(root, _depth=0, _file=None):
                         tmpl.append(r)
                 if tmpl:
                     rules.append((pre, suf, tmpl))
+    if _depth == 0:
+        pj_rules, _ = package_json_aliases(root)
+        rules.extend(pj_rules)
     # Longest literal prefix wins, which is TypeScript's own precedence rule.
     rules.sort(key=lambda r: len(r[0]), reverse=True)
     return rules
@@ -260,6 +348,7 @@ def main():
     files = walk(root, args.include_tests)
     index = set(files)
     aliases = path_aliases(root)
+    blind = alias_blind_spots(root)
     parseable = [f for f in files if f.endswith(SOURCE_EXT)]
 
     importers = {f: set() for f in files}          # file -> set of files importing it
@@ -281,8 +370,12 @@ def main():
                     fh.write("code\t%s\t%s\t\n" % (f, tgt))
         n = sum(len(v) for v in out_deg.values())
         sys.stderr.write("%d resolved edge(s) written; %d specifier(s) did not resolve "
-                         "(dropped, not guessed); %d path alias rule(s) read from tsconfig\n"
-                         % (n, unresolved, len(aliases)))
+                         "(dropped, not guessed); %d alias rule(s) read from "
+                         "tsconfig/package.json\n" % (n, unresolved, len(aliases)))
+        if blind:
+            sys.stderr.write("NOT READ: %s declare aliases in JavaScript. Reading them means "
+                             "executing JS; a regex scrape would be a guess. Edges through those "
+                             "aliases are MISSING, not absent.\n" % ", ".join(blind))
         return 0
 
     rows = []
@@ -316,11 +409,18 @@ def main():
     else:
         picked = hubs + roots + rest
 
+    if blind:
+        sys.stderr.write("NOT READ: %s declare aliases in JavaScript. Reading them means executing "
+                         "JS; a regex scrape would be a guess. Edges through those aliases are "
+                         "MISSING, not absent.\n" % ", ".join(blind))
+
     if args.format == "json":
         print(json.dumps({
             "present": len(files), "selected": len(picked),
             "hubs": len(hubs), "roots": len(roots), "isolated": len(rest),
-            "unresolved_specifiers": unresolved, "rows": picked}, indent=2))
+            "unresolved_specifiers": unresolved,
+            "alias_rules": len(aliases), "alias_configs_not_read": blind,
+            "rows": picked}, indent=2))
         return 0
 
     if args.format == "list":
@@ -330,7 +430,7 @@ def main():
 
     print("# rank-source-files — %d/%d source files selected" % (len(picked), len(files)))
     print("# hubs %d · roots %d · isolated %d · %d specifiers did not resolve (dropped, not "
-          "guessed) · %d path alias rule(s) read from tsconfig"
+          "guessed) · %d alias rule(s) read from tsconfig/package.json"
           % (len(hubs), len(roots), len(rest), unresolved, len(aliases)))
     print("# walk_scope: centrality-ranked (importing dirs, then importer count); "
           "hub share %.2f" % args.hub_share)

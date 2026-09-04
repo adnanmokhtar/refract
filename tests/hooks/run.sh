@@ -209,6 +209,21 @@ FIXEOF
   }
 }
 TSEOF
+  # The second table: a project can declare the same mapping only in package.json's jest block,
+  # and before this the hook had no alias table at all there. `@pkg/*` exists ONLY here, so case
+  # 21 fails if moduleNameMapper stops being read. The `.css` entry is a regex shape that does
+  # NOT convert; it must be skipped rather than approximated.
+  cat > "$proj/package.json" <<'PJEOF'
+{
+  "name": "boundaries-fixture",
+  "jest": {
+    "moduleNameMapper": {
+      "^@pkg/(.*)$": "<rootDir>/src/$1",
+      "^(.*)\\.(css|less)$": "identity-obj-proxy"
+    }
+  }
+}
+PJEOF
   return 0
 }
 

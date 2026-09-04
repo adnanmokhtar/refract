@@ -412,8 +412,19 @@ on the count; drop size+mtime from the fingerprint and case 4 goes red on the ca
    comments and trailing commas) because a RENAMING alias — `@app/database/*` → `libs/database/src/*`
    — is indistinguishable from a scoped npm package without that table. On one real NestJS monorepo
    this was the difference between 23,345 and 26,830 edges: 3,487 internal edges, 39% of everything
-   the resolver had reported as unresolved, were being dropped as though external. A project that
-   aliases through webpack/vite config instead of tsconfig still loses them, silently.
+   the resolver had reported as unresolved, were being dropped as though external.
+
+   Two tables are read, both of them data: `compilerOptions.paths`, and `jest.moduleNameMapper`
+   from `package.json` — the second because a project can declare the mapping only there. The
+   mapper is a REGEX table, so only the shapes that convert exactly (`^pfx(|/.*)$ -> tgt/$1`,
+   `^pfx$ -> tgt`) are taken; anything else is skipped rather than approximated.
+
+   **vite/webpack/rollup aliases live in JavaScript and are NOT read.** Reading them means
+   executing JS, and a regex scrape would be a guess — which in the boundary hook means refusing
+   a legitimate write. So those files are DETECTED and NAMED instead: the ranker prints
+   `NOT READ: vite.config.ts …` on stderr for every output format, `--format json` carries
+   `alias_configs_not_read`, and `build-graph.py --stats` repeats it under the producer. The
+   blind spot is real and unfixed; it is no longer silent.
 
 ---
 

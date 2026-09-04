@@ -183,8 +183,14 @@ def run_ranker(root, repo):
         out = os.path.join(td, "code.tsv")
         proc = subprocess.run([sys.executable, ranker, repo, "--emit-edges", out],
                               capture_output=True, text=True)
+        err = (proc.stderr or "").strip()
         status["code"] = {"script": "scripts/rank-source-files.py", "exit": proc.returncode,
-                          "detail": (proc.stderr or "").strip()[:200]}
+                          "detail": err[:200]}
+        # The ranker discloses alias configs it cannot read. That disclosure has to survive into
+        # the graph, or a project whose aliases live in vite.config.ts gets a quietly partial map.
+        for line in err.splitlines():
+            if line.startswith("NOT READ:"):
+                status["code"]["not_read"] = line
         if os.path.isfile(out):
             with open(out, encoding="utf-8") as fh:
                 for line in fh:
@@ -316,6 +322,8 @@ def print_stats(g, root):
         print("  %-7s %-34s %s" % (kind, st["script"], state))
         if st.get("error"):
             print("          %s" % st["error"].replace("\n", " ")[:200])
+        if st.get("not_read"):
+            print("          %s" % st["not_read"])
     print("")
     print("provenance: %s." % CORPORA[g.get("corpus", "self")]["note"])
     if g.get("corpus") == "project":

@@ -188,11 +188,43 @@ def rules(path, depth=0):
                     out.append((pre, suf, r))
     return out
 
+def mnm():
+    """package.json jest.moduleNameMapper — a REGEX table. Only exactly-convertible shapes.
+
+    `^pfx(|/.*)$ -> tgt/$1` and `^pfx$ -> tgt`. Any other regex feature is skipped rather than
+    approximated: a guessed alias here refuses a legitimate write.
+    """
+    cfg = read("package.json")
+    if not isinstance(cfg, dict):
+        return []
+    jest = cfg.get("jest")
+    if not isinstance(jest, dict) or not isinstance(jest.get("moduleNameMapper"), dict):
+        return []
+    wild = re.compile(r'^\^(?P<pfx>[^()\[\]{}|+?*\\^$]+?)/?\(\|?/?\.\*\)\$$')
+    exact = re.compile(r'^\^(?P<pfx>[^()\[\]{}|+?*\\^$]+?)\$$')
+    out = []
+    for key, val in jest["moduleNameMapper"].items():
+        if not isinstance(val, str):
+            continue
+        tgt = val.replace("<rootDir>/", "").replace("<rootDir>", "")
+        m = wild.match(key)
+        if m:
+            if "$1" not in tgt:
+                continue
+            out.append((m.group("pfx") + "/", "", tgt.replace("$1", "*").replace("//", "/")))
+            continue
+        m = exact.match(key)
+        if m and "$" not in tgt:
+            out.append((m.group("pfx"), "", tgt))
+    return out
+
+
 seen = []
 for name in ("tsconfig.json", "jsconfig.json"):
     if os.path.isfile(name):
         seen = rules(name)
         break
+seen.extend(mnm())
 for pre, suf, tgt in sorted(seen, key=lambda r: len(r[0]), reverse=True):
     if "\t" in pre + suf + tgt:
         continue
