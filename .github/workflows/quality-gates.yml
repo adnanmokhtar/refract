@@ -139,6 +139,19 @@ jobs:
       - name: Gate count honest (CONTRIBUTING matches this workflow)
         run: bash scripts/verify-gate-count.sh
 
+      # The same drift one table row lower, and it had already happened: CONTRIBUTING advertised
+      # "60 fixtures … 63 checks total" for a hook suite that held 69 and ran 72. Adding a fixture
+      # is the good outcome; renumbering a sentence is not something a contributor should have to
+      # remember, so this reads the sentence and the disk instead.
+      - name: Fixture counts honest (CONTRIBUTING matches tests/hooks)
+        run: bash scripts/verify-fixture-counts.sh
+
+      # A .tpl in the baseline that no phase, command or script renders. It is hashed and
+      # drift-checked like everything else, so editing one goes green while reaching nothing —
+      # which is exactly what happened to this branch's agent-facing instructions.
+      - name: Templates have renderers (no hashed orphans)
+        run: bash scripts/lint-orphan-templates.sh
+
       # The local suite runs on macOS and this runs on Linux, and a class of defect is invisible to
       # whichever one you are on. Today it fired BOTH ways: GNU-only constructs (`\|` in a BRE sed,
       # awk IGNORECASE) match nothing on macOS and work here, while `declare -a NAME` without `=()`
