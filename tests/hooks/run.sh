@@ -274,6 +274,80 @@ run_boundaries() {
 }
 run_boundaries
 
+# ---- inject-blast-radius: a CONTEXT hook, so exit code proves nothing ------------------------
+# Every assertion here is about the PAYLOAD, not the status. A context hook that exits 0 while
+# emitting nothing looks identical to one that works, which is how inject-path-rules.sh shipped
+# eight dead rules (see its header). So each case asserts what was or was not said.
+run_blast() {
+  local hook="$HOOKS/inject-blast-radius.sh" proj out
+  command -v jq >/dev/null 2>&1 || { echo "SKIP  inject-blast-radius (needs jq)"; return 0; }
+  command -v python3 >/dev/null 2>&1 || { echo "SKIP  inject-blast-radius (needs python3)"; return 0; }
+  proj=$(mktemp -d) || return 0
+  mkdir -p "$proj/.claude"
+  # Session ids must be UNIQUE PER RUN. The hook's dedup marker lives in
+  # $TMPDIR/claude-blastradius/<session_id>, which outlives the test's scratch dir, so fixed ids
+  # made every run after the first silent — the suite passed once on a cold TMPDIR and then
+  # reported four failures with the hook byte-identical. Caught exactly that way.
+  local S
+  S="bl$$-$(date +%s)"
+
+  # A hand-written graph, not a built one: this suite tests the hook's reading of the cache, and
+  # building one here would make it a test of build-graph.py instead. `hub` has 6 direct
+  # importers (over the default threshold of 5), `leaf` has 2 (under it).
+  cat > "$proj/.claude/_graph.json" <<'GEOF'
+{"format":1,"corpus":"project","nodes":["hub.ts","leaf.ts","a.ts","b.ts","c.ts","d.ts","e.ts","f.ts","g.ts"],
+ "edges":[{"kind":"code","from":"a.ts","to":"hub.ts","label":""},
+          {"kind":"code","from":"b.ts","to":"hub.ts","label":""},
+          {"kind":"code","from":"c.ts","to":"hub.ts","label":""},
+          {"kind":"code","from":"d.ts","to":"hub.ts","label":""},
+          {"kind":"code","from":"e.ts","to":"hub.ts","label":""},
+          {"kind":"code","from":"f.ts","to":"hub.ts","label":""},
+          {"kind":"code","from":"g.ts","to":"leaf.ts","label":""},
+          {"kind":"code","from":"a.ts","to":"leaf.ts","label":""}]}
+GEOF
+
+  bl_case() {  # name | payload | 1=expect output, 0=expect silence
+    local what="$1" payload="$2" want="$3" got=0 rc=0
+    out=$( cd "$proj" && printf '%s' "$payload" | bash "$hook" 2>/dev/null ) || rc=$?
+    [ -n "$out" ] && got=1
+    if [ "$rc" != 0 ]; then
+      fail=$((fail+1)); echo "FAIL  inject-blast-radius/$what — exited $rc; a context hook must always exit 0"
+    elif [ "$got" = "$want" ]; then pass=$((pass+1))
+    else
+      fail=$((fail+1))
+      echo "FAIL  inject-blast-radius/$what — expected $( [ "$want" = 1 ] && echo output || echo silence )"
+    fi
+  }
+
+  bl_case "hub-over-threshold" '{"session_id":"'"$S"'-1","tool_input":{"file_path":"hub.ts"}}' 1
+  bl_case "leaf-under-threshold" '{"session_id":"'"$S"'-1","tool_input":{"file_path":"leaf.ts"}}' 0
+  bl_case "unknown-file" '{"session_id":"'"$S"'-1","tool_input":{"file_path":"nope.ts"}}' 0
+  bl_case "dedup-same-file-same-session" '{"session_id":"'"$S"'-1","tool_input":{"file_path":"hub.ts"}}' 0
+  bl_case "new-session-speaks-again" '{"session_id":"'"$S"'-2","tool_input":{"file_path":"hub.ts"}}' 1
+
+  # The payload must carry the caveat. A count with no provenance reads as exact, and this graph
+  # is deliberately allowed to be stale.
+  out=$( cd "$proj" && printf '%s' '{"session_id":"'"$S"'-3","tool_input":{"file_path":"hub.ts"}}'          | bash "$hook" 2>/dev/null | jq -r '.hookSpecificOutput.additionalContext' )
+  if printf '%s' "$out" | grep -q 'may be one or more edits behind'; then pass=$((pass+1))
+  else fail=$((fail+1)); echo "FAIL  inject-blast-radius/discloses-staleness — caveat missing"; fi
+  if printf '%s' "$out" | grep -q 'floor on the blast radius'; then pass=$((pass+1))
+  else fail=$((fail+1)); echo "FAIL  inject-blast-radius/discloses-floor — caveat missing"; fi
+
+  : > "$proj/.claude/.no-blast-radius"
+  bl_case "opt-out-flag" '{"session_id":"'"$S"'-4","tool_input":{"file_path":"hub.ts"}}' 0
+  rm -f "$proj/.claude/.no-blast-radius"
+
+  mv "$proj/.claude/_graph.json" "$proj/.claude/_graph.off"
+  bl_case "no-graph-is-inert" '{"session_id":"'"$S"'-5","tool_input":{"file_path":"hub.ts"}}' 0
+  mv "$proj/.claude/_graph.off" "$proj/.claude/_graph.json"
+
+  echo '{ not json' > "$proj/.claude/_graph.json"
+  bl_case "corrupt-graph-is-inert" '{"session_id":"'"$S"'-6","tool_input":{"file_path":"hub.ts"}}' 0
+
+  rm -rf "$proj"
+}
+run_blast
+
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

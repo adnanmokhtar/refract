@@ -296,6 +296,7 @@ Shell scripts at `.claude/skills/module-scaffold/` — user runs manually.
 | `module-boundaries.sh` | **PreToolUse** (`matcher: "apply_patch"`) | emit `hookSpecificOutput.permissionDecision: "deny"` when the patch adds an import that crosses a boundary declared in `ai/modules.md`; the shim must hand the script the patch **body**, not just the path — it inspects the pending edit, never the file on disk |
 | `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **PostToolUse** (`matcher: "apply_patch"`) | run lint/format/test after an edit; emit `decision: "block"` with `reason` to feed a failure back into the turn |
 | `inject-path-rules.sh` | **UserPromptSubmit** (or **SessionStart**) → `hookSpecificOutput.additionalContext` | Codex has no path-scoped rules primitive; inject the relevant `.claude/rules/*` for the touched paths as additional context |
+| `inject-blast-radius.sh` | **PreToolUse** → `hookSpecificOutput.additionalContext` | Must be per-edit: the payload is computed from `.claude/_graph.json` for the file being touched. A SessionStart injection cannot substitute — at session start the file is not yet known. |
 | `notify.sh` | **Stop** / **Notification** | turn-complete notification |
 | `session-start.sh` | **SessionStart** (`matcher: "startup|resume"`) → `additionalContext` | surface `ai/status.md` / current phase at session open |
 | `update-session-log.sh` | **Stop** | append to `ai/dynamic/session-log.md` when a turn completes |

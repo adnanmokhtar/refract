@@ -201,6 +201,7 @@ Shell steps in `.cline/skills/module-scaffold/*.sh` (copied verbatim) — user r
 - `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` → **`PostToolUse`** (native) — receives tool result + timing; run lint/format/test.
 - `session-start.sh` (SessionStart) → **`TaskStart`** (native) — inject "read `ai/status.md`" via `contextModification`.
 - `inject-path-rules.sh` → best as **path-scoped `.clinerules`** (always-apply rules), or `PreToolUse` `contextModification` keyed on the edited path.
+- `inject-blast-radius.sh` → `PreToolUse` `contextModification` keyed on the edited path. **`.clinerules` is NOT an alternative here** (it is for `inject-path-rules.sh`): the text is derived from `.claude/_graph.json` per file, so a static always-apply rule cannot carry it.
 - `update-session-log.sh` (Stop) → nearest native is **`TaskCancel`** (cleanup on task end); no exact Stop event — otherwise keep the manual "append to `ai/dynamic/session-log.md`" rule.
 - `notify.sh` → **n/a** (no notification event) — drop or route through `PostToolUse`.
 - `verify-gate.sh` (Stop) → **no Stop-equivalent.** Cline's six events end at `TaskCancel`, which is cleanup and cannot refuse a finish. Keep the check at `.husky/pre-commit`; a `PostToolUse` test run is feedback, not a gate.

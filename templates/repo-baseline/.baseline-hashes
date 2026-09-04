@@ -13,6 +13,7 @@
 .claude/.gitignore  7b1f25d85a1dda7595a52cb8d7692a980a5dbc51fc1fc8ea0d63064573edd3c3
 .claude/GUIDE.md  0380cb2455dd26ef4cf7b2ffccf1c9f52e3de516bf872bdb63bde28a6e52a7c9
 .claude/GUIDE.md  1a5d621af3480111b2aed5bf747442f6e646287ecca2033427f898ca78772cc3
+.claude/GUIDE.md  3040d21500dad756abcbb17ecf6df6d611bc755b36157ab4268f8b36d9d3a063
 .claude/GUIDE.md  50b5c631eb9d843e13e159c5bdb7d5986c3f0ef54c5282dcd380d1fc3ba2d798
 .claude/GUIDE.md  62569a5dd13b2074da856129dd1dac92f574585e5d87e924eed17dd22e368ec4
 .claude/GUIDE.md  cef6d6316b81b05843db34a0a1cb1db0561e35092169ac474c866cbbf75d8ceb
@@ -50,6 +51,7 @@
 .claude/hooks/guard-destructive.sh  0b783c6a91942381818349578ef24977c09cb5aa4fd6adc7b80b2624adc5c449
 .claude/hooks/guard-destructive.sh  3f0b0f2dc1724e5a8b48e5521c1be1bb05be43d6fef048bc931d4ecefcf48926
 .claude/hooks/guard-destructive.sh  c48c9938552748f6efa02be3addd33f08f3e73b5509b5cd3724eb3d4470692b9
+.claude/hooks/inject-blast-radius.sh  03a4c0ae9bb0fc79039e7807c0d2bc10afffda0565d444637607cb8e41bb9151
 .claude/hooks/inject-path-rules.sh  06ad45fd46a2180f458ae3adc57b19300d53382820f9fba5acd3f0b4f05d64dd
 .claude/hooks/inject-path-rules.sh  5252deaa6ed6154bfa1704d4448ecc7e5f0cb262b8c6453d98591d9237cf9cb3
 .claude/hooks/inject-path-rules.sh  98cb15c1af1e2cceccaeee805d04f8703935f14e5a19b7c15289b8ccac0dfc6d
@@ -115,6 +117,7 @@
 .claude/settings.json  379278ef1da6557cf24f47dd889ea015f70a32079835ca5e39c9007a77336ca4
 .claude/settings.json  633a641845d73c0633d5728fbfe82ffeec4c8f8fb079849dac9471245bc54f60
 .claude/settings.json  8d70a57a9f3a7bb6637e4cba0ec5fe873d709248a2676438452737b495be6d17
+.claude/settings.json  8dfc644cd93112810daf39d0f86ce5897d9b36e586af99c04f3025a800a63f9b
 .claude/settings.json  b6e9fff7f4b2d678c1d93949176eed4a48d64ed8f79a0763efb77377916b3ca5
 .claude/settings.json  f4c2d3c9d5b6cee171f056d1cdf645e6c4876d36cd861fe9f07eb1de8819d45a
 .claude/skills/.gitkeep  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855

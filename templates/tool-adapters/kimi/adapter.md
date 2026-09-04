@@ -196,6 +196,7 @@ Kimi-specific addendum: a "Skills available" section pointing at `.kimi/skills/`
 | `module-boundaries.sh` | `PreToolUse` (matcher `Edit\|Write\|MultiEdit`) — exit `2`; stderr carries the declared boundary + the offending specifier, which Kimi feeds back as an LLM correction | ✓ native |
 | `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit`) | ✓ native |
 | `inject-path-rules.sh` | `PreToolUse` — emit the matched `paths:` rule on **stdout with exit 0** (Kimi appends non-empty stdout to context) | ~ works, but via stdout-append, NOT a structured `additionalContext` field — Kimi has no JSON control-output schema |
+| `inject-blast-radius.sh` | `PreToolUse` — emit the summary on **stdout with exit 0** (Kimi appends non-empty stdout to context) | Same stdout-append caveat as `inject-path-rules.sh`. Exit non-zero would read as a block, and this hook must never block. |
 | `notify.sh` | `Notification` (or `Stop`) | ✓ native |
 | `session-start.sh` | `SessionStart` — briefing lands via stdout-append (exit `0`), same envelope as `inject-path-rules.sh` above | ✓ native |
 | `update-session-log.sh` | `SessionEnd` | ✓ native |

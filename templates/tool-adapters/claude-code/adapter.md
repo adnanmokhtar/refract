@@ -62,6 +62,7 @@ POSIX shell. Must be executable. Common hooks:
 - `secret-scan.sh` — blocks writes that introduce credentials (keys, tokens, connection strings).
 - `module-boundaries.sh` — blocks an edit whose new import crosses a boundary declared in `ai/modules.md` (`A MUST NOT import from B`, `A MAY import from B only via <facade>`). Reads the incoming edit; TS/JS + Python only; silent when no boundary is declared.
 - `inject-path-rules.sh` — context-only; injects a `paths:`-scoped rule from `.claude/rules/` when an edit touches a file it governs (once/session).
+- `inject-blast-radius.sh` — context-only; when an edit touches a file with >=5 direct importers, injects the dependent count, the per-hop shape and the direct importers from `.claude/_graph.json` (once per file per session).
 - `guard-destructive.sh` — second-layer block on destructive bash (protected-branch/force push, `rm -rf`, DB drops, `curl|sh`, `dd`/`mkfs`).
 - `session-start.sh` — one-time briefing on session open; `notify.sh` — OS notification on Notification event.
 - `update-session-log.sh` / `verify-gate.sh` — Stop hooks (session summary + verify gate).

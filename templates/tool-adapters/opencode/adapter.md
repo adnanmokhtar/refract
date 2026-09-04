@@ -241,6 +241,7 @@ OpenCode surfaces this in its skills picker. Supporting scripts run via OpenCode
 | `module-boundaries.sh` | **`tool.execute.before`** | `throw` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`; the plugin must pass the edit **body** through to the script — it inspects the pending content, not the file on disk |
 | `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **`tool.execute.after`** (or **`file.edited`** for format-on-save) | run lint/format/test after an edit tool completes |
 | `inject-path-rules.sh` | no path-scoped-rules primitive → **`instructions` globs** in `opencode.json` (always-apply) **or** a `chat.message` handler injecting context | OpenCode loads all `instructions` markdown as context; path-conditional injection needs a plugin |
+| `inject-blast-radius.sh` | no equivalent in `instructions` globs → a **`tool.execute.before` handler** that shells out to the hook and injects its output | The `instructions` route works for `inject-path-rules.sh` because those are static rules; this payload is per file and computed, so only the handler route carries it. |
 | `notify.sh` | **`session.idle`** | fire a notification when the turn goes idle |
 | `session-start.sh` | **`session.created`** | surface `ai/status.md` / phase at session open |
 | `update-session-log.sh` | **`session.idle`** | append to `ai/dynamic/session-log.md` |
