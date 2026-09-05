@@ -102,6 +102,37 @@ mg 'react-native|"expo"'      && MOB_FW="react-native"
 [ -n "$(ffp '*/android/build.gradle' 4)" ] && MOB_FW="${MOB_FW:-android-native}"
 sig "mobile_framework_detected=$( [ -n "$MOB_FW" ] && echo yes || echo no )" "$MOB_FW"
 
+# native_bridge_present — CUSTOM bridge code, not the scaffolding every mobile app ships.
+#
+# Declared in templates/packs/_trigger-vocabulary.md and consumed by the mobile pack's
+# native-bridge topic; nothing produced it, so that topic could never fire on any project.
+# It went unnoticed because BOTH guards for exactly this (lint-setup-contracts.sh Rule 4 and
+# test-detect-signals.sh § 1) enumerated `^- `<name>_detected`` only, and this name does not
+# carry that suffix.
+#
+# The naive test — "a .swift under ios/" — would report yes for every Flutter and React
+# Native project on earth, because ios/Runner/AppDelegate.swift is generated scaffolding.
+# A signal that is always yes is not a signal. What distinguishes a real bridge is the
+# bridge SURFACE: a platform channel, a React Native module registration, or a package that
+# exists to hold native modules. Verified against a real Flutter app that has the
+# scaffolding and no channels — it reports `no`, which is the correct answer there.
+NB=""
+_nb_roots=""
+for _d in lib src app ios android; do [ -d "$_d" ] && _nb_roots="$_nb_roots $_d"; done
+if [ -n "$_nb_roots" ]; then
+  # shellcheck disable=SC2086
+  grep -rqE 'MethodChannel\(|EventChannel\(|BasicMessageChannel\(' $_nb_roots \
+    --exclude-dir=node_modules --exclude-dir=build --exclude-dir=.dart_tool 2>/dev/null \
+    && NB="flutter-platform-channel"
+  # shellcheck disable=SC2086
+  grep -rqE 'RCTBridgeModule|ReactContextBaseJavaModule|@ReactMethod|TurboModule' $_nb_roots \
+    --exclude-dir=node_modules --exclude-dir=build 2>/dev/null \
+    && NB="${NB:-react-native-module}"
+fi
+[ -n "$(ffp '*-native-modules*' 3)" ] && NB="${NB:-native-modules-package}"
+sig "native_bridge_present=$( [ -n "$NB" ] && echo yes || echo no )" "$NB"
+unset _nb_roots _d
+
 PKG_MGR=""
 [ -f bun.lockb ] || [ -f bun.lock ]  && PKG_MGR="bun"
 [ -f pnpm-lock.yaml ]                && PKG_MGR="${PKG_MGR:-pnpm}"
@@ -280,7 +311,7 @@ emit() {
     while IFS= read -r t; do
       [ -z "$t" ] && continue
       printf '%s\n' "${NAMES[@]}" | grep -qxF "$t" || missing="$missing $t"
-    done < <(grep -oE '^- `[a-z0-9_]+_detected`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`$//' | sort -u || true)
+    done < <(grep -oE '^- `[a-z0-9_]+`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`$//' | sort -u || true)
     printf '\n## Vocabulary coverage\n\n'
     if [ -z "$missing" ]; then
       printf 'Every `*_detected` trigger in `templates/packs/_trigger-vocabulary.md` has a producer here.\n'

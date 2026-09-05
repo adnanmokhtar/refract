@@ -188,7 +188,7 @@ if [ -f "$VOCAB" ]; then
       continue
     fi
     add "R4-dead-trigger" "$VOCAB" "trigger '$trig' is declared and consumed but nothing ASSIGNS it — a prose mention of the name is not an extractor (grep for '$trig=' or '$trig:' in templates/appendices.md, templates/packs/learning/skills/ or scripts/)"
-  done < <(grep -oE '^- `[a-z0-9_]+_detected`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`$//' | sort -u || true)
+  done < <(grep -oE '^- `[a-z0-9_]+`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`$//' | sort -u || true)
 fi
 
 # ---- Rule 5 — browser-only artifacts declare project_kind -------------------------------------
