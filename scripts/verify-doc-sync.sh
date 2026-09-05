@@ -16,7 +16,8 @@ export LC_ALL=C
 # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
 _ss="${BASH_SOURCE[0]}"
 while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
-REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
+SELF_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"   # resolved BEFORE any cd; see _HB_FILE below
+REPO_ROOT="$(cd -P "$SELF_DIR/.." && pwd)"; unset _ss _sd
 STRICT=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -74,7 +75,23 @@ DOC_TOKENS="$(grep -rhoE '`/[a-z][a-z0-9]+(-[a-z0-9]+)*' "$COMMANDS_DOC" "$REFER
               | sed 's#^`/##' | sort -u || true)"
 # Harness builtins (Claude Code itself, not repo command files) that legitimately appear in
 # the docs as `/token` — allowlisted so they don't read as dangling repo-command refs.
-HARNESS_BUILTINS="continue resume schedule"
+# Sourced from the ONE shared list, not restated here: lint-command-routing.sh needs the same
+# set for the description surface, and two hand-maintained copies drift.
+# Read it only when it is there: a fixture root carries commands and docs, not scripts, and
+# under `set -euo pipefail` a sed on a missing path aborts the whole run rather than falling
+# through to the default. The list lives beside the REAL script, so try that too.
+# $SELF_DIR, not a dirname of $BASH_SOURCE computed here: by this line the script has cd'd
+# into REPO_ROOT, so a relative invocation (`bash scripts/verify-doc-sync.sh`, which is how CI
+# calls it) would resolve `scripts` against the FIXTURE root and abort. Caught by the good
+# fixture only under a relative call, because the harness invokes by absolute path.
+_HB_FILE="$REPO_ROOT/scripts/_harness-builtins.txt"
+[ -f "$_HB_FILE" ] || _HB_FILE="$SELF_DIR/_harness-builtins.txt"
+if [ -f "$_HB_FILE" ]; then
+  HARNESS_BUILTINS="$(sed 's/#.*//' "$_HB_FILE" | tr -s '[:space:]' ' ')"
+else
+  HARNESS_BUILTINS="continue resume schedule clear"
+fi
+[ -n "${HARNESS_BUILTINS// /}" ] || HARNESS_BUILTINS="continue resume schedule clear"
 dangling=0
 for t in $DOC_TOKENS; do
   # Backed if a command file of that exact name exists (root / pack / repo- / workspace-baseline).
