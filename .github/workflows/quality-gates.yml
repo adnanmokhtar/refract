@@ -210,6 +210,16 @@ jobs:
       - name: Tool scoping (least privilege declared, advisory agents read-only)
         run: bash scripts/lint-tool-scoping.sh
 
+      # A skill's `description` is paid every session; its BODY is paid only when the skill
+      # fires. So this is not a session-tax gate — it is the line past which one file stops
+      # being a procedure and becomes a manual, with the sometimes-needed detail moved to
+      # references/ and read on demand. It also holds the two failure modes progressive
+      # disclosure introduces: a pointer to a reference file that does not exist, and a
+      # reference file no SKILL.md names (so nothing ever reads it, and the install path
+      # carries a file for no reason).
+      - name: Skill budget (SKILL.md under 500 lines, sidecars resolve and are cited)
+        run: bash scripts/lint-skill-budget.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.

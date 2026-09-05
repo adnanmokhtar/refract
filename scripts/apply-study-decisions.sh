@@ -279,6 +279,40 @@ check_skill_shape_twin() {
   return 0
 }
 
+# ── Skill sidecars ─────────────────────────────────────────────────────────
+# A skill folder is not just SKILL.md. Progressive disclosure puts the detail a skill
+# only sometimes needs in `references/`, the deterministic steps in `scripts/`, and any
+# fixtures in `assets/` — read on demand instead of paid for on every load.
+#
+# The CREATE path already carries them: phase-4.2-apply.md § "Copy skills" does
+# `cp -R "$s" .claude/skills/` on the whole folder. This path — the STUDY-DECIDE-ACT
+# path every ENHANCE and --refresh run takes — copied `$pack_src` alone, so a skill's
+# references installed on a greenfield setup and silently never arrived on a refresh.
+# Same pack, same skill, two different things on disk depending on how you got there.
+# --migrate-skill-shape already knows these dirs exist (it preserves them when resolving
+# a twin); this is the producer side of the same fact.
+SKILL_SIDECAR_DIRS='references scripts assets'
+
+sync_skill_sidecars() {  # $1=pack_src  $2=installed target path
+  local src="$1" tgt="$2" src_dir tgt_dir d
+  [[ "$src" == */SKILL.md ]] || return 0
+  src_dir="$(dirname "$src")"
+  for d in $SKILL_SIDECAR_DIRS; do
+    [[ -d "$src_dir/$d" ]] || continue
+    # The legacy flat shape is a single file — it has nowhere to put a sidecar. Say so
+    # rather than dropping it: the SKILL.md just installed cites files that will not be
+    # there, and the fix is a shape migration, not a retry.
+    if [[ "$tgt" != */SKILL.md ]]; then
+      echo "  sidecar-skip: $(basename "$src_dir")/$d/ — target is the legacy flat shape and cannot carry it. Migrate: apply-study-decisions.sh \"$TARGET\" --migrate-skill-shape --apply"
+      continue
+    fi
+    tgt_dir="$(dirname "$tgt")"
+    mkdir -p "$tgt_dir/$d"
+    cp -R "$src_dir/$d/." "$tgt_dir/$d/" 2>/dev/null || true
+    echo "  sidecar: ${tgt_dir#$TARGET/}/$d/"
+  done
+}
+
 # row_would_write — does THIS loop write a file for this decision, given --include?
 #
 # The distinction is what separates a blocking twin from a noisy one. MERGE and
@@ -1046,6 +1080,7 @@ for action in "${actions[@]:-}"; do
           # ai/patterns/dashboards.md, which is none of commands or agents.
           rewrite_skill_refs_to_installed_shape "$tgt"
         fi
+        [[ "$kind" == "skills" ]] && sync_skill_sidecars "$pack_src" "$tgt"
         echo "  ADD     $pack/$kind/$base → ${tgt#$TARGET/}"
       else
         # The DESTINATION, relative to the target repo — not `basename dir/basename file`,
@@ -1133,6 +1168,7 @@ for action in "${actions[@]:-}"; do
         else
           rewrite_skill_refs_to_installed_shape "$tgt"
         fi
+        [[ "$kind" == "skills" ]] && sync_skill_sidecars "$pack_src" "$tgt"
         echo "  REPLACE $rel  ($rest; backup: $bak_dir/$rel)"
       else
         echo "  would-REPLACE ${tgt#$TARGET/}  ($rest)"
