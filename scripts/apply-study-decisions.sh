@@ -795,6 +795,7 @@ run_merge_engine() {
   return $?
 }
 
+declare -a MERGE_SKILL_SRCS=()   # skill pack sources handed to the merge engine (sidecars after)
 VARIANTS_LOG="$TARGET/.claude/_command-variants.md"
 declare -a CMD_OWNER=()          # "name.md|pack" rows, in claim order
 VARIANT_PATH=""
@@ -1180,6 +1181,11 @@ for action in "${actions[@]:-}"; do
       # here so the summary distinguishes "handed to the engine" from "nobody looked at it".
       if merge_engine_enabled; then
         delegated=$((delegated + 1))
+        # A skill refreshed through the ENGINE still needs its sidecars. The engine rewrites
+        # SKILL.md and knows nothing about references/ — and on a real refresh MERGE is the
+        # normal case, not the exception (measured: 57 of 60 rows), so syncing sidecars only
+        # on the ADD/REPLACE arms left the common path uncovered.
+        [[ "$kind" == "skills" ]] && MERGE_SKILL_SRCS+=("$pack_src")
       elif [[ "$INCLUDE" == *merge* ]]; then
         echo "  REVIEW  $pack/$kind/$base  ($decision; manual merge required — not auto-applied)"
         listed=$((listed + 1))
@@ -1207,6 +1213,27 @@ done
 ENGINE_RC=0
 if [[ "$delegated" -gt 0 ]] && merge_engine_enabled; then
   run_merge_engine || ENGINE_RC=$?
+  # Sidecars for the skills the engine just merged. After it, not before: the engine resolves
+  # and rewrites the installed SKILL.md itself, and a sidecar copied first would sit beside a
+  # file that had not been refreshed yet.
+  if [[ "$APPLY" -eq 1 && ${#MERGE_SKILL_SRCS[@]} -gt 0 ]]; then
+    _skills_dir="$(target_dir_for_kind skills)"
+    for _src in "${MERGE_SKILL_SRCS[@]}"; do
+      # Name from the SOURCE path, not artifact_identity: that helper takes a `base`
+      # (`<name>/SKILL.md`), and $_src carries the pack/kind prefix too, which it would
+      # fold into the name and resolve to a directory that cannot exist.
+      case "$_src" in
+        */SKILL.md) _name="$(basename "$(dirname "$_src")")" ;;
+        *)          _name="$(basename "$_src" .md)" ;;
+      esac
+      for _shape in "$_skills_dir/$_name/SKILL.md" "$_skills_dir/$_name.md"; do
+        [[ -f "$_shape" ]] || continue
+        sync_skill_sidecars "$_src" "$_shape"
+        break
+      done
+    done
+    unset _skills_dir _src _name _shape
+  fi
 fi
 
 echo ""

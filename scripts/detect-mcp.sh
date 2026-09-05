@@ -548,6 +548,22 @@ for k, cfg in servers_now.items():
                 placeholders.append(k)
                 break
 emit("placeholders", ",".join(sorted(placeholders)))
+
+# Stale audit — an installed key whose PACKAGE is no longer the one this catalog writes.
+# The additive-only contract means such an entry is never rewritten and, until now, never
+# mentioned either: the key is present, so the run reports "already has every wired
+# recommendation" and says nothing. That is how a package deprecated upstream keeps running
+# in a project for as long as the project lives. Reported, never edited — same rule as the
+# placeholders above: the file is the user's.
+stale = []
+for r in recs:
+    cfg = servers_now.get(r["id"])
+    if not isinstance(cfg, dict):
+        continue
+    blob = " ".join([str(cfg.get("command", ""))] + [str(a) for a in (cfg.get("args") or [])])
+    if r["package"] and r["package"] not in blob:
+        stale.append("%s=%s" % (r["id"], r["package"]))
+emit("stale", ",".join(sorted(stale)))
 emit("exists", "yes" if mcp_file.exists() else "no")
 emit("present", ",".join(sorted(servers_now.keys())))
 
@@ -680,7 +696,7 @@ fi
 
 # Read the state file back into shell vars (bash 3.2: no associative arrays).
 st_applied=""; st_added=""; st_preserved=""; st_user_only=""
-st_placeholders=""; st_present=""; st_exists=""; st_error=""; st_unwired_skipped=""
+st_placeholders=""; st_present=""; st_exists=""; st_error=""; st_unwired_skipped=""; st_stale=""
 st_nopython=""
 while IFS=$'\t' read -r k v; do
   case "$k" in
@@ -689,6 +705,7 @@ while IFS=$'\t' read -r k v; do
     preserved)       st_preserved="$v" ;;
     user_only)       st_user_only="$v" ;;
     placeholders)    st_placeholders="$v" ;;
+    stale)           st_stale="$v" ;;
     present)         st_present="$v" ;;
     exists)          st_exists="$v" ;;
     error)           st_error="$v" ;;
@@ -857,6 +874,11 @@ commafy() { [[ -n "$1" ]] || { echo ""; return 0; }; echo "$1" | sed 's/,/`, `/g
   if [[ -n "$st_placeholders" ]]; then
     printf '> **⚠ Existing entries carry an unrunnable placeholder.** These keys in `%s` have a `<TODO: …>` string inside `args`, so `npx` will fail the moment the server starts: %s. An earlier version of this script emitted those; it no longer does. They are **your** keys, so this script will not edit them — delete each entry, or replace the placeholder with a package you have verified on npm.\n\n' \
       "$MCP_FILE" "$(commafy "$st_placeholders")"
+  fi
+
+  if [[ -n "$st_stale" ]]; then
+    printf '> **⚠ Existing entries name a package this catalogue no longer uses.** In `%s`, these keys are present so nothing was written for them, and they will stay as they are for as long as the project lives — the additive rule never rewrites a key you own. Each pair below is `key=the package this script would write today`: %s. Typically the old package was deprecated upstream or never existed. Compare each against its entry and replace it by hand if you agree.\n\n' \
+      "$MCP_FILE" "$(commafy "$st_stale")"
   fi
 
   printf '## Notes\n\n'
