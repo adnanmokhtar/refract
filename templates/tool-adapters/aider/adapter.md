@@ -22,7 +22,7 @@ repo-root/
 YAML. Key fields:
 ```yaml
 # Model config
-# model: anthropic/claude-sonnet-4-6
+# model: anthropic/claude-sonnet-5
 # (leave commented — user picks; env vars take precedence)
 
 # Files always loaded as context (read-only) — canonical order, must match Phase 4.8.0 contract

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/claude-code/agents/v1.json",
+  "title": "Claude Code agent frontmatter",
+  "description": "Validates the YAML frontmatter of */agents/*.md. No maxLength on `description`. The routing text is load-bearing \u2014 it is what separates 195 commands from each other \u2014 so its size is a BUDGET question, owned by whoever tunes the always-loaded cost, not a shape question owned here. The 300/400-char caps that used to sit here described no repo that ever existed: 61 commands and 54 agents were over them the day they were written.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "description",
+    "tools"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "description": "kebab-case, matches the filename minus .md"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10,
+      "allOf": [
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "tools": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ],
+      "description": "Comma-STRING form only in this repo: apply-adapter-sync.sh converts `^tools:[[:space:]]*[A-Za-z]` into OpenCode's map. Gate: lint-tool-scoping.sh."
+    },
+    "model": {
+      "type": "string",
+      "enum": [
+        "opus",
+        "sonnet",
+        "haiku",
+        "inherit"
+      ]
+    },
+    "color": {
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "pack": {
+      "type": "string"
+    },
+    "trigger": {
+      "type": "string"
+    }
+  }
+}

@@ -42,7 +42,7 @@ JSON. Schema (per OpenCode's published config schema as of Apr 2026 — only the
     "openai":    { "api_key": "..." },
     "moonshot":  { "api_key": "...", "base_url": "https://api.moonshot.ai/anthropic" }
   },
-  "model": "anthropic/claude-sonnet-4-6",
+  "model": "anthropic/claude-sonnet-5",
   "instructions": ["AGENTS.md", "CLAUDE.md", ".claude/rules/*.md", "ai/patterns/*.md"]
 }
 ```
@@ -134,7 +134,7 @@ OpenCode reads `.opencode/commands/<name>.md` natively. The adapter copies each 
 ---
 description: Hit a dev endpoint via curl and verify DTO shape
 agent: build                          # REQUIRED for action commands — see frontmatter note below
-model: anthropic/claude-sonnet-4-6   # optional — falls back to project default
+model: anthropic/claude-sonnet-5   # optional — falls back to project default
 ---
 
 # /endpoint-test
@@ -180,7 +180,7 @@ OpenCode now reads `.opencode/agents/<name>.md` as a first-class persona definit
 name: backend-reviewer
 description: Reviews backend code for repository / service / controller hygiene
 mode: subagent
-model: anthropic/claude-sonnet-4-6
+model: anthropic/claude-sonnet-5
 tools:
   read: true
   edit: false
@@ -195,7 +195,7 @@ OpenCode picks this up the same way Claude Code picks up `.claude/agents/<name>.
 **Frontmatter is NOT a 1:1 copy — three transforms are mandatory** (a verbatim copy of the `.claude` agent loads broken or off-contract):
 1. `tools:` — Claude's comma-string (`tools: Read, Grep, Edit`) → YAML record (`tools:\n  read: true`). OpenCode rejects the string form outright (`expected record, received string`).
 2. `mode: subagent` — inject when absent, so OpenCode routes the file as a dispatchable persona rather than a primary agent.
-3. `model:` — Claude tier shorthand (`sonnet`/`opus`/`haiku`) → provider id (`anthropic/claude-sonnet-4-6` …); a bare alias does not resolve in OpenCode's catalogue.
+3. `model:` — Claude tier shorthand (`sonnet`/`opus`/`haiku`) → provider id (`anthropic/claude-sonnet-5` …); a bare alias does not resolve in OpenCode's catalogue.
 
 These are applied **deterministically** by `apply-adapter-sync.sh`'s `opencode_normalize_agent_frontmatter` (idempotent), and **enforced** by `audit-adapter-coverage.sh`'s `opencode_agent_frontmatter_ok`, which fails coverage for any agent that does not satisfy all three. Do not hand-author agent files that skip them — that is exactly how a botched sync ships undetected.
 
