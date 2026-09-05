@@ -217,7 +217,7 @@ re-verify rather than silently shipping a broken translation.
 | **149 commands** | 15 global + 134 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
-| **118 scripts** | Validators, linters, sync, search and audit tooling |
+| **119 scripts** | Validators, linters, sync, search and audit tooling |
 | **4 overlays** | GDPR · HIPAA · PCI-DSS · SOC 2 |
 
 ### The guards that install with it

@@ -34,7 +34,7 @@ use Trello while the next uses Jira. The MCP is wired by `detect-mcp.sh`, gated 
 | Trello | `@delorenj/mcp-server-trello` | `TRELLO_API_KEY`, `TRELLO_TOKEN`, `TRELLO_BOARD_ID` |
 | Jira | `@aashari/mcp-server-atlassian-jira` | `ATLASSIAN_SITE_NAME`, `ATLASSIAN_USER_EMAIL`, `ATLASSIAN_API_TOKEN` |
 | Linear | `@tacticlaunch/mcp-linear` | `LINEAR_API_KEY` |
-| GitHub Issues | `@modelcontextprotocol/server-github` (universal) | `GITHUB_TOKEN` |
+| GitHub Issues | `ghcr.io/github/github-mcp-server` (universal, container) | `GITHUB_TOKEN` |
 
 > ⚠️ Verify each non-Trello server's exact env-var names against its README — they vary.
 

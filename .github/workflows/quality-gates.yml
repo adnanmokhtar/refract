@@ -220,6 +220,15 @@ jobs:
       - name: Skill budget (SKILL.md under 500 lines, sidecars resolve and are cited)
         run: bash scripts/lint-skill-budget.sh
 
+      # detect-mcp.sh WRITES .mcp.json, so a dead package name in its catalog is not a stale
+      # doc — it is a config that fails at startup in every project the setup touched, which
+      # is the exact thing that file's own header refuses to emit. It had no mechanism: two
+      # packages 404'd and two more were deprecated upstream, one of them a universal rec
+      # written to every project. Only a definitive registry answer fails the build; a
+      # timeout or 5xx skips the probe, so a registry outage cannot redden this.
+      - name: MCP catalog (every wired server still installable)
+        run: bash scripts/lint-mcp-catalog.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.
