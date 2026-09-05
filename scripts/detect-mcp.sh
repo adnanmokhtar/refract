@@ -315,7 +315,7 @@ fi
 
 # ---------- Database servers — gated on the RESOLVED engine, never on "a schema exists" ----------
 if has_engine postgres; then
-  add_rec "postgres" "Postgres MCP" "@modelcontextprotocol/server-postgres" \
+  add_rec "postgres" "Postgres MCP" "@henkey/postgres-mcp-server" \
     "Postgres is the declared engine — read-only query agent for schema inspection + analysis."
 fi
 if has_engine mysql; then
@@ -459,7 +459,11 @@ def server_config(rec):
                 "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", pkg],
                 "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"}}
     if rid == "postgres":
-        return {"command": "npx", "args": ["-y", pkg, "${DATABASE_URL}"]}
+        # The reference server this replaces is deprecated upstream ("no longer supported").
+        # Successor takes the DSN as a NAMED flag, not a positional arg — the shape is the one
+        # its own README documents, not an inference from the old entry's shape.
+        return {"command": "npx",
+                "args": ["-y", pkg, "--connection-string", "${DATABASE_URL}"]}
     if rid == "figma":
         return {"command": "npx", "args": ["-y", pkg],
                 "env": {"FIGMA_ACCESS_TOKEN": "${FIGMA_TOKEN}"}}
