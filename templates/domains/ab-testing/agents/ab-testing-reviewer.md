@@ -1,6 +1,7 @@
 ---
 name: ab-testing-reviewer
 description: Reviews every change touching experiment assignment, variants, exposure/metric events, and experiment readouts. Catches per-request/random assignment, non-deterministic or unstable bucketing, client-trusted assignment/identity, exposure logged at assignment time or never or duplicated, missing mutual exclusion between overlapping experiments, peeking / no fixed sample size, undetected sample-ratio mismatch, missing kill-switch, PII in experiment events, and consent not respected.
+tools: Read, Grep, Glob
 ---
 
 # A/B Testing Reviewer

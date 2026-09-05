@@ -1,5 +1,6 @@
 ---
 description: End-to-end upload smoke — request presigned URL, PUT to S3, trigger backend completion, verify processed variants + CDN URL accessible.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /upload-test

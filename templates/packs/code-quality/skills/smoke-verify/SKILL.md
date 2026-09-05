@@ -3,6 +3,7 @@ name: smoke-verify
 description: Stack-agnostic boot-check run as the FINAL step of a behaviour-preserving sweep (/optimize, /audit, /align, /migrate). A green test suite does NOT prove the app still starts — a refactor can break DI wiring, route/handler registration, an import cycle, or config loading that no unit test exercises. This skill actually boots the app (dev server / HTTP server + health probe / CLI invocation / library import) per PROJECT_KIND and FAILS if it doesn't come up. Reuses frontend/skills/dev-server-start/SKILL.md for frontend stacks.
 kind: skill
 pack: code-quality
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: smoke-verify

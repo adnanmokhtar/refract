@@ -1,6 +1,7 @@
 ---
 name: commitment-coverage
 description: Analyse committed-spend and reserved-capacity posture — coverage (what share of eligible usage is discounted), utilisation (what share of what was bought is used), expiry exposure, and a buy/hold/let-lapse recommendation with break-even arithmetic. Run before a commitment purchase or renewal, quarterly, and after any material capacity change. Owns the RATE half of spend — `unit-cost-probe` owns the per-unit number and `egress-trace` owns transfer, neither of which commitments affect.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: commitment-coverage

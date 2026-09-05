@@ -1,6 +1,7 @@
 ---
 name: flag-reviewer
 description: Audits every change touching feature flags — declaration, evaluation sites, rollout config, and cleanup. Catches stale flags, hot-loop evaluations, missing telemetry, and flags abused as auth gates.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Flag Reviewer

@@ -1,5 +1,6 @@
 ---
 description: Audit IAM (cloud + service) policies for least-privilege violations, dead permissions, overly-broad roles, missing MFA, and suspicious entitlement chains.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit-iam

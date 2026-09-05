@@ -3,6 +3,7 @@ name: find-and-align
 description: Per-finding fix loop for codebase alignment. DETECT → DECIDE → FIX → VERIFY → RECORD. One commit per finding. Net-lines ≤ 0 for structural rows; small + budget for functional rows (added lines must cite idioms). Stack-agnostic. Used by /align-phase, /align-fast.
 kind: skill
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: find-and-align

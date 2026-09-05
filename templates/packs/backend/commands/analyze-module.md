@@ -1,5 +1,6 @@
 ---
 description: Deep module analysis — architecture, performance, security, DB, tests, dead code, in parallel.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /analyze-module <path|name>

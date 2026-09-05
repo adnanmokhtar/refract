@@ -2,6 +2,7 @@
 description: One-shot per-phase alignment runner. After /align-scan + /align-plan, executes phase N — runs DETECT → DECIDE → FIX → VERIFY → RECORD per row in parallel waves, then auto-runs /align-gate <N>. Auto-routes per row (trivial/standard → standard find-and-align loop; heavy → supervised loop with reviewer pause). Same discipline, same artifacts, same closure-verb vocabulary as the manual flow — but parallel and unattended. Built for routine alignment sweeps where serial wall-time and human-watch pauses are the bottleneck. Mirrors /migration-fast.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-fast <N>

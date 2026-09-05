@@ -1,6 +1,7 @@
 ---
 name: caching-architect
 description: Designs caching strategies — what to cache, where, with what TTL, what invalidation. Distinct from `performance-optimizer` (broader); this agent is the cache-layer specialist.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

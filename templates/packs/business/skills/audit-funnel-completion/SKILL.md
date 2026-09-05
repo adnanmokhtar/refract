@@ -1,6 +1,7 @@
 ---
 name: audit-funnel-completion
 description: Walk a user-facing flow as each role and report drop-off opportunities, missing instrumentation, error-path gaps, and the single highest-leverage fix to lift completion rate. Use when conversion is below target on one funnel (signup, checkout, onboarding, subscription), or as a pre-launch check on a new flow. Single-flow — `check-business-coverage` is the cross-flow, product-level counterpart.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: audit-funnel-completion

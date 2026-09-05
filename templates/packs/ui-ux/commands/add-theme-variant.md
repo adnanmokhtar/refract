@@ -2,6 +2,7 @@
 description: One command to ADD a new theme variant to a multi-theme app — creates a NEW theme slot only (never edits an existing theme or the shared layer), builds it modern + technically-correct + fast + feature-complete-vs-the-default-theme, each gated. Additive is the top invariant. For multi-theme architectures (a `themes/<name>/` slot system) only.
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /add-theme-variant <name> [<more>...]

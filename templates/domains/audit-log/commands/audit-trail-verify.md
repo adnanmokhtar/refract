@@ -1,5 +1,6 @@
 ---
 description: Verify the audit trail end-to-end — recompute the hash chain / sequence integrity against the stored values, AND prove coverage of a checklist of sensitive actions (each must cite its emit site or FAIL).
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-trail-verify

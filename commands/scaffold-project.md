@@ -3,6 +3,7 @@ description: Generate a working codebase from nothing, up to a booting dev serve
 compatibility: Requires an empty or non-existent destination directory, since no overwrite flag exists; git on PATH; and at least one JS package manager on PATH (pnpm, npm, bun, or yarn) to run the real scaffolders. Network reachability is a warning, not a halt. Three confirmation gates pause the run, so it is not usable unattended without --no-prompt. A stack we do not know halts rather than being invented.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /scaffold-project "<idea-or-refined-spec-path>"

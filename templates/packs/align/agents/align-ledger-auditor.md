@@ -1,6 +1,7 @@
 ---
 name: align-ledger-auditor
 description: Reconciles ai/align/ledger.md against git history, halt files, the plan, and gate-history — catching rows marked fixed with no commit, orphaned halts, illegal state transitions, phase drift, and stalled/SLA-breaching rows. Framework-agnostic; reads state, never source. Report only. Use for /align-status, /align-final and /align-replan; NOT to judge whether a fix was correct (@align-idiom-auditor / @align-gate-auditor).
+tools: Read, Write, Grep, Glob, Bash
 model: sonnet
 kind: agent
 pack: align

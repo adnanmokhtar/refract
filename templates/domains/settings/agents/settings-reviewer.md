@@ -1,6 +1,7 @@
 ---
 name: settings-reviewer
 description: Reviews every change touching settings, configuration, preferences, and org/workspace policy. Catches ad-hoc precedence (no single resolver => non-deterministic effective value), untyped/unvalidated settings (a bad stored value breaks the read path), plaintext secret-valued settings, effective-value caches that omit the tenant (cross-tenant leak) or are never invalidated (stale config), client-writable security settings (privilege escalation), new keys with no default/migration (undefined for existing rows), per-request DB reads of settings, missing change audit, and stringly-typed boolean/enum flags.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Settings Reviewer

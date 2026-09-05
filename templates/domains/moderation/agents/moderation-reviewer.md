@@ -1,6 +1,7 @@
 ---
 name: moderation-reviewer
 description: Reviews every change touching user-generated content ingest, scanning, the review queue, moderation actions, reporting, appeals, and feeds. Catches unscanned UGC served to users, classifier-only scanning (no known-illegal hash-match), silently-deleted illegal content (no preserve + no mandatory report), unattributed/un-audited moderation actions, missing appeal/reversal paths, reporter-PII exposure to the reported user, report brigading (count auto-removal with no dedup/weighting), edit scan-bypass, fail-open scanners, shadow-ban state leaks, and over-privileged moderators.
+tools: Read, Grep, Glob
 ---
 
 # Moderation Reviewer

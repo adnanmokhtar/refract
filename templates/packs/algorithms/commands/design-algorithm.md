@@ -2,6 +2,7 @@
 description: Design an algorithm for a problem (or redesign an existing function) — model it, derive the complexity budget from the input scale, weigh candidate approaches across the paradigm spectrum, pick the simplest that meets the budget, prove it correct, then implement it with property + adversarial tests. Driven by the algorithm-designer agent. Stack-agnostic.
 kind: command
 pack: algorithms
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /design-algorithm <problem-or-scope> [<more>...]

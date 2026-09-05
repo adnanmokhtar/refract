@@ -3,6 +3,7 @@ description: Diagnose architecture first, then sweep code quality and measured p
 compatibility: Requires _extracted-idioms.md or codebase-profile.md populated, mechanical CI green, and a clean tree (or --allow-dirty). Any stack. Every perf claim ships a baseline and a post-fix number, so a finding with no runnable measurement path is reported as unmeasured rather than claimed. validate-optimize-artifacts.sh is agent-invoked, not automatic.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /optimize [<scope>]

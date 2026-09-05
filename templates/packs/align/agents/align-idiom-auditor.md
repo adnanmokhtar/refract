@@ -1,6 +1,7 @@
 ---
 name: align-idiom-auditor
 description: "Decides whether an alignment fix ENFORCED an idiom the project already has or INVENTED a new one. Reads the row's diff against `_extracted-idioms.md`: no new public symbol unnamed in the oracle, every added functional block cites a resolving idiom, no oracle edit riding along in the fix commit. Framework-agnostic. Verdict only — never edits. Use at DECIDE and VERIFY inside the per-finding loop; NOT for scan triage (@align-evidence-auditor) and NOT for the phase verdict (@align-gate-auditor)."
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 kind: agent
 pack: align

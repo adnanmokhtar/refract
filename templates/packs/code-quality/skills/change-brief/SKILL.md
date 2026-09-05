@@ -3,6 +3,7 @@ name: change-brief
 description: The comprehension gate — "if you can't explain the code, it isn't yours." For every non-trivial change (AI-generated or human), produce + validate a 5-field change brief (What / Why this shape / Edge cases / Blast radius / Verified by) before the change is committed or a PR opens. Mechanical, not advisory — the brief has a required shape, a hand-wave grep, and a citation requirement; a brief that paraphrases the diff without explaining it is rejected. Wired into /pre-commit and /review-changes; named by engineering-principles.md § AI-assisted development.
 kind: skill
 pack: code-quality
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: change-brief

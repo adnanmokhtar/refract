@@ -2,6 +2,7 @@
 description: Analyze existing code for algorithmic complexity — derive time + space big-O per hot path (worst / amortized / expected) from the code structure, flag accidental-quadratic / wrong-container / repeated-recompute defects, and rank the asymptotic wins with their tradeoffs. Driven by the algorithm-designer agent. Stack-agnostic; analysis-first.
 kind: command
 pack: algorithms
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /analyze-complexity [<scope>]

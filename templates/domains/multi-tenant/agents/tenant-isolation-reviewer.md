@@ -1,6 +1,7 @@
 ---
 name: tenant-isolation-reviewer
 description: Scans every change for tenant-leak risk — queries without tenant_id filter, cache keys without tenant prefix, events with tenant data outside metadata, cross-tenant FKs. Single leak = security incident.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Tenant Isolation Reviewer

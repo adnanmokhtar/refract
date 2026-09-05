@@ -2,6 +2,7 @@
 description: Audit a spec, ticket, or set of acceptance criteria for the defects that survive into code — unfalsifiable criteria, ambiguity with two readings, solution smuggled into the problem, missing edge/error/empty/reversal states, absent non-functional bounds, and requirements with no traceable evidence.
 kind: command
 pack: product
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit-requirements [<spec | ticket | path>]

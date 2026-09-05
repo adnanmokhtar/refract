@@ -2,6 +2,7 @@
 description: Dump the workspace registry or locate a concept across sibling repos.
 kind: command
 pack: workspace-baseline
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /project-map

@@ -1,6 +1,7 @@
 ---
 name: dependency-auditor
 description: Holistic dependency health — vulnerabilities, outdated majors, unused, bundle impact, duplicates, license compliance. Cross-stack.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

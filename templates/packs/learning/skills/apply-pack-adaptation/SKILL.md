@@ -1,6 +1,7 @@
 ---
 name: apply-pack-adaptation
 description: Per-file STUDY → DECIDE → ACT for pack-added files in /setup-project Phase 4.6 (round one — CREATE / ENHANCE / REFRESH), Phase 4.6-DEEP / 4.7-DEEP (round two — REFINE), and Phase 4.8-DEEP (round-two adapter sync). Reads each file plus the project's extracted codebase + business + idioms context (round one) AND `.claude/_refine-extract.md` (round two), decides CHANGE-anchor / CHANGE-anchor-with-warn / LEAVE-with-redirect / LEAVE-delete (round one) OR ANCHOR-DEEP / LEAVE-DEEP / LEAVE-DEEP-IDEMPOTENT / NEW-FILE (round two) OR RE-TRANSLATED / INDEX-REFRESHED / SKIPPED-NO-CHANGES / NO-OP-ADAPTER (adapter sync), applies the decision with marker-bracketed in-place edits + hash-check rollback, and writes a decision log Phase 5.3 audits. Frees /setup-project's main context for orchestration.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # apply-pack-adaptation

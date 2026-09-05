@@ -1,6 +1,7 @@
 ---
 name: launch-readiness
 description: Gate a launch on whether it can be LEARNED FROM — success and counter-metric live and returning data, the rollback path exercised, the decision rule pre-committed with an owner and a date, fatal assumptions tested or accepted, and the reversal path for anything the launch creates. Run before enabling a change for real users. Owns "can we judge this" — deploy mechanics belong to the devops pack and progressive delivery to `progressive-delivery`.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: launch-readiness

@@ -1,5 +1,6 @@
 ---
 description: Audit the content-moderation pipeline — where UGC enters, scan coverage (pre/post-publish + edit re-scan), illegal-content handling (hash-match + mandatory report), action audit/attribution, appeal path, reporter PII, report rate-limit, and moderator over-privilege — against real code, never an assumed pipeline.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-moderation

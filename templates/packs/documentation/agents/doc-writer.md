@@ -1,6 +1,7 @@
 ---
 name: doc-writer
 description: Writes + updates ai/ knowledge base. Grounds every claim in actual code / git / migrations. Produces Recent Changes, patterns, ADRs, runbooks. Drift-aware.
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
 

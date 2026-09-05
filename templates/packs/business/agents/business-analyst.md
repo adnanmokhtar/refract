@@ -1,6 +1,7 @@
 ---
 name: business-analyst
 description: Turns rough business ideas / prompts into structured requirements, user stories, acceptance criteria, and implementation specs.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

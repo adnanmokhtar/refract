@@ -2,6 +2,7 @@
 description: "Independent codebase-quality spot-check + fix. Accepts a natural-language description (\"the sidebar\", \"the orders module\") OR explicit paths. Scans source FRESH for the described area against the gold-standard inventory, detects drift (dead code / dups / reinvented wrappers / silent catches / a11y / design tokens / i18n / security / perf), fixes it. NO plan dependency, NO phase concept, NO required ledger row. Bypasses the full alignment ceremony — just: find the area, scan, fix. Mirrors /migration-recheck."
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-recheck <description-or-path> [<more>...]

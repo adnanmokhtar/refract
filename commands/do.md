@@ -3,6 +3,7 @@ description: Route one natural-language request to the right specialized command
 compatibility: Requires a repo with commands already installed by /setup-project — with none there is nothing to route to. Routing accuracy depends on _extracted-codebase.md being present; without it the stack is inferred from the tree and confidence drops. Does no work itself, and halts rather than guess when nothing matches.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /do <description>

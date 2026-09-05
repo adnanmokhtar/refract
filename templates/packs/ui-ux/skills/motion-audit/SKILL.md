@@ -3,6 +3,7 @@ name: motion-audit
 description: Audit motion and animations for performance, reduced-motion respect, easing/duration consistency, and the "feels janky" smell, emitting concrete fixes per offender. Run as a pre-release polish pass, when investigating jank complaints, after a major framework upgrade, or as a quarterly motion-token review. Motion only — `design-token-audit` covers the broader token surface and `a11y-quick-check` owns the reduced-motion overlap. Durations are not defined here; they are cited from `motion.md § The duration scale`.
 kind: skill
 pack: ui-ux
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: motion-audit

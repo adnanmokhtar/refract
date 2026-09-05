@@ -1,6 +1,7 @@
 ---
 name: creative-director
 description: Sets and INVENTS the visual direction — concept, original visual language, signature moments — from the product's goals, then hands it off to be codified and built. The creative high-ground above design-system-architect (codifies a direction) and ux-reviewer (audits the floor). Frontend / mobile.
+tools: Read, Grep, Glob
 model: opus
 ---
 

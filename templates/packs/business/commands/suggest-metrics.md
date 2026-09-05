@@ -2,6 +2,7 @@
 description: Recommend the business metrics/KPIs a project's dashboard SHOULD show for its domain — detect the domain, inventory the metrics already displayed, diff against the domain's decision-metric set, and recommend the missing high-value ones (grouped, prioritized, each with the decision it drives + the formula + the data source it comes from). Answers "I want to add stats but don't know which." Recommends; does not build the tiles.
 kind: command
 pack: business
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /suggest-metrics [<scope>]

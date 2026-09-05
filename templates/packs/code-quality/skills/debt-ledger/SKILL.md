@@ -3,6 +3,7 @@ name: debt-ledger
 description: Track technical debt as a persisted, ranked ledger — dated/owned TODOs, unjustified suppressions, deprecated-API call sites, major-version-lag deps — each with a blast-radius and a fix-cost, diffed run-over-run so accrual (new debt vs paid-down) is visible instead of rediscovered every audit.
 kind: skill
 pack: code-quality
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: debt-ledger

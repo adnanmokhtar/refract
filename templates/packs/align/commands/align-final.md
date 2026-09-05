@@ -2,6 +2,7 @@
 description: Final sweep — confirms every finding in the ledger is fixed and gate-verified across ALL phases. Runs the full audit one more time to catch regressions. Recommends next steps (continued cadence / dormant / re-scan). Read-mostly.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-final

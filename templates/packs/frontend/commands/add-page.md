@@ -1,5 +1,6 @@
 ---
 description: Scaffold a page/route with view, store slice, service, types, i18n keys, and tests.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 > **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses Vue 3 + PrimeVue + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.

@@ -1,5 +1,6 @@
 ---
 description: Profile a specific report / analytics query — plan, row count, replica targeting, and tenant-scope predicate — against real EXPLAIN output, never an assumed plan.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /profile-report-query

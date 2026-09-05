@@ -1,5 +1,6 @@
 ---
 description: Orchestrate a feature that spans multiple sibling repos — contract-first, dependency-ordered, with end-to-end verification that every consumer matches the shipped contract. Producer (shared lib / API) ships first and backward-compatible; consumers follow.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /cross-repo-task

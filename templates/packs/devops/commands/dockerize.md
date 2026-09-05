@@ -1,5 +1,6 @@
 ---
 description: Generate a production-ready Dockerfile, .dockerignore, and optional compose for local dev.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /dockerize

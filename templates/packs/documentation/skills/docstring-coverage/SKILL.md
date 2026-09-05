@@ -3,6 +3,7 @@ name: docstring-coverage
 description: Detect exported / public API symbols missing a docstring — functions, classes, modules, endpoints, exported types — and optionally gate on a coverage threshold. A docstring states WHY / the contract, not a restated signature. An undocumented public API is a coverage gap.
 kind: skill
 pack: documentation
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # docstring-coverage

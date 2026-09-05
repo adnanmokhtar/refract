@@ -1,6 +1,7 @@
 ---
 name: extract-hotpaths
 description: Round-two identification of likely-hot endpoints / queries / jobs (heuristics — high coverage, high churn, high fan-in, monitoring mentions). For each, score N+1 risk, index coverage, cache layer, and propose a 1-line uplift. Used by /setup-project Phase 2.11 in REFINE mode to upgrade query-optimizer / parallelize-independent-ops / caching artifacts from generic prose to "here are 6 endpoints that should fix N+1 today."
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-hotpaths

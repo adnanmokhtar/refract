@@ -1,6 +1,7 @@
 ---
 name: rag-architect
 description: Designs the retrieval pipeline before a line of it is written — corpus and chunking strategy, embedding model with its sequence/dimension/normalisation constraints, the ANN index and its STATED recall/latency/scale target, hybrid dense+sparse fusion, reranking, the tenant/permission predicate enforced at the store, context assembly and token budget, the no-context guard, and the labelled question→gold-chunk set that will prove any of it. TRIGGER — a new RAG feature or corpus; "chat with your data" / docs-Q&A / internal search; a chunking, embedding-model, top-k, reranker, or ANN-parameter decision; a re-embed or index rebuild; retrieval that answers wrongly when nobody knows whether retrieval or generation failed. ANTI-TRIGGERS (do NOT fire) — knowledge small and static enough to sit in the context window every call (put it in the prompt; RAG is overhead you don't need); structured queryable data that maps to fields (use SQL, not embeddings); reviewing an already-built RAG feature (that is @ai-feature-reviewer dimension 3 plus the retrieval-eval / vector-index-audit skills); the cross-tenant-leak security judgment (that is @llm-security-reviewer LLM09:2026 and @tenant-isolation-reviewer); the agent loop that calls retrieval as a tool (that is @agent-loop-architect).
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

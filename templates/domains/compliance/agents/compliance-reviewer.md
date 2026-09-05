@@ -1,6 +1,7 @@
 ---
 name: compliance-reviewer
 description: Audits PII handling, retention enforcement, GDPR/CCPA export + deletion endpoints, audit logging on PII access, breach signals, and the sub-processor inventory. Catches silent regressions in regulatory posture.
+tools: Read, Grep, Glob
 ---
 
 # Compliance Reviewer

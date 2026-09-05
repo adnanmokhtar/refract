@@ -1,6 +1,7 @@
 ---
 name: subscription-reviewer
 description: Reviews every change touching subscription state, billing cycles, entitlements, plan changes, trials, dunning, invoices, and usage metering. Catches client-trusted entitlements, float proration, missing dunning/grace, non-idempotent renewals, local↔provider drift, trial abuse, refund/credit not reflected in invoices, and revenue double-count.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Subscription Reviewer

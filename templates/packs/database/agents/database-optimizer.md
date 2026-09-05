@@ -1,6 +1,7 @@
 ---
 name: database-optimizer
 description: Engine-layer tuning — memory/cache sizing, the reclaim path (Postgres VACUUM+bloat / InnoDB purge+history-list), storage tier and archival. Proposes measured parameter deltas against the running config. Not single queries (query-optimizer), not schema shape (schema-reviewer).
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: opus
 ---
 

@@ -2,6 +2,7 @@
 description: After an API contract change, find frontend consumers and propose synced edits.
 kind: command
 pack: workspace-baseline
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /sync-contract

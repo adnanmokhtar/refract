@@ -1,6 +1,7 @@
 ---
 name: cost-architect
 description: Designs the cost model of a system alongside its architecture — the pricing dimensions it will be billed on, the unit-economics model (cost per request / tenant / job / GB / 1k tokens), the cost-versus-latency-versus-reliability trade-off table, and the spend a design commits to before it is built. Framework-agnostic. Trigger before choosing a storage tier, a compute shape, a managed service, a region topology, or a retention default; when a design's spend at target scale has never been computed; when build-versus-buy is being argued without arithmetic. Do NOT trigger to sweep existing resources for waste (`/cost-audit` in the infrastructure pack), to review a specific diff for cost regressions (`@cost-reviewer`), or to compute costs from a billing export (`@finops-analyst`).
+tools: Read, Grep, Glob
 model: opus
 ---
 

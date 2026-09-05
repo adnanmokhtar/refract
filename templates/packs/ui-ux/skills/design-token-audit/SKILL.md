@@ -3,6 +3,7 @@ name: design-token-audit
 description: Scan UI code for hardcoded color / spacing / typography / radius / shadow values that should come from design tokens, reporting drift and proposing token replacements. Run during PR review on changes touching components/views/screens or theme files, before a design-system version bump, and after a designer hands off a new screen. One dimension of `@design-system-guardian`; motion tokens belong to `motion-audit`.
 kind: skill
 pack: ui-ux
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: design-token-audit

@@ -2,6 +2,7 @@
 description: Roll back an alignment phase. Restores the ledger + source + halts to their state before /align-phase <N> ran. Uses git revert + ledger time-travel. Read-confirm-execute pattern; never silent.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-rollback <N>

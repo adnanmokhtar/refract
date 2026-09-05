@@ -3,6 +3,7 @@ name: retrieval-eval
 description: Measures the retrieval stage in isolation — loads or builds a labelled question→gold-chunk set, runs the project's OWN retriever, and reports recall@k, context precision/relevance, and filtered recall (recall with the tenant/permission predicate applied, where a pre-filter strands an HNSW traversal and recall craters silently), plus the retrieval-vs-generation split that says which stage actually failed. Also the tuning loop for top_k, chunk size, reranker on/off, and ef_search/nprobe. TRIGGER — before tuning any retrieval parameter, when a RAG answer is wrong and nobody knows which stage broke, and dispatched by /ai-audit, @rag-architect, @ai-feature-reviewer dimension 3, and /add-ai-feature Phase 7. ANTI-TRIGGERS (do NOT fire) — end-answer quality, faithfulness, or answer relevance (that is eval-run against the project's harness); ANN index configuration, params, metric, or refresh (that is vector-index-audit); a corpus with no labelled set (HALT with the construction recipe — never score a set the model wrote for itself); the cross-tenant leak judgment (that is @llm-security-reviewer LLM09:2026).
 kind: skill
 pack: ai-engineering
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: retrieval-eval

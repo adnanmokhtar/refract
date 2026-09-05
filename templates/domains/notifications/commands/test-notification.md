@@ -1,5 +1,6 @@
 ---
 description: Send a notification through every wired channel to a test recipient with full headers + delivery report. Provider-aware (SES / Twilio / FCM / OneSignal / WhatsApp Cloud).
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /test-notification

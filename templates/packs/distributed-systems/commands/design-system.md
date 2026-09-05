@@ -1,5 +1,6 @@
 ---
 description: Produce a system design — service boundaries, data ownership, consistency, failure modes, ADRs.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /design-system <feature>

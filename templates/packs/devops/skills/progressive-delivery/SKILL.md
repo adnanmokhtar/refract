@@ -1,6 +1,7 @@
 ---
 name: progressive-delivery
 description: Audit the two pieces that decouple deploy from release — feature-flag lifecycle (no stale/orphaned/permanent flags, kill-switch on risky flows, flag-config parity across envs) and automated canary ANALYSIS wiring (a canary that promotes/aborts itself on SLO/error metrics, not a human eyeballing a dashboard).
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # progressive-delivery

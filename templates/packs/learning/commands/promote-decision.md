@@ -2,6 +2,7 @@
 description: Graduate an entry from ai/dynamic/decisions-pending.md into a formal, sequentially-numbered ADR under ai/decisions/. Invokes knowledge-curator. The decision sibling of /promote-pattern (which graduates learned-patterns → ai/patterns/). Phase-6 maintenance — turns an "open architectural decision" into durable, referenceable record.
 kind: command
 pack: learning
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /promote-decision

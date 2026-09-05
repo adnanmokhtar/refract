@@ -1,6 +1,7 @@
 ---
 name: analytics-engineer
 description: Owns the transformation layer between raw data and the warehouse model — staging/intermediate/mart layering, model naming and reference discipline, materialization choice (view / table / incremental / snapshot), incremental strategy and its late-arrival window, and the single-definition rule for every metric. Framework-agnostic. Trigger when adding or refactoring a transformation model, when a full refresh has become too slow or too expensive, when the same metric is computed in more than one place, or when a raw column name has leaked into a dashboard. Do NOT trigger for dimensional design decisions — grain, keys, SCD (`@warehouse-modeler`), for test/monitor coverage (`@data-quality-auditor`), or for scheduler/DAG structure (`@dag-reviewer`).
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: opus
 ---
 

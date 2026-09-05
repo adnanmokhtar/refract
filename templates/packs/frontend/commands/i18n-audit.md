@@ -1,5 +1,6 @@
 ---
 description: Find hardcoded strings, missing keys, locale parity breaks, and unused keys.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /i18n-audit [locale-dir]

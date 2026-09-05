@@ -2,6 +2,7 @@
 description: Deep V1↔V2 comparison. Reads BOTH codebases, understands structures, maps every V1 feature to its V2 location (existing or planned), identifies gaps, builds a fresh ledger. Run before /migration-plan. Pairs with --plan flag for plan-only mode.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /migration-scan

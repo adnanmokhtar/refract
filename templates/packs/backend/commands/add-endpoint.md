@@ -1,5 +1,6 @@
 ---
 description: Add a new endpoint to an EXISTING module. Full chain — DTO + use-case + controller + mapper + tests + telemetry + docs. Smaller than /add-module, deeper than "edit controller".
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 > **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses NestJS + TypeScript for illustration; substitute your stack's primitives from `_extracted-idioms.md`.

@@ -1,6 +1,7 @@
 ---
 name: deployment-engineer
 description: CI/CD pipeline designer + zero-downtime deploy specialist. Rolling / blue-green / canary / shadow. Build artifacts, environment promotion, rollback in minutes. Adjudicates the Safe-Delivery verdict (production-grade-or-INCOMPLETE) behind /deploy-stage.
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 model: opus
 ---
 

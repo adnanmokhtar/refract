@@ -1,5 +1,6 @@
 ---
 description: Add metrics (counters / gauges / histograms) to a service. RED method for HTTP services + USE method for resource-bound services + SLO-relevant signals. OpenTelemetry / Prometheus.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-metrics

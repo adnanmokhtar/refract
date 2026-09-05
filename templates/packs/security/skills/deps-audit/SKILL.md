@@ -1,6 +1,7 @@
 ---
 name: deps-audit
 description: Run the ecosystem's dependency audit (npm / pip / cargo / composer / go) and triage the findings, separating blockers from noise. Run before every release, after a fresh install, when a new advisory lands, and weekly in CI. Scans the manifest and lockfile — `release-security` is what scans the built container image's OS layer.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # deps-audit

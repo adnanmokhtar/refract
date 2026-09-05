@@ -1,6 +1,7 @@
 ---
 name: contract-diff
 description: Diff a source or model schema against its declared data contract and classify every change as additive, breaking, or semantic-breaking — then name the consumers each class would break and the required notice. Run before publishing a schema change, when an upstream team announces one, when a load starts failing after "nothing changed", and on a schedule against volatile sources. Classifies WHETHER a change breaks — `lineage-trace` names WHO it breaks, and `grain-probe` catches the damage after the fact.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: contract-diff

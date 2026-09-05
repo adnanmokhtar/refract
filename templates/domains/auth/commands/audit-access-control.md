@@ -1,5 +1,6 @@
 ---
 description: Audit every endpoint for broken access control — enumerate endpoint × who-can-call-it × the ownership / tenant-scope check, citing the call site for each. Catches IDOR, missing guards, and client-only authorization.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-access-control

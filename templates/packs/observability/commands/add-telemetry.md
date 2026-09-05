@@ -1,5 +1,6 @@
 ---
 description: Wire structured logs, metrics, and traces into a feature; create alert + runbook stubs.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-telemetry <feature>

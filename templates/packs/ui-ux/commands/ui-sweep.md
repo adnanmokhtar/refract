@@ -2,6 +2,7 @@
 description: Project-wide UI/UX specialist sweep. Goes BEYOND align's structural cleanup — runs UI/UX-specific deep detectors (visual hierarchy, component utilization, token coverage, cross-surface consistency, UI-state coverage, responsive matrix, design-language coherence), captures visual baseline screenshots per route, quantifies coverage metrics with targets, phases by USER FLOW (not by class), uses UI/UX-specific verbs (consolidate-tokens, unify-component, normalize-hierarchy, wire-empty-state), outputs an HTML visual report with screenshots + metrics + recommendations. Frontend stacks only.
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /ui-sweep [<phase>]

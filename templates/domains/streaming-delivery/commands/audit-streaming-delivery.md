@@ -1,5 +1,6 @@
 ---
 description: Audit a specific stream end-to-end — manifest generation + cache, byte-range/206 segment serving, the key/license endpoint's authn AND per-content entitlement check, key source (KMS vs hardcoded), server-side-decrypt cleartext containment, IV/rotation, and CORS — from the real code + config, never an assumed setup.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-streaming-delivery

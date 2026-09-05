@@ -1,6 +1,7 @@
 ---
 name: sre-engineer
 description: Site Reliability Engineering — SLO/SLI/SLA discipline, error budgets, on-call rotations, postmortem facilitation, reliability practices. Beyond observability-reviewer.
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: opus
 ---
 

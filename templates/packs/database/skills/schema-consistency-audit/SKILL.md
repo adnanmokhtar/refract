@@ -3,6 +3,7 @@ name: schema-consistency-audit
 description: Schema + migration consistency audit. Detects drift in nullability, type choice, timezone handling, charset/collation, timestamp and audit-field coverage, soft-delete coverage, migration patterns, and object naming. Findings are ranked by data-integrity risk, not by detector order. Emits closure verbs that ship as reversible migrations. Used by /polish on data-* stacks and /db-audit.
 kind: skill
 pack: database
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: schema-consistency-audit

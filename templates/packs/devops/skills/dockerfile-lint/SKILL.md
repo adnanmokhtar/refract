@@ -1,6 +1,7 @@
 ---
 name: dockerfile-lint
 description: Lint a Dockerfile for safety, size, and correctness using hadolint plus project rules (non-root FINAL stage, multi-stage, pinned base, healthcheck, BuildKit secret handling). Run before merging any Dockerfile change and after a base-image bump. Covers the Dockerfile only — `release-security` scans the built image for CVEs, SBOM, and signatures.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # dockerfile-lint

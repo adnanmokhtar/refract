@@ -1,6 +1,7 @@
 ---
 name: extract-business-context
 description: Extract the project's WHY — mission, target users, business model, success KPIs, constraints, anti-goals, competitive context, maturity stage — from the CODE first (entity clusters, role/permission tables, tenancy columns, payment and queue integrations, feature-flag keys, i18n locales, contributor counts, all already in `_extracted-codebase.md`), then README + manifests + git log + ai/status.md. Asks the user ONE consolidated question only for facets neither the code nor the documents answer. Outputs `.claude/_extracted-business.md`, consumed by Phase 4.7b to populate `ai/project-goals.md`, `ai/users-and-personas.md`, `ai/business-model.md`, `ai/competitive-context.md`, `ai/roadmap.md`.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-business-context

@@ -1,6 +1,7 @@
 ---
 name: user-research-synthesizer
 description: Turns raw research material — interview notes, support tickets, session recordings, sales-call notes, reviews, survey free-text — into evidence-backed findings, each with its sources, its participant count, its evidence class, and its explicit limits. Refuses to invent quotes, personas, or numbers. Framework-agnostic. Trigger when raw material exists and nobody has extracted findings, when a claim about users needs its provenance checked, or when several sources are being cited for a conclusion none of them supports. Do NOT trigger to decide what to build from the findings (`@product-strategist`), to write a spec (`@business-analyst` in the business pack), or when there is no raw material — synthesis without input is fabrication.
+tools: Read, Grep, Glob
 model: opus
 ---
 

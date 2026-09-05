@@ -1,6 +1,7 @@
 ---
 name: payment-reviewer
 description: Reviews every change touching payment code — charges, refunds, webhooks, capture flows, currency math. Catches PAN storage, double-capture, refund accounting drift, missing 3DS/SCA, currency floats, and lost dispute data.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Payment Reviewer

@@ -1,6 +1,7 @@
 ---
 name: test-factories
 description: Consolidate test data creation into factories/builders with sensible defaults plus per-test overrides — killing copy-pasted object literals and shared mutable fixtures that couple tests to each other. Use when the same literal is built inline across three or more tests, when a mutated shared fixture makes suite order matter, or when a new required field forces edits across many test files. Restructures setup only; it never changes what a test asserts.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # test-factories

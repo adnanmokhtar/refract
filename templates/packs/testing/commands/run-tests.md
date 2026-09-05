@@ -2,6 +2,7 @@
 description: Run the project's test suite (or a scoped subset) and surface results. Detects test runner from `_extracted-codebase.md`. Supports scoped runs (changed files / specific module / specific feature) and full-suite runs. Transcribes the runner's own summary — counts, time, and (where a prior run log exists) coverage delta and flake count; rows it cannot compute print as not-computed rather than being estimated. Wires into per-finding VERIFY steps when invoked from /align-phase / /migration-fast / /find-and-fix.
 kind: command
 pack: testing
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /run-tests [<scope>]

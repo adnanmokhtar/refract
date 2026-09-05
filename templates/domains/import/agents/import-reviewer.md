@@ -1,6 +1,7 @@
 ---
 name: import-reviewer
 description: Reviews every change touching bulk imports, file-upload-to-DB ingest, CSV/XLSX parsers, and data loaders. Catches load-whole-file-in-memory, synchronous imports on the request thread, non-idempotent re-imports (double-insert), missing tenant scope on the upsert (cross-tenant WRITE), all-or-nothing / silently-dropped row validation, blind inserts with no conflict strategy, CSV formula injection, unbounded file/row/column size, and trusting client-declared encoding/content-type/column order.
+tools: Read, Grep, Glob
 ---
 
 # Import Reviewer

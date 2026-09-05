@@ -2,6 +2,7 @@
 description: Reads phase-N.md summary + per-feature audits, drafts one ADR per P0 finding + cross-cutting decision, presents one review doc. Sibling step between /migration-phase --audit-only and /migration-phase --chain. Skipping this step forces decisions to be made interactively per /port-feature run.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /draft-phase-adrs <N>

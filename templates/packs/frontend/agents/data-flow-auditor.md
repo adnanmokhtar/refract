@@ -1,6 +1,7 @@
 ---
 name: data-flow-auditor
 description: "Traces one concrete data path API → service → store → component and names where it breaks — stale cache, cross-tenant leak, N+1 / redundant fetch, over-fetch, hydration mismatch. Trigger on a SYMPTOM: \"the list shows stale data\", \"user saw another tenant's records\", \"this page fires 30 requests\", \"hydration mismatch on /orders\", \"why does it refetch every render\". Anti-triggers (do NOT fire): a general diff review is `@ui-reviewer` (it flags the symptom and hands the trace here); \"the backend DTO changed, what breaks\" is `@api-contract-sentry`; server-side cache/TTL policy is the backend pack; and there is nothing to trace without a named page, feature, or query key — ask for one rather than tracing the whole app."
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

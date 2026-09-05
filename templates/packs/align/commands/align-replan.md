@@ -2,6 +2,7 @@
 description: Regenerate the phased alignment plan from the current ledger state. Run when the original plan has aged out (codebase changed, new findings surfaced, prior phases revealed wrong sequencing, parked findings accumulated). Preserves `verified` rows; recomputes phasing for the rest. Mirrors /migration-replan.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-replan

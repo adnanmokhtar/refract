@@ -1,5 +1,6 @@
 ---
 description: Audit dependencies for known CVEs + abandoned maintainers + license-incompatible licenses + suspicious version histories. Reports per-dep with severity + recommended action.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /dependency-vuln-check

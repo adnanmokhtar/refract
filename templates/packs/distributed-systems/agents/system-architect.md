@@ -1,6 +1,7 @@
 ---
 name: system-architect
 description: Designs distributed systems — service boundaries, data ownership, consistency model, communication patterns, failure modes. Applies when the design exceeds a single service.
+tools: Read, Grep, Glob
 model: opus
 ---
 

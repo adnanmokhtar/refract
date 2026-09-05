@@ -1,6 +1,7 @@
 ---
 name: extract-flows-deeply
 description: Round-two deep extraction of business-critical and admin/internal flows — traces ≥5 representative flows end-to-end (trigger → entry → ordered steps → side effects → error paths → idempotency). Used by /setup-project Phase 2.9 in REFINE mode to upgrade round-one flow detection from "the app does checkout" to a precise step-by-step narration with file:line for every step.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-flows-deeply

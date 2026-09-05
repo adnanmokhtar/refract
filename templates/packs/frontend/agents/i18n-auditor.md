@@ -1,6 +1,7 @@
 ---
 name: i18n-auditor
 description: "Audits i18n COVERAGE across every declared locale — missing / undefined-but-used / unused keys, hardcoded user-facing strings, plural concatenation, cross-sibling key drift, physical-CSS regressions that break RTL. Trigger on \"are all locales complete\", \"audit i18n before release\", \"we added Spanish, what is missing\", a diff that touches locale files, or the weekly CI sweep. Anti-triggers (do NOT fire): a single hardcoded string spotted in one diff is `@ui-reviewer`; running the extractor to regenerate keys is the `i18n-audit` command, not this agent; RTL VISUAL layout and mirrored iconography are the ui-ux pack; and the a11y consequences of direction — focus order, `<html lang>` announcement — are `@accessibility-auditor`."
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

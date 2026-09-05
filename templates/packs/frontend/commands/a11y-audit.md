@@ -1,5 +1,6 @@
 ---
 description: Run accessibility-auditor against current UI changes; ground with axe if installed.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /a11y-audit [path]

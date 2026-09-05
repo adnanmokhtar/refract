@@ -1,5 +1,6 @@
 ---
 description: Dump queue health — depth, oldest-job-age, failed count, throughput. BullMQ / SQS / Redis Streams / Kafka aware.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /inspect-queue

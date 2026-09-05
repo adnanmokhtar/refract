@@ -1,5 +1,6 @@
 ---
 description: Comprehensive orchestration for a bug fix. Gathers context via skills, investigates root cause, writes failing test first, fixes, verifies, scans for similar bugs, reviews with domain-appropriate agents, and updates telemetry if the bug went undetected.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /fix-bug

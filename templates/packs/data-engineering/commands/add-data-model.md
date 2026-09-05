@@ -2,6 +2,7 @@
 description: Author a new warehouse model (staging / intermediate / fact / dimension) in the project's own layering and naming idiom, with its declared grain, its assertions, and its lineage registered before it is exposed to any dashboard.
 kind: command
 pack: data-engineering
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-data-model <model-name> [--layer staging|intermediate|mart] [--grain "<one sentence>"]

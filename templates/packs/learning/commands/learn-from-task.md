@@ -1,5 +1,6 @@
 ---
 description: After a task finishes, capture decisions made / patterns followed / patterns introduced / user corrections into the learning files. Run before `/clear` or end of session.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /learn-from-task

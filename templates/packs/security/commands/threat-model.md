@@ -1,5 +1,6 @@
 ---
 description: Run a structured threat-model session against a feature / system. STRIDE-based; outputs threat list + mitigations + residual risk + decisions.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /threat-model

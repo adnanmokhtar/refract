@@ -1,5 +1,6 @@
 ---
 description: Tail structured dev logs filtered by level, correlation id, or module.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /log-tail [filter]

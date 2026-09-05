@@ -3,6 +3,7 @@ description: Map what is INTENDED but not yet built, then phase the build order.
 compatibility: Requires _extracted-codebase.md or codebase-profile.md populated for PROJECT_KIND and the entity inventory. A README, PRD, or ADRs feed the spec-delta detector; with none it falls back to five code-signal detectors and reports reduced spec confidence, or pass --goal to state intent inline. --build additionally requires green CI and a clean tree (or --allow-dirty).
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /roadmap [<scope>] [--goal "<intent>"] [--build [<N>]] [--status]

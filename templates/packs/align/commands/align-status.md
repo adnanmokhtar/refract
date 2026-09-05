@@ -2,6 +2,7 @@
 description: Read ai/align/ledger.md and report per-finding state, blockers, stalled rows, and aggregate progress per phase. Read-only — never modifies the ledger. Run on demand. Stack-agnostic.
 kind: command
 pack: align
+allowed-tools: [Read, Grep, Glob, Bash, Task]
 ---
 
 # /align-status

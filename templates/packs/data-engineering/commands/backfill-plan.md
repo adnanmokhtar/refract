@@ -2,6 +2,7 @@
 description: Plan a safe backfill or reprocess of a warehouse model — bounded scope, shadow target, cost and runtime estimate, validation against the live table, cutover, and rollback. Read-only by default; produces a plan and a ledger, never an in-place overwrite.
 kind: command
 pack: data-engineering
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /backfill-plan <model> [--from <date>] [--to <date>] [--reason "<why>"]

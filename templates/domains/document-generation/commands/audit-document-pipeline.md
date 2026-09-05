@@ -1,5 +1,6 @@
 ---
 description: Audit a specific document (PDF / DOCX / print) pipeline — where the renderer is invoked, sync vs. async, renderer network/file access (SSRF/LFI), template injection, resource/page/timeout caps, determinism + version stamp, tenant scope + signed-vs-public delivery, idempotency — from the real code, never an assumed flow.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-document-pipeline

@@ -1,6 +1,7 @@
 ---
 name: realtime-reviewer
 description: Reviews every change to WebSocket / SSE / WebRTC / long-poll code. Catches missing connection auth, cross-tenant fanout, no backpressure (OOM), missing heartbeat, sticky-session assumptions, broadcast-without-scoping, message-ordering claims that don't hold.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Realtime Reviewer

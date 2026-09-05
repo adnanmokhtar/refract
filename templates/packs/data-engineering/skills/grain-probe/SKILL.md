@@ -1,6 +1,7 @@
 ---
 name: grain-probe
 description: Prove a model's declared grain by executing a duplicate-key query against the built table and reporting rows, distinct keys, and the top offending key values. Run before any aggregation claim is trusted, before approving any fact-to-dimension join, after a grain or key change, and as the uniqueness column of every model audit. Proves the key IS unique in the data — `contract-diff` proves the upstream SHAPE has not changed under it, and `lineage-trace` proves who would be affected if it had.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: grain-probe

@@ -1,5 +1,6 @@
 ---
 description: Frontend-targeted refactor — preserves render output, props contracts, and hydration safety. Behaviour-preserving only; uses refactoring-sweep verbs.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /refactor [<scope>]

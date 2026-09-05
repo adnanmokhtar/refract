@@ -2,6 +2,7 @@
 description: Regenerate the phased migration plan from the current ledger state. Run when the original plan has aged out (codebase changed, V1 features added/dropped, prior phases revealed wrong sequencing). Preserves `done` rows; recomputes phasing for the rest.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-replan

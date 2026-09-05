@@ -201,6 +201,15 @@ jobs:
       - name: Validator parity (cited check_* must be defined or disclosed)
         run: bash scripts/lint-validator-parity.sh
 
+      # An agent with no `tools:` inherits the FULL tool surface. That is how 124 agents —
+      # 55 reviewers, 15 auditors, 17 architects among them — shipped holding Write and Edit
+      # while their own Output contracts return a report or a design and touch no file. This
+      # gate holds the four rules: every agent/skill/command declares a scoped tool set, the
+      # names are real tools, agent `tools:` stays in the comma-string form the OpenCode sync
+      # converts, and an advisory role never holds a writing tool.
+      - name: Tool scoping (least privilege declared, advisory agents read-only)
+        run: bash scripts/lint-tool-scoping.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.

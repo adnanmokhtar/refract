@@ -4,6 +4,7 @@ compatibility: Frontend stacks only — requires PROJECT_KIND in frontend-*, mob
 kind: command
 pack: orchestration
 version: 1.0.0
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /unify-surfaces [<scope>] [--surfaces=<list>]

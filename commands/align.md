@@ -3,6 +3,7 @@ description: Enforce conventions the project ALREADY has, project-wide or across
 compatibility: Requires _extracted-idioms.md or codebase-profile.md populated as the convention oracle — with neither there is nothing to enforce against. Mechanical CI green and a clean tree, or --allow-dirty. Any stack. Net structural lines are held at or below zero, so nothing new is invented. validate-align-artifacts.sh is agent-invoked, not run automatically.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /align [<scope>]

@@ -1,6 +1,7 @@
 ---
 name: alert-audit
 description: Audit the alerting system — dead alerts that never fire, noisy alerts that fire too often, alerts with no runbook or owner, and alerts on causes instead of symptoms. Run as a quarterly hygiene review, after an incident where the right alert didn't fire, on any new alert-rule PR, and when on-call reports fatigue. Owns alert quality — `slo-audit` owns whether the SLO targets themselves are right.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # alert-audit

@@ -1,6 +1,7 @@
 ---
 name: queue-reviewer
 description: Reviews every change touching job producers, workers, queues, retry/DLQ config. Catches lost jobs, infinite retry loops, head-of-line blocking, poison-pill bombs, and tenant-fairness regressions.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Queue Reviewer

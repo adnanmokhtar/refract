@@ -1,5 +1,6 @@
 ---
 description: Graduates an emerging pattern from ai/dynamic/learned-patterns.md to a formal ai/patterns/<name>.md with full structure.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /promote-pattern <name>

@@ -2,6 +2,7 @@
 description: Reverse /align-park. Restores a parked alignment finding's prior status and phase from the parked-context file, archives that file, and appends a history entry. Read-confirm-execute; mutates nothing if the parked context is missing or malformed. The revival pair of /align-park.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-unpark <id>

@@ -1,6 +1,7 @@
 ---
 name: reporting-reviewer
 description: Reviews every change touching reports, exports, dashboards, and analytics queries. Catches sync heavy reports, load-all-in-memory, OFFSET deep pagination, primary-DB reporting, missing tenant/permission scope (cross-tenant leak), unbounded date ranges, PII in exports without redaction/audit, public/non-expiring download URLs, and naive timezone/currency formatting.
+tools: Read, Grep, Glob
 ---
 
 # Reporting Reviewer

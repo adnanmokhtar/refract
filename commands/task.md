@@ -4,6 +4,7 @@ compatibility: Requires a task-provider MCP in .mcp.json OR that provider's cred
 kind: command
 pack: orchestration
 version: 1.0.0
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /task <ref> [--prompt-only] [--to=<command>] [--no-writeback] [--review-only]

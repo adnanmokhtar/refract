@@ -1,5 +1,6 @@
 ---
 description: Probe a specific cache usage — key scope (tenant/permission/version), TTL (bounded? jittered?), invalidation-on-write, stampede protection, and whether authz/PII is cached — from real source, never an assumed key shape.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /probe-cache

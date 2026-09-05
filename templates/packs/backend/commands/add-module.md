@@ -1,5 +1,6 @@
 ---
 description: Scaffold a new backend module end-to-end following the project's declared architecture. Generates entity + ports + use-cases + repo + controller + DTOs + migration + DI wiring + tests + docs.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /add-module

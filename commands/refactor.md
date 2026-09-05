@@ -3,6 +3,7 @@ description: Apply the closed Fowler verb set to ONE named file, module, or symb
 compatibility: Requires _extracted-idioms.md or codebase-profile.md populated, since sibling files are the truth, and mechanical CI green before starting so behaviour preservation is checkable. Clean tree preferred; --allow-dirty proceeds. Any stack, with pack-specific gates routed when present. Deliberately exempt from the three-line honesty mandate; --refresh, --re-audit, --restart, and --ignore-ledger are not supported.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /refactor [<scope>]

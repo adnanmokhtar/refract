@@ -3,6 +3,7 @@ name: device-harness
 description: Boot a simulator or emulator, install the app, drive it to a screen, and capture evidence — screenshots, the UI tree, a cold-start measurement, a deep-link open, a process-death restore. Run when a change must be SEEN working on both platforms, when a visual or platform claim needs evidence rather than assertion, or before a build reaches a beta tester. NOT for bundle size (bundle-analyze), NOT for bridge correctness (native-bridge-audit), NOT for judging conformance of a static tree (platform-conventions-audit) — this produces the evidence those skills and /polish reason over. Halts with SKIPPED rather than guessing when no device is available.
 kind: skill
 pack: mobile
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: device-harness

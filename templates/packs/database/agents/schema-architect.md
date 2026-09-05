@@ -1,6 +1,7 @@
 ---
 name: schema-architect
 description: Designs DB schemas — tables, columns, indexes, FKs, constraints, migration strategy. Engine-aware (Postgres / MySQL / Mongo). Considers scale, tenant isolation, compliance retention from day one.
+tools: Read, Grep, Glob, Skill
 model: opus
 ---
 

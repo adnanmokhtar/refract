@@ -1,6 +1,7 @@
 ---
 name: performance-optimizer
 description: Finds bottlenecks (N+1, missing indexes, blocking I/O, memory leaks, unnecessary renders, bundle bloat). Measures before proposing. Produces ranked fixes with expected impact + risk.
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
 

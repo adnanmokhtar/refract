@@ -1,6 +1,7 @@
 ---
 name: refactorer
 description: Refactors code safely — preserves behavior, respects existing patterns, no feature creep. Works across any stack.
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 model: sonnet
 ---
 

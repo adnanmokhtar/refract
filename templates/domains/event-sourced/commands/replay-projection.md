@@ -1,5 +1,6 @@
 ---
 description: Rebuild a read-model projection from the event store. Drop-then-rebuild with progress, catchup time, and final-state verification.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /replay-projection

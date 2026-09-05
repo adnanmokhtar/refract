@@ -1,6 +1,7 @@
 ---
 name: migration-rehearsal
 description: Run a pending migration against a restored prod-sized copy. Measure duration, the lock profile, the algorithm the engine actually chose, and rollback behaviour. Postgres and MySQL lanes. Do this BEFORE prod.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # migration-rehearsal

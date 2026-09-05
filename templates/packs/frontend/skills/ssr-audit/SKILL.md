@@ -1,6 +1,7 @@
 ---
 name: ssr-audit
 description: Static scan for hydration-mismatch sources in SSR apps (Nuxt / Next / SvelteKit) — catches the bug before runtime. Run before merging an SSR-related PR and after adding a plugin or composable that touches browser APIs. Correctness only — `streaming-ssr` is the sibling that makes a correct SSR render fast.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # ssr-audit

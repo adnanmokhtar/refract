@@ -2,6 +2,7 @@
 description: Audit whether spend can be attributed to an owner — tag and label coverage by resource and by dollar, the allocation rules for shared cost, the showback map, and the unallocated bucket. Reports the percentage of spend nobody owns, which bounds every per-unit number derived from it.
 kind: command
 pack: finops
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit-cost-attribution [--period <billing-period>]

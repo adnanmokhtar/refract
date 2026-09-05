@@ -3,6 +3,7 @@ description: Rank what is WRONG with code that already exists, across eight engi
 compatibility: Requires PROJECT_KIND resolvable from anchors (every subtree in a polyglot monorepo) and _extracted-idioms.md or codebase-profile.md populated. No language-specific tooling needed at audit time — deeper stack-specific passes such as SAST or a heap profiler are emitted as paste-ready follow-up commands, not run here. Capacity-headroom numbers stay estimates unless ai/observability.md declares current RPS, vitals, or SLOs.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit [<scope>] [--target-rps=<N>] [--target-p95=<ms>] [--plan-only | --assess]

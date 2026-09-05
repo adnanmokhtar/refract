@@ -1,6 +1,7 @@
 ---
 name: integrations-reviewer
 description: Reviews every change touching third-party connectors, OAuth-to-vendor flows, external sync, and inbound vendor webhooks. Catches plaintext/unrefreshed/cross-tenant credentials, bare vendor fetches with no retry/backoff/Retry-After, missing circuit breakers, non-idempotent sync writes (duplicate-on-redelivery), webhook-only pipelines with no reconciliation (silent drift), unvalidated vendor payloads, unverified webhook signatures, synchronous vendor calls on the user request path, and secrets leaked in logs.
+tools: Read, Grep, Glob
 ---
 
 # Integrations Reviewer

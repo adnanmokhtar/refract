@@ -3,6 +3,7 @@ name: chart-encoding-audit
 description: Audit every chart in a project against the encoding floor — is the mark right for the question, does the scale tell the truth, is the data colour readable without colour vision, does the chart carry its units. Run before shipping a dashboard, after a redesign re-themes existing charts, when a stakeholder misreads a number off a chart, or as a quarterly analytics-surface review. Encoding only — `design-token-audit` owns whether values come from the system and `a11y-quick-check` owns the surrounding page. The rules are not defined here; they are cited from `data-visualization.md`.
 kind: skill
 pack: ui-ux
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: chart-encoding-audit

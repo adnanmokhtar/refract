@@ -3,6 +3,7 @@ name: perf-uplift-survey
 description: Survey a feature being ported from V1 to V2 for migration-time performance wins — N+1 queries, missing indexes, unbounded SELECT *, sequential awaits over independent I/O, missing caching, in-app filtering, oversized payloads. Outputs a structured candidate list with cost / saving / parity-preservation argument so each can be decided (applied / deferred / rejected) before V2 ships.
 kind: skill
 pack: migration
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # perf-uplift-survey

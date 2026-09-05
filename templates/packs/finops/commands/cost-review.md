@@ -2,6 +2,7 @@
 description: Review a change for cost regressions before it merges — always-on resources, per-row paid calls, retry and fan-out bounds, cross-zone movement, retention and log-volume defaults, scan cost, and allocation tags. Diff-scoped; adds the missing cost lens to code review.
 kind: command
 pack: finops
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /cost-review [<scope>] [--since <ref>]

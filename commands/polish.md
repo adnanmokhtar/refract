@@ -3,6 +3,7 @@ description: Introduce finish the project does not have yet, on the axis its PRO
 compatibility: Requires PROJECT_KIND set and halts on unknown. Per kind — frontend wants a Playwright MCP for visual baselines and soft-fails to a text-only audit without it; backend wants a discoverable OpenAPI spec; data wants schema introspection via a live DB or migration history; mobile wants per-platform build configs. A missing one narrows the pass rather than blocking it.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /polish [<scope>]

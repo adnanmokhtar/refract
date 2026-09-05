@@ -3,6 +3,7 @@ name: eval-run
 description: Run the offline LLM eval harness and gate on regression. Detects the project's own eval framework (promptfoo / OpenAI-evals / deepeval / ragas / LangSmith / a custom pytest harness), loads the versioned dataset, runs each case through the CURRENT prompt+model+retrieval, scores with the configured scorers (assertion + LLM-as-judge), diffs against the stored baseline, and FAILS below threshold. Emits a per-metric table + the regressed cases with their cited case-id + score. The measurement half of every prompt/model/retrieval change — dispatched by @ai-feature-reviewer and /add-ai-feature's Evaluate phase.
 kind: skill
 pack: ai-engineering
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: eval-run

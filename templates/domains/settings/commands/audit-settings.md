@@ -1,5 +1,6 @@
 ---
 description: Audit the settings/configuration subsystem — store, precedence resolver, typing/validation, secret encryption, cache scope+invalidation, change audit, and write authorization — from real source, never an assumed model.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-settings

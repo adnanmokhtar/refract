@@ -3,6 +3,7 @@ name: a11y-quick-check
 description: A focused a11y check on a single screen / component, split into the lane an agent can actually execute (axe rule ids, computed contrast, DOM semantics from source) and the lane only a human can (screen reader, keyboard, OS reduced-motion). Reports each lane's real coverage instead of one blended percentage. The in-pack a11y pass that /design-review and /enhance-ui run; escalates to the frontend pack's @accessibility-auditor for a full audit when that pack is installed.
 kind: skill
 pack: ui-ux
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: a11y-quick-check

@@ -3,6 +3,7 @@ name: test-shield
 description: Pre-sweep coverage gate for behaviour-preserving work (/optimize, /audit refactor + perf verbs). "Refactor, tests stay green" is only proof of preservation if a test actually exercises the touched branch — on an UNCOVERED branch a structural fix can silently change behaviour and still show green. Before such a fix, this skill detects the touched-but-uncovered branches in scope and pins current behaviour with a characterization test (dispatching /add-test) BEFORE the fix lands, or halts the row. Reuses testing/skills/coverage-gap/SKILL.md for detection.
 kind: skill
 pack: code-quality
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: test-shield

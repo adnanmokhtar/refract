@@ -2,6 +2,7 @@
 description: Search this project's existing ai/ memory — the dynamic sinks, the don't-retry failure catalog, ADRs, patterns, runbooks, conventions, and the archives — with the same stdlib BM25 that indexes the pack corpus. Returns ranked POINTERS (path:line), never a paraphrase. Read-only; stores nothing, adds no sink.
 kind: command
 pack: learning
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # /recall <query> [--kind=] [--owner=] [--since=] [--limit=] [--format=]

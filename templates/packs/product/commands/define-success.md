@@ -2,6 +2,7 @@
 description: Define what success and damage look like before a change ships — the success metric with a baseline and a target, the counter-metric with a rollback threshold, the instrumentation each requires, and the kill criteria with a named owner and a review date.
 kind: command
 pack: product
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /define-success [<change or feature>]

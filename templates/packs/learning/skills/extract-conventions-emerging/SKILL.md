@@ -1,6 +1,7 @@
 ---
 name: extract-conventions-emerging
 description: Round-two extraction of EMERGENT conventions — patterns that recur 5+ times across the codebase but aren't documented anywhere (error shape, pagination shape, validation pattern, transaction boundaries, async-work naming, time/money/ID handling). Used by /setup-project Phase 2.10 in REFINE mode to upgrade round-one explicit-conventions detection (file naming, suffix matrix, base classes) with the implicit "this is how we always do X" rules that the team follows by habit.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-conventions-emerging

@@ -2,6 +2,7 @@
 description: Turn the decisions you cannot make alone into a questionnaire for the person who can — each question carrying what it changes, a deadline, and the default that fires if it goes unanswered. Writes a document to send, never a decision.
 kind: command
 pack: product
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /to-questionnaire [<decision, or path to a brief / interview ledger>]

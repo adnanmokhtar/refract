@@ -1,6 +1,7 @@
 ---
 name: schema-diff
 description: Diff the ORM entities against the actual DB schema — catch drift between code and reality. Run before generating a new migration (drift corrupts autogenerate output), after an out-of-band hotfix, and weekly in CI against a restored backup. Detects drift only — `migration-rehearsal` is what proves the corrective migration is safe to apply.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # schema-diff

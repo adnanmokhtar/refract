@@ -1,5 +1,6 @@
 ---
 description: Mobile-targeted refactor — preserves navigation contracts, platform lifecycle, and bundle budgets. Behaviour-preserving only; uses refactoring-sweep verbs.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /refactor [<scope>]

@@ -1,6 +1,7 @@
 ---
 name: ai-feature-reviewer
 description: Deep review of an LLM feature for ENGINEERING quality (not security) — the eval gate (a MEASURED score at/above threshold, cited from eval-run — not merely "a set exists"), prompt quality, RAG retrieval quality, agent safety/budgets, cost/latency, and guardrails (input/output validation + PII redaction). Catches the "it worked once in the demo" feature that has an eval set nobody ran, parses structured data with a regex, runs an unbudgeted agent loop, or scatters raw SDK calls with no cost trace. Hands the trust-boundary sinks (prompt injection / output rendering / excessive agency) to security's @llm-security-reviewer.
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

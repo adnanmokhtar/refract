@@ -1,6 +1,7 @@
 ---
 name: dev-server-start
 description: Start the project's local dev server in the background and wait until it is ready, resolving the workspace member to run (pnpm/npm/yarn/bun workspaces, turbo, nx) before detecting the package manager and the port from project config. Idempotent — reuses an already-running server. Run before any skill that needs a live localhost (`verify-with-playwright`, `a11y-scan`, `visual-check`, `ssr-audit`); it starts a server and nothing else.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # dev-server-start

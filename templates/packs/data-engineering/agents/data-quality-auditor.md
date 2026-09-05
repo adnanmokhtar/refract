@@ -1,6 +1,7 @@
 ---
 name: data-quality-auditor
 description: Audits whether the warehouse's numbers can be trusted — test coverage per model grain, referential integrity, accepted-value and range assertions, freshness and volume monitors, distribution drift, and the quarantine/severity/routing policy for failures. Framework-agnostic. Trigger before a model is promoted to a dashboard, after any incident where a reported number was wrong, when a test suite passes but data is visibly broken, or when nobody can say who gets paged for a stale table. Do NOT trigger for application unit/integration tests (`@test-reviewer` in the testing pack), for infra alerting (`@sre-engineer` in observability), or for dimensional design correctness (`@warehouse-modeler`).
+tools: Read, Grep, Glob
 model: opus
 ---
 

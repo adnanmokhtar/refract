@@ -1,5 +1,6 @@
 ---
 description: Audit a calendar / availability / booking / recurrence feature — timezone storage, RRULE vs naive recurrence, double-booking protection, DST handling, recurrence bounds, and idempotency — from the REAL code, never an assumed shape.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-scheduling

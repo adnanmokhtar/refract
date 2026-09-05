@@ -1,6 +1,7 @@
 ---
 name: memory-leak-hunt
 description: Hunt a memory leak by heap-diffing over time and attributing the growing allocation. Use when a process's heap/RSS grows monotonically under steady load — never bump the memory limit to hide it.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # memory-leak-hunt

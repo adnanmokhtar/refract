@@ -1,6 +1,7 @@
 ---
 name: test-engineer
 description: Writes unit, integration, and e2e tests. Applies the test pyramid, deterministic patterns, and test doubles correctly. Framework-agnostic — mirrors the repo's existing test style.
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 model: sonnet
 ---
 

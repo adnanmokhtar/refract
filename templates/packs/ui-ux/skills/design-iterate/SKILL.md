@@ -3,6 +3,7 @@ name: design-iterate
 kind: skill
 pack: ui-ux
 description: Two modes. `pick` (attended) — generate 2–3 style variants at the correct design-system layer (leaf scoped styles, shared wrapper, or design tokens), screenshot via Playwright MCP, present side-by-side so the user picks. `refine` (unattended, for /redesign Phase 6 + /art-direct build) — render the approved design, self-critique the PIXELS against the caller's rubric, fix the weakest lens (depth/motion/modern/perf/i18n), re-render, loop up to $MAX_REFINE rounds until it clears the bar. Honors $SCOPE_TIER so the same affordance is not duplicated across pages. Invoke for "try a few variants" / "iterate on the design", or as the quality loop that turns a one-pass build into a good design.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Design Iterate

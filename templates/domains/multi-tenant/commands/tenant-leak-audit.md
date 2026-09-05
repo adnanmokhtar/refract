@@ -1,5 +1,6 @@
 ---
 description: Scan the codebase for tenant-isolation leaks — queries and repo methods missing tenant_id filters.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /tenant-leak-audit

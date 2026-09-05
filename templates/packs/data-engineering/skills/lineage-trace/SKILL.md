@@ -1,6 +1,7 @@
 ---
 name: lineage-trace
 description: Trace a column, model, or metric downstream to every consumer — models, dashboards, exports, reverse-ETL syncs, notebooks — and upstream to its sources, then report orphans and unreachable nodes. Run before changing or deleting anything in the warehouse, when sizing the blast radius of a defect, and when hunting models nobody reads. Answers WHO is affected — `contract-diff` answers WHETHER a change is breaking, and `grain-probe` answers whether the data is what it claims.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: lineage-trace

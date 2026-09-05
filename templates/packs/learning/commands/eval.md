@@ -1,5 +1,6 @@
 ---
 description: Score the project's accumulated AI knowledge against saved eval cases — the measurement half of the learning loop. Proves promoted rules/conventions/patterns actually make the AI produce correct work, and catches regressions when knowledge rots. Sibling to `/learn-from-task` (which captures) — `/eval` grades.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /eval

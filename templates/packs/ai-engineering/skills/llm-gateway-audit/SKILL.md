@@ -3,6 +3,7 @@ name: llm-gateway-audit
 description: Inventories the provider-call surface and audits the seam — every provider-SDK import/call outside the gateway module (enumerated individually, never "and N others"), calls with no timeout or no max-output-token cap, a single-provider production path with no fallback, repeated large identical context with no exact/prompt caching, a semantic cache whose key is not tenant/permission-scoped, calls not logging model id + prompt version + tokens + cost + latency trace-linked, and prompt/response logging with no PII/secret redaction. Emits the seam inventory (N call sites, M behind the seam) plus one finding per site with its closure verb. TRIGGER — before adding retry/caching/fallback/cost-tracking, when cost or p95 latency is a question, any diff adding a provider call, and dispatched by /ai-audit and @ai-feature-reviewer dimension 5. ANTI-TRIGGERS (do NOT fire) — deriving retry/backoff/circuit-breaker algorithms (distributed-systems / backend own the mechanics; this audits their application to provider calls); the metric/trace taxonomy, cardinality budgets, or PII-redaction policy (observability owns those — this checks the redaction call is on this path); secret scanning (secret-scan); projecting a dollar saving or a cache hit-rate (this skill reports measured or configured facts only).
 kind: skill
 pack: ai-engineering
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: llm-gateway-audit

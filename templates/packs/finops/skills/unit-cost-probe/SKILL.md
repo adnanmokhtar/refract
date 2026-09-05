@@ -1,6 +1,7 @@
 ---
 name: unit-cost-probe
 description: Compute the measured cost of one named business unit — per request, tenant, order, job, GB, or 1k tokens — by joining attributed spend to the unit's denominator over the same whole billing period, and label every branch measured / allocated / not derivable. Run when a unit cost is claimed, before a pricing decision, to verify a cost model's branch, and to check whether a predicted change appeared. Produces the NUMBER for one unit — `commitment-coverage` explains the rate half of a change, `egress-trace` explains the transfer branch, and `spend-anomaly-triage` explains a spike.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: unit-cost-probe

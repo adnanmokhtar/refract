@@ -1,5 +1,6 @@
 ---
 description: Add a new screen — full chain — route + screen component + navigation wiring + state + i18n + a11y + tests. Smaller than /add-feature; deeper than hand-editing.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-screen

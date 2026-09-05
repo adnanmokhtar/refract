@@ -1,6 +1,7 @@
 ---
 name: endpoint-test
 description: Hit a running dev endpoint via curl and verify status + response shape + required headers (auth, tenant) field-by-field against the DTO. Use AFTER any controller, DTO, guard, pipe or interceptor edit to prove the route works end-to-end, or when a frontend reports an unexpected shape and you need ground truth. NOT when no dev server is running (it refuses to auto-start), NOT against staging/prod hosts, and NOT for static contract diffing — that is api-snapshot.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # endpoint-test

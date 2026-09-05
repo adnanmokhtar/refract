@@ -1,6 +1,7 @@
 ---
 name: extract-codebase-overview
 description: Master orchestrator for deep codebase analysis in /setup-project Phase 2. Walks the project's architecture, modules, base classes, data model, API surface, naming conventions, and dependency graph — outputs `.claude/_extracted-codebase.md`, the substrate every Phase 4 generator reads to author project-specific (not generic) content. Invokes sub-skills (extract-base-class-idiom, extract-business-context) and consolidates results.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-codebase-overview

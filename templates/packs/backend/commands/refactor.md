@@ -1,5 +1,6 @@
 ---
 description: Backend-targeted refactor — preserves API contracts, error envelopes, DI, and layer boundaries. Behaviour-preserving only; uses refactoring-sweep verbs.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /refactor [<scope>]

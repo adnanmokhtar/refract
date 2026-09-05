@@ -1,6 +1,7 @@
 ---
 name: parity-auditor
 description: Pre-cutover audit of a per-feature port. Verifies the contract is complete, parity tests cover the contract, parity tests are green against the pinned V1 commit, perf decisions are documented, ledger row is consistent, rollback path is tested, no V1 modifications crept into the port PR. Hard-halts on missing artifacts. Ships its findings as a structured audit report.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 kind: agent
 pack: migration

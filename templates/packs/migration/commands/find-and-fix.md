@@ -2,6 +2,7 @@
 description: Default V1→V2 port loop. Detect → Decide → Fix → Verify → Record. Single-agent dispatch, shared 5K-token context blob, code edits as deliverable. Routine ports use this; reserve /port-feature --heavy for security-sensitive / contract-breaking / cross-repo work.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /find-and-fix <feature>

@@ -2,6 +2,7 @@
 description: Orchestrator for UI/UX enhancement. Takes a natural-language description ("the sidebar", "the dashboard header") OR explicit path. Runs scope-tier detection (DRY — token / wrapper / extract / leaf) so the same affordance is not styled twice on multiple pages; then cleanup → design-iterate → verify. Composes /align-recheck (including duplicated-surface-styles when frontend) + design-iterate (passes $SCOPE_TIER) + /align-recheck again.
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /enhance-ui <description-or-path> [<more>...]

@@ -2,6 +2,7 @@
 description: Analyze the whole product against what a business in its domain should have, and WRITE a file of recommended missing capabilities — each one "analyze-task-ready" so you pick one, run /analyze-task on it to get a buildable spec, then /add-feature to implement. The breadth counterpart to /audit-business (one feature deep) and the feature arm of /suggest-metrics (metrics). Recommends what to BUILD (and what to skip); does not build it.
 kind: command
 pack: business
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /suggest-features [<scope>]

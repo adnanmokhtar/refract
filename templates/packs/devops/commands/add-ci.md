@@ -1,5 +1,6 @@
 ---
 description: Generate or update a CI workflow for the detected platform and stack.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-ci [platform]

@@ -1,6 +1,7 @@
 ---
 name: bundle-analyze
 description: Analyze the production bundle — chunks, sizes, dependencies, duplicates — and flag bloat before users feel it. Run after adding a dependency, after a major version bump, or when `lighthouse-ci` flags a JS-size regression. Measures and names the heavy chunk; the `code-splitting` pattern decides where to cut it.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # bundle-analyze

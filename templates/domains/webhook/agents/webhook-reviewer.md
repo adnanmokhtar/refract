@@ -1,6 +1,7 @@
 ---
 name: webhook-reviewer
 description: Reviews every webhook handler — inbound or outbound. Catches missing signature verification, non-idempotent processing, slow ack, missing replay-attack defenses, and absent deadletter handling.
+tools: Read, Grep, Glob
 ---
 
 # Webhook Reviewer

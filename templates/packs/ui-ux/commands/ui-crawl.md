@@ -2,6 +2,7 @@
 description: Automated cross-route UI crawler. Logs in once, visits every route in the project's route manifest, takes screenshots at 3 breakpoints + dark mode + RTL, walks in-page tabs, opens dialogs and dropdowns, runs axe-core a11y scan per route, captures console/network errors, and writes a ranked findings report. Frontend stacks only. Detect-only — for auto-fix see /ui-crawl-fix. Complements /ui-sweep (which is the deeper specialist sweep) by providing fast, repeatable QA-style coverage of EVERY route with machine-readable output.
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /ui-crawl [<scope>] [--smoke] [--filter=<substr>] [--full-matrix]

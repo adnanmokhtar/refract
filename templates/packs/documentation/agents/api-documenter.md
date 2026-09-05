@@ -1,6 +1,7 @@
 ---
 name: api-documenter
 description: Generates + maintains API documentation — OpenAPI 3.1, SDK clients, developer portals. Catches spec drift. API-first development enabler.
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 model: sonnet
 ---
 

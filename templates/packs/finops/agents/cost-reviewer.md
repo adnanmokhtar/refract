@@ -1,6 +1,7 @@
 ---
 name: cost-reviewer
 description: Reviews a diff for cost regressions the way a security reviewer reviews it for vulnerabilities — new always-on resources, unbounded fan-out, per-row remote calls, cross-zone chatter, retention and log-verbosity defaults, untagged resources, unbounded result sets, and cache removals. Framework-agnostic. Trigger on any change touching infrastructure definitions, a hot path, a batch job, a retention or logging setting, or a third-party/model API call. Do NOT trigger for a design that has not been written yet (`@cost-architect`), for a periodic sweep of existing resources (`/cost-audit` in the infrastructure pack), or for attributing an existing bill (`@finops-analyst`).
+tools: Read, Grep, Glob
 model: opus
 ---
 

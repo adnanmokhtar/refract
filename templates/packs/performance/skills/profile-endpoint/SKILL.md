@@ -1,6 +1,7 @@
 ---
 name: profile-endpoint
 description: Load-test a specific endpoint locally and profile where time is spent. Use before optimizing.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # profile-endpoint

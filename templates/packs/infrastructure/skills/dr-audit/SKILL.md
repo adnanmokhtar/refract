@@ -1,6 +1,7 @@
 ---
 name: dr-audit
 description: Backup-coverage + restore-readiness audit of an EXISTING infrastructure footprint (terraform state / live cloud / k8s). Finds unbackupped stateful stores, missing PITR, stale/absent restore drills, undeclared RPO/RTO. Distinct from provision-tier (creation-time backup enforcement) and multi-region (RTO/RPO design); this audits what is already running.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # dr-audit

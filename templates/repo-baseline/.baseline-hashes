@@ -18,6 +18,7 @@
 .claude/GUIDE.md  62569a5dd13b2074da856129dd1dac92f574585e5d87e924eed17dd22e368ec4
 .claude/GUIDE.md  cef6d6316b81b05843db34a0a1cb1db0561e35092169ac474c866cbbf75d8ceb
 .claude/agents/knowledge-curator.md  15cd69b6754700ad77b40684ed0e22167a44587697a9b7e4b626dfe63311e242
+.claude/agents/knowledge-curator.md  300173db379731600a5c37401e45ca4168b9bffc035caa9f7daeb7caf940ff31
 .claude/agents/knowledge-curator.md  36099449c463a24c3c637c912029a3e7881f69e7a5456358f7f67f0d771f08c9
 .claude/agents/knowledge-curator.md  47120d0ed988d5d503be504584c7dfedb2ed1db55b5bfbf79349437fff884789
 .claude/agents/knowledge-curator.md  7eec469772e942b21163e3829981580fd33ab72addb404f95c8872ce1f1e8c66
@@ -29,6 +30,7 @@
 .claude/commands/execute-plan.md  57361a00e8e665f28de2f7b84f80490df250f2a5c3440f025c29e6b8c51146b3
 .claude/commands/execute-plan.md  64bb68512c837f5b6ad7189a4b5514ddfd7105e3fc04d7ac84a7a1d7ead85ef5
 .claude/commands/execute-plan.md  9023e4e307dd726c6030419a2c2cd721de03b2f47434bec0560010393d99ba40
+.claude/commands/fix-bug.md  067bfd090e023f720d01d51ff8b2d699ca5cc18ee7574f55bcf0c35aab7b8b78
 .claude/commands/fix-bug.md  5027abb0be180f31bf7f33bd0ef352448fe65e5cd542ab05e941927790c444e1
 .claude/commands/fix-bug.md  59acb22daa67dc568563eb91e3e06e98ce96d8a5ef1b9700f2e6695a4f94ee41
 .claude/commands/fix-bug.md  a19a0e5e76ad98e15efe7f6bae916bfee3b58f0ed72436f647ded27a69564044

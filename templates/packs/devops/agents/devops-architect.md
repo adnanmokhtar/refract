@@ -1,6 +1,7 @@
 ---
 name: devops-architect
 description: Designs deploy + CI/CD + container strategy. Detects target (Docker / K8s / Fly / Vercel / Railway / VPS) and produces concrete pipeline + Dockerfile + rollback plan.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

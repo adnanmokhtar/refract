@@ -1,6 +1,7 @@
 ---
 name: chaos-test
 description: Inject failures (network, latency, crashes) against a running service to verify resilience. Run after adding an external dependency (cache, queue, third-party API), before promoting a service to a higher SLO tier, or before a high-traffic event. Requires a running service — this is not a static resilience review.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # chaos-test

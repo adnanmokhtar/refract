@@ -2,6 +2,7 @@
 description: Final sweep — confirms every feature in the ledger is done + parity-passing across ALL phases. Proposes V1 retirement plan if green. Runs the full audit one more time to catch regressions.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-final

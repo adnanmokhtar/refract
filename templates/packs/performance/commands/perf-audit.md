@@ -1,5 +1,6 @@
 ---
 description: Performance pass — performance-optimizer single dispatch, ranked by impact. Optionally pairs with caching-architect for cache-strategy work.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /perf-audit [path|endpoint]

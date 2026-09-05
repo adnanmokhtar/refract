@@ -1,5 +1,6 @@
 ---
 description: Language-agnostic targeted refactor — behaviour-preserving structure changes using refactoring-sweep verbs only. Prefer when stack-specific packs are not loaded or for shared/library code.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /refactor [<scope>]

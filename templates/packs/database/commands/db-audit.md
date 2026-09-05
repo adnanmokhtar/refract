@@ -1,5 +1,6 @@
 ---
 description: Full DB audit — indexes, bloat, slow queries, soft-delete and tenant filter leakage.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /db-audit [dev|staging]

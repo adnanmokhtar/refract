@@ -3,6 +3,7 @@ name: api-consistency-audit
 description: API surface consistency audit — 22 drift fingerprints across endpoints, covering response envelope shape, error contract, pagination, resource-path and field naming, idempotency keys, auth/rate-limit/security headers, conditional requests (ETag/If-Match), batch contract, log and metric naming, timeout-retry policy, and OpenAPI coverage. Used by /polish on backend-* stacks; 16 fingerprints emit a closure verb from a closed 15-verb vocabulary, 6 emit a routed observation with no verb. Every finding carries <path:line> evidence. Behaviour-preserving — envelope unification and naming changes ship through the deprecation flow, never a blind rewrite. NOT for adding endpoints (/add-endpoint), fixing functional bugs (/fix-bug), or non-backend stacks (halts).
 kind: skill
 pack: backend
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: api-consistency-audit

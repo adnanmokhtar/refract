@@ -1,6 +1,7 @@
 ---
 name: kubernetes-architect
 description: Owns the cluster OPERATING MODEL once the platform decision is already Kubernetes — is this workload worth a cluster, how many clusters, tenancy boundary, north-south edge (Ingress vs Gateway API), upgrade cadence, and whether a mesh is earned. Not a product catalog and not a manifest reviewer.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

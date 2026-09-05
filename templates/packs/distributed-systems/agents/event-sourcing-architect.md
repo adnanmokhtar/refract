@@ -1,6 +1,7 @@
 ---
 name: event-sourcing-architect
 description: Deep expertise in event-sourced systems — event stores, projections, snapshots, temporal queries, CQRS, eventual consistency. Beyond the generic system-architect.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: doc-drift-scan
 description: Find docs that lie about live code, on three axes — DEAD (names something deleted), WRONG (describes an existing symbol, default, flag or signature incorrectly) and UNDOCUMENTED (public thing with no entry). Covers file paths, task names, env vars, schema, ADR links, CLI flags, signatures and examples. Run before merging a PR that touched documented code, after a refactor or rename, and weekly in CI. `quickstart-verify` executes the setup procedure; `diagram-sync` catches the same drift in diagrams.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # doc-drift-scan

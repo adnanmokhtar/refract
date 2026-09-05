@@ -2,6 +2,7 @@
 description: Auto-fixes the mechanical UI findings from /ui-crawl by applying the closure-verb vocabulary from align-discipline.md. Patches at the WRAPPER level (the project's own form-field / row-action / modal wrappers, named in _extracted-idioms.md) so one fix cascades through hundreds of call sites. Closes color-contrast (token swap), button-name (aria-label injection), label (for/id wiring), unsanitized-raw-HTML (v-html / dangerouslySetInnerHTML / equivalent), raw-library-component, hardcoded-translations. Skips bugs requiring human judgment (broken dialog triggers, layout overflow, page load failures). Re-runs /ui-crawl in verify mode to confirm gap-count parity. Frontend stacks only.
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /ui-crawl-fix [<class>] [--dry-run] [--plan] [--safe-only] [--verify]

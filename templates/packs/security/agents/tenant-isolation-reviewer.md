@@ -1,6 +1,7 @@
 ---
 name: tenant-isolation-reviewer
 description: Deep review of multi-tenant isolation — every read/write/cache/event/job scoped to the tenant from context. Catches cross-tenant leaks, the #1 SaaS data breach class.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: Audit an entity's state machine — locate the status field + transitions, reconstruct the actual transition matrix from source, and verdict explicit-table / guard / optimistic-lock / idempotency / side-effect-ordering / audit / terminal-and-stuck — against real code, never an assumed lifecycle.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-state-machine

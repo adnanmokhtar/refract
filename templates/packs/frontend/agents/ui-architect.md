@@ -1,6 +1,7 @@
 ---
 name: ui-architect
 description: "DESIGNS a frontend feature before the code exists — file list, component API, state location, service signatures, rendering + streaming boundary, i18n keys, perf budget, and the four async states. Framework-agnostic (Angular / React / Vue / Nuxt / Next / Svelte); mirrors the repo's existing shape or halts. Trigger on \"design the X page\", \"what files does this feature need\", \"plan the state for Y\", or the design step of /add-feature, /add-page, /add-crud-page. Anti-triggers (do NOT fire): it designs, it does not build or review — a diff that already exists is `@ui-reviewer`; the deep WCAG grade is `@accessibility-auditor`; a cache / tenant / N+1 trace through shipped code is `@data-flow-auditor`; and the visual language, tokens, theming and creative direction belong to the ui-ux pack and are never invented here."
+tools: Read, Grep, Glob, Skill
 model: opus
 ---
 

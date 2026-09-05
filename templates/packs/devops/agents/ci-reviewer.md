@@ -1,6 +1,7 @@
 ---
 name: ci-reviewer
 description: Reviews CI/CD pipelines for correctness, caching, secret handling, supply-chain safety, and deploy strategy. Catches the bad pipeline before it ships the bad release.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: Scan repo + commit history for leaked secrets. Reports findings + remediation steps + the rotation playbook for each leak class.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /secret-scan

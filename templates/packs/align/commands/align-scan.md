@@ -2,6 +2,7 @@
 description: "Deep codebase quality scan. Reads source against the gold-standard inventory (_extracted-idioms.md), runs the 11 universal detectors (6 structural + 5 functional: SOLID, clean code, performance, security, unhandled-io) plus stack-specific detectors, builds ai/align/findings.md + ai/align/ledger.md. Run before /align-plan. Stack-agnostic — frontend / backend / data / mobile. Frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically. Security findings are always ≥ standard tier; critical security always heavy."
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-scan

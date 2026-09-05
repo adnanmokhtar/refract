@@ -2,6 +2,7 @@
 description: "Executes one alignment phase. For each finding in the phase: DETECT (re-verify fingerprint) → DECIDE (closure verb) → FIX (apply edit) → VERIFY (lint + typecheck + tests + re-detect) → RECORD (update ledger). One commit per finding. Net-lines ≤ 0 per phase. Stack-agnostic."
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-phase <N>

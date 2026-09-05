@@ -1,6 +1,7 @@
 ---
 name: query-optimizer
 description: Finds slow queries, proposes indexes + rewrites with expected impact. Uses EXPLAIN plans when the DB is reachable. Engine-aware.
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
 

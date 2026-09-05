@@ -1,6 +1,7 @@
 ---
 name: scheduling-reviewer
 description: Reviews every change touching calendars, availability, bookings, appointments, recurrence, and reminders. Catches bare-local-timestamp storage (no IANA zone), naive recurrence (addDays/addMonths instead of RRULE), read-then-write double-booking (no transactional exclusion/unique constraint), missing or closed-interval overlap detection, DST-boundary bugs (the skipped hour, the duplicated hour), unbounded recurrence expansion, past/out-of-availability bookings accepted, non-idempotent slot creation, and user-tz vs resource-tz confusion.
+tools: Read, Grep, Glob
 ---
 
 # Scheduling Reviewer

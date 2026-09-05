@@ -1,6 +1,7 @@
 ---
 name: component-playground
 description: Mount one shared component on an isolated, dev-gated route with knob-style controls generated from its real prop declarations, so edge cases can be probed without touching a real page (Storybook-lite). Framework-adaptive — Vue / React / Svelte / Angular. Invoke on "test this component in isolation", "play with props", "see what X looks like with Y". Do NOT invoke when the repo already has Storybook / Histoire / Ladle or any *.stories.* file — write a story there instead; a second explorer is the anti-pattern. Not for a component already mounted in a real page (that is verify-with-playwright) and not for regression baselines (visual-check).
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Component Playground

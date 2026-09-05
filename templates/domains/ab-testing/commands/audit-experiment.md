@@ -1,5 +1,6 @@
 ---
 description: Audit a specific experiment — deterministic/stable bucketing, server-vs-client identity, exposure logging, mutual exclusion, SRM/peeking, kill-switch, and consent/PII — against the real assignment code, never an assumed shape.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-experiment

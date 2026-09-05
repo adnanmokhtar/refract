@@ -1,6 +1,7 @@
 ---
 name: warehouse-modeler
 description: Designs and reviews the ANALYTICAL data model — grain declaration, fact vs dimension separation, surrogate/natural keys, slowly-changing dimensions, conformed dimensions, star vs one-big-table, late-arriving and multi-valued facts. Framework-agnostic. Trigger on a new mart/fact/dimension model, a metric that disagrees between two dashboards, a fan-out join that double-counts, or a "just add a column" request to a shared dimension. Do NOT trigger for OLTP schema design or indexes (`@schema-architect` in the database pack), for pipeline movement correctness — idempotency, checkpoints, backfill isolation (`@data-pipeline-reviewer`, the data-pipeline signal), or for transformation-layer/materialization choices (`@analytics-engineer`).
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

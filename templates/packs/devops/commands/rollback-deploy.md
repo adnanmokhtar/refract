@@ -2,6 +2,7 @@
 description: Roll back the current environment to a previous known-good deploy. Decides rollback-vs-forward-fix, resolves the target and proves it was healthy, runs a four-question reversibility gate (migration direction, target still exists, artifact reference immutable, shared state readable by the old version) BEFORE executing, then executes the revert, monitors health until green, and writes a rollback runbook entry. The recovery pair of `/deploy-stage` — invoked when a staged/prod deploy goes red.
 kind: command
 pack: devops
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /rollback-deploy

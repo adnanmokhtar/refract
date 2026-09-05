@@ -1,6 +1,7 @@
 ---
 name: align-evidence-auditor
 description: Audits a FRESH align scan's finding rows before any fix is applied — every `<path:line>` resolves at the pinned commit and actually contains the claimed fingerprint, every enumeration is explicit, every row's class matches its detector signal, every security row clears the tier floor. Framework-agnostic. Report only — never fixes, never adds findings. Use after /align-scan or /align-recheck's SCAN-FRESH; NOT after fixes land (that is @align-gate-auditor's window).
+tools: Read, Grep, Glob, Bash, Skill
 model: sonnet
 kind: agent
 pack: align

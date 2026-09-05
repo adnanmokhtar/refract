@@ -1,6 +1,7 @@
 ---
 name: caching-reviewer
 description: Reviews every change touching cache reads, writes, keys, and invalidation. Catches unscoped shared keys (cross-tenant cache leak), client-supplied scope, missing invalidation-on-write (stale-forever), absent/unbounded/un-jittered TTL, cache stampede / thundering herd, cached authorization decisions, secrets/unscoped PII in a shared store, negative-cache poisoning, and cache-as-source-of-truth / fail-closed-on-outage.
+tools: Read, Grep, Glob
 ---
 
 # Caching Reviewer

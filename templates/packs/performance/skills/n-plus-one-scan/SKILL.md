@@ -1,6 +1,7 @@
 ---
 name: n-plus-one-scan
 description: Static + runtime scan for N+1 ORM patterns — the silent per-element query that turns one request into hundreds. Run before merging a new list or collection endpoint, after adding an ORM relation (lazy by default in many ORMs), and when `profile-endpoint` shows many fast queries rather than one slow one. Finds the pattern; it does not run a load campaign.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # n-plus-one-scan

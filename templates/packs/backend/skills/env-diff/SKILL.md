@@ -1,6 +1,7 @@
 ---
 name: env-diff
 description: Compare .env against .env.example — flag missing keys (will break at runtime), orphan keys (dead config), and unvalidated keys (absent from the env schema). Run after pulling a branch that may have added env vars, after editing the env schema, and in CI as a pre-deploy gate. Checks key presence and validation wiring only, never whether a value is correct.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # env-diff

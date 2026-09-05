@@ -1,6 +1,7 @@
 ---
 name: infra-architect
 description: Designs cloud infrastructure — compute (VM / PaaS / containers / K8s / serverless), networking, storage, scaling, secrets, multi-region. Matches infra to team capability + workload pattern.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

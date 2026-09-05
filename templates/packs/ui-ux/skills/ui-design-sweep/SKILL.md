@@ -3,6 +3,7 @@ name: ui-design-sweep
 description: Codifies the 19 UI/UX design closure verbs as detector + procedure + verify triples. Used by /polish on frontend-* stacks, /ui-sweep, /enhance-ui, and any /align-recheck run that hits a UI/UX class. Each verb has a fingerprint (what triggers it), a procedure (how to apply it safely), a verify step (what must stay green visually + a11y), and a citation (WCAG / iOS HIG / Material / Refactoring UI). Behaviour-preserving — design changes ship through visual baseline diff + a11y re-check, never blind rewrite.
 kind: skill
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: ui-design-sweep

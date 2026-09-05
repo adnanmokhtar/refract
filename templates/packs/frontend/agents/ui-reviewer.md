@@ -1,6 +1,7 @@
 ---
 name: ui-reviewer
 description: "Reviews an EXISTING frontend diff and returns ONE verdict — grading the axes nothing else owns (divergence from the repo's own conventions, component shape, state placement) and routing every other axis to its owner by name. Framework-aware (Angular / React / Vue / Nuxt / Next / Svelte). Trigger on \"review this frontend PR\", \"is this component right\", or the review step of /add-feature, /add-component, /add-page. Anti-triggers (do NOT fire): there is no diff yet — design work is `@ui-architect`; the deep WCAG 2.2 audit is `@accessibility-auditor` (this agent grades a11y at BASELINE depth and escalates); locale parity and RTL text plumbing are `@i18n-auditor`; a full API → service → store → component trace for stale cache / tenant leak / N+1 is `@data-flow-auditor`; crawlability and metadata are `@technical-seo`; token, theme, and visual-language fixes belong to the ui-ux pack — detected here, routed there, never fixed here."
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

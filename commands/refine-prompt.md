@@ -3,6 +3,7 @@ description: Turn a rough idea, one-liner, or ticket into an execution-ready pro
 compatibility: Writes one file under ai/, so it is the wrong command for a sensitive idea that must stay off disk — refine those in conversation instead. Runs in any repo including an empty one, since the new-project class hands off to /scaffold-project. Names a target command but never invokes it, and stops at one confirmation gate — `--interview` is the sole exception, adding question rounds before the draft.
 kind: command
 pack: orchestration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /refine-prompt "<rough idea>"

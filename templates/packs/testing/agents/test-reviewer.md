@@ -1,6 +1,7 @@
 ---
 name: test-reviewer
 description: Reviews tests — coverage of behavior, quality of assertions, flakiness, mock correctness, meaningful regression catches. Framework-agnostic.
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

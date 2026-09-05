@@ -1,6 +1,7 @@
 ---
 name: navigation-speed
 description: Audit page-to-page navigation speed — link/router prefetch, Speculation Rules, bfcache eligibility, instant-loading UI, full-reload regressions, View Transitions. Most of a session is navigation, not first load.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # navigation-speed

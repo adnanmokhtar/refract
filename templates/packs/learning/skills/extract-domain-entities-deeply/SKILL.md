@@ -1,6 +1,7 @@
 ---
 name: extract-domain-entities-deeply
 description: Round-two deep extraction of domain entities — reads ORM/model/schema definitions + migrations + repositories + tests + docs to produce a structured map (entities, fields with types/constraints, relationships, lifecycle events, invariants). Used by /setup-project Phase 2.7 in REFINE mode to upgrade round-one business-domain detection from "this is a billing app" to "billing has 7 entities with 9 invariants — here they are with file:line citations." Output is the substrate for Phase 4.6-DEEP rewrites of domain-related artifacts.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-domain-entities-deeply

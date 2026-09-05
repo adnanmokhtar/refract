@@ -1,5 +1,6 @@
 ---
 description: "Profile a slow endpoint / page / flow. Identify the dominant bottleneck (CPU / IO / network / lock contention / GC). Output: targeted fix proposals ranked by impact."
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /profile-perf

@@ -1,6 +1,7 @@
 ---
 name: algorithm-designer
 description: Designs and analyzes algorithms — derives time/space complexity by reasoning (not profiling), picks the right paradigm + data structure for the input scale, proves correctness via invariants, and flags accidental-quadratic / wrong-container / recompute defects. The reasoning complement of performance-optimizer (which measures runtime).
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 model: opus
 ---
 

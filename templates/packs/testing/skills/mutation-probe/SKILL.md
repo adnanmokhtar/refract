@@ -1,6 +1,7 @@
 ---
 name: mutation-probe
 description: Measure test STRENGTH by mutation-testing changed code — surface survived mutants (the source was corrupted, the suite stayed green) and the assertion-free tests that let them live. Sits beside coverage-gap; coverage-gap proves a branch RAN, mutation-probe proves a test would CATCH it breaking.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # mutation-probe

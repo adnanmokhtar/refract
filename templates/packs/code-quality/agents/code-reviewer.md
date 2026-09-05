@@ -1,6 +1,7 @@
 ---
 name: code-reviewer
 description: Reviews code changes against project conventions + universal quality principles. Stack-aware (detects framework, applies framework-specific checks in addition to universal ones).
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

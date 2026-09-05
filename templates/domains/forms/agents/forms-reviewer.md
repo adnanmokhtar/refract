@@ -1,6 +1,7 @@
 ---
 name: forms-reviewer
 description: Reviews every change touching forms, submit handlers, server actions, and validation. Catches client-only validation (server not re-validating), missing CSRF on state-changing posts, non-idempotent submission (double-submit duplicates), mass-assignment / overposting (whole-body bind), stored XSS from unsanitized rich input, ungated public forms (no rate-limit / captcha), unbounded payloads (size / field / array DoS), inline file validation, opaque non-mapped errors, and PII echoed into logs.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Forms Reviewer

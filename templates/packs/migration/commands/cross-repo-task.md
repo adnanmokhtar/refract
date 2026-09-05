@@ -2,6 +2,7 @@
 description: Track and drive cross-repo blockers in V1↔V2 migration. When a feature port halts because the V2 backend route shape changed, a sibling repo needs an update, or an external dependency must ship first — this command registers the blocker, names the upstream owner, and provides a workflow to drain it. Without this, cross-repo halts orphan rows in the ledger indefinitely.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /cross-repo-task <subcommand>

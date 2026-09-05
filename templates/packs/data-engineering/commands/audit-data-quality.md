@@ -2,6 +2,7 @@
 description: Audit and close data-trust gaps — per-model assertion coverage across structural, temporal, distributional, and reconciliation floors, plus severity, ownership, and routing for every failure. Writes the missing assertions, not just a list of them.
 kind: command
 pack: data-engineering
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit-data-quality [<scope>] [--write-tests]

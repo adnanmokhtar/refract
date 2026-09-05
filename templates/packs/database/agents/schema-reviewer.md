@@ -1,6 +1,7 @@
 ---
 name: schema-reviewer
 description: Reviews DB changes — entities, migrations, queries, indexes. Catches drift, missing indexes, unsafe migrations, N+1, tenant leaks. Engine-aware.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

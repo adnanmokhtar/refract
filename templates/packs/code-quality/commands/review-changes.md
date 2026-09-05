@@ -1,5 +1,6 @@
 ---
 description: "Comprehensive, signal-aware review of a PENDING DIFF, ending in a merge verdict (APPROVE / REQUEST_CHANGES / BLOCK) backed by a real test run. Classifies the diff, triages it by blast radius, dispatches every relevant specialist agent in parallel, consults all applicable patterns. Read-only — it never edits. Anti-triggers: ranking what is wrong with existing code at target scale is `/audit`; changing code to make it better (architecture, measured perf, cleanup) is `/optimize`; the staged-file commit gate is `/pre-commit`; the periodic no-diff repo pulse is `/check-health`."
+allowed-tools: [Read, Grep, Glob, Bash, Task]
 ---
 
 # /review-changes

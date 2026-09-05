@@ -1,6 +1,7 @@
 ---
 name: egress-trace
 description: Trace data-transfer spend to its architectural cause — cross-zone chatter, network-address-translation charges, cross-region replication, internet egress, and cache or content-delivery misses — and attribute each line to the component pair producing it. Run when transfer is a material share of the bill, after a topology change, when a cost is unattributable to any obvious resource, and before approving a cross-zone or cross-region hop. Owns the TRANSFER branch — `unit-cost-probe` owns the per-unit arithmetic and `commitment-coverage` owns rate, neither of which applies here.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: egress-trace

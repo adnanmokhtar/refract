@@ -1,6 +1,7 @@
 ---
 name: legacy-modernizer
 description: Plans + executes incremental legacy modernization — monolith-to-microservices, framework upgrades (React→Next, Vue→Nuxt, Express→NestJS), dead-code pruning, debt payoff orchestration.
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: opus
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: workflow-integrity
 description: Audits an entity's lifecycle state graph — reconstructs every state and transition from code, then finds unreachable states, missing terminal states, and illegal or unguarded transitions (paid→pending, shipped→cancelled) that corrupt money, inventory, or fulfillment.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: observability-reviewer
 description: Reviews code for observability quality — correlation ids, structured logs, metrics, traces, alerts-to-runbooks. Catches "debuggable in dev but blind in prod".
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 
