@@ -247,6 +247,14 @@ jobs:
       - name: Description budget (routing text is paid before anyone asks)
         run: bash scripts/lint-description-budget.sh
 
+      # 179 commands are told apart by their descriptions, not their names — each claims quoted
+      # trigger phrases and then spends most of its length naming the sibling that owns the
+      # neighbouring case. That is the most expensive text in the repo and nothing checked it
+      # was true. A renamed command silently turns every sibling pointing at it into a routing
+      # instruction for something that no longer exists, and the router follows it.
+      - name: Command routing (every /reference resolves, shared triggers disambiguated)
+        run: bash scripts/lint-command-routing.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.
