@@ -47,11 +47,33 @@ say "§ 1  vocabulary coverage is exact in both directions"
 mkdir -p "$TD/empty"; printf '{}\n' > "$TD/empty/package.json"
 MB0="$(mb "$TD/empty")"
 emitted="$(printf '%s\n' "$MB0" | sed 's/=.*//' | sort -u)"
-declared="$(grep -oE '^- `[a-z0-9_]+_detected`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`$//' | sort -u)"
+declared="$(grep -oE '^- `[a-z0-9_]+`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`$//' | sort -u)"
+
+# Declared triggers detect-signals.sh does NOT produce, each named with why. This list is
+# printed on every run so it stays a backlog and not a silence.
+#
+# Until this check enumerated `_detected` names ONLY, none of these was visible: the same
+# blind spot sat in all three guards for it (this file, lint-setup-contracts.sh Rule 4 and
+# detect-signals.sh's own coverage report), so a trigger whose name lacked that suffix was
+# unguarded by construction. `native_bridge_present` was one of them — declared, gating a real
+# mobile topic, produced by nothing, so that topic could never fire on any project. It now has
+# an extractor; these ten do not yet.
+#
+#   refine_mode, refinement_eligible   run context (the --refine flag), not a codebase fact —
+#                                      this script inspects a repo and cannot know the flag
+#   backend_track                      track selection, decided during pack choice
+#   the remaining seven                computable from the repo and simply not written yet:
+#                                      git_log_accessible, codebase_age_above_2y,
+#                                      container_target_likely, module_per_feature_layout,
+#                                      ssr_enabled, codebase_has_base_classes,
+#                                      migration_ledger_present
+UNPRODUCED='backend_track codebase_age_above_2y codebase_has_base_classes container_target_likely git_log_accessible migration_ledger_present module_per_feature_layout refine_mode refinement_eligible ssr_enabled'
+declared="$(comm -23 <(printf '%s\n' "$declared" | sort -u) <(printf '%s\n' $UNPRODUCED | sort -u))"
+say "     backlog — $(printf '%s\n' $UNPRODUCED | grep -c .) declared trigger(s) with no producer: $UNPRODUCED"
 miss="$(comm -23 <(printf '%s\n' "$declared") <(printf '%s\n' "$emitted") | tr '\n' ' ')"
 extra="$(comm -13 <(printf '%s\n' "$declared") <(printf '%s\n' "$emitted") | tr '\n' ' ')"
-[ -z "${miss// /}" ]  && ok "§1 every declared *_detected trigger has a producer" \
-                      || bad "§1 every declared *_detected trigger has a producer" "no producer for:$miss"
+[ -z "${miss// /}" ]  && ok "§1 every declared trigger has a producer (backlog excluded)" \
+                      || bad "§1 every declared trigger has a producer (backlog excluded)" "no producer for:$miss"
 [ -z "${extra// /}" ] && ok "§1 the script emits nothing the vocabulary does not declare" \
                       || bad "§1 the script emits nothing the vocabulary does not declare" "undeclared:$extra"
 n0=$(printf '%s\n' "$MB0" | grep -c . || true)
