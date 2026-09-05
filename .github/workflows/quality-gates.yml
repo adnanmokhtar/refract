@@ -263,6 +263,14 @@ jobs:
       - name: Skill sidecars (references/ travels on merge, add and legacy-flat)
         run: bash scripts/test-skill-sidecars.sh
 
+      # detect-mcp.sh never edits a key you own — except one opt-in flag, which therefore
+      # carries the whole risk of that contract. It may delete an entry whose args hold a
+      # `<TODO: …>` string (emitted by an older version of the script, unable to start; two of
+      # five production repos carried one) and nothing else. A flag that deletes needs a guard
+      # that pins what it must NOT delete, and that the default stays unchanged without it.
+      - name: MCP placeholder repair (deletes only what cannot run, only when asked)
+        run: bash scripts/test-mcp-repair.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.
