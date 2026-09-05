@@ -1,6 +1,7 @@
 ---
 name: business-auditor
 description: Audits existing features from a business perspective — finds missing cycles, broken flows, incomplete implementations, and enhancement opportunities.
+tools: Read, Grep, Glob
 model: sonnet
 ---
 

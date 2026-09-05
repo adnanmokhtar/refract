@@ -1,5 +1,6 @@
 ---
 description: "Add an event handler. Idempotent / retryable / observable / DLQ-aware. Output: handler + tests + DLQ + monitoring."
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-event-handler

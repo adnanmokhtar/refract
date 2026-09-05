@@ -3,6 +3,7 @@ name: prompt-audit
 description: Static sweep of every prompt-assembly and output-parsing site for the five prompt-engineering defects — free-text regex/split/JSON.parse where the provider offers a schema, instructions concatenated with untrusted user or retrieved content in one blob, a structured-output call with no schema validation and no repair path, sampling parameters wrong for a single-answer call (temperature > 0 where the provider exposes it — or a temperature set at all where the provider has removed it and a non-default value is a 400), and a prompt literal with no version id feeding logs + cache key + eval run. Emits one finding per site with <path:line> + a real excerpt + the pattern's closure verb. TRIGGER — any diff touching a prompt, a model call, or an output parser; dispatched by /ai-audit and by @ai-feature-reviewer dimension 2. ANTI-TRIGGERS (do NOT fire) — authoring or improving a prompt (that is /add-ai-feature Phase 4); the prompt-injection exploit judgment or the output→sink review (that is @llm-security-reviewer LLM01:2026/LLM10:2026 — this skill reports the missing system/user split as an engineering defect and names the handoff); running the eval set (eval-run); building one that does not exist (/add-eval-set).
 kind: skill
 pack: ai-engineering
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: prompt-audit

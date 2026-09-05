@@ -1,6 +1,7 @@
 ---
 name: dead-code-finder
 description: Finds unused exports, unreachable branches, commented-out code, and zombie files across any codebase. Reports only — never deletes.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

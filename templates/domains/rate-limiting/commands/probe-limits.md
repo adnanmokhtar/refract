@@ -1,5 +1,6 @@
 ---
 description: Fire a controlled burst at a target endpoint (LOCAL / STAGING ONLY) to verify the rate limit actually triggers and the 429 + Retry-After + RateLimit-* headers are correct.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /probe-limits

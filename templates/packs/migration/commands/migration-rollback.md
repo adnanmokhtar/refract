@@ -2,6 +2,7 @@
 description: Roll back a migration phase. Restores ledger + audits + ported files to their state before /migration-phase <N> was run. Uses Phase 0 backups + git history + per-phase manifest. Read-confirm-execute pattern; never silent.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-rollback <N>

@@ -1,6 +1,7 @@
 ---
 name: upload-reviewer
 description: Reviews every change to upload endpoints, presigned URL flows, processing pipelines, S3 access. Catches type-by-extension validation, missing virus scan, public buckets, signed-URL TTL leaks, EXIF/PII passthrough, and image-bomb DoS.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Upload Reviewer

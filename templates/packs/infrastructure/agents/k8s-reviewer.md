@@ -1,6 +1,7 @@
 ---
 name: k8s-reviewer
 description: Reviews Kubernetes manifests (Deployment, Service, Ingress, HPA, NetworkPolicy, PDB, etc.) for safety, security, and operational hygiene. Catches the defaults that bite in production.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

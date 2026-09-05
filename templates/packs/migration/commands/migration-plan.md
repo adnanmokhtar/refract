@@ -2,6 +2,7 @@
 description: Forces a phased migration plan from the scan output. Groups features into phases by dependency + domain. Sequence within each phase. Honors V2's NEW structure (no lift-and-shift). Stack-agnostic — works for frontend, API, jobs, scripts, anything.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /migration-plan

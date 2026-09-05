@@ -1,6 +1,7 @@
 ---
 name: k8s-audit
 description: Audit a RUNNING Kubernetes cluster for the four things static manifest review cannot see — API versions the cluster is about to stop serving, node/control-plane CIS posture, runtime reality diverging from declared intent, and live utilisation vs requests. Run weekly. Manifest-level safety/security review is `@k8s-reviewer`, not here.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # k8s-audit

@@ -1,6 +1,7 @@
 ---
 name: image-optimization
 description: Static scan for image delivery mistakes — legacy formats where AVIF/WebP would cut bytes, missing responsive srcset/sizes, absent width/height (CLS), missing lazy-loading below the fold, raw <img> where the framework offers an optimized component, and oversized sources served into small slots. Owns format / dimensions / responsiveness / loading; LCP priority-hints stay with lcp-audit.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # image-optimization

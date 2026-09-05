@@ -1,6 +1,7 @@
 ---
 name: compute-anchor-density
 description: Score the anchor-density of a generated artifact (rule / agent / skill / command / ai-file) on four axes (name density, path density, signal density, specificity) for a total 0-100. Used by /setup-project Phase 5.5 in REFINE mode to identify which artifacts are shallow (< 70) and need round-two re-anchoring, AND to detect plateau (Δ ≤ 2 between runs = "no further refinement available").
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: compute-anchor-density

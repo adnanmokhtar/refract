@@ -2,6 +2,7 @@
 description: Curator health audit of the ai/ knowledge layer. Invokes knowledge-curator to find stale dynamic/ entries (>30d, no progress), conventions the code no longer follows, patterns nothing references, dead ADRs, and Tier-1 derived files that drifted from their sources. Read-only — reports findings + recommended promotions/archivals; never rewrites without confirmation. Phase-6 maintenance.
 kind: command
 pack: learning
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # /audit-knowledge

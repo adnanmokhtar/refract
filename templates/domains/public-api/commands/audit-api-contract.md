@@ -1,5 +1,6 @@
 ---
 description: Audit the public / external API surface — versioning, deprecation safety, key scope/hashing/rotation, pagination, error envelope, overexposure, idempotency, per-key rate limit, OpenAPI coverage — against the real routes + spec, never an assumed contract.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-api-contract

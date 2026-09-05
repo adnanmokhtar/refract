@@ -1,6 +1,7 @@
 ---
 name: workflow-orchestrator
 description: Designs + reviews durable workflow orchestration — Temporal, AWS Step Functions, Cadence, Airflow. Long-running transactions, saga compensation, retries-as-code.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: search-reviewer
 description: Reviews every change to search indexing, query construction, ranking, faceting. Catches missing tenant filter (cross-tenant result leak), sync indexing on hot path, ranking signals undocumented, RTL/locale bugs, query timeouts unbounded, no fallback when engine down.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Search Reviewer

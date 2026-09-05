@@ -1,5 +1,6 @@
 ---
 description: Scan the codebase for PII fields, verify retention + deletion + export coverage, audit log presence on reads, and sub-processor inventory currency.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /compliance-audit

@@ -1,6 +1,7 @@
 ---
 name: design-system-architect
 description: Designs and evolves the design system itself — tokens, primitives, patterns, and the documentation that keeps drift visible. Distinct from feature-level UI work.
+tools: Read, Grep, Glob
 model: sonnet
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: Implement a saga (orchestration / choreography) for a multi-step distributed transaction with compensations. Outputs the state machine + compensations + idempotency + retry + observability.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-saga

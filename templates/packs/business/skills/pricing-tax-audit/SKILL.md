@@ -1,6 +1,7 @@
 ---
 name: pricing-tax-audit
 description: Audits pricing / billing / tax / currency correctness. Money is an integer minor-unit or a decimal type, never a float; every price computation states its rounding + tax jurisdiction + currency; multi-currency values are never mixed. A float price, an unhandled proration, or a missing tax jurisdiction is a money bug.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: pricing-tax-audit

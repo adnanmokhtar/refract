@@ -3,6 +3,7 @@ name: data-cutover-orchestrate
 description: Orchestrate porting a feature's data from a V1 store to a DIFFERENT V2 store during a per-feature migration — resumable checkpointed backfill, V1→V2 field-mapping application, cross-store reconciliation (counts + checksum), and gating the read-cutover on backfill completeness behind a reversible flag. The cross-store counterpart to database/migrations' single-store expand-contract. Distinct from parity-test-generate (which COMPARES V1/V2 output, does not move data).
 kind: skill
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # data-cutover-orchestrate

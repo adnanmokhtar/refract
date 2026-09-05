@@ -1,6 +1,7 @@
 ---
 name: font-optimization
 description: Static scan for web-font delivery mistakes — missing font-display (invisible text / FOIT), critical font not preloaded, render-blocking remote font CSS (Google Fonts) not self-hosted, no fallback metric override (font-swap CLS), full unsubset charset, too many families/weights, and legacy formats before woff2. Owns font loading + swap-CLS; text-LCP timing cross-links lcp-audit.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # font-optimization

@@ -1,6 +1,7 @@
 ---
 name: media-processing-reviewer
 description: Reviews every change touching image/video decode, transcode, thumbnailing, and derived-variant generation. Catches sync transcode on the request thread, missing resource/dimension/duration limits (decompression bombs, pixel floods), trusting the client content-type/extension instead of magic bytes, unhardened ImageMagick/ffmpeg (ImageTragick coders, http/file/concat protocol SSRF/RCE), codecs running with network + root, retained EXIF/GPS metadata, raw SVG served from the app origin, unbounded variant fan-out, non-idempotent transcode jobs, and public / non-tenant-scoped variant delivery.
+tools: Read, Grep, Glob
 ---
 
 # Media Processing Reviewer

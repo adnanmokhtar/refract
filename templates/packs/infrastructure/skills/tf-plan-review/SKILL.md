@@ -1,6 +1,7 @@
 ---
 name: tf-plan-review
 description: Review a Terraform / Pulumi / CloudFormation plan output for dangerous changes before apply — resource replacements that destroy data, IAM widening, public exposure. Run on every pre-apply, and whenever a non-author is about to apply. Reads a plan diff — auditing the already-running footprint is `network-exposure-audit` and `dr-audit`.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: tf-plan-review

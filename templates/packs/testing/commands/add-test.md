@@ -1,5 +1,6 @@
 ---
 description: Add tests for a target file or feature, mirroring the repo's test framework and style.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-test [target]

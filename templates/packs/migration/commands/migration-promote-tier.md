@@ -2,6 +2,7 @@
 description: Promote (or demote) a migration ledger row's tier mid-port. When the agent realizes a row's tier was wrong (scan classified standard, but fix touches > 25 files; or trivial port turns out to remove a public API symbol), this command updates the ledger row, backfills required artifacts for the new tier, and resumes the fix loop. Demotion of P0 / cross-repo / contract-break / write-path / security rows is forbidden.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-promote-tier <feature-id> <new-tier> [--reason="<text>"]

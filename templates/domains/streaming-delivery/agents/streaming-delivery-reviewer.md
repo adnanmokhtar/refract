@@ -1,6 +1,7 @@
 ---
 name: streaming-delivery-reviewer
 description: Reviews every change touching manifest generation (HLS/DASH/CMAF), segment serving, byte-range handling, and — most critically — encrypted-segment key/license delivery and decryption. Catches unauthorized/auth-only-not-authz key & license endpoints, keys in the manifest/repo/log/public bucket, server-side-decrypted cleartext served from a public CDN, clear-key/static-key in production, ignored Range requests, immutable-cached manifests, and missing CORS on the key endpoint.
+tools: Read, Grep, Glob
 ---
 
 # Streaming Delivery Reviewer

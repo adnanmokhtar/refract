@@ -1,6 +1,7 @@
 ---
 name: convention-drift-detector
 description: Compares current code against documented conventions in ai/conventions.md + .claude/rules/ + ai/patterns/. Categorizes each finding so the right resolution path is clear.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

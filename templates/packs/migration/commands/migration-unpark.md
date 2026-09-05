@@ -2,6 +2,7 @@
 description: Reverse /migration-park. Restores the feature's prior status and phase. Archives the parked-context file.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-unpark <feature-id>

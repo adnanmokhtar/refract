@@ -1,6 +1,7 @@
 ---
 name: property-invariants
 description: Find functions whose correctness lives in properties that must hold for ALL inputs — round-trip, idempotence, commutativity, invariants — and generate property-based tests instead of a handful of examples. Use when a pure function (parser, encoder, formatter, sort/dedupe, path builder) has only example tests, or a serialize/parse pair has no round-trip property. Not for I/O-bound or side-effecting code.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # property-invariants

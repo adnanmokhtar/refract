@@ -1,5 +1,6 @@
 ---
 description: Open a WebSocket / SSE connection, send N messages, verify ordering, delivery, auth, reconnect behavior, fanout across nodes.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /test-realtime

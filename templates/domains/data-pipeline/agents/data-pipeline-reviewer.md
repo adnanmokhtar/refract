@@ -1,6 +1,7 @@
 ---
 name: data-pipeline-reviewer
 description: Reviews every change touching data pipelines — ETL, batch/micro-batch loads, CDC sinks, backfills, warehouse hydration, scheduled syncs. Catches non-idempotent loads (blind insert/append that duplicates on re-run), missing checkpoint/resume (any failure forces a full re-run), missing input schema contract (upstream drift silently breaks or poisons downstream), bad rows propagated instead of quarantined/DLQ'd, backfills not isolated from live data (in-place overwrite), full-table reprocess instead of incremental watermark, dropped or double-counted late/out-of-order data, load-all-in-memory instead of streaming (OOM), missing post-load data-quality assertions, and unmasked PII in dev/staging copies. Distinct from mlops (model lifecycle) and workflow-orchestration (durable workflows) — this gate owns DATA movement.
+tools: Read, Grep, Glob
 ---
 
 # Data Pipeline Reviewer

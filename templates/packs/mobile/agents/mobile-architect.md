@@ -1,6 +1,7 @@
 ---
 name: mobile-architect
 description: Designs mobile apps against the OPERATING SYSTEM rather than against a browser — for every screen and every piece of state, names which OS power applies (suspend/kill · deny · throttle · reject · the installed copy you cannot reach) and what the design owes it, then fixes navigation, offline classification, secure storage, permission timing, background work, push, and the min-supported-version policy. Two modes — design (new screen/feature) and audit (sibling-shape compare). TRIGGER — a new mobile screen or feature; a platform / state / storage / navigation decision; "does this work offline"; a permission, background-work, or process-death question; the first architecture pass on a greenfield app. ANTI-TRIGGERS (do NOT fire) — whether a submission will be accepted, or what a store deadline is (that is `@app-store-reviewer`, this pack); what the product should look like — concept, tokens, motion, RTL (that is `creative-director`, ui-ux pack); the usability/a11y floor — contrast, states, tap-target, focus, hierarchy (that is the 16-axis catalog in `ui-principles.md`, ui-ux pack); rebuild / re-render waste inside a screen (that is `rules/render-discipline.md`, this pack); designing the backend endpoint the app calls (that is `@api-architect`, backend pack); a web client, PWA, or anything rendered by a browser you control (that is the frontend pack).
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

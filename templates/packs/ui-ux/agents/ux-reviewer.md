@@ -1,6 +1,7 @@
 ---
 name: ux-reviewer
 description: Audits UI changes for usability, accessibility, responsive behavior, content tone, and consistency with the design system. Reviews flows, not just pixels.
+tools: Read, Grep, Glob, Bash, Skill
 model: sonnet
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: auth-reviewer
 description: Reviews every change touching authentication, authorization, sessions, tokens, and account lifecycle. Catches plaintext/weak password hashing, JWT in localStorage, missing CSRF, IDOR / missing ownership checks, no rate-limit on login, user-enumeration error messages, long-lived non-rotating tokens, missing logout/revocation, and authorization decisions made on the client.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Auth Reviewer

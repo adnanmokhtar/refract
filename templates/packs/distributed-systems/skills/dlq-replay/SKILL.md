@@ -1,6 +1,7 @@
 ---
 name: dlq-replay
 description: Replay messages from a dead-letter queue back to a primary handler — selective or full, idempotency-safe, rate-limited, observable, and reversible (re-DLQ on failure). Run once the poison message's root cause is resolved, on a periodic DLQ drain, or during disaster recovery. Never run before the handler bug is fixed — replay re-poisons the queue.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: dlq-replay

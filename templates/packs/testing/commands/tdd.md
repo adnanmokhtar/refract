@@ -2,6 +2,7 @@
 description: Drive a feature test-first via the tdd-orchestrator — strict RED→GREEN→REFACTOR, one behavior per cycle, no production code before an observed failing test. Thin entry point; the discipline lives in the agent.
 kind: command
 pack: testing
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /tdd [feature]

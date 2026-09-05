@@ -1,6 +1,7 @@
 ---
 name: extract-architecture-deeply
 description: Round-two deep architecture extraction — analyzes top-level package/module import graph, traces representative request lifecycles end-to-end, identifies bounded-context boundaries, locates cross-cutting concerns. Output is a structured architecture map with file:line citations. Used by /setup-project Phase 2.8 in REFINE mode to upgrade round-one architecture detection from "this is layered MVC" to a concrete layer diagram + 3-5 traced lifecycles.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-architecture-deeply

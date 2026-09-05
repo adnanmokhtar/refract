@@ -1,5 +1,6 @@
 ---
 description: Audit a specific money-movement path — immutability, the balance invariant, money type, idempotency, balance-read consistency / overspend race, reconciliation, and tenant/account scope — from the REAL posting code, never an assumed posting.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-ledger

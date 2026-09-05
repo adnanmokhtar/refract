@@ -1,5 +1,6 @@
 ---
 description: Run golden prompt evaluations — send a fixed set of customer messages through the real PromptBuilder + Claude, grade the replies.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /prompt-eval

@@ -1,6 +1,7 @@
 ---
 name: notification-reviewer
 description: Reviews every change to email / SMS / push / in-app / WhatsApp send paths. Catches preference bypass, missing rate limits, PII leaks in push payloads, unsubscribe non-compliance, transactional/marketing mixing, and deliverability regressions.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Notification Reviewer

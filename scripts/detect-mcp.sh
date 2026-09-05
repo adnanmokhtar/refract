@@ -270,8 +270,8 @@ add_rec_unwired() {  # <id> <name> <where-to-look> <rationale> — reported only
 # ---------- Universal (always recommended) ----------
 add_rec "filesystem" "Filesystem MCP" "@modelcontextprotocol/server-filesystem" \
   "Universal — read/write project files outside Claude Code's default sandbox."
-add_rec "github" "GitHub MCP" "@modelcontextprotocol/server-github" \
-  "Universal — list/comment on PRs + issues, query repo metadata, read CI status."
+add_rec "github" "GitHub MCP" "ghcr.io/github/github-mcp-server" \
+  "Universal — list/comment on PRs + issues, query repo metadata, read CI status. GitHub's own server; the npm reference server it replaces is deprecated upstream (\"no longer supported\")."
 
 # ---------- Frontend ----------
 FRONTEND=0
@@ -293,8 +293,8 @@ if has_dep vue || has_dep_prefix '@vue/' || has_dep react || has_dep_prefix '@ty
   fi
   add_rec "playwright" "Playwright MCP" "@playwright/mcp" \
     "Frontend stack detected — drive the running app: navigate, click, type, screenshot, assert. Single best tool for UI feature verification."
-  add_rec "puppeteer" "Puppeteer MCP" "@modelcontextprotocol/server-puppeteer" \
-    "Frontend stack detected — alternate to Playwright for headless Chromium tasks (lighter dependency footprint, fewer browser engines)."
+  add_rec_unwired "puppeteer" "Puppeteer MCP" "no maintained package" \
+    "Alternate to Playwright for headless Chromium. REPORT ONLY: the reference server (@modelcontextprotocol/server-puppeteer) is deprecated upstream, and playwright above already covers this job — writing both put two browser drivers in one config."
 fi
 
 # ---------- Storybook (frontend + .storybook dir) ----------
@@ -308,7 +308,7 @@ if [[ $FRONTEND -eq 1 ]]; then
   if [[ -f "$TARGET/figma.config.json" || -f "$TARGET/.figmarc" \
         || -d "$TARGET/design-tokens" || -d "$TARGET/tokens" ]] \
      || has_dep '@figma/code-connect' || has_dep_prefix '@tokens-studio/'; then
-    add_rec "figma" "Figma MCP" "@figma/mcp" \
+    add_rec "figma" "Figma MCP" "figma-developer-mcp" \
       "Figma config or design-tokens dir detected — pull token values, component specs, frame dimensions directly from Figma into the dev loop."
   fi
 fi
@@ -341,7 +341,7 @@ if [[ -d "$TARGET/ios" && -d "$TARGET/android" ]] || has_dep react-native \
   # One server covers BOTH platforms and both simulator and real device, so it replaces what used
   # to be two unwired entries. It controls a device, never a credential — the reason this is a
   # safer wiring decision than a database server is that there is no secret to hand over.
-  add_rec "mobile" "Mobile MCP (iOS + Android)" "@mobile-next/mcp" \
+  add_rec "mobile" "Mobile MCP (iOS + Android)" "@mobilenext/mobile-mcp" \
     "Mobile project — drive iOS simulators and Android emulators (and real devices): launch, tap, type, screenshot, inspect the view tree. Requires Xcode >= 15 for iOS and ANDROID_HOME / JAVA_HOME for Android; the server reports the gap itself when a toolchain is absent."
 fi
 
@@ -451,7 +451,12 @@ def server_config(rec):
     if rid == "filesystem":
         return {"command": "npx", "args": ["-y", pkg, "${PWD}"]}
     if rid == "github":
-        return {"command": "npx", "args": ["-y", pkg],
+        # GitHub publishes a container, not an npm package — `npx -y
+        # @modelcontextprotocol/server-github` installs a package npm marks "no longer
+        # supported". Same reasoning as `terraform` below: give it the shape its own
+        # project actually publishes. -e forwards the token into the container.
+        return {"command": "docker",
+                "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", pkg],
                 "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"}}
     if rid == "postgres":
         return {"command": "npx", "args": ["-y", pkg, "${DATABASE_URL}"]}

@@ -1,6 +1,7 @@
 ---
 name: extract-project-context
 description: GREENFIELD / Path-B project-context bootstrap — derives mission, domain, personas, KPIs, anti-goals from a user PROMPT when there's no codebase to read yet, and writes ai/project-goals.md + ai/users-and-personas.md + ai/business-domain.md. For EXISTING codebases the canonical pipeline (extract-codebase-overview → extract-business-context → Phase 4.7b) owns these targets; this skill is the greenfield path only.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-project-context

@@ -1,5 +1,6 @@
 ---
 description: Add distributed tracing to a service / endpoint / job. OpenTelemetry-first; vendor-agnostic. Spans + context propagation + sampling + attributes; produces a working trace + a runbook entry.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-tracing

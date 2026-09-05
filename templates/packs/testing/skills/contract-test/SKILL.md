@@ -1,6 +1,7 @@
 ---
 name: contract-test
 description: Generate and verify consumer-driven contracts between services (Pact-style), catching "the frontend and backend disagree on the API" before integration. Use in multi-service architectures, when frontend and backend move in parallel, or when an API change carries breaking-change risk. Cross-service agreement only — a single service's internal behaviour belongs to its own suite.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # contract-test

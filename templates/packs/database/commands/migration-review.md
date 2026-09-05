@@ -1,5 +1,6 @@
 ---
 description: Review a migration for safety, lock impact, reversibility, and deploy compatibility.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-review [file|recent]

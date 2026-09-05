@@ -1,5 +1,6 @@
 ---
 description: Mobile bundle-size + cold-start optimization. Audits app size, identifies the heaviest modules, proposes targeted reductions. Reports before/after.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /optimize-bundle

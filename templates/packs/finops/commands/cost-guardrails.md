@@ -2,6 +2,7 @@
 description: Install the preventive cost layer — budgets with owners, anomaly detection with a declared baseline, per-environment quotas, a pre-merge infrastructure cost estimate, and retention and lifecycle defaults. Turns cost from something discovered on an invoice into something detected on the day it changes.
 kind: command
 pack: finops
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /cost-guardrails [--scope <account|project|service>]

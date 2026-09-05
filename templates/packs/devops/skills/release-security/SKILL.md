@@ -3,6 +3,7 @@ name: release-security
 description: Container-image supply-chain gate — trivy/grype CVE scan of the image's OS and baked libraries, syft SBOM, cosign digest signing plus provenance attestation. Run in CI after the image is built and pushed, before deploy promotes it. Not the Dockerfile linter (`dockerfile-lint`) and not the lockfile audit (`deps-audit`) — this scans the built image, and `admission-policy` is what verifies the signature at deploy.
 kind: skill
 pack: devops
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: release-security

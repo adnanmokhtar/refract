@@ -1,5 +1,6 @@
 ---
 description: Audit a specific form / submit handler — server-side validation, CSRF, idempotency, mass-assignment, error-to-field mapping, rate-limit/captcha, file fields, and PII-in-logs — against the REAL handler code, never an assumed one.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-form-handling

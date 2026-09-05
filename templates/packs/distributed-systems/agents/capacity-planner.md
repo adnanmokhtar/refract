@@ -1,6 +1,7 @@
 ---
 name: capacity-planner
 description: The quantitative system-design specialist — back-of-envelope estimation, bottleneck identification, scaling-axis selection, data-migration-at-scale cutover. Owns every claim that turns on a number. Sibling to the qualitative system-architect.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

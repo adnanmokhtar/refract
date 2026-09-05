@@ -2,6 +2,7 @@
 description: Phase exit gate. Reads ai/align/ledger.md + ai/align/plan.md, validates every row in phase N is status=fixed (or archived/parked), runs the 14-check matrix (gap-count parity, net-lines ≤ 0, no new symbols, no scope creep, test/coverage/lint/typecheck green, frontend regressions green, idiom citation, security assertion + tier, perf baseline). Read-only — never writes (except a one-line history entry).
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-gate <N>

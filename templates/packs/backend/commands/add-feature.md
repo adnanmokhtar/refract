@@ -1,5 +1,6 @@
 ---
 description: Comprehensive orchestration for a new feature. Detects domain signals, consults every relevant pattern, dispatches every applicable agent, runs every safety skill, produces ready-to-ship code + tests + docs + telemetry.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /add-feature

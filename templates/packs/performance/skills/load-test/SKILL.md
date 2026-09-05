@@ -1,6 +1,7 @@
 ---
 name: load-test
 description: Design and run a load / stress / spike / soak campaign against an SLA on a prod-parity env, then interpret it — throughput, latency percentiles, breakpoint/knee, saturation — and return a PASS/FAIL verdict + headroom. Distinct from profile-endpoint (diagnoses ONE slow subject) and capacity-planner (analytical estimation); this is the empirical whole-system validation.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # load-test

@@ -2,6 +2,7 @@
 description: Turn raw research material — interview notes, support tickets, session recordings, sales notes, reviews, survey free-text — into evidence-backed findings with sources, counts, evidence class, disconfirming material, and explicit limits. Never invents a quote, a participant, or a number.
 kind: command
 pack: product
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /synthesize-research [<corpus or path>]

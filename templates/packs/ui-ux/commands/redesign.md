@@ -2,6 +2,7 @@
 description: One command full UI/UX redesign of a page / screen / flow — rethinks layout + UX from scratch (NOT enhancement), then rebuilds it inside the app's existing design system (tokens, components, spacing/type scale, locale + text-direction). Approval gate before any code. Frontend / mobile stacks only. Distinct from /enhance-ui + /polish (refinement, structure preserved) and /align (drift enforcement).
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /redesign <description-or-path> [<more>...]

@@ -1,5 +1,6 @@
 ---
 description: Build an LLM feature end-to-end — prompt/gateway wiring + structured output + retrieval (if RAG) + agent budgets (if agentic) + a MANDATORY regression-gating eval set + a security handoff. 8 phases with Evaluate load-bearing. The AI analog of /add-endpoint.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 > **STACK ASSUMPTION**: see this pack's `STACK.md`. This pack is provider-agnostic — examples name a provider illustratively; substitute the project's from `_extracted-codebase.md § AI/LLM integration`. Access the model through the project's gateway seam / SDK, structured output through its tool/JSON-schema mode, retrieval through its embedding model + vector store.

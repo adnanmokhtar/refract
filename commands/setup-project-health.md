@@ -8,6 +8,7 @@ related-commands:
   - /setup-project — generate or refresh setup
   - /setup-project-adapters — re-sync tool adapters
   - /learn-from-task — Phase 6 manual entry point
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /setup-project-health

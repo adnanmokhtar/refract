@@ -2,6 +2,7 @@
 description: One-shot deep-migration phase runner. After /migration-scan + /migration-plan, ports every row in phase N — trivial / standard / heavy — in parallel waves respecting the dependency graph. Auto-routes per row (trivial+standard → /find-and-fix, heavy → /port-feature --heavy --unattended). Auto-runs /migration-gate at the end. Same discipline, same artifacts, same V2-structure enforcement as the manual flow — but parallel and unattended. Built for production-scale migrations with many modules and phases where serial wall-time is the bottleneck.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /migration-fast <N>

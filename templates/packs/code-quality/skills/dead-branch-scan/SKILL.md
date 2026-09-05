@@ -1,6 +1,7 @@
 ---
 name: dead-branch-scan
 description: Find unreachable code branches — code after return, conditions that can never be true, and feature flags always on/off.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # dead-branch-scan

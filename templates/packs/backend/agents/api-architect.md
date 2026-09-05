@@ -1,6 +1,7 @@
 ---
 name: api-architect
 description: "Designs the SHAPE of backend work before any code exists — module layout, endpoint contracts, aggregate + service boundaries, DTOs, DI wiring, migration and rollout. Trigger when the ask is \"how should this be structured\", when a new module / feature / endpoint has no agreed design, when two sibling modules disagree and someone must pick, or when /add-feature · /add-module · /add-endpoint reaches its design phase. Anti-triggers (do NOT fire): judging code that already exists (@api-reviewer), explaining why shipped code misbehaves (@bug-investigator), proving a route works on the wire (@endpoint-tester), designing a long-lived socket / stream protocol (@websocket-engineer), a single-file extract or rename (/refactor), and writing the implementation itself — this agent designs and hands off, it never writes production code. Stack-aware via this pack's references/ (django, dotnet, express, fastapi, flask, go, hexagonal-nestjs, laravel, nestjs, phoenix-elixir, rails, spring-boot)."
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

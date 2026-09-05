@@ -1,6 +1,7 @@
 ---
 name: audit-log-reviewer
 description: Reviews every change touching the audit trail — audit schema, emission sites, sensitive-action handlers, retention/cleanup jobs, audit-read paths. Catches mutable audit rows, missing actor/target/correlation, secrets/PII in the trail, unaudited critical actions (deletion / permission change / export), split-transaction or fire-and-forget capture, missing integrity chain, unrestricted reads, and audit/debug-log coupling.
+tools: Read, Grep, Glob
 ---
 
 # Audit-log Reviewer

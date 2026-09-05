@@ -1,6 +1,7 @@
 ---
 name: security-auditor
 description: Audits code / infra / config for security issues. OWASP Top 10 + auth + tenant isolation + secrets + supply chain. Returns a GO/NO-GO verdict for shipping.
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

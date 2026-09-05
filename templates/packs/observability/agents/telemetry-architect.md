@@ -1,6 +1,7 @@
 ---
 name: telemetry-architect
 description: Designs observability for a service or feature — what to log, what to measure, what to trace, what to alert on, and where each lands. Stops the "production incident, no signal" trap.
+tools: Read, Grep, Glob
 model: opus
 ---
 

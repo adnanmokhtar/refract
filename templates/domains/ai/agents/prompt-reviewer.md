@@ -1,6 +1,7 @@
 ---
 name: prompt-reviewer
 description: Reviews every change touching prompts, LLM clients, or prompt-assembly code. Catches regressions in quality, cost, safety (prompt injection), and PII leakage.
+tools: Read, Grep, Glob
 ---
 
 # Prompt Reviewer

@@ -2,6 +2,7 @@
 name: web-vitals-field
 description: Measure Core Web Vitals in the FIELD with attribution — wire the web-vitals attribution build so a poor INP/LCP/CLS points to the exact element + sub-part. Lab tools cannot field-measure INP; this is the only path to citing the headline CWV.
 project_kind: browser   # requires a rendered UI layer; see templates/packs/_project-kind.md
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # web-vitals-field

@@ -1,5 +1,6 @@
 ---
 description: Replay a recorded payment provider webhook / charge event against the local dev server to verify handling.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /replay-charge

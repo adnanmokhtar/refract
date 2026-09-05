@@ -1,6 +1,7 @@
 ---
 name: knowledge-curator
 description: Maintains the project's ai/ knowledge base over time. Reads the full ai/dynamic/ sink set + ai/failures/_index.md, promotes mature observations to formal knowledge, archives stale entries, refactors when sections grow unwieldy, surfaces what needs human attention. NEVER writes outside managed markers.
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 trigger:
   - manual dispatch via /audit-knowledge, /promote-pattern, /promote-decision, or /learn-from-task (synchronous handle)

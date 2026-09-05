@@ -1,6 +1,7 @@
 ---
 name: network-exposure-audit
 description: Audit cloud + K8s network exposure across the running or declared footprint — every ingress path must be intentional and least-exposed, with no wide-open ingress lacking a documented reason. Run weekly against the running footprint, after any new public-facing service ships, and before a compliance or pen-test window. Drills the exposure axis — `k8s-audit` covers cluster safety/HA/cost broadly.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # network-exposure-audit

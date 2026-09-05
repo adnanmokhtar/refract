@@ -1,6 +1,7 @@
 ---
 name: requirements-reviewer
 description: Reviews a requirement, spec, ticket, or acceptance criterion for the defects that survive into code — unfalsifiable criteria, ambiguity that two readers resolve differently, solution smuggled into the problem, missing edge/error/empty states, unstated non-functional bounds, and requirements with no traceable evidence. Framework-agnostic; reviews prose, not code. Trigger before a spec is estimated or built, when "done" was disputed after delivery, when a ticket keeps bouncing back, or when acceptance criteria contain words like "fast", "intuitive", or "properly". Do NOT trigger to write the spec (`@business-analyst` in the business pack), to audit a SHIPPED feature's business completeness (`@business-auditor`), or to review UX flow and content (`@ux-reviewer`).
+tools: Read, Grep, Glob
 model: opus
 ---
 

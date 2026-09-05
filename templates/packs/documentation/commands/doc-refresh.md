@@ -2,6 +2,7 @@
 description: Comprehensive post-work documentation refresh. Prepends Recent Changes entry, updates modules / stack / conventions if they changed, runs drift detection, writes ADRs / patterns / runbooks as discovered, and flags stale docs.
 kind: command
 pack: documentation
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /doc-refresh

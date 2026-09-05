@@ -2,6 +2,7 @@
 description: Forces a phased alignment plan from the scan output. Groups findings into phases by class + domain + tier + dependency. Caps each phase at 12 findings. Honors gold-standard inventory (no lift-and-shift, no oracle modification). Stack-agnostic.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-plan

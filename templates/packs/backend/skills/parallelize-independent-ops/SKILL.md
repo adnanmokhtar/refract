@@ -1,6 +1,7 @@
 ---
 name: parallelize-independent-ops
 description: Convert a sequential I/O-bound code path into bounded parallel execution using the project's concurrency primitive. Used when an endpoint, batch job, or aggregation does N independent awaits in a loop — the most common backend perf failure. Refuses to parallelize when data dependencies, transactions, or shared keys make it unsafe.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # parallelize-independent-ops

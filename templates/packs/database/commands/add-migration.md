@@ -1,5 +1,6 @@
 ---
 description: Generate a safe, reversible, deploy-compatible DB migration. Expand-contract for breaking changes on populated tables. Rehearsed against realistic data before prod.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /add-migration

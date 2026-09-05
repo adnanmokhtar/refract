@@ -2,6 +2,7 @@
 description: Phase exit gate. Reads ledger + audits, confirms every feature in phase N is status=done with parity-test=passing. Refuses success on any failure. Read-only — never writes (except a one-line history entry).
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-gate <N>

@@ -1,6 +1,7 @@
 ---
 name: secret-scan
 description: Scan the repo including git history for leaked secrets — API keys, tokens, private keys, credentials. Run before any first push to a public remote, immediately after a committed-`.env` event, in CI on every PR, and as a quarterly full-history sweep. This skill is the detection primitive; `/secret-scan` is the remediation session that owns rotation playbooks, the history scrub and the persisted report.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # secret-scan

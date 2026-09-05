@@ -1,5 +1,6 @@
 ---
 description: Audit a specific media pipeline end-to-end — codec invocation site, sync vs async, magic-byte validation, resource/dimension/duration caps, decompression-bomb guard, codec hardening, EXIF/GPS stripping, signed-vs-public delivery, and tenant scoping — from the real code + config, never an assumed setup.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-media-pipeline

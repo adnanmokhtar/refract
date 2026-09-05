@@ -1,6 +1,7 @@
 ---
 name: warehouse-scan-audit
 description: Audit what the warehouse's transformation and BI queries actually scan — partition pruning, cluster/sort effectiveness, unpruned full scans, `SELECT *` amplification, exploding joins, and models whose recompute cost has outgrown their value. Run when the warehouse bill jumps, before materializing something expensive, when a model's runtime doubles, and quarterly on the top-cost models. Owns the SQL that causes the spend — the finops pack owns the spend envelope, the budget, and who pays for it.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: warehouse-scan-audit

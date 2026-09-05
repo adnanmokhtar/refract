@@ -1,6 +1,7 @@
 ---
 name: visual-check
 description: Playwright-based UI verification — captures screenshots across locales, themes, and viewports. Run after a visible change; compares against a baseline.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # visual-check

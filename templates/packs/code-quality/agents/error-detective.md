@@ -1,6 +1,7 @@
 ---
 name: error-detective
 description: Root cause analysis across services. Correlates errors by trace / correlation id, finds patterns in stack traces, distinguishes cascading failures from root causes.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

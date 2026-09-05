@@ -1,6 +1,7 @@
 ---
 name: lighthouse-ci
 description: Run Lighthouse against the dev server with budget enforcement, blocking regressions in LCP / CLS / TBT / bundle size, attributing each regression to a commit / file / chunk, and routing the failed metric to the scanner that fixes it (§ Triage routing — this pack's performance entry point). Run before merging a PR that touches frontend files, after upgrading a heavy dependency, and weekly in CI to track the Core Web Vitals trend. Lab measurement — it cannot measure INP or any field metric; that is `web-vitals-field`.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # lighthouse-ci

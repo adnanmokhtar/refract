@@ -1,5 +1,6 @@
 ---
 description: Inventory every feature flag in code — site count, age, ownership, rollout state, eval rate. Surface long-stable flags for cleanup and orphan flags missing owners.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /flag-audit

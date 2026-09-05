@@ -1,6 +1,7 @@
 ---
 name: module-scaffold
 description: Generate a complete module following the project's declared architecture — entity, repo, service/use-case, DTOs, controller, tests, DI wiring, migration. Use when creating a new feature module from scratch or replacing a prototype with a properly-layered version. Emits structure, not verified behaviour — run `endpoint-test` on each scaffolded route once wired.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # module-scaffold

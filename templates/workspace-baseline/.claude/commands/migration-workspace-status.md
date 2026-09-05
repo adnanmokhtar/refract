@@ -2,6 +2,7 @@
 description: Aggregate per-repo migration ledgers into a workspace-level status report. Use in multi-repo workspaces where the migration spans frontend repo + API repo + worker repo, etc. Read-only — never writes.
 kind: command
 pack: workspace-baseline
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # /migration-workspace-status

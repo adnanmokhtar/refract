@@ -1,6 +1,7 @@
 ---
 name: incident-responder
 description: On-call incident response — from first page to resolution + postmortem. Triage, mitigate, communicate, document. Not the debugger; the coordinator under fire.
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: opus
 ---
 

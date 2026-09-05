@@ -1,6 +1,7 @@
 ---
 name: gitops-audit
 description: Audit GitOps discipline — git as the single source of truth for cluster state, reconciled by a controller (Argo CD / Flux). Finds drift (cluster ≠ git), out-of-band manual kubectl/helm, plaintext secrets in git, auto-sync+prune with no safeguard, and missing sync-wave ordering. Not general CI/CD — the git→cluster reconciliation loop only.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # gitops-audit

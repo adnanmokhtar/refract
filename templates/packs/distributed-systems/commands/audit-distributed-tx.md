@@ -1,5 +1,6 @@
 ---
 description: Audit distributed transactions / sagas / event flows for stuck instances, missing compensations, dropped events, idempotency violations. Reports per-flow with verdict + recovery action.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit-distributed-tx

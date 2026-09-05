@@ -201,6 +201,34 @@ jobs:
       - name: Validator parity (cited check_* must be defined or disclosed)
         run: bash scripts/lint-validator-parity.sh
 
+      # An agent with no `tools:` inherits the FULL tool surface. That is how 124 agents —
+      # 55 reviewers, 15 auditors, 17 architects among them — shipped holding Write and Edit
+      # while their own Output contracts return a report or a design and touch no file. This
+      # gate holds the four rules: every agent/skill/command declares a scoped tool set, the
+      # names are real tools, agent `tools:` stays in the comma-string form the OpenCode sync
+      # converts, and an advisory role never holds a writing tool.
+      - name: Tool scoping (least privilege declared, advisory agents read-only)
+        run: bash scripts/lint-tool-scoping.sh
+
+      # A skill's `description` is paid every session; its BODY is paid only when the skill
+      # fires. So this is not a session-tax gate — it is the line past which one file stops
+      # being a procedure and becomes a manual, with the sometimes-needed detail moved to
+      # references/ and read on demand. It also holds the two failure modes progressive
+      # disclosure introduces: a pointer to a reference file that does not exist, and a
+      # reference file no SKILL.md names (so nothing ever reads it, and the install path
+      # carries a file for no reason).
+      - name: Skill budget (SKILL.md under 500 lines, sidecars resolve and are cited)
+        run: bash scripts/lint-skill-budget.sh
+
+      # detect-mcp.sh WRITES .mcp.json, so a dead package name in its catalog is not a stale
+      # doc — it is a config that fails at startup in every project the setup touched, which
+      # is the exact thing that file's own header refuses to emit. It had no mechanism: two
+      # packages 404'd and two more were deprecated upstream, one of them a universal rec
+      # written to every project. Only a definitive registry answer fails the build; a
+      # timeout or 5xx skips the probe, so a registry outage cannot redden this.
+      - name: MCP catalog (every wired server still installable)
+        run: bash scripts/lint-mcp-catalog.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.

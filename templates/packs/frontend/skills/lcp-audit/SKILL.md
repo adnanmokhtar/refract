@@ -1,6 +1,7 @@
 ---
 name: lcp-audit
 description: Static scan for LCP-resource priority mistakes — lazy hero images, missing fetchpriority, absent preload/preconnect for the LCP image. Turns "optimize LCP" prose into grep detectors.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # lcp-audit

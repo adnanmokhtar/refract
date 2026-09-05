@@ -2,6 +2,7 @@
 description: Produce the problem brief before anyone designs a solution — who has it, what evidence says so, what they do today instead, the do-nothing baseline, the success and counter-metric pair, and the kill criteria. Writes a brief, never a spec.
 kind: command
 pack: product
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /frame-problem [<problem or feature request>]

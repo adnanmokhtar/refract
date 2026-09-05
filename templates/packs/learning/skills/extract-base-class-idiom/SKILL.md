@@ -1,6 +1,7 @@
 ---
 name: extract-base-class-idiom
 description: Walk a load-bearing unit — a base class, a composable/hook, a shared wrapper component, a shared service module, or a generic type primitive — plus its dependents, to extract the project-specific protocol, configuration surface, automatic behaviors, escape hatches, and pitfalls. Output is a pattern file authored in the project's own voice (citing real paths, real dependents, real anti-patterns) — NOT a generic template. Used by /setup-project Phase 2.5 + Phase 4.2a to author ai/patterns/<unit>.md from codebase reality instead of copying generic pack content.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: extract-base-class-idiom

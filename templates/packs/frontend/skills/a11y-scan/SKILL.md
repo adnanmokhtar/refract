@@ -1,6 +1,7 @@
 ---
 name: a11y-scan
 description: Run axe-core against the running app on a declared route matrix and gate the merge on it — WCAG 2.2 AA tag set, critical/serious severity split, an interactive-surface pass that opens every menu/dialog/tab before scanning, and axe's `incomplete` review items surfaced instead of swallowed. Needs a running server; start one with `dev-server-start` first. NOT the manual audit — it cannot judge screen-reader experience, keyboard interaction quality, or context, so a clean run is a floor and never a conformance claim; those axes belong to `@accessibility-auditor` (this pack) or the ui-ux pack's `a11y-quick-check` fast lane.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # a11y-scan

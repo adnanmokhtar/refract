@@ -2,6 +2,7 @@
 description: Park a hairy feature so it doesn't block the phase gate. Sets status=parked with a recorded reason. The feature is excluded from current phase scope and from /migration-final's "must-be-done" check (until unparked).
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-park <feature-id>

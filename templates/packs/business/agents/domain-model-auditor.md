@@ -1,6 +1,7 @@
 ---
 name: domain-model-auditor
 description: Audits the domain model (DDD) — reconstructs aggregates, their invariants, and the layer that actually enforces each invariant, then finds anemic models, invariants enforced nowhere, aggregate-boundary leaks, value-objects smuggled as primitives, and cross-aggregate transactions that should be eventual. Every invariant claim names WHERE it is enforced (DB / model / service / test / NOWHERE), reconstructed from code.
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

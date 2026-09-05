@@ -2,6 +2,7 @@
 description: Promote (or demote) an align ledger row's tier mid-fix. Backfills required artifacts on promotion. Demotion of security rows is forbidden. Mirrors /migration-promote-tier.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-promote-tier <finding-id> <new-tier> [--reason="<text>"]

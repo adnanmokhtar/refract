@@ -75,7 +75,7 @@ at runtime via ToolSearch; the names below are the expected shape.
 - **field map**: `title`→title · `description`→description · sub-issues→subtasks · `attachments[]`→attachments · `labels[].name`→labels · `priority`→priority · `assignee.name`→assignee · `state.name`→status.
 - **status verbs**: `update_issue { stateId }` — `start`=In Progress, `review`=In Review, `done`=Done; `create_comment` for the write-back.
 
-### github — `@modelcontextprotocol/server-github` (already universal in detect-mcp.sh)
+### github — `ghcr.io/github/github-mcp-server` (already universal in detect-mcp.sh)
 - **ref**: `github.com/<owner>/<repo>/issues/<n>` URL · `#<n>` (current repo) · `gh:<owner>/<repo>#<n>` · `next` (open issues `assignee=@me`, ordered by milestone then priority label).
 - **fetch**: `get_issue`; `list_issue_comments`.
 - **field map**: `title`→title · `body`→description · markdown task-list `- [ ]`→subtasks · image/file links in body→attachments · `labels[].name`→labels · milestone/`priority:*` label→priority · `assignee.login`→assignee · `state`→status.

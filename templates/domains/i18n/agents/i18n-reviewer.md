@@ -1,6 +1,7 @@
 ---
 name: i18n-reviewer
 description: Reviews every change touching user-facing text, emails, formatters, locale routing, and message catalogs. Catches hardcoded user-facing strings, concatenated/template-built sentences, naive pluralization (n===1), missing-fallback / silent missing keys, locale-blind date/number/currency formatting, unhandled RTL, locale resolved from untrusted input without an allowlist, and translations rendered as raw HTML (XSS via the translation file).
+tools: Read, Grep, Glob
 ---
 
 # i18n Reviewer

@@ -1,6 +1,7 @@
 ---
 name: pattern-emergence-watcher
 description: Spots code shapes that repeat 3+ times and proposes them as candidate patterns to ai/dynamic/learned-patterns.md before the 4th occurrence diverges.
+tools: Read, Write, Grep, Glob, Bash
 model: sonnet
 ---
 

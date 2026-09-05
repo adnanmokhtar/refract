@@ -1,5 +1,6 @@
 ---
 description: Universal bug-fix workflow. Stack-aware (detects backend / frontend / mobile / fullstack from CLAUDE.md). Reproduce → diagnose → failing test FIRST → fix → verify → root-cause notes (TDD). The default fix-bug command for any project.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /fix-bug

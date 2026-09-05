@@ -1,6 +1,7 @@
 ---
 name: rate-limit-reviewer
 description: Reviews every change touching rate limiting, quotas, and throttling — limiter config, public endpoints, auth/expensive routes. Catches in-memory counters behind a load balancer, missing limits on login/expensive paths, missing 429/Retry-After/RateLimit headers, accidental fail-open on critical paths, global-instead-of-per-identity limiting, spoofable-IP keys, check-then-set races, and unbounded expensive endpoints.
+tools: Read, Grep, Glob
 ---
 
 # Rate Limit Reviewer

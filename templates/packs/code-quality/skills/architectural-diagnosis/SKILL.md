@@ -3,6 +3,7 @@ name: architectural-diagnosis
 description: Project-wide architectural diagnosis. Builds dependency + responsibility maps, flags layer violations, cyclic dependencies, god modules, anemic modules, wrong-level responsibilities, cross-cutting duplication, missing abstractions, bottleneck modules. Emits the foundation fix list (cascade impact) — these run BEFORE tactical fixes in /optimize. Stack-agnostic; reads PROJECT_KIND for stack-specific layer rules.
 kind: skill
 pack: code-quality
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: architectural-diagnosis

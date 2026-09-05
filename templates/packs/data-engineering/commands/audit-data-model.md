@@ -2,6 +2,7 @@
 description: Audit the warehouse's analytical model — declared grain, fact/dimension separation, key and SCD correctness, conformed dimensions, join cardinality, and layering violations. Read-only; produces a per-model verdict ledger with a probe result behind every uniqueness claim.
 kind: command
 pack: data-engineering
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit-data-model [<scope>] [--layer mart|intermediate|staging]

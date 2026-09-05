@@ -1,6 +1,7 @@
 ---
 name: check-business-coverage
 description: Cross-feature audit — walks the project's declared business cycles (Create→Update→Delete, Subscribe→Unsubscribe, Send→Resend) and surfaces every missing counterpart. Use for a pre-release sweep across the whole product, before an external audit (GDPR, App Store Privacy), or as a quarterly completeness review. Product-level — `audit-funnel-completion` covers conversion within a single flow.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: check-business-coverage

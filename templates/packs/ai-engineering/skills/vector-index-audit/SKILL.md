@@ -3,6 +3,7 @@ name: vector-index-audit
 description: Audits the ANN index behind retrieval against a STATED recall/latency/scale target — flags a brute-force/sequential scan at scale, HNSW/IVF built with library-default parameters and no recall number, a distance metric or normalisation mismatched to the embedding model (and a dimension mismatch), a heavy metadata/tenant pre-filter combined with a tight ef/nprobe (silent filtered-recall collapse), and a write path with no vector upsert/delete or rebuild/compaction so the index serves stale or deleted content. Emits the index inventory (store, family, params, dim, metric, corpus size, filter mode, refresh path) plus findings with closure verbs. TRIGGER — any diff touching index creation/config/migration, a re-embed or embedding-model upgrade, retrieval latency or recall in question, and dispatched by /ai-audit and @ai-feature-reviewer dimension 3. ANTI-TRIGGERS (do NOT fire) — chunking, top-k, reranking, or context-assembly decisions (that is rag-pipeline, owned by @rag-architect); MEASURING recall (that is retrieval-eval — this skill reports whether a target was declared and whether it was ever measured, and never invents a recall number); relational index/lock/migration concerns (database pack).
 kind: skill
 pack: ai-engineering
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: vector-index-audit

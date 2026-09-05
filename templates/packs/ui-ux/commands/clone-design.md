@@ -2,6 +2,7 @@
 description: One command to CLONE an external design reference (a live URL or a screenshot) into a self-contained folder of framework-neutral HTML/CSS — every page and section, styled to design tokens extracted from the reference, then verified by rendering each built page and pixel-diffing it against the reference until it matches. Stage 1 (capture → build → verify) is the whole command; Stage 2 adoption (into your app's tokens, into per-page redesigns, or into a platform theme) is a delegated follow-through via `--adopt`. Reproduces a design LANGUAGE as a starting point — brand identity is placeholdered, never counterfeited. Works with NO existing project.
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /clone-design <url-or-image> [<out-dir>] [<flags>...]

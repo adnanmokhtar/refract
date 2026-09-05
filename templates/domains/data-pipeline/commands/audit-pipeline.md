@@ -1,5 +1,6 @@
 ---
 description: Audit a specific data pipeline (ETL / batch / backfill / CDC / warehouse load) end-to-end — sink idempotency, checkpoint/resume, incremental-vs-full, schema contract + bad-row quarantine, watermark + late data, backfill isolation, streaming-vs-load-all, PII in lower envs — from the REAL pipeline code, never an assumed shape.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-pipeline

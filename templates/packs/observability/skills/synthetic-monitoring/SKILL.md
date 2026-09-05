@@ -1,6 +1,7 @@
 ---
 name: synthetic-monitoring
 description: Audit blackbox / synthetic coverage of critical user journeys — find journeys with no scripted probe, alerting that fires only on white-box signals, probes with no probe-SLO, single-location probes, and probes that ping /health instead of the real journey.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # synthetic-monitoring

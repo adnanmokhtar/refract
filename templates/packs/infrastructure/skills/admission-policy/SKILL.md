@@ -3,6 +3,7 @@ name: admission-policy
 description: Generates fail-closed Kubernetes admission policy for the cluster's engine (Kyverno / Sigstore policy-controller / Gatekeeper / native ValidatingAdmissionPolicy) — cosign image-signature verification, restricted Pod Security Standards, a provenance gate, and default-deny egress. Run when standing up a cluster's security baseline, or once `release-security` starts signing so the signatures are actually verified. Not a posture report — `k8s-audit` reports drift and `k8s-generate` sets defaults; this enforces at admission so neither can be bypassed.
 kind: skill
 pack: infrastructure
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: admission-policy

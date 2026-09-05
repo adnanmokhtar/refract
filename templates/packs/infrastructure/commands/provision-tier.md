@@ -1,5 +1,6 @@
 ---
 description: Provision a new environment tier (dev / staging / prod / DR). IaC-driven; produces resources at right size + IAM scoped + observability wired + cost-tagged from day 1.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /provision-tier

@@ -3,6 +3,7 @@ name: ssrf-scan
 description: Static taint-trace for URL-shaped sinks — user-controlled URL reaching an outbound fetch with no allow-list, unblocked internal/metadata ranges, hostname validated but not the resolved IP (DNS rebinding), followed redirects, dangerous URL schemes, reachable IMDSv1, and user-controlled redirect targets (open redirector). Run on any endpoint that fetches a user-supplied URL, unfurls a link, imports from a URL, registers a webhook, or bounces the browser to a URL from a query parameter. Not a dependency or secret scan — `/security-audit` dispatches here when its A01 surface fires.
 kind: skill
 pack: security
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: ssrf-scan

@@ -2,6 +2,7 @@
 description: FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL — real HTML + real CSS + real images + real fonts, one page per template family, with its CSS/images/fonts rewritten to local paths so the folder opens offline. This is a GRAB (reproduce the real design as-is), the opposite of /clone-design (which extracts a design SYSTEM and placeholders the brand — use /grab-site when you want the REAL site, /clone-design when you want a brand-neutral system). Runs a bundled stdlib-Python mirror script — no wget/httrack needed. Stack-agnostic and project-optional. Swap in your own brand/products before shipping; not for passing a site off as its original owner.
 kind: command
 pack: ui-ux
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /grab-site <url> [<out-dir>] [<flags>...]

@@ -1,5 +1,6 @@
 ---
 description: Replay a subscription renewal cycle (and a failed-renewal / dunning cycle) against the local dev server to verify idempotent renewal, dunning/grace, and that entitlements track state.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /simulate-renewal

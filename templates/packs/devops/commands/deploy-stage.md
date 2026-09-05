@@ -2,6 +2,7 @@
 description: Deploy current branch to staging environment. Detects deploy target (kubectl / helm / docker-compose / serverless / vercel / netlify / etc.) from project config. Runs pre-flight (CI green, no uncommitted changes, working branch), executes deploy, monitors initial health, surfaces logs + error rate. Halt on red. Pairs with /rollback-deploy.
 kind: command
 pack: devops
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /deploy-stage

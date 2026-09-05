@@ -1,5 +1,6 @@
 ---
 description: Cloud cost audit. Identifies unutilized / over-provisioned / forgotten resources. Reports per-cost-class with quick-win + medium-effort + structural recommendations.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /cost-audit

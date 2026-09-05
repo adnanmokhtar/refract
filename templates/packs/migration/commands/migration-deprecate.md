@@ -2,6 +2,7 @@
 description: Mark a V1 feature as deprecated — it will NOT be ported to V2. Excludes the feature from plan, gate, and final checks. Requires an ADR. Append-only — deprecated features stay in the ledger forever for historical traceability.
 kind: command
 pack: migration
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /migration-deprecate <feature-id>

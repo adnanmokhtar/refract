@@ -1,6 +1,7 @@
 ---
 name: align-gate-auditor
 description: Runs the 14-check phase-exit matrix for an align phase and composes the PASS/REFUSE verdict with per-check evidence and per-row remediation. Read-only — never fixes, never softens a fail to a warning, never modifies the ledger to make a check pass. Framework-agnostic. Use after /align-phase completes or as /align-fast's auto-gate step; NOT mid-phase, and NOT on scan output (@align-evidence-auditor).
+tools: Read, Write, Grep, Glob, Bash
 model: opus
 kind: agent
 pack: align

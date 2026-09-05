@@ -1,5 +1,6 @@
 ---
 description: Enumerate every admin / back-office endpoint + action and audit each for authorization granularity, audit coverage, impersonation safety, destructive-action guards, cross-tenant reach, mass-action blast-radius, and PII exposure — from real source, never an assumed map.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-admin-surface

@@ -1,6 +1,7 @@
 ---
 name: event-store-reviewer
 description: Reviews every change touching the event store, projections, or aggregate event emission. Catches mutated events, breaking schema changes, non-idempotent projectors, untested replay paths, and direct event-store reads.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Event Store Reviewer

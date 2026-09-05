@@ -1,6 +1,7 @@
 ---
 name: assumption-ledger
 description: Extract the implicit assumptions from a brief, spec, or plan, rank them by impact × uncertainty, and attach the cheapest test that would move each one. Run after framing a problem, when a plan depends on beliefs nobody has stated, before committing to work larger than a sprint, and when a project keeps being extended without a decision. Makes the BETS visible and testable — `evidence-trace` finds which requirements have no source, and this skill turns those into ranked, testable claims.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: assumption-ledger

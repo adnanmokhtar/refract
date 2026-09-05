@@ -1,6 +1,7 @@
 ---
 name: public-api-reviewer
 description: Reviews every change touching the public / external API surface — endpoints third parties call, API keys, response shapes, the OpenAPI spec. Catches DB-model serialization (overexposure of internal ids/PII), breaking changes shipped without a version bump + deprecation window, plaintext/unscoped/non-revocable/non-rotatable API keys, unbounded list responses (DoS), inconsistent error envelopes/status codes, missing idempotency keys on unsafe POSTs (double-create), missing per-key rate limits, undocumented endpoints / OpenAPI drift, field-level PII exposed without authorization, and unvalidated request bodies at the public boundary.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Public API Reviewer

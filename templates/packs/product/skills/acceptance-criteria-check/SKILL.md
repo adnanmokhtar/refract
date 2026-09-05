@@ -1,6 +1,7 @@
 ---
 name: acceptance-criteria-check
 description: Test every acceptance criterion mechanically for falsifiability, observability, and boundedness — for each one, name the observation that would prove it FAILED, or report it as unverifiable. Run before estimation, before build, and whenever "done" was disputed. Tests whether a criterion CAN be checked — `evidence-trace` tests whether the requirement should exist at all, and `assumption-ledger` turns what is unsourced into ranked tests.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: acceptance-criteria-check

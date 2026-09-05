@@ -1,6 +1,7 @@
 ---
 name: finops-analyst
 description: Turns billing and usage data into attributed, per-unit numbers — parses the cost/usage export, groups by account, service, tag, and environment, computes cost per business unit against the declared model, ranks period-over-period deltas, and reports unallocated spend. Mechanical and reproducible; every figure traces to an export row. Trigger when the bill needs explaining, before a budget or forecast review, to measure allocation coverage, or to check whether a predicted cost change actually appeared. Do NOT trigger to decide what the architecture should be (`@cost-architect`), to review a diff (`@cost-reviewer`), or to hunt idle resources (`/cost-audit` in the infrastructure pack).
+tools: Read, Grep, Glob
 model: sonnet
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: End-to-end mobile feature — multi-screen flow + state + offline + deep-link + native bridge if needed + tests + docs. Mobile counterpart to backend's /add-feature.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 > **STACK ASSUMPTION**: see this pack's `STACK.md`. Inline syntax in this file uses one stack as illustration; substitute your stack's primitives from `_extracted-idioms.md`.

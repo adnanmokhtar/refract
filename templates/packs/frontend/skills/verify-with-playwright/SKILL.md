@@ -1,6 +1,7 @@
 ---
 name: verify-with-playwright
 description: Live-drive the running app via the Playwright MCP server — derive the flow from the diff (happy path + one validation failure + one unauthorised case), navigate, assert visible, fill forms, screenshot, capture console errors, and switch locale through the project's own mechanism rather than a guessed query parameter. Use after a UI feature change, before declaring "done." Distinct from @playwright/test (file-based suites, see visual-check).
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # verify-with-playwright

@@ -1,6 +1,7 @@
 ---
 name: tdd-orchestrator
 description: Enforces RED-GREEN-REFACTOR discipline. Orchestrates test-first work across cycles and agents, catches the "write tests after" trap, and gates each step on the previous one passing.
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill, Task
 model: opus
 ---
 

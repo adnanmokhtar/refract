@@ -1,5 +1,6 @@
 ---
 description: Run realistic queries against the search engine; verify tenant scoping, relevance ordering, no cross-tenant leak, p95 latency.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /search-audit

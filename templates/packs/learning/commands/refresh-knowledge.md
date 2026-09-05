@@ -1,5 +1,6 @@
 ---
 description: Re-runs the canonical extraction engine (extract-codebase-overview -> _extracted-codebase.md, chaining extract-business-context), diffs the new oracle against the old, and updates .claude/codebase-profile.md + ai/ on confirmation. Knowledge layer only - pack re-apply is /setup-project --refresh.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /refresh-knowledge

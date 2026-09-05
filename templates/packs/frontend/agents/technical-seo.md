@@ -1,6 +1,7 @@
 ---
 name: technical-seo
 description: Reviews a route/diff for technical SEO — indexability, unique title/description, canonical, Open Graph/Twitter, JSON-LD structured data, sitemap/robots, i18n hreflang, crawlability of CSR content, and semantic/link signals. Static review + context on top of the seo-audit skill's grep detectors. Cites file:line; hands crawlability off to rendering-strategy.
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 

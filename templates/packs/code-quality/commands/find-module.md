@@ -1,5 +1,6 @@
 ---
 description: Locate a module, feature, or concept across the codebase quickly.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /find-module <name|concept>

@@ -1,6 +1,7 @@
 ---
 name: bundle-analyze
 description: One-shot mobile bundle-size + cold-start analysis, reporting per-module sizes and quick-win recommendations. Run before and after a dependency upgrade to see the size delta, during PR review when a new dep lands, and as a pre-release check. Report only — `/optimize-bundle` is what runs this plus the full audit and applies recommendations.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: bundle-analyze

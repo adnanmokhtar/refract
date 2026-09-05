@@ -1,5 +1,6 @@
 ---
 description: Compares current code against documented conventions in ai/conventions.md + .claude/rules/. Categorizes divergences. Appends findings to ai/dynamic/drift-log.md.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /detect-drift

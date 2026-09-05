@@ -1,6 +1,7 @@
 ---
 name: spend-anomaly-triage
 description: Triage a cost spike or creep to its cause — separating rate, usage, and mix changes, then correlating the usage half against deploys, flag flips, traffic, backfills, and incidents to produce a ranked suspect ledger with a confirm/refute test for each. Run when a detector fires, when a bill moves unexpectedly, or when a slow creep has doubled a line over a quarter. Explains WHY spend moved — `unit-cost-probe` gives the number, `commitment-coverage` explains the rate half, `egress-trace` explains transfer.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: spend-anomaly-triage

@@ -1,6 +1,7 @@
 ---
 name: document-generation-reviewer
 description: Reviews every change touching PDF / DOCX / print / document rendering (invoices, contracts, statements, certificates). Catches synchronous render on the request thread, SSRF/LFI via the headless renderer (file://, http://internal, metadata service), template injection / XSS-in-PDF (user data concatenated or compiled into the template), missing resource/timeout/page/asset caps (DoS), cross-tenant or public document delivery, non-deterministic/unversioned legal output, missing idempotency, unprotected PII documents, and unbounded/remote fonts & assets.
+tools: Read, Grep, Glob
 ---
 
 # Document Generation Reviewer

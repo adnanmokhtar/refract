@@ -1,6 +1,7 @@
 ---
 name: project-dispatcher
 description: Reads PROJECTS.md and determines which sibling repos a task affects. Produces impact matrices for cross-repo work.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Project Dispatcher

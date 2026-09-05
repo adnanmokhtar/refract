@@ -3,6 +3,7 @@ name: detect-drift
 description: Stack-conditional drift detector for codebase alignment. Runs the 11 universal detectors (6 structural + 5 functional — SOLID, clean code, performance, security, unhandled-io) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
 kind: skill
 pack: align
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: detect-drift

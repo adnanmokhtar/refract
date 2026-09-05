@@ -1,6 +1,7 @@
 ---
 name: analytics-reviewer
 description: Reviews every change touching product-analytics instrumentation — track/capture/identify call-sites, the tracking plan, the emit facade, and the analytics pipeline. Catches ad-hoc untyped events (schema drift), track-before-consent (GDPR/ePrivacy), PII/secrets in event properties sent off-platform, client-trusted identity (spoofed attribution), missing idempotency on revenue/conversion events (double-count), blocking dispatch on the request critical path, special-category data sent to a general vendor, enumerable distinct ids, and the analytics-pipeline-used-as-the-audit-log anti-pattern.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Analytics Reviewer

@@ -1,6 +1,7 @@
 ---
 name: ledger-reviewer
 description: Reviews every change touching postings, balances, wallets, credits, payouts, and money movement. Catches mutable/deletable ledger entries (audit-trail destruction), unbalanced or non-atomic postings (money invented/destroyed), float money (fractional-cent drift), non-idempotent postings (retry double-credits/double-charges), racy live-SUM or cached balance reads + unlocked wallet debits (double-spend / negative balance), missing reconciliation against the source of truth, missing account/tenant scope (cross-account money movement), unrecorded currency conversion, and unguarded overdraft.
+tools: Read, Grep, Glob, Bash
 ---
 
 # Ledger Reviewer

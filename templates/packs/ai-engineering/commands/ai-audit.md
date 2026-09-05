@@ -1,5 +1,6 @@
 ---
 description: Read-only audit of an existing LLM/AI surface across six axes — eval coverage, prompt quality, retrieval quality, ANN index health, agent-loop budgets and tool gates, and gateway/cost/observability — dispatching the pack's detector skills and @ai-feature-reviewer, and routing the trust boundary to @llm-security-reviewer. Ranked findings + a dated audit artifact. TRIGGER — "audit the AI feature / our RAG / our LLM costs", inheriting an LLM feature nobody measured, pre-launch hardening of an AI surface, a whole-repo AI sweep with no diff to review. ANTI-TRIGGERS (do NOT fire) — building a new LLM feature (/add-ai-feature); a security-only ask (/security-audit → @llm-security-reviewer); running an eval set that already exists (eval-run); building one that does not (/add-eval-set); grading the project's own accumulated knowledge base (the learning pack's /eval — a different subject entirely).
+allowed-tools: [Read, Grep, Glob, Bash, Task]
 ---
 
 > **STACK ASSUMPTION**: see this pack's `STACK.md`. This pack is provider-agnostic — examples name a provider illustratively; substitute the project's from `_extracted-codebase.md § AI/LLM integration`.

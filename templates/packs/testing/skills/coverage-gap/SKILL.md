@@ -1,6 +1,7 @@
 ---
 name: coverage-gap
 description: Find untested branches in recently-changed code — not "what percent is covered" but "which conditional paths never fired in any test". Run before opening a PR, after a hotfix to confirm the regression test hits the bug path, and during review when the coverage delta looks suspicious. Proves a branch RAN — `mutation-probe` proves an assertion would CATCH it breaking.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # coverage-gap

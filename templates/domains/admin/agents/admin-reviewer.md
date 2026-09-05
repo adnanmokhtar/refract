@@ -1,6 +1,7 @@
 ---
 name: admin-reviewer
 description: Reviews every change touching admin / back-office / support-console / impersonation / moderation / super-admin surfaces. Catches blanket is_admin gates (no granular capability), admin mutations with no audit trail, unsafe impersonation (no banner / no scope / no expiry / attributed to the user), destructive actions with no step-up reauth + typed confirmation, high-blast-radius bulk actions with no cap or dual-control, silently dropped tenant predicates (cross-tenant leak), shared / MFA-less admin access, and PII firehosed into admin views.
+tools: Read, Grep, Glob
 ---
 
 # Admin Reviewer

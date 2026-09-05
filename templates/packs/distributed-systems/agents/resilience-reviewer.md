@@ -1,6 +1,7 @@
 ---
 name: resilience-reviewer
 description: Audits code for failure-mode coverage on cross-service / external calls — timeouts, retries, circuit breakers, bulkheads, idempotency, graceful degradation. Catches the happy-path-only trap.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

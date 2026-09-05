@@ -1,5 +1,6 @@
 ---
 description: Security audit — OWASP pass via security-auditor, plus auth + tenant reviews if relevant. Three-state verdict (GO / GO-UNVERIFIED / NO-GO) gated on probe-verified mitigations, not asserted ones.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /security-audit [base-branch]

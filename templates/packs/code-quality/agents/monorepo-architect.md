@@ -1,6 +1,7 @@
 ---
 name: monorepo-architect
 description: Designs + reviews monorepo tooling — Nx, Turborepo, Bazel, pnpm/yarn workspaces. Build graphs, affected detection, dependency topology, CI optimization.
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 

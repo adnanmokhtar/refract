@@ -1,6 +1,7 @@
 ---
 name: slo-audit
 description: Audit SLOs against reality — whether they are being met, whether budgets are burning, and whether targets are too lax or too ambitious; reports per-SLO with a verdict and recommended action. Run quarterly, after a significant incident, before raising or lowering a target, and when defining a service's first SLOs. Judges the targets — `alert-audit` judges the alerts built on them.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: slo-audit

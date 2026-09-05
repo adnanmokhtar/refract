@@ -1,5 +1,6 @@
 ---
 description: Scan the codebase for prompt bloat, unbounded contexts, and missing cost accounting.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /token-audit

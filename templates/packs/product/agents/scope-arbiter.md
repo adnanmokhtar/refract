@@ -1,6 +1,7 @@
 ---
 name: scope-arbiter
 description: "Classifies every item in a candidate scope against the brief's success metric and kill criteria — must / should / could / won't — and flags items with no evidence link and no metric linkage. Mechanical and enumerative: one row per item, no sampling, no narrative. Trigger when a scope list needs cutting to fit a date, when a release keeps growing, when \"must-have\" has been applied to everything, or before estimating. Do NOT trigger to decide whether the project is worth doing (`@product-strategist`), to review whether an item is well specified (`@requirements-reviewer`), or to sequence built-versus-unbuilt capability from code (`/roadmap`)."
+tools: Read, Grep, Glob
 model: sonnet
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: Replay a WhatsApp webhook fixture against the local (or staging) API, with valid HMAC.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /simulate-webhook

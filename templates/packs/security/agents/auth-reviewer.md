@@ -1,6 +1,7 @@
 ---
 name: auth-reviewer
 description: Deep review of authentication + authorization — JWT, sessions, OAuth, MFA, RBAC. Catches the common broken-access vulnerabilities + the subtler ones.
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 

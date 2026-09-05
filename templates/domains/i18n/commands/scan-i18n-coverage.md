@@ -1,5 +1,6 @@
 ---
 description: Scan a codebase for i18n defects — hardcoded user-facing strings, missing/orphan catalog keys per locale, concatenated sentences, naive plurals, and locale-blind date/number/currency formatting — from the REAL source + catalogs, never an assumed catalog.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /scan-i18n-coverage

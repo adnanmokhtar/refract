@@ -1,5 +1,6 @@
 ---
 description: Trace a request / event / job lifecycle through every layer — controller → service → repo → external calls → response. Produces a visual call chain with file:line pointers, failure modes per step, and observability gaps.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /trace-flow

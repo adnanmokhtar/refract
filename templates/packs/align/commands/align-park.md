@@ -2,6 +2,7 @@
 description: Park a hairy alignment finding so it doesn't block the phase gate. Sets status=parked with a recorded reason. The finding is excluded from current phase scope and from /align-final's "must-be-done" check (until unparked). Append-only — parked findings stay in the ledger forever for historical traceability.
 kind: command
 pack: align
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /align-park <id> [reason]

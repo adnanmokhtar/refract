@@ -1,6 +1,7 @@
 ---
 name: streaming-ssr
 description: Make a chosen SSR render FAST — find routes that block TTFB on the slowest query and stream the shell first behind Suspense / await boundaries. Sibling to ssr-audit (which is correctness-only).
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # streaming-ssr

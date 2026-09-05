@@ -1,6 +1,7 @@
 ---
 name: native-bridge-audit
 description: Audit JS↔native bridge code for type safety, error propagation, performance, and lifecycle correctness — RN / Flutter bridges are leaky abstractions where most bugs live. Run when adding a native module (TurboModule / NativeModule / MethodChannel / Pigeon), before a release, or when investigating a flaky bridge bug. Bridge boundary only, not general native or JS code review.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: native-bridge-audit

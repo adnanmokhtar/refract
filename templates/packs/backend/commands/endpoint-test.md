@@ -1,5 +1,6 @@
 ---
 description: Hit a dev endpoint with curl and verify status + response shape via the endpoint-tester agent.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /endpoint-test [controller|method-path]

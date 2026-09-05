@@ -2,6 +2,7 @@
 description: Write a new ADR in ai/decisions/ with proper numbering and Recent Changes log.
 kind: command
 pack: documentation
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /add-adr [title]

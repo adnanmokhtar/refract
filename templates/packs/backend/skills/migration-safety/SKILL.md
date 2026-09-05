@@ -3,6 +3,7 @@ name: migration-safety
 description: Static scan of migration files for online-safety violations — blocking `CREATE INDEX` without `CONCURRENTLY`, `NOT NULL` added with no safe backfill, destructive drops of columns the running code still reads, and table-rewriting DDL. Run on any diff that adds or edits a migration, and before a deploy that ships a schema change. Not the timed rehearsal against prod-sized data — that is `migration-rehearsal` in the database pack.
 kind: skill
 pack: backend
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: migration-safety

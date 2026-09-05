@@ -1,5 +1,6 @@
 ---
 description: Inventory every tracking call-site, match it against the declared tracking plan, and flag drift, PII-in-properties, missing consent-gating, client-sourced identity, missing idempotency, and blocking dispatch — from the real call-sites, never an assumed event set.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-tracking-plan

@@ -1,5 +1,6 @@
 ---
 description: Audit a feature from the user perspective — missing cycles, broken flows, gap closures.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /audit-business <feature>

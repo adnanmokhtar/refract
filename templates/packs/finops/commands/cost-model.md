@@ -2,6 +2,7 @@
 description: Build or refresh the unit-economics model — the driver tree from a business unit down to billed dimensions, the measured cost per unit, and the declared expectation that every guardrail and anomaly detector is measured against.
 kind: command
 pack: finops
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /cost-model [<unit>] [--refresh]

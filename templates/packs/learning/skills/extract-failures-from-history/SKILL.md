@@ -1,6 +1,7 @@
 ---
 name: extract-failures-from-history
 description: Round-two extraction of recurring failure themes from git log + postmortem docs (if accessible). Walks `git log` for revert/hotfix/incident/regression/rollback messages, reads the diffs, groups by theme, and produces a list of failure families with affected files + commit refs + root-cause family. Used by /setup-project Phase 2.12 in REFINE mode to materialize `ai/failures/<theme>.md` files that future agents inject in pre-flight (per the architectural-agent failure-catalog Hard Rule).
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # Skill: extract-failures-from-history

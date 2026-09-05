@@ -1,5 +1,6 @@
 ---
 description: Validate a bulk-import file / endpoint WITHOUT committing — detected schema vs. spec, per-row errors with row numbers, idempotency-key collisions, tenant scope of the upsert, streaming/size check, and formula-injection exposure — from real parse output, never an assumed one.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /dry-run-import

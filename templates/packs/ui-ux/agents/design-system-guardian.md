@@ -1,6 +1,7 @@
 ---
 name: design-system-guardian
 description: Audits UI code against the declared design system. Catches ad-hoc colors, spacing, typography, and one-off components that bypass system primitives.
+tools: Read, Grep, Glob
 model: sonnet
 ---
 

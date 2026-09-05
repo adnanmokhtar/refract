@@ -3,6 +3,7 @@ name: complexity-derivation
 description: Mechanically derive the time + space complexity of code or a designed algorithm — loop-nesting products, divide-and-conquer recurrences (recursion tree / Master theorem), amortized analysis (aggregate / accounting), expected-vs-worst for randomized + hashed structures, and space (peak allocation + recursion depth + hidden copies). Produces a cited big-O with the construct each bound came from. Stack-agnostic.
 kind: skill
 pack: algorithms
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # Skill: complexity-derivation

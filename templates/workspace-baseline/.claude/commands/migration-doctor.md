@@ -2,6 +2,7 @@
 description: Find real ledger / artifact issues across the workspace's per-repo migration ledgers. Every finding cites <repo>/<ledger-row> or <repo>/<artifact-path> — no aggregated hand-waves. Read-only diagnostic; the workspace counterpart of the per-repo migration health checks.
 kind: command
 pack: workspace-baseline
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # /migration-doctor

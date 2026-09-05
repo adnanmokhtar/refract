@@ -3,6 +3,7 @@ name: quickstart-verify
 description: Execute a README / getting-started / CONTRIBUTING setup section end-to-end in a CLEAN environment to prove onboarding actually works — install → build → run → smoke. Reports per-step pass/fail and time-to-first-green. Distinct from doc-writer, which authors the prose; this one runs it.
 kind: skill
 pack: documentation
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # quickstart-verify

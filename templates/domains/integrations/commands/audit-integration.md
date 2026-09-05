@@ -1,5 +1,6 @@
 ---
 description: Audit a specific third-party integration — token storage, refresh, per-tenant isolation, retry/backoff, circuit breaker, sync idempotency, drift reconciliation, inbound validation, secrets-in-logs, and request-path blocking — against the REAL connector code, never an assumed shape.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
 # /audit-integration
