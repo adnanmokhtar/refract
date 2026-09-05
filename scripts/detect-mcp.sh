@@ -78,6 +78,7 @@ REPORT_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply) APPLY=1; shift ;;
+    --repair-placeholders) REPAIR=1; shift ;;
     --quiet) QUIET=1; shift ;;
     --stdout|--no-write) SINK_STDOUT=1; shift ;;
     --report=*) REPORT_OVERRIDE="${1#*=}"; shift ;;
@@ -85,6 +86,18 @@ while [[ $# -gt 0 ]]; do
     *)       echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+
+REPAIR="${REPAIR:-0}"
+# --repair-placeholders is the ONE exception to "this script never edits a key you own", and
+# it is opt-in for that reason. It deletes only entries whose `args` carry a `<TODO: …>`
+# string — never a user's real entry. Those were emitted by an EARLIER version of this script,
+# cannot start (`npx -y "<TODO: install X>"` resolves to nothing), and were never a choice
+# anyone made. Measured across five production repos: two carried one. Everything else about
+# the ownership contract stands; a deprecated-but-runnable package is still only reported.
+if [[ $REPAIR -eq 1 && $APPLY -eq 0 ]]; then
+  echo "ERR: --repair-placeholders edits <target>/.mcp.json, so it requires --apply." >&2
+  exit 2
+fi
 
 # --apply exists to write `<target>/.mcp.json`; --stdout promises the opposite. Refuse the
 # pair rather than silently honouring one — a "read-only" flag that still wrote .mcp.json
@@ -413,7 +426,7 @@ fi
 if command -v python3 >/dev/null 2>&1; then
   RECS_JOINED=$(printf '%s\n' "${RECS[@]}")
   RECS_JOINED="$RECS_JOINED" V1_DIR="$V1_DIR" MCP_FILE="$MCP_FILE" \
-  QUIET="$QUIET" APPLY="$APPLY" STATE="$STATE" \
+  QUIET="$QUIET" APPLY="$APPLY" REPAIR="$REPAIR" STATE="$STATE" \
   python3 - <<'PY'
 import json, os, pathlib, sys
 
@@ -567,6 +580,14 @@ emit("stale", ",".join(sorted(stale)))
 emit("exists", "yes" if mcp_file.exists() else "no")
 emit("present", ",".join(sorted(servers_now.keys())))
 
+repair_on = os.environ.get("REPAIR", "0") == "1"
+removed = []
+if apply_on and repair_on and placeholders:
+    for k in placeholders:
+        servers_now.pop(k, None)
+        removed.append(k)
+emit("repaired", ",".join(sorted(removed)))
+
 if not apply_on:
     emit("applied", "no")
     finish()
@@ -662,7 +683,7 @@ def as_vscode(cfg):
 def as_is(cfg):
     return {k: v for k, v in cfg.items() if not k.startswith("_")}
 
-if not added:
+if not added and not removed:
     # Nothing to add to .mcp.json → do not touch it (no reformat, no mtime bump). But the sibling
     # clients are SEPARATE files: Cursor's or VS Code's config can be missing or incomplete while
     # Claude's is finished, and returning here skipped them entirely — so a second run, or a repo
@@ -679,8 +700,14 @@ tmp.write_text(json.dumps(existing, indent=2) + "\n")
 tmp.replace(mcp_file)
 emit("applied", "yes")
 
-if not quiet:
+# `added` can be empty here: a --repair-placeholders run writes the file to REMOVE something
+# while adding nothing, and printing "+ added to .mcp.json:" with an empty list reads as a
+# bug in the run that just did the right thing.
+if not quiet and added:
     print("  + added to .mcp.json: %s" % ", ".join(added), file=sys.stderr)
+if removed and not quiet:
+    print("  - removed unrunnable placeholder entr%s: %s"
+          % ("y" if len(removed) == 1 else "ies", ", ".join(removed)), file=sys.stderr)
     if preserved:
         print("  = preserved (already present): %s" % ", ".join(preserved), file=sys.stderr)
 
@@ -696,7 +723,7 @@ fi
 
 # Read the state file back into shell vars (bash 3.2: no associative arrays).
 st_applied=""; st_added=""; st_preserved=""; st_user_only=""
-st_placeholders=""; st_present=""; st_exists=""; st_error=""; st_unwired_skipped=""; st_stale=""
+st_placeholders=""; st_present=""; st_exists=""; st_error=""; st_unwired_skipped=""; st_stale=""; st_repaired=""
 st_nopython=""
 while IFS=$'\t' read -r k v; do
   case "$k" in
@@ -706,6 +733,7 @@ while IFS=$'\t' read -r k v; do
     user_only)       st_user_only="$v" ;;
     placeholders)    st_placeholders="$v" ;;
     stale)           st_stale="$v" ;;
+    repaired)        st_repaired="$v" ;;
     present)         st_present="$v" ;;
     exists)          st_exists="$v" ;;
     error)           st_error="$v" ;;
@@ -871,7 +899,12 @@ commafy() { [[ -n "$1" ]] || { echo ""; return 0; }; echo "$1" | sed 's/,/`, `/g
   [[ -n "$st_unwired_skipped" ]] && printf -- '- Deliberately NOT written (unwired, no known package): %s\n' "$(commafy "$st_unwired_skipped")"
   printf '\n'
 
-  if [[ -n "$st_placeholders" ]]; then
+  if [[ -n "$st_repaired" ]]; then
+    printf -- '- **Removed by `--repair-placeholders`**: %s. Each carried a `<TODO: …>` string inside `args`, so it could not start. Those entries came from an earlier version of this script, not from a choice anyone made — which is why this one flag is allowed to delete them. No other key is ever edited.\n\n' \
+      "$(commafy "$st_repaired")"
+  fi
+
+  if [[ -n "$st_placeholders" && -z "$st_repaired" ]]; then
     printf '> **⚠ Existing entries carry an unrunnable placeholder.** These keys in `%s` have a `<TODO: …>` string inside `args`, so `npx` will fail the moment the server starts: %s. An earlier version of this script emitted those; it no longer does. They are **your** keys, so this script will not edit them — delete each entry, or replace the placeholder with a package you have verified on npm.\n\n' \
       "$MCP_FILE" "$(commafy "$st_placeholders")"
   fi
