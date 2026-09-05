@@ -68,12 +68,11 @@ REGISTRY = {
     "terraform": "dockerhub",
 }
 
-# Deprecated upstream, knowingly still shipped. Each line is printed on every run.
-KNOWN_DEPRECATED = {
-    "@modelcontextprotocol/server-postgres":
-        "npm marks it 'no longer supported'; it still installs and runs, and no successor "
-        "has been picked. Replace it or demote it to add_rec_unwired — do not let this sit.",
-}
+# Deprecated upstream, knowingly still shipped. Each entry is printed on every run so
+# "we know" cannot decay into "we forgot". EMPTY is the correct state: the one entry that
+# lived here (@modelcontextprotocol/server-postgres) was replaced once a successor with a
+# documented invocation was found, which is what the note demanded.
+KNOWN_DEPRECATED = {}
 
 def out(msg):
     if not QUIET: print(msg)

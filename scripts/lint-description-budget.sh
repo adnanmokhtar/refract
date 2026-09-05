@@ -43,9 +43,14 @@ while [ $# -gt 0 ]; do
 done
 
 # ---- the ratchet (may go down; going up is a decision, not a reflex) ----
-: "${DESC_BUDGET_GLOBAL:=11400}"   # measured 11153
-: "${DESC_BUDGET_PACK:=11800}"     # measured 11457 (frontend, the heaviest)
-: "${DESC_BUDGET_SINGLE:=1900}"    # measured 1881  (/align)
+# Lowered once already: /align 1881->1283 and /unify-surfaces 1583->1415 by moving the
+# JUSTIFICATION out of the routing text. A description's job is to say WHERE the ask belongs,
+# not why — the "why" (halt 10, the 21-verb set, the 3-part pipeline) was already duplicated in
+# each command's own body, which is read only when the command actually fires. Global fell
+# 11153 -> 10387, ~190 tokens off every session.
+: "${DESC_BUDGET_GLOBAL:=10700}"   # measured 10387
+: "${DESC_BUDGET_PACK:=11700}"     # measured 11457 (frontend, the heaviest)
+: "${DESC_BUDGET_SINGLE:=1700}"    # measured 1659  (device-performance-auditor)
 
 REPO_ROOT="$REPO_ROOT" QUIET="$QUIET" PRINT="$PRINT" \
 G="$DESC_BUDGET_GLOBAL" P="$DESC_BUDGET_PACK" S="$DESC_BUDGET_SINGLE" python3 <<'PY'
