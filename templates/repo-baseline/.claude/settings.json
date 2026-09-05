@@ -134,5 +134,35 @@
       "Bash(*uninstall*)",
       "Bash(*:--no-verify:*)"
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "failIfUnavailable": false,
+    "network": {
+      "allowLocalBinding": true,
+      "allowedDomains": [
+        "registry.npmjs.org",
+        "*.npmjs.org",
+        "registry.yarnpkg.com",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "crates.io",
+        "static.crates.io",
+        "proxy.golang.org",
+        "sum.golang.org",
+        "repo.maven.apache.org",
+        "repo1.maven.org",
+        "rubygems.org",
+        "index.rubygems.org",
+        "repo.packagist.org",
+        "packagist.org",
+        "api.nuget.org",
+        "github.com",
+        "api.github.com",
+        "codeload.github.com",
+        "*.githubusercontent.com"
+      ]
+    }
   }
 }

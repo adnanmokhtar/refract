@@ -229,6 +229,15 @@ jobs:
       - name: MCP catalog (every wired server still installable)
         run: bash scripts/lint-mcp-catalog.sh
 
+      # templates/schemas/claude-code/*.schema.json looked like a contract and was decorative —
+      # nothing read them. Measured against the schemas as they stood: 61 of 185 commands over
+      # a description cap, 86 carrying keys declared forbidden, 54 of 123 agents likewise. They
+      # described a repo that never existed, which is worse than shipping none: a contributor
+      # who obeys `additionalProperties:false` and drops `pack:` follows a rule the whole repo
+      # breaks. The schemas were corrected to describe reality; this keeps them true.
+      - name: Schema conformance (the shipped schemas describe the shipped files)
+        run: bash scripts/lint-schema-conformance.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.
