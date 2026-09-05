@@ -238,6 +238,15 @@ jobs:
       - name: Schema conformance (the shipped schemas describe the shipped files)
         run: bash scripts/lint-schema-conformance.sh
 
+      # A body is read when the artifact fires; its `description` is read to DECIDE which
+      # artifact fires, so it is paid on every session that has the thing installed. Nothing
+      # measured it, and the schema caps that nominally bounded it were unenforced and wrong by
+      # a factor of six. Budgeted at the three scopes where the cost is actually incurred: the
+      # global 15 (every session, every project), one pack (what a project pays for saying yes
+      # to it), and any single artifact. A ratchet — lower it freely, raise it only on purpose.
+      - name: Description budget (routing text is paid before anyone asks)
+        run: bash scripts/lint-description-budget.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.

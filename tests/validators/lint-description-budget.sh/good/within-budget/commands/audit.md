@@ -1,0 +1,6 @@
+---
+description: Ranks what is wrong with code that already exists and then executes the fix plan; do not trigger for capability that was never built. Ranks what is wrong with code that already exists and then executes the fix plan; do not trigger for capability that was never built. 
+allowed-tools: [Read, Grep, Glob, Bash]
+---
+
+Body.
