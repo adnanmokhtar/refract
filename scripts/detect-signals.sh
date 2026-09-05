@@ -64,7 +64,24 @@ PRUNE='-name node_modules -o -name .git -o -name dist -o -name build -o -name ve
 yn() { if "$@" >/dev/null 2>&1; then printf 'yes'; else printf 'no'; fi; }
 # manifest grep, extended-regex, across every manifest shape we know
 MANIFESTS='package.json pyproject.toml requirements.txt Gemfile composer.json go.mod Cargo.toml pom.xml build.gradle build.gradle.kts mix.exs pubspec.yaml'
-mg() { grep -qE "$1" $MANIFESTS 2>/dev/null; }
+# Full-line comments are stripped before matching. A manifest is a DECLARATION file, but
+# YAML and TOML carry prose, and prose contains framework names. Measured: a Flutter app was
+# detected as Next.js because pubspec.yaml had a comment reading "...costs the next auditor
+# the whole..." — `first_of` is word-bounded and matched it, so ssr_capable_framework_detected
+# said `next` on a repo with no package.json at all.
+# Only whole-line `#` comments are dropped, never mid-line: `#` inside a JSON string (a colour,
+# a URL fragment) is data, and cutting at it would trade a false positive for a false negative.
+# Existing files are collected FIRST. `grep` on a missing path exits 2, and this script runs
+# under `set -o pipefail`, so piping straight from `grep $MANIFESTS` made the whole pipeline
+# non-zero whenever ANY manifest was absent — which is almost always. Every manifest-based
+# signal silently went to `no`, including the frontend framework on a Nuxt app. Caught by a
+# real repo flipping, not by a fixture.
+mg() {
+  local f; local -a present=()
+  for f in $MANIFESTS; do [ -f "$f" ] && present+=("$f"); done
+  [ "${#present[@]}" -eq 0 ] && return 1
+  grep -hv '^[[:space:]]*#' "${present[@]}" 2>/dev/null | grep -qE "$1"
+}
 # find with pruning; prints the first hit or nothing
 ff() { find -L . -maxdepth "${2:-6}" \( $PRUNE \) -prune -o -name "$1" -print 2>/dev/null | head -1; }
 ffp() { find -L . -maxdepth "${2:-6}" \( $PRUNE \) -prune -o -path "$1" -print 2>/dev/null | head -1; }
@@ -170,6 +187,9 @@ for d in prisma/migrations database/migrations db/migrate migrations src/migrati
 done
 [ -z "$MIG_DIR" ] && MIG_DIR="$(ffp '*/migrations' 5 | sed 's|^\./||')"
 sig "migration_dir_detected=$( [ -n "$MIG_DIR" ] && echo yes || echo no )" "$MIG_DIR"
+# migration_ledger_present — one exact path, named in the vocabulary. /port-feature and
+# /migration-status gate on it, so a fuzzy match here would be worse than none.
+sig "migration_ledger_present=$( [ -f ai/migration/ledger.md ] && echo yes || echo no )" "$( [ -f ai/migration/ledger.md ] && echo 'ai/migration/ledger.md' )"
 
 # ===== API surface =======================================================================
 API_HITS=$(find -L . -maxdepth 8 \( $PRUNE \) -prune -o -type f \
@@ -177,6 +197,31 @@ API_HITS=$(find -L . -maxdepth 8 \( $PRUNE \) -prune -o -type f \
                 -o -name 'routes.*' -o -name 'urls.py' -o -name 'views.py' \) -print 2>/dev/null | grep -c . || true)
 sig "api_surface_detected=$( [ "${API_HITS:-0}" -ge 1 ] && echo yes || echo no )" "${API_HITS:-0} route/controller file(s)"
 sig "controller_pattern_detected=$( [ "${API_HITS:-0}" -ge 1 ] && echo yes || echo no )" "${API_HITS:-0} file(s) matching *controller*/*router*/routes.*/urls.py/views.py"
+# module_per_feature_layout — feature-sliced (`<feature>/{controller,service,repo}`) rather
+# than flat MVC (`controllers/`, `services/`, `repositories/` as siblings at the top). The
+# test is CO-LOCATION: one directory holding all three roles. Two such directories are
+# required, because a single one is as likely to be a coincidence as a layout. Flat MVC has
+# the same file names and never co-locates them, which is exactly what separates the two.
+MPF=""
+_mpf_hits=0
+while IFS= read -r _d; do
+  [ -d "$_d" ] || continue
+  # find, not `ls | grep`: filenames can carry anything, and the shellcheck ratchet is right
+  # to refuse the pipeline. Names only — the role is in the filename, not the path.
+  _names="$(find "$_d" -maxdepth 1 -type f -print 2>/dev/null | sed 's|.*/||')"
+  _c="$(printf '%s\n' "$_names" | grep -icE 'controller|handler|router' || true)"
+  _s="$(printf '%s\n' "$_names" | grep -icE 'service|usecase|use-case' || true)"
+  _r="$(printf '%s\n' "$_names" | grep -icE 'repositor|repo\.|dao' || true)"
+  if [ "${_c:-0}" -ge 1 ] && [ "${_s:-0}" -ge 1 ] && [ "${_r:-0}" -ge 1 ]; then
+    _mpf_hits=$(( _mpf_hits + 1 ))
+    [ -z "$MPF" ] && MPF="${_d#./}"
+  fi
+done <<EOF
+$(find -L . -maxdepth 5 \( $PRUNE \) -prune -o -type d -print 2>/dev/null | head -400)
+EOF
+[ "$_mpf_hits" -ge 2 ] && MPF="$_mpf_hits feature dirs, e.g. $MPF" || MPF=""
+sig "module_per_feature_layout=$( [ -n "$MPF" ] && echo yes || echo no )" "$MPF"
+unset _d _c _s _r _names _mpf_hits
 API_CLIENT=""
 sg 'from ["'"'"']axios["'"'"']|require\(["'"'"']axios["'"'"']\)|createAxios|apiClient|api_urls|\$fetch\(|useFetch\(|openapi-fetch|generated/api' && API_CLIENT="module found in source"
 [ -z "$API_CLIENT" ] && mg 'axios|ky|got|openapi-typescript|@hey-api/openapi-ts|swagger-typescript-api' && API_CLIENT="client library in manifest"
@@ -221,6 +266,25 @@ sig "rtl_locale_detected=$( [ -n "$RTL_EV" ] && echo yes || echo no )" "$RTL_EV"
 # ===== Frontend extras ===================================================================
 SSR_FW="$(first_of 'nuxt' 'next' '@sveltejs/kit' '@remix-run/react' 'astro' '@angular/ssr')"
 sig "ssr_capable_framework_detected=$( [ -n "$SSR_FW" ] && echo yes || echo no )" "$SSR_FW"
+# ssr_enabled — the framework CAN do SSR *and* this project has not turned it off. Distinct
+# from the line above on purpose: a Nuxt app with `ssr: false` is a SPA, and three frontend
+# topics gate on the difference. Astro is inverted — it is static by default, so it needs an
+# explicit opt-IN rather than the absence of an opt-out.
+SSR_ON=""
+if [ -n "$SSR_FW" ]; then
+  case "$SSR_FW" in
+    astro)
+      grep -hqE "output:[[:space:]]*['\"](server|hybrid)['\"]" astro.config.* 2>/dev/null \
+        && SSR_ON="astro output: server/hybrid" ;;
+    *)
+      if grep -hqE "ssr:[[:space:]]*false" nuxt.config.* 2>/dev/null; then SSR_ON=""
+      elif grep -hqE "output:[[:space:]]*['\"]export['\"]" next.config.* 2>/dev/null; then SSR_ON=""
+      elif grep -hq "adapter-static" svelte.config.* 2>/dev/null; then SSR_ON=""
+      else SSR_ON="$SSR_FW, no opt-out found"
+      fi ;;
+  esac
+fi
+sig "ssr_enabled=$( [ -n "$SSR_ON" ] && echo yes || echo no )" "$SSR_ON"
 DARK=""
 sg 'dark:[a-z-]|prefers-color-scheme|useColorMode|ThemeProvider|data-theme' && DARK="dark-mode markers in source"
 [ -z "$DARK" ] && grep -qE 'darkMode' tailwind.config.* 2>/dev/null && DARK="tailwind darkMode config"
@@ -257,9 +321,42 @@ CI=""
 [ -z "$CI" ] && [ -f Jenkinsfile ]           && CI="Jenkinsfile"
 sig "ci_config_detected=$( [ -n "$CI" ] && echo yes || echo no )" "$CI"
 sig "ci_or_dockerfile_detected=$( { [ -n "$CI" ] || [ -n "$DOCKERFILE" ]; } && echo yes || echo no )" "union of ci_config_detected, dockerfile_detected"
+# container_target_likely — the vocabulary also allows "deploy mention in README". That half
+# is DELIBERATELY not implemented: grepping prose for "deploy" matches almost every README
+# ever written, and a signal that is nearly always yes is not a signal (see
+# native_bridge_present). Explicit deploy artifacts only, so a yes means something.
+DEPLOY_ART=""
+[ -n "$DOCKERFILE" ] && DEPLOY_ART="Dockerfile"
+[ -n "$K8S" ]        && DEPLOY_ART="${DEPLOY_ART:-k8s/helm}"
+for _f in docker-compose.yml docker-compose.yaml compose.yml Procfile fly.toml render.yaml app.yaml vercel.json; do
+  [ -f "$_f" ] && DEPLOY_ART="${DEPLOY_ART:-$_f}" && break
+done
+unset _f
+sig "container_target_likely=$( [ -n "$DEPLOY_ART" ] && echo yes || echo no )" "$DEPLOY_ART"
 
 # ===== VCS ===============================================================================
 sig "vcs_detected=$( [ -d .git ] && echo yes || echo no )" "$( [ -d .git ] && echo '.git/' )"
+# git_log_accessible — `.git/` alone is not enough: a shallow clone or a permission failure
+# leaves the directory present and the history unreadable, which is exactly what
+# extract-failures-from-history needs to know before it tries.
+GIT_LOG=""
+[ -d .git ] && git log -1 --format=%H >/dev/null 2>&1 && GIT_LOG="history readable"
+sig "git_log_accessible=$( [ -n "$GIT_LOG" ] && echo yes || echo no )" "$GIT_LOG"
+
+# codebase_age_above_2y — gated on the line above, never on `.git/` alone: a shallow clone
+# reports a recent root commit, so an ungated check would call an old codebase young, which
+# is the wrong answer in the direction that silently skips the legacy topics.
+AGE=""
+if [ -n "$GIT_LOG" ]; then
+  _root_ts="$(git log --max-parents=0 --format=%ct 2>/dev/null | sort -n | head -1)"
+  if [ -n "$_root_ts" ]; then
+    _now="$(date +%s)"
+    _years=$(( (_now - _root_ts) / 31557600 ))
+    [ "$_years" -ge 2 ] && AGE="first commit ~${_years}y ago"
+  fi
+  unset _root_ts _now _years
+fi
+sig "codebase_age_above_2y=$( [ -n "$AGE" ] && echo yes || echo no )" "$AGE"
 
 # ===== Migration layout (V1 → V2) ========================================================
 MIG_LAYOUT=""

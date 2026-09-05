@@ -62,12 +62,16 @@ declared="$(grep -oE '^- `[a-z0-9_]+`' "$VOCAB" 2>/dev/null | sed 's/^- `//; s/`
 #   refine_mode, refinement_eligible   run context (the --refine flag), not a codebase fact —
 #                                      this script inspects a repo and cannot know the flag
 #   backend_track                      track selection, decided during pack choice
-#   the remaining seven                computable from the repo and simply not written yet:
-#                                      git_log_accessible, codebase_age_above_2y,
-#                                      container_target_likely, module_per_feature_layout,
-#                                      ssr_enabled, codebase_has_base_classes,
-#                                      migration_ledger_present
-UNPRODUCED='backend_track codebase_age_above_2y codebase_has_base_classes container_target_likely git_log_accessible migration_ledger_present module_per_feature_layout refine_mode refinement_eligible ssr_enabled'
+#   codebase_has_base_classes          defined as "≥1 class with ≥3 extenders found in Step 5"
+#                                      — cross-file inheritance analysis, which is the
+#                                      extraction step's job. A grep for `extends X` would be
+#                                      language-specific and wrong on Python, Go and Dart.
+#
+# Six that WERE on this list now have extractors: git_log_accessible, codebase_age_above_2y,
+# container_target_likely, module_per_feature_layout, ssr_enabled, migration_ledger_present.
+# Each was verified to DISCRIMINATE, not merely to run — across five production repos plus a
+# synthetic positive where the real set had no yes case.
+UNPRODUCED='backend_track codebase_has_base_classes refine_mode refinement_eligible'
 declared="$(comm -23 <(printf '%s\n' "$declared" | sort -u) <(printf '%s\n' $UNPRODUCED | sort -u))"
 say "     backlog — $(printf '%s\n' $UNPRODUCED | grep -c .) declared trigger(s) with no producer: $UNPRODUCED"
 miss="$(comm -23 <(printf '%s\n' "$declared") <(printf '%s\n' "$emitted") | tr '\n' ' ')"
