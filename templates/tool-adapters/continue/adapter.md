@@ -36,7 +36,7 @@ schema: v1
 models:
   - name: Claude Sonnet
     provider: anthropic
-    model: claude-sonnet-4-6
+    model: claude-sonnet-5
     roles: [chat, edit, apply]
   - name: Kimi K2
     provider: openai
@@ -112,7 +112,7 @@ schema: v1
 # models:
 #   - name: Claude Sonnet
 #     provider: anthropic
-#     model: claude-sonnet-4-6
+#     model: claude-sonnet-5
 #     apiKey: ${{ secrets.ANTHROPIC_API_KEY }}
 #     roles: [chat, edit, apply]
 

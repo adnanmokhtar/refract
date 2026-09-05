@@ -1,16 +1,22 @@
 {
   "kind": "tool-adapter",
   "name": "claude-code",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "released": "2026-04-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline.",
+  "summary": "Watches the settings, sandboxing and model-overview pages, not just the CLI overview. The adapter pins two things that go stale silently and that no gate can check offline: the sandbox block both baselines now ship (sandbox.enabled is opt-in and NO domains are pre-allowed, so the allowlist is load-bearing), and the tier->model-id map in apply-adapter-sync.sh that all 88 `model: opus|sonnet` agents are projected through. Those were pinned to claude-opus-4-8 / claude-sonnet-4-6 \u2014 still served, but a generation behind what the alias means.",
   "docs_urls": [
-    "https://code.claude.com/docs/en/overview"
+    "https://code.claude.com/docs/en/overview",
+    "https://code.claude.com/docs/en/settings",
+    "https://code.claude.com/docs/en/sandboxing",
+    "https://docs.claude.com/en/docs/about-claude/models/overview"
   ],
-  "last_verified": "2026-04-28",
+  "last_verified": "2026-09-05",
   "last_verified_hashes": {
-    "https://code.claude.com/docs/en/overview": "b97a49739a42cce795b9a3874b3199292d0a9e7f4c2cfe57c7d271f29fbbe788"
+    "https://code.claude.com/docs/en/overview": "3f1b26c8b9796e620fa61d187f989861b51b63783a17626057e6c1f8a4d0a50a",
+    "https://code.claude.com/docs/en/settings": "10ced7fc4ff6d40a0740006e86131726d5219025d6e268384ee2daddf93c191b",
+    "https://code.claude.com/docs/en/sandboxing": "6413a92d20e6f5a7240192c08cd4be50e0b52683f8869211f2b24187838640d4",
+    "https://docs.claude.com/en/docs/about-claude/models/overview": "76eefcb16a30e2ef94f3e2883baea4b993ad096412d3e138673d9d5d19e08498"
   }
 }

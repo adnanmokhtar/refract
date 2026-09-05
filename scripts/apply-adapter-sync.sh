@@ -463,8 +463,8 @@ opencode_normalize_agent_frontmatter() {
     }
     fm==1 && /^model:[[:space:]]/ {
       val=$0; sub(/^model:[[:space:]]*/, "", val); gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
-      if      (val=="sonnet") print "model: anthropic/claude-sonnet-4-6"
-      else if (val=="opus")   print "model: anthropic/claude-opus-4-8"
+      if      (val=="sonnet") print "model: anthropic/claude-sonnet-5"
+      else if (val=="opus")   print "model: anthropic/claude-opus-5"
       else if (val=="haiku")  print "model: anthropic/claude-haiku-4-5"
       else print $0
       next

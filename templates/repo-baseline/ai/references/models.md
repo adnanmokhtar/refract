@@ -24,7 +24,7 @@ Gemini CLI reads `GEMINI.md`.
 
 | Driver | Default provider | Switchable to | Switching mechanism |
 |---|---|---|---|
-| Claude Code | Anthropic Claude (Opus 4.7, Sonnet 4.6, Haiku 4.5) | Any Anthropic-compatible endpoint (Kimi K2, self-hosted) | `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` env vars |
+| Claude Code | Anthropic Claude (Opus 5, Sonnet 5, Haiku 4.5) | Any Anthropic-compatible endpoint (Kimi K2, self-hosted) | `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` env vars |
 | OpenCode | User-configured (supports many) | Any OpenAI-compatible or Anthropic-compatible | `opencode.json` `provider` block |
 | Cursor | Cursor-hosted (GPT + Claude + Gemini) | Bring-your-own-key for Anthropic / OpenAI / Google | Settings > Models |
 | Aider | OpenAI / Anthropic / others (CLI picks) | Any LiteLLM-supported (incl. Kimi, Qwen, DeepSeek, Ollama) | `--model`, `--openai-api-base`, `OPENAI_API_BASE` env |
@@ -79,7 +79,7 @@ aider --model deepseek/deepseek-chat --api-key deepseek=sk-...
 models:
   - name: Claude Sonnet
     provider: anthropic
-    model: claude-sonnet-4-6
+    model: claude-sonnet-5
   - name: Kimi K2
     provider: openai
     model: kimi-k2-turbo-preview
@@ -97,7 +97,7 @@ models:
     "anthropic": { "api_key": "sk-ant-..." },
     "moonshot": { "api_key": "sk-moonshot-...", "base_url": "https://api.moonshot.ai/anthropic" }
   },
-  "model": "anthropic/claude-sonnet-4-6"
+  "model": "anthropic/claude-sonnet-5"
 }
 ```
 

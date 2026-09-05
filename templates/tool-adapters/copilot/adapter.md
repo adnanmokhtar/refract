@@ -163,7 +163,7 @@ Copilot now has native custom agents. Each lands in its own `.agent.md` file:
 ---
 description: Reviews backend code for repository / service / controller hygiene
 tools: [read, search]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # backend-reviewer
@@ -209,7 +209,7 @@ Custom chat modes are a Copilot-native concept (custom persona + tool set + alwa
 ---
 description: Backend deep-dive mode — locked to read + search tools
 tools: [read, search, terminal]
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # backend-deep-dive
