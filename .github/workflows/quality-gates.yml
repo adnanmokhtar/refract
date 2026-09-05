@@ -255,6 +255,14 @@ jobs:
       - name: Command routing (every /reference resolves, shared triggers disambiguated)
         run: bash scripts/lint-command-routing.sh
 
+      # A skill's references/ is worth nothing if it does not travel. CREATE copied the folder;
+      # the refresh path copied SKILL.md alone. The first fix covered that script's ADD and
+      # REPLACE arms — and a real refresh against a production repo showed 57 of 60 rows going
+      # through MERGE instead, where it did nothing. The second attempt failed silently on a
+      # name it resolved wrongly. Both were invisible without an end-to-end assertion.
+      - name: Skill sidecars (references/ travels on merge, add and legacy-flat)
+        run: bash scripts/test-skill-sidecars.sh
+
       # Now GREEN (finding #40 closed — the 18 commands are documented) — BLOCKING.
       # FAILs on an undocumented command or a missing pack sync-file; WARNs (built-ins like
       # /resume, /schedule; repo-baseline /verify-plan) are non-fatal.
