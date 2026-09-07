@@ -72,7 +72,39 @@ Stated plainly, because the gaps are large:
   a real unseeded one without a human reading it.
 - **Any comparison against another framework.** Running the same fixture with the
   framework absent would be a genuinely interesting control, and nobody has run it.
-- **Cost, latency, token count.** Not captured.
+- **Latency.** Not captured. Wall-clock is not in the transcript in a form worth trusting.
+- **Cost and token count — measured separately, and not by this harness.** `run.sh` scores
+  detection and nothing else. Spend is read out of the session transcript afterwards by
+  [`scripts/measure-token-cost.py`](../scripts/measure-token-cost.py); see § Cost below.
+  The two numbers are deliberately not combined — a run that costs less because it found
+  less is not an improvement, and one score hiding both would say it was.
+
+## Cost
+
+`scripts/measure-token-cost.py` reports what a session spent. It reads the JSONL transcript
+the harness already writes under `~/.claude/projects/<encoded-cwd>/` — the same file
+[`update-session-log.sh`](../templates/repo-baseline/.claude/hooks/update-session-log.sh)
+records a pointer to. Nothing is installed, and nothing leaves the machine.
+
+    python3 scripts/measure-token-cost.py --last=1          # the session that just ran
+    python3 scripts/measure-token-cost.py --json            # for RESULTS.md
+    python3 scripts/measure-token-cost.py --verify          # what the dedupe removed
+
+Two properties make its output quotable where a hand-rolled `jq` sum would not be:
+
+- **Each billed response is counted once.** An assistant API response is written to the
+  transcript repeatedly — measured here, 973 records carrying 617 distinct `message.id`,
+  every duplicate byte-identical in `usage`. Summing records instead of responses inflated
+  cache reads by 80% and output by 113% on a three-session sample. Records are keyed by
+  `(message.id, requestId)`; `--verify` prints both totals so the claim is checkable.
+- **Tokens are measured; dollars are not.** Token counts come from the transcript. Dollar
+  figures multiply them by a dated table in the script, which goes stale on its own — a
+  model the table doesn't know is reported with its tokens and no cost, never a guessed
+  rate. Re-check the table before quoting a dollar figure as a result.
+
+What it is for: the before/after on any change that claims to make runs cheaper. The first
+thing it says about this repo's own sessions is that **cache reads are 99.5% of all billed
+input tokens**, which is where any cost work has to aim.
 
 ## Unmatched is not the same as false
 
