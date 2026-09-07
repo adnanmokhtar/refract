@@ -153,22 +153,6 @@ done
 
 [[ -d "$TARGET" ]] || { echo "ERR: target not found: $TARGET" >&2; exit 1; }
 
-# ---------- M35 ledger mode: record decisions, then exit ----------
-LEDGER="$TARGET/.claude/_refresh-decisions.md"
-if [[ ${#LEDGER_OPS[@]} -gt 0 ]]; then
-  mkdir -p "$(dirname "$LEDGER")"
-  if [[ ! -f "$LEDGER" ]]; then
-    cat > "$LEDGER" <<'HDR'
-# Refresh decisions ledger (M35)
-
-Durable per-file decisions from /setup-project refresh runs. study-existing.sh
-reconciles rows recorded here instead of re-proposing them every run.
-KEEP-OURS / RESOLVED entries re-open automatically when the pack source changes
-(pack@sha8 mismatch). REJECTED / KEEP are permanent until a human deletes the line.
-
-Append via: apply-study-decisions.sh <target> --reject='pack/kind/file.md:rationale'
-(or --keep-ours= / --resolve= / --keep=). Manual edits are fine — keep the line shape.
-
 # Byte-identical to study-existing.sh:182. Duplicated rather than sourced because these two
 # scripts are invoked independently; if either copy changes, BOTH must — the ledger is only
 # meaningful while the writer and the reader hash the same way.
@@ -185,6 +169,21 @@ pack_substantive_sha8() {
     | shasum 2>/dev/null | cut -c1-8
 }
 
+# ---------- M35 ledger mode: record decisions, then exit ----------
+LEDGER="$TARGET/.claude/_refresh-decisions.md"
+if [[ ${#LEDGER_OPS[@]} -gt 0 ]]; then
+  mkdir -p "$(dirname "$LEDGER")"
+  if [[ ! -f "$LEDGER" ]]; then
+    cat > "$LEDGER" <<'HDR'
+# Refresh decisions ledger (M35)
+
+Durable per-file decisions from /setup-project refresh runs. study-existing.sh
+reconciles rows recorded here instead of re-proposing them every run.
+KEEP-OURS / RESOLVED entries re-open automatically when the pack source changes
+(pack@sha8 mismatch). REJECTED / KEEP are permanent until a human deletes the line.
+
+Append via: apply-study-decisions.sh <target> --reject='pack/kind/file.md:rationale'
+(or --keep-ours= / --resolve= / --keep=). Manual edits are fine — keep the line shape.
 
 ---
 HDR

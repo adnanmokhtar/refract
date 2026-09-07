@@ -867,6 +867,87 @@ else
 fi
 
 say ""
+say "fixture: a compose that eats the frontmatter is refused, however well it preserved lines"
+A20="$TD/frontmatter-eaten"
+rm -rf "$A20"; mkdir -p "$A20/.claude/commands" "$A20/bak/.claude/commands" "$A20/src"
+printf '{"name":"app"}\n' > "$A20/package.json"
+printf 'export const x = 1\n' > "$A20/src/x.ts"
+# ORIGINAL — parses: one frontmatter block, project description, body below.
+cat > "$A20/bak/.claude/commands/redesign.md" <<'ORIG'
+---
+description: Project redesign command for this Vue SPA.
+---
+
+# /redesign <description | path>
+
+> Steering note the project wrote.
+ORIG
+# RESULT — the real ADJUST shape measured on master-portal-v2: the project's own description
+# and the prose under it are re-emitted ABOVE the pack's frontmatter, so the opening `---` is
+# never closed. Every protected line is still present; the document is unreadable.
+cat > "$A20/.claude/commands/redesign.md" <<'RES'
+---
+description: Project redesign command for this Vue SPA.
+# /redesign <description | path>
+
+> Steering note the project wrote.
+description: One command full UI/UX redesign.
+kind: command
+allowed-tools: [Read, Write, Edit]
+---
+
+# /redesign <description-or-path>
+RES
+printf '.claude/commands/redesign.md\t%s\t%s\n' \
+  "$A20/bak/.claude/commands/redesign.md" "$A20/.claude/commands/redesign.md" > "$A20/pairs.tsv"
+out20=$(python3 "$ENGINE" --verify-pairs="$A20/pairs.tsv" --target="$A20" 2>/dev/null || true)
+printf '%s' "$out20" | grep -q 'FRONTMATTER' \
+  && ok "an unreadable composed frontmatter is a violation, not a silent write" \
+  || bad "an unreadable composed frontmatter is a violation" "$(printf '%s' "$out20" | head -2)"
+
+# NEGATIVE — a file that ARRIVED broken is not charged to this merge.
+A21="$TD/frontmatter-already-broken"
+rm -rf "$A21"; mkdir -p "$A21/.claude/commands" "$A21/bak/.claude/commands" "$A21/src"
+printf '{"name":"app"}\n' > "$A21/package.json"
+printf 'export const x = 1\n' > "$A21/src/x.ts"
+cp "$A20/.claude/commands/redesign.md" "$A21/bak/.claude/commands/redesign.md"
+cp "$A20/.claude/commands/redesign.md" "$A21/.claude/commands/redesign.md"
+printf '.claude/commands/redesign.md\t%s\t%s\n' \
+  "$A21/bak/.claude/commands/redesign.md" "$A21/.claude/commands/redesign.md" > "$A21/pairs.tsv"
+out21=$(python3 "$ENGINE" --verify-pairs="$A21/pairs.tsv" --target="$A21" 2>/dev/null || true)
+printf '%s' "$out21" | grep -q 'FRONTMATTER' \
+  && bad "an already-broken original is NOT charged to the merge" "$(printf '%s' "$out21" | head -2)" \
+  || ok "an already-broken original is NOT charged to the merge"
+
+say ""
+say "fixture: a frontmatter key the pack does not have survives the compose"
+# 📏 Reproduced on two live repos: a `paths:` block scoping a rule to the project's source root
+# was stripped by the apply, because every compose starts from the pack and inherits its key set.
+# Claude Code delivers an unimported rule only on a `paths:` match, so the rule went from loading
+# on the right files to loading on NO turn — and nothing in the run said so.
+out22=$(python3 - "$ENGINE" <<'PYEOF'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("md", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+
+tgt = '---\npaths:\n  - "src/**"\n  - "test/**"\nname: r\ndescription: old\n---\n\nbody\n'
+res = '---\nname: r\ndescription: new\nkind: rule\n---\n\npack body\n'
+got = m.carry_target_only_frontmatter(res, tgt)
+print("KEPT_PATHS"      if "paths:" in got else "LOST_PATHS")
+print("KEPT_LIST"       if '- "test/**"' in got else "LOST_LIST")
+print("PACK_WINS"       if "description: new" in got else "PACK_LOST")
+print("NO_DUP"          if got.count("name: r") == 1 else "DUPLICATED")
+# a target with nothing extra must come back byte-identical
+print("UNCHANGED" if m.carry_target_only_frontmatter(res, '---\nname: r\n---\n\nx\n') == res else "CHURNED")
+PYEOF
+)
+for want in KEPT_PATHS KEPT_LIST PACK_WINS NO_DUP UNCHANGED; do
+  printf '%s' "$out22" | grep -qx "$want" \
+    && ok "carry-back: $want" \
+    || bad "carry-back: $want" "$(printf '%s' "$out22" | tr '\n' ' ')"
+done
+
+say ""
 printf '%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ] || exit 1
 exit 0

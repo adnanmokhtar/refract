@@ -672,6 +672,57 @@ def frontmatter_fields(text):
     return out
 
 
+def carry_target_only_frontmatter(result_text, tgt_raw):
+    """Put back any frontmatter key the TARGET had and the composed result does not.
+
+    🔴 EVERY COMPOSE STARTS FROM THE PACK, SO IT INHERITS THE PACK'S KEY SET — AND SILENTLY
+    DROPS WHATEVER THE PROJECT ADDED.
+
+    The body is protected: unknown-origin lines are preserved byte-for-byte and the invariant
+    refuses a write that loses one. Frontmatter had no such protection, and it is where the
+    load-bearing per-project keys live.
+
+    📏 Reproduced on two repos on 2026-09-06. A `paths:` block scoping a rule to this project's
+    source root — a key the pack does not carry — was stripped by the apply. Claude Code delivers
+    an unimported rule only on a `paths:` match, so the rule went from loading on the right files
+    to loading on NO turn. Both times a human had just repaired it; both times the next apply
+    undid the repair, and nothing in the run said so.
+
+    Pack wins on shared keys (that is the merge contract). Target-only keys are additive and are
+    carried back in the order the target had them.
+    """
+    if not result_text.startswith("---\n") or not tgt_raw.startswith("---\n"):
+        return result_text
+    res_keys = set(frontmatter_fields(result_text))
+    tgt_lines = tgt_raw.split("\n")
+    try:
+        tgt_end = tgt_lines.index("---", 1)
+    except ValueError:
+        return result_text
+
+    carried, i = [], 1
+    while i < tgt_end:
+        m = _FM_FIELD.match(tgt_lines[i])
+        if m and m.group(1) not in res_keys:
+            carried.append(tgt_lines[i])
+            i += 1
+            # a block value keeps its continuation lines (`paths:` + its list items)
+            while i < tgt_end and (tgt_lines[i].startswith((" ", "\t"))
+                                   or tgt_lines[i].lstrip().startswith("- ")):
+                carried.append(tgt_lines[i]); i += 1
+            continue
+        i += 1
+    if not carried:
+        return result_text
+
+    res_lines = result_text.split("\n")
+    try:
+        res_end = res_lines.index("---", 1)
+    except ValueError:
+        return result_text
+    return "\n".join(res_lines[:res_end] + carried + res_lines[res_end:])
+
+
 def frontmatter_delta(tgt_raw, pack_norm):
     """[(field, old, new)] for every frontmatter field the merge would change.
 
@@ -1580,6 +1631,39 @@ def new_dangling_refs(original_text, result_text, target_root, ridx=None):
     return out
 
 
+_FM_KEY_RE = re.compile(r"^[A-Za-z_][\w.-]*:")
+
+
+def _frontmatter_broken(text):
+    """Why this text's YAML frontmatter will not parse, or None when it is fine.
+
+    Structural, not a YAML parse — this repo cannot assume PyYAML is installed, and the one
+    defect class that needs catching here is coarse enough to see without a parser: a compose
+    that re-emits the target's own `description:` line and the prose under it ABOVE the pack's
+    frontmatter, so the opening `---` is never closed and the whole body is swallowed into the
+    frontmatter. Measured on a live ADJUST row (`.claude/commands/redesign.md`): the engine knew
+    both descriptions — it logged the field delta — and still wrote a file whose frontmatter no
+    tool can read, because every preservation leg passed. Every line WAS present; the document
+    was not.
+    """
+    if not text.startswith("---\n"):
+        return None                      # no frontmatter at all — nothing to break
+    lines = text.split("\n")
+    for i in range(1, len(lines)):
+        if lines[i].strip() == "---":
+            body_start = i
+            break
+    else:
+        return "the opening `---` is never closed"
+    for l in lines[1:body_start]:
+        if not l.strip():
+            continue
+        if _FM_KEY_RE.match(l) or l.startswith((" ", "\t")) or l.lstrip().startswith("- "):
+            continue
+        return "a non-key line sits inside the frontmatter: %s" % l.strip()[:120]
+    return None
+
+
 def verify_invariant(original_text, result_text, corpus, target_root):
     """Return (ok, [violations]). Runs on the RESULT, never on the intent.
 
@@ -1668,7 +1752,17 @@ def verify_invariant(original_text, result_text, corpus, target_root):
             used[c] = n + 1
     out_of_order = _in_order(res_canon, present) if present else None
 
+    # FRONTMATTER — a preserved-every-line result can still be an unreadable DOCUMENT.
+    # Blamed only when the ORIGINAL parsed and the RESULT does not, so a file that arrived
+    # broken is not charged to this merge.
+    fm_broken = None
+    if _frontmatter_broken(original_text) is None:
+        fm_broken = _frontmatter_broken(result_text)
+
     v = []
+    if fm_broken:
+        v.append("FRONTMATTER the composed result no longer has readable frontmatter — %s. "
+                 "Every protected line survived; the document did not." % fm_broken)
     for l in lost_markers[:8]:
         v.append("MARKER a line citing this project's own decision record was dropped: %s"
                  % l.strip()[:150])
@@ -1699,7 +1793,7 @@ def verify_invariant(original_text, result_text, corpus, target_root):
                  "than restoring the import" % (len(evicted_rules), ", ".join(evicted_rules[:6])))
 
     ok = not (lost_lines or lost_dupes or lost_toks or lost_regions or shredded
-              or lost_markers or out_of_order is not None)
+              or lost_markers or out_of_order is not None or fm_broken)
     return ok, v
 
 
@@ -2198,6 +2292,7 @@ def main(argv):
                     result = compose_override(pack_norm, anchors, heading_blocks)
                     rec["added"] = "pack body (%d line(s) the target lacked)" % rec["gain_lines"]
                 result = rewrite_deployed(result, r["kind"], target)
+                result = carry_target_only_frontmatter(result, tgt_raw)
                 if not result.endswith("\n"):
                     result += "\n"
 

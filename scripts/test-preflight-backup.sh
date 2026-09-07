@@ -113,6 +113,37 @@ else
   bad "§3 the fresh backup was reused" "preflight took a redundant backup"
 fi
 
+# ── § 4  a script-prefixed snapshot never counts, however fresh and however large ─────────
+#
+# The file-count test alone is not enough: a mid-run `adapter-sync-<stamp>` snapshot can be
+# BIGGER than the floor and still be a snapshot of the wrong thing. 📏 capsolah-api, 2026-09-06:
+# `adapter-sync-20260906-171137` cleared a ≥97-file threshold because that run had re-synced 106
+# adapter files, so no Phase-0 backup was taken at all, and C2n went on diffing against a floor
+# from before Phase 4.7 — 14 KNOWLEDGE_LOSS rows for corrections already reviewed. A snapshot of
+# `.opencode/` says nothing about `ai/`.
+#
+# The name is the test, and it is the SAME one audit-setup.sh's c2n_run_backups() uses to pick
+# the floor. If these two ever disagree again, one of them writes a backup the other won't read.
+say ""
+say "§ 4  a big, fresh, script-prefixed snapshot is not a Phase-0 backup"
+P4="$TD/prefixed"; seed_target "$P4"
+PLANT4="adapter-sync-$(date +%Y%m%d-%H%M)"
+mkdir -p "$P4/.claude/backups/$PLANT4/.opencode/commands"
+# Deliberately LARGER than the live setup, so a count-only test would accept it.
+i=0; while [ "$i" -lt 200 ]; do : > "$P4/.claude/backups/$PLANT4/.opencode/commands/c$i.md"; i=$((i+1)); done
+out4=$(bash "$PREFLIGHT" "$P4" --mode=ENHANCE-extend 2>&1)
+if printf '%s' "$out4" | grep -q 'not duplicating'; then
+  bad "§4 a script-prefixed snapshot is refused as the Phase-0 backup" \
+      "preflight reused $PLANT4 and took no real backup"
+else
+  ok "§4 a script-prefixed snapshot is refused as the Phase-0 backup"
+fi
+if ls -d "$P4"/.claude/backups/[0-9]*-[0-9]*/ >/dev/null 2>&1; then
+  ok "§4 a real bare-timestamp backup was taken instead"
+else
+  bad "§4 a real bare-timestamp backup was taken instead" "no bare-timestamp dir under backups/"
+fi
+
 say ""
 say "preflight-backup fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ] || exit 1
