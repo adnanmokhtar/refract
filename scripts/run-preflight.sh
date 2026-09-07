@@ -183,6 +183,23 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
   while IFS= read -r _cand; do
     [[ -z "$_cand" ]] && continue
     _nm="${_cand##*/}"
+    # 🔴 ONLY A BARE TIMESTAMP IS A PHASE-0 BACKUP. `<script>-<stamp>` IS A MID-RUN PARTIAL.
+    #
+    # This is the same rule audit-setup.sh's c2n_run_backups() uses to find the floor it
+    # diffs against — `grep -xE '[0-9]{8}-[0-9]{4,6}'` — and the two MUST agree, because this
+    # loop decides whether that floor gets written at all.
+    #
+    # 📏 capsolah-api, 2026-09-06: the file-count test below rejected two partials (8 and 3
+    # files) and then ACCEPTED `adapter-sync-20260906-171137`, which cleared the ≥97 threshold
+    # purely because that run had re-synced 106 adapter files. So no Phase-0 backup was taken,
+    # C2n kept diffing against a floor from before Phase 4.7, and the run reported 14
+    # KNOWLEDGE_LOSS rows for corrections that had already been reviewed. A snapshot of
+    # `.opencode/` says nothing about `ai/` — passing a count test is not being a backup, and
+    # the audit had already been warning "partial backup with no ai/decisions/ snapshot".
+    case "$_nm" in
+      [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]|[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+      *) continue ;;
+    esac
     # `YYYYMMDD-HHMM` or `YYYYMMDD-HHMMSS`, optionally prefixed (`anchors-`, `skill-shape-`…).
     _stamp=$(printf '%s' "$_nm" | sed -nE 's/.*([0-9]{8})-([0-9]{4})([0-9]{2})?$/\1 \2\3/p')
     [[ -z "$_stamp" ]] && continue
