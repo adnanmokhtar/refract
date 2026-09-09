@@ -160,15 +160,15 @@ Verdict: 2 BLOCKER · 2 REQUEST. Recall figures: none — this skill reports con
 - **A finding without its `<path:line>`** — index definition, migration, provisioning call, or write path → not emittable.
 - **The hand-wave grep** — `etc.` / `…` / `might` / `probably` / `several similar` in a draft finding → STOP and re-enumerate.
 - **Index unreachable / config not readable** (managed console-only settings, no infra-as-code) → report the axis `not run` with the reason. Never infer the configuration from the client library's defaults.
-- **Grading the stale-index privacy consequence** → out of scope. Report the freshness defect; hand a revocation or erasure case to `@llm-security-reviewer` and the privacy owner.
+- **Grading the stale-index privacy consequence** → out of scope. Report the freshness defect; hand a revocation or erasure case to `@llm-security-reviewer` and the privacy owner. Absent that pack the row is emitted as `HANDOFF UNROUTED (security pack not installed)` and kept in the report — an owner that is not installed never turns an unowned finding into a cleared one.
 
 ## References
 
 - `ai/patterns/vector-store-ops.md` — the pattern this skill mechanizes: exact-vs-ANN, index families and knobs, naming the target, pre/post-filter, hybrid at the index level, build/refresh/sharding. Its five detectors are this skill's five.
 - `ai/patterns/rag-pipeline.md` — **boundary:** that pattern owns chunk → embed → retrieve → rerank *usage*; this skill audits the index *underneath* it. The embedding-model / distance-metric match surfaces in both.
 - `retrieval-eval` — produces the recall number this skill refuses to invent, including the filtered run that proves or disproves detector 4. The two are a pair: configuration here, measurement there.
-- `@rag-architect` — designs a new index (family, params, target, filter mode, refresh plan); this skill audits an existing one. Design there, audit here — the `@api-architect` ↔ `api-consistency-audit` relationship.
+- `@rag-architect` — designs a new index (family, params, target, filter mode, refresh plan); this skill audits an existing one. Design there, audit here — the `@api-architect` ↔ `api-consistency-audit` relationship (backend pack; cited here as an analogy, not a dispatch).
 - `@ai-feature-reviewer` — dispatches this skill for dimension 3 on any diff touching the vector store.
-- `@llm-security-reviewer` / `@tenant-isolation-reviewer` (security pack) — own the cross-tenant leak and the stale-permission read; detectors 4 and 5 hand across when the shape is a leak rather than a quality defect.
+- `@llm-security-reviewer` / `@tenant-isolation-reviewer` (security pack, when co-installed) — own the cross-tenant leak and the stale-permission read; detectors 4 and 5 hand across when the shape is a leak rather than a quality defect. Absent that pack the handoff is recorded as `HANDOFF UNROUTED`, never dropped.
 - **Cross-pack:** the **database** pack owns pgvector's relational surface — migration safety, index build locks, table-level scaling.
 - `.claude/rules/ai-engineering-principles.md` — AI-6 (the index is tuned to a stated recall/latency/scale target; the metric matches the embedding model).

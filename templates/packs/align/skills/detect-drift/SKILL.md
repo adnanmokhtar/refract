@@ -3,7 +3,7 @@ name: detect-drift
 description: Stack-conditional drift detector for codebase alignment. Runs the 11 universal detectors (6 structural + 5 functional — SOLID, clean code, performance, security, unhandled-io) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
 kind: skill
 pack: align
-allowed-tools: [Read, Grep, Glob, Bash]
+allowed-tools: [Read, Write, Grep, Glob, Bash]
 ---
 
 # Skill: detect-drift
@@ -283,6 +283,16 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 
 ### Step 3: Stack-conditional detectors (parallel)
 
+**Every artifact named below lives in another pack, and `align` is opt-in — so none of them is guaranteed present.** Resolve each one before dispatch; a dispatch to an artifact that is not installed returns nothing, and nothing is indistinguishable from a clean stack lane. Per the § Reductions contract, a stack-conditional detector that could not be resolved is reported, never skipped silently:
+
+```
+STACK — RAN <M> of <T> stack-conditional detectors (PROJECT_KIND=<kind>)
+  SKIP — design-token-audit NOT RUN (ui-ux pack not installed)
+  SKIP — motion-audit       NOT RUN (ui-ux pack not installed)
+```
+
+`<T>` is the count for the resolved `PROJECT_KIND` lane, not the total across lanes. A run whose `<M>` is below `<T>` lists every reason. This line is emitted alongside `RAN <N> of 11` and never in place of it — the universal set and the stack set have separate denominators, and a full universal line has never said anything about the stack lane.
+
 For `PROJECT_KIND in {frontend-*}`:
 - Dispatch `accessibility-auditor` (a11y).
 - Dispatch `i18n-auditor` (i18n key drift).
@@ -311,7 +321,7 @@ For each finding:
 - Set initial `tier` per the discipline rule's tier promoter rules.
 - Set `status: detected`.
 
-## Halts
+## Halt conditions
 
 - **Empty oracle** (`_extracted-idioms.md` missing/empty) → halt; route to `/setup-project --refine`.
 - **PROJECT_KIND unknown** → halt; surface; offer universal-only fallback.
@@ -329,8 +339,9 @@ A halt stops everything. A **reduction** runs fewer detectors and must say so, b
 | A per-class tool absent where the caller passed `--continue-on-missing-tool` | that one detector does not run | `SKIP — <class> NOT RUN (<tool> absent: <install command>)` |
 | `--class-filter` or `--scope` narrowed the run | fewer detectors, or less source | `SCOPED — <N> of 11 universal detectors, scope <path>` |
 | A file exceeds the large-file sampling threshold | partial read | `PARTIAL-READ — <path>: <N> lines, read <ranges>` |
+| A stack-conditional detector's owning pack is not installed | that detector does not run; the universal set is unaffected | `SKIP — <detector> NOT RUN (<pack> pack not installed)` |
 
-**The final line of every run is `RAN <N> of 11 universal detectors`**, and any `<N>` below 11 is immediately followed by its reasons. A caller that receives zero `drift` rows is entitled to know whether that means "no drift" or "drift was never looked for". See `ai/patterns/align-guardrails.md § The eight realism guards` for the guard names to cite.
+**The final two lines of every run are `RAN <N> of 11 universal detectors` and the `STACK — RAN <M> of <T>` line from § Step 3**, and any `<N>` below 11 or `<M>` below `<T>` is immediately followed by its reasons. A caller that receives zero `drift` rows is entitled to know whether that means "no drift" or "drift was never looked for". See `ai/patterns/align-guardrails.md § The eight realism guards` for the guard names to cite.
 
 ### Detector 6 special case — the bimodal convention
 
@@ -367,7 +378,7 @@ Emitting these as `drift` rows would make align pick a convention by majority vo
 
 ## Notes
 
-- This skill is **read-only**. It writes nothing to disk. The orchestrator persists the findings.
+- This skill is **read-only with respect to the codebase** — it never touches source, ledger or oracle. It writes exactly one file, `ai/align/_deferred.md` (§ Outputs, § Hard rules), and nothing else; the orchestrator persists the findings themselves.
 - Detectors run in parallel waves (structural / functional / stack-conditional). Within a wave, dispatch up to `--max-subagents` (default 5).
 - Each detector reads ≤ 5K tokens of shared context, NOT the project's full source. Per-detector source reads are scoped to the file the detector is currently inspecting.
 - Re-running this skill is idempotent — running twice on the same codebase produces the same findings.

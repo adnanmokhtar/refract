@@ -59,7 +59,9 @@ SELECTOR="$(awk '
 # which branch a path took. CHECKED = C2n compares it; SKIPPED = C2n never looks at it.
 classify() {
   rel="$1"
-  # shellcheck disable=SC2034
+  # SC2034: _once is a placeholder, never read. SC2043: the single-iteration loop is the
+  # point — it is the scope that makes `continue` / `;;` in $SELECTOR mean anything.
+  # shellcheck disable=SC2034,SC2043
   for _once in 1; do
     eval "$SELECTOR"
     printf 'CHECKED\n'; return 0

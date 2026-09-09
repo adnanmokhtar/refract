@@ -180,5 +180,5 @@ Effort: 1 day (email template + backend deadline change). Risk: low.
 ## Related
 
 - `@business-auditor` — full feature audit; this skill is one funnel within that.
-- `@ux-reviewer` — UX-specific copy + content review.
+- `@ux-reviewer` *(ui-ux pack, when co-installed)* — UX-specific copy + content review. Absent that pack the copy findings stay in this report as `unrouted — no UX reviewer installed` rather than being dropped; naming a reviewer that does not exist is how a finding leaves the report without being read.
 - `business-completeness.md` rule — what "done" looks like in business terms.

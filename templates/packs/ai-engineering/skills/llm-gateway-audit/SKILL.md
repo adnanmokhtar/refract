@@ -159,7 +159,7 @@ Cost: UNMEASURED. No cost field is written at the seam, so no spend figure exist
 - **A projected saving, a hypothetical hit-rate, or an invented cost figure** → forbidden. Report `UNMEASURED` plus the one change that would produce the number. This skill has no benchmark and must not imply one.
 - **No seam and no provider call found** → report `N-A — no provider call on this surface`, not a clean pass. A green verdict on an unexamined surface is the failure this line prevents.
 - **Deriving the retry/backoff/circuit-breaker policy** → out of scope; name the distributed-systems / backend owner and stop.
-- **Clearing a cross-tenant cache leak** → forbidden. Detector 5 hands to `@llm-security-reviewer`; report the defect, route the leak.
+- **Clearing a cross-tenant cache leak** → forbidden. Detector 5 hands to `@llm-security-reviewer`; report the defect, route the leak. Absent that pack the row is emitted as `HANDOFF UNROUTED (security pack not installed)` and kept in the report — an owner that is not installed never turns an unowned finding into a cleared one.
 
 ## References
 
@@ -167,6 +167,6 @@ Cost: UNMEASURED. No cost field is written at the seam, so no spend figure exist
 - `prompt-audit` — sibling skill on the same call sites: it audits what is *inside* the call (schema, roles, temperature, version); this one audits the seam around it. A cache key unversioned by prompt version is both findings at once.
 - `ai/patterns/evals.md` + `eval-run` — right-sizing the model ("the cheapest model that passes the eval") is a routing decision this skill can only report as *unproven* without a harness; `/add-eval-set` builds one.
 - `@ai-feature-reviewer` — dispatches this skill for dimension 5 and folds its findings into the PR verdict.
-- `@llm-security-reviewer` (security pack) — owns the semantic-cache leak and the secret-in-log exposure; detectors 5 and 7 hand across.
+- `@llm-security-reviewer` (security pack, when co-installed) — owns the semantic-cache leak and the secret-in-log exposure; detectors 5 and 7 hand across. Absent that pack the handoff is recorded as `HANDOFF UNROUTED`, never dropped.
 - **Cross-pack owners (referenced, not duplicated):** timeout/retry/backoff/circuit-breaker mechanics → distributed-systems / backend resilience; metric + trace taxonomy, cardinality, sampling, PII-redaction policy → observability.
 - `.claude/rules/ai-engineering-principles.md` — AI-3 (token cap + timeout + traced cost), AI-8 (one gateway seam), AI-9 (redaction at the seam).

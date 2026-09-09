@@ -112,6 +112,14 @@ UI_DESIGN_SWEEP_VERBS=(
   expand-tap-target unify-cta-placement clarify-affordance normalize-surface
 )
 
+# Mobile-extra closure verbs from commands/polish.md § Mobile (5 verbs), registered on
+# TOP of the frontend set for mobile-* projects only. platform-conventions-audit emits
+# these; before they were listed here the mobile branch below rejected every one of them.
+MOBILE_EXTRA_VERBS=(
+  apply-platform-spec unify-platform-icon apply-platform-typography
+  add-haptic-feedback respect-safe-area
+)
+
 # Closed backend closure-verb vocabulary from commands/polish.md § Backend (15 verbs).
 API_CONSISTENCY_VERBS=(
   unify-envelope unify-error-contract unify-naming unify-pagination
@@ -133,6 +141,14 @@ is_ui_design_sweep_verb() {
   for ok in "${UI_DESIGN_SWEEP_VERBS[@]}"; do
     [[ "$v" == "$ok" ]] && return 0
   done
+  # mobile-* additionally registers the five platform verbs (commands/polish.md § Mobile).
+  case "$PROJECT_KIND" in
+    mobile-*)
+      for ok in "${MOBILE_EXTRA_VERBS[@]}"; do
+        [[ "$v" == "$ok" ]] && return 0
+      done
+      ;;
+  esac
   return 1
 }
 
@@ -207,7 +223,9 @@ check_frontend_verb_vocabulary() {
   done
 
   if [[ ${#bad[@]} -gt 0 ]]; then
-    log_fail "frontend polish uses verbs outside ui-design-sweep closed vocabulary: ${bad[*]} (allowed: ${UI_DESIGN_SWEEP_VERBS[*]})"
+    local allowed="${UI_DESIGN_SWEEP_VERBS[*]}"
+    case "$PROJECT_KIND" in mobile-*) allowed="$allowed ${MOBILE_EXTRA_VERBS[*]}" ;; esac
+    log_fail "frontend polish uses verbs outside ui-design-sweep closed vocabulary: ${bad[*]} (allowed: $allowed)"
     return 1
   fi
   if [[ $total -gt 0 ]]; then

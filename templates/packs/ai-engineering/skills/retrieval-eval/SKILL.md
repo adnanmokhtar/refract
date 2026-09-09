@@ -144,7 +144,7 @@ Verdict: FAIL — 2 gated metrics below target. Dataset v3, 40 questions, human-
 - **An invented recall or latency number** → forbidden. Every figure comes from a real run of the project's retriever over the labelled set. A stage that could not be run is reported `not run`, never OK.
 - **Scoring through a second retriever** you stood up for the measurement → HALT; mirror the project's entry point or report that you could not reach it.
 - **Two knobs moved between runs** → the delta is unattributable; discard it and re-run one at a time.
-- **Grading the cross-tenant leak** → out of scope. A filtered-recall collapse is a retrieval-correctness finding here; a filter that is *absent* on a multi-tenant corpus is a security finding handed to `@llm-security-reviewer` (LLM09:2026) and `@tenant-isolation-reviewer`.
+- **Grading the cross-tenant leak** → out of scope. A filtered-recall collapse is a retrieval-correctness finding here; a filter that is *absent* on a multi-tenant corpus is a security finding handed to `@llm-security-reviewer` (LLM09:2026) and `@tenant-isolation-reviewer`. Both live in the security pack; absent it, the finding is emitted as `HANDOFF UNROUTED (security pack not installed)` with its `<path:line>` and the OWASP id intact. An owner that is not installed never converts an unowned finding into a cleared one.
 
 ## References
 

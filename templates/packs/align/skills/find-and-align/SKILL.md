@@ -100,7 +100,7 @@ Plus side effects:
 
 3. Halt conditions:
    - Row's `class` is functional AND `idiom_cited` doesn't resolve → halt with reason "missing idiom"; route to `/setup-project --refine`.
-   - Row's `class` is `replace-with-shared` AND `shared_equivalent` doesn't resolve → halt with reason "missing shared equivalent".
+   - Row's `closure_verb` is `replace-with-shared` AND `shared_equivalent` doesn't resolve → halt with reason "missing shared equivalent". (`replace-with-shared` is a closure verb, never a `class` value — the class enum in `detect-drift` § Outputs does not contain it, so a check written against `class` here can never fire and the missing-equivalent gate silently passes.)
    - Row's tier was promoted between scan and execution (e.g., evidence count grew) without justification in `notes` → halt; demand 1-line `notes` then resume.
 
 ### Step 2: DECIDE — confirm closure verb is mechanical-or-tested

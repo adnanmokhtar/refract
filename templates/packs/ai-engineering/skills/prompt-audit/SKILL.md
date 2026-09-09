@@ -79,6 +79,8 @@ Cite the parse line, not the call line — that is where the defect executes. Se
 
 **This finding carries a mandatory handoff line.** Report it here as an engineering defect (adherence + un-reviewable prompt boundary) and name `@llm-security-reviewer` LLM01:2026 as the owner of the injection judgment. Do not grade exploitability, do not write the payload, do not clear it.
 
+**If the security pack is not installed**, `@llm-security-reviewer` does not exist here and the handoff has no addressee. The finding is still emitted, still cites `<path:line>`, and is labelled `HANDOFF UNROUTED (security pack not installed) — LLM01:2026`. An absent owner does not make an unowned finding disappear: this skill still may not grade exploitability, and "nobody to hand it to" is never a reason to clear the row. Name `/setup-project --refresh --include=security` as the way to route it.
+
 ### 3. Structured-output call with no validation and no repair path → `add-output-schema`
 
 **Fingerprint:** a schema-mode call whose result flows onward with no validation step, or a `JSON.parse`/`json.loads` with no schema check and no bounded retry/fail-closed branch. Also fires where the provider offers a **guaranteed-validation** variant the call site declined — an Anthropic tool definition without `strict: true`, for instance, still admits an input that violates its own `input_schema`.
@@ -160,7 +162,7 @@ Sampling state: EXPOSED (read from <model id> against the provider's current par
 - **A finding without `<path:line>` + a real excerpt (or the concrete site that should carry the missing thing)** → not emittable. Re-enumerate or drop.
 - **The hand-wave grep** — if a draft finding contains `etc.` / `…` / `several similar` / `N+ others` / `consider` / `seems` / `might`, STOP and enumerate each site individually. A count is not a citation.
 - **Provider surface not identified** → HALT before grading detectors 1, 3, and 4 — "should have used a schema" is unprovable until you know whether one exists. Report the axis as `UNVERIFIED — provider surface not identified` and name what would settle it (the SDK import + its version from the lockfile).
-- **Grading the injection exploit** → forbidden. Detector 2 is reported as an engineering defect and HANDED to `@llm-security-reviewer`; never absorbed, never cleared here.
+- **Grading the injection exploit** → forbidden. Detector 2 is reported as an engineering defect and HANDED to `@llm-security-reviewer`; never absorbed, never cleared here. With the security pack absent the row is emitted as `HANDOFF UNROUTED`, which is a reported finding — halt on any run that drops it instead.
 - **Rewriting the prompt** → out of scope. This skill emits verbs; `/add-ai-feature` Phase 4 applies them and `eval-run` proves the change.
 
 ## References
@@ -170,5 +172,5 @@ Sampling state: EXPOSED (read from <model id> against the provider's current par
 - `llm-gateway-audit` — sibling skill on the same call sites: it audits the seam (timeout, cap, fallback, cache, cost, redaction); this one audits what is *inside* the call. A cache key that is not versioned by prompt version is its finding and this skill's detector 5 combined.
 - `eval-run` — measures the prompt change this skill flags as unmeasured; `/add-eval-set` builds the harness when `eval-run` halts.
 - `@ai-feature-reviewer` — dispatches this skill for dimension 2 and folds its findings into the PR verdict.
-- `@llm-security-reviewer` (security pack) — owns LLM01:2026 prompt injection and LLM10:2026 improper output handling (LLM05 in the 2025 edition); detector 2 hands across, always.
+- `@llm-security-reviewer` (security pack, when co-installed) — owns LLM01:2026 prompt injection and LLM10:2026 improper output handling (LLM05 in the 2025 edition); detector 2 hands across, always. Absent that pack the handoff is recorded as `HANDOFF UNROUTED` rather than skipped (§ detector 2, § Halt conditions).
 - `.claude/rules/ai-engineering-principles.md` — AI-4 (structured output, never regex), AI-5 (constrain single-answer tasks with the mechanism the provider actually exposes; no undated provider-behaviour claim), AI-7 (prompts are versioned code).
