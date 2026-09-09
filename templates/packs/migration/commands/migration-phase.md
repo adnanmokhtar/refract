@@ -188,7 +188,7 @@ Add parity tests alongside the implementation: `<parity-test-root>/<feature>/par
 
 Each halt is logged to `ai/migration/audits/<feature-id>.md`'s "Hard-halt findings" section with specific remediation. **Halts BLOCK the feature from advancing.**
 
-**For frontend features**, additionally enumerate per `migration-discipline.md` § Frontend audit axes:
+**For frontend features**, additionally enumerate per `frontend/rules/migration-frontend.md` § Frontend audit axes *(frontend pack; migration-discipline.md § Per-stack extensions names the axes but does not carry the spec)*:
 - Form fields (every input listed; type + validation + defaults audited)
 - UI affordances (every button / link / dropdown / modal trigger / file-upload / toggle / copy-button — F039 lesson)
 - Templated query params (every `?foo=&bar=&...` — no `&...` hand-wave)
@@ -352,7 +352,7 @@ Next: /migration-gate <N>      (verifies phase exit criteria; refuses if F > 0)
 - **Parity is non-negotiable.** A "ported" feature without a passing parity test ≥30 corpus inputs + tolerance.yaml + green-against-pinned-V1-commit isn't ported.
 - **Compose with `/port-feature`.** This command DISPATCHES `/port-feature <id>` per row. It does NOT re-implement the per-feature audit/port loop. (For tools without `/port-feature`, follow the three skills' `SKILL.md` procedures inline — `extract-v1-contract`, `parity-test-generate`, `perf-uplift-survey`.)
 - **Use `parity-auditor` agent (or its 13 hard halts inlined).** A generic search/exploration agent is NOT acceptable for the AUDIT step. The 13 hard halts in `migration-discipline.md` § "Per-feature audit — 13 hard halts" is the checklist; an audit that passes the gate without resolving every halt is incomplete.
-- **Frontend audit axes are mandatory for frontend features.** Form fields, UI affordances, templated query params, event handlers, per-button permission gates, accessibility, DOM-equivalent assertions, reactive lifecycle. Per `migration-discipline.md` § Frontend audit axes.
+- **Frontend audit axes are mandatory for frontend features.** Form fields, UI affordances, templated query params, event handlers, per-button permission gates, accessibility, DOM-equivalent assertions, reactive lifecycle. Per `frontend/rules/migration-frontend.md` § Frontend audit axes *(frontend pack, when co-installed; absent it, `migration-discipline.md` § Per-stack extensions names the axes without the per-axis spec — enumerate from there and say so)*.
 - **Follow V2 structure, not V1 lift-and-shift.** Cite V2 patterns/helpers/base classes when porting.
 - **Intentional breaks need ADRs.** Behavior divergence by design must be documented before the row flips to `done`.
 - **One feature per managed transaction.** A phase can have many features but each is audited + ported + verified atomically. No half-ports persisted to the ledger.

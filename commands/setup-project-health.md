@@ -8,7 +8,7 @@ related-commands:
   - /setup-project — generate or refresh setup
   - /setup-project-adapters — re-sync tool adapters
   - /learn-from-task — Phase 6 manual entry point
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # /setup-project-health
@@ -20,7 +20,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 **The agent's job is exactly this:**
 1. Run each numbered check; record `ok | warn | fail | n/a` with the underlying metric (the number, the file, the age).
 2. Cite the source rule (from `templates/idempotency.md` / `templates/governance/hard-rules.md` / Phase 6 budgets) for every threshold used. Heuristics without source = not allowed.
-3. Never write — not even logs. The contract is read-only. Any Refract script reached for while
+3. Never write — not even logs. The contract is read-only, and `allowed-tools` grants no `Write` / `Edit`, so it is mechanical rather than a promise the run has to keep on its own. Any Refract script reached for while
    grading MUST be invoked in its read-only mode, or the grading itself breaks the contract:
    see [`CONTRIBUTING.md` § 2b](../CONTRIBUTING.md) for the per-script invocation. Reaching for
    `audit-setup.sh` bare, for example, regenerates three reports inside the repo being graded.

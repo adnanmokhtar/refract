@@ -68,6 +68,8 @@ The agent does ALL of this silently — you don't see it:
 8. **Capture parity tests** internally for non-trivial features. User doesn't author them.
 9. **Update ledger silently** — recorded for audit trail, not surfaced.
 
+10. **Boot-check (final)** — dispatch the `smoke-verify` skill (code-quality pack) after the last port commit. Step 8's parity tests prove V2 answers like V1 for the inputs they cover; they do not prove V2 still boots. A port re-points imports onto V2's wrappers, moves modules into V2's layout and re-registers routes and providers — the DI, route-registration and import-cycle breaks that follow are exactly the class no parity test exercises. smoke-verify boots V2 per `PROJECT_KIND` and HALTS if it does not come up; a green parity suite over an application that will not start is the Green-Suite Mirage the skill is named against. Skippable with `--no-boot-check` for a pure library port. **Record the result in the run summary as `boot-check: pass` or `boot-check: skipped(<reason>)`** — never silently.
+
 ## Pre-requisites
 
 - V1 + V2 source roots set in `_v2-anchors.md` (or `migration-discipline.md` project-specific block).

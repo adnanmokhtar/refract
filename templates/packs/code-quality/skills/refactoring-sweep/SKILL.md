@@ -17,7 +17,7 @@ Apply Fowler-style refactorings as closure verbs in /optimize and /align-recheck
 - **Core apply-engine of `/refactor`** — the 10 verbs below ARE `/refactor`'s closed vocabulary; `/refactor` dispatches this skill with `--target=<paths>` and the `refactorer` agent gates abstractions on top. See [`commands/refactor.md`](../../../../../commands/refactor.md).
 - Dispatched by `/optimize` Phase 2 (tactical) when class = refactoring.
 - Dispatched by `/align-recheck` when the finding's class = refactoring.
-- Dispatched by `/align-fast <N>` if the phase contains refactoring findings.
+- NOT dispatched by `/align-fast`. That command dispatches align's own per-finding loop (`find-and-align`) over the closed 21-verb align vocabulary, which does not contain these 10 Fowler verbs; a row that wants one is mis-classified and `/align-fast` routes it to `/refactor`, which is where this skill runs.
 - NOT for new code or features — refactoring operates on existing code only.
 
 ## The 10 closure verbs

@@ -199,7 +199,7 @@ Patterns consulted: data-retention-pii (storage), audit-logging, threat-model (d
 ## Related
 
 ### Sibling agents in security pack
-- `@security-auditor` — the broad web-app OWASP audit (A01–A10); this agent is the privacy-and-PII-flow deep dive. It owns A02 (cryptographic failures) at the app surface; this agent complements with the *personal-data* slice of what must be protected and why (the regulatory obligation).
+- `@security-auditor` — the broad web-app OWASP audit (A01–A10); this agent is the privacy-and-PII-flow deep dive. It owns A04 (Cryptographic Failures) at the app surface — the 2025 number; A02 is Security Misconfiguration in that edition; this agent complements with the *personal-data* slice of what must be protected and why (the regulatory obligation).
 - `@api-security-reviewer` — the API Top 10 lens; overlaps on excessive-data-exposure (API3/BOPLA). That agent asks "is this field authorized to leave the endpoint"; this agent asks "is this field *personal data*, and does its egress have a lawful basis + a reachable erasure path". Cross-link a shared leaking response line, don't double-report.
 - `@tenant-isolation-reviewer` — cross-tenant PII disclosure is its BLOCKER at the tenant boundary; this agent owns the single-tenant PII data-flow (collection → sink → egress → erasure). Cross-link when a leak is both cross-tenant AND a compliance breach.
 - `@auth-reviewer` — owns *who* may access; this agent owns *what personal data* flows once access is granted and *which regulation* governs it.
