@@ -39,43 +39,43 @@ Read what the project already uses and audit against IT:
 
 ## Detectors (run these, cite `<path:line>`, grade each)
 
-**Resolve every probe root first, and print the set you ran.** The commands below name `src` and `migrations/` because that is the common server shape. On a target without them — a SPA, a mobile client, a package inside a monorepo — `rg` over a path that does not exist returns zero hits, and **zero hits grades as clean**, which on a money audit is the most expensive false negative this skill can produce. Substitute the project's real roots, and write any root with no equivalent here as `n-a (<reason>)` on the scope line. A `clean` verdict while a probe root was unresolved is an unrun detector, not a passing one — see § Halt conditions.
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots (`ROOTS=(src)` on a SPA, `ROOTS=(src routes models config migrations)` on a server tree, `ROOTS=(packages/*/src)` in a monorepo). The commands below name `src` and `migrations/` because that is the common server shape. On a target without them — a SPA, a mobile client, a package inside a monorepo — `rg` over a path that does not exist returns zero hits, and **zero hits grades as clean**, which on a money audit is the most expensive false negative this skill can produce. Substitute the project's real roots, and write any root with no equivalent here as `n-a (<reason>)` on the scope line. A `clean` verdict while a probe root was unresolved is an unrun detector, not a passing one — see § Halt conditions.
 
 ### Money as a float (BLOCKER on sight)
 ```
-rg -n "float|double|Number|number).*(price|amount|total|cost|fee|balance)" src
-rg -n "(price|amount|total|balance).*:\s*(float|number|double|real)" src migrations/
+rg -n "float|double|Number|number).*(price|amount|total|cost|fee|balance)" $ROOTS
+rg -n "(price|amount|total|balance).*:\s*(float|number|double|real)" $ROOTS 
 ```
 A `price DECIMAL` in the DB read into a JS `number` and mutated is still a float bug at the arithmetic site. The 0.1+0.2 hazard: any `+`, `*`, `/` on a float money value drifts. **Fix:** integer minor-units or a decimal type end-to-end.
 
 ### Rounding applied per-line then summed (drift)
 ```
-rg -n "round|Math.round|toFixed|ceil|floor|Round\(" src
+rg -n "round|Math.round|toFixed|ceil|floor|Round\(" $ROOTS
 ```
 Rounding each line item then summing gives a different total than summing then rounding — the classic off-by-a-cent on multi-line invoices. **Round once, at the documented step.** Also confirm the rounding MODE is chosen deliberately: banker's rounding (round-half-to-even) vs half-up — tax authorities often mandate one. An undocumented rounding step is a finding even if it happens to be correct today.
 
 ### Tax with no jurisdiction
 ```
-rg -n "tax|vat|gst|sales_tax" src | rg -v "jurisdiction|region|country|address|nexus|rate_for"
-rg -n "0\.\d+.*tax|tax.*0\.\d+|TAX_RATE\s*=" src   # hardcoded rate = no jurisdiction resolution
+rg -n "tax|vat|gst|sales_tax" $ROOTS | rg -v "jurisdiction|region|country|address|nexus|rate_for"
+rg -n "0\.\d+.*tax|tax.*0\.\d+|TAX_RATE\s*=" $ROOTS   # hardcoded rate = no jurisdiction resolution
 ```
 A tax computed from a constant rate has no jurisdiction resolution — wrong for every customer outside that one region. Verify: address/nexus → jurisdiction → rate. Verify inclusive vs exclusive is explicit (VAT is usually tax-inclusive display, US sales tax exclusive). Verify **tax on the discounted amount**, not the pre-discount amount (a common over-charge).
 
 ### Multi-currency mixed without conversion
 ```
-rg -n "amount|price|total|balance" src | rg -n "\+|sum|reduce|\.add\("   # additions of money
+rg -n "amount|price|total|balance" $ROOTS | rg -n "\+|sum|reduce|\.add\("   # additions of money
 ```
 For each money addition/sum, confirm both operands are the same currency (or an explicit FX conversion happens first, at a defined rate and timestamp). An amount stored without its currency code, or a `SUM(amount)` across rows of differing currency, is a bug. **Store currency alongside every amount; convert at a defined rate/time, never implicitly.**
 
 ### Proration not handled on plan change
 ```
-rg -n "upgrade|downgrade|change_plan|switch_plan|update.*subscription" src
+rg -n "upgrade|downgrade|change_plan|switch_plan|update.*subscription" $ROOTS
 ```
 A mid-cycle plan change must prorate: credit the unused portion of the old plan, charge the pro-rated new plan. Absent proration → the customer is double-billed or gets a free window. If a billing platform (Stripe/Chargebee) is present, verify the app uses ITS proration; if hand-rolled, verify credit + charge + the rounding of the pro-rated fraction.
 
 ### Non-idempotent metering / double-charge
 ```
-rg -n "charge|capture|createPaymentIntent|record_usage|meter|increment.*usage" src
+rg -n "charge|capture|createPaymentIntent|record_usage|meter|increment.*usage" $ROOTS
 ```
 A metering or charge call with no idempotency key can double-charge on retry / webhook redelivery / double-click. Verify each charge and each usage record carries an idempotency key and the write is idempotent. Cross-references `distributed-systems/ai-patterns/idempotency.md`. Also verify **dunning**: a failed charge has a retry/dunning path (not a silently dropped invoice).
 

@@ -31,7 +31,7 @@ This agent is the **auditor** that sits on top of the learning pack's `extract-d
 
 ## Pre-flight (read before auditing)
 
-**Resolve every probe root first, and print the set you ran.** The commands below name a server-shaped tree. On a target that does not have those directories, `rg` over an absent path returns zero hits and **zero hits reads as clean** — a false negative, not a pass. Substitute the project's real equivalents, and record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots (`ROOTS=(src)` on a SPA, `ROOTS=(src routes models config migrations)` on a server tree, `ROOTS=(packages/*/src)` in a monorepo). The commands below name a server-shaped tree. On a target that does not have those directories, `rg` over an absent path returns zero hits and **zero hits reads as clean** — a false negative, not a pass. Substitute the project's real equivalents, and record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
 
 1. **Get the aggregate map.** Prefer `extract-domain-entities-deeply` output; else reconstruct from ORM model classes, `schema.prisma` / `schema.rb`, and migrations. Identify which entities are **aggregate roots** (have their own repository, are loaded/saved as a unit, own child entities via composition) vs **members** (only ever reached through a root).
 2. **List every invariant per aggregate.** From `CheckConstraint` / `UNIQUE` / partial indexes (DB), `clean()` / validation hooks / value-object constructors (model), domain-service assertions (service), and test assertions (test). Record the enforcement layer for each — this is the register you will output.
@@ -43,16 +43,16 @@ This agent is the **auditor** that sits on top of the learning pack's `extract-d
 ### Anemic model — logic lives in services, entity is a data bag
 An entity that is only public fields / getters / setters, with every business rule in a `*Service` / `*Manager` / `*Handler`, cannot protect its own invariants. The rule and the data are separable, so any caller can mutate the data around the rule.
 ```
-rg -n "class .*(Model|Entity|Record)" src        # entity declarations
+rg -n "class .*(Model|Entity|Record)" $ROOTS        # entity declarations
 rg -n "get[A-Z]|set[A-Z]|@property" <entity file> # count accessors vs real methods
-rg -n "class .*(Service|Manager|Handler)" src    # where the rules actually live
+rg -n "class .*(Service|Manager|Handler)" $ROOTS    # where the rules actually live
 ```
 Signature: entity file has 0 domain methods; a service file names the entity and mutates 3+ of its fields to enforce one rule. Grade REQUEST (structural) — BLOCKER only if the escaped rule is a money/inventory invariant a second call path can bypass.
 
 ### Invariant enforced NOWHERE (the core finding)
 A rule everyone states (`balance >= 0`, `total == Σ line_items`, `end_date > start_date`, `quantity <= stock`) with no DB constraint, no model guard, no service assertion — only, at best, a test. Reconstruct the claim, then search for its enforcement site and fail to find one.
 ```
-rg -n "balance|total|amount|quantity|stock" migrations/  # DB CHECK / constraint?
+rg -n "balance|total|amount|quantity|stock" $ROOTS  # DB CHECK / constraint?
 rg -n "clean\(|validate|assert|raise .*Invalid" <entity + service files>
 ```
 If the sum-consistency or non-negativity rule is asserted only in a test (or nowhere), that is the finding. Money/inventory/balance invariant enforced NOWHERE = **BLOCKER**. A non-critical invariant (e.g. `display_name` length) enforced nowhere = NIT.
@@ -60,30 +60,30 @@ If the sum-consistency or non-negativity rule is asserted only in a test (or now
 ### Aggregate-boundary leak
 Two failure shapes: (1) a single transaction mutating **two aggregate roots** (they should each be independently consistent; spanning them in one write couples their lifecycles); (2) a **foreign aggregate's member mutated directly**, not through the foreign root's method — bypassing the root means bypassing the root's invariant check.
 ```
-rg -n "\.save\(|\.update\(|UPDATE " src | rg -n "<AggregateA>.*<AggregateB>"  # two roots, one write
-rg -n "<foreignChild>\.\w+ =|<foreignChild>\.save" src   # child mutated outside its root
+rg -n "\.save\(|\.update\(|UPDATE " $ROOTS | rg -n "<AggregateA>.*<AggregateB>"  # two roots, one write
+rg -n "<foreignChild>\.\w+ =|<foreignChild>\.save" $ROOTS   # child mutated outside its root
 ```
 Foreign-member mutation on a money/inventory aggregate = BLOCKER; two-root transaction = REQUEST (see cross-aggregate-transaction below for the eventual-consistency fix).
 
 ### Entity without a lifecycle owner
 Every mutable entity needs exactly one aggregate root responsible for creating, transitioning, and deleting it. An entity created in one service, mutated in three others, and deleted in a fourth — with no root gate — has no owner; its invariants are enforced by convention, i.e. not at all. (State-transition legality is `@workflow-integrity`'s job; *ownership* of the lifecycle is this agent's.)
 ```
-rg -n "new <Entity>|<Entity>\(|<Entity>.objects.create|insert.*<table>" src  # every creation site
+rg -n "new <Entity>|<Entity>\(|<Entity>.objects.create|insert.*<table>" $ROOTS  # every creation site
 ```
 Multiple unrelated creation/mutation sites with no single owning root = REQUEST.
 
 ### Value-object-as-primitive
 Money as a `float`/`number`, an email as a bare `string`, a date-range as two loose columns, a currency+amount as two unrelated fields. The invariant that *should* live in a value object's constructor (money is integer minor-units; email matches a shape; `end > start`) is instead nowhere, because there is no type to host it.
 ```
-rg -n "float|double|Number|BigDecimal.*price|amount.*float|price.*number" src   # money as float
-rg -n "amount|price|total" src | rg -v "currency|Money|cents|minor"             # amount with no currency companion
+rg -n "float|double|Number|BigDecimal.*price|amount.*float|price.*number" $ROOTS   # money as float
+rg -n "amount|price|total" $ROOTS | rg -v "currency|Money|cents|minor"             # amount with no currency companion
 ```
 **Money as a float is a BLOCKER** and cross-refs the `pricing-tax-audit` skill — hand the money-representation finding to it. Other primitive-obsession cases = REQUEST/NIT by criticality.
 
 ### Cross-aggregate transaction that should be eventual
 A write that must update aggregate A **and** aggregate B atomically is a design smell: aggregates are consistency boundaries, so cross-boundary consistency should be *eventual* (domain event + saga / outbox), not one giant transaction that locks both and fails atomically. Distinguish from a legitimate single-aggregate transaction (root + its own children — that IS one boundary and SHOULD be atomic).
 ```
-rg -n "transaction|BEGIN|@Transactional|db.transaction" src   # transaction scopes
+rg -n "transaction|BEGIN|@Transactional|db.transaction" $ROOTS   # transaction scopes
 # inside each: does it touch >1 aggregate root? → candidate for saga/eventual
 ```
 Cross-aggregate atomic transaction on independent roots = REQUEST; cross-references `distributed-systems/ai-patterns/saga.md` for the compensation/outbox fix. (Do NOT flag root+own-children as a violation — that is the aggregate working correctly.)

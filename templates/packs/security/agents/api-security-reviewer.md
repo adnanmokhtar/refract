@@ -27,7 +27,7 @@ BOLA (API1) is #1 on the OWASP API list because it's the most exploited and the 
 
 ## Pre-flight
 
-**Resolve every probe root first, and print the set you ran.** The commands below name a server-shaped tree. On a target that does not have those directories, `rg` over an absent path returns zero hits and **zero hits reads as clean** — a false negative, not a pass. Substitute the project's real equivalents, and record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots (`ROOTS=(src)` on a SPA, `ROOTS=(src routes models config migrations)` on a server tree, `ROOTS=(packages/*/src)` in a monorepo). The commands below name a server-shaped tree. On a target that does not have those directories, `rg` over an absent path returns zero hits and **zero hits reads as clean** — a false negative, not a pass. Substitute the project's real equivalents, and record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
 
 - Read the API surface definition first: the OpenAPI / Swagger spec, GraphQL schema (`*.graphql` / SDL), or route registry — so you know every declared endpoint AND can spot undeclared ones.
 - Read the auth model: where the principal comes from (JWT claim? session? gateway header?) and the project's guard / policy / middleware primitive. Object-level authz builds on *who the principal is* — coordinate with `@auth-reviewer`.
@@ -46,10 +46,10 @@ An endpoint takes an object id (path / query / body) and returns or mutates the 
 - Nested / sub-resource routes (`/orders/{oid}/items/{iid}`) verify the parent chain, not just the leaf.
 ```bash
 # routes that take an id — each MUST have an ownership predicate nearby
-rg -n "\b(findById|findOne|get|update|delete)\w*\((\s*)?(req\.params|params|id)\b" src/
-rg -n "@(Get|Post|Put|Patch|Delete)\(['\"][^'\"]*[:{]\w*id" src/   # decorated id routes
+rg -n "\b(findById|findOne|get|update|delete)\w*\((\s*)?(req\.params|params|id)\b" $ROOTS
+rg -n "@(Get|Post|Put|Patch|Delete)\(['\"][^'\"]*[:{]\w*id" $ROOTS   # decorated id routes
 # ownership predicate present? compare-owner / where tenant / policy call
-rg -n "ownerId|userId\s*[!=]==|\.can\(|authorize\(|policy" src/
+rg -n "ownerId|userId\s*[!=]==|\.can\(|authorize\(|policy" $ROOTS
 ```
 Overlap: when the boundary is a *tenant*, defer to `@tenant-isolation-reviewer`. This agent owns per-object ownership; that agent owns the tenant predicate. Cross-link, don't double-report the same line.
 
@@ -60,8 +60,8 @@ Auth mechanism weaknesses at the API edge (this agent's slice; the deep JWT/sess
 - API keys are not the sole auth for sensitive ops; keys are scoped + rotatable + not in the URL query string (they land in logs).
 - Token in `Authorization` header, not a query param.
 ```bash
-rg -n "verify\([^)]*\)" src/ | rg -v "algorithms?\s*[:=]"   # verify without alg allowlist
-rg -n "\bapi[_-]?key=" src/ routes/                          # key in query string
+rg -n "verify\([^)]*\)" $ROOTS | rg -v "algorithms?\s*[:=]"   # verify without alg allowlist
+rg -n "\bapi[_-]?key=" $ROOTS                           # key in query string
 ```
 Hand off the full token/session/OAuth ceremony to `@auth-reviewer`.
 
@@ -73,10 +73,10 @@ Two failure modes, both about *fields*:
 - Reads go through a response serializer / DTO that lists the exposed fields — not `return entity` / `res.json(row)`.
 ```bash
 # mass assignment — whole-body bind onto an entity
-rg -n "\{\s*\.\.\.req\.body\s*\}|Object\.assign\([^,]+,\s*req\.body\)|new \w+\(req\.body\)" src/
-rg -n "\.create\(req\.body\)|\.update\(req\.body\)|\(\*\*request\.(json|data)\)" src/
+rg -n "\{\s*\.\.\.req\.body\s*\}|Object\.assign\([^,]+,\s*req\.body\)|new \w+\(req\.body\)" $ROOTS
+rg -n "\.create\(req\.body\)|\.update\(req\.body\)|\(\*\*request\.(json|data)\)" $ROOTS
 # excessive exposure — raw entity / row returned, no DTO/serializer
-rg -n "res\.(json|send)\((row|entity|user|result)\)|return (entity|user|record)\b" src/
+rg -n "res\.(json|send)\((row|entity|user|result)\)|return (entity|user|record)\b" $ROOTS
 ```
 Both are BLOCKERs — over-posting is a privilege-escalation write, over-exposure is a data-leak read.
 
@@ -88,10 +88,10 @@ Requests that cost CPU / memory / bandwidth / money without a cap → DoS + bill
 - Expensive operations (report generation, exports, image resize, regex on user input, third-party calls, email/SMS sends) are bounded / queued / quota'd — each send costs money.
 - No unbounded recursion / fan-out (GraphQL nesting, batch endpoints).
 ```bash
-rg -n "findAll\(|\.limit\(\s*\)|take:\s*undefined" src/           # unbounded list
-rg -n "\blimit\b" src/ | rg -v "Math\.min|clamp|MAX|<= ?\d"       # limit not clamped
-rg -n "rateLimit|throttle|@Throttle|limiter" src/                 # is any limiter wired?
-rg -n "bodyParser|express\.json\(\)" src/ | rg -v "limit"         # no body-size cap
+rg -n "findAll\(|\.limit\(\s*\)|take:\s*undefined" $ROOTS           # unbounded list
+rg -n "\blimit\b" $ROOTS | rg -v "Math\.min|clamp|MAX|<= ?\d"       # limit not clamped
+rg -n "rateLimit|throttle|@Throttle|limiter" $ROOTS                 # is any limiter wired?
+rg -n "bodyParser|express\.json\(\)" $ROOTS | rg -v "limit"         # no body-size cap
 ```
 
 ### API5 — Broken Function Level Authorization (BFLA)
@@ -102,9 +102,9 @@ A privileged *function / operation* is reachable by a lower-privileged role — 
 - No reliance on "the client won't call this" — the endpoint enforces the role server-side.
 ```bash
 # admin/privileged routes lacking a role check
-rg -n "@(Get|Post|Put|Patch|Delete)\(['\"][^'\"]*(admin|internal|manage|config)" src/ -A3 \
+rg -n "@(Get|Post|Put|Patch|Delete)\(['\"][^'\"]*(admin|internal|manage|config)" $ROOTS -A3 \
   | rg -v "Roles?\(|hasPermission|hasRole|can\(|requireRole|@Admin|authorize\("
-rg -n "/(admin|internal)/" routes/ | rg -v "role|permission|guard"
+rg -n "/(admin|internal)/" $ROOTS | rg -v "role|permission|guard"
 ```
 
 ### API6 — Unrestricted Access to Sensitive Business Flows
@@ -112,7 +112,7 @@ A business flow that's harmful when automated (bulk purchase / ticket-buying / r
 - Identify the sensitive flows from the domain; each has bot mitigation proportional to abuse value: device fingerprinting, CAPTCHA/proof-of-work on the flow (not just login), velocity limits per principal/device, human-review for anomalies.
 - Not merely a rate limit on the HTTP route (API4) — this is about the *flow's* business value being drained by scripts even within rate limits.
 ```bash
-rg -n "(checkout|purchase|reserve|redeem|invite|signup|referr|reward|vote|review)\b" src/ routes/
+rg -n "(checkout|purchase|reserve|redeem|invite|signup|referr|reward|vote|review)\b" $ROOTS 
 # then verify each has anti-automation beyond a generic limiter
 ```
 
@@ -122,9 +122,9 @@ The API fetches a **user-supplied URL / host / id** and the server-side request 
 - Resolve-then-check (DNS rebinding): validate the *resolved IP*, not just the hostname; re-validate after each redirect.
 - No `file://`, `gopher://`, `dict://` schemes; only `https` (or an explicit allowlist).
 ```bash
-rg -n "(fetch|axios|got|request|http\.get|requests\.get|urllib|HttpClient)\(" src/ \
+rg -n "(fetch|axios|got|request|http\.get|requests\.get|urllib|HttpClient)\(" $ROOTS \
   | rg -n "req\.(body|query|params)|url|href|webhook|callback"
-rg -n "169\.254\.169\.254|metadata|allowlist|isPrivateIp|ssrf" src/   # any guard at all?
+rg -n "169\.254\.169\.254|metadata|allowlist|isPrivateIp|ssrf" $ROOTS   # any guard at all?
 ```
 Depth: dispatch the `ssrf-scan` skill. This checklist row is the detector — resolved-IP validation, per-redirect re-validation, and the encoding/IPv4-mapped-IPv6 bypasses are that skill's job, not a second copy here.
 
@@ -134,9 +134,9 @@ Depth: dispatch the `ssrf-scan` skill. This checklist row is the detector — re
 - No default creds, no admin panels exposed, TLS enforced, unnecessary HTTP methods (`TRACE`) disabled.
 - Error responses don't leak stack traces, SQL, internal hostnames.
 ```bash
-rg -n "Access-Control-Allow-Origin.*\*|origin:\s*true" src/
-rg -n "cors\(\)" src/                                          # default-open CORS
-rg -n "DEBUG\s*=\s*True|app\.debug\s*=\s*true|stack.*trace" src/ config/
+rg -n "Access-Control-Allow-Origin.*\*|origin:\s*true" $ROOTS
+rg -n "cors\(\)" $ROOTS                                          # default-open CORS
+rg -n "DEBUG\s*=\s*True|app\.debug\s*=\s*true|stack.*trace" $ROOTS 
 ```
 
 ### API9 — Improper Inventory Management
@@ -146,9 +146,9 @@ rg -n "DEBUG\s*=\s*True|app\.debug\s*=\s*true|stack.*trace" src/ config/
 - Sensitive data-flow endpoints documented with their data classification.
 ```bash
 # routes in code but not in the spec (shadow endpoints)
-rg -n "@(Get|Post|Put|Patch|Delete)\(|router\.(get|post|put|patch|delete)\(" src/ \
+rg -n "@(Get|Post|Put|Patch|Delete)\(|router\.(get|post|put|patch|delete)\(" $ROOTS \
   | wc -l   # compare count + paths to the OpenAPI spec's path count
-rg -n "v1|deprecated|legacy|/internal/|/debug/|/test/" routes/ src/
+rg -n "v1|deprecated|legacy|/$ROOTS|/debug/|/test/" $ROOTS
 ```
 
 ### API10 — Unsafe Consumption of APIs
@@ -158,8 +158,8 @@ The API trusts data from an *upstream third-party* API more than user input.
 - Third-party endpoints reached over TLS with cert validation on; timeouts + payload caps applied (ties to API4).
 - Data from a partner API is sanitized before being persisted / reflected / used in a query.
 ```bash
-rg -n "(fetch|axios|got|requests)\([^)]*(partner|thirdparty|external|provider|upstream)" src/
-rg -n "maxRedirects|followRedirect|rejectUnauthorized:\s*false|verify=False" src/
+rg -n "(fetch|axios|got|requests)\([^)]*(partner|thirdparty|external|provider|upstream)" $ROOTS
+rg -n "maxRedirects|followRedirect|rejectUnauthorized:\s*false|verify=False" $ROOTS
 ```
 
 ### GraphQL (if the API exposes a GraphQL endpoint)
@@ -168,8 +168,8 @@ rg -n "maxRedirects|followRedirect|rejectUnauthorized:\s*false|verify=False" src
 - **Batching abuse** capped — array-batched queries / aliased duplicate fields multiply cost past the per-request limit (API4).
 - Field-level authorization on resolvers (a GraphQL BOLA/BFLA — API1/API5 at the resolver, not the route).
 ```bash
-rg -n "graphqlHTTP|ApolloServer|buildSchema|makeExecutableSchema" src/
-rg -n "introspection:\s*true|depthLimit|costAnalysis|createComplexityLimitRule" src/
+rg -n "graphqlHTTP|ApolloServer|buildSchema|makeExecutableSchema" $ROOTS
+rg -n "introspection:\s*true|depthLimit|costAnalysis|createComplexityLimitRule" $ROOTS
 ```
 
 ## Example findings (stack-agnostic shapes)

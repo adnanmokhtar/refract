@@ -30,6 +30,8 @@ Cross-tenant read is CRITICAL on OWASP A01 (Broken Access Control). This agent r
 
 ## Pre-flight
 
+**Resolve `$ROOTS` first, and print it in the report.** The probe below reads `$ROOTS` — set it to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN; on a tenant-isolation sweep that is the most expensive false negative available.
+
 - Read `ai/patterns/tenant-isolation.md`, `ai/patterns/zero-trust.md` (whichever exist).
 - Read `.claude/rules/security-principles.md` — the tenant-isolation Must rule.
 - Know the isolation model from `CLAUDE.md` / ADRs: where the tenant id comes from (subdomain? JWT claim? header?), and how it is applied (auto-filter base repo? per-query? DB-side policy? schema-per-tenant?).
@@ -72,7 +74,7 @@ Then re-run probe A. A new table absent from A's output still needs its *filter*
 **C. Tenant id from client input — the standalone BLOCKER.**
 ```bash
 rg -ni "(req|request|ctx)\.(body|query|params|headers)\W{0,3}(tenant|org|account|workspace|company)[_-]?id" src/
-rg -ni "x-tenant|x-org|x-account|x-workspace" src/ config/
+rg -ni "x-tenant|x-org|x-account|x-workspace" $ROOTS
 ```
 Any hit that reaches a query scope is a BLOCKER regardless of what else is in place.
 

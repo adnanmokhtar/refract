@@ -31,7 +31,7 @@ Unconsented PII egress and an un-implementable erasure path are the two defects 
 
 ## Pre-flight
 
-- **Resolve the probe roots before running a single `rg`, and name them in the report.** Every command below is written against a server-shaped tree (`src/`, `routes/`, `config/`, `models/`, `migrations/`). On a target that does not have those directories — a SPA, a mobile app, a monorepo package, anything front-of-the-wire — `rg` over a path that does not exist **returns zero hits, and zero hits reads as CLEAN**. That is a false negative on a PII sweep, which is the one place it costs the most. So: resolve each named root against the tree, substitute the project's real equivalent (`src/api/`, `app/`, `packages/*/src/`, `lib/`), and **record the substitution in the report's scope line**. A root with no equivalent here is `n-a (<reason>)` — written down, never silently dropped. A sweep that reports `clean` while any probe root was unresolved is not a finding-free run; it is an unrun one.
+- **Resolve `$ROOTS` before running a single `rg`, and name it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots (`ROOTS=(src)` on a SPA, `ROOTS=(src routes models config migrations)` on a server tree, `ROOTS=(packages/*/src)` in a monorepo) and export it before the sweep. Every command below is written against a server-shaped tree (`src/`, `routes/`, `config/`, `models/`, `migrations/`). On a target that does not have those directories — a SPA, a mobile app, a monorepo package, anything front-of-the-wire — `rg` over a path that does not exist **returns zero hits, and zero hits reads as CLEAN**. That is a false negative on a PII sweep, which is the one place it costs the most. So: resolve each named root against the tree, substitute the project's real equivalent (`src/api/`, `app/`, `packages/*/src/`, `lib/`), and **record the substitution in the report's scope line**. A root with no equivalent here is `n-a (<reason>)` — written down, never silently dropped. A sweep that reports `clean` while any probe root was unresolved is not a finding-free run; it is an unrun one.
 
 - Read the real models / schemas / DTOs first — the actual field definitions, not the README's data dictionary. The inventory is built from source, not from claims.
 - Read the project's PII conventions: if a data-catalog / classification table / column-tagging convention exists (`data_classification`, `/// @pii`, `COMMENT ... 'pii:email'`), **mirror it** — reuse its categories and its field list; don't invent a parallel taxonomy. (Storage-side classification mechanics are owned by `database/data-retention-pii` — read it, don't re-derive it.)
@@ -46,15 +46,15 @@ Each category ships greppable detectors. Tune the regex to the stack; the *shape
 ### PII / PHI inventory — what personal data exists
 Enumerate every personal field across the models before tracing anything. Categories: `name`, `email`, `phone`, `gov_id` (national/tax/passport), `location` (precise geo/IP), `financial` (card/IBAN/balance), `health`/PHI, `biometric`. The last three + biometric are **special-category** (GDPR Art.9 / PDPL sensitive data) — a higher bar for lawful basis and security.
 ```bash
-rg -ni "\b(email|phone|mobile|first_?name|last_?name|full_?name|dob|birth|address|ssn|national_?id|tax_?id|passport|iban|card|cvv|latitude|longitude|geo|ip_?addr|diagnosis|health|biometric|fingerprint)\b" src/ models/
+rg -ni "\b(email|phone|mobile|first_?name|last_?name|full_?name|dob|birth|address|ssn|national_?id|tax_?id|passport|iban|card|cvv|latitude|longitude|geo|ip_?addr|diagnosis|health|biometric|fingerprint)\b" $ROOTS
 ```
 Cross-check the hits against the project's data-catalog / `@pii` tags (pre-flight). A field that identifies a person but carries no classification tag is an inventory gap — flag it and hand the *tagging mechanism* to `database/data-retention-pii`.
 
 ### Collection points — is there a consent gate + a stated purpose?
 Every form / endpoint / import that collects PII must have (a) a lawful basis — consent captured or another Art.6 basis documented — and (b) a declared purpose the collection serves.
 ```bash
-rg -n "(req\.body|request\.(json|form)|formData|\.create\(|\.insert\()" src/ routes/ | rg -ni "email|phone|name|dob|address|national|card"
-rg -ni "consent|hasConsent|lawful_?basis|purpose|opt[_-]?in|gdpr|pdpl" src/   # is a consent gate present at all?
+rg -n "(req\.body|request\.(json|form)|formData|\.create\(|\.insert\()" $ROOTS | rg -ni "email|phone|name|dob|address|national|card"
+rg -ni "consent|hasConsent|lawful_?basis|purpose|opt[_-]?in|gdpr|pdpl" $ROOTS   # is a consent gate present at all?
 ```
 A collection point with no reachable consent check and no other documented lawful basis → GDPR Art.6/7 (or PDPL consent) defect.
 
@@ -62,56 +62,56 @@ A collection point with no reachable consent check and no other documented lawfu
 Trace each inventoried field to where it *leaves* the primary store: application logs, analytics/telemetry, error trackers, and third-party SDKs. This is the highest-value sweep.
 ```bash
 # PII into logs / error trackers
-rg -n "(logger|log|console|Sentry|captureException|Bugsnag|Rollbar)\.\w+\(" src/ | rg -ni "user|email|phone|body|profile|req\b"
+rg -n "(logger|log|console|Sentry|captureException|Bugsnag|Rollbar)\.\w+\(" $ROOTS | rg -ni "user|email|phone|body|profile|req\b"
 # PII into analytics / telemetry
-rg -n "(analytics|track|mixpanel|amplitude|segment|posthog|gtag|dataLayer|identify)\(" src/ | rg -ni "email|name|phone|user"
+rg -n "(analytics|track|mixpanel|amplitude|segment|posthog|gtag|dataLayer|identify)\(" $ROOTS | rg -ni "email|name|phone|user"
 # third-party SDK init / send — what payload do they get?
-rg -ni "(stripe|twilio|sendgrid|braze|intercom|hubspot|facebook|tiktok|firebase|onesignal)" src/
+rg -ni "(stripe|twilio|sendgrid|braze|intercom|hubspot|facebook|tiktok|firebase|onesignal)" $ROOTS
 ```
 Any named PII field inside a logger / analytics / SDK payload is a traced egress finding — grade it by consent + destination (below).
 
 ### Third-party / sub-processor transfer + cross-border / data-residency
 Every PII field that leaves the trust boundary to a processor is a transfer. Two questions: is the sub-processor authorized (DPA in place / listed), and does the destination cross a border the configured jurisdiction restricts?
 ```bash
-rg -ni "https?://[^\"' ]+(api|ingest|track|collect)" src/ config/   # outbound PII destinations
-rg -ni "region|residency|data_?center|eu-|us-|me-|cross[_-]?border|transfer" src/ config/
+rg -ni "https?://[^\"' ]+(api|ingest|track|collect)" $ROOTS   # outbound PII destinations
+rg -ni "region|residency|data_?center|eu-|us-|me-|cross[_-]?border|transfer" $ROOTS
 ```
 PII shipped to a processor in a restricted region without a transfer mechanism (adequacy / SCCs / explicit consent) → GDPR Art.44 (or PDPL cross-border-transfer article) defect.
 
 ### Right-to-erasure implementability
 Is there a delete path, and does it reach **every** store, log, and derived copy the inventory found? Grep the delete/erasure path and trace it against the PII register — an inventoried store the delete never touches is an un-erasable copy.
 ```bash
-rg -n "(deleteUser|eraseUser|forgetUser|gdprDelete|purge|anonymize|right[_-]?to[_-]?erasure)" src/
-rg -ni "cascade|ON DELETE|deleteMany|bulkDelete" src/ migrations/   # does delete cascade to dependents?
+rg -n "(deleteUser|eraseUser|forgetUser|gdprDelete|purge|anonymize|right[_-]?to[_-]?erasure)" $ROOTS
+rg -ni "cascade|ON DELETE|deleteMany|bulkDelete" $ROOTS   # does delete cascade to dependents?
 ```
 FK/cascade mechanics + soft-delete purge are owned by `database/data-retention-pii`; THIS agent owns whether the *code delete path* reaches every sink the data-flow leaks to (the audit_log copy, the analytics profile, the search index, the third-party SDK's stored copy). An erasure that leaves a PII copy in any inventoried sink → GDPR Art.17 (or equivalent) incompleteness.
 
 ### DSAR / data-portability export implementability
 A right-to-access / export request must return everything held on the subject in a structured form. Is there an export path, and does it read every store the register lists?
 ```bash
-rg -ni "(export|dsar|subject_?access|dataExport|downloadMyData|portability)" src/
+rg -ni "(export|dsar|subject_?access|dataExport|downloadMyData|portability)" $ROOTS
 ```
 No export path, or one that misses inventoried stores → GDPR Art.15/20 (or CCPA §1798.100 right-to-know) gap.
 
 ### Data minimization + purpose limitation
 Collecting or retaining more than the stated purpose needs. `SELECT *` raking PII into a report, a form capturing fields the feature never uses, a payload forwarding the whole user object to a sink that needs one id.
 ```bash
-rg -n "SELECT \*|select\(\)|findAll\(|\{\s*\.\.\.user\s*\}|JSON\.stringify\(user\)" src/
+rg -n "SELECT \*|select\(\)|findAll\(|\{\s*\.\.\.user\s*\}|JSON\.stringify\(user\)" $ROOTS
 ```
 Over-collection / whole-object forwarding → GDPR Art.5(1)(c) minimization. (Retention-window *enforcement* — the TTL/purge mechanism — is `database/data-retention-pii`; this agent flags *code that collects/forwards beyond purpose*.)
 
 ### PII in URLs / query-strings / error messages
 PII in a URL path or query lands in access logs, referrers, and browser history; PII in an error message lands in the error tracker and the user's screen.
 ```bash
-rg -n "\?[^\"']*\b(email|phone|token|ssn|dob)=" src/ routes/
-rg -n "(throw|Error|res\.(status|send))\([^)]*\b(email|phone|user\.\w+)" src/
+rg -n "\?[^\"']*\b(email|phone|token|ssn|dob)=" $ROOTS
+rg -n "(throw|Error|res\.(status|send))\([^)]*\b(email|phone|user\.\w+)" $ROOTS
 ```
 
 ### Encryption in transit for PII endpoints
 Every endpoint that carries PII enforces TLS (no plaintext `http://` targets, no `rejectUnauthorized:false` on a PII-bearing client). **At-rest encryption is out of scope here** — hand column/volume encryption to `database/data-retention-pii`.
 ```bash
-rg -n "http://[^\"' ]+" src/ config/ | rg -ni "api|login|user|profile"
-rg -n "rejectUnauthorized:\s*false|verify=False" src/
+rg -n "http://[^\"' ]+" $ROOTS | rg -ni "api|login|user|profile"
+rg -n "rejectUnauthorized:\s*false|verify=False" $ROOTS
 ```
 
 ## Example findings (stack-agnostic shapes)
