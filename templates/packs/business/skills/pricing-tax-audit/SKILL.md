@@ -39,6 +39,8 @@ Read what the project already uses and audit against IT:
 
 ## Detectors (run these, cite `<path:line>`, grade each)
 
+**Resolve every probe root first, and print the set you ran.** The commands below name `src` and `migrations/` because that is the common server shape. On a target without them — a SPA, a mobile client, a package inside a monorepo — `rg` over a path that does not exist returns zero hits, and **zero hits grades as clean**, which on a money audit is the most expensive false negative this skill can produce. Substitute the project's real roots, and write any root with no equivalent here as `n-a (<reason>)` on the scope line. A `clean` verdict while a probe root was unresolved is an unrun detector, not a passing one — see § Halt conditions.
+
 ### Money as a float (BLOCKER on sight)
 ```
 rg -n "float|double|Number|number).*(price|amount|total|cost|fee|balance)" src
@@ -164,6 +166,7 @@ Verdict: clean | UNVERIFIED (N unproven) | money-bugs-present
 
 ## Halt conditions
 
+- Refuse to grade any detector whose probe roots did not all resolve. Print the resolved set (and every `n-a`) before the first finding; an empty `rg` over an absent directory is not evidence.
 - Refuse to label a value "money" without finding its currency companion — a bare amount is the finding.
 - Refuse to pass a tax computation that resolves to a hardcoded rate — name it a jurisdiction gap.
 - Refuse to APPROVE any scope containing a float money value — that is a BLOCKER regardless of the rest.

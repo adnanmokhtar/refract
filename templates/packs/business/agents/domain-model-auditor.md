@@ -31,6 +31,8 @@ This agent is the **auditor** that sits on top of the learning pack's `extract-d
 
 ## Pre-flight (read before auditing)
 
+**Resolve every probe root first, and print the set you ran.** The commands below name a server-shaped tree. On a target that does not have those directories, `rg` over an absent path returns zero hits and **zero hits reads as clean** — a false negative, not a pass. Substitute the project's real equivalents, and record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 1. **Get the aggregate map.** Prefer `extract-domain-entities-deeply` output; else reconstruct from ORM model classes, `schema.prisma` / `schema.rb`, and migrations. Identify which entities are **aggregate roots** (have their own repository, are loaded/saved as a unit, own child entities via composition) vs **members** (only ever reached through a root).
 2. **List every invariant per aggregate.** From `CheckConstraint` / `UNIQUE` / partial indexes (DB), `clean()` / validation hooks / value-object constructors (model), domain-service assertions (service), and test assertions (test). Record the enforcement layer for each — this is the register you will output.
 3. **Map every write path per aggregate.** Where is each aggregate mutated? A write that reaches into a *foreign* aggregate's fields (not through its root) is a boundary leak candidate.

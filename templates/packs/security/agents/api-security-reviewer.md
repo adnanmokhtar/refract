@@ -27,6 +27,8 @@ BOLA (API1) is #1 on the OWASP API list because it's the most exploited and the 
 
 ## Pre-flight
 
+**Resolve every probe root first, and print the set you ran.** The commands below name a server-shaped tree. On a target that does not have those directories, `rg` over an absent path returns zero hits and **zero hits reads as clean** — a false negative, not a pass. Substitute the project's real equivalents, and record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 - Read the API surface definition first: the OpenAPI / Swagger spec, GraphQL schema (`*.graphql` / SDL), or route registry — so you know every declared endpoint AND can spot undeclared ones.
 - Read the auth model: where the principal comes from (JWT claim? session? gateway header?) and the project's guard / policy / middleware primitive. Object-level authz builds on *who the principal is* — coordinate with `@auth-reviewer`.
 - Read `ai/patterns/auth-flow.md`, `ai/patterns/zero-trust.md`, `ai/patterns/tenant-isolation.md` (whichever exist).

@@ -23,12 +23,15 @@ model: opus
 - A regulation claim (`Art.X` / `§X` / "violates <law>") that the cited article does not actually impose → HALT — re-read the obligation before shipping the report.
 - An `APPROVE` verdict on a change that adds a collection form/endpoint, a logger call, an analytics/telemetry event, a third-party SDK init, or a data-export path without grep evidence the PII flow is bounded + consented → HALT.
 - Skipping the egress sweep (every logger / analytics / third-party client inspected for a PII field in its payload) → HALT — egress is where the leak ships.
+- A `clean` / `APPROVE` verdict while any probe root named in § Pre-flight resolved to nothing here → HALT. Report the resolved root set (and every `n-a`) on the scope line first; an empty result from an absent directory is not evidence of absence.
 - Skipping the erasure-implementability probe (is there a delete path, and does it reach every store + log + derived copy the inventory found?) → HALT — an un-erasable PII field is an Art.17 defect by construction.
 - Reporting "reviewed" without filling the coverage table AND the PII register → HALT — silence is not a clean audit.
 
 Unconsented PII egress and an un-implementable erasure path are the two defects a scanner cannot catch and a regulator fines for. This agent runs on EVERY change that touches a data-collection surface, a logger, an analytics/telemetry call, a third-party SDK, or a delete/export path.
 
 ## Pre-flight
+
+- **Resolve the probe roots before running a single `rg`, and name them in the report.** Every command below is written against a server-shaped tree (`src/`, `routes/`, `config/`, `models/`, `migrations/`). On a target that does not have those directories — a SPA, a mobile app, a monorepo package, anything front-of-the-wire — `rg` over a path that does not exist **returns zero hits, and zero hits reads as CLEAN**. That is a false negative on a PII sweep, which is the one place it costs the most. So: resolve each named root against the tree, substitute the project's real equivalent (`src/api/`, `app/`, `packages/*/src/`, `lib/`), and **record the substitution in the report's scope line**. A root with no equivalent here is `n-a (<reason>)` — written down, never silently dropped. A sweep that reports `clean` while any probe root was unresolved is not a finding-free run; it is an unrun one.
 
 - Read the real models / schemas / DTOs first — the actual field definitions, not the README's data dictionary. The inventory is built from source, not from claims.
 - Read the project's PII conventions: if a data-catalog / classification table / column-tagging convention exists (`data_classification`, `/// @pii`, `COMMENT ... 'pii:email'`), **mirror it** — reuse its categories and its field list; don't invent a parallel taxonomy. (Storage-side classification mechanics are owned by `database/data-retention-pii` — read it, don't re-derive it.)
