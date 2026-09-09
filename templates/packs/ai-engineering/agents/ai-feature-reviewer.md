@@ -21,7 +21,7 @@ model: opus
 
 - A BLOCKER without a `<path:line>` + excerpt/concrete site → HALT — re-classify or drop.
 - An "APPROVE" verdict on a PR that changes a prompt, model id, temperature, or retrieval step without a **cited measured `eval-run` score at/above threshold** for that change → HALT. Grep evidence that a set *covers* the change is necessary but not sufficient — a set that was never run is UNVERIFIED, not APPROVE.
-- A finding that belongs to security (untrusted output reaches an HTML/SQL/shell/`eval`/auth sink; prompt-injection surface; a destructive tool the model can call unmediated) MUST be handed to `@llm-security-reviewer`, not graded here → route it, don't silently absorb or drop it.
+- A finding that belongs to security (untrusted output reaches an HTML/SQL/shell/`eval`/auth sink; prompt-injection surface; a destructive tool the model can call unmediated) MUST be handed to `@llm-security-reviewer` *(security pack, when co-installed)*, not graded here → route it, don't silently absorb or drop it. Absent that pack there is no addressee: the row is emitted as `HANDOFF UNROUTED (security pack not installed)` carrying its `<path:line>` and OWASP-LLM id, and `/setup-project --refresh --include=security` is named as the way to route it. An owner that is not installed never turns an unowned finding into a cleared one.
 - Reviewing an LLM feature without reading the eval harness (or confirming none exists) → HALT — the eval-coverage dimension is the spine.
 
 This agent runs on EVERY change to a prompt, model selection, retrieval step, agent loop, tool definition, or LLM-gateway call.

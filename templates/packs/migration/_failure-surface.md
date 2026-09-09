@@ -213,7 +213,7 @@ The contract was written; the implementation matches the contract; but the contr
 - **What**: V1 has a button, V2 doesn't. Audit declared parity-clean.
 - **Stack**: Frontend.
 - **Where it bit us**: F039 ("Add new mapping"), F032 ("Edit Order" button + dialog), F033 G1 ("Delete selected").
-- **Current coverage**: ✅ HALT *if* `parity-auditor` agent is dispatched (per `migration-phase.md § 4b`) AND it enumerates the "UI affordances" axis per `migration-discipline.md § Frontend audit axes`. ✅ HALT on hand-wave (`check_audit`).
+- **Current coverage**: ✅ HALT *if* `parity-auditor` agent is dispatched (per `migration-phase.md § 4b`) AND it enumerates the "UI affordances" axis per `frontend/rules/migration-frontend.md § Frontend audit axes`. ✅ HALT on hand-wave (`check_audit`).
 - **Severity**: P0.
 - **Note**: Coverage is mechanism (mandatory dispatch) + content (no hand-waves). Both paths must hold.
 
@@ -221,7 +221,7 @@ The contract was written; the implementation matches the contract; but the contr
 - **What**: V1 shows a button to all users; V2 hides it behind a permission. Sub-roles regress; or V1 gated and V2 ungated → privilege escalation.
 - **Stack**: Frontend + Backend.
 - **Where it bit us**: F033 G2 (V2 added Track + Print gates), F030 G6 (assign-orders gated in V2 ungated in V1).
-- **Current coverage**: ⚠️ Spec-only — `migration-discipline.md § Frontend audit axes` lists "Per-button permission gates"; auditor agent must enumerate. No mechanical check.
+- **Current coverage**: ⚠️ Spec-only — `frontend/rules/migration-frontend.md § Frontend audit axes` lists "Per-button permission gates"; auditor agent must enumerate. No mechanical check.
 - **Severity**: P0 (security regression in either direction).
 - **Suggested mechanism**: `check_audit` parses Frontend-axes table; if "Per-button permission gates" row says "match" but V1 cell = "none" and V2 cell ≠ "none" (or vice versa), log_fail "verdict contradicts cells".
 
@@ -361,7 +361,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 - **What**: V1 had `aria-label` on icon-only button; V2 omits.
 - **Stack**: Frontend.
 - **Where it bit us**: Projected.
-- **Current coverage**: ⚠️ Spec-only — `migration-discipline.md § Frontend audit axes "Accessibility"`; `/a11y-audit` skill exists.
+- **Current coverage**: ⚠️ Spec-only — `frontend/rules/migration-frontend.md § Frontend audit axes "Accessibility"`; `/a11y-audit` skill exists.
 - **Severity**: P1.
 
 ### E2. Tenant-isolation leak (token in localStorage outside secureStorage)

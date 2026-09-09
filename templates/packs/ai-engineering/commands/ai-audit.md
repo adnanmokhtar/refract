@@ -78,7 +78,7 @@ Route by named grep signal on the surface. One row per axis; a signal that does 
 | `tools=` · `tool_use` · `function_call` · `while … step` · `max_iterations` · `AgentExecutor` | `@agent-loop-architect` (**Audit mode**) | agent loop |
 | a corpus exists but no retrieval design does (chunker + index present, no target, no labelled set) | `@rag-architect` | retrieval (design gap) |
 | all axes, for the engineering verdict | `@ai-feature-reviewer` (whole-surface scope, not a diff) | all |
-| output→sink · injection surface · destructive tool · cross-tenant retrieval | **hand to `@llm-security-reviewer`** — routed, never graded here | (security) |
+| output→sink · injection surface · destructive tool · cross-tenant retrieval | **hand to `@llm-security-reviewer`** *(security pack, when co-installed)* — routed, never graded here; absent the pack the row is emitted `HANDOFF UNROUTED (security pack not installed)`, never absorbed into an engineering verdict | (security) |
 
 Run the dispatched skills and agents in parallel. Each returns findings with closure verbs; this command ranks and de-dupes them — a single defect appears once, under the axis that owns it (an unversioned prompt is `prompt-audit`'s detector 5, and it is *referenced* by the gateway cache-key finding rather than counted twice).
 
