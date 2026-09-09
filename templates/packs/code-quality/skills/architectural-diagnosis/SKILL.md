@@ -223,7 +223,7 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 
 ## Mandatory Phase-0 evidence emission
 
-The artifact at `ai/optimize/_architecture-decisions.md` MUST contain machine-verifiable evidence in the body. Without it, `validate-optimize-artifacts.sh § check_phase_0_evidence` halts the run. Required block shape (paste verbatim):
+The artifact at `ai/optimize/_architecture-decisions.md` MUST contain machine-verifiable evidence in the body. Without it, `validate-optimize-artifacts.sh § check_phase_0_blocks_nonempty` halts the run. Required block shape (paste verbatim):
 
 ```
 ## Phase 0 — Dependency map evidence

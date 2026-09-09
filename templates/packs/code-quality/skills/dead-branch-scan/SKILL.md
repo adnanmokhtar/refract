@@ -15,6 +15,7 @@ Find real issues, cite `<path:line>` for every finding. "DEFINITELY DEAD" requir
 ## Halt conditions
 
 - Refuse to mark "delete" without the linter or coverage data backing the verdict.
+- **Refuse a clean verdict from an unresolved lane.** No reachability tool for the project's language means the scan did not run; report `NO LANE` with the tool that would settle it (§ Procedure step 0). Zero findings from a tool that was never invoked is the one output of this skill that is indistinguishable from success.
 - Refuse to flag exhaustiveness `default: const _: never = x` — that's intentional.
 - Halt if the build doesn't compile — reachability analysis is unreliable on broken types.
 - Don't auto-delete; propose, get author confirmation, ship as a separate cleanup PR.
@@ -35,7 +36,21 @@ Find real issues, cite `<path:line>` for every finding. "DEFINITELY DEAD" requir
 
 ## Procedure
 
-1. Run the linter's reachability rules:
+0. **Pick the lane, and name it.** Every executable step below has one tool per language; a step whose tool is not this project's finds nothing and reads exactly like a clean result. Resolve the lane from `ai/stack.md` before running anything:
+
+   | Language | Reachability / constant-condition | Unused + unreachable symbols |
+   |---|---|---|
+   | TypeScript / JavaScript | `eslint --rule 'no-unreachable: error' --rule 'no-constant-condition: error'`; `tsc --noEmit --strict` for narrowing-implied dead catches | `ts-unused-exports`, `knip` |
+   | Python | `ruff check --select F` (F401/F811/F841) + `pyflakes` | `vulture` (confidence ≥ 80) |
+   | Go | `go vet` + `staticcheck` (SA4006 unused value, SA9003 empty branch) | `deadcode` (golang.org/x/tools) |
+   | Rust | `cargo clippy` (`unreachable_code`, `const_evaluatable`) — `rustc` warns on unreachable by default | `cargo-udeps` for unused deps |
+   | Java / Kotlin | `javac -Xlint` unreachable; `detekt` (`UnreachableCode`) | IDE inspections / `error-prone` |
+   | Ruby | `rubocop` (`Lint/UnreachableCode`, `Lint/LiteralAsCondition`) | — |
+   | PHP | `phpstan` level ≥ 5 (unreachable statement) | — |
+
+   **Print the lane you ran.** A run that resolved no lane reports `coverage: NO LANE — <language> has no configured reachability tool` and is not a clean result; a run that skipped the coverage arm because no `lcov.info`/`coverage.json` exists says `coverage: static only`. Steps 2 and 4's greps are regex over source and are lane-independent, but their `--type` filters must match the project's language or they match nothing.
+
+1. Run the lane's reachability rules — the TypeScript lane shown; substitute the row above for other languages:
    ```bash
    npx eslint . --rule 'no-unreachable: error' --rule 'no-constant-condition: error' --rule 'no-fallthrough: error' --no-eslintrc
    # Or all-in-one for TS:
@@ -61,7 +76,8 @@ Find real issues, cite `<path:line>` for every finding. "DEFINITELY DEAD" requir
 ## Output
 
 ```
-Dead branch scan
+Dead branch scan — lane: <language> (<tools run>)
+coverage: <linter + coverage intersection | static only | NO LANE — reason>
 
 DEFINITELY DEAD (delete):
   <modules-root>/legacy/migrate.<ext>:142-167

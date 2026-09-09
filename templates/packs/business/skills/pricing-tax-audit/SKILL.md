@@ -162,7 +162,7 @@ Verdict: clean | UNVERIFIED (N unproven) | money-bugs-present
 - **Refund rounding** must mirror the original charge's rounding, or a full refund leaves a stray cent.
 - **Metering "at least once" delivery** without idempotency double-counts usage → over-bills.
 
-## Halt
+## Halt conditions
 
 - Refuse to label a value "money" without finding its currency companion — a bare amount is the finding.
 - Refuse to pass a tax computation that resolves to a hardcoded rate — name it a jurisdiction gap.

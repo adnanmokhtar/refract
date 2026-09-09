@@ -188,5 +188,5 @@ Once blockers addressed, re-plan + re-review.
 - `audit-iam` — IAM widening flagged here also caught there.
 - `cost-audit` — sometimes a "minor" change inflates cost.
 - `provision-tier` — uses this skill in Phase 6 validate.
-- `@security-auditor` — invoked for HIGH+ risks.
+- `@security-auditor` *(security pack, when co-installed)* — invoked for HIGH+ risks. Absent that pack the HIGH+ row is emitted as `ESCALATION UNROUTED (security pack not installed)` with its resource address and risk reason intact — a plan is never approved on the grounds that its reviewer is not installed.
 - `.claude/rules/security-principles.md` — A01 (Broken Access Control), A05 (Security Misconfiguration).

@@ -224,7 +224,7 @@ The plateau verdict is THREE-WAY — never a single binary. The two plateau clas
 
 #### Every `PLATEAU-WEAK` carries a `reason` — and the three call for opposite actions
 
-`PLATEAU-WEAK` is not one state. `phase-5.5-quality.md § Plateau classifier` wires each reason to a different remediation, and the run-level JSON below carries the field it reads. First match wins, in this order:
+`PLATEAU-WEAK` is not one state. `phase-5.5-quality.md § Exit codes` (and the three worked `## Plateau verdict` reports beside it) wires each reason to a different remediation, and the run-level JSON below carries the field it reads. First match wins, in this order:
 
 | `reason` | Fires when | What the user must do |
 |---|---|---|
