@@ -17,7 +17,7 @@ This is the first skill /optimize dispatches. Output is consumed by /optimize Ph
 ## When to use
 
 - Dispatched by `/optimize` Phase 0 — every run starts here.
-- Dispatched by `/setup-project --refine` when the user wants an architectural snapshot.
+- NOT dispatched by `/setup-project --refine`. Its Phase 2.8 invokes the learning pack's `extract-architecture-deeply` instead — that skill maps the layer/import graph and traces request lifecycles as extraction substrate, whereas this one grades the graph against layer rules and emits foundation findings with cascade estimates. Extraction there, diagnosis here; for a standalone snapshot use `/optimize --diagnose-only`.
 - Standalone diagnostic: `/optimize --diagnose-only` (writes the artifact, no fixes).
 - NOT for per-feature work — /add-feature / /fix-bug have their own scope.
 

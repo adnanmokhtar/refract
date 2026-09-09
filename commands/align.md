@@ -78,8 +78,10 @@ Examples:
    - **16 functional** (correctness-improving — small + line budget when added lines cite an idiom): `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename`.
    - This partition matches `validate-align-artifacts.sh` (`STRUCTURAL_VERBS` / `FUNCTIONAL_VERBS`) and `align-discipline.md` exactly.
 5. **Verify continuously** — lint + typecheck + scoped tests + (frontend) a11y check + bundle-size after each fix.
-6. **Self-resolve common questions** — convention is the truth. Project's idiom inventory (`_extracted-idioms.md` / `codebase-profile.md`) is the oracle. No "is this the right pattern" prompts.
-7. **Halt only on genuine blockers**:
+6. **Boot-check (final)** — dispatch the `smoke-verify` skill (code-quality pack) after the last commit. Step 5's per-fix verification is scoped tests, and a green scoped suite does not prove the app still starts: `replace-with-shared` re-points an import, `dedupe` deletes the copy a module was actually resolving, and `remove` can take an export something registers by side effect — DI wiring, route registration and import cycles all break without a single test going red. smoke-verify boots the app per `PROJECT_KIND` and HALTS if it does not come up. Skippable with `--no-boot-check` for pure libraries. **The result MUST be recorded in the run summary as `boot-check: pass` or `boot-check: skipped(<reason>)`** — a skip is never silent, and a skipped boot-check ALSO goes under `Not validated:`.
+
+7. **Self-resolve common questions** — convention is the truth. Project's idiom inventory (`_extracted-idioms.md` / `codebase-profile.md`) is the oracle. No "is this the right pattern" prompts.
+8. **Halt only on genuine blockers**:
    - Idiom missing for a fix (project has no shared button when fix needs one — surfaces "/setup-project --refine to add primitive first").
    - Visual regression baseline drift > threshold (frontend; surfaces "review snapshots").
    - Behavior change risk (re-classify as refactor; user decides).
