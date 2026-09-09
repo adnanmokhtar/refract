@@ -26,8 +26,12 @@ allowed-tools: [Read, Grep, Glob, Bash]
 
 ## What happens (via knowledge-curator) — read-only by default
 
-**Dispatch `knowledge-curator` and run its `## Curation duties` 1-6 plus its `## Budgets you enforce`
-table. Do not restate them here.** This command's job is *scope*, not method: it is the only entry
+**Dispatch `knowledge-curator` and run its `## Curation duties` 1-8 (including 3b and 4b) plus its
+`## Budgets you enforce` table. Do not restate them here.** Duties 7 and 8 — auto-generated sections
+and the Tier-1/2 derived files — are in scope for **detection on every run**; only their regeneration
+waits for `--fix`. A range that stopped at 6 excluded the one duty this command's own description
+promises ("Tier-1 derived files that drifted from their sources") and that `--fix` names
+("derived-file regen"). This command's job is *scope*, not method: it is the only entry
 point that sweeps the **full** sink set in one pass — `/promote-pattern` and `/promote-decision` each
 graduate one named entry, and `/refresh-knowledge` re-derives the profile, so removing this command
 removes the sweep. The duties themselves have one owner, and a second copy of "≤ 50 files, each ≤ 300
