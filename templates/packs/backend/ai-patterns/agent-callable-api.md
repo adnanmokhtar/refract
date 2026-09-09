@@ -168,7 +168,7 @@ Framework-specific wiring (schema library, auth middleware, transport) goes in `
 | `ETag` / `304`, optimistic concurrency | `conditional-requests.md` | Nothing. Cite it. |
 | Idempotency-key replay semantics | **distributed-systems** pack | Which key this endpoint uses, and that one exists. |
 | Agent loop, budgets, harness-side gates, context compaction | **ai-engineering** `agent-design.md` | The inversion: you own the *surface*, not the loop — its gates are your untrusted assumptions. |
-| Prompt injection via tool output, excessive agency (LLM06/LLM01) | **security** pack | Nothing. Route to `@llm-security-reviewer`. |
+| Prompt injection via tool output, excessive agency (LLM01:2026 / LLM03:2026, promoted from LLM06:2025) | **security** pack | Nothing. Route to `@llm-security-reviewer`. |
 
 A section added here that restates a row's owner is a defect in this file.
 
