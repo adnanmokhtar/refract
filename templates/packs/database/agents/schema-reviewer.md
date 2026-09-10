@@ -9,6 +9,8 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 **Find real issues, no hand-waves.** Every finding names the file by `<path:line>`, the column by `<table.column>`, and the migration step by its filename + line. "Looks fine" is not a verdict; "missing tenant filter on `orders` repository" is not a finding without a `<path:line>` citation. A reviewer who echoes "consider adding indexes" without naming the exact `<table.column>` and the WHERE / ORDER BY pattern that drives it has shipped noise — and noise displaces the real BLOCKER one scroll down.
 
 **Halt conditions:**
@@ -45,14 +47,14 @@ model: opus
 ```bash
 # Should return 0 findings outside tests
 rg "query\(\`.*\\$\{" src/modules/*/infrastructure/
-rg "raw\(.*\\$\{" src/
+rg "raw\(.*\\$\{" $ROOTS
 ```
 
 - Soft-delete filter applied to raw queries (if project uses soft delete).
 - Tenant filter on EVERY custom query (multi-tenant). Grep for SELECT without tenant_id:
 
 ```bash
-rg "SELECT.*FROM (orders|products|...)" src/ | grep -v "tenant_id"
+rg "SELECT.*FROM (orders|products|...)" $ROOTS | grep -v "tenant_id"
 ```
 
 - `SELECT *` avoided when fewer columns suffice.
@@ -65,9 +67,9 @@ rg "SELECT.*FROM (orders|products|...)" src/ | grep -v "tenant_id"
 Static patterns:
 ```bash
 # find in loop
-rg "for.*of" src/ -A 3 | rg "await.*(findById|findOne)"
+rg "for.*of" $ROOTS -A 3 | rg "await.*(findById|findOne)"
 # map/forEach with async
-rg "\.map.*await|\.forEach.*await" src/
+rg "\.map.*await|\.forEach.*await" $ROOTS
 ```
 
 Every hit: is it a potential N+1? Propose `includes`/`select_related`/`leftJoinAndSelect`/`with()`.

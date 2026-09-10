@@ -9,6 +9,8 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 **Find real issues, no hand-waves.** Every missing key, hardcoded string, undefined-but-used key, plural concat, and physical-CSS regression cites `<path:line>` with the actual offending excerpt. Locale parity gaps cite the JSON path (`locales/ar.json:$.products.form.name`) on both sides. "Some hardcoded strings remain in older views" is not a finding — enumerate every one with file and line, or it does not exist for purposes of this audit.
 
 **Hard-halt on hand-wave grep.** Tokens `etc.`, `...`, `consider`, `seems`, `several keys`, `N+ occurrences`, or `and so on` halt the audit; re-enumerate explicitly. Coverage stats must reconcile with the BLOCKERS list — claiming `-6 keys missing` while listing 4 in the body is a consistency failure, not a rounding error.
@@ -37,18 +39,18 @@ Framework-specific grep:
 
 **Vue** (text between tags + attrs):
 ```bash
-rg '>([A-Z][a-z]+(\s+[A-Z]?[a-z]+)+)<' src/ --type vue | grep -v '\$t\|{{ t('
-rg '(placeholder|title|aria-label|label)="[A-Z]' src/
+rg '>([A-Z][a-z]+(\s+[A-Z]?[a-z]+)+)<' $ROOTS --type vue | grep -v '\$t\|{{ t('
+rg '(placeholder|title|aria-label|label)="[A-Z]' $ROOTS
 ```
 
 **React / JSX**:
 ```bash
-rg '>[A-Z][a-z].+</' src/ --type tsx | grep -v '{t(\|{i18n.'
+rg '>[A-Z][a-z].+</' $ROOTS --type tsx | grep -v '{t(\|{i18n.'
 ```
 
 **Angular templates**:
 ```bash
-rg '>\s*[A-Z][a-z]' src/ --type html | grep -v '{{ \|translate'
+rg '>\s*[A-Z][a-z]' $ROOTS --type html | grep -v '{{ \|translate'
 ```
 
 Any hit in NEW code = BLOCKER. Existing code = REQUEST (incremental migration).
@@ -58,7 +60,7 @@ Any hit in NEW code = BLOCKER. Existing code = REQUEST (incremental migration).
 Build key-usage map:
 ```bash
 # Keys used
-rg 't\(.(([a-z_]+\.)+[a-z_]+)' src/ -o -r '$1'
+rg 't\(.(([a-z_]+\.)+[a-z_]+)' $ROOTS -o -r '$1'
 # Keys defined (flatten JSON)
 ```
 
@@ -81,15 +83,15 @@ NOT string concatenation (`"item" + (n === 1 ? "" : "s")`) — breaks in non-Eng
 ### 6. RTL safety (if RTL locales declared)
 - Physical CSS properties (`margin-left`, `padding-right`, `border-left`, `left: 0`) → should be logical (`margin-inline-start`, etc.):
   ```bash
-  rg "(margin|padding|border)-(left|right):" src/
-  rg "left:\s*0|right:\s*0" src/  # verify each — position might be correct
+  rg "(margin|padding|border)-(left|right):" $ROOTS
+  rg "left:\s*0|right:\s*0" $ROOTS  # verify each — position might be correct
   ```
 - Icons that imply direction (back arrows, chevrons) flip in RTL — verify CSS `transform: scaleX(-1)` for RTL. (Whether they *should* flip is a visual-language call and belongs to ui-ux; whether the code *can* flip them is this agent's.)
 - Numbers / codes shouldn't flip — `dir="ltr"` on phone numbers / codes / IBANs.
 - **Runtime text of unknown direction carries its own direction.** The root `dir` sets the page's *base* direction; it cannot rescue an Arabic comment rendered inside an English thread. Any element or field holding user-supplied / API-supplied text needs `dir="auto"` (the browser infers base direction from the first strongly-typed character), `<bdi>` around inline insertions so surrounding text is not re-ordered, and `dirname` on the input so the detected direction reaches the server for re-display. Per `rules/i18n.md` § Must.
   ```bash
-  rg -n "v-html|dangerouslySetInnerHTML|\{\{\s*\w+\.(comment|description|note|body|title)" src/ | rg -v 'dir="auto"|<bdi'
-  rg -cn 'dir="auto"' src/ ; echo "0 hits in a product with user-generated text is the finding"
+  rg -n "v-html|dangerouslySetInnerHTML|\{\{\s*\w+\.(comment|description|note|body|title)" $ROOTS | rg -v 'dir="auto"|<bdi'
+  rg -cn 'dir="auto"' $ROOTS ; echo "0 hits in a product with user-generated text is the finding"
   ```
   Do **not** file a `dir="rtl"` on a per-element node as a violation when it is carrying runtime text — the Must-not in `rules/i18n.md` bans the *layout hack*, not per-element direction as such.
 

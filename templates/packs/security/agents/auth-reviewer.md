@@ -30,15 +30,15 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 - **Locate the four surfaces before reviewing any of them.** Substitute the project's framework tokens; the *shape* is what matters.
   ```bash
   # verify / sign calls — is an algorithm allow-list passed?
-  rg -n "\b(jwt|jose|jsonwebtoken)?\.?(verify|decode|sign)\(" src/ | rg -v "algorithms?\s*[:=]"
+  rg -n "\b(jwt|jose|jsonwebtoken)?\.?(verify|decode|sign)\(" $ROOTS | rg -v "algorithms?\s*[:=]"
   # every route registration, so each can be classed guarded / explicitly-public
-  rg -n "@(Get|Post|Put|Patch|Delete)\(|router\.(get|post|put|patch|delete)\(|app\.(get|post)\(" src/ routes/
+  rg -n "@(Get|Post|Put|Patch|Delete)\(|router\.(get|post|put|patch|delete)\(|app\.(get|post)\(" $ROOTS
   # the public-route marker and the guard — every route must be exactly one of these
-  rg -n "@Public|AllowAnonymous|permit_all|skipAuth|@UseGuards|requireAuth|isAuthenticated" src/
+  rg -n "@Public|AllowAnonymous|permit_all|skipAuth|@UseGuards|requireAuth|isAuthenticated" $ROOTS
   # password hashing call sites — and whether parameters are passed at all
-  rg -n "argon2|bcrypt|scrypt|pbkdf2|hashSync|createHash\(" src/
+  rg -n "argon2|bcrypt|scrypt|pbkdf2|hashSync|createHash\(" $ROOTS
   # refresh / session lifecycle
-  rg -n "refresh[_-]?token|rotate|revoke|session\.(regenerate|destroy)|sid" src/
+  rg -n "refresh[_-]?token|rotate|revoke|session\.(regenerate|destroy)|sid" $ROOTS
   ```
 
 ## AuthN checklist
@@ -93,8 +93,8 @@ The server MUST verify the ceremony, not just trust the client attestation/asser
 - Redirect URIs whitelisted EXACTLY (not wildcards) — OAuth 2.1 § 2.3.1: the authorization server *"MUST reject authorization requests that specify a redirect URI that doesn't exactly match one that was registered"*.
 - **The client-side half of that rule, which most reviews miss.** Same section: *"Clients MUST NOT expose URLs that forward the user's browser to arbitrary URIs obtained from a query parameter ('open redirector')."* An open redirector anywhere on the client's origin can be chained to exfiltrate an authorization code even when the registered redirect URI is exact. Audit `?next=` / `?returnUrl=` / `?redirect_to=` / `?continue=` handlers, including login-return flows and post-logout redirects (CWE-601, under A01:2025).
   ```bash
-  rg -n "(next|return_?to|return_?url|redirect_?(to|uri|url)|continue|dest|callback)\s*[=:]" src/ routes/
-  rg -n "(res\.redirect|redirect\(|Location:|window\.location)" src/ | rg -i "req\.|query|params|body"
+  rg -n "(next|return_?to|return_?url|redirect_?(to|uri|url)|continue|dest|callback)\s*[=:]" $ROOTS
+  rg -n "(res\.redirect|redirect\(|Location:|window\.location)" $ROOTS | rg -i "req\.|query|params|body"
   ```
 - Validate id_token signature + claims; don't trust `userinfo` endpoint blindly.
 - Scope minimal.

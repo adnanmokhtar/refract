@@ -73,7 +73,7 @@ Then re-run probe A. A new table absent from A's output still needs its *filter*
 
 **C. Tenant id from client input — the standalone BLOCKER.**
 ```bash
-rg -ni "(req|request|ctx)\.(body|query|params|headers)\W{0,3}(tenant|org|account|workspace|company)[_-]?id" src/
+rg -ni "(req|request|ctx)\.(body|query|params|headers)\W{0,3}(tenant|org|account|workspace|company)[_-]?id" $ROOTS
 rg -ni "x-tenant|x-org|x-account|x-workspace" $ROOTS
 ```
 Any hit that reaches a query scope is a BLOCKER regardless of what else is in place.
@@ -82,21 +82,21 @@ Any hit that reaches a query scope is a BLOCKER regardless of what else is in pl
 
 **D. Escape hatches — raw SQL and scope bypasses.**
 ```bash
-rg -n "\.raw\(|knex\.raw|sequelize\.query|\$queryRaw|executeRaw|db\.query\(|createQueryBuilder|EXECUTE IMMEDIATE" src/
-rg -n "unscoped\(|withoutGlobalScopes?\(|IgnoreQueryFilters\(|withoutTenant|allTenants?|bypassTenant|skipTenant|admin(All|Any)" src/
+rg -n "\.raw\(|knex\.raw|sequelize\.query|\$queryRaw|executeRaw|db\.query\(|createQueryBuilder|EXECUTE IMMEDIATE" $ROOTS
+rg -n "unscoped\(|withoutGlobalScopes?\(|IgnoreQueryFilters\(|withoutTenant|allTenants?|bypassTenant|skipTenant|admin(All|Any)" $ROOTS
 ```
 Every hit is inspected for a manual tenant predicate. A hit with none is HIGH at minimum; a hit reachable by a non-admin principal is a BLOCKER.
 
 **E. Cache keys without a tenant prefix.**
 ```bash
-rg -n "\.(get|set|setex|mget|hget|hset|del)\(\s*[\`'\"]" src/ | rg -vi "tenant|org|account|workspace|company"
-rg -n "(cacheKey|keyFor|makeKey|cache_key)\s*[=(]" src/
+rg -n "\.(get|set|setex|mget|hget|hset|del)\(\s*[\`'\"]" $ROOTS | rg -vi "tenant|org|account|workspace|company"
+rg -n "(cacheKey|keyFor|makeKey|cache_key)\s*[=(]" $ROOTS
 ```
 Inspect every surviving line: a key built from a user id or resource id alone collides across tenants.
 
 **F. Jobs, consumers and schedulers — where the request context is gone.**
 ```bash
-rg -n "(?i)(@cron|@scheduled|cron\.schedule|setInterval|worker|consumer|subscribe\(|process\(|\.on\(['\"]message)" src/ jobs/ workers/ 2>/dev/null
+rg -n "(?i)(@cron|@scheduled|cron\.schedule|setInterval|worker|consumer|subscribe\(|process\(|\.on\(['\"]message)" $ROOTS 2>/dev/null
 ```
 For each hit: does it re-derive the tenant from the message/job payload, or does it sweep all rows?
 

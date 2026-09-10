@@ -9,6 +9,8 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 **Find real issues, no hand-waves.** Every finding cites `<path:line>` with a 1-line excerpt of the offending code. Reviews that read "consider tightening error handling" or "this seems fragile" or "you might want to add tests" are noise — they put the burden of proof on the author and produce no actionable change. The author already considered it; your job is to point at the line, name the bug, and prescribe the fix.
 
 A review without `<path:line>` is not a review, it's a vibe. The verdict (APPROVE / REQUEST_CHANGES / BLOCK) is meaningless if the body lists vague suggestions.
@@ -48,7 +50,7 @@ grep -rn "import.*<framework-pkg>\|import.*<orm-pkg>" src/modules/*/core/
 ```bash
 # Enumerate id-scoped writes, THEN confirm each handler body references a scope check.
 # List the routes to audit:
-rg -n '@(Patch|Put|Delete|Post)\([^)]*:id' src/
+rg -n '@(Patch|Put|Delete|Post)\([^)]*:id' $ROOTS
 # For each, the -A12 body MUST reference the actor for a scope decision — a body with
 # NONE of these is authn-only and BLOCKs (grep can't negate per-block; read the body):
 #   ownerId | owner_id | tenantId | policy | can( | authorize | @Permissions | hasRole
@@ -59,7 +61,7 @@ rg -n '@(Patch|Put|Delete|Post)\([^)]*:id' src/
 
 ```bash
 # Should return 0 — expensive routes with no limiter
-rg -n '@(Get|Post)\([^)]*(/search|/export|/report|/bulk|/upload)' src/ -A6 | rg -v '@Throttle|@RateLimit|RateLimiter|limiter|throttle'
+rg -n '@(Get|Post)\([^)]*(/search|/export|/report|/bulk|/upload)' $ROOTS -A6 | rg -v '@Throttle|@RateLimit|RateLimiter|limiter|throttle'
 ```
 
   Ref `ai/patterns/rate-limiting.md` (per-tenant buckets, shared store, fail-open vs fail-closed, 503 admission control).
@@ -88,7 +90,7 @@ git diff --staged -- '*.dto.ts' '*serializer*' '*.graphql' | rg '^-\s' | rg -i '
 
 ```bash
 # Should return 0 — wholesale body bind into a model
-rg -n 'Object\.assign\(\s*\w+,\s*req\.body|\{\s*\.\.\.req\.body|Model\(\*\*|new \w+Entity\(req\.body|\.save\(req\.body\)|update\(req\.body\)' src/
+rg -n 'Object\.assign\(\s*\w+,\s*req\.body|\{\s*\.\.\.req\.body|Model\(\*\*|new \w+Entity\(req\.body|\.save\(req\.body\)|update\(req\.body\)' $ROOTS
 ```
 
   Fix = explicit field-allowlist bind (pick named writable fields; never spread the raw body). Forms/input-binding is the deep owner — pointer to the forms domain; the backend hook here is the always-on entity-bind probe above.
@@ -103,7 +105,7 @@ rg -n 'Object\.assign\(\s*\w+,\s*req\.body|\{\s*\.\.\.req\.body|Model\(\*\*|new 
 # Writes:
 rg -c '\.save\(|\.insert\(|\.update\(|\.delete\(|\.create\(' src/**/*use-case* src/**/*service*
 # Transaction primitive present?  (the ≥2-write files must ALSO appear here)
-rg -l '@Transactional|manager\.transaction|\.transaction\(|withTransaction|unit_of_work|ATOMIC_REQUESTS' src/
+rg -l '@Transactional|manager\.transaction|\.transaction\(|withTransaction|unit_of_work|ATOMIC_REQUESTS' $ROOTS
 # A file in the first list but NOT the second → multiple writes with no wrapper → open the body and confirm.
 ```
 
@@ -115,14 +117,14 @@ rg -l '@Transactional|manager\.transaction|\.transaction\(|withTransaction|unit_
 - Parameterized queries ALWAYS. Grep for string concat into SQL:
 
 ```bash
-rg 'query\(`.*\$\{' src/
+rg 'query\(`.*\$\{' $ROOTS
 ```
 
 - Raw SQL includes tenant filter if multi-tenant:
 
 ```bash
 # Should return 0
-rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
+rg 'SELECT.*FROM' $ROOTS | grep -v 'tenant_id'
 ```
 
 - Soft-delete filter on every custom query bypassing the base repo — silently returning deleted rows is a correctness bug, not a style one.
@@ -135,7 +137,7 @@ rg 'SELECT.*FROM' src/ | grep -v 'tenant_id'
 
 ```bash
 # Should return 0 — full-buffer materialization on an unbounded query
-rg -n '\.toArray\(\)|\.fetchall\(\)|JSON\.stringify\(\s*(all|rows|results)' src/
+rg -n '\.toArray\(\)|\.fetchall\(\)|JSON\.stringify\(\s*(all|rows|results)' $ROOTS
 ```
 
   This defect is spelled differently per stack (`list(qs)`, `relation.to_a`, `findAll()` returning `List<T>`, `.ToListAsync()`) and the spelling is what the grep must match — read this project's form in `references/<framework>.md` rather than guessing. The fix is always iterate-or-stream; `ai/patterns/response-streaming.md` owns the wire contract.
@@ -154,7 +156,7 @@ rg -n '\.toArray\(\)|\.fetchall\(\)|JSON\.stringify\(\s*(all|rows|results)' src/
 
 ```bash
 # Outbound fetch whose target comes from request input — each must hit an allowlist first
-rg -n 'fetch\(|axios\.(get|post)\(|http\.request\(|requests\.get\(|HttpClient' src/ -A2 | rg 'req\.|request\.|body|query|params'
+rg -n 'fetch\(|axios\.(get|post)\(|http\.request\(|requests\.get\(|HttpClient' $ROOTS -A2 | rg 'req\.|request\.|body|query|params'
 ```
 
   `@security-auditor` (OWASP A10) is the deep owner of the egress policy — pointer only; do NOT relocate or duplicate the allowlist here. The backend hook is the request-derived-fetch probe above.
@@ -163,10 +165,10 @@ rg -n 'fetch\(|axios\.(get|post)\(|http\.request\(|requests\.get\(|HttpClient' s
 
 ```bash
 # Decode-without-verify, or verification with the checks switched off — each hit must be read.
-rg -n 'decode\([^)]*verify\s*[:=]\s*(false|False)|jwt\.decode\(|jwtDecode\(|decodeJwt\(|verify_signature\s*[:=]\s*(false|False)|"alg"\s*:\s*"none"' src/
+rg -n 'decode\([^)]*verify\s*[:=]\s*(false|False)|jwt\.decode\(|jwtDecode\(|decodeJwt\(|verify_signature\s*[:=]\s*(false|False)|"alg"\s*:\s*"none"' $ROOTS
 # Every verify call must pin algorithms AND check audience + issuer — a call site with none of
 # these is the finding (grep cannot negate per-call; open each hit):
-rg -n 'verify\(|jwtVerify\(|validateToken|TokenValidationParameters' src/ -A6 | rg -i 'algorithm|audience|issuer|aud|iss'
+rg -n 'verify\(|jwtVerify\(|validateToken|TokenValidationParameters' $ROOTS -A6 | rg -i 'algorithm|audience|issuer|aud|iss'
 ```
 
   `security/ai-patterns/auth-flow.md` is the deep owner of token LIFETIME, refresh rotation + replay detection, revocation, and session storage — pointer only; do not restate it here. The three checks above are the always-on backend floor, because "the security pack wasn't installed" is not a reason to ship an unvalidated `aud`. `[self-policed]` where a gateway or service mesh terminates auth before the app — confirm that is actually configured, don't assume it.
@@ -189,7 +191,7 @@ rg -n 'verify\(|jwtVerify\(|validateToken|TokenValidationParameters' src/ -A6 | 
 
 ```bash
 # Should return 0 — high-cardinality identifiers as metric labels
-rg -n '(counter|histogram|gauge|metric)\(' src/ -A3 | rg 'user_?id|request_?id|email|/\d+'
+rg -n '(counter|histogram|gauge|metric)\(' $ROOTS -A3 | rg 'user_?id|request_?id|email|/\d+'
 ```
 
   Hand telemetry-heavy changes (new span attributes, OTel wiring, sampling, cardinality budget) to `@observability-reviewer` — deep owner; the probe above is the always-on backend hook.
@@ -197,7 +199,7 @@ rg -n '(counter|histogram|gauge|metric)\(' src/ -A3 | rg 'user_?id|request_?id|e
 
 ```bash
 # A /readyz that returns static 200 without probing deps is a false-green
-rg -n '/readyz|/ready|readiness' src/ -A8 | rg -v 'ping|isHealthy|check\(|SELECT 1|redis|queue|db\.'
+rg -n '/readyz|/ready|readiness' $ROOTS -A8 | rg -v 'ping|isHealthy|check\(|SELECT 1|redis|queue|db\.'
 ```
 
 ### Tests

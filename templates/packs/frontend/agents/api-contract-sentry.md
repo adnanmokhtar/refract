@@ -20,6 +20,8 @@ Running Change mode against a brand-new resource returns clean and means nothing
 
 ## The Premise (read first, do not deviate)
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 **Find real breakage, no hand-waves.** The value of this agent IS the precise enumeration of what breaks — so every affected site cites `<path:line>` with the actual field/type reference, and a claim without a path-and-line is worthless. Every consuming service / type / composable / store / page that touches a changed field is listed separately.
 
 **Hard-halt on hand-wave grep** (`etc.`, `...`, `probably`, `N+ similar`) — re-enumerate each impacted site. An impact report that under-lists is worse than none: it signals "safe to ship" when it isn't. (This agent emits an impact report, not a pass/fail verdict — but the cite-or-halt discipline above is non-negotiable.)
@@ -64,28 +66,28 @@ For a given API change (e.g., `GET /products` response changed), find every plac
 ### 1. Services / API clients
 ```bash
 # Grep for the endpoint path
-rg "'(/api)?/products" src/ --type ts | grep -v test
-rg "\"(/api)?/products" src/ --type ts
+rg "'(/api)?/products" $ROOTS --type ts | grep -v test
+rg "\"(/api)?/products" $ROOTS --type ts
 ```
 
 ### 2. Generated types
 ```bash
 # If using openapi-typescript
-rg "paths\['/products'\]" src/
+rg "paths\['/products'\]" $ROOTS
 # Or type names
-rg "ProductDto|Product[A-Z]" src/ --type ts
+rg "ProductDto|Product[A-Z]" $ROOTS --type ts
 ```
 
 ### 3. Store usage
 ```bash
 # Stores / composables referencing the service
-rg "productsService\.|useProducts\(" src/
+rg "productsService\.|useProducts\(" $ROOTS
 ```
 
 ### 4. Components rendering the data
 ```bash
 # Grep for field accesses
-rg "product\.(price|name|description)" src/ --type vue --type tsx
+rg "product\.(price|name|description)" $ROOTS --type vue --type tsx
 ```
 
 ### 5. Routes / pages
@@ -100,13 +102,13 @@ The three sites that decode the *shape* rather than the fields. They are invisib
 
 ```bash
 # Which envelope branch does this client believe in?
-rg "fieldErrors|problem\+json|\bdetail\b|\btitle\b.*\bstatus\b" src/ --type ts
+rg "fieldErrors|problem\+json|\bdetail\b|\btitle\b.*\bstatus\b" $ROOTS --type ts
 # The unwrap: does anything read `data.` off the response before handing it on?
-rg "\.data\.data|res\.data\b|response\.data\b" src/ --type ts | grep -v test
+rg "\.data\.data|res\.data\b|response\.data\b" $ROOTS --type ts | grep -v test
 # The mis-type that drops nested errors — `field` is a path, not a key
-rg "as keyof|keyof [A-Z][A-Za-z]*Input|Record<keyof" src/ --type ts
+rg "as keyof|keyof [A-Z][A-Za-z]*Input|Record<keyof" $ROOTS --type ts
 # Pagination meta reader + request spelling
-rg "nextCursor|hasMore|meta\.(page|pageSize|total)|per_page|pageSize=|limit=" src/ --type ts
+rg "nextCursor|hasMore|meta\.(page|pageSize|total)|per_page|pageSize=|limit=" $ROOTS --type ts
 ```
 
 Each hit is reported with `<path:line>` and the branch it assumes. A client that reads `data.fieldErrors[]` while the baseline declares `problem-details` is a finding even though nothing changed and nothing throws.
@@ -180,7 +182,7 @@ oasdiff changelog old-openapi.json new-openapi.json
 
 # Step 2: impact per change
 for each change:
-  grep for old field / endpoint across src/
+  grep for old field / endpoint across $ROOTS
   collect file:line of each hit
   categorize (test / production / docs / generated)
 

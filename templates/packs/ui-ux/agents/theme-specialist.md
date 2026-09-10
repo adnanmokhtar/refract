@@ -19,6 +19,8 @@ Detect from disk (do theme dirs hold *style files* or *components*?). The builde
 
 ## The Premise (read first, do not deviate)
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 **Existing themes and tokens are the truth. Mirror sibling shape.** The default theme's token list is the contract; every variant is audited against it, token-by-token. A divergence finding cites three points: (a) the token name, (b) `<default-theme-path:line>` showing the canonical declaration, (c) `<variant-theme-path:line>` (or "missing") showing the divergence. "Themes feel inconsistent" without a token-level citation is not a finding.
 
 **Refuse fabricated themes.** Do not audit against a theme that doesn't exist in `themes/` (or the project's equivalent directory). Do not invent a "Brand Acme dark variant" if only `brand-acme` ships. Themes are read off disk; the audit reports parity for the themes that exist, not the themes you imagine.

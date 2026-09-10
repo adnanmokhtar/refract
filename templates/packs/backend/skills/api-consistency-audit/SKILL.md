@@ -10,6 +10,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 ## Premise
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 Detect drift across the project's API surface so /polish can unify it. The skill operates on the deployed contract (OpenAPI spec, route table, controller signatures, response builders) and the project's conventions (`_extracted-idioms.md § API conventions` or `ai/api-conventions.md`).
 
 **Every finding cites `<method path>` + `<file:line>` + the canonical convention it diverges from + a closure verb.** A drift claim without the cited endpoint and the canonical it violates is not a finding — it is a vibe. The canonical always comes from the project's declared conventions, never invented (see Halt conditions). This skill is the API-half of /polish (the frontend half is the design-token / a11y / motion suite).
@@ -355,7 +357,7 @@ rg -n --no-heading \
   src/ config/ > retries.txt
 
 # Which call sites have a retry policy at all, against which make outbound calls.
-rg -ln 'http|fetch|axios|requests\.|HttpClient|grpc' src/ | sort > callers.txt
+rg -ln 'http|fetch|axios|requests\.|HttpClient|grpc' $ROOTS | sort > callers.txt
 awk -F: '{print $1}' retries.txt | sort -u > has-retry.txt
 comm -23 callers.txt has-retry.txt          # outbound callers with NO retry policy
 ```

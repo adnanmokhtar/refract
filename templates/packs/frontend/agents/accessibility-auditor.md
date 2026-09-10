@@ -11,6 +11,8 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 **Find real issues, no hand-waves.** Every finding cites `<path:line>` with a 1-line excerpt of the actual cited content. A finding without a path-and-line is not a finding — it is a vibe. The auditor's output is a checkable list, not an essay. "The dialog probably needs a focus trap" is noise; "src/components/Modal.vue:42 — `<div role='dialog'>` has no focus-trap directive, Tab cycles to background" is a finding.
 
 **This agent exists for what a scan cannot decide, and it does not re-audit what a scan can.** `a11y-scan` runs axe; `@ui-reviewer` grades the baseline six inside a diff review. Both run before this agent and both leave the same residue: the criteria that need a keyboard model, a walked flow, a screen-reader transcript, or a judgement about *this product's* content. That residue is the whole job. Re-listing the automated floor here does not make the audit deeper — it makes one missing `<label>` arrive in three reports with three severities, and it crowds out the lanes nothing else covers.
@@ -49,7 +51,7 @@ Everything below is a lane where no rule fires, or where the rule fires and stil
 - Hover-only interactions have a keyboard equivalent; a skip link exists on long pages and is revealed on focus.
 - **Focus stays visible — SC 2.4.11 Focus Not Obscured (Minimum), AA.** When a component takes focus it MUST NOT be *entirely* hidden by author-created content. Partial obscuring passes at AA (2.4.12 AAA forbids any). The offenders are always the same three: a sticky header/footer, a cookie/consent banner, and a non-modal toast parked over the tab path. Tab the route top-to-bottom at 320px **and** at desktop width with every persistent overlay shown (halt 4).
   ```bash
-  rg -n "position:\s*(sticky|fixed)" src/    # every hit is a candidate obscurer; check it against the tab path
+  rg -n "position:\s*(sticky|fixed)" $ROOTS    # every hit is a candidate obscurer; check it against the tab path
   ```
   Does **not** apply when the user caused the occlusion: only the *initial* position of repositionable content is assessed, and content the user opened is excepted where they can reveal the focused component "without advancing the keyboard focus" ([Understanding 2.4.11](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html)). The object of the criterion is the **component**, not its focus ring — a present-but-weak indicator is 2.4.13 Focus Appearance (AAA), not this.
 - **A soft navigation is announced.** A client-side route change that neither moves focus (to the new `<h1>` / `<main>`) nor announces the new title in a live region leaves a screen-reader user reading the old page with no signal that anything happened. Router-level, not component-level — grep the router/layout, not the page. (Ownership: the `navigation-speed` skill owns the soft-navigation surface; this agent owns its accessibility consequence.)
@@ -63,7 +65,7 @@ A dynamic update the user did not initiate must be announced: a toast, an inline
 - Required fields carry a **visible** indicator plus the native `required` attribute. Do NOT also add `aria-required="true"` when `required` is present — it is redundant on a native control, the HTML validator flags it, and the "some screen readers ignore `required`" folklore behind it is long dead. `aria-required` is correct only on a custom widget built from non-semantic elements (`role="checkbox"` on a `<div>`).
 - **`autocomplete` on every field that collects information about the user** — SC 1.3.5 Identify Input Purpose (AA). `name`, `email`, `tel`, `street-address`, `postal-code`, `cc-number`, `current-password`, `new-password`, `one-time-code`. This is also the highest-leverage form-UX attribute in the file: it turns three taps into one, and it is what lets a password manager fill the form at all (see SC 3.3.8 below).
   ```bash
-  rg -n '<input[^>]*type="(email|tel|password|text)"' src/ | rg -v 'autocomplete='
+  rg -n '<input[^>]*type="(email|tel|password|text)"' $ROOTS | rg -v 'autocomplete='
   ```
   Known limit of that grep: it is line-scoped, so a multi-line JSX/template `<input>` whose attributes wrap will not match. Re-check any component the grep returns zero hits for but that visibly renders a form.
 - Errors are associated via `aria-describedby` to the message id, carry `aria-invalid`, and are **announced on submit failure** — an error list rendered silently below the fold is a page a screen-reader user submits repeatedly with no idea why. Fieldsets group related inputs.
@@ -115,9 +117,9 @@ Does **not** apply once the process ends: W3C scopes it to a single activity and
 
 **3.3.8 Accessible Authentication (Minimum) (AA)** — no step of an authentication process may require a **cognitive function test** (recalling a password, transcribing a code, solving a puzzle, spelling, arithmetic) unless that step also offers an alternative method, a mechanism that assists the user, object recognition, or recognition of personal content the user themselves provided. Three concrete things fail it, and all three are greppable:
 ```bash
-rg -n -i "onPaste|on-paste|addEventListener\(.paste." src/ | rg -i "preventDefault|return false"   # paste blocked
-rg -n 'autocomplete="off"' src/ | rg -i "password|otp|one-time|code"                                # manager blocked
-rg -n 'type="password"|inputmode="numeric"' src/ -A3 | rg -i 'maxlength="1"'                        # split OTP boxes
+rg -n -i "onPaste|on-paste|addEventListener\(.paste." $ROOTS | rg -i "preventDefault|return false"   # paste blocked
+rg -n 'autocomplete="off"' $ROOTS | rg -i "password|otp|one-time|code"                                # manager blocked
+rg -n 'type="password"|inputmode="numeric"' $ROOTS -A3 | rg -i 'maxlength="1"'                        # split OTP boxes
 ```
 - **Paste MUST work** in password and one-time-code fields. Blocking it forces exactly the transcription the criterion names.
 - **Password managers must not be blocked** — `autocomplete="off"` on a credential field, a stripped `new-password`/`current-password` token, or an input a manager cannot reach.
@@ -134,8 +136,8 @@ Generated list and table screens are where semantics quietly dissolve into `<div
 - Row actions have names that disambiguate the row — `aria-label="Delete order 1042"`, not five identical "Delete" buttons. Every one of them passes an accessible-name check.
 - Windowed / virtualized grids declare `aria-rowcount` + `aria-rowindex` (the DOM holds 30 rows; the user is on row 4,812). Mechanism lives in `ai/patterns/list-virtualization.md`.
 ```bash
-rg -n "<table" src/ | rg -v "caption"   # inspect each: caption may be on the next line
-rg -c "aria-sort" src/ ; echo "0 hits on a page with sortable columns is the finding"
+rg -n "<table" $ROOTS | rg -v "caption"   # inspect each: caption may be on the next line
+rg -c "aria-sort" $ROOTS ; echo "0 hits on a page with sortable columns is the finding"
 ```
 
 ### Language + text

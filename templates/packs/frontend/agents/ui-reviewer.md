@@ -9,6 +9,8 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
+**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+
 **Find real issues, no hand-waves.** Every BLOCKER, REQUEST, and NIT cites `<path:line>` with the actual offending line excerpted. `fetch` in a component is a finding only if you can name the file and line; "data-fetching looks suspicious" is not a finding. The verdict must match the body — `APPROVE` with open BLOCKERS is a consistency bug.
 
 **The job that is only this agent's is DIVERGENCE.** Every other axis of a frontend diff has a specialist, a rule, or a pattern that states the right answer in advance. One axis has none, because no document can: **whether this diff looks like the rest of this repo.** Which wrapper the repo uses for a modal, which hook it fetches in on a cached route, whether services return DTOs or raw responses, how errors reach a field — those facts live in the sibling files and nowhere else. So the first read is not the diff; it is the file the diff should have mirrored. A hunk that contradicts its own siblings is this agent's finding, cited on BOTH paths, and it is the finding that no rule, no pattern, and no other agent in this pack can produce.
@@ -76,13 +78,13 @@ Only the axes this agent grades, and only the checks that carry a detector, a se
 # fetch/axios in a component body
 rg "(fetch|axios|ky)\(" src/components/ src/views/ src/pages/
 # hardcoded user-facing strings (Vue-shaped; adapt the tag/attr forms per framework)
-rg '>([A-Z][a-z]+(\s[A-Z]?[a-z]+)+)<' src/ | grep -v '\$t\|{{ t('
-rg 'placeholder="[A-Z]|title="[A-Z]|aria-label="[A-Z]' src/
+rg '>([A-Z][a-z]+(\s[A-Z]?[a-z]+)+)<' $ROOTS | grep -v '\$t\|{{ t('
+rg 'placeholder="[A-Z]|title="[A-Z]|aria-label="[A-Z]' $ROOTS
 # raw values in a repo that has a token scale
-rg "color:\s*#[0-9a-f]{3,6}" src/
-rg "margin(-top|-bottom|-left|-right)?:\s*\d+px" src/
+rg "color:\s*#[0-9a-f]{3,6}" $ROOTS
+rg "margin(-top|-bottom|-left|-right)?:\s*\d+px" $ROOTS
 # session token read or written outside the canonical helper
-rg -n "localStorage\.(get|set)Item\(\s*['\"](token|jwt|access|auth|session)" src/
+rg -n "localStorage\.(get|set)Item\(\s*['\"](token|jwt|access|auth|session)" $ROOTS
 ```
 
 Each hit is a finding with its own path-and-line, routed per the ownership table. The last grep is the entry point to `ai/patterns/auth-session-client.md`, which owns the mechanism — storage trade, single-flight refresh, logout fan-out, cross-tab sync. This agent files the hit; it does not redesign the session layer.
