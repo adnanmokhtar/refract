@@ -317,6 +317,19 @@ block+=$'\n'"## Project rules (always-loaded)"$'\n'$'\n'
 for row in ${IMPORT_LIST[@]+"${IMPORT_LIST[@]}"}; do
   block+="@.claude/rules/${row%%|*}"$'\n'
 done
+
+# The import graph is a PULL tool and so it needs one always-loaded sentence, which nothing
+# provided. `inject-blast-radius.sh` pushes on every edit and needs no announcement; but
+# `--who-breaks` is only ever run by an agent that knows it exists, and the only place that said
+# so was `.claude/GUIDE.md` — which a retrofitted project's hand-written CLAUDE.md never points
+# at. Measured: three real projects, zero references, so the tool was never once called.
+# The text is a TEMPLATE, not a string here: see that file's header for why.
+GRAPH_POINTER="$SELF_DIR/../templates/snippets/claude-md-graph-pointer.md"
+if [[ -f "$HOME/.claude/scripts/build-graph.py" && -f "$GRAPH_POINTER" ]]; then
+  # Strip the HTML comment header — it explains the file to a maintainer, not to the agent.
+  block+=$'\n'"$(sed '1,/-->/d' "$GRAPH_POINTER" | sed '/./,$!d')"$'\n'
+fi
+
 block+=$'\n'"$MARK_CLOSE"
 
 if [[ "$APPLY" -eq 0 ]]; then
