@@ -1191,6 +1191,33 @@ if [[ "$MODE" != "create" ]]; then
     done < <(find -L "$PACKS_ROOT" -type f -name '*.md' -not -name '_*' 2>/dev/null | head -2000)
   fi
 
+  # THE BAR IS THE TARGET'S EXTRACTION, NOT THE PACK SOURCE.
+  #
+  # `phase-4-templates.md:150` — "`ai/conventions.md` MUST be auto-populated from the codebase
+  # profile". Every one of the six files below is derived from THIS repo's extraction substrate:
+  # codebase-profile.md, _codebase-scan.md, _extracted-idioms.md, _extracted-business.md. The
+  # pack source is not an input to any of them.
+  #
+  # Keying staleness on the newest pack .md therefore fails on a fact that has nothing to do with
+  # the file. MEASURED: a one-line edit to an unrelated skill moved `pack_newest`, and all six
+  # knowledge files failed on the next run though the repo, its code and its extraction had not
+  # changed. Re-running the refresh cannot clear that — only re-dating the files can, which trains
+  # exactly the `touch` this check exists to forbid. It also walks straight into C2n: regenerate
+  # to satisfy C2f and every replaced line is charged as KNOWLEDGE_LOSS (see
+  # scripts/test-audit-setup-c2n.sh, which pins the earlier round of this same collision).
+  #
+  # So: FAIL against the extraction substrate — the thing Phase 4.7 actually reads, and the thing
+  # whose movement means the knowledge really is behind. Keep the pack comparison as a WARN,
+  # because a framework change CAN change what a knowledge file should say; it just cannot be
+  # relied on to mean that.
+  extract_newest=0
+  for _e in "codebase-profile.md" "_codebase-scan.md" "_extracted-idioms.md" "_extracted-business.md"; do
+    _ep="$TARGET/.claude/$_e"
+    [[ -f "$_ep" ]] || continue
+    m=$(_mtime "$_ep")
+    [[ $m -gt $extract_newest ]] && extract_newest=$m
+  done
+
   if [[ $pack_newest -eq 0 ]]; then
     warn_msg "pack source root not found at $PACKS_ROOT — skipping knowledge-freshness check"
   else
@@ -1214,12 +1241,18 @@ if [[ "$MODE" != "create" ]]; then
         continue
       fi
       file_mtime=$(_mtime "$f")
+      # Extraction first — this is the one that FAILS.
+      if [[ $extract_newest -gt 0 && $file_mtime -lt $extract_newest ]]; then
+        err "STALE_KNOWLEDGE: $rel ($(_iso "$file_mtime")) older than this repo's extraction ($(_iso "$extract_newest")) — Phase 4.4/4.7 did not re-derive it from the current profile"
+        stale_count=$((stale_count + 1))
+        continue
+      fi
       if [[ $file_mtime -lt $pack_newest ]]; then
         # Format both timestamps for the message
         pack_iso=$(_iso "$pack_newest")
         file_iso=$(_iso "$file_mtime")
         if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
-          err "STALE_KNOWLEDGE: $rel ($file_iso) older than newest pack source ($pack_iso) — Phase 4.4/4.4b/4.7/4.7b silently skipped"
+          warn_msg "STALE_KNOWLEDGE(pack): $rel ($file_iso) older than newest pack source ($pack_iso). The pack is not an input to this file — check whether the framework change actually alters what it should say before regenerating"
         else
           warn_msg "STALE_KNOWLEDGE: $rel ($file_iso) older than newest pack source ($pack_iso) — consider /setup-project --refresh"
         fi
