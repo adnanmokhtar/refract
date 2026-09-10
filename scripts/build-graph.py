@@ -231,6 +231,11 @@ def run_ranker(root, repo):
         for line in err.splitlines():
             if line.startswith("NOT READ:"):
                 status["code"]["not_read"] = line
+            # A file-based router is the other way a project's real edges go missing, and it is
+            # the one most likely to be misread: an empty --who-breaks on a Nuxt page looks like
+            # "nothing depends on this" when it means "the router does".
+            elif line.startswith("NOT AN EDGE SOURCE:"):
+                status["code"]["routed"] = line
         if os.path.isfile(out):
             with open(out, encoding="utf-8") as fh:
                 for line in fh:
@@ -364,6 +369,8 @@ def print_stats(g, root):
             print("          %s" % st["error"].replace("\n", " ")[:200])
         if st.get("not_read"):
             print("          %s" % st["not_read"])
+        if st.get("routed"):
+            print("          %s" % st["routed"])
     print("")
     print("provenance: %s." % CORPORA[g.get("corpus", "self")]["note"])
     if g.get("corpus") == "project":

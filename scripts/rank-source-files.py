@@ -239,6 +239,37 @@ JS_ALIAS_CONFIGS = ("vite.config.ts", "vite.config.js", "vite.config.mjs",
 JS_ALIAS_HINT = re.compile(r'\balias\b|moduleNameMapper')
 
 
+# FILE-BASED ROUTING. A Nuxt page, a Next route, a SvelteKit +page — nothing imports it; the
+# FRAMEWORK reaches it by its path. Measured on a real Nuxt storefront: 19 of 19 files under
+# pages/ and 7 of 8 under server/ had zero importers, and every one of those zeroes was correct.
+# The danger is not the count, it is how the count READS: `--who-breaks pages/checkout.vue`
+# returning nothing looks exactly like "nothing depends on this" when it means "the router does,
+# and the router is not an import". Same for a component used only in a `<template>` under Nuxt's
+# auto-import — the SFC's <script> block holds no specifier for it, by design.
+#
+# Disclosed, never inferred: the check needs BOTH a framework config on disk AND the directory
+# that framework routes from, and it reports directories it actually found.
+ROUTED_FRAMEWORKS = (
+    ("nuxt", ("nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs"),
+     ("pages", "server/api", "server/routes", "layouts", "middleware")),
+    ("next", ("next.config.js", "next.config.ts", "next.config.mjs"),
+     ("pages", "app", "src/pages", "src/app")),
+    ("sveltekit", ("svelte.config.js", "svelte.config.ts"), ("src/routes",)),
+    ("remix", ("remix.config.js", "remix.config.ts"), ("app/routes",)),
+)
+
+
+def routed_blind_spots(root):
+    """(framework, [dirs]) when a file-based router owns part of this tree — else None."""
+    for name, configs, dirs in ROUTED_FRAMEWORKS:
+        if not any(os.path.isfile(os.path.join(root, c)) for c in configs):
+            continue
+        found = [d for d in dirs if os.path.isdir(os.path.join(root, d))]
+        if found:
+            return name, found
+    return None
+
+
 def alias_blind_spots(root):
     """Config files that look like they declare aliases and that nothing here can read."""
     out = []
@@ -402,6 +433,16 @@ def resolve(spec, rel, index, aliases=(), dart_pkg=None):
     return None
 
 
+def write_routed_disclosure(routed):
+    if not routed:
+        return
+    name, dirs = routed
+    sys.stderr.write("NOT AN EDGE SOURCE: %s routes from %s by FILE PATH, not by import. Files "
+                     "there having no importers is correct and is NOT a clearance to change them; "
+                     "a component used only inside a <template> under auto-import produces no "
+                     "specifier either.\n" % (name, "/, ".join(dirs) + "/"))
+
+
 def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("repo")
@@ -429,6 +470,7 @@ def main():
     aliases = path_aliases(root)
     dart_pkg = dart_package_name(root)
     blind = alias_blind_spots(root)
+    routed = routed_blind_spots(root)
     parseable = [f for f in files if f.endswith(SOURCE_EXT)]
 
     importers = {f: set() for f in files}          # file -> set of files importing it
@@ -456,6 +498,7 @@ def main():
             sys.stderr.write("NOT READ: %s declare aliases in JavaScript. Reading them means "
                              "executing JS; a regex scrape would be a guess. Edges through those "
                              "aliases are MISSING, not absent.\n" % ", ".join(blind))
+        write_routed_disclosure(routed)
         return 0
 
     rows = []
@@ -493,6 +536,7 @@ def main():
         sys.stderr.write("NOT READ: %s declare aliases in JavaScript. Reading them means executing "
                          "JS; a regex scrape would be a guess. Edges through those aliases are "
                          "MISSING, not absent.\n" % ", ".join(blind))
+    write_routed_disclosure(routed)
 
     if args.format == "json":
         print(json.dumps({

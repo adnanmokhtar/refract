@@ -260,6 +260,28 @@ dun2=$(python3 "$RANK" "$D" --format json 2>/dev/null | python3 -c 'import json,
 assert_eq "package:<other> is dropped once pubspec renames the package" "$dun2" "3"
 rm -rf "$D"
 
+# ---------- a file-based router is disclosed, not silently counted as "no dependents" ---------
+# On a real Nuxt storefront 19 of 19 files under pages/ had zero importers and every zero was
+# CORRECT — the router reaches them by path. The number is right; the way it reads is the danger.
+# The disclosure needs BOTH a framework config and its route dir, so a bare pages/ folder in a
+# project with no such config must stay silent.
+N=$(mktemp -d)
+mkdir -p "$N/pages" "$N/composables"
+echo 'export const useX = () => 1;' > "$N/composables/useX.ts"
+echo '<script setup lang="ts">import { useX } from "../composables/useX";</script>' > "$N/pages/index.vue"
+q=$(python3 "$RANK" "$N" --format list 2>&1 | grep -c 'NOT AN EDGE SOURCE')
+assert_eq "a pages/ dir with no framework config discloses nothing" "$q" "0"
+
+echo 'export default {}' > "$N/nuxt.config.ts"
+d=$(python3 "$RANK" "$N" --format list 2>&1 | grep -c 'NOT AN EDGE SOURCE: nuxt')
+assert_eq "nuxt.config.ts plus pages/ discloses the router" "$d" "1"
+dn=$(python3 "$RANK" "$N" --format list 2>&1 | grep 'NOT AN EDGE SOURCE' | grep -c 'pages/')
+assert_eq "the disclosure names the directory it found" "$dn" "1"
+# The disclosure must not invent a directory the project does not have.
+ds=$(python3 "$RANK" "$N" --format list 2>&1 | grep 'NOT AN EDGE SOURCE' | grep -c 'server/api/')
+assert_eq "a route dir that is absent is not named" "$ds" "0"
+rm -rf "$N"
+
 rm -rf "$W" "$P" "$A" "$J"
 echo "----"
 echo "rank-source-files: $pass passed, $fail failed"
