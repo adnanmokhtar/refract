@@ -399,24 +399,46 @@ run_with_packs() {
 }
 
 # 1. Pack coverage scan — scoped to detected/declared tracks
-echo "[1/4] pack-coverage-scan.sh"
+echo "[1/5] pack-coverage-scan.sh"
 run_with_packs "$SCRIPTS/pack-coverage-scan.sh"
 
 # 2. Refresh-extract checklist — skip in CREATE mode
 if [[ "$MODE" == "create" ]]; then
-  echo "[2/4] refresh-extract-checklist.sh — SKIPPED (CREATE mode has nothing to extract)"
+  echo "[2/5] refresh-extract-checklist.sh — SKIPPED (CREATE mode has nothing to extract)"
 else
-  echo "[2/4] refresh-extract-checklist.sh"
+  echo "[2/5] refresh-extract-checklist.sh"
   "$SCRIPTS/refresh-extract-checklist.sh" "$TARGET" $FORCE_FLAG 2>&1 | tail -2
 fi
 
 # 3. Study existing — always
-echo "[3/4] study-existing.sh"
+echo "[3/5] study-existing.sh"
 run_with_packs "$SCRIPTS/study-existing.sh"
 
 # 4. Deep codebase scan — always
-echo "[4/4] deep-codebase-scan.sh"
+echo "[4/5] deep-codebase-scan.sh"
 "$SCRIPTS/deep-codebase-scan.sh" "$TARGET" $FORCE_FLAG 2>&1 | tail -2
+
+# 5. Warm the import graph — ADVISORY, never fails preflight.
+# This was written as a step for the AGENT to run and so it did not run: three real setups
+# finished green with no `.claude/_graph.json`, the blast-radius hook `exit 0`-ing on every edit
+# for the life of the project because the file it reads was never created. A cache the whole
+# session depends on cannot be left to a markdown instruction.
+echo "[5/5] build-graph.py --corpus=project (advisory)"
+if command -v python3 >/dev/null 2>&1 && [ -f "$SCRIPTS/build-graph.py" ]; then
+  if graph_out=$(python3 "$SCRIPTS/build-graph.py" \
+        --corpus=project --repo="$TARGET" --stats 2>&1); then
+    printf '%s\n' "$graph_out" | grep -E '^(nodes|built from)' | sed 's/^/  /'
+    # A disclosed blind spot is worth more than a green line: 0 edges on a repo with sources
+    # means the resolver read nothing, and that has to reach the summary, not just the cache.
+    printf '%s\n' "$graph_out" | grep -E 'NOT READ' | sed 's/^/  /' || true
+    printf '%s\n' "$graph_out" | grep -qE '^nodes: 0 ' && \
+      echo "  NOTE: 0 nodes — aliases may live in a JS config, or the stack is not resolved yet."
+  else
+    echo "  skipped — build-graph.py exited non-zero (advisory, not a preflight failure)"
+  fi
+else
+  echo "  skipped — python3 or build-graph.py unavailable (advisory)"
+fi
 
 echo ""
 echo "=== preflight complete ==="

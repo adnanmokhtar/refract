@@ -402,7 +402,8 @@ on the count; drop size+mtime from the fingerprint and case 4 goes red on the ca
 3. **`--corpus=project` is derived, not verified, and the gap is not symmetric.** Its edges come
    from `rank-source-files.py` resolving real import statements — deterministic, no model — but no
    gate in this repo runs over that code, so nothing re-checks the resolver. Three ways an edge
-   can be missing there: a language that is not TS/JS or Python; a specifier built at runtime
+   can be missing there: a language outside TS/JS, Vue/Svelte, Python and Dart; a specifier built
+   at runtime
    (dynamic `import()`, a DI container, a string-joined path); and an import of a package that
    genuinely is external. Only the last is correct to omit. **`--who-breaks` returning nothing
    means "no edge resolved", never "safe to change"** — and the two are indistinguishable from

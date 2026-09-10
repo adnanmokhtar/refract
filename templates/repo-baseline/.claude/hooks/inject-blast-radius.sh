@@ -108,7 +108,8 @@ out.append("Source: .claude/_graph.json, which is fingerprinted and may be one o
            "behind. Treat these counts as the order of magnitude, not the exact set; run "
            "`python3 ~/.claude/scripts/build-graph.py --corpus=project --repo=. "
            "--who-breaks %s` for a fresh answer." % target)
-out.append("Edges are resolved imports only. Dynamic imports, DI containers and non-TS/JS/Python "
+out.append("Edges are resolved imports only. Dynamic imports, DI containers and sources outside "
+           "TS/JS, Vue/Svelte, Python and Dart "
            "sources produce none, so this is a floor on the blast radius, never a ceiling.")
 print("\n".join(out))
 PY

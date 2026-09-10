@@ -6,6 +6,46 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The graph that reached no project (2026-09-10)
+
+`build-graph.py --corpus=project` exists so an agent can size a blast radius without reading
+files. Asked why a real Vue repo had no `.claude/_graph.json`, the answer turned out to be that
+the project half of the graph had **never run anywhere**. Three independent causes.
+
+**The warm was an instruction, so it did not happen.** `phase-4.0-preflight.md` told the AGENT to
+run the build. Three real setups — a Vue SPA, a NestJS monorepo and a Flutter app — finished
+`PASS, fail: 0` with no graph file, and `inject-blast-radius.sh` therefore hit its
+`[ -f "$GRAPH" ] || exit 0` on every edit for the life of those projects. It is now step **5/5 of
+`run-preflight.sh`**: advisory, so it can print `skipped`, but it can no longer be skipped. The
+phase file now tells the agent to READ what preflight printed, and that `0 nodes` on a repo with
+sources is a finding to surface, not a blank.
+
+**`/*` inside a JSON string ate the alias table.** `re.compile(r'/\*.*?\*/', re.S)` cannot know
+it is inside a string. `"paths": { "@/*": ["src/*"] }` opened a block comment at the alias KEY
+that ran to the next real `*/` and swallowed `compilerOptions`; the file then failed to parse and
+degraded silently to "declares no aliases" — on the stock Vite/Vue/React tsconfig, the most common
+one there is. Two copies had it: `rank-source-files.py` and the inline python in
+`module-boundaries.sh`, which meant the BOUNDARY hook was waving through every aliased import it
+exists to check. Both now use a string-aware scanner. The fixture could not have caught this: it
+carried a `//` comment only, and the bug needs a `paths` key AND a later block comment. It now
+carries both, and fails against the old parser.
+
+**TS/JS + Python was the whole resolver.** Added `.vue`/`.svelte` — the `<script>` block only, so
+a template `href` and a `<style> @import` do not become specifiers — and `.dart`, where
+`package:<self>/` resolves through pubspec's `name` while `dart:` and every other `package:` must
+resolve to nothing. Measured on real repos: the Vue app went 381 → **1834** edges, the Flutter app
+0 → **1648**. `module-boundaries.sh` accepts the same extensions, with Dart's specifier grammar
+handled separately because a bare `models/x.dart` is relative to the FILE there, not to a source
+root — resolving it as rooted could refuse a legitimate write.
+
+**Why the language gap stayed invisible:** `build-graph.py` kept its own COPY of
+`SOURCE_EXT`/`PRUNE`, and the project fingerprint hashed project files only. So the ranker learned
+`.vue` while the cache still matched and served the old graph as current. `build-graph.py` now
+imports the ranker by path, and the project fingerprint includes both scripts' size+mtime — the
+producer is an input to its own output.
+
+8 new assertions in `test-rank-source-files.sh` (26 total), 3 new hook cases (89 total).
+
 ### The delivery run: the engine that never ran, and the citation that got worse (2026-08-23)
 
 The merge engine landed on 2026-08-23 and was then run against the two live product repos for

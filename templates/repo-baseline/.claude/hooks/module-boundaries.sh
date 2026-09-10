@@ -87,7 +87,7 @@ fi
 [ -z "$content" ] && exit 0
 
 case "$file_path" in
-  *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.mts|*.cts|*.py) ;;
+  *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs|*.mts|*.cts|*.py|*.vue|*.svelte|*.dart) ;;
   *) exit 0 ;;
 esac
 
@@ -147,16 +147,43 @@ ALIASES=""
 if command -v python3 >/dev/null 2>&1; then
   ALIASES=$(python3 - <<'PYEOF' 2>/dev/null || true
 import json, os, re, sys
-BLOCK = re.compile(r'/\*.*?\*/', re.S)
-LINE = re.compile(r'(?m)(?<![:"\w])//[^\n]*')
 COMMA = re.compile(r',(\s*[}\]])')
+
+def strip_comments(raw):
+    # A scanner, not a regex: `"paths": { "@/*": ["src/*"] }` puts a literal /* inside a STRING,
+    # and a regex stripper let it open a block comment that ran to the next real */ and ate
+    # compilerOptions. The file then failed to parse and this hook read ZERO alias rules on the
+    # stock Vite/Vue/React tsconfig — waving through every aliased import it exists to check.
+    out, i, n = [], 0, len(raw)
+    while i < n:
+        c = raw[i]
+        if c == '"':
+            out.append(c); i += 1
+            while i < n:
+                c = raw[i]; out.append(c); i += 1
+                if c == "\\" and i < n:
+                    out.append(raw[i]); i += 1
+                elif c == '"':
+                    break
+            continue
+        if c == "/" and i + 1 < n:
+            if raw[i + 1] == "/":
+                while i < n and raw[i] != "\n":
+                    i += 1
+                continue
+            if raw[i + 1] == "*":
+                end = raw.find("*/", i + 2)
+                i = n if end == -1 else end + 2
+                continue
+        out.append(c); i += 1
+    return "".join(out)
 
 def read(path):
     try:
         raw = open(path, encoding="utf-8", errors="replace").read()
     except OSError:
         return None
-    raw = COMMA.sub(r"\1", LINE.sub("", BLOCK.sub("", raw)))
+    raw = COMMA.sub(r"\1", strip_comments(raw))
     try:
         return json.loads(raw)
     except ValueError:
@@ -299,8 +326,32 @@ specs=$(
 
 dir_of_file=$(dirname "$rel_path")
 
+# pubspec's `name` is the ONLY thing that separates this app's own `package:` imports from a
+# dependency's. Without it the hook either blocks on flutter/ (which is not in this repo) or
+# resolves nothing at all. Read once, at column 0, so a nested `name:` cannot stand in for it.
+DART_PKG=""
+if [ -f "pubspec.yaml" ]; then
+  DART_PKG=$(sed -n 's/^name:[[:space:]]*["'"'"']\{0,1\}\([A-Za-z_][A-Za-z0-9_]*\).*/\1/p' \
+             pubspec.yaml | head -1)
+fi
+
 resolve() {  # specifier → normalised repo path, or empty when unresolvable
   local s="$1" a=""
+  # Dart first: its specifier grammar shares no shape with the TS one below. A bare
+  # `models/x.dart` is relative to the importing FILE in Dart, not rooted at a source dir —
+  # treating it as rooted would aim the boundary check at a different file and could refuse a
+  # legitimate write, which is the one failure this hook must not have.
+  case "$file_path" in
+    (*.dart)
+      case "$s" in
+        dart:*) printf '' ;;
+        "package:$DART_PKG/"*)
+          [ -n "$DART_PKG" ] && norm "lib/${s#package:$DART_PKG/}" || printf '' ;;
+        package:*) printf '' ;;                 # a dependency, not a file in this repo
+        *) canon "$dir_of_file/$s" | sed 's|^src/||; s|^app/||; s|^lib/||' ;;
+      esac
+      return 0 ;;
+  esac
   # The config table first, and only for non-relative specifiers: a relative path is already
   # unambiguous, and no `paths` key may override it. When several targets share a key the FIRST
   # is taken, matching the order tsc tries them. That can only ever under-resolve, which for a
@@ -366,7 +417,7 @@ while IFS= read -r rule; do
       # An import is written the way TypeScript/JS require — no extension, and a directory when the
       # target is its index. Comparing the two literally rejects the one path the rule permits, so
       # both sides are compared extension-free, and an `index` facade also answers to its directory.
-      f_base=$(printf '%s' "$f_path" | sed -E 's/\.(ts|tsx|js|jsx|mjs|cjs|py)$//')
+      f_base=$(printf '%s' "$f_path" | sed -E 's/\.(ts|tsx|js|jsx|mjs|cjs|py|vue|svelte|dart)$//')
       f_dir=""
       case "$f_base" in */index) f_dir="${f_base%/index}" ;; esac
       for s in $specs; do

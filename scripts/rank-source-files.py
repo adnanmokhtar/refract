@@ -53,7 +53,14 @@ import sys
 
 TS_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts")
 PY_EXT = (".py",)
-SOURCE_EXT = TS_EXT + PY_EXT
+# A single-file component holds its imports inside a <script> block, so it is a TS file wearing a
+# different extension — the ONE difference is that the block has to be cut out first (a template
+# or a <style> can contain text that looks like an import). Left out, a Vue or Svelte app loses
+# most of its own files: `.ts` alone covered 256 of 594 files on the first real frontend tried.
+SFC_EXT = (".vue", ".svelte")
+# Dart has its own specifier grammar (`package:<self>/x.dart`), resolved against pubspec's `name`.
+DART_EXT = (".dart",)
+SOURCE_EXT = TS_EXT + PY_EXT + SFC_EXT + DART_EXT
 PRUNE = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".next",
          ".mypy_cache", ".pytest_cache", "vendor", "target", ".tox", "coverage"}
 TEST_HINT = re.compile(r'(^|/)(tests?|__tests__|spec)(/|$)|\.(test|spec)\.[a-z]+$|(^|/)test_[^/]+\.py$')
@@ -63,6 +70,10 @@ TS_IMPORT = re.compile(r"""(?:^|[\s;{(=])(?:import|export)\s[^'"]*?from\s*['"]([
                        r"""|\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)"""
                        r"""|\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)""", re.M)
 PY_IMPORT = re.compile(r'^[ \t]*(?:from[ \t]+([.\w]+)[ \t]+import|import[ \t]+([.\w]+))', re.M)
+# `part` is included: it is how a Dart library is split across files, and the generated half
+# (`*.g.dart`, `*.freezed.dart`) is a real dependency that breaks when the declaring file moves.
+DART_IMPORT = re.compile(r"""^[ \t]*(?:import|export|part)[ \t]+['"]([^'"]+)['"]""", re.M)
+SFC_SCRIPT = re.compile(r'<script\b[^>]*>(.*?)</script\s*>', re.S | re.I)
 
 
 def walk(root, include_tests):
@@ -90,6 +101,12 @@ def read(path):
 def specifiers(rel, text):
     if rel.endswith(PY_EXT):
         return [a or b for a, b in PY_IMPORT.findall(text) if (a or b)]
+    if rel.endswith(DART_EXT):
+        return DART_IMPORT.findall(text)
+    if rel.endswith(SFC_EXT):
+        # Only the <script> blocks. Scanning the whole SFC would read `@import` in <style> and any
+        # string in the template as a specifier, and a wrong edge is worse than a missing one.
+        text = "\n".join(SFC_SCRIPT.findall(text))
     return [next(g for g in m if g) for m in TS_IMPORT.findall(text)]
 
 
@@ -98,9 +115,48 @@ def specifiers(rel, text):
 # file. Reading that file is deterministic: it is the same table the compiler and bundler use. When
 # it is missing, unparseable, or has no `paths`, aliases stay empty and resolution behaves exactly
 # as it did before — silent, never inventing a target.
-JSONC_BLOCK = re.compile(r'/\*.*?\*/', re.S)
-JSONC_LINE = re.compile(r'(?m)(?<![:"\w])//[^\n]*')
 TRAILING_COMMA = re.compile(r',(\s*[}\]])')
+
+
+def _strip_jsonc_comments(raw):
+    """Remove // and /* */ comments, skipping over string literals.
+
+    This is a scanner and not a regex on purpose. A regex cannot know it is inside a string, and
+    the alias table is written `"paths": { "@/*": ["src/*"] }` — the `/*` in that key opened a
+    block comment that ran to the next real `*/` in the file and swallowed the whole
+    compilerOptions object. Every tsconfig that has BOTH a `paths` entry and a block comment (the
+    stock Vite/Vue/React template has both) parsed as invalid JSON and silently yielded zero alias
+    rules, which reads downstream as "this project declares no aliases".
+    """
+    out = []
+    i, n = 0, len(raw)
+    while i < n:
+        c = raw[i]
+        if c == '"':
+            out.append(c)
+            i += 1
+            while i < n:
+                c = raw[i]
+                out.append(c)
+                i += 1
+                if c == "\\" and i < n:
+                    out.append(raw[i])
+                    i += 1
+                elif c == '"':
+                    break
+            continue
+        if c == "/" and i + 1 < n:
+            if raw[i + 1] == "/":
+                while i < n and raw[i] != "\n":
+                    i += 1
+                continue
+            if raw[i + 1] == "*":
+                end = raw.find("*/", i + 2)
+                i = n if end == -1 else end + 2
+                continue
+        out.append(c)
+        i += 1
+    return "".join(out)
 
 
 def _read_jsonc(path):
@@ -109,9 +165,7 @@ def _read_jsonc(path):
             raw = fh.read()
     except OSError:
         return None
-    raw = JSONC_BLOCK.sub("", raw)
-    raw = JSONC_LINE.sub("", raw)
-    raw = TRAILING_COMMA.sub(r"\1", raw)
+    raw = TRAILING_COMMA.sub(r"\1", _strip_jsonc_comments(raw))
     try:
         return json.loads(raw)
     except ValueError:
@@ -201,6 +255,18 @@ def alias_blind_spots(root):
     return out
 
 
+def dart_package_name(root):
+    """pubspec.yaml's `name:` — the only thing that tells `package:x/y.dart` apart from a
+    third-party package. No YAML parser is needed or wanted: `name` is a top-level scalar, and a
+    regex that only accepts a column-0 key cannot be fooled by a nested one."""
+    try:
+        with open(os.path.join(root, "pubspec.yaml"), encoding="utf-8", errors="replace") as fh:
+            m = re.search(r'^name:[ \t]*["\']?([A-Za-z_][A-Za-z0-9_]*)', fh.read(200000), re.M)
+    except OSError:
+        return None
+    return m.group(1) if m else None
+
+
 def path_aliases(root, _depth=0, _file=None):
     """[(prefix, suffix, [target templates])] from tsconfig/jsconfig `paths`, longest first.
 
@@ -277,10 +343,23 @@ def apply_aliases(spec, aliases):
     return out
 
 
-def resolve(spec, rel, index, aliases=()):
+def resolve(spec, rel, index, aliases=(), dart_pkg=None):
     """Specifier → a repo-relative source path, or None. Never guesses."""
     here = os.path.dirname(rel)
-    if rel.endswith(PY_EXT):
+    if rel.endswith(DART_EXT):
+        if spec.startswith("dart:"):
+            return None                       # SDK library, never a file in this repo
+        if spec.startswith("package:"):
+            pkg, _, tail = spec[len("package:"):].partition("/")
+            # `package:` names THIS package only when pubspec says so; every other name is a
+            # dependency, and inventing an edge for it would point at a file that is not here.
+            if not tail or dart_pkg is None or pkg != dart_pkg:
+                return None
+            candidates = ["lib/" + tail]
+        else:
+            # Dart relative imports are relative to the importing FILE, with or without `./`.
+            candidates = [os.path.normpath(os.path.join(here, spec)).replace(os.sep, "/")]
+    elif rel.endswith(PY_EXT):
         if spec.startswith("."):
             up = len(spec) - len(spec.lstrip("."))
             base = here
@@ -310,7 +389,7 @@ def resolve(spec, rel, index, aliases=()):
             _, ext = os.path.splitext(cand)
             if ext in SOURCE_EXT:
                 candidates.append(cand)
-            for e in TS_EXT:
+            for e in TS_EXT + SFC_EXT:
                 candidates.append(cand + e)
                 candidates.append(cand + "/index" + e)
     for c in candidates:
@@ -348,6 +427,7 @@ def main():
     files = walk(root, args.include_tests)
     index = set(files)
     aliases = path_aliases(root)
+    dart_pkg = dart_package_name(root)
     blind = alias_blind_spots(root)
     parseable = [f for f in files if f.endswith(SOURCE_EXT)]
 
@@ -356,7 +436,7 @@ def main():
     unresolved = 0
     for f in parseable:
         for spec in specifiers(f, read(os.path.join(root, f))):
-            tgt = resolve(spec, f, index, aliases)
+            tgt = resolve(spec, f, index, aliases, dart_pkg)
             if tgt is None or tgt == f:
                 unresolved += 1
                 continue

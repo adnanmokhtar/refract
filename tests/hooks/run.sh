@@ -186,6 +186,8 @@ seed_boundaries_project() {
 | orders | `src/orders/` | order lifecycle | createOrder | auth |
 | billing | `src/billing/` | invoicing | chargeCard | auth |
 | shared | `src/shared/` | primitives | Money | — |
+| orders_app | `lib/src/orders/` | order lifecycle (Dart) | createOrder | auth |
+| billing_app | `lib/src/billing/` | invoicing (Dart) | chargeCard | auth |
 
 ## Module boundaries (which modules MUST NOT import which)
 
@@ -193,11 +195,18 @@ seed_boundaries_project() {
 - `<module-A>` MAY import from `<module-B>` only via `<facade-or-port>`
 - `orders` MUST NOT import from `billing` — reason: billing owns money movement; orders asks via events
 - `billing` MAY import from `shared` only via `src/shared/index.ts`
+- `orders_app` MUST NOT import from `billing_app` — reason: same rule, stated in Dart paths
 FIXEOF
   # A RENAMING alias: `@app/*` resolves to `src/*` only because this file says so. Without it the
   # hook cannot tell `@app/billing/charge` from a scoped npm package, and cases 18 and 20 —
   # crossings written the way this project's code actually writes them — walk straight through.
   # `@vendor/*` is deliberately absent, so case 19 proves an undeclared prefix stays external.
+  # The BLOCK comment after `paths` is load-bearing, not decoration. A regex comment-stripper
+  # cannot tell it is inside a string, so the `/*` in the alias KEY opened a comment that ran to
+  # this `*/` and swallowed compilerOptions — the file then failed to parse and the hook read
+  # ZERO alias rules on the single most common tsconfig shape in the ecosystem. With only a `//`
+  # comment (what this fixture had) the bug cannot appear, and cases 18-20 passed against a hook
+  # that was blind on every real Vite/Vue/React project.
   cat > "$proj/tsconfig.json" <<'TSEOF'
 {
   // trailing comma and comment on purpose: real tsconfig files carry both
@@ -205,7 +214,9 @@ FIXEOF
     "baseUrl": ".",
     "paths": {
       "@app/*": ["src/*"],
-    }
+    },
+    /* Linting */
+    "strict": true
   }
 }
 TSEOF
@@ -224,6 +235,9 @@ TSEOF
   }
 }
 PJEOF
+  # Dart's `package:<self>/x.dart` is this repo; `package:flutter/...` is not. Only pubspec's
+  # `name` separates them, so cases 22-24 are meaningless without it.
+  printf 'name: boundaries_fixture\ndescription: fixture\n' > "$proj/pubspec.yaml"
   return 0
 }
 

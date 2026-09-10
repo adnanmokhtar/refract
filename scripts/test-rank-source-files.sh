@@ -182,6 +182,84 @@ assert_eq "a JS alias config is reported as unread, not silently ignored" "$warn
 named=$(python3 "$RANK" "$J" --format list 2>&1 | grep 'NOT READ' | grep -c 'vite.config.ts')
 assert_eq "the disclosure names the file" "$named" "1"
 
+# ---------- the stock tsconfig: `"@/*": ["src/*"]` next to a block comment -------------------
+# A regex comment-stripper has no idea it is inside a string, so the `/*` in the alias KEY opened
+# a block comment that ran to the next real `*/` and swallowed compilerOptions. The file then
+# failed to parse and degraded to "declares no aliases" — silently, on the single most common
+# tsconfig in the TS ecosystem. Both halves have to be present for the bug to appear.
+V=$(mktemp -d)
+mkdir -p "$V/src/components"
+cat > "$V/tsconfig.json" <<'JSON'
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+    /* Linting */
+    "strict": true
+  }
+}
+JSON
+echo 'export const t = 1;' > "$V/src/components/token.ts"
+echo 'import { t } from "@/components/token";' > "$V/src/main.ts"
+ar=$(python3 "$RANK" "$V" --format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["alias_rules"])')
+assert_eq "a paths key containing /* does not eat the block comment after it" "$ar" "1"
+
+# ---------- single-file components are source, not opaque assets ------------------------------
+# `.ts` alone covered under half the files of the first real Vue app this was run on. A component
+# that imports a token file is an edge; without it the hub ranking is drawn from a minority of
+# the codebase. Only the <script> block is read — a template string or a <style> `@import` must
+# not become a specifier.
+cat > "$V/src/components/Button.vue" <<'VUE'
+<template><a href="./not-an-import.ts">@/components/decoy</a></template>
+<script setup lang="ts">
+import { t } from "@/components/token";
+import Card from "./Card.vue";
+</script>
+<style>@import "./theme.css";</style>
+VUE
+echo '<script setup lang="ts">import { t } from "@/components/token";</script>' > "$V/src/components/Card.vue"
+vtop=$(python3 "$RANK" "$V" --format list 2>/dev/null | head -1)
+assert_eq "a .vue importer makes the token file the top hub" "$vtop" "src/components/token.ts"
+vimp=$(python3 "$RANK" "$V" --format json 2>/dev/null \
+  | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["rows"] if x["path"]=="src/components/Card.vue"][0]; print(r["importers"], r["imports"])')
+assert_eq "Button.vue -> Card.vue resolves, and Card.vue imports exactly one file" "$vimp" "1 1"
+vdec=$(python3 "$RANK" "$V" --format json 2>/dev/null \
+  | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["rows"] if x["path"]=="src/components/Button.vue"][0]; print(r["imports"])')
+assert_eq "the template href and the <style> @import are not read as specifiers" "$vdec" "2"
+rm -rf "$V"
+
+# ---------- Dart: `package:<self>` is an edge, `package:<other>` is not ----------------------
+# The distinction exists only in pubspec.yaml's `name`. Without it every package: line is either
+# all edges (wrong: flutter/ is not in this repo) or none (wrong: the app's own lib/ is).
+D=$(mktemp -d)
+mkdir -p "$D/lib/src/core/theme" "$D/lib/src/features"
+printf 'name: tenant_app
+description: x
+' > "$D/pubspec.yaml"
+echo 'class AppColors {}' > "$D/lib/src/core/theme/app_colors.dart"
+cat > "$D/lib/src/features/home_screen.dart" <<'DART'
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:tenant_app/src/core/theme/app_colors.dart';
+part 'home_screen.g.dart';
+DART
+echo '// generated' > "$D/lib/src/features/home_screen.g.dart"
+dtop=$(python3 "$RANK" "$D" --format list 2>/dev/null | head -1)
+assert_eq "the theme file a package:<self> import names is the top hub" "$dtop" "lib/src/core/theme/app_colors.dart"
+dun=$(python3 "$RANK" "$D" --format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "dart: and a third-party package: are unresolved, not guessed into edges" "$dun" "2"
+dpart=$(python3 "$RANK" "$D" --format json 2>/dev/null \
+  | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["rows"] if x["path"]=="lib/src/features/home_screen.g.dart"][0]; print(r["importers"])')
+assert_eq "a part file is a dependent of the library that declares it" "$dpart" "1"
+
+# A pubspec whose name does not match makes the SAME line unresolvable — proving the edge came
+# from the declared package name and not from a `package:` prefix rule.
+printf 'name: something_else
+' > "$D/pubspec.yaml"
+dun2=$(python3 "$RANK" "$D" --format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_specifiers"])')
+assert_eq "package:<other> is dropped once pubspec renames the package" "$dun2" "3"
+rm -rf "$D"
+
 rm -rf "$W" "$P" "$A" "$J"
 echo "----"
 echo "rank-source-files: $pass passed, $fail failed"

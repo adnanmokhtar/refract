@@ -20,7 +20,8 @@ TWO CORPORA, ONE ENGINE — the same split scripts/pack-search.py already makes.
   --corpus=self     (default) THIS repo's markdown. Edges come from the two gates below, so
                     every edge in it is one CI enforces.
   --corpus=project  a CONSUMING project's SOURCE CODE, via scripts/rank-source-files.py, which
-                    resolves TS/JS and Python imports from the AST. Cached in that project's
+                    resolves TS/JS, Vue/Svelte SFC, Python and Dart imports from the AST.
+                    Cached in that project's
                     own .claude/ tree, never here.
 
   python3 scripts/build-graph.py --corpus=project --repo=/path/to/app --stats
@@ -87,17 +88,45 @@ CORPORA = {
                 "unresolved specifiers dropped and counted; but no gate re-checks them",
     },
 }
-SOURCE_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".py")
-PRUNE = {".git", "node_modules", "__pycache__", ".venv", "venv", "dist", "build", ".next",
-         ".claude", "tmp", "coverage", "vendor", "target"}
-# Read by lint-import-edges.sh to suppress claims it cannot verify. Its content changes which
-# edges are emitted, so it belongs in the fingerprint even though it is not markdown.
-EXTRA_INPUTS = ("scripts/_import-edge-baseline.txt",)
-
-
 def repo_root():
     here = os.path.realpath(__file__)
     return os.path.dirname(os.path.dirname(here))
+
+
+RANKER_REL = "scripts/rank-source-files.py"
+
+
+def _ranker():
+    """The ranker module, loaded by path because its filename is not an identifier.
+
+    Its SOURCE_EXT and PRUNE were copied here once and then drifted: the ranker learned `.vue`
+    and `.dart` while this copy still listed TS/JS/Python, so the fingerprint watched a narrower
+    set of files than the producer parsed — editing a `.vue` left a stale cache that looked
+    fresh. One definition, imported, cannot drift again. Importing runs only module-level code;
+    everything the ranker does lives inside main().
+    """
+    import importlib.util
+    path = os.path.join(repo_root(), RANKER_REL)
+    spec = importlib.util.spec_from_file_location("_rank_source_files", path)
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except (OSError, SyntaxError):
+        return None
+    return mod
+
+
+_RANKER = _ranker()
+# The fallbacks apply only when the ranker cannot be loaded, in which case --corpus=project
+# already cannot produce edges; they keep the walk from crashing rather than standing in for it.
+SOURCE_EXT = getattr(_RANKER, "SOURCE_EXT",
+                     (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".py"))
+PRUNE = getattr(_RANKER, "PRUNE", set()) | {".claude", "tmp", "coverage"}
+# Read by lint-import-edges.sh to suppress claims it cannot verify. Its content changes which
+# edges are emitted, so it belongs in the fingerprint even though it is not markdown.
+EXTRA_INPUTS = ("scripts/_import-edge-baseline.txt",)
 
 
 def project_source_files(repo):
@@ -136,6 +165,17 @@ def source_files(root, corpus="self", repo=None):
 def fingerprint(root, files, corpus="self"):
     h = hashlib.sha256()
     h.update(("build-graph/%d/%s\n" % (GRAPH_FORMAT, corpus)).encode())
+    if corpus == "project":
+        # The PRODUCER is an input too. Teaching the ranker a new language changed which edges
+        # exist while every project file stayed byte-identical, so the cache still matched and a
+        # graph built by the old resolver was served as current.
+        for prod in (RANKER_REL, os.path.relpath(os.path.realpath(__file__), repo_root())):
+            try:
+                st = os.stat(os.path.join(repo_root(), prod))
+            except OSError:
+                h.update(("producer|%s|missing\n" % prod).encode())
+                continue
+            h.update(("producer|%s|%d|%d\n" % (prod, st.st_size, st.st_mtime_ns)).encode())
     for rel in files:
         st = os.stat(os.path.join(root, rel))
         h.update(("%s|%d|%d\n" % (rel, st.st_size, st.st_mtime_ns)).encode())
@@ -331,8 +371,9 @@ def print_stats(g, root):
         print("READ THIS BEFORE TRUSTING AN EMPTY ANSWER. An edge exists here only where a")
         print("specifier RESOLVED to a file in this project. Dynamic imports, string-built")
         print("paths, DI containers, build aliases that rename rather than shorten, and every")
-        print("language that is not TS/JS or Python produce no edge at all. `--who-breaks`")
-        print("returning nothing means 'no import edge was resolved', never 'safe to change'.")
+        print("language outside TS/JS, Vue/Svelte, Python and Dart produce no edge at all.")
+        print("`--who-breaks` returning nothing means 'no import edge was resolved', never")
+        print("'safe to change'.")
     else:
         print("")
         print("not in this graph, by design: any claim its gate could not verify — a baselined")

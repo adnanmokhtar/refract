@@ -60,7 +60,7 @@ POSIX shell. Must be executable. Common hooks:
 - `post-edit-check.sh` / `format-on-save.sh` / `auto-test.sh` — run after Edit/Write/MultiEdit (lint/typecheck, format, run matching test; `auto-test` is opt-in via `.claude/.auto-test`).
 - `pre-edit-guard.sh` — blocks edits to sensitive/generated/binary paths (.env, keys/certs, lock files, `*.gen.*`/`*.min.*`, build output, hook scripts).
 - `secret-scan.sh` — blocks writes that introduce credentials (keys, tokens, connection strings).
-- `module-boundaries.sh` — blocks an edit whose new import crosses a boundary declared in `ai/modules.md` (`A MUST NOT import from B`, `A MAY import from B only via <facade>`). Reads the incoming edit; TS/JS + Python only; silent when no boundary is declared.
+- `module-boundaries.sh` — blocks an edit whose new import crosses a boundary declared in `ai/modules.md` (`A MUST NOT import from B`, `A MAY import from B only via <facade>`). Reads the incoming edit; TS/JS, Vue/Svelte, Python and Dart; silent when no boundary is declared.
 - `inject-path-rules.sh` — context-only; injects a `paths:`-scoped rule from `.claude/rules/` when an edit touches a file it governs (once/session).
 - `inject-blast-radius.sh` — context-only; when an edit touches a file with >=5 direct importers, injects the dependent count, the per-hop shape and the direct importers from `.claude/_graph.json` (once per file per session).
 - `guard-destructive.sh` — second-layer block on destructive bash (protected-branch/force push, `rm -rf`, DB drops, `curl|sh`, `dd`/`mkfs`).
