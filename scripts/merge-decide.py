@@ -106,10 +106,45 @@ _BAREREF = re.compile(
 )
 _REFBACKTICK = re.compile(r"`(«REF:[^»]+»)`")
 
+# THE SAME PROBLEM AS _SNIPREF, ONE KIND WIDER — and it appeared the moment the deploy rewriter
+# learned more kinds. A pack writes `](../skills/x.md)`; `--migrate-skill-shape` makes the
+# installed file `skills/x/SKILL.md` and the rewriter retargets the link; a pack writes
+# `](../../performance/ai-patterns/y.md)` and the rewriter drops the pack namespace and points at
+# `ai/patterns/`. Every one of those is the framework rewriting its OWN reference, and without a
+# canonical spelling C2n reads the rewritten line as a line the merge deleted. MEASURED on a
+# turborepo: 4 KNOWLEDGE_LOSS lines in `.claude/commands/refactor.md`, all four of them link
+# repairs, nothing lost.
+#
+# A skill collapses to its NAME, not to its basename: `skills/x.md` and `skills/x/SKILL.md` share
+# no basename, and collapsing on `SKILL.md` would make every skill in the tree the same reference.
+_PATHPFX = r"(?:~/)?(?:\.\./)*(?:[A-Za-z0-9_.-]+/)*"
+# NOTE the name: `_SKILLREF` is already taken further down (a different, narrower regex),
+# and defining this one at module level under that name was silently overwritten by it.
+_DEPLOY_SKILLREF = re.compile(_PATHPFX + r"skills/([A-Za-z0-9_-]+)(?:/SKILL\.md|\.md)")
+# Only Refract's OWN commands — `](../../../../commands/x.md)` from a pack overlay, rewritten to
+# `~/.claude/commands/x.md` on deploy. A pack-sibling `../commands/x.md` is NOT this: it names a
+# command that really does deploy into `.claude/commands/`, and folding it would hide a project
+# citation from the two-condition test.
+_FRAMEWORK_CMDREF = re.compile(r"(?:~/\.claude/|(?:\.\./){4})commands/([A-Za-z0-9._-]+\.md)")
+
+# ai-patterns folds to the DEPLOYED SPELLING, not to a basename, and only when a `../` chain says
+# the reference is a relative one the rewriter retargets. `](../ai-patterns/x.md)` and
+# `](../../performance/ai-patterns/x.md)` (pack forms) and `](../../ai/patterns/x.md)` (what the
+# rewriter produces) all name one file and all become `ai/patterns/x.md`.
+#
+# A BARE `ai/patterns/x.md` — the way an owner writes a citation in prose — is left exactly as it
+# is. That distinction is the whole point: collapsing it to `x.md` let the pack corpus account for
+# a project citation and opened an OVERRIDE that test-merge-decide.sh § fallback refuses.
+_DEPLOY_PATTERNREF = re.compile(
+    r"(?:\.\./)+(?:(?!ai-patterns/|ai/patterns/)[A-Za-z0-9_.-]+/)?(?:ai-patterns|ai/patterns)/([A-Za-z0-9._-]+\.md)")
+
 
 def canon(line):
     """One canonical spelling of a line, for provenance lookup only."""
     line = _SNIPREF.sub(lambda m: "«REF:" + m.group(1).rsplit("/", 1)[-1] + "»", line)
+    line = _DEPLOY_SKILLREF.sub(lambda m: "«REF:skill:" + m.group(1) + "»", line)
+    line = _FRAMEWORK_CMDREF.sub(lambda m: "«REF:cmd:" + m.group(1) + "»", line)
+    line = _DEPLOY_PATTERNREF.sub(lambda m: "ai/patterns/" + m.group(1), line)
     line = _BAREREF.sub(lambda m: "«REF:" + m.group(2) + "»", line)
     line = _REFBACKTICK.sub(r"\1", line)
     return line.rstrip()
@@ -130,6 +165,29 @@ def canon_token(tok):
     m = _BAREREF.search(tok)
     if m:
         return m.group(1) + "/" + m.group(2)
+    # The same three-spellings problem the docstring describes, for the kinds the deploy rewriter
+    # learned later. `](../../../../commands/refactor.md)` becomes `~/.claude/commands/…`;
+    # `](../skills/x.md)` becomes `skills/x/SKILL.md` after --migrate-skill-shape;
+    # `](../../performance/ai-patterns/y.md)` becomes `ai/patterns/y.md`. Each is the framework
+    # rewriting its OWN reference, so each needs one canonical spelling or the "absent from the
+    # pack corpus" half is true of the deployed one and the invariant refuses a clean replace.
+    # DELIBERATELY NARROWER THAN canon()'s line pass, and the fixture is why. A project line
+    # citing `ai/patterns/event-bus.md` must stay project-specific: "it RESOLVES here and the
+    # packs do not account for it" is the two-condition test, and collapsing that token to its
+    # basename lets the pack corpus account for it — which let an OVERRIDE through that
+    # test-merge-decide.sh § fallback exists to refuse. So only the spellings that name the SAME
+    # file on both sides of a deploy rewrite are folded here:
+    #   `skills/x.md` <-> `skills/x/SKILL.md`         (--migrate-skill-shape moved it)
+    #   `../../../../commands/x.md` <-> `~/.claude/commands/x.md`  (Refract's own command)
+    m = _DEPLOY_SKILLREF.search(tok)
+    if m:
+        return "skill:" + m.group(1)
+    m = _FRAMEWORK_CMDREF.search(tok)
+    if m:
+        return "framework-command:" + m.group(1)
+    m = _DEPLOY_PATTERNREF.search(tok)
+    if m:
+        return "ai/patterns/" + m.group(1)
     return tok.lstrip("./")
 
 

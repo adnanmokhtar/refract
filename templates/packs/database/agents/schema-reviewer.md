@@ -46,7 +46,7 @@ model: opus
 
 ```bash
 # Should return 0 findings outside tests
-rg "query\(\`.*\\$\{" src/modules/*/infrastructure/
+rg "query\(\`.*\\$\{" $ROOTS
 rg "raw\(.*\\$\{" $ROOTS
 ```
 

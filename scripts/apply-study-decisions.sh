@@ -484,6 +484,155 @@ twin_matches_pack() {
 # Moves .claude/skills/<name>.md → .claude/skills/<name>/SKILL.md. A MOVE, never a copy:
 # a copy is exactly the duplicate this whole section exists to prevent. Refuses any name
 # that already has both shapes (that state needs a human to pick a winner).
+# ---- deployed-link rewriters ---------------------------------------------------------
+# Defined HERE, above the --migrate-skill-shape block, because that block calls the sweep
+# and then exits: a definition further down would never be reached.
+
+# Pack commands use ../../../snippets/ + ../../../governance/ (valid under templates/packs/.../commands/).
+# Targets receive files under .claude/commands/ — rewrite so links resolve to .claude/templates/{snippets,governance}/.
+# A PACK LAYS ITS KINDS OUT AS SIBLINGS; A PROJECT DOES NOT.
+# In `templates/packs/<p>/` the directories `agents/ ai-patterns/ commands/ rules/ skills/` sit
+# beside each other, so `](../ai-patterns/x.md)` from an agent is correct THERE. On deploy the
+# kinds are split across two trees — agents/commands/rules/skills land under `.claude/`, but
+# ai-patterns lands under `ai/patterns/` — and that link then resolves to `.claude/ai-patterns/`,
+# which does not exist. MEASURED on a real Nuxt repo: 4 of 8 dead links in the C2t warning were
+# this one shape, in `creative-director.md` and `chart-encoding-audit/SKILL.md`.
+#
+# The depth is not fixed (an agent is one level under `.claude/`, a folder-shaped skill is two),
+# so the replacement is COMPUTED from where the file actually landed rather than hard-coded.
+rewrite_ai_pattern_links() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  grep -q '](\.\./' "$f" 2>/dev/null || return 0
+  command -v python3 >/dev/null 2>&1 || {
+    echo "  WARN python3 missing — cannot retarget cross-tree links in ${f#$TARGET/}" >&2; return 0; }
+  python3 - "$f" "$TARGET" <<'PYEOF'
+import os, re, sys
+f, target = sys.argv[1], sys.argv[2]
+rel = os.path.relpath(os.path.join(target, "ai", "patterns"), os.path.dirname(os.path.abspath(f)))
+with open(f, encoding="utf-8") as fh:
+    src = fh.read()
+# Two shapes, one rule. (1) same-pack sibling `](../ai-patterns/x.md)`. (2) CROSS-PACK
+# `](../../performance/ai-patterns/x.md)` / `](../../frontend/skills/y.md)` — the `<pack>/`
+# segment exists only under templates/packs/; a project has no pack namespace, so it is dropped
+# rather than resolved. A segment is a pack name exactly when it is not itself a kind name.
+KINDS_RE = "ai-patterns|skills|agents|commands|rules"
+_dest = {"ai-patterns": os.path.join(target, "ai", "patterns")}
+for _k in ("skills", "agents", "commands", "rules"):
+    _dest[_k] = os.path.join(target, ".claude", _k)
+_rel = lambda kind: os.path.relpath(_dest[kind], os.path.dirname(os.path.abspath(f)))
+
+# TWO PATTERNS, DELIBERATELY NARROW. One pattern over every kind was too greedy and did real
+# damage: it also matched `](../../../../commands/refactor.md)`, which names REFRACT'S OWN
+# command — a file that never deploys — and rewrote it to `](./refactor.md)`, pointing at the
+# project's unrelated overlay of the same name. That link belongs to the perl rule in
+# rewrite_deployed_command_links, which sends it to ~/.claude/commands/.
+#
+# (a) ai-patterns at any depth: it is the one kind that leaves .claude/ entirely, so even a
+#     same-pack `](../ai-patterns/x.md)` is dead once deployed.
+out = re.sub(r'\]\((?:\.\./)+(?:(?!(?:' + KINDS_RE + r')/)[A-Za-z0-9_.-]+/)?ai-patterns/',
+             "](" + _rel("ai-patterns") + "/", src)
+# (b) any kind reached THROUGH A PACK NAMESPACE: `](../../performance/ai-patterns/x.md)`,
+#     `](../../frontend/skills/y.md)`. That segment exists only under templates/packs/ and has
+#     no counterpart in a project. A same-pack `](../agents/x.md)` is NOT touched — it already
+#     resolves, because agents/commands/rules/skills all stay siblings under .claude/.
+out = re.sub(r'\]\((?:\.\./)+(?!(?:' + KINDS_RE + r')/)[A-Za-z0-9_.-]+/(' + KINDS_RE + r')/',
+             lambda m: "](" + _rel(m.group(1)) + "/", out)
+if out != src:
+    with open(f, "w", encoding="utf-8") as fh:
+        fh.write(out)
+PYEOF
+}
+
+rewrite_deployed_command_links() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  if command -v perl >/dev/null 2>&1; then
+    # `commands/refactor.md` and friends are REFRACT'S OWN commands, not pack files — they are
+    # never deployed into a project, so no number of `../` reaches them. The prose already says
+    # where they live ("synced to ~/.claude/commands/…"); the link now says the same thing
+    # instead of pointing four levels above the repo root at nothing.
+    perl -i -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g; s{\]\(\.\./\.\./\.\./\.\./commands/}{](~/.claude/commands/}g' "$f"
+  else
+    echo "  WARN perl missing — cannot rewrite snippet/governance links in ${f#$TARGET/}" >&2
+  fi
+  rewrite_ai_pattern_links "$f"
+  rewrite_skill_refs_to_installed_shape "$f"
+}
+
+# Rewrite every `skills/<name>/SKILL.md` cross-reference to the shape ACTUALLY INSTALLED here.
+#
+# HISTORY — this is the defect that made the C2k/C2n gate conflict worse than a gate conflict.
+# Pack cross-references hardcode the canonical folder shape (`skills/<name>/SKILL.md`) while the
+# framework knowingly tolerates legacy flat-shape skills in the same repo — one live target held
+# 59 flat vs 11 folder. Applying the mandated MERGE of the observability pack's dashboards.md
+# therefore rewrote a reference to `skills/alert-audit.md` (EXISTS, 8,477 B) into
+# `skills/alert-audit/SKILL.md` (ABSENT). The gate that flagged it was RIGHT; the run report
+# recorded it as a false positive; and the true reading is worse than either — DOING THE
+# MANDATED WORK DEGRADED THE TARGET. Blast radius measured in that one repo: 59 dangling
+# folder-shape refs where only a flat twin exists, across 10 files, with 166 MERGE rows still
+# outstanding to add more.
+#
+# So the pack keeps writing the canonical form (it is right about the canon), and the DEPLOY
+# step reconciles it with what this particular target has on disk. Only rewrites a reference
+# whose canonical target is absent AND whose flat twin is present — never invents a link.
+rewrite_skill_refs_to_installed_shape() {
+  local f="$1" name changed=0
+  [[ -f "$f" ]] || return 0
+  while IFS= read -r name; do
+    [[ -z "$name" ]] && continue
+    [[ -f "$TARGET/.claude/skills/$name/SKILL.md" ]] && continue    # canonical resolves — leave it
+    [[ -f "$TARGET/.claude/skills/$name.md" ]] || continue          # no flat twin either — not ours to fix
+    if command -v perl >/dev/null 2>&1; then
+      perl -i -pe "s{skills/\Q$name\E/SKILL\.md}{skills/$name.md}g" "$f"
+    else
+      sed -i.bak "s|skills/$name/SKILL\.md|skills/$name.md|g" "$f" && rm -f "$f.bak"
+    fi
+    changed=$((changed + 1))
+  done < <({ grep -oE 'skills/[A-Za-z0-9_-]+/SKILL\.md' "$f" 2>/dev/null || true; } \
+           | sed -E 's|^skills/||; s|/SKILL\.md$||' | sort -u)
+  # THE REVERSE, WHICH `--migrate-skill-shape` MAKES NECESSARY AND DID NOT DO.
+  # Migration moves `skills/<n>.md` to `skills/<n>/SKILL.md` and leaves every reference pointing
+  # at the file it just deleted. MEASURED on a turborepo: 74 skills migrated and the C2t
+  # dead-link list went from empty to long — `refactorer.md` alone named three. Same guard shape
+  # as above, in the other direction: rewrite only when the folder exists and no flat twin does.
+  local rev=0 rname
+  while IFS= read -r rname; do
+    [[ -z "$rname" ]] && continue
+    [[ -f "$TARGET/.claude/skills/$rname.md" ]] && continue          # flat resolves — leave it
+    [[ -f "$TARGET/.claude/skills/$rname/SKILL.md" ]] || continue    # no folder twin — not ours
+    if command -v perl >/dev/null 2>&1; then
+      perl -i -pe "s{skills/\Q$rname\E\.md}{skills/$rname/SKILL.md}g" "$f"
+    else
+      sed -i.bak "s|skills/$rname\.md|skills/$rname/SKILL.md|g" "$f" && rm -f "$f.bak"
+    fi
+    rev=$((rev + 1))
+  done < <({ grep -oE 'skills/[A-Za-z0-9_-]+\.md' "$f" 2>/dev/null || true; } \
+           | sed -E 's|^skills/||; s|\.md$||' | sort -u)
+  [[ "$rev" -gt 0 ]] && echo "  shape-fix ${f#$TARGET/} — $rev skill cross-reference(s) rewritten to the folder shape installed here"
+  [[ "$changed" -gt 0 ]] && echo "  shape-fix ${f#$TARGET/} — $changed skill cross-reference(s) rewritten to the flat shape installed here"
+  return 0
+}
+
+# THE MERGE ENGINE IS A WRITER TOO, AND IT DOES NOT REWRITE LINKS.
+# ADD and REPLACE call the rewriters inline; merge-decide.py composes and writes the file itself,
+# so a MERGE row happily reinstalls the pack's `](../ai-patterns/…)` — correct inside a pack,
+# dead once deployed, because ai-patterns lands in `ai/patterns/` while agents land in
+# `.claude/`. Rather than teach a fourth writer, sweep every deployed artifact once at the end:
+# the rewriters are idempotent (they only match a `../`-prefixed pack shape), so a file already
+# correct is left byte-identical and its mtime does not move.
+sweep_deployed_links() {
+  local f
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    rewrite_ai_pattern_links "$f"
+    rewrite_skill_refs_to_installed_shape "$f" >/dev/null
+  done < <(find "$TARGET/.claude/commands" "$TARGET/.claude/agents" "$TARGET/.claude/skills" \
+                "$TARGET/.claude/rules" -type f -name '*.md' 2>/dev/null \
+           | grep -v '/backups/' || true)
+}
+
+
 if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
   echo "=== apply-study-decisions — skill-shape migration (M40) ==="
   echo "Target: $TARGET"
@@ -630,6 +779,12 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
   echo "Migrated (or would-migrate): $migrated"
   echo "Conflicts (both shapes on disk, untouched): $mig_conflicts"
   echo "Twins resolved content-aware:               $mig_resolved"
+  # MOVING A FILE WITHOUT MOVING THE LINKS INTO IT IS HALF A MIGRATION, and the repair is guarded
+  # on --apply ALONE rather than on `migrated > 0`. The links that need it are usually from an
+  # EARLIER migration — this run finds nothing left to move precisely because the previous one
+  # already moved it and left the references behind, so gating on "did I move something just now"
+  # made the fix unreachable in exactly the case that needs it.
+  [[ "$APPLY" -eq 1 ]] && sweep_deployed_links
   if [[ "$APPLY" -eq 1 && "$migrated" -gt 0 ]]; then
     echo "Backup of every moved file: ${mig_bak#$TARGET/}/"
     echo ""
@@ -646,89 +801,8 @@ if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
   exit 0
 fi
 
-# Pack commands use ../../../snippets/ + ../../../governance/ (valid under templates/packs/.../commands/).
-# Targets receive files under .claude/commands/ — rewrite so links resolve to .claude/templates/{snippets,governance}/.
-# A PACK LAYS ITS KINDS OUT AS SIBLINGS; A PROJECT DOES NOT.
-# In `templates/packs/<p>/` the directories `agents/ ai-patterns/ commands/ rules/ skills/` sit
-# beside each other, so `](../ai-patterns/x.md)` from an agent is correct THERE. On deploy the
-# kinds are split across two trees — agents/commands/rules/skills land under `.claude/`, but
-# ai-patterns lands under `ai/patterns/` — and that link then resolves to `.claude/ai-patterns/`,
-# which does not exist. MEASURED on a real Nuxt repo: 4 of 8 dead links in the C2t warning were
-# this one shape, in `creative-director.md` and `chart-encoding-audit/SKILL.md`.
-#
-# The depth is not fixed (an agent is one level under `.claude/`, a folder-shaped skill is two),
-# so the replacement is COMPUTED from where the file actually landed rather than hard-coded.
-rewrite_ai_pattern_links() {
-  local f="$1"
-  [[ -f "$f" ]] || return 0
-  grep -q '](\.\./' "$f" 2>/dev/null || return 0
-  grep -q 'ai-patterns/' "$f" 2>/dev/null || return 0
-  command -v python3 >/dev/null 2>&1 || {
-    echo "  WARN python3 missing — cannot retarget ai-patterns links in ${f#$TARGET/}" >&2; return 0; }
-  python3 - "$f" "$TARGET" <<'PYEOF'
-import os, re, sys
-f, target = sys.argv[1], sys.argv[2]
-rel = os.path.relpath(os.path.join(target, "ai", "patterns"), os.path.dirname(os.path.abspath(f)))
-with open(f, encoding="utf-8") as fh:
-    src = fh.read()
-# only `../`-prefixed refs: an absolute or same-dir one is not this bug and must not be touched.
-out = re.sub(r'\]\((?:\.\./)+ai-patterns/', "](" + rel + "/", src)
-if out != src:
-    with open(f, "w", encoding="utf-8") as fh:
-        fh.write(out)
-PYEOF
-}
 
-rewrite_deployed_command_links() {
-  local f="$1"
-  [[ -f "$f" ]] || return 0
-  if command -v perl >/dev/null 2>&1; then
-    # `commands/refactor.md` and friends are REFRACT'S OWN commands, not pack files — they are
-    # never deployed into a project, so no number of `../` reaches them. The prose already says
-    # where they live ("synced to ~/.claude/commands/…"); the link now says the same thing
-    # instead of pointing four levels above the repo root at nothing.
-    perl -i -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g; s{\]\(\.\./\.\./\.\./\.\./commands/}{](~/.claude/commands/}g' "$f"
-  else
-    echo "  WARN perl missing — cannot rewrite snippet/governance links in ${f#$TARGET/}" >&2
-  fi
-  rewrite_ai_pattern_links "$f"
-  rewrite_skill_refs_to_installed_shape "$f"
-}
 
-# Rewrite every `skills/<name>/SKILL.md` cross-reference to the shape ACTUALLY INSTALLED here.
-#
-# HISTORY — this is the defect that made the C2k/C2n gate conflict worse than a gate conflict.
-# Pack cross-references hardcode the canonical folder shape (`skills/<name>/SKILL.md`) while the
-# framework knowingly tolerates legacy flat-shape skills in the same repo — one live target held
-# 59 flat vs 11 folder. Applying the mandated MERGE of the observability pack's dashboards.md
-# therefore rewrote a reference to `skills/alert-audit.md` (EXISTS, 8,477 B) into
-# `skills/alert-audit/SKILL.md` (ABSENT). The gate that flagged it was RIGHT; the run report
-# recorded it as a false positive; and the true reading is worse than either — DOING THE
-# MANDATED WORK DEGRADED THE TARGET. Blast radius measured in that one repo: 59 dangling
-# folder-shape refs where only a flat twin exists, across 10 files, with 166 MERGE rows still
-# outstanding to add more.
-#
-# So the pack keeps writing the canonical form (it is right about the canon), and the DEPLOY
-# step reconciles it with what this particular target has on disk. Only rewrites a reference
-# whose canonical target is absent AND whose flat twin is present — never invents a link.
-rewrite_skill_refs_to_installed_shape() {
-  local f="$1" name changed=0
-  [[ -f "$f" ]] || return 0
-  while IFS= read -r name; do
-    [[ -z "$name" ]] && continue
-    [[ -f "$TARGET/.claude/skills/$name/SKILL.md" ]] && continue    # canonical resolves — leave it
-    [[ -f "$TARGET/.claude/skills/$name.md" ]] || continue          # no flat twin either — not ours to fix
-    if command -v perl >/dev/null 2>&1; then
-      perl -i -pe "s{skills/\Q$name\E/SKILL\.md}{skills/$name.md}g" "$f"
-    else
-      sed -i.bak "s|skills/$name/SKILL\.md|skills/$name.md|g" "$f" && rm -f "$f.bak"
-    fi
-    changed=$((changed + 1))
-  done < <({ grep -oE 'skills/[A-Za-z0-9_-]+/SKILL\.md' "$f" 2>/dev/null || true; } \
-           | sed -E 's|^skills/||; s|/SKILL\.md$||' | sort -u)
-  [[ "$changed" -gt 0 ]] && echo "  shape-fix ${f#$TARGET/} — $changed skill cross-reference(s) rewritten to the flat shape installed here"
-  return 0
-}
 
 # ---------- M41 on the ENHANCE path: cross-pack command-name collisions ---------------------
 #
@@ -1278,22 +1352,6 @@ echo "=== summary ==="
 echo "Applied (or would-apply): $applied"
 echo "MERGE rows → engine:      $delegated"
 echo "Listed for human review:  $listed"
-# THE MERGE ENGINE IS A WRITER TOO, AND IT DOES NOT REWRITE LINKS.
-# ADD and REPLACE call the rewriters inline; merge-decide.py composes and writes the file itself,
-# so a MERGE row happily reinstalls the pack's `](../ai-patterns/…)` — correct inside a pack,
-# dead once deployed, because ai-patterns lands in `ai/patterns/` while agents land in
-# `.claude/`. Rather than teach a fourth writer, sweep every deployed artifact once at the end:
-# the rewriters are idempotent (they only match a `../`-prefixed pack shape), so a file already
-# correct is left byte-identical and its mtime does not move.
-sweep_deployed_links() {
-  local f
-  while IFS= read -r f; do
-    [[ -n "$f" ]] || continue
-    rewrite_ai_pattern_links "$f"
-  done < <(find "$TARGET/.claude/commands" "$TARGET/.claude/agents" "$TARGET/.claude/skills" \
-                "$TARGET/.claude/rules" -type f -name '*.md' 2>/dev/null \
-           | grep -v '/backups/' || true)
-}
 [[ "$APPLY" -eq 1 ]] && sweep_deployed_links
 
 echo "Ledger-reconciled:        $ledgered"
