@@ -207,8 +207,10 @@ Categorize output:
 
 ### Component usage diff
 ```bash
-# Tokens used by component X
-rg "var\(--color-brand-" src/components/Button.vue
+# Tokens used by ONE component. `$ROOTS` is declared above; name the component file under it
+# rather than a fixed tree — `src/` does not exist in a Nuxt, Flutter or monorepo layout, and a
+# probe over a path that is not there returns zero hits, which reads as CLEAN.
+rg "var\(--color-brand-" $ROOTS -g "<the component file>"
 # Check all themes define --color-brand-500
 for theme in themes/*/tokens.scss; do
   grep -q "color-brand-500" "$theme" || echo "MISSING in $theme"

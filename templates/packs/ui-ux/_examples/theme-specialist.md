@@ -167,7 +167,7 @@ Categorize output:
 ### Component usage diff
 ```bash
 # Tokens used by component X
-rg "var\(--color-brand-" src/components/Button.vue
+rg "var\(--color-brand-" $ROOTS -g "<the component file>"
 # Check all themes define --color-brand-500
 for theme in themes/*/tokens.scss; do
   grep -q "color-brand-500" "$theme" || echo "MISSING in $theme"

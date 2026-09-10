@@ -612,18 +612,29 @@ MGD
       }
       in_block && $0 ~ end { in_block=0; next }
       !in_block { print }
-    ' "$PROFILE" > "$tmp" && mv "$tmp" "$PROFILE"
+    ' "$PROFILE" > "$tmp"
     rm -f "$body_file"
-    # Post-write assertion: the managed block must actually have changed (or at
-    # least be present). A no-op write means the replacement silently failed.
-    after_md5=$(md5 -q "$PROFILE" 2>/dev/null || md5sum "$PROFILE" 2>/dev/null | awk '{print $1}')
-    if ! grep -qF "$block_start" "$PROFILE" 2>/dev/null; then
-      echo "  ✗ ERR: managed tracks block lost after write to $PROFILE" >&2
+    # Assert on the CANDIDATE, then only replace the file when the bytes differ.
+    #
+    # This used to `mv` unconditionally and then notice the no-op by comparing md5s — it printed
+    # "already up to date" about a file it had just rewritten. The bytes were identical but the
+    # MTIME moved, and this file's mtime is load-bearing: `audit-setup.sh` C2f measures the six
+    # ai/ knowledge files against it as the extraction substrate. So every `run-preflight.sh`
+    # made all six read STALE against an extraction that had not changed, and the only way to
+    # clear that is to re-derive or `touch` them — the exact habit C2f exists to forbid, and
+    # re-deriving walks into C2n charging every replaced line as KNOWLEDGE_LOSS. Measured on a
+    # real Nuxt repo: 6 spurious STALE_KNOWLEDGE errors with `git diff` on the substrate empty.
+    after_md5=$(md5 -q "$tmp" 2>/dev/null || md5sum "$tmp" 2>/dev/null | awk '{print $1}')
+    if ! grep -qF "$block_start" "$tmp" 2>/dev/null; then
+      rm -f "$tmp"
+      echo "  ✗ ERR: managed tracks block lost while rewriting $PROFILE — file left untouched" >&2
       exit 1
     fi
     if [[ "$before_md5" == "$after_md5" ]]; then
+      rm -f "$tmp"
       [[ $QUIET -eq 0 ]] && echo "  = managed tracks block already up to date in $PROFILE" >&2
     else
+      mv "$tmp" "$PROFILE"
       [[ $QUIET -eq 0 ]] && echo "  ✓ updated managed tracks block in $PROFILE" >&2
     fi
   else

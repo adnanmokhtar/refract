@@ -648,14 +648,50 @@ fi
 
 # Pack commands use ../../../snippets/ + ../../../governance/ (valid under templates/packs/.../commands/).
 # Targets receive files under .claude/commands/ — rewrite so links resolve to .claude/templates/{snippets,governance}/.
+# A PACK LAYS ITS KINDS OUT AS SIBLINGS; A PROJECT DOES NOT.
+# In `templates/packs/<p>/` the directories `agents/ ai-patterns/ commands/ rules/ skills/` sit
+# beside each other, so `](../ai-patterns/x.md)` from an agent is correct THERE. On deploy the
+# kinds are split across two trees — agents/commands/rules/skills land under `.claude/`, but
+# ai-patterns lands under `ai/patterns/` — and that link then resolves to `.claude/ai-patterns/`,
+# which does not exist. MEASURED on a real Nuxt repo: 4 of 8 dead links in the C2t warning were
+# this one shape, in `creative-director.md` and `chart-encoding-audit/SKILL.md`.
+#
+# The depth is not fixed (an agent is one level under `.claude/`, a folder-shaped skill is two),
+# so the replacement is COMPUTED from where the file actually landed rather than hard-coded.
+rewrite_ai_pattern_links() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  grep -q '](\.\./' "$f" 2>/dev/null || return 0
+  grep -q 'ai-patterns/' "$f" 2>/dev/null || return 0
+  command -v python3 >/dev/null 2>&1 || {
+    echo "  WARN python3 missing — cannot retarget ai-patterns links in ${f#$TARGET/}" >&2; return 0; }
+  python3 - "$f" "$TARGET" <<'PYEOF'
+import os, re, sys
+f, target = sys.argv[1], sys.argv[2]
+rel = os.path.relpath(os.path.join(target, "ai", "patterns"), os.path.dirname(os.path.abspath(f)))
+with open(f, encoding="utf-8") as fh:
+    src = fh.read()
+# only `../`-prefixed refs: an absolute or same-dir one is not this bug and must not be touched.
+out = re.sub(r'\]\((?:\.\./)+ai-patterns/', "](" + rel + "/", src)
+if out != src:
+    with open(f, "w", encoding="utf-8") as fh:
+        fh.write(out)
+PYEOF
+}
+
 rewrite_deployed_command_links() {
   local f="$1"
   [[ -f "$f" ]] || return 0
   if command -v perl >/dev/null 2>&1; then
-    perl -i -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' "$f"
+    # `commands/refactor.md` and friends are REFRACT'S OWN commands, not pack files — they are
+    # never deployed into a project, so no number of `../` reaches them. The prose already says
+    # where they live ("synced to ~/.claude/commands/…"); the link now says the same thing
+    # instead of pointing four levels above the repo root at nothing.
+    perl -i -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g; s{\]\(\.\./\.\./\.\./\.\./commands/}{](~/.claude/commands/}g' "$f"
   else
     echo "  WARN perl missing — cannot rewrite snippet/governance links in ${f#$TARGET/}" >&2
   fi
+  rewrite_ai_pattern_links "$f"
   rewrite_skill_refs_to_installed_shape "$f"
 }
 
@@ -1078,6 +1114,7 @@ for action in "${actions[@]:-}"; do
         else
           # ai-patterns / rules / skills carry skill cross-refs too — the live breakage was in
           # ai/patterns/dashboards.md, which is none of commands or agents.
+          rewrite_ai_pattern_links "$tgt"
           rewrite_skill_refs_to_installed_shape "$tgt"
         fi
         [[ "$kind" == "skills" ]] && sync_skill_sidecars "$pack_src" "$tgt"
@@ -1166,6 +1203,7 @@ for action in "${actions[@]:-}"; do
         if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
           rewrite_deployed_command_links "$tgt"
         else
+          rewrite_ai_pattern_links "$tgt"
           rewrite_skill_refs_to_installed_shape "$tgt"
         fi
         [[ "$kind" == "skills" ]] && sync_skill_sidecars "$pack_src" "$tgt"
@@ -1240,6 +1278,24 @@ echo "=== summary ==="
 echo "Applied (or would-apply): $applied"
 echo "MERGE rows → engine:      $delegated"
 echo "Listed for human review:  $listed"
+# THE MERGE ENGINE IS A WRITER TOO, AND IT DOES NOT REWRITE LINKS.
+# ADD and REPLACE call the rewriters inline; merge-decide.py composes and writes the file itself,
+# so a MERGE row happily reinstalls the pack's `](../ai-patterns/…)` — correct inside a pack,
+# dead once deployed, because ai-patterns lands in `ai/patterns/` while agents land in
+# `.claude/`. Rather than teach a fourth writer, sweep every deployed artifact once at the end:
+# the rewriters are idempotent (they only match a `../`-prefixed pack shape), so a file already
+# correct is left byte-identical and its mtime does not move.
+sweep_deployed_links() {
+  local f
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    rewrite_ai_pattern_links "$f"
+  done < <(find "$TARGET/.claude/commands" "$TARGET/.claude/agents" "$TARGET/.claude/skills" \
+                "$TARGET/.claude/rules" -type f -name '*.md' 2>/dev/null \
+           | grep -v '/backups/' || true)
+}
+[[ "$APPLY" -eq 1 ]] && sweep_deployed_links
+
 echo "Ledger-reconciled:        $ledgered"
 echo "Skipped (source missing / already installed in another shape): $skipped"
 echo "Skill-shape conflicts (refused): $SHAPE_CONFLICTS"

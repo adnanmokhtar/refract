@@ -269,6 +269,23 @@ missing_llm_sections() {
 # look complete while it is not.
 BANNER_OPEN='<!-- deep-codebase-scan:incomplete start -->'
 BANNER_CLOSE='<!-- deep-codebase-scan:incomplete end -->'
+# A WRITE THAT CHANGES NOTHING STILL MOVES THE MTIME, AND THE MTIME IS LOAD-BEARING.
+# This file is the extraction substrate `audit-setup.sh` C2f measures the six ai/ knowledge files
+# against. The banner stamper rewrote it unconditionally on the PRESERVE path — the path whose own
+# message says "preserved byte-for-byte" — so every `run-preflight.sh` advanced its mtime with
+# identical bytes, and all six knowledge files then read STALE against an extraction that had not
+# changed. The only way to clear that is to re-derive or `touch` them, which is exactly the habit
+# C2f exists to forbid (and re-deriving walks into C2n charging every replaced line as
+# KNOWLEDGE_LOSS). Measured on a real Nuxt repo: 6 spurious STALE_KNOWLEDGE errors, `git diff` on
+# the substrate empty.
+write_if_changed() {
+  local src="$1" dst="$2"
+  if [[ -f "$dst" ]] && cmp -s "$src" "$dst"; then
+    return 0                       # identical — preserving means not touching it
+  fi
+  cat "$src" > "$dst"
+}
+
 stamp_incomplete_banner() {
   local f="$1" n unfilled="" tmp
   [[ -f "$f" ]] || return 0
@@ -301,10 +318,10 @@ stamp_incomplete_banner() {
               print c
               next }
       { print }
-    ' "$tmp" > "$tmp.2" 2>/dev/null && cat "$tmp.2" > "$f"
+    ' "$tmp" > "$tmp.2" 2>/dev/null && write_if_changed "$tmp.2" "$f"
     rm -f "$tmp.2"
   else
-    cat "$tmp" > "$f"
+    write_if_changed "$tmp" "$f"
   fi
   rm -f "$tmp"
   printf '%s' "${unfilled# }"
