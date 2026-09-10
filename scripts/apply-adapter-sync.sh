@@ -970,6 +970,67 @@ if [[ $total_bad_fm -gt 0 ]]; then
   echo ""
 fi
 
+# ── AGENTS.md discipline-enforcement block ─────────────────────────────────
+# `_discipline-enforcement.md` says "`/setup-project --refresh` re-syncs it" — and nothing did.
+# Nine adapters share ONE marker-bracketed block in AGENTS.md, so every improvement to it
+# reached new projects only, and existing ones kept whatever they were installed with forever.
+# That is the same shape as the import-graph warm: a mechanism documented as automatic, owned by
+# an agent, therefore not happening. Markers make it mechanical, so it runs here.
+#
+# Content OUTSIDE the markers is never touched. AGENTS.md with no markers is reported, not
+# guessed at: the contract places the block "after Project overview, before Architecture", and a
+# script cannot see where that is.
+sync_discipline_block() {
+  local src="$SCRIPT_ROOT/templates/tool-adapters/_discipline-enforcement.md"
+  local tgt="$TARGET/AGENTS.md"
+  [[ -f "$src" ]] || return 0
+  [[ -f "$tgt" ]] || return 0                     # no AGENTS.md: the per-adapter sync reports it
+  if ! grep -qF '<!-- discipline-enforcement:start -->' "$tgt"; then
+    report_missing_author "discipline-block" "AGENTS.md" \
+      "no <!-- discipline-enforcement:start --> markers — paste the block from templates/tool-adapters/_discipline-enforcement.md after Project overview, before Architecture"
+    return 0
+  fi
+  local blk; blk=$(mktemp "${TMPDIR:-/tmp}/disc-blk.XXXXXX")
+  # The canonical copy lives inside a ```markdown fence; the markers themselves delimit it, so
+  # the fence never enters the extract.
+  sed -n '/^<!-- discipline-enforcement:start -->$/,/^<!-- discipline-enforcement:end -->$/p' \
+      "$src" > "$blk"
+  if [[ ! -s "$blk" ]]; then rm -f "$blk"; return 0; fi
+  if awk '/^<!-- discipline-enforcement:start -->$/{f=1} f{print} /^<!-- discipline-enforcement:end -->$/{f=0}' \
+       "$tgt" | diff -q - "$blk" >/dev/null 2>&1; then
+    echo "  [shared] NO-OP    AGENTS.md discipline-enforcement block"
+    total_nooped=$((total_nooped + 1)); rm -f "$blk"; return 0
+  fi
+  if [[ $APPLY -eq 0 ]]; then
+    echo "  [shared] REFRESH  AGENTS.md discipline-enforcement block (dry-run)"
+    total_refreshed=$((total_refreshed + 1)); rm -f "$blk"; return 0
+  fi
+  local out; out=$(mktemp "${TMPDIR:-/tmp}/agents-md.XXXXXX")
+  # The block is passed as a FILE, never through `awk -v`: a multi-line -v assignment is
+  # escape-processed by awk and mangles or empties it (the same shortcut truncated a CLAUDE.md
+  # to zero bytes in wire-rule-imports.sh during development).
+  awk -v blkfile="$blk" '
+    /^<!-- discipline-enforcement:start -->$/ {
+      while ((getline line < blkfile) > 0) print line
+      close(blkfile); skip = 1; next
+    }
+    /^<!-- discipline-enforcement:end -->$/ { if (skip) { skip = 0; next } }
+    !skip { print }
+  ' "$tgt" > "$out"
+  if [[ -s "$out" ]] && grep -qF '<!-- discipline-enforcement:end -->' "$out"; then
+    mv "$out" "$tgt"
+    echo "  [shared] REFRESH  AGENTS.md discipline-enforcement block"
+    total_refreshed=$((total_refreshed + 1))
+  else
+    # Never leave AGENTS.md worse than it was. An empty or marker-less result means the rewrite
+    # went wrong, and the original is still the better file.
+    rm -f "$out"
+    echo "  [shared] WARN     AGENTS.md rewrite produced an unusable file — left untouched"
+  fi
+  rm -f "$blk"
+}
+sync_discipline_block
+
 for adapter in $SELECTED_ADAPTERS; do
   case "$adapter" in
     opencode) sync_opencode ;;

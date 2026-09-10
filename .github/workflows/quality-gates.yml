@@ -534,6 +534,14 @@ jobs:
       - name: Preflight backup (name-based freshness, coverage floor)
         run: bash scripts/test-preflight-backup.sh
 
+      # Nine adapters share ONE marker-bracketed block in AGENTS.md, and the file that defines it
+      # claimed `/setup-project --refresh` re-synced it while no script in the repo so much as
+      # named it. Every improvement to that block reached new projects only. The sync is
+      # deterministic now; this pins the three properties that make it safe to run unattended —
+      # the region becomes canonical, everything outside the markers survives, a rerun is a NO-OP.
+      - name: Discipline block sync (marker region only, user content preserved)
+        run: bash scripts/test-discipline-block-sync.sh
+
       # Every ERR an audit prints must be actionable, and three checks were failing that.
       # C2n compared against ANY surviving backup, so on the reference monorepo's third setup in three
       # days a backup from 08-22 supplied the baseline and 227 KNOWLEDGE_LOSS errors landed

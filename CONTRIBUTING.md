@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **60 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **61 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 60 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 61 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -109,6 +109,7 @@ for g in \
   scripts/lint-setup-contracts.sh \
   scripts/test-merge-decide.sh \
   scripts/test-anchor-citations.sh \
+  scripts/test-discipline-block-sync.sh \
   scripts/test-preflight-backup.sh ; do
   bash "$g" >/dev/null 2>&1 && echo "PASS  $g" || echo "FAIL  $g"
 done
@@ -154,6 +155,7 @@ file and line; none of them require you to guess.
 | `lint-setup-contracts.sh` | A producer and its consumer that disagree, where neither is wrong alone and nothing compared them. Six rules, each written after a MEASURED end-to-end failure: `find` without `-L` over a symlinked packs dir; a gate extractor blind to a field its own generator emits; GNU-only `grep -P`; a declared trigger with no producer; a browser-only pack artifact with no `project_kind:`; a machine contract addressed by section NUMBER. | Fix it. If the violation is deliberate, re-baseline: `scripts/lint-setup-contracts.sh --record`. |
 | `test-merge-decide.sh` | The engine deciding wrong AND its safety net not catching it. Self-test plus two fixtures that make the net catch something: a lying corpus that reaches OVERRIDE on a file it must never overwrite (asserts refusal before any write), and the same with the pre-write check stubbed to approve (asserts the post-write read-back rolled the file back from its backup). | Fix the engine, not the fixture. If a decision genuinely changed, say why in the case comment. |
 | `test-anchor-citations.sh` | The `Cite-able sources:` line naming directories that hold no source. Four layouts: a single-root SPA whose tooling dot-dirs sort before `src/`, a legacy space-separated citation that must NOT read as stale, a monorepo (no-regression), and a genuinely dead citation that must still be repaired. | Fix the picker. The ranking is by source-file count; a directory holding no source is not a source directory, whatever its name sorts as. |
+| `test-discipline-block-sync.sh` | The one AGENTS.md block nine adapters share drifting back to unmaintained. `_discipline-enforcement.md` said `/setup-project --refresh` re-synced it while no script in the repo mentioned it, so every improvement reached new projects only. Pins that the marked region becomes the canonical block, that every byte OUTSIDE the markers survives, that a second run is a NO-OP, and that an AGENTS.md with no markers is reported rather than guessed at. | Fix `sync_discipline_block` in `apply-adapter-sync.sh`. If the block legitimately moved, update the fixture with it. |
 | `test-preflight-backup.sh` | The Phase-0 backup silently skipping. Age must come from the timestamp in the directory NAME, not its mtime (a `git reset` refreshes mtimes), and the candidate must actually hold a backup — a one-file directory is not one. | Fix `run-preflight.sh`. Taking a redundant backup costs seconds; skipping a needed one costs the project. |
 
 **Not in CI, worth running anyway:**
@@ -459,7 +461,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 60 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 61 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---
