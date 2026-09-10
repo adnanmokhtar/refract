@@ -358,6 +358,60 @@ c2n_token_pair() {
 # This is NOT a suppression rule. It fires only when the archived copy is byte-identical to the
 # pre-run backup, i.e. only when the bytes provably still exist at a named path. Anything less
 # than byte-identical falls through to the loss test.
+# Has this file been signed off in the ledger AT THE CURRENT pack sha?
+#
+# The ledger key is pack-relative (`security/agents/x.md`), the C2n key is target-relative
+# (`.claude/agents/x.md`) — match on basename + kind, which is how apply-study-decisions.sh
+# addresses rows too. Only a RESOLVED / KEEP-OURS row counts, and only when its `pack@<sha8>`
+# equals the sha of the pack file as it stands NOW: a stamp taken against an older pack is
+# exactly the case the ledger re-opens by itself, and honouring it here would mute the check.
+c2n_ledger_signed_off() {
+  local rel="$1" led="$CL/_refresh-decisions.md" base kind line live_sha src cur_sha
+  [[ -f "$led" ]] || return 1
+  # Match the FULL ledger key, not the basename. A skill that has been migrated from the flat
+  # shape has TWO rows — `…/skills/<name>.md` (the old one) and `…/skills/<name>/SKILL.md` (the
+  # current one) — and a basename match plus `tail -1` picks whichever sits later in the file.
+  # Observed: the 2026-06 flat-shape KEEP-OURS won over the row written seconds earlier, so the
+  # sha never matched and the skip never fired.
+  local key
+  case "$rel" in
+    .claude/skills/*/SKILL.md) kind=skills; base="${rel#.claude/skills/}"; base="${base%/SKILL.md}.md"; key="/skills/${base%.md}/SKILL.md" ;;
+    .claude/skills/*.md)       kind=skills; base="${rel##*/}"; key="/skills/$base" ;;
+    .claude/*/*.md)            kind="${rel#.claude/}"; kind="${kind%%/*}"; base="${rel##*/}"; key="/$kind/$base" ;;
+    *) return 1 ;;
+  esac
+  line=$(grep -F "\`" "$led" 2>/dev/null | grep -F "$key\`" | grep -E '→ (RESOLVED|KEEP-OURS) \(' | tail -1) || true
+  [[ -n "$line" ]] || return 1
+  # read only the LIVE stamp — a superseding row carries its history in `[supersedes: …]`
+  line="${line%%\[supersedes:*}"
+  live_sha=$(printf '%s' "$line" | sed -nE 's/^.*pack@([0-9a-f]{8}).*/\1/p')
+  [[ -n "$live_sha" ]] || return 1
+  # PACKS_ROOT is set at C2f time (line ~1224), long AFTER C2n runs. Resolve it locally instead
+  # of reading a variable that is not bound yet — under `set -u` that aborted this function
+  # silently, so the skip could never fire however correct the ledger row was.
+  local packs; packs="$(framework_path templates/packs)"
+  [[ -d "$packs" ]] || return 1
+  src=$(find -L "$packs" -type f -path "*/$kind/*" -name "$base" 2>/dev/null | head -1)
+  [[ -z "$src" && "$kind" == skills ]] && src=$(find -L "$packs" -type f -path "*/skills/${base%.md}/SKILL.md" 2>/dev/null | head -1)
+  [[ -f "$src" ]] || return 1
+  # SUBSTANTIVE sha — byte-compatible with study-existing.sh's function of the same name, which
+  # is what wrote the stamp. A raw shasum does NOT match it: the stamp is taken over the body with
+  # frontmatter and the project-specific anchor block stripped, trailing space collapsed and
+  # `[*_`] removed, so that re-anchoring or a formatting-only edit does not re-open every row.
+  # Comparing a raw hash here made the skip never fire.
+  cur_sha=$(awk '
+    NR==1 && /^---[[:space:]]*$/ { fm=1; next }
+    fm { if (/^---[[:space:]]*$/) fm=0; next }
+    /^<!-- project-specific:start -->[[:space:]]*$/ { anc=1; next }
+    anc { if (/^<!-- project-specific:end -->[[:space:]]*$/) anc=0; next }
+    { print }
+  ' "$src" 2>/dev/null \
+    | sed -E 's/[[:space:]]+$//; s/[*_`]//g' \
+    | grep -v '^[[:space:]]*$' \
+    | shasum 2>/dev/null | cut -c1-8)
+  [[ "$live_sha" == "$cur_sha" ]]
+}
+
 c2n_twin_archived() {
   local rel="$1" bf="$2" name a
   case "$rel" in
@@ -579,7 +633,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
   fi
   [[ -s "$C2N_REPO_IDX" ]] || warn_msg "C2n: could not index this project's own identifiers — the identifier half of the loss test falls back to an unfiltered set difference (noisier, never quieter)"
   seen_rel=$(mktemp "${TMPDIR:-/tmp}/c2n-seen.XXXXXX")
-  kn_checked=0; kn_lost=0; kn_archived=0
+  kn_checked=0; kn_lost=0; kn_archived=0; kn_ledgered=0
   while IFS= read -r bkdir; do
     bkdir="${bkdir%/}"   # `ls -1d .../*/` yields a trailing slash; without this the
                          # `${bf#"$bkdir"/}` strip never matches and every path is skipped.
@@ -629,6 +683,23 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
       [[ -f "$live" ]] || continue   # whole-file deletion is caught by the census above
       if c2n_twin_archived "$rel" "$bf"; then
         kn_archived=$((kn_archived + 1))
+        continue
+      fi
+      # M35's ledger is the sanctioned way to record a decision C2k accepts — but C2n never
+      # consulted it, so one class of finding had NO way to close: a pack UPGRADE that replaces
+      # old wording. The old line is not in the pack's historical corpus (it was the bug), the
+      # new one is correct, and C2n charges the replacement as KNOWLEDGE_LOSS on every run
+      # forever. MEASURED: compute-anchor-density's old text cited `_extracted-codebase.md §
+      # "Identifiers"`, a section that has never existed; the current pack replaced it with the
+      # real wording. The installed file carried the fix and zero of the stale form, `--resolve=`
+      # recorded exactly that with its rationale, and the run still refused.
+      #
+      # A RESOLVED / KEEP-OURS entry stamped at the CURRENT pack sha means a human (or the merge
+      # engine) looked at this file against this pack version and signed off. That is the same
+      # evidence C2k accepts; C2n now accepts it too. A stale stamp does not qualify — the ledger
+      # re-opens those itself when the pack moves, which is what keeps this from becoming a mute.
+      if c2n_ledger_signed_off "$rel"; then
+        kn_ledgered=$((kn_ledgered + 1))
         continue
       fi
       kn_checked=$((kn_checked + 1))
@@ -713,6 +784,9 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
   fi
   rm -f "$seen_rel" ${C2N_PACK_IDX:+"$C2N_PACK_IDX"} ${C2N_REPO_IDX:+"$C2N_REPO_IDX"} ${C2N_PAIRS:+"$C2N_PAIRS"}
   # Printed, never silent: an exemption nobody can see is indistinguishable from a blind spot.
+  if [[ "$kn_ledgered" -gt 0 ]]; then
+    ok "ledger-signed-off: $kn_ledgered file(s) skipped — a RESOLVED/KEEP-OURS row stamped at the CURRENT pack sha. A skip is printed, never silent; a stamp taken against an older pack does not qualify and the ledger re-opens it on its own"
+  fi
   if [[ "$kn_archived" -gt 0 ]]; then
     ok "resolved skill-shape twins: $kn_archived file(s) whose pre-run content is preserved byte-for-byte under .claude/backups/skill-shape-*/resolved-twins/ (verified with cmp, not assumed)"
   fi
