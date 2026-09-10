@@ -156,10 +156,19 @@ ledger_lookup() {
     line=$(grep -F "\`$alt\`" "$LEDGER" 2>/dev/null | grep -E '→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(' | tail -1 || true)
   fi
   [[ -z "$line" ]] && return 0
-  verb=$(echo "$line" | sed -E 's/^.*→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(.*/\1/')
-  ldate=$(echo "$line" | sed -E 's/^.*\(([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
-  sha=$(echo "$line" | sed -nE 's/^.*pack@([0-9a-f]{8}).*/\1/p')
-  why="${line#*— }"   # text after the first " — " separator (byte-safe vs sed multibyte classes)
+  # A superseding row keeps its history inline: "→ RESOLVED (<new date>, pack@<new>) — … [supersedes: RESOLVED (<old date>, pack@<old>) — …]". `.*` is greedy, so every one of these
+  # three extractors used to walk PAST the live stamp and return the SUPERSEDED one — the row
+  # then read as stale against a sha it had already been re-resolved at, re-opened, got
+  # re-resolved, and re-opened again on the next run. MEASURED: four rows that the merge engine
+  # closed and stamped at the current pack sha were re-proposed by the very next study run, and
+  # C2k could not reach zero however many times the apply ran.
+  #
+  # Cut the line at the first "[supersedes:" and parse only the live half.
+  live="${line%%\[supersedes:*}"
+  verb=$(echo "$live" | sed -E 's/^.*→ (REJECTED|KEEP-OURS|RESOLVED|KEEP) \(.*/\1/')
+  ldate=$(echo "$live" | sed -E 's/^.*\(([0-9]{4}-[0-9]{2}-[0-9]{2}).*/\1/')
+  sha=$(echo "$live" | sed -nE 's/^.*pack@([0-9a-f]{8}).*/\1/p')
+  why="${live#*— }"   # text after the first " — " separator (byte-safe vs sed multibyte classes)
   printf '%s|%s|%s|%s' "$verb" "$ldate" "$sha" "$why"
 }
 

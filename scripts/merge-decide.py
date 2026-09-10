@@ -2302,6 +2302,17 @@ def main(argv):
                     rec.update(verb="NO-OP", bucket="A",
                                why="already converged — recomposing produced byte-identical output")
                     counts["NO-OP"] = counts.get("NO-OP", 0) + 1
+                    # …but it MUST get the RESOLVED stamp, for the same reason ENHANCE and ADJUST do.
+                    # Converged does not mean byte-equal to the pack — a file with project-only
+                    # sections stays different by design, so the next study run re-classifies it
+                    # MERGE and re-proposes it. Without a stamp that repeats every run and C2k can
+                    # never reach zero. MEASURED: a target that the engine had already merged
+                    # correctly reported "Closed automatically: 4 / Files written: 0 / Ledger
+                    # RESOLVED rows: 0", and the very next study re-opened the same four rows.
+                    if apply_:
+                        ledger_entries.append((key, "RESOLVED", pack_substantive_sha8(src),
+                                               "auto-no-op by merge-decide.py (already converged; "
+                                               "differs from pack by design)"))
                     out.append(rec)
                     continue
 
@@ -2343,6 +2354,10 @@ def main(argv):
                             rec.update(verb="NO-OP", bucket="A",
                                        why="already converged — recomposing produced byte-identical output")
                             counts["NO-OP"] = counts.get("NO-OP", 0) + 1
+                            if apply_:   # same reason as the other NO-OP arm — see the note there
+                                ledger_entries.append((key, "RESOLVED", pack_substantive_sha8(src),
+                                                       "auto-no-op by merge-decide.py (already "
+                                                       "converged; differs from pack by design)"))
                             out.append(rec)
                             continue
                 if not ok:
