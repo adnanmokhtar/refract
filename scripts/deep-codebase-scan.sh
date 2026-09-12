@@ -388,6 +388,7 @@ count_files() {
     -not -path "*/.venv/*" \
     -not -path "*/vendor/*" \
     -not -path "*/.claude/backups/*" \
+    -not -path "*/.dart_tool/*" \
     2>/dev/null | wc -l | tr -d ' '
 }
 
@@ -417,7 +418,7 @@ ls_dirs() {
   # ----- Section 1: File count by language -----
   printf '## 1. File count by language (mechanical)\n\n'
   printf '```\n'
-  for ext in ts tsx js jsx vue svelte py rb php java kt swift go rs cs cpp c h hpp scala ex exs erl elm hs ml lua sh sql graphql proto md yaml yml json toml; do
+  for ext in ts tsx js jsx vue svelte dart py rb php java kt swift go rs cs cpp c h hpp scala ex exs erl elm hs ml lua sh sql graphql proto md yaml yml json toml; do
     n=$(count_files "*.$ext")
     [[ "$n" -gt 0 ]] && printf '%-8s %d\n' "$ext" "$n"
   done
@@ -462,6 +463,13 @@ ls_dirs() {
         -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null | wc -l | tr -d ' ')
       [[ "$n" -ge 3 ]] && printf '%-25s %d files\n' "*.$suffix.$ext" "$n"
     done
+    # Dart/Flutter separates the layer with an UNDERSCORE (auth_service.dart), never a
+    # dot, so the dotted pass above finds nothing on a Flutter repo however many
+    # services it has. Same convention in Python and Go packages; kept to dart here
+    # because those two already surface through the dotted/plain passes.
+    n=$(find "$TARGET" -type f -name "*_$suffix.dart" \
+      -not -path "*/.dart_tool/*" -not -path "*/build/*" -not -path "*/.git/*" 2>/dev/null | wc -l | tr -d ' ')
+    [[ "$n" -ge 3 ]] && printf '%-25s %d files\n' "*_$suffix.dart" "$n"
   done
   printf '```\n\n'
 
@@ -469,13 +477,18 @@ ls_dirs() {
   printf '## 5. Lines of code (excluding comments + tests)\n\n'
   printf 'Approximate (counts all lines incl. blank/comments — finer counts need cloc):\n\n'
   printf '```\n'
-  for ext in ts tsx js jsx py rb php java kt swift go rs; do
+  # The test/spec exclusions below are anchored to $TARGET. Unanchored, `-not -path
+  # "*test*"` matches the ABSOLUTE path, so a repo checked out under any directory
+  # containing "test" or "spec" (~/testing/app, a CI workspace, a scratch copy)
+  # silently reported 0 lines for EVERY language — no error, just an empty section.
+  for ext in ts tsx js jsx dart py rb php java kt swift go rs; do
     total_lines=$(find "$TARGET" -type f -name "*.$ext" \
       -not -path "*/node_modules/*" -not -path "*/.git/*" \
       -not -path "*/dist/*" -not -path "*/build/*" \
       -not -path "*/.next/*" -not -path "*/__pycache__/*" \
       -not -path "*/.venv/*" -not -path "*/vendor/*" \
-      -not -path "*test*" -not -path "*spec*" \
+      -not -path "*/.dart_tool/*" \
+      -not -path "$TARGET/*test*" -not -path "$TARGET/*spec*" \
       2>/dev/null -exec cat {} + | wc -l | tr -d ' ')
     [[ "$total_lines" -gt 0 ]] && printf '%-8s %s lines\n' "$ext" "$total_lines"
   done
