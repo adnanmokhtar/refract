@@ -437,6 +437,50 @@ Plateau thresholds are tunable via `--plateau-delta` / `--plateau-consumed` / `-
 
 ---
 
+## Running against a repo you are not standing in
+
+Every deterministic script in this command takes the target repo as its **first
+positional argument**. Nothing in the pipeline reads the current directory:
+
+```bash
+scripts/run-preflight.sh        "$TARGET_REPO" --mode=$MODE
+scripts/deep-codebase-scan.sh   "$TARGET_REPO" [--refresh-mechanical]
+scripts/study-existing.sh       "$TARGET_REPO"
+scripts/apply-study-decisions.sh "$TARGET_REPO"
+scripts/detect-tracks.sh        "$TARGET_REPO"
+scripts/audit-setup.sh          "$TARGET_REPO" --mode=$MODE
+```
+
+So an agent whose working directory is pinned elsewhere — the Refract checkout
+itself, a harness that resets `cd` between calls, a session opened in the wrong
+folder — can still run the whole thing by passing `$TARGET_REPO` explicitly.
+This is the supported path, not a workaround. Use it for:
+
+- **Driving setup on a repo from outside it**, when opening a session inside is
+  inconvenient or impossible.
+- **Testing a change to this command against a real codebase.** Synthetic
+  fixtures exercise shape; they do not exercise a 436-file Flutter app or a
+  339-component Vue one, and three of the defects fixed in September 2026 were
+  invisible to every fixture in `tests/` and visible within minutes of running
+  the real preflight against real repos.
+
+**Four rules when you do this.**
+
+1. **Never let `$TARGET_REPO` default.** Every invocation names it. An empty or
+   relative value silently targets whatever directory the process happens to be
+   in — which, for an agent working out of the Refract checkout, means running
+   setup against Refract itself.
+2. **Guard the source tree.** After each step, the Refract checkout must show no
+   unexpected changes (`git status --porcelain`). A dirty source tree during a
+   target-repo run means a path was resolved against the wrong root, and the run
+   stops there.
+3. **The target's working tree must be clean before the run**, exactly as for an
+   in-place run — `git` in the TARGET repo is the rollback, and it cannot be if
+   the run starts on top of uncommitted work.
+4. **`$MODE` is still Phase 1's output**, detected from the target's contents
+   (`.claude/` or `ai/` present → REFRESH / ENHANCE; neither → CREATE). Passing
+   a path does not change mode detection; it changes which repo is read.
+
 ## How to invoke
 
 ```

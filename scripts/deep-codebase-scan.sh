@@ -33,11 +33,13 @@ fi
 
 TARGET="$1"; shift || true
 FORCE=0
+REFRESH_MECHANICAL=0
 SINK_STDOUT=0
 REPORT_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --force) FORCE=1; shift ;;
+    --refresh-mechanical) REFRESH_MECHANICAL=1; shift ;;
     --stdout|--no-write) SINK_STDOUT=1; shift ;;
     --report=*) REPORT_OVERRIDE="${1#*=}"; shift ;;
     --report) echo "ERR: use --report=<path> (with '='), not --report <path>" >&2; exit 2 ;;
@@ -326,6 +328,28 @@ stamp_incomplete_banner() {
   rm -f "$tmp"
   printf '%s' "${unfilled# }"
 }
+
+# --refresh-mechanical: regenerate sections 1-7 and keep 8-15 verbatim.
+#
+# Why this mode exists. Sections 1-7 are cheap and deterministic; 8-15 are expensive
+# model analysis. Coupling them means a BUGFIX TO THIS SCRIPT can never reach a repo
+# that already ran setup: --force would regenerate the census but destroy the analysis,
+# and the preserve path keeps a census produced by the broken version forever. That is
+# not hypothetical — a real Flutter repo carried a census reading "js 3, py 1, swift 5,
+# md 15" for a 436-file Dart app, beside a section 9 that correctly described its
+# layering and cited the CI script enforcing it. Neither existing mode could fix the
+# first without losing the second.
+MECH_STASH=""
+if [[ "$REFRESH_MECHANICAL" -eq 1 && -f "$REPORT_PATH" ]]; then
+  if grep -q '^## 8\.' "$REPORT_PATH"; then
+    MECH_STASH=$(mktemp "${TMPDIR:-/tmp}/scan-llm-half.XXXXXX")
+    sed -n '/^## 8\./,$p' "$REPORT_PATH" > "$MECH_STASH"
+    FORCE=1
+  else
+    echo "WARN --refresh-mechanical: no '## 8.' marker in $REPORT_PATH; nothing to preserve, falling back to the normal path" >&2
+    REFRESH_MECHANICAL=0
+  fi
+fi
 
 if [[ -f "$REPORT_PATH" && "$FORCE" -eq 0 ]]; then
   # grep -c exits 1 when 0 matches; capture cleanly (see refresh-extract-checklist.sh comment).
@@ -631,6 +655,16 @@ PROSE
   printf 'These gates exist because the historic bug was: refresh / refine / enhance ran shallow — touched ≤5 surface files, never compared rules to code, never proposed structural changes. M16 makes that pattern impossible to ship as "complete."\n'
 } > "$REPORT"
 
+# --refresh-mechanical: drop the freshly templated 8-15 and restore the real ones.
+if [[ -n "$MECH_STASH" && -s "$MECH_STASH" ]]; then
+  _spliced=$(mktemp "${TMPDIR:-/tmp}/scan-spliced.XXXXXX")
+  sed '/^## 8\./,$d' "$REPORT" > "$_spliced"
+  cat "$MECH_STASH" >> "$_spliced"
+  mv "$_spliced" "$REPORT"
+  rm -f "$MECH_STASH"
+  MECH_STASH=""
+fi
+
 # --stdout: the report was buffered off-target; emit it now and leave $TARGET untouched.
 # The two summary lines move to stderr so the report file stays clean — run-preflight.sh
 # reads them with `| tail -2` from stdout on the DEFAULT path, which is unchanged.
@@ -642,6 +676,10 @@ fi
 say() { if [[ $SINK_STDOUT -eq 1 ]]; then echo "$@" >&2; else echo "$@"; fi; }
 [[ $SINK_STDOUT -eq 1 ]] || stamp_incomplete_banner "$REPORT" >/dev/null
 say "Codebase scan written: $REPORT_LABEL"
-say "Mechanical sections (1-7) auto-filled. LLM must fill sections 8-15."
+if [[ "$REFRESH_MECHANICAL" -eq 1 ]]; then
+  say "Mechanical sections (1-7) REGENERATED; sections 8-15 preserved verbatim from the previous report."
+else
+  say "Mechanical sections (1-7) auto-filled. LLM must fill sections 8-15."
+fi
 say "INCOMPLETE until they are: an ⚠ banner is stamped at the top of the file and removes itself when the sections are written. Phase 5 C2c refuses the run until then."
 exit 0
