@@ -152,11 +152,36 @@ parse_pkg_deps_awk() {
     }
   ' "$1" 2>/dev/null
 }
+_read_pkg_deps() {
+  local out
+  out=$(parse_pkg_deps "$1" | tr '\n' ' ')
+  [[ -n "${out// /}" ]] || out=$(parse_pkg_deps_awk "$1" | tr '\n' ' ')
+  printf '%s ' "$out"
+}
+
 if [[ -f "$PKG" ]]; then
-  PKG_DEPS=$(parse_pkg_deps "$PKG" | tr '\n' ' ')
-  if [[ -z "${PKG_DEPS// /}" ]]; then
-    PKG_DEPS=$(parse_pkg_deps_awk "$PKG" | tr '\n' ' ')
-  fi
+  PKG_DEPS=$(_read_pkg_deps "$PKG")
+fi
+
+# ---------- Monorepo: the root package.json holds tooling, not frameworks ----------
+# Same defect, same fix as detect-tracks.sh. A workspace root declares eslint / prettier /
+# turbo / typescript and nothing else, so reading only the root made a real monorepo holding a
+# React+Vite web app and a NestJS API look like neither. MEASURED on that repo: no Playwright
+# MCP recommended — the single most useful server for a UI stack — while a single-package Vue
+# app in the same workspace folder got it. The MCP roster is derived from these deps, so every
+# monorepo was being handed the wrong toolchain.
+#
+# Union, never replacement: the root's own deps still count, and a single-package repo is
+# untouched because none of these markers exist.
+if [[ -f "$TARGET/pnpm-workspace.yaml" || -f "$TARGET/turbo.json" || -f "$TARGET/nx.json" \
+      || -f "$TARGET/lerna.json" || -f "$TARGET/rush.json" ]] \
+   || { [[ -f "$PKG" ]] && grep -q '"workspaces"' "$PKG" 2>/dev/null; }; then
+  for _wpkg in "$TARGET"/*/*/package.json "$TARGET"/*/package.json; do
+    [[ -f "$_wpkg" ]] || continue
+    [[ "$_wpkg" == "$PKG" ]] && continue
+    case "$_wpkg" in */node_modules/*|*/.git/*|*/dist/*|*/build/*) continue ;; esac
+    PKG_DEPS="$PKG_DEPS$(_read_pkg_deps "$_wpkg")"
+  done
 fi
 has_dep() { [[ " $PKG_DEPS " == *" $1 "* ]]; }
 has_dep_prefix() { [[ " $PKG_DEPS " == *" $1"* ]]; }
@@ -301,7 +326,12 @@ if has_dep vue || has_dep_prefix '@vue/' || has_dep react || has_dep_prefix '@ty
   # added when the file EXISTS — pointing --storage-state at a missing file would crash the MCP;
   # a refresh after the human runs tests/auth.setup.ts self-heals this.
   AUTH_GATED=0
-  if grep -rqiE 'requiresAuth|PrivateRoute|authGuard|redirect.*/login|meta:[^}]*requiresAuth' "$TARGET/src" 2>/dev/null; then
+  # Scan roots, not a hardcoded src/: on a monorepo there is no $TARGET/src, and a grep over a
+  # missing directory returns zero hits — which reads as "no auth guard" rather than "not
+  # looked". Same silent-zero shape as the detector bug above.
+  _auth_roots=("$TARGET/src")
+  for _d in "$TARGET"/apps/*/src "$TARGET"/packages/*/src; do [[ -d "$_d" ]] && _auth_roots+=("$_d"); done
+  if grep -rqiE 'requiresAuth|PrivateRoute|authGuard|redirect.*/login|meta:[^}]*requiresAuth' "${_auth_roots[@]}" 2>/dev/null; then
     AUTH_GATED=1
   fi
   add_rec "playwright" "Playwright MCP" "@playwright/mcp" \
