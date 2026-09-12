@@ -232,4 +232,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [premise, the_one_question, halt_conditions, when_to_use, procedure, encodability, inputs, outputs, failure_modes]
   fallback: skills/design-canvas/SKILL.md
   cite_evidence: strict
+
+- name: design-first
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Tokens / Surfaces (to run the language-or-composition test, never to answer $SOURCE) + the pack's own command map in commands/ui-sweep.md (canonical; this command fronts it and never restates it as a second source of truth)
+  sections: [premise, the_question_and_the_test, routing, args, hard_rules, failure_modes, cross_references, stack_scope]
+  fallback: commands/design-first.md
+  cite_evidence: strict
 ```

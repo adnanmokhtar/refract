@@ -15,10 +15,11 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 *(Canonical. Every other ui-ux command's `Not this command?` block links here rather than restating it.)*
 
-All **ten** commands are below — including `/add-theme-variant`, which earlier versions of this table excluded and thereby made unfindable. They differ by **the question you can actually answer before you start**; that is the column to read first, because "which command" is usually a question about your own intent, not about the commands.
+All **eleven** commands are below — including `/add-theme-variant`, which earlier versions of this table excluded and thereby made unfindable, and `/design-first`, the front door for anyone who does not already hold this map. They differ by **the question you can actually answer before you start**; that is the column to read first, because "which command" is usually a question about your own intent, not about the commands.
 
 | If you can say… | Command | Writes? | Scope |
 |---|---|---|---|
+| "I want a design to look at, and I don't know which of these that is." | **`/design-first`** | NO (routes only) | asks the one question, runs the one test, dispatches with the canvas gate on |
 | "Tell me what's wrong with what I just changed. Change nothing." | **`/design-review`** | NO | changed files / a screenshot |
 | "Tell me what's broken across every route, from a real browser. Change nothing." | **`/ui-crawl`** | NO | project-wide, per-route |
 | "I have a crawl report and it's the same five mechanical issues 1,000 times." | **`/ui-crawl-fix`** | YES | the crawled findings, patched at the wrapper level |
@@ -30,7 +31,7 @@ All **ten** commands are below — including `/add-theme-variant`, which earlier
 | "Give me *that* site — its real HTML, CSS, images, fonts — as a folder that opens offline." | **`/grab-site`** | YES | a new folder from an external URL |
 | "Give me *that* site's design SYSTEM, brand-neutral, so I can restyle and own it." | **`/clone-design`** | YES | a new folder from an external URL / screenshot |
 
-**Before any of the writing commands, when a human other than you has to approve the result** — the `design-canvas` skill drafts the proposal as artboards on one pan/zoom canvas and writes no product code at all. It is not in the table because it is not a command and changes nothing: it is the visual form of `/redesign`'s and `/art-direct`'s approval gate, and the only thing in this pack you can send to someone who does not read diffs. It is also the only entry point that works on a surface with **no code yet**. Unlike split 1 below, it *does* ask one question — `system` (match our design system) vs `independent` (free of the repo) — because that is a permission the product owner holds, not a diagnosis to be earned.
+**Before any of the writing commands, when a human other than you has to approve the result** — the `design-canvas` skill drafts the proposal as artboards on one pan/zoom canvas and writes no product code at all. It is not in the table because it is not a command and changes nothing: it is the visual form of `/redesign`'s and `/art-direct`'s approval gate, and the only thing in this pack you can send to someone who does not read diffs. It is also the only entry point that works on a surface with **no code yet**. `/design-first` is the front door onto all of it when you would rather answer one question than pick a row from this table. Unlike split 1 below, it *does* ask one question — `system` (match our design system) vs `independent` (free of the repo) — because that is a permission the product owner holds, not a diagnosis to be earned.
 
 `/polish` (global, not a ui-ux specialist): the simple-surface front door that routes `frontend-*` into the same 19-verb vocabulary — scope arg or whole project, writes code. `/align` · `/align-recheck` (align pack): enforce tokens and rules that already exist, no creative work.
 

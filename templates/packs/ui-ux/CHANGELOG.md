@@ -14,6 +14,59 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.28.0 — 2026-09-12
+
+**A front door onto a map that was correct and unfindable.**
+
+v1.27 gave the pack a canvas and wired it into the two commands that gate on a proposal. Reaching it
+still required knowing which of eleven commands your ask belonged to — and `ui-sweep.md`'s map says
+plainly that choosing is usually a question about your own intent, not about the commands. Someone
+who does not already hold the map picks by keyword, lands on `/enhance-ui` when they wanted a
+redesign, and gets a tidier version of the layout they were trying to throw away.
+
+**New `/design-first <scope>`.** One door for "I want a design to look at". It writes **nothing** —
+not product code, not artboards, not tokens — it resolves which path the ask belongs to and
+dispatches with the canvas gate on. A run that edits a file has left its contract.
+
+**Its whole substance is one question and one test, which look alike and are opposite in kind.**
+
+| | The question (`$SOURCE`) | The test (language-or-composition) |
+|---|---|---|
+| Kind | a **permission** | a **diagnosis** |
+| Who holds it | whoever owns the product | the evidence — a render and a token source |
+| Can the user answer it? | **only** they can | no; it is the *output* of looking |
+| So | asking is respecting authority | asking is offloading your work onto them |
+
+The question is always asked; inferring it for an in-repo surface is a HALT. The test is always run
+and never asked, per `redesign.md § Phase 1`, which this command cites rather than restates. A run
+that asks "should we redesign the page or rethink the whole look?" has failed at its one job.
+
+**Six routing rows, every one ending on a canvas**: composition fault → `/redesign --canvas`;
+language fault → `/art-direct --canvas`; a surface with no code yet → `design-canvas` directly;
+an external reference → `/clone-design`; "show me what's out there" → the new catalog; invent it →
+`/art-direct --reimagine --canvas`.
+
+**Deliberately not named `/design`.** Claude Code ships its own bundled `design` skill, and a command
+installed at that name would contend with it for one invocation. The repo's builtins list covers
+Claude Code's *slash commands* and cannot see a skill, so this collision is one a linter would not
+have caught.
+
+**New `references/design-system-catalog.md`** — eight published systems a project can **adopt** as a
+starting point rather than invent one. It can sit beside `direction-vocabulary.md`'s explicit refusal
+to be a style catalogue because adopting a documented system and shopping for a look are different
+acts: the borrowed-skin diagnosis applies to a run *claiming invention*, and adoption claims none.
+Consulted when choosing what to adopt, never to fill `/art-direct`'s three directions —
+`creative-director`'s divergence check is what catches that misuse, and both files now say so.
+
+Every row carries its honest cost. These systems are **recognizable**: adopting one means the product
+reads as built on it until it has been substantially restyled, and if being unmistakably yours is the
+goal then `/art-direct --reimagine` is the right path and this is the wrong one — a real trade, not a
+formality. Licences differ per asset (a permissive component library shipping a proprietary typeface
+is the common shape) and must be checked at the source, today, rather than taken from the file.
+And every row is LTR-first: the Arabic / RTL budget — logical properties throughout, mirrored icons,
+a typeface that actually carries Arabic, and a type scale re-checked at Arabic's longer strings — is
+named as the most underestimated cost on the page.
+
 ## 1.27.0 — 2026-09-12
 
 **The deliverable a non-engineer can answer.**

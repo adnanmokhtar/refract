@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**195 commands** — core 15 · 23 packs (134) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**196 commands** — core 15 · 23 packs (135) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -33,7 +33,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — product](#pack--product) — 5
 - [Pack — security](#pack--security) — 4
 - [Pack — testing](#pack--testing) — 4
-- [Pack — ui-ux](#pack--ui-ux) — 10
+- [Pack — ui-ux](#pack--ui-ux) — 11
 - [Domain commands — materialized when the domain is detected](#domain-commands--materialized-when-the-domain-is-detected) — 36
 - [Baseline — universal infra (repo + workspace)](#baseline--universal-infra-repo--workspace) — 10
 
@@ -298,6 +298,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-theme-variant` | One command to ADD a new theme variant to a multi-theme app — creates a NEW theme slot only (never… | `--plan`, `--name`, `--reimagine`, `--skin` | `/add-theme-variant dark` |
 | `/art-direct` | One command to DESIGN and BUILD a product / surface / flow's visual direction. | `--plan`, `--evolve`, `--reimagine`, `--yes`, `--direction`, `--surfaces=<n>`, `--render`, `--canvas` | `/art-direct the dashboard` |
 | `/clone-design` | One command to CLONE an external design reference (a live URL or a screenshot) into a… | `--plan`, `--pages=<a,b,c>`, `--sections-only`, `--fidelity=<0-100>`, `--max-refine=<n>`, `--adopt=<tokens \| pages \| project>`, `--all-routes` | `/clone-design https://shop.example.com/` |
+| `/design-first` | The design-first front door. | `--source`, `--no-canvas`, `--plan` | `/design-first orders/list` |
 | `/design-review` | Review UI changes for UX, design system compliance, and accessibility in parallel. | — | `/design-review [path\|screenshot]` |
 | `/enhance-ui` | Orchestrator for UI/UX enhancement. | `--plan`, `--direction`, `--scope`, `--dry-detect`, `--auto-extract`, `--skip-cleanup`, `--skip-iterate`, `--re-detect-only` | `/enhance-ui the sidebar — complete` |
 | `/grab-site` | FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL… | `--plan`, `--pages`, `--max-assets=<N>` | `/grab-site https://shop.example.com/` |
