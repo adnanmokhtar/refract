@@ -14,13 +14,14 @@ One page. How a new project or a new feature moves from idea → shipped, mapped
       └─ auto-chains /setup-project --create at Phase 4.8  (→ .claude/ + ai/ + rules + adapters)
 3. /art-direct --reimagine           [frontend, optional] invent the REAL visual identity from goals
       └─ approve once → it BUILDS it: auto-runs design-system-architect → /redesign → /polish
-                        (--yes skips the approval · --plan stops at the design)
+                        (--yes skips the approval · --plan stops at the design
+                         · --canvas shows the three directions as artboards, not paragraphs)
 4. then every feature → Scenario B
 ```
 
 - `/scaffold-project` **embeds** `/setup-project` — you do **not** run setup-project as a separate third step for a fresh scaffold. Its declared "next" is `/add-feature`.
 - Run `/setup-project` **standalone** only for an **existing** repo that needs the `.claude/` knowledge layer retrofitted (`--enhance` / `--refresh`).
-- Step 3 is **optional and frontend-only** — `/scaffold-project` already ships a *starter* design system, so you can skip straight to features. Run `/art-direct` when you want a real, ownable visual identity instead of the defaults. See the walkthrough below.
+- Step 3 is **optional and frontend-only** — `/scaffold-project` already ships a *starter* design system, so you can skip straight to features. Run `/art-direct` when you want a real, ownable visual identity instead of the defaults. See the walkthrough below. Not sure whether the fault is the look or one screen's layout? `/design-first <scope>` runs the language-or-composition test and routes for you, rather than asking you to diagnose it.
 
 ### Designing the visual identity — the scaffold → art-direct → build loop (frontend)
 

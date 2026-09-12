@@ -6,6 +6,54 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### ui-ux pack v1.28.0 — design before code, on a canvas someone approves (2026-09-12)
+
+**What was missing** — every artifact in the ui-ux pack ended in a **diff**. `/design-review` reports,
+`/redesign` and `/art-direct` gate on written prose, `design-iterate` and `visual-check` screenshot
+what already renders. Nothing produced the thing you send to a client, a designer or a founder and
+get *"yes, but move that"* back — and for a surface with **no code yet**, nothing applied at all. So
+the disagreement surfaced *after* the code was written, which is the expensive place for it.
+
+**What ships** — three artifacts and three flags.
+
+- **`design-canvas` skill** — drafts a surface, flow or feature as artboards on one pan/zoom canvas
+  before any product code exists, writing only under `ai/design/canvas/`. It draws the **states**
+  (empty / loading / error / overflow) and halts on a happy-path-only set: those are where a design is
+  decided, and exactly what a screenshot of a working app never shows. **Two renderers, one authored
+  fragment, authored to the weaker one** — the static, self-contained canvas is the contract all
+  thirteen adapter tools get; Claude Code's WYSIWYG payload is pinned to the CLI build and cannot be
+  vendored, so an artboard needing holes, tweaks or a logic class is a defect, invisible everywhere
+  else.
+- **`/design-first <scope>` command** — the front door onto a map that was correct and unfindable. It
+  writes nothing and dispatches with the canvas gate on. Its substance is **one question and one
+  test**, which look alike and are opposite in kind: `$SOURCE` (does this surface stay inside our
+  design system, or leave it) is a **permission** only the product owner holds and is always asked;
+  the language-or-composition split is a **diagnosis** earned from a render and is always run, never
+  asked. Deliberately not named `/design` — Claude Code ships its own bundled `design` skill, a
+  collision the builtins list cannot see because it covers slash commands, not skills.
+- **`references/design-system-catalog.md`** — eight published systems a project can **adopt** rather
+  than invent. It sits beside `direction-vocabulary.md`'s refusal to be a style catalogue because
+  adopting a documented system and shopping for a look are different acts: the borrowed-skin
+  diagnosis applies to a run *claiming invention*, and adoption claims none.
+- **`/redesign --canvas` · `--from-canvas` · `/art-direct --canvas`** — new **Phase 4.5** guards the
+  intake with three halts: provenance, scope match, and encodability reconciliation against the
+  system *as it stands now*, not when the canvas was drawn.
+
+**The contradiction it surfaced, and its resolution** — an `/art-direct` direction is an
+`independent` canvas by construction, which `/redesign`'s provenance check refuses outright. Both
+rules are correct, and the existing build chain already answers it: step 1 codifies the direction into
+the tokens **and** the idioms oracle, after which the new language *is* the system. **Re-draw, never
+re-label** — editing a manifest to say `system` fakes the check instead of satisfying it, and lands
+off-system code under a passing gate.
+
+**Adapters needed no change** — all twelve `adapter.md` files are generic generators over
+`<command-name>` / `<skill-name>`; none names a ui-ux command, so the new artifacts reach every tool
+through `/setup-project` unchanged. The enumerating layer, `_ui-ux-pack-coverage.md`, gained a
+`design-canvas` column recording the static-vs-editable split per tool.
+
+**Also fixed, pre-existing on main** — `architecture.svg` (103 → 104 scripts), README (124 → 127
+scripts; 222k → 228k lines), and a stale `.baseline-hashes`. Pack commands 134 → 135.
+
 ### The graph that reached no project (2026-09-10)
 
 `build-graph.py --corpus=project` exists so an agent can size a blast radius without reading
