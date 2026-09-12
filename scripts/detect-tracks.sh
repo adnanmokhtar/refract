@@ -104,11 +104,39 @@ parse_pkg_deps_awk() {
     }
   ' "$1" 2>/dev/null
 }
+_read_pkg_deps() {
+  local out
+  out=$(parse_pkg_deps "$1" | tr '\n' ' ')
+  [[ -n "${out// /}" ]] || out=$(parse_pkg_deps_awk "$1" | tr '\n' ' ')
+  printf '%s ' "$out"
+}
+
 if [[ -f "$PKG" ]]; then
-  PKG_DEPS=$(parse_pkg_deps "$PKG" | tr '\n' ' ')
-  if [[ -z "${PKG_DEPS// /}" ]]; then
-    PKG_DEPS=$(parse_pkg_deps_awk "$PKG" | tr '\n' ' ')
-  fi
+  PKG_DEPS=$(_read_pkg_deps "$PKG")
+fi
+
+# ---------- Monorepo: the root package.json is not where the frameworks live ----------
+# A turbo / pnpm / npm / yarn / nx / lerna workspace root declares BUILD TOOLING and
+# nothing else — eslint, prettier, turbo, typescript. Reading only the root therefore
+# classified a real monorepo holding a React+Vite+Tailwind app and a NestJS+Fastify API
+# as having NO frontend, NO backend and NO ui-ux, and it took the ten universal/seeded
+# tracks instead. Measured on that repo: 0 of the 3 correct stack tracks detected.
+#
+# So when a workspace marker is present, fold every workspace package's deps into
+# PKG_DEPS. Union, never replacement: the root's own deps still count, and a
+# single-package repo is untouched because none of these markers exist.
+if [[ -f "$TARGET/pnpm-workspace.yaml" || -f "$TARGET/turbo.json" || -f "$TARGET/nx.json" \
+      || -f "$TARGET/lerna.json" || -f "$TARGET/rush.json" ]] \
+   || { [[ -f "$PKG" ]] && grep -q '"workspaces"' "$PKG" 2>/dev/null; }; then
+  _ws_found=0
+  for _wpkg in "$TARGET"/*/*/package.json "$TARGET"/*/package.json; do
+    [[ -f "$_wpkg" ]] || continue
+    [[ "$_wpkg" == "$PKG" ]] && continue
+    case "$_wpkg" in */node_modules/*|*/.git/*|*/dist/*|*/build/*) continue ;; esac
+    PKG_DEPS="$PKG_DEPS$(_read_pkg_deps "$_wpkg")"
+    _ws_found=$((_ws_found + 1))
+  done
+  [[ $_ws_found -gt 0 ]] && trace "monorepo workspace: folded deps from $_ws_found package.json file(s) below the root"
 fi
 
 has_dep() {

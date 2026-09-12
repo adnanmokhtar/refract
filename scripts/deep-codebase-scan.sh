@@ -655,6 +655,26 @@ PROSE
   printf 'These gates exist because the historic bug was: refresh / refine / enhance ran shallow — touched ≤5 surface files, never compared rules to code, never proposed structural changes. M16 makes that pattern impossible to ship as "complete."\n'
 } > "$REPORT"
 
+# Semantic-half fingerprint. _codebase-scan.md has two halves that mean different
+# things: sections 1-7 are a mechanical census, and sections 8-15 are the analysis that
+# ai/ knowledge files are actually derived from. audit-setup.sh's STALE_KNOWLEDGE check
+# used the whole FILE's mtime, so regenerating the census — which provably cannot change
+# what a knowledge file should say — marked every knowledge file stale and demanded a
+# rewrite of content that was still correct. This sidecar moves only when the semantic
+# half does, and is written idempotently so an unchanged half leaves the mtime alone.
+_write_semantic_fingerprint() {
+  local report="$1" dir sha tmp cur
+  [[ -f "$report" ]] || return 0
+  dir="$(dirname "$report")"
+  grep -q '^## 8\.' "$report" || return 0
+  sha=$(sed -n '/^## 8\./,$p' "$report" | shasum -a 256 2>/dev/null | cut -d' ' -f1) || return 0
+  [[ -n "$sha" ]] || return 0
+  tmp="$dir/_codebase-scan.semantic.sha"
+  cur=$(cat "$tmp" 2>/dev/null || true)
+  [[ "$cur" == "$sha" ]] && return 0   # unchanged -> do NOT touch the mtime
+  printf '%s\n' "$sha" > "$tmp"
+}
+
 # --refresh-mechanical: drop the freshly templated 8-15 and restore the real ones.
 if [[ -n "$MECH_STASH" && -s "$MECH_STASH" ]]; then
   _spliced=$(mktemp "${TMPDIR:-/tmp}/scan-spliced.XXXXXX")
@@ -664,6 +684,8 @@ if [[ -n "$MECH_STASH" && -s "$MECH_STASH" ]]; then
   rm -f "$MECH_STASH"
   MECH_STASH=""
 fi
+
+[[ $SINK_STDOUT -eq 1 ]] || _write_semantic_fingerprint "$REPORT"
 
 # --stdout: the report was buffered off-target; emit it now and leave $TARGET untouched.
 # The two summary lines move to stderr so the report file stays clean — run-preflight.sh

@@ -1284,9 +1284,22 @@ if [[ "$MODE" != "create" ]]; then
   # whose movement means the knowledge really is behind. Keep the pack comparison as a WARN,
   # because a framework change CAN change what a knowledge file should say; it just cannot be
   # relied on to mean that.
+  # _codebase-scan.md is TWO halves with different meanings: sections 1-7 are a mechanical
+  # census, sections 8-15 are the analysis ai/ knowledge is derived from. Using the whole
+  # file's mtime meant a census regeneration — which provably cannot change what a knowledge
+  # file should say — marked all six knowledge files stale and demanded a rewrite of content
+  # that was still correct. Measured on a real Vue repo: 48 insertions / 40 deletions in the
+  # scan, ZERO of them inside sections 8-15, and all six knowledge files flagged.
+  #
+  # deep-codebase-scan.sh now writes _codebase-scan.semantic.sha, which moves only when the
+  # semantic half does. Prefer it; fall back to the report's own mtime when it is absent, so
+  # a repo that has not re-scanned since this change keeps the old (conservative) behaviour.
   extract_newest=0
   for _e in "codebase-profile.md" "_codebase-scan.md" "_extracted-idioms.md" "_extracted-business.md"; do
     _ep="$TARGET/.claude/$_e"
+    if [[ "$_e" == "_codebase-scan.md" && -f "$TARGET/.claude/_codebase-scan.semantic.sha" ]]; then
+      _ep="$TARGET/.claude/_codebase-scan.semantic.sha"
+    fi
     [[ -f "$_ep" ]] || continue
     m=$(_mtime "$_ep")
     [[ $m -gt $extract_newest ]] && extract_newest=$m
