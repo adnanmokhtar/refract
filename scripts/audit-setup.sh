@@ -1333,6 +1333,18 @@ if [[ "$MODE" != "create" ]]; then
       fi
       file_mtime=$(_mtime "$f")
 
+      # A derived knowledge file that does not say WHAT it was derived from cannot be
+      # checked by anyone — not this audit, not the next agent, not a human. The only honest
+      # answer to "is this still true?" becomes "re-derive and find out", which is the
+      # expensive one. Measured across five real repos: exactly one recorded its derivation
+      # HEAD, and it was the only one where the question could be settled — it was 5 commits
+      # and 46 source files behind, including a commit adding the very surfaces its
+      # architecture file documents. The other four were unknowable in either direction.
+      # Contract: templates/repo-baseline/ai/README.md § Rules.
+      if ! grep -qiE 'HEAD `?[0-9a-f]{7,40}' "$f" 2>/dev/null; then
+        warn_msg "NO_DERIVATION_POINT: $rel records no commit it was derived from — add \`Updated: <date> — derived against branch \`<branch>\`, HEAD \`<sha>\`.\` so its freshness can be settled instead of guessed"
+      fi
+
       # A recorded, still-valid knowledge review closes this row without a rewrite.
       # STALE_KNOWLEDGE had exactly ONE exit — re-derive — and re-deriving is expensive and
       # frequently unnecessary: the substrate can move without changing anything a knowledge
@@ -1342,7 +1354,11 @@ if [[ "$MODE" != "create" ]]; then
       # moment that content moves, exactly as KEEP-OURS re-opens on a pack change.
       # Recorded via: apply-study-decisions.sh <target> --knowledge-current='<rel>:<rationale>'
       if [[ -f "$TARGET/.claude/_refresh-decisions.md" ]] && declare -F extraction_fingerprint >/dev/null; then
-        _kc=$(grep -F -- "- \`$rel\` → KNOWLEDGE-CURRENT" "$TARGET/.claude/_refresh-decisions.md" 2>/dev/null | tail -1)
+        # `|| true` is load-bearing: this script runs under `set -euo pipefail`, and with
+        # pipefail a non-matching grep fails the WHOLE pipeline, so the assignment aborts the
+        # audit outright. Measured: the audit stopped inside C2f and printed "AUDIT ABORTED",
+        # meaning every check after it silently did not run.
+        _kc=$(grep -F -- "- \`$rel\` → KNOWLEDGE-CURRENT" "$TARGET/.claude/_refresh-decisions.md" 2>/dev/null | tail -1 || true)
         if [[ -n "$_kc" ]]; then
           _want=$(extraction_fingerprint "$TARGET")
           _have=$(printf '%s' "$_kc" | sed -n 's/.*extract@\([0-9a-f]\{8\}\).*/\1/p')

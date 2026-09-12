@@ -40,6 +40,19 @@ Each file's tier is shown in brackets. Tier-3 files carry a `Read by:` / `Load t
 ## Rules
 
 - `status.md` MUST have an `Updated:` line and a `## Recent Changes` section — the SessionStart hook reads it.
+- **Every DERIVED knowledge file MUST record the commit it was derived from**, not only a date:
+  `Updated: <YYYY-MM-DD> — derived against branch \`<branch>\`, HEAD \`<sha>\`.` This applies to
+  `architecture.md`, `conventions.md`, `business-domain.md`, `_session-digest.md`,
+  `_convention-cheatsheet.md` and `_decision-index.md`.
+
+  A date cannot be checked; a SHA can. Without one, nobody — not the next agent, not the next
+  reader, not the freshness audit — can answer "is this still true?", and the only honest
+  answer becomes "re-derive it and find out", which is the expensive one. Measured across five
+  real repos: exactly one recorded its derivation HEAD, and it was the only one where the
+  question could be settled at all. It turned out to be 5 commits and 46 source files behind,
+  including a commit adding the very surfaces its architecture file documents — a fact that was
+  invisible in the other four. `audit-setup.sh` C2f warns on a derived file that carries no
+  derivation point.
 - One pattern file per concept. Don't dump everything into one doc.
 - ADRs in `decisions/` are append-only. If a decision is reversed, write a NEW ADR superseding the old one; don't edit the old one in place.
 
