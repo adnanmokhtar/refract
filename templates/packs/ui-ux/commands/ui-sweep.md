@@ -30,6 +30,8 @@ All **ten** commands are below — including `/add-theme-variant`, which earlier
 | "Give me *that* site — its real HTML, CSS, images, fonts — as a folder that opens offline." | **`/grab-site`** | YES | a new folder from an external URL |
 | "Give me *that* site's design SYSTEM, brand-neutral, so I can restyle and own it." | **`/clone-design`** | YES | a new folder from an external URL / screenshot |
 
+**Before any of the writing commands, when a human other than you has to approve the result** — the `design-canvas` skill drafts the proposal as artboards on one pan/zoom canvas and writes no product code at all. It is not in the table because it is not a command and changes nothing: it is the visual form of `/redesign`'s and `/art-direct`'s approval gate, and the only thing in this pack you can send to someone who does not read diffs. It is also the only entry point that works on a surface with **no code yet**. Unlike split 1 below, it *does* ask one question — `system` (match our design system) vs `independent` (free of the repo) — because that is a permission the product owner holds, not a diagnosis to be earned.
+
 `/polish` (global, not a ui-ux specialist): the simple-surface front door that routes `frontend-*` into the same 19-verb vocabulary — scope arg or whole project, writes code. `/align` · `/align-recheck` (align pack): enforce tokens and rules that already exist, no creative work.
 
 **The two splits that trip people up, and how each is resolved:**

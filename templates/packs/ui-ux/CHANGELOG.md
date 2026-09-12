@@ -14,6 +14,92 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.27.0 — 2026-09-12
+
+**The deliverable a non-engineer can answer.**
+
+Every artifact in this pack ended in a diff. `/design-review` reports; `/redesign` and `/art-direct`
+gate on written prose; `design-iterate` and `visual-check` screenshot what already renders in the
+app. Nothing produced the thing you send to a client, a designer or a founder and get "yes, but move
+that" back — and for a surface with no code yet, nothing applied at all. The disagreement therefore
+surfaced *after* the code was written, which is the expensive place for it.
+
+**New `design-canvas` skill.** Drafts a surface, flow or feature as **artboards on one pan/zoom
+canvas** before any product code exists, writing only under `ai/design/canvas/` — never a component,
+a token file or a route. It is an *input* to `/redesign` (which owns the rebuild) or `/art-direct`
+(which owns the language), never a substitute for either.
+
+**The one question it asks, and why that is not a contradiction.** `$SOURCE` = `system` (lift the
+repo's resolved token and component literals, match exactly) vs `independent` (free of the repo —
+landing pages, greenfield). It is asked and never inferred, which sits *beside* rather than against
+`redesign.md § Phase 1`'s standing rule that the language-or-composition test is never put to the
+user. The two are different kinds of question. *Is our visual language at fault?* is a **diagnosis**
+— an output, earned from a render and a token source; the user cannot answer it and asking offloads
+work onto them. *May this surface leave our design system?* is a **permission** — an input only
+whoever owns the product holds, and no render produces it. Asking for a diagnosis is laziness;
+asking for a permission is not presuming authority.
+
+**States, not screens.** An artboard exists per surface for empty / loading / error / overflow, and
+a happy-path-only set halts. Those states are where a design is actually decided, and they are
+precisely what a screenshot of a working app never shows, because nobody can reach them on demand.
+On an Arabic product, overflow is also where a 40%-longer translation breaks the layout.
+
+**Two renderers, one authored fragment — and the authoring targets the weaker one.** The **static**
+canvas (a self-contained `canvas.html` that opens in any browser and survives being emailed) is the
+contract all 13 adapter tools get. Claude Code's bundled WYSIWYG canvas is an opportunistic upgrade
+only: it is a precompiled payload **pinned to the CLI build**, living under a versioned
+`bundled-skills/` path, and cannot be vendored into a project or shipped in this pack. So artboards
+are plain HTML body fragments — no holes, no tweaks, no logic class — and one that needs the rich
+runtime to look right is a defect, invisible to every other tool this repo supports and to the
+person who was sent the link.
+
+**Halt conditions earned from how this fails.** An unresolved `var()` or utility class (the frame
+carries none of the app's cascade, so it paints as nothing — silently, with no error, and the viewer
+attributes the broken result to the design). Values rounded to a 4/8 grid instead of lifted, which
+is what makes an artboard read as *an* app rather than *this* one. Token chains resolved one hop and
+left pointing at another `var()`. The app's look recreated from training-data memory rather than its
+source — confident, plausible, wrong in every specific. LTR artboards for an RTL product, which is
+not a polish issue: a mirrored layout is a different design and it invalidates every spacing
+decision on the canvas. And presenting the canvas as the change, when nothing in the app has moved.
+
+**An encodability table per surface** keeps it honest: a "new work" column that is empty on every
+row is a restyle wearing a redesign's clothes; one that is new on every row is a fantasy. Both are
+worth seeing before anyone approves it.
+
+Registered in `_topics.md`, `_essentials.md` (standard mode — kept out of `--minimal`), the ui-ux
+command map in `ui-sweep.md`, and `_ui-ux-pack-coverage.md`, whose capability matrix gains a
+`design-canvas` column recording the static-vs-editable split per tool.
+
+**Wired into the two commands that gate on a proposal.** A skill nothing calls is a skill nobody runs,
+so `/redesign` and `/art-direct` gained the flags that make the canvas their gate:
+
+- **`/redesign --canvas`** draws the Phase-4 proposal before gating on it. The prose sections stay —
+  they carry the diagnosis, the parity map and the rationale, none of which a picture can state; the
+  canvas replaces the *imagining*, not the argument.
+- **`/redesign --from-canvas=<path>`** takes an approved canvas as the spec. New **Phase 4.5 — Canvas
+  intake** stands between it and the build with three halts: **provenance** (`$SOURCE` must be
+  `system`), **scope match** (a canvas for the orders list does not authorize rebuilding order
+  detail), and **encodability reconciliation** against the system *as it stands now*, since the canvas
+  may predate token changes. The gate does not re-run; everything else Phase 4 owes still does.
+- **`/art-direct --canvas`** shows the three directions as artboards rather than paragraphs,
+  deliberately at `wireframe` fidelity: structure is what is being chosen, and a hi-fi render of three
+  directions invites picking on paint — the exact axis `direction-vocabulary.md` excludes from the
+  divergence check. It changes what the approver looks at, never what they are approving.
+
+**The contradiction this surfaced, and its resolution.** A direction drawn by `/art-direct` is an
+`independent` canvas by construction — that is what inventing a language *means* — and `/redesign`'s
+new provenance check refuses `independent` canvases outright. Both rules are correct and the existing
+build chain already resolves the tension: step 1 codifies the direction into tokens *and* the idioms
+oracle, and from that commit the new language **is** the system. So a canvas re-drawn at
+`$SOURCE=system` after step 1 is a valid `--from-canvas` input; one drawn before it is not. Stated in
+both files, with the fix named explicitly: **re-draw, never re-label** — editing a manifest to say
+`system` fakes the provenance check instead of satisfying it, and lands off-system code under a
+passing gate.
+
+Two new hard rules in `redesign.md`: a canvas does not override the no-new-visual-language rule, and
+a picture is not a parity map — approving how a screen should look approves nothing about where each
+existing feature went.
+
 ## 1.26.0 — 2026-08-26
 
 **Two floors the pack never had — one verified absent by grep, one hiding inside a table cell.**

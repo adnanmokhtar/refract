@@ -224,4 +224,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [purpose, when_to_use, inputs, outputs, the_19_closure_verbs, procedure, hard_rules, failure_modes]
   fallback: skills/ui-design-sweep/SKILL.md
   cite_evidence: strict
+
+- name: design-canvas
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Tokens / Surfaces / Voice / Breakpoints (resolved to LITERAL values, chains followed to the end) + the real source of the components each drawn surface uses (anatomy, control heights, icon sizes, state styling) + the app's resolved text direction
+  sections: [premise, the_one_question, halt_conditions, when_to_use, procedure, encodability, inputs, outputs, failure_modes]
+  fallback: skills/design-canvas/SKILL.md
+  cite_evidence: strict
 ```

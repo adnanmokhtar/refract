@@ -56,6 +56,8 @@ This command throws away the current layout and rebuilds it — the highest-blas
 - `--direction="<text>"` — seed the proposal with a desired direction ("card-based", "single-column flow", "split-pane"). Default: the agent derives 1–2 directions from the page's purpose + personas.
 - `--yes` — **unattended variant selection.** The post-approval build's optional variant step runs `design-iterate` in **refine** mode (auto render → self-critique → improve loop) instead of pausing to show 3 pickable variants. It does **NOT** skip the proposal approval gate — that hard stop always stands (Phase 4). For a design-only run use `--plan`; to auto-approve the proposal, run under `/art-direct --yes` (which relaxes `/redesign`'s per-page gate for its build chain).
 - `--max-refine=<n>` — cap the Phase-6 render → critique → improve loop (default 3 rounds).
+- `--canvas` — **draw the Phase-4 proposal before gating on it.** Dispatches the `design-canvas` skill with `$SOURCE=system` so the gate is answered against artboards — the surface plus its empty / loading / error / overflow states — instead of prose the user has to picture. The proposal's prose sections are still written (they carry the diagnosis, the parity map and the rationale, none of which a picture can state); the canvas replaces the *imagining*, not the argument. Costs one extra step before the gate and is worth it whenever someone other than you approves.
+- `--from-canvas=<path-or-url>` — **an already-approved canvas IS the design.** Phase 4 does not re-derive the layout: the artboards are the spec, and the run reconciles them against the system (below) and goes to build. The diagnosis and the parity map are still produced — a canvas shows what the screen should look like and is silent on which feature moved where, which is exactly the gap that loses features. See § Canvas intake.
 - `--plan` — universal handoff flag (see blockquote above): produce the proposal as a plan artifact and exit before any edit.
 
 ## The agent's job (exactly this)
@@ -144,8 +146,20 @@ ALWAYS read, in priority order:
    - **a11y + locale/RTL plan** — focus order, contrast, target size; mirroring + real translated copy.
    - **Parity map** — old feature → new home (keep / move / drop), nothing silently lost.
    - **Risks & tradeoffs** — and **one** genuine alternative direction only if the design space truly forks (seed with `--direction`). Lead with a recommendation.
-5. **GATE:** ask the user to approve / adjust / pick a direction. Do not proceed without it. (Under `--plan`, this structured proposal IS the plan artifact — write it to `.claude/plans/` and exit here; approval happens later via `/execute-plan`.)
+5. **GATE:** ask the user to approve / adjust / pick a direction. Do not proceed without it. **Under `--canvas`, the proposal is shown as artboards** (`design-canvas`, `$SOURCE=system`) alongside the prose — the gate is answered against a drawing of the states, not a description of them. **Under `--from-canvas` the gate does not re-run** — it was answered when the canvas was approved; § Phase 4.5 replaces it with the three intake checks. (Under `--plan`, this structured proposal IS the plan artifact — write it to `.claude/plans/` and exit here; approval happens later via `/execute-plan`.)
 6. **Build (after approval):** implement using only design-system primitives, then finish the surface with the `ui-design-sweep` closure verbs (hierarchy / rhythm / states / contrast / focus / motion / …). The build is not "layout only" — **motion (lens 10), the modern register (lens 11), and performance (lens 12) are built in this step, not left for later**: every interactive element gets its hover/press/focus transition, state changes and list entrances animate (GPU-friendly + reduced-motion-safe), loading uses skeletons, depth/elevation + spacing + accent are applied so it reads current-era, and the render path stays efficient (computed/memo, keyed/virtualized lists, lazy below-fold). Add a new token/component ONLY if the system lacks it — and add it to the system, not inline. Preserve all behavior + data bindings + feature parity, and add every new label/state string to all shipped locales. Then the Phase-6 refine loop renders it, scores it, and iterates until motion/modern/performance and the targeted lenses are `✓`. **Optional (attended runs):** dispatch `design-iterate` in `pick` mode to show the user 3 screenshotted variants; in an unattended (`--yes`) run it uses `refine` mode instead — auto-render → self-critique → improve → re-render toward the rubric bar.
+
+### Phase 4.5 — Canvas intake (`--from-canvas` only)
+
+A canvas is a *proposal that was approved*, not a build order. Three checks stand between it and the build, and each one is a HALT:
+
+1. **Provenance — `$SOURCE` must be `system`.** Read the canvas's `MANIFEST.md`. A canvas drawn `independent` was deliberately designed free of this repo's visual language; building it here would import a foreign look, which [§ Hard rules](#hard-rules) forbids this command to do under any flag. HALT and route to `/art-direct`, whose job is to decide a language — not to smuggle one in through a file path.
+2. **Scope match.** The canvas's surfaces are the surfaces named in `<description-or-path>`. A canvas for the orders list does not authorize rebuilding order detail; drawn-but-unlisted surfaces are reported and left alone.
+3. **Encodability reconciliation.** The canvas's encodability table names, per artboard, what builds from existing components and what is new work. Re-derive it against the system as it stands *now* — the canvas may predate token or component changes. Every row of new work is either added to the design system in Phase 6 (never inline) or surfaced as a keep / move / drop question. A row that is neither is how a canvas silently becomes off-system code.
+
+What the canvas does **not** supply, and Phase 4 still owes in full: the cited **diagnosis** (why today's page is wrong), the **parity map** (old feature → new home), the **a11y / locale / RTL plan**, and the **responsive plan** where the canvas drew only one frame. Approval of a picture is not approval of a feature drop.
+
+The gate at Phase 4 step 5 is already satisfied by the canvas's approval — it does not re-run. Everything else does.
 
 ### Phase 5 — Update
 - `ai/status.md` — Recent Changes entry (page redesigned, what changed structurally).
@@ -202,6 +216,8 @@ If the screenshot harness was unavailable, the `rendered:` line reads `rendered:
 - **Self-critique before the gate.** Red-team the proposal against the rubric + parity and fix the gaps *before* showing the user — don't outsource quality control to them.
 - If structure didn't change, it wasn't a redesign — that's `/enhance-ui`. Do not ship a restyle as a redesign.
 - No off-system colors / fonts / spacing because they "look better" — extract or add a token instead.
+- **A canvas does not override the no-new-visual-language rule.** `--from-canvas` accepts a `system` canvas only; an `independent` one is refused, not adapted. The flag is a shortcut past re-deriving a layout, never past the rule that this command builds inside the language the app already has.
+- **A picture is not a parity map.** Approving a canvas approves how the screen should look. Every feature on today's screen still needs an explicit home — keep / move / drop — before the build starts.
 - No feature or state dropped silently — every old capability survives or is explicitly approved for removal.
 - Never skip the approval gate and build a guess.
 - Never break RTL / locale (left-aligned Arabic, un-mirrored icons, hardcoded English).
@@ -216,6 +232,9 @@ If the screenshot harness was unavailable, the `rendered:` line reads `rendered:
 - **Feature has no home in the new layout** — surface the specific feature/state and ASK keep / move / drop (the one non-gate question allowed). Never drop silently.
 - **User does not approve the proposal** — stop at the gate with no code written; legitimate end state (re-run with an adjusted direction).
 - **Screenshot harness unavailable** — build still completes, but Phase 6 visual claims are marked `SKIPPED`; the run reports RTL / a11y as NOT verified rather than asserting them.
+- **`--from-canvas` pointed at an `independent` canvas** — HALT (§ Phase 4.5 check 1); route to `/art-direct`. Adapting it "just enough to fit" is the failure, not the fix.
+- **`--from-canvas` pointed at a canvas whose surfaces don't match `<description-or-path>`** — HALT; name the mismatch. Building the drawn-but-unasked surfaces is scope the user never approved.
+- **Canvas drawn against stale tokens** — the encodability reconciliation (§ Phase 4.5 check 3) catches it; re-run `design-canvas` rather than building an artboard the system can no longer express.
 - **The rebuild needs a token/component the system lacks** — add it to the design system (not inline), record it in Phase 7; if it implies a broad new pattern, write the ADR before shipping.
 
 ## Cross-references
@@ -229,6 +248,7 @@ If the screenshot harness was unavailable, the `rendered:` line reads `rendered:
 - agent `design-system-architect` — owns Phase 3 system extraction + Phase 6 conformance re-check.
 - skill `ui-design-sweep` — the closure-verb vocabulary used to finish the rebuilt surface (Phase 4 build).
 - skill `design-iterate` — optional post-approval visual variants of the approved structure.
+- skill `design-canvas` — **the visual form of this command's Phase-4 gate.** `--canvas` draws the proposal before gating; `--from-canvas` consumes an already-approved one as the spec (§ Phase 4.5). It writes only under `ai/design/canvas/` and never product code — the two commands do not overlap, they hand off.
 - skills `design-token-audit` · `a11y-quick-check` — Phase 6 conformance + a11y detectors.
 - pattern `rtl` — logical-property + mirroring requirements for RTL locales.
 

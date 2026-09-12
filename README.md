@@ -213,11 +213,11 @@ re-verify rather than silently shipping a broken translation.
 |---|---|
 | **23 packs** | Role-based knowledge tracks, not framework tracks |
 | **88 agents** | Specialised reviewers and architects |
-| **116 skills** | Reusable procedures, as `<name>/SKILL.md` |
+| **117 skills** | Reusable procedures, as `<name>/SKILL.md` |
 | **149 commands** | 15 global + 134 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
-| **124 scripts** | Validators, linters, sync, search and audit tooling |
+| **127 scripts** | Validators, linters, sync, search and audit tooling |
 | **4 overlays** | GDPR · HIPAA · PCI-DSS · SOC 2 |
 
 ### The guards that install with it
@@ -285,7 +285,7 @@ file — the agents adapt with no changes.
 Meet a framework it has never seen? `/setup-project` writes the reference on the fly and every
 future project reuses it.
 
-### Finding things in 222k lines
+### Finding things in 228k lines
 
 The knowledge base is far larger than any context window, so Refract ships a lexical search layer —
 `scripts/pack-search.py`, pure standard-library Python, no network:
