@@ -33,6 +33,33 @@ So: **this file is consulted when the user is choosing what to adopt, never when
 
 **Reading the "Reads as" column honestly**: every row on this list is *recognizable*. Adopting one means your product will read as built on it, at least until you have restyled it substantially. If being unmistakably yours is the goal, this path is the wrong one and `/art-direct --reimagine` is the right one — and that is a real trade, not a formality.
 
+## Showing them, instead of listing them
+
+A table of eight names is not a choice anyone can make. "Enterprise, dense, engineered" tells you nothing you can picture, and picking a design system from adjectives is how a project ends up six weeks into a system that felt wrong on first sight of a real screen.
+
+**So draw them.** Shortlist 3–4 rows with the user, then dispatch [`design-canvas`](../skills/design-canvas/SKILL.md) at `$SOURCE=independent`, `$FIDELITY=hifi`, to put **the same screen** — one of theirs, with their real content — on one artboard per candidate, side by side on one canvas. Same screen, same copy, same data: the only variable is the system. That is a comparison; three different screens in three different systems is a slideshow.
+
+### The honesty problem this creates, and how it is handled
+
+`design-canvas` **halts** on recreating a look from memory rather than from source, and that halt is correct — it is what stops a confident, plausible, wrong reproduction of an app. A sample artboard drawn from familiarity with Material or shadcn is exactly that shape of thing, and the halt has to be respected, not waived because this file asked for it.
+
+So the sample artboards are **characterizations, not reproductions**, and three rules keep them honest:
+
+1. **Draw from the system's published values**, fetched or read at draw time — its documented type scale, spacing scale, radii, elevation and semantic colour roles. Not from recollection of apps that use it.
+2. **Label every sample artboard on the artboard itself**: *"characterization of <system> for comparison — not a reproduction"*. The label is part of the design, not a footnote in the handover, because the canvas outlives the conversation and gets forwarded without it.
+3. **Nothing here is adoption.** The sample exists to make a choice; `/clone-design` then reproduces the chosen system's language for real, and its success metric is **fidelity measured from pixels**, not taste. A sample that gets built from is a misuse of both files.
+
+Where the published values cannot be read this run, draw fewer candidates rather than filling the gap from memory, and say which ones you dropped and why.
+
+### What the samples must show
+
+The screen they compare on is the user's, and it carries what actually differentiates these systems in practice — not a hero and a button:
+
+- a **dense** region (a table row, a list item, a form row) — density register is the axis these systems differ on most and the one adjectives hide
+- at least one **input** in its rest and error states — control anatomy, and where non-text contrast usually fails
+- a **status** signal — colour semantics, and whether the system gives you enough of them
+- the app's **real longest string**, in the app's real locale — see § Arabic / RTL projects, which is where a Latin-first system stops looking neutral
+
 ## What adoption actually runs
 
 Adopting a system is not this file's job either. Once one is chosen:

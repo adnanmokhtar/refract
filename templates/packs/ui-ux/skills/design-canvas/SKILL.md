@@ -51,6 +51,8 @@ Two more inputs, defaulted rather than asked:
 - **Halt on any write outside `ai/design/canvas/`.** No component, no token file, no route, no config.
 - **Halt on an artboard set that is happy-path only.** See § 3 — the states are most of the value.
 - **Halt on an artboard that renders LTR for an app whose resolved direction is RTL** (or vice versa). Direction is not a detail on an Arabic or Hebrew product; a mirrored layout is a different design.
+- **Halt on a handover with no computed usability floor and no explicit `NOT RUN`.** See § The usability floor. An omitted contrast check must never read as a passing one.
+- **Halt on a handover with no self-critique.** See § The quality bar. Drawing once and shipping it is how a canvas that satisfies every rule above still comes out mediocre.
 - **Halt on presenting the canvas as the change.** The handover names the command that implements it.
 
 ## When to use
@@ -127,7 +129,11 @@ Write `canvas.json` beside the artboards:
 
 Either way, publish the result as a link when the tool can, and hand over the file path when it cannot.
 
-### 6. Hand over, and name what comes next
+### 6. Check what you drew, then hand over
+
+Run § The usability floor and § The quality bar **before** the handover, in that order — the floor is pass/fail and cheap, the bar is a judgement and costs a revision. Fix what they find, then hand over with both results printed and every deferred lens named.
+
+### 7. Hand over, and name what comes next
 
 The canvas is a gate, not a finish. The handover names the command that implements the approved version, and says plainly that nothing in the app has changed yet:
 
@@ -137,6 +143,39 @@ The canvas is a gate, not a finish. The handover names the command that implemen
 | `$SOURCE=independent`, direction sketches | **`/art-direct <scope>`** — the language is still undecided, which is its job, not `/redesign`'s |
 
 **An `independent` canvas is not a `/redesign` input and `/redesign` refuses it** — building it would import a visual language the app has not adopted. The route is `/art-direct`, whose build chain codifies the language into tokens *first*; only a canvas re-drawn at `$SOURCE=system` after that codification is a valid `--from-canvas` input. Re-draw it — never edit a manifest to say `system`, which fakes the check rather than satisfying it.
+
+## The usability floor — computed, not asserted
+
+**Every value in an artboard is a literal — which is exactly what makes this computable here and awkward everywhere else.** In a running app, contrast depends on the cascade, the theme and whatever the component resolved to at runtime, so it has to be measured from a render. On a canvas the numbers are sitting in the markup. There is no excuse for guessing, and no excuse for skipping.
+
+Run this **before** handover, and print the result:
+
+1. **Text contrast** — for every text-on-background pair, compute the WCAG relative-luminance ratio from the two literals. Thresholds by role (WCAG 2.2 SC 1.4.3): **4.5:1** body text, **3:1** large text (≥ 24px, or ≥ 18.66px bold). Print the ratio, not a checkmark.
+2. **Non-text contrast** — UI boundaries that carry meaning (input borders, focus rings, chart series, icon-only buttons) need **3:1** against their adjacent surface (SC 1.4.11). This is the one people skip, and it is why "accessible" apps still have invisible input fields.
+3. **Target size** — interactive elements are at least **24×24 px** (SC 2.5.8, AA). Where the app's platform convention is stricter, it wins: **44pt** on iOS (HIG), **48dp** on Android (Material). Measure the drawn box, not the icon inside it.
+4. **Not by colour alone** — any state the design signals with colour (error, selected, required, status) carries a second signal: a glyph, a label, a weight, a position (SC 1.4.1). Status chips are where this fails most often.
+5. **Reflow** — where a phone frame is drawn, nothing requires horizontal scrolling at **320 px** (SC 1.4.10).
+
+**`NOT RUN` is a real state and must be printed as one.** If a check could not be performed — a gradient or image background where no single literal exists, a value that resolves per theme — say `NOT RUN` and why. An omitted check silently reads as a pass, and a canvas approved on a silent pass is worse than one approved with a known gap, because nobody goes looking.
+
+**What this floor is NOT.** It is not a substitute for `a11y-quick-check` or `ux-reviewer` against the built surface: focus order, keyboard traps, screen-reader semantics and live regions cannot be scored on a drawing at all. It catches the subset that is decided *at design time* and therefore expensive to discover after approval — which is precisely the class that currently reaches `/redesign` and fails there, after someone has already said yes.
+
+## The quality bar — score what a drawing can carry, defer the rest by name
+
+The halts above make a canvas **correct**. Nothing in them makes it **good**. Score the drawn artboards against [`redesign.md § Design principles`](../../commands/redesign.md) — the same rubric `/redesign` diagnoses and builds against, cited rather than restated, because a second design vocabulary in this pack would be the drift, not the fix.
+
+A static artboard cannot carry every lens, and pretending otherwise is how "approved" comes to mean more than it should:
+
+| The canvas CAN be scored on | The canvas CANNOT — defer and say so |
+|---|---|
+| information architecture · visual hierarchy (the squint test works on a drawing) · layout & rhythm · cognitive load & flow · states · consistency · locale & direction · modern register · content & micro-copy | **motion** (a build output — a drawing cannot have a hover state) · **performance** · focus order and keyboard behaviour · anything that needs interaction to exist |
+| accessibility, *partially* — contrast and target size are computed above | the rest of accessibility — see § The usability floor, "what this floor is NOT" |
+| responsive, *only* where two or more frames of the same surface were drawn | responsive, where one frame was drawn — do not claim it |
+| **beats the current surface**, where a baseline screenshot of today's screen exists to compare against | the comparison, where nothing was captured — say `NOT COMPARED`, never assume the new one wins |
+
+**Self-critique before handover, not after.** Score the draft, name its weakest lens, fix that, re-score. Only then hand over. This is the same discipline `/redesign` applies at its gate and `design-iterate` applies in `refine` mode; a canvas that skips it outsources quality control to whoever you sent the link to.
+
+**The deferred lenses are named at handover, every time.** "Approved" must not quietly come to mean the motion, the performance and the interaction behaviour were approved too — they were not drawn, so they were not seen, and they get decided later by whoever is typing. That is the exact failure the state artboards exist to prevent, one layer up.
 
 ## Encodability — the check that keeps a canvas honest
 
@@ -161,7 +200,9 @@ A canvas whose "new work" column is empty on every row is usually a restyle wear
 
 ```
 ai/design/canvas/<scope>/
-├── MANIFEST.md                    # what was matched + its source citations, states drawn/skipped, encodability table, open questions
+├── MANIFEST.md                    # what was matched + its source citations, states drawn/skipped,
+│                                 # encodability table, the computed usability floor (ratios + any NOT RUN),
+│                                 # the quality-bar scores + deferred lenses, open questions
 ├── canvas.json                    # layout
 ├── canvas.html                    # the deliverable — self-contained, opens anywhere
 └── <Name>.artboard.html           # one per artboard
@@ -176,6 +217,10 @@ ai/design/canvas/<scope>/
 - **Happy path only.** Shipped as a redesign; approved as a redesign; the empty, loading, error and overflow states then get decided during implementation by whoever is typing — which is the situation this skill exists to prevent.
 - **Direction ignored.** An RTL product drawn LTR because the artboard's markup defaulted that way. Not a polish issue — a mirrored layout is a different design, and it invalidates every spacing decision on the canvas.
 - **The canvas mistaken for the change.** Someone approves it and expects the app to have changed. The handover has one job: say that nothing has, and name the command that will.
+- **Correct but mediocre.** Right tokens, right direction, every state drawn, fully buildable — and nobody would be pleased to receive it. Every halt in this file is a correctness check; § The quality bar is the only thing between a compliant canvas and a good one.
+- **A checkmark where a ratio belongs.** `contrast ✓` is an assertion; `4.61:1 (body, AA)` is a measurement. The first hides a guess, and on a canvas — where every value is a literal — guessing is not even necessary.
+- **A skipped check that read as a pass.** The `NOT RUN` state exists because silence is indistinguishable from success, and nobody audits a canvas that appeared to pass.
+- **"Approved" taken to cover what was never drawn.** Motion, performance and interaction behaviour are not on a static artboard; if the handover did not name them as deferred, someone will reasonably assume they were settled.
 - **One canvas for the whole product.** Unreadable at every zoom. Split per feature.
 - **Authored for the rich renderer.** Holes, tweaks or a logic class snuck in, so the artboard is fine in Claude Code and blank everywhere else — including for the person who was sent the link.
 
@@ -187,3 +232,4 @@ ai/design/canvas/<scope>/
 - [`design-iterate`](../design-iterate/SKILL.md) — variants of something that already renders in the app; this skill is for what does not exist yet.
 - [`direction-vocabulary.md`](../../ai-patterns/direction-vocabulary.md) — the IA archetypes a rethought composition picks from (§ 2).
 - [`axis-catalog.md`](../../ai-patterns/axis-catalog.md) — the per-surface completeness axes the state set in § 3 answers to.
+- [`a11y-quick-check`](../a11y-quick-check/SKILL.md) — the floor against the BUILT surface. This skill computes the design-time subset (contrast, target size) from literals; that skill owns focus order, keyboard behaviour and screen-reader semantics, none of which a drawing can carry.

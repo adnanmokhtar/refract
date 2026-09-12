@@ -52,7 +52,7 @@ Resolve `$SOURCE` first, then route. **Every row ends on a canvas.**
 | `system` | exists; test says **language** | **`/art-direct <scope> --canvas`** (evolve) |
 | `system` | does not exist yet | **`design-canvas`** directly (`$SOURCE=system`), then `/add-feature` or `/redesign --from-canvas` once approved |
 | `independent` | a reference was given (URL / screenshot) | **`/clone-design <ref>`** — fidelity to that reference is the metric |
-| `independent` | "show me what's out there" | [`design-system-catalog.md`](../references/design-system-catalog.md) → the chosen system via `/clone-design` |
+| `independent` | "show me what's out there" | [`design-system-catalog.md`](../references/design-system-catalog.md) → shortlist 3–4 → `design-canvas` draws **the same screen** in each, side by side → the chosen one via `/clone-design`. Never route off the table alone: nobody can pick a design system from adjectives. |
 | `independent` | no reference, invent it | **`/art-direct <scope> --reimagine --canvas`** |
 
 **When the scope spans several surfaces**, route once per feature, not once per screen, and say so: one canvas per feature is the readable unit ([`design-canvas` § 4](../skills/design-canvas/SKILL.md)).

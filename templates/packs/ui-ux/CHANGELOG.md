@@ -14,6 +14,63 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.29.0 — 2026-09-12
+
+**The canvas was correct and said nothing about whether it was good.**
+
+v1.27 and v1.28 gave the pack a canvas, a front door and an adoption catalog. Reviewing them found
+that every halt in `design-canvas` is a **correctness** check — right tokens, right direction, all
+states drawn, fully buildable — and not one asks whether the result is worth receiving. `/redesign`
+scores against a 15-lens rubric and must beat the old render; `/art-direct` scores nine lenses against
+a scorecard. The canvas scored nothing: it drew once and handed over. Three floors close that.
+
+**1. The usability floor — computed, never asserted.** Text contrast per role (4.5:1 body, 3:1 large),
+non-text contrast at 3:1 for meaningful UI boundaries (the check people skip, and the reason
+"accessible" apps still have invisible input fields), target size at 24×24 with the platform
+convention winning where stricter (44pt iOS, 48dp Android), not-by-colour-alone, and 320px reflow.
+
+This is computable **here** and awkward everywhere else, for a reason already in the file: the skill
+requires every artboard value to be a **literal**. In a running app, contrast depends on the cascade
+and the theme and must be measured from a render; on a canvas the numbers are sitting in the markup.
+So a checkmark where a ratio belongs is now a named failure mode — `contrast ✓` is an assertion,
+`4.61:1 (body, AA)` is a measurement — and **`NOT RUN` is a real printed state**, because silence is
+indistinguishable from success and nobody audits a canvas that appeared to pass.
+
+**2. The quality bar — score what a drawing can carry, defer the rest by name.** Borrows
+`redesign.md § Design principles` by **citation**, not restatement: a second design vocabulary in this
+pack would be the drift, not the fix. With an explicit split —
+
+- **Can be scored**: IA · visual hierarchy (the squint test works on a drawing) · layout & rhythm ·
+  cognitive load · states · consistency · locale & direction · modern register · micro-copy; contrast
+  and target size from the floor above; responsive *only* where two frames of the same surface were
+  drawn; beats-the-current-surface *only* where a baseline screenshot exists.
+- **Cannot**: motion — a build output, and a drawing has no hover state — performance, focus order,
+  keyboard behaviour, anything needing interaction to exist.
+
+Deferred lenses are named at **every** handover, so "approved" cannot quietly come to mean the motion,
+the performance and the interaction behaviour were approved too. They were not drawn, so they were not
+seen, and they get decided later by whoever is typing — the same failure the state artboards exist to
+prevent, one layer up. Self-critique happens **before** handover, not after; a canvas that skips it
+outsources quality control to whoever you sent the link to.
+
+**3. A catalog you can see.** Eight rows of adjectives is not a choice anyone can make — "enterprise,
+dense, engineered" is nothing you can picture, and picking a design system that way is how a project
+ends up six weeks into one that felt wrong on first sight of a real screen. The catalog now shortlists
+3–4 and draws them on **one** canvas: the same screen, the same copy, the same data, one artboard per
+candidate. Three different screens in three systems is a slideshow, not a comparison. Each sample
+carries what actually separates these systems in practice — a dense region, an input in rest **and**
+error, a status signal, and the app's real longest string in its real locale, which is where a
+Latin-first system stops looking neutral.
+
+**The collision this created, and which rule won.** `design-canvas` halts on recreating a look from
+**memory** rather than source, and a sample artboard drawn from familiarity with Material or shadcn is
+exactly that shape of thing. The halt won. Samples are **characterizations, not reproductions**: drawn
+from each system's *published values* read at draw time, labelled as such **on the artboard** — not in
+the handover, because a canvas outlives the conversation and gets forwarded without it — and adoption
+still runs through `/clone-design`, whose metric is fidelity measured from pixels rather than taste.
+Where the published values cannot be read this run, draw **fewer** candidates and say which were
+dropped, rather than filling the gap from memory.
+
 ## 1.28.0 — 2026-09-12
 
 **A front door onto a map that was correct and unfindable.**
