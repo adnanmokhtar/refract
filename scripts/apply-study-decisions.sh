@@ -26,6 +26,7 @@
 #   apply-study-decisions.sh <target-repo> --migrate-skill-shape [--apply]
 #   apply-study-decisions.sh <target-repo> --reject='pack/kind/file.md:rationale'     (repeatable)
 #                                          --keep-ours='pack/kind/file.md:rationale'
+#                                          --knowledge-current='ai/architecture.md:rationale'
 #                                          --resolve='pack/kind/file.md:note'
 #                                          --keep='kind/file.md:rationale'
 #
@@ -47,6 +48,12 @@
 #   --keep-ours  target file beats the CURRENT pack version (stamped pack@sha8; re-opens when pack changes)
 #   --resolve    a MERGE / KEEP-OURS-PLUS-INJECT row was merged by hand (stamped pack@sha8; re-opens when pack changes)
 #   --keep       project-only orphan is a keeper (key has no pack segment: kind/file.md)
+#   --knowledge-current  an ai/ knowledge file was READ against the current extraction and is
+#                still accurate, so audit-setup.sh C2f's STALE_KNOWLEDGE does not demand a
+#                rewrite. Stamped extract@sha8 (scripts/_extraction-fingerprint.sh) and
+#                RE-OPENS AUTOMATICALLY the moment that content moves — exactly as KEEP-OURS
+#                re-opens on pack@sha8. It records a review; it cannot silence a real change.
+#                Only legitimate after actually reading the file against the extraction.
 # These are the ONLY sanctioned way to close an actionable row without applying it.
 # audit-setup.sh C2k refuses success on rows that are neither applied nor recorded.
 #
@@ -112,6 +119,10 @@ export LC_ALL=C
 _ss="${BASH_SOURCE[0]}"
 while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
 REPO_ROOT="$(cd -P "$(dirname "$_ss")/.." && pwd)"; unset _ss _sd
+# shared with audit-setup.sh — both must fingerprint the extraction identically
+# shellcheck source=/dev/null
+[[ -f "$REPO_ROOT/scripts/_extraction-fingerprint.sh" ]] && . "$REPO_ROOT/scripts/_extraction-fingerprint.sh"
+
 PACKS_ROOT="$REPO_ROOT/templates/packs"
 
 if [[ $# -lt 1 ]]; then
@@ -145,6 +156,7 @@ while [[ $# -gt 0 ]]; do
     --conservative) INCLUDE="replace,add"; INCLUDE_EXPLICIT=1; shift ;;
     --reject=*)    LEDGER_OPS+=("REJECTED|${1#--reject=}"); shift ;;
     --keep-ours=*) LEDGER_OPS+=("KEEP-OURS|${1#--keep-ours=}"); shift ;;
+    --knowledge-current=*) LEDGER_OPS+=("KNOWLEDGE-CURRENT|${1#--knowledge-current=}"); shift ;;
     --resolve=*)   LEDGER_OPS+=("RESOLVED|${1#--resolve=}"); shift ;;
     --keep=*)      LEDGER_OPS+=("KEEP|${1#--keep=}"); shift ;;
     *)             echo "unknown arg: $1" >&2; exit 2 ;;
@@ -211,6 +223,22 @@ HDR
       else
         echo "  WARN pack source not found for $key — stamping without pack@sha (entry will hold until manually removed)" >&2
       fi
+    fi
+    if [[ "$verb" == "KNOWLEDGE-CURRENT" ]]; then
+      # Stamped with the EXTRACTION content fingerprint, not the pack's: this verdict says
+      # "I read this knowledge file against what the extraction currently says, and it is
+      # still accurate". It re-opens the moment that content moves, exactly as KEEP-OURS
+      # re-opens on a pack change.
+      if [[ ! -f "$TARGET/$key" ]]; then
+        echo "  ERR knowledge file not found: $key — refusing to record a review of a file that does not exist" >&2
+        continue
+      fi
+      esha=$(extraction_fingerprint "$TARGET")
+      if [[ -z "$esha" ]]; then
+        echo "  ERR no extraction substrate found in $TARGET/.claude — cannot stamp a knowledge review" >&2
+        continue
+      fi
+      stamp="($today, extract@$esha)"
     fi
     # Replace any prior entry for the same key (last-write-wins, one line per key)
     # Anchor on the line's OWN key, not a substring anywhere in it. `grep -vF` on the bare

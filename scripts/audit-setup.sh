@@ -73,6 +73,10 @@ trap _audit_exit_report EXIT
 _ss="${BASH_SOURCE[0]}"
 while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
 SCRIPTS_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
+
+# shared with apply-study-decisions.sh — both must fingerprint the extraction identically.
+# shellcheck source=/dev/null
+[[ -f "$SCRIPTS_DIR/_extraction-fingerprint.sh" ]] && . "$SCRIPTS_DIR/_extraction-fingerprint.sh"
 # EVERY remediation this audit prints is rooted at $SCRIPTS_DIR, never at a literal
 # `~/.claude/scripts/`. MEASURED: C2u failed a live run for an inert rules layer and told the
 # user to run `~/.claude/scripts/wire-rule-imports.sh … --apply`. That file was one of seven
@@ -1328,6 +1332,29 @@ if [[ "$MODE" != "create" ]]; then
         continue
       fi
       file_mtime=$(_mtime "$f")
+
+      # A recorded, still-valid knowledge review closes this row without a rewrite.
+      # STALE_KNOWLEDGE had exactly ONE exit — re-derive — and re-deriving is expensive and
+      # frequently unnecessary: the substrate can move without changing anything a knowledge
+      # file says. A check whose only correct answer costs hours gets ignored, and an ignored
+      # gate is worse than no gate. So there is a second exit, and it is not a mute button: the
+      # entry is stamped with the extraction CONTENT fingerprint and re-opens by itself the
+      # moment that content moves, exactly as KEEP-OURS re-opens on a pack change.
+      # Recorded via: apply-study-decisions.sh <target> --knowledge-current='<rel>:<rationale>'
+      if [[ -f "$TARGET/.claude/_refresh-decisions.md" ]] && declare -F extraction_fingerprint >/dev/null; then
+        _kc=$(grep -F -- "- \`$rel\` → KNOWLEDGE-CURRENT" "$TARGET/.claude/_refresh-decisions.md" 2>/dev/null | tail -1)
+        if [[ -n "$_kc" ]]; then
+          _want=$(extraction_fingerprint "$TARGET")
+          _have=$(printf '%s' "$_kc" | sed -n 's/.*extract@\([0-9a-f]\{8\}\).*/\1/p')
+          if [[ -n "$_want" && "$_want" == "$_have" ]]; then
+            ok "knowledge reviewed and current: $rel (extract@$_have)"
+            continue
+          elif [[ -n "$_have" ]]; then
+            warn_msg "knowledge review for $rel was recorded against extract@$_have but the extraction is now extract@$_want — the review has re-opened"
+          fi
+        fi
+      fi
+
       # Extraction first — this is the one that FAILS.
       if [[ $extract_newest -gt 0 && $file_mtime -lt $extract_newest ]]; then
         err "STALE_KNOWLEDGE: $rel ($(_iso "$file_mtime")) older than this repo's extraction ($(_iso "$extract_newest")) — Phase 4.4/4.7 did not re-derive it from the current profile"
