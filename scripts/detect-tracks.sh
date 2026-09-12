@@ -121,6 +121,7 @@ has_dep_prefix() {
 
 # ---------- Frontend ----------
 FRONTEND=0
+MOBILE=0
 if has_dep vue || has_dep_prefix '@vue/' || has_dep react || has_dep_prefix '@types/react' \
    || has_dep '@angular/core' || has_dep svelte || has_dep solid-js || has_dep qwik \
    || has_dep next || has_dep nuxt || has_dep remix || has_dep preact \
@@ -131,23 +132,6 @@ if has_dep vue || has_dep_prefix '@vue/' || has_dep react || has_dep_prefix '@ty
   FRONTEND=1
   trace "frontend signals → frontend"
   add frontend
-fi
-
-# ---------- UI/UX (only if frontend) ----------
-if [[ $FRONTEND -eq 1 ]]; then
-  if has_dep tailwindcss || has_dep '@emotion/react' || has_dep styled-components \
-     || has_dep '@radix-ui/react-slot' || has_dep '@headlessui/react' \
-     || has_dep '@mui/material' || has_dep '@chakra-ui/react' || has_dep mantine \
-     || has_dep_prefix '@mantine/' || has_dep bootstrap || has_dep bulma \
-     || has_dep primevue || has_dep_prefix 'primevue' \
-     || has_dep '@storybook/vue3' || has_dep '@storybook/react' \
-     || [[ -d "$TARGET/.storybook" ]]; then
-    trace "ui library / design system → ui-ux"
-    add ui-ux
-  else
-    trace "frontend without explicit UI library — adding ui-ux anyway (every UI project benefits)"
-    add ui-ux
-  fi
 fi
 
 # ---------- Backend ----------
@@ -231,8 +215,41 @@ if [[ -d "$TARGET/ios" && -d "$TARGET/android" ]] \
    || [[ -f "$TARGET/app.json" && -f "$TARGET/expo-env.d.ts" ]] \
    || has_dep react-native || has_dep '@capacitor/core' || has_dep '@ionic/core' \
    || has_dep expo; then
+  MOBILE=1
   trace "mobile signals → mobile"
   add mobile
+fi
+
+# ---------- UI/UX (any project with a UI surface — web OR mobile) ----------
+# Placed after Mobile because it depends on both flags.
+#
+# This was `if [[ $FRONTEND -eq 1 ]]` and silently excluded every Flutter /
+# React-Native / Expo app, which contradicted the pack it gates: /redesign and
+# /art-direct both declare "Frontend / mobile only" in their own Stack scope,
+# and /polish's mobile route is documented as dispatching platform-conventions-audit
+# "PLUS reused frontend skills". The pack advertised mobile; the detector denied it,
+# so a Flutter app with a full token layer and a shared widget library got no
+# design-system tooling at all. A mobile app has tokens, spacing and type scales,
+# states, contrast and text direction exactly like a web app — the pack's content is
+# platform-agnostic, and forking a parallel mobile-design pack would reproduce the
+# very split templates/packs/ui-ux/ai-patterns/design-systems.md exists to prevent.
+if [[ $FRONTEND -eq 1 || $MOBILE -eq 1 ]]; then
+  if has_dep tailwindcss || has_dep '@emotion/react' || has_dep styled-components \
+     || has_dep '@radix-ui/react-slot' || has_dep '@headlessui/react' \
+     || has_dep '@mui/material' || has_dep '@chakra-ui/react' || has_dep mantine \
+     || has_dep_prefix '@mantine/' || has_dep bootstrap || has_dep bulma \
+     || has_dep primevue || has_dep_prefix 'primevue' \
+     || has_dep '@storybook/vue3' || has_dep '@storybook/react' \
+     || [[ -d "$TARGET/.storybook" ]]; then
+    trace "ui library / design system → ui-ux"
+    add ui-ux
+  elif [[ $MOBILE -eq 1 ]]; then
+    trace "mobile UI surface — adding ui-ux (tokens, states, contrast and direction are not web-only)"
+    add ui-ux
+  else
+    trace "frontend without explicit UI library — adding ui-ux anyway (every UI project benefits)"
+    add ui-ux
+  fi
 fi
 
 # ---------- Observability ----------

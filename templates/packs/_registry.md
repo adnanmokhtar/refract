@@ -34,7 +34,7 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 | `product` | — | product artifacts a team maintains: `ai/product/`, `docs/prd/`, `docs/product/`, `ai/roadmap.md`, `ai/users-and-personas.md`, `ai/project-goals.md`, root `PRD.md`/`ROADMAP.md` | Decide what to build and why — evidence-labelled problem framing, falsifiable requirements, research synthesis, launches that can be judged |
 | `security` | always | every project | OWASP-aligned rules, threat-model patterns |
 | `testing` | — | test/ folders, vitest/jest/pytest/rspec/junit, e2e tooling | Unit / integration / e2e patterns + factories |
-| `ui-ux` | — | design system code, component libraries, Figma exports | Visual + interaction conventions |
+| `ui-ux` | — | any project with a UI surface — **web OR mobile**. A UI library or `.storybook/` is the strong signal; otherwise any detected `frontend` **or** `mobile` stack adds it, because tokens, spacing and type scales, states, contrast and text direction are not web-only. Gating this behind `frontend` alone excluded every Flutter / React-Native / Expo app and contradicted the pack's own commands, which declare "frontend / mobile only" | Visual + interaction conventions |
 
 **Always-applied** tracks: `code-quality`, `documentation`, `learning`, `security`. They are added to `selected_tracks` even when no signal is detected — they're the base substrate every project benefits from.
 
