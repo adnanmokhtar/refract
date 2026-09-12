@@ -376,6 +376,23 @@ else
 fi
 
 # ---------- Helpers ----------
+# ---------------------------------------------------------------------------
+# SOURCE_EXTS — the single list of source-code extensions.
+#
+# This file used to carry three hand-maintained extension lists, and they had
+# drifted apart twice over: `dart` was absent from ALL THREE, so a 436-file
+# Flutter app reported no Dart anywhere; `vue` and `svelte` were in the language
+# census but absent from the LOC counter, so a 339-component Vue app reported
+# lines for its TypeScript only. Both failures were silent — a missing row reads
+# exactly like a language the project does not use.
+#
+# Add a language HERE and every section that counts source picks it up. The
+# census in Section 1 appends docs/config extensions to this list; nothing else
+# maintains its own.
+# ---------------------------------------------------------------------------
+SOURCE_EXTS="ts tsx js jsx vue svelte dart py rb php java kt swift go rs cs cpp c h hpp scala ex exs erl elm hs ml lua"
+DOC_CONFIG_EXTS="sh sql graphql proto md yaml yml json toml"
+
 count_files() {
   local pattern="$1"
   find "$TARGET" -type f -name "$pattern" \
@@ -418,7 +435,7 @@ ls_dirs() {
   # ----- Section 1: File count by language -----
   printf '## 1. File count by language (mechanical)\n\n'
   printf '```\n'
-  for ext in ts tsx js jsx vue svelte dart py rb php java kt swift go rs cs cpp c h hpp scala ex exs erl elm hs ml lua sh sql graphql proto md yaml yml json toml; do
+  for ext in $SOURCE_EXTS $DOC_CONFIG_EXTS; do
     n=$(count_files "*.$ext")
     [[ "$n" -gt 0 ]] && printf '%-8s %d\n' "$ext" "$n"
   done
@@ -481,7 +498,7 @@ ls_dirs() {
   # "*test*"` matches the ABSOLUTE path, so a repo checked out under any directory
   # containing "test" or "spec" (~/testing/app, a CI workspace, a scratch copy)
   # silently reported 0 lines for EVERY language — no error, just an empty section.
-  for ext in ts tsx js jsx dart py rb php java kt swift go rs; do
+  for ext in $SOURCE_EXTS; do
     total_lines=$(find "$TARGET" -type f -name "*.$ext" \
       -not -path "*/node_modules/*" -not -path "*/.git/*" \
       -not -path "*/dist/*" -not -path "*/build/*" \
