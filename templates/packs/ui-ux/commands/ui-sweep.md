@@ -415,7 +415,7 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 ## Related
 
 ### Sibling commands
-*(The full ten-command routing table is `§ The ui-ux command map` at the top of this file — it lives there so a reader finds it before choosing, not after scrolling past the end.)*
+*(The full eleven-command routing table is `§ The ui-ux command map` at the top of this file — it lives there so a reader finds it before choosing, not after scrolling past the end.)*
 - `/enhance-ui <description>` — single-area version.
 - `/design-review` — read-only audit (different focus: cite-or-halt findings).
 - `/align-scan` — structural quality (orthogonal to this command).

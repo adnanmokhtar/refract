@@ -17,7 +17,7 @@ allowed-tools: [Read, Grep, Glob, Bash]
 
 This command writes **nothing**. Not product code, not artboards, not tokens. It resolves *which* of the pack's design paths your ask belongs to and dispatches, with the canvas gate switched on. Its entire value is that it asks you exactly one question, runs one test rather than asking it, and never leaves you on a path that writes code before you have seen the design.
 
-The failure it prevents is the one that costs the most: the ten-command map in `ui-sweep.md` is correct and complete, and someone who does not already know the map picks by keyword, lands on `/enhance-ui` when they wanted a redesign, and gets a tidier version of the layout they were trying to throw away.
+The failure it prevents is the one that costs the most: the eleven-command map in `ui-sweep.md` is correct and complete, and someone who does not already know the map picks by keyword, lands on `/enhance-ui` when they wanted a redesign, and gets a tidier version of the layout they were trying to throw away.
 
 ## The one question, and the one test — and why they are different
 

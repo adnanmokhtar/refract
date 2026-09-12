@@ -26,6 +26,7 @@ The manual you read when something refuses, surprises, or fails. Companion to `R
 - [`/delegate` — refusals, exit codes, and the empty diff that isn't](#delegate--refusals-exit-codes-and-the-empty-diff-that-isnt)
 - [`/ui-sweep` — project-wide UI/UX specialist](#ui-sweep--project-wide-uiux-specialist)
 - [`/ui-crawl` + `/ui-crawl-fix` — paired QA crawler + auto-fixer](#ui-crawl--ui-crawl-fix--paired-qa-crawler--auto-fixer-v12)
+- [`/design-first` + `design-canvas` — design before code, on a canvas someone approves](#design-first--design-canvas--design-before-code-on-a-canvas-someone-approves-v127)
 - [`/redesign` — from-scratch page rework with approval gate](#redesign--from-scratch-page-rework-with-approval-gate-v13)
 - [`/art-direct` — invent the visual direction](#art-direct--invent-the-visual-direction-v15)
 - [`/add-theme-variant` — add a new theme to a multi-theme app](#add-theme-variant--add-a-new-theme-to-a-multi-theme-app-v117)
@@ -731,7 +732,7 @@ Major commands now have a Phase 1 "Intent gate" that detects when the user's des
 | `/add-feature` | "enhance / improve / polish / cleaner" | `/enhance-ui` |
 | `/add-feature` | "fix / broken / wrong" | `/fix-bug` |
 | `/enhance-ui` | "add / new / create / build" | `/add-feature` |
-| `/enhance-ui` | "redesign / rethink / re-theme / new visual language" | `/redesign` (rethink one page in the language) or `/art-direct` (invent a new language) |
+| `/enhance-ui` | "redesign / rethink / re-theme / new visual language" | `/redesign` (rethink one page in the language) or `/art-direct` (invent a new language) — `/design-first` when which of the two is not yet clear, since it runs the language-or-composition test rather than asking you |
 | `/fix-bug` | "enhance / improve / polish" | `/enhance-ui` |
 | `/add-page` | similar | similar |
 | `/add-component` | "test in isolation" | `component-playground` skill |
@@ -914,6 +915,68 @@ Broken dialog triggers · horizontal overflow at any breakpoint · page didn't l
 - **No new abstractions.** If a fix needs a wrapper that doesn't exist in `_extracted-idioms.md`, halt; route to `/setup-project --refine`.
 - **Re-detect mandatory.** `--verify` re-crawls affected modules; gap-count parity (closed == in-count) is the gate.
 - **Halt on regression.** New findings after a fix → revert the commit and surface.
+
+## `/design-first` + `design-canvas` — design before code, on a canvas someone approves (v1.27+)
+
+Every other artifact in the ui-ux pack ends in a **diff**. `/design-review` reports, `/redesign` and `/art-direct` gate on written prose, `design-iterate` and `visual-check` screenshot what already renders. None of that is something you send to a client, a designer or a founder and get *"yes, but move that"* back — and for a surface with **no code yet**, none of it applies at all. So the disagreement surfaced *after* the code was written, which is the expensive place for it.
+
+Two artifacts close that gap.
+
+### `design-canvas` (skill) — the deliverable
+
+Drafts a surface, flow or feature as **artboards on one pan/zoom canvas**, before any product code exists. It writes **only** under `ai/design/canvas/` — never a component, a token file or a route. The canvas is an *input* to `/redesign` (which owns the rebuild) or `/art-direct` (which owns the language), never a substitute for either.
+
+**It draws the states, not the screen.** An artboard exists per surface for **empty / loading / error / overflow**, and a happy-path-only set **halts**. Those states are where a design is actually decided, and they are exactly what a screenshot of a working app never shows, because nobody can reach them on demand. On an Arabic product, overflow is also where a 40%-longer translation breaks the layout.
+
+**Two renderers, one authored fragment — authored to the weaker one.** The **static** canvas (a self-contained `canvas.html` that opens in any browser and survives being emailed) is the contract every adapter tool gets. Claude Code's bundled WYSIWYG canvas is an opportunistic upgrade: a precompiled payload **pinned to the CLI build**, which cannot be vendored into a project or shipped in the pack. So artboards are plain HTML body fragments — no holes, no tweaks, no logic class — and one that needs the rich runtime to look right is a **defect**, invisible to every other tool and to the person who was sent the link.
+
+Halts that came from how this actually fails: an unresolved `var()` or utility class (the frame carries none of the app's cascade, so it paints as nothing — silently, with no error, and the viewer blames the design); values rounded to a 4/8 grid instead of lifted, which is what makes an artboard read as *an* app rather than *this* one; token chains resolved one hop and left pointing at another `var()`; the look recreated from training-data memory rather than the repo's source; LTR artboards for an RTL product; and presenting the canvas as the change.
+
+An **encodability table** per surface keeps it buildable: a "new work" column empty on every row is a restyle wearing a redesign's clothes; one that is new on every row is a fantasy.
+
+### `/design-first <scope>` (command) — the front door
+
+The map in `ui-sweep.md` is correct and complete, and says plainly that choosing is usually a question about your own **intent**, not about the commands. Someone who does not already hold it picks by keyword, lands on `/enhance-ui` when they wanted a redesign, and gets a tidier version of the layout they were trying to throw away.
+
+`/design-first` writes **nothing** — not code, not artboards, not tokens. It resolves which path the ask belongs to and dispatches with the canvas gate on. Its whole substance is **one question and one test**, which look alike and are opposite in kind:
+
+| | The question (`$SOURCE`) | The test (language-or-composition) |
+|---|---|---|
+| Kind | a **permission** | a **diagnosis** |
+| Who holds it | whoever owns the product | the evidence — a render and a token source |
+| Can the user answer it? | **only** they can | no; it is the *output* of looking |
+| So | asking is respecting authority | asking is offloading your work onto them |
+
+The question — *does this surface stay inside our design system, or leave it?* — is **always asked**; inferring it for an in-repo surface HALTs. The test — *is the fault this page's composition or the app's visual language?* — is **always run and never asked**, per `redesign.md § Phase 1`. A run that asks it has failed at its one job.
+
+**Six routing rows, every one ending on a canvas:**
+
+| `$SOURCE` | State of the surface | Route |
+|---|---|---|
+| `system` | exists; test says **composition** | `/redesign <scope> --canvas` |
+| `system` | exists; test says **language** | `/art-direct <scope> --canvas` |
+| `system` | no code yet | `design-canvas` directly, then `/redesign --from-canvas` |
+| `independent` | a reference was given | `/clone-design <ref>` |
+| `independent` | "show me what's out there" | `references/design-system-catalog.md` → `/clone-design` |
+| `independent` | invent it | `/art-direct <scope> --reimagine --canvas` |
+
+Flags: `--source=system|independent` · `--no-canvas` · `--plan`.
+
+**Deliberately not named `/design`** — Claude Code ships its own bundled `design` skill, and a command installed at that name would contend with it for one invocation. The repo's builtins list covers Claude Code's *slash commands* and cannot see a skill, so this is a collision no linter here would have caught.
+
+### The two flags this added to existing commands
+
+- **`/redesign --canvas`** — draw the Phase-4 proposal before gating on it. The prose sections stay: they carry the diagnosis, the parity map and the rationale, none of which a picture can state. The canvas replaces the *imagining*, not the argument.
+- **`/redesign --from-canvas=<path>`** — an approved canvas *is* the spec. New **Phase 4.5** stands between it and the build with three halts: **provenance** (`$SOURCE` must be `system`), **scope match**, and **encodability reconciliation** against the system *as it stands now*, since the canvas may predate token changes. The gate does not re-run; everything else Phase 4 owes still does.
+- **`/art-direct --canvas`** — show the three directions as artboards rather than paragraphs, deliberately at **wireframe** fidelity: structure is what is being chosen, and a hi-fi render invites picking on paint — the one axis `direction-vocabulary.md` excludes from the divergence check.
+
+**The contradiction this surfaced, and its resolution.** An `/art-direct` direction is an `independent` canvas *by construction* — that is what inventing a language means — and `/redesign`'s provenance check refuses `independent` canvases outright. Both rules are correct, and the existing build chain already resolves it: step 1 codifies the direction into the tokens **and** the idioms oracle, and from that commit the new language **is** the system. A canvas re-drawn at `$SOURCE=system` after codification is a valid `--from-canvas` input; one drawn before it is not. **Re-draw, never re-label** — editing a manifest to say `system` fakes the provenance check instead of satisfying it, and lands off-system code under a passing gate.
+
+### `references/design-system-catalog.md` — adopt rather than invent
+
+Eight published design systems a project can **adopt** as a starting point. It sits beside `direction-vocabulary.md`'s explicit refusal to be a style catalogue because adopting a documented system and shopping for a look are **different acts**: the borrowed-skin diagnosis applies to a run *claiming invention*, and adoption claims none. Consulted when choosing what to adopt, **never** to fill `/art-direct`'s three directions — `creative-director`'s divergence check catches that misuse.
+
+Every row carries its honest cost. These systems are **recognizable** — adopting one means the product reads as built on it until substantially restyled, and if being unmistakably yours is the goal, `/art-direct --reimagine` is the right path and this is the wrong one. Licences differ **per asset** (a permissive component library shipping a proprietary typeface is the common shape) and must be checked at the source, today. And every row is **LTR-first**: the Arabic / RTL budget — logical properties throughout, mirrored icons, a typeface that actually carries Arabic, a type scale re-checked at Arabic's longer strings — is named as the most underestimated cost on the page.
 
 ## `/redesign` — from-scratch page rework with approval gate (v1.3+)
 
