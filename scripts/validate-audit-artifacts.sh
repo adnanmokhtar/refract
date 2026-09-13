@@ -119,8 +119,8 @@ check_cell_ledger() {
 
   # 1 — the ledger must lead: no finding tier may appear before it
   local ledger_line first_tier
-  ledger_line=$(grep -niE -m1 '^#+ .*cell ledger' "$file" | cut -d: -f1)
-  first_tier=$(grep -nE '^#+ .*\bP[0-4]\b|^\*\*P[0-4]' "$file" | head -1 | cut -d: -f1)
+  ledger_line=$(grep -niE -m1 '^#+ .*cell ledger' "$file" | cut -d: -f1) || ledger_line=''
+  first_tier=$(grep -nE '^#+ .*\bP[0-4]\b|^\*\*P[0-4]' "$file" | head -1 | cut -d: -f1) || first_tier=''
   if [[ -n "$first_tier" && "$first_tier" -lt "$ledger_line" ]]; then
     log_fail "$label: findings start at line $first_tier but the cell ledger is at $ledger_line — the ledger must LEAD $file"
     return 1

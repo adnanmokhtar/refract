@@ -120,7 +120,7 @@ mkdir -p "$LOG_DIR"
 # silent no-op exit 0 even though the fan-out feed below WOULD run it. Reuse the
 # exact feed pattern and count emitted lines via awk's NR (counts the last line
 # whether or not it ends in a newline).
-TASK_COUNT=$(grep -ve '^[[:space:]]*$' "$TASK_FILE" | awk 'END { print NR }')
+TASK_COUNT=$(grep -ve '^[[:space:]]*$' "$TASK_FILE" | awk 'END { print NR }') || TASK_COUNT=''
 if [[ "$TASK_COUNT" -eq 0 ]]; then
   echo "INFO: task file is empty; nothing to do."
   exit 0

@@ -1057,7 +1057,7 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   if [[ -z "$c2m_missing" ]]; then
     ok "overlap-rejected commands all have a native replacement or breadcrumb"
   else
-    n=$(printf '%s' "$c2m_missing" | tr ',' '\n' | grep -c .)
+    n=$(printf '%s' "$c2m_missing" | tr ',' '\n' | grep -c .) || n=0
     warn_msg "$n command(s) rejected as 'covered here under another name' but a user typing them gets nothing — add a native router or a \`→ use /<equivalent>\` breadcrumb in _refresh-decisions.md (M35 rule 4): $c2m_missing"
   fi
   echo ""
@@ -1156,7 +1156,7 @@ if [[ "$MODE" != "create" && -f "$CL/_refresh-decisions.md" ]]; then
   if [[ -z "$c2s_report" ]]; then
     ok "kept commands carry the standard gates + section structure (no shallowness)"
   else
-    n=$(printf '%s' "$c2s_report" | grep -c .)
+    n=$(printf '%s' "$c2s_report" | grep -c .) || n=0
     warn_msg "$n kept command(s) are shallower than the standard — missing safety gates and/or the full section structure (decompose / validate / improve / failure-modes / output) the pack version has. Preserving the bespoke version is fine, but deepen each to the standard's structure (keep its agents + anchor block intact):"$'\n'"$c2s_report"
   fi
   echo ""
@@ -1805,7 +1805,7 @@ if [[ -f "$EXTRACT" ]]; then
     }
   ' "$EXTRACT" 2>/dev/null | head -5 || true)
   if [[ -n "$quant_hits" ]]; then
-    n=$(printf '%s\n' "$quant_hits" | grep -c .)
+    n=$(printf '%s\n' "$quant_hits" | grep -c .) || n=0
     err "_extracted-codebase.md: $n [found:] line(s) inside a [SAMPLED] section carry an absolute quantifier — check 7 forbids generalizing beyond the sample with a citation attached. First: $(printf '%s\n' "$quant_hits" | head -1 | sed 's/^[[:space:]]*//' | cut -c1-140)"
   fi
 
@@ -2018,7 +2018,7 @@ app_stubs=$(grep -rInE "$STUB_MARKERS" "$TARGET" \
   --include='*.py' --include='*.go' --include='*.rb' --include='*.java' --include='*.kt' \
   2>/dev/null | grep -vE '/(node_modules|dist|build|\.git|vendor|tests?|__tests__|spec|\.output|\.nuxt|\.next|\.svelte-kit|\.cache|out|coverage|generated|__generated__|\.prisma|prisma|migrations|\.gen)/' | grep -vE '\.(min|bundle|gen)\.(js|ts)$' | head -20 || true)
 if [[ -n "$app_stubs" ]]; then
-  n=$(printf '%s\n' "$app_stubs" | grep -c . )
+  n=$(printf '%s\n' "$app_stubs" | grep -c . ) || n=0
   warn_msg "app-code stub markers found ($n shown, ≤20) — a scaffolded surface may be hollow. Review:"
   printf '%s\n' "$app_stubs" | sed 's#^#      #' | head -8 || true
 else
@@ -2235,7 +2235,7 @@ echo "C2t: deployed snippet/governance link integrity (.claude/ artifacts)"
 broken_links=$(grep -rlE '\]\(\.\./\.\./\.\./(snippets|governance)/' \
   "$CL/commands" "$CL/agents" "$CL/skills" "$CL/rules" 2>/dev/null || true)
 if [[ -n "$broken_links" ]]; then
-  bl_n=$(printf '%s\n' "$broken_links" | grep -c .)
+  bl_n=$(printf '%s\n' "$broken_links" | grep -c .) || bl_n=0
   warn_msg "$bl_n .claude/ artifact(s) carry broken \`../../../{snippets,governance}/\` links (should be \`../templates/...\`). Fix: perl -i -pe 's{\]\(\.\./\.\./\.\./(snippets|governance)/}{](../templates/\$1/}g' <files>"
   printf '%s\n' "$broken_links" | sed "s#^$TARGET/#      #" | head -8 || true
 else

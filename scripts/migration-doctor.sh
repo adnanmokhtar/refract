@@ -223,7 +223,7 @@ check_stale_audits() {
     [[ ! -d "$audits_dir" ]] && continue
     while IFS= read -r audit; do
       local audit_date
-      audit_date=$(grep -m1 '^audit_date:' "$audit" 2>/dev/null | sed 's/^audit_date:[[:space:]]*//' | tr -d '"' | tr -d "'")
+      audit_date=$(grep -m1 '^audit_date:' "$audit" 2>/dev/null | sed 's/^audit_date:[[:space:]]*//' | tr -d '"' | tr -d "'") || audit_date=''
       [[ -z "$audit_date" ]] && continue
       local audit_epoch now_epoch diff_days
       audit_epoch=$(parse_date_epoch "$audit_date")

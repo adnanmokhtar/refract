@@ -17,7 +17,7 @@ PROJECT_KIND="${PROJECT_KIND:-}"
 
 # Auto-detect PROJECT_KIND from .claude/_extracted-codebase.md if not set
 if [[ -z "$PROJECT_KIND" && -f .claude/_extracted-codebase.md ]]; then
-  PROJECT_KIND=$(grep -m1 -E '^[[:space:]]*PROJECT_KIND:' .claude/_extracted-codebase.md 2>/dev/null | sed 's/.*PROJECT_KIND:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  PROJECT_KIND=$(grep -m1 -E '^[[:space:]]*PROJECT_KIND:' .claude/_extracted-codebase.md 2>/dev/null | sed 's/.*PROJECT_KIND:[[:space:]]*//' | tr -d '"' | tr -d "'") || PROJECT_KIND=''
 fi
 PROJECT_KIND="${PROJECT_KIND:-frontend-vue}"
 

@@ -67,7 +67,7 @@ done
 V2_SCAN_ROOT="$TARGET/src"
 ANCHORS_FILE="$TARGET/ai/migration/_v2-anchors.md"
 if [[ -f "$ANCHORS_FILE" ]]; then
-  _vr=$(awk '/^---[[:space:]]*$/{n++; next} n==1{print} n>=2{exit}' "$ANCHORS_FILE" 2>/dev/null | grep -m1 '^v2_root:' | sed 's/^v2_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  _vr=$(awk '/^---[[:space:]]*$/{n++; next} n==1{print} n>=2{exit}' "$ANCHORS_FILE" 2>/dev/null | grep -m1 '^v2_root:' | sed 's/^v2_root:[[:space:]]*//' | tr -d '"' | tr -d "'") || _vr=''
   if [[ -n "$_vr" ]]; then
     _vr="${_vr%/}"
     if [[ "${_vr#/}" != "$_vr" ]]; then

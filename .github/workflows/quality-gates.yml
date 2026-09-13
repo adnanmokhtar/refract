@@ -46,6 +46,9 @@ jobs:
       - name: Validator test harness (good/bad fixtures)
         run: bash scripts/test-validators.sh
 
+      - name: Shell pipefail traps (a non-matching grep must not end the script)
+        run: bash scripts/lint-shell-pipefail-traps.sh
+
       - name: Stack conformance (detectors answer correctly for every repo shape)
         run: bash tests/stack-conformance/run.sh
 

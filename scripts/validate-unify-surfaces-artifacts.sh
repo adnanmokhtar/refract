@@ -195,7 +195,7 @@ load_project_anchors() {
   local fm
   fm=$(awk '/^---$/{c++; next} c==1' "$ANCHORS_FILE")
   local pk
-  pk=$(echo "$fm" | grep -m1 '^project_kind:' | sed 's/^project_kind:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  pk=$(echo "$fm" | grep -m1 '^project_kind:' | sed 's/^project_kind:[[:space:]]*//' | tr -d '"' | tr -d "'") || pk=''
   [[ -n "$pk" ]] && PROJECT_KIND="$pk"
 }
 

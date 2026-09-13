@@ -81,7 +81,7 @@ while IFS= read -r row; do
   ln="${row%%:*}"
   body="${row#*:}"
   printf '%s\n' "$body" | grep -q '\[SHIPPED\]' || continue
-  rel=$(printf '%s\n' "$body" | grep -oE 'regulatory-overlays/[a-z0-9./-]+\.md' | head -1)
+  rel=$(printf '%s\n' "$body" | grep -oE 'regulatory-overlays/[a-z0-9./-]+\.md' | head -1) || rel=''
   shipped_files="$shipped_files $(basename "$rel")"
   if [ ! -f "templates/$rel" ]; then
     echo "  FAIL  $CATALOG:$ln — [SHIPPED] but templates/$rel does not exist"

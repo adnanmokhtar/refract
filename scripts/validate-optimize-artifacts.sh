@@ -624,7 +624,7 @@ check_coverage_not_dropped() {
     baseline_pct=$(_extract_pct < "$COVERAGE_BASELINE")
   fi
   if [[ -f "$report" ]]; then
-    after_pct=$(grep -iE '^[[:space:]]*Coverage:' "$report" | tail -1 | _extract_pct)
+    after_pct=$(grep -iE '^[[:space:]]*Coverage:' "$report" | tail -1 | _extract_pct) || after_pct=''
   fi
 
   if [[ -z "${baseline_pct:-}" || -z "${after_pct:-}" ]]; then
