@@ -441,6 +441,9 @@ ls_dirs() {
     -not -path "*/dist*" \
     -not -path "*/build*" \
     -not -path "*/.next*" \
+    -not -path "*/.nuxt*" \
+    -not -path "*/.output*" \
+    -not -path "*/.dart_tool*" \
     -not -path "*/__pycache__*" \
     -not -path "*/.venv*" \
     -not -path "*/vendor*" \
@@ -468,7 +471,25 @@ ls_dirs() {
   # ----- Section 2: Top-level directories -----
   printf '## 2. Top-level directories (depth 2)\n\n'
   printf '```\n'
-  ls_dirs 2 | head -40 | sed "s|$TARGET/||"
+  # Non-hidden first, hidden after — then cap. A flat `sort | head -40` put every
+  # dot-directory ahead of real source, because "." sorts before every letter. MEASURED on a
+  # live Nuxt 4 storefront: all 40 slots went to .agent/ and .claude/* and .nuxt/*, and NOT ONE
+  # of components/ (22 files), composables/ (109), pages/ (19), stores/ (9), themes/ (82) or
+  # utils/ (14) appeared. § 2 is the list apply-anchors.sh resolves a source root from, so the
+  # anchor injector found nothing that looked like source, wrote its `<none — no top-level
+  # source dir resolved on disk>` placeholder into the artifacts it generated, and the leak
+  # detector then reported that placeholder as a cross-project leak. One truncation, three
+  # wrong answers downstream.
+  #
+  # Built in a variable rather than piped into `head`: this script runs under `set -euo
+  # pipefail`, and `head` closing the pipe early sends SIGPIPE to the producer, which pipefail
+  # turns into a failed pipeline and set -e turns into an aborted run — mid-write, leaving a
+  # report truncated at § 2 with sections 8-15 gone. Measured: it did exactly that once.
+  _dirs_all="$(ls_dirs 2)"
+  _dirs_visible="$(printf '%s\n' "$_dirs_all" | grep -vE '(^|/)\.[^/]' || true)"
+  _dirs_hidden="$(printf '%s\n' "$_dirs_all" | grep -E '(^|/)\.[^/]' || true)"
+  printf '%s\n%s\n' "$_dirs_visible" "$_dirs_hidden" \
+    | grep -v '^$' | awk 'NR<=40' | sed "s|$TARGET/||"
   printf '```\n\n'
 
   # ----- Section 3: Manifest / config files detected -----
