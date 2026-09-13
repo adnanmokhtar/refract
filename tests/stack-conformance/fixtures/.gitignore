@@ -1,0 +1,5 @@
+# Detector output written INTO a fixture by run.sh. The fixtures are inputs; their
+# .claude/ is a scratch area the scanners write to, and committing it would make every
+# run dirty the tree and every diff unreadable.
+*/.claude/
+*/.mcp.json

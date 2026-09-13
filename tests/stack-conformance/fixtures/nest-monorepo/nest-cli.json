@@ -1,0 +1,1 @@
+{"monorepo":true,"projects":{"master":{"type":"application"},"tenant":{"type":"application"},"shared":{"type":"library"}}}
