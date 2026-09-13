@@ -106,6 +106,28 @@ mcp_of() { bash "$ROOT/scripts/detect-mcp.sh" "$1" 2>&1 | tr 'A-Z' 'a-z'; }
 assert_contains "turbo monorepo: Playwright MCP offered" "playwright" "$(mcp_of "$FIX/turbo-monorepo")"
 assert_absent   "backend-only: no Playwright MCP"        "playwright" "$(mcp_of "$FIX/express-backend")"
 
+# ---------------------------------------------------------------- repo shape
+echo ""
+echo "[shape] does the resolver find the source for every layout?"
+# shellcheck source=/dev/null
+. "$ROOT/scripts/_repo-shape.sh"
+roots_of() { source_roots "$1" 2>/dev/null | tr '\n' ' '; }
+assert_contains "flutter: lib/"                       "lib"           "$(roots_of "$FIX/flutter-app")"
+assert_contains "vue spa: src/"                       "src"           "$(roots_of "$FIX/vue-vite-spa")"
+assert_contains "nuxt: components/ (no src/ at all)"  "components"    "$(roots_of "$FIX/nuxt-storefront")"
+assert_absent   "nuxt: never invents a src/"          "src "          "$(roots_of "$FIX/nuxt-storefront")"
+assert_contains "turbo monorepo: apps/web/src"        "apps/web/src"  "$(roots_of "$FIX/turbo-monorepo")"
+assert_contains "nest monorepo: libs/shared/src"      "libs/shared/src" "$(roots_of "$FIX/nest-monorepo")"
+# every path it returns must resolve — a citation the reader cannot open is the defect it ends
+shape_unresolved=0
+for fx in flutter-app nuxt-storefront vue-vite-spa turbo-monorepo nest-monorepo express-backend; do
+  while IFS= read -r r; do
+    [ -n "$r" ] || continue
+    [ -d "$FIX/$fx/$r" ] || shape_unresolved=$((shape_unresolved + 1))
+  done < <(source_roots "$FIX/$fx" 2>/dev/null)
+done
+assert_contains "every returned root resolves on disk" "0" "$shape_unresolved"
+
 # ---------------------------------------------------------------- probes
 echo ""
 echo "[probes] does a monorepo get a search root that exists?"

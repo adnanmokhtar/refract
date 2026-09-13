@@ -71,6 +71,10 @@ if [[ $# -lt 1 ]]; then
 fi
 
 TARGET="$1"; shift
+
+# shellcheck source=/dev/null
+. "$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_repo-shape.sh"
+
 QUIET=0
 APPLY=0
 SINK_STDOUT=0
@@ -173,16 +177,11 @@ fi
 #
 # Union, never replacement: the root's own deps still count, and a single-package repo is
 # untouched because none of these markers exist.
-if [[ -f "$TARGET/pnpm-workspace.yaml" || -f "$TARGET/turbo.json" || -f "$TARGET/nx.json" \
-      || -f "$TARGET/lerna.json" || -f "$TARGET/rush.json" ]] \
-   || { [[ -f "$PKG" ]] && grep -q '"workspaces"' "$PKG" 2>/dev/null; }; then
-  for _wpkg in "$TARGET"/*/*/package.json "$TARGET"/*/package.json; do
-    [[ -f "$_wpkg" ]] || continue
-    [[ "$_wpkg" == "$PKG" ]] && continue
-    case "$_wpkg" in */node_modules/*|*/.git/*|*/dist/*|*/build/*) continue ;; esac
-    PKG_DEPS="$PKG_DEPS$(_read_pkg_deps "$_wpkg")"
-  done
-fi
+# Shape resolution is shared with detect-tracks.sh — scripts/_repo-shape.sh.
+while IFS= read -r _wpkg; do
+  [[ -n "$_wpkg" ]] || continue
+  PKG_DEPS="$PKG_DEPS$(_read_pkg_deps "$_wpkg")"
+done < <(workspace_pkg_jsons "$TARGET")
 has_dep() { [[ " $PKG_DEPS " == *" $1 "* ]]; }
 has_dep_prefix() { [[ " $PKG_DEPS " == *" $1"* ]]; }
 
@@ -329,8 +328,9 @@ if has_dep vue || has_dep_prefix '@vue/' || has_dep react || has_dep_prefix '@ty
   # Scan roots, not a hardcoded src/: on a monorepo there is no $TARGET/src, and a grep over a
   # missing directory returns zero hits — which reads as "no auth guard" rather than "not
   # looked". Same silent-zero shape as the detector bug above.
-  _auth_roots=("$TARGET/src")
-  for _d in "$TARGET"/apps/*/src "$TARGET"/packages/*/src; do [[ -d "$_d" ]] && _auth_roots+=("$_d"); done
+  _auth_roots=()
+  while IFS= read -r _r; do [[ -n "$_r" && -d "$TARGET/$_r" ]] && _auth_roots+=("$TARGET/$_r"); done < <(source_roots "$TARGET")
+  [[ ${#_auth_roots[@]} -eq 0 ]] && _auth_roots=("$TARGET")
   if grep -rqiE 'requiresAuth|PrivateRoute|authGuard|redirect.*/login|meta:[^}]*requiresAuth' "${_auth_roots[@]}" 2>/dev/null; then
     AUTH_GATED=1
   fi

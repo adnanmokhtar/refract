@@ -43,6 +43,10 @@ if [[ $# -lt 1 ]]; then
 fi
 
 TARGET="$1"; shift
+
+# shellcheck source=/dev/null
+. "$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_repo-shape.sh"
+
 WRITE=0
 QUIET=0
 while [[ $# -gt 0 ]]; do
@@ -125,19 +129,15 @@ fi
 # So when a workspace marker is present, fold every workspace package's deps into
 # PKG_DEPS. Union, never replacement: the root's own deps still count, and a
 # single-package repo is untouched because none of these markers exist.
-if [[ -f "$TARGET/pnpm-workspace.yaml" || -f "$TARGET/turbo.json" || -f "$TARGET/nx.json" \
-      || -f "$TARGET/lerna.json" || -f "$TARGET/rush.json" ]] \
-   || { [[ -f "$PKG" ]] && grep -q '"workspaces"' "$PKG" 2>/dev/null; }; then
-  _ws_found=0
-  for _wpkg in "$TARGET"/*/*/package.json "$TARGET"/*/package.json; do
-    [[ -f "$_wpkg" ]] || continue
-    [[ "$_wpkg" == "$PKG" ]] && continue
-    case "$_wpkg" in */node_modules/*|*/.git/*|*/dist/*|*/build/*) continue ;; esac
-    PKG_DEPS="$PKG_DEPS$(_read_pkg_deps "$_wpkg")"
-    _ws_found=$((_ws_found + 1))
-  done
-  [[ $_ws_found -gt 0 ]] && trace "monorepo workspace: folded deps from $_ws_found package.json file(s) below the root"
-fi
+# Shape resolution lives in scripts/_repo-shape.sh so detect-mcp.sh and every later caller
+# answer identically; adding a layout there teaches all of them at once.
+_ws_found=0
+while IFS= read -r _wpkg; do
+  [[ -n "$_wpkg" ]] || continue
+  PKG_DEPS="$PKG_DEPS$(_read_pkg_deps "$_wpkg")"
+  _ws_found=$((_ws_found + 1))
+done < <(workspace_pkg_jsons "$TARGET")
+[[ $_ws_found -gt 0 ]] && trace "monorepo workspace: folded deps from $_ws_found package.json file(s) below the root"
 
 has_dep() {
   [[ " $PKG_DEPS " == *" $1 "* ]]
