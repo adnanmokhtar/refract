@@ -590,6 +590,12 @@ sync_cursor() {
   for f in "$TARGET"/.claude/rules/*.md; do
     [[ -f "$f" ]] || continue
     rule_name=$(basename "$f" .md)
+    # `_`-prefixed files under rules/ are GENERATED REPORTS, not rules: `_unloaded.md` is
+    # wire-rule-imports.sh's record of what the budget refused to import. Projecting it into a
+    # tool's native rule format asks a human to author a translation of a run log, and it comes
+    # back as MISSING-AUTHOR on every sync until someone does. Same `_`-means-generated
+    # convention the ADR census and the packs' `_topics`/`_version` files already use.
+    case "$rule_name" in _*) continue ;; esac
     expected=".cursor/rules/30-$rule_name.mdc"
     # Accept the bare `<name>.mdc` form too — Cursor loads any `*.mdc` regardless of an
     # `NN-` ordering prefix, and the generator emits bare names. (audit-adapter-coverage.sh
@@ -672,6 +678,12 @@ sync_cline() {
   for f in "$TARGET"/.claude/rules/*.md; do
     [[ -f "$f" ]] || continue
     rule_name=$(basename "$f" .md)
+    # `_`-prefixed files under rules/ are GENERATED REPORTS, not rules: `_unloaded.md` is
+    # wire-rule-imports.sh's record of what the budget refused to import. Projecting it into a
+    # tool's native rule format asks a human to author a translation of a run log, and it comes
+    # back as MISSING-AUTHOR on every sync until someone does. Same `_`-means-generated
+    # convention the ADR census and the packs' `_topics`/`_version` files already use.
+    case "$rule_name" in _*) continue ;; esac
     find "$TARGET/.clinerules" -maxdepth 1 -name "[1-7][0-9]-$rule_name.md" 2>/dev/null | grep -q . || \
       report_missing_author "cline-rule" ".clinerules/<NN>-$rule_name.md" "rule needs numeric <NN>- load-order prefix ({10..79}) — run /setup-project-adapters"
   done
@@ -695,6 +707,12 @@ sync_windsurf() {
   for f in "$TARGET"/.claude/rules/*.md; do
     [[ -f "$f" ]] || continue
     rule_name=$(basename "$f" .md)
+    # `_`-prefixed files under rules/ are GENERATED REPORTS, not rules: `_unloaded.md` is
+    # wire-rule-imports.sh's record of what the budget refused to import. Projecting it into a
+    # tool's native rule format asks a human to author a translation of a run log, and it comes
+    # back as MISSING-AUTHOR on every sync until someone does. Same `_`-means-generated
+    # convention the ADR census and the packs' `_topics`/`_version` files already use.
+    case "$rule_name" in _*) continue ;; esac
     find "$TARGET/.windsurf/rules" -maxdepth 1 -name "[1-7][0-9]-$rule_name.md" 2>/dev/null | grep -q . || \
       report_missing_author "windsurf-rule" ".windsurf/rules/<NN>-$rule_name.md" "rule needs <NN>- prefix + activation_mode frontmatter (always/glob/trigger_words) — run /setup-project-adapters"
   done
@@ -739,6 +757,12 @@ sync_continue() {
   for f in "$TARGET"/.claude/rules/*.md; do
     [[ -f "$f" ]] || continue
     rule_name=$(basename "$f" .md)
+    # `_`-prefixed files under rules/ are GENERATED REPORTS, not rules: `_unloaded.md` is
+    # wire-rule-imports.sh's record of what the budget refused to import. Projecting it into a
+    # tool's native rule format asks a human to author a translation of a run log, and it comes
+    # back as MISSING-AUTHOR on every sync until someone does. Same `_`-means-generated
+    # convention the ADR census and the packs' `_topics`/`_version` files already use.
+    case "$rule_name" in _*) continue ;; esac
     if [[ -f "$TARGET/.continue/rules/$rule_name.md" ]]; then
       grep -q "^name:" "$TARGET/.continue/rules/$rule_name.md" || report_missing_author "continue-rule-frontmatter" ".continue/rules/$rule_name.md" "rule needs 'name:' frontmatter (silently ignored without it) — run /setup-project-adapters"
     else

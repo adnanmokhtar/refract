@@ -246,11 +246,5 @@ Every `/compare-v1` run MUST end its terminal output with this **Next steps** bl
 - `extract-v1-contract` skill — captures V1 behavior in structured form.
 - `parity-testing` pattern — golden-master / record-replay test patterns.
 - `migration-discipline` rule — parity-non-negotiable contract.
-
-## Related
-
-### Sibling commands in migration pack
-- `/migration-scan` — runs this for every feature.
-- `/migration-phase` — uses this in AUDIT step.
-- `/migration-status` — reads ledger; this command writes individual comparison reports.
-- `/port-feature` — uses this in pre-port investigation.
+- `/migration-status` — reads the ledger; this command writes the individual comparison reports.
+- `/port-feature` — uses this in its pre-port investigation.

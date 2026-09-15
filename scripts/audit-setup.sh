@@ -1448,6 +1448,17 @@ if [[ -d "$BASELINE_AI" ]]; then
     # `_`-prefixed file: `_decision-index.md`, `_session-digest.md`, `_convention-cheatsheet.md`,
     # `_scorecard.md` and `_index.md` are GENERATED, and an unpopulated one of those is real.
     case "$_rel" in _template.md|*/_template.md) continue ;; esac
+    # 🔴 A FRAMEWORK REFERENCE IS SUPPOSED TO STAY VERBATIM — same shape as the blank form
+    # above, opposite reason. `ai/references/*` are not prompts for the project to fill in:
+    # they are copies of framework facts (`models.md`, `tool-parity.md`), and `tool-parity.md`
+    # is one of the THREE copies `scripts/lint-tool-parity.sh` holds to each other. Editing
+    # the target's copy to clear this ERR would be the drift that gate exists to catch, so the
+    # finding named an action that makes the repo worse and had no action that makes it better.
+    # MEASURED: invisible until a refresh syncs these files to the current baseline — before
+    # that they are merely an OLD version, byte-identical to nothing, and the check stays quiet.
+    # On the live Vue portal that meant 6 stub ERRs before the refresh and 23 after it, two of
+    # them unclearable by construction.
+    case "$_rel" in references/*) continue ;; esac
     # skip the seven already covered above
     case " ${FOUNDATIONAL[*]} " in *" $_name "*) continue ;; esac
     SECONDARY_AI+=("$_name")

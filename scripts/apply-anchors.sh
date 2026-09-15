@@ -634,16 +634,29 @@ anchor_lacks_relevance() {
 
 # Insert the relevance line immediately BEFORE the Cite-able-sources line (the block's last
 # content line), or immediately before the end marker when there is no citation line yet.
+# WHY `mv` AND NOT `cat "$tmp" > "$f"` — a killed run must not eat an artifact.
+#
+# `cat "$tmp" > "$f"` truncates the target and then copies into it, so the file is invalid for
+# the whole copy and whatever prefix landed is what survives a kill. MEASURED on a live Vue
+# portal: this pass was interrupted mid-run by a harness timeout and
+# `.claude/agents/design-system-architect.md` was left holding its first 17 lines — the anchor
+# block alone, 189 lines of agent body gone. The run's own backup still had the 206-line file,
+# so nothing was lost permanently, but the artifact in the tree was destroyed and only the
+# NEXT audit's KNOWLEDGE_LOSS check noticed.
+#
+# `mv` into the same directory is a rename: the target is either the old file or the new one,
+# never a prefix of either. inject_block() below already did this; these two did not.
 insert_relevance_line() {
   local f="$1" line="$2" tmp
-  tmp=$(mktemp "${TMPDIR:-/tmp}/anchor-relev.XXXXXX")
+  # Beside the target, not in TMPDIR: `mv` is an atomic rename only within one filesystem.
+  tmp=$(mktemp "${f}.anchor-relev.XXXXXX")
   REL_LINE="$line" awk '
     /^<!-- project-specific:start -->[[:space:]]*$/ { inb=1; print; next }
     inb && !done && /^>[[:space:]]*Cite-able sources:/ { print ENVIRON["REL_LINE"]; done=1; print; next }
     inb && !done && /^<!-- project-specific:end -->[[:space:]]*$/ { print ENVIRON["REL_LINE"]; done=1; inb=0; print; next }
     inb && /^<!-- project-specific:end -->[[:space:]]*$/ { inb=0 }
     { print }
-  ' "$f" > "$tmp" && cat "$tmp" > "$f"
+  ' "$f" > "$tmp" && { _m=$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || echo 644); chmod "$_m" "$tmp"; mv "$tmp" "$f"; }
   rm -f "$tmp"
 }
 
@@ -651,7 +664,7 @@ insert_relevance_line() {
 # Only that line changes; the rest of the block (including hand-added depth) is untouched.
 repair_citeable_line() {
   local f="$1" tmp
-  tmp=$(mktemp "${TMPDIR:-/tmp}/anchor-repair.XXXXXX")
+  tmp=$(mktemp "${f}.anchor-repair.XXXXXX")
   # Two modes, because the line may be WRONG or may be MISSING. Rewriting handles the first;
   # the second needs an insert, immediately after the anchor's start marker, or the artifact
   # keeps its anchor and never gains a citation (see anchor_toplevel_is_stale's [[ -z ]] arm).
@@ -663,7 +676,7 @@ repair_citeable_line() {
         next
       }
       { print }
-    ' "$f" > "$tmp" && cat "$tmp" > "$f"
+    ' "$f" > "$tmp" && { _m=$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || echo 644); chmod "$_m" "$tmp"; mv "$tmp" "$f"; }
   else
     MANIFESTS="$MANIFESTS" SRC_DIRS="$SRC_DIRS" awk '
       { print }
@@ -671,7 +684,7 @@ repair_citeable_line() {
         printf "> Cite-able sources: %s, top-level: %s.\n", ENVIRON["MANIFESTS"], ENVIRON["SRC_DIRS"]
         done = 1
       }
-    ' "$f" > "$tmp" && cat "$tmp" > "$f"
+    ' "$f" > "$tmp" && { _m=$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || echo 644); chmod "$_m" "$tmp"; mv "$tmp" "$f"; }
   fi
   rm -f "$tmp"
 }
