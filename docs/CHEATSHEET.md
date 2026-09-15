@@ -4,13 +4,13 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**196 commands** — core 15 · 23 packs (135) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**197 commands** — core 16 · 23 packs (135) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
-- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 15
+- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 16
 - [Pack — ai-engineering](#pack--ai-engineering) — 3
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
@@ -56,6 +56,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/setup-project-health` | Read-only report on whether this repo's /setup-project artifacts have drifted or gone stale. | — | `/setup-project-health` |
 | `/task` | Execute ONE tracker item end to end and write its status back to the source. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
 | `/unify-surfaces` | Consolidate every instance of ONE surface type behind ONE canonical shared implementation, app-wide. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
+| `/upgrade-dep` | Upgrade one dependency, framework or runtime to a named version — any ecosystem, any stack. | `--runtime`, `--all`, `--max-class`, `--security`, `--dry-run`, `--ecosystem=<name>`, `--oracle=<command>`, `--no-codemod`, `--allow-prerelease`, `--relock`, `--allow-dirty`, `--stay-on-major` | `/upgrade-dep tailwindcss@4` |
 
 ## Pack — ai-engineering
 

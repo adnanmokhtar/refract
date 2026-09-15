@@ -259,7 +259,7 @@ are dry-run by default with `--apply` to commit.
 ## 3. The architecture, in the order you'll need it
 
 ```
-commands/                   15 global commands. THE global surface — nothing else is.
+commands/                   16 global commands. THE global surface — nothing else is.
 templates/
   packs/                    23 role-based tracks. Per-PROJECT, installed by /setup-project.
   phases/                   /setup-project's execution flow, one file per phase.

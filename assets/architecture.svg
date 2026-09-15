@@ -8,7 +8,7 @@
 <text x="320" y="118" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="9.5" fill="#6b7684" font-weight="700" letter-spacing="1.1">SOURCE OF TRUTH — THIS REPOSITORY</text>
 <rect x="320" y="128" width="252" height="28" rx="5" fill="#f2f5f8"/>
 <text x="330" y="146.5" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11" fill="#161b22" font-weight="600">commands/</text>
-<text x="562" y="146.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400" text-anchor="end">15 global commands</text>
+<text x="562" y="146.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400" text-anchor="end">16 global commands</text>
 <rect x="584" y="128" width="252" height="28" rx="5" fill="#f2f5f8"/>
 <text x="594" y="146.5" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11" fill="#161b22" font-weight="600">templates/packs/</text>
 <text x="826" y="146.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400" text-anchor="end">23 role-based packs</text>

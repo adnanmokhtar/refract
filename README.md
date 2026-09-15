@@ -214,7 +214,7 @@ re-verify rather than silently shipping a broken translation.
 | **23 packs** | Role-based knowledge tracks, not framework tracks |
 | **88 agents** | Specialised reviewers and architects |
 | **117 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **150 commands** | 15 global + 135 pack-level |
+| **151 commands** | 16 global + 135 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
 | **130 scripts** | Validators, linters, sync, search and audit tooling |
@@ -257,7 +257,7 @@ are printed for you to paste.
 
 ```
 refract/
-├── commands/                # the 15 global commands
+├── commands/                # the 16 global commands
 ├── templates/
 │   ├── repo-baseline/       # copied into every new repository
 │   ├── workspace-baseline/  # multi-repo workspaces (dispatcher, cross-repo commands)

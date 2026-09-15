@@ -141,6 +141,7 @@
 .claude/templates/snippets/learning-sink.md  db5d9451c6912ead941d5c1ed4fc1dd4ffe45c39815a53cb5dac63e2d97d9cb8
 .claude/templates/snippets/phase-3-always-reads.md  329eb1f3d27d58fb32d9e1d6f0d65863e440abff537f1b5adac600b554b7dfb2
 .claude/templates/snippets/plan-flag.md  1465561082849d5974b504a46b7f5fab0fd4167a1567572590c39cbd28d7753c
+.claude/templates/snippets/plan-flag.md  86ddc9f0e7d7d2f2ea68c90f7cf23ecfc280a3a703d1c2c5d1484d0c8990e261
 .claude/templates/snippets/review-action-plan.md  891031ba64b6ebd6489db51c104f66e8698d9910c045d592d2001904f9fdf67b
 .claude/templates/snippets/sibling-shape-halt.md  ea754d365e101487d4d0172dff6a0983058253147a3fda3e43555c8333091ca1
 CLAUDE.md  b6a8924662f22f08fa7ae77cc4914b9fcce9f288455003830a8158410de6f0a3

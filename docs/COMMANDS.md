@@ -16,6 +16,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 - Simple-surface (whole-project, multi-area, deep multi-agent)
   - [`/roadmap`](#roadmap)
   - [`/migrate`](#migrate)
+  - [`/upgrade-dep`](#upgrade-dep)
   - [`/align`](#align)
   - [`/optimize`](#optimize)
   - [`/refactor`](#refactor)
@@ -47,6 +48,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/refine-prompt`              | Turn any rough idea into a deep, execution-ready prompt for the right command (output-only). | No (writes ai/ only) |
 | `/roadmap [<scope>]`          | Phased completion plan for an unfinished project — maps every missing / stubbed / half-wired feature (six detectors), sized + dependency-phased into `ai/roadmap/plan.md`. `--build [<N>]` builds ONE phase per run, halting at a phase gate. | Plan default; `--build` writes |
 | `/migrate [<scope>]`          | One-command V1→V2 port. Deep multi-agent. Brief output.                | No (writes) |
+| `/upgrade-dep <target>[@<ver>]` | One-command dependency / framework / runtime upgrade, any ecosystem. Classifies the span, cites the vendor's breaking-change guide, pins a parity oracle BEFORE editing, runs the official codemod into its own commit, sweeps the residue, verifies against the oracle. Majors one at a time; runtime pins (CI / image / engines / deploy) move together or it halts. | No (writes) |
 | `/align [<scope>]`            | One-command convention drift sweep.                                    | No (writes) |
 | `/optimize [<scope>]`         | One-command architectural diagnosis + tactical sweep.                  | No (writes) |
 | `/refactor [<scope>]`        | Targeted behaviour-preserving refactor (Fowler verbs only); not whole-project. See [`commands/refactor.md`](../commands/refactor.md). | No (writes) |
@@ -917,6 +919,31 @@ One-command V1→V2 port. Deep multi-agent: internally runs scan + plan + audit 
 ```
 
 Shares the orchestrated common-flag set documented under [`/optimize`](#optimize) (`--status`, `--resume`, `--refresh`, `--re-audit`, `--restart`, `--dry-run`, …). Writes to `ai/migrate/progress.md`.
+
+---
+
+## `/upgrade-dep`
+
+Full contract: [`commands/upgrade-dep.md`](../commands/upgrade-dep.md). Adapter coverage: each `templates/tool-adapters/<tool>/adapter.md` (Upgrade-dep bullet).
+
+One-command upgrade of a single dependency, framework or runtime — **any ecosystem** (Node, Composer, pip / Poetry, pub, Bundler, Go modules, Cargo, Gradle / Maven, NuGet, SwiftPM) and **any stack**. An upgrade is a behaviour-preservation claim, so the run refuses to start without the two things that make the claim checkable: the vendor's breaking-change source for the exact version span (**cite-or-halt** — never recollection), and a **parity oracle** whose baseline is captured on the pre-upgrade tree.
+
+The oracle floor is chosen by `PROJECT_KIND`, which is what makes the command work the same on an API, a frontend and a mobile app: suite + boot + route-inventory + contract diff for `backend-*`; typecheck + build + route-mount sweep + bundle delta for `frontend-*` / `mobile-web`; **both** platform targets building plus a launch smoke for `mobile-rn` / `mobile-native` (Flutter and the native toolchains alike); an exported-symbol diff for a library; golden output for a CLI. A project with no oracle gets the cheapest one proposed, installed and committed **first**, so the baseline exists on the old version.
+
+```
+/upgrade-dep tailwindcss@4              # framework major with an official codemod
+/upgrade-dep laravel/framework@12       # backend major; first-party packages move with it
+/upgrade-dep flutter@3.38 --runtime     # mobile toolchain; both platforms must build
+/upgrade-dep node@22 --runtime          # CI matrix, Dockerfile, engines, deploy target
+/upgrade-dep --all --max-class=minor    # batched sweep that stops before any major
+/upgrade-dep --security                 # advisory-driven, smallest fixing version, IDs cited
+```
+
+Five upgrade classes decide the ceremony (patch · minor · major-lib · major-framework · runtime). **Majors are never batched** — two majors in one commit range leaves neither revertable. Commits are staged by kind and never mixed: manifest + lock, then the codemod's output **verbatim and alone**, then one commit per breaking-change item, then config re-shaping — so `git revert` on the codemod commit is a real rollback. Runtime-class upgrades move every pin in the repo together (`.nvmrc` / `.tool-versions`, `engines` / `requires-python` / SDK constraint, Dockerfile `FROM`, the CI matrix, the deployment runtime) or halt; a pin that lives outside the repo is named under `Risks:`, never omitted.
+
+Flags: `--all`, `--max-class=`, `--security`, `--runtime`, `--ecosystem=`, `--oracle=`, `--no-codemod`, `--dry-run`, `--allow-prerelease`, `--relock`, `--allow-dirty`, `--stay-on-major`. Closes with the mandatory `Not validated:` / `Risks:` / `Revert:` block plus paste-ready next steps.
+
+**Boundary.** `/migrate` moves *your* code between two apps; this moves a *dependency* under one app. `/dependency-vuln-check` and `/audit --focus=security` produce the list of what is vulnerable or stale — this command closes one row of it. Applying the new version's idioms to code the codemod never touched is `/align`, afterwards.
 
 ---
 

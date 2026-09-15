@@ -10,7 +10,7 @@
 # a project installs some packs, not all 23. So the budget is set where the cost is actually
 # incurred, at three separate scopes:
 #
-#   GLOBAL   the 15 orchestration commands, installed machine-wide by sync-to-global.sh.
+#   GLOBAL   the 16 orchestration commands, installed machine-wide by sync-to-global.sh.
 #            This is the only text every session pays, in every project, forever.
 #   PACK     one pack's commands + agents + skills. What a project pays for saying yes to it.
 #   SINGLE   any one artifact, so no individual description can dominate its scope.

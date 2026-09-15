@@ -63,6 +63,8 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "drift" / "inconsistencies" / "fork(s) of the same thing" / "duplicate implementations of X" / "all over the place" / "inconsistent naming" / "mixed patterns" + multi-area scope, **and no API surface**, **and no one surface type that has to converge on one wrapper** (see the rows above) | `/align [<scope>]` |
 | "align" / "drift" / "unify" / "harmonize" / "make consistent" + **single area**, narrow scope (one page, one module, one file) | `/align-recheck <description>` (align pack) |
 | "port" / "migrate" / "match V1" / "compare V1" + whole-project / multi-feature scope | `/migrate [<scope>]` |
+| "upgrade X to N" / "bump the major" / "move to <framework> <N>" / "get us off the EOL runtime" / "take the security advisories" + a **named package, framework, SDK or runtime whose VERSION moves** | `/upgrade-dep <target>[@<version>]` — the ask is a version span under one app, not a port between two (`/migrate`) and not a read-only list of what is stale or vulnerable (`/dependency-vuln-check`, `/audit --focus=security`) |
+| "upgrade" + **no version and no named package** ("modernise the codebase", "we are behind on everything") | Ask one question — a named package or runtime to move → `/upgrade-dep`; every outdated direct dependency in one batched sweep → `/upgrade-dep --all`; the code itself is dated rather than the dependencies → `/optimize` |
 | "port" + single feature, narrow scope | `/migration-recheck <description>` (migration pack) |
 | "refactor" / "extract" / "rename" / "move" / "flatten" + **specific file / module / symbol** (narrow target) | `/refactor <target>` |
 | "optimize" / "clean up" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
@@ -307,6 +309,7 @@ If one half matches no command, run the half that does and report the other as u
 
 ### Sibling commands (this command routes to)
 - `/migrate`, `/align`, `/optimize`, `/polish`, `/audit`, `/unify-surfaces` — top-level simple-surface (whole-project / multi-area)
+- `/upgrade-dep` — move one dependency, framework or runtime to a named version, in any ecosystem (guide-cited, oracle-verified, majors one at a time)
 - `/roadmap` — map what is INTENDED but not yet built, then phase the build order (the complement of `/audit`: what is *missing*, not what is *wrong*)
 - `/add-feature`, `/add-page`, `/add-component`, `/add-endpoint`, `/add-module`, `/add-migration`
 - `/enhance-ui`, `/fix-bug`, `/align-recheck`, `/migration-recheck`

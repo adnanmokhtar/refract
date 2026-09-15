@@ -6,6 +6,56 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/upgrade-dep` — the upgrade nobody could prove (2026-09-15)
+
+**What was missing** — a major-version upgrade is the most routine dangerous change a project makes,
+and the repo had **no command for it**. `/migrate` is a V1→V2 port across two trees; `/optimize` and
+`/align` work on code the team owns; `/dependency-vuln-check` produces a list and stops. So the ask
+*"upgrade us from Tailwind CSS 3 to 4"* — or off an EOL runtime, or onto the next framework major on
+an API or a Flutter app — routed to `/do` and came back **unrouted**, and the work was done freehand:
+run the codemod, eyeball the diff, ship. The two failure modes that produces are the ones nothing in
+the repo was watching for — a major upgraded from a model's *recollection* of its breaking changes
+rather than the vendor's guide, and a green run that proved nothing because the only check was
+written **after** the edit.
+
+**What ships** — one global command, `commands/upgrade-dep.md`, built on two refusals:
+
+- **Cite-or-halt on the breaking-change source.** The vendor's guide / release notes / CHANGELOG for
+  the exact version span is fetched and cited in the report, or a major halts. `--no-guide` proceeds
+  only with the gap stated in `Not validated:`. A span crossing several majors is walked one major at
+  a time, each with its own guide and its own commits.
+- **The parity oracle is pinned and baselined BEFORE the first edit**, and chosen by `PROJECT_KIND` —
+  which is what makes one command cover an API, a frontend and a mobile app: suite + boot + route
+  inventory + contract diff for `backend-*`; typecheck + build + route-mount sweep + bundle delta for
+  `frontend-*` and `mobile-web`; **both** platform targets building plus a launch smoke for `mobile-rn` /
+  `mobile-native` (Flutter and the native toolchains alike) (an Android Gradle break and an iOS pod break each show on one platform
+  only); exported-symbol diff for a library; golden output for a CLI. A project with no oracle does
+  not get a silent pass — the cheapest one is proposed, installed and committed first, so the
+  baseline exists on the *old* version.
+
+Three more rules carry the weight in review: **majors are never batched** (two majors in one commit
+range leaves neither revertable, and `--all` stops at `--max-class`, default `minor`); **commits are
+staged by kind and never mixed** — manifest+lock, the codemod's output *verbatim and alone*, one
+commit per breaking-change item, config re-shaping — so `git revert <codemod-sha>` undoes the
+mechanical pass by itself; and **runtime-class upgrades move every in-repo pin together** (version
+file, manifest constraint, Dockerfile `FROM`, CI matrix, deploy runtime) or halt, because the
+upgrade that changes only the developer's machine is a divergence, not an upgrade. A pin that lives
+outside the repository is named under `Risks:`, never dropped.
+
+Ten ecosystems are mapped to their manifest pair, staleness / advisory probe and official codemod
+where the vendor ships one (Node, Composer, pip / Poetry / uv, pub, Bundler, Go modules, Cargo,
+Gradle / Maven, NuGet, SwiftPM). **No codemod is a fact the report states, never a blocker** — the
+guide's breaking-change list becomes the checklist and every row closes `applied` /
+`not applicable — <why>` / `TODO`.
+
+Registered where a global command has to be: `docs/COMMANDS.md` (TOC, at-a-glance, its own section),
+`docs/REFERENCE.md`, `docs/CHEATSHEET.md` (regenerated), two routing rows + a sibling entry in
+`commands/do.md`, the orchestration list in `templates/packs/_registry.md`, the `--plan` Pending list
+in `templates/snippets/plan-flag.md` (its write-nothing preview is `--dry-run`), the honesty-clause
+and *Not in this table* sections of `templates/tool-adapters/_orchestration-sync.md`, a coverage
+bullet in **all twelve** `templates/tool-adapters/<tool>/adapter.md`, and the 15→16 global-command
+figure everywhere it is asserted.
+
 ### ui-ux pack v1.28.0 — design before code, on a canvas someone approves (2026-09-12)
 
 **What was missing** — every artifact in the ui-ux pack ended in a **diff**. `/design-review` reports,

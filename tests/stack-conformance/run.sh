@@ -134,6 +134,69 @@ echo "[probes] does a monorepo get a search root that exists?"
 rp=$(bash "$ROOT/scripts/retarget-probes.sh" "$FIX/nest-monorepo" 2>/dev/null | tr '\n' ' ')
 assert_absent "nest monorepo: retargeter does not propose a bare src/ root" "src/  →  src/" "$rp"
 
+# ---------------------------------------------------------------- upgrade-dep
+echo ""
+echo "[upgrade-dep] does the command answer for every shape these fixtures cover?"
+# /upgrade-dep is a prompt artifact, so what is checkable is whether its two tables ANSWER for a
+# repo shape rather than whether its prose reads well. Three classes, all classification:
+#   (a) every manifest these fixtures actually carry has a row in the ecosystem matrix,
+#   (b) every shape family has a parity-oracle row, and
+#   (c) every PROJECT_KIND and every /command the file names is one this repo really ships.
+# (c) is the one that earns its slot: the first draft named a `mobile-flutter` kind that exists
+# nowhere in the corpus, which would have routed a Flutter app to an oracle row it never matches.
+UD="$ROOT/commands/upgrade-dep.md"
+
+# (a) manifests on disk → matrix rows. Derived from the fixtures, so a NEW ecosystem fixture with
+# no matrix row fails here rather than being discovered by a user mid-upgrade.
+ud_missing_manifest=""
+while IFS= read -r m; do
+  [ -n "$m" ] || continue
+  grep -qF "\`$m\`" "$UD" || ud_missing_manifest="$ud_missing_manifest $m"
+done < <(find "$FIX" -maxdepth 3 \( -name 'package.json' -o -name 'pubspec.yaml' -o -name 'composer.json' \
+           -o -name 'pyproject.toml' -o -name 'requirements.txt' -o -name 'go.mod' -o -name 'Gemfile' \
+           -o -name 'Cargo.toml' -o -name '*.csproj' -o -name 'Package.swift' \) -exec basename {} \; | sort -u)
+# `assert_contains ... ""` can never fail (every string contains the empty string), so the empty
+# list is normalised to a sentinel and the sentinel is what is asserted. Caught by mutation: a
+# fixture manifest deleted from the matrix left this green until the sentinel landed.
+assert_contains "every fixture manifest has an ecosystem row" "none" "${ud_missing_manifest:-none}"
+
+# (b) one oracle row per shape family — mobile / frontend / backend are the three the user-facing
+# ask names, and a family with no row is a shape the command cannot verify.
+ud_mobile_row="$(grep '^| `mobile-rn`' "$UD" | head -1)"
+assert_contains "mobile shape has an oracle row"     "mobile-rn" "$ud_mobile_row"
+assert_contains "mobile oracle demands BOTH targets" "Both"      "$ud_mobile_row"
+assert_contains "mobile oracle names the iOS half"   "iOS"       "$ud_mobile_row"
+assert_contains "mobile oracle names the Android half" "Android" "$ud_mobile_row"
+assert_contains "frontend shape has an oracle row"  "frontend-*"  "$(grep -o 'frontend-\*' "$UD" | head -1)"
+assert_contains "backend shape has an oracle row"   "backend-*"   "$(grep -o 'backend-\*' "$UD" | head -1)"
+
+# (c) vocabulary: every PROJECT_KIND token the file names must appear elsewhere in the corpus, and
+# every /command it routes to must be a real command file.
+ud_unknown_kind=""
+while IFS= read -r k; do
+  [ -n "$k" ] || continue
+  case "$k" in *'*') continue ;; esac   # wildcard families are not literal kinds
+  grep -qE "$k" "$ROOT/commands/unify-surfaces.md" "$ROOT/commands/polish.md" "$ROOT/commands/audit.md" \
+    || ud_unknown_kind="$ud_unknown_kind $k"
+done < <(grep -oE 'mobile-[a-z]+|frontend-[a-z*]+|backend-[a-z*]+|data-[a-z*]+|library-[a-z*]+|cli-[a-z*]+' "$UD" | sort -u)
+assert_contains "every PROJECT_KIND it names exists in the corpus" "none" "${ud_unknown_kind:-none}"
+
+ud_dangling=""
+# Only BACKTICKED slash-commands. A bare /token regex reads `ai/status.md` as a command called
+# /status and reports a dangling reference that never existed — the check must not manufacture
+# its own findings.
+while IFS= read -r c; do
+  [ -n "$c" ] || continue
+  [ -f "$ROOT/commands/$c.md" ] && continue
+  found=0
+  for cand in "$ROOT"/templates/packs/*/commands/"$c".md "$ROOT/templates/repo-baseline/.claude/commands/$c.md"; do
+    [ -f "$cand" ] && { found=1; break; }
+  done
+  [ "$found" -eq 1 ] && continue
+  ud_dangling="$ud_dangling $c"
+done < <(grep -oE '`/[a-z][a-z-]+' "$UD" | sort -u | tr -d '`/')
+assert_contains "every /command it routes to resolves" "none" "${ud_dangling:-none}"
+
 echo ""
 echo "=== stack-conformance: $pass passed, $fail failed ==="
 [ "$fail" -gt 0 ] && { printf 'failed:%b\n' "$failed_names"; exit 1; }
