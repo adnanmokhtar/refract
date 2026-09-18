@@ -158,7 +158,7 @@ The validator script is location-agnostic — installed once at `~/.claude/scrip
 - Rule → `.claude/rules/migration-discipline.md` content mirrored into `QWEN.md` § `## Migration discipline` + cross-referenced from `AGENTS.md`.
 - Agents → `.qwen/agents/parity-auditor.md`, `.qwen/agents/migration-architect.md` (Markdown + YAML frontmatter; `tools:` whitelist set per agent).
 - Skills → `.qwen/skills/extract-v1-contract/SKILL.md`, `.qwen/skills/parity-test-generate/SKILL.md`, `.qwen/skills/perf-uplift-survey/SKILL.md`.
-- Commands → `.qwen/commands/<name>.md` for **all 19** migration commands (`compare-v1`, `cross-repo-task`, `draft-phase-adrs`, `find-and-fix`, `migration-deprecate`, `migration-fast`, `migration-final`, `migration-gate`, `migration-park`, `migration-phase`, `migration-plan`, `migration-promote-tier`, `migration-recheck`, `migration-replan`, `migration-rollback`, `migration-scan`, `migration-status`, `migration-unpark`, `port-feature`). Nested-namespace form (`.qwen/commands/migration/phase.md` → `/migration:phase`) is acceptable when the project ships many migration commands.
+- Commands → `.qwen/commands/<name>.md` for **all 20** migration commands (`compare-v1`, `cross-repo-task`, `draft-phase-adrs`, `find-and-fix`, `migration-deprecate`, `migration-fast`, `migration-final`, `migration-gate`, `migration-park`, `migration-phase`, `migration-plan`, `migration-promote-tier`, `migration-recheck`, `migration-replan`, `migration-rollback`, `migration-scan`, `migration-status`, `migration-sync`, `migration-unpark`, `port-feature`). Nested-namespace form (`.qwen/commands/migration/phase.md` → `/migration:phase`) is acceptable when the project ships many migration commands.
 - Hooks → `.qwen/settings.json` `hooks.PostToolUse` triggering `validate-migration-artifacts.sh` on edits to `ai/migration/**`.
 
 ## Validator script — universal callable
@@ -184,7 +184,8 @@ When an adapter ships the migration pack:
 3. **MUST install or document `validate-migration-artifacts.sh`** as a pre-commit / CI / hook integration.
 4. **MUST translate `port-feature.md`** as the per-feature orchestrator (or its 6-phase procedure inlined).
 5. **MUST translate `migration-recheck.md`** as the user's focused ad-hoc verification command — accepts natural-language descriptions ("the sidebar", "the orders module") OR explicit paths. Semantic resolution via codebase-profile + ledger reads (intent interpretation, not keyword matching). MUST NOT downgrade to tokenization in the translation.
-6. **MUST NOT silently drop the migration pack on tools with limited capability.** A rule-only tool gets the rule (which is sufficient).
+6. **MUST translate `migration-sync.md`** as the incremental commit-delta sync — including its four pull halts, the contiguous-prefix watermark, and the three-bucket completeness count. An adapter that keeps the porting and drops the watermark discipline ships a command that can skip a business rule permanently.
+7. **MUST NOT silently drop the migration pack on tools with limited capability.** A rule-only tool gets the rule (which is sufficient).
 
 ## Cross-repo task workflow — `/cross-repo-task` (v1.5+)
 
@@ -230,6 +231,45 @@ Per-tool surface:
 - Continue: `.continue/prompts/migration-recheck.md`
 - Qwen Code: `.qwen/commands/migration-recheck.md`
 - Aider / Codex / Gemini: documented in `CONVENTIONS.md` / `AGENTS.md` / `GEMINI.md` as a manual procedure ("describe the area; agent reads the profile + ledger; confirms; runs the per-feature loop").
+
+## Incremental sync with a live V1 — `/migration-sync` (v1.12.0)
+
+`/migration-sync [<scope>]` is the recurring loop for a V1 that still ships. Unlike every other command in the pack
+it is **commit-delta driven**: the unit of work is a V1 *change*, not a V1 file. Cycle: Pull → Analyze → Understand
+→ Map → Implement → Verify → Test → Audit → Advance watermark. It dispatches the existing `/find-and-fix` and
+`/port-feature` engines; it adds no second porting path.
+
+Adapter responsibility (in addition to surfacing the command) — these four are the load-bearing ones, and an
+adapter that translates the porting while dropping them ships a command that loses business rules silently:
+
+1. **The four pull halts MUST survive translation.** Dirty V1 working copy, detached HEAD or a branch ≠ `v1_branch`,
+   a failed fetch, and a local V1 ahead of its remote each REFUSE. Adapters MUST NOT soften any of them into a
+   warning-and-continue: analysing a stale or wrong-branch V1 produces a sync that *looks* complete and is not.
+2. **The watermark advances by contiguous prefix only.** Newest commit such that everything up to it is resolved —
+   never the newest *ported* commit, and no `--force-watermark` may be added. A watermark past an unresolved commit
+   is how a business rule disappears permanently.
+3. **Bootstrap never auto-adopts.** With no `ai/migration/sync-state.md` and no `--since`, the command prints the
+   ledger-derived candidate and HALTS. Adapters MUST NOT "helpfully" adopt it.
+4. **Completeness has three buckets, not four.** Every hunk resolves to ported / intentionally-not-ported /
+   deferred; `changes_in == changes_closed` gates testing. "Not applicable" is not a resolution.
+
+Also preserve: `refactor-only` / `mechanical` / `dead-v1` commits do NOT port (carrying a V1 internal restructure
+into V2 is the copy/paste failure with a better excuse); the final audit re-reads the **raw V1 diff**, never the
+command's own `analysis.md`; and a `done` ledger row the delta proves wrong is re-opened, not defended.
+
+Per-tool surface:
+- Claude Code: `.claude/commands/migration-sync.md`
+- Cursor: `.cursor/commands/migration-sync.md`
+- OpenCode: `.opencode/commands/migration-sync.md`
+- Copilot: `.github/prompts/migration-sync.prompt.md`
+- Cline: `.clinerules/workflows/migration-sync.md`
+- Windsurf: `.windsurf/workflows/migration-sync.md`
+- Continue: `.continue/prompts/migration-sync.md`
+- Qwen Code: `.qwen/commands/migration-sync.md`
+- Aider / Codex / Gemini: documented in `CONVENTIONS.md` / `AGENTS.md` / `GEMINI.md` as a manual procedure — "pull
+  V1's branch; `git log <watermark>..HEAD`; for each commit decide behaviour vs refactor-only; port behaviour
+  commits through V2's structure; record what was absorbed and move the watermark only over a contiguous resolved
+  prefix."
 
 ## Failure mode protections
 

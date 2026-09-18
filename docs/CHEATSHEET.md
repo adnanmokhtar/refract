@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**198 commands** — core 16 · 23 packs (136) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**199 commands** — core 16 · 23 packs (137) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -26,7 +26,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — frontend](#pack--frontend) — 7
 - [Pack — infrastructure](#pack--infrastructure) — 4
 - [Pack — learning](#pack--learning) — 8
-- [Pack — migration](#pack--migration) — 20
+- [Pack — migration](#pack--migration) — 21
 - [Pack — mobile](#pack--mobile) — 4
 - [Pack — observability](#pack--observability) — 4
 - [Pack — performance](#pack--performance) — 3
@@ -235,6 +235,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/migration-rollback` | Roll back a migration phase. | `--keep-audits`, `--dry-run` | `/migration-rollback <N>` |
 | `/migration-scan` | Deep V1↔V2 comparison. | `--scope`, `--include-deferred`, `--since=<commit>`, `--include-deprecated=<re-scan\|skip>`, `--include-dead`, `--external-consumer=<feature-list>`, `--in-development=<feature-list>`, `--workspace`, `--caller-evidence=<path:line>` | `/migration-scan` |
 | `/migration-status` | Read ai/migration/ledger.md and report per-feature state, blockers, stalled rows, and aggregate… | — | `/migration-status` |
+| `/migration-sync` | Incremental V1→V2 sync. | `--since`, `--analyze-only`, `--no-pull`, `--until=<sha\|tag>`, `--bootstrap`, `--plan`, `--dry-run`, `--offline`, `--v1-branch=<name>`, `--allow-dirty`, `--max-parallel=<N>`, `--include-dead`, `--no-boot-check`, `--re-audit-touched` | `/migration-sync [<scope>]` |
 | `/migration-unpark` | Reverse /migration-park. | — | `/migration-unpark <feature-id>` |
 | `/port-feature` | Per-feature V1→V2 port orchestrator. | `--heavy`, `--simple`, `--no-prompt`, `--resume`, `--advance`, `--depend-on-v1`, `--overwrite-v2`, `--merge-existing`, `--override-paths`, `--unattended`, `--plan`, `--from-plan` | `/port-feature` |
 

@@ -185,6 +185,15 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   mirror_existing: false   # simple-surface one-command entry; relocated from core commands/ to the migration pack 2026-06-26
   fallback: commands/migrate.md
 
+- name: migration-sync
+  kind: command
+  triggers:
+    always: true
+  extracts_from: _v2-anchors.md (v1_root + v1_remote + v1_branch) + V1 git log delta + ai/migration/ledger.md + ai/migration/sync-state.md
+  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  mirror_existing: false   # incremental commit-delta sync; complements `migrate`'s whole-tree port
+  fallback: commands/migration-sync.md
+
 - name: migration-scan
   kind: command
   triggers:

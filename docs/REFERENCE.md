@@ -442,6 +442,42 @@ Auto-invoked at end of chain. Re-runnable manually. Returns PASS or REFUSED with
 ... (steps 2-8)
 ```
 
+### Keeping up with a live V1 — `/migration-sync`
+
+The phased flow above answers *is V2 at parity with V1 as it stands today*. It has no notion of **a V1
+change** — it can report that the two trees differ, not that a refund window went from 14 days to 30.
+When V1 is still shipping, `/migration-sync` is the recurring loop that absorbs what V1 merged:
+
+```
+/migration-sync                    # pull V1, absorb every unabsorbed commit
+/migration-sync the orders module  # same, scoped
+/migration-sync --analyze-only     # what changed and what it MEANS; no code
+/migration-sync --until=v1.43.0    # absorb one release at a time
+```
+
+Cycle: **Pull → Analyze → Understand → Map → Implement → Verify → Test → Audit → Advance watermark.**
+
+- **Pull** proves local V1 equals its remote first. Dirty V1 working copy, detached HEAD, failed fetch,
+  or a local V1 ahead of the remote each halt rather than guess (`--offline` proceeds and stamps the
+  record; `--no-pull` takes local HEAD as the truth).
+- **Watermark** lives in `ai/migration/sync-state.md`. With no watermark and no `--since`, the command
+  prints a ledger-derived candidate and **halts** — auto-adopting a bootstrap silently skips every
+  commit before it. After a green `/migrate`, `--bootstrap` declares parity-as-of-now and ports nothing.
+- **Classification** per commit: `behaviour` ports; `refactor-only`, `mechanical`, and `dead-v1` do not
+  (carrying a V1 internal restructure into V2 is copy/paste with a better excuse); `needs: full-port`
+  means V1 changed a feature V2 never had, and routes to `/port-feature` instead.
+- **Implementation** goes through the existing `/find-and-fix` / `/port-feature` engines — V1 decides
+  *what*, V2 decides *how* — with per-feature commits serialised in V1 commit order.
+- **Completeness** is counted: `changes_in == changes_closed`, three buckets only (ported /
+  intentionally-not-ported / deferred). The final audit re-reads the raw V1 diff rather than the
+  command's own analysis, and re-opens rows an earlier port got wrong — `done` is not a defence.
+- **The watermark advances by contiguous prefix**: the newest commit such that everything up to it is
+  resolved, never the newest *ported* commit. Commits ported past a blocked one keep their work and are
+  recorded as `ported-ahead-of-watermark`.
+
+Anchors used: `v1_root`, `v1_remote` (default `origin`), `v1_branch` (default the checked-out branch's
+upstream — no upstream and no anchor halts), `v1_sync_state`.
+
 ### When `/find-and-fix` runs
 
 The 6-step internal loop:

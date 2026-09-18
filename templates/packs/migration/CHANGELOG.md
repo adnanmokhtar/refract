@@ -9,6 +9,64 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.12.0 — 2026-09-18
+
+**The pack could port a V1, but not keep up with one.**
+
+Every command in Suite A and Suite B answers the same question — *is V2 at parity with V1 as it stands
+today* — by reading both trees whole and closing whatever gap it finds. That is the right shape once,
+or after a long drift. It is the wrong shape for a V1 that is still shipping: a weekly "what did the
+V1 team merge" cost a full re-scan of thousands of unchanged files, and, worse, a whole-tree diff has
+no notion of *a change*. It can report that V1 and V2 differ; it cannot report that a refund window
+went from 14 days to 30. `/migration-scan --since=<commit>` narrowed the re-scan but still produced a
+state comparison, and nothing in the pack ever pulled V1 from its remote — the analysis silently ran
+against whatever the local clone happened to be.
+
+**New: `commands/migration-sync.md`** — commit-delta driven, one command for the whole cycle
+(Pull → Analyze → Understand → Map → Implement → Verify → Test → Audit → Advance watermark):
+
+- **Pull** proves local V1 equals its remote before anything is read. Four refusals rather than
+  guesses: dirty V1 working copy, detached HEAD or a branch ≠ `v1_branch`, a failed fetch
+  (`--offline` proceeds and stamps the record), and a local V1 carrying commits the remote lacks
+  (merging is not this command's call).
+- **Delta** reads the watermark in `ai/migration/sync-state.md` and lists
+  `<watermark>..<v1_head>` `--first-parent`. Bootstrap never auto-adopts: with no watermark and no
+  `--since`, it prints the ledger-derived candidate and halts, because a wrong bootstrap silently
+  skips every commit before it — the exact failure the command exists to prevent.
+- **Analyze** reads V1 only, writes `ai/migration/sync/<run-id>/analysis.md`, and classifies each
+  commit `behaviour` / `refactor-only` / `dead-v1` / `mechanical` / `needs: full-port`. Carrying a V1
+  internal restructure into V2 is the copy/paste failure with a better excuse, so `refactor-only`
+  does not port — and its justification is what the final audit re-checks.
+- **Map** extends the existing `ai/migration/mapping/<feature>.md` (already validated by
+  `check_v2_mapping_doc`) with a V1-change → V2-implementation table, authored BEFORE the edit. The
+  "business requirement" column is prose about behaviour; if it can only be written by quoting V1
+  code, the analysis is not finished. An empty "shared V2 entity reused" cell where V2 *has* a
+  wrapper is a mapping failure — it is how duplicate logic enters V2.
+- **Implement** dispatches the existing `/find-and-fix` and `/port-feature --heavy` engines. No
+  second porting path was written. Commits touching one feature are serialised in V1 commit order:
+  a later commit may amend an earlier one, and porting them out of order re-creates a state V1 never
+  had.
+- **Verify** counts `changes_in == changes_closed` over three buckets only — ported /
+  intentionally-not-ported (accepted ADR or dead-V1 evidence) / deferred (blocker id). There is no
+  fourth bucket and "not applicable" is not a resolution.
+- **Audit** re-reads the raw V1 diff, never `analysis.md` — an audit that trusts the analysis can
+  only confirm the analysis's own blind spots — and explicitly hunts work an earlier sync or
+  `/migrate` got wrong. A row being `done` is not a defence.
+- **Watermark** advances by contiguous prefix only: newest commit such that *everything up to it* is
+  resolved, not newest ported commit. Commits ported past a blocked one keep their work and are
+  recorded as `ported-ahead-of-watermark`. A watermark past an unresolved commit is precisely how a
+  business rule disappears forever, so there is no `--force-watermark`.
+- Guards against the unverifiable run: > 60 commits or > 400 changed files halts with a suggestion to
+  absorb release-by-release via `--until=<tag>`.
+
+**Anchors** (`_v2-anchors-schema.md`) gain `v1_remote`, `v1_branch`, `v1_sync_state`. Missing remote
+and branch default to `origin` and the checked-out branch's upstream, with the defaults printed; no
+upstream and no anchor halts, because a wrong branch is worse than an absent one.
+
+Registered in `_topics.md` (source-as-fallback, like `migrate`), `_essentials.md` as "Suite A-sync",
+`docs/COMMANDS.md`, `docs/CHEATSHEET.md`, `docs/REFERENCE.md`, and the adapter coverage contract
+(19 → 20 migration commands).
+
 ## 1.11.0 — 2026-08-23
 
 **The 1.10.0 shrink delegated ten enforceable rules to a file no project has ever received.**

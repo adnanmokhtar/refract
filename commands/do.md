@@ -65,6 +65,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "port" / "migrate" / "match V1" / "compare V1" + whole-project / multi-feature scope | `/migrate [<scope>]` |
 | "upgrade X to N" / "bump the major" / "move to <framework> <N>" / "get us off the EOL runtime" / "take the security advisories" + a **named package, framework, SDK or runtime whose VERSION moves** | `/upgrade-dep <target>[@<version>]` — the ask is a version span under one app, not a port between two (`/migrate`) and not a read-only list of what is stale or vulnerable (`/dependency-vuln-check`, `/audit --focus=security`) |
 | "upgrade" + **no version and no named package** ("modernise the codebase", "we are behind on everything") | Ask one question — a named package or runtime to move → `/upgrade-dep`; every outdated direct dependency in one batched sweep → `/upgrade-dep --all`; the code itself is dated rather than the dependencies → `/optimize` |
+| "pull the latest V1 changes" / "sync V2 with what V1 merged" / "absorb V1 commits" | `/migration-sync [<scope>]` (migration pack) |
 | "port" + single feature, narrow scope | `/migration-recheck <description>` (migration pack) |
 | "refactor" / "extract" / "rename" / "move" / "flatten" + **specific file / module / symbol** (narrow target) | `/refactor <target>` |
 | "optimize" / "clean up" / "improve quality" + whole-project / multi-area scope | `/optimize [<scope>]` |
@@ -316,7 +317,7 @@ If one half matches no command, run the half that does and report the other as u
 - `/analyze-task`, `/expand-task`, `/refine-prompt` — spec layer (business pack: idea → requirements / user stories → implementer-ready brief)
 - `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/design-review`
 - `/run-tests`, `/deploy-stage`, `/rollback-deploy`
-- `/migration-scan`, `/align-scan`
+- `/migration-scan`, `/migration-sync`, `/align-scan`
 - `/task` — provider-agnostic task executor (Trello / Jira / Linear / GitHub Issue → execute → write status back)
 - `/delegate` — hand ONE bounded task to a DIFFERENT AI coding CLI, then review its diff (routes here only when the human names the other tool)
 - `/setup-project`, `/setup-project-adapters`, `/setup-project-health` — install / re-sync / grade this repo's orchestration layer (the setup layer `/do` itself depends on)

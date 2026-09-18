@@ -18,6 +18,11 @@ project_kind: frontend-vue3 | frontend-react | frontend-svelte | frontend-nuxt |
               | backend-python | data-warehouse | data-pipeline | mobile-flutter | mobile-react-native
               | mobile-native | api-other | mixed
 v1_root: <path>                     # absolute or repo-relative; e.g. ../<frontend-v1>/
+v1_remote: origin                   # optional (default: origin) — the remote /migration-sync pulls V1 from
+v1_branch: main                     # optional (default: upstream of v1_root's checked-out branch) — /migration-sync
+                                    #   HALTS when neither this nor an upstream exists; a wrong branch silently
+                                    #   computes the commit delta against the wrong line of history
+v1_sync_state: ai/migration/sync-state.md   # optional — /migration-sync's commit watermark
 v2_root: <path>                     # repo-relative; e.g. src/
 parity_test_root: <path>            # repo-relative; e.g. tests/parity/
 ledger_path: ai/migration/ledger.md
