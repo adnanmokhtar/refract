@@ -14,6 +14,72 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.30.0 — 2026-09-18
+
+**Eleven commands, and every one of them handed a decision back.**
+
+`/design-first` asks which path. `/enhance-ui` offers three variants. `/redesign` gates on approval.
+`/ui-sweep` stops between phases. Each gate is correct and each exists because a human wanted to
+steer — and collectively they left no way to say *"go through every page and finish it, don't ask
+me."* The pack could do the work; it could not do it unattended.
+
+### `/ui-audit` — the twelfth command
+
+The visual sibling of the top-level `/audit`, and deliberately the same shape: matrix scan →
+cross-axis rank → cell ledger → tiered execution → verify. `/audit` runs it over surfaces × concerns;
+this runs it over routes × axes.
+
+**It adds no detector and no verb.** It drives `/ui-crawl` for browser truth, `/ui-sweep`'s 8
+detectors, `redesign.md`'s language-or-composition test, `creative-director`'s 9-lens Direction
+rubric, `ui-design-sweep`'s closed 19 verbs and `/redesign`'s composition rebuild. A command that
+grew its own parallel machinery here would be a second source of truth for the same axes.
+
+**What is new is the autonomy contract** — which *names the mechanism* resolving each gate rather
+than deleting the gate:
+
+- `$SOURCE` is always `system`, because a project-wide sweep is bound to the project's own language
+  by definition; `independent` is a greenfield permission and out of scope.
+- The variant pick becomes the Direction rubric's highest score, **ties breaking toward the
+  candidate closer to the existing language** — a sweep is not where you take the more adventurous
+  of two equals.
+- `/redesign`'s approval becomes one revertable commit per surface. The gate is a diff you read
+  afterwards instead of a prompt you answer beforehand.
+- All three candidates and all three scores land in the report. A direction taken without asking
+  still has to be inspectable, and a run that prints only the winner has destroyed the only evidence
+  that a choice was made.
+
+**Five HALTs, and only five**: a blocked render · no token source · a dirty tree or red CI · a fix
+that re-detects after being applied · `--reimagine` on a multi-theme app. The first is the one the
+whole design exists for. A route behind a login wall gets **its own ledger column** — never merged
+into `N/A`, never averaged away — because an unrendered route scored as clean is the failure every
+autonomous visual sweep dies of.
+
+### The seam with `/audit`, written down
+
+Two autonomous commands over one codebase have one failure mode worth designing against: a concern
+each assumes the other owns. The split is now by **evidence, not topic**. Accessibility, UX, and the
+render half of i18n / RTL come here — a contrast ratio, a focus order and an RTL-broken layout are
+*rendered* properties, and `/audit`'s model carries those axes but reads source. Frontend code
+quality, render waste and web-vitals stay with `/audit`, because their proof is a test or a profile.
+A finding neither can verify becomes a named `Live, unreviewed` cell rather than falling between two
+commands that each assumed the other had it.
+
+### Verb 12 `lift-contrast` — the floating-surface fingerprint
+
+Every contrast check in the closed set measured something *against* a surface: text on a card, an
+icon on a button. **Nothing measured the surface against what it sits on.** A `#ffffff` card on a
+`#f8fafc` page is **1.04:1** — it passes every text check, every axe rule and every token audit
+while its edges are invisible and the user cannot tell where the element begins. The same shape
+recurs on panels, modals, popovers, sticky headers and table row-groups, and it is the single most
+common *"the sweep ran and the page still looks unfinished"* complaint.
+
+Measured from the render (a computed background and a flattened shadow are not readable from
+source), fixed **at the role** with the project's existing elevation language in a fixed priority
+order — border token → elevation token → surface-step token, never an invented grey — and verified
+in **dark mode too**, where a shadow tuned on a light page routinely vanishes. A fingerprint on the
+existing verb, same status as the library-control and chart carve-outs: the closed set stays
+**19 verbs / 16 axes**.
+
 ## 1.29.0 — 2026-09-12
 
 **The canvas was correct and said nothing about whether it was good.**

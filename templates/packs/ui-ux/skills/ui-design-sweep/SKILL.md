@@ -248,13 +248,31 @@ Two element classes do NOT inherit the design-token / theme layer, so several ve
 **Fingerprint**: text or UI component contrast ratio fails WCAG 2.2 AA:
 - Body text < 4.5:1, OR
 - Large text (≥18pt or ≥14pt bold) < 3:1, OR
-- Non-text UI component (button border, focus ring, icon) < 3:1.
+- Non-text UI component (button border, focus ring, icon) < 3:1, OR
+- **Indistinct container boundary — the "floating surface"** (see the sub-section below).
 
 **Procedure**:
 1. Measure with `axe-core` / Lighthouse / Chrome DevTools contrast picker — get the actual ratio.
 2. Pick the next-darker token from the design system that meets the threshold.
 3. Replace the literal / token at all instances of the same role.
 4. Re-verify the new ratio at every interactive state (default / hover / focus / disabled).
+
+#### Floating-surface sub-fingerprint (a deepening of verb 12 — NOT a 20th verb)
+
+**The miss this closes.** Every check above measures something *against* a surface — text on a card, an icon on a button. Nothing measured the **surface against what it sits on**. A `#ffffff` card on a `#f8fafc` page is **1.04:1**: it passes every text check, every axe rule and every token audit, while its edges are invisible and the user cannot tell where the element begins. The same shape recurs on panels, modals, popovers, sticky headers and table row-groups, and it is the single most common "the sweep ran and the page still looks unfinished" complaint. The closed set stays **19 verbs / 16 axes** — this is a fingerprint on the existing contrast verb, same status as the library-control and chart carve-outs.
+
+**Fingerprint**: a container whose boundary is resolvable by **none** of three cues — no border / outline reaching ≥3:1 against the adjacent fill, AND no elevation cue that survives the render (a shadow left unmeasurable at 100% zoom does not count), AND a surface-pair luminance ratio **< 1.2:1** against the fill immediately outside its edge.
+
+**Procedure**:
+1. **Measure from the RENDER, never the source.** Sample the container's fill and the fill immediately outside its edge. Source reading cannot resolve a computed background, an inherited surface token or a shadow the browser flattened away.
+2. Compute the surface-pair ratio. All three cues absent → floating.
+3. Fix with the project's **existing** elevation language, in this priority order: a defined border token → an existing shadow / elevation token → a surface-step token (`surface-1` / `surface-2` / `--bg-elevated`). **Never invent a new grey** — an undefined value here is `extract-token`'s job (verb 2), and inventing one per card is how a project ends up with nine card backgrounds.
+4. Apply at the **role**, not the instance — every container of that role in one fix, so half the app does not end up bordered and the other half not. A per-instance fix here is the defect `consolidate-tokens` exists to prevent.
+5. Where the project's elevation language genuinely has no cue to reach for, that is a **missing** language, not a failed fix: hand the role to `extract-token` and say so — do not improvise.
+
+**Verify**: re-render and re-sample the pair; the boundary must be resolvable at 100% zoom **and in dark mode** — a shadow tuned on a light page routinely vanishes on a dark one, so a light-only verification is not a verification. Re-check that no text contrast regressed when the surface moved.
+
+**Citation**: WCAG 2.2 SC 1.4.11 (Non-text Contrast — *"boundaries of components needed to identify them"*, the clause the button-border bullet above reads too narrowly).
 
 **Carve-out (library controls · charts)** — see "Cross-cutting carve-outs" above: a failing ratio on a **default-themed library control** (`.p-*` button border / placeholder / disabled text) is fixed by a `:deep()` / `::v-deep` / CSS-var override on its inner class, not a token swap on your element (which never reaches it). A failing ratio inside a **chart** (series vs background, axis / tick label vs grid) is fixed in the chart's config — re-theme it, do NOT blind-replace a hex with `var(--token)` a canvas chart can't resolve — then re-measure the ratio from the rendered chart pixels (the screenshot), not from the source literals.
 

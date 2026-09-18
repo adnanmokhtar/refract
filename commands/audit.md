@@ -113,7 +113,8 @@ Output: P0 scale-blockers FIRST, then ranked findings, commits, diff stats, test
 
 ## When NOT to use
 
-- For UI/UX visual / design work → `/enhance-ui` or `/ui-sweep` or `/polish`.
+- For UI/UX visual / design work → `/ui-audit` (the autonomous whole-project sibling of this command — same shape, the other half of the codebase; see [`ui-audit.md § The boundary with /audit`](../templates/packs/ui-ux/commands/ui-audit.md)), or `/enhance-ui` / `/ui-sweep` / `/polish` for narrower asks.
+- **Accessibility, UX / interaction, and the render half of i18n / RTL are handed to `/ui-audit`, not graded here.** This command's model carries those axes, but it reads source: a contrast ratio, a focus order and an RTL-broken layout are *rendered* properties, and grading them without a render is the kind of confident-and-wrong verdict the cell ledger exists to prevent. They are recorded as deferred with their owner named — never as clean, and never silently absent.
 - For V1→V2 port → `/migrate`.
 - For convention drift specifically (without scale lens) → `/align`.
 - For code-quality only (no security, no scale lens) → `/optimize`.

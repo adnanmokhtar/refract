@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**197 commands** — core 16 · 23 packs (135) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**198 commands** — core 16 · 23 packs (136) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -33,7 +33,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — product](#pack--product) — 5
 - [Pack — security](#pack--security) — 4
 - [Pack — testing](#pack--testing) — 4
-- [Pack — ui-ux](#pack--ui-ux) — 11
+- [Pack — ui-ux](#pack--ui-ux) — 12
 - [Domain commands — materialized when the domain is detected](#domain-commands--materialized-when-the-domain-is-detected) — 36
 - [Baseline — universal infra (repo + workspace)](#baseline--universal-infra-repo--workspace) — 10
 
@@ -304,6 +304,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/enhance-ui` | Orchestrator for UI/UX enhancement. | `--plan`, `--direction`, `--scope`, `--dry-detect`, `--auto-extract`, `--skip-cleanup`, `--skip-iterate`, `--re-detect-only` | `/enhance-ui the sidebar — complete` |
 | `/grab-site` | FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL… | `--plan`, `--pages`, `--max-assets=<N>` | `/grab-site https://shop.example.com/` |
 | `/redesign` | One command full UI/UX redesign of a page / screen / flow — rethinks layout + UX from scratch (NOT… | `--plan`, `--direction`, `--yes`, `--max-refine=<n>`, `--canvas`, `--from-canvas=<path-or-url>` | `/redesign <description-or-path> [<more>...]` |
+| `/ui-audit` | The visual sibling of /audit — one autonomous run that scans every route from a real browser, ranks… | `--plan`, `--scope=<path>`, `--reimagine`, `--max-parallel=<N>`, `--first-run`, `--tier=<V0\|V1\|V2\|V3>`, `--re-scan` | `/ui-audit --plan` |
 | `/ui-crawl` | Automated cross-route UI crawler. | `--smoke`, `--filter=<substr>`, `--full-matrix`, `--skip-interactions`, `--refresh-inventory`, `--workers`, `--no-dark` | `/ui-crawl --smoke` |
 | `/ui-crawl-fix` | Auto-fixes the mechanical UI findings from /ui-crawl by applying the closure-verb vocabulary from… | `--dry-run`, `--plan`, `--safe-only`, `--verify`, `--no-commit`, `--module=<name>` | `/ui-crawl-fix contrast` |
 | `/ui-sweep` | Project-wide UI/UX specialist sweep. | `--plan`, `--first-run`, `--scope=<path>`, `--with-iterate`, `--detector=<list>`, `--breakpoints=<list>`, `--baseline-only`, `--report-only`, `--allow-dirty` | `/ui-sweep --first-run` |

@@ -6,6 +6,48 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/ui-audit` — the design team in one command (2026-09-18)
+
+**What was missing** — `/audit` is the engineering team in one command: it scans every axis, ranks
+across them, and executes to completion without asking permission per fix. The ui-ux pack had eleven
+commands and **no equivalent**. Every one of them handed a decision back — `/design-first` asks which
+path, `/enhance-ui` offers three variants, `/redesign` gates on approval, `/ui-sweep` stops between
+phases. Each gate is correct. Collectively they left no way to say *"go through every page and finish
+it, don't ask me."*
+
+`/ui-audit` is the visual sibling, deliberately built to `/audit`'s shape — matrix scan → cross-axis
+rank → cell ledger → tiered execution → verify — over **routes × axes** instead of surfaces ×
+concerns. It adds no detector and no verb; it drives the pack's existing machinery (`/ui-crawl`,
+`/ui-sweep`'s 8 detectors, the language-or-composition test, `creative-director`'s Direction rubric,
+the closed 19 verbs, `/redesign`). Four tiers: **V0** foundation (tokens + shared wrappers — one fix,
+every consumer) · **V1** correctness of experience (contrast, focus, tap targets, states) · **V2**
+composition · **V3** finish.
+
+**The autonomy contract names the mechanism resolving each gate, rather than deleting the gate**:
+`$SOURCE` is always `system`; the variant pick becomes the rubric's highest score with ties breaking
+toward the existing language; `/redesign`'s approval becomes one revertable commit per surface. All
+three direction candidates and their scores land in the report — a choice made without asking still
+has to be inspectable afterwards.
+
+**Five HALTs, and only five**: blocked render · no token source · dirty tree or red CI · a fix that
+re-detects after being applied · `--reimagine` on a multi-theme app. A route behind a login wall gets
+its own ledger column, never merged into `N/A` — an unrendered route scored as clean is the failure
+every autonomous visual sweep dies of.
+
+**The seam with `/audit` is now written down**, split by *evidence* rather than topic: accessibility,
+UX and the render half of i18n/RTL come to `/ui-audit` (a contrast ratio and a focus order are
+rendered properties, and `/audit` reads source); frontend code quality, render waste and web-vitals
+stay with `/audit` (their proof is a profile). A finding neither can verify becomes a named
+`Live, unreviewed` cell instead of falling between two commands that each assumed the other had it.
+
+**`lift-contrast` gained the floating-surface fingerprint.** Every contrast check in the closed
+19-verb set measured something *against* a surface; nothing measured the surface against what it sits
+on. A `#ffffff` card on a `#f8fafc` page is 1.04:1 — it passes every text check, every axe rule and
+every token audit with its edges invisible. Measured from the render, fixed at the role with the
+project's existing elevation language, verified in dark mode too. A fingerprint on the existing verb,
+not a 20th: the set stays 19 verbs / 16 axes.
+
+
 ### `/upgrade-dep` — the upgrade nobody could prove (2026-09-15)
 
 **What was missing** — a major-version upgrade is the most routine dangerous change a project makes,
