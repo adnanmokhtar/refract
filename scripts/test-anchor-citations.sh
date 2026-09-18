@@ -240,6 +240,82 @@ case "$C4" in
   *)                     bad "§4 the dead citation was replaced" "citation is: $C4" ;;
 esac
 
+# ── § 10  a relevance line whose EVIDENCE FILE is gone must be recomputed ────────────────
+# The gap this pins: `anchor_toplevel_is_stale` reads only the `top-level:` DIRECTORIES. A
+# "Where this applies here" line cites a FILE, and nothing validated it — so an anchor written
+# when `tailwind.config.ts` existed kept citing it after a Tailwind 3→4 migration deleted it,
+# every re-run printed "already anchored", and audit-anchoring.sh reported a cross-project leak
+# that no tool could close. MEASURED on a real monorepo: 10 artifacts, permanently.
+say "§ 10  a relevance line citing a deleted file is recomputed, not skipped"
+P10="$TD/dead-evidence"
+mkdir -p "$P10/src/components" "$P10/.claude/agents"
+for i in 1 2 3; do printf 'export const components%s = %s\n' "$i" "$i" > "$P10/src/components/C$i.ts"; done
+printf '{"name":"dead-evidence"}\n' > "$P10/package.json"
+seed_setup "$P10" src src/components
+mkdir -p "$P10/.claude/agents"
+cat > "$P10/.claude/agents/ui-reviewer.md" <<'ART'
+---
+name: ui-reviewer
+description: Reviews components.
+---
+
+# ui-reviewer
+
+<!-- project-specific:start -->
+> - **Where this applies here** (`components`): `tailwind.config.ts:8`, 12 file(s) in src
+> Cite-able sources: `package.json`, top-level: `src/`.
+<!-- project-specific:end -->
+
+Do the thing.
+ART
+bash "$ANCHORS" "$P10" --apply >/dev/null 2>&1
+R10=$(grep -m1 'Where this applies here' "$P10/.claude/agents/ui-reviewer.md" 2>/dev/null || true)
+case "$R10" in
+  *'tailwind.config.ts'*) bad "§10 the dead evidence file was replaced" "line still cites it: $R10" ;;
+  *'src/components/'*)    ok  "§10 the dead evidence file was replaced" ;;
+  *)                      bad "§10 the dead evidence file was replaced" "line is: $R10" ;;
+esac
+
+# ── § 11  build OUTPUT is never offered as evidence ──────────────────────────────────────
+# Surfaced BY the § 8 fix on a real turbo monorepo: repairing a dead citation re-resolved
+# `components` to `apps/web/.turbo/turbo-test.log:39` — a build-cache log presented as the
+# canonical example of where components live. Worse than useless twice: it teaches nothing, and
+# it dies again when the cache is cleared, so the repair path churns on its own output.
+say "§ 11  a cache directory is never cited as evidence"
+P11="$TD/build-output"
+# The real shape: the cache lives INSIDE a searched workspace member, not beside it. `grep -r`
+# walks `apps/web/.turbo` before `apps/web/src` because a dot-name sorts first, so the cache log
+# is the FIRST hit for the term and `-m1 | head -1` takes it. A fixture with `.turbo` as a
+# sibling search dir never reproduces this — the source dir gets walked first and the bug hides.
+mkdir -p "$P11/apps/web/.turbo" "$P11/apps/web/coverage" "$P11/apps/web/src/components" "$P11/.claude/agents"
+printf 'components ran ok\n'  > "$P11/apps/web/.turbo/turbo-test.log"
+printf 'components covered\n' > "$P11/apps/web/coverage/lcov.info"
+for i in 1 2 3; do printf 'export const components%s = %s\n' "$i" "$i" > "$P11/apps/web/src/components/C$i.ts"; done
+printf '{"name":"build-output"}\n' > "$P11/package.json"
+seed_setup "$P11" apps apps/web
+mkdir -p "$P11/.claude/agents"
+cat > "$P11/.claude/agents/ui-reviewer.md" <<'ART'
+---
+name: ui-reviewer
+description: Reviews components.
+---
+
+# ui-reviewer
+
+<!-- project-specific:start -->
+> Cite-able sources: `package.json`, top-level: `src/`.
+<!-- project-specific:end -->
+
+Do the thing.
+ART
+bash "$ANCHORS" "$P11" --apply >/dev/null 2>&1
+R11=$(grep -m1 'Where this applies here' "$P11/.claude/agents/ui-reviewer.md" 2>/dev/null || true)
+case "$R11" in
+  *'.turbo/'*|*'coverage/'*) bad "§11 build output is not cited" "cited anyway: $R11" ;;
+  *'src/components/'*)       ok  "§11 build output is not cited" ;;
+  *)                                   bad "§11 build output is not cited" "line is: $R11" ;;
+esac
+
 # ── § 6  an anchor with NO citation line at all must gain one ────────────────────────────
 say "§ 6  an anchored artifact carrying no Cite-able line is repaired, not skipped"
 P6="$TD/no-cite"

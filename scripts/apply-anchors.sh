@@ -463,17 +463,36 @@ artifact_terms() {
 # codebase. That is exactly what the first draft of this function did.
 TERM_HITS=0
 TERM_EVIDENCE=""
+# Build OUTPUT is not evidence. The exclusion list below started as node_modules/.git/vendor/
+# dist/build and missed every other generator's output directory, so the first hit for a term
+# could be a cached log rather than source. MEASURED on a real turbo monorepo: repairing a stale
+# citation re-resolved `components` to `apps/web/.turbo/turbo-test.log:39` — a build-cache log
+# offered as the canonical example of where components live in that project. Worse than useless
+# twice over: it teaches the reader nothing, and it goes stale again the moment the cache is
+# cleared, so the repair path churns on its own output.
+#
+# Kept as a name list rather than a path-prefix filter because `--exclude-dir` matches at any
+# depth, which is what a monorepo needs: `.turbo` exists per workspace member, not only at the
+# root, and enumerating `apps/*/.turbo` would miss the next member added.
+ANCHOR_EXCLUDES=(
+  --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor
+  --exclude-dir=dist --exclude-dir=build --exclude-dir=.claude --exclude-dir=ai
+  --exclude-dir=.turbo --exclude-dir=.next --exclude-dir=.nuxt --exclude-dir=.svelte-kit
+  --exclude-dir=.output --exclude-dir=.cache --exclude-dir=.parcel-cache --exclude-dir=.vite
+  --exclude-dir=out --exclude-dir=coverage --exclude-dir=.nyc_output --exclude-dir=storybook-static
+  --exclude-dir=.venv --exclude-dir=__pycache__ --exclude-dir=target --exclude-dir=.gradle
+  --exclude-dir=Pods --exclude-dir=.dart_tool --exclude-dir=.terraform
+)
+
 term_evidence() {
   local term="$1" hit
   TERM_HITS=0
   TERM_EVIDENCE=""
   [[ ${#SEARCH_DIRS[@]} -eq 0 ]] && return 0
-  hit=$(grep -rInI --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
-        --exclude-dir=dist --exclude-dir=build --exclude-dir=.claude --exclude-dir=ai \
+  hit=$(grep -rInI "${ANCHOR_EXCLUDES[@]}" \
         -m1 -- "$term" "${SEARCH_DIRS[@]}" 2>/dev/null | head -1 || true)
   [[ -z "$hit" ]] && return 0
-  TERM_HITS=$(grep -rlI --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=vendor \
-        --exclude-dir=dist --exclude-dir=build --exclude-dir=.claude --exclude-dir=ai \
+  TERM_HITS=$(grep -rlI "${ANCHOR_EXCLUDES[@]}" \
         -- "$term" "${SEARCH_DIRS[@]}" 2>/dev/null | grep -c . || true)
   TERM_HITS="${TERM_HITS:-0}"
   # `grep -rIn` prints path:line:text — keep path:line (target-relative), drop the text.
@@ -630,6 +649,51 @@ anchor_lacks_relevance() {
             /^>[[:space:]]*-[[:space:]]*\*\*Relevance UNCONFIRMED\*\*/) { found=1 }
     END { exit found ? 1 : 0 }
   ' "$f" 2>/dev/null
+}
+
+# A relevance line whose EVIDENCE FILE no longer exists. Distinct from anchor_lacks_relevance,
+# which asks only whether the line is PRESENT.
+#
+# MEASURED on a real monorepo: 10 artifacts cited `apps/web/tailwind.config.ts:8` in their
+# "Where this applies here" line. The project had migrated Tailwind 3 → 4, which is CSS-first and
+# ships no config file, so that path had not existed for weeks. `audit-anchoring.sh` reported all
+# ten as cross-project leaks — correctly — and every re-run of THIS script printed
+# "Stale citations repaired: 0" and skipped them as `already anchored`, because the only staleness
+# test read the `top-level:` DIRECTORIES in the Cite-able-sources line. Those all resolved. The
+# file citation beside them was never looked at by anything that could fix it.
+#
+# That is the worst shape a check can have: an audit that flags a defect forever and a repairer
+# that cannot see it. A citation is a claim about the codebase NOW, so it is re-verified on every
+# run, not frozen at the moment it was first written.
+#
+# `Relevance UNCONFIRMED` is deliberately NOT stale — it cites nothing, so there is nothing to go
+# out of date, and re-running the term search on every artifact that legitimately matched nothing
+# would be the expensive half of the scan repeated for no verdict change.
+anchor_relevance_is_stale() {
+  local f="$1" line ev path
+  line=$(grep -m1 -E '^>[[:space:]]*-[[:space:]]*\*\*Where this applies here\*\*' "$f" 2>/dev/null || true)
+  [[ -z "$line" ]] && return 1          # absent, or UNCONFIRMED — not this function's business
+  # `> - **Where this applies here** (`term`): `path/to/file.ts:12`, N file(s) in a,b`
+  ev="${line#*\): \`}"
+  [[ "$ev" == "$line" ]] && return 1    # shape this function does not recognise — leave it alone
+  ev="${ev%%\`*}"
+  path="${ev%%:*}"                      # drop the :LINE suffix; the line number is not verified
+  [[ -z "$path" ]] && return 1
+  [[ -e "$TARGET/$path" ]] && return 1
+  return 0
+}
+
+# Replace the existing relevance line with a freshly computed one. Only that line changes.
+replace_relevance_line() {
+  local f="$1" line="$2" tmp
+  tmp=$(mktemp "${f}.anchor-relev-fix.XXXXXX")
+  REL_LINE="$line" awk '
+    /^>[[:space:]]*-[[:space:]]*\*\*Where this applies here\*\*/ && !done {
+      print ENVIRON["REL_LINE"]; done=1; next
+    }
+    { print }
+  ' "$f" > "$tmp" && { _m=$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || echo 644); chmod "$_m" "$tmp"; mv "$tmp" "$f"; }
+  rm -f "$tmp"
 }
 
 # Insert the relevance line immediately BEFORE the Cite-able-sources line (the block's last
@@ -870,6 +934,21 @@ for kind in commands agents skills rules ai-patterns; do
           echo "  RELEV   $rel  (per-artifact relevance line added to an existing anchor)"
         else
           echo "  would-RELEV $kind/$base  (anchor has no per-artifact relevance line)"
+        fi
+        relev=$((relev + 1))
+        touched_this_file=1
+      elif anchor_relevance_is_stale "$f"; then
+        # Present but pointing at a file that is gone. Recompute from the codebase as it is now.
+        if [[ "$APPLY" -eq 1 ]]; then
+          mkdir -p "$backup_dir"
+          rel="${f#$TARGET/}"
+          bak="$backup_dir/$rel"
+          mkdir -p "$(dirname "$bak")"
+          [[ -f "$bak" ]] || cp "$f" "$bak"
+          replace_relevance_line "$f" "$(artifact_relevance_line "$f")"
+          echo "  RELEV   $rel  (relevance line cited a file that no longer exists — recomputed)"
+        else
+          echo "  would-RELEV $kind/$base  (relevance line cites a file that no longer exists)"
         fi
         relev=$((relev + 1))
         touched_this_file=1
