@@ -116,7 +116,7 @@ fi
 # ── § 4  a script-prefixed snapshot never counts, however fresh and however large ─────────
 #
 # The file-count test alone is not enough: a mid-run `adapter-sync-<stamp>` snapshot can be
-# BIGGER than the floor and still be a snapshot of the wrong thing. 📏 capsolah-api, 2026-09-06:
+# BIGGER than the floor and still be a snapshot of the wrong thing. 📏 a real NestJS API repo, 2026-09-06:
 # `adapter-sync-20260906-171137` cleared a ≥97-file threshold because that run had re-synced 106
 # adapter files, so no Phase-0 backup was taken at all, and C2n went on diffing against a floor
 # from before Phase 4.7 — 14 KNOWLEDGE_LOSS rows for corrections already reviewed. A snapshot of

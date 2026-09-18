@@ -189,7 +189,7 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
     # diffs against — `grep -xE '[0-9]{8}-[0-9]{4,6}'` — and the two MUST agree, because this
     # loop decides whether that floor gets written at all.
     #
-    # 📏 capsolah-api, 2026-09-06: the file-count test below rejected two partials (8 and 3
+    # 📏 a real NestJS API repo, 2026-09-06: the file-count test below rejected two partials (8 and 3
     # files) and then ACCEPTED `adapter-sync-20260906-171137`, which cleared the ≥97 threshold
     # purely because that run had re-synced 106 adapter files. So no Phase-0 backup was taken,
     # C2n kept diffing against a floor from before Phase 4.7, and the run reported 14

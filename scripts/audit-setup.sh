@@ -656,13 +656,13 @@ if [[ "$MODE" == "refresh" || "$MODE" == "refine" || "$MODE" == "enhance" ]]; th
         # C2f FAILS them for being STALE and orders the regeneration. C2n then charged the very
         # rewrite C2f demanded, so a correct run could not lower its own fail count.
         #
-        # 📏 Measured on hisn, 2026-09-06: Phase 4.7 cleared 10 rows and C2n opened exactly 10 —
+        # 📏 Measured on a real RTL admin monorepo, 2026-09-06: Phase 4.7 cleared 10 rows and C2n opened exactly 10 —
         # one per regenerated file — and the total stayed at 33. Every row reported `0 project
         # token(s), 0 project-specific region(s)`: no identifier was dropped anywhere. The lines
         # it named were the corrections that had been asked for — "NestJS 10 + MikroORM/MySQL"
         # replaced by the true "NestJS 11 + Postgres 16" — and one was `Last updated: 2026-06-21`.
         # Following its remedy ("restore it from the backup") would reinstate false facts. Three
-        # independent runs (hisn, capsolah-api, sahlcart-website) reproduced it identically.
+        # independent runs (three independent real repos) reproduced it identically.
         # That is the cry-wolf failure this check's own header calls "worse than not checking".
         #
         # ONLY these three. `conventions.md`, `architecture.md` and `business-domain.md` are the

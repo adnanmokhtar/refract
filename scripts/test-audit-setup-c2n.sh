@@ -6,11 +6,11 @@
 # reported every replaced line as KNOWLEDGE_LOSS — so obeying C2f guaranteed failing C2n, and
 # a correct run could not lower its own fail count.
 #
-# 📏 Measured on hisn, 2026-09-06: Phase 4.7 cleared 10 rows, C2n opened exactly 10, total
+# 📏 Measured on a real RTL admin monorepo, 2026-09-06: Phase 4.7 cleared 10 rows, C2n opened exactly 10, total
 # stayed at 33. Every row read `0 project token(s), 0 project-specific region(s)` — nothing was
 # dropped; the "lost" lines were the corrections that had been asked for ("NestJS 10 +
 # MikroORM/MySQL" → the true "NestJS 11 + Postgres 16") and, in one case, `Last updated:
-# 2026-06-21`. Reproduced identically on capsolah-api and sahlcart-website.
+# 2026-06-21`. Reproduced identically on two further real repos.
 #
 # THE FIX, AND ITS LIMIT. Only the three COMPACT PROJECTIONS are exempt —
 # commands/setup-project.md § "Token efficiency" declares them "REGENERATED, not hand-edited.

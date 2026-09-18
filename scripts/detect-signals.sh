@@ -84,9 +84,14 @@ MANIFESTS='package.json pyproject.toml requirements.txt Gemfile composer.json go
 # framework was found because the scanner also greps source, while `primary_frontend_framework_detected`
 # and `orm_detected` both reported `no` with a React app and MikroORM sitting one directory down.
 # That is the same class of silent-`no` the pipefail comment above records, reached by a different
-# route, and the consequence is worse than a wrong row: `no` here means the ui-ux and frontend packs
-# are never selected, so the project's design tokens are never extracted and every command that
-# requires them halts on a repo that has them.
+# route, and the consequence is worse than a wrong row. Track SELECTION survives it — detect-tracks.sh
+# has its own independent detection and never reads this file — so the packs still install and the
+# failure hides behind a correct-looking command list. What dies is TOPIC gating: 8 topics in
+# `packs/frontend/_topics.md` and more in `packs/ui-ux/_topics.md` carry
+# `triggers: { primary_frontend_framework_detected: true }`, so every one of them silently never
+# fires. MEASURED consequence on that repo: `_extracted-idioms.md` described apps/api only, with no
+# § Tokens section, while apps/web/src/shared/theme/tokens.css sat on disk — and every ui-ux command
+# that requires § Tokens halts on a project that has it.
 #
 # Resolved ONCE, not per call: `first_of` invokes `mg` per alternative, so a `find` inside `mg`
 # would re-walk the tree dozens of times.
