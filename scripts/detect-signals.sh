@@ -76,11 +76,49 @@ MANIFESTS='package.json pyproject.toml requirements.txt Gemfile composer.json go
 # non-zero whenever ANY manifest was absent — which is almost always. Every manifest-based
 # signal silently went to `no`, including the frontend framework on a Nuxt app. Caught by a
 # real repo flipping, not by a fixture.
+# WORKSPACE MANIFESTS. The list above is resolved at the repo ROOT only, and in a monorepo the
+# root manifest is the WORKSPACE file — `workspaces` / `pnpm-workspace.yaml` / `turbo.json` — which
+# declares tooling and no dependencies at all. Every real dependency lives in `apps/<x>/package.json`
+# or `packages/<x>/package.json`, which the root-only resolution never opened. MEASURED on a real
+# pnpm + turbo monorepo (a Fastify API beside a React 19 + Vite + Tailwind web app): the backend
+# framework was found because the scanner also greps source, while `primary_frontend_framework_detected`
+# and `orm_detected` both reported `no` with a React app and MikroORM sitting one directory down.
+# That is the same class of silent-`no` the pipefail comment above records, reached by a different
+# route, and the consequence is worse than a wrong row: `no` here means the ui-ux and frontend packs
+# are never selected, so the project's design tokens are never extracted and every command that
+# requires them halts on a repo that has them.
+#
+# Resolved ONCE, not per call: `first_of` invokes `mg` per alternative, so a `find` inside `mg`
+# would re-walk the tree dozens of times.
+MANIFEST_FILES=()
+_collect_manifests() {
+  local f d
+  # Root first — precedence for `first_of` is over the alternative list, not the file list, but a
+  # root manifest staying first keeps the evidence stable for repos that are not monorepos.
+  for f in $MANIFESTS; do [ -f "$f" ] && MANIFEST_FILES+=("$f"); done
+  # Then one level of workspace members under the conventional package roots. Depth is bounded at
+  # 3 (`apps/web/package.json`) rather than read from the workspace globs: `pnpm-workspace.yaml`,
+  # `package.json#workspaces`, `turbo.json`, Cargo/Go workspaces and Gradle each spell the glob
+  # differently, and parsing five formats to find files a bounded walk already reaches would be
+  # machinery with no extra reach.
+  for d in apps packages libs services clients modules; do
+    [ -d "$d" ] || continue
+    while IFS= read -r f; do
+      [ -n "$f" ] && MANIFEST_FILES+=("$f")
+    done <<MANIFEST_EOF
+$(find -L "$d" -maxdepth 2 \( $PRUNE \) -prune -o -type f \
+    \( -name package.json -o -name pyproject.toml -o -name requirements.txt -o -name Gemfile \
+       -o -name composer.json -o -name go.mod -o -name Cargo.toml -o -name pom.xml \
+       -o -name build.gradle -o -name build.gradle.kts -o -name mix.exs -o -name pubspec.yaml \) \
+    -print 2>/dev/null)
+MANIFEST_EOF
+  done
+}
+_collect_manifests
+
 mg() {
-  local f; local -a present=()
-  for f in $MANIFESTS; do [ -f "$f" ] && present+=("$f"); done
-  [ "${#present[@]}" -eq 0 ] && return 1
-  grep -hv '^[[:space:]]*#' "${present[@]}" 2>/dev/null | grep -qE "$1"
+  [ "${#MANIFEST_FILES[@]}" -eq 0 ] && return 1
+  grep -hv '^[[:space:]]*#' "${MANIFEST_FILES[@]}" 2>/dev/null | grep -qE "$1"
 }
 # find with pruning; prints the first hit or nothing
 ff() { find -L . -maxdepth "${2:-6}" \( $PRUNE \) -prune -o -name "$1" -print 2>/dev/null | head -1; }
@@ -169,7 +207,9 @@ BUILD_TOOL="$(first_of 'vite' 'webpack' 'esbuild' 'rollup' 'turbo' 'nx' 'parcel'
 sig "build_tool_detected=$( [ -n "$BUILD_TOOL" ] && echo yes || echo no )" "$BUILD_TOOL"
 
 # ===== Data layer ========================================================================
-ORM="$(first_of 'typeorm' '@prisma/client' 'prisma' 'sequelize' 'drizzle-orm' 'mongoose' 'SQLAlchemy' 'sqlalchemy' 'peewee' 'django' 'activerecord' 'eloquent' 'gorm' 'diesel' 'hibernate' 'ecto')"
+# `@mikro-orm/core` was absent from this list until a real NestJS + MikroORM API reported
+# `orm_detected=no` while shipping 12 entities, 4 repositories and a migrations directory.
+ORM="$(first_of 'typeorm' '@mikro-orm/core' 'mikro-orm' '@prisma/client' 'prisma' 'sequelize' 'drizzle-orm' 'mongoose' 'SQLAlchemy' 'sqlalchemy' 'peewee' 'django' 'activerecord' 'eloquent' 'gorm' 'diesel' 'hibernate' 'ecto')"
 sig "orm_detected=$( [ -n "$ORM" ] && echo yes || echo no )" "$ORM"
 MIG_TOOL=""
 mg 'typeorm'         && MIG_TOOL="typeorm"

@@ -146,6 +146,42 @@ assert "§2b" "$MBN" i18n_lib_detected                    no
 assert "§2b" "$MBN" rtl_locale_detected                  no
 assert "§2b" "$MBN" dockerfile_detected                  no
 
+# ── § 2c  a pnpm/turbo MONOREPO — the root manifest declares nothing ─────────────────────
+# The defect this pins: every signal was resolved from root manifests only. In a workspace repo
+# the root package.json is the WORKSPACE file, so a React web app and a MikroORM API one level
+# down both reported `no`. MEASURED on a real repo before it was a fixture. `no` here is not a
+# cosmetic wrong row — it deselects the ui-ux and frontend packs, so the project's design tokens
+# are never extracted and every command that needs them halts on a repo that has them.
+say "§ 2c  pnpm + turbo monorepo: deps live in apps/*, never at the root"
+M="$TD/mono"
+mkdir -p "$M/apps/api/src/modules/orders" "$M/apps/web/src/features" "$M/packages/ui/src"
+cat > "$M/package.json" <<'J'
+{ "name":"mono","private":true,"workspaces":["apps/*","packages/*"],
+  "devDependencies":{"turbo":"^2","typescript":"^5"} }
+J
+printf 'packages:\n  - "apps/*"\n  - "packages/*"\n' > "$M/pnpm-workspace.yaml"
+printf 'pnpm-lock stub\n' > "$M/pnpm-lock.yaml"
+cat > "$M/apps/api/package.json" <<'J'
+{ "name":"@mono/api","dependencies":{"fastify":"^5","@mikro-orm/core":"^6","@mikro-orm/postgresql":"^6"} }
+J
+cat > "$M/apps/web/package.json" <<'J'
+{ "name":"@mono/web","dependencies":{"react":"^19","react-dom":"^19"},
+  "devDependencies":{"vite":"^8","tailwindcss":"^4"} }
+J
+printf 'export class OrdersController {}\n' > "$M/apps/api/src/modules/orders/orders.controller.ts"
+printf 'export const App = () => null\n'     > "$M/apps/web/src/features/App.tsx"
+MBM="$(mb "$M")"
+# the whole point: BOTH halves are seen, from one repo, with an empty root manifest
+assert "§2c" "$MBM" primary_frontend_framework_detected  yes
+assert "§2c" "$MBM" primary_framework_detected           yes
+assert "§2c" "$MBM" orm_detected                         yes
+assert "§2c" "$MBM" build_tool_detected                  yes
+assert "§2c" "$MBM" package_manager_detected             yes
+assert "§2c" "$MBM" controller_pattern_detected          yes
+# and a workspace member must not invent what no member declares
+assert "§2c" "$MBM" mobile_framework_detected            no
+assert "§2c" "$MBM" terraform_detected                   no
+
 # ── § 3  --stdout writes NOTHING under the target ────────────────────────────────────────
 say "§ 3  --stdout is read-only against the target"
 R="$TD/readonly"; mkdir -p "$R"; printf '{}\n' > "$R/package.json"
