@@ -101,6 +101,9 @@ Resolved from the route inventory + `_extracted-business.md`, written into `_ext
 The scan is `route × axis`, dispatched in parallel waves. It composes rather than re-implements:
 
 **Wave A — browser truth** (dispatch `/ui-crawl` over the resolved route set)
+
+**Navigate the way the product is used.** In an SPA with an in-memory session, a full page load per route is a fresh boot that re-authenticates; 65 of them hit an ordinary refresh throttle and the sweep reports itself blocked from about route ten. MEASURED on a real admin app: `goto` per route gave `scanned 9 + blocked 56`, in-app history navigation gave `scanned 65 + blocked 0` — same session, same detectors. **When a run reports most routes blocked, suspect the harness before the application**: that app was briefly reported for an auth defect it does not have. See [`measured-from-the-render.md` § C](../skills/ui-design-sweep/references/measured-from-the-render.md).
+
 Screenshots × 3 breakpoints + dark + RTL, axe-core per route, tabs / dialogs / dropdowns walked, console + network errors captured. This wave is what catches what static reading cannot: overlapping floating elements, a control bar still in the library's default theme, a chart rendering in the library's stock palette, a row whose height changes because a pill wrapped.
 
 **Wave B — the 8 specialist detectors** ([`ui-sweep.md § The 8 UI/UX-specific deep detectors`](ui-sweep.md)) — visual hierarchy · component utilization · token coverage · cross-surface consistency · UI-state coverage · responsive matrix · design-language coherence · visual baseline + drift. Run against the Wave-A renders, never against source alone.

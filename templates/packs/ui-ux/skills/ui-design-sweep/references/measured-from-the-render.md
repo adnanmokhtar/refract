@@ -47,6 +47,12 @@ between the two states is why the pair is measured from the render and never eye
 
 ### Procedure
 
+0. **The page itself is not a container.** Exclude anything filling the viewport — ≥95% of its
+   width and ≥90% of its height. MEASURED: a run that skipped this reported **one floating surface
+   on every one of 65 routes**, all at an identical ratio, because the page ground legitimately sits
+   just under white and is *supposed* to. A detector that fires identically on every route is
+   measuring the chrome, not the content, and 65 identical findings teach a reader to close the
+   report.
 1. **Measure from the RENDER, never the source.** Sample the container's fill and the fill
    immediately outside its edge — **its nearest PAINTED ANCESTOR, not the page.** MEASURED: an
    implementation that compared every container against `body` reported 28 floating surfaces across
@@ -192,3 +198,31 @@ that trade is never acceptable: when the two conflict, the floor wins and the ro
 
 **Citation**: Refactoring UI Ch. 4 (work in a spacing *and sizing* system — the sizing half is the
 part verb 7 had left unimplemented); Material 3 *component size classes*; iOS HIG *Controls*.
+
+---
+
+## C. Harness note — how a sweep must NAVIGATE an SPA
+
+Not a fingerprint. A precondition for both of the above, and it cost a whole sweep to learn.
+
+**Do not `goto` each route.** In a single-page app with an in-memory session, a full navigation is
+a fresh boot: the token store is wiped and the app re-authenticates on load. Sixty-five `goto`s are
+sixty-five re-auth attempts, and any throttle on the refresh endpoint — 10/min is ordinary — turns
+the sweep into a login wall from about route ten onward.
+
+MEASURED on a real admin app, both ways, same session, same detectors:
+
+| Navigation | Result |
+|---|---|
+| `goto` per route | `routes 65 = scanned 9 + blocked 56` |
+| in-app history navigation | `routes 65 = scanned 65 + blocked 0` |
+
+**And the first result was read as a defect in the application.** It is not: that app keeps its
+token on a 429 and says so in a comment at the exact line. The sweep manufactured its own auth
+failure by navigating in a way no user navigates, then reported the app for it — the worst outcome
+available, because it is both wrong and confident.
+
+Navigate the way the product is used: push the route through the app's own history and let it
+render. Reserve a hard `goto` for the first load and for any route the app genuinely serves as a
+document. When a sweep reports most routes blocked, **check the harness before the application** —
+the ledger arithmetic is what makes that question askable at all.

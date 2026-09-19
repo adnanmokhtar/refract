@@ -279,9 +279,40 @@ reader, and under-specified to an implementer. None was findable by re-reading; 
 did not report 65 scanned and clean. That arithmetic is the whole point of the coverage ledger and
 HALT #1, observed working on the exact failure the visual sweep originally shipped.
 
-**The full 65-route sweep is still owed.** The dev session expires faster than the sweep runs; a
-run that completes it needs a longer-lived session, and until one exists the ledger will keep
-reporting most routes `blocked` — correctly.
+### The full sweep, completed
+
+`routes 65 = scanned 65 + blocked 0` · **165 tab panels** counted as views still owed · **7**
+control-size findings · floating surfaces resolved to zero real.
+
+**Seven confirmed control-size defects**, each same-region, same-class, adjacent, and each past
+every check that existed before this week — on the 4px grid, over the tap-target floor, no token
+violated:
+
+| Route | |
+|---|---|
+| `/finance/collection` | `كل المتاجر` 36 vs `تحديث` 32 |
+| `/orders/cancellation-reasons` | `رجوع` 32 vs `قيد الانتظار` 36 |
+| `/shipping/nawris/admin` | `تراجع عن التعديلات` 32 vs **`حفظ` 36** |
+| `/products/new` | a SKU field at **24** beside a URL field at **36** |
+
+### Two more implementation defects, and one wrong accusation
+
+- **The page is not a container.** Without a viewport exclusion the floating detector fired **once
+  on every one of 65 routes, at an identical ratio** — the page ground, which legitimately sits just
+  under white. A detector that fires identically everywhere is measuring the chrome.
+- **A sweep must navigate the way the product is used.** `goto` per route in an SPA with an
+  in-memory session is 65 fresh boots and 65 re-auths; an ordinary 10/min refresh throttle turns the
+  sweep into a login wall from about route ten. `goto`: `scanned 9 + blocked 56`. In-app history
+  navigation: `scanned 65 + blocked 0`. Same session, same detectors.
+- **And the first result was reported as an auth defect in the application.** It was not. That app
+  keeps its token on a 429 and explains why in a comment at the exact line. The sweep manufactured
+  its own failure by navigating in a way no user navigates, then blamed the app — wrong and
+  confident, the worst pair. The rule now stands in the spec: **when a run reports most routes
+  blocked, check the harness before the application.** The ledger arithmetic is what makes that
+  question askable at all.
+
+**Twelve defects on 2026-09-19** — six in the tooling, five in the specification, and one
+accusation the run retracted.
 
 ---
 
