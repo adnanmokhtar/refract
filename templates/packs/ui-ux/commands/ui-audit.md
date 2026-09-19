@@ -1,5 +1,5 @@
 ---
-description: The visual sibling of /audit — one autonomous run that scans every route from a real browser, ranks every UI/UX finding, DECIDES the design direction itself, and executes to completion without asking. Triggers — 'go through every page and fix the design, do not ask me', 'I want a design team in one command'. It decides what /design-first would ask and what /enhance-ui would offer as variants. Do NOT trigger when the caller wants to pick a variant (/enhance-ui), wants metrics and phase stops (/ui-sweep), wants nothing written (/design-review, /ui-crawl), or wants ONE surface (/redesign). Frontend / mobile only.
+description: The design team in one command — the visual sibling of /audit. Renders every route, LOOKS at each one and SCORES it against the design rubric, then rebuilds every surface that is below bar until it beats its own diagnosis. It raises a bar; it does not clear a defect list, so a page with no defects and no quality still gets work. Triggers — 'go through every page and make the design better, do not ask me', 'I want a design team in one command', 'it works but it looks mediocre'. Decides what /design-first would ask and what /enhance-ui would offer as variants. Do NOT trigger when the caller wants to pick a variant (/enhance-ui), wants metrics and phase stops (/ui-sweep), wants nothing written (/design-review, /ui-crawl), or wants ONE surface (/redesign). Frontend / mobile only.
 kind: command
 pack: ui-ux
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
@@ -19,7 +19,11 @@ The pack's other ten commands each own one decision and hand the rest back to yo
 
 It is not a new detector layer. It is the **autonomous driver** over the pack's existing machinery — `/ui-crawl`'s browser truth, `/ui-sweep`'s 8 detectors, `redesign.md`'s language-or-composition test, `creative-director`'s direction rubric, `ui-design-sweep`'s closed 19 verbs, `/redesign`'s composition rebuild. Nothing here re-defines a verb, a lens or a fingerprint; the specs stay where they are, and this command is judged on whether it dispatches them completely and decides honestly.
 
-**Two things it refuses to fake.** It never scores a surface it did not render (a login wall is not a dashboard), and it never reports a fix it did not re-render after applying. Both HALT rather than degrade.
+**This is a BAR, not a defect list — the distinction the whole command turns on.** A fingerprint that does not match means *no defect of that shape was found*; it does not mean the surface is good. A run built only on fingerprints therefore reports `clean` on a page that is merely unremarkable, which is the single way this command fails while appearing to work. So **every rendered surface is SCORED before any tier decision is taken**, and a surface below the bar gets work **even when not one fingerprint matched**. Measurements feed the score; they never substitute for it.
+
+**And the scoring is done by LOOKING.** The lenses in [`redesign.md § Design principles`](redesign.md) are judgements about a rendered image — hierarchy, composition, modern register, craft — not quantities a detector can compute. The run opens the screenshot and grades it against them. A score derived from token coverage and contrast ratios without the image is not a score, and a run that produces one has failed this command's premise, not satisfied it.
+
+**Three things it refuses to fake.** It never scores a surface it did not render (a login wall is not a dashboard); it never reports a fix it did not re-render after applying; and it never reports a verdict — including `clean` — for a surface it cannot show you the render and the score for. All three HALT rather than degrade.
 
 ## The boundary with `/audit` — the seam where things get dropped
 
@@ -57,6 +61,7 @@ The pack's gates each protect a decision. This command resolves each one **mecha
 3. **Dirty tree or red CI at HEAD.** `git` is the rollback; it has to mean something.
 4. **A fix that re-detects after being applied** (Phase 8). Flipped `halted`, surfaced, never silently re-attempted.
 5. **`--reimagine` asked for on a multi-theme app** — that is `/add-theme-variant`'s slot system, and inventing a language in place would edit the shared layer.
+6. **A verdict with nothing behind it.** Before the run may print any per-surface outcome, `ai/ui-audit/` must hold, for **every route in the resolved set**, a stored render and a scorecard. A missing pair is not a surface with no findings — it is a surface nobody looked at, and the two are indistinguishable in a report that prints only findings. This is the mechanical half of HALT #1: #1 stops a blocked render, #6 stops a run that never attempted one. **A run that ends with no `ai/ui-audit/` directory has not "found nothing"; it has not run, and says so.**
 
 Anything else is a decision, and decisions are this command's job.
 
@@ -90,6 +95,22 @@ A `language` verdict on **one** surface is composition; the same verdict on **a 
 
 **Carve-outs the scan must honour** (from [`ui-design-sweep/SKILL.md § Cross-cutting carve-outs`](../skills/ui-design-sweep/SKILL.md)): a component-library control's inner classes and a chart's config object do **not** inherit the token layer. Both are graded as first-class components **from the render**, and a token sweep that leaves them in the library's stock theme is a miss, not a pass. This is the single most common false-green in a project-wide visual sweep.
 
+## Phase 1.5 — Score every surface (mandatory, and the reason this is not a linter)
+
+Runs on **every** rendered surface, before Phase 2 and regardless of what Waves A–C found. It is the step whose absence lets a run finish fast and report nothing.
+
+**Grade the rendered image** against [`redesign.md § Design principles`](redesign.md) — the same lens set `/redesign` designs against and scores with. Do not invent a second rubric here; a second vocabulary for the same judgement is how two commands start disagreeing about whether a page is good.
+
+Per surface, per lens: `✓` / `Δ` (with a one-line cited note) / `✗`. Plus the per-component pass `/redesign` already defines: every component on the surface graded from the render, `below-bar` until it visibly matches the language — and the filter / control bar graded as a first-class component, because a library control in its default theme is the most-missed `below-bar` on any admin screen.
+
+**The bar**: a surface passes when no targeted lens is `✗`, no more than two are `Δ`, and no component is `below-bar`. Anything else is **below bar** and enters V2 — *even with zero fingerprint matches from Wave B*. This is the entire difference between a defect scanner and a design team: the team is allowed to say *"nothing here is broken and it still is not good enough."*
+
+**What a score may NOT be built from.** Token coverage, contrast ratios, state coverage and a11y results are **inputs to lenses**, never the score itself. A scorecard that could have been produced without opening the screenshot is rejected by Phase 9 and the surface is re-scored. The failure mode this closes is precise and observed: a run that computes ten metrics, finds each within tolerance, and reports a mediocre page as clean.
+
+**Honest residuals.** A lens the run cannot grade from a still image — motion, focus order, keyboard behaviour — is recorded `NOT RUN` with the reason, never `✓`. `/redesign` already draws this line for what a drawing can and cannot carry; the same line applies to a screenshot.
+
+Scores land in `ai/ui-audit/scores/<route>.md` and are the input HALT #6 checks for.
+
 ## Phase 2 — Cross-axis rank
 
 One ranker reads every wave's findings and produces `ai/ui-audit/plan.md`, ranked into V0–V3 by `user-impact × blast-radius × fix-cost` — **not** by axis and not by route.
@@ -97,6 +118,7 @@ One ranker reads every wave's findings and produces `ai/ui-audit/plan.md`, ranke
 - **User-impact** is weighted by the route's visit-rate where telemetry exists, and by surface type where it does not (an auth screen and a checkout step outrank a settings sub-tab).
 - **Blast-radius** is the consumer count of the surface being changed. A wrapper with 40 consumers outranks a leaf page, which is why V0 exists as its own tier.
 - A finding that a Wave-A render **proves** (a measured contrast ratio, a captured overlap, a chart's actual pixel colors) outranks one inferred from source at the same tier.
+- **A below-bar surface is a first-class row**, ranked by `(bar − score) × visit-rate`, and carries the lenses that failed as its closure target. It does not need a fingerprint to exist. A plan in which every row traces to a fingerprint is a plan that skipped Phase 1.5.
 
 Every finding carries: id · axis · surface · `<file:line>` · closure verb (or `redesign`) · the render that evidences it · dependency-on · tier · fix-cost.
 
@@ -191,10 +213,17 @@ Things that are not taste. A user is blocked, misled, or excluded.
 
 ## Phase 6 — V2: composition (sequential, one surface per commit)
 
-Every surface Wave C verdicted `compose` — plus, if Phase 3 ran, **every** scored surface, because a new language is not applied by re-skinning old compositions.
+Three populations enter this tier, and the second is the one the command exists for:
 
-- Dispatch `/redesign` per surface, inside the now-current language, with its 11-lens Design-principles rubric: diagnose → design → self-critique → build → **score the rendered result, which must beat the diagnosis**.
+1. Every surface Wave C verdicted `compose` — its layout is wrong.
+2. **Every surface Phase 1.5 scored BELOW BAR** — nothing is broken and it is not good enough. No fingerprint required, no defect cited. If this population is empty on a real app, suspect Phase 1.5 of having graded from metrics instead of from the image.
+3. If Phase 3 ran, **every** scored surface, because a new language is not applied by re-skinning old compositions.
+
+- Dispatch `/redesign` per surface, inside the now-current language. **Use its refine loop, which is the machinery that makes this command improve rather than merely repair**: diagnose → design → self-critique → build → score the rendered result → **while any targeted lens is `Δ`/`✗` or any component is `below-bar`, improve that named lens in code, re-render and re-score**, up to `--max-refine` rounds (default 3). Each round must move a named lens from `Δ` to `✓`, not restate the score.
+- The result must **measurably beat the Phase-1.5 diagnosis** on the lenses it targeted. A lens the diagnosis flagged that is still `Δ` after the loop is reported plainly as a residual, never hidden and never quietly dropped.
 - The approval gate `/redesign` normally holds is satisfied by the per-surface commit, per the autonomy contract above. A surface whose post-build score does **not** beat its diagnosis is reverted and flipped `halted` — it is not committed and argued for.
+
+**Why the loop is not optional here.** One pass produces the first thing that satisfies the brief; a designer looks at that and keeps going. `/redesign` already encodes the difference and this command previously routed around it, reaching `/redesign` only for `compose` surfaces and sending everything else to V3's fingerprint verbs — which have no bar, so a merely-unremarkable page passed every tier untouched. That is the defect this tier's population 2 closes.
 
 ## Phase 7 — V3: finish (parallel waves)
 
@@ -212,7 +241,9 @@ Every surface Wave C verdicted `compose` — plus, if Phase 3 ran, **every** sco
 
 ## Phase 9 — Report
 
-`ai/ui-audit/report-<YYYY-MM-DD>.html` — before/after screenshots per route at each breakpoint, per-axis scores against the Phase 1 baseline, the cell ledger, the direction candidates and their scores where Phase 3 ran, per-tier commit list, and the `halted` rows with what re-detected. Browse-able; the thing you hand a stakeholder who did not read the diffs.
+`ai/ui-audit/report-<YYYY-MM-DD>.html` — before/after screenshots per route at each breakpoint, **the Phase-1.5 scorecard per surface with its per-lens verdicts and its before→after delta**, per-axis metrics against the Phase 1 baseline, the cell ledger, the direction candidates and their scores where Phase 3 ran, per-tier commit list, and the `halted` rows with what re-detected.
+
+**Phase 9 is also the audit of Phase 1.5.** A scorecard whose every lens verdict could be derived from the metrics alone — no reference to anything only visible in the image — is rejected, and that surface is re-scored from the render before the report is written. A report that lists findings but no scores is not a short report; it is a run that never set a bar, and it says so at the top instead of reading as a clean sweep. Browse-able; the thing you hand a stakeholder who did not read the diffs.
 
 `ai/ui-audit/progress.md` is the resume ledger — tier, per-route status, and which commits closed which findings.
 
