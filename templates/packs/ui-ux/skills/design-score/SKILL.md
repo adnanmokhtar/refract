@@ -24,6 +24,7 @@ This skill exists to make that specific outcome impossible to reach by accident.
 | `$VIEW` — the view identifier: the route **plus** the tab panel, wizard step, or open modal / drawer this render shows | caller | YES — a route with six tabs is six views and six scorecards; grading the default panel and reporting the route is the defect this field exists to prevent |
 | `$RUBRIC` — the lens set | [`redesign.md § Design principles`](../../commands/redesign.md) | YES (never a second, private rubric) |
 | Design tokens | `_extracted-idioms.md § Tokens` | YES — a proposal must name an existing token |
+| `PRODUCT_CONTEXT` | `_extracted-idioms.md § Context` | YES for the density, hierarchy and whitespace lenses — a dense table is correct in an ERP and wrong in a storefront, and grading one by the other's norm is the most common false finding a sweep produces. Absent → grade those three lenses `NOT RUN` with the reason rather than against an implicit norm |
 | Shared wrappers | `_extracted-idioms.md § Wrappers` | NO (component grading is coarser without it; say so) |
 | `$METRICS` — contrast ratios, token coverage, state coverage, axe results | the caller's detectors | NO — **inputs to lenses, never the score** |
 | `$BASELINE` — a prior scorecard for this view | `ai/ui-audit/scores/<route>/<view>.md` | NO (present on a re-score; enables the before→after delta) |

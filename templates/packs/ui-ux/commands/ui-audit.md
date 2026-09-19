@@ -69,8 +69,22 @@ Anything else is a decision, and decisions are this command's job.
 
 - `PROJECT_KIND` must be `frontend-*` or `mobile-*`. Anything else HALTs → `/audit` (engineering) or `/polish` (backend API surface).
 - Read the idioms oracle: `_extracted-idioms.md` §§ `Tokens` · `Wrappers` · `Surfaces` · `Breakpoints` · `Voice` (optional). Missing Tokens → HALT #2.
+- **Resolve `PRODUCT_CONTEXT`** — the axis `PROJECT_KIND` does not carry. `PROJECT_KIND` says *what stack*; this says *what kind of product*, which is what decides density, chrome and copy. Grading an ERP by a storefront's norms and a storefront by an ERP's is not a close call — it is two thirds of the false findings a visual sweep produces.
+
+| Context | Density | Chrome | Actions per screen | A finding when |
+|---|---|---|---|---|
+| `erp` / `admin` | high — a dense table is CORRECT | minimal; every pixel of chrome costs a row | many, keyboard-reachable | whitespace is spent on decoration, or a workflow needs more clicks than it needs |
+| `dashboard` | medium — scannable over complete | moderate; hierarchy does the work | few, drill-down | every tile carries equal weight, or a number has no context beside it |
+| `storefront` | low — one decision at a time | generous; imagery is the content | one primary, obvious | a grid reads as a spreadsheet, or the buy action competes with anything |
+| `landing` | lowest — narrative pacing | generous | exactly one CTA, repeated | the page reads as a feature list, or the CTA appears once below the fold |
+| `portal` (customer-facing account) | medium-low | moderate | few, self-service | it is graded as an internal admin panel |
+| `mobile-web` | high per screen, low per view | minimal | one thumb-reachable primary | a desktop density is carried through unchanged |
+
+Resolved from the route inventory + `_extracted-business.md`, written into `_extracted-idioms.md § Context`, and **stated in the report**. Ambiguous → resolve per route-group rather than app-wide (a product can hold an admin panel and a storefront), and say which grouping was used.
+
+- `design-score` reads it **before** grading density, hierarchy or whitespace; `ui-designer` reads it before proposing. A density verdict with no context behind it is an opinion about a different product.
 - **Route inventory** from the router source, not from a guess. Each route resolved to: path · surface type (list-page / detail-page / form / modal / wizard / empty-shell) · auth requirement · visit-rate if telemetry is wired.
-- **Shared-surface inventory**: every wrapper in § Wrappers, with its consumer count. This is what makes V0 leverage real — one fix at a wrapper with 40 consumers is 40 surfaces.
+- **Shared-surface inventory**: every wrapper in § Wrappers, with its consumer count **resolved from `.claude/_graph.json`** where it exists — the graph knows re-exports and transitive reach, a hand count does not. This is what makes V0 leverage real — one fix at a wrapper with 40 consumers is 40 surfaces.
 - Session: authenticate per `visual-check`'s contract (`storageState` / login step). A route that cannot be reached authenticated is recorded `BLOCKED` and HALTs the run, per HALT #1.
 - `--scope=<path>` narrows the route set; the shared-surface inventory is **never** narrowed, because a wrapper outside the scope is still what the in-scope surfaces render through.
 
@@ -259,6 +273,10 @@ Per proposal, before any edit:
 | `token` | the value is wrong for its ROLE everywhere it appears | the token; every consumer moves at once |
 | `wrapper-variant` | the shared component is right and this usage needs a declared variant | a variant on the wrapper, named |
 | `leaf` | this surface genuinely differs, and the difference is intended | the page |
+
+**Resolve the tier from the dependency GRAPH, not by hand.** `.claude/_graph.json` (built by `scripts/build-graph.py`) already holds the import edges — on a real app, 4,640 nodes and 17,006 edges over 6,357 files. It answers the tier question exactly: who imports this component, how many distinct routes reach it, is there a second implementation with an overlapping consumer set. Counting consumers by reading `§ Wrappers` estimates the same number and gets it wrong precisely where it matters — a wrapper used by three pages directly and nine more through a re-export reads as a leaf when it is a token-tier change.
+
+The graph is also what makes the **V0 `/unify-surfaces` dispatch** precise: "two implementations of one surface type, each with ≥2 consumers" is a query over it, not a judgement. Absent or stale graph → fall back to `§ Wrappers` + a grep, and **say so in the row**, because an estimated tier is a different claim from a resolved one.
 
 A proposal resolved to `token` or `wrapper-variant` is **applied once and removed from every other surface's queue**, and the routes it touches are re-rendered as part of its own verification — that is `$CONSUMER_ROUTES`, the same input `/enhance-ui` passes to `design-iterate`. A run that applies the same visual change on eight pages has mis-tiered it eight times.
 

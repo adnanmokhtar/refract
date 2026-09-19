@@ -267,6 +267,21 @@ Wave B (global axes, unchanged — 8 concurrent subagents):
 
 Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<estimated-impact>` + `<estimated-cost>`. NOT shown to user.
 
+### Phase 1.3 — Load the dependency graph (blast-radius stops being a guess)
+
+`scripts/build-graph.py` writes `.claude/_graph.json` — the project's real import edges, measured (on a reference app: **4,640 nodes, 17,006 edges over 6,357 files**). This command ranks every finding by `impact × blast-radius × fix-cost` and **nothing here read it**: blast radius was estimated from module names and folder shape.
+
+An estimate is wrong exactly where it costs most. A shared helper imported by three modules directly and eleven more through a barrel re-export reads as local and ranks as local; the fix that touches it then lands in P4 behind a finding that matters less. Transitive reach and re-exports are what a graph knows and a reading does not.
+
+Load it at Phase 1.3 and use it for:
+
+- **Blast radius** in Phase 2's ranking — the transitive consumer count, not the directory.
+- **Surface resolution** in Phase 0 — a "module" whose graph neighbourhood is two disconnected clusters is two surfaces.
+- **Dependency and cycle findings** — the architecture axis currently re-derives from imports what the graph already holds.
+- **`dependency-on` between plan rows** — a fix whose site is upstream of another's must land first, and the graph is what orders them.
+
+**Absent or stale** (no `.claude/_graph.json`, or older than HEAD): fall back to the name-and-folder estimate and **mark every affected row `blast-radius: estimated`**. An estimated rank and a resolved rank are different claims, and a plan that hides which is which cannot be audited.
+
 ### Phase 1.4 — Resolve VARIANTS: one surface is not one behaviour
 
 **An endpoint is not a code path, and a module is not one configuration.** The same handler routinely behaves differently by role, permission, tenant plan, feature flag or an audited scope opt-out — and a wave that dispatches one agent per surface grades whichever configuration the agent happened to trace. The surface is then reported as reviewed while the other branches were never read.
