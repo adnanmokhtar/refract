@@ -265,11 +265,26 @@ Wave B (global axes, unchanged — 8 concurrent subagents):
 
 Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<estimated-impact>` + `<estimated-cost>`. NOT shown to user.
 
+### Phase 1.5 — Score every resolved surface (mandatory; the bar, not the defect list)
+
+Runs on **every** surface Phase 0 resolved, before ranking, and regardless of what Phase 1 found. Without it this command is a defect list, and a defect list cannot fail a module that is correct, conformant, tested — and badly designed. **A detector that does not fire means no defect of that shape was found; it has never meant the code is good.** That gap is the same one `/ui-audit` shipped with, and it is closed here the same way.
+
+**Grade each surface against the engineering-quality lenses it already owns** — Architecture (01), Maintainability (10), Modularity / Boundaries (22), Domain Modeling (12), Testing (08), Developer Experience (30). These are `/audit`'s own axes; do not invent a second rubric. Per surface, per lens: `✓` / `Δ` (one line, cited `<file:line>`) / `✗`.
+
+**The bar**: a surface passes when no lens is `✗` and at most two are `Δ`. Anything else is **below bar** and enters **Phase 7 (P3, architectural foundations)** — *even when Phase 1 produced zero findings for it*. That sentence is the whole point of this phase: the command is now allowed to say **"nothing here is broken and it is still not good enough,"** and then do something about it, which is exactly what `--assess` could only describe in prose that no executor ever read.
+
+**What a score may NOT be built from.** Coverage percentage, cyclomatic complexity, file length, dependency counts and lint results are **inputs to lenses, never the score**. A scorecard whose every verdict could have been produced from those numbers alone — without reading the code's actual shape — is rejected and the surface is re-scored. The failure this closes is precise: a run that computes ten metrics, finds each within tolerance, and reports a tangled module as clean because nothing crossed a threshold.
+
+**Honest residuals.** A lens this run cannot judge — runtime behaviour under load, a boundary whose correctness depends on a deployment topology not present here — is `NOT RUN` with the reason, never `✓`.
+
+Scores land in `ai/audit/scores/<surface>.md`. **They are part of the cell ledger's arithmetic** (Phase 2b): a surface with no scorecard is not a surface with no findings, it is a surface nobody graded, and the ledger must be able to tell those apart. A run that produces a plan with no scores has skipped this phase and says so at the top of the plan rather than reading as a clean audit.
+
 ### Phase 2 — Cross-axis rank
 - Single ranker reads all wave-A surface files **and** all wave-B axis files; produces `ai/audit/plan.md` with findings ranked into P0–P4 tiers per the rule above.
 - **Every finding carries its cell** `(concern | axis) × surface`. A concern's headline number is the roll-up of its cells — `Security: 14` is computed from `Security × {every resolved surface}`, never filled by a separate agent. A concern is never also a standalone axis bucket; double-counting there is what made the ranker compare a finding against itself.
 - **`blast-radius` uses the surface's real population as denominator**, not an estimate — the § 11 confidence ratio from Phase 0. "125 of 242 entity files" outranks "could affect many models".
 - Each finding has: id, axis, summary (1 line), file:line, closure verb, dependency-on (other findings that must land first), tier, impact-at-target-rps, blast-radius, fix-cost.
+- **A below-bar surface is a first-class P3 row**, ranked by `(bar − score) × blast-radius`, carrying the lenses that failed as its closure target. It needs no finding to exist. A plan in which every row traces to a detector is a plan that skipped Phase 1.5.
 - Validates: `impact-at-target-rps` for every P0/P2 finding cites a measured baseline OR an explicit estimate (RPS × cost-per-call). No hand-waved "would be slow at scale".
 - Writes plan; emits brief summary to user (headline counts per tier + 3 example P0/P1 findings).
 
@@ -313,6 +328,9 @@ Live, unreviewed  23   ← nobody is looking at these
   into the first is how a coverage gap disguises itself as a scoping decision, and it is the single
   failure this ledger exists to prevent.
 - The three counts must sum to the resolved cell count. Print the arithmetic.
+- **Every resolved SURFACE carries a Phase-1.5 scorecard, and the ledger prints that count beside the cell counts.** A surface with cells reviewed and no scorecard has been checked for defects and never graded — the two are different claims and a ledger that cannot separate them lets `scanned, nothing found` stand in for `looked at properly`. `surfaces scored N / M resolved`; **N < M blocks the run** for the same reason a bare `N/A` does.
+
+**Why this arithmetic is the honest half of the command.** Everything above ranks what was found. This line is the only place the run states what it *looked at*, and it is what makes `no findings` interpretable: without it, a scan that dispatched nothing and a scan that dispatched everything and found a clean codebase print the same report.
 
 **This ships value before a single new detector is written** — it names the unreviewed cells using
 only what exists today. `--plan-only` and `--assess` both emit it.
@@ -390,7 +408,9 @@ than the table, but the same three columns and the same no-bare-N/A rule apply.
 - After this phase, **re-runs Phase 1 axis detectors on changed files** — many P3/P4 findings dissolve.
 
 ### Phase 7 — Execute P3 (architectural foundations, sequential)
+- Two populations: findings ranked P3 by Phase 2, **and every surface Phase 1.5 scored below bar** — the second needs no finding behind it, and if that population is empty on a real codebase, suspect Phase 1.5 of having graded from metrics instead of from the code.
 - Same closure verbs as `/optimize` Phase 1: `move-responsibility`, `introduce-abstraction`, `fix-layering`, `centralize-cross-cutting`, `split-god-module`, `decouple-cycle`.
+- A below-bar surface closes when a **re-score** clears the bar, not when a verb has been applied. The re-score is attached to the commit, the same way a perf fix attaches its measurement.
 - One commit per foundation. Re-runs typecheck + scoped tests after each.
 
 ### Phase 8 — Execute P4 (tactical cleanup, parallel waves)
