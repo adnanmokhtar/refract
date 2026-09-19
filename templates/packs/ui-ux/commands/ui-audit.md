@@ -250,6 +250,20 @@ Three populations enter this tier, and the second is the one the command exists 
 2. **Every surface Phase 1.5 scored BELOW BAR** — nothing is broken and it is not good enough. No fingerprint required, no defect cited. If this population is empty on a real app, suspect Phase 1.5 of having graded from metrics instead of from the image.
 3. If Phase 3 ran, **every** scored surface, because a new language is not applied by re-skinning old compositions.
 
+**Resolve the SCOPE TIER before building — the fix's true home, not the page it was noticed on.** `/enhance-ui` opens with this question and `/ui-audit` never asked it: is this change a **token**, a **shared wrapper variant**, or a **single leaf**? A table footer that reads as too heavy is almost never that page's footer; it is the shared `<DataTable>`, and rebuilding it per surface produces the drift the run was sent to remove — twelve pages each carrying their own corrected footer, and the thirteenth still wrong.
+
+Per proposal, before any edit:
+
+| Tier | Fingerprint | Where the fix lands |
+|---|---|---|
+| `token` | the value is wrong for its ROLE everywhere it appears | the token; every consumer moves at once |
+| `wrapper-variant` | the shared component is right and this usage needs a declared variant | a variant on the wrapper, named |
+| `leaf` | this surface genuinely differs, and the difference is intended | the page |
+
+A proposal resolved to `token` or `wrapper-variant` is **applied once and removed from every other surface's queue**, and the routes it touches are re-rendered as part of its own verification — that is `$CONSUMER_ROUTES`, the same input `/enhance-ui` passes to `design-iterate`. A run that applies the same visual change on eight pages has mis-tiered it eight times.
+
+**A `leaf` verdict needs its reason recorded.** "This page is different" with nothing behind it is how a design system erodes one justified exception at a time.
+
 - For a **population-2** surface, `/redesign` builds `ui-designer`'s ranked proposals rather than re-deriving what is wrong: the diagnosis was done in Phase 1.5 and repeating it wastes a render and invites a second opinion. For population 1 and 3, `/redesign` diagnoses as it normally does.
 - Dispatch `/redesign` per surface, inside the now-current language. **Use its refine loop, which is the machinery that makes this command improve rather than merely repair**: diagnose → design → self-critique → build → score the rendered result → **while any targeted lens is `Δ`/`✗` or any component is `below-bar`, improve that named lens in code, re-render and re-score**, up to `--max-refine` rounds (default 3). Each round must move a named lens from `Δ` to `✓`, not restate the score.
 - The result must **measurably beat the Phase-1.5 diagnosis** on the lenses it targeted. A lens the diagnosis flagged that is still `Δ` after the loop is reported plainly as a residual, never hidden and never quietly dropped.
