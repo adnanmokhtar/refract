@@ -1,5 +1,5 @@
 ---
-description: The design team in one command — the visual sibling of /audit. Renders every route, LOOKS at each one and SCORES it against the design rubric, then rebuilds every surface that is below bar until it beats its own diagnosis. It raises a bar; it does not clear a defect list, so a page with no defects and no quality still gets work. Triggers — 'go through every page and make the design better, do not ask me', 'I want a design team in one command', 'it works but it looks mediocre'. Decides what /design-first would ask and what /enhance-ui would offer as variants. Do NOT trigger when the caller wants to pick a variant (/enhance-ui), wants metrics and phase stops (/ui-sweep), wants nothing written (/design-review, /ui-crawl), or wants ONE surface (/redesign). Frontend / mobile only.
+description: The design team in one command — the visual sibling of /audit. Renders every route, LOOKS at each and scores it, then rebuilds every below-bar surface until it beats its own diagnosis. It raises a bar rather than clearing a defect list, so a page with no defects and no quality still gets work. Triggers — 'go through every page and make the design better, do not ask me', 'I want a design team in one command', 'it works but it looks mediocre'. Do NOT trigger when the caller wants to pick a variant (/enhance-ui), wants metrics and phase stops (/ui-sweep), wants nothing written (/design-review, /ui-crawl), or wants ONE surface (/redesign). Frontend / mobile only.
 kind: command
 pack: ui-ux
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
@@ -99,13 +99,15 @@ A `language` verdict on **one** surface is composition; the same verdict on **a 
 
 Runs on **every** rendered surface, before Phase 2 and regardless of what Waves A–C found. It is the step whose absence lets a run finish fast and report nothing.
 
-**Grade the rendered image** against [`redesign.md § Design principles`](redesign.md) — the same lens set `/redesign` designs against and scores with. Do not invent a second rubric here; a second vocabulary for the same judgement is how two commands start disagreeing about whether a page is good.
+**Dispatch the [`design-score`](../skills/design-score/SKILL.md) skill per surface.** It grades the rendered image against [`redesign.md § Design principles`](redesign.md) — the same lens set `/redesign` designs against and scores with — and carries the halt this phase depends on: no render, no score, ever. Do not inline the grading here and do not invent a second rubric; a second vocabulary for the same judgement is how two commands start disagreeing about whether a page is good.
+
+**A `below-bar` surface is then handed to the [`ui-designer`](../agents/ui-designer.md) agent**, whose whole job is the sentence no other agent in this pack is allowed to say: *nothing here is broken and it still is not good enough — here is what to change.* Its proposals name the element, the change, the existing token that delivers it, and the lens the change moves. Those proposals are what V2 builds; a `below-bar` verdict with no proposals behind it is a complaint, and V2 has nothing to execute.
 
 Per surface, per lens: `✓` / `Δ` (with a one-line cited note) / `✗`. Plus the per-component pass `/redesign` already defines: every component on the surface graded from the render, `below-bar` until it visibly matches the language — and the filter / control bar graded as a first-class component, because a library control in its default theme is the most-missed `below-bar` on any admin screen.
 
 **The bar**: a surface passes when no targeted lens is `✗`, no more than two are `Δ`, and no component is `below-bar`. Anything else is **below bar** and enters V2 — *even with zero fingerprint matches from Wave B*. This is the entire difference between a defect scanner and a design team: the team is allowed to say *"nothing here is broken and it still is not good enough."*
 
-**What a score may NOT be built from.** Token coverage, contrast ratios, state coverage and a11y results are **inputs to lenses**, never the score itself. A scorecard that could have been produced without opening the screenshot is rejected by Phase 9 and the surface is re-scored. The failure mode this closes is precise and observed: a run that computes ten metrics, finds each within tolerance, and reports a mediocre page as clean.
+**What a score may NOT be built from.** Token coverage, contrast ratios, state coverage and a11y results are **inputs to lenses**, never the score itself. `design-score` returns `RESCORE-REQUIRED` for a scorecard whose every verdict could have been produced without opening the screenshot, and Phase 9 re-checks it. The failure mode this closes is precise and observed: a run that computes ten metrics, finds each within tolerance, and reports a mediocre page as clean.
 
 **Honest residuals.** A lens the run cannot grade from a still image — motion, focus order, keyboard behaviour — is recorded `NOT RUN` with the reason, never `✓`. `/redesign` already draws this line for what a drawing can and cannot carry; the same line applies to a screenshot.
 
@@ -219,6 +221,7 @@ Three populations enter this tier, and the second is the one the command exists 
 2. **Every surface Phase 1.5 scored BELOW BAR** — nothing is broken and it is not good enough. No fingerprint required, no defect cited. If this population is empty on a real app, suspect Phase 1.5 of having graded from metrics instead of from the image.
 3. If Phase 3 ran, **every** scored surface, because a new language is not applied by re-skinning old compositions.
 
+- For a **population-2** surface, `/redesign` builds `ui-designer`'s ranked proposals rather than re-deriving what is wrong: the diagnosis was done in Phase 1.5 and repeating it wastes a render and invites a second opinion. For population 1 and 3, `/redesign` diagnoses as it normally does.
 - Dispatch `/redesign` per surface, inside the now-current language. **Use its refine loop, which is the machinery that makes this command improve rather than merely repair**: diagnose → design → self-critique → build → score the rendered result → **while any targeted lens is `Δ`/`✗` or any component is `below-bar`, improve that named lens in code, re-render and re-score**, up to `--max-refine` rounds (default 3). Each round must move a named lens from `Δ` to `✓`, not restate the score.
 - The result must **measurably beat the Phase-1.5 diagnosis** on the lenses it targeted. A lens the diagnosis flagged that is still `Δ` after the loop is reported plainly as a residual, never hidden and never quietly dropped.
 - The approval gate `/redesign` normally holds is satisfied by the per-surface commit, per the autonomy contract above. A surface whose post-build score does **not** beat its diagnosis is reverted and flipped `halted` — it is not committed and argued for.
@@ -278,12 +281,14 @@ Three populations enter this tier, and the second is the one the command exists 
 - [`/ui-crawl`](ui-crawl.md) — this command's Wave A, usable alone when you want detection only.
 
 ### Skills
+- [`design-score`](../skills/design-score/SKILL.md) — Phase 1.5's procedure: one render in, one scorecard out, with the no-render halt and the metrics-only anti-cheat.
 - [`ui-design-sweep`](../skills/ui-design-sweep/SKILL.md) — the closed 19-verb vocabulary every tier dispatches into, and the carve-outs Phase 4 executes.
 - [`design-iterate`](../skills/design-iterate/SKILL.md) — candidate renders for Phase 3.
 - `visual-check` (frontend pack) — the render harness and the authenticated / blocked-render contract HALT #1 enforces.
 - [`a11y-quick-check`](../skills/a11y-quick-check/SKILL.md) — the a11y primitives V1 closes against.
 
 ### Agents
+- [`ui-designer`](../agents/ui-designer.md) — Phase 1.5's proposer; the per-screen craft judgement. Takes a `below-bar` scorecard and returns what to change.
 - `creative-director` — Phase 3's driver.
 - `design-system-architect` — codifies the winning direction as tokens.
 - `ux-reviewer` — the usability floor, delegated and never re-audited here.

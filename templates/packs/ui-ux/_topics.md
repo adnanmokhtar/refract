@@ -32,6 +32,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [persona, persona_aware_review, micro_copy_audit, error_state_audit, output_format]
   fallback: _examples/ux-reviewer.md
 
+- name: ui-designer
+  kind: agent
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Tokens / Elevation / Wrappers / Surfaces + sample rendered surfaces
+  sections: [persona, premise, halt_conditions, method, output, boundaries]
+  fallback: agents/ui-designer.md
+
 - name: creative-director
   kind: agent
   triggers: { primary_frontend_framework_detected: true }
@@ -216,6 +223,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   sections: [when_to_use, modes, procedure, inputs, outputs, failure_modes]
   fallback: skills/design-iterate/SKILL.md
+
+- name: design-score
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md § Tokens / Wrappers + commands/redesign.md § Design principles (the rubric — single source, never restated)
+  sections: [why_a_skill, inputs, procedure, anti_cheat, outputs, when_to_use]
+  fallback: skills/design-score/SKILL.md
+  cite_evidence: strict
 
 - name: ui-design-sweep
   kind: skill

@@ -1,0 +1,81 @@
+---
+name: design-score
+kind: skill
+pack: ui-ux
+description: Scores ONE rendered surface against the shared rubric, from the screenshot. Behind /ui-audit Phase 1.5 and /redesign's scorecard; rejects any score derivable from metrics alone.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+---
+
+# Skill: design-score
+
+Turn one rendered surface into one scorecard: per-lens verdicts, per-component verdicts, and a single **at-bar / below-bar** answer the caller can route on.
+
+## Why this is a skill and not a paragraph
+
+The rubric lived in `redesign.md` prose with three consumers reading it — `/redesign`, `/ui-audit` Phase 1.5, and `design-canvas`. A load-bearing step with no artifact behind it gets re-interpreted by each caller, and the cheapest interpretation wins: **derive the score from the metrics already computed and never open the image.** That produces a run that measures ten things, finds each within tolerance, and reports a mediocre page as clean — observed on a real app, where the run finished fast, claimed every page scanned, and wrote no screenshot at all.
+
+This skill exists to make that specific outcome impossible to reach by accident.
+
+## Inputs (precise contract)
+
+| Input | Source | Required |
+|---|---|---|
+| `$RENDER` — screenshot of the surface, at one declared viewport | `visual-check` / Playwright MCP | **YES — no render, no score. Halt.** |
+| `$ROUTE` — the route or surface identifier | caller | YES |
+| `$RUBRIC` — the lens set | [`redesign.md § Design principles`](../../commands/redesign.md) | YES (never a second, private rubric) |
+| Design tokens | `_extracted-idioms.md § Tokens` | YES — a proposal must name an existing token |
+| Shared wrappers | `_extracted-idioms.md § Wrappers` | NO (component grading is coarser without it; say so) |
+| `$METRICS` — contrast ratios, token coverage, state coverage, axe results | the caller's detectors | NO — **inputs to lenses, never the score** |
+| `$BASELINE` — a prior scorecard for this route | `ai/ui-audit/scores/<route>.md` | NO (present on a re-score; enables the before→after delta) |
+
+## Procedure
+
+1. **Open the render.** If there is none, halt — do not proceed on source, and do not emit a provisional score. If the image is a login wall, a blank shell or an unresolved skeleton, halt as `BLOCKED`: that is not the surface.
+2. **Read the screen first.** One line each: the surface's **job**, its **primary action**, and the observed **eye path** (first / second / third). A mismatch between the observed path and the one the job implies is the screen's headline finding; record it before any lens.
+3. **Grade every lens** in `$RUBRIC`: `✓` / `Δ` / `✗`, each with a one-line note **citing something visible in the image**. A lens a still frame cannot answer — motion, focus order, keyboard behaviour, performance — is `NOT RUN` with the reason. Never a tick.
+4. **Grade every component** as rendered: `at-bar` / `below-bar`. Grade the **filter / control bar first and hardest** (library controls routinely keep their default theme while authored elements move on), then **charts** (their colours live in a config object, not your tokens).
+5. **Fold the metrics in as evidence, not as verdicts.** A measured 3.9:1 ratio is the *citation* under a `Δ` on the contrast lens; it is not itself the lens verdict, and a lens that has only a number under it has not been graded.
+6. **Decide the bar.** `at-bar` when no targeted lens is `✗`, at most two are `Δ`, and no component is `below-bar`. Anything else is `below-bar`.
+7. **Write the scorecard** to `ai/ui-audit/scores/<route>.md`, beside the render it was made from. The file's existence is what the caller's proof-of-work gate checks; a verdict with no file behind it is a verdict about a surface nobody looked at.
+
+## The anti-cheat (this is the part that matters)
+
+**Before returning, re-read your own scorecard and ask of every lens verdict: could this line have been written from `$METRICS` alone, without the image?**
+
+If the answer is yes for every lens, the scorecard is **rejected** — return `RESCORE-REQUIRED` with that reason rather than a score. A valid scorecard contains at least one verdict that only the render could produce: a relationship between two elements, something the eye reaches in the wrong order, a component that looks unlike its neighbours, a density that reads as cramped at a spacing value that is nominally correct.
+
+The reason this check is worth its cost: **every input in `$METRICS` is a number that is easy to be right about, and none of them answers the question the caller is asking.** A page can be 100% on tokens, clean on axe, complete on states, and still be the page its owner opens and sighs at.
+
+## Outputs (precise contract)
+
+```yaml
+route: <route>
+verdict: at-bar | below-bar | BLOCKED | RESCORE-REQUIRED
+job: <one line>
+primary_action: <element>
+eye_path: { observed: [first, second, third], implied: [...], match: true|false }
+lenses:
+  - lens: <name>
+    verdict: pass | delta | fail | not-run
+    note: <one line, cites the image>
+components:
+  - component: <name>
+    verdict: at-bar | below-bar
+    note: <as rendered>
+delta_vs_baseline: <per-lens movement, when $BASELINE was supplied>
+render: <path to the screenshot this was graded from>
+```
+
+## When to use / NOT to use
+
+- **USE** for every surface in a `/ui-audit` run (Phase 1.5), and for `/redesign`'s before-diagnosis and after-build scorecards, so both sides of "must beat the diagnosis" are measured the same way.
+- **NOT** to decide *what to change* — that is `ui-designer`, which this skill hands its `below-bar` surfaces to.
+- **NOT** to grade usability or WCAG conformance. `ux-reviewer` owns the floor. This skill records what it observes and never trades the floor for craft.
+- **NOT** on an unrendered surface, ever. The halt is the point of the skill.
+
+## Cross-references
+
+- [`redesign.md § Design principles`](../../commands/redesign.md) — the rubric. Single source; never restated here.
+- `ui-designer` (agent) — takes a `below-bar` scorecard and proposes the change.
+- `visual-check` (frontend pack) — the render harness and the blocked-render contract.
+- [`ui-design-sweep`](../ui-design-sweep/SKILL.md) — the closed verb set a routed finding lands in.
