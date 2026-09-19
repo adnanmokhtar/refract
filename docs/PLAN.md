@@ -318,8 +318,30 @@ and those seven had already survived a tightening round that removed twenty-eigh
   blocked, check the harness before the application.** The ledger arithmetic is what makes that
   question askable at all.
 
-**Fifteen defects on 2026-09-19** — six in the tooling, eight in the specification, and one
-accusation the run retracted — plus seven findings the run itself withdrew.
+### The visual pass found what measurement could not
+
+Scoring by **looking** — the step that had never run at scale — was pointed at four surface types.
+Its first finding is the one that justifies the skill:
+
+**An empty analytics screen rendered two raw i18n keys as user-facing text.** Arabic has a `_zero`
+plural that is not a synonym for `_other`; three keys defined every form except that one, and
+i18next fell through to the key itself. **Every existing check passed** — the keys are present so
+the i18n audit is clean, nothing is hardcoded so the lint is clean, and contrast, tokens and axe do
+not read what a string *says*. It needed someone to open the page while it was empty. Fixed and
+verified by re-render.
+
+`design-score` now reads the TEXT before the layout, and grades the empty state deliberately: a
+screen that is correct with data and broken without it is broken for every new account.
+
+**And the sweep had been measuring the wrong screen.** The demo account opens a dismissable
+onboarding dialog that persists across in-app navigation — so all 65 routes were measured with a
+modal over them, which is where the identical `1.093` floating ratio on every route came from. A
+sweep must **resolve the app to a steady state** — dismiss what a returning user would have
+dismissed — before the first measurement, and a dialog present on every route is a view to grade
+once, not a lens to grade everything through.
+
+**Sixteen defects on 2026-09-19** — seven in the tooling, eight in the specification, one accusation
+retracted, seven findings withdrawn — and **one real product defect fixed**, by looking.
 
 ---
 

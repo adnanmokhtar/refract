@@ -34,14 +34,30 @@ This skill exists to make that specific outcome impossible to reach by accident.
 ## Procedure
 
 1. **Open the render.** If there is none, halt — do not proceed on source, and do not emit a provisional score. If the image is a login wall, a blank shell or an unresolved skeleton, halt as `BLOCKED`: that is not the surface.
-2. **Read the screen first.** One line each: the surface's **job**, its **primary action**, and the observed **eye path** (first / second / third). A mismatch between the observed path and the one the job implies is the screen's headline finding; record it before any lens.
-3. **Grade every lens** in `$RUBRIC`: `✓` / `Δ` / `✗`, each with a one-line note **citing something visible in the image**. A lens a still frame cannot answer — motion, focus order, keyboard behaviour, performance — is `NOT RUN` with the reason. Never a tick.
-4. **Grade every component** as rendered: `at-bar` / `below-bar`. Grade the **filter / control bar first and hardest** (library controls routinely keep their default theme while authored elements move on), then **charts** (their colours live in a config object, not your tokens).
-5. **Fold the metrics in as evidence, not as verdicts.** A measured 3.9:1 ratio is the *citation* under a `Δ` on the contrast lens; it is not itself the lens verdict, and a lens that has only a number under it has not been graded.
-6. **Grade the resemblance lens, when there is something to resemble.** With `$REFERENCE` present, compare this render against the approved surface of the same type and the nearest before/after pair: does it sit on the same side of that pair's delta? A pair is the only artifact that says *what fine looks like here* rather than in general, so cite the pair by name in the verdict. **With no reference, this lens is `NOT RUN`** — an empty library must never be graded as "resembles nothing", which would teach every later run to ignore the lens.
-7. **Check the verdict against `$DIRECTION` before writing it.** A surface can be at-bar on every lens and still contradict the stated intent — spacious where the direction says dense, layered where it says flat. That is a finding, recorded against the direction and not against the rubric, because the rubric cannot see intent. The reverse is the more common error and the one to resist: **do not report a surface as below bar for doing exactly what the direction asked for.**
-8. **Decide the bar.** `at-bar` when no targeted lens is `✗`, at most two are `Δ`, and no component is `below-bar`. Anything else is `below-bar`.
-9. **Write the scorecard** to `ai/ui-audit/scores/<route>/<view>.md`, beside the render it was made from (`index.md` for the route's default view). The file's existence is what the caller's proof-of-work gate checks; a verdict with no file behind it is a verdict about a surface nobody looked at.
+2. **Read the TEXT before the layout.** Before any lens, scan the rendered copy for strings that
+   are not language: raw i18n keys (`stats.avg_across_orders`), untranslated fallbacks, `undefined`
+   / `NaN` / `[object Object]`, a date in the wrong locale, a placeholder that shipped.
+
+   **MEASURED, and it is the finding that justifies this whole skill.** An analytics screen with no
+   data — the first screen a new account sees — rendered `stats.avg_across_orders` and
+   `composition.of_orders` as user-facing text. Arabic has a `_zero` plural form that is *not* a
+   synonym for `_other`, three keys defined every form except that one, and i18next fell through to
+   the key itself. **Every existing check passed**: the keys are present so the i18n audit is clean,
+   nothing is hardcoded so the lint is clean, and contrast, tokens and axe are all indifferent to
+   what a string says. It needed someone to open the page while it was empty and read it.
+
+   Grade the EMPTY state deliberately, because it is where this class lives: zero counts, absent
+   lists, unset dates. A screen that is correct with data and broken without it is broken for every
+   new account.
+
+3. **Read the screen first.** One line each: the surface's **job**, its **primary action**, and the observed **eye path** (first / second / third). A mismatch between the observed path and the one the job implies is the screen's headline finding; record it before any lens.
+4. **Grade every lens** in `$RUBRIC`: `✓` / `Δ` / `✗`, each with a one-line note **citing something visible in the image**. A lens a still frame cannot answer — motion, focus order, keyboard behaviour, performance — is `NOT RUN` with the reason. Never a tick.
+5. **Grade every component** as rendered: `at-bar` / `below-bar`. Grade the **filter / control bar first and hardest** (library controls routinely keep their default theme while authored elements move on), then **charts** (their colours live in a config object, not your tokens).
+6. **Fold the metrics in as evidence, not as verdicts.** A measured 3.9:1 ratio is the *citation* under a `Δ` on the contrast lens; it is not itself the lens verdict, and a lens that has only a number under it has not been graded.
+7. **Grade the resemblance lens, when there is something to resemble.** With `$REFERENCE` present, compare this render against the approved surface of the same type and the nearest before/after pair: does it sit on the same side of that pair's delta? A pair is the only artifact that says *what fine looks like here* rather than in general, so cite the pair by name in the verdict. **With no reference, this lens is `NOT RUN`** — an empty library must never be graded as "resembles nothing", which would teach every later run to ignore the lens.
+8. **Check the verdict against `$DIRECTION` before writing it.** A surface can be at-bar on every lens and still contradict the stated intent — spacious where the direction says dense, layered where it says flat. That is a finding, recorded against the direction and not against the rubric, because the rubric cannot see intent. The reverse is the more common error and the one to resist: **do not report a surface as below bar for doing exactly what the direction asked for.**
+9. **Decide the bar.** `at-bar` when no targeted lens is `✗`, at most two are `Δ`, and no component is `below-bar`. Anything else is `below-bar`.
+10. **Write the scorecard** to `ai/ui-audit/scores/<route>/<view>.md`, beside the render it was made from (`index.md` for the route's default view). The file's existence is what the caller's proof-of-work gate checks; a verdict with no file behind it is a verdict about a surface nobody looked at.
 
 ## The anti-cheat (this is the part that matters)
 
