@@ -219,22 +219,32 @@ unit (`/refactor`, `/task`, `/delegate`, `/upgrade-dep`), route (`/do`), produce
 
 ## Current known-open list
 
-Carry these into the review; each was found and deliberately not fixed on 2026-09-19.
+**Three items, and they are one item wearing three hats.**
 
-1. **Neither Phase 1.5 has ever run.** `/audit`'s and `/ui-audit`'s bars are both unexercised —
-   the next real run is the first test either gets, and the scoring step is exactly the kind of
-   instruction a model satisfies cheaply if it can.
-2. **`unify-component`'s boundary is documented in prose only.** `/ui-audit` V0 now dispatches
-   `/unify-surfaces`, but nothing tests that the dispatch condition fires on a real repo with two
-   competing wrappers.
-3. **`design-score`'s anti-cheat is self-policed.** The skill instructs itself to reject a
-   metrics-only scorecard. Nothing external verifies that a returned scorecard cites the image.
-4. **`/ui-audit` has never completed a full run.** Its one observed run did nothing. Phase 1.5,
-   HALT #6, the V0 dispatch and the refine-loop wiring are all **unexercised**; the next real run
-   is the first test any of them will get.
-5. **Seven pack probes named directories that could not exist** in one real target, five of them
-   inside framework-conditional tables the check cannot read as conditional. Either the probes
-   carry their condition machine-readably, or the check learns to skip a conditional table.
+1. **Neither Phase 1.5 has ever run.** `/audit`'s and `/ui-audit`'s bars are both unexercised. The
+   scoring step is exactly the kind of instruction a model satisfies cheaply if nothing stops it —
+   which is what the Phase 9 external check exists for, and that check has not run either.
+2. **`unify-component`'s boundary is prose.** V0 dispatches `/unify-surfaces` when it finds two
+   competing implementations; nothing has yet fired that condition on a real repo that has them.
+3. **`/ui-audit` has never completed a full run.** Its one observed execution did nothing. Phase
+   1.4, Phase 1.5, HALT #6, the component laboratory, the scope tier, the graph read, the refine
+   loop, the pair capture and Phase 8.5 are **all unexercised**.
+
+**Closed since this list was written** — kept visible because a list that silently drops rows
+cannot be trusted about the rows it keeps:
+
+- ~~`design-score`'s anti-cheat is self-policed~~ → Phase 9 now verifies it externally (render
+  exists · one lens cites the image · every `NOT RUN` has a reason · scored count = view count).
+- ~~Seven pack probes named impossible directories~~ → the probe check skips markdown table rows;
+  a fenced block is something to RUN, a table row is something to LOOK UP.
+
+**Why these three are not closable by writing.** Every defect found on 2026-09-19 — six of them —
+was invisible to reading and obvious within minutes of running. The last was found while reading a
+skill that was about to be passed over. More specification cannot close a gap whose whole nature is
+that specification and behaviour diverge.
+
+**The single highest-value next action is one `/ui-audit --plan` on a real app.** It is worth more
+than any remaining row in this document.
 
 ---
 
