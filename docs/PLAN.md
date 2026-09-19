@@ -230,12 +230,33 @@ unit (`/refactor`, `/task`, `/delegate`, `/upgrade-dep`), route (`/do`), produce
   — V2's rebuild and the refine loop still have not fired — but the part that failed on the observed
   run (render → look → score → refuse-without-evidence) now has.
 
-### Still open, and honestly so
+### Closed 2026-09-19 — `unify-component`'s boundary, with evidence
 
-- **`unify-component`'s boundary is prose.** V0 dispatches `/unify-surfaces` when it finds two
-  competing implementations of one surface type; no run has yet met a repo that has them. **This
-  cannot be closed by choosing to believe it** — it needs a codebase with the condition, and if the
-  app at hand has none, the row stays open rather than being ticked for lack of a counter-example.
+The last open row needed a repo that actually holds two competing implementations of one surface
+type, each with real consumers. A second app provided it — **Vue 3 + PrimeVue**, a different stack
+from the one everything else was measured on.
+
+Resolved from its dependency graph (586 nodes, 1,850 edges), inbound counts per component:
+
+| Surface type | Implementations | With ≥2 consumers |
+|---|---|---|
+| **Modal** | 5 | **2** — `VideoSelectionModal` (40), `PushToGoogleSheetModal` (2) |
+| **Dialog** | 10 | **2** — `ConfirmDeleteDialog` (28), `EditOrderDialog` (6) |
+| Table | 14 | 1 |
+
+**And the sharper finding is that `Dialog` and `Modal` are one surface type under two names** — 15
+implementations between them, the two largest at 40 and 28 consumers and not the same component.
+That is precisely what `unify-component` cannot close: nothing is raw, so its fingerprint never
+matches, and two real shared implementations have to be reconciled with one winning.
+
+The V0 dispatch condition fires here. **Counting mattered**: three `grep` spellings of "who uses
+this" gave 52, 0 and 1 for the same component on the same repo. Only the graph agreed with itself,
+which is why the tier resolution reads it.
+
+The table row is the counter-example worth keeping: 14 implementations, one with 4 consumers and
+four with **zero**. Not competing implementations — scattered components and dead code, which is
+`/optimize --focus=dead-code`, not `/unify-surfaces`. A condition that fired on that count would
+be wrong.
 
 ### The seventh defect, and where it was found
 
