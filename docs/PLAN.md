@@ -284,16 +284,23 @@ HALT #1, observed working on the exact failure the visual sweep originally shipp
 `routes 65 = scanned 65 + blocked 0` · **165 tab panels** counted as views still owed · **7**
 control-size findings · floating surfaces resolved to zero real.
 
-**Seven confirmed control-size defects**, each same-region, same-class, adjacent, and each past
-every check that existed before this week — on the 4px grid, over the tap-target floor, no token
-violated:
+**Zero real control-size defects — the seven were retracted.**
 
-| Route | |
+The sweep first reported seven. Resolving each to its DOM path rather than its label showed all
+seven to be detector faults:
+
+| Reported as | Actually |
 |---|---|
-| `/finance/collection` | `كل المتاجر` 36 vs `تحديث` 32 |
-| `/orders/cancellation-reasons` | `رجوع` 32 vs `قيد الانتظار` 36 |
-| `/shipping/nawris/admin` | `تراجع عن التعديلات` 32 vs **`حفظ` 36** |
-| `/products/new` | a SKU field at **24** beside a URL field at **36** |
+| Save 36 vs Discard 32 | two buttons inside **table rows** — a `<tr>` is not a control row |
+| two header pairs | the **logo** rendered as a button (24) beside an icon button (32) |
+| SKU field 24 vs URL field 36 | the **inner field of a tag-input**; its own wrapper is 36 and correct |
+
+Three more exclusions went into the spec — composite controls measured at the wrapper, brand marks
+excluded, table rows excluded. **The app's control sizing is clean.**
+
+**Worth stating plainly, because the tempting conclusion is the other one.** A detector reporting
+seven findings looks like it is working; one reporting zero looks broken. Here zero was correct —
+and those seven had already survived a tightening round that removed twenty-eight before them.
 
 ### Two more implementation defects, and one wrong accusation
 
@@ -311,8 +318,8 @@ violated:
   blocked, check the harness before the application.** The ledger arithmetic is what makes that
   question askable at all.
 
-**Twelve defects on 2026-09-19** — six in the tooling, five in the specification, and one
-accusation the run retracted.
+**Fifteen defects on 2026-09-19** — six in the tooling, eight in the specification, and one
+accusation the run retracted — plus seven findings the run itself withdrew.
 
 ---
 

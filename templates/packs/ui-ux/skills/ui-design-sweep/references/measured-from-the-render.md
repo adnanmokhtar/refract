@@ -139,6 +139,20 @@ adjacent (a toolbar, a filter bar, a form row, a search + button pair):
 **≥2px, not ≥1px**, because sub-pixel rounding and a 1px border legitimately differ by one device
 pixel at some zoom levels, and a gate at 1px would flag a row nobody can see a fault in.
 
+**Three more exclusions, each measured after it produced a false positive on a real app:**
+
+- **A COMPOSITE control is measured at its WRAPPER, never at its inner field.** A tag-input, a
+  combobox and a date picker render an `<input>` inside a bordered container; the *control* is the
+  container. Measured: a tag-input's inner field at **24px** reported against a plain input at 36 —
+  while the tag-input's own wrapper was 36 and correct. If an element's nearest ancestor carries the
+  project's control class or its own border and padding, that ancestor is the control.
+- **A brand mark is not a control.** A logo rendered as a `<button>` in the header measured 24
+  against a 32px icon button beside it and was reported twice. It is a link wearing a button, with
+  no size step to belong to.
+- **A table row is not a control row.** Buttons and badges inside `<td>` share a `<tr>`'s vertical
+  centre and sit adjacent by definition. They are graded as part of the table's density, not as a
+  toolbar.
+
 **Not a finding**: controls in *different* visual rows; a deliberately large primary CTA beside
 small secondary actions where the size difference is a declared variant; an icon-only button whose
 square footprint is its own step; **and any height difference that is purely cross-class** — see
@@ -226,3 +240,21 @@ Navigate the way the product is used: push the route through the app's own histo
 render. Reserve a hard `goto` for the first load and for any route the app genuinely serves as a
 document. When a sweep reports most routes blocked, **check the harness before the application** —
 the ledger arithmetic is what makes that question askable at all.
+
+---
+
+## D. What the full sweep actually concluded
+
+On the 65-route app this document is measured against, after every condition above was added:
+**zero real control-size findings.** The seven the detector reported before the last three
+exclusions were, in order: two pairs inside table rows, two logo-versus-icon pairs in the header,
+and one tag-input inner field against a sibling input.
+
+**That is the honest result and it is worth stating plainly**, because the tempting one is not. A
+detector that reports seven findings looks like it is working; a detector that reports zero looks
+like it is broken. Here the zero was correct, and each of the seven had survived a round of
+tightening that had already removed twenty-eight others.
+
+The lesson is not that the fingerprint is weak. It is that **every exclusion in this document was
+bought by a false positive on a real screen**, and a version of it that has not yet met a real app
+should be assumed to be at the twenty-eight-findings stage rather than the zero one.
