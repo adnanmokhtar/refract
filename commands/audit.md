@@ -235,7 +235,9 @@ cheaper, and a finding that needs two concerns at once (a job payload carrying a
 Authorization + Security + Data Privacy) is visible to a single reader.
 
 ```
-wave A — one agent per resolved surface, checklist from _review-matrix.md §2
+wave A — one agent per resolved surface × VARIANT (Phase 1.4), checklist from _review-matrix.md §2.
+         One agent per SURFACE grades one configuration and reports the surface; the authorization
+         gap this command exists to find lives in the branch that agent did not trace.
    agent(public-api)  agent(_database)  agent(background-jobs)  agent(file-upload)
    agent(real-time)   agent(integrations)  agent(_deployment)   … (N ≈ 8–14)
 
@@ -265,9 +267,29 @@ Wave B (global axes, unchanged — 8 concurrent subagents):
 
 Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<estimated-impact>` + `<estimated-cost>`. NOT shown to user.
 
+### Phase 1.4 — Resolve VARIANTS: one surface is not one behaviour
+
+**An endpoint is not a code path, and a module is not one configuration.** The same handler routinely behaves differently by role, permission, tenant plan, feature flag or an audited scope opt-out — and a wave that dispatches one agent per surface grades whichever configuration the agent happened to trace. The surface is then reported as reviewed while the other branches were never read.
+
+This is the code analogue of scoring one tab panel and calling the route covered, and it is **worse here**: an ungraded tab looks wrong, an ungraded branch is where the authorization check is missing. A surface whose happy path carries a tenant filter and whose admin branch does not is exactly the finding this command exists for, and surface-level resolution cannot see it.
+
+**Enumerate the variants of every resolved surface** from the gating constructs actually present in the code — not from imagination:
+
+| Counts as its own variant | Does not |
+|---|---|
+| A role / permission branch that changes what is read or written | A branch that only changes a response message |
+| A tenant-scope opt-out (e.g. a `PLATFORM_SCOPE`-style escape) — **always**, and never demoted | A parameter that changes a filter value on the same query |
+| A plan / entitlement gate that unlocks a different code path | Logging or metric differences |
+| A feature flag with both arms live in production | A flag whose other arm is dead code (that is a `/optimize` finding) |
+| A failure path with its own logic — retry, compensation, rollback, partial-success cleanup | A single rethrow |
+
+**Failure paths are the half most often missed**, for the same reason modals are on the visual side: they require something to go wrong in order to exist, so a reader tracing the surface never reaches them. They are also where the damage concentrates — a compensation path that skips the tenant filter, a retry that re-charges, a rollback that leaves the outbox written. The existing unhandled-I/O pass asks whether an error path exists **at all**; this asks whether the one that exists was ever **graded**. Those are different questions and only the first was being answered.
+
+Variants feed Phase 1.5 and the ledger. **A surface with 4 enumerated variants and 1 scorecard fails**, exactly as a route with 6 tabs and 1 scorecard does on the visual side. `--first-run` caps variants per surface and the ledger reports the uncapped population as `Live, unreviewed`; grading one variant and reporting the surface is never acceptable.
+
 ### Phase 1.5 — Score every resolved surface (mandatory; the bar, not the defect list)
 
-Runs on **every** surface Phase 0 resolved, before ranking, and regardless of what Phase 1 found. Without it this command is a defect list, and a defect list cannot fail a module that is correct, conformant, tested — and badly designed. **A detector that does not fire means no defect of that shape was found; it has never meant the code is good.** That gap is the same one `/ui-audit` shipped with, and it is closed here the same way.
+Runs on **every surface × variant** Phase 1.4 resolved, before ranking, and regardless of what Phase 1 found. Without it this command is a defect list, and a defect list cannot fail a module that is correct, conformant, tested — and badly designed. **A detector that does not fire means no defect of that shape was found; it has never meant the code is good.** That gap is the same one `/ui-audit` shipped with, and it is closed here the same way.
 
 **Grade each surface against the engineering-quality lenses it already owns** — Architecture (01), Maintainability (10), Modularity / Boundaries (22), Domain Modeling (12), Testing (08), Developer Experience (30). These are `/audit`'s own axes; do not invent a second rubric. Per surface, per lens: `✓` / `Δ` (one line, cited `<file:line>`) / `✗`.
 
@@ -277,7 +299,7 @@ Runs on **every** surface Phase 0 resolved, before ranking, and regardless of wh
 
 **Honest residuals.** A lens this run cannot judge — runtime behaviour under load, a boundary whose correctness depends on a deployment topology not present here — is `NOT RUN` with the reason, never `✓`.
 
-Scores land in `ai/audit/scores/<surface>.md`. **They are part of the cell ledger's arithmetic** (Phase 2b): a surface with no scorecard is not a surface with no findings, it is a surface nobody graded, and the ledger must be able to tell those apart. A run that produces a plan with no scores has skipped this phase and says so at the top of the plan rather than reading as a clean audit.
+Scores land in `ai/audit/scores/<surface>/<variant>.md` (`index.md` for the default variant). **They are part of the cell ledger's arithmetic** (Phase 2b): a surface with no scorecard is not a surface with no findings, it is a surface nobody graded, and the ledger must be able to tell those apart. A run that produces a plan with no scores has skipped this phase and says so at the top of the plan rather than reading as a clean audit.
 
 ### Phase 2 — Cross-axis rank
 - Single ranker reads all wave-A surface files **and** all wave-B axis files; produces `ai/audit/plan.md` with findings ranked into P0–P4 tiers per the rule above.
@@ -328,7 +350,7 @@ Live, unreviewed  23   ← nobody is looking at these
   into the first is how a coverage gap disguises itself as a scoping decision, and it is the single
   failure this ledger exists to prevent.
 - The three counts must sum to the resolved cell count. Print the arithmetic.
-- **Every resolved SURFACE carries a Phase-1.5 scorecard, and the ledger prints that count beside the cell counts.** A surface with cells reviewed and no scorecard has been checked for defects and never graded — the two are different claims and a ledger that cannot separate them lets `scanned, nothing found` stand in for `looked at properly`. `surfaces scored N / M resolved`; **N < M blocks the run** for the same reason a bare `N/A` does.
+- **Every resolved surface × VARIANT carries a Phase-1.5 scorecard, and the ledger prints that count beside the cell counts.** A surface with cells reviewed and no scorecard has been checked for defects and never graded — the two are different claims and a ledger that cannot separate them lets `scanned, nothing found` stand in for `looked at properly`. `variants scored N / M resolved`; **N < M blocks the run** for the same reason a bare `N/A` does.
 
 **Why this arithmetic is the honest half of the command.** Everything above ranks what was found. This line is the only place the run states what it *looked at*, and it is what makes `no findings` interpretable: without it, a scan that dispatched nothing and a scan that dispatched everything and found a clean codebase print the same report.
 
