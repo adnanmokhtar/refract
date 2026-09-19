@@ -5,6 +5,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 # /security-audit [base-branch]
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../../../snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings, and the reader cannot tell them apart. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
 Audit command. Multi-agent security review of the diff (or whole repo). Phases 1-3 + 6 dominate; Phase 4 produces ranked findings; Phase 5 logs the audit; Phase 7 surfaces systemic patterns.
 
 ## When to use / NOT to use

@@ -5,6 +5,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 # /perf-audit [path|endpoint]
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../../../snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings, and the reader cannot tell them apart. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
 > **`--plan-only`** (alias `--plan`): honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/perf-audit <scope> --plan-only` runs the read-only measurement phases (1-3 + the Phase 4 baseline capture), writes the ranked findings as a plan to `.claude/plans/`, and exits before applying any fix — execute it later with `/execute-plan <file>`. Honesty clause: a plan-only run still measures real baselines; it never ships a projected win without the `<before>` number behind it.
 
 Audit command. Profiles changed code or a named endpoint and returns ranked findings. Phases 1-3 + 6 dominate; Phase 4 produces measurements + proposals (no edits without approval); Phase 7 surfaces patterns.

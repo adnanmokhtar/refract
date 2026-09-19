@@ -8,6 +8,10 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 # /polish [<scope>]
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../templates/snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings, and the reader cannot tell them apart. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
+
+> **Quality bar, not only a defect list** — a fingerprint that does not match means *no defect of that shape was found*; it has never meant the work is good. This command therefore **scores each unit it resolved** against the axes it already owns, and a unit **below bar enters the work queue even with zero findings against it**. The bar is the sentence the command is otherwise unable to say: *nothing here is broken and it is still not good enough.* A score derivable from the metrics alone — coverage %, complexity, file length, token coverage — is rejected and the unit re-scored; those are **inputs to a judgement, never the judgement**. Scored counts join the coverage ledger's arithmetic, and `scored N / M` with N < M blocks the run exactly as a bare `N/A` does.
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/polish <scope> --plan` runs the stack-conditional diagnosis + detector scan, writes the ranked polish plan to `.claude/plans/`, and exits before any edit. Execute it later with `/execute-plan <file>` (or hand it to any tool).
 
 ## What this does

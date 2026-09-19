@@ -5,6 +5,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 # /db-audit [dev|staging]
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../../../snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings, and the reader cannot tell them apart. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
 Health pass on a non-prod DB. Reports findings per check with fixes (and migration SQL where applicable).
 
 ## The Premise (read this first, internalize, do not deviate)

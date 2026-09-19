@@ -155,6 +155,38 @@ than none — it turns an open question into a green tick. Write a gate only whe
 distinguishable from one that was opened and found clean — which is the same discipline `/audit`
 Phase 2b already enforces on its findings, applied one level up.
 
+## Closed 2026-09-19 (second pass)
+
+**Track A question 1 — proof of work — applied to the seven remaining scanning commands.**
+`/optimize` · `/polish` · `/align` · `/unify-surfaces` · `/security-audit` · `/db-audit` ·
+`/perf-audit` all carried zero coverage ledger: each could print `no findings` on a population it
+never resolved, and no reader could tell that from a clean result. One snippet
+(`templates/snippets/coverage-ledger.md`, shipped in the repo-baseline so the deployed link
+resolves), referenced by all seven.
+
+**Track A question 2 — the bar — applied where judgement is actually made.** `/optimize` and
+`/polish` score their units and work a below-bar unit with zero findings against it. **Deliberately
+NOT `/align` or `/unify-surfaces`**: one enforces a documented rule and the other performs a named
+transformation. Neither makes an aesthetic judgement, and giving them a bar would invite one — the
+ledger is what they owe their reader, not taste.
+
+**Known-open #5 — conditional probes.** The probe check now skips markdown **table rows**. The rule
+is structural rather than a keyword list: a fenced or indented block is something to RUN, a table
+row is something to LOOK UP, and only the first can be a false negative when its directory is
+missing. Measured cause: 5 of 7 reported probes were per-framework table rows in `ssr-audit`
+(`plugins/` Nuxt, `app/routes/` Remix, `src/app/` Angular) — each correct, each impossible on a
+Vite SPA. A check wrong five times out of seven stops being read.
+
+**Known-open #3 — the self-policed anti-cheat.** `design-score` told itself to reject a
+metrics-only scorecard, which is the check a run under pressure drops with nothing watching. Phase 9
+now verifies externally: the named render exists · at least one lens cites something only the image
+shows · every `NOT RUN` carries a reason · the scored count equals the view count. A scorecard
+failing twice marks its view `Live, unreviewed` rather than publishing a verdict the run cannot
+stand behind.
+
+**Not closable by writing.** Known-open #1, #2 and #4 all reduce to the same sentence: the machinery
+has never completed a real run. No amount of specification closes them.
+
 ## Current known-open list
 
 Carry these into the review; each was found and deliberately not fixed on 2026-09-19.

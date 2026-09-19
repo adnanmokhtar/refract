@@ -1939,6 +1939,21 @@ c2y_code_probes() {
     [[ -f "$_file" ]] || continue
     awk -v F="$_file" '
       /^[[:space:]]*(```|~~~)/ { fence = !fence; next }
+      # A MARKDOWN TABLE ROW IS A CATALOGUE, NOT AN INSTRUCTION.
+      #
+      # MEASURED on a real Vite SPA: 5 of 7 reported probes were rows of a per-framework table in
+      # ssr-audit — `plugins/` (Nuxt), `app/routes/` (Remix), `src/app/` (Angular). Each names a
+      # directory that CANNOT exist in a project on a different framework, and each is correct:
+      # the row documents what to probe IF you are on that framework. Judging them as unconditional
+      # made the check cry wolf on every artifact that catalogues per-stack cases, which is most of
+      # the deep ones — and a check that is wrong five times out of seven stops being read.
+      #
+      # The rule is structural rather than a keyword list: a fenced block or an indented block is
+      # something to RUN, a table row is something to LOOK UP. Only the first can be a false
+      # negative when its directory is missing, because only the first is ever executed here.
+      # A probe that genuinely must be verified therefore belongs in a fenced block, which is also
+      # where a reader expects to find a command they are meant to run.
+      !fence && /^[[:space:]]*\|/ { next }
       {
         code = ""
         if (fence || $0 ~ /^(    |\t)/) { code = $0 }

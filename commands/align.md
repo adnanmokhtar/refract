@@ -8,6 +8,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 # /align [<scope>]
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../templates/snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings, and the reader cannot tell them apart. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). `/align <scope> --plan` runs the convention scan, writes the eight-header handoff plan, and exits before any edit — executable later via `/execute-plan <file>`. The write-and-stop behaviour is specified in § Phase 3.5 — Handoff.
 >
 > **Note — two distinct "plan" artifacts.** `--plan` writes a one-off **handoff doc** to `.claude/plans/align-<short-slug>-<YYYYMMDD-HHmm>.md` (the universal plan-flag location and naming, for review / `/execute-plan`). This is NOT the pack's executable `ai/align/plan.md` (the phased plan produced by `/align-plan` that `/align-fast <N>` consumes). The handoff doc carries the eight canonical headers and is a snapshot for an executor; `ai/align/plan.md` is the live, ledger-coupled plan and `/execute-plan` cannot read it.

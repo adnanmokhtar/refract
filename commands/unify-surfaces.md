@@ -9,6 +9,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 # /unify-surfaces [<scope>] [--surfaces=<list>]
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../templates/snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings, and the reader cannot tell them apart. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
 ## What this does
 
 **Single command. Make every surface of the same TYPE look + behave the same.** Deep multi-agent inventory + canonical-shape decision + wrapper extraction + consumer migration + verify. Whole project or scoped. Multi-day workflow. **Frontend stacks only**.

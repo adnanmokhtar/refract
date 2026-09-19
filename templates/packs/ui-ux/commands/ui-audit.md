@@ -369,7 +369,14 @@ Both are `NOT RUN`, stated, when fewer than two views of a comparable type were 
 
 `ai/ui-audit/report-<YYYY-MM-DD>.html` — before/after screenshots per route at each breakpoint, **the Phase-1.5 scorecard per surface with its per-lens verdicts and its before→after delta**, per-axis metrics against the Phase 1 baseline, the cell ledger, the direction candidates and their scores where Phase 3 ran, per-tier commit list, and the `halted` rows with what re-detected.
 
-**Phase 9 is also the audit of Phase 1.5.** A scorecard whose every lens verdict could be derived from the metrics alone — no reference to anything only visible in the image — is rejected, and that surface is re-scored from the render before the report is written. A report that lists findings but no scores is not a short report; it is a run that never set a bar, and it says so at the top instead of reading as a clean sweep. Browse-able; the thing you hand a stakeholder who did not read the diffs.
+**Phase 9 is also the audit of Phase 1.5, and it is EXTERNAL to it.** `design-score` instructs itself to reject a metrics-only scorecard; a self-policed check is exactly the one a run under pressure drops, and nothing outside it was looking. Phase 9 verifies the scorecards it is about to publish, mechanically:
+
+1. **Every scorecard names the render it was graded from**, and that file exists. A path to a screenshot that was never written is the cheapest possible fake and the first thing to check.
+2. **At least one lens verdict per scorecard cites something only the image could show** — a relationship between two elements, an order the eye takes, a component that looks unlike its neighbours. A scorecard whose every note is a number is rejected.
+3. **`NOT RUN` carries its reason**, never a bare token — the same rule the cell ledger applies to `N/A`.
+4. **The scored count equals the view count** from HALT #6. A report may not publish 12 scorecards for 17 views and call the difference nothing.
+
+A scorecard failing any of these is **not** silently re-scored into the report: the surface is re-scored from the render, and if it fails twice the run says so and marks the view `Live, unreviewed` rather than publishing a verdict it cannot stand behind. A report that lists findings but no scores is not a short report; it is a run that never set a bar, and it says so at the top instead of reading as a clean sweep. Browse-able; the thing you hand a stakeholder who did not read the diffs.
 
 `ai/ui-audit/progress.md` is the resume ledger — tier, per-route status, and which commits closed which findings.
 
