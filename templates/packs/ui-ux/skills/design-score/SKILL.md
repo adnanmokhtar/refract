@@ -26,6 +26,8 @@ This skill exists to make that specific outcome impossible to reach by accident.
 | Design tokens | `_extracted-idioms.md § Tokens` | YES — a proposal must name an existing token |
 | `PRODUCT_CONTEXT` | `_extracted-idioms.md § Context` | YES for the density, hierarchy and whitespace lenses — a dense table is correct in an ERP and wrong in a storefront, and grading one by the other's norm is the most common false finding a sweep produces. Absent → grade those three lenses `NOT RUN` with the reason rather than against an implicit norm |
 | Shared wrappers | `_extracted-idioms.md § Wrappers` | NO (component grading is coarser without it; say so) |
+| `$DIRECTION` — the project's stated design intent | `ai/design/direction.md` | NO — but a lens whose verdict turns on INTENT rather than measurement is `NOT RUN` without it, never graded against the grader's own taste |
+| `$REFERENCE` — approved surfaces and before/after pairs | `ai/design/reference/` | NO — enables the resemblance lens below |
 | `$METRICS` — contrast ratios, token coverage, state coverage, axe results | the caller's detectors | NO — **inputs to lenses, never the score** |
 | `$BASELINE` — a prior scorecard for this view | `ai/ui-audit/scores/<route>/<view>.md` | NO (present on a re-score; enables the before→after delta) |
 
@@ -36,8 +38,10 @@ This skill exists to make that specific outcome impossible to reach by accident.
 3. **Grade every lens** in `$RUBRIC`: `✓` / `Δ` / `✗`, each with a one-line note **citing something visible in the image**. A lens a still frame cannot answer — motion, focus order, keyboard behaviour, performance — is `NOT RUN` with the reason. Never a tick.
 4. **Grade every component** as rendered: `at-bar` / `below-bar`. Grade the **filter / control bar first and hardest** (library controls routinely keep their default theme while authored elements move on), then **charts** (their colours live in a config object, not your tokens).
 5. **Fold the metrics in as evidence, not as verdicts.** A measured 3.9:1 ratio is the *citation* under a `Δ` on the contrast lens; it is not itself the lens verdict, and a lens that has only a number under it has not been graded.
-6. **Decide the bar.** `at-bar` when no targeted lens is `✗`, at most two are `Δ`, and no component is `below-bar`. Anything else is `below-bar`.
-7. **Write the scorecard** to `ai/ui-audit/scores/<route>/<view>.md`, beside the render it was made from (`index.md` for the route's default view). The file's existence is what the caller's proof-of-work gate checks; a verdict with no file behind it is a verdict about a surface nobody looked at.
+6. **Grade the resemblance lens, when there is something to resemble.** With `$REFERENCE` present, compare this render against the approved surface of the same type and the nearest before/after pair: does it sit on the same side of that pair's delta? A pair is the only artifact that says *what fine looks like here* rather than in general, so cite the pair by name in the verdict. **With no reference, this lens is `NOT RUN`** — an empty library must never be graded as "resembles nothing", which would teach every later run to ignore the lens.
+7. **Check the verdict against `$DIRECTION` before writing it.** A surface can be at-bar on every lens and still contradict the stated intent — spacious where the direction says dense, layered where it says flat. That is a finding, recorded against the direction and not against the rubric, because the rubric cannot see intent. The reverse is the more common error and the one to resist: **do not report a surface as below bar for doing exactly what the direction asked for.**
+8. **Decide the bar.** `at-bar` when no targeted lens is `✗`, at most two are `Δ`, and no component is `below-bar`. Anything else is `below-bar`.
+9. **Write the scorecard** to `ai/ui-audit/scores/<route>/<view>.md`, beside the render it was made from (`index.md` for the route's default view). The file's existence is what the caller's proof-of-work gate checks; a verdict with no file behind it is a verdict about a surface nobody looked at.
 
 ## The anti-cheat (this is the part that matters)
 

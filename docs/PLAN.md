@@ -367,6 +367,24 @@ afterwards. Governance is asking **before**.
 
 ---
 
+## Track B is CLOSED for the UI side (2026-09-19)
+
+Every design-intelligence gap is now built. What remains in Track B is the code side and the
+pack-wide review, both in Track A.
+
+| Gap | Built as |
+|---|---|
+| A — reference library | Phase 8 captures a before/after **pair** per V2 rebuild (and a `rejected/` pair when a rebuild failed to beat its diagnosis); `design-score` gains a resemblance lens that is `NOT RUN` on an empty library rather than graded as "resembles nothing" |
+| B + H — direction, incl. rejections | `ai/design/direction.md` — register, density intent, shape, elevation, motion, what the product deliberately does NOT do, and `## Rejected` with what was wrong with each. Absent → intent-dependent lenses are `NOT RUN` and the report opens by saying so; the run never supplies its own taste |
+| C — product context | `PRODUCT_CONTEXT`, six contexts with norms **and their inversion** ("a finding when…"), resolved per route-group |
+| D — scope tier | resolved in V2 before building; a token/wrapper fix applies once |
+| E — the graph | blast radius and tier read `.claude/_graph.json` |
+| F — component laboratory | **views come from two sources.** A workbench's stories, or the wrapper × state matrix where there is none. The bolded states — 100 rows, a wrapping Arabic label, a scrolling modal header, visible validation — are what page renders never reach. Runs **before** route views: one component fix beats nine page findings that resolve to it |
+| G — levels above the page | Phase 8.5: flow level grades **transitions** not screens; application level asks whether this reads as one product, which is where "every portal's dashboard is different" becomes a finding. `NOT RUN` on a one-view sample |
+| I — governance | a `token`/`wrapper-variant` verdict states reach, exceptions, and **agreement with the stated direction** before applying. A token change contradicting the direction is a direction change wearing a fix's clothes and belongs to `/art-direct` |
+
+**The remaining risk is unchanged and is the whole risk**: none of it has completed a real run.
+
 ## Revised build order
 
 Ordered by `unblocks × cheapness`, not by importance.

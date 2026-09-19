@@ -69,6 +69,14 @@ Anything else is a decision, and decisions are this command's job.
 
 - `PROJECT_KIND` must be `frontend-*` or `mobile-*`. Anything else HALTs → `/audit` (engineering) or `/polish` (backend API surface).
 - Read the idioms oracle: `_extracted-idioms.md` §§ `Tokens` · `Wrappers` · `Surfaces` · `Breakpoints` · `Voice` (optional). Missing Tokens → HALT #2.
+- **Read `ai/design/direction.md`** — the project's standing design intent. Tokens are the *measurable residue* of a direction, not the direction: they record that the radius is 8px, never that this product is deliberately soft rather than sharp, nor what counts as *too much* here. Without it every run re-derives intent from tokens, which is reading the fingerprints and guessing the hand — and two runs a month apart can codify the same tokens into two different feelings with nothing able to call either wrong.
+
+  It carries, in this order: **register** (enterprise ÷ consumer, formal ÷ friendly) · **density intent** and what counts as too much · **shape language** and at what radius, and why · **elevation intent** (flat, or layered, how far) · **motion register** · **what this product deliberately does NOT do** · and a **`## Rejected` section**.
+
+  **The rejected half is the one that earns its keep.** The engineering side already works this way — `templates/decision-engine.md` carries a failure catalogue and a tie-break rule: an approach matching a known failure must surface it and require an explicit override. Design had no equivalent, so a direction rejected in March is re-proposed in September with the same confidence and nothing in the repo can say it was already tried. Every rejected direction is recorded with **what was wrong with it**, not merely that it lost.
+
+  **Absent** → do not invent one. Phase 3 authors it when it runs; otherwise the run proceeds and every lens whose verdict turns on *intent* rather than on a measurement is `NOT RUN` with that reason, and the report opens by saying the project has no stated direction. A sweep that silently supplies its own taste is the failure this file prevents.
+
 - **Resolve `PRODUCT_CONTEXT`** — the axis `PROJECT_KIND` does not carry. `PROJECT_KIND` says *what stack*; this says *what kind of product*, which is what decides density, chrome and copy. Grading an ERP by a storefront's norms and a storefront by an ERP's is not a close call — it is two thirds of the false findings a visual sweep produces.
 
 | Context | Density | Chrome | Actions per screen | A finding when |
@@ -130,6 +138,38 @@ A view is enumerated when activating it **changes what is rendered without chang
 | A modal, drawer or sheet with its own layout | A confirm dialog that is the shared `confirm` primitive — graded once, project-wide |
 | An empty / loading / error state that replaces the whole view | An inline field error |
 | A role- or permission-conditional layout that differs structurally | The same layout with fewer rows |
+
+### Views come from two sources: routes, and the component laboratory
+
+Everything above enumerates views from **routes**. That reaches a component only in the one state
+the page happened to put it in, and a component's failures live in the states a page rarely shows:
+a table at two hundred rows, a button whose Arabic label wraps, a modal whose header scrolls away
+on a phone, an empty state nobody has seen since the seed data was added.
+
+**The second source is the component itself, rendered in isolation across its states.** Where the
+project has a component workbench (Storybook, Histoire, Ladle — detected from the stack), each
+story is a view and is scored exactly like a route view: same rubric, same scorecard, same bar.
+Where it has none, the laboratory is the **matrix**, not the tool: render each shared wrapper in
+`§ Wrappers` against its declared state set and score those renders.
+
+The state set per component class, and the entries that actually find things:
+
+| Class | States that must be rendered |
+|---|---|
+| Action (button, segmented) | default · hover · active · disabled · **loading** · icon-only · **long label in the longest locale** |
+| Text entry | empty · filled · **error with message** · disabled · readonly · **overflowing value** |
+| Collection (table, list, cards) | **empty** · loading · **one row** · **many rows (≥100)** · error · selection active · **all actions visible** · mobile |
+| Overlay (modal, drawer, sheet) | small · **long content that scrolls** · **validation errors visible** · mobile |
+| Status (badge, alert, toast) | each severity · **longest text** · stacked |
+
+The bolded ones are the ones page renders almost never reach, and they are where "the component is
+fine and the page looks broken" comes from. **A component whose rendered state set is missing the
+bolded entries is `Live, unreviewed` for those states**, never clean — the same rule the route side
+applies to an unopened dialog.
+
+**Order matters**: the laboratory runs **before** route views in Phase 1.5. A defect found at the
+component is one fix; the same defect found across nine pages is nine findings that all resolve to
+the same wrapper, and ranking them per-page buries the real row.
 
 **Modals, drawers and sheets are the half most often missed, and the half that most needs grading.** A tab is at least visible on arrival; a dialog requires an interaction to exist at all, so a run that only loads routes never sees one. They also concentrate the two defects this command was extended for:
 
@@ -274,6 +314,8 @@ Per proposal, before any edit:
 | `wrapper-variant` | the shared component is right and this usage needs a declared variant | a variant on the wrapper, named |
 | `leaf` | this surface genuinely differs, and the difference is intended | the page |
 
+**A `token` or `wrapper-variant` verdict is a GOVERNED change — state its impact before making it.** These two tiers move every consumer at once, which is their value and their risk. Before applying one, the row carries: **how many components and how many views** the graph says it reaches · whether any consumer is a **declared exception** that must be preserved · and whether the change **agrees with `ai/design/direction.md`**. A token change that contradicts the stated direction is not a fix, it is a direction change wearing a fix's clothes, and it belongs to `/art-direct` with its approval gate — not to a sweep. Applying it and letting the visual baseline report the diff afterwards is governance after the fact, which is not governance.
+
 **Resolve the tier from the dependency GRAPH, not by hand.** `.claude/_graph.json` (built by `scripts/build-graph.py`) already holds the import edges — on a real app, 4,640 nodes and 17,006 edges over 6,357 files. It answers the tier question exactly: who imports this component, how many distinct routes reach it, is there a second implementation with an overlapping consumer set. Counting consumers by reading `§ Wrappers` estimates the same number and gets it wrong precisely where it matters — a wrapper used by three pages directly and nine more through a re-export reads as a leaf when it is a token-tier change.
 
 The graph is also what makes the **V0 `/unify-surfaces` dispatch** precise: "two implementations of one surface type, each with ≥2 consumers" is a query over it, not a judgement. Absent or stale graph → fall back to `§ Wrappers` + a grep, and **say so in the row**, because an estimated tier is a different claim from a resolved one.
@@ -301,7 +343,27 @@ A proposal resolved to `token` or `wrapper-variant` is **applied once and remove
 - Per-axis metric must improve against the Phase 1 baseline, per route. A tier that moved no metric is reported as such rather than as done.
 - axe-core clean on every route that had a violation, or the row is `halted`.
 - Coverage must not drop; lint + typecheck green after every commit.
+- **Capture the before/after PAIR for every surface V2 rebuilt.** The run already holds both renders and the diagnosis that connects them, so this costs a copy and a caption:
+
+  ```
+  ai/design/reference/pairs/<surface>-<YYYYMMDD>.before.png
+                             <surface>-<YYYYMMDD>.after.png
+                             <surface>-<YYYYMMDD>.md     ← lenses moved, what changed, why
+  ```
+
+  **This is how the project acquires a reference library without anyone authoring one.** An approved screenshot says *this is fine*; a pair says *this specific change is what fine looks like here*, which is the only form a later grader can reason from. Pairs accumulate from real work, and a rebuild that was reverted (post-build score failed to beat its diagnosis) is captured too, under `rejected/` with the reason — a design that did not work is as instructive as one that did, and more likely to be re-attempted.
+
 - **Visual-baseline drift is read in both directions.** A route this run never touched that now renders differently is a regression from a V0 fix reaching further than its finding claimed — surfaced, not absorbed.
+
+## Phase 8.5 — Review the levels above the page
+
+Every tier so far graded a **view**. Good components make a bad page; good pages make a bad flow; and good flows still make a product that feels like three products — which is what a multi-portal app actually complains of. Two roll-ups, both read from artifacts the run already holds:
+
+**Flow level.** Per user flow in `/ui-sweep`'s flow grouping (auth · onboarding · the revenue path · settings), replay the flow's views in order and grade the **transitions**, not the screens: does the primary action carry the same weight and position at each step · does the page the user lands on answer what the previous step promised · does density change abruptly mid-flow · is the exit at each step the same affordance. A flow of at-bar views can still be below bar.
+
+**Application level.** Across **all** scored views: one scorecard answering whether this reads as one product. Its rows are the cross-surface ones no single view can fail — the same surface type rendered in two shapes across portals · the same role of control at two sizes · two elevation languages · two densities with no `PRODUCT_CONTEXT` boundary between them to justify them. **This is where "every portal's dashboard is different" becomes a finding** rather than a feeling, and its closure is almost always a V0 row (a token, a wrapper, or a `/unify-surfaces` dispatch) — which is why it runs last and files its findings for the next run's V0 rather than patching leaves now.
+
+Both are `NOT RUN`, stated, when fewer than two views of a comparable type were scored — a one-view sample cannot show inconsistency and must not be reported as showing consistency.
 
 ## Phase 9 — Report
 
