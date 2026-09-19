@@ -21,12 +21,12 @@ This skill exists to make that specific outcome impossible to reach by accident.
 | Input | Source | Required |
 |---|---|---|
 | `$RENDER` — screenshot of the surface, at one declared viewport | `visual-check` / Playwright MCP | **YES — no render, no score. Halt.** |
-| `$ROUTE` — the route or surface identifier | caller | YES |
+| `$VIEW` — the view identifier: the route **plus** the tab panel, wizard step, or open modal / drawer this render shows | caller | YES — a route with six tabs is six views and six scorecards; grading the default panel and reporting the route is the defect this field exists to prevent |
 | `$RUBRIC` — the lens set | [`redesign.md § Design principles`](../../commands/redesign.md) | YES (never a second, private rubric) |
 | Design tokens | `_extracted-idioms.md § Tokens` | YES — a proposal must name an existing token |
 | Shared wrappers | `_extracted-idioms.md § Wrappers` | NO (component grading is coarser without it; say so) |
 | `$METRICS` — contrast ratios, token coverage, state coverage, axe results | the caller's detectors | NO — **inputs to lenses, never the score** |
-| `$BASELINE` — a prior scorecard for this route | `ai/ui-audit/scores/<route>.md` | NO (present on a re-score; enables the before→after delta) |
+| `$BASELINE` — a prior scorecard for this view | `ai/ui-audit/scores/<route>/<view>.md` | NO (present on a re-score; enables the before→after delta) |
 
 ## Procedure
 
@@ -36,7 +36,7 @@ This skill exists to make that specific outcome impossible to reach by accident.
 4. **Grade every component** as rendered: `at-bar` / `below-bar`. Grade the **filter / control bar first and hardest** (library controls routinely keep their default theme while authored elements move on), then **charts** (their colours live in a config object, not your tokens).
 5. **Fold the metrics in as evidence, not as verdicts.** A measured 3.9:1 ratio is the *citation* under a `Δ` on the contrast lens; it is not itself the lens verdict, and a lens that has only a number under it has not been graded.
 6. **Decide the bar.** `at-bar` when no targeted lens is `✗`, at most two are `Δ`, and no component is `below-bar`. Anything else is `below-bar`.
-7. **Write the scorecard** to `ai/ui-audit/scores/<route>.md`, beside the render it was made from. The file's existence is what the caller's proof-of-work gate checks; a verdict with no file behind it is a verdict about a surface nobody looked at.
+7. **Write the scorecard** to `ai/ui-audit/scores/<route>/<view>.md`, beside the render it was made from (`index.md` for the route's default view). The file's existence is what the caller's proof-of-work gate checks; a verdict with no file behind it is a verdict about a surface nobody looked at.
 
 ## The anti-cheat (this is the part that matters)
 
@@ -49,7 +49,7 @@ The reason this check is worth its cost: **every input in `$METRICS` is a number
 ## Outputs (precise contract)
 
 ```yaml
-route: <route>
+view: <route> + <tab | step | modal | default>
 verdict: at-bar | below-bar | BLOCKED | RESCORE-REQUIRED
 job: <one line>
 primary_action: <element>

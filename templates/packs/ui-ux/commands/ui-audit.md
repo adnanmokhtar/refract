@@ -61,7 +61,7 @@ The pack's gates each protect a decision. This command resolves each one **mecha
 3. **Dirty tree or red CI at HEAD.** `git` is the rollback; it has to mean something.
 4. **A fix that re-detects after being applied** (Phase 8). Flipped `halted`, surfaced, never silently re-attempted.
 5. **`--reimagine` asked for on a multi-theme app** — that is `/add-theme-variant`'s slot system, and inventing a language in place would edit the shared layer.
-6. **A verdict with nothing behind it.** Before the run may print any per-surface outcome, `ai/ui-audit/` must hold, for **every route in the resolved set**, a stored render and a scorecard. A missing pair is not a surface with no findings — it is a surface nobody looked at, and the two are indistinguishable in a report that prints only findings. This is the mechanical half of HALT #1: #1 stops a blocked render, #6 stops a run that never attempted one. **A run that ends with no `ai/ui-audit/` directory has not "found nothing"; it has not run, and says so.**
+6. **A verdict with nothing behind it.** Before the run may print any per-surface outcome, `ai/ui-audit/` must hold, for **every VIEW in the resolved set** — every tab panel, wizard step and structurally distinct modal the crawl inventory counted, not merely every route — a stored render and a scorecard. A missing pair is not a surface with no findings — it is a surface nobody looked at, and the two are indistinguishable in a report that prints only findings. This is the mechanical half of HALT #1: #1 stops a blocked render, #6 stops a run that never attempted one. **A run that ends with no `ai/ui-audit/` directory has not "found nothing"; it has not run, and says so.**
 
 Anything else is a decision, and decisions are this command's job.
 
@@ -95,9 +95,37 @@ A `language` verdict on **one** surface is composition; the same verdict on **a 
 
 **Carve-outs the scan must honour** (from [`ui-design-sweep/SKILL.md § Cross-cutting carve-outs`](../skills/ui-design-sweep/SKILL.md)): a component-library control's inner classes and a chart's config object do **not** inherit the token layer. Both are graded as first-class components **from the render**, and a token sweep that leaves them in the library's stock theme is a miss, not a pass. This is the single most common false-green in a project-wide visual sweep.
 
-## Phase 1.5 — Score every surface (mandatory, and the reason this is not a linter)
+## Phase 1.5 — Score every VIEW (mandatory, and the reason this is not a linter)
 
-Runs on **every** rendered surface, before Phase 2 and regardless of what Waves A–C found. It is the step whose absence lets a run finish fast and report nothing.
+Runs on **every** rendered view, before Phase 2 and regardless of what Waves A–C found. It is the step whose absence lets a run finish fast and report nothing.
+
+### The unit is the VIEW, not the route
+
+**A route is not a surface. A view is.** One route commonly renders several distinct screens behind tab strips, sub-tab strips, segmented controls, wizard steps, drawers and modals — an admin settings route with six tabs is six designs sharing a URL, and they drift apart exactly because nothing ever looked at more than the first one.
+
+Scoring per route grades whichever panel happened to be active and then reports the route as scored. That is the same defect HALT #6 exists to prevent, one level down: five panels invisible, and a ledger that says covered.
+
+**The inventory already exists** — `/ui-crawl` walks tabs, dialogs and dropdowns and writes their counts into `ai/audits/ui-crawl-inventory.json`. Phase 0 reads that count; Phase 1.5 must produce one scorecard per counted view, and a route whose inventory says 6 tabs and whose score directory holds 1 file fails HALT #6.
+
+A view is enumerated when activating it **changes what is rendered without changing the route**:
+
+| Counts as its own view | Does not |
+|---|---|
+| Each tab / sub-tab panel | A tab whose panel is the same component with a different filter value — score once, note the parameter |
+| Each wizard or stepper step | Hover, focus and pressed states — component states, graded inside their view |
+| A modal, drawer or sheet with its own layout | A confirm dialog that is the shared `confirm` primitive — graded once, project-wide |
+| An empty / loading / error state that replaces the whole view | An inline field error |
+| A role- or permission-conditional layout that differs structurally | The same layout with fewer rows |
+
+**Modals, drawers and sheets are the half most often missed, and the half that most needs grading.** A tab is at least visible on arrival; a dialog requires an interaction to exist at all, so a run that only loads routes never sees one. They also concentrate the two defects this command was extended for:
+
+- A dialog is **literally a surface on a surface** — the floating-surface fingerprint applies to it against the scrim *and* against the page behind it, and a dialog that reads as lifted on a white page can vanish on a dark one.
+- Form dialogs are where control-size disagreement lives, because their footer buttons and their fields are usually authored in different files from the page's.
+- A dialog is the most common place a project keeps a **second, competing implementation** of a surface it already has — the V0 `/unify-surfaces` dispatch should expect to find pairs here.
+
+**Open every one the crawl inventory counted**, grade it as its own view, and grade its **trigger state** too where the page changes behind it (a scrim that dims, a body that scrolls). A dialog that was never opened is `Live, unreviewed`, never `clean`.
+
+**Cost control, honestly stated.** Enumerating views multiplies the work — six tabs is six renders and six scorecards. `--first-run` caps the count per route and the ledger reports the uncapped population as `Live, unreviewed`, so the cap is visible rather than silent. What is never acceptable is scoring one view and reporting the route.
 
 **Dispatch the [`design-score`](../skills/design-score/SKILL.md) skill per surface.** It grades the rendered image against [`redesign.md § Design principles`](redesign.md) — the same lens set `/redesign` designs against and scores with — and carries the halt this phase depends on: no render, no score, ever. Do not inline the grading here and do not invent a second rubric; a second vocabulary for the same judgement is how two commands start disagreeing about whether a page is good.
 
@@ -111,7 +139,7 @@ Per surface, per lens: `✓` / `Δ` (with a one-line cited note) / `✗`. Plus t
 
 **Honest residuals.** A lens the run cannot grade from a still image — motion, focus order, keyboard behaviour — is recorded `NOT RUN` with the reason, never `✓`. `/redesign` already draws this line for what a drawing can and cannot carry; the same line applies to a screenshot.
 
-Scores land in `ai/ui-audit/scores/<route>.md` and are the input HALT #6 checks for.
+Scores land in `ai/ui-audit/scores/<route>/<view>.md` — one file per view, `index.md` for the route's default view. This is what HALT #6 counts against the crawl inventory.
 
 ## Phase 2 — Cross-axis rank
 
@@ -131,9 +159,10 @@ Every finding carries: id · axis · surface · `<file:line>` · closure verb (o
 Written as the **first section** of `ai/ui-audit/plan.md`, before any finding — the same discipline [`audit.md § Phase 2b`](../../../../commands/audit.md) applies to engineering cells, applied here to `route × axis`.
 
 ```
-## Cell ledger — 34 routes × 9 axes = 306 cells
+## Cell ledger — 34 routes → 61 views × 9 axes = 549 cells
 
-Reviewed          214   findings ranked below
+Views scored       61 / 61  ← fewer than the crawl inventory counted BLOCKS the run
+Reviewed          389   findings ranked below
 N/A                61   each with a reason
 Live, unreviewed   31   ← nobody is looking at these
 Blocked             0   ← any value here HALTs (see HALT #1)
