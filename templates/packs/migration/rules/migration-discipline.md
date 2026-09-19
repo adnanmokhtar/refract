@@ -1,4 +1,10 @@
 ---
+paths:
+  - "**/migrations/**"
+  - "**/migrate/**"
+  - "**/alembic/versions/**"
+  - "**/prisma/migrations/**"
+  - "**/db/migrate/**"
 name: migration-discipline
 description: "Migration Rule: V1→V2 port discipline"
 kind: rule
@@ -8,6 +14,17 @@ applies-to: migration-track, every-code-writing-task-in-migration
 ---
 
 # Migration Rule: V1→V2 port discipline
+
+> **Why this rule declares its own `paths:`.** It shipped without one. A rule with no `paths:` is
+> an *always-tier* rule: it either loads on every turn or, when the always-tier budget is full, it
+> is withheld and loads on **none**. MEASURED on a real repo — withheld at ~7.8k tok/turn, recorded
+> in `_unloaded.md` as deliberately not imported, and therefore delivered nowhere, while the three
+> rules that EXTEND it (`migration-backend`, `migration-frontend`, a project's `migration-safety`)
+> had been path-scoped at install and were firing **without their shared base**. Recording that a
+> rule was withheld is honest; it is not the same as reachable. The globs above are the
+> stack-independent ones — every migration directory shape the packs know. Per-project scoping may
+> widen this (a source tree the extending rules cover); it must not narrow it to nothing.
+
 
 ## CORE PHILOSOPHY — read this first, internalize, do not deviate
 
