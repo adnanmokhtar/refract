@@ -219,32 +219,41 @@ unit (`/refactor`, `/task`, `/delegate`, `/upgrade-dep`), route (`/do`), produce
 
 ## Current known-open list
 
-**Three items, and they are one item wearing three hats.**
+**One item.** Two of the three closed on 2026-09-19 by the first authenticated run.
 
-1. **Neither Phase 1.5 has ever run.** `/audit`'s and `/ui-audit`'s bars are both unexercised. The
-   scoring step is exactly the kind of instruction a model satisfies cheaply if nothing stops it —
-   which is what the Phase 9 external check exists for, and that check has not run either.
-2. **`unify-component`'s boundary is prose.** V0 dispatches `/unify-surfaces` when it finds two
-   competing implementations; nothing has yet fired that condition on a real repo that has them.
-3. **`/ui-audit` has never completed a full run.** Its one observed execution did nothing. Phase
-   1.4, Phase 1.5, HALT #6, the component laboratory, the scope tier, the graph read, the refine
-   loop, the pair capture and Phase 8.5 are **all unexercised**.
+### Closed by running
 
-**Closed since this list was written** — kept visible because a list that silently drops rows
-cannot be trusted about the rows it keeps:
+- ~~**Neither Phase 1.5 has ever run**~~ → run against four authenticated views of a real admin app
+  (dashboard · users · POS · a POS **tab panel**): logged in through the app's own dev-seed path,
+  navigated, activated a tab, rendered, measured, judged. The loop works end to end.
+- ~~**`/ui-audit` has never completed a full run**~~ → its core is exercised. Not the whole command
+  — V2's rebuild and the refine loop still have not fired — but the part that failed on the observed
+  run (render → look → score → refuse-without-evidence) now has.
 
-- ~~`design-score`'s anti-cheat is self-policed~~ → Phase 9 now verifies it externally (render
-  exists · one lens cites the image · every `NOT RUN` has a reason · scored count = view count).
-- ~~Seven pack probes named impossible directories~~ → the probe check skips markdown table rows;
-  a fenced block is something to RUN, a table row is something to LOOK UP.
+### Still open, and honestly so
 
-**Why these three are not closable by writing.** Every defect found on 2026-09-19 — six of them —
-was invisible to reading and obvious within minutes of running. The last was found while reading a
-skill that was about to be passed over. More specification cannot close a gap whose whole nature is
-that specification and behaviour diverge.
+- **`unify-component`'s boundary is prose.** V0 dispatches `/unify-surfaces` when it finds two
+  competing implementations of one surface type; no run has yet met a repo that has them. **This
+  cannot be closed by choosing to believe it** — it needs a codebase with the condition, and if the
+  app at hand has none, the row stays open rather than being ticked for lack of a counter-example.
 
-**The single highest-value next action is one `/ui-audit --plan` on a real app.** It is worth more
-than any remaining row in this document.
+### The seventh defect, and where it was found
+
+The first authenticated run found a defect **in this document's own specification**, which is the
+strongest argument in it for running over reading.
+
+The control-size fingerprint says *"group by row from the RENDER, not from the markup tree."* The
+first implementation of it grouped by **vertical band only** — and returned **eight findings across
+four views, every one false**: a sidebar item paired with a panel button on the far side of a
+1440px screen because they sat at the same height. Adding the missing condition — **horizontal
+adjacency**, not merely a shared vertical position — took the same four views to **zero findings**,
+which was the truth. Those screens are consistent.
+
+The instruction was written. The implementation violated it. Nothing but a run could have caught
+that, and the spec now states both halves of the test rather than one.
+
+**Seven defects on 2026-09-19. Every one invisible to reading.** Six were found by running the
+tooling; the seventh by running the specification.
 
 ---
 

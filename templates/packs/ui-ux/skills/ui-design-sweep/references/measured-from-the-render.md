@@ -136,9 +136,21 @@ verb only closes *accidental* disagreement inside one class.
 
 ### Procedure
 
-1. **Group by row from the RENDER**, not from the markup tree. Flex and grid children that wrap
-   land in different visual rows while remaining siblings in source; a source-only grouping compares
-   controls the user never sees side by side.
+1. **Group by row from the RENDER**, not from the markup tree — and a shared vertical position is
+   NOT a row. **A true row requires BOTH**: vertical centres within ~6px **and horizontal adjacency**
+   (the gap between one control's right edge and the next control's left edge under ~64px, or
+   whatever the surface's own gutter is). Either test alone produces garbage.
+
+   **MEASURED, and it was this document's own instruction being violated.** A first implementation
+   of this fingerprint grouped by vertical band only, ran against four authenticated admin views,
+   and returned eight findings — *every one of them false*. It had paired a sidebar item with a
+   panel button that merely sat at the same height, on the opposite side of a 1440px screen. Adding
+   the adjacency test took the same four views to **zero findings**, which was the truth: those
+   screens are consistent.
+
+   A vertical-band-only implementation does not find control-size defects. It finds page layouts,
+   and reports them as defects. Flex and grid children that wrap also land in different visual rows
+   while remaining siblings in source, so the markup tree is no substitute either.
 2. Sample each control's computed border-box height and vertical centre.
 3. **Partition the row by control class** (table above) before comparing anything. Resolve each
    class to its own scale if the project declares one (`--control-h-sm` / `-md` / `-lg`, or the
