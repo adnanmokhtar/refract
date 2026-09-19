@@ -265,6 +265,10 @@ Without these blocks the validator halts with: "Phase 0 evidence missing in <fil
 
 A Phase 0 run that outputs only architecture-decisions.md without the four evidence blocks above is a "summary diagnosis" — flagged equivalent to the F039 anti-Trusted-Summary recurrence. The validator refuses to advance /optimize past Phase 0 without visible evidence.
 
+## Verify (postconditions)
+
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.
+
 ## Failure modes
 
 - **No findings** → emit "Codebase already architecturally clean; tactical sweep proceeds directly."

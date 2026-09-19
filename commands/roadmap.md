@@ -8,6 +8,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 # /roadmap [<scope>] [--goal "<intent>"] [--build [<N>]] [--status]
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../templates/snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
 ## What this does
 
 **Single command. Map everything still missing to finish the project into a phased completion plan — then, optionally, build it one phase at a time.** Deep multi-agent scan of a SINGLE codebase, no second reference required. Whole project or scoped. **Read-only by default** — it produces a plan, not a diff.

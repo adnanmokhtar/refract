@@ -13,6 +13,8 @@ allowed-tools: [Read, Grep, Glob, Bash]
 
 # /setup-project-health
 
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../templates/snippets/coverage-ledger.md). `no findings` and `did not look` print identically in a report that lists only findings. Every unit lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population.
+
 ## The Premise (read first, internalize, do not deviate)
 
 **Read-only health audit. Cite real artifacts. No vague "looks healthy" verdicts.** Every check produces a concrete metric (count, age in days, file path, line number, sha) — or the check did not run. "Appears fine" / "looks healthy" / "in good shape" are forbidden phrases; they are the failure mode this command exists to prevent.

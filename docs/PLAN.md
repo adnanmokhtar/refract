@@ -1,6 +1,6 @@
 # The plan — one plan
 
-**Status: the DONE rows are built and pushed; everything else is a brief.** Written 2026-09-19,
+**Status: every row that can be closed by writing is closed and pushed. What remains needs a RUN.** Written 2026-09-19,
 merged from two separate plans that were about the same thing: Track A (is every artifact
 honest?) and Track B (can the system design, not just execute?). Keeping them
 apart was the mistake they both warn about — two documents covering one domain, each assuming the
@@ -186,6 +186,36 @@ stand behind.
 
 **Not closable by writing.** Known-open #1, #2 and #4 all reduce to the same sentence: the machinery
 has never completed a real run. No amount of specification closes them.
+
+## Track A swept, 2026-09-19 (third pass) — the plan's writing is DONE
+
+**Row 5 — the 118 skills, question 1.** All 118 declare boundaries. Ten skills *write* and had no
+postcondition check; spot-checking the riskiest (`dlq-replay`, which replays a dead-letter queue)
+showed the shape precisely — strong preconditions (*refuse unless the fix is deployed, halt unless
+idempotency is verified*), a `## Failure modes` list naming exactly what would go wrong, and nothing
+that looks afterwards to see whether it did. **The knowledge was present and nothing checked it**,
+for the sixth time this week. `templates/snippets/postcondition-check.md`, wired into nine of them:
+every documented failure mode the write could cause becomes an observed check, reported on pass as
+well as fail, `NOT RUN` with a reason where no signal exists.
+
+**Row 4 — the other 22 packs' agent rosters, question 5.** Swept, and the honest result is a
+negative: **the ui-ux missing chair was unique.** `align`'s four agents are all auditors and that is
+correct — it enforces rules the project already documents and is not meant to design; the absence is
+the design. `documentation` has two writers plus five skills that verify accuracy, coverage and that
+the quickstart actually runs. `algorithms` is a deliberately minimal pack. **No agents invented to
+fill a table.**
+
+**Row 2 — ui-ux as one system.** The three-way craft seam was one-way: `ui-designer` named
+`design-system-guardian` and `ux-reviewer` six times and neither named it back. Closed in both
+directions — the guardian now routes *"conformant and still wrong"* on rather than softening it into
+a weak violation, and `ux-reviewer` states that the floor is never traded for the ceiling and hands
+*"works and is unpleasant"* over rather than filing it as a usability failure it cannot defend.
+
+**Row 3 — the 16 global commands.** Surveyed. Two more genuinely scan a population and report
+findings — `/roadmap` and `/setup-project-health` — and now carry the ledger. The rest act on **one**
+unit (`/refactor`, `/task`, `/delegate`, `/upgrade-dep`), route (`/do`), produce output only
+(`/refine-prompt`), create from nothing (`/scaffold-project`), or already carry stronger machinery
+(`/audit`'s cell ledger, `/setup-project`'s audit script). A ledger on those would be ceremony.
 
 ## Current known-open list
 

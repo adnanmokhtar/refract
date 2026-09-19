@@ -109,3 +109,7 @@ Closure verb: **generate-and-write** when history is fully classifiable, **halt-
 - `doc-refresh.md` (command) — after a release, doc-refresh reconciles `ai/status.md` `Updated:` + `## Recent Changes` with the just-generated notes.
 - `@doc-writer` — polishes the human phrasing of feature/breaking entries once the categorized skeleton is generated; this skill produces the classified structure, doc-writer sharpens the prose.
 - `devops` release flow (cross-pack) — consumes the derived semver bump + notes to tag, version, and publish; changelog-generate produces the artifact that flow ships.
+
+## Verify (postconditions)
+
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.

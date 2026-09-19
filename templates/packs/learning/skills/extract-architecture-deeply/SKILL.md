@@ -218,3 +218,7 @@ cross_cutting:
 - **Synthesizing lifecycles** from framework defaults instead of tracing actual handlers.
 - **Citing middleware that's defined but never registered** — only middleware in the actual chain counts.
 - **Generalizing across surfaces** — if HTTP and queue handlers behave differently (e.g. queue handlers skip tenant middleware), record both. Don't average.
+
+## Verify (postconditions)
+
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.

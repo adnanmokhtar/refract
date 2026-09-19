@@ -194,6 +194,10 @@ Common drifts:
 - **Migration tested in staging** — every closure verb's migration runs in staging before prod; staging dataset must reflect prod scale (≥ 10% sample).
 - **No detector invents conventions** — canonical comes from `_extracted-idioms.md § Schema conventions`.
 
+## Verify (postconditions)
+
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.
+
 ## Failure modes
 
 - **Conventions missing** → halt; surface "/setup-project --refine to declare schema conventions first".

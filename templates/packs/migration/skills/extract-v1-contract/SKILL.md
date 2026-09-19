@@ -288,6 +288,10 @@ Before you start, read `ai/migration/_v2-anchors.md` (schema at `templates/packs
 
 Without anchors, contracts drift from V2 reality. The validator's `check_v2_structure` + `check_composable_reuse` + `check_service_shape` halts at audit time on contracts that ignore anchors.
 
+## Verify (postconditions)
+
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.
+
 ## Failure modes
 
 - **"This feature is too small to need a contract."** — small features are where regressions hide because nobody bothered. The contract is cheap; write it.

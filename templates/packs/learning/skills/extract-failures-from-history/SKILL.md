@@ -175,3 +175,7 @@ one_off_failures:
 - **Naming individual engineers** — failure catalog is institutional learning, not blame. Strip names.
 - **Extracting from a fork's `main` while ignoring `develop`** — many shops do hotfixes on `main` and feature work on `develop`. Walk both.
 - **Skipping commit bodies** — the subject is often terse ("fix bug"); the body has the details. Always read both.
+
+## Verify (postconditions)
+
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.

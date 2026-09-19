@@ -152,6 +152,10 @@ Report: ai/audits/dlq-replay-<handler>-<date>.md
 - **Audit trail.** Replay logged: who, when, how many, outcome.
 - **Don't replay from a backup older than retention.** Compliance / GDPR concerns if PII in old events.
 
+## Verify (postconditions)
+
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.
+
 ## Failure modes
 
 - Replayed before fix → messages back in DLQ; cycle repeats.
