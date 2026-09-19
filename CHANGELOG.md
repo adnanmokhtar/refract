@@ -6,6 +6,44 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Unification: the half `/ui-audit` could not close (2026-09-19)
+
+Three gaps, all raised by an owner reading the shipped command against his own app.
+
+**`unify-component` only ever closed the easy half.** Its fingerprint is *a shared wrapper exists
+AND a raw element is used* — it swaps the raw site for the wrapper, and that is the whole verb.
+What a project actually accumulates is the other case: **two competing wrappers**, both shared,
+both real, neither raw; or a rolled-own component that must be folded INTO the canonical one,
+absorbing its props. No verb in the closed 19 can close those — reconciling a rolled-own instance
+into a canonical shape means deciding which implementation wins, migrating the loser's call sites
+and widening the survivor's contract. That is `/unify-surfaces`' whole job. `/ui-audit` V0 now
+**dispatches it** when the component-utilization detector reports ≥2 implementations of one surface
+type each used by ≥2 consumers, one type at a time, descending by consumer count, before any leaf
+work — with three guards: never on a single implementation, never on a pair `§ Wrappers` names as
+deliberately different (ambiguity becomes a `Live, unreviewed` row rather than a guess, because
+merging two surfaces meant to differ is not recoverable by re-running anything), and always after
+tokens and before composition.
+
+**Nothing asked whether two controls in a row agreed with each other.** Verb 7 polices spacing
+against the token grid; `expand-tap-target` polices a minimum. A 38px input beside a 42px button
+passes both and the row still reads as broken — and it is invisible in source, because a control's
+height is padding + line-height + border, three declarations each individually correct. Verb 7
+gains a control-size sub-fingerprint.
+
+**Equal height is the wrong goal**, and getting that wrong would have done real damage: forcing a
+switch into a 40px box to match the field beside it produces a stretched toggle with dead padding,
+a worse row than the one the verb was sent to fix. So the verb partitions a row by control CLASS
+first — text-entry and action ride the control-height scale, binary controls (switch · checkbox ·
+radio) carry an intrinsic size that is theirs and not the row's, icon-only controls carry a square
+step — compares heights only WITHIN a class, and across classes checks optical alignment only. A
+run that equalised a switch to an input has failed this verb, not passed it.
+
+**`SKILL.md` was at 500/500 lines**, so both deepenings live in
+`references/measured-from-the-render.md` with tight summaries in place: what they share is that
+both are properties of the rendered box rather than the declaration, so neither can be answered by
+reading source, and a run without a render harness reports them `NOT RUN` rather than `pass`.
+
+
 ### `/ui-audit` — the design team in one command (2026-09-18)
 
 **What was missing** — `/audit` is the engineering team in one command: it scans every axis, ranks

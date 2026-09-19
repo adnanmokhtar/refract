@@ -184,6 +184,18 @@ Two element classes do NOT inherit the design-token / theme layer, so several ve
 
 **Citation**: Refactoring UI Ch. 4 (work in spacing/sizing system); 8pt grid theory; `ui-principles.md`.
 
+#### Control-size sub-fingerprint (a deepening of verb 7 — NOT a 20th verb)
+
+Verb 7 polices spacing against the token grid; `expand-tap-target` polices a **minimum**. Between them nothing asks whether two controls **in the same row agree with each other**. A 38px input beside a 42px button passes both and the row still reads as broken — and it is invisible in source, because a control's height is padding + line-height + border, three declarations that are each individually correct.
+
+**Equal height is the wrong goal** — partition the row by control CLASS first. Text-entry (input · select · combobox · date field) and action (button · segmented · dropdown trigger) ride the control-height scale; **binary controls (switch · checkbox · radio) carry an intrinsic size that is theirs, not the row's**, and icon-only controls carry a square step. Forcing a switch to a 40px box to match the field beside it produces a stretched toggle with dead padding — a worse row than the one the verb was sent to fix.
+
+**Fingerprint**, within one rendered control row (toolbar, filter bar, form row, search + button): **same class**, heights differing by **≥2px** without both snapping to a declared step of that class's scale; OR same class *and* role (two buttons, two inputs) differing **at all**; OR — across ANY classes — **vertical centres** offset by ≥2px, which is an alignment fault with a different repair. A **declared variant** (a deliberately large primary CTA) is a decision, and a cross-class height difference is a contract; neither is a finding.
+
+**Fix** at the wrapper by snapping one class's members to one step. Across classes never touch height — repair centres on the row. No scale declared → emit `extract-token` and stop; inventing a height per row is how a project acquires eleven button heights. Never pad one control until it looks right.
+
+Row grouping, the ≥2px rationale, and the tap-target trade: **`references/measured-from-the-render.md` § B**.
+
 ### 8. simplify-density
 
 **Fingerprint**:
@@ -259,28 +271,15 @@ Two element classes do NOT inherit the design-token / theme layer, so several ve
 
 #### Floating-surface sub-fingerprint (a deepening of verb 12 — NOT a 20th verb)
 
-**The miss this closes.** Every check above measures something *against* a surface — text on a card, an icon on a button. Nothing measured the **surface against what it sits on**. A `#ffffff` card on a `#f8fafc` page is **1.04:1**: it passes every text check, every axe rule and every token audit while its edges are invisible. The same shape recurs on panels, modals, popovers, sticky headers and table row-groups, and it is the most common "the sweep ran and the page still looks unfinished" complaint. The closed set stays **19 verbs / 16 axes** — a fingerprint on the existing verb, same status as the library-control and chart carve-outs.
+Every check above measures something *against* a surface — text on a card, an icon on a button. **Nothing measured the surface against what it sits on.** A `#ffffff` card on a `#f8fafc` page is **1.04:1**: it passes every text check, every axe rule and every token audit while its edges are invisible.
 
-**Fingerprint**: a container whose boundary is resolvable by **none** of three cues — no border / outline reaching ≥3:1 against the adjacent fill, AND no elevation cue that survives the render (a shadow left unmeasurable at 100% zoom does not count), AND a surface-pair luminance ratio **< 1.2:1** against the fill immediately outside its edge.
+**Fingerprint**: a container whose boundary is resolvable by **none** of three cues — no border / outline reaching ≥3:1 against the adjacent fill, AND no elevation cue that survives the render, AND a surface-pair luminance ratio **< 1.2:1** against the fill immediately outside its edge. The three **combine**: grading one alone is a false positive.
 
-**Calibrated, and the three cues COMBINE.** All three must fail before a container is floating; grading one in isolation is a false positive. Measured on a production RTL admin portal that had this defect and fixed it: broken, its page→card step was **1.123:1** with a hairline border and no lift — correctly flagged. Repaired, that step reads **1.22:1** and its border only **1.252:1**, far below the 3:1 a border needs to carry the job *alone* — yet the card is unmistakable, because a shadow and a real surface step carry it together. A rounder 1.5 threshold, or a border bullet graded on its own, would condemn a surface its owners had already fixed — which is how a sweep teaches its owner to stop reading its findings. The margin between the two states is why the pair is measured from the render and never eyeballed.
+**Fix** at the role, with the project's existing elevation language, in order: border token → elevation token → surface-step token. Never invent a grey (that is `extract-token`). **Separation is the container's edge and its shadow — never the page's weight.** Verify in dark mode too.
 
-**The fix is the edge, not the ground.** That portal's first attempt was to darken the PAGE until the white card separated by brute force: it bought separation and cost the palette — the ground went from paper to saturated steel, every rung between page and card turned to mud, and the primary fell to 4.35:1 on it, a contrast test failing on a change made for contrast. Separation is the container's edge and its shadow; the page is a rung, not a lever, which is why step 3 fixes at the container and never by re-weighting what sits behind it.
-**Procedure**:
-1. **Measure from the RENDER, never the source.** Sample the container's fill and the fill immediately outside its edge. Source reading cannot resolve a computed background, an inherited surface token or a shadow the browser flattened away.
-2. Compute the surface-pair ratio. All three cues absent → floating.
-3. Fix with the project's **existing** elevation language, in this priority order: a defined border token → an existing shadow / elevation token → a surface-step token (`surface-1` / `surface-2` / `--bg-elevated`). **Never invent a new grey** — an undefined value here is `extract-token`'s job (verb 2), and inventing one per card is how a project ends up with nine card backgrounds.
-4. Apply at the **role**, not the instance — every container of that role in one fix, so half the app does not end up bordered and the other half not (a per-instance fix here is the defect `consolidate-tokens` exists to prevent). Where the elevation language has no cue to reach for, that is a **missing** language, not a failed fix: hand the role to `extract-token` and say so, never improvise.
+Full fingerprint, the measured calibration behind the 1.2 threshold, and the darken-the-page anti-pattern: **`references/measured-from-the-render.md` § A**.
 
-**Verify**: re-render and re-sample the pair; the boundary must be resolvable at 100% zoom **and in dark mode** — a shadow tuned on a light page routinely vanishes on a dark one, so a light-only verification is not a verification. Re-check that no text contrast regressed when the surface moved.
-
-**Citation**: WCAG 2.2 SC 1.4.11 (Non-text Contrast — *"boundaries of components needed to identify them"*, the clause the button-border bullet above reads too narrowly).
-
-**Carve-out (library controls · charts)** — see "Cross-cutting carve-outs" above: a failing ratio on a **default-themed library control** (`.p-*` button border / placeholder / disabled text) is fixed by a `:deep()` / `::v-deep` / CSS-var override on its inner class, not a token swap on your element (which never reaches it). A failing ratio inside a **chart** (series vs background, axis / tick label vs grid) is fixed in the chart's config — re-theme it, do NOT blind-replace a hex with `var(--token)` a canvas chart can't resolve — then re-measure the ratio from the rendered chart pixels (the screenshot), not from the source literals.
-
-**Verify**: axe-core / Lighthouse a11y score regains ≥95; visual baseline diff present (intentional); no other contrast regressions introduced.
-
-**Citation**: WCAG 2.2 SC 1.4.3 (Contrast Minimum) + 1.4.11 (Non-text Contrast); `ui-principles.md § Must: Color contrast ≥ 4.5:1 / 3:1`.
+**Citation**: WCAG 2.2 SC 1.4.11 (Non-text Contrast — *"boundaries of components needed to identify them"*).
 
 ### 13. align-focus-ring
 

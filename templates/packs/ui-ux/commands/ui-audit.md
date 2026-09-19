@@ -153,6 +153,34 @@ The highest-leverage tier and the reason this command is not a per-page loop. On
 - Each commit: re-detect → apply → **re-render every affected route** → visual diff must be within the verb's stated tolerance → lint + typecheck + scoped tests → commit.
 - **The carve-outs are executed here, not deferred.** Library-control inner classes get explicit `:deep()` / theme-token overrides; chart configs get re-themed through their own theming API (or a build-time-resolved literal). Verified from the rendered pixels, never from "a chart is present".
 
+### The competing-implementation escape hatch — V0's one dispatch out of the verb set
+
+`unify-component` fires on exactly one shape: **a shared wrapper exists and a RAW element is used somewhere that fits its contract.** It swaps the raw site for the wrapper. That is the whole verb, and it leaves the harder case untouched — the one a project actually accumulates:
+
+| What Wave B found | Closable here? |
+|---|---|
+| A raw `<button>` where `<AppButton>` exists | **yes** — `unify-component` |
+| A radius / shadow / height literal where a token exists | **yes** — `consolidate-tokens` |
+| A page whose skeleton diverges from its surface-type prototype | **yes** — `normalize-surface` |
+| **Two competing wrappers** — `Card` and `PanelBox`, both shared, both real, neither raw | **NO** |
+| **A rolled-own component** that must be folded INTO the canonical one, absorbing its props | **NO** |
+
+The last two are what the user means by *"every page uses a different shape."* No verb in the closed 19 can close them: reconciling a rolled-own instance INTO a canonical shape requires deciding which implementation wins, migrating the losing one's call sites, and widening the survivor's contract to cover what the loser did. That is `/unify-surfaces`' entire job, and duplicating it here would create a second, weaker implementation of the exact thing this section is about.
+
+**So V0 dispatches it.** When Wave B's component-utilization detector reports ≥2 implementations of one surface type that are each used by ≥2 consumers and neither is raw, V0 runs:
+
+```
+/unify-surfaces <surface-type> --scope=<the union of both implementations' consumers>
+```
+
+one surface type at a time, in descending consumer count, before any leaf work. Its commits land in this run's ledger like any other V0 row, and its result is re-rendered and re-scored by Phase 8 exactly as a verb's would be. `--tier=V0` includes these dispatches; `--plan` lists them as rows without running them.
+
+**Three guards, because this is the one place V0 leaves its own vocabulary:**
+
+1. **Never on a single implementation.** One wrapper plus raw sites is `unify-component`, and sending it to `/unify-surfaces` would rebuild a wrapper that already works.
+2. **Never on a declared variant.** Two implementations that `_extracted-idioms.md § Wrappers` names as *deliberately different* surfaces (a `Card` and a `StatCard` with different jobs) are a decision, not drift. When § Wrappers is silent on the pair, the run reports the ambiguity as a `Live, unreviewed` ledger row rather than guessing — merging two surfaces that were meant to differ is not recoverable by re-running anything.
+3. **After tokens, before composition.** Consolidating tokens first means the survivor is already on the design language when consumers migrate onto it; running it after V2 would re-open every page V2 had just rebuilt.
+
 ## Phase 5 — V1: correctness of experience (sequential)
 
 Things that are not taste. A user is blocked, misled, or excluded.
