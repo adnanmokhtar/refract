@@ -340,8 +340,34 @@ sweep must **resolve the app to a steady state** — dismiss what a returning us
 dismissed — before the first measurement, and a dialog present on every route is a view to grade
 once, not a lens to grade everything through.
 
-**Sixteen defects on 2026-09-19** — seven in the tooling, eight in the specification, one accusation
-retracted, seven findings withdrawn — and **one real product defect fixed**, by looking.
+### The 165 tab panels, and a second retraction
+
+All 165 tabs across 29 routes were opened and read. **Zero raw keys, zero size defects.** The
+strongest-looking finding — `/settings` showing 10 of 20 tabs — was retracted: the other ten are in
+an overflow menu whose trigger reads **`10`**. The sweep had searched for `···`, not found it, and
+concluded from its own absence.
+
+The code held the entire history. The owner rejected wrapping (*«حاول ميكنش في كذا line»*), then
+rejected scrolling (*«انا مقصدش يكون في scroll»*), and the overflow menu is the third answer, built
+deliberately, with the measurement in the file: 2,560px of labels against the ~1,150px a 1440
+viewport leaves.
+
+`ui-designer` gains the rule this cost: **before calling anything a defect, look for the decision.**
+A project that argues with itself in its own source has usually argued about the thing you are
+looking at. Two new halts — a finding that contradicts a recorded decision without quoting it, and
+a finding derived from something you could not find.
+
+### What the whole sweep actually produced
+
+**One product defect**, across 65 routes and 165 tab panels: raw i18n keys on an empty screen,
+from Arabic's missing `_zero` plural. Fixed and verified.
+
+Everything else was mine. Eight specification defects, one accusation retracted, seven findings
+withdrawn, and one more retraction here. **The app kept answering in comments** — «سايحة», «عدم
+تماثل», «ميكنش في كذا line» — questions it had already asked and closed before the sweep arrived.
+
+**Seventeen defects on 2026-09-19** — seven in the tooling, ten in the specification — and one real
+product defect found and fixed, by looking.
 
 ---
 
