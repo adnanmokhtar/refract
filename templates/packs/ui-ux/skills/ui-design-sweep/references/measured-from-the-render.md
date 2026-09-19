@@ -48,7 +48,12 @@ between the two states is why the pair is measured from the render and never eye
 ### Procedure
 
 1. **Measure from the RENDER, never the source.** Sample the container's fill and the fill
-   immediately outside its edge. Source reading cannot resolve a computed background, an inherited
+   immediately outside its edge — **its nearest PAINTED ANCESTOR, not the page.** MEASURED: an
+   implementation that compared every container against `body` reported 28 floating surfaces across
+   seven screens, 9 of them on one page. They were inner layout `div`s inside white cards: no
+   border, no shadow, and a low ratio *against the page* — while sitting on the card, where they
+   belong and read correctly. A container whose computed fill equals its painted ancestor's is not a
+   surface at all; it is a layout box, and it is excluded before the ratio is taken. Source reading cannot resolve a computed background, an inherited
    surface token or a shadow the browser flattened away.
 2. Compute the surface-pair ratio. All three cues absent → floating.
 3. Fix with the project's **existing** elevation language, in this priority order: a defined border
@@ -151,6 +156,15 @@ verb only closes *accidental* disagreement inside one class.
    A vertical-band-only implementation does not find control-size defects. It finds page layouts,
    and reports them as defects. Flex and grid children that wrap also land in different visual rows
    while remaining siblings in source, so the markup tree is no substitute either.
+
+   **And adjacency is not sufficient either — the pair must share a REGION.** A sidebar sits flush
+   against the content area, so its last item and the content's first control are horizontally
+   adjacent at the boundary and pass a gap test. MEASURED on the same app once adjacency was added:
+   `اداره المنتجات = 32` (a sidebar entry) paired with `الملف الشخصي = 38` (a content tab) and
+   reported as a size defect. They are in different regions and were never a row. Resolve each
+   control's nearest landmark ancestor — `nav` / `aside` / `header` / `main` / `footer` / a dialog —
+   and compare only within one. **Three conditions, not one: same region, centres within ~6px,
+   horizontally adjacent.**
 2. Sample each control's computed border-box height and vertical centre.
 3. **Partition the row by control class** (table above) before comparing anything. Resolve each
    class to its own scale if the project declares one (`--control-h-sm` / `-md` / `-lg`, or the

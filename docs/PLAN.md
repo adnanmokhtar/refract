@@ -252,8 +252,36 @@ which was the truth. Those screens are consistent.
 The instruction was written. The implementation violated it. Nothing but a run could have caught
 that, and the spec now states both halves of the test rather than one.
 
-**Seven defects on 2026-09-19. Every one invisible to reading.** Six were found by running the
-tooling; the seventh by running the specification.
+**Nine defects on 2026-09-19. Every one invisible to reading.** Six by running the tooling; three
+by running the specification.
+
+### The other two spec defects, same shape
+
+The sweep was then pointed at 65 routes. Two more conditions turned out to be missing, both from
+sentences that read as complete:
+
+- *"group by row from the RENDER"* had gained horizontal adjacency and still paired a **sidebar
+  item with a content tab** — they abut, so they pass a gap test. The missing condition was
+  **region**: resolve each control's nearest landmark ancestor and compare only within one. Three
+  conditions, not one.
+- *"the fill immediately outside its edge"* was implemented as the **page** background. It reported
+  **28 floating surfaces across 7 screens**, 9 on one page — every one an inner layout `div` inside
+  a white card, correctly placed, compared against the wrong thing. The fill outside a container's
+  edge is its **nearest painted ancestor**, and a container whose fill equals its ancestor's is a
+  layout box, not a surface.
+
+**The pattern across all three spec defects is identical**: a sentence that is true, sufficient to a
+reader, and under-specified to an implementer. None was findable by re-reading; each took one run.
+
+### What the run also proved
+
+`routes 65 = scanned 7 + blocked 58` — the session expired mid-sweep and **the run said so**. It
+did not report 65 scanned and clean. That arithmetic is the whole point of the coverage ledger and
+HALT #1, observed working on the exact failure the visual sweep originally shipped.
+
+**The full 65-route sweep is still owed.** The dev session expires faster than the sweep runs; a
+run that completes it needs a longer-lived session, and until one exists the ledger will keep
+reporting most routes `blocked` — correctly.
 
 ---
 
