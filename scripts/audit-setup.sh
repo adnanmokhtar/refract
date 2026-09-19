@@ -1881,6 +1881,38 @@ fi
 # This is PRE-EXISTING owner content and the merge engine is right to preserve it verbatim, so
 # the fix is not a rewrite: it is that nothing may report such a probe as clean. The check names
 # the file, the line and the directories that DO exist, and leaves the edit to a human.
+# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# C2z — A HOOK'S OWN GITIGNORE CONTRACT, ENFORCED
+#
+# `update-session-log.sh` states it in its own header: "ai/dynamic/session-log.md MUST be
+# .gitignored ... a hook that writes a TRACKED file leaves the tree perpetually dirty."
+# Nothing enforced it. MEASURED: one repo had the file TRACKED, the Stop hook appended to it
+# after every session, and it reappeared in `git status` after every push — 8,800 lines,
+# riding into unrelated commits. A second repo had the ignore line and no step could be named
+# as having added it. A contract written in a comment and enforced by nothing is how two
+# projects come to behave differently for no recorded reason.
+#
+# DELIBERATELY NARROW. A first draft harvested every `ai/…` and `.claude/…` path mentioned
+# anywhere under hooks/ and reported 9 and 12 — almost all of them files the hooks READ
+# (`ai/modules.md`, `.claude/rules/*`), which are supposed to be tracked. A check that is
+# wrong nine times out of nine teaches the reader to skip it. The write patterns are too
+# varied to harvest with confidence, so this asserts the ONE contract a hook states in
+# prose, and says plainly that it covers only that.
+echo "C2z: the session-log gitignore contract"
+_c2z_f="ai/dynamic/session-log.md"
+if [ -f "$TARGET/.claude/hooks/update-session-log.sh" ] && git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1; then
+  if git -C "$TARGET" ls-files --error-unmatch "$_c2z_f" >/dev/null 2>&1; then
+    err "$_c2z_f is TRACKED and the Stop hook appends to it every session — the tree is dirty after every run. Add it to .gitignore and \`git rm --cached $_c2z_f\`; history keeps what it already holds."
+  else
+    ok "$_c2z_f is not tracked — the Stop hook cannot dirty the tree"
+  fi
+  echo "      (scope: this one contract only — hook WRITE targets in general are not harvested, see the note above)"
+else
+  ok "session-log contract N/A — hook absent or not a git repo (disclosed, not a pass)"
+fi
+echo ""
+
 echo "C2y: shell probes in artifacts cite directories that exist"
 c2w_hits=""; c2w_n=0
 # The real top-level source directories, computed the same way apply-anchors.sh computes them:
