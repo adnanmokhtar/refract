@@ -64,6 +64,7 @@ POSIX shell. Must be executable. Common hooks:
 - `inject-path-rules.sh` — context-only; injects a `paths:`-scoped rule from `.claude/rules/` when an edit touches a file it governs (once/session).
 - `inject-blast-radius.sh` — context-only; when an edit touches a file with >=5 direct importers, injects the dependent count, the per-hop shape and the direct importers from `.claude/_graph.json` (once per file per session).
 - `guard-destructive.sh` — second-layer block on destructive bash (protected-branch/force push, `rm -rf`, DB drops, `curl|sh`, `dd`/`mkfs`).
+- `test-lane.sh` — blocks a full-suite or e2e bash run (`npm test`, `pytest`, `go test ./...`, `playwright test`) not sent through `.claude/hooks/test-lane.sh run '<cmd>'`, which queues it in a machine-wide lane (`CLAUDE_TEST_LANE_SLOTS`, default 1); one named test file, type-check and lint pass. `verify-gate.sh` accepts a green lane run on the same tree instead of repeating it; opt out with `.claude/.no-test-lane`.
 - `session-start.sh` — one-time briefing on session open; `notify.sh` — OS notification on Notification event.
 - `update-session-log.sh` / `verify-gate.sh` — Stop hooks (session summary + verify gate).
 

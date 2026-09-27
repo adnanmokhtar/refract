@@ -35,8 +35,27 @@ elif [ -f "Cargo.toml" ]; then
 fi
 [ -z "$TEST_CMD" ] && exit 0
 
-out=$(eval "$TEST_CMD" 2>&1)
-status=$?
+# Through the heavy-test lane when it ships here (test-lane.sh): one full suite per machine at a
+# time, so a stop does not start a suite beside every parallel agent's. The agent's own green run
+# of this command on exactly this tree IS the verification — repeating it would only queue a
+# second suite. The wait is bounded because Claude Code cancels a hook at its 600s timeout and the
+# stop then proceeds unverified: better to say so than to be cut off in silence.
+LANE=".claude/hooks/test-lane.sh"
+if [ -f "$LANE" ] && [ ! -f ".claude/.no-test-lane" ]; then
+  bash "$LANE" verified "$TEST_CMD" && exit 0
+  out=$(CLAUDE_TEST_LANE_WAIT="${CLAUDE_VERIFY_GATE_WAIT:-240}" bash "$LANE" run "$TEST_CMD" 2>&1)
+  status=$?
+  if [ "$status" -eq 75 ]; then
+    echo "Verification gate: tests NOT verified — the heavy-test lane stayed busy." >&2
+    echo "$out" | grep '^test-lane:' | tail -1 >&2
+    echo "Run the suite through the lane in the background (it waits its turn), then stop once it is green; the gate accepts that run instead of repeating it:" >&2
+    echo "  \"$PWD/$LANE\" run '$TEST_CMD'" >&2
+    exit 2
+  fi
+else
+  out=$(eval "$TEST_CMD" 2>&1)
+  status=$?
+fi
 
 if [ "$status" -ne 0 ]; then
   echo "Verification gate: tests are FAILING — do not stop with red tests." >&2

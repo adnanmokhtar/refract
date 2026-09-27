@@ -11,8 +11,10 @@
 # FORMAT  <path-relative-to-repo-baseline>  <sha256>
 
 .claude/.gitignore  7b1f25d85a1dda7595a52cb8d7692a980a5dbc51fc1fc8ea0d63064573edd3c3
+.claude/.gitignore  9542b66ab0768c201fabe6b59eb907c4360e62259e9ef615ae4576bd5fab8a08
 .claude/GUIDE.md  0380cb2455dd26ef4cf7b2ffccf1c9f52e3de516bf872bdb63bde28a6e52a7c9
 .claude/GUIDE.md  1a5d621af3480111b2aed5bf747442f6e646287ecca2033427f898ca78772cc3
+.claude/GUIDE.md  21e47128b8c86de56b28ab90c3da0865c7342028529b000184c99487c93791e1
 .claude/GUIDE.md  3040d21500dad756abcbb17ecf6df6d611bc755b36157ab4268f8b36d9d3a063
 .claude/GUIDE.md  50b5c631eb9d843e13e159c5bdb7d5986c3f0ef54c5282dcd380d1fc3ba2d798
 .claude/GUIDE.md  62569a5dd13b2074da856129dd1dac92f574585e5d87e924eed17dd22e368ec4
@@ -93,6 +95,7 @@
 .claude/hooks/update-session-log.sh  beae73fb2a97b4822632b8f6724c583a0e1e1ea3660e7acdd8f39298ee57fce9
 .claude/hooks/update-session-log.sh  cc88ab49a57d3ed68fc268c6cfbb2d60589fadc028fcf7adf18c32012c8dede2
 .claude/hooks/verify-gate.sh  d2038e8f3d8ffeb40275d2eb4d7f063614cf077e54bfc2fd4e945e9a79acbab3
+.claude/hooks/verify-gate.sh  ff99bfa31ecae2f3938969896225ae993b2eeaa88e9f4e685bcbae7a5535c282
 .claude/plans/README.md  0ac3e23d38abdc9f85bae2dd371db7a59f06e2bb58cb6a780e59fae742dfffa3
 .claude/plans/README.md  165a3cd7edf3aad4e357ce31421b9282282a056f03937ab5d2ff8266fabf43d2
 .claude/plans/README.md  72a31da5719ab1d04fcf5585bc1e31c8998e8b87cd6a98bb3916cb6483195da8
@@ -104,6 +107,7 @@
 .claude/rules/code-quality.md  5acc17de8f84f7f9d33542821f2ebc9417bbde8d4a534af7160dda145cd31b42
 .claude/rules/code-quality.md  5dbffb4b8c0cf4831f9dab812e56b8b32875c01bf9ee5f72d9c0ddf1d8214cd5
 .claude/rules/code-quality.md  c1b7ec0c83250b24da184a71620114ca95843597ed321bfa48638c2542d100f4
+.claude/rules/code-quality.md  e2612f8507c90a54964ab7de9c2aa9a760e3d71fb40fd5073602cd0322bdb1ab
 .claude/rules/code-quality.md  f54dc448c021492655aa73d5310b99b42f720f2dcaf859b10b4b0e7a35bdfb2f
 .claude/rules/migration-safety.md  d4f08e30e5424ba3405d0ece6bf268d8445b569f9312b3cfd3ec0f0b3d95e318
 .claude/rules/read-before-write.md  4973688dd425cdbad9297372df3491a010634f7e534fd3eb3ec03647e9fc6627
@@ -127,6 +131,7 @@
 .claude/settings.json  8dfc644cd93112810daf39d0f86ce5897d9b36e586af99c04f3025a800a63f9b
 .claude/settings.json  93d851d8f50be497d74da9dc22e19fac1922254e5cfdf6c8d70f3228b1660c42
 .claude/settings.json  b6e9fff7f4b2d678c1d93949176eed4a48d64ed8f79a0763efb77377916b3ca5
+.claude/settings.json  db077e693a616491c18254696ed890215c98690f87851d8e7b923f407eb88f3c
 .claude/settings.json  f4c2d3c9d5b6cee171f056d1cdf645e6c4876d36cd861fe9f07eb1de8819d45a
 .claude/skills/.gitkeep  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 .claude/statusline.sh  7f83f67e9eeab7f32b5400d8f827ef1113eb77b7e4cf701400bb4ee5e1120e43

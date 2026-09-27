@@ -293,6 +293,7 @@ Shell scripts at `.claude/skills/module-scaffold/` — user runs manually.
 | Claude Code hook | Codex native event | Wiring |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` | **PreToolUse** (`matcher: "Bash|apply_patch"`) | emit `hookSpecificOutput.permissionDecision: "deny"` to block a destructive shell / protected-path edit / secret leak before it runs |
+| `test-lane.sh` | **PreToolUse** (`matcher: "Bash"`) | emit `hookSpecificOutput.permissionDecision: "deny"` on a full-suite or e2e command (`npm test`, `pytest`, `go test ./...`), with the script's `test-lane.sh run '<cmd>'` re-run line as the reason; light runs (one test file, type-check, lint) pass. The lane is per machine, so a Codex suite queues behind a Claude or Cursor one |
 | `module-boundaries.sh` | **PreToolUse** (`matcher: "apply_patch"`) | emit `hookSpecificOutput.permissionDecision: "deny"` when the patch adds an import that crosses a boundary declared in `ai/modules.md`; the shim must hand the script the patch **body**, not just the path — it inspects the pending edit, never the file on disk |
 | `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **PostToolUse** (`matcher: "apply_patch"`) | run lint/format/test after an edit; emit `decision: "block"` with `reason` to feed a failure back into the turn |
 | `inject-path-rules.sh` | **UserPromptSubmit** (or **SessionStart**) → `hookSpecificOutput.additionalContext` | Codex has no path-scoped rules primitive; inject the relevant `.claude/rules/*` for the touched paths as additional context |

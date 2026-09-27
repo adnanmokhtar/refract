@@ -174,12 +174,13 @@ trigger_words: ["scaffold module", "new module", "module-scaffold"]
 {
   "pre_write_code":  [{ "command": ".windsurf/hooks/guard-write.sh" }],
   "post_write_code": [{ "command": ".windsurf/hooks/post-edit-check.sh" }],
-  "pre_run_command": [{ "command": ".windsurf/hooks/guard-destructive.sh" }]
+  "pre_run_command": [{ "command": ".windsurf/hooks/guard-destructive.sh" }, { "command": ".windsurf/hooks/test-lane.sh" }]
 }
 ```
 
 **Translation of the repo's hooks:**
 - `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` → **native** `pre_write_code` (block `.env*`/migration edits) + `pre_run_command` (block destructive shell); `exit 2` to deny.
+- `test-lane.sh` → **native** `pre_run_command` — `exit 2` on a full-suite or e2e command (`npm test`, `pytest`, `go test ./...`), stderr carrying the script's `test-lane.sh run '<cmd>'` re-run line; one named test file, type-check and lint pass. The lane is per machine, so Cascade's suites take turns with every other tool's.
 - `module-boundaries.sh` → **native** `pre_write_code` — `exit 2` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`; stderr carries the rule + the offending specifier. Cascade's stdin `tool_info` must supply the pending content, or the shim has nothing to inspect.
 - `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` → **native** `post_write_code` — lint/format/test after each edit.
 - `inject-path-rules.sh` → keep as **path-scoped activation-mode rules** (`.windsurf/rules/*.md`, `activation_mode: glob`); Cascade hooks block/log but do not inject conversation context.

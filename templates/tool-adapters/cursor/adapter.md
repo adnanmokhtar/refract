@@ -230,6 +230,7 @@ Cursor surfaces this skill in its Skills picker. When the user activates it, Cur
 **Translation of the repo's hooks** (copy `.claude/hooks/*.sh` into `.cursor/hooks/` verbatim, keep them executable, point the JSON at them):
 
 - `guard-destructive.sh` → `beforeShellExecution` with `matcher` on destructive commands (e.g. `"rm |dd |git push --force|drop table"`) returning `permission: "deny"`. Set `failClosed: true` so a hook crash blocks rather than allows.
+- `test-lane.sh` → `beforeShellExecution` returning `permission: "deny"` for a full-suite or e2e run (`npm test`, `pytest`, `go test ./...`), with the script's `test-lane.sh run '<cmd>'` re-run line. **No `matcher`** — the script classifies the command itself, and a cheap regex misses `rspec` or `mvn verify`. The lane is per machine, so a Cursor agent and a Claude agent share one queue.
 - `pre-edit-guard.sh` → `preToolUse` with `matcher: "Write"` (protected paths → `permission: "deny"`).
 - `secret-scan` → `beforeReadFile` (redact / deny reads of `.env`, `*.key`, `*.pem`) — returns `permission: "deny"` or redacted content.
 - `module-boundaries.sh` → `preToolUse` with `matcher: "Write"`, returning `permission: "deny"` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`. `afterFileEdit` is the wrong event — it cannot block, and by then the crossing is written.
@@ -247,7 +248,8 @@ Sample `.cursor/hooks.json`:
   "version": 1,
   "hooks": {
     "beforeShellExecution": [
-      { "command": ".cursor/hooks/guard-destructive.sh", "matcher": "rm |dd |git push --force|drop table", "failClosed": true, "timeout": 5 }
+      { "command": ".cursor/hooks/guard-destructive.sh", "matcher": "rm |dd |git push --force|drop table", "failClosed": true, "timeout": 5 },
+      { "command": ".cursor/hooks/test-lane.sh", "timeout": 5 }
     ],
     "preToolUse": [
       { "command": ".cursor/hooks/pre-edit-guard.sh", "matcher": "Write", "timeout": 5 },

@@ -6,6 +6,43 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Hooks: heavy test runs take turns, one per machine (2026-09-27)
+
+Parallel agents each proved their change with the full suite, and every suite spawns one worker
+per core. Eight suites at once exhausted 24 GB on a real machine and froze it. No single run was
+wrong. Nothing made them take turns.
+
+New baseline hook `test-lane.sh` (PreToolUse on Bash). It blocks a full-suite or e2e command
+(`npm test`, `pytest`, `go test ./...`, `playwright test`, …) that is not going through the lane,
+and prints the exact re-run line: `.claude/hooks/test-lane.sh run '<cmd>'`. That waits for a free
+slot in a machine-wide lane, runs the command, and exits with the command's status. Light runs
+are not gated and stay parallel: one named test file, a type-check, a lint.
+
+- **The lane is shared by sandboxed and unsandboxed processes.** Hooks run outside the sandbox
+  and Bash may run inside it. The lane lives in `/tmp/claude-<uid>/test-lane`, which a real
+  sandboxed session was measured writing to. Liveness uses `kill -0`, because the sandbox refuses
+  `ps` outright. That was also measured: a dead pid answers "No such process", and a live one
+  answers "Operation not permitted". A dead owner is reclaimed, while a live one is never robbed.
+- **`verify-gate.sh` runs the suite through the lane.** It also stops repeating a green run: a
+  green full-suite run records the exact tree it passed on (HEAD, staged, unstaged and untracked),
+  and the Stop gate accepts that run for the same command and directory. Before this, every stop
+  with uncommitted source re-ran the whole suite. The gate's wait is bounded (240s) because
+  Claude Code cancels a hook at 600s and the stop then proceeds unverified. On a busy lane the
+  gate now blocks and says so; before, it was cut off with no message.
+- **A race was found by testing and then fixed.** A waiter could read a half-written owner file
+  and reclaim a live slot. Across 25 rounds, the pre-fix copy let two heavy runs overlap once.
+  The fixed version had zero overlaps. Owner files are now written aside and renamed in.
+- **Frontend and backend runners are both covered**: jest, vitest, mocha, Karma, Angular `ng test`,
+  Nx, Turbo, Playwright and Cypress, plus pytest, Django `manage.py test`, `go test ./...`, cargo,
+  Gradle, Maven, dotnet, PHPUnit/Pest, Laravel `artisan test` and RSpec, plus mobile: `flutter test`,
+  `swift test`, `xcodebuild test`, fastlane, and Gradle unit tests. Anything that boots a device or
+  simulator counts as e2e: Flutter `integration_test` and `drive`, Detox, Maestro, `connectedAndroidTest`. A watcher (`ng test`,
+  `karma start` without `--single-run`, `--watch`) is never queued, because it never exits and would hold the
+  lane forever.
+- 39 fixtures and 9 lane assertions in `tests/hooks/run.sh`; all 12 adapters carry a § Hooks
+  entry. Opt out: `.claude/.no-test-lane`. Tune: `CLAUDE_TEST_LANE_SLOTS` on a machine with RAM
+  for more than one suite.
+
 ### Docs: Opus reviews, a cheap model types (2026-09-27)
 
 `docs/CHEAP-IMPLEMENTER.md` explains how to run `/delegate --to=opencode` with DeepSeek Flash or

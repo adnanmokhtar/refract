@@ -47,6 +47,7 @@ run_dir() {
 run_dir guard-destructive
 run_dir pre-edit-guard
 run_dir secret-scan
+run_dir test-lane
 
 # inject-path-rules is context-only (always exit 0); assert on stdout instead of
 # exit code. It must run from a dir that actually holds .claude/rules/, so we run
@@ -361,6 +362,64 @@ GEOF
   rm -rf "$proj"
 }
 run_blast
+
+# ---- test-lane: the lane itself, not just the hook's verdict --------------------------------
+# The fixtures above prove which commands are sent to the lane. These prove the lane holds: a
+# second heavy run never starts while the first is running, a dead owner never wedges it, a
+# bounded wait gives up with 75 rather than hanging a Stop hook, the command's exit status comes
+# back unchanged, and a green run counts only for the exact tree it ran on. The lane directory
+# is a scratch one, so nothing touches the machine-wide lane a real session might hold.
+run_lane() {
+  local lane="$REPO_ROOT/templates/repo-baseline/.claude/hooks/test-lane.sh" work rc order dead
+  work=$(mktemp -d)
+  export CLAUDE_TEST_LANE_DIR="$work/lane"
+  lane_ok() { if [ "$1" = "$2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  test-lane/$3 — expected $2, got $1"; fi; }
+
+  rc=0; bash "$lane" run 'exit 7' >/dev/null 2>&1 || rc=$?
+  lane_ok "$rc" 7 "exit-status-passes-through"
+
+  ( bash "$lane" run "echo H-in >> '$work/order'; sleep 2; echo H-out >> '$work/order'" >/dev/null 2>&1 ) &
+  while [ ! -f "$work/lane/slot-1/owner" ]; do sleep 0.1; done
+  bash "$lane" run "echo C >> '$work/order'" >/dev/null 2>&1; wait
+  order=$(tr '\n' ' ' < "$work/order")
+  lane_ok "$order" "H-in H-out C " "second-run-waits-for-the-first"
+
+  sh -c 'exit 0' & dead=$!; wait "$dead"
+  mkdir -p "$work/lane/slot-1"; printf '%s\nMon Jan  1 00:00:00 2001\n0\n/x\nold\n' "$dead" > "$work/lane/slot-1/owner"
+  rc=0; bash "$lane" run 'true' >/dev/null 2>&1 || rc=$?
+  lane_ok "$rc" 0 "dead-owner-slot-is-reclaimed"
+
+  # The sandbox refuses `ps`, so an owner there records no start time. Alive is alive: keep it.
+  mkdir -p "$work/lane/slot-1"; printf '%s\n\n0\n/x\nsandboxed\n' "$$" > "$work/lane/slot-1/owner"
+  rc=0; CLAUDE_TEST_LANE_WAIT=1 bash "$lane" run 'true' >/dev/null 2>&1 || rc=$?
+  lane_ok "$rc" 75 "live-owner-without-start-time-is-kept"
+  printf '%s\nMon Jan  1 00:00:00 2001\n0\n/x\nrecycled\n' "$$" > "$work/lane/slot-1/owner"
+  rc=0; bash "$lane" run 'true' >/dev/null 2>&1 || rc=$?
+  lane_ok "$rc" 0 "recycled-pid-slot-is-reclaimed"
+
+  ( bash "$lane" run 'sleep 3' >/dev/null 2>&1 ) &
+  while [ ! -f "$work/lane/slot-1/owner" ]; do sleep 0.1; done
+  rc=0; CLAUDE_TEST_LANE_WAIT=1 bash "$lane" run 'true' >/dev/null 2>&1 || rc=$?; wait
+  lane_ok "$rc" 75 "bounded-wait-gives-up-with-75"
+
+  mkdir -p "$work/g" && (
+    cd "$work/g" && git init -q && echo a > a.js && git add a.js \
+      && git -c user.email=t@t -c user.name=t commit -qm init >/dev/null
+  )
+  mkdir -p "$work/bin"; printf '#!/bin/sh\nexit 0\n' > "$work/bin/pytest"; chmod +x "$work/bin/pytest"
+  ( cd "$work/g" && PATH="$work/bin:$PATH" bash "$lane" run 'pytest' >/dev/null 2>&1 )
+  rc=0; ( cd "$work/g" && bash "$lane" verified 'pytest' ) || rc=$?
+  lane_ok "$rc" 0 "green-suite-verifies-its-own-tree"
+  rc=0; ( cd "$work/g" && bash "$lane" verified 'go test ./...' ) || rc=$?
+  lane_ok "$rc" 1 "a-different-command-does-not-verify"
+  echo b >> "$work/g/a.js"
+  rc=0; ( cd "$work/g" && bash "$lane" verified 'pytest' ) || rc=$?
+  lane_ok "$rc" 1 "an-edit-voids-the-green-run"
+
+  unset CLAUDE_TEST_LANE_DIR
+  rm -rf "$work"
+}
+run_lane
 
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"

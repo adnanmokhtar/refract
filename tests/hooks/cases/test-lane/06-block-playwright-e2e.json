@@ -1,0 +1,1 @@
+{"tool_input":{"command":"NODE_OPTIONS=--max-old-space-size=12288 npx playwright test"}}

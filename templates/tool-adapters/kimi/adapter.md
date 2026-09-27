@@ -193,6 +193,7 @@ Kimi-specific addendum: a "Skills available" section pointing at `.kimi/skills/`
 | Claude hook | Kimi event | Native? |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + secret-scan | `PreToolUse` (exit `2` blocks, stderr → LLM correction) | ✓ native |
+| `test-lane.sh` | `PreToolUse` — exit `2` on a full-suite or e2e command (`npm test`, `pytest`, `go test ./...`); stderr carries the `test-lane.sh run '<cmd>'` re-run line as the LLM correction. Light runs pass; the lane is per machine, shared with every other tool's suites | ✓ native |
 | `module-boundaries.sh` | `PreToolUse` (matcher `Edit\|Write\|MultiEdit`) — exit `2`; stderr carries the declared boundary + the offending specifier, which Kimi feeds back as an LLM correction | ✓ native |
 | `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit`) | ✓ native |
 | `inject-path-rules.sh` | `PreToolUse` — emit the matched `paths:` rule on **stdout with exit 0** (Kimi appends non-empty stdout to context) | ~ works, but via stdout-append, NOT a structured `additionalContext` field — Kimi has no JSON control-output schema |

@@ -225,6 +225,7 @@ Path: `.continue/prompts/skill-<name>.md`.
 **Translation of the repo's hooks** — each Claude hook falls back to the nearest non-hook mechanism:
 
 - `guard-destructive.sh` → **git hooks** (Husky `pre-commit` / `pre-push`) — the only enforceable layer; Continue itself will not block a destructive shell command. Also state the prohibition as an always-apply `.continue/rules/` rule so the model is discouraged in-loop.
+- `test-lane.sh` → **not enforceable in-loop** — Continue cannot block a full-suite command. The `run` mode is plain shell and still works: state in an always-apply `.continue/rules/` rule that full-suite and e2e runs (`npm test`, `pytest`, `go test ./...`) go through `.claude/hooks/test-lane.sh run '<cmd>'`, which queues them in the same machine-wide lane every other tool uses. Advisory, like the rest of this section.
 - `pre-edit-guard.sh` + `secret-scan` → **`.continueignore`** (same syntax as `.gitignore`) keeps sensitive paths out of Continue's context/edit surface — **REQUIRED by the Phase 4.8.0 contract**, not optional:
   ```
   .env*
