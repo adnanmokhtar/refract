@@ -360,6 +360,7 @@ Every run ends with a verdict: `PLATEAU-DEEP` (stop, it is as deep as the code s
 | [docs/FEATURE-LIFECYCLE.md](docs/FEATURE-LIFECYCLE.md) | You are taking a feature from idea to shipped |
 | [docs/TASK-PROVIDERS.md](docs/TASK-PROVIDERS.md) | You are wiring `/task` to Trello, Jira, Linear or GitHub |
 | [docs/AIDER-LOCAL-MODEL.md](docs/AIDER-LOCAL-MODEL.md) | You want to run this on a free local GGUF model |
+| [docs/CHEAP-IMPLEMENTER.md](docs/CHEAP-IMPLEMENTER.md) | You want Opus to plan and review while DeepSeek Flash or GLM Flash does the typing |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | You want to add a pack, agent, rule or framework reference |
 
 ---

@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Docs: Opus reviews, a cheap model types (2026-09-27)
+
+`docs/CHEAP-IMPLEMENTER.md` explains how to run `/delegate --to=opencode` with DeepSeek Flash or
+GLM Flash as the implementer. Every model ID in it was dispatched through `delegate-relay.sh` on
+opencode 1.18.32: `opencode-go/glm-5.3-flash` and `openrouter/deepseek/deepseek-v4.1-flash` both
+ran. `opencode-go/deepseek-v4.1-flash` was refused upstream by an account region setting, and the
+exact error text is recorded in the guide. The guide also explains the two `git worktree` /
+`git gc` shim denials that appear on every OpenCode run: they are OpenCode's housekeeping, not a
+commit attempt.
+
 ### Unification: the half `/ui-audit` could not close (2026-09-19)
 
 Three gaps, all raised by an owner reading the shipped command against his own app.
