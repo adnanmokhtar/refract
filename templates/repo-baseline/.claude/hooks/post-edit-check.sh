@@ -14,10 +14,12 @@ file_path=$(echo "$payload" | sed -n 's/.*"file_path"[[:space:]]*:[[:space:]]*"\
 # Only check source files — adjust extensions to taste
 case "$file_path" in
   *.ts|*.tsx|*.js|*.jsx|*.mjs|*.cjs)
-    if command -v bun >/dev/null 2>&1 && [ -f "package.json" ]; then
-      bun run lint "$file_path" 2>&1 1>&2 || exit 2
-    elif command -v npx >/dev/null 2>&1 && [ -f "package.json" ]; then
+    # No local eslint → skip, like ruff/golangci-lint below. Without this, npx fails on every edit.
+    [ -f "package.json" ] && [ -x node_modules/.bin/eslint ] || exit 0
+    if command -v npx >/dev/null 2>&1; then
       npx --no-install eslint "$file_path" 2>&1 1>&2 || exit 2
+    elif command -v bunx >/dev/null 2>&1; then
+      bunx --no-install eslint "$file_path" 2>&1 1>&2 || exit 2
     fi
     ;;
   *.py)

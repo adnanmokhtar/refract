@@ -72,6 +72,7 @@
 .claude/hooks/notify.sh  dd2e241ff4c11e7f58e236a45147c8656f986f30b493ab395b0a8bced2ba8ceb
 .claude/hooks/post-commit-learn.sh  7975757cf4b8ce79187ed45cdd9c049679a327cff561d80021e104bafb5810ca
 .claude/hooks/post-commit-learn.sh  be93eb042d26feede649ac40ec5e511cf6de8c953bec4e02cfd1ba9af8ebbe78
+.claude/hooks/post-edit-check.sh  506cc1e711b16ec8dea48dbdd16a26f28b547de60beba56db68bdde484c578a4
 .claude/hooks/post-edit-check.sh  e15c30f31a3fad499c94ca016d8e427c9d7fd032a8973c6bb519146b715beb0c
 .claude/hooks/post-edit-check.sh  e5a55457af756f3fa6ca14bd89a5e4530424c0c28b0c8ac1d75ac6123fb917cc
 .claude/hooks/post-merge-learn.sh  82f074237663db9f93e3be32c575890ab301df146f7b423c0891651bf4e1082e
@@ -132,6 +133,7 @@
 .claude/templates/governance/core-discipline.md  2c08b0e3cd442d611843509f9e303df83be544dc37a830df49786469eccda3a8
 .claude/templates/snippets/actionable-next-steps.md  a0167c0232d41e8d641f6aa61cb3e2f80d9179d752bdfab951e18e789897e73e
 .claude/templates/snippets/closure-verbs.md  2baf51a794db5001f8f3243b81b1bd394cd8b6171319bc4c21bb7ef74f43066e
+.claude/templates/snippets/coverage-ledger.md  b62d2987efc66be94cff5e87782875bbec829817ffd8c453fede5b4116885238
 .claude/templates/snippets/fix-bug-core.md  f982d88b5e5e4d2e18b65f96da0a61a9c3cbe8969a3efe1d1bddfadd645e1ecd
 .claude/templates/snippets/hand-wave-grep.md  6e58bf1f21fb5e624b2a28000c1b61455e244af88033b1391a3c0258ce6b3e97
 .claude/templates/snippets/instrumentation-parity.md  d66cca80dc319b2eb618f5b047f000139dd6c28f32e460b5b41c866fca40fa16
@@ -142,6 +144,7 @@
 .claude/templates/snippets/phase-3-always-reads.md  329eb1f3d27d58fb32d9e1d6f0d65863e440abff537f1b5adac600b554b7dfb2
 .claude/templates/snippets/plan-flag.md  1465561082849d5974b504a46b7f5fab0fd4167a1567572590c39cbd28d7753c
 .claude/templates/snippets/plan-flag.md  86ddc9f0e7d7d2f2ea68c90f7cf23ecfc280a3a703d1c2c5d1484d0c8990e261
+.claude/templates/snippets/postcondition-check.md  cf5d9f2898658013abeb70decd1593a08db9ecc9c94d4d689f712947a1241178
 .claude/templates/snippets/review-action-plan.md  891031ba64b6ebd6489db51c104f66e8698d9910c045d592d2001904f9fdf67b
 .claude/templates/snippets/sibling-shape-halt.md  ea754d365e101487d4d0172dff6a0983058253147a3fda3e43555c8333091ca1
 CLAUDE.md  b6a8924662f22f08fa7ae77cc4914b9fcce9f288455003830a8158410de6f0a3
