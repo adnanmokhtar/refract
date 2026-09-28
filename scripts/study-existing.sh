@@ -204,15 +204,43 @@ pack_substantive_sha8() {
 # apply-study-decisions.sh rewrites snippet/governance links on deploy
 # (../../../snippets/ → ../templates/snippets/). Compare against the DEPLOYED
 # shape, or every applied command re-flags as MERGE forever (false drift).
+# THE SETUP'S OWN LATER REWRITES ARE NOT DRIFT EITHER. Two deterministic steps edit an installed
+# file after it was copied from the pack: retarget-probes.sh turns a bare `src/` search root into
+# the roots this repo has (`apps/`), and the scoping passes add or widen `paths:` in a rule's
+# frontmatter. Compared raw, every file either step touched re-flagged as MERGE on the next
+# refresh — MEASURED on a real repo: migrate.md and migration-recheck.md (317 = 317 lines, one
+# retargeted root each) and migration-discipline.md (three globs added) stayed "unreconciled",
+# and C2k refused every run for rows the setup itself had produced. Both sides get the same
+# normalisation before comparing: `paths:` / `globs:` dropped from the frontmatter, and every bare
+# one-segment search root (`src/`, `apps/`, `apps/ libs/`) folded to one token. It changes the
+# comparison only — no file is written.
+post_normalize() {   # $1=in $2=out
+  perl -0pe '
+    if (/\A---\n(.*?)\n---\n/s) {
+      my $fm = $1; my $new = $fm;
+      $new =~ s/^(?:paths|globs):[^\n]*\n?(?:[ \t]+-[^\n]*\n?)*//mg;
+      $new =~ s/\n+\z//;
+      s/\A---\n\Q$fm\E\n---\n/---\n$new\n---\n/s;
+    }
+    s{(?<![\w/.-])[\w.-]+/(?=[\s|`"\x27)\]]|$)}{ROOT/}mg;
+    s{ROOT/(?:[ \t]+ROOT/)+}{ROOT/}g;
+  ' "$1" > "$2" 2>/dev/null
+}
+
 NORM_TMP=""
 normalized_src() {
   local src="$1" kind="$2"
-  if [[ "$kind" != "commands" && "$kind" != "agents" ]] || ! command -v perl >/dev/null 2>&1; then
+  if ! command -v perl >/dev/null 2>&1; then
     printf '%s' "$src"; return
   fi
   [[ -z "$NORM_TMP" ]] && NORM_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-norm.XXXXXX")
-  local out="$NORM_TMP/$(basename "$src")"
-  perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' "$src" > "$out" 2>/dev/null || { printf '%s' "$src"; return; }
+  local out="$NORM_TMP/$(basename "$src")" mid="$NORM_TMP/.mid-$(basename "$src")"
+  if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
+    perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' "$src" > "$mid" 2>/dev/null || { printf '%s' "$src"; return; }
+  else
+    cp "$src" "$mid" 2>/dev/null || { printf '%s' "$src"; return; }
+  fi
+  post_normalize "$mid" "$out" || { printf '%s' "$src"; return; }
   printf '%s' "$out"
 }
 
@@ -227,17 +255,20 @@ normalized_src() {
 STRIP_TMP=""
 stripped_target() {
   local tgt="$1"
-  if ! grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$tgt" 2>/dev/null; then
-    printf '%s' "$tgt"; return
-  fi
+  command -v perl >/dev/null 2>&1 || { printf '%s' "$tgt"; return; }
   [[ -z "$STRIP_TMP" ]] && STRIP_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-strip.XXXXXX")
-  local out="$STRIP_TMP/$(basename "$tgt")"
-  awk '
-    /^<!-- project-specific:start -->[[:space:]]*$/ { skip=1; next }
-    skip { if (/^<!-- project-specific:end -->[[:space:]]*$/) { skip=0; drop_blank=1 } next }
-    drop_blank && /^[[:space:]]*$/ { drop_blank=0; next }
-    { drop_blank=0; print }
-  ' "$tgt" > "$out" 2>/dev/null || { printf '%s' "$tgt"; return; }
+  local out="$STRIP_TMP/$(basename "$tgt")" mid="$STRIP_TMP/.mid-$(basename "$tgt")"
+  if grep -qE '^<!-- project-specific:start -->[[:space:]]*$' "$tgt" 2>/dev/null; then
+    awk '
+      /^<!-- project-specific:start -->[[:space:]]*$/ { skip=1; next }
+      skip { if (/^<!-- project-specific:end -->[[:space:]]*$/) { skip=0; drop_blank=1 } next }
+      drop_blank && /^[[:space:]]*$/ { drop_blank=0; next }
+      { drop_blank=0; print }
+    ' "$tgt" > "$mid" 2>/dev/null || { printf '%s' "$tgt"; return; }
+  else
+    cp "$tgt" "$mid" 2>/dev/null || { printf '%s' "$tgt"; return; }
+  fi
+  post_normalize "$mid" "$out" || { printf '%s' "$tgt"; return; }
   printf '%s' "$out"
 }
 

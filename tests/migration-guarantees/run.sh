@@ -96,6 +96,25 @@ constraint-without-conflict-mapping 1 constraint back, but a duplicate is a 500,
 restored 0 constraint + conflict mapping balance V1's constraint + pre-check
 CASES
 
+# ── 3. the setup's own later rewrites are not drift ──────────────────────────────────────────
+# retarget-probes.sh rewrites a bare `src/` root, and the scoping pass widens migration-discipline's
+# `paths:`. Compared raw, both files re-flagged as MERGE on every refresh and C2k never cleared.
+echo "[3] a retargeted probe and a widened paths: block still read as the pack's file"
+S="$WORK/study"; mkdir -p "$S/.claude/commands" "$S/.claude/rules" "$S/apps/api"
+cp "$ROOT/templates/packs/migration/commands/migrate.md" "$S/.claude/commands/"
+cp "$ROOT/templates/packs/migration/rules/migration-discipline.md" "$S/.claude/rules/"
+bash "$ROOT/scripts/retarget-probes.sh" "$S" --apply --root=apps/ >/dev/null 2>&1
+perl -0pi -e 's{(paths:\n(?:  - [^\n]*\n)+)}{$1  - "apps/**"\n}' "$S/.claude/rules/migration-discipline.md"
+if grep -q 'apps/' "$S/.claude/commands/migrate.md" && grep -qF '"apps/**"' "$S/.claude/rules/migration-discipline.md"; then
+  bash "$ROOT/scripts/study-existing.sh" "$S" migration >/dev/null 2>&1
+  for f in migrate.md migration-discipline.md; do
+    row=$(grep -F "\`$f\` —" "$S/.claude/_study-existing-report.md" 2>/dev/null | head -1)
+    case "$row" in *IDENTICAL-NO-OP*) ok "$f → IDENTICAL-NO-OP" ;; *) bad "$f → expected IDENTICAL-NO-OP, got: ${row:-no row}" ;; esac
+  done
+else
+  bad "fixture setup: the retarget or the paths widening did not apply"
+fi
+
 echo
 echo "── tests/migration-guarantees: $pass passed, $fail failed"
 if [ "$fail" -gt 0 ]; then
