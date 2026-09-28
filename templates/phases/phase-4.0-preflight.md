@@ -140,7 +140,7 @@ if a script grows a non-zero exit this table does not name.
 | `apply-adapter-sync.sh` | 2 | usage error | HALT |
 | `apply-adapter-sync.sh` | 3 | the projection landed, but N artifact(s) carry frontmatter that does not parse — **files DID land** and are silently degraded in the tool they were translated for | CONTINUE; fix the named files (usually one unquoted `colon-space` value) and re-run. Before this exit existed the run printed `MALFORMED FRONTMATTER: 5` and returned 0, and C2e downgraded it to a WARN |
 | `wire-rule-imports.sh` | 1 | target error | HALT |
-| `wire-rule-imports.sh` | 3 | foundational set wired; pack rules overflow the always-loaded budget — **CLAUDE.md WAS written**, and the refusal is recorded in `.claude/rules/_unloaded.md` | CONTINUE. This is advisory. `audit-setup.sh` C2u reports a recorded refusal as a WARN, not a failure |
+| `wire-rule-imports.sh` | 3 | the always-on rule set costs more than the budget — **CLAUDE.md WAS written**, and every one of those rules still loads (Claude Code loads all rules without `paths:`) | CONTINUE. This is advisory. `audit-setup.sh` C2u reports the cost as a WARN, not a failure |
 | `audit-setup.sh` | 1 | the audit REFUSED — at least one mandatory check failed | Do not declare success. Fix and re-audit |
 | `audit-setup.sh` | 2 | usage error | HALT |
 

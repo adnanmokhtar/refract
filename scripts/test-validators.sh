@@ -51,6 +51,10 @@ invoke() {  # $1=script-name $2=case-dir → prints exit code
     # must not count as a failure under --strict either — it is neither covered nor broken.
     audit-adapter-coverage.sh)
       bash "$REPO_ROOT/scripts/audit-adapter-coverage.sh" "$case" --strict --stdout >/dev/null 2>&1; echo $? ;;
+    # standards-check.py: positional <target>; exit 1 = an OPEN finding (the bad-case contract).
+    # Each good/bad case is a small app whose one difference from good/complete-app is the defect.
+    standards-check.py)
+      python3 "$REPO_ROOT/scripts/standards-check.py" "$case" --quiet >/dev/null 2>&1; echo $? ;;
     # All other fixtured scripts honour --repo-root. New non-repo-root scripts get an arm here.
     *) bash "$REPO_ROOT/scripts/$script" --repo-root="$case" >/dev/null 2>&1; echo $? ;;
   esac

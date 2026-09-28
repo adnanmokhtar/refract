@@ -43,11 +43,11 @@ The fingerprint fires when the first appears inside the second. If extraction pr
 
 ## Backend audit axes (when the feature's entry is a route handler / RPC / event consumer)
 
-The 6 generic comparison axes from the universal rule (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) apply. The backend axes that extend them are stated **once**, as the axis column of the table below — seven of the nine are exactly what the parity validator already counts, and a second prose list of the same seven would drift against it.
+The 6 generic comparison axes from the universal rule (Inputs / Outputs / Error contract / Auth + permissions / Side effects / Performance) apply. The backend axes that extend them are stated **once**, as the axis column of the table below — nine of the eleven are exactly what the parity validator already counts, and a second prose list of the same nine would drift against it.
 
-`scripts/validate-migration-artifacts.sh § extract_inventory_primitives` (defined at `:1211`, called on both sides of the port at `:1799-1800`) counts eight primitive classes in a V1 file and its V2 counterpart. Drift fires when V1 > 0 and V2 / V1 < 0.7 — V2 missing more than 30% of a class. On a PARITY verdict that is a hard fail (*verdict contradicted by primitive inventory*); otherwise it falls through to DRIFT enumeration. No tier changes by itself — a trivial-tier PARITY row drifting by 5 or fewer only warns, and raising the tier is a human call.
+`scripts/validate-migration-artifacts.sh § extract_inventory_primitives` (called on both sides of the port by `check_inventory_primitives_match`) counts nine primitive classes in a V1 file and its V2 counterpart. Drift fires when V1 > 0 and V2 / V1 < 0.7 — V2 missing more than 30% of a class. On a PARITY verdict that is a hard fail (*verdict contradicted by primitive inventory*); otherwise it falls through to DRIFT enumeration. No tier changes by itself — a trivial-tier PARITY row drifting by 5 or fewer only warns, and raising the tier is a human call. Guarantees (`unique_guard`, `auth_guard`) never soften, and `unique_guard` is summed over every cited file.
 
-The regex alternations that recognise each class across 13+ frameworks (Node / Python / PHP / Ruby / Java / Go / Elixir / .NET) live in that function and only there. A prose copy here would be a second source of truth with nothing comparing the two, and no agent follows a regex alternation anyway — the validator does. What an agent follows is the mapping: count these classes on both sides of the port, and enumerate every gap on the axis named beside it.
+The per-framework regexes live in that function only — a prose copy would be a second source of truth, and agents follow the mapping, not the regex: count these classes on both sides, and enumerate every gap on the axis beside it.
 
 | Primitive class | Audit axis | What the enumeration must list, per site |
 |---|---|---|
@@ -59,12 +59,12 @@ The regex alternations that recognise each class across 13+ frameworks (Node / P
 | `exception_throw` | Error contract | exception type, the status it maps to, error response shape |
 | `db_query` | Side effects (DB) | query, and whether it reads or writes |
 | `event_emit` | Side effects (events / queue) | queue publish, cache write, log/metric emission, file I/O |
+| `unique_guard` | **Schema integrity & data invariants** | each V1 unique key / uniqueness check, and its V2 constraint + conflict mapping (`DATA-1`, `DATA-2`) |
 | — none — | **Tenant isolation** `[self-policed]` | every query's tenant filter, every cache key's tenant prefix, every event payload's tenant context |
 | — none — | **Transaction boundaries** `[self-policed]` | begin/commit/rollback per request, nested transactions, saga compensation |
 
-The last two rows are the point of the table. No primitive class counts them, so **the drift ratio is structurally blind to a port that dropped every tenant filter or every transaction boundary** — a green validator run says nothing about either. Those two axes are enumerated by hand or they are not enumerated; a port audit that reports only the counted eight has audited eight tenths of the surface and should say so rather than reading as complete.
+The last two rows are the point of the table. No primitive class counts them, so **the drift ratio is structurally blind to a port that dropped every tenant filter or every transaction boundary** — a green validator run says nothing about either. Those two axes are enumerated by hand or they are not enumerated; a port audit that reports only the counted nine should say so rather than reading as complete.
 
-Widening framework coverage is a change to that function's pattern alternation, never an edit here.
 
 ## Phase 3 (Retrieve) — backend specifics
 
@@ -82,4 +82,4 @@ Mirror these files' shape: same layering pattern, same shared-class substitution
 - Universal discipline: `migration/rules/migration-discipline.md`
 - Backend principles: `backend/rules/backend-principles.md`
 - Backend concurrency: `backend/rules/concurrency-discipline.md`
-- Validator script: `scripts/validate-migration-artifacts.sh § extract_inventory_primitives` (`:1211`, stack-conditional via `PROJECT_KIND`) — the single source of truth for the primitive regexes
+- Validator script: `scripts/validate-migration-artifacts.sh § extract_inventory_primitives` (stack-conditional via `PROJECT_KIND`) — the single source of truth for the primitive regexes

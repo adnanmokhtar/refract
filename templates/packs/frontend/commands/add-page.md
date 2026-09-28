@@ -137,6 +137,10 @@ Before declaring success, compare the new page against ≥2 sibling pages in the
 
 **Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
+### Standards gate (mandatory, all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `web` baseline (plus `data` if the change adds a query, a schema or a local store). Select the fired rows before generating — for a page that is usually WEB-1, WEB-3, WEB-4, WEB-5, WEB-8, WEB-9, WEB-11, WEB-12, QG-1 — and close each with evidence after Phase 6, before the Output block. The sibling governs shape; the baseline governs guarantees: a sibling page with no error state or a raw `fetch` is a defect to report and fix, not a shape to mirror. Any `UNMET` or `SKIPPED` row → INCOMPLETE.
+
 ## Phase 5 — Update
 
 - `ai/status.md` — prepend Recent Changes entry.

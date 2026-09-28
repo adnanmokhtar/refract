@@ -11,7 +11,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 seven phases with a narrower ask, not a different procedure — and the machinery a screen most needs
 is the machinery this command used to be missing. `/add-feature` owns, and this command runs
 unchanged: the **prior-art gate**, the **sibling-shape mechanical halt**, the **new-dependency
-gate**, the **Phase 4 reviewer table with its per-agent precondition**, the **BLOCKER halt rule**,
+gate**, the **standards gate**, the **Phase 4 reviewer table with its per-agent precondition**, the **BLOCKER halt rule**,
 the **not-installed inline-review fallback**, Phases 5–7, and the spec-consumption branch.
 
 Nothing below repeats those. What is below is what a *screen* adds on top.

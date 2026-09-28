@@ -187,7 +187,9 @@ Halt conditions: plan halted; user rejects the slice.
 
 7. **Capture API response samples to `ai/migration/api-samples/<feature>/<endpoint>.json`** — required only when the port touches the project's service / data-access layer. Call the V1 endpoint with a real auth token (or replay a captured production sample, anonymised). One file per endpoint the V2 service will call. The V2 type's field names + nullability + nested shape derive from these samples — NOT from V1 caller code (which may be reading untyped responses and silently mismatching, per the Guessed Type anti-pattern). The validator (`check_api_response_sample`) halts the gate if missing or empty for service-touching ports.
 
-These two artifacts are NOT optional for any tier. They prevent the Reinvented Wrapper + Guessed Type anti-patterns documented in `migration-discipline.md`.
+8. **Write the data-invariants list and select the standards-gate rows** — every natural key, FK, `NOT NULL` / `CHECK` and app-level uniqueness check V1 relies on, each with its V1 `path:line` and the V2 site that will enforce it; then the rows [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) fires for this port. A V1 guarantee with no planned V2 site is a P0 gap before a line is written.
+
+These artifacts are NOT optional for any tier. They prevent the Reinvented Wrapper + Guessed Type anti-patterns documented in `migration-discipline.md`, and the Lost Invariant: a V2 that matches every screen and endpoint and has dropped the constraint that kept the data correct.
 
 ## Phase 4 — Generate (V2 code + parity tests + perf-decisions)
 

@@ -46,6 +46,13 @@ That's it. Three escalation triggers. Everything else — sibling-scan, fix-all-
 
 Trivial is default. Heavy investigation-then-plan-then-fix-then-ADR ceremony is opt-in for genuinely heavy bugs only. Most fixes are 1-line.
 
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the baseline for the detected stack (`backend-api`, `web` or `mobile`), plus `data` when the fix touches an entity, migration, query or repository. A fix fires the rows for what it touches, and `QG-2` always. Two things are specific to bugs:
+
+- **When the bug is a baseline violation, the fix is the baseline mechanism.** A duplicate email is fixed by the unique constraint (`DATA-1`) plus the conflict mapping (`DATA-2`), not by a check-then-insert; a hung request by a timeout (`RES-3`), not a longer one.
+- **The similar-bugs scan searches for the violated row, not only the expression.** Every other natural key without a unique constraint, every other client without a timeout — fixed, explained or ticketed, under the same `N_found` accounting.
+
 ## Similar-bugs scan (mechanical halt — applies at standard + heavy)
 
 After the reported-site fix is applied:
@@ -253,6 +260,7 @@ Dispatch reviewers:
 - Full test suite passes.
 - No new lint / type errors.
 - Cross-stack: if the fix touched multiple layers, both verified.
+- Standards gate closed — every fired row MET or n-a, else INCOMPLETE.
 
 ## Phase 7 — Improve
 

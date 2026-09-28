@@ -28,7 +28,7 @@ _None yet. Add under `.claude/skills/<name>/SKILL.md`._
 
 ## Rules
 
-See `.claude/rules/` (and `.claude/rules/README.md` for the two-tier model). The four foundational rules load every session because the project `CLAUDE.md` `@`-imports them (`@.claude/rules/<name>.md`) — files in `.claude/rules/` are not auto-loaded on their own. **Path-scoped rules** (those with `paths:` frontmatter, e.g. `migration-safety.md`) are the exception: `inject-path-rules.sh` injects them on-match instead, so they cost nothing until you edit a file they govern. The always-loaded budget is CI-guarded by `scripts/check-rule-budget.sh`.
+See `.claude/rules/` (and `.claude/rules/README.md` for the two-tier model). Claude Code loads every rule in `.claude/rules/` without `paths:` frontmatter at launch, every session; the project `CLAUDE.md` `@`-imports list the always-on set for review. **Path-scoped rules** (those with `paths:` frontmatter, e.g. `migration-safety.md`) load when Claude reads a matching file, and `inject-path-rules.sh` adds them before an edit of one, so they cost nothing until you work on a file they govern. The always-loaded budget is CI-guarded by `scripts/check-rule-budget.sh`.
 
 ## Hooks
 

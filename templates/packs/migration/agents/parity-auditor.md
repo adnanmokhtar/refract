@@ -11,7 +11,7 @@ pack: migration
 
 ## The Premise (read first, do not deviate)
 
-**V1 is production. V1 is the validated truth.** The auditor's job is to find where V2 diverges from V1 — by reading source, line-by-line, both sides — and emit a gap list with the closure verb that closes each gap toward V1-parity.
+**V1 is production. V1 is the validated truth** — for behaviour. The engineering baseline is the floor under both sides (`migration-discipline.md` § Core philosophy, implication 6): a guarantee V2 drops is drift even when every screen and endpoint matches. The auditor's job is to find where V2 diverges from V1 — by reading source, line-by-line, both sides — and emit a gap list with the closure verb that closes each gap toward V1-parity.
 
 **Default closure for every gap is `code-edit` (toward V1).** The auditor does NOT emit `user-decision` for cosmetic deviations, locale-key drift, V2-only-extras, swatch-vs-picker, ordering, padding, or any P2 surface. V1 wins; edit V2; emit `code-edit`. See § Closure-verb mapping below — that table is mandatory.
 
@@ -19,6 +19,7 @@ pack: migration
 1. Cross-repo blocker (V2 fix needs API or sibling-repo change).
 2. V1 has a documented security/privacy/legal regression that V2 fixed (V2 is the auth-correct side).
 3. V1 source genuinely undeterminable (file missing, no caller, contradictory signals).
+4. V1 itself lacks a guarantee the engineering baseline requires on data integrity or authorization (no unique constraint on a natural key, no authorization check). V2 must not silently inherit it, and adding it can fail on existing data — so the user decides how, not whether.
 
 Asking the user about anything else is the noise pattern that turns a 10-gap audit into a 10-question interrogation. Don't.
 
@@ -192,6 +193,7 @@ Mapping table (primitive → axis):
 | `exception_throw` | backend | "Error contract" |
 | `db_query` | backend | "Side effects (DB writes/reads)" |
 | `event_emit` | backend | "Side effects (events / queue)" |
+| `unique_guard` | backend | "Schema integrity & data invariants" |
 | `table_def` / `column_def` | data | "Schema" |
 | `foreign_key` / `index_def` / `constraint` | data | "Schema integrity" |
 | `screen` / `text_input` / `nav_route` | mobile | "Form fields" / "Navigation Inventory" |
@@ -217,6 +219,7 @@ For backend features (`project_kind: backend-*`), enumerate:
 - **Side effects** — DB writes, external HTTP, queue publishes, cache writes, log lines downstream consumers depend on.
 - **Auth/permission decorators** — V1 middleware + V2 per-route auth gating (decorator / annotation / middleware / guard / policy — concrete syntax varies by stack; see `backend/rules/migration-backend.md` for the project's stack).
 - **Layering** — domain framework-free? application uses ports? infrastructure adapter wired?
+- **Schema integrity & data invariants (all tiers)** — every unique key, foreign key, `NOT NULL` / `CHECK` constraint and app-level uniqueness check V1 relies on, V1 `path:line` (schema, migration or guard) ↔ V2 enforcement `path:line`. Read the schema and migration files even when the ledger row names only a controller or service — the constraint rarely lives in the file the route does. A V1 guarantee with no V2 enforcement site is P0 → `code-edit`; this axis can never read PARITY on a count alone.
 
 ### V2-structure conformance check (all layers, all tiers)
 
@@ -240,6 +243,8 @@ When emitting a gap, the auditor MUST choose `closure_verb` per this table. Emit
 | Cross-repo blocker (V2 fix needs API / sibling repo / contract change) | P0 | `user-decision` |
 | Security / privacy / legal regression in V2 (V2 broke an auth gate, leaked PII, etc.) | P0 | `user-decision` |
 | Data-loss / write-path mutation divergence | P0 | `user-decision` |
+| V2 drops a guarantee V1 enforces (unique key, FK, `NOT NULL` / `CHECK`, uniqueness check, auth guard) | P0 | `code-edit` — restore it; never PARITY, never softened by tier |
+| V1 itself lacks a guarantee the baseline requires (condition 4) | P0 / P1 | `user-decision` |
 | V1 has a known bug V2 already fixed (cite V1 issue or commit) | P1 | `user-decision` (rare; needs ADR if user wants V2 to keep the fix) |
 | V2 missing a V1 affordance (button, field, column, route, locale key) | P1 / P2 | `code-edit` (V1-parity) — auto-fix, NO prompt |
 | V2 has an extra V1 didn't (V2-only button, route, column, video-help) | P2 | `code-edit` (V1-parity = remove the extra) — auto-fix, NO prompt |

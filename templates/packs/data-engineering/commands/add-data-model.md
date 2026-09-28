@@ -16,6 +16,10 @@ Add one transformation model that is trustworthy on the day it ships: grain decl
 - NOT: changing what an existing model means — that is a contract change; run `contract-diff` and `lineage-trace` and treat it as a migration, not an addition.
 - NOT: an OLTP table or migration — that is `/add-migration` in the database pack.
 
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `data` baseline. A model fires `DATA-1` on its declared grain (the grain key is unique, and a test proves it), `DATA-4`, `DATA-5`, `DATA-13` as touched, and `QG-1`; close them in the Model ledger.
+
 ## Phases applied
 
 All 7.

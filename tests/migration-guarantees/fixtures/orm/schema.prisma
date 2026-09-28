@@ -1,0 +1,5 @@
+model User {
+  id    String @id
+  email String @unique
+  @@unique([tenantId, username])
+}

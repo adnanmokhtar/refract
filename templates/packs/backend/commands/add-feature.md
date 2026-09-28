@@ -18,6 +18,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 2. Read their shape — file paths, naming, layer boundaries, error envelopes, validation, DI primitives, logging, test layout.
 3. Mirror that shape for the new feature. Innovating without precedent is the failure mode.
 
+**Siblings govern shape, not guarantees.** The engineering baseline outranks every sibling (§ Standards gate): a sibling with no unique constraint, no timeout or no denial test is a defect to fix in this change, not a shape to copy.
+
 **The agent does NOT:**
 - Ask the user about cosmetic style (camelCase vs snake_case, file naming, import order). **Mirror the sibling silently.**
 - Ask the user which error type / DI primitive / validation library to use. **Mirror the sibling silently.**
@@ -47,7 +49,7 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 
 | Tier | Triggers | Artifacts | Phases |
 |---|---|---|---|
-| **Trivial** (default) | 1 file added, mirrors 1 sibling exactly. No new pattern element. | Code + tests. **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt) |
+| **Trivial** (default) | 1 file added, mirrors 1 sibling exactly. No new pattern element. | Code + tests. **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt + standards gate) |
 | **Standard** | 2-5 files, includes 1 new pattern element (new endpoint kind, new DTO shape) but reuses existing primitives. | Code + tests + 1-paragraph plan + sibling-shape note in PR. **`n-plus-one-scan` on any new list / query endpoint.** **No ADR unless pattern is genuinely new.** | Understand → Retrieve (siblings) → Generate → Validate |
 | **Heavy** | Cross-module, new layer, new primitive, schema change, write-path mutation, payment / auth / multi-tenant surface. | ADR + plan + reviewer dispatch + parity tests for affected existing endpoints. Full 7-phase ceremony below. | All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) |
 
@@ -93,7 +95,7 @@ Halt verdict for each new file uses the shared vocabulary in [`templates/snippet
 
 Any `drifted` → HALT before merge. Either re-shape to match siblings (default closure) or — if the deviation is intentional and load-bearing — write an ADR justifying it and promote the row to heavy tier. Drift without ADR is forbidden.
 
-For trivial-tier ports, this halt is the only gate. No reviewers, no telemetry sign-off — just sibling parity.
+At trivial tier this halt and the standards gate below are the gates — no reviewers, and no telemetry sign-off beyond what a fired baseline row asks for.
 
 ## New-dependency gate (all tiers)
 
@@ -119,6 +121,10 @@ When triggered, run regardless of tier:
 - **Diff-scoped security pre-flight** — `/security-audit` scoped to the diff (or the inline checklist if not installed). Block on any BLOCKER. (The full Phase 6 security ceremony remains heavy-tier; this floor is the diff-scoped minimum.)
 
 HALT on a failure here at any tier. This floor is what makes a trivial-tier write-path add safe to ship without promoting to heavy.
+
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `backend-api` baseline, plus `data` whenever the feature touches an entity, migration, query or repository. Select the fired rows before Generate and carry them into the plan; close each with evidence before the Output block. The floor above and the Phase 6 reviewers' verdicts are evidence for the rows they cover — cite them, don't re-judge. Any `UNMET` or `SKIPPED` row → `INCOMPLETE`.
 
 ---
 
@@ -437,6 +443,7 @@ Files created/modified: <counts>
 Tests added: <count> — passing
 Sibling-shape halt: aligned (<N> axes checked)
 All-tier floor: <observability sign-off + security pre-flight, if diff added endpoint/external call/write path — else "n/a">
+Standards gate: <N> fired — <M> MET · <K> n-a · <U> UNMET   (ledger follows)
 Docs: ai/status.md updated <+ plan paragraph if standard>
 
 Next: commit + open PR
@@ -453,6 +460,7 @@ Phase 3 (Retrieved): 7 universals + <N> sibling modules (signal reads already do
 Phase 4 (Generated): <files created>; tests passing.
 Phase 5 (Updated): ai/modules.md (+1), ai/status.md (Recent Changes), ai/patterns/<new>.md.
 Phase 6 (Validated): <reviewers> ran; security pre-flight clean; observability sign-off.
+  Standards gate: <N> fired — <M> MET · <K> n-a · <U> UNMET   (ledger follows)
   Spec-conformance gate (if spec): <met N / N sections; HALT none>
   AC-ID → test → file: <map, one row per AC-ID>
 Phase 7 (Improved): /learn-from-task queued. <Spec deviations / resolutions: ... if any>
@@ -495,6 +503,7 @@ Next:
 ## Hard rules
 
 - Never skip phases within your tier's ceremony to save time. Tier selection (Closure verbs table) is the only sanctioned way to shrink the flow.
+- The standards gate runs at every tier. Tier shrinks ceremony, never the baseline.
 - **One** pause at the Phase-2 confirmation gate (requirements + constraints + design presented together) — heavy tier only. Trivial / standard run unpaused. Phase 1 stops separately only for an open question that would change the design.
 - No feature ships without tests for every acceptance criterion. On the spec path this is mechanical: every AC-ID maps to a named test in a named file (Phase 4 traceability rebuild) or it HALTs.
 - No feature ships without telemetry. The minimal observability sign-off is an all-tier floor on any diff that adds an endpoint / external call / write path — not heavy-tier-only.

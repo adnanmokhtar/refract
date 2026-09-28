@@ -211,8 +211,29 @@ if [[ -d "$TARGET/migrations" || -d "$TARGET/db/migrate" || -d "$TARGET/prisma" 
          || -f "$TARGET/prisma/schema.prisma" || -f "$TARGET/alembic.ini" \
          || -f "$TARGET/schema.sql" ]] \
    || has_dep prisma || has_dep '@prisma/client' || has_dep sequelize || has_dep typeorm \
-   || has_dep drizzle-orm || has_dep mikro-orm || has_dep mongoose || has_dep knex; then
+   || has_dep drizzle-orm || has_dep mikro-orm || has_dep mongoose || has_dep knex \
+   || has_dep_prefix '@mikro-orm/' || has_dep pg || has_dep mysql2 || has_dep better-sqlite3 \
+   || has_dep kysely || has_dep objection || has_dep '@supabase/supabase-js'; then
   trace "DB tooling → database"
+  add database
+fi
+
+# The block above reads npm alone, so a Laravel, Django, Spring, Go or Rails backend with a
+# database got no database pack — and with it no schema-reviewer, no /add-migration and no
+# database-principles rule. Each ecosystem's own manifest and migration layout, read here.
+DB_MANIFEST=0
+if [[ -d "$TARGET/database/migrations" || -d "$TARGET/src/main/resources/db/migration" \
+      || -d "$TARGET/src/main/resources/db/changelog" ]] \
+   || find "$TARGET" -maxdepth 4 -path '*/migrations/0001_*.py' -not -path '*/node_modules/*' -print -quit 2>/dev/null | grep -q . \
+   || { [[ -f "$TARGET/composer.json" ]] && grep -qE '"(laravel/framework|doctrine/orm|doctrine/dbal|illuminate/database)"' "$TARGET/composer.json" 2>/dev/null; } \
+   || ( for f in requirements.txt pyproject.toml Pipfile; do [[ -f "$TARGET/$f" ]] && grep -qiE '(^|[^a-z])(django|sqlalchemy|sqlmodel|psycopg|asyncpg|pymysql|peewee|tortoise-orm|alembic)([^a-z]|$)' "$TARGET/$f" 2>/dev/null && exit 0; done; exit 1 ) \
+   || { [[ -f "$TARGET/go.mod" ]] && grep -qE '(gorm\.io|jmoiron/sqlx|jackc/pgx|entgo\.io|lib/pq|go-sql-driver/mysql|uptrace/bun)' "$TARGET/go.mod" 2>/dev/null; } \
+   || ( for f in pom.xml build.gradle build.gradle.kts; do [[ -f "$TARGET/$f" ]] && grep -qE '(spring-boot-starter-data-jpa|spring-boot-starter-jdbc|hibernate|flyway|liquibase|mybatis|jooq)' "$TARGET/$f" 2>/dev/null && exit 0; done; exit 1 ) \
+   || { [[ -f "$TARGET/Gemfile" ]] && grep -qE "gem ['\"](rails|activerecord|pg|mysql2|sequel)['\"]" "$TARGET/Gemfile" 2>/dev/null; }; then
+  DB_MANIFEST=1
+fi
+if [[ "$DB_MANIFEST" -eq 1 ]]; then
+  trace "DB layout / non-npm ORM → database"
   add database
 fi
 

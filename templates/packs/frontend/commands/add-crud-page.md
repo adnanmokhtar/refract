@@ -190,6 +190,10 @@ Before declaring success, compare the new CRUD bundle against ≥2 sibling CRUD 
 - `mirror-single` (`n=1`) — evaluated against the one sibling. A gap is still a gap and still HALTs; the report reads `siblings compared: 1 (<path>)`.
 - `ask` (`n=0`) — there is nothing to compare against. `gap_count` is `n/a` and the report says `sibling-shape halt: n/a (first CRUD in area)`; the Phase 1 answers become the recorded shape. A hard rule that quietly cannot be computed is worse than either outcome, because it reads as a pass.
 
+### Standards gate (mandatory, all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `web` baseline (plus `data` if the change adds a query, a schema or a local store). Select the fired rows before generating — for a CRUD surface that is usually WEB-1, WEB-3..WEB-9, WEB-11, WEB-12, QG-1, QG-3 — WEB-6 makes the form share the backend schema, WEB-7 keeps role-gated actions honest — and close each with evidence after Phase 6, before the Output block. The sibling governs shape; the baseline governs guarantees: a sibling list with no empty state or a form validated only in the client is a defect to report and fix, not a shape to mirror. Any `UNMET` or `SKIPPED` row → INCOMPLETE.
+
 ## Phase 5 — Update
 - `ai/modules.md` — add row for the new entity's UI module.
 - `ai/dynamic/changelog.md` — one-line: `Added CRUD for <entity>: list + form + delete`.

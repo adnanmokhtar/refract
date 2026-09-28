@@ -66,6 +66,10 @@ Escalated to user: <K>
   - <only genuine P0 / sibling-contradiction / first-of-kind cases>
 ```
 
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `data` baseline. A migration fires `DATA-1` for every natural-key column it adds or alters — the unique constraint ships in this migration, scoped the way the domain is (per tenant, case-insensitive, soft-delete-aware) — and `DATA-3`, `DATA-4`, `DATA-5`, `DATA-8`, `DATA-9` as touched. A migration that recreates a V1 table carries every V1 constraint; dropping one is the defect this gate exists for. Close the rows in the Migration-Safety Gate's verdict below.
+
 ## Phases applied
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve).

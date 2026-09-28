@@ -52,6 +52,9 @@ jobs:
       - name: Stack conformance (detectors answer correctly for every repo shape)
         run: bash tests/stack-conformance/run.sh
 
+      - name: Migration guarantees (a port that drops a unique constraint fails the parity validator)
+        run: bash tests/migration-guarantees/run.sh
+
       - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules)
         run: bash tests/hooks/run.sh
 

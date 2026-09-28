@@ -463,6 +463,27 @@ python3 "$ENGINE" "$TD/proj10" --packs-root="$TD/packs" --no-git --quiet --apply
 grep -q 'CROSS-PACK NAME COLLISION' "$TD/proj10/.claude/_merge-decisions.md" \
   && ok "the SKIP is in the durable record" || bad "collision SKIP recorded"
 
+# ── 13c. the owner need not be a row this run ────────────────────────────────────────────
+# MEASURED on a real repo: backend + frontend `add-feature.md` both MERGE in run 1 → backend won,
+# frontend SKIPped; run 2 had the frontend row ALONE, one row meant "no collision", and the
+# frontend body overrode 361 lines of the installed backend command.
+say ""
+say "fixture: a lone row from another pack does not overwrite the installed variant"
+rm -rf "$TD/proj10c"; mkdir -p "$TD/proj10c/.claude/commands"
+printf -- '---\nname: dup\ndescription: ZETA variant.\n---\n\n# Dup\n\nzeta body line one.\n' > "$TD/proj10c/.claude/commands/dup.md"
+cp "$TD/proj10c/.claude/commands/dup.md" "$TD/dup-before.md"
+cat > "$TD/proj10c/.claude/_study-existing-report.md" <<'RPT10C'
+## alpha
+
+### commands
+  - `dup.md` — target 7 / pack 9 lines → **MERGE**
+RPT10C
+out10c=$(python3 "$ENGINE" "$TD/proj10c" --packs-root="$TD/packs" --no-git --apply 2>&1)
+cmp -s "$TD/dup-before.md" "$TD/proj10c/.claude/commands/dup.md" \
+  && ok "the installed zeta variant is untouched" || bad "lone foreign row overwrote the variant" "$(head -4 "$TD/proj10c/.claude/commands/dup.md" | tr '\n' ' ')"
+printf '%s' "$out10c" | grep -q 'CROSS-PACK NAME COLLISION' \
+  && ok "the lone foreign row is SKIPped as a collision" || bad "lone foreign row SKIP" "$(printf '%s' "$out10c" | head -6)"
+
 # ── 13b. M36 — study-existing.sh's own alarm changes the composition ────────────────────
 # The alarm is `(project-knowledge protected: … replacing it destroys knowledge no pack can
 # regenerate)`. It used to be parsed into rows[]['rest'] and never read. It is read now: when
@@ -705,6 +726,37 @@ n17c=$(python3 "$ENGINE" --verify-pairs="$A17/pairs-c.tsv" --target="$A17" 2>/de
   && ok "a hand-added line inside the anchor block IS still protected" \
   || bad "a hand-added line inside the anchor block IS still protected" \
          "the excuse is matching by position, not by generated shape"
+
+# (d) a setup-project:managed block is the SCRIPTS' text, not the owner's. Rewording its comment
+# made C2n report `CLAUDE.md lost 2 line(s)` on every existing install after an update.
+cat > "$A17/claude-bak.md" <<'CMD'
+# Project
+
+The owner wrote this line about the payments flow.
+
+<!-- setup-project:managed start id=rule-imports -->
+<!-- Written by scripts/wire-rule-imports.sh. An older wording of this comment
+     that no pack markdown file ever carried. -->
+
+@.claude/rules/code-quality.md
+@.claude/rules/retired-rule.md
+<!-- setup-project:managed end -->
+CMD
+sed -e 's/An older wording of this comment/The current wording, rewritten by the script/' \
+    -e '/retired-rule/d' "$A17/claude-bak.md" > "$A17/claude-live.md"
+printf 'CLAUDE.md\t%s\t%s\n' "$A17/claude-bak.md" "$A17/claude-live.md" > "$A17/pairs-d.tsv"
+n17d=$(python3 "$ENGINE" --verify-pairs="$A17/pairs-d.tsv" --target="$A17" 2>/dev/null | grep -c . || true)
+[ -n "${n17d:-}" ] && [ "$n17d" -eq 0 ] \
+  && ok "a rewritten managed block is NOT reported as knowledge loss" \
+  || bad "a rewritten managed block is NOT reported as knowledge loss" \
+         "$(python3 "$ENGINE" --verify-pairs="$A17/pairs-d.tsv" --target="$A17" 2>/dev/null | head -1)"
+# (e) …and the owner's line OUTSIDE the block is still protected.
+sed '/owner wrote this line/d' "$A17/claude-live.md" > "$A17/claude-live-e.md"
+printf 'CLAUDE.md\t%s\t%s\n' "$A17/claude-bak.md" "$A17/claude-live-e.md" > "$A17/pairs-e.tsv"
+n17e=$(python3 "$ENGINE" --verify-pairs="$A17/pairs-e.tsv" --target="$A17" 2>/dev/null | grep -c . || true)
+[ "${n17e:-0}" -ge 1 ] \
+  && ok "an owner line outside the managed block IS still reported" \
+  || bad "an owner line outside the managed block IS still reported" "stripping the block went too wide"
 
 # ── 18. a resolved skill-shape twin must not take a project FACT with it ────────────────
 # MEASURED LOSS, the sibling repo. `visual-check` existed in both shapes. The flat twin scored 15

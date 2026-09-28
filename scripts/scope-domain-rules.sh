@@ -52,6 +52,59 @@ VOCAB="${SCOPE_VOCAB:-$REPO_ROOT/templates/domains/_scope-vocabulary.md}"
 RULES_DIR="$TARGET/.claude/rules"
 [ -d "$RULES_DIR" ] || { echo "no .claude/rules/ in $TARGET — nothing to scope"; exit 0; }
 
+# ── The migration base follows the rules that extend it ─────────────────────────────────────
+# migration-discipline.md (the core philosophy: V1 is the contract for behaviour, the baseline
+# is the floor for guarantees) ships scoped to DB-migration directories. Its extensions,
+# migration-backend.md / migration-frontend.md, get scoped to the track roots where porting
+# happens. So during a port the extension loaded and its base did not. MEASURED on a real V2
+# repo: migration-backend on `apps/api/src/**`, migration-discipline on `**/migrations/**` only —
+# the rule that says a dropped unique constraint is P0 was absent from every port of a
+# controller or service. The base gets the union of its extensions' globs plus the anchors'
+# v2_root. Runs without the module map below, so it runs on every refresh.
+python3 - "$RULES_DIR" "$TARGET" "$APPLY" <<'PYMIG'
+import os, re, sys
+rules, target, apply_ = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
+base = os.path.join(rules, "migration-discipline.md")
+if not os.path.isfile(base):
+    sys.exit(0)
+def fm_and_body(p):
+    t = open(p, encoding="utf-8", errors="replace").read()
+    if not t.startswith("---"):
+        return None, t
+    end = t.find("\n---", 3)
+    return (t[:end], t[end:]) if end != -1 else (None, t)
+def globs(p):
+    fm, _ = fm_and_body(p)
+    if not fm:
+        return []
+    m = re.search(r"(?m)^paths:[ \t]*\n((?:[ \t]+-[ \t].*\n?)+)", fm + "\n")
+    return [g.strip().strip("\"'") for g in re.findall(r"-[ \t]*(.+)", m.group(1))] if m else []
+want = []
+for ext in ("migration-backend.md", "migration-frontend.md"):
+    p = os.path.join(rules, ext)
+    if os.path.isfile(p):
+        want += globs(p)
+anc = os.path.join(target, "ai", "migration", "_v2-anchors.md")
+if os.path.isfile(anc):
+    m = re.search(r"(?m)^v2_root:[ \t]*(\S+)", open(anc, encoding="utf-8", errors="replace").read())
+    if m and not m.group(1).startswith(("..", "/")):
+        want.append(m.group(1).rstrip("/") + "/**")
+have = globs(base)
+add = [g for g in dict.fromkeys(want) if g not in have]
+if not have or not add:
+    sys.exit(0)          # unscoped base already loads everywhere; or nothing new to add
+print("=== migration base follows its extensions ===")
+for g in add:
+    print("  FOLLOW   migration-discipline.md  + %s" % g)
+if apply_:
+    fm, body = fm_and_body(base)
+    m = re.search(r"(?m)^paths:[ \t]*\n((?:[ \t]+-[ \t].*\n?)+)", fm + "\n")
+    block = m.group(1).rstrip("\n")
+    newblock = block + "".join('\n  - "%s"' % g for g in add)
+    open(base, "w", encoding="utf-8").write(fm.replace(block, newblock, 1) + body)
+print("")
+PYMIG
+
 # The module map: extraction writes `| N | <repo> | <module> | \`<path>\` | <kind> | <files> |`.
 MAP="$TARGET/.claude/_extracted-codebase.md"
 if [ ! -f "$MAP" ]; then
@@ -141,67 +194,16 @@ for dom in sorted(vrows):
                 scoped -= 1; left += 1
                 print("  FAILED   %-42s scope-rules.sh did not write paths: — left always-loaded" % rf)
 
-# ── PASS 2 — rules with NO ROUTE AT ALL ──────────────────────────────────────
+# ── PASS 2 — retired (2026-09-28) ─────────────────────────────────────────────
 #
-# 🔴 A RULE THAT IS NEITHER IMPORTED NOR SCOPED REACHES CLAUDE ON NO TURN.
-#
-# There are exactly two ways a rule is delivered: its name in CLAUDE.md (charged every
-# message, capped by the always-loaded budget) or a `paths:`/`globs:` declaration (injected
-# when a matching file is touched, charged once per session). A rule that has neither is
-# installed, correct, and unreachable.
-#
-# 📏 MEASURED on the reference monorepo: 14 of 36 installed rules were in that state — 34,773 tok
-# including backend-principles (3,368), concurrency-discipline (3,240) and
-# security-principles (2,763) — on a backend project. wire-rule-imports.sh had recorded them
-# honestly in `.claude/rules/_unloaded.md` and printed the remedy, and the remedy was
-# `scope-rules.sh`, which could not write a form the hook could read until it was fixed. So
-# the refusal was recorded, the fix was named, and the fix did not work.
-#
-# Phase 4.2 was supposed to prevent this and could not: it scopes rules only when the profile
-# says `is_multi_track: true`, and that repo's profile contains no such key — nor
-# `repo_shape`, nor `track_roots`. The phase's own text says an absent key must HALT rather
-# than default to false. It did not halt; it skipped the step in silence.
-#
-# So this pass asks the only question that matters — CAN THIS RULE ARRIVE? — and gives a
-# route to any rule that has none, scoped to the source roots the extraction recorded. Broad
-# is correct here: the alternative on offer is not "narrower", it is "never".
-imported = set()
-cl = os.path.join(target, 'CLAUDE.md')
-if os.path.isfile(cl):
-    imported = set(re.findall(r'^@\.claude/rules/([A-Za-z0-9._-]+\.md)',
-                              open(cl, encoding='utf-8', errors='replace').read(), re.M))
-
-roots = sorted({p for n, p in mods if p.count('/') <= 2})
-roots = [r for r in roots if not any(q != r and r.startswith(q + '/') for q in roots)]
-if imported and roots:
-    print("")
-    print("  pass 2 — rules with no route (not imported, not scoped)")
-    stranded = 0
-    for f in sorted(os.listdir(os.path.join(target, '.claude', 'rules'))):
-        if not f.endswith('.md') or f == 'README.md' or f.startswith('_'):
-            continue
-        if f in imported:
-            continue
-        fp = os.path.join(target, '.claude', 'rules', f)
-        txt = open(fp, encoding='utf-8', errors='replace').read()
-        fm = txt.split('\n---', 1)[0] if txt.startswith('---') else ''
-        if re.search(r'(?m)^(paths|globs):', fm):
-            continue                                    # already has a route
-        stranded += 1
-        globs = ",".join(r.rstrip('/') + "/**" for r in roots)
-        print("  ROUTE    %-42s -> %s" % (f, ", ".join(roots)[:52]))
-        if apply_:
-            subprocess.run(["bash", os.path.join(self_dir, "scope-rules.sh"),
-                            os.path.join('.claude', 'rules', f), globs],
-                           cwd=target, capture_output=True)
-            after = open(fp, encoding='utf-8', errors='replace').read(4000)
-            fm2 = after.split('\n---', 1)[0] if after.startswith('---') else ''
-            if not re.search(r'(?m)^(paths|globs):', fm2):
-                print("  FAILED   %-42s could not write paths: — still unreachable" % f)
-    if stranded == 0:
-        print("  none — every installed rule is either imported or scoped")
-    else:
-        print("  %d rule(s) given a route" % stranded)
+# This pass gave `paths:` to every rule that was neither imported by CLAUDE.md nor scoped, on
+# the premise that such a rule "reaches Claude on no turn". The premise was false: Claude Code
+# loads every rule without `paths:` at launch, imported or not (measured with canary rules on
+# 2.1.236 — see the header of wire-rule-imports.sh). So the pass did the opposite of its intent:
+# it took principle rules that were in context every session — backend-principles,
+# concurrency-discipline, security-principles on the measured repo — and made them load only
+# once Claude happened to read a file under a module root. A rule with no `paths:` HAS a route.
+# Pass 1 above is unaffected: scoping a domain rule to the modules it governs is a real saving.
 
 print("")
 print("  %d rule(s) scoped, %d left always-loaded" % (scoped, left))

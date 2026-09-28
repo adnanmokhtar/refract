@@ -3,7 +3,7 @@
 ai-engineering 2310
 algorithms 1369
 align 6324
-backend 6123
+backend 6100
 business 1479
 code-quality 3628
 data-engineering 1769
@@ -14,7 +14,6 @@ documentation 1725
 finops 1589
 frontend 9104
 infrastructure 976
-migration 6912
 mobile 3526
 observability 1138
 performance 1459

@@ -41,7 +41,7 @@ That's it. Three escalation triggers. Everything else — i18n key naming, error
 
 | Tier | Trigger | Deliverable | Reviewers |
 |---|---|---|---|
-| **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code + tests (widget/unit test mirroring the sibling's, green on iOS + Android). | None — sibling-mirror is its own audit. |
+| **Trivial** (default) | New screen mirrors a sibling; no new permission; no native bridge; no new offline pattern. | Code + tests (widget/unit test mirroring the sibling's, green on iOS + Android). | None beyond the standards gate — sibling-mirror audits shape; the gate audits guarantees. |
 | **Standard** | New permission OR new offline pattern OR new native config entry (Info.plist key / AndroidManifest entry / Podfile dep). | Code + 1-paragraph plan + **bundle / cold-start delta check** against the Phase 2 budget (any new screen or heavy import). | `@accessibility-auditor` always; `@i18n-auditor` if any locale string lands. **No ADR.** |
 | **Heavy** | New native bridge, biometric / Keychain / secrets touch, app-store-blocking change, write-path mutation, new push-notification class. | Code + ADR + full cascade. | Full serial cascade per § Phase 4 (mobile-architect → accessibility → i18n → app-store → security → ux), halt-on-blocker. |
 
@@ -263,6 +263,10 @@ Before any reviewer runs, the cascade's first dispatch (`@mobile-architect` in a
 - **Locale strings missing from one locale.** Every sibling-supported locale has the new keys. Missing `ar.ts` when `en.ts` has the key = halt.
 
 These are mechanical (string-match / file-presence / config-presence checks), not opinion. The criteria above are mobile-specific; the **verdict vocabulary is the shared one** in [`templates/snippets/sibling-shape-halt.md`](../../../snippets/sibling-shape-halt.md): a clean compare is `aligned`, any divergent axis is `drifted` (the `BLOCKER:<axis>` output maps onto `drifted`), and a module with no sibling screen is `no-siblings` (escalate). Any `drifted` halts the cascade per the rule above.
+
+### Standards gate (mandatory, all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `mobile` baseline and the web rows it shares (plus `data` if the feature adds a local store or a schema). Select the fired rows before generating — usually MOB-1..MOB-10 as touched, WEB-1..WEB-7, WEB-11, QG-1, QG-5 — and close each with evidence after Phase 6, before the Output block. This runs at trivial tier too: sibling-mirror is an audit of shape, not of guarantees, and a sibling screen with no timeout or no error state is a defect to report, not a shape to mirror. Any `UNMET` or `SKIPPED` row → INCOMPLETE.
 
 ## Phase 5 — Update
 

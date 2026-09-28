@@ -15,6 +15,10 @@ Existing event handlers are the truth. Mirror sibling handler shape exactly: sub
 
 Sibling-shape parity — refuse to generate a handler that diverges from sibling conventions without an ADR cite in the PR. If the service has zero existing handlers, halt and ask which pattern to seed from. Note the escape that is NOT available: `ai/patterns/event-handlers.md` is written by this command's own Phase 5, so on the first handler it cannot exist yet — seed from a sibling *service*'s handler, an ADR, or an explicit user decision, and let Phase 5 create the inventory that unblocks every handler after this one. The handler MUST include all five standard parts (subscription, idempotency check, validation, effect, ack/DLQ); missing any one halts generation.
 
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `backend-api` and `data` baselines. A handler fires `API-7` (dedupe + replay), `RES-3` / `RES-4` on its outbound calls, `RES-6` (it runs in a worker, not the request process), `OBS-1` / `OBS-5` and `QG-1`; close them in Phase 6 beside the failure-mode scenarios.
+
 ## Phases applied
 
 All 7.

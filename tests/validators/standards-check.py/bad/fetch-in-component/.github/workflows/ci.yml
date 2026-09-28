@@ -1,0 +1,9 @@
+name: ci
+on: [push]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test

@@ -14,6 +14,7 @@
 .claude/.gitignore  9542b66ab0768c201fabe6b59eb907c4360e62259e9ef615ae4576bd5fab8a08
 .claude/GUIDE.md  0380cb2455dd26ef4cf7b2ffccf1c9f52e3de516bf872bdb63bde28a6e52a7c9
 .claude/GUIDE.md  1a5d621af3480111b2aed5bf747442f6e646287ecca2033427f898ca78772cc3
+.claude/GUIDE.md  213b442aa371b2632ecf6b4d87be509614158cdd8a76d72440ba238e0342d385
 .claude/GUIDE.md  21e47128b8c86de56b28ab90c3da0865c7342028529b000184c99487c93791e1
 .claude/GUIDE.md  3040d21500dad756abcbb17ecf6df6d611bc755b36157ab4268f8b36d9d3a063
 .claude/GUIDE.md  50b5c631eb9d843e13e159c5bdb7d5986c3f0ef54c5282dcd380d1fc3ba2d798
@@ -40,6 +41,7 @@
 .claude/commands/fix-bug.md  a19a0e5e76ad98e15efe7f6bae916bfee3b58f0ed72436f647ded27a69564044
 .claude/commands/fix-bug.md  a643a5cbeaa3c057587f42f8f42a470689b998b584eb7cb8f9c51515278f964b
 .claude/commands/fix-bug.md  c8edf3c329fc4ac065bc47aacb9621d67de55f63e799534079935e5e97dd01b5
+.claude/commands/fix-bug.md  dcf20deddb0b3c3562a41e44293fda28beeeb9efe896cf8dfeb719d1c5698852
 .claude/commands/fix-bug.md  eb9fc0fb5d1de9a7043cc868c83767ae279623f42557ee3fcaee9a5328271329
 .claude/commands/fix-bug.md  f060a9a81eab78e6497463bd8f7d2c8d62929fe280a88cc600fa311332f66e4a
 .claude/commands/ship.md  c04babddec6920775348b685a72a95c45fbc9d42039e6d42cc81beb3beaa567f
@@ -62,6 +64,7 @@
 .claude/hooks/inject-path-rules.sh  06ad45fd46a2180f458ae3adc57b19300d53382820f9fba5acd3f0b4f05d64dd
 .claude/hooks/inject-path-rules.sh  5252deaa6ed6154bfa1704d4448ecc7e5f0cb262b8c6453d98591d9237cf9cb3
 .claude/hooks/inject-path-rules.sh  98cb15c1af1e2cceccaeee805d04f8703935f14e5a19b7c15289b8ccac0dfc6d
+.claude/hooks/inject-path-rules.sh  cbdfbb65a867fdbff92fe220bb6be8b82cfcd403d589a1c0ebfa787858507f11
 .claude/hooks/inject-path-rules.sh  ce9b97c656fe500363be06cb9d92cf205786d1dd3d957964bd05352c5d66b2f8
 .claude/hooks/module-boundaries.sh  0ec494c6d12998f7dc6af18b1b1a97fc320d58d8f4479244e0ed77d2a10cf4fe
 .claude/hooks/module-boundaries.sh  254a4bc78a9bc22c4bfaaa89f30d489419e7d67ff2e5ef6e0fb71d62ea914135
@@ -89,6 +92,7 @@
 .claude/hooks/session-start.sh  86b95b2d1b741db144e9fd902f924d271f4c9279cc25b1a028fe34fed8fb240f
 .claude/hooks/session-start.sh  bf268bdc86ab619a3f9130c49f4054f6b48258b08653a19813f5ced68e0c6260
 .claude/hooks/session-start.sh  fc47a05f9674bf4260245fc1e4db401d04b6afe62dea535c19aad0ed37792266
+.claude/hooks/test-lane.sh  d37e7ecbc9cfad02fef78bbbf71a06c41dd503830845807a4f378176aebe816c
 .claude/hooks/update-session-log.sh  488dc68d38e1f4a6ba8cc0ca1338ab3fccd27b84018cce44e187a0573b5cf7f3
 .claude/hooks/update-session-log.sh  9b23ee35ef8d02e48eb8e1a33545bded5ded3122bb201d6a92bc8f536405c253
 .claude/hooks/update-session-log.sh  9d7667745b27d9349379015ce26b6f8125a3be0fd6af1ed9dafc37c5b5a62e23
@@ -101,6 +105,7 @@
 .claude/plans/README.md  72a31da5719ab1d04fcf5585bc1e31c8998e8b87cd6a98bb3916cb6483195da8
 .claude/plans/README.md  778dad28c0704eacaaef73f351e7b375315bb40e4efc0a41bad2184bf9cc853c
 .claude/plans/README.md  f97676be855f6532398ca4de3d136bad8ed8af86037142773e007df3d5c1b998
+.claude/rules/README.md  4bb7eac3c1b40080fa0791c92f124afad09d3da6587d32cf4aadbfb4deb4e12a
 .claude/rules/README.md  f15c20664752448255fefbbbce9215f1a15e36890c8ee3ddf10dc409a8161685
 .claude/rules/code-quality.md  1419790bc3f77d965655db0f94ac22debabb125f3983bb2828199decc8b6bd63
 .claude/rules/code-quality.md  3442cc2500e89c85b9224ef3c9d11e9ebaea08bcdbb6b222ab03a3d51c2c890e
@@ -119,7 +124,9 @@
 .claude/rules/read-codebase-deeply.md  4725509a3026aef3362c718c96a1237ca3bdb8975f8b578b89a30758844e6769
 .claude/rules/read-codebase-deeply.md  7a8477b9065dfdc393c3cc9e34cbdce2c20e80ea2f0574f67f4187424157ddce
 .claude/rules/read-codebase-deeply.md  9c6b1c9fb9e7c0bb222ec12df8212d396fc73143f75cb4a237b426dd1f516aab
+.claude/rules/read-codebase-deeply.md  cec15b1b0f699df27fd7569bcf3ac0dbb852805973460f5350f6163a7641e416
 .claude/rules/think-simplify-surgical.md  03758c1b92894229783ae19a7c87d9af6247e2b20589615bace0724510b93d5e
+.claude/rules/think-simplify-surgical.md  639f1e8fb91cee3280890ed2e8f26fa067ae4cd85eb7d5e7855b6f5807d4d907
 .claude/rules/think-simplify-surgical.md  6e3e17ae271106adee7b39b05a07da33ddb84a6e52db730c5336e3a22a7d16f7
 .claude/rules/think-simplify-surgical.md  94f43539c181a60bd1b2469efff289195a511ecdbb0af91d54e7de219eb9ed0c
 .claude/rules/think-simplify-surgical.md  d4b27ac6638f79d3bb1e69239c0f2c8109fd55e1995ba8479d22c11c7e12b281

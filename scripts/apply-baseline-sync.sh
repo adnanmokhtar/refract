@@ -57,7 +57,7 @@ fi
 # `dirname "${BASH_SOURCE[0]}"` still reports ~/.claude/scripts when invoked through the global
 # install — which is how apply-baseline-sync.sh came to print "WARN wire-rule-imports.sh not
 # found beside this script" while the script sat in the checkout all along, leaving every rule
-# in the target unimported and therefore never loaded.
+# in the target unimported (not unloaded, it turned out — Claude Code loads rules on its own).
 _ss="${BASH_SOURCE[0]}"
 while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
 SELF_DIR="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd
@@ -371,7 +371,7 @@ fi
 # user's CLAUDE.md: wire-rule-imports.sh only maintains one clearly-marked managed block.
 if [[ -d "$TARGET/.claude/rules" ]]; then
   echo ""
-  echo "=== rule imports (a rule nothing imports never loads) ==="
+  echo "=== rule imports (the reviewable always-on list; Claude Code loads rules without paths: on its own) ==="
   if [[ -x "$SELF_DIR/wire-rule-imports.sh" || -f "$SELF_DIR/wire-rule-imports.sh" ]]; then
     # `|| true` swallowed everything, including wire-rule-imports.sh's DELIBERATE refusals — its
     # "refusing to write an empty CLAUDE.md" guard exits 1, and this parent then printed a clean

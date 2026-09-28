@@ -63,7 +63,7 @@ severity: must
 
 ## Enforcement
 
-- Imported via the project `CLAUDE.md` (`@.claude/rules/read-codebase-deeply.md`), so it loads every session and applies to every agent + command. (`.claude/rules/` files are not auto-loaded on their own — the `CLAUDE.md` import is what wires them in.)
+- Imported via the project `CLAUDE.md` (`@.claude/rules/read-codebase-deeply.md`), and Claude Code loads it every session on its own besides (no `paths:`), so it applies to every agent + command.
 - `read-before-write.md` gives the strict edit checklist; PR review traces Read-before-Edit (convention — there is no read-before-edit hook).
 
 ## Cross-references

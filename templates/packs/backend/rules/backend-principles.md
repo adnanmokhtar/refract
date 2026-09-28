@@ -13,7 +13,7 @@ applies-to: backend-track, every-code-writing-task-in-backend
 
 Stack-agnostic. Framework specifics in `references/<framework>.md`. Prevents the recurring backend failures: business logic in controllers, raw SQL in services, missing tenant filters, unvalidated webhooks, transactions over network calls.
 
-**What earns a line here.** Always loaded means every line is billed in every backend session, including the ones that never touch HTTP — so a line qualifies only if it changes what gets written *before* anyone knows which pattern applies. Tables, code samples, header specs and per-project numbers are `ai/patterns/` work. Hence: no portable numeric threshold in this file, and no review checklist, a checkbox restating a MUST forty lines above it being the same rule billed twice.
+**What earns a line here.** Every line is billed in every backend session, so a line qualifies only if it changes what gets written *before* anyone knows which pattern applies. Tables, samples and per-project numbers are `ai/patterns/` work; no portable numeric threshold, no review checklist.
 
 ## Must
 
@@ -29,10 +29,13 @@ Stack-agnostic. Framework specifics in `references/<framework>.md`. Prevents the
 - Custom error classes per domain concept (`OrderNotFoundError`), mapped to HTTP statuses in ONE place — global filter / error middleware.
 - One canonical response envelope for the whole project (bare resource OR `{ data, meta }` — pick one, apply everywhere); mixing shapes across endpoints is drift. Error bodies use the one error contract and are never wrapped in the success envelope. See `ai/patterns/api-contract.md` + `error-handling.md`.
 - Content negotiation: unsupported request `Content-Type` → `415`; unsatisfiable `Accept` → `406`; `Vary` on any negotiated or auth-varied response, so a shared cache cannot hand one client another's representation.
+- Natural keys (email, username, slug, SKU) are unique **in the database** — a check-then-insert is not the guard — and the violation maps to the domain's conflict error. (DATA-1, DATA-2)
 - Idempotency at every external retry boundary (webhooks, queue consumers, payment attempts): dedupe by unique constraint, and persist `(key → status + body)` atomically with the side effect so a retry replays it. **Accepting the `Idempotency-Key` header without storing and replaying is non-compliant** — the second call must not re-execute the side effect. (API-7)
 - Rate-limit every unauthenticated and every expensive endpoint (search / export / report / bulk / upload / LLM-proxy); `429` carries `Retry-After` plus the quota fields `ai/patterns/rate-limiting.md` specifies — that pattern is the only place the current-vs-legacy header question is answered. Counters live in a shared store, never process memory. (RES-1)
 - Parameterized queries always. Soft-delete + tenant filters applied at the repository layer for raw queries that bypass the base repo.
 - Structured logs (JSON in prod) with a correlation ID propagated through every layer and every downstream call.
+- A timeout on every external call (HTTP, DB, cache, queue). No-timeout is not a default, it is cascading failure. (RES-3)
+- Retries with exponential backoff + jitter, for transient errors only — never on 4xx, never on a non-idempotent write. (RES-4)
 - Config validated on boot — fail fast on a missing or malformed env var. A key that fails fast is a boot error; one that does not fails three layers in as an `undefined`.
 
 ## Must not
@@ -56,8 +59,6 @@ Stack-agnostic. Framework specifics in `references/<framework>.md`. Prevents the
 - Dependency injection: service classes receive collaborators as constructor args, not `import`-and-call singletons.
 - Outbox pattern for "DB write + event publish" atomicity. 2PC / XA is forbidden **across services** — a blocking coordinator turns N independent availabilities into their product, and a coordinator crash leaves every participant's rows locked with no owner to resolve them. (Inside ONE deployment unit spanning two resource managers, a single transaction manager is defensible; that is not this case.)
 - Graceful shutdown: drain in-flight requests, close the DB pool, finish queue acks — bounded by a deadline.
-- A timeout on every external call (HTTP, DB, cache, queue). No-timeout is not a default, it is cascading failure.
-- Retries with exponential backoff + jitter, for transient errors only — never on 4xx, never on a non-idempotent write.
 - Optimistic concurrency: a mutable resource with more than one writer exposes a strong `ETag` and requires `If-Match` on writes. Without it the second writer silently overwrites the first and nothing in the logs says so. Status codes and the version-column mapping: `ai/patterns/conditional-requests.md`.
 - Prevent N+1: eager-load / batch related reads instead of querying per row. Query-shape depth is owned by the **database + performance** packs (`n-plus-one-scan`); `api-reviewer` flags an N+1 inline at review time.
 - Outbound resilience — nested timeout budgets, retry eligibility, circuit breaker, bulkhead, DLQ — is owned by the **distributed-systems** pack. Inline floor when it is not installed: timeout + bounded retries + a declared fallback. (RES-2)

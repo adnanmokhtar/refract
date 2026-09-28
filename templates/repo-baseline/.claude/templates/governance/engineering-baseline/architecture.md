@@ -1,0 +1,22 @@
+---
+artifact: engineering-baseline/architecture
+purpose: Architecture rows. Apply to every change in every stack; a row whose shape the project does not use (e.g. layering in a functional-core codebase) is n-a with the reason.
+---
+
+# Baseline — architecture
+
+Format and verdicts: `README.md` in this directory.
+
+| ID | Standard | Fires when the change… | MET means | Checked by | Source |
+|---|---|---|---|---|---|
+| ARCH-1 | Business logic lives in the service / use-case layer. Controllers and handlers map transport to use case and back; repositories own queries; views render. | adds or changes a handler, controller, view or repository | the layer each new function sits in, `file:line` | gate · sibling-shape halt · `@api-reviewer` | `packs/backend/rules/backend-principles.md` · `packs/code-quality/rules/engineering-principles.md` |
+| ARCH-2 | Domain and application code import nothing framework- or infrastructure-specific; infrastructure adapts to ports the domain owns. | adds domain or use-case code | the import list of the new domain files | gate · hook:module-boundaries (when declared) | `packs/backend/rules/backend-principles.md` · `packs/backend/references/hexagonal-nestjs.md` |
+| ARCH-3 | Every file belongs to a module; a NEW module is named in `ai/modules.md`; cross-module access goes through the public surface only. | adds a module, or adds an import across modules | the module row for a new module; the public-surface import for a cross-module one (a stale `ai/modules.md` is Pre-existing, not this change's) | gate · hook:module-boundaries | `packs/code-quality/rules/engineering-principles.md` |
+| ARCH-4 | Extend, don't duplicate: the capability was searched for by behaviour before being built; a deliberate fork names the invariant that differs. A second writer of an existing record or event goes through the same builder as the first. | adds a capability, or a new writer of an existing record / event | the existing implementation reused (`file:line`), or the searched-for terms and why nothing fit | gate (prior-art) | `packs/code-quality/rules/engineering-principles.md` |
+| ARCH-5 | An entity's invariants are named before its columns, and each is enforced where it cannot be bypassed — inside the aggregate, or by a database constraint (see DATA-1, DATA-4). | adds an entity or aggregate | the invariant list, each mapped to its enforcement site | gate · `@schema-reviewer` | `packs/backend/commands/add-feature.md` (Phase 2, binding constraints) · `packs/business/rules/business-completeness.md` |
+| ARCH-6 | A foreign model — a legacy system, V1 during a port, a third-party API — is translated at an anti-corruption boundary. Its names, status codes and quirks never leak into the domain. | integrates an external or legacy model | the translating adapter at `file:line` | gate | `packs/backend/rules/migration-backend.md` (transposition trap) |
+| ARCH-7 | New domain names use the project's glossary terms; a new term is added to the glossary in the same change. | names a new domain concept — entity, event, status, use case — the glossary does not have (a glossary that is already stale is Pre-existing) | the term in `ai/core/glossary.md` or `ai/business-domain.md` | gate | `packs/learning/skills/extract-architecture-deeply/SKILL.md` |
+| ARCH-8 | One reason to change per unit; dependencies point inward and cross boundaries through abstractions. | adds a class or module | the unit's one responsibility, in one sentence | `@code-reviewer` · `/align` | `packs/code-quality/rules/quality-principles.md` · `packs/align/rules/align-discipline.md` |
+| ARCH-9 | A new dependency is justified and reviewed — maintenance, license, size, CVEs — and an existing one is reused where it covers the need. | adds a package | the one-line decision, or an ADR for auth / crypto / payment / data handling | gate (new-dependency) · `/dependency-vuln-check` | `packs/backend/commands/add-feature.md` § New-dependency gate |
+| ARCH-10 | A pattern the codebase does not have yet, or a new shared bucket, arrives with an ADR. | introduces a new shape | the ADR in the project's decisions directory | gate · `@code-reviewer` | `packs/code-quality/rules/engineering-principles.md` |
+| ARCH-11 | A port records every deliberate divergence from the legacy / V1 behaviour — one line per divergence, with the reason — in the migration ledger or an ADR. | ports behaviour from a legacy system and changes it on purpose | the divergence note, `file:line` | gate · `@parity-auditor` | `packs/migration/rules/migration-discipline.md` |

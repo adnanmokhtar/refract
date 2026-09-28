@@ -257,6 +257,7 @@ After audit + port + parity tests are written:
 1. Run `validate-migration-artifacts.sh --feature=<feature-id> --quiet`. The validator MUST exit 0. Specifically `check_audit_provenance` (new) HALTs if `auditor_agent_id` frontmatter is missing or empty. `check_audit` HALTs on hand-wave tokens.
 2. Run the parity test against the pinned V1 commit. Test runner must exit 0. Record run ID + result in the ledger row's `parity_runs[]`.
 3. Re-classify against the audit. Verdict must be `parity-clean` OR `intentional-break` (with ADR). If still `divergent` or `missing-in-v2`, FLAG the row in ledger as `status: failed`. Do NOT mark `done`. Continue to next feature; the user resumes via `/migration-phase <N> --feature=<id>`.
+4. Close the standards-gate ledger ([`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md)) for the V2 files this feature wrote, and check the audit's data-invariants list: every V1 guarantee has a V2 enforcement site. Any `UNMET` row other than an acknowledged `known_v1_bug` → `status: failed`, same as a divergent verdict.
 
 ### 4f. UPDATE LEDGER (per feature)
 

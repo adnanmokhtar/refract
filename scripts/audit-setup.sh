@@ -1643,108 +1643,47 @@ if [[ -x "$SCRIPTS_DIR/verify-profile-contract.sh" ]]; then
   echo ""
 fi
 
-echo "C2u: installed rules are actually loaded (imports wired)"
+echo "C2u: what the rules cost in context, and no false 'not loaded' record"
+# WHAT THIS CHECK USED TO BE, AND WHY IT CHANGED. It assumed Claude Code loads a rule only when
+# CLAUDE.md @-imports it, and ERRed three ways on that assumption: "NO rule is loaded" (zero
+# imports), "recorded nowhere" (an unimported rule missing from _unloaded.md), "UNREACHABLE"
+# (recorded but not path-scoped). All three fired on healthy installs — Claude Code loads every
+# rule without `paths:` at launch, imported or not (https://code.claude.com/docs/en/memory;
+# MEASURED 2026-09-28 on 2.1.236 with canary rules, see scripts/wire-rule-imports.sh header) — and
+# the remedy they pushed, path-scoping, took principle rules OUT of always-on context. What is
+# worth checking is what the always-on set costs, and whether a stale _unloaded.md is telling
+# the model that rules in its context are absent.
 if [[ -d "$TARGET/.claude/rules" ]]; then
-  rule_always=0; rule_scoped=0; rule_unimported=""
-  imports_present=0
-  [[ -f "$TARGET/CLAUDE.md" ]] && imports_present=$({ grep -c '^@\.claude/rules/' "$TARGET/CLAUDE.md" 2>/dev/null || true; })
-  imports_present="${imports_present:-0}"
-  for rf in "$TARGET"/.claude/rules/*.md; do
-    [[ -e "$rf" ]] || continue
+  rule_always=0; rule_scoped=0; always_bytes=0
+  while IFS= read -r rf; do
     rb="$(basename "$rf")"
-    # README.md and `_`-prefixed records (.claude/rules/_unloaded.md is written by
-    # wire-rule-imports.sh) are not rules — counting the ledger as a rule made C2u ERR on
-    # the file whose whole purpose is to record why some rules do not load.
-    [[ "$rb" == "README.md" || "$rb" == _* ]] && continue
-    # path-scoped == `paths:` key in the LEADING frontmatter (same test as check-rule-budget.sh)
-    # `globs:` counts (same test as wire-rule-imports.sh / check-rule-budget.sh — it is the
-    # key the adapter contract maps `paths:` to, so it is the same declaration).
+    [[ "$rb" == _* ]] && continue
     if head -1 "$rf" | grep -qE '^---[[:space:]]*$' \
        && awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^(paths|globs):/{f=1} END{exit !f}' "$rf"; then
       rule_scoped=$((rule_scoped + 1)); continue
     fi
     rule_always=$((rule_always + 1))
-    grep -qF "@.claude/rules/$rb" "$TARGET/CLAUDE.md" 2>/dev/null \
-      || rule_unimported="$rule_unimported $rb"
-  done
+    always_bytes=$((always_bytes + $(wc -c < "$rf")))
+  done < <(find "$TARGET/.claude/rules" -name '*.md' -type f 2>/dev/null | sort)
+  always_tok=$((always_bytes / 4))
+  rule_budget="${RULE_BUDGET_TOKENS:-12000}"
 
-  if [[ "$rule_always" -gt 0 && "$imports_present" -eq 0 ]]; then
-    rbytes=$(cat "$TARGET"/.claude/rules/*.md 2>/dev/null | wc -c | tr -d ' ')
-    err "NO rule is loaded: CLAUDE.md carries 0 \`@.claude/rules/\` imports while $rule_always always-tier rule(s) (~$(( ${rbytes:-0} / 4 )) tok) sit on disk. .claude/rules/README.md: 'Claude Code does not auto-load .claude/rules/ on its own — the CLAUDE.md import is what makes these always-on.' Fix: $SCRIPTS_DIR/wire-rule-imports.sh \"$TARGET\" --apply"
-  elif [[ -n "$rule_unimported" ]]; then
-    # THE MUTUAL UNSATISFIABILITY, and how it is broken. wire-rule-imports.sh DECLINES rules
-    # that do not fit the always-loaded token budget and says so in plain words; this check
-    # then failed the run for exactly that decision, and the escape hatch it printed
-    # (scope-rules.sh → path-scoped tier) was dead too because inject-path-rules.sh was
-    # registered in no settings.json. MEASURED: 20 rules on the reference monorepo, 4 on the sibling repo,
-    # and no reachable state satisfying both steps of the same run.
-    #
-    # The distinguishing fact is whether the refusal was RECORDED. wire-rule-imports.sh now
-    # writes `.claude/rules/_unloaded.md` — next to the rules, with each rule's per-turn cost
-    # and both remedies — and regenerates it from the live budget computation on every run, so
-    # it cannot rubber-stamp: a rule that later fits, or gains `paths:`/`globs:`, leaves the
-    # ledger by itself. A rule listed there is an owned decision (WARN). A rule that is simply
-    # absent from CLAUDE.md with no record anywhere is still an oversight (ERR).
-    # Fixture: scripts/test-rule-loading.sh § 2.
-    unloaded_md="$TARGET/.claude/rules/_unloaded.md"
-    recorded=""; unrecorded=""
-    for ru in $rule_unimported; do
-      if [[ -f "$unloaded_md" ]] && grep -qF "\`.claude/rules/$ru\`" "$unloaded_md" 2>/dev/null; then
-        recorded="$recorded $ru"
-      else
-        unrecorded="$unrecorded $ru"
-      fi
-    done
-    if [[ -n "$unrecorded" ]]; then
-      n=$(printf '%s' "$unrecorded" | wc -w | tr -d ' ')
-      err "$n always-tier rule(s) are installed, NOT imported by CLAUDE.md, and recorded nowhere, so they never load and nothing says so:$unrecorded. Either import them (wire-rule-imports.sh \"$TARGET\" --apply) or path-scope them (scope-rules.sh) — a rule that is neither is dead weight the reader believes is active."
-    fi
-    if [[ -n "$recorded" ]]; then
-      n=$(printf '%s' "$recorded" | wc -w | tr -d ' ')
-      warn_msg "$n always-tier rule(s) do NOT load, by recorded decision in .claude/rules/_unloaded.md (over the always-loaded token budget):$recorded. Not a failure — the refusal is written where a reader will find it, with the per-turn cost. To make one load: scope-rules.sh (free until matched) or wire-rule-imports.sh --budget=N."
-
-    # 🔴 "RECORDED" IS NOT "REACHABLE".
-    #
-    # The branch above downgrades an unimported rule to a WARN when `_unloaded.md` records
-    # it — an owned decision rather than an oversight, which is right as far as it goes. But
-    # the ledger's OWN remedy is `scope-rules.sh`, and nothing ever checked whether anyone
-    # ran it. A rule that is recorded AND unscoped is still delivered on no turn: not in
-    # CLAUDE.md, and carrying no `paths:` for the hook to match. The record documents the
-    # loss; it does not undo it.
-    #
-    # 📏 MEASURED on the reference monorepo: 14 of 36 rules in exactly that state — 34,773 tok
-    # including backend-principles, security-principles and testing-principles, on a backend
-    # project — every one of them dutifully listed in `_unloaded.md`, and the audit's only
-    # comment was a WARN saying the decision was recorded. the sibling repo: 4 of 17, including
-    # frontend-principles, on a frontend project.
-    #
-    # So this asks the question the two tiers between them never asked: CAN THIS RULE ARRIVE
-    # AT ALL? An ERR, because the answer is no and there is a one-command fix.
-    unreachable=""
-    for ru in $recorded; do
-      rf="$TARGET/.claude/rules/$ru"
-      [[ -f "$rf" ]] || continue
-      if ! awk 'NR==1{next} /^---[[:space:]]*$/{exit} {print}' "$rf" 2>/dev/null | grep -qE '^(paths|globs):'; then
-        unreachable="$unreachable $ru"
-      fi
-    done
-    if [[ -n "$unreachable" ]]; then
-      n=$(printf '%s' "$unreachable" | wc -w | tr -d ' ')
-      err "$n rule(s) are UNREACHABLE — not imported by CLAUDE.md and carrying no \`paths:\`, so they are delivered on NO turn: $(printf '%s' "$unreachable" | cut -c1-140). Being recorded in _unloaded.md documents the loss, it does not undo it. Fix: $SCRIPTS_DIR/scope-domain-rules.sh \"$TARGET\" --apply && $SCRIPTS_DIR/wire-rule-imports.sh \"$TARGET\" --apply"
-    fi
-    fi
+  if [[ -f "$TARGET/.claude/rules/_unloaded.md" ]]; then
+    warn_msg ".claude/rules/_unloaded.md is a stale record from an older setup: it lists rules as NOT LOADED that Claude Code loads natively, and — being a .md in rules/ — it loads too, telling the model those rules are absent. Remove it: $SCRIPTS_DIR/wire-rule-imports.sh \"$TARGET\" --apply"
+  fi
+  if [[ "$rule_always" -gt 0 && "$always_tok" -gt "$rule_budget" ]]; then
+    warn_msg "$rule_always always-loaded rule file(s) cost ~$always_tok tok in every session (budget ~$rule_budget). Every one loads — this is a cost, not a loss. To trim it, path-scope the rules that govern only a slice of the tree: $SCRIPTS_DIR/scope-rules.sh"
   elif [[ "$rule_always" -gt 0 ]]; then
-    ok "$rule_always always-tier rule(s) imported by CLAUDE.md; $rule_scoped path-scoped"
+    ok "$rule_always always-loaded rule file(s), ~$always_tok tok per session; $rule_scoped path-scoped (load when a matching file is read)"
   else
-    ok "no always-tier rules installed ($rule_scoped path-scoped)"
+    ok "no always-loaded rules installed ($rule_scoped path-scoped)"
   fi
 
-  # The path-scoped tier needs its hook registered or it is equally dead.
   if [[ "$rule_scoped" -gt 0 ]]; then
     if grep -rqF 'inject-path-rules' "$TARGET/.claude/settings.json" "$TARGET/.claude/settings.local.json" 2>/dev/null; then
-      ok "inject-path-rules.sh registered — the $rule_scoped path-scoped rule(s) can load"
+      ok "inject-path-rules.sh registered — the $rule_scoped path-scoped rule(s) also load before an edit"
     else
-      warn_msg "$rule_scoped path-scoped rule(s) installed but inject-path-rules.sh is registered in no settings.json — the path-scoped tier is inert too. Register it as a PreToolUse hook, or those rules never load either."
+      warn_msg "$rule_scoped path-scoped rule(s) load when a matching file is read, but inject-path-rules.sh is registered in no settings.json, so they do not load before an edit of a file not read first. Register it as a PreToolUse hook (wire-rule-imports.sh --apply does)."
     fi
   fi
 fi
@@ -2329,6 +2268,30 @@ if [[ "$c2t_dead" -gt 0 ]]; then
   warn_msg "$c2t_dead relative link(s) under .claude/ do NOT resolve on disk. A rewritten link whose destination was never deployed is exactly as dead as the un-rewritten one — and this check used to pass it. If the target is a framework snippet, re-run apply-baseline-sync.sh --apply (templates/repo-baseline/.claude/templates/snippets/ ships all of them):$(printf '%s' "$c2t_report" | head -12)"
 else
   ok "every relative .md link under .claude/ resolves on disk"
+fi
+echo ""
+
+# C2eb — ENGINEERING BASELINE STATUS (advisory; never fails the setup)
+#
+# The setup installs the engineering baseline and the standards gate; this shows the owner, at
+# the end of every setup, where the PRODUCT code stands against the rows a machine can decide.
+# A WARN, never an ERR: these are findings about the code, not about the setup, and a setup that
+# installed everything correctly must not be refused for a missing unique index. The same script
+# is what the standards gate runs for evidence, so what the owner sees here is what the next
+# /add-feature will be asked to close.
+echo "C2eb: engineering baseline — what the code shows against the machine-checkable rows"
+if [[ -f "$SCRIPTS_DIR/standards-check.py" ]] && command -v python3 >/dev/null 2>&1; then
+  sc_out=$(python3 "$SCRIPTS_DIR/standards-check.py" "$TARGET" --quiet 2>&1) || true
+  sc_open=$(printf '%s\n' "$sc_out" | sed -n 's/^summary: \([0-9]*\) OPEN.*/\1/p' | head -1 || true)
+  sc_rows=$(printf '%s\n' "$sc_out" | grep -E '^\[[A-Z]+-[0-9]+\]' | grep -v ' — 0 OPEN' | sed 's/^/        /' | head -12 || true)
+  if [[ "${sc_open:-0}" -gt 0 ]]; then
+    warn_msg "$sc_open baseline finding(s) OPEN in the product code (advisory — the setup itself is fine). Full list: python3 $SCRIPTS_DIR/standards-check.py \"$TARGET\". Close each in code or record why in .claude/standards-check.allow:"
+    printf '%s\n' "$sc_rows"
+  else
+    ok "standards-check.py: no OPEN finding on the machine-checkable baseline rows"
+  fi
+else
+  warn_msg "standards-check.py not found beside this script (or no python3) — the baseline's machine-checkable rows were not read"
 fi
 echo ""
 

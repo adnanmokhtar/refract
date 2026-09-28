@@ -82,10 +82,15 @@ If the mapping doc surfaces "no V2 wrapper exists for X" → halt, surface to us
 | **Write-path / data mutation** | `INSERT`/`UPDATE`/`DELETE`/`UPSERT`, repository `save`/`create`/`update`/`delete`/`destroy`, ORM `transaction`, queue publish/emit on a write | ≥ standard |
 | **Auth / permission** | auth guard / middleware, `can*` / `hasPermission` / `authorize` / role check, session / token mint, `:can-*` / `:show-*` permission props | ≥ standard |
 | **Contract surface** | DTO / serializer / response-envelope / API route handler / public type export / OpenAPI schema | ≥ standard |
+| **Schema / entity** | model / entity / schema / migration file; `unique` / `@unique` / `@@unique` / `UNIQUE` / `->unique()` / `unique=True` / `validates … uniqueness`; a `findBy<Key>` / `exists` pre-check before a create | ≥ standard |
 
 Additionally, if the surface is **write-path AND (auth OR contract)** OR carries a P0 signal (data-loss, auth-bypass, tenant-leak, payment), the floor is **heavy** → STOP and route to `/port-feature --heavy` (this command does not handle heavy rows). 
 
 The floor only ever *raises* the tier; it never lowers it. Record the floor decision in the audit (`routing_floor: standard (write-path: <v2-path:line>)`) so the gate can see why a row that "looks trivial" is standard. Skipping this check is how a silent auth-gate drop or an unguarded write ships under the trivial fast path.
+
+### 0.6. STANDARDS GATE — every tier
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the baseline for `PROJECT_KIND`, plus `data` whenever the row touches a model, schema, migration, query or repository. Select the fired rows here, before DETECT, so the auditor looks for them; close them after FIX. The audit also carries the **data-invariants list** `migration-discipline.md` requires at every tier. A guarantee V1 enforces and V2 drops is P0 drift — `code-edit`, never PARITY. A guarantee V1 itself lacks closes `UNMET — known_v1_bug` + `user-decision` (discipline § Core philosophy, implication 6).
 
 ### 1. DETECT — line-by-line V1↔V2 read
 

@@ -18,6 +18,10 @@ Existing sagas are the truth. Mirror the sibling saga's shape exactly: state-mac
 - A compensation without its own idempotency guarantee halts — double-compensation corrupts state.
 - Saga runtime unconfirmed (durable-engine worker / state-machine ARN / event-broker + saga-state ledger absent) — halt (see Phase 1 pre-flight).
 
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `backend-api` and `data` baselines. A saga fires `API-7` per step and per compensation, `RES-2` / `RES-3` / `RES-4`, `RES-6`, `DATA-6` / `DATA-7` and `OBS-1`; close them in Phase 6 beside the failure-mode scenarios.
+
 ## Phases applied
 
 All 7.

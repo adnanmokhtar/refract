@@ -2014,6 +2014,18 @@ WRITE_VERBS = ("OVERRIDE", "ENHANCE", "ADJUST")
 HANDLED_DECISIONS = ("MERGE", "KEEP-OURS-PLUS-INJECT", "REPLACE-OR-ENHANCE", "ADOPT-PACK-TRIM")
 
 
+_MANAGED_BLOCK_RE = re.compile(r"(?ms)^<!-- setup-project:managed start[^\n]*-->\n.*?^<!-- setup-project:managed end -->[ \t]*\n?")
+
+
+def _strip_managed(text):
+    """Drop every `setup-project:managed` block. Its own header says everything outside the markers
+    is the owner's; inside is written and rewritten by the scripts (wire-rule-imports.sh), whose
+    text is not in the markdown corpus. MEASURED: rewording that block's comment made C2n report
+    `KNOWLEDGE_LOSS: CLAUDE.md lost 2 line(s)` on every existing install — two lines no owner
+    wrote. And a rule import leaving the block loses nothing: the rule file still loads."""
+    return _MANAGED_BLOCK_RE.sub("", text)
+
+
 def verify_pairs(tsv_path, target, packs_root, use_git=True, quiet=False):
     """audit-setup.sh C2n, answered by the same mechanism the engine uses to decide.
 
@@ -2057,7 +2069,7 @@ def verify_pairs(tsv_path, target, packs_root, use_git=True, quiet=False):
                     after = b.read()
             except OSError:
                 continue
-            ok, viol = verify_invariant(before, after, corpus, target)
+            ok, viol = verify_invariant(_strip_managed(before), _strip_managed(after), corpus, target)
             if ok:
                 # A clean file can still have something worth SAYING. Budget evictions are
                 # reported, never failed: nl/nt/nr are all 0 and the caller branches on the
@@ -2167,15 +2179,25 @@ def main(argv):
     collision_note = {}
     for _tgt, _rs in by_target.items():
         _key0 = "%s/%s/%s" % (_rs[0]["pack"], _rs[0]["kind"], _rs[0]["base"])
-        if len(_rs) < 2:
+        # The OWNER of an installed command is not always a row this run. MEASURED on a real
+        # repo: run 1 had backend + frontend `add-feature.md` rows, backend won, frontend was
+        # SKIPped — and, not being ledgered, came back alone in run 2, where a single row meant no
+        # collision, so the frontend body OVERRODE 361 lines of the installed backend command.
+        # So for a command, every pack that ships the name is a candidate, row or not.
+        _cands = [(_r["pack"], _r["kind"], _r["base"]) for _r in _rs]
+        if _rs[0]["kind"] == "commands" and os.path.isdir(packs_root):
+            for _p in sorted(os.listdir(packs_root)):
+                _alt = os.path.join(packs_root, _p, "commands", _rs[0]["base"])
+                if os.path.isfile(_alt) and _p not in {c[0] for c in _cands}:
+                    _cands.append((_p, "commands", _rs[0]["base"]))
+        if len(_cands) < 2:
             claimed[_tgt] = _key0
             continue
         _scored = []
-        for _r in _rs:
-            _src = os.path.join(packs_root, _r["pack"], _r["kind"], _r["base"])
-            _d, _ratio = collision_score(_src, _tgt, _r["kind"], target)
-            _scored.append((-_d, -_ratio, _r["pack"],
-                            "%s/%s/%s" % (_r["pack"], _r["kind"], _r["base"]), _d, _ratio))
+        for _pk, _kd, _bs in _cands:
+            _src = os.path.join(packs_root, _pk, _kd, _bs)
+            _d, _ratio = collision_score(_src, _tgt, _kd, target)
+            _scored.append((-_d, -_ratio, _pk, "%s/%s/%s" % (_pk, _kd, _bs), _d, _ratio))
         _scored.sort()
         claimed[_tgt] = _scored[0][3]
         collision_note[_tgt] = {

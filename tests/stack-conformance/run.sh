@@ -66,6 +66,13 @@ t_be=$(tracks_of "$FIX/express-backend")
 assert_absent   "backend-only: no ui-ux"  "ui-ux"    "$t_be"
 assert_absent   "backend-only: no mobile" "mobile"   "$t_be"
 
+# The database detector read npm alone: a Laravel, Django or Go backend with a database got no
+# database pack, and with it no schema-reviewer and no database-principles rule.
+assert_contains "laravel: database (composer + database/migrations)" "database" "$(tracks_of "$FIX/laravel-backend")"
+assert_contains "django: database (requirements + app migrations)"   "database" "$(tracks_of "$FIX/django-backend")"
+assert_contains "go: database (gorm in go.mod)"                      "database" "$(tracks_of "$FIX/go-backend")"
+assert_absent   "express with no DB: no database pack"               "database" "$t_be"
+
 t_nuxt=$(tracks_of "$FIX/nuxt-storefront")
 assert_contains "nuxt: frontend"          "frontend" "$t_nuxt"
 assert_contains "nuxt: ui-ux"             "ui-ux"    "$t_nuxt"

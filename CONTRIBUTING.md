@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **63 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **64 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 63 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 64 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -385,8 +385,9 @@ Decide the tier first — it is decided by exactly one thing, the presence of `p
 precisely to force that question. Repo-baseline rules live in
 `templates/repo-baseline/.claude/rules/`; role-specific rules live in `templates/packs/<pack>/rules/`.
 
-Adding a file to a rules directory does **not** load it. Claude Code does not auto-load
-`.claude/rules/`. It loads because `CLAUDE.md` imports it or because it has `paths:`.
+Adding a file to a rules directory **loads it**: Claude Code loads every `.claude/rules/` file
+without `paths:` at launch, imported or not, and a `paths:` rule when a matching file is read. The
+budget gate is there because every always-on line is paid in every session.
 
 ### Add a command
 
@@ -461,7 +462,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 63 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 64 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---

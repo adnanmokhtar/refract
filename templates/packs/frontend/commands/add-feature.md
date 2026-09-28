@@ -276,6 +276,10 @@ Before declaring success, the auditor compares the new page/component against �
 
 This is the same `regressed` mechanism from `parity-auditor.md` § V2-structure conformance. No silent advance.
 
+### Standards gate (mandatory, all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `web` baseline (plus `data` if the change adds a query, a schema or a local store). Select the fired rows before generating — for a feature that is usually WEB-1..WEB-12, QG-1, QG-3 on role-gated surfaces — and close each with evidence after Phase 6, before the Output block. The sibling governs shape; the baseline governs guarantees: a sibling page with no empty state, a raw `fetch` or a hardcoded colour is a defect to report and fix, not a shape to mirror. Any `UNMET` or `SKIPPED` row → INCOMPLETE.
+
 ## Phase 5 — Update (persist changes to the knowledge base)
 
 Gated by tier. Trivial-tier writes only the bare minimum; ADR drafts are heavy-tier opt-in (avoiding the "ADR-as-closure" anti-pattern):

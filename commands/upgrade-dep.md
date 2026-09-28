@@ -81,7 +81,7 @@ The manifest pair, the probe, and the official codemod when one exists. Rows are
 |---|---|---|---|
 | Node (npm / pnpm / yarn / bun) | `package.json` + the lockfile in the tree | `<pm> outdated`, `<pm> audit` | `npx @tailwindcss/upgrade`, `npx @next/codemod`, `npx jscodeshift` packs, `npx types-react-codemod` |
 | PHP (Composer) | `composer.json` + `composer.lock` | `composer outdated --direct`, `composer audit` | Rector rule sets (`rector process` against a `rector.php` that imports the release's set), framework-first-party upgrade packages |
-| Python (pip / Poetry / uv) | `pyproject.toml` or `requirements*.txt` + the lock | `pip list --outdated`, `pip-audit` | `django-upgrade`, `pyupgrade`, `ruff --fix` for the deprecation classes each release documents |
+| Python (pip / Poetry / uv) | `pyproject.toml` or `requirements.txt` (any `requirements*.txt`) + the lock | `pip list --outdated`, `pip-audit` | `django-upgrade`, `pyupgrade`, `ruff --fix` for the deprecation classes each release documents |
 | Dart / Flutter | `pubspec.yaml` + `pubspec.lock` | `dart pub outdated` | `dart fix --apply` (reads the SDK's own deprecation data) |
 | Ruby | `Gemfile` + `Gemfile.lock` | `bundle outdated`, `bundle audit` (bundler-audit gem) | Rails `app:update` + `rubocop -a` for the release's cop set |
 | Go | `go.mod` + `go.sum` | `go list -m -u all`, `govulncheck` | `go fix`, module-supplied `gofmt -r` rewrites |

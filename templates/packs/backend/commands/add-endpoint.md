@@ -28,7 +28,7 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 
 | Tier | Triggers | Artifacts | Phases |
 |---|---|---|---|
-| **Trivial** (default) | 1 endpoint mirroring a sibling endpoint exactly (same module, read or simple write). No new pattern element. | Code + tests (happy + invalid body + unauth). **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt) |
+| **Trivial** (default) | 1 endpoint mirroring a sibling endpoint exactly (same module, read or simple write). No new pattern element. | Code + tests (happy + invalid body + unauth). **No plan, no ADR, no Phase 5 docs.** | Understand (light) → Generate → Validate (sibling-shape halt + standards gate) |
 | **Standard** | New DTO shape / new query method / new event handler, but reuses existing primitives. | Code + tests + 1-paragraph plan + sibling-shape note in PR. **`n-plus-one-scan` on any new list / query endpoint.** **No ADR unless pattern is genuinely new.** | Understand → Retrieve (siblings) → Generate → Validate |
 | **Heavy** | New auth surface, write-path mutation, cross-module orchestration, schema change, payment / multi-tenant surface, breaking API change. | ADR + plan + reviewer dispatch + parity tests for affected siblings. Full 7-phase ceremony below. | All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve) |
 
@@ -37,6 +37,10 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 ## New-dependency gate (all tiers)
 
 Inherited from `/add-feature` (§ New-dependency gate). Condensed: a package no sibling already uses never lands silently — confirm it's actually new (check the lockfile), run a dependency review (maintenance / license / bloat / stdlib-alternative; dispatch `security-auditor` or inline the checklist), and record the decision (one PR line; ADR for auth / crypto / payment / data-handling deps). HALT on an unreviewed new dependency.
+
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `backend-api` baseline, plus `data` when the endpoint writes to or queries a table. Select the fired rows before Generate; close them in the Production-readiness gate's ledger (Phase 6), which they extend. The baseline outranks the sibling endpoint: a sibling with no 403 test, no unique constraint behind a create, or no timeout on its client is a defect to fix here, not a shape to copy.
 
 ## Phases applied
 
@@ -339,6 +343,8 @@ Fill this ledger (one row per floor item) before writing the Output block:
 | 6 | **Authz enforced, not just authn** | a `403` **denial** e2e test for an authenticated-but-unauthorized principal (wrong role / non-owner) passes — a `401` alone does NOT satisfy this — OR `n-a` (truly public endpoint), reason stated | api-reviewer `authz-not-authn` (AUTHZ) |
 | 7 | **Emits log + metric + trace** | the RED-triad metric (rate + errors + duration histogram), a correlation-id log line, and a use-case span are each matched to an **actually-emitted** signal in the diff — not asserted from the telemetry plan | api-reviewer `log+metric+trace` (OBS-2); Phase-4 Telemetry |
 
+**Baseline rows beyond the floor.** Every row the standards gate fired that this floor does not already cover — `DATA-1`/`DATA-2` when the endpoint creates or updates a row keyed by a natural key, `RES-3`/`RES-4` for an outbound call, `PERF-7` for a cache, `RES-1` for a public or expensive route — is appended to this ledger as row 8 onward, with the same evidence rule and the same effect on the verdict.
+
 **Coverage regeneration (evidence #1, #5, #6 are runtime — not readable from source alone).** Where the evidence is a test that must be *run* (invalid-body, 403 denial, page-cap clamp), the gate requires the test **executed green in this run** (from `pnpm test` / `endpoint-test`), not merely authored. If the harness is absent (no dev server, `n-plus-one-scan` not installed), mark that row `SKIPPED — unverified: <exact command a reviewer must run>` and the verdict is INCOMPLETE, not PRODUCTION-READY.
 
 **Verdict:**
@@ -399,7 +405,7 @@ Docs updated: ai/status.md
 
 Breaking change?: NO (additive) / YES → ADR NNNN + openapi snapshot updated.
 
-Verdict: PRODUCTION-READY   (all 7 floor rows MET or n-a, evidence cited)
+Verdict: PRODUCTION-READY   (all 7 floor rows and every fired baseline row MET or n-a, evidence cited)
 
 Next:
   - /review-changes
@@ -428,7 +434,7 @@ Never stamp COMPLETE/PRODUCTION-READY while a floor row is open — INCOMPLETE w
 
 ## Hard rules
 
-- Mirror existing endpoints in this module EXACTLY. No new pattern.
+- Mirror existing endpoints in this module EXACTLY. No new pattern. Mirroring governs shape; the engineering baseline governs guarantees and wins where they disagree.
   - Reviewer must verify the new endpoint's shape matches ≥2 sibling endpoints in the same module — no new pattern introduced silently.
 - DTO validated. Every field. No `any`.
 - Auth guards unless explicitly public.

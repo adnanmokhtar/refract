@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
-# wire-rule-imports.sh — make .claude/rules/ actually LOAD.
+# wire-rule-imports.sh — write the reviewable always-on rule list into CLAUDE.md.
+#
+# CORRECTION (2026-09-28) — READ THIS BEFORE THE HISTORY BELOW. The premise the history rests on
+# is false. Claude Code loads every `.md` under `.claude/rules/` that has no `paths:` at launch,
+# recursively, whether or not CLAUDE.md imports it; a `paths:` rule loads when Claude reads a
+# matching file (https://code.claude.com/docs/en/memory § "Organize rules with .claude/rules/").
+# MEASURED, not read: a scratch repo with an empty CLAUDE.md and three canary rules, asked on
+# Claude Code 2.1.236 to list the canaries in its instructions, answered with the unconditional
+# rule's and the nested `backend/` rule's, and not the `paths:`-scoped one. The "0 imports,
+# therefore 0 loaded" below was an inference from the import count; loading itself was never
+# measured. So this script no longer decides what loads — the `paths:` key does. It writes the
+# always-on set into CLAUDE.md as a list a reader can review, reports what that set costs, and
+# names the one remedy that actually takes a rule out of context: path-scoping it. It no longer
+# writes `_unloaded.md`, whose "NOT LOADED" was false (and which, being a `.md` in rules/, was
+# itself loaded every session); a run removes one left by an older version.
 #
 # THE DEFECT THIS SCRIPT EXISTS FOR
 # --------------------------------
@@ -42,7 +56,7 @@
 # Usage:  wire-rule-imports.sh <target-repo> [--apply] [--budget=<tokens>]
 # Exit:   0 wired (or would-wire) within budget
 #         1 usage / target error
-#         3 wired the foundational set, but pack rules overflow the budget (advisory)
+#         3 wired, but the always-on set costs more than the budget (advisory — they all load)
 
 set -uo pipefail
 
@@ -139,7 +153,7 @@ printf '  %-44s ~%5d tok\n' "TOTAL" "$total"
 
 if [[ ${#SCOPED[@]} -gt 0 ]]; then
   echo ""
-  echo "Path-scoped (NOT imported — injected on match, free until then): ${#SCOPED[@]}"
+  echo "Path-scoped (NOT imported — loaded when a matching file is read, free until then): ${#SCOPED[@]}"
 fi
 
 rc=0
@@ -152,98 +166,34 @@ if [[ ${#OVERFLOW[@]} -gt 0 ]]; then
     printf '  %-44s ~%5d tok\n' ".claude/rules/${row%%|*}" "${row##*|}"
   done
   echo ""
-  echo "These rules are on disk and will NOT load. That is a deliberate refusal, not an"
-  echo "oversight: importing them costs ~$ov_tok tok on EVERY turn. Make them free instead —"
+  echo "They carry no \`paths:\`, so Claude Code loads them at launch whether or not"
+  echo "CLAUDE.md lists them — the always-on set really costs ~$((total + ov_tok)) tok, not ~$total."
+  echo "To take one out of always-on context, path-scope it —"
   echo "  $SELF_DIR/scope-rules.sh \".claude/rules/<name>.md\" \"<glob>,<glob>\""
-  echo "adds \`paths:\` frontmatter, after which inject-path-rules.sh loads them ONLY when"
-  echo "Claude touches matching source. Re-run this script afterwards. Raise --budget only"
-  echo "with the per-turn cost above in front of you."
+  echo "after which it loads only when Claude reads (or, via inject-path-rules.sh, edits)"
+  echo "matching source. Scope only a rule that governs a slice of the tree: a principle rule"
+  echo "that must shape all work belongs in the always-on set, whatever it costs."
   rc=3
 fi
 
-# ---- the refusal LEDGER -----------------------------------------------------------------
+# ---- no refusal ledger ----------------------------------------------------------------
 #
-# THE DEADLOCK THIS BREAKS. This script declines over-budget rules and says so in plain words.
-# audit-setup.sh C2u then FAILS the run for exactly that decision — "N always-tier rule(s) are
-# installed but NOT imported by CLAUDE.md, so they never load" — and the escape hatch it printed
-# was dead too, because a path-scoped rule needs inject-path-rules.sh registered and that hook
-# was registered in no settings.json in either live repo. Two mandatory steps of the same run,
-# in direct opposition, with no reachable state that satisfies both: 20 rules on the reference monorepo,
-# 4 on the sibling repo, and /setup-project unable to exit 0 either way.
-#
-# A refusal a reader can FIND is a different object from a refusal that is only a line of
-# scrollback. This writes the decision to `.claude/rules/_unloaded.md` — next to the rules it
-# is about — with the per-rule token cost and both remedies. C2u reads that file: a rule
-# recorded there is a WARN (an owned decision), a rule that is simply missing from CLAUDE.md
-# with no record is still an ERR (an oversight). The ledger is REGENERATED from the live budget
-# computation on every run, so it cannot rubber-stamp: scope a rule, or raise the budget, and
-# the rule leaves the ledger by itself. Fixture: scripts/test-rule-loading.sh § 2.
+# Older versions wrote `.claude/rules/_unloaded.md` listing over-budget rules as NOT LOADED.
+# They loaded (see CORRECTION at the top), and the ledger — a `.md` inside rules/ — loaded with
+# them on every session, telling the model that rules in its own context were absent. Remove
+# one left behind; write nothing in its place. The cost report above is the honest version.
 UNLOADED_MD="$RULES_DIR/_unloaded.md"
-if [[ "$APPLY" -eq 1 ]]; then
-  if [[ ${#OVERFLOW[@]} -gt 0 ]]; then
-    {
-      printf '# Rules on disk that do NOT load
-
-'
-      printf '<!-- Written by scripts/wire-rule-imports.sh. Regenerated on every run: a rule that
-'
-      printf '     later fits the budget, or gains `paths:`/`globs:` frontmatter, disappears from this
-'
-      printf '     list by itself. Do not hand-edit — edit the rules or the budget. -->
-
-'
-      printf 'The always-loaded import budget is **%s tok/turn**. %d rule(s) below it did not fit, so
-' "$BUDGET" "${#OVERFLOW[@]}"
-      printf 'CLAUDE.md does not `@`-import them and **Claude never reads them**. This is a recorded
-'
-      printf 'decision, not an oversight — but it is a decision, and these are the words it costs:
-
-'
-      printf '| rule | ~tok/turn if imported | status |
-|---|---:|---|
-'
-      for row in "${OVERFLOW[@]}"; do
-        printf '| `.claude/rules/%s` | %s | NOT LOADED |
-' "${row%%|*}" "${row##*|}"
-      done
-      printf '
-Total withheld: **~%d tok/turn** across %d rule(s).
-
-' "$ov_tok" "${#OVERFLOW[@]}"
-      printf 'Two ways to make one of them load:
-
-'
-      printf '1. **Path-scope it** (free until matched) —
-'
-      printf '   `scripts/scope-rules.sh ".claude/rules/<name>.md" "<glob>,<glob>"`, then re-run
-'
-      printf '   `scripts/wire-rule-imports.sh <target> --apply`. Requires `.claude/hooks/inject-path-rules.sh`
-'
-      printf '   to be registered as a PreToolUse hook — this script registers it for you when the hook
-'
-      printf '   file is present.
-'
-      printf '2. **Raise the budget** — `scripts/wire-rule-imports.sh <target> --apply --budget=N`,
-'
-      printf '   with the per-turn cost in the table above in front of you.
-'
-    } > "$UNLOADED_MD"
-    echo ""
-    echo "  RECORD  .claude/rules/_unloaded.md  (${#OVERFLOW[@]} rule(s), ~$ov_tok tok/turn withheld)"
-  elif [[ -f "$UNLOADED_MD" ]]; then
-    rm -f "$UNLOADED_MD"
-    echo ""
-    echo "  CLEAR   .claude/rules/_unloaded.md  (every always-tier rule now loads)"
-  fi
+if [[ "$APPLY" -eq 1 && -f "$UNLOADED_MD" ]]; then
+  rm -f "$UNLOADED_MD"
+  echo ""
+  echo "  REMOVE  .claude/rules/_unloaded.md  (its NOT LOADED was false — those rules load natively)"
 fi
 
-# ---- make the path-scoped tier actually LIVE --------------------------------------------
+# ---- register the edit-time half of the path-scoped tier ---------------------------------
 #
-# The documented escape hatch above is a lie unless inject-path-rules.sh is registered. It was
-# registered in no settings.json in either live repo, so "path-scope it and it loads on match"
-# was advice that could not be followed — and audit-setup.sh C2u printed the WARN proving it in
-# the same run that printed the advice. Scoping a rule into a tier that does not run is worse
-# than leaving it unloaded, because the reader believes the opposite.
+# Claude Code loads a path-scoped rule when it READS a matching file. inject-path-rules.sh adds
+# the other half: it injects the rule before an EDIT or WRITE, which covers a new file or one
+# edited without being read first. Registering it is additive, never required for loading.
 # Fixture: scripts/test-rule-loading.sh § 3.
 HOOK_REL='.claude/hooks/inject-path-rules.sh'
 SETTINGS="$TARGET/.claude/settings.json"
@@ -293,26 +243,27 @@ with open(path, "w", encoding="utf-8") as f:
 PYHOOK
     then
       echo "  WIRE    .claude/settings.json  (PreToolUse Edit|Write|MultiEdit → $HOOK_REL)"
-      echo "          ${#SCOPED[@]} path-scoped rule(s) can now load on match. Without this the"
-      echo "          path-scoped tier is inert and \`scope-rules.sh\` is advice that cannot be followed."
+      echo "          ${#SCOPED[@]} path-scoped rule(s) now also load before an edit of a matching file"
+      echo "          (Claude Code already loads them when it reads one)."
     else
       rcp=$?
-      [[ "$rcp" -eq 2 ]] && echo "  WARN    could not register $HOOK_REL in .claude/settings.json (unreadable or unexpected shape) — the ${#SCOPED[@]} path-scoped rule(s) will NOT load. Register it as a PreToolUse hook by hand."
+      [[ "$rcp" -eq 2 ]] && echo "  WARN    could not register $HOOK_REL in .claude/settings.json (unreadable or unexpected shape) — the ${#SCOPED[@]} path-scoped rule(s) still load when a matching file is read, but not before an edit of one. Register it as a PreToolUse hook by hand."
     fi
   else
-    echo "  NOTE    ${#SCOPED[@]} path-scoped rule(s) need $HOOK_REL registered as a PreToolUse hook"
-    echo "          or they never load. Pass --apply and this script registers it."
+    echo "  NOTE    ${#SCOPED[@]} path-scoped rule(s) load when a matching file is read; register"
+    echo "          $HOOK_REL as a PreToolUse hook to load them before an edit too (--apply does it)."
   fi
 elif [[ ${#SCOPED[@]} -gt 0 ]]; then
-  echo "  WARN    ${#SCOPED[@]} path-scoped rule(s) installed but $HOOK_REL is not on disk — the"
-  echo "          path-scoped tier cannot run, so those rules never load by any route."
+  echo "  NOTE    ${#SCOPED[@]} path-scoped rule(s) installed and $HOOK_REL is not on disk — they"
+  echo "          load when a matching file is read, not before an edit of one."
 fi
 
 # ---- compose the managed block ----
 block="$MARK_OPEN"$'\n'
 block+="<!-- Written by scripts/wire-rule-imports.sh. Everything outside these two markers is"$'\n'
-block+="     yours and is never touched. Claude Code does not auto-load .claude/rules/ — these"$'\n'
-block+="     @-imports are what make them load. Delete a line to stop loading that rule. -->"$'\n'
+block+="     yours and is never touched. Claude Code loads every .claude/rules/ file without"$'\n'
+block+="     paths: at launch on its own; this list names the always-on set so it can be reviewed."$'\n'
+block+="     Deleting a line does not unload a rule — give it paths: or remove the file. -->"$'\n'
 block+=$'\n'"## Project rules (always-loaded)"$'\n'$'\n'
 for row in ${IMPORT_LIST[@]+"${IMPORT_LIST[@]}"}; do
   block+="@.claude/rules/${row%%|*}"$'\n'

@@ -12,9 +12,10 @@
 #        of which file was open — while 22 genuinely global principle rules did not fit the
 #        budget and never loaded at all. `grep -rln 'globs:' scripts/` returned NOTHING.
 #
-#   § 2  wire-rule-imports.sh declined over-budget rules and said so; audit-setup.sh C2u then
-#        FAILED the run for that decision. Two mandatory steps of the same run in direct
-#        opposition, with no reachable state satisfying both.
+#   § 2  over-budget rules were recorded as NOT LOADED in _unloaded.md and the audit ERRed on
+#        installs with no imports. Both assumed Claude Code loads only imported rules; it loads
+#        every rule without `paths:` (measured 2026-09-28). Now pinned: no false ledger, the real
+#        cost reported, no ERR on a healthy install.
 #
 #   § 3  the escape hatch was dead. A path-scoped rule loads only via inject-path-rules.sh,
 #        and that hook was registered in no settings.json in either repo — so "scope it and it
@@ -107,60 +108,68 @@ if [ -f "$BUDGET_SH" ]; then
   fi
 fi
 
-# ── § 2  the over-budget refusal is RECORDED, and the audit accepts a recorded refusal ───
-say "§ 2  an over-budget refusal is written where a reader finds it, and does not fail the run"
+# ── § 2  an over-budget always-on set is a COST, never a "not loaded" record ─────────────
+# Claude Code loads every rule without `paths:` at launch, imported or not (measured with canary
+# rules on 2.1.236 — see the header of wire-rule-imports.sh). This section used to assert that
+# over-budget rules were recorded in `.claude/rules/_unloaded.md` as NOT LOADED and that the
+# audit accepted that record. Both halves were built on the opposite premise: the ledger told
+# the model that rules in its own context were absent, and it loaded too. Now: no ledger, a stale
+# one is removed, the run states the real cost, and the audit never ERRs on a healthy install.
+say "§ 2  an over-budget always-on set is reported as a cost, with no false ledger"
 R2="$TD/overbudget"; seed_target "$R2"
-# one foundational rule so the run reaches the normal path (the foundational set is imported
-# regardless of budget — a target with ZERO imports means wire-rule-imports.sh never ran, and
-# C2u is right to ERR on that separately).
 mkrule "$R2/.claude/rules/code-quality.md" "" 20
 for n in one two three four; do mkrule "$R2/.claude/rules/big-$n.md" "" 400; done
-bash "$WIRE" "$R2" --apply --budget=2000 >/dev/null 2>&1 || true
-LED="$R2/.claude/rules/_unloaded.md"
-if [ -f "$LED" ]; then
-  ok "§2 .claude/rules/_unloaded.md was written"
+printf '# Rules on disk that do NOT load\n\n| `.claude/rules/big-one.md` | 999 | NOT LOADED |\n' > "$R2/.claude/rules/_unloaded.md"
+out2=$(bash "$WIRE" "$R2" --apply --budget=2000 2>&1); rc2=$?
+if [ ! -f "$R2/.claude/rules/_unloaded.md" ]; then
+  ok "§2 a stale _unloaded.md is removed, and none is written"
 else
-  bad "§2 .claude/rules/_unloaded.md was written" "the refusal exists only in scrollback"
+  bad "§2 a stale _unloaded.md is removed, and none is written" "$(head -2 "$R2/.claude/rules/_unloaded.md" | tr '\n' ' ')"
 fi
-if [ -f "$LED" ] && grep -q 'tok/turn' "$LED" && grep -q 'scope-rules.sh' "$LED"; then
-  ok "§2 it states the per-turn cost and both remedies"
+if printf '%s' "$out2" | grep -q 'loads them at launch whether or not' && printf '%s' "$out2" | grep -q 'scope-rules.sh'; then
+  ok "§2 the run states that over-budget rules load anyway, and names path-scoping as the remedy"
 else
-  bad "§2 it states the per-turn cost and both remedies" "$( [ -f "$LED" ] && head -3 "$LED" | tr '\n' ' ')"
+  bad "§2 the run states that over-budget rules load anyway" "$(printf '%s' "$out2" | grep -A3 'OVER BUDGET' | tr '\n' ' ' | cut -c1-220)"
+fi
+if [ "$rc2" -eq 3 ]; then
+  ok "§2 over budget is still the advisory exit 3"
+else
+  bad "§2 over budget is still the advisory exit 3" "exit $rc2"
 fi
 if [ -f "$AUDIT" ]; then
   a2=$(bash "$AUDIT" "$R2" --read-only 2>&1 || true)
   c2u=$(printf '%s\n' "$a2" | sed -n '/^C2u:/,/^$/p')
-  # A TEST THAT CANNOT SAY WHY IT FAILED IS HALF A TEST.
-  #
-  # When this suite failed on CI and passed locally, the report was
-  #     FAIL §2 C2u reports it as a WARN naming the ledger
-  # with no detail line — because the detail is `head -4` of $c2u and $c2u was EMPTY.
-  # That emptiness IS the finding (the audit never reached C2u at all), and it was the one
-  # thing the output did not say. Diagnosing it took a log fetch and a guess; it should have
-  # taken reading the failure. So: if the section is missing, say the section is missing, and
-  # show where the audit actually stopped.
+  # A TEST THAT CANNOT SAY WHY IT FAILED IS HALF A TEST: an empty section means the audit never
+  # reached C2u, and that is the thing to report.
   if [ -z "$c2u" ]; then
     bad "§2 the audit never emitted a C2u: section" \
         "audit ended at: $(printf '%s\n' "$a2" | grep -vE '^[[:space:]]*$' | tail -3 | tr '\n' ' | ' | cut -c1-220)"
   fi
-  if printf '%s' "$c2u" | grep -q 'ERR .*NOT imported'; then
-    bad "§2 C2u does not ERR on a recorded refusal" "$(printf '%s' "$c2u" | grep 'ERR' | head -1)"
+  if printf '%s' "$c2u" | grep -q 'ERR'; then
+    bad "§2 C2u does not ERR on an over-budget install" "$(printf '%s' "$c2u" | grep 'ERR' | head -1)"
   else
-    ok "§2 C2u does not ERR on a recorded refusal"
+    ok "§2 C2u does not ERR on an over-budget install"
   fi
-  if printf '%s' "$c2u" | grep -q 'recorded decision in .claude/rules/_unloaded.md'; then
-    ok "§2 C2u reports it as a WARN naming the ledger"
+  if printf '%s' "$c2u" | grep -q 'this is a cost, not a loss'; then
+    ok "§2 C2u reports the over-budget set as a cost"
   else
-    bad "§2 C2u reports it as a WARN naming the ledger" "$(printf '%s' "$c2u" | head -4 | tr '\n' ' ')"
+    bad "§2 C2u reports the over-budget set as a cost" "$(printf '%s' "$c2u" | head -4 | tr '\n' ' ')"
   fi
-  # the mirror: an UNRECORDED unimported rule must still be an ERR, or this is a rubber stamp.
-  R2B="$TD/unrecorded"; rm -rf "$R2B"; cp -R "$R2" "$R2B"
-  rm -f "$R2B/.claude/rules/_unloaded.md"
+  # a project with NO imports at all is healthy: every rule still loads.
+  R2B="$TD/noimports"; rm -rf "$R2B"; cp -R "$R2" "$R2B"
+  printf '# Project\n' > "$R2B/CLAUDE.md"
+  printf '# Rules on disk that do NOT load\n' > "$R2B/.claude/rules/_unloaded.md"
   a2b=$(bash "$AUDIT" "$R2B" --read-only 2>&1 || true)
-  if printf '%s\n' "$a2b" | sed -n '/^C2u:/,/^$/p' | grep -q 'ERR .*recorded nowhere'; then
-    ok "§2 an UNRECORDED unimported rule is still an ERR"
+  c2ub=$(printf '%s\n' "$a2b" | sed -n '/^C2u:/,/^$/p')
+  if printf '%s' "$c2ub" | grep -q 'ERR'; then
+    bad "§2 zero @-imports is not an error" "$(printf '%s' "$c2ub" | grep 'ERR' | head -1)"
   else
-    bad "§2 an UNRECORDED unimported rule is still an ERR" "the ledger check became a blanket exemption"
+    ok "§2 zero @-imports is not an error — the rules load anyway"
+  fi
+  if printf '%s' "$c2ub" | grep -q '_unloaded.md is a stale record'; then
+    ok "§2 a stale _unloaded.md is flagged"
+  else
+    bad "§2 a stale _unloaded.md is flagged" "$(printf '%s' "$c2ub" | head -4 | tr '\n' ' ')"
   fi
 fi
 
@@ -294,6 +303,34 @@ if grep -q 'OWNER_KEY' "$R3B/.claude/settings.json" && grep -q 'pre-edit-guard' 
 else
   bad "§3 the owner's existing settings + hooks survive the registration" \
       "$(cat "$R3B/.claude/settings.json" | tr '\n' ' ' | cut -c1-200)"
+fi
+
+# ── § 4  the migration base loads wherever its extensions do ─────────────────────────────
+# migration-discipline.md shipped scoped to DB-migration dirs while migration-backend.md was
+# scoped to the track root, so a port of a service loaded the extension without its base.
+say ""
+say "§ 4  migration-discipline follows migration-backend/-frontend and the anchors' v2_root"
+SCOPE_DOM="${SCOPE_DOM_OVERRIDE:-$REPO_ROOT/scripts/scope-domain-rules.sh}"
+if [ -f "$SCOPE_DOM" ]; then
+  R4="$TD/migbase"; seed_target "$R4"; mkdir -p "$R4/ai/migration"
+  mkrule "$R4/.claude/rules/migration-discipline.md" 'paths:
+  - "**/migrations/**"
+name: migration-discipline' 10
+  mkrule "$R4/.claude/rules/migration-backend.md" 'paths:
+  - "apps/api/src/**"
+name: migration-backend' 10
+  printf -- '---\nv2_root: apps/\nv1_root: ../v1\n---\n' > "$R4/ai/migration/_v2-anchors.md"
+  bash "$SCOPE_DOM" "$R4" --apply >/dev/null 2>&1 || true
+  fm4=$(awk 'NR==1&&/^---/{d=1;next} d&&/^---/{exit} d' "$R4/.claude/rules/migration-discipline.md")
+  if printf '%s' "$fm4" | grep -qF '"apps/api/src/**"' && printf '%s' "$fm4" | grep -qF '"apps/**"' \
+     && printf '%s' "$fm4" | grep -qF '"**/migrations/**"'; then
+    ok "§4 the base gains its extension's glob and the v2_root, and keeps its own"
+  else
+    bad "§4 the base gains its extension's glob and the v2_root" "$(printf '%s' "$fm4" | tr '\n' ' ')"
+  fi
+  bash "$SCOPE_DOM" "$R4" --apply >/dev/null 2>&1 || true
+  n4=$(grep -c 'apps/api/src' "$R4/.claude/rules/migration-discipline.md")
+  if [ "$n4" -eq 1 ]; then ok "§4 re-running adds nothing"; else bad "§4 re-running adds nothing" "apps/api/src appears $n4 times"; fi
 fi
 
 say ""

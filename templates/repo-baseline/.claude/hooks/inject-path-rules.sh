@@ -2,12 +2,12 @@
 # PreToolUse hook (Edit|Write|MultiEdit) — path-scoped rule injection.
 #
 # Rules in .claude/rules/ come in two tiers:
-#   • always-loaded  — no `paths:` frontmatter; wired in via the project CLAUDE.md
-#                      @-imports, so they cost tokens every session.
-#   • path-scoped    — carry `paths:` frontmatter (a YAML list of globs). NOT
-#                      imported by CLAUDE.md. This hook injects one, as
-#                      additionalContext, exactly when Claude edits a file the
-#                      rule governs — free until you're near a matched file.
+#   • always-loaded  — no `paths:` frontmatter; Claude Code loads them at launch,
+#                      imported by CLAUDE.md or not, so they cost tokens every session.
+#   • path-scoped    — carry `paths:` frontmatter (a YAML list of globs). Claude Code
+#                      loads one when it READS a matching file; this hook injects it,
+#                      as additionalContext, when Claude EDITS one — covering a new
+#                      file or an edit made without a read first.
 #
 # Context-only: always exits 0, never blocks. Needs jq to build the JSON safely;
 # degrades to a silent no-op without it. Per-session dedup (keyed on session_id)

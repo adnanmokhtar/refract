@@ -188,11 +188,11 @@ time, and landed on two guaranteed audit failures:
   That hook ships here. A live run installed the command, did not install the hook, and then
   failed itself for it — C2g "1 baseline file(s) missing" plus C2w "recall.md instructs the
   reader to run a script that does not exist".
-- **It calls `wire-rule-imports.sh`, which is what makes `.claude/rules/` load at all.** Claude
-  Code does not auto-load `.claude/rules/`; the `@.claude/rules/…` imports in CLAUDE.md are what
-  make those rules always-on. Measured on two live repos: **55 rules, ~82,475 tokens on disk,
-  zero imported, therefore zero loaded.** Every rule the packs deliver was inert. C2u is the
-  mandatory check that catches it.
+- **It calls `wire-rule-imports.sh`, which lists the always-on rule set in CLAUDE.md and reports
+  what it costs.** It does not decide what loads: Claude Code loads every `.claude/rules/` file
+  without `paths:` at launch, imported or not (measured 2026-09-28; an earlier note here read
+  "zero imported, therefore zero loaded", which was inferred, never measured). C2u reports the
+  always-on cost and flags a stale `_unloaded.md`.
 
 **Hard contract (M25) — apply Phase-4.6 round-one anchors deterministically:**
 

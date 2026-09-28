@@ -15,15 +15,13 @@ applies-to: migration-track, every-code-writing-task-in-migration
 
 # Migration Rule: V1→V2 port discipline
 
-> **Why this rule declares its own `paths:`.** It shipped without one. A rule with no `paths:` is
-> an *always-tier* rule: it either loads on every turn or, when the always-tier budget is full, it
-> is withheld and loads on **none**. MEASURED on a real repo — withheld at ~7.8k tok/turn, recorded
-> in `_unloaded.md` as deliberately not imported, and therefore delivered nowhere, while the three
-> rules that EXTEND it (`migration-backend`, `migration-frontend`, a project's `migration-safety`)
-> had been path-scoped at install and were firing **without their shared base**. Recording that a
-> rule was withheld is honest; it is not the same as reachable. The globs above are the
-> stack-independent ones — every migration directory shape the packs know. Per-project scoping may
-> widen this (a source tree the extending rules cover); it must not narrow it to nothing.
+> **Why this rule declares its own `paths:`.** At ~7.8k tok it should not ride in every session of
+> a project that is not mid-port, so it loads when Claude reads a file under a migration directory,
+> alongside the rules that EXTEND it (`migration-backend`, `migration-frontend`, a project's
+> `migration-safety`). A rule with no `paths:` loads in every session (an earlier note here said
+> an over-budget one "loads on none"; that was wrong). The globs above are the stack-independent
+> ones — every migration directory shape the packs know. Per-project scoping should widen this to
+> the source tree being ported; it must not narrow it to nothing.
 
 
 ## CORE PHILOSOPHY — read this first, internalize, do not deviate
@@ -37,10 +35,11 @@ applies-to: migration-track, every-code-writing-task-in-migration
 3. **API samples are HELPFUL, not REQUIRED.** Captured responses under `ai/migration/api-samples/` give V2's types perfect field accuracy, but a readable V1 source (controllers / serializers / view templates) is sufficient — missing samples WARN, not halt, when V1 source is unambiguous.
 4. **We are NOT refactoring.** If V1 has odd query params, V2 has the same odd query params. If V1 gates on `tenants.read`, V2 gates on `tenants.read` — not "the cleaner `read.tenants`". Refactor happens AFTER migration, on V2-only, with its own ADR. Mid-migration "while I'm here" improvements are FORBIDDEN.
 5. **Halts that DO fire**: V2 deviates from V1 (most common — fix V2); cross-repo blocker; user-chosen contract break (ADR); dead V1 code in the queue; artifact missing for the row's tier. All are about V2 quality and PROCESS completeness — never about V1 verification.
+6. **V1 is the contract for behaviour, not for guarantees.** The engineering baseline (`templates/governance/engineering-baseline/`) is the floor under both sides. A guarantee V1 enforces — a unique key, a foreign key, `NOT NULL` / `CHECK`, an app-level uniqueness check, an auth guard — that V2 drops is **P0 drift**, restored toward V1 at every tier. A guarantee V1 itself lacks is surfaced, never silently inherited: its standards-gate row closes `UNMET — known_v1_bug` with a `user-decision`, because the fix can fail on existing data (a unique index over rows that already hold duplicates) and so includes a data check. This is not a mid-migration improvement; it is refusing to port a defect without saying so.
 
 **V1 stability modes** — `v1_status` in `ai/migration/_v2-anchors.md` (with `v1_api_frozen`, `v1_reference_commit`): `production-stable` (default — V1-side halts SKIPPED, api-samples WARN) · `actively-developed` (pin `v1_reference_commit` as the oracle; api-samples stay a hard halt because V1 may have shipped contract changes) · `frozen` (no V1-side halts at all). Full semantics — which halts each mode skips: `ai/patterns/migration-guardrails.md § v1_status modes`.
 
-**TL;DR: in migration mode, V1 is gospel. Don't ask, port.**
+**TL;DR: in migration mode, V1 is gospel for behaviour, and the baseline is the floor. Don't ask, port — and don't port a lost guarantee.**
 
 > **Project-specific values** (V1/V2 roots, parity-test location, cutover mechanism, caching and DB primitives) are auto-injected into the `project-specific` block at the bottom of this file by `scripts/apply-anchors.sh`. Edit `ai/migration/_v2-anchors.md` and re-run `/setup-project --refresh` — never edit the injected values here.
 
@@ -70,6 +69,8 @@ Every feature port produces an artifact set scaled to its actual risk. Tier is s
 - Heavy requires an audit-flagged trigger OR explicit user opt-in via `/port-feature <feature> --heavy`.
 - User can **upgrade** tier anytime; **downgrade requires an ADR**.
 - `/migration-gate <N>` validates the artifact set **for the row's tier**, not the heavy floor universally. Over-production is allowed but never rewarded.
+- **Every tier carries a data-invariants list in the audit** — every natural key, foreign key, `NOT NULL` / `CHECK` and app-level uniqueness check V1 relies on, V1 `path:line` ↔ V2 enforcement `path:line` (schema, migration or guard). It is not a contract and trivial tier still writes none; it is the one axis a lost invariant cannot hide from, because the contract that would otherwise hold it (§ 5 Invariants) exists only at heavy tier.
+- **The standards gate runs at every tier** ([`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md)) against the V2 code the port writes, with the baseline for `PROJECT_KIND` plus `data`.
 
 ## Anti-bloat rules
 

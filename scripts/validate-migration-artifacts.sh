@@ -1614,6 +1614,44 @@ ActiveSupport::Notifications\.publish[[:space:]]*\(" \
 "$file" 2>/dev/null | wc -l | tr -d ' ')
       event_emit=${event_emit:-0}
 
+      # unique_guard — a guarantee, not a surface: every place uniqueness of a natural key is
+      # enforced. Database-level declarations across ORMs and raw SQL (Prisma @unique/@@unique,
+      # TypeORM/Sequelize/Mongoose/Rails `unique: true`, Django/JPA `unique=True`, UniqueConstraint,
+      # Laravel ->unique() and the `unique:` validation rule, Knex .unique(), GORM uniqueIndex,
+      # EF Core IsUnique, SQL UNIQUE), plus the app-level pre-checks that usually sit beside them
+      # (findByEmail, get_by_username, where('email', ...), Supabase .eq('email', ...)), and the handlers that turn a violation
+      # into a conflict (P2002, 23505, E11000, IntegrityError, RecordNotUnique…) — so a V2 that
+      # keeps the constraint and maps its violation to a 409 balances a V1 that pre-checked
+      # (baseline DATA-1 + DATA-2). Counted because a V1→V2 port once kept
+      # every endpoint and dropped the unique email: no other primitive class could see it.
+      local unique_guard
+      unique_guard=$(grep -oE \
+"@@?unique\b|\
+@(Unique|IsUnique)\b|\
+\bunique:[[:space:]]*true\b|\
+\bunique[[:space:]]*=[[:space:]]*(True|true)\b|\
+\bUniqueConstraint\b|\
+\bunique_together\b|\
+->unique[[:space:]]*\(|\
+\.unique[[:space:]]*\(|\
+Rule::unique[[:space:]]*\(|\
+[\"\'|]unique:[a-z_]|\
+\buniqueness:|\
+\buniqueIndex\b|\
+\bIsUnique[[:space:]]*(\(|=)|\
+\bUNIQUE\b|\
+\b(find|get|exists|count)[A-Za-z]*By(Email|Username|UserName|Slug|Phone|Sku|Code)\b|\
+\b(get|find|exists)_by_(email|username|slug|phone|sku)\b|\
+\bfind_by[[:space:]]*\(?[[:space:]]*(email|username|slug|phone|sku):|\
+\bwhere[[:space:]]*\([[:space:]]*[\"\'](email|username|slug|phone|sku)[\"\']|\
+\.(eq|ilike)[[:space:]]*\([[:space:]]*[\"\'](email|username|slug|phone|sku)[\"\']|\
+\b(filter|get|exists)[[:space:]]*\([[:space:]]*(email|username|slug|phone|sku)(__iexact)?[[:space:]]*=|\
+\bP2002\b|\bER_DUP_ENTRY\b|\b23505\b|\bE11000\b|\bunique_violation\b|\
+\bRecordNotUnique\b|\bDuplicateKey(Exception|Error)\b|\bIntegrityError\b|\
+\bUnique[A-Za-z]*(Violation|Error|Exception)\b" \
+"$file" 2>/dev/null | wc -l | tr -d ' ')
+      unique_guard=${unique_guard:-0}
+
       echo "route_handler=$route_handler"
       echo "dto_class=$dto_class"
       echo "auth_guard=$auth_guard"
@@ -1622,6 +1660,7 @@ ActiveSupport::Notifications\.publish[[:space:]]*\(" \
       echo "exception_throw=$exception_throw"
       echo "db_query=$db_query"
       echo "event_emit=$event_emit"
+      echo "unique_guard=$unique_guard"
       ;;
     data)
       # SQL-ish files PLUS migration-tool DSLs (Knex, Prisma, TypeORM, ActiveRecord,
@@ -1666,7 +1705,9 @@ ADD[[:space:]]+(UNIQUE[[:space:]]+)?INDEX\b|\
 "$file" 2>/dev/null | tr -d ' ')
       index_def=${index_def:-0}
 
-      constraint=$(grep -ciE "CHECK[[:space:]]*\(|UNIQUE[[:space:]]*\(|NOT[[:space:]]+NULL|@@unique\b|\.notNullable[[:space:]]*\(" "$file" 2>/dev/null | tr -d ' ')
+      # UNIQUE as a bare keyword (column-level `email TEXT UNIQUE`), and the ORM spellings of a
+      # unique or not-null declaration — `UNIQUE (` alone missed every inline and ORM form.
+      constraint=$(grep -ciE "CHECK[[:space:]]*\(|\bUNIQUE\b|NOT[[:space:]]+NULL|@@?unique\b|unique:[[:space:]]*true|unique[[:space:]]*=[[:space:]]*true|->unique[[:space:]]*\(|\.unique[[:space:]]*\(|UniqueConstraint|\.notNullable[[:space:]]*\(" "$file" 2>/dev/null | tr -d ' ')
       constraint=${constraint:-0}
 
       # Filename-shape heuristic for migrations across tools.
@@ -1756,6 +1797,7 @@ primitive_to_axis() {
     db_query)                  echo "Side effects" ;;
     exception_throw)           echo "Error contract" ;;
     event_emit)                echo "Side effects" ;;
+    unique_guard)              echo "Schema integrity|Schema" ;;
     table_def|column_def|foreign_key|index_def|constraint) echo "Schema|Outputs" ;;
     *)                         echo "" ;;
   esac
@@ -1792,12 +1834,12 @@ check_inventory_primitives_match() {
     /^>?[[:space:]]*[Vv]1 path:/ { capture=1 }
     capture && /^>?[[:space:]]*[Vv]2 path:/ { capture=0 }
     capture { print }
-  ' | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js)' | sort -u)
+  ' | grep -oE '[A-Za-z0-9_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js|php|prisma|cs|exs?|dart|swift|rs|scala)' | sort -u)
   all_v2_files=$(echo "$header_block" | awk '
     /^>?[[:space:]]*[Vv]2 path:/ { capture=1 }
     capture && /^>?[[:space:]]*(ADR|v1_commit|Tier|Verdict|##)/ { capture=0 }
     capture { print }
-  ' | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js)' | sort -u)
+  ' | grep -oE '[A-Za-z0-9_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js|php|prisma|cs|exs?|dart|swift|rs|scala)' | sort -u)
 
   # Resolve representative files. Pick the largest candidate by LOC on each
   # side (inline-ports often cite a tab-shell + the actual leaf; the leaf is
@@ -1835,6 +1877,27 @@ check_inventory_primitives_match() {
     echo "$best"
   }
 
+  # A guarantee lives where it lives — the unique index in the schema or migration, the
+  # uniqueness check in the service — rarely in the largest file the audit cites. Sum it across
+  # every cited file on the side, so citing the schema next to the controller is enough.
+  sum_guarantee_across_files() {
+    local candidates="$1" root_hint="$2" pk="$3" primitive="$4"
+    local total=0 cand full_path n
+    while IFS= read -r cand; do
+      [[ -z "$cand" ]] && continue
+      full_path=""
+      if [[ -f "$cand" ]]; then
+        full_path="$cand"
+      elif [[ -n "$root_hint" && -f "${root_hint}/${cand}" ]]; then
+        full_path="${root_hint}/${cand}"
+      fi
+      [[ -z "$full_path" ]] && continue
+      n=$(extract_inventory_primitives "$full_path" "$pk" | awk -F= -v k="$primitive" '$1 == k { print $2; exit }')
+      [[ "$n" =~ ^[0-9]+$ ]] && total=$(( total + n ))
+    done <<< "$candidates"
+    echo "$total"
+  }
+
   local v1_full v2_full
   v1_full=$(pick_largest_file_for_primitives "$all_v1_files" "$V1_ROOT")
   v2_full=$(pick_largest_file_for_primitives "$all_v2_files" "$V2_ROOT")
@@ -1863,6 +1926,13 @@ check_inventory_primitives_match() {
   local v1_prims v2_prims
   v1_prims=$(extract_inventory_primitives "$v1_full" "$pk")
   v2_prims=$(extract_inventory_primitives "$v2_full" "$pk")
+  if [[ "$pk" == backend-* ]]; then
+    local v1_ug v2_ug
+    v1_ug=$(sum_guarantee_across_files "$all_v1_files" "$V1_ROOT" "$pk" unique_guard)
+    v2_ug=$(sum_guarantee_across_files "$all_v2_files" "$V2_ROOT" "$pk" unique_guard)
+    v1_prims=$(printf '%s\nunique_guard=%s\n' "$(echo "$v1_prims" | grep -v '^unique_guard=')" "$v1_ug")
+    v2_prims=$(printf '%s\nunique_guard=%s\n' "$(echo "$v2_prims" | grep -v '^unique_guard=')" "$v2_ug")
+  fi
 
   # Walk every primitive present on the V1 side. For each, compute V2's count
   # and compare. Drift fires when V1 > 0 AND V2 / V1 < 0.7 (V2 missing > 30%).
@@ -1896,7 +1966,13 @@ check_inventory_primitives_match() {
 
     # Trivial-tier softening: warn-only for small drift (≤5) when verdict is PARITY.
     # DRIFT / non-PARITY rows must NOT bypass — they fall through to DRIFT enumeration below.
-    if [[ "$tier" == "trivial" && $is_parity -eq 1 && $drift -le 5 ]]; then
+    # Guarantee classes never soften: one lost unique constraint or auth guard is the whole
+    # defect, not a small drift (migration-discipline.md § Core philosophy, implication 6).
+    local is_guarantee=0
+    case "$primitive" in
+      unique_guard|constraint|foreign_key|auth_guard|permission_gate) is_guarantee=1 ;;
+    esac
+    if [[ "$tier" == "trivial" && $is_parity -eq 1 && $drift -le 5 && $is_guarantee -eq 0 ]]; then
       log_warn "primitive-match: '$primitive' V1=$v1_count V2=$v2_count (gap=$drift) on trivial-tier PARITY row $feature — small drift; verify manually or promote tier."
       continue
     fi
@@ -1919,7 +1995,7 @@ check_inventory_primitives_match() {
           capture && /^#{2,4}[[:space:]]/ { exit }
           capture { print }
         ' "$file" 2>/dev/null)
-        c=$(echo "$body" | grep -oE '[A-Za-z_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js):[0-9]+' | wc -l | tr -d ' ')
+        c=$(echo "$body" | grep -oE '[A-Za-z0-9_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js|php|prisma|cs|exs?|dart|swift|rs|scala):[0-9]+' | wc -l | tr -d ' ')
         c=${c:-0}
         total=$(( total + c ))
       done

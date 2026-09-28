@@ -79,7 +79,7 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 
 | Tier | Triggers | Artifacts | Phases |
 |---|---|---|---|
-| **Trivial** (default) | New CRUD module mirroring 1 sibling 1:1. No new primitive. No cross-module coupling. | Code + tests + migration + `ai/modules.md` row. **No plan, no ADR, no Phase 5 docs beyond modules.md / status.md.** | Understand (light) → Generate (mirror sibling) → Validate (sibling-shape halt) |
+| **Trivial** (default) | New CRUD module mirroring 1 sibling 1:1. No new primitive. No cross-module coupling. | Code + tests + migration + `ai/modules.md` row. **No plan, no ADR, no Phase 5 docs beyond modules.md / status.md.** | Understand (light) → Generate (mirror sibling) → Validate (sibling-shape halt + standards gate) |
 | **Standard** | New module reuses primitives but has 1 novel axis (new domain signal: webhook, AI, payment, queue). | Code + tests + migration + 1-paragraph plan + sibling-shape note in PR. | Understand → Retrieve (sibling + 1 pattern) → Generate → Validate |
 | **Heavy** | First module of its kind in repo, OR cross-module coupling, OR new layer/primitive, OR write-path with multi-tenant blast radius. | Full ADR + 7-phase ceremony below + reviewer dispatch. | All 7 |
 
@@ -100,7 +100,11 @@ Halt verdict per file: `aligned` (matches sibling) | `drifted` (one or more axes
 
 Any `drifted` → HALT before merge. Either re-shape to match the sibling (default closure) or — if the deviation is intentional and load-bearing — write an ADR justifying it and promote to heavy tier. Drift without ADR is forbidden.
 
-For trivial-tier modules, this halt is the only gate beyond lint+tests+migration. No reviewers, no telemetry sign-off — just sibling parity.
+For trivial-tier modules, this halt and the standards gate below are the gates beyond lint + tests + migration — no reviewers, and no telemetry sign-off beyond what a fired baseline row asks for.
+
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `backend-api` and `data` baselines — a new module always fires `data`. Select the fired rows before Generate; the Aggregate-shape ledger is where `ARCH-5` and `DATA-1` are decided, so every natural key in it gets its unique constraint in the migration this command writes. Close the rows in the per-route Production-readiness ledgers (Phase 6), which they extend. The sibling module is the truth for layout, naming and DI — not for guarantees: a sibling whose `email` has no unique index is a defect to report, and this module does not inherit it.
 
 ## Phases applied
 
@@ -228,6 +232,7 @@ Run the ledger in [`templates/packs/backend/commands/add-endpoint.md`](./add-end
 Two module-grain additions the per-endpoint gate cannot see:
 - **Row 3 (transaction boundary) is evaluated across the module's use-cases, not per route.** A create that writes the aggregate and its children in two statements is one unit or it is a bug; cite the tx site (`ai-patterns/transaction-boundary.md`).
 - **Every invariant from the Aggregate-shape ledger has a named enforcement site** (DB constraint, transition guard, or transaction boundary) with a test that fails when it is removed. An invariant with no failing test was decoration.
+- **Every fired baseline row the floor does not list** (`DATA-1`..`DATA-13`, `RES-3`..`RES-6`, `PERF-7`, …) closes here with the same evidence rule.
 
 **Verdict, module-grain:**
 - **PRODUCTION-READY** — every route's ledger resolves MET-with-evidence or n-a-with-reason, and both module-grain rows above are MET.
@@ -299,7 +304,7 @@ Next:
 
 ## Hard rules
 
-- Mirror an existing module EXACTLY. No invented layout.
+- Mirror an existing module EXACTLY. No invented layout. Mirroring governs shape; the engineering baseline governs guarantees and wins where they disagree.
 - **DI token style matches the named sibling; cite it at `<path:line>`.** Not "Symbols, not strings" — that is a house preference, and on a project whose siblings use string tokens it makes this command generate output its own sibling-shape halt then flags `drifted`. The sibling is the truth here exactly as it is for layout, naming and error envelope.
 - Every DTO validated.
 - Tenant filter on every query (if multi-tenant).

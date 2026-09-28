@@ -294,16 +294,15 @@ fi
 #
 # So the routing runs every time, from a script that decides for itself. It refuses to guess:
 # a domain whose modules it cannot find, or one spanning >40% of the map, stays always-loaded.
-# Its second pass gives a route to any rule that has none — because for those the alternative
-# is not "a narrower glob", it is "never".
+# (Its former second pass, which path-scoped every unimported rule, is retired: Claude Code
+# loads a rule without `paths:` at launch whether or not CLAUDE.md imports it.)
 ~/.claude/scripts/scope-domain-rules.sh . --apply 2>&1 | tail -20
 
-# Re-wire AFTER scoping: CLAUDE.md must drop what is now path-scoped, and the freed budget
-# buys the next rules in the queue.
+# Re-wire AFTER scoping: CLAUDE.md's always-on list must drop what is now path-scoped, and the
+# run reports what the always-on set costs. (It decides nothing about loading — `paths:` does.)
 ~/.claude/scripts/wire-rule-imports.sh . --apply 2>&1 | tail -5
 
-# Audit C2u now ERRs on any rule that is neither imported nor scoped, so a regression here
-# fails the run rather than going quiet again.
+# Audit C2u reports that cost, and flags a stale `_unloaded.md` from an older setup.
 
 # 🔴 RETARGET THE PROBES. A pack artifact ships commands written against a generic layout —
 # `rg "SELECT .* FROM" src/modules/` — and `src/` there is an EXAMPLE, not a fact about this

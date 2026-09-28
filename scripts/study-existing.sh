@@ -90,7 +90,7 @@ fi
 # `dirname "${BASH_SOURCE[0]}"` still reports ~/.claude/scripts when invoked through the global
 # install — which is how apply-baseline-sync.sh came to print "WARN wire-rule-imports.sh not
 # found beside this script" while the script sat in the checkout all along, leaving every rule
-# in the target unimported and therefore never loaded.
+# in the target unimported (not unloaded, it turned out — Claude Code loads rules on its own).
 _ss="${BASH_SOURCE[0]}"
 while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
 SELF_DIR_PK="$(cd -P "$(dirname "$_ss")" && pwd)"; unset _ss _sd

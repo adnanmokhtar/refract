@@ -125,7 +125,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ## Enforcement
 
-- Imported via the project `CLAUDE.md` (`@.claude/rules/think-simplify-surgical.md`, alongside `read-before-write.md` and `read-codebase-deeply.md`), so it loads every session and applies to every agent + command. (`.claude/rules/` files are not auto-loaded on their own — the `CLAUDE.md` import is what wires them in.)
+- Imported via the project `CLAUDE.md` (`@.claude/rules/think-simplify-surgical.md`, alongside `read-before-write.md` and `read-codebase-deeply.md`), and Claude Code loads it every session on its own besides (no `paths:`), so it applies to every agent + command.
 - PR-review prompt: any reviewer who sees scope creep, speculative abstraction, hidden tradeoffs, or "make it work" verification should reject and cite this rule.
 - Surfaces in the Phase 5 audit when a generated artifact violates the principles (e.g. an agent file that says "implement X" without a verify step is a quality miss).
 

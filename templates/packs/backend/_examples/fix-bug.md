@@ -49,6 +49,13 @@ That's it. Three escalation triggers. Everything else is silent fix + similar-pa
 
 Trivial-tier is the default. Promote to Standard or Heavy only when a trigger actually fires. Bundling a 1-line null-check fix into the heavy ceremony is the same anti-pattern as shipping a fix that ignores siblings — both waste the run.
 
+## Standards gate (all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `backend-api` baseline, plus `data` when the fix touches an entity, migration, query or repository. A fix fires the rows for what it touches, and `QG-2` always. Two things are specific to bugs:
+
+- **When the bug is a baseline violation, the fix is the baseline mechanism.** A duplicate email is fixed by the unique constraint (`DATA-1`) plus the conflict mapping (`DATA-2`), not by a check-then-insert; a hung request by a timeout (`RES-3`), not a longer one.
+- **The similar-bugs scan searches for the violated row, not only the expression.** Every other natural key without a unique constraint, every other client without a timeout — fixed, explained or ticketed, under the same `N_found` accounting.
+
 ## Phases applied
 
 All 7 (Understand → Organize → Retrieve → Generate → Update → Validate → Improve), with Phase 4 = TDD (failing test first, then fix).
@@ -254,6 +261,7 @@ Mandatory:
 - ALL existing tests still pass ✓
 - Manual reproduction confirms fix ✓
 - Similar-bug grep: fixed OR ticketed ✓
+- Standards gate closed — every fired row MET or n-a, else INCOMPLETE ✓
 
 Run skills:
 - `endpoint-test` if endpoint logic changed.
@@ -377,6 +385,7 @@ Next:
 - No incidental refactor in bug-fix PR. One feature per fix run.
 - No new dependency in a bug-fix PR without a dependency review — a growing dep tree is a smell on a fix. See Phase 4 § Minimal fix.
 - No skipping review.
+- The standards gate runs at every tier; a bug that violated a baseline row is fixed with that row's mechanism.
 - Prod-affecting bugs get a write-up.
 - Trivial-tier is the default. Heavy ceremony (ADR + investigation doc + reviewer dispatch) is opt-in for library-level / race / security / data-loss bugs.
 

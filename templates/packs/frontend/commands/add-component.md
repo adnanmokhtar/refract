@@ -111,6 +111,10 @@ Before declaring success, compare the new component against ≥2 sibling files i
 
 **Hard rule:** `gap_count_in != gap_count_closed` → HALT. Surface the open list and ask the user: refix, escalate to next tier, or accept. Any `regressed` → HALT.
 
+### Standards gate (mandatory, all tiers)
+
+Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `web` baseline (plus `data` if the change adds a query, a schema or a local store). Select the fired rows before generating — for a component that is usually WEB-1, WEB-2, WEB-5, WEB-8, WEB-11, QG-1 — and close each with evidence after Phase 6, before the Output block. The sibling governs shape; the baseline governs guarantees: a sibling component with hardcoded spacing or no keyboard path is a defect to report and fix, not a shape to mirror. Any `UNMET` or `SKIPPED` row → INCOMPLETE.
+
 ## Phase 5 — Update
 - `ai/dynamic/changelog.md` — one-line: `Added <Component> at <path>`.
 - `ai/modules.md` — if the component introduces a new shared primitive class, note it.

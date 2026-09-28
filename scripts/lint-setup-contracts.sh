@@ -355,8 +355,8 @@ while IFS= read -r f; do
   # to find its sibling scripts. `pwd -P` resolves the DIRECTORY, never the symlinked FILE, so
   # SELF_DIR was ~/.claude/scripts — and the script printed "WARN wire-rule-imports.sh not found
   # beside this script" on every run while wire-rule-imports.sh sat in the checkout. Every rule
-  # in both target repos stayed unimported, and therefore never loaded, because of that one
-  # line. One resolved root per file is not enough; ALL of them must be resolved.
+  # in both target repos stayed unimported because of that one line (they still loaded — Claude
+  # Code loads rules on its own — but the script was wrong about which file it had found). One resolved root per file is not enough; ALL of them must be resolved.
   #
   # `printf`-quoted occurrences are exempt: run-preflight.sh emits a restore.sh whose OWN
   # BASH_SOURCE is about the generated file, which is not a symlink into anything.
