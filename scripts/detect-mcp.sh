@@ -340,10 +340,37 @@ if has_dep vue || has_dep_prefix '@vue/' || has_dep react || has_dep_prefix '@ty
     "Alternate to Playwright for headless Chromium. REPORT ONLY: the reference server (@modelcontextprotocol/server-puppeteer) is deprecated upstream, and playwright above already covers this job — writing both put two browser drivers in one config."
 fi
 
-# ---------- Storybook (frontend + .storybook dir) ----------
-if [[ $FRONTEND -eq 1 && -d "$TARGET/.storybook" ]]; then
-  add_rec "storybook" "Storybook MCP" "@storybook/mcp" \
-    "Frontend with Storybook detected (.storybook/) — query component catalog, render stories, inspect args/controls. Official (storybookjs); runs beside the Storybook dev server."
+# ---------- Storybook (frontend + a .storybook dir wired with addon-mcp) ----------
+# The server is NOT a package anyone runs. `@storybook/mcp` is a library with no `bin`, so the
+# `npx -y @storybook/mcp` this catalog used to write failed at startup. The real server is the
+# `@storybook/addon-mcp` addon, served by the Storybook dev server itself over HTTP at `/mcp`
+# (measured on Storybook 10.6: tools docs-list, docs-show, test-run, stories-preview, …).
+#
+# Two consequences. The config is a URL, so the port is read from the member's `storybook dev -p`
+# script (Storybook's default is 6006). And in a monorepo `.storybook/` lives in the app, not the
+# root — looking only at `$TARGET/.storybook` missed every workspace that had one.
+SB_DIR=""
+if [[ $FRONTEND -eq 1 ]]; then
+  if [[ -d "$TARGET/.storybook" ]]; then
+    SB_DIR="$TARGET"
+  else
+    while IFS= read -r _wpkg; do
+      [[ -d "$(dirname "$_wpkg")/.storybook" ]] && { SB_DIR=$(dirname "$_wpkg"); break; }
+    done < <(workspace_pkg_jsons "$TARGET")
+  fi
+fi
+SB_MCP_URL=""
+if [[ -n "$SB_DIR" ]]; then
+  _sb_port=$(sed -n 's/.*"storybook"[[:space:]]*:[[:space:]]*"[^"]*storybook dev[^"]*-p[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
+    "$SB_DIR/package.json" 2>/dev/null | head -1)
+  SB_MCP_URL="http://localhost:${_sb_port:-6006}/mcp"
+  if grep -rqs 'addon-mcp' "$SB_DIR/.storybook/"; then
+    add_rec "storybook" "Storybook MCP" "@storybook/addon-mcp" \
+      "Storybook with addon-mcp detected (${SB_DIR#"$TARGET"/}/.storybook) — the component catalogue, each component's props and stories, and story tests, served by the Storybook dev server at $SB_MCP_URL. Runs only while that server does."
+  else
+    add_rec_unwired "storybook" "Storybook MCP" "@storybook/addon-mcp (not installed)" \
+      "Storybook detected (${SB_DIR#"$TARGET"/}/.storybook) without @storybook/addon-mcp, so there is no server to point at. \`/setup-storybook\` installs the addon; re-run this after it."
+  fi
 fi
 
 # ---------- Figma (frontend + figma config / tokens dir) ----------
@@ -455,7 +482,7 @@ fi
 
 if command -v python3 >/dev/null 2>&1; then
   RECS_JOINED=$(printf '%s\n' "${RECS[@]}")
-  RECS_JOINED="$RECS_JOINED" V1_DIR="$V1_DIR" MCP_FILE="$MCP_FILE" \
+  RECS_JOINED="$RECS_JOINED" V1_DIR="$V1_DIR" MCP_FILE="$MCP_FILE" SB_MCP_URL="$SB_MCP_URL" \
   QUIET="$QUIET" APPLY="$APPLY" REPAIR="$REPAIR" STATE="$STATE" \
   python3 - <<'PY'
 import json, os, pathlib, sys
@@ -465,6 +492,7 @@ mcp_file  = pathlib.Path(os.environ["MCP_FILE"])
 apply_on  = os.environ.get("APPLY", "0") == "1"
 quiet     = os.environ.get("QUIET", "0") == "1"
 v1_dir    = os.environ.get("V1_DIR", "")
+sb_mcp_url = os.environ.get("SB_MCP_URL", "") or "http://localhost:6006/mcp"
 recs_raw  = os.environ.get("RECS_JOINED", "").strip()
 
 lines = []
@@ -530,7 +558,8 @@ def server_config(rec):
         return {"command": "npx", "args": ["-y", pkg],
                 "env": {"MDB_MCP_CONNECTION_STRING": "${DATABASE_URL}"}}
     if rid == "storybook":
-        return {"command": "npx", "args": ["-y", pkg]}
+        # Served by the Storybook dev server, not spawned: an HTTP entry, no command.
+        return {"type": "http", "url": sb_mcp_url}
     if rid == "mobile":
         return {"command": "npx", "args": ["-y", pkg]}
     # Two servers below are official but are NOT npm packages. Emitting an npx line for them
@@ -603,9 +632,12 @@ for r in recs:
     cfg = servers_now.get(r["id"])
     if not isinstance(cfg, dict):
         continue
-    blob = " ".join([str(cfg.get("command", ""))] + [str(a) for a in (cfg.get("args") or [])])
-    if r["package"] and r["package"] not in blob:
-        stale.append("%s=%s" % (r["id"], r["package"]))
+    blob = " ".join([str(cfg.get("command", "")), str(cfg.get("url", ""))]
+                    + [str(a) for a in (cfg.get("args") or [])])
+    # An HTTP entry names no package; what identifies it is its URL.
+    want = recommended.get(r["id"], {}).get("url") or r["package"]
+    if want and want not in blob:
+        stale.append("%s=%s" % (r["id"], want))
 emit("stale", ",".join(sorted(stale)))
 emit("exists", "yes" if mcp_file.exists() else "no")
 emit("present", ",".join(sorted(servers_now.keys())))
@@ -705,8 +737,9 @@ def write_sibling(path, root_key, transform, label):
         print("  + added to %s: %s" % (path, ", ".join(new_keys)), file=sys.stderr)
 
 def as_vscode(cfg):
-    # VS Code wants an explicit transport. Every server this script emits is a local subprocess.
-    out = {"type": "stdio"}
+    # VS Code wants an explicit transport: stdio for a spawned server, and an HTTP entry (the
+    # Storybook addon) already carries its own `"type": "http"`, which the update below keeps.
+    out = {"type": "stdio"} if "command" in cfg else {}
     out.update({k: v for k, v in cfg.items() if not k.startswith("_")})
     return out
 
@@ -875,6 +908,9 @@ commafy() { [[ -n "$1" ]] || { echo ""; return 0; }; echo "$1" | sed 's/,/`, `/g
           ;;
         postgres)
           printf '    "postgres": {\n      "command": "npx",\n      "args": ["-y", "%s", "${DATABASE_URL}"]\n    }' "$pkg"
+          ;;
+        storybook)
+          printf '    "storybook": {\n      "type": "http",\n      "url": "%s"\n    }' "$SB_MCP_URL"
           ;;
         figma)
           printf '    "figma": {\n      "command": "npx",\n      "args": ["-y", "%s"],\n      "env": { "FIGMA_ACCESS_TOKEN": "${FIGMA_TOKEN}" }\n    }' "$pkg"
