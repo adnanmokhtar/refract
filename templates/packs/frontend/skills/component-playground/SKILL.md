@@ -86,6 +86,7 @@ Cleanup:     disposable; delete once the prop API stabilizes
 - `verify-with-playwright` — the ad-hoc live-drive sibling for a component already mounted in a real page.
 - `/add-component` — the command that scaffolds the component this skill probes; its intent gate is the main entry point.
 - `@design-system-guardian` *(ui-ux pack, when co-installed)* — owns whether the primitive should exist at all and whether its variants belong to the system. This skill only looks at one component; it makes no system-level claim.
+- `/setup-storybook` — where a repo goes when it wants the heavyweight instead: Storybook, a story per shared component, and the Storybook MCP. On a repo that already has Storybook, this skill's step-0 halt routes a missing story there (UPDATE mode writes only the gap).
 
 ## Halt conditions
 

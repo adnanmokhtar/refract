@@ -88,7 +88,7 @@ Component-specific:
 - Typed props interface / `defineProps`.
 - Default styles via the repo's mechanism.
 - Test file mirroring siblings: render + props variants + interaction + a11y assertion.
-- Storybook / Histoire / Ladle entry IF those are present.
+- Storybook / Histoire / Ladle entry IF those are present. A Storybook story follows `/setup-storybook` § Stories — including the component's `@import` JSDoc tag with the path app code uses, or the Storybook MCP serves an import that does not resolve.
 - Run lint + the component's tests; iterate to green.
 
 ### Sibling-shape mechanical halt (mandatory, all tiers)
@@ -167,6 +167,7 @@ Status: COMPLETE | INCOMPLETE
 - `/add-feature` — the caller. It invokes this command for the component step; the prior-art and new-dependency gates above are inherited from it.
 - `/unify-surfaces` (core) — the sweep for raw-primitive drift that **already shipped**. This command's halt is creation-time only and says so at § Creation-time only; do not use one for the other's job.
 - `/a11y-audit` · `/i18n-audit` — read-only passes over what shipped. The accessible-defaults blocker and the alt-locale halt here are the creation-time subsets of those two sweeps.
+- `/setup-storybook` — installs Storybook and backfills stories for components that already shipped; this command writes the ONE new component's story. Both follow the same story contract, including the `@import` JSDoc tag.
 
 ### Skills this command dispatches (and when)
 - `lcp-audit` — Phase 4 halt + Phase 6, above-the-fold / hero / heavy-media components only. Not LCP-relevant → `lcp: n/a`.

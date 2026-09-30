@@ -527,6 +527,7 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | `/add-crud-page`       | Full CRUD UI (list + detail + form).                                              |
 | `/i18n-audit`          | Find missing translations.                                                       |
 | `/a11y-audit`          | Accessibility audit.                                                             |
+| `/setup-storybook`     | Install Storybook + the MCP addon and write a story per shared component; on a repo that has it, write stories only for components added since. Verified by the full unit suite, the story run in Chromium and a live MCP probe. |
 | `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Intent-gated (routes to `/enhance-ui` if enhancement, `/fix-bug` if bug) + prior-art gate (duplicate-capability HALT) + new-dependency gate (bundle/license/supply-chain review). Standard tier adds a bundle-size delta check. Heavy tier adds a release note (flag / rollback / staging). Phase-6 perf gate now HALTs on a missing navigation-speed / streaming / instant-loading MUST on any new route (prefetch, stream-the-shell, instant layout-stable skeleton), with field INP via `web-vitals-field`. |
 
 **Frontend skills (agent invokes when relevant):**

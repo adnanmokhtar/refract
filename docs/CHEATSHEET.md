@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**199 commands** — core 16 · 23 packs (137) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**200 commands** — core 16 · 23 packs (138) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -23,7 +23,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — distributed-systems](#pack--distributed-systems) — 4
 - [Pack — documentation](#pack--documentation) — 3
 - [Pack — finops](#pack--finops) — 4
-- [Pack — frontend](#pack--frontend) — 7
+- [Pack — frontend](#pack--frontend) — 8
 - [Pack — infrastructure](#pack--infrastructure) — 4
 - [Pack — learning](#pack--learning) — 8
 - [Pack — migration](#pack--migration) — 21
@@ -190,6 +190,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-page` | Scaffold a page/route with view, store slice, service, types, i18n keys, and tests. | — | `/add-page <route>` |
 | `/i18n-audit` | Find hardcoded strings, missing keys, locale parity breaks, and unused keys. | — | `/i18n-audit [locale-dir]` |
 | `/refactor` | Frontend-targeted refactor — preserves render output, props contracts, and hydration safety. | — | `/refactor [<scope>]` |
+| `/setup-storybook` | Install Storybook with the MCP addon and a story for every shared component; on a repo that already… | — | `/setup-storybook [app-dir]` |
 
 ## Pack — infrastructure
 

@@ -212,6 +212,13 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { i18n_lib_detected: true }
   fallback: _examples/i18n-audit.md
 
+- name: setup-storybook
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (component dir + root providers + i18n/theme mechanism + test runner)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: _examples/setup-storybook.md
+
 - name: refactor
   kind: command
   triggers: { primary_frontend_framework_detected: true }

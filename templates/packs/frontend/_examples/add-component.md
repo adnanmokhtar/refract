@@ -72,7 +72,7 @@ Component-specific:
 - Typed props interface / `defineProps`.
 - Default styles via the repo's mechanism.
 - Test file mirroring siblings: render + props variants + interaction + a11y assertion.
-- Storybook / Histoire / Ladle entry IF those are present.
+- Storybook / Histoire / Ladle entry IF those are present — a Storybook story carries the component's `@import` JSDoc tag (`/setup-storybook` § Stories).
 - Run lint + the component's tests; iterate to green.
 
 ### Sibling-shape mechanical halt (mandatory, all tiers)

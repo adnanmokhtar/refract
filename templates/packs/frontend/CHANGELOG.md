@@ -14,6 +14,33 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.17.0 — 2026-09-30
+
+**`/setup-storybook` — Storybook with the MCP addon, installed or brought up to date.** CREATE
+installs Storybook, `addon-mcp` and the app's providers and writes a story per shared component;
+UPDATE, on a repo that already has `.storybook/`, says so and writes stories only for the
+components that have none. Every rule in it was measured by doing the job by hand first on a
+React 19 + Vite + Tailwind 4 monorepo: 88 components, 584 stories, a 10,000-test unit suite.
+
+What the manual run found, each now a step or a halt in the command:
+- `storybook init` rewrote the whole eslint config, put a browser project in the default
+  `test` script, and added `@chromatic-com/storybook` at `"latest"`. The command cuts all three
+  back (§ Installer cleanup).
+- The MCP `test-run` tool and Storybook's test panel only find the story project in the DEFAULT
+  vitest config; a separate config failed with "No projects matched the filter".
+- `docs-show` rewrote every story's import to the app's package name (`from '@scope/web'`),
+  which does not resolve. The fix is a JSDoc `@import` tag on the component, pointing at the path
+  app code uses most. Four of 93 first-pass tags pointed at the defining file instead of the
+  barrel the app imports from; counting the call sites is now the rule.
+- The stories passed in Chromium but failed five of the repo's own static gates (duplicate
+  component names, a copied function body, an icon-only button labelled through `args`, a
+  required prop hidden in a spread, a banned API name). Validation now runs the FULL unit suite,
+  and § Story hygiene tells the story, not the gate, to change.
+- `staticDirs` was missing, so self-hosted fonts 404'd in every story.
+
+`component-playground` and `/add-component` link to the command, and `/add-component`'s story
+step now carries the `@import` tag.
+
 ## 1.16.1 — 2026-08-23
 
 **Two agent fallbacks shipped with no sibling boundary at all.**

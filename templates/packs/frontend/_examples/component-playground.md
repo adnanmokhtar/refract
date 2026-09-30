@@ -52,6 +52,6 @@ Render:      visual-check PASS — 1 interaction, accessible name asserted
 ## Halt conditions
 
 - Props can't be read from source → halt; do not invent controls.
-- Repo already has a component explorer → halt, route to a story.
+- Repo already has a component explorer → halt, route to a story (`/setup-storybook` UPDATE writes the missing ones).
 - No dev gating on the route → halt (leaks to production).
 - Generated but never rendered → unverified code, not a delivered probe.
