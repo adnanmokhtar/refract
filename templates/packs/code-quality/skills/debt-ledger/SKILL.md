@@ -16,7 +16,7 @@ Every item cites `<path:line>`. "Debt" here means **intentional, marked, or know
 
 ## Boundary — what this owns vs siblings
 
-- `dead-code-finder` / `dead-branch-scan` find **unreachable** code (delete candidates). Debt is *reachable, running* code that's knowingly suboptimal — the two never overlap.
+- `dead-code-finder` / `dead-code-scan` find **unreachable** code (delete candidates). Debt is *reachable, running* code that's knowingly suboptimal — the two never overlap.
 - `@dependency-auditor` scans dependencies for **vulnerabilities / license issues** (a security posture). This skill records **version-lag as debt** (how far behind, what it costs to catch up) — a maintenance posture, not a CVE list. When a dep is both vulnerable *and* lagging, the auditor owns the CVE; the ledger owns the upgrade-cost tracking.
 - `check-health` surfaces debt **point-in-time** as one of many health signals. This skill is the **longitudinal tracker**: it persists, ranks, and diffs debt run-over-run so accrual is a trend, not a snapshot. check-health can cite the ledger's headline number; it does not own the ledger.
 - `architectural-diagnosis` finds structural smells (god modules, layer violations). Those are *unmarked* architectural debt; this skill tracks *marked/intentional* debt. An architectural finding may spawn a ledger item (with a due date) once acknowledged.
@@ -179,7 +179,7 @@ The ledger is INTERNAL (like the other pack artifacts); `check-health` / plannin
 
 ## Related
 
-- `dead-branch-scan` — finds unreachable code (delete); disjoint from reachable-but-suboptimal debt.
+- `dead-code-scan` — finds unreachable code (delete); disjoint from reachable-but-suboptimal debt.
 - `architectural-diagnosis` — unmarked structural debt; may spawn ledger items once acknowledged.
 - `@dependency-auditor` — owns dep vulnerabilities/licenses; this skill owns dep version-lag as tracked debt.
 - `check-health` — point-in-time health snapshot; cites this ledger's headline, doesn't own it.

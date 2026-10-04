@@ -1,4 +1,19 @@
 ---
+paths:
+  - "**/migrations/**"
+  - "**/migrate/**"
+  - "**/alembic/versions/**"
+  - "**/prisma/migrations/**"
+  - "**/db/migrate/**"
+  - "ai/migration/**"
+  - "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro}"
+  - "**/*.{py,pyi,rb,php,go,rs,java,kt,kts,scala,groovy,cs,fs,vb,swift,m,mm,dart}"
+  - "**/*.{ex,exs,erl,hrl,clj,cljs,cljc,hs,ml,elm,lua,pl,pm,r,R,jl,zig,nim,cr,c,h,cc,cpp,cxx,hpp}"
+  - "**/*.{sql,prisma,graphql,gql,proto}"
+  - "**/*.{html,htm,css,scss,sass,less,styl,pcss}"
+  - "**/*.{erb,haml,slim,hbs,handlebars,ejs,njk,liquid,twig,cshtml,razor,jinja,jinja2,j2,mustache,pug,mjml,tex}"
+  - "**/*.{yml,yaml,json,jsonc,json5,toml,ini,cfg,conf,properties,xml,env,plist,gradle}"
+paths-origin: pack-default-464c2c64
 name: migration-frontend
 description: Frontend-specific extensions to migration-discipline — the navigation-inventory axis, the per-axis density gates, and the V1→V2 anti-patterns that only exist while porting a UI. Stack examples are illustrative; substitute equivalents from your project's `_extracted-idioms.md`.
 kind: rule
@@ -16,7 +31,7 @@ extends: migration/rules/migration-discipline.md
 
 > **The path a user takes to reach a feature is part of what V1 shipped.** A component that still exists in V2 is not a feature a user can still reach. Every automated parity signal — file diffs, primitive counts, component inventories — reads *existence*, so every one of them reports PARITY on a feature that has been made unreachable. That is why § Frontend audit axes opens with Section 0 rather than with fields.
 
-Its neighbours own the rest and it never restates them: `frontend-principles.md` is what you must do in any frontend code, ported or not; `i18n.md` is the locale axis; the universal `migration-discipline.md` (migration pack) owns the state machine, contract, halts and gate. Like `migration-backend.md`, this rule is not always on — it ships only when a migration layout is detected (`_topics.md § migration-frontend`), so a project that is not porting anything pays nothing for it.
+Its neighbours own the rest and it never restates them: `frontend-principles.md` is what you must do in any frontend code, ported or not; `i18n.md` is the locale axis; the universal `migration-discipline.md` (migration pack) owns the state machine, contract, halts and gate. Like `migration-backend.md`, it ships only when a migration layout is detected (`_topics.md § migration-frontend`), so a project that is not porting anything pays nothing for it, and its `paths:` is its base's pack-default list, so the base loads wherever this does.
 
 ## Stack-aware primitive set (frontend)
 

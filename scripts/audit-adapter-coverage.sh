@@ -440,7 +440,7 @@ qwen_command_ok() {
   [[ -f "$f" ]] || return 1
   local fmt
   fmt=$(awk 'BEGIN{fm=0} /^---[[:space:]]*$/{fm++; next} fm>=2{exit} fm==1{print}' "$f")
-  printf '%s\n' "$fmt" | grep -qE '^(kind|pack|allowed-tools):[[:space:]]' && return 1
+  printf '%s\n' "$fmt" | grep -qE '^(kind|pack|allowed-tools|disable-model-invocation):[[:space:]]' && return 1
   [[ -n "$(frontmatter_parse_error "$f")" ]] && return 1
   return 0
 }

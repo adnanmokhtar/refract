@@ -183,7 +183,7 @@ strip_for_compare() {
     NR==1 && /^---[[:space:]]*$/                          { fm=1; print; next }
     fm && /^---[[:space:]]*$/                             { fm=0; print; next }
     sa==1 && fm && /^agent:[[:space:]]/                   { next }
-    sa==1 && fm && /^(kind|pack|allowed-tools):[[:space:]]/ { next }
+    sa==1 && fm && /^(kind|pack|allowed-tools|disable-model-invocation):[[:space:]]/ { next }
     { print }
   ' "$1"
 }
@@ -209,7 +209,8 @@ reinject_frontmatter_agent_line() {
   mv "$tmp" "$f"
 }
 
-# Strip Claude-only command frontmatter fields (`kind:`, `pack:`, `allowed-tools:`) from a
+# Strip Claude-only command frontmatter fields (`kind:`, `pack:`, `allowed-tools:`,
+# `disable-model-invocation:` — the level-D flag, which only Claude Code reads) from a
 # translated command file (.opencode/commands/ and .qwen/commands/ — both document
 # `description:`-shaped frontmatter and both read these as leaked Claude-isms). OpenCode command frontmatter is `description:` +
 # `agent:` (+ optional model/subtask); the orchestrator's `kind:`/`pack:` metadata and
@@ -223,7 +224,7 @@ strip_claude_command_fields() {
   awk '
     NR==1 && /^---[[:space:]]*$/ { fm=1; print; next }
     fm && /^---[[:space:]]*$/    { fm=0; print; next }
-    fm && /^(kind|pack|allowed-tools):[[:space:]]/ { next }
+    fm && /^(kind|pack|allowed-tools|disable-model-invocation):[[:space:]]/ { next }
     { print }
   ' "$f" > "$tmp"
   mv "$tmp" "$f"

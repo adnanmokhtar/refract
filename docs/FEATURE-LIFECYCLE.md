@@ -11,7 +11,7 @@ One page. How a new project or a new feature moves from idea → shipped, mapped
 ```
 1. /refine-prompt "<idea>"          idea → structured spec   →  ai/ideas/<YYYYMMDD>-<slug>.md
 2. /scaffold-project <spec-path>     spec → working repo (boots; starter design system + auth + dashboard)
-      └─ auto-chains /setup-project --create at Phase 4.8  (→ .claude/ + ai/ + rules + adapters)
+      └─ ends by printing /setup-project --create — you type it (level D)  (→ .claude/ + ai/ + rules + adapters)
 3. /art-direct --reimagine           [frontend, optional] invent the REAL visual identity from goals
       └─ approve once → it BUILDS it: auto-runs design-system-architect → /redesign → /polish
                         (--yes skips the approval · --plan stops at the design

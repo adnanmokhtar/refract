@@ -1,0 +1,2 @@
+# fixture: a passing install, so only the front-door count can fail
+demo|demo|200|0

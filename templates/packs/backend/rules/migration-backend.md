@@ -1,4 +1,19 @@
 ---
+paths:
+  - "**/migrations/**"
+  - "**/migrate/**"
+  - "**/alembic/versions/**"
+  - "**/prisma/migrations/**"
+  - "**/db/migrate/**"
+  - "ai/migration/**"
+  - "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro}"
+  - "**/*.{py,pyi,rb,php,go,rs,java,kt,kts,scala,groovy,cs,fs,vb,swift,m,mm,dart}"
+  - "**/*.{ex,exs,erl,hrl,clj,cljs,cljc,hs,ml,elm,lua,pl,pm,r,R,jl,zig,nim,cr,c,h,cc,cpp,cxx,hpp}"
+  - "**/*.{sql,prisma,graphql,gql,proto}"
+  - "**/*.{html,htm,css,scss,sass,less,styl,pcss}"
+  - "**/*.{erb,haml,slim,hbs,handlebars,ejs,njk,liquid,twig,cshtml,razor,jinja,jinja2,j2,mustache,pug,mjml,tex}"
+  - "**/*.{yml,yaml,json,jsonc,json5,toml,ini,cfg,conf,properties,xml,env,plist,gradle}"
+paths-origin: pack-default-464c2c64
 name: migration-backend
 description: Backend-specific extensions to migration-discipline — the V1→V2 transposition-trap fingerprints, the port audit axes, and the primitive classes the parity validator counts. Stack examples are illustrative; substitute equivalents from your project's `_extracted-idioms.md`.
 kind: rule
@@ -14,7 +29,7 @@ extends: migration/rules/migration-discipline.md
 
 **This file owns ONE axis: the V1→V2 port.** Its two siblings own the others and it never restates them — `backend-principles.md` is what you MUST do in code you are writing fresh, `concurrency-discipline.md` is the async / fan-out axis in any code at all. What is left over, and what nothing else in this pack covers, is the failure class that exists only while you are TRANSPOSING an implementation somebody already shipped: code that was correct inside V1's architecture and is wrong inside V2's, carried across intact *because it worked*. Nobody writes a fat controller on purpose in a codebase that mandates a service layer; you get one by pasting V1's controller into V2. That is the entire subject of this file, and it is why § Backend Transposition Trap fingerprints leads it.
 
-Unlike `backend-principles.md`, this rule is not always on. It ships only when a migration layout is detected (`_topics.md § migration-backend`), so it costs a project that is not porting anything exactly nothing.
+This rule ships only when a migration layout is detected (`_topics.md § migration-backend`), so it costs a project that is not porting anything exactly nothing. Its `paths:` is the same pack-default list as its base `migration-discipline.md`, so the base loads wherever this does.
 
 The universal `migration-discipline.md` defines port discipline in stack-agnostic terms; this file adds the backend surface that rule references, for any backend codebase (Node / Python / PHP / Ruby / Java / Go / Elixir / .NET).
 

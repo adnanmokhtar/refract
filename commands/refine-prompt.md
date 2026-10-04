@@ -158,7 +158,7 @@ Every refined prompt — regardless of class — opens with the **universal core
 - ...
 
 ## Verification & done
-- <how to confirm it works: `/verify <route>`, the exact tests to run, lint + typecheck clean>
+- <how to confirm it works: `/verify-with-playwright` on the route (frontend pack), the exact tests to run, lint + typecheck clean>
 - <RTL / dark-mode / locale checks when relevant>
 
 ## Open questions (forced — at least 3; with `--interview`, the DEFERRED rows only, and zero is valid)
@@ -278,7 +278,7 @@ Universal checks (every class):
 - Objective is one observable sentence (not "make it good").
 - Scope IN and Scope OUT both non-empty (forces an explicit boundary).
 - ≥1 acceptance criterion, each in given/when/then form and traceable to a scope-IN item.
-- Verification & done section names a concrete check (a `/verify` route, the tests, lint + typecheck).
+- Verification & done section names a concrete check (a `/verify-with-playwright` run on the route, the tests, lint + typecheck).
 - Open questions ≥3 (forces honesty about unknowns); no inline hedge ("verify…/likely…/if X") left buried in the body. **Under `--interview` the floor is lifted**: the check becomes "every row is a `DEFERRED` branch carrying its owner, and no `CLOSED` branch was re-listed as open" — re-listing an answered question misreports a settled decision as an unknown.
 - Constraints reference real idioms when inside a project (no invented APIs / wrappers).
 - A pinned external contract (if any) carries the explicit "STOP and report, do not change it" rule.

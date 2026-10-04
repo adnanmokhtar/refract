@@ -420,7 +420,7 @@ SEQUENTIAL AGAIN (after fan-out joins):
 - `/cross-repo-task` — orchestrator for features spanning multiple sub-projects
 - `/sync-contract` — API contract change → frontend impact
 - `/project-map` — workspace dependency map
-- `/workspace-status` — quick health + uncommitted state per sub-project
+- `/migration-workspace-status` — cross-repo migration status: each sibling's ledger, blockers, phase sync
 
 ## Conventions
 - Per-sub-project AGENTS.md is authoritative for that sub-project's rules.

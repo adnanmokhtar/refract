@@ -5,6 +5,15 @@ paths:
   - "**/alembic/versions/**"
   - "**/prisma/migrations/**"
   - "**/db/migrate/**"
+  - "ai/migration/**"
+  - "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro}"
+  - "**/*.{py,pyi,rb,php,go,rs,java,kt,kts,scala,groovy,cs,fs,vb,swift,m,mm,dart}"
+  - "**/*.{ex,exs,erl,hrl,clj,cljs,cljc,hs,ml,elm,lua,pl,pm,r,R,jl,zig,nim,cr,c,h,cc,cpp,cxx,hpp}"
+  - "**/*.{sql,prisma,graphql,gql,proto}"
+  - "**/*.{html,htm,css,scss,sass,less,styl,pcss}"
+  - "**/*.{erb,haml,slim,hbs,handlebars,ejs,njk,liquid,twig,cshtml,razor,jinja,jinja2,j2,mustache,pug,mjml,tex}"
+  - "**/*.{yml,yaml,json,jsonc,json5,toml,ini,cfg,conf,properties,xml,env,plist,gradle}"
+paths-origin: pack-default-464c2c64
 name: migration-discipline
 description: "Migration Rule: V1→V2 port discipline"
 kind: rule
@@ -15,13 +24,14 @@ applies-to: migration-track, every-code-writing-task-in-migration
 
 # Migration Rule: V1→V2 port discipline
 
-> **Why this rule declares its own `paths:`.** At ~7.8k tok it should not ride in every session of
-> a project that is not mid-port, so it loads when Claude reads a file under a migration directory,
-> alongside the rules that EXTEND it (`migration-backend`, `migration-frontend`, a project's
-> `migration-safety`). A rule with no `paths:` loads in every session (an earlier note here said
-> an over-budget one "loads on none"; that was wrong). The globs above are the stack-independent
-> ones — every migration directory shape the packs know. Per-project scoping should widen this to
-> the source tree being ported; it must not narrow it to nothing.
+> **Why this rule declares its own `paths:`.** It ships with the SAME pack-default list as the rules
+> that extend it (`migration-backend`, `migration-frontend`): the port artifacts (`ai/migration/**`),
+> every migration-directory shape the packs know, and the source and config files a port edits. The
+> list used to be the migration directories alone while the extensions carried none, so during a port
+> the extensions loaded in every session and this base — the philosophy they extend — loaded only on
+> a schema-migration file. `/setup-project` narrows the default (the `paths-origin: pack-default-…`
+> line marks it as replaceable) to the ported tree: `v2_root` from `ai/migration/_v2-anchors.md`, the
+> extensions' track roots, plus the migration directories. It never narrows a list you wrote.
 
 
 ## CORE PHILOSOPHY — read this first, internalize, do not deviate

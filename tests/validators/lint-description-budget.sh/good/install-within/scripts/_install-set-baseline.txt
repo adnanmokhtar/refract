@@ -1,0 +1,2 @@
+# fixture: one install, ceiling above what it measures
+demo|demo|200|0

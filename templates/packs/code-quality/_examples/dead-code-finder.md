@@ -135,7 +135,7 @@ The pack ships seven agents with adjacent jobs. They partition by **what each on
 |---|---|---|
 | `@refactorer` | the finding is confirmed and someone must delete it | this agent reports only — see the Invariants; a false positive that deletes a live module costs more trust than a year of missed dead code |
 | `@dependency-auditor` | the unused thing is a **package**, not code | unused code and unused dependencies are different axes with different evidence (grep vs lockfile) |
-| `dead-branch-scan` (skill) | the target is an unreachable **branch inside a function** | that skill backs its verdict with linter output or coverage data; this agent works at symbol / file / flag / fixture scale |
+| `dead-code-scan` (skill) | the candidate needs a tool verdict, the entry-point map and a removal proof | that skill runs the reachability lanes and grades every class; this agent reads its Investigate-bucket items at symbol / file / flag / fixture scale |
 | `debt-ledger` (skill) | the rotting `TODO`s should be **tracked over time** | this agent reports point-in-time; the ledger owns accrual run-over-run |
 | `@legacy-modernizer` | the answer is "this whole subsystem is superseded" | retiring a subsystem is a phased plan, not a delete list |
 

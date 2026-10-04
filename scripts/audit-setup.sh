@@ -1643,6 +1643,37 @@ if [[ -x "$SCRIPTS_DIR/verify-profile-contract.sh" ]]; then
   echo ""
 fi
 
+# C2x — THE PROJECT CLAUDE.md STAYS UNDER 200 LINES. HARD.
+#
+# CLAUDE.md loads in full at the start of every session, and Claude Code's own guidance targets
+# "under 200 lines per CLAUDE.md file". This was a `must` row in phase-5-checklist.md and a line in
+# /setup-project-health with no script behind either, so nothing failed when it was breached —
+# MEASURED: 4 of 9 real installs were over it. Moving text into `@`-imports does not help (they load
+# at launch too); the remedy is moving detail into ai/ docs a command reads on demand, or into
+# path-scoped rules. Counted with awk NR, so a last line without a trailing newline still counts.
+# CLAUDE_MD_MAX_LINES overrides the limit for one run. Fixture: scripts/test-audit-precision.sh
+# PART C (201 fails, 200 passes) and scripts/test-rule-loading.sh § 2.
+# $1=target -> prints "<file>\t<lines>" per file over the limit; returns 1 if any.
+c2x_claude_md_over() {
+  local t="$1" max="${CLAUDE_MD_MAX_LINES:-200}" f n rc=0
+  for f in CLAUDE.md .claude/CLAUDE.md; do
+    [ -f "$t/$f" ] || continue
+    n=$(awk 'END{print NR}' "$t/$f")
+    if [ "$n" -gt "$max" ]; then printf '%s\t%s\n' "$f" "$n"; rc=1; fi
+  done
+  return $rc
+}
+echo "C2x: CLAUDE.md line budget (≤${CLAUDE_MD_MAX_LINES:-200} lines; it loads in full every session)"
+if c2x_out=$(c2x_claude_md_over "$TARGET"); then
+  ok "CLAUDE.md within ${CLAUDE_MD_MAX_LINES:-200} lines"
+else
+  while IFS="$(printf '\t')" read -r c2x_f c2x_n; do
+    [[ -z "$c2x_f" ]] && continue
+    err "$c2x_f is $c2x_n lines (limit ${CLAUDE_MD_MAX_LINES:-200}): it loads in full every session. Move detail into ai/ docs or path-scoped rules — @-imports load at launch too, so splitting into them saves nothing."
+  done <<< "$c2x_out"
+fi
+echo ""
+
 echo "C2u: what the rules cost in context, and no false 'not loaded' record"
 # WHAT THIS CHECK USED TO BE, AND WHY IT CHANGED. It assumed Claude Code loads a rule only when
 # CLAUDE.md @-imports it, and ERRed three ways on that assumption: "NO rule is loaded" (zero

@@ -537,6 +537,19 @@ fi
 
 Neither GitHub nor GitLab detected → no CI file is written; say so in the setup summary (`gates: local Stop hook only — no CI host detected`). Report every `ci-add` / `ci-skip` line and the owner commands verbatim — a shadow job nobody knows to read, and a protection command nobody saw, are the same as none.
 
+### 4.2.e Description visibility — `skillOverrides` (Bash; add, never overwrite)
+
+Runs once, after the LAST track's copy (it reads the whole installed set). Claude Code lists every installed command and skill with its description in one listing capped at 1% of the context window — 8,000 chars at 200K — and a fresh multi-pack install demands ten times that, so the platform truncates descriptions to bare names in listing order, front doors included. This step writes the level-B map from `~/.claude/templates/governance/visibility-levels.json` into `.claude/settings.json`:
+
+```bash
+~/.claude/scripts/apply-skill-overrides.sh "$TARGET_REPO" --apply
+```
+
+- **Shape.** `"skillOverrides": { "<name>": "name-only", … }` — a per-name map. The front-door names (A) are left off it and keep their full description; a command whose frontmatter carries `disable-model-invocation: true` (D) is left off it too — it is never listed and only a human typing `/<name>` runs it.
+- **Merge.** Entries are only added. A name the owner already set in `settings.json` or `settings.local.json` keeps the owner's value; nothing else in the file is touched; a run with nothing to add does not write. A non-object `skillOverrides` or unparseable JSON is refused — report the `REFUSED` line, do not hand-edit around it.
+- **Report** the script's last block verbatim in the setup summary: entries listed, how many the platform would still truncate, and model-visible chars against the ≤6,000 target (`THR-DESC-BUDGET`).
+- **Plugin installs.** Claude Code does not apply `skillOverrides` to plugin-sourced skills; if the project reaches Refract through a plugin, say so — those entries stay fully listed whatever this step writes.
+
 ### Merge handling (when files already exist in target)
 
 If a destination file already exists (`.claude/agents/code-reviewer.md` already there from a prior run):

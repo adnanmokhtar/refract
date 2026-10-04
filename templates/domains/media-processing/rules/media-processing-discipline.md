@@ -1,4 +1,13 @@
 ---
+paths:
+  - "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro}"
+  - "**/*.{py,pyi,rb,php,go,rs,java,kt,kts,scala,groovy,cs,fs,vb,swift,m,mm,dart}"
+  - "**/*.{ex,exs,erl,hrl,clj,cljs,cljc,hs,ml,elm,lua,pl,pm,r,R,jl,zig,nim,cr,c,h,cc,cpp,cxx,hpp}"
+  - "**/*.{sql,prisma,graphql,gql,proto}"
+  - "**/*.{html,htm,css,scss,sass,less,styl,pcss}"
+  - "**/*.{erb,haml,slim,hbs,handlebars,ejs,njk,liquid,twig,cshtml,razor,jinja,jinja2,j2,mustache,pug,mjml,tex}"
+  - "**/*.{yml,yaml,json,jsonc,json5,toml,ini,cfg,conf,properties,xml,env,plist,gradle}"
+paths-origin: pack-default-4a839a9c
 name: media-processing-discipline
 description: Media processing & transcode discipline
 kind: rule

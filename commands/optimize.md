@@ -399,7 +399,7 @@ For specialist or class-specific runs, the existing detailed surfaces still exis
 - `/check-health` — read-only quality + boundary audit (code-quality pack).
 - `architectural-diagnosis` skill — layer-violation / god-module detection.
 - `refactoring-sweep` skill — tactical close-out (clean code / SOLID / dedup).
-- `dead-branch-scan` skill — dead-code detection.
+- `dead-code-scan` skill — dead-code detection: unused files and exports, unreachable statements, dead flag branches, each with a removal proof.
 - `/db-audit` — database-only.
 
 `/optimize` dispatches these internally with sensible defaults.

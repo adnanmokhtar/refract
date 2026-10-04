@@ -8,7 +8,7 @@
       "skills": [
         "architectural-diagnosis",
         "change-brief",
-        "dead-branch-scan",
+        "dead-code-scan",
         "debt-ledger",
         "refactoring-sweep",
         "smoke-verify",

@@ -10,7 +10,21 @@
 # Example: scope-rules.sh .claude/rules/frontend-principles.md "apps/web/**,packages/ui/**"
 #          scope-rules.sh .claude/rules/backend-principles.md "src/server/**"
 #
-# Idempotent: a rule that already declares `paths:` is left unchanged.
+# Idempotent: a rule that already declares `paths:` is left unchanged — with ONE exception, the
+# pack's own source default (below), which this replaces.
+#
+# 🔴 A SOURCE DEFAULT IS REPLACEABLE; A `paths:` SOMEBODY WROTE IS NOT.
+#
+# Pack and domain rules ship a conservative `paths:` at source (the stack's source + config file
+# shapes), so a rule nobody scoped no longer loads in every session. That default is marked by the
+# line `paths-origin: pack-default-<sha8>`, where <sha8> = first 8 hex of sha1 over the globs, one
+# per line, each newline-terminated. This script REPLACES (narrows) the block only while both hold:
+# the marker is present AND its hash still matches the globs. An owner who edits the globs without
+# deleting the marker therefore keeps the edit (the hash no longer matches), and an owner-written
+# block — no marker — is never touched. Before this exception existed, a source `paths:` would have
+# made every project-specific scoping pass skip the rule as "already scoped", and Phase 4.2's
+# track-root scoping would have stopped working on every multi-track install.
+# Fixture: scripts/test-rule-loading.sh § 5.
 
 set -uo pipefail
 
@@ -47,6 +61,45 @@ yaml_block() {
   done
 }
 
+# The `- item` globs of the frontmatter `paths:` block list, quotes stripped, one per line.
+fm_path_globs() {
+  awk '
+    NR==1 && $0 !~ /^---[[:space:]]*$/ { exit }
+    /^---[[:space:]]*$/ { d++; if (d==2) exit; next }
+    d==1 && /^paths:/ { inp=1; next }
+    d==1 && inp && /^[[:space:]]*-[[:space:]]*/ {
+      l=$0; sub(/^[[:space:]]*-[[:space:]]*/,"",l); sub(/[[:space:]]+$/,"",l)
+      gsub(/^["'\'']|["'\'']$/,"",l); print l; next }
+    d==1 && inp && /^[^[:space:]-]/ { inp=0 }
+  ' "$1"
+}
+
+_sha8() { if command -v shasum >/dev/null 2>&1; then shasum; else sha1sum; fi | cut -c1-8; }
+
+# 0 = the `paths:` block is the pack's source default, unedited: the marker line is present and
+# its hash equals the hash of the globs as they stand now.
+is_pack_default() {
+  local f="$1" want got
+  want=$(awk '/^---[[:space:]]*$/{d++; if(d==2)exit; next}
+              d==1 && /^paths-origin:[[:space:]]*pack-default-[0-9a-f]+[[:space:]]*$/ {
+                sub(/^paths-origin:[[:space:]]*pack-default-/,""); sub(/[[:space:]]+$/,""); print; exit }' "$f")
+  [ -n "$want" ] || return 1
+  got=$(fm_path_globs "$f" | _sha8)
+  [ "$got" = "$want" ]
+}
+
+# The file with its frontmatter `paths:` block (key + list items) and marker line removed.
+strip_scope() {
+  awk '
+    NR==1 { print; if ($0 ~ /^---[[:space:]]*$/) d=1; next }
+    d==1 && /^---[[:space:]]*$/ { d=2; print; next }
+    d==1 && /^paths:/ { skip=1; next }
+    d==1 && skip && (/^[[:space:]]/ || /^-[[:space:]]/) { next }
+    d==1 && /^paths-origin:/ { skip=0; next }
+    { skip=0; print }
+  ' "$1"
+}
+
 inject() {
   local f="$1"
   [ -f "$f" ] || return 0
@@ -67,15 +120,23 @@ inject() {
     printf -- '---\n---\n' > "$f.fm" && cat "$f" >> "$f.fm" && mv "$f.fm" "$f"
     echo "note: added missing frontmatter block: $f" >&2
   fi
-  # Already scoped?
-  awk '/^---$/{c++; next} c==1 && /^paths:/{found=1} c==2{exit} END{exit !found}' "$f" \
-    && { echo "skip (already scoped): $f" >&2; return 0; }
-
   local blk; blk="$(yaml_block "$globs")"
   [ -z "$blk" ] && { echo "skip (no usable globs): $f" >&2; return 0; }
+
+  # Already scoped? Only the pack's unedited source default may be replaced.
+  local replaced=0
+  if awk '/^---$/{c++; next} c==1 && /^paths:/{found=1} c==2{exit} END{exit !found}' "$f"; then
+    is_pack_default "$f" || { echo "skip (already scoped): $f" >&2; return 0; }
+    strip_scope "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+    replaced=1
+  fi
   # Insert `paths:` plus its block list right after the opening `---`.
   { head -n1 "$f"; printf 'paths:\n'; printf '%s\n' "$blk"; tail -n +2 "$f"; } > "$f.tmp" && mv "$f.tmp" "$f"
-  echo "scoped: $f -> paths: $(printf '%s' "$globs")" >&2
+  if [ "$replaced" = 1 ]; then
+    echo "scoped (replaced pack default): $f -> paths: $(printf '%s' "$globs")" >&2
+  else
+    echo "scoped: $f -> paths: $(printf '%s' "$globs")" >&2
+  fi
 }
 
 if [ -d "$target" ]; then

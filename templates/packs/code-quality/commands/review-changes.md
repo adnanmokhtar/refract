@@ -186,7 +186,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | Payment | payment-specific reviewer if available |
 
 #### Universal skill checks
-- `dead-branch-scan` (on changed files) — find unreachable code you just added.
+- `dead-code-scan` (on changed files) — find what the change orphaned or made unreachable.
 - `doc-drift-scan` — does the change need doc updates? `ai/status.md`? `ai/modules.md`? `ai/conventions.md`?
 - `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
 - `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change. If the skill isn't installed, run the inline check: for each added function / branch / write-path in the diff, grep the test tree (`*.test.*` / `*.spec.*` / `test/**`) for a reference to the symbol or route; absence of any covering assertion is the finding. Never skip the axis — an unchecked coverage gap reads as "tested".

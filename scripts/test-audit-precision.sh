@@ -183,6 +183,39 @@ n_y="$(CL="$PROJ/.claude" TARGET="$PROJ" c2y_code_probes | grep -c . )"
 if [ "$n_y" -eq 2 ]; then ok "§8 exactly the 2 code lines qualify, not the 4 prose ones"
 else bad "§8 wrong number of probe lines" "expected 2, got $n_y"; fi
 
+
+# ══ PART C — C2x: a CLAUDE.md over 200 lines is an ERR, 200 is not ════════════════════
+#
+# CLAUDE.md loads in full every session; the limit was a `must` in phase-5-checklist.md with no
+# script behind it, and 4 of 9 real installs were over. The edge is pinned on BOTH sides, and on
+# a last line with no trailing newline (wc -l would count 200 such lines as 199).
+say ""
+say "part C — C2x fails a CLAUDE.md over 200 lines"
+FNX="$(awk '/^c2x_claude_md_over\(\) \{$/{f=1} f{print} f&&/^\}$/{exit}' "$AUDIT")"
+[ -n "$FNX" ] || { echo "ERR: c2x_claude_md_over not found in $AUDIT — did it get renamed?" >&2; exit 1; }
+eval "$FNX"
+mkclaude() {  # $1=dir $2=lines $3=trailing-newline(1|0)
+  mkdir -p "$1"; awk -v n="$2" 'BEGIN{for(i=1;i<=n;i++) printf "line %d\n", i}' > "$1/CLAUDE.md"
+  [ "$3" = 1 ] || { printf '%s' "$(cat "$1/CLAUDE.md")" > "$1/CLAUDE.md.t" && mv "$1/CLAUDE.md.t" "$1/CLAUDE.md"; }
+}
+mkclaude "$TMP/c200" 200 1; mkclaude "$TMP/c201" 201 1; mkclaude "$TMP/c201n" 201 0
+if c2x_claude_md_over "$TMP/c200" >/dev/null; then ok "§9 a 200-line CLAUDE.md passes"
+else bad "§9 a 200-line CLAUDE.md was failed" "$(c2x_claude_md_over "$TMP/c200")"; fi
+if out_x=$(c2x_claude_md_over "$TMP/c201"); then bad "§10 a 201-line CLAUDE.md passed" ""
+elif printf '%s' "$out_x" | grep -q "^CLAUDE.md.201$"; then ok "§10 a 201-line CLAUDE.md fails, and names its line count"
+else bad "§10 a 201-line CLAUDE.md fails, and names its line count" "got: $out_x"; fi
+if c2x_claude_md_over "$TMP/c201n" >/dev/null; then bad "§11 201 lines without a final newline passed (counted as 200)" ""
+else ok "§11 the last line counts without a trailing newline"; fi
+mkdir -p "$TMP/c201dot/.claude"; mkclaude "$TMP/c201dot/.claude" 201 1
+if c2x_claude_md_over "$TMP/c201dot" >/dev/null; then bad "§12 .claude/CLAUDE.md over the limit passed" ""
+else ok "§12 .claude/CLAUDE.md is held to the same limit"; fi
+if grep -qE '^if c2x_out=\$\(c2x_claude_md_over "\$TARGET"\); then$' "$AUDIT" \
+   && awk '/^if c2x_out=/{f=1} f&&/^fi$/{exit} f' "$AUDIT" | grep -q '^[[:space:]]*err '; then
+  ok "§13 the audit calls it and reports through err (a FAIL, not a WARN)"
+else
+  bad "§13 the audit calls it and reports through err" "C2x is advisory again, or no longer wired"
+fi
+
 say ""
 say "  $pass passed, $fail failed"
 [ $fail -eq 0 ]

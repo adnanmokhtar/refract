@@ -64,6 +64,14 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 
 Generated commands ship INTO target repos when a track is selected: `/add-endpoint`, `/add-module`, `/add-feature`, `/fix-bug`, `/review-changes`, `/migration-status`, `/port-feature`, etc. See [Generated commands](#generated-commands-in-target-repo).
 
+**Visibility levels** ([`templates/governance/visibility-levels.json`](../templates/governance/visibility-levels.json)). Claude Code lists every installed command and skill, with its description, in one listing capped at 1% of the context window (8,000 chars at 200K); past that it truncates descriptions to bare names. So each command sits at one of three levels:
+
+- **A — front door** (`/do`, `/add-feature`, `/fix-bug`, `/review-changes`, `/security-audit`): listed with the full description.
+- **B — routable** (everything else): `/setup-project` writes `"skillOverrides": {"<name>": "name-only", …}` into the project's `.claude/settings.json` (Phase 4.2.e, [`scripts/apply-skill-overrides.sh`](../scripts/apply-skill-overrides.sh) — adds entries, never changes one the owner set). Listed by name; `/do` reads the description from disk and routes to it by name. Claude Code does not apply `skillOverrides` to plugin-sourced skills, so a plugin install stays fully listed.
+- **D — irreversible** (frontmatter `disable-model-invocation: true`): `/deploy-stage`, `/rollback-deploy`, `/provision-tier`, `/security-live-scan`, `/migrate`, `/migration-fast`, `/migration-phase`, `/migration-sync`, `/migration-rollback`, `/migration-park`, `/migration-unpark`, `/migration-deprecate`, `/migration-promote-tier`, `/delegate`, `/setup-project`, `/setup-project-adapters`. Not listed, refused by the Skill tool, never preloaded into a subagent: **you type them**. `/do` and `/task --to=` print them instead of running them.
+
+`scripts/lint-description-budget.sh --print` simulates three installs against that budget; `--target=<repo>` reports a real one.
+
 **SOLID + clean-code discipline:** commands that write or refactor code point Phase 3 at [`templates/governance/core-discipline.md`](../templates/governance/core-discipline.md) (single pointer to `align-discipline` + engineering/quality principles). Universal Phase 3 file list: [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md).
 
 ---
@@ -234,7 +242,7 @@ Output: a markdown table with one row per check + a "Recommended actions" sectio
 
 Full contract: [`commands/scaffold-project.md`](../commands/scaffold-project.md).
 
-Take a refined idea (or a raw prompt) and generate a **working project from scratch**: proposes the stack with rationale, runs the official scaffolders, layers clean architecture + a design system + auth + a dashboard, writes an ADR for every choice, installs the Claude orchestration (`.claude/` + `ai/`), and validates the dev server boots. Auto-chains `/setup-project --create` at Phase 4.8.
+Take a refined idea (or a raw prompt) and generate a **working project from scratch**: proposes the stack with rationale, runs the official scaffolders, layers clean architecture + a design system + auth + a dashboard, writes an ADR for every choice, installs the Claude orchestration (`.claude/` + `ai/`), and validates the dev server boots. Phase 4.8 ends by printing `/setup-project --create` for you to type — it is level D, so no command starts it for you.
 
 ```
 /scaffold-project ai/ideas/20260625-my-idea.md   # from a /refine-prompt new-project spec (preferred)
@@ -243,7 +251,7 @@ Take a refined idea (or a raw prompt) and generate a **working project from scra
 
 Reads a `new-project`-class spec from `ai/ideas/<YYYYMMDD>-<slug>.md` when present — that spec drives every Phase 2 decision. Pair with `/refine-prompt` first for a deeper input than a sentence.
 
-**Flags**: `--name=<repo-name>` (override the slug derived from the idea) · `--into=<path>` (destination, default `<repo-name>` in `$PWD`) · `--stack=<key>` (skip the stack picker; presets are listed in the command's "Stack presets" section) · `--no-claude-orchestration` (skip the chained `/setup-project --create`) · `--no-prompt` (auto-confirm all three gates — scripted use only; it forces option #1 at the stack picker) · `--dry-run`.
+**Flags**: `--name=<repo-name>` (override the slug derived from the idea) · `--into=<path>` (destination, default `<repo-name>` in `$PWD`) · `--stack=<key>` (skip the stack picker; presets are listed in the command's "Stack presets" section) · `--no-claude-orchestration` (do not print the `/setup-project --create` hand-off) · `--no-prompt` (auto-confirm all three gates — scripted use only; it forces option #1 at the stack picker) · `--dry-run`.
 
 **It refuses a non-empty destination.** There is no overwrite flag. An existing project is `/setup-project --refresh` or `--enhance`, not this.
 
@@ -285,6 +293,8 @@ Universal meta-router. Describe what you want in natural language; the agent rea
 /do audit security                             # → /security-audit
 /do make the orders module consistent          # → asks one question, then /align or /optimize
 ```
+
+Commands listed name-only (level B) are routed by name — `/do` reads their descriptions from disk. A shared name with per-pack variants (`add-feature` in backend, frontend and mobile) resolves through `.claude/_command-variants.md` to the variant for the ask's stack, never to whichever pack installed first. A level-D match is printed for you to type, never run (`/do deploy this to staging` → `Type: /deploy-stage`).
 
 Use when you don't remember the exact command. If you want a prompt artifact to read/edit before running instead of immediate execution, use `/refine-prompt`.
 

@@ -111,7 +111,7 @@ Some tools support **only one configuration document** by design — there's no 
 
 ### What the asymmetry costs
 
-- **No slash-command UX**: a user in Aider/Codex/Gemini can't type `/db-migration` and have the tool execute the command — they have to find the named section and copy the prompt manually. Native-folder tools (Cursor/OpenCode/Cline/Windsurf/Copilot/Continue) get true slash-command UX.
+- **No slash-command UX**: a user in Aider/Codex/Gemini can't type `/add-migration` and have the tool execute the command — they have to find the named section and copy the prompt manually. Native-folder tools (Cursor/OpenCode/Cline/Windsurf/Copilot/Continue) get true slash-command UX.
 - **No agent picker**: personas in single-doc tools are documented sections, not selectable in a UI. The user prompts the model with "act as the backend-reviewer per § Personas".
 - **No skills picker**: skills become runbook sections. The user reads the steps and asks the model to follow them — there's no "load skill X" verb.
 - **No native hooks**: hook intent is documented as advise-only ("never edit `.env`"). Defense-in-depth requires git hooks (Husky) + CI as the actual enforcement layer.

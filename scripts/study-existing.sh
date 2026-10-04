@@ -211,7 +211,9 @@ pack_substantive_sha8() {
 # refresh — MEASURED on a real repo: migrate.md and migration-recheck.md (317 = 317 lines, one
 # retargeted root each) and migration-discipline.md (three globs added) stayed "unreconciled",
 # and C2k refused every run for rows the setup itself had produced. Both sides get the same
-# normalisation before comparing: `paths:` / `globs:` dropped from the frontmatter, and every bare
+# normalisation before comparing: `paths:` / `globs:` dropped from the frontmatter (with the
+# `paths-origin: pack-default-…` marker a scoping pass removes when it replaces the pack's default
+# list — scope-rules.sh), and every bare
 # one-segment search root (`src/`, `apps/`, `apps/ libs/`) folded to one token. It changes the
 # comparison only — no file is written.
 post_normalize() {   # $1=in $2=out
@@ -219,6 +221,7 @@ post_normalize() {   # $1=in $2=out
     if (/\A---\n(.*?)\n---\n/s) {
       my $fm = $1; my $new = $fm;
       $new =~ s/^(?:paths|globs):[^\n]*\n?(?:[ \t]+-[^\n]*\n?)*//mg;
+      $new =~ s/^paths-origin:[^\n]*\n?//mg;
       $new =~ s/\n+\z//;
       s/\A---\n\Q$fm\E\n---\n/---\n$new\n---\n/s;
     }

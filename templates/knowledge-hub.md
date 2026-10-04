@@ -52,7 +52,7 @@ Docs + process: `doc-writer`, `api-documenter`, `business-analyst`, `business-au
 
 ### Skills (26+ materialized)
 
-Universal: `dead-branch-scan`, `doc-drift-scan`, `adr`, `onboard`.
+Universal: `dead-code-scan`, `doc-drift-scan`, `adr`, `onboard`.
 Backend: `endpoint-test`, `log-tail`, `env-diff`, `debug-tenant`, `module-scaffold`, `api-snapshot`.
 Database: `schema-diff`, `migration-rehearsal`, `migration-safety`, `n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `transaction-scan`, `connection-config-scan`.
 Testing: `coverage-gap`, `contract-test`.

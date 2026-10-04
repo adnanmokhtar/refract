@@ -39,4 +39,4 @@ This folder is empty until the first audit runs. Trigger one with the right comm
 - `/tenant-leak-audit`
 - `/deps-audit`
 - `/coverage-gap`
-- `/business-audit`
+- `/audit-business`

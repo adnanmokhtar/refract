@@ -126,10 +126,10 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { module_per_feature_layout: true }
   fallback: _examples/find-module.md
 
-- name: dead-branch-scan
+- name: dead-code-scan
   kind: skill
-  triggers: { vcs_detected: true }
-  fallback: _examples/dead-branch-scan.md
+  triggers: { always: true }   # every codebase accrues code nothing reaches; a stack with no reachability tool reports NO LANE
+  fallback: skills/dead-code-scan/SKILL.md
 
 - name: debt-ledger
   kind: skill
@@ -186,4 +186,19 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { always: true }   # every codebase has a boundary; an untyped stack reports the cast classes by grep only
   fallback: skills/type-safety-scan/SKILL.md
+
+- name: correctness-smell-scan
+  kind: skill
+  triggers: { always: true }   # every codebase compares, rounds, switches and reads a clock; a stack with no lane runs the greps and reports partial
+  fallback: skills/correctness-smell-scan/SKILL.md
+
+- name: suppression-scan
+  kind: skill
+  triggers: { always: true }   # a repo with no analyzer and no directive prints its three classes N/A with that reason
+  fallback: skills/suppression-scan/SKILL.md
+
+- name: duplication-scan
+  kind: skill
+  triggers: { vcs_detected: true }   # the divergence and new-clone lanes read git history; without it §1b and §3 are N/A and the rest runs
+  fallback: skills/duplication-scan/SKILL.md
 ```

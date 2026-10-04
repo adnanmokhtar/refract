@@ -1,0 +1,17 @@
+# Install-set baseline — scripts/lint-description-budget.sh § INSTALL SET
+#
+# Three fixture installs, each a pack list in /setup-project's apply order. The six universal
+# tracks come first because scripts/detect-tracks.sh adds them first (security, code-quality,
+# business, learning, documentation, testing); stack packs follow. Globals (commands/) and the
+# repo-baseline commands are added by the lint itself — every install has them.
+#
+# The two numbers are RATCHETS on the "levels" row (D honoured + /setup-project's skillOverrides):
+# the model-visible listing chars, and how many entries Claude Code would still truncate to a bare
+# name. Set at what was measured when written. They may go down; raising one is a decision to argue
+# for in the diff. The proposal's target is ≤6,000 visible chars (THR-DESC-BUDGET); the platform's
+# own budget is 8,000 at 200K context.
+#
+# FORMAT  <install>|<pack,pack,...>|<max visible chars>|<max truncated entries>   # reason
+backend-only|security,code-quality,business,learning,documentation,testing,backend|3800|0   # measured 3711 visible, 0 truncated (2026-10-05)
+frontend-ui-ux|security,code-quality,business,learning,documentation,testing,frontend,ui-ux|4200|0   # measured 4164 visible, 0 truncated
+fullstack-monorepo|security,code-quality,business,learning,documentation,testing,backend,frontend,ui-ux,database,devops,infrastructure,observability,performance,ai-engineering,migration,mobile|5800|0   # measured 5756 visible, 0 truncated — the heaviest, still under the 6,000 target

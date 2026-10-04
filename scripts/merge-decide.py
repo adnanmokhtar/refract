@@ -823,6 +823,66 @@ def carry_target_only_frontmatter(result_text, tgt_raw):
     return "\n".join(res_lines[:res_end] + carried + res_lines[res_end:])
 
 
+_PATHS_ORIGIN = re.compile(r"^paths-origin:[ \t]*pack-default-([0-9a-f]+)[ \t]*$")
+
+
+def _is_pack_default_scope(lines, ent):
+    """True when the `paths:` entry in `lines` is the pack's source default, unedited.
+
+    Same contract as scope-rules.sh is_pack_default: a `paths-origin: pack-default-<sha8>` line
+    whose <sha8> is sha1 over the block's globs (one per line, newline-terminated)."""
+    span = next(((a, b) for k, a, b in ent if k == "paths"), None)
+    mark = next((lines[a] for k, a, b in ent if k == "paths-origin"), "")
+    m = _PATHS_ORIGIN.match(mark.strip())
+    if not span or not m:
+        return False
+    globs = [l.strip()[1:].strip().strip("\"'") for l in lines[span[0] + 1:span[1]]
+             if l.strip().startswith("-")]
+    return bool(globs) and hashlib.sha1(
+        ("\n".join(globs) + "\n").encode()).hexdigest()[:8] == m.group(1)
+
+
+def keep_owner_scope(result_text, tgt_raw):
+    """A `paths:` block the TARGET carries wins over the pack's — unless it is the pack's default.
+
+    🔴 PACK RULES NOW SHIP A `paths:` AT SOURCE, SO "PACK WINS ON SHARED KEYS" WOULD RE-WIDEN EVERY
+    SCOPED RULE ON THE NEXT MERGE.
+
+    The source default is deliberately broad (source + config file shapes) and is marked
+    `paths-origin: pack-default-<sha8>` so the install-time scopers may narrow it to this
+    project's tree. Once narrowed — or written by the owner — the block is project knowledge.
+    carry_target_only_frontmatter carries a key back only when the pack lacks it, which was true
+    of `paths:` until the packs got one; without this, a merge would overwrite the project's
+    `apps/api/src/**` with the pack's default and re-attach the marker, and the next scoping pass
+    would then narrow a block the owner wrote. The target's block is kept whenever it is NOT the
+    pack's unedited default; the result's marker goes with the pack's block.
+    """
+    t_lines = tgt_raw.split("\n")
+    t_ent = _frontmatter_entries(t_lines)
+    if not t_ent or not any(k == "paths" for k, _a, _b in t_ent):
+        return result_text
+    if _is_pack_default_scope(t_lines, t_ent):
+        return result_text
+    r_lines = result_text.split("\n")
+    r_ent = _frontmatter_entries(r_lines)
+    if not r_ent:
+        return result_text
+    t_span = next((a, b) for k, a, b in t_ent if k == "paths")
+    t_block = t_lines[t_span[0]:t_span[1]]
+    out, placed = [], False
+    drop = {i for k, a, b in r_ent if k in ("paths", "paths-origin") for i in range(a, b)}
+    first_paths = next((a for k, a, b in r_ent if k == "paths"), None)
+    for i, l in enumerate(r_lines):
+        if i == first_paths and not placed:
+            out.extend(t_block); placed = True
+        if i in drop:
+            continue
+        out.append(l)
+    if not placed:      # the result had no `paths:` (carry_target_only_frontmatter adds it)
+        return result_text
+    return "\n".join(out)
+
+
 def _frontmatter_entries(lines):
     """[(key, start, end)] for each top-level key in lines[1:closing `---`], continuation
     lines included in its span. None when there is no closed frontmatter."""
@@ -2491,6 +2551,7 @@ def main(argv):
                 result = drop_shadowed_frontmatter(
                     result, rewrite_deployed(pack_norm, r["kind"], target, tgt))
                 result = carry_target_only_frontmatter(result, tgt_raw)
+                result = keep_owner_scope(result, tgt_raw)
                 if not result.endswith("\n"):
                     result += "\n"
 

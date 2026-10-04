@@ -1,0 +1,2 @@
+# fixture: the same install, ceiling below what it measures — must fail
+demo|demo|20|0

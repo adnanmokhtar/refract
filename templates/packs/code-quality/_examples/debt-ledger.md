@@ -13,7 +13,7 @@ Technical debt that gets rediscovered on every audit is debt nobody is accountab
 
 ## Boundary — what this owns vs siblings
 
-- `dead-code-finder` / `dead-branch-scan` find **unreachable** code (delete). Debt is *reachable, running* code that's knowingly suboptimal — disjoint.
+- `dead-code-finder` / `dead-code-scan` find **unreachable** code (delete). Debt is *reachable, running* code that's knowingly suboptimal — disjoint.
 - `@dependency-auditor` owns dep **vulnerabilities / licenses**; this skill records **version-lag as debt** (how far behind, catch-up cost).
 - `check-health` surfaces debt **point-in-time**; this skill is the **longitudinal tracker** — persist, rank, diff run-over-run.
 - `architectural-diagnosis` finds **unmarked** structural smells; this tracks **marked/intentional** debt (a finding may spawn a ledger item).
@@ -61,6 +61,6 @@ Header: run commit + previous ledger + accrual (`+new / −paid / net`). An accr
 
 ## Related
 
-- `dead-branch-scan` — unreachable code (delete); disjoint from reachable-but-suboptimal debt.
+- `dead-code-scan` — unreachable code (delete); disjoint from reachable-but-suboptimal debt.
 - `@dependency-auditor` — dep vulns/licenses; this owns dep version-lag as tracked debt.
 - `check-health` — point-in-time snapshot; cites this ledger's headline.

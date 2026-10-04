@@ -1,5 +1,5 @@
 ---
-description: Generate a working codebase from nothing, up to a booting dev server. Stack proposal with rationale, official scaffolders, clean architecture, design system, an ADR per choice, then chains /setup-project --create. Trigger on 'new project', 'from scratch', 'greenfield', 'build a product from nothing', or an ai/ideas brief from /refine-prompt. Do NOT trigger in a directory that already holds a project — it refuses to overwrite; that is /setup-project --refresh or --enhance. Adding a feature to an existing app is /add-feature.
+description: Generate a working codebase from nothing, up to a booting dev server. Stack proposal with rationale, official scaffolders, clean architecture, design system, an ADR per choice, then prints /setup-project --create. Trigger on 'new project', 'from scratch', 'greenfield', 'build a product from nothing', or an ai/ideas brief from /refine-prompt. Do NOT trigger in a directory that already holds a project — it refuses to overwrite; that is /setup-project --refresh or --enhance. Adding a feature to an existing app is /add-feature.
 compatibility: Requires an empty or non-existent destination directory, since no overwrite flag exists; git on PATH; and at least one JS package manager on PATH (pnpm, npm, bun, or yarn) to run the real scaffolders. Network reachability is a warning, not a halt. Three confirmation gates pause the run, so it is not usable unattended without --no-prompt. A stack we do not know halts rather than being invented.
 kind: command
 pack: orchestration
@@ -12,7 +12,7 @@ Idea → working repo. Single command, multiple confirmation gates, opinionated 
 
 The output is a project that:
 - **Boots locally** out of the box (`pnpm dev` works; smoke test passes).
-- **Has Claude Code orchestration installed** (via `/setup-project --create` chain-call).
+- **Is ready for Claude Code orchestration** — the run ends by printing `/setup-project --create` for you to type (a level-D command: no command may start it for you).
 - **Looks beautiful by default** (Tailwind 4 + Radix — React **shadcn/ui**, Vue **reka-ui**, Svelte **bits-ui** — + lucide icons + 8pt grid + Inter Variable + light/dark theme).
 - **Has clean architecture** (layered or modular per stack) with a working auth flow + dashboard scaffold.
 - **Documents every choice** as ADRs in `ai/decisions/` so future maintainers know why.
@@ -28,7 +28,7 @@ Optional flags:
 - `--name=<repo-name>` — override the slug auto-derived from the idea.
 - `--into=<path>` — destination directory (default: `<repo-name>` in `$PWD`).
 - `--stack=<key>` — skip the stack picker and force a known preset (`nextjs-saas`, `vite-react-spa`, `nuxt-shop`, `sveltekit-app`, `astro-marketing`, `expo-mobile`, `nest-api`, etc.). Listed in section "Stack presets" below.
-- `--no-claude-orchestration` — skip the chained `/setup-project --create` (you'll add it later). Default is to install.
+- `--no-claude-orchestration` — do not print the `/setup-project --create` hand-off (you'll add it later). Default is to print it.
 - `--no-prompt` — auto-confirm every gate. Use when scripted; not recommended interactively.
 - `--dry-run` — print the entire generation plan and exit without writing anything.
 
@@ -295,59 +295,30 @@ Write `drizzle.config.ts`. Create initial schema with the auth tables Better Aut
 - `husky` + `lint-staged` for pre-commit.
 - ESLint + Prettier configured.
 
-### 4.8 — Layer Claude Code orchestration
+### 4.8 — Hand `/setup-project --create` to the user
 
-Unless `--no-claude-orchestration` was passed:
-
-Invoke `/setup-project --create` as a **single UNIT** — not a hand-picked subset of its
-scripts. This step inherits the ENTIRE `setup-project` Step-Zero contract: **every mechanical
-halt in `setup-project.md` § "Mechanical halt" + § "🛑 STEP ZERO" applies here unchanged**
-(M17 audit refusal, M23 deterministic study-decisions, M25 deterministic anchors, M34 adapter
-auto-chain, mode-drift). Do NOT re-list a partial subset and do NOT skip any deterministic floor —
-the chained command is the contract. See `commands/setup-project.md` (Step-Zero, ~lines 67–142)
-for the canonical, load-bearing definition; this region must not drift from it.
-
-```bash
-# /setup-project --create runs ITS full Step-Zero pipeline in this session.
-# The deterministic floor below is non-negotiable and runs in this exact order:
-
-# 1) Preflight — creates .claude/, ai/, the 4 reports; scopes packs to the detected
-#    stack via M28 detect-tracks.
-~/.claude/scripts/run-preflight.sh "$DEST" --mode=create
-
-# 2) M23 — apply study decisions deterministically (REPLACE-OR-ENHANCE + ADD by file copy).
-#    Skipping this is a documented halt (setup-project § Mechanical halt #3).
-~/.claude/scripts/apply-study-decisions.sh "$DEST" --apply --include=replace,add   # a fresh scaffold has no MERGE rows to decide
-
-# 3) M25 — apply Phase-4.6 round-one anchors deterministically (project-specific blocks).
-~/.claude/scripts/apply-anchors.sh "$DEST" --apply
-
-# 4) Generate .mcp.json for the detected stack.
-~/.claude/scripts/detect-mcp.sh "$DEST" --apply
-
-# 5) M17 FINAL GATE — audit. Exits 0 = safe. Exits non-zero = run REFUSED.
-~/.claude/scripts/audit-setup.sh "$DEST" --mode=create
-```
-
-**HARD HALT (inherited M17):** scaffold-project MUST NOT report `SCAFFOLDED` / `success` /
-`done` if `audit-setup.sh` exits non-zero. It inherits setup-project's M17 refusal verbatim:
-the run is REFUSED. Surface the audit findings (the actionable rows it printed), leave the dir
-in a usable state, and do not advance to Phase 5/6/7. This audit is the orchestration gate; it is
-**separate from** Phase 6's boot-check (which still runs independently — see Phase 6).
-
-**M34 — auto-chain adapters:** after `audit-setup.sh` exits 0, chain `/setup-project-adapters`
-to translate `.claude/` artifacts to each enabled tool's native shape:
+Unless `--no-claude-orchestration` was passed, the LAST thing this phase does is print the exact
+command for the user to type — it does not run it:
 
 ```
-/setup-project-adapters
+Orchestration: PENDING — type this in the new project to install it:
+  cd <dest> && claude
+  /setup-project --create          # add --no-adapters if no other AI CLI is used here
 ```
 
-Skip ONLY when `--no-adapters` (or `--no-claude-orchestration`) was passed, or zero non-Claude
-adapters are enabled. Skipping silently without one of these reasons is a halt (setup-project
-§ Mechanical halt #4).
+**Why it is handed back, not chained.** `/setup-project` is a level-D command: its frontmatter
+carries `disable-model-invocation: true` (`templates/governance/visibility-levels.json`), so the
+Skill tool refuses it and no command may start it on the user's behalf — a human types it. This
+command is model-invocable (`/do` routes greenfield asks here), so a chain from here would be the
+model starting a D command by proxy. Do NOT work around it by running setup-project's scripts
+(`run-preflight.sh`, `apply-study-decisions.sh`, `apply-anchors.sh`, `detect-mcp.sh`,
+`audit-setup.sh`) from this run: that is the same act with the gate removed, and a hand-picked
+subset of them skips the Step-Zero halts (M17, M23, M25, M34) that make the install trustworthy.
 
-After this step the new project has the FULL orchestration layer — agents, skills, rules, patterns,
-MCP servers, adapters — all scoped to its stack, and the M17 audit has confirmed it.
+When the user runs it, `/setup-project --create` brings its whole contract — Step-Zero, the M17
+audit refusal, the M34 adapter chain — exactly as `commands/setup-project.md` defines it. Until
+then this scaffold reports `Claude orchestration: PENDING (/setup-project --create handed to the
+user)`, never `yes`.
 
 ### 4.9 — (ADRs deferred to Phase 5)
 
@@ -358,7 +329,7 @@ Phase 4 generates code. Phase 5 documents choices (ADRs) once Phase 6's boot tes
 Runs **after** Phase 6 confirms the scaffold boots. ADRs document choices that survived validation, not pre-validation hopes.
 
 - `README.md` — generated with project pitch, run instructions, architecture overview, ADR index.
-- `CLAUDE.md` — generated by the chained `/setup-project --create` (already wired in Phase 4.8).
+- `CLAUDE.md` — generated by `/setup-project --create` once the user types it (handed off in Phase 4.8); this command does not write one.
 - `ai/status.md` — initial status: `Phase: scaffolding-complete; next: build core feature 1`.
 - `ai/dynamic/changelog.md` — entry: `project scaffolded`.
 - `.env.example` — every secret/var the stack needs (DATABASE_URL, AUTH_SECRET, NEXT_PUBLIC_*, etc.) with safe defaults / placeholders.
@@ -382,7 +353,7 @@ In order — refuse to declare success on any failure:
 5. **Auth flow renders**: Playwright MCP navigates to `/auth/sign-in`, asserts heading visible, screenshots.
 6. **Dashboard renders** (after a test login): Playwright navigates to `/dashboard`, asserts the welcome card visible.
 7. **No console errors** on either page.
-8. **Anchoring audit** (post-orchestration): `audit-anchoring.sh` shows every pack-derived artifact carries a project-specific block. (Phase 4.6 of the chained `/setup-project --create` does this; we just verify.)
+8. **Anchoring audit** — `PENDING`, not failed, in this run: it grades what `/setup-project --create` installs (its Phase 4.6 writes the project-specific blocks), and the user runs that after this command hands it off. Report the line as `Anchoring: PENDING (runs inside /setup-project --create)`.
 9. **Initial commit**: `git add . && git commit -m "chore: scaffold via /scaffold-project"` — the new repo has a clean root commit.
 
 If any step fails: print the specific failure, leave the dir in a usable state (don't auto-rollback), surface to user.
@@ -416,7 +387,7 @@ Generate `ai/dynamic/next-features.md` — a prioritized roadmap drawn from the 
 
 Suggest the natural next command:
 ```
-Next: `/add-feature "<feature 1 name>"` to ship the first feature.
+Next: `/setup-project --create` (you type it — level D), then `/add-feature "<feature 1 name>"` to ship the first feature.
 ```
 
 ## Output format
@@ -437,7 +408,7 @@ Phase 4 (Generated):
    Auth + dashboard: scaffolded
    Database:       <db> + initial schema + migration applied
    CI:             GitHub Actions config written
-   Claude orchestration: <yes/no>
+   Claude orchestration: <PENDING — /setup-project --create handed to the user | skipped (--no-claude-orchestration)>
    ADRs:           N written
 Phase 5 (Updated): README, CLAUDE.md, status, changelog, .env.example
 Phase 6 (Validated):
@@ -493,6 +464,6 @@ This command assumes generic web/mobile/api shapes. Specific tweaks:
 ## Related
 
 - `/refine-prompt` — the natural prior step. Produces the refined spec this command consumes.
-- `/setup-project --create` — chained automatically in Phase 4.8 unless `--no-claude-orchestration`. Installs the orchestration layer.
+- `/setup-project --create` — handed to the user at the end of Phase 4.8 unless `--no-claude-orchestration`. Installs the orchestration layer; level D, so only a human starts it.
 - `/add-feature` — the natural next step after scaffold. Builds the first MVP feature using the now-installed orchestration.
 - `/setup-project --refresh` — what you run later when stack/conventions evolve and you want re-detected pack content.

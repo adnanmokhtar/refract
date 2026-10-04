@@ -223,6 +223,8 @@ After Phase 5 audit passes (`audit-setup.sh` exits 0) in CREATE / REFRESH / REFI
 
 This is a **mechanical** gate: `audit-setup.sh` C2m FAILS the run (not warns) when adapters are enabled, no sanctioned skip applies, and the chain produced no native artifacts. Pass `--no-adapters` through to the audit so C2m records the skip.
 
+> **How the chain runs.** Both commands carry `disable-model-invocation: true` (level D, `templates/governance/visibility-levels.json`), so the Skill tool refuses `/setup-project-adapters`. The chain is a step of the run the user already typed, not a new dispatch: read `~/.claude/commands/setup-project-adapters.md` and execute it in this session. That is the only sanctioned way one D command reaches another — a D root inheriting the user's own invocation. A command that is NOT level D never does this; it prints the D command for the user to type.
+
 > **ORDER — read this before you follow "after Phase 5 audit passes" literally.** Taken at face value the two sentences deadlock: the chain runs *after* the audit passes, and the audit *cannot* pass until the chain has run. MEASURED on the reference monorepo: audit pass 1 emitted `ERR M34 adapter chain skipped or incomplete — 337 native artifact(s) pending`, so the run could never reach exit 0 by waiting.
 >
 > The order that works, and the one the orchestrator must use:

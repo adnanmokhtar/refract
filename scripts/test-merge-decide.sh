@@ -710,7 +710,7 @@ RPTW2
 
 ### skills
   - `change-brief/SKILL.md` — target MISSING / pack 5 lines → **ADD**
-  - `dead-branch-scan/SKILL.md` — target MISSING / pack 5 lines → **ADD**
+  - `dead-code-scan/SKILL.md` — target MISSING / pack 5 lines → **ADD**
   - `smoke-verify/SKILL.md` — target MISSING / pack 5 lines → **ADD**
 RPTW3
   outw3=$(bash "$WRAP" "$TD/w3" 2>&1)
@@ -1232,6 +1232,36 @@ for want in KEPT_PATHS KEPT_LIST PACK_WINS NO_DUP UNCHANGED; do
   printf '%s' "$out22" | grep -qx "$want" \
     && ok "carry-back: $want" \
     || bad "carry-back: $want" "$(printf '%s' "$out22" | tr '\n' ' ')"
+done
+
+say ""
+say "fixture: a scoped target keeps its paths: when the pack ships a source default"
+# Pack rules now carry a broad `paths:` at source, marked `paths-origin: pack-default-<sha8>`. "Pack
+# wins on shared keys" would overwrite the project's narrowed (or owner-written) block with that
+# default on the next merge, and re-attach the marker that licenses the scopers to replace it.
+out23=$(python3 - "$ENGINE" <<'PYEOF'
+import hashlib, importlib.util, sys
+spec = importlib.util.spec_from_file_location("md", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+g = ["**/*.{ts,js}", "**/*.py"]
+h = hashlib.sha1(("\n".join(g) + "\n").encode()).hexdigest()[:8]
+pack = ('---\npaths:\n  - "**/*.{ts,js}"\n  - "**/*.py"\npaths-origin: pack-default-%s\n'
+        'name: r\ndescription: new\n---\n\nbody\n' % h)
+owner = '---\npaths:\n  - "apps/api/src/**"\nname: r\ndescription: old\n---\n\nbody\n'
+got = m.keep_owner_scope(pack, owner)
+print("OWNER_KEPT"     if '- "apps/api/src/**"' in got and "**/*.py" not in got else "OWNER_LOST")
+print("MARKER_DROPPED" if "paths-origin" not in got else "MARKER_KEPT")
+print("PACK_WINS_REST" if "description: new" in got else "PACK_LOST")
+print("DEFAULT_TAKES_PACK" if m.keep_owner_scope(pack, pack) == pack else "DEFAULT_CHURNED")
+edited = pack.replace('"**/*.py"', '"**/*.rb"')
+print("EDITED_KEPT" if '"**/*.rb"' in m.keep_owner_scope(pack, edited) else "EDITED_LOST")
+print("UNSCOPED_TAKES_PACK" if m.keep_owner_scope(pack, '---\nname: r\n---\n\nx\n') == pack else "UNSCOPED_CHURNED")
+PYEOF
+)
+for want in OWNER_KEPT MARKER_DROPPED PACK_WINS_REST DEFAULT_TAKES_PACK EDITED_KEPT UNSCOPED_TAKES_PACK; do
+  printf '%s' "$out23" | grep -qx "$want" \
+    && ok "owner scope: $want" \
+    || bad "owner scope: $want" "$(printf '%s' "$out23" | tr '\n' ' ')"
 done
 
 say ""

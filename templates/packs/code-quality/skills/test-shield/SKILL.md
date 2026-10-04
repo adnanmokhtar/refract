@@ -12,7 +12,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 A behaviour-preserving fix (refactor, dedup, dead-code, parallelize, cache) is only *safe* if the green suite actually covers the code it touches. On an **uncovered branch**, "tests still pass" proves nothing — the fix can flip behaviour and no test notices. `test-shield` makes the guarantee real: it **pins current behaviour with a test BEFORE the fix**, so any post-fix divergence turns the suite red.
 
-This is the pre-sweep counterpart to `smoke-verify` (which runs after). Dead-code removal is already coverage-gated via `dead-branch-scan`; this closes the same gap for the refactoring + perf verbs.
+This is the pre-sweep counterpart to `smoke-verify` (which runs after). Dead-code removal is already gated by `dead-code-scan`'s removal proof (pin, delete, boot); this closes the same gap for the refactoring + perf verbs.
 
 ## When to use
 
@@ -55,6 +55,6 @@ Steps 2 and 3 name `coverage-gap` and `/add-test`, which ship in the **testing**
 ## See also
 
 - `testing/skills/coverage-gap/SKILL.md` — the coverage detection this reuses.
-- `code-quality/skills/dead-branch-scan/SKILL.md` — the analogous gate already wired for dead-code removal.
+- `code-quality/skills/dead-code-scan/SKILL.md` — the analogous gate for dead-code removal: its removal proof pins with this skill, then boots with `smoke-verify`.
 - `code-quality/skills/smoke-verify/SKILL.md` — the post-sweep counterpart (boot-check).
 - `/add-test` — the command that writes the characterization tests.

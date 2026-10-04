@@ -21,6 +21,13 @@
 #        and that hook was registered in no settings.json in either repo — so "scope it and it
 #        loads on match" was advice that could not be followed.
 #
+# And the Phase 3 contract (one truth per fact; context on a budget):
+#   § 4b the migration trio's scoping is no longer inverted — an extension never loads where
+#        its base does not, at source or after per-project narrowing;
+#   § 5  every pack/domain rule ships a sound `paths:` at source, or sits on the always-on
+#        allowlist with its reason; § 5b the scopers replace only an unedited pack default;
+#   § 6  check-rule-budget.sh --target counts what Claude Code loads, not what CLAUDE.md imports.
+#
 # Everything runs under mktemp -d. Nothing is written outside it.
 #
 # Usage: test-rule-loading.sh [--quiet]
@@ -92,7 +99,8 @@ else
   bad "§1 the un-scoped principle rule got the budget instead" "backend-principles.md still does not load"
 fi
 if [ -f "$BUDGET_SH" ]; then
-  # check-rule-budget.sh must agree: a globs: rule is exempt from the always-loaded budget.
+  # check-rule-budget.sh's framework mode still prints its path-scoped tier. (It no longer counts
+  # a `globs:`-only rule as exempt — Claude Code reads `paths:` only; § 6 pins the --target side.)
   # Capture the exit code. `|| true` alone meant a check-rule-budget.sh that ABORTED produced
   # empty output, fell to the else arm, and was reported "ran over the fixture" — all three
   # branches called `ok`, so no outcome of this tool could ever fail this test.
@@ -155,9 +163,16 @@ if [ -f "$AUDIT" ]; then
   else
     bad "§2 C2u reports the over-budget set as a cost" "$(printf '%s' "$c2u" | head -4 | tr '\n' ' ')"
   fi
-  # a project with NO imports at all is healthy: every rule still loads.
+  c2x=$(printf '%s\n' "$a2" | sed -n '/^C2x:/,/^$/p')
+  if printf '%s' "$c2x" | grep -q '  ok   CLAUDE.md within'; then
+    ok "§2 C2x passes a short CLAUDE.md"
+  else
+    bad "§2 C2x passes a short CLAUDE.md" "$(printf '%s' "$c2x" | head -3 | tr '\n' ' ')"
+  fi
+  # a project with NO imports at all is healthy: every rule still loads. Its CLAUDE.md is 201
+  # lines, which C2x — and only C2x — must fail.
   R2B="$TD/noimports"; rm -rf "$R2B"; cp -R "$R2" "$R2B"
-  printf '# Project\n' > "$R2B/CLAUDE.md"
+  { printf '# Project\n'; i=2; while [ "$i" -le 201 ]; do printf 'Line %s of owner prose.\n' "$i"; i=$((i+1)); done; } > "$R2B/CLAUDE.md"
   printf '# Rules on disk that do NOT load\n' > "$R2B/.claude/rules/_unloaded.md"
   a2b=$(bash "$AUDIT" "$R2B" --read-only 2>&1 || true)
   c2ub=$(printf '%s\n' "$a2b" | sed -n '/^C2u:/,/^$/p')
@@ -170,6 +185,12 @@ if [ -f "$AUDIT" ]; then
     ok "§2 a stale _unloaded.md is flagged"
   else
     bad "§2 a stale _unloaded.md is flagged" "$(printf '%s' "$c2ub" | head -4 | tr '\n' ' ')"
+  fi
+  c2xb=$(printf '%s\n' "$a2b" | sed -n '/^C2x:/,/^$/p')
+  if printf '%s' "$c2xb" | grep -q 'ERR  CLAUDE.md is 201 lines'; then
+    ok "§2 C2x fails a 201-line CLAUDE.md (an ERR, not a WARN)"
+  else
+    bad "§2 C2x fails a 201-line CLAUDE.md" "$(printf '%s' "$c2xb" | head -3 | tr '\n' ' ')"
   fi
 fi
 
@@ -331,6 +352,235 @@ name: migration-backend' 10
   bash "$SCOPE_DOM" "$R4" --apply >/dev/null 2>&1 || true
   n4=$(grep -c 'apps/api/src' "$R4/.claude/rules/migration-discipline.md")
   if [ "$n4" -eq 1 ]; then ok "§4 re-running adds nothing"; else bad "§4 re-running adds nothing" "apps/api/src appears $n4 times"; fi
+fi
+
+# ── § 4b  the migration trio at source, and its per-project narrowing ────────────────────
+# The scoping used to be INVERTED: the base shipped scoped to schema-migration dirs while its
+# extensions shipped with no `paths:` (every session) — so during a port the extensions loaded and
+# the philosophy they extend did not. At source the three now share one pack-default list; per
+# project the extensions narrow to v2_root and the base to its dirs + every extension glob.
+say ""
+say "§ 4b the migration trio: one source list, narrowed per project, never inverted"
+HOOK_SRC4="${HOOK_OVERRIDE:-$REPO_ROOT/templates/repo-baseline/.claude/hooks/inject-path-rules.sh}"
+eval "$(awk '/^rule_globs\(\) \{$/{f=1} f{print} f&&/^\}$/{exit}' "$HOOK_SRC4")"
+MB="$REPO_ROOT/templates/packs/backend/rules/migration-backend.md"
+MF="$REPO_ROOT/templates/packs/frontend/rules/migration-frontend.md"
+MD="$REPO_ROOT/templates/packs/migration/rules/migration-discipline.md"
+if [ -f "$SCOPE_DOM" ] && [ -f "$MB" ] && [ -f "$MF" ] && [ -f "$MD" ]; then
+  base_g=$(rule_globs "$MD"); miss=""
+  for ext in "$MB" "$MF"; do
+    [ -n "$(rule_globs "$ext")" ] || miss="$miss $(basename "$ext"):no-paths"
+    while IFS= read -r g; do
+      [ -z "$g" ] && continue
+      printf '%s\n' "$base_g" | grep -qxF "$g" || miss="$miss $(basename "$ext"):$g"
+    done <<< "$(rule_globs "$ext")"
+  done
+  if [ -z "$miss" ]; then ok "§4b at source every extension glob is in the base's list"
+  else bad "§4b at source an extension loads where its base does not" "$miss"; fi
+
+  R4B="$TD/migtrio"; seed_target "$R4B"; mkdir -p "$R4B/ai/migration"
+  cp "$MB" "$MF" "$MD" "$R4B/.claude/rules/"
+  bash "$SCOPE_DOM" "$R4B" --apply >/dev/null 2>&1 || true
+  if grep -q '^paths-origin: pack-default-' "$R4B/.claude/rules/migration-backend.md" \
+     && grep -q '^paths-origin: pack-default-' "$R4B/.claude/rules/migration-discipline.md"; then
+    ok "§4b nothing project-specific known (no anchors) -> the broad defaults stay"
+  else
+    bad "§4b with no anchors the defaults were rewritten" "$(head -4 "$R4B/.claude/rules/migration-discipline.md" | tr '\n' ' ')"
+  fi
+  printf -- '---\nv2_root: apps/\nv1_root: ../v1\n---\n' > "$R4B/ai/migration/_v2-anchors.md"
+  bash "$SCOPE_DOM" "$R4B" --apply >/dev/null 2>&1 || true
+  ext_now=$(rule_globs "$R4B/.claude/rules/migration-backend.md" | tr '\n' ' ')
+  base_now=$(rule_globs "$R4B/.claude/rules/migration-discipline.md" | tr '\n' ' ')
+  if [ "$ext_now" = "apps/** ai/migration/** " ]; then ok "§4b an extension at its pack default narrows to v2_root + the port artifacts"
+  else bad "§4b an extension at its pack default narrows to v2_root" "got: $ext_now"; fi
+  case "$base_now" in
+    *'**/migrations/**'*'ai/migration/**'*'apps/**'*)
+      case "$base_now" in
+        *'**/*.'*) bad "§4b the base narrows to dirs + extension globs + v2_root" "kept the broad source globs: $base_now" ;;
+        *) ok "§4b the base narrows to its dirs + the extension globs + v2_root" ;;
+      esac ;;
+    *) bad "§4b the base narrows to its dirs + the extension globs + v2_root" "got: $base_now" ;;
+  esac
+  if grep -q '^paths-origin:' "$R4B/.claude/rules/"migration-*.md; then
+    bad "§4b a narrowed block keeps no pack-default marker" "$(grep -l '^paths-origin:' "$R4B/.claude/rules/"migration-*.md | tr '\n' ' ')"
+  else ok "§4b a narrowed block keeps no pack-default marker (it is the project's now)"; fi
+  snap=$(cat "$R4B/.claude/rules/"migration-*.md | shasum)
+  bash "$SCOPE_DOM" "$R4B" --apply >/dev/null 2>&1 || true
+  if [ "$snap" = "$(cat "$R4B/.claude/rules/"migration-*.md | shasum)" ]; then ok "§4b re-running changes nothing"
+  else bad "§4b re-running changes nothing" "a second run rewrote a migration rule"; fi
+
+  R4C="$TD/miginverted"; seed_target "$R4C"
+  cp "$MD" "$R4C/.claude/rules/"; mkrule "$R4C/.claude/rules/migration-backend.md" 'name: migration-backend' 10
+  out4c=$(bash "$SCOPE_DOM" "$R4C" 2>&1)
+  if printf '%s' "$out4c" | grep -q 'INVERTED migration-backend.md'; then ok "§4b an unscoped extension beside a scoped base is reported INVERTED"
+  else bad "§4b an unscoped extension beside a scoped base is reported INVERTED" "$(printf '%s' "$out4c" | head -3 | tr '\n' ' ')"; fi
+fi
+
+# ── § 5  pack + domain rules carry a SOUND `paths:` at source ────────────────────────────
+# Every pack rule and domain rule gets `paths:` at source unless its truth is universal for the
+# projects that install it. The default is deliberately broad — the source + config file shapes
+# of every stack the registry knows — because a glob that matches no file in a real project makes
+# the rule load NEVER. It is marked `paths-origin: pack-default-<sha8>` so the install-time
+# scopers (scope-rules.sh, scope-domain-rules.sh, Phase 4.2's track roots) may REPLACE it, and the
+# hash makes an owner's edit of the globs read as the owner's: never replaced.
+#
+# THE ALWAYS-ON ALLOWLIST — pack rules that stay unscoped, and why:
+#   align-discipline.md       how an opt-in alignment sweep is CONDUCTED (scope creep, trusted
+#                             summaries); governs the run before any file is read
+#   business-completeness.md  "done is the completed cycle" — every feature, plan and review
+#   doc-principles.md         always-applied pack; "docs change in the same PR as the code" binds
+#                             every code change, not a file class
+#   finops-principles.md      "every design states its cost" — design-time, before files exist
+#   product-principles.md     briefs, requirements, success definitions — conversation-first
+#   security-principles.md    always-applied pack; code, config, CI and IaC alike — a glob missed
+#                             here is a security miss, so it is not worth the saved tokens
+# The code-quality and testing packs are owned by their track and are not asserted here yet.
+say ""
+say "§ 5  pack + domain rules carry a sound source paths: (or are on the always-on allowlist)"
+ALLOW=" align-discipline.md business-completeness.md doc-principles.md finops-principles.md product-principles.md security-principles.md "
+eval "$(awk '/^glob_to_re\(\) \{$/{f=1} f{print} f&&/^\}$/{exit}' "$HOOK_SRC4")"
+SAMPLES="src/index.ts app/models/user.rb api/main.py cmd/server/main.go lib/main.dart src/App.vue src/main/java/App.java"
+_sha8() { if command -v shasum >/dev/null 2>&1; then shasum; else sha1sum; fi | cut -c1-8; }
+n5=0; unscoped=""; allow_scoped=""; shape=""; hash_bad=""; dead=""
+for f in "$REPO_ROOT"/templates/packs/*/rules/*.md "$REPO_ROOT"/templates/domains/*/rules/*.md; do
+  [ -f "$f" ] || continue
+  case "$f" in */packs/testing/*|*/packs/code-quality/*) continue ;; esac
+  b=$(basename "$f"); n5=$((n5+1))
+  has=0; awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^paths:/{x=1} END{exit !x}' "$f" && has=1
+  case "$ALLOW" in
+    *" $b "*) [ "$has" = 1 ] && allow_scoped="$allow_scoped $b"; continue ;;
+  esac
+  [ "$has" = 1 ] || { unscoped="$unscoped $b"; continue; }
+  ng=$(rule_globs "$f" | grep -c .)
+  nl=$(awk '/^---[[:space:]]*$/{d++; if(d==2)exit; next} d==1&&/^paths:/{p=1;next} d==1&&p&&/^  - "/{n++;next} d==1&&p{p=0} END{print n+0}' "$f")
+  [ "$ng" -ge 1 ] && [ "$ng" = "$nl" ] || shape="$shape $b($ng/$nl)"
+  want=$(awk '/^---[[:space:]]*$/{d++; if(d==2)exit; next} d==1&&/^paths-origin: pack-default-/{sub(/^paths-origin: pack-default-/,""); print; exit}' "$f")
+  [ -n "$want" ] && [ "$want" = "$(rule_globs "$f" | _sha8)" ] || hash_bad="$hash_bad $b"
+  for s in $SAMPLES; do
+    hit=0
+    while IFS= read -r g; do
+      [ -z "$g" ] && continue
+      printf '%s' "$s" | grep -qE "$(glob_to_re "$g")" && { hit=1; break; }
+    done <<< "$(rule_globs "$f")"
+    [ "$hit" = 1 ] || { dead="$dead $b:$s"; break; }
+  done
+done
+if [ -z "$unscoped" ]; then ok "§5 all $n5 pack/domain rules are scoped at source or on the allowlist"
+else bad "§5 a rule ships with no paths: and is not on the always-on allowlist" "$unscoped"; fi
+if [ -z "$allow_scoped" ]; then ok "§5 the allowlist is truthful (no allowlisted rule carries paths:)"
+else bad "§5 an allowlisted rule carries paths: — take it off ALLOW" "$allow_scoped"; fi
+if [ -z "$shape" ]; then ok "§5 every source paths: is a block list the hook reads in full"
+else bad "§5 a source paths: the hook cannot read in full (globs read/list lines)" "$shape"; fi
+if [ -z "$hash_bad" ]; then ok "§5 every source default carries a pack-default marker whose hash matches its globs"
+else bad "§5 marker missing or stale — recompute: rule_globs <file> | shasum | cut -c1-8" "$hash_bad"; fi
+if [ -z "$dead" ]; then ok "§5 every source default matches a source file of every stack (ts rb py go dart vue java)"
+else bad "§5 a source default matches no file of some stack — it would load NEVER there" "$dead"; fi
+
+# ── § 5b  the install-time scopers replace a pack default, and nothing else ──────────────
+say ""
+say "§ 5b scope-rules.sh / scope-domain-rules.sh replace a pack default, never an owner's paths:"
+PAY="$REPO_ROOT/templates/domains/payment/rules/payment-idempotency.md"
+SRCH="$REPO_ROOT/templates/domains/search/rules/search-discipline.md"
+if [ -f "$SCOPE" ] && [ -f "$PAY" ] && [ -f "$SRCH" ]; then
+  R5="$TD/srcdefault"; mkdir -p "$R5/.claude/rules"
+  cp "$PAY" "$R5/.claude/rules/"
+  ( cd "$R5" && bash "$SCOPE" .claude/rules/payment-idempotency.md "apps/pay/**" ) >/dev/null 2>&1 || true
+  g5=$(rule_globs "$R5/.claude/rules/payment-idempotency.md" | tr '\n' ' ')
+  if [ "$g5" = "apps/pay/** " ] && ! grep -q '^paths-origin:' "$R5/.claude/rules/payment-idempotency.md"; then
+    ok "§5b a pack default is replaced by the project's glob, marker dropped, hook reads it"
+  else bad "§5b a pack default is replaced by the project's glob" "rule_globs: [$g5]"; fi
+  ( cd "$R5" && bash "$SCOPE" .claude/rules/payment-idempotency.md "zzz/**" ) >/dev/null 2>&1 || true
+  if [ "$(rule_globs "$R5/.claude/rules/payment-idempotency.md" | tr '\n' ' ')" = "apps/pay/** " ]; then
+    ok "§5b once replaced it is the project's: a second pass leaves it"
+  else bad "§5b a second pass re-scoped a project block" "$(rule_globs "$R5/.claude/rules/payment-idempotency.md" | tr '\n' ' ')"; fi
+  printf -- '---\npaths:\n  - "lib/**"\nname: own\n---\n\nBody\n' > "$R5/.claude/rules/own.md"
+  cp "$PAY" "$R5/.claude/rules/edited.md"
+  perl -0pi -e 's{"\*\*/\*\.\{sql,prisma,graphql,gql,proto\}"}{"services/**"}' "$R5/.claude/rules/edited.md"
+  s_own=$(shasum < "$R5/.claude/rules/own.md"); s_ed=$(shasum < "$R5/.claude/rules/edited.md")
+  ( cd "$R5" && bash "$SCOPE" .claude/rules/own.md "zzz/**"; bash "$SCOPE" .claude/rules/edited.md "zzz/**" ) >/dev/null 2>&1 || true
+  if [ "$s_own" = "$(shasum < "$R5/.claude/rules/own.md")" ]; then ok "§5b an owner-written paths: (no marker) is never touched"
+  else bad "§5b an owner-written paths: was rewritten" "$(head -4 "$R5/.claude/rules/own.md" | tr '\n' ' ')"; fi
+  if [ "$s_ed" = "$(shasum < "$R5/.claude/rules/edited.md")" ]; then ok "§5b a pack default the owner EDITED (hash mismatch) is never touched"
+  else bad "§5b an edited pack default was replaced" "the marker alone licensed the overwrite"; fi
+
+  R5D="$TD/srcdomain"; seed_target "$R5D"
+  cp "$PAY" "$SRCH" "$R5D/.claude/rules/"
+  cat > "$R5D/.claude/_extracted-codebase.md" <<'MAP'
+| # | repo | module | path | kind | files |
+|---|---|---|---|---|---|
+| 1 | app | payments | `apps/api/src/payments` | module | 12 |
+| 2 | app | users | `apps/api/src/users` | module | 9 |
+| 3 | app | orders | `apps/api/src/orders` | module | 14 |
+| 4 | app | catalog | `apps/api/src/catalog` | module | 7 |
+MAP
+  out5d=$(bash "$SCOPE_DOM" "$R5D" --apply 2>&1)
+  if [ "$(rule_globs "$R5D/.claude/rules/payment-idempotency.md" | tr '\n' ' ')" = "apps/api/src/payments/** " ]; then
+    ok "§5b a domain rule at its pack default is narrowed to its module"
+  else bad "§5b a domain rule at its pack default is narrowed to its module" "$(printf '%s' "$out5d" | grep payment | head -2 | tr '\n' ' ')"; fi
+  if grep -q '^paths-origin: pack-default-' "$R5D/.claude/rules/search-discipline.md" \
+     && printf '%s' "$out5d" | grep -q 'search-discipline.md.*keeps its pack-default paths:'; then
+    ok "§5b a domain rule with no module keeps its broad default (never a glob matching nothing)"
+  else bad "§5b a domain rule with no module keeps its broad default" "$(printf '%s' "$out5d" | grep search | head -2 | tr '\n' ' ')"; fi
+fi
+
+# ── § 6  check-rule-budget.sh --target measures the platform's loading model ─────────────
+# Its first version counted a rule only when CLAUDE.md @-imported it, failed an install that
+# imported none as "INERT", treated `globs:` as scoping, skipped README.md / `_*.md`, and counted
+# the skills listing as raw frontmatter bytes. Each is pinned here.
+say ""
+say "§ 6  check-rule-budget.sh --target counts what Claude Code actually loads"
+if [ -f "$BUDGET_SH" ]; then
+  R6="$TD/target"; seed_target "$R6"
+  mkdir -p "$R6/docs" "$R6/.claude/rules/nested" "$R6/.claude/commands" "$R6/.claude/skills/delta" "$R6/.claude/agents"
+  printf '# P\n\n@.claude/rules/imported.md\n@docs/guide.md\nNot an import: `@not-an-import.md`\n' > "$R6/CLAUDE.md"
+  printf 'x\n' > "$R6/not-an-import.md"
+  printf '# Guide\n\n@deep.md\n' > "$R6/docs/guide.md"
+  printf '# Deep\n\nThe second hop.\n' > "$R6/docs/deep.md"
+  mkrule "$R6/.claude/rules/imported.md" "" 10
+  mkrule "$R6/.claude/rules/unimported.md" "" 80
+  mkrule "$R6/.claude/rules/README.md" "" 5
+  mkrule "$R6/.claude/rules/_notes.md" "" 5
+  mkrule "$R6/.claude/rules/nested/sub.md" "" 5
+  mkrule "$R6/.claude/rules/globonly.md" 'globs: "src/**"' 10
+  mkrule "$R6/.claude/rules/scoped.md" 'paths:
+  - "src/**"' 10
+  d100=$(awk 'BEGIN{for(i=0;i<100;i++) printf "a"}'); d2000=$(awk 'BEGIN{for(i=0;i<2000;i++) printf "b"}')
+  printf -- '---\ndescription: %s\n---\n\nBody\n' "$d100" > "$R6/.claude/commands/alpha.md"
+  printf -- '---\ndescription: hidden one\ndisable-model-invocation: true\n---\n\nBody\n' > "$R6/.claude/commands/beta.md"
+  printf -- '---\ndescription: shown by name only\n---\n\nBody\n' > "$R6/.claude/commands/gamma.md"
+  printf -- '---\nname: delta\ndescription: %s\n---\n\nBody\n' "$d2000" > "$R6/.claude/skills/delta/SKILL.md"
+  printf -- '---\nname: a1\ndescription: An agent.\n---\n\nBody\n' > "$R6/.claude/agents/a1.md"
+  printf '{\n  "skillOverrides": { "gamma": "name-only" }\n}\n' > "$R6/.claude/settings.json"
+  o6=$(bash "$BUDGET_SH" --target="$R6" 2>&1); rc6=$?
+  sec_always=$(printf '%s\n' "$o6" | sed -n '/without paths:/,/^$/p')
+  sec_globs=$(printf '%s\n' "$o6" | sed -n '/globs: only — not scoped by Claude Code/,/^$/p')
+  if [ "$rc6" -eq 0 ] && ! printf '%s' "$o6" | grep -qE 'INERT|::error::'; then ok "§6 measures and exits 0 — no INERT verdict"
+  else bad "§6 measures and exits 0 — no INERT verdict" "rc=$rc6 $(printf '%s' "$o6" | grep -E 'INERT|error' | head -1)"; fi
+  m6=""
+  for r in unimported.md README.md _notes.md nested/sub.md; do
+    printf '%s' "$sec_always" | grep -qF ".claude/rules/$r " || m6="$m6 $r"
+  done
+  if [ -z "$m6" ]; then ok "§6 an unimported rule, README.md, _notes.md and a nested rule all count as loaded"
+  else bad "§6 a rule Claude Code loads was not counted" "$m6"; fi
+  if printf '%s' "$sec_always" | grep -q 'imported.md .*counted once'; then ok "§6 a rule both imported and in rules/ is counted once"
+  else bad "§6 a rule both imported and in rules/ is counted once" "$(printf '%s' "$sec_always" | grep 'imported.md' | head -1)"; fi
+  if printf '%s' "$sec_globs" | grep -q 'globonly.md' && ! printf '%s' "$sec_always" | grep -q 'globonly.md'; then
+    ok "§6 a globs:-only rule is reported separately, as loaded"
+  else bad "§6 a globs:-only rule is reported separately, as loaded" "$(printf '%s' "$o6" | grep globonly | head -1)"; fi
+  if printf '%s' "$o6" | grep -q 'docs/deep.md.*@-import 2' && ! printf '%s' "$o6" | grep -q 'not-an-import'; then
+    ok "§6 @-imports are followed past the first hop, and a code span is not an import"
+  else bad "§6 @-imports are followed past the first hop" "$(printf '%s' "$o6" | grep -E 'docs/|not-an' | tr '\n' ' ')"; fi
+  # listing: delta 5+4+1536 (cap), alpha 5+4+100, gamma name-only 5+2, beta hidden; 2 newlines
+  if printf '%s' "$o6" | grep -q '(1663 chars of a 8000-char budget)'; then
+    ok "§6 the listing uses the platform formula (cap, name-only override, disable-model-invocation)"
+  else bad "§6 the listing uses the platform formula" "$(printf '%s' "$o6" | grep 'listing as the model' | head -1)"; fi
+  o6b=$(SLASH_COMMAND_TOOL_CHAR_BUDGET=600 bash "$BUDGET_SH" --target="$R6" 2>&1)
+  if printf '%s' "$o6b" | grep -q '1 description(s) truncated to the name' && printf '%s' "$o6b" | grep -qE '^    delta$'; then
+    ok "§6 over the listing budget, the truncated-to-name entries are named"
+  else bad "§6 over the listing budget, the truncated-to-name entries are named" "$(printf '%s' "$o6b" | grep -A1 'OVER BUDGET' | tr '\n' ' ')"; fi
+  bash "$BUDGET_SH" --target="$R6" --budget=1 >/dev/null 2>&1; rc6c=$?
+  if [ "$rc6c" -eq 1 ]; then ok "§6 --budget=<tok> fails a surface over it"
+  else bad "§6 --budget=<tok> fails a surface over it" "exit $rc6c"; fi
 fi
 
 say ""

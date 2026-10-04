@@ -97,6 +97,19 @@
     "outputStyle": {
       "type": "string"
     },
+    "skillOverrides": {
+      "type": "object",
+      "description": "Per-NAME listing visibility for commands and skills (a map, never a bare string). name-only = listed without its description; user-invocable-only = hidden from the model, kept in the / menu; off = hidden from both; absent = on. Not applied to plugin-sourced skills. /setup-project writes level-B names here (scripts/apply-skill-overrides.sh, templates/governance/visibility-levels.json).",
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "name-only",
+          "user-invocable-only",
+          "off",
+          "on"
+        ]
+      }
+    },
     "statusLine": {
       "type": "object",
       "additionalProperties": true,

@@ -1,0 +1,13 @@
+# Claude Code's OWN slash commands. They legitimately appear as `/token` in docs and in
+# command descriptions, and no file in this repo backs them, so a reference-resolution check
+# must not read them as dangling.
+#
+# ONE list, read by every script that needs it — scripts/verify-doc-sync.sh (docs surface) and
+# scripts/lint-command-routing.sh (description surface). A second hand-maintained copy is the
+# doc/script drift this repo keeps a meta-linter for; don't start one.
+#
+# Format: one bare name per line, no leading slash. Blank lines and # comments ignored.
+continue
+resume
+schedule
+clear
