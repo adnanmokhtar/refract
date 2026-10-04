@@ -4,7 +4,7 @@ sub-phase: "4.2"
 name: apply-copy-or-author
 applies-to-modes: [all]
 inputs: [accepted-packs, gate-decision (COPY | AUTHOR), extracted-idioms (AUTHOR only)]
-outputs: [written-files, per-track-verification-report, refract-gates CI workflow (shadow; GitHub or GitLab only)]
+outputs: [written-files, per-track-verification-report, refract-gates CI workflow (shadow; GitHub or GitLab only), .claude/settings.json skillOverrides (level B, added never overwritten)]
 exit-criteria: every track's minimum artifacts written; post-copy verification clean (4.2.c); managed markers in place
 sub-steps:
   - 4.2-AUTHOR  — author from extracted idioms (AUTHOR-mode tracks)
@@ -12,6 +12,7 @@ sub-steps:
   - 4.2.b       — deterministic copy (Bash, NOT model-rewritten)
   - 4.2.c       — immediate post-copy verification
   - 4.2.d       — gates in CI: install the refract-gates shadow job, print branch protection
+  - 4.2.e       — description visibility: write level-B skillOverrides (name-only) into .claude/settings.json
 governing-rules: [A11, A12, A14, A15, N10, N11]
 imported-by: templates/phases/phase-4-apply.md
 ---
