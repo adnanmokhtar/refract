@@ -35,7 +35,7 @@ Stack-agnostic. Framework specifics in `references/<framework>.md`. Prevents the
 - Parameterized queries always. Soft-delete + tenant filters applied at the repository layer for raw queries that bypass the base repo.
 - Structured logs (JSON in prod) with a correlation ID propagated through every layer and every downstream call.
 - A timeout on every external call (HTTP, DB, cache, queue). No-timeout is not a default, it is cascading failure. (RES-3)
-- Retries with exponential backoff + jitter, for transient errors only — never on 4xx, never on a non-idempotent write. (RES-4)
+- Retries with exponential backoff + jitter, for transient errors only — never on 4xx except 408/429 (wait `Retry-After`), never on a non-idempotent write. (RES-4, `THR-RES-RETRY`)
 - Config validated on boot — fail fast on a missing or malformed env var. A key that fails fast is a boot error; one that does not fails three layers in as an `undefined`.
 
 ## Must not

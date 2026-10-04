@@ -56,7 +56,7 @@ Phase 5 references rules by ID. Edit prose below the table; never delete a row w
 | A14 | Pack authoring: signal-density over line count                           | should    | 6                       |
 | A15 | Adapt to detected conventions; cite project specifics, not generic prose | must      | 4 (4.6)                 |
 | A16 | Map every new file to a defined home in `ai/modules.md` BEFORE writing   | must      | 4                       |
-| A17 | Boy Scout Rule on every touched file (bounded scope)                     | should    | 4, 6                    |
+| A17 | Boy Scout Rule only on lines the change touches (surgical wins)          | should    | 4, 6                    |
 | A18 | Inject mandatory pre-flight in every generated agent                     | must      | 4 (4.6)                 |
 | A19 | Foundational ruleset: ship the five `repo-baseline` rules — period       | must      | 4 (4.0.7, 5.1)          |
 | A20 | Backend track + async runtime → ship parallel-IO discipline artifacts    | must      | 4 (4.0)                 |
@@ -181,6 +181,7 @@ Delegate heavy scans to Explore subagent; terse output.
 
 ### A17 — Boy Scout Rule
 **Why:** small adjacent cleanups don't bloat the diff and stop "I'll do it later" from rotting.
+**How to apply:** only on lines the change already touches — `think-simplify-surgical.md` § 3 wins over any wider reading (`governance/precedence.md` A1). Drift elsewhere goes to `ai/dynamic/drift-log.md`.
 
 ### A18 — Mandatory pre-flight in every agent
 **Why:** without injected pre-flight, agents fall back to generic patterns in the next task.

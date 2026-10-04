@@ -1,6 +1,6 @@
 ---
 name: think-simplify-surgical
-description: Foundational rule — Karpathy-inspired task discipline (assumptions, simplicity, surgical scope, verifiable success). One of the four load-bearing rules every project ships (Hard Rule A19).
+description: Foundational rule — Karpathy-inspired task discipline (assumptions, simplicity, surgical scope, verifiable success). One of the five load-bearing rules every project ships (Hard Rule A19).
 applies-to: every-agent, every-command, every-code-writing-task
 severity: must
 ---
@@ -9,7 +9,7 @@ severity: must
 
 > **Hard rule (TL;DR):** State assumptions explicitly. Push back when a simpler approach exists. Stop when confused. Write the minimum that solves the stated problem. Every changed line traces to the request. Define a verifiable success criterion before declaring done.
 
-**This rule is imported via the project `CLAUDE.md` (`@.claude/rules/think-simplify-surgical.md`), so it loads every session and applies to every agent + command + code-writing task in this project.** It complements `read-before-write.md` (what you must read), `read-codebase-deeply.md` (how deep to go), and `code-quality.md` (what "clean" means). Read those FIRST; this rule layers task-discipline on top.
+Loads every session (no `paths:`) and layers task discipline on `read-before-write.md`, `read-codebase-deeply.md` and `code-quality.md`.
 
 Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to our schema and cross-referenced with existing rules.
 
@@ -47,7 +47,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 ### Must not
 
 - Add features beyond what was asked.
-- Introduce abstractions for code that has exactly one caller.
+- Introduce a NEW abstraction before its third occurrence; a second copy reuses what exists (`THR-DRY`, precedence A28).
 - Add "flexibility" / "configurability" / "future-proofing" the user did not request.
 - Add error-handling branches for scenarios that cannot occur (see `code-quality.md` Anti-patterns: "Fallback branches for scenarios that cannot happen").
 - Wrap working code in a class / interface / factory because it "feels right" — feelings are not requirements.
@@ -65,7 +65,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 - **Every changed line traces directly to the request.** If you can't explain why a line changed by pointing at the request, revert it.
 - Match existing style (formatting, naming, structure) even if you'd do it differently in a greenfield repo. Style consistency > personal preference (see `read-before-write.md`).
 - **Clean up only your own mess.** Imports / variables / functions made unused *by your changes* are yours to remove. Pre-existing dead code is not.
-- When you notice unrelated drift (dead code, stale comments, broken patterns), **append to `ai/dynamic/drift-log.md`** and mention it in the response — do not silently fix it (see `read-codebase-deeply.md` Should bullet).
+- When you notice unrelated drift (dead code, stale comments, broken patterns), **append to `ai/dynamic/drift-log.md`** and mention it in the response — do not silently fix it. A missing engineering-baseline guarantee on the path you change is not drift: it is in scope (precedence A27).
 
 ### Must not
 
@@ -76,7 +76,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ### Should
 
-- Bound the **Boy Scout Rule** to what's *adjacent to the change you were already making* (one obvious cleanup on a touched line is fine; a whole-file rewrite isn't). The setup-project Hard Rules section in `commands/setup-project.md` is the source of truth for this scoping.
+- The **Boy Scout Rule** applies only to lines this change already touches; surgical wins (precedence A1, Hard Rule A17).
 
 ---
 
@@ -125,7 +125,6 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 
 ## Enforcement
 
-- Imported via the project `CLAUDE.md` (`@.claude/rules/think-simplify-surgical.md`, alongside `read-before-write.md` and `read-codebase-deeply.md`), and Claude Code loads it every session on its own besides (no `paths:`), so it applies to every agent + command.
 - PR-review prompt: any reviewer who sees scope creep, speculative abstraction, hidden tradeoffs, or "make it work" verification should reject and cite this rule.
 - Surfaces in the Phase 5 audit when a generated artifact violates the principles (e.g. an agent file that says "implement X" without a verify step is a quality miss).
 
@@ -143,5 +142,5 @@ When in doubt, treat the task as non-trivial.
 - `read-before-write.md` — what to read before any edit (precondition for principle 1).
 - `read-codebase-deeply.md` — tiered reading; ground truth handling (precondition for principles 1 + 3).
 - `code-quality.md` — what "clean" means (overlap with principle 2).
-- Hard Rules § "Boy Scout Rule" in `commands/setup-project.md` — scoping for principle 3.
+- `.claude/templates/governance/precedence.md` — which rule wins when two disagree (A1 Boy Scout, A27 drift vs baseline, A28 DRY).
 - Phase 5 audit in `commands/setup-project.md` — the command-level analogue of principle 4.

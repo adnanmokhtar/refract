@@ -54,7 +54,7 @@ Stack-agnostic. Framework specifics in `references/<framework>.md`. Prevents the
 - Outbox pattern for "DB write + event publish" atomicity. 2PC / XA is forbidden **across services** — a blocking coordinator turns N independent availabilities into their product, and a coordinator crash leaves every participant's rows locked with no owner to resolve them.
 - Graceful shutdown: drain in-flight requests, close the DB pool, finish queue acks — bounded by a deadline.
 - A timeout on every external call (HTTP, DB, cache, queue). No-timeout is not a default, it is cascading failure.
-- Retries with exponential backoff + jitter, for transient errors only — never on 4xx, never on a non-idempotent write.
+- Retries with exponential backoff + jitter, for transient errors only — never on 4xx except 408/429 (wait `Retry-After`), never on a non-idempotent write.
 - Optimistic concurrency: a mutable resource with more than one writer exposes a strong `ETag` and requires `If-Match` on writes. Without it the second writer silently overwrites the first and nothing in the logs says so. See `ai/patterns/conditional-requests.md`.
 - Prevent N+1: eager-load / batch related reads instead of querying per row.
 - Outbound resilience — nested timeout budgets, retry eligibility, circuit breaker, bulkhead, DLQ — is owned by the **distributed-systems** pack. Inline floor when it is not installed: timeout + bounded retries + a declared fallback. (RES-2)

@@ -1,6 +1,6 @@
 ---
 name: code-quality
-description: Foundational rule — what "clean" means in this project. One of the four load-bearing rules every project ships (Hard Rule A19).
+description: Foundational rule — what "clean" means in this project. One of the five load-bearing rules every project ships (Hard Rule A19).
 applies-to: every-agent, every-command, every-code-writing-task
 severity: must
 ---
@@ -15,19 +15,19 @@ severity: must
 - Keep systems **efficient**: parameterized queries, proper indexes, avoid N+1, paginate list endpoints.
 - Keep behavior **stable**: real error handling (project hierarchy), null safety, validate inputs at boundaries.
 - Stay **DRY**: use existing base classes and utilities — do not duplicate what they already provide.
-- Stay **secure**: validate every input at trust boundaries, never trust client data, never log secrets.
+- Stay **secure**: validate every input at trust boundaries — re-validate where data crosses one, even when a type says it is valid (precedence A30) — never trust client data, never log secrets.
 
 ## Must not
 
 - Add `any` / unchecked `unknown` without justification in the PR or file.
 - Commit `console.log` / print-debug — use the project logger.
-- Add `// TODO` without a ticket or issue reference.
+- Add a `TODO` without an owner and a delete-by date — `TODO(@owner YYYY-MM-DD): why`; a ticket may be added, never instead (`THR-TODO`, precedence A2).
 - Use `--no-verify` or skip hooks unless explicitly authorized.
 - Mix unrelated changes in one commit.
 
 ## Should
 
-- Default to **no comments** unless WHY is non-obvious.
+- Default to **no comments** unless WHY is non-obvious. Exception: the exported/public surface carries a one-line contract docstring where the project's docs rule asks for one (precedence A4).
 
 ## Review checklist
 

@@ -67,7 +67,7 @@ async listActive(): Promise<Product[]> {
 
 ## Schema rules
 
-- `tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE` on every tenant-scoped table.
+- `tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE` on every tenant-scoped table — `ON DELETE RESTRICT` on append-only ledger / audit / event tables, which offboarding crypto-shreds instead.
 - Composite index `(tenant_id, <filter_column>)` on every list query shape.
 - Unique constraints within a tenant: `UNIQUE (tenant_id, natural_key)` — never global unique on natural keys.
 

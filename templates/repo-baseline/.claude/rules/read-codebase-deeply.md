@@ -1,6 +1,6 @@
 ---
 name: read-codebase-deeply
-description: Foundational rule — tiered reading playbook for non-trivial work. One of the four load-bearing rules every project ships (Hard Rule A19).
+description: Foundational rule — tiered reading playbook for non-trivial work. One of the five load-bearing rules every project ships (Hard Rule A19).
 applies-to: every-agent, every-command, every-code-writing-task
 severity: must
 ---
@@ -9,7 +9,7 @@ severity: must
 
 > **Hard rule (TL;DR):** Behave like a senior engineer 6 months in. Tier-1 (digest) loads every session; Tier-2 (task-specific) loads before substantive work; Tier-3 (deep) loads only when relevant. `_extracted-codebase.md` and `_extracted-idioms.md` are ground truth — they win against memory and older docs.
 
-**This rule is imported via the project `CLAUDE.md` (`@.claude/rules/read-codebase-deeply.md`), so it loads every session and applies to every agent + command + generated artifact in this project.**
+Loads every session (no `paths:`); applies to every agent, command and generated artifact.
 
 ## Must
 
@@ -63,7 +63,6 @@ severity: must
 
 ## Enforcement
 
-- Imported via the project `CLAUDE.md` (`@.claude/rules/read-codebase-deeply.md`), and Claude Code loads it every session on its own besides (no `paths:`), so it applies to every agent + command.
 - `read-before-write.md` gives the strict edit checklist; PR review traces Read-before-Edit (convention — there is no read-before-edit hook).
 
 ## Cross-references

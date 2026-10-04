@@ -195,7 +195,7 @@ When `_extracted-idioms.md` / `ai/architecture.md` / `ai/conventions.md` is modi
 - [ ] `ai/migration/api-samples/<feature>/` contains real captured responses per endpoint when port touches the project's service / data-access layer.
 - [ ] V2 type field names match the captured sample exactly (not the V1 caller's untyped interpretation).
 - [ ] Every entry in the project's shared inventory (per `_extracted-idioms.md`) has been considered before authoring custom markup / CSS / util.
-- [ ] No silent catches in port code — all failures route through the project's error handler or include explicit recovery comment + debug log.
+- [ ] No silent catches in port code — all failures route through the project's error handler or include explicit recovery comment + a `warn` log (`THR-LOG-LEVEL`, precedence A9).
 - [ ] No frontend / consumer workaround for backend / provider gaps — divergent API shape filed as ticket, port halted with explicit dependency.
 - [ ] Lifecycle / data-fetch hooks chosen for the component's actual mount semantics (per the project's framework conventions in CLAUDE.md / `_extracted-idioms.md`).
 - [ ] `ai/migration/contracts/<feature>.md` exists, lists I/O / side-effects / errors / invariants / edge cases — with `<path>:<line>` citations into V1.

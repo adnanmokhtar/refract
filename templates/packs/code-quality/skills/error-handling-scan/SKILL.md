@@ -79,7 +79,7 @@ tool's, and the grep below is the fallback for the code it cannot see
 
 Lane commands (research catalog, 2026-10-05): `uvx ruff check --select S110,S112,E722,BLE001,B904,B012,TRY,RUF006,ASYNC,PLW0133,PLW1510,SIM115 --output-format json .` ·
 `golangci-lint run --new-from-merge-base=origin/main ./...` with those linters enabled ·
-`npx pyright --outputjson` · `./gradlew errorprone` builds or `spotbugsMain` · `dotnet build -warnaserror` (C# / .NET).
+`npx pyright --outputjson` · `./gradlew compileJava` (Error Prone runs inside the compiler) or `spotbugsMain` · `dotnet build -warnaserror` (C# / .NET).
 For TypeScript, typescript-eslint's plain `recommended` has **no** type-aware rule
 (`precedents/code-quality.md § 76`); when the project is not type-aware, run a scratch flat config
 beside `eslint.config.*` that spreads the project's exported array and adds

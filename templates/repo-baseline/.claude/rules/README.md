@@ -1,10 +1,15 @@
+---
+paths:
+  - ".claude/rules/**"
+---
+
 # Rules — two tiers
 
 Rules in this directory come in two tiers. The tier is decided by one thing: whether the file has `paths:` frontmatter.
 
 ## Always-loaded (no `paths:`)
 
-Claude Code loads every `.md` here that has no `paths:` at launch, in every session — recursively, and whether or not `CLAUDE.md` `@`-imports it. They cost tokens **every session**, so they are reserved for the principles that must shape *all* work:
+Claude Code loads every `.md` here that has no `paths:` at launch, in every session — recursively, whether or not `CLAUDE.md` `@`-imports it, README files included (this one carries `paths:` so it loads only when you work on a rule). They cost tokens **every session**, so they are reserved for the principles that must shape *all* work:
 
 - `read-before-write.md`, `read-codebase-deeply.md`, `think-simplify-surgical.md`, `code-quality.md`, `engineering-baseline.md`
 

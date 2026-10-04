@@ -19,7 +19,7 @@ This file states the **invariant**; the linked `ai/patterns/<x>.md` carries the 
 - Timestamps stored UTC + timezone-aware (`TIMESTAMPTZ` in Postgres, `DATETIME(6)` + always-UTC convention in MySQL).
 - Foreign keys declared at the DB level with `ON DELETE` semantics chosen explicitly (`RESTRICT` / `CASCADE` / `SET NULL`). ORM-only FKs do not protect data.
 - Every FK column has a usable index — without one, deletes and joins do full scans. **Engine split:** Postgres does not create it, so declare it; InnoDB creates one automatically, so on MySQL the finding inverts. → `ai/patterns/indexing-strategy.md`.
-- Money in `DECIMAL(precision, scale)` (e.g. `DECIMAL(19,4)`). Never `FLOAT` / `DOUBLE` — `0.1 + 0.2 != 0.3`.
+- Money per `THR-MONEY`: exact `DECIMAL(p,s)` or integer minor units + currency; minor units inside payments / ledgers. Never `FLOAT` / `DOUBLE`.
 - `NOT NULL` is the default; nullability is a documented design choice, not laziness.
 - Unique constraints for natural keys (`email`, `slug + tenant_id`, `idempotency_key`) — the DB is where the race is actually lost.
 - Parameterized queries / prepared statements / ORM bind params only. Never interpolate into SQL.

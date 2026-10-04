@@ -1,0 +1,174 @@
+{
+  "$comment": "The one home for every number and enum a Refract rule enforces. Rules cite the id (THR-…) instead of restating the value; scripts/lint-rule-literals.sh fails a NEW numeric literal in a MUST rule that does not cite one (ratchet). JSON, not YAML: the consumers are python3 standard-library scripts (gate-check.py, standards-check.py, the lints) and the model; nothing in a user's repo parses YAML, and a hand-rolled YAML subset fails silently — the same reason .claude/gates.json is JSON. A project overrides a value in .claude/thresholds.local.json with the same id; an override may TIGHTEN a floor (\"floor\": true) and never loosen it (templates/governance/precedence.md § 2). Each entry: value (number, string or object), unit, floor (true = a project may only tighten), owner (the catalog row or rule that applies it), why.",
+  "version": 1,
+  "thresholds": {
+    "THR-RES-TIMEOUT": {
+      "value": { "in_region_default_ms": 2000, "must_fit": "caller budget" },
+      "unit": "ms",
+      "floor": true,
+      "owner": "governance/engineering-baseline/backend-api.md RES-3",
+      "why": "an external call with no timeout cascades; 2 s is a default for in-region calls, never a ceiling the caller's own budget cannot fit"
+    },
+    "THR-RES-RETRY": {
+      "value": {
+        "retry_on": ["network error", "5xx", "429", "503", "lock contention"],
+        "never_on": ["4xx other than 408/429", "a non-idempotent write without an idempotency key"],
+        "honor_retry_after": true,
+        "backoff": "exponential",
+        "jitter": "required",
+        "max_attempts": { "default": 5, "money_moving": 3, "llm_provider": 3 }
+      },
+      "unit": "attempts",
+      "floor": true,
+      "owner": "governance/engineering-baseline/backend-api.md RES-4",
+      "why": "429 is a back-off signal, not a terminal 4xx: retry it no sooner than Retry-After (precedence A7); unbounded attempts turn a provider storm into a bill or a ban"
+    },
+    "THR-MONEY": {
+      "value": { "floor": "exact decimal DECIMAL(p,s) or integer minor units, always with a currency; never float", "payments_ledger": "integer minor units + currency tag", "display_rounding": "at presentation only" },
+      "unit": "enum",
+      "floor": true,
+      "owner": "governance/engineering-baseline/data.md DATA-9",
+      "why": "DATA-9 is the floor; inside the payment and ledger domains integer minor units win (precedence A14)"
+    },
+    "THR-ERR-ENVELOPE": {
+      "value": { "shape": "{ error: { code, message, details?, requestId } }", "single_mapping_site": true, "never_exposes": ["stack trace", "SQL", "file path"] },
+      "unit": "enum",
+      "floor": true,
+      "owner": "governance/engineering-baseline/backend-api.md API-9",
+      "why": "one envelope mapped in one place; public APIs document it as their contract"
+    },
+    "THR-PAGINATION": {
+      "value": { "default_limit": 20, "max_limit": 100, "offset_ceiling": 1000, "deep_paging": "cursor" },
+      "unit": "items",
+      "floor": true,
+      "owner": "governance/engineering-baseline/backend-api.md API-8",
+      "why": "every list has a default and a hard maximum; offset past ~1000 rescans rows on most engines"
+    },
+    "THR-PASSWORD-HASH": {
+      "value": { "argon2id": { "memory_mib_min": 19, "iterations_min": 2, "parallelism": 1 }, "bcrypt": { "cost_min": 12 }, "scrypt": "OWASP parameters" },
+      "unit": "kdf parameters",
+      "floor": true,
+      "owner": "domains/auth/rules/auth-discipline.md · packs/security/rules/security-principles.md",
+      "why": "the algorithm name is not the control, the parameters are (OWASP Password Storage Cheat Sheet minimums)"
+    },
+    "THR-TOKEN-TTL": {
+      "value": { "access_token_max_min": 15, "refresh": "rotating with reuse detection", "signed_upload_url_max_min": 5, "signed_download_url_max_min": 60, "idempotency_store_h": 24 },
+      "unit": "minutes",
+      "floor": true,
+      "owner": "domains/auth · domains/file-upload · domains/payment",
+      "why": "short-lived credentials bound the blast radius of a leak"
+    },
+    "THR-CACHE-TTL": {
+      "value": { "explicit_ttl": "required", "jitter_fraction": 0.1 },
+      "unit": "fraction",
+      "floor": false,
+      "owner": "domains/caching/rules/caching-discipline.md",
+      "why": "an explicit TTL with jitter avoids a synchronized expiry stampede"
+    },
+    "THR-PERF-REGRESSION": {
+      "value": { "max_regression_pct": 10, "min_runs_per_side": 10, "interval": "must exclude zero" },
+      "unit": "percent",
+      "floor": false,
+      "owner": "gate G4 · packs/performance/agents/performance-optimizer.md",
+      "why": "a delta inside the noise band is NO-CHANGE; a measured regression past the threshold is a FAIL unless waived"
+    },
+    "THR-COVERAGE": {
+      "value": { "changed_lines": "ratchet — never below the project's declared floor", "absent_floor": "Pre-existing, one line" },
+      "unit": "ratchet",
+      "floor": true,
+      "owner": "governance/engineering-baseline/quality-gates.md QG-9",
+      "why": "a ratchet, not a magic number: the project declares the floor"
+    },
+    "THR-MUTATION": {
+      "value": { "scope": { "T2": "core paths", "T3": "all changed code" }, "boundaries_named_by_spec": "strictest" },
+      "unit": "ratchet",
+      "floor": true,
+      "owner": "governance/engineering-baseline/quality-gates.md QG-14",
+      "why": "diff-scoped mutation proves the tests would notice the change being wrong"
+    },
+    "THR-NIT-CAP": {
+      "value": 5,
+      "unit": "nits per review",
+      "floor": false,
+      "owner": "templates/snippets/posting-bar.md",
+      "why": "more nits bury the Important findings; after round 1 only Important findings post"
+    },
+    "THR-LOOP": {
+      "value": { "fix_loops_max": 3, "review_rounds_max": 2, "replans_max": 2, "stalls_before_replan": 2 },
+      "unit": "iterations",
+      "floor": false,
+      "owner": "proposal §4.6 loop control · templates/snippets/posting-bar.md",
+      "why": "a third non-converging pass is an upstream problem; escalate to a human with the ledger"
+    },
+    "THR-WAIVER": {
+      "value": { "expiry_days_max": 30, "fields": ["owner", "expiry", "reason", "ticket"], "who": "human only" },
+      "unit": "days",
+      "floor": true,
+      "owner": "gate verdict vocabulary (gate-check.py)",
+      "why": "an expired waiver is a FAIL"
+    },
+    "THR-FN-LEN": {
+      "value": "linter",
+      "unit": "lines",
+      "floor": false,
+      "owner": "the project's linter config (max-lines-per-function / funlen / PLR0915 / …)",
+      "why": "there is no portable function-length number; the project's configured linter value is the rule (precedence A5). With no linter configured the length rule is advisory, never a hard FAIL"
+    },
+    "THR-COMPLEXITY": {
+      "value": { "cyclomatic": "linter", "nesting_depth": "linter", "raise_beyond_baseline": "warn" },
+      "unit": "linter",
+      "floor": false,
+      "owner": "gate G7 complexity row",
+      "why": "same as THR-FN-LEN: read the configured value; a change may not raise it beyond the touched file's baseline"
+    },
+    "THR-DRY": {
+      "value": { "reuse_existing_at": 2, "extract_new_at": 3 },
+      "unit": "occurrences",
+      "floor": false,
+      "owner": "governance/engineering-baseline/architecture.md ARCH-4",
+      "why": "a second copy of something that already exists reuses it; a NEW shared abstraction waits for the third occurrence (precedence A28)"
+    },
+    "THR-TODO": {
+      "value": { "requires": ["owner", "delete-by date"], "ticket": "optional, in addition", "form": "TODO(@owner YYYY-MM-DD): reason" },
+      "unit": "enum",
+      "floor": true,
+      "owner": "governance/engineering-baseline/quality-gates.md QG-7 (same shape as a .skip)",
+      "why": "an owner and a date make a TODO expire; a ticket alone does not (precedence A2)"
+    },
+    "THR-LOG-LEVEL": {
+      "value": { "error": "page-worthy", "warn": "recovered failure, ticket-worthy", "info": "state-change milestone", "debug": "off in production" },
+      "unit": "enum",
+      "floor": false,
+      "owner": "packs/observability/rules/observability-principles.md",
+      "why": "a recovered catch logs at warn so the recovery is visible in production (precedence A9)"
+    },
+    "THR-CLAUDE-MD-LINES": {
+      "value": 200,
+      "unit": "lines",
+      "floor": true,
+      "owner": "scripts/audit-setup.sh (hard check)",
+      "why": "code.claude.com memory docs: target under 200 lines per CLAUDE.md; longer files cost context and reduce adherence"
+    },
+    "THR-ALWAYS-ON-TOKENS": {
+      "value": { "install_always_on_max": 8000, "baseline_rules_budget": 6000 },
+      "unit": "tokens (chars/4)",
+      "floor": false,
+      "owner": "scripts/check-rule-budget.sh",
+      "why": "always-on rules and CLAUDE.md are paid on every turn before the user types"
+    },
+    "THR-DESC-BUDGET": {
+      "value": { "platform_listing_chars": "contextWindowTokens × 4 × skillListingBudgetFraction (0.01) = 8000 at 200K", "per_entry_max_chars": 1536, "front_door_entry_max_chars": 600, "agent_description_max_chars": 300, "install_model_visible_target_chars": 6000 },
+      "unit": "chars",
+      "floor": false,
+      "owner": "scripts/lint-description-budget.sh",
+      "why": "descriptions are routing text paid before anyone asks; over the platform budget descriptions are truncated to names"
+    },
+    "THR-A11Y": {
+      "value": { "wcag": "2.2 AA", "touch_target": { "ios_pt": 44, "android_dp": 48 } },
+      "unit": "standard",
+      "floor": true,
+      "owner": "governance/engineering-baseline/web.md WEB-8 · mobile.md MOB-7",
+      "why": "the platform guidelines' minimums"
+    }
+  }
+}

@@ -17,7 +17,7 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 
 - Correlation / trace ID minted at the edge (or honored from the `traceparent` header per W3C Trace Context) and propagated to every log line, every downstream HTTP / queue call, and DB query comment (`/* trace_id=... */`).
 - Structured logs: JSON in prod, pretty in dev. Flat top-level fields — `trace_id`, `span_id`, `request_id`, `tenant_id`, `user_id`, `entity_id`, `operation`, `duration_ms`, `error.code`, `error.message`. One casing per project (mirror the sibling), but `trace_id` / `span_id` are fixed by the OTel log-correlation convention — rename them and most backends stop linking logs to traces.
-- Log levels used consistently: `error` (page-worthy), `warn` (recovered, ticket-worthy), `info` (state-change milestone), `debug` (off in prod).
+- Log levels used consistently (`THR-LOG-LEVEL`): `error` (page-worthy), `warn` (recovered, ticket-worthy — a caught-and-recovered failure is never `debug`, precedence A9), `info` (state-change milestone), `debug` (off in prod).
 - RED per endpoint (Rate, Errors, Duration **histogram** — an average lies about p99), USE per resource, ≥1 business metric — `ai/patterns/metrics.md`.
 - Traces via OpenTelemetry. Incoming request = root span; every external IO = child span. Attribute keys come from the **current** OTel semantic conventions or from the sibling span — never from memory: `ai/patterns/tracing.md`.
 - Every alert has an actionable symptom, an owner, a runbook link, a severity. No runbook = ticket, not page.

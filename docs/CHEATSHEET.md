@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**204 commands** — core 16 · 23 packs (142) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**206 commands** — core 16 · 23 packs (144) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -32,7 +32,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — performance](#pack--performance) — 4
 - [Pack — product](#pack--product) — 5
 - [Pack — security](#pack--security) — 6
-- [Pack — testing](#pack--testing) — 4
+- [Pack — testing](#pack--testing) — 6
 - [Pack — ui-ux](#pack--ui-ux) — 12
 - [Domain commands — materialized when the domain is detected](#domain-commands--materialized-when-the-domain-is-detected) — 36
 - [Baseline — universal infra (repo + workspace)](#baseline--universal-infra-repo--workspace) — 10
@@ -297,6 +297,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/flaky-test-hunt` | Expose flaky tests by re-running the suite N times (N chosen for the flake rate you need to detect… | — | `/flaky-test-hunt [pattern]` |
 | `/run-tests` | Run the project's test suite (or a scoped subset) and surface results. | `--feature`, `--since`, `--all`, `--coverage`, `--watch`, `--bail`, `--update-snapshots`, `--shard=<i>` | `/run-tests <modules-root>/orders/` |
 | `/tdd` | Drive a feature test-first via the tdd-orchestrator — strict RED→GREEN→REFACTOR, one behavior per… | — | `/tdd [feature]` |
+| `/test-audit` | Read-only test-suite audit: every testing detector on a whole repo, by signal on a diff; each… | — | `/test-audit` |
+| `/test-fix` | Close the findings a /test-audit report lists: prove each failing-first with its testing oracle… | — | `/test-fix` |
 
 ## Pack — ui-ux
 

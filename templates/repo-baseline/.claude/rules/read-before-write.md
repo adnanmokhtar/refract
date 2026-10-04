@@ -1,6 +1,6 @@
 ---
 name: read-before-write
-description: Foundational rule — read existing code before writing. One of the four load-bearing rules every project ships (Hard Rule A19).
+description: Foundational rule — read existing code before writing. One of the five load-bearing rules every project ships (Hard Rule A19).
 applies-to: every-agent, every-command, every-code-writing-task
 severity: must
 ---
@@ -20,7 +20,7 @@ severity: must
 ## Must not
 
 - Invent file paths or class names you have not read in this session or seen in extraction/profile.
-- Silently "fix" a pattern that looks wrong — flag it and ask; patterns often exist for undocumented reasons.
+- Silently "fix" a pattern that looks wrong — flag it and ask; patterns often exist for undocumented reasons. A sibling missing an engineering-baseline guarantee is the exception: the baseline wins (precedence A27).
 
 ## Should
 

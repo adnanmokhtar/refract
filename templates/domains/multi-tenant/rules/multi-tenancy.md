@@ -14,7 +14,7 @@ See `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` and `<patterns-path>/
 
 ## Must
 
-1. **Every tenant-scoped table has `tenant_id <uuid|bigint> NOT NULL REFERENCES tenants(id) ON DELETE CASCADE`.** New migrations adding a tenant-scoped table without it are rejected in review.
+1. **Every tenant-scoped table has `tenant_id <uuid|bigint> NOT NULL REFERENCES tenants(id)` with an explicit `ON DELETE`: `CASCADE` for ordinary tenant data, `RESTRICT` for append-only ledger / audit / event tables** — those are erased by crypto-shred in the offboarding job, never by a cascade (precedence A13). New migrations adding a tenant-scoped table without it are rejected in review.
 2. **Every tenant-scoped repo method filters by `tenant_id`** — accepted as a parameter or pulled from `<tenant-context>`. A method that omits it is a bug.
 3. **`tenant_id` comes from the server, never from the client.** No DTO field, query param, header, or payload sets it. Ever.
 4. **Cross-tenant access lives in separate `*.admin-repository.<ext>` files** with explicit naming, so audits can grep for it. Restricted DI binding — feature modules cannot inject admin repos.
@@ -44,7 +44,7 @@ See `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` and `<patterns-path>/
 
 ## Review checklist (PRs touching data access / migrations)
 
-- [ ] New tables include `tenant_id NOT NULL` + FK to `tenants(id) ON DELETE CASCADE` + composite index.
+- [ ] New tables include `tenant_id NOT NULL` + FK to `tenants(id)` (`CASCADE`, or `RESTRICT` on ledger / audit / event tables) + composite index.
 - [ ] New repo methods take `tenantId` or pull from `<tenant-context>`.
 - [ ] Raw SQL (if any) includes `WHERE tenant_id = $n` and is reviewed line-by-line.
 - [ ] Every new tenant-scoped repo has an isolation spec asserting another tenant's rows are filtered out.

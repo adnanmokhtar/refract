@@ -22,7 +22,7 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 - `ai/status.md` carries an `Updated:` line in `YYYY-MM-DD` and a `## Recent Changes` section. SessionStart hooks parse these — don't break the format.
 - A new module ships with a one-line entry in `ai/modules.md` (path + purpose) in the same PR.
 - API endpoints are documented in machine-readable form (OpenAPI / GraphQL SDL / JSDoc-typed RPC), never only in prose.
-- Every public class, interface, enum, and exported function carries a one-sentence docstring stating its CONTRACT — what it guarantees, assumes, raises — not a restated signature.
+- Every public class, interface, enum, and exported function carries a one-sentence docstring stating its CONTRACT — what it guarantees, assumes, raises — not a restated signature. The exported surface only: internal code keeps the no-comment default (precedence A4).
 - Step-by-step procedures are numbered checklists, not paragraphs. One observable action per step.
 - Comparisons are tables. Multi-axis bullet lists hide structure.
 
