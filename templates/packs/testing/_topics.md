@@ -106,4 +106,24 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { test_framework_detected: true }
   fallback: _examples/test-factories.md
+
+- name: assertion-strength-scan
+  kind: skill
+  triggers: { test_framework_detected: true }   # a repo with no test files reports every class N/A
+  fallback: skills/assertion-strength-scan/SKILL.md
+
+- name: suite-execution-scan
+  kind: skill
+  triggers: { test_framework_detected: true }   # CI and coverage config are read even when one runner is absent
+  fallback: skills/suite-execution-scan/SKILL.md
+
+- name: flake-source-scan
+  kind: skill
+  triggers: { test_framework_detected: true }   # the static half; /flaky-test-hunt is the runtime harness
+  fallback: skills/flake-source-scan/SKILL.md
+
+- name: test-double-scan
+  kind: skill
+  triggers: { test_framework_detected: true }   # §5-§6 read shipped code too; a repo with no doubles reports N/A
+  fallback: skills/test-double-scan/SKILL.md
 ```

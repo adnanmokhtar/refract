@@ -134,43 +134,19 @@ Extract the engine + ORM, then map to how each sets isolation and takes a row lo
 
 ## Detectors (cite-or-halt)
 
-Each finding cites `<file:line>` for the racing read AND write + the matched pattern + the fix.
+This pattern is the method; each class has one detector that cites it. Run the owner and print its class block. Never re-derive a class here.
 
-### 1. Read-then-write with no lock or version guard (lost update)
+| # | Class | Owner |
+|---|---|---|
+| 1 | Read-then-write with no lock or version guard (lost update) | `transaction-scan` §8 on fields with no money, stock, quota or single-use value; security `logic-race-scan` §5–§7 on those values (security pack, when installed; without it, `transaction-scan` §8 reports them, tagged) |
+| 2 | Multi-row locking in inconsistent order (deadlock) | `transaction-scan` §3 |
+| 3 | No retry where SERIALIZABLE / REPEATABLE READ or a version guard is used | `transaction-scan` §4 |
+| 4 | `SELECT`-then-`UPDATE` counter (non-atomic increment) | `transaction-scan` §8, with the same value split as row 1 |
+| 5 | Lock held across an external call | `transaction-scan` §1 |
+| 6 | Polled queue or outbox claim without `SKIP LOCKED` | `transaction-scan` §5 |
+| 7 | Write skew under snapshot isolation | `transaction-scan` §7 |
 
-```
-BAD:   row = repo.get(id); row.qty -= n; repo.save(row)          # two requests → one decrement lost
-GOOD:  SELECT qty FROM items WHERE id=:id FOR UPDATE; UPDATE …    # or version-guarded UPDATE, rowcount==1
-```
-Flag a load → mutate-in-memory → save on a contended resource with no `FOR UPDATE` and no `version`/`updated_at` predicate.
-
-### 2. Multi-row locking in inconsistent order (deadlock)
-
-Flag two code paths that lock ≥2 rows/tables in different orders (transfer locks `from` then `to`; refund locks `to` then `from`). Fix: lock in a fixed total order (`ORDER BY id`).
-
-### 3. Missing retry where Serializable / RR is used
-
-Flag a transaction set to `SERIALIZABLE` or Postgres `REPEATABLE READ` with no `catch` for `40001`/`40P01` and no bounded retry loop. The abort *will* happen under contention.
-
-### 4. `SELECT`-then-`UPDATE` counter (non-atomic increment)
-
-```
-BAD:   v = SELECT count FROM c WHERE id=:id;  UPDATE c SET count=:v+1 WHERE id=:id
-GOOD:  UPDATE c SET count = count + 1 WHERE id=:id                 # atomic; or FOR UPDATE
-```
-Flag a read of a counter followed by a write of read-value±1 with no lock.
-
-### 5. Long transaction holding locks across an external call
-
-Flag a lock/`FOR UPDATE` held while an HTTP/gRPC/queue/slow-read runs before commit. Cross-ref **backend `transaction-boundary`** (boundary scope owns the fix); this pattern flags the *lock* held too long.
-
-### 6. `SKIP LOCKED` absent on a polled job-queue SELECT
-
-Flag a worker-loop `SELECT … FOR UPDATE` (or bare `SELECT` claim) on a queue/outbox table with no `SKIP LOCKED` → workers block on each other or double-process. Add `FOR UPDATE SKIP LOCKED`.
-
-### 7. Write-skew under snapshot with no explicit lock
-
-Flag an invariant checked by reading rows the transaction does *not* write, under `READ COMMITTED`/`REPEATABLE READ` (on-call count, seat count, disjoint-transfer min-balance). Fix: `SERIALIZABLE` or a `FOR UPDATE` on a shared guard row.
+`transaction-scan` also owns multi-write use cases with no effective transaction (§2), long transactions (§6), hot-row contention (§9) and savepoints in a loop (§10).
 
 ## Closure verbs
 
@@ -186,4 +162,4 @@ Flag an invariant checked by reading rows the transaction does *not* write, unde
 - `backend` `transaction-boundary` — the ownership boundary above: service scope (where the transaction opens/closes). State the split when a finding is really about boundary, not isolation.
 - `distributed-systems` `idempotency` — a retried (`40001`) transaction re-runs its body; side effects must be idempotent.
 - `distributed-systems` `distributed-lock` — when mutual exclusion must span services, an in-DB row/advisory lock is not enough.
-- `@schema-reviewer` / `@database-optimizer` — review agents that consume these detectors.
+- `transaction-scan` — the detector for every class above; `/db-audit` dispatches it and `/db-fix` closes its findings. `@schema-reviewer` grades its rows on a diff.

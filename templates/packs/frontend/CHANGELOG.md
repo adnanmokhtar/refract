@@ -14,6 +14,21 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.17.1 — 2026-10-02
+
+**A missing reviewer no longer turns into the builder reviewing itself.** `/add-feature` and
+`/add-component` told the builder, when a named agent, command or skill was not installed, to
+"perform that review inline" and label the lane `graded inline (<pack> absent)` — the theme lane
+(`@design-system-guardian` absent) and the a11y / i18n / security / web-vitals checks included.
+The agent that wrote the change graded it and the label read as coverage.
+
+Now (`commands/add-feature.md` × 3 lines, `commands/add-component.md`, `_examples/add-component.md`)
+the lane is reported `UNREVIEWED(<axis>) — <name> not installed (<pack> pack)` and the run ends
+**INCOMPLETE**, naming `/setup-project --include=<pack>`. The INP budget lines keep
+`inp: graded inline (performance pack absent)`: that is the builder applying a pattern to its own
+handler, not a dispatched review. `scripts/lint-self-review.sh` fails the build if the old
+phrasing returns.
+
 ## 1.17.0 — 2026-09-30
 
 **`/setup-storybook` — Storybook with the MCP addon, installed or brought up to date.** CREATE

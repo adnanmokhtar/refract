@@ -19,9 +19,9 @@ Two independent signals per cell. **Neither is trustworthy alone**, which is why
 
 | State | Meaning | Count |
 |---|---|---|
-| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 362 / 468 (77%) |
+| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 361 / 468 (77%) |
 | ○ `proposed` | one signal only — **a review queue, not coverage**. A human must read it. | 0 / 468 (0%) |
-| · `empty` | neither signal. No evidence of any material. **This is the deliverable.** | 100 / 468 (21%) |
+| · `empty` | neither signal. No evidence of any material. **This is the deliverable.** | 101 / 468 (21%) |
 | – `n/a` | a `templates/concerns/` rule names this surface as having no meaningful fingerprint, **with a reason** | 6 / 468 (1%) |
 
 > A `confirmed` cell means *material exists*, *not* that the material is good or that a
@@ -82,7 +82,7 @@ webhook                 ●   ●   ●   ●   ●   ·   ●   ·   ●   ● 
 workflow                ·   ·   ●   ●   ●   ●   ·   ●   ●   ·   ·   ●
 _database               ·   ●   ●   ●   ·   ●   ●   ·   ●   ●   ●   ●
 _deployment             ●   ●   ●   ●   ●   ●   ●   ●   ●   ·   ●   ●
-_routes                 ●   ●   ●   ●   ●   ●   ●   ●   ●   ●   ●   ●
+_routes                 ●   ●   ●   ●   ●   ●   ●   ●   ●   ●   ·   ●
 _screens                ●   ●   ●   ●   ·   ●   ●   ●   ●   ●   ●   ●
 ---------------------------------------------------------------------
 legend                  ● confirmed   ○ proposed (needs a read)   · empty   – n/a (reasoned)
@@ -92,7 +92,7 @@ legend                  ● confirmed   ○ proposed (needs a read)   · empty  
 
 ## 3. The empty column — cells with no evidence at all
 
-**100 of 468 cells.** The concern has a real shape on that surface and
+**101 of 468 cells.** The concern has a real shape on that surface and
 nothing addresses it. Phase 3 renders these as *live, unreviewed* and Phase 4 sizes the
 work.
 
@@ -112,7 +112,7 @@ could not tell a fingerprint from a passing mention, and reading found these.
 | **C8  Authorization** | `_database`, `feature-flags`, `import`, `integrations`, `ledger`, `media-processing`, `payment`, `rate-limiting`, `reporting`, `scheduling`, `webhook` | 11 |
 | **C9  Idempotency** | `document-generation`, `event-sourced`, `feature-flags`, `moderation`, `notifications`, `rate-limiting` | 6 |
 | **C10 Versioning** | `_deployment`, `analytics`, `auth`, `background-jobs`, `compliance`, `event-sourced`, `file-upload`, `i18n`, `ledger`, `media-processing`, `moderation`, `multi-tenant`, `notifications`, `payment`, `rate-limiting`, `reporting`, `scheduling`, `search`, `workflow` | 19 |
-| **C11 Data Lifecycle** | `background-jobs`, `import`, `integrations`, `real-time`, `streaming-delivery`, `workflow` | 6 |
+| **C11 Data Lifecycle** | `_routes`, `background-jobs`, `import`, `integrations`, `real-time`, `streaming-delivery`, `workflow` | 7 |
 | **C12 Tenancy** | `audit-log`, `auth`, `background-jobs`, `ledger`, `media-processing`, `public-api`, `real-time` | 7 |
 
 ### Widest gaps, by concern
@@ -146,10 +146,10 @@ the full-text signal. Same thresholds, same three states.
 
 | Structural surface | Packs read | Artifacts | Concerns backed by ≥2 |
 |---|---|---|---|
-| `_database` | `database`, `migration` | 15 | 6 / 12 |
+| `_database` | `database`, `migration` | 22 | 6 / 12 |
 | `_deployment` | `infrastructure`, `devops` | 18 | 4 / 12 |
-| `_routes` | `backend` | 17 | 8 / 12 |
-| `_screens` | `frontend`, `mobile`, `ui-ux` | 46 | 11 / 12 |
+| `_routes` | `backend` | 16 | 7 / 12 |
+| `_screens` | `frontend`, `mobile`, `ui-ux` | 49 | 11 / 12 |
 
 **Evidence strength is not symmetric with the domain half, and the grid does not pretend
 otherwise.** A domain surface is backed by 2 files; a structural one by 8 to 46. So the
@@ -167,7 +167,7 @@ here means **≥ 2 artifacts are individually about that concern**; one lone art
 
 ## 5. Artifacts behind the grid
 
-166 artifacts across 39 surfaces — domain files for the 35 signal surfaces,
+175 artifacts across 39 surfaces — domain files for the 35 signal surfaces,
 pack files (written `pack:name`) for the 4 structural ones. Every path is asserted to exist by
 `validate-review-matrix.sh`, in both directions — a renamed file breaks the build, and an
 artifact in no cell is reported.
@@ -208,8 +208,8 @@ streaming-delivery    streaming-delivery-reviewer, streaming-delivery-discipline
 subscriptions         subscription-reviewer, subscription-billing-discipline
 webhook               webhook-reviewer, webhook-signature-verification
 workflow              workflow-reviewer, workflow-discipline
-_database             database:database-optimizer, database:query-optimizer, database:schema-architect, database:schema-reviewer, database:database-principles, database:migration-rehearsal, database:schema-consistency-audit, database:schema-diff, migration:migration-architect, migration:parity-auditor, migration:migration-discipline, migration:data-cutover-orchestrate, migration:extract-v1-contract, migration:parity-test-generate, migration:perf-uplift-survey
+_database             database:database-optimizer, database:query-optimizer, database:schema-architect, database:schema-reviewer, database:database-principles, database:connection-config-scan, database:index-coverage-scan, database:migration-rehearsal, database:migration-safety, database:n-plus-one-scan, database:query-shape-scan, database:schema-consistency-audit, database:schema-diff, database:schema-integrity-scan, database:transaction-scan, migration:migration-architect, migration:parity-auditor, migration:migration-discipline, migration:data-cutover-orchestrate, migration:extract-v1-contract, migration:parity-test-generate, migration:perf-uplift-survey
 _deployment           infrastructure:infra-architect, infrastructure:k8s-reviewer, infrastructure:kubernetes-architect, infrastructure:infra-principles, infrastructure:admission-policy, infrastructure:dr-audit, infrastructure:k8s-audit, infrastructure:network-exposure-audit, infrastructure:tf-plan-review, devops:ci-reviewer, devops:deployment-engineer, devops:devops-architect, devops:devops-principles, devops:dockerfile-lint, devops:gitops-audit, devops:monitor-deploy, devops:progressive-delivery, devops:release-security
-_routes               backend:api-architect, backend:api-reviewer, backend:bug-investigator, backend:endpoint-tester, backend:websocket-engineer, backend:backend-principles, backend:concurrency-discipline, backend:migration-backend, backend:api-consistency-audit, backend:api-snapshot, backend:debug-tenant, backend:endpoint-test, backend:env-diff, backend:log-tail, backend:migration-safety, backend:module-scaffold, backend:parallelize-independent-ops
-_screens              frontend:accessibility-auditor, frontend:api-contract-sentry, frontend:data-flow-auditor, frontend:i18n-auditor, frontend:technical-seo, frontend:ui-architect, frontend:ui-reviewer, frontend:frontend-principles, frontend:i18n, frontend:migration-frontend, frontend:a11y-scan, frontend:bundle-analyze, frontend:component-playground, frontend:dev-server-start, frontend:font-optimization, frontend:image-optimization, frontend:lcp-audit, frontend:lighthouse-ci, frontend:navigation-speed, frontend:seo-audit, frontend:ssr-audit, frontend:streaming-ssr, frontend:verify-with-playwright, frontend:visual-check, mobile:app-store-reviewer, mobile:device-performance-auditor, mobile:mobile-architect, mobile:offline-sync-auditor, mobile:mobile-principles, mobile:render-discipline, mobile:bundle-analyze, mobile:device-harness, mobile:native-bridge-audit, mobile:platform-conventions-audit, ui-ux:creative-director, ui-ux:design-system-architect, ui-ux:design-system-guardian, ui-ux:theme-specialist, ui-ux:ux-reviewer, ui-ux:ui-principles, ui-ux:a11y-quick-check, ui-ux:chart-encoding-audit, ui-ux:design-iterate, ui-ux:design-token-audit, ui-ux:motion-audit, ui-ux:ui-design-sweep
+_routes               backend:api-architect, backend:api-reviewer, backend:bug-investigator, backend:endpoint-tester, backend:websocket-engineer, backend:backend-principles, backend:concurrency-discipline, backend:migration-backend, backend:api-consistency-audit, backend:api-snapshot, backend:debug-tenant, backend:endpoint-test, backend:env-diff, backend:log-tail, backend:module-scaffold, backend:parallelize-independent-ops
+_screens              frontend:accessibility-auditor, frontend:api-contract-sentry, frontend:data-flow-auditor, frontend:i18n-auditor, frontend:technical-seo, frontend:ui-architect, frontend:ui-reviewer, frontend:frontend-principles, frontend:i18n, frontend:migration-frontend, frontend:a11y-scan, frontend:bundle-analyze, frontend:component-playground, frontend:dev-server-start, frontend:font-optimization, frontend:image-optimization, frontend:lcp-audit, frontend:lighthouse-ci, frontend:navigation-speed, frontend:seo-audit, frontend:ssr-audit, frontend:streaming-ssr, frontend:verify-with-playwright, frontend:visual-check, mobile:app-store-reviewer, mobile:device-performance-auditor, mobile:mobile-architect, mobile:offline-sync-auditor, mobile:mobile-principles, mobile:render-discipline, mobile:bundle-analyze, mobile:device-harness, mobile:native-bridge-audit, mobile:platform-conventions-audit, ui-ux:creative-director, ui-ux:design-system-architect, ui-ux:design-system-guardian, ui-ux:theme-specialist, ui-ux:ui-designer, ui-ux:ux-reviewer, ui-ux:ui-principles, ui-ux:a11y-quick-check, ui-ux:chart-encoding-audit, ui-ux:design-canvas, ui-ux:design-iterate, ui-ux:design-score, ui-ux:design-token-audit, ui-ux:motion-audit, ui-ux:ui-design-sweep
 ```

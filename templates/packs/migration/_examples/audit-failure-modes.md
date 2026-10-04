@@ -23,7 +23,7 @@ This file is referenced from `migration-discipline.md` § Anti-patterns and from
 **Why it slipped audit**: The audit file passed file-presence checks; the audit's classification matched the agent's summary; nothing in the toolchain demanded per-axis enumeration.
 
 **Prevention**:
-- Use `parity-auditor` agent (or its 10-halt checklist inlined). Generic Explore/search agents are NOT acceptable for AUDIT.
+- Use `parity-auditor` agent; not installed → the AUDIT is `UNREVIEWED(parity)` and halts — the porting agent never audits its own port. Generic Explore/search agents are NOT acceptable for AUDIT.
 - Enforce per-axis enumeration in `audits/<feature>.md`: every form field listed, every button listed, every query param listed. No `&...`, no "etc.", no "..." in the table body.
 - Read the V1 source files yourself for the load-bearing claims — never trust an agent's summary for "are these forms identical?"
 - Run `scripts/validate-migration-artifacts.sh` — it greps for hand-wave tokens in audit files.

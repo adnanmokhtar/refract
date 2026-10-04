@@ -88,12 +88,13 @@ Re-running `/execute-plan` on a plan with already-`[x]` Outputs **resumes** — 
 - **On any mid-run halt (here, a Constraint collision in Phase 4, or a stale-plan abort), report the partial state, never leave it silent:** which Outputs were committed (with shas), which are incomplete, and the exact revert path — `git revert`/`reset` over the Plan-ID commit range. Tick only the truly-complete Outputs in `## Status` so a later `/execute-plan` resumes cleanly (Phase 2 resume check) rather than redoing them.
 - **Confirm the `## Goal` acceptance criterion** — green Verification commands prove the mechanics ran; the acceptance criterion proves the *objective* was met. If the commands pass but the stated acceptance criterion is not observably true, the run is **not** done — say so, don't report success on "tests green" alone.
 - Then auto-invoke **`/verify-plan <file>`** for the independent drift audit (Outputs / Constraints / Verification / staleness) and surface its verdict. Skip only with `--no-verify`.
+- **This command records the audit; the auditor does not.** `/verify-plan` is read-only — it prints its `## Verify run` entry and never edits the plan. Append that entry to the plan verbatim, and un-tick any `## Status` box it did not report `✓ matched`: a box ticked in Phase 5 that the independent audit could not match was a claim, not a fact.
 - The two are complementary: this command *did* the work and self-checks Verification; `/verify-plan` *independently* confirms the filesystem matches the contract and catches scope creep.
 
 ## Phase 7 — Improve (feed the learning loop)
 
 - **verify = PLAN FULFILLED** → offer to archive the plan to `.claude/plans/_archive/`.
-- **verify = PLAN DRIFTED** → leave the plan; surface the gap; queue an entry to `ai/dynamic/feedback-learned.md` so future plans are tighter on the drift category. Suggest `<command> --plan` to re-plan against current reality.
+- **verify = PLAN DRIFTED** → leave the plan; surface the gap; append the `## Drift notes` `/verify-plan` printed and queue an entry to `ai/dynamic/feedback-learned.md` so future plans are tighter on the drift category. Suggest `<command> --plan` to re-plan against current reality.
 - **verify = PLAN VIOLATED** → a Constraint or Verification failed; append to `ai/failures/_index.md` (or `ai/dynamic/decisions-pending.md` if not yet a validated failure). Halt for the user.
 
 ## Output format

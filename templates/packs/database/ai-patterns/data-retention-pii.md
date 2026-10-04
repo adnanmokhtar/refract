@@ -100,13 +100,19 @@ Detect the engine and choose primitives to match. Never assume Postgres.
 
 ## Detectors (cite-or-halt)
 
-1. **PII column with no classification/tag.** BAD: `email varchar` with no comment/catalog row. GOOD: `email varchar` + `COMMENT ... 'pii:email; retention:account+30d'`. Grep: columns named `email|phone|ssn|tax_id|dob|address|card|health` — cross-check against catalog/comments.
-2. **PII table with no retention policy / purge mechanism.** BAD: a personal-data table with no partition scheme, no TTL column, no purge job. GOOD: partitioned + drop schedule, or `retain_until` + cron. Grep: `pg_cron|event scheduler|expireAfterSeconds|DROP PARTITION|retain_until|expires_at` near the table.
-3. **Erasure path blocked by a non-cascading FK.** BAD: FK to `users` with `ON DELETE RESTRICT` and no anonymize step — erasure throws or is skipped. GOOD: every FK edge resolved CASCADE / anonymize / SET NULL. Grep: `ON DELETE RESTRICT|NO ACTION` on FKs referencing a PII parent.
-4. **Soft-delete with no hard-purge job.** BAD: `deleted_at` set, row keeps PII forever. GOOD: purge job deletes soft-deleted rows past the window. Grep: `deleted_at` columns with no matching `DELETE ... deleted_at <` job.
-5. **High-sensitivity field stored plaintext.** BAD: `gov_id`, card number, or health field as plain `varchar` with no column/at-rest encryption. GOOD: `pgcrypto` / CSFLE / envelope-encrypted + `key_version`. Grep: `gov_id|ssn|tax_id|card_number|pan|diagnosis|health` not wrapped in an encryption path.
-6. **Purge job that ignores backups/replicas.** BAD: live delete only, backup snapshots outlive the retention window with no stated alignment. Flag as a gap — noted here, **not fixed here** (backup rotation is ops).
-7. **`SELECT *` / broad export raking PII with no field-level control.** BAD: bulk export or `SELECT *` over a PII table into a report/sink. GOOD: explicit non-PII projection. Flag and **hand the data-flow to `data-privacy-reviewer`** — the sink/egress side is theirs.
+This pattern is the method. Run the owner of each class and print its class block. Never re-derive a class here.
+
+| # | Class | Owner |
+|---|---|---|
+| 1 | PII column with no classification or tag | `schema-integrity-scan` §10 |
+| 2 | PII table with no retention mechanism that really runs | `schema-integrity-scan` §10 |
+| 3 | Erasure path blocked by a non-cascading FK | `schema-integrity-scan` §10 |
+| 4 | Soft delete with no hard-purge job | `schema-integrity-scan` §10 (an "erasure" that only sets `deleted_at`) |
+| 5 | High-sensitivity field stored in plaintext | security `@data-privacy-reviewer` (security pack, when installed); without it, read at review time |
+| 6 | Purge that ignores backups and replicas | infrastructure `dr-audit` (when installed). Noted here, not fixed here: backup rotation is ops |
+| 7 | `SELECT *` or a broad export raking PII | security `@data-privacy-reviewer` (when installed) owns the data flow; the over-fetch cost is `query-shape-scan` §3 |
+
+Without the security pack, `schema-integrity-scan` §10 reports the storage half and prints `flow: not assessed (owner pack security not installed)`.
 
 ## Closure verbs
 
@@ -119,4 +125,4 @@ Classify every column, declare a retention window, wire a purge mechanism, resol
 - `migrations.md` — adding retention/classification columns and encryption safely under concurrent writes.
 - cross-pack `security` `data-privacy-reviewer` — **owns the code-level data-flow (collection→sink→egress, DSAR, cross-border) and regulatory compliance mapping**; this pattern owns schema/storage mechanics. State the boundary in any joint finding.
 - cross-pack `security` `security-principles` — encryption + secrets baseline this pattern's at-rest rules build on.
-- `@schema-reviewer` — enforces classification + retention + FK-erasure resolution at review time.
+- `schema-integrity-scan` §10 — the detector for the storage classes above; `/db-audit` dispatches it. `@schema-reviewer` grades its rows on a diff.

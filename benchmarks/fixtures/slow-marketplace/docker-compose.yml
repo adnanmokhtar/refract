@@ -1,0 +1,66 @@
+# Local development stack. Production runs on Kubernetes (deploy/k8s).
+services:
+  postgres:
+    image: postgres:16.4
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    environment:
+      POSTGRES_DB: stallwise
+      POSTGRES_USER: stallwise
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - ./deploy/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.23.1-p2
+    volumes:
+      - ./deploy/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+    depends_on: [postgres]
+    ports:
+      - "127.0.0.1:6432:6432"
+
+  redis:
+    image: redis:7.4
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  api:
+    build: ./api
+    environment:
+      NODE_ENV: development
+      DATABASE_HOST: postgres
+      DATABASE_REPLICA_HOST: postgres
+      DATABASE_USER: stallwise
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    depends_on: [postgres, redis]
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  worker:
+    build: ./api
+    command: ["node", "dist/worker/main.js"]
+    environment:
+      NODE_ENV: development
+      DATABASE_HOST: postgres
+      DATABASE_USER: stallwise
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+    depends_on: [postgres, redis]
+
+  reports:
+    build: ./reports
+    environment:
+      DJANGO_SETTINGS_MODULE: reportsvc.settings
+      DATABASE_HOST: pgbouncer
+      DATABASE_PORT: "6432"
+      DATABASE_USER: stallwise
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on: [pgbouncer]
+    ports:
+      - "127.0.0.1:8000:8000"
+
+volumes:
+  pgdata:

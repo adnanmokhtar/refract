@@ -2,7 +2,7 @@
 
 This pack's rules, agents, skills, and patterns assume:
 
-- **A profiler appropriate to the runtime** (`clinic.js` / `0x` / `node --prof` for Node; `py-spy` / `cProfile` / `Pyroscope` for Python; `pprof` for Go; async-profiler / JFR for JVM; Chrome DevTools Performance / Firefox profiler for frontend)
+- **A profiler appropriate to the runtime** (`0x` / `node --cpu-prof` for Node, `memlab` for heap snapshots — `clinic.js` is optional, unmaintained since 2023; `py-spy` / `cProfile` / `Pyroscope` for Python; `pprof` for Go; async-profiler / JFR for JVM; Chrome DevTools Performance / Firefox profiler for frontend)
 - **A load-testing tool** for endpoint baselines (`k6` / `Artillery` / `Locust` / `wrk` / `vegeta`)
 - **An APM / RUM** for production p50/p95/p99 (Datadog / New Relic / Sentry Performance / Grafana Tempo / OTel-based)
 - **A bundle analyzer** for frontend (`size-limit` / `bundlesize` / `webpack-bundle-analyzer` / `rollup-plugin-visualizer`)
@@ -15,8 +15,8 @@ Wherever this pack's files show concrete syntax, examples lean **Node.js (NestJS
 
 | Node + NestJS (illustrated) | Java + Spring | Python + FastAPI | Go (chi/gin) | .NET (ASP.NET Core) | Substitution source |
 |---|---|---|---|---|---|
-| `clinic.js` / `0x` flamegraph | async-profiler / JFR | `py-spy record` | `pprof` HTTP endpoint | dotTrace / dotnet-trace | CPU / wall profiler |
-| `--inspect` heap snapshot | VisualVM / Eclipse MAT | `tracemalloc` / memory_profiler | `pprof -alloc_objects` | dotMemory | heap profiler |
+| `0x` / `node --cpu-prof` flamegraph | async-profiler / JFR | `py-spy record` | `pprof` HTTP endpoint | dotTrace / dotnet-trace | CPU / wall profiler |
+| heap snapshots + `memlab analyze` | VisualVM / Eclipse MAT | `tracemalloc` / memory_profiler | `pprof -alloc_objects` | dotMemory | heap profiler |
 | `Promise.all` / `pLimit` | `CompletableFuture.allOf` / parallelStream | `asyncio.gather` / Semaphore | `errgroup.WithContext` | `Task.WhenAll` + `SemaphoreSlim` | bounded parallel I/O |
 | TanStack Query / DataLoader (Node) | Reactor / RxJava + caches | aiocache / cachetools | singleflight | `IMemoryCache` / `IDistributedCache` | request-coalescing cache |
 | `pg_stat_statements` | same (Postgres) / Performance Schema (MySQL) | same | same | same | DB query profiling |

@@ -3,11 +3,11 @@
 This pack's rules, agents, skills, and patterns assume:
 
 - **A relational engine** OR a **document store** (Postgres / MySQL-MariaDB / SQLite / MongoDB — engine-specific guidance lives in `references/<engine>.md`)
-- **Migrations as code**, reversible where feasible (Flyway / Liquibase / Alembic / Knex / Prisma Migrate / Rails / Django / TypeORM / Atlas)
+- **Migrations as code**, reversible where feasible (Flyway / Liquibase / Alembic / Knex / Prisma Migrate / Rails / Django / TypeORM / MikroORM / Drizzle Kit / Sequelize / EF Core / Ecto / Atlas)
 - **A connection pooler** in production (`pgbouncer` / `proxysql` / driver pool)
-- **A migration linter** (`squawk` / `pgsanity` / `sqlfluff` / `migra`)
+- **A migration linter** (`squawk` / `strong_migrations` / `django-migration-linter` / `atlas migrate lint` — `skills/migration-safety` § Linter lane)
 - **A query profiler** (`pg_stat_statements` / Performance Schema / slow-query log)
-- **An ORM or query builder** chosen explicitly per stack (TypeORM / Prisma / SQLAlchemy / Hibernate / GORM / ActiveRecord / Eloquent)
+- **An ORM or query builder** chosen explicitly per stack (MikroORM / TypeORM / Prisma / Sequelize / Drizzle / Knex or a raw driver / Mongoose / Django / SQLAlchemy / ActiveRecord / Eloquent / Hibernate-JPA / GORM / EF Core / Ecto)
 
 ## Engine variants
 
@@ -30,6 +30,17 @@ Wherever this pack's files show concrete migration / query syntax, examples lean
 | migration via `typeorm migration:generate` | `prisma migrate dev` | `alembic revision --autogenerate` | `manage.py makemigrations` | `php artisan make:migration` | Flyway / Liquibase migration | migration tooling |
 | `repo.find({ where: ..., relations: ... })` | `prisma.user.findMany` | session.query() / .options(joinedload) | `qs.select_related()` | `Model::with(...)` | `findById` / JPQL | repo / query |
 | `synchronize: true` (BANNED in prod) | `prisma db push` (dev only) | `Base.metadata.create_all` (BANNED) | `runserver` auto-migrate | `Schema::create` outside migration | Hibernate `hbm2ddl=update` (BANNED) | the forbidden auto-schema flag |
+
+## Per-ORM lanes in the detectors
+
+The table above covers six ORMs for illustration only. The detector skills carry the per-ORM facts that change a verdict, for every ORM listed at the top, and are the place to read them:
+
+- `skills/n-plus-one-scan` § "Adapt to the codebase — the shared ORM lane table": the per-element query shape, the fix primitive, the lazy-load-raise mode and the query counter for a proof test.
+- `skills/query-shape-scan` § "Adapt to the codebase": the unbounded call, the pagination primitive and the projection per ORM.
+- `skills/index-coverage-scan` § "Adapt to the codebase": whether the ORM creates an FK index on each engine, and the command that dumps the DDL it really emits.
+- `skills/schema-integrity-scan` § "Adapt to the codebase": the FK switch, the default timestamp type, the soft-delete scope and the auto-sync switch.
+- `skills/migration-safety` § "Adapt to the codebase": whether the runner wraps each migration in a transaction (which breaks `CREATE INDEX CONCURRENTLY`) and how to opt out.
+- `skills/transaction-scan` and `skills/connection-config-scan` § "Adapt to the codebase": transaction openers, isolation and lock APIs, pool and timeout knobs.
 
 ## Where stack-specific names live
 

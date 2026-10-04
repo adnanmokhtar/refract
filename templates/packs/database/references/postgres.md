@@ -1,13 +1,13 @@
 # PostgreSQL reference
 
-> **Engine**: PostgreSQL 14+ / 15 / 16 / 17 (16 is the LTS-equivalent default)
-> **Official docs**: https://www.postgresql.org/docs/16/index.html
-> **Version-specific gotchas**: PG 16 added logical replication for stand-by + streaming I/O improvements; 15 added MERGE statement, `nullsNotDistinct` for unique indexes; UUID v7 is RFC-9562 — generate via `pg_uuidv7` extension or app-side; `pg_stat_statements` lives in `shared_preload_libraries` (restart needed); `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block.
+> **Engine**: PostgreSQL 14 / 15 / 16 / 17 / 18. There is no LTS line: each major is supported for five years, so read the project's major from compose, Terraform or `SELECT version()`, never assume one.
+> **Official docs**: https://www.postgresql.org/docs/current/index.html (swap `current` for the project's major)
+> **Version-specific gotchas**: PG 18 added native `uuidv7()` and B-tree skip scan, which can serve a multicolumn index whose few-valued leading column the query omits (`precedents/performance.md` § 11, § 14); PG 16 added logical replication for stand-by + streaming I/O improvements; 15 added MERGE statement, `nullsNotDistinct` for unique indexes; UUID v7 is RFC-9562 — native `uuidv7()` from PG 18, before that the `pg_uuidv7` extension or app-side; `pg_stat_statements` lives in `shared_preload_libraries` (restart needed); `CREATE INDEX CONCURRENTLY` cannot run inside a transaction block.
 > **Substitution markers**: Replace `<table>` / `<column>` with the project's actual schema.
 
 ## Types to prefer
 
-- `uuid` (v7 via app or extensions) over `integer` PKs
+- `uuid` (v7: native `uuidv7()` on PG 18+, app-side or an extension before) over `integer` PKs
 - `timestamptz` always — never `timestamp without time zone`
 - `text` over `varchar(N)` when there's no real upper bound
 - `numeric(P,S)` for money — never `real`/`double`

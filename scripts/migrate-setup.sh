@@ -44,13 +44,19 @@ if [[ ! -d "$TARGET" ]]; then
 fi
 
 log() { printf '%s\n' "$*"; }
+# Runs its arguments as ONE command — never through eval. $TARGET is a user path and an
+# eval'd string breaks on its first apostrophe: `Adnan's repo` closed the quote, and
+# `x'; touch /tmp/pwned; '` ran the touch. Compound steps are the functions below.
 do_or_dry() {
   if [[ "$APPLY" -eq 1 ]]; then
-    eval "$@"
+    "$@"
   else
-    log "DRY  $*"
+    log "DRY  $(printf '%q ' "$@")"
   fi
 }
+append_stamp() { printf '\n## Setup version\nsetup_command: %s\nmigrated_at: %s\n' "$SETUP_VERSION" "$ts" >> "$1"; }
+create_stamp() { mkdir -p "$(dirname "$1")" && printf '# Codebase profile\n\n## Setup version\nsetup_command: %s\nmigrated_at: %s\n' "$SETUP_VERSION" "$ts" > "$1"; }
+touch_file()   { mkdir -p "$(dirname "$1")" && touch "$1"; }
 
 case "$MIGRATION" in
   v1-to-v2)
@@ -61,10 +67,10 @@ case "$MIGRATION" in
     ts="$(date +%Y%m%d-%H%M%S)"
     backup="$TARGET/.claude/backups/v1-pre-migration-$ts"
     log "step 1: backup -> $backup"
-    do_or_dry "mkdir -p '$backup'"
+    do_or_dry mkdir -p "$backup"
     for path in CLAUDE.md AGENTS.md .claude ai; do
       if [[ -e "$TARGET/$path" ]]; then
-        do_or_dry "cp -R '$TARGET/$path' '$backup/' 2>/dev/null || true"
+        do_or_dry cp -R "$TARGET/$path" "$backup/" 2>/dev/null || true
       fi
     done
 
@@ -82,17 +88,17 @@ case "$MIGRATION" in
     log "step 3: stamp Setup version: $SETUP_VERSION in .claude/codebase-profile.md"
     if [[ -f "$TARGET/.claude/codebase-profile.md" ]]; then
       if ! grep -q "^## Setup version" "$TARGET/.claude/codebase-profile.md"; then
-        do_or_dry "printf '\n## Setup version\nsetup_command: $SETUP_VERSION\nmigrated_at: %s\n' '$ts' >> '$TARGET/.claude/codebase-profile.md'"
+        do_or_dry append_stamp "$TARGET/.claude/codebase-profile.md"
       fi
     else
-      do_or_dry "mkdir -p '$TARGET/.claude' && printf '# Codebase profile\n\n## Setup version\nsetup_command: $SETUP_VERSION\nmigrated_at: %s\n' '$ts' > '$TARGET/.claude/codebase-profile.md'"
+      do_or_dry create_stamp "$TARGET/.claude/codebase-profile.md"
     fi
 
     # Step 4 — bootstrap derived files
     log "step 4: bootstrap derived files (curator agent runs lazily on next /setup-project)"
     for f in ai/_session-digest.md ai/_convention-cheatsheet.md ai/_decision-index.md; do
       if [[ ! -f "$TARGET/$f" ]]; then
-        do_or_dry "mkdir -p '$TARGET/$(dirname "$f")' && touch '$TARGET/$f'"
+        do_or_dry touch_file "$TARGET/$f"
       fi
     done
 

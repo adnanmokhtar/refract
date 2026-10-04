@@ -9,6 +9,74 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-02
+
+**The pack could judge a running database, and little else.** `/db-audit` had seven checks; four
+needed a reachable database with 30 days of statistics, and two were prose naming one ORM. N+1,
+unbounded reads, transactions held across I/O, pool sizing, timeouts and migration safety were
+checked by nothing, and five ai-patterns defined "Detectors" that no command ran. On a repo with no
+database in reach, a run that never looked printed the same as a run that looked and found nothing.
+
+- **Seven detector skills**, each one runnable pre-flight script with ORM lanes, BAD/GOOD per class,
+  a read-the-code step, a 3,000-hit path and a class coverage block: `n-plus-one-scan` (§1–§7,
+  moved here from the performance pack), `query-shape-scan` (§1–§8), `index-coverage-scan` (§1–§8;
+  static lane always, read-only live lane), `schema-integrity-scan` (§1–§11), `migration-safety`
+  (§1–§9, moved here from the backend pack and rewritten on this pack's operation-class model, with
+  squawk, strong_migrations, django-migration-linter and Atlas lanes), `transaction-scan` (§1–§10)
+  and `connection-config-scan` (§1–§9).
+- **`/db-audit` rewritten.** The static lane always runs and dispatches every detector on a
+  whole-repo run; the live lane runs only when a database is reachable, read-only, with
+  `EXPLAIN ANALYZE` only on a target the user confirms is not production. Every candidate goes
+  through a separate verifier (`templates/snippets/refute-before-report.md`), a fixed class ledger
+  names an owner per row, and the verdict is `GO` / `GO-UNVERIFIED` / `NO-GO`.
+- **`/db-fix`** closes an audit's findings one at a time: re-verify, a failing-first oracle test
+  across the class (`templates/snippets/proof-oracles.md`), a root-cause fix in the project's own
+  primitives, the owning detector re-run, a sibling sweep. It stops and asks before any migration on
+  a populated table, destructive DDL, backfill or irreversible step.
+- **One owner per class.** `@schema-reviewer` dropped its own SQL-injection, tenant and N+1 greps:
+  it runs the detectors on the diff and grades their rows, routes SQL injection and tenant
+  predicates to the security pack when installed (an inline, tagged fallback otherwise), and keeps
+  the migration APPROVE gate. The Detectors sections of `transaction-isolation`,
+  `connection-pooling`, `read-replicas`, `full-text-search` and `data-retention-pii` now point at the
+  owning skill §, and name the classes no detector owns. `indexing-strategy`'s "Detect what is
+  already wrong" points at `index-coverage-scan`'s live lane.
+- **Wrong instructions corrected.** `@schema-reviewer` titled a missing FK index "BLOCKER" with no
+  engine named, against its own hard rule; it is a REQUEST at most, never a BLOCKER on any engine,
+  and a composite that does not lead with the FK column does not serve the check. Its N+1 example
+  said "Measure: /profile-endpoint", a command that does not exist. The backend copy of
+  `migration-safety` demanded `pt-osc` / `gh-ost` for MySQL index builds that InnoDB performs in
+  place with DML permitted. `add-migration` and `ai-patterns/migrations.md` called `now()` volatile:
+  it is STABLE, so `ADD COLUMN … DEFAULT now()` rewrites nothing (`clock_timestamp()`, `random()`,
+  `gen_random_uuid()` are the volatile ones). `add-migration` never said that most runners wrap a
+  migration in a transaction, which breaks `CREATE INDEX CONCURRENTLY` (MikroORM needs
+  `isTransactional() { return false; }` plus `allOrNothing: false`); it now points at
+  `migration-safety`'s runner table. `references/postgres.md` called 16 "the LTS-equivalent
+  default": Postgres has no LTS line, and PG 18 adds native `uuidv7()` and B-tree skip scan.
+- **`STACK.md`** names MikroORM, Sequelize, Drizzle, Knex, Mongoose, GORM, EF Core and Ecto, and
+  points at the detectors' lane tables for every per-ORM fact that changes a verdict.
+- **Minimal install** ships `migration-safety`, `n-plus-one-scan` and `query-shape-scan`.
+  `schema-consistency-audit` moved to standard mode: it halts on a repo with no declared schema
+  conventions, which a fresh project does not have.
+- **`database-principles`: ~1,639 → ~1,634 always-loaded tokens.** Its enforcement line names the
+  detectors, `/db-audit` and `/db-fix` instead of claiming `/db-audit` audits every MUST, and the
+  leftmost-prefix bullet carries the PG 18 skip-scan exception.
+- **Measured on a real defect.** `transaction-scan` found a write outside its transaction in
+  `benchmarks/fixtures/node-api` (`src/services/order-service.js:36`) that the answer key had
+  missed; it is recorded as NAPI-DATA-01.
+
+**Known gap.** MongoDB's engine traps have no owning class yet: unbounded arrays (`$push` with no
+`$slice`) against the 16 MiB document limit, collections with no `$jsonSchema` validator, a
+primary-secondary-arbiter topology lowering the default write concern, and `$where` built from
+strings. The Mongoose lanes cover only unbounded `find`, case-insensitive regex
+(`query-shape-scan`) and the `TransientTransactionError` retry (`transaction-scan`).
+
+**Upgrading.** `n-plus-one-scan` (from performance) and `migration-safety` (from backend) keep their
+names, so every name-based reference still resolves. On `/setup-project --upgrade` or `--refresh`
+with this pack selected, the installed copy is matched by name and replaced. On a project that has
+the old owner pack but not this one, the study lists the installed copy as a target-only row
+(`REVIEW: project-specific keeper OR deprecated upstream`); add this pack with
+`/setup-project --include=database`, or record a keep with `apply-study-decisions.sh --keep=…`.
+
 ## 1.6.0 — 2026-08-22
 
 - **Every pointer out of the rule resolves in the installed layout.** `database-principles.md`

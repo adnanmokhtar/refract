@@ -23,12 +23,13 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
 
 - One of: `gitleaks` (preferred), `trufflehog`, `detect-secrets` (`brew install gitleaks` / `pip install detect-secrets`).
 - Optional: a committed `.gitleaksignore` allow-list for known false positives.
+- A second engine is a cross-check, not a requirement. A single-engine run is complete when every hit is either prefix-classified (§ What to look for) or read and classified by hand. Say which engine ran, and record a missing second engine on the report's scope line.
 
 ## Procedure
 
 `detect` and `protect` were **deprecated in gitleaks v8.19.0** — still functional, hidden from `--help`. The current verbs are `git`, `dir` and `stdin`; use them, because copied-forward `detect`/`protect` lines are the first thing that breaks on a major bump.
 
-1. Scan the working tree — fastest, catches what is on disk right now:
+1. Scan the working tree — fastest, catches what is on disk right now. `dir` reads files, not git, so **every hit has an empty `Commit`**. "Is it in history, has it shipped?" is answered only by step 3:
    ```bash
    gitleaks dir . --redact -v --report-format json --report-path /tmp/leaks-tree.json
    ```
@@ -42,11 +43,19 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
      --report-format json --report-path /tmp/leaks-history.json
    # first audit on any repo: run it with no --log-opts (whole history, slow)
    ```
-4. Cross-check entropy on suspect files with a second engine:
+4. List what gitleaks cannot judge by content: secret-bearing **files** (a committed `.env.production` whose value is a low-entropy word passes every rule), and secrets **plumbed into an image** (`ARG`/`ENV NPM_TOKEN=${NPM_TOKEN}` has no literal to match, yet bakes the value into the image config and history). `--hidden` is required because these files are dot-files; `.gitignore` still applies, so an ignored local `.env` is not listed:
    ```bash
-   trufflehog filesystem --directory=. --only-verified --json | jq '.'
+   N='(^|/)(\.env(\.[\w-]+)*|\.npmrc|\.pypirc|\.netrc|\.htpasswd|\.git-credentials|credentials(\.\w+)?|kubeconfig|id_(rsa|dsa|ecdsa|ed25519)|[\w.-]*\.(pem|key|p12|pfx|jks|keystore|ppk|tfstate|tfvars))$'
+   rg --files --hidden -g '!**/.git/**' -g '!**/node_modules/**' . | rg -i "$N" | rg -v '\.(example|sample|template|dist|defaults?)$'
+   git log --all --diff-filter=A --name-only --format= | sort -u | rg -i "$N" | rg -v '\.(example|sample|template|dist|defaults?)$'
+   rg -n --pcre2 '^\s*(ARG|ENV)\s+\w*(TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIALS?|AUTH)\w*' -g '*Dockerfile*' -g '*.dockerfile' -g '*Containerfile*' -g '!**/node_modules/**' .
    ```
-5. For each finding: identify the provider from the prefix (§ What to look for), find the introducing commit (`git log --all --source -- <file>`), and treat the credential as live until the provider says otherwise.
+   Read each listed file: a value is a finding, while a `${VAR}` reference or a template is not. An `ARG` consumed by `RUN --mount=type=secret` is the safe form; an `ENV` of it in the final stage is the leak.
+5. Cross-check entropy on suspect files with a second engine. In trufflehog v3 the path is positional, `--directory` is deprecated, and `--results=verified` replaces the hidden `--only-verified`:
+   ```bash
+   trufflehog filesystem . --results=verified --json | jq '.'
+   ```
+6. For each finding: identify the provider from the prefix (§ What to look for), find the introducing commit (`git log --all --source -- <file>`), and treat the credential as live until the provider says otherwise.
 
 ## Reading the output
 
@@ -55,7 +64,7 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
 Each JSON finding carries `RuleID`, `Description`, `File`, `StartLine`, `Commit`, `Author`, `Email`, `Date`, `Match`, `Secret`, `Entropy`, `Tags`. Read them in this order, because the first two decide everything downstream:
 
 1. **`RuleID` → confirmation or suspicion.** A provider rule (`stripe-access-token`, `aws-access-key-id`, …) is a *format match*: the string is shaped like a real credential. A generic/entropy rule is *suspicion only*. Never escalate an entropy hit to CRITICAL without classifying it first.
-2. **`Commit` → is it only in history?** Empty commit = working tree only, and the secret has not shipped anywhere yet — fix it before it does. A populated commit means it is in every clone, every fork, and the platform's event API. **That is still a leak.** Reachability from HEAD is irrelevant.
+2. **`Commit` → is it only in history?** In a `git` scan, an empty commit means staged or working tree only, so the secret has not shipped anywhere yet: fix it before it does. A `dir` scan never fills `Commit`, so its empty field says nothing; match the hit against the `git .` report before reading it as unshipped. A populated commit means it is in every clone, every fork, and the platform's event API. **That is still a leak.** Reachability from HEAD is irrelevant.
 3. **`Author` / `Date` → who to tell and what window to audit.** These are the inputs to the provider-side log review ("was this key used between `Date` and now?"), which is the step that turns a leak into an incident or closes it.
 4. **`Match` / `Secret` → only ever read redacted.** With `--redact` these are masked; without it, your report *is* the secret. This is why step 1-3 above all pass `--redact`.
 
@@ -112,6 +121,17 @@ Next: hand BLOCKERS to `/secret-scan` for the rotation playbook + history scrub.
 ## False positives / gotchas
 
 - Test fixtures intentionally use fake-looking keys (`sk_test_...`, `dummy-token-1234`) — allow-list them in `.gitleaksignore`, **with a reason**; an unexplained allow-list entry is how a real leak gets muted.
+- **Per-fingerprint `.gitleaksignore` entries do not scale on a mock-heavy tree.** Every new mock file re-fires in CI, and a scanner that is red on every PR teaches people to merge past it. There, allow-list by **path**, scoped to the generic rule only, so that a provider-prefixed key pasted into a mock still fires. Add it to `.gitleaks.toml`; the `[[allowlists]]` table with `targetRules` is gitleaks ≥ 8.25:
+  ```toml
+  [extend]
+  useDefault = true            # keep the default rules; this file only adds
+
+  [[allowlists]]
+  description = "Synthetic credentials in tests and mocks. Generic rule only."
+  targetRules = ["generic-api-key"]
+  paths = ['''(^|/)(test|tests|__tests__|e2e|__mocks__|mocks|fixtures)/''', '''\.(spec|test|e2e-spec|mock)\.[cm]?[jt]sx?$''']
+  ```
+  **Measured on a real repo** (a NestJS + React monorepo; gitleaks 8.30.1): together with the repo's own image-tag allow-list, this cut the tree scan from 46 hits to 7 and full history from 50 to 12. The one provider-prefixed key in a test file was still reported. Keep the allow-list narrow, as that repo's own is: one rule, a pattern, a reason in the comment. Never disable a rule to quiet a path.
 - Generated JWTs in tests look like real tokens; the body is base64 — entropy scanners flag them.
 - Long config values (a 200-char URL, a lockfile integrity hash) trip entropy detection — review context.
 - `git filter-repo` rewrites history — every collaborator must re-clone or hard-reset to the new history.

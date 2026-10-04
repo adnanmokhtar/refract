@@ -15,7 +15,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { orm_detected: true }
   extracts_from: _extracted-codebase.md § "Data model" + § Anti-patterns + db engine AND VERSION (the concurrent-write-safety table is per-engine and keyed on operation class, not row count)
-  sections: [premise_and_halts, preflight, entity_review, data_access_review, query_review, operation_class_safety, metadata_lock_preflight, approve_gate, example_findings, engine_specific, output_format, hard_rules, sibling_boundary]
+  sections: [premise_and_halts, preflight, entity_review, data_access_and_query_owners, operation_class_safety, metadata_lock_preflight, approve_gate, example_findings, engine_specific, output_format, hard_rules, sibling_boundary]
   fallback: _examples/schema-reviewer.md
 
 - name: query-optimizer
@@ -116,9 +116,14 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: db-audit
   kind: command
   triggers: { orm_detected: true }
-  extracts_from: _extracted-codebase.md § "Data model" + db engine (two of the seven checks are a different check per engine, not a translation)
-  sections: [understand, retrieve, generate]
-  fallback: _examples/db-audit.md
+  extracts_from: _extracted-codebase.md § "Data model" + entry points + ORM, engine AND VERSION (several classes are a different check per engine, not a translation) + whether a non-production database is reachable (the live lane)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/db-audit.md   # the source IS the fallback, as for db-fix; _examples/db-audit.md is its re-copied mirror
+
+- name: db-fix
+  kind: command
+  triggers: { orm_detected: true }
+  fallback: commands/db-fix.md   # the source IS the fallback, as for security-fix
 
 - name: optimize-query
   kind: command
@@ -144,6 +149,13 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { migration_tool_detected: true }
   fallback: _examples/migration-rehearsal.md
 
+- name: migration-safety
+  kind: skill
+  triggers: { migration_tool_detected: true }
+  extracts_from: _extracted-codebase.md (migration tool + runner transaction config + recent migrations + db engine AND VERSION — every op class is engine- and version-specific)
+  fallback: skills/migration-safety/SKILL.md
+  cite_evidence: strict
+
 - name: schema-consistency-audit
   kind: skill
   triggers: { db_introspection_available: true }
@@ -151,4 +163,36 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [purpose, when_to_use, inputs, outputs, the_11_detectors, procedure, hard_rules, failure_modes]
   fallback: skills/schema-consistency-audit/SKILL.md
   cite_evidence: strict
+
+# Detector skills (the security-2.0 shape): no _examples/ stub ships — fall back to the live source, as
+# the security pack's detectors do, so a regenerated stub can never drift from the detector it mirrors.
+- name: n-plus-one-scan
+  kind: skill
+  triggers: { always: true }   # raw-driver repos (pg, mysql2, Knex) have no ORM and still loop queries; an absent lane reports N/A
+  fallback: skills/n-plus-one-scan/SKILL.md
+
+- name: query-shape-scan
+  kind: skill
+  triggers: { always: true }   # raw SQL strings are a lane of their own; a repo with no data access reports each class N/A
+  fallback: skills/query-shape-scan/SKILL.md
+
+- name: index-coverage-scan
+  kind: skill
+  triggers: { always: true }   # its schema map reads migrations and schema.sql, so raw-SQL repos are a lane; no schema reports N/A
+  fallback: skills/index-coverage-scan/SKILL.md
+
+- name: schema-integrity-scan
+  kind: skill
+  triggers: { always: true }   # same schema map; a repo with no tables reports each class N/A
+  fallback: skills/schema-integrity-scan/SKILL.md
+
+- name: transaction-scan
+  kind: skill
+  triggers: { always: true }   # a raw BEGIN on a pg client is a lane too; a repo that never opens a transaction reports each class N/A
+  fallback: skills/transaction-scan/SKILL.md
+
+- name: connection-config-scan
+  kind: skill
+  triggers: { always: true }   # pool, replica and timeout terms live in env, compose and manifests, not only in ORM config; no database reports N/A
+  fallback: skills/connection-config-scan/SKILL.md
 ```

@@ -3,11 +3,11 @@
 ai-engineering 2310
 algorithms 1369
 align 6324
-backend 6100
+backend 6097
 business 1479
 code-quality 3628
 data-engineering 1769
-database 1639
+database 1634
 devops 831
 distributed-systems 1593
 documentation 1725

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "1.8.1",
-  "released": "2026-08-23",
+  "version": "2.1.0",
+  "released": "2026-10-02",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "CSRF gets the control that actually holds, sourced to OWASP; HSTS names why preload is the part that matters.",
+  "summary": "Every detector was run on a real NestJS-on-Fastify + MikroORM monorepo and rewritten from what it measured: noise cut by up to 99%, missed shapes added, every seeded defect still hit.",
   "changelog": "CHANGELOG.md"
 }

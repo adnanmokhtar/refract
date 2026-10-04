@@ -111,4 +111,49 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   sections: [premise, closure_verbs, mechanical_halt, phases, report_format, hard_rules]
   fallback: commands/dependency-vuln-check.md   # the source IS the fallback (per phase-4.2-apply.md step 2): the prior `stub-from-sections` had no `sections:` list, so a no-signal project received an empty skeleton instead of a command
+
+- name: injection-scan
+  kind: skill
+  triggers: { always: true }   # every app has an interpreter sink; a repo without one reports each class N/A
+  fallback: skills/injection-scan/SKILL.md
+
+- name: file-access-scan
+  kind: skill
+  triggers: { always: true }   # read sinks (sendFile / open / static mounts) exist even where no upload does
+  fallback: skills/file-access-scan/SKILL.md
+
+- name: xss-scan
+  kind: skill
+  triggers: { always: true }   # covers server-rendered HTML and cookie/CSRF config, not only a frontend
+  fallback: skills/xss-scan/SKILL.md
+
+- name: data-exposure-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/data-exposure-scan/SKILL.md
+
+- name: logic-race-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/logic-race-scan/SKILL.md
+
+- name: sast-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/sast-scan/SKILL.md
+
+- name: iac-scan
+  kind: skill
+  triggers: { always: true }   # a repo with no infra files reports every iac class N/A
+  fallback: skills/iac-scan/SKILL.md
+
+- name: security-fix
+  kind: command
+  triggers: { always: true }
+  fallback: commands/security-fix.md   # the source IS the fallback, as for dependency-vuln-check
+
+- name: security-live-scan
+  kind: command
+  triggers: { always: true }
+  fallback: commands/security-live-scan.md
 ```

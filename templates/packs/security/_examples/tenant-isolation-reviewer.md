@@ -67,15 +67,16 @@ Then re-run probe A.
 **C. Tenant id from client input — the standalone BLOCKER.**
 ```bash
 rg -ni "(req|request|ctx)\.(body|query|params|headers)\W{0,3}(tenant|org|account|workspace|company)[_-]?id" src/
-rg -ni "x-tenant|x-org|x-account|x-workspace" src/ config/
+rg -ni --pcre2 "\bx-(tenant|org|account|workspace)(-id)?\b" src/ config/   # word-bounded: a bare x-tenant matches fix-tenant
 ```
 Any hit that reaches a query scope is a BLOCKER regardless of what else is in place. **A zero-hit C is not a clean C** — both lines are case-insensitive because without `-i` the pattern misses `tenantId`, the dominant JS/TS spelling, and reports a confident nothing on a standalone BLOCKER. Before recording `C 0`, add the project's own tenant vocabulary (`owner_id`, `site_id`, whatever the schema actually uses) and re-run. Record `C <n> (vocab: <terms grepped>)`; a bare `0` with no vocabulary line is an unrun probe, not a passed one.
 
 **D. Escape hatches — raw SQL and scope bypasses.**
 ```bash
-rg -n "\.raw\(|knex\.raw|sequelize\.query|\$queryRaw|executeRaw|db\.query\(|createQueryBuilder" src/
-rg -n "unscoped\(|withoutGlobalScopes?\(|IgnoreQueryFilters\(|withoutTenant|allTenants?|bypassTenant|skipTenant" src/
+rg -n --pcre2 "\.raw\(|knex\.raw|sequelize\.query|\$queryRaw|executeRaw|db\.query\(|createQueryBuilder|\bem\.execute\(|getConnection\([^)]*\)\.execute|\.qb\(|getKnex\(" src/
+rg -n --pcre2 "unscoped\(|withoutGlobalScopes?\(|IgnoreQueryFilters\(|withoutTenant|allTenants?|bypassTenant|skipTenant|\bfilters\s*:\s*(false|\{[^}]*:\s*false)" src/
 ```
+Then grep the project's own opt-out constant or helper by name — its use sites are the real list. MikroORM's `QueryBuilder` (without `applyFilters()`), `em.execute` and `upsert` never apply global filters.
 
 **E. Cache keys without a tenant prefix.**
 ```bash

@@ -15,6 +15,7 @@ Phase 4 order is **Reproduce → Diagnose → write FAILING test → minimal fix
 - Deterministic — no `sleep`, real clock, or unseeded randomness.
 - Right level — unit / integration / e2e / widget per where the root cause lives.
 - **Do not write the fix until the test reliably fails.** A fix before a failing test is an unverified hypothesis. This is the whole point of the command.
+- **The red run is a record, not a claim.** Run the test through `.claude/hooks/test-lane.sh record '<cmd>'` before the fix and again after it; the runs land in `.claude/evidence/test-runs.jsonl`, written by the script. The fix is judged against a locked `kind: "regression"` contract ([`acceptance-contract.md`](acceptance-contract.md)), and by the `verifier` — never by the agent that diagnosed or fixed it. A verdict that cites no red record before the fix is refused by `persist-verdict.sh`.
 
 ## 2. Similar-bugs blast-radius ledger
 

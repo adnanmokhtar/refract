@@ -43,7 +43,7 @@ If any of those are missing, the agent drops the finding rather than emitting a 
 - **Specialist reviewers BASED on area touched**.
 - **Domain reviewers BASED on project signals** (from `CLAUDE.md`).
 - **Patterns consulted**, not just principles.
-- **No axis silently skipped** — a reviewer that isn't installed is performed inline against its checklist, never dropped.
+- **No axis silently skipped** — a reviewer that isn't installed is reported `UNREVIEWED(<axis>)` and the sweep ends INCOMPLETE, never dropped and never self-graded.
 - **Secrets scanned on every changed file** — not just `auth`-category files; a leaked key in a test fixture or config is still a blocker.
 - **New dependencies reviewed** — a diff that adds a package (not a version bump) is gated like the rest of the suite.
 - **New logic ships with tests** — added behaviour with no covering test is flagged even when no test file was touched.
@@ -175,7 +175,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | webhook | `resilience-reviewer` (idempotency + signature check) | — |
 | events | `resilience-reviewer` | — |
 | telemetry | `observability-reviewer` | — |
-| Hot-path / performance-sensitive changes | `performance-optimizer` | `n-plus-one-scan` |
+| Hot-path / performance-sensitive changes | `performance-optimizer` | `n-plus-one-scan` (database pack, when installed) |
 | dependency-manifest | `security-auditor` (dep review) | `deps-audit` — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
 
 #### Signal-based (based on project, always when signal present)
@@ -191,7 +191,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 - `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
 - `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change. If the skill isn't installed, run the inline check: for each added function / branch / write-path in the diff, grep the test tree (`*.test.*` / `*.spec.*` / `test/**`) for a reference to the symbol or route; absence of any covering assertion is the finding. Never skip the axis — an unchecked coverage gap reads as "tested".
 
-**Missing-agent fallback (applies to every dispatch table above):** if a named reviewer is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<reviewer-name>`). A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
+**Missing-agent contract (applies to every dispatch table above):** if a named reviewer is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the reviewer is the point of the sweep. Record `UNREVIEWED(<axis>) — <reviewer> not installed (<pack> pack)` in the consolidation note and end the sweep **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
 
 ### Pattern-specific invariant checks
 
@@ -260,9 +260,22 @@ Never launder UNVERIFIED into green. "The tests looked fine in the diff" is UNVE
 
 ### Consolidate findings
 
-Merge all reviewer outputs into one report, grouped by severity. GO / NO-GO verdict:
+**Refute before posting.** Reviewer output is candidates. Every candidate a reviewer marked Blocker or
+Request goes through [`refute-before-report.md`](../../../snippets/refute-before-report.md) (§ 10 for
+correctness, a11y, observability, maintainability; security classes through
+[`finding-verification.md`](../../../snippets/finding-verification.md)) in `@verifier`, mode `refute`,
+dispatched with a [delegation brief](../../../snippets/delegation-brief.md) — candidate files and the diff,
+never the reviewers' prose. When the review runs inside a run (`run_id` given, or create
+`ai/runs/<YYYYMMDD>-review-<branch-slug>-<4hex>/`), reviewers return `refract/findings/v1` JSON that
+`persist-review.sh` records, and the verifier's verdict lands in `verdict-refute.json` — gate-check's
+G7 review reads both. Confirmed → posted; Unconfirmed → posted as a question with its probe, never a
+Blocker; Pre-existing → listed, **never blocks**; Hardening / Refuted → one tally line.
+
+Then apply [`posting-bar.md`](../../../snippets/posting-bar.md): Blocker and Request map to
+**IMPORTANT** (when verified), Nit to **NIT** (at most 5), no style comment where a formatter exists, and
+from the second review round IMPORTANT only. Merge into one report, grouped by severity. GO / NO-GO verdict:
 - **Suite RED** → **BLOCK**, regardless of what the reviewers found. Fix the build first.
-- Any **Blocker** → **REQUEST_CHANGES** (or **BLOCK** if critical security / data integrity).
+- Any **verified Blocker** (Confirmed by the verifier) → **REQUEST_CHANGES** (or **BLOCK** if critical security / data integrity). An unverified one never blocks; it is a question.
 - Only requests/nits + **Suite GREEN as recorded above** → **APPROVE**.
 - Only requests/nits + **Suite UNVERIFIED** → **APPROVE (SUITE UNVERIFIED)** — name what could not run and why.
 - No reviewer ran cleanly → investigate before approving.
@@ -326,7 +339,7 @@ code-reviewer, api-reviewer, schema-reviewer, tenant-isolation-reviewer, test-re
 observability-reviewer, prompt-reviewer, security-auditor
 
 ### Skills run
-a11y-scan (3 routes), n-plus-one-scan, doc-drift-scan, api-snapshot
+a11y-scan (3 routes), n-plus-one-scan (database pack), doc-drift-scan, api-snapshot
 
 ### Patterns consulted
 api-contract, error-handling, multi-tenancy, tenant-isolation, idempotency, structured-logging
@@ -370,7 +383,7 @@ Then:
 - Don't filler-praise.
 - Don't propose changes outside the PR's declared intent.
 - Don't skip signal-based reviewers — tenant leaks slip through when tenant-isolation-reviewer is skipped because "it's a small change".
-- Never silently skip an axis — an uninstalled reviewer is performed inline (`inline:<reviewer-name>`), not dropped.
+- Never silently skip an axis — an uninstalled reviewer is reported `UNREVIEWED(<axis>)` (the sweep is INCOMPLETE), not dropped and not self-graded.
 - Run `secret-scan` on every changed file regardless of category — a committed credential is a BLOCK.
 - **Never assert suite state from the diff.** `Suite: GREEN` requires a runner exit code recorded in this run; anything else is `UNVERIFIED` and caps the verdict. A red suite is a BLOCK that outranks every finding.
 - A diff that adds a dependency (not a version bump) gets a dependency review — flag it, don't wave it through.

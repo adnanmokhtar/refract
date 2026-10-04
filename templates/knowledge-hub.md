@@ -54,10 +54,10 @@ Docs + process: `doc-writer`, `api-documenter`, `business-analyst`, `business-au
 
 Universal: `dead-branch-scan`, `doc-drift-scan`, `adr`, `onboard`.
 Backend: `endpoint-test`, `log-tail`, `env-diff`, `debug-tenant`, `module-scaffold`, `api-snapshot`.
-Database: `schema-diff`, `migration-rehearsal`.
+Database: `schema-diff`, `migration-rehearsal`, `migration-safety`, `n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `transaction-scan`, `connection-config-scan`.
 Testing: `coverage-gap`, `contract-test`.
 Security: `secret-scan`, `deps-audit`, `threat-model`.
-Performance: `n-plus-one-scan`, `profile-endpoint`.
+Performance: `profile-endpoint`.
 Observability: `alert-audit`.
 Frontend: `visual-check`, `ssr-audit`, `lighthouse-ci`, `bundle-analyze`, `a11y-audit`, `i18n-audit`.
 Infrastructure: `k8s-audit`, `dockerfile-lint`.

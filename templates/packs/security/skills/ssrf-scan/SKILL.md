@@ -30,27 +30,38 @@ The common SSRF sinks to prioritize: webhook/callback registration, **fetch-imag
 
 ## Pre-flight greps
 
-Run these first — they produce the candidate set the detectors below judge. Adjust the sink alternation to the stack's row in the table above; `rg` is assumed, and every command is scoped to source directories so vendored deps do not drown the result.
+Run these first — they produce the candidate set the detectors below judge. Adjust the sink alternation to the stack's row in the table above; `rg` with PCRE2 is assumed. Every command takes the two exclusion arrays, so vendored code, tests, fixtures and data dumps do not drown the result, and names its path (`.`). Any `rg` error on stderr is a failed grep, not zero hits.
 
 ```bash
-# 1. Every outbound sink in the repo — the universe of candidates.
-rg -n --pcre2 '\b(fetch|axios(\.\w+)?|got|undici|http\.request|https\.request|requests\.(get|post|put|request)|httpx\.|urlopen|http\.Get|http\.Do|open-uri|file_get_contents|curl_exec)\s*\(' -g '!**/node_modules/**' -g '!**/vendor/**'
+X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/.next/**' -g '!**/target/**' -g '!**/*.min.js' -g '!**/*.{md,lock,map,svg}')
+T=(-g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,fixtures,__fixtures__,__snapshots__,testdata}/**' -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,*_spec,test_*}.*' -g '!**/*.snap' -g '!**/*.json' -g '!ai/**')
 
-# 2. Sinks whose argument is request-derived — the actual finding set (§1).
-rg -n --pcre2 '\b(fetch|axios(\.\w+)?|got|http\.request|requests\.(get|post)|httpx\.|urlopen|http\.Get)\s*\([^)]*\b(req|request|params|query|body|input|payload|dto)\b' -g '!**/node_modules/**'
+# 1. Every outbound sink in the repo — the universe of candidates.
+rg -n --pcre2 '\b(fetch|axios(\.\w+)?|got|undici|http\.request|https\.request|requests\.(get|post|put|request)|httpx\.|urlopen|http\.Get|http\.Do|open-uri|file_get_contents|curl_exec)\s*\(' "${X[@]}" "${T[@]}" .
+
+# 2. Sinks whose URL is request-derived (§1). 2a: the request on the same line — a route handler fetching.
+#    2b: the URL is a URL-shaped variable or a parameter's field (`fetch(rawUrl)`, `fetch(request.url)`) —
+#    a helper or port adapter whose CALLERS carry the taint. 2c: those callers — a call that passes a
+#    non-literal `url:` / `host:` / `baseUrl:` field into a shared client (multi-line, so -U).
+rg -n --pcre2 '\b(fetch|axios(\.\w+)?|got|http\.request|requests\.(get|post)|httpx\.|urlopen|http\.Get)\s*\([^)]*\b(req|request|params|query|body|input|payload|dto)\b' "${X[@]}" "${T[@]}" .
+rg -n -i --pcre2 '\b(fetch|axios(\.\w+)?|got|undici\.request|http\.request|https\.request|requests\.(get|post|put|request)|httpx\.\w+|urlopen|http\.Get|file_get_contents)\s*\(\s*(new URL\(\s*)?[\w.]*\b\w*(url|uri|href|host|domain|endpoint|origin|link|webhook|callback|target|address)\w*\b' "${X[@]}" "${T[@]}" .
+rg -n -U --pcre2 '\b\w+\.(?!push\b)\w+\(\s*\{(?:[^{}]|\{[^{}]*\}){0,400}?\b(url|baseUrl|baseURL|endpoint|host|hostname)\s*:\s*(?!["\x27]https?:)(?!["\x27]/)(?=[\w$`])' "${X[@]}" "${T[@]}" .
 
 # 3. Redirect policy — a hit here means "check how many hops"; NO hit on a client
 #    that follows redirects by default is itself the finding (§4).
-rg -n 'maxRedirects|allow_redirects|follow_redirects|CheckRedirect|redirect:\s*.manual.'
+rg -n 'maxRedirects|maxRedirections|allow_redirects|follow_redirects|CheckRedirect|redirect:\s*.(manual|error).' "${X[@]}" "${T[@]}" .
 
-# 4. Hostname-only validation — the DNS-rebinding shape (§3). Compare against §5's list:
-#    a file that appears here and NOT there validates a string it never resolves.
-rg -n 'hostname|host\s*===|\.host\b|allowlist|allowedHosts|ALLOWED_HOSTS'
-rg -n 'dns\.lookup|dns\.resolve|getaddrinfo|socket\.getaddrinfo|net\.LookupIP'
+# 4. Hostname-only validation — the DNS-rebinding shape (§3). A file in 4a and NOT in 4b
+#    validates a host string it never resolves.
+rg -n 'hostname|host\s*===|\.host\b|allowlist|allowedHosts|ALLOWED_HOSTS' "${X[@]}" "${T[@]}" .
+rg -n 'dns\.lookup|dns\.resolve|getaddrinfo|socket\.getaddrinfo|net\.LookupIP' "${X[@]}" "${T[@]}" .
 
-# 5. Redirect sinks fed from input — the open-redirector shape (§7).
-rg -n --pcre2 '\b(res\.redirect|redirect|sendRedirect|Location)\b[^;\n]*\b(req|request|query|params|body|next|returnUrl|redirect_uri|continue|target|url)\b'
+# 5. Every redirect sink (§7), whatever feeds its target: a framework redirect, a Location header, a
+#    meta refresh built in a string, and the browser-side assignments. Trace each target back to its source.
+rg -n -i --pcre2 '\b(res|reply|response|ctx|c|w)\.redirect\s*\(|\bredirect(_to|_back)?\s*\(|\b(sendRedirect|HttpResponseRedirect|RedirectResponse|http\.Redirect)\b|\bnew\s+Redirect\w*\(|\.(setHeader|header|set|append)\(\s*["\x27`]location["\x27`]|["\x27`]Location["\x27`]\s*[:,]|http-equiv\s*=\s*\\?["\x27]?refresh|\b(window\.|document\.)?location(\.href)?\s*=(?!=)|\blocation\.(assign|replace)\s*\(|\bwindow\.open\s*\(' "${X[@]}" "${T[@]}" .
 ```
+
+**Measured on a real repo** (a NestJS-on-Fastify monorepo with a hexagonal API, ~11,400 files). Old 2a returned one line: the shared HTTP kernel. The 16 adapters that feed it a tenant URL pass that URL as a field on a port argument, so 2a never sees them. 2b names the kernel, and 2c lists 41 calls, 34 of them into that kernel. The old 5a tied a redirect sink to a request word on the same line. It missed the repo's one open redirector, a `<meta http-equiv="refresh">` built in a domain function, and on the seeded fixture it missed `res.redirect(returnTo || …)`. The sweep returns 55 sinks (15 server-side) and both are on the list. `X` and `T` cut 1a from 97 lines to 40 and 4a from 229 to 127.
 
 A finding is grep-hit **plus** a read of the surrounding function. The greps narrow; they do not decide.
 
@@ -66,9 +77,11 @@ GOOD:  const u = new URL(req.body.url);
 ```
 Grep 2 above is this detector's candidate list. A hit is a finding when no allow-list check precedes the call in the same function or its middleware chain.
 
+**On a layered or hexagonal app, trace the port argument.** `fetch(req.body.url)` is rare there. All egress goes through one shared client, and the tainted URL reaches it as a field on an argument: `request.url`, `input.shopDomain`, a stored `settings.apiUrl` a tenant wrote. A 2b hit whose URL is the function's own parameter is that client. Name it, then treat every caller in 2c as the sink, and follow the URL field back to its source: a request DTO, a tenant setting, a webhook body, a carrier or store record. An allow-list inside the shared client covers every caller only if no caller can skip it, for example through a raw `fetch` or a second client. Each remaining grep 1 sink is checked for that bypass.
+
 ### 2. No block of internal / metadata ranges
 
-Flag a validated fetch that checks the hostname *string* but not the ranges: `169.254.169.254` (AWS/Azure/GCP metadata), `metadata.google.internal`, `127.0.0.0/8`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `0.0.0.0`. Block these on the **resolved** IP.
+Flag a validated fetch that checks the hostname *string* but not the ranges: `169.254.169.254` (AWS/Azure/GCP metadata), `metadata.google.internal`, `127.0.0.0/8`, `::1`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `0.0.0.0`. Block these on the **resolved** IP. A name-layer deny-list (`localhost`, `*.internal`, `*.local`, `*.cluster.local`) also misses a **single-label hostname** — `redis`, `postgres`, `db` — which resolves to a private address inside a cluster or a compose network. With a resolved-IP pin on every dial, that is hardening. Without one, it is the finding.
 
 ### 3. Hostname validated but not the resolved IP (DNS rebinding)
 
@@ -92,7 +105,7 @@ Flag no egress restriction to the metadata IP, and (infra-adjacent) IMDSv1 still
 
 ### 7. User-controlled redirect target (open redirector)
 
-The same tainted URL, a different sink: instead of the **server** fetching it, the server tells the **browser** to go there. `?next=` / `?returnUrl=` / `?continue=` / `?redirect_uri=` reflected into a `Location` header or a framework redirect helper, with no check that the target is same-origin or on an allow-list.
+The same tainted URL, a different sink: instead of the **server** fetching it, the server tells the **browser** to go there. `?next=` / `?returnUrl=` / `?continue=` / `?redirect_uri=` reflected into a `Location` header or a framework redirect helper, with no check that the target is same-origin or on an allow-list. The sink is not always a redirect call. It can be a `<meta http-equiv="refresh" content="0; url=…">` assembled in a string by a link-preview or share page, a `location.assign` / `location.replace` / `window.location =` in the SPA, or a URL built from a **host** parameter rather than a whole URL (`https://${query.host}${path}`). A host that passes a character-set check is still any external domain. Resolve it against the verified domains, or refuse it. Grep 5 lists every sink without asking what feeds it, because the taint usually arrives through a variable (`@Query('returnTo') returnTo`), and a same-line filter misses it.
 
 ```
 BAD:   res.redirect(req.query.next)                  // → https://evil.example/harvest
@@ -108,7 +121,7 @@ Fixes, in order of strength: accept only a **relative path** (reject anything wi
 
 ## Upload egress note
 
-The *inbound* upload surface (magic-byte type validation, size cap, path traversal, uuid keys, storage outside webroot) is owned by the backend `file-upload` pattern + the `security-principles` file-upload MUST — dispatch there. The **security-specific** upload risks to also flag: an SVG accepted as an image (SVG carries script → stored XSS), a polyglot file (valid image + valid HTML/JS), and an image processed by a native parser with a known CVE (ImageMagick/`libvips`) — treat user images as untrusted input to the parser.
+The *inbound* upload surface and the read side (magic-byte type validation, size cap, path traversal, uuid keys, storage outside webroot, archive extraction, download IDOR) are executed by the `file-access-scan` skill — the detector behind the backend `file-upload` pattern + the `security-principles` file-upload MUST. Dispatch there. The **security-specific** upload risks to also flag: an SVG accepted as an image (SVG carries script → stored XSS), a polyglot file (valid image + valid HTML/JS), and an image processed by a native parser with a known CVE (ImageMagick/`libvips`) — treat user images as untrusted input to the parser.
 
 ## Output
 
@@ -145,6 +158,7 @@ Findings: 3
 
 ## Halt conditions
 
+- Do not report a critical or high row as confirmed until a verifier other than the run that found it has passed it through [`finding-verification.md`](../../../../snippets/finding-verification.md). Under `/security-audit` that happens in Phase 4; run standalone, it applies the protocol as a separate second pass, tags those rows `self-verified`, and lists the rest as Unconfirmed, Hardening or Refuted — never drops them.
 - Halt on any finding without the cited sink `<file:line>` + the user-controlled source + the fix.
 - Do not propose a deny-list as the primary control — require an allow-list + resolved-IP check.
 - Do not flag a hardcoded/internal URL or an already-allow-listed fetch.
@@ -155,6 +169,6 @@ Findings: 3
 - `/security-audit` — dispatches here when its Phase 2 A01/outbound-fetch signal fires.
 - `@security-auditor` — its A01 SSRF row is the detector; this skill is the executor behind that one bullet.
 - `@auth-reviewer` — owns authorization-server redirect-URI registration (exact match, no wildcards); § 7 here owns every other redirect the app performs.
-- `backend/ai-patterns/file-upload.md` — the inbound upload contract; this skill covers egress + the security-specific upload risks.
+- `backend/ai-patterns/file-upload.md` — the inbound upload contract, executed by `file-access-scan`; this skill covers egress only.
 - `rules/security-principles.md` — the SSRF + file-upload MUSTs.
 - `infrastructure` pack — egress network policy + IMDSv2 (defense-in-depth).

@@ -63,11 +63,11 @@ Classic problem: hot cache key expires → 1000 requests all miss → 1000 hit D
 ### Single-flight (recommended)
 ```ts
 cache.getOrSet(key, ttl, async () => {
-  // only ONE caller runs this; others wait for the result
+  // single-flight ONLY if this library coalesces concurrent misses — read its docs
   return db.get(key);
 })
 ```
-Libraries: `singleflight` (Go), `lru-cache` with pending promises (Node), `redis-lock`.
+Not every `getOrSet` coalesces: Django's `cache.get_or_set` takes no lock. Primitives that do: `singleflight` (Go), `lru-cache` `fetch()` (Node), Spring `@Cacheable(sync = true)`, Rails `race_condition_ttl`, Laravel `Cache::flexible` / `Cache::lock`. Detection of missing TTL, tenant keys and stampede is the performance pack's `caching-scan` §1–§3, when installed.
 
 ### Stale-while-revalidate
 Return stale value immediately; refresh asynchronously.
@@ -140,7 +140,7 @@ Stop. Rearchitect. Cache should be pure acceleration.
 - Unbounded caches (no TTL + no size limit = memory leak).
 - Cache key without tenant prefix in multi-tenant systems.
 - Caching responses from authenticated endpoints with a shared key.
-- `if cache.has(k): return cache.get(k) else cache.set(...)` — race; use getOrSet.
+- `if cache.has(k): return cache.get(k) else cache.set(...)` — race; use a primitive that coalesces concurrent misses (not every getOrSet does).
 - Caching without a clear invalidation strategy.
 - Stale data silently served where correctness matters (inventory, payment).
 - Redis memory policy = `noeviction` with no size cap (OOM + crash).

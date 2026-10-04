@@ -61,6 +61,7 @@ A hard-delete does NOT remove PII from yesterday's snapshot — retention must c
 
 ## Related
 
+- `schema-integrity-scan` §10 — the detector for the storage half of the Forbidden lines above; plaintext high-sensitivity fields and the data flow are security `data-privacy-reviewer`'s (when installed).
 - `sharding-partitioning.md` — time-partitioning makes `DROP PARTITION` the cheapest retention purge; it also carries the unique-key constraint that decides whether the table can be partitioned at all.
 - `indexing-strategy.md` — the partial index for the soft-delete filter that purge relies on.
 - `migrations.md` — adding retention/classification columns and encryption safely under concurrent writes.

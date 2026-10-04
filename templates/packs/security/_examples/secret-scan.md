@@ -27,15 +27,20 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
 `detect` and `protect` were **deprecated in gitleaks v8.19.0** (still functional, hidden from `--help`). Current verbs: `git`, `dir`, `stdin`.
 
 ```bash
-# working tree
+# working tree — `dir` reads files, not git: every hit has an empty Commit
 gitleaks dir . --redact -v --report-format json --report-path /tmp/leaks-tree.json
 # staged (pre-commit gate)
 gitleaks git --staged --redact -v --report-format json --report-path /tmp/leaks-staged.json
 # history — the scan that matters; drop --log-opts for the first full audit
 gitleaks git . --log-opts="--since=90.days.ago" --redact -v \
   --report-format json --report-path /tmp/leaks-history.json
-# second engine on suspect files
-trufflehog filesystem --directory=. --only-verified --json | jq '.'
+# what no content rule sees: secret-bearing FILES (a low-entropy .env value) and secrets plumbed into an image
+N='(^|/)(\.env(\.[\w-]+)*|\.npmrc|\.pypirc|\.netrc|\.htpasswd|\.git-credentials|credentials(\.\w+)?|kubeconfig|id_(rsa|dsa|ecdsa|ed25519)|[\w.-]*\.(pem|key|p12|pfx|jks|keystore|ppk|tfstate|tfvars))$'
+rg --files --hidden -g '!**/.git/**' -g '!**/node_modules/**' . | rg -i "$N" | rg -v '\.(example|sample|template|dist|defaults?)$'
+git log --all --diff-filter=A --name-only --format= | sort -u | rg -i "$N" | rg -v '\.(example|sample|template|dist|defaults?)$'
+rg -n --pcre2 '^\s*(ARG|ENV)\s+\w*(TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIALS?|AUTH)\w*' -g '*Dockerfile*' -g '*.dockerfile' -g '*Containerfile*' -g '!**/node_modules/**' .
+# second engine on suspect files (v3: positional path; --results=verified replaces the hidden --only-verified)
+trufflehog filesystem . --results=verified --json | jq '.'
 ```
 
 Then per finding: identify the provider from the prefix, find the introducing commit (`git log --all --source -- <file>`), and treat the credential as live until the provider says otherwise.
@@ -47,7 +52,7 @@ Then per finding: identify the provider from the prefix, find the introducing co
 Findings carry `RuleID`, `Description`, `File`, `StartLine`, `Commit`, `Author`, `Email`, `Date`, `Match`, `Secret`, `Entropy`, `Tags`. Read in this order:
 
 1. **`RuleID`** — a provider rule is a *format match* (confirmation); a generic/entropy rule is suspicion only. Never escalate an entropy hit without classifying it.
-2. **`Commit`** — empty means working tree only (not shipped yet). Populated means it is in every clone, fork, and the platform's event API. Reachability from HEAD is irrelevant; it is still a leak.
+2. **`Commit`** — in a `git` scan, empty means staged / working tree only (not shipped yet); a `dir` scan never fills it, so match the hit against the `git .` report first. Populated means it is in every clone, fork, and the platform's event API. Reachability from HEAD is irrelevant; it is still a leak.
 3. **`Author` / `Date`** — the inputs to the provider-side log review for the exposure window.
 4. **`Match` / `Secret`** — read redacted only; without `--redact` the report *is* the secret.
 

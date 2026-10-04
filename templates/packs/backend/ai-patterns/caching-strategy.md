@@ -74,11 +74,11 @@ Classic problem: hot cache key expires → 1000 requests all miss → 1000 hit D
 ### Single-flight (recommended)
 ```ts
 cache.getOrSet(key, ttl, async () => {
-  // only ONE caller runs this; others wait for the result
+  // single-flight ONLY if this library coalesces concurrent misses — read its docs
   return db.get(key);
 })
 ```
-Libraries: `singleflight` (Go), `lru-cache` with pending promises (Node), `redis-lock`.
+A `getOrSet` / `get_or_set` / `remember` is single-flight only when the library coalesces concurrent misses: Django's `cache.get_or_set` takes no lock, and `IMemoryCache.GetOrCreateAsync` does not coalesce. Primitives that do: `singleflight` (Go), `lru-cache` `fetch()` with a `fetchMethod` (Node), Spring `@Cacheable(sync = true)`, Rails `race_condition_ttl`, Laravel `Cache::flexible` / `Cache::lock`, `dogpile.cache` regions, a `SET k v NX PX` lock across processes. The per-library table is `caching-scan` § Adapt to the codebase (performance pack).
 
 ### Stale-while-revalidate
 Return stale value immediately; refresh asynchronously.
@@ -166,29 +166,18 @@ Stop. Rearchitect. Cache should be pure acceleration.
 
 Each finding cites `<path:line>` + the matched pattern + the fix. "Caching looks risky" without a cited read/write site is not a finding.
 
-### 1. Cache write with no TTL and no size cap
+### 1–3. TTL, tenant key, stampede → `caching-scan` (performance pack, when installed)
+
+Detectors 1–3 are owned by the performance pack's `caching-scan`: § 1 entry that never expires (no TTL on mutable data, a store with no memory limit or eviction), § 3 key defects (the tenant, user, role, locale or currency dimension missing from the key builder), § 2 stampede (a hot-key miss with no single-flight, lock or early refresh). It proves each with a deterministic test — size plateau, two-tenant denial, K concurrent misses → one origin call — and routes the cross-tenant read to the security pack. Run it rather than re-deriving the class here; cite its § in the finding.
+
+Without the performance pack, apply the same three checks by hand, each finding citing `<path:line>`:
 
 ```
-BAD:   cache.set(key, value);      // no expiry → unbounded growth
-GOOD:  cache.set(key, value, ttl);
+1  BAD: cache.set(key, value)                       GOOD: cache.set(key, value, ttl), and a store with maxmemory + an eviction policy   → add-ttl
+2  BAD: cache.get(`products:${id}`)                 GOOD: cache.get(`tenant:${tenantId}:products:${id}:v3`), the tenant added in the key builder   → namespace-key
+3  BAD: if (await cache.get(k) == null) await cache.set(k, await load())    (every concurrent miss calls load)
+   GOOD: a primitive that coalesces concurrent misses (§ Single-flight above) — not any getOrSet: Django's get_or_set takes no lock   → add-stampede-protection
 ```
-Flag a `.set(` / `.put(` with no TTL/expiry arg (and a `noeviction` policy with no `maxmemory`) → `add-ttl`.
-
-### 2. Cache key missing the tenant prefix
-
-```
-BAD:   cache.get(`products:${id}`)                         // cross-tenant collision
-GOOD:  cache.get(`tenant:${tenantId}:products:${id}:v3`)
-```
-In a multi-tenant codebase, flag any key built without the `<tenant>:` segment (and version suffix) → `namespace-key`.
-
-### 3. No stampede protection on a hot key
-
-```
-BAD:   if (cache.has(k)) return cache.get(k); else cache.set(k, load());   // race → thundering herd
-GOOD:  cache.getOrSet(k, ttl, load);                                        // single-flight
-```
-Flag a check-then-set (`has`/`get` then `set`) on a hot read with no single-flight / stale-while-revalidate / jittered TTL → `add-stampede-protection`.
 
 ### 4. Caching correctness-critical state
 
@@ -201,7 +190,7 @@ A cache read/write holding a **copy** of correctness-critical state whose truth 
 - Unbounded caches (no TTL + no size limit = memory leak).
 - Cache key without tenant prefix in multi-tenant systems.
 - Caching responses from authenticated endpoints with a shared key.
-- `if cache.has(k): return cache.get(k) else cache.set(...)` — race; use getOrSet.
+- `if cache.has(k): return cache.get(k) else cache.set(...)` — race; use a primitive that coalesces concurrent misses (not every getOrSet does).
 - Caching without a clear invalidation strategy.
 - Stale data silently served where correctness matters (inventory, payment).
 - Redis memory policy = `noeviction` with no size cap (OOM + crash).

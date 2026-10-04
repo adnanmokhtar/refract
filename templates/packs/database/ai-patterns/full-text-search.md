@@ -132,14 +132,16 @@ Extract the engine, then map to its text-search primitive and maintenance.
 
 ## Detectors (cite-or-halt)
 
-Each finding cites `<file:line>` for the search query + the matched pattern + the fix.
+This pattern is the method. Two classes have a detector; run it and print its class block. The other four have none, so a review reads them, and every finding still cites `<file:line>` and the fix.
 
-1. **`LIKE '%term%'` / `ILIKE '%term%'` full-scan search.** BAD: `WHERE name LIKE '%'||:q||'%'` on a large table — un-indexable, unranked, seq scan. GOOD: `tsvector @@ tsquery` + GIN, or `pg_trgm` index for genuine substring. Grep: `LIKE\s+['"]%|ILIKE\s+['"]%|like\('%` in query/repo code near a search endpoint.
-2. **FTS query with no ranking.** BAD: `WHERE search @@ q` / `MATCH … AGAINST` with `ORDER BY id`/none — matches unranked. GOOD: `ORDER BY ts_rank(search, q) DESC` / `AGAINST … ` score. Grep: `@@|MATCH.*AGAINST` with no `ts_rank|rank|score|@meta` in the same statement.
-3. **Unmaintained tsvector (stale index).** BAD: a `tsvector`/search column with no `GENERATED` clause and no `INSERT/UPDATE` trigger — populated once, rots. GOOD: `GENERATED ALWAYS AS … STORED` or a `tsvector_update_trigger`. Grep: `tsvector` column defs cross-checked against `CREATE TRIGGER|GENERATED ALWAYS`.
-4. **FTS index missing (seq scan on the search column).** BAD: `to_tsvector(...)` / `MATCH` in a query with no matching `GIN`/`FULLTEXT` index — every search scans. GOOD: `CREATE INDEX … USING GIN` / `ADD FULLTEXT`. Grep: `to_tsvector|@@` without a `USING GIN` index on that column; confirm via `EXPLAIN`.
-5. **Reaching for Elasticsearch when in-DB FTS suffices (over-engineering).** BAD: a new external search cluster proposed for single-table, single-language, no-facet search. GOOD: `tsvector` + GIN in the existing DB. Flag for ADR — the external engine needs a cited requirement (faceting / multi-field relevance / typo-at-scale) it can't meet in-DB.
-6. **Under-powered `LIKE`/basic search where scale demands FTS-or-external.** BAD: `LIKE '%x%'` or naive `FULLTEXT` across tens of millions of rows with typo-tolerance + facet requirements. GOOD: graduate to Meilisearch/Elasticsearch with a cited requirement. Flag for ADR — the mirror of #5.
+| # | Class | Owner |
+|---|---|---|
+| 1 | `LIKE '%term%'` / `ILIKE '%term%'` search over a large table | `query-shape-scan` §4 (leading wildcard; its fix column names `pg_trgm` and FTS) |
+| 2 | FTS query with no ranking (`@@` / `MATCH … AGAINST` with no `ts_rank` or score in the `ORDER BY`) | no detector: review it |
+| 3 | `tsvector` column with no `GENERATED … STORED` clause and no trigger (stale index) | no detector: review it |
+| 4 | `to_tsvector(...)` / `MATCH` with no matching GIN or FULLTEXT index | `index-coverage-scan` §6 (expression index for an intended predicate); proof is a plan |
+| 5 | An external search cluster proposed where in-DB FTS meets the cited requirements | no detector: `report-flagged` for an ADR |
+| 6 | `LIKE` or plain FULLTEXT kept where the cited requirements (typo tolerance, facets, tens of millions of rows) need an external engine | no detector: `report-flagged` for an ADR, the mirror of row 5 |
 
 ## Closure verbs
 
@@ -152,4 +154,4 @@ Each finding cites `<file:line>` for the search query + the matched pattern + th
 - `indexing-strategy.md` — the general index toolbox and the ownership boundary above; a GIN-on-jsonb or covering index is theirs, the text-search index + query is here.
 - `sharding-partitioning.md` — FTS across shards is scatter-gather; a decoupled search store (Elasticsearch) is often the cross-shard search answer.
 - `backend` `caching-strategy` — cache hot/repeated search result-sets; ranked FTS results are cacheable by normalized query + filters.
-- `@schema-reviewer` / `@database-optimizer` — review agents that consume these detectors.
+- `query-shape-scan` §4 and `index-coverage-scan` §6 — the detectors for rows 1 and 4; `/db-audit` dispatches both. `@schema-reviewer` reads rows 2, 3, 5 and 6 on a diff.

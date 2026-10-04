@@ -9,6 +9,32 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.17.0 — 2026-10-02
+
+**`migration-safety` moved to the database pack.** The backend copy contradicted the database pack
+on MySQL (it demanded `pt-osc` / `gh-ost` for index builds InnoDB performs in place with DML
+permitted) and nothing dispatched it. It now lives at `database/skills/migration-safety`, rewritten
+on that pack's operation-class model, under the same name. `_essentials.md` already routes migration
+safety there; without the database pack the floor is `rules/migration-backend.md`. N+1 pointers
+(`backend-principles`, `add-endpoint`, `add-feature`, `fix-bug`, `api-reviewer`) now name
+`n-plus-one-scan` as the database pack's, "when installed". **Upgrading:** a project without the
+database pack sees its installed `skills/migration-safety` as a target-only study row on the next
+`--refresh`; add the database pack (`/setup-project --include=database`) or record a keep.
+
+## 1.16.2 — 2026-10-02
+
+**A missing reviewer no longer turns into the builder reviewing itself.** Five commands answered
+"the named agent is not installed" with "perform that review inline against the corresponding
+pack/domain checklist": the agent that wrote the change graded it, the consolidation note said
+`inline:<agent>`, and the run could still close COMPLETE. A reviewer exists to be someone other
+than the builder. On a backend-only install that was five of `/analyze-module`'s six axes.
+
+The contract now, in `commands/{add-feature,add-endpoint,add-module,fix-bug,analyze-module}.md`
+and `_examples/{add-feature,fix-bug}.md`: the axis is **not reviewed**, it is reported
+`UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)`, and the run ends **INCOMPLETE**,
+naming `/setup-project --include=<pack>`. `scripts/lint-self-review.sh` fails the build if the old
+phrasing returns. `_topics.md`'s api-reviewer note now says the same.
+
 ## 1.16.1 — 2026-08-23
 
 **`_examples/add-endpoint.md` stamped `COMPLETE` where its source gates on a production floor.**

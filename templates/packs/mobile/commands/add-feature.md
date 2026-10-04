@@ -238,7 +238,7 @@ After generation, dispatch reviewers **serially** (not parallel — each re-read
 | `@device-performance-auditor` | The tier required a **bundle / cold-start delta check** (Standard and above), or the feature adds a launch-path import, a long-running listener, or a background job | no |
 | `@ux-reviewer` | Always | yes |
 
-If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
+If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.
 
 **Halt rule**: if ANY agent returns BLOCKER, stop the cascade. Do not run remaining reviewers on a blocked feature; fix the blocker, re-run from the failed agent. This is the `find-and-fix § 3.5 RE-DETECT` pattern from the migration pack — every blocker closes before advance, no silent partial-pass.
 
@@ -247,7 +247,7 @@ If a named agent is not installed in this project, perform that review inline ag
 If the feature pulls in a JS package, CocoaPod, or Gradle dependency **no sibling already uses**, it never lands silently. On mobile a dependency costs binary size, can drag in extra native permissions (store-review risk), and may break one platform.
 
 - **Confirm it's actually new** — check `package.json` + lockfile, `Podfile.lock`, `build.gradle`. A sibling may already ship an equivalent. Reuse it.
-- **Run a dependency review** (dispatch `security-auditor`, or inline against the checklist): maintenance health, license, **bundle + binary-size delta**, **new native permissions the dep forces** (extra `Info.plist` / `AndroidManifest` entries trigger store review), iOS + Android support parity, and whether a native API or already-present lib covers the need.
+- **Run a dependency review** (dispatch `security-auditor`): maintenance health, license, **bundle + binary-size delta**, **new native permissions the dep forces** (extra `Info.plist` / `AndroidManifest` entries trigger store review), iOS + Android support parity, and whether a native API or already-present lib covers the need. Not installed → record those facts with the command that produced each and report `UNREVIEWED(dependency) — security-auditor not installed (security pack)`; the run is INCOMPLETE.
 - **Record the decision** — one PR line (trivial / standard) or an ADR (heavy, native bridge, or any auth / biometric / keychain dep).
 
 HALT on an unreviewed new dependency, and on any dep that silently adds a permission not in the feature's declared native surface.
@@ -267,6 +267,26 @@ These are mechanical (string-match / file-presence / config-presence checks), no
 ### Standards gate (mandatory, all tiers)
 
 Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `mobile` baseline and the web rows it shares (plus `data` if the feature adds a local store or a schema). Select the fired rows before generating — usually MOB-1..MOB-10 as touched, WEB-1..WEB-7, WEB-11, QG-1, QG-5 — and close each with evidence after Phase 6, before the Output block. This runs at trivial tier too: sibling-mirror is an audit of shape, not of guarantees, and a sibling screen with no timeout or no error state is a defect to report, not a shape to mirror. Any `UNMET` or `SKIPPED` row → INCOMPLETE.
+
+### Acceptance contract and independent verdict (standard + heavy tiers)
+
+Done is written down before the code and decided by someone who did not build it — follow
+[`templates/snippets/acceptance-contract.md`](../../../snippets/acceptance-contract.md):
+
+1. **Before Generate**, open `ai/runs/<run-id>/` and write `acceptance.json` from the spec's
+   acceptance criteria (spec branch) or the request and the Phase-2 decomposition (bare
+   description) — one EARS sentence per criterion, the offline, permission-denied and error states each as their own criterion, iOS and Android named where they differ. Write the named acceptance tests
+   (component / e2e at the level each criterion needs) and run them through
+   `.claude/hooks/test-lane.sh record '<cmd>'`: each red for the missing behaviour.
+2. **Lock** — `.claude/scripts/lock-acceptance.sh <run-id>` before Generate. From then on
+   `test-lock.sh` denies edits to the contract and its tests. A criterion that contradicts the
+   requirement is `SPEC_CONFLICT` — stop and report it; never bend the test.
+3. **After Phase 6**, dispatch `@verifier` in `acceptance` mode with a
+   [delegation brief](../../../snippets/delegation-brief.md) — paths and a mode, never your summary —
+   and read `ai/runs/<run-id>/verdict.json`. `Status: SHIPPED` (COMPLETE) **only from that file
+   saying `PASS`, fresh, signed `verifier`**; FAIL or CONCERNS is `NEEDS REVIEW` naming the criteria.
+
+Trivial tier writes no contract; the standards gate and the sibling-shape halt remain its gates.
 
 ## Phase 5 — Update
 
@@ -330,7 +350,8 @@ Rebuild the spec's traceability table from the actual code at ship time — do n
 ```
 ## /add-feature — <feature-name>
 
-Status: SHIPPED | NEEDS REVIEW | BLOCKED
+Status: SHIPPED | NEEDS REVIEW | BLOCKED     (standard/heavy: SHIPPED only from verdict.json PASS — fresh, signed verifier; BLOCKED covers SPEC_CONFLICT)
+Acceptance: ai/runs/<run-id>/ — <N> criteria locked · verifier verdict: PASS | FAIL | CONCERNS   (standard/heavy tiers)
 Spec: <Spec-ID>            (only when built from a spec — present on EVERY tier, trivial included; omit the line entirely when built from a bare description)
 
 Platforms verified: iOS <v>, Android <v>

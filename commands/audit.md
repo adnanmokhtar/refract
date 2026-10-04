@@ -42,10 +42,10 @@ The agent:
    **Security** (dispatch `security-auditor` + `auth-reviewer` + `secret-scan` + `deps-audit` + `threat-model`):
    - OWASP Top 10 + Top 25 CWE, auth/session/JWT/oauth flaws, tenant-isolation leaks, hard-coded secrets, vulnerable dependencies, missing input validation, SQLi / XSS / SSRF / CSRF / IDOR / mass assignment, broken access control, sensitive-data exposure in logs.
 
-   **Database performance** (dispatch `database-optimizer` + `query-optimizer` + `schema-reviewer` + `schema-consistency-audit`):
+   **Database performance** (dispatch `database-optimizer` + `query-optimizer` + `schema-reviewer` + `schema-consistency-audit`, plus the database pack's detectors when it is installed: `n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `migration-safety`, `transaction-scan`, `connection-config-scan` — each prints its class coverage block):
    - Missing indexes, wrong index shape (composite ordering), unbounded `SELECT *`, N+1, sequential scans on large tables, missing pagination, no batch insert, no connection pool sizing, no read replica routing, no query timeout, transaction-too-long, lock-escalation patterns, write amplification, missing FKs / cascading deletes, schema drift.
 
-   **Runtime performance** (dispatch `performance-optimizer` + `caching-architect` + `n-plus-one-scan` + `profile-endpoint`):
+   **Runtime performance** (dispatch `performance-optimizer` + `caching-architect` + `profile-endpoint`, plus the performance pack's detectors when it is installed: `request-path-scan`, `memory-growth-scan`, `caching-scan`; N+1 and query shape are the database axis above):
    - Sequential awaits where parallelism is safe, sync external HTTP in hot paths, missing cache at known-cacheable sites, in-app filtering pushable to DB, payload bloat, bundle bloat.
    - Render / rebuild waste (stack-routed): oversized state scope, side-effects in the build/render body, missing const / memo / stable subtree, per-item allocations in list hot paths, unvirtualized lists, animation invalidating the whole tree, store over-invalidation. Fingerprints per `PROJECT_KIND`: `mobile-*` → `mobile/rules/render-discipline.md` (Flutter / RN / Compose / SwiftUI tables); `frontend-*` → frontend pack equivalents. Every render-waste fix ships with a before/after rebuild-count or frame-time measurement.
 
@@ -259,8 +259,8 @@ Wave B (global axes, unchanged — 8 concurrent subagents):
 | Architecture | `architectural-diagnosis` skill | source + `_extracted-idioms.md` | `ai/audit/_arch.md` |
 | SOLID + clean code | `code-reviewer` agent + `refactoring-sweep` skill | source + `core-discipline.md` | `ai/audit/_quality.md` |
 | Security | `security-auditor` agent + `auth-reviewer` (if auth surface) + `secret-scan` + `deps-audit` + `threat-model` | source + manifests | `ai/audit/_security.md` |
-| DB perf | `database-optimizer` + `query-optimizer` + `schema-reviewer` + `schema-consistency-audit` | migrations + queries + ORM models | `ai/audit/_db.md` |
-| Runtime perf | `performance-optimizer` + `caching-architect` + `n-plus-one-scan` | source + `ai/patterns/caching-strategy.md` + `indexing-strategy.md` | `ai/audit/_perf.md` |
+| DB perf | `database-optimizer` + `query-optimizer` + `schema-reviewer` + `schema-consistency-audit` + the database detectors (when installed: `n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `migration-safety`, `transaction-scan`, `connection-config-scan`) | migrations + queries + ORM models | `ai/audit/_db.md` |
+| Runtime perf | `performance-optimizer` + `caching-architect` + the performance detectors (when installed: `request-path-scan`, `memory-growth-scan`, `caching-scan`) | source + `ai/patterns/caching-strategy.md` + `indexing-strategy.md` | `ai/audit/_perf.md` |
 | **Scale/resilience** (own detectors) | `system-architect` + `resilience-reviewer` + scale-lens scan | source + `ai/observability.md` + dashboards if wired | `ai/audit/_scale.md` |
 | Infra/capacity | `infra-architect` + `k8s-reviewer` (if k8s files) | Dockerfile + manifests + IaC | `ai/audit/_infra.md` |
 | Observability | `observability-reviewer` + `telemetry-architect` + `sre-engineer` | source + dashboards + alert config | `ai/audit/_obs.md` |
@@ -315,6 +315,19 @@ Runs on **every surface × variant** Phase 1.4 resolved, before ranking, and reg
 **Honest residuals.** A lens this run cannot judge — runtime behaviour under load, a boundary whose correctness depends on a deployment topology not present here — is `NOT RUN` with the reason, never `✓`.
 
 Scores land in `ai/audit/scores/<surface>/<variant>.md` (`index.md` for the default variant). **They are part of the cell ledger's arithmetic** (Phase 2b): a surface with no scorecard is not a surface with no findings, it is a surface nobody graded, and the ledger must be able to tell those apart. A run that produces a plan with no scores has skipped this phase and says so at the top of the plan rather than reading as a clean audit.
+
+### Phase 1.6 — Refute before ranking (the finder never clears its own candidate)
+
+Detectors and surface agents produce **candidates**; the ranker ranks **findings**. Between them, every
+P0/P1-bound candidate goes through [`refute-before-report.md`](../templates/snippets/refute-before-report.md)
+(security classes: [`finding-verification.md`](../templates/snippets/finding-verification.md)) in a
+verifier that did not raise it: dispatch `@verifier` in `refute` mode with a
+[delegation brief](../templates/snippets/delegation-brief.md) — the candidate files and anchors, never
+the detector's reasoning. P2–P4 candidates may share one batch verifier. Buckets carry through:
+Confirmed → ranked; Unconfirmed → listed with its settling probe, never P0; Hardening and Refuted →
+one line each in the cell ledger, never ranked. A whole-repo audit has no Pre-existing bucket
+(refute-before-report § 5). What is posted follows [`posting-bar.md`](../templates/snippets/posting-bar.md):
+a ranked finding is IMPORTANT, the rest is not posted as a finding.
 
 ### Phase 2 — Cross-axis rank
 - Single ranker reads all wave-A surface files **and** all wave-B axis files; produces `ai/audit/plan.md` with findings ranked into P0–P4 tiers per the rule above.
@@ -907,6 +920,7 @@ Every run that produces `ai/audit/final-report.md` MUST end with an **`## Action
 Applied silently per the discipline:
 
 - **Scale-lens detector pass is mandatory.** *(Agent-side.)* The 13 scale-lens detectors (hot-path, fan-out depth, sync HTTP in request path, single-instance bottleneck, lock contention, queue back-pressure, write amplification, tenant blast radius, capacity headroom, SLO delta, idempotency gaps, statelessness violations, cold-start cost) run on every `/audit` invocation. They are the differentiation vs `/optimize` — skipping them collapses `/audit` into `/optimize` + axis fan-out, which is not the contract.
+- **No unverified candidate is ranked.** *(Agent-side; Phase 1.6.)* A grep hit, a scanner row or a surface agent's suspicion is a candidate until a verifier that did not raise it confirms it with proof; the finder verifying itself is how plausible non-bugs reach P0.
 - **P0 findings must cite the scale failure mode.** *(Mechanical — `validate-audit-artifacts.sh § check_p0_failure_mode_cited`.)* "Would deadlock at 50K RPS because lock held across HTTP call" is acceptable; "would be slow at scale" is rejected.
 - **P0 + P1 findings ship with regression assertions in same commit.** *(Agent-side verification.)* Without an assertion, the gap reappears on the next refactor.
 - **P2 perf/scale findings ship with baseline + post-fix measurement.** *(Agent-side.)* Same rule as `/optimize` — speculative wins under 5% are discarded.
@@ -937,7 +951,7 @@ User sees the result, not the policing.
 
 - `/optimize` — code-quality + tactical perf only (no security, no scale lens).
 - `/security-audit` — security-only deep audit (OWASP + auth + tenant + secrets).
-- `/db-audit` — database-only (schema, indexes, query plans).
+- `/db-audit` — database-only: every database detector on the code, plus a read-only live lane when a database is reachable; `/db-fix` closes its findings.
 - `/perf-audit` — runtime perf only.
 - `/profile-perf` — runtime profile capture.
 - `/design-system <feature>` — system-design doc (cross-service / data-ownership / consistency).
@@ -946,7 +960,7 @@ User sees the result, not the policing.
 - `/ai-audit` — LLM/AI surface only (eval coverage, prompt, retrieval, ANN index, agent budgets, gateway cost).
 - `/threat-model` — security threat model.
 - `architectural-diagnosis` skill — layer-violation / god-module detection.
-- `n-plus-one-scan` skill — N+1 hunt.
+- `n-plus-one-scan` · `query-shape-scan` skills (database pack) — N+1 and query-shape hunts.
 - `chaos-test` skill — failure-mode assertion authoring.
 - `system-architect` agent — boundary / consistency / failure-mode review.
 - `resilience-reviewer` agent — failure-mode matrix.

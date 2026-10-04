@@ -246,7 +246,10 @@ OpenCode surfaces this in its skills picker. Supporting scripts run via OpenCode
 | `notify.sh` | **`session.idle`** | fire a notification when the turn goes idle |
 | `session-start.sh` | **`session.created`** | surface `ai/status.md` / phase at session open |
 | `update-session-log.sh` | **`session.idle`** | append to `ai/dynamic/session-log.md` |
-| `verify-gate.sh` | **`session.idle`** | fires at turn end, but no documented way to refuse the finish — `throw` is specified for `tool.execute.before`. Report there and keep `.husky/pre-commit` as the gate rather than claiming a blocked stop |
+| `verify-gate.sh` | **`session.idle`** for the report | no documented way to refuse the finish; `.husky/pre-commit` runs the gate, the always-loaded rules say "run `gate-check.py --local` before declaring done", CI is the hard gate — runs `.claude/scripts/gate-check.py --local` — the deterministic gates, not just tests: G0 acceptance lock, G1 tests + the verifier's verdict, G2 test integrity + oracles, G3 secrets, G7 lint / typecheck / standards / reviews, G15 provenance; modes in `.claude/gates.json`, records in `.claude/evidence/` |
+| `test-lock.sh` | **`tool.execute.before`** | `throw` blocks the edit or shell write — deny edits to the locked acceptance contract and its tests (`.claude/locks/<run>.json`) and to hook-written records; ask before `lock-acceptance.sh --reopen`; `gate-check.py` G0 re-hashes the locked files at the end and in CI either way |
+| `judge-bash-guard.sh` | **not replicable** | the plugin event names no subagent — the `verifier` judge runs tests / scanners / localhost probes only, and a dispatch to it carries paths and a mode, never the builder's narrative; keyed on the payload's agent identity |
+| `persist-verdict.sh` + `persist-review.sh` | **not replicable** | no subagent-stop event — validate the judge's / reviewer's final JSON against `.claude/schemas/`, stamp signer + scope, write `ai/runs/<run>/verdict.json` / `reviews/*.json`; absent, `gate-check.py` reports the verdict missing, never passed |
 
 ```typescript
 // .opencode/plugins/guardrails.ts

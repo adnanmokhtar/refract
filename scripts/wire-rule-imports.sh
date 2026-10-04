@@ -107,10 +107,10 @@ is_path_scoped() {
 }
 tok() { echo $(( $(wc -c < "$1") / 4 )); }
 
-# The four the baseline declares foundational. Imported regardless of budget: they ARE the
+# The five the baseline declares foundational. Imported regardless of budget: they ARE the
 # budget's floor, and templates/repo-baseline/CLAUDE.md has shipped exactly these since it
 # existed.
-FOUNDATIONAL="read-before-write read-codebase-deeply think-simplify-surgical code-quality"
+FOUNDATIONAL="read-before-write read-codebase-deeply think-simplify-surgical code-quality engineering-baseline"
 
 declare -a IMPORT_LIST=() OVERFLOW=() SCOPED=()
 total=0

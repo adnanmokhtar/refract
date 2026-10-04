@@ -23,6 +23,15 @@
 #              exactly the current working tree (HEAD + staged + unstaged + untracked). This is
 #              what lets verify-gate.sh accept the agent's own run instead of repeating it.
 #
+#   record <cmd>
+#              Runs <cmd> — through the lane when it is heavy, directly when it is one file — and
+#              appends a run record (command, exit code, tree, output tail) to
+#              .claude/evidence/test-runs.jsonl. That record is how a red run is EVIDENCE rather
+#              than a claim: /fix-bug runs its new regression test this way before the fix (red)
+#              and after it (green), and the verifier's verdict must cite the red record verbatim
+#              (refract_records.py refuses a regression PASS whose red_run is not in the log).
+#              `run` appends a record too, without the output tail.
+#
 # THE LANE is a directory of mkdir-locks (atomic on every filesystem) shared by every session of
 # this user, sandboxed or not: hooks run outside the sandbox, Bash may run inside it, and both must
 # see the same lock. A slot whose owner process is gone — killed, crashed, machine slept through
@@ -235,6 +244,30 @@ normalize() {
 
 stamp_file() { git rev-parse --git-path claude-test-lane-green 2>/dev/null; }
 
+# One JSON line per run in <toplevel>/.claude/evidence/test-runs.jsonl (git-ignored, like every
+# evidence record). Written by this script, never by a model. No python3 → no record, said once.
+record_run() {  # <cmd> <exit code> <output file or ""> <tree fingerprint>
+  local top
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || return 0
+  command -v python3 >/dev/null 2>&1 || { echo "test-lane: python3 missing — run not recorded in .claude/evidence/test-runs.jsonl" >&2; return 0; }
+  REC_TOP="$top" REC_CMD="$1" REC_RC="$2" REC_OUT="$3" REC_TREE="$4" REC_MODE="${REC_MODE:-run}" python3 - <<'PY' 2>/dev/null || true
+import datetime, hashlib, json, os, subprocess
+top = os.environ["REC_TOP"]; d = os.path.join(top, ".claude", "evidence"); os.makedirs(d, exist_ok=True)
+gi = os.path.join(d, ".gitignore")
+if not os.path.exists(gi):
+    open(gi, "w").write("# gate-check.py evidence: local records, never committed (see gate-check.py § EVIDENCE)\n*\n")
+out = open(os.environ["REC_OUT"], "rb").read().decode("utf-8", "replace") if os.environ.get("REC_OUT") else ""
+head = subprocess.run(["git", "-C", top, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip() or None
+rec = {"schema": "refract/test-run/v1", "ts": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+       "cmd": os.environ["REC_CMD"], "exit_code": int(os.environ["REC_RC"]), "tree": os.environ.get("REC_TREE") or None,
+       "head": head, "cwd": os.getcwd(), "mode": os.environ["REC_MODE"],
+       "output_sha256": hashlib.sha256(out.encode()).hexdigest() if out else None,
+       "output_tail": "\n".join(out.rstrip().split("\n")[-40:])[-4000:] if out else None}
+with open(os.path.join(d, "test-runs.jsonl"), "a", encoding="utf-8") as fh:
+    fh.write(json.dumps(rec) + "\n")
+PY
+}
+
 # ── lane ────────────────────────────────────────────────────────────────────────────────────
 proc_start() { ps -o lstart= -p "$1" 2>/dev/null | tr -s ' '; }
 SLOT=""
@@ -324,16 +357,18 @@ release() {
 
 run_lane() {
   [ $# -gt 0 ] || { echo "usage: test-lane.sh run '<command>'" >&2; exit 2; }
-  local cmd="$*" rc fp_before="" fp_after="" sf
+  local cmd="$*" rc fp_before="" fp_after="" fp_run="" sf
   trap release EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM HUP
   acquire "$cmd"; rc=$?
   [ "$rc" = "$EX_BUSY" ] && exit "$EX_BUSY"
   [ "$(classify "$cmd")" = suite ] && fp_before=$(fingerprint 2>/dev/null)
+  fp_run=${fp_before:-$(fingerprint 2>/dev/null)}
   if [ $# -eq 1 ]; then bash -c "$1"; else "$@"; fi
   rc=$?
   release
+  record_run "$cmd" "$rc" "" "$fp_run"
   if [ "$rc" = 0 ] && [ -n "$fp_before" ]; then
     fp_after=$(fingerprint 2>/dev/null)
     sf=$(stamp_file)
@@ -343,6 +378,27 @@ run_lane() {
         && mv "$sf.tmp.$$" "$sf"
     fi
   fi
+  exit "$rc"
+}
+
+record_lane() {
+  [ $# -gt 0 ] || { echo "usage: test-lane.sh record '<command>'" >&2; exit 2; }
+  local cmd="$*" rc tmp fp heavy
+  heavy=$(classify "$cmd")
+  tmp=$(mktemp "${TMPDIR:-/tmp}/test-lane-record.XXXXXX") || exit 2
+  trap 'release; rm -f "$tmp"' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM HUP
+  if [ -n "$heavy" ]; then
+    acquire "$cmd"; rc=$?
+    [ "$rc" = "$EX_BUSY" ] && exit "$EX_BUSY"
+  fi
+  fp=$(fingerprint 2>/dev/null)
+  if [ $# -eq 1 ]; then bash -c "$1" 2>&1 | tee "$tmp"; rc=${PIPESTATUS[0]}
+  else "$@" 2>&1 | tee "$tmp"; rc=${PIPESTATUS[0]}; fi
+  release
+  REC_MODE=record record_run "$cmd" "$rc" "$tmp" "$fp"
+  echo "test-lane: recorded exit $rc for \`$cmd\` in .claude/evidence/test-runs.jsonl" >&2
   exit "$rc"
 }
 
@@ -383,8 +439,9 @@ hook() {
 
 case "${1:-}" in
   run)      shift; run_lane "$@" ;;
+  record)   shift; record_lane "$@" ;;
   verified) shift; verified "$@" ;;
   classify) shift; classify "$*" ;;
   "")       hook ;;
-  *)        echo "usage: test-lane.sh [run '<command>' | verified '<command>' | classify '<command>']" >&2; exit 2 ;;
+  *)        echo "usage: test-lane.sh [run '<command>' | record '<command>' | verified '<command>' | classify '<command>']" >&2; exit 2 ;;
 esac

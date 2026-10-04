@@ -15,7 +15,7 @@ If you have time for nothing else, internalize these. They are the rules that, w
 | 1    | A04 | Respect existing user-authored content; never overwrite without confirm |
 | 2    | A11 | COPY-mode tracks: copy packs verbatim (no LLM rewrite)                |
 | 3    | A15 | Adapt to detected conventions; cite project specifics, not generic    |
-| 4    | A19 | Always ship the four foundational `repo-baseline` rules               |
+| 4    | A19 | Always ship the five foundational `repo-baseline` rules               |
 | 5    | A02 | Real content. No placeholders                                         |
 | 6    | N15 | Do NOT ship generic `ai/conventions.md` when a real codebase exists   |
 | 7    | A12 | AUTHOR-mode: cite only symbols traceable to extraction file           |
@@ -58,7 +58,7 @@ Phase 5 references rules by ID. Edit prose below the table; never delete a row w
 | A16 | Map every new file to a defined home in `ai/modules.md` BEFORE writing   | must      | 4                       |
 | A17 | Boy Scout Rule on every touched file (bounded scope)                     | should    | 4, 6                    |
 | A18 | Inject mandatory pre-flight in every generated agent                     | must      | 4 (4.6)                 |
-| A19 | Foundational ruleset: ship the four `repo-baseline` rules — period       | must      | 4 (4.0.7, 5.1)          |
+| A19 | Foundational ruleset: ship the five `repo-baseline` rules — period       | must      | 4 (4.0.7, 5.1)          |
 | A20 | Backend track + async runtime → ship parallel-IO discipline artifacts    | must      | 4 (4.0)                 |
 | A21 | Run setup-project's own independent sub-steps in parallel where allowed  | should    | 2, 4                    |
 | A22 | REFINE deepens; never substitutes for CREATE/ENHANCE/REFRESH             | must      | 1, 4-DEEP               |
@@ -185,8 +185,8 @@ Delegate heavy scans to Explore subagent; terse output.
 ### A18 — Mandatory pre-flight in every agent
 **Why:** without injected pre-flight, agents fall back to generic patterns in the next task.
 
-### A19 — Four `repo-baseline` rules — period
-The first three answer *what to read* + *what "clean" means*; the fourth (Karpathy-inspired task-discipline layer) answers *how to act on what you read* — explicit assumptions, simplicity-first, surgical scope, verifiable success criteria.
+### A19 — Five `repo-baseline` rules — period
+`read-before-write`, `read-codebase-deeply` and `code-quality` answer *what to read* + *what "clean" means*; `think-simplify-surgical` (Karpathy-inspired task-discipline layer) answers *how to act on what you read* — explicit assumptions, simplicity-first, surgical scope, verifiable success criteria; `engineering-baseline` makes the standards a proof, not a memory — no change is done until the standards gate closed every fired row with evidence. They load because they sit in `.claude/rules/` without `paths:`, not because `CLAUDE.md` imports them; the imports only name the set.
 **Why:** skipping any one re-introduces a known LLM failure mode.
 **How to apply:** Phase 4.0.7 enforces presence; Phase 5.1 retries-then-halts if any are missing.
 

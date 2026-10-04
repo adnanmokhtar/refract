@@ -1,0 +1,66 @@
+# refract-gates — the gates that decide "done", re-run outside the agent's session.
+#
+# Installed by /setup-project (templates/phases/phase-4.2-apply.md § 4.2.d) as
+# .github/workflows/refract-gates.yml, never over an existing file of that name.
+#
+# WHY. The Stop hook runs .claude/scripts/gate-check.py at the end of every session, but a hook
+# is advisory-strong: Claude Code lets a session stop after 8 consecutive blocks, a tool without
+# hooks never runs it, and `.claude/.no-verify-gate` switches it off. CI is the one place the same
+# checks run whatever happened in the session.
+#
+# SHADOW MODE (v1). `--mode=shadow` records every gate and enforces none, and the step is
+# continue-on-error, so this job never fails a build. It reports; the evidence it uploads is how
+# a gate earns promotion. Move a gate to warn and then block in .claude/gates.json — and drop
+# `--mode=shadow` here — only after it has run on real changes with a false-block rate you accept.
+# Requiring this check in branch protection is the owner's call; /setup-project prints the command
+# and never runs it.
+#
+# G1 runs the project's own test suite, so its CI verdict is only as good as the install step
+# below. When the project already has a CI test job, that job stays the authority for G1.
+name: refract-gates
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  refract-gates:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: G2 and G15 diff against the merge-base, which a depth-1 clone does not hold.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install project dependencies (best effort — G1 runs the suite)
+        continue-on-error: true
+        run: |
+          if [ -f package-lock.json ]; then npm ci
+          elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable || yarn install --frozen-lockfile
+          fi
+          if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then python3 -m pip install -r requirements-dev.txt; fi
+
+      - name: gate-check (shadow — records, never fails the build)
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base="$BASE_SHA"
+          case "$base" in ''|0000000000000000000000000000000000000000) base="HEAD~1" ;; esac
+          python3 .claude/scripts/gate-check.py --ci --mode=shadow --base="$base" 2>&1 | tee gate-check.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: refract-evidence
+          path: |
+            .claude/evidence/
+            gate-check.txt
+          include-hidden-files: true
+          if-no-files-found: warn

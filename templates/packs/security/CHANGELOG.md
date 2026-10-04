@@ -9,6 +9,77 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-10-02
+
+**2.0.0's detectors had only ever met fixtures.** Each one was then run, read-only, against a real
+production monorepo (NestJS on Fastify, MikroORM, Postgres with RLS, React + Vite, Kubernetes behind
+Caddy, GitHub Actions). The run found real vulnerabilities — and it measured the skills themselves:
+greps that returned 11,041 lines of English prose, ORMs and frameworks the lane tables did not know,
+and the most important findings reached only by reading, with no grep that would have pointed there.
+
+- **Noise, measured before and after on the same repo.** Examples: file writes 11,041 → 20 lines;
+  403 throw sites 1,937 → 109; injection sources 1,368 → 30; XSS route-gate list 1,650 → 353; an
+  API9 probe broken by a bulk edit (36,128 lines of rg error) → 4. Tests, mocks, snapshots,
+  migrations, i18n catalogs and docs are excluded by shared arrays; prose words are anchored.
+- **Shapes the run proved necessary**, each now with a grep: a private document written into a
+  public bucket prefix; app-signed links and client-supplied file keys; edge access logs carrying
+  secrets the app redacts; the redaction list compared against every credential the app accepts;
+  vendor payloads logged at info; traces as a log sink; a per-line limit bypassed by repeating the
+  line; a credential that acts as someone other than its minter; an admin password reset or a
+  re-activation as an implicit grant; a debit that clamps at zero; a revoke undone by refresh;
+  tag managers trusted by CSP `strict-dynamic` on signed-in routes; edge config embedded in
+  Kubernetes YAML; bucket policies with `"Principal": "*"`; CSV/spreadsheet formula injection
+  (CWE-1236, new `injection-scan` §15).
+- **Lane tables know the stacks real repos use:** MikroORM (and its binding `sql` tag), Fastify
+  (`setCookie`, `reply.send`, proto-poisoning defaults), NestJS parameter decorators.
+- **Wrong instructions corrected:** a scanner that scanned 0 files (Docker bind mounts from
+  `/private/tmp` on macOS) is NOT RAN; `gitleaks dir` carries no commit; deprecated trufflehog flags.
+- **Every seeded defect in `vuln-fullstack` is still hit, four of them newly; no decoy became a
+  finding.**
+- **Two new repo gates** came out of this: `lint-rg-explicit-path.sh` (an `rg` with no path searches
+  stdin under a pipe) and `lint-rg-parses.sh` (an `rg` whose regex or `--type` ripgrep rejects).
+- **`logic-race-scan` names its database-side boundary.** Lock order, retry on serialization
+  failure, I/O held in a transaction, `SKIP LOCKED` claims, long transactions, savepoints, hot rows,
+  write skew and lost updates on fields with no abuse value go to the database pack's
+  `transaction-scan` when it is installed; a site both flag is one finding, credited here when a
+  value is abused.
+
+## 2.0.0 — 2026-10-01
+
+**The audit could only find what the reviewer happened to keep in mind.** `/security-audit` had
+three executors (secrets, dependencies, SSRF); injection, file handling, XSS, information leakage,
+business logic and infrastructure were checklist bullets an agent read and judged. A whole-repo
+run that never looked at a class printed the same "no findings" as one that looked and found
+nothing.
+
+- **Seven detector skills.** `injection-scan` (SQL/NoSQL, shell and argument injection, eval,
+  SSTI, XXE, LDAP/XPath, header/log injection, deserialization, prototype pollution, ReDoS,
+  GraphQL), `file-access-scan` (upload validation and storage, archives, processors, traversal
+  on every read sink, download IDOR), `xss-scan` (raw-HTML and URL sinks per framework, DOM,
+  postMessage, CSP, framing, CSRF, token storage, client-bundle exposure), `data-exposure-scan`
+  (error leakage, debug and docs routes, over-returning responses, enumeration, log redaction,
+  timing compares, served internal files), `logic-race-scan` (client-trusted values, workflow
+  skipping, idempotency, check-then-act races, the per-role authorization matrix), `sast-scan`
+  and `iac-scan` (run the stack's analyzers and infra scanners, RAN / SKIPPED ledger). Each ships
+  per-stack greps that run as written and ends with a class coverage block.
+- **Whole-repo runs dispatch every detector** regardless of signal, and Phase 4 prints a fixed
+  class coverage ledger, so "checked, nothing found" and "never looked" read differently.
+- **Refute before report.** `templates/snippets/finding-verification.md`: every critical or high
+  candidate is restated as an attacker claim and passed through six gates by a verifier that did
+  not find it. Nothing is dropped — candidates land in Finding, Unconfirmed, Hardening or Refuted.
+  Method credits: Anthropic's claude-code-security-review (MIT) and Trail of Bits' `fp-check` /
+  `vulnerability-triage-brocards` (CC BY-SA 4.0), paraphrased.
+- **`/security-fix`** closes an audit's findings one at a time: re-verify, an exploit test that
+  fails first using every payload of the class (`templates/snippets/exploit-payloads.md`), a
+  root-cause fix, post-patch validation, the owning detector re-run, and a sibling sweep.
+- **`/security-live-scan`**: a non-destructive black-box pass over hosts the user confirms they
+  own (TLS, headers, exposed files with body signatures, docs/debug routes, CORS, ports, bounded
+  rate-limit probe); its report feeds `/security-audit` Phase 3.
+- **Every `rg` names its path.** With no path and a non-terminal stdin, `rg` searches stdin — an
+  agent shell fed by a pipe or heredoc got zero hits or a hang. Fixed here and in four other packs.
+- **Measured, not claimed.** `benchmarks/fixtures/vuln-fullstack` seeds 44 defects across every
+  class plus 6 decoys that must not be reported.
+
 ## 1.8.1 — 2026-08-23
 
 **`_examples/data-privacy-reviewer.md` carried the boundary as unlabelled prose.**

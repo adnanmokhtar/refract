@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**200 commands** — core 16 · 23 packs (138) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**204 commands** — core 16 · 23 packs (142) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -18,7 +18,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — business](#pack--business) — 5
 - [Pack — code-quality](#pack--code-quality) — 6
 - [Pack — data-engineering](#pack--data-engineering) — 4
-- [Pack — database](#pack--database) — 4
+- [Pack — database](#pack--database) — 5
 - [Pack — devops](#pack--devops) — 4
 - [Pack — distributed-systems](#pack--distributed-systems) — 4
 - [Pack — documentation](#pack--documentation) — 3
@@ -29,9 +29,9 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — migration](#pack--migration) — 21
 - [Pack — mobile](#pack--mobile) — 4
 - [Pack — observability](#pack--observability) — 4
-- [Pack — performance](#pack--performance) — 3
+- [Pack — performance](#pack--performance) — 4
 - [Pack — product](#pack--product) — 5
-- [Pack — security](#pack--security) — 4
+- [Pack — security](#pack--security) — 6
 - [Pack — testing](#pack--testing) — 4
 - [Pack — ui-ux](#pack--ui-ux) — 12
 - [Domain commands — materialized when the domain is detected](#domain-commands--materialized-when-the-domain-is-detected) — 36
@@ -140,7 +140,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-migration` | Generate a safe, reversible, deploy-compatible DB migration. | — | `/add-migration` |
-| `/db-audit` | Full DB audit — indexes, bloat, slow queries, soft-delete and tenant filter leakage. | — | `/db-audit [dev\|staging]` |
+| `/db-audit` | Read-only database audit. | `--live` | `/db-audit [base-branch] [--live <dev\|staging>]` |
+| `/db-fix` | Close the findings a /db-audit report lists, one at a time: re-verify, a failing-first oracle test… | `--all` | `/db-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/migration-review` | Review a migration for safety, lock impact, reversibility, and deploy compatibility. | — | `/migration-review [file\|recent]` |
 | `/optimize-query` | Profile and optimize one query (SQL string or endpoint that owns it). | — | `/optimize-query <endpoint\|sql>` |
 
@@ -262,8 +263,9 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/bundle-perf` | Web bundle + page-load performance audit. | `--plan` | `/bundle-perf` |
-| `/perf-audit` | Performance pass — performance-optimizer single dispatch, ranked by impact. | `--plan-only` | `/perf-audit [path\|endpoint]` |
+| `/bundle-perf` | Web bundle + page-load audit. | `--changed`, `--plan` | `/bundle-perf [routes \| --changed] [--plan]` |
+| `/perf-audit` | Read-only performance audit — dispatches every performance detector (plus the database, frontend… | — | `/perf-audit [base-branch \| path \| endpoint]` |
+| `/perf-fix` | Close the findings a /perf-audit or /bundle-perf report lists, one at a time — re-verify, a… | `--all`, `--plan` | `/perf-fix [audit-report-path \| finding-id ... \| --all] [--plan]` |
 | `/profile-perf` | Profile a slow endpoint / page / flow. | `--plan` | `/profile-perf` |
 
 ## Pack — product
@@ -283,6 +285,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/dependency-vuln-check` | Audit dependencies for known CVEs + abandoned maintainers + license-incompatible licenses +… | — | `/dependency-vuln-check` |
 | `/secret-scan` | Scan repo + commit history for leaked secrets. | — | `/secret-scan` |
 | `/security-audit` | Security audit — OWASP pass via security-auditor, plus auth + tenant reviews if relevant. | — | `/security-audit [base-branch]` |
+| `/security-fix` | Close the findings a /security-audit report lists — one finding at a time, an exploit test that… | `--all` | `/security-fix [audit-report-path \| finding-id ... \| --all]` |
+| `/security-live-scan` | Non-destructive external scan of hosts you own — TLS, security headers, exposed files and admin… | — | `/security-live-scan will send NON-DESTRUCTIVE requests to ONLY these hosts:` |
 | `/threat-model` | Run a structured threat-model session against a feature / system. | — | `/threat-model` |
 
 ## Pack — testing

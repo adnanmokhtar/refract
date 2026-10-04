@@ -104,7 +104,7 @@ The sibling-shape halt flags an unfamiliar import as *drift* — fetched from tr
 Adding it is not automatically wrong, but it is never silent. Before the package lands:
 
 - **Confirm it's actually new** — not already in the lockfile under a sibling's import. Reuse the existing one if so.
-- **Run a dependency review** (dispatch `security-auditor` on the dep, or inline against the checklist if not installed): maintenance health (last release, open-CVE count), license compatibility, transitive bloat / install size, and whether a stdlib or already-present primitive does the job.
+- **Run a dependency review** (dispatch `security-auditor` on the dep): maintenance health (last release, open-CVE count), license compatibility, transitive bloat / install size, and whether a stdlib or already-present primitive does the job. Not installed → record the four facts with the command that produced each (`npm view <pkg> time.modified license`, `npm audit` / `osv-scanner`, the lockfile delta) — facts, not a verdict — and report `UNREVIEWED(dependency) — security-auditor not installed (security pack)`; the run is INCOMPLETE.
 - **Record the decision** — one line in the PR (trivial / standard) or an ADR (heavy, or any dep touching auth / crypto / payment / data-handling).
 
 HALT on an unreviewed new dependency. A new package on a write-path / security surface with no ADR is forbidden.
@@ -118,13 +118,37 @@ Backend is the outlier: it parks observability sign-off and the security pre-fli
 When triggered, run regardless of tier:
 
 - **Minimal observability sign-off** — the new endpoint emits a request counter + latency histogram; the external call emits success/failure + latency; sensitive data is redacted in logs. (The full Phase 6 sign-off — alert rules, correlation-id propagation, trace spans on hot paths — remains heavy-tier.)
-- **Diff-scoped security pre-flight** — `/security-audit` scoped to the diff (or the inline checklist if not installed). Block on any BLOCKER. (The full Phase 6 security ceremony remains heavy-tier; this floor is the diff-scoped minimum.)
+- **Diff-scoped security pre-flight** — `/security-audit` scoped to the diff. Block on any BLOCKER. Not installed → `UNREVIEWED(security) — /security-audit not installed (security pack)` and the run is INCOMPLETE; the builder never grades its own diff. (The full Phase 6 security ceremony remains heavy-tier; this floor is the diff-scoped minimum.)
 
 HALT on a failure here at any tier. This floor is what makes a trivial-tier write-path add safe to ship without promoting to heavy.
 
 ## Standards gate (all tiers)
 
 Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `backend-api` baseline, plus `data` whenever the feature touches an entity, migration, query or repository. Select the fired rows before Generate and carry them into the plan; close each with evidence before the Output block. The floor above and the Phase 6 reviewers' verdicts are evidence for the rows they cover — cite them, don't re-judge. Any `UNMET` or `SKIPPED` row → `INCOMPLETE`.
+
+## Acceptance contract and independent verdict (standard + heavy tiers)
+
+Done is written down before the code and decided by someone who did not build it — follow
+[`templates/snippets/acceptance-contract.md`](../../../snippets/acceptance-contract.md):
+
+1. **Before Generate**, open `ai/runs/<run-id>/` and write `acceptance.json` from the requirements —
+   the spec's acceptance criteria (Path A), or the confirmed Phase-1 requirements (Path B) at heavy
+   tier, or the request itself at standard tier — one EARS sentence per criterion, a failure-path
+   (`IF … THEN … SHALL`) criterion per story, every authorization rule as a **negative** criterion
+   (the 403), money as an exact value. Write the named acceptance tests and run them through
+   `.claude/hooks/test-lane.sh record '<cmd>'`: each red for the missing behaviour.
+2. **Lock** — `.claude/scripts/lock-acceptance.sh <run-id>`: standard tier before Generate; heavy tier
+   right after the user confirms the single gate below (the contract is shown in that gate). From
+   then on `test-lock.sh` denies edits to the contract and its tests. A criterion that contradicts the
+   requirement is `SPEC_CONFLICT` — stop and report it; never bend the test.
+3. **After Phase 6**, dispatch `@verifier` in `acceptance` mode with a
+   [delegation brief](../../../snippets/delegation-brief.md) — paths and a mode, never your summary —
+   and read `ai/runs/<run-id>/verdict.json`. **COMPLETE only from that file saying `PASS`, fresh,
+   signed `verifier`.** The Phase-4 AC → test map and the Phase-6 reviewers are evidence the
+   verifier may read; they are not the verdict.
+
+Trivial tier writes no contract (tier shrinks ceremony); the standards gate and the sibling-shape halt
+remain its gates.
 
 ---
 
@@ -246,6 +270,7 @@ Requirements: <goal, actors, acceptance criteria, out-of-scope>   (Phase 1)
 Signals:      <resolved list>                                     (Phase 1 step 3)
 Constraints:  <each Step-2 binding constraint + how the design satisfies it>
 Design:       <api-architect / schema-architect / telemetry-architect slices>
+Acceptance:   ai/runs/<run-id>/acceptance.json — <N> criteria (EARS), tests written and red; locked on confirm
 Open:         <anything still undecided — each with the option set>
 ```
 
@@ -302,7 +327,8 @@ Domain-specific implementation requirements:
 
 ### Tests
 
-Dispatch `test-engineer` with:
+The acceptance tests already exist and are locked (§ Acceptance contract) — Generate makes them green;
+it never edits them. Beyond them, dispatch `test-engineer` with:
 - Acceptance criteria from Phase 1 → test cases.
 - Edge cases → boundary tests.
 - Multi-tenant? → cross-tenant leak test.
@@ -321,7 +347,7 @@ Verify:
 Run skills:
 - `endpoint-test` against dev server for each new endpoint.
 - `coverage-gap` — are changed lines tested?
-- `n-plus-one-scan` on new list endpoints.
+- `n-plus-one-scan` on new list endpoints (database pack, when installed).
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
@@ -361,7 +387,7 @@ Update via `doc-writer`:
 | AI | `prompt-reviewer` |
 | Payment | `payment-reviewer` |
 
-**Missing-agent fallback (applies to every dispatch table in this command):** if a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<agent-name>`).
+**Missing-agent contract (applies to every dispatch table in this command):** if a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Record `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` in the consolidation note and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.
 
 Consolidate findings. **Mechanical halt**: HALT unless EVERY dispatched reviewer returns 0 BLOCKER and 0 CRITICAL findings. Record `reviewers_dispatched=N` and `reviewers_clean=N` in the consolidation note — proceed only when `reviewers_clean == reviewers_dispatched`. If any reviewer flags a blocker, re-run that specific reviewer after the fix; do not paper over, do not aggregate-and-ignore.
 
@@ -444,6 +470,7 @@ Tests added: <count> — passing
 Sibling-shape halt: aligned (<N> axes checked)
 All-tier floor: <observability sign-off + security pre-flight, if diff added endpoint/external call/write path — else "n/a">
 Standards gate: <N> fired — <M> MET · <K> n-a · <U> UNMET   (ledger follows)
+Acceptance (standard): ai/runs/<run-id>/ — <N> criteria locked · verifier verdict: PASS | FAIL | CONCERNS
 Docs: ai/status.md updated <+ plan paragraph if standard>
 
 Next: commit + open PR
@@ -489,8 +516,9 @@ Follow-ups:
 Docs updated:
   - <list>
 
-Status: COMPLETE | INCOMPLETE
-        COMPLETE only when every acceptance criterion maps to a named test that RAN green and
+Status: COMPLETE | INCOMPLETE | BLOCKED (SPEC_CONFLICT)
+        COMPLETE only when ai/runs/<run-id>/verdict.json says PASS (fresh, signed verifier) —
+        every acceptance criterion graded by the verifier against a test it ran at HEAD — and
         the telemetry rows above are filled in. Otherwise INCOMPLETE, naming each unmet AC,
         missing test or missing signal + the exact next action. An honest INCOMPLETE is a
         terminal state; a COMPLETE stamped over an unmet criterion is not.
@@ -505,6 +533,7 @@ Next:
 - Never skip phases within your tier's ceremony to save time. Tier selection (Closure verbs table) is the only sanctioned way to shrink the flow.
 - The standards gate runs at every tier. Tier shrinks ceremony, never the baseline.
 - **One** pause at the Phase-2 confirmation gate (requirements + constraints + design presented together) — heavy tier only. Trivial / standard run unpaused. Phase 1 stops separately only for an open question that would change the design.
+- Standard and heavy tiers write and lock `acceptance.json` before Generate, and close only on the verifier's `verdict.json` — never on the builder's own reading of its tests.
 - No feature ships without tests for every acceptance criterion. On the spec path this is mechanical: every AC-ID maps to a named test in a named file (Phase 4 traceability rebuild) or it HALTs.
 - No feature ships without telemetry. The minimal observability sign-off is an all-tier floor on any diff that adds an endpoint / external call / write path — not heavy-tier-only.
 - No feature ships with any security BLOCKER open. The diff-scoped security pre-flight is an all-tier floor on the same risk-bearing diffs.

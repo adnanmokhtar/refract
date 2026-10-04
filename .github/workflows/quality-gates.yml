@@ -49,13 +49,26 @@ jobs:
       - name: Shell pipefail traps (a non-matching grep must not end the script)
         run: bash scripts/lint-shell-pipefail-traps.sh
 
+      # A pre-flight grep with no path searches STDIN when stdin is a pipe, so a detector run from a
+      # heredoc or a subagent shell reports "checked, nothing found" for a class it never searched.
+      - name: Every rg an artifact prescribes names its search path
+        run: bash scripts/lint-rg-explicit-path.sh
+
+      # …and actually runs: a regex ripgrep rejects or a --type it does not know exits 2 with zero
+      # hits, which the agent reads as clean. Each prescribed rg runs once in an empty directory.
+      - name: Every rg an artifact prescribes parses (regex + --type)
+        run: bash scripts/lint-rg-parses.sh
+
       - name: Stack conformance (detectors answer correctly for every repo shape)
         run: bash tests/stack-conformance/run.sh
 
       - name: Migration guarantees (a port that drops a unique constraint fails the parity validator)
         run: bash tests/migration-guarantees/run.sh
 
-      - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules)
+      # Also the gate-check.py proving cases: typecheck-red and gradle-red block, a deleted
+      # assertion and an added skip FAIL G2, a key FAILs G3, no runner is UNVERIFIED (never PASS),
+      # the healthy project passes, and every evidence record matches its schema.
+      - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules / gate-check)
         run: bash tests/hooks/run.sh
 
       # Every gate above compares this repo to itself. On 2026-08-31 three defects shipped through
@@ -218,6 +231,14 @@ jobs:
       # converts, and an advisory role never holds a writing tool.
       - name: Tool scoping (least privilege declared, advisory agents read-only)
         run: bash scripts/lint-tool-scoping.sh
+
+      # The judge is not the builder. Thirteen pack commands answered "the reviewer is not
+      # installed" with "perform that review inline" — the agent that wrote the change then
+      # graded it, labelled the axis covered, and the run could close COMPLETE. The contract now
+      # is UNREVIEWED(<axis>) and an INCOMPLETE run naming the pack that closes it; this ratchet
+      # keeps the old fallback from returning in a new command or a re-cut _examples/ file.
+      - name: No self-review fallback (a missing reviewer is UNREVIEWED, not self-graded)
+        run: bash scripts/lint-self-review.sh
 
       # A skill's `description` is paid every session; its BODY is paid only when the skill
       # fires. So this is not a session-tax gate — it is the line past which one file stops

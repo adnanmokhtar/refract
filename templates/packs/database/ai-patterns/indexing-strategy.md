@@ -120,23 +120,7 @@ Shape matters only after the verdict says yes. Syntax lives in `references/<engi
 
 ## Detect what is already wrong
 
-```sql
--- Postgres: tables taking sequential scans despite having indexes
-SELECT schemaname, relname, seq_scan, seq_tup_read, idx_scan
-  FROM pg_stat_user_tables WHERE seq_scan > idx_scan AND n_live_tup > 100000
- ORDER BY seq_tup_read DESC;
-
--- Postgres: indexes nothing reads
-SELECT schemaname, relname, indexrelname, idx_scan, pg_relation_size(indexrelid) AS bytes
-  FROM pg_stat_user_indexes WHERE idx_scan = 0 AND schemaname NOT IN ('pg_catalog','pg_toast')
- ORDER BY bytes DESC;
-```
-```sql
--- MySQL: the sys schema answers all three directly
-SELECT * FROM sys.schema_unused_indexes;                 -- never-read indexes
-SELECT * FROM sys.schema_redundant_indexes;              -- an index that is a prefix of another
-SELECT * FROM sys.schema_tables_with_full_table_scans;   -- scan-dominated tables
-```
+`index-coverage-scan` is the detector, and this pattern carries no queries of its own. Its static lane reads migrations and ORM declarations on any repo. Its read-only live lane carries the catalog queries: L2 FKs with no index leading with their columns (§1), L3 left-prefix duplicates (§4), L4 invalid and never-scanned indexes (§4, §5), L5 HOT share and index count on write-hot tables (§7), L6 partitions × indexes (§8), each with the MySQL `sys` equivalent (`schema_unused_indexes`, `schema_redundant_indexes`). Tables dominated by sequential scans come from `/db-audit` live L2 and go to `@query-optimizer`. Each row it reports still needs the verdict above before anything is built or dropped.
 
 An unused index is a **candidate** for dropping, never an instruction: confirm across a full business cycle (month-end, quarterly jobs, the annual report), and exclude unique constraints and the indexes that enforce foreign keys.
 

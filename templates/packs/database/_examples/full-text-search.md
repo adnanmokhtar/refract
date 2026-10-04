@@ -22,10 +22,7 @@ Text search over a large table uses the engine's real full-text primitive — Po
 
 ## Detectors (cite-or-halt)
 
-1. **`LIKE '%term%'` / `ILIKE '%term%'` full-scan search.** BAD: `WHERE name LIKE '%'||:q||'%'` on a large table — un-indexable, unranked, seq scan. GOOD: `tsvector @@ tsquery` + GIN, or `pg_trgm` index for genuine substring.
-2. **FTS query with no ranking.** BAD: `WHERE search @@ q` / `MATCH … AGAINST` with `ORDER BY id`/none. GOOD: `ORDER BY ts_rank(search, q) DESC` / `AGAINST … ` score.
-3. **Unmaintained tsvector (stale index).** BAD: a `tsvector`/search column with no `GENERATED` clause and no `INSERT/UPDATE` trigger — populated once, rots. GOOD: `GENERATED ALWAYS AS … STORED` or a `tsvector_update_trigger`.
-4. **FTS index missing (seq scan on the search column).** BAD: `to_tsvector(...)` / `MATCH` with no matching `GIN`/`FULLTEXT` index. GOOD: `CREATE INDEX … USING GIN` / `ADD FULLTEXT`; confirm via `EXPLAIN`.
+The method lives here. `LIKE '%term%'` search on a large table → `query-shape-scan` §4. `to_tsvector` / `MATCH` with no GIN or FULLTEXT index → `index-coverage-scan` §6. FTS with no ranking and a `tsvector` with no `GENERATED` clause or trigger have no detector: read them at review time.
 
 ## Related
 

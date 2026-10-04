@@ -271,7 +271,7 @@ not re-judge it. No reviewer installed → run its floor detectors inline, same 
 | 2 | Standard error envelope | error paths return the project envelope / Problem Details at a cited `<path:line>`; no stack trace or PII leaked |
 | 3 | Correct transaction boundary | a multi-write use-case is wrapped in ONE transaction (cite the tx site), no external call inside it — or `n-a` with a reason |
 | 4 | Idempotency where the convention requires | `Idempotency-Key` accepted + stored + a replay e2e test proves the second call returns the first result — or `n-a` with a reason |
-| 5 | No N+1 / unbounded query | `n-plus-one-scan` clean on every new query path AND a list endpoint enforces a default + hard-max page size (over-cap clamp asserted) |
+| 5 | No N+1 / unbounded query | `n-plus-one-scan` (database pack, when installed) clean on every new query path AND a list endpoint enforces a default + hard-max page size (over-cap clamp asserted) |
 | 6 | Authz enforced, not just authn | a `403` denial e2e test for an authenticated-but-unauthorized principal passes — a `401` alone does NOT satisfy this — or `n-a` with a reason |
 | 7 | Emits log + metric + trace | RED-triad metric, correlation-id log line and use-case span each matched to an actually-emitted signal in the diff, not to the telemetry plan |
 

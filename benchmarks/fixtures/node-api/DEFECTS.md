@@ -5,8 +5,9 @@ agent scans. If you stage the fixture by hand, delete this file from the copy fi
 agent that reads it will score 100% and the number will mean nothing.
 
 Fixture shape: a multi-tenant Express order service (Node 18, CommonJS, Postgres via `pg`).
-20 defects seeded across security, database + runtime performance, resilience, architecture,
-and capacity. Primary target command: **`/audit`**.
+21 defects across security, database + runtime performance, data integrity, resilience,
+architecture and capacity: 20 seeded, plus NAPI-DATA-01, a real defect the source already
+contained that the database pack's `transaction-scan` found after this key was written. Primary target command: **`/audit`**.
 
 Line numbers are exact against the files in this directory and are re-checked by
 `benchmarks/run.sh --verify`. If you edit fixture source, re-run that and fix any drift.
@@ -33,10 +34,11 @@ Line numbers are exact against the files in this directory and are re-checked by
 | NAPI-RES-04 | `src/routes/orders.js:66` | high | `/audit` | scale/idempotency-gap |
 | NAPI-ARCH-01 | `src/routes/orders.js:82` | medium | `/audit` | architecture/layer-violation |
 | NAPI-ARCH-02 | `src/db/schema.sql:35` | medium | `/audit` | data/missing-foreign-key |
+| NAPI-DATA-01 | `src/services/order-service.js:36` | high | `/audit` | data/writes-outside-transaction |
 | NAPI-CAP-01 | `src/config.js:18` | medium | `/audit` | capacity/pool-sizing |
 | NAPI-CAP-02 | `src/config.js:19` | medium | `/audit` | capacity/no-query-timeout |
 
-Severity split: 5 critical · 7 high · 8 medium · 0 low.
+Severity split: 5 critical · 8 high · 8 medium · 0 low.
 
 ---
 
@@ -358,6 +360,30 @@ match:    foreign key|\bfk\b|referential integrity|orphan|cascade|references .{0
 `customers.tenant_id` carries a `REFERENCES` clause, but `orders.tenant_id`,
 `orders.customer_id` and `order_items.order_id` do not. Deleting an order leaves its items
 orphaned and nothing prevents rows pointing at a tenant that no longer exists.
+
+## NAPI-DATA-01 — Both writes run outside the transaction meant to hold them
+
+```defect
+id:       NAPI-DATA-01
+file:     src/services/order-service.js
+line:     36
+severity: high
+command:  /audit
+class:    data/writes-outside-transaction
+anchor:   return withTransaction(async () => {
+match:    transaction|atomic|\btx\b|\bBEGIN\b|commit|rollback
+match:    outside|ignor|unused|never (used|passed)|not (passed|used|part of|inside|in)|wrong (handle|client|connection)|different (client|connection)|bypass|pool\.query|own (client|connection)|partial|half.?(written|applied)|separate connection
+```
+
+`withTransaction` (`src/db/index.js:15`) checks out a client, runs `BEGIN` on it and passes
+it to the callback. `updateOrder`'s callback takes no parameter, and both helpers it calls,
+`updateOrderFields` and `insertAuditRow`, run `pool.query` on a connection of their own. The
+`BEGIN … COMMIT` wraps nothing: the order update commits even when the audit insert fails, and
+the transaction's client sits idle in the meantime. **Not seeded on purpose.** The database
+pack's `transaction-scan` (§2, a write on the wrong handle) found it on this fixture after the
+key was written; it is a real instance of the class in code that was already here, so it is
+recorded rather than left as a permanent UNMATCHED finding (`benchmarks/README.md` § Why
+seeded-defect detection is a fair proxy).
 
 ## NAPI-CAP-01 — Pool size fixed per process, ignoring replica count
 

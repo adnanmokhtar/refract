@@ -30,9 +30,9 @@ Cross-tenant read is CRITICAL on OWASP A01 (Broken Access Control). This agent r
 
 ## Pre-flight
 
-**Resolve `$ROOTS` first, and print it in the report.** The probe below reads `$ROOTS` — set it to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN; on a tenant-isolation sweep that is the most expensive false negative available.
+**Resolve `$ROOTS` first, and print it in the report.** Set it as an array — `ROOTS=(apps/api/src apps/web/src)` — and every probe expands it as `"${ROOTS[@]}"`: a space-joined string does not word-split in zsh (the macOS default shell), so `rg` searches one path that does not exist, prints an IO error to stderr and exits 2 — which reads as zero hits. The probe below reads `$ROOTS` — set it to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN; on a tenant-isolation sweep that is the most expensive false negative available. **Any `rg` output on stderr, or exit 2, is a failed probe — never a zero.** So no probe here discards stderr.
 
-- Read `ai/patterns/tenant-isolation.md`, `ai/patterns/zero-trust.md` (whichever exist).
+- Read `ai/patterns/tenant-isolation.md`, `ai/patterns/zero-trust.md` (whichever exist). **Trust code over pattern files.** A generated pattern file can name the wrong engine, id type or test container; when it disagrees with the lockfile, the migrations or the ORM config, the code wins, and the drift is a finding against the pattern file.
 - Read `.claude/rules/security-principles.md` — the tenant-isolation Must rule.
 - Know the isolation model from `CLAUDE.md` / ADRs: where the tenant id comes from (subdomain? JWT claim? header?), and how it is applied (auto-filter base repo? per-query? DB-side policy? schema-per-tenant?).
 - **Name three things before auditing, because every probe below is parameterised on them:** (1) the tenant column name in use — `tenant_id` / `org_id` / `account_id` / `workspace_id` / `company_id`; (2) the tenant-scoping primitive — the base repository, query scope, or request-context provider that findings are measured against; (3) the **known-global table list** (migrations, feature flags, plans, countries, job queues) — without it, probe A reports every lookup table as a leak.
@@ -64,41 +64,51 @@ ORDER BY 1;
 ```
 Diff the result against the known-global list from pre-flight. Anything left over is a table holding tenant data with no column to scope it by — BLOCKER-class, and it also tells you which application queries to read next.
 
+**No database in this phase?** Run A statically: list the ORM entities (or the `CREATE TABLE` statements in the migrations) whose base class or columns carry no tenant column, and diff that list against the declared global list. That list may be a test fixture, an allow-list constant, or the ADR. Record `A static (<n> entities)`. A table that holds per-**person** data with no tenant column, such as a wallet or credit balance, is not automatically a leak: confirm it is keyed by the person on every read. Mark the live SQL probe `blocked (no DB)`; never mark it passed.
+
 **B. New tenant-scoped tables since the last review** — the § Escape-hatch duty that used to have no instrument.
 ```bash
 git diff --name-only <last-review-ref>..HEAD -- '*migration*' '*migrate*' '*schema*'
-rg -n "(?i)create table" $(git diff --name-only <last-review-ref>..HEAD -- '*migration*' '*migrate*')
+git diff --name-only -z <last-review-ref>..HEAD -- '*migration*' '*migrate*' | xargs -0 -r rg -n -i "create table"
 ```
+The `xargs -r` form matters. With `rg … $(git diff …)`, a diff that touches no migration leaves `rg` with no path, and `rg` then reads stdin: it hangs in an agent shell or returns nothing, either way reading as "no new tables".
 Then re-run probe A. A new table absent from A's output still needs its *filter* verified; a new table present in A's output is the missing column AND the missing filter.
 
 **C. Tenant id from client input — the standalone BLOCKER.**
 ```bash
-rg -ni "(req|request|ctx)\.(body|query|params|headers)\W{0,3}(tenant|org|account|workspace|company)[_-]?id" $ROOTS
-rg -ni "x-tenant|x-org|x-account|x-workspace" $ROOTS
+rg -ni "(req|request|ctx)\.(body|query|params|headers)\W{0,3}(tenant|org|account|workspace|company)[_-]?id" "${ROOTS[@]}"
+rg -ni --pcre2 "\bx-(tenant|org|account|workspace)(-id)?\b" "${ROOTS[@]}"
 ```
-Any hit that reaches a query scope is a BLOCKER regardless of what else is in place.
+Any hit that reaches a query scope is a BLOCKER regardless of what else is in place. A header the app **sends** to a third party (an outbound carrier or provider header) is not client input; dismiss it once you have read the call.
 
 **A zero-hit C is not a clean C.** Both lines are case-insensitive for a reason — without `-i` the pattern matches `tenant_id` and `tenantid` but not `tenantId`, the dominant spelling in JS/TS, and the probe reports a confident nothing on the finding this agent calls a standalone BLOCKER. Before recording `C 0`, corroborate: confirm the project's actual casing convention and identifier vocabulary (a tenant column named `owner_id` or `site_id` is matched by none of these alternatives), then re-run with the project's own term added. Record `C <n> (vocab: <terms grepped>)` — a bare `0` with no vocabulary line is an unrun probe, not a passed one.
 
 **D. Escape hatches — raw SQL and scope bypasses.**
 ```bash
-rg -n "\.raw\(|knex\.raw|sequelize\.query|\$queryRaw|executeRaw|db\.query\(|createQueryBuilder|EXECUTE IMMEDIATE" $ROOTS
-rg -n "unscoped\(|withoutGlobalScopes?\(|IgnoreQueryFilters\(|withoutTenant|allTenants?|bypassTenant|skipTenant|admin(All|Any)" $ROOTS
+rg -n --pcre2 "\.raw\(|knex\.raw|sequelize\.query|\$queryRaw|executeRaw|db\.query\(|createQueryBuilder|\bem\.execute\(|getConnection\([^)]*\)\.execute|\.execute<|\.qb\(|getKnex\(|EXECUTE IMMEDIATE" "${ROOTS[@]}"
+rg -n --pcre2 "unscoped\(|withoutGlobalScopes?\(|IgnoreQueryFilters\(|withoutTenant|allTenants?|bypassTenant|skipTenant|admin(All|Any)|\bfilters\s*:\s*(false|\{[^}]*:\s*false)" "${ROOTS[@]}"
 ```
-Every hit is inspected for a manual tenant predicate. A hit with none is HIGH at minimum; a hit reachable by a non-admin principal is a BLOCKER.
+Every hit is inspected for a manual tenant predicate. A hit with none is HIGH at minimum; a hit reachable by a non-admin principal is a BLOCKER. **Grep the project's own opt-out too.** Most codebases wrap the bypass in a named constant or helper (a shared all-tenants options object, a `runUnscoped()` helper), and its use sites are the real list. The second line finds its definition; grep its name for the uses.
 
-**E. Cache keys without a tenant prefix.**
+**Know which ORM calls the filter actually reaches**, from the installed version's source and not from memory. In MikroORM 6, `em.find`/`findOne`, `nativeUpdate` and `nativeDelete` apply global filters. A `QueryBuilder` applies them only after an explicit `qb.applyFilters()`, and `em.execute`/raw SQL and `upsert` never do. In Prisma, `$queryRaw` bypasses every client extension, and in TypeORM, `createQueryBuilder` bypasses subscriber scoping unless the predicate is written in. A comment at an escape hatch claiming that "RLS / the filter covers this" is checked against that list; a wrong justification is a finding even when the predicate is present.
+
+**E. Shared keys without a tenant in them — caches, in-process maps, and circuit breakers.**
 ```bash
-rg -n "\.(get|set|setex|mget|hget|hset|del)\(\s*[\`'\"]" $ROOTS | rg -vi "tenant|org|account|workspace|company"
-rg -n "(cacheKey|keyFor|makeKey|cache_key)\s*[=(]" $ROOTS
+# key-shaped literals in the files that talk to a cache / KV client (keys are built in helpers, rarely at the call)
+rg -l -i --pcre2 "\b(redis|ioredis|cache_?manager|CACHE_MANAGER|memcache\w*|keyv|lru-cache|node-cache|caffeine|@Cacheable)\b" -g '!**/*.{spec,test,e2e-spec}.*' "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg -n --pcre2 "[\"'\`][a-z][\w-]*:[\w\${}.:-]*[\"'\`]"
+rg -n "(cacheKey|keyFor|makeKey|cache_key)\s*[=(]" "${ROOTS[@]}"
+# process-wide maps held on a long-lived object
+rg -n --pcre2 "^\s*(private|protected|public|readonly|static)\s[^=\n]*=\s*new\s+(Map|Set|LRUCache|WeakMap)\b" -g '!**/*.{spec,test,e2e-spec}.*' "${ROOTS[@]}"
+# breaker / bulkhead / limiter keys on outbound calls — a constant key is shared by every tenant
+rg -l -i --pcre2 "\b(circuit\w*|breaker\w*|bulkhead\w*|resilien\w*|opossum|cockatiel|outbound\w*)\b" -g '!**/*.{spec,test,e2e-spec}.*' "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg -n --pcre2 "\b(key|breakerKey|circuitKey)\s*:\s*[\"'][\w:.-]+[\"']"
 ```
-Inspect every surviving line: a key built from a user id or resource id alone collides across tenants.
+Inspect every surviving line: a key built from a user id or resource id alone collides across tenants. A breaker, bulkhead or rate-limit key with no host or tenant in it is a **cross-tenant availability** surface. If one tenant points its integration at a host that times out, the breaker opens for every tenant on that integration. Key it per host (or per tenant) wherever the host is tenant-chosen. A constant key for a fixed first-party host is fine.
 
 **F. Jobs, consumers and schedulers — where the request context is gone.**
 ```bash
-rg -n "(?i)(@cron|@scheduled|cron\.schedule|setInterval|worker|consumer|subscribe\(|process\(|\.on\(['\"]message)" $ROOTS 2>/dev/null
+rg -n --pcre2 "@(Cron|Interval|Timeout|Scheduled|Processor|Process|OnEvent|EventPattern|MessagePattern|SqsMessageHandler|RabbitSubscribe|OnQueue\w*)\b|cron\.schedule|setInterval\(|new\s+Worker\(|\.process\(|\.on\(['\"]message|\bconsume\(|\bclass\s+\w*(Outbox|Inbox|Consumer|Subscriber|Listener|Processor|Worker|Job)\b" -g '!**/*.{spec,test,e2e-spec}.*' "${ROOTS[@]}"
 ```
-For each hit: does it re-derive the tenant from the message/job payload, or does it sweep all rows?
+For each hit: does it re-derive the tenant from the message/job payload, or does it sweep all rows? An outbox or inbox relay is often a plain class with an interval tick and no consumer interface; grep the project's event or outbox type name for the rest. Then check what gates these paths. A test that enforces "re-enter the tenant" only under some directories (`queue/`, `webhooks/`) leaves every consumer, cron and resolver outside them unchecked. List those paths as **ungated**, even when each one holds today.
 
 **G. Aggregate reachability across the seven surfaces.** For each of reads / writes / caches / events+jobs / file storage / search index / exports, record the probe or `<file:line>` that established the verdict. An unrecorded surface is an unchecked surface — the output block requires all seven.
 
@@ -117,10 +127,12 @@ For each hit: does it re-derive the tenant from the message/job payload, or does
 ### Caches
 - Cache keys are tenant-prefixed. A shared key (`user:123`) across tenants serves tenant A's data to tenant B.
 - Memoization / request-deduplication caches keyed including tenant.
+- Circuit-breaker, bulkhead and limiter keys on calls to a tenant-chosen host carry the host or tenant (probe E); a shared key lets one tenant trip it for all — availability, not disclosure, graded MEDIUM unless it gates a money or auth path.
 
 ### Events / queues / jobs
 - Event handlers and queue consumers re-derive the tenant from the message metadata (the HTTP request context is gone) and scope accordingly.
 - Scheduled / background jobs that sweep "all rows" iterate per-tenant or carry an explicit, justified global scope.
+- **An unverified event that is stored is still read later.** For every unauthenticated or unverified inbound event the app persists — an unsigned webhook, a carrier push, a claim recorded as "not applied" — list every reader of that table. Confirm each reader filters on the verified or applied flag. A poller that takes "the latest event" from all rows lets an attacker write the state a later job decides on. That includes a cross-tenant write, when the tenant was resolved from a guessable reference in the body. Also clamp a body-supplied timestamp, so a future date cannot keep the forged row "latest".
 
 ### Cross-cutting
 - File storage / object keys namespaced by tenant; signed URLs scoped.
@@ -145,9 +157,10 @@ The second layer is graded against **what this engine can actually enforce**, ne
 | App filter + a working second layer (native row policy, definer/security-barrier view with base-table grants revoked, per-tenant role, or schema-per-tenant) | pass |
 | App filter only, AND the engine/hosting supports one of the below-app mechanisms above | **HIGH** — name the specific mechanism available and the tables it would cover |
 | App filter only, AND no below-app mechanism is available on this engine/hosting | **MEDIUM**, recorded as an accepted architectural limit — name the constraint, and require the compensating controls: the auto-filter is the *only* query path (no raw-SQL escape hatch reachable from request handlers), plus a cross-tenant regression test in CI |
+| Second layer **present but partial**: it enforces writes yet is inert for reads, for anonymous requests, or whenever the tenant setting is empty (a permissive policy on an unset session variable, reads outside the transaction that sets it) | Grade **by what it covers**: name the paths it guards and the ones it does not. Each uncovered path is graded as "app filter only" (the HIGH or MEDIUM row above), and the compensating controls of the MEDIUM row are checked on it |
 | App filter bypassable by a reachable escape hatch | **BLOCKER** — the single layer does not hold either |
 
-Report the below-app state on every run even when nothing leaks today; the grade, not the reporting, is what is conditional.
+Report the below-app state on every run even when nothing leaks today; the grade, not the reporting, is what is conditional. **The grade is this spec's severity, not a verification bucket.** Under `/security-audit`, `finding-verification.md` gate 4 sends a missing layer with no concrete leak to **Hardening**. Record both so the merged report stays consistent: `HIGH (spec grade) · Hardening (no live leak)`.
 
 ## Example findings (stack-agnostic shapes)
 

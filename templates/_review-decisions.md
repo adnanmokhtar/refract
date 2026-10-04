@@ -46,6 +46,7 @@ treated as noise wherever they were the only evidence, and they were the only ev
 | `_deployment` | C8  Authorization | `confirmed` | IAM least-privilege per service, never the default ServiceAccount, cluster-admin binding graded High |
 | `_deployment` | C9  Idempotency | `confirmed` | cluster state reconciled from git, no manual apply against prod — declarative reconciliation is the idempotency mechanism |
 | `_routes` | C1  Security | `confirmed` | SSRF egress allowlist before fetch, explicit field-allowlist bind against mass assignment |
+| `_routes` | C11 Data Lifecycle | `empty` | re-read 2026-10-02, when `migration-safety` moved to the database pack: its backfill and reversibility wording was migration safety, not retention, and was the only match; nothing on the route surface states how long request-created records, job results or uploaded payloads live |
 | `_routes` | C6  Configuration | `confirmed` | env-diff skill compares .env to .env.example on the route surface |
 | `_routes` | C7  Compliance | `confirmed` | error-envelope check asserts no stack or PII leak; rate limit required on export/report/bulk |
 | `_routes` | C9  Idempotency | `confirmed` | failure-shape check names idempotency key, outbox, compensating action, reconcile job per multi-step path |

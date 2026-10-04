@@ -89,7 +89,7 @@
     },
     {
       "title": "Backend",
-      "description": "API contract snapshots, endpoint verification, tenant-isolation debugging, migration safety, and module scaffolding.",
+      "description": "API contract snapshots, endpoint verification, tenant-isolation debugging, and module scaffolding.",
       "skills": [
         "api-consistency-audit",
         "api-snapshot",
@@ -97,7 +97,6 @@
         "endpoint-test",
         "env-diff",
         "log-tail",
-        "migration-safety",
         "module-scaffold",
         "parallelize-independent-ops"
       ]
@@ -113,11 +112,18 @@
     },
     {
       "title": "Database",
-      "description": "Schema and migration consistency, ORM-vs-reality drift, and migration rehearsal against prod-sized data.",
+      "description": "Seven code-first detectors (N+1, query shape, index coverage, schema integrity, migration safety, transactions, connections), ORM-vs-reality drift, and migration rehearsal against prod-sized data.",
       "skills": [
+        "connection-config-scan",
+        "index-coverage-scan",
         "migration-rehearsal",
+        "migration-safety",
+        "n-plus-one-scan",
+        "query-shape-scan",
         "schema-consistency-audit",
-        "schema-diff"
+        "schema-diff",
+        "schema-integrity-scan",
+        "transaction-scan"
       ]
     },
     {
@@ -200,11 +206,10 @@
     },
     {
       "title": "Performance",
-      "description": "Endpoint profiling, load campaigns, N+1 detection, memory-leak hunting, and field Core Web Vitals with attribution.",
+      "description": "Endpoint profiling, load campaigns, memory-leak hunting, and field Core Web Vitals with attribution.",
       "skills": [
         "load-test",
         "memory-leak-hunt",
-        "n-plus-one-scan",
         "profile-endpoint",
         "web-vitals-field"
       ]

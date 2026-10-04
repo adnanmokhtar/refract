@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="890" viewBox="0 0 1040 890" role="img" aria-label="Refract pack matrix: twenty-three role-based packs and the agents, skills, commands and rules each contributes">
 <title>Refract pack matrix: twenty-three role-based packs and the agents, skills, commands and rules each contributes</title>
-<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 89 agents, 118 skills, 138 pack commands, 28 rules.</desc>
+<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 89 agents, 139 skills, 142 pack commands, 28 rules.</desc>
 <rect x="0" y="0" width="1040" height="890" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
 <text x="28" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#161b22" font-weight="700">Twenty-three role-based packs</text>
 <text x="28" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">Work is organised by role, not by framework — one api-architect works for every backend. /setup-project selects packs</text>
@@ -61,9 +61,9 @@
 <text x="268" y="227" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="274" y="219" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="219" width="30" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="227" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">9</text>
+<text x="352" y="227" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">8</text>
 <rect x="358" y="219" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="219" width="27" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="219" width="24" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="227" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">9</text>
 <rect x="442" y="219" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="219" width="18" height="5" rx="2.5" fill="#5b3d99"/>
@@ -91,9 +91,9 @@
 <text x="268" y="279" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">7</text>
 <rect x="274" y="271" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="271" width="42" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="279" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">7</text>
+<text x="352" y="279" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">9</text>
 <rect x="358" y="271" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="271" width="21" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="271" width="27" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="279" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">6</text>
 <rect x="442" y="271" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="271" width="12" height="5" rx="2.5" fill="#5b3d99"/>
@@ -120,12 +120,12 @@
 <text x="268" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="274" y="323" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="323" width="24" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<text x="352" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">10</text>
 <rect x="358" y="323" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="323" width="9" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="358" y="323" width="30" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
 <rect x="442" y="323" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="323" width="8" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="323" width="10" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="331" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="323" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="323" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
@@ -280,12 +280,12 @@
 <text x="268" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">2</text>
 <rect x="274" y="609" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="609" width="12" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<text x="352" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">7</text>
 <rect x="358" y="609" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="609" width="15" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
+<rect x="358" y="609" width="21" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="609" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="609" width="6" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="609" width="8" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="617" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="609" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="609" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
@@ -310,12 +310,12 @@
 <text x="268" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">6</text>
 <rect x="274" y="661" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="661" width="36" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<text x="352" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">11</text>
 <rect x="358" y="661" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="661" width="12" height="5" rx="2.5" fill="#0f6b52"/>
-<text x="436" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
+<rect x="358" y="661" width="33" height="5" rx="2.5" fill="#0f6b52"/>
+<text x="436" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">6</text>
 <rect x="442" y="661" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="442" y="661" width="8" height="5" rx="2.5" fill="#5b3d99"/>
+<rect x="442" y="661" width="12" height="5" rx="2.5" fill="#5b3d99"/>
 <text x="520" y="669" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">1</text>
 <rect x="526" y="661" width="22" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="526" y="661" width="7.33333" height="5" rx="2.5" fill="#8a5a00"/>
@@ -325,9 +325,9 @@
 <text x="268" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="687" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="687" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">5</text>
+<text x="352" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">9</text>
 <rect x="358" y="687" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="687" width="15" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="687" width="27" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="695" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="687" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="687" width="8" height="5" rx="2.5" fill="#5b3d99"/>
@@ -352,14 +352,14 @@
 <line x1="28" y1="736" x2="1012" y2="736" stroke="#d5dce5" stroke-width="1.2"/>
 <text x="28" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="700">TOTAL</text>
 <text x="268" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">89</text>
-<text x="352" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">118</text>
-<text x="436" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">138</text>
+<text x="352" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">139</text>
+<text x="436" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">142</text>
 <text x="520" y="758" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">28</text>
 <text x="568" y="758" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">23 packs · 115 ai-patterns and 34 framework references not counted</text>
 <line x1="28" y1="788" x2="1012" y2="788" stroke="#d5dce5" stroke-width="1"/>
 <circle cx="31.5" cy="828" r="3.5" fill="#0f6b52"/>
 <text x="28" y="810" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Generated by scripts/gen-pack-matrix.py — {agents,commands,rules}/*.md per pack; skills are skills/&lt;name&gt;/SKILL.md. Bars scale per column, not across columns.</text>
 <text x="42" y="827" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">Always applied — added to selected_tracks even when no detection signal fires: code-quality, documentation, learning, security.</text>
-<text x="28" y="844" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">The 16 global commands in commands/ belong to no pack: 138 pack + 16 global = 154. Domain and repo-baseline commands are counted in docs/CHEATSHEET.md,</text>
+<text x="28" y="844" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">The 16 global commands in commands/ belong to no pack: 142 pack + 16 global = 158. Domain and repo-baseline commands are counted in docs/CHEATSHEET.md,</text>
 <text x="28" y="861" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400">not here. Always-applied flags and summaries come from templates/packs/_registry.md; a pack with no row falls back to its _essentials.md heading.</text>
 </svg>

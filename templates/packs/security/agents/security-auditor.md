@@ -78,7 +78,7 @@ One or more of:
 - `/admin/*` requires admin role (tested, not just decorated).
 - **IDOR / BOLA** (object-level): sequential/guessable IDs not used for authorization; ownership checked server-side. **BFLA**: function/route-level role enforced, not just hidden in UI.
 - **SSRF** (CWE-918, folded into A01 in 2025): user-supplied URLs validated before fetch; block internal ranges (`10.*`, `172.16-31.*`, `192.168.*`, `169.254.169.254`, `localhost`); validate the *resolved* IP (DNS-rebinding); no redirects to denied hosts; https-only. Depth: dispatch the `ssrf-scan` skill.
-- **Path traversal** (CWE-22, also A01 in 2025): any path built from user input is canonicalized and re-checked against the allowed base directory **before the file is opened** — on the read/serve/download side (`?file=`, `?name=`, `?path=`), not only on upload. A string-level `../` strip is not the check.
+- **Path traversal** (CWE-22, also A01 in 2025): any path built from user input is canonicalized and re-checked against the allowed base directory **before the file is opened** — on the read/serve/download side (`?file=`, `?name=`, `?path=`), not only on upload. A string-level `../` strip is not the check. Depth — upload side and every read sink: dispatch the `file-access-scan` skill.
 - **Open redirect** (CWE-601, also A01 in 2025): `?next=` / `?returnUrl=` / `?redirect=` must not forward the browser to an arbitrary URL — it launders phishing through the domain and, on an OAuth client, exfiltrates authorization codes (OAuth 2.1 § 2.3.1).
 
 ### A02 Security Misconfiguration
@@ -87,6 +87,7 @@ One or more of:
 - No default admin credentials; debug / stack traces off in prod.
 - S3 buckets not public unless intentional; K8s no `hostNetwork: true` / no privileged containers unless justified.
 - Verbose error responses don't leak stack/SQL/paths (see A10).
+- Depth: dispatch the `iac-scan` skill for container / orchestration / cloud / CI / reverse-proxy config, `xss-scan` for CSP and framing, `data-exposure-scan` for debug and docs endpoints reachable in production.
 
 ### A03 Software Supply Chain Failures (NEW in 2025)
 - Dependencies pinned + lockfile committed + integrity-verified (`npm ci` / `--frozen-lockfile`).
@@ -110,11 +111,13 @@ One or more of:
 - **XSS** — reflected / stored / DOM: user input never reaches an HTML sink unencoded. Flag `innerHTML`, `dangerouslySetInnerHTML`, `v-html`, `document.write`, `{{{ }}}` / `| safe` / `mark_safe`, `eval`. Output-encode by context; CSP as defense-in-depth.
 - Template injection (SSTI): user input never renders as a template.
 - LDAP / XPath / GraphQL / XXE: per-engine escape rules; disable external entities in XML parsers.
+- Depth: dispatch the `injection-scan` skill for every interpreter sink and the `xss-scan` skill for every browser sink. This list is the surface pass; those two own the source-to-sink trace.
 
 ### A06 Insecure Design
 - Threat-modeled before shipping — dispatch the `threat-model` **skill** for the STRIDE pass on one component; `/threat-model` the **command** owns the persisted artifact and the re-audit trigger.
 - Rate limits on auth endpoints (login, password reset, signup) + abuse-prone / expensive endpoints.
 - Business-logic abuse guarded (can't ship an order to another user; can't skip a payment step; quantity/price tamper).
+- Depth: dispatch the `logic-race-scan` skill — client-trusted values, workflow skipping, idempotency, check-then-act races, and the per-role authorization matrix.
 
 ### A07 Authentication Failures
 - Strong password policy **OR passkeys/WebAuthn**; passkey registration + assertion verified (challenge, origin, RP ID, user-verification flag, sign-counter clone detection).
@@ -124,7 +127,7 @@ One or more of:
 - Account lockout / progressive delay on brute force; reset tokens single-use, short-TTL, hashed in DB.
 
 ### A08 Software or Data Integrity Failures
-- Insecure deserialization of untrusted data avoided / sanitized (Java/Python/Ruby/.NET gadget chains, JS prototype pollution).
+- Insecure deserialization of untrusted data avoided / sanitized (Java/Python/Ruby/.NET gadget chains, JS prototype pollution). Depth: `injection-scan`.
 - Webhook payloads signature-verified (HMAC, timing-safe).
 - Unsigned/untrusted auto-update or plugin loading rejected. (Build-artifact signing lives in A03 / devops.)
 
@@ -138,6 +141,7 @@ One or more of:
 - No fail-open `catch` that swallows a security error and continues; no default-allow branch on an unexpected state.
 - Error responses don't leak stack traces / SQL / internal paths / secrets to the client (prod).
 - Resource-exhaustion / DoS on unhandled edge cases (unbounded input, recursion, `ReDoS`) considered.
+- Depth: dispatch the `data-exposure-scan` skill for error, log and response leakage.
 
 ## Beyond OWASP
 
@@ -230,7 +234,7 @@ Triaged (N) — known, accepted:
   - CVE-xxx in dep Y — dev-only, deferred per ticket SEC-42.
 
 Tools used:
-  - Static: semgrep + the project's lint security plugin (e.g., eslint-plugin-security, bandit, brakeman, gosec), gitleaks / trufflehog / detect-secrets
+  - Static: the `sast-scan` skill's RAN / SKIPPED ledger (semgrep + the stack's security linter), gitleaks / trufflehog / detect-secrets via `secret-scan`
   - Dynamic: endpoint prober + manual HTTP probes
   - Dep: package-manager-native auditor (npm audit / pip-audit / bundler-audit / cargo audit / composer audit / govulncheck) + cross-language scanner (trivy fs / Snyk / OSV-Scanner) + container image scan
 ```

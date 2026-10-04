@@ -1,111 +1,143 @@
 ---
 name: profile-endpoint
-description: Load-test a specific endpoint locally and profile where time is spent. Use before optimizing.
+description: Load one endpoint at a fixed arrival rate, profile where its time goes with the runtime's sampling profiler, and capture its slow queries — runnable commands per stack. Use before optimizing.
+kind: skill
+pack: performance
 ---
+
+<!-- Abridged fallback of skills/profile-endpoint/SKILL.md. The source is authoritative: edit it first, then re-cut this file. -->
 
 # profile-endpoint
 
-Load + flamegraph + DB-query analysis on one endpoint. Never optimize on vibes.
+Load + flamegraph + slow-query capture on one endpoint. Never optimize on vibes.
 
 ## Premise
 
-Real signals only. Every percentile, RPS number, and "% time spent" comes from a measured run — the load generator's output captured verbatim, a flamegraph generated, the slow-query log tailed. Recommendations cite the exact query / index / function frame from the captured artifact. No "this should be faster if…" without a baseline + ramp on the same hardware. Empty tables and dev-mode servers are non-starters; either run with realistic data or refuse the result.
+Real signals only. Every percentile, RPS number and "% of time in" comes from a run whose command line is in the report: the load tool's output captured verbatim, the profile file written to disk, the slow-query list read from the database. Recommendations cite the frame, the query or the function from that artifact. A dev-mode server (watch mode, debug build), an empty table or a laptop-only number is either re-run on realistic data or reported as what it is.
+
+**What this skill proves, and what it does not.** It measures **cost** and **attributes** it: where time goes under a stated load. It does not by itself prove a defect class. A hot frame is a *candidate* for the detector that owns its class, and a candidate becomes a finding only through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with its class oracle from [`proof-oracles.md`](../../../../snippets/proof-oracles.md) — the query count at two sizes for an N+1, the event-loop delay for blocking work. A profile ranks; an oracle proves.
 
 ## Halt conditions
 
-- Refuse to report p50/p95/p99 without the load-tool output it came from.
-- Refuse to claim "X% of time in Y" without a flamegraph pointing at frame Y.
-- Halt if the DB is empty or seeded so thinly that the planner picks a different plan than production would. Row count is a proxy, not the test: compare the plan the target query gets here against the production plan, and refuse the run when they differ — a seq scan that is correct on 200 rows tells you nothing about the index scan production performs.
-- Don't propose an index without showing the slow query that needs it (cite the log line).
-- Don't recommend "optimize the loop" without naming the file and line.
+- Refuse to report p50/p95/p99 without the load-tool output and the exact command that produced it.
+- Refuse a latency claim from a closed-model run (autocannon without `-R`, plain `wrk`, `hey`, k6 `constant-vus`): coordinated omission understates the tail (`precedents/performance.md` § 48). Open model, and print the achieved rate beside the target.
+- Refuse to claim "X% of time in Y" without the profile file whose frame Y carries that share, labelled with the sample count.
+- Halt if the tables are empty or seeded so thinly that the planner picks a plan production would not. The threshold is not a row count: run the plan on the seeded data and compare the access method with production's (`pg_stat_statements` / `auto_explain` from production, or the plan `index-coverage-scan` captured, *database pack, when installed*). A profile on a toy table describes a database you do not run (`precedents/performance.md` § 4).
+- Don't propose an index without the slow query that needs it, cited from the captured list; hand index decisions to `/optimize-query` *(database pack, when installed)*.
+- Don't recommend "optimize the loop" without the file, the line and the frame.
+- No candidate reaches a report as a finding without the `refute-before-report.md` pass.
 
 ## When to use
 
-- An SLO is being missed.
-- Before implementing a "performance" change — get a baseline first.
-- After a feature ship that quietly slowed something else down.
-- During capacity planning ("can we handle 5x traffic?").
+- An SLO is being missed on one route, job or consumer.
+- Before a "performance" change — the baseline comes first.
+- After a release that quietly slowed something else.
+- When `load-test` found a knee and handed over the subject at that knee.
 
 ## Prerequisites
 
-- Dev server running with realistic data (NOT empty tables — those lie).
-- Load generator: whichever the project already uses. Any tool is fine provided it reports **percentiles, not just an average** — a mean cannot gate a p95.
-- Profiler for the runtime:
-  - Node: `0x` or `clinic flame`
-  - Python: `py-spy`
-  - Go: `go tool pprof`
-  - Java: `async-profiler`
-- DB slow-query logging enabled in dev.
+- The service built and started the way production runs it (`NODE_ENV=production`, a release build, no `--watch`, no debugger, the same worker count), on data shaped like production's.
+- A load generator on a separate host, or at least on cores the server does not use; generator CPU stays under 80% or the run measured the generator (`precedents/performance.md` § 48).
+- The profiler's permissions: ptrace-based samplers need root on macOS and `SYS_PTRACE` in a container (Docker `--cap-add SYS_PTRACE`; Kubernetes `securityContext.capabilities.add: [SYS_PTRACE]`).
+- An output folder outside the source tree for artifacts: `mkdir -p prof`.
+
+## Step 1 — Load at a fixed arrival rate (open model)
+
+```bash
+URL='http://localhost:3000/api/orders?limit=50'; RATE=200
+# autocannon 8.0.0: -R fixes the overall rate (coordinated-omission correction on by default); headers are K=V
+npx autocannon -c 64 -d 60 -R "$RATE" -l -j --renderStatusCodes -H "authorization=Bearer $TOKEN" "$URL" > prof/load.json
+# oha 1.16.0: the correction only works together with -q
+oha -z 60s -c 64 -q "$RATE" --latency-correction --no-tui --output-format json -H "Authorization: Bearer $TOKEN" "$URL" > prof/load.json
+# k6 2.x: constant-arrival-rate; thresholds exit non-zero. AGPL-3.0 — run it as a tool, never vendor it into the project
+k6 run -e URL="$URL" -e TOKEN="$TOKEN" --summary-trend-stats="avg,med,p(95),p(99),max" prof/load.js
+```
+
+```js
+// prof/load.js
+import http from 'k6/http';
+export const options = { scenarios: { s: { executor: 'constant-arrival-rate', rate: 200, timeUnit: '1s', duration: '60s', preAllocatedVUs: 100 } },
+  thresholds: { dropped_iterations: ['count<1'] } };
+export default () => http.get(__ENV.URL, { headers: { Authorization: `Bearer ${__ENV.TOKEN}` } });
+```
+
+Pick a rate from the route's production call rate (APM, access logs) or the SLO's target; a rate the generator could not reach (k6 `dropped_iterations` > 0, autocannon's achieved req/s below `-R`) measured a lower load than claimed.
+
+## Step 2 — Profile under that load, per runtime
+
+Attach while Step 1 runs at the same rate; one artifact per run, kept under `prof/`. Versions and flags as of 2026-10-02.
+
+| Runtime | Command (CPU unless stated) | Read it with | Traps |
+|---|---|---|---|
+| **Node.js** | `npx 0x -D 'prof/{pid}.0x' -- node dist/main.js` (0x 6.0.0, Node ≥ 20; stop with Ctrl-C / SIGINT, which writes the flamegraph). Built-in: `node --cpu-prof --cpu-prof-dir=prof dist/main.js` writes a `.cpuprofile` at process exit — give the app a graceful `SIGINT` path that calls `process.exit()`, and check the file exists. Sync I/O on the loop: `node --trace-sync-io dist/main.js` | `.cpuprofile` in Chrome DevTools → Performance, or speedscope | `clinic` 13.0.0 (last release 2023-06; its README says it is not actively maintained) may misreport on current Node — optional, never a required step |
+| **Python** | `py-spy record -o prof/cpu.svg -d 60 --pid "$PID"` (py-spy 0.4.2); add `--subprocesses` on the gunicorn / uvicorn master, `--idle` to include waiting frames (wall clock), `--gil` for GIL holders; `--format speedscope -o prof/cpu.json` for speedscope | the SVG, or speedscope | root on macOS; `SYS_PTRACE` in containers; Python 3.15's `python -m profiling.sampling` is the stdlib alternative once you run 3.15 |
+| **Go** | the service imports `net/http/pprof` on an internal-only port, then `curl -s -o prof/cpu.pb.gz "http://localhost:6060/debug/pprof/profile?seconds=60"` (Go 1.27) | `go tool pprof -top -nodecount=25 prof/cpu.pb.gz`; `go tool pprof -http=:8080 prof/cpu.pb.gz` | never expose the pprof port publicly; `block` / `mutex` profiles are empty unless `runtime.SetBlockProfileRate` / `SetMutexProfileFraction` are set |
+| **JVM** | `asprof -e cpu -d 60 -f prof/cpu.html "$PID"` (async-profiler 4.5); `-e wall -t` for threads parked in I/O; `-e alloc` for allocation. JFR: `jcmd "$PID" JFR.start duration=60s settings=profile filename=prof/rec.jfr` | the HTML flamegraph; JDK Mission Control for `.jfr` | containers block `perf_event_open`: use `--fdtransfer` or `-e ctimer` |
+
+For .NET (`dotnet-trace`), Ruby (`rbspy`) and native code (`perf`), see the source skill's table.
+
+A share is reported as `measured (sampling, <n> samples, <tool@version>)`. A frame under a few percent of samples is noise unless it is the whole of a slow request's tail.
+
+## Step 3 — The database side of the same run
+
+Reset before Step 1, read after it, on the database the profiled server talks to — never a production primary without the user's go.
+
+```sql
+-- PostgreSQL (pg_stat_statements loaded via shared_preload_libraries)
+SELECT pg_stat_statements_reset();                       -- before the run
+SELECT calls, round(total_exec_time::numeric, 1) AS total_ms, round(mean_exec_time::numeric, 2) AS mean_ms,
+       rows, left(query, 120) AS query
+FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 20;   -- after the run
+-- without the extension: ALTER DATABASE app_dev SET log_min_duration_statement = '50ms'; (new sessions only; RESET it afterwards)
+-- MySQL: SET GLOBAL slow_query_log = ON; SET GLOBAL long_query_time = 0.05;  then  pt-query-digest <slow-log> --limit 95%:20
+-- MongoDB: db.setProfilingLevel(1, { slowms: 50 });  then  db.system.profile.find().sort({ millis: -1 }).limit(20)
+```
+
+`calls` divided by the requests the load tool completed is **queries per request**. A count that grows with the page size is an N+1 candidate: prove it with the query-count scaling oracle (`proof-oracles.md` § Query-count scaling) and hand it to `n-plus-one-scan` *(database pack, when installed)*. A slow statement goes to `/optimize-query` *(database pack, when installed)*; without that pack, report it Unconfirmed with the `EXPLAIN (ANALYZE, BUFFERS)` to run on production-shaped data.
 
 ## Procedure
 
-1. Enable DB slow-query log (Postgres):
-   ```bash
-   # Turn the engine's slow-query log down to zero for the duration of the run.
-   # The statement is engine-specific — take it from `references/<engine>.md`, never from memory,
-   # and note that on some engines this needs a reload and on others a session variable is enough.
-   ```
-2. Warm up to avoid JIT + connection-pool noise:
-   ```bash
-   <load-generator> --connections 10 --duration 30 <endpoint-url>   # warmup, discard results
-   ```
-3. Baseline at low concurrency:
-   ```bash
-   <load-generator> --connections 50 --duration 60 --method POST -H "Authorization: Bearer $TOKEN" \
-     -H "Content-Type: application/json" \
-     -b '{"customerId":"u_1","items":[{"sku":"A1","qty":1}]}' \
-     http://localhost:3000/orders
-   ```
-4. Capture a flamegraph during a ramp:
-   ```bash
-   # Start server under 0x
-   <sampling-profiler> <the project's server start command> &
-   SERVER_PID=$!
-   <load-generator> --connections 200 --duration 60 <endpoint-url>
-   kill -SIGINT $SERVER_PID   # most profilers write the flamegraph on clean shutdown
-   ```
-5. Capture DB slow queries during the ramp:
-   ```bash
-   # Tail the engine's slow-query log — its path comes from the engine's own config,
-   # never a distro default — and filter for statements above your latency floor.
-   ```
-6. Disable verbose logging when done:
-   ```bash
-   # Reset the slow-query threshold to its previous value. Leaving it at zero on a shared
-   # environment is a real incident: it logs every statement.
-   ```
+1. Start the server as in § Prerequisites; reset the database statistics (Step 3).
+2. **Warm up** 30 s at the target rate and discard it (JIT, pools, caches).
+3. **Baseline** at the target rate, 60 s (Step 1). **Repeat it twice more** without changing anything: the spread of the three p95s is the noise band, and any later delta inside it is `NO-CHANGE` (`proof-oracles.md` § Noise band rules for timing oracles).
+4. **Profile** a fourth run at the same rate, profiler attached (Step 2). A ramp at higher rates belongs to `load-test`; profile at the rate where the SLO is missed.
+5. **Read the database side** (Step 3) and compute queries per request.
+6. Turn verbose logging back off; keep `prof/` out of version control.
 
 ## Output
 
 ```
-Endpoint: POST /orders
-
-Baseline (50 conn, 60s):
-  p50:  42ms    p95:  87ms    p99: 112ms    rps: 1180    errors: 0
-
-Ramp (200 conn, 60s):
-  p50:  98ms    p95: 340ms    p99: 720ms    rps: 1840    errors: 12 (vendor SDK timeouts)
-
-Where time is spent (flamegraph):
-  42%  OrderRepository.findByUser    (missing index on user_id)
-  18%  ProductMapper.toDto           (JSON.stringify of large nested obj)
-  15%  <vendor API call>             (network — can't optimize further)
-  25%  other (router, JSON parse, log serialization)
-
-DB slow queries (>50ms):
-  SELECT ... FROM orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50
-    avg 38ms, 420 calls — missing index on (user_id, created_at DESC)
-
-Recommendations (priority):
-  1. CREATE INDEX CONCURRENTLY idx_orders_user_created ON orders(user_id, created_at DESC); — expect p95 ~180ms.
-  2. Cache ProductMapper.toDto per product (invalidate on write).
-  3. Cap the vendor-API timeout + use a cached fallback reply.
+Endpoint: GET /api/orders?limit=50          build: release, NODE_ENV=production, 1 process
+Load:     autocannon 8.0.0 -c 64 -d 60 -R 200 · target 200/s achieved 199.4/s · gen CPU 31%
+Baseline (3 runs): p50 41 / 43 / 42 ms · p95 88 / 93 / 90 ms (band ±3 ms) · p99 140 ms · errors 0
+Profile:  0x 6.0.0, 11,820 samples → prof/48211.0x/
+  38%  OrderRepository.findForList        (measured, sampling)
+  17%  OrderMapper.toDto → JSON.stringify  (measured, sampling)
+  12%  pg-protocol Parser.parse            (measured, sampling)
+DB (pg_stat_statements, reset before the run): 11,964 requests completed
+  SELECT … FROM order_items WHERE order_id = $1     calls 598,200 → 50.0 per request
+  SELECT … FROM orders WHERE seller_id = $1 …        calls  11,964 → 1.0 per request, mean 6.1 ms
+Lanes:   load RAN · profiler RAN · db RAN
+Hand-offs (candidates, not findings):
+  - 50 queries per request on order_items, scaling with limit → n-plus-one-scan (database pack); oracle: query count at limit 2 vs 20
+  - OrderMapper.toDto 17% → request-path-scan; settle with a benchmark inside the noise band before ranking
 ```
+
+The block above is a shape: every number in a real run is copied from the artifact it names. A lane that could not run prints `SKIPPED (<reason>)` — no profiler permission, no database access — and the report says which claims that leaves unmeasured.
 
 ## False positives / gotchas
 
-- Empty tables run any query in ~0ms — populate with prod-like volume before profiling.
-- Local profiling on a laptop ≠ production hardware; treat findings as relative, not absolute.
-- The first request after server start hits cold cache + lazy DB connections — discard.
-- Most load generators' "connections" flag sets **concurrency, not RPS** — a closed-loop tool paces itself against your latency. If you need a fixed arrival rate, use the tool's rate flag, or you are measuring a different system than you think.
-- A "fast" endpoint is whatever your SLO says — don't chase numbers from a blog post.
+- Empty or tiny tables answer every query in about 0 ms; seed to the production row estimate and `ANALYZE` first.
+- A laptop number is relative, not absolute; compare before and after on the same machine, never against a production dashboard.
+- The first requests hit cold caches, unopened pool connections and an unoptimized JIT — that is what the warm-up discards.
+- `-c` connections is not a rate. Only `-R` / `-q` / `constant-arrival-rate` fix the arrival rate.
+- p99 averaged across runs or pods means nothing; keep each run's histogram, compare medians of percentiles.
+- Lower latency with a higher error rate, or with smaller responses, is a regression in disguise (`precedents/performance.md` § 50).
+- Sampling profilers attribute time spent waiting on I/O differently: CPU mode hides it, wall mode (`--idle`, `-e wall`) shows it. Say which mode the shares come from.
+
+## Related
+
+- `load-test` — boundary: this skill diagnoses ONE slow subject at one rate; `load-test` runs the whole-system campaign (mix, ramp to breakpoint, headroom) and hands the subject at the knee back here.
+- `memory-leak-hunt` — boundary: this skill profiles where time goes now; `memory-leak-hunt` holds load flat and hunts heap growth over time. RSS climbing during Step 4 goes there.
+- `/profile-perf` — the command that dispatches this skill for one slow path and ranks the fixes.
+- Detectors that receive the hand-offs: `request-path-scan` and `memory-growth-scan` (this pack); `n-plus-one-scan`, `index-coverage-scan` and `/optimize-query` *(database pack, when installed — without it, the database hand-offs are reported Unconfirmed with their settling probe)*.

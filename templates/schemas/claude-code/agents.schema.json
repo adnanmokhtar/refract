@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/claude-code/agents/v1.json",
   "title": "Claude Code agent frontmatter",
-  "description": "Validates the YAML frontmatter of */agents/*.md. No maxLength on `description`. The routing text is load-bearing \u2014 it is what separates 195 commands from each other \u2014 so its size is a BUDGET question, owned by whoever tunes the always-loaded cost, not a shape question owned here. The 300/400-char caps that used to sit here described no repo that ever existed: 61 commands and 54 agents were over them the day they were written.",
+  "description": "Validates the YAML frontmatter of */agents/*.md. No maxLength on `description`. The routing text is load-bearing — it is what separates 195 commands from each other — so its size is a BUDGET question, owned by whoever tunes the always-loaded cost, not a shape question owned here. The 300/400-char caps that used to sit here described no repo that ever existed: 61 commands and 54 agents were over them the day they were written.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -54,6 +54,37 @@
     },
     "trigger": {
       "type": "string"
+    },
+    "disallowedTools": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ],
+      "description": "Tools removed from the inherited set (Claude Code sub-agents § Supported frontmatter fields)."
+    },
+    "maxTurns": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        }
+      ],
+      "description": "Maximum agentic turns before the subagent stops (Claude Code sub-agents § Supported frontmatter fields)."
+    },
+    "omitClaudeMd": {
+      "type": "boolean",
+      "description": "Launch without the user/project/local CLAUDE.md files (Claude Code >= 2.1.271; older versions ignore the key — measured on 2.1.236, whose frontmatter parser only reports unknown keys to telemetry). For judges that must take everything from their brief."
     }
   }
 }

@@ -38,7 +38,7 @@ severity: must
 ## Enforcement
 
 - `PostToolUse` lint hook where configured; CI on merge if the project sets one up.
-- Otherwise convention + review — the baseline ships no CI gate for these rules. The shipped hooks are `pre-edit-guard`, `secret-scan`, `guard-destructive`, `inject-path-rules`, `test-lane` (PreToolUse), `post-edit-check`, `format-on-save`, `auto-test` (PostToolUse, opt-in), `recall-inject` (UserPromptSubmit, opt-in), `session-start`, `verify-gate`/`update-session-log` (Stop), and `notify` (Notification).
+- The Stop gate (`verify-gate` → `.claude/scripts/gate-check.py`) blocks on red tests, lint, typecheck and secrets, and records the rest; the `refract-gates` CI job re-runs it in shadow mode. Everything else here is review. The hooks and what each enforces: `.claude/GUIDE.md` § Hooks.
 
 ## Anti-patterns (avoid)
 

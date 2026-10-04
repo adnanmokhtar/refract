@@ -43,7 +43,7 @@ Every item cites `<path:line>`. "Debt" here means **intentional, marked, or know
 `TODO` / `FIXME` / `HACK` / `XXX` comments with no owner and no date. A marker without an owner and a date is debt with no due date — it never gets paid.
 
 ```bash
-rg -n --pcre2 '\b(TODO|FIXME|HACK|XXX)\b(?!.*\((@?\w+),?\s*\d{4})' -g '!**/{node_modules,vendor,dist,build}/**'
+rg -n --pcre2 '\b(TODO|FIXME|HACK|XXX)\b(?!.*\((@?\w+),?\s*\d{4})' -g '!**/{node_modules,vendor,dist,build}/**' .
 # then classify: has owner+date in `(name, 2025-01)` shape → compliant; bare → debt
 ```
 
@@ -60,7 +60,7 @@ Linter/compiler/analyzer suppressions with no justification comment on the same 
 - C#: `#pragma warning disable`
 
 ```bash
-rg -n 'eslint-disable|@ts-(ignore|nocheck)|# ?noqa|# ?type: ?ignore|@SuppressWarnings|//nolint|pragma warning disable' -g '!**/{node_modules,vendor,dist,build}/**'
+rg -n 'eslint-disable|@ts-(ignore|nocheck)|# ?noqa|# ?type: ?ignore|@SuppressWarnings|//nolint|pragma warning disable' -g '!**/{node_modules,vendor,dist,build}/**' .
 ```
 
 Classify: a suppression with an adjacent justification (`// eslint-disable-next-line no-explicit-any -- upstream types are wrong, see #1234`) is compliant; a bare suppression is debt. `@ts-expect-error` is *slightly* better than `@ts-ignore` (it fails when the error goes away) but still needs a reason.
@@ -71,7 +71,7 @@ Call sites into APIs marked deprecated (by `@deprecated` JSDoc/annotation, a dep
 
 ```bash
 # find deprecated declarations, then find their call sites
-rg -n '@[Dd]eprecated|DeprecationWarning|@deprecated' -g '!**/{node_modules,vendor}/**'
+rg -n '@[Dd]eprecated|DeprecationWarning|@deprecated' -g '!**/{node_modules,vendor}/**' .
 ```
 
 Rank by call-site count (blast-radius) and removal timeline (fix-cost / urgency).

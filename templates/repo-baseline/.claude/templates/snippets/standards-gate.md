@@ -51,9 +51,12 @@ One ledger row per fired ID:
   the production-readiness ledger, a reviewer's table, the spec-conformance gate — cite that
   verdict as the evidence.
 - A `hook:` row is closed by the hook's result, not by re-running its check by hand.
-- **Run the detector on the change.** `python3 ~/.claude/scripts/standards-check.py . --changed=<base>`
+- **Run the detector on the change.** `python3 .claude/scripts/standards-check.py . --changed=<base>`
+  (the project's own copy; `~/.claude/scripts/standards-check.py` where an older setup lacks it)
   reads the files this change touched for the rows a machine can decide — DATA-1, DATA-9, RES-3,
-  OBS-5, WEB-2, WEB-3, QG-7. Its output is the evidence for those rows; an OPEN line there is
+  OBS-5, WEB-2, WEB-3, QG-7. The Stop hook's `gate-check.py` runs the same detector and records it
+  as `.claude/evidence/<sha>/G7-standards.json`; when that record is for this tree, cite it
+  instead of re-running. Its output is the evidence for those rows; an OPEN line there is
   `UNMET` here unless this change fixes it or `.claude/standards-check.allow` records why it does
   not apply. Run once without `--changed` for the `Project baseline:` line (the project-level
   rows RES-1, RES-5, OBS-4, SEC-05, QG-13, and the repo-wide totals).

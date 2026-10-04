@@ -1,0 +1,41 @@
+# refract-gates — the gates that decide "done", re-run outside the agent's session.
+#
+# Installed by /setup-project (templates/phases/phase-4.2-apply.md § 4.2.d) as
+# .gitlab/refract-gates.gitlab-ci.yml, never over an existing file of that name. GitLab reads ONE
+# pipeline file, so this is not wired automatically — /setup-project prints the `include:` line
+# for the owner to add to .gitlab-ci.yml rather than editing a file the project owns:
+#
+#   include:
+#     - local: .gitlab/refract-gates.gitlab-ci.yml
+#
+# WHY. The Stop hook runs .claude/scripts/gate-check.py at the end of every session, but a hook
+# is advisory-strong: Claude Code lets a session stop after 8 consecutive blocks, a tool without
+# hooks never runs it, and `.claude/.no-verify-gate` switches it off. CI is the one place the same
+# checks run whatever happened in the session.
+#
+# SHADOW MODE (v1). `--mode=shadow` records every gate and enforces none, and the job is
+# allow_failure, so it never fails a pipeline. Move a gate to warn and then block in
+# .claude/gates.json — and drop `--mode=shadow` here — only after it has run on real changes with
+# a false-block rate you accept. G1 runs the project's own suite, so its verdict here is only as
+# good as the dependency install below; an existing test job stays the authority for G1.
+refract-gates:
+  stage: test
+  image: python:3.12
+  allow_failure: true
+  variables:
+    GIT_DEPTH: "0"   # G2 and G15 diff against the merge-base, which a shallow clone does not hold
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt || true; fi
+    - |
+      base="${CI_MERGE_REQUEST_DIFF_BASE_SHA:-$CI_COMMIT_BEFORE_SHA}"
+      case "$base" in ''|0000000000000000000000000000000000000000) base="HEAD~1" ;; esac
+      python3 .claude/scripts/gate-check.py --ci --mode=shadow --base="$base" 2>&1 | tee gate-check.txt
+  artifacts:
+    when: always
+    name: refract-evidence
+    paths:
+      - .claude/evidence/
+      - gate-check.txt

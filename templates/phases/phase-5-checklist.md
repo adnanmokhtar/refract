@@ -21,6 +21,7 @@ Phase 5 must NOT report success unless every `must` row passes. `should` rows wa
 | `.claude/rules/read-codebase-deeply.md` exists                         | must     | A19   |
 | `.claude/rules/code-quality.md` exists                                 | must     | A19   |
 | `.claude/rules/think-simplify-surgical.md` exists                      | must     | A19   |
+| `.claude/rules/engineering-baseline.md` exists                         | must     | A19   |
 | `ai/conventions.md` exists                                             | must     | N15   |
 | Foundational `ai/` files populated, not baseline stubs (5.3.6 gate, EVERY mode): `architecture`/`stack`/`modules`/`status`/`conventions`/`business-domain`/`_convention-cheatsheet` — none byte-identical to `repo-baseline/ai/<f>.md`, none carry baseline placeholder tokens | must | N15 / phase-5-verify §5.3.6 |
 | `ai/status.md` has `Updated:` and `## Recent Changes`                  | must     | A06   |

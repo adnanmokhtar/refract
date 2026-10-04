@@ -21,7 +21,7 @@ Distinguishing what is checked from what is measured, so the two never get confl
 
 | Checked | How | Status |
 |---------|-----|--------|
-| Every seeded anchor resolves to its recorded line | `run.sh --verify` | 50/50 across 3 fixtures |
+| Every seeded anchor resolves to its recorded line | `run.sh --verify` | 234/234 across 7 fixtures (58 of them decoys) |
 | Staging never leaks the answer key | `run.sh --fixture=<n>`, then `find` for `DEFECTS.md` | 0 copies staged |
 | Staged tree is byte-identical to source minus `DEFECTS.md` | `diff -r --exclude=DEFECTS.md` | identical |
 | Scorer credits a correct report | synthetic findings → known ids | maps as intended |
@@ -40,7 +40,7 @@ straight.
 |------|---------|---------|-------|---------------|----------|------|--------------|-----------|-------|
 | — | — | — | — | — | — | — | — | — | *no run recorded* |
 
-Seeded totals, for the denominators above: `node-api` 20 · `web-dashboard` 14 ·
+Seeded totals, for the denominators above: `node-api` 21 (20 seeded + 1 found later, NAPI-DATA-01) · `web-dashboard` 14 ·
 `half-built-crm` 16.
 
 `unmatched` is the count of reported findings that mapped to no seeded id. **It is not a

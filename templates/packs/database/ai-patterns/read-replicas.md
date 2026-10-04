@@ -97,14 +97,18 @@ Extract the engine + how the app selects a connection, then map to routing + lag
 
 ## Detectors (cite-or-halt)
 
-Each finding cites `<file:line>` for the read + its routing target + the matched pattern + the fix.
+This pattern is the method. Run the owner of each class and print its class block. Never re-derive a class here.
 
-1. **Read-after-write routed to a replica (stale read).** BAD: an `UPDATE`/`INSERT` on the primary followed by a `SELECT` of the same record on a replica in the same request/session — user sees stale data. GOOD: primary-pin window or LSN/GTID token for that read. Grep: a `reader`/replica `SELECT` in a handler that also performed a write on the same entity.
-2. **No lag awareness / monitoring.** BAD: reads routed to replicas with no lag metric, alert, or router eviction. GOOD: continuous lag monitoring + threshold alert + eject-on-lag. Grep: replica routing config with no reference to `ReplicaLag`/`Seconds_Behind`/`replay_lsn`/lag threshold.
-3. **All reads to primary (replicas wasted).** BAD: replicas provisioned but every `SELECT` hits the writer — paying for read scaling, getting none. GOOD: staleness-tolerant reads (reports, feeds, search) routed to replicas. Flag for routing work; cite the primary CPU/read load evidence.
-4. **All reads to a replica (stale-sensitive ones break).** BAD: a blanket "reads → replica" rule that also sends auth checks, balance guards, and read-your-writes to a lagging copy. GOOD: per-read classification; sensitive reads to primary/token. Grep: a global read-split with no carve-out for auth/consistency-critical queries.
-5. **Analytics / report queries on the primary.** BAD: heavy aggregate/report/export queries running on the writer, competing with OLTP. GOOD: offload to a replica or a dedicated read-only/analytics replica. Grep: large `GROUP BY`/`JOIN`/export queries pinned to the primary connection.
-6. **No failover / promotion plan.** BAD: replica routing with no automated promotion, RTO, or acknowledged RPO for async loss-of-tail. GOOD: documented failover (Patroni/RDS/Aurora/Orchestrator) + RTO/RPO stance. Flag for ADR — routing without a promotion plan is an outage-in-waiting.
+| # | Class | Owner |
+|---|---|---|
+| 1 | Read-after-write routed to a replica (stale read) | `connection-config-scan` §8 |
+| 2 | No lag awareness or monitoring on replica routing | `connection-config-scan` §8 (grep 8c reads the lag evidence) |
+| 3 | All reads to the primary while replicas sit idle | distributed-systems `@capacity-planner` (when installed). A capacity call, not a defect: it needs the primary's measured read load |
+| 4 | All reads to a replica, auth, balance and pre-write checks included | `connection-config-scan` §8 |
+| 5 | Analytics, report or export queries on the primary | distributed-systems `@capacity-planner` (when installed), from the live workload `/db-audit` L2 prints |
+| 6 | No failover or promotion plan | infrastructure `dr-audit` (when installed). Without it, `report-flagged` for an ADR |
+
+A missing owner pack prints `N/A (owner pack <x> not installed)` in the `/db-audit` ledger; it is never silently skipped.
 
 ## Closure verbs
 
@@ -118,4 +122,4 @@ Each finding cites `<file:line>` for the read + its routing target + the matched
 - `transaction-isolation.md` — a read-your-writes guard before a write must use the primary; replica reads can't hold the locks a consistent read-modify-write needs.
 - `connection-pooling.md` — replicas need their own pools; the fleet connection ceiling is per-target (primary + each replica), not global.
 - `distributed-systems` `consistency-models` — owns the CAP/linearizability theory this pattern's routing enforces in practice; state the split when a finding is really about the promised consistency model.
-- `@database-optimizer` / `@schema-reviewer` — review agents that consume these detectors.
+- `connection-config-scan` §8 — the detector for the routing classes above; `/db-audit` dispatches it and `/db-fix` closes its findings.

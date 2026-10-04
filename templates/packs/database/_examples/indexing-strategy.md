@@ -78,17 +78,7 @@ There is no universal threshold — the crossing point moves with the table's re
 
 ## Detect what is already wrong
 
-```sql
--- Postgres
-SELECT relname, seq_scan, seq_tup_read, idx_scan FROM pg_stat_user_tables
- WHERE seq_scan > idx_scan AND n_live_tup > 100000 ORDER BY seq_tup_read DESC;
-SELECT relname, indexrelname, idx_scan, pg_relation_size(indexrelid) AS bytes
-  FROM pg_stat_user_indexes WHERE idx_scan = 0 ORDER BY bytes DESC;
--- MySQL
-SELECT * FROM sys.schema_unused_indexes;
-SELECT * FROM sys.schema_redundant_indexes;
-SELECT * FROM sys.schema_tables_with_full_table_scans;
-```
+`index-coverage-scan` is the detector: a static lane on any repo, and a read-only live lane (L2 FKs with no leading index, L3 left-prefix duplicates, L4 invalid and never-scanned indexes, L5 HOT share on write-hot tables, L6 partitions × indexes, with the MySQL `sys` equivalents). Seq-scan-dominated tables come from `/db-audit` live L2.
 
 An unused index is a **candidate**, never an instruction: confirm across a full business cycle, and exclude unique constraints and the indexes enforcing foreign keys.
 

@@ -54,7 +54,12 @@ def historical_hashes(path):
 
 
 def build():
+    # Untracked-but-not-ignored files count too. Listing only TRACKED files made a NEW baseline file
+    # invisible until it was committed: --check passed in the working tree and went red on the very
+    # commit that added the file, unless someone remembered to regenerate after `git add`. A file's
+    # untracked content hashes the same as its committed content, so both states now agree.
     files = subprocess.check_output(["git", "ls-files", BASE], text=True).split()
+    files += subprocess.check_output(["git", "ls-files", "--others", "--exclude-standard", BASE], text=True).split()
     files = [f for f in files if os.path.basename(f) != ".baseline-hashes"]
     lines = [
         "# Every version of every baseline file this repo has shipped, by content hash.",

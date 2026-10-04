@@ -38,7 +38,7 @@ Everything else — prop default-true vs default-false, slot vs prop for header,
 | **Standard** | New shape with 1 new prop convention or new slot pattern | Trivial + 1-paragraph sibling-shape note inline | NO |
 | **Heavy** | New shared-primitive family (first dialog, first datepicker, first dropdown wrapper) | Standard + ADR + `@design-system-guardian` *(ui-ux pack)* + `@accessibility-auditor` dispatch | NO |
 
-**Dispatch fallback (all tiers).** If a named agent, command, or skill is not installed in this project, perform that review inline against the corresponding pack/domain checklist and label it as such in the report — never silently skip the axis, and never claim a reviewer that did not run.
+**Dispatch fallback (all tiers).** If a named reviewer — agent, command, or skill — is not installed in this project, that axis is **not reviewed**: do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <name> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`) — never silently skip the axis, and never claim a reviewer that did not run.
 
 **Lightweight default.** Trivial-tier is the default. ADR drafts are heavy-tier opt-in only — drafting an ADR to legitimize a new card variant is the same anti-pattern as the migration pack's "ADR-as-closure" trap.
 

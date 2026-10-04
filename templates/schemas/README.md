@@ -21,9 +21,20 @@ schemas/
 │   └── rules.schema.json      # .cursor/rules/*.mdc frontmatter
 ├── opencode/
 │   └── config.schema.json     # opencode.json
-└── generic/
-    └── agents-md.schema.json  # AGENTS.md (universal anchor) section presence
+├── generic/
+│   └── agents-md.schema.json  # AGENTS.md (universal anchor) section presence
+└── refract/
+    ├── evidence.schema.json   # .claude/evidence/<sha>/<gate>-<check>.json — one gate-check.py record per check
+    ├── acceptance.schema.json # ai/runs/<run>/acceptance.json — the locked contract, written before code
+    ├── findings.schema.json   # ai/runs/<run>/reviews/<agent>-<lens>.json — a review lens's candidates
+    └── verdict.schema.json    # ai/runs/<run>/verdict.json (+ verdict-refute.json) — the verifier's record
 ```
+
+`refract/` holds the shapes of Refract's OWN machine records, not of another tool's config. Unlike the
+reference shapes above, these ARE checked: `tests/hooks/run.sh` validates every record `gate-check.py`
+writes in its fixtures against `evidence.schema.json`, and the SubagentStop hooks validate every verdict
+and review against the other three at write time — refusing a malformed one — through the byte-identical
+copies installed at `templates/repo-baseline/.claude/schemas/` (the suite fails if the copies drift).
 
 ## Conventions
 

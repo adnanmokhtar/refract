@@ -52,7 +52,7 @@ Heavy tier runs all 7 (Understand → Organize → Retrieve → Generate → Upd
 - **New npm dependency is gated** — a package no sibling already imports halts for a dependency review (maintenance / license / bundle-size / supply-chain) before it lands. No silent `npm install`, any tier. See Phase 4 § New-dependency gate.
 - **All relevant patterns consulted** — not just principles, specific pattern docs (`ai/patterns/forms.md`, `rendering-strategy.md`, `i18n.md`, etc.).
 - **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews (carrying the framework-specific lens — Vue/React/Svelte/etc.); `accessibility-auditor` audits; `i18n-auditor` if i18n in scope.
-- **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → `@design-system-guardian` *(ui-ux pack)* audits, or — when that pack is absent — the theme lane is graded inline against `rules/frontend-principles.md` § Must not (the design-token bullet) and reported as `theme: graded inline (ui-ux pack absent)`.
+- **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → `@design-system-guardian` *(ui-ux pack)* audits, or — when that pack is absent — the theme lane is reported `UNREVIEWED(theme) — design-system-guardian not installed (ui-ux pack)` and the run is INCOMPLETE; it is never self-graded.
 - **Zero unverified UI ships.** Real Playwright/Cypress test or, at minimum, manual checklist with screenshots.
 - **Accessibility from the start, not retrofitted.** WCAG 2.2 AA is the floor.
 - **i18n from the start, not retrofitted.** No hardcoded user-facing strings.
@@ -247,14 +247,14 @@ After generation, dispatch (gated by tier):
 - **Standard-tier:** add `@i18n-auditor` (if i18n in scope) and `@accessibility-auditor`.
 - **Heavy-tier:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@security-auditor` (if auth/payment in scope — which the Phase 1 data-sensitivity gate guarantees is reachable: a sensitive surface promotes to heavy on data grounds, so it can no longer be trivial-tier by virtue of mirroring a sibling). Run in parallel. `@ui-reviewer` carries the framework-specific lens (Vue/React/Svelte/etc.) — there is no separate per-framework reviewer agent.
 
-If a named **agent, command, or skill** is not installed in this project, perform that review inline against the corresponding pack/domain checklist and label the lane accordingly (`<axis>: graded inline (<pack> absent)`) — never silently skip the axis, never claim a reviewer that did not run, and never halt into a redirect target the project does not have.
+If a named **agent, command, or skill** is not installed in this project, that lane is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Label it `UNREVIEWED(<axis>) — <name> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`) — never silently skip the axis, never claim a reviewer that did not run, and never halt into a redirect target the project does not have.
 
 ### New-dependency gate (all tiers)
 
 If implementing the feature pulls in an npm package **no sibling already imports**, it never lands silently — the cost on frontend is paid by every user on every page load.
 
 - **Confirm it's actually new** — check `package.json` + lockfile; a sibling may already ship an equivalent (date lib, form lib, icon set). Reuse it.
-- **Run a dependency review** (dispatch `security-auditor`, or inline against the checklist): maintenance health, license, **bundle-size delta** (gzipped, and whether it tree-shakes), and whether a platform API or an already-installed primitive covers the need.
+- **Run a dependency review** (dispatch `security-auditor`): maintenance health, license, **bundle-size delta** (gzipped, and whether it tree-shakes), and whether a platform API or an already-installed primitive covers the need. Not installed → record those facts with the command that produced each (`npm view <pkg> time.modified license`, `npm audit`, the measured gzip delta) and report `UNREVIEWED(dependency) — security-auditor not installed (security pack)`; the run is INCOMPLETE.
 - **Record the decision** — one PR line (trivial / standard) or an ADR (heavy, or any auth / payment / crypto dep).
 
 HALT on an unreviewed new dependency. Prefer the design-system / already-present primitive over a new package by default.
@@ -279,6 +279,26 @@ This is the same `regressed` mechanism from `parity-auditor.md` § V2-structure 
 ### Standards gate (mandatory, all tiers)
 
 Run [`templates/snippets/standards-gate.md`](../../../snippets/standards-gate.md) with the `web` baseline (plus `data` if the change adds a query, a schema or a local store). Select the fired rows before generating — for a feature that is usually WEB-1..WEB-12, QG-1, QG-3 on role-gated surfaces — and close each with evidence after Phase 6, before the Output block. The sibling governs shape; the baseline governs guarantees: a sibling page with no empty state, a raw `fetch` or a hardcoded colour is a defect to report and fix, not a shape to mirror. Any `UNMET` or `SKIPPED` row → INCOMPLETE.
+
+### Acceptance contract and independent verdict (standard + heavy tiers)
+
+Done is written down before the code and decided by someone who did not build it — follow
+[`templates/snippets/acceptance-contract.md`](../../../snippets/acceptance-contract.md):
+
+1. **Before Generate**, open `ai/runs/<run-id>/` and write `acceptance.json` from the spec's
+   acceptance criteria (spec branch) or the request and the Phase-2 decomposition (bare
+   description) — one EARS sentence per criterion, the empty, error and loading states each as their own criterion, every role rule as a negative (hidden / denied) criterion. Write the named acceptance tests
+   (component / e2e at the level each criterion needs) and run them through
+   `.claude/hooks/test-lane.sh record '<cmd>'`: each red for the missing behaviour.
+2. **Lock** — `.claude/scripts/lock-acceptance.sh <run-id>` before Generate. From then on
+   `test-lock.sh` denies edits to the contract and its tests. A criterion that contradicts the
+   requirement is `SPEC_CONFLICT` — stop and report it; never bend the test.
+3. **After Phase 6**, dispatch `@verifier` in `acceptance` mode with a
+   [delegation brief](../../../snippets/delegation-brief.md) — paths and a mode, never your summary —
+   and read `ai/runs/<run-id>/verdict.json`. `Status: SHIPPED` (COMPLETE) **only from that file
+   saying `PASS`, fresh, signed `verifier`**; FAIL or CONCERNS is `NEEDS REVIEW` naming the criteria.
+
+Trivial tier writes no contract; the standards gate and the sibling-shape halt remain its gates.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
@@ -329,7 +349,7 @@ When the feature was built from a spec (Phase 1 spec branch), every spec section
 - **Observability → matched signal.** Each required signal (error capture, analytics event, RUM/route timing) is wired the way siblings wire it and verified emitted. Unmatched signal → HALT.
 - **Each Success metric → instrumented OR deferred.** The metric's event is wired and firing, OR it is explicitly deferred with a recorded reason. Silently-absent metric → HALT.
 
-If a named agent, command, or skill (`@accessibility-auditor`, `@i18n-auditor`, `@security-auditor`, `/enhance-ui`, `web-vitals-field`, ...) is not installed, run the corresponding check inline against that pack's checklist and label it `graded inline (<pack> absent)` — never skip the section, never fabricate the output the missing artifact would have produced.
+If a named agent, command, or skill (`@accessibility-auditor`, `@i18n-auditor`, `@security-auditor`, `/enhance-ui`, `web-vitals-field`, ...) is not installed, that check is **not run** — do not grade it yourself; report `UNREVIEWED(<axis>) — <name> not installed (<pack> pack)` and the run is INCOMPLETE — never skip the section, never fabricate the output the missing artifact would have produced.
 
 ### Build-time traceability rebuild (spec-path only — HALT on any untested AC-ID)
 
@@ -355,7 +375,8 @@ Rebuild the AC→test map from the live test suite at build time — do not trus
 ```
 ## /add-feature — <feature-name>
 
-Status: SHIPPED | NEEDS REVIEW | BLOCKED
+Status: SHIPPED | NEEDS REVIEW | BLOCKED     (standard/heavy: SHIPPED only from verdict.json PASS — fresh, signed verifier; BLOCKED covers SPEC_CONFLICT)
+Acceptance: ai/runs/<run-id>/ — <N> criteria locked · verifier verdict: PASS | FAIL | CONCERNS   (standard/heavy tiers)
 Spec:   <Spec-ID>        (always present when built from a spec — every tier, including trivial)
 
 Files written:

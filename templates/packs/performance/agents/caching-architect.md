@@ -28,6 +28,7 @@ A cache that returns stale data for 30 seconds is a feature. A cache that return
 
 ## Pre-flight (read before designing)
 
+0. **Verified `caching-scan` findings, when the design replaces a defective cache.** `/perf-audit` and `/perf-fix` hand this agent rows that `caching-scan` (this pack) raised and a separate verifier passed through `refute-before-report.md` — the key family, the missing control (TTL, single-flight, identity dimension, invalidation on a named write path, failure handling, commit ordering, timeout) and the oracle that proved it. Design the replacement against that row; never re-detect from memory, and never design over a row that is still Unconfirmed (its settling probe runs first).
 1. `ai/architecture.md` — module boundaries, current data-flow.
 2. `ai/runtime/perf-budgets.md` if exists — latency/throughput targets.
 3. The endpoint / page / job being optimized — its data dependencies.
@@ -228,7 +229,8 @@ When designing for a feature:
 ## Related
 
 ### Sibling agents in performance pack
-- `@performance-optimizer` — broader perf; this agent is the cache-specialist sub-agent.
+- `@performance-optimizer` — ranks verified findings by labelled impact and hands cache design here; this agent is the cache-specialist.
+- `caching-scan` (skill, this pack) — the detector whose verified findings this agent designs replacements for; its proofs (size plateau, two-tenant denial, K concurrent misses → 1 origin call) are the tests the new design must pass.
 
 ### Patterns
 - `caching-strategy` (in backend pack) — broader strategy doc.

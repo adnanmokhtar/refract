@@ -1,65 +1,51 @@
 ---
 name: mutation-probe
-description: Measure test STRENGTH by mutation-testing changed code — surface survived mutants (the source was corrupted, the suite stayed green) and the assertion-free tests that let them live. Sits beside coverage-gap; coverage-gap proves a branch RAN, mutation-probe proves a test would CATCH it breaking.
+description: "Measure test strength on changed lines: run the repo's mutation tool with current flags (or seed one mutant by hand), surface surviving mutants, dismiss equivalents by a five-check procedure, and emit the mutant-kill evidence row a fix consumes."
 ---
 
 # mutation-probe
 
-A green test that asserts nothing is worse than no test — it buys false confidence. Coverage says the line ran; mutation testing says the line's behaviour is actually pinned. This is the strength probe.
-
 ## Premise
 
-The failure mode: "100% coverage, 0% mutation score" — every line executes, yet you can corrupt the logic (`>` → `>=`, `&&` → `||`, `return x` → `return null`) and every test stays green. Coverage measured presence; nothing measured strength.
+Coverage says a line ran; a mutant says whether any test would notice it breaking. A **survived** mutant is a regression the suite would ship green. This is a harness on changed or named lines only — never repo-wide in PR CI. **coverage-gap finds lines never EXECUTED; mutation-probe finds lines executed but never ASSERTED** — an unexecuted mutant goes back to coverage-gap. Every survivor cites `<file:line>` + the operator (original → mutated) + the tests that ran it + the assertion that would kill it.
 
-Cite-or-halt: a survived mutant is cited by `<file:line>` + the exact mutation applied + why the test missed it. "Weak tests here" is not a finding; "`pricing.ts:42` `>` → `>=` survived — the spec calls `calc()` but never asserts the boundary" is.
+## Boundaries
 
-Boundary with `coverage-gap` (state it, don't cross it): **coverage-gap finds branches never EXECUTED (presence); mutation-probe finds branches executed but never ASSERTED (strength).** A mutant that survives because its line never ran is a coverage gap — hand it off, don't report it here.
-
-## When to run
-
-- On the **changed scope of a PR** (mutation testing is expensive — scope to the diff, never the whole tree).
-- **Before a refactor** you're about to trust the suite for.
-- After a bug fix — confirm the regression test *kills* the reintroducing mutant, not just runs the line.
+- Boundary: unexecuted lines → `coverage-gap`; reading which tests cannot fail → `assertion-strength-scan`; writing the killing test → `@test-engineer` / `/add-test`; closing an audit finding → `/test-fix`; a mutation-exclusion hint added in the change → `.claude/scripts/test-integrity.py` when the repo-baseline is installed.
 
 ## Adapt to the codebase
 
-Drive the project's own tool, detected from config/deps: Stryker (JS/TS), mutmut / cosmic-ray (Python), PIT (Java), gremlins (Go), mutant (Ruby), Stryker.NET, cargo-mutants (Rust). Prefer each tool's incremental / `--since` / `--in-diff` mode. Parse the report for `Survived` / `alive` / `LIVED` / `MISSED`.
+Detect the tool from config and dependencies; never impose one. Use each tool's diff-scoped mode — StrykerJS `--mutate <file:start-end>` (StrykerJS has no `--since`), Stryker.NET `--since:<base>`, mutmut 3 mutant-name globs (`--paths-to-mutate` is gone), PIT `-DtargetClasses` (`scmMutationCoverage` was removed in 1.18.0), gremlins `--diff`, cargo-mutants `--in-diff`. Survivors read `Survived` / `survived` / `SURVIVED` / gremlins `LIVED` / go-mutesting `FAIL` / cargo-mutants `MissedMutant`.
+
+## Scans for
+
+§1 surviving mutant on a changed, executed line · §2 boundary not pinned · §3 error path executed but unasserted · §4 pseudo-tested method · §5 executed but unchecked.
 
 ## Procedure
 
-1. Compute the diff scope — `git merge-base HEAD origin/main`, then `git diff --name-only "$BASE"..HEAD`.
-2. Run the project's mutation tool scoped to those files. Prefer the tool's own incremental / `--since` / `--in-diff` mode over mutating the whole tree.
-3. Parse the report for surviving mutants (`Survived` / `alive` / `LIVED` / `MISSED`). For each, capture `<file:line>`, the mutation operator applied, and the original → mutated source.
-4. Classify each survivor by **why the test missed it** — no assertion on the mutated value (a real gap; name the assertion to add) · asserts a coincidental side value (tighten the existing assertion) · the branch never ran (a coverage gap — hand to `coverage-gap`, do not report it here) · equivalent mutant (dismiss with the reason).
-5. Rank real gaps by blast radius: hot module > cold; business-rule / money / auth branch > cosmetic; boundary/off-by-one mutants first — they are the ones that ship real bugs.
+1. Compute the changed lines from the merge base, skip arid lines (logging, imports, braces).
+2. Run the project's mutation tool scoped to those lines with its diff-scoped mode (above), never the whole tree. With no tool, seed one operator per branch by hand, run the covering tests, restore, and prove the restore with `git diff --exit-code`.
+3. Parse the report for surviving mutants (the survivor statuses above). For each, capture `<file:line>`, the mutation operator applied, and the original → mutated source.
+4. Classify each survivor by **why the test missed it** — no assertion on the mutated value (a real gap; name the assertion to add) · asserts a coincidental side value (tighten the existing assertion) · the line never ran (a coverage gap — hand to `coverage-gap`) · equivalent mutant (dismiss only after the five checks: type context, reachability, downstream consumption, semantic comparison, a distinguishing-input attempt).
+5. Rank real gaps: money / auth / limits branches and boundary mutants first.
 
-## Output (abridged)
+## Output
 
 ```
-Mutation probe — feature/checkout-rules  (base=origin/main)
-Scope: 6 files  |  Mutants: 48  |  Killed: 39  |  Survived: 7  |  Equivalent: 2  |  Score: 85%
+mutation-probe — base 8f3c2a1 · lane StrykerJS (package.json)
+Score (StrykerJS): (Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage) — equivalents excluded
 
-SURVIVED (assertion gaps):
-  pricing.service:42  `>` → `>=`  — spec calls calc() but never asserts the == boundary
-    add: expect(calc(threshold)).toBe(<no-discount>)
-
-HAND TO coverage-gap (line never ran):
-  legacy-fee:120 — presence gap, not strength gap.
-
-DISMISSED (equivalent mutants — excluded from denominator):
-  logger:9  `i++` → `++i` in a discarded expression — behaviourally identical.
+1. pricing.service:42  [report-with-fix]  `>` → `>=` Survived — no test sends total == threshold
+   add: expect(calc(threshold, threshold)).toBe(<no-discount>)
+HAND TO coverage-gap: legacy-fee:120 (NoCoverage)
+DISMISSED (equivalent): clamp:9 `>` → `>=` — returns the same value when equal
 ```
 
-Closure verbs: **report-with-fix** (name the assertion for each genuine survivor) and **halt-handoff** (route unexecuted lines to coverage-gap).
+Closure: report-with-fix per survivor, with a `mutant-kill` evidence row (before Survived, after Killed, siblings on the line killed, restore checked).
 
 ## Halt conditions
 
 - Halt on a survived-mutant claim without `<file:line>` + the cited mutation + which test failed to assert.
+- Halt on any of these wrong flags: StrykerJS `--since`, mutmut `--paths-to-mutate`, PIT `scmMutationCoverage`, gremlins `--diff-ref`, a go-mutesting `LIVED` line, a cargo-mutants `caught` field.
 - Halt on classifying an unexecuted line as a strength gap — that's a coverage gap; hand it off.
-- Halt on a mutation score reported without stating whether equivalent mutants were excluded.
-
-## Related
-
-- `coverage-gap.md` — boundary sibling: presence (did the branch run) vs strength (would a test catch it breaking).
-- `@test-reviewer` — the assertion-quality auditor mutation-probe feeds surviving-mutant fixes into.
-- `test-strategy.md` — where mutation testing sits in the pyramid (a strength gate on critical modules, not every file).
+- Halt on a mutation score reported without its formula and whether equivalent mutants were excluded.

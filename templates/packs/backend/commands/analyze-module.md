@@ -106,7 +106,7 @@ Dispatch in parallel:
 - **`test-reviewer`** — coverage %, test quality, presence of tenant-isolation tests, flake history.
 - **`dead-code-finder`** — unused exports, files with no imports, dead branches.
 
-If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. **This matters more here than anywhere else in the pack:** only `api-reviewer` ships in the backend pack itself. The other five come from the database, performance, security, testing and code-quality packs, so on a backend-only install five of the six axes have no agent behind them. An axis with no agent and no inline pass is an axis that produced no findings — which is not the same as an axis that found nothing.
+If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run. **This matters more here than anywhere else in the pack:** only `api-reviewer` ships in the backend pack itself. The other five come from the database, performance, security, testing and code-quality packs, so on a backend-only install five of the six axes have no agent behind them. An axis with no agent is an axis that produced no findings — which is not the same as an axis that found nothing, so it is reported `UNREVIEWED(<axis>)`, never as clean.
 
 Wait for all; consolidate by severity (BLOCKER / REQUEST / NIT) and area.
 

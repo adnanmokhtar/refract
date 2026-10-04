@@ -6,8 +6,8 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: performance-optimizer
   kind: agent
   triggers: { always: true }
-  extracts_from: _extracted-codebase.md § "Anti-patterns" (N+1 evidence, etc.) + § Tests (perf tests if any) + _extracted-idioms.md (repo base — relation loading strategy)
-  sections: [persona, project_perf_signals, n_plus_one_recipes, cache_opportunities, db_index_recommendations, output_format]
+  extracts_from: _extracted-codebase.md § Performance (harness, budgets, APM) + § Tests (perf tests if any) + _extracted-idioms.md (the project's concurrency, cache and pool primitives)
+  sections: [premise, inputs, halt_conditions, ranking, output_format, guardrail_matrix]
   fallback: _examples/performance-optimizer.md
   cite_evidence: strict
 
@@ -26,10 +26,28 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [understand, retrieve, generate]
   fallback: _examples/perf-audit.md
 
-- name: n-plus-one-scan
+- name: perf-fix
+  kind: command
+  triggers: { always: true }
+  fallback: commands/perf-fix.md   # the source IS the fallback, as for security-fix — no _examples/ stub ships
+
+# n-plus-one-scan moved to the database pack (database round trips are that pack's); its topic lives in
+# templates/packs/database/_topics.md.
+
+- name: request-path-scan
   kind: skill
-  triggers: { orm_detected: true }
-  fallback: _examples/n-plus-one-scan.md
+  triggers: { api_surface_detected: true }   # its scale and queue classes also read deploy manifests; a repo with no server reports each class N/A
+  fallback: skills/request-path-scan/SKILL.md   # the source IS the fallback — no _examples/ stub ships
+
+- name: memory-growth-scan
+  kind: skill
+  triggers: { api_surface_detected: true }   # its limit class also reads deploy manifests; a repo with no long-running server reports each class N/A
+  fallback: skills/memory-growth-scan/SKILL.md   # the source IS the fallback — no _examples/ stub ships
+
+- name: caching-scan
+  kind: skill
+  triggers: { api_surface_detected: true }   # a repo with no cache library or HTTP cache headers reports each class N/A
+  fallback: skills/caching-scan/SKILL.md   # the source IS the fallback — no _examples/ stub ships
 
 - name: profile-endpoint
   kind: skill

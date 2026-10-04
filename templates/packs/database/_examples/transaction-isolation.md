@@ -69,6 +69,7 @@ Snapshot/RR does NOT prevent write-skew: two transactions read disjoint rows, ea
 
 ## Related
 
+- `transaction-scan` — the detector for every Forbidden line above (lock order §3, no retry §4, `SKIP LOCKED` §5, lost update §8, a lock across an external call §1); security `logic-race-scan` owns races on money, stock, quota and single-use values when installed.
 - `migrations.md` — backfills and online DDL take locks; batch them, set a lock timeout, and keep lock ordering consistent so a migration does not deadlock against live writers.
 - `indexing-strategy.md` — locks ride on index access paths; a missing index turns a row lock into a range lock (InnoDB gap locks span the scanned range) and widens the deadlock surface.
-- cross-pack `backend` `transaction-boundary` — **owns where a transaction begins and ends** (no network call inside one, no transaction spanning a request). A finding about a transaction wrapping an HTTP call is theirs; isolation level and locking discipline are here.
+- cross-pack `backend` `transaction-boundary` — **owns where a transaction begins and ends** (no network call inside one, no transaction spanning a request). The redesign of a transaction that wraps an HTTP call is theirs (`transaction-scan` §1 detects it); isolation level and locking discipline are here.

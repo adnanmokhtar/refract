@@ -11,7 +11,7 @@ applies-to: database-track, every-code-writing-task-in-database
 
 > **Hard rule.** Schema changes ship via reviewed migrations only — `synchronize: true` / auto-migrate / `db.create_all()` in production are forbidden. Every list query MUST paginate with `LIMIT`; every FK MUST have a usable index; every transaction MUST stay local (no external HTTP / queue / API call held inside).
 
-This file states the **invariant**. The linked `ai/patterns/<x>.md` states the method *and carries the vendor citation for every engine claim below*; `.claude/references/<engine>.md` carries the syntax. Never re-derive either here — and never assert an engine behaviour this file names without following the pointer to the doc that sources it.
+This file states the **invariant**; the linked `ai/patterns/<x>.md` carries the method *and the vendor citation for every engine claim below*, `.claude/references/<engine>.md` the syntax. Never assert an engine behaviour named here without following its pointer.
 
 ## Must
 
@@ -34,11 +34,11 @@ This file states the **invariant**. The linked `ai/patterns/<x>.md` states the m
 ## Must not
 
 - `synchronize: true` (TypeORM) / `db.create_all()` in production / auto-migrate flags. Schema by migration only.
-- Ship an `ALTER TABLE` without naming **(a)** the algorithm the engine will pick and **(b)** whether a long transaction currently holds a metadata lock on the target. The algorithm — not the row count — sets the lock window, and every `ALTER`, INSTANT included, queues behind the oldest open transaction. Check `information_schema.INNODB_TRX` / `pg_stat_activity` first and bound the wait (`lock_wait_timeout` / `lock_timeout`). Per-operation split, `LOCK=NONE`'s cascade restriction, and when `gh-ost` / `pt-online-schema-change` earn their place: → `ai/patterns/migrations.md`, `.claude/references/<engine>.md`, `@schema-reviewer`.
+- Ship an `ALTER TABLE` without naming **(a)** the algorithm the engine will pick and **(b)** whether a long transaction currently holds a metadata lock on the target. The algorithm — not the row count — sets the lock window, and every `ALTER`, INSTANT included, queues behind the oldest open transaction. Check `information_schema.INNODB_TRX` / `pg_stat_activity` first and bound the wait (`lock_wait_timeout` / `lock_timeout`). Per-operation split, `LOCK=NONE`'s cascade limit, and when `gh-ost` / `pt-osc` earn their place: → `ai/patterns/migrations.md`, `migration-safety`.
 - Hold a transaction across an HTTP / queue / external API call. The pool exhausts at peak, and the pinned snapshot blocks reclaim (Postgres vacuum / InnoDB purge).
 - `SELECT *` on wide rows (BLOB / JSON / TEXT) when you need 3 fields. Bandwidth + parse cost.
-- Choose composite index column order at random. Leftmost prefix decides: `(tenant_id, status, created_at)` serves `WHERE tenant_id = ? AND status = ?`, not `WHERE status = ?`.
-- Over-index. Every index slows writes. Drop what `pg_stat_user_indexes` / `sys.schema_unused_indexes` never records — never one backing a unique constraint or an FK. On InnoDB the FK-index advice inverts (the engine auto-creates that index and may later drop it): read `SHOW INDEX` before reporting "missing FK index" or proposing a drop. → `ai/patterns/indexing-strategy.md`.
+- Choose composite index column order at random. Leftmost prefix decides: `(tenant_id, status, created_at)` serves `WHERE tenant_id = ? AND status = ?`, not `WHERE status = ?` — unless PG 18+ skip scan serves a few-valued leading column; prove it with a plan (`index-coverage-scan`).
+- Over-index. Every index slows writes. Drop what `pg_stat_user_indexes` / `sys.schema_unused_indexes` never records — never one backing a unique constraint or an FK. On InnoDB the FK-index advice inverts: read `SHOW INDEX` before reporting "missing FK index" or proposing a drop. → `ai/patterns/indexing-strategy.md`.
 - Put business logic in triggers without a documented reason — invisible to code review, painful to debug.
 
 ## Should
@@ -51,6 +51,6 @@ This file states the **invariant**. The linked `ai/patterns/<x>.md` states the m
 
 ## Review + enforcement
 
-Reviewing a change against these rules is `@schema-reviewer`'s job (it owns the APPROVE gate); auditing a running database against them is `/db-audit`'s. Neither is restated here — a checklist inside an always-loaded rule is duplicated context, not extra safety.
+Detection is the detectors' job (`n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `migration-safety`, `transaction-scan`, `connection-config-scan`): `/db-audit` runs them, `/db-fix` closes their findings, `@schema-reviewer` grades a diff (APPROVE gate). None is restated here (duplicated context).
 
 CI-side: a migration linter blocks unsafe migrations; slow-query logging on in dev + staging; backups automated and the **restore** tested on a schedule — an untested backup does not exist.

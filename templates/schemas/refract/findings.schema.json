@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/adnanmokhtar/refract/schemas/refract/findings/v1.json",
+  "title": "Refract review findings (candidates)",
+  "description": "ai/runs/<run_id>/reviews/<agent>-<lens>.json — what one read-only review lens returns: CANDIDATE findings, not verdicts. The reviewer ends its final message with this JSON; the SubagentStop hook persist-review.sh extracts it, validates it against this schema and the posting bar (templates/snippets/posting-bar.md), stamps `signer`, `authors`, `scope` and `round` from the hook input and the repository, and writes the file. A reviewer holds no Write tool and never claims those stamped fields. Candidates at IMPORTANT go to the verifier in refute mode (templates/snippets/refute-before-report.md); only its verdict decides what blocks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "run_id", "lens", "findings"],
+  "properties": {
+    "schema": { "const": "refract/findings/v1" },
+    "run_id": { "$ref": "#/$defs/run_id" },
+    "lens": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,40}$",
+      "description": "The axis reviewed: correctness, performance, a11y, data, observability, security-<lens>, maintainability, conventions, ux, architecture, test …"
+    },
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "severity", "kind", "file", "line", "claim"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^F-[0-9]{1,4}$" },
+          "severity": { "enum": ["IMPORTANT", "NIT", "PRE-EXISTING"], "description": "The posting-bar vocabulary. PRE-EXISTING = in code this change neither introduced, touched nor copied; it never blocks." },
+          "kind": { "type": "string", "pattern": "^[a-z0-9]+/[a-z0-9-]+$", "description": "<lens>/<class>, e.g. correctness/off-by-one, performance/n-plus-one, a11y/missing-label. An enumerated class, never free text." },
+          "file": { "type": "string", "minLength": 1 },
+          "line": { "type": "integer", "minimum": 1 },
+          "claim": { "type": "string", "minLength": 20, "description": "The restated claim: When <condition reachable in real use>, <code at file:line> produces <observable wrong outcome> instead of <expected outcome>." },
+          "evidence": { "type": "string", "description": "What the reviewer read or ran that raised the candidate." },
+          "proof": { "$ref": "#/$defs/proof" }
+        }
+      }
+    },
+    "signer": { "$ref": "#/$defs/signer" },
+    "authors": { "$ref": "#/$defs/authors" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "round": { "type": "integer", "minimum": 1, "description": "Stamped: 1 for the lens's first review of this run, then +1. From round 2 the posting bar admits IMPORTANT only." },
+    "escalate": { "type": "boolean", "description": "Stamped true when round >= 3 still carries an IMPORTANT finding — an upstream problem for a human, not a fourth round." },
+    "persisted_at": { "type": "string" }
+  },
+  "$defs": {
+    "run_id": {
+      "type": "string",
+      "pattern": "^([0-9]{8}-[a-z0-9][a-z0-9-]{0,60}-[0-9a-f]{4}|plan-[A-Za-z0-9][A-Za-z0-9-]{0,60})$"
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref", "result"],
+      "properties": {
+        "kind": { "enum": ["test", "probe", "benchmark", "axe", "trace", "query-plan", "scanner"] },
+        "ref": { "type": "string", "minLength": 1, "description": "The command run, or both ends of the trace as file:line → file:line." },
+        "result": { "type": "string", "minLength": 1, "description": "What it showed: the failing assertion, the measured delta, the violation id." }
+      }
+    },
+    "signer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_type", "agent_id", "stamped_by", "ts"],
+      "description": "Stamped by the SubagentStop hook from its own input — the model never writes it.",
+      "properties": {
+        "agent_type": { "type": "string", "minLength": 1 },
+        "agent_id": { "type": ["string", "null"] },
+        "stamped_by": { "enum": ["persist-review.sh", "persist-verdict.sh"] },
+        "ts": { "type": "string" },
+        "transcript": { "type": ["string", "null"] }
+      }
+    },
+    "authors": {
+      "type": "array",
+      "description": "Stamped: every agent type that edited a scoped path, from the edit ledger test-lock.sh keeps (.claude/evidence/edits.jsonl); `main` for the main session or an edit the ledger did not see.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "paths", "fingerprint"],
+      "description": "Stamped: the change the record judged — every path touched since the merge-base (run records, evidence and locks excluded) plus the run's acceptance.json, each with its blob hash. gate-check.py recomputes it; any difference makes the record STALE, and a stale record is a FAIL.",
+      "properties": {
+        "base": { "type": ["string", "null"] },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "blob"],
+            "properties": {
+              "path": { "type": "string" },
+              "blob": { "type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64}|deleted)$" }
+            }
+          }
+        },
+        "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

@@ -32,6 +32,7 @@ Phase 4 turns the approved plan into files on disk. The body content lives acros
 | 4.0        | Pack-load preflight (refuses any pack without `_version.json`)        | `phase-4.0-preflight.md`                  | always      |
 | 4.1        | Scaffold baseline + project-specific block authoring                  | `phase-4.0-preflight.md § 4.1`            | always      |
 | 4.2        | Deterministic copy (COPY-mode) + AUTHOR-mode emit + verify            | `phase-4.2-apply.md`                      | always      |
+| 4.2.d      | Install the `refract-gates` CI job (shadow); print branch protection  | `phase-4.2-apply.md § 4.2.d`              | always      |
 | 4.3        | Apply framework references                                            | `phase-4.2-apply.md § 4.3`                | always      |
 | 4.4        | Apply technical-domain tooling                                        | `phase-4.2-apply.md § 4.4`                | always      |
 | 4.4b       | Apply BUSINESS-domain content + regulatory overlay                    | `phase-4.2-apply.md § 4.4b`               | always      |

@@ -1,0 +1,30 @@
+{
+  "schema": "refract/acceptance/v1",
+  "run_id": "20261002-loyalty-points-c0de",
+  "source": {"kind": "spec", "ref": "specs/SPEC-0007-loyalty-points.md"},
+  "tier": "standard",
+  "created": "2026-10-02T09:00:00Z",
+  "criteria": [
+    {"id": "AC-001", "req": "US-1", "kind": "unit",
+     "ears": "WHEN a purchase of N cents completes THE ledger SHALL award floor(N / 100) points",
+     "tests": [{"path": "tests/award.test.js", "name": "AC-001 awards one point per whole currency unit"}],
+     "command": "node --test tests/award.test.js"},
+    {"id": "AC-002", "req": "US-2", "kind": "unit", "negative": true,
+     "ears": "IF a shopper redeems more points than their balance THEN THE ledger SHALL reject the redemption with InsufficientPoints",
+     "tests": [{"path": "tests/redeem.test.js", "name": "AC-002 rejects a redemption larger than the balance"}],
+     "command": "node --test tests/redeem.test.js"},
+    {"id": "AC-003", "req": "US-3", "kind": "unit",
+     "ears": "WHEN 365 days have passed since points were earned THE ledger SHALL treat them as expired",
+     "tests": [{"path": "tests/expiry.test.js", "name": "AC-003 points expire after the retention window"}],
+     "command": "node --test tests/expiry.test.js"},
+    {"id": "AC-004", "req": "US-4", "kind": "unit",
+     "ears": "WHEN a balance is computed THE ledger SHALL report gold for 1000 points or more, silver for 250 to 999 and bronze below 250",
+     "tests": [{"path": "tests/tier.test.js", "name": "AC-004 1,000 points is gold"},
+               {"path": "tests/tier.test.js", "name": "AC-004 the silver band"}],
+     "command": "node --test tests/tier.test.js"},
+    {"id": "AC-005", "req": "US-5", "kind": "unit",
+     "ears": "WHEN a purchase of N cents is refunded THE ledger SHALL deduct exactly floor(N / 100) points",
+     "tests": [{"path": "tests/refund.test.js", "name": "AC-005 a refund takes back the points the purchase awarded"}],
+     "command": "node --test tests/refund.test.js"}
+  ]
+}

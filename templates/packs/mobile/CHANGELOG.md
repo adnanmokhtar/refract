@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.9.2 — 2026-10-02
+
+**A missing reviewer no longer turns into the builder reviewing itself.** `/add-feature`'s
+Phase 4 cascade said "perform that review inline" when `@security-auditor`, `@app-store-reviewer`,
+`@offline-sync-auditor`, `@device-performance-auditor` or `@ux-reviewer` was not installed — the
+builder graded its own change. Now the axis is reported `UNREVIEWED(<axis>) — <agent> not installed
+(<pack> pack)` and the run ends **INCOMPLETE**, naming `/setup-project --include=<pack>`.
+`/add-screen` (which inherits the cascade) and `_essentials.md` name the new contract.
+`scripts/lint-self-review.sh` fails the build if the old phrasing returns.
+
 ## 1.9.1 — 2026-08-22
 
 **`references/expo.md` was a delta on a base file the installer does not guarantee.** The file

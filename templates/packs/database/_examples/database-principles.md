@@ -31,10 +31,10 @@ This file states the **invariant**. The linked `ai/patterns/<x>.md` states the m
 ## Must not
 
 - `synchronize: true` (TypeORM) / `db.create_all()` in production / auto-migrate flags. Schema by migration only.
-- Ship an `ALTER TABLE` without naming **(a)** the algorithm the engine will pick and **(b)** whether a long transaction currently holds a metadata lock on the target. The algorithm — not the row count — sets the lock window, and every `ALTER`, INSTANT included, queues behind the oldest open transaction. Check `information_schema.INNODB_TRX` / `pg_stat_activity` first and bound the wait (`lock_wait_timeout` / `lock_timeout`). Per-operation split, `LOCK=NONE`'s cascade restriction, and when `gh-ost` / `pt-online-schema-change` earn their place: → `ai/patterns/migrations.md`, `.claude/references/<engine>.md`, `@schema-reviewer`.
+- Ship an `ALTER TABLE` without naming **(a)** the algorithm the engine will pick and **(b)** whether a long transaction currently holds a metadata lock on the target. The algorithm — not the row count — sets the lock window, and every `ALTER`, INSTANT included, queues behind the oldest open transaction. Check `information_schema.INNODB_TRX` / `pg_stat_activity` first and bound the wait (`lock_wait_timeout` / `lock_timeout`). Per-operation split, `LOCK=NONE`'s cascade restriction, and when `gh-ost` / `pt-online-schema-change` earn their place: → `ai/patterns/migrations.md`, `.claude/references/<engine>.md`, `migration-safety`.
 - Hold a transaction across an HTTP / queue / external API call. The pool exhausts at peak, and the pinned snapshot blocks reclaim (Postgres vacuum / InnoDB purge).
 - `SELECT *` on wide rows (BLOB / JSON / TEXT) when you need 3 fields.
-- Choose composite index column order at random. Leftmost prefix decides: `(tenant_id, status, created_at)` serves `WHERE tenant_id = ? AND status = ?`, not `WHERE status = ?`.
+- Choose composite index column order at random. Leftmost prefix decides: `(tenant_id, status, created_at)` serves `WHERE tenant_id = ? AND status = ?`, not `WHERE status = ?` — unless PG 18+ skip scan serves a few-valued leading column; prove it with a plan (`index-coverage-scan`).
 - Over-index. Every index slows writes. Drop what `pg_stat_user_indexes` / `sys.schema_unused_indexes` never records — never one backing a unique constraint or an FK. On InnoDB the FK-index advice inverts (the engine auto-creates that index and may later drop it): read `SHOW INDEX` before reporting "missing FK index" or proposing a drop. → `ai/patterns/indexing-strategy.md`.
 - Put business logic in triggers without a documented reason.
 
@@ -48,4 +48,4 @@ This file states the **invariant**. The linked `ai/patterns/<x>.md` states the m
 
 ## Review + enforcement
 
-Reviewing a change against these rules is `@schema-reviewer`'s job (it owns the APPROVE gate); auditing a running database against them is `/db-audit`'s. Neither is restated here — a checklist inside an always-loaded rule is duplicated context, not extra safety.
+Detection is the detectors' job (`n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `migration-safety`, `transaction-scan`, `connection-config-scan`): `/db-audit` runs them, `/db-fix` closes their findings, `@schema-reviewer` grades a diff (APPROVE gate). None is restated here — a checklist inside an always-loaded rule is duplicated context, not extra safety.

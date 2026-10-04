@@ -182,7 +182,10 @@ Same format as Codex adapter.
 | `notify.sh` | **Notification** / **AfterAgent** | fire on turn completion / system alert |
 | `session-start.sh` | **SessionStart** | surface `ai/status.md` / phase at session open |
 | `update-session-log.sh` | **SessionEnd** | append to `ai/dynamic/session-log.md` |
-| `verify-gate.sh` | **AfterAgent** (or **SessionEnd**) | Gemini's event list has no documented block-the-finish contract — `decision: "deny"` is specified for tool events, not agent-end. Wire it for the *report*, and keep `.husky/pre-commit` as the actual gate; do not claim the stop is guarded |
+| `verify-gate.sh` | **AfterAgent** (or **SessionEnd**) for the report | no documented block-the-finish contract, so `.husky/pre-commit` runs the gate and the always-loaded rules say "run `gate-check.py --local` before declaring done"; CI is the hard gate — runs `.claude/scripts/gate-check.py --local` — the deterministic gates, not just tests: G0 acceptance lock, G1 tests + the verifier's verdict, G2 test integrity + oracles, G3 secrets, G7 lint / typecheck / standards / reviews, G15 provenance; modes in `.claude/gates.json`, records in `.claude/evidence/` |
+| `test-lock.sh` | **BeforeTool** (`matcher: "replace|write_file|run_shell_command"`), `decision: "deny"` | deny edits to the locked acceptance contract and its tests (`.claude/locks/<run>.json`) and to hook-written records; ask before `lock-acceptance.sh --reopen`; `gate-check.py` G0 re-hashes the locked files at the end and in CI either way |
+| `judge-bash-guard.sh` | **not replicable** | Gemini's payload names no subagent — the `verifier` judge runs tests / scanners / localhost probes only, and a dispatch to it carries paths and a mode, never the builder's narrative; keyed on the payload's agent identity |
+| `persist-verdict.sh` + `persist-review.sh` | **not replicable** | no subagent-stop event — validate the judge's / reviewer's final JSON against `.claude/schemas/`, stamp signer + scope, write `ai/runs/<run>/verdict.json` / `reviews/*.json`; absent, `gate-check.py` reports the verdict missing, never passed |
 
 All map **natively** — no `.husky/` fallback needed for Gemini-driven sessions.
 

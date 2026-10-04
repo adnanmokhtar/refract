@@ -177,15 +177,93 @@ else
   else
     bad "§3 deploying the missing snippet clears it" "$(printf '%s' "$o3b" | head -3 | tr '\n' ' ')"
   fi
-  # and the ROOT CAUSE: the baseline must actually ship every snippet the packs link to
-  missing3=""
-  while IFS= read -r ref; do
-    [ -z "$ref" ] && continue
-    [ -f "$REPO_ROOT/templates/repo-baseline/.claude/templates/$ref" ] || missing3="$missing3 $ref"
-  done < <(grep -rhoE '\]\(\.\./\.\./\.\./(snippets|governance)/[A-Za-z0-9_-]+\.md\)' "$REPO_ROOT/templates/packs" 2>/dev/null \
-           | sed -E 's#^\]\(\.\./\.\./\.\./##; s#\)$##' | sort -u || true)
-  [ -z "${missing3// /}" ] && ok "§3 the repo-baseline ships every snippet the packs link to" \
-                           || bad "§3 the repo-baseline ships every snippet the packs link to" "not deployed:$missing3"
+  # ── § 3b  a SKILL's link is one `../` deeper, and the shape check must still see it ──────
+  # A pack skill links `](../../../../snippets/…)` from skills/<name>/SKILL.md. C2t's shape grep
+  # matched exactly three `../`, so a skill installed without the rewrite passed as clean. And a
+  # link into a snippet SUBDIRECTORY (`precedents/data.md`) must resolve like any other.
+  mkdir -p "$P3/.claude/skills/sk"
+  printf -- '---\nname: sk\n---\n# SK\n\nSee [r](../../../../snippets/plan-flag.md).\n' > "$P3/.claude/skills/sk/SKILL.md"
+  o3c=$(bash "$AUDIT" "$P3" --read-only 2>&1 | sed -n '/^C2t:/,/^$/p' || true)
+  if printf '%s' "$o3c" | grep -q 'un-rewritten pack links' && printf '%s' "$o3c" | grep -q 'skills/sk/SKILL.md'; then
+    ok "§3b a skill still carrying the four-level pack link is reported by the shape check"
+  else
+    bad "§3b a skill still carrying the four-level pack link is reported by the shape check" "$(printf '%s' "$o3c" | head -4 | tr '\n' ' ')"
+  fi
+  printf -- '---\nname: sk\n---\n# SK\n\nSee [r](../../templates/snippets/plan-flag.md) and [p](../../templates/snippets/precedents/data.md).\n' > "$P3/.claude/skills/sk/SKILL.md"
+  o3d=$(bash "$AUDIT" "$P3" --read-only 2>&1 | sed -n '/^C2t:/,/^$/p' || true)
+  if printf '%s' "$o3d" | grep -q 'do NOT resolve on disk' && printf '%s' "$o3d" | grep -q 'precedents/data.md'; then
+    ok "§3b a rewritten skill link into an undeployed snippet SUBDIRECTORY is reported"
+  else
+    bad "§3b a rewritten skill link into an undeployed snippet SUBDIRECTORY is reported" "$(printf '%s' "$o3d" | head -4 | tr '\n' ' ')"
+  fi
+  if printf '%s' "$o3d" | grep -q 'un-rewritten pack links'; then
+    bad "§3b a correctly rewritten skill is not called un-rewritten" "$(printf '%s' "$o3d" | head -3 | tr '\n' ' ')"
+  else
+    ok "§3b a correctly rewritten skill is not called un-rewritten"
+  fi
+  mkdir -p "$P3/.claude/templates/snippets/precedents"
+  printf 'precedents\n' > "$P3/.claude/templates/snippets/precedents/data.md"
+  o3e=$(bash "$AUDIT" "$P3" --read-only 2>&1 | sed -n '/^C2t:/,/^$/p' || true)
+  if printf '%s' "$o3e" | grep -q 'ok .*every relative .md link'; then
+    ok "§3b deploying the subdirectory snippet clears it"
+  else
+    bad "§3b deploying the subdirectory snippet clears it" "$(printf '%s' "$o3e" | head -3 | tr '\n' ' ')"
+  fi
+
+  # ── § 3c  the ROOT CAUSE: the baseline must ship every snippet the packs link to ─────────
+  # One matcher, used three ways: on a fixture that MUST fire, on the same fixture once fixed,
+  # and on the real tree. It used to match three-level links to TOP-LEVEL snippets only, so a
+  # skill's four-level link and any `precedents/<domain>.md` were never even looked up — the
+  # test passed on the cases it could not see. lint-setup-contracts.sh Rule 19 is the same
+  # matcher and is driven against the same fixture below.
+  undeployed_snippet_refs() {   # $1 = packs dir, $2 = repo-baseline templates dir
+    local ref out=""
+    while IFS= read -r ref; do
+      [ -z "$ref" ] && continue
+      [ -f "$2/$ref" ] || out="$out $ref"
+    done < <(grep -rhoE '\]\((\.\./){3,4}(snippets|governance)/([A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.md(#[A-Za-z0-9_-]+)?\)' "$1" 2>/dev/null \
+             | sed -E 's#^\]\((\.\./)+##; s#\)$##; s/#.*$//' | sort -u || true)
+    printf '%s' "$out"
+  }
+  FX="$TD/fx-repo"; FXB="$FX/templates/repo-baseline/.claude/templates"
+  mkdir -p "$FX/templates/packs/fx/skills/sk" "$FX/templates/packs/fx/commands" "$FXB/snippets" "$FXB/governance"
+  printf -- '---\nname: sk\ndescription: "fixture"\n---\n# SK\n\n[a](../../../../snippets/skill-only.md) [b](../../../../snippets/precedents/skill-sub.md) [c](../../../../governance/gov-only.md)\n' \
+    > "$FX/templates/packs/fx/skills/sk/SKILL.md"
+  printf -- '---\nname: c\ndescription: "fixture"\n---\n# C\n\n[d](../../../snippets/precedents/cmd-sub.md#anchor) [e](../../../snippets/shipped.md)\n' \
+    > "$FX/templates/packs/fx/commands/c.md"
+  printf 'shipped\n' > "$FXB/snippets/shipped.md"
+  m3=$(undeployed_snippet_refs "$FX/templates/packs" "$FXB")
+  m3_miss=""
+  for want in snippets/skill-only.md snippets/precedents/skill-sub.md governance/gov-only.md snippets/precedents/cmd-sub.md; do
+    case " $m3 " in *" $want "*) ;; *) m3_miss="$m3_miss $want" ;; esac
+  done
+  [ -z "$m3_miss" ] && ok "§3c the matcher sees four-level skill links and snippet subdirectories" \
+                    || bad "§3c the matcher sees four-level skill links and snippet subdirectories" "missed:$m3_miss (found:$m3)"
+  case " $m3 " in *" snippets/shipped.md "*) bad "§3c a deployed snippet is not reported" "$m3" ;;
+                  *) ok "§3c a deployed snippet is not reported" ;; esac
+  LINT="$REPO_ROOT/scripts/lint-setup-contracts.sh"
+  if [ -f "$LINT" ]; then
+    l3=$(bash "$LINT" --repo-root="$FX" 2>&1 | grep 'R19-undeployed-snippet' || true)
+    l3_miss=""
+    for want in snippets/skill-only.md snippets/precedents/skill-sub.md governance/gov-only.md snippets/precedents/cmd-sub.md; do
+      printf '%s' "$l3" | grep -qF "templates/$want" || l3_miss="$l3_miss $want"
+    done
+    [ -z "$l3_miss" ] && ok "§3c lint-setup-contracts Rule 19 fires on a skill's link and on a snippet subdirectory" \
+                      || bad "§3c lint-setup-contracts Rule 19 fires on a skill's link and on a snippet subdirectory" "missed:$l3_miss | $(printf '%s' "$l3" | head -3 | tr '\n' ' ')"
+  fi
+  mkdir -p "$FXB/snippets/precedents"
+  for f in snippets/skill-only.md snippets/precedents/skill-sub.md governance/gov-only.md snippets/precedents/cmd-sub.md; do
+    printf 'x\n' > "$FXB/$f"
+  done
+  m3b=$(undeployed_snippet_refs "$FX/templates/packs" "$FXB")
+  [ -z "${m3b// /}" ] && ok "§3c shipping them clears the matcher" || bad "§3c shipping them clears the matcher" "$m3b"
+  if [ -f "$LINT" ]; then
+    l3b=$(bash "$LINT" --repo-root="$FX" 2>&1 | grep 'R19-undeployed-snippet' || true)
+    [ -z "$l3b" ] && ok "§3c shipping them clears Rule 19" || bad "§3c shipping them clears Rule 19" "$(printf '%s' "$l3b" | head -2 | tr '\n' ' ')"
+  fi
+  missing3=$(undeployed_snippet_refs "$REPO_ROOT/templates/packs" "$REPO_ROOT/templates/repo-baseline/.claude/templates")
+  [ -z "${missing3// /}" ] && ok "§3c the repo-baseline ships every snippet the packs link to" \
+                           || bad "§3c the repo-baseline ships every snippet the packs link to" "not deployed:$missing3"
 fi
 
 # ── § 4  a command that SHIPS its helper is not a dead path ──────────────────────────────

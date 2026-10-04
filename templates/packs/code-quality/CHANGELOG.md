@@ -9,6 +9,17 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.8.2 — 2026-10-02
+
+**A missing reviewer no longer turns into the sweep reviewing itself.** `/review-changes`
+(and its `_examples/` fallback) and `/check-health` answered an uninstalled reviewer with "perform
+that review inline" / "perform that axis inline", noted as `inline:<reviewer-name>` — the agent
+running the sweep graded the axis itself, and a health check could still score it GREEN. Now the
+axis is reported `UNREVIEWED(<axis>)`, the sweep or health check is **INCOMPLETE** on it, and the
+install that closes it is named. `scripts/lint-self-review.sh` fails the build if the old phrasing
+returns. (`/pre-commit`'s `inline:<skill-name>` is unchanged: a mechanical check the skill would
+also run, not a dispatched review.)
+
 ## 1.8.1 — 2026-08-23
 
 **`_examples/simplify.md` shipped the procedure and dropped the gate that decides it worked.**

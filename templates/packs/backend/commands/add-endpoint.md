@@ -321,7 +321,7 @@ Dispatch:
 - `payment-reviewer` — if payment code touched.
 - `@websocket-engineer` — if the endpoint streams (SSE / chunked / NDJSON / LLM token stream): verify backpressure, heartbeat, resume, idle + total timeout, and disconnect-aborts-upstream. (ENF-4)
 
-If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
+If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.
 
 If any check fails: HALT, report the failure, do not paper over.
 
@@ -339,7 +339,7 @@ Fill this ledger (one row per floor item) before writing the Output block:
 | 2 | **Standard error envelope** | error paths return the project envelope / Problem Details (RFC 9457) at a cited `<path:line>`; no stack trace / PII leaked | api-reviewer `error-envelope` + error-contract |
 | 3 | **Correct transaction boundary** | a multi-write use-case is wrapped in ONE transaction at the service layer (cite the tx site); no external call held inside the tx — OR `n-a` (single write), reason stated | api-reviewer `txn-boundary` (TXN). `[self-policed]` — no grep proves two writes are one unit |
 | 4 | **Idempotency on unsafe methods where the convention requires** | `Idempotency-Key` accepted + stored + a replay e2e test proves the second call returns the first result — OR `n-a`, reason stated (naturally idempotent PUT / not retry-sensitive) | api-reviewer `idempotency`; signal table row |
-| 5 | **No N+1 / unbounded query** | `n-plus-one-scan` clean on any new list/query path AND (for a list endpoint) a default + hard-max page size is enforced (over-cap `limit` clamp asserted by e2e) | `n-plus-one-scan` skill; api-reviewer `no-N+1`/pagination (API-8, PERF-5) |
+| 5 | **No N+1 / unbounded query** | `n-plus-one-scan` clean on any new list/query path AND (for a list endpoint) a default + hard-max page size is enforced (over-cap `limit` clamp asserted by e2e) | `n-plus-one-scan` + `query-shape-scan` §1 skills (database pack, when installed); api-reviewer `no-N+1`/pagination (API-8, PERF-5) |
 | 6 | **Authz enforced, not just authn** | a `403` **denial** e2e test for an authenticated-but-unauthorized principal (wrong role / non-owner) passes — a `401` alone does NOT satisfy this — OR `n-a` (truly public endpoint), reason stated | api-reviewer `authz-not-authn` (AUTHZ) |
 | 7 | **Emits log + metric + trace** | the RED-triad metric (rate + errors + duration histogram), a correlation-id log line, and a use-case span are each matched to an **actually-emitted** signal in the diff — not asserted from the telemetry plan | api-reviewer `log+metric+trace` (OBS-2); Phase-4 Telemetry |
 

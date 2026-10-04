@@ -11,7 +11,7 @@ Run after EVERY significant change. Keeps `ai/` honest with reality. This comman
 
 ## The Premise (read this first, internalize, do not deviate)
 
-**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+**Resolve `$ROOTS` first, and print it in the report.** Set it as an array — `ROOTS=(apps/api/src apps/web/src)` — and every probe expands it as `"${ROOTS[@]}"`: a space-joined string does not word-split in zsh (the macOS default shell), so `rg` searches one path that does not exist, prints an IO error to stderr and exits 2 — which reads as zero hits. Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
 
 **Existing docs are the truth, but code is the supreme truth.** Refresh = **re-derive from code; never invent**. If `ai/architecture.md` says the auth module lives at `<modules-root>/auth/session/` and the code says `<modules-root>/auth/jwt/`, **docs lose**. The repair is to update docs to match code, not to lament the rename or to ADR-justify the doc state. Docs that drift from code stop being read; the way back is honest re-derivation.
 

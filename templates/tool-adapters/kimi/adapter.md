@@ -201,7 +201,10 @@ Kimi-specific addendum: a "Skills available" section pointing at `.kimi/skills/`
 | `notify.sh` | `Notification` (or `Stop`) | ✓ native |
 | `session-start.sh` | `SessionStart` — briefing lands via stdout-append (exit `0`), same envelope as `inject-path-rules.sh` above | ✓ native |
 | `update-session-log.sh` | `SessionEnd` | ✓ native |
-| `verify-gate.sh` | `Stop` — exit `2` blocks the finish, stderr carries the failing test output as the LLM correction; `StopFailure` covers the error path | ✓ native |
+| `verify-gate.sh` | `Stop` — exit `2` blocks the finish, stderr carries the FAIL lines as the LLM correction — runs `.claude/scripts/gate-check.py --local` — the deterministic gates, not just tests: G0 acceptance lock, G1 tests + the verifier's verdict, G2 test integrity + oracles, G3 secrets, G7 lint / typecheck / standards / reviews, G15 provenance; modes in `.claude/gates.json`, records in `.claude/evidence/` | ✓ native |
+| `test-lock.sh` | `PreToolUse` (matcher on the edit and shell tools), exit `2` — deny edits to the locked acceptance contract and its tests (`.claude/locks/<run>.json`) and to hook-written records; ask before `lock-acceptance.sh --reopen`; `gate-check.py` G0 re-hashes the locked files at the end and in CI either way | ✓ native |
+| `judge-bash-guard.sh` | `PreToolUse` — keyed on the subagent identity when the payload carries it — the `verifier` judge runs tests / scanners / localhost probes only, and a dispatch to it carries paths and a mode, never the builder's narrative; keyed on the payload's agent identity | ~ partial |
+| `persist-verdict.sh` + `persist-review.sh` | `SubagentStop` — pipe the final message to `.claude/scripts/refract_records.py` — validate the judge's / reviewer's final JSON against `.claude/schemas/`, stamp signer + scope, write `ai/runs/<run>/verdict.json` / `reviews/*.json`; absent, `gate-check.py` reports the verdict missing, never passed | ~ partial |
 
 The adapter does NOT write `~/.kimi/config.toml` — it emits a paste-ready snippet the user installs:
 

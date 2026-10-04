@@ -1,84 +1,143 @@
 ---
 name: profile-endpoint
-description: Load-test a specific endpoint locally and profile where time is spent. Use before optimizing.
+description: Load one endpoint at a fixed arrival rate, profile where its time goes with the runtime's sampling profiler, and capture its slow queries — runnable commands per stack. Use before optimizing.
+kind: skill
+pack: performance
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
 # profile-endpoint
 
-Load + flamegraph + DB-query analysis on one endpoint. Never optimize on vibes.
+Load + flamegraph + slow-query capture on one endpoint. Never optimize on vibes.
 
 ## Premise
 
-Real signals only. Every percentile, RPS number, and "% time spent" comes from a measured run — autocannon/k6/wrk output captured verbatim, flamegraph generated, slow-query log tailed. Recommendations cite the exact query / index / function frame from the captured artifact. No "this should be faster if…" without a baseline + ramp on the same hardware. Empty tables and dev-mode servers are non-starters; either run with realistic data or refuse the result.
+Real signals only. Every percentile, RPS number and "% of time in" comes from a run whose command line is in the report: the load tool's output captured verbatim, the profile file written to disk, the slow-query list read from the database. Recommendations cite the frame, the query or the function from that artifact. A dev-mode server (watch mode, debug build), an empty table or a laptop-only number is either re-run on realistic data or reported as what it is.
+
+**What this skill proves, and what it does not.** It measures **cost** and **attributes** it: where time goes under a stated load. It does not by itself prove a defect class. A hot frame is a *candidate* for the detector that owns its class, and a candidate becomes a finding only through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with its class oracle from [`proof-oracles.md`](../../../../snippets/proof-oracles.md) — the query count at two sizes for an N+1, the event-loop delay for blocking work. A profile ranks; an oracle proves.
 
 ## Halt conditions
 
-- Refuse to report p50/p95/p99 without the load-tool output it came from.
-- Refuse to claim "X% of time in Y" without a flamegraph pointing at frame Y.
-- Halt if the DB tables are empty or seeded so thinly that the planner picks a different plan than production would. The threshold is not a row count — it is **the point where the planner stops choosing a full scan because the table is trivially small**. Confirm by running the plan-explainer on the seeded data and checking the access method matches production's; if it doesn't, the profile describes a database you don't run.
-- Don't propose an index without showing the slow query that needs it (cite the log line).
-- Don't recommend "optimize the loop" without naming the file and line.
+- Refuse to report p50/p95/p99 without the load-tool output and the exact command that produced it.
+- Refuse a latency claim from a closed-model run (autocannon without `-R`, plain `wrk`, `hey`, k6 `constant-vus`): coordinated omission understates the tail (`precedents/performance.md` § 48). Open model, and print the achieved rate beside the target.
+- Refuse to claim "X% of time in Y" without the profile file whose frame Y carries that share, labelled with the sample count.
+- Halt if the tables are empty or seeded so thinly that the planner picks a plan production would not. The threshold is not a row count: run the plan on the seeded data and compare the access method with production's (`pg_stat_statements` / `auto_explain` from production, or the plan `index-coverage-scan` captured, *database pack, when installed*). A profile on a toy table describes a database you do not run (`precedents/performance.md` § 4).
+- Don't propose an index without the slow query that needs it, cited from the captured list; hand index decisions to `/optimize-query` *(database pack, when installed)*.
+- Don't recommend "optimize the loop" without the file, the line and the frame.
+- No candidate reaches a report as a finding without the `refute-before-report.md` pass.
 
 ## When to use
 
-- An SLO is being missed.
-- Before implementing a "performance" change — get a baseline first.
-- After a feature ship that quietly slowed something else down.
-- During capacity planning ("can we handle 5x traffic?").
+- An SLO is being missed on one route, job or consumer.
+- Before a "performance" change — the baseline comes first.
+- After a release that quietly slowed something else.
+- When `load-test` found a knee and handed over the subject at that knee.
 
 ## Prerequisites
 
-- Dev server running with realistic data (NOT empty tables — those lie).
-- Load generator (any HTTP load tool — k6 / Artillery / Locust / Gatling / vegeta / wrk / autocannon / hey / `oha`).
-- Profiler for the runtime — every mainstream language has a sampling profiler (e.g., `pprof` for Go, `py-spy` / `cProfile` for Python, `0x` / `clinic flame` for Node, `async-profiler` / JFR for JVM, `dotnet-trace` / PerfView for .NET, `perf` / `samply` for Rust + native).
-- DB slow-query logging enabled in dev.
+- The service built and started the way production runs it (`NODE_ENV=production`, a release build, no `--watch`, no debugger, the same worker count), on data shaped like production's.
+- A load generator on a separate host, or at least on cores the server does not use; generator CPU stays under 80% or the run measured the generator (`precedents/performance.md` § 48).
+- The profiler's permissions: ptrace-based samplers need root on macOS and `SYS_PTRACE` in a container (Docker `--cap-add SYS_PTRACE`; Kubernetes `securityContext.capabilities.add: [SYS_PTRACE]`).
+- An output folder outside the source tree for artifacts: `mkdir -p prof`.
 
-## Procedure (stack-agnostic shape)
+## Step 1 — Load at a fixed arrival rate (open model)
 
-1. Enable DB slow-query log via the engine's knob (e.g., Postgres `log_min_duration_statement`, MySQL slow-query log).
-2. Warm up to avoid JIT + connection-pool noise — run a low-concurrency burst for 30s and discard.
-3. Baseline at low concurrency — run the load tool for 60s at moderate concurrency (~50 connections) against the target endpoint with realistic auth + payload; capture p50/p95/p99 + RPS + error count.
-4. Capture a flamegraph during a ramp — start the server under the language's sampling profiler, run the load tool at higher concurrency (~200 connections) for 60s, stop the profiler to write the flamegraph artifact.
-5. Capture DB slow queries during the ramp — tail the DB log; collect entries with duration above your SLO budget.
-6. Disable verbose logging when done.
+```bash
+URL='http://localhost:3000/api/orders?limit=50'; RATE=200
+# autocannon 8.0.0: -R fixes the overall rate (coordinated-omission correction on by default); headers are K=V
+npx autocannon -c 64 -d 60 -R "$RATE" -l -j --renderStatusCodes -H "authorization=Bearer $TOKEN" "$URL" > prof/load.json
+# oha 1.16.0: the correction only works together with -q
+oha -z 60s -c 64 -q "$RATE" --latency-correction --no-tui --output-format json -H "Authorization: Bearer $TOKEN" "$URL" > prof/load.json
+# k6 2.x: constant-arrival-rate; thresholds exit non-zero. AGPL-3.0 — run it as a tool, never vendor it into the project
+k6 run -e URL="$URL" -e TOKEN="$TOKEN" --summary-trend-stats="avg,med,p(95),p(99),max" prof/load.js
+```
 
-## Output (illustrative)
+```js
+// prof/load.js
+import http from 'k6/http';
+export const options = { scenarios: { s: { executor: 'constant-arrival-rate', rate: 200, timeUnit: '1s', duration: '60s', preAllocatedVUs: 100 } },
+  thresholds: { dropped_iterations: ['count<1'] } };
+export default () => http.get(__ENV.URL, { headers: { Authorization: `Bearer ${__ENV.TOKEN}` } });
+```
+
+Pick a rate from the route's production call rate (APM, access logs) or the SLO's target; a rate the generator could not reach (k6 `dropped_iterations` > 0, autocannon's achieved req/s below `-R`) measured a lower load than claimed.
+
+## Step 2 — Profile under that load, per runtime
+
+Attach while Step 1 runs at the same rate; one artifact per run, kept under `prof/`. Versions and flags as of 2026-10-02.
+
+| Runtime | Command (CPU unless stated) | Read it with | Traps |
+|---|---|---|---|
+| **Node.js** | `npx 0x -D 'prof/{pid}.0x' -- node dist/main.js` (0x 6.0.0, Node ≥ 20; stop with Ctrl-C / SIGINT, which writes the flamegraph). Built-in: `node --cpu-prof --cpu-prof-dir=prof dist/main.js` writes a `.cpuprofile` at process exit — give the app a graceful `SIGINT` path that calls `process.exit()`, and check the file exists. Sync I/O on the loop: `node --trace-sync-io dist/main.js` | `.cpuprofile` in Chrome DevTools → Performance, or speedscope | `clinic` 13.0.0 (last release 2023-06; its README says it is not actively maintained) may misreport on current Node — optional, never a required step |
+| **Python** | `py-spy record -o prof/cpu.svg -d 60 --pid "$PID"` (py-spy 0.4.2); add `--subprocesses` on the gunicorn / uvicorn master, `--idle` to include waiting frames (wall clock), `--gil` for GIL holders; `--format speedscope -o prof/cpu.json` for speedscope | the SVG, or speedscope | root on macOS; `SYS_PTRACE` in containers; Python 3.15's `python -m profiling.sampling` is the stdlib alternative once you run 3.15 |
+| **Go** | the service imports `net/http/pprof` on an internal-only port, then `curl -s -o prof/cpu.pb.gz "http://localhost:6060/debug/pprof/profile?seconds=60"` (Go 1.27) | `go tool pprof -top -nodecount=25 prof/cpu.pb.gz`; `go tool pprof -http=:8080 prof/cpu.pb.gz` | never expose the pprof port publicly; `block` / `mutex` profiles are empty unless `runtime.SetBlockProfileRate` / `SetMutexProfileFraction` are set |
+| **JVM** | `asprof -e cpu -d 60 -f prof/cpu.html "$PID"` (async-profiler 4.5); `-e wall -t` for threads parked in I/O; `-e alloc` for allocation. JFR: `jcmd "$PID" JFR.start duration=60s settings=profile filename=prof/rec.jfr` | the HTML flamegraph; JDK Mission Control for `.jfr` | containers block `perf_event_open`: use `--fdtransfer` or `-e ctimer` |
+| **.NET** | `dotnet-trace collect -p "$PID" --profile dotnet-sampled-thread-time,dotnet-common --duration 00:00:01:00 --format Speedscope -o prof/trace.nettrace`; thread-pool starvation: `dotnet-counters monitor -p "$PID"` | speedscope (the converted file), PerfView or Visual Studio for `.nettrace` | `collect` no longer has a `cpu-sampling` profile (Microsoft Learn, 2026-06-10); `--duration` is `dd:hh:mm:ss`; run as the target process's user |
+| **Ruby** | `sudo rbspy record --pid "$PID" --duration 60 --format flamegraph --file prof/cpu.svg` (rbspy 0.53.0); `--subprocesses` on the Puma / Unicorn master | the SVG; `--format speedscope` for speedscope | ptrace capability in containers; GVL contention needs vernier, not rbspy |
+| **Native / Rust (Linux)** | `perf record -F 99 -g -p "$PID" -- sleep 60` | `perf report --stdio` | needs `kernel.perf_event_paranoid` ≤ 1 or root; symbols from a release build with debug info |
+
+A share is reported as `measured (sampling, <n> samples, <tool@version>)`. A frame under a few percent of samples is noise unless it is the whole of a slow request's tail.
+
+## Step 3 — The database side of the same run
+
+Reset before Step 1, read after it, on the database the profiled server talks to — never a production primary without the user's go.
+
+```sql
+-- PostgreSQL (pg_stat_statements loaded via shared_preload_libraries)
+SELECT pg_stat_statements_reset();                       -- before the run
+SELECT calls, round(total_exec_time::numeric, 1) AS total_ms, round(mean_exec_time::numeric, 2) AS mean_ms,
+       rows, left(query, 120) AS query
+FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 20;   -- after the run
+-- without the extension: ALTER DATABASE app_dev SET log_min_duration_statement = '50ms'; (new sessions only; RESET it afterwards)
+-- MySQL: SET GLOBAL slow_query_log = ON; SET GLOBAL long_query_time = 0.05;  then  pt-query-digest <slow-log> --limit 95%:20
+-- MongoDB: db.setProfilingLevel(1, { slowms: 50 });  then  db.system.profile.find().sort({ millis: -1 }).limit(20)
+```
+
+`calls` divided by the requests the load tool completed is **queries per request**. A count that grows with the page size is an N+1 candidate: prove it with the query-count scaling oracle (`proof-oracles.md` § Query-count scaling) and hand it to `n-plus-one-scan` *(database pack, when installed)*. A slow statement goes to `/optimize-query` *(database pack, when installed)*; without that pack, report it Unconfirmed with the `EXPLAIN (ANALYZE, BUFFERS)` to run on production-shaped data.
+
+## Procedure
+
+1. Start the server as in § Prerequisites; reset the database statistics (Step 3).
+2. **Warm up** 30 s at the target rate and discard it (JIT, pools, caches).
+3. **Baseline** at the target rate, 60 s (Step 1). **Repeat it twice more** without changing anything: the spread of the three p95s is the noise band, and any later delta inside it is `NO-CHANGE` (`proof-oracles.md` § Noise band rules for timing oracles).
+4. **Profile** a fourth run at the same rate, profiler attached (Step 2). A ramp at higher rates belongs to `load-test`; profile at the rate where the SLO is missed.
+5. **Read the database side** (Step 3) and compute queries per request.
+6. Turn verbose logging back off; keep `prof/` out of version control.
+
+## Output
 
 ```
-Endpoint: POST /orders
-
-Baseline (50 conn, 60s):
-  p50:  42ms    p95:  87ms    p99: 112ms    rps: 1180    errors: 0
-
-Ramp (200 conn, 60s):
-  p50:  98ms    p95: 340ms    p99: 720ms    rps: 1840    errors: 12 (vendor SDK timeouts)
-
-Where time is spent (sampling-profiler flamegraph):
-  42%  OrderRepository.findByUser    (missing index on user_id)
-  18%  ProductMapper.toDto           (heavy serialize of large nested object)
-  15%  <vendor API call>             (network — can't optimize further)
-  25%  other (router, request parse, log serialization)
-
-DB slow queries (>50ms):
-  SELECT ... FROM orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50
-    avg 38ms, 420 calls — missing index on (user_id, created_at DESC)
-
-Recommendations (priority):
-  1. Add the missing composite index (use the engine's online-index-build syntax, e.g., `CREATE INDEX CONCURRENTLY` in Postgres) — expect p95 ~180ms.
-  2. Cache ProductMapper.toDto per product (invalidate on write).
-  3. Cap the vendor-API call timeout at 3s + use cached fallback reply.
+Endpoint: GET /api/orders?limit=50          build: release, NODE_ENV=production, 1 process
+Load:     autocannon 8.0.0 -c 64 -d 60 -R 200 · target 200/s achieved 199.4/s · gen CPU 31%
+Baseline (3 runs): p50 41 / 43 / 42 ms · p95 88 / 93 / 90 ms (band ±3 ms) · p99 140 ms · errors 0
+Profile:  0x 6.0.0, 11,820 samples → prof/48211.0x/
+  38%  OrderRepository.findForList        (measured, sampling)
+  17%  OrderMapper.toDto → JSON.stringify  (measured, sampling)
+  12%  pg-protocol Parser.parse            (measured, sampling)
+DB (pg_stat_statements, reset before the run): 11,964 requests completed
+  SELECT … FROM order_items WHERE order_id = $1     calls 598,200 → 50.0 per request
+  SELECT … FROM orders WHERE seller_id = $1 …        calls  11,964 → 1.0 per request, mean 6.1 ms
+Lanes:   load RAN · profiler RAN · db RAN
+Hand-offs (candidates, not findings):
+  - 50 queries per request on order_items, scaling with limit → n-plus-one-scan (database pack); oracle: query count at limit 2 vs 20
+  - OrderMapper.toDto 17% → request-path-scan; settle with a benchmark inside the noise band before ranking
 ```
+
+The block above is a shape: every number in a real run is copied from the artifact it names. A lane that could not run prints `SKIPPED (<reason>)` — no profiler permission, no database access — and the report says which claims that leaves unmeasured.
 
 ## False positives / gotchas
 
-- Empty tables run any query in ~0ms — populate with prod-like volume before profiling.
-- Local profiling on a laptop ≠ production hardware; treat findings as relative, not absolute.
-- The first request after server start hits cold cache + lazy DB connections — discard.
-- "Concurrent connections" is not the same as "requests per second" — different load tools knob this differently; pick the one your tool exposes.
-- A "fast" endpoint is whatever your SLO says — don't chase numbers from a blog post.
+- Empty or tiny tables answer every query in about 0 ms; seed to the production row estimate and `ANALYZE` first.
+- A laptop number is relative, not absolute; compare before and after on the same machine, never against a production dashboard.
+- The first requests hit cold caches, unopened pool connections and an unoptimized JIT — that is what the warm-up discards.
+- `-c` connections is not a rate. Only `-R` / `-q` / `constant-arrival-rate` fix the arrival rate.
+- p99 averaged across runs or pods means nothing; keep each run's histogram, compare medians of percentiles.
+- Lower latency with a higher error rate, or with smaller responses, is a regression in disguise (`precedents/performance.md` § 50).
+- Sampling profilers attribute time spent waiting on I/O differently: CPU mode hides it, wall mode (`--idle`, `-e wall`) shows it. Say which mode the shares come from.
 
 ## Related
 
-- `load-test.md` — boundary: this skill diagnoses ONE slow subject; `load-test` runs the whole-system SLA campaign (realistic mix, ramp to breakpoint, headroom). When a campaign exposes a knee, it hands the subject at that knee back here for the flamegraph + slow-query root cause.
-- `memory-leak-hunt.md` — boundary: this skill profiles ONE snapshot's hot path (where time goes now); `memory-leak-hunt` uses the same steady-load generator to hold load flat and hunt heap growth OVER TIME. When a profile run shows RSS climbing rather than a slow frame, hand the subject there.
+- `load-test` — boundary: this skill diagnoses ONE slow subject at one rate; `load-test` runs the whole-system campaign (mix, ramp to breakpoint, headroom) and hands the subject at the knee back here.
+- `memory-leak-hunt` — boundary: this skill profiles where time goes now; `memory-leak-hunt` holds load flat and hunts heap growth over time. RSS climbing during Step 4 goes there.
+- `/profile-perf` — the command that dispatches this skill for one slow path and ranks the fixes.
+- Detectors that receive the hand-offs: `request-path-scan` and `memory-growth-scan` (this pack); `n-plus-one-scan`, `index-coverage-scan` and `/optimize-query` *(database pack, when installed — without it, the database hand-offs are reported Unconfirmed with their settling probe)*.

@@ -1,0 +1,52 @@
+# Local development stack. `docker compose up` brings up Postgres, the API and the nginx
+# edge serving the built SPA on http://localhost:8080.
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: marketly
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in your shell or .env}
+      PAYMENTS_WEBHOOK_SECRET: ${PAYMENTS_WEBHOOK_SECRET:?}
+      SHIPPING_WEBHOOK_SECRET: ${SHIPPING_WEBHOOK_SECRET:?}
+      JWT_PRIVATE_KEY_PATH: /run/keys/jwt.key
+      JWT_PUBLIC_KEY_PATH: /run/keys/jwt.pub
+    volumes:
+      - ./.local/keys:/run/keys:ro
+      - ./.local/data/uploads:/app/public/uploads
+      - ./.local/data/attachments:/app/storage/attachments
+      - ./.local/data/exports:/app/storage/exports
+    expose:
+      - "3000"
+
+  web:
+    image: nginx:1.25-alpine
+    depends_on:
+      - api
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./web/dist:/usr/share/nginx/html:ro
+      - ./.local/data:/srv/marketly:ro
+
+volumes:
+  pgdata:

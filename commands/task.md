@@ -55,8 +55,8 @@ fetch → normalize → ingest attachments → execute → write status back.
 3. PLAN      — AC + subtasks → ordered worklist; classify intent (feature/fix/refactor/audit)
 4. MARK      — write-back: move source to "In Progress" (unless --no-writeback)
 5. EXECUTE   — route the synthesized description to /do
-6. VERIFY    — check each AC / subtask against the change
-7. CLOSE     — comment summary + commit/PR on the source; move to Review or Done
+6. VERIFY    — check each AC / subtask against the change; run .claude/scripts/gate-check.py --local
+7. CLOSE     — comment summary + commit/PR on the source; move to Review (Done only on gate-check PASS)
 ```
 All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP if healthy, else REST over `.env` creds).
 
@@ -119,8 +119,8 @@ the run ends before Phase 4 dispatches, so it never reaches the start-move eithe
 ## Phase 5 — Update (write back to the source)
 Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless `--no-writeback`:
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
-- **On finish** — post ONE comment via the adapter's comment verb: 1-line summary, the commit SHA(s)/PR link, and a per-AC ✓/✗ checklist. Tick completed checklist items / close sub-issues.
-- **Move** to `statusFlow.review` by default (human verifies), or `statusFlow.done` if `--review-only` is NOT set and all AC pass and tests are green. **Never delete** a card/issue.
+- **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post ONE comment via the adapter's comment verb: 1-line summary, the commit SHA(s)/PR link, the per-AC ✓/✗ checklist from Phase 6, and gate-check's `verdict:` line. Tick completed checklist items / close sub-issues.
+- **Move** to `statusFlow.review` by default (a human verifies). Move to `statusFlow.done` only when ALL hold: `--review-only` is NOT set; Phase 6 validated every AC ✓; and `python3 .claude/scripts/gate-check.py --local` ended `verdict: PASS` for the committed change (evidence in `.claude/evidence/<sha>/`). A `FAIL` or `UNVERIFIED` verdict — or a project with no `gate-check.py` — moves to Review with that line in the comment, never to Done. **Never delete** a card/issue.
 - **Write-back is post-execution — the work is already done and committed.** A failed status move / comment post (MCP error, REST 4xx/5xx, network) must NOT lose the work or leave the user without a record. When write-back fails AFTER execution:
   1. Do NOT halt silently and do NOT retry-loop forever (one retry max).
   2. **Print the exact comment body** that failed to post (the 1-line summary + commit SHA(s)/PR link + per-AC ✓/✗ list) so nothing is lost.
@@ -129,8 +129,10 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
 - Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`).
 
 ## Phase 6 — Validate (verify against the card)
+Runs BEFORE Phase 5's finish write-back: the on-start move happens before the work, the on-finish move waits for this phase.
 - Each `acceptanceCriteria` item → checked against the actual change (test, run, or inspection). Empty AC → verify the title's intent is satisfied.
 - Tests run green (or explicitly report which fail). Attachment-derived specs honored (e.g. screenshot layout matched).
+- Run `python3 .claude/scripts/gate-check.py --local` once the change is committed and keep its last line (`verdict: PASS | FAIL | UNVERIFIED`) — it is the only verdict that can move the card to Done. The routed command's own "COMPLETE" is a claim; the gate's verdict is evidence.
 - The write-back comment's ✓/✗ list must reflect reality — never report an unmet AC as met.
 
 ## Phase 7 — Improve (feed the loop)
@@ -142,6 +144,7 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
 - **One task per invocation.** `<ref>` resolves to exactly one card/issue. For many, loop `/task next`.
 - **Read adapters, don't hard-code.** Provider field maps + status verbs come from `templates/integrations/task-providers.md`; tool names are discovered at runtime.
 - **Never delete; never silently downgrade.** Write-back moves forward (start→review→done) or comments; destructive ops are out of scope.
+- **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not.
 - **Faithful execution.** The routed description preserves the card's intent verbatim — no scope drift, no silent omission of AC.
 - **Secrets stay in `.env`.** `/task` reads creds only via the provider MCP's env; it never prints or echoes tokens.
 

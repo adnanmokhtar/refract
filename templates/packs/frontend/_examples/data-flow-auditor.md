@@ -135,7 +135,7 @@ This agent is the only one that follows a value across layers. The others read a
 
 - **backend pack** owns server-side caching policy, TTLs, conditional requests, and multi-tenancy at the data layer; this agent owns everything from the HTTP response inward. A cross-tenant leak is a BLOCKER on **both** sides: report the client-side key that made it visible and say plainly that server-side scoping must be verified separately — the client fix is a mitigation, never the fix.
 - Backend pack absent → do not assert what the server does. Scope the finding to the client and mark the server lane `UNVERIFIED (backend pack absent)`.
-- **performance pack** owns field measurement and the server-side N+1 scan; this agent owns the client-side fan-out that turns one render into N requests.
+- **performance pack** owns field measurement and the **database pack** the server-side N+1 scan (`n-plus-one-scan`), each when installed; this agent owns the client-side fan-out that turns one render into N requests.
 
 ### Rules
 - `.claude/rules/frontend-principles.md`

@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """standards-check.py — deterministic checks behind the engineering baseline.
 
-Usage:  standards-check.py <target-repo> [--changed=<git-ref>] [--check=ID[,ID]] [--quiet]
+Usage:  standards-check.py <target-repo> [--changed=<git-ref>] [--check=ID[,ID]] [--quiet] [--json]
 Exit:   0  every finding is MET or allow-listed
         1  at least one finding is open
         2  usage error
+
+--json prints one object instead of the report — {root, changed, files_in_scope, checks, rows[],
+open} with each row {id, status: OPEN|MET|ALLOWED, key, where, message, allow_reason} — for
+gate-check.py, which records it as the G7-standards evidence. Exit codes are unchanged.
+
+A copy ships to every project as .claude/scripts/standards-check.py (templates/repo-baseline/),
+so gate-check.py can run it without a global install. The two files must stay byte-identical;
+tests/hooks/run.sh fails when they differ.
 
 The engineering baseline (templates/governance/engineering-baseline/) names each standard and
 the evidence that closes it; the standards gate asks the model for that evidence. This script
@@ -34,6 +42,7 @@ Allow-list: `.claude/standards-check.allow`, one line per accepted exception —
     DATA-1 customers.email — guest checkouts share an address; the key is the phone
 An allow-listed finding is reported, never hidden, and never fails the run.
 """
+import json
 import os
 import re
 import sys
@@ -580,10 +589,11 @@ def scope_to_change(rows, root, files):
 def main(argv):
     args = [a for a in argv if not a.startswith("--")]
     quiet = "--quiet" in argv
+    as_json = "--json" in argv
     only = next((a.split("=", 1)[1].split(",") for a in argv if a.startswith("--check=")), None)
     ref = next((a.split("=", 1)[1] for a in argv if a.startswith("--changed=")), None)
     if len(args) != 1 or not os.path.isdir(args[0]):
-        print("usage: standards-check.py <target-repo> [--changed=<git-ref>] [--check=ID[,ID]] [--quiet]",
+        print("usage: standards-check.py <target-repo> [--changed=<git-ref>] [--check=ID[,ID]] [--quiet] [--json]",
               file=sys.stderr)
         return 2
     root = os.path.abspath(args[0])
@@ -600,6 +610,17 @@ def main(argv):
             return 2
         rows = scope_to_change(rows, root, files)
         scope = " — scoped to %d file(s) changed since %s" % (len(files), ref)
+
+    if as_json:
+        out = []
+        for r in rows:
+            allowed = r[1] == "OPEN" and (r[0], r[2]) in allow
+            out.append({"id": r[0], "status": "ALLOWED" if allowed else r[1], "key": r[2], "where": r[3],
+                        "message": r[4], "allow_reason": (allow[(r[0], r[2])] or None) if allowed else None})
+        open_n = sum(1 for r in out if r["status"] == "OPEN")
+        print(json.dumps({"root": root, "changed": ref, "files_in_scope": len(files) if ref else None,
+                          "checks": CHECKS, "rows": out, "open": open_n}, indent=2))
+        return 1 if open_n else 0
 
     print("standards-check — %s%s" % (root, scope))
     open_n = 0

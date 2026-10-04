@@ -174,4 +174,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   fallback: skills/change-brief/SKILL.md   # no _examples/ stub ships — the source IS the fallback
   sections: [purpose, when_to_use, the_brief_contract, procedure, verify, anti_patterns]
+
+# Correctness detectors (COPY-mode — verbatim; the source IS the fallback, as the security and database
+# detectors do, so a regenerated stub can never drift from the detector it mirrors).
+- name: error-handling-scan
+  kind: skill
+  triggers: { always: true }   # every codebase has an unhappy path; a stack with no lane reports its classes N/A
+  fallback: skills/error-handling-scan/SKILL.md
+
+- name: type-safety-scan
+  kind: skill
+  triggers: { always: true }   # every codebase has a boundary; an untyped stack reports the cast classes by grep only
+  fallback: skills/type-safety-scan/SKILL.md
 ```

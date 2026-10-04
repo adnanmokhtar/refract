@@ -57,7 +57,7 @@ Any write that sets an arbitrary to-state with no from-state precondition is an 
 Each transition must assert the current state before writing the next. The correct shapes are a conditional `WHERE status = 'expected'` (and a check that affected-rows == 1), or a guard clause that throws when `current != expected`. A blind overwrite (`SET status = 'paid'` unconditionally) is a missing guard even if the calling code "usually" only calls it from the right state.
 ```
 rg -n "UPDATE .*SET status.*WHERE status" .   # guarded update — the GOOD shape; count it
-rg -n "affected|rowCount|== 1"                 # affected-rows check after a conditional update
+rg -n "affected|rowCount|== 1" . # affected-rows check after a conditional update
 ```
 
 ### Authorization (per transition, not per entity)

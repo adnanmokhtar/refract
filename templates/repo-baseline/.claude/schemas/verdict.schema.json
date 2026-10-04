@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/adnanmokhtar/refract/schemas/refract/verdict/v1.json",
+  "title": "Refract verifier verdict",
+  "description": "ai/runs/<run_id>/verdict.json (mode acceptance) or verdict-refute.json (mode refute) — the independent judge's record. The verifier (.claude/agents/verifier.md) ends its final message with this JSON; the SubagentStop hook persist-verdict.sh extracts it, validates it against this schema AND the rules a schema cannot state (below), stamps `signer`, `authors` and `scope`, and writes the file. Malformed output, a kept finding without proof, or a PASS the evidence does not support makes the hook exit 2 and the verifier redo the work. Rules enforced in .claude/scripts/refract_records.py: acceptance mode lists every criterion of the locked acceptance.json exactly once; a PASS criterion carries exit_code 0 and oracle `expresses-clause`; a regression criterion's PASS cites a red_run that exists verbatim in .claude/evidence/test-runs.jsonl; refute mode's confirmed findings carry file, line and proof, unconfirmed ones the settling probe, refuted ones the failed gate; `verdict` is derived — FAIL when any criterion FAILs or any confirmed IMPORTANT finding stands, CONCERNS when anything is UNVERIFIED or unconfirmed at IMPORTANT, PASS otherwise. PRE-EXISTING never blocks. Vocabulary: PASS ≡ READY (security's GO), CONCERNS ≡ GO-UNVERIFIED, FAIL ≡ NOT-READY (NO-GO).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "run_id", "mode", "verdict", "summary"],
+  "properties": {
+    "schema": { "const": "refract/verdict/v1" },
+    "run_id": { "$ref": "#/$defs/run_id" },
+    "mode": { "enum": ["acceptance", "refute"] },
+    "verdict": { "enum": ["PASS", "CONCERNS", "FAIL"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "contract": { "type": "string", "description": "acceptance mode: the contract graded — ai/runs/<run_id>/acceptance.json, or the plan file for a plan-<id> run." },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "command", "exit_code", "oracle", "note"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^AC-[0-9]{3,}$" },
+          "status": { "enum": ["PASS", "FAIL", "UNVERIFIED"] },
+          "command": { "type": "string", "description": "What the verifier ran at HEAD." },
+          "exit_code": { "type": ["integer", "null"] },
+          "oracle": { "enum": ["expresses-clause", "proxy", "absent"], "description": "Does the test's assertion state the EARS clause (expresses-clause), something correlated with it (proxy), or nothing (absent)? Only expresses-clause can PASS." },
+          "note": { "type": "string", "minLength": 1, "description": "The assertion line read (file:line) and why it does or does not express the clause; for a FAIL, the failing output." },
+          "red_run": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ts", "cmd", "exit_code"],
+            "description": "regression criteria: the RED record of the test before the fix, copied from .claude/evidence/test-runs.jsonl.",
+            "properties": {
+              "ts": { "type": "string" },
+              "cmd": { "type": "string" },
+              "exit_code": { "type": "integer" },
+              "tree": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "bucket", "severity", "claim"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "description": "The candidate's id, or <reviews file>#F-n when it came from a persisted review." },
+          "bucket": { "enum": ["confirmed", "unconfirmed", "pre-existing", "hardening", "refuted"] },
+          "severity": { "enum": ["IMPORTANT", "NIT", "PRE-EXISTING"] },
+          "file": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"] },
+          "claim": { "type": "string", "minLength": 20 },
+          "confidence": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "proof": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/proof" }] },
+          "gate": { "type": ["string", "null"], "description": "refuted: the gate that failed; unconfirmed: the gate left unresolved." },
+          "probe": { "type": ["string", "null"], "description": "unconfirmed: the exact probe that would settle it." },
+          "reason": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "signer": { "$ref": "#/$defs/signer" },
+    "authors": { "$ref": "#/$defs/authors" },
+    "scope": { "$ref": "#/$defs/scope" },
+    "persisted_at": { "type": "string" }
+  },
+  "$defs": {
+    "run_id": {
+      "type": "string",
+      "pattern": "^([0-9]{8}-[a-z0-9][a-z0-9-]{0,60}-[0-9a-f]{4}|plan-[A-Za-z0-9][A-Za-z0-9-]{0,60})$"
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref", "result"],
+      "properties": {
+        "kind": { "enum": ["test", "probe", "benchmark", "axe", "trace", "query-plan", "scanner"] },
+        "ref": { "type": "string", "minLength": 1 },
+        "result": { "type": "string", "minLength": 1 }
+      }
+    },
+    "signer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_type", "agent_id", "stamped_by", "ts"],
+      "properties": {
+        "agent_type": { "type": "string", "minLength": 1 },
+        "agent_id": { "type": ["string", "null"] },
+        "stamped_by": { "enum": ["persist-review.sh", "persist-verdict.sh"] },
+        "ts": { "type": "string" },
+        "transcript": { "type": ["string", "null"] }
+      }
+    },
+    "authors": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "paths", "fingerprint"],
+      "properties": {
+        "base": { "type": ["string", "null"] },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "blob"],
+            "properties": {
+              "path": { "type": "string" },
+              "blob": { "type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64}|deleted)$" }
+            }
+          }
+        },
+        "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

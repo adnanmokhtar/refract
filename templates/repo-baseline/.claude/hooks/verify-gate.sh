@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
-# Stop hook — deterministic verification gate.
-# Closes the "looks done" gap: if this session left uncommitted source changes
-# AND the project has a test command AND that command FAILS, block the stop (exit 2)
-# so the agent fixes red tests instead of declaring success.
+# Stop hook — the deterministic "done" gate.
+# Closes the "looks done" gap: when this session left uncommitted source changes, run the
+# project's gates and block the stop (exit 2) on a gate in `block` mode that FAILs, so the agent
+# fixes the cause instead of declaring success.
 #
-# Blocks ONLY on actual test failure. No changes, no test runner, or green tests → exit 0.
-# Claude Code overrides a Stop block after 8 consecutive blocks, so this can't trap a session.
+# The gates live in .claude/scripts/gate-check.py (--local): G1 tests, G2 test integrity,
+# G3 secrets, G7 lint / typecheck / standards, G15 provenance trailer — each mode (shadow |
+# warn | block) set in .claude/gates.json, each result written to .claude/evidence/<sha>/.
+# This file only decides WHETHER to run them and how the result reaches Claude Code:
+#   exit 2  a block-mode gate FAILed — stderr carries the report, Claude reads it and continues
+#   exit 0  allowed; a non-PASS verdict (UNVERIFIED, a warn-mode FAIL) still reaches the user as
+#           a `systemMessage` — a project with no test runner is reported UNVERIFIED, never
+#           passed in silence, which is what this hook did before gate-check.py existed.
+# Claude Code overrides a Stop block after 8 consecutive blocks, so this can't trap a session —
+# and for the same reason it is advisory-strong, not a hard gate: CI (refract-gates) is that.
 #
 # Opt out per project: create .claude/.no-verify-gate
 
@@ -14,13 +22,29 @@ set -uo pipefail
 [ -f ".claude/.no-verify-gate" ] && exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
 
-# Only gate when this session actually touched source — never run the suite for doc/no-op turns.
-changed=$(git status --porcelain 2>/dev/null \
-  | grep -Ev '\.(md|txt|json|ya?ml|lock|cfg|ini|toml)$' \
-  | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|swift|php|cs|vue|svelte)$' || true)
+# Only gate when this session actually touched source, or the files that decide whether tests run
+# (CI config, coverage floors) — never run the suite for doc/no-op turns. `-uall` lists untracked
+# files one by one: without it a new file in a new directory shows as `?? src/`, which matches no
+# extension, so a change made only of new files skipped the gate entirely.
+changed=$(git status --porcelain -uall 2>/dev/null \
+  | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|rb|java|kt|kts|scala|swift|php|cs|fs|vue|svelte|dart|ex|exs|c|cc|cpp|h|hpp|m|mm)$|\.github/workflows/|\.gitlab-ci\.yml$|(jest|vitest)\.config\.|codecov\.ya?ml$|\.coveragerc$' || true)
 [ -z "$changed" ] && exit 0
 
-# Detect the project's test command (first match wins).
+GATE=".claude/scripts/gate-check.py"
+if [ -f "$GATE" ] && command -v python3 >/dev/null 2>&1; then
+  python3 "$GATE" --local --hook-json
+  status=$?
+  if [ "$status" -eq 2 ]; then
+    echo "Fix the cause (root cause — don't suppress a check, skip a test or lower a threshold) and try again." >&2
+    echo "Modes: .claude/gates.json · evidence: .claude/evidence/ · to bypass this hook: create .claude/.no-verify-gate." >&2
+  fi
+  exit "$status"
+fi
+
+# ── Fallback: gate-check.py not installed here (an older setup) or no python3 ──────────────────
+# Tests only, through the heavy-test lane when it ships here (test-lane.sh): one full suite per
+# machine at a time. The agent's own green run of this command on exactly this tree IS the
+# verification. The wait is bounded because Claude Code cancels a hook at its 600s timeout.
 TEST_CMD=""
 if [ -f "package.json" ] && grep -q '"test"' package.json; then
   if command -v bun >/dev/null 2>&1 && [ -f "bun.lockb" ]; then TEST_CMD="bun run test"
@@ -33,13 +57,11 @@ elif [ -f "go.mod" ]; then
 elif [ -f "Cargo.toml" ]; then
   command -v cargo >/dev/null 2>&1 && TEST_CMD="cargo test --quiet"
 fi
-[ -z "$TEST_CMD" ] && exit 0
+if [ -z "$TEST_CMD" ]; then
+  printf '{"systemMessage":"Verification gate: tests UNVERIFIED - no test runner detected and .claude/scripts/gate-check.py is not installed (re-run apply-baseline-sync.sh to get it)."}\n'
+  exit 0
+fi
 
-# Through the heavy-test lane when it ships here (test-lane.sh): one full suite per machine at a
-# time, so a stop does not start a suite beside every parallel agent's. The agent's own green run
-# of this command on exactly this tree IS the verification — repeating it would only queue a
-# second suite. The wait is bounded because Claude Code cancels a hook at its 600s timeout and the
-# stop then proceeds unverified: better to say so than to be cut off in silence.
 LANE=".claude/hooks/test-lane.sh"
 if [ -f "$LANE" ] && [ ! -f ".claude/.no-test-lane" ]; then
   bash "$LANE" verified "$TEST_CMD" && exit 0

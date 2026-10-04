@@ -1,114 +1,293 @@
 ---
 name: mutation-probe
-description: Measure test STRENGTH by mutation-testing changed code — surface survived mutants (the source was corrupted, the suite stayed green) and the assertion-free tests that let them live. Sits beside coverage-gap; coverage-gap proves a branch RAN, mutation-probe proves a test would CATCH it breaking.
+description: "Measure test strength on changed lines: run the repo's mutation tool with current flags (or seed one mutant by hand), surface surviving mutants, dismiss equivalents by a five-check procedure, and emit the mutant-kill evidence row a fix consumes."
+kind: skill
+pack: testing
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
-# mutation-probe
-
-A green test that asserts nothing is worse than no test — it buys false confidence. Coverage says the line ran; mutation testing says the line's behaviour is actually pinned. This is the strength probe.
+# Skill: mutation-probe
 
 ## Premise
 
-The failure mode: a suite reports "100% coverage, 0% mutation score" — every line executes under some test, yet you can corrupt the logic (`>` → `>=`, `&&` → `||`, `return x` → `return null`) and every test stays green. The tests exercise the code without asserting on its result. Coverage measured presence; nothing measured strength.
+Coverage says a line ran; a mutant says whether any test would notice it breaking. Corrupt the
+logic (`>` → `>=`, `&&` → `||`, `return total` → `return 0`) and run the tests that execute the
+line: a mutant that **survives** is a regression the suite would ship green. Mutants couple to real
+faults — 73% of 357 real faults were coupled to mutants in Just et al. (FSE 2014) — which is why
+this is the oracle every assertion-strength finding settles on.
 
-Cite-or-halt: a survived mutant is cited by `<file:line>` + the exact mutation applied + why the test missed it (which test ran, what it failed to assert). A claim without the mutant is a vibe. "Weak tests here" is not a finding; "`pricing.ts:42` `>` → `>=` survived — `pricing.spec.ts` calls `calc()` but never asserts the boundary value" is.
+It is a **harness**, not a detector: it runs on a scope someone hands it (a diff, a file, a line, a
+fix) and returns measured survivors. It is expensive (suite time × mutants), so it runs **only on
+changed or named lines**, never repo-wide in PR CI. Google's practice — diff-scoped, at most one
+surfaced mutant per changed line, after skipping "arid" lines such as logging — is the shape
+followed here (Petrović & Ivanković, ICSE-SEIP 2018).
 
-The ownership boundary with `coverage-gap` (state it, don't cross it): **coverage-gap finds branches never EXECUTED (test presence); mutation-probe finds branches executed but never ASSERTED (test strength). A file can be 100% covered and 0% mutation-killed.** A mutant that survives *because the mutated line never ran under any test* is not a mutation-probe finding — it is a coverage gap. Hand it to coverage-gap; do not report it here.
+Ownership: **`coverage-gap` finds lines never EXECUTED; this skill finds lines executed but never
+ASSERTED.** A mutant on a line no test runs (`NoCoverage`, `NOT COVERED`, `no tests`, PIT
+`NO_COVERAGE`) is handed back to `coverage-gap` § 1, never reported here.
 
-## When to run
+**Every survivor cites `<file:line>` + the tool's mutant (operator, original → mutated) + the tests
+that ran it + why they missed it + the assertion that would kill it.** "Weak tests here" is not a
+finding. A score is never printed without its formula and its denominator (§ Output).
 
-- On the **changed scope of a PR** — mutation testing re-runs the suite once per mutant, so it is expensive. Scope it to the diff, never the whole tree.
-- **Before a refactor you're about to trust the suite for** — if you're about to change behaviour-preserving internals and lean on tests to catch regressions, first confirm the tests would actually catch them.
-- After a bug fix, to confirm the regression test *kills* the mutation that reintroduces the bug (not just that it runs the line).
+## The rule
 
-**Do not** run it on the whole repo every CI run — the runtime is quadratic-feeling (suite × mutants) and it will blow the CI budget. Scope to the diff, or schedule a nightly/weekly run on a critical module.
+A surviving mutant is a finding when all four hold:
 
-## Adapt to the codebase
+1. **It is on a scoped, executed line.** The line is in the change (or the named scope) and the tool reports tests ran it. Unexecuted → `coverage-gap`.
+2. **It is not arid.** Logging, metrics, tracing, `toString` / `__repr__`, DI wiring and generated code are skipped, unless the log line is an audit or security contract.
+3. **It is not equivalent.** The five checks in § Equivalent mutants found an input that tells original and mutant apart — or never ran, in which case it is **Unconfirmed**, not dismissed.
+4. **It survived a real run.** The tool (or the manual-seed lane) executed it, and its status is a survivor — not `CompileError`, `RuntimeError`, `Unviable`, `NON_VIABLE`, `caught by type check`, or `Timeout` (a timeout counts as killed; spot-check it on a slow suite).
 
-Drive the project's own mutation tool. Detect it (config file / dev-dependency), don't impose one.
+## Boundaries
 
-| Stack | Tool | Scope to changed files | Survived-mutant report |
+- **Unexecuted lines, files missing from coverage** → `coverage-gap` (this pack).
+- **Which tests are weak, read from the code** → `assertion-strength-scan` (this pack); it hands this skill its candidate lines, and this skill measures them.
+- **Writing the killing test** → `@test-engineer` / `/add-test`; **closing an audit finding** → `/test-fix`, which consumes this skill's evidence row.
+- **A gate weakened in the change** (a mutation threshold lowered, a `Stryker disable` / `# pragma: no mutate` / `@DoNotMutate` / `mutants::skip` added) → `.claude/scripts/test-integrity.py` when the repo-baseline is installed; without it, list the hint as a candidate here and re-run with it removed.
+
+## Adapt to the codebase — the lane table (flags verified 2026-10-05)
+
+Detect the tool from config and dependencies (grep 0); never impose one. **Run** = executed on a
+sample this pass; **Docs** = read from the tool's current documentation or `--help` this pass.
+
+| Stack | Tool (version) | Diff-scoped run | Survivor in the report | Trap | Check |
+|---|---|---|---|---|---|
+| JS / TS | StrykerJS `@stryker-mutator/core` 10.0.0 (Node ≥ 22) + a runner plugin | `npx stryker run --mutate "<file:start-end,…>" --reporters clear-text,json` (`--checkers typescript` with the TS checker) | `reports/mutation/mutation.json` → `status: "Survived"` | **No `--since`** — `stryker run --since` exits `error: unknown option '--since'`; `--incremental` diffs against its own last report (`reports/stryker-incremental.json`), not git. Never `npx stryker` without the local install: it fetches the abandoned `stryker` 0.x package | Run |
+| .NET | Stryker.NET 5.0.0 | `dotnet stryker --since:<committish> -r json -r html` | the JSON report under `StrykerOutput/` → `Survived` | `--since` is file-granular, default target `master`; `-m "File.cs{10..100}"` is a **character** span, not lines | Docs |
+| Python | mutmut 3.8.0 | `[tool.mutmut] source_paths = ["src/pkg"]`, then `mutmut run "<mutant-name globs>"` (grep 3) | `mutmut results` → `survived`; `mutmut show <name>` | **`--paths-to-mutate` is gone** (`Error: No such option`); mutates only inside functions; POSIX only; `mutate_only_covered_lines` also skips `# pragma: no cover` lines | Run |
+| Python | cosmic-ray 8.7.0 | `cosmic-ray init cr.toml s.sqlite && cr-filter-git --config cr.toml s.sqlite && cosmic-ray exec cr.toml s.sqlite && cr-report s.sqlite` | `cr-report` | the git filter's branch defaults to `master` — set it in `cr.toml` | Docs + `--help` |
+| JVM | PIT `pitest-maven` 1.30.0 + `pitest-junit5-plugin` 1.2.3 | `mvn test-compile org.pitest:pitest-maven:mutationCoverage -DtargetClasses='<changed FQCN>*' -Dmutators=STRONGER -DoutputFormats=XML,HTML -DtimestampedReports=false` | `target/pit-reports/mutations.xml` → `status='SURVIVED'` (filter to changed lines: grep 3) | **`scmMutationCoverage` was removed in 1.18.0** (`Could not find goal 'scmMutationCoverage'`); line-level git scoping is Arcmutate `+GIT` (commercial) | Run |
+| Go | gremlins v0.6.0 | `gremlins unleash --diff <base> --output g.json -S lc` | `LIVED` (`NOT COVERED` → coverage-gap) | **the flag is `--diff`** (`--diff-ref`: `unknown flag`); `--threshold-efficacy 80` at 50% efficacy still exited 0 — gate on `test_efficacy` in the JSON, not the exit code | Run |
+| Go | go-mutesting (avito-tech) v2.3.1 | `go-mutesting ./<changed package>/...` | a **`FAIL`** block with the patch = **survived**; `PASS` = killed | no diff mode; `go install …@v2.3.1` fails (module path lacks `/v2`) — build from the tag | Run |
+| Rust | cargo-mutants 27.1.0 | `git diff --src-prefix=a/ --dst-prefix=b/ <base>.. > git.diff && cargo mutants --in-diff git.diff` | `mutants.out/missed.txt`; `outcomes.json` `summary: "MissedMutant"`; exit 2 = missed | there is **no `caught` field** — summaries are `Success`, `CaughtMutant`, `MissedMutant`, `Timeout`, `Unviable`, `Failure` | Run |
+| PHP | Infection 0.35.6 | `infection --git-diff-lines --git-diff-base=<base> --min-covered-msi=100 --show-mutations=max --threads=max` | escaped mutants | the diff base defaults to `master`; uncovered code is not mutated unless `--with-uncovered`; timeouts count as killed unless `--with-timeouts` | Docs |
+| Ruby | mutant 0.16.2 | `bundle exec mutant run --use rspec --usage opensource --since <base> -- 'App*'` | alive mutations | **commercial licence for private code** (`--usage opensource` is for public repositories only) → `blocked (licence)` unless the repo holds one | Docs |
+| C / C++ | mull 0.34.1 | `mull.yml`: `gitDiffRef: <base>`, `gitProjectRoot: .` | survived mutants | needs the clang plugin build | research notes, not run |
+
+Statuses that are **not** survivors in any lane: `NoCoverage` / `NOT COVERED` / `no tests` /
+`NO_COVERAGE` (→ coverage-gap), and compile- or type-killed mutants. Each lane scores differently —
+state the formula: StrykerJS `(Killed + Timeout) / (Killed + Timeout + Survived + NoCoverage)`; PIT
+mutation score `killed / all` vs test strength `killed / (killed + survived)`; gremlins efficacy
+`killed / (killed + lived)`; Infection MSI vs covered-code MSI.
+
+## Pre-flight — the scope
+
+Run as **one** script with bash from the repo root. Every `rg` names its path (`.`).
+
+```bash
+BASE=$(git merge-base HEAD "${BASE_REF:-origin/main}"); W=$(mktemp -d)
+X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/mutants/**'
+   -g '!**/{test,tests,__tests__,spec,e2e,testdata,fixtures,__fixtures__,mocks,__mocks__,migrations,generated,__generated__,scripts}/**'
+   -g '!**/*.{spec,test,e2e-spec,stories,d}.*' -g '!**/{test_*,*_test,conftest}.*' -g '!**/*{Test,Tests,IT}.{java,kt,cs,php}' -g '!**/*_spec.rb'
+   -g '!**/*.{md,mdx,json,yml,yaml,toml,lock,snap,sql,map,svg,css,html}' -g '!ai/**' -g '!docs/**' -g '!**/{locales,i18n}/**')
+# 0. Lanes: mutation configs (0a) and declared tools (0b). Detect; never impose a tool the repo does not have.
+echo '== 0'; rg --files -g '**/{stryker.conf.*,stryker.config.*,.stryker.conf.*,stryker-config.json,gremlins.y*ml,.gremlins.y*ml,infection.json5,infection.json,.mutant.yml,mull.yml,mutants.toml}' -g '!**/node_modules/**' .
+rg -n --pcre2 '"@stryker-mutator/[\w-]+"|\bdotnet-stryker\b|\[(?:tool\.)?mutmut\]|\bmutmut\b|\bcosmic-ray\b|\bpitest\b|infection/infection|\bmutant-rspec\b|go-gremlins|go-mutesting|cargo-mutants' -g '**/{package.json,pyproject.toml,setup.cfg,requirements*.txt,pom.xml,build.gradle*,*.csproj,dotnet-tools.json,composer.json,Gemfile,go.mod,Makefile}' -g '!**/node_modules/**' .
+# 1. Changed source lines ("path:line") and hunk ranges ("path:start-end", StrykerJS's --mutate syntax), with coverage-gap's
+#    parser: deletion-only hunks, deleted files, spaces in names and diff.noprefix are all handled.
+git -c core.quotePath=false diff -U0 --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$BASE"...HEAD | awk '
+/^\+\+\+ / { f = ($0 == "+++ /dev/null") ? "" : substr($0, 7); sub(/\t$/, "", f); next }
+/^@@ / { if (f == "") next; match($0, /\+[0-9]+(,[0-9]+)?/); s = substr($0, RSTART + 1, RLENGTH - 1)
+         n = split(s, a, ","); st = a[1] + 0; c = (n == 2) ? a[2] + 0 : 1; if (c == 0) next
+         print f ":" st "-" (st + c - 1) > R; for (i = 0; i < c; i++) print f ":" (st + i) }' R="$W/ranges.all" > "$W/lines.all"
+rg --files "${X[@]}" . | sed 's|^\./||' | sort > "$W/src"
+awk -F: 'NR == FNR { s[$0]; next } ($1 in s)' "$W/src" "$W/lines.all" > "$W/lines"; awk -F: 'NR == FNR { s[$0]; next } ($1 in s)' "$W/src" "$W/ranges.all" > "$W/ranges"
+echo '== 1'; printf 'changed source files %s · lines %s · hunks %s\n' "$(cut -d: -f1 "$W/lines" | sort -u | wc -l)" "$(wc -l < "$W/lines")" "$(wc -l < "$W/ranges")"
+# 2. Arid lines — blank, braces, comments, imports, logging / metrics / tracing — are never surfaced unless the log is an
+#    audit contract. The rest ($W/mutable) is the scope; at most one survivor per line is surfaced.
+python3 - "$W/lines" > "$W/mutable" <<'PY'
+import re, sys
+A = re.compile(r'^\s*(?:$|[})\]];?\s*$|//|#|/\*|\*|(?:import|from|package|using|require)\b|@\w+\s*$|(?:this\.|self\.)?(?:log|logger|console|LOG|Log|slog|tracer|span|metrics?|statsd)\s*[.:]|logging\.\w+\(|print\(|fmt\.Print|println!)')
+cache, arid = {}, 0
+for it in open(sys.argv[1]).read().split('\n'):
+    if not it: continue
+    p, n = it.rsplit(':', 1); src = cache.setdefault(p, open(p, errors='ignore').read().split('\n'))
+    if A.match(src[int(n) - 1] if int(n) <= len(src) else ''): arid += 1
+    else: print(it)
+print(f'arid lines skipped: {arid}', file=sys.stderr)
+PY
+echo '== 2'; wc -l < "$W/mutable"; echo "scope: $W/lines $W/ranges $W/mutable"
+```
+
+**Run the lane** (same shell, after the block above; one lane per stack present):
+
+```bash
+# StrykerJS — hunk ranges as --mutate (a range entry cannot be mixed with a glob in the same entry)
+npx stryker run --mutate "$(awk -F: '$1 ~ /\.(c|m)?[jt]sx?$/' "$W/ranges" | paste -sd, -)" --reporters clear-text,json
+jq -r '.files|to_entries[]|.key as $f|.value.mutants[]|select(.status=="Survived" or .status=="NoCoverage")|"\(.status) \($f):\(.location.start.line) \(.mutatorName) -> \(.replacement)"' reports/mutation/mutation.json
+# mutmut 3 — changed lines → mutant-name globs: functions `mod.x_fn__mutmut_*`, methods `mod.xǁClassǁfn__mutmut_*`
+mutmut run $(python3 -c '
+import ast, sys, collections
+want = collections.defaultdict(set)
+for it in open(sys.argv[1]).read().split():
+    p, n = it.rsplit(":", 1); want[p].add(int(n))
+for p, lines in want.items():
+    if not p.endswith(".py"): continue
+    mod = p[:-3].split("src/", 1)[-1].replace("/", ".").removesuffix(".__init__")
+    def walk(body, cls=None):
+        for d in body:
+            if isinstance(d, ast.ClassDef): walk(d.body, d.name)
+            elif isinstance(d, (ast.FunctionDef, ast.AsyncFunctionDef)) and lines & set(range(d.lineno, d.end_lineno + 1)):
+                print(f"{mod}.xǁ{cls}ǁ{d.name}__mutmut_*" if cls else f"{mod}.x_{d.name}__mutmut_*")
+    walk(ast.parse(open(p).read()).body)' "$W/mutable") && mutmut results
+# PIT — changed classes (inner classes via the trailing *), then survivors on changed lines only
+mvn test-compile org.pitest:pitest-maven:mutationCoverage -DtargetClasses="$(awk -F: '$1 ~ /src\/main\/(java|kotlin)\/.*\.(java|kt)$/ { c = $1; sub(/.*src\/main\/(java|kotlin)\//, "", c); sub(/\.(java|kt)$/, "", c); gsub("/", ".", c); print c "*" }' "$W/lines" | sort -u | paste -sd, -)" -Dmutators=STRONGER -DoutputFormats=XML,HTML -DtimestampedReports=false
+python3 -c '
+import sys, xml.etree.ElementTree as ET
+ch = {tuple(l.rsplit(":", 1)) for l in open(sys.argv[2]).read().split()}
+for m in ET.parse(sys.argv[1]).getroot():
+    f = m.findtext("mutatedClass").rsplit(".", 1)[0].replace(".", "/") + "/" + m.findtext("sourceFile"); n = m.findtext("lineNumber")
+    if m.get("status") in ("SURVIVED", "NO_COVERAGE") and any(p.endswith(f) and l == n for p, l in ch):
+        print(m.get("status"), f"{f}:{n}", m.findtext("mutator").rsplit(".", 1)[-1], "-", m.findtext("description"))' target/pit-reports/mutations.xml "$W/lines"
+# gremlins
+gremlins unleash --diff "$BASE" --output "$W/g.json" -S lc && jq -r '.files[]|.file_name as $f|.mutations[]|select(.status=="LIVED" or .status=="NOT COVERED")|"\(.status) \($f):\(.line) \(.type)"' "$W/g.json"
+# cargo-mutants (exit 2 = missed mutants)
+git diff --src-prefix=a/ --dst-prefix=b/ "$BASE".. > "$W/git.diff" && cargo mutants --in-diff "$W/git.diff"; cat mutants.out/missed.txt
+```
+
+**Measured** (2026-10-05). Each Run lane above was executed on a one-function sample (`discount(total, threshold)` with an `if (total > threshold)` branch and one test at 200 / 100): StrykerJS 10.0.0 surfaced `EqualityOperator` (`>=`) and `ConditionalExpression` (`true`) as Survived in about 2.5 s; mutmut 3.8.0 left `x_discount__mutmut_1` (`>=`) and `_3` survived; PIT 1.30.0 left `ConditionalsBoundaryMutator` and `RemoveConditionalMutator_ORDER_IF` SURVIVED on line 4; gremlins reported `LIVED CONDITIONALS_BOUNDARY at pricing.go:4:11` and `NOT COVERED` for an untested function; go-mutesting printed `FAIL` with the `return 0 → return 1` patch; cargo-mutants printed `MISSED src/lib.rs:2:14: replace > with >= in discount` and exited 2. On a real NestJS-on-Fastify monorepo (read-only) the scope block runs in 0.4 s: 30 commits → 105 changed source files, 3,565 lines, 363 hunks, 1,249 arid lines skipped, **2,316** mutable lines. The repo declares no mutation tool (grep 0 empty), so its lane is StrykerJS installed in a scratch worktree, or the manual-seed lane.
+
+## The 3,000-hit path
+
+1. **Coverage first.** Hand every unexecuted mutant to `coverage-gap`; only executed lines are mutated (mutmut `mutate_only_covered_lines`, Infection's default, StrykerJS `coverageAnalysis: perTest`).
+2. **One survivor per line.** Surface at most one per changed line, in this order: relational / boundary, logical connector, return value, statement deletion. Keep the rest as siblings for the fix.
+3. **Rank by risk.** Money, auth, tenant, quota and limit lines first, then write paths, then reads.
+4. **Read the top 30** with the equivalence checks and the "why missed" questions.
+5. **Bulk oracle.** One tool run over the whole scope beats per-line seeding; seed by hand only where no lane runs.
+6. **Ledger the rest** as `Live, unreviewed (k lines / n mutants)` with the continuing command — for StrykerJS, the same `--mutate` with the remaining ranges.
+
+## Scans for
+
+| § | Class | Standard | Default |
 |---|---|---|---|
-| JS / TS | Stryker (`stryker.conf.*`) | `--mutate "src/changed/**"` or `--since=<base>` (incremental) | `reports/mutation/mutation.html` + `--reporters json` → `mutation.json` (`status: "Survived"`) |
-| Python | mutmut (`setup.cfg` `[mutmut]`) / cosmic-ray | `mutmut run --paths-to-mutate <files>` | `mutmut results` → survivors; `mutmut show <id>` for the diff |
-| Java | PIT / pitest (`pom.xml` plugin) | `-DtargetClasses=<changed>` + `scmMutationCoverage` (changed-since-SCM) | `target/pit-reports/**/index.html`; `SURVIVED` in the mutations XML |
-| Go | go-mutesting / gremlins (`gremlins.yaml`) | run in the changed package dir; gremlins `--diff-ref=<base>` | stdout `LIVED` lines; gremlins JSON output |
-| Ruby | mutant (`.mutant.yml`) | `mutant run -- '<Changed::Constant>'` (subject-scoped) | stdout `alive` subjects + the mutation diff |
-| C# / .NET | Stryker.NET (`stryker-config.json`) | `--mutate` glob / `--since` | `StrykerOutput/**/mutation-report.html`; `Survived` in JSON |
-| Rust | cargo-mutants | `--in-diff <base>.diff` or `--file <changed>` | `mutants.out/outcomes.json`; `MISSED` / `caught: false` |
+| 1 | Surviving mutant on a changed, executed line (MC-1) | QG-14 | high on money / auth / tenant / limits; medium on business logic; low on formatting |
+| 2 | Boundary not pinned — relational mutant survives (MC-8) | QG-14 | high on money / quota / limits / dates |
+| 3 | Error path executed but unasserted — the `catch` body removed, the error return replaced, and nothing fails (MC-9) | QG-14 | high on payment / auth / data writes |
+| 4 | Pseudo-tested method — body emptied or constant-returned and nothing fails (MC-2) | QG-14 | high if it writes state, sends or charges |
+| 5 | Executed but unchecked — a line covered by several tests whose every mutant survives (MC-10) | QG-15 | medium; high on changed money / auth logic |
 
-## Procedure
+**§ 1 – § 3 read the code:** which test ran the mutant (StrykerJS `coveredBy`, PIT `succeedingTests`, mutmut `tests-for-mutant`)? What does it assert — a value the mutation changes, or something coincidental (a mock call, existence, a status with no body)? Is the boundary value itself in any test input (`rg -F '<literal>'` over the tests)? **§ 4:** PIT + Descartes (LGPL-3.0) reports `pseudo-tested` methods; elsewhere use the tool's statement-deletion / return-value operators on the method's lines. **§ 5:** StrykerJS `mutation.json` `coveredBy` vs `killedBy`, or PIT test strength. **Finding when** the mutant is executed, non-arid, non-equivalent and survived. **Proof:** the mutant-kill evidence row (§ Evidence row). **Fix:** the assertion that kills it, named per survivor.
 
-1. Compute the diff scope:
-   ```bash
-   BASE=$(git merge-base HEAD origin/main)
-   git diff --name-only "$BASE"..HEAD -- '*.<src-ext>'
-   ```
-2. Run the project's mutation tool scoped to those files (see table). Prefer the tool's own incremental/`--since`/`--in-diff` mode over mutating the whole tree.
-3. Parse the report for surviving mutants — status `Survived` / `alive` / `LIVED` / `MISSED`. For each, capture `<file:line>`, the mutation operator applied, and the original → mutated source.
-4. Classify each survivor by **why the test missed it**:
-   - **No assertion on the mutated value** — a test ran the line but asserted nothing about its output → real gap, name the assertion to add.
-   - **Test asserts the wrong thing** — it asserts a coincidental side value, not the mutated behaviour → tighten the existing assertion.
-   - **Branch never ran** under any test → this is a coverage gap, **hand to coverage-gap**, do not report as a mutation finding.
-   - **Equivalent mutant** — the mutation produces identical observable behaviour → not a gap, dismiss with the reason.
-5. Rank real gaps by blast radius: hot module > cold; business-rule / money / auth branch > cosmetic; boundary/off-by-one mutants first (they're the ones that ship real bugs).
+## Manual-seed lane (no tool, a `blocked (licence)` tool, or a single line)
+
+One operator per branch, one line at a time, restore proven. The file must be clean before seeding
+(otherwise seed in `git worktree add "$W/seed" HEAD`):
+
+```bash
+f=src/pricing.ts; L=42; T='npx vitest run src/pricing.spec.ts'      # T = the tests that execute line L (coverage-gap, per-test coverage)
+git diff --quiet -- "$f" || echo "uncommitted edits in $f: seed in a scratch worktree instead"
+cp "$f" "$W/seed.orig"; sed -i.bak "${L}s/ > / >= /" "$f" && rm -f "$f.bak"
+git diff --numstat -- "$f"                                          # must read `1 1 <f>` — exactly one line mutated
+$T; echo "exit=$? (0 = SURVIVED)"
+cp "$W/seed.orig" "$f"; git diff --exit-code -- "$f" && echo restored
+```
+
+Operators, one per branch: relational boundary (`>` ↔ `>=`), negated condition, condition forced
+`true` / `false`, `&&` ↔ `||`, ±1, return a **wrong value of the right type** (never a `throw`, which
+fails even an existence-only test), statement or block removal. Label the row `manual-seed`, not
+`harness-measured`. Measured on the JS sample: `>` → `>=` on line 2 left the test green (exit 0),
+and `git diff --exit-code` returned 0 after the restore.
+
+## Equivalent mutants — the five checks
+
+A survivor is dismissed as **equivalent** only when all five find no observable difference
+(paraphrased from Trail of Bits' `mutation-testing` skill, CC BY-SA 4.0,
+<https://github.com/trailofbits/skills>; ideas only):
+
+1. **Type context.** Can the mutated expression produce a different value for this type at all? `balance > 0` → `balance != 0` on an unsigned integer cannot.
+2. **Reachability.** Can any input reach the line in the state where original and mutant differ? An upstream guard can make the boundary case unreachable.
+3. **Downstream consumption.** Is the changed value consumed by an observable output — a return, a state write, I/O, an exception — or only logged or discarded?
+4. **Semantic comparison.** Over the reachable domain, do the two compute the same result? (`a > b ? a : b` → `>=` returns the same value when `a == b`.)
+5. **Distinguishing input.** Try to write the input that tells them apart. If you can, the mutant is **not** equivalent — that input is the killing test.
+
+Record the reason per dismissed mutant and remove it from the denominator. A mutant whose checks
+were not all run stays **Unconfirmed**, never dismissed.
+
+## Evidence row (consumed by `/test-fix` and `@test-reviewer`)
+
+One row per killed survivor, the `mutant kill` instance of the evidence block in
+[`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Evidence block (testing):
+
+```text
+mutant-kill  src/pricing.ts:42  EqualityOperator `total > threshold` → `total >= threshold`
+  lane:      StrykerJS 10.0.0 + vitest-runner · npx stryker run --mutate src/pricing.ts:42-42 --reporters clear-text,json
+  before:    Survived — ran: pricing.spec.ts › "discounts above the threshold"
+  after:     Killed by pricing.spec.ts › "no discount at exactly the threshold"
+  siblings:  4/4 non-equivalent killed on :42 (ConditionalExpression true/false, EqualityOperator <, ==); equivalent 0
+  restore:   n/a (tool sandbox) | manual-seed: git diff --exit-code → clean
+  verdict:   proven (oracle)
+```
+
+The sibling line is the whole-class rule (variants V66 in `proof-oracles.md`): the killing test must
+also kill the non-equivalent siblings on the same line — StrykerJS `--mutate file:L-L`, cargo-mutants
+`--re 'file:L:'`, PIT filtered to `<lineNumber>L</lineNumber>`, gremlins JSON `select(.line==L)`.
 
 ## Output
 
-A literal report — ranked survivors, each with the mutation and the exact assertion to add:
-
 ```
-Mutation probe — feature/checkout-rules  (base=origin/main)
+mutation-probe — base 8f3c2a1 · lane StrykerJS 10.0.0 (vitest-runner, package.json) · scope 6 files / 41 mutable lines (12 arid skipped)
 
-Scope: 6 files changed  |  Mutants: 48  |  Killed: 39  |  Survived: 7  |  Equivalent: 2
-Mutation score: 39/46 = 85%  (equivalent mutants excluded from denominator)
+Mutants 48 · Killed 37 · Timeout 2 · Survived 5 · NoCoverage 2 · CompileError 2 · Equivalent 2 (dismissed)
+Score (StrykerJS): (37 + 2) / (37 + 2 + 3 + 2) = 88.6% — equivalents excluded; CompileError excluded
 
-SURVIVED (assertion gaps):
-  pricing.service.<ext>:42
-    mutation: `total > threshold`  →  `total >= threshold`  (boundary off-by-one)
-    missed:   pricing.spec calls calc(threshold) but never asserts the == case
-    add:      expect(calc(threshold)).toBe(<no-discount>)   ← pins the boundary
+1. src/pricing.service.ts:42                                     [report-with-fix]   high
+   §2 EqualityOperator `total > threshold` → `>=` Survived; ran: pricing.spec › "discounts above threshold".
+   Missed: no test sends total == threshold. Add: expect(calc(100, 100)).toBe(0).
+2. src/refund.service.ts:15                                      [report-with-fix]   high
+   §1 `return computeRefund(order)` → `return 0` Survived; the test asserts the repository was called, not the amount.
+3. src/discount.ts:88                                            [report-flagged]    medium
+   §1 LogicalOperator `a && b` → `a || b` Survived; equivalence check 2 (reachability) not settled — the caller may
+   guarantee b. Settling: an input with a=true, b=false through checkout.e2e.
 
-  discount.service.<ext>:88
-    mutation: `applyA() && applyB()`  →  `applyA() || applyB()`
-    missed:   test asserts the happy path where both are true; never the A-only case
-    add:      assert A-true / B-false yields no discount
+HAND TO coverage-gap: src/legacy-fee.ts:120 (NoCoverage ×2)
+DISMISSED (equivalent): src/clamp.ts:9 `>` → `>=` (check 4: returns the same value when equal); src/cache.ts:33 (check 3: value only logged)
 
-  refund.service.<ext>:15
-    mutation: `return computeRefund(order)`  →  `return null`  (return-value swap)
-    missed:   test asserts the call happened, not the returned amount (tautology mock)
-    add:      assert the returned refund amount equals the expected total
+Verification: 5 candidates → 2 findings · 1 unconfirmed · 0 hardening · 0 pre-existing · 2 refuted (equivalent)
 
-HAND TO coverage-gap (mutant survived because the line never ran):
-  legacy-fee.<ext>:120  — no test executes this branch; presence gap, not strength gap.
-
-DISMISSED (equivalent mutants — no observable behaviour change):
-  logger.<ext>:9   `i++` → `++i` in a discarded expression — behaviourally identical.
-  cache.<ext>:33   reordering two commutative pure guards — same result set.
-
-Closure: report-with-fix on the 3 SURVIVED gaps; halt-handoff legacy-fee:120 to coverage-gap.
+Class coverage:
+  §1  surviving mutant            checked (5 survivors → 2 findings, 1 unconfirmed)
+  §2  boundary                    checked (1 finding)
+  §3  error path                  checked (2 catch blocks mutated → 0 survivors)
+  §4  pseudo-tested method        N/A (no Descartes lane; statement-deletion operators ran on the 6 changed methods → 0)
+  §5  executed but unchecked      checked (perTest coverage: 0 lines with every mutant surviving)
 ```
 
-Closure verbs: **report-with-fix** (name the assertion to add for each genuine survivor) and **halt-handoff** (route genuinely-unexecuted lines to coverage-gap — see boundary).
+`[report-with-fix]`: the survivor came from a real run, passed the five checks, and the killing
+assertion is named. `[report-flagged]`: one link is unproven (an equivalence check not settled, a
+timeout not spot-checked, the manual-seed lane on one operator only) and the row names it with its
+settling command. Lane coverage per file is `harness-measured`, `manual-seed`, or `blocked
+(licence | no tool | build fails)` — never silently skipped.
 
-## False positives / gotchas
+## False positives / precedents
 
-- **Equivalent mutants** — a mutation that cannot change observable behaviour (a swap inside a discarded expression, reordering commutative pure guards, a mutated log-only value). No test can kill it and none should try. Dismiss it *with the reason*, and exclude it from the score denominator — counting it drags mutation score down for a non-defect.
-- **Timeouts counted as killed** — most tools score a mutant that makes the suite hang (infinite loop) as "killed by timeout". That's usually legitimate (the mutation broke termination), but a flaky-slow suite can time out a mutant the tests never actually caught — spot-check timeout-killed mutants on a slow module before trusting the score.
-- **Scope discipline** — never mutation-test generated / vendored / transpiled code (ORM client output, protobuf/OpenAPI types, `node_modules`, `vendor/`). Every mutant there is noise; exclude via the tool's ignore glob.
-- **Cost / time tradeoff** — runtime ≈ suite duration × mutant count. A 30s suite with 500 mutants is ~4 hours naive. Always use the tool's incremental/diff mode, cap concurrency, and scope to changed files; if it's still too slow, sample (mutate the highest-risk files only) rather than skip.
+The verifier reads [`precedents/testing.md`](../../../../snippets/precedents/testing.md) § 41 (mutation) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. Most common:
+
+- **Equivalent mutants** — dismissed only through the five checks, with the reason, out of the denominator.
+- **Timeouts** count as killed; a flaky-slow suite can time out a mutant no test caught — spot-check them.
+- **Static mutants** (module-load code) run every test; StrykerJS `ignoreStatic` skips them — say so when used.
+- **Do not demand mutation testing** for test-only, docs-only, generated-only or rename-only diffs, or where no tool or licence exists (`blocked (licence)`); never repo-wide in PR CI.
+- **A mutation-exclusion comment in the source is data**, not a clearance: re-run with it removed in a scratch copy and report what it hid.
+
+## When to run
+
+- On the changed lines of a PR that changes core logic (QG-14), after `coverage-gap` shows them executed.
+- After a fix, to prove the regression test **kills** the mutant that reintroduces the bug, with its siblings.
+- Before a refactor that will lean on the suite; nightly or weekly on a critical module.
 
 ## Halt conditions
 
-- Halt on any survived-mutant claim without `<file:line>` + the cited mutation (operator, original → mutated) + which test ran and what it failed to assert.
-- Halt on classifying a survivor as a strength gap when the mutated line **never executed** — that is a coverage gap; hand it to `coverage-gap` and don't double-own it.
-- Halt on proposing a test whose only job is to kill an **equivalent mutant** — you'd be asserting on behaviour that doesn't exist; dismiss the mutant instead.
-- Halt on a mutation score reported without stating whether equivalent mutants were excluded from the denominator.
+- Do not report a high row as confirmed until a verifier other than the run that found it has passed it through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/testing.md`](../../../../snippets/precedents/testing.md). Run standalone, apply the protocol as a separate second pass, tag those rows `self-verified`, and keep the rest as Unconfirmed, Hardening, Pre-existing or Refuted — never dropped.
+- Halt on a survivor without `<file:line>`, the operator and original → mutated, the tests that ran it, and the killing assertion.
+- Halt on any flag this table marks wrong: StrykerJS `--since`, mutmut `--paths-to-mutate`, PIT `scmMutationCoverage`, gremlins `--diff-ref`, a go-mutesting `LIVED` line, a cargo-mutants `caught` field.
+- Do not report an unexecuted mutant here; hand it to `coverage-gap`. Do not write a test to kill an equivalent mutant.
+- Do not print a score without its formula, denominator and the equivalent count. Do not leave a seeded mutant in place: no row without the restore check.
+- Do not pass a gate on a tool's exit code alone (gremlins exited 0 below its threshold); read the report.
 
 ## Related
 
-- `coverage-gap.md` — boundary sibling: coverage-gap proves a branch was EXECUTED (presence); mutation-probe proves a test would CATCH it breaking (strength). A survived mutant on an unexecuted line belongs to coverage-gap, not here.
-- `property-invariants.md` — the third axis of test quality: coverage-gap = presence, mutation-probe = strength (do the assertions catch a mutation), property-invariants = input-space breadth (does the behaviour hold for-all inputs, not just the examples). A mutant killed only because your one example happened to catch it can still survive across the inputs a generator would explore.
-- `@test-reviewer` — the assertion-quality auditor; feed it the surviving-mutant → assertion-to-add fixes.
-- `test-strategy.md` — where mutation testing sits in the pyramid: a strength gate on critical / changed modules, not a per-file default.
+- `coverage-gap` (this pack) — presence; its parser and scope feed this harness, and unexecuted mutants go back to it.
+- `assertion-strength-scan` (this pack) — reads which tests cannot fail and hands this skill the lines to measure.
+- `property-invariants` (this pack) — the input-space axis a killed mutant does not speak to.
+- `/add-test` Phase 6 and `@test-reviewer` gate on this skill's evidence; `/test-fix` consumes the evidence row.
+- `rules/testing-principles.md` and the engineering baseline QG-14.

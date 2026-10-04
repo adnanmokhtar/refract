@@ -81,7 +81,7 @@ rg "productsService\.|useProducts\(" src/
 ### 4. Components rendering the data
 ```bash
 # Grep for field accesses
-rg "product\.(price|name|description)" src/ --type vue --type tsx
+rg "product\.(price|name|description)" src/ --type vue --type ts
 ```
 
 ### 5. Routes / pages

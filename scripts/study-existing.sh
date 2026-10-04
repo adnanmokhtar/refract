@@ -227,16 +227,25 @@ post_normalize() {   # $1=in $2=out
   ' "$1" > "$2" 2>/dev/null
 }
 
+# SKILLS are rewritten too, one level deeper and at the depth of the shape the project carries
+# (apply-study-decisions.sh rewrite_skill_snippet_links): `](../../../../snippets/` becomes
+# `](../../templates/snippets/` in `<name>/SKILL.md` and `](../templates/snippets/` in a legacy
+# flat `<name>.md`. $3 is the installed path, which is what decides the depth. Skipping this
+# re-flagged every installed skill that links a snippet as MERGE on the next study.
 NORM_TMP=""
 normalized_src() {
-  local src="$1" kind="$2"
+  local src="$1" kind="$2" at="${3:-}" pfx
   if ! command -v perl >/dev/null 2>&1; then
     printf '%s' "$src"; return
   fi
   [[ -z "$NORM_TMP" ]] && NORM_TMP=$(mktemp -d "${TMPDIR:-/tmp}/study-norm.XXXXXX")
   local out="$NORM_TMP/$(basename "$src")" mid="$NORM_TMP/.mid-$(basename "$src")"
   if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
-    perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' "$src" > "$mid" 2>/dev/null || { printf '%s' "$src"; return; }
+    perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g; s{\]\(\.\./\.\./\.\./\.\./commands/}{](~/.claude/commands/}g' "$src" > "$mid" 2>/dev/null || { printf '%s' "$src"; return; }
+  elif [[ "$kind" == "skills" ]]; then
+    pfx='../../templates'
+    if [[ -n "$at" && "$at" != */SKILL.md ]]; then pfx='../templates'; fi
+    PFX="$pfx" perl -pe 's{\]\((?:\.\./){4}(snippets|governance)/}{]($ENV{PFX}/$1/}g; s{\]\((?:\.\./){5}commands/}{](~/.claude/commands/}g' "$src" > "$mid" 2>/dev/null || { printf '%s' "$src"; return; }
   else
     cp "$src" "$mid" 2>/dev/null || { printf '%s' "$src"; return; }
   fi
@@ -646,7 +655,7 @@ decide() {
         fi
 
         if [[ -n "$tgt" && -f "$tgt" ]]; then
-          cmp_src="$(normalized_src "$src" "$kind")"
+          cmp_src="$(normalized_src "$src" "$kind" "$tgt")"
           # Compare against the anchor-stripped target so the Phase 4.6
           # project-specific block never inflates the diff into phantom MERGE.
           cmp_tgt="$(stripped_target "$tgt")"

@@ -235,6 +235,52 @@ for rw in 'templates/snippets/' 'templates/governance/'; do
     add "R7-deploy-rewrite-parity" "$w" "writes pack content but has no '$rw' rewrite (see apply-study-decisions.sh § rewrite_deployed_command_links)"
   done
 done
+# 7b — THE SKILL REWRITE, which the half above could not see was missing. A pack skill sits one
+# level deeper (templates/packs/<p>/skills/<name>/SKILL.md) and links the snippets with FOUR
+# `../`; the three-level rewrite never matched it and ran for commands and agents only, so 59
+# skill links shipped dead while both writers passed this rule — each did carry the
+# 'templates/snippets/' string, just not for skills. So the check is now for the skill-depth
+# pattern itself, as code, in all four places that must agree on the deployed shape: the two
+# WRITERS, and the two COMPARERS (study-existing.sh, pack-coverage-scan.sh) that measure an
+# installed file against the pack — a comparer that skips it reports every rewritten skill as
+# drift (MERGE / STALE) forever. Comment lines do not count: the rule must not be satisfiable by
+# the sentence that explains it.
+R7_SKILL_RW='\]\((?:\.\./){4}(snippets|governance)/'
+for w in scripts/apply-study-decisions.sh scripts/merge-decide.py scripts/study-existing.sh scripts/pack-coverage-scan.sh; do
+  [ -f "$w" ] || continue
+  # Not `grep -q`: it exits on the first hit, the upstream grep takes SIGPIPE on a large file
+  # (merge-decide.py), and under pipefail a FOUND pattern reads as a missing one.
+  grep -vE '^[[:space:]]*#' "$w" 2>/dev/null | grep -F "$R7_SKILL_RW" >/dev/null && continue
+  add "R7-deploy-rewrite-parity" "$w" "has no skill-depth snippet rewrite ('$R7_SKILL_RW' on a code line) — pack skills link four levels up and land at .claude/skills/<name>/SKILL.md (see apply-study-decisions.sh § rewrite_skill_snippet_links)"
+done
+# 7c — THE COMMAND-DEPTH LINK TO REFRACT'S OWN COMMANDS. A pack command or agent writes
+# `](../../../../commands/x.md)` for a command that lives in Refract, not in the project;
+# apply-study-decisions.sh sends it to `](~/.claude/commands/x.md)`. merge-decide.py, study-existing.sh
+# and pack-coverage-scan.sh did not, so a MERGE wrote the link dead and every comparer re-flagged the
+# rewritten file as drift. All four carry the three-dot-pair-plus-one pattern on a code line now.
+R7_CMD_RW='commands/}{](~/.claude/commands/'
+R7_CMD_RW_PY='"](~/.claude/commands/")'
+for w in scripts/apply-study-decisions.sh scripts/merge-decide.py scripts/study-existing.sh scripts/pack-coverage-scan.sh; do
+  [ -f "$w" ] || continue
+  grep -vE '^[[:space:]]*#' "$w" 2>/dev/null | grep -F -e "$R7_CMD_RW" -e "$R7_CMD_RW_PY" >/dev/null && continue
+  add "R7-deploy-rewrite-parity" "$w" "has no command-depth rewrite of Refract's own commands (\`](../../../../commands/\` → \`](~/.claude/commands/\`) — see apply-study-decisions.sh § rewrite_deployed_command_links"
+done
+# …and the writers must APPLY it, not merely define it. apply-study-decisions.sh has two copy
+# sites (ADD and REPLACE); merge-decide.py has one rewrite function, which must branch on skills.
+if [ -f scripts/apply-study-decisions.sh ]; then
+  r7_calls=$(grep -vE '^[[:space:]]*#' scripts/apply-study-decisions.sh 2>/dev/null \
+             | grep -cF 'rewrite_deployed_skill_links "$tgt"' || true)
+  [ "${r7_calls:-0}" -ge 2 ] \
+    || add "R7-deploy-rewrite-parity" "scripts/apply-study-decisions.sh" "the skill rewrite is applied at ${r7_calls:-0} copy site(s); both the ADD and the REPLACE arm must call rewrite_deployed_skill_links \"\$tgt\""
+fi
+if [ -f scripts/merge-decide.py ]; then
+  r7_body="$(awk '/^def rewrite_deployed\(/{f=1; print; next} f && /^def /{exit} f{print}' scripts/merge-decide.py 2>/dev/null \
+             | grep -vE '^[[:space:]]*#' || true)"
+  if ! printf '%s' "$r7_body" | grep -F 'kind == "skills"' >/dev/null \
+     || ! printf '%s' "$r7_body" | grep -F '_DEPLOY_SKILL_SNIP.sub' >/dev/null; then
+    add "R7-deploy-rewrite-parity" "scripts/merge-decide.py" "rewrite_deployed() does not apply _DEPLOY_SKILL_SNIP for kind == \"skills\" — a MERGE row re-installs every skill snippet link dead"
+  fi
+fi
 
 # ---- Rule 8 — exactly ONE implementation of the additive merge --------------------------------
 # It lived in apply-study-decisions.sh as merge_additive(), appending the `## ` sections the
@@ -277,16 +323,24 @@ fi
 # .claude/ unresolved (43%), up from 20 of 61 at HEAD — the run more than DOUBLED them — with
 # `../templates/snippets/review-action-plan.md` x16 and `../templates/snippets/plan-flag.md` x8
 # at the top, while audit-setup.sh C2t printed "ok no broken snippet/governance links".
+#
+# TWO SHAPES THIS RULE COULD NOT SEE, both of which pass a link that dies on deploy:
+#  - a SKILL links four levels up (`](../../../../snippets/…)`, from skills/<name>/SKILL.md),
+#    and the three-level pattern never matched one of the 59;
+#  - snippets grew SUBDIRECTORIES (`snippets/precedents/data.md`), and a one-segment path pattern
+#    skipped every link into one — and the old `${ref##*/}` would have looked for `data.md` at the
+#    top level even if it had matched.
+# Both are matched now, the path after `snippets/` is kept whole, and an `#anchor` is dropped.
 BASE_SNIP="templates/repo-baseline/.claude/templates"
 if [ -d templates/packs ] && [ -d "$BASE_SNIP" ]; then
   while IFS= read -r ref; do
     [ -z "$ref" ] && continue
     kind="${ref%%/*}"          # snippets | governance
-    file="${ref##*/}"
+    file="${ref#*/}"           # keeps any subdirectory: precedents/data.md
     [ -f "$BASE_SNIP/$kind/$file" ] && continue
     add "R19-undeployed-snippet" "$BASE_SNIP/$kind/$file" "pack artifacts link to '$kind/$file' and the repo-baseline does not ship it — the deploy-time rewrite points every one of those links at a file that is never installed"
-  done < <(grep -rhoE '\]\(\.\./\.\./\.\./(snippets|governance)/[A-Za-z0-9_-]+\.md\)' templates/packs 2>/dev/null \
-           | sed -E 's#^\]\(\.\./\.\./\.\./##; s#\)$##' | sort -u || true)
+  done < <(grep -rhoE '\]\((\.\./){3,4}(snippets|governance)/([A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.md(#[A-Za-z0-9_-]+)?\)' templates/packs 2>/dev/null \
+           | sed -E 's#^\]\((\.\./)+##; s#\)$##; s/#.*$//' | sort -u || true)
 fi
 
 # ---- Rule 18 — every non-zero exit of an orchestrated script is documented -------------------

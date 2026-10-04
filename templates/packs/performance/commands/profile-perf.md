@@ -74,7 +74,7 @@ Confirm:
 This command **orchestrates two specialists** rather than restating the profiling mechanics inline:
 
 - **Dispatch the `profile-endpoint` skill** to do the actual capture — warm-up, baseline + ramp load runs, flamegraph, slow-query log, per-axis attribution. It owns the halt conditions (no p95 without the load-tool output it came from; refuse empty-table runs). Feed it the resolved subject from Phase 1.
-- **Dispatch `@performance-optimizer`** to turn the captured artifacts into ranked fix proposals (`<before>` → `<after>`, `impact / risk`). It owns the "no measurement → no finding" rule.
+- **Dispatch `@performance-optimizer`** to turn the captured artifacts into ranked fix proposals (`impact / risk`). It owns impact labelling — every number `measured`, `ESTIMATED` with its model, or `impact: unknown` — while a finding's existence stands on its class oracle, never on a measurement it lacks.
 
 The five axes below are what the dispatched skill measures — they are the contract this command expects back, not a procedure for this command to run by hand:
 
@@ -92,7 +92,7 @@ Tools by ecosystem (illustrative; pick the one available in the project's stack 
 
 | Stack | CPU profile | IO profile | Network |
 |---|---|---|---|
-| Node.js | `--prof` + `0x`, Clinic.js | structured logger + APM | OpenTelemetry |
+| Node.js | `0x`, `node --cpu-prof` (clinic.js optional: unmaintained since 2023) | structured logger + APM | OpenTelemetry |
 | Python | `py-spy`, `cProfile`, `pyinstrument` | SQL log + APM | OpenTelemetry |
 | Go | `pprof` (CPU + heap + goroutine + mutex) | `database/sql` traces | net/http/httptrace |
 | Java / JVM | JFR + Mission Control, async-profiler | JDBC events | OpenTelemetry |

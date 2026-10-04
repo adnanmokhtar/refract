@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.17.0",
-  "released": "2026-09-30",
+  "version": "1.17.1",
+  "released": "2026-10-02",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "`/setup-storybook`: installs Storybook with `addon-mcp` and a story per shared component (CREATE), or writes stories only for components added since (UPDATE); cleans up what `storybook init` rewrites, tags each component with the import path app code uses so the MCP serves a resolvable snippet, and validates against the repo's full unit suite, the story run and a live MCP probe.",
+  "summary": "/add-feature and /add-component: an uninstalled reviewer (agent, command or skill) is reported UNREVIEWED(<axis>) and the run is INCOMPLETE — never `graded inline` by the builder.",
   "changelog": "CHANGELOG.md"
 }

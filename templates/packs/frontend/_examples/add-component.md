@@ -18,7 +18,7 @@ Build command. Generates a presentational component matching the repo's framewor
 
 **New-dependency gate (all tiers):** a package **no sibling already imports** needs justification + a **bundle-size delta** (gzipped, tree-shakeable?) before it lands — a platform API or design-system primitive is preferred by default. **HALT** on an unreviewed new dependency; no silent install.
 
-**Dispatch fallback (all tiers).** If a named agent, command, or skill is not installed in this project, perform that review inline against the corresponding pack checklist and label it as such — never silently skip the axis, and never claim a reviewer that did not run.
+**Dispatch fallback (all tiers).** If a named reviewer — agent, command, or skill — is not installed in this project, that axis is **not reviewed**: do not grade it yourself. Report `UNREVIEWED(<axis>) — <name> not installed (<pack> pack)` and end the run **INCOMPLETE** — never silently skip the axis, and never claim a reviewer that did not run.
 
 **Lightweight default.** A new primitive that mirrors an existing sibling is code only (component + test + story if siblings have one, locale keys in BOTH locales). ADR drafts are heavy-tier opt-in only.
 

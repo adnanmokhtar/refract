@@ -25,7 +25,7 @@ model: opus
 
 ## Checklist — OWASP API Security Top 10:2023
 
-- **API1 Broken Object Level Authorization (BOLA/IDOR)** — every `:id` route loads then compares owner/tenant to the principal before returning/mutating; nested routes verify the parent chain. `rg "findById|@(Get|Delete)\(['\"][^'\"]*[:{]\w*id"` → ownership predicate nearby? (Tenant boundary → defer to `@tenant-isolation-reviewer`.)
+- **API1 Broken Object Level Authorization (BOLA/IDOR)** — every `:id` route loads then compares owner/tenant to the principal before returning/mutating; nested routes verify the parent chain. `rg "findById|@(Get|Delete)\(['\"][^'\"]*[:{]\w*[iI]d\b" <roots>` (`[iI]d` — a lowercase-only `id` misses every `:orderId`) → ownership predicate nearby? (Tenant boundary → defer to `@tenant-isolation-reviewer`.)
 - **API2 Broken Authentication** — alg allowlist on verify; brute-force limits on login/token/otp/reset; keys scoped + not in query string. (Full ceremony → `@auth-reviewer`.)
 - **API3 Broken Object Property Level Authorization (BOPLA)** — mass-assignment: no `{...req.body}` / `Object.assign(entity, body)` / `Model(**request.json())` bind; excessive exposure: response goes through a DTO, never `res.json(entity/row)`. Both BLOCKERs.
 - **API4 Unrestricted Resource Consumption** — per-principal + per-IP rate limits; pagination cap (`limit` clamped, no unbounded `findAll`); body/upload size cap; expensive/paid ops (email, SMS, exports) bounded.

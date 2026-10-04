@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/adnanmokhtar/refract/schemas/refract/evidence/v1.json",
+  "title": "Refract gate evidence record",
+  "description": "One record per gate check per commit, written by .claude/scripts/gate-check.py to .claude/evidence/<HEAD sha>/<gate>-<check>.json. The script stamps every field; no model writes one. Inferential checks (G1 acceptance, G7 review) read the verifier's and reviewers' records, which the SubagentStop hooks stamped (verdict.schema.json, findings.schema.json). Validated against the records gate-check.py actually produces by tests/hooks/run.sh.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "gate", "check", "verdict", "execution", "reason", "mode", "producer", "tool",
+               "command", "exit_code", "output_sha256", "output_tail", "findings", "commit", "base", "tree",
+               "dirty", "scope", "ts", "duration_ms", "stamped_by", "gate_check_version", "agent_type",
+               "author_agent"],
+  "properties": {
+    "schema": { "const": "refract/evidence/v1" },
+    "gate": { "type": "string", "pattern": "^G[0-9]+$", "description": "Gate id from the Refract gate catalog (G0 contract, G1 functional correctness, G2 test quality, G3 security, G7 code quality, G15 governance)." },
+    "check": { "type": "string", "enum": ["acceptance-lock", "tests", "acceptance", "test-integrity", "oracle", "secrets", "lint", "typecheck", "standards", "review", "trailer", "signer"] },
+    "verdict": { "enum": ["PASS", "FAIL", "UNVERIFIED", "N-A", "WAIVED"], "description": "UNVERIFIED = the check could not be run (no runner, tool missing, lane busy); it is never PASS. N-A carries the reason the change does not trigger the check." },
+    "execution": { "enum": ["RAN", "SKIPPED"], "description": "Whether the producer actually executed. A SKIPPED check is UNVERIFIED or N-A, never PASS." },
+    "reason": { "type": ["string", "null"] },
+    "mode": { "enum": ["shadow", "warn", "block"], "description": "From .claude/gates.json, or --mode=. Only block makes a FAIL stop the Stop hook." },
+    "producer": { "enum": ["computational", "inferential"], "description": "computational = a tool decided; inferential = a judge decided (G1 acceptance, G7 review), and this record re-checks that judge's stamped, tree-bound record." },
+    "tool": { "type": ["string", "null"] },
+    "command": { "type": ["string", "null"] },
+    "exit_code": { "type": ["integer", "null"] },
+    "output_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "output_tail": { "type": ["string", "null"], "description": "Last lines of the producer's output, for the human reading a FAIL." },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"] },
+          "commit": { "type": "string" },
+          "rule": { "type": ["string", "null"] },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "commit": { "type": ["string", "null"], "description": "HEAD when the record was stamped; null on an unborn branch." },
+    "base": { "type": ["string", "null"], "description": "The merge-base the change was measured from." },
+    "tree": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "sha256 over HEAD, the uncommitted diff and untracked files — binds the record to the exact tree it judged." },
+    "dirty": { "type": "boolean" },
+    "scope": { "enum": ["local", "ci"] },
+    "ts": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "stamped_by": { "const": "gate-check.py" },
+    "gate_check_version": { "type": "string" },
+    "agent_type": { "type": ["string", "null"], "description": "Reserved: gate-check.py runs in the main session or CI and stamps null; the judge identity of an inferential gate lives in the verdict / review record it re-checks (signer.agent_type)." },
+    "author_agent": { "type": ["string", "null"], "description": "Reserved (null): the authors of a judged change are stamped on the verdict / review record (authors[]), where G15 signer compares them with its signer." }
+  }
+}

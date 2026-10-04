@@ -1,0 +1,36 @@
+# Runs after the MikroORM release Job (`mikro-orm migration:up`). Applies every file in
+# api/db/migrations in name order; files already recorded in sql_migrations are skipped.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: stallwise-sql-migrate
+  namespace: stallwise
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: psql
+          image: ghcr.io/stallwise/sql-migrate:4.12.0
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              for f in /migrations/*.sql; do
+                name=$(basename "$f")
+                done_already=$(psql -tAc "select 1 from sql_migrations where name = '$name'")
+                [ "$done_already" = "1" ] && continue
+                psql -v ON_ERROR_STOP=1 -f "$f"
+                psql -c "insert into sql_migrations (name) values ('$name')"
+              done
+          env:
+            - name: PGHOST
+              value: postgres-primary.stallwise.svc
+            - name: PGDATABASE
+              value: stallwise
+            - name: PGUSER
+              value: stallwise_migrator
+          envFrom:
+            - secretRef:
+                name: stallwise-migrator-env

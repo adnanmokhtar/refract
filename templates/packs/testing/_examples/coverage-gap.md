@@ -1,77 +1,57 @@
 ---
 name: coverage-gap
-description: Find untested branches in recently-changed code — not "what percent is covered" but "which conditional paths never fired in any test". Run before opening a PR, after a hotfix to confirm the regression test hits the bug path, and during review when the coverage delta looks suspicious. Proves a branch RAN — `mutation-probe` proves an assertion would CATCH it breaking.
+description: "Find code no test runs or pins: changed lines and branches no test executes (diff-cover, plus the changed file missing from the report), guarded routes with no denial test, typed errors never asserted, critical modules with no test, consumed APIs with no contract test. --diff or --whole-repo."
 ---
 
 # coverage-gap
 
-Raw coverage numbers are noise. What matters: did your recent changes introduce untested branches?
-
 ## Premise
 
-Find real gaps, no hand-waves. Every reported gap cites `<path:line>` for the uncovered branch (or line, with the missing branch named — "`else` of `if (override != null)`"), the source of the coverage data (`lcov.info` / `coverage.json`), and the merge-base SHA the diff was computed against. "Coverage went down" is not a finding; "`prompt-builder.service.ts:67` else-branch hit 0× in the lcov from this run" is. Generated files, transpiled `?.`/`??` artifacts, and snapshot-only "coverage" are excluded explicitly — not silently swept into the score.
+The **presence** oracle: did any test execute — or, for risk surfaces, even name — the code that would break? A coverage percentage answers nothing; a line, branch, route or error type that no test reaches does. **coverage-gap finds code never EXECUTED; `mutation-probe` finds code executed but never ASSERTED.** Every finding cites `<file:line>` (or the route, error type or module) + the evidence of absence (the report and its 0 hits, the file missing from the report, or the grep) + the merge-base SHA on a diff run + the test to add.
 
-## Halt conditions
+## Boundaries
 
-- Halt on findings without `<path:line>` + branch identifier + 0-hit citation from the coverage report.
-- Halt on coverage deltas reported without naming the merge-base SHA used for the diff.
-- Halt on classifications ("HIGH PRIORITY") that don't name the location heuristic (hot module, error path, public API).
-
-## When to use
-
-- Before opening a PR — verify changed lines are exercised.
-- After a hotfix — confirm the regression test actually hits the bug path.
-- During code review when coverage delta looks suspicious.
-
-## Prerequisites
-
-- Test runner with coverage support (`jest --coverage`, `vitest --coverage`, `pytest-cov`, `go test -cover`, `cargo tarpaulin`).
-- `git` available — needed to compute the changed-lines diff.
-- Coverage output in a machine-readable format (`lcov.info`, `coverage.json`, `coverage.xml`).
+- Boundary: diff-time weakening (a lowered floor, an exclusion added) is `.claude/scripts/test-integrity.py` when the repo-baseline is installed; coverage config that hides source is `suite-execution-scan`; weak assertions on covered code are `assertion-strength-scan` / `mutation-probe`; the authorization hole behind a missing denial test is the security pack's, when installed; writing the contract test is `contract-test`.
 
 ## Procedure
 
-1. Determine the merge base for the branch:
+1. `BASE=$(git merge-base HEAD origin/main)`.
+2. Changed lines — this parser handles deletion-only hunks, deleted files, names with spaces and `diff.noprefix`:
    ```bash
-   BASE=$(git merge-base HEAD origin/main)
+   git -c core.quotePath=false diff -U0 --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$BASE"...HEAD | awk '
+   /^\+\+\+ / { f = ($0 == "+++ /dev/null") ? "" : substr($0, 7); sub(/\t$/, "", f); next }
+   /^@@ / { if (f == "") next; match($0, /\+[0-9]+(,[0-9]+)?/); s = substr($0, RSTART + 1, RLENGTH - 1)
+            n = split(s, a, ","); st = a[1] + 0; c = (n == 2) ? a[2] + 0 : 1; for (i = 0; i < c; i++) print f ":" (st + i) }'
    ```
-2. List changed lines per file:
+3. Run coverage over the **full** suite with every source file included:
    ```bash
-   git diff --unified=0 "$BASE"..HEAD | \
-     awk '/^\+\+\+ b\// {f=substr($2,3)} /^@@/ {match($0,/\+[0-9]+(,[0-9]+)?/); split(substr($0,RSTART+1,RLENGTH-1),a,","); for(i=0;i<(a[2]?a[2]:1);i++) print f":"(a[1]+i)}'
+   npx jest --coverage --coverageReporters=lcov --collectCoverageFrom='src/**/*.{ts,tsx,js}'   # the full suite; --changedSince reads lines other tests pin as uncovered
    ```
-3. Run coverage:
-   ```bash
-   npx jest --coverage --coverageReporters=lcov --changedSince="$BASE"
-   ```
-4. Intersect changed lines with `coverage/lcov.info` — for each `DA:<line>,<hits>` and `BRDA:<line>,<block>,<branch>,<hits|->`, mark `0` or `-` as uncovered.
-5. Classify each changed line: covered, line-uncovered, or branch-partial (one side of an `if/else` taken, the other not).
-6. Rank by location: hot module > cold module; error path > happy path; public API > internal helper.
+   (Vitest `--coverage.include='src/**'`; pytest `--cov=<pkg> --cov-branch`; Go `-coverpkg=./...`.)
+4. `diff-cover <report> --compare-branch="$BASE" --fail-under=100 --show-uncovered`, **then** list changed files absent from the report: diff-cover skips a changed file with no coverage data, so its percentage can read 100% for a file no test imports.
+5. Intersect changed lines with the report: `DA` 0 → unexecuted; `BRDA` mixed 0 / >0 → one-sided branch.
+6. Whole repo: guarded routes no denial test (401 / 403 / 404) names; typed errors no test names; critical modules no test imports; outbound clients with no contract tooling; fix commits with no test.
+
+## Scans for
+
+§1 uncovered changed lines and branches, and changed files missing from the report · §2 guarded route with no denial test (QG-3) · §3 typed error never asserted · §4 critical module with no test · §5 route no route-level test calls · §6 consumed API with no contract test · §7 fix without a regression test.
 
 ## Output
 
 ```
-Coverage gap — feature/ai-reply-tuning  (base=origin/main)
+coverage-gap --diff — base 8f3c2a1 · report coverage/lcov.info (full suite, include src/**)
 
-Files changed: 8  |  Lines changed: 142  |  Covered: 98  |  Uncovered: 44
+1. src/billing/refund.ts            [report-with-fix]  high — NOT-INSTRUMENTED: new file absent from the report
+2. src/billing/limits.ts:41-43      [report-with-fix]  high — UNEXECUTED over-limit branch (DA:41,0)
 
-HIGH PRIORITY (untested branches):
-  src/modules/ai/core/prompt-builder.service.ts:67-72
-    if (override != null) { ... }   ← else branch hit 0 times
-    No test exercises override == null path.
-
-  src/modules/ai/infrastructure/claude.client.ts:103-108
-    catch (RateLimitError) { ... }   ← caught 0 times
-    No test forces a 429 from the vendor SDK double.
-
-LOW PRIORITY:
-  src/modules/ai/core/pricing.ts:18
-    Fallback `return 0` — likely unreachable, candidate for delete.
+Class coverage: §1 checked · §2 checked · §3 checked · §4 checked · §5 checked · §6 N/A (no client) · §7 checked
 ```
 
-## False positives / gotchas
+§1 without a report is `blocked (no coverage report)`, never `checked`.
 
-- Generated code (Prisma client, OpenAPI types) shows as uncovered — exclude via `coveragePathIgnorePatterns`.
-- TypeScript `?.` and `??` compile to multiple branches; partial coverage on one transpiled branch is usually acceptable.
-- Snapshot tests inflate line coverage but don't exercise branches — don't be misled.
-- A branch shown as "0 hits" in `lcov` may be reachable only under a specific Node version flag — check before deleting.
+## Halt conditions
+
+- Halt on a §1 finding without the report path, the producing command and the merge-base SHA.
+- Do not produce the report with `--changedSince`, and do not trust a diff-cover percentage without the missing-file check.
+- Do not report a grep absence as a finding without its oracle (0 hits, the file absent, or the seeded violation); it is Unconfirmed with the settling command.
+- Do not print "no gaps" without the class-coverage block.

@@ -40,7 +40,7 @@ Prevents the two failure modes: optimizing the wrong thing, and shipping a regre
 - Bound worker pools and concurrency limits — unbounded fan-out kills downstreams.
 - Set each SLO from **your own measured** p95 on that endpoint, not a borrowed number — gate just under what you already achieve and ratchet. A threshold nobody measured either fires on everything and gets muted, or fires on nothing.
 - An SLA/SLO is only validated by a load / stress / soak campaign on a prod-parity env — single-VU or laptop numbers describe the laptop.
-- Instrument SPA route transitions and budget route-change-to-paint; the Soft Navigations heuristic is still emerging, so gate any reliance on it behind `where available`.
+- Instrument SPA route transitions; per-route vitals (`reportSoftNavs`) are Chromium 151+ RUM only and not in CrUX (2026-08), so mark routes elsewhere.
 - A monotonically-growing heap under steady load is a leak — hunt it with a heap diff over time, never a memory-limit bump or a periodic restart.
 
 ## Enforcement

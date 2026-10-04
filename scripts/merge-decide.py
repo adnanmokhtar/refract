@@ -99,11 +99,24 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(os.path.realpath(__f
 # are the same reference. Collapse every spelling to one token BEFORE asking the corpus.
 #
 # NOTE THE ABSENCE of any emphasis/backtick stripping here. See rule 2 in the header.
-_SNIPREF = re.compile(r"\[`?([^\]`]*?(?:snippets|governance)/[A-Za-z0-9._-]+)`?\]\([^)]*\)")
+#
+# TWO MORE SPELLINGS ONCE SKILLS WERE REWRITTEN, and both are depth, not content. A pack skill
+# writes `../../../../snippets/x.md`; deployed it is `../../templates/snippets/x.md` (folder
+# shape) or `../templates/snippets/x.md` (legacy flat). A fixed list of prefixes folded some of
+# those to `](«REF»)` and some to `](../«REF»)`, so the flat-shape line read as one the pack never
+# wrote. Any run of `../` folds now. And snippets grew SUBDIRECTORIES (`snippets/precedents/
+# data.md`), which the old one-segment path never matched at all — the reference stayed raw and
+# its two spellings never met. The path after `snippets/` is kept whole, so two `data.md` in two
+# subdirectories stay two references.
+_SNIPREF = re.compile(r"\[`?([^\]`]*?(?:snippets|governance)/[A-Za-z0-9._/-]+)`?\]\([^)]*\)")
+_SNIPREF_TAIL = re.compile(r"(?:snippets|governance)/")
 _BAREREF = re.compile(
-    r"(?:~/\.claude/templates/|\.\./\.\./\.\./|\.\./templates/|templates/)?"
-    r"(snippets|governance)/([A-Za-z0-9._-]+\.md)"
+    r"(?:~/\.claude/templates/|(?:\.\./)*templates/|(?:\.\./)+)?"
+    r"(snippets|governance)/((?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\.md)"
 )
+# Bump when canon() changes what a line folds to: the provenance corpus is cached on disk by
+# HEAD and pack fingerprint, neither of which moves when only this file does.
+_CANON_VERSION = "2"
 _REFBACKTICK = re.compile(r"`(«REF:[^»]+»)`")
 
 # THE SAME PROBLEM AS _SNIPREF, ONE KIND WIDER — and it appeared the moment the deploy rewriter
@@ -141,7 +154,7 @@ _DEPLOY_PATTERNREF = re.compile(
 
 def canon(line):
     """One canonical spelling of a line, for provenance lookup only."""
-    line = _SNIPREF.sub(lambda m: "«REF:" + m.group(1).rsplit("/", 1)[-1] + "»", line)
+    line = _SNIPREF.sub(lambda m: "«REF:" + _SNIPREF_TAIL.split(m.group(1))[-1] + "»", line)
     line = _DEPLOY_SKILLREF.sub(lambda m: "«REF:skill:" + m.group(1) + "»", line)
     line = _FRAMEWORK_CMDREF.sub(lambda m: "«REF:cmd:" + m.group(1) + "»", line)
     line = _DEPLOY_PATTERNREF.sub(lambda m: "ai/patterns/" + m.group(1), line)
@@ -433,7 +446,8 @@ def build_corpus(packs_root, use_git=True, quiet=False, rebuild=False):
             git_root = None
 
     cdir = _cache_dir(git_root)
-    cpath = os.path.join(cdir, "corpus-%s-%s.json" % (head or "none", _packs_fingerprint(packs_root)))
+    cpath = os.path.join(cdir, "corpus-%s-%s-c%s.json" % (head or "none", _packs_fingerprint(packs_root),
+                                                        _CANON_VERSION))
     if head and not rebuild and os.path.isfile(cpath):
         try:
             with open(cpath, encoding="utf-8") as f:
@@ -636,17 +650,41 @@ def project_heading_sections(lines):
 # ---------------------------------------------------------------------------------------
 # CONTRACT (ratcheted by scripts/lint-setup-contracts.sh Rule 7): pack sources link to
 # ../../../snippets/ and ../../../governance/, which resolve under templates/packs/*/commands/
-# but not under a target's .claude/commands/. Any writer of pack content into a target must
-# apply the same rewrite, or the file it just wrote re-flags as MERGE on the next run forever.
+# but not under a target's .claude/commands/ — and pack SKILLS to ../../../../snippets/, one
+# level deeper. Any writer of pack content into a target must apply the same rewrites, or the
+# file it just wrote re-flags as MERGE on the next run forever.
 _DEPLOY_SNIP = [
     (re.compile(r"\]\(\.\./\.\./\.\./snippets/"), "](../templates/snippets/"),
     (re.compile(r"\]\(\.\./\.\./\.\./governance/"), "](../templates/governance/"),
+    # A command/agent's link to REFRACT'S OWN command — the file never deploys; apply-study-decisions.sh
+    # rewrite_deployed_command_links sends it to ~/.claude/commands/, so this writer must too (Rule 7).
+    (re.compile(r"\]\(\.\./\.\./\.\./\.\./commands/"), "](~/.claude/commands/"),
 ]
+# SKILLS SIT ONE LEVEL DEEPER. A pack skill is templates/packs/<p>/skills/<name>/SKILL.md, so it
+# links the snippets with FOUR `../`, and the three-level rule above never matched it — 59 links
+# shipped dead, every security detector's verification contract and every database skill's
+# precedents among them. Where the deployed copy lives depends on the shape the PROJECT carries:
+# `../../templates/` from `.claude/skills/<name>/SKILL.md`, `../templates/` from the legacy flat
+# `.claude/skills/<name>.md`. Same literal as apply-study-decisions.sh rewrite_skill_snippet_links.
+# `](../../../../../commands/x.md)` is the skill-depth spelling of a link to Refract's OWN command,
+# which never deploys; apply-study-decisions.sh sends it where the command really lives.
+_DEPLOY_SKILL_SNIP = re.compile(r"\]\((?:\.\./){4}(snippets|governance)/")
+_DEPLOY_SKILL_FWCMD = re.compile(r"\]\((?:\.\./){5}commands/")
 _SKILLREF = re.compile(r"skills/([A-Za-z0-9_-]+)/SKILL\.md")
 
 
-def rewrite_deployed(text, kind, target_root):
-    """Apply the two deploy rewrites: snippet/governance links, and skill cross-references.
+def skill_templates_prefix(tgt_path):
+    """`../../templates` for the folder shape (and when the path is unknown), `../templates` flat."""
+    if tgt_path and not tgt_path.replace(os.sep, "/").endswith("/SKILL.md"):
+        return "../templates"
+    return "../../templates"
+
+
+def rewrite_deployed(text, kind, target_root, tgt_path=None):
+    """Apply the deploy rewrites: snippet/governance links, and skill cross-references.
+
+    `tgt_path` is the installed file the text is for. Only skills need it — a skill has two
+    legal shapes at two depths — and without it the canonical folder shape is assumed.
 
     The skill rewrite only ever points a reference at a file that EXISTS: canonical form is
     left alone whenever it resolves, and the flat form is used only when the flat twin is the
@@ -655,6 +693,10 @@ def rewrite_deployed(text, kind, target_root):
     if kind in ("commands", "agents"):
         for rx, rep in _DEPLOY_SNIP:
             text = rx.sub(rep, text)
+    elif kind == "skills":
+        pfx = skill_templates_prefix(tgt_path)
+        text = _DEPLOY_SKILL_SNIP.sub(lambda m: "](%s/%s/" % (pfx, m.group(1)), text)
+        text = _DEPLOY_SKILL_FWCMD.sub("](~/.claude/commands/", text)
 
     def fix(m):
         name = m.group(1)
@@ -781,6 +823,64 @@ def carry_target_only_frontmatter(result_text, tgt_raw):
     return "\n".join(res_lines[:res_end] + carried + res_lines[res_end:])
 
 
+def _frontmatter_entries(lines):
+    """[(key, start, end)] for each top-level key in lines[1:closing `---`], continuation
+    lines included in its span. None when there is no closed frontmatter."""
+    if not lines or lines[0].strip() != "---":
+        return None
+    try:
+        end = next(i for i in range(1, len(lines)) if lines[i].strip() == "---")
+    except StopIteration:
+        return None
+    out, i = [], 1
+    while i < end:
+        m = _FM_FIELD.match(lines[i])
+        if not m:
+            i += 1
+            continue
+        j = i + 1
+        while j < end and (lines[j].startswith((" ", "\t")) or lines[j].lstrip().startswith("- ")):
+            j += 1
+        out.append((m.group(1), i, j))
+        i = j
+    return out
+
+
+def drop_shadowed_frontmatter(result_text, pack_norm):
+    """Keep ONE copy of every frontmatter key the pack carries — the pack's.
+
+    🔴 compose_adjust WEAVES THE PREAMBLE, AND THE FRONTMATTER IS PART OF THE PREAMBLE. A
+    target `description:` the corpus cannot attribute — an older pack wording, re-quoted —
+    reads to weave_section as the owner's line and is carried in next to the pack's own
+    `description:`. Every line survives; YAML refuses the file ("duplicated mapping key"),
+    and Claude Code drops the skill. MEASURED on a live refresh: api-consistency-audit
+    shipped with two `description:` keys, the old quoted one above the pack's.
+
+    Pack wins on shared keys (the merge contract, and frontmatter_delta already reports the
+    change). A key the pack does not carry is left alone — carry_target_only_frontmatter
+    owns those.
+    """
+    p_ent = _frontmatter_entries(pack_norm.split("\n"))
+    lines = result_text.split("\n")
+    r_ent = _frontmatter_entries(lines)
+    if not p_ent or not r_ent:
+        return result_text
+    p_lines = pack_norm.split("\n")
+    pack_block = {k: p_lines[a:b] for k, a, b in p_ent}
+    drop = set()
+    for key in pack_block:
+        spans = [(a, b) for k, a, b in r_ent if k == key]
+        if len(spans) < 2:
+            continue
+        keep = next(((a, b) for a, b in spans if lines[a:b] == pack_block[key]), spans[-1])
+        for a, b in spans:
+            if (a, b) != keep:
+                drop.update(range(a, b))
+    if not drop:
+        return result_text
+    return "\n".join(l for i, l in enumerate(lines) if i not in drop)
+
+
 def frontmatter_delta(tgt_raw, pack_norm):
     """[(field, old, new)] for every frontmatter field the merge would change.
 
@@ -817,7 +917,7 @@ def collision_score(pack_path, tgt_path, kind, target_root):
         pack_raw = f.read()
     with open(tgt_path, encoding="utf-8", errors="replace") as f:
         tgt_raw = f.read()
-    pack_norm = rewrite_deployed(pack_raw, kind, target_root)
+    pack_norm = rewrite_deployed(pack_raw, kind, target_root, tgt_path)
     S = {canon(l) for l in nonblank(pack_norm)}
     tgt_body, _anch = split_anchors(tgt_raw)
     T = nonblank(tgt_body)
@@ -966,7 +1066,7 @@ def classify(pack_path, tgt_path, kind, corpus, target_root, ridx=None, projrx=N
     # so the skill-shape rewrite silently never fired for exactly the artifact kind that has
     # two legal shapes — and the write path, which does have the real root, then produced a
     # file different from the one the classifier had judged.
-    pack_norm = rewrite_deployed(pack_raw, kind, target_root)
+    pack_norm = rewrite_deployed(pack_raw, kind, target_root, tgt_path)
     tgt_body, anchors = split_anchors(tgt_raw)
 
     S, T = nonblank(pack_norm), nonblank(tgt_body)
@@ -1713,10 +1813,17 @@ def _frontmatter_broken(text):
             break
     else:
         return "the opening `---` is never closed"
+    seen = set()
     for l in lines[1:body_start]:
         if not l.strip():
             continue
-        if _FM_KEY_RE.match(l) or l.startswith((" ", "\t")) or l.lstrip().startswith("- "):
+        if _FM_KEY_RE.match(l):
+            key = l.split(":", 1)[0]
+            if key in seen:
+                return "duplicated key `%s`" % key
+            seen.add(key)
+            continue
+        if l.startswith((" ", "\t")) or l.lstrip().startswith("- "):
             continue
         return "a non-key line sits inside the frontmatter: %s" % l.strip()[:120]
     return None
@@ -1740,6 +1847,15 @@ def verify_invariant(original_text, result_text, corpus, target_root):
         agent reads top-down.
     """
     prot_lines, prot_toks, prot_regions = fingerprint(original_text, corpus, target_root)
+    # A frontmatter key the RESULT still carries had its value replaced, not lost: pack wins on
+    # shared keys, and frontmatter_delta reports the change. Without this, the old value of a
+    # shared key is "protected" and the only result that passes is one with the key twice.
+    o_lines = [l.rstrip() for l in original_text.split("\n")]
+    o_ent = _frontmatter_entries(o_lines) or []
+    r_keys = {k for k, _a, _b in (_frontmatter_entries(result_text.split("\n")) or [])}
+    replaced = {o_lines[i] for k, a, b in o_ent if k in r_keys for i in range(a, b)}
+    if replaced:
+        prot_lines = [l for l in prot_lines if l not in replaced]
     res_lines = result_text.split("\n")
     # gcanon(), not canon(): a line apply-anchors.sh regenerates is compared by SHAPE, so the
     # mandatory Phase 4.6 citation repair is not scored as a Phase 5 loss. See ANCHOR_GEN_RE.
@@ -2371,7 +2487,9 @@ def main(argv):
                                       if kd == "heading" and k not in s_keys]
                     result = compose_override(pack_norm, anchors, heading_blocks)
                     rec["added"] = "pack body (%d line(s) the target lacked)" % rec["gain_lines"]
-                result = rewrite_deployed(result, r["kind"], target)
+                result = rewrite_deployed(result, r["kind"], target, tgt)
+                result = drop_shadowed_frontmatter(
+                    result, rewrite_deployed(pack_norm, r["kind"], target, tgt))
                 result = carry_target_only_frontmatter(result, tgt_raw)
                 if not result.endswith("\n"):
                     result += "\n"
@@ -2416,7 +2534,7 @@ def main(argv):
                 if not ok and verb in ("OVERRIDE", "ENHANCE"):
                     alt = rewrite_deployed(
                         compose_adjust(pack_norm, tgt_body, anchors, s_keys, proj_keys, corpus),
-                        r["kind"], target)
+                        r["kind"], target, tgt)
                     if not alt.endswith("\n"):
                         alt += "\n"
                     ok2a, viol2a = verify_invariant(tgt_raw, alt, corpus, target)
@@ -2770,6 +2888,43 @@ def self_test():
     chk("canon collapses the four snippet spellings",
         canon("Canonical contract: [`templates/snippets/x.md`](../../../snippets/x.md).")
         == canon("Canonical contract: `~/.claude/templates/snippets/x.md`."))
+    # A pack skill's four-level link and both of its deployed depths are one reference — and so
+    # are the three spellings of a snippet in a SUBDIRECTORY, which stay distinct from a
+    # same-named file elsewhere.
+    _sk = "Verify via [`refute.md`](%ssnippets/refute.md) and [`precedents/data.md`](%ssnippets/precedents/data.md)."
+    _skc = [canon(_sk % (p, p)) for p in ("../../../../", "../../templates/", "../templates/")]
+    chk("canon folds a skill's snippet link at every deployed depth",
+        _skc[0] == _skc[1] == _skc[2], " / ".join(_skc))
+    chk("canon keeps a snippet subdirectory in the reference",
+        canon("[x](../templates/snippets/precedents/data.md)")
+        != canon("[x](../templates/governance/engineering-baseline/data.md)"))
+    chk("canon_token folds a subdirectory snippet's pack and deployed spellings",
+        canon_token("../../../../snippets/precedents/data.md")
+        == canon_token("../../templates/snippets/precedents/data.md")
+        == canon_token("../templates/snippets/precedents/data.md") == "snippets/precedents/data.md")
+    # The deploy rewrite itself: skills by installed shape, commands and agents as before.
+    _skl = "[a](../../../../snippets/a.md) [b](../../../../governance/b.md) [p](../../../../snippets/precedents/data.md) [c](../../../../../commands/refactor.md)"
+    chk("rewrite_deployed: folder-shape skill → ../../templates/",
+        rewrite_deployed(_skl, "skills", "/t", "/t/.claude/skills/x/SKILL.md")
+        == "[a](../../templates/snippets/a.md) [b](../../templates/governance/b.md) [p](../../templates/snippets/precedents/data.md) [c](~/.claude/commands/refactor.md)",
+        rewrite_deployed(_skl, "skills", "/t", "/t/.claude/skills/x/SKILL.md"))
+    chk("rewrite_deployed: flat-shape skill → ../templates/",
+        rewrite_deployed(_skl, "skills", "/t", "/t/.claude/skills/x.md")
+        == "[a](../templates/snippets/a.md) [b](../templates/governance/b.md) [p](../templates/snippets/precedents/data.md) [c](~/.claude/commands/refactor.md)",
+        rewrite_deployed(_skl, "skills", "/t", "/t/.claude/skills/x.md"))
+    chk("rewrite_deployed: a skill with no target path assumes the folder shape",
+        "](../../templates/snippets/a.md)" in rewrite_deployed(_skl, "skills", "/t"))
+    chk("rewrite_deployed: a skill rewrite is idempotent",
+        rewrite_deployed(rewrite_deployed(_skl, "skills", "/t"), "skills", "/t")
+        == rewrite_deployed(_skl, "skills", "/t"))
+    _cmd = "[a](../../../snippets/a.md) [b](../../../governance/b.md) [p](../../../snippets/precedents/data.md)"
+    for _k in ("commands", "agents"):
+        chk("rewrite_deployed: %s are unchanged (three-level → ../templates/)" % _k,
+            rewrite_deployed(_cmd, _k, "/t")
+            == "[a](../templates/snippets/a.md) [b](../templates/governance/b.md) [p](../templates/snippets/precedents/data.md)",
+            rewrite_deployed(_cmd, _k, "/t"))
+    chk("rewrite_deployed: a skill's four-level link is not touched for a command",
+        rewrite_deployed(_skl, "commands", "/t") == _skl)
     chk("canon does NOT strip emphasis or underscores",
         "E2E_EMAIL" in canon("logs in with `E2E_EMAIL` / `E2E_PASSWORD`"))
     chk("canon does NOT eat dotted filenames", ".env.tenant" in canon("diff `.env.tenant` vs example"))

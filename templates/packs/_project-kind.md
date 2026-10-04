@@ -19,6 +19,11 @@ measured on a live NestJS service with zero UI:
 the single largest command the run installed. The track selector had no project-kind filter, so
 whole-pack application was all-or-nothing.
 
+The descriptions and sizes are as that run installed them. The sources have since been rewritten —
+as of 2026-10-02 `bundle-perf.md` describes itself as *"Web bundle + page-load audit. Orchestrates
+the frontend detectors … Read-only"* and the four pack sources total 57,265 bytes — so the gate
+matters more, not less.
+
 ## The contract
 
 Any pack artifact may declare, in its frontmatter:

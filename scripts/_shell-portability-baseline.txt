@@ -27,7 +27,6 @@ scripts/lint-setup-contracts.sh|Tilde does not expand in quotes. Use $HOME. [SC2
 scripts/lint-shell-portability.sh|Couldn't parse this shellcheck directive. Fix to allow more checks. [SC1073]   # reviewed: not a defect in this context
 scripts/lint-shell-portability.sh|Expected '=' after directive key. Fix any mentioned problems and try again. [SC1072]   # reviewed: not a defect in this context
 scripts/migrate-setup.sh|Use 'find .. -print0 | xargs -0 ..' or 'find .. -exec .. +' to allow non-alphanumeric filenames. [SC2011]   # same — the filenames are this repo's own and are kebab-case by gate
-scripts/migrate-setup.sh|eval negates the benefit of arrays. Drop eval to preserve whitespace/symbols (or eval as string). [SC2294]   # eval is applied to a single assembled string, not an array
 scripts/migration-doctor.sh|STRICT appears unused. Verify use (or export if used externally). [SC2034]   # declared for documentation or read by a sourced/exported context shellcheck cannot see
 scripts/new-artifact.sh|Don't use ls | grep. Use a glob or a for loop with a condition to allow non-alphanumeric filenames. [SC2010]   # ls|grep over a directory this repo controls; no non-alphanumeric names exist there
 scripts/pack-coverage-scan.sh|Declare and assign separately to avoid masking return values. [SC2155]   # declare-and-assign is intentional here — the command cannot fail in a way this code acts on

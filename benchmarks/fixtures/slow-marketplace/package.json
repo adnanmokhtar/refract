@@ -1,0 +1,18 @@
+{
+  "name": "stallwise",
+  "private": true,
+  "version": "4.12.0",
+  "description": "Multi-store marketplace — NestJS/Fastify + MikroORM API, Django reports service, React storefront.",
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace api && npm run build --workspace web",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "npm test --workspaces"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

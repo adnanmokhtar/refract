@@ -1,0 +1,28 @@
+name: issue-triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label by title keyword
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="${{ github.event.issue.title }}"
+          labels=""
+          case "$(echo "$title" | tr '[:upper:]' '[:lower:]')" in
+            *crash*|*error*|*broken*) labels="bug" ;;
+            *seller*|*payout*)        labels="sellers" ;;
+            *checkout*|*coupon*)      labels="checkout" ;;
+          esac
+          if [ -n "$labels" ]; then
+            gh issue edit "${{ github.event.issue.number }}" --repo "$GITHUB_REPOSITORY" --add-label "$labels"
+          fi

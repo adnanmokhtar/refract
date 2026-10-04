@@ -26,6 +26,7 @@ A process whose heap/retained-set grows monotonically under steady load has a le
 - Eventual OOM-kill, restart-loop, or container-memory alert firing on a long-running process.
 - GC thrash — CPU rising and pauses lengthening as the live set grows.
 - After a feature ship correlated with a slow upward memory trend on the dashboard.
+- `memory-growth-scan` (this pack) hands over a candidate its deterministic test cannot isolate: take its `<file:line>`, class and suspected key as the starting hypothesis, and confirm or refute it with the snapshot diff.
 
 ## Prerequisites
 
@@ -44,7 +45,7 @@ A process whose heap/retained-set grows monotonically under steady load has a le
 
 | Runtime | Snapshot / diff tooling |
 |---|---|
-| Node | `--inspect` + Chrome DevTools heap snapshots (take 2–3, use "Comparison" view), `clinic heapprofiler`, `node --heapsnapshot-signal`, `heapdump` |
+| Node | `node --heapsnapshot-signal=SIGUSR2` or `v8.writeHeapSnapshot()` for three snapshots of the same workload, then `memlab analyze unbound-object --snapshot-dir <dir>` (memlab 2.0.5, MIT) or Chrome DevTools "Comparison" view; `--inspect` for an interactive session. `clinic heapprofiler` is optional — clinic 13.0.0 (2023-06) is not actively maintained and may misreport on current Node |
 | Python | `tracemalloc` (`take_snapshot()` + `compare_to()`), `memray` (flamegraph + `--leaks`), `objgraph.show_growth()` / `show_backrefs()` |
 | JVM | Heap dump (`jmap -dump` / `jcmd GC.heap_dump`) into Eclipse MAT (dominator tree + leak-suspects report), `async-profiler` alloc mode for allocation sites |
 | Go | `pprof` heap profile (`go tool pprof -inuse_space`) + `-alloc_space`; diff two profiles with `-base`; watch `runtime.MemStats.HeapInuse` |
@@ -69,11 +70,7 @@ A process whose heap/retained-set grows monotonically under steady load has a le
 
 ## Detectors
 
-- An unbounded cache/map with no eviction policy, TTL, or max-size bound.
-- A listener/subscription/observer added with no corresponding removal on teardown.
-- A module-level / global collection that is only ever appended to.
-- A connection/timer/interval/goroutine created per request/event with no cleanup path.
-- A soak test showing a non-flat heap — retained set still climbing after the working set should have plateaued.
+The static detectors are `memory-growth-scan`'s (this pack): unbounded process-lifetime containers (§1), listeners and subscriptions never removed (§2), timers, intervals and goroutines that outlive their owner (§3), and the rest of its §4–§9. This skill adds the runtime one: a soak showing a non-flat heap — the retained set still climbing after the working set should have plateaued — and the retaining path that names the source.
 
 ## Confirming the fix
 
@@ -115,6 +112,7 @@ Confirmation (soak, same load, 60min after fix):
 
 ## Related
 
+- `memory-growth-scan` — the static front end: it finds the candidates and proves what a deterministic count can; this skill attributes what it cannot isolate.
 - `profile-endpoint` — the steady-load generator it uses to baseline an endpoint is the same one that holds load flat here.
 - `@performance-optimizer` — invoked to design the bounded replacement (LRU, TTL, ring buffer) once the source is attributed.
 - `@caching-architect` — owns the eviction/TTL policy for the cache that was leaking.

@@ -19,7 +19,7 @@ Detect from disk (do theme dirs hold *style files* or *components*?). The builde
 
 ## The Premise (read first, do not deviate)
 
-**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+**Resolve `$ROOTS` first, and print it in the report.** Set it as an array — `ROOTS=(apps/api/src apps/web/src)` — and every probe expands it as `"${ROOTS[@]}"`: a space-joined string does not word-split in zsh (the macOS default shell), so `rg` searches one path that does not exist, prints an IO error to stderr and exits 2 — which reads as zero hits. Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
 
 **Existing themes and tokens are the truth. Mirror sibling shape.** The default theme's token list is the contract; every variant is audited against it, token-by-token. A divergence finding cites three points: (a) the token name, (b) `<default-theme-path:line>` showing the canonical declaration, (c) `<variant-theme-path:line>` (or "missing") showing the divergence. "Themes feel inconsistent" without a token-level citation is not a finding.
 
@@ -207,10 +207,10 @@ Categorize output:
 
 ### Component usage diff
 ```bash
-# Tokens used by ONE component. `$ROOTS` is declared above; name the component file under it
+# Tokens used by ONE component. `"${ROOTS[@]}"` is declared above; name the component file under it
 # rather than a fixed tree — `src/` does not exist in a Nuxt, Flutter or monorepo layout, and a
 # probe over a path that is not there returns zero hits, which reads as CLEAN.
-rg "var\(--color-brand-" $ROOTS -g "<the component file>"
+rg "var\(--color-brand-" "${ROOTS[@]}" -g "<the component file>"
 # Check all themes define --color-brand-500
 for theme in themes/*/tokens.scss; do
   grep -q "color-brand-500" "$theme" || echo "MISSING in $theme"

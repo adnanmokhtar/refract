@@ -93,7 +93,7 @@ If any step fails: STOP, do not run agents. Fix mechanical first.
 - `ui-reviewer` — frontend track present.
 - `schema-reviewer` — DB migrations present.
 
-**Missing-agent fallback (applies to every agent above):** if a named agent is not installed in this project, perform that axis inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the verdict (`inline:<agent-name>`). A skipped axis scores GREEN by absence, which is the worst failure mode for a health check: it reads as "clean" when it was never checked. (Same discipline as `review-changes.md` § Phase 6 missing-agent fallback.)
+**Missing-agent contract (applies to every agent above):** if a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself. Report it in the verdict as `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)`; the health check is **INCOMPLETE**, never GREEN on that axis, and names the install that closes it (`/setup-project --include=<pack>`). A skipped axis scores GREEN by absence, which is the worst failure mode for a health check: it reads as "clean" when it was never checked. (Same discipline as `review-changes.md` § Phase 6 missing-agent contract.)
 
 ### Self-audit
 - Did every selected agent return? Missing = incomplete check.

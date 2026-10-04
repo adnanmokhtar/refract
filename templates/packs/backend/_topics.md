@@ -277,8 +277,8 @@ Each topic declares:
   fallback: _examples/api-architect.md
 
 # CANONICAL filename — see api-architect above. `/add-endpoint`'s production-readiness gate READS
-# this agent's verdict table by that exact name; a stack-named file leaves the gate on its weaker
-# inline review path, so the project with the RICHER agent gets the WEAKER gate.
+# this agent's verdict table by that exact name; a stack-named file leaves that axis UNREVIEWED
+# (the run INCOMPLETE), so the project with the RICHER agent gets NO review on it.
 - name: api-reviewer
   kind: agent
   triggers:

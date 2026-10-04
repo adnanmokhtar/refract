@@ -58,13 +58,13 @@ Find real issues, cite `<path:line>` for every finding. "DEFINITELY DEAD" requir
    ```
 2. Grep for hard-coded literal conditions:
    ```bash
-   rg -n 'if\s*\((true|false|0|1|null)\)' --type ts --type js
-   rg -n '\bswitch\s*\([^)]+\)[^{]*\{' -A 30 --type ts | rg -n 'case\s+[^:]+:'   # then audit
+   rg -n 'if\s*\((true|false|0|1|null)\)' --type ts --type js .
+   rg -n '\bswitch\s*\([^)]+\)[^{]*\{' -A 30 --type ts . | rg -n 'case\s+[^:]+:'   # then audit
    ```
 3. Intersect coverage with branches: any `BRDA:<line>,<block>,<branch>,0` in `lcov.info` whose sibling branch has hits indicates a dead/untested branch.
 4. Audit feature-flag usage:
    ```bash
-   rg -n 'isEnabled\(.FLAG_[A-Z_]+.\)' --type ts -o | sort -u
+   rg -n 'isEnabled\(.FLAG_[A-Z_]+.\)' --type ts -o . | sort -u
    ```
    Cross-reference each flag against the config source — flags `true` everywhere → false branch dead; flags `false` everywhere → true branch dead.
 5. Compute flag age from first commit:

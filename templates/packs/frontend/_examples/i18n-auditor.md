@@ -41,7 +41,7 @@ rg '(placeholder|title|aria-label|label)="[A-Z]' src/
 
 **React / JSX**:
 ```bash
-rg '>[A-Z][a-z].+</' src/ --type tsx | grep -v '{t(\|{i18n.'
+rg '>[A-Z][a-z].+</' src/ --type ts | grep -v '{t(\|{i18n.'
 ```
 
 **Angular templates**:

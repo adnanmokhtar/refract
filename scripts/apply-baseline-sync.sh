@@ -257,12 +257,15 @@ while IFS= read -r src; do
   echo "  KEEP-OURS $rel  (differs from every version we shipped — treated as yours)"
   kept=$((kept + 1))
   case "$rel" in
-    .claude/hooks/*.sh) kept_executables+=("$rel") ;;
+    .claude/hooks/*.sh|.claude/scripts/*.py) kept_executables+=("$rel") ;;
   esac
   if [[ $STRICT -eq 1 ]]; then
     strict_violations=$((strict_violations + 1))
   fi
-done < <(find -L "$BASELINE_ROOT" -type f \( -name '*.md' -o -name '*.json' -o -name '*.yml' -o -name '*.yaml' -o -name '*.sh' \) | sort)
+# `*.py` is listed because .claude/scripts/ ships executables (gate-check.py, test-integrity.py,
+# standards-check.py): the extension list once stopped at `*.sh`, and a baseline script that the
+# Stop hook calls would have reached no project while every ADD row read like a success.
+done < <(find -L "$BASELINE_ROOT" -type f \( -name '*.md' -o -name '*.json' -o -name '*.yml' -o -name '*.yaml' -o -name '*.sh' -o -name '*.py' \) | sort)
 
 echo ""
 echo "=== summary ==="

@@ -45,6 +45,14 @@ Route mechanically — name the grep signal on the changed surface, dispatch the
   - `secret-scan` — config / env / IaC / CI / client-bundle diffs, and always on a whole-repo run. Findings are BLOCKERS by default.
   - `deps-audit` — manifest or lockfile diffs; supplies advisory ids + reachability.
   - `ssrf-scan` — new outbound fetch / webhook / URL-import sink, or a redirect target read from input.
+  - `injection-scan` — query, raw-SQL, shell spawn, eval, template render, XML/YAML/serialized parse, deep merge of request JSON, regex from input.
+  - `file-access-scan` — upload handler, multipart config, archive extraction, file processor, static mount, any read/download sink.
+  - `xss-scan` — frontend code, server-rendered HTML, cookie/session config, CSP/framing headers, client-side env vars.
+  - `data-exposure-scan` — error handler, logger call, serializer/response DTO, auth message, debug/docs route, public directory.
+  - `logic-race-scan` — money, quantity, coupon/invite/redeem, status transition, role grant, find-then-write.
+  - `sast-scan` — whole-repo runs, and any diff when the stack has a scanner installed; its RAN/SKIPPED ledger is coverage.
+  - `iac-scan` — Dockerfile, compose, Kubernetes, IaC, CI workflow, reverse-proxy config.
+  - A whole-repo run dispatches every skill above regardless of signal; each prints its classes as checked / N/A / blocked, and Phase 4 prints the class coverage ledger.
   - A skill triggered and not run forces at least `GO-UNVERIFIED`, exactly like a reviewer dispatched and not run.
   - **Run each skill once.** `security-auditor` also names these as the executors behind its own A0x rows; this dispatch guarantees they run on the diff's signal even when no auditor row fires. Consume an existing result rather than re-scanning.
 
@@ -168,6 +176,8 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 ## Related
 
 **Reviewers** (Phase 2, by signal): `@security-auditor` (always) · `@auth-reviewer` · `@tenant-isolation-reviewer` · `@api-security-reviewer` · `@data-privacy-reviewer` · `@llm-security-reviewer`.
-**Skills** (Phase 2, the executors behind Phase 4's buckets): `secret-scan` · `deps-audit` · `ssrf-scan`.
+**Skills** (Phase 2, the executors behind Phase 4's buckets): `secret-scan` · `deps-audit` · `ssrf-scan` · `injection-scan` · `file-access-scan` · `xss-scan` · `data-exposure-scan` · `logic-race-scan` · `sast-scan` · `iac-scan`.
+
+**Commands**: `/security-fix` closes this report's findings; `/security-live-scan` covers the runtime edge of hosts you own.
 **Patterns**: `ai/patterns/auth-flow.md` · `ai/patterns/tenant-isolation.md` · `ai/patterns/zero-trust.md`.
 **Rules**: `.claude/rules/security-principles.md`.

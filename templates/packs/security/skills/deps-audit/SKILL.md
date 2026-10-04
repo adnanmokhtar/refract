@@ -22,18 +22,24 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
 ## Prerequisites
 
 - Project's package-manager CLI (`pnpm`, `npm`, `yarn`, `pip`, `cargo`, `composer`, `go`, `bundle`).
+- `osv-scanner` 2.x, or docker for the `ghcr.io/google/osv-scanner` one-shot.
 - `jq` for JSON parsing.
-- Internet access — audit DBs are remote.
+- Internet access — audit DBs, EPSS and the KEV feed are remote.
 
 ## Procedure
 
-1. Run the right tool for the stack:
+1. Run the right tool for the stack — **osv-scanner plus the package manager's own audit**, not one or the other: `pnpm audit` / `npm audit` cannot see a dependency resolved from a URL or tarball (measured: a CDN-pinned `xlsx` tarball was invisible to `pnpm audit` and matched two advisories in osv-scanner), and osv-scanner has no reachability or `--prod` view.
    ```bash
-   # Cross-ecosystem default (preferred — one scanner, all lockfiles, OSV DB):
-   osv-scanner --format json --lockfile=<path> > /tmp/audit.json   # or: osv-scanner -r .
+   # Cross-ecosystem (osv-scanner 2.x; the 1.x form `osv-scanner --lockfile=<path>` is still accepted by 2.6):
+   osv-scanner scan source --lockfile=<path> --format json > /tmp/osv.json     # or: osv-scanner scan source -r .
+   # Not installed → docker. Pipe the lockfile in: a bind mount from a path Docker Desktop does not share comes up
+   # empty and osv exits 127 "could not determine extractor". The image's binary is /osv-scanner, not on PATH.
+   docker run --rm -i --entrypoint sh ghcr.io/google/osv-scanner -c \
+     'mkdir /w && cat > /w/pnpm-lock.yaml && /osv-scanner scan source --lockfile=/w/pnpm-lock.yaml --format json' \
+     < pnpm-lock.yaml > /tmp/osv.json            # name the file as the lockfile type, or prefix it: --lockfile=pnpm-lock.yaml:/w/lock
    # Node — NOTE the schema differs by tool/version:
    npm audit --json --omit=dev > /tmp/audit.json     # npm 7+ → top-level `.vulnerabilities` (NOT `.advisories`)
-   pnpm audit --json > /tmp/audit.json               # pnpm → legacy `.advisories`
+   pnpm audit --json > /tmp/audit.json               # pnpm → legacy `.advisories`; run it once more with --prod and diff
    # Python
    pip-audit --format json --output /tmp/audit.json
    # Rust
@@ -45,22 +51,32 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
    # Ruby
    bundler-audit check --update --format json > /tmp/audit.json
    ```
+   A docker row is RAN only when stderr says `found N packages` with N > 0.
 2. Parse (schema-aware — pick the shape your tool emits):
    ```bash
    # npm 7+  (top-level .vulnerabilities, keyed by package):
    jq '.vulnerabilities | to_entries[] | {name:.key, sev:.value.severity, via:.value.via, range:.value.range, fix:.value.fixAvailable}' /tmp/audit.json
-   # pnpm / npm 6  (.advisories):
-   jq '.advisories | to_entries[] | {name:.value.module_name, sev:.value.severity, cve:.value.cves, vuln:.value.vulnerable_versions, fix:.value.patched_versions}' /tmp/audit.json
-   # osv-scanner  (.results[].packages[].vulnerabilities[]):
-   jq '.results[].packages[] | {name:.package.name, vulns:[.vulnerabilities[].id]}' /tmp/audit.json
+   # pnpm / npm 6  (.advisories) — GHSA-only advisories have an empty `cves`; `paths` is the "transitive via X" line:
+   jq '.advisories | to_entries[] | {name:.value.module_name, sev:.value.severity, ghsa:.value.github_advisory_id, cve:.value.cves, vuln:.value.vulnerable_versions, fix:.value.patched_versions, via:[.value.findings[].paths[]]}' /tmp/audit.json
+   # osv-scanner  (.results[].packages[]) — max_severity is a CVSS score, aliases carry the CVE:
+   jq '.results[].packages[] | {name:.package.name, version:.package.version, ids:[.vulnerabilities[].id], aliases:[.vulnerabilities[].aliases[]?], cvss:[.groups[].max_severity]}' /tmp/osv.json
    ```
 3. **Read it — see § Reading the output.** This is the step that turns a scanner dump into an audit; skipping it produces a re-formatted dump.
-4. Classify each finding:
+4. Score exploitability for every CVE that survives step 3 — EPSS takes a comma-separated list; KEV is one JSON feed:
+   ```bash
+   curl -s 'https://api.first.org/data/v1/epss?cve=CVE-2024-28849,CVE-2021-23337' | jq -r '.data[] | "\(.cve)  epss \(.epss)  pct \(.percentile)"'
+   curl -s https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json -o /tmp/kev.json
+   jq -r --arg ids 'CVE-2024-28849 CVE-2021-23337' '.catalogVersion as $v | .vulnerabilities[] | select(.cveID as $c | $ids | split(" ") | index($c)) | "\(.cveID) in KEV since \(.dateAdded) (catalog \($v))"' /tmp/kev.json
+   ```
+   A GHSA with no CVE alias has no EPSS or KEV entry — say so in the row rather than leaving the field blank.
+5. Classify each finding:
    - **Critical/High on a runtime dep with a reachable path** → blocker, fix today.
    - **Medium on runtime dep** → fix this sprint.
    - **Any severity on dev-only dep** → backlog. Exception: a build-time dep executes on your CI runner with your CI secrets — a post-install-script or build-tool RCE is *not* dev-only risk.
    - **Transitive dep where the vulnerable function is never called from your code** → risk-accepted, and name the import that would change that.
-5. Confirm the upgrade path won't break, then apply the minimal bump:
+   - **Direct dep whose vulnerable configuration is off** (a fix for an HTTP/2-only crash on a server that never enables HTTP/2) → risk-accepted **and** take the patch when it stays inside the declared range; name the setting or call (`http2: true`, `reply.trailer()`) that would make it reachable.
+6. **Diff against the last recorded audit** (`ai/audits/*-security*.md`, or the CI job's previous run): mark each id `new since <date>` or `carried`, and give each carried id's age. An advisory published after the last audit is why that audit was clean — the row says so instead of reading as a regression.
+7. Confirm the upgrade path won't break, then apply the minimal bump:
    ```bash
    pnpm why <package>          # transitive ancestry — who forces the old version
    npm outdated <package>      # current vs wanted vs latest
@@ -69,14 +85,19 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
 
 ## Reading the output
 
-The scanner answers "does a published advisory match a version in my lockfile". It does not answer "am I exploitable". Four things it will not tell you, in the order they cause wrong verdicts:
+The scanner answers "does a published advisory match a version in my lockfile". It does not answer "am I exploitable". Five things it will not tell you, in the order they cause wrong verdicts:
 
 - **Reachability is yours, with one exception.** `npm audit`, `pip-audit`, `composer audit` and `bundler-audit` match the manifest — they flag a package, not a call. **`govulncheck` is the exception**: it does call-graph analysis, "prioritizing vulnerabilities in functions that your code is actually calling" (<https://go.dev/blog/govulncheck>). So on Go a clean report means more than it does anywhere else, and everywhere else "reachable" is a claim you make with a `<path:line>`, not one the tool made for you.
 - **The class is part of the finding, and recall gets it wrong.** Open the advisory record and copy the package, the class and the fixed version from it. Two ids that live next to each other in every triage list: **CVE-2021-23337** is lodash *command injection via the `template` function* (fixed 4.17.21) — not prototype pollution, which is a different pair of ids; **CVE-2024-28849** is *follow-redirects* leaking the `proxy-authorization` header across a cross-domain redirect (fixed 1.15.6) — not axios, not SSRF. A report that mislabels the class sends the reader to audit the wrong code path, which is worse than no report.
 - **"Fix available" is not always a patch.** The fix field may point at a major bump. Check whether the fixed version satisfies your declared range before you promise a one-line upgrade, and whether the version is reachable at all — a transitive pin (`pnpm.overrides` / `resolutions`) may be the only path when the parent has not released.
 - **Severity is the advisory's blast radius, not yours.** Prioritize by CVSS **+ EPSS** (probability of exploitation in the next 30 days) **+ CISA KEV** (known-exploited-in-the-wild): a KEV-listed or high-EPSS Medium outranks a theoretical Critical. Then adjust down for an unreachable path — and record which of the two moved the row.
+- **A match with no `fixed` event is not proof the installed version is affected.** When the fix shipped outside the registry (SheetJS publishes to its own CDN, not npm), the record's npm range is `introduced: 0` with no `fixed`, so osv-scanner matches every version. Read `affected[].database_specific.last_known_affected_version_range` (`curl -s https://api.osv.dev/v1/vulns/<id>`) before believing it: measured, `xlsx` 0.20.3 matched two advisories whose last affected versions were `< 0.19.3` and `< 0.20.2` — refuted on version.
 
-CI wiring: `npm audit`'s exit code is governed by `--audit-level` ("the minimum level of vulnerability for `npm audit` to exit with a non-zero exit code" — <https://docs.npmjs.com/cli/v11/commands/npm-audit>). A job that never fails is usually a threshold, not a clean tree.
+CI wiring: `npm audit`'s exit code is governed by `--audit-level` ("the minimum level of vulnerability for `npm audit` to exit with a non-zero exit code" — <https://docs.npmjs.com/cli/v11/commands/npm-audit>). A job that never fails is usually a threshold, not a clean tree. A gate like `pnpm audit --prod --audit-level=high` narrows twice: `--prod` drops the build-time deps that run with CI credentials, and `high` lets every moderate through — two advisories published the day before one measured run passed such a gate silently. Report the gate's blind spots as a row, and add an `osv-scanner` step so URL and tarball deps are covered at all.
+
+## Supply-chain settings
+
+`sast-scan` files semgrep's `package_managers.*` hits here (CWE-829 / CWE-1104). They are not CVEs; they are the settings that decide how fast a hijacked release reaches the lockfile. Read the setting the **installed** manager version honours, in the file it reads it from, before filing: npm `min-release-age` (npm ≥ 11.10, `.npmrc`), pnpm `minimumReleaseAge` (minutes, ≥ 10.16), `trustPolicy: no-downgrade` (≥ 10.21) and `blockExoticSubdeps: true` (≥ 10.26) in `pnpm-workspace.yaml`, Yarn `npmMinimalAgeGate`, uv `exclude-newer`, Dependabot `cooldown`, Renovate `minimumReleaseAge`. A rule written for one manager fires on another manager's file — a pnpm repo's `.npmrc` trips the npm rule. Each row: the setting, its current value or absence at `<file:line>`, the manager version from `packageManager` / the lockfile, and the value to set. Low, Hardening — unless the gap already let a known-bad version in.
 
 ## Output
 
@@ -112,8 +133,9 @@ Every row is (advisory id → class copied from the record → fixed version →
 
 - Vulnerable but unreachable: a CVE in a sub-feature you don't import is real risk only if the import surface changes — flag with the import that would change it, don't panic.
 - `npm audit fix --force` upgrades across majors — read the changelog, run tests, never apply blindly.
-- Some advisories are duplicates from different sources (GHSA + npm + Snyk) — dedupe by CVE id, and keep the record you actually read.
+- Some advisories are duplicates from different sources (GHSA + npm + Snyk) — dedupe by CVE id (by GHSA id when the record has no CVE alias), and keep the record you actually read.
 - `--omit=dev` narrows the *scope of the scan*, not the risk: it hides build-time deps that run on CI with CI credentials.
+- A docker one-shot that scanned an empty mount still exits non-zero and looks like a run. Measured on macOS with a repo under `/private/tmp`: `-v "$PWD:/src:ro"` gave osv exit 127, "could not determine extractor"; piping the lockfile in (§ Procedure step 1) scanned 1,706 packages.
 - Pinned transitive overrides (`pnpm.overrides`, `resolutions`) can fix vulns without waiting on the parent dep — preferred when a parent is slow to release, and the only lever when it is abandoned.
 
 ## Related

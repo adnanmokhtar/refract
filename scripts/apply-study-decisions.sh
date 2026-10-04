@@ -24,6 +24,7 @@
 #   apply-study-decisions.sh <target-repo> [--apply] [--include=replace,add,auto-merge]
 #   apply-study-decisions.sh <target-repo> [--apply] --conservative   # pre-engine behaviour
 #   apply-study-decisions.sh <target-repo> --migrate-skill-shape [--apply]
+#   apply-study-decisions.sh <target-repo> --rewrite-links      # deploy-link rewrites for a CREATE-path copy
 #   apply-study-decisions.sh <target-repo> --reject='pack/kind/file.md:rationale'     (repeatable)
 #                                          --keep-ours='pack/kind/file.md:rationale'
 #                                          --knowledge-current='ai/architecture.md:rationale'
@@ -138,12 +139,17 @@ APPLY=0
 INCLUDE="replace,add,auto-merge"
 INCLUDE_EXPLICIT=0
 MIGRATE_SHAPE=0
+REWRITE_LINKS=0
 declare -a LEDGER_OPS=()   # "VERB|key|rationale"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apply)       APPLY=1; shift ;;
     --migrate-skill-shape) MIGRATE_SHAPE=1; shift ;;
+    # The CREATE path (phase-4.2-apply.md § 4.2.b) copies pack files with `cp`; this applies the
+    # SAME deploy rewrites the ADD/REPLACE arms apply, to every installed command, agent, rule and
+    # skill body, and exits. Idempotent: a file with nothing to rewrite is not touched.
+    --rewrite-links) REWRITE_LINKS=1; shift ;;
     # The scripted exit from a both-shapes-on-disk twin. Content-aware: keeps whichever
     # twin carries more project knowledge, archives the other. See § twin_score.
     --resolve-shape-conflicts) MIGRATE_SHAPE=1; RESOLVE_TWINS=1; shift ;;
@@ -499,10 +505,17 @@ twin_unique_facts() {  # $1=loser $2=winner  → verbatim lines the winner does 
 # Is this file byte-identical to any pack source shipping the same skill name?
 # A twin that still matches the pack verbatim carries no project edits and loses ties.
 twin_matches_pack() {
-  local f="$1" name="$2" p
+  local f="$1" name="$2" p tmp
   while IFS= read -r p; do
     [[ -f "$p" ]] || continue
     cmp -s "$f" "$p" && return 0
+    # …or to the pack file AS THE DEPLOY REWRITE WOULD HAVE WRITTEN IT at this twin's path. A
+    # twin the framework installed carries rewritten snippet links and is still unedited; the
+    # raw-bytes test alone made every such twin read as hand-edited and lose the tie-break.
+    tmp=$(mktemp "${TMPDIR:-/tmp}/twin-pack.XXXXXX") || continue
+    { cp "$p" "$tmp" && rewrite_skill_snippet_links "$tmp" "$f"; } || true
+    if cmp -s "$f" "$tmp"; then rm -f "$tmp"; return 0; fi
+    rm -f "$tmp"
   done < <( { find -L "$PACKS_ROOT" -maxdepth 3 -path "*/skills/$name.md" 2>/dev/null
               find -L "$PACKS_ROOT" -maxdepth 4 -path "*/skills/$name/SKILL.md" 2>/dev/null; } )
   return 1
@@ -572,9 +585,18 @@ if out != src:
 PYEOF
 }
 
+# RULES SIT AT THE SAME DEPTH AS COMMANDS (templates/packs/<p>/rules/x.md → .claude/rules/x.md), so
+# the same rewrite applies — and before it did, a rule's `](../../../snippets/standards-gate.md)`
+# (migration-discipline.md) shipped dead. Guarded: `perl -i` moves the mtime even when nothing
+# matched, and --rewrite-links runs this over every installed file.
 rewrite_deployed_command_links() {
   local f="$1"
   [[ -f "$f" ]] || return 0
+  if ! grep -qE '\]\((\.\./){3}(snippets|governance)/|\]\((\.\./){4}commands/' "$f" 2>/dev/null; then
+    rewrite_ai_pattern_links "$f"
+    rewrite_skill_refs_to_installed_shape "$f"
+    return 0
+  fi
   if command -v perl >/dev/null 2>&1; then
     # `commands/refactor.md` and friends are REFRACT'S OWN commands, not pack files — they are
     # never deployed into a project, so no number of `../` reaches them. The prose already says
@@ -584,6 +606,70 @@ rewrite_deployed_command_links() {
   else
     echo "  WARN perl missing — cannot rewrite snippet/governance links in ${f#$TARGET/}" >&2
   fi
+  rewrite_ai_pattern_links "$f"
+  rewrite_skill_refs_to_installed_shape "$f"
+}
+
+# PACK SKILLS SIT ONE LEVEL DEEPER THAN COMMANDS, AND THE RULE ABOVE NEVER SAW THEM.
+# A pack skill lives at templates/packs/<p>/skills/<name>/SKILL.md, so it reaches the shared
+# snippets with FOUR `../` — `](../../../../snippets/x.md)` — where a command needs three. The
+# command rule matches exactly three and only ran for commands and agents, so every skill link
+# shipped verbatim and resolved, inside the project, to a directory above the repo root. At the
+# time of writing that was 59 links on 47 lines: every security detector's verification
+# contract, every database skill's precedents and oracles, and five postcondition contracts.
+#
+# The deployed copies live in `.claude/templates/{snippets,governance}/` (repo-baseline ships
+# them), and how many `../` reach that depends on where the skill LANDED, not where it came from:
+#   canonical  .claude/skills/<name>/SKILL.md  →  ../../templates/…
+#   legacy     .claude/skills/<name>.md        →  ../templates/…
+# Subdirectories (`snippets/precedents/data.md`) ride along: only the prefix is replaced.
+#
+# Two more spellings, both from the same depth mismatch:
+#  - `](../../../../../commands/x.md)` names REFRACT'S OWN command (one level deeper than the
+#    command-file spelling above). Left alone it is caught by rewrite_ai_pattern_links' pack-
+#    namespace pattern, which reads the second `..` as a pack name and retargets the link at the
+#    project's overlay of the same name — the exact defect that function's comment records.
+#  - `](../templates/…)` inside a SKILL.md is the flat spelling stranded by --migrate-skill-shape,
+#    which MOVES a flat file one level down and leaves its links behind. From the folder it names
+#    `.claude/skills/templates/`, which is never a real place, so it is re-rooted to `../../`.
+#
+# CONTRACT (lint-setup-contracts.sh Rule 7): the four-level pattern below is the same literal in
+# merge-decide.py, study-existing.sh and pack-coverage-scan.sh. A writer that skips it leaves a
+# dead link; a comparer that skips it re-flags every installed skill as drift on the next run.
+skill_templates_prefix() {   # $1 = the INSTALLED path of a skill file
+  case "$1" in
+    */SKILL.md) printf '../../templates' ;;
+    *)          printf '../templates' ;;
+  esac
+}
+
+rewrite_skill_snippet_links() {   # $1 = file to rewrite in place, $2 = installed path (default $1)
+  local f="$1" at="${2:-$1}" pfx guard
+  [[ -f "$f" ]] || return 0
+  pfx="$(skill_templates_prefix "$at")"
+  # Guarded: `perl -i` rewrites the file — and moves its mtime — even when nothing matched, and
+  # the end-of-run sweep calls this on every installed skill. The stranded-spelling half of the
+  # guard is for the folder shape only: in a flat file `](../templates/` is the CORRECT link.
+  guard='\]\((\.\./){4}(snippets|governance)/|\]\((\.\./){5}commands/'
+  [[ "$pfx" != "../templates" ]] && guard="$guard"'|\]\(\.\./templates/(snippets|governance)/'
+  grep -qE "$guard" "$f" 2>/dev/null || return 0
+  if ! command -v perl >/dev/null 2>&1; then
+    echo "  WARN perl missing — cannot rewrite snippet/governance links in ${at#$TARGET/}" >&2
+    return 0
+  fi
+  PFX="$pfx" perl -i -pe '
+    s{\]\((?:\.\./){4}(snippets|governance)/}{]($ENV{PFX}/$1/}g;
+    s{\]\(\.\./templates/(snippets|governance)/}{]($ENV{PFX}/$1/}g if $ENV{PFX} ne "../templates";
+    s{\]\((?:\.\./){5}commands/}{](~/.claude/commands/}g;
+  ' "$f"
+}
+
+rewrite_deployed_skill_links() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  # Snippet links FIRST: rewrite_ai_pattern_links would otherwise claim the five-level commands
+  # link (see above) before the rule that knows what it is gets a look.
+  rewrite_skill_snippet_links "$f"
   rewrite_ai_pattern_links "$f"
   rewrite_skill_refs_to_installed_shape "$f"
 }
@@ -653,6 +739,14 @@ sweep_deployed_links() {
   local f
   while IFS= read -r f; do
     [[ -n "$f" ]] || continue
+    # A skill body in either legal shape — not a references/ sidecar, which sits a level deeper
+    # and whose `../` count means something else. Covers the merge engine's writes (belt and
+    # braces: it rewrites too) and the folder a --migrate-skill-shape move just created.
+    case "$f" in
+      "$TARGET/.claude/skills/"*/SKILL.md) rewrite_skill_snippet_links "$f" ;;
+      "$TARGET/.claude/skills/"*/*) ;;
+      "$TARGET/.claude/skills/"*.md) rewrite_skill_snippet_links "$f" ;;
+    esac
     rewrite_ai_pattern_links "$f"
     rewrite_skill_refs_to_installed_shape "$f" >/dev/null
   done < <(find "$TARGET/.claude/commands" "$TARGET/.claude/agents" "$TARGET/.claude/skills" \
@@ -660,6 +754,24 @@ sweep_deployed_links() {
            | grep -v '/backups/' || true)
 }
 
+
+if [[ "$REWRITE_LINKS" -eq 1 ]]; then
+  n_rw=0
+  while IFS= read -r f; do
+    [[ -n "$f" ]] || continue
+    before=$(cksum < "$f")
+    case "$f" in
+      "$TARGET/.claude/skills/"*/SKILL.md|"$TARGET/.claude/skills/"*.md)
+        case "${f#$TARGET/.claude/skills/}" in */*/*) continue ;; esac   # references/ sidecars keep their depth
+        rewrite_deployed_skill_links "$f" >/dev/null ;;
+      *) rewrite_deployed_command_links "$f" >/dev/null ;;
+    esac
+    [[ "$(cksum < "$f")" != "$before" ]] && { n_rw=$((n_rw + 1)); echo "  link-rewrite ${f#$TARGET/}"; }
+  done < <(find "$TARGET/.claude/commands" "$TARGET/.claude/agents" "$TARGET/.claude/rules" "$TARGET/.claude/skills" \
+                -type f -name '*.md' 2>/dev/null | grep -v '/backups/' || true)
+  echo "rewrite-links: $n_rw file(s) retargeted to their deployed locations"
+  exit 0
+fi
 
 if [[ "$MIGRATE_SHAPE" -eq 1 ]]; then
   echo "=== apply-study-decisions — skill-shape migration (M40) ==="
@@ -1211,10 +1323,13 @@ for action in "${actions[@]:-}"; do
         # the per-skill subdir must exist too or the cp fails with ENOENT.
         mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
-        if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
+        if [[ "$kind" == "commands" || "$kind" == "agents" || "$kind" == "rules" ]]; then
           rewrite_deployed_command_links "$tgt"
+        elif [[ "$kind" == "skills" ]]; then
+          # Depth-aware: $tgt is the shape this project carries (folder or legacy flat).
+          rewrite_deployed_skill_links "$tgt"
         else
-          # ai-patterns / rules / skills carry skill cross-refs too — the live breakage was in
+          # ai-patterns / rules carry skill cross-refs too — the live breakage was in
           # ai/patterns/dashboards.md, which is none of commands or agents.
           rewrite_ai_pattern_links "$tgt"
           rewrite_skill_refs_to_installed_shape "$tgt"
@@ -1302,8 +1417,10 @@ for action in "${actions[@]:-}"; do
 
         mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
-        if [[ "$kind" == "commands" || "$kind" == "agents" ]]; then
+        if [[ "$kind" == "commands" || "$kind" == "agents" || "$kind" == "rules" ]]; then
           rewrite_deployed_command_links "$tgt"
+        elif [[ "$kind" == "skills" ]]; then
+          rewrite_deployed_skill_links "$tgt"
         else
           rewrite_ai_pattern_links "$tgt"
           rewrite_skill_refs_to_installed_shape "$tgt"

@@ -139,7 +139,7 @@ CONTEXT-GATHERING SKILLS:
 
 **If performance**:
 - `profile-endpoint` on the affected endpoint.
-- `n-plus-one-scan` on the affected module.
+- `n-plus-one-scan` on the affected module (database pack, when installed).
 
 **If "works on my machine" / works in one environment but not another** (the bug reproduces in staging or prod but not locally, or vice versa; a route 500s on boot; a feature is silently disabled):
 - `env-diff` between the two environments' key sets FIRST, before reading the handler. Config drift — a required key MISSING in one environment, an ORPHAN left behind by a rename, or a key present but UNVALIDATED by the schema — presents as a code bug and is not one. The skill reports **keys only, never values**.
@@ -223,7 +223,7 @@ Requirements:
 - Change only what's needed to make the test pass.
 - No incidental cleanup / refactor. File separately.
 - Match existing code style exactly.
-- **No new dependency without a gate.** If the minimal fix appears to need a package the project doesn't already use, STOP — a bug fix that grows the dependency tree is almost always the wrong shape. Re-confirm the root cause can't be fixed with an existing primitive / stdlib; if the dep is genuinely required, run a dependency review (dispatch `security-auditor` or inline against the checklist: maintenance / license / size / supply-chain) and record it in the PR (or an ADR for a security / data-handling dep).
+- **No new dependency without a gate.** If the minimal fix appears to need a package the project doesn't already use, STOP — a bug fix that grows the dependency tree is almost always the wrong shape. Re-confirm the root cause can't be fixed with an existing primitive / stdlib; if the dep is genuinely required, run a dependency review (dispatch `security-auditor`: maintenance / license / size / supply-chain; not installed → record those facts with the command that produced each and report `UNREVIEWED(dependency)`, INCOMPLETE) and record it in the PR (or an ADR for a security / data-handling dep).
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
@@ -263,7 +263,7 @@ Run skills:
 - `endpoint-test` if endpoint logic changed.
 - `coverage-gap` — all branches of the fix tested?
 - `schema-diff` if DB involved.
-- `n-plus-one-scan` if perf bug.
+- `n-plus-one-scan` if perf bug (database pack, when installed).
 
 ### Observability gap check — which signal closes which gap
 
@@ -317,7 +317,7 @@ metric and tracing primitives (`references/<framework>.md`) and record the instr
 | AI code touched | `prompt-reviewer` |
 | Payment code touched | `payment-reviewer` |
 
-If a named agent is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis.
+If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.
 
 Block on any BLOCKER.
 

@@ -9,7 +9,7 @@ model: opus
 
 ## The Premise (read first, do not deviate)
 
-**Resolve `$ROOTS` first, and print it in the report.** Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
+**Resolve `$ROOTS` first, and print it in the report.** Set it as an array — `ROOTS=(apps/api/src apps/web/src)` — and every probe expands it as `"${ROOTS[@]}"`: a space-joined string does not word-split in zsh (the macOS default shell), so `rg` searches one path that does not exist, prints an IO error to stderr and exits 2 — which reads as zero hits. Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.
 
 **The bug is real, and the pattern almost always repeats.** Every claim in your investigation cites the actual stack trace, log line, failing test, or DB row that proves it — not a guess at what "could be happening". Once you've named the root cause, grep the codebase for the same pattern; sibling bugs are nearly always present and shipping the fix without the sibling-scan ships the same bug five more times.
 
@@ -94,12 +94,12 @@ rg "SELECT .* FROM" src/modules/ --type ts | grep -v "tenant_id"
 
 **"Unhandled promise in async handler":**
 ```bash
-rg "async (function|\\()" $ROOTS -A 1 | rg -B 1 -v "catch|try"
+rg "async (function|\\()" "${ROOTS[@]}" -A 1 | rg -B 1 -v "catch|try"
 ```
 
 **"Missing timeout on external HTTP":**
 ```bash
-rg "fetch\\(|axios\\.|httpClient\\." $ROOTS | grep -v "timeout\\|signal"
+rg "fetch\\(|axios\\.|httpClient\\." "${ROOTS[@]}" | grep -v "timeout\\|signal"
 ```
 
 Report: N sibling-bugs found + file list + severity per site.

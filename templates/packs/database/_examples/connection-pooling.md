@@ -24,10 +24,7 @@ Every process talks to the database through a **bounded** connection pool whose 
 
 ## Detectors (cite-or-halt)
 
-1. **No pool / new connection per request.** BAD: `connect()` / `new Client()` inside a request or job handler — reconnect per request, unbounded under concurrency. GOOD: a module-level bounded pool borrowed per request.
-2. **Pool × instances exceeds server max.** BAD: `pool.max = 30` on 20 pods against `max_connections = 100`. GOOD: `per_instance × instances < max − reserve`, or a server-side pooler. Do the arithmetic.
-3. **Transaction-mode pooler with prepared statements / session state.** BAD: pgbouncer `pool_mode = transaction` with server-prepared statements or `SET`/`LISTEN`/temp tables. GOOD: disable server-prepared (`pgbouncer=true` / driver flag) or use session mode.
-4. **Serverless with raw connections (no proxy).** BAD: a Lambda/edge function opening a native DB connection per invocation — connection storm. GOOD: RDS Proxy / Data API / sidecar pooler + pool size 1.
+The method lives here; each class has one detector. No pool per request → `connection-config-scan` §1 · pool × instances over `max_connections` → §2 · transaction-mode pooler with session features → §3 · serverless raw connections → §4 · no acquire timeout or lifetime → §7 · a connection held across a network call inside a transaction → `transaction-scan` §1.
 
 ## Related
 

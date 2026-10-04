@@ -4,13 +4,14 @@ sub-phase: "4.2"
 name: apply-copy-or-author
 applies-to-modes: [all]
 inputs: [accepted-packs, gate-decision (COPY | AUTHOR), extracted-idioms (AUTHOR only)]
-outputs: [written-files, per-track-verification-report]
+outputs: [written-files, per-track-verification-report, refract-gates CI workflow (shadow; GitHub or GitLab only)]
 exit-criteria: every track's minimum artifacts written; post-copy verification clean (4.2.c); managed markers in place
 sub-steps:
   - 4.2-AUTHOR  — author from extracted idioms (AUTHOR-mode tracks)
   - 4.2.a       — pre-flight inventory (mandatory)
   - 4.2.b       — deterministic copy (Bash, NOT model-rewritten)
   - 4.2.c       — immediate post-copy verification
+  - 4.2.d       — gates in CI: install the refract-gates shadow job, print branch protection
 governing-rules: [A11, A12, A14, A15, N10, N11]
 imported-by: templates/phases/phase-4-apply.md
 ---
@@ -332,6 +333,9 @@ mkdir -p .claude/references
 for fw in <detected-frameworks>; do
   cp -R ~/.claude/templates/packs/<track>/references/${fw}.md .claude/references/ 2>/dev/null || true
 done
+
+# DEPLOY-LINK REWRITE — see the MINIMAL block below for why; the same one command closes both modes.
+bash ~/.claude/scripts/apply-study-decisions.sh "$PWD" --rewrite-links
 ```
 
 The `|| true` is intentional: missing source dir is OK (e.g., a track without skills); the copy proceeds for what exists.
@@ -468,6 +472,15 @@ mkdir -p .claude/references
 for fw in <detected-frameworks>; do
   cp -R ~/.claude/templates/packs/<track>/references/${fw}.md .claude/references/ 2>/dev/null || true
 done
+
+# DEPLOY-LINK REWRITE — the same rewrites the study path (apply-study-decisions.sh ADD/REPLACE)
+# applies, run once over everything this block just copied. A pack file links the shared snippets
+# as `](../../../snippets/x.md)` (commands, agents, rules) or `](../../../../snippets/x.md)` (skills)
+# and Refract's own commands as `](../../../../commands/x.md)`; those resolve only inside
+# templates/packs/. Copied with `cp` and left alone, every one of them is dead in the project —
+# a CREATE install shipped the links the ENHANCE path had been repairing for months. Idempotent:
+# a file with nothing to rewrite is not touched (its mtime does not move).
+bash ~/.claude/scripts/apply-study-decisions.sh "$PWD" --rewrite-links
 ```
 
 #### Always-included regardless of `--minimal`
@@ -498,6 +511,31 @@ echo "  patterns:  $(ls ai/patterns/*.md 2>/dev/null | wc -l)"
 Compare to pre-flight inventory expected counts. If shortfall: re-run that track's copy commands (Phase 5 retry loop catches systematic failures).
 
 **Phase 4.2 mechanical halt**: After all tracks complete, count files written per track. If any track yielded fewer than 1 file per category expected (agents/commands/rules/patterns), HALT. Do NOT advance to Phase 4.3 — Phase 5 retry is for systematic failures, NOT for missing-artifact escapes from this phase.
+
+### 4.2.d Gates in CI — the shadow job (Bash; install, never overwrite, never protect)
+
+Phase 4.1 delivered `.claude/scripts/gate-check.py` (+ `test-integrity.py`, `standards-check.py`) and `.claude/gates.json`; the Stop hook `verify-gate.sh` runs `gate-check.py --local`. A hook is advisory-strong — Claude Code lets a session stop after 8 consecutive blocks — so the same gates also run in CI, in **shadow** mode: every gate recorded, none enforced, the build never failed. An existing file of the same name is the project's and is never overwritten; the project's own pipeline file is never edited; branch protection is printed for the owner, never applied.
+
+```bash
+[ -f .claude/scripts/gate-check.py ] && command -v python3 >/dev/null \
+  || echo "  WARN gate-check.py or python3 missing — re-run apply-baseline-sync.sh --apply; the CI job below would record nothing"
+if [ -d .github ] || git remote -v 2>/dev/null | grep -q 'github\.com'; then
+  mkdir -p .github/workflows
+  if [ -e .github/workflows/refract-gates.yml ]; then echo "  ci-skip: .github/workflows/refract-gates.yml exists — kept (compare with ~/.claude/templates/ci/refract-gates.github.yml)"
+  else cp ~/.claude/templates/ci/refract-gates.github.yml .github/workflows/refract-gates.yml && echo "  ci-add: .github/workflows/refract-gates.yml (shadow)"; fi
+  echo "  OWNER, when a gate leaves shadow mode — make the check required (not run by setup):"
+  echo "    unprotected branch: gh api -X PUT repos/{owner}/{repo}/branches/<default>/protection -F 'required_status_checks[strict]=true' -f 'required_status_checks[contexts][]=refract-gates' -F enforce_admins=false -F required_pull_request_reviews=null -F restrictions=null"
+  echo "    protected branch (the PUT above REPLACES its rules): gh api -X POST repos/{owner}/{repo}/branches/<default>/protection/required_status_checks/contexts -f 'contexts[]=refract-gates'"
+fi
+if [ -f .gitlab-ci.yml ]; then      # GitLab reads ONE pipeline file, and it is the project's: add the job file, print the include
+  mkdir -p .gitlab
+  if [ -e .gitlab/refract-gates.gitlab-ci.yml ]; then echo "  ci-skip: .gitlab/refract-gates.gitlab-ci.yml exists — kept"
+  else cp ~/.claude/templates/ci/refract-gates.gitlab.yml .gitlab/refract-gates.gitlab-ci.yml && echo "  ci-add: .gitlab/refract-gates.gitlab-ci.yml (shadow)"; fi
+  grep -q 'refract-gates.gitlab-ci.yml' .gitlab-ci.yml || printf '  OWNER: add to .gitlab-ci.yml —\n    include:\n      - local: .gitlab/refract-gates.gitlab-ci.yml\n'
+fi
+```
+
+Neither GitHub nor GitLab detected → no CI file is written; say so in the setup summary (`gates: local Stop hook only — no CI host detected`). Report every `ci-add` / `ci-skip` line and the owner commands verbatim — a shadow job nobody knows to read, and a protection command nobody saw, are the same as none.
 
 ### Merge handling (when files already exist in target)
 
@@ -581,6 +619,8 @@ for sig in $SIGNALS; do
   done
   echo "- ✅ $sig — applied (agents/commands/rules/ai-patterns)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
 done
+# Domain files link the shared snippets too — same deploy rewrite as the pack copy above.
+bash ~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --rewrite-links
 ```
 
 - **Apply the union of detected + forced.** The applied set is `technical_signals:` (what Phase 2 detected) **unioned with** every `--include=<key>` passed to the run (`INCLUDE_FLAGS`). `--include` adds scope it can't subtract — a forced key absent from §11 (a concern the scan couldn't infer) is still applied. De-duplicate so a key in both is copied once.

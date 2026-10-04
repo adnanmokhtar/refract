@@ -301,7 +301,10 @@ Shell scripts at `.claude/skills/module-scaffold/` — user runs manually.
 | `notify.sh` | **Stop** / **Notification** | turn-complete notification |
 | `session-start.sh` | **SessionStart** (`matcher: "startup|resume"`) → `additionalContext` | surface `ai/status.md` / current phase at session open |
 | `update-session-log.sh` | **Stop** | append to `ai/dynamic/session-log.md` when a turn completes |
-| `verify-gate.sh` | **Stop** | emit `decision: "block"` with the failing test output as `reason` when the turn ends with uncommitted source changes and a red suite — Codex feeds it back and the turn continues instead of declaring success |
+| `verify-gate.sh` | **Stop** | `decision: "block"` with the FAIL lines as `reason`; the turn continues instead of declaring success — runs `.claude/scripts/gate-check.py --local` — the deterministic gates, not just tests: G0 acceptance lock, G1 tests + the verifier's verdict, G2 test integrity + oracles, G3 secrets, G7 lint / typecheck / standards / reviews, G15 provenance; modes in `.claude/gates.json`, records in `.claude/evidence/` |
+| `test-lock.sh` | **PreToolUse** (`matcher` on the edit and shell tools) | deny edits to the locked acceptance contract and its tests (`.claude/locks/<run>.json`) and to hook-written records; ask before `lock-acceptance.sh --reopen`; `gate-check.py` G0 re-hashes the locked files at the end and in CI either way |
+| `judge-bash-guard.sh` | **PreToolUse** | only where the payload identifies the subagent — the `verifier` judge runs tests / scanners / localhost probes only, and a dispatch to it carries paths and a mode, never the builder's narrative; keyed on the payload's agent identity |
+| `persist-verdict.sh` + `persist-review.sh` | **SubagentStop** | pipe the subagent's final message to `.claude/scripts/refract_records.py` — validate the judge's / reviewer's final JSON against `.claude/schemas/`, stamp signer + scope, write `ai/runs/<run>/verdict.json` / `reviews/*.json`; absent, `gate-check.py` reports the verdict missing, never passed |
 
 All map **natively** — no `.husky/` fallback needed for Codex-driven sessions. Keep the git pre-commit hook only as defence-in-depth for non-hook-aware drivers.
 

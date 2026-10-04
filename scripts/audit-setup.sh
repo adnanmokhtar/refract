@@ -2228,15 +2228,21 @@ fi
 # BROKEN relative link (resolves outside the repo). Historically these shipped silently —
 # a re-audit found 30 such files that had persisted for a month because no check caught them.
 # WARN-level: the artifact still works; only its doc pointer is dead — one-line rewrite fixes it.
+#
+# SKILLS SHIP A FOURTH `../`. A pack skill sits at templates/packs/<p>/skills/<name>/SKILL.md and
+# links `](../../../../snippets/…)`; the three-level pattern below used to be the only one, and
+# `](../` + `../../../snippets/` is not `](../../../snippets/`, so every un-rewritten skill link
+# walked past it. A run of three or more `../` before `snippets/` or `governance/` leaves the
+# project from anywhere under .claude/, so it is the pack spelling whichever kind carries it.
 echo "C2t: deployed snippet/governance link integrity (.claude/ artifacts)"
-broken_links=$(grep -rlE '\]\(\.\./\.\./\.\./(snippets|governance)/' \
+broken_links=$(grep -rlE '\]\((\.\./){3,}(snippets|governance)/' \
   "$CL/commands" "$CL/agents" "$CL/skills" "$CL/rules" 2>/dev/null || true)
 if [[ -n "$broken_links" ]]; then
   bl_n=$(printf '%s\n' "$broken_links" | grep -c .) || bl_n=0
-  warn_msg "$bl_n .claude/ artifact(s) carry broken \`../../../{snippets,governance}/\` links (should be \`../templates/...\`). Fix: perl -i -pe 's{\]\(\.\./\.\./\.\./(snippets|governance)/}{](../templates/\$1/}g' <files>"
+  warn_msg "$bl_n .claude/ artifact(s) carry un-rewritten pack links \`../../../{snippets,governance}/\` (skills: \`../../../../\`) — they resolve above the repo root. Fix: $SCRIPTS_DIR/study-existing.sh \"$TARGET\" then $SCRIPTS_DIR/apply-study-decisions.sh \"$TARGET\" --apply (its end-of-run sweep rewrites every installed skill), or by hand — commands/agents/rules: perl -i -pe 's{\]\(\.\./\.\./\.\./(snippets|governance)/}{](../templates/\$1/}g' <files>; skills/<name>/SKILL.md: perl -i -pe 's{\]\((?:\.\./){4}(snippets|governance)/}{](../../templates/\$1/}g' <files> (legacy flat skills/<name>.md: ../templates/)"
   printf '%s\n' "$broken_links" | sed "s#^$TARGET/#      #" | head -8 || true
 else
-  ok "no artifact still carries the un-rewritten \`../../../\` link shape"
+  ok "no artifact still carries the un-rewritten \`../../../\` (skills: \`../../../../\`) link shape"
 fi
 
 # THE HALF THIS CHECK WAS MISSING, and it was the half that mattered. The grep above tests only

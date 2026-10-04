@@ -326,6 +326,111 @@ else
   bad "deploy link rewrite" "$(cat "$TD/proj6/.claude/commands/linky.md")"
 fi
 
+# ── 9b. SKILLS — one `../` deeper, rewritten at the depth of the shape installed ──────────
+# A pack skill links `](../../../../snippets/…)`. The rewrite above matched three `../` and ran
+# for commands and agents only, so every skill the engine wrote kept a link that resolves above
+# the repo root. The proof is not "the string changed" but "the link RESOLVES": each fixture
+# target carries the deployed snippets, and every relative link in the written file must land
+# on one of them — for the folder shape and for the legacy flat shape.
+#
+# unresolved_links <file>: every relative `](…)` target in <file> that is not on disk.
+unresolved_links() {
+  local f="$1" d l
+  d=$(dirname "$f")
+  { grep -oE '\]\([^)#[:space:]]+' "$f" 2>/dev/null || true; } | sed 's/^](//' | sort -u | while IFS= read -r l; do
+    case "$l" in http*|mailto:*|/*|"~"*) continue ;; esac
+    [ -e "$d/$l" ] || printf '%s ' "$l"
+  done
+}
+seed_deployed_templates() {   # $1 = project root
+  mkdir -p "$1/.claude/templates/snippets/precedents" "$1/.claude/templates/governance"
+  printf 'x\n' > "$1/.claude/templates/snippets/x.md"
+  printf 'data\n' > "$1/.claude/templates/snippets/precedents/data.md"
+  printf 'y\n' > "$1/.claude/templates/governance/y.md"
+}
+mkdir -p "$PK/skills/linkskill" "$PK/agents"
+cat > "$PK/skills/linkskill/SKILL.md" <<'SK'
+---
+name: linkskill
+description: Fixture skill.
+---
+
+# Linkskill
+
+See [x](../../../../snippets/x.md), [p](../../../../snippets/precedents/data.md) and [y](../../../../governance/y.md).
+
+Canonical orchestration: [`commands/refactor.md`](../../../../../commands/refactor.md).
+SK
+printf -- '---\nname: linkagent\ndescription: Fixture agent.\n---\n\n# Linkagent\n\nSee [x](../../../snippets/x.md) and [p](../../../snippets/precedents/data.md).\n' > "$PK/agents/linkagent.md"
+for shape in folder flat; do
+  P="$TD/proj9-$shape"
+  if [ "$shape" = folder ]; then SKF="$P/.claude/skills/linkskill/SKILL.md"; else SKF="$P/.claude/skills/linkskill.md"; fi
+  mkdir -p "$(dirname "$SKF")" "$P/.claude/agents"
+  seed_deployed_templates "$P"
+  printf -- '---\nname: linkskill\ndescription: Fixture skill.\n---\n\n# Linkskill\n' > "$SKF"
+  printf -- '---\nname: linkagent\ndescription: Fixture agent.\n---\n\n# Linkagent\n' > "$P/.claude/agents/linkagent.md"
+  cat > "$P/.claude/_study-existing-report.md" <<'RPT9'
+## fixture
+
+### skills
+  - `linkskill/SKILL.md` — target 5 / pack 10 lines → **MERGE**
+
+### agents
+  - `linkagent.md` — target 5 / pack 7 lines → **MERGE**
+RPT9
+  python3 "$ENGINE" "$P" --packs-root="$TD/packs" --apply --no-git --quiet >/dev/null 2>&1
+  [ -f "$P/.claude/skills/linkskill/SKILL.md" ] && [ -f "$P/.claude/skills/linkskill.md" ] \
+    && bad "9b ($shape) the engine wrote a SECOND shape of the skill"
+  if grep -q 'snippets/x\.md' "$SKF" && grep -q 'precedents/data\.md' "$SKF" && grep -q 'governance/y\.md' "$SKF"; then
+    ul=$(unresolved_links "$SKF")
+    [ -z "$ul" ] && ok "9b ($shape shape) every snippet/governance link the engine wrote into the skill resolves — subdirectory included" \
+                 || bad "9b ($shape shape) skill links resolve" "unresolved: $ul | $(grep -o '\](.*)' "$SKF" | tr '\n' ' ')"
+  else
+    bad "9b ($shape shape) the engine wrote the skill's links" "$(cat "$SKF")"
+  fi
+  grep -qF '](~/.claude/commands/refactor.md)' "$SKF" \
+    && ok "9b ($shape shape) the skill-depth link to Refract's own command points where it lives" \
+    || bad "9b ($shape shape) framework-command link" "$(grep -n 'refactor' "$SKF")"
+  # Commands and agents keep exactly the rewrite they had: ONE `../`, never the skill depth.
+  if grep -qF '](../templates/snippets/x.md)' "$P/.claude/agents/linkagent.md" \
+     && grep -qF '](../templates/snippets/precedents/data.md)' "$P/.claude/agents/linkagent.md" \
+     && [ -z "$(unresolved_links "$P/.claude/agents/linkagent.md")" ]; then
+    ok "9b ($shape) an agent is rewritten exactly as before, and resolves"
+  else
+    bad "9b ($shape) agent rewrite unchanged" "$(cat "$P/.claude/agents/linkagent.md")"
+  fi
+  # And the next run is a no-op: the file it wrote is the deployed shape it compares against.
+  cp "$SKF" "$TD/skf.before"
+  python3 "$ENGINE" "$P" --packs-root="$TD/packs" --apply --no-git --quiet >/dev/null 2>&1
+  cmp -s "$SKF" "$TD/skf.before" && ok "9b ($shape shape) a second run leaves the skill byte-identical" \
+                                 || bad "9b ($shape shape) second run churned the skill" "$(diff "$TD/skf.before" "$SKF" | head -6)"
+done
+
+# ── 9c. the ratchet that keeps 9b true fires when a writer or comparer drops the rewrite ──
+# lint-setup-contracts.sh Rule 7 used to pass both writers on the string 'templates/snippets/'
+# alone — which each carried, for commands — while neither rewrote a single skill. Prove the
+# extended rule fires on each way of losing it, against copies, never the real scripts.
+LINT="$REPO_ROOT/scripts/lint-setup-contracts.sh"
+if [ -f "$LINT" ]; then
+  R7="$TD/r7"; rm -rf "$R7"; mkdir -p "$R7/scripts"
+  for f in apply-study-decisions.sh merge-decide.py study-existing.sh pack-coverage-scan.sh; do
+    cp "$REPO_ROOT/scripts/$f" "$R7/scripts/" 2>/dev/null
+  done
+  r7_clean=$(bash "$LINT" --repo-root="$R7" 2>&1 | grep 'R7-deploy-rewrite-parity' || true)
+  [ -z "$r7_clean" ] && ok "9c Rule 7 passes the four scripts as they are" \
+                     || bad "9c Rule 7 passes the four scripts as they are" "$(printf '%s' "$r7_clean" | head -2 | tr '\n' ' ')"
+  perl -i -pe 's/_DEPLOY_SKILL_SNIP\.sub/_GONE.sub/' "$R7/scripts/merge-decide.py"
+  # the REPLACE arm's call only — the ADD arm keeps its own, so this is "one site", not "none"
+  perl -i -pe 'if (/^\s*rewrite_deployed_skill_links "\$tgt"\s*$/) { $n++; s/rewrite_deployed_skill_links "\$tgt"/: dropped/ if $n == 2 }' "$R7/scripts/apply-study-decisions.sh"
+  perl -i -ne 'print unless /\{4\}\(snippets\|governance\)/' "$R7/scripts/study-existing.sh"
+  r7_out=$(bash "$LINT" --repo-root="$R7" 2>&1 | grep 'R7-deploy-rewrite-parity' || true)
+  for w in merge-decide.py apply-study-decisions.sh study-existing.sh; do
+    printf '%s' "$r7_out" | grep -qF "scripts/$w" \
+      && ok "9c Rule 7 fires when scripts/$w loses the skill rewrite" \
+      || bad "9c Rule 7 fires when scripts/$w loses the skill rewrite" "$(printf '%s' "$r7_out" | head -3 | tr '\n' ' ')"
+  done
+fi
+
 # ── 10. an UNWRITABLE target is refused, recorded, and reported red ──────────────────────
 # HISTORY: `chmod 444` on one target raised an uncaught PermissionError, apply-study-decisions.sh
 # printed its summary and exited 0, and the tree was left partially rewritten with NO
@@ -616,6 +721,136 @@ RPTW3
     || bad "ADD display collapses destinations" "$n_rows rows, $n_dest distinct: $(printf '%s' "$outw3" | grep 'would-ADD')"
 else
   bad "SKIPPED — : apply-study-decisions.sh or its fixture pack sources not found (a renamed pack path silently drops these assertions; fix the path or delete the section)"
+fi
+
+# ── 15b. apply-study-decisions.sh — a deployed SKILL's snippet links resolve ─────────────
+# Both copy sites (ADD and REPLACE) and both shapes, against REAL pack skills (the wrapper has
+# no --packs-root), in a target whose `.claude/templates/` is what apply-baseline-sync.sh
+# deploys. Then the two comparers must agree the written file IS the pack — study-existing.sh
+# says IDENTICAL-NO-OP and pack-coverage-scan.sh says CURRENT — or every rewritten skill
+# re-flags as drift on the next refresh. Then --migrate-skill-shape moves the flat one a level
+# down, and its links must move with it.
+#
+# The skill is chosen, not named: prefer one linking a snippet SUBDIRECTORY, else any skill
+# with a four-level link. A hard-coded path would silently stop testing on the next rename.
+BASE_TPL="$REPO_ROOT/templates/repo-baseline/.claude/templates"
+SK_SRC=$(grep -rlE '\]\((\.\./){4}snippets/[A-Za-z0-9_-]+/[A-Za-z0-9_.-]+\.md' "$REPO_ROOT"/templates/packs/*/skills/*/SKILL.md 2>/dev/null | sort | head -1 || true)
+[ -n "$SK_SRC" ] || SK_SRC=$(grep -rlE '\]\((\.\./){4}(snippets|governance)/' "$REPO_ROOT"/templates/packs/*/skills/*/SKILL.md 2>/dev/null | sort | head -1 || true)
+CMD_SRC=$(grep -rlE '\]\((\.\./){3}snippets/' "$REPO_ROOT"/templates/packs/code-quality/commands/*.md 2>/dev/null | sort | head -1 || true)
+AG_SRC=$(grep -rlE '\]\((\.\./){3}snippets/' "$REPO_ROOT"/templates/packs/*/agents/*.md 2>/dev/null | sort | head -1 || true)
+# A link from one of those files that names a deployed snippet/governance file. Other links (an
+# ai-pattern, a sibling skill) depend on what else is installed and are not this fixture's claim.
+templates_links_unresolved() {   # $1 = installed file → prints unresolved templates/ links; sets TL_N
+  local f="$1" d l
+  d=$(dirname "$f"); TL_N=0; TL_BAD=""
+  while IFS= read -r l; do
+    [ -z "$l" ] && continue
+    TL_N=$((TL_N + 1))
+    [ -e "$d/$l" ] || TL_BAD="$TL_BAD $l"
+  done < <({ grep -oE '\]\([^)#[:space:]]*templates/(snippets|governance)/[^)#[:space:]]+' "$f" 2>/dev/null || true; } | sed 's/^](//' | sort -u)
+}
+if [ -f "$WRAP" ] && [ -n "$SK_SRC" ] && [ -n "$CMD_SRC" ] && [ -n "$AG_SRC" ] && [ -d "$BASE_TPL" ]; then
+  SK_PACK=$(printf '%s' "$SK_SRC" | sed -E 's#.*/templates/packs/([^/]+)/skills/.*#\1#')
+  SK_NAME=$(basename "$(dirname "$SK_SRC")")
+  CMD_PACK=$(printf '%s' "$CMD_SRC" | sed -E 's#.*/templates/packs/([^/]+)/commands/.*#\1#'); CMD_BASE=$(basename "$CMD_SRC")
+  AG_PACK=$(printf '%s' "$AG_SRC" | sed -E 's#.*/templates/packs/([^/]+)/agents/.*#\1#');   AG_BASE=$(basename "$AG_SRC")
+  say ""
+  say "fixture: apply-study-decisions.sh — $SK_PACK/$SK_NAME deployed in both shapes, links resolve"
+
+  # (1) ADD → the canonical folder shape
+  W="$TD/w15b-add"; rm -rf "$W"; mkdir -p "$W/.claude/skills" "$W/.claude/commands" "$W/.claude/agents"
+  cp -R "$BASE_TPL" "$W/.claude/templates"
+  {
+    printf '## %s\n\n### skills\n  - `%s/SKILL.md` — target MISSING / pack 5 lines → **ADD**\n\n' "$SK_PACK" "$SK_NAME"
+    printf '## %s\n\n### commands\n  - `%s` — target MISSING / pack 5 lines → **ADD**\n\n' "$CMD_PACK" "$CMD_BASE"
+    printf '## %s\n\n### agents\n  - `%s` — target MISSING / pack 5 lines → **ADD**\n' "$AG_PACK" "$AG_BASE"
+  } > "$W/.claude/_study-existing-report.md"
+  outa=$(bash "$WRAP" "$W" --apply 2>&1); rca=$?
+  SKF="$W/.claude/skills/$SK_NAME/SKILL.md"
+  if [ "$rca" -eq 0 ] && [ -f "$SKF" ]; then
+    templates_links_unresolved "$SKF"
+    if [ "$TL_N" -gt 0 ] && [ -z "$TL_BAD" ] && ! grep -qE '\]\((\.\./){4}(snippets|governance)/' "$SKF"; then
+      ok "ADD (folder shape): all $TL_N snippet/governance link(s) of $SK_NAME resolve via ../../templates/"
+    else
+      bad "ADD (folder shape) skill links resolve" "$TL_N link(s), unresolved:${TL_BAD:- none} | $(grep -oE '\]\([^)]*(snippets|governance)/[^)]*\)' "$SKF" | head -3 | tr '\n' ' ')"
+    fi
+    if grep -qE '\]\(\.\./\.\./templates/snippets/[A-Za-z0-9_-]+/' "$SKF" || ! grep -qE '\]\((\.\./){4}snippets/[A-Za-z0-9_-]+/' "$SK_SRC"; then
+      ok "ADD (folder shape): a snippet SUBDIRECTORY link keeps its subdirectory"
+    else
+      bad "ADD subdirectory link kept" "$(grep -oE '\]\([^)]*snippets/[^)]*\)' "$SKF" | head -3 | tr '\n' ' ')"
+    fi
+  else
+    bad "ADD of $SK_NAME" "rc=$rca: $(printf '%s' "$outa" | tail -5 | tr '\n' ' ')"
+  fi
+  # commands and agents: exactly the rewrite they always had
+  for pair in "commands/$CMD_BASE|$CMD_SRC" "agents/$AG_BASE|$AG_SRC"; do
+    rel="${pair%%|*}"; src="${pair#*|}"; f="$W/.claude/$rel"
+    exp=$(perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g; s{\]\(\.\./\.\./\.\./\.\./commands/}{](~/.claude/commands/}g' "$src" \
+          | grep -oE '\]\([^)]*templates/(snippets|governance)/[^)]*\)' | sort -u)
+    got=$(grep -oE '\]\([^)]*templates/(snippets|governance)/[^)]*\)' "$f" 2>/dev/null | sort -u)
+    templates_links_unresolved "$f"
+    if [ -n "$exp" ] && [ "$exp" = "$got" ] && [ -z "$TL_BAD" ]; then
+      ok "ADD $rel: snippet links exactly as the three-level rule writes them, and they resolve"
+    else
+      bad "ADD $rel unchanged" "expected [$(printf '%s' "$exp" | tr '\n' ' ')] got [$(printf '%s' "$got" | tr '\n' ' ')] unresolved:$TL_BAD"
+    fi
+  done
+  # the comparers agree the written skill IS the pack
+  st=$(bash "$REPO_ROOT/scripts/study-existing.sh" "$W" "$SK_PACK" --stdout 2>/dev/null | grep -F "\`$SK_NAME/SKILL.md\`" | head -1 || true)
+  case "$st" in
+    *IDENTICAL-NO-OP*) ok "study-existing.sh reads the freshly written skill as IDENTICAL-NO-OP, not drift" ;;
+    *) bad "study-existing.sh agrees with the deploy rewrite" "${st:-no row for $SK_NAME}" ;;
+  esac
+  pc=$(bash "$REPO_ROOT/scripts/pack-coverage-scan.sh" "$W" "$SK_PACK" --stdout 2>/dev/null | grep -F "skills/$SK_NAME/SKILL.md" | head -1 || true)
+  case "$pc" in
+    *CURRENT*) ok "pack-coverage-scan.sh reads the freshly written skill as CURRENT, not STALE" ;;
+    *) bad "pack-coverage-scan.sh agrees with the deploy rewrite" "${pc:-no row for $SK_NAME}" ;;
+  esac
+
+  # (2) REPLACE → the legacy flat shape, rewritten in place at ITS depth
+  W="$TD/w15b-flat"; rm -rf "$W"; mkdir -p "$W/.claude/skills"
+  cp -R "$BASE_TPL" "$W/.claude/templates"
+  printf -- '---\nname: %s\n---\n\nold flat body\n' "$SK_NAME" > "$W/.claude/skills/$SK_NAME.md"
+  printf '## %s\n\n### skills\n  - `%s/SKILL.md` — target 5 / pack 400 lines → **REPLACE-OR-ENHANCE**\n' "$SK_PACK" "$SK_NAME" \
+    > "$W/.claude/_study-existing-report.md"
+  outr=$(bash "$WRAP" "$W" --apply 2>&1); rcr=$?
+  SKF="$W/.claude/skills/$SK_NAME.md"
+  if [ "$rcr" -eq 0 ] && grep -q 'REPLACE ' <<<"$outr" && [ ! -e "$W/.claude/skills/$SK_NAME/SKILL.md" ]; then
+    templates_links_unresolved "$SKF"
+    if [ "$TL_N" -gt 0 ] && [ -z "$TL_BAD" ] && grep -qE '\]\(\.\./templates/(snippets|governance)/' "$SKF"; then
+      ok "REPLACE (flat shape): all $TL_N snippet/governance link(s) resolve via ../templates/"
+    else
+      bad "REPLACE (flat shape) skill links resolve" "$TL_N link(s), unresolved:${TL_BAD:- none}"
+    fi
+  else
+    bad "REPLACE of the flat $SK_NAME" "rc=$rcr: $(printf '%s' "$outr" | grep -E 'REPLACE|SKIP|ERR|REFUSED' | head -3 | tr '\n' ' ')"
+  fi
+  st=$(bash "$REPO_ROOT/scripts/study-existing.sh" "$W" "$SK_PACK" --stdout 2>/dev/null | grep -F "\`$SK_NAME/SKILL.md\`" | head -1 || true)
+  case "$st" in
+    *IDENTICAL-NO-OP*) ok "study-existing.sh reads the flat skill as IDENTICAL-NO-OP at the flat depth" ;;
+    *) bad "study-existing.sh agrees at the flat depth" "${st:-no row for $SK_NAME}" ;;
+  esac
+
+  # (3) --migrate-skill-shape moves it a level down; the links must follow
+  outm=$(bash "$WRAP" "$W" --migrate-skill-shape --apply 2>&1); rcm=$?
+  SKF="$W/.claude/skills/$SK_NAME/SKILL.md"
+  if [ "$rcm" -eq 0 ] && [ -f "$SKF" ]; then
+    templates_links_unresolved "$SKF"
+    [ "$TL_N" -gt 0 ] && [ -z "$TL_BAD" ] \
+      && ok "migrate flat → folder: the moved skill's $TL_N snippet link(s) are re-rooted and resolve" \
+      || bad "migrate re-roots skill links" "$TL_N link(s), unresolved:${TL_BAD:- none}"
+  else
+    bad "migrate of $SK_NAME" "rc=$rcm: $(printf '%s' "$outm" | tail -4 | tr '\n' ' ')"
+  fi
+  # and a run that has nothing to rewrite leaves the file alone — mtime included
+  mtime_ns() { python3 -c 'import os,sys; print(os.stat(sys.argv[1]).st_mtime_ns)' "$1" 2>/dev/null; }
+  touch -t 202001010000 "$SKF"; m0=$(mtime_ns "$SKF")
+  bash "$WRAP" "$W" --migrate-skill-shape --apply >/dev/null 2>&1
+  m1=$(mtime_ns "$SKF")
+  [ "$m0" = "$m1" ] && ok "the end-of-run sweep does not touch an already-correct skill (mtime unchanged)" \
+                    || bad "sweep rewrote a correct skill" "$m0 → $m1"
+else
+  bad "SKIPPED 15b — apply-study-decisions.sh, a pack skill with a four-level snippet link, a code-quality command or an agent with a snippet link, or the repo-baseline templates were not found"
 fi
 
 # ── 16. audit-setup.sh C2n fails CLOSED ─────────────────────────────────────────────────

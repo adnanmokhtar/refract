@@ -24,21 +24,25 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 
 ## Pre-flight
 
+**Resolve `$ROOTS` first, and print it in the report.** Set it as an array of this project's real code roots — `ROOTS=(apps/api/src apps/web/src)` — and expand it as `"${ROOTS[@]}"`. A space-joined string is one path in zsh, `rg` exits 2 on it, and a probe that errored reads as zero hits. Any `rg` output on stderr is a failed probe.
+
 - Read `ai/patterns/auth-flow.md`, `zero-trust.md`.
 - Read `.claude/rules/security-principles.md`.
 - Know the auth model from `CLAUDE.md` / ADRs (JWT? session? OAuth? combined?).
 - **Locate the four surfaces before reviewing any of them.** Substitute the project's framework tokens; the *shape* is what matters.
   ```bash
-  # verify / sign calls — is an algorithm allow-list passed?
-  rg -n "\b(jwt|jose|jsonwebtoken)?\.?(verify|decode|sign)\(" $ROOTS | rg -v "algorithms?\s*[:=]"
+  # JWT verify with no algorithm allow-list — multi-line (-U), because the options object sits below the call
+  rg -n -U --pcre2 '(\b(jwt|jsonwebtoken|jose|jws)\w*|\w*[jJ]wt\w*|\w*[tT]oken[sS]ervice\w*)\.(verify|verifyAsync|verifySync)\s*(<[^>()]*>)?\s*\((?:(?!\balgorithms?\b)[^;])*?;|\bjwtVerify\s*(<[^>()]*>)?\s*\((?:(?!\balgorithms?\b)[^;])*?;|\bsuper\(\s*\{(?:(?!\balgorithms?\b)[^;])*?\b(secretOrKey|secretOrKeyProvider)\b(?:(?!\balgorithms?\b)[^;])*?;' "${ROOTS[@]}"
+  # a token DECODED, not verified — a finding wherever its claims reach an authorization decision
+  rg -n --pcre2 '\b(jwt|jsonwebtoken|jose|jws)\w*\.decode\s*\(|\b(decodeJwt|jwtDecode|jwt_decode|decodeProtectedHeader)\s*\(|verify_signature["\x27]?\s*:\s*False' "${ROOTS[@]}"
   # every route registration, so each can be classed guarded / explicitly-public
-  rg -n "@(Get|Post|Put|Patch|Delete)\(|router\.(get|post|put|patch|delete)\(|app\.(get|post)\(" $ROOTS
+  rg -n "@(Get|Post|Put|Patch|Delete)\(|router\.(get|post|put|patch|delete)\(|app\.(get|post)\(" "${ROOTS[@]}"
   # the public-route marker and the guard — every route must be exactly one of these
-  rg -n "@Public|AllowAnonymous|permit_all|skipAuth|@UseGuards|requireAuth|isAuthenticated" $ROOTS
+  rg -n --pcre2 "@Public|AllowAnonymous|permit_all|skipAuth|@UseGuards|@Require[A-Z]\w*\(|@\w*(Permission|Role|Guard)\w*\(|requireAuth|isAuthenticated" "${ROOTS[@]}"
   # password hashing call sites — and whether parameters are passed at all
-  rg -n "argon2|bcrypt|scrypt|pbkdf2|hashSync|createHash\(" $ROOTS
+  rg -n "argon2|bcrypt|scrypt|pbkdf2|hashSync|createHash\(" "${ROOTS[@]}"
   # refresh / session lifecycle
-  rg -n "refresh[_-]?token|rotate|revoke|session\.(regenerate|destroy)|sid" $ROOTS
+  rg -n "refresh[_-]?token|rotate|revoke|session\.(regenerate|destroy)|\bsid\b" "${ROOTS[@]}"   # \b: a bare sid matches inside, side, consider
   ```
 
 ## AuthN checklist
@@ -56,6 +60,7 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 - Refresh stored SERVER-SIDE (opaque token → hash in DB), NOT long-lived JWTs.
 - Rotation on use (one-time-use refresh).
 - Replay detection: if the same refresh token is used twice (after rotation), REVOKE the whole user's session family + force re-login.
+- **An admin-side revoke must survive the next refresh.** For every revoke an administrator or the account owner performs — disconnect an OAuth or MCP client, delete an API key, remove or pause a member, revoke a device — check two things. The revoke closes the refresh family, not only the visible connection or grant row. And the refresh path refuses a revoked row rather than re-activating it. A refresh that re-creates a grant or clears its `revokedAt` gives the revoked client its access back on its next call.
 - Refresh TTL bounded (7-30 days typical).
 - HttpOnly Secure SameSite cookie if browser-based.
 
@@ -65,6 +70,7 @@ Broken access control is #1 on OWASP for a reason. This agent runs on EVERY auth
 - Server-side session store (Redis / DB), not just a signed cookie.
 - Idle timeout + absolute timeout.
 - Revoke on logout.
+- **Revoke on deprovision.** Pausing, suspending or removing a member revokes their sessions and refresh tokens, and login and refresh refuse a membership that is not live. An emptied permission set is not enough: routes that need no permission (own profile, notifications, chat, "the session is the subject") keep answering a paused member who still holds a session. Check every account type the app has; it is common for portal accounts to be revoked on suspension while workspace staff are not. Pending invitations the member issued are part of deprovisioning: revoke them, or re-check the inviter's current grants at accept.
 
 ### Passwords
 - Hashing: Argon2id preferred; bcrypt (cost ≥ 12) acceptable. **The algorithm name is not the finding — the parameters are.** Argon2id's strength is entirely in its memory cost `m`, iterations `t` and parallelism `p`; bcrypt's is its work factor. A call site that names argon2id and passes no parameters is relying on a library default that may be below current guidance. Read the current minimums from the OWASP *Password Storage Cheat Sheet* (https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) and cite it in the finding — never assert a parameter set from memory.
@@ -93,8 +99,8 @@ The server MUST verify the ceremony, not just trust the client attestation/asser
 - Redirect URIs whitelisted EXACTLY (not wildcards) — OAuth 2.1 § 2.3.1: the authorization server *"MUST reject authorization requests that specify a redirect URI that doesn't exactly match one that was registered"*.
 - **The client-side half of that rule, which most reviews miss.** Same section: *"Clients MUST NOT expose URLs that forward the user's browser to arbitrary URIs obtained from a query parameter ('open redirector')."* An open redirector anywhere on the client's origin can be chained to exfiltrate an authorization code even when the registered redirect URI is exact. Audit `?next=` / `?returnUrl=` / `?redirect_to=` / `?continue=` handlers, including login-return flows and post-logout redirects (CWE-601, under A01:2025).
   ```bash
-  rg -n "(next|return_?to|return_?url|redirect_?(to|uri|url)|continue|dest|callback)\s*[=:]" $ROOTS
-  rg -n "(res\.redirect|redirect\(|Location:|window\.location)" $ROOTS | rg -i "req\.|query|params|body"
+  rg -n "(next|return_?to|return_?url|redirect_?(to|uri|url)|continue|dest|callback)\s*[=:]" "${ROOTS[@]}"
+  rg -n "(res\.redirect|redirect\(|Location:|window\.location)" "${ROOTS[@]}" | rg -i "req\.|query|params|body"
   ```
 - Validate id_token signature + claims; don't trust `userinfo` endpoint blindly.
 - Scope minimal.
@@ -110,6 +116,10 @@ The server MUST verify the ceremony, not just trust the client attestation/asser
 ### Enforcement
 - Every endpoint has auth check (default = private). Grep the project's route-decorator / route-registration syntax against the project's auth-guard / public-route marker — every route must be one or the other.
 - Admin endpoints have additional role check.
+- **Grant only what you hold, on every path that confers keys.** The role-assignment screen is one path, but not the only one. Each of these must check target keys ⊆ actor keys, with the owner exempt:
+  - **A credential minted or revealed.** Ask which principal an API key, service token or integration secret resolves to on use. A key minted by a delegated member that acts as the **owner**, or a "view" permission that reveals a secret which writes, is a grant beyond the grantor. The credential should resolve to its minter, be bounded by the minter's keys, and die with the minter.
+  - **Becoming a colleague.** An admin resetting a colleague's password, changing their login identifier, or minting them a session lets the actor sign in as that colleague with every key the colleague holds.
+  - **Re-activation.** Resuming a paused member, restoring a deleted one, or re-enabling a paused role hands its key set back. Pausing grants nothing; the way back does.
 - User can't act on another user's resource (IDOR): every fetch by id verifies the resource's owner matches the current principal (or the principal is admin) before returning, otherwise responds with the project's forbidden status.
 
 ### Tenant isolation
@@ -192,7 +202,8 @@ MEDIUM (N): overly-broad scope, weak password policy, missing audit log
 
 LOW (N): style / minor
 
-Coverage checked: JWT, sessions, refresh, passwords, MFA, passkeys/WebAuthn, OAuth 2.1, IDOR, RBAC, CSRF, rate limit
+Coverage checked: JWT, sessions, refresh, passwords, MFA, passkeys/WebAuthn, OAuth 2.1, IDOR, RBAC, CSRF, rate limit,
+                  deprovisioning (sessions + invites), admin-side revoke vs refresh, grant paths (credential principal, colleague reset, re-activation)
 
 Patterns consulted: auth-flow, zero-trust
 ```
@@ -200,7 +211,7 @@ Patterns consulted: auth-flow, zero-trust
 ## Hard rules
 
 - BLOCKERS: JWT alg bypass, IDOR, unhashed / weak-hashed passwords, no refresh rotation, missing auth on protected endpoint.
-- HIGH: account enumeration, no rate limit, session fixation, refresh-replay not detected.
+- HIGH: account enumeration, no rate limit, session fixation, refresh-replay not detected, a session that survives deprovisioning, an admin revoke undone by a refresh, a grant path that skips grant-only-what-you-hold.
 - MEDIUM: overly-broad scope, missing MFA on admin, weak password policy.
 - NO-GO on any BLOCKER, HIGH password/auth finding.
 - Every finding has a fix AND verification step.

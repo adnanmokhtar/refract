@@ -46,7 +46,7 @@ Field CWV (p75, 28d, mobile)        source: RUM + CrUX
 
 ## SPA / soft navigations
 
-INP is attributed to the page at interaction time. Soft-nav reporting via the **experimental/flagged** `reportSoftNavs` option on `onINP` (depends on the emerging Soft Navigations heuristic) — opt-in, not a guarantee; mark route boundaries yourself (`performance.mark`) and segment RUM by route.
+INP is attributed to the page at interaction time. Chrome 151 (2026-07-28) shipped the `soft-navigation` and `interaction-contentful-paint` entry types; `web-vitals` reports per-route vitals with `reportSoftNavs: true` in Chromium 151+ only, and CrUX has published no timeframe for them (web.dev, updated 2026-08-11). Elsewhere, mark route boundaries yourself (`performance.mark`) and segment RUM by route.
 
 ## False positives / gotchas
 
@@ -65,5 +65,5 @@ INP is attributed to the page at interaction time. Soft-nav reporting via the **
 
 - INP/LCP reported without `attribution` (target + sub-part) = halt.
 - "Passing/failing CWV" claim citing lab data with no CrUX/RUM p75 = halt.
-- Soft-nav INP claimed from `reportSoftNavs` without flagging it's experimental = halt.
+- Per-route vitals from `reportSoftNavs` presented as cross-browser or as CrUX data = halt (Chromium 151+ RUM only).
 - RUM beacon flushing on `unload` (blocks bfcache) = halt → use `pagehide` + `sendBeacon`.

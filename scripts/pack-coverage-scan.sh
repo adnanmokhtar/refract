@@ -189,15 +189,26 @@ enumerate_kind_dir() {
 #     vs the pack source with its deploy-time link rewrites applied.
 # Whitespace-and-blank-line tolerance is the second tier, not the first, so the report can say
 # which of the two it is.
+# Skills are rewritten one level deeper, at the depth of the shape the project carries ($3, the
+# installed path): `../../templates/` from `<name>/SKILL.md`, `../templates/` from a flat
+# `<name>.md` — the same rule as apply-study-decisions.sh rewrite_skill_snippet_links. Without it
+# every installed skill that links a snippet reads STALE straight after being written.
 PCS_NORM_TMP=""
 pcs_normalized_src() {   # pack source with the deploy-time link rewrites applied
-  local src="$1" kind="$2"
-  if [[ "$kind" != "commands" && "$kind" != "agents" ]] || ! command -v perl >/dev/null 2>&1; then
+  local src="$1" kind="$2" at="${3:-}" pfx
+  if [[ "$kind" != "commands" && "$kind" != "agents" && "$kind" != "skills" ]] || ! command -v perl >/dev/null 2>&1; then
     printf '%s' "$src"; return
   fi
   [[ -z "$PCS_NORM_TMP" ]] && PCS_NORM_TMP=$(mktemp -d "${TMPDIR:-/tmp}/pcs-norm.XXXXXX")
   local out="$PCS_NORM_TMP/$(basename "$src")"
-  perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g' \
+  if [[ "$kind" == "skills" ]]; then
+    pfx='../../templates'
+    if [[ -n "$at" && "$at" != */SKILL.md ]]; then pfx='../templates'; fi
+    PFX="$pfx" perl -pe 's{\]\((?:\.\./){4}(snippets|governance)/}{]($ENV{PFX}/$1/}g; s{\]\((?:\.\./){5}commands/}{](~/.claude/commands/}g' \
+      "$src" > "$out" 2>/dev/null || { printf '%s' "$src"; return; }
+    printf '%s' "$out"; return
+  fi
+  perl -pe 's{\]\(\.\./\.\./\.\./snippets/}{](../templates/snippets/}g; s{\]\(\.\./\.\./\.\./governance/}{](../templates/governance/}g; s{\]\(\.\./\.\./\.\./\.\./commands/}{](~/.claude/commands/}g' \
     "$src" > "$out" 2>/dev/null || { printf '%s' "$src"; return; }
   printf '%s' "$out"
 }
@@ -221,7 +232,7 @@ pcs_stripped_target() {  # deployed artifact with its generated anchor block rem
 pcs_currency() {
   local tgt="$1" src="$2" kind="$3" a b
   a="$(pcs_stripped_target "$tgt")"
-  b="$(pcs_normalized_src "$src" "$kind")"
+  b="$(pcs_normalized_src "$src" "$kind" "$tgt")"
   if cmp -s "$a" "$b"; then printf 'CURRENT'; return; fi
   if diff -q -w -B "$a" "$b" >/dev/null 2>&1; then printf 'CURRENT-WS'; return; fi
   printf 'STALE'

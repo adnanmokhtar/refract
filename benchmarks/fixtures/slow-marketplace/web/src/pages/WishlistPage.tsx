@@ -1,0 +1,4 @@
+// WishlistPage: rendered inside the router's Suspense boundary (see routes.tsx).
+export default function WishlistPage() {
+  return <main data-page="WishlistPage" />;
+}

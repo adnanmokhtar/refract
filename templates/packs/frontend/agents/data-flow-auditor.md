@@ -144,7 +144,7 @@ This agent is the only one that follows a value across layers. The others read a
 
 - **backend pack** owns server-side caching policy, TTLs, ETag/conditional requests, and multi-tenancy enforcement at the data layer (`caching-strategy.md`, `conditional-requests.md`, `multi-tenancy.md`). This agent owns everything from the HTTP response inward. A cross-tenant leak is a BLOCKER on **both** sides: report the client-side cache key that made it visible, and say plainly that server-side scoping must be verified separately — a client-side key fix is a mitigation, never the fix.
 - When the backend pack is absent, do not assert what the server does. Scope the finding to the client and mark the server lane `UNVERIFIED (backend pack absent)`.
-- **performance pack** owns field measurement and the server-side N+1 scan (`n-plus-one-scan`); this agent owns the client-side fan-out that produces N requests from one render.
+- **performance pack** owns field measurement, and the **database pack** owns the server-side N+1 scan (`n-plus-one-scan`), each when installed; this agent owns the client-side fan-out that produces N requests from one render.
 
 ### Patterns
 - `ai/patterns/data-fetching.md` — the cache contract this agent enforces and the mechanism for every fix in § The six classes (key shape, staleness, dedup, invalidation, cancellation). Cited, never reproduced.

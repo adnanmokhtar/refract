@@ -164,7 +164,7 @@ HALT conditions for this phase: `eval-run` reports a gated metric below its decl
 - No case duplicates a few-shot example from the prompt (grep the prompt's examples against the dataset).
 - The judge model differs from the generating model, and judge model id + prompt + every exposed sampling param are pinned in checked-in config.
 - **`@ai-feature-reviewer`** — dimension 1 (eval gate). It re-grades the set's coverage and the cited measured score independently.
-- If a named agent is not installed, run its checklist inline — never silently skip the axis. If any check fails: HALT, report, do not paper over.
+- If a named agent is not installed, that axis is **not reviewed** — report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run INCOMPLETE; never grade it yourself, never silently skip it. If any check fails: HALT, report, do not paper over.
 
 ## Phase 8 — Improve (wire the flywheel — the point of all this)
 

@@ -9,7 +9,7 @@ pack: database
 
 > **Hard rule:** Every process talks to the database through a **bounded** connection pool whose size is derived from the DB's real connection ceiling — never a fresh connection per request and never a pool sized by guesswork. `pool_size_per_instance × instance_count` MUST stay below the server's `max_connections` (minus superuser + replication reserve). An unbounded connection strategy, a per-request `connect()`, or a transaction-mode pooler used with prepared statements / session state is forbidden. Cite the engine + version, the server `max_connections`, the pool config at `<path:line>`, and the deployed instance count — or halt.
 
-**Ownership boundary:** THIS pattern owns **pool sizing and pooler mode** — the arithmetic against `max_connections`, transaction-vs-session-vs-statement mode, idle/lifetime/validation settings, and the serverless-proxy decision. The `database-optimizer` agent tunes the *specific* numbers case-by-case against a live workload (this pattern sets the invariants it must respect). The backend pack's `transaction-boundary` owns **not holding a connection across external I/O** — the connection-leak-across-a-network-call hazard is *detected* here but *fixed* by narrowing the transaction scope there. Sizing/mode = here; per-workload tuning = `database-optimizer`; don't-hold-across-IO = `transaction-boundary`.
+**Ownership boundary:** THIS pattern owns **pool sizing and pooler mode** — the arithmetic against `max_connections`, transaction-vs-session-vs-statement mode, idle/lifetime/validation settings, and the serverless-proxy decision. The `database-optimizer` agent tunes the *specific* numbers case-by-case against a live workload (this pattern sets the invariants it must respect). The backend pack's `transaction-boundary` owns **not holding a connection across external I/O** — the connection-leak-across-a-network-call hazard is *detected* by `transaction-scan` §1 but *fixed* by narrowing the transaction scope there. Sizing/mode = here; per-workload tuning = `database-optimizer`; don't-hold-across-IO = `transaction-boundary`.
 
 **When to apply**
 - Any service that opens DB connections under request or job concurrency.
@@ -112,14 +112,18 @@ Extract the driver/pooler, then map to its sizing knob and mode setting.
 
 ## Detectors (cite-or-halt)
 
-Each finding cites `<file:line>` for the pool/connection config + the matched pattern + the fix.
+This pattern is the method; each class has one detector that cites it. Run the owner and print its class block. Never re-derive a class here.
 
-1. **No pool / new connection per request.** BAD: `connect()` / `new Client()` inside a request or job handler, closed at the end — reconnect per request, unbounded under concurrency. GOOD: a module-level bounded pool borrowed per request. Grep: `connect(|createConnection|new Client(|psycopg2.connect` inside a handler/route body.
-2. **Pool × instances exceeds server max.** BAD: `pool.max = 30` on a fleet of 20 pods against `max_connections = 100`. GOOD: `per_instance × instances < max − reserve`, or a server-side pooler. Cite the pool `max`, instance count, and `max_connections`; do the arithmetic.
-3. **Transaction-mode pooler with prepared statements / session state.** BAD: pgbouncer `pool_mode = transaction` with an ORM using server-prepared statements or `SET`/`LISTEN`/temp tables. GOOD: disable server-prepared (`pgbouncer=true` / driver flag) or use session mode. Grep: `pool_mode\s*=\s*transaction` cross-checked against prepared-statement/session usage.
-4. **Serverless with raw connections (no proxy).** BAD: a Lambda/edge function opening a native DB connection per invocation. GOOD: RDS Proxy / Data API / sidecar pooler + pool size 1. Grep: DB `connect(` in a serverless handler with no proxy host in the connection string.
-5. **Connection acquired then held across a network call.** BAD: transaction open → `await httpClient.post(...)` / external RPC → then commit, holding the connection idle. GOOD: external I/O outside the transaction, after releasing. Cross-ref `transaction-boundary` for the fix. Grep: `fetch(|http|grpc|await client.` between a `begin`/checkout and `commit`/release.
-6. **Unbounded / missing lifetime + acquire timeout.** BAD: no `max` (or a huge one), no `maxLifetime`/`pool_recycle`, no acquire timeout — leaks pin the ceiling and dead connections outlive failover. GOOD: bounded `max`, lifetime below the LB/DB idle timeout, a fast acquire timeout. Grep: pool config missing `max`/`maximumPoolSize`, `maxLifetime`/`pool_recycle`, `connectionTimeout`.
+| # | Class | Owner |
+|---|---|---|
+| 1 | No pool / a connection per request | `connection-config-scan` §1 |
+| 2 | Pool × instances over the server's `max_connections` | `connection-config-scan` §2 (the arithmetic, every term cited) |
+| 3 | Transaction-mode pooler with prepared statements or session state | `connection-config-scan` §3 |
+| 4 | Serverless functions opening raw connections | `connection-config-scan` §4 |
+| 5 | Connection held across a network call inside a transaction | `transaction-scan` §1 |
+| 6 | No acquire timeout, max lifetime or validation | `connection-config-scan` §7 |
+
+`connection-config-scan` also owns statement timeouts (§5), idle-in-transaction and lock timeouts (§6), replica routing (§8) and connections or cursors not released on every path (§9).
 
 ## Closure verbs
 
@@ -133,4 +137,4 @@ Each finding cites `<file:line>` for the pool/connection config + the matched pa
 - `indexing-strategy.md` — a missing index that makes queries slow keeps connections checked out longer, straining the pool; fix the query before growing the pool.
 - `sharding-partitioning.md` — each shard/replica has its own `max_connections`; the fleet ceiling is per-target, not global.
 - `backend` `transaction-boundary` — owns the ownership boundary above: no external I/O inside a transaction, so connections aren't held across the network. State the split when a finding is really about scope, not sizing.
-- `@database-optimizer` / `@schema-reviewer` — review agents that consume these detectors; `database-optimizer` tunes the case-by-case pool numbers.
+- `connection-config-scan` — the detector for every class above; `/db-audit` dispatches it and `/db-fix` closes its findings. `@database-optimizer` tunes the case-by-case pool numbers.

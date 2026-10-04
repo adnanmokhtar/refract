@@ -145,7 +145,7 @@ The engine and version decide the class, not this document. Read the class off t
 | Op | Postgres 11+ | MySQL, InnoDB (version noted per row) |
 |---|---|---|
 | `ADD COLUMN` NULL, or with a **non-volatile** DEFAULT | **1** — default stored in catalog: "In neither case is a rewrite of the table required" | **1** — "INSTANT is the default algorithm as of MySQL 8.0.12, and INPLACE before that"; subject to the exclusions below |
-| `ADD COLUMN` with a **volatile** DEFAULT (`now()`, random/uuid) | **3** — "will require the entire table and its indexes to be rewritten" | not the same split: a MySQL `DEFAULT` "can be a literal constant or an expression" (parenthesized). The row above covers a literal default; for an expression default, read the class from the running version's doc before claiming class 1 |
+| `ADD COLUMN` with a **volatile** DEFAULT (`clock_timestamp()`, `random()`, `gen_random_uuid()`; `now()` / `current_timestamp` are STABLE, so the row above) | **3** — "will require the entire table and its indexes to be rewritten" | not the same split: a MySQL `DEFAULT` "can be a literal constant or an expression" (parenthesized). The row above covers a literal default; for an expression default, read the class from the running version's doc before claiming class 1 |
 | `DROP COLUMN` | **1** — column made invisible; space reclaimed lazily by later updates | **1** — but INSTANT is the default only **as of 8.0.29**, INPLACE before that; burns a row version |
 | `RENAME COLUMN`, `SET`/`DROP DEFAULT` | **1** | **1** INSTANT |
 | `SET NOT NULL` on an existing column | **2** — full scan to verify, no rewrite, but under `ACCESS EXCLUSIVE` | **3, writes continue** — "Making a column NOT NULL": In Place **Yes**, Rebuilds Table **Yes**, Permits Concurrent DML **Yes**. Needs strict SQL mode and fails if any row is NULL, so backfill first |
@@ -263,7 +263,7 @@ If `ON DELETE CASCADE`/`SET NULL` is part of the definition, `LOCK=NONE` is refu
 
 ### Index-creation strategy
 
-- **Postgres, populated tables**: `CREATE INDEX CONCURRENTLY` — must run outside a transaction. TypeORM / Prisma may need a raw migration. A failed build leaves the index `INVALID`: `DROP INDEX` and retry.
+- **Postgres, populated tables**: `CREATE INDEX CONCURRENTLY` — must run outside a transaction, and most runners wrap every migration in one by default (MikroORM wraps each migration **and** the whole run: it needs `isTransactional() { return false; }` plus `allOrNothing: false`; Django `atomic = True`; Rails, Knex, Ecto per file). Read the runner's row and its opt-out in `migration-safety` § "Adapt to the codebase" before writing the file. Never "fix" the resulting error by dropping `CONCURRENTLY`. A failed build leaves the index `INVALID`: `DROP INDEX` and retry.
 - **MySQL / MariaDB (InnoDB), populated tables**: `ALTER TABLE <t> ADD INDEX <name> (<cols>), ALGORITHM=INPLACE, LOCK=NONE;` — in place, no table rebuild, "the table remains available for read and write operations while the index is being created". Write the clause explicitly so an unsupported case errors instead of silently copying the table.
 - **When `pt-online-schema-change` / `gh-ost` still earn their place** — *not* because native `ALTER` blocks (for a secondary index it does not), but for what native online DDL cannot do, per MySQL's own limitations page: there is **no mechanism to pause an online DDL operation or to throttle its I/O or CPU**, its rollback is expensive if it fails mid-way, and a long one **causes replication lag** because a replica cannot start the DDL until the source finishes it. Reach for the external tool when you need a pausable / abortable build, replica-lag-aware throttling, or the op is class-3 anyway (type change, `ADD FOREIGN KEY` with checks enabled). **Name which of those three reasons applies** — "native ALTER locks" is not one of them.
 - **`LOCK=NONE` is not always legal**: "The `ALTER TABLE` clause `LOCK=NONE` is not permitted if there are `ON…CASCADE` or `ON…SET NULL` constraints on the table." A table with cascading FKs cannot take `LOCK=NONE`; plan for `LOCK=SHARED` (reads continue, writes block) or the external tool, and state which.
@@ -458,7 +458,7 @@ Status: INCOMPLETE (rehearsal-unverified) — D2 lock profile not measured (no r
 - Concurrent-write safe on populated tables.
 - **Every DDL migration names its operation class and cites the engine doc that assigns it.** A row count is not a class.
 - **Every DDL migration sets a lock timeout** (`lock_timeout` / `lock_wait_timeout`) and states the algorithm explicitly (`CONCURRENTLY` / `ALGORITHM=…, LOCK=…`). Defaults are unbounded waits and silent downgrades.
-- `CREATE INDEX CONCURRENTLY` for Postgres populated tables (MUST be outside a transaction).
+- `CREATE INDEX CONCURRENTLY` for Postgres populated tables (MUST be outside a transaction — opt the migration out of the runner's wrapping per `migration-safety` § "Adapt to the codebase"; dropping `CONCURRENTLY` to make the error go away is the defect).
 - `ALGORITHM=INPLACE, LOCK=NONE` for MySQL/InnoDB populated-table index builds — `pt-online-schema-change` / `gh-ost` when you need throttling, pausability, or the op is class-3, with the reason named.
 - Expand-contract for breaking changes — never single-migration.
 - Schema ≠ data migrations — separate files.

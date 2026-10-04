@@ -347,6 +347,7 @@ The flat list below MUST exist on disk after Phase 4.1. Phase 5.1 retries this l
 .claude/rules/read-codebase-deeply.md       (foundational rule — repo-baseline ships verbatim)
 .claude/rules/code-quality.md               (foundational rule — repo-baseline ships verbatim)
 .claude/rules/think-simplify-surgical.md    (foundational rule — repo-baseline ships verbatim; Karpathy-inspired task discipline layer)
+.claude/rules/engineering-baseline.md       (foundational rule — repo-baseline ships verbatim; the standards gate is proved, not remembered)
 CLAUDE.md
 AGENTS.md                       (codex adapter writes; always-written even if codex not selected)
 ai/README.md

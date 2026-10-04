@@ -219,6 +219,8 @@ Requirements:
 
 **Do not proceed to the fix until the test reliably fails.** A fix written before a failing test is a hypothesis, not a verified repair — this ordering is the whole point of the command.
 
+**The red run is evidence, not a sentence.** Run the new test through `.claude/hooks/test-lane.sh record '<the test command>'` — it runs the test (through the lane only if it is a full suite) and appends the run, exit code and output tail to `.claude/evidence/test-runs.jsonl`. That record — non-zero exit, output failing for the diagnosed reason — is the red run; "I saw it fail" is not. Then write the contract the fix is judged against ([`acceptance-contract.md`](../templates/snippets/acceptance-contract.md)): `ai/runs/<run-id>/acceptance.json` with one `kind: "regression"` criterion — `WHEN <the reproducer> THE <system> SHALL <the expected behaviour>`, the test you just wrote, its command — plus a criterion per further site the similar-bugs scan fixes. Lock it: `.claude/scripts/lock-acceptance.sh <run-id>`. The fix may not touch the test that proves it.
+
 ### 4d. Fix (minimal)
 
 The fix should be:
@@ -232,7 +234,7 @@ If the fix requires a new pattern → flag for ADR before merging.
 ### 4e. Verify
 
 Three layers of verification:
-1. **The failing test from 4c now passes.** (Same test, flipped red → green by the fix.)
+1. **The failing test from 4c now passes** — run it again through `test-lane.sh record '<cmd>'`, so the green run is recorded beside the red one. (Same test, flipped red → green by the fix.)
 2. **The regression test generalizes** beyond the exact reproducer to the whole bug class — broaden it if it only pins the single reported input.
 3. **No new regressions in surrounding tests.** Run the full test suite; no new lint / type errors.
 
@@ -240,10 +242,11 @@ For UI bugs: visual verification (screenshot or video).
 For mobile bugs: verify on iOS + Android.
 For backend bugs: verify with production-shaped data.
 
-Dispatch reviewers:
+**The judge is not the investigator.** `@bug-investigator` produced the diagnosis, so it never grades it. Dispatch `@verifier` in `acceptance` mode with a [delegation brief](../templates/snippets/delegation-brief.md) — `run_id`, `mode: acceptance`, the contract path, the touched paths, the bug report; never the investigator's write-up or yours. It checks that the regression test expresses the reported behaviour (not a proxy), that a RED record of it exists in `.claude/evidence/test-runs.jsonl` from before the fix (it copies that record into the verdict; `persist-verdict.sh` refuses a PASS whose red run is not in the log), that it is green at HEAD, and that the fix lands on the diagnosed root cause. Read `ai/runs/<run-id>/verdict.json`: the fix is verified only when it says `PASS`, fresh, signed `verifier`. Not installed → `UNREVIEWED(diagnosis)`, INCOMPLETE.
+
+Then the review lenses (their candidates go through refute-before-report before anything is posted — [`posting-bar.md`](../templates/snippets/posting-bar.md)):
 - `@code-reviewer` — fix quality + convention adherence.
 - `@test-reviewer` — does the regression test genuinely catch the bug class, not just the one input?
-- `@bug-investigator` — verify the diagnosis was correct.
 - `@security-auditor` if the bug class touches auth / tenant / data integrity.
 
 ## Phase 5 — Update
@@ -289,6 +292,8 @@ Fix:
 - Tests added: <list>
 
 Verification:
+- Red run:      <ts> `<cmd>` exit <n>   (.claude/evidence/test-runs.jsonl — before the fix)
+- Verifier:     ai/runs/<run-id>/verdict.json — PASS | FAIL | CONCERNS
 - Reproducer: PASSING (was failing)
 - Regression test: added
 - Full test suite: PASSING
@@ -306,7 +311,8 @@ Open follow-ups:
 ## Hard rules
 
 - **Reproduce first, failing test second, fix third.** A fix without a reproducer is a hypothesis; a fix without a *failing* test is unverified.
-- **Failing test BEFORE fix. Always.** The test must fail for the diagnosed reason before a single line of the fix is written (matches the backend pack sibling and the canonical Phase-4-=-TDD rule).
+- **Failing test BEFORE fix. Always.** The test must fail for the diagnosed reason before a single line of the fix is written (matches the backend pack sibling and the canonical Phase-4-=-TDD rule) — and the red run is a `test-lane.sh record` entry, not a claim.
+- **The verifier grades the diagnosis, never the investigator.** The fix is verified only by a fresh `verdict.json` PASS.
 - **Root cause, not symptom.** Don't paper over with try/catch + log.
 - **Failure-catalog entry.** Future you (or your colleague) shouldn't repeat the diagnosis.
 - **Cross-stack verification when applicable.** A backend fix that needs a frontend change isn't done.
@@ -324,7 +330,8 @@ Open follow-ups:
 
 ## Related
 
-- `@bug-investigator` agent — the diagnosis specialist (auto-dispatched by Phase 4b).
+- `@bug-investigator` agent — the diagnosis specialist (auto-dispatched by Phase 4b); it diagnoses, it does not grade.
+- `@verifier` agent — the independent judge of the fix (Phase 4e), from the baseline.
 - `@code-reviewer` — fix-quality reviewer (auto-dispatched by Phase 4d).
 - Stack-specific `/fix-bug` commands in pack equivalents (backend has its own enriched version; this is the universal baseline).
 - `/profile-perf` — when the "bug" is actually slowness.

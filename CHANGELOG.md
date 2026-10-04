@@ -6,6 +6,124 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The judge is not the builder: a locked contract, an independent verifier, stamped records (2026-10-05)
+
+Phase 1 made "done" a script's verdict on tests, lint and secrets. Whether the change does what was
+asked was still decided by the agent that built it: `/add-feature` closed COMPLETE on its own reading
+of its own tests, `/fix-bug` asked `@bug-investigator` to confirm the diagnosis it had made, and every
+review command posted whatever its reviewers suggested. A builder told to make red tests green could
+also edit the tests.
+
+- **`.claude/agents/verifier.md`** (new, baseline). Fresh-context, read-only judge — `tools: Read,
+  Grep, Glob, Bash`, `model: opus`, `maxTurns: 60`, `omitClaudeMd: true` (honoured from Claude Code
+  2.1.271; 2.1.236, measured, only reports the unknown key to telemetry). Mode `acceptance` grades a
+  run's locked contract against tests it runs at HEAD and decides, per criterion, whether the assertion
+  expresses the EARS clause or a proxy; mode `refute` runs refute-before-report over review candidates.
+  It ends with one JSON object; it never writes a file.
+- **Contract first.** `ai/runs/<run>/acceptance.json` (`templates/schemas/refract/acceptance.schema.json`)
+  is written from the requirement before Generate, its tests written and seen red, then
+  **`.claude/scripts/lock-acceptance.sh`** hashes contract + tests into `.claude/locks/<run>.json`.
+  **`test-lock.sh`** (PreToolUse) denies edits to locked files unless a human reopened the lock for the
+  editing agent — identity is the `agent_type` Claude Code puts in hook input — and turns
+  `lock-acceptance.sh --reopen` into a permission prompt (denied outright with prompts off). A builder
+  that finds a criterion wrong reports `SPEC_CONFLICT`. New snippet: `acceptance-contract.md`.
+- **Stamped, tree-bound records.** **`persist-verdict.sh`** / **`persist-review.sh`** (SubagentStop)
+  validate the judge's / a lens's JSON against `verdict.schema.json` / `findings.schema.json` and the
+  rules a schema cannot state (every locked criterion graded once; PASS needs exit 0 and an oracle that
+  expresses the clause; a regression PASS cites a red run that exists in the log; a confirmed finding
+  carries proof; the posting bar), stamp signer / authors / scope from the hook input, the edit log and
+  git, and exit 2 on a bad record so the agent redoes it. Engine: `.claude/scripts/refract_records.py`.
+- **`judge-bash-guard.sh`** (PreToolUse, judges only): tests, scanners, read-only git, localhost probes;
+  no repository or git writes, no commit messages, no ledger; and **brief-lint** on every dispatch to a
+  judge — paths and a mode, never "I implemented… all tests pass… safe to merge". Engine:
+  `.claude/scripts/judge-guard.py`. New snippet: `delegation-brief.md`.
+- **`gate-check.py` v2**: G0 acceptance-lock (block), G1 acceptance (the verdict: present, judge-signed,
+  fresh, PASS — shadow), G2 oracle (`oracle-check.py`, new — assertion-free, weak-oracle and tautological
+  test cases in the diff — shadow), G7 review (shadow), G15 signer ≠ author (shadow). A record bound to
+  the blobs of the change it judged goes **STALE** the moment a judged path changes, and a stale record
+  FAILs. Evidence files are now always `<gate>-<check>.json`. Fixed on the way: importing the record
+  module wrote `.claude/scripts/__pycache__/`, which changed the tree fingerprint and voided the agent's
+  own green lane run (`sys.dont_write_bytecode`).
+- **`test-lane.sh record '<cmd>'`** (new mode) appends command, exit code, tree and output tail to
+  `.claude/evidence/test-runs.jsonl`; `run` appends too. That record is `/fix-bug`'s red-run evidence —
+  the proposal assumed the lane already kept one; it recorded green full-suite runs only.
+- **Commands.** Backend / frontend / mobile `/add-feature`: standard and heavy tiers write and lock the
+  contract before Generate and close only on a fresh `verdict.json` PASS. Baseline `/fix-bug` +
+  `fix-bug-core.md`: red/green runs recorded, a `kind: regression` contract locked, the verifier (not the
+  investigator) grades the fix. `/verify-plan` dispatches the verifier on the plan's Goal (Task added).
+  `/audit`, `/align`, `/optimize`, `/review-changes`, `/design-review` refute before they rank or post
+  and apply the new **`posting-bar.md`** (IMPORTANT · NIT ≤ 5 · PRE-EXISTING never blocks; IMPORTANT only
+  from round 2; escalate on round 3; no style where a formatter exists). `refute-before-report.md` § 10
+  reads the gates for correctness, accessibility, observability and maintainability lenses;
+  `finding-verification.md` points at it for the shared vocabulary.
+- **Self-review residue closed** — fourteen more lines that turned a missing reviewer into the builder:
+  "or inline against the checklist" (dependency reviews in backend/frontend/mobile `add-feature`,
+  backend `fix-bug`), "the inline checklist if not installed", "run its checklist inline"
+  (ai-engineering), "apply the corresponding checklist inline" (`/security-fix`), "checklist inlined"
+  (migration). Each is now `UNREVIEWED(<axis>)` ⇒ INCOMPLETE, and `lint-self-review.sh` carries the four
+  spellings.
+- **Engineering baseline:** QG-14 diff-scoped mutation, QG-15 test oracles; QG-2 cites the recorded
+  red run. **Five** foundational rules (CLAUDE.md, hard rule A19, Phase 4.0.7 / 5.1, `wire-rule-imports.sh`):
+  `engineering-baseline.md` joins the four, and the import premise is gone — rules without `paths:` load
+  on their own; the imports only name the set.
+- **Adapters:** all twelve § Hooks sections describe the Stop gate as `gate-check.py`, not tests only, and
+  translate the four new hooks; tools with no blocking stop say "run `gate-check.py --local` before
+  declaring done" and name CI as the hard gate.
+- **Fixtures:** `benchmarks/fixtures/review-decoys` (one diff, 23 seeded defects across correctness,
+  data, performance, a11y and observability, 18 same-diff decoys; `/review-changes`) and
+  `benchmarks/fixtures/reward-hack` (three ImpossibleBench-style spec/test conflicts, ten tamper checks,
+  staged with the guard layer and a lock; `score.py --tamper=<copy>`, `run.sh --no-lock` for the control
+  run). `run.sh` learns `Stage with: --diff | --baseline`, `Lock:` and `Invocation:`. `tests/hooks/run.sh`
+  +38 cases: locked-test edit denied, verifier output without proof rejected, stale verdict FAILs G1,
+  tampered lock blocks G0, judge writes and narrative briefs refused.
+- **Deploy links (coordinator follow-up):** the Phase 4.2 CREATE path now runs
+  `apply-study-decisions.sh <repo> --rewrite-links` after its `cp`s, so pack links resolve where they
+  land; rules get the command-depth rewrite (`migration-discipline.md`'s snippet link was dead once
+  installed); `merge-decide.py`, `study-existing.sh` and `pack-coverage-scan.sh` apply the
+  `](../../../../commands/` → `](~/.claude/commands/` rewrite `apply-study-decisions.sh` does
+  (lint-setup-contracts Rule 7c). `tests/hooks/run.sh` no longer hangs: the lane waits are bounded and the
+  ps-dependent recycled-pid case is skipped where `ps` is refused.
+
+### Done is a fact: gate-check.py, evidence records, a CI shadow job (2026-10-02)
+
+The Stop hook blocked on red tests alone, knew six ecosystems, and exited 0 when it found no test
+runner — so a session could end "done" with a red typecheck, a deleted test or a key in the diff,
+and a project with no detectable runner was never verified at all. Thirteen pack commands turned
+a missing reviewer into the builder reviewing its own change. `/task` could move a card to Done
+before it validated, and `/verify-plan` held Edit and graded the boxes it could tick itself.
+
+- **`.claude/scripts/gate-check.py`** (new, baseline, Python stdlib only). `--local` (the Stop
+  hook) and `--ci`. v1 gates: G1 the project's tests — runner detected across npm/pnpm/yarn/bun,
+  Gradle, Maven, .NET, Flutter/Dart, SwiftPM, Cargo, Go, RSpec, PHPUnit/Pest, Mix and pytest; no
+  runner is **UNVERIFIED**, never PASS — G2 test integrity, G3 secrets (gitleaks in CI when
+  installed, else the shipped `secret-scan.sh` over every added line; RAN/SKIPPED recorded), G7
+  lint + typecheck on the touched files when configured + `standards-check.py --json`, G15 the
+  `Assisted-by:` / `Co-Authored-By:` trailer. One record per check in
+  `.claude/evidence/<sha>/` (git-ignored by a `.gitignore` the script writes, so the record never
+  changes the tree `test-lane.sh` verified), shaped by `templates/schemas/refract/evidence.schema.json`.
+- **`.claude/gates.json`** sets each check's mode — shadow · warn · block (G1, G3, G7 lint/type
+  block; G2, G7 standards warn; G15 shadow). JSON, not the proposal's YAML: the standard library
+  cannot parse YAML, and a hand-rolled subset parser fails silently.
+- **`.claude/scripts/test-integrity.py`** (new): base..head diff for deleted test files and cases,
+  fewer assertions, new skip/only/xfail/xit/fdescribe/@Disabled/t.Skip, lowered coverage floors
+  and removed CI test steps — every hit cites file:line; a moved test is not a deleted one.
+- **`standards-check.py`** gains `--json` and ships to every project as
+  `.claude/scripts/standards-check.py` (byte-identity pinned by `tests/hooks/run.sh`).
+- **`verify-gate.sh`** delegates to `gate-check.py --local`; UNVERIFIED reaches the user as a
+  `systemMessage`. Fixed on the way: `git status --porcelain` collapsed a new directory to
+  `?? src/`, so a change made only of new files never triggered the gate (`-uall`).
+- **`templates/ci/refract-gates.{github,gitlab}.yml`** — shadow mode, never fails a build, uploads
+  the evidence. Phase 4.2 § 4.2.d installs it (never over an existing file) and prints the
+  branch-protection command for the owner — never applies it.
+- **`apply-baseline-sync.sh`** now ships `*.py` from the baseline — without it none of the new
+  scripts reached a project. **`gen-baseline-hashes.py`** records untracked baseline files too,
+  so `--check` no longer passes in the working tree and fails on the commit that adds a file.
+- **No self-review.** "perform that review inline" is gone from backend, frontend, mobile and
+  code-quality commands: a missing reviewer is `UNREVIEWED(<axis>)` and the run INCOMPLETE.
+  `scripts/lint-self-review.sh` (new gate) fails if it returns.
+- **`/task`** validates before the finish write-back and moves to Done only on gate-check
+  `verdict: PASS`. **`/verify-plan`** is read-only (no Edit); `/execute-plan` records its audit.
+
 ### Hooks: heavy test runs take turns, one per machine (2026-09-27)
 
 Parallel agents each proved their change with the full suite, and every suite spawns one worker

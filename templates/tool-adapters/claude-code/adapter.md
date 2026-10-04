@@ -66,7 +66,10 @@ POSIX shell. Must be executable. Common hooks:
 - `guard-destructive.sh` — second-layer block on destructive bash (protected-branch/force push, `rm -rf`, DB drops, `curl|sh`, `dd`/`mkfs`).
 - `test-lane.sh` — blocks a full-suite or e2e bash run (`npm test`, `pytest`, `go test ./...`, `playwright test`) not sent through `.claude/hooks/test-lane.sh run '<cmd>'`, which queues it in a machine-wide lane (`CLAUDE_TEST_LANE_SLOTS`, default 1); one named test file, type-check and lint pass. `verify-gate.sh` accepts a green lane run on the same tree instead of repeating it; opt out with `.claude/.no-test-lane`.
 - `session-start.sh` — one-time briefing on session open; `notify.sh` — OS notification on Notification event.
-- `update-session-log.sh` / `verify-gate.sh` — Stop hooks (session summary + verify gate).
+- `update-session-log.sh` / `verify-gate.sh` — Stop hooks: session summary, and the verify gate, which runs `.claude/scripts/gate-check.py --local` (G0 acceptance lock, G1 tests + the verifier's verdict, G2 integrity + oracles, G3 secrets, G7 lint / typecheck / standards / reviews, G15 provenance; modes in `.claude/gates.json`) and blocks on a block-mode FAIL.
+- `test-lock.sh` — PreToolUse (Edit/Write/MultiEdit + Bash): denies edits to a run's locked acceptance contract and its tests (`.claude/locks/<run>.json`) unless a human reopened the lock for the editing agent, asks before `lock-acceptance.sh --reopen`, keeps hook-written records out of reach, and logs who edited what (`.claude/evidence/edits.jsonl`). Opt out: `.claude/.no-test-lock`.
+- `judge-bash-guard.sh` — PreToolUse (Bash, Read/Grep/Glob, Agent/Task): for the `verifier` judge only (agent_type from the hook input) — tests, scanners and localhost probes, no repository or git writes, no builder narrative; and brief-lint on every dispatch to it. Opt out: `.claude/.no-judge-guard`.
+- `persist-verdict.sh` / `persist-review.sh` — SubagentStop: validate the verifier's / a reviewer's final JSON against `.claude/schemas/`, stamp signer (hook input), authors (edit log) and scope (git), write `ai/runs/<run>/verdict.json` / `reviews/*.json`; exit 2 sends a malformed or proof-less record back to the agent.
 
 ### `.claude/settings.json`
 JSON. Schema:

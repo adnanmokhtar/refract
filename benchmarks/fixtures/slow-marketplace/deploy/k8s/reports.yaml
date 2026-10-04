@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stallwise-reports
+  namespace: stallwise
+  labels:
+    app: stallwise-reports
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: stallwise-reports
+  template:
+    metadata:
+      labels:
+        app: stallwise-reports
+    spec:
+      containers:
+        - name: reports
+          image: ghcr.io/stallwise/reports:4.12.0
+          command: ["gunicorn", "-c", "gunicorn.conf.py", "reportsvc.wsgi"]
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: stallwise-reports-env
+          env:
+            - name: DJANGO_SETTINGS_MODULE
+              value: reportsvc.settings
+            - name: DATABASE_HOST
+              value: pgbouncer.stallwise.svc
+            - name: DATABASE_PORT
+              value: "6432"
+            - name: DATABASE_USER
+              value: stallwise_reports
+          resources:
+            requests:
+              cpu: 500m
+              memory: 768Mi

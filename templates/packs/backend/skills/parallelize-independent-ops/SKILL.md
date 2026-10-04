@@ -47,12 +47,12 @@ Find the sequential loop. Common shapes per stack:
 
 ```bash
 # Node.js / TypeScript
-rg -n 'for \(const \w+ of \w+\) \{[^}]*await ' --multiline -g '*.{ts,js}'
-rg -n '\.forEach\(\s*async ' -g '*.{ts,js}'                  # forEach + async = parallel BUT unbounded — also flag
+rg -n 'for \(const \w+ of \w+\) \{[^}]*await ' --multiline -g '*.{ts,js}' .
+rg -n '\.forEach\(\s*async ' -g '*.{ts,js}' . # forEach + async = parallel BUT unbounded — also flag
 # Python
-rg -n 'for \w+ in \w+:\s*$\s*\w+ = await ' --multiline -g '*.py'
+rg -n 'for \w+ in \w+:\s*$\s*\w+ = await ' --multiline -g '*.py' .
 # Go
-rg -n 'for _, \w+ := range \w+ \{[^}]*\.\w+\(ctx, ' --multiline -g '*.go'
+rg -n 'for _, \w+ := range \w+ \{[^}]*\.\w+\(ctx, ' --multiline -g '*.go' .
 ```
 
 Open the candidate. Confirm:

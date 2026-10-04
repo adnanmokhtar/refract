@@ -143,7 +143,7 @@ Run the two detector skills before the reviewers so the agents grade a clean sur
 - **`@llm-security-reviewer`** *(security pack, when co-installed)* — the trust boundary (prompt injection / output handling / excessive agency). REQUIRED whenever user content enters the prompt, output reaches a sink, or the model can call a destructive tool. Absent the pack the requirement does not lapse — it becomes an `UNROUTED` row on the Phase 5 line below.
 - `@tenant-isolation-reviewer` — if multi-tenant retrieval.
 
-If a named agent is not installed, run its checklist inline — never silently skip the axis. If any check fails: HALT, report, do not paper over.
+If a named agent is not installed, that axis is **not reviewed** — report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run INCOMPLETE; never grade it yourself, never silently skip it. If any check fails: HALT, report, do not paper over.
 
 ## Phase 8 — Improve (feed the learning loop)
 

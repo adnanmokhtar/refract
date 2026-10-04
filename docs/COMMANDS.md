@@ -647,7 +647,8 @@ Installed by the repo-baseline regardless of track — the universal per-project
 |--------------------|----------------------------------------------------------------------------------|
 | `/add-migration`   | Generate a migration matching the project's ORM / migration tool.                |
 | `/optimize-query`  | Analyze + rewrite a slow query with EXPLAIN.                                     |
-| `/db-audit`        | Schema audit — missing indexes, FK gaps, naming, NULL discipline.                |
+| `/db-audit`        | Read-only data-layer audit: a static lane that runs every database detector (N+1, query shape, index coverage, schema integrity, migration safety, transactions, connections) on any repo, plus a read-only live lane when a database is reachable. Refutes each candidate before reporting, prints a fixed class ledger and a GO / GO-UNVERIFIED / NO-GO verdict; `/db-fix` closes the findings. |
+| `/db-fix` | Close the findings a /db-audit report lists, one at a time: re-verify, a failing-first oracle test across the class, a root-cause fix in the project's own primitives, the owning detector re-run, a sibling sweep. Stops and asks before any migration on a populated table, destructive DDL, data backfill or irreversible step. |
 
 ### Additional track commands
 
@@ -749,6 +750,9 @@ These ship with their respective packs when the track is selected/detected.
 | `/find-module` | Locate a module, feature, or concept across the codebase quickly. |
 | `/migration-review` | Review a DB migration for safety, lock impact, reversibility, deploy order. |
 | `/compare-v1` | Compare a feature / module / endpoint between V1 and V2 (read-only parity report). |
+| `/security-fix` | Close the findings a /security-audit report lists — one finding at a time, an exploit test that fails first, a root-cause fix, the same detector re-run on the patched line, then a re-audit. |
+| `/security-live-scan` | Non-destructive external scan of hosts you own — TLS, security headers, exposed files and admin panels, CORS, open ports, rate limits — against the running frontend and API, scoped to an allow-list you confirm first. |
+| `/perf-fix` | Close the findings a /perf-audit report lists, one at a time — re-verify, a failing-first run-invariant oracle across the class, a root-cause fix, guardrails re-measured inside the noise band, the owning detector re-run, a sibling sweep. Never claims a speedup without a measured before/after; stops and asks before changing caching semantics, the data model or infrastructure. |
 
 ### Migration track (when `--include=migration` or auto-detected)
 
@@ -1655,7 +1659,7 @@ The 10 highest-leverage rules. Full table at `templates/governance/hard-rules.md
 | 1    | A04 | Respect existing user-authored content; never overwrite without confirm |
 | 2    | A11 | COPY-mode tracks: copy packs verbatim (no LLM rewrite)                |
 | 3    | A15 | Adapt to detected conventions; cite project specifics, not generic    |
-| 4    | A19 | Always ship the four foundational `repo-baseline` rules               |
+| 4    | A19 | Always ship the five foundational `repo-baseline` rules               |
 | 5    | A02 | Real content. No placeholders                                         |
 | 6    | N15 | Do NOT ship generic `ai/conventions.md` when a real codebase exists   |
 | 7    | A12 | AUTHOR-mode: cite only symbols traceable to extraction file           |

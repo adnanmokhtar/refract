@@ -23,10 +23,7 @@ Any read routed to a replica MUST tolerate replication lag. A read that depends 
 
 ## Detectors (cite-or-halt)
 
-1. **Read-after-write routed to a replica (stale read).** BAD: an `UPDATE`/`INSERT` on the primary then a `SELECT` of the same record on a replica in the same request/session. GOOD: primary-pin window or LSN/GTID token for that read.
-2. **No lag awareness / monitoring.** BAD: reads routed to replicas with no lag metric, alert, or router eviction. GOOD: continuous lag monitoring + threshold alert + eject-on-lag.
-3. **All reads to a replica (stale-sensitive ones break).** BAD: a blanket "reads → replica" rule that also sends auth checks, balance guards, and read-your-writes to a lagging copy. GOOD: per-read classification; sensitive reads to primary/token.
-4. **No failover / promotion plan.** BAD: replica routing with no automated promotion, RTO, or acknowledged RPO for async loss-of-tail. GOOD: documented failover (Patroni/RDS/Aurora/Orchestrator) + RTO/RPO stance.
+The method lives here. Read-after-write on a replica, no lag awareness, and stale-sensitive reads sent to a replica → `connection-config-scan` §8. Replicas left idle and analytics on the primary → distributed-systems `@capacity-planner` (when installed). No failover plan → infrastructure `dr-audit` (when installed).
 
 ## Related
 

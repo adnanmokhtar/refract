@@ -9,6 +9,68 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-02
+
+**The pack could rank what someone had already measured, and little else.** `/perf-audit` sent one
+agent through a bottleneck taxonomy and dropped every finding without a p95 baseline as
+"speculative" — so the N+1, the client built per call or the `…Sync` call anyone could read in a
+handler was discarded for want of a load test. Nothing looked for what breaks on a second replica.
+A whole-repo run that never looked at a class printed the same as one that looked and found nothing.
+
+- **Three detector skills**, each one runnable pre-flight script with per-runtime lanes, BAD/GOOD
+  per class, a read-the-code step, a 3,000-hit path and a class coverage block, measured on the
+  fixtures and on a real NestJS-on-Fastify + MikroORM monorepo: `request-path-scan` (§1–§24 —
+  request-path cost, overload controls, horizontal-scale blockers and queue workers; no published
+  agent skill covered the scale family), `memory-growth-scan` (§1–§9) and `caching-scan` (§1–§8).
+- **Existence by invariant, cost by statistics.** A defect is proved by a run-invariant oracle — a
+  call count at two sizes, a peak in-flight count, event-loop delay against a control, retained
+  heap across batches, a socket count, a time ratio at N vs 10N, a duplicate count behind two
+  replicas. A timing comparison (10 runs per side, interleaved, an interval that excludes zero)
+  only ranks it. A candidate with no harness is Unconfirmed with its probe — never dropped, never
+  asserted. The shared contracts are `templates/snippets/refute-before-report.md`,
+  `precedents/performance.md` (now with horizontal-scale, overload, queue and browser precedents,
+  § 72–90) and `proof-oracles.md` (now with the two-replica, queue-age, redelivery, server-limit,
+  admission and probe oracles, V36–V47, and a `## Frontend` section — bytes per route, Lighthouse
+  medians, trace insights, field attribution, render and yield counts, memlab — with V48–V53).
+- **`/perf-audit` rewritten: read-only.** It maps the context, dispatches every installed detector
+  on a whole-repo run (the database detectors and `/bundle-perf` for browser kinds when they
+  apply), sends each high candidate to a verifier that did not find it, prints a fixed class ledger
+  and returns `GO` / `GO-UNVERIFIED` / `NO-GO`. `--plan-only` is gone from it: planning the fixes is
+  `/perf-fix --plan`.
+- **`/perf-fix`** closes a `/perf-audit` or `/bundle-perf` report's findings one at a time:
+  re-verify, a failing-first oracle across the whole class, the root primitive, guardrails
+  re-measured inside the noise band, the owning detector re-run, a sibling sweep. It stops and asks
+  before changing caching semantics, the data model, infrastructure or a public contract.
+- **`@performance-optimizer` is a ranker.** It attaches a labelled impact (measured, `ESTIMATED`
+  with its model, or `unknown`) to verified findings and owns the guardrail matrix; it no longer
+  detects from a taxonomy, and its "no measurement → no finding" rule is gone — a finding stands on
+  its oracle.
+- **`/bundle-perf` rewritten: read-only**, dispatching the frontend owners, `inp-responsiveness`,
+  `web-vitals-field`, `caching-scan` §6 and `request-path-scan` §6, proving bytes per route exactly
+  and ranking by Lighthouse medians and field p75. Its fixes go through `/perf-fix`.
+- **Wrong instructions corrected.** `inp-responsiveness` gated yields on `isInputPending()`, which
+  web.dev no longer recommends, and fell back to nothing on Safari; it now yields every chunk with a
+  mandatory `setTimeout` fallback and ships detectors §1–§4. `profile-endpoint` now carries runnable
+  open-model load and profiler commands per runtime instead of placeholders, and its frontmatter
+  names its kind and pack. clinic.js (unmaintained since 2023-06) is optional everywhere — `0x`,
+  `node --cpu-prof` and memlab replace it. Soft-navigation wording is now dated fact: Chrome 151
+  (2026-07-28) shipped the entry types, `reportSoftNavs` is Chromium 151+ only, and CrUX has no
+  timeframe. `lazy-loading` was trimmed to the cross-tier decision, pointing at the frontend
+  owners. The backend `caching-strategy` pattern no longer calls every `getOrSet` single-flight
+  (Django's `get_or_set` takes no lock); its detectors point at `caching-scan` §1–§3.
+- **Minimal install** ships `request-path-scan`; `memory-growth-scan`, `caching-scan` and `/perf-fix`
+  ship in standard mode.
+- **`performance-principles`: ~1,459 → ~1,454 always-loaded tokens**; its soft-navigation line is a
+  dated fact.
+
+**Upgrading.** `n-plus-one-scan` moved to the database pack, which owns database round trips; it
+keeps its name, so every name-based reference still resolves. On `/setup-project --upgrade` or
+`--refresh` with the database pack selected, the installed copy is matched by name and replaced.
+On a project that has this pack but not the database pack, the study lists the installed copy as a
+target-only row (`REVIEW: project-specific keeper OR deprecated upstream`) and `/perf-audit` prints
+the N+1 row `N/A (owner pack database not installed)`; add the pack with
+`/setup-project --include=database`, or record a keep with `apply-study-decisions.sh --keep=…`.
+
 ## 1.6.0 — 2026-08-22
 
 - **Audit corrections (same release).** `caching-architect` was the only measurement-claiming

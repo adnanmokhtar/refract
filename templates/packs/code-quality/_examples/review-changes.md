@@ -40,7 +40,7 @@ If any of those are missing, the agent drops the finding rather than emitting a 
 - **Specialist reviewers BASED on area touched**.
 - **Domain reviewers BASED on project signals** (from `CLAUDE.md`).
 - **Patterns consulted**, not just principles.
-- **No axis silently skipped** — a reviewer that isn't installed is performed inline against its checklist, never dropped.
+- **No axis silently skipped** — a reviewer that isn't installed is reported `UNREVIEWED(<axis>)` and the sweep ends INCOMPLETE, never dropped and never self-graded.
 - **Secrets scanned on every changed file** — not just `auth`-category files; a leaked key in a test fixture or config is still a blocker.
 - **New dependencies reviewed** — a diff that adds a package (not a version bump) is gated like the rest of the suite.
 - **New logic ships with tests** — added behaviour with no covering test is flagged even when no test file was touched.
@@ -172,7 +172,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | webhook | `resilience-reviewer` (idempotency + signature check) | — |
 | events | `resilience-reviewer` | — |
 | telemetry | `observability-reviewer` | — |
-| Hot-path / performance-sensitive changes | `performance-optimizer` | `n-plus-one-scan` |
+| Hot-path / performance-sensitive changes | `performance-optimizer` | `n-plus-one-scan` (database pack, when installed) |
 | dependency-manifest | `security-auditor` (dep review) | `deps-audit` — for each **added** package (ignore pure version bumps): maintenance health, license compatibility, transitive/install-size cost, known-CVE check, and whether an already-present primitive or the stdlib covers it. A new dep on a security / data-handling surface with no rationale is a blocker. |
 
 #### Signal-based (based on project, always when signal present)
@@ -188,7 +188,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 - `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
 - `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change.
 
-**Missing-agent fallback (applies to every dispatch table above):** if a named reviewer is not installed in this project, perform that review inline against the corresponding pack/domain checklist — never silently skip the axis. Note the substitution in the consolidation note (`inline:<reviewer-name>`). A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
+**Missing-agent contract (applies to every dispatch table above):** if a named reviewer is not installed in this project, that axis is **not reviewed** — do not grade it yourself. Record `UNREVIEWED(<axis>) — <reviewer> not installed (<pack> pack)` in the consolidation note and end the sweep **INCOMPLETE**. A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
 
 ### Pattern-specific invariant checks
 
@@ -312,7 +312,7 @@ code-reviewer, api-reviewer, schema-reviewer, tenant-isolation-reviewer, test-re
 observability-reviewer, prompt-reviewer, security-auditor
 
 ### Skills run
-a11y-scan (3 routes), n-plus-one-scan, doc-drift-scan, api-snapshot
+a11y-scan (3 routes), n-plus-one-scan (database pack), doc-drift-scan, api-snapshot
 
 ### Patterns consulted
 api-contract, error-handling, multi-tenancy, tenant-isolation, idempotency, structured-logging
@@ -343,7 +343,7 @@ Then: re-run `/review-changes` to confirm it comes back clean, and open the PR.
 - Don't filler-praise.
 - Don't propose changes outside the PR's declared intent.
 - Don't skip signal-based reviewers — tenant leaks slip through when tenant-isolation-reviewer is skipped because "it's a small change".
-- Never silently skip an axis — an uninstalled reviewer is performed inline (`inline:<reviewer-name>`), not dropped.
+- Never silently skip an axis — an uninstalled reviewer is reported `UNREVIEWED(<axis>)` (the sweep is INCOMPLETE), not dropped and not self-graded.
 - Run `secret-scan` on every changed file regardless of category — a committed credential is a BLOCK.
 - **Never assert suite state from the diff.** `Suite: GREEN` requires a runner exit code recorded in this run; anything else is `UNVERIFIED` and caps the verdict.
 - A diff that adds a dependency (not a version bump) gets a dependency review — flag it, don't wave it through.
