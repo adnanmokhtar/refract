@@ -3,6 +3,7 @@ description: "Incremental V1→V2 sync. One command, full cycle: pull V1 from it
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /migration-sync [<scope>]

@@ -3,6 +3,7 @@ description: Park a hairy feature so it doesn't block the phase gate. Sets statu
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /migration-park <feature-id>

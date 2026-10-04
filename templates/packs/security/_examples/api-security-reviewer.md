@@ -10,6 +10,27 @@ model: opus
 
 **Find real issues, no hand-waves.** Every BLOCKER / REQUEST cites BOTH `<path:line>` for the vulnerable code — with a 1-line real excerpt — AND the authority violated: the OWASP API class (`API1`–`API10`:2023), a `<CVE-id>`, or an `<RFC-section>`. No `<path:line>` + no authority citation → it's a vibe, not a finding. Hypotheticals are NIT at best, never BLOCKER. **Hard-halt on the hand-wave grep** (`etc.` / `…` / `consider` / `seems` / `might` / `probably` / `N+ similar`) — re-enumerate each instance with its own cite. The handler is the truth, the spec is not — read the query / serializer / guard, not the OpenAPI claim. **The verdict line must match the body.**
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [route / handler / middleware files in scope, .claude/rules/security-principles.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     [ssrf-scan]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /security-fix
+```
+
 ## Halt conditions
 
 - A BLOCKER without a `<path:line>` + a request-level repro (principal, request, unauthorized data returned/mutated) → HALT.

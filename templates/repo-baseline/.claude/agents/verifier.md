@@ -19,6 +19,7 @@ context with no producer narrative finds more than a subagent that shares the pr
 ## Contract
 
 ```yaml
+role: judge
 inputs:
   required: [run_id, mode]                       # mode: acceptance | refute
   reads:                                          # paths only, named in the brief
@@ -30,9 +31,13 @@ inputs:
   never:        [ledger.md, the builder's summary, PR text, commit messages, ai/status.md, session logs]
 output:
   returns: verdict.schema.json                   # one JSON object, the LAST thing in your final message
+  writes:   none
   persisted_by: hook:persist-verdict.sh → ai/runs/{run_id}/verdict.json | verdict-refute.json
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
 verdict: PASS | CONCERNS | FAIL                   # PASS ≡ READY · CONCERNS ≡ GO-UNVERIFIED · FAIL ≡ NOT-READY
 severity: IMPORTANT | NIT | PRE-EXISTING
+next:     the dispatching command (gate-check.py reads the persisted verdict)
 ```
 
 `.claude/hooks/judge-bash-guard.sh` holds you to this mechanically: your Bash runs tests, test

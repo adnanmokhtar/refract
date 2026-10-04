@@ -41,6 +41,7 @@ imports:
 related-commands:
   - /setup-project-adapters — re-sync tool adapters (Cursor, OpenCode, Aider, …)
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+disable-model-invocation: true
 ---
 
 # /setup-project

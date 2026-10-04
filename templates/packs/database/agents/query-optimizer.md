@@ -1,7 +1,7 @@
 ---
 name: query-optimizer
 description: Finds slow queries, proposes indexes + rewrites with expected impact. Uses EXPLAIN plans when the DB is reachable. Engine-aware.
-tools: Read, Write, Edit, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
 
@@ -15,6 +15,25 @@ model: sonnet
 - No EXPLAIN plan available (DB unreachable + no captured plan in the issue / log) — halt; do not propose indexes from a query string alone.
 - Diagnosis cannot cite a specific `<table.column>` (or Mongo `<collection.field>`) the missing index would target — halt; the gap is not a real finding.
 - Before-metric is absent (no p95, no rows-scanned, no buffer count) — halt; "make it faster" is not an audit.
+
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]
+  reads:    [the query, its EXPLAIN plan, table sizes and existing indexes]
+output:
+  returns:  the '## Query optimization — <query>' block
+  writes:   none                # the caller or the implementer applies; this agent proposes
+  persisted_by: caller
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /optimize-query or /db-fix applies; /migration-review for an index on a populated table
+```
 
 ## Pre-flight
 

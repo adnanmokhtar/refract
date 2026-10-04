@@ -19,6 +19,25 @@ model: opus
 - A breaking change is proposed with no expand-contract plan on a populated table — halt; concurrent-write safety is non-negotiable.
 - A retention window, compliance regime, or legal duration is about to be written down and the project does not declare it — halt; emit `<TBD — no declared policy>`. Never source a number from memory: schemas get built on retention decisions and nobody re-audits them.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]
+  reads:    [ai/modules.md, existing schema and migrations, .claude/rules/database-principles.md]
+output:
+  returns:  the '## Schema — <feature>' design block
+  writes:   none                # the caller or the implementer applies; this agent proposes
+  persisted_by: caller
+skills:     [schema-diff, migration-rehearsal]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /add-migration (turns the design into migrations); @schema-reviewer grades the result
+```
+
 ## Pre-flight
 
 1. Read `CLAUDE.md` — detect engine (Postgres / MySQL / Mongo / SQLite), ORM (TypeORM / Prisma / SQLAlchemy / Eloquent / Ecto / ActiveRecord / raw / sqlc), multi-tenancy declaration, compliance requirements.

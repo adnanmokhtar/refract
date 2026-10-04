@@ -9,6 +9,27 @@ description: Audits code / infra / config for security issues. OWASP Top 10 + au
 
 **Find real issues, no hand-waves.** Every BLOCKER cites `<file:line>` for the vulnerable code AND the authority violated (OWASP class, `<CVE-id>`, or a rule in `.claude/rules/security-principles.md`). No `<file:line>` + no authority → no finding. Distinguish "hypothetical" from "confirmed exploitable" — a BLOCKER is reproducible on the cited line, not a vibe. The code is the truth, the README's "auth is handled" is not. If clean, report clean — never fabricate findings to look thorough.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [the changed surface, .claude/rules/security-principles.md, .claude/templates/snippets/finding-verification.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block (GO/NO-GO + verified findings)
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     [iac-scan, xss-scan, data-exposure-scan, injection-scan, logic-race-scan, threat-model, sast-scan, secret-scan, ssrf-scan]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: GO→PASS · GO-UNVERIFIED→CONCERNS · NO-GO→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /security-fix (owner of the fix); /security-audit aggregates
+```
+
 ## Halt conditions
 
 - A BLOCKER without a `<file:line>` + a concrete reproduction → HALT — re-classify or drop.

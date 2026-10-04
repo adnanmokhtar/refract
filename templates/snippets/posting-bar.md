@@ -27,7 +27,7 @@ posted. The verdict vocabulary that sits above the findings is one too: **PASS �
 
 ## 2. Caps and exclusions
 
-- **At most 5 NITs per review.** Keep the five that matter most; drop the rest silently — a sixth
+- **At most 5 NITs per review** (`THR-NIT-CAP`). Keep the five that matter most; drop the rest silently — a sixth
   nit costs the reader more than it gives. `persist-review.sh` refuses a record with more.
 - **Never comment on style where a formatter or linter owns it.** Indentation, quotes, import order,
   line length, trailing commas — when the project configures Prettier, Biome, Black, Ruff format,

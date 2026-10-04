@@ -1,39 +1,41 @@
 # Rule-conflict fixtures for scripts/lint-rule-conflicts.sh. One row per check, TAB-separated:
-#   id <TAB> kind <TAB> file (repo-relative) <TAB> ERE (grep -E) <TAB> note
+#   id <TAB> kind <TAB> file (repo-relative) <TAB> ERE (grep -E) <TAB> note [<TAB> probe]
+#   probe (forbid rows only): a literal line carrying the losing wording; --self-test appends it
+#   to a copy of the file and asserts the gate FAILS.
 # kind: forbid = the LOSING wording; it must not reappear in that file (a hit fails the build).
 #       require = the resolution marker; it must stay in that file (a miss fails the build).
 #       open = a known unresolved side (a hit is counted, never fails); the count may not grow
 #              past scripts/_rule-conflicts-open-baseline.txt.
 # Every id here must have a row in templates/governance/precedence.md § Conflict log, and back.
-A1	forbid	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	Hard Rules (section|§).{0,40}commands/setup-project\.md	dangling pointer: setup-project.md has no Boy Scout section
-A1	forbid	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	what's \*adjacent to the change	the wider 'adjacent' reading of Boy Scout
+A1	forbid	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	Hard Rules (section|§).{0,40}commands/setup-project\.md	dangling pointer: setup-project.md has no Boy Scout section	The setup-project Hard Rules section in `commands/setup-project.md` is the source of truth.
+A1	forbid	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	what's \*adjacent to the change	the wider 'adjacent' reading of Boy Scout	Bound the Boy Scout Rule to what's *adjacent to the change you were already making*.
 A1	require	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	Boy Scout Rule\*\* applies only to lines this change already touches	surgical wins
 A1	require	templates/governance/hard-rules.md	A17 \| Boy Scout Rule only on lines the change touches	hard rule row carries the bound
 A1	open	templates/packs/code-quality/rules/quality-principles.md	clean what's adjacent to your change	code-quality pack side (Track A owns the file)
-A2	forbid	templates/repo-baseline/.claude/rules/code-quality.md	TODO` without a ticket	ticket-only TODO rule
+A2	forbid	templates/repo-baseline/.claude/rules/code-quality.md	TODO` without a ticket	ticket-only TODO rule	- Add `// TODO` without a ticket or issue reference.
 A2	require	templates/repo-baseline/.claude/rules/code-quality.md	THR-TODO	owner + delete-by
 A2	open	templates/packs/testing/rules/testing-principles.md	\.skip` without a linked issue	testing pack side (Track A owns the file)
 A4	require	templates/repo-baseline/.claude/rules/code-quality.md	exported/public surface carries a one-line contract docstring	carve-out in the always-on rule
 A4	require	templates/packs/documentation/rules/doc-principles.md	The exported surface only	docs rule bounded to the exported surface
 A5	open	templates/packs/code-quality/rules/quality-principles.md	30 lines where none is configured	literal function cap (THR-FN-LEN = linter)
-A7	forbid	templates/governance/engineering-baseline/backend-api.md	never on a 4xx, never on a non-idempotent	RES-4 without the 408/429 carve-out
-A7	forbid	templates/packs/backend/rules/backend-principles.md	never on 4xx, never on a non-idempotent	backend rule without the carve-out
+A7	forbid	templates/governance/engineering-baseline/backend-api.md	never on a 4xx, never on a non-idempotent	RES-4 without the 408/429 carve-out	Retries — never on a 4xx, never on a non-idempotent write.
+A7	forbid	templates/packs/backend/rules/backend-principles.md	never on 4xx, never on a non-idempotent	backend rule without the carve-out	Retries — never on 4xx, never on a non-idempotent write.
 A7	require	templates/governance/engineering-baseline/backend-api.md	THR-RES-RETRY	RES-4 cites the registry
 A7	require	templates/packs/backend/rules/backend-principles.md	THR-RES-RETRY	backend rule cites the registry
-A9	forbid	templates/packs/migration/rules/migration-discipline.md	logs at debug level	recovered catch at debug
-A9	forbid	templates/packs/migration/ai-patterns/migration-guardrails.md	recovery comment \+ debug log	recovered catch at debug
+A9	forbid	templates/packs/migration/rules/migration-discipline.md	logs at debug level	recovered catch at debug	carries a comment AND logs at debug level.
+A9	forbid	templates/packs/migration/ai-patterns/migration-guardrails.md	recovery comment \+ debug log	recovered catch at debug	include explicit recovery comment + debug log.
 A9	require	templates/packs/observability/rules/observability-principles.md	THR-LOG-LEVEL	log levels cite the registry
-A12	forbid	templates/governance/engineering-baseline/data.md	base repository, global scope or RLS\.	RLS as an equal alternative
+A12	forbid	templates/governance/engineering-baseline/data.md	base repository, global scope or RLS\.	RLS as an equal alternative	| DATA-11 | filters applied by construction — base repository, global scope or RLS. |
 A12	require	templates/governance/engineering-baseline/data.md	RLS is a backstop	app layer primary
-A13	forbid	templates/domains/multi-tenant/rules/multi-tenancy.md	REFERENCES tenants\(id\) ON DELETE CASCADE`\.\*\*	unconditional cascade
+A13	forbid	templates/domains/multi-tenant/rules/multi-tenancy.md	REFERENCES tenants\(id\) ON DELETE CASCADE`\.\*\*	unconditional cascade	1. **Every table has `tenant_id NOT NULL REFERENCES tenants(id) ON DELETE CASCADE`.**
 A13	require	templates/domains/multi-tenant/rules/multi-tenancy.md	RESTRICT` for append-only ledger	restrict + crypto-shred
-A14	forbid	templates/packs/database/rules/database-principles.md	e\.g\. `DECIMAL\(19,4\)`	one decimal shape as the rule
+A14	forbid	templates/packs/database/rules/database-principles.md	e\.g\. `DECIMAL\(19,4\)`	one decimal shape as the rule	- Money in `DECIMAL(precision, scale)` (e.g. `DECIMAL(19,4)`).
 A14	require	templates/governance/engineering-baseline/data.md	THR-MONEY	DATA-9 cites the registry
 A14	require	templates/packs/database/rules/database-principles.md	THR-MONEY	database rule cites the registry
 A27	require	templates/repo-baseline/.claude/rules/engineering-baseline.md	outranks the sibling you mirror	precedence core in the always-on rule
 A27	require	templates/repo-baseline/.claude/rules/read-before-write.md	the baseline wins \(precedence A27\)	carve-out in "don't silently fix"
 A27	require	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	is not drift: it is in scope \(precedence A27\)	carve-out in the drift-log bullet
-A28	forbid	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	abstractions for code that has exactly one caller	pre-registry DRY wording
+A28	forbid	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	abstractions for code that has exactly one caller	pre-registry DRY wording	- Introduce abstractions for code that has exactly one caller.
 A28	require	templates/repo-baseline/.claude/rules/think-simplify-surgical.md	THR-DRY	DRY cites the registry
 A28	open	templates/packs/code-quality/rules/quality-principles.md	Extract a helper / type / class once the SAME shape appears 3 times	literal instead of THR-DRY (code-quality pack)
 A30	require	templates/repo-baseline/.claude/rules/code-quality.md	re-validate where data crosses one	security wins at trust boundaries

@@ -23,6 +23,25 @@ A finding here names the **current** value, **where it was read from**, the prop
 - A proposal has no post-change metric named (which counter, read from where, expected direction) — halt; "feels faster" is not a verdict.
 - Engine + version + host RAM are not established — halt. Every number below is a function of them.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]
+  reads:    [the running engine config, its statistics views, the workload]
+output:
+  returns:  the '## Database layer — <scope>' block
+  writes:   none                # the caller or the implementer applies; this agent proposes
+  persisted_by: caller
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       the operator (production parameters change behind an ADR)
+```
+
 ## Boundary — what this agent does NOT own
 
 It delegates these and does **not** restate their depth. Naming a symptom that lands in one of these rows is in scope; deriving the fix is not.

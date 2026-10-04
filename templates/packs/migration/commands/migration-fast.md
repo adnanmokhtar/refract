@@ -3,6 +3,7 @@ description: One-shot deep-migration phase runner. After /migration-scan + /migr
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+disable-model-invocation: true
 ---
 
 # /migration-fast <N>

@@ -15,14 +15,14 @@ Prevents the failure mode that's worse than missing docs: stale docs that active
 
 ## Must
 
-- Docs describe what IS in the codebase right now. If reality changes, docs change in the SAME PR. Reviewer rejects mismatched diffs.
+- Docs describe what IS in the codebase now; a code change and its doc change ship in the SAME PR.
 - Architectural decisions go in `ai/decisions/<NNNN>-<slug>.md` as ADRs (Context / Decision / Consequences) — not in `README.md`, not in inline comments.
 - Every README opens with: 1) what this is, 2) how to run it, 3) how to test it. Anything below those three is bonus.
 - Non-obvious claims cite code: file path + line range, migration ID, or commit SHA. "The service caches users" with a link beats the assertion alone.
 - `ai/status.md` carries an `Updated:` line in `YYYY-MM-DD` and a `## Recent Changes` section. SessionStart hooks parse these — don't break the format.
 - A new module ships with a one-line entry in `ai/modules.md` (path + purpose) in the same PR.
 - API endpoints are documented in machine-readable form (OpenAPI / GraphQL SDL / JSDoc-typed RPC), never only in prose.
-- Every public class, interface, enum, and exported function carries a one-sentence docstring stating its CONTRACT — what it guarantees, assumes, raises — not a restated signature. The exported surface only: internal code keeps the no-comment default (precedence A4).
+- The exported surface only (precedence A4): every public class, interface, enum and exported function has a one-sentence CONTRACT docstring — guarantees, assumes, raises — not a restated signature.
 - Step-by-step procedures are numbered checklists, not paragraphs. One observable action per step.
 - Comparisons are tables. Multi-axis bullet lists hide structure.
 

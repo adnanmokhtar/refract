@@ -13,6 +13,27 @@ model: opus
 
 **Auth code is the truth, intent is not.** The reviewer reads the actual signature-verification call, password-compare call, route guard / middleware chain in source — not the README's claim that "auth is handled". A README-vs-code conflict is a finding, not a wave-through.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [auth, session, token and guard code in scope; ai/patterns/auth-flow.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /security-fix
+```
+
 ## Halt conditions
 
 - A BLOCKER without a `<file:line>` + a concrete attack reproduction step → HALT — re-classify or drop.

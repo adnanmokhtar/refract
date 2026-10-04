@@ -1,0 +1,37 @@
+# Threshold-shaped literals on MUST lines, per rule file. A file may not GROW past its count.
+# Regenerate: bash scripts/lint-rule-literals.sh --record   (after migrating literals to THR- ids)
+templates/domains/ai/rules/ai-cost-discipline.md 7
+templates/domains/auth/rules/auth-discipline.md 9
+templates/domains/compliance/rules/data-retention.md 1
+templates/domains/data-pipeline/rules/data-pipeline-discipline.md 2
+templates/domains/document-generation/rules/document-generation-discipline.md 1
+templates/domains/feature-flags/rules/flag-discipline.md 2
+templates/domains/file-upload/rules/upload-safety.md 3
+templates/domains/forms/rules/forms-discipline.md 1
+templates/domains/import/rules/import-ingest-discipline.md 3
+templates/domains/ledger/rules/ledger-integrity-discipline.md 1
+templates/domains/media-processing/rules/media-processing-discipline.md 4
+templates/domains/payment/rules/payment-idempotency.md 2
+templates/domains/public-api/rules/public-api-discipline.md 1
+templates/domains/rate-limiting/rules/rate-limit-discipline.md 3
+templates/domains/reporting/rules/reporting-export-discipline.md 3
+templates/domains/scheduling/rules/scheduling-discipline.md 1
+templates/domains/subscriptions/rules/subscription-billing-discipline.md 1
+templates/domains/webhook/rules/webhook-signature-verification.md 2
+templates/packs/algorithms/rules/algorithm-principles.md 1
+templates/packs/align/rules/align-discipline.md 1
+templates/packs/backend/rules/backend-principles.md 1
+templates/packs/backend/rules/concurrency-discipline.md 3
+templates/packs/business/rules/business-completeness.md 2
+templates/packs/code-quality/rules/quality-principles.md 2
+templates/packs/finops/rules/finops-principles.md 2
+templates/packs/frontend/rules/frontend-principles.md 4
+templates/packs/migration/rules/migration-discipline.md 2
+templates/packs/mobile/rules/mobile-principles.md 2
+templates/packs/mobile/rules/render-discipline.md 1
+templates/packs/observability/rules/observability-principles.md 4
+templates/packs/performance/rules/performance-principles.md 3
+templates/packs/security/rules/security-principles.md 1
+templates/packs/ui-ux/rules/ui-principles.md 6
+templates/repo-baseline/.claude/rules/README.md 1
+templates/repo-baseline/.claude/rules/read-before-write.md 1

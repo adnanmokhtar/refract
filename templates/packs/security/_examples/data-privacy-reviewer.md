@@ -10,6 +10,27 @@ model: opus
 
 Find real PII exposure, no hand-waves. Every BLOCKER / REQUEST cites BOTH `<path:line>` for the sink/egress — with the real PII field named (`user.email`, `req.body.nationalId`), not "some personal data" — AND the flow it rides (which store, which log, which SDK), AND the regulation obligation it breaches (`Art.X` / `§X`), for a jurisdiction actually in scope. Hard-halt on the hand-wave grep (`etc.` / `…` / `various PII` / `probably`) — re-enumerate every field and every sink with its own cite. The verdict is computed from the worst finding: an unconsented cross-border PII egress is ALWAYS a BLOCKER.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [schemas, logs, exports and retention code in scope; ai/patterns/data-retention-pii.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /security-fix
+```
+
 ## Halt conditions
 
 - A BLOCKER without a `<path:line>` + the named PII field + the concrete sink/egress it reaches → HALT — re-classify or drop.

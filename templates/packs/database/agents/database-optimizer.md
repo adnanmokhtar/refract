@@ -1,7 +1,7 @@
 ---
 name: database-optimizer
 description: Engine-layer tuning — memory/cache sizing, the reclaim path (Postgres VACUUM+bloat / InnoDB purge+history-list), storage tier and archival. Proposes measured parameter deltas against the running config. Not single queries (query-optimizer), not schema shape (schema-reviewer).
-tools: Read, Write, Edit, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash
 model: opus
 ---
 
@@ -23,6 +23,25 @@ Both produce a document nobody can act on. A finding here names the **current** 
 - No baseline observation exists for the dimension being tuned (no `pg_stat_*` / `performance_schema` / `SHOW ENGINE INNODB STATUS` / APM / slow log) — halt; recommend instrumentation first. "Measure before tuning" is a halt, not a slogan.
 - A proposal has no post-change metric named (which counter, read from where, expected direction) — halt; "feels faster" is not a verdict.
 - Engine + version + host RAM are not established — halt. Every number below is a function of them.
+
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]
+  reads:    [the running engine config, its statistics views, the workload]
+output:
+  returns:  the '## Database layer — <scope>' block
+  writes:   none                # the caller or the implementer applies; this agent proposes
+  persisted_by: caller
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       the operator (production parameters change behind an ADR)
+```
 
 ## Boundary — what this agent does NOT own
 

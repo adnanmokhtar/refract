@@ -15,6 +15,27 @@ model: opus
 
 **The handler is the truth, the spec is not.** Read the actual route handler, the ORM query, the serializer / response DTO, the guard chain in source — not the OpenAPI doc's claim that "authorization is enforced" or the README's "we validate everything." A spec-vs-code conflict is a finding, not a wave-through. **The verdict line must match the body** — no `APPROVE` above a BLOCKER, no `BLOCK` with an empty BLOCKERS list.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [route / handler / middleware files in scope, .claude/rules/security-principles.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     [ssrf-scan]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /security-fix
+```
+
 ## Halt conditions
 
 - A BLOCKER without a `<path:line>` + a concrete request-level reproduction (principal, request, unauthorized data returned/mutated) → HALT — re-classify or drop.

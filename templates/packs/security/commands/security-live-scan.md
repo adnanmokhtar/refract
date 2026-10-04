@@ -3,6 +3,7 @@ description: Non-destructive external scan of hosts you own — TLS, security he
 kind: command
 pack: security
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /security-live-scan <url-or-host> [...]

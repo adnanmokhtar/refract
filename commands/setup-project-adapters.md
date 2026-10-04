@@ -5,6 +5,7 @@ kind: command
 pack: orchestration
 version: 1.0.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+disable-model-invocation: true
 ---
 
 # /setup-project-adapters

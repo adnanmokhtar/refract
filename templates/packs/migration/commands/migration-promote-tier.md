@@ -3,6 +3,7 @@ description: Promote (or demote) a migration ledger row's tier mid-port. When th
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /migration-promote-tier <feature-id> <new-tier> [--reason="<text>"]

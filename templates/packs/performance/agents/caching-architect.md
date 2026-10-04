@@ -13,6 +13,25 @@ model: sonnet
 
 **Measure before designing.** A cache proposal without a cited read pattern (`<APM-link>`, `<log-query>`, `<RUM-metric>`) is speculation. The perf budget in `ai/runtime/perf-budgets.md` (or equivalent) is the target — caching that doesn't move a budgeted metric is overhead, not optimization.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]
+  reads:    [verified caching-scan findings, the read path, ai/patterns/caching-strategy.md]
+output:
+  returns:  the '## Caching design — <feature>' block
+  writes:   none                # the caller or the implementer applies; this agent proposes
+  persisted_by: caller
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /perf-fix or the implementer applies; invalidation plan is part of the design
+```
+
 ## Halt conditions
 
 - Proposing a cache without a measured read pattern → HALT. "Measured" means three numbers you can cite: **current latency of the call being cached** (p95, from APM or logs), **read:write ratio for that key** (from query logs / the ORM's counters), and **request rate**. A hit-rate *target* is not one of them — there is no universal target (see § Metrics), and the target is derived from these three afterwards rather than asserted in front of them.

@@ -3,6 +3,7 @@ description: "Executes one migration phase. For each feature in the phase: AUDIT
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+disable-model-invocation: true
 ---
 
 # /migration-phase <N>

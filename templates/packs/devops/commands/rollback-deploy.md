@@ -3,6 +3,7 @@ description: Roll back the current environment to a previous known-good deploy. 
 kind: command
 pack: devops
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /rollback-deploy

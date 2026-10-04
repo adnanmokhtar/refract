@@ -3,6 +3,7 @@ description: Mark a V1 feature as deprecated — it will NOT be ported to V2. Ex
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /migration-deprecate <feature-id>

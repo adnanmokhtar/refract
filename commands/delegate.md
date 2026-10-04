@@ -4,6 +4,7 @@ kind: command
 pack: orchestration
 version: 1.2.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+disable-model-invocation: true
 ---
 
 # /delegate <task> [--to=<cli>] [--read-only] [--gate=<cmd>] [--model=<id>] [--session=<id>] [--max-rounds=<N>] [--plan]

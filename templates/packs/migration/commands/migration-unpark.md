@@ -3,6 +3,7 @@ description: Reverse /migration-park. Restores the feature's prior status and ph
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /migration-unpark <feature-id>

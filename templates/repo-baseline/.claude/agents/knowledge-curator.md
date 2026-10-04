@@ -18,6 +18,25 @@ trigger:
 
 **Real signal only — refuse trivial promotions.** A pattern with 2 occurrences is NOT ready, regardless of how clean it looks. A decision held 3 days is NOT validated. A feedback entry repeated once is noise. If the criteria in `ai/dynamic/` (≥3 files, ≥2 weeks for patterns; ≥2 weeks + ≥1 implementation for decisions; `Repeated >= 2` for feedback) are not met, the answer is WAIT, not "promote anyway because it seems good".
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: writer
+inputs:
+  required: [mode]              # audit | promote | archive — named by the caller
+  reads:    [ai/dynamic/*, ai/failures/_index.md, ai/patterns/, ai/decisions/, ai/_decision-index.md]
+output:
+  returns:  the '/audit-knowledge report' block
+  writes:   [ai/patterns/*.md, ai/decisions/*.md, ai/dynamic/*]   # inside managed markers only, after human approval
+  persisted_by: this agent (approved promotions only)
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       the human who drains ai/dynamic/.review-queue
+```
+
 ## Halt conditions
 
 - Promoting a pattern below threshold (occurrences, age, file spread) → HALT — surface as `STILL WATCHING` instead.

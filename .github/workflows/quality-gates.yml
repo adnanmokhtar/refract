@@ -240,6 +240,30 @@ jobs:
       - name: No self-review fallback (a missing reviewer is UNREVIEWED, not self-graded)
         run: bash scripts/lint-self-review.sh
 
+      # One truth per fact. Rules contradicted each other with no precedence (Boy Scout vs
+      # surgical in two always-loaded files; RES-4 refusing the 429 three domain rules retried).
+      # Each settlement lives in templates/governance/precedence.md § Conflict log; this gate
+      # fails when the losing wording comes back, when a resolution marker is lost, when the
+      # installed governance mirror lags its source, or when the open (unresolved) count grows.
+      # The self-test re-opens every settled conflict on a copy and must see each one fail.
+      - name: Rule conflicts (a settled conflict stays settled)
+        run: bash scripts/lint-rule-conflicts.sh && bash scripts/lint-rule-conflicts.sh --self-test --quiet
+
+      # A number a MUST rule enforces lives in templates/governance/thresholds.json and is cited
+      # by id (THR-…). Restated values drifted — retry attempts 5 here and 3 there, a 2 s timeout
+      # beside "500-1000 ms". Ratchet per file at today's count; a citation of an id the registry
+      # does not define fails outright.
+      - name: Rule literals (numbers live in the threshold registry)
+        run: bash scripts/lint-rule-literals.sh && bash scripts/lint-rule-literals.sh --self-test
+
+      # An agent's Contract block (templates/snippets/contract-block.md) and its tools must agree:
+      # a declared write needs Write, running skills needs Skill, a judge or proposer holds no
+      # Edit/Write, and model is declared. Strict for every agent with a Contract and for the
+      # packs listed in REQUIRED; roster-wide debt (missing blocks, skill-without-tool, no model)
+      # is ratcheted, not forced to zero.
+      - name: Agent contracts (Contract block agrees with the tool list)
+        run: bash scripts/lint-agent-contract.sh && bash scripts/lint-agent-contract.sh --self-test --quiet
+
       # A skill's `description` is paid every session; its BODY is paid only when the skill
       # fires. So this is not a session-tax gate — it is the line past which one file stops
       # being a procedure and becomes a manual, with the sometimes-needed detail moved to

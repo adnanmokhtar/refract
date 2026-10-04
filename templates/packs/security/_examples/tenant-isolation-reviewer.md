@@ -14,6 +14,27 @@ model: opus
 
 **Run the probes; do not describe them.** The § Probe kit below is executed, and its output is what the findings cite. "The code appears to scope by tenant" is the failure mode this agent exists to prevent.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [repositories, queries, caches, storage keys in scope; ai/patterns/tenant-isolation.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /security-fix
+```
+
 ## Halt conditions
 
 - A BLOCKER without a `<file:line>` + a concrete cross-tenant reproduction (tenant A's principal, the request, tenant B's row returned) → HALT.

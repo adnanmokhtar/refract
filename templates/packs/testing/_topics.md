@@ -126,4 +126,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { test_framework_detected: true }   # §5-§6 read shipped code too; a repo with no doubles reports N/A
   fallback: skills/test-double-scan/SKILL.md
+
+- name: test-audit
+  kind: command
+  triggers: { test_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Tests (runners AND VERSIONS from the lockfile — four verdicts change with the major) + the CI files that invoke them + the risk surfaces (auth, tenant, money, webhook modules)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/test-audit.md   # the source IS the fallback, as for db-audit; the fixed class ledger and the dispatch table are the contract
+
+- name: test-fix
+  kind: command
+  triggers: { test_framework_detected: true }
+  fallback: commands/test-fix.md   # the source IS the fallback, as for db-fix; a skeleton would drop the read-only-tests rule and the Step-5 self-check
 ```

@@ -60,10 +60,10 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **67 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **70 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
-> **All 67 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
+> **All 70 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
 > your change caused it. Two gates worth knowing about because they fail for non-obvious reasons —
 > `verify-cheatsheet.sh` goes red whenever a command is added or renamed without regenerating
 > (`python3 scripts/gen-cheatsheet.py`), and `verify-doc-sync.sh` goes red when a new command is not
@@ -132,10 +132,13 @@ file and line; none of them require you to guess.
 | `_merge-hook-wiring.py` (via `--wire-hooks`) | A hook delivered but registered nowhere. `settings.json` is almost always KEEP-OURS, so a hook the sync ADDs lands on disk inert — measured at 7 and 11 hooks on two installed projects, `secret-scan` and `pre-edit-guard` among them. The merge is additive, matches on hook **basename** so a project that wired a hook its own way is never doubled, reuses an existing matcher group, and writes atomically. Opt-in: editing the file that holds the user's permissions is a different act from replacing one we shipped. |
 | `verify-gate-count.sh` | A doc that miscounts the very workflow it documents. CONTRIBUTING carried 33, 25 and 19 simultaneously while CI ran 48 — each typed by hand, each drifting alone. A contributor reading "all 25 gates are green" beside 48 results cannot tell which figure lies. The workflow is the one source that cannot be wrong about itself. |
 | `lint-shell-portability.sh` | A shell construct that behaves differently on macOS and Linux. The local suite runs on one and CI on the other, and today a defect escaped in EACH direction — GNU-only regex (`\|`, `IGNORECASE`) matching nothing on macOS, and `declare -a` without `=()` aborting under `set -u` on Linux. **Measured scope, not assumed:** shellcheck catches neither the uninitialised array nor the regex dialects. It does catch `SC2128` (array expanded without an index — the shape that left a gate checking 1 adapter of 12), unreachable `case` arms (`SC2221`/`SC2222` — one was a real defect), and a malformed `# shellcheck disable=` directive that had never suppressed anything. | Fix it. If the construct is deliberate, re-record with `--record` and **write the reason on the line** — a reasonless entry is how a ratchet becomes a mute button. Requires shellcheck; its absence is exit 2, never a pass. |
-| `check-rule-budget.sh` | The always-loaded rule set busting its token budget. Currently ~4,943 of 6,000 tokens. | Give your rule `paths:` frontmatter (path-scoped, exempt) or trim a foundational rule. |
+| `check-rule-budget.sh` | The always-loaded rule set busting its token budget. Currently ~5,276 of 6,000 tokens (the five baseline rules carry the precedence core; the rules README is path-scoped). | Give your rule `paths:` frontmatter (path-scoped, exempt) or trim a foundational rule. |
 | `audit-stack-leakage.sh` | Single-stack wording in universal docs — `commands/*.md`, `templates/phases/`, `templates/governance/`, the migration/align/code-quality packs, adapter `_*.md`. A stack token whose ±1-line window names only one stack is a FAIL there; in the other packs it is a WARN. Naming two frontends, two backends, or one of each passes. | Name several stacks, or move the framework-specific text into `references/` (skipped by design). |
 | `audit-command-dry.sh` | A command re-explaining SOLID / clean-code / the Phase 3 ALWAYS list instead of linking the shared source. | Point at `templates/governance/core-discipline.md` and `templates/snippets/phase-3-always-reads.md`. |
 | `lint-self-review.sh` | A missing reviewer turned into the builder grading itself. Thirteen pack commands said "perform that review inline" when a dispatched reviewer was not installed, labelled the axis covered, and could close COMPLETE. The contract is `UNREVIEWED(<axis>)` ⇒ INCOMPLETE, naming `/setup-project --include=<pack>`; this ratchet fails on the old phrasing anywhere in `templates/` or `commands/` (CHANGELOG.md exempt — history, not instruction). | Write the UNREVIEWED contract. Never re-introduce a fallback in which the agent that wrote the change reviews it. |
+| `lint-rule-conflicts.sh` | A settled rule conflict quietly re-opened. Boy Scout vs surgical sat in two always-loaded files; RES-4 refused the `429` three domain rules retried; a TODO needed a ticket in one rule and an owner + date in another. Each settlement is a row in `templates/governance/precedence.md` § Conflict log and a fixture in `scripts/_rule-conflicts.tsv`. Also fails a stale installed governance mirror. | Restore the resolution, or settle the new conflict in `precedence.md` and add its fixture rows. Never raise `_rule-conflicts-open-baseline.txt`. |
+| `lint-rule-literals.sh` | A number restated in a MUST rule instead of cited from `templates/governance/thresholds.json` — the shape that let retry attempts, timeouts and caps drift apart across files. Ratcheted per file; a citation of an undefined `THR-` id fails outright. | Cite the `THR-…` id (add one to `thresholds.json` if the value is new). Re-record with `--record` only after a file shrinks. |
+| `lint-agent-contract.sh` | An agent whose Contract block and tool list disagree — "runs the detectors" with no Skill tool, a ranked-report optimizer holding Write and Edit, a judge that can edit. Strict for every agent with a Contract and for the packs in `REQUIRED`; roster-wide debt is ratcheted. | Fix the tools or the Contract (`templates/snippets/contract-block.md`). Add a pack to `REQUIRED` once its agents are migrated. |
 | `lint-validator-parity.sh` | A doc citing a `check_*` validator in present tense that no script defines — a promise with no enforcement. | Implement it, or mark the citation `(planned)` / `(agent-side …)` / `not script-enforced`. Honest disclosure is exempt; silent fiction is not. |
 | `verify-doc-sync.sh` | An undocumented command, or a pack missing a sync file. See §5 — this is the one people trip over. | Document the command; add `_essentials.md` / `_topics.md` / `_version.json`. |
 | `verify-cheatsheet.sh` | `docs/CHEATSHEET.md` drifted from the command corpus. | `python3 scripts/gen-cheatsheet.py` — never hand-edit the file. |
@@ -464,7 +467,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 67 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 70 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---

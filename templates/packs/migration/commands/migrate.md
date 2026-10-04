@@ -3,6 +3,7 @@ description: "One command V1→V2 port. Deep multi-agent execution. Takes option
 kind: command
 pack: orchestration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /migrate [<scope>]

@@ -1,7 +1,7 @@
 ---
 name: schema-reviewer
 description: Reviews DB changes — entities, migrations, queries, indexes. Runs the database detectors on the diff, routes tenant and SQL-injection checks to security, and owns the migration APPROVE gate. Engine-aware.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 
@@ -18,6 +18,27 @@ model: opus
 - A migration on a populated table has no **operation class** named (metadata-only / instant-eligible / in-place-rebuild / copy) — halt. Row count alone cannot produce a safety verdict; it only scales one the operation class already determined.
 - An N+1, unbounded-read or missing-index claim names no proof oracle from `proof-oracles.md` (query-count scaling for N+1, a seeded cap for an unbounded read, plan shape for an index) — halt; the fix can't be verified.
 - The verdict would be `APPROVE` for a populated-table migration whose lock/backfill profile was never measured (no `migration-rehearsal` report) — halt; downgrade to `BLOCK — lock profile unmeasured` (see The APPROVE gate). A functional migration is not a production-grade one.
+
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [entities, migrations, repositories and queries in scope; .claude/rules/database-principles.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block (owns the migration APPROVE gate)
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     [schema-integrity-scan, index-coverage-scan, query-shape-scan, transaction-scan, migration-safety, n-plus-one-scan]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /db-fix
+```
 
 ## Pre-flight
 

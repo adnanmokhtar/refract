@@ -1,0 +1,2 @@
+# Open (unresolved) conflict sides counted by scripts/lint-rule-conflicts.sh. May only shrink.
+open 5

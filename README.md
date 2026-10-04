@@ -213,11 +213,11 @@ re-verify rather than silently shipping a broken translation.
 |---|---|
 | **23 packs** | Role-based knowledge tracks, not framework tracks |
 | **89 agents** | Specialised reviewers and architects |
-| **139 skills** | Reusable procedures, as `<name>/SKILL.md` |
+| **143 skills** | Reusable procedures, as `<name>/SKILL.md` |
 | **160 commands** | 16 global + 144 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
-| **134 scripts** | Validators, linters, sync, search and audit tooling |
+| **137 scripts** | Validators, linters, sync, search and audit tooling |
 | **4 overlays** | GDPR · HIPAA · PCI-DSS · SOC 2 |
 
 ### The guards that install with it

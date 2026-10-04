@@ -88,7 +88,7 @@ file — not the subagent's prose:
 | verdict.json | Run status |
 |---|---|
 | `PASS`, fresh, signed `verifier` | **COMPLETE** may be reported |
-| `FAIL` | fix the code (never the locked tests), re-run, re-dispatch — at most 3 fix loops, then `INCOMPLETE` with the failing criteria |
+| `FAIL` | fix the code (never the locked tests), re-run, re-dispatch — at most 3 fix loops (`THR-LOOP`), then `INCOMPLETE` with the failing criteria |
 | `CONCERNS` (a criterion UNVERIFIED) | `INCOMPLETE`, naming the criterion and what would let it run |
 | missing, or STALE (a path changed after the verdict) | not judged — re-dispatch; never report COMPLETE |
 

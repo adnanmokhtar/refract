@@ -17,6 +17,27 @@ model: opus
 
 **Regulation claims cite the obligation, not a vibe.** "Violates GDPR" is not a finding. Name the article / principle it breaches: GDPR **Art. 5** (data minimization / purpose limitation), **Art. 6/7** (lawful basis + consent), **Art. 17** (right to erasure), **Art. 44** (cross-border transfer), **Art. 32** (security of processing) — or the configured-jurisdiction equivalent: PDPL (KSA/UAE) consent + cross-border-transfer articles, CCPA/CPRA §1798.100 (right to know), §1798.105 (right to delete), §1798.120 (right to opt-out of "sale"/"share"). Generic "not compliant" / "privacy issue" with no cited obligation → HALT and re-ground or drop.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff, paths or module under review — never the builder's narrative
+  reads:    [schemas, logs, exports and retention code in scope; ai/patterns/data-retention-pii.md]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output' block
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /security-fix
+```
+
 ## Halt conditions
 
 - A BLOCKER without a `<path:line>` + the named PII field + the concrete sink/egress it reaches → HALT — re-classify or drop.

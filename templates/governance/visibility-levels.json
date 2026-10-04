@@ -1,0 +1,14 @@
+{
+  "$comment": "The one home for which command or skill DESCRIPTION the model sees before anyone asks (proposal §8.6). Three levels. A — front door: listed with its full description; at most front_door_max names, each description at most THR-DESC-BUDGET.front_door_entry_max_chars. B — routable: every other installed command and skill; /setup-project writes it into the project's .claude/settings.json as skillOverrides {\"<name>\": \"name-only\"}, so it is listed as `- <name>` with no description, /do routes to it by name after reading its description from disk, and agents can still preload it. D — irreversible: the command's OWN frontmatter carries `disable-model-invocation: true`; that frontmatter is the truth for D, so D names are not repeated here. A D command costs 0 listing chars, the Skill tool refuses it, it is never preloaded into a subagent, and only a human typing /<name> runs it (H3). Consumers: scripts/apply-skill-overrides.sh (emits B), scripts/lint-description-budget.sh (simulates installs), scripts/lint-command-routing.sh (holds /do's hand-back list to the D set), commands/do.md (routing). PLATFORM LIMIT: Claude Code 2.1.236 ignores skillOverrides for plugin-sourced skills — a Refract command installed through a plugin is always listed in full; skillOverrides governs project and user commands and skills only.",
+  "version": 1,
+  "front_door_max": 5,
+  "front_door": [
+    "do",
+    "add-feature",
+    "fix-bug",
+    "review-changes",
+    "security-audit"
+  ],
+  "level_b_override": "name-only",
+  "level_d_frontmatter": "disable-model-invocation"
+}

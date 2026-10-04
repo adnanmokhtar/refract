@@ -297,8 +297,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/flaky-test-hunt` | Expose flaky tests by re-running the suite N times (N chosen for the flake rate you need to detect… | — | `/flaky-test-hunt [pattern]` |
 | `/run-tests` | Run the project's test suite (or a scoped subset) and surface results. | `--feature`, `--since`, `--all`, `--coverage`, `--watch`, `--bail`, `--update-snapshots`, `--shard=<i>` | `/run-tests <modules-root>/orders/` |
 | `/tdd` | Drive a feature test-first via the tdd-orchestrator — strict RED→GREEN→REFACTOR, one behavior per… | — | `/tdd [feature]` |
-| `/test-audit` | Read-only test-suite audit: every testing detector on a whole repo, by signal on a diff; each… | — | `/test-audit` |
-| `/test-fix` | Close the findings a /test-audit report lists: prove each failing-first with its testing oracle… | — | `/test-fix` |
+| `/test-audit` | Read-only test-suite audit: every testing detector on a whole repo, by signal on a diff; each… | `--whole-repo` | `/test-audit [base-branch] [--whole-repo]` |
+| `/test-fix` | Close the findings a /test-audit report lists: prove each failing-first with its testing oracle… | `--all` | `/test-fix [audit-report-path \| finding-id ... \| --all]` |
 
 ## Pack — ui-ux
 

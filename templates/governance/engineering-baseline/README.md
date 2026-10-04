@@ -58,6 +58,8 @@ reused so there is one: `MET <evidence>` · `n-a <reason>` · `UNMET` · `SKIPPE
 timeout or a denial test is a defect to report and fix in this change — or to record as `UNMET`
 with a follow-up — never a shape to copy. A V1 that lacked one does not license V2 to lack it.
 Mirroring still governs everything the baseline is silent on: naming, layout, error type, DI.
+This is rule 2 of the full order in [`../precedence.md`](../precedence.md); numbers the rows apply
+live in [`../thresholds.json`](../thresholds.json) and are cited by id.
 
 ## Waivers
 

@@ -3,6 +3,7 @@ description: Roll back a migration phase. Restores ledger + audits + ported file
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+disable-model-invocation: true
 ---
 
 # /migration-rollback <N>

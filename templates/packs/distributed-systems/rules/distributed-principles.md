@@ -16,7 +16,7 @@ Prevents the failures that turn a microservice migration into a distributed mono
 ## Must
 
 - Exactly ONE service owns writes to an entity. Other services read via API or read replicas. Two writers = data corruption.
-- Every external call has a TIMEOUT (e.g. 2s default for in-region, longer for cross-region). No-timeout calls cascade failures.
+- Every external call has a TIMEOUT inside the caller's budget (`THR-RES-TIMEOUT`). No-timeout calls cascade failures.
 - Every write a client might retry is idempotent. Client supplies a UUID `Idempotency-Key`; server stores it with a unique constraint and returns the original response on replay.
 - Correlation / trace ID generated at the edge and propagated through every hop (HTTP `traceparent` per W3C, queue metadata, RPC headers, DB query comments). OpenTelemetry preferred.
 - Outbox pattern for "write to DB + publish event" atomicity: write the row + an outbox row in one transaction; a relay publishes asynchronously. No 2PC required.

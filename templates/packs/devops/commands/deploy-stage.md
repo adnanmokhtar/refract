@@ -3,6 +3,7 @@ description: Deploy current branch to staging environment. Detects deploy target
 kind: command
 pack: devops
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+disable-model-invocation: true
 ---
 
 # /deploy-stage

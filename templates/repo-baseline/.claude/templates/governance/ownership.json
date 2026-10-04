@@ -1,0 +1,111 @@
+{
+  "$comment": "One owner per defect class: detector → owner (the lens or agent whose finding it is) → fixer → fallback when the owner's pack is not installed → home pack. Today's agent names are used; `target` names the Phase-6 consolidated role (proposal §3.5) so the merge has a map. An agent's Boundary section should agree with this file: if two agents both claim a class here, one of them is wrong. JSON for the same reason as thresholds.json (stdlib consumers). Edit a row, never fork a class into two rows.",
+  "version": 1,
+  "classes": {
+    "n-plus-one": {
+      "detector": "database/skills/n-plus-one-scan",
+      "owner": "database/agents/schema-reviewer (reports) · performance/agents/performance-optimizer (ranks impact)",
+      "fixer": "/db-fix (database) or /perf-fix (performance); the implementer applies",
+      "fallback": "the database detector's own report when performance is not installed",
+      "pack": "database",
+      "target": "performance-reviewer",
+      "note": "query-optimizer's knowledge is fix guidance for this class, not a second detector"
+    },
+    "wcag": {
+      "detector": "frontend/skills/a11y-scan (axe)",
+      "owner": "ui-ux/agents/ux-reviewer",
+      "fixer": "/a11y-audit → implementer",
+      "fallback": "frontend/agents/accessibility-auditor",
+      "pack": "ui-ux",
+      "target": "ux-reviewer"
+    },
+    "tenant-leak": {
+      "detector": "security/skills/data-exposure-scan · security/skills/logic-race-scan",
+      "owner": "security/agents/tenant-isolation-reviewer",
+      "fixer": "/security-fix",
+      "fallback": "security/agents/security-auditor",
+      "pack": "security",
+      "target": "security-reviewer (tenant lens)"
+    },
+    "mass-assignment": {
+      "detector": "security/skills/injection-scan",
+      "owner": "security/agents/api-security-reviewer",
+      "fixer": "/security-fix",
+      "fallback": "security/agents/security-auditor",
+      "pack": "security",
+      "target": "security-reviewer (api-security lens)"
+    },
+    "workflow-transitions": {
+      "detector": "—",
+      "owner": "business/agents/workflow-integrity",
+      "fixer": "implementer",
+      "fallback": "code-quality/agents/code-reviewer",
+      "pack": "business",
+      "target": "code-reviewer"
+    },
+    "convention-drift": {
+      "detector": "learning/agents/convention-drift-detector",
+      "owner": "/align",
+      "fixer": "/align",
+      "fallback": "ai/dynamic/drift-log.md entry (think-simplify-surgical.md § 3)",
+      "pack": "align",
+      "target": "code-reviewer reports; /align fixes"
+    },
+    "licence": {
+      "detector": "security/skills/deps-audit",
+      "owner": "security/skills/deps-audit",
+      "fixer": "/upgrade-dep or removal",
+      "fallback": "code-quality/agents/dependency-auditor",
+      "pack": "security",
+      "target": "security-reviewer (supply-chain lens)"
+    },
+    "migration-safety": {
+      "detector": "database/skills/migration-safety (static floor) · database/skills/migration-rehearsal",
+      "owner": "database/agents/schema-reviewer (owns the migration APPROVE gate)",
+      "fixer": "/db-fix",
+      "fallback": "repo-baseline rule migration-safety.md",
+      "pack": "database",
+      "target": "data-reviewer"
+    },
+    "secrets": {
+      "detector": "security/skills/secret-scan · hook:secret-scan.sh",
+      "owner": "security/agents/security-auditor",
+      "fixer": "rotate first, then /security-fix",
+      "fallback": "hook:secret-scan.sh (always installed)",
+      "pack": "security",
+      "target": "security-reviewer"
+    },
+    "cache-invalidation": {
+      "detector": "performance/skills/caching-scan",
+      "owner": "performance/agents/caching-architect",
+      "fixer": "/perf-fix",
+      "fallback": "domains/caching/rules/caching-discipline.md",
+      "pack": "performance",
+      "target": "architect (design) · performance-reviewer (review)"
+    },
+    "engine-tuning": {
+      "detector": "database/skills/connection-config-scan",
+      "owner": "database/agents/database-optimizer",
+      "fixer": "operator, behind an ADR for durability settings",
+      "fallback": "—",
+      "pack": "database",
+      "target": "performance-reviewer"
+    },
+    "test-oracle-strength": {
+      "detector": "repo-baseline/.claude/scripts/oracle-check.py · testing/skills/mutation-probe",
+      "owner": "testing/agents/test-reviewer",
+      "fixer": "test author",
+      "fallback": "gate G2 (gate-check.py)",
+      "pack": "testing",
+      "target": "test-reviewer"
+    },
+    "acceptance-verdict": {
+      "detector": "the locked acceptance.json tests",
+      "owner": "repo-baseline/.claude/agents/verifier",
+      "fixer": "implementer (SPEC_CONFLICT when the contract is wrong)",
+      "fallback": "UNREVIEWED(acceptance) ⇒ INCOMPLETE — never self-graded",
+      "pack": "repo-baseline",
+      "target": "verifier"
+    }
+  }
+}
