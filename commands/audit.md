@@ -34,9 +34,9 @@ The agent:
 1. **Detects gaps across ALL principle axes in one pass** — not one axis per command, not "run /optimize then /security-audit then /db-audit". One scan, all axes:
 
    **Architecture quality** (own + dispatch via `architectural-diagnosis`):
-   - Layer violation, cyclic dependency, bottleneck module, god module, anemic module, wrong-level responsibility, cross-cutting duplication, missing abstraction.
+   - Layer violation, cyclic dependency, bottleneck module, god module, anemic module, wrong-level responsibility, cross-cutting duplication, missing abstraction (`architectural-diagnosis` § 1–§ 8), and churn × complexity hotspots (§ 9) — ranked against the repo's own distribution, so a long function nobody changes is not a finding.
 
-   **SOLID / clean code / maintainability** (dispatch via `core-discipline.md` + `refactoring-sweep`):
+   **SOLID / clean code / maintainability / correctness** (dispatch the `/quality-audit` detectors — code-quality pack — plus `core-discipline.md` + `refactoring-sweep` for the SOLID fingerprints):
    - SRP/OCP/LSP/ISP/DIP violations, long functions, deep nesting, magic numbers, bad naming, redundant comments, dead code, dedup, over-abstraction.
 
    **Security** (dispatch `security-auditor` + `auth-reviewer` + `secret-scan` + `deps-audit` + `threat-model`):
@@ -69,7 +69,7 @@ The agent:
 
    The detector's *logic* is universal; the *fingerprint* the agent looks for adapts per `PROJECT_KIND`. A detector that has no meaningful fingerprint for a given `PROJECT_KIND` is marked N/A and skipped — not silently ignored. Multi-tenant axis (#8) is the only axis that's gated on a tenancy-anchor; everything else applies to every stack.
 
-   **Unhandled-I/O pass (happy-path-only code — runs alongside the 13 scale-lens detectors, same dispatch wave):** every I/O call site (network / DB / queue / file / external process) with NO error path at all — no catch, no error-return check, no timeout where the medium needs one, no failure state surfaced to the caller or UI. The code works on the happy path and crashes/hangs on the first failure — the canonical AI-generated-code defect. Same detector contract as the align pack's `unhandled-io` class (`align/rules/align-discipline.md`): enumerate I/O sites from `_extracted-idioms.md` primitives, trace the failure path, cross-check the caller chain before flagging. Findings rank **P1 (correctness)** — read-path sites on cold paths may demote to P4 with justification; write-path sites (DB mutation / queue publish / payment) never demote. Closure: route through the project's wrapped I/O primitive; regression test asserts the failure mode now surfaces (same-commit assertion rule).
+   **Unhandled-I/O pass (happy-path-only code — runs alongside the 13 scale-lens detectors, same dispatch wave):** every I/O call site (network / DB / queue / file / external process) with NO error path at all — no catch, no error-return check, no timeout where the medium needs one, no failure state surfaced to the caller or UI. The code works on the happy path and crashes/hangs on the first failure — the canonical AI-generated-code defect. Executor: the code-quality pack's `error-handling-scan` skill — § 3 (a failure signal never read), § 4 (an async failure nobody observes), and § 1 / § 2 for the sites whose error path exists but swallows — each Finding proved by a port fault injection, so this pass re-derives nothing. It is the same class as the align pack's `unhandled-io` (`align/rules/align-discipline.md`). Without the code-quality pack, the fallback is that contract: enumerate I/O sites from `_extracted-idioms.md` primitives, trace the failure path, cross-check the caller chain before flagging. Outbound timeouts, retries and breakers stay with `resilience-reviewer` (Scale/resilience row). Findings rank **P1 (correctness)** — read-path sites on cold paths may demote to P4 with justification; write-path sites (DB mutation / queue publish / payment) never demote. Closure: route through the project's wrapped I/O primitive; regression test asserts the failure mode now surfaces (same-commit assertion rule).
 
    **Polyglot monorepo handling**: when scope spans multiple `PROJECT_KIND` (e.g., a Next.js frontend + a NestJS API + a Python data pipeline), each subdirectory's PROJECT_KIND drives axis routing for that subtree. Per-tier fixes still cross subtrees when blast-radius requires it (e.g., adding idempotency keys to the API also requires the frontend retry handler to send them — `/audit` files both fixes under the same plan row).
 
@@ -256,14 +256,14 @@ Wave B (global axes, unchanged — 8 concurrent subagents):
 
 | Sub-wave | Agent / skill | Reads | Emits to |
 |---|---|---|---|
-| Architecture | `architectural-diagnosis` skill | source + `_extracted-idioms.md` | `ai/audit/_arch.md` |
-| SOLID + clean code | `code-reviewer` agent + `refactoring-sweep` skill | source + `core-discipline.md` | `ai/audit/_quality.md` |
+| Architecture | `architectural-diagnosis` skill (§ 1–§ 8 smells, § 9 hotspots) | source + `_extracted-idioms.md` + `.claude/_graph.json` | `ai/audit/_arch.md` |
+| Code quality | the `/quality-audit` class ledger (code-quality pack): read the newest `ai/audits/<date>-quality.md` when it is newer than the scope's last commit, else dispatch its detectors — `error-handling-scan`, `type-safety-scan`, `correctness-smell-scan`, `suppression-scan`, `dead-code-scan`, `duplication-scan` — and print its ledger rows unchanged; `code-reviewer` agent + `refactoring-sweep` skill for SOLID fingerprints | source + `core-discipline.md` | `ai/audit/_quality.md` |
 | Security | `security-auditor` agent + `auth-reviewer` (if auth surface) + `secret-scan` + `deps-audit` + `threat-model` | source + manifests | `ai/audit/_security.md` |
 | DB perf | `database-optimizer` + `query-optimizer` + `schema-reviewer` + `schema-consistency-audit` + the database detectors (when installed: `n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `migration-safety`, `transaction-scan`, `connection-config-scan`) | migrations + queries + ORM models | `ai/audit/_db.md` |
 | Runtime perf | `performance-optimizer` + `caching-architect` + the performance detectors (when installed: `request-path-scan`, `memory-growth-scan`, `caching-scan`) | source + `ai/patterns/caching-strategy.md` + `indexing-strategy.md` | `ai/audit/_perf.md` |
 | **Scale/resilience** (own detectors) | `system-architect` + `resilience-reviewer` + scale-lens scan | source + `ai/observability.md` + dashboards if wired | `ai/audit/_scale.md` |
 | Infra/capacity | `infra-architect` + `k8s-reviewer` (if k8s files) | Dockerfile + manifests + IaC | `ai/audit/_infra.md` |
-| Observability | `observability-reviewer` + `telemetry-architect` + `sre-engineer` | source + dashboards + alert config | `ai/audit/_obs.md` |
+| Observability | `observability-reviewer` + `telemetry-architect` + `sre-engineer` | source + dashboards + alert config | `ai/audit/_observability.md` |
 
 Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<estimated-impact>` + `<estimated-cost>`. NOT shown to user.
 

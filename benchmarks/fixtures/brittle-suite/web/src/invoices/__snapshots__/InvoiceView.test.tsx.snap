@@ -1,0 +1,111 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`InvoiceView renders the invoice with its lines and totals 1`] = `
+<div>
+  <article
+    aria-labelledby="invoice-title"
+    class="invoice"
+  >
+    <header
+      class="invoice__header"
+    >
+      <h1
+        id="invoice-title"
+      >
+        Invoice 
+        INV-2026-0042
+      </h1>
+      <p
+        class="invoice__meta"
+      >
+        Currency: 
+        EUR
+      </p>
+    </header>
+    <table
+      class="invoice__lines"
+    >
+      <thead>
+        <tr>
+          <th
+            scope="col"
+          >
+            Item
+          </th>
+          <th
+            scope="col"
+          >
+            Qty
+          </th>
+          <th
+            scope="col"
+          >
+            Unit price
+          </th>
+          <th
+            scope="col"
+          >
+            Line total
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            Stoneware mug
+          </td>
+          <td>
+            2
+          </td>
+          <td>
+            €4.50
+          </td>
+          <td>
+            €9.00
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Return label
+          </td>
+          <td>
+            1
+          </td>
+          <td>
+            €3.00
+          </td>
+          <td>
+            €3.00
+          </td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <th
+            colspan="3"
+            scope="row"
+          >
+            Subtotal
+          </th>
+          <td>
+            €12.00
+          </td>
+        </tr>
+        <tr>
+          <th
+            colspan="3"
+            scope="row"
+          >
+            Total due
+          </th>
+          <td
+            data-testid="invoice-total"
+          >
+            €NaN
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </article>
+</div>
+`;

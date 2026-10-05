@@ -84,9 +84,9 @@ one "grep for changes that lack tests" was a loop whose body was a comment: it r
   standard mode; on a minimal install `/test-audit` prints their rows `not run`, forcing
   `GO-UNVERIFIED`.
 
-**Known gaps.** No seeded fixture exists for this pack yet (`benchmarks/fixtures/brittle-suite` is
-designed, not built), so the detectors' recall was measured on one real repo and on fixtures that
-seed no testing class. Diff-time detection of a **changed** expected value, a widened tolerance, a
+**Known gaps.** The detectors' recall was measured on one real repo and on fixtures that seed no
+testing class; the seeded fixture for this pack (`benchmarks/fixtures/brittle-suite`) was still being
+built when this release was cut, and no detector has been scored against its answer key yet. Diff-time detection of a **changed** expected value, a widened tolerance, a
 snapshot rewrite, a `NODE_ENV === 'test'` branch or an equality override belongs to
 `test-integrity.py` v2 (repo-baseline); until it ships, `test-double-scan` § 5–§ 6 run on diffs too,
 and `/test-fix`'s self-check cannot see a flipped expected value. `oracle-check.py` reads supertest's

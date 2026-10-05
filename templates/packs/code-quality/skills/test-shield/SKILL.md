@@ -19,10 +19,11 @@ This is the pre-sweep counterpart to `smoke-verify` (which runs after). Dead-cod
 - Dispatched in **Phase 0** of `/optimize` and `/audit` (before any structural/perf fix), per in-scope file set.
 - On demand: `pin coverage before refactoring <area>`.
 - N/A for pure additive work (new feature, new file) — there's no existing behaviour to preserve.
+- **Never for a behaviour-changing class.** A swallowed error (`silent-catch`; `error-handling-scan` § 1–§ 7), a failure returned as success, a correctness smell (`correctness-smell-scan`), a boundary cast with no validator (`type-safety-scan` § 1), a dead check that hid an intended refusal (`dead-code-scan` § 3), a copy that diverged (`duplication-scan` § 1–§ 2), and every security fix change what the caller observes on purpose. A characterization test pins today's behaviour *bugs included*, so pinning one of these pins the defect, and the fix then turns the pin red. Those rows skip this skill with `shield: skipped (behaviour-changing: <class>)` and go to `/quality-fix` (or the owning fix command), whose proof is a failing-first test written against the intended behaviour.
 
 ## Procedure (stack-conditional via PROJECT_KIND + project test runner)
 
-1. **Determine the touched set**: the files/functions the planned fix will modify (from the optimize/audit finding's scope).
+1. **Determine the touched set**: the files/functions the planned fix will modify (from the optimize/audit finding's scope). First drop every row whose class is behaviour-changing (§ When to use): it is not shielded, it is proved failing-first elsewhere.
 2. **Measure coverage** of that set using the project's coverage tool (reuse `testing/skills/coverage-gap/SKILL.md`; runner from `ai/stack.md` § Scripts — `pytest --cov` / `vitest --coverage` / `jest --coverage` / `go test -cover` / etc.).
 3. **For each touched branch with no covering test**:
    - Dispatch `/add-test` to write a **characterization test** that asserts the CURRENT (pre-fix) observable behaviour — inputs → outputs/side-effects as they are TODAY, bugs included (this is a pin, not a correctness judgement).

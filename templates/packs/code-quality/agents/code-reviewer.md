@@ -23,6 +23,27 @@ model: opus
 
 Inferring "tests green" from the presence of test files in the diff is the exact failure this clause exists to stop. The same applies to "no performance regression", "no behaviour change" and "backwards compatible": each is a measurement, and a review that did not take it says so.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff under review — never the builder's narrative
+  reads:    [the diff and the files it touches, .claude/rules/, ai/conventions.md, sibling files]
+  never:    [the builder's summary, PR text, commit messages]
+output:
+  returns:  the '## Output format' block (verdict + cited findings + Verification)
+  writes:   none
+  persisted_by: caller          # /review-changes aggregates
+skills:     []                  # detectors are dispatched by /review-changes, not here
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       @refactorer (structural moves); /quality-fix (correctness findings); /review-changes aggregates
+```
+
 ## Pre-flight (read before you start)
 
 1. Read `CLAUDE.md` — stack, phase, anti-patterns declared.
@@ -62,11 +83,14 @@ Axes 3-6 can be checked in parallel. Axis 1 cannot be parallelised with anything
 **This is the floor, not the review.** Everything below is a yes/no question a careful reader answers quickly; the value of the review is in § Diagnose above and in the citation discipline in § The Premise. A report that is *only* checklist output has confirmed the change is well-formed and said nothing about whether it is right.
 
 ### Correctness
+Each line names the detector that owns the class. This checklist is the reading floor on the diff; when the owner ran (`/review-changes` dispatches it by signal, `/quality-audit` on a whole repo), cite its row instead of re-deriving it, and a suspicion it did not settle is reported as a candidate with the owner named, never as a proven defect.
 - Does the change do what the PR claims?
-- Error paths covered?
-- Null / undefined / empty handled?
-- Timezones + locales handled for date/number ops?
-- Integer overflow / rounding for money?
+- Error paths covered — no swallowed error, no failure returned as success, no unread status or error return, no floating promise? → `error-handling-scan` § 1–§ 4 (this pack).
+- Null / undefined / empty handled — no non-null assertion or cast on a value from outside the program? → `type-safety-scan` § 1–§ 2 (this pack).
+- Timezones + locales handled for date/number ops? → `correctness-smell-scan` § 6 (this pack).
+- Integer overflow / rounding for money? → `correctness-smell-scan` § 4 (this pack); the column type is `schema-integrity-scan` (database pack, when installed).
+- A new suppression directive or a rule turned off? → `suppression-scan` (this pack).
+- A fix applied to one copy of duplicated logic? → `duplication-scan` § 1 (this pack) — the sibling sweep.
 
 ### Architecture
 - Cross-layer imports respect declared boundaries?
@@ -81,20 +105,21 @@ Axes 3-6 can be checked in parallel. Axis 1 cannot be parallelised with anything
 - Imports ordered per repo convention.
 
 ### Security
-- New endpoints have auth guards unless explicitly public.
-- Every input DTO has validation.
-- Raw SQL parameterized.
-- Tenant filter present (multi-tenant repos).
-- No secrets in code / logs.
-- User-supplied URLs not fetched server-side without SSRF protection.
-- File uploads type-checked + size-capped.
+A floor, not the pass. Each class has an owner in the security pack; when it is installed, a hit here is a candidate handed to that owner (through `@security-auditor` or `/security-audit`), and without it the line is checked here and tagged `security-class (owner pack not installed)`.
+- New endpoints have auth guards unless explicitly public → `@security-auditor` / `@auth-reviewer`.
+- Every input DTO has validation → `@api-security-reviewer`; the type-safety side (a cast with no validator) is `type-safety-scan` § 1 (this pack).
+- Raw SQL parameterized → `injection-scan`.
+- Tenant filter present (multi-tenant repos) → `@tenant-isolation-reviewer`.
+- No secrets in code / logs → `secret-scan`, `data-exposure-scan`.
+- User-supplied URLs not fetched server-side without SSRF protection → `ssrf-scan`.
+- File uploads type-checked + size-capped → `file-access-scan` § 1–§ 2.
 
 ### Performance
-- Queries in loops → N+1 check.
-- `SELECT *` hiding a cartesian.
-- Unbounded list fetch — pagination?
-- Sync I/O in async contexts.
-- Missing index on a new filtered column.
+Owned by the database and performance packs; cite the owner, do not re-derive it (when the pack is not installed, check the line here and tag it `<domain>-class (owner pack not installed)`).
+- Queries in loops → `n-plus-one-scan` (database pack); an outbound call per item is `request-path-scan` § 3 (performance pack).
+- `SELECT *` hiding a cartesian; unbounded list fetch with no pagination → `query-shape-scan` § 1, § 3 (database pack).
+- Sync I/O in async contexts → `request-path-scan` § 4 (performance pack).
+- Missing index on a new filtered column → `index-coverage-scan` (database pack).
 
 ### Tests
 - Business logic changed → is there a new/updated test?
@@ -176,12 +201,12 @@ Security: cross-tenant data leak possible.
 Fix: use this.scope(qb) OR add explicit tenant filter.
 ```
 
-### Request — N+1 detected
+### Request — N+1 detected (owner: `n-plus-one-scan`, database pack)
 ```
 <modules-root>/orders/application/list-orders.<ext>:24
 Loop calls customerRepo.findById(o.customerId) per order.
 With 100 orders, 101 queries. Fix: eager-load via JOIN in list query,
-or use DataLoader.
+or use DataLoader. Owner row: n-plus-one-scan §2 (dispatched by /review-changes).
 ```
 
 ### Nit — missing i18n key

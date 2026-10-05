@@ -90,6 +90,7 @@ Examples:
    - Layer audit (which module imports across layers; flags layer violations).
    - Cross-cutting scan (auth / logging / error / metrics — centralised or duplicated?).
    - Repetition analysis (≥3 sites of same shape → missing-abstraction candidate).
+   - Hotspots (`architectural-diagnosis` § 9) — churn × complexity per function, ranked against the repo's own distribution (`git log -L` fix share on the function's own lines); a hot, untested branch is pinned by `test-shield` before Phase 2 touches it. Thresholds are relative cut-offs, never fixed line counts.
    Emits internal `ai/optimize/_architecture-decisions.md` listing foundation-level fixes (cascade impact) vs cosmetic (would be tactical anyway). NOT shown to user.
 
 1.5. **Phase 0.5 — test-shield (coverage gate)** (dispatched via `test-shield` skill in code-quality pack). Before any behaviour-preserving fix touches a branch, measure coverage of the in-scope set; for each touched-but-uncovered branch, pin current behaviour with a characterization test (`/add-test`) BEFORE the fix, or mark the finding `blocked`. "Tests stay green" is only proof of preservation when a test exercises the touched branch. **Write the measured baseline percentage to `ai/optimize/_coverage-baseline`** — this is the artifact step 7's "coverage must not drop" compares against, and the validator reads it mechanically (`check_coverage_not_dropped`: after-coverage from the report's `Coverage:` line must be ≥ baseline). If the baseline file or the `Coverage:` line is absent the gate degrades to best-effort (agent-side) and only warns.
@@ -97,7 +98,7 @@ Examples:
 2. **Phase 1 — Apply foundations FIRST** (architectural closure verbs):
    `move-responsibility`, `introduce-abstraction`, `fix-layering`, `centralize-cross-cutting`, `split-god-module`, `decouple-cycle`, `merge-anemic-module`. Each foundation fix gets one commit. Re-runs typecheck + scoped tests after each.
 
-3. **Phase 2 — Tactical scan** (after foundations land). Dispatches `detect-drift` skill (from align pack) with `--include-classes=dead-code,duplicated-logic,over-abstraction,performance,refactoring,clean-code,solid-violation` and re-runs against the now-restructured tree. Many earlier findings dissolve automatically.
+3. **Phase 2 — Tactical scan** (after foundations land). The tactical classes have code-quality owners, dispatched against the now-restructured tree: **dead code** → `dead-code-scan` (§ 1–§ 5; its Safe bucket is actionable, Investigate goes to `@dead-code-finder`); **duplication** → `duplication-scan` (identical clones whose canonical copy the project names → `dedupe`; a copy that diverged or a business rule implemented twice is behaviour-changing → `/quality-fix`, never `dedupe`); **long / complex functions** → `architectural-diagnosis` § 9 hotspots, so only hot functions become `refactoring-sweep` rows. When a `/quality-audit` report (`ai/audits/<date>-quality.md`) is newer than the scope's last commit, read its Dead code, Duplication and Architecture ledger rows instead of re-running those detectors, and leave its correctness rows (error handling, type safety, correctness smells, suppressions) to `/quality-fix` — `/optimize` preserves behaviour and does not close them. Then dispatch `detect-drift` (align pack, when installed) with `--include-classes=over-abstraction,performance,refactoring,clean-code,solid-violation` for the remaining classes. Many earlier findings dissolve automatically.
 
 4. **Resolve scope** — semantic resolution of description to source paths.
 
@@ -397,9 +398,11 @@ For specialist or class-specific runs, the existing detailed surfaces still exis
 - `/profile-perf` — runtime profile capture (performance pack).
 - `/simplify` — code simplification command (code-quality pack).
 - `/check-health` — read-only quality + boundary audit (code-quality pack).
-- `architectural-diagnosis` skill — layer-violation / god-module detection.
+- `/quality-audit` — read-only code-quality audit with a fixed class ledger (code-quality pack); `/quality-fix` closes its correctness findings.
+- `architectural-diagnosis` skill — import-graph lanes, layer / cycle / god-module detection, § 9 churn × complexity hotspots.
 - `refactoring-sweep` skill — tactical close-out (clean code / SOLID / dedup).
 - `dead-code-scan` skill — dead-code detection: unused files and exports, unreachable statements, dead flag branches, each with a removal proof.
+- `duplication-scan` skill — divergent copies and one business rule implemented twice, each with a divergence test.
 - `/db-audit` — database-only.
 
 `/optimize` dispatches these internally with sensible defaults.

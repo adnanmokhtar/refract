@@ -18,8 +18,8 @@ The deep-comparison entry point. Run this FIRST before `/align-plan` or `/align-
 **Trust nothing.** This command does NOT take any prior "fixed" status as truth — every finding from a previous run is freshly re-verified against current source. The ledger that comes out reflects current reality, not history.
 
 **Stack-conditional dispatch.** The detector set is PROJECT_KIND-conditional. Every project gets the 11 universal detectors:
-- **6 structural**: dead-code, duplicates, reinvented-wrapper, silent-catch, over-abstraction, drift.
-- **5 functional**: SOLID violations, clean-code violations, performance, security (dependency vulnerabilities are step 7 *inside* the security detector, not a twelfth detector), unhandled-io (happy-path-only I/O — no error path / no timeout / no failure surfacing at an I/O call site).
+- **5 structural**: dead-code, duplicates, reinvented-wrapper, over-abstraction, drift.
+- **6 functional**: silent-catch (behaviour-changing; `error-handling-scan` detects it and `/quality-fix` closes it when the code-quality pack is installed), SOLID violations, clean-code violations, performance, security (dependency vulnerabilities are step 7 *inside* the security detector, not a twelfth detector), unhandled-io (happy-path-only I/O — no error path / no timeout / no failure surfacing at an I/O call site).
 
 Frontend stacks (`frontend-*`) additionally run UI/UX detectors (a11y, design tokens, i18n, motion, lifecycle, permission gates, default-true wrapper props) — UI/UX is mandatory for frontend, not optional. Backend stacks add tenant-gate / N+1 / transaction-boundary detectors. Mobile stacks add native-bridge detectors.
 
@@ -479,7 +479,8 @@ Align scan complete:
     Heavy:                    <H>
 
   Class breakdown:
-    Structural:               <N> (dead-code, dups, reinvented, silent-catch, over-abstraction, drift)
+    Structural:               <N> (dead-code, dups, reinvented, over-abstraction, drift)
+    Silent-catch:             <N> (functional; → /quality-fix)
     SOLID:                    <N>
     Clean-code:               <N>
     Performance:              <N>

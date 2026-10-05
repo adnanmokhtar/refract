@@ -48,7 +48,7 @@ Every finding-fix produces an artifact set scaled to its actual risk. Tier is se
 | **heavy** | Any of: cross-package boundary change OR public API surface change OR removes a symbol used outside the module being aligned OR touches >10 files OR touches an auth / data / billing / migration path OR class is critical-security (auth bypass / SQL injection on production endpoint / secret-in-committed-code / RCE vector) OR perf change ships an index migration | + impact analysis (file+line of every consumer) + reviewer-approved before merge |
 
 **Rules**:
-- **Default tier is trivial for structural classes** (dead-code, dups, reinvented-wrapper, silent-catch, over-abstraction, drift), unless a standard / heavy promoter above fires.
+- **Default tier is trivial for structural classes** (dead-code, dups, reinvented-wrapper, over-abstraction, drift), unless a standard / heavy promoter above fires.
 - **Security findings are NEVER trivial** — always ≥ standard; critical security ALWAYS heavy; downgrading a security row is forbidden. This floor is absolute and is repeated nowhere else in this rule.
 - **Performance** starts at standard for hot-path code (entry endpoints / request handlers / loop-bound), trivial for cold paths (test setup / one-time scripts / debug builds). **SOLID** starts at standard in shared modules, trivial in private internals. **Clean-code** is typically trivial unless the rename touches a public API name.
 - Tier is **set by scan**, written to the row's `tier:` + `tier_reason:`; the scan MUST state the tier in 1 sentence per row citing trigger absence/presence.
@@ -67,17 +67,18 @@ Two properties make them safe: a guard reduces what was *examined* and says so �
 
 ## Finding categories — universal taxonomy
 
-Eleven universal classes: **6 structural** (entropy-reducing; `net-lines ≤ 0` is a hard rule) and **5 functional** (correctness-improving; added lines allowed on a small budget and must cite an idiom). A twelfth class value, `stack-specific`, carries the per-stack findings the stack packs define. Per-stack packs extend the taxonomy; these are the universal floor every project gets.
+Eleven universal classes: **5 structural** (entropy-reducing; `net-lines ≤ 0` is a hard rule) and **6 functional** (correctness-improving; added lines allowed on a small budget and must cite an idiom). A twelfth class value, `stack-specific`, carries the per-stack findings the stack packs define. Per-stack packs extend the taxonomy; these are the universal floor every project gets.
 
 | Group | Classes |
 |---|---|
-| **Structural** (net-lines ≤ 0 hard) | `dead-code` · `duplicated-logic` · `reinvented-wrapper` · `silent-catch` · `over-abstraction` · `drift` |
-| **Functional** (small + budget, cite an idiom) | `solid-violation` · `clean-code` · `performance` · `security` · `unhandled-io` |
+| **Structural** (net-lines ≤ 0 hard) | `dead-code` · `duplicated-logic` · `reinvented-wrapper` · `over-abstraction` · `drift` |
+| **Functional** (small + budget, cite an idiom) | `solid-violation` · `clean-code` · `performance` · `security` · `unhandled-io` · `silent-catch` |
 | **Stack-conditional** | `stack-specific` — frontend (a11y, design tokens, i18n, motion, lifecycle, default-true wrapper props, permission-gate drop) · backend (tenant gate, transaction boundary) · data (column projection, idempotency) · mobile (native bridge) |
 
-**Detector fingerprint, default closure verb, tier suggestion and severity rubric per class are defined once — in `detect-drift`, Detectors 1–11.** That skill is the executable form and ships with the pack; this rule does not restate it. Three boundaries are decided here, because each is decided wrongly often enough to have produced findings:
+**Detector fingerprint, default closure verb, tier suggestion and severity rubric per class are defined once — in `detect-drift`, Detectors 1–11.** That skill is the executable form and ships with the pack; this rule does not restate it. Four boundaries are decided here, because each is decided wrongly often enough to have produced findings:
 
 - **`silent-catch` vs `unhandled-io`** — in `silent-catch` an error path exists and swallows it; in `unhandled-io` there is no error path at all (no catch, no error-return check, no timeout where the medium needs one, no failure surfaced). `unhandled-io` is the canonical AI-generated-code defect: fetch-and-render / fetch-and-write that works on the first run and hangs or crashes on the first failure. It is **functional, not structural** — its fix routes the call through the project's wrapped I/O primitive and legitimately adds lines. If no wrapped primitive exists for that medium, halt → `/setup-project --refine`; never hand-roll try/catch per site.
+- **`silent-catch` is functional, not structural.** Removing a swallow changes what the caller observes — the failure now surfaces — so a behaviour-preserving fix of it is a contradiction, and a characterization test that pins the swallow pins the bug. Its fix is proved failing-first: a fault-injection test (the port rejects; the caller must see the failure) fails on the current code, then passes. Halt #7 treats that change as intended, the way it treats a security fix, once `notes` documents it. When the code-quality pack is installed — it is universal, so normally — detection dispatches `error-handling-scan` (§ 1 dropped error, § 2 failure as a success value) and the row is handed to `/quality-fix`, which writes that test; without it, Detector 4's greps run and the fix is `replace-with-shared` through the project's error handler, committed with the same failing-first test.
 - **`drift` requires a written convention.** A deviation is `drift` only when the convention is documented in `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`. A codebase where half the modules do X and half do Y, with the oracle naming neither, has **no `drift` row available** — that is a bimodal convention, and the route is `/setup-project --refine` (adopt one into the oracle) or `/polish` (introduce one). Picking a winner by majority vote is introducing a convention, not enforcing one.
 - **`security` sub-classes carry a `severity`**, and severity — not class — sets the heavy floor. `sql-injection`, `secret-in-code`, `unsafe-deserialize` and anything `severity: critical` are heavy; the rest are standard.
 

@@ -18,10 +18,10 @@ This pack is loaded **on demand** via `--include=align` (no auto-load — alignm
 
 ## What align covers
 
-Align is the codebase's quality gate. The 11 universal detector classes — 6 structural + 5 functional — plus per-stack extensions (a 12th class value, `stack-specific`, carries those):
+Align is the codebase's quality gate. The 11 universal detector classes — 5 structural + 6 functional — plus per-stack extensions (a 12th class value, `stack-specific`, carries those):
 
-- **Structural** (net-lines ≤ 0; entropy-reducing) — dead code, duplicated logic, reinvented wrappers, silent catches, over-abstraction, drift from gold standard.
-- **Functional** (small + budget; added lines must cite idioms) — SOLID violations (SRP/OCP/LSP/ISP/DIP), clean-code (long functions / deep nesting / magic numbers / bad naming), performance (N+1 / sequential await / sync HTTP in hot path / missing cache / missing index / `SELECT *` / in-app filter), security (missing auth gate / SQL injection / XSS / secrets / unsafe deserialize / missing validator / vuln deps / tenant isolation / CSRF / rate-limit), unhandled-io (happy-path-only I/O — call sites with no error path / no timeout / no failure surfacing; the absent-error-path sibling of silent-catch).
+- **Structural** (net-lines ≤ 0; entropy-reducing) — dead code, duplicated logic, reinvented wrappers, over-abstraction, drift from gold standard.
+- **Functional** (small + budget; added lines must cite idioms) — SOLID violations (SRP/OCP/LSP/ISP/DIP), clean-code (long functions / deep nesting / magic numbers / bad naming), performance (N+1 / sequential await / sync HTTP in hot path / missing cache / missing index / `SELECT *` / in-app filter), security (missing auth gate / SQL injection / XSS / secrets / unsafe deserialize / missing validator / vuln deps / tenant isolation / CSRF / rate-limit), unhandled-io (happy-path-only I/O — call sites with no error path / no timeout / no failure surfacing; the absent-error-path sibling of silent-catch), silent-catch (a swallowed error — behaviour-changing, so proved by a failing-first fault-injection test; `error-handling-scan` + `/quality-fix` own it when the code-quality pack is installed).
 - **Frontend stack** — a11y violations, design-token drift, i18n key drift, raw library components in pages, missing UI states (loading/empty/error), motion drift, responsive drift, lifecycle hook on wrong child, default-true wrapper props, permission-gate drop.
 - **Backend stack** — tenant-gate-missing, transaction-boundary, query-without-tenant-filter.
 - **Data stack** — column-projection-mismatch, idempotency-key-missing, sync-http-in-batch.

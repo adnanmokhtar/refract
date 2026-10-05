@@ -1,12 +1,13 @@
 import { Entity, PrimaryKey, Property, Unique } from '@mikro-orm/core';
 
+// Emails are case-insensitive (citext): "Ana@Shop.test" and "ana@shop.test" are one customer per tenant.
 @Entity({ tableName: 'customer' })
-@Unique({ name: 'customer_tenant_email_ci', expression: 'create unique index customer_tenant_email_ci on customer (tenant_id, lower(email))' })
+@Unique({ properties: ['tenantId', 'email'] })
 export class Customer {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string;
 
   @Property() tenantId!: string;
-  @Property() email!: string;
+  @Property({ columnType: 'citext' }) email!: string;
   @Property({ nullable: true }) phone?: string;
 }

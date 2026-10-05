@@ -1,6 +1,6 @@
 ---
 name: detect-drift
-description: Stack-conditional drift detector for codebase alignment. Runs the 11 universal detectors (6 structural + 5 functional — SOLID, clean code, performance, security, unhandled-io) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
+description: Stack-conditional drift detector for codebase alignment. Runs the 11 universal detectors (5 structural + 6 functional — silent-catch, SOLID, clean code, performance, security, unhandled-io) plus per-stack detectors against the gold-standard inventory. Emits a finding row per fingerprint hit with evidence cited to <path:line>. Used by /align-scan and /align-fast.
 kind: skill
 pack: align
 allowed-tools: [Read, Write, Grep, Glob, Bash]
@@ -83,7 +83,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 
 #### Detector 1: dead-code
 
-**Tool**: dispatch `dead-code-finder` agent (full repo) OR run the project's tree-shake / unused-export tool (`ts-unused-exports`, `pyflakes`, `unimport`, `staticcheck` etc.).
+**Tool**: when the code-quality pack is installed, dispatch its `dead-code-scan` skill (§ 1 unused files and exports, § 3 unreachable statements, § 4 dead flag branches) and convert its **Safe** bucket into rows; its Investigate and Monitor items are not rows (a loader, reflection or public-API question is still open) and are listed under `SKIP` with their settling step. Without the pack, run the project's own unused-export tool (`knip`, `vulture`, `deadcode`, `staticcheck` U1000) and the procedure below.
 
 **Procedure**:
 1. List all exported symbols across the codebase.
@@ -99,7 +99,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 
 #### Detector 2: duplicated-logic
 
-**Tool**: project's duplicate detector (`jscpd` / `pylint --enable=duplicate-code` / `dupl` etc.) with min-token threshold = 50.
+**Tool**: when the code-quality pack is installed, dispatch its `duplication-scan` skill. Align takes only the clusters whose canonical copy `_extracted-idioms.md` names (`dedupe` toward that copy); a copy that **diverged** (`duplication-scan` § 1) or one business rule implemented twice (§ 2) is behaviour-changing and goes to `/quality-fix`, never to `dedupe`. Without the pack, run the project's duplicate detector (`jscpd` / `pylint --enable=duplicate-code` / `dupl`). The min-token threshold is a triage cut-off — default 50, project config wins — and a cluster over it is a candidate, not a finding, until step 2 names the canonical copy.
 
 **Procedure**:
 1. Run the duplicate detector. Output: cluster of duplicate ranges across files.
@@ -129,7 +129,9 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 
 #### Detector 4: silent-catch
 
-**Tool**: grep.
+**Functional, not structural** (`align-discipline.md` § Finding categories): removing a swallow changes what the caller sees, so the row is never closed by a behaviour-preserving edit or under `net-lines ≤ 0`.
+
+**Tool**: when the code-quality pack is installed (it is universal), dispatch its `error-handling-scan` skill — § 1 (the error is dropped) and § 2 (failure turned into a success-shaped value) — and take its Findings as rows, each with its fault-injection proof; the row's fix is handed to `/quality-fix`, which writes the failing-first test. Without the pack, grep as below.
 
 **Procedure**:
 1. Grep for the project's empty-catch idioms:
@@ -139,9 +141,9 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
    - Other: per project's idioms in `_extracted-idioms.md`.
 2. Each hit is a finding.
 
-**Closure verb suggestion**: `replace-with-shared` (route through the project's error handler) OR `remove` (let it throw).
+**Closure verb suggestion**: `replace-with-shared` (route through the project's error handler) OR `remove` (let it throw) — either one committed with a failing-first fault-injection test, because the caller's observed behaviour changes.
 
-**Tier**: trivial.
+**Tier**: standard (a behaviour change); heavy on a money, auth or persisted-write path.
 
 **Output**: `<path:line>` per match.
 
@@ -202,7 +204,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 
 #### Detector 8: clean-code
 
-**Tool**: project's complexity tool (`eslint-plugin-complexity` / `radon` / `gocyclo` / `flake8 --max-complexity` / `rubocop`) with thresholds from `ai/conventions.md`.
+**Tool**: project's complexity tool (`eslint-plugin-complexity` / `radon` / `gocyclo` / `flake8 --max-complexity` / `rubocop`) with thresholds from `ai/conventions.md`. A score over a threshold is a candidate, not a finding: when the code-quality pack is installed, rank the long or complex functions through `architectural-diagnosis` § 9 (hotspot — churn × complexity, against the repo's own distribution) and emit rows only for those it marks HOT or whose rename / magic-number fix is mechanical; a cold function over the threshold is listed under `SKIP` as `cold (no churn, no fixes)`.
 
 **Procedure**:
 1. Run the complexity tool. Output: function-level complexity / nesting / length scores.
@@ -266,7 +268,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 
 #### Detector 11: unhandled-io (happy-path-only I/O)
 
-**Tool**: grep + caller-chain trace against the project's I/O primitives from `_extracted-idioms.md`.
+**Tool**: grep + caller-chain trace against the project's I/O primitives from `_extracted-idioms.md`. When the code-quality pack is installed, dispatch its `error-handling-scan` skill — § 3 (a failure signal never read: unchecked status or error return) and § 4 (an async failure nobody observes) are this class — and take its Findings as rows; the procedure below is the fallback without the pack. Outbound timeouts, retries and breakers belong to `@resilience-reviewer` when the distributed-systems pack is installed.
 
 **Procedure**:
 1. **Enumerate I/O call sites**: grep for the project's HTTP client, DB primitive, queue producer/consumer, file I/O, external-process spawn (concrete primitive names from `_extracted-idioms.md` — never generic `fetch(`-style greps when the project has a named client).

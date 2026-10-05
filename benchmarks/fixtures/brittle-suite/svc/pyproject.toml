@@ -1,0 +1,32 @@
+[project]
+name = "returnsdesk-svc"
+version = "3.8.0"
+description = "Refund risk scoring, receipts, FX quotes and settlement statements."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.115.8",
+  "httpx==0.28.1",
+  "pydantic==2.10.6",
+  "requests==2.32.3",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==9.0.1",
+  "pytest-asyncio==0.25.3",
+  "pytest-cov==6.0.0",
+  "freezegun==1.5.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+addopts = "--cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85

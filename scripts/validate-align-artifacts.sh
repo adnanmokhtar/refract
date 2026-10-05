@@ -270,7 +270,9 @@ ALL_VERBS="$STRUCTURAL_VERBS $FUNCTIONAL_VERBS"
 is_structural_class() {
   local cls="$1"
   case "$cls" in
-    dead-code|duplicated-logic|reinvented-wrapper|silent-catch|over-abstraction|drift)
+    # silent-catch is functional (align-discipline § Finding categories): removing a swallow
+    # changes observable behaviour, so the net-lines ≤ 0 rule does not apply to it.
+    dead-code|duplicated-logic|reinvented-wrapper|over-abstraction|drift)
       return 0 ;;
     *)
       return 1 ;;
