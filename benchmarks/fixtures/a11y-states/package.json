@@ -1,0 +1,13 @@
+{
+  "name": "lumen-home",
+  "private": true,
+  "packageManager": "pnpm@10.18.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:shop": "pnpm --filter @lumen/shop dev",
+    "dev:admin": "pnpm --filter @lumen/admin dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "e2e": "pnpm -r e2e"
+  }
+}

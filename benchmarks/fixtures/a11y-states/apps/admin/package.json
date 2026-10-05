@@ -1,0 +1,33 @@
+{
+  "name": "@lumen/admin",
+  "private": true,
+  "version": "0.21.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@tanstack/vue-query": "^5.90.2",
+    "axios": "^1.12.2",
+    "chart.js": "^4.5.0",
+    "gsap": "^3.13.0",
+    "pinia": "^3.0.3",
+    "vee-validate": "^4.15.1",
+    "vue": "^3.5.22",
+    "vue-chartjs": "^5.3.2",
+    "vue-i18n": "^11.1.12",
+    "vue-router": "^4.5.1",
+    "vuedraggable": "^4.1.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2",
+    "vue-tsc": "^3.1.0"
+  }
+}

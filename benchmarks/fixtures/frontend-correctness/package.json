@@ -1,0 +1,12 @@
+{
+  "name": "harbor-market",
+  "private": true,
+  "packageManager": "pnpm@10.18.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:shop": "pnpm --filter @harbor/shop dev",
+    "dev:admin": "pnpm --filter @harbor/admin dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  }
+}

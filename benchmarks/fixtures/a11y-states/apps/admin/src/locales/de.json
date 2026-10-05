@@ -1,0 +1,12 @@
+{
+  "nav": { "orders": "Bestellungen", "customers": "Kunden", "invoices": "Rechnungen", "reports": "Berichte", "dashboard": "Übersicht", "auditLog": "Prüfprotokoll", "menu": "Menü-Editor", "settings": "Einstellungen", "collapse": "Seitenleiste einklappen" },
+  "common": { "save": "Speichern", "saved": "Einstellungen gespeichert", "retry": "Erneut versuchen", "close": "Schließen", "cancel": "Abbrechen", "loading": "Wird geladen…", "error": "Diese Seite konnte nicht geladen werden." },
+  "orders": { "title": "Bestellungen", "refund": "Erstatten", "amount": "Betrag", "reason": "Grund", "refundTitle": "Bestellung {number} erstatten" },
+  "customers": { "title": "Kunden" },
+  "invoices": { "title": "Rechnungen", "due": "Fällig" },
+  "reports": { "title": "Berichte", "failed": "Bericht konnte nicht geladen werden." },
+  "audit": { "title": "Prüfprotokoll", "none": "Noch keine Einträge." },
+  "dashboard": { "title": "Übersicht", "revenue": "Umsatz", "signups": "Anmeldungen", "latency": "Checkout-Latenz (p95, ms)" },
+  "login": { "email": "E-Mail", "password": "Passwort", "submit": "Anmelden" },
+  "cookie": { "text": "Wir verwenden Cookies, damit Sie angemeldet bleiben.", "accept": "OK" }
+}

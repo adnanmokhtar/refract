@@ -1,0 +1,97 @@
+{
+  "nav": {
+    "home": "الرئيسية",
+    "account": "حسابي",
+    "cart": "السلة",
+    "signIn": "تسجيل الدخول"
+  },
+  "search": {
+    "placeholder": "ابحث عن مصابيح وسجاد وكتان…",
+    "submit": "بحث"
+  },
+  "common": {
+    "close": "إغلاق",
+    "retry": "حاول مرة أخرى",
+    "genericError": "حدث خطأ ما",
+    "loading": "جارٍ التحميل…",
+    "save": "حفظ",
+    "saved": "تم الحفظ",
+    "cancel": "إلغاء",
+    "delete": "حذف"
+  },
+  "home": {
+    "heroTitle": "ضوء أهدأ",
+    "heroCta": "تسوّق تشكيلة الخريف",
+    "recentlyViewed": "شوهدت مؤخرًا",
+    "nothingViewed": "ستظهر هنا المنتجات التي تفتحها.",
+    "categories": "تسوّق حسب الغرفة"
+  },
+  "product": {
+    "addToCart": "أضف إلى السلة",
+    "quickAdd": "إضافة سريعة",
+    "wishlist": "احفظ في المفضلة",
+    "details": "التفاصيل",
+    "care": "العناية",
+    "shipping": "الشحن",
+    "reviews": "التقييمات",
+    "noReviews": "لا توجد تقييمات بعد.",
+    "sale": "تخفيض"
+  },
+  "cart": {
+    "title": "سلتك",
+    "remove": "إزالة {name}",
+    "increase": "واحد آخر من {name}",
+    "subtotal": "المجموع الفرعي",
+    "checkout": "الدفع"
+  },
+  "checkout": {
+    "contact": "بيانات التواصل",
+    "email": "البريد الإلكتروني",
+    "phone": "الهاتف",
+    "coupon": "رمز القسيمة",
+    "apply": "تطبيق",
+    "placeOrder": "أكمل الطلب",
+    "placing": "جارٍ إرسال الطلب…",
+    "orderPlaced": "تم الطلب — تحقق من بريدك",
+    "couponApplied": "تم تطبيق القسيمة"
+  },
+  "account": {
+    "orders": "الطلبات",
+    "wishlist": "المفضلة",
+    "profile": "الملف الشخصي",
+    "insights": "إحصاءات",
+    "loyalty": "نقاط لومن",
+    "recommended": "مختارة لك",
+    "storeCredit": "رصيد المتجر",
+    "verifyToSee": "أكّد بريدك الإلكتروني لرؤية رصيدك.",
+    "verifyCta": "أرسل رسالة التأكيد",
+    "giftCards": "بطاقات الهدايا",
+    "addresses": "العناوين",
+    "addAddress": "أضف عنوانًا",
+    "deleteList": "حذف هذه القائمة؟",
+    "lists": "القوائم المحفوظة",
+    "monthlySpend": "الإنفاق الشهري",
+    "pointsTrend": "النقاط عبر الوقت",
+    "wishlistHint": "اضغط على القلب في أي منتج لحفظه هنا.",
+    "colNumber": "الطلب",
+    "colDate": "التاريخ",
+    "colTotal": "الإجمالي",
+    "colStatus": "الحالة",
+    "line1": "العنوان",
+    "city": "المدينة",
+    "postcode": "الرمز البريدي"
+  },
+  "auth": {
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "signIn": "تسجيل الدخول",
+    "code": "رمز التحقق",
+    "verify": "تحقق"
+  },
+  "footer": {
+    "about": "من نحن",
+    "help": "المساعدة",
+    "legal": "قانوني",
+    "terms": "باستخدامك لومن فإنك توافق على <link>الشروط</link>."
+  }
+}

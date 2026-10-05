@@ -1,0 +1,21 @@
+{
+  "name": "@harbor/widgets",
+  "private": true,
+  "version": "0.4.0",
+  "scripts": {
+    "build": "ng build widgets && vite build"
+  },
+  "dependencies": {
+    "@angular/common": "^22.0.3",
+    "@angular/core": "^22.0.3",
+    "@angular/elements": "^22.0.3",
+    "@angular/platform-browser": "^22.0.3",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.0.2",
+    "@vitejs/plugin-legacy": "^7.2.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2"
+  }
+}

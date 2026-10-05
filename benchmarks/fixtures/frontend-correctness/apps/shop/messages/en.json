@@ -1,0 +1,106 @@
+{
+  "nav": {
+    "account": "Account",
+    "basket": "Basket",
+    "theme": "Dark mode"
+  },
+  "categories": {
+    "label": "Categories",
+    "fruit": "Fruit",
+    "vegetables": "Vegetables",
+    "bakery": "Bakery",
+    "dairy": "Dairy & eggs",
+    "pantry": "Pantry",
+    "drinks": "Drinks"
+  },
+  "search": {
+    "placeholder": "Search groceries",
+    "title": "Search",
+    "searching": "Searching…",
+    "error": "Search is unavailable right now.",
+    "noResults": "Nothing matched your search.",
+    "recent": "Recent searches"
+  },
+  "product": {
+    "saleEnds": "Sale ends in {minutes, plural, one {# minute} other {# minutes}}",
+    "eta": "Next delivery: {when}",
+    "notifyMe": "Email me when it's back",
+    "notifyDone": "We'll email you",
+    "summaryFallback": "Freshly picked from harbour-side shops.",
+    "nutrition": "Nutrition per 100 g"
+  },
+  "cart": {
+    "subtotal": "Subtotal",
+    "remove": "Remove",
+    "less": "One fewer",
+    "more": "One more",
+    "count": "{count, plural, =0 {Empty} one {# item} other {# items}}",
+    "substitutions": "If something is out of stock, your picker will choose the closest match.",
+    "error": "We couldn't load your basket.",
+    "retry": "Try again",
+    "empty": "Your basket is empty."
+  },
+  "checkout": {
+    "title": "Checkout",
+    "coupon": "Coupon",
+    "apply": "Apply",
+    "slot": "Delivery slot",
+    "loadingSlots": "Finding slots…",
+    "slotsError": "Slots are unavailable right now.",
+    "placeOrder": "Place order",
+    "held": "Slot held for {minutes}:{seconds, number, ::00}"
+  },
+  "account": {
+    "nav": "Account",
+    "overview": "Overview",
+    "orders": "Orders",
+    "addresses": "Addresses",
+    "addAddress": "Add an address",
+    "line1": "Address",
+    "city": "City",
+    "phone": "Phone",
+    "postcode": "Postcode",
+    "save": "Save",
+    "recent": "Recent orders",
+    "hello": "Hello, {name}",
+    "loading": "Loading orders…",
+    "error": "We couldn't load your orders.",
+    "retry": "Try again",
+    "noOrders": "No orders yet.",
+    "reorder": "Order again",
+    "colOrder": "Order",
+    "colStatus": "Status",
+    "colTotal": "Total",
+    "deliveringTo": "Delivering to {address}",
+    "profileHint": "Update your details in the app.",
+    "status": {
+      "placed": "Placed",
+      "picking": "Being picked",
+      "out-for-delivery": "Out for delivery",
+      "delivered": "Delivered"
+    }
+  },
+  "catalog": {
+    "sort": "Sort by",
+    "pages": "Pages",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {pages}",
+    "sorts": {
+      "relevance": "Relevance",
+      "price-asc": "Price: low to high",
+      "price-desc": "Price: high to low",
+      "newest": "Newest"
+    }
+  },
+  "recipes": {
+    "title": "Recipes",
+    "item": "ingredient",
+    "items": "ingredients"
+  },
+  "footer": {
+    "about": "About",
+    "help": "Help",
+    "privacy": "Privacy"
+  }
+}

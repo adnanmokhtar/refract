@@ -1,0 +1,12 @@
+{
+  "nav": { "orders": "Orders", "customers": "Customers", "invoices": "Invoices", "reports": "Reports", "dashboard": "Dashboard", "auditLog": "Audit log", "menu": "Menu builder", "settings": "Settings", "collapse": "Collapse sidebar" },
+  "common": { "save": "Save", "saved": "Settings saved", "retry": "Retry", "close": "Close", "cancel": "Cancel", "loading": "Loading…", "error": "Could not load this page." },
+  "orders": { "title": "Orders", "refund": "Refund", "amount": "Amount", "reason": "Reason", "refundTitle": "Refund order {number}" },
+  "customers": { "title": "Customers" },
+  "invoices": { "title": "Invoices", "due": "Due" },
+  "reports": { "title": "Reports", "failed": "Report failed to load." },
+  "audit": { "title": "Audit log", "none": "No audit entries yet." },
+  "dashboard": { "title": "Dashboard", "revenue": "Revenue", "signups": "Sign-ups", "latency": "Checkout latency (p95, ms)" },
+  "login": { "email": "Email", "password": "Password", "submit": "Sign in" },
+  "cookie": { "text": "We use cookies to keep you signed in.", "accept": "OK" }
+}

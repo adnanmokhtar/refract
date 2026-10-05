@@ -1,0 +1,97 @@
+{
+  "nav": {
+    "home": "Home",
+    "account": "Account",
+    "cart": "Cart",
+    "signIn": "Sign in"
+  },
+  "search": {
+    "placeholder": "Search lamps, rugs, linen…",
+    "submit": "Search"
+  },
+  "common": {
+    "close": "Close",
+    "retry": "Try again",
+    "genericError": "Something went wrong",
+    "loading": "Loading…",
+    "save": "Save",
+    "saved": "Saved",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  },
+  "home": {
+    "heroTitle": "Light, made slower",
+    "heroCta": "Shop the autumn edit",
+    "recentlyViewed": "Recently viewed",
+    "nothingViewed": "Products you open will show up here.",
+    "categories": "Shop by room"
+  },
+  "product": {
+    "addToCart": "Add to cart",
+    "quickAdd": "Quick add",
+    "wishlist": "Save to wishlist",
+    "details": "Details",
+    "care": "Care",
+    "shipping": "Shipping",
+    "reviews": "Reviews",
+    "noReviews": "No reviews yet.",
+    "sale": "Sale"
+  },
+  "cart": {
+    "title": "Your cart",
+    "remove": "Remove {name}",
+    "increase": "One more {name}",
+    "subtotal": "Subtotal",
+    "checkout": "Checkout"
+  },
+  "checkout": {
+    "contact": "Contact details",
+    "email": "Email",
+    "phone": "Phone",
+    "coupon": "Coupon code",
+    "apply": "Apply",
+    "placeOrder": "Place order",
+    "placing": "Placing order…",
+    "orderPlaced": "Order placed — check your inbox",
+    "couponApplied": "Coupon applied"
+  },
+  "account": {
+    "orders": "Orders",
+    "wishlist": "Wishlist",
+    "profile": "Profile",
+    "insights": "Insights",
+    "loyalty": "Lumen points",
+    "recommended": "Picked for you",
+    "storeCredit": "Store credit",
+    "verifyToSee": "Verify your email to see your store credit.",
+    "verifyCta": "Send verification email",
+    "giftCards": "Gift cards",
+    "addresses": "Addresses",
+    "addAddress": "Add address",
+    "deleteList": "Delete this list?",
+    "lists": "Saved lists",
+    "monthlySpend": "Monthly spend",
+    "pointsTrend": "Points over time",
+    "wishlistHint": "Tap the heart on any product to save it here.",
+    "colNumber": "Order",
+    "colDate": "Placed",
+    "colTotal": "Total",
+    "colStatus": "Status",
+    "line1": "Address",
+    "city": "City",
+    "postcode": "Postcode"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "code": "Verification code",
+    "verify": "Verify"
+  },
+  "footer": {
+    "about": "About",
+    "help": "Help",
+    "legal": "Legal",
+    "terms": "By using Lumen you agree to our <link>terms</link>."
+  }
+}

@@ -1,0 +1,57 @@
+:root {
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --border: #e5e7eb;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-inline-end: 1px solid var(--border);
+}
+
+.content {
+  padding: var(--space-4);
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.status {
+  margin-left: var(--space-2);
+  text-align: left;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), 1fr);
+  gap: var(--space-3);
+}
+
+.tab {
+  width: 96px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.whats-new iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+}

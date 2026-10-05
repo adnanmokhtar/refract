@@ -1,0 +1,13 @@
+<section class="harbor-recipes">
+  <button type="button" (click)="sortByTime()">Quickest first</button>
+  <ul>
+    @for (recipe of recipes(); track $index) {
+      <li>
+        <span>{{ recipe.title }} · {{ recipe.minutes }} min</span>
+        <input [attr.aria-label]="'Note for ' + recipe.title" (input)="note(recipe.id, $any($event.target).value)" />
+      </li>
+    } @empty {
+      <li>No recipes yet.</li>
+    }
+  </ul>
+</section>

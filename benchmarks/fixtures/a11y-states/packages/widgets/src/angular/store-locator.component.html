@@ -1,0 +1,19 @@
+<section class="lumen-stores" aria-labelledby="lumen-stores-title">
+  <h2 id="lumen-stores-title">Lumen stores near you</h2>
+  @if (stores.isLoading()) {
+    <p aria-busy="true">Finding stores…</p>
+  } @else if (stores.error()) {
+    <p role="alert">
+      We could not load stores.
+      <button type="button" (click)="stores.reload()">Try again</button>
+    </p>
+  } @else {
+    <ul>
+      @for (store of stores.value(); track store.id) {
+        <li>{{ store.name }} — {{ store.city }}</li>
+      } @empty {
+        <li>No Lumen stores near this postcode yet.</li>
+      }
+    </ul>
+  }
+</section>

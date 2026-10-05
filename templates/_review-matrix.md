@@ -19,8 +19,8 @@ Two independent signals per cell. **Neither is trustworthy alone**, which is why
 
 | State | Meaning | Count |
 |---|---|---|
-| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 361 / 468 (77%) |
-| ○ `proposed` | one signal only — **a review queue, not coverage**. A human must read it. | 0 / 468 (0%) |
+| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 360 / 468 (76%) |
+| ○ `proposed` | one signal only — **a review queue, not coverage**. A human must read it. | 1 / 468 (0%) |
 | · `empty` | neither signal. No evidence of any material. **This is the deliverable.** | 101 / 468 (21%) |
 | – `n/a` | a `templates/concerns/` rule names this surface as having no meaningful fingerprint, **with a reason** | 6 / 468 (1%) |
 
@@ -83,7 +83,7 @@ workflow                ·   ·   ●   ●   ●   ●   ·   ●   ●   ·   
 _database               ·   ●   ●   ●   ·   ●   ●   ·   ●   ●   ●   ●
 _deployment             ●   ●   ●   ●   ●   ●   ●   ●   ●   ·   ●   ●
 _routes                 ●   ●   ●   ●   ●   ●   ●   ●   ●   ●   ·   ●
-_screens                ●   ●   ●   ●   ·   ●   ●   ●   ●   ●   ●   ●
+_screens                ●   ●   ●   ●   ·   ●   ○   ●   ●   ●   ●   ●
 ---------------------------------------------------------------------
 legend                  ● confirmed   ○ proposed (needs a read)   · empty   – n/a (reasoned)
 ```
@@ -123,13 +123,15 @@ could not tell a fingerprint from a passing mention, and reading found these.
 
 ### The `proposed` queue
 
-**Empty — every cell has been read.** `proposed` meant *one text signal fired and nobody
-looked*. All 242 were opened and judged in
-[`_review-decisions.md`](_review-decisions.md): 142 held up, 100 did not and moved to the
-empty column above.
+**1 cells.** One signal fired, no human has read them. Ranked by concern
+severity × queue length, so a reader can start where a single session buys the most:
 
-> A cell can only return to this state if a **new** surface or concern is added. The
-> triage proxies do not get a second vote on a cell a human has read.
+| Concern | Queued | Severity | Read first |
+|---|---|---|---|
+| **C7  Compliance** | 1 | 4 | `_screens` |
+
+> Resolving one is a read: open the surface's material, decide whether it genuinely
+> addresses the concern, and record the verdict in `_review-decisions.md`.
 
 ---
 
@@ -149,7 +151,7 @@ the full-text signal. Same thresholds, same three states.
 | `_database` | `database`, `migration` | 22 | 6 / 12 |
 | `_deployment` | `infrastructure`, `devops` | 18 | 4 / 12 |
 | `_routes` | `backend` | 16 | 7 / 12 |
-| `_screens` | `frontend`, `mobile`, `ui-ux` | 49 | 11 / 12 |
+| `_screens` | `frontend`, `mobile`, `ui-ux` | 62 | 10 / 12 |
 
 **Evidence strength is not symmetric with the domain half, and the grid does not pretend
 otherwise.** A domain surface is backed by 2 files; a structural one by 8 to 46. So the
@@ -167,7 +169,7 @@ here means **≥ 2 artifacts are individually about that concern**; one lone art
 
 ## 5. Artifacts behind the grid
 
-175 artifacts across 39 surfaces — domain files for the 35 signal surfaces,
+188 artifacts across 39 surfaces — domain files for the 35 signal surfaces,
 pack files (written `pack:name`) for the 4 structural ones. Every path is asserted to exist by
 `validate-review-matrix.sh`, in both directions — a renamed file breaks the build, and an
 artifact in no cell is reported.
@@ -211,5 +213,5 @@ workflow              workflow-reviewer, workflow-discipline
 _database             database:database-optimizer, database:query-optimizer, database:schema-architect, database:schema-reviewer, database:database-principles, database:connection-config-scan, database:index-coverage-scan, database:migration-rehearsal, database:migration-safety, database:n-plus-one-scan, database:query-shape-scan, database:schema-consistency-audit, database:schema-diff, database:schema-integrity-scan, database:transaction-scan, migration:migration-architect, migration:parity-auditor, migration:migration-discipline, migration:data-cutover-orchestrate, migration:extract-v1-contract, migration:parity-test-generate, migration:perf-uplift-survey
 _deployment           infrastructure:infra-architect, infrastructure:k8s-reviewer, infrastructure:kubernetes-architect, infrastructure:infra-principles, infrastructure:admission-policy, infrastructure:dr-audit, infrastructure:k8s-audit, infrastructure:network-exposure-audit, infrastructure:tf-plan-review, devops:ci-reviewer, devops:deployment-engineer, devops:devops-architect, devops:devops-principles, devops:dockerfile-lint, devops:gitops-audit, devops:monitor-deploy, devops:progressive-delivery, devops:release-security
 _routes               backend:api-architect, backend:api-reviewer, backend:bug-investigator, backend:endpoint-tester, backend:websocket-engineer, backend:backend-principles, backend:concurrency-discipline, backend:migration-backend, backend:api-consistency-audit, backend:api-snapshot, backend:debug-tenant, backend:endpoint-test, backend:env-diff, backend:log-tail, backend:module-scaffold, backend:parallelize-independent-ops
-_screens              frontend:accessibility-auditor, frontend:api-contract-sentry, frontend:data-flow-auditor, frontend:i18n-auditor, frontend:technical-seo, frontend:ui-architect, frontend:ui-reviewer, frontend:frontend-principles, frontend:i18n, frontend:migration-frontend, frontend:a11y-scan, frontend:bundle-analyze, frontend:component-playground, frontend:dev-server-start, frontend:font-optimization, frontend:image-optimization, frontend:lcp-audit, frontend:lighthouse-ci, frontend:navigation-speed, frontend:seo-audit, frontend:ssr-audit, frontend:streaming-ssr, frontend:verify-with-playwright, frontend:visual-check, mobile:app-store-reviewer, mobile:device-performance-auditor, mobile:mobile-architect, mobile:offline-sync-auditor, mobile:mobile-principles, mobile:render-discipline, mobile:bundle-analyze, mobile:device-harness, mobile:native-bridge-audit, mobile:platform-conventions-audit, ui-ux:creative-director, ui-ux:design-system-architect, ui-ux:design-system-guardian, ui-ux:theme-specialist, ui-ux:ui-designer, ui-ux:ux-reviewer, ui-ux:ui-principles, ui-ux:a11y-quick-check, ui-ux:chart-encoding-audit, ui-ux:design-canvas, ui-ux:design-iterate, ui-ux:design-score, ui-ux:design-token-audit, ui-ux:motion-audit, ui-ux:ui-design-sweep
+_screens              frontend:accessibility-auditor, frontend:api-contract-sentry, frontend:data-flow-auditor, frontend:i18n-auditor, frontend:technical-seo, frontend:ui-architect, frontend:ui-reviewer, frontend:frontend-principles, frontend:i18n, frontend:migration-frontend, frontend:a11y-code-scan, frontend:a11y-scan, frontend:bundle-analyze, frontend:client-data-scan, frontend:component-playground, frontend:critical-path-scan, frontend:dev-server-start, frontend:font-optimization, frontend:i18n-scan, frontend:image-optimization, frontend:lcp-audit, frontend:lighthouse-ci, frontend:navigation-speed, frontend:render-correctness-scan, frontend:routing-scan, frontend:seo-audit, frontend:ssr-audit, frontend:streaming-ssr, frontend:verify-with-playwright, frontend:visual-check, mobile:app-store-reviewer, mobile:device-performance-auditor, mobile:mobile-architect, mobile:offline-sync-auditor, mobile:mobile-principles, mobile:render-discipline, mobile:app-size-scan, mobile:device-harness, mobile:mobile-a11y-scan, mobile:mobile-lifecycle-scan, mobile:mobile-perf-scan, mobile:native-bridge-audit, mobile:offline-sync-scan, mobile:platform-conventions-audit, mobile:store-compliance-scan, ui-ux:creative-director, ui-ux:design-system-architect, ui-ux:design-system-guardian, ui-ux:theme-specialist, ui-ux:ui-designer, ui-ux:ux-reviewer, ui-ux:ui-principles, ui-ux:a11y-quick-check, ui-ux:chart-encoding-audit, ui-ux:design-canvas, ui-ux:design-iterate, ui-ux:design-score, ui-ux:design-token-audit, ui-ux:motion-audit, ui-ux:state-matrix, ui-ux:ui-design-sweep, ui-ux:ui-state-scan
 ```

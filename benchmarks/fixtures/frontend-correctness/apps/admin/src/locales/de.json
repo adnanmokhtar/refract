@@ -1,0 +1,62 @@
+{
+  "nav": {
+    "label": "Haupt",
+    "dispatch": "Disposition",
+    "orders": "Bestellungen",
+    "pickers": "Kommissionierer",
+    "customers": "Kunden",
+    "reports": "Berichte",
+    "settings": "Einstellungen",
+    "signOut": "Abmelden",
+    "language": "Sprache"
+  },
+  "common": {
+    "loading": "Wird geladen…",
+    "error": "Etwas ist schiefgelaufen.",
+    "retry": "Erneut versuchen",
+    "save": "Speichern"
+  },
+  "dispatch": {
+    "title": "Dispositionstafel",
+    "markReady": "Als bereit markieren",
+    "waiting": "{n} in der Warteschlange"
+  },
+  "orders": {
+    "title": "Heutige Bestellungen",
+    "none": "Heute noch keine Bestellungen.",
+    "priority": "Vorrangige Lieferung",
+    "status": "Status"
+  },
+  "status": {
+    "placed": "Aufgegeben",
+    "picking": "In Kommissionierung",
+    "ready": "Bereit für Fahrer",
+    "out": "Unterwegs zur Auslieferung"
+  },
+  "reports": {
+    "title": "Wochenbericht",
+    "day": "Tag",
+    "orders": "Bestellungen",
+    "late": "Verspätet"
+  },
+  "customers": {
+    "title": "Kunden",
+    "search": "Nach Name oder Postleitzahl suchen"
+  },
+  "pickers": {
+    "title": "Kommissionierer",
+    "deactivate": "Deaktivieren",
+    "notFound": "Kein solcher Kommissionierer."
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "cutoff": "Annahmeschluss für Lieferung am selben Tag"
+  },
+  "login": {
+    "title": "Anmelden",
+    "sso": "Weiter mit Harbor SSO"
+  },
+  "help": {
+    "title": "Neuigkeiten"
+  }
+}

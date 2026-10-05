@@ -1,0 +1,62 @@
+{
+  "nav": {
+    "label": "Main",
+    "dispatch": "Dispatch",
+    "orders": "Orders",
+    "pickers": "Pickers",
+    "customers": "Customers",
+    "reports": "Reports",
+    "settings": "Settings",
+    "signOut": "Sign out",
+    "language": "Language"
+  },
+  "common": {
+    "loading": "Loading…",
+    "error": "Something went wrong.",
+    "retry": "Retry",
+    "save": "Save"
+  },
+  "dispatch": {
+    "title": "Dispatch board",
+    "markReady": "Mark ready",
+    "waiting": "{n} in the queue"
+  },
+  "orders": {
+    "title": "Today's orders",
+    "none": "No orders yet today.",
+    "priority": "Priority delivery",
+    "status": "Status"
+  },
+  "status": {
+    "placed": "Placed",
+    "picking": "Picking",
+    "ready": "Ready for driver",
+    "out": "Out for delivery"
+  },
+  "reports": {
+    "title": "Weekly report",
+    "day": "Day",
+    "orders": "Orders",
+    "late": "Late"
+  },
+  "customers": {
+    "title": "Customers",
+    "search": "Search by name or postcode"
+  },
+  "pickers": {
+    "title": "Pickers",
+    "deactivate": "Deactivate",
+    "notFound": "No such picker."
+  },
+  "settings": {
+    "title": "Settings",
+    "cutoff": "Same-day cut-off"
+  },
+  "login": {
+    "title": "Sign in",
+    "sso": "Continue with Harbor SSO"
+  },
+  "help": {
+    "title": "What's new"
+  }
+}
