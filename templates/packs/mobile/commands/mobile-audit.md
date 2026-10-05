@@ -228,15 +228,15 @@ On a re-audit after `/mobile-fix`, re-run the owning detector on each first-pass
 ## Output format
 ```
 ## /mobile-audit — verdict NO-GO (1 blocker, 1 release blocker)   scope=whole repo   profile L1 (undeclared)
-Stack: expo SDK 57 / react-native 0.87.1 (package-lock.json) · android targetSdk 36 (app.json:33) · ios 15.1 · CNG (android/ ios/ ignored)
+Stack: driver/ expo SDK 57 / react-native 0.87.1 (package-lock.json), CNG · ops/ kotlin 2.2 + compose, targetSdk 36 (build.gradle.kts:9) · ios 15.1
 Lanes: static ✓ · artifact ✓ (app-release.aab 2026-10-04) · device PARTIAL (Pixel 8 API 36, release; no iOS simulator)
 Verification: 73 candidates → 4 findings · 6 unconfirmed · 14 hardening · 0 pre-existing · 49 refuted
 BLOCKER (1):
-  src/auth/logout.ts:18                    mobile-lifecycle-scan §6 · push token kept at logout   proof: Push matrix (D) — account B received A's order push
+  driver/src/auth/logout.ts:18             mobile-lifecycle-scan §6 · push token kept at logout   proof: Push matrix (D) — account B received A's order push
 HIGH (1):
-  src/compose/ComposeScreen.tsx:41         mobile-lifecycle-scan §1 · draft in useState, no persistence   proof: Process-death restore (D) — draft gone after am kill
+  ops/app/src/main/java/com/acme/ops/NoteScreen.kt:41   mobile-lifecycle-scan §1 · draft in remember, not rememberSaveable   proof: Process-death restore (D) — draft gone after am kill
 RELEASE BLOCKER (1):
-  app.json:21                              store-compliance-scan · camera used, NSCameraUsageDescription absent — release blocker + lifecycle §3 crash   proof: Store probe (A)
+  driver/app.json:21                       store-compliance-scan · camera used, NSCameraUsageDescription absent — release blocker + lifecycle §3 crash   proof: Store probe (A)
 UNCONFIRMED (6): ios rows — settle: Process-death restore on an iOS simulator (background, Xcode Stop, relaunch) · …
 Class ledger: Lifecycle checked (52 → 2) · Native a11y checked (38 → 1) · A11y manual NOT RUN (human lane) · Perf checked (41 → 0) ·
               Offline not run (detector absent) · Device security not run (mobile-security-scan absent) · Device lane PARTIAL (android only) · …
