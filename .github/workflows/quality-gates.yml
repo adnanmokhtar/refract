@@ -59,6 +59,11 @@ jobs:
       - name: Every rg an artifact prescribes parses (regex + --type)
         run: bash scripts/lint-rg-parses.sh
 
+      # /setup-project writes skillOverrides into the project's settings: it may only add entries,
+      # never overwrite an owner's value, and a run with nothing to add must not write.
+      - name: skillOverrides merge contract
+        run: bash scripts/test-skill-overrides.sh
+
       - name: Stack conformance (detectors answer correctly for every repo shape)
         run: bash tests/stack-conformance/run.sh
 

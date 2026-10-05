@@ -133,7 +133,7 @@ Some names ship in more than one pack as **different** commands (`add-feature` i
 - `add-feature.md` — frontend variant installed as `add-feature.frontend.md`; the bare name belongs to the track applied first.
 ```
 
-So the bare `/add-feature` is an accident of install order, not a choice. Before dispatching any name, `grep -F '\`<name>.md\`' .claude/_command-variants.md`. When it has variants:
+So the bare `/add-feature` is an accident of install order, not a choice. Before dispatching any name, look it up: `grep -F "<name>.md" .claude/_command-variants.md`. When it has variants:
 1. The ask's stack picks the variant — a UI noun (page, component, form, screen-in-a-browser) → `frontend`; endpoint / route / job / service → `backend`; native screen / device → `mobile`. Dispatch `/<name>.<pack>` when that pack's variant is listed.
 2. No listed variant matches the ask's stack → the bare `/<name>`; it belongs to the remaining pack — confirm by reading its description, never assume.
 3. The ask names no stack and the repo is multi-track → ask one question that lists the variants by pack.

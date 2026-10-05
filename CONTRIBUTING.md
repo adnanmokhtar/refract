@@ -467,7 +467,7 @@ the relay probes nothing beyond `kimi --version`. A throwaway `$HOME` keeps the 
 
 `scripts/test-delegate-relay.sh` is that procedure as a fixture — nine cases, 55 assertions, every
 repo built under `mktemp -d`, and an isolation guard that aborts the whole run if a sandbox path
-escapes the temp root. Extend it rather than testing by hand: it is one of §2's 70 blocking gates,
+escapes the temp root. Extend it rather than testing by hand: it is one of §2's 71 blocking gates,
 so a relay regression fails CI instead of surfacing in someone's clone.
 
 ---
