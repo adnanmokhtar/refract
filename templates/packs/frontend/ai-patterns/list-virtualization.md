@@ -108,7 +108,7 @@ Mirror whichever virtualizer the project already imports; add one only if none e
 BAD:  {items.map(i => <Row key={i.id} {...i} />)}   // items from a fetch, length unbounded
 GOOD: {rowVirtualizer.getVirtualItems().map(v => <Row key={items[v.index].id} … />)}
 ```
-Grep: `\.map\(` on a list backed by a fetch/query/store with no virtualizer import in the file (`grep -L "virtual\|VirtualList\|RecycleScroller\|cdk-virtual" <files with .map over server data>`). Flag when max length is unbounded.
+Grep: `\.map\(` on a list backed by a fetch/query/store with no virtualizer import in the file — list the `.map` files, then keep those that never mention a virtualizer: `rg -l0 '\.map\(' -g '*.{tsx,jsx,vue,svelte}' -g '!**/node_modules/**' src | xargs -0 -r rg --files-without-match 'virtual|VirtualList|RecycleScroller|cdk-virtual'` (`--files-without-match`, never `rg -L`, which is `--follow`). Flag when max length is unbounded.
 
 ### 2. `<table>`/data-grid mounting every row
 

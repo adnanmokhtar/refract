@@ -1,6 +1,8 @@
 ---
 name: streaming-ssr
-description: Make a chosen SSR render FAST — find routes that block TTFB on the slowest query and stream the shell first behind Suspense / await boundaries. Sibling to ssr-audit (which is correctness-only).
+description: SSR speed — routes that block TTFB on the slowest await; stream the shell behind Suspense / await boundaries. Correctness is ssr-audit.
+kind: skill
+pack: frontend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -23,12 +25,56 @@ Mirror the streaming primitive the project already has; never introduce a second
 | **Next (App Router)** | `<Suspense fallback>` around the slow subtree | `loading.tsx` beside the segment (auto-wraps in Suspense) | pass the un-awaited promise down; `use()` in the child |
 | **Nuxt** | `<Suspense>` / `<NuxtIsland>` / `.server.vue` | `<NuxtLoadingIndicator>` + page-level fallback | `useLazyFetch` / `useFetch(url, { lazy: true })` |
 | **SvelteKit** | `{#await}` in `+page.svelte` | `+layout.svelte` shell renders first | return an **un-awaited** promise from `load` |
-| **Remix / React Router** | `<Await>` + `<Suspense>` | route-level `HydrateFallback` | un-awaited promise in the loader return |
-| **Angular (SSR)** | `@defer` blocks / `@placeholder` | route-level shell component | `resource()` / deferred `HttpClient` call |
+| **Remix / React Router** | `<Await>` + `<Suspense fallback>` | the parent route's layout renders while the child's promise streams. `HydrateFallback` is **not** a stream shell: it is what SSR renders for a route whose `clientLoader.hydrate` runs only in the browser | un-awaited promise in the loader return |
+| **Angular (SSR)** | none: Angular SSR does not stream a deferred region into the same response. On the server a `@defer` block renders its `@placeholder` (or nothing) and its triggers never fire; with incremental hydration and `hydrate` triggers it renders the main content instead (angular.dev, *Deferred loading with @defer*, fetched 2026-10-05) | route-level shell component | the TTFB lever is a resolver or `await` that blocks render; move non-critical data to the client behind `@defer` + `@placeholder`, and report the trade (content absent from the server HTML) |
 | **Astro** | `server:defer` island + slot fallback | static shell is the default | island resolves after the shell flushes |
 | **Plain React SSR** | `<Suspense>` + `renderToPipeableStream` (`onShellReady`) | shell = everything outside the boundary | promise passed to a `use()` child |
 
 If the render entry (`renderToString` vs `renderToPipeableStream` vs the framework's own server) is not extracted, halt: the fix differs per entry and a boundary added to a buffering renderer changes nothing.
+
+## Pre-flight greps
+
+Run as **one** script from the repo root; shell state does not survive between tool calls. Grep **N** feeds detector **§N**. Every `rg` names its path: given no path and a piped stdin, `rg` reads stdin and reports zero hits. Files-without-match is `--files-without-match`, never `-L` (that is `--follow` in ripgrep). An `rg` error on stderr (exit 2) is a failed grep, not zero hits.
+
+```bash
+ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|vue|svelte|@angular/core|solid-js|preact|astro|next|nuxt)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
+X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output,.svelte-kit,.angular,storybook-static}/**' -g '!**/*.min.*'
+   -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,__fixtures__,stories,playwright,cypress,locales,i18n,generated,__generated__,docs}/**'
+   -g '!**/*.{test,spec,e2e,stories,story,mock}.*' -g '!*.{md,mdx,snap,map,lock}' -g '!ai/**')
+NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#|<!--|\{/\*)')
+UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
+PAGES=(-g '**/app/**/page.{tsx,jsx,ts,js}' -g '**/app/**/layout.{tsx,jsx,ts,js}')
+# 0. Lanes, majors and the render entry: Next / Nuxt / SvelteKit / React Router / Remix / Angular SSR / Astro, and a hand-rolled server.
+rg -n --no-heading '"(next|nuxt|@sveltejs/kit|react-router|@react-router/dev|@remix-run/react|@angular/ssr|@angular/platform-server|astro|react-dom)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
+# 1. Whole-page await: an async App Router page/layout that awaits and imports no Suspense (1a); a Remix/RR route module whose loader file awaits twice or more (1b, file-level: read the loader).
+rg -l --pcre2 '^export\s+default\s+async\s+function' "${PAGES[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg -l '\bawait\b' | xargs -r rg --files-without-match '\bSuspense\b'
+rg -l --pcre2 '^export\s+(?:async\s+)?function\s+loader\b|^export\s+const\s+loader\s*=' -g '**/{app,src}/**/routes/**/*.{tsx,jsx,ts,js}' -g '**/app/root.{tsx,jsx}' "${X[@]}" "${ROOTS[@]}" | xargs -r rg -c '\bawait\b' | awk -F: '$NF >= 2'
+# 2. App Router segments whose page awaits and that have no loading.* beside them (a sibling or ancestor loading file also covers it — read).
+rg -l --pcre2 '\bawait\b' -g '**/app/**/page.{tsx,jsx,ts,js}' "${X[@]}" "${ROOTS[@]}" | while read -r f; do d=$(dirname "$f"); ls "$d"/loading.* >/dev/null 2>&1 || echo "$f"; done
+# 3. Awaited-everything loaders: SvelteKit load returning two awaited fields (3a); Nuxt pages awaiting useFetch/useAsyncData (3b; non-critical data wants lazy).
+rg -n -U --no-heading --pcre2 'return\s*\{[^}]*\bawait\b[^}]*\bawait\b' -g '**/+{page,layout}{.server,}.{ts,js}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --no-heading --pcre2 '\bawait\s+(?:useFetch|useAsyncData)\s*\(' -g '**/{pages,app/pages,layouts,app/layouts}/**/*.vue' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 4. A buffering React render entry in server code.
+rg -n --no-heading --pcre2 '\brenderToString\s*\(|\brenderToStaticMarkup\s*\(' -g '*.{ts,tsx,js,jsx,mjs,cjs}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 5. Partial-prerender candidates and removed APIs: force-dynamic routes (5a); experimental_ppr / ppr config, removed in Next 16 (5b); cacheComponents on (5c).
+rg -n --no-heading --pcre2 '\bdynamic\s*=\s*["\x27]force-dynamic["\x27]' "${PAGES[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --no-heading --pcre2 '\bexperimental_ppr\b|\bppr\s*:' -g '*.{ts,tsx,js,jsx,mjs}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --no-heading --pcre2 '\bcacheComponents\s*:\s*true|["\x27]use cache["\x27]' -g '*.{ts,tsx,js,jsx,mjs}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+```
+
+A hit is a candidate; the finding needs the blocking call's measured latency (Premise). Two blind spots are structural:
+
+- **The slow call hides behind a helper.** `await getProduct()` is one line in the page and three sequential queries in the service. Greps 1 and 3 find the await; the read follows it to the slowest call and the latency comes from the server timing or a log.
+- **Grep 2 checks the sibling only.** A `loading.*` in an ancestor segment also wraps the page; read the tree before calling a segment uncovered.
+
+**Measured** (2026-10-05, read-only). Scratch fixture: an awaiting App Router page with no Suspense and no `loading.tsx`, a SvelteKit load returning two awaited fields, a two-await loader, a `renderToString` entry and a `force-dynamic` route, all hit; the page with `<Suspense>` and a sibling `loading.tsx` stays out of 1 and 2. Benchmark fixtures: 0 on greps 1–5 (none ships an SSR route). Real repos: a Nuxt 4 storefront (3b: 1 policy page awaiting `useAsyncData` at the top of setup), a Vue 3 + Vite SPA and an Angular 19 template (0 everywhere: no SSR entry, so every class prints N/A). The first loader grep was a single multi-line PCRE2 pattern that `rg` refused to compile ("regular expression is too large"), which reads as zero hits; it is now file-level.
+
+## The 3,000-hit path
+
+1. **Intersect with the route table** and the server timing: a route whose TTFB is under ~200 ms is dismissed whatever it awaits.
+2. **Group** by (layout or loader, pattern). A root layout that awaits a session lookup is one finding for every route under it.
+3. **Rank** by route traffic, then by measured TTFB.
+4. **Read the top 30 groups.** Ledger the rest as `Live, unreviewed (k groups / n hits)` with the command that continues them, never `checked`.
 
 ## Scans for
 
@@ -110,17 +156,28 @@ streaming-ssr audit — <route set>
 
 Findings: 2
 
-1. app/products/[id]/page.tsx:6                        TTFB ~640ms
+1. app/products/[id]/page.tsx:6                        TTFB ~640ms    [report-with-fix]
    Top-level `await getReviews(id)` blocks the shell on a 600ms query.
    Boundary: wrap <Reviews/> in <Suspense fallback={<ReviewsSkeleton/>}>;
              add app/products/[id]/loading.tsx for the segment shell.
    Expected: TTFB 640ms → ~90ms (shell), reviews stream in at ~640ms.
 
-2. src/routes/feed/+page.server.ts:12                  TTFB ~480ms
+2. src/routes/feed/+page.server.ts:12                  TTFB ~480ms    [report-with-fix]
    `comments: await getComments()` awaited alongside critical `post`.
    Boundary: return un-awaited `comments: getComments()`; consume via {#await}.
    Expected: TTFB blocked on getPost() only (~120ms); comments stream.
+
+Verification: 6 candidates → 2 findings · 1 unconfirmed · 3 refuted
+
+Class coverage:
+  §1  whole-page await          checked (3 files → 1 finding)
+  §2  no loading.tsx            checked (2 segments → folded into finding 1; 1 covered by an ancestor)
+  §3  awaited-everything loader checked (1 hit → 1 finding)
+  §4  renderToString entry      N/A (framework server; no hand-rolled entry)
+  §5  Cache Components          checked (1 force-dynamic route → 1 unconfirmed: report-flagged, needs the boundary map)
 ```
+
+`[report-with-fix]`: the blocking call is cited with a measured latency and the boundary is a mechanical edit. `[report-flagged]`: §5, or any row whose latency was not measured; the row names the run that settles it. The coverage block lists **all five** classes on every run: `checked (k hits → m findings)`, `N/A (<reason>)`, or `blocked (<reason>)` when a grep failed. A partial review reads `Live, unreviewed (k groups / n hits)`, never `checked`.
 
 ## False positives / gotchas
 
@@ -142,6 +199,8 @@ Findings: 2
 - Halt if the proposed boundary would stream above-the-fold / LCP content (defers LCP) — re-scope to secondary regions.
 - Halt if a redirect/auth gate sits behind the proposed streamed shell — resolve it before the flush.
 - Halt if "enable partial prerendering / Cache Components" is proposed without naming which subtrees become the dynamic (Suspense-wrapped) holes.
+- Halt before reporting any candidate that has not been through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) (§1 restate … §9) and [`precedents/performance.md`](../../../../snippets/precedents/performance.md) § 90 (dev-server numbers are meaningless). **Proof:** server TTFB (`server-response-time`, median of 5 runs) and the time the shell's first byte arrives on a production build, before and after; the streamed region must still render ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Lighthouse median").
+- Halt if a streaming fix is proposed for Angular SSR — it has no in-response streaming; the trade is client-deferred content, stated as such.
 - Halt if the enable line is emitted without reading the framework major from `package.json` — `experimental_ppr` against Next 16+ is a removed API, and a reference that emits a deleted API is worse than no reference.
 
 ## Related

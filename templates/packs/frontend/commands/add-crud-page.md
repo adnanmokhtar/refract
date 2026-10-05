@@ -41,7 +41,7 @@ Everything else — column order, filter shape, pagination size, validation mess
 
 | Tier | Trigger | Ceremony | Default? |
 |---|---|---|---|
-| **Trivial** | New entity, API exists, sibling CRUD page lives in the same admin area | Code only — list + form + delete + store + service + locale keys (BOTH locales) + tests. **No plan, no ADR.** | YES |
+| **Trivial** | New entity, API exists, sibling CRUD page lives in the same admin area | Code only — list + form + delete + store + service + locale keys in every declared locale (`rules/i18n.md` — never a fixed two) + tests. **No plan, no ADR.** | YES |
 | **Standard** | New entity needs 1 custom column renderer OR 1 new filter widget | Trivial + 1-paragraph sibling-shape note inline | NO |
 | **Heavy** | First CRUD in a new admin area, OR new shared CRUD wrapper required, OR **the data-sensitivity gate fired** (a tokenised create path is an integration, never a scaffold) | Standard + ADR + `@ui-reviewer` + `@accessibility-auditor` + `@i18n-auditor` cascade | NO |
 
@@ -101,25 +101,18 @@ A divergence resolved silently is drift the next run re-resolves the other way. 
 - Fields with type + validation; display columns; search fields — **minus anything the sensitivity gate marked non-renderable or non-searchable.**
 - **Cross-row exclusivity** — is any field exclusive across the collection (one default, one primary, one active)? Every "yes" is an action in the Phase 4 store contract.
 - Confirm: standard CRUD really fits, or is this bespoke?
-- **Sensitive-entity halt — run this BEFORE any form is scaffolded.** The bespoke test above asks
-  about SHAPE (wizard / kanban / drag-drop) and passes almost any regulated entity straight through.
-  Shape is not the only reason CRUD is wrong. If the entity carries a value the application must
-  never receive, store or re-display, a standard create/edit form is the wrong artifact no matter
-  how ordinary the shape looks. Ask, per field: *may this application legitimately receive this
-  value?*
-  - **Payment instruments** — a card number (PAN), CVC or full expiry must be collected by the
-    provider's hosted field, iframe or Element, never by a form this command scaffolds. Doing so
-    moves the merchant from SAQ-A to SAQ-D. There is also no edit: a PAN cannot be PATCHed. "Edit"
-    for a stored card means billing address and default-flag only, and "delete" means detach at the
-    provider — which must be refused while a dependent record (an active subscription) still points
-    at it.
-  - **Credentials and secrets** — passwords, API keys, tokens, recovery codes: write-only, never
-    rendered back, and never a column in the list view.
-  - **Government and health identifiers** — national ID, tax ID, and anything in a regulated health
-    or biometric category: these are storage-and-retention decisions before they are form decisions.
-  If any field trips this: HALT and route to `/add-feature`, which can carry the provider
-  integration and the non-CRUD lifecycle. Say WHICH field tripped it — an unexplained halt reads as
-  a bug and gets overridden.
+- **Sensitive fields: already decided by § Data-sensitivity gate above — do not re-decide here.** The
+  bespoke test above asks about SHAPE (wizard / kanban / drag-drop) and passes almost any regulated
+  entity straight through, which is why that gate runs first. Its outcome is the only one: a sensitive
+  field takes the **sensitive branch** (the provider's hosted / tokenised primitive, the editable
+  non-sensitive subset, the display token only) and the rest of the entity proceeds as CRUD. It
+  **HALTs and routes to `/add-feature`** in exactly two cases: the project ships no provider primitive
+  for that class of data, or the entity's lifecycle cannot be expressed as CRUD at all (a stored card
+  whose "delete" must detach at the provider while a subscription still points at it, a credential
+  that is write-only and rotated rather than edited). Name WHICH field and which case — an unexplained
+  halt reads as a bug and gets overridden. Payment instruments (PAN, CVC, full expiry), credentials
+  and secrets, and government / health identifiers are the classes the gate lists; a PAN collected by
+  a form this command scaffolds moves the merchant from SAQ-A to SAQ-D.
 - **The mutation set is not always five.** The store slice below assumes `list / getOne / create /
   update / remove`. Cross-row state — "make this the default" — is the most-used action on many real
   admin surfaces and has no slot in those five. If the entity has one, name it now; retrofitting a
@@ -231,7 +224,7 @@ Phase 4 (Generated):
   Routes:   /admin/products, /admin/products/new, /admin/products/:id
   Store:    src/store/products.slice.ts (5 row actions + 1 cross-row: setDefault)
   Service:  src/services/products.service.ts (6 methods)
-  i18n:     +24 keys × 2 locales
+  i18n:     +24 keys × <N> declared locales
   Tests:    7 spec files, 32 cases
 Phase 5 (Updated): ai/modules.md, changelog, status.md, locale files
 Phase 6 (Validated): lint + tests green; permission on routes + buttons; SSR pagination

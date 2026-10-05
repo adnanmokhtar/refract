@@ -1,6 +1,6 @@
 # Vue 3 + Pinia conventions
 
-> **Framework**: Vue 3.4+ • Pinia 2.1+ • Vite 5+ • TypeScript 5+
+> **Framework**: Vue 3.4+ (`vue` 3.5.43 latest on npm, read 2026-10-05) • Pinia (written against 2.x; `pinia` 4.0.3 is the latest — read the installed major) • Vite 5–8 • TypeScript 5+
 > **Official docs**: https://vuejs.org/guide/ • https://pinia.vuejs.org/
 > **Version-specific gotchas**: Vue 3.4 brought `defineModel()` macro (replaces manual prop+emit for v-model); 3.3+ supports generic components (`<script setup lang="ts" generic="T">`); 3.5 added `useTemplateRef()`; Pinia 2.1 stable, do NOT mix Options API stores in a setup-API codebase.
 > **Substitution markers**: Replace component / composable / store names with the project's actual entries from `_extracted-idioms.md`.
@@ -81,7 +81,7 @@ Where the network is unavailable, this file is what you have; it does not halt.
 ## i18n
 
 - NEVER hardcode user-facing strings in templates.
-- Every visible string has a key in BOTH locales.
+- Every visible string has a key in every declared locale — read the set from the project (`rules/i18n.md`, The Two-Locale Trap), never assume two.
 - Use same key for same concept across sibling frontends when a workspace exists.
 
 ## SEO

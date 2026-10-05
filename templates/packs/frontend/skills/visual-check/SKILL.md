@@ -1,7 +1,9 @@
 ---
 name: visual-check
-description: Playwright-based UI verification — captures screenshots across locales, themes, and viewports. Run after a visible change; compares against a baseline.
-allowed-tools: [Read, Grep, Glob, Bash]
+description: Playwright screenshot matrix across locales, themes and viewports against committed baselines; owns the auth-session contract and the blocked-render halt.
+kind: skill
+pack: frontend
+allowed-tools: [Read, Grep, Glob, Bash, Write]
 ---
 
 # visual-check
@@ -39,7 +41,7 @@ Three values are fixed here and **cited, never restated**, by everything that dr
 
 | Value | The one setting | Why it is fixed |
 |---|---|---|
-| Session state | `tests/.auth/user.json` | it is what `auth.setup.ts` writes, what the `playwright.config` `setup` project's `storageState` names, and what the MCP `--storage-state=` arg points at — three places that must agree or the render silently lands on `/login` |
+| Session state | `tests/.auth/user.json` | it is what `auth.setup.ts` writes, what the browser project's `use: { storageState }` names in `playwright.config`, and what the MCP `--storage-state=` arg points at — three places that must agree or the render silently lands on `/login` |
 | Artifact dir | `.playwright-mcp/` (gitignored, alongside `test-results/`) | a gitignored output dir needs no cleanup, so nobody reaches for `rm -rf` and trips the destructive-command guard |
 | Blocked render | `RENDER BLOCKED` = HALT, never `SKIPPED` | `SKIPPED (no harness)` and "authenticated but bounced to the login wall" are different failures with different fixes; collapsing them produces a false pass |
 
@@ -85,15 +87,22 @@ setup("authenticate", async ({ page }) => {
   await page.fill("input[type=password]", password);  // ← detected password selector
   await page.click('button[type="submit"]');          // ← detected submit selector
   await page.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 30_000 });
-  // token-in-localStorage apps: prove a token landed; cookie apps: assert a session cookie
-  const ok = await page.evaluate(() => Object.keys(localStorage).some((k) => /token/i.test(k)));
-  expect(ok, "no auth token after login — check creds/selectors").toBeTruthy();
+  // Prove a session landed, whichever store the app uses: a cookie (most server-session and
+  // BFF apps, often httpOnly) or a localStorage token.
+  const state = await page.context().storageState();
+  const session = /sess|auth|token|sid|jwt/i;
+  const ok = state.cookies.some((c) => session.test(c.name))
+    || state.origins.some((o) => o.localStorage.some((e) => session.test(e.name)));
+  expect(ok, "no session cookie or token after login — check creds/selectors").toBeTruthy();
+  // ← detected surface marker: the strongest proof, and the only one for IndexedDB-held sessions
+  // await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible();
   fs.mkdirSync("tests/.auth", { recursive: true });
-  await page.context().storageState({ path: authFile });
+  // indexedDB: true (Playwright ≥ 1.51) also saves IndexedDB, where Firebase Auth keeps its tokens
+  await page.context().storageState({ path: authFile, indexedDB: true });
 });
 ```
 
-Two asserts in there are the point, not decoration: the **missing-creds throw** (an empty `E2E_EMAIL` otherwise submits a blank login form and fails as "bad credentials"), and the **token-landed assert** (a login form that silently re-renders itself writes a `user.json` full of nothing, and every later render fails at the wall with a session file sitting on disk).
+Two asserts in there are the point, not decoration: the **missing-creds throw** (an empty `E2E_EMAIL` otherwise submits a blank login form and fails as "bad credentials"), and the **session-landed assert** (a login form that silently re-renders itself writes a `user.json` full of nothing, and every later render fails at the wall with a session file sitting on disk). The assert reads cookies **and** localStorage: a localStorage-only check fails every cookie-session app, which is most of them. A session held in IndexedDB passes neither; there the surface-marker assertion is the check. The name regex is a heuristic; when the project's session cookie has a neutral name, replace it with that name or with the surface-marker assertion.
 
 Then the four ways this is wired correctly and still does not work. None are guessable, and each reads as "Playwright is broken":
 
@@ -101,10 +110,11 @@ Then the four ways this is wired correctly and still does not work. None are gue
    ```ts
    projects: [
      { name: "setup", testMatch: /.*\.setup\.ts/ },
-     { name: "chromium", use: { ...devices["Desktop Chrome"] },
-       dependencies: ["setup"], storageState: "tests/.auth/user.json" },
+     { name: "chromium", dependencies: ["setup"],
+       use: { ...devices["Desktop Chrome"], storageState: "tests/.auth/user.json" } },
    ]
    ```
+   `storageState` is a **`use:`** option. Placed beside `dependencies` at the project level it is not a project property, so every test starts signed out while the setup project reports green.
    Then, dev server up: `npx playwright test --project=setup` writes `tests/.auth/user.json`.
 2. **A project that already has its own setup file usually has not loaded `.env`.** Same Node-vs-Vite trap as above — creds that are demonstrably in `.env` arrive as `undefined`. Add the loader (or `import "dotenv/config"`) to *their* file rather than shipping a second one.
 3. **`--storage-state=tests/.auth/user.json` is compatible with `--isolated`** on the Playwright MCP. The two are routinely assumed to be mutually exclusive, which is why gated renders get run isolated-with-no-session and land on `/login`.

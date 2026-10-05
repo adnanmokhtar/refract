@@ -25,8 +25,9 @@ The frontend procedure this file used to hold was **cut, not rewritten**, into t
 "§ Spec-conformance gate" now resolve there. What did NOT move there lives once in the orchestrator:
 the tier table (now `.claude/templates/governance/tiers.json`, T0–T3), the acceptance contract and
 its lock (P5), the single confirmation gate (H2), the reviewer fan-out (P8–P11), the verdict (P12)
-and the output block. Leaf commands of this pack (`/add-endpoint`, `/add-module`, `/add-page`,
-`/add-component`, `/add-crud-page`, `/add-screen`) are unchanged.
+and the output block. Leaf commands of this pack (`/add-page`, `/add-component`, `/add-crud-page`) are unchanged;
+`/add-endpoint` and `/add-module` belong to the backend pack and `/add-screen` to the mobile pack, each
+present only when that pack is installed.
 
 ## When the orchestrator is missing
 

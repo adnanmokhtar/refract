@@ -46,9 +46,11 @@ Everything else — which addons, which providers, which story per state, which 
 ### Prior art (mandatory)
 
 ```bash
-ls <app-dir>/.storybook histoire.config.* .ladle 2>/dev/null
-rg -l "\.stories\.(t|j)sx?$|\.story\.vue$" --files
+ls -d <app-dir>/.storybook <app-dir>/.ladle <app-dir>/histoire.config.* 2>/dev/null
+rg --files -g '*.stories.{ts,tsx,js,jsx,mjs,svelte,mdx}' -g '*.story.{vue,svelte}' -g '!**/node_modules/**' <app-dir> | head -5
 ```
+
+`rg --files` takes **globs**. Passing a regex as the pattern beside `--files` makes ripgrep read it as a path: it exits 2 and prints nothing, so this halt never fired.
 
 Then look for an **in-app gallery**: a route or page that imports most of the shared component directory (count its imports against the directory's module count), or a test that asserts "every shared component has a page". Any hit → HALT and ask: migrate the gallery into stories (its per-component demos and prose are the best story source there is), coexist, or stop. Cite the file you found.
 
@@ -61,7 +63,7 @@ A module is in the inventory when ALL hold:
 - it exports a PascalCase component that renders markup;
 - it lives in the shared layer — `components/`, `ui/`, `shared/`, `lib/components/`, or whatever the repo's own sibling convention names.
 
-Excluded: `pages/`, `routes/`, `app/` route files, `*.test.*`, `*.stories.*`, hooks, utils, constants, context providers, layouts, error boundaries that only render on a throw. Rank by importer count (`rg -l "from '.*<module>'"`) — the most-imported primitives first.
+Excluded: `pages/`, `routes/`, `app/` route files, `*.test.*`, `*.stories.*`, hooks, utils, constants, context providers, layouts, error boundaries that only render on a throw. Rank by importer count (`rg -l "from '.*<module>'" <app-dir>`) — the most-imported primitives first.
 
 **UPDATE gap:** an inventory entry is covered when a `*.stories.*` beside it exists OR any story file names it as `component:`. The gap is the uncovered rest. Also report stories whose component file no longer exists (orphans) — they fail typecheck; list them, never silently delete.
 
@@ -140,7 +142,7 @@ Addons to keep: `@storybook/addon-docs`, `@storybook/addon-a11y`, `@storybook/ad
 const Button = …
 ```
 
-The path is **the one the app's own code uses most** for that name — count it (`rg -o "import \{[^}]*\bButton\b[^}]*\} from '[^']+'" -g '!*.stories.*' | sort | uniq -c`). That is often a barrel (`@/shared/query`, `@/entities/money`), not the defining file. Append the tag to an existing JSDoc block; never change code.
+The path is **the one the app's own code uses most** for that name — count it (`rg -o --no-filename "import \{[^}]*\bButton\b[^}]*\} from '[^']+'" -g '!*.stories.*' <app-dir> | sort | uniq -c`). That is often a barrel (`@/shared/query`, `@/entities/money`), not the defining file. Append the tag to an existing JSDoc block; never change code.
 
 ### Story hygiene — the project's gates apply to stories
 

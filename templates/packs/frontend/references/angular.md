@@ -1,6 +1,6 @@
-# Angular reference (17+, standalone + signals)
+# Angular reference (17+, standalone + signals; current major 22)
 
-> **Framework**: Angular 17+ / 18 / 19 • TypeScript 5.4+ • RxJS 7.8+
+> **Framework**: Angular 17–22 — `@angular/core` 22.2.1 is the latest on npm (read 2026-10-05; its `engines.node` is `^22.22.3 || ^24.15.0 || >=26.0.0`) • TypeScript per Angular's version-compatibility table • RxJS 7.8+. This file was written against 17–19; deltas from 20–22 are not re-audited here, so read the installed major and check the API against the machine-readable docs below.
 > **Official docs**: https://angular.dev/
 > **Version-specific gotchas**: Angular 17 made standalone components default + new control flow (`@if` / `@for` / `@switch`); 17.1 added typed forms inferred from values; 18 stabilized signals + zoneless change detection (preview); 19 promoted standalone components to required default; deferred views (`@defer`) for code-splitting; `inject()` function preferred over constructor DI in new code.
 > **Substitution markers**: Replace `<name>` / `<feature>` with the project's actual feature names.

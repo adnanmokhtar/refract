@@ -1,8 +1,8 @@
-# Next.js reference (App Router, 14 / 15)
+# Next.js reference (App Router; written against 14 / 15, current major 16)
 
-> **Framework**: Next.js 14 / 15 on Node 18.18+ • React 19+ (Next 15) / 18 (Next 14)
+> **Framework**: Next.js 14 / 15 / 16 — `next` 16.3.8 is the latest on npm (read 2026-10-05); Next 16 requires Node `>=20.9.0` (its `engines`), 14 / 15 run on Node 18.18+ • React 19+ (Next 15–16) / 18 (Next 14)
 > **Official docs**: https://nextjs.org/docs
-> **Version-specific gotchas**: Next 14 default `fetch` cache was `force-cache`; **Next 15 default is `no-store`** — ALWAYS set `cache:` + `next.revalidate` explicitly (see "Data fetching"). Next 15 also makes `cookies()` / `headers()` / `params` / `searchParams` async (must `await`); Turbopack stable for `dev`; Server Actions cookie-set restrictions tightened.
+> **Version-specific gotchas**: Next 14 default `fetch` cache was `force-cache`; **Next 15 default is `no-store`** — ALWAYS set `cache:` + `next.revalidate` explicitly (see "Data fetching"). Next 15 also makes `cookies()` / `headers()` / `params` / `searchParams` async (must `await`); Turbopack stable for `dev`; Server Actions cookie-set restrictions tightened. **Next 16** (verified deltas only): `experimental_ppr` / `experimental.ppr` removed for Cache Components (`streaming-ssr` §5); `next/image` `priority` deprecated for `preload`, `images.qualities` default `[75]` (Image API reference, version history v16.0.0, fetched 2026-10-05; `lcp-audit` §5).
 > **Substitution markers**: Replace `(marketing)` / `<name>` with the project's actual route groups + module names.
 > **Scope, stated honestly**: this file is written against **14 / 15**. Next **16** exists and removed APIs named
 > below. Only ONE 16 delta has been verified against a primary source in this pack — the PPR → Cache Components

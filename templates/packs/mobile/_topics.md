@@ -131,6 +131,18 @@ change.
                                    # comment cost more than the file. Frontend deleted its
                                    # equivalent outright; mobile now matches.
 
+- name: mobile-audit
+  kind: command
+  triggers: { mobile_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Stack (RN / Expo / Flutter / native AND the resolved versions from the lockfile and build files — targetSdk, deployment target, compiler modes gate the rules) + the entry points (navigators, link filters, push handlers, jobs) + CNG + the release artifact + the device harness
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/mobile-audit.md   # the source IS the fallback, as for db-audit and frontend-audit; the fixed class ledger, the two severity axes and the device lane are the contract
+
+- name: mobile-fix
+  kind: command
+  triggers: { mobile_framework_detected: true }
+  fallback: commands/mobile-fix.md   # the source IS the fallback, as for db-fix and frontend-fix; a skeleton would drop the kill recipe, the no-device-no-closure rule, the suppression grep and the STOP lines
+
 - name: bundle-analyze
   kind: skill
   triggers: { mobile_framework_detected: true }
@@ -186,6 +198,26 @@ change.
   # fallback is the source ON PURPOSE: the version gates (React Compiler, strong skipping, FlashList
   # v2, InteractionManager) decide whether a hit is a defect or a decoy, and the release-build,
   # repeated-run measurement rule is what keeps a debug figure out of a finding.
+
+- name: offline-sync-scan
+  kind: skill
+  triggers: { mobile_framework_detected: true }
+  sections: [premise, the_rule, boundaries, lanes, pre_flight_greps, the_3000_hit_path, scans_for, detectors_1_to_6, proof, output, false_positives, when_to_run, halt_conditions, related]
+  fallback: skills/offline-sync-scan/SKILL.md
+  cite_evidence: strict
+  # fallback is the source ON PURPOSE: the pre-flight script and its measured hit counts are the
+  # artifact, and the library facts it keys on (TanStack persistence, zustand migrate, axios-retry
+  # defaults) are dated; an abridgement would drop the "durable needs a real kill" halt.
+
+- name: store-compliance-scan
+  kind: skill
+  triggers: { mobile_framework_detected: true }
+  sections: [premise, dated_store_gates, the_rule, boundaries, lanes, pre_flight_greps, the_3000_hit_path, scans_for, detectors_1_to_9, proof, output, false_positives, when_to_run, halt_conditions, related]
+  fallback: skills/store-compliance-scan/SKILL.md
+  cite_evidence: strict
+  # fallback is the source ON PURPOSE: it holds the pack's only copy of the dated store-gate table
+  # (D-34), each row with its primary page and read date; an abridgement would be a second, staler
+  # copy of exactly the facts that move every quarter.
 
 # The four patterns added at 1.7.0 declare `sources` as a REQUIRED section. Each quotes dated
 # platform figures (Android's published background limits, Play's vitals thresholds, the store

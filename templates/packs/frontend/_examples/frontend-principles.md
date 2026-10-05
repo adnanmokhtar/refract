@@ -46,7 +46,7 @@ Prevents the failures that ship: untyped props, business logic in templates, fet
 - Domain-focused stores: `useOrderStore`, `useCartStore`. Never one mega-store.
 - Memoize expensive selectors (`useMemo`, `computed`, `derived`, `reselect`).
 - Image optimization: framework-native (`next/image`, `nuxt/image`, `Image` from `astro:assets`) with `width`, `height`, `loading="lazy"`, `srcset`.
-- Bundle audit: `vite-bundle-visualizer` / `webpack-bundle-analyzer` / `source-map-explorer` reviewed before release. Lazy-load heavy deps (charts, editors, PDF viewers).
+- Bundle audit before release via the `bundle-analyze` skill (`rollup-plugin-visualizer`, `next experimental-analyze`, `webpack-bundle-analyzer`; brotli sizes). Lazy-load heavy deps (charts, editors, PDF viewers).
 - Route-level code splitting plus chunk-level splitting for heavy modal flows.
 
 ## Review checklist

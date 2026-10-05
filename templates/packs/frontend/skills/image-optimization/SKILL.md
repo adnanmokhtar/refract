@@ -1,6 +1,8 @@
 ---
 name: image-optimization
-description: Static scan for image delivery mistakes — legacy formats where AVIF/WebP would cut bytes, missing responsive srcset/sizes, absent width/height (CLS), missing lazy-loading below the fold, raw <img> where the framework offers an optimized component, and oversized sources served into small slots. Owns format / dimensions / responsiveness / loading; LCP priority-hints stay with lcp-audit.
+description: Image delivery — legacy formats, no srcset, unsized (CLS), lazy below the fold, raw <img> beside a framework primitive, oversized sources.
+kind: skill
+pack: frontend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -12,7 +14,7 @@ allowed-tools: [Read, Grep, Glob, Bash]
 
 **Closure verbs** — exactly one per finding. This skill emits `report-with-fix`, `dismiss` (SVG / fixed-size icons, a correctly-ratioed `width`/`height`, a CDN that already negotiates format), and `halt-handoff` (anything touching the hero's priority → `lcp-audit`).
 
-Division of labor: **this skill owns format, responsiveness, dimensions/CLS, and lazy-loading.** The *LCP image's priority hints* (`fetchpriority`, `preload`, no-lazy-on-hero) belong to `lcp-audit` — cross-link it, don't duplicate. Pair with `lighthouse-ci` (its "Properly size images" / "Serve images in next-gen formats" / CLS audits) to confirm bytes actually dropped.
+Division of labor: **this skill owns format, responsiveness, dimensions/CLS, and lazy-loading.** The *LCP image's priority hints* (`fetchpriority`, `preload`, no-lazy-on-hero) belong to `lcp-audit` — cross-link it, don't duplicate. Pair with `lighthouse-ci` to confirm bytes actually dropped: `uses-responsive-images`, `modern-image-formats`, `uses-optimized-images`, `offscreen-images` and `unsized-images` on Lighthouse 12.6.1 (LHCI 0.15.1); `image-delivery-insight` and `unsized-images` on 13.x, where the four `uses-*`/`offscreen` audits are gone (`lighthouse-ci` § Lighthouse ids by version).
 
 ## Adapt to the codebase first
 
@@ -29,6 +31,56 @@ Detect and **mirror the project's image primitive** — most frameworks ship one
 | **CDN-fronted** (Cloudinary / imgix / Cloudflare Images) | URL transform params (`f_auto,q_auto,w_…`) | format + resize at the edge |
 
 If the project already routes images through a component/CDN, every fix goes through it. Only hand-roll `<picture>` when there is no primitive.
+
+## Pre-flight greps
+
+Run as **one** script from the repo root; shell state does not survive between tool calls. Grep **N** feeds detector **§N**. Every `rg` names its path: given no path and a piped stdin, `rg` reads stdin and reports zero hits. An `rg` error on stderr (exit 2) is a failed grep, not zero hits. Tag bodies are read with `-U`, so a multi-line tag prints one line per attribute: count tags, not lines.
+
+```bash
+ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|vue|svelte|@angular/core|solid-js|preact|astro|next|nuxt)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
+X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output,.svelte-kit,.angular,storybook-static}/**' -g '!**/*.min.*'
+   -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,__fixtures__,stories,playwright,cypress,locales,i18n,generated,__generated__,docs}/**'
+   -g '!**/*.{test,spec,e2e,stories,story,mock}.*' -g '!*.{md,mdx,snap,map,lock}' -g '!ai/**')
+NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#|<!--|\{/\*)')
+UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
+TB='(?:[^>{<\x60]|\{(?:[^{}]|\{[^{}]*\})*\})*'
+RAW='(?<![\w.$])<img\b'                                                  # a raw <img>, not <Image> / <NuxtImg>
+NOTICON="(?!${TB}\\b(?:src|ngSrc)=[\"'{]*[^\"'}\\s]*\\.svg\\b)(?!${TB}\\bsrc=[\"'{]*data:)"   # SVG and data: URIs are exempt
+# 0. Lanes: the image primitive the project ships (next/image, @nuxt/image, NgOptimizedImage, astro:assets, enhanced-img, an image CDN SDK).
+rg -n --no-heading '"(next|@nuxt/image|@angular/common|astro|@sveltejs/enhanced-img|vite-imagetools|@unpic/[\w-]+|cloudinary|@cloudinary/[\w-]+|@imgix/[\w-]+)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
+rg -l --no-heading --pcre2 "from\\s+[\"'](?:next/image|astro:assets)[\"']|NgOptimizedImage|<NuxtImg\\b|<NuxtPicture\\b|<enhanced:img\\b" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | wc -l
+# 1. A raster source with no modern-format path: a .jpg/.jpeg/.png src on a raw <img> (1a), and raster files committed under public/static/assets (1b).
+rg -n -U --no-heading --pcre2 "${RAW}${TB}\\b(?:src|ngSrc)=[\"'{]*[^\"'}\\s]*\\.(?:jpe?g|png)\\b${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg --files -g '**/{public,static,assets,src/assets}/**/*.{jpg,jpeg,png,JPG,JPEG,PNG}' -g '!**/node_modules/**' "${ROOTS[@]}" | wc -l
+# 2. A raw raster <img> with no srcset (SVG and data: URIs skipped).
+rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TB}\\b(?:srcset|srcSet|:srcset|\\[srcset\\])=)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 3. No reserved box: a raw <img> with neither width+height nor an aspect/size utility (3a); a NuxtImg/Picture with no width (3b).
+rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TB}\\b(?:width|:width|\\[width\\])=)(?!${TB}\\b(?:aspect-|size-\\d|h-\\d|aspectRatio|aspect-ratio))${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --no-heading --pcre2 "<(?:NuxtImg|NuxtPicture)\\b(?!${TB}\\b:?(?:width|sizes)=)${TB}>" -g '*.vue' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 4. A raw <img> with no loading attribute (position decides: below the fold wants lazy, the LCP wants eager — read, then route the hero to lcp-audit).
+rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TB}\\b(?:loading|:loading|\\[loading\\])=)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 5. Raw <img> count per file — a finding only where grep 0 shows a framework image primitive.
+rg -c --pcre2 "${RAW}${NOTICON}" "${UI[@]}" "${X[@]}" "${ROOTS[@]}"
+# 6. Oversized sources: committed raster files over 300 KB (the slot size is read from the consuming tag).
+for r in "${ROOTS[@]}"; do find "$r" \( -path '*/node_modules' -o -path '*/dist' -o -path '*/.next' -o -path '*/.output' \) -prune -o -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.avif' -o -iname '*.gif' \) -size +300k -print; done
+# 7. Placeholders in use (7a) vs framework image components on hero/card markers (7b).
+rg -n --no-heading --pcre2 '\bplaceholder=["\x27{]*(?:blur|empty|data:)|<NuxtImg\b[^>]*\bplaceholder\b|\bblurDataURL\b' "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | wc -l
+rg -n -U --no-heading --pcre2 "<(?:Image|NuxtImg|NuxtPicture|Picture)\\b(?=${TB}(?i:hero|banner|cover|card|gallery))(?!${TB}\\bplaceholder)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+```
+
+A hit is a candidate. The greps see **raw** `<img>` tags only (greps 2–5); a framework component already negotiates format, `srcset` and lazy loading, so its findings come from grep 3b, grep 7b and a read of its props. Two blind spots are structural:
+
+- **Sizing in a stylesheet is invisible to grep 3a.** A project class with a fixed `height` or `aspect-ratio` reserves the box; read the class before calling the tag unsized.
+- **An image CDN or a build plugin rewrites `src` outside the source.** A `?format=auto` loader, `vite-imagetools` query, or a CDN rule turns grep 1a hits into dismissals; read the loader once.
+
+**Measured** (2026-10-05, read-only, counts are tags). Scratch fixture: a raster `src` with no modern path, a tag with no `srcset`, an unsized tag, a 400 KB PNG, all hit; the SVG icon, the commented-out tag and the sized `srcSet` tag stay out of the greps they should. Benchmark fixtures: `web-dashboard` 6 tags with no `srcset` and no `loading` (0 unsized), `vuln-fullstack` 3 / 2 unsized / 3, `slow-marketplace` 3 with no `srcset` (its hero is sized), the rest 0. Real repos: a Nuxt 4 storefront with three themes (grep 2: 111 tags in 68 files; 3a: 91 in 58; 4: 55 in 30, with no image primitive installed, so §5 is N/A and every theme repeats the same components: group first), a Vue 3 + Vite admin SPA (2: 11; 3a: 11; 4: 9) and an Angular 19 admin template (2: 209 in 34 files; 6: 10 files over 300 KB; demo pages, dismissed by the route table).
+
+## The 3,000-hit path
+
+1. **Intersect with the route table** and drop design-system demo and docs pages.
+2. **Group** by (component, pattern). A `ProductCard` rendered in every list is one finding at the card; a theme folder duplicated N times is one group per component name.
+3. **Rank** by route traffic, then by bytes (grep 6 sizes, or `uses-responsive-images` / `image-delivery-insight` wasted bytes when Lighthouse ran).
+4. **Read the top 30 groups.** Ledger the rest as `Live, unreviewed (k groups / n hits)` with the command that continues them, never `checked`.
 
 ## Scans for
 
@@ -86,9 +138,7 @@ Flag a hand-written `<img>` in a project that ships `next/image` / `<NuxtImg>` /
 
 A 2400px original rendered into a 300px avatar ships ~8× the pixels.
 
-```bash
-# heuristic: large intrinsic dimensions / file size feeding a small CSS box or thumbnail/avatar class
-```
+Grep 6 lists committed raster files over 300 KB; grep the file name against the source to find the consuming tag, then read its slot (`width`, the avatar/thumbnail class, `sizes`). User-uploaded and CMS images are invisible to the file scan: read the URL builder instead (a `src={user.avatarUrl}` with no `w_`/`width=` transform is the candidate).
 
 Flag images whose natural size vastly exceeds their display size (thumbnails, avatars, list rows) with no resize/CDN transform.
 
@@ -118,7 +168,20 @@ Findings: 4
 4. public/photos/*.png (12 files)                      [report-with-fix]
    PNG photos with no AVIF/WebP path.
    Fix: convert to AVIF/WebP + <picture>, or route through the image component/CDN (format=auto).
+
+Verification: 31 candidates → 4 findings · 2 unconfirmed · 25 refuted
+
+Class coverage:
+  §1  legacy format              checked (14 hits → 1 finding, 12 files)
+  §2  no srcset / sizes          checked (6 tags → folded into finding 1)
+  §3  unsized → CLS              checked (5 tags → 1 finding; 4 sized by a project class)
+  §4  lazy below the fold        checked (31 tags → 1 finding)
+  §5  raw <img> beside primitive checked (next/image installed; folded into finding 1)
+  §6  oversized source           checked (3 files > 300 KB → 1 finding)
+  §7  placeholder                checked (0 findings; 2 hero components already blur)
 ```
+
+`[report-with-fix]`: the tag renders on a cited route and the fix goes through the project's own primitive. `[report-flagged]`: a link is unproven (the slot width or the position against the fold was not read on a render) and the row names the run that settles it. The coverage block lists **all seven** classes on every run: `checked (k hits → m findings)`, `N/A (<reason>)`, or `blocked (<reason>)` when a grep failed. A partial review reads `Live, unreviewed (k groups / n hits)`, never `checked`.
 
 ## False positives / gotchas
 
@@ -132,7 +195,7 @@ Findings: 4
 ## When to run
 
 - Before launching any image-led page (product, gallery, marketing, blog).
-- When `lighthouse-ci` flags "Properly size images", "Serve images in next-gen formats", "Efficiently encode images", or CLS from images.
+- When `lighthouse-ci` fails `uses-responsive-images`, `modern-image-formats`, `uses-optimized-images` or `unsized-images` (Lighthouse 12.6.1), or `image-delivery-insight` / `unsized-images` (13.x), or CLS from images.
 - After adding a card/list/grid that renders user or CMS images.
 
 ## Halt conditions
@@ -141,6 +204,7 @@ Findings: 4
 - Halt if a fix would add `loading="lazy"` to the LCP/hero image — hand to `lcp-audit`.
 - Halt if a `sizes` value is proposed without checking the element's real rendered width per breakpoint.
 - Halt if the project has an image component/CDN and the fix hand-rolls `<picture>` instead of using it.
+- Halt before reporting any candidate that has not been through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) (§1 restate … §9) and [`precedents/performance.md`](../../../../snippets/precedents/performance.md) § 83 (lazy below the fold is correct). **Proof:** bytes per route and the image audit for the runner's Lighthouse version, median of 5 runs ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Bytes per route", § "Lighthouse median"); a CLS fix is proved by the layout-shift observer (`critical-path-scan` § Proof, item 3).
 
 ## Related
 

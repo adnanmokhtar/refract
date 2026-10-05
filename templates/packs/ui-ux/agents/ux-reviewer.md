@@ -280,7 +280,7 @@ End every review with this section. Route each finding by its remedy:
 | A missing UI state | `ui-state-scan`'s state-matrix test first, then the fix; verbs 9–11 for the visual state |
 | A structural or flow problem (IA, density, a wizard that should be a page) | `/redesign` |
 | A neutered a11y gate (`a11y-scan` §7) | The gate fixed before any other finding is trusted |
-| A native screen | The mobile pack's fix path when it ships one; until then `/fix-bug` per finding |
+| A native screen | `/mobile-fix` (mobile pack, when installed): the platform checker written to fail first on a device, the fix at the shared touchable, the strict-decrease gate. Without the mobile pack, `/fix-bug` per finding |
 
 Never accepted as a fix: `aria-hidden` on the offender, adding to `disableRules`, an `outline: none` swapped for another invisible style, a raised `maxDiffPixelRatio`, `a11y.test: 'todo'`, or deleting the test.
 

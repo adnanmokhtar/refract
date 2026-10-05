@@ -35,7 +35,7 @@ Control mapping by prop type (same across frameworks): `boolean` → toggle/swit
 
 ## Steps
 
-0. **Prior-art check (mandatory).** `ls .storybook histoire.config.* .ladle 2>/dev/null` and `rg -l "\\.stories\\.(t|j)sx?$|\\.story\\.vue$" --files`. Any hit → HALT and route to a story; do not scaffold.
+0. **Prior-art check (mandatory).** `ls -d .storybook .ladle histoire.config.* 2>/dev/null` and `rg --files -g '*.stories.{ts,tsx,js,jsx,mjs,svelte,mdx}' -g '*.story.{vue,svelte}' -g '!**/node_modules/**' . | head -5`. Any output → HALT and route to a story; do not scaffold. `rg --files` takes **globs**, not a pattern: given a regex beside `--files`, ripgrep reads it as a path, exits 2 ("No such file or directory") and prints nothing, so the halt never fired on a repo full of stories.
 1. Resolve `$COMPONENT` (path or name) and **read it** to extract the real prop + emit/event declarations (see the Adapt table for where they live).
 2. Generate a playground page that: imports the component; binds a reactive/stateful `bindings` object built from the props; renders one control per prop (mapped by type, using the project's shared inputs); and logs each emit/event to a list beside the component.
 3. Register the route (dev-gated) in the project's router.

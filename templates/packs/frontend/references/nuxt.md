@@ -1,8 +1,8 @@
 # Nuxt SSR rules
 
-> **Framework**: Nuxt 3.10+ (Nitro 2.9+) on Node 20+ • Vue 3.4+
+> **Framework**: Nuxt 3.10+ / 4.x — `nuxt` 4.5.2 is the latest on npm (read 2026-10-05; its `engines.node` is `^22.19.0 || ^24.11.0 || >=26.0.0`) • Vue 3.5
 > **Official docs**: https://nuxt.com/docs
-> **Version-specific gotchas**: Nuxt 3.10+ ships server components (`.server.vue` files); auto-imports include `useNuxtData`, `useRequestEvent`; Nuxt 4 (preview) restructures `app/` directory (opt-in via `compatibilityVersion: 4`); `useFetch` SSR hydration changed in 3.7 — pass `key` for dynamic URLs.
+> **Version-specific gotchas**: Nuxt 3.10+ ships server components (`.server.vue` files); auto-imports include `useNuxtData`, `useRequestEvent`; Nuxt 4 is the current major and puts app code under `app/` by default (Nuxt 3 reached the same layout opt-in via `compatibilityVersion: 4`) — this file was written against 3.x, so read the installed major and the `4.x` docs segment below before trusting a 3.x idiom; `useFetch` SSR hydration changed in 3.7 — pass `key` for dynamic URLs.
 > **Substitution markers**: Replace project-specific composable / API endpoint names per `_extracted-idioms.md`.
 
 ## Machine-readable docs (check these before trusting this file)

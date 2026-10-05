@@ -1,6 +1,8 @@
 ---
 name: dev-server-start
-description: Start the project's local dev server in the background and wait until it is ready, resolving the workspace member to run (pnpm/npm/yarn/bun workspaces, turbo, nx) before detecting the package manager and the port from project config. Idempotent — reuses an already-running server. Run before any skill that needs a live localhost (`verify-with-playwright`, `a11y-scan`, `visual-check`, `ssr-audit`); it starts a server and nothing else.
+description: Start one workspace member's dev server in the background and wait for ready — package manager and port from project config; reuses a running server.
+kind: skill
+pack: frontend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -57,7 +59,7 @@ The hard rule below requires a verified `package.json` at `PROJECT_ROOT`. Nothin
 Read `scripts.dev` in the **chosen member's** `package.json` (or `scripts.start` for Next/Nuxt). Detect package manager from the lockfile at the workspace root (single-package repo: the same directory):
 - `pnpm-lock.yaml` → `pnpm dev`
 - `yarn.lock` → `yarn dev`
-- `bun.lockb` → `bun dev`
+- `bun.lock` (text lockfile, the default from Bun 1.2) or `bun.lockb` (binary, older Bun) → `bun dev`
 - `package-lock.json` → `npm run dev`
 
 If no `dev` script and no recognizable framework config (`vite.config`, `next.config`, `nuxt.config`, `angular.json`, `svelte.config`), halt with `dev-server-not-applicable`.
@@ -93,11 +95,14 @@ If something else is listening (Postgres on 5432, etc.), choose `port_override =
 ### Step 4 — Launch in background
 
 ```bash
-( cd "$PROJECT_ROOT" && <pkg-manager> dev > .claude/dev-server.log 2>&1 & )
-echo $! > .claude/dev-server.pid
+mkdir -p "$WS_ROOT/.claude"
+LOG="$WS_ROOT/.claude/dev-server${MEMBER:+.$MEMBER}.log"; PIDF="$WS_ROOT/.claude/dev-server${MEMBER:+.$MEMBER}.pid"
+( cd "$PROJECT_ROOT" && exec nohup <pkg-manager> dev ) > "$LOG" 2>&1 &
+echo $! > "$PIDF"
+[ -s "$PIDF" ] && kill -0 "$(cat "$PIDF")" 2>/dev/null || { echo "dev-server-start: no live PID recorded"; exit 1; }
 ```
 
-Detach the process so it survives the agent's shell exit. Capture pid + stdout to `.claude/dev-server.{pid,log}` for later inspection.
+`$!` is set only in the shell that ran the `&`. The earlier form, `( cd … && <pm> dev … & )` followed by `echo $! > pid`, backgrounded inside a subshell, so the outer `$!` was empty and every later cleanup killed nothing. Here the subshell itself is backgrounded and `exec` replaces it with the package manager, so `$!` is that process. It is the package manager's PID, not the bundler's: for cleanup, kill it and then whatever still listens on the port (`lsof -t -nP -iTCP:<port> -sTCP:LISTEN`). `kill -0` checks liveness without `ps`, which some sandboxes refuse. `WS_ROOT` is the workspace root (Step 0, item 5) and `MEMBER` the member name, empty in a single-package repo.
 
 ### Step 5 — Wait for ready
 
@@ -132,7 +137,7 @@ dev-server-start
 ## Failure modes
 
 - **Port collided with non-dev process** — detected (Postgres, system service); skill auto-bumps and retries on `port + 1`. If still colliding after 3 bumps, halt.
-- **Bundler error** — dev server exits in <2s with non-zero code. Skill detects via pid recheck + log inspection. Surfaces last 30 log lines + halts.
+- **Bundler error** — dev server exits in <2s with non-zero code. Skill detects via `kill -0` on the recorded PID + log inspection. Surfaces last 30 log lines + halts.
 - **Watcher exhausted** (Linux ENOSPC) — fs.inotify limit hit. Surface the precise error + suggest `sudo sysctl fs.inotify.max_user_watches=524288`.
 - **Wrong project root** — `package.json` not found at `$PROJECT_ROOT`. Halt; do not start a server in the wrong dir.
 - **Workspace fan-out mistaken for one server** — the root `dev` delegates to `turbo` / `nx` / `pnpm -r`, N servers boot, and the ready probe adopts whichever app won the default port. Prevented by Step 0; if the fan-out already started, kill it and re-run against a single member rather than probing your way out.
@@ -142,7 +147,7 @@ dev-server-start
 
 - `verify-with-playwright` — typical caller; consumes the returned URL.
 - `a11y-scan`, `visual-check`, `ssr-audit` — also depend on a running server.
-- To stop the server: kill the PID recorded in `.claude/dev-server.pid` (if present) and clear the file.
+- To stop the server: kill the PID recorded in `.claude/dev-server.pid` (if present), then any process still listening on the port (the package manager's child), and clear the file.
 
 ## Hard rules
 
@@ -158,5 +163,6 @@ dev-server-start
 - Halt if the lockfile + package manager don't match (e.g., `pnpm-lock.yaml` present but `npm` requested). Mirror what the project actually ships with.
 - Halt if the port collides with a non-dev process after 3 bumps — stop guessing, surface the conflict.
 - Halt if the server exits within 2s of launch — capture the last 30 log lines and refuse to declare success.
+- Halt if the PID file is empty or names a dead process after launch — a server nobody can stop is not `started-fresh`.
 - Halt `workspace-target-ambiguous` if the repo is a workspace with more than one app member and no `app_target` was given. List the candidates with their dev script, framework and configured port; picking one is the caller's decision, not the run's.
 - Halt if the resolved start command is a fan-out runner (`turbo run dev`, `nx run-many`, `pnpm -r dev`, `npm run dev --workspaces`, `concurrently`) — that starts N servers and this skill returns one `url`. Re-resolve to a member first.

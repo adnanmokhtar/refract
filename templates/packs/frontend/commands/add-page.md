@@ -38,7 +38,7 @@ Everything else — loading/empty/error state shape, lazy-load wrapper, i18n key
 
 | Tier | Trigger | Ceremony | Default? |
 |---|---|---|---|
-| **Trivial** | New page that mirrors an existing sibling (list, detail, settings tab) | Code only — page + service + types + locale keys (BOTH locales). Tests required. **No plan, no ADR.** | YES |
+| **Trivial** | New page that mirrors an existing sibling (list, detail, settings tab) | Code only — page + service + types + locale keys (every declared locale, `rules/i18n.md`). Tests required. **No plan, no ADR.** | YES |
 | **Standard** | New shape that needs 1 new composable OR a new shared loading/empty primitive | Trivial + 1-paragraph sibling-shape note inline | NO |
 | **Heavy** | New routing pattern (multi-route flow, dynamic segment shape, SSR vs CSR switch on this route family) | Standard + ADR + `@ui-reviewer` + `@accessibility-auditor` cascade | NO |
 

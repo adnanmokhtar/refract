@@ -46,7 +46,7 @@ CSS `background-image` / JS-injected hero with no matching preload → flag.
 
 | Framework | LCP-image priority |
 |---|---|
-| Next | `<Image priority>` (fetchpriority=high + eager) |
+| Next 16+ | `<Image preload>` or `fetchPriority="high"` (`priority` is deprecated from 16.0.0); Next ≤ 15: `<Image priority>` |
 | Nuxt | `<NuxtImg preload :loading="'eager'">` |
 | Astro | `<Image loading="eager">` |
 | Angular | `NgOptimizedImage` `ngSrc` + `priority` |
@@ -57,7 +57,7 @@ CSS `background-image` / JS-injected hero with no matching preload → flag.
 ```
 LCP audit — <route set>
 
-1. components/Hero.tsx:14      [report-with-fix]  <Image> on the LCP element — no `priority`. Fix: add `priority`.
+1. components/Hero.tsx:14      [report-with-fix]  <Image> on the LCP element (next 16) — no priority hint. Fix: `fetchPriority="high"` (or `preload`).
 2. pages/index.vue:8          [report-with-fix]  <img class="masthead" loading="lazy"> — drop lazy; <NuxtImg preload eager>.
 3. styles/home.css:22         [report-with-fix]  .hero { background-image } — late-discovered. Fix: <link rel="preload" as="image">.
 ```
@@ -65,7 +65,7 @@ LCP audit — <route set>
 ## False positives / gotchas
 
 - Only the SINGLE LCP element gets `fetchpriority="high"` — flag if >1.
-- The LCP element differs by viewport/route — confirm via `web-vitals-field` (`attribution.element`) *(performance pack, when co-installed)*. Absent that pack there is no field attribution, and § Identifying the LCP element below is how the element is named instead — a label is not a substitute for running it.
+- The LCP element differs by viewport/route — confirm via `web-vitals-field` (`attribution.target`, the web-vitals 4+ name) *(performance pack, when co-installed)*. Absent that pack there is no field attribution, and § Identifying the LCP element below is how the element is named instead — a label is not a substitute for running it.
 - A text LCP element has no image to preload — its cost is font + render-blocking CSS/JS.
 - Preloading an unused image hurts LCP — preload only the confirmed resource.
 
@@ -74,7 +74,7 @@ LCP audit — <route set>
 Every detector above targets *the* LCP element, so the scan is worthless until one element is named. On a frontend-only install — the default — there is no field attribution, and "pick it from the lab trace" is not a procedure. This is:
 
 1. **Run `lighthouse-ci` (this pack) on the route** at the viewport in question, against the production build. It already runs for the LCP number; the same report carries the element.
-2. **Read the `largest-contentful-paint-element` diagnostic from the JSON report**, not from the score. It is an informative audit — `lhci` cannot fail a build on it, which is why nobody reads it. Its item gives the element's node (selector / snippet).
+2. **Read the LCP element from the JSON report** (`largest-contentful-paint-element` / `lcp-phases-insight` on LHCI's Lighthouse 12.6.1; `lcp-breakdown-insight` on Lighthouse 13), not from the score. It is an informative audit — `lhci` cannot fail a build on it, which is why nobody reads it. Its item gives the element's node (selector / snippet).
 3. **Map the node back to source.** Grep the selector, `alt` text, class, or image path against the source tree to land on `<file:line>`. That grep is the citation; a node with no source anchor is not a finding.
 4. **Repeat per viewport** — mobile and desktop routinely resolve to different elements. Run the mobile form factor at minimum; that is what CWV scores.
 5. **Label it honestly**: `LCP element: <file:line> (lab-inferred, lighthouse-ci <form-factor>)`. Never print a field figure this skill did not read.

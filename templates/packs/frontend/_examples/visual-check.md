@@ -71,11 +71,14 @@ setup("authenticate", async ({ page }) => {
   await page.fill("input[type=password]", password);  // ← detected password selector
   await page.click('button[type="submit"]');          // ← detected submit selector
   await page.waitForURL((u) => !u.pathname.includes("/login"), { timeout: 30_000 });
-  // token-in-localStorage apps: prove a token landed; cookie apps: assert a session cookie
-  const ok = await page.evaluate(() => Object.keys(localStorage).some((k) => /token/i.test(k)));
-  expect(ok, "no auth token after login — check creds/selectors").toBeTruthy();
+  // prove a session landed: a cookie (most apps, often httpOnly) or a localStorage token
+  const state = await page.context().storageState();
+  const session = /sess|auth|token|sid|jwt/i;
+  const ok = state.cookies.some((c) => session.test(c.name))
+    || state.origins.some((o) => o.localStorage.some((e) => session.test(e.name)));
+  expect(ok, "no session cookie or token after login — check creds/selectors").toBeTruthy();
   fs.mkdirSync("tests/.auth", { recursive: true });
-  await page.context().storageState({ path: authFile });
+  await page.context().storageState({ path: authFile, indexedDB: true });   // indexedDB: Playwright 1.51+
 });
 ```
 
@@ -87,8 +90,8 @@ Then the ways this is wired correctly and still does not work — none guessable
    ```ts
    projects: [
      { name: "setup", testMatch: /.*\.setup\.ts/ },
-     { name: "chromium", use: { ...devices["Desktop Chrome"] },
-       dependencies: ["setup"], storageState: "tests/.auth/user.json" },
+     { name: "chromium", dependencies: ["setup"],
+       use: { ...devices["Desktop Chrome"], storageState: "tests/.auth/user.json" } },   // storageState is a `use:` option
    ]
    ```
    Then, dev server up: `npx playwright test --project=setup` writes `tests/.auth/user.json`.

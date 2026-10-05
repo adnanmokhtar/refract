@@ -323,13 +323,13 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: bundle-analyze
   kind: skill
   triggers: { build_tool_detected: true }
-  fallback: _examples/bundle-analyze.md
+  fallback: skills/bundle-analyze/SKILL.md
 
 - name: a11y-scan
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-idioms.md (the project's own modal / dropdown / drawer wrapper names, for the interactive-surface trigger enumeration)
-  fallback: _examples/a11y-scan.md
+  fallback: skills/a11y-scan/SKILL.md
 
 - name: a11y-code-scan
   kind: skill

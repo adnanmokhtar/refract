@@ -20,7 +20,7 @@ Build command. Full CRUD bundle: list with pagination/filter, create/edit form, 
 
 **New-dependency gate (all tiers):** a table/form/date package **no sibling already imports** needs justification + a **bundle-size delta** before it lands — reuse the repo's declared libraries by default. **HALT** on an unreviewed new dependency.
 
-**Lightweight default.** A new entity with an existing API and a sibling CRUD page in the same area is code only — list + form + delete + store + service + locale keys (BOTH locales) + tests, no plan and no ADR.
+**Lightweight default.** A new entity with an existing API and a sibling CRUD page in the same area is code only — list + form + delete + store + service + locale keys (every declared locale) + tests, no plan and no ADR.
 
 ## When to use / NOT to use
 - USE: new admin entity needing standard CRUD.
@@ -146,7 +146,7 @@ Phase 4 (Generated):
   Routes:   /admin/products, /admin/products/new, /admin/products/:id
   Store:    src/store/products.slice.ts (5 row actions + 1 cross-row: setDefault)
   Service:  src/services/products.service.ts (6 methods)
-  i18n:     +24 keys × 2 locales
+  i18n:     +24 keys × <N> declared locales
   Tests:    7 spec files, 32 cases
 Phase 5 (Updated): ai/modules.md, changelog, status.md, locale files
 Phase 6 (Validated): lint + tests green; permission on routes + buttons; SSR pagination

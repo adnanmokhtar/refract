@@ -1,6 +1,8 @@
 ---
 name: navigation-speed
-description: Audit page-to-page navigation speed — link/router prefetch, Speculation Rules, bfcache eligibility, instant-loading UI, full-reload regressions, View Transitions. Most of a session is navigation, not first load.
+description: Page-to-page navigation — prefetch, Speculation Rules, bfcache breakers, instant loading UI, full reloads, scroll, View Transitions, route announcement.
+kind: skill
+pack: frontend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -16,6 +18,58 @@ Every finding cites `<file:line>` + the matched pattern + a concrete fix + a clo
 - `report-with-fix` — pattern matched at `<file:line>` + the concrete prefetch / boundary / `router.push` / `pagehide` patch.
 - `report-flagged` — measured-relevant but the fix is an architectural call (adopt Speculation Rules host-wide, restructure a layout) → surface for ADR, naming who decides.
 - `dismiss` — pattern matched but the carve-out applies (auth-mutating link, logout prerender, pagination tail) → documented so the next scan doesn't re-flag it.
+
+## Pre-flight greps
+
+Run as **one** script from the repo root; shell state does not survive between tool calls. Grep **N** feeds detector **§N**. Every `rg` names its path: given no path and a piped stdin, `rg` reads stdin and reports zero hits. Files-without-match is `--files-without-match`, never `-L` (that is `--follow` in ripgrep). An `rg` error on stderr (exit 2) is a failed grep, not zero hits.
+
+```bash
+ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|vue|svelte|@angular/core|solid-js|preact|astro|next|nuxt)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
+X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output,.svelte-kit,.angular,storybook-static}/**' -g '!**/*.min.*'
+   -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,__fixtures__,stories,playwright,cypress,locales,i18n,generated,__generated__,docs}/**'
+   -g '!**/*.{test,spec,e2e,stories,story,mock}.*' -g '!*.{md,mdx,snap,map,lock}' -g '!ai/**')
+NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#|<!--|\{/\*)')
+UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
+CMP=(-g '*.{jsx,tsx,vue,svelte,astro}' -g '*.component.html')
+CODE=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro}')
+# 0. Lanes: the client router and its prefetch primitive (§ Prefetch primitive per framework); no router = a document-navigation surface.
+rg -n --no-heading '"(next|nuxt|@sveltejs/kit|react-router|react-router-dom|@tanstack/react-router|vue-router|@angular/router|astro|quicklink|ngx-quicklink)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
+# 1. Internal links that do not prefetch: a raw <a href="/…"> in a component (1a); a link with prefetch turned off (1b).
+rg -n --no-heading --pcre2 '<a\b[^>]*\bhref=["\x27{`]*/(?![/\\])' "${CMP[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --no-heading --pcre2 '\bprefetch=\{?\s*false\b|:prefetch=["\x27]false|data-sveltekit-preload-(?:data|code)=["\x27]off|\bpreload=\{?\s*false\b' "${CMP[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 2. Speculation Rules present (2a) — the detector fires only on a document-navigation surface (§2 conditions).
+rg -n --no-heading --pcre2 'type=["\x27]speculationrules|Speculation-Rules\s*:' "${UI[@]}" -g '**/{nuxt,next,astro}.config.*' -g '**/_headers' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 3. bfcache breakers: unload / beforeunload listeners (3a); long-lived connections (3b) in files that never listen for pagehide (3c).
+rg -n --no-heading --pcre2 'addEventListener\(\s*["\x27](?:unload|beforeunload)["\x27]|\bon(?:before)?unload\s*=|useEventListener\([^,]*,\s*["\x27](?:before)?unload' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -l --pcre2 '\bnew\s+(?:WebSocket|BroadcastChannel|EventSource)\s*\(|\bindexedDB\.open\s*\(|\bopenDB\s*\(' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match 'pagehide'
+# 4. Instant-loading UI: Next App Router page dirs with no loading.* (4a); pending-state primitives in use — React Router useNavigation,
+#    Nuxt <NuxtLoadingIndicator>, Vue/React <Suspense>, SvelteKit navigating (4b); the deprecated SvelteKit $app/stores import (4c).
+rg --files -g '**/app/**/page.{tsx,jsx,ts,js}' "${X[@]}" "${ROOTS[@]}" | while read -r f; do ls "$(dirname "$f")"/loading.* >/dev/null 2>&1 || echo "$f"; done
+rg -n --no-heading --pcre2 '\buseNavigation\(\)|\buseRouterState\(|\bnavigating\b|<Suspense\b|\bisNavigating\b|\buseLoadingIndicator\(|<NuxtLoadingIndicator\b' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | wc -l
+rg -n --no-heading --pcre2 'from\s+["\x27]\$app/stores["\x27]' -g '*.{svelte,ts,js}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 5. Full reload where a soft navigation belongs (an assignment, not a comparison).
+rg -n --no-heading --pcre2 '\b(?:window\.|document\.)?location\.(?:href|pathname)\s*=(?!=)|\blocation\.(?:assign|replace)\s*\(|\bwindow\.location\s*=(?!=)' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 6. Manual scroll restoration.
+rg -n --no-heading --pcre2 'scrollRestoration\s*=\s*["\x27]manual' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 7. View Transitions in use (7a) and whether a reduced-motion guard exists anywhere in the styles (7b).
+rg -n --no-heading --pcre2 'startViewTransition\s*\(|view-transition-name|@view-transition|viewTransition\s*:|withViewTransitions\(|<ViewTransitions\b' "${CODE[@]}" -g '*.{css,scss}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -c --pcre2 'prefers-reduced-motion' -g '*.{css,scss,sass,less,vue,svelte,tsx,jsx,ts}' "${X[@]}" "${ROOTS[@]}"
+# 8. Route-change announcement: live regions, focus moves, framework announcers.
+rg -n --no-heading --pcre2 'aria-live=|role=["\x27]status["\x27]|<NuxtRouteAnnouncer\b|\.focus\(\s*\)' "${CODE[@]}" -g '*.component.html' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+```
+
+A hit is a candidate. Two blind spots are structural:
+
+- **A listener added by a library is invisible to grep 3a.** Analytics, chat and session-replay SDKs register `unload` / `beforeunload` themselves. The Lighthouse `bf-cache` audit's `notRestoredReasons` (same id in 12 and 13) is the ground truth; the grep only finds the first-party ones.
+- **Grep 1a sees literal paths only.** A raw anchor whose `href` is built from a variable (`:href="url"`, `href={link}`) is not listed; read the shared link components instead.
+
+**Measured** (2026-10-05, read-only). Scratch fixture: a raw internal anchor, a `preload-data="off"` link, an `unload` listener, a `location.href` assignment, a page with no `loading.tsx` and a `$app/stores` import, all hit; the external and protocol-relative anchors, the comparison `location.href === …`, and the WebSocket in a file that listens for `pagehide` stay out. Benchmark fixtures: 1a hits once each in `quality-mix` and `vuln-fullstack`; 8 lists the existing live regions; the rest 0. Real repos: a Nuxt 4 storefront (3a: 2 `beforeunload` listeners in an engagement tracker; 5: 1 post-checkout redirect, a legitimate cross-origin carve-out on read; 1a: 4, of which 2 are anchors inside translated HTML strings), a Vue 3 + Vite admin SPA (5: 1 hard reload in a router guard) and an Angular 19 template (5: 6, four of them `mailto:` assignments, which are not navigations).
+
+## The 3,000-hit path
+
+1. **Group** by (shared component or module, pattern). One `NavLink` wrapper, one analytics module or one router guard is one finding for every caller.
+2. **Rank** by route traffic and by navigation frequency (primary nav, list → detail, back from detail).
+3. **Read the top 30 groups.** Ledger the rest as `Live, unreviewed (k groups / n hits)` with the command that continues them, never `checked`.
 
 ## Scans for
 
@@ -83,7 +137,7 @@ BAD:  <RouterView/> with no pending/transition state         (Vue/React Router)
 
 GOOD: app/products/loading.tsx → streams a skeleton instantly
 GOOD: const nav = useNavigation(); nav.state === 'loading' → <Skeleton/>  (React Router)
-GOOD: import { navigating } from '$app/stores'                            (SvelteKit)
+GOOD: import { navigating } from '$app/state'   // SvelteKit ≥ 2.12 (Svelte 5); `$app/stores` is the deprecated form (grep 4c)
 ```
 
 The skeleton MUST match final dimensions (reserve width/height) — a skeleton that reflows just trades a blank screen for a CLS hit. Grep route segments lacking a sibling loading convention; flag router outlets with no pending-state branch.
@@ -129,7 +183,7 @@ GOOD: after the route resolves, move focus to the new view's <h1> (tabindex="-1"
       <p aria-live="polite" class="sr-only">{routeAnnouncement}</p>
 ```
 
-Grep: `rg -n 'aria-live|role="status"|\.focus\(\)' <app-source-root>` (pass only directories that exist — ripgrep exits 2 on a missing path, which reads like "no findings" if you only check the output) — zero hits in a project that ships a client router is the finding. Then check the opposite failure: **one** live region in the app shell, not one per view (N regions announce N times, or fight each other). Carve-out: a router that already ships route announcement (some do) — cite the router's mechanism and `dismiss`.
+Grep 8 lists the live regions, `role="status"` and `.focus()` calls (ripgrep exits 2 on a missing path, which reads like "no findings" if you only check the output) — zero hits in a project that ships a client router is the finding. Then check the opposite failure: **one** live region in the app shell, not one per view (N regions announce N times, or fight each other). Carve-out: a router that already ships route announcement (some do) — cite the router's mechanism and `dismiss`.
 
 ## Prefetch primitive per framework
 
@@ -172,7 +226,21 @@ Findings: 3
 3. lib/analytics.ts:44                                 [report-with-fix]
    window.addEventListener('unload', flush) — HARD bfcache disqualifier.
    Fix: switch to 'pagehide' (or 'visibilitychange' + navigator.sendBeacon).
+
+Verification: 14 candidates → 3 findings · 1 unconfirmed · 10 refuted
+
+Class coverage:
+  §1  no prefetch               checked (4 hits → 1 finding)
+  §2  speculation rules         checked (SPA: <Link> already prefetches → dismissed; /docs/* → 1 unconfirmed, report-flagged)
+  §3  bfcache breakers          checked (1 hit → 1 finding; bf-cache audit confirms)
+  §4  instant-loading UI        checked (2 segments → 1 finding)
+  §5  full reload               checked (3 hits → 0 findings; logout and cross-origin carve-outs)
+  §6  scroll restoration        checked (0 hits)
+  §7  View Transitions          N/A (none in use)
+  §8  route announcement        checked (Next App Router announcer; dismissed with its mechanism)
 ```
+
+`[report-with-fix]`: a cited line and a local patch. `[report-flagged]`: an architectural call (Speculation Rules host-wide, a layout restructure) or an unproven link; the row names who decides or the run that settles it. The coverage block lists **all eight** classes on every run: `checked (k hits → m findings)`, `N/A (<reason>)`, or `blocked (<reason>)` when a grep failed. A partial review reads `Live, unreviewed (k groups / n hits)`, never `checked`.
 
 ## False positives / gotchas
 
@@ -197,6 +265,7 @@ Findings: 3
 - Halt if Speculation Rules are proposed without excluding side-effecting GETs (logout/delete) from the `prerender` set.
 - Halt if an instant-loading fix proposes a spinner or an unsized skeleton (CLS) instead of a dimension-matched one.
 - Halt if a default framework prefetch is disabled in a fix without a documented reason.
+- Halt before reporting any candidate that has not been through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) (§1 restate … §9) and [`precedents/ui.md`](../../../../snippets/precedents/ui.md) § 27 (built-in route announcers). **Proof:** §3 the `bf-cache` audit passes (same id in Lighthouse 12 and 13) and a Playwright back navigation reports `persisted === true` on `pageshow`; §1 and §4 the next route's chunk is requested before the click (`page.on('request')`) and the skeleton paints before the data resolves; §8 the focus target or live-region text is asserted after a client navigation.
 
 ## Related
 

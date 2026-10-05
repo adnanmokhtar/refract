@@ -2,7 +2,7 @@
 
 This pack's commands, agents, skills, rules, ai-patterns, and examples assume:
 
-- **Modern component framework** with reactive state + lifecycle hooks (Vue 3, React 18+, Svelte 4+, Angular 16+, Nuxt 3+, Next 13+, etc.)
+- **Modern component framework** with reactive state + lifecycle hooks (Vue 3, React 18–19, Svelte 5 (Svelte 4 syntax still read), Angular 17–22, Nuxt 3–4, Next 14–16, etc.; latest majors on npm 2026-10-05: React 19, Vue 3, Svelte 5, Angular 22, Nuxt 4, Next 16, SvelteKit 3)
 - **TypeScript-first** typing
 - **A shared-component / wrapper layer** that the project owns (the equivalent of `<BaseModal>`, `<FormField>`, etc., named in the project's `_extracted-idioms.md`)
 - **Composable / hook abstraction** for reusable reactive logic

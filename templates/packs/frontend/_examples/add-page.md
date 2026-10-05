@@ -22,7 +22,7 @@ All 7. Standard build/add command.
 
 **New-dependency gate (all tiers):** a package **no sibling already imports** needs justification + a **bundle-size delta** (gzipped, tree-shakeable?) before it lands. **HALT** on an unreviewed new dependency; no silent install.
 
-**Lightweight default.** A page that mirrors an existing sibling is code only — page + service + types + locale keys (BOTH locales) + tests, no plan and no ADR.
+**Lightweight default.** A page that mirrors an existing sibling is code only — page + service + types + locale keys (every declared locale) + tests, no plan and no ADR.
 
 ## When to use / NOT to use
 - USE: new top-level route; new tab/sub-route inside an existing section.

@@ -20,7 +20,7 @@ Build command. Generates a presentational component matching the repo's framewor
 
 **Dispatch fallback (all tiers).** If a named reviewer — agent, command, or skill — is not installed in this project, that axis is **not reviewed**: do not grade it yourself. Report `UNREVIEWED(<axis>) — <name> not installed (<pack> pack)` and end the run **INCOMPLETE** — never silently skip the axis, and never claim a reviewer that did not run.
 
-**Lightweight default.** A new primitive that mirrors an existing sibling is code only (component + test + story if siblings have one, locale keys in BOTH locales). ADR drafts are heavy-tier opt-in only.
+**Lightweight default.** A new primitive that mirrors an existing sibling is code only (component + test + story if siblings have one, locale keys in every declared locale). ADR drafts are heavy-tier opt-in only.
 
 ## When to use / NOT to use
 - USE: new shared UI primitive used in ≥ 2 places.

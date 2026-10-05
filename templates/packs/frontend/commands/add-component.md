@@ -34,7 +34,7 @@ Everything else — prop default-true vs default-false, slot vs prop for header,
 
 | Tier | Trigger | Ceremony | Default? |
 |---|---|---|---|
-| **Trivial** | New primitive that mirrors an existing sibling (card, badge, chip, button variant) | Code only — component + test + (Storybook entry if siblings have one). Locale keys land in BOTH locales. **No plan, no ADR.** | YES |
+| **Trivial** | New primitive that mirrors an existing sibling (card, badge, chip, button variant) | Code only — component + test + (Storybook entry if siblings have one). Locale keys land in every declared locale (`rules/i18n.md` — read the set, never assume two). **No plan, no ADR.** | YES |
 | **Standard** | New shape with 1 new prop convention or new slot pattern | Trivial + 1-paragraph sibling-shape note inline | NO |
 | **Heavy** | New shared-primitive family (first dialog, first datepicker, first dropdown wrapper) | Standard + ADR + `@design-system-guardian` *(ui-ux pack)* + `@accessibility-auditor` dispatch | NO |
 

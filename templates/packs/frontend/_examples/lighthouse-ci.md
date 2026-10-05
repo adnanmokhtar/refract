@@ -1,6 +1,6 @@
 ---
 name: lighthouse-ci
-description: Run Lighthouse against the dev server with budget enforcement, blocking regressions in LCP / CLS / TBT / bundle size, attributing each regression to a commit / file / chunk, and routing the failed metric to the scanner that fixes it (§ Triage routing — this pack's performance entry point). Run before merging a PR that touches frontend files, after upgrading a heavy dependency, and weekly in CI to track the Core Web Vitals trend. Lab measurement — it cannot measure INP or any field metric; that is `web-vitals-field`.
+description: Lighthouse CI on the production build — 5-run median budgets, regression attribution, routes each failed metric to its scanner. Lab only; no INP.
 ---
 
 # lighthouse-ci
@@ -42,10 +42,7 @@ A failed budget without a named cause is unfinished investigation — and naming
    npx lhci autorun --config=./lighthouserc.json
    ```
 3. Inspect the generated `.lighthouseci/` directory. Reports are JSON + HTML; `assertions.json` has pass/fail per metric.
-4. Compare against stored baseline (median of last N runs) — `lhci`'s `assert` config supports baseline preset:
-   ```bash
-   npx lhci assert --preset=lighthouse:no-pwa
-   ```
+4. Compare against the baseline. `lhci assert` checks the absolute budgets on the median run; a `--preset` only seeds default assertions and is not a baseline. A relative regression needs a stored series (the LHCI server's compare view, or § Baseline registration in the source skill); without one, say `baseline: none`.
 5. Stop the preview server when done:
    ```bash
    kill %1
@@ -72,13 +69,13 @@ Eight of this pack's skills are performance scanners and none of them is a front
 ```json
 {
   "ci": {
-    "collect": { "numberOfRuns": 3 },
+    "collect": { "numberOfRuns": 5 },
     "assert": {
       "assertions": {
-        "categories:performance":              ["error", { "minScore": 0.9 }],
-        "largest-contentful-paint":            ["error", { "maxNumericValue": 2500 }],
-        "cumulative-layout-shift":             ["error", { "maxNumericValue": 0.1 }],
-        "total-blocking-time":                 ["error", { "maxNumericValue": 300 }],
+        "categories:performance":              ["error", { "minScore": 0.9, "aggregationMethod": "median-run" }],
+        "largest-contentful-paint":            ["error", { "maxNumericValue": 2500, "aggregationMethod": "median-run" }],
+        "cumulative-layout-shift":             ["error", { "maxNumericValue": 0.1, "aggregationMethod": "median-run" }],
+        "total-blocking-time":                 ["error", { "maxNumericValue": 300, "aggregationMethod": "median-run" }],
         "first-contentful-paint":              ["warn",  { "maxNumericValue": 1800 }],
         "speed-index":                         ["warn",  { "maxNumericValue": 3400 }],
         "resource-summary:script:size":        ["error", { "maxNumericValue": 307200 }],
@@ -89,12 +86,12 @@ Eight of this pack's skills are performance scanners and none of them is a front
 }
 ```
 
-Customize per-project. Mobile budgets stricter than desktop. Critical-JS budget tighter than total-JS.
+Customize per-project. Mobile budgets stricter than desktop. Critical-JS budget tighter than total-JS. Pin `@lhci/cli@0.15.1`: it bundles Lighthouse 12.6.1, which still has the legacy audit ids; Lighthouse 13 keeps only the `*-insight` ids (source skill § Lighthouse ids by version). No `interaction-to-next-paint` assertion: that audit exists only in timespan mode, never in an `lhci autorun` navigation run.
 
 ## Output
 
 ```
-Lighthouse CI — /products (mobile, median of 3 runs)
+Lighthouse CI — /products (mobile, median run of 5; LHCI 0.15.1 / Lighthouse 12.6.1)
 
   PASS  LCP             2210ms  (budget 2500)
   PASS  CLS             0.04    (budget 0.1)
@@ -132,6 +129,6 @@ Reports:  .lighthouseci/lhr-1745492045123.html
 - Halt if the stored baseline carries no `$BASELINE_SHA`; without it the next regression is unattributable by construction.
 - Halt if a failed metric is reported with no routed next step while § Triage routing names one.
 - Halt if the run targeted `pnpm dev` instead of the built artifact — invalid measurement, re-run.
-- Halt if `numberOfRuns < 3` — a single run is noise, not a signal.
-- Halt if INP is reported only from lab with no field/RUM source cited — lab INP is not a measurement. Pair it with CrUX or RUM `onINP` (the `web-vitals-field` skill *(performance pack, when co-installed)*) before claiming an INP value. If that pack is absent the run reports `INP: SKIPPED (no field source)` — never a fabricated number.
+- Halt if `numberOfRuns < 5` or a numeric assertion lacks `aggregationMethod: "median-run"` — one Lighthouse run moves 5–10 points.
+- Halt if any INP value is reported without a field source (CrUX or RUM `onINP`, the `web-vitals-field` skill *(performance pack, when co-installed)*). Without that pack the run prints `INP: field source unavailable` — never a TBT number relabelled.
 - Halt if a budget is relaxed in `lighthouserc.json` to make the build pass — that's masking, not fixing. Relaxation requires an ADR.

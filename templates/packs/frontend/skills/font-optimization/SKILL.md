@@ -1,6 +1,8 @@
 ---
 name: font-optimization
-description: Static scan for web-font delivery mistakes — missing font-display (invisible text / FOIT), critical font not preloaded, render-blocking remote font CSS (Google Fonts) not self-hosted, no fallback metric override (font-swap CLS), full unsubset charset, too many families/weights, and legacy formats before woff2. Owns font loading + swap-CLS; text-LCP timing cross-links lcp-audit.
+description: Web-font delivery — no font-display, critical font not preloaded, remote font CSS, swap CLS without metric overrides, no subset, weight fan-out, non-woff2.
+kind: skill
+pack: frontend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -12,7 +14,7 @@ allowed-tools: [Read, Grep, Glob, Bash]
 
 **Closure verbs** — exactly one per finding. This skill emits `report-with-fix`, `dismiss` (a deliberate `font-display: optional`, a system-font stack, a framework primitive that already self-hosts and metric-adjusts), and `halt-handoff` (a text LCP element's priority → `lcp-audit`; a locale set that forbids the proposed subset → `/i18n-audit`).
 
-Division of labor: this skill owns **font loading strategy + swap-induced CLS**. When the LCP element is a *heading/text block*, its LCP timing depends on font+CSS — `lcp-audit` flags that the LCP element is text; this skill supplies the font fix. Pair with `lighthouse-ci` ("Ensure text remains visible during webfont load", CLS).
+Division of labor: this skill owns **font loading strategy + swap-induced CLS**. When the LCP element is a *heading/text block*, its LCP timing depends on font+CSS — `lcp-audit` flags that the LCP element is text; this skill supplies the font fix. Pair with `lighthouse-ci`: `font-display` (Lighthouse 12.6.1) / `font-display-insight` (12.6.1 and 13.x), and `cls-culprits-insight` for swap CLS (`lighthouse-ci` § Lighthouse ids by version).
 
 ## Adapt to the codebase first
 
@@ -27,6 +29,55 @@ Detect and **mirror the font mechanism in use** — several frameworks self-host
 | **Remote (Google Fonts `<link>`)** | the CSS `<link>` | ← the thing to *replace*: render-blocking, extra origin, privacy/consent surface |
 
 If the project already uses `next/font` / `@nuxt/fonts` / Fontsource, most items below are handled — verify, don't re-implement.
+
+## Pre-flight greps
+
+Run as **one** script from the repo root; shell state does not survive between tool calls. Grep **N** feeds detector **§N**. Every `rg` names its path: given no path and a piped stdin, `rg` reads stdin and reports zero hits. Files-without-match is `--files-without-match`, never `-L` (that is `--follow` in ripgrep). An `rg` error on stderr (exit 2) is a failed grep, not zero hits.
+
+```bash
+ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|vue|svelte|@angular/core|solid-js|preact|astro|next|nuxt)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
+X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output,.svelte-kit,.angular,storybook-static}/**' -g '!**/*.min.*'
+   -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,__fixtures__,stories,playwright,cypress,locales,i18n,generated,__generated__,docs}/**'
+   -g '!**/*.{test,spec,e2e,stories,story,mock}.*' -g '!*.{md,mdx,snap,map,lock}' -g '!ai/**')
+NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#|<!--|\{/\*)')
+UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
+CSS=(-g '*.{css,scss,sass,less,styl,pcss,vue,svelte,astro,html}')
+FF='@font-face\s*\{[^}]*\}'                                             # one @font-face block; -U lets it span lines
+# 0. Lanes: next/font, @nuxt/fonts, Fontsource, Fontaine, a remote kit.
+rg -n --no-heading '"(next|@nuxt/fonts|@fontsource(?:-variable)?/[\w-]+|fontaine|unplugin-fontaine|@capsizecss/[\w-]+|nuxt-font-metrics)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
+rg -l --no-heading --pcre2 "from\\s+[\"']next/font/(?:google|local)[\"']" -g '*.{ts,tsx,js,jsx}' "${X[@]}" "${ROOTS[@]}"
+# 1. An @font-face with no font-display.
+rg -n -U --no-heading --pcre2 "@font-face\\s*\\{(?![^}]*font-display)[^}]*\\}" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 2. Font preloads that exist (2a; read each for crossorigin and for the above-the-fold face) vs self-hosted woff2 faces (2b).
+rg -n --no-heading --pcre2 '<link\b(?=[^>]*\brel=["\x27]?preload)(?=[^>]*\bas=["\x27]?font)|\bas\s*:\s*["\x27]font["\x27]' "${UI[@]}" -g '**/{nuxt,next,astro,vite}.config.*' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -c --pcre2 '\burl\(\s*["\x27]?[^)"\x27]*\.woff2' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
+# 3. Remote font CSS: Google Fonts, Typekit, Bunny, cdnfonts — as <link>, @import or a head entry in config.
+rg -n --no-heading --pcre2 'fonts\.googleapis\.com|use\.typekit\.net|p\.typekit\.net|fonts\.bunny\.net|fonts\.cdnfonts\.com|fast\.fonts\.net' "${UI[@]}" "${CSS[@]}" -g '**/{nuxt,next,astro,vite}.config.*' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 4. Metric overrides in use (size-adjust / ascent-override, or a primitive that generates them).
+rg -n --no-heading --pcre2 '\b(?:size-adjust|ascent-override|descent-override|line-gap-override)\s*:|adjustFontFallback|fallbacks\s*:' "${CSS[@]}" -g '*.{ts,tsx,js,jsx,mjs}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 5. Files declaring @font-face with no unicode-range (subset candidates; read the locale set first).
+rg -l --pcre2 '@font-face' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match 'unicode-range'
+# 6. Weight fan-out: @font-face weight declarations (6a) and remote URLs requesting a weight list (6b).
+rg -c -U --pcre2 '@font-face\s*\{[^}]*\bfont-weight\s*:' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
+rg -n -o --no-heading --pcre2 'family=[^&"\x27\s]*(?:wght|ital,wght)@[\d;,.]+' "${UI[@]}" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
+# 7. A non-woff2 primary source, or a src url with no format() hint.
+rg -n -U --no-heading --pcre2 "@font-face\\s*\\{[^}]*\\bsrc\\s*:\\s*url\\([^)]*\\.(?:ttf|otf|eot|woff)(?:[?#][^)]*)?[\"']?\\)|@font-face\\s*\\{(?![^}]*\\bformat\\()[^}]*\\bsrc\\s*:" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 8. Hand-rolled faces in a project that ships a font primitive: compare grep 0 with the @font-face count.
+rg -c --pcre2 '@font-face' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
+```
+
+A hit is a candidate. Two blind spots are structural:
+
+- **A framework primitive writes its faces at build time.** `next/font`, `@nuxt/fonts` and Fontaine emit `@font-face`, `font-display`, preloads and metric overrides into the build output, so greps 1, 2 and 4 see nothing in source. On those lanes read the primitive's options (`display`, `preload`, `adjustFontFallback`, `fallbacks`) and, once, the built CSS.
+- **Grep 5 is file-level.** One `unicode-range` anywhere in a file hides an unsubset face beside it; read every face in the files it does not list.
+
+**Measured** (2026-10-05, read-only). Scratch fixture: a face with no `font-display`, a `.ttf` face with no `format()`, a Google Fonts `@import` with five weights, all hit; the `optional` + `unicode-range` face stays out of 1, 5 and 7. Benchmark fixtures: 0 on every grep (none ships a web font). Real repos: a Nuxt 4 storefront (3: a Google Fonts URL built at runtime from the theme's family, 4 lines, with a preconnect; 4: hand-written metric overrides on its fallback face), a Vue 3 + Vite admin SPA (3: 2) and an Angular 19 admin template (1: one icon-font face plus two minified vendor stylesheets that each match as one long line; 5: 6 files, all vendor or icon-font CSS copied into `public/`: one vendor group). An SCSS interpolation `#{$var}` closes the `[^}]*` block early, so a hit inside a `.scss` face (grep 7 on the template's Tabler icons) is read before it is believed. Before restricting 6a to inside `@font-face` blocks it counted every `font-weight` rule (119 on the storefront).
+
+## The 3,000-hit path
+
+1. **Group** by face (family + weight + style) and by vendor stylesheet: an icon font copied into the tree is one finding, not one per glyph rule.
+2. **Rank** by whether the face renders above the fold on a top route (the body and heading faces first).
+3. **Read the top 30 groups.** Ledger the rest as `Live, unreviewed (k groups / n hits)` with the command that continues them, never `checked`.
 
 ## Scans for
 
@@ -124,7 +175,21 @@ Findings: 4
 4. styles/fonts.css:10-20                              [report-with-fix]
    6 static weights of one family loaded.
    Fix: one variable font file (Inter var, wght 100–900) — smaller than 3 static weights.
+
+Verification: 9 candidates → 4 findings · 0 unconfirmed · 5 refuted
+
+Class coverage:
+  §1  font-display missing      checked (1 face → 1 finding)
+  §2  critical font preload     checked (0 preloads, 1 above-the-fold face → folded into finding 1's fix)
+  §3  remote font CSS           checked (1 hit → 1 finding)
+  §4  swap CLS, no overrides    checked (1 face → 1 finding)
+  §5  no subset                 N/A (declared locales include ar; Latin subset would drop glyphs)
+  §6  weight fan-out            checked (6 weights → 1 finding)
+  §7  non-woff2 / no format()   checked (0 hits)
+  §8  primitive not adopted     checked (next/font installed; folded into finding 1)
 ```
+
+`[report-with-fix]`: the face is cited, renders on a cited route, and the fix goes through the project's primitive. `[report-flagged]`: a link is unproven (which face is above the fold, or the swap shift, was not observed on a render) and the row names the run that settles it. The coverage block lists **all eight** classes on every run: `checked (k hits → m findings)`, `N/A (<reason>)`, or `blocked (<reason>)` when a grep failed. A partial review reads `Live, unreviewed (k groups / n hits)`, never `checked`.
 
 ## False positives / gotchas
 
@@ -136,7 +201,7 @@ Findings: 4
 
 ## When to run
 
-- When `lighthouse-ci` flags "Ensure text remains visible during webfont load", font CLS, or render-blocking font CSS.
+- When `lighthouse-ci` fails `font-display` / `font-display-insight`, reports swap CLS in `cls-culprits-insight`, or a render-blocking font stylesheet in `render-blocking-resources` / `render-blocking-insight`.
 - When `lcp-audit` reports the LCP element is a heading/text block (its cost is font + CSS, not image priority).
 - After adding a font, a new weight, or a Google Fonts `<link>`.
 
@@ -147,6 +212,7 @@ Findings: 4
 - Halt if a preload set exceeds the 1–2 above-the-fold fonts actually used, or omits `crossorigin`.
 - Halt if `unicode-range` subsetting is proposed for a multilingual project without confirming the locale set.
 - Halt if the project already self-hosts via a framework primitive and the fix reintroduces a remote `<link>`.
+- Halt before reporting any candidate that has not been through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) (§1 restate … §9). **Proof:** the font audit for the runner's Lighthouse version and `cls-culprits-insight`, median of 5 runs ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Lighthouse median"); a swap-CLS fix is proved by the layout-shift observer naming no text node after the fix (`critical-path-scan` § Proof, item 3).
 
 ## Related
 

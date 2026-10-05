@@ -13,7 +13,7 @@ Live-drives the running app through the Playwright **MCP** server — navigate, 
 
 Real artifacts only. Every "works" cites the screenshot path + the URL + the selectors waited on. A 0-step run is a failure, not a pass. Console errors on load fail the run even when the screenshot looks fine. Selectors pin to roles + accessible names — a verification that breaks on the next styling change was never verification.
 
-Minimum for PASS: 1 navigate + 1 wait_for_selector + 1 screenshot citation.
+Minimum for PASS: 1 `browser_navigate` + 1 `browser_wait_for` confirmed by a `browser_snapshot` + 1 `browser_take_screenshot` citation. Tool names are `@playwright/mcp`'s own (0.0.83): `browser_navigate`, `browser_snapshot`, `browser_wait_for` (text, not selectors), `browser_click` / `browser_type` (target = a snapshot ref), `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`, `browser_evaluate`, `browser_resize`.
 
 **And the flow is read out of the diff, not remembered.** A verification composed from memory drives what you remember building — the part that already works.
 
@@ -32,7 +32,7 @@ Minimum for PASS: 1 navigate + 1 wait_for_selector + 1 screenshot citation.
    - **One unauthorised case** — `navigate` directly at the route as an excluded role. A hidden button is not the test; the leak a route guard exists to stop is the direct URL.
 
    A change with genuinely no validation surface or no guard prints that lane as `n/a` with the reason — a dropped lane and an absent lane look identical in a report, and only one is honest. Then compose the MCP calls, pinned to user-visible behavior: navigate, `wait_for_selector` on the primary heading, screenshot the baseline frame, interact, `wait_for_selector` on the success indicator, screenshot, `console_messages()`. Selectors use roles + accessible names (`role=button[name=Save]`), not CSS classes.
-3. **Execute + collect** — halt on the first failure. On a `wait_for_selector` timeout capture the current screenshot, the console messages, and the page's full HTML.
+3. **Execute + collect** — halt on the first failure. On a `browser_wait_for` timeout capture the current screenshot, the console messages, and the page's full HTML.
 4. **Multi-locale / multi-viewport pass** — for projects with `i18n` declared, repeat the flow at each locale, **detecting the project's locale mechanism first**: path prefix (`[locale]` segment / `locales` config → `navigate(url + '/ar' + path)`); cookie or header (locale cookie in the i18n config or middleware → set the cookie, then navigate); in-app store with an unchanged URL (a `locale` ref/atom or a visible switcher → **drive the switcher**, which keeps the session); per-locale build (separate outputs → a server per locale, or report `locale pass: n/a`). **Never `eval_js("location.assign('/?lang=ar')")`** — it assumes a `?lang=` convention three of the four mechanisms do not have, and the hard reload discards an in-memory session, so the run logs itself out and screenshots the login page in Arabic. For projects with declared breakpoints, repeat at mobile / tablet / desktop widths via `set_viewport_size`.
 5. **Cleanup** — if Step 1 returned `started-fresh`, kill the dev server and remove `.claude/dev-server.pid`; if `already-running`, leave it alone.
 
@@ -66,7 +66,7 @@ verify-with-playwright — <feature/route>
 - **Screenshots are ephemeral by default** — write to the gitignored `.playwright-mcp/<timestamp>/` per the `visual-check` contract. Promoting a frame to a baseline is a `visual-check` decision, not this skill's.
 - **Never commit** `.claude/dev-server.{pid,log}` or screenshot dumps. They're per-developer.
 - **Pinned selectors prefer roles + names** over CSS classes — the single thing that determines whether the verification survives a styling refactor.
-- **Don't fake success.** A 0-step run is a fail, not a pass. Minimum 1 navigate + 1 wait_for_selector + 1 screenshot.
+- **Don't fake success.** A 0-step run is a fail, not a pass. Minimum 1 `browser_navigate` + 1 `browser_wait_for` + 1 `browser_take_screenshot`.
 
 ## Halt conditions
 
