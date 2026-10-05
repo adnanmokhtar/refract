@@ -1,164 +1,62 @@
 ---
-description: Find hardcoded strings, missing keys, locale parity breaks, and unused keys.
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+description: "i18n audit: preset of /frontend-audit --classes=i18n."
+kind: command
+pack: frontend
+allowed-tools: [Read, Write, Grep, Glob, Bash, Task, Skill]
 ---
 
-# /i18n-audit [locale-dir]
+# /i18n-audit [base-branch] [--whole-repo] [--routes=<glob>]
 
-Audit command. Static scan for i18n drift. Phases 1-3 + 6 dominate; Phase 4 produces a report; Phase 5 logs the audit and (optionally) scaffolds missing keys.
+A thin preset. The audit is `/frontend-audit` with its scope fixed to the i18n family: one class ledger, one verification protocol, one verdict, one report shape. This file keeps the name because `/do`, the docs and the frontend lane route to it. It hands the ask, verbatim, to
 
-## The Premise (read this first, internalize, do not deviate)
+```text
+/frontend-audit --classes=i18n <every argument the user passed>
+```
 
-**Find real issues. No hand-waves.** Every claim cites `<path:line>` (for hardcoded strings) or `<key-path>` (for missing/dead keys). Vague gestures ("locales seem out of sync", "consider auditing dynamic keys") are forbidden — they do nothing for the user and burn audit budget.
+through the Skill tool, and does nothing else.
 
-**The agent's job is exactly this:**
-1. Resolve locale dir + pivot locale + UI source globs.
-2. Run three mechanical passes: hardcoded scan, parity diff, dead-key sweep — every result anchored to `<path:line>` or `<key-path>`.
-3. Group by category (Missing | Hardcoded | Drifted | Dead). Append-only audit log to `ai/audits/<date>-i18n.md`.
+## What the preset fixes
 
-**The agent ONLY asks the user when:**
-- **Dynamic key whose variable is not statically bounded** — the Phase 6 prefix-x-union sweep resolves every dynamic key whose bound it can cite; ask the user ONLY when no enumerable bound exists at any `<path:line>`. Never auto-delete either way.
-- **Missing translation value** — never auto-translate; copy pivot value verbatim with `// TODO: translate` so translators see it.
-- **Pluralization category collapse** — pivot has `one/other`; target locale needs `zero/one/two/few/many/other` — ask the translator, don't fabricate.
-
-Everything else — hardcoded grep, key-set diff, dead-key grep, interpolation token compare — is mechanical. Run it, report.
-
-**Closure-verb table — audit scope → ceremony:**
-
-| Tier | Trigger | Ceremony | Default? |
-|---|---|---|---|
-| **Trivial** | Incremental audit (one feature, one locale dir) | Three-pass scan → grouped report → audit log entry. **No ADR, no rule promotion.** | YES |
-| **Standard** | Full-repo audit OR new locale promotion | Trivial + per-feature missing-key clustering + interpolation parity check | NO |
-| **Heavy** | Pivot-locale drift > 10% OR repeat hardcoded clusters in same files ≥3 audits | Standard + ADR proposal (locale workflow / translator handoff / `i18next/no-literal-string` lint rule) | NO |
-
-**Lightweight default.** Trivial-tier is the default. Drafting an ADR for every audit run is the same anti-pattern as the migration pack's "ADR-as-closure" trap — promote to ADR only on systemic-drift evidence.
+- **Family.** The i18n row of `/frontend-audit`'s class ledger: every § in `i18n-scan`'s coverage block, gated by its locale-count gate. Every other row prints `N/A (out of scope: --classes=i18n)`. The report is `ai/audits/<YYYY-MM-DD>-frontend-i18n.md`.
+- **Judge.** `@i18n-auditor` (this pack) grades and ranks `i18n-scan`'s rows; the refuter is `.claude/agents/verifier.md` when installed, else a `Task` refuter. `<html lang>` as accessibility stays on the a11y rows.
+- **Catalog scope.** The catalog script runs whole-repo even on a diff run: a key missing from one locale is never in the diff that added it to another.
 
 ## When to use / NOT to use
-- USE: before shipping a feature that added text.
-- USE: after a translator delivers a new locale file.
-- USE: before promoting a new locale to GA.
-- NOT: when the repo has no i18n setup — say so and stop.
-- NOT: as a substitute for human translation review — automated tools find drift, not quality.
+- USE: before a feature that adds copy ships; after a translator delivers a locale; before a locale is promoted; when a brief first names a second market.
+- NOT: closing findings → `/frontend-fix`. One hard-coded string in a diff under review → `@ui-reviewer`. Visual RTL design → `/design-review` (ui-ux pack, when installed). Every frontend axis at once → `/frontend-audit` with no preset.
 
-## Phase 1 — Understand
-- Locate locale files (`locales/`, `i18n/`, `lang/`, `messages/`) — confirm which directory is authoritative.
-- Identify pivot locale (most-complete, usually `en`).
+## When `/frontend-audit` is not installed
 
-## Phase 2 — Organize
-- Decide passes: hardcoded scan + parity diff + dead-key sweep.
-- Decide reviewer: `i18n-auditor` agent runs all three passes.
+An install made before `/frontend-audit` shipped has `i18n-scan` but no orchestrator. Run the same contract directly, and never improvise the retired three-pass procedure from memory:
 
-## Phase 3 — Retrieve
+1. **Gate.** Run `i18n-scan` § The locale-count gate: the catalog script's `GATE:` line plus pre-flight greps 0a–0d. **OFF** → print `N/A (single-locale product, no i18n library)` for every class, write the one-line report, stop.
+2. **Detect.** Run the `i18n-scan` skill through the Skill tool: its pre-flight greps (limited to changed files on a diff run), its lint lane when installed, `scripts/catalog-parity.py --used=<UI roots>` (always whole-repo), the prefix × union sweep for the top dynamic prefixes, and its 3,000-hit path.
+3. **Judge.** Dispatch `@i18n-auditor` (`Task`) with the skill's rows and the scope, never the detector's reasoning. It ranks and grades them (its § Contract).
+4. **Refute.** Each high candidate goes to its own verifier (`Task`; `.claude/agents/verifier.md` in mode `refute` when present) through [`refute-before-report.md`](../../../snippets/refute-before-report.md) § 1–§ 8 and § 10, with [`precedents/ui.md`](../../../snippets/precedents/ui.md) and the oracles in [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Accessibility and UI states. Medium and low share one batch verifier. Buckets: **Finding · Unconfirmed · Hardening · Pre-existing** (diff runs) **· Refuted**. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+5. **Ledger.** The class ledger is `i18n-scan`'s coverage block, all eleven rows, each `checked (k hits → m findings)` / `N/A (<reason>)` / `blocked (<reason>)` / `Live, unreviewed (k groups / n hits)`. Emit the coverage ledger over the routes and UI files resolved ([`coverage-ledger.md`](../../../snippets/coverage-ledger.md)).
+6. **Verdict.** **NO-GO**: a Finding at high (a key missing in a shipped locale, a placeholder mismatch, hard-coded copy on a translated route, server text in the wrong language). **GO-UNVERIFIED (N)**: no such Finding, but N open items — Unconfirmed highs, `blocked` rows (a pseudo-locale render with no harness counts), an unswept dynamic prefix with no fallback. **GO**: none of the above.
+7. **Report.** Write `ai/audits/<YYYY-MM-DD>-i18n.md` (gate, lanes, ledger, verification line, findings by bucket, verdict) and one line in `ai/dynamic/changelog.md`. End with `## What to do next` per [`review-action-plan.md`](../../../snippets/review-action-plan.md): MUST FIX → SHOULD FIX → OPTIONAL, each with `<file:line>` or `<set> :: <key> [<locale>]`, the **Fix** and the **Verify** oracle (§ What to do next below; `/fix-bug` per finding when `/frontend-fix` is absent).
 
-ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
-
-i18n-specific:
-- The i18n library (`vue-i18n`, `next-intl`, `react-i18next`, `@angular/localize`, `nuxt-i18n`) — abort if none found.
-- Pivot locale file + every locale file.
-- UI source globs (`.tsx`, `.vue`, `.svelte`, `.html`).
-
-## Phase 4 — Generate (the report)
-- Dispatch `i18n-auditor` with locale dir + UI source globs.
-- Agent runs three passes:
-  - **Hardcoded**: regex for quoted strings inside JSX/templates not wrapped by the i18n call (`t(...)`, `$t(...)`, `<Trans>`, `i18n.t(...)`).
-  - **Parity**: diff key sets across locales — pivot is the most-complete locale.
-  - **Dead keys**: each key grepped against UI source; zero hits = candidate for removal.
-- Print grouped: Missing | Hardcoded | Drifted | Dead.
-  ```
-  Hardcoded (3):
-    Button.tsx:24   "Submit"          → suggest key: common.submit
-    Form.tsx:88     "Required field"  → suggest key: form.errors.required
-  Missing in ar.json (5):
-    product.list.empty
-    cart.checkout.cta
-  Dead keys (2):
-    legacy.old_modal_title  (last seen in commit 8a3f2 — confirm before deletion)
-  ```
-
-### Hand-wave mechanical halt (mandatory, all tiers)
-
-Before declaring the report complete, scan every finding for hand-wave language. For each finding, return one of: `closed` (cites `<path:line>` or `<key-path>`), `still-open` (vague), `regressed` (claim made without evidence).
-
-**Halt if any finding contains:**
-
-- `etc.`, `...`, `and similar`, `and others`, `various keys`, `several files` — open-ended gestures with no enumerated targets.
-- `N+` style counts (`5+ hardcoded strings`, `multiple missing keys`) without listing each `<path:line>` or `<key-path>`. Either enumerate or don't claim.
-- `consider`, `might want to`, `look into`, `review overall`, `seems out of sync` — non-actionable verbs. Every finding is concrete or it doesn't ship.
-- `generally`, `mostly`, `appears to` — hedges. Either the key is missing in `ar.json` or it isn't.
-- A hardcoded-string finding without a `<path:line>` anchor.
-- A missing-key finding without the exact `<key-path>` AND the locale file it's missing from.
-- A dead-key finding without the last-seen commit OR a confirmation-required note (dynamic keys are unreachable to grep — don't claim "dead" without manual confirmation).
-- An auto-translated value (machine output is a placeholder, never shippable copy — copy pivot verbatim with `// TODO: translate`).
-- A pluralization category collapse (en's `one/other` projected onto ar — preserve the full `zero/one/two/few/many/other` set).
-- An interpolation-token mismatch unflagged (`{count}` in en but `{{count}}` in ar — runtime crash; treat as blocker, not warning).
-
-**Hard rule:** any hand-wave finding → HALT. Either rewrite with `<path:line>` / `<key-path>` + concrete action, or drop it from the report. Repeat clusters (same rule, same files, prior audit) get flagged as `regressed` and surfaced separately.
-
-## Phase 5 — Update
-- `ai/audits/<YYYYMMDD>-i18n.md` — append timestamped report.
-- `ai/dynamic/changelog.md` — one-line: `i18n audit: N hardcoded, M missing in <locale>, K dead`.
-- Optionally scaffold missing keys: copy source-locale value verbatim with `// TODO: translate` comment so translators see them.
-
-## Phase 6 — Validate
-- Interpolation tokens (`{count}`, `%{name}`, `{{user}}`) match across locales — mismatch = runtime crash, blocker.
-- Pluralization categories match per locale (en: `one/other`; ar: `zero/one/two/few/many/other`) — don't collapse.
-- Dynamic keys (`t('status.' + value)`) resolved by the prefix-x-union sweep below, not left as "flag for manual confirmation" — that phrasing hands the hardest case back to the reader.
-
-### The dynamic-key sweep (prefix x union)
-
-A dynamic key is unreachable to the dead-key grep, and the pack's other two passes miss it in **both** directions. Resolve it mechanically instead:
-
-1. **The prefix is a literal and IS greppable.** `t('status.' + value)` puts `status.` in the source. Collect every key under that prefix from the pivot locale — that is the *supplied* set.
-2. **Find what bounds the variable, at its declaration.** A TS union or enum, a `const` array the values come from, a discriminated field on the DTO, or the API type. That is the *demanded* set. Cite it at `<path:line>`.
-3. **Cross the two sets, and report both directions:**
-   - supplied − demanded → **Dead (dynamic)**. Now safe to propose for deletion, because the bound is cited. Without step 2 this is exactly the deletion the § Halt list forbids.
-   - demanded − supplied → **Missing (dynamic)** — and this is the finding the whole audit otherwise cannot produce. The key exists in *no* locale, so the parity diff is silent about it: it is not drift between locales, it is a hole in all of them. It renders as the raw key string in production, for one status value nobody clicked in QA.
-4. **Unbounded variable** (a raw API string, free text, a tenant-supplied value) → the namespace can never be swept. Report `unresolvable: <prefix> (bound at <path:line> is not enumerable)` and require a fallback at the call site — the library's `defaultValue` / fallback-locale option — so an unknown value renders something rather than `status.pending_review`. An unresolvable prefix with no fallback is a **blocker**, not a note.
-
-Report dynamic findings in their own block. Never fold them into Dead or Missing: those two are grep-complete and these are inference from a cited bound, and collapsing them makes a cited claim and an uncited one indistinguishable to the next audit.
-
-## Phase 7 — Improve
-- `/learn-from-task` — capture missing-key patterns by feature.
-- If 3+ hardcoded strings in same file → queue lint rule proposal: `i18next/no-literal-string`.
-- If pivot locale drift > 10% → queue ADR: locale workflow + translator handoff process.
-
-## Output format
-```
-## /i18n-audit — <H> hardcoded, <M> missing, <D> dead
-
-Phase 1 (Understand): pivot = <locale>; N locale files detected
-Phase 3 (Retrieved): library = <name>; UI globs scoped
-Phase 4 (Generated): grouped report (above)
-Phase 5 (Updated): ai/audits/<date>-i18n.md; <K> missing keys scaffolded with TODO
-Phase 6 (Validated): interpolation parity; pluralization categories preserved
-Phase 7 (Improved): patterns queued
-
-Status: COMPLETE | BLOCKED on <H> hardcoded
-```
+Grep the draft for hand-waves before printing it ([`hand-wave-grep.md`](../../../snippets/hand-wave-grep.md)): every row is enumerated, never `several keys` or `N+ strings`.
 
 ## What to do next — required closing section
 
-Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (hardcoded user-facing strings, missing keys that break a locale, RTL breakage) → **SHOULD FIX** (parity gaps, inconsistent keys) → **OPTIONAL** (tidy-ups) — each step carrying `<file:line>` + **Fix** (concrete; the key name + which locale files) + **Verify** (key resolves in every locale), then the closing steps (re-run `/i18n-audit` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No findings — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+`/frontend-audit` writes it (step 7 above when it is absent): the findings as one ordered to-do, MUST FIX → SHOULD FIX → OPTIONAL, each with the site or `<set> :: <key> [<locale>]`, the **Fix** and the **Verify** oracle (missing-key run, pseudo-locale walk, plural matrix, RTL mirror), closing with **`/frontend-fix`** on the report, then a re-run of `/i18n-audit` and `/learn-from-task`. Canonical contract: [`review-action-plan.md`](../../../snippets/review-action-plan.md).
 
-## Failure modes
-- Auto-translating missing values → machine output is a placeholder, never shippable copy.
-- Collapsing pluralization to en's two-form set → breaks ar / ru / pl users; preserve full category set.
-- Interpolation token mismatch unflagged → runtime crash on render; treat as blocker.
-- Deleting dynamic keys (`t('status.' + value)`) → unreachable to grep; require manual confirmation.
-- RTL/LTR mixed numerals — flag for human review, never auto-rewrite.
+## Never
+
+- Machine-translate a missing value. A scaffolded key copies the base value with a `TODO: translate` marker; a translator writes the copy.
+- Collapse a plural to `one`/`other` for a locale that needs more (Arabic: zero, one, two, few, many, other).
+- Delete a key a grep could not find while a dynamic prefix may build it: the prefix × union sweep decides.
+- Edit product code, catalogs or CI. The audit's outputs are the report, the changelog line and the status line.
+
+## Where the old procedure went
+
+The hard-coded, parity and dead-key passes are `i18n-scan` §1, §2 and its catalog script. The dynamic-key prefix × union sweep is `i18n-scan` § The catalog script. Interpolation and plural-category checks are the script's `placeholder` and `plural-forms` rows. The hand-wave halt is the shared snippet above.
 
 ## Related
 
-### Lanes this command orchestrates — it routes, it does not re-grade
-- `@i18n-auditor` (agent, this pack) — runs all three passes (hardcoded, parity, dead-key). This command resolves the locale dir, pivot locale and source globs; the agent does the grading and this command groups the output.
-
-### Sibling commands — where the boundary falls
-- `/a11y-audit` — the other read-only audit in this pack. It grades semantics, contrast and keyboard reach; this one grades locale parity and hardcoded copy. RTL *layout* breakage is the one overlap — report it once, from whichever run found it.
-- `/add-page` · `/add-component` · `/add-crud-page` — write the keys this command grades. Each halts at creation time on "`en.ts` ✓, `ar.ts` ✗"; this command is the sweep over what already shipped.
-
-### Patterns
-- `i18n.md` — the key structure, ICU plural categories and RTL coordination the three passes are graded against; its § Locale parity in CI is the same diff Phase 4's parity pass runs by hand. The other pack patterns are not read on this axis and are deliberately not listed.
-
-### Rules
-- `.claude/rules/i18n.md` — the dynamic-key translation-field-type hard rule, the active-language-ref ban (`locale.value`, never an `=== 'en' ? … : …` ternary), and the named anti-patterns this audit's findings map onto.
-- `.claude/rules/frontend-principles.md`
+- `/frontend-audit` — the orchestrator this preset fixes to `--classes=i18n`. `/frontend-fix` — closes the findings, failing first (missing-key, pseudo-locale and RTL oracles).
+- `i18n-scan` (skill) — the detector. `@i18n-auditor` (agent) — the judge and ranker over it.
+- `/a11y-audit` — the sibling preset (`--classes=a11y`). `<html lang>` as accessibility is its row; `lang`/`dir` following the locale is this one's.
+- `.claude/rules/i18n.md` — how many locales the code assumes. `ai/patterns/i18n.md` — key architecture, ICU plurals, `Intl` formatting.

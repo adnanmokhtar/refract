@@ -54,7 +54,8 @@ RTL = {"ar", "he", "fa", "ur", "ps", "sd", "ug", "yi", "dv", "ku", "ckb", "iw"}
 SKIP_DIRS = {"node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".output", ".svelte-kit", ".angular",
              "coverage", "vendor", "Pods", "DerivedData", ".gradle", ".dart_tool", "target", ".venv", "venv",
              "__pycache__", "storybook-static", ".turbo", ".cache", "test", "tests", "__tests__", "__mocks__",
-             "mocks", "fixtures", "__fixtures__", "e2e", "testdata", "playwright-report"}
+             "mocks", "fixtures", "__fixtures__", "e2e", "testdata", "playwright-report", "scripts", "tools",
+             "stories"}
 CATALOG_HINT = re.compile(r"(?:^|[/._-])(?:locales?|i18n|l10n|lang|langs|languages|translations?|messages|intl|"
                           r"strings|lproj)(?:$|[/._-])", re.I)
 TOKEN = r"([a-z]{2,3})(?:[-_](?:r)?([A-Z]{2}|[A-Z][a-z]{3}|\d{3}))?"
@@ -630,7 +631,7 @@ def main(argv):
 
     used_out = []
     if args["used"] is not None and all_locales:
-        roots = [r for r in args["used"].split(",") if r] or ["."]
+        roots = [os.path.normpath(r) for r in args["used"].split(",") if r] or ["."]
         uses, dyn, lits = used_keys(repo, roots)
 
         def spans(key):

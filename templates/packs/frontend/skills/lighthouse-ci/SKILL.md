@@ -1,6 +1,8 @@
 ---
 name: lighthouse-ci
-description: Run Lighthouse against the dev server with budget enforcement, blocking regressions in LCP / CLS / TBT / bundle size, attributing each regression to a commit / file / chunk, and routing the failed metric to the scanner that fixes it (§ Triage routing — this pack's performance entry point). Run before merging a PR that touches frontend files, after upgrading a heavy dependency, and weekly in CI to track the Core Web Vitals trend. Lab measurement — it cannot measure INP or any field metric; that is `web-vitals-field`.
+description: Lighthouse CI on the production build — 5-run median budgets, regression attribution, routes each failed metric to its scanner. Lab only; no INP.
+kind: skill
+pack: frontend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -8,7 +10,7 @@ allowed-tools: [Read, Grep, Glob, Bash]
 
 ## Premise
 
-Find real perf regressions, not noise. Every failure cites the metric + measured value + budget + the suspected cause (commit / file / chunk). "Score dropped" without numbers is not a finding. A single run is not a measurement — median of ≥3 runs against the production build, or the result is invalid. Dev-mode runs are forbidden; HMR inflates TBT and LCP misleadingly.
+Find real perf regressions, not noise. Every failure cites the metric + measured value + budget + the suspected cause (commit / file / chunk). "Score dropped" without numbers is not a finding. A single run is not a measurement — the median of 5 runs (`numberOfRuns: 5`, `aggregationMethod: "median-run"` on every numeric assertion) against the production build, or the result is invalid. Five is this pack's default, with no registry id yet; [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Lighthouse median" uses the same shape. Dev-mode runs are forbidden; HMR inflates TBT and LCP misleadingly.
 
 A failed budget without a named cause is unfinished investigation — and naming it is step 7 below, not an act of intuition.
 
@@ -26,7 +28,7 @@ Run Lighthouse against the production build, enforce budgets, and detect regress
 ## Prerequisites
 
 - Built artifact served locally (NOT `pnpm dev` — HMR mode masks the perf issues you're hunting).
-- `@lhci/cli` installed: `pnpm add -D @lhci/cli`.
+- `@lhci/cli` pinned: `pnpm add -D @lhci/cli@0.15.1`. 0.15.1 (2025-06-25) is still the latest release on 2026-10-05 and bundles **Lighthouse 12.6.1** (`npm view @lhci/cli dependencies`), whatever global `lighthouse` is installed. Audit ids differ between Lighthouse 12 and 13 — § Lighthouse ids by version.
 - A `lighthouserc.json` at repo root with assertions + the URLs to audit.
 - Optional: `LHCI_GITHUB_APP_TOKEN` to post results back to GitHub PRs.
 
@@ -43,11 +45,8 @@ Run Lighthouse against the production build, enforce budgets, and detect regress
    npx lhci autorun --config=./lighthouserc.json
    ```
 3. Inspect the generated `.lighthouseci/` directory. Reports are JSON + HTML; `assertions.json` has pass/fail per metric.
-4. Compare against stored baseline (median of last N runs) — `lhci`'s `assert` config supports baseline preset:
-   ```bash
-   npx lhci assert --preset=lighthouse:no-pwa
-   ```
-5. On a `bf-cache` failure, read the audit's `notRestoredReasons` — it lists the ACTUAL disqualifiers; cite those as the finding, not "bf-cache failed". The hard disqualifier is an `'unload'` (or `'beforeunload'`) listener → fix is to replace it with `'pagehide'` / `'visibilitychange'`. `Cache-Control: no-store` on the document is a WARN/review detector, NOT an error — Chrome rolled bfcache-for-CCNS to ~100% in 2025 where safe, so don't fail the build on it; flag it for review.
+4. **Compare against the baseline.** `lhci assert` checks the absolute budgets below on the median run; it has no notion of a previous build. `--preset=lighthouse:no-pwa` / `lighthouse:recommended` only seed default assertions, so a preset is not a baseline. A relative regression needs a stored series: the LHCI server's compare view (`lhci upload --target=lhci`), or the § Baseline registration entry that G4 compares. Without either, report absolute budgets only and say `baseline: none`.
+5. On a `bf-cache` failure (same id in Lighthouse 12 and 13), read the audit's `notRestoredReasons` — it lists the ACTUAL disqualifiers; cite those as the finding, not "bf-cache failed". The hard disqualifier is an `'unload'` (or `'beforeunload'`) listener → fix is to replace it with `'pagehide'` / `'visibilitychange'`. `Cache-Control: no-store` on the document is a WARN/review detector, NOT an error — Chrome rolled bfcache-for-CCNS to ~100% in 2025 where safe, so don't fail the build on it; flag it for review.
 6. Stop the preview server when done:
    ```bash
    kill %1
@@ -77,7 +76,7 @@ Eight of this pack's skills are performance scanners and none of them is a front
 |---|---|---|
 | **LCP** | `lcp-audit` (which element, is it prioritized) → then `image-optimization` if that element is an image, `font-optimization` if it is text, or `streaming-ssr` if TTFB dominates the sub-phases | the LCP element is identified **and** its dominant sub-phase is named |
 | **CLS** | `font-optimization` (swap-CLS from a fallback with unmatched metrics) → `image-optimization` (missing `width`/`height`) | the shifting element is cited at `file:line` |
-| **TBT** (and the lab-INP proxy) | `bundle-analyze` (what is on the main thread) → `code-splitting.md` (ai-pattern) for where to cut | a named chunk **and** its anchoring import |
+| **TBT** (the lab proxy for main-thread cost; not INP) | `bundle-analyze` (what is on the main thread) → `code-splitting.md` (ai-pattern) for where to cut | a named chunk **and** its anchoring import |
 | **`server-response-time`** (TTFB) | `streaming-ssr` (can the shell paint before the slow query) → `ssr-audit` if the route is wrong-strategy rather than merely slow | the blocking call is cited with its measured latency |
 | **`resource-summary:script:size`** | `bundle-analyze` → `image-optimization` / `font-optimization` for the non-JS budgets | the over-budget bytes are attributed to files |
 | **`bf-cache` ineligible** | `navigation-speed` — it owns the disqualifier detectors; this runner only knows the audit failed | the evicting listener is cited at `file:line` |
@@ -94,18 +93,17 @@ Eight of this pack's skills are performance scanners and none of them is a front
 ```json
 {
   "ci": {
-    "collect": { "numberOfRuns": 3 },
+    "collect": { "numberOfRuns": 5 },
     "assert": {
       "assertions": {
-        "categories:performance":              ["error", { "minScore": 0.9 }],
-        "largest-contentful-paint":            ["error", { "maxNumericValue": 2500 }],
-        "cumulative-layout-shift":             ["error", { "maxNumericValue": 0.1 }],
-        "total-blocking-time":                 ["error", { "maxNumericValue": 300 }],
-        "interaction-to-next-paint":           ["warn",  { "maxNumericValue": 200 }],
-        "server-response-time":                ["error", { "maxNumericValue": 600 }],
+        "categories:performance":              ["error", { "minScore": 0.9, "aggregationMethod": "median-run" }],
+        "largest-contentful-paint":            ["error", { "maxNumericValue": 2500, "aggregationMethod": "median-run" }],
+        "cumulative-layout-shift":             ["error", { "maxNumericValue": 0.1, "aggregationMethod": "median-run" }],
+        "total-blocking-time":                 ["error", { "maxNumericValue": 300, "aggregationMethod": "median-run" }],
+        "server-response-time":                ["error", { "maxNumericValue": 600, "aggregationMethod": "median-run" }],
         "bf-cache":                            ["error", {}],
-        "first-contentful-paint":              ["warn",  { "maxNumericValue": 1800 }],
-        "speed-index":                         ["warn",  { "maxNumericValue": 3400 }],
+        "first-contentful-paint":              ["warn",  { "maxNumericValue": 1800, "aggregationMethod": "median-run" }],
+        "speed-index":                         ["warn",  { "maxNumericValue": 3400, "aggregationMethod": "median-run" }],
         "resource-summary:script:size":        ["error", { "maxNumericValue": 307200 }],
         "resource-summary:stylesheet:size":    ["warn",  { "maxNumericValue": 102400 }]
       }
@@ -114,24 +112,51 @@ Eight of this pack's skills are performance scanners and none of them is a front
 }
 ```
 
-Customize per-project. Mobile budgets stricter than desktop. Critical-JS budget tighter than total-JS.
+Customize per-project. Mobile budgets stricter than desktop. Critical-JS budget tighter than total-JS. The run count and aggregation are this pack's default, with no registry id yet; when the threshold registry gains one, cite it here instead of the literal.
 
-Notes on the three additions:
-- `interaction-to-next-paint` is the stable audit id (it was historically `experimental-interaction-to-next-paint`; do NOT hard-pin the `experimental-` prefix — let Lighthouse resolve the current id). Kept at `warn` deliberately — see the lab-INP callout below.
-- `server-response-time` is the TTFB audit (good ≤ 600ms). Reframe any "TTFB as a share of LCP" guidance as diagnostic prose, NOT an assertion — `lhci` can only assert the single `largest-contentful-paint` numeric audit, not its sub-phases. Do NOT add an LCP-decomposition (resourceLoadDelay / resourceLoadDuration / TTFB-share) assertion or a `bf-cache`-less `interactive` (TTI) assertion — TTI was removed from Lighthouse 10's scored set.
+Notes:
+- **No `interaction-to-next-paint` assertion.** That audit declares `supportedModes: ['timespan']` in both Lighthouse 12.6.1 and 13.5.0 (read from the unpacked packages, 2026-10-05); `lhci autorun` collects navigation runs, where it does not exist. TBT is the lab proxy; INP is field-only (callout below).
+- `server-response-time` is the TTFB audit (good ≤ 600ms). `document-latency-insight` also covers it; the audit itself survives in Lighthouse 13. Reframe any "TTFB as a share of LCP" guidance as diagnostic prose, NOT an assertion — `lhci` can only assert the single `largest-contentful-paint` numeric audit, not its sub-phases. Do NOT add an LCP-decomposition (resourceLoadDelay / resourceLoadDuration / TTFB-share) assertion or a `bf-cache`-less `interactive` (TTI) assertion — TTI was removed from Lighthouse 10's scored set.
 - `bf-cache` asserts back/forward-cache eligibility; the audit reports `notRestoredReasons` (the actual disqualifiers) — see the bf-cache Procedure note.
 
-> **Lab INP is not field INP.** Lighthouse runs ONE page load with no real user interactions, so `interaction-to-next-paint` here is a SYNTHETIC PROXY only — it cannot field-measure real INP. Authoritative INP MUST come from field data (CrUX, or RUM `onINP` via the `web-vitals-field` skill *(performance pack, when co-installed)*; absent that pack, say `INP: field source unavailable` — never promote the lab proxy to a reported value). Treat the lab number as a smoke test, never as the reported INP.
+> **There is no lab INP here.** A navigation run has no user interaction, and the INP audit only exists in timespan mode. Authoritative INP comes from field data (CrUX, or RUM `onINP` via the `web-vitals-field` skill *(performance pack, when co-installed)*); absent that pack, the report says `INP: field source unavailable`. TBT is reported as TBT, never relabelled INP.
+
+## Lighthouse ids by version
+
+Lighthouse 13 (13.0.0 on 2025-10-10; 13.5.0 on 2026-09-18) removed the legacy diagnostic audits; the `*-insight` audits replace them. LHCI 0.15.1 runs Lighthouse 12.6.1, which ships **both** sets. A standalone `npx lighthouse` is 13.x and ships only the insight ids. Facts below were read from the `default-config.js` and each insight's `replacesAudits` in the unpacked 12.6.1 and 13.5.0 packages on 2026-10-05.
+
+| Class | Lighthouse 12.6.1 (LHCI 0.15.1) | Lighthouse 13.x |
+|---|---|---|
+| LCP element | `largest-contentful-paint-element` (informative); `lcp-phases-insight` | `lcp-breakdown-insight` (renamed from `lcp-phases-insight`) |
+| LCP lazy / not prioritised | `lcp-lazy-loaded`, `prioritize-lcp-image`; `lcp-discovery-insight` | `lcp-discovery-insight` |
+| Render-blocking | `render-blocking-resources`; `render-blocking-insight` | `render-blocking-insight` |
+| Third parties | `third-party-summary`, `third-party-facades`; `third-parties-insight` | `third-parties-insight` (no facade audit) |
+| Legacy JS | `legacy-javascript`; `legacy-javascript-insight` | `legacy-javascript-insight` |
+| Duplicated JS | `duplicated-javascript`; `duplicated-javascript-insight` | `duplicated-javascript-insight` |
+| Images | `uses-responsive-images`, `modern-image-formats`, `uses-optimized-images`, `offscreen-images`; `image-delivery-insight` | `image-delivery-insight` |
+| Fonts | `font-display`; `font-display-insight` | `font-display-insight` |
+| Preconnect | `uses-rel-preconnect` | folded into `network-dependency-tree-insight` |
+| Layout shift | `layout-shifts`, `unsized-images`; `cls-culprits-insight` | `layout-shifts`, `unsized-images`, `cls-culprits-insight` |
+| Unchanged | `largest-contentful-paint`, `cumulative-layout-shift`, `total-blocking-time`, `server-response-time`, `bf-cache`, `resource-summary`, `unused-javascript` | same |
+
+Read the runner's version and pick the column. When both ids exist, assert on the insight id so the assertion survives the upgrade, and keep the legacy id beside it while CI runs LHCI 0.15.x:
+
+```bash
+LHV=$(npx --no-install lighthouse --version 2>/dev/null || echo 12.6.1)   # under LHCI the bundled 12.6.1 applies whatever this prints
+echo "lighthouse ${LHV} → ids column: $([ "${LHV%%.*}" -ge 13 ] && echo 13.x || echo 12.6.1)"
+```
+
+An assertion on an id the runner does not ship proves nothing either way: the row prints `blocked (id absent in Lighthouse <v>)`, never PASS.
 
 ## Output
 
 ```
-Lighthouse CI — /products (mobile, median of 3 runs)
+Lighthouse CI — /products (mobile, median run of 5; LHCI 0.15.1 / Lighthouse 12.6.1)
 
   PASS  LCP             2210ms  (budget 2500)
   PASS  CLS             0.04    (budget 0.1)
   FAIL  TBT             420ms   (budget 300)   regression vs baseline 210ms
-  WARN  INP (lab proxy) 240ms   (budget 200)   synthetic — confirm in field RUM
+  INFO  INP             field source unavailable (performance pack not installed)
   PASS  TTFB            410ms    (budget 600)
   FAIL  bf-cache        ineligible             notRestoredReasons: unload listener
   PASS  FCP             1640ms  (budget 1800)
@@ -162,7 +187,7 @@ Reports:  .lighthouseci/lhr-1745492045123.html
 - Mobile throttling defaults to "Slow 4G + 4x CPU" — unchanged for years; matches real low-end devices, don't relax it.
 - CLS often regresses from font swaps or hero images without `width/height` — verify in the diagnostic, not just the score.
 - Skip server-rendered admin pages (no public traffic, no Core Web Vitals to chase). Keep the budget on customer-facing routes.
-- Lighthouse audits ONE page load — it cannot see INP on in-app SPA route changes or post-hydration interactions. The lab `interaction-to-next-paint` proxy says nothing about those; rely on field RUM per route (the `web-vitals-field` skill *(performance pack, when co-installed)*) for the real INP.
+- Lighthouse audits ONE page load — it cannot see INP on in-app SPA route changes or post-hydration interactions; rely on field RUM per route (the `web-vitals-field` skill *(performance pack, when co-installed)*).
 
 ## Halt conditions
 
@@ -170,8 +195,9 @@ Reports:  .lighthouseci/lhr-1745492045123.html
 - Halt if the stored baseline carries no `$BASELINE_SHA` — without it step 7's diff source cannot run, and the next regression is unattributable by construction. Record it with the baseline or the baseline is incomplete.
 - Halt if a failed metric is reported with no routed next step while § Triage routing names one. Measuring is this skill's job; leaving the developer to pick from eight scanners is the gap it exists to close.
 - Halt if the run targeted `pnpm dev` instead of the built artifact — invalid measurement, re-run.
-- Halt if `numberOfRuns < 3` — a single run is noise, not a signal.
-- Halt if INP is reported only from lab with no field/RUM source cited — lab INP is not a measurement. Pair it with CrUX or RUM `onINP` (the `web-vitals-field` skill *(performance pack, when co-installed)*) before claiming an INP value. If that pack is absent the run reports `INP: SKIPPED (no field source)` — never a fabricated number.
+- Halt if `numberOfRuns < 5` or a numeric assertion lacks `aggregationMethod: "median-run"` — one Lighthouse run moves 5–10 points ([`precedents/performance.md`](../../../../snippets/precedents/performance.md) § 51).
+- Halt if an assertion names an id the runner's Lighthouse version does not ship (§ Lighthouse ids by version) and the row reads PASS.
+- Halt if any INP value is reported without a field source cited (CrUX or RUM `onINP`, the `web-vitals-field` skill *(performance pack, when co-installed)*). Without that pack the run prints `INP: field source unavailable` — never a TBT number relabelled.
 - Halt if a budget is relaxed in `lighthouserc.json` to make the build pass — that's masking, not fixing. Relaxation requires an ADR.
 
 ## Baseline registration

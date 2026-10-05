@@ -32,7 +32,7 @@ A candidate is a finding when all five hold:
 - **The measurer and ranker** is `@device-performance-auditor` (this pack): it owns *that* a frame, a launch or a footprint is slow, on which device, against which budget (MOB-9). This skill hands it each finding with its oracle; a cost claim the auditor has not measured stays Unconfirmed.
 - **App size** (minify, R8, assets, 16 KB alignment) → `bundle-analyze` and `/optimize-bundle` (this pack; the skill is to be renamed `app-size-scan`). **Lifecycle-scoped work** (`GlobalScope`, collection without `repeatOnLifecycle`, wake locks, background work) → `mobile-lifecycle-scan`, which routes every listener, observer, controller and subscription leak here (§ 7).
 - **Sync TurboModule calls and bridge threading** → `native-bridge-audit` (this pack). **Crash-prone code** (force-unwraps, `!!`, unhandled rejections) and **concurrency** (data races, Swift escape hatches) → the code-quality pack's correctness detector when installed; without it, `N/A (owner pack code-quality not installed)`.
-- **Web vitals** (LCP, CLS, INP, hydration) → the frontend and performance packs. **Server latency** behind the API → `performance-optimizer` (performance pack, when installed).
+- **Web vitals** (LCP, CLS, INP, hydration) → the frontend and performance packs. **Server latency** behind the API → `performance-optimizer` (performance pack, when installed); without it, the client-side measurement is reported and the server cause stays Unconfirmed.
 
 ## Adapt to the codebase — lanes
 
@@ -81,7 +81,7 @@ rg -n --pcre2 '^\s+flutter:\s*["^>=]' -g 'pubspec.yaml' "${ROOTS[@]}"; rg -n --p
 # 1. Unvirtualized list over data. 1a RN ScrollView + .map (UPPER_CASE constant arrays skipped); 1b Flutter ListView(children:)
 #    and a scroll view around a Column built from data; 1c Compose Column/Row + forEach in a scroll; 1d SwiftUI eager stack.
 rg -n -U --pcre2 '<ScrollView\b(?='"$TB"'>(?:(?!</ScrollView>|<(?:FlatList|FlashList|SectionList|VirtualizedList)\b)[\s\S]){0,400}?\{\s*(?![A-Z][A-Z0-9_]*\.map\b)[\w.?]+\.map\()' "${JS[@]}" "${X[@]}" "${ROOTS[@]}"
-rg -n -U --pcre2 '\bListView\((?=(?:[^()]|'"$BAL"')*?\bchildren\s*:\s*(?!const\b)[^()]{0,60}?(?:\.map\(|\bfor\s*\())|\bSingleChildScrollView\((?=(?:[^()]|'"$BAL"')*?\bchild\s*:\s*(?:Column|Row|Wrap)\((?:[^()]|(\((?:[^()]++|(?2))*\)))*?\bchildren\s*:\s*(?!const\b)[^()]{0,60}?(?:\.map\(|\bfor\s*\())' "${DA[@]}" "${X[@]}" "${ROOTS[@]}"
+rg -n -U --pcre2 '\bListView\((?=(?:[^()]|'"$BAL"')*?\bchildren\s*:\s*(?!const\b)[^()]{0,60}?(?:\.map\(|\bfor\s*\())|\bSingleChildScrollView\((?=(?:[^()]|'"$BAL"')*?\bchild\s*:\s*(?:Column|Row|Wrap)\((?:[^()]|'"$BAL"')*?\bchildren\s*:\s*(?!const\b)[^()]{0,60}?(?:\.map\(|\bfor\s*\())' "${DA[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -n --pcre2 '\bshrinkWrap:\s*true\b' "${DA[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -U --pcre2 '\b(?:Column|Row)\s*(?=\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\b(?:vertical|horizontal)Scroll\b(?:[^()]|\((?:[^()]|\([^()]*\))*\))*\)\s*\{(?:[^{}]|\{[^{}]*\})*?\b(?![A-Z][A-Z0-9_]*\.)[\w.]+\.forEach(?:Indexed)?\s*\{)' "${KT[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -n -U --pcre2 '\bScrollView\b(?=\s*(?:\([^)]*\))?\s*\{\s*(?:VStack|HStack)\b\s*(?:\([^)]*\))?\s*\{\s*ForEach\()' "${SW[@]}" "${X[@]}" "${ROOTS[@]}"
@@ -90,8 +90,8 @@ rg -n -U --pcre2 '\bScrollView\b(?=\s*(?:\([^)]*\))?\s*\{\s*(?:VStack|HStack)\b\
 #    2c FlashList estimatedItemSize (a dead prop on v2, required on v1 — grep 0 decides); 2d Compose items() with no
 #    key over rows that hold state; 2e SwiftUI index or \.self identity; 2f Flutter reorderable / animated children.
 rg -n --pcre2 '<(?:FlatList|SectionList)\b(?!'"$TB"'\bkeyExtractor=)' "${JS[@]}" "${X[@]}" "${ROOTS[@]}"
-rg -n --pcre2 '<FlashList\b(?='"$TB"'?\brenderItem=\{(?:[^{}]|\{[^{}]*\})*?\bkey=\{)' "${JS[@]}" "${X[@]}" "${ROOTS[@]}"
-rg -n --pcre2 '<FlashList\b(?='"$TB"'?\bestimatedItemSize=)' "${JS[@]}" "${X[@]}" "${ROOTS[@]}"
+rg -n --pcre2 '<FlashList\b(?='"$TB"'\brenderItem=\{(?:[^{}]|\{[^{}]*\})*?\bkey=\{)' "${JS[@]}" "${X[@]}" "${ROOTS[@]}"
+rg -n --pcre2 '<FlashList\b(?='"$TB"'\bestimatedItemSize=)' "${JS[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -H -n --pcre2 '\bitems(?:Indexed)?\(\s*[\w.]+\s*\)\s*\{' "${KT[@]}" "${X[@]}" "${ROOTS[@]}" | win 0 12 '\A[^{]*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*?\b(?:remember(?:Saveable)?|animate\w*AsState|LaunchedEffect)\b' has
 rg -n --pcre2 '\bForEach\(\s*(?:0\s*\.\.<\s*[\w.]+\.count|[\w.]+\.indices)\b|\bForEach\([^)]*\bid:\s*\\\.self\b' "${SW[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -H -n --pcre2 '\b(?:ReorderableListView|AnimatedList|SliverAnimatedList)\(' "${DA[@]}" "${X[@]}" "${ROOTS[@]}" | win 0 3 '\bkey\s*:' lacks
@@ -240,7 +240,7 @@ BAD:   class NotesApp : Application() { onCreate { Analytics.init(this); Maps.in
 GOOD:  App Startup / by lazy holders · a generated baseline profile · inlineRequires: true · import debounce from 'lodash/debounce'
        work after the first frame (WidgetsBinding.addPostFrameCallback, Task after launch)
 ```
-**Read the code:** What must finish before the first *useful* frame, and what can wait? Count initializers in the **merged** manifest too. Is there a launch budget (MOB-9)? Apple publishes no launch target; Android vitals treats a cold start of 5 s or longer as excessive (`@device-performance-auditor` cites both). **Finding when** launch time against the project budget, measured, regresses or exceeds it, with the attributable work at `<file:line>`. **Severity:** medium; high when p90 is over budget. **Proof:** Macrobenchmark `StartupTimingMetric` (`timeToInitialDisplayMs`, cold, `CompilationMode.None()` vs `Partial()`) on a release, profileable build (D); `XCTApplicationLaunchMetric` in `measure(metrics:)` (D); `flutter run --profile --trace-startup` → `build/start_up_info.json` (D).
+**Read the code:** What must finish before the first *useful* frame, and what can wait? Count initializers in the **merged** manifest too. Is there a launch budget (MOB-9)? Apple publishes no launch target; Android vitals treats a cold start of 5 s or longer as excessive (`@device-performance-auditor` cites both). **Finding when** launch time against the project budget, measured, regresses or exceeds it, with the attributable work at `<file:line>`. **Severity:** medium; high when p90 is over budget. **Proof:** Macrobenchmark `StartupTimingMetric` (`timeToInitialDisplayMs`, cold, `CompilationMode.None()` vs `Partial()`) on a release, profileable build (D); `XCTApplicationLaunchMetric` in `measure(metrics:)` (D); `flutter run --profile --trace-startup`, which writes its start-up timings as JSON under `build/` (D).
 
 ### 7. Leaks — retained after the owner dies
 
@@ -256,7 +256,7 @@ GOOD:  return () => sub.remove() · dispose() / cancel() · _binding = null in o
 
 ## Proof — the oracles
 
-The oracle shapes and the whole-class variants are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Mobile (render count VM10, release-mode tripwire VM11, and VM17–VM20); `device-harness` (this pack) boots the device and records the runs. Verified 2026-10-05: Reassure 1.6.0 `measureRenders(<C />, { scenario })`; `androidx.benchmark:benchmark-macro-junit4:1.5.0` with `StartupTimingMetric` and `FrameTimingMetric` (stable); `XCTApplicationLaunchMetric` (iOS 13+; the minimum Xcode is not stated by Apple and is not asserted here); Dart `cancel_subscriptions` and `close_sinks` (stable, in no default rule set). Every existence oracle **fails before the fix**; every cost comparison runs both sides on the same device, build type and run count, and reports the spread. A debug-build figure, an emulator figure presented as user experience, or a single run is refuted (`@device-performance-auditor`: `debug-build-number`, `simulator-absolute`, `single-sample`). No booted device: the D rows are `SKIPPED (no device)` and the finding is `[report-flagged]` — never PASS.
+The oracle shapes and the whole-class variants are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Mobile (render count, release-mode tripwire, frame and render cost, oversized-decode log, startup metric, leak assertion); `device-harness` (this pack) boots the device and records the runs. Verified 2026-10-05: Reassure 1.6.0 `measureRenders(<C />, { scenario })`; `androidx.benchmark:benchmark-macro-junit4:1.5.0` with `StartupTimingMetric` and `FrameTimingMetric` (stable); `XCTApplicationLaunchMetric` (iOS 13+; the minimum Xcode is not stated by Apple and is not asserted here); Dart `cancel_subscriptions` and `close_sinks` (stable, in no default rule set). Every existence oracle **fails before the fix**; every cost comparison runs both sides on the same device, build type and run count, and reports the spread. A debug-build figure, an emulator figure presented as user experience, or a single run is refuted (`@device-performance-auditor`: `debug-build-number`, `simulator-absolute`, `single-sample`). No booted device: the D rows are `SKIPPED (no device)` and the finding is `[report-flagged]` — never PASS.
 
 ## Output
 
