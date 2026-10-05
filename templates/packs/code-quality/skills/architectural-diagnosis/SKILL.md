@@ -1,6 +1,6 @@
 ---
 name: architectural-diagnosis
-description: Project-wide architectural diagnosis. Builds dependency + responsibility maps, flags layer violations, cyclic dependencies, god modules, anemic modules, wrong-level responsibilities, cross-cutting duplication, missing abstractions, bottleneck modules. Emits the foundation fix list (cascade impact) — these run BEFORE tactical fixes in /optimize. Stack-agnostic; reads PROJECT_KIND for stack-specific layer rules.
+description: "Project-wide architecture diagnosis, /optimize Phase 0: import-graph lanes per stack, cycles, layer and boundary violations against the declared architecture, coupling, god and bottleneck modules, churn × complexity hotspots, all ranked against the repo's own distribution."
 kind: skill
 pack: code-quality
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
@@ -10,251 +10,334 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 ## Purpose
 
-Produce a project-wide architectural picture **before any optimisation fix lands**. Scoped at the module/layer level (NOT statement level). Surfaces the foundation issues whose fix cascades through dozens of tactical findings — so /optimize can apply them first and save 10× the work that scan-then-patch would burn.
+Produce the module-level picture **before any optimisation fix lands**: the foundation fixes whose closure dissolves tactical findings. `/optimize` dispatches it first (Phase 0) and applies its findings in Phase 1. The graph comes from a **tool lane**, never from reading: a graph built by eye misses aliases, re-exports and type-only edges.
 
-This is the first skill /optimize dispatches. Output is consumed by /optimize Phase 1 (Apply foundations).
+**A metric is never a finding** (`precedents/code-quality.md § 51`). Fan-in, fan-out, LOC, instability and complexity are triage inputs, cut at **this repo's own percentiles** unless the project configures a value (`THR-COMPLEXITY`, `THR-FN-LEN` in `templates/governance/thresholds.json`; the percentile cut-offs below are defaults and have no registry id yet). The fixed cut-offs this skill used to print (in-degree ≥ 30, outward imports ≥ 30, ≥ 500 LOC) flagged 458 files on a real monorepo, mostly its shared kernel and composition roots. A finding needs impact evidence: a **declared** rule broken, a runtime cycle with init-order impact or across declared boundaries, a hotspot with fix history. Standard: the **ISO/IEC 5055:2021 maintainability measure**, weaknesses named in prose (the CWE entries behind it are Prohibited for mapping; never cite their ids).
+
+**Every finding cites `<path:line>` + the number against the repo cut-off or the declared rule (`file:line`) + the impact evidence + the closure verb + the cascade.**
+
+## The rule
+
+A structural candidate is a finding when all four hold:
+
+1. **It breaks something declared or measured:** a conformance config, an `ai/modules.md` boundary line, `ai/architecture.md`, an ADR, or a repo cut-off. A rule in prose only makes the row **Advisory**; its fix proposes the rule file.
+2. **No running control owns it** (gate 4): a conformance tool at error in CI owns its class, and the finding, if any, is that the tool is off, at warn, unrun or wrong (trap 4).
+3. **It has impact evidence** (per detector). Without it: Hardening.
+4. **On a diff, it is worse than the merge-base on changed code**; otherwise **Pre-existing** (§ 61).
+
+## Boundaries
+
+- Clones, one rule implemented twice → `duplication-scan`; swallowed errors → `error-handling-scan`; dead modules → `dead-code-scan`; function-level fingerprints → `refactoring-sweep` (all this pack).
+- Workspace design across packages → `@monorepo-architect` (this pack). Rendering the graph → `diagram-sync` (documentation pack, when installed; without it nothing renders the graph).
+- `/setup-project --refine` uses the learning pack's `extract-architecture-deeply`: it maps, this grades.
 
 ## When to use
 
-- Dispatched by `/optimize` Phase 0 — every run starts here.
-- NOT dispatched by `/setup-project --refine`. Its Phase 2.8 invokes the learning pack's `extract-architecture-deeply` instead — that skill maps the layer/import graph and traces request lifecycles as extraction substrate, whereas this one grades the graph against layer rules and emits foundation findings with cascade estimates. Extraction there, diagnosis here; for a standalone snapshot use `/optimize --diagnose-only`.
-- Standalone diagnostic: `/optimize --diagnose-only` (writes the artifact, no fixes).
-- NOT for per-feature work — /add-feature / /fix-bug have their own scope.
+- `/optimize` Phase 0 every run (`--diagnose-only`: artifact only); `/audit`'s architecture axis; `/quality-audit`; a diff that adds a module, a cross-module import or a dependency on a hotspot.
+- Not for per-feature work: `/add-feature` and `/fix-bug` own their scope.
 
 ## Inputs (precise contract)
 
 | Input | Source | Required |
 |---|---|---|
-| Codebase root | Orchestrator | YES |
-| `PROJECT_KIND` | `_extracted-codebase.md § Gold standards` | YES (sets layer rules + stack-specific detectors) |
-| Layer definition | `ai/architecture.md` OR `_extracted-idioms.md § Layers` | YES (without it, layer-violation detector skips with WARN) |
-| Module boundary list | `_extracted-idioms.md § Modules` OR auto-detected from the project's actual layout (e.g., `<modules-root>/*`, `apps/*`, `packages/*`, the ecosystem's standard module locations) | YES |
-| Scope filter (optional) | Caller flag (e.g., `--scope=orders`) | NO (default: full repo) |
+| Root, `PROJECT_KIND` | orchestrator · `_extracted-codebase.md § Gold standards` | YES |
+| Declared layers and boundaries | conformance configs (step 0a) · `ai/modules.md` rule lines (0c) · `ai/architecture.md` · `_extracted-idioms.md § Layers` · ADRs | NO — without them §1 runs default rules as candidates, with a WARN |
+| Modules | `ai/modules.md` catalog paths · else the deepest `modules/ features/ apps/ packages/ internal/ src/` segment | YES (auto) |
+| `BASE`, scope | caller (`git merge-base origin/main HEAD`; `--scope=orders`) | diff runs / NO |
 
-## Outputs (precise contract)
+## Adapt to the codebase — the lanes
 
-`ai/optimize/_architecture-decisions.md` — a structured artifact consumed by /optimize Phase 1:
+Run the project's own tool first. Versions: code-quality research catalog, 2026-10-05.
 
-```markdown
-# Architecture decisions — generated <iso>
+| Stack | Graph + cycles | Declared boundaries (§1) | Complexity (§9) |
+|---|---|---|---|
+| TS / JS | **dependency-cruiser 18.5.0** (`--metrics`: Ca / Ce / I; `moreUnstable` = SDP); madge 8.0.0 `--circular` (slow-moving); knip `--include cycles` | dep-cruiser `forbidden` (`--baseline-mode shrink-only`); eslint-plugin-boundaries 7.2.0 `boundaries/dependencies`; `no-restricted-imports` / import-x `no-restricted-paths`; `@nx/enforce-module-boundaries`; Sheriff; the module-boundaries hook | ESLint `complexity`; lizard |
+| Python | Refract graph; `pydeps --show-cycles` | import-linter 2.15 `lint-imports` (`layers`, `forbidden`, `independence`); Tach 0.35.2 (maintenance unconfirmed: prefer import-linter) | Ruff `C901`; radon (stagnant, reporting only) |
+| Go | `go list` (package cycles do not compile: §2 N/A) | go-arch-lint 1.19.0; depguard; `internal/` | `gocyclo -over`, `gocognit -over` |
+| JVM · .NET | ArchUnit 1.5.1 `slices().should().beFreeOfCycles()`; jdeps · ArchUnitNET 0.13.4 | ArchUnit `layeredArchitecture()`, `FreezingArchRule`; Konsist · ArchUnitNET (NetArchTest is stagnant) | PMD 7.28; detekt · CA1502 / CA1506 |
+| Ruby · PHP · Rust | packwerk 3.3.1 · deptrac 4.7.2 · `cargo modules dependencies --lib --acyclic` | `bin/packwerk check` · `deptrac analyse` · crate split | RuboCop `Metrics/*` · PHPMD 3.0.0 · clippy |
+| any | — | — | **lizard 1.24.0** `--csv` (30+ languages) |
 
-> Diagnosis run at commit <sha>. PROJECT_KIND: <stack>.
-> Layer rules read from: ai/architecture.md (or fallback noted)
+**Traps, measured 2026-10-05.** (1) dependency-cruiser 18.5.0 refuses Node 23 (`^22||^24||>=26`). (2) `--ts-config apps/x/tsconfig.json` from the repo root cannot read its `extends` (TS5083): run from the tsconfig's directory. (3) `dependencyTypesNot: ['type-only']` on `to` alone still reported 4 cycles closing through an `import type`; adding `viaOnly` with the same filter gave 0. (4) One specifier imported as a value **and** re-exported as a type gives two entries: an edge is type-only only when every entry is. A home-grown cycle gate that erased by specifier text missed a 12-file runtime cycle that dependency-cruiser reported. (5) The Refract graph (`~/.claude/scripts/build-graph.py --corpus=project`) printed `0 alias rule(s) read` on a monorepo with per-app tsconfig `paths`: 9,560 `@/` imports gave no edge. It is a fallback lane for TS/JS.
 
-## Maps (internal references)
+## Pre-flight (one script)
 
-- Dependency graph fingerprint: ai/optimize/_dep-graph.json (one row per module → its imports)
-- Responsibility map fingerprint: ai/optimize/_responsibility-map.md (one row per module: name, responsibility, owns-state?, behaviour-vs-data)
+Run from the repository root (shell state does not survive between calls). Step **N** feeds §**N**; step 0 is context. Every `rg` names its path: given none, `rg` reads stdin when stdin is a pipe, a silent zero-hit run. A `blocked` line is `blocked` in the coverage block, never zero. `RULES='domain:infrastructure;…'` replaces the default layer rules with the declared ones.
 
-## Findings (foundation-impact)
-
-### F-A-001 — layer-violation [P0]
-- **Class**: layer-violation
-- **Subclass**: presentation-imports-data
-- **Evidence**:
-  - <modules-root>/orders/<page-or-leaf>/<feature-list>.<ext>:42 imports the project's data-access primitive directly
-  - <modules-root>/orders/<page-or-leaf>/<feature-detail>.<ext>:18 imports the project's data-access primitive directly
-  - 5 more (see _dep-graph.json query: presentation→data)
-- **Cascade**: closes 14 tactical findings (8 N+1, 4 over-projection, 2 sequential await) that originate in these UI files
-- **Closure verb**: move-responsibility
-- **Foundation fix**: extract a feature-service primitive at <modules-root>/orders/<service-layer>/<feature-service>.<ext>; route presentation-layer fetches through it
-- **Net-lines estimate**: +120 (service) / -340 (consumer code shrinks) = -220 net
-- **Behaviour**: preserved
-- **Risk**: low (mechanical move; tests cover the affected paths)
-
-### F-A-002 — god-module [P1]
-- **Class**: god-module
-- **Subclass**: outward-imports-bloat
-- **Evidence**:
-  - <modules-root>/orders/services/OrderService.<ext> has 38 methods + 47 outward imports + 1240 LOC
-  - 12 distinct conceptual responsibilities detected (events, payments, refunds, shipping, …)
-- **Cascade**: closes 8 SOLID/SRP findings + simplifies 4 future fix sites
-- **Closure verb**: split-god-module
-- **Foundation fix**: split into 4 services (OrderEvents, OrderPayments, OrderShipping, OrderQueries) per responsibility map
-- **Net-lines estimate**: 0 (move + re-export)
-- **Behaviour**: preserved
-- **Risk**: medium (callers of OrderService import paths change; codemod required)
-
-### F-A-003 — missing-abstraction [P1]
-... (etc)
-
-## Decision summary
-
-- Total architectural findings: 7
-- Foundation fixes (apply Phase 1): 5
-- Cosmetic (apply tactical Phase 2): 2
-- Estimated tactical findings dissolved by foundations: ~49 of ~67
-
-## Application order (foundation phase)
-
-1. F-A-001 (layer violation — biggest cascade)
-2. F-A-003 (missing abstraction — unblocks dedup phase)
-3. F-A-002 (god module — split AFTER abstraction lands so split is cleaner)
-4. F-A-005 (decouple cycle)
-5. F-A-006 (centralize cross-cutting)
+```bash
+D="${TMPDIR:-/tmp}/arch-diag"; rm -rf "$D"; mkdir -p "$D"
+X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/{dist,build,target,.next,.venv,coverage}/**' -g '!**/*.{min.js,d.ts}'
+   -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,fixtures,testdata,stories,migrations,seeds,generated,__generated__,locales,i18n,scripts}/**'
+   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,test_*,conftest}.*' -g '!docs/**' -g '!ai/**')
+for t in ts js py go java kotlin cs php ruby rust dart; do printf '%-6s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
+# 0a. The declared architecture and what already enforces it (gate 4). A rule file here is §1's oracle.
+rg --files --hidden -g '{.dependency-cruiser.*,.importlinter,tach.toml,.go-arch-lint.y*ml,deptrac.y*ml,sheriff.config.*,archunit.properties,package.yml,thresholds.local.json,architecture.md,modules.md}' -g '!**/{node_modules,vendor}/**' .
+rg -n --pcre2 'boundaries/(?:dependencies|element-types)|no-restricted-(?:imports|paths)|enforce-module-boundaries|import(?:-x)?/no-cycle|\[tool\.importlinter\]|\b(?:depguard|cyclop|gocognit|gocyclo|mccabe|C901|complexity|CognitiveComplexity)\b' -g '{eslint.config.*,.eslintrc*,pyproject.toml,setup.cfg,.golangci.y*ml,detekt.yml,.rubocop.yml,nx.json,project.json,phpmd.xml}' -g '!**/node_modules/**' .
+# 0b. Architecture tests and home-grown cycle gates: a control only once their verdict agrees with the tool lane (trap 4).
+rg -l --pcre2 '\b(?:layeredArchitecture|beFreeOfCycles|ArchRuleDefinition|ArchUnitNET|NetArchTest|Konsist|findImportCycles)\b|(?:no-)?import-cycles\.|architecture-rules\.' -g '*.{ts,tsx,js,cjs,mjs,py,java,kt,cs,go,rb,php}' -g '!**/{node_modules,vendor,migrations}/**' -g '!{ai,docs}/**' .
+# 0c. The repo-baseline module-boundaries hook: each rule line is an executable boundary for §1.
+[ -f ai/modules.md ] && rg -n '^- `[^`]+` (?:MUST NOT import from|MAY import from) `' ai/modules.md; [ -d .claude ] && rg --files -g 'module-boundaries.sh' .claude
+# 1–4. The graph. JS/TS: dependency-cruiser per tsconfig root, run FROM that root (trap 2); cycles on value edges only (trap 3).
+cat > "$D/dc.cjs" <<'JS'
+module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {},
+    to: { circular: true, dependencyTypesNot: ['type-only'], viaOnly: { dependencyTypesNot: ['type-only'] } } }],
+  options: { doNotFollow: { path: 'node_modules' }, tsPreCompilationDeps: true,
+    exclude: { path: '(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|stories|migrations|seeds|generated)/|\\.(spec|test|e2e-spec|stories)\\.' } } };
+JS
+n=0; for c in $(rg --files -g 'tsconfig.json' -g '!**/node_modules/**' .); do r=$(dirname "$c"); [ -d "$r/src" ] || continue; n=$((n+1)); echo "$r" > "$D/dc.$n.root"
+  (cd "$r" && npx -y -p dependency-cruiser@18 -p typescript@5 depcruise src --config "$D/dc.cjs" --ts-config tsconfig.json --metrics --output-type json) > "$D/dc.$n.json" 2> "$D/dc.$n.err" \
+    || { echo "graph blocked in $r — $(rg -m1 -i 'error|node version' "$D/dc.$n.err")"; rm -f "$D/dc.$n.json"; }; done
+# Python, Vue/Svelte, Dart (and TS/JS when the lane above is blocked): the Refract graph, no type-only flag, so its cycles are candidates (trap 5).
+[ -f "$HOME/.claude/scripts/build-graph.py" ] && python3 "$HOME/.claude/scripts/build-graph.py" --corpus=project --repo=. --json > "$D/graph.json" 2> "$D/graph.err"
+[ -f go.mod ] && go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' ./... > "$D/go.txt"   # package edges; Go package cycles do not compile
+python3 - "$D" <<'PY'
+import json,glob,os,re,sys,collections as C
+D=sys.argv[1]; E=set(); VAL=set(); lane=[]; pc=lambda v,q: sorted(v)[int(q*(len(v)-1))] if v else 0
+TEST=re.compile(r'(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|testdata|stories|migrations|seeds|generated|scripts|docs|ai|node_modules|vendor|dist|build)/|\.(spec|test|e2e-spec|stories|d)\.|(^|/)(test_[^/]*|[^/]*_test)\.\w+$')
+for p in sorted(glob.glob(D+'/dc.*.json')):
+    r=open(p[:-4]+'root').read().strip(); J=lambda s: os.path.normpath(os.path.join(r,s)); lane.append('dependency-cruiser '+r)
+    for m in json.load(open(p))['modules']:
+        for d in m['dependencies']:
+            if d.get('couldNotResolve') or d.get('coreModule') or 'node_modules' in d['resolved']: continue
+            e=(J(m['source']),J(d['resolved'])); E.add(e); VAL.update([e] if 'type-only' not in d['dependencyTypes'] else [])   # type-only only if EVERY entry is (trap 4)
+done={a.split('/src/')[0] for a,_ in E}
+if os.path.exists(D+'/graph.json'):
+    g=json.load(open(D+'/graph.json')); lane.append('refract graph ('+g['gates']['code']['detail'].split(';')[-1].strip()+')')
+    G0={(x['from'],x['to']) for x in g['edges'] if x['from'].split('/src/')[0] not in done}; E|=G0; VAL|=G0
+if os.path.exists(D+'/go.txt'):
+    mp=open('go.mod').read().split()[1]; lane.append('go list'); G0={(a,b) for l in open(D+'/go.txt') for a,*bs in [l.split()] for b in bs if b.startswith(mp)}; E|=G0; VAL|=G0
+E={e for e in E if not TEST.search(e[0]) and not TEST.search(e[1]) and e[0]!=e[1]}; V=E&VAL
+cat=sorted({t.strip('/') for l in (open('ai/modules.md') if os.path.exists('ai/modules.md') else []) if l.startswith('|') for t in re.findall(r'`([\w@.\-/]+)`','|'.join(l.split('|')[1:3])) if '/' in t},key=len,reverse=True)
+KEYS={'modules','features','domains','contexts','slices','internal','pkg','packages','apps','libs','services','src'}
+def mod(f):   # the ai/modules.md catalog wins; else the deepest <container>/<name> segment
+    for c in cat:
+        i=('/'+f+'/').find('/'+c+'/')
+        if i>=0: return f[:i+len(c)]
+    s=f.split('/'); ix=[i for i,x in enumerate(s[:-1]) if x in KEYS]
+    return '/'.join(s[:ix[-1]+(2 if ix[-1]+2<len(s) else 1)]) if ix else s[0]
+HEX={'interface':'interface','presentation':'interface','controllers':'interface','application':'application','domain':'domain','infrastructure':'infrastructure','adapters':'infrastructure'}; FSD=['app','pages','widgets','features','entities','shared']
+def lay(f):
+    s=f.split('/'); h=[HEX[x] for x in s if x in HEX]; i=s.index('src')+1 if 'src' in s else 0
+    return h[0] if h else (s[i] if 0<i<len(s)-1 and s[i] in FSD else '-')
+R=os.environ.get('RULES') or ';'.join(['domain:application,interface,infrastructure','application:interface,infrastructure','interface:infrastructure']+[f'{a}:'+','.join(FSD[:i]) for i,a in enumerate(FSD) if i])
+RU={(a,b) for r in R.split(';') for a,bs in [r.split(':')] for b in bs.split(',')}
+F=sorted({x for e in E for x in e}); fi=C.defaultdict(set); fo=C.Counter(); M={f:mod(f) for f in F}
+for a,b in E: fi[b].add(M[a]); fo[a]+=1
+loc={f:sum(1 for _ in open(f,errors='ignore')) for f in F if os.path.isfile(f)}
+print('lanes:',' · '.join(lane) or 'none — graph blocked'); print(f'files {len(F)} · edges {len(E)} ({len(E-V)} type-only) · modules {len(set(M.values()))} · layer rules: {"RULES" if "RULES" in os.environ else "default — the declared architecture wins"}')
+json.dump([{'from':a,'to':b,'layer_from':lay(a),'layer_to':lay(b)} for a,b in sorted(E)],open(D+'/_dep-graph.json','w'))
+print('§0 layer matrix:',dict(C.Counter((lay(a),lay(b)) for a,b in V if '-' not in (lay(a),lay(b)))))
+bad=[(a,b) for a,b in V if (lay(a),lay(b)) in RU]; print(f'§1 forbidden-layer edges {len(bad)}'); [print('  ',a,'->',b) for a,b in bad[:10]]
+PUB=re.compile(r'(^|/)(index|__init__|mod|api|public|contracts?|ports?)\.\w+$'); KER={'shared','common','core','kernel','lib','libs','utils','types','config','src'}
+ri=C.Counter((M[a],M[b]) for a,b in V if M[a]!=M[b] and M[b].split('/')[-1] not in KER and M[a].split('/')[-1]!='src' and not M[a].startswith(M[b]+'/') and not PUB.search(b) and b.count('/')>M[b].count('/')+1)
+print(f'§1 cross-module reach-ins {sum(ri.values())} across {len(ri)} module pairs'); [print(f'   {n:4d} {a} -> {b}') for (a,b),n in ri.most_common(8)]
+cy=[]   # dependency-cruiser's own no-circular rows (value edges only), merged into groups
+for p in glob.glob(D+'/dc.*.json'):
+    r=open(p[:-4]+'root').read().strip()
+    for x in json.load(open(p))['summary']['violations']:
+        if x['rule']['name']=='no-circular': cy.append({os.path.normpath(os.path.join(r,y if isinstance(y,str) else y['name'])) for y in [x['from']]+x['cycle']})
+grp=[]
+for c in cy: hit=[g for g in grp if g&c]; grp=[g for g in grp if not g&c]+[set().union(c,*hit)]
+print(f'§2 runtime cycles {len(grp)} (from {len(cy)} reported paths; lanes without dependency-cruiser: the cycle tool in the lane table)'); [print(f'   {len(g)} files / {len({M[x] for x in g if x in M})} modules:',' '.join(sorted(g)[:4])) for g in sorted(grp,key=len,reverse=True)[:5]]
+Ca=C.defaultdict(set); Ce=C.defaultdict(set); MS=set(M.values()); root=lambda m: m.split('/')[-1]=='src' or '/' not in m
+for a,b in V:
+    if M[a]!=M[b]: Ce[M[a]].add(M[b]); Ca[M[b]].add(M[a])
+I={m:len(Ce[m])/((len(Ca[m])+len(Ce[m])) or 1) for m in MS}
+sdp=sorted({(a,b) for a in MS for b in Ce[a] if not root(a) and not root(b) and len(Ca[a])>=2 and I[a]+0.25<I[b]},key=lambda e:I[e[0]]-I[e[1]])
+v=[len(fi[f]) for f in F]; c99=pc(v,.99); print(f'§3 fan-in (importing modules) p50 {pc(v,.5)} p90 {pc(v,.9)} p99 {c99} max {max(v or [0])} · above p99:'); [print(f'   {len(fi[f]):4d} {f}') for f in sorted(F,key=lambda f:-len(fi[f]))[:6] if len(fi[f])>c99]
+print(f'§3 SDP edges (stable module -> markedly less stable) {len(sdp)}'); [print(f'   {a} (I {I[a]:.2f}) -> {b} (I {I[b]:.2f})') for a,b in sdp[:5]]
+CR=re.compile(r'(^|/)(main|index|app|server|wire|Program|Startup)\.\w+$|\.module\.\w+$|(^|/)(entities|providers|routes?|registry)\.\w+$')
+f99,l99=pc([fo[f] for f in F],.99),pc(list(loc.values()),.99); print(f'§4 fan-out p99 {f99} · LOC p99 {l99} · above either (composition roots tagged, § 57):')
+[print(f'   out {fo[f]:4d} loc {loc.get(f,0):5d}{"  [composition root?]" if CR.search(f) else ""} {f}') for f in sorted(F,key=lambda f:-(fo[f]/max(f99,1)+loc.get(f,0)/max(l99,1)))[:8] if fo[f]>f99 or loc.get(f,0)>l99]
+PY
+# 6. Data access in the transport / view layer (also §1 presentation-imports-data): read each against the declared layers.
+rg -n --pcre2 '\b(?:em|entityManager|prisma|knex|dataSource|queryRunner|db)\.(?:find|get|query|execute|create|persist|insert|update|delete|transaction)\w*\(|\.objects\.(?:filter|get|create|update)\(|\bsession\.(?:query|execute)\(|\b(?:DB|Model)::(?:table|query)\(' -g '**/{interface,controllers,presentation,handlers,routes,views,components,pages,ui}/**' "${X[@]}" .
+# 7. Cross-cutting concerns rolled by hand (catch-and-log, inline auth check): files per directory; ≥ 5 directories → read.
+rg -c -U --pcre2 'catch\s*\(\s*\w+(?:\s*:\s*\w+)?\s*\)\s*\{\s*(?:console|this\.logger|logger|log)\.(?:error|warn)\(|\bif\s*\(\s*!\s*(?:req\.)?(?:user|session|currentUser)\b[^\n]*\)\s*(?:\{\s*)?(?:throw|return\s+res\.status\(\s*40[13])' "${X[@]}" . | sed -E 's#^\./##; s#/[^/]+:[0-9]+$##' | sort | uniq -c | sort -rn | awk 'NR<=10 {print} END {print NR" directories"}'
+# 8. Hand-rolled retry and pagination loops (one primitive missing at ≥ 3 sites, THR-DRY); clones across modules: duplication-scan step 1.
+rg -n --pcre2 '\bfor\s*\(\s*let\s+(?:attempt|retry|tries)\b|\bwhile\s*\(\s*(?:attempt|retries|tries)\s*<|\b(?:offset|skip)\s*[+]=\s*(?:limit|take|pageSize|PAGE_SIZE)\b' "${X[@]}" .
+# 9. Hotspots: 12-month churn (commits touching > 30 files dropped) × summed cyclomatic complexity × the share of fix commits.
+git log --since=12.months --no-merges --format='%x00%H%x09%s' --name-only -- . ':!*.lock' ':!**/CHANGELOG*' > "$D/log.txt"
+python3 - "$D" <<'PY'
+import re,sys,os,csv,shutil,subprocess,collections as C
+D=sys.argv[1]; FIX=re.compile(r'^(?:fix|hotfix|bugfix|revert)\b|\b(?:fixes|closes|resolves)\s+#\d+',re.I); pc=lambda v,q: sorted(v)[int(q*(len(v)-1))] if v else 0
+SRC=re.compile(r'\.(?:ts|tsx|js|jsx|mjs|py|go|java|kt|cs|rb|php|rs|swift|dart|vue|svelte)$'); SKIP=re.compile(r'(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|testdata|migrations|seeds|generated|locales|i18n|scripts|docs|ai|vendor|dist|build)/|\.(spec|test|e2e-spec|stories|d)\.|(^|/)(test_[^/]*|[^/]*_test)\.\w+$')
+ch=C.Counter(); fx=C.Counter(); n=m=0
+for b in open(D+'/log.txt').read().split('\0')[1:]:
+    h,*fs=[x for x in b.split('\n') if x]; n+=1
+    if len(fs)>30: m+=1; continue
+    for f in fs:
+        if SRC.search(f) and not SKIP.search(f) and os.path.isfile(f): ch[f]+=1; fx[f]+=bool(FIX.search(h.split('\t',1)[1]))
+print(f'§9 commits {n} ({m} mass dropped) · files {len(ch)} · repo fix share {sum(fx.values())/max(sum(ch.values()),1):.2f}')
+if not shutil.which('lizard'): sys.exit('§9 complexity lane blocked — lizard absent (pipx install lizard==1.24.0, or a stack lane from the table)')
+open(D+'/churn.txt','w').write('\n'.join(ch)); s=C.Counter(); mx={}
+for r in csv.reader(subprocess.run(['lizard','--csv','-f',D+'/churn.txt'],capture_output=True,text=True).stdout.splitlines()):
+    s[r[6]]+=int(r[1]); mx[r[6]]=max(mx.get(r[6],(0,)),(int(r[1]),r[7],r[9],r[10]))
+F=[f for f in ch if f in s]; cc,kc=pc([ch[f] for f in F],.95),pc([s[f] for f in F],.90); base=sum(fx[f] for f in F)/max(sum(ch[f] for f in F),1)
+H=sorted([f for f in F if ch[f]>=cc and s[f]>=kc],key=lambda f:-fx[f]/ch[f])
+print(f'§9 hotspots {len(H)} (churn ≥ p95 {cc} commits AND summed CCN ≥ p90 {kc}) · fix share ≥ repo {base:.2f}: {sum(fx[f]/ch[f]>=base for f in H)}')
+[print(f'   {ch[f]:3d} commits {fx[f]:3d} fix · CCN sum {s[f]:4d} max {mx[f][0]:3d} {mx[f][1]} · {f}:{mx[f][2]}-{mx[f][3]}') for f in H[:12]]
+PY
 ```
 
-## Detectors (the 8 architectural smells)
+A candidate is an output line **plus** the code read at both ends **plus** the declared rule or the impact evidence. Blind spots: DI by token, dynamic `import()`, reflection, event buses and file-based routing produce no edge (read each composition root); the module unit is a guess until `ai/modules.md` names it; squash merges and fixes filed as `chore:` starve §9's fix share (read the top hotspots' commit subjects).
+
+**Measured** (2026-10-05) on a real NestJS-on-Fastify + MikroORM + React monorepo (6,038 production files, 31,366 edges, 3,552 commits; about 22 s). §1: 0 edges against the declared hexagonal order in the API, which its ESLint rules hold at error; 108 default FSD hits in the web app, all inside the exemption those rules carry, so the declared tool wins. §2: 1 runtime cycle, 12 files across three feature slices through their barrels, missed by the project's own gate (trap 4). §3: every file above the fan-in p99 (19 importing modules) is shared kernel. §4: the eight largest fan-outs are composition roots (§ 57). §6: 0. §8: six hand-rolled unique-code retry loops in four modules. §9: 82 hotspots, 46 at or above the repo's 0.46 fix share; on the top one, a 426-line function with CCN 75, 20 of the 28 commits on its own lines were fixes. The most-churned file (90 commits) was a composition root the complexity cut removed. `benchmarks/fixtures/slow-marketplace`: §2 lists 3 ORM-entity cycles (§2 read).
+
+## Diff runs — worse than the merge-base, or Pre-existing
+
+Run the same script on the merge-base in a detached worktree (never `stash`, `reset` or `checkout` in a shared tree), then keep what the diff made worse:
+
+```bash
+BASE=$(git merge-base origin/main HEAD); W="${TMPDIR:-/tmp}/arch-diag-base"; git worktree add -q --detach "$W" "$BASE"
+# run the pre-flight inside "$W" with TMPDIR="$W.tmp", then:
+git diff --name-only --diff-filter=AMR "$BASE"...HEAD > "${TMPDIR:-/tmp}/arch-diag/changed.txt"
+python3 -c 'import json,sys;h,b=({(r["from"],r["to"]) for r in json.load(open(p))} for p in sys.argv[1:3]);c=set(open(sys.argv[3]).read().split());n=sorted(e for e in h-b if e[0] in c);print(len(n),"new edges from changed files");[print("  ",*e) for e in n]' "${TMPDIR:-/tmp}/arch-diag/_dep-graph.json" "$W.tmp/arch-diag/_dep-graph.json" "${TMPDIR:-/tmp}/arch-diag/changed.txt"
+git worktree remove --force "$W"
+```
+
+A diff finding is a new edge breaking a declared rule, a cycle at head absent at the base, a changed file whose fan-out, LOC or complexity grew past the cut-off (*Metric ratchet*, [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Code quality), or a new dependency on a known hotspot or god module (§ 61 flips back). The rest is **Pre-existing**, one line each. Measured: a 60-commit range (349 changed files) gave 193 new edges in about 45 s.
+
+## The 3,000-hit path
+
+1. **The declared tool's violations first**; default rules only fill a gap.
+2. **Group** by module pair (§1), cycle (§2), module (§3–§5), directory (§6–§8), file (§9).
+3. **Rank** money, authorization, tenancy and write paths first, then hotspots (a candidate inside one rises a step). **Read the top 30 groups.**
+4. **Bulk oracles:** the conformance tool over the tree, `smoke-verify`'s boot, the base-vs-head run.
+5. **Ledger the rest** as `Live, unreviewed (k groups / n hits)` with the continuing command.
+
+## Detectors (the 8 architectural smells, plus §9 hotspots)
+
+Maintainability is **never critical**. One step up on a hotspot or a money / auth / tenant path.
+
+| § | Class | ISO/IEC 5055 maintainability weakness | Default |
+|---|---|---|---|
+| 1 | layer-violation (incl. cross-module reach-in) | layer-skipping, hierarchy-breaking call | high when domain / core imports infrastructure, UI or a framework against a declared rule; else medium; Advisory when prose only |
+| 2 | cyclic-dependency | circular dependency | medium; high with a boot failure or in core; type-only or inside one module: Hardening |
+| 3 | bottleneck-module (fan-in, instability, SDP) | excessive coupling | low; medium with change coupling |
+| 4 | god-module | excessive outward calls, oversized unit | medium; high when a hotspot |
+| 5 | anemic-module | — | low / Advisory; medium under a declared rich domain |
+| 6 | wrong-level-responsibility | hierarchy-breaking call | medium |
+| 7 | cross-cutting-duplication | redundant code | medium when a copy diverged; else Hardening |
+| 8 | missing-abstraction | redundant code | low; medium at ≥ 3 sites that change together (`THR-DRY`) |
+| 9 | hotspot (churn × complexity × fix share) | excessive cyclomatic complexity | ranks the others; medium alone only with fix density or an untested hot branch |
 
 ### 1. layer-violation
 
-**Fingerprint**: a module in layer L imports a module in layer L+k where k is forbidden (e.g., presentation → data without going through service).
-
-**How to detect**:
-1. Read layer rules from `ai/architecture.md` § Layers (or `_extracted-idioms.md § Layers`). Expected shape: `presentation → application → domain → infrastructure` OR project-specific `core / domain / api / ui`.
-2. For each module, build its layer attribution from path conventions (e.g., `<components-root>/*` = presentation, `<services-root>/*` = application, `<repos-root>/*` = data — actual roots per `_extracted-idioms.md § Layers`).
-3. Build the project's import graph (1 line per `import` statement; resolve relative paths to module attribution).
-4. Flag every edge that crosses a forbidden boundary.
-
-**Subclasses**:
-- `presentation-imports-data` (UI doing DB queries)
-- `data-imports-presentation` (a repository importing a UI primitive)
-- `domain-imports-infrastructure` (pure business logic depending on a framework)
-- `cross-module-direct-import` (module A reaches into module B's internals instead of going through B's public API)
-
-**Closure verb**: `move-responsibility` (push the misplaced logic to the right layer; expose via the proper layer's interface).
+```
+BAD:   modules/billing/domain/invoice.ts imports '@mikro-orm/core'            // declared: domain is framework-free (ARCH-2)
+       features/orders/list/Page.tsx imports features/delivery/review/components/Panel   // past the slice's index (ARCH-3)
+GOOD:  the domain owns a port, infrastructure implements it · cross-module access through the public surface
+```
+**Read the code:** Which declared rule does the edge break (cite `file:line`)? Is the importer a composition root (§ 57), a test or a type-only import? Is the target the public surface (`index`, `api`, `ports`)? Does a running tool already report it at error? Under Active Record (§ 66) a model in a controller is the design. **Finding when** a value edge breaks a declared rule no running tool owns. **Proof:** the conformance tool (or the module-boundaries rule replayed) prints it at `<path:line>`; on a diff, the edge is absent at the base.
 
 ### 2. cyclic-dependency
 
-**Fingerprint**: module A imports module B which imports A (transitively).
-
-**How to detect**: standard SCC (strongly-connected component) analysis on the import graph. Each non-trivial SCC (size ≥ 2) is a cycle.
-
-**Subclasses**:
-- `direct-cycle` (A ↔ B)
-- `transitive-cycle` (A → B → C → A)
-- `barrel-induced` (cycle exists only because both modules import a shared barrel `index.ts` that re-exports them)
-
-**Closure verb**: `decouple-cycle` (extract shared types to a third module; move the dependency edge; replace direct import with dependency injection or event bus).
+**Read the code:** Is every edge a value edge (traps 3, 4)? Does a module-level statement use an imported binding during evaluation (TDZ `undefined`; Python "partially initialized module")? ORM entities linked by `() => Entity` thunks resolve late, but `emitDecoratorMetadata` on a property typed with the other class reads it at definition (`Rel<T>` / `Ref<T>` avoid it). Does it cross declared boundaries? Does a home-grown gate (step 0b) agree? **Finding when** a runtime cycle crosses declared boundaries or has init-order impact; else Hardening. **Proof:** *Boot* (`smoke-verify`) fails, or the tool lists it; on a diff, absent at the base. Closure: `decouple-cycle` (move the shared piece down a layer, or import the leaf instead of the barrel).
 
 ### 3. bottleneck-module
 
-**Fingerprint**: a single module is in-degree ≥ 30 (most other modules transitively flow through it). Often a "utils" or "helpers" or "shared" module that becomes a single-point-of-failure for changes + a single-point-of-N+1 for performance.
-
-**How to detect**: in-degree count from import graph. Anything ≥ 30 inbound edges is suspicious.
-
-**Closure verb**: `split-god-module` (split bottleneck along functional cohesion lines; consumers import only the slice they need).
+**Read the code:** Is the fan-in a shared kernel by design (errors, ids, UI primitives)? Is the SDP edge (stable module → markedly less stable) a real direction, or a type the stable side should own? Do its changes ripple (`git log --format=%H -- <file>` co-changing with ≥ 5 modules in 12 months)?
+**Finding when** an SDP edge or above-p99 fan-in carries change coupling the design does not intend. **Proof:** `depcruise --metrics` Ca / Ce / I and the co-change count.
 
 ### 4. god-module
 
-**Fingerprint**: ANY of:
-- ≥ 30 outward imports (depends on too much)
-- ≥ 500 LOC with mixed responsibilities (≥ 4 distinct conceptual responsibilities detected)
-- ≥ 25 exported symbols with no cohesive narrative
-
-**How to detect**:
-- Outward imports: count `import` statements per file.
-- LOC: line count.
-- Mixed responsibilities: read all exported symbol names + their JSDoc/leading comment; cluster by topic. ≥ 4 clusters = mixed.
-
-**Closure verb**: `split-god-module` (along responsibility boundaries).
+**Read the code:** Composition root (§ 57), registry, generated client (§ 54) or framework shape (§ 56)? Cluster its exports by responsibility and name each. **Finding when** fan-out or LOC is above the repo p99 **and** it mixes named responsibilities **and** it is a hotspot or its callers' changes keep touching it. **Proof:** the numbers against the percentiles, the clusters, the hotspot row.
 
 ### 5. anemic-module
 
-**Fingerprint**: a module exports only data shapes (interfaces / types / consts) and zero behaviour, AND that data is consumed by a single caller, AND the caller's logic operates exclusively on that data.
-
-**How to detect**:
-- Module exports: 100% types/interfaces/data, 0% functions/classes with behaviour.
-- Caller scan: only ONE module imports the data.
-- Operate-on scan: that single caller has functions whose logic almost entirely manipulates the imported data.
-
-**Closure verb**: `merge-anemic-module` (move the data into the consumer; or, if the data is too big, move the consumer's behaviour into the module so it gains responsibility).
+**Read the code:** From the responsibility map: a data-only module whose single consumer holds all its behaviour? DTOs, contracts, messages and ports are data by design. **Finding when** a declared rich-domain rule is broken and the entity's invariants are enforced elsewhere (ARCH-5). **Proof:** the rule cited and the invariant's enforcement site.
 
 ### 6. wrong-level-responsibility
 
-**Fingerprint**: behaviour that belongs at layer L lives at layer L+k.
-
-**Common shapes**:
-- Components doing data validation (should be in service / domain).
-- Services doing UI formatting (should be in presentation).
-- Controllers doing business logic (should be in domain / use-case).
-- Repositories doing transformation (should be in service mapper).
-- Handlers doing retry/circuit-breaker logic (should be in middleware / interceptor).
-
-**How to detect**: per-stack heuristic patterns (per-stack pack provides fingerprints). Universal fallback: per-module count of operations-by-kind (validation / fetch / format / transform / persist) and flag modules where the dominant operation kind doesn't match the layer.
-
-**Closure verb**: `move-responsibility`.
+**Read the code:** A controller, view or handler that queries, decides a business rule or formats for another layer: a read through an allowed port, or the decision itself? **Finding when** the declared layer map puts it elsewhere and the code bypasses that layer. **Proof:** the rule and the second site that does it in the right layer.
 
 ### 7. cross-cutting-duplication
 
-**Fingerprint**: auth check / log statement / error handler / retry policy / metric emission / tracing span starts duplicated across N modules with the same shape, no centralised primitive.
-
-**How to detect**: scan for repeated patterns across modules. If ≥ 5 modules contain the same shape (e.g., the same 6-line auth-check block, or the same try/catch with `console.error(err)`), it's a cross-cutting concern that should be centralised (middleware / decorator / interceptor / aspect).
-
-**Closure verb**: `centralize-cross-cutting`.
+**Read the code:** Do ≥ 5 directories roll one concern (inline auth check, catch-and-log, retry) while a middleware, filter, interceptor or decorator exists or should? **Finding when** `duplication-scan` §1 or `error-handling-scan` proves a copy wrong, or the central primitive exists and is bypassed. **Proof:** that skill's oracle.
 
 ### 8. missing-abstraction
 
-**Fingerprint**: ≥ 3 sites duplicate the same shape that wants a primitive (e.g., 5 different pagination implementations; 4 different error envelopes; 3 different retry loops).
+**Read the code:** Do ≥ 3 sites (`THR-DRY`) implement one primitive (paging, retries, unique codes, an error envelope) that must change together, not two similar blocks (§ 58)? **Finding when** one site already drifted, or a pending change touches them all. **Proof:** the sites cited with the line that differs; `duplication-scan` step 1 for clones.
 
-**How to detect**: AST-shape clustering. For each function/class whose signature + body shape repeats with minor variation across modules, count the sites. ≥ 3 = missing abstraction.
+### 9. hotspot
 
-**Closure verb**: `introduce-abstraction` (author the primitive; route consumers through it; delete the local copies).
+```
+HOT:   ledger/application/commands/ledger.shared.ts:480-905   31 commits (p95 = 9) · CCN 75 · 20 fixes on its own lines
+COLD:  orders/orders.module.ts   90 commits, CCN ≤ 2 per factory   // composition root: churn without complexity
+```
+**Read the code:** `git log --no-patch --format=%s -L<start>,<end>:<file>` on the hottest function: how many commits are fixes, to the same branch? Is that branch covered (`test-shield`, this pack, or `coverage-gap` when the testing pack is installed)? **Finding when** the fix share on the function's own lines is at or above the repo's with at least two fixes, or the hot branch is untested; else it only ranks. **Proof:** the `git log -L` count and the coverage line. The fix goes to `refactoring-sweep` (Phase 2), pinned first; §9 has no architectural closure verb.
 
 ## Procedure (step-by-step — what the skill executes)
 
-1. **Pin commit** — `git -C <root> rev-parse HEAD` → recorded in artifact header.
-2. **Build dependency graph** — walk every `.ts/.tsx/.js/.jsx/.vue/.py/.go/.java/.cs/.rb` file; extract `import` / `from … import` / `require()` / `using` statements; resolve to module attribution; emit `ai/optimize/_dep-graph.json` (rows: `{from, to, layer_from, layer_to}`).
-3. **Build responsibility map** — per module, list exported symbols + 1-line summary derived from name + leading comment + JSDoc. Emit `ai/optimize/_responsibility-map.md`.
-4. **Run 8 detectors** (in order — each writes its findings into the artifact's "Findings" section):
-   1. layer-violation
-   2. cyclic-dependency
-   3. bottleneck-module
-   4. god-module
-   5. anemic-module
-   6. wrong-level-responsibility
-   7. cross-cutting-duplication
-   8. missing-abstraction
-5. **For each finding**: cite ≥1 `<path:line>` evidence; pick closure verb from the rule's vocabulary; estimate cascade (which tactical findings would dissolve); estimate net-lines; assess risk.
-6. **Compute application order** — biggest-cascade-first, with dependencies (some foundations need to land before others; e.g., introduce abstraction before split-god-module).
-7. **Write `ai/optimize/_architecture-decisions.md`** with the structure shown above. NO fixes are applied by this skill — application is /optimize Phase 1.
-8. **Halt conditions**:
-   - Layer rules missing AND no per-stack fallback → emit WARN, skip layer-violation detector, continue.
-   - Project too small for diagnosis (≤ 5 modules) → emit "skip — small project" and no foundations queued.
-   - Cyclic dependency that crosses ≥ 4 modules → flag for user review (multi-PR decoupling required, surfaces a small plan).
+1. **Pin** `git rev-parse HEAD` in the header.
+2. **Run the pre-flight**; record lanes and `blocked` lines; copy `$TMPDIR/arch-diag/_dep-graph.json` (rows `{from, to, layer_from, layer_to}`) to `ai/optimize/_dep-graph.json`.
+3. **Responsibility map**: per module, exports and a one-line responsibility → `ai/optimize/_responsibility-map.md`.
+4. **Run the 9 detectors** through § The rule (diffs: § Diff runs).
+5. **Verify** through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10 with [`precedents/code-quality.md`](../../../../snippets/precedents/code-quality.md).
+6. **Per finding:** `<path:line>`, closure verb, cascade (tactical findings it dissolves), net lines, risk.
+7. **Order foundations** by cascade, dependencies first (introduce the abstraction before the split that uses it).
+8. **Write** `ai/optimize/_architecture-decisions.md`; apply nothing.
 
-## Hard rules
+Closure verbs (the closed set `/optimize` Phase 1 applies): `move-responsibility`, `fix-layering`, `decouple-cycle`, `split-god-module`, `merge-anemic-module`, `centralize-cross-cutting`, `introduce-abstraction`.
 
-- Every finding cites ≥ 1 `<path:line>` evidence.
-- No "looks like" / "seems duplicated" — only AST-shape-confirmed clusters count.
-- The artifact is INTERNAL (not shown to user). /optimize summarises it in 1-2 lines per architectural fix in the end-of-run output.
-- Closure verbs are the closed set above; no novel architectural moves invented at fix time.
-- If a finding's risk is `high` (cyclic dependency requires multi-PR; god-module split would change a public API), surface for user decision rather than auto-applying.
+## Outputs (precise contract)
+
+`ai/optimize/_architecture-decisions.md`, read by `/optimize` Phase 1 and checked by `scripts/validate-optimize-artifacts.sh` (four Phase 0 blocks, `Modules scanned: ≥ 1`, a `<path:line>` in every `### F-A-` section, no hand-waves):
+
+```markdown
+# Architecture decisions — generated <iso>
+> Commit <sha> · PROJECT_KIND <kind> · lanes: dependency-cruiser 18.5.0 (apps/api, apps/web), lizard 1.24.0
+> Layer rules: eslint.config.mjs:393-480 (declared) · ai/modules.md: 0 boundary lines · BASE: none (whole repo)
+
+### F-A-001 — cyclic-dependency [P1]   [report-flagged]
+- **Class**: §2 · ISO/IEC 5055 maintainability (circular dependency) · runtime, through barrels
+- **Evidence**: `src/features/orders/scanner/lib/export.ts:1` imports the delivery/review barrel; closes at `src/features/delivery/review/components/ReviewPanel.tsx:24` (12 files, 3 slices)
+- **Measured**: dependency-cruiser no-circular, value edges only; the project's gate reports 0 (trap 4)
+- **Impact**: crosses declared slice boundaries · unproven link: boot order — settling step `smoke-verify` with that route first
+- **Closure verb**: decouple-cycle (the summary helper moves to the delivery core) · **Cascade**: 0 · **Net lines**: ±0 · **Risk**: low
+
+## Class coverage
+  §1 layer-violation      checked (declared: ESLint at error → tool-owned; 108 default hits, all exempted)
+  §2 cyclic-dependency    checked (1 runtime cycle → 1 flagged)
+  §3 bottleneck-module    checked (6 above p99, all shared kernel → Hardening) · Live, unreviewed (21 SDP edges)
+  §4 god-module           checked (8 above p99, all composition roots, § 57)
+  §5 anemic-module        checked (no rich-domain ADR → 0)
+  §6 wrong-level          checked (0 hits)
+  §7 cross-cutting dup    checked (20 directories, ≤ 2 files each)
+  §8 missing-abstraction  checked (6 retry loops / 4 modules → 1 Advisory)
+  §9 hotspot              checked (82 → 46 at fix share ≥ repo → 1 finding) · Live, unreviewed (45 rows)
+```
+
+Then `## Decision summary` and `## Application order (foundation phase)`. **All nine** classes are listed on every run: `checked (k → m findings)` only when the lane ran; `N/A (<reason>)` only for an absent surface (Go package cycles; no history); `blocked (<reason>)` when a lane failed. `[report-with-fix]` rows carry the proof; `[report-flagged]` rows name the unproven link and its settling step.
 
 ## Mandatory Phase-0 evidence emission
 
-The artifact at `ai/optimize/_architecture-decisions.md` MUST contain machine-verifiable evidence in the body. Without it, `validate-optimize-artifacts.sh § check_phase_0_blocks_nonempty` halts the run. Required block shape (paste verbatim):
+The artifact MUST contain machine-verifiable evidence. Without it, `validate-optimize-artifacts.sh § check_phase_0_blocks_nonempty` halts the run. Required shape:
 
 ```
 ## Phase 0 — Dependency map evidence
-Source files walked: <count>
-Import statements parsed: <count>
+Source files walked: <count>   (the pre-flight's "files" line)
+Import statements parsed: <count>   (its "edges" line; type-only counted separately)
 Sample (first 20 rows; full graph at ai/optimize/_dep-graph.json):
   <module-A> → <module-B>  (via <import-statement-path:line>)
-  <module-A> → <module-C>  (via <import-statement-path:line>)
-  ...
 
 ## Phase 0 — Responsibility map evidence
 Source: ai/optimize/_responsibility-map.md
 Sample (first 20 modules):
   <module-path>: owns <responsibility>; exports <symbol-count> symbols at <path:lines>
-  ...
 
 ## Phase 0 — Layer attribution evidence
-Layer rules read from: <ai/architecture.md OR _extracted-idioms.md § Layers>
+Layer rules read from: <the declared rule file:line, ai/architecture.md, or "default — candidates only">
 Modules attributed (per layer):
-  presentation: [<module-paths>]
-  application: [<module-paths>]
-  domain: [<module-paths>]
-  infrastructure: [<module-paths>]
+  <layer>: [<module-paths>]
 
 ## Phase 0 — Detector run evidence
-For EACH of the 8 detectors, paste:
+For EACH of the 9 detectors, paste:
   Detector: <detector-name>
   Modules scanned: <count>
-  Fingerprint matches: <count>
+  Fingerprint matches: <count>   (and the repo cut-off it was measured against)
   Sample matches (first 10):
-    - <path:line> — <fingerprint-excerpt>
     - <path:line> — <fingerprint-excerpt>
   No-match modules: <count>
 ```
@@ -265,20 +348,37 @@ Without these blocks the validator halts with: "Phase 0 evidence missing in <fil
 
 A Phase 0 run that outputs only architecture-decisions.md without the four evidence blocks above is a "summary diagnosis" — flagged equivalent to the F039 anti-Trusted-Summary recurrence. The validator refuses to advance /optimize past Phase 0 without visible evidence.
 
+## Hard rules
+
+- Every finding cites `<path:line>` and the rule or cut-off it was measured against. A graph comes from a tool lane; a `blocked` lane is never a clean result.
+- No fixed numeric threshold is a finding. Closure verbs are the closed set above; no novel architectural move is invented at fix time.
+- A high-risk finding (multi-PR cycle, a split that changes a public API) goes to the user. The artifact is internal; `/optimize` summarises each fix in one or two lines.
+
+## Halt conditions
+
+- Do not report a high row as confirmed until a verifier other than the run that found it has passed it through [`refute-before-report.md`](../../../../snippets/refute-before-report.md). Under `/optimize`, `/audit` or `/quality-audit` that happens in their verification phase; run standalone, apply the protocol as a separate second pass, tag those rows `self-verified`, and list the rest as Unconfirmed, Hardening, Pre-existing or Refuted. Never drop them.
+- Halt on a finding without `<path:line>`, the measured number or declared rule, and the impact evidence. Do not print "architecturally clean" without the coverage block, or from a `blocked` graph lane.
+- Do not report a diff finding the merge-base already had: it is Pre-existing.
+- No declared layers → WARN, §1 default rules as candidates only. Five or fewer modules → "skip — small project", no foundations. A cycle across four or more modules → a user decision with a multi-PR plan.
+
 ## Verify (postconditions)
 
-Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. Here: `validate-optimize-artifacts.sh` passes its Phase 0 checks, and `ai/optimize/_dep-graph.json` holds the pinned commit's rows.
 
 ## Failure modes
 
-- **No findings** → emit "Codebase already architecturally clean; tactical sweep proceeds directly."
-- **All findings high-risk** → halt /optimize; surface the list with one-line risk reasons; user picks which to attempt.
-- **Layer rules contradict path conventions** → emit WARN, prefer rules from `ai/architecture.md`, note the path-convention drift as a separate finding (drift class).
+- **No findings** → "Codebase already architecturally clean; tactical sweep proceeds directly", with the coverage block.
+- **All findings high-risk** → halt /optimize; list them with one-line risk reasons; the user picks.
+- **Declared rules contradict the layout** → WARN, prefer the declared rules, report the drift as its own row.
+- **A home-grown gate disagrees with the tool lane** → the gate's blind spot is the finding (trap 4).
+
+## False positives / precedents
+
+The verifier reads [`precedents/code-quality.md`](../../../../snippets/precedents/code-quality.md) (§ 51–70) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4, § 5, § 10. Most met here: a metric alone (§ 51), composition roots (§ 57), generated code and framework shapes (§ 54, § 56), two similar blocks (§ 58), untouched breaches (§ 61), Active Record (§ 66), structural co-change (§ 68). Local to this skill: a **shared kernel** has high fan-in by design, and a
+**type-only cycle** is erased at runtime (Hardening at most).
 
 ## References
 
-- `align-discipline.md` — the closure-verb closed vocabulary (architectural verbs are a sub-set).
-- `engineering-principles.md` (this pack) — the principles foundation fixes restore.
-- `quality-principles.md` (this pack) — the principles tactical sweep enforces.
-- `migration-discipline.md` — referenced for the 6-axis dead-code check (applied within the detector pass in Procedure step 4 to flag dead modules as deletion candidates).
-- `debt-ledger.md` (this pack) — this skill finds *unmarked* structural debt (god modules, layer violations); `debt-ledger` tracks *marked/intentional* debt. An acknowledged architectural finding may spawn a dated, owned ledger item.
+- `/optimize` Phase 0–1, `/audit`, `/quality-audit`; [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Code quality (*Metric ratchet*, *Boot*, V86).
+- This pack: `smoke-verify`, `test-shield`, `duplication-scan`, `error-handling-scan`, `dead-code-scan`, `refactoring-sweep`, `debt-ledger` (an acknowledged finding may become a dated, owned ledger item), `ai-patterns/module-boundaries.md`, `rules/engineering-principles.md`; `align-discipline.md` (closure verbs); `migration-discipline.md` (dead-module axes).
+- Sources: the code-quality research catalog and maintainability notes (2026-10-05: tool versions; Nagappan & Ball, ICSE 2005, relative churn; Alves et al., ICSM 2010, percentile thresholds; McCabe 1976); runs of dependency-cruiser 18.5.0 and lizard 1.24.0 that day.

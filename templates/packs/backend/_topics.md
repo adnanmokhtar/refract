@@ -409,8 +409,8 @@ Each topic declares:
   triggers:
     always: true
   extracts_from: _extracted-codebase.md § Modules + § Architecture
-  sections: [understand, organize, retrieve, generate, update, validate, improve]
-  fallback: _examples/add-feature.md
+  sections: [lane_preset_handoff, where_the_procedure_went, missing_orchestrator]   # thin preset of the delivery /add-feature (Phase 4, decision O6); the procedure is delivery/skills/lane-backend
+  fallback: commands/add-feature.md
 
 - name: fix-bug
   kind: command

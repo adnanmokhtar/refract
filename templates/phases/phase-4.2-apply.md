@@ -165,12 +165,38 @@ It **moves** each file (`.claude/skills/<name>.md` → `.claude/skills/<name>/SK
 
 #### Standard mode (default)
 
-For each selected track, run these EXACT commands (substitute `<track>` for the track name):
+**Track order — `delivery` FIRST, always.** `delivery` is always-on and owns the bare `/add-feature`
+(the cross-stack run orchestrator, architecture proposal Phase 4). Apply it before every other
+track so its agents and its command claim their names first; the loops below are first-claim-wins,
+so the order IS the ownership. Three delivery-specific rules ride on that order:
+
+- **Stack `add-feature.md` is always a lane preset.** The `add-feature.md` that the backend, frontend
+  and mobile packs ship is a thin preset of the orchestrator (decision O6). It installs as
+  `add-feature.<track>.md` even when the bare name happens to be free — a stack preset must never sit
+  at `/add-feature`, which is how the bare name used to go to whichever stack was applied first.
+- **Agents are first-claim-wins too.** `delivery` ships `requirements-reviewer` and `test-engineer`,
+  merged supersets of the product and testing packs' agents of the same name (kept in those packs
+  until the Phase-6 parity check). A later track's same-name agent is skipped and logged, never
+  copied over the installed one: two agent files with one `name:` is an undefined registration.
+- **Lane skills follow the stack tracks.** `delivery/skills/lane-<stack>/` installs only when
+  `<stack>` (backend, frontend or mobile) is a selected track; the orchestrator reports a lane whose
+  skill is absent instead of improvising it.
+
+For each selected track, in that order, run these EXACT commands (substitute `<track>` for the track name):
 
 ```bash
-# Copy agents (verbatim — no trimming possible at OS level)
+# Copy agents — FIRST CLAIM WINS (see "Track order" above). A same-name agent from a later track is
+# skipped and logged, never copied over the installed one; identical bytes are a silent no-op.
 mkdir -p .claude/agents
-cp -R ~/.claude/templates/packs/<track>/agents/*.md .claude/agents/ 2>/dev/null || true
+for a in ~/.claude/templates/packs/<track>/agents/*.md; do
+  [ -f "$a" ] || continue
+  n=$(basename "$a")
+  if [ ! -e ".claude/agents/$n" ]; then cp "$a" ".claude/agents/$n"; continue; fi
+  cmp -s "$a" ".claude/agents/$n" && continue
+  echo "  agent-skip: '$n' already installed by an earlier track — <track>'s copy NOT installed"
+  printf '%s\n' "- agent \`$n\` — <track>'s copy skipped; the installed one belongs to the track applied first (delivery owns its merged roles)." \
+    >> .claude/_command-variants.md
+done
 
 # Copy commands — COLLISION-AWARE (M41). NOT a bare `cp -R commands/*.md`: several command
 # names are deliberately shipped by more than one pack as PACK-SPECIALIZED VARIANTS —
@@ -188,6 +214,13 @@ mkdir -p .claude/commands
 for c in ~/.claude/templates/packs/<track>/commands/*.md; do
   [ -f "$c" ] || continue                      # no commands dir / no match → nothing to do
   n=$(basename "$c")
+  # A stack pack's add-feature.md is the orchestrator's lane preset: never the bare name.
+  if [ "$n" = "add-feature.md" ] && [ "<track>" != "delivery" ]; then
+    cp "$c" ".claude/commands/add-feature.<track>.md"
+    printf '%s\n' "- \`add-feature.md\` — <track> lane preset installed as \`add-feature.<track>.md\`; the bare name is the delivery orchestrator." \
+      >> .claude/_command-variants.md
+    continue
+  fi
   if [ ! -e ".claude/commands/$n" ]; then
     cp "$c" .claude/commands/"$n"; continue
   fi
@@ -211,6 +244,12 @@ mkdir -p .claude/skills
 for s in ~/.claude/templates/packs/<track>/skills/*/; do
   [ -d "$s" ] || continue                      # no skills dir / no match → nothing to do
   n=$(basename "$s")
+  # delivery's lane-<stack> skills follow the selected stack tracks (see "Track order" above);
+  # <selected-tracks> = the space-separated selected_tracks list of this run.
+  case "$n" in
+    lane-backend|lane-frontend|lane-mobile)
+      case " <selected-tracks> " in *" ${n#lane-} "*) ;; *) echo "  lane-skip: '$n' — the ${n#lane-} track is not selected"; continue ;; esac ;;
+  esac
   if [ -f ".claude/skills/$n/SKILL.md" ]; then
     echo "  shape-skip: '$n' already installed (canonical)"; continue
   fi
@@ -435,18 +474,29 @@ else
   mkdir -p .claude/agents
   for name in $ESSENTIAL_AGENTS; do
     [ -z "$name" ] && continue
+    # First claim wins, as in standard mode: delivery (applied first) owns its merged roles.
+    [ -e ".claude/agents/$name.md" ] && { echo "  agent-skip: '$name' already installed"; continue; }
     cp ~/.claude/templates/packs/<track>/agents/$name.md .claude/agents/ 2>/dev/null || true
   done
 
   mkdir -p .claude/commands
   for name in $ESSENTIAL_COMMANDS; do
     [ -z "$name" ] && continue
+    # A stack pack's add-feature is the orchestrator's lane preset — never the bare name.
+    if [ "$name" = "add-feature" ] && [ "<track>" != "delivery" ]; then
+      cp ~/.claude/templates/packs/<track>/commands/add-feature.md ".claude/commands/add-feature.<track>.md" 2>/dev/null || true
+      continue
+    fi
     cp ~/.claude/templates/packs/<track>/commands/$name.md .claude/commands/ 2>/dev/null || true
   done
 
   mkdir -p .claude/skills
   for name in $ESSENTIAL_SKILLS; do
     [ -z "$name" ] && continue
+    case "$name" in   # delivery's lane skills follow the selected stack tracks, as in standard mode
+      lane-backend|lane-frontend|lane-mobile)
+        case " <selected-tracks> " in *" ${name#lane-} "*) ;; *) continue ;; esac ;;
+    esac
     # M40 shape guard — identical rule to standard mode: one identity, two legal shapes.
     if [ -f ".claude/skills/$name/SKILL.md" ] || [ -f ".claude/skills/$name.md" ]; then
       echo "  shape-skip: '$name' already installed"; continue

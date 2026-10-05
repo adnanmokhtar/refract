@@ -294,7 +294,7 @@ Universal meta-router. Describe what you want in natural language; the agent rea
 /do make the orders module consistent          # → asks one question, then /align or /optimize
 ```
 
-Commands listed name-only (level B) are routed by name — `/do` reads their descriptions from disk. A shared name with per-pack variants (`add-feature` in backend, frontend and mobile) resolves through `.claude/_command-variants.md` to the variant for the ask's stack, never to whichever pack installed first. A level-D match is printed for you to type, never run (`/do deploy this to staging` → `Type: /deploy-stage`).
+Commands listed name-only (level B) are routed by name — `/do` reads their descriptions from disk. The bare `/add-feature` is always the delivery orchestrator (delivery is applied first); the stack packs' `add-feature` presets install as `add-feature.<stack>`. Any other shared name with per-pack variants resolves through `.claude/_command-variants.md` to the variant for the ask's stack, never to whichever pack installed first. A level-D match is printed for you to type, never run (`/do deploy this to staging` → `Type: /deploy-stage`).
 
 Use when you don't remember the exact command. If you want a prompt artifact to read/edit before running instead of immediate execution, use `/refine-prompt`.
 
@@ -515,13 +515,19 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | `/execute-plan`   | Implement a saved `--plan` file (Steps + Outputs + Constraints + Verification); auto-invokes `/verify-plan`. |
 | `/verify-plan`    | Audit an implementation against its plan; halts on drift. |
 
+### Delivery track (always-on, applied first)
+
+| Command           | Purpose                                                                            |
+|-------------------|------------------------------------------------------------------------------------|
+| `/add-feature`    | Build a feature as a run, any stack: risk tier chosen by `risk-tier.py` before code (T0 direct edit … T3 full chain with H1–H4), typed artifacts in `ai/runs/<run-id>/` (requirements, design, locked `acceptance.json`, plan), one writer at a time, one parallel fan-out of read-only lenses, and COMPLETE only from the verifier's `verdict.json`. Lanes `--lane=backend,frontend,mobile`; `--yes` lets `@plan-critic` stand in for H2 at T1/T2. |
+
 ### Backend track
 
 | Command           | Purpose                                                                            |
 |-------------------|------------------------------------------------------------------------------------|
 | `/add-endpoint`   | New endpoint on existing module. Full chain: DTO + use-case + controller + tests.  |
 | `/add-module`     | New module with entity, repository, service, endpoints.                            |
-| `/add-feature`    | Cross-module orchestration (multi-module change). All tiers gate on prior-art (duplicate-capability HALT) + new-dependency review. Tiered: trivial (default, sibling-mirror only) / standard (+ `n-plus-one-scan` on new list/query endpoints) / heavy (architect + reviewer dispatch, observability + security + release pre-flights). |
+| `/add-feature`    | Lane preset (`add-feature.backend`): hands the ask to the delivery `/add-feature` with `--lane=backend`. The backend procedure (prior-art, sibling-shape, new-dependency gates, signal → binding-constraint tables, review tables, spec conformance) lives in the delivery pack's `lane-backend` skill. |
 | `/fix-bug`        | Structured bug-fix workflow (failing-test-first + similar-bugs ledger; gates new dependencies — a fix that grows the dep tree halts for review). |
 | `/endpoint-test`  | Generate + run an endpoint test against a running server.                          |
 | `/log-tail`       | Tail logs filtered by request-id / tenant.                                          |
@@ -538,7 +544,7 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | `/i18n-audit`          | Find missing translations.                                                       |
 | `/a11y-audit`          | Accessibility audit.                                                             |
 | `/setup-storybook`     | Install Storybook + the MCP addon and write a story per shared component; on a repo that has it, write stories only for components added since. Verified by the full unit suite, the story run in Chromium and a live MCP probe. |
-| `/add-feature`         | End-to-end frontend feature (pages + components + state + i18n + a11y + tests + observability sign-off). Intent-gated (routes to `/enhance-ui` if enhancement, `/fix-bug` if bug) + prior-art gate (duplicate-capability HALT) + new-dependency gate (bundle/license/supply-chain review). Standard tier adds a bundle-size delta check. Heavy tier adds a release note (flag / rollback / staging). Phase-6 perf gate now HALTs on a missing navigation-speed / streaming / instant-loading MUST on any new route (prefetch, stream-the-shell, instant layout-stable skeleton), with field INP via `web-vitals-field`. |
+| `/add-feature`         | Lane preset (`add-feature.frontend`): hands the ask to the delivery `/add-feature` with `--lane=frontend`. The frontend procedure (intent, prior-art and data-sensitivity gates, UI design slice, nav-speed / SEO / a11y / i18n validation) lives in the delivery pack's `lane-frontend` skill. |
 
 **Frontend skills (agent invokes when relevant):**
 - `visual-check` — Playwright screenshot at the route under change.

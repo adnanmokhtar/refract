@@ -20,6 +20,7 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 | `code-quality` | always | every project | Linters, formatters, code-review patterns |
 | `data-engineering` | — | dbt/SQLMesh/Meltano project files, orchestration DAG directories (`dags/`), warehouse model layouts (`models/staging`, `warehouse/`), Airflow/Dagster/Prefect/Spark/Beam deps | Warehouse + analytics engineering — declared grain, layered transformations, data contracts, trust assertions, safe backfills |
 | `database` | — | ORMs (Prisma, TypeORM, Sequelize, ActiveRecord, SQLAlchemy, Drizzle), migration directories | Schema, queries, migrations |
+| `delivery` | always | every project | One cross-stack `/add-feature` run: risk tier before code, typed artifacts in `ai/runs/<run-id>/`, a locked acceptance contract, one writer, independent verdict (architecture proposal Phase 4). Applied FIRST so it owns the bare `/add-feature`; lane skills install per selected stack |
 | `devops` | — | Dockerfile, k8s manifests, terraform, CI configs | CI/CD, deployment, infra-as-code |
 | `distributed-systems` | — | message buses (Kafka, NATS, RabbitMQ), service mesh, multi-service repos | Service boundaries, resilience |
 | `documentation` | always | every project | Docs structure, ADR conventions, runbooks |
@@ -36,7 +37,7 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 | `testing` | — | test/ folders, vitest/jest/pytest/rspec/junit, e2e tooling | Unit / integration / e2e patterns + factories |
 | `ui-ux` | — | any project with a UI surface — **web OR mobile**. A UI library or `.storybook/` is the strong signal; otherwise any detected `frontend` **or** `mobile` stack adds it, because tokens, spacing and type scales, states, contrast and text direction are not web-only. Gating this behind `frontend` alone excluded every Flutter / React-Native / Expo app and contradicted the pack's own commands, which declare "frontend / mobile only" | Visual + interaction conventions |
 
-**Always-applied** tracks: `code-quality`, `documentation`, `learning`, `security`. They are added to `selected_tracks` even when no signal is detected — they're the base substrate every project benefits from.
+**Always-applied** tracks: `delivery`, `code-quality`, `documentation`, `learning`, `security`. They are added to `selected_tracks` even when no signal is detected — they're the base substrate every project benefits from.
 
 ## Reserved non-track namespaces
 

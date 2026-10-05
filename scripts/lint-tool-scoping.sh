@@ -59,7 +59,11 @@ ADVISORY='reviewer|auditor|architect|analyst|detector|detective|investigator|wat
 #   align-gate-auditor      — on PASS appends one line to ai/align/gate-history.md
 #   align-ledger-auditor    — same contract for the align ledger
 #   pattern-emergence-watcher — appends promoted patterns to the dynamic-pattern index
-ADVISORY_WRITE_OK='align-gate-auditor|align-ledger-auditor|pattern-emergence-watcher'
+#   product-analyst         — delivery run writer: ai/runs/<id>/requirements.md (+ the QA draft) only
+#   architect               — delivery run writer: design.md, quality-attributes.md, threat-model.md, ADRs only
+#                             (both are W-own-paths roles in the proposal's roster; artifact-ownership.sh
+#                              denies every other path they try, so the narrow reason is enforced, not stated)
+ADVISORY_WRITE_OK='align-gate-auditor|align-ledger-auditor|pattern-emergence-watcher|product-analyst|architect'
 
 WRITING='Write|Edit|MultiEdit|NotebookEdit'
 

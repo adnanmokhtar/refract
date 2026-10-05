@@ -77,7 +77,11 @@ declare -a TRACKS=()
 # 0/3 ai-patterns, 0/4 skills. A track that cannot produce a gap row is not a default, it is
 # an absence. scripts/lint-track.sh § universal-track parity now pins this list against the
 # phase files so the two cannot drift apart again.
-trace "universal: security, code-quality, business, learning, documentation, testing"
+trace "universal: delivery, security, code-quality, business, learning, documentation, testing"
+# `delivery` is ALWAYS-ON and FIRST: it owns the bare /add-feature (the cross-stack run orchestrator,
+# architecture proposal Phase 4); phase-4.2 applies tracks in this order, so a stack pack's
+# add-feature.md lands beside it as the add-feature.<stack>.md lane preset, never in its place.
+add delivery
 add security
 add code-quality
 add business

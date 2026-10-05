@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "mobile",
-  "version": "1.9.2",
-  "released": "2026-10-02",
+  "version": "1.10.0",
+  "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/add-feature: an uninstalled reviewer is reported UNREVIEWED(<axis>) and the run is INCOMPLETE — never reviewed inline by the builder.",
+  "summary": "add-feature is a thin lane preset of the delivery orchestrator; its procedure moved to delivery's lane-mobile skill (architecture proposal Phase 4, decision O6).",
   "changelog": "CHANGELOG.md"
 }

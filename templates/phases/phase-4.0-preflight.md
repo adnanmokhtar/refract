@@ -557,7 +557,7 @@ This table is a quality floor for tracks that ARE generated. It is NEVER applied
 
 **Rule of application** (read this before invoking the table):
 
-1. A track only enters this check if Phase 2.6.a marked it LOAD-BEARING (signal in profile) or ALWAYS-ON (security, code-quality, documentation, learning). Tracks marked NOT-APPLICABLE are skipped entirely — no row, no expected count, no shortfall, no retry. The audit reports them under `not-applicable` in the gap report and never under `gaps`.
+1. A track only enters this check if Phase 2.6.a marked it LOAD-BEARING (signal in profile) or ALWAYS-ON (delivery, security, code-quality, documentation, learning). Tracks marked NOT-APPLICABLE are skipped entirely — no row, no expected count, no shortfall, no retry. The audit reports them under `not-applicable` in the gap report and never under `gaps`.
 2. The numbers are aspirational floors derived from "what does a competent project of this discipline include?" — they are not religious. Phase 4.2-AUTHOR derives content from extracted idioms; if the project's idioms genuinely don't need the Nth agent of a track, Phase 4.6's CHANGE/LEAVE decision can drop it (with a comment) — Phase 5 audit will not retry a documented LEAVE-delete.
 3. Phase 5 verification uses this table to confirm Phase 4.2 / 4.2-AUTHOR actually produced floor-meeting output **for tracks that were selected**. Shortfalls trigger retry → halt — but only for selected tracks.
 
@@ -586,6 +586,7 @@ This table is a quality floor for tracks that ARE generated. It is NEVER applied
 | ai-engineering | 2 | 2 | 3 | 1 | 5 |
 | algorithms | 1 | 2 | 1 | 1 | 1 |
 | align | 3 | 10 | 2 | 1 | 1 |
+| delivery | 7 | 1 | 1 | 0 | 0 |
 
 **What changed (vs. older versions of this file)**: this table used to be applied to ALL listed tracks unconditionally — that's the "force-fit one shape" failure mode the user reported. It is now scoped to load-bearing + always-on only, which is what makes setup adaptive instead of prescriptive.
 

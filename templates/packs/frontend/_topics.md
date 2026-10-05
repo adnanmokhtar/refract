@@ -199,7 +199,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-codebase.md § Modules (sibling pages + module shape) + _extracted-idioms.md (wrappers/composables)
-  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  sections: [lane_preset_handoff, where_the_procedure_went, missing_orchestrator]   # thin preset of the delivery /add-feature (Phase 4, decision O6); the procedure is delivery/skills/lane-frontend
   fallback: commands/add-feature.md
 
 - name: a11y-audit

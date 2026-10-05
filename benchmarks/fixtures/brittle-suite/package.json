@@ -1,0 +1,18 @@
+{
+  "name": "returnsdesk",
+  "private": true,
+  "version": "3.8.0",
+  "description": "Returns and refunds for online merchants — NestJS/Fastify + MikroORM API, React back office, FastAPI risk service, Go ledger, Java payouts.",
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "npm test --workspaces"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

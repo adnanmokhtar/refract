@@ -1,0 +1,10 @@
+{
+  "kind": "pack",
+  "name": "delivery",
+  "version": "1.0.0",
+  "released": "2026-10-05",
+  "min_setup_command": "3.0.0",
+  "deprecated": false,
+  "summary": "NEW always-on pack: the Run. One cross-stack /add-feature orchestrator writes typed artifacts to ai/runs/<run-id>/ — risk tier chosen by risk-tier.py before code, EARS requirements, design, a locked acceptance contract, one writer at a time, parallel read-only lenses, the verifier's verdict — scaled T0..T3 by governance/tiers.json. Agents product-analyst, requirements-reviewer, architect, architecture-reviewer, test-engineer, plan-critic, implementer; lane skills cut from the three stack add-feature bodies.",
+  "changelog": "CHANGELOG.md"
+}

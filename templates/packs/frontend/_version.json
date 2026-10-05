@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.17.1",
-  "released": "2026-10-02",
+  "version": "1.18.0",
+  "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/add-feature and /add-component: an uninstalled reviewer (agent, command or skill) is reported UNREVIEWED(<axis>) and the run is INCOMPLETE — never `graded inline` by the builder.",
+  "summary": "add-feature is a thin lane preset of the delivery orchestrator; its procedure moved to delivery's lane-frontend skill (architecture proposal Phase 4, decision O6).",
   "changelog": "CHANGELOG.md"
 }

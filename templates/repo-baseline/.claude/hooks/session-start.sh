@@ -4,7 +4,31 @@
 
 set -uo pipefail
 
+# The SessionStart input carries `source` (startup | resume | clear | compact). Read it only when
+# stdin is not a terminal, so a manual run (or a closed / empty stdin) still works.
+ss_input=""
+if [ ! -t 0 ]; then ss_input=$(cat 2>/dev/null || true); fi
+
 echo "=== Session context ==="
+
+# After a compaction: print the handoff precompact-handoff.sh wrote — the newest one of an OPEN
+# run, else .claude/evidence/handoff.json — so the run's state is back in context as written.
+case "$ss_input" in
+  *'"source"'*'"compact"'*)
+    # shellcheck disable=SC2012  # run ids are [a-z0-9-] (run.schema.json), so ls -t output is safe to read
+    ho=$(ls -t ai/runs/*/handoff.json 2>/dev/null | while IFS= read -r f; do
+      if grep -q '"status"[[:space:]]*:[[:space:]]*"open"' "$(dirname "$f")/run.json" 2>/dev/null; then
+        printf '%s\n' "$f"; break
+      fi
+    done)
+    [ -z "$ho" ] && [ -f .claude/evidence/handoff.json ] && ho=".claude/evidence/handoff.json"
+    if [ -n "$ho" ]; then
+      echo ""
+      echo "--- Handoff (before compaction) — $ho ---"
+      head -80 "$ho"
+      echo "(continue from \"next\"; the run's record is run.json + ledger.md in the same directory)"
+    fi ;;
+esac
 
 if git rev-parse --git-dir >/dev/null 2>&1; then
   branch=$(git branch --show-current 2>/dev/null || echo "detached")

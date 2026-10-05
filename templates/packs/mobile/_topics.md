@@ -109,7 +109,7 @@ change.
 - name: add-feature
   kind: command
   triggers: { mobile_framework_detected: true }
-  sections: [understand, organize, retrieve, generate, update, validate, improve, output_format, hard_rules]
+  sections: [lane_preset_handoff, where_the_procedure_went, missing_orchestrator]   # thin preset of the delivery /add-feature (Phase 4, decision O6); the procedure is delivery/skills/lane-mobile
   fallback: commands/add-feature.md
 
 - name: optimize-bundle

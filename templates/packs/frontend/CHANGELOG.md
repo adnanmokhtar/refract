@@ -14,6 +14,12 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.18.0 — 2026-10-05
+
+**The pack's `/add-feature` became a lane of the one delivery run (architecture proposal Phase 4).**
+
+`commands/add-feature.md` is now a thin lane preset (installed as `/add-feature.frontend`) that hands the ask to the delivery pack's cross-stack `/add-feature` with `--lane=frontend`. The frontend procedure was CUT, not rewritten, into `delivery/skills/lane-frontend/SKILL.md` (premise, invariants, intent / prior-art / data-sensitivity gates — the last now promotes the run to T3 —, the UI design slice, generate rules, the lens set by tier, nav-speed / SEO / a11y / i18n validation, spec conformance); the tier table, acceptance contract, verdict and output now live once in the orchestrator. Leaf commands are unchanged.
+
 ## 1.17.1 — 2026-10-02
 
 **A missing reviewer no longer turns into the builder reviewing itself.** `/add-feature` and

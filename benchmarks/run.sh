@@ -21,6 +21,13 @@
 # and `Lock: <run-id>` (lock-acceptance.sh runs on the shipped contract, the lock is committed) and
 # `Invocation: <exact command>` (what to type, when the bare command name is not enough).
 #
+# A key may also declare `Kind:`:
+#   Kind: routing   (routing) nothing is copied: staging writes asks.txt — case id + ask, never the
+#                   labels — and an answers file; score with --score=<answers file>.
+#   Kind: outcome   (feature-refund) the run BUILDS; holdout/, solution/ and wrong/ are hidden like
+#                   DEFECTS.md. Staged twice: the feature run (Invocation:) and the T0 control
+#                   (Invocation-T0:), each in its own copy; score with --score=<staged copy>.
+#
 # A fixture whose key targets two commands (slow-marketplace: /db-audit and /perf-audit) is
 # staged once per command, each in its own copy with its own findings file, and each run is
 # scored against its own command's defects — two results rows. The command is read from the
@@ -120,10 +127,29 @@ fixture_lock_run()       { sed -n 's/^Lock:[[:space:]]*//p' "$FIXTURES_DIR/$1/DE
 fixture_invocation_override() { sed -n 's/^Invocation:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1; }
 BASELINE_DIR="$(cd "$BENCH_DIR/.." && pwd)/templates/repo-baseline"
 
-fixture_count() { grep -c '^```defect' "$FIXTURES_DIR/$1/DEFECTS.md" || true; }
+fixture_kind() { sed -n 's/^Kind:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1 | tr 'A-Z' 'a-z'; }
+fixture_invocation_t0() { sed -n 's/^Invocation-T0:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1; }
+
+# A routing key's items are ```route blocks, not ```defect blocks.
+fixture_count() {
+  if [[ "$(fixture_kind "$1")" == "routing" ]]; then
+    grep -c '^```route' "$FIXTURES_DIR/$1/DEFECTS.md" || true
+  else
+    grep -c '^```defect' "$FIXTURES_DIR/$1/DEFECTS.md" || true
+  fi
+}
+
+# Never staged, besides DEFECTS.md: an outcome fixture's hidden acceptance, reference and seeded-wrong code.
+HIDDEN_DIRS="holdout solution wrong"
 
 # Known-safe look-alikes a correct run must NOT report (score.py § DECOYS). Most fixtures have none.
-fixture_decoys() { grep -c '^```decoy' "$FIXTURES_DIR/$1/DEFECTS.md" || true; }
+fixture_decoys() {
+  if [[ "$(fixture_kind "$1")" == "routing" ]]; then
+    grep -c '^decoy:' "$FIXTURES_DIR/$1/DEFECTS.md" || true   # deliberately hard asks
+  else
+    grep -c '^```decoy' "$FIXTURES_DIR/$1/DEFECTS.md" || true
+  fi
+}
 
 fixture_blurb() {
   sed -n 's/^Fixture shape: //p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1
@@ -170,8 +196,13 @@ if [[ "$DO_LIST" -eq 1 ]]; then
   printf '\n%-18s %-26s %-8s %-7s %s\n' "FIXTURE" "COMMAND" "SEEDED" "DECOYS" "SHAPE"
   printf '%-18s %-26s %-8s %-7s %s\n' "------------------" "--------------------------" "--------" "-------" "-----"
   while IFS= read -r name; do
+    if [[ "$(fixture_kind "$name")" == "routing" ]]; then
+      cmds="/do --route-only"
+    else
+      cmds="$(fixture_commands "$name" | paste -s -d '+' - | sed 's/+/ + /g')"
+    fi
     printf '%-18s %-26s %-8s %-7s %s\n' \
-      "$name" "$(fixture_commands "$name" | paste -s -d '+' - | sed 's/+/ + /g')" \
+      "$name" "$cmds" \
       "$(fixture_count "$name")" "$(fixture_decoys "$name")" "$(fixture_blurb "$name")"
   done < <(fixture_names)
   printf '\nStage one with:  bash benchmarks/run.sh --fixture=<name>\n\n'
@@ -197,6 +228,14 @@ require_fixture
 
 # --- scoring mode ----------------------------------------------------------
 
+if [[ -n "$SCORE_FILE" && "$(fixture_kind "$FIXTURE")" == "routing" ]]; then
+  [[ -f "$SCORE_FILE" ]] || die "no such answers file: $SCORE_FILE"
+  exec python3 "$SCORER" --fixture="$FIXTURE" --routes="$SCORE_FILE" ${PASSTHROUGH+"${PASSTHROUGH[@]}"}
+fi
+if [[ -n "$SCORE_FILE" && "$(fixture_kind "$FIXTURE")" == "outcome" ]]; then
+  [[ -d "$SCORE_FILE" ]] || die "an outcome fixture scores the staged copy the run worked in: --score=<dir> (-- --scenario=t0 for the control)"
+  exec python3 "$SCORER" --fixture="$FIXTURE" --outcome="$SCORE_FILE" ${PASSTHROUGH+"${PASSTHROUGH[@]}"}
+fi
 if [[ -n "$SCORE_FILE" ]]; then
   [[ -f "$SCORE_FILE" ]] || die "no such findings file: $SCORE_FILE"
   # Default --command to the fixture's target so a results row names the command it
@@ -255,7 +294,11 @@ stage_one() {
   if fixture_wants_diff "$FIXTURE"; then
     ( cd "$FIXTURES_DIR/$FIXTURE/base" && tar -cf - . ) | ( cd "$target" && tar -xf - )
   else
-    ( cd "$FIXTURES_DIR/$FIXTURE" && tar --exclude='DEFECTS.md' -cf - . ) | ( cd "$target" && tar -xf - )
+    local hidden_args=() h
+    for h in $HIDDEN_DIRS; do
+      [[ -d "$FIXTURES_DIR/$FIXTURE/$h" ]] && hidden_args+=(--exclude="./$h")
+    done
+    ( cd "$FIXTURES_DIR/$FIXTURE" && tar --exclude='DEFECTS.md' ${hidden_args+"${hidden_args[@]}"} -cf - . ) | ( cd "$target" && tar -xf - )
   fi
   if fixture_wants_baseline "$FIXTURE"; then
     mkdir -p "$target/.claude"
@@ -268,6 +311,15 @@ stage_one() {
 
   if [[ -e "$target/DEFECTS.md" ]]; then
     die "INTERNAL: the answer key leaked into the staged copy at $target — refusing to continue"
+  fi
+  local hd
+  for hd in $HIDDEN_DIRS; do
+    if [[ -d "$FIXTURES_DIR/$FIXTURE/$hd" && -e "$target/$hd" ]]; then
+      die "INTERNAL: hidden $hd/ leaked into the staged copy at $target — refusing to continue"
+    fi
+  done
+  if [[ -n "$(find "$target" -name '*.holdout.test.js' -print | head -1)" ]]; then
+    die "INTERNAL: a holdout test leaked into the staged copy at $target — refusing to continue"
   fi
 
   if [[ "$DO_GIT" -eq 1 ]]; then
@@ -290,6 +342,9 @@ stage_one() {
 
   local invoke
   invoke="$(fixture_invocation "$cmd")"
+
+  # An outcome run reports nothing to match: its score is read from the copy itself (no findings file).
+  [[ -n "$findings" ]] || return 0
 
   # The instructions are an HTML comment because they contain an example path:line, and
   # score.py strips comment blocks before parsing. Anything outside them is read as findings.
@@ -317,6 +372,113 @@ Keep this file. A published row whose evidence was deleted cannot be audited.
 
 EOF
 }
+
+KIND="$(fixture_kind "$FIXTURE")"
+
+if [[ "$KIND" == "routing" ]]; then
+  # Nothing to copy: the asks are the fixture. asks.txt carries id + ask only — the labels stay in
+  # DEFECTS.md, which never leaves benchmarks/fixtures/.
+  TARGET="$WORKDIR/$FIXTURE"
+  ANSWERS="$WORKDIR/routes-$FIXTURE.txt"
+  mkdir -p "$TARGET"
+  python3 "$SCORER" --fixture="$FIXTURE" --asks > "$TARGET/asks.txt"
+  if grep -qE '(^|[[:space:]])(command|tier|why|trigger|decoy):' "$TARGET/asks.txt"; then
+    die "INTERNAL: a label leaked into $TARGET/asks.txt — refusing to continue"
+  fi
+  cat > "$ANSWERS" <<EOF
+# Routes — $FIXTURE — /do --route-only
+# model:         <model id — the exact string>
+# model version: <build / snapshot / release date>
+# date:          $(date +%Y-%m-%d)
+#
+# One line per case, exactly as /do --route-only printed it, prefixed with the case id:
+#   RT-001 ROUTE /add-feature T3
+# Lines starting with # are ignored. A case with no line is scored as a miss.
+EOF
+  cat <<EOF
+
+  fixture     $FIXTURE  —  $SEEDED labelled asks ($DECOYS deliberately hard), target /do --route-only
+  asks        $TARGET/asks.txt   (case id <TAB> ask — no labels)
+  answers     $ANSWERS
+
+  1. Open an agent session in a repo where Refract is installed (the router needs the installed
+     command set — this repo's own checkout works).
+
+  2. For EACH line of asks.txt run exactly this, in a fresh session or after /clear, so no earlier
+     ask steers the next one:
+
+       /do --route-only "<ask>"
+
+     It prints one line, ROUTE /<command> <tier>. Do not rephrase the ask, do not add context.
+
+  3. Append "<case id> <that line>" to the answers file, e.g.  RT-001 ROUTE /add-feature T3
+
+  4. Score it:
+
+       python3 benchmarks/score.py --fixture=$FIXTURE --routes="$ANSWERS" \\
+         --model="<model id>" --model-version="<build>" --date=$(date +%Y-%m-%d) --row
+
+     Gate (Phase 4): command accuracy >= 90%, tier accuracy >= 85%, 0 under-tiered T3 cases.
+
+EOF
+  if [[ "$KEEP" -eq 0 ]]; then
+    printf '  Staged under %s — delete it when you are done.\n\n' "$WORKDIR"
+  fi
+  exit 0
+fi
+
+if [[ "$KIND" == "outcome" ]]; then
+  # Two runs, two copies, two sessions: the feature run and the T0 control. Each copy is staged by
+  # stage_one (answer key, holdout/, solution/ and wrong/ excluded; leak check), git + baseline.
+  CMD="$(fixture_command "$FIXTURE")"
+  INVOKE="$(fixture_invocation "$CMD")"
+  INVOKE_T0="$(fixture_invocation_t0 "$FIXTURE")"
+  T_FEAT="$WORKDIR/feature/$FIXTURE"
+  T_ZERO="$WORKDIR/t0/$FIXTURE"
+  stage_one "$CMD" "$T_FEAT" ""
+  stage_one "$CMD" "$T_ZERO" ""
+  cat <<EOF
+
+  fixture     $FIXTURE  —  $SEEDED traps, scored on hidden holdouts and the run directory$GIT_NOTE
+
+  ── run 1 of 2: the feature run ───────────────────────────────────────────
+
+  workdir     $T_FEAT
+
+  1. Open a NEW agent session whose working directory is this copy:   cd "$T_FEAT"
+  2. Type exactly this, and nothing else:
+
+       $INVOKE
+
+     Answer the run's approval gates (H1, H2) as a product owner would — approve, or ask for a
+     change in your own words; never name a convention, a test or a trap. Record what you
+     answered in the results row's notes.
+  3. When the run ends, score the copy it left behind:
+
+       python3 benchmarks/score.py --fixture=$FIXTURE --outcome="$T_FEAT" \\
+         --model="<model id>" --model-version="<build>" --date=$(date +%Y-%m-%d) --row
+
+  ── run 2 of 2: the T0 control ────────────────────────────────────────────
+
+  workdir     $T_ZERO
+
+  1. Open a SECOND, fresh agent session in this copy:   cd "$T_ZERO"
+  2. Type exactly this, and nothing else:
+
+       $INVOKE_T0
+
+  3. Score it (no ai/runs/ allowed, only the typo line changed):
+
+       python3 benchmarks/score.py --fixture=$FIXTURE --outcome="$T_ZERO" --scenario=t0
+
+  The holdouts, the reference solution and the seeded-wrong overlays are in neither copy.
+
+EOF
+  if [[ "$KEEP" -eq 0 ]]; then
+    printf '  Staged under %s — delete it when you are done.\n\n' "$WORKDIR"
+  fi
+  exit 0
+fi
 
 if [[ "$NCMD" -le 1 ]]; then
   CMD="$(fixture_command "$FIXTURE")"

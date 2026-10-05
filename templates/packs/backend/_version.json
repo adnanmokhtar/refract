@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.17.0",
-  "released": "2026-10-02",
+  "version": "1.18.0",
+  "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "migration-safety moved to the database pack (same name); N+1 pointers name the database pack's n-plus-one-scan, when installed. 1.16.2: a reviewer that is not installed leaves its axis UNREVIEWED and the run INCOMPLETE.",
+  "summary": "add-feature is a thin lane preset of the delivery orchestrator; its procedure moved to delivery's lane-backend skill (architecture proposal Phase 4, decision O6).",
   "changelog": "CHANGELOG.md"
 }

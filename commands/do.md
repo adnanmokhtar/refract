@@ -6,7 +6,7 @@ pack: orchestration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /do <description>
+# /do <description>  ·  /do --route-only <description>
 
 ## The Premise (read this first)
 
@@ -43,9 +43,9 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "figure out what to build" / "requirements" / "user stories" / "turn this idea into a spec" / "what should this feature do" (vague / spec intent) | `/analyze-task "<description>"` (business pack) |
 | "turn this ticket into a task" / "unpack this one-liner" / "make this brief implementer-ready" (one-line-ticket intent) | `/expand-task "<description>"` (business pack) |
 | "refine this prompt" / "tighten this idea" / "deepen this spec" (prompt-refinement intent) | `/refine-prompt "<description>"` |
-| "add" / "new" / "create" / "build" + UI noun (page / component / form / modal / etc.) into an EXISTING app | `/add-feature <description>` (frontend) |
-| "add" / "new" + endpoint / route / API noun | `/add-endpoint <description>` (backend) |
-| "add" / "new" + module noun | `/add-module <description>` |
+| "add" / "new" / "create" / "build" / "let <someone> do <something>" — **a feature** into an EXISTING app, any stack (a UI noun, an API noun, a screen, or both sides of a button that calls an API) | `/add-feature <description>` — the delivery orchestrator, with the **predicted tier** (§ Build asks) |
+| a **docs / copy / typo / label-text** change with no behaviour change ("fix the typo in…", "reword the empty-state copy", "update the README") | `/add-feature <description>` — predicted **T0**: a direct edit plus checks, no run directory |
+| "add **one** endpoint like <named sibling>" / "add **one** module" — single-file grain, mirrors a named sibling, no new behaviour beyond it | `/add-endpoint <description>` (backend) · `/add-module <description>` — leaves; anything larger is `/add-feature` |
 | "add migration" / "new migration" | `/add-migration <description>` |
 | "fix" / "broken" / "crash" / "error" / "wrong" / "regression" | `/fix-bug <description>` |
 | "audit" / "review" + design / UX / a11y | `/design-review <path>` |
@@ -127,13 +127,11 @@ A project command shadows a global of the same name (`.claude/commands/refactor.
 
 ### Variants — read `.claude/_command-variants.md` before dispatching a shared name
 
-Some names ship in more than one pack as **different** commands (`add-feature` in backend, frontend and mobile; `refactor` in several). Phase 4.2 gives the bare name to whichever pack was applied first and installs every later one as `<name>.<pack>.md`, recording each in `.claude/_command-variants.md`:
+Some names ship in more than one pack as **different** commands (`refactor` in several). Phase 4.2 gives the bare name to whichever pack was applied first and installs every later one as `<name>.<pack>.md`, recording each in `.claude/_command-variants.md`.
 
-```
-- `add-feature.md` — frontend variant installed as `add-feature.frontend.md`; the bare name belongs to the track applied first.
-```
+**`add-feature` is the exception, by construction.** The delivery pack is always installed and applied first, so the bare `/add-feature` is always the cross-stack run orchestrator; the backend, frontend and mobile `add-feature` files are thin lane presets installed as `add-feature.<stack>.md` (they hand the ask to `/add-feature --lane=<stack>`). Route feature asks to the bare `/add-feature`; never to a preset. On an install that predates the delivery pack (the bare `.claude/commands/add-feature.md` does not carry `pack: delivery`), say so and print `/setup-project --refresh` — do not pick a stack variant by install order.
 
-So the bare `/add-feature` is an accident of install order, not a choice. Before dispatching any name, look it up: `grep -F "<name>.md" .claude/_command-variants.md`. When it has variants:
+For every other shared name, look it up before dispatching: `grep -F "<name>.md" .claude/_command-variants.md`. When it has variants:
 1. The ask's stack picks the variant — a UI noun (page, component, form, screen-in-a-browser) → `frontend`; endpoint / route / job / service → `backend`; native screen / device → `mobile`. Dispatch `/<name>.<pack>` when that pack's variant is listed.
 2. No listed variant matches the ask's stack → the bare `/<name>`; it belongs to the remaining pack — confirm by reading its description, never assume.
 3. The ask names no stack and the repo is multi-track → ask one question that lists the variants by pack.
@@ -149,6 +147,26 @@ These commands carry `disable-model-invocation: true`. `/do` routes to them exac
 For *"deploy this branch to staging"* the whole output is: `Routed to: /deploy-stage (level D — irreversible; you type it, /do does not run it). Type: /deploy-stage` — then stop.
 
 `scripts/lint-command-routing.sh` holds this list to the repo's D set — a command that gains or loses the flag without this list changing fails the gate. The routing index above marks a project's own D commands with `D`; treat those the same way.
+
+### Build asks — the predicted tier
+
+A feature or change ask (the `/add-feature` rows, and `/fix-bug`) gets a **predicted risk tier** before dispatch, from the script the orchestrator itself starts with:
+
+```bash
+python3 .claude/scripts/risk-tier.py --request="<the ask, verbatim>" --json   # → {"tier": "T0".."T3", "reasons": [...]}
+```
+
+Print it in the preamble — `→ Routed to: /add-feature (predicted tier T3 — money-movement: 'refund')` — and forward the description verbatim; the tier is information, not a flag the user typed. The orchestrator re-runs the same classification at P0 and only ever promotes from there (`.claude/templates/governance/tiers.json`). A T3 prediction is never silent: say which trigger fired, because T3 means human gates H1–H4 are coming. No script on disk (an older install) → print `predicted tier: unknown (risk-tier.py not installed)` and dispatch anyway.
+
+### `--route-only` — the routing decision, nothing else
+
+`/do --route-only <description>` routes exactly as above and prints ONE line, then stops — no dispatch, no question, no `ai/_history.md` entry:
+
+```
+ROUTE /<command> <T0|T1|T2|T3|->
+```
+
+The tier is the predicted tier for a feature, change or bug route, `-` for everything else; a level-D route prints the same line (it is still the route). An ask that would need a clarifying question prints the most likely route — the routing benchmark (`benchmarks/fixtures/routing/`) scores command and tier accuracy from these lines.
 
 ## Pre-requisites
 
@@ -182,7 +200,8 @@ For *"deploy this branch to staging"* the whole output is: `Routed to: /deploy-s
 ```
 1. PARSE       — extract action + target + stack from description
 2. READ-CTX    — codebase profile + idioms + available commands
-3. ROUTE       — match intent to command
+3. ROUTE       — match intent to command; a build / change / bug route gets its predicted tier
+               (risk-tier.py — § Build asks); --route-only prints `ROUTE /<cmd> <tier>` and stops here
 4. CONFIRM     — silent (high confidence) | ask (medium) | halt (low)
 5. DISPATCH    — invoke the picked command(s), the matching clause forwarded verbatim
                (two commands only via § Multi-command asks — always confirmed, never silent);
@@ -316,6 +335,7 @@ If one half matches no command, run the half that does and report the other as u
 ```
 /do add a refund button to order details
 → /add-feature add a refund button to order details
+  (predicted tier T3 — money-movement: 'refund'; H1–H4 human gates ahead)
 ```
 
 ```

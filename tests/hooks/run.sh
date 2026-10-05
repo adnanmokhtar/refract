@@ -715,6 +715,190 @@ $ACC
 }
 run_phase2
 
+# ---- Phase 4: the run ----------------------------------------------------------------------------
+# The proving cases: the tier is computed and only promotes; requirements are EARS with a failure
+# path per story; REQ → AC → task → test has no orphan; one writer per run artifact; a compaction
+# leaves a typed handoff that comes back on the next SessionStart.
+run_phase4() {
+  command -v python3 >/dev/null 2>&1 || { echo "SKIP  phase-4 (needs python3)"; return 0; }
+  local B="$REPO_ROOT/templates/repo-baseline/.claude" work p o rc out R base
+  work=$(mktemp -d)
+  p4_ok() { if [ "$1" = "$2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  phase-4/$3 — expected $2, got $1"; fi; }
+  seed() {  # $1 = project dir: the baseline .claude scripts/hooks/schemas/templates + risk map, in a git repo
+    mkdir -p "$1/.claude" "$1/ai/runs"
+    cp -R "$B/scripts" "$B/hooks" "$B/schemas" "$B/templates" "$1/.claude/"
+    cp "$REPO_ROOT/templates/repo-baseline/ai/risk-map.json" "$1/ai/"
+    ( cd "$1" && git init -q && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base )
+  }
+  # mkrun <dir> <run_id> <tier> <phase> <status> <done phases,> [skipped phases,]
+  mkrun() {
+    python3 - "$@" <<'PYEOF'
+import json, os, sys
+d, rid, tier, phase, status, done = sys.argv[1:7]
+skipped = sys.argv[7].split(",") if len(sys.argv) > 7 and sys.argv[7] else []
+ph = {x: {"state": "done"} for x in done.split(",") if x}
+ph.update({x: {"state": "skipped"} for x in skipped})
+ph[phase] = ph.get(phase) or {"state": "active"}
+run = {"schema": "refract/run/v1", "run_id": rid, "created": "2026-10-05T10:00:00Z", "status": status,
+       "request": {"text": "show the order date on the orders list", "source": {"kind": "request", "ref": "x"}},
+       "tier": tier, "tier_reasons": [{"tier": tier, "signal": "default", "source": "request", "detail": "seed"}],
+       "lanes": ["backend"], "phase": phase, "phases": ph, "skips": [{"phase": s, "covered_by": "tier T2"} for s in skipped],
+       "approvals": [], "waivers": [], "loops": {"fix": 0, "review_rounds": 0, "replans": 0, "stalls": 0}}
+os.makedirs(os.path.join(d, "ai", "runs", rid), exist_ok=True)
+json.dump(run, open(os.path.join(d, "ai", "runs", rid, "run.json"), "w"), indent=2)
+PYEOF
+  }
+  jget() { python3 -c 'import json,sys; d=json.load(sys.stdin)
+for k in sys.argv[1].split("."): d=d[int(k)] if isinstance(d,list) else d.get(k)
+print(d if not isinstance(d,(list,dict)) else json.dumps(d,sort_keys=True))' "$1" 2>/dev/null; }
+  rt() { ( cd "$p" && python3 .claude/scripts/risk-tier.py "$@" --json 2>/dev/null ); }
+
+  p="$work/rt"; seed "$p"; unset REFRACT_BASE
+  # risk-tier: text signals
+  p4_ok "$(rt --request="add a refund button" | jget tier)/$(rt --request="add a refund button" | jget reasons.0.signal)" "T3/money-movement" "tier-refund-button-is-T3-money"
+  p4_ok "$(rt --request="fix the typo in the README" | jget tier)" T0 "tier-readme-typo-is-T0"
+  p4_ok "$(rt --request="show the order date on the orders list" | jget tier)" T1 "tier-no-signal-is-T1-default"
+  p4_ok "$(rt --request="add a page to edit a customer's notes" | jget tier)" T2 "tier-new-page-with-edit-is-T2"
+  p4_ok "$(rt --request="change the button color, no new endpoint" | jget tier)" T1 "tier-negated-signal-does-not-count"
+  rc=0; ( cd "$p" && python3 .claude/scripts/risk-tier.py --self-test >/dev/null 2>&1 ) || rc=$?
+  p4_ok "$rc" 0 "tier-self-test-every-trigger-has-a-lexicon"
+  # risk map, migration content, blast radius
+  p4_ok "$(rt --files=src/billing/charge.ts | jget tier)" T3 "tier-billing-path-promotes-to-T3"
+  mkdir -p "$p/db/migrations"
+  printf 'ALTER TABLE orders ADD COLUMN note text;\n' > "$p/db/migrations/002_note.sql"
+  printf 'CREATE TABLE notes (id int primary key);\n' > "$p/db/migrations/003_notes.sql"
+  p4_ok "$(rt --files=db/migrations/002_note.sql | jget tier)" T3 "tier-alter-table-migration-is-T3"
+  p4_ok "$(rt --files=db/migrations/003_notes.sql | jget tier)" T2 "tier-create-table-migration-is-T2"
+  python3 -c 'import json,sys
+e=[{"kind":"import","from":"src/m%d/a.ts"%i,"to":"src/core/util.ts","label":""} for i in range(20)]
+e+=[{"kind":"import","from":"src/n%d/b.ts"%i,"to":"src/lib/fmt.ts","label":""} for i in range(6)]
+json.dump({"nodes":[],"edges":e},open(sys.argv[1],"w"))' "$p/.claude/_graph.json"
+  p4_ok "$(rt --files=src/core/util.ts | jget tier)/$(rt --files=src/lib/fmt.ts | jget tier)" "T3/T2" "tier-blast-radius-from-graph"
+  # --run --write: promotes with history + back-fill; never demotes; no demotion after P0
+  R=20261005-promote-a1b2; mkrun "$p" "$R" T2 P6 open "P0,P1,P4,P5" "P2"
+  rc=0; rt --run="$R" --files=src/billing/charge.ts --write >/dev/null || rc=$?
+  out=$(jget tier_history.0 < "$p/ai/runs/$R/run.json")
+  p4_ok "$rc/$(jget tier < "$p/ai/runs/$R/run.json")/$(printf '%s' "$out" | jget from)-$(printf '%s' "$out" | jget to)/$(printf '%s' "$out" | jget backfill)" \
+        '0/T3/T2-T3/["P2"]' "write-promotes-T2-to-T3-with-backfill"
+  rc=0; ( cd "$p" && python3 .claude/scripts/refract_records.py validate run "ai/runs/$R/run.json" >/dev/null ) || rc=$?
+  p4_ok "$rc" 0 "promoted-run-json-matches-its-schema"
+  R=20261005-stays-high-c3d4; mkrun "$p" "$R" T3 P6 open "P0,P1,P2,P4,P5"
+  rc=0; o=$(rt --run="$R" --write) || rc=$?
+  p4_ok "$rc/$(printf '%s' "$o" | jget tier)/$(jget tier < "$p/ai/runs/$R/run.json")/$(printf '%s' "$o" | jget computed)" "0/T3/T3/T1" "write-never-demotes"
+  rc=0; ( cd "$p" && python3 .claude/scripts/risk-tier.py --run="$R" --force-lower=T1 --reason="owner says this is a copy change" >/dev/null 2>&1 ) || rc=$?
+  p4_ok "$rc" 2 "force-lower-after-P0-is-refused"
+  R=20261005-at-intake-e5f6; mkrun "$p" "$R" T3 P0 open ""
+  rc=0; ( cd "$p" && python3 .claude/scripts/risk-tier.py --run="$R" --request="add a refund button" --force-lower=T2 --reason="refund is a sandbox stub, no money moves" >/dev/null 2>&1 ) || rc=$?
+  p4_ok "$rc/$(jget forced_lower.chosen < "$p/ai/runs/$R/run.json")/$(jget tier < "$p/ai/runs/$R/run.json")" "0/T2/T2" "force-lower-at-P0-is-logged"
+  # --ci: a committed T1 run whose diff touches billing is UNDER-TIERED
+  ( cd "$p" && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm runs )
+  base=$(cd "$p" && git rev-parse HEAD)
+  R=20261005-ci-check-0a0b; mkrun "$p" "$R" T1 P6 open "P0,P1,P5"
+  mkdir -p "$p/src/billing"; printf 'export const refund = () => 1;\n' > "$p/src/billing/refund.ts"
+  ( cd "$p" && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm change )
+  rc=0; out=$( cd "$p" && python3 .claude/scripts/risk-tier.py --ci --base="$base" 2>/dev/null ) || rc=$?
+  p4_ok "$rc/$(printf '%s' "$out" | grep -c '^UNDER-TIERED')" "3/1" "ci-under-tiered-run-exits-3"
+
+  # ears-lint
+  R=20261005-notes-1a2b; o="$p/ai/runs/$R"; mkdir -p "$o"
+  cat > "$o/requirements.md" <<'MDEOF'
+# Requirements
+## Stories
+### REQ-001 — Edit a customer's notes
+As a support agent, I want to edit a customer's notes, so that the next agent sees the context.
+- AC-001: WHEN an agent saves a note THE notes API SHALL store the note body with the agent id and a timestamp.
+- AC-002: IF the note body exceeds 2000 characters THEN THE notes API SHALL return 422 and store nothing.
+### REQ-002 — Show the latest note
+As a support agent, I want the latest note on the customer page, so that I read it first.
+- AC-003: THE customer page SHALL show the newest note above older ones.
+- AC-004: IF the customer has no notes THEN THE customer page SHALL show the text "No notes yet".
+## Out of scope
+MDEOF
+  rc=0; ( cd "$p" && python3 .claude/scripts/ears-lint.py "ai/runs/$R/requirements.md" >/dev/null 2>&1 ) || rc=$?
+  p4_ok "$rc" 0 "ears-clean-requirements-pass"
+  sed 's/^- AC-004: .*$/- AC-004: THE customer page SHALL show the text "No notes yet" when empty./' "$o/requirements.md" > "$work/r1.md"
+  rc=0; out=$( python3 "$p/.claude/scripts/ears-lint.py" "$work/r1.md" 2>&1 ) || rc=$?
+  p4_ok "$rc/$(printf '%s' "$out" | grep -c 'REQ-002 — story has no IF')" "2/1" "ears-story-without-if-then-fails"
+  sed 's/SHALL store the note body/SHALL quickly store the note body/' "$o/requirements.md" > "$work/r2.md"
+  rc=0; out=$( python3 "$p/.claude/scripts/ears-lint.py" "$work/r2.md" 2>&1 ) || rc=$?
+  p4_ok "$rc/$(printf '%s' "$out" | grep -c 'AC-001 — vague word in the SHALL clause: quickly')" "2/1" "ears-vague-quickly-fails"
+  sed 's/^- AC-003: .*$/- AC-003: The newest note should be on top./' "$o/requirements.md" > "$work/r3.md"
+  rc=0; out=$( python3 "$p/.claude/scripts/ears-lint.py" "$work/r3.md" 2>&1 ) || rc=$?
+  p4_ok "$rc/$(printf '%s' "$out" | grep -c 'AC-003 — not EARS')" "2/1" "ears-non-ears-criterion-fails"
+  rc=0; python3 "$p/.claude/scripts/ears-lint.py" --self-test >/dev/null 2>&1 || rc=$?
+  p4_ok "$rc" 0 "ears-self-test"
+
+  # trace-matrix: plan + build on a complete run; each orphan kind fails
+  mkdir -p "$p/tests"
+  printf 'def test_save_note(): assert True\ndef test_note_too_long(): assert True\ndef test_newest_first(): assert True\ndef test_empty_notes(): assert True\n' > "$p/tests/test_notes.py"
+  python3 - "$o/acceptance.json" "$R" <<'PYEOF'
+import json, sys
+names = {"AC-001": ("REQ-001", "test_save_note"), "AC-002": ("REQ-001", "test_note_too_long"),
+         "AC-003": ("REQ-002", "test_newest_first"), "AC-004": ("REQ-002", "test_empty_notes")}
+json.dump({"schema": "refract/acceptance/v1", "run_id": sys.argv[2], "source": {"kind": "request", "ref": "x"}, "tier": "T2",
+           "criteria": [{"id": k, "req": r, "kind": "unit", "ears": "THE notes API SHALL do the thing it says",
+                         "tests": [{"path": "tests/test_notes.py", "name": n}], "command": "pytest -q"} for k, (r, n) in names.items()]},
+          open(sys.argv[1], "w"), indent=2)
+PYEOF
+  printf '# Plan\n## Steps\n- T-001 (AC-001, AC-002) [lane: backend] notes write path\n- T-002 (AC-003, AC-004) [lane: frontend] notes panel\n## Verification\n' > "$o/plan.md"
+  tm() { ( cd "$p" && python3 .claude/scripts/trace-matrix.py "$R" "$@" >"$work/tm.out" 2>&1 ); }
+  rc=0; tm --phase=plan || rc=$?; p4_ok "$rc" 0 "trace-complete-run-passes-plan"
+  rc=0; tm --phase=build || rc=$?; p4_ok "$rc" 0 "trace-complete-run-passes-build"
+  cp "$o/plan.md" "$work/plan.bak"
+  printf '# Plan\n## Steps\n- T-001 (AC-001, AC-002) [lane: backend] notes write path\n- T-002 (AC-003) [lane: frontend] notes panel\n' > "$o/plan.md"
+  rc=0; tm --phase=plan || rc=$?
+  p4_ok "$rc/$(grep -c 'AC-004 — no task in plan.md cites it' "$work/tm.out")" "2/1" "trace-ac-without-task-fails"
+  printf '# Plan\n## Steps\n- T-001 (AC-001, AC-002) [lane: backend] notes write path\n- T-002 (AC-003, AC-004, AC-009) [lane: frontend] notes panel\n' > "$o/plan.md"
+  rc=0; tm --phase=plan || rc=$?
+  p4_ok "$rc/$(grep -c 'T-002 — cites AC-009' "$work/tm.out")" "2/1" "trace-task-citing-unknown-ac-fails"
+  cp "$work/plan.bak" "$o/plan.md"; mv "$p/tests/test_notes.py" "$work/"
+  rc=0; tm --phase=build || rc=$?
+  p4_ok "$rc/$(grep -c 'test file tests/test_notes.py does not exist' "$work/tm.out")" "2/4" "trace-missing-test-file-fails-build"
+
+  # artifact-ownership: one writer per artifact
+  p="$work/own"; seed "$p"
+  R=20261005-own-run-9f9f
+  own() { local rc=0; ( cd "$p" && printf '%s' "$1" | bash .claude/hooks/artifact-ownership.sh >/dev/null 2>"$work/own.err" ) || rc=$?; echo "$rc"; }
+  ed() { printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"}%s}' "$1" "${2:+,\"agent_type\":\"$2\"}"; }
+  p4_ok "$(own "$(ed src/x.ts product-analyst)")" 2 "own-analyst-writing-source-denied"
+  p4_ok "$(own "$(ed "ai/runs/$R/requirements.md" product-analyst)")" 0 "own-analyst-writing-requirements-allowed"
+  p4_ok "$(own "$(ed src/x.ts verifier)")" 2 "own-judge-write-denied"
+  p4_ok "$(own "$(ed "ai/runs/$R/design.md" implementer)")" 2 "own-implementer-writing-design-denied"
+  p4_ok "$(own "$(ed src/x.ts my-plugin:implementer)")" 0 "own-implementer-writing-source-allowed"
+  p4_ok "$(own "$(ed src/x.ts)")" 0 "own-no-open-run-main-unrestricted"
+  mkrun "$p" "$R" T2 P6 open "P0,P1,P2,P4,P5"
+  p4_ok "$(own "$(ed src/x.ts)")/$(grep -c 'dispatch @implementer' "$work/own.err")" "2/1" "own-main-editing-source-at-T2-P6-denied"
+  p4_ok "$(own "$(ed "ai/runs/$R/ledger.md")")" 0 "own-main-writing-ledger-at-T2-P6-allowed"
+  p4_ok "$(own "$(ed "ai/runs/$R/requirements.md")")/$(grep -c 'dispatch @product-analyst' "$work/own.err")" "2/1" "own-main-writing-requirements-at-T2-denied"
+  mkrun "$p" "$R" T2 P5 open "P0,P1,P2,P4"
+  p4_ok "$(own "$(ed src/x.ts)")" 0 "own-main-editing-source-at-T2-P5-allowed"
+  mkrun "$p" "$R" T1 P6 open "P0,P1,P5"
+  p4_ok "$(own "$(ed src/x.ts)")" 0 "own-main-editing-source-at-T1-P6-allowed"
+  mkrun "$p" "$R" T2 P6 open "P0,P1,P2,P4,P5"; touch "$p/.claude/.no-artifact-ownership"
+  p4_ok "$(own "$(ed src/x.ts)")" 0 "own-opt-out-honoured"
+  rm -f "$p/.claude/.no-artifact-ownership"
+
+  # precompact-handoff + session-start
+  printf '# Ledger\n## Plan\n- dispatch implementer for T-002\n## Diary\n### Open\n- owner to confirm the 2000-char limit\n' > "$p/ai/runs/$R/ledger.md"
+  rc=0; out=$( cd "$p" && printf '%s' '{"hook_event_name":"PreCompact","trigger":"auto","custom_instructions":""}' | bash .claude/hooks/precompact-handoff.sh 2>/dev/null ) || rc=$?
+  p4_ok "$rc/$(jget next < "$p/ai/runs/$R/handoff.json")/$(jget open.0 < "$p/ai/runs/$R/handoff.json")/$(printf '%s' "$out" | grep -c "^Preserve for the continuation: run $R")" \
+        "0/P6 Implementation/owner to confirm the 2000-char limit/1" "precompact-writes-handoff-and-brief"
+  mkdir -p "$p/ai/runs/20261005-broken-0000"; printf '{"status": "open", ' > "$p/ai/runs/20261005-broken-0000/run.json"
+  rc=0; ( cd "$p" && printf '%s' '{"trigger":"manual"}' | bash .claude/hooks/precompact-handoff.sh >/dev/null 2>&1 ) || rc=$?
+  p4_ok "$rc" 0 "precompact-exits-0-on-malformed-run"
+  out=$( cd "$p" && printf '%s' '{"hook_event_name":"SessionStart","source":"compact"}' | bash .claude/hooks/session-start.sh 2>/dev/null )
+  p4_ok "$(printf '%s' "$out" | grep -c 'Handoff (before compaction)')/$(printf '%s' "$out" | grep -c '"next": "P6 Implementation"')" "1/1" "session-start-prints-handoff-after-compact"
+  out=$( cd "$p" && bash .claude/hooks/session-start.sh </dev/null 2>/dev/null )
+  p4_ok "$(printf '%s' "$out" | grep -c 'Handoff (before compaction)')" 0 "session-start-plain-start-prints-no-handoff"
+
+  # The installed run schema and tier matrix are the published ones, byte for byte.
+  rc=0; cmp -s "$REPO_ROOT/templates/schemas/refract/run.schema.json" "$B/schemas/run.schema.json" || rc=1
+  cmp -s "$REPO_ROOT/templates/governance/tiers.json" "$B/templates/governance/tiers.json" || rc=1
+  p4_ok "$rc" 0 "installed-run-schema-and-tiers-match-published"
+  rm -rf "$work"
+}
+run_phase4
+
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

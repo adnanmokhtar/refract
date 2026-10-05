@@ -545,6 +545,8 @@ def compute(repo, opts, notes, request_text=None, ci=False):
         reasons += path_reasons(repo, files, src, rules, graph, tiers.get("blast_radius", {}), dfn)
     reasons = dedupe(reasons)
     tier, reasons = decide(reasons)
+    if tier != "T1":                                   # the code-touched floor only matters when it decides
+        reasons = [r for r in reasons if r["signal"] != "default"]
     if not reasons:
         reasons = [{"tier": "T1", "signal": "default", "source": "request",
                     "detail": "no signal — T1 until a predicted file set shows a write path, a UI surface or a T3 path "

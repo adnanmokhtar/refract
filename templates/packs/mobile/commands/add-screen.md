@@ -7,9 +7,10 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 ## Pack overlay — one screen
 
-**Canonical orchestration: [`/add-feature`](add-feature.md) in this pack.** One screen is the same
-seven phases with a narrower ask, not a different procedure — and the machinery a screen most needs
-is the machinery this command used to be missing. `/add-feature` owns, and this command runs
+**Canonical procedure: the delivery pack's `lane-mobile` skill** (`.claude/skills/lane-mobile/SKILL.md`),
+cut from this pack's former `/add-feature` body; a feature of ≥2 screens is a delivery `/add-feature` run.
+One screen is the same procedure with a narrower ask, not a different one — and the machinery a screen
+most needs is the machinery this command used to be missing. `lane-mobile` owns, and this command runs
 unchanged: the **prior-art gate**, the **sibling-shape mechanical halt**, the **new-dependency
 gate**, the **standards gate**, the **Phase 4 reviewer table with its per-agent precondition**, the **BLOCKER halt rule**,
 the **not-installed `UNREVIEWED(<axis>)` ⇒ INCOMPLETE contract**, Phases 5–7, and the spec-consumption branch.
@@ -22,10 +23,10 @@ Nothing below repeats those. What is below is what a *screen* adds on top.
 - NOT: a brand-new module or a flow spanning ≥2 screens → `/add-feature` directly.
 - NOT: editing an existing screen → edit, then `/review-changes`.
 
-The premise is `/add-feature`'s: **the closest sibling screen is the truth.** Derive the shape, do
+The premise is `lane-mobile`'s: **the closest sibling screen is the truth.** Derive the shape, do
 not invent it. If no sibling exists in the same stack — HALT and ask for the gold-standard screen.
 
-### Screen-scoped mirror axes (added to `/add-feature`'s sibling-shape halt)
+### Screen-scoped mirror axes (added to `lane-mobile`'s sibling-shape halt)
 
 Name the sibling screen's **file path** in the Phase 2 design output, then confirm each axis matches
 it. These are mechanical, and any divergence is `drifted` in the shared vocabulary
@@ -41,14 +42,14 @@ it. These are mechanical, and any divergence is `drifted` in the shared vocabula
 
 ### Tier — the same table, read at screen scope
 
-`/add-feature` § Closure verb applies verbatim. Two clarifications for a single screen:
+The run tiers apply (`.claude/templates/governance/tiers.json`; the old trivial / standard / heavy read as T1 / T2 / T3). Two clarifications for a single screen:
 
-- **Trivial** is the default and is the common case: a screen that mirrors a sibling, adds no
+- **T1** is the common case: a screen that mirrors a sibling, adds no
   permission, no native config, and no write path.
-- Any Heavy trigger — **new native permission class, biometric / Keychain / secrets touch,
-  write-path mutation, store-blocking change** — promotes the run to `/add-feature`'s **full serial
-  cascade**, including `@security-auditor` and `@app-store-reviewer`, which are gated on exactly
-  those triggers. A Heavy screen is not a lighter cascade than a Heavy feature; it is the same one
+- Any T3 trigger — **new native permission class, biometric / Keychain / secrets touch,
+  write-path mutation, store-blocking change** — makes the screen a delivery `/add-feature --lane=mobile`
+  run at T3 with the **full lens set**, including `@security-auditor` and `@app-store-reviewer`, which are gated on exactly
+  those triggers. A T3 screen is not a lighter review than a T3 feature; it is the same one
   over fewer files.
 
 ### Sensitive-entity gate (runs before any form is scaffolded)
@@ -68,7 +69,7 @@ Mobile adds two consequences the web branch does not have, and both are this pac
   `AsyncStorage` / `SharedPreferences` / `UserDefaults`.
 - **The biometric unlock in front of it** is `native-storage.md` § Biometric-gated secrets — the
   hardware-backed requirement, enrollment-change invalidation, and the passcode-fallback decision.
-  `/add-feature` § Hard rules states the floor: *no biometric without secure-enclave / hardware-backed
+  `lane-mobile` § Hard rules states the floor: *no biometric without secure-enclave / hardware-backed
   keystore.*
 
 If the project ships no provider primitive for that data class, that is a **HALT**, not a licence to
@@ -101,9 +102,9 @@ with `expand-tap-target`. Absent that pack, apply the two figures and mark the l
 `floor: not audited (ui-ux pack absent)`. Do not restate one platform's figure as universal, and do
 not coin a mobile-only synonym for the axis.
 
-### Phase 3 — what a screen reads, on top of `/add-feature` § Phase 3
+### Phase 3 — what a screen reads, on top of `lane-mobile` § Phase 3
 
-`/add-feature` § Phase 3 items 1–9 apply unchanged. A screen additionally reads:
+`lane-mobile` § Phase 3 items 1–9 apply unchanged. A screen additionally reads:
 
 - The **sibling screen file** in the same stack — the shape being mirrored.
 - The **navigator file** — current routes and how params flow.
@@ -120,22 +121,22 @@ login boundary is the finding.
 
 ### Phase 6 — screen-scoped validation additions
 
-`/add-feature` § Phase 6 applies. A screen also smoke-tests: open from the parent list → content →
+`lane-mobile` § Phase 6 applies. A screen also smoke-tests: open from the parent list → content →
 back → state preserved; deep-link open from cold and warm
 (`xcrun simctl openurl booted "<scheme>://<path>"` / `adb shell am start -W -a android.intent.action.VIEW -d "<url>"`);
 and, when the screen holds unsaved state, a process-death restore via `device-harness` § 7.
 
 ### Output format
 
-`/add-feature` § Output format, minus the multi-screen rows. Always emit: files written, tests
+The delivery `/add-feature` § Output, minus the run rows when no run was opened. Always emit: files written, tests
 (unit + e2e, both platforms), i18n key count per locale, native surface touched (permissions, deep
 links, push handlers), observability sign-off (`observability: none configured` when the project
 ships none — explicit, never silent), and the tier with the trigger that set it.
 
 ### Related
 
-- `/add-feature` — the canonical orchestration this overlays; use it directly for ≥2 screens.
+- `/add-feature` (delivery) — the run orchestrator; use it for ≥2 screens. `lane-mobile` — the procedure this overlays.
 - `@mobile-architect` — produces the Phase 2 design.
-- `@offline-sync-auditor` — dispatched by the Heavy cascade when the screen adds a write path.
-- `@app-store-reviewer` · `@security-auditor` — Heavy-tier gates, per `/add-feature` § Phase 4.
+- `@offline-sync-auditor` — dispatched by the T3 lens set when the screen adds a write path.
+- `@app-store-reviewer` · `@security-auditor` — T3 lenses, per `lane-mobile` § Phase 4.
 - `ai/patterns/native-storage.md`, `offline-sync.md`, `permissions.md`, `deep-linking.md`.

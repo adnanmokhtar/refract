@@ -52,7 +52,7 @@ For ENHANCE-retrofit / ENHANCE-extend / REFRESH, run this check after Phase 2.5:
 Phase 2 already produced `.claude/_extracted-codebase.md` + `.claude/codebase-profile.md` — including detected stack, signals (multi-tenant / webhook / payment / AI / search / queue / realtime / mobile / etc.), and business domain. From those, mark each track:
 
 - **LOAD-BEARING** — the track's signal matched in the profile (e.g., `backend` is load-bearing because Node/Python/Go/Java/PHP/Ruby manifests detected; `database` because a DB driver is in deps; `multi-tenant` because tenant column or context is detected; `payment` because a payment SDK is in deps).
-- **ALWAYS-ON** — `security`, `code-quality`, `documentation`, `learning` apply regardless. These are the four tracks every project gets, full stop.
+- **ALWAYS-ON** — `delivery`, `security`, `code-quality`, `documentation`, `learning` apply regardless. These are the five tracks every project gets, full stop. `delivery` (the `/add-feature` run orchestrator) is applied first.
 - **NOT-APPLICABLE** — track signal absent (e.g., `frontend` for an API-only repo; `mobile` for a backend; `distributed-systems` for a single-process app). Marked `n/a` in the gap report — NOT counted as a gap.
 
 This step replaces the older "preview Phase 2" sub-step (no longer needed — Phase 2 has already run by this point and produced the full profile).

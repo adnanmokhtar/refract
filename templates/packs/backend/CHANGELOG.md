@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.18.0 — 2026-10-05
+
+**The pack's `/add-feature` became a lane of the one delivery run (architecture proposal Phase 4).**
+
+`commands/add-feature.md` is now a thin lane preset (installed as `/add-feature.backend`) that hands the ask to the delivery pack's cross-stack `/add-feature` with `--lane=backend`. Before, the bare `/add-feature` went to whichever of backend, frontend and mobile installed first and defaulted to the trivial tier, promoting only after code existed. The backend procedure was CUT, not rewritten, into `delivery/skills/lane-backend/SKILL.md` (premise, prior-art and new-dependency gates, all-tier floors, the signal → binding-constraint tables, generate rules, the review tables by touch and domain, spec conformance, release pre-flight); the tier table, acceptance contract, confirmation gate, verdict and output block now live once in the orchestrator. `_examples/add-feature.md` — a generated copy of the old body — is removed and the topic's fallback is the command itself. Leaf commands (`/add-endpoint`, `/add-module`) are unchanged; their `§ New-dependency gate` and `§ Dispatch contract` citations now resolve in `lane-backend`.
+
 ## 1.17.0 — 2026-10-02
 
 **`migration-safety` moved to the database pack.** The backend copy contradicted the database pack

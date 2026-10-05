@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.10.0 — 2026-10-05
+
+**The pack's `/add-feature` became a lane of the one delivery run (architecture proposal Phase 4).**
+
+`commands/add-feature.md` is now a thin lane preset (installed as `/add-feature.mobile`) that hands the ask to the delivery pack's cross-stack `/add-feature` with `--lane=mobile`. The mobile procedure was CUT, not rewritten, into `delivery/skills/lane-mobile/SKILL.md`; `/add-screen` now overlays that skill (its `§ Phase 3`, `§ Phase 6`, `§ Hard rules` citations resolve there) and reads the run tiers T1–T3 instead of the removed closure-verb table. The reviewer cascade became a lens set the orchestrator fans out in parallel (read-only lenses parallelise safely).
+
 ## 1.9.2 — 2026-10-02
 
 **A missing reviewer no longer turns into the builder reviewing itself.** `/add-feature`'s

@@ -1,0 +1,34 @@
+# delivery pack — changelog
+
+Release history for `templates/packs/delivery/`, newest first.
+
+Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELOG.md`.
+`_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
+`deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
+
+## 1.0.0 — 2026-10-05
+
+**A feature no longer starts with code.** Architecture proposal Phase 4 ("The Run").
+
+- **NEW `/add-feature` — the one cross-stack orchestrator.** Before this pack the bare
+  `/add-feature` went to whichever of backend, frontend or mobile was installed first, defaulted to
+  the trivial tier (no requirements, no design, the builder grading its own work) and promoted the
+  tier only after code existed. The orchestrator runs P0–P12 of the proposal per risk tier: the tier
+  is classified by `.claude/scripts/risk-tier.py` from the ask before code and re-classified from the
+  design and the diff (promote-only); every phase writes a typed artifact under `ai/runs/<run-id>/`
+  (`templates/snippets/run-ledger.md`); acceptance is written, red and locked before code; one
+  writer builds; read-only lenses review in one parallel fan-out; the verifier's `verdict.json` is
+  the only path to COMPLETE. The tier matrix is one file: `templates/governance/tiers.json`.
+- **NEW agents** `product-analyst` (merges product-strategist + user-research-synthesizer +
+  business-analyst), `requirements-reviewer` (product's reviewer + business-auditor's completeness
+  lens), `architect` (system-architect's method + the stack architects as optional slices),
+  `architecture-reviewer` (domain-model-auditor's invariant register + design conformance),
+  `test-engineer` (testing's test-engineer + tdd-orchestrator's red-first order), `plan-critic`
+  (scope-arbiter, standing in for H2 at T1), `implementer` (one plan task at a time, SPEC_CONFLICT
+  instead of bending a locked test). The originals stay in their packs until Phase 6 measures parity;
+  delivery is applied first, so its same-name agents are the installed ones.
+- **NEW lane skills** `lane-backend`, `lane-frontend`, `lane-mobile` — the stack procedure CUT from
+  the three former `add-feature` bodies (premise, prior-art, sibling-shape and new-dependency gates,
+  signal → binding-constraint tables, design slices, generate rules, lens tables, spec conformance),
+  without their tier tables, acceptance sections and output blocks, which now live once in the
+  orchestrator. The stack packs' `add-feature.md` files become thin lane presets.
