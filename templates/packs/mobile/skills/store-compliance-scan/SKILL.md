@@ -58,7 +58,7 @@ A candidate is a finding when all five hold:
 - A **missing** purpose string for an API in use crashes at first access → `mobile-lifecycle-scan` § 3 (this pack); here it is the store row. A foreground service without a type crashes → lifecycle § 2; § 2d here lists the types to declare in Play Console. Both runs dedupe by `<file:line>`.
 - Token storage, cleartext, exported components, debuggable or debug-signed release builds → `mobile-security-scan` when the security pack is installed; without it, reported under [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) § 8.
 - Purpose-string **wording**, metadata, screenshots, review notes → `@app-store-reviewer` (precedents § 6). This skill flags only blank, placeholder and unused strings.
-- Vitals (crash, ANR, wake locks, memory, bitmap) are measured by `mobile-perf-scan` and `@device-performance-auditor`; the store consequence of G17 is `@app-store-reviewer`'s. App size is the pack's size skill (`bundle-analyze`).
+- Vitals (crash, ANR, wake locks, memory, bitmap) are measured by `mobile-perf-scan` and `@device-performance-auditor`; the store consequence of G17 is `@app-store-reviewer`'s. App size is `app-size-scan`.
 - OTA configuration → `mobile-lifecycle-scan` § 7; what an update may change (2.5.2) → `@app-store-reviewer`.
 - Durability of an acknowledged write → `offline-sync-scan`. Account deletion is here; what logout leaves behind is there.
 

@@ -58,7 +58,7 @@ allowed-tools: [Read, Write, Grep, Glob, Bash, Task]
 | `n-plus-one-scan` | database, **when installed** | relation, query or count per element; resolver per parent; row-by-row writes; cartesian eager loads | a loop over query results; a list, search, export or report endpoint; a resolver or serializer |
 | `query-shape-scan` | database, **when installed** | unbounded reads, deep OFFSET, over-fetch, non-sargable predicates, in-app filtering, existence counts, unbounded `IN` lists | a repository or ORM query; raw SQL; a page, sort, filter or search parameter |
 | `/bundle-perf` | performance, project kind `browser` | the browser rows: it dispatches the frontend owners (`bundle-analyze`, `lcp-audit`, `image-optimization`, `font-optimization`, `navigation-speed`, `streaming-ssr`, when the frontend pack is installed), `inp-responsiveness`, `web-vitals-field`, `caching-scan` §6 and its interim lanes, and returns its own class ledger (B1–X1) and verdict | a route, layout, entry, image, font, client handler or bundler-config change |
-| `bundle-analyze` · `@device-performance-auditor` | mobile, **when installed**, project kind `mobile` | bundle size and cold start; startup, jank, memory and battery measured on a named device | a native, React Native or Flutter change |
+| `app-size-scan` · `@device-performance-auditor` | mobile, **when installed**, project kind `mobile` | bundle size and cold start; startup, jank, memory and battery measured on a named device | a native, React Native or Flutter change |
 | `@resilience-reviewer` | distributed-systems, **when installed** | retry policy (backoff, jitter, budgets, retries at several layers), circuit breakers, the exactly-once reserve design | a retry, breaker or idempotency change |
 
 - **Without the owner pack**, its rows print `N/A (owner pack <x> not installed)`. A performance-pack detector missing from `.claude/skills/` (a minimal install) prints `not run (not installed — /setup-project --refresh adds it)`.
@@ -130,7 +130,7 @@ One row per class family, sourced from each owner's coverage block. **The list i
 | ReDoS · GraphQL cost | super-linear regex on request input · no depth or cost limit on a GraphQL endpoint | routed → security `injection-scan`, `@api-security-reviewer` |
 | Browser load | bundle bloat, duplicates, whole-library imports · load priority · render-blocking `<head>` · images · fonts · navigation speed · server-render streaming · asset caching and compression | `/bundle-perf` rows B1–B5, L1–L3, C1, F1, T1–T2, N1, D1 (frontend owners when installed) |
 | Browser interaction | long tasks in input handlers · unvirtualized lists and render waste · third parties on the critical path · client fetch waterfalls · SPA memory across navigations | `/bundle-perf` rows I1–I3, W1, X1 (field oracle `web-vitals-field`) |
-| Mobile | startup · jank · memory · battery · bundle size | mobile `@device-performance-auditor`, `bundle-analyze` (when installed) |
+| Mobile | startup · jank · memory · battery · bundle size | mobile `@device-performance-auditor`, `app-size-scan` (when installed) |
 | Capacity and SLOs | capacity arithmetic · SLA campaign · SLO and p95 alerting | routed → distributed-systems `@capacity-planner`, `load-test`, observability `slo-audit` / `alert-audit` |
 
 Each row prints `checked (k hits → m findings)` / `N/A (<reason>)` / `blocked (<reason>)` / `not run (<reason>)` / `routed → <owner> (<its same-day verdict, or "not run this session">)`. A class the owner's block prints that this table lacks is added under its row; a class this table names that the owner's block omits prints `not run (<class>: no line in <owner>'s block)`. Kind-gated rows print `N/A (no rendered UI)` / `N/A (no mobile layer)`. **On a whole-repo run, a `not run` or `blocked` row forces `GO-UNVERIFIED`.** A `routed` row carries its owner's verdict and does not change this one; its next command goes in `## What to do next`.
@@ -196,7 +196,7 @@ Every run ends its report with `## What to do next`: the findings as ONE ordered
 ### Detector skills (dispatched in Phase 2)
 - Performance pack: `request-path-scan` · `memory-growth-scan` · `caching-scan`. Harnesses: `profile-endpoint` · `memory-leak-hunt` · `load-test` · `web-vitals-field`.
 - `/bundle-perf` (this pack, browser kinds): dispatches the frontend owners and returns the browser rows.
-- When installed: database `n-plus-one-scan` · `query-shape-scan`; frontend `bundle-analyze` · `lcp-audit` · `image-optimization` · `font-optimization` · `navigation-speed` · `streaming-ssr` · `lighthouse-ci` (through `/bundle-perf`); mobile `bundle-analyze`.
+- When installed: database `n-plus-one-scan` · `query-shape-scan`; frontend `bundle-analyze` · `lcp-audit` · `image-optimization` · `font-optimization` · `navigation-speed` · `streaming-ssr` · `lighthouse-ci` (through `/bundle-perf`); mobile `app-size-scan`.
 
 ### Agents
 - `@performance-optimizer`: ranks the verified findings by measured or ESTIMATED impact; owns the guardrail matrix `/perf-fix` re-measures.

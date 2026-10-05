@@ -30,7 +30,7 @@ A candidate is a finding when all five hold:
 
 - **The closure verbs** for § 1–§ 3 are `rules/render-discipline.md`'s (this pack): `virtualize-list`, `memoize`, `scope-state-down`, `extract-const-subtree`, `scope-animation`, `split-store-selector`. This skill is the detector those 8 detectors lacked; it emits no competing verb.
 - **The measurer and ranker** is `@device-performance-auditor` (this pack): it owns *that* a frame, a launch or a footprint is slow, on which device, against which budget (MOB-9). This skill hands it each finding with its oracle; a cost claim the auditor has not measured stays Unconfirmed.
-- **App size** (minify, R8, assets, 16 KB alignment) → `bundle-analyze` and `/optimize-bundle` (this pack; the skill is to be renamed `app-size-scan`). **Lifecycle-scoped work** (`GlobalScope`, collection without `repeatOnLifecycle`, wake locks, background work) → `mobile-lifecycle-scan`, which routes every listener, observer, controller and subscription leak here (§ 7).
+- **App size** (minify, R8, assets, 16 KB alignment) → `app-size-scan` and `/optimize-bundle` (this pack). **Lifecycle-scoped work** (`GlobalScope`, collection without `repeatOnLifecycle`, wake locks, background work) → `mobile-lifecycle-scan`, which routes every listener, observer, controller and subscription leak here (§ 7).
 - **Sync TurboModule calls and bridge threading** → `native-bridge-audit` (this pack). **Crash-prone code** (force-unwraps, `!!`, unhandled rejections) and **concurrency** (data races, Swift escape hatches) → the code-quality pack's correctness detector when installed; without it, `N/A (owner pack code-quality not installed)`.
 - **Web vitals** (LCP, CLS, INP, hydration) → the frontend and performance packs. **Server latency** behind the API → `performance-optimizer` (performance pack, when installed); without it, the client-side measurement is reported and the server cause stays Unconfirmed.
 
@@ -330,5 +330,5 @@ The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobi
 
 - `/mobile-audit` dispatches this skill and folds its coverage block into the class ledger; `/mobile-fix` closes the findings failing-first and re-runs this detector on the patched lines.
 - `@device-performance-auditor` (this pack) measures and ranks the cost rows; `rules/render-discipline.md` (this pack) holds the closure verbs; `device-harness` (this pack) runs the D-tier oracles.
-- `mobile-lifecycle-scan` (this pack) routes listener and controller leaks to § 7; `bundle-analyze` / `/optimize-bundle` (this pack) own app size; `native-bridge-audit` (this pack) owns bridge threading.
+- `mobile-lifecycle-scan` (this pack) routes listener and controller leaks to § 7; `app-size-scan` / `/optimize-bundle` (this pack) own app size; `native-bridge-audit` (this pack) owns bridge threading.
 - `performance-optimizer` (performance pack, when installed) owns server latency behind the API; the frontend pack owns web vitals.

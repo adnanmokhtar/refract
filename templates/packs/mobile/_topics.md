@@ -143,25 +143,35 @@ change.
   triggers: { mobile_framework_detected: true }
   fallback: commands/mobile-fix.md   # the source IS the fallback, as for db-fix and frontend-fix; a skeleton would drop the kill recipe, the no-device-no-closure rule, the suppression grep and the STOP lines
 
-- name: bundle-analyze
+- name: app-size-scan
   kind: skill
   triggers: { mobile_framework_detected: true }
-  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
-  fallback: skills/bundle-analyze/SKILL.md
+  sections: [premise, halt_conditions, boundaries, measure_toolchain_table, lanes, pre_flight_greps, the_3000_hit_path, scans_for, detectors_1_to_7, proof, output, false_positives, when_to_run, related]
+  fallback: skills/app-size-scan/SKILL.md
+  cite_evidence: strict
+  # renamed from bundle-analyze (1.x): the frontend pack ships a skill of that name, so the mobile one
+  # installed as bundle-analyze.mobile and bare-name dispatchers reached the wrong skill. Fallback is the
+  # source ON PURPOSE: /optimize-bundle reads its toolchain table, and the measured-delta halt is the contract.
 
 - name: native-bridge-audit
   kind: skill
   triggers: { mobile_framework_detected: true, native_bridge_present: true }
-  sections: [when_to_use, procedure, inputs, outputs, hard_rules]
+  sections: [premise, the_rule, boundaries, inputs_and_outputs, lanes, pre_flight_greps, the_3000_hit_path, scans_for, detectors_1_to_7, proof, output, false_positives, when_to_run, halt_conditions, hard_rules, related]
   fallback: skills/native-bridge-audit/SKILL.md
+  cite_evidence: strict
+  # fallback is the source ON PURPOSE: the RN version table (New Architecture only from 0.82,
+  # InteractionManager removed in 0.87) decides whether a hit is a finding, and the both-sides
+  # set-difference is the artifact.
 
 - name: platform-conventions-audit
   kind: skill
   triggers: { mobile_framework_detected: true }
-  extracts_from: _extracted-idioms.md § "Mobile platforms" + per-platform build configs (Info.plist, AndroidManifest.xml)
-  sections: [purpose, when_to_use, inputs, outputs, the_10_detectors, procedure, hard_rules, failure_modes]
+  extracts_from: per-platform build configs (Gradle targetSdk, AndroidManifest.xml, res/values themes, Info.plist, app.json) — no _extracted-* section is required; the conventions are inferred from the code
+  sections: [premise, the_rule, boundaries, inputs, outputs, lanes, pre_flight_greps, the_3000_hit_path, the_detectors, proof, output, false_positives, when_to_run, halt_conditions, hard_rules, related]
   fallback: skills/platform-conventions-audit/SKILL.md
   cite_evidence: strict
+  # 1.x hard-required _extracted-idioms.md § Mobile platforms, which nothing produces, so it halted on
+  # every install; the rewrite derives platforms from markers and conventions from the code.
 
 - name: device-harness
   kind: skill

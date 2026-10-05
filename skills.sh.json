@@ -188,9 +188,9 @@
     },
     {
       "title": "Mobile",
-      "description": "Bundle and cold-start analysis, JS-to-native bridge auditing, and iOS HIG / Material 3 convention drift.",
+      "description": "App-size classes, JS-to-native bridge auditing, and platform conventions (edge-to-edge, predictive back, iOS / Material drift).",
       "skills": [
-        "bundle-analyze",
+        "app-size-scan",
         "native-bridge-audit",
         "platform-conventions-audit"
       ]

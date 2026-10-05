@@ -88,7 +88,7 @@ Three audits in parallel:
 - `assets/` directory — image + font + video inventory.
 - Recent CI bundle-size reports (if any).
 
-Tools: **`bundle-analyze` § 1 holds the one toolchain table**, per stack, and this command runs that skill to produce the measurement. Do not maintain a second list here — the two diverged once and the stale one named an upload utility as a size tool.
+Tools: **`app-size-scan` § Measure holds the one toolchain table**, per stack, and this command runs that skill to produce the measurement. Do not maintain a second list here — the two diverged once and the stale one named an upload utility as a size tool.
 
 ## Phase 4 — Generate (the audit report + recommendations)
 
@@ -189,7 +189,7 @@ Next: pick recommendations to apply — highest measured saving per unit of effo
 
 - `@mobile-architect` — sometimes recommends architectural changes (split app, deferred modules) that this command surfaces.
 - `@performance-optimizer` (general) — for non-mobile-specific perf work.
-- `@app-store-reviewer` — pre-release submission verdict. It explicitly does **not** own size as an engineering problem (that is this command plus `bundle-analyze`), and it carries no size figure of its own. The published limits are in the table at the top of this file: the 200MB Play figure is a **non-blocking dialog**, not a blocker; the hard caps are Play's 500MB base module and Apple's 4 GB / 80 MB `__TEXT`.
+- `@app-store-reviewer` — pre-release submission verdict. It explicitly does **not** own size as an engineering problem (that is this command plus `app-size-scan`), and it carries no size figure of its own. The published limits are in the table at the top of this file: the 200MB Play figure is a **non-blocking dialog**, not a blocker; the hard caps are Play's 500MB base module and Apple's 4 GB / 80 MB `__TEXT`.
 - `@device-performance-auditor` — owns **cold start**: it measures on a named device, in a release build, more than once, and separates a published Play threshold from a project budget. Route every startup number here to it rather than asserting one from a bundle delta; a size win is not a startup win until it is measured as one.
 - `release-pipeline` — binary size is checked against the store limits above before submission; symbol upload happens in the same build job.
 - `device-harness` (skill) — installs the release build on a named device so a startup measurement means something.

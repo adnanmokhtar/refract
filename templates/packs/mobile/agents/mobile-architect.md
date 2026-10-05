@@ -148,7 +148,7 @@ The design's obligation here is to *produce the artifacts*, not to predict the v
 Two different kinds of number, and conflating them is how this pack previously shipped a fabrication:
 
 - **Platform limits** are published and must be cited. Google Play shows users on mobile data a non-blocking large-app dialog above 200MB, caps a base module at 500MB, and caps a legacy APK at 100MB. Apple caps an iOS app at 4GB uncompressed with a maximum of 80MB for the total of all `__TEXT` sections (iOS 9.0+). Android vitals flags startup as excessive at 5s cold, 2s warm, 1.5s hot. All four are in § Sources.
-- **Project budgets** are chosen, written down as budgets, and measured on a **named device** from the install base — cold start, frame time on the longest list, size delta per release. A budget stricter than the published limit is a good decision; a budget presented *as* the limit is a lie. Frame-time and rebuild evidence is `rules/render-discipline.md`'s; size evidence is `bundle-analyze`'s (this pack).
+- **Project budgets** are chosen, written down as budgets, and measured on a **named device** from the install base — cold start, frame time on the longest list, size delta per release. A budget stricter than the published limit is a good decision; a budget presented *as* the limit is a lie. Frame-time and rebuild evidence is `rules/render-discipline.md`'s; size evidence is `app-size-scan`'s (this pack).
 
 ## Design smells
 
