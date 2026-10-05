@@ -226,7 +226,7 @@ Skip runtime theming if you have ONE theme and no realistic plan for variants. S
 ## Migration path
 
 Retrofitting theming on an app with hardcoded colors:
-1. Inventory hex literals via `rg "#[0-9a-f]{3,6}"`. Group similar colors → semantic intentions ("this gray is text-secondary, this gray is border").
+1. Inventory colour literals with `design-token-audit` grep 1 (this pack). It names its paths, drops token-definition files and comments, and matches `#RGB` / `#RGBA` / `#RRGGBB` / `#RRGGBBAA` in either case plus `rgb()` / `hsl()` / `oklch()`. A bare `rg "#[0-9a-f]{3,6}"` searches stdin under an agent shell (no path), misses uppercase and 8-digit hex, and matches `#anchor` links and the token files themselves. Group similar colors → semantic intentions ("this gray is text-secondary, this gray is border").
 2. Define the token layer as `:root` custom properties with current light values.
 3. Replace literals with `var(--token)` file by file. PR per feature, not all at once.
 4. Add a `[data-theme="dark"]` block with dark values for each token. Most components need no further changes.

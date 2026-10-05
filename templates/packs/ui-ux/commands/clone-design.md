@@ -166,7 +166,7 @@ Note:       design LANGUAGE cloned; brand identity placeholdered (structural wir
 - [`/redesign`](redesign.md) — `--adopt=pages` delegates here per surface, using the clone as the direction reference (it owns the per-page rebuild + parity gate).
 - [`/add-theme-variant`](add-theme-variant.md) — `--adopt=tokens` delegates here to land the extracted tokens as a new theme slot (additive gate holds).
 - [`/art-direct`](art-direct.md) — the sibling for when there is **no** external reference and the language must be invented from goals.
-- skill `visual-check` — owns the Playwright capture + render harness (and the authenticated / blocked-render contract this command inherits for the Capture gate).
+- skill `visual-check` (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`) — owns the Playwright capture + render harness (and the authenticated / blocked-render contract this command inherits for the Capture gate).
 - agent `design-system-architect` — codifies the extracted tokens into a real primitive→semantic system when the clone is adopted into a project.
 - pattern `design-systems`, `theming`, `motion`, `rtl` — the system context an adopted clone lands in. (Earlier versions listed `design-tokens` and `responsive`; neither is a pattern in this pack — the token contract lives in `design-systems`, and responsive/breakpoint drift is deliberately outside the 19-verb set and owned by `/enhance-ui`.)
 

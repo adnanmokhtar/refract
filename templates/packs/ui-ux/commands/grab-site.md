@@ -47,6 +47,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 - `<out-dir>` — output folder (default: the site's host name). The folder holds one `<template>.html` per family, an `assets/` dir (real CSS/images/fonts), and `_gallery.html`.
 - `--pages=/a,/b,/c` — explicit page paths to grab instead of auto-discovery (first entry = `index`).
 - `--max-assets=<N>` — cap total downloaded assets (default 800) — a runaway/size guard. CSS/fonts are fetched before images, so a tight cap drops images (not the layout) and the run WARNs.
+- `--delay=<seconds>` — minimum wait between two requests to the same host (default `1.0`; a larger `Crawl-delay` in the host's robots.txt wins). At the default, 300 assets on one host take about five minutes. Lower it only for a site you operate.
 - `--plan` — write the page-set + asset plan and exit before downloading.
 
 ```bash
@@ -64,7 +65,7 @@ The grab is a **bundled stdlib-Python script** (no `pip`, no `wget`/`httrack` �
 python3 .claude/scripts/grab-site.py <url> [out-dir] [--pages=...] [--max-assets=N]
 ```
 
-It (1) **hard-fetches the first page** with a real browser User-Agent and HALTs (`CAPTURE FAILED`, non-zero exit) if it 404s/errors or returns a short bot-wall / empty shell — this check runs **even with `--pages`**; (2) auto-discovers one page per template family (`/collections/…`, `/products/…`, `/pages/…`, `/blogs/…/…`, plus `/cart` + `/search` on Shopify; on a non-Shopify site it falls back to harvesting the homepage's own nav links) unless `--pages` is given; (3) for each page downloads **CSS/fonts first** (recursing into `@import` and `url(...)` for fonts/background images), then `<img>` `src`/`data-src` + `background-image`, then **every** `srcset`/`data-srcset` candidate; (4) rewrites each remote reference to a local `assets/…` path (page-relative refs resolve against the page, not the site root) and **promotes lazy `data-src`/`data-srcset` into a single working `src`/`srcset`** — dropping the placeholder — so images show without JS; (5) writes `<template>.html` per page + `_gallery.html`, then prints a **localization report** (css / img-ref / img-asset counts · residual-remote-ref count · cap/blocked `WARN`s).
+It (1) reads each host's `robots.txt` and skips what it disallows, waits `--delay` between requests to one host, sends an **honest User-Agent** that names the script (never a browser string), and **hard-fetches the first page**, HALTing (`CAPTURE FAILED`, non-zero exit) if it 404s/errors or returns a short bot-wall / empty shell — this check runs **even with `--pages`**; (2) auto-discovers one page per template family (`/collections/…`, `/products/…`, `/pages/…`, `/blogs/…/…`, plus `/cart` + `/search` on Shopify; on a non-Shopify site it falls back to harvesting the homepage's own nav links) unless `--pages` is given; (3) for each page downloads **CSS/fonts first** (recursing into `@import` and `url(...)` for fonts/background images), then `<img>` `src`/`data-src` + `background-image`, then **every** `srcset`/`data-srcset` candidate; (4) rewrites each remote reference to a local `assets/…` path (page-relative refs resolve against the page, not the site root) and **promotes lazy `data-src`/`data-srcset` into a single working `src`/`srcset`** — dropping the placeholder — so images show without JS; (5) writes `<template>.html` per page + `_gallery.html`, then prints a **localization report** (css / img-ref / img-asset counts · residual-remote-ref count · cap/blocked `WARN`s).
 
 <details><summary>Bundled script — write verbatim to <code>.claude/scripts/grab-site.py</code></summary>
 
@@ -73,11 +74,12 @@ It (1) **hard-fetches the first page** with a real browser User-Agent and HALTs 
 """grab-site — faithful static mirror of a website (Shopify/storefront-friendly).
 Grabs REAL html + css + images + fonts for one page per template family and
 rewrites every remote reference to a local path so the folder opens offline.
-Usage:  grab-site.py <url> [out-dir] [--pages=/a,/b,/c] [--max-assets=N]"""
-import os, re, sys, hashlib, urllib.request, urllib.parse
+It identifies itself honestly, obeys each host's robots.txt (RFC 9309) and waits between requests.
+Usage:  grab-site.py <url> [out-dir] [--pages=/a,/b,/c] [--max-assets=N] [--delay=SECONDS]"""
+import os, re, sys, time, hashlib, urllib.request, urllib.parse, urllib.robotparser
 
 if len(sys.argv) < 2 or sys.argv[1].startswith("-"):
-    sys.exit("usage: grab-site.py <url> [out-dir] [--pages=/a,/b] [--max-assets=N]")
+    sys.exit("usage: grab-site.py <url> [out-dir] [--pages=/a,/b] [--max-assets=N] [--delay=SECONDS]")
 
 START = sys.argv[1].rstrip("/")
 P = urllib.parse.urlparse(START)
@@ -86,12 +88,31 @@ argv = sys.argv[2:]
 OUT = next((a for a in argv if not a.startswith("--")), P.netloc.split(":")[0])
 PAGES_ARG = next((a.split("=", 1)[1] for a in argv if a.startswith("--pages=")), None)
 MAX_ASSETS = int(next((a.split("=", 1)[1] for a in argv if a.startswith("--max-assets=")), "800"))
-UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-      "(KHTML, like Gecko) Chrome/120 Safari/537.36")
+DELAY = float(next((a.split("=", 1)[1] for a in argv if a.startswith("--delay=")), "1.0"))
+UA = "grab-site/1.1 (static design-reference mirror; python-urllib)"   # honest: never a browser UA
 WALL = ("just a moment", "enable javascript", "access denied", "cf-browser-verification",
         "captcha", "attention required", "checking your browser", "ddos-guard")
 
+_robots, _last, ROBOTS_SKIPPED = {}, {}, set()
+
+def robots(u):
+    """The host's robots.txt. Unreachable (network error, 5xx) means complete disallow (RFC 9309 2.3.1.4)."""
+    p = urllib.parse.urlparse(u); key = f"{p.scheme}://{p.netloc}"
+    if key not in _robots:
+        rp = urllib.robotparser.RobotFileParser(key + "/robots.txt")
+        try: rp.read()
+        except Exception: rp.disallow_all = True
+        _robots[key] = rp
+    return _robots[key]
+
 def fetch(u, binary=False):
+    rp = robots(u)
+    if not rp.can_fetch(UA, u):
+        ROBOTS_SKIPPED.add(u); raise PermissionError(f"robots.txt disallows {u}")
+    host = urllib.parse.urlparse(u).netloc
+    wait = max(DELAY, float(rp.crawl_delay(UA) or 0)) - (time.time() - _last.get(host, 0))
+    if wait > 0: time.sleep(wait)
+    _last[host] = time.time()
     req = urllib.request.Request(u, headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=30) as r:
         return r.read() if binary else r.read().decode("utf-8", "replace")
@@ -123,7 +144,8 @@ def hard_first_fetch(path):
     except Exception as e:
         sys.exit(f"CAPTURE FAILED — {url} did not return real HTML ({e})")
     if looks_blocked(html):
-        sys.exit(f"CAPTURE FAILED — {url} returned a bot-wall / empty shell, not real content")
+        sys.exit(f"CAPTURE FAILED — {url} returned a bot-wall / empty shell, not real content. "
+                 "The owner blocks automated clients; this script stops here (no browser UA, no challenge solving).")
     return url, html
 
 def discover(home):
@@ -250,6 +272,7 @@ open(os.path.join(OUT, "_gallery.html"), "w").write(
     f"<meta charset=utf8><h1>{P.netloc} — grabbed</h1><ul>{links}</ul>")
 print(f"\nDONE  {BASE}  pages={len(manifest)}  assets={len(_cache)}  -> {OUT}/  (open _gallery.html)")
 print(f"  localized: css={css_local} img-refs={img_local} img-assets={img_assets} · residual-remote-refs={remote_left}")
+print(f"  robots: {len(ROBOTS_SKIPPED)} URL(s) skipped (disallowed or robots.txt unreachable) · delay {DELAY}s per host")
 if css_local == 0: print("  WARN: no local CSS on the index page — layout may be wrong (assets blocked?)")
 if img_assets == 0: print("  WARN: no images localized — the mirror will look empty")
 if cap_hit: print(f"  WARN: --max-assets={MAX_ASSETS} cap hit — coverage is partial; raise it")
@@ -261,7 +284,7 @@ print("  limits: JS interactions not live (visual copy) · carries source conten
 
 The script enforces the Capture gate itself and **prints** the signals for the other three on its final lines — the agent reads them, it does not re-derive them.
 
-- **Capture gate — SCRIPT-ENFORCED HALT.** The script hard-fetches the first page (even under `--pages`) and `sys.exit`s non-zero with `CAPTURE FAILED` if it 404s/errors or returns a short bot-wall / empty shell; if no page grabs at all, it also exits non-zero. It never writes a mirror from an error page. (Heuristic: a challenge marker only counts on a *short* page, so a real page that merely mentions "captcha" in a widget is not flagged.)
+- **Capture gate — SCRIPT-ENFORCED HALT.** The script hard-fetches the first page (even under `--pages`) and `sys.exit`s non-zero with `CAPTURE FAILED` if robots.txt disallows it, if it 404s/errors, or if it returns a short bot-wall / empty shell; if no page grabs at all, it also exits non-zero. It never writes a mirror from an error page. (Heuristic: a challenge marker only counts on a *short* page, so a real page that merely mentions "captcha" in a widget is not flagged.)
 - **Asset-localization — SCRIPT-REPORTED.** The final line prints `localized: css=N img-refs=N img-assets=N`; a `WARN: no local CSS` or `WARN: no images localized` fires when the primary page didn't localize its stylesheet or any image. A mirror reporting `css=0` is not done — say so, don't claim success.
 - **Offline-open — REPORTED, not absolute.** Primary CSS/fonts/images are localized so the folder opens offline; the printed `residual-remote-refs=N` counts secondary `srcset`/inline/preload refs that still load from the origin (fine online; a higher `--max-assets` or a second pass localizes more). Do not claim "fully offline" if the count is high.
 - **Template-coverage — REPORTED.** The `PAGE <name> <path>` lines list every grabbed family; `page fail <name>` names any that 404'd. One representative per discovered family.
@@ -279,6 +302,7 @@ PAGE  search      /search?q=a
 
 DONE  https://shop.example.com  pages=6  assets=300  -> shop.example.com/  (open _gallery.html)
   localized: css=54 img-refs=54 img-assets=262 · residual-remote-refs=63
+  robots: 0 URL(s) skipped (disallowed or robots.txt unreachable) · delay 1.0s per host
   WARN: --max-assets=800 cap hit — coverage is partial; raise it        (only printed if the cap was hit)
   limits: JS interactions not live (visual copy) · carries source content — swap your brand before shipping
 ```
@@ -290,10 +314,12 @@ The `PAGE`, `DONE`, `localized:`, and any `WARN:` / `CAPTURE FAILED` lines are p
 - **DON'T pass the grab off as the original brand.** It carries the source's real content; swap your own brand/products in before any public use.
 - **DON'T promise working interactions.** A static grab has no live JS — state it.
 - **DON'T re-download unboundedly.** `--max-assets` caps it; report if the cap was hit (coverage is then partial).
+- **DON'T disguise the client or work around a refusal.** No browser User-Agent, no challenge solving, no retry loop against a bot wall, and no fetch of a path robots.txt disallows. Each of those is the site owner's answer, and the script obeys it.
 - **Rollback is a folder.** The run writes only under `<out-dir>` (+ the one script) — delete the folder to undo.
 
 ## Failure modes
-- **Capture blocked** (bot wall / consent gate / non-200) — `CAPTURE FAILED` HALT; try a real browser User-Agent (already sent) or grab from saved HTML.
+- **Capture blocked** (bot wall / consent gate / robots.txt disallow / non-200) — `CAPTURE FAILED` HALT. The owner has said no to automated clients: grab from HTML you saved yourself in a browser, ask the owner, or use `/clone-design` on a screenshot. Never retry with a spoofed User-Agent.
+- **Assets skipped by robots.txt** — the `robots:` line counts them; a CDN host whose robots.txt is unreachable is treated as disallowing everything (RFC 9309), so its images stay remote.
 - **Assets blocked / hotlink-protected** — the page localizes what it can; the Asset-localization gate names what stayed remote.
 - **JS-only content** (SPA that renders nothing server-side) — the static grab captures the shell only; note that a headless-render capture (Playwright) is needed for such sites.
 - **`--max-assets` cap hit** — coverage is partial; raise the cap or narrow `--pages`.

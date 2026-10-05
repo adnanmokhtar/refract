@@ -6,7 +6,7 @@ description: Review UI changes for UX, design system compliance, and accessibili
 
 > **Not this command? (ANTI-triggers)** — you want the findings FIXED, not listed → `/enhance-ui` (one surface) · `/align-recheck` (mechanical drift) · `/redesign` (the layout) · `/art-direct` (the language). Every route, from a real browser, with axe and console probes → `/ui-crawl`. Measured project-wide quality with an HTML report and baselines → `/ui-sweep`. **This command writes no code and grades no surface it cannot cite.**
 
-Audit command. Three reviewers run in parallel against changed UI files (or a provided screenshot). Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the review.
+Audit command. Two reviewers run in parallel against changed UI files (or a provided screenshot): `ux-reviewer` (usability and every WCAG 2.2 AA criterion; it runs the a11y and UI-state detectors itself) and `design-system-guardian`. Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the review.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -14,11 +14,11 @@ Audit command. Three reviewers run in parallel against changed UI files (or a pr
 
 **The agent's job is exactly this:** walk the changed UI files (or the screenshot DOM if available) line by line; for each candidate finding, **cite-or-halt** — a `<file:line>` for source-based findings, a `<token-name>` for design-system findings, or a WCAG criterion ID + element selector for a11y findings; if a finding cannot be cited, drop it (never promote it to `[opinion]` to keep it on the list — opinions also need a heuristic anchor). When reviewers contradict, resolve it by the protocol below — never average to make peace.
 
-**The contradiction protocol (the one thing the orchestrator does that no single reviewer can).** Three reviewers grade overlapping surface, so they WILL disagree. "Pick the strictest" is a slogan, not a mechanism. Resolve in this fixed order and print which rule fired:
+**The contradiction protocol (the one thing the orchestrator does that no single reviewer can).** The reviewers and the detector rows grade overlapping surface, so they WILL disagree. "Pick the strictest" is a slogan, not a mechanism. Resolve in this fixed order and print which rule fired:
 
 1. **A COMPUTED value beats an asserted one** — a measured contrast ratio, a measured border-box, an axe rule id with a node count outranks a reading of the same element.
 2. **A conformance failure beats a house-rule improvement** — a Level-A/AA criterion (level NAMED) outranks a AAA or house target on the same element. They are not the same claim.
-3. **The axis OWNER beats a visitor** — tokens/naming → `design-system-guardian`; flow, states, micro-copy, composite-surface completeness → `ux-reviewer`; semantics, focus, contrast, target size → `a11y-quick-check`.
+3. **The axis OWNER beats a visitor** — tokens/naming → `design-system-guardian`; flow, states, micro-copy, composite-surface completeness **and every WCAG criterion** (semantics, focus, contrast, target size) → `ux-reviewer`, the single WCAG owner. A detector row (`a11y-quick-check`, `a11y-code-scan`, `a11y-scan`, `ui-state-scan`) is evidence for rule 1, never a third owner.
 4. **Still tied → BOTH are printed, tagged `[contested]`, with each citation, and the stricter one is what the action plan carries.** An unresolved disagreement is information about the design system, not noise to smooth away.
 
 **The agent does NOT:** write "consider better contrast" without a contrast ratio + element + token; flag a token violation without naming the token and the raw value; flag an a11y issue from a screenshot alone (DOM semantics need source — a screenshot review is explicitly "DOM-blind for a11y"); fabricate criteria when the repo has no design system; or pad blocker counts with opinions. `[opinion]` and `[violation]` are tagged, never blurred.
@@ -38,7 +38,7 @@ Grep your own findings and reject any line that contains `feels` / `seems` / `mi
 - Confirm intent: full-flow review vs single-component compliance check.
 
 ## Phase 2 — Organize
-- Decide reviewers: `ux-reviewer` + `design-system-guardian` (parallel) + the `a11y-quick-check` skill for the a11y lane — all in-pack. (Optional deeper a11y: the `frontend` pack's `accessibility-auditor`, only if installed.)
+- Decide reviewers: `ux-reviewer` + `design-system-guardian` (parallel), both in-pack. `ux-reviewer` is the a11y lane: `a11y-quick-check` as its Lane A on a one-screen diff, `a11y-code-scan` + `a11y-scan` when the frontend pack is installed (else its rendered SC rows read `blocked` and the review is `INCOMPLETE`), `ui-state-scan` on touched data views. The frontend pack's `accessibility-auditor` is not dispatched for the same scope.
 - If repo lacks design tokens, flag and proceed without compliance checks (don't fabricate criteria).
 
 ## Phase 3 — Retrieve
@@ -59,10 +59,12 @@ Design-specific:
 
 ## Phase 4 — Generate (findings)
 - Dispatch in parallel:
-  - `ux-reviewer` — task flow, affordance, error/empty/loading states, microcopy, composite-surface completeness (data-table / dashboard table-stakes vs `ui-design-sweep.md § normalize-surface`).
+  - `ux-reviewer` — WCAG 2.2 AA (one SC-coverage line per A/AA criterion), task flow, affordance, UI states (from `ui-state-scan`), microcopy, composite-surface completeness (data-table / dashboard table-stakes vs `ui-design-sweep.md § normalize-surface`).
   - `design-system-guardian` — token usage (colors, spacing, typography), reuse vs duplication, naming.
-  - `a11y-quick-check` skill — semantics, focus, contrast (computed), labels, reduced-motion.
+  - The a11y lane is inside `ux-reviewer`'s return: contrast computed per token pair; target size only from an axe run tagged `wcag22aa`; Lane B (screen reader, keyboard, OS reduced motion, zoom) printed `NOT RUN (human lane)`, never `✓`.
 - Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`.
+- **Refute before posting a `[violation]`** ([`refute-before-report.md`](../../../snippets/refute-before-report.md) § 10, accessibility and UX columns), in `@verifier` mode `refute` when it is installed; without one the run says `UNREVIEWED(verification)` and each `[violation]` posts as unconfirmed.
+- **Posting bar** ([`posting-bar.md`](../../../snippets/posting-bar.md)): a verified `[violation]` is IMPORTANT; at most 5 `[opinion]` NITs; a defect in a screen the change did not touch is PRE-EXISTING and never blocks.
 - Print grouped by severity:
   ```
   UX:
@@ -113,7 +115,7 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Recently-introduced raw value flagged as violation → may be intentional; warn before treating as broken.
 - Screenshot-only review claiming a11y compliance → impossible; DOM semantics need source files.
 - Reviewing against guidelines that don't exist → propose adopting a design system and stop.
-- Three reviewers contradict each other → orchestrator picks the strictest; don't average.
+- Reviewers contradict each other → resolve by the contradiction protocol (rules 1–4) and print which rule fired; never average.
 
 ## Related
 
@@ -124,7 +126,7 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - the language itself is the problem (generic / dated / un-ownable) → `/art-direct`.
 
 ### What this command does NOT own
-It is **read-only** and it does not decide taste. It orchestrates `ux-reviewer` + `design-system-guardian` + the `a11y-quick-check` skill, then reconciles them: when two reviewers contradict each other, the **strictest CITED** finding wins and the uncited one is dropped into the `Dropped (uncited): <N>` count — never averaged.
+It is **read-only** and it does not decide taste. It orchestrates `ux-reviewer` (with the a11y and UI-state detectors it runs) + `design-system-guardian`, then reconciles them by the contradiction protocol: an uncited finding is dropped into the `Dropped (uncited): <N>` count, and a cited tie is printed `[contested]` — never averaged.
 
 ### Rules
 - `.claude/rules/ui-principles.md` — the closed 16-axis catalog every finding is named against.

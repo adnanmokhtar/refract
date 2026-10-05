@@ -258,3 +258,65 @@ tightening that had already removed twenty-eight others.
 The lesson is not that the fingerprint is weak. It is that **every exclusion in this document was
 bought by a false positive on a real screen**, and a version of it that has not yet met a real app
 should be assumed to be at the twenty-eight-findings stage rather than the zero one.
+
+---
+
+## E. The shipped module — `../scripts/measure.ts`
+
+§ A–§ C were prose until 2026-10-05. `scripts/measure.ts` (this skill, about 155 lines, needs only
+`@playwright/test`) implements them. Copy it beside a Playwright spec in the project's test root.
+The installed copy lives at `.claude/skills/ui-design-sweep/scripts/measure.ts`.
+
+| Export | Implements | Returns |
+|---|---|---|
+| `floatingSurfaces(page, theme)` | § A, steps 0–2: page-sized boxes skipped, fill composited over the nearest painted ancestor, layout boxes (same fill) skipped, then the three cues | `floating` rows (all three cues absent) and `review` rows (a shadow is declared but its alpha is under 0.05: read it on the screenshot) |
+| `controlRows(page, { steps, controlClass })` | § B, step 1–3b: row = same landmark region + centres within 6 px + gap under 64 px; composite controls measured at the wrapper; `td`/`th`/grid rows and logo/brand marks excluded | `same-role`, `size` (text-entry and action share one scale; ≥ 2 px unless both heights are declared steps) and `centre` (≥ 2 px) rows, each with `scale: declared \| none` |
+| `navigateInApp(page, path, opts)` | § C: clicks a same-origin link to the path, else `pushState` + `popstate`; a boot token on `window` tells an in-app render from a reload | `in-app`, or `full-boot` when the router ignored the push and the module fell back to `goto` |
+| `sweep(page, routes, opts)` | § C + the blocked-render contract: first route loads, the rest navigate in-app; a final URL matching `loginPath` is `blocked (redirected-to-login)` and is never measured; § A runs once per theme | per-route rows and the ledger line `routes N = scanned a + blocked b · navigation: in-app x, full-boot y` |
+
+```ts
+// <test-root>/ui-measure/measure.spec.ts, with measure.ts copied beside it
+import { test } from '@playwright/test';
+import { sweep } from './measure';
+
+test('measured from the render', async ({ page }) => {
+  const routes = ['/', '/orders', '/settings'];                       // from the route inventory; the first one loads the app
+  const { results, summary } = await sweep(page, routes, {
+    ready: (p, route) => p.getByTestId(`page${route.replace(/\W+/g, '-')}`).waitFor(), // THIS route's own marker
+    loginPath: /\/login(\?|$)/,
+    themes: ['light', 'dark'],
+    applyTheme: async (p, theme) => { await p.evaluate(t => { document.documentElement.dataset.theme = t; }, theme); },
+    steps: { text: [32, 36, 40], action: [32, 36, 40] },            // the declared control-height scale, if any
+  });
+  console.log(summary);
+  await test.info().attach('measure.json', { body: JSON.stringify(results, null, 2), contentType: 'application/json' });
+});
+```
+
+Run it with an authenticated `storageState` and the project's `baseURL` (`visual-check`'s
+contract, frontend pack, when installed; without it, the same `use: { storageState, baseURL }` in
+the project's own Playwright config).
+
+**`ready` must be route-specific.** A marker every route shares (`main`, the app shell) passes on
+the previous route's content when a router ignored the push, and the module then reports an
+in-app render it never got. Give it the heading, test id or landmark that only that route renders.
+
+**What the module does not decide.**
+
+- A row is a candidate. It goes to the verb's procedure with the route's screenshot: § A step 3
+  picks the project's elevation cue, § B step 3 snaps to the class's step. The module edits nothing.
+- `scale: none` on a `size` row means the project declares no control-height scale. § B step 4
+  applies: emit `extract-token` and stop.
+- Background images and gradients are not measured; such a container is skipped, not passed.
+- Contrast of text, focus rings and target size are not here. They are `a11y-scan` §3–§5
+  (frontend pack, when installed).
+
+**Measured** (2026-10-05, a synthetic fixture page with Playwright 1.63.0 and Chromium 153): a
+`#fff` card on `#f8fafc` → `floating`, 1.046:1; the same card with a 0.02-alpha shadow → `review`;
+cards with a shadow, a `#64748b` border or an oklch surface step, plus an inner layout `div`, → no
+row; a 38 px input beside a 42 px button in `main` → `size` (4 px) and `centre` (2 px); an input,
+a switch and a tag-input wrapper centred in one row → no row; buttons in table cells and a logo
+button → no row; three routes → `routes 3 = scanned 2 + blocked 1 · navigation: in-app 1,
+full-boot 1`, the guarded route recorded as blocked. **It has not yet met a real app.** By § D's
+own lesson, treat its first real run as the stage where false positives are still being found.
+Every exclusion added after a real false positive goes into this file with its measurement.

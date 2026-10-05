@@ -19,9 +19,9 @@ This skill is the **frontend half of `/polish`** — the structural twin of `api
 ## When to use
 
 - Dispatched by `/polish` on `frontend-*` (and `mobile-*` falling back) stacks.
-- Dispatched by `/ui-sweep` Phase 5 (FIX) — verbs map 1:1 to ui-sweep's 8 detectors.
-- Reached via `/enhance-ui`'s `/align-recheck` cleanup step (UI/UX classes) — `/enhance-ui` does not dispatch this skill directly; it composes `/align-recheck`, which routes UI/UX-axis findings here.
-- Dispatched by `/align-recheck` when the finding's class is a UI/UX axis (see its Phase 4 per-class routing table).
+- Dispatched by `/ui-sweep` Phase 5 (FIX) — each of its 8 detectors maps to one or more verbs (`ui-sweep.md § UI/UX-specific verb taxonomy`); detector 8 maps to none.
+- Reached via `/enhance-ui`'s `/align-recheck` cleanup step (UI/UX classes) when the align pack is installed — `/enhance-ui` composes `/align-recheck`, which routes UI/UX-axis findings here; without the align pack, `/enhance-ui` dispatches this skill directly for its cleanup step.
+- Dispatched by `/align-recheck` (align pack, when installed) when the finding's class is a UI/UX axis (see its Phase 4 per-class routing table).
 - NOT for new components / pages (use `/add-component` / `/add-feature`).
 - NOT for fixing broken behaviour (use `/fix-bug`).
 - NOT for *mechanically enforcing an EXISTING token / a11y rule / ui-state contract* — that is `/align`'s job (enforce what exists, no creative work). This skill owns the *creative finish* verbs (extract NEW tokens, wire missing states, rhythm / hierarchy / motion / cta / surface). Boundary table: `_orchestration-sync.md`.
@@ -194,7 +194,7 @@ Verb 7 polices spacing against the token grid; `expand-tap-target` polices a **m
 
 **Fix** at the wrapper by snapping one class's members to one step. Across classes never touch height — repair centres on the row. No scale declared → emit `extract-token` and stop; inventing a height per row is how a project acquires eleven button heights. Never pad one control until it looks right.
 
-Row grouping, the ≥2px rationale, and the tap-target trade: **`references/measured-from-the-render.md` § B**.
+Row grouping, the ≥2px rationale, and the tap-target trade: **`references/measured-from-the-render.md` § B**. The measurement is `scripts/measure.ts` → `controlRows` (§ E).
 
 ### 8. simplify-density
 
@@ -277,7 +277,7 @@ Every check above measures something *against* a surface — text on a card, an 
 
 **Fix** at the role, with the project's existing elevation language, in order: border token → elevation token → surface-step token. Sample against the **nearest painted ancestor, not the page** — a container whose fill equals its ancestor's is a layout box, not a surface, and comparing inner divs to `body` reported 28 false positives on one real app. Never invent a grey (that is `extract-token`). **Separation is the container's edge and its shadow — never the page's weight.** Verify in dark mode too.
 
-Full fingerprint, the measured calibration behind the 1.2 threshold, and the darken-the-page anti-pattern: **`references/measured-from-the-render.md` § A**.
+Full fingerprint, the measured calibration behind the 1.2 threshold, and the darken-the-page anti-pattern: **`references/measured-from-the-render.md` § A**. The measurement is `scripts/measure.ts` → `floatingSurfaces`, once per theme (§ E).
 
 **Citation**: WCAG 2.2 SC 1.4.11 (Non-text Contrast — *"boundaries of components needed to identify them"*).
 
@@ -352,8 +352,8 @@ Full fingerprint, the measured calibration behind the 1.2 threshold, and the dar
 5. Preserve visual size where needed via transparent padding + smaller visual content — the criterion is about the hit area, not the ink.
 
 **Verify — name which threshold each check proves:**
-- `axe-core`'s `target-size` rule implements **2.5.8 at 24×24** including the spacing alternative ([Deque rule docs](https://dequeuniversity.com/rules/axe/4.10/target-size)). "axe clean" therefore proves **24, never 44** — it passes every element between the two.
-- The 44 house target needs a **measured border-box** at 360px. Print both: `target-size: axe clean (2.5.8 AA, 24×24) · house 44: 3 below (measured)`.
+- `axe-core`'s `target-size` rule implements **2.5.8 at 24×24** including the spacing alternative ([Deque rule docs](https://dequeuniversity.com/rules/axe/4.10/target-size)), and it **runs only when the run's tags include `wcag22aa`**: axe ships it disabled, so "axe clean" from a run without that tag says nothing about 24 (`precedents/ui.md` § 49). With the tag, "axe clean" proves **24, never 44** — it passes every element between the two.
+- The 44 house target needs a **measured border-box** at 360px. Print both, with the tag set: `target-size: axe wcag22aa clean (2.5.8 AA, 24×24) · house 44: 3 below (measured)`, or `target-size: NOT RUN (axe ran without wcag22aa)`.
 - Visual baseline shows no unintended layout change.
 
 **Citation**: WCAG 2.2 SC **2.5.8** Target Size (Minimum) — **Level AA**, the floor; SC **2.5.5** Target Size (Enhanced) — **Level AAA**, 44×44, the house target; iOS HIG (44pt); Material touch targets (48dp); `ui-principles.md § Must` (pointer targets).
@@ -444,9 +444,9 @@ The composite surfaces the primitive-level contracts (`design-system-architect` 
    - Typecheck green.
    - Component-snapshot tests green (or updated with reviewed diff).
    - Visual baseline diff within the verb's tolerance.
-   - a11y re-check (axe-core / Lighthouse) — score didn't drop.
+   - a11y re-check — axe with the `wcag22aa` tag set shows no new violation on the route (a Lighthouse score is not a conformance claim, `precedents/ui.md` § 51).
    - For `lift-contrast`: contrast ratio **computed** at every interactive state, in every theme the project ships — never estimated.
-   - For `expand-tap-target`: hit-area measured at 360px viewport, reported against **both** thresholds — `2.5.8` (AA, 24×24, what axe proves) and the 44 house target (what only a measurement proves). A verify line that says "44×44 verified with axe" is invalid; axe implements the 24 rule.
+   - For `expand-tap-target`: hit-area measured at 360px viewport, reported against **both** thresholds — `2.5.8` (AA, 24×24, what axe proves when its tags include `wcag22aa`) and the 44 house target (what only a measurement proves). A verify line that says "44×44 verified with axe" is invalid; axe implements the 24 rule.
    - For `wire-empty/loading/error-state`: state visible in component test for the matching condition.
 5. **Commit** with message `polish(<surface>): <verb> — <one-line description>`.
 6. **Re-detect** the finding's fingerprint — should now return zero hits at the original location.
@@ -488,7 +488,7 @@ The composite surfaces the primitive-level contracts (`design-system-architect` 
 - `redesign.md` (this pack) — the **re-COMPOSITION escalation**: a finding whose fix reshapes IA / grouping / order / rhythm is out of this skill's re-paint scope; route it here to rebuild the surface within the existing language (its lens 15 owns the recompose-not-repaint boundary + the canonical framework-control / chart carve-out vocabulary this skill mirrors).
 - `art-direct.md` (this pack) — the re-composition escalation when the **visual language itself** must be decided before rebuilding (upstream of `/redesign`); shares the framework-control / chart coverage-gate vocabulary.
 - `design-review.md` (this pack) — the **read-only whole-surface rethink** escalation: diagnose the surface before any rebuild when the fix is bigger than a verb.
-- `visual-check.md` (frontend pack) — the Playwright render / baseline / authenticated / blocked-render harness this skill's visual verify runs on (the same harness the ui-ux design commands — `/redesign`, `/art-direct`, `/add-theme-variant`, `design-iterate` — standardize on; a blocked auth-wall render HALTs, no harness → `pending-review`).
+- `visual-check.md` (frontend pack, when installed; without it, drive the Playwright MCP directly under the same contract) — the Playwright render / baseline / authenticated / blocked-render harness this skill's visual verify runs on (the same harness the ui-ux design commands — `/redesign`, `/art-direct`, `/add-theme-variant`, `design-iterate` — standardize on; a blocked auth-wall render HALTs, no harness → `pending-review`).
 - `api-consistency-audit.md` (backend pack) — sibling skill for backend `/polish`.
 - `schema-consistency-audit.md` (database pack) — sibling skill for data `/polish`.
 - `refactoring-sweep.md` (code-quality pack) — sibling closed-verb skill for code-structure.

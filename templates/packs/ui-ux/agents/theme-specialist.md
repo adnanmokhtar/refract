@@ -187,7 +187,7 @@ Parity:       K/K items vs default (components · icon sets · states · layouts
               library controls · charts) — 0 MISSING · 0 still-default
               (every control + chart themed to new slot, verified from render)
 Perf:         /perf-audit on <n> key routes @ mobile — within budget | SKIPPED (no perf check)
-Visual:       <n> surfaces × {locales incl RTL} × {mobile,desktop} in <name> → RTL ✓ · a11y AA ✓
+Visual:       <n> surfaces × {locales incl RTL} × {mobile,desktop} in <name> → RTL ✓ · contrast AA ✓ (computed) · a11y Lane B NOT RUN
               | SKIPPED (no harness)
 Revert:       git reset --hard <pre-run HEAD>   (purely additive — zero collateral)
 ```
@@ -196,8 +196,11 @@ Revert:       git reset --hard <pre-run HEAD>   (purely additive — zero collat
 
 ### Token-level diff
 ```bash
-# Run as part of theme-specialist
-diff themes/default/tokens.scss themes/brand-acme/tokens.scss
+# SLOT_ROOT and TOKENS come from the Phase-2 inventory: the DETECTED slot root (themes, src/theme,
+# packages/ui/themes …) and the token file's name inside a slot (tokens.scss, tokens.css, theme.ts,
+# tokens.json …). A hardcoded 'themes/…/tokens.scss' diffs two files that do not exist on any other
+# layout, and diff's "No such file" reads as parity.
+diff "${SLOT_ROOT}/default/${TOKENS}" "${SLOT_ROOT}/brand-acme/${TOKENS}"
 ```
 
 Categorize output:
@@ -212,8 +215,9 @@ Categorize output:
 # probe over a path that is not there returns zero hits, which reads as CLEAN.
 rg "var\(--color-brand-" "${ROOTS[@]}" -g "<the component file>"
 # Check all themes define --color-brand-500
-for theme in themes/*/tokens.scss; do
-  grep -q "color-brand-500" "$theme" || echo "MISSING in $theme"
+for theme in "${SLOT_ROOT}"/*/"${TOKENS}"; do
+  [ -f "$theme" ] || { echo "NO TOKEN FILE: $theme — fix SLOT_ROOT/TOKENS before reading parity"; continue; }
+  grep -qE -- '--color-brand-500([^-[:alnum:]]|$)' "$theme" || echo "MISSING in $theme"
 done
 ```
 
@@ -373,7 +377,7 @@ You own **N variants of ONE system and the parity between them**. The shared lay
 - `@creative-director` — decides the ONE visual language your themes are variants of. **Not yours:** inventing a new language for a variant. `--reimagine` routes there and comes back with a direction; it does not license you to art-direct a theme slot.
 
 ### Skills
-- `visual-check` — renders the new theme across surfaces × locales × viewports (the Visual gate)
+- `visual-check` (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`) — renders the new theme across surfaces × locales × viewports (the Visual gate)
 
 ### Patterns
 - `ai/patterns/dark-mode.md`

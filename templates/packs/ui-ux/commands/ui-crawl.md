@@ -70,7 +70,7 @@ For each crawlable route (filters out auth pages, dynamic-param routes like `:id
 
 **Per-route auth guard (runs first).** After the initial navigation, if the final URL is the login path OR the response was a 403, mark the route `BLOCKED` (reason `redirected-to-login` / `permission-blocked`), record it in the SKIPPED/BLOCKED ledger, and skip every capture step below. A login-wall render must NEVER feed a screenshot, an axe score, an overflow check, or the `critical=0` summary, and such a route is NEVER scored a clean `low`/`pass`. (Harness present but this one route blocked = per-route BLOCKED; no harness at all = SKIPPED — see Hard rules.)
 
-1. Visit route, wait for `networkidle`.
+1. Visit the route through the app's own history (`navigateInApp`, below; the first route loads the app) and wait for the route's own content marker. Never `networkidle` (Playwright's own docs discourage it): a quiet network is not a rendered route, and a page that went quiet on a skeleton passes it.
 2. Attach probes: console errors, page errors, network 4xx/5xx, request failures.
 3. Take screenshots:
    - Mobile (375×812) LTR light
@@ -201,11 +201,14 @@ The footer only routes; every tier maps onto severities already in the JSON — 
 
 ## Implementation notes
 
-The command is backed by a Playwright test project at `tests/crawl/` (path follows the project's test root from `_extracted-codebase.md`) with:
+The command is backed by a Playwright test project at `tests/crawl/` (path follows the project's test root from `_extracted-codebase.md`). **The pack ships no copy of these files: the first run writes them**, from this file's phases, and later runs reuse them:
 - `auth.setup.ts` — Phase 2
 - `ui-crawl.spec.ts` — Phase 3 (the heavy lifter; one Playwright `test()` per route)
 - `aggregate.ts` — Phase 4
 - `lib/inventory.ts` + `lib/probe.ts` — shared helpers
+- `lib/measure.ts` — copied from `.claude/skills/ui-design-sweep/scripts/measure.ts` (this pack). Phase 3 navigates with its `navigateInApp`, so an SPA with an in-memory session is not re-booted per route, and its `full-boot` count goes into the ledger (`measured-from-the-render.md` § C, § E). Its `floatingSurfaces` and `controlRows` rows ride along in the per-route JSON for `/ui-sweep` and `/ui-audit`; this command does not score them.
+
+A run that finds `tests/crawl/` missing and writes it says so in its summary (`scaffold: written`), so the first crawl's numbers are read knowing the harness is new.
 
 Wired via `<pkg-runner> crawl` / `crawl:report` / `crawl:smoke` / `crawl:clean` scripts in the project's `package.json` (package runner — `pnpm` / `npm` / `yarn` / `bun` — comes from `_extracted-codebase.md § Stack`). The slash command exists for discoverability + flag parsing; the underlying scripts are the canonical entrypoint.
 

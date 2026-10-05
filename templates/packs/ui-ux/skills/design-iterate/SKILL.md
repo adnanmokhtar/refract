@@ -79,6 +79,6 @@ Refine mode never invents a NEW visual language (that is `creative-director` / `
 
 ## Cross-references
 
-- **`visual-check`** (frontend pack) — the Playwright / authenticated / blocked-render harness this skill inherits for every screenshot: baselines, per-route capture, the "Authenticated rendering" contract, and the blocked-render HALT the refine loop honors (a login-wall screenshot is never graded as the surface).
+- **`visual-check`** (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`) — the Playwright / authenticated / blocked-render harness this skill inherits for every screenshot: baselines, per-route capture, the "Authenticated rendering" contract, and the blocked-render HALT the refine loop honors (a login-wall screenshot is never graded as the surface).
 - **`creative-director`** (agent) — owns inventing a NEW visual language / art direction; this skill never invents one, it drives an already-approved design to the quality bar.
 - **Callers** — `/redesign` (Phase 6 refine loop), `/art-direct` (build step), `/enhance-ui` (`--with-iterate` variant generator). Those own the caller's rubric and scorecard; this skill applies the refine loop against them and emits per-round lens/component deltas back.

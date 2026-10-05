@@ -160,7 +160,7 @@ Perf:       /perf-audit on 3 key routes @ mobile — within budget (measured: LC
             bundle +6KB)   [reads SKIPPED (no perf check) when the repo has none —
             the numbers here are an example of the SHAPE, never a default to print]
 Visual:     3 surfaces × {en LTR, ar RTL} × {mobile, desktop} rendered in `dark` →
-            RTL ✓ · a11y AA ✓ (contrast computed per theme) · per-component audit
+            RTL ✓ · contrast AA ✓ (computed per theme) · a11y Lane B NOT RUN · per-component audit
             (adversarial, ux-reviewer) 14/14 ✓ — the filter bar's library controls
             (this repo: PrimeVue Dropdown + Calendar; an MUI / Vuetify / Ant / shadcn
             app reads the same way) re-themed via explicit :deep() overrides ·
@@ -214,7 +214,7 @@ If the screenshot harness was unavailable, `Visual:` reads `SKIPPED (no harness)
 - `/art-direct` — design the app's visual language (all themes), or (via `--reimagine`) the new slot's own direction; for a single-theme project, the redirect target.
 - `/redesign` — rebuild ONE surface inside the existing theme; the Phase-6 parity gate this command inherits lives there, as does the canonical per-component visual audit + the framework-control / chart re-theme disciplines the Visual gate mirrors.
 - `/align` — enforce existing tokens/rules across themes (no new slot).
-- skill `visual-check` — renders the new theme across surfaces × locales × viewports (the Visual gate); owns the authenticated-render + blocked-render contract.
+- skill `visual-check` (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`) — renders the new theme across surfaces × locales × viewports (the Visual gate); owns the authenticated-render + blocked-render contract.
 - agent [`ux-reviewer`](../agents/ux-reviewer.md) — the adversarial, separate critic that runs the Visual gate's per-component audit (grades each rendered component `below-bar`-by-default), so the builder never self-grades its own tokens.
 - agent `design-system-architect` — codifies tokens when `--reimagine` routes through `/art-direct`.
 - pattern `theming`, `dark-mode`, `rtl`, `design-systems`, `motion` — the system context the new slot lands in.

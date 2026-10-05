@@ -58,7 +58,7 @@ The four hard anchors: **a concept you cannot state in one sentence is decoratio
 - **Goals + personas oracles** readable: `ai/project-goals.md` (the differentiating promise) and `ai/users-and-personas.md` (who + their job). In `--reimagine` these are mandatory — missing → HALT → `/setup-project --refine`. In `--evolve` the existing design carries most of the weight, but they still sharpen the concept.
 - `_extracted-idioms.md` populated — the existing token source, primitive catalog, surfaces, breakpoints, voice. In `evolve` it is the canon to amplify; in `reimagine` it is read as input (what to surpass + which jobs to preserve).
 - Playwright MCP (or the project screenshot harness) wired — `/redesign` renders each rebuilt surface to earn its RTL/a11y/responsive checkmarks; without it those claims are marked `SKIPPED (no harness)`, never faked.
-- **An authenticated render path when the scope is behind auth** (dashboards, settings, anything with `requiresAuth` / a route guard). The render harness must reach the ACTUAL surface — a headless/isolated browser with no session is redirected to `/login`, so the whole quality loop (per-component audit, before→after, coverage) grades a login page and the build ships blind. Provide a reusable `storageState` (from a one-time login with dev/test creds via env, never hardcoded) or a login step; see `visual-check`'s "Authenticated rendering" contract. **This is a hard build precondition:** if the render can only reach a login wall / redirect, the build **HALTS** (`RENDER BLOCKED`) — it does NOT downgrade to `SKIPPED` and build blind. Saving a `login-blocked.png` is a stop signal, not a pass.
+- **An authenticated render path when the scope is behind auth** (dashboards, settings, anything with `requiresAuth` / a route guard). The render harness must reach the ACTUAL surface — a headless/isolated browser with no session is redirected to `/login`, so the whole quality loop (per-component audit, before→after, coverage) grades a login page and the build ships blind. Provide a reusable `storageState` (from a one-time login with dev/test creds via env, never hardcoded) or a login step; see `visual-check`'s "Authenticated rendering" contract (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`). **This is a hard build precondition:** if the render can only reach a login wall / redirect, the build **HALTS** (`RENDER BLOCKED`) — it does NOT downgrade to `SKIPPED` and build blind. Saving a `login-blocked.png` is a stop signal, not a pass.
 
 ## Args
 - `<scope>` — a route, page component, feature area, or `the whole product`. Bounds **both** the design and the build: `/art-direct dashboard` rebuilds only the dashboard surfaces, not the whole app. Same semantic resolution as `/redesign` + `/enhance-ui` (codebase-profile + idioms).
@@ -144,7 +144,7 @@ Built:
   vs-before: new wins 5/5 (hierarchy · modern · distinctiveness · craft · appeal) vs
              the pre-run render — old wins none
   finish:   /polish — focus/motion/states/contrast on the 4 surfaces
-  rendered: 4 surfaces @ 320/1280 + dark + ar-RTL → RTL ✓ · a11y AA ✓
+  rendered: 4 surfaces @ 320/1280 + dark + ar-RTL → RTL ✓ · a11y Lane A ✓ (axe wcag22aa, computed contrast) · Lane B NOT RUN (human lane)
   commits:  9 (1 tokens · 4 redesign · 4 polish) · diff +1,840/−1,210
   brief:    .claude/artifacts/art-direct/2026-06-26T14-02/brief.md
 

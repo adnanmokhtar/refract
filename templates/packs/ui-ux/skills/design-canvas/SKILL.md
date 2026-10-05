@@ -232,4 +232,4 @@ ai/design/canvas/<scope>/
 - [`design-iterate`](../design-iterate/SKILL.md) — variants of something that already renders in the app; this skill is for what does not exist yet.
 - [`direction-vocabulary.md`](../../ai-patterns/direction-vocabulary.md) — the IA archetypes a rethought composition picks from (§ 2).
 - [`axis-catalog.md`](../../ai-patterns/axis-catalog.md) — the per-surface completeness axes the state set in § 3 answers to.
-- [`a11y-quick-check`](../a11y-quick-check/SKILL.md) — the floor against the BUILT surface. This skill computes the design-time subset (contrast, target size) from literals; that skill owns focus order, keyboard behaviour and screen-reader semantics, none of which a drawing can carry.
+- `@ux-reviewer` (this pack, the single WCAG owner) with [`a11y-quick-check`](../a11y-quick-check/SKILL.md) as its fast path — the floor against the BUILT surface. This skill computes the design-time subset (contrast, target size) from literals; focus order, keyboard behaviour and screen-reader semantics are judged there, since a drawing carries none of them.

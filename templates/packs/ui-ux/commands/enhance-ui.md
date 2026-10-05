@@ -20,6 +20,8 @@ This is the orchestrator for visual / UX enhancement work. It composes:
 2. **`design-iterate` skill** — generates 3 style variants (polished / bolder / minimal); receives **`$SCOPE_TIER`** and **`$CONSUMER_ROUTES`** (when tier is `token` or `wrapper-variant`); user picks; skill applies.
 3. **`/align-recheck`** again — re-enforces conventions on the picked variant.
 
+**`/align-recheck` ships in the align pack, which is opt-in.** When it is installed, steps 1 and 3 run it as written. Without it, steps 1 and 3 dispatch `ui-design-sweep` (this pack) on the same target with the verbs those classes map to (1–2 tokens, 3 wrappers, 9–11 states, 12/13/16/18 a11y, 15 motion); `responsive-drift` and `duplicated-surface-styles` have no verb and are reported `SKIPPED (align pack not installed)`. The summary line names which path ran.
+
 Examples:
 - `/enhance-ui the sidebar`
 - `/enhance-ui the dashboard header`
@@ -53,7 +55,7 @@ Examples:
 - Working tree clean.
 - **Playwright MCP — recommended, NOT required. THE RENDER CONTRACT (stated once here; everything below cites it).** Two of the three steps (`/align-recheck` → iterate → `/align-recheck`) need no screenshots, so a missing harness must not block the run. Two values, never merged — the same contract `design-iterate` and `/redesign` use:
   - **No harness at all → `SKIPPED (no harness)`.** Cleanup and re-enforce still run; the variant step is skipped; every visual claim prints `SKIPPED`, never a checkmark.
-  - **Harness present, render BLOCKED** (login wall / redirect / surface marker absent) → **HALT `RENDER BLOCKED`**. Authenticate (`storageState` / login step per `visual-check`) and re-run. Never grade a login screenshot; never downgrade a block to a skip.
+  - **Harness present, render BLOCKED** (login wall / redirect / surface marker absent) → **HALT `RENDER BLOCKED`**. Authenticate (`storageState` / login step per `visual-check`, frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`) and re-run. Never grade a login screenshot; never downgrade a block to a skip.
 
 ## Args
 
@@ -259,7 +261,7 @@ Revert:                    git reset --hard <pre-run HEAD>   (or git revert the 
 ## Related
 
 ### Sibling commands
-- `/align-recheck` — the cleanup primitive this command dispatches (include `--class=duplicated-surface-styles` for frontend).
+- `/align-recheck` (align pack, when installed) — the cleanup primitive this command dispatches (include `--class=duplicated-surface-styles` for frontend). Without it, `ui-design-sweep` runs the cleanup (§ The Premise).
 - `/design-review` — read-only audit (use BEFORE enhance-ui to see what needs cleaning).
 - `/redesign` — when the surface needs its **layout / IA / flow rethought** (not preserved). `/enhance-ui` preserves structure and rebuilds nothing; `/redesign` throws the layout away and rebuilds it inside the same design system. The intent gate above routes here for that ask.
 - `/art-direct` — when the ask is a **new visual language / direction** (not finishing within the current one). It is upstream of `/enhance-ui` — it decides the language, then `/redesign` + `/polish` (and `/enhance-ui`) work within it.
@@ -267,7 +269,7 @@ Revert:                    git reset --hard <pre-run HEAD>   (or git revert the 
 
 ### Skills
 - `design-iterate` — generates the 3 visual variants (`$SCOPE_TIER`, `$CONSUMER_ROUTES`).
-- `a11y-quick-check` — the **in-pack** a11y pass run as part of cleanup verification (focus order, contrast, labels, reduced-motion).
+- `a11y-quick-check` — the **in-pack** a11y Lane A run as part of cleanup verification (static slice, one axe route with `wcag22aa`, computed contrast); `@ux-reviewer` is the WCAG judge when a finding is disputed.
 - `bundle-analyze` *(frontend pack)* — optional bundle-size delta on re-enforce; only when the `frontend` pack is installed. Absent → the bundle-size line prints `SKIPPED (no bundle-analyze)`, never a fabricated delta.
 
 ### Rules

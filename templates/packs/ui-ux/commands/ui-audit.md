@@ -32,7 +32,7 @@ Two autonomous commands over one codebase have exactly one failure mode worth de
 | Concern | Owner | Why that owner |
 |---|---|---|
 | Frontend **code** quality — component structure, state management, prop drilling, dead components, bundle size, render waste | **`/audit`** | Measured from source and from a profiler. A re-render storm is invisible in a screenshot. |
-| **Accessibility** | **`/ui-audit`** (V1) | `/audit`'s model carries an Accessibility axis gated on `browser`/`mobile`, but it reads source. A contrast ratio and a focus order are **rendered** properties: axe against a live route is the evidence, and this command has the harness. `/audit` defers its axis here rather than grading it blind. |
+| **Accessibility** | **`/ui-audit`** (V1 fixes) · **`@ux-reviewer`** (the verdict) | `/audit`'s model carries an Accessibility axis gated on `browser`/`mobile`, but it reads source. A contrast ratio and a focus order are **rendered** properties: axe against a live route is the evidence, and this command has the harness. `/audit` defers its axis here rather than grading it blind. The WCAG judgement itself is `@ux-reviewer`'s (the single WCAG owner, with its SC-coverage block); V1 is the fix path through the verbs. |
 | **UX / interaction** | **`/ui-audit`** (V2/V3) | Same reason — an interaction is a thing a browser does, not a thing a file says. |
 | **i18n / RTL** | **split, and the split is the point** | Missing extraction, hardcoded strings, plural rules → `/audit` (source). A layout that breaks under RTL, a truncated translated label, a mirrored icon that should not mirror → `/ui-audit` (render). |
 | Performance a user **sees** — LCP, CLS, INP, jank, layout thrash | **`/audit`** | It owns the measured-performance axis across every stack and already routes web-vitals through it. This command reports what its renders observed and files it there rather than growing a second perf ranker. |
@@ -50,7 +50,7 @@ The pack's gates each protect a decision. This command resolves each one **mecha
 |---|---|
 | `/design-first` — `$SOURCE`: system or independent | **Always `system`.** A project-wide sweep is bound to the project's own language by definition; `independent` is a greenfield permission and is out of scope here. Stated, not inferred. |
 | `/redesign` — approval before code | **`git` is the approval.** One commit per surface, one verb or one rebuild per commit, every commit independently revertable. The gate becomes a diff you read afterwards instead of a prompt you answer beforehand. |
-| `/enhance-ui` — pick 1 of 3 variants | **The 9-lens Direction rubric picks.** Candidates are rendered and scored; the winner is the highest score, ties broken toward the candidate closer to the existing language. The three candidates and their scores land in the report. |
+| `/enhance-ui` — pick 1 of 3 variants | **The Direction rubric picks** (`creative-director` § 2, eleven lenses). Candidates are rendered and scored; the winner is the highest score, ties broken toward the candidate closer to the existing language. The three candidates and their scores land in the report. |
 | `/art-direct` — is the language itself wrong? | **The language-or-composition test decides** ([`redesign.md § Phase 1`](redesign.md)), per surface, from the baseline render plus the token source — never asked, exactly as that section already requires. |
 | `/ui-sweep` — stop between phases | **Does not stop.** Tiers run V0 → V3 in one session; the ledger makes a resumed run pick up where it left off. |
 
@@ -217,6 +217,7 @@ Written as the **first section** of `ai/ui-audit/plan.md`, before any finding �
 
 ```
 ## Cell ledger — 34 routes → 61 views × 9 axes = 549 cells
+                     axes: browser truth (Wave A) + Wave B's 8 detectors
 
 Views scored       61 / 61  ← fewer than the crawl inventory counted BLOCKS the run
 Reviewed          389   findings ranked below
@@ -246,7 +247,7 @@ Dispatch `creative-director` in `--evolve` mode (`--reimagine` only when the cal
 
 1. Diagnose the current language with a cited point-of-view (the 15-label redline vocabulary).
 2. Generate **three mechanically-distinct directions** — the logo-swap, color-ramp-swap and ≥2-structural-axes checks are what stop three renders of the same idea from being called three directions.
-3. Render candidates via `design-iterate`; score each on the **9-lens Direction rubric**.
+3. Render candidates via `design-iterate`; score each on the **Direction rubric** (`creative-director` § 2, eleven lenses).
 4. **Pick the winner: highest score. Ties break toward the candidate closer to the existing language** — a sweep is not the place to take the more adventurous of two equals.
 5. Hand the winner to `design-system-architect` to codify as tokens. From here the new language **is** the project's language, and every later tier enforces it.
 
@@ -417,14 +418,14 @@ A scorecard failing any of these is **not** silently re-scored into the report: 
 - [`design-score`](../skills/design-score/SKILL.md) — Phase 1.5's procedure: one render in, one scorecard out, with the no-render halt and the metrics-only anti-cheat.
 - [`ui-design-sweep`](../skills/ui-design-sweep/SKILL.md) — the closed 19-verb vocabulary every tier dispatches into, and the carve-outs Phase 4 executes.
 - [`design-iterate`](../skills/design-iterate/SKILL.md) — candidate renders for Phase 3.
-- `visual-check` (frontend pack) — the render harness and the authenticated / blocked-render contract HALT #1 enforces.
-- [`a11y-quick-check`](../skills/a11y-quick-check/SKILL.md) — the a11y primitives V1 closes against.
+- `visual-check` (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`) — the render harness and the authenticated / blocked-render contract HALT #1 enforces.
+- [`a11y-quick-check`](../skills/a11y-quick-check/SKILL.md) — `@ux-reviewer`'s Lane A fast path; V1 closes its rows (and the full detectors' rows, when the frontend pack is installed) through verbs 12/13/16/18.
 
 ### Agents
 - [`ui-designer`](../agents/ui-designer.md) — Phase 1.5's proposer; the per-screen craft judgement. Takes a `below-bar` scorecard and returns what to change.
 - `creative-director` — Phase 3's driver.
 - `design-system-architect` — codifies the winning direction as tokens.
-- `ux-reviewer` — the usability floor, delegated and never re-audited here.
+- `ux-reviewer` — the usability floor and the WCAG 2.2 AA verdict (single owner), delegated and never re-audited here.
 
 ### Rules
 - [`ui-principles.md`](../rules/ui-principles.md) — the axis catalog the detectors cite.

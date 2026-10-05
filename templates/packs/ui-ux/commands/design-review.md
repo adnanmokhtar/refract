@@ -9,7 +9,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 > **Not this command? (ANTI-triggers)** — you want the findings FIXED, not listed → **`/enhance-ui`** (one surface) · **`/align-recheck`** (mechanical drift) · **`/redesign`** (the layout) · **`/art-direct`** (the language). Every route, from a real browser, with axe and console probes → **`/ui-crawl`**. Measured project-wide quality with an HTML report and baselines → **`/ui-sweep`**. Nothing has changed yet and you want a design invented → **`/art-direct`**. **This command writes no code and grades no surface it cannot cite.** Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
 
-Audit command. Three reviewers run in parallel against changed UI files (or a provided screenshot). Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the review.
+Audit command. Two reviewers run in parallel against changed UI files (or a provided screenshot): `ux-reviewer`, which owns usability and every WCAG 2.2 AA criterion and runs the a11y and UI-state detectors itself, and `design-system-guardian`. Phases 1-3 + 6 dominate; Phase 4 produces findings; Phase 5 logs the review.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -21,13 +21,13 @@ Audit command. Three reviewers run in parallel against changed UI files (or a pr
 3. If a finding cannot be cited — drop it. Do not promote it to `[opinion]` to keep it on the list. Opinions also need a heuristic anchor (Nielsen N, WCAG SC, declared style guide section).
 4. Reviewers contradict — the orchestrator resolves it by the rule below, and never averages to make peace.
 
-**The contradiction protocol (this is the one thing the orchestrator does that no single reviewer can).** Three reviewers grade overlapping surface, so they WILL disagree — `ux-reviewer` wants a bigger tap target, `design-system-guardian` wants the token's spacing, `a11y-quick-check` computed a ratio the other two eyeballed. "Pick the strictest" is not a mechanism; it is a slogan that loses information. Resolve in this fixed order, and print which rule fired:
+**The contradiction protocol (this is the one thing the orchestrator does that no single reviewer can).** The reviewers and the detector rows grade overlapping surface, so they WILL disagree — `ux-reviewer` wants a bigger tap target, `design-system-guardian` wants the token's spacing, a detector row computed a ratio a reviewer eyeballed. "Pick the strictest" is not a mechanism; it is a slogan that loses information. Resolve in this fixed order, and print which rule fired:
 
 | # | Rule | Why it wins |
 |---|---|---|
 | 1 | **A COMPUTED value beats an asserted one.** A measured contrast ratio, a measured border-box, an axe rule id with a node count outranks any reviewer's reading of the same element. | One side has evidence; the other has an opinion about the same fact. |
 | 2 | **A conformance failure beats a house-rule improvement.** A Level-A/AA criterion (with its level NAMED) outranks a AAA or house target on the same element. | They are not the same claim. Collapsing them is how a AAA nice-to-have gets shipped as a blocker and a real AA failure gets averaged away. |
-| 3 | **The axis OWNER beats a visitor.** Each finding names its axis; the reviewer that owns that axis wins a tie on it — tokens/naming → `design-system-guardian`; flow, states, micro-copy, composite-surface completeness → `ux-reviewer`; semantics, focus, contrast, target size → `a11y-quick-check`. | Every reviewer sees the whole screen; only one is accountable per axis. |
+| 3 | **The axis OWNER beats a visitor.** Each finding names its axis; the reviewer that owns that axis wins a tie on it — tokens/naming → `design-system-guardian`; flow, states, micro-copy, composite-surface completeness **and every WCAG criterion** (semantics, focus, contrast, target size) → `ux-reviewer`, the single WCAG owner. A detector row (`a11y-quick-check`, `a11y-code-scan`, `a11y-scan`, `ui-state-scan`) is evidence for rule 1, never a third owner. | Every reviewer sees the whole screen; only one is accountable per axis. |
 | 4 | **Still tied → BOTH are printed, tagged `[contested]`, with each reviewer's citation, and the stricter one is what the action plan carries.** | An unresolved disagreement is information about the design system, not noise to be smoothed. Silently dropping one side is how the same argument recurs every audit. |
 
 Rule 4 is the load-bearing one: the orchestrator is allowed to say "these two cited findings genuinely conflict", and that output is more useful than a confident merge.
@@ -61,7 +61,7 @@ Any finding that fails the grep is **dropped**, not softened. The audit's value 
 - **Stack preflight (CONDITIONAL — never blocks a screenshot-only review).** If no screenshot path was provided AND the repo has no UI surface (backend/data-only — no `primary_frontend_framework_detected`, empty UI diff), HALT: there is nothing to review here; point the user at the frontend repo. A provided screenshot is always reviewable, so this gate is skipped whenever one is attached (this command is read-only + screenshot-capable).
 
 ## Phase 2 — Organize
-- Decide reviewers: dispatch `ux-reviewer` + `design-system-guardian` in parallel, and run the `a11y-quick-check` skill for the a11y lane — **all three ship in this pack**. `ux-reviewer` already owns a WCAG 2.2 AA dimension; `a11y-quick-check` adds the focused, cited per-screen a11y pass. **Optional deeper a11y:** if the `frontend` pack is *also* installed, its `accessibility-auditor` agent may be dispatched for a full audit — but never depend on it here (it is not in this pack). The a11y lane MUST resolve with `a11y-quick-check` alone.
+- Decide reviewers: dispatch `ux-reviewer` + `design-system-guardian` in parallel — **both ship in this pack**. `ux-reviewer` is the a11y lane: it is the single WCAG 2.2 AA owner and dispatches the detectors itself (its § Dispatch). On a one-screen diff it runs `a11y-quick-check` as its Lane A fast path; with the `frontend` pack installed it runs `a11y-code-scan` and `a11y-scan` on the touched routes; it always runs `ui-state-scan` on touched data views. Without the frontend pack its rendered SC rows read `blocked (frontend pack not installed)` and the review is `INCOMPLETE`, never clean. The `frontend` pack's `accessibility-auditor` is not dispatched for the same scope: it is the WCAG judge only where ui-ux is not installed.
 - If repo lacks design tokens, flag and proceed without compliance checks (don't fabricate criteria).
 
 ## Phase 3 — Retrieve
@@ -75,9 +75,9 @@ Design-specific:
 
 ## Phase 4 — Generate (findings)
 - Dispatch in parallel:
-  - `ux-reviewer` — task flow, affordance, error/empty/loading states, microcopy, **composite-surface completeness** (a data-table / dashboard graded against the built-in table-stakes catalog — `ui-design-sweep.md § normalize-surface`; a bare table with no toolbar/bulk/export/sticky-header or a plain-number dashboard is a `[violation]`, scale-gated).
+  - `ux-reviewer` — WCAG 2.2 AA (its SC-coverage block, one line per A/AA criterion), task flow, affordance, UI states (from `ui-state-scan`), microcopy, **composite-surface completeness** (a data-table / dashboard graded against the built-in table-stakes catalog — `ui-design-sweep.md § normalize-surface`; a bare table with no toolbar/bulk/export/sticky-header or a plain-number dashboard is a `[violation]`, scale-gated).
   - `design-system-guardian` — token usage (colors, spacing, typography), reuse vs duplication, naming.
-  - `a11y-quick-check` skill — semantics, focus, contrast (**computed** per token pair, not asserted), labels, reduced-motion, target size. **That skill has two lanes and this command closes only one:** Lane A is machine-resolvable and must come back complete or with a named blocker; **Lane B is human-only** (screen reader, keyboard walk, OS reduced-motion, zoom/reflow) and an unattended run prints it `NOT RUN (human lane)`. Carry that state through verbatim — reporting "a11y ✓" on Lane A alone is exactly the false clearance the cite-or-halt premise exists to prevent. (Deeper full audit via the `frontend` pack's `accessibility-auditor` only when that pack is installed.)
+  - The a11y lane is inside `ux-reviewer`'s return, not a third reviewer. Contrast is **computed** per token pair, never asserted; target size counts only from an axe run whose tags include `wcag22aa`. **`a11y-quick-check` has two lanes and an unattended run closes only one:** Lane A is machine-resolvable and comes back complete or with a named blocker; **Lane B is human-only** (screen reader, keyboard walk, OS reduced-motion, zoom/reflow) and prints `NOT RUN (human lane)`. Carry `ux-reviewer`'s SC rows and that state through verbatim — reporting "a11y ✓" on Lane A alone is exactly the false clearance the cite-or-halt premise exists to prevent.
 - Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`.
 - **Refute before posting a `[violation]`.** Each one survives [`refute-before-report.md`](../../../snippets/refute-before-report.md) § 10 (accessibility and UX columns): the surface renders on a real route, a real user meets it, the design-system primitive does not already provide it, and the proof is computed or run (axe id, the numeric contrast ratio, the token the rule names) — in `@verifier`, mode `refute`, when it is installed ([delegation brief](../../../snippets/delegation-brief.md): the candidate list and the files, never this command's narrative). Without a verifier the run says `UNREVIEWED(verification)` and every `[violation]` is posted as unconfirmed.
 - **Posting bar** ([`posting-bar.md`](../../../snippets/posting-bar.md)): a verified `[violation]` is IMPORTANT; `[opinion]` items are NITs, at most 5; no comment on what the formatter or a lint rule already owns; a defect in a screen the change did not touch is PRE-EXISTING and never blocks.
@@ -120,7 +120,7 @@ Phase 5 (Updated): ai/audits/<date>-design.md, changelog
 Phase 6 (Validated): every finding tied to heuristic/token; opinions labeled
 Phase 7 (Improved): N recurring patterns queued
 
-a11y lanes: Lane A ✓ (axe + computed contrast + semantics) · Lane B NOT RUN (human lane)
+a11y (ux-reviewer): SC coverage tool 21 · read 19 · manual 9 · N/A 6 · blocked 0 · Lane B NOT RUN (human lane)
 
 Status: COMPLETE | BLOCKED on <N> violations
 ```
@@ -134,7 +134,7 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - Recently-introduced raw value flagged as violation → may be intentional; warn before treating as broken.
 - Screenshot-only review claiming a11y compliance → impossible; DOM semantics need source files.
 - Reviewing against guidelines that don't exist → propose adopting a design system and stop.
-- Three reviewers contradict each other → orchestrator picks the strictest; don't average.
+- Reviewers contradict each other → resolve by the contradiction protocol (rules 1–4 above) and print which rule fired; never average, never drop the cited side.
 
 ## Related
 

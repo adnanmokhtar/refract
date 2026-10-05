@@ -29,8 +29,19 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-business.md § "Target users" + _extracted-codebase.md § "API surface"
-  sections: [persona, persona_aware_review, micro_copy_audit, error_state_audit, output_format]
-  fallback: _examples/ux-reviewer.md
+  sections: [premise, contract, preflight, dispatch, verification, criteria_no_detector_decides, sc_coverage_block, usability_dimensions, gates_signed, output, what_to_do_next, anti_patterns, failure_modes, related, seam_with_ui_designer]
+  fallback: agents/ux-reviewer.md   # source IS the fallback: the single WCAG 2.2 AA owner. Its SC-coverage
+                                    # table (55 rows) and detector dispatch are load-bearing; the 1.30
+                                    # abridgement predated both and failed check 8b, so it was removed.
+  cite_evidence: strict
+
+- name: ux-designer
+  kind: agent
+  triggers: { OR: { primary_frontend_framework_detected: true, mobile_framework_detected: true } }
+  extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice + ai/users-and-personas.md + the design system's state components (ui-state-scan grep 0d)
+  sections: [premise, contract, halt_conditions, preflight, method, ux_md_format, without_a_run, output, hard_rules, boundaries, related]
+  fallback: agents/ux-designer.md
+  cite_evidence: strict
 
 - name: ui-designer
   kind: agent
@@ -196,26 +207,26 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: design-token-audit
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
-  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  sections: [premise, rule, boundaries, token_source_lanes, lint_lanes, preflight, bulk_triage, scans_for, swap_trap, proof, output, false_positives, when_to_run, halt_conditions, related]
   fallback: skills/design-token-audit/SKILL.md
 
 - name: chart-encoding-audit
   kind: skill
   triggers: { chart_lib_detected_OR_dashboard_surface_present: true }
   extracts_from: the project's chart configs + the resolved token layer (whether a data ramp exists separately from the UI accent ramp) + ai-patterns/data-visualization.md (every threshold it cites)
-  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  sections: [premise, rule, boundaries, lane_table, preflight, bulk_triage, scans_for, proof, output, false_positives, when_to_run, halt_conditions, related]
   fallback: skills/chart-encoding-audit/SKILL.md
 
 - name: motion-audit
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
-  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  sections: [premise, rule, boundaries, lane_table, preflight, bulk_triage, scans_for, proof, output, false_positives, when_to_run, halt_conditions, related]
   fallback: skills/motion-audit/SKILL.md
 
 - name: a11y-quick-check
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
-  sections: [when_to_use, procedure, inputs, outputs, failure_modes]
+  sections: [premise, scope_and_routing, procedure, output, halt_conditions, failure_modes, related]
   fallback: skills/a11y-quick-check/SKILL.md
 
 - name: ui-state-scan
@@ -242,6 +253,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-idioms.md § Tokens / Wrappers + commands/redesign.md § Design principles (the rubric — single source, never restated)
   sections: [why_a_skill, inputs, procedure, anti_cheat, outputs, when_to_use]
   fallback: skills/design-score/SKILL.md
+  cite_evidence: strict
+
+- name: ui-audit
+  kind: command
+  triggers: { OR: { primary_frontend_framework_detected: true, mobile_framework_detected: true } }
+  extracts_from: _extracted-idioms.md § Tokens / Wrappers / Surfaces / Breakpoints / Voice / Context + _extracted-business.md (product context) + .claude/_graph.json (wrapper consumer counts)
+  sections: [premise, boundary_with_audit, autonomy_contract, phase_0_scope, phase_1_matrix_scan, phase_1_5_score_views, phase_2_rank, phase_2b_cell_ledger, phase_3_direction, phase_4_v0, phase_5_v1, phase_6_v2, phase_7_v3, phase_8_verify, phase_8_5_levels_above, phase_9_report, flags, examples, cross_references]
+  fallback: commands/ui-audit.md
   cite_evidence: strict
 
 - name: ui-design-sweep

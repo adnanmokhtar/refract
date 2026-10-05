@@ -139,7 +139,7 @@ Outliers flagged as `normalize-surface` candidates.
 
 ### Detector 5 — UI-state coverage
 
-For each data-fetching component (uses `useCrud` / `useFetch` / equivalent), checks:
+**The detector is [`ui-state-scan`](../skills/ui-state-scan/SKILL.md) (this pack), §1–§3**, run on the routes in scope; its lane table resolves the data primitive per stack (TanStack Query, SWR, Apollo, Nuxt `useFetch`, SvelteKit `load`, Angular resources, router error files), not a hook name. This detector reports its rows as coverage; it does not keep a second list. For each data-fetching component, the rows answer:
 
 - Loading state wired? (skeleton / spinner / placeholder)
 - Empty state wired? (specific empty-state UI, not just blank table)
@@ -154,11 +154,11 @@ Target: 100%. Below → `wire-empty-state` / `wire-loading-state` / `wire-error-
 For each route, runs Playwright at 3 breakpoints: 360px (mobile), 768px (tablet), 1280px (desktop). Captures:
 
 - Screenshot at each breakpoint.
-- Tap-target audit at 360px, reported against **both** thresholds and never blurred into one number: **WCAG 2.2 SC 2.5.8 (Minimum) — Level AA, 24×24 CSS px** is the conformance floor (with its Spacing / Inline / Equivalent / User-agent / Essential exceptions), and **44×44** is the house design target (SC 2.5.5, Level **AAA**; iOS HIG 44pt, under Material's 48dp). `axe-core`'s `target-size` rule implements the 24 rule, so an axe pass does not prove 44 — the house target needs a measured border-box. Full contract: `ui-design-sweep.md § 16. expand-tap-target`.
-- Layout collapse audit (no horizontal scroll, no clipped content).
+- Tap-target audit at 360px, reported against **both** thresholds and never blurred into one number: **WCAG 2.2 SC 2.5.8 (Minimum) — Level AA, 24×24 CSS px** is the conformance floor (with its Spacing / Inline / Equivalent / User-agent / Essential exceptions), and **44×44** is the house design target (SC 2.5.5, Level **AAA**; iOS HIG 44pt, under Material's 48dp). `axe-core`'s `target-size` rule implements the 24 rule **only when the run's tags include `wcag22aa`** (axe ships it disabled; without the tag an axe pass says nothing about 24), and even then an axe pass does not prove 44 — the house target needs a measured border-box. Print the tag set with the result. Full contract: `ui-design-sweep.md § 16. expand-tap-target`.
+- Layout collapse audit (no horizontal scroll, no clipped content). The 320 px reflow check (WCAG 1.4.10) is `a11y-scan` §6 (frontend pack, when installed); this detector reuses its viewport harness and cites its rows rather than re-measuring.
 - Critical-path visibility (primary action above fold at every breakpoint).
 
-Surfaces breakpoint-failures as `add-mobile-affordance` / `fix-responsive` candidates.
+Surfaces breakpoint-failures as `expand-tap-target` (an undersized target at 360 px) or `unify-cta-placement` (the primary action below the fold) candidates. A layout that collapses or scrolls sideways is responsive drift, which is deliberately **outside** the closed 19 verbs: route it to `/enhance-ui`, never to an invented verb (`validate-polish-artifacts.sh § check_frontend_verb_vocabulary` rejects one).
 
 ### Detector 7 — Design-language coherence
 
@@ -427,7 +427,7 @@ The 8 detectors produce findings into `ai/ui-sweep/ledger.md` — UI/UX-specific
 - `ui-design-sweep` — closed 19-verb closure vocabulary (the spec this command's 8 detectors dispatch into).
 - `design-iterate` — visual variant generator (dispatched with --with-iterate).
 - `visual-check` (frontend pack) — screenshots + DOM analysis (the required render harness); carries the authenticated + blocked-render contract this command's auth Hard rule enforces. If it is absent, fall back to the Playwright MCP directly under the same auth contract — never silently skip the render.
-- `a11y-quick-check` (in-pack) — the a11y detector `/redesign` uses (focus order, labels, contrast, tap-targets); this command's a11y axis goes deeper but dispatches its primitives.
+- `a11y-quick-check` (in-pack) — `@ux-reviewer`'s Lane A fast path, which `/redesign` also runs (static slice, one axe route with `wcag22aa`, computed contrast). The WCAG verdict on this command's a11y axis is `@ux-reviewer`'s; the verbs here are the fix path.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — closure-verb discipline (this command extends with UI/UX-specific verbs).

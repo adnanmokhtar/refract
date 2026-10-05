@@ -155,8 +155,11 @@ The BUILDER job emits this block. `## Theme parity audit` below is the AUDITOR j
 
 ### Token-level diff
 ```bash
-# Run as part of theme-specialist
-diff themes/default/tokens.scss themes/brand-acme/tokens.scss
+# SLOT_ROOT and TOKENS come from the Phase-2 inventory: the DETECTED slot root (themes, src/theme,
+# packages/ui/themes …) and the token file's name inside a slot (tokens.scss, tokens.css, theme.ts,
+# tokens.json …). A hardcoded 'themes/…/tokens.scss' diffs two files that do not exist on any other
+# layout, and diff's "No such file" reads as parity.
+diff "${SLOT_ROOT}/default/${TOKENS}" "${SLOT_ROOT}/brand-acme/${TOKENS}"
 ```
 
 Categorize output:
@@ -169,8 +172,9 @@ Categorize output:
 # Tokens used by component X
 rg "var\(--color-brand-" "${ROOTS[@]}" -g "<the component file>"
 # Check all themes define --color-brand-500
-for theme in themes/*/tokens.scss; do
-  grep -q "color-brand-500" "$theme" || echo "MISSING in $theme"
+for theme in "${SLOT_ROOT}"/*/"${TOKENS}"; do
+  [ -f "$theme" ] || { echo "NO TOKEN FILE: $theme — fix SLOT_ROOT/TOKENS before reading parity"; continue; }
+  grep -qE -- '--color-brand-500([^-[:alnum:]]|$)' "$theme" || echo "MISSING in $theme"
 done
 ```
 

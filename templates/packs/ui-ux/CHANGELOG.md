@@ -14,6 +14,109 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.31.0 — 2026-10-05
+
+**Accessibility and UI states had several judges and no proof.**
+
+`/design-review` gave the WCAG axis to `a11y-quick-check`; `/ui-audit` claimed it for its V1 tier;
+`@ux-reviewer` said it owned the floor with an eight-row table that named none of the WCAG 2.2
+additions and never ran axe. Three files certified "axe clean, so 24×24" from axe runs whose tags
+never switched `target-size` on. No artifact forced a loading, error, offline or permission state,
+and gate G12 named a checker that did not exist. This release names one owner, gives it detectors,
+and ships the checker. It is the ui-ux half of Track A batch 3 (eval items 26–32).
+
+### One WCAG owner
+
+- **`@ux-reviewer` (rewritten)** is the single WCAG 2.2 AA judge. It dispatches `a11y-code-scan`
+  and `a11y-scan` (frontend pack, when installed), `ui-state-scan`, `state-matrix` and
+  `mobile-a11y-scan` (mobile pack, when installed); refutes every candidate through
+  `refute-before-report.md` § 10; prints one SC-coverage line per A and AA criterion (55); and
+  signs G9 and G12. A detector that did not run makes its SC rows `blocked` and the review
+  `INCOMPLETE`, never clean. It carries a Contract block (`role: judge`).
+- **`a11y-quick-check` (re-scoped)** is its 60-second Lane A. It owns no class list: it runs
+  `a11y-code-scan` §1–§3 and one `a11y-scan` §1 route, computes contrast from token pairs, and
+  keeps the human Lane B runbook. Native trees go to `mobile-a11y-scan`, which ends the circular
+  native-a11y ownership.
+- **`/design-review`** now dispatches two reviewers. Contradiction rule 3 gives every WCAG criterion
+  to `ux-reviewer`; detector rows are evidence, never a third owner. "Picks the strictest" is gone
+  from its failure modes; the four-rule protocol decides. `_examples/design-review.md` follows,
+  and gains the refute step and posting bar it was missing.
+- **`/ui-audit`**: the WCAG verdict is `@ux-reviewer`'s; V1 is the fix path through the verbs.
+
+### UI states
+
+- **`ui-state-scan` (new)** — §1–§15: loading, empty, error-as-empty, no way out, partial failure,
+  permission, offline, pending submit, long content, unsaved changes, endless loading, stale data,
+  unconfirmed destruction, validation timing, not-found. Web and native lanes; proof is a
+  state-matrix test that forces the state.
+- **`state-matrix` (new)** — writes the design-time matrix (one row per surface × state, with the
+  message, action, focus and the test that will prove it) and ships
+  `scripts/state-matrix-lint.py`, G12's computational half.
+- **`@ux-designer` (new)** — the delivery P3 writer of `ai/runs/<id>/ux.md`: flows, the state
+  matrix (through `state-matrix`), interface contracts (trigger · message · action · focus ·
+  announced), accessibility and i18n notes. It looks the design system up before naming any
+  component, needs a reference for every production surface, and writes nothing else
+  (`role: writer`, `ai/runs/*/ux.md` and `ai/design/**`). `ui-designer`, `creative-director` and
+  `design-system-architect` stay installed.
+
+### Detectors at the bar
+
+`design-token-audit` (token-source lanes including Tailwind 4 `@theme` and DTCG `$value`; token
+files excluded from the literal greps), `motion-audit` (prints no duration or easing of its own;
+`motion.md` owns them, which closes the easing drift) and `chart-encoding-audit` were rewritten as
+detectors: one pre-flight script, a lane table, `### N.` classes with proof, a class coverage
+block, a 3,000-hit path and a refute step. `ui-crawl` runs axe with the five-tag set in one
+`.options()` object, so `target-size` runs.
+
+### Measured from the render, as code
+
+`skills/ui-design-sweep/scripts/measure.ts` (new) implements `measured-from-the-render.md` § A–§ C:
+`floatingSurfaces` (the 1.2:1 surface pair against the nearest painted ancestor, with the border
+and shadow cues), `controlRows` (region + centre + adjacency rows, composite controls at the
+wrapper, table rows and brand marks excluded), and `navigateInApp` / `sweep` (in-app history
+navigation with a reload detector and the `scanned + blocked` ledger). The reference gains § E.
+`/ui-crawl` uses it instead of the `tests/crawl/` scaffolds it assumed and never shipped; its first
+run now writes them.
+
+### Fixed in place (D-16 – D-25)
+
+- **D-16** "axe clean ⇒ 24×24" removed from `ui-design-sweep` and `ui-sweep`: target size counts
+  only from a run whose tags include `wcag22aa`, and the tag set is printed with the result.
+- **D-17** `/redesign` lens 7 no longer states a 44 px target as the accessibility requirement: 24×24
+  (2.5.8, AA) is the floor, 44×44 (2.5.5, AAA) the house target. Example outputs in `/redesign`,
+  `/art-direct`, `/add-theme-variant` and `theme-specialist` stop printing `a11y ✓` and name Lane B
+  `NOT RUN`.
+- **D-18** `/ui-sweep` detector 6 emitted `add-mobile-affordance` / `fix-responsive`, verbs outside
+  the closed 19. It now emits `expand-tap-target` / `unify-cta-placement` and routes layout collapse
+  to `/enhance-ui`. Detector 5 cites `ui-state-scan` instead of keeping a hook-name list.
+- **D-19** easing drift: closed in `motion-audit` (above).
+- **D-20** `/design-review` rule 3 and failure mode (above).
+- **D-21** `theme-specialist`'s token and parity probes hardcoded `themes/…/tokens.scss`; they use the
+  detected `SLOT_ROOT` and token file name, and a missing file is reported, not read as parity.
+- **D-22** `STACK.md` recommended the dead `vue-a11y` and credited wrapper detection to a migration
+  validator; `_essentials.md` gains `ui-state-scan` and `state-matrix` (which a minimal
+  `ux-reviewer` dispatches); `/ui-audit` names the rubric's eleven lenses and its nine axes;
+  `creative-director` no longer counts "five" siblings.
+- **D-23** every `visual-check` reference says "frontend pack, when installed" and what runs without
+  it (ui-ux also installs on mobile-only stacks). `/enhance-ui` says what its cleanup steps do when
+  the opt-in align pack is absent.
+- **D-24** `theming.md`'s pathless, lowercase-only hex grep is replaced by `design-token-audit`'s.
+- **D-25** `/grab-site` sent a Chrome/120 User-Agent to get past bot walls. Its script now names
+  itself, obeys each host's `robots.txt` (unreachable means disallow, RFC 9309), waits `--delay`
+  seconds between requests to one host, and stops at a bot wall.
+
+### Released with this version
+
+`ui-designer` and `design-score`, which landed on 2026-09-19 marked "v1.31+" without a release, ship
+as 1.31.0.
+
+### Manifests
+
+`_topics.md`: `sections:` for `design-token-audit`, `motion-audit`, `chart-encoding-audit` and
+`a11y-quick-check` match their rewritten headings; new entries for `ux-designer` and `/ui-audit`
+(which had none); `ux-reviewer` now falls back to its own source. `_examples/ux-reviewer.md` is
+removed: it predated the rewrite and failed fallback-integrity check 8b.
+
 ## 1.30.0 — 2026-09-18
 
 **Eleven commands, and every one of them handed a decision back.**

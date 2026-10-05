@@ -98,5 +98,5 @@ render: <path to the screenshot this was graded from>
 
 - [`redesign.md § Design principles`](../../commands/redesign.md) — the rubric. Single source; never restated here.
 - `ui-designer` (agent) — takes a `below-bar` scorecard and proposes the change.
-- `visual-check` (frontend pack) — the render harness and the blocked-render contract.
+- `visual-check` (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`) — the render harness and the blocked-render contract.
 - [`ui-design-sweep`](../ui-design-sweep/SKILL.md) — the closed verb set a routed finding lands in.
