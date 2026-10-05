@@ -1,5 +1,5 @@
 ---
-description: "Close /frontend-audit findings: failing-first oracle, fix at the component, re-detect."
+description: "Close /frontend-audit findings, failing-first, fixed at the component."
 kind: command
 pack: frontend
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]

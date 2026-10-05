@@ -1,5 +1,5 @@
 ---
-description: "Read-only frontend audit (a11y, states, render, data, routing, i18n, perf): class ledger, GO verdict. /frontend-fix closes it."
+description: "Read-only frontend audit: a11y, states, render, data, routing, i18n, perf; class ledger and verdict."
 kind: command
 pack: frontend
 allowed-tools: [Read, Write, Grep, Glob, Bash, Task]

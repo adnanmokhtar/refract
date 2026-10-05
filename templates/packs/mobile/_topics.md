@@ -167,6 +167,26 @@ change.
   # measured hit counts are the artifact; an abridgement would drop the halt conditions and
   # the "no device means SKIPPED, never PASS" rule that keeps a host-only run honest.
 
+- name: mobile-a11y-scan
+  kind: skill
+  triggers: { mobile_framework_detected: true }
+  sections: [premise, the_rule, boundaries, lanes, lint_lanes, pre_flight_greps, the_3000_hit_path, scans_for, detectors_1_to_8, proof, output, false_positives, when_to_run, halt_conditions, related]
+  fallback: skills/mobile-a11y-scan/SKILL.md
+  cite_evidence: strict
+  # fallback is the source ON PURPOSE: the lint lane, the pre-flight script with its measured hit
+  # counts and the checker versions verified on 2026-10-05 are the artifact; an abridgement would
+  # drop the "a checker run, never self-reported labels" proof rule and the SKIPPED-never-PASS halt.
+
+- name: mobile-perf-scan
+  kind: skill
+  triggers: { mobile_framework_detected: true }
+  sections: [premise, the_rule, boundaries, lanes, pre_flight_greps, the_3000_hit_path, scans_for, detectors_1_to_7, proof, output, false_positives, when_to_run, halt_conditions, related]
+  fallback: skills/mobile-perf-scan/SKILL.md
+  cite_evidence: strict
+  # fallback is the source ON PURPOSE: the version gates (React Compiler, strong skipping, FlashList
+  # v2, InteractionManager) decide whether a hit is a defect or a decoy, and the release-build,
+  # repeated-run measurement rule is what keeps a debug figure out of a finding.
+
 # The four patterns added at 1.7.0 declare `sources` as a REQUIRED section. Each quotes dated
 # platform figures (Android's published background limits, Play's vitals thresholds, the store
 # guidelines), and an AUTHOR-mode rewrite that drops the Sources block leaves those numbers standing

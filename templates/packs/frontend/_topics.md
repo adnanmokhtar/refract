@@ -276,6 +276,12 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md (router + route table location) + _extracted-idioms.md (the project's table / card components that navigate)
   fallback: skills/routing-scan/SKILL.md
 
+- name: i18n-scan
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }   # the skill's locale-count gate prints N/A on a single-locale app
+  extracts_from: _extracted-codebase.md (i18n lib + locale files + catalog layout) + _extracted-idioms.md (the project's code/LTR wrapper components for the 1a skip list)
+  fallback: skills/i18n-scan/SKILL.md
+
 - name: streaming-ssr
   kind: skill
   triggers: { ssr_enabled: true }
