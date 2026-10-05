@@ -247,6 +247,11 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   fallback: skills/render-correctness-scan/SKILL.md
 
+- name: critical-path-scan
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: skills/critical-path-scan/SKILL.md
+
 - name: client-data-scan
   kind: skill
   triggers: { query_lib_detected_OR_client_data_fetching_present: true }

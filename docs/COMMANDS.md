@@ -545,6 +545,8 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | `/a11y-audit`          | Accessibility audit.                                                             |
 | `/setup-storybook`     | Install Storybook + the MCP addon and write a story per shared component; on a repo that has it, write stories only for components added since. Verified by the full unit suite, the story run in Chromium and a live MCP probe. |
 | `/add-feature`         | Lane preset (`add-feature.frontend`): hands the ask to the delivery `/add-feature` with `--lane=frontend`. The frontend procedure (intent, prior-art and data-sensitivity gates, UI design slice, nav-speed / SEO / a11y / i18n validation) lives in the delivery pack's `lane-frontend` skill. |
+| `/frontend-audit` | Read-only frontend audit (a11y, states, render, data, routing, i18n, perf): class ledger, GO verdict. /frontend-fix closes it. |
+| `/frontend-fix` | Close /frontend-audit findings: failing-first oracle, fix at the component, re-detect. |
 
 **Frontend skills (agent invokes when relevant):**
 - `visual-check` — Playwright screenshot at the route under change.

@@ -40,9 +40,9 @@ A rendered result is a finding when all four hold:
 ## Harness — what this skill needs and what it writes
 
 - **A production build**, served the way the lane table says, started or reused through `dev-server-start`. A dev server adds dev-only overlays and markup, which pollute §4.
-- **The session** follows `visual-check`: `tests/.auth/user.json`, written by an auth setup project. `storageState` sits under the project's `use:`, not at the project's top level, where Playwright does not apply it. **Auth-success gate first:** load a known authenticated route and assert the final URL is not the login path and a post-auth marker is visible. Otherwise `RENDER BLOCKED`.
-- **Write mode** (Setup, `/frontend-fix`, a user asking for the gate): it writes the probe module and the cell spec into the project's Playwright `testDir`, **named to its `testMatch`** (grep 0b). Measured on a real repo: its Playwright suite matches only `*.flow.ts`, because Vitest claims every `*.spec.ts` and would run it in jsdom. An `a11y.spec.ts` there never runs in a browser. It also writes per-cell evidence JSON through `testInfo.attach` into `test-results/` (gitignored), and a baseline file only when asked to record one. It never edits product code, and it prints any Playwright config change as a diff before writing it.
-- **Judge mode** (dispatched by `@ux-reviewer` or any caller without Write): nothing is written in the repo. The same module and spec go in a scratch dir under `$TMPDIR` (the `/tmp` rule in [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10, gate 6), with `@playwright/test` pinned to the project's version, `@axe-core/playwright@4.13.0` and a config whose `use.baseURL` and `use.storageState` point at the served app and the session file. Run it with `npx playwright test -c <scratch>`. The report is returned, not saved.
+- **The session** follows `visual-check`: `tests/.auth/user.json`, written by an auth setup project. `storageState` sits under the project's `use:`, not at the project's top level, where Playwright does not apply it. **Auth-success gate first:** load a known authenticated route and assert the final URL is not the login path (`/login` or the project's own) and a post-auth marker is visible. Otherwise `RENDER BLOCKED`.
+- **Write mode** (Setup, a fix command, a user asking for the gate): it writes the probe module and the cell spec into the project's Playwright `testDir`, **named to its `testMatch`** (grep 0b). Measured on a real repo: its Playwright suite matches only `*.flow.ts`, because Vitest claims every `*.spec.ts` and would run it in jsdom. An `a11y.spec.ts` there never runs in a browser. It also writes per-cell evidence JSON through `testInfo.attach` into `test-results/` (gitignored), and a baseline file only when asked to record one. It never edits product code, and it prints any Playwright config change as a diff before writing it.
+- **Judge mode** (dispatched by `@ux-reviewer` or any caller without Write): nothing is written in the repo. The same module and spec go in a scratch dir under `$TMPDIR` (the scratch-dir rule for judges in [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10, gate 6), with `@playwright/test` pinned to the project's version, `@axe-core/playwright@4.13.0` and a config whose `use.baseURL` and `use.storageState` point at the served app and the session file. Run it with `npx playwright test -c <scratch>`. The report is returned, not saved.
 
 ## Adapt to the codebase — lane table
 
@@ -248,12 +248,12 @@ In an admin app the defects live in the modal, the menu, the combobox, the date 
 
 ```ts
 const triggers = await page.locator('[aria-haspopup], [aria-expanded], [aria-controls], [role="tab"], summary, [popovertarget]').all();
-const SURFACES = '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [role="tabpanel"], [popover]:not([hidden])';
+const SURFACES = 'dialog[open], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [role="tabpanel"], [popover]:popover-open';
 const unreachable: Locator[] = [], opened: object[] = [];
 for (const t of triggers) {                          // union with grep 2 and the project's wrapper names
   await t.click();                                   // then hover(), then focus() + Enter, before calling it unreachable
-  const surface = page.locator(SURFACES).first();
-  if (!(await surface.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false))) { unreachable.push(t); continue; }
+  const surface = page.locator(SURFACES).filter({ visible: true }).last();   // the newest open surface, not a hidden one
+  if (!(await surface.waitFor({ timeout: 2000 }).then(() => true, () => false))) { unreachable.push(t); await page.keyboard.press('Escape'); continue; }
   const id = await surface.getAttribute('id');      // .include() takes a selector, never an element handle
   const r = rows(await axeAt(page, id ? { include: `#${id}` } : {}));
   const focusIn = await surface.evaluate((s) => s.contains(document.activeElement));
@@ -263,7 +263,7 @@ for (const t of triggers) {                          // union with grep 2 and th
 }
 ```
 
-Assert four things beyond axe: the surface's accessible name (`aria-dialog-name` fires only once open); focus moved in on open and returned to the trigger on close; Tab past the last focusable wraps inside a modal and leaves a menu; the trigger's `aria-expanded` flipped. **Mandatory row** on every route: `interactive surfaces: N found / M opened / K unreachable [/ J deferred: <names>]`. `K > 0` is itself a candidate: a trigger that opens nothing on click, hover or Enter is broken or mouse-only. **Read the code:** is the surface a headless primitive whose consumer overrides it (`asChild` onto a `div`, `ui § 12`)? Is it native `<dialog>` opened with `show()` rather than `showModal()` (`ui § 13`)? Does it open only for a role the test user lacks? **Finding when** one of the four fails at a reached surface. **Severity:** critical when focus is trapped with no way out; high otherwise. **Proof:** keyboard path (V90).
+Assert four things beyond axe: the surface's accessible name (`aria-dialog-name` fires only once open); focus moved in on open and returned to the trigger on close; Tab past the last focusable wraps inside a modal and leaves a menu; the trigger's `aria-expanded` flipped. **Mandatory row** on every route: `interactive surfaces: N found / M opened / K unreachable [/ J deferred: <names>]`. `K > 0` is itself a candidate: a trigger that opens nothing on click, hover or Enter is broken or mouse-only. Measured on a seeded page: a native `<dialog>` opened with `showModal()` → focus in and back on Escape; a `role="dialog"` `div` unhidden by a click → focus never moved in and `aria-expanded` stayed `"false"`. A first version that took `.first()` of the surface selector picked a hidden dialog, left the modal open and timed out on the next trigger; hence `filter({ visible: true })` and the Escape on every branch. **Read the code:** is the surface a headless primitive whose consumer overrides it (`asChild` onto a `div`, `ui § 12`)? Is it native `<dialog>` opened with `show()` rather than `showModal()` (`ui § 13`)? Does it open only for a role the test user lacks? **Finding when** one of the four fails at a reached surface. **Severity:** critical when focus is trapped with no way out; high otherwise. **Proof:** keyboard path (V90).
 
 ### 3. Contrast per theme; non-text contrast
 

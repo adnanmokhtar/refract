@@ -80,7 +80,7 @@ For each crawlable route (filters out auth pages, dynamic-param routes like `:id
    - Desktop LTR→RTL (set `dir="rtl"`)
    - (with `--full-matrix`: + desktop dark+RTL, + mobile dark)
 4. Detect horizontal overflow at each viewport (`doc.scrollWidth > window.innerWidth`).
-5. Run axe-core (`wcag2a`, `wcag2aa`, `wcag21aa`) — capture violations with impact, node count, help URL.
+5. Run axe-core with tags `wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`, passed in one `.options({ runOnly: { type: 'tag', values } })` object. `wcag22aa` is what runs `target-size`, which axe 4.13 ships disabled; a later `.options()` or `.disableRules()` drops the tags or the enables. Capture violations with impact, node count and help URL, and list `incomplete` nodes as review items. The recipe is `a11y-scan` § The axe recipe and the probes (frontend pack, when installed); without it, use this tag list as written.
 6. Walk in-page tabs (`main [role="tab"]`, `.p-tabview-nav li`, `.p-tabmenu-item`, `.nav-tabs .nav-link`, `.route-tabs a|button`): skip already-active tab, click each (cap 8), snapshot after each.
 7. Try to open up to 3 dialogs by clicking Add/New/Create/Edit-labeled buttons; snapshot, close with Escape.
 8. Try to open up to 3 dropdowns; snapshot panel, close with Escape.

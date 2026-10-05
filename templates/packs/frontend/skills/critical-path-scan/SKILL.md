@@ -148,7 +148,7 @@ GOOD:  <script type="module" src="/src/main.ts"></script>  ·  <script defer src
 BAD:   <script src="https://cdn.cookielaw.org/…/otSDKStub.js"></script>       // sync consent stub in the head
        <style>.async-hide { opacity: 0 !important }</style>                     // Google Optimize anti-flicker: the product
                                                                                 //   was sunset 2023-09-30, the page still hides
-       useEffect(() => injectTagManager(id), [])                                // on mount, before the user can do anything
+       useEffect(() => injectTagManager(id), [])  ·  Vue onMounted(() => injectTagManager(id))   // on mount, before the user acts
        <Script src="https://widget.intercom.io/widget/x" strategy="beforeInteractive" />
 GOOD:  load after consent, on `requestIdleCallback`, or on first interaction; next/script `lazyOnload`;
        `@next/third-parties` `GoogleTagManager`; `useScript(src, { trigger: 'onNuxtReady' })`; a facade for chat and video
