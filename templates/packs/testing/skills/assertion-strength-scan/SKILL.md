@@ -132,12 +132,19 @@ rg -n --pcre2 '^\s*(?:Assertions\.)?assertThat\((?:[^()]|\((?:[^()]|\([^()]*\))*
 rg '^interaction-only' "$TMP/census.tsv"
 rg -l --pcre2 '\bverify\(|\bto\s+(?:have_)?receive\b|\.AssertExpectations\(|\.EXPECT\(\)' "${T[@]}" "${V[@]}" . | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\bassert(?:That|Equals|True|False|Eq)\w*\s*\(|\bassert\.\w+\(|\brequire\.\w+\(|\.to\s+(?:eq|eql|equal|match|include|be_\w+)\b|\bisEqualTo\('
 
-# 3. §3 unreached or un-awaited: census `floating-async` (3a); an `expect` inside a catch, file with no assertion-count
-#    guard (3b); an `expect` in a callback that may never run (3c); assertions in a loop or branch (3d); Python assert in
+# 3. §3 unreached or un-awaited: census `floating-async` (3a); an `expect` inside a catch whose own case holds no guard
+#    (`fail(`, a `throw new` after the call, `.toThrow`, `.rejects`, `expect.assertions`) — a sibling case's guard no longer
+#    hides it (3b); an `expect` in a callback that may never run (3c); assertions in a loop or branch (3d); Python assert in
 #    except, a raises block with trailing statements, assert on an un-awaited call in an async test (3e); JUnit 4
 #    `expected=`, un-awaited .NET async asserts, async void tests, Go t.Fatal / require in a goroutine (3f).
 rg '^floating-async' "$TMP/census.tsv"
-rg -l -U --pcre2 'catch\s*(?:\([^)]*\))?\s*\{[^{}]*\bexpect\(' "${T[@]}" "${V[@]}" . | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 'expect\.(?:assertions|hasAssertions)\(|\bfail\(|\.rejects\b|\.toThrow' | tr '\n' '\0' | xargs -0 -r rg -n -U --pcre2 'catch\s*(?:\([^)]*\))?\s*\{[^{}]*\bexpect\('
+rg -n -U --pcre2 'catch\s*(?:\([^)]*\))?\s*\{[^{}]*\bexpect\(' "${T[@]}" "${V[@]}" . | rg --pcre2 '^[^:]+:\d+:\s*(?:\}\s*)?catch\b' | python3 -c '
+import re, sys
+C, G = re.compile(r"^\s*(?:it|test)(?:\.\w+)*\s*\("), re.compile(r"\bfail\(|(?:^|[;{])\s*throw\s+new\b|\.toThrow|\.rejects\b|expect\.assertions\(", re.M)
+for l in sys.stdin:                                  # drop a site only when ITS case guards it, never for a sibling case
+    f, n, _ = l.split(":", 2); L = open(f, errors="replace").read().split("\n"); j = int(n) - 1
+    while j > 0 and not C.match(L[j]): j -= 1
+    if not G.search("\n".join(L[j:int(n) - 1])): print(l.rstrip() + ("  [file sets expect.hasAssertions]" if "expect.hasAssertions(" in "\n".join(L) else ""))'
 rg -n --pcre2 '\.(?:on|once|addEventListener|addListener|subscribe|then)\(.*=>\s*\{?\s*expect\(|\bset(?:Timeout|Immediate)\(\s*(?:\(\)\s*=>|function)\s*\{?\s*expect\(' "${T[@]}" "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 '^\s*(?:for\s*\(\s*(?:const|let)\s+\w+\s+of\b|[\w.]+\.forEach\(|if\s*\().*\bexpect\(' "${T[@]}" "${V[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '^\s+(?:if\s+[^\n]+|for\s+\w+(?:,\s*\w+)*\s+in\s+[^\n]+):\s*\n\s+assert\b|^\s*except\b[^\n]*:\s*\n\s+assert\b|with\s+pytest\.raises\([^\n]*\):\s*\n(\s+)[^\n]+\n\1(?!assert\b)\S' -g '**/{test_*,*_test}.py' "${V[@]}" . | "${NC[@]}"
@@ -178,7 +185,10 @@ were pseudo-cases parsed from comment lines, 20 were Testing Library `getBy*` ex
 (§ 14), leaving 188 to read. The census returned weak-sole 62, no-assertion 21 (most assert through a helper such as `refused(…)` — read it), interaction-only
 380 (55 count-only), snapshot-only 27, floating-async 0. Grep 1c: 0. 3b: 2 sites, both a
 `try { parse() } catch (e) { expect(e)… }` whose catch the parser may never enter — real § 3
-candidates. 3c: 5 (`.then(r => expect(…))` inside awaited chains — read). 3d: 149 lines (loops over
+candidates; the other 17 catch-with-`expect` sites are cleared by a guard in their own case (a
+`throw new Error('should have refused')` after the call, or a `.toThrow` on the same call above the
+`try`). Until 2.0.1 the guard was read per file, so a sibling case's `.toThrow` hid a site —
+`brittle-suite`'s `refund-window.spec.ts`, now listed. 3c: 5 (`.then(r => expect(…))` inside awaited chains — read). 3d: 149 lines (loops over
 fixed vocabularies; read for a length assertion). 4a: 0. 4b: 21 (teardown and navigation `.catch(() => undefined)` — read for an assertion in the chain).
 5a: 16 (determinism checks, § 18). 5b: 25. 6: 54 snapshot assertions in 5 files; 13 entries over 50
 lines, all in one characterization file (§ 22); 6c: 0. On `benchmarks/fixtures/*` (7 test files, all

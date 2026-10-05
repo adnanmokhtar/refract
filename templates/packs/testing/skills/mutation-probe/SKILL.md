@@ -73,10 +73,14 @@ mutation score `killed / all` vs test strength `killed / (killed + survived)`; g
 
 ## Pre-flight — the scope
 
-Run as **one** script with bash from the repo root. Every `rg` names its path (`.`).
+Run as **one** script with bash from the repo root. Every `rg` names its path (`.`). `SCOPE=<paths>`
+names files or directories to mutate whole (a whole-repo audit's signal list, a fix's module); unset,
+the scope is the diff against the merge base. With neither — no merge base (a single-commit repo, a
+shallow clone, an unfetched `origin/main`) and no `SCOPE` — the block prints `blocked (no merge-base)`
+and an empty scope; it never widens itself to the whole repo.
 
 ```bash
-BASE=$(git merge-base HEAD "${BASE_REF:-origin/main}"); W=$(mktemp -d)
+BASE=$(git merge-base HEAD "${BASE_REF:-origin/main}" 2>/dev/null); W=$(mktemp -d); : > "$W/ranges.all"; : > "$W/lines.all"
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/mutants/**'
    -g '!**/{test,tests,__tests__,spec,e2e,testdata,fixtures,__fixtures__,mocks,__mocks__,migrations,generated,__generated__,scripts}/**'
    -g '!**/*.{spec,test,e2e-spec,stories,d}.*' -g '!**/{test_*,*_test,conftest}.*' -g '!**/*{Test,Tests,IT}.{java,kt,cs,php}' -g '!**/*_spec.rb'
@@ -85,12 +89,17 @@ X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**
 echo '== 0'; rg --files -g '**/{stryker.conf.*,stryker.config.*,.stryker.conf.*,stryker-config.json,gremlins.y*ml,.gremlins.y*ml,infection.json5,infection.json,.mutant.yml,mull.yml,mutants.toml}' -g '!**/node_modules/**' .
 rg -n --pcre2 '"@stryker-mutator/[\w-]+"|\bdotnet-stryker\b|\[(?:tool\.)?mutmut\]|\bmutmut\b|\bcosmic-ray\b|\bpitest\b|infection/infection|\bmutant-rspec\b|go-gremlins|go-mutesting|cargo-mutants' -g '**/{package.json,pyproject.toml,setup.cfg,requirements*.txt,pom.xml,build.gradle*,*.csproj,dotnet-tools.json,composer.json,Gemfile,go.mod,Makefile}' -g '!**/node_modules/**' .
 # 1. Changed source lines ("path:line") and hunk ranges ("path:start-end", StrykerJS's --mutate syntax), with coverage-gap's
-#    parser: deletion-only hunks, deleted files, spaces in names and diff.noprefix are all handled.
-git -c core.quotePath=false diff -U0 --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$BASE"...HEAD | awk '
+#    parser: deletion-only hunks, deleted files, spaces in names and diff.noprefix are all handled. SCOPE set: every line of
+#    the named files instead. No base and no SCOPE: blocked, empty scope.
+if [ -n "${SCOPE:-}" ]; then echo "scope: whole files under SCOPE=$SCOPE (base ${BASE:-none})"; read -ra ROOTS <<< "$SCOPE"
+  rg --files "${X[@]}" "${ROOTS[@]}" | sed 's|^\./||' | while IFS= read -r f; do n=$(wc -l < "$f" | tr -d ' '); [ "$n" -gt 0 ] || continue
+    echo "$f:1-$n" >> "$W/ranges.all"; awk -v f="$f" '{ print f ":" NR }' "$f" >> "$W/lines.all"; done
+elif [ -z "$BASE" ]; then echo "scope: blocked (no merge-base with ${BASE_REF:-origin/main}: single-commit repo, shallow clone or unfetched ref) — set BASE_REF, or SCOPE=<paths> for a whole-file scope"
+else git -c core.quotePath=false diff -U0 --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/ "$BASE"...HEAD | awk '
 /^\+\+\+ / { f = ($0 == "+++ /dev/null") ? "" : substr($0, 7); sub(/\t$/, "", f); next }
 /^@@ / { if (f == "") next; match($0, /\+[0-9]+(,[0-9]+)?/); s = substr($0, RSTART + 1, RLENGTH - 1)
          n = split(s, a, ","); st = a[1] + 0; c = (n == 2) ? a[2] + 0 : 1; if (c == 0) next
-         print f ":" st "-" (st + c - 1) > R; for (i = 0; i < c; i++) print f ":" (st + i) }' R="$W/ranges.all" > "$W/lines.all"
+         print f ":" st "-" (st + c - 1) > R; for (i = 0; i < c; i++) print f ":" (st + i) }' R="$W/ranges.all" > "$W/lines.all"; fi
 rg --files "${X[@]}" . | sed 's|^\./||' | sort > "$W/src"
 awk -F: 'NR == FNR { s[$0]; next } ($1 in s)' "$W/src" "$W/lines.all" > "$W/lines"; awk -F: 'NR == FNR { s[$0]; next } ($1 in s)' "$W/src" "$W/ranges.all" > "$W/ranges"
 echo '== 1'; printf 'changed source files %s · lines %s · hunks %s\n' "$(cut -d: -f1 "$W/lines" | sort -u | wc -l)" "$(wc -l < "$W/lines")" "$(wc -l < "$W/ranges")"
@@ -110,7 +119,9 @@ PY
 echo '== 2'; wc -l < "$W/mutable"; echo "scope: $W/lines $W/ranges $W/mutable"
 ```
 
-**Run the lane** (same shell, after the block above; one lane per stack present):
+**Run the lane** (same shell, after the block above; one lane per stack present). On a `SCOPE` run
+there is no diff: StrykerJS, mutmut and PIT take the whole-file scope as built; gremlins takes the
+package directory instead of `--diff`, cargo-mutants `--file <path>` instead of `--in-diff`:
 
 ```bash
 # StrykerJS — hunk ranges as --mutate (a range entry cannot be mixed with a glob in the same entry)
@@ -146,7 +157,7 @@ gremlins unleash --diff "$BASE" --output "$W/g.json" -S lc && jq -r '.files[]|.f
 git diff --src-prefix=a/ --dst-prefix=b/ "$BASE".. > "$W/git.diff" && cargo mutants --in-diff "$W/git.diff"; cat mutants.out/missed.txt
 ```
 
-**Measured** (2026-10-05). Each Run lane above was executed on a one-function sample (`discount(total, threshold)` with an `if (total > threshold)` branch and one test at 200 / 100): StrykerJS 10.0.0 surfaced `EqualityOperator` (`>=`) and `ConditionalExpression` (`true`) as Survived in about 2.5 s; mutmut 3.8.0 left `x_discount__mutmut_1` (`>=`) and `_3` survived; PIT 1.30.0 left `ConditionalsBoundaryMutator` and `RemoveConditionalMutator_ORDER_IF` SURVIVED on line 4; gremlins reported `LIVED CONDITIONALS_BOUNDARY at pricing.go:4:11` and `NOT COVERED` for an untested function; go-mutesting printed `FAIL` with the `return 0 → return 1` patch; cargo-mutants printed `MISSED src/lib.rs:2:14: replace > with >= in discount` and exited 2. On a real NestJS-on-Fastify monorepo (read-only) the scope block runs in 0.4 s: 30 commits → 105 changed source files, 3,565 lines, 363 hunks, 1,249 arid lines skipped, **2,316** mutable lines. The repo declares no mutation tool (grep 0 empty), so its lane is StrykerJS installed in a scratch worktree, or the manual-seed lane.
+**Measured** (2026-10-05). Each Run lane above was executed on a one-function sample (`discount(total, threshold)` with an `if (total > threshold)` branch and one test at 200 / 100): StrykerJS 10.0.0 surfaced `EqualityOperator` (`>=`) and `ConditionalExpression` (`true`) as Survived in about 2.5 s; mutmut 3.8.0 left `x_discount__mutmut_1` (`>=`) and `_3` survived; PIT 1.30.0 left `ConditionalsBoundaryMutator` and `RemoveConditionalMutator_ORDER_IF` SURVIVED on line 4; gremlins reported `LIVED CONDITIONALS_BOUNDARY at pricing.go:4:11` and `NOT COVERED` for an untested function; go-mutesting printed `FAIL` with the `return 0 → return 1` patch; cargo-mutants printed `MISSED src/lib.rs:2:14: replace > with >= in discount` and exited 2. On a real NestJS-on-Fastify monorepo (read-only) the scope block runs in 0.4 s: 30 commits → 105 changed source files, 3,565 lines, 363 hunks, 1,249 arid lines skipped, **2,316** mutable lines. The repo declares no mutation tool (grep 0 empty), so its lane is StrykerJS installed in a scratch worktree, or the manual-seed lane. On `benchmarks/fixtures/*` (one commit, no remote) 2.0.0 printed `awk: can't open file …/ranges.all`; the block now prints `scope: blocked (no merge-base …)` and an empty scope, and on `brittle-suite` `SCOPE="api/src/shipping jvm/src/main"` scopes 6 files, 127 lines, 69 mutable.
 
 ## The 3,000-hit path
 
@@ -257,7 +268,7 @@ Class coverage:
 assertion is named. `[report-flagged]`: one link is unproven (an equivalence check not settled, a
 timeout not spot-checked, the manual-seed lane on one operator only) and the row names it with its
 settling command. Lane coverage per file is `harness-measured`, `manual-seed`, or `blocked
-(licence | no tool | build fails)` — never silently skipped.
+(licence | no tool | build fails | no merge-base)` — never silently skipped.
 
 ## False positives / precedents
 
@@ -279,6 +290,7 @@ The verifier reads [`precedents/testing.md`](../../../../snippets/precedents/tes
 
 - Do not report a high row as confirmed until a verifier other than the run that found it has passed it through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/testing.md`](../../../../snippets/precedents/testing.md). Run standalone, apply the protocol as a separate second pass, tag those rows `self-verified`, and keep the rest as Unconfirmed, Hardening, Pre-existing or Refuted — never dropped.
 - Halt on a survivor without `<file:line>`, the operator and original → mutated, the tests that ran it, and the killing assertion.
+- Do not widen a run with no merge base to the whole repo: it is `blocked (no merge-base)` until `BASE_REF` or `SCOPE` names the scope.
 - Halt on any flag this table marks wrong: StrykerJS `--since`, mutmut `--paths-to-mutate`, PIT `scmMutationCoverage`, gremlins `--diff-ref`, a go-mutesting `LIVED` line, a cargo-mutants `caught` field.
 - Do not report an unexecuted mutant here; hand it to `coverage-gap`. Do not write a test to kill an equivalent mutant.
 - Do not print a score without its formula, denominator and the equivalent count. Do not leave a seeded mutant in place: no row without the restore check.

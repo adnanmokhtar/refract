@@ -30,7 +30,7 @@ The **presence** oracle: did any test execute — or, for risk surfaces, even na
    (Vitest `--coverage.include='src/**'`; pytest `--cov=<pkg> --cov-branch`; Go `-coverpkg=./...`.)
 4. `diff-cover <report> --compare-branch="$BASE" --fail-under=100 --show-uncovered`, **then** list changed files absent from the report: diff-cover skips a changed file with no coverage data, so its percentage can read 100% for a file no test imports.
 5. Intersect changed lines with the report: `DA` 0 → unexecuted; `BRDA` mixed 0 / >0 → one-sided branch.
-6. Whole repo: guarded routes no denial test (401 / 403 / 404) names; typed errors no test names; critical modules no test imports; outbound clients with no contract tooling; fix commits with no test.
+6. Whole repo: guarded routes no denial **case** (one asserting 401 / 403 / 404) names — a route a deny file names only in a same-tenant 200 case is still a gap; typed errors no test names; critical modules no test imports or is named after (strip only the file extension from an import: `./refund.service` is `refund.service`); outbound clients with no contract tooling; fix commits with no test.
 
 ## Scans for
 

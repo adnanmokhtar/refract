@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Four whole-suite detectors (assertion strength, suite execution, flake sources, test doubles), coverage-gap and mutation-probe rewritten with runnable lanes, a new read-only /test-audit and a new /test-fix that fixes the test, never the code, and checks its own diff for tampering.",
+  "summary": "Six measured detector fixes: coverage-gap's import strip and case-scoped denial tests, mutation-probe's no-merge-base scope, assertion-strength-scan's per-case catch guard, suite-execution-scan's Failsafe presence check, flake-source-scan's zone read in the code under test.",
   "changelog": "CHANGELOG.md"
 }

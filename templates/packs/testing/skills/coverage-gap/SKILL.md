@@ -145,17 +145,23 @@ for item in open(cl).read().split('\n'):
     elif 0 in BR[f].get(n, []): b = BR[f][n]; print(f'{"ONE-SIDED" if any(b) else "NO-BRANCH-TAKEN"} {p}:{n} taken={sum(map(bool, b))}/{len(b)}')
 PY
 fi
-# 2 + 5. Route literals × test files. 2: guarded routes no denial test (401 / 403 / 404) names. 5: routes no route-level
-#        test names at all. Prints the counts, then one `file:line /route` per gap.
-rg -l0 --pcre2 '\.expect\((?:401|403|404)\)|\bstatus(?:Code|_code)?\)?\s*(?:\.toBe|\.toEqual|==)\s*\(?\s*(?:401|403|404)\b|HTTP_40[134]_|\bstatus\.(?:Forbidden|Unauthorized|NotFound)\b|have_http_status\(:(?:forbidden|unauthorized|not_found)\)|\bis(?:Forbidden|Unauthorized|NotFound)\(\)|assert(?:Forbidden|Unauthorized|NotFound)\(' "${T[@]}" . > "$W/deny"
+# 2 + 5. Route literals × test files. 2: guarded routes no denial CASE (one asserting 401 / 403 / 404) names — a route a
+#        deny file names only in a same-tenant 200 case is a gap; a file's preamble (route tables) always counts, a skipped
+#        case never does. 5: routes no route-level test names at all. Prints the counts, then one `file:line /route` per gap.
+DN='\.expect\(\s*(?:401|403|404)\s*,?\s*\)|\bHttpStatus\.(?:UNAUTHORIZED|FORBIDDEN|NOT_FOUND)\b|\bstatus(?:Code|_code)?\)?\s*(?:\.toBe|\.toEqual|==)\s*\(?\s*(?:401|403|404)\b|HTTP_40[134]_|\bstatus\.(?:Forbidden|Unauthorized|NotFound)\b|have_http_status\(:(?:forbidden|unauthorized|not_found)\)|\bis(?:Forbidden|Unauthorized|NotFound)\(\)|assert(?:Forbidden|Unauthorized|NotFound)\('
+rg -l0 -U --pcre2 "$DN" "${T[@]}" . > "$W/deny"
 rg -l0 --pcre2 '\brequest\(\s*(?:app|server|this\.app|\w+\.getHttpServer\(\))|\bsupertest\b|\.inject\(\s*\{|\b(?:Async)?Client\(|\bself\.client\.\w+\(|\bMockMvc\b|@SpringBootTest\b|\bhttptest\.New(?:Server|Recorder)\(|^\s*(?:get|post|put|patch|delete)\s+["\x27]/|\bpage\.goto\(|\bcy\.(?:visit|request)\(' "${T[@]}" . > "$W/route"
 cat > "$W/routes.py" <<'PY'
-import re, subprocess, sys
+import os, re, subprocess, sys
+DN, CASE = re.compile(os.environ.get('DN') or r'(?!)'), re.compile(r'^[ \t]*(?:x?(?:it|test)(?:\.\w+)*\s*\(|(?:async\s+)?def\s+test|@(?:Test|ParameterizedTest)\b|func\s+Test|it\s+["\x27]|(?:public\s+)?function\s+test)', re.M)
+def denial(s):                                   # the preamble, then only the cases that assert a refusal
+    cut = [m.start() for m in CASE.finditer(s)]; parts = [s[a:b] for a, b in zip([0] + cut, cut + [len(s)])]
+    return '\n'.join([parts[0]] + [p for p in parts[1:] if DN.search(p) and not re.match(r'\s*(?:(?:it|test)\.(?:skip|todo)|x(?:it|test))\b', p)])
 R = re.compile(r"""@(?:Get|Post|Put|Patch|Delete|All)\(\s*['"]([^'"]*)['"]|@(?:Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:(?:value|path)\s*=\s*)?\{?\s*"([^"]*)"|\.(?:get|post|put|patch|delete|api_route)\(\s*['"](/[^'"]*)['"]""")
 P = re.compile(r"""@Controller\(\s*(?:\{[^}]*?path:\s*)?['"]([^'"]*)['"]|@RequestMapping\(\s*(?:(?:value|path)\s*=\s*)?"([^"]*)"|APIRouter\([^)]*prefix\s*=\s*['"]([^'"]*)['"]""")
 PUB = re.compile(r"@Public\(|@AllowAnonymous|@PermitAll|AllowAny\b|skip_before_action\s+:authenticate|@SkipAuth")
 mode, tests, roots = sys.argv[1], [t for t in open(sys.argv[2]).read().split('\0') if t], sys.argv[3:]
-body = '\n'.join(open(t, errors='ignore').read() for t in tests); n = pub = 0; gaps = []
+body = '\n'.join((denial if mode == 'deny' else str)(open(t, errors='ignore').read()) for t in tests); n = pub = 0; gaps = []
 for f in subprocess.run(['rg', '-l', '--pcre2', R.pattern, *roots], capture_output=True, text=True).stdout.split():
     src, pre = open(f, errors='ignore').read().split('\n'), ''
     for i, line in enumerate(src):
@@ -170,7 +176,7 @@ for f in subprocess.run(['rg', '-l', '--pcre2', R.pattern, *roots], capture_outp
         if not re.search(rx, body): gaps.append(f'{f}:{i + 1}  /{"/".join(segs)}')
 print(f'§{2 if mode == "deny" else 5}: routes={n} public={pub} test-files={len(tests)} gaps={len(gaps)}'); print('\n'.join(gaps))
 PY
-python3 "$W/routes.py" deny "$W/deny" "${X[@]}" .
+DN="$DN" python3 "$W/routes.py" deny "$W/deny" "${X[@]}" .
 python3 "$W/routes.py" any "$W/route" "${X[@]}" .
 # 3. Typed errors thrown in source whose name no test line mentions. Generic and framework HTTP exceptions are judged
 #    by branch (1c's UNEXECUTED on the throw line), not by name.
@@ -178,8 +184,13 @@ echo '== 3'; rg -o -N --no-filename --pcre2 '^(?!\s*(?://|#|\*)).*' "${T[@]}" . 
 G='^(Error|Exception|ValueError|TypeError|RuntimeError|KeyError|HttpException|Illegal[A-Za-z]+Exception|[A-Za-z]*(BadRequest|NotFound|Forbidden|Unauthorized|Conflict|UnprocessableEntity|InternalServerError|ServiceUnavailable|TooManyRequests|NotImplemented)(Exception|Error))$'
 rg -o -N --no-filename --pcre2 '(?:throw\s+new|raise|panic\()\s*\K[A-Z]\w*|return\s+[^,\n]*,\s*\KErr[A-Z]\w*|\bErr\(\s*\K\w+(?=::)' "${X[@]}" . | sort | uniq -c | sort -rn |
   while read -r k e; do [[ $e =~ $G ]] || grep -qx "$e" "$W/tw" || echo "untested-type $e (thrown x$k)"; done
-# 4. Critical modules (money / auth / tenant / webhook / idempotency, by name) with executable code no test imports by basename.
-echo '== 4'; rg -o -N --no-filename --pcre2 "(?:from\s+|require\(\s*|import\s+)['\"][^'\"]+['\"]" "${T[@]}" . | rg -o --pcre2 "[^/'\"]+(?=['\"]$)" | sed -E 's/\.[a-z]+$//' | sort -u > "$W/ti"
+# 4. Critical modules (money / auth / tenant / webhook / idempotency, by name) with executable code no test imports by
+#    basename or is named after: quoted specifiers (JS, Go), dotted imports (Python, JVM), test-file stems. Only a file
+#    extension is stripped — `./refund.service` stays `refund.service`, the stem of refund.service.ts.
+echo '== 4'; { rg -o -N --no-filename --pcre2 "(?:from\s+|require\(\s*|import\s+)['\"][^'\"]+['\"]" "${T[@]}" . | rg -o --pcre2 "[^/'\"]+(?=['\"]$)"
+  rg -o -N --no-filename --pcre2 '^\s*(?:from|import)\s+(?:static\s+)?[\w.]+(?:\s+import\s+\(?[\w, ]+)?' "${T[@]}" . | rg -o --pcre2 '\w+'
+  rg --files "${T[@]}" . | sed -E 's|.*/||; s/\.[^.]+$//; s/^test_//; s/(_test|[.](spec|test|e2e-spec)|Tests?|IT)$//'
+} | sed -E 's/\.(c|m)?[jt]sx?$|\.(py|go|java|kt|rb|php|cs|rs|vue|svelte)$//' | sort -u > "$W/ti"
 rg --files "${X[@]}" . | rg -i --pcre2 '(?:^|/)[^/]*(?:pay|refund|charge|invoice|billing|wallet|ledger|settle|payout|pric|tax|money|balance|auth|login|session|token|permission|guard|polic|tenant|webhook|idempoten|signature|crypto)[^/]*\.(?:ts|tsx|js|py|go|java|kt|rb|php|cs|rs)$' |
   while read -r f; do b=$(basename "$f"); grep -qxF "${b%.*}" "$W/ti" || echo "$f"; done > "$W/crit"
 tr '\n' '\0' < "$W/crit" | xargs -0 -r rg -l --pcre2 '^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\b|(?:abstract\s+)?class\b|const\s+\w+\s*=\s*(?:async\s*)?\(|def\s|func\s|(?:public|private|protected)\s+[\w<>\[\]]+\s+\w+\s*\()'
@@ -202,15 +213,19 @@ meant. 1a prints exactly the added and modified lines in all four cases.
 
 **Measured** (2026-10-05, read-only). On a real NestJS-on-Fastify + MikroORM + React monorepo (about
 14,200 tracked files; 5,941 source and 3,428 test files under `X` / `T`), the whole-repo script runs
-in about 6 s: §2, 1,225 route literals, 41 marked public, 244 test files with a denial assertion,
-**123** guarded routes no denial test names, in 41 controller files; §5, 708 route-level test files,
-**44** routes none names; §3, 68 thrown types, **15** never named in a test; §4, **334** critical-name
-files with code that no test imports by basename (a triage list — most are reached through e2e, so
+in about 6 s: §2, 1,225 route literals, 41 marked public, 246 test files with a denial assertion,
+**416** guarded routes no denial *case* names, in 75 controller files (123 when any line of a deny file
+counted — sampled: the extra routes are named only in 200 cases); §5, 708 route-level test files,
+**44** routes none names; §3, 68 thrown types, **15** never named in a test; §4, **252** critical-name
+files with code that no test imports or is named after (334 while grep 4 cut `.service` off every
+specifier — a triage list — most are reached through e2e, so
 the coverage inventory decides); §6, **36** outbound-client files and **0** contract-tooling test
 files; §7, **183** of 1,331 fix commits in the last year changed source and no test. Its unit Jest
 config sets no `collectCoverageFrom`, so its unit report would carry the MC-4 blind spot. A diff run
 over 30 commits produced 3,565 changed source lines. On `benchmarks/fixtures/*` the script runs
-clean; the fixtures with no test files report every route as a §2 / §5 gap, as they should.
+clean; the fixtures with no test files report every route as a §2 / §5 gap, as they should. On
+`brittle-suite` (2026-10-05, 2.0.1): §2 lists `GET /orders/:id`, named in a deny file only by a
+same-tenant 200 case, and §4 falls from 25 files to 14.
 
 ## The 3,000-hit path
 
@@ -249,7 +264,7 @@ BAD:   @RequirePermission('orders.refund') @Post('orders/:id/refund')   — no t
 GOOD:  it('refuses a cashier', () => request(app).post(`/orders/${id}/refund`).set(cashier).expect(403))
        it('hides another tenant's order', () => … .set(otherTenant).expect(404))
 ```
-**Read the code:** Is the route really guarded (a class-level guard, a global guard with a public opt-out — grep 2 skips `@Public` within four lines above the route)? Does a test reach it through a helper that builds the URL (a gap line whose path the test assembles from variables is a false absence — read the helpers)? Does a metadata test assert the decorator (that pins the annotation, not the guard's behaviour — it lowers severity one step, it does not clear the row)? Is there a permission-matrix test that iterates every route? **Finding when** no test sends the wrong user, the wrong role or another tenant to that route family and asserts the refusal. **Proof:** the seeded violation — remove the guard or the tenant predicate on a scratch branch, run the suite, restore; green proves nothing pins it ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Seeded violation, variants V71).
+**Read the code:** Is the route really guarded (a class-level guard, a global guard with a public opt-out — grep 2 skips `@Public` within four lines above the route)? Does a test reach it through a helper that builds the URL (a gap line whose path the test assembles from variables is a false absence — read the helpers)? Does the suite assert refusals through a helper (`refused(res)`, `expectForbidden`)? Grep 2 counts a case as a denial only by `DN` — add the helper's name and re-run. Does a metadata test assert the decorator (that pins the annotation, not the guard's behaviour — it lowers severity one step, it does not clear the row)? Is there a permission-matrix test that iterates every route? **Finding when** no test sends the wrong user, the wrong role or another tenant to that route family and asserts the refusal. **Proof:** the seeded violation — remove the guard or the tenant predicate on a scratch branch, run the suite, restore; green proves nothing pins it ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Seeded violation, variants V71).
 
 ### 3. Typed errors and error branches never asserted
 

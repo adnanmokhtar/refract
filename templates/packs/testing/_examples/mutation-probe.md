@@ -23,7 +23,7 @@ Detect the tool from config and dependencies; never impose one. Use each tool's 
 
 ## Procedure
 
-1. Compute the changed lines from the merge base, skip arid lines (logging, imports, braces).
+1. Compute the changed lines from the merge base, skip arid lines (logging, imports, braces). With no merge base (a single-commit repo, a shallow clone) the scope is `blocked (no merge-base)` unless named files (`SCOPE=<paths>`) are mutated whole — never the whole repo.
 2. Run the project's mutation tool scoped to those lines with its diff-scoped mode (above), never the whole tree. With no tool, seed one operator per branch by hand, run the covering tests, restore, and prove the restore with `git diff --exit-code`.
 3. Parse the report for surviving mutants (the survivor statuses above). For each, capture `<file:line>`, the mutation operator applied, and the original → mutated source.
 4. Classify each survivor by **why the test missed it** — no assertion on the mutated value (a real gap; name the assertion to add) · asserts a coincidental side value (tighten the existing assertion) · the line never ran (a coverage gap — hand to `coverage-gap`) · equivalent mutant (dismiss only after the five checks: type context, reachability, downstream consumption, semantic comparison, a distinguishing-input attempt).

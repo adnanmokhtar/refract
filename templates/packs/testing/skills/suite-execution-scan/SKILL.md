@@ -110,7 +110,8 @@ rg -n --pcre2 '@pytest\.mark\.xfail\b(?![^\n]*strict\s*=\s*True)|xfail_strict\s*
 
 # 3. §3 never collected, never run: test-looking files no Jest / Vitest / Playwright config claims (3a); test scripts no
 #    CI file invokes (3b); never-collected shapes per stack — Go names and signatures, pytest classes with __init__ and
-#    off-pattern names, JUnit 4 under Jupiter and private / static / non-void tests, docblock @test, non-public .NET (3c).
+#    off-pattern names, JUnit 4 under Jupiter and private / static / non-void tests, docblock @test, non-public .NET (3c);
+#    `*IT` classes no Failsafe runs (3d).
 cat > "$TMP/claims.py" <<'PY'
 import os, re, subprocess
 fs = lambda d: subprocess.run(['rg', '--files', '-g', '!**/node_modules/**', '-g', '!**/dist/**', d], capture_output=True, text=True).stdout.split()
@@ -152,6 +153,13 @@ rg -n -U --pcre2 '^class\s+Test\w*[^\n]*:\s*\n(?:[ \t]+[^\n]*\n|[ \t]*\n)*?[ \t]
 rg -l --pcre2 '^\s*(?:async\s+)?def\s+test\w*\s*\(' -g '**/{tests,test}/**/*.py' -g '!**/{test_*,*_test,conftest,__init__}.py' "${V[@]}" .
 rg -n -U --pcre2 '^import\s+org\.junit\.Test\s*;|@(?:org\.junit\.jupiter\.api\.)?(?:Test|ParameterizedTest|RepeatedTest)\b[^\n]*\n(?:\s*@[^\n]*\n)*\s*(?:(?:public|protected)\s+)?(?:private\b|static\b|(?!void\b)(?:int|long|boolean|String|Object|[A-Z]\w*(?:<[^>]*>)?)\s+\w+\s*\()' -g '**/*{Test,Tests,IT,TestCase}.{java,kt}' "${V[@]}" . | rg --pcre2 '^[^:]+:\d+:\s*(?:import|@)'
 rg -n --pcre2 '<artifactId>(?:junit-vintage-engine|maven-failsafe-plugin|junit-jupiter\w*)</artifactId>|\bjunit-vintage-engine\b' -g '**/{pom.xml,build.gradle,build.gradle.kts}' "${V[@]}" .
+# 3d. A missing config has no line, so this is a presence check: an `*IT` class under a Maven pom where neither that pom nor
+#     any pom above it declares maven-failsafe-plugin or a Surefire `<include>` of `*IT` — Surefire's defaults never run it.
+rg --files -g '**/*IT.{java,kt}' "${V[@]}" . | while IFS= read -r f; do d=$(dirname "$f"); p=; ok=
+  while :; do [ -f "$d/pom.xml" ] && { p=${p:-$d/pom.xml}; rg -q --pcre2 'maven-failsafe-plugin|<include>[^<]*IT\b[^<]*</include>' "$d/pom.xml" && ok=1; }
+    [ "$d" = . ] || [ "$d" = / ] && break; d=$(dirname "$d"); done
+  [ -n "$p" ] && [ -z "$ok" ] && rg -n --pcre2 '^\s*(?:(?:public|internal|open|final)\s+)*class\s+\w+IT\b' "$f" | sed "s|^|NO-FAILSAFE $f:|; s|\$|  (pom: $p)|"
+done
 rg -n --pcre2 '@test\b|^\s*(?:private|protected)\s+function\s+test\w*\(' -g '**/*Test.php' "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\[(?:Fact|Theory|Test|TestMethod|TestCase)\b[^\]]*\]\s*(?:\[[^\]]*\]\s*)*(?!public\b)(?:(?:private|internal|protected)\s+)?(?:static\s+)?(?:async\s+)?(?:void|Task)\s+\w+\(' -g '**/*.cs' "${V[@]}" .
 
@@ -191,7 +199,7 @@ capability gates (`runIf(existsSync(dist))` after a CI build step; `runIf(browse
 3a: 0 unclaimed files across the six configs. 3b: the Playwright flow suite (6 files), the Storybook
 story-test project and the fuzz suites (money and stock among them) are invoked by no CI file — the
 fuzz suites only from a local release script — the run's real § 3 candidates; the root aliases
-resolve to in-CI jobs. 4a: 1 (`continue-on-error` on an
+resolve to in-CI jobs. 3d: 0 (no Maven module). 4a: 1 (`continue-on-error` on an
 advisory runtime job with a stated one-quarter window, [`precedents/testing.md`](../../../../snippets/precedents/testing.md)
 § 28). 4b: 2 (a local gate script, run by no CI job). 4c: 5, all `--forceExit` on Jest e2e and fuzz
 runs, including the four CI e2e shards (§ 30: masking is real only with a floating assertion, and
@@ -199,7 +207,9 @@ runs, including the four CI e2e shards (§ 30: masking is real only with a float
 declared (the QG-9 pre-existing line). 6a–6c: 0; an unscoped `retries` grep returns job-queue
 settings in shipped code, which is why grep 6 reads only runner config, test files and CI. On
 `benchmarks/fixtures/*` (no CI file in any of them) 3b prints `NO-CI-FILE` and its 9 test scripts as
-`NOT-IN-CI` — true, nothing runs them in CI — and every other grep returns 0.
+`NOT-IN-CI` — true, nothing runs them in CI — and every other grep returns 0. On `brittle-suite`
+(2.0.1) 3d prints `NO-FAILSAFE …/PayoutRepositoryIT.java:12` — its pom declares Surefire only, an
+absence no line grep can cite.
 
 ## The 3,000-hit path
 
@@ -251,10 +261,11 @@ GOOD:  it.skip('… — #812, owner @payments, remove by 2026-12-01', …) · a 
 BAD:   src/billing/refund.test.ts under a config whose testRegex is '\.spec\.ts$'
        test/integration/*.spec.ts outside roots ['<rootDir>/src', '<rootDir>/test/unit']
        func Testrefund(t *testing.T) · class TestOrders: def __init__ · import org.junit.Test under Jupiter without vintage
+       PayoutRepositoryIT.java in a module whose pom declares maven-surefire-plugin only — Surefire never runs *IT
        "test:flows": "playwright test" — and no workflow runs it
 GOOD:  the file renamed into the pattern or the pattern widened; a CI job (or a scheduled workflow with an owner) that runs the suite
 ```
-**Read the code:** Is the file a test (it declares a case) or a helper? Is it excluded on purpose (a fixture directory, an e2e suite another job runs — name the job)? Does an alias script reach the unclaimed suite? **Finding when** a file that declares cases is collected by no config, or a configured suite is invoked by no CI job and no scheduled workflow. **Proof:** the collection count — LOOKS − COLLECTED with the runner's own list, or the CI files showing no invocation; after the fix the test is listed **and** fails under break the SUT (V62).
+**Read the code:** Is the file a test (it declares a case) or a helper? Is it excluded on purpose (a fixture directory, an e2e suite another job runs — name the job)? Does an alias script reach the unclaimed suite? For a 3d row: does CI invoke Failsafe directly (`mvn failsafe:integration-test`) or through a profile in a parent pom outside the repo? A pom that names Failsafe only inside a `<profile>` passes 3d — read whether CI activates it. **Finding when** a file that declares cases is collected by no config, or a configured suite is invoked by no CI job and no scheduled workflow. **Proof:** the collection count — LOOKS − COLLECTED with the runner's own list, or the CI files showing no invocation; after the fix the test is listed **and** fails under break the SUT (V62).
 
 ### 4. CI or runner switch that masks failure
 

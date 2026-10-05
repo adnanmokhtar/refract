@@ -9,6 +9,48 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-05
+
+**Six measured detector defects, found by running each pre-flight on `benchmarks/fixtures/brittle-suite`
+and on a real NestJS + React monorepo (read-only).** Each fix was re-measured on every fixture and on
+that repo; counts are before → after.
+
+- **`coverage-gap` grep 4 read every `*.service.ts` as untested.** `sed -E 's/\.[a-z]+$//'` stripped
+  the last dotted segment of every import specifier, so `./refund.service` became `refund` and never
+  matched `refund.service.ts`. Only a file extension is stripped now, and the check also reads
+  dotted Python / JVM imports and test-file stems (`PayoutCalculatorTest`, `settle_test.go`,
+  `test_chargebacks.py`). brittle-suite 25 → 14 files (CG-04 still listed); the real repo 334 → 252.
+- **`coverage-gap` § 2 counted a route as denial-tested when its deny file named it anywhere.** A
+  route named only in a same-tenant 200 case read as covered because another case in the file
+  asserted a 404. Grep 2 now matches the route only in the file's preamble (route tables) and in
+  cases that assert a refusal; a skipped case never counts, and a multi-line `.expect(\n 403,\n)` and
+  `HttpStatus.FORBIDDEN` count as refusals. brittle-suite 2 → 3 gaps (**BS-CG-01**, `GET
+  /orders/:id`, now listed); the real repo 123 → 416 — sampled extras are named only in 200 cases.
+- **`mutation-probe` printed `awk: can't open file …/ranges.all` with no merge base** (a single-commit
+  repo, a shallow clone, an unfetched `origin/main`) — and on any empty diff, as on the real repo with
+  HEAD at its merge base: the awk that writes the ranges file never ran. The scope files are created up front; with no base the block prints
+  `scope: blocked (no merge-base …)` and an empty scope, and a new `SCOPE=<paths>` mutates named files
+  whole. It never widens itself to the whole repo. The diff scope on the real repo is unchanged
+  (30 commits: 3,565 lines, 363 hunks, 2,316 mutable).
+- **`assertion-strength-scan` grep 3b dropped a whole file when any case in it used `.toThrow` or
+  `.rejects`.** A guard is now read in the site's own case only (`fail(`, a `throw new` after the
+  call, `.toThrow`, `.rejects`, `expect.assertions`); a file-level `expect.hasAssertions` tags the
+  row. brittle-suite reaches **BS-AS-10** (`refund-window.spec.ts:15`); the real repo stays at 2
+  sites, its other 17 catch-with-`expect` sites guarded in their own case.
+- **`suite-execution-scan` could not see a missing Failsafe plugin** — an absence has no line. New
+  grep 3d is a presence check: an `*IT` class under a Maven pom where neither that pom nor any pom
+  above it declares `maven-failsafe-plugin` or a Surefire `<include>` of `*IT` prints `NO-FAILSAFE
+  <file>:<line>`. brittle-suite reaches **BS-SE-08**; the real repo has no Maven module (0).
+- **`flake-source-scan` § 1 saw only the test side of a clock or zone read.** New grep 1d lists a
+  zone-dependent format or calendar read in shipped JS / TS / Python (`toLocaleDateString` with no
+  `timeZone`, `getMonth()`, `fromtimestamp` with no `tz`) in a module that a date-asserting test
+  imports by name, as `source:line <- test:line`. brittle-suite reaches **BS-FL-12**
+  (`RefundDue.tsx:3 <- RefundDue.test.tsx:7`) and not the coupon decoy; the real repo prints 61
+  source lines in 16 modules behind 22 test files. A clock read behind a service, a helper or the
+  database stays with the perturbation run.
+- `_examples/coverage-gap.md` and `_examples/mutation-probe.md` carry the case-scoped denial rule,
+  the extension-only strip and the no-merge-base rule.
+
 ## 2.0.0 — 2026-10-05
 
 **The pack wrote tests and judged the ones in front of it; nothing judged the suite.** It had no
