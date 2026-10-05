@@ -60,7 +60,7 @@ belong in a gate.
 
 ## 2. Run the gates locally
 
-`.github/workflows/quality-gates.yml` runs **70 blocking steps** on every push to `main` and every
+`.github/workflows/quality-gates.yml` runs **71 blocking steps** on every push to `main` and every
 pull request. Every one of them is blocking: a red gate is a merge blocker, not a note for later.
 
 > **All 71 gates are green on `main`.** There is no known-red allowance: if a gate fails locally,
