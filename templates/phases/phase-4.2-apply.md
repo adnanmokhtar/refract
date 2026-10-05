@@ -217,7 +217,10 @@ for s in ~/.claude/templates/packs/<track>/skills/*/; do
   if [ -f ".claude/skills/$n.md" ]; then
     echo "  shape-skip: '$n' already installed as .claude/skills/$n.md (legacy flat shape — same skill)"; continue
   fi
-  cp -R "$s" .claude/skills/
+  # "${s%/}", never "$s": the glob leaves a trailing slash, and BSD cp (macOS) reads
+  # `cp -R dir/ dest/` as "copy the CONTENTS" — every skill's SKILL.md then lands on the same
+  # .claude/skills/SKILL.md and all but the last are lost. GNU cp copies the folder either way.
+  cp -R "${s%/}" .claude/skills/
 done
 
 # Copy rules
@@ -276,6 +279,9 @@ cp -R ~/.claude/templates/packs/<track>/rules/*.md .claude/rules/ 2>/dev/null ||
 # fixed instead of surfacing three phases later as an absence nobody attributes to Phase 2.
 ~/.claude/scripts/verify-profile-contract.sh . --warn-only
 
+# Pack rules ship a broad `paths:` at source, marked `paths-origin: pack-default-<sha8>`.
+# scope-rules.sh REPLACES that unedited default with the track root below; a `paths:` the owner
+# wrote (or edited) is left as it is. On a single-track project the broad default simply stays.
 if [ "<is-multi-track>" = "true" ]; then
   for r in ~/.claude/templates/packs/<track>/rules/*.md; do
     ~/.claude/scripts/scope-rules.sh ".claude/rules/$(basename "$r")" "<track-src-root>" 2>/dev/null || true

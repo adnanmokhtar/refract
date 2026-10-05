@@ -52,6 +52,17 @@ Phase 4.6 (STUDY → DECIDE → ACT) is what reconciles new pack content against
 4. If the pack should be added by default for a profile, update `setup-project.md` Phase 4.0 minimums table.
 5. Run `scripts/seed-versions.sh` to confirm the version file is well-formed.
 
+## A rule's `paths:` at source
+
+Claude Code loads a rule without `paths:` in every session, so every pack and domain rule ships a
+`paths:` block list at source unless its truth is universal for the projects that install it (the
+always-on allowlist, with reasons: `scripts/test-rule-loading.sh` § 5). The default is broad on
+purpose — the source and config file shapes of every stack — because a glob that matches no file
+in a real project makes the rule load never. It is followed by `paths-origin: pack-default-<sha8>`
+(sha1 over the globs, one per line, first 8 hex), which lets `/setup-project` replace it with this
+project's tree. Change the globs → recompute the hash (§ 5 prints the command), or the setup will
+treat the list as hand-written and never narrow it.
+
 ## See also
 
 - `_trigger-vocabulary.md` — auto-detection signals → pack mapping.

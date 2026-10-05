@@ -28,12 +28,17 @@ recorded 80 real module paths for that repo. **Tokens matched against recorded m
 
 ## The two safety rules
 
-1. **No module matched → the rule stays always-loaded.** Absence of evidence is not evidence the
+Every domain rule now ships a broad `paths:` at source (the source and config file shapes of every
+stack, marked `paths-origin: pack-default-<sha8>`); a match below REPLACES that default, and a
+`paths:` the owner wrote or edited is never touched.
+
+1. **No module matched → the rule keeps its broad pack default** (or stays always-loaded when it has
+   no `paths:`). Absence of evidence is not evidence the
    rule is unneeded. Scoping a rule to a path that does not exist makes it load NEVER — the exact
    knowledge loss this whole mechanism must not cause. Measured on the reference monorepo:
    `background-jobs`, `file-upload` and `search` matched no module and correctly stayed as they
    were.
-2. **A domain spanning most of the repo stays always-loaded.** If the matched modules cover more
+2. **A domain spanning most of the repo keeps its broad default.** If the matched modules cover more
    than `SCOPE_MAX_SHARE` (default 40%) of mapped modules, the concept is pervasive rather than
    local — `multi-tenant` on a multi-tenant app — and scoping it buys nothing while risking a miss.
 
