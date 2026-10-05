@@ -104,7 +104,7 @@ rg -c --pcre2 '\bfrom\s+["\x27](?:zod|zod/v4|valibot|yup|joi|ajv|@sinclair/typeb
 #    1f Java / C# casts of a deserializer's result.
 rg -n --pcre2 'JSON\.parse\([^\n]*\)\s*as\s+'"$A"'|<'"$A"'[A-Z][\w.]*(?:<[^>\n]*>)?(?:\[\])?>\s*JSON\.parse\(|\.json\(\)\s*\)?\s*as\s+'"$A"'|\.json\(\)\s*as\s+Promise<|\b(?:req|request|ctx\.request)\.(?:body|query|params|headers|cookies)\s+as\s+'"$A"'|\b(?:event|message|msg|job|payload|response|res)\.(?:data|payload|body|detail)\s+as\s+'"$A"'|\bprocess\.env(?:\.\w+|\[[^\]\n]+\])\s+as\s+'"$A"'|\b(?:localStorage|sessionStorage)\.getItem\([^)\n]*\)\s*(?:!|as\s+'"$A"')' -t ts "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\bcast\(\s*[^,\n]+,\s*(?:json\.loads|await\s+[\w.]+\.json\(\)|[\w.]+\.json\(\)|request\.(?:json|get_json\(\)|data|form|args)|os\.environ)|(?<![\w.])[A-Z]\w*\(\s*\*\*\s*(?:json\.loads\(|[\w.]*\.json\(\)|request\.(?:json|get_json\(\)))' -t py "${X[@]}" . | "${NC[@]}"
-rg -n --pcre2 '^(?![^\n]*,\s*ok\s*:?=)(?![^\n]*\bswitch\b)[^\n]*\b\w+(?:\.\w+|\(\))*\.\((?!type\))\*?[\w.\[\]]+\)' -t go "${X[@]}" . | "${NC[@]}"
+rg -n --pcre2 '^(?![^\n]*,\s*ok\s*:?=)(?![^\n]*\bswitch\b)[^\n]*\b\w+(?:\.\w+|\(\)|\[[^\]\n]*\])*\.\((?!type\))\*?[\w.\[\]{}]+\)' -t go "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\bas\s+(?!\?)[A-Z][\w.]*(?:<[^>\n]*>)?(?![\w?])' -t kotlin "${X[@]}" . | "${NC[@]}"; rg -n --pcre2 '\bas!|\btry!' -t swift "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '(?:serde_json::from_(?:str|slice|value|reader)\([^\n]*\)|\.parse::<[^>\n]+>\(\)|\.parse\(\))\s*\.(?:unwrap|expect)\(' -t rust "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\(\s*[A-Z][\w.<>?, ]*\)\s*(?:\w*[Mm]apper|gson|om|serializer)\.\w+\(|\breadValue\([^,\n]+,\s*(?:Object|Map|HashMap)\.class\)|\(\s*[A-Z]\w*\s*\)\s*JsonConvert\.DeserializeObject\(|JsonSerializer\.Deserialize<[^>\n]+>\([^)\n]*\)!' -t java -t kotlin -t cs "${X[@]}" . | "${NC[@]}"
@@ -157,8 +157,11 @@ files; 1a 61 — 35 `JSON.parse … as` (13 of them Redis, session and cache pay
 event payloads `event.payload as { … }`, 2 storage, 2 request; 2 199 — 98 an index after a bound
 (`xs[i]!`, § 27 to verify), 19 on a lookup call (`map.get(k)!`, `config.get('jwt')!`), the rest
 optional members; 3 0; 4a 201 (175 in the API, nearly all ORM rows re-typed `r as unknown as Row`,
-§ 30); 4b 0 (`no-explicit-any` is at error there, so the tool owns it). Go, JVM, C#, PHP, Rust and
-Ruby greps are not measured: no measured repo has that code.
+§ 30); 4b 0 (`no-explicit-any` is at error there, so the tool owns it). Go: `quality-mix` 1c 4 —
+`raw["id"].(string)` on a decoded `map[string]any` (the commonest decoded-JSON shape; the first cut
+of 1c matched only `v.(T)` and `f().(T)` and missed all four, so an index before the assertion is now
+part of the receiver). JVM, C#, PHP, Rust and Ruby greps are not measured: no measured repo has that
+code.
 
 ## The 3,000-hit path
 

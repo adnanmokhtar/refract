@@ -58,7 +58,7 @@ Run the project's own tool first. Versions: code-quality research catalog, 2026-
 | Ruby · PHP · Rust | packwerk 3.3.1 · deptrac 4.7.2 · `cargo modules dependencies --lib --acyclic` | `bin/packwerk check` · `deptrac analyse` · crate split | RuboCop `Metrics/*` · PHPMD 3.0.0 · clippy |
 | any | — | — | **lizard 1.24.0** `--csv` (30+ languages) |
 
-**Traps, measured 2026-10-05.** (1) dependency-cruiser 18.5.0 refuses Node 23 (`^22||^24||>=26`). (2) `--ts-config apps/x/tsconfig.json` from the repo root cannot read its `extends` (TS5083): run from the tsconfig's directory. (3) `dependencyTypesNot: ['type-only']` on `to` alone still reported 4 cycles closing through an `import type`; adding `viaOnly` with the same filter gave 0. (4) One specifier imported as a value **and** re-exported as a type gives two entries: an edge is type-only only when every entry is. A home-grown cycle gate that erased by specifier text missed a 12-file runtime cycle that dependency-cruiser reported. (5) The Refract graph (`~/.claude/scripts/build-graph.py --corpus=project`) printed `0 alias rule(s) read` on a monorepo with per-app tsconfig `paths`: 9,560 `@/` imports gave no edge. It is a fallback lane for TS/JS.
+**Traps, measured 2026-10-05.** (1) dependency-cruiser 18.5.0 refuses Node 23 (`^22||^24||>=26`): the script then prints §2 `blocked` for that root, never `0 cycles`, and lists the Refract graph's strongly connected components as candidates. (2) `--ts-config apps/x/tsconfig.json` from the repo root cannot read its `extends` (TS5083): run from the tsconfig's directory. (3) `dependencyTypesNot: ['type-only']` on `to` alone still reported 4 cycles closing through an `import type`; adding `viaOnly` with the same filter gave 0. (4) One specifier imported as a value **and** re-exported as a type gives two entries: an edge is type-only only when every entry is. A home-grown cycle gate that erased by specifier text missed a 12-file runtime cycle that dependency-cruiser reported. (5) The Refract graph (`~/.claude/scripts/build-graph.py --corpus=project`) printed `0 alias rule(s) read` on a monorepo with per-app tsconfig `paths`: 9,560 `@/` imports gave no edge. It is a fallback lane for TS/JS.
 
 ## Pre-flight (one script)
 
@@ -77,6 +77,8 @@ rg -n --pcre2 'boundaries/(?:dependencies|element-types)|no-restricted-(?:import
 rg -l --pcre2 '\b(?:layeredArchitecture|beFreeOfCycles|ArchRuleDefinition|ArchUnitNET|NetArchTest|Konsist|findImportCycles)\b|(?:no-)?import-cycles\.|architecture-rules\.' -g '*.{ts,tsx,js,cjs,mjs,py,java,kt,cs,go,rb,php}' -g '!**/{node_modules,vendor,migrations}/**' -g '!{ai,docs}/**' .
 # 0c. The repo-baseline module-boundaries hook: each rule line is an executable boundary for §1.
 [ -f ai/modules.md ] && rg -n '^- `[^`]+` (?:MUST NOT import from|MAY import from) `' ai/modules.md; [ -d .claude ] && rg --files -g 'module-boundaries.sh' .claude
+# 1b. A framework, ORM or web package imported inside a domain folder: the graph drops node_modules edges, so §1 sees these only here.
+rg -n --pcre2 '^\s*(?:import\b[^\n]*\bfrom\s+|import\s+|from\s+)["\x27]?(?:@prisma/client|typeorm|@mikro-orm/|@nestjs/|express|fastify|sequelize|mongoose|knex|drizzle-orm|django|sqlalchemy|flask|fastapi|gorm\.io|github\.com/gin-gonic|org\.springframework|jakarta\.persistence|javax\.persistence)' -g '**/domain/**' "${X[@]}" .
 # 1–4. The graph. JS/TS: dependency-cruiser per tsconfig root, run FROM that root (trap 2); cycles on value edges only (trap 3).
 cat > "$D/dc.cjs" <<'JS'
 module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {},
@@ -92,7 +94,7 @@ n=0; for c in $(rg --files -g 'tsconfig.json' -g '!**/node_modules/**' .); do r=
 [ -f go.mod ] && go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' ./... > "$D/go.txt"   # package edges; Go package cycles do not compile
 python3 - "$D" <<'PY'
 import json,glob,os,re,sys,collections as C
-D=sys.argv[1]; E=set(); VAL=set(); lane=[]; pc=lambda v,q: sorted(v)[int(q*(len(v)-1))] if v else 0
+D=sys.argv[1]; E=set(); VAL=set(); FB=set(); lane=[]; pc=lambda v,q: sorted(v)[int(q*(len(v)-1))] if v else 0
 TEST=re.compile(r'(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|testdata|stories|migrations|seeds|generated|scripts|docs|ai|node_modules|vendor|dist|build)/|\.(spec|test|e2e-spec|stories|d)\.|(^|/)(test_[^/]*|[^/]*_test)\.\w+$')
 for p in sorted(glob.glob(D+'/dc.*.json')):
     r=open(p[:-4]+'root').read().strip(); J=lambda s: os.path.normpath(os.path.join(r,s)); lane.append('dependency-cruiser '+r)
@@ -103,7 +105,7 @@ for p in sorted(glob.glob(D+'/dc.*.json')):
 done={a.split('/src/')[0] for a,_ in E}
 if os.path.exists(D+'/graph.json'):
     g=json.load(open(D+'/graph.json')); lane.append('refract graph ('+g['gates']['code']['detail'].split(';')[-1].strip()+')')
-    G0={(x['from'],x['to']) for x in g['edges'] if x['from'].split('/src/')[0] not in done}; E|=G0; VAL|=G0
+    G0={(x['from'],x['to']) for x in g['edges'] if x['from'].split('/src/')[0] not in done}; E|=G0; VAL|=G0; FB|=G0
 if os.path.exists(D+'/go.txt'):
     mp=open('go.mod').read().split()[1]; lane.append('go list'); G0={(a,b) for l in open(D+'/go.txt') for a,*bs in [l.split()] for b in bs if b.startswith(mp)}; E|=G0; VAL|=G0
 E={e for e in E if not TEST.search(e[0]) and not TEST.search(e[1]) and e[0]!=e[1]}; V=E&VAL
@@ -138,7 +140,31 @@ for p in glob.glob(D+'/dc.*.json'):
         if x['rule']['name']=='no-circular': cy.append({os.path.normpath(os.path.join(r,y if isinstance(y,str) else y['name'])) for y in [x['from']]+x['cycle']})
 grp=[]
 for c in cy: hit=[g for g in grp if g&c]; grp=[g for g in grp if not g&c]+[set().union(c,*hit)]
-print(f'§2 runtime cycles {len(grp)} (from {len(cy)} reported paths; lanes without dependency-cruiser: the cycle tool in the lane table)'); [print(f'   {len(g)} files / {len({M[x] for x in g if x in M})} modules:',' '.join(sorted(g)[:4])) for g in sorted(grp,key=len,reverse=True)[:5]]
+BL=[open(r).read().strip() for r in glob.glob(D+'/dc.*.root') if not os.path.exists(r[:-4]+'json')]   # a root whose dependency-cruiser run failed
+FB={e for e in FB if e in E}; adj=C.defaultdict(list); [adj[a].append(b) for a,b in FB]; ix={}; low={}; st=[]; on=set(); scc=[]; k=0
+for v0 in list(adj):   # iterative Tarjan over the fallback graph: SCCs are cycle CANDIDATES (no type-only flag, trap 5)
+    if v0 in ix: continue
+    work=[(v0,0)]
+    while work:
+        v,i=work.pop()
+        if i==0: ix[v]=low[v]=k; k+=1; st.append(v); on.add(v)
+        if i<len(adj[v]):
+            work.append((v,i+1)); w=adj[v][i]
+            if w not in ix: work.append((w,0))
+            elif w in on: low[v]=min(low[v],ix[w])
+            continue
+        for w in adj[v]:
+            if w in on: low[v]=min(low[v],low[w])
+        if low[v]==ix[v]:
+            c=set()
+            while True:
+                x=st.pop(); on.discard(x); c.add(x)
+                if x==v: break
+            if len(c)>1: scc.append(c)
+if BL: print(f'§2 blocked (dependency-cruiser failed in {", ".join(BL)} — see the "graph blocked" line above; never "0 cycles" there)')
+if glob.glob(D+'/dc.*.json'): print(f'§2 runtime cycles {len(grp)} (dependency-cruiser, {len(cy)} reported paths, value edges only)'); [print(f'   {len(g)} files / {len({M[x] for x in g if x in M})} modules:',' '.join(sorted(g)[:4])) for g in sorted(grp,key=len,reverse=True)[:5]]
+elif not FB and not BL: print('§2 blocked (no lane computed cycles: no dependency-cruiser run, no Refract graph; Go package cycles do not compile)')
+if FB: print(f'§2 cycle candidates from the Refract graph {len(scc)} (type-only edges included — read each before reporting, trap 5)'); [print(f'   {len(c)} files:',' '.join(sorted(c)[:4])) for c in sorted(scc,key=len,reverse=True)[:5]]
 Ca=C.defaultdict(set); Ce=C.defaultdict(set); MS=set(M.values()); root=lambda m: m.split('/')[-1]=='src' or '/' not in m
 for a,b in V:
     if M[a]!=M[b]: Ce[M[a]].add(M[b]); Ca[M[b]].add(M[a])
@@ -182,7 +208,7 @@ PY
 
 A candidate is an output line **plus** the code read at both ends **plus** the declared rule or the impact evidence. Blind spots: DI by token, dynamic `import()`, reflection, event buses and file-based routing produce no edge (read each composition root); the module unit is a guess until `ai/modules.md` names it; squash merges and fixes filed as `chore:` starve §9's fix share (read the top hotspots' commit subjects).
 
-**Measured** (2026-10-05) on a real NestJS-on-Fastify + MikroORM + React monorepo (6,038 production files, 31,366 edges, 3,552 commits; about 22 s). §1: 0 edges against the declared hexagonal order in the API, which its ESLint rules hold at error; 108 default FSD hits in the web app, all inside the exemption those rules carry, so the declared tool wins. §2: 1 runtime cycle, 12 files across three feature slices through their barrels, missed by the project's own gate (trap 4). §3: every file above the fan-in p99 (19 importing modules) is shared kernel. §4: the eight largest fan-outs are composition roots (§ 57). §6: 0. §8: six hand-rolled unique-code retry loops in four modules. §9: 82 hotspots, 46 at or above the repo's 0.46 fix share; on the top one, a 426-line function with CCN 75, 20 of the 28 commits on its own lines were fixes. The most-churned file (90 commits) was a composition root the complexity cut removed. `benchmarks/fixtures/slow-marketplace`: §2 lists 3 ORM-entity cycles (§2 read).
+**Measured** (2026-10-05) on a real NestJS-on-Fastify + MikroORM + React monorepo (6,038 production files, 31,366 edges, 3,552 commits; about 22 s). §1: 0 edges against the declared hexagonal order in the API, which its ESLint rules hold at error; 108 default FSD hits in the web app, all inside the exemption those rules carry, so the declared tool wins. §2: 1 runtime cycle, 12 files across three feature slices through their barrels, missed by the project's own gate (trap 4). §3: every file above the fan-in p99 (19 importing modules) is shared kernel. §4: the eight largest fan-outs are composition roots (§ 57). §6: 0. §8: six hand-rolled unique-code retry loops in four modules. §9: 82 hotspots, 46 at or above the repo's 0.46 fix share; on the top one, a 426-line function with CCN 75, 20 of the 28 commits on its own lines were fixes. The most-churned file (90 commits) was a composition root the complexity cut removed. `benchmarks/fixtures/slow-marketplace`: §2 lists 3 ORM-entity cycles (§2 read). `quality-mix` on Node 23.8: 1b → the one seeded `@prisma/client` import in `api/src/domain` (the declared rule exists but no CI runs it); dependency-cruiser blocked in both roots, so §2 prints `blocked` and the Refract graph's 2 strongly connected components as candidates — one is the seeded `billing.events` ↔ `billing.service` value cycle, the other an `import type` pair (Hardening).
 
 ## Diff runs — worse than the merge-base, or Pre-existing
 

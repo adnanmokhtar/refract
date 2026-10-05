@@ -131,10 +131,12 @@ rg -n -U --pcre2 '\bsubprocess\.(?:run|call)\((?=(?:(?!\bcheck\s*=)[^()]|\([^()]
 rg -n -U --pcre2 '(?:\bfunction\s*\w*\s*)?\(\s*(err|error)\s*(?::\s*[\w.|<> ]+)?\s*,\s*[^()]*\)\s*(?:=>)?\s*\{(?=(?:(?!\b\1\b)[^{}])*\})' -t js -t ts "${X[@]}" . | "${NC[@]}"
 
 # 4. An async failure nobody observes: 4a async callbacks handed to APIs that drop the promise, dangling tasks, async void;
-#    4b `.map(async` not collected by Promise.all / await / return; 4c a `.then(` chain started as a statement with no `.catch(`.
+#    4b `.map(async` not collected by Promise.all / await / return; 4c a `.then(` chain started as a statement with no `.catch(`;
+#    4d a promise discarded with `void` inside a function (`void` also silences no-floating-promises: its ignoreVoid default).
 rg -n --pcre2 '\.(?:forEach|forEachRight)\(\s*async\b|\bnew\s+Promise\(\s*async\b|\.(?:on|once|addListener|addEventListener)\(\s*["\x27][\w:.-]+["\x27]\s*,\s*async\b|\b(?:setTimeout|setInterval|setImmediate|queueMicrotask)\(\s*async\b|^\s*asyncio\.(?:create_task|ensure_future)\(|^\s*(?:self\.)?\w*loop\.create_task\(|\basync\s+void\s+\w+\s*\((?![^)]*EventArgs)|\bGlobalScope\.(?:launch|async)\b' "${X[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '(?:(?<=[;{}]\n)|\A)[ \t]*(?!(?:return|await|yield|const|let|var|this\.\w+\s*=)\b)(?![^\n]*\bPromise\.\w+\()[^\n]*?\.(?:map|flatMap)\(\s*async\b' -t js -t ts "${X[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '(?:(?<=[;{}]\n)|\A)([ \t]*)(?!(?:return|await|yield|const|let|var|export|void|throw)\b)(?![\w$.]+\(\s*(?:async\s+)?(?:\([^()]*\)|\w+)\s*=>)(?:this\.)?[\w$]+(?:\.[\w$]+)*\((?=(?:(?!\.catch\(|;[ \t]*$|\{[ \t]*$)[\s\S]){0,300}?\.then\((?:(?!\.catch\()[\s\S]){0,300}?;[ \t]*$)' -t js -t ts "${X[@]}" . | "${NC[@]}"
+rg -n --pcre2 '^[ \t]+void\s+(?:this\.)?[\w$]+(?:\.[\w$]+)*\((?![^\n]*\.catch\()' -t js -t ts "${X[@]}" . | "${NC[@]}"
 
 # 5. Catch-everything: bare except / BaseException / Exception, suppress(Exception), catch Throwable / Exception /
 #    RuntimeException, C# catch (Exception), rescue Exception / bare rescue, PHP catch (\Throwable).
@@ -187,7 +189,10 @@ rule configured); 1a 349, of which 289 sit in probe and audit scripts and the 60
 shipped); 2a 496 (131 shipped: 116 try/catch, 15 promise); 3c 21 (all in probe scripts); 4a 11 (3
 shipped: async `ctx.once` listeners); 4b 0; 4c 3 — the first draft printed 147 (method declarations
 and `lazy(() => import().then())` arguments) until the statement-start anchor; 5 0 (no Python, JVM
-or C#); 6a 7; 6c 13 (domain codes matched with `e.message === 'CODE'`); 7a 0; 7b 0.
+or C#); 6a 7; 6c 13 (domain codes matched with `e.message === 'CODE'`); 7a 0; 7b 0. Grep 4d was added
+after `quality-mix` measured its reach (`void this.ledger.post(…)` reached by no grep): on the seven
+fixtures it prints 2 — that line and a `void reply.send(…)` to read; top-level `void main()` is
+excluded by the indent anchor, a `.catch(` on the line by the lookahead. Not yet run on a real repo.
 
 ## The 3,000-hit path
 

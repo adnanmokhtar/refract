@@ -141,13 +141,16 @@ rg -n --pcre2 '^func\b[^\n]*\)\s*\([^)\n]*\berr\s+error\s*\)\s*\{' -t go "${X[@]
 # 4. Numbers, bounds and order: 4a a boolean comparator, numeric-named arrays sorted with no comparator; 4b JS/TS money
 #    through binary floats (parseFloat, toFixed round-trips, x * 100 rounding); 4c the same in Python / Go / JVM / C#;
 #    4d parse traps (parseInt without radix, Number() of request input, `| 0`) and Go narrowing; 4e bounds: `<= length`,
-#    range(len - 1), reduce without a seed, Math.max/min of a spread, a 1-based page times the page size.
+#    range(len - 1), reduce without a seed, Math.max/min of a spread, a 1-based page times the page size; 4f a chunk loop
+#    that stops a chunk early (drops the tail); 4g a seconds value handed to a milliseconds API (Retry-After).
 rg -n --pcre2 '\.sort\(\s*\(\s*\w+\s*,\s*\w+\s*\)\s*=>\s*[\w.\[\]]+\s*[<>]=?\s*[\w.\[\]]+\s*\)|\b\w*(?i:ids|counts?|amounts?|totals?|prices?|scores?|numbers|nums|values|sizes|lengths|ages|years|days|weights|ranks|cents|quantit\w*|qtys?|levels|versions|ports|ind(?:ex|ic)es)\b\)?\.(?:sort|toSorted)\(\s*\)|\.map\(\s*(?:Number|parseInt|parseFloat)\s*\)\.(?:sort|toSorted)\(\s*\)' -t js -t ts "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\b(?:parseFloat|Number)\([^()\n]*\.toFixed\(|\bparseFloat\([^)\n]*'"$M"'|\b\w*'"$M"'\w*\s*=\s*parseFloat\(|\bMath\.round\(\s*[\w.]*'"$M"'\w*\s*\*\s*100\b' -t js -t ts "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\bfloat\([^\n]*'"$M"'|'"$M"'\w*\s*=\s*float\(|\bDecimal\(\s*-?\d+\.\d+\s*\)|\bround\([^\n]*'"$M" -t py "${X[@]}" . | "${NC[@]}"; rg -n --pcre2 '\b\w*'"$M"'\w*\s+float(?:32|64)\b|\bfloat(?:32|64)\(\s*\w*'"$M" -t go "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\b(?:double|float|Double|Float)\s+\w*'"$M"'|\bnew\s+BigDecimal\(\s*-?[\d.]+\s*\)|\bMath\.Round\(\s*[^,()\n]*\)' -t java -t kotlin -t cs "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\bparseInt\(\s*[^,()\n]+(?:\([^()\n]*\))?\s*\)|\bNumber\(\s*(?:req|request|params|query|body|input|args)\b|\b(?:req|request)\.(?:query|params|body)\.\w+\s*\|\s*0\b' -t js -t ts "${X[@]}" . | "${NC[@]}"; rg -n --pcre2 '\bu?int(?:8|16|32)\(\s*[\w.]+\s*\)' -t go "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\b(?:i|j|k|idx|index)\s*<=\s*[\w.]+(?:\.length|\.size\(\)|\.Count|\.len\(\))|\bi\s*<=\s*len\(|\brange\(\s*len\(\w+\)\s*-\s*1\s*\)|\.reduce\(\s*(?:\([^()\n]*\)|\w+)\s*=>[^,\n]*\)\s*;?\s*$|\bMath\.(?:max|min)\(\s*\.\.\.|\b(?:offset|skip|start|from)\w*\s*=\s*\(?\s*\w*[pP]age(?:Number|No|Index)?\s*\)?\s*\*\s*[\w.]+' "${X[@]}" . | "${NC[@]}"
+rg -n --pcre2 '\brange\(\s*0\s*,\s*len\([^()\n]+\)\s*-\s*[\w.]+\s*,\s*[\w.]+\s*\)|<\s*[\w.]+\.length\s*-\s*[\w.]+\s*;\s*\w+\s*\+=\s*[\w.]+' "${X[@]}" . | "${NC[@]}"
+rg -n --pcre2 '\b(?:setTimeout|sleep|delay|wait)\w*\([^,\n]*,?\s*[\w.]*(?i:retry_?after|seconds?|secs)\w*\s*\)' -t js -t ts "${X[@]}" . | "${NC[@]}"
 
 # 5. Switches and transitions: 5a a switch on a status / kind / type / state whose `default` does not throw; 5b the same in
 #    Python `case _:`, Kotlin `else ->`, Rust `_ =>`; 5c a case body with statements and no break before the next label,
@@ -159,12 +162,14 @@ rg -c --pcre2 '\.(?:status|state)\s*=\s*(?:["\x27][A-Za-z_]+["\x27]|[A-Z]\w*\.[A
 
 # 6. Time, zone, locale and text: 6a JS/TS date-only parse, literal 0-based month, a calendar day stepped by 24 h, a
 #    default-locale format, getYear, a `YYYY` format token (read the library), month rollover; 6b Python naive datetimes; 6c Go local
-#    zone, swapped layout; 6d JVM / C# / Ruby / PHP default zone, default locale and week-year; 6e user text cut by code unit.
+#    zone, swapped layout; 6d JVM / C# / Ruby / PHP default zone, default locale and week-year; 6e user text cut by code unit;
+#    6f a calendar month or year as a fixed day count (read against § 84: an elapsed window is fine, a renewal date is not).
 rg -n --pcre2 'new\s+Date\(\s*["\x27\x60]\d{4}-\d{2}-\d{2}["\x27\x60]\s*\)|new\s+Date\(\s*\d{4}\s*,\s*\d{1,2}\s*[,)]|new\s+Date\([^\n]*[-+]\s*[^\n]*(?:\b86400\b|\b864e5\b|\b8640000\b|\b24\s*\*\s*60\s*\*\s*60\b|\b(?:DAY_MS|ONE_DAY\w*|MS_PER_DAY|DAY_IN_MS|MILLIS_PER_DAY)\b)|\.toLocale(?:Date|Time)?String\(\s*\)|\.getYear\(\)|\bformat\w*\([^\n]*["\x27\x60][^"\x27\x60\n]*\bYYYY\b|\bset(?:UTC)?Month\(\s*[\w.]+\.get(?:UTC)?Month\(\)\s*\+' -t js -t ts "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\bdatetime\.(?:utcnow|utcfromtimestamp)\(|\bdatetime\.(?:now|today)\(\s*\)|\bdate\.today\(\)|\bdatetime\.fromtimestamp\(\s*[^,()\n]+\)|\.strptime\([^)\n]*\)(?!\.replace\(tzinfo)' -t py "${X[@]}" . | "${NC[@]}"; rg -n --pcre2 '\btime\.Local\b|\.Local\(\)|"2006-02-01|\btime\.Now\(\)\.Format\(' -t go "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\bLocalDateTime\.now\(\s*\)|\bLocalDate\.now\(\s*\)|\bnew\s+Date\(\s*\)|\bCalendar\.getInstance\(\s*\)|\bTimeZone\.getDefault\(|\bZoneId\.systemDefault\(|"[^"\n]*\bYYYY\b[^"\n]*"|\.to(?:Lower|Upper)Case\(\s*\)|\bString\.format\(\s*"' -t java -t kotlin "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\bDateTime\.Now\b|\bDateTime\.Today\b|\bDateTime\.Parse\((?![^)\n]*Culture)|\.To(?:Lower|Upper)\(\s*\)' -t cs "${X[@]}" . | "${NC[@]}"; rg -n --pcre2 '\bTime\.now\b|\bTime\.parse\(|\bDate\.today\b|\bDateTime\.now\b' -t ruby "${X[@]}" . | "${NC[@]}"; rg -n --pcre2 '\bdate\(\s*["\x27]|\bstrtotime\(|\bmktime\(' -t php "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 '\b\w*(?i:name|title|text|body|message|desc\w*|comment|bio|label|subject|summary|content|caption|note|query|search|term|input|reason)\w*(?:\.trim\(\))?\.(?:slice|substring|substr)\(\s*0\s*,\s*[\w.]+\s*\)' -t js -t ts "${X[@]}" . | "${NC[@]}"
+rg -n --pcre2 '\btimedelta\(\s*days\s*=\s*(?:28|30|31|365)\s*\)|\b(?:30|31|365)\s*\*\s*(?:24\s*\*\s*60\s*\*\s*60|DAY_MS|ONE_DAY\w*|MS_PER_DAY|86_?400)\b|\bAddDate\(\s*0\s*,\s*0\s*,\s*(?:30|31)\s*\)|\b(?:30|31)\s*\*\s*24\s*\*\s*time\.Hour' "${X[@]}" . | "${NC[@]}"
 
 # 7. A breakpoint or dump-and-die left in shipped code.
 rg -n --pcre2 '^\s*debugger\s*;?\s*$|^\s*(?:breakpoint\(\)|import\s+i?pdb\b|from\s+i?pdb\s+import|(?:i?pdb|pudb)\.set_trace\(\))|\bbinding\.(?:pry|irb)\b|^\s*(?:byebug|debugger)\s*$|^\s*(?:dd|dump|var_dump|xdebug_break)\(|\bruntime\.Breakpoint\(\)|\bdbg!\(|\bIEx\.pry\b|\bSystem\.Diagnostics\.Debugger\.(?:Break|Launch)\(' "${X[@]}" . | "${NC[@]}"
@@ -203,7 +208,11 @@ status-to-bucket map ending `default: return 'other'` on an owned enum (a candid
 message-type switch (§ 36); 5c 0; 6a 19 (`new Date(now - days * DAY_MS)` retention cutoffs, which
 are elapsed durations, beside a daily rollup stepping by 24 h from a UTC midnight); 6e 72 (33 in
 `scripts/`); 7 0. The first drafts printed 479 money lines (every `cents / 100` display) and 878
-fallthrough lines (a lookahead that let `return` through); both shapes are fixed above. Go, JVM,
+fallthrough lines (a lookahead that let `return` through); both shapes are fixed above. Greps 4f,
+4g and 6f were added after `quality-mix` measured its reach: on the seven fixtures each prints its
+seeded line (a chunk loop that drops the tail, `setTimeout(resolve, retryAfter)`, a monthly renewal
+as `timedelta(days=30)`), and nothing else (6f's other match, `30 * DAY_MS` in a spec, is dropped by the exclusion array). Not
+yet run on a real repo. Go, JVM,
 C#, Ruby, PHP and Rust greps are not measured: no measured repo has that code.
 
 ## The 3,000-hit path
