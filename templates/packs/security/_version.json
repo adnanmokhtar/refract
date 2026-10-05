@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "2.1.0",
-  "released": "2026-10-02",
+  "version": "2.2.0",
+  "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Every detector was run on a real NestJS-on-Fastify + MikroORM monorepo and rewritten from what it measured: noise cut by up to 99%, missed shapes added, every seeded defect still hit.",
+  "summary": "New mobile-security-scan: the client-side lane for Android, iOS, React Native, Expo and Flutter apps, dispatched by /security-audit.",
   "changelog": "CHANGELOG.md"
 }

@@ -9,6 +9,23 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.0 — 2026-10-05
+
+**The pack had no client-side mobile lane.** Every detector was server-centric; an app's manifest,
+sandbox, WebViews and shipped bundle were read by nobody.
+
+- **New skill `mobile-security-scan`** (§ 1–8): plain and external storage, clipboard and capture
+  guards; cleartext and broken certificate validation; exported components, intent redirection,
+  mutable `PendingIntent`, FileProvider scope; deep-link and App Link hijack; WebView bridges and
+  file access; release flags, backup and device logs; server secrets, literal keys, ECB and weak
+  randomness shipped in the app; a pinning and resilience inventory. Severity follows the OWASP
+  MASWE profile — L2-only classes are Hardening unless the project declares L2. The pre-flight reads
+  the merged release manifest when a build left one, and every grep was measured on a seeded
+  six-root sample (bare RN, two Expo apps, Flutter, Kotlin, Swift): every seed surfaces; on the 13
+  web / server fixtures it prints one N/A line.
+- **`/security-audit`** dispatches it on any `android/`, `ios/`, React Native, Expo or Flutter tree
+  and on every whole-repo run, and adds its class-ledger row.
+
 ## 2.1.0 — 2026-10-02
 
 **2.0.0's detectors had only ever met fixtures.** Each one was then run, read-only, against a real

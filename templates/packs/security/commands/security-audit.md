@@ -56,6 +56,7 @@ The broad `security-auditor` pass is the OWASP-Top-10 net; the specialist review
   - **`logic-race-scan`** — on any diff touching money, quantity, balance, coupon / invite / redeem, a status transition, a role grant, or a find-then-write sequence. The depth behind A06; also owns the per-role authorization matrix.
   - **`sast-scan`** — always on a whole-repo run; on a diff, whenever the stack has a scanner installed. It is the one skill that runs third-party analyzers, so its RAN / SKIPPED ledger is part of this run's coverage — a scanner that exists for the stack and did not run is a `COVERAGE:` gap.
   - **`iac-scan`** — on any diff touching a Dockerfile, compose file, Kubernetes manifest, Terraform / CloudFormation / Pulumi, a CI workflow, or a reverse-proxy config; always on a whole-repo run that holds any of them. The depth behind A02's infra bullets and A03's CI integrity.
+  - **`mobile-security-scan`** — on any diff touching an `android/` or `ios/` tree, a React Native, Expo or Flutter app (`AndroidManifest.xml`, a network security config, `Info.plist`, an `.entitlements` file, `app.json` / `app.config.*`, a Gradle build type, mobile storage / HTTP-client / WebView / deep-link code); always on a whole-repo run. A repo with no mobile tree reports its eight classes N/A in one line. The client-side lane: device storage, transport, exported components, links, WebView bridges, release flags, shipped secrets.
   - A skill that was triggered and not run is the same defect as a reviewer that was dispatched and not run: it forces at least `GO-UNVERIFIED`.
   - **Dedupe by `<file:line>`.** Several skills can reach the same sink (a `sast-scan` hit on an `exec` that `injection-scan` also traced). One finding per sink, credited to the skill that traced the taint path; the other is listed under it as corroboration.
   - **Run each skill once.** `security-auditor` also names these three as the executors behind its own A0x rows; this Phase-2 dispatch is what guarantees they run on the diff's signal even when no auditor row fires. If the auditor already ran one, consume that result — do not re-scan.
@@ -140,6 +141,7 @@ Alongside the unit-level coverage ledger, print one row per **vulnerability clas
 | Client-trusted values, workflow skipping, idempotency, races, per-role authorization matrix | `logic-race-scan` |
 | SSRF, open redirect | `ssrf-scan` |
 | Committed secrets | `secret-scan` |
+| Mobile client: device storage, cleartext / trust, exported components, deep links, WebView bridges, release flags + device logs, secrets and crypto shipped in the app, pinning posture | `mobile-security-scan` |
 | Vulnerable dependencies | `deps-audit` |
 | Container, orchestration, cloud IAM, CI, reverse-proxy config | `iac-scan` |
 | AuthN, session, token lifecycle | `@auth-reviewer` |
@@ -231,6 +233,7 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `logic-race-scan` — business-logic abuse, races, per-role authorization matrix.
 - `sast-scan` — runs the stack's static analyzers and triages every hit.
 - `iac-scan` — Dockerfile, compose, Kubernetes, IaC, CI workflows, reverse-proxy configs.
+- `mobile-security-scan` — Android, iOS, React Native, Expo and Flutter apps: storage, transport, IPC, links, WebViews, release config, shipped secrets.
 
 ### Commands
 - `/security-fix` — closes this report's findings, one failing-first exploit test per finding.

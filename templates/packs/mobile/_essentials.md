@@ -37,6 +37,6 @@ Recorded so the next omission is auditable rather than silent — `_essentials.m
 ## How this pack relates to others
 
 - **`backend`** — mobile features almost always pair with backend endpoints. The `add-feature` commands across both packs are designed to compose.
-- **`security`** — mobile-specific concerns (keychain, biometric, certificate pinning) covered by `security/agents/security-auditor.md` + `auth-reviewer.md`.
+- **`security`** — on-device storage, transport/ATS/network-security-config, exported components and deep links, WebView bridges, release flags, shipped secrets and pinning are `security/skills/mobile-security-scan/SKILL.md`, dispatched by `/security-audit` and `/mobile-audit`; without the security pack those rows are `not run` and the verdict is at best GO-UNVERIFIED.
 - **`performance`** — cold start, frame rate, memory and battery are owned here by `device-performance-auditor` + `optimize-bundle`; the `performance` pack's `performance-optimizer` owns the server side of a slow screen (query plans, indexes, p99s behind the API) and receives the client-side measurement rather than re-deriving it.
-- **`ui-ux`** — accessibility + design tokens apply equally to mobile; `ui-ux/skills/a11y-quick-check/SKILL.md` runs against mobile UI.
+- **`ui-ux`** — accessibility + design tokens apply equally to mobile; native screens are audited by this pack's `mobile-a11y-scan` (judged by `@ux-reviewer` when ui-ux is installed); `a11y-quick-check` is web-only.
