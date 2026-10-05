@@ -54,7 +54,7 @@ Its rows are the defects `ui-state-scan` (this pack) looks for afterwards. A mat
 | `validation` | every form | when an error first shows (blur, not keystroke), and where server field errors land |
 | `timeout` | a request with a stated budget | the deadline and what replaces the loader |
 
-The **required** set comes from `THR-UI-STATES` in `.claude/templates/governance/thresholds.json` once it is there (`.claude/thresholds.local.json` may add states). Until then, the lint uses the seven above. A state outside this vocabulary is an `unknown-state` finding, so a typo cannot pass as an extra row.
+The **required** set is the seven above. The thresholds registry has no UI-states entry yet. When one is added to `.claude/templates/governance/thresholds.json` (and a project's `.claude/thresholds.local.json` may then add states), the lint reads it instead; the script's docstring names the id it looks for. A state outside this vocabulary is an `unknown-state` finding, so a typo cannot pass as an extra row.
 
 ## The format
 
