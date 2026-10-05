@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "add-feature is a thin lane preset of the delivery orchestrator; its procedure moved to delivery's lane-backend skill (architecture proposal Phase 4, decision O6).",
+  "summary": "api-snapshot gains § Baseline registration: the committed OpenAPI spec is registered as an api-contract behavioural baseline for P5 capture and gate G14, with G13 still the breaking-change authority (proposal §7, Phase 5).",
   "changelog": "CHANGELOG.md"
 }

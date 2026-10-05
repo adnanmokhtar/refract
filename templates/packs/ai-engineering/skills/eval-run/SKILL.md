@@ -81,6 +81,21 @@ Reports: .promptfoo/output-1745492045.json
 - **A flaky provider is not a regression.** A timeout / 429 / truncated completion from the provider is an infra failure — retry the case, don't record it as a quality drop.
 - **Cost of the run itself** — a large set × a judge model is real spend; cache non-judge completions where the harness supports it, but never cache across a prompt/model change (that would score stale output).
 
+## Baseline registration
+
+This skill is the one CI baseline that already exists, and it stays as it is. Registering it as kind `ai-eval` in the behavioural-baseline registry (`.claude/baselines/main/manifest.json`, proposal §7) only lets P5 and gate G14 find it when a prompt, model or retrieval file changes:
+
+```bash
+bash .claude/scripts/baseline-capture.sh register --id=eval-refund-agent --kind=ai-eval \
+  --engine=ai-engineering/eval-run --scope='src/ai/prompts/**,src/ai/refund/**,evals/refund/**' \
+  --command='npx promptfoo eval -c evals/refund/promptfooconfig.yaml --no-cache' \
+  --artifact=evals/refund/baseline.json --compare=exit --cadence=pr --no-capture
+```
+
+- `--compare=exit`, the default, delegates to the harness's own threshold gate: exit 0 means every gated metric held against the committed baseline. `--artifact` is that baseline file, never a copy.
+- `--compare=file` (the command writes the scores JSON into `$REFRACT_BASELINE_OUT`) needs a `--tolerance=<file>.json` whose `numeric_tolerance` absorbs judge wobble. Without it, the three identical runs at capture differ and the entry is quarantined as `nondeterministic`. Each capture also pays for three full eval runs.
+- **Gate G14**: `ai-eval` is not a quick kind, so it runs in CI (`--ci`), not at Stop. Procedure step 7's main-branch refresh stays this skill's own. A baseline lowered in a change with no acceptance criterion naming `eval-refund-agent` in `changes_baseline` fails `test-integrity.py` (`undeclared-baseline-rewrite`), on top of the below-baseline halt here.
+
 ## Halt conditions
 
 - **No eval harness detected** → HALT — surface **`/add-eval-set <feature>`** as the next step (design in `ai/patterns/evals.md`). This skill runs a harness; it does not create one, and the halt is not a dead end: `/add-eval-set` builds the dataset + scorers + threshold + baseline + CI gate and calls back here for the first measured run. Until that run exists the feature's eval axis is **UNVERIFIED**, never a faked pass.

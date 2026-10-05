@@ -72,7 +72,9 @@ jobs:
 
       # Also the gate-check.py proving cases: typecheck-red and gradle-red block, a deleted
       # assertion and an added skip FAIL G2, a key FAILs G3, no runner is UNVERIFIED (never PASS),
-      # the healthy project passes, and every evidence record matches its schema.
+      # the healthy project passes, and every evidence record matches its schema. And the Phase-5
+      # proving gate on benchmarks/fixtures/regression-baseline: a silent behaviour change FAILs G14, a
+      # 20% slowdown FAILs G4, ten identical interleaved runs block nothing.
       - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules / gate-check)
         run: bash tests/hooks/run.sh
 

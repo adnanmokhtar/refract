@@ -208,6 +208,8 @@ Run **4a + 4b + 4c + 4d** as below. This is the historical full discipline.
 
 **Run 4a FIRST, sequentially, before any 4b/c/d dispatch.** The audit lists specific gap closures by `<v1-path:line>` ↔ `<v2-path:line>`. The port applies those edits, runs the project's typecheck + lint, then advances. If 4a's edits introduce any test red, halt and surface — do not proceed to 4b/c/d on a broken V2.
 
+**In-place port** (V2 replaces V1 in the same checkout): 4a deletes the code that 4b's V1 capture needs. So before 4a, the testing pack's `characterize` runs over the feature's paths at the pre-port sha and records V1's behaviour, and 4b captures V1 from the pinned `v1_commit`, not from the edited tree.
+
 **4a default closure verb is V1-parity, NOT ADR** (per `migration-discipline.md` § "Default to V1-parity, ADR is opt-in"). When the audit flags a V2-deviates-from-V1 gap (extra button, renamed route, flipped default, new field, removed feature), 4a's edit is the **code change that removes V2's deviation to match V1** — NOT a doc that legitimizes V2. The F020 anti-pattern (ADR-019 drafted to keep V2's per-row delete button that V1 didn't have) MUST NOT recur: if the plan ships with an ADR-as-closure for a parity gap, 4a halts and surfaces — the user must explicitly accept the ADR before 4a proceeds, otherwise the plan must be revised to remove-V2-deviation as the closure verb.
 
 This inversion (vs. the old "all 4 in parallel") is deliberate:
@@ -232,7 +234,7 @@ This cuts each dispatch from ~40-90K input tokens to ~10-15K. For a 4-agent Phas
 | Sub-step | Output |
 |---|---|
 | 4a. **Write V2 code** (re-derive from contract; use V2 primitives; run BEFORE 4b/c/d) | `<v2-root>/<feature>/{controller,service,repository,dto,errors}.<ext>` |
-| 4b. **Run `parity-test-generate`** | `tests/parity/<feature>/` (corpus + golden + tolerance + tests) |
+| 4b. **Run `parity-test-generate`**, then register its golden master once the suite is green (`baseline-capture.sh register --kind=characterization --engine=migration/parity-test-generate --compare=golden --no-capture`, see that skill's § Baseline registration) so G14 guards later V2 edits | `tests/parity/<feature>/` (corpus + golden + tolerance + `tolerance.json` mirror + tests) · an entry in `.claude/baselines/main/manifest.json` |
 | 4c. **Pre-fill `perf-decisions`** | `ai/migration/perf-decisions/<feature>.md` (planned form, measurements TBD) |
 | 4d. **Write rollback runbook** | `ai/runbooks/migration-rollback-<feature>.md` |
 

@@ -1,0 +1,7 @@
+{
+  "exact": ["$.ok.order_id", "$.ok.subtotal_cents", "$.ok.discount_cents", "$.ok.tax_cents", "$.ok.total_cents", "$.error"],
+  "structural": [],
+  "numeric_tolerance": {},
+  "order_insensitive": [],
+  "ignore": []
+}

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Six measured detector fixes: coverage-gap's import strip and case-scoped denial tests, mutation-probe's no-merge-base scope, assertion-strength-scan's per-case catch guard, suite-execution-scan's Failsafe presence check, flake-source-scan's zone read in the code under test.",
+  "summary": "New skill characterize: golden-master capture of HTTP, CLI and pure functions on sampled inputs, registered as a behavioural baseline that gate G14 re-runs at HEAD (Phase 5).",
   "changelog": "CHANGELOG.md"
 }

@@ -1,0 +1,1 @@
+{"category": "error", "source": "boundary: a line without qty", "input": {"id": "o-010", "lines": [{"sku": "tea", "unit_cents": 450}]}}

@@ -1,0 +1,9 @@
+{
+  "ok": {
+    "discount_cents": 0,
+    "order_id": "o-001",
+    "subtotal_cents": 2000,
+    "tax_cents": 165,
+    "total_cents": 2165
+  }
+}

@@ -135,6 +135,21 @@ The block above is a shape: every number in a real run is copied from the artifa
 - Lower latency with a higher error rate, or with smaller responses, is a regression in disguise (`precedents/performance.md` § 50).
 - Sampling profilers attribute time spent waiting on I/O differently: CPU mode hides it, wall mode (`--idle`, `-e wall`) shows it. Say which mode the shares come from.
 
+## Baseline registration
+
+A profiled hot path stays guarded once it is registered in the behavioural-baseline registry (`.claude/baselines/main/manifest.json`, proposal §7) as kind `performance`:
+
+```bash
+bash .claude/scripts/baseline-capture.sh register --id=perf-orders-list-p95 --kind=performance \
+  --engine=performance/profile-endpoint --scope='src/orders/**,src/db/**' \
+  --command='bash scripts/perf/bench-orders-list.sh' --harness=scripts/perf/bench-orders-list.sh \
+  --artifact=.claude/baselines/main/perf-orders-list-p95.samples.json --compare=perf --unit=ms --cadence=nightly
+```
+
+- The command prints **one** latency number per run, the p50 or the p95, from its own checkout. That is either a hot-path microbenchmark (`--bench=<name>` picks one out of several) or Step 1's fixed-rate run after a warm-up: start the release build, load at the stated `-R`, print the percentile, stop. G4 runs it in a worktree at the base sha too, which is why it is committed (not under `prof/`) and listed in `--harness`. `--artifact` is a samples file the capture writes.
+- **Gate G4**, in CI, nightly, and at P5 for the hot paths a run touches: `behavior-diff.py --gate=G4` drives `perf-compare.py` under the rules of [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Performance, with runs and threshold from `THR-PERF-REGRESSION`. Procedure step 3's three-run band ranks a candidate. It is not the G4 sample. A refused verdict (`TOO-NOISY`, `INSUFFICIENT-RUNS`, `SUSPECTED-REGRESSION`) is UNVERIFIED, never a pass.
+- `changes_baseline` explains G14 diffs only. A G4 `REGRESSION` needs a human waiver (`THR-WAIVER`). Re-recording the samples file needs an acceptance criterion naming `perf-orders-list-p95`, or `test-integrity.py` fails it (`undeclared-baseline-rewrite`).
+
 ## Related
 
 - `load-test` — boundary: this skill diagnoses ONE slow subject at one rate; `load-test` runs the whole-system campaign (mix, ramp to breakpoint, headroom) and hands the subject at the knee back here.

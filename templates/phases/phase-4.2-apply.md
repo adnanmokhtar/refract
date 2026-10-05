@@ -575,7 +575,7 @@ Compare to pre-flight inventory expected counts. If shortfall: re-run that track
 
 ### 4.2.d Gates in CI — the shadow job (Bash; install, never overwrite, never protect)
 
-Phase 4.1 delivered `.claude/scripts/gate-check.py` (+ `test-integrity.py`, `standards-check.py`) and `.claude/gates.json`; the Stop hook `verify-gate.sh` runs `gate-check.py --local`. A hook is advisory-strong — Claude Code lets a session stop after 8 consecutive blocks — so the same gates also run in CI, in **shadow** mode: every gate recorded, none enforced, the build never failed. An existing file of the same name is the project's and is never overwritten; the project's own pipeline file is never edited; branch protection is printed for the owner, never applied.
+Phase 4.1 delivered `.claude/scripts/gate-check.py` (+ `test-integrity.py`, `standards-check.py`, and the behavioural-baseline trio `baseline-capture.sh` · `behavior-diff.py` · `perf-compare.py` behind G14 and G4) and `.claude/gates.json`; the Stop hook `verify-gate.sh` runs `gate-check.py --local`. A second job, `refract-baselines-main`, refreshes main's baselines on every merge (cheap kinds) and nightly (visual, accessibility, performance — measured HEAD against HEAD, its false-block count is the noise calibration G4/G14 need before leaving shadow); it is inert until the first `baseline-capture.sh register`. A hook is advisory-strong — Claude Code lets a session stop after 8 consecutive blocks — so the same gates also run in CI, in **shadow** mode: every gate recorded, none enforced, the build never failed. An existing file of the same name is the project's and is never overwritten; the project's own pipeline file is never edited; branch protection is printed for the owner, never applied.
 
 ```bash
 [ -f .claude/scripts/gate-check.py ] && command -v python3 >/dev/null \
@@ -584,6 +584,8 @@ if [ -d .github ] || git remote -v 2>/dev/null | grep -q 'github\.com'; then
   mkdir -p .github/workflows
   if [ -e .github/workflows/refract-gates.yml ]; then echo "  ci-skip: .github/workflows/refract-gates.yml exists — kept (compare with ~/.claude/templates/ci/refract-gates.github.yml)"
   else cp ~/.claude/templates/ci/refract-gates.github.yml .github/workflows/refract-gates.yml && echo "  ci-add: .github/workflows/refract-gates.yml (shadow)"; fi
+  if [ -e .github/workflows/refract-baselines-main.yml ]; then echo "  ci-skip: .github/workflows/refract-baselines-main.yml exists — kept"
+  else cp ~/.claude/templates/ci/refract-baselines-main.github.yml .github/workflows/refract-baselines-main.yml && echo "  ci-add: .github/workflows/refract-baselines-main.yml (shadow; inert until a baseline is registered)"; fi
   echo "  OWNER, when a gate leaves shadow mode — make the check required (not run by setup):"
   echo "    unprotected branch: gh api -X PUT repos/{owner}/{repo}/branches/<default>/protection -F 'required_status_checks[strict]=true' -f 'required_status_checks[contexts][]=refract-gates' -F enforce_admins=false -F required_pull_request_reviews=null -F restrictions=null"
   echo "    protected branch (the PUT above REPLACES its rules): gh api -X POST repos/{owner}/{repo}/branches/<default>/protection/required_status_checks/contexts -f 'contexts[]=refract-gates'"
@@ -593,6 +595,9 @@ if [ -f .gitlab-ci.yml ]; then      # GitLab reads ONE pipeline file, and it is 
   if [ -e .gitlab/refract-gates.gitlab-ci.yml ]; then echo "  ci-skip: .gitlab/refract-gates.gitlab-ci.yml exists — kept"
   else cp ~/.claude/templates/ci/refract-gates.gitlab.yml .gitlab/refract-gates.gitlab-ci.yml && echo "  ci-add: .gitlab/refract-gates.gitlab-ci.yml (shadow)"; fi
   grep -q 'refract-gates.gitlab-ci.yml' .gitlab-ci.yml || printf '  OWNER: add to .gitlab-ci.yml —\n    include:\n      - local: .gitlab/refract-gates.gitlab-ci.yml\n'
+  if [ -e .gitlab/refract-baselines-main.gitlab-ci.yml ]; then echo "  ci-skip: .gitlab/refract-baselines-main.gitlab-ci.yml exists — kept"
+  else cp ~/.claude/templates/ci/refract-baselines-main.gitlab.yml .gitlab/refract-baselines-main.gitlab-ci.yml && echo "  ci-add: .gitlab/refract-baselines-main.gitlab-ci.yml (shadow)"; fi
+  grep -q 'refract-baselines-main.gitlab-ci.yml' .gitlab-ci.yml || printf '  OWNER: add to .gitlab-ci.yml —\n    include:\n      - local: .gitlab/refract-baselines-main.gitlab-ci.yml\n  OWNER: create a nightly pipeline schedule (CI/CD > Schedules) for the slow baseline kinds\n'
 fi
 ```
 

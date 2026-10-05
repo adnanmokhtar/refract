@@ -54,7 +54,12 @@
           },
           "command": { "type": "string", "minLength": 1, "description": "The exact command that runs this criterion's tests at HEAD." },
           "negative": { "type": "boolean", "description": "true when the criterion asserts a denial or a failure path (a 403, a rejected input)." },
-          "holdout": { "type": "boolean", "description": "Reserved for heavy-tier holdout tests kept out of the implementer's view (a later phase); false or absent today." }
+          "holdout": { "type": "boolean", "description": "Reserved for heavy-tier holdout tests kept out of the implementer's view (a later phase); false or absent today." },
+          "changes_baseline": {
+            "type": "array",
+            "description": "Stored behaviour this criterion deliberately changes (proposal §7 rule 2): fnmatch patterns over baseline entry ids (`<id>` or `<id>/<case>`, from .claude/baselines/main/manifest.json) or over repo paths of a snapshot / golden file. behavior-diff.py (G14) explains a difference only by a criterion that names it here; test-integrity.py fails a snapshot rewrite no criterion names.",
+            "items": { "type": "string", "minLength": 1 }
+          }
         }
       }
     },

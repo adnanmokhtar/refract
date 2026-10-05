@@ -901,6 +901,135 @@ PYEOF
 }
 run_phase4
 
+# ---- Phase 5: behavioural baselines --------------------------------------------------------------
+# The proving gate (proposal §10 Phase 5): a "refactor" that silently changes behaviour FAILs G14; a
+# 20% perf regression FAILs G4; ten identical interleaved runs produce zero false blocks. Staged from
+# benchmarks/fixtures/regression-baseline (base committed, change laid over it). Plus the rules around
+# them: an AC that declares the difference explains it, a golden file re-recorded without one is a
+# test-integrity finding, a P5 capture lands in .claude/baselines/<sha>/, a nondeterministic entry is
+# quarantined (and FAILs once its expiry passes), and a T2 run whose modified source no entry covers FAILs.
+run_phase5() {
+  command -v python3 >/dev/null 2>&1 || { echo "SKIP  phase-5 (needs python3)"; return 0; }
+  local B="$REPO_ROOT/templates/repo-baseline/.claude" FX="$REPO_ROOT/benchmarks/fixtures/regression-baseline" work p out rc base
+  work=$(mktemp -d)
+  p5_ok() { if [ "$1" = "$2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  phase-5/$3 — expected $2, got $1"; fi; }
+  stage() {  # $1 = dir; base committed, change/ laid over it unless $2 = base-only
+    mkdir -p "$1/.claude"
+    ( cd "$FX/base" && tar -cf - . ) | ( cd "$1" && tar -xf - )
+    cp -R "$B/scripts" "$B/schemas" "$B/templates" "$B/hooks" "$B/gates.json" "$1/.claude/"
+    ( cd "$1" && git init -q && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base )
+    [ "${2:-}" = base-only ] || ( cd "$FX/change" && tar -cf - . ) | ( cd "$1" && tar -xf - )
+  }
+  gc() { ( cd "$p" && python3 .claude/scripts/gate-check.py --local --no-evidence --json "$@" 2>/dev/null ); }
+  v() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(r["verdict"] for r in d["records"] if r["gate"]==sys.argv[1]))' "$1" 2>/dev/null; }
+  bd() { ( cd "$p" && python3 .claude/scripts/behavior-diff.py --json "$@" 2>/dev/null ); }
+  jq1() { python3 -c 'import json,sys; d=json.load(sys.stdin)
+for k in sys.argv[1].split("."): d=d[int(k)] if isinstance(d,list) else d.get(k)
+print(d if not isinstance(d,(list,dict)) else json.dumps(d,sort_keys=True))' "$1" 2>/dev/null; }
+  st() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["verdict"] + "/" + next((e["status"] for e in d["entries"] if e["id"]==sys.argv[1]), "absent"))' "$1" 2>/dev/null; }
+
+  rc=0; python3 "$B/scripts/perf-compare.py" --self-test >/dev/null || rc=$?
+  p5_ok "$rc" 0 "perf-compare-self-test (0 false REGRESSION in 800 identical pairs, 100/100 20% caught, 3v3 refused)"
+  rc=0; python3 "$B/scripts/behavior-diff.py" --self-test >/dev/null || rc=$?
+  p5_ok "$rc" 0 "behavior-diff-self-test (tolerance taxonomy, globs, AC declarations)"
+
+  # The proving cases, on the fixture's silent "refactor".
+  p="$work/refactor"; stage "$p"
+  out=$(gc --only=G14)
+  p5_ok "$(printf '%s' "$out" | v G14)" FAIL "silent-behaviour-change-fails-G14"
+  p5_ok "$(printf '%s' "$out" | grep -c '023-edge-half-cent-tax')" 1 "G14-names-the-changed-case"
+  rc=0; gc --only=G14 >/dev/null || rc=$?
+  p5_ok "$rc" 0 "G14-ships-in-shadow-never-blocks"
+  rc=0; gc --only=G14 --mode=block >/dev/null || rc=$?
+  p5_ok "$rc" 2 "G14-blocks-in-block-mode"
+  out=$(gc --only=G4)
+  p5_ok "$(printf '%s' "$out" | v G4)" N-A "G4-is-CI-only-at-Stop"
+  out=$(REFRACT_G4_LOCAL=1 gc --only=G4)
+  p5_ok "$(printf '%s' "$out" | v G4)/$(printf '%s' "$out" | grep -q 'quote-bench: REGRESSION' && echo regression)" "FAIL/regression" "20pct-perf-regression-fails-G4"
+
+  # A deliberate slowdown is legal only when an AC declares it — the same changes_baseline G14 reads.
+  R=20261005-validate-lines-cd34; mkdir -p "$p/ai/runs/$R"
+  printf '{"schema":"refract/acceptance/v1","run_id":"%s","source":{"kind":"request","ref":"x"},"tier":"T2","criteria":[{"id":"AC-002","ears":"WHEN a quote is computed THE quote SHALL copy the lines first","kind":"unit","tests":[{"path":"tests/test_quote.py","name":"t"}],"command":"pytest","changes_baseline":["quote-bench"]}]}\n' "$R" > "$p/ai/runs/$R/acceptance.json"
+  out=$( cd "$p" && python3 .claude/scripts/behavior-diff.py --gate=G4 --json 2>/dev/null )
+  p5_ok "$(printf '%s' "$out" | st quote-bench)" "PASS/EXPLAINED" "AC-declared-slowdown-is-explained-in-G4"
+  rm -rf "$p/ai/runs"
+  # A registration never overwrites a stored expectation: without --rebaseline the golden is kept and checked.
+  rc=0; ( cd "$p" && bash .claude/scripts/baseline-capture.sh capture --out=main --entries=quote-characterization >/dev/null 2>&1 ) || rc=$?
+  p5_ok "$rc/$( cd "$p" && git status --porcelain tests/characterization | wc -l | tr -d ' ')" "1/0" "capture-to-main-keeps-existing-golden-and-reports-drift"
+
+  # Ten identical interleaved runs: zero false blocks (live), and the recorded noise set agrees.
+  p="$work/identical"; stage "$p" base-only
+  printf '\n# a comment-only change: same behaviour, same speed\n' >> "$p/pricing/quote.py"
+  # "0 false blocks" is the claim: on a loaded machine a 10-run comparison may be REFUSED (UNVERIFIED),
+  # which is not a block; a FAIL would be one.
+  out=$(REFRACT_G4_LOCAL=1 REFRACT_PERF_RUNS=10 gc --only=G4,G14)
+  p5_ok "$(printf '%s' "$out" | v G4 | sed 's/^PASS$/not-FAIL/; s/^UNVERIFIED$/not-FAIL/')/$(printf '%s' "$out" | v G14)" "not-FAIL/PASS" "identical-10-runs-0-false-blocks"
+  rc=0; python3 "$B/scripts/perf-compare.py" --pairs="$FX/noise/identical-10x10.json" >/dev/null || rc=$?
+  p5_ok "$rc" 0 "recorded-identical-noise-set-is-not-a-regression"
+
+  # An AC that declares the difference explains it (proposal §7 rule 2).
+  p="$work/declared"; stage "$p"; R=20261005-tax-rounding-ab12; mkdir -p "$p/ai/runs/$R"
+  printf '{"schema":"refract/acceptance/v1","run_id":"%s","source":{"kind":"request","ref":"round tax half-even"},"tier":"T2","criteria":[{"id":"AC-001","ears":"WHEN tax lands on half a cent THE quote SHALL round it to the even cent","kind":"unit","tests":[{"path":"tests/test_quote.py","name":"test_half_even"}],"command":"pytest","changes_baseline":["quote-characterization/02[13]-*"]}]}\n' "$R" > "$p/ai/runs/$R/acceptance.json"
+  out=$(bd --gate=G14)
+  p5_ok "$(printf '%s' "$out" | st quote-characterization)" "PASS/EXPLAINED" "AC-declared-difference-is-explained"
+  rc=0; ( cd "$p" && python3 .claude/scripts/refract_records.py validate acceptance "ai/runs/$R/acceptance.json" >/dev/null ) || rc=$?
+  p5_ok "$rc" 0 "acceptance-schema-accepts-changes_baseline"
+
+  # Re-recording the golden master: a finding without a declaration, none with one.
+  ( cd "$p" && REFRACT_BASELINE_OUT=tests/characterization/quote/__golden__ python3 tests/characterization/quote/run.py )
+  out=$( cd "$p" && python3 .claude/scripts/test-integrity.py --json 2>/dev/null )
+  p5_ok "$(printf '%s' "$out" | grep -c '"undeclared-baseline-rewrite"')" 0 "declared-golden-rewrite-is-not-a-finding"
+  rm -rf "$p/ai/runs"
+  out=$( cd "$p" && python3 .claude/scripts/test-integrity.py --json 2>/dev/null )
+  p5_ok "$(printf '%s' "$out" | grep -c '"undeclared-baseline-rewrite"')" 2 "undeclared-golden-rewrite-is-a-finding"
+
+  # P5: a local capture at the base sha is what G14 compares against.
+  p="$work/p5"; stage "$p" base-only; base=$( cd "$p" && git rev-parse HEAD )
+  rc=0; ( cd "$p" && bash .claude/scripts/baseline-capture.sh capture --kinds=quick >/dev/null 2>&1 ) || rc=$?
+  p5_ok "$rc/$(test -f "$p/.claude/baselines/$base/manifest.json" && echo captured)" "0/captured" "P5-capture-lands-in-baselines-sha"
+  rc=0; ( cd "$p" && python3 .claude/scripts/refract_records.py validate baseline-manifest ".claude/baselines/$base/manifest.json" >/dev/null ) || rc=$?
+  p5_ok "$rc/$( cd "$p" && git status --porcelain .claude/baselines | wc -l | tr -d ' ')" "0/0" "P5-capture-matches-schema-and-is-not-committed"
+  ( cd "$FX/change" && tar -cf - . ) | ( cd "$p" && tar -xf - )
+  out=$(bd --gate=G14)
+  p5_ok "$(printf '%s' "$out" | jq1 verdict)/$(printf '%s' "$out" | jq1 manifest)" "FAIL/.claude/baselines/$base/manifest.json" "G14-compares-against-the-P5-capture"
+
+  # Quarantine (rule 3): differing across 3 identical runs → quarantined, reported not enforced; expired → FAIL.
+  p="$work/quarantine"; stage "$p" base-only
+  printf 'import os, random\nopen(os.path.join(os.environ["REFRACT_BASELINE_OUT"], "r.json"), "w").write(str(random.random()))\n' > "$p/pricing/noisy.py"
+  ( cd "$p" && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm noisy )
+  ( cd "$p" && bash .claude/scripts/baseline-capture.sh register --id=noisy --kind=characterization --engine=project \
+      --command="python3 pricing/noisy.py" --scope="pricing/noisy.py" --artifact=tests/characterization/noisy --compare=golden >/dev/null 2>&1 )
+  p5_ok "$(jq1 entries.2.nondeterministic.owner < "$p/.claude/baselines/main/manifest.json" | grep -c .)" 1 "nondeterministic-entry-is-quarantined-with-owner"
+  ( cd "$p" && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm reg )
+  printf '\n' >> "$p/pricing/noisy.py"
+  out=$(bd --gate=G14)
+  p5_ok "$(printf '%s' "$out" | st noisy)" "PASS/QUARANTINED" "quarantined-diff-is-reported-not-enforced"
+  python3 - "$p/.claude/baselines/main/manifest.json" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1])); m["entries"][2]["nondeterministic"]["expiry"] = "2020-01-01"; json.dump(m, open(sys.argv[1], "w"))
+PY
+  out=$(bd --gate=G14)
+  p5_ok "$(printf '%s' "$out" | st noisy)" "FAIL/EXPIRED-QUARANTINE" "expired-quarantine-fails"
+
+  # A T2 run whose modified source no entry covers: touched scope never captured.
+  p="$work/coverage"; stage "$p" base-only
+  mkdir -p "$p/lib"; printf 'RATE = 1\n' > "$p/lib/conf.py"
+  ( cd "$p" && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm lib )
+  printf 'RATE = 2\n' > "$p/lib/conf.py"; mkdir -p "$p/ai/runs/20261005-rate-aa11"
+  printf '{"tier": "T2", "status": "open"}\n' > "$p/ai/runs/20261005-rate-aa11/run.json"
+  out=$(bd --gate=G14)
+  p5_ok "$(printf '%s' "$out" | jq1 verdict)/$(printf '%s' "$out" | jq1 uncaptured)" 'FAIL/["lib/conf.py"]' "T2-run-with-uncaptured-scope-fails"
+  rm -rf "$p/ai/runs"
+  out=$(bd --gate=G14)
+  p5_ok "$(printf '%s' "$out" | jq1 verdict)" N-A "no-run-uncaptured-scope-is-N-A"
+
+  # The installed manifest schema is the published one, byte for byte.
+  rc=0; cmp -s "$REPO_ROOT/templates/schemas/refract/baseline-manifest.schema.json" "$B/schemas/baseline-manifest.schema.json" || rc=1
+  p5_ok "$rc" 0 "installed-baseline-manifest-schema-matches-published"
+  rm -rf "$work"
+}
+run_phase5
+
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

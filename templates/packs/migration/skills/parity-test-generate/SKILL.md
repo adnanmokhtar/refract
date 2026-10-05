@@ -321,6 +321,23 @@ These fail `scripts/validate-migration-artifacts.sh` and halt the audit:
 - **D5 — Mocked-V1-dependency anti-pattern**: see above. Detected indirectly via corpus homogeneity + via reviewer signoff on the test harness setup.
 - **D7 — Snapshot drift via blanket update**: see above.
 
+## Baseline registration
+
+This golden-master layout (`inputs/` and `__golden__/` with matching file names, plus the five-key tolerance taxonomy) is the format the testing pack's `characterize` reuses. Once the golden-master test is green against V2, register the feature in the behavioural-baseline registry (`.claude/baselines/main/manifest.json`, proposal §7), so gate G14 guards every later V2 edit against the pinned V1 behaviour:
+
+```bash
+bash .claude/scripts/baseline-capture.sh register --id=parity-orders --kind=characterization \
+  --engine=migration/parity-test-generate --scope='<v2-root>/orders/**' \
+  --command='node scripts/parity/capture-v1.js --feature=orders --inputs=tests/parity/orders/inputs --outputs="$REFRACT_BASELINE_OUT"' \
+  --harness=tests/parity/orders/inputs,scripts/parity/capture-v1.js --tolerance=tests/parity/orders/tolerance.json \
+  --artifact=tests/parity/orders/__golden__ --compare=golden --cadence=pr --no-capture
+```
+
+- The command is step 3's capture script pointed at **this** checkout's entry point (V2), writing one output per input name. `--harness` carries the corpus and the script into the base-sha worktree.
+- **`--no-capture` is mandatory.** A capture would replace V1's golden snapshots with V2's own output and erase the oracle (D7).
+- **Tolerance as JSON.** The gate scripts are standard-library only and never parse YAML. `tolerance.yaml` stays this skill's file (D2 checks it), and registration mirrors it to `tolerance.json` with the same five keys. Re-mirror it whenever step 10 changes the YAML.
+- **Gate G14**: `characterization` is a quick kind. It re-runs at Stop when in scope and in full in CI. A case that differs on purpose is declared by an acceptance criterion, `changes_baseline: ["parity-orders/<case>"]`. A rewritten `__golden__/` file with no criterion naming it fails `test-integrity.py` (`undeclared-baseline-rewrite`), on top of D7's reviewer and ledger note.
+
 ## Related
 
 - `parity-testing.md` — recipe details + tolerance taxonomy.

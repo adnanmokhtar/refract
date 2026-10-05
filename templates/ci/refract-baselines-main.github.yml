@@ -1,0 +1,84 @@
+# refract-baselines-main — keep main's behavioural baselines honest, outside any agent's session.
+#
+# Installed by /setup-project (templates/phases/phase-4.2-apply.md § 4.2.d) as
+# .github/workflows/refract-baselines-main.yml, never over an existing file of that name. It is
+# inert (one line, exit 0) until the project has a baseline registry — the first
+# `baseline-capture.sh register` (the characterize skill, /add-feature P5) creates
+# .claude/baselines/main/manifest.json.
+#
+# WHAT IT DOES (architecture proposal §7, rule 4 — cadence):
+#   * on every merge to main — the CHEAP kinds (characterization, api-contract, schema, ai-eval,
+#     golden-flow): re-capture at the merged sha and check that main still reproduces the baseline it
+#     has committed. A drift here is behaviour that reached main without an acceptance criterion
+#     declaring it (G14 was shadow, or the change bypassed it).
+#   * nightly — visual, accessibility and performance: the slow kinds. Performance is measured HEAD
+#     against HEAD, interleaved: every REGRESSION it reports is a false block by construction, so this
+#     job is also the noise calibration the proposal asks for before G4 and G14 leave shadow ("shadow
+#     until noise < 2%").
+#
+# SHADOW. Every step is continue-on-error and nothing is committed: the captures and reports are
+# uploaded as the `refract-baselines-main` artifact. Re-baselining the registry is a human decision
+# made in a PR (`baseline-capture.sh capture --out=main`), where test-integrity.py requires an
+# acceptance criterion to declare it. A CI job that commits to main is an irreversible action (H3).
+name: refract-baselines-main
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refract-baselines-main:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: the base side of a comparison is a worktree at an older sha.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install project dependencies (best effort — the baseline commands run project code)
+        continue-on-error: true
+        run: |
+          if [ -f package-lock.json ]; then npm ci
+          elif [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then corepack enable && yarn install --immutable || yarn install --frozen-lockfile
+          fi
+          if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then python3 -m pip install -r requirements-dev.txt; fi
+
+      - name: Capture and compare (shadow — records, never fails the build)
+        continue-on-error: true
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ ! -f .claude/baselines/main/manifest.json ]; then
+            echo "no baseline registry (.claude/baselines/main/manifest.json) — nothing to refresh" | tee baselines.txt
+            exit 0
+          fi
+          if [ "$EVENT" = schedule ]; then kinds=nightly; g14=visual,accessibility; else kinds=cheap; g14=characterization,api-contract,schema,ai-eval,golden-flow; fi
+          {
+            echo "## capture ($kinds) @ $(git rev-parse --short HEAD)"
+            bash .claude/scripts/baseline-capture.sh capture --kinds="$kinds" --owner=refract-baselines-main || true
+            echo "## does main reproduce its committed baseline? ($g14)"
+            python3 .claude/scripts/behavior-diff.py --gate=G14 --base=HEAD --all-entries --against-committed --kinds="$g14" --ci || true
+            if [ "$EVENT" = schedule ]; then
+              echo "## noise calibration: performance, HEAD vs HEAD interleaved (a REGRESSION here is a false block)"
+              python3 .claude/scripts/behavior-diff.py --gate=G4 --base=HEAD --all-entries --ci --json | tee perf-noise.json || true
+            fi
+          } 2>&1 | tee baselines.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: refract-baselines-main
+          path: |
+            .claude/baselines/
+            baselines.txt
+            perf-noise.json
+          include-hidden-files: true
+          if-no-files-found: warn

@@ -11,8 +11,8 @@
                "author_agent"],
   "properties": {
     "schema": { "const": "refract/evidence/v1" },
-    "gate": { "type": "string", "pattern": "^G[0-9]+$", "description": "Gate id from the Refract gate catalog (G0 contract, G1 functional correctness, G2 test quality, G3 security, G7 code quality, G15 governance)." },
-    "check": { "type": "string", "enum": ["acceptance-lock", "tests", "acceptance", "test-integrity", "oracle", "secrets", "lint", "typecheck", "standards", "review", "trailer", "signer"] },
+    "gate": { "type": "string", "pattern": "^G[0-9]+$", "description": "Gate id from the Refract gate catalog (G0 contract, G1 functional correctness, G2 test quality, G3 security, G4 performance, G7 code quality, G14 behavioural baseline, G15 governance)." },
+    "check": { "type": "string", "enum": ["acceptance-lock", "tests", "acceptance", "test-integrity", "oracle", "secrets", "lint", "typecheck", "standards", "review", "trailer", "signer", "perf", "behaviour"] },
     "verdict": { "enum": ["PASS", "FAIL", "UNVERIFIED", "N-A", "WAIVED"], "description": "UNVERIFIED = the check could not be run (no runner, tool missing, lane busy); it is never PASS. N-A carries the reason the change does not trigger the check." },
     "execution": { "enum": ["RAN", "SKIPPED"], "description": "Whether the producer actually executed. A SKIPPED check is UNVERIFIED or N-A, never PASS." },
     "reason": { "type": ["string", "null"] },

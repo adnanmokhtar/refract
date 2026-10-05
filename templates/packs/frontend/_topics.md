@@ -242,6 +242,11 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { ssr_enabled: true }
   fallback: _examples/ssr-audit.md
 
+- name: render-correctness-scan
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: skills/render-correctness-scan/SKILL.md
+
 - name: streaming-ssr
   kind: skill
   triggers: { ssr_enabled: true }
@@ -290,6 +295,12 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-idioms.md (the project's own modal / dropdown / drawer wrapper names, for the interactive-surface trigger enumeration)
   fallback: _examples/a11y-scan.md
+
+- name: a11y-code-scan
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-idioms.md (the project's button / icon-button / field wrapper names, for the BTN grep and the jsx-a11y components map)
+  fallback: skills/a11y-code-scan/SKILL.md
 
 - name: dev-server-start
   kind: skill

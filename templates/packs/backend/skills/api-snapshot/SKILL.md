@@ -170,6 +170,22 @@ What to do about it, in order of honesty:
 - Non-breaking changes warn, don't block.
 - Baseline updated only in the same PR as the approved breaking change.
 
+## Baseline registration
+
+Register the committed spec once in the behavioural-baseline registry (`.claude/baselines/main/manifest.json`, proposal §7) as kind `api-contract`, so run phase P5 captures it before an edit and gate G14 re-runs it when a controller or DTO changes:
+
+```bash
+bash .claude/scripts/baseline-capture.sh register --id=api-contract-v1 --kind=api-contract \
+  --engine=backend/api-snapshot --scope='src/**/*.controller.*,src/**/*.dto.*,src/**/routes/**' \
+  --command='bash scripts/api-spec.sh "$REFRACT_BASELINE_OUT/openapi.v1.json"' \
+  --harness=scripts/api-spec.sh --artifact=api-snapshots/openapi.v1.json --compare=file --cadence=pr --no-capture
+```
+
+- `scripts/api-spec.sh` is step 1 as a script: build, boot, fetch the spec, stop. It is listed in `--harness` because G14 re-runs it in a worktree at the base sha. `--compare=file` diffs the spec JSON-aware, additive changes included. `--compare=exit` with `--command='f=$(mktemp) && bash scripts/api-spec.sh "$f" && oasdiff breaking --fail-on ERR api-snapshots/openapi.v1.json "$f"'` sees only the breaks.
+- `--artifact` is the spec this skill already commits, never a copy. `--no-capture` keeps the registration from re-writing it.
+- **G13 stays the authority on breaking changes** (step 4, ADR). G14 adds the spec to the P5 capture and to the behaviour diff: quick kind, Stop when in scope, full in CI.
+- An intended contract change is declared by an acceptance criterion, `changes_baseline: ["api-contract-v1"]`, next to the ADR a break still needs. Step 5's `cp` with no criterion naming the entry fails `test-integrity.py` (`undeclared-baseline-rewrite`). Re-recording the spec is never how a diff goes away.
+
 ## Related
 
 - `.claude/skills/endpoint-test/SKILL.md` — runtime counterpart: api-snapshot proves the *declared* OpenAPI contract didn't break; endpoint-test proves the *running* route still matches its DTO. Run both on a controller/DTO change.

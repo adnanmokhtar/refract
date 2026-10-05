@@ -94,3 +94,18 @@ If the tool cannot be determined, print the DDL the drift implies and say the to
 - Ghost columns may be intentional (kept for backfill or audit) — confirm with the team before proposing DROP.
 - NEVER "fix" drift on prod with a schema-push command (`prisma db push`, `synchronize: true`, `db.create_all()`) — they are destructive and skip migration history. Drift is closed by a reviewed migration, always.
 - A generated migration is a **draft**: autogenerate reads a shape difference, not an intent. A rename looks identical to a drop plus an add, and it will emit the destructive pair. Read the SQL and route it through `/migration-review`.
+
+## Baseline registration
+
+The procedure above compares the ORM with a **live** database. A behavioural baseline compares the schema with a **stored** snapshot instead, never with the live DB (proposal §7, kind `schema`), so the comparison needs no database in reach and P5 can capture it at the base sha:
+
+```bash
+bash .claude/scripts/baseline-capture.sh register --id=schema-main --kind=schema \
+  --engine=database/schema-diff --scope='prisma/**,src/**/*.entity.*,migrations/**' \
+  --command='npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > "$REFRACT_BASELINE_OUT/schema.sql"' \
+  --artifact=db/schema.snapshot.sql --compare=file --cadence=pr
+```
+
+- The command emits the schema the code declares with no database in reach: Prisma as above, or Alembic's offline `alembic upgrade head --sql`. A repo that already commits a dump its migrations maintain (`db/structure.sql`, `db/schema.rb`) points `--artifact` at that file and adds `--no-capture`, with a command that copies it into `$REFRACT_BASELINE_OUT`. Otherwise the registration's capture writes `db/schema.snapshot.sql` once, and you commit it.
+- **Gate G14**: a quick kind. It re-runs at Stop when an entity or migration is touched and in full in CI, and P5 captures it. An unplanned difference is drift the run did not declare.
+- A migration that changes the schema on purpose is declared by an acceptance criterion, `changes_baseline: ["schema-main"]`. Re-writing the snapshot with no criterion naming it fails `test-integrity.py` (`undeclared-baseline-rewrite`).

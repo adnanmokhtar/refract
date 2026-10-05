@@ -174,6 +174,23 @@ Reports:  .lighthouseci/lhr-1745492045123.html
 - Halt if INP is reported only from lab with no field/RUM source cited — lab INP is not a measurement. Pair it with CrUX or RUM `onINP` (the `web-vitals-field` skill *(performance pack, when co-installed)*) before claiming an INP value. If that pack is absent the run reports `INP: SKIPPED (no field source)` — never a fabricated number.
 - Halt if a budget is relaxed in `lighthouserc.json` to make the build pass — that's masking, not fixing. Relaxation requires an ADR.
 
+## Baseline registration
+
+The budgets above are absolute. A regression relative to the base needs a stored series. Register one metric per route in the behavioural-baseline registry (`.claude/baselines/main/manifest.json`, proposal §7) as kind `performance`:
+
+```bash
+bash .claude/scripts/baseline-capture.sh register --id=lcp-products-mobile --kind=performance \
+  --engine=frontend/lighthouse-ci --scope='src/**,package.json,vite.config.*' \
+  --command='bash scripts/perf/lighthouse-metric.sh /products largest-contentful-paint' \
+  --harness=scripts/perf/lighthouse-metric.sh --artifact=.claude/baselines/main/lcp-products-mobile.samples.json \
+  --compare=perf --unit=ms --cadence=nightly
+```
+
+- The harness builds and previews its own checkout, runs **one** Lighthouse collection and prints **one** number: the metric's `numericValue`. G4 runs it in a worktree at the base sha too. For the performance score, print `categories.performance.score` and add `--higher-is-better`.
+- `--artifact` is a samples file the capture writes. `lighthouserc.json` and `.lighthouseci/` stay as they are and are not registered.
+- **Gate G4**, in CI, nightly: `behavior-diff.py --gate=G4` drives `perf-compare.py`, base and head interleaved, at least 10 runs a side (`THR-PERF-REGRESSION`). Lighthouse is noisy, so `TOO-NOISY` is common. That verdict is a refusal, reported UNVERIFIED and never as a pass. Nothing re-runs until the number turns green.
+- A G4 `REGRESSION` is not explained by an acceptance criterion: `changes_baseline` explains G14 diffs only. An accepted slowdown needs a human waiver (`THR-WAIVER`: owner, expiry, reason, ticket). Re-recording the samples file needs a criterion naming `lcp-products-mobile` in `changes_baseline`, or `test-integrity.py` fails it as `undeclared-baseline-rewrite`. Relaxing a budget is never the fix.
+
 ## Related
 
 - **§ Triage routing above is the index** — every skill in this list is reachable from a failed metric there, in a stated order. These one-line boundaries say what each owns; that table says when to run it.

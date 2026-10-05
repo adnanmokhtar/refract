@@ -1,12 +1,14 @@
 {
-  "$comment": "Gate modes for .claude/scripts/gate-check.py, one per check. shadow = recorded in .claude/evidence/ only; warn = recorded and printed; block = recorded, printed, and a FAIL stops the Stop hook (exit 2). JSON, not YAML, because gate-check.py runs on the Python standard library and a hand-rolled YAML subset fails silently (see gate-check.py § WHY gates.json). Inferential gates (G1 acceptance, G7 review — a judge decided) and every other new gate or lens ship in shadow and moves to warn, then block, only after it has run on real changes with a measured false-block rate. Edit this file to tighten or loosen a gate for this project; CI v1 overrides every mode with --mode=shadow.",
-  "version": 2,
+  "$comment": "Gate modes for .claude/scripts/gate-check.py, one per check. shadow = recorded in .claude/evidence/ only; warn = recorded and printed; block = recorded, printed, and a FAIL stops the Stop hook (exit 2). JSON, not YAML, because gate-check.py runs on the Python standard library and a hand-rolled YAML subset fails silently (see gate-check.py § WHY gates.json). Inferential gates (G1 acceptance, G7 review — a judge decided), the behavioural-baseline gates (G4 perf, G14 behaviour — shadow until their measured noise is under 2%, proposal §6) and every other new gate or lens ship in shadow and moves to warn, then block, only after it has run on real changes with a measured false-block rate. Edit this file to tighten or loosen a gate for this project; CI v1 overrides every mode with --mode=shadow.",
+  "version": 3,
   "gates": {
     "G0": { "acceptance-lock": "block" },
     "G1": { "tests": "block", "acceptance": "shadow" },
     "G2": { "test-integrity": "warn", "oracle": "shadow" },
     "G3": { "secrets": "block" },
+    "G4": { "perf": "shadow" },
     "G7": { "lint": "block", "typecheck": "block", "standards": "warn", "review": "shadow" },
+    "G14": { "behaviour": "shadow" },
     "G15": { "trailer": "shadow", "signer": "shadow" }
   }
 }

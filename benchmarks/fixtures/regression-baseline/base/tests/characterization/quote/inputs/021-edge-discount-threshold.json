@@ -1,0 +1,1 @@
+{"category": "edge", "source": "boundary: subtotal exactly at the discount threshold", "input": {"id": "o-021", "lines": [{"sku": "kettle", "unit_cents": 5000, "qty": 2}]}}

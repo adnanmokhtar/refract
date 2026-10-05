@@ -52,6 +52,7 @@ Any other verb (e.g. `parallelize`, `split-god-module`, `centralize-cross-cuttin
 
 1. Resolve scope to concrete paths; infer primary pack (`backend` / `frontend` / `mobile` / other) from [`templates/packs/_registry.md`](../templates/packs/_registry.md) signals and `.claude/_extracted-codebase.md`.
 2. Read pack overlay when present: `templates/packs/<pack>/commands/refactor.md` (after `/setup-project`, under `.claude/commands/` from the same pack copy).
+2.5. **Characterize before the first edit.** This is proposal §7 rule 1: "behaviour preserved" becomes evidence instead of a claim. Run the testing pack's `characterize` skill over the resolved paths, or reuse a registry entry in `.claude/baselines/main/manifest.json` whose `scope_paths` already cover them. Then capture at the pre-edit sha: `bash .claude/scripts/baseline-capture.sh capture --paths=<resolved-paths>` writes `.claude/baselines/<sha>/`. After the last edit, `python3 .claude/scripts/behavior-diff.py --gate=G14 --base=<pre-edit sha>` must print **PASS**. A **DIFF** means the change was not a refactor. Halt: it is a behaviour change, which needs an acceptance criterion declaring it (`changes_baseline`) under `/add-feature` or `/fix-bug`, never a re-recorded baseline. With the testing pack absent, or no entry in scope (`N-A`), the report says `Behaviour: not characterized (<reason>)` and never claims preservation.
 3. Dispatch **`refactoring-sweep`** with `--target=<resolved-paths>` and allowed verbs = table above.
 4. **`refactorer`** agent runs as a **validation gate only** — it confirms no new abstraction without Rule-of-Three / sibling precedent. It does NOT introduce apply-verbs beyond the closed 10; any SOLID-level move it surfaces that isn't in the table (value-object introduction, conditional→polymorphism, fan-out reduction) is **routed to `/optimize`**, not applied here. Division of labour: `refactoring-sweep` applies the 10 verbs; `refactorer` gates; `/optimize` owns architectural moves.
 5. After each discrete edit: lint + typecheck + **scoped tests**; coverage must not drop.
@@ -63,9 +64,9 @@ Any other verb (e.g. `parallelize`, `split-god-module`, `centralize-cross-cuttin
 
 `--plan` is **not** a louder `--dry-run`. It runs steps 1–3 (resolve scope → read the pack overlay → select the verb per finding) above, makes **no edit**, and writes a plan file that `/execute-plan` — or any other tool, or a human — can implement later.
 
-1. **Read-only phases only.** `refactoring-sweep` is not dispatched, the `refactorer` gate is not run, no commit is made, and no row is written to `ai/refactor/ledger.md`.
+1. **Read-only phases only.** `refactoring-sweep` is not dispatched, the `refactorer` gate is not run, step 2.5's capture is not taken (the plan's executor takes it before its first edit), no commit is made, and no row is written to `ai/refactor/ledger.md`.
 2. **Expand the internal plan into the canonical handoff format.** All **eight** headers are mandatory — `## Goal` / `## Context` / `## Inputs` / `## Outputs` / `## Constraints` / `## Steps` / `## Verification` / `## Status` — plus the `Plan ID`. `/execute-plan` halts on a file missing any one of them ([`templates/repo-baseline/.claude/commands/execute-plan.md`](../templates/repo-baseline/.claude/commands/execute-plan.md) § Mechanical halt), so an eight-header file is the contract, not a nicety. `## Approach` and `## Known unknowns` are accepted optional extras.
-3. **Map this command's own vocabulary onto those headers.** One `## Steps` entry per planned edit, each naming its verb from the closed 10 and the sibling files that set the pattern; the resolved paths become `## Outputs`; "behaviour-preserving", "only the 10 `refactoring-sweep` verbs", "no architectural or perf move — route those to `/optimize`", and "coverage must not drop" become `## Constraints`; lint + typecheck + the scoped test command become `## Verification`.
+3. **Map this command's own vocabulary onto those headers.** One `## Steps` entry per planned edit, each naming its verb from the closed 10 and the sibling files that set the pattern; the resolved paths become `## Outputs`; "behaviour-preserving", "only the 10 `refactoring-sweep` verbs", "no architectural or perf move — route those to `/optimize`", "coverage must not drop" and "behaviour preserved = G14 PASS against a `characterize` capture taken at the pre-edit sha (step 2.5)" become `## Constraints`. Lint, typecheck, the scoped test command and `behavior-diff.py --gate=G14 --base=<pre-edit sha>` become `## Verification`.
 4. **Write** to `.claude/plans/refactor-<short-slug>-<YYYYMMDD-HHmm>.md`, **print** path + Plan ID + a one-line summary, and **exit before Phase 4 (Generate)** — nothing edited, nothing committed, no changelog entry.
 
 Full flag contract: [`templates/snippets/plan-flag.md`](../templates/snippets/plan-flag.md). Field-by-field format: [`templates/canonical-command-template.md`](../templates/canonical-command-template.md) § "Phase 3.5 — Handoff".
@@ -128,6 +129,7 @@ Verbs:               extract-method ×2, rename ×1
 Commits:             3
 Diff:                +42 / -38 = +4 lines
 Tests:               84/84 passing
+Behaviour:           G14 PASS — 3 entries same (characterize, 24 cases)
 Ledger:              ai/refactor/ledger.md
 
 Next: /review-changes (independent pass before merge)  OR  /optimize the module if architectural work surfaced
@@ -146,6 +148,7 @@ Applied silently:
 - **Validator gate is mandatory.** After edits, run `~/.claude/scripts/validate-refactor-artifacts.sh`. Enforces `closure_verb` ∈ 10 refactoring-sweep verbs, gap-count parity for terminal rows, optional net-lines check with `--phase-base`, hand-wave scan on findings, and **`## Actionable next steps`** in `ai/refactor/final-report.md` when that file exists.
 - **Only refactoring-sweep verbs** in `ai/refactor/ledger.md` — route architectural / perf / convention classes to `/optimize` or `/align`.
 - **Behaviour-preserving** unless user explicitly accepts breaking change + ADR.
+- **Preservation is a G14 verdict, not a sentence.** Characterize (step 2.5) runs before the first edit, and `behavior-diff.py --gate=G14` must PASS after the last one. A DIFF halts the run. Never re-record a baseline to turn it green: `test-integrity.py` fails a rewrite that no acceptance criterion declares. With no capture, the output says `Behaviour: not characterized (testing pack absent)` or `(no entry in scope)`.
 - **One discrete edit cluster per commit** where practical; tests stay green; coverage must not drop.
 
 ## Final report contract

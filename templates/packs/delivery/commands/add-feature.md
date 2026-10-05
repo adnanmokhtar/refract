@@ -160,12 +160,23 @@ per new primitive or dependency. Then:
    and failure clause, `unchanged` from the requirements), the acceptance tests — each seen **red**
    through `bash .claude/hooks/test-lane.sh record '<cmd>'` — and, at T3, holdouts in
    `.claude/holdouts/<run-id>/`. Follow [`acceptance-contract.md`](../../../snippets/acceptance-contract.md) §§ 2–3.
-3. You write `plan.md`: the 8-header plan schema (`.claude/plans/README.md`), `## Constraints`
+3. **Behavioural baseline — captured now, before any production line** (proposal §7 rule 1). The tree
+   is still the base sha. `@test-engineer` (you at T1) runs the testing pack's `characterize` skill on
+   every pre-existing entry point `design.md` names (T1: the files the tasks name) and their importers
+   in `.claude/_graph.json`, then `bash .claude/scripts/baseline-capture.sh capture --run=<run-id>`
+   (T1: `--paths=<file>,…`) → `.claude/baselines/<base-sha>/manifest.json`, which also re-captures every
+   registered entry whose scope the design meets (api-snapshot, schema-diff, visual-check …). A criterion
+   that deliberately changes recorded behaviour says so in `acceptance.json` before the lock —
+   `"changes_baseline": ["<entry>/<case>"]`; G14 (`behavior-diff.py`, via `gate-check.py`) fails any
+   difference no criterion declares, and `test-integrity.py` fails a golden file re-recorded without one.
+   Nothing pre-existing in scope (a new module only) → ledger line `baseline: n-a — no pre-existing
+   behaviour in scope`; testing pack absent → `UNREVIEWED(baseline)`.
+4. You write `plan.md`: the 8-header plan schema (`.claude/plans/README.md`), `## Constraints`
    carrying `design.md § Constraints` and the fired standards rows, each task one line under
    `## Steps` — `- T-001 (AC-001, AC-002) [lane: backend] <step>` — in dependency order.
-4. `python3 .claude/scripts/trace-matrix.py <run-id> --phase=plan` — REQ → AC → task → test with no
+5. `python3 .claude/scripts/trace-matrix.py <run-id> --phase=plan` — REQ → AC → task → test with no
    orphan. Then `@plan-critic` (`phase: P5`).
-5. **H2 — one combined gate** (T2/T3). Pause once and show everything the human needs:
+6. **H2 — one combined gate** (T2/T3). Pause once and show everything the human needs:
 
    ```
    Run:          ai/runs/<run-id>/ — tier <T> (<reasons>)
@@ -173,6 +184,7 @@ per new primitive or dependency. Then:
    Constraints:  <each binding constraint + how the design satisfies it>   design.md § Constraints
    Design:       <components · interfaces · data model · failure modes>   design.md
    Contract:     <N> criteria (EARS), tests written and red; <k> holdouts  acceptance.json
+   Baseline:     <n> entries captured @<base-sha>; <d> declared changes     .claude/baselines/<base-sha>/
    Plan:         <tasks by lane>                                           plan.md
    Critic:       <plan-critic's top findings, or none>                     reviews/plan-critic-plan.json
    Open:         <anything still undecided — each with its options>
@@ -182,7 +194,7 @@ per new primitive or dependency. Then:
    acceptance.json, plan.md with sha256]}`, then `.claude/scripts/lock-acceptance.sh <run-id>`.
    **T1, and `--yes` at T2:** `@plan-critic` stands in — PASS (no IMPORTANT finding) is recorded as
    `{gate: H2, by: plan-critic}`. `--yes` never stands in for H2 at T3, nor for H1, H3 or H4.
-6. Building against an unlocked contract is not allowed. `--plan` stops here.
+7. Building against an unlocked contract, or before the baseline is captured, is not allowed. `--plan` stops here.
 
 ## P6 — Implementation (one writer at a time)
 
@@ -238,7 +250,8 @@ cap at `THR-LOOP.review_rounds_max`; a fix re-runs only the lens that found it.
 2. **Accept.** Dispatch `@verifier` mode `acceptance` (`contract: ai/runs/<run-id>/acceptance.json`,
    holdouts at T3) → `verdict.json`.
 3. `python3 .claude/scripts/gate-check.py --local` — G0 lock intact, G1 acceptance fresh PASS, G2,
-   G3, G7 (lint, typecheck, standards, review), G15 signer ≠ author.
+   G3, G7 (lint, typecheck, standards, review), G14 behaviour (every baseline entry in the touched scope
+   re-run at HEAD; shadow), G15 signer ≠ author. G4 (performance entries, interleaved base/head) runs in CI.
 
 | `verdict.json` | Run |
 |---|---|
@@ -265,6 +278,7 @@ Spec:       <Spec-ID>                                    (when built from a spec
 Phases:     P0 ✓ · P1 ✓ · … · skipped: <phase → covered_by>
 Gates:      H1 <–|human> · H2 <human|plan-critic> · H4 pending
 Contract:   <N> criteria locked · holdouts <k> · trace REQ→AC→T→test <n/n>
+Baseline:   G14 <PASS|FAIL|N-A> — <n> entries same · <d> explained by an AC · <q> quarantined   (G4: CI)
 Reviews:    <lens: PASS|CONCERNS|FAIL> … · UNREVIEWED(<axis>) …
 Verdict:    ai/runs/<run-id>/verdict.json — PASS | FAIL | CONCERNS (fresh | STALE)
 Standards:  <N> fired — <M> MET · <K> n-a · <U> UNMET
@@ -275,7 +289,8 @@ Next:       /ship (commit + PR) · a human merges
 
 - The tier is chosen by `risk-tier.py` before code and only ever promoted; a lower tier is forced at
   P0 only, with a logged reason.
-- No production code before the acceptance contract is written, red and locked (T1+).
+- No production code before the acceptance contract is written, red and locked, and the behaviour it
+  touches is captured as a baseline (T1+).
 - At T2+ you never edit source and never author a role's artifact — you dispatch the owner.
 - One writer of source at a time; parallel writers only at T3, in worktrees, on disjoint paths.
 - A missing reviewer is `UNREVIEWED(<axis>)` and the run is INCOMPLETE — never an inline self-review.

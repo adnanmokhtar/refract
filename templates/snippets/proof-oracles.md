@@ -1470,6 +1470,322 @@ The pre-flight hit counts behind V74–V82 were measured on the benchmark fixtur
 real TypeScript monorepo on 2026-10-05 (the detectors record them). Paraphrased; no text
 reproduced.
 
+## Accessibility and UI states
+
+An accessibility claim says a real user, on a real route in a real state, cannot perceive, reach or
+operate something WCAG 2.2 A/AA requires. A UI-state claim says the surface renders nothing, the
+wrong thing, or loses input when the network answers something other than success. Both are proven
+in a **production build** driven by Playwright (or Testing Library for a component), at a named
+**route-state**: the route, plus the state that exposes the defect — the dialog or menu open, the
+theme, the viewport, the locale, the response the API gave. Reading proves neither, except for the
+static-fact classes listed in [`precedents/ui.md`](precedents/ui.md) (the proof rule). No oracle here
+replaces the manual pass: automation finds part of the problem (`precedents/ui.md` § 58), so a run
+that passes every oracle is reported as "automated floor clean", never as "accessible". Users:
+`a11y-code-scan`, `a11y-scan`, and every later UI-state, rendering, client-data and i18n detector and
+fix command.
+
+### Oracle taxonomy (accessibility and UI states)
+
+| Oracle | Asserts | Classes |
+|---|---|---|
+| **Axe at route-state** | One axe rule id has no violation node at the route-state, with the WCAG 2.2 tag set; `incomplete` nodes are listed, never dropped | V88, V94, V97, V98, V101–V103 |
+| **Keyboard path** | Tab reaches the control, Enter / Space activate it, Escape closes what it opened, focus returns to the trigger, nothing traps focus outside a modal | V87, V90, V92, V95, V96, V99, V100 |
+| **Role and label query** | `getByRole(role, { name })` or `getByLabel(text)` resolves exactly one element | V88 |
+| **Aria snapshot diff** | `toMatchAriaSnapshot` before and after the interaction shows the state change (`[expanded]`, `[selected]`, `[checked]`, `[pressed]`) | V94, V95 |
+| **Focus-visible delta** | The keyboard-focused element differs from its blurred render, in normal and forced-colours modes | V89 |
+| **Obscured rect** | No focused element is entirely covered by a `fixed` / `sticky` element | V91 |
+| **Live-region presence** | The status region exists and is empty before the action and holds the message after it; a field error is the input's accessible description or error message | V92, V93 |
+| **Geometry** | Each target's box is ≥ 24×24 CSS px or meets the spacing exception | V102 |
+| **Reflow probe** | At 320 CSS px wide nothing scrolls horizontally outside a 2-D container; injected 1.4.12 spacing clips nothing | V103 |
+| **Media emulation** | Under `reducedMotion: 'reduce'` no long animation runs; under `forcedColors: 'active'` the focus ring is still drawn | V89, V98 |
+| **Paste probe** | A value pasted into a credential or OTP field arrives intact | V97 |
+| **Clock fast-forward** | A session-timeout warning with an extend action appears before sign-out | V100 |
+| **Injected violation** | A known violation added to the page turns the project's a11y gate red | V104 |
+| **State matrix** | The surface renders the specified state for each network answer (pending, `[]`, 500, network error, 403, 404, partial, offline, failed refetch) | V105 |
+| **Request count** | One user intent sends exactly the specified number of requests | V106 |
+| **Console hydration** | A production SSR load logs no framework hydration message and throws no `pageerror` | V107 |
+| **Mount/unmount balance** | After unmount, timers, listeners, observers and subscriptions are back at their starting count | V108 |
+| **Reorder identity** | Local state (typed text, focus, expansion) follows its item when the list reorders | V109 |
+| **Request order** | When responses arrive out of order, the UI shows the latest request's data | V110 |
+| **Pseudo-locale** | Every visible string carries the pseudo-locale marks, and +40 % text clips nothing | V111 |
+| **RTL mirror** | Under `dir="rtl"` the layout mirrors and `lang` / `dir` follow the locale | V112 |
+
+### Axe at route-state
+
+`@axe-core/playwright` 4.13.0 on the production build (`vite preview`, `next start`, the deployed
+preview). Reach the state first — open the dialog or menu, set the theme with
+`page.emulateMedia({ colorScheme: 'dark' })`, the viewport, the locale — and wait for a locator that
+proves the content rendered, never `networkidle`.
+
+```ts
+import AxeBuilder from '@axe-core/playwright';
+const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];   // wcag22aa is what runs target-size
+const r = await new AxeBuilder({ page }).withTags(TAGS).analyze();        // no .options() after .withTags()
+expect(r.violations.filter((v) => v.id === 'button-name')).toEqual([]);   // assert the ONE rule the finding names
+console.log(JSON.stringify(r.incomplete.map((i) => [i.id, i.nodes.length])));   // needs-review: listed in the finding
+```
+
+`.options()` replaces the whole option object and `.disableRules()` wipes rules enabled through it
+(`precedents/ui.md` § 50): use one `.options({ runOnly, rules })` object, or `.withTags()` and at most
+one `.disableRules()`. Assert the one rule id the finding names; a "zero violations" assertion fails
+first on unrelated debt and proves nothing about this fix. Pin the axe version in the evidence:
+4.13 changed issue counts.
+
+### Keyboard path
+
+```ts
+const seen: string[] = [];
+for (let i = 0; i < 2 * (await page.locator('a,button,input,select,textarea,[tabindex]').count()) + 5; i++) {
+  await page.keyboard.press('Tab');
+  seen.push(await page.evaluate(() => { const e = document.activeElement as HTMLElement | null;
+    return e?.dataset.testid ?? `${e?.tagName}:${(e?.textContent ?? '').trim().slice(0, 30)}`; }));
+}
+expect(seen).toContain('refund-close');                                 // reachability — fails first on a clickable div
+await page.getByTestId('refund-close').focus(); await page.keyboard.press('Enter');
+await expect(page.getByRole('dialog')).toBeHidden();                    // activation by keyboard
+```
+
+Overlays: open with the keyboard; Tab `2 × focusables` times and assert
+`dialog.contains(document.activeElement)` after each press; `Escape` closes;
+`await expect(trigger).toBeFocused()`. A trap is the last `2k` entries cycling inside a subtree that
+is not an open modal. Route change: navigate by clicking a link (never `page.goto`), then
+`await expect(page).toHaveTitle(/Orders/)` and assert focus is on the new `h1`, `main` or `body` —
+not on the removed link.
+
+### Focus-visible delta
+
+Focus the element by keyboard until `toBeFocused()`, capture a clip 4 px larger than its box, blur,
+capture again: the two images must differ. Repeat under
+`page.emulateMedia({ forcedColors: 'active' })`, where a `box-shadow`-only ring disappears. The
+computed-style form compares `outline-style`, `outline-width` and `box-shadow` between the two states.
+
+### Obscured rect
+
+For every element the keyboard path visits, sample `document.elementsFromPoint()` at its centre and
+four inset corners; it fails 2.4.11 when **every** sample's top element is a `position: fixed` or
+`sticky` element that neither is nor contains it. Partial cover is AAA 2.4.12. Repeat with the
+cookie banner and the chat bubble open, and at the mobile viewport.
+
+### Live-region presence
+
+```ts
+await expect(page.getByRole('status')).toHaveCount(1);   // the region exists BEFORE the action
+await expect(page.getByRole('status')).toBeEmpty();
+await page.getByRole('button', { name: 'Save' }).click();
+await expect(page.getByRole('status')).toHaveText(/saved/i);
+// field errors: association, not just text on screen
+await expect(page.getByLabel('Email')).toHaveAttribute('aria-invalid', 'true');
+await expect(page.getByLabel('Email')).toHaveAccessibleErrorMessage(/required/i);   // or toHaveAccessibleDescription
+```
+
+A region mounted together with its text fails the first assertion. That is the defect the test
+proves. `@guidepup/virtual-screen-reader` 0.33.0 (`spokenPhraseLog()`) is the CI-able announcement
+oracle when the team wants the spoken text; real VoiceOver / NVDA through `@guidepup/guidepup` belongs
+in a nightly macOS / Windows job.
+
+### Geometry, reflow and media
+
+- **Target size:** axe `target-size` (it runs only with `wcag22aa` in the tags) plus `boundingBox()`
+  of every `getByRole('button' | 'link' | 'checkbox' | 'radio' | 'switch')` ≥ 24×24, or a 24 px circle
+  centred on it that intersects no other target's circle. A 44 px house target is checked the same way
+  and reported as the house rule.
+- **Reflow:** `page.setViewportSize({ width: 320, height: 256 })`, then
+  `document.documentElement.scrollWidth <= 321` and no text element's `getBoundingClientRect().right`
+  past 320 outside a 2-D container. **Text spacing:** `page.addStyleTag` with
+  `* { line-height: 1.5 !important; letter-spacing: .12em !important; word-spacing: .16em !important } p { margin-bottom: 2em !important }`;
+  no text container with `overflow: hidden` then has `scrollHeight > clientHeight`. **Zoom:** axe
+  `meta-viewport`. **Orientation:** the main content is visible at a portrait and a landscape viewport.
+- **Motion:** `page.emulateMedia({ reducedMotion: 'reduce' })`, then
+  `document.getAnimations().filter((a) => a.playState === 'running' && (a.effect?.getTiming().duration ?? 0) > 200)`
+  is empty; with default motion a carousel exposes a pause control that stops it.
+
+### Paste probe and clock fast-forward
+
+Paste: grant clipboard permissions (Chromium), `navigator.clipboard.writeText('Pa55-word')`, focus the
+field, `ControlOrMeta+V`, and assert `toHaveValue('Pa55-word')`; an OTP split input must accept the
+whole code in its first box. Timing: `await page.clock.install()` before load, sign in,
+`await page.clock.fastForward('14:40')`, assert a dialog with an extend action is visible before the
+sign-out time, and that extending keeps the session.
+
+### Injected violation
+
+The gate-integrity oracle. Add one known violation the gate must catch — an unnamed icon button on a
+test-only route, or a story with `parameters.a11y.test: 'error'` and a missing label — and run the
+project's own a11y gate command unchanged. It must exit non-zero. It fails first when the gate is
+neutered: a broad `disableRules`, `.exclude('main' | 'body')`, an `includedImpacts` filter, a
+Storybook `a11y.test` of `'todo'` or `'off'`, contrast checked only in jsdom, or no `wcag22aa` tag.
+
+### State matrix
+
+One handler set per endpoint, shared by the component test, Storybook and Playwright. MSW 3.0.2
+(`http`, `HttpResponse`, `delay` from `'msw'`; `graphql` now from `'msw/graphql'`):
+
+```ts
+export const states = {
+  loading:   http.get('/api/orders', async () => { await delay('infinite'); }),
+  empty:     http.get('/api/orders', () => HttpResponse.json([])),
+  error500:  http.get('/api/orders', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
+  network:   http.get('/api/orders', () => HttpResponse.error()),
+  forbidden: http.get('/api/orders', () => HttpResponse.json({}, { status: 403 })),
+  notFound:  http.get('/api/orders/:id', () => new HttpResponse(null, { status: 404 })),
+  partial:   http.get('/api/orders', () => HttpResponse.json({ items: [ok1], errors: [{ id: 2, code: 'TIMEOUT' }] })),
+};
+test.each(Object.keys(states))('orders list renders the %s state', async (s) => { server.use(states[s]); /* render, assert */ });
+```
+
+Assert the role and copy each state specifies: a `progressbar` or skeleton with `aria-busy` (loading),
+the empty copy and its action (empty), an `alert` with a retry that recovers and **not** the empty copy
+(error), distinct forbidden copy with no retry loop (403), a not-found state with a way back (404),
+the other widgets still rendered (partial). Without MSW: `page.route(url, (r) => r.fulfill({ status: 500, json: {} }))`,
+`r.abort('failed')`, a handler that never fulfils, and `context.setOffline(true)`. Stale: serve v1,
+then fail the refetch; the old rows stay visible with a stale or updating indicator. Every state also
+asserts `page.on('pageerror')` fired zero times.
+
+### Request count
+
+`let n = 0; await page.route('**/api/orders', (r) => { n++; return r.fulfill({ status: 201, json: {} }); });`
+then `await Promise.all([btn.click(), btn.click()])` (and `dblclick()`, Enter twice in a field) under a
+held response; `expect(n).toBe(1)`, and the inputs survive a 500. Money, stock and single-use actions
+also need the server-side idempotency proof from the security pack, when it is installed.
+
+### Console hydration
+
+Production build and SSR start (`next build && next start`, `nuxi build`, `vite build --ssr`, the
+SvelteKit adapter, `ng build` with SSR). Collect `page.on('console')` and `page.on('pageerror')` for one
+load of the route and fail on the framework's hydration family: React 19 `Hydration failed because`,
+`A tree hydrated but some attributes`, `cannot be a child of` / `cannot be a descendant of`; Vue 3.5
+`Hydration … mismatch`; Svelte 5 `hydration_mismatch`; Angular `NG050\d` (strings from the
+frameworks' shipped sources, read 2026-10-05; React production builds report minified codes through
+`hydrateRoot`'s `onRecoverableError`). Run once more under `timezoneId: 'Pacific/Kiritimati'` and
+`locale: 'ar-SA'`. A message that disappears in a clean browser profile is an extension
+(`precedents/ui.md` § 45).
+
+### Mount/unmount balance, reorder identity, request order
+
+- **Balance:** with fake timers, mount, exercise, unmount, then `expect(vi.getTimerCount()).toBe(0)`;
+  spy `window.addEventListener` / `removeEventListener` (and `observe` / `disconnect`, `subscribe` /
+  `unsubscribe`) and assert the counts match per event type. Under React StrictMode the double mount
+  must not double-register. The browser-level form across navigations is memlab (§ Heap leak (memlab)).
+- **Reorder identity:** type into row 2's input, then insert at the head, delete the middle, sort and
+  filter; the typed value, focus and expansion stay with the same item id.
+- **Request order:** two requests for one view, the first delayed past the second (per-request MSW
+  `delay`, or `page.route` holding the first); the UI must show the second request's data and never
+  flash the first's.
+
+### Pseudo-locale and RTL mirror
+
+- **Pseudo-locale:** wrap every catalog **value** with `pseudoLocalizeString()` (accented, about +35–40 %
+  length) — never `PseudoLocalizeDom.start()`, which rewrites hard-coded text too and cannot tell the two
+  apart. Walk the visible text nodes: a node with two or more ASCII letters and no pseudo marks is
+  hard-coded. At 320 px, no labelled control has `scrollWidth > clientWidth` under `overflow: hidden`.
+- **RTL mirror:** switch to an RTL locale through the app's own switcher; assert
+  `html[lang="ar"][dir="rtl"]`, then compare bounding boxes of the shell landmarks and directional
+  icons with the LTR render: the x-order flips, and text that must stay LTR (numbers, code, phone
+  numbers) does not.
+
+### Class variants (accessibility and UI states)
+
+#### V87. Non-semantic control — keyboard path
+- `div`, `span`, `li`, `td`, `img` with a click handler; a handler supplied through spread props; Vue `@click.stop`; Svelte 5 `onclick` and Svelte 4 `on:click`; Angular `(click)` with a half fix (`(keydown.enter)` but no Space); touch-only handlers
+- pass: Tab reaches it, Enter and Space both activate it, `toHaveRole('button' | 'link')`; or it became a native `<button>` / `<a href>`
+
+#### V88. Missing accessible name or label — role and label query, axe at route-state
+- icon-only and glyph-only `<button>`; `<a href>` holding only an SVG; `<div role="button">`; `<input type="image">`; a design-system `IconButton`; a button inside a portal (scan it open); a tooltip used as the name; the dark-theme icon swap; the label in every locale (a missing key renders the key)
+- inputs: placeholder as label, a visual label not associated, a design-system input, select, radio group (`fieldset` / `legend`), date picker, OTP split input; images: `<img>`, Next `<Image>`, `NuxtImg`, `ngSrc`, inline SVG, a linked image
+- pass: `getByRole(role, { name })` / `getByLabel()` resolves one element; axe `button-name`, `link-name`, `image-alt`, `label` clean at the route-state; the visible label is contained in the name (2.5.3)
+
+#### V89. Focus indicator removed — focus-visible delta, media emulation
+- every variant of Button, Link and Input; light, dark, forced-colours and `contrast: 'more'`; inside a card with `overflow: hidden` that clips the ring
+- pass: a visible delta in every mode
+
+#### V90. Overlay focus — keyboard path
+- dialog, drawer, menu, popover, combobox list; a nested dialog; an embedded editor that captures Tab
+- pass: focus moves in on open, stays inside a modal, Escape closes, focus returns to the trigger
+
+#### V91. Focus obscured — obscured rect
+- sticky header, sticky footer CTA, cookie banner open, chat bubble, mobile viewport
+
+#### V92. Route change — keyboard path, live-region presence
+- link click, programmatic navigation after a submit, back and forward, a query-only change, the 404 route
+- pass: the title changes, focus lands on the new heading or `main`, the announcer text changes (or the framework's built-in announcer is present, `precedents/ui.md` § 27)
+
+#### V93. Status and error messages — live-region presence
+- toast, inline "Saved", cart count, search result count, form result, offline banner; the first and a repeated identical message
+- field errors: client-side on blur, server-side 422 after submit, a field on a later wizard step; focus moves to the first invalid field or an announced summary
+
+#### V94. ARIA validity and widget state — axe at route-state, aria snapshot diff
+- `aria-hidden` on a focusable or on its container, `role="presentation"` on a focusable, invalid role or attribute value, a positive `tabindex`, `role="button"` on `a[href]`
+- state: tabs `[selected]`, disclosure `[expanded]`, switch and checkbox `[checked]`, toggle `[pressed]`, each on the SSR first paint and after hydration
+
+#### V95. Composite widget keyboard model — keyboard path, aria snapshot diff
+- tabs (arrows, Home / End, roving `tabindex`), menu (arrows, Escape returns focus), combobox (`aria-activedescendant`, listbox options), listbox, grid, tree, radio group; in LTR and RTL (arrow direction flips)
+
+#### V96. Dragging movement — keyboard path
+- sortable list, kanban, slider, resizable panel, map pin, file drop zone
+- pass: the same result with single clicks (move buttons or a menu) **and** with the keyboard; a keyboard sensor alone does not satisfy 2.5.7
+
+#### V97. Input purpose and accessible authentication — paste probe, axe at route-state
+- password, new password, OTP split input, email, phone, address, name fields; reveal-password toggle; a CAPTCHA step
+- pass: paste works, the autocomplete tokens are present and valid (axe `autocomplete-valid`), no cognitive test without an alternative
+
+#### V98. Media and motion — media emulation, axe at route-state
+- autoplay video and audio, carousel, parallax, smooth scroll, CSS and JS animation (Framer Motion, GSAP, Vue and Svelte transitions); video captions (axe `video-caption` is needs-review)
+
+#### V99. Hover and focus content — keyboard path
+- custom tooltip, hover card, mega-menu; triggered by hover **and** by focus
+- pass: Escape dismisses without moving focus, the pointer can move onto the content, it stays until dismissed or no longer relevant (1.4.13)
+
+#### V100. Context change on input and timing — keyboard path, clock fast-forward
+- a `select` that navigates on change, a field that submits on input, focus that opens a window; session timeout, idle sign-out, `meta refresh`
+- pass: ArrowDown in the select changes no URL until an explicit action; a warning with extend appears before sign-out
+
+#### V101. Contrast per theme — axe at route-state
+- text in light and dark, hover, focus, active and visited states, placeholder, text over images and gradients (axe `incomplete`); non-text: input borders, focus ring, icons, chart series against their background (≥ 3:1, computed — axe has no rule)
+
+#### V102. Target size — geometry, axe at route-state
+- toolbar icon buttons, table row actions, pagination, close "×", chips with remove, the mobile breakpoint
+
+#### V103. Reflow, zoom, text spacing, orientation — reflow probe, axe at route-state
+- 320 px, 200 % zoom (640 px of a 1280 layout), the 1.4.12 spacing injection, long German and Arabic strings, RTL; `user-scalable=no` / `maximum-scale=1`; a portrait-only lock
+
+#### V104. The a11y gate neutered — injected violation
+- broad `disableRules`; `.exclude('main' | 'body')`; `includedImpacts`; Storybook `a11y.test` not `'error'`; jsdom-only contrast; no `wcag22aa`; `.options()` after `.withTags()`; a lint suppression with no reason
+
+#### V105. UI state coverage — state matrix
+- list, detail and infinite list (page 2 fails); a refetch error while data is present (stale, not blank); a dependent query idle ≠ loading; a client-only first paint; one of N widgets failing; 403 vs 404 vs 500; offline then online (a paused mutation resumes exactly once)
+
+#### V106. Pending and double submit — request count
+- click twice, `dblclick`, Enter twice in a field, Enter while the button is disabled, `requestSubmit()`, a mobile double tap; pending covers the whole await chain, including the navigation after save
+
+#### V107. Hydration mismatch — console hydration
+- `Date` / `Math.random()` / `crypto.randomUUID()` in render; locale and time-zone formatting; a `typeof window` branch; storage or `matchMedia` in initial state; invalid nesting (`div` in `p`, `a` in `a`); under the far time zone and an RTL locale
+
+#### V108. Effect and subscription cleanup — mount/unmount balance
+- listener, interval, timeout, observer, WebSocket, EventSource, store or RxJS subscription, `matchMedia` listener, a `requestAnimationFrame` loop; StrictMode remount
+
+#### V109. Keys and identity — reorder identity
+- insert at head, delete middle, sort, filter, drag-reorder; rows with uncontrolled inputs, focus or animation; Angular `track $index` on a mutable list
+
+#### V110. Out-of-order responses — request order
+- typeahead, route-param change, tab switch, pagination, filter change
+
+#### V111. Hard-coded strings and expansion — pseudo-locale
+- text nodes, `alt`, `title`, `placeholder`, `aria-label`, toast and validation messages; at 320 px
+
+#### V112. RTL — RTL mirror
+- shell, forms, tables, directional icons, carousels, charts; `lang` and `dir` after a runtime locale switch
+
+### Sources (accessibility and UI states)
+
+The taxonomy and V87–V112 come from the frontend research notes for this batch (2026-10-05): the
+accessibility pass (axe-core 4.13.0 and `@axe-core/playwright` 4.13.0 source, Playwright 1.63.0
+types, Lighthouse 13.5.0, `@guidepup/virtual-screen-reader` 0.33.0, the WCAG 2.2 understanding
+documents as summarised there), the UX-states pass (MSW 3.0.2 exports, TanStack Query 5.104 option
+signatures, Playwright route and offline APIs) and the i18n / SSR pass (hydration message strings read
+from React 19.3.0, Vue 3.5.43, Svelte 5.57.1 and Angular 22.2.1 shipped sources; the
+`pseudoLocalizeString` vs `PseudoLocalizeDom` distinction). The keyboard-path, live-region and
+geometry shapes follow the research's ranked techniques. Paraphrased; no text reproduced.
+
 ---
 
 ## Implementation notes for the test writer

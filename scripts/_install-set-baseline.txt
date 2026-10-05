@@ -14,4 +14,4 @@
 # FORMAT  <install>|<pack,pack,...>|<max visible chars>|<max truncated entries>   # reason
 backend-only|security,code-quality,business,learning,documentation,testing,backend|3800|0   # measured 3711 visible, 0 truncated (2026-10-05)
 frontend-ui-ux|security,code-quality,business,learning,documentation,testing,frontend,ui-ux|4200|0   # measured 4164 visible, 0 truncated
-fullstack-monorepo|security,code-quality,business,learning,documentation,testing,backend,frontend,ui-ux,database,devops,infrastructure,observability,performance,ai-engineering,migration,mobile|5800|0   # measured 5756 visible, 0 truncated — the heaviest, still under the 6,000 target
+fullstack-monorepo|security,code-quality,business,learning,documentation,testing,backend,frontend,ui-ux,database,devops,infrastructure,observability,performance,ai-engineering,migration,mobile|5830|0   # measured 5812 visible, 0 truncated (2026-10-05, +characterize — a level-B skill costs its name only; raised deliberately) — the heaviest, still under the 6,000 target

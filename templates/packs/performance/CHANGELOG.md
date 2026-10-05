@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-10-05
+
+**profile-endpoint registers hot paths as `performance` baselines (architecture proposal §7, Phase 5).**
+
+`skills/profile-endpoint/SKILL.md` gains `## Baseline registration`: `--compare=perf`, a committed harness that prints one latency (p50 or p95) per run (a hot-path bench, or Step 1's fixed-rate run), samples in `.claude/baselines/main/`, cadence `nightly` plus P5 for touched hot paths. Gate G4 runs `perf-compare.py` under `proof-oracles.md` § Performance and `THR-PERF-REGRESSION`. Procedure step 3's three-run band ranks a candidate and is not the G4 sample. Refused verdicts are UNVERIFIED, and a G4 regression needs a human waiver; `changes_baseline` explains G14 only.
+
 ## 2.0.0 — 2026-10-02
 
 **The pack could rank what someone had already measured, and little else.** `/perf-audit` sent one

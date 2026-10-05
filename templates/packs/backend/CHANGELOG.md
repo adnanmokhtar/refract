@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.19.0 — 2026-10-05
+
+**api-snapshot's committed spec becomes a behavioural baseline (architecture proposal §7, Phase 5).**
+
+`skills/api-snapshot/SKILL.md` gains `## Baseline registration`, with the exact `baseline-capture.sh register` call: kind `api-contract`, engine `backend/api-snapshot`, artifact `api-snapshots/openapi.v1.json` (the file the skill already commits, never a copy, so `--no-capture`), `--compare=file` (spec regenerated into `$REFRACT_BASELINE_OUT`, JSON-aware diff) or `--compare=exit` (`oasdiff breaking` against the committed baseline), cadence `pr`. G13 stays the breaking-change authority. The registration adds the spec to the P5 capture and to G14's scope. An intended contract change is declared by an acceptance criterion's `changes_baseline`, next to the ADR a break still needs. Step 5's `cp` with no criterion naming the entry now fails `test-integrity.py` (`undeclared-baseline-rewrite`).
+
 ## 1.18.0 — 2026-10-05
 
 **The pack's `/add-feature` became a lane of the one delivery run (architecture proposal Phase 4).**

@@ -9,6 +9,27 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-10-05
+
+**"Behaviour preserved" was a claim; it is now a comparison** (architecture proposal §7, Phase 5).
+`/refactor`, `/optimize`, `/upgrade-dep` and `/migrate` asserted it, and only the tests that happened
+to exist checked it.
+
+- **New skill `characterize`.** Records what the code DOES before anyone edits it: a golden master of
+  pure functions, CLI commands and HTTP endpoints on inputs sampled from their real call sites and
+  branch boundaries, scoped to the run's `design.md` files plus their importers in
+  `.claude/_graph.json`. The format is `packs/migration/skills/parity-test-generate`'s (inputs /
+  `__golden__` / the five-key tolerance taxonomy, stored as `tolerance.json` because the gate scripts
+  are standard-library Python), so a port and a refactor are guarded by one comparator. The harness
+  is registered with `.claude/scripts/baseline-capture.sh` into `.claude/baselines/main/manifest.json`
+  and captured three times — outputs that differ between identical runs are quarantined with an
+  owner and an expiry, never silently re-baselined. Gate G14 (`behavior-diff.py`) re-runs it at HEAD;
+  a difference no acceptance criterion declares (`changes_baseline`) FAILs.
+- `characterize` is in the minimal install: the five callers print `not characterized` without it.
+- Measured on `benchmarks/fixtures/regression-baseline`: a "refactor" that moved tax rounding to
+  `round()` changed 2 of 8 sampled cases (the two half-cent boundaries) — G14 FAIL; declaring them on
+  an AC turned it into EXPLAINED; a docstring-only refactor stayed SAME.
+
 ## 2.0.1 — 2026-10-05
 
 **Six measured detector defects, found by running each pre-flight on `benchmarks/fixtures/brittle-suite`

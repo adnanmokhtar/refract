@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.5.0 — 2026-10-05
+
+**eval-run registers unchanged as an `ai-eval` baseline (architecture proposal §7, Phase 5).**
+
+`skills/eval-run/SKILL.md` gains `## Baseline registration`. The eval stays the only CI baseline that existed before Phase 5. Registering it (`--compare=exit`, delegating to the harness's own threshold gate, against the committed baseline, `--no-capture`) only lets P5 and G14 find it by scope. `--compare=file` over the scores JSON needs a `numeric_tolerance` wide enough for judge wobble, or the 3× capture quarantines it as `nondeterministic`. A lowered baseline that no acceptance criterion declares fails `test-integrity.py`.
+
 ## 1.4.0 — 2026-08-23
 
 Currency release. Two external standards this pack cited had moved underneath it, and both failures

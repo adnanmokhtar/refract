@@ -1,0 +1,1 @@
+{"category": "happy", "source": "call site api/orders.py:41 (checkout)", "input": {"id": "o-002", "lines": [{"sku": "tea", "unit_cents": 450, "qty": 2}, {"sku": "cup", "unit_cents": 1299, "qty": 1}, {"sku": "pot", "unit_cents": 3150, "qty": 1}]}}

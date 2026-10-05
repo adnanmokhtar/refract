@@ -6,6 +6,19 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.1.0 — 2026-10-05
+
+**P5 records the behaviour before anyone changes it** (architecture proposal §7 rule 1, Phase 5).
+
+- `/add-feature` P5 step 3: after the acceptance tests are red and before `plan.md`, the testing
+  pack's `characterize` pins every pre-existing entry point `design.md` names plus its importers, and
+  `baseline-capture.sh capture --run=<id>` writes `.claude/baselines/<base-sha>/` — together with every
+  registered engine entry (api-snapshot, schema-diff, visual-check, …) whose scope the design meets.
+- A criterion that deliberately changes recorded behaviour declares it in `acceptance.json`
+  (`changes_baseline`) before the lock; G14 fails an undeclared difference and `test-integrity.py` an
+  undeclared re-recording. H2 shows the capture; P12 and the Output block read G14; G4 runs in CI.
+- Building before the baseline is captured is not allowed (Hard rules).
+
 ## 1.0.0 — 2026-10-05
 
 **A feature no longer starts with code.** Architecture proposal Phase 4 ("The Run").

@@ -14,6 +14,12 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 1.19.0 — 2026-10-05
+
+**visual-check and lighthouse-ci register as behavioural baselines (architecture proposal §7, Phase 5).**
+
+`skills/visual-check/SKILL.md` gains `## Baseline registration`: kind `visual`, `--compare=exit` (Playwright `toHaveScreenshot` against the committed baseline directory, registered in place with `--no-capture`), cadence `nightly`, plus P5 for the routes a run touches, compared in CI by G14. A route that changes on purpose is declared by an acceptance criterion's `changes_baseline`. `--update-snapshots` is never the fix: an undeclared re-record fails `test-integrity.py`. `skills/lighthouse-ci/SKILL.md` gains the same section: kind `performance`, `--compare=perf`, one metric per run (LCP ms, or the score with `--higher-is-better`), samples in `.claude/baselines/main/`, gate G4 via `perf-compare.py` with base and head interleaved and ≥10 runs a side. `TOO-NOISY` is a refusal, not a pass. A G4 regression is not explained by `changes_baseline` (G14 only) and needs a human waiver. No other frontend file changed.
+
 ## 1.18.0 — 2026-10-05
 
 **The pack's `/add-feature` became a lane of the one delivery run (architecture proposal Phase 4).**

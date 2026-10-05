@@ -1,0 +1,40 @@
+{
+  "schema": "refract/baseline-manifest/v1",
+  "sha": "main",
+  "created": "2026-10-05T12:00:00Z",
+  "entries": [
+    {
+      "id": "quote-characterization",
+      "kind": "characterization",
+      "engine": "testing/characterize",
+      "command": "python3 -B tests/characterization/quote/run.py",
+      "scope_paths": ["pricing/**"],
+      "harness_paths": ["tests/characterization/quote/run.py", "tests/characterization/quote/inputs"],
+      "created_from_sha": "0000000",
+      "artifact_path": "tests/characterization/quote/__golden__",
+      "tolerance": {
+        "exact": ["$.ok.order_id", "$.ok.subtotal_cents", "$.ok.discount_cents", "$.ok.tax_cents", "$.ok.total_cents", "$.error"],
+        "structural": [],
+        "numeric_tolerance": {},
+        "order_insensitive": [],
+        "ignore": []
+      },
+      "compare": "golden",
+      "cadence": "pr"
+    },
+    {
+      "id": "quote-bench",
+      "kind": "performance",
+      "engine": "project",
+      "command": "python3 -B bench/bench_quote.py",
+      "scope_paths": ["pricing/**"],
+      "harness_paths": ["bench/bench_quote.py"],
+      "created_from_sha": "0000000",
+      "artifact_path": ".claude/baselines/main/quote-bench.samples.json",
+      "tolerance": null,
+      "compare": "perf",
+      "cadence": "nightly",
+      "metric": { "unit": "s per 72,000 quotes", "lower_is_better": true }
+    }
+  ]
+}

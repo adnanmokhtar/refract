@@ -178,6 +178,21 @@ A screenshot is only valid if it is **of the target surface**. The most common f
 - Halt if no baseline exists yet AND the run claims PASS — the first run only generates baselines, it cannot verify them.
 - Halt if RTL locales are declared in `i18n.config.ts` but absent from the matrix — flipped layouts must be tested.
 
+## Baseline registration
+
+Register the committed screenshot baselines in the behavioural-baseline registry (`.claude/baselines/main/manifest.json`, proposal §7) as kind `visual`, one entry per route group:
+
+```bash
+bash .claude/scripts/baseline-capture.sh register --id=visual-dashboard --kind=visual \
+  --engine=frontend/visual-check --scope='src/pages/dashboard/**,src/components/**,src/styles/**,tailwind.config.*' \
+  --command='npx playwright test test/visual/ -g dashboard' \
+  --artifact=test/visual/baseline --compare=exit --cadence=nightly --no-capture
+```
+
+- `--compare=exit` hands the comparison to Playwright: exit 0 means `toHaveScreenshot` matched the committed baselines. `--artifact` is the directory this suite already commits (`test/visual/baseline/` here, `<spec>-snapshots/` under Playwright's default path template), never a copy. `--no-capture` leaves it alone.
+- **Cadence.** Captured nightly and at P5 for the routes a run touches. Compared in CI by `behavior-diff.py --gate=G14 --ci`; visual is not a quick kind, so it does not run at Stop.
+- A route that changes on purpose is declared by an acceptance criterion, `changes_baseline: ["visual-dashboard"]`, or a pattern over its baseline files. That is the "declared in `ux.md`" the proposal asks for. `--update-snapshots` is never the fix: a re-recorded baseline with no criterion naming it fails `test-integrity.py` (`undeclared-baseline-rewrite`), and the halt above still applies.
+
 ## Related
 
 - `verify-with-playwright` — the ad-hoc live-drive sibling: no baselines, no matrix, one flow verified now. It cites this skill's session + artifact contract rather than defining its own. Use it to answer "does this work?"; use this skill to answer "did anything change?".

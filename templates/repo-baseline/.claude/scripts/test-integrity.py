@@ -24,10 +24,21 @@ HEAD line for something added.
   new-skip                    an added skip / only / xfail / xit / fdescribe / @Disabled / t.Skip …
   lowered-coverage-threshold  a coverage floor lowered or deleted in config
   removed-ci-test-step        a CI file lost a line that ran tests, or a test line gained `|| true`
+  undeclared-baseline-rewrite a stored snapshot, golden master or behavioural baseline that existed at
+                              base was rewritten or deleted, and no acceptance criterion declares it
+                              (`changes_baseline` in ai/runs/<run>/acceptance.json names the baseline
+                              entry, `<entry>/<case>`, or the path). Re-recording the expectation is
+                              the cheapest way to turn a behaviour diff green (proposal §7 rule 2).
+                              Snapshot shapes: __snapshots__/, *.snap, *-snapshots/, __screenshots__/,
+                              __image_snapshots__/, __golden__/, *.golden, *.approved.*, and every
+                              artifact_path in .claude/baselines/main/manifest.json. A NEW snapshot is
+                              not a rewrite.
 
 NOT COVERED in v1, named so a clean run is not read as covering them: widened numeric tolerances,
-snapshot rewrites, `NODE_ENV === 'test'` branches in production code, equality overrides.
+`NODE_ENV === 'test'` branches in production code, equality overrides, a snapshot stored inline in a
+test file (toMatchInlineSnapshot — that edit is a test-file edit, read by the checks above).
 """
+import fnmatch
 import json
 import os
 import re
@@ -109,6 +120,8 @@ COV_FILES = (
      r"Makefile|\.gitlab-ci\.yml|\.github/workflows/[^/]+\.ya?ml)$", None),
 )
 NUM_AFTER = r"[^0-9\n]{0,24}?(\d+(?:\.\d+)?)"
+SNAPSHOT_PATH = re.compile(r"(^|/)(__snapshots__|__screenshots__|__image_snapshots__|__golden__)/|\.snap$|-snapshots/"
+                           r"|\.golden$|\.approved\.[A-Za-z0-9]+$|(^|/)\.claude/baselines/main/(?!manifest\.json$)")
 
 
 def git(repo, *args, ok=(0,)):
@@ -215,6 +228,46 @@ def thresholds(rx, lines):
     return out
 
 
+def baseline_rewrites(repo, base, head, add):
+    """undeclared-baseline-rewrite: M/D/R of a stored expectation with no criterion naming it."""
+    def read_json(rev, path):
+        if rev is None:
+            fp = os.path.join(repo, path)
+            txt = open(fp, encoding="utf-8", errors="replace").read() if os.path.isfile(fp) else ""
+        else:
+            r = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (rev, path)], capture_output=True, text=True, errors="replace")
+            txt = r.stdout if r.returncode == 0 else ""
+        try:
+            return json.loads(txt) if txt else None
+        except ValueError:
+            return None
+    man = read_json(head, ".claude/baselines/main/manifest.json") or read_json(base, ".claude/baselines/main/manifest.json") or {}
+    owners = [(e.get("artifact_path", "").rstrip("/"), e.get("id")) for e in man.get("entries", []) if e.get("artifact_path")]
+    if head is None:
+        accs = [p for p in git(repo, "ls-files", "-co", "--exclude-standard", "--", "ai/runs").splitlines() if p.endswith("/acceptance.json")]
+    else:
+        accs = [p for p in git(repo, "ls-tree", "-r", "--name-only", head, "--", "ai/runs").splitlines() if p.endswith("/acceptance.json")]
+    pats = [(c.get("id"), pat) for p in accs for c in ((read_json(head, p) or {}).get("criteria") or [])
+            for pat in (c.get("changes_baseline") or [])]
+    status = git(repo, "diff", "--name-status", "-M", "--no-color", base, *([head] if head else []))
+    for line in status.splitlines():
+        parts = line.split("\t")
+        if len(parts) < 2 or parts[0][:1] not in ("M", "D", "R"):
+            continue
+        old = parts[1]
+        ids = [i for a, i in owners if a and (old == a or old.startswith(a + "/"))]
+        if not (SNAPSHOT_PATH.search(old) or ids):
+            continue
+        case = os.path.splitext(os.path.basename(old))[0]
+        keys = [old] + ids + ["%s/%s" % (i, case) for i in ids]
+        if any(fnmatch.fnmatchcase(k, pat) for _, pat in pats for k in keys):
+            continue
+        verb = {"M": "rewritten", "D": "deleted", "R": "moved"}[parts[0][:1]]
+        add("undeclared-baseline-rewrite", old, 1, "stored expectation %s%s and no acceptance criterion declares it "
+            "(changes_baseline: [\"%s\"]) — re-recording a baseline is a behaviour change, not a fix"
+            % (verb, " (baseline entry %s)" % ", ".join(ids) if ids else "", ("%s/%s" % (ids[0], case)) if ids else old))
+
+
 def check(repo, base, head):
     findings = []
     add = lambda kind, f, ln, msg: findings.append({"kind": kind, "file": f, "line": ln, "message": msg})
@@ -309,6 +362,7 @@ def check(repo, base, head):
             for ln, s in e["add"]:
                 if TEST_CMD.search(s) and re.search(r"\|\|\s*(true|:)\b|;\s*exit\s+0\b", s):
                     add("removed-ci-test-step", e["new"], ln, "CI test step made non-blocking: %s" % s.strip()[:100])
+    baseline_rewrites(repo, base, head, add)
     return findings, len(files)
 
 

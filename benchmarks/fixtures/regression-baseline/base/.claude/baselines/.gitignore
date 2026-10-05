@@ -1,0 +1,5 @@
+# local captures (.claude/baselines/<sha>/) are never committed; the registry main/ is
+*
+!.gitignore
+!main/
+!main/**

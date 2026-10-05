@@ -1,0 +1,53 @@
+# refract-baselines-main — keep main's behavioural baselines honest, outside any agent's session.
+#
+# Installed by /setup-project (templates/phases/phase-4.2-apply.md § 4.2.d) as
+# .gitlab/refract-baselines-main.gitlab-ci.yml, never over an existing file of that name; inert until
+# the first `baseline-capture.sh register` creates .claude/baselines/main/manifest.json. GitLab reads ONE
+# pipeline file, so this is not wired automatically — /setup-project prints the `include:` line for
+# the owner to add to .gitlab-ci.yml, and the nightly run needs a pipeline schedule the owner creates
+# (CI/CD → Schedules; a schedule cannot be declared in YAML):
+#
+#   include:
+#     - local: .gitlab/refract-baselines-main.gitlab-ci.yml
+#
+# WHAT IT DOES (architecture proposal §7, rule 4 — cadence): on every push to the default branch the
+# CHEAP kinds (characterization, api-contract, schema, ai-eval, golden-flow) are re-captured and
+# main is checked against the baseline it has committed; on a schedule the slow kinds (visual,
+# accessibility, performance) run, and performance is measured HEAD against HEAD, interleaved — every
+# REGRESSION it reports is a false block, which is the noise calibration G4 and G14 need before they
+# leave shadow. SHADOW: allow_failure, nothing is committed (re-baselining is a PR decision that
+# test-integrity.py requires an acceptance criterion to declare); captures and reports are artifacts.
+refract-baselines-main:
+  stage: test
+  image: python:3.12
+  allow_failure: true
+  variables:
+    GIT_DEPTH: "0"   # the base side of a comparison is a worktree at an older sha
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - if [ -f requirements.txt ]; then python3 -m pip install -r requirements.txt || true; fi
+    - |
+      if [ ! -f .claude/baselines/main/manifest.json ]; then
+        echo "no baseline registry (.claude/baselines/main/manifest.json) — nothing to refresh" | tee baselines.txt
+        exit 0
+      fi
+      if [ "$CI_PIPELINE_SOURCE" = schedule ]; then kinds=nightly; g14=visual,accessibility; else kinds=cheap; g14=characterization,api-contract,schema,ai-eval,golden-flow; fi
+      {
+        echo "## capture ($kinds) @ $(git rev-parse --short HEAD)"
+        bash .claude/scripts/baseline-capture.sh capture --kinds="$kinds" --owner=refract-baselines-main || true
+        echo "## does main reproduce its committed baseline? ($g14)"
+        python3 .claude/scripts/behavior-diff.py --gate=G14 --base=HEAD --all-entries --against-committed --kinds="$g14" --ci || true
+        if [ "$CI_PIPELINE_SOURCE" = schedule ]; then
+          echo "## noise calibration: performance, HEAD vs HEAD interleaved (a REGRESSION here is a false block)"
+          python3 .claude/scripts/behavior-diff.py --gate=G4 --base=HEAD --all-entries --ci --json | tee perf-noise.json || true
+        fi
+      } 2>&1 | tee baselines.txt
+  artifacts:
+    when: always
+    name: refract-baselines-main
+    paths:
+      - .claude/baselines/
+      - baselines.txt
+      - perf-noise.json

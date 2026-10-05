@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "2.0.0",
-  "released": "2026-10-02",
+  "version": "2.1.0",
+  "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Seven code-first detectors (N+1, query shape, index coverage, schema integrity, migration safety, transactions, connections), a rewritten /db-audit with a static lane that works with no database in reach, and a new /db-fix.",
+  "summary": "schema-diff gains § Baseline registration: the code-declared schema is compared with a stored snapshot, not the live DB, as a schema baseline under gate G14 (proposal §7, Phase 5).",
   "changelog": "CHANGELOG.md"
 }

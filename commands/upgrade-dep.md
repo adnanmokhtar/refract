@@ -109,6 +109,8 @@ The oracle is chosen **before** anything is edited, and its baseline is captured
 
 **When the oracle floor does not exist**, the run halts and proposes the cheapest thing that would close the gap — usually a boot/build smoke check, occasionally three endpoint or screen assertions. It is installed and committed **before** the upgrade, on its own, so the baseline is recorded on the old version. Adding it afterwards is the failure this rule exists to prevent.
 
+**Every floor above gains a recorded behaviour baseline** (proposal §7 rule 1). On the pre-upgrade tree, run the testing pack's `characterize` skill over the code the guide's breaking-change list touches, then `bash .claude/scripts/baseline-capture.sh capture --paths=<touched paths>`. The capture lands in `.claude/baselines/<pre-upgrade sha>/`, together with every registered baseline already in scope: the API spec, schema snapshot, visual and eval entries in `.claude/baselines/main/manifest.json`. Verify is `python3 .claude/scripts/behavior-diff.py --gate=G14 --ci --base=<pre-upgrade sha>`, run over the upgrade's commits so the visual and eval kinds run too, plus `--gate=G4` when a `performance` entry is in scope. A DIFF is a row of the residue sweep: either a guide item still to fix, or a documented behaviour change of the new version, named in the report. A baseline is never re-recorded to go green. With the testing pack absent, the report says `Behaviour: not characterized (testing pack absent)` under `Not validated:`.
+
 ## Runtime class (the local-only upgrade)
 
 A runtime upgrade that changes only the developer's machine is not an upgrade; it is a divergence. Every pin in this list that exists in the repo moves in the same run, and the report names each one:
@@ -126,11 +128,11 @@ A pin that lives **outside** this repository (a cloud console setting, a base im
 1. **Pre-flight** — clean tree (or `--allow-dirty`), the manifest and lock are both tracked, the oracle's baseline command runs green *before* anything changes. A red baseline halts: an upgrade onto a broken tree cannot be told from an upgrade that broke it.
 2. **Classify** — resolve target → ecosystem, current version, target version, direct vs transitive, and the class table above. Print it.
 3. **Source the breaking changes** — fetch the vendor's guide / release notes / CHANGELOG for the exact span, and record the citation in the report. **Cite-or-halt**: no authoritative source for a major → HALT (`--no-guide` proceeds only with the absence stated in `Not validated:`). Spanning several majors is walked **one major at a time**, each with its own guide, its own commits and its own oracle run.
-4. **Pin the oracle** — per the table above; capture the baseline; commit it first if it had to be created.
+4. **Pin the oracle** — per the table above; capture the baseline; commit it first if it had to be created. Characterize and capture the registered baselines here, on the pre-upgrade tree (§ Parity oracle).
 5. **Apply** — the vendor's codemod first, its output committed **verbatim and alone**. Then the manifest/lock bump. Then hand fixes, grouped one commit per breaking-change item.
 6. **Sweep the residue** — the guide's breaking-change list becomes a checklist where every row ends `applied` / `not applicable — <why>` / `TODO`. Removed APIs are grepped for by name across the tree; a hit that survives the codemod is a row, not a shrug.
 7. **Resolve the fallout** — peers, plugins, type packages and first-party ecosystem packages that this major drags with it. Each is either moved in this run (when the guide names it as required) or listed as a follow-up command — never auto-cascaded into another major.
-8. **Verify** — re-run the oracle, diff against the baseline, record the numbers. Deprecation-warning count is recorded too: a build that is green but newly noisy is a finding, not a pass.
+8. **Verify** — re-run the oracle, diff against the baseline (`behavior-diff.py --gate=G14 --ci`, and `--gate=G4` when a perf entry is in scope), record the numbers. Deprecation-warning count is recorded too: a build that is green but newly noisy is a finding, not a pass.
 9. **Report** — the honesty block closes it (§ What you see).
 
 ## Commit shape
@@ -161,6 +163,7 @@ Config:        tailwind.config.js → @theme in src/assets/main.css (CSS-first)
 Fallout:       postcss plugin moved with it; 2 plugins have no v4 build → follow-up commands below
 
 Oracle result: build green · typecheck green · 34/34 routes mount · visual diff 12/12 within threshold
+Behaviour:     G14 PASS — 5 entries same (characterize 3, visual 1, api-contract 1)
 Deprecations:  build warnings 0 → 0
 Bundle:        CSS 118KB → 71KB
 

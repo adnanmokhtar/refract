@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-10-05
+
+**schema-diff gains a stored-snapshot baseline (architecture proposal §7, Phase 5).**
+
+`skills/schema-diff/SKILL.md` gains `## Baseline registration`: kind `schema`, `--compare=file`. The command emits the schema the code declares with no database in reach (`prisma migrate diff --from-empty --to-schema-datamodel`, offline `alembic upgrade head --sql`). It is compared with a **stored** snapshot, never the live DB (proposal [COV §6]). Cadence `pr`, captured at P5, gate G14 (quick kind). An intended schema change is declared by an acceptance criterion's `changes_baseline`. `_examples/schema-diff.md` is recopied from the source.
+
 ## 2.0.0 — 2026-10-02
 
 **The pack could judge a running database, and little else.** `/db-audit` had seven checks; four

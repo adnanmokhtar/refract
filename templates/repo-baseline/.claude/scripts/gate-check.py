@@ -29,10 +29,18 @@ GATES (v2). Verdicts: PASS · FAIL · UNVERIFIED (could not be checked — never
                       could fail (QG-15)
   G3  secrets         gitleaks over base..HEAD in --ci when installed, else the shipped
                       secret-scan.sh hook over every added line; RAN or SKIPPED is recorded
+  G4  perf            behavior-diff.py --gate=G4: each performance baseline entry in the touched scope,
+                      base (a worktree at the merge-base) and HEAD measured INTERLEAVED by
+                      perf-compare.py against THR-PERF-REGRESSION. CI only — --local reports N-A unless
+                      REFRACT_G4_LOCAL=1 (ten interleaved pairs per entry is not a Stop-hook cost)
   G7  lint · typecheck · standards — the configured linter and type checker over the touched
                       files; standards-check.py --json beside this file
   G7  review          INFERENTIAL — persisted reviews (ai/runs/<run>/reviews/*.json) and the verifier's
                       refute verdict: fresh, and no confirmed IMPORTANT finding standing
+  G14 behaviour       behavior-diff.py: every behavioural baseline entry (.claude/baselines/) whose scope
+                      the change touched, re-run at HEAD and compared with the base side; a difference no
+                      acceptance criterion declares (`changes_baseline`) FAILs, and so does a T2/T3 run
+                      whose modified source no entry covers. --local: quick kinds; --ci: every kind
   G15 trailer         every commit in base..HEAD carries `Assisted-by:` or `Co-Authored-By:`
   G15 signer          every inferential record was stamped by its hook, and its signer is not among
                       the agents that authored the change it judged
@@ -78,11 +86,13 @@ except ImportError:          # an older install: the inferential gates report UN
     rr = None
 VERSION = "2"
 CHECKS = [("G0", "acceptance-lock"), ("G1", "tests"), ("G1", "acceptance"), ("G2", "test-integrity"),
-          ("G2", "oracle"), ("G3", "secrets"), ("G7", "lint"), ("G7", "typecheck"), ("G7", "standards"),
-          ("G7", "review"), ("G15", "trailer"), ("G15", "signer")]
+          ("G2", "oracle"), ("G3", "secrets"), ("G4", "perf"), ("G7", "lint"), ("G7", "typecheck"), ("G7", "standards"),
+          ("G7", "review"), ("G14", "behaviour"), ("G15", "trailer"), ("G15", "signer")]
 DEFAULTS = {"G0": {"acceptance-lock": "block"}, "G1": {"tests": "block", "acceptance": "shadow"},
             "G2": {"test-integrity": "warn", "oracle": "shadow"}, "G3": {"secrets": "block"},
+            "G4": {"perf": "shadow"},
             "G7": {"lint": "block", "typecheck": "block", "standards": "warn", "review": "shadow"},
+            "G14": {"behaviour": "shadow"},
             "G15": {"trailer": "shadow", "signer": "shadow"}}
 INFERENTIAL = {("G1", "acceptance"), ("G7", "review")}
 MODES = ("shadow", "warn", "block")
@@ -649,11 +659,42 @@ def run_g2_oracle(ctx):
                findings=[{"file": f["file"], "line": f["line"], "rule": f["kind"], "message": f["message"]} for f in found])
 
 
+# ── G4 performance · G14 behavioural baseline ──────────────────────────────────────────────────
+def run_baseline_gate(ctx, gate):
+    """Both gates are behavior-diff.py: one manifest reader, one scope rule, one AC-declaration rule."""
+    check = "perf" if gate == "G4" else "behaviour"
+    bd = os.path.join(HERE, "behavior-diff.py")
+    if not os.path.isfile(bd):
+        return rec(gate, check, "UNVERIFIED", "behavior-diff.py is not installed beside gate-check.py", "SKIPPED")
+    if not ctx.base or ctx.base == ctx.head and not ctx.touched:
+        return rec(gate, check, "N-A", "no commit to compare against")
+    if gate == "G4" and ctx.scope == "local" and os.environ.get("REFRACT_G4_LOCAL") != "1":
+        return rec(gate, check, "N-A", "G4 measures in CI (--ci): ten interleaved base/head pairs per performance entry is "
+                   "not a Stop-hook cost — REFRACT_G4_LOCAL=1 runs it here")
+    cmd = [sys.executable, bd, "--gate=" + gate, "--repo=" + ctx.repo, "--base=" + ctx.base, "--json"] + \
+        (["--ci"] if ctx.scope == "ci" else []) + (["--touched=" + ",".join(ctx.touched)] if ctx.scope == "local" else [])
+    rc, out, err = run(cmd, ctx.repo, timeout=None if ctx.scope == "ci" else TIMEOUT)
+    shown = ".claude/scripts/behavior-diff.py --gate=%s --base=%s%s" % (gate, ctx.base[:12], " --ci" if ctx.scope == "ci" else "")
+    try:
+        d = json.loads(out)
+    except ValueError:
+        return rec(gate, check, "UNVERIFIED", "behavior-diff.py failed (exit %s): %s" % (rc, (err or out).strip()[-200:]),
+                   "SKIPPED", command=shown, rc=rc)
+    findings = [{"file": d.get("manifest"), "line": None, "rule": "%s/%s" % (e["kind"], e["status"].lower()),
+                 "message": "%s: %s" % (e["id"], e.get("reason") or e["status"])}
+                for e in d.get("entries", []) if e["status"] not in ("SAME", "EXPLAINED")]
+    findings += [{"file": p, "line": None, "rule": "uncaptured", "message": "modified source no baseline entry covers"}
+                 for p in d.get("uncaptured", [])[:30]]
+    return rec(gate, check, d.get("verdict", "UNVERIFIED"), d.get("reason"), tool="behavior-diff.py", command=shown,
+               rc=rc, out=out, findings=findings)
+
+
 RUNNERS = {("G0", "acceptance-lock"): run_g0, ("G1", "acceptance"): run_g1_acceptance, ("G2", "oracle"): run_g2_oracle,
            ("G7", "review"): run_g7_review, ("G15", "signer"): run_g15_signer,
            ("G1", "tests"): run_g1, ("G2", "test-integrity"): run_g2, ("G3", "secrets"): run_g3,
            ("G7", "lint"): lambda c: run_g7_tools(c, "lint"), ("G7", "typecheck"): lambda c: run_g7_tools(c, "typecheck"),
-           ("G7", "standards"): run_g7_standards, ("G15", "trailer"): run_g15}
+           ("G7", "standards"): run_g7_standards, ("G15", "trailer"): run_g15,
+           ("G4", "perf"): lambda c: run_baseline_gate(c, "G4"), ("G14", "behaviour"): lambda c: run_baseline_gate(c, "G14")}
 
 
 def load_modes(repo, override):

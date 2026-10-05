@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.13.0 — 2026-10-05
+
+**The parity golden master is registered, so G14 keeps guarding V2 after the port (architecture proposal §7, Phase 5).**
+
+`skills/parity-test-generate/SKILL.md` gains `## Baseline registration`. Kind `characterization`, engine `migration/parity-test-generate`, `--compare=golden`, artifact `<parity-test-root>/<feature>/__golden__`, harness = `inputs/` plus the capture script pointed at this checkout. It is registered once the suite is green against V2. `--no-capture` is mandatory: a capture would overwrite V1's golden snapshots with V2's output. The registry stores tolerance as JSON (`tolerance.json`, the same five keys) because the gate scripts are standard-library only. `tolerance.yaml` stays this skill's file and is mirrored at registration. This is the golden-master format the testing pack's new `characterize` reuses. `commands/migrate.md` step 8 and `commands/port-feature.md` step 4b register the golden master. On an in-place migration, where V2 replaces V1 in the same tree, `characterize` runs first at the pre-migration sha.
+
 ## 1.12.0 — 2026-09-18
 
 **The pack could port a V1, but not keep up with one.**

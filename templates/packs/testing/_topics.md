@@ -127,6 +127,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { test_framework_detected: true }   # §5-§6 read shipped code too; a repo with no doubles reports N/A
   fallback: skills/test-double-scan/SKILL.md
 
+- name: characterize
+  kind: skill
+  triggers: { test_framework_detected: true }   # P5 of /add-feature and the first step of /refactor, /optimize, /upgrade-dep, /migrate
+  fallback: skills/characterize/SKILL.md         # the source IS the fallback: the harness format and the no-re-record rule are the contract
+
 - name: test-audit
   kind: command
   triggers: { test_framework_detected: true }

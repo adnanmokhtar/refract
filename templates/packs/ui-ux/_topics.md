@@ -218,6 +218,18 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [when_to_use, procedure, inputs, outputs, failure_modes]
   fallback: skills/a11y-quick-check/SKILL.md
 
+- name: ui-state-scan
+  kind: skill
+  triggers: { OR: { primary_frontend_framework_detected: true, mobile_framework_detected: true } }
+  sections: [premise, rule, boundaries, lane_table, preflight, scans_for, proof, output, halt_conditions]
+  fallback: skills/ui-state-scan/SKILL.md
+
+- name: state-matrix
+  kind: skill
+  triggers: { OR: { primary_frontend_framework_detected: true, mobile_framework_detected: true } }
+  sections: [premise, location, states, format, design_mode, lint_mode, output, halt_conditions]
+  fallback: skills/state-matrix/SKILL.md
+
 - name: design-iterate
   kind: skill
   triggers: { primary_frontend_framework_detected: true }

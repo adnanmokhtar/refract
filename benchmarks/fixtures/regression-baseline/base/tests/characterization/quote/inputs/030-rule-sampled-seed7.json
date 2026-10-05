@@ -1,0 +1,1 @@
+{"category": "rule", "source": "sampled (seed 7) from the order generator", "input": {"id": "o-030", "lines": [{"sku": "tea", "unit_cents": 1733, "qty": 3}, {"sku": "cup", "unit_cents": 899, "qty": 4}]}}
