@@ -247,6 +247,18 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { primary_frontend_framework_detected: true }
   fallback: skills/render-correctness-scan/SKILL.md
 
+- name: client-data-scan
+  kind: skill
+  triggers: { query_lib_detected_OR_client_data_fetching_present: true }
+  extracts_from: _extracted-idioms.md (the project's API client name for the NET grep, its query-key factory and invalidation helper)
+  fallback: skills/client-data-scan/SKILL.md
+
+- name: routing-scan
+  kind: skill
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md (router + route table location) + _extracted-idioms.md (the project's table / card components that navigate)
+  fallback: skills/routing-scan/SKILL.md
+
 - name: streaming-ssr
   kind: skill
   triggers: { ssr_enabled: true }
