@@ -22,7 +22,7 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 
 ## Must not
 
-- `.skip` without a linked issue + owner + delete-by date. Skipped tests rot.
+- `.skip` / `xfail` / `@Disabled` without an owner + delete-by date (`THR-TODO`; a linked issue is optional, never a substitute). Skipped tests rot.
 - `.only` checked into main — fails CI, hides coverage gaps.
 - Sleep-based waits: `await sleep(500)`. Use polling with `waitFor`, fake timers, or event-driven hooks.
 - Real network calls in unit/integration tests. Use the project's HTTP-faking primitive / fixtures / testcontainers.
@@ -38,10 +38,14 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 - Build test data through a factory/builder — only the field under test differs from the default. No copy-pasted literals, and no shared mutable fixture (state tests write to passes in suite order, fails in isolation). Give unique fields a sequence so built instances never collide.
 - Pure/total functions get property tests over their input space, not a handful of hand-picked examples — the bug is in the input you didn't type. Confirm the generator has a shrinker and the failing seed is pinned, or a counterexample is unusable.
 - Use Testcontainers / docker-compose for integration tests that need a real DB / Redis — faster and more honest than mocking SQL.
-- Treat coverage as a signal of **presence**, never a goal: it proves the branch RAN, and a high number carrying weak assertions is worse than a lower one carrying sharp ones, because it buys confidence the suite has not earned. What proves *strength* is a killed mutant — mutation-test the changed scope. **No fixed score is the bar**: baseline what your harness reports on a module already agreed well-tested, then ratchet; the changed scope may not land under it.
+- Treat coverage as a signal of **presence**, never a goal: it proves the branch RAN, and a high number carrying weak assertions is worse than a lower one carrying sharp ones, because it buys confidence the suite has not earned. What proves *strength* is a killed mutant — mutation-test the changed scope. **No fixed score is the bar** (`THR-COVERAGE`, `THR-MUTATION`): baseline what your harness reports on a module already agreed well-tested, then ratchet; the changed scope may not land under it.
 
 ## Enforcement
 
-- The runner's own `.only` guard, on — **check before adding one, because it is often already there**: Vitest's key is `allowOnly` and it defaults to `!process.env.CI`, so `.only` fails CI out of the box. Jest ships no equivalent config key; use a focused-test lint rule. Add a pre-commit reject where the runner has neither.
-- Coverage threshold gates in CI — as a floor that may not drop, never as the definition of done.
-- Mutation testing on critical modules on a cadence the suite's runtime can afford, ratcheted against its own recorded baseline.
+Each MUST has a detector; `/test-audit` runs them all, `/test-fix` closes what they find.
+
+- `.only`, ownerless skips, uncollected files, CI that masks a red run (`|| true`, `continue-on-error`, `--forceExit`), coverage config that hides code, retries with no flaky gate → `suite-execution-scan`. Check the runner's own guard first — Vitest's `allowOnly` defaults to `!process.env.CI`; Jest has no config key, so use the focused-test lint rule — and run test lint rules at error or with `--max-warnings 0`: eslint-plugin-jest's `recommended` leaves `expect-expect`, `no-disabled-tests` and `no-commented-out-tests` at warn.
+- Tests that cannot fail → `assertion-strength-scan`, proved by a killed mutant (`mutation-probe`).
+- Real clock, unseeded randomness, sleeps, real network, unrestored state, async leaks → `flake-source-scan`; `/flaky-test-hunt` fixes them at runtime. Never `--forceExit`: find the open handle with `--detectOpenHandles` and close it.
+- A mocked SUT, untyped doubles, emulated databases, test seams in shipped code → `test-double-scan`.
+- Coverage as a floor that may not drop (`THR-COVERAGE`) → `coverage-gap`; mutation on the changed scope, ratcheted (`THR-MUTATION`) → `mutation-probe`.

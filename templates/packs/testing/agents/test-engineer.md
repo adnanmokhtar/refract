@@ -20,6 +20,25 @@ model: sonnet
 - Multi-tenant code is being changed and no cross-tenant leak test is in this PR — halt; that test is mandatory.
 - A flake-prone primitive (real clock, real network, real random, `sleep`) appears in test code — halt; inject a fake or use the framework's time-control API.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: writer
+inputs:
+  required: [scope]             # the change, file or behaviour to cover — and the failing-first evidence when it is a fix
+  reads:    [the code under test, one sibling test, ai/patterns/test-strategy.md, test-doubles.md, .claude/rules/testing-principles.md]
+output:
+  returns:  the 'Tests written for' block ('## Output')
+  writes:   [test files under the project's test conventions, and their fixtures or factories]
+  persisted_by: caller
+skills:     [coverage-gap, mutation-probe]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT | SPEC_CONFLICT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       @test-reviewer audits the tests; it is never this agent grading its own work
+```
+
 ## Pre-flight
 
 1. Read `CLAUDE.md`, `ai/conventions.md`, `ai/patterns/test-strategy.md`, `ai/patterns/test-doubles.md`.

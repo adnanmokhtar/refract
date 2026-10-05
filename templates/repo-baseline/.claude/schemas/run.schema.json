@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/adnanmokhtar/refract/schemas/refract/run/v1.json",
+  "title": "Refract run record",
+  "description": "ai/runs/<run_id>/run.json — the orchestrator's record of one delivery run: the tier and every reason for it, the lanes, the state of each phase, every skipped phase with what covers it, the human approvals and waivers, and the loop counters. Written by the main session running /add-feature (the orchestrator) and by .claude/scripts/risk-tier.py --write (tier promotion only); no subagent writes it (artifact-ownership.sh). T0 changes never open a run, so `tier` is T1..T3. Keywords are the subset .claude/scripts/refract_records.py validates: type, enum, const, required, properties, additionalProperties, items, pattern, minLength, maxLength, minItems, $defs, $ref.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "run_id", "created", "status", "request", "tier", "tier_reasons", "lanes", "phase", "phases", "skips", "approvals", "waivers", "loops"],
+  "properties": {
+    "schema": { "const": "refract/run/v1" },
+    "run_id": { "$ref": "#/$defs/run_id" },
+    "created": { "$ref": "#/$defs/ts" },
+    "status": { "enum": ["open", "closed", "abandoned"], "description": "open while the orchestrator works it; artifact-ownership.sh enforces against open runs only." },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "source"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1, "description": "The user's ask, verbatim." },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "ref"],
+          "properties": {
+            "kind": { "enum": ["request", "spec", "ticket", "plan"] },
+            "ref": { "type": "string", "minLength": 1, "description": "The request quoted, a spec path or Spec-ID, a tracker id, or a plan file." }
+          }
+        }
+      }
+    },
+    "spec_id": { "type": ["string", "null"], "description": "The Spec-ID (<slug>-<4hash>) when the run was built from an /analyze-task spec." },
+    "tier": { "enum": ["T1", "T2", "T3"] },
+    "tier_reasons": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Every signal that raised the tier, from every input risk-tier.py read. The tier is the highest of them.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tier", "signal", "source", "detail"],
+        "properties": {
+          "tier": { "enum": ["T0", "T1", "T2", "T3"] },
+          "signal": { "type": "string", "minLength": 1, "description": "A trigger name from governance/tiers.json (money-movement, write-path, …) or `default`." },
+          "source": { "enum": ["request", "spec", "risk-map", "design", "diff", "graph", "user", "ci"] },
+          "detail": { "type": "string", "minLength": 1, "description": "What matched: the word, the path and glob, the caller count." },
+          "at": { "$ref": "#/$defs/ts" }
+        }
+      }
+    },
+    "tier_history": {
+      "type": "array",
+      "description": "Every change of tier. Entries only ever go up the order T1 → T2 → T3; a promotion after P5 back-fills the phases the new tier requires.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to", "at", "by"],
+        "properties": {
+          "from": { "enum": ["T1", "T2", "T3", null] },
+          "to": { "enum": ["T1", "T2", "T3"] },
+          "at": { "$ref": "#/$defs/ts" },
+          "by": { "type": "string", "minLength": 1, "description": "risk-tier.py (source) or user." },
+          "backfill": { "type": "array", "items": { "$ref": "#/$defs/phase" }, "description": "Phases the promotion re-opened." }
+        }
+      }
+    },
+    "forced_lower": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["computed", "chosen", "reason", "at"],
+      "description": "A user forced a tier below the computed one — allowed at P0 only, never mid-run. CI re-tiers from the diff (G15).",
+      "properties": {
+        "computed": { "enum": ["T1", "T2", "T3"] },
+        "chosen": { "enum": ["T0", "T1", "T2"] },
+        "reason": { "type": "string", "minLength": 8 },
+        "at": { "$ref": "#/$defs/ts" }
+      }
+    },
+    "lanes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["backend", "frontend", "mobile", "data", "ai", "infra", "docs"] }
+    },
+    "phase": { "$ref": "#/$defs/phase", "description": "The phase the run is in now." },
+    "phases": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One entry per phase the run has touched. A phase the tier requires and the run skipped must also appear in `skips` with what covers it.",
+      "properties": {
+        "P0": { "$ref": "#/$defs/phase_state" }, "P1": { "$ref": "#/$defs/phase_state" }, "P2": { "$ref": "#/$defs/phase_state" },
+        "P3": { "$ref": "#/$defs/phase_state" }, "P4": { "$ref": "#/$defs/phase_state" }, "P5": { "$ref": "#/$defs/phase_state" },
+        "P6": { "$ref": "#/$defs/phase_state" }, "P7": { "$ref": "#/$defs/phase_state" }, "P8": { "$ref": "#/$defs/phase_state" },
+        "P9": { "$ref": "#/$defs/phase_state" }, "P10": { "$ref": "#/$defs/phase_state" }, "P11": { "$ref": "#/$defs/phase_state" },
+        "P12": { "$ref": "#/$defs/phase_state" }, "P13": { "$ref": "#/$defs/phase_state" }, "P14": { "$ref": "#/$defs/phase_state" },
+        "P15": { "$ref": "#/$defs/phase_state" }
+      }
+    },
+    "skips": {
+      "type": "array",
+      "description": "Every phase not run, and what covers it instead (proposal §4.2 P0 exit: 'every skipped phase names what covers it').",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["phase", "covered_by"],
+        "properties": {
+          "phase": { "$ref": "#/$defs/phase" },
+          "covered_by": { "type": "string", "minLength": 3, "description": "`tier T1` · `no UI lane` · `spec <Spec-ID> §…` · `n-a: <the trigger the change does not match>`" }
+        }
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "description": "Human gates passed. by = human for H1–H4; plan-critic only for its stand-in role (H2 at T1 or under --yes). The artifacts' hashes bind the approval to what was shown.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "by", "at", "artifacts"],
+        "properties": {
+          "gate": { "enum": ["H1", "H2", "H3", "H4"] },
+          "by": { "enum": ["human", "plan-critic"] },
+          "at": { "$ref": "#/$defs/ts" },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256"],
+              "properties": {
+                "path": { "type": "string", "minLength": 1 },
+                "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              }
+            }
+          },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "waivers": {
+      "type": "array",
+      "description": "Human-only, THR-WAIVER: owner, expiry ≤ 30 days, reason, ticket. An expired waiver is a FAIL.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gate", "owner", "expiry", "reason", "ticket"],
+        "properties": {
+          "gate": { "type": "string", "pattern": "^G[0-9]{1,2}[a-z]?$" },
+          "owner": { "type": "string", "minLength": 1 },
+          "expiry": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+          "reason": { "type": "string", "minLength": 8 },
+          "ticket": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "loops": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fix", "review_rounds", "replans", "stalls"],
+      "description": "Counters against THR-LOOP (fix ≤3, review rounds ≤2, replans ≤2; two stalls trigger a replan, a third escalates).",
+      "properties": {
+        "fix": { "type": "integer", "minimum": 0 },
+        "review_rounds": { "type": "integer", "minimum": 0 },
+        "replans": { "type": "integer", "minimum": 0 },
+        "stalls": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "outcome": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["status", "at"],
+      "properties": {
+        "status": { "enum": ["COMPLETE", "INCOMPLETE", "BLOCKED"] },
+        "at": { "$ref": "#/$defs/ts" },
+        "reason": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "run_id": {
+      "type": "string",
+      "pattern": "^[0-9]{8}-[a-z0-9][a-z0-9-]{0,60}-[0-9a-f]{4}$",
+      "description": "<YYYYMMDD>-<slug>-<4 hex> — the Spec-ID convention of /analyze-task with the date in front."
+    },
+    "ts": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "phase": { "enum": ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10", "P11", "P12", "P13", "P14", "P15"] },
+    "phase_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state"],
+      "properties": {
+        "state": { "enum": ["pending", "active", "done", "skipped", "blocked"] },
+        "by": { "type": "string", "description": "The agent (or `orchestrator`) that wrote the phase's artifact." },
+        "artifacts": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "verified_by": { "type": "string" },
+        "at": { "$ref": "#/$defs/ts" }
+      }
+    }
+  }
+}

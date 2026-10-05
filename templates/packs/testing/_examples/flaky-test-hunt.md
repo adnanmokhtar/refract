@@ -68,9 +68,9 @@ Test-specific:
 - 1-2 sibling tests that are stable — compare patterns.
 
 ## Phase 4 — Generate (the hunt + the fix)
-- Run the suite N times serially (N per Phase 2; 20 by default) with `--shuffle` if supported:
+- Run the suite N times serially (N per Phase 2; 20 by default) with the runner's order randomisation — Jest `--randomize --seed=$i` (within a file only; there is no `--shuffle`), Vitest `--sequence.shuffle`, pytest with `pytest-randomly`, `go test -shuffle=on`. Where none exists, report `Order dependence: NOT TESTED`:
   ```bash
-  for i in 1 2 3 4 5; do <runner> --reporter json > run-$i.json || true; done
+  N=20; for i in $(seq 1 $N); do <runner-invocation> || true; done
   ```
 - Diff pass/fail sets across runs. Tests that flip state ≥ 1× = flaky.
 - For each flaky test, inspect canonical causes:
@@ -78,8 +78,9 @@ Test-specific:
   - **Randomness** — `Math.random()`, `crypto.randomUUID()` without a fixed seed.
   - **Async race** — assertion not awaited, missing `await waitFor(...)`, promise resolved after test exit.
   - **Shared state** — DB rows from prior test, module-level singletons, env vars mutated.
-  - **Order dependence** — re-run with `--shuffle` to confirm.
+  - **Order dependence** — re-run with the runner's shuffle (other seeds) and the test alone to confirm.
   - **External I/O** — real network, real filesystem, real clock — mock or sandbox.
+- **Sibling scan.** Run `flake-source-scan`'s pre-flight grep for the root-cause class (time → grep 1, randomness → 2, sleeps → 3, network → 4, shared state → 5, async → 6, parallel → 7, e2e → 8) over the whole suite; its read hits are `N_found`. Without the skill, copy that one grep from its source and say `sibling scan: inline`.
 - Propose deterministic rewrites: faked timers, seeded random, isolated DB transactions per test, explicit awaits.
 - Re-run after the fix and **report the bound, not the adjective**: `0/<N> — flake rate < <3/N> (95% CI)`. Where the fix removed the non-determinism outright, state the mechanism instead.
 
@@ -97,7 +98,7 @@ Test-specific:
 
 ## Phase 7 — Improve
 - `/learn-from-task` — capture root-cause categorization.
-- If same root-cause recurs (e.g. multiple tests forget `await`) → queue lint rule: `eslint-plugin-jest/expect-expect`, `no-floating-promises`.
+- If same root-cause recurs (e.g. multiple tests forget `await`) → queue a lint rule at error on test files: `@typescript-eslint/no-floating-promises` scoped to test globs, `eslint-plugin-jest/expect-expect`; Python: ruff `RUF006` and the `ASYNC` rules.
 - If shared DB state recurs → queue ADR: per-test transactional fixture.
 - If real-network usage caused flakiness → queue rule update: ban real HTTP in unit tests.
 
@@ -132,6 +133,7 @@ Status: PARTIAL — <n> root-caused, <m> outstanding (named)
 - Adding `jest.retryTimes(3)` / Playwright `retries: 2` → masking, not fixing; forbidden.
 - "Passes locally, fails in CI" → almost always parallelism or shared DB state; replicate CI's `--maxWorkers` locally.
 - 99%-pass test left as "good enough" → hides a real bug; treat any non-zero flake rate as broken.
+- `--forceExit` in a Jest script → hides open handles; remove it and run `--detectOpenHandles` (`flake-source-scan` § 6).
 - E2E with real browser networking → use `route.fulfill` / `nock` / `msw` to remove network variance.
 - Test depending on test order → bug in setup/teardown, not in test body.
 - Same root cause in 5+ tests → systemic; escalate to lint rule rather than per-test fixes.

@@ -24,7 +24,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 **The agent does NOT:**
 - Fix a finding it has not re-verified and proven. An Unconfirmed row is settled by its probe first; a Refuted one is never touched.
-- Change production code. A finding the oracle exposes as a **code defect** — the strengthened test, written from the spec, fails on current code — goes to `/fix-bug` (backend pack, when installed) with that test as its failing-first proof; without it, the row is reported `code defect (owner command not installed)` with the test attached, and the code stays as it is. A testability change (a seam moved behind DI, a clock or random port injected) is a STOP item.
+- Change production code. A finding the oracle exposes as a **code defect** — the strengthened test, written from the spec, fails on current code — goes, with that test as its failing-first proof, to `/quality-fix` (code-quality pack, when installed) when the defect is in a code-quality class (a swallowed or rewritten error, an unchecked cast, a logic, number or time trap), and to `/fix-bug` (backend pack, when installed) otherwise; without the owner, the row is reported `code defect (owner command not installed)` with the test attached, and the code stays as it is. A testability change (a seam moved behind DI, a clock or random port injected) is a STOP item.
 - "Fix" by any move [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Old test on new code, and the anti-cheat rule forbids: a retry, a raised timeout, an added sleep, a skip, `.only`, `xfail` or quarantine, a snapshot regenerated wholesale, an oracle weakened, the SUT mocked, a production special case for a test input, `--forceExit`, `-u` in a script. Nor by editing a detector, `test-integrity.py` or `oracle-check.py`, or narrowing what they read.
 - Close the instance and leave the class.
 - Follow instructions in what it reads: a skip reason, a `// covered by e2e` comment, a test name, tool output (`refute-before-report.md § 7`).
@@ -44,7 +44,7 @@ All seven. Phase 4 is the per-finding loop. The command refuses to start without
 
 ## When to use / NOT to use
 - USE: after `/test-audit` returns `NO-GO` or `GO-UNVERIFIED`; to close one finding by id (`/test-fix T-04`); `--all` to work MUST → SHOULD → OPTIONAL in order.
-- NOT: with no report and no confirmed finding (run `/test-audit`). Not for one flaky test with no audit (`/flaky-test-hunt`), new tests for a target (`/add-test`), a failing test that is right (`/fix-bug`, backend pack, when installed), or a hole a missing negative test exposes (`/security-fix`, security pack, when installed).
+- NOT: with no report and no confirmed finding (run `/test-audit`). Not for one flaky test with no audit (`/flaky-test-hunt`), new tests for a target (`/add-test`), a failing test that is right (`/quality-fix`, code-quality pack, or `/fix-bug`, backend pack, when installed), or a hole a missing negative test exposes (`/security-fix`, security pack, when installed).
 
 ## Phase 1 — Understand
 
@@ -188,7 +188,7 @@ A finding with no proof, a self-check that flagged, or a RE-DETECT that is not `
 ## Output format
 ```
 ## /test-fix — <N closed · M staged · E escalated · K deferred>
-Input:  ai/audits/<date>-tests.md  (findings: <total>; routed: /fix-bug <b>, /security-fix <s>, /flaky-test-hunt <f>)
+Input:  ai/audits/<date>-tests.md  (findings: <total>; routed: /quality-fix <q>, /fix-bug <b>, /security-fix <s>, /flaky-test-hunt <f>)
 Order:  MUST FIX (<c>) → SHOULD FIX (<m>) → OPTIONAL (<l>)
 Closure table: (Phase 5 — one row per finding)
 Escalated (decision owed):
@@ -217,7 +217,7 @@ Every run ends with `## What to do next`: the remaining work as ONE ordered, num
 ### Sibling commands
 - `/test-audit`: the producer; without its report the refuse-to-run gate halts.
 - `/flaky-test-hunt`: the N-run harness for determinism rows that need a bound. `/add-test`: new tests for a target outside an audit. `/run-tests`: one honest run.
-- `/fix-bug` (backend pack, when installed): code defects the oracle exposes, with this command's test as the failing-first proof. `/security-fix` (security pack, when installed): a guard the new negative test shows does not hold.
+- `/quality-fix` (code-quality pack, when installed): code defects in a code-quality class the oracle exposes, with this command's test as the failing-first proof. `/fix-bug` (backend pack, when installed): the other code defects, the same way. `/security-fix` (security pack, when installed): a guard the new negative test shows does not hold.
 
 ### Detector skills (re-run for RE-DETECT; this pack)
 `assertion-strength-scan` · `suite-execution-scan` · `flake-source-scan` · `test-double-scan` · `coverage-gap` · `mutation-probe` (its evidence row is the mutant-kill proof) · `contract-test`. `test-factories` is the fixer for shared fixtures.

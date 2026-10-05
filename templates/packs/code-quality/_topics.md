@@ -201,4 +201,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { vcs_detected: true }   # the divergence and new-clone lanes read git history; without it §1b and §3 are N/A and the rest runs
   fallback: skills/duplication-scan/SKILL.md
+
+- name: quality-audit
+  kind: command
+  triggers: { always: true }   # every codebase has handlers, boundaries and logic; a stack with no analyzer lane runs the greps and reports partial
+  extracts_from: _extracted-codebase.md § Stack (language, runtime AND analyzer versions from the lockfile — verdicts change with the major) + the lint and typecheck steps CI runs + the risk surfaces (auth, tenant, money, webhook modules)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/quality-audit.md   # the source IS the fallback, as for test-audit and db-audit; the fixed class ledger and the dispatch table are the contract
+
+- name: quality-fix
+  kind: command
+  triggers: { always: true }
+  fallback: commands/quality-fix.md   # the source IS the fallback, as for test-fix and db-fix; a skeleton would drop the two-lane split and the Step-6 self-check
 ```

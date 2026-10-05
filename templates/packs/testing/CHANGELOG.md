@@ -9,6 +9,96 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-05
+
+**The pack wrote tests and judged the ones in front of it; nothing judged the suite.** It had no
+audit and one fix command (`/flaky-test-hunt`). `coverage-gap` and `mutation-probe` were the right
+oracles — presence and strength — but described more than they ran, and a whole-repo run graded
+nothing: tests that cannot fail, tests no runner collects, CI that masks a red run, flake sources
+and doubles that lie were each a checklist line in an agent, checked by reading. `@test-reviewer`'s
+one "grep for changes that lack tests" was a loop whose body was a comment: it ran and found nothing
+(D-1).
+
+- **Four detector skills**, each a runnable pre-flight script with per-runner lanes, BAD/GOOD and
+  "read the code" questions per class, a 3,000-hit path and a class coverage block, measured on a
+  real NestJS + React monorepo (read-only) and on `benchmarks/fixtures/*`:
+  `assertion-strength-scan` (§1–§6: no or weak oracle, interaction-only, unreached or un-awaited,
+  swallowed, expected value from the SUT, snapshot-only), `suite-execution-scan` (§1–§6: focus and
+  ownerless skips, never collected, CI masking, coverage config that hides code, retries with no
+  flaky gate), `flake-source-scan` (§1–§8: clock and expiring fixture dates, unseeded randomness,
+  sleeps, real network, shared state, async leaks, parallel assumptions, brittle e2e) and
+  `test-double-scan` (§1–§6: the SUT mocked, unchecked doubles, doubles of what the project does not
+  own, engine substitution, test seams and special-cased test inputs in shipped code).
+- **`coverage-gap` rewritten** with `--diff` and `--whole-repo` modes and seven classes. Its diff lane
+  is `diff-cover` 10.6.0 over LCOV / Cobertura / JaCoCo, with the awk intersect as the fallback; the
+  old "intersect changed lines with lcov" step was prose (D-14). A changed file missing from the
+  report — which diff-cover silently skips — is its own row.
+- **`mutation-probe` rewritten** with flags run on 2026-10-05 (D-3): StrykerJS has no `--since`
+  (`--mutate file:L-L`; `--incremental` diffs against its own last report, not git), mutmut 3 dropped
+  `--paths-to-mutate`, gremlins' flag is `--diff`, PIT's `scmMutationCoverage` was removed in 1.18.0.
+  New Infection (PHP), mull (C/C++) and cosmic-ray rows, a manual seeded-mutant lane, a five-check
+  equivalent-mutant procedure and the `mutant-kill` evidence row `/test-fix` consumes.
+- **`/test-audit`** (read-only): every detector on a whole repo, by signal on a diff, after the
+  repo-baseline's `test-integrity.py` and `oracle-check.py` lanes; every candidate refuted by a
+  separate verifier (`templates/snippets/refute-before-report.md` with `precedents/testing.md`); a
+  fixed class ledger and a `GO` / `GO-UNVERIFIED` / `NO-GO` verdict, written to
+  `ai/audits/<date>-tests.md`.
+- **`/test-fix`** closes an audit's findings: prove each failing-first with its oracle
+  (`templates/snippets/proof-oracles.md` § Testing), fix the test or the gate and never the code,
+  narrow an existing assertion only, run `test-integrity.py` and `oracle-check.py` on its own diff
+  and refuse to close if either flags, re-detect, sweep siblings, run the suite shuffled. A finding
+  that turns out to be a code defect goes to `/quality-fix` or `/fix-bug` with the test attached.
+- **`@test-reviewer` runs the detectors and grades their rows.** On a diff it runs the two tool lanes,
+  then `assertion-strength-scan`, `flake-source-scan`, `test-double-scan` and `suite-execution-scan`
+  by signal on the changed files, `coverage-gap --diff` (replacing the empty loop, D-1) and
+  `mutation-probe` through its diff-scoped lane — the old pointer to a `--since` / `--in-diff` mode
+  named one StrykerJS does not have. A signalled detector that did not run is `UNREVIEWED(<class>)`
+  and caps the verdict. `/review-changes` and `/pre-commit` (code-quality pack) dispatch the same
+  four on changed test files, and `/check-health` reads the latest `/test-audit` verdict as its
+  Tests row.
+- **`/flaky-test-hunt`.** Phase 4's "scan for the same pattern" is now `flake-source-scan`'s grep for
+  the root-cause class, with a class map, so `N_found` is a read list. The Jest row said `--shuffle`;
+  Jest 30's flag is `--randomize`, which shuffles within a file only, so cross-file order dependence
+  is `NOT TESTED` unless the file order is varied too. Phase 7 pointed at `pylint async-no-await`, a
+  message that does not exist (D-4); it now names `@typescript-eslint/no-floating-promises` on test
+  globs and ruff `RUF006` / `ASYNC`, at error.
+- **`STACK.md` lane table** (D-16): the test lint lane, runtime guards, diff-scoped mutation and
+  changed-line coverage for twelve stacks, and the WARN trap — eslint-plugin-jest's `recommended`
+  leaves `expect-expect`, `no-disabled-tests` and `no-commented-out-tests` at warn, so a lane run
+  without `--max-warnings 0` reads clean while they fire.
+- **`testing-principles`: scoped by `paths:`, and enforced by detectors** (D-15). It ships a
+  `paths:` default (source, config, CI, snapshot and Makefile shapes) marked
+  `paths-origin: pack-default-482709ec`, so `/setup-project` can narrow it and it no longer loads in
+  sessions that touch no code. Its Enforcement section names the detector for each MUST, including
+  "never `--forceExit`" (the measured real repo ran its e2e job with it). The `.skip` bullet demanded a
+  linked issue as well as an owner and a date; precedence A2 settles that the owner and the date are
+  required and a ticket is optional (`THR-TODO`), and the coverage and mutation bars cite
+  `THR-COVERAGE` and `THR-MUTATION`.
+- **`ai-patterns/test-doubles`** gained a Detectors section: `test-double-scan` is its executor.
+- **Frontmatter** (D-2): `contract-test`, `property-invariants` and `test-factories` declare
+  `kind: skill` and `pack: testing`, as `coverage-gap` and `mutation-probe` now do.
+- **Agents carry a Contract block** (`templates/snippets/contract-block.md`):
+  `@test-reviewer` is a judge with no write tool, `@test-engineer` and `@tdd-orchestrator` are writers.
+- **Minimal install** ships `test-audit`, `assertion-strength-scan` and `suite-execution-scan` beside
+  `coverage-gap`. `/test-fix`, `flake-source-scan`, `test-double-scan` and `mutation-probe` ship in
+  standard mode; on a minimal install `/test-audit` prints their rows `not run`, forcing
+  `GO-UNVERIFIED`.
+
+**Known gaps.** No seeded fixture exists for this pack yet (`benchmarks/fixtures/brittle-suite` is
+designed, not built), so the detectors' recall was measured on one real repo and on fixtures that
+seed no testing class. Diff-time detection of a **changed** expected value, a widened tolerance, a
+snapshot rewrite, a `NODE_ENV === 'test'` branch or an equality override belongs to
+`test-integrity.py` v2 (repo-baseline); until it ships, `test-double-scan` § 5–§ 6 run on diffs too,
+and `/test-fix`'s self-check cannot see a flipped expected value. `oracle-check.py` reads supertest's
+`.expect(<status>)` as a weak oracle and parses `it(` inside comment blocks; `assertion-strength-scan`
+reads its rows as candidates for that reason.
+
+**Upgrading.** Every existing skill and command keeps its name, so name-based references resolve.
+On `/setup-project --upgrade` or `--refresh` with this pack selected, the four new skills and the
+two new commands are added and the rewritten files replaced. A project that hand-scoped
+`testing-principles` keeps its own `paths:`: the setup replaces only a block whose
+`pack-default-<sha8>` marker still matches its globs.
+
 ## 1.6.1 — 2026-08-23
 
 **`/tdd`'s greenfield fallback was three empty headings over a 98-line dispatcher.**

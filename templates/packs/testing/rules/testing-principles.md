@@ -1,4 +1,12 @@
 ---
+paths:
+  - "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro}"
+  - "**/*.{py,pyi,rb,php,go,rs,java,kt,kts,scala,groovy,cs,fs,vb,swift,m,mm,dart}"
+  - "**/*.{ex,exs,erl,hrl,clj,cljs,cljc,hs,ml,elm,lua,pl,pm,r,R,jl,zig,nim,cr,c,h,cc,cpp,cxx,hpp}"
+  - "**/*.{yml,yaml,json,jsonc,json5,toml,ini,cfg,conf,properties,xml,env,plist,gradle}"
+  - "**/*.{snap,feature}"
+  - "**/{Makefile,Justfile,Taskfile}*"
+paths-origin: pack-default-482709ec
 name: testing-principles
 description: Testing Principles
 kind: rule
@@ -25,7 +33,7 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 
 ## Must not
 
-- `.skip` without a linked issue + owner + delete-by date. Skipped tests rot.
+- `.skip` / `xfail` / `@Disabled` without an owner + delete-by date (`THR-TODO`; a linked issue is optional, never a substitute). Skipped tests rot.
 - `.only` checked into main — fails CI, hides coverage gaps.
 - Sleep-based waits: `await sleep(500)`. Use polling with `waitFor`, fake timers, or event-driven hooks.
 - Real network calls in unit/integration tests. Use the project's HTTP-faking primitive (`STACK.md`) / fixtures / testcontainers for the dependency.
@@ -41,10 +49,15 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 - Build test data through a factory/builder — only the field under test differs from the default. No copy-pasted literals, and no shared mutable fixture (state tests write to passes in suite order, fails in isolation). See `../skills/test-factories/SKILL.md`.
 - Pure/total functions get property tests over their input space, not a handful of hand-picked examples — the bug is in the input you didn't type. See `../skills/property-invariants/SKILL.md`.
 - Use Testcontainers / docker-compose for integration tests that need a real DB / Redis — faster + more honest than mocking SQL.
-- Treat coverage as a signal of **presence**, never a goal: it proves the branch RAN, and a high number carrying weak assertions is worse than a lower one carrying sharp ones, because it buys confidence the suite has not earned. What proves *strength* is a killed mutant — mutation-test the changed scope (`../skills/mutation-probe/SKILL.md`). **No fixed score is the bar**: baseline what your harness reports on a module already agreed well-tested, then ratchet; the changed scope may not land under it.
+- Treat coverage as a signal of **presence**, never a goal: it proves the branch RAN, and a high number carrying weak assertions is worse than a lower one carrying sharp ones, because it buys confidence the suite has not earned. What proves *strength* is a killed mutant — mutation-test the changed scope (`../skills/mutation-probe/SKILL.md`). **No fixed score is the bar** (`THR-COVERAGE`, `THR-MUTATION`): baseline what your harness reports on a module already agreed well-tested, then ratchet; the changed scope may not land under it.
 
 ## Enforcement
 
-- The runner's own `.only` guard, on (`STACK.md` names the per-runner key and its default) — plus a focused-test lint rule and a pre-commit reject where the runner ships none.
-- Coverage threshold gates in CI — as a floor that may not drop, never as the definition of done.
-- Mutation testing on critical modules on a cadence the suite's runtime can afford, ratcheted against its own recorded baseline.
+Each MUST has a detector; `/test-audit` runs them all and prints a class ledger, `/test-fix` closes what they find.
+
+- `.only`, ownerless skips, files no runner collects, CI that masks a red run (`|| true`, `continue-on-error`, `--passWithNoTests`, `--forceExit`), coverage config that hides code, retries with no flaky gate → `suite-execution-scan`. The runner's own guard comes first (`STACK.md` names the key and its default), then the test lint rules **at error, or run with `--max-warnings 0`** in CI — eslint-plugin-jest's `recommended` leaves `expect-expect`, `no-disabled-tests` and `no-commented-out-tests` at warn, so a lane that runs it plainly reads clean while they fire.
+- Tests that cannot fail (no or weak oracle, interaction-only, un-awaited, swallowed, snapshot-only) → `assertion-strength-scan`; the proof is a killed mutant (`mutation-probe`).
+- Real clock, unseeded randomness, sleeps, real network, unrestored state, async leaks → `flake-source-scan`; `/flaky-test-hunt` proves and fixes them at runtime. Never `--forceExit`: it hides the open handle. Run `--detectOpenHandles` (Jest) or the runner's leak oracle and close the handle.
+- A mocked SUT, untyped doubles, emulated databases, test seams in shipped code → `test-double-scan`.
+- Coverage as a floor that may not drop, never the definition of done (`THR-COVERAGE`) → `coverage-gap`, which also lists guarded routes with no denial test.
+- Mutation testing on the changed scope and the critical modules, ratcheted against the recorded baseline (`THR-MUTATION`) → `mutation-probe`.

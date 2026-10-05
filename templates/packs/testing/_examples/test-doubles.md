@@ -195,6 +195,10 @@ expect(await userRepo.findById(result.id)).toMatchObject({
 - Sharing mocks across tests (pollutes state).
 - Real external API calls in unit / integration tests — MSW / nock / fakes only.
 
+## Detectors (cite-or-halt)
+
+`test-double-scan` (testing pack) is this pattern's executor: § 1 the SUT mocked, § 2 doubles no type or `spec` checks, § 3 mocks of what you do not own, § 4 an emulated database, § 5–§ 6 test seams and special-cased test inputs in shipped code. Interaction-only assertions are `assertion-strength-scan` § 2; real time, random and network are `flake-source-scan`. Run the owner and print its class block — never re-derive a class here.
+
 ## Related
 
 - `test-factories` — the data complement. test-doubles owns *behavior* (what a collaborator does when the SUT calls it — mocks, stubs, fakes, spies); test-factories owns *data* (how the input objects and fixtures the test operates on are built, with defaults + per-test overrides). A test typically needs both: a factory to build the `User`, a fake repository to stand in for the DB. Building data through a mock, or scripting behavior through a factory, is using the wrong tool.

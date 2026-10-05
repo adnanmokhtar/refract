@@ -19,7 +19,7 @@
         "ref": { "type": "string", "minLength": 1, "description": "A spec path or Spec-ID, the plan file, the tracker id, or the request quoted verbatim." }
       }
     },
-    "tier": { "enum": ["trivial", "standard", "heavy"] },
+    "tier": { "enum": ["trivial", "standard", "heavy", "T1", "T2", "T3"], "description": "T1..T3 for a delivery run (governance/tiers.json; mirrors run.json); trivial / standard / heavy for the pack-lane flows that predate the run." },
     "created": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
     "criteria": {
       "type": "array",

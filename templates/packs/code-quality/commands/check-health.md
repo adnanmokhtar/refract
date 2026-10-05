@@ -92,6 +92,7 @@ If any step fails: STOP, do not run agents. Fix mechanical first.
 - `api-reviewer` — backend track present.
 - `ui-reviewer` — frontend track present.
 - `schema-reviewer` — DB migrations present.
+- **Tests (suite quality)** — read the latest `ai/audits/<YYYY-MM-DD>-tests.md` that `/test-audit` wrote (testing pack, when installed); do not re-run the audit here. Its verdict is the row: `NO-GO` → RED, `GO-UNVERIFIED` → AMBER with its open items named, `GO` → GREEN. No report, or one older than 30 days → AMBER `not audited — run /test-audit`. Without the testing pack → `UNREVIEWED(tests) — testing pack not installed`. The mechanical Tests row says the suite passed; this row says whether passing means anything.
 
 **Missing-agent contract (applies to every agent above):** if a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself. Report it in the verdict as `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)`; the health check is **INCOMPLETE**, never GREEN on that axis, and names the install that closes it (`/setup-project --include=<pack>`). A skipped axis scores GREEN by absence, which is the worst failure mode for a health check: it reads as "clean" when it was never checked. (Same discipline as `review-changes.md` § Phase 6 missing-agent contract.)
 
@@ -121,6 +122,7 @@ Agent audit:
   AMBER  Dead code    3 unused exports
   RED    Security     1 blocker — missing auth on GET /admin/export
   AMBER  Performance  N+1 in listOrders()
+  AMBER  Tests        GO-UNVERIFIED (2 open) — ai/audits/2026-04-20-tests.md
   RED    Docs         ai/status.md last updated 2026-02-14 (71 days stale)
 
 Overall: RED  (security blocker requires immediate fix)

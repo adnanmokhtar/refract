@@ -29,6 +29,11 @@ model: opus
 1. Read `CLAUDE.md` + `ai/conventions.md` + `ai/patterns/test-strategy.md` + `test-doubles.md`.
 2. Detect test framework + style from existing tests.
 3. Read the tests under review + the code they cover.
+4. Run the detectors on the change first, then grade their rows with the checklist:
+   - **Tool lanes (repo-baseline, when installed):** `python3 .claude/scripts/test-integrity.py --base="$BASE" --head=HEAD --json` (diff-time weakening) and `python3 .claude/scripts/oracle-check.py --base="$BASE" --head=HEAD --json` (no-assertion / weak / tautology on the changed cases). Absent → `lane: inline (repo-baseline scripts absent)`.
+   - **By signal on the changed files:** `assertion-strength-scan` (a changed test), `flake-source-scan` (a test, helper, fixture, runner config or CI test job), `test-double-scan` (a double, a mock list, a test DB config, a shipped line naming a test mode), `suite-execution-scan` (a runner config, CI workflow, test script, coverage config, skip or focus).
+   - **Presence and strength:** `coverage-gap --diff` on every changed source file, then `mutation-probe` on the changed executed lines.
+   - Dedupe by `<file:line>`. A signalled skill that did not run is `UNREVIEWED(<class>)`, and the verdict cannot be a clean APPROVE.
 
 ## Checklist
 
@@ -43,13 +48,7 @@ model: opus
 - Webhook code → idempotency + signature tests?
 - Auth changes → unauthorized access tests?
 
-Grep for changes that lack tests:
-```bash
-# Changed files without corresponding test files
-git diff --name-only <base>..HEAD | grep -v test | while read f; do
-  # does a matching *.spec.* / *.test.* exist?
-done
-```
+Changed behaviour with no test is `coverage-gap --diff`'s row, not a filename match: a sibling `*.spec.*` that never executes the changed branch is still a gap. With no coverage tooling, fall back to a symbol search of the test tree for each added function or route, and print `presence: inline (no coverage run)`.
 
 ### Quality of assertions
 
@@ -110,7 +109,7 @@ done
 This is a **gating dimension**, not a nice-to-have. Coverage says a line RAN; effectiveness says a test would CATCH it breaking. Obtain the evidence one of two ways, in order:
 
 1. **Consume the author's ledger** — a PR that came through `/add-test` carries a Phase 6 effectiveness ledger (one `mutation-killed` / `effectiveness-unverified` verb per file). Re-derive, don't trust: spot-check that the cited mutation → RED claim holds for the highest-risk file (money / auth / tenant branch).
-2. **Run it yourself** — dispatch the `mutation-probe` skill scoped to the changed files (its `--since` / `--in-diff` mode). For each survivor it reports, decide: assertion gap on a branch the PR owns → BLOCK with the assertion to add; line never executed → that is a *coverage* gap, route to `coverage-gap`, not an effectiveness BLOCK; equivalent mutant → dismiss with the reason.
+2. **Run it yourself** — dispatch the `mutation-probe` skill on the changed lines through its diff-scoped lane for the detected tool (StrykerJS `--mutate "<file:start-end>"` — it has no `--since`; Stryker.NET `--since:<base>`; cargo-mutants `--in-diff`; gremlins `--diff`; Infection `--git-diff-lines`; or its manual-seed lane). For each survivor it reports, decide: assertion gap on a branch the PR owns → BLOCK with the assertion to add; line never executed → that is a *coverage* gap, route to `coverage-gap`, not an effectiveness BLOCK; equivalent mutant → dismiss with the reason.
 
 Gating rule:
 - **Survivor on a new/changed behavioural branch** → BLOCK. Name it.
@@ -233,6 +232,7 @@ Coverage metrics:
   - Branches: <%> → <%>
   - Mutation (if tracked): <%>
 
+Detectors: lanes <test-integrity / oracle-check: exit n | absent>; assertion-strength-scan, flake-source-scan, test-double-scan, suite-execution-scan <ran | not signalled | UNREVIEWED>; coverage-gap --diff; mutation-probe
 Patterns consulted: test-strategy, test-doubles
 ```
 
@@ -253,6 +253,7 @@ Patterns consulted: test-strategy, test-doubles
 - `@tdd-orchestrator` — **order vs quality.** It proves the test came first and was observed failing; this agent judges whether the resulting test is any good. A perfectly disciplined cycle can still produce a weak assertion, which is exactly the gap this agent closes.
 
 ### Skills
+- `assertion-strength-scan`, `flake-source-scan`, `test-double-scan`, `suite-execution-scan` — run on the changed files by signal; this review grades their rows. On a whole repo they are `/test-audit`'s.
 - `mutation-probe` — the effectiveness evidence this review gates on: run it (or re-derive the author's ledger) on the changed scope, and feed its survived-mutant → assertion-to-add fixes into the Blockers.
 - `coverage-gap` — a survived mutant on a line no test executes is a *presence* gap, not a strength gap; route it there rather than blocking on effectiveness.
 

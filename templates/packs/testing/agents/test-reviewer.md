@@ -1,6 +1,6 @@
 ---
 name: test-reviewer
-description: Reviews tests — coverage of behavior, quality of assertions, flakiness, mock correctness, meaningful regression catches. Framework-agnostic.
+description: Reviews tests — coverage of behavior, quality of assertions, flakiness, mock correctness, meaningful regression catches. Runs the testing detectors on the changed tests and grades their rows; owns the mutation-verified APPROVE gate. Framework-agnostic.
 tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
@@ -23,6 +23,27 @@ model: opus
 - Multi-tenant or webhook code changed without the mandatory cross-tenant / idempotency test — BLOCK.
 - An assertion is `expect(true).toBe(true)` or equivalent always-pass — BLOCK; cite the line.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the diff (base..head) or the test paths under review — never the author's narrative
+  reads:    [the changed tests and the code they cover; runner, CI and coverage config; .claude/rules/testing-principles.md]
+  never:    [the author's /add-test ledger as a verdict (spot-check it, § Effectiveness), PR text, commit messages]
+output:
+  returns:  the '## Output' block (owns the mutation-verified APPROVE gate)
+  writes:   none
+  persisted_by: caller          # hook:persist-review.sh once the run directory exists
+skills:     [assertion-strength-scan, suite-execution-scan, flake-source-scan, test-double-scan, coverage-gap, mutation-probe]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT | UNREVIEWED(<axis>)
+verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · APPROVE (EFFECTIVENESS UNVERIFIED)→CONCERNS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /test-fix closes the findings; @test-engineer writes a missing test
+```
+
 > **Code samples below are illustrative.** Concrete syntax shown uses one stack (TypeScript + a JS-family test runner) for readability; the principles apply across language families. Substitute your stack's primitives (`pytest` / `RSpec` / `phpunit` / `go test` / `cargo test` / `xUnit` / `JUnit` / `ExUnit` / framework-equivalent) using the substitution table in `testing/STACK.md`.
 
 ## Pre-flight
@@ -30,6 +51,28 @@ model: opus
 1. Read `CLAUDE.md` + `ai/conventions.md` + `ai/patterns/test-strategy.md` + `test-doubles.md`.
 2. Detect test framework + style from existing tests.
 3. Read the tests under review + the code they cover.
+4. Run § Detectors on the change before reading the checklist. Their rows are the candidates; the checklist is how you grade them and what you read for the classes no detector owns (naming, structure, AAA).
+
+## Detectors on the change (run, then grade — never re-grep a class they own)
+
+1. **Tool lanes (repo-baseline, when installed).** `TI=.claude/scripts/test-integrity.py`, `OC=.claude/scripts/oracle-check.py` (fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/<name>`), `BASE=$(git merge-base HEAD "origin/${BASE_BRANCH:-main}")`:
+   ```bash
+   python3 "$TI" --base="$BASE" --head=HEAD --json   # diff-time weakening: deleted tests or assertions, a new skip / .only / xfail, a lowered floor, a removed CI test step
+   python3 "$OC" --base="$BASE" --head=HEAD --json   # per-case no-assertion / weak oracle / tautology on the changed cases (QG-15)
+   ```
+   Exit 1 = rows to grade; exit 2 = a failed lane, reported `blocked`, never zero rows. Neither script present → print `lane: inline (repo-baseline scripts absent)`; `assertion-strength-scan` § 1 then covers the oracle classes.
+2. **The four testing scans, by signal, on the changed files only** (each runs once, scoped to the diff, and prints its class coverage block):
+
+   | Signal in the diff | Skill (testing pack) | What it hands this review |
+   |---|---|---|
+   | a changed test file | `assertion-strength-scan` | § 2–§ 6 on the changed cases: interaction-only, un-awaited or unreached assertions, swallowed failures, expected values from the SUT, snapshot-only (§ 1 is `oracle-check.py`'s on a diff) |
+   | a changed test, helper, fixture, runner config or CI test job | `flake-source-scan` | real clock and expiring dates, unseeded randomness, sleeps, real network, unrestored state, async leaks, parallel assumptions, brittle e2e waits |
+   | a changed double, `jest.mock` / `patch` list, test database config, provider override, or a shipped line naming a test mode | `test-double-scan` | a mocked SUT, untyped doubles, doubles of what the project does not own, engine substitution, test seams and special-cased inputs in shipped code (§ 5–§ 6 run on the diff: `test-integrity.py` v1 does not cover them) |
+   | a changed runner config, CI workflow, test script, coverage config, or an added skip / focus | `suite-execution-scan` | focus and ownerless skips, files no runner collects, CI masking (`\|\| true`, `continue-on-error`, `--forceExit`), coverage config that hides code, retries with no flaky gate |
+
+3. **Presence and strength.** `coverage-gap --diff` on every changed source file — the changed lines and branches no test executes, and a changed file missing from the coverage report — even when no test file changed. Then `mutation-probe` on the changed, executed, non-arid lines (§ Effectiveness).
+
+Dedupe by `<file:line>`: one finding per site, credited to its owner, the other source named as corroboration (`--forceExit`: `suite-execution-scan` § 4 owns the mask, `flake-source-scan` § 6 the open handle). A row is a **candidate**: you still read the test and the SUT and grade it against the checklist. A signalled skill that is not installed or did not run is `UNREVIEWED(<class>)` in the output, and the verdict cannot be a clean APPROVE.
 
 ## Checklist
 
@@ -44,12 +87,11 @@ model: opus
 - Webhook code → idempotency + signature tests?
 - Auth changes → unauthorized access tests?
 
-Grep for changes that lack tests:
+Changed behaviour with no test is `coverage-gap --diff`'s row (§ Detectors on the change, step 3), not a filename match: a sibling `*.spec.*` that never executes the changed branch is still a gap, and a test under another name that does execute it is not. Without the skill and with no coverage tooling, the inline check is a symbol search, and it says so in the output as `presence: inline (no coverage run)`:
 ```bash
-# Changed files without corresponding test files
-git diff --name-only <base>..HEAD | grep -v test | while read f; do
-  # does a matching *.spec.* / *.test.* exist?
-done
+git diff -U0 "$BASE"...HEAD -- . ':(glob,exclude)**/*.spec.*' ':(glob,exclude)**/*.test.*' ':(glob,exclude)**/__tests__/**' ':(glob,exclude)**/test/**' ':(glob,exclude)**/tests/**' \
+  | rg -o --pcre2 '^\+.*?\b(?:function|def|func|class)\s+\K\w+|^\+\s*(?:export\s+)?(?:async\s+)?(?:public\s+|private\s+|protected\s+)?\K\w+(?=\s*\([^)]*\)\s*[:{])' \
+  | sort -u | while read -r sym; do rg -q -w "$sym" -g '*.{spec,test}.*' -g '**/{__tests__,test,tests}/**' . || echo "no test names: $sym"; done
 ```
 
 ### Quality of assertions
@@ -60,6 +102,8 @@ done
 - Asserting on observable output, not implementation details.
 
 ### Mock correctness
+
+Detected by `test-double-scan` (§ Detectors on the change); grade its rows with these questions.
 
 - Mocks at PORT boundaries, not internal functions:
   ```
@@ -72,6 +116,8 @@ done
 
 ### Flakiness
 
+Detected by `flake-source-scan`; a flake already seen in CI goes to `/flaky-test-hunt`, which proves it at runtime.
+
 - No `sleep()` / fixed timeouts for async waits.
 - No `Date.now()` / `Math.random()` / `UUID()` unfrozen.
 - No shared state between tests.
@@ -80,7 +126,9 @@ done
 
 ### Dangerous patterns
 
-- `.skip` without a tracked reason → flag.
+Focus and skips are `suite-execution-scan`'s (and `test-integrity.py`'s when new in the diff); assertion-free and always-pass cases are `oracle-check.py`'s / `assertion-strength-scan` § 1.
+
+- `.skip` without an owner + delete-by date (`THR-TODO`) → flag.
 - `.only` checked in → BLOCKER.
 - Commented-out assertions → flag.
 - `expect(true).toBe(true)` / similar always-pass → BLOCKER.
@@ -111,7 +159,7 @@ done
 This is a **gating dimension**, not a nice-to-have. Coverage says a line RAN; effectiveness says a test would CATCH it breaking. Obtain the evidence one of two ways, in order:
 
 1. **Consume the author's ledger** — if the PR came through `/add-test`, it must carry a Phase 6 effectiveness ledger (one `mutation-killed` / `effectiveness-unverified` verb per file). Re-derive, don't trust: spot-check that the cited mutation → RED claim holds for the highest-risk file (money / auth / tenant branch).
-2. **Run it yourself** — dispatch the `mutation-probe` skill scoped to the changed files (its `--since` / `--in-diff` mode). For each survivor it reports, decide: assertion gap on a branch the PR owns → BLOCK with the assertion to add; line never executed → that's a coverage gap, route to `coverage-gap`, not an effectiveness BLOCK; equivalent mutant → dismiss with the reason.
+2. **Run it yourself** — dispatch the `mutation-probe` skill on the changed lines, through its diff-scoped lane for the detected tool (`mutation-probe` § Adapt to the codebase — the lane table, and § Pre-flight — the scope): StrykerJS `--mutate "<file:start-end,…>"` (StrykerJS has no `--since`), Stryker.NET `--since:<base>`, cargo-mutants `--in-diff`, gremlins `--diff`, Infection `--git-diff-lines`, PIT `-DtargetClasses` filtered to the changed lines, or its manual-seed lane where no tool runs. For each survivor it reports, decide: assertion gap on a branch the PR owns → BLOCK with the assertion to add; line never executed → that's a coverage gap, route to `coverage-gap`, not an effectiveness BLOCK; equivalent mutant → dismiss with the reason.
 
 Gating rule:
 - **Survivor on a new/changed behavioral branch** → BLOCK (see Halt conditions). Name it.
@@ -239,8 +287,12 @@ Coverage metrics (the FLOOR — effectiveness above is the bar):
   - Lines: <%>  → <%>
   - Branches: <%> → <%>
 
+Detectors (each prints its class coverage block):
+  Lanes: test-integrity <exit n | blocked | absent>, oracle-check <exit n | blocked | absent → lane: inline>
+  assertion-strength-scan <ran | not signalled | UNREVIEWED(not installed)> · flake-source-scan <…> · test-double-scan <…> · suite-execution-scan <…>
+  coverage-gap --diff (presence) · mutation-probe (effectiveness)
+
 Patterns consulted: test-strategy, test-doubles
-Skills run: mutation-probe (effectiveness), coverage-gap (presence)
 ```
 
 ## Hard rules
@@ -261,12 +313,17 @@ Skills run: mutation-probe (effectiveness), coverage-gap (presence)
 - `@test-engineer` — **authorship vs audit, never the same run.** It writes the tests and self-checks them; this agent independently re-derives the effectiveness ledger and can BLOCK. A suite that graded its own strength has not been reviewed: do not accept the author's ledger as the verdict, spot-check it.
 
 ### Skills
+- `assertion-strength-scan`, `flake-source-scan`, `test-double-scan`, `suite-execution-scan` — the detectors this review runs on the changed files by signal (§ Detectors on the change) and grades; the same four, on a whole repo, are `/test-audit`'s.
 - `mutation-probe` — the effectiveness evidence this review gates on; run it (or re-derive the author's ledger) on the changed scope. Feed its survived-mutant → assertion-to-add fixes into the Blockers.
 - `coverage-gap` — a survived mutant on an unexecuted line is a presence gap; route it here rather than blocking on effectiveness.
 
 ### Patterns
 - `ai/patterns/test-doubles.md`
 - `ai/patterns/test-strategy.md`
+
+### Commands
+- `/test-audit` — the whole-suite form of this review, with a class ledger and a verdict; `/test-fix` closes what either finds.
+- `/flaky-test-hunt` — the runtime half of `flake-source-scan`.
 
 ### Rules
 - `.claude/rules/testing-principles.md`

@@ -937,8 +937,8 @@ oracle here is deterministic except the repeat-run bound. Every probe runs on a 
 worktree, is never committed, and its restore is proven with `git diff --exit-code` on the probed
 files. The claim sentences, gate readings and version precedents are in
 [`precedents/testing.md`](precedents/testing.md). Users: `assertion-strength-scan`,
-`suite-execution-scan`, `coverage-gap`, `mutation-probe`, `/flaky-test-hunt`, and every later
-testing-pack detector and fix command.
+`suite-execution-scan`, `flake-source-scan`, `test-double-scan`, `coverage-gap`, `mutation-probe`,
+`/test-audit`, `/test-fix`, `/flaky-test-hunt` and `@test-reviewer`.
 
 ### Oracle taxonomy (testing)
 

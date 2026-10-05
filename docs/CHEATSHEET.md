@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**206 commands** — core 16 · 23 packs (144) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**208 commands** — core 16 · 23 packs (146) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -16,7 +16,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 9
 - [Pack — business](#pack--business) — 5
-- [Pack — code-quality](#pack--code-quality) — 6
+- [Pack — code-quality](#pack--code-quality) — 8
 - [Pack — data-engineering](#pack--data-engineering) — 4
 - [Pack — database](#pack--database) — 5
 - [Pack — devops](#pack--devops) — 4
@@ -122,6 +122,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/check-health` | Periodic whole-repo health pulse (no diff) — mechanical checks that must go green, then a standing… | — | `/check-health` |
 | `/find-module` | Locate a module, feature, or concept across the codebase quickly. | — | `/find-module <name\|concept>` |
 | `/pre-commit` | Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on… | — | `/pre-commit` |
+| `/quality-audit` | Read-only code-quality audit: every correctness and maintainability detector on a whole repo, by… | — | `/quality-audit` |
+| `/quality-fix` | Close the findings a /quality-audit report lists, in two lanes: correctness proved failing-first… | — | `/quality-fix` |
 | `/refactor` | Language-agnostic targeted refactor — behaviour-preserving structure changes using… | — | `/refactor [<scope>]` |
 | `/review-changes` | Comprehensive, signal-aware review of a PENDING DIFF, ending in a merge verdict (APPROVE /… | — | `/review-changes` |
 | `/simplify` | Reduce entropy in CHANGED code using four closed verbs (remove / inline / dedupe /… | — | `/simplify [path]` |

@@ -168,9 +168,9 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | auth | `security-auditor`, `auth-reviewer` | — |
 | docker | — | `dockerfile-lint` |
 | k8s | `k8s-reviewer` | — |
-| ci | `ci-reviewer` | — |
+| ci | `ci-reviewer` | `suite-execution-scan` (testing pack, when installed) when a workflow runs or gates tests — focus, skips, uncollected suites, `\|\| true` / `continue-on-error`, coverage config, retries |
 | api-contract | — | `api-snapshot` (breaking-change detection) |
-| tests | `test-reviewer` | — |
+| tests | `test-reviewer` | On the changed test files, by signal (testing pack, when installed): `assertion-strength-scan` (a changed test), `flake-source-scan` (a test, helper, fixture or runner config), `test-double-scan` (a double, a mock list, a test DB config, a shipped line naming a test mode), `suite-execution-scan` (a runner config, test script, coverage config, skip or focus) — after the repo-baseline lanes `test-integrity.py` and `oracle-check.py`. `test-reviewer` grades their rows; without the pack, the axis is `UNREVIEWED(tests)` |
 | ai-code | `prompt-reviewer` | — |
 | webhook | `resilience-reviewer` (idempotency + signature check) | — |
 | events | `resilience-reviewer` | — |

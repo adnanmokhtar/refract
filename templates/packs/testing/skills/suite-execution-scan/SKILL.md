@@ -44,6 +44,7 @@ A candidate is a finding when all four hold:
 - **Project-level gates** — QG-7 (no `.only`; a skip carries an owner and a delete-by date) and QG-13 (CI blocks on the tests) — are checked per change by `standards-check.py`; this skill is their whole-repo inventory and covers every stack, where the QG-7 check reads JS focus only.
 - **Whether the collected tests can fail** → `assertion-strength-scan` (this pack). **Changed lines no test executes** → `coverage-gap` (this pack). **Flake sources and root causes** → `flake-source-scan` (this pack) and `/flaky-test-hunt`; this skill reports only the retry configuration that hides them (§ 6) and the `--forceExit` switch as masking (§ 4).
 - **CI design** (caching, job graph, secrets, runner images) → `@ci-reviewer` when the devops pack is installed; this skill reads CI only for whether tests run and can fail.
+- **Suppressions inside test code** — a test-lint rule disabled inline (`eslint-disable jest/expect-expect`, `jest/no-focused-tests`, `# noqa: PT011`, `//nolint:testifylint`) and a silenced `console.error` (`jest.spyOn(console, 'error').mockImplementation(…)`) that hides an error the test should fail on → `suppression-scan` § 2 when the code-quality pack is installed. Without it, list them here as candidates under § 4 tagged `suppression (owner pack not installed)`; never drop them. This skill owns the lint rules switched off or left at warn **in config** only as far as they mask focus and skips (§ 1).
 
 ## Adapt to the codebase
 

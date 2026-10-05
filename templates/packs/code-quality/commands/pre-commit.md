@@ -61,7 +61,7 @@ PATH-BASED reviewer selection.
 | `app/`, `pages/`, `components/`, `*.vue`, `*.tsx`, `*.jsx`, `*.svelte`, `*.razor`, `*.component.ts` | `ui-reviewer` + `i18n-auditor` |
 | DB entities / repositories / raw SQL | `schema-reviewer`, `query-optimizer` |
 | DB migrations | `schema-reviewer` (internally invoke `/migration-review`) |
-| `__tests__/`, `*.spec.*` | `test-reviewer` |
+| `__tests__/`, `*.spec.*`, `*.test.*`, test helpers, runner or coverage config | `test-reviewer`, which runs `assertion-strength-scan`, `flake-source-scan`, `test-double-scan` and `suite-execution-scan` by signal on the staged files (testing pack, when installed; the row in `review-changes.md` is the source of record) |
 | `auth/`, `crypto/`, `secrets/`, `payment` | `security-auditor` (+ `auth-reviewer` on auth flows) |
 | Manifest / lockfile with a **newly added** package (not a version bump) | `security-auditor` + `deps-audit` skill — maintenance health, license, transitive cost, known CVEs, and whether an existing primitive already covers it. An unexplained new dep on a security or data-handling path is a blocker. |
 

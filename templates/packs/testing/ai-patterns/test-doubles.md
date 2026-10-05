@@ -209,3 +209,17 @@ expect(await userRepo.findById(result.id)).toMatchObject({
 - Mocking your web framework's own internals (its router, its request parser). You would be testing the framework's code, and the test breaks on its next minor release.
 - Sharing mocks across tests (pollutes state).
 - Real external API calls in unit / integration tests — MSW / nock / fakes only.
+
+## Detectors (cite-or-halt)
+
+This pattern is the method; `test-double-scan` (testing pack) is its executor. Run it and print its class block — never re-derive a class here. On a diff `@test-reviewer` runs it by signal; on a whole repo `/test-audit` does, and `/test-fix` closes what it finds.
+
+| Anti-pattern above | Owner |
+|---|---|
+| Mocking the code under test (the extreme of over-mocking) | `test-double-scan` § 1 |
+| A mock that returns whatever makes the test pass; partial mocks; doubles no type or `spec` checks | `test-double-scan` § 2 |
+| Mocking what you do not own (an SDK's internals, your framework's router) | `test-double-scan` § 3 |
+| An in-memory or emulated engine standing in for the production database; a repository mocked in an integration test | `test-double-scan` § 4 |
+| Mock creep — a test-only path in production code | `test-double-scan` § 5 (seams) and § 6 (special-cased test inputs, equality overrides) |
+| Asserting on implementation (call shape where an outcome exists) | `assertion-strength-scan` § 2 |
+| Determinism essentials — real time, random, network, shared mocks | `flake-source-scan` § 1–§ 5 |

@@ -650,6 +650,8 @@ Installed by the repo-baseline regardless of track — the universal per-project
 |-------------------|------------------------------------------------------------------------------------|
 | `/review-changes` | Multi-axis review (correctness, conventions, perf, security) on diff vs base. Universal secret-scan (every file) + coverage-gap (untested new logic) + added-dependency review; uninstalled reviewers run inline, never skipped. |
 | `/simplify`       | Surfaces simplification candidates (over-abstraction, dead code, redundancy).      |
+| `/quality-audit` | Read-only code-quality audit: every correctness and maintainability detector on a whole repo, by signal on a diff; analyzer lanes first; each candidate refuted before it counts; a fixed class ledger and a GO / GO-UNVERIFIED / NO-GO verdict. /quality-fix closes the findings. |
+| `/quality-fix` | Close the findings a /quality-audit report lists, in two lanes: correctness proved failing-first with a concrete input and fixed at the root; maintainability behaviour-preserving under a metric ratchet. Re-detects, sweeps siblings, self-checks its own diff. Stops on contract, data or dependency changes. |
 
 ### Database track
 

@@ -434,7 +434,7 @@ fi
 #   product-principles.md     briefs, requirements, success definitions — conversation-first
 #   security-principles.md    always-applied pack; code, config, CI and IaC alike — a glob missed
 #                             here is a security miss, so it is not worth the saved tokens
-# The code-quality and testing packs are owned by their track and are not asserted here yet.
+# The code-quality pack is owned by its track and is not asserted here yet.
 say ""
 say "§ 5  pack + domain rules carry a sound source paths: (or are on the always-on allowlist)"
 ALLOW=" align-discipline.md business-completeness.md doc-principles.md finops-principles.md product-principles.md security-principles.md "
@@ -444,7 +444,7 @@ _sha8() { if command -v shasum >/dev/null 2>&1; then shasum; else sha1sum; fi | 
 n5=0; unscoped=""; allow_scoped=""; shape=""; hash_bad=""; dead=""
 for f in "$REPO_ROOT"/templates/packs/*/rules/*.md "$REPO_ROOT"/templates/domains/*/rules/*.md; do
   [ -f "$f" ] || continue
-  case "$f" in */packs/testing/*|*/packs/code-quality/*) continue ;; esac
+  case "$f" in */packs/code-quality/*) continue ;; esac
   b=$(basename "$f"); n5=$((n5+1))
   has=0; awk '/^---[[:space:]]*$/{d++; if(d==2)exit} d==1 && /^paths:/{x=1} END{exit !x}' "$f" && has=1
   case "$ALLOW" in

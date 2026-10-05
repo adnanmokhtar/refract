@@ -14,7 +14,8 @@ A1	require	templates/governance/hard-rules.md	A17 \| Boy Scout Rule only on line
 A1	open	templates/packs/code-quality/rules/quality-principles.md	clean what's adjacent to your change	code-quality pack side (Track A owns the file)
 A2	forbid	templates/repo-baseline/.claude/rules/code-quality.md	TODO` without a ticket	ticket-only TODO rule	- Add `// TODO` without a ticket or issue reference.
 A2	require	templates/repo-baseline/.claude/rules/code-quality.md	THR-TODO	owner + delete-by
-A2	open	templates/packs/testing/rules/testing-principles.md	\.skip` without a linked issue	testing pack side (Track A owns the file)
+A2	forbid	templates/packs/testing/rules/testing-principles.md	\.skip` without a linked issue	ticket-mandatory skip rule	- `.skip` without a linked issue + owner + delete-by date. Skipped tests rot.
+A2	require	templates/packs/testing/rules/testing-principles.md	THR-TODO	skip rule cites the registry
 A4	require	templates/repo-baseline/.claude/rules/code-quality.md	exported/public surface carries a one-line contract docstring	carve-out in the always-on rule
 A4	require	templates/packs/documentation/rules/doc-principles.md	The exported surface only	docs rule bounded to the exported surface
 A5	open	templates/packs/code-quality/rules/quality-principles.md	30 lines where none is configured	literal function cap (THR-FN-LEN = linter)

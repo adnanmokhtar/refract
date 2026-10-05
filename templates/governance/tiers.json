@@ -1,0 +1,78 @@
+{
+  "$comment": "The one home for what a risk tier costs (proposal §4.3): which phases run, which human gates hold, whether a run directory opens, and what promotes a change into each tier. Read by .claude/scripts/risk-tier.py (classification + back-fill on promotion), the delivery /add-feature orchestrator (which phases to run) and templates/snippets/run-ledger.md (the run contract). A tier only PROMOTES: risk-tier.py may raise a run's tier at P0, after design (predicted files) or after P6 (the actual diff), never lower it; a user may force a lower tier at P0 only, with a logged reason, and CI re-tiers from the diff (G15). JSON, not YAML, for the reason gates.json gives: the consumers are standard-library python and a hand-rolled YAML subset fails silently.",
+  "version": 1,
+  "order": ["T0", "T1", "T2", "T3"],
+  "legacy_tier_note": "legacy_tier maps the pack-lane closure verbs (trivial / standard / heavy) a lane skill still names onto the run tiers, approximately: the old trivial (mirrors one sibling) is T1, standard is T2, heavy is T3. T0 had no old equivalent (docs-only changes ran as trivial).",
+  "default_feature_tier": "T2",
+  "default_feature_tier_why": "Decision O3: T2 whenever there is a write path or a UI surface; T1 only when risk-tier.py scores low AND a sibling is mirrored. A feature ask with no signal at all is classified T1 from the text alone and promoted by the first predicted file set that shows a write path, a UI surface or a T3 path.",
+  "tiers": {
+    "T0": {
+      "name": "trivial",
+      "definition": "docs, copy, config with no runtime effect, a typo; no behaviour change",
+      "run_dir": false,
+      "record": "one ai/status.md line",
+      "phases": ["P6", "P12"],
+      "lite": { "P12": "deterministic gates only (gate-check.py)" },
+      "human_gates": ["H4"],
+      "stand_ins": {},
+      "legacy_tier": null
+    },
+    "T1": {
+      "name": "low",
+      "definition": "one module, mirrors a sibling; no new endpoint, write path, external call, dependency, auth, PII or money",
+      "run_dir": true,
+      "phases": ["P0", "P1", "P5", "P6", "P7", "P10", "P12"],
+      "lite": { "P1": "≤5 EARS criteria, every story still carries an IF-THEN clause", "P5": "acceptance.json + its red tests; no design.md, no test-plan.md", "P10": "code-reviewer only", "P12": "verifier in acceptance mode + gate-check.py" },
+      "human_gates": ["H4"],
+      "stand_ins": { "H2": "plan-critic" },
+      "legacy_tier": "trivial"
+    },
+    "T2": {
+      "name": "standard",
+      "definition": "new endpoint, write path, external call, new UI surface, new dependency, or a cross-module change",
+      "run_dir": true,
+      "phases": ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10", "P11", "P12"],
+      "conditional": { "P3": "UI lane only (frontend or mobile)", "P4.adr": "only for a new primitive or a new dependency" },
+      "human_gates": ["H2", "H4"],
+      "stand_ins": {},
+      "legacy_tier": "standard"
+    },
+    "T3": {
+      "name": "high",
+      "definition": "auth / authz / roles; money movement; PII; tenant isolation; a migration on a populated table; infra / CI; crypto; a breaking public API; a new dependency on a write path; blast radius above threshold",
+      "run_dir": true,
+      "phases": ["P0", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10", "P11", "P12"],
+      "conditional": { "P3": "UI lane only (frontend or mobile)" },
+      "extra": ["holdout acceptance tests (.claude/holdouts/<run>/)", "≥1 property test per SHALL on a money / state invariant", "mutation on all changed code (THR-MUTATION)", "threat-model.md", "k6 against each QA scenario when a load harness exists", "fault-injection test on each new outbound call", "release.md with flag / kill switch, migration order and rollback"],
+      "human_gates": ["H1", "H2", "H3", "H4"],
+      "stand_ins": {},
+      "two_party_review": true,
+      "legacy_tier": "heavy"
+    }
+  },
+  "phases": {
+    "P0": { "name": "Intake & risk", "writer": "orchestrator", "artifact": "run.json" },
+    "P1": { "name": "Requirement", "writer": "product-analyst", "artifact": "requirements.md", "verified_by": "requirements-reviewer + ears-lint.py" },
+    "P2": { "name": "Analysis", "writer": "product-analyst", "artifact": "requirements.md §Impact, quality-attributes.md (draft)", "verified_by": "plan-critic + trace-matrix.py --phase=analysis" },
+    "P3": { "name": "UX", "writer": "ux-designer", "artifact": "ux.md", "verified_by": "ux-reviewer" },
+    "P4": { "name": "Architecture", "writer": "architect", "artifact": "design.md, threat-model.md, ADR", "verified_by": "architecture-reviewer (+ security-reviewer threat lens)" },
+    "P5": { "name": "Technical design & plan", "writer": "architect + test-engineer + orchestrator", "artifact": "design.md §Interfaces/§Work split, test-plan.md, acceptance.json, plan.md", "verified_by": "plan-critic + trace-matrix.py --phase=plan; H2 → lock-acceptance.sh" },
+    "P6": { "name": "Implementation", "writer": "implementer (one task at a time); P6b doc-writer", "artifact": "code, internal tests, docs", "verified_by": "PostToolUse sensors" },
+    "P7": { "name": "Testing", "writer": "scripts (+ test-engineer for E2E / property tests)", "artifact": "evidence G1, G2", "verified_by": "test-reviewer" },
+    "P8": { "name": "Security review", "writer": "security lenses", "artifact": "reviews/security-*.json", "verified_by": "verifier (refute)" },
+    "P9": { "name": "Performance review", "writer": "performance lens", "artifact": "reviews/performance.json", "verified_by": "verifier (refute)" },
+    "P10": { "name": "Code review", "writer": "code / test / data / ux / architecture-conformance lenses", "artifact": "reviews/*.json", "verified_by": "verifier (refute)" },
+    "P11": { "name": "Observability review", "writer": "operability lens", "artifact": "reviews/operability.json", "verified_by": "verifier (refute)" },
+    "P12": { "name": "Final quality gate", "writer": "verifier → gate-check.py", "artifact": "verdict.json, evidence/*", "verified_by": "CI re-runs gate-check; H4 merge" }
+  },
+  "human_gates": {
+    "H1": "Intent — requirements.md + quality-attributes.md approved by a human (T3)",
+    "H2": "Contract — design + plan + acceptance.json shown together; approval runs lock-acceptance.sh (T2, T3); plan-critic stands in at T1 and under --yes",
+    "H3": "Irreversible — deploy, IaC apply, migration on a shared database, data deletion, push to a protected branch; typed by a human, never dispatched (any tier)",
+    "H4": "Merge — a human merges; agents never run gh pr merge or approve their own PR (T0+)"
+  },
+  "t3_triggers": ["money-movement", "auth-roles", "pii", "tenant-isolation", "migration-populated-table", "infra-ci", "crypto", "breaking-api", "new-dependency-on-write-path", "blast-radius"],
+  "t2_triggers": ["new-endpoint", "write-path", "external-call", "new-ui-surface", "new-dependency", "cross-module"],
+  "t0_triggers": ["docs-only", "copy-only", "config-no-runtime", "typo"],
+  "blast_radius": { "callers_t2": 5, "callers_t3": 20, "why": "importers of a touched file in .claude/_graph.json; a change many modules depend on is reviewed like a risky one" }
+}
