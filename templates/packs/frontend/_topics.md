@@ -202,10 +202,22 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [lane_preset_handoff, where_the_procedure_went, missing_orchestrator]   # thin preset of the delivery /add-feature (Phase 4, decision O6); the procedure is delivery/skills/lane-frontend
   fallback: commands/add-feature.md
 
+- name: frontend-audit
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  extracts_from: _extracted-codebase.md § Stack (framework, router, data library AND VERSIONS from the lockfile — nine precedents/ui.md verdicts change with the version) + the route table + rendering mode per route + design-system wrappers + locales and themes + the Playwright harness
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/frontend-audit.md   # the source IS the fallback, as for db-audit and test-audit; the fixed class ledger and the dispatch table are the contract
+
+- name: frontend-fix
+  kind: command
+  triggers: { primary_frontend_framework_detected: true }
+  fallback: commands/frontend-fix.md   # the source IS the fallback, as for db-fix and test-fix; a skeleton would drop the strict-decrease gate, the suppression grep and the STOP lines
+
 - name: a11y-audit
   kind: command
   triggers: { primary_frontend_framework_detected: true }
-  fallback: _examples/a11y-audit.md
+  fallback: commands/a11y-audit.md   # a thin preset of /frontend-audit --classes=a11y; _examples/a11y-audit.md describes the retired single-agent audit
 
 - name: i18n-audit
   kind: command

@@ -52,14 +52,14 @@ output:
   returns:  the '## Output' block — findings, the SC-coverage block, the G9 and G12 lines, '## What to do next'
   writes:   none
   persisted_by: caller          # hook:persist-review.sh → ai/runs/{run_id}/reviews/ux-reviewer.json once the run directory exists
-skills:     [a11y-code-scan, a11y-scan, ui-state-scan, state-matrix, a11y-quick-check]
+skills:     [a11y-code-scan, a11y-scan, ui-state-scan, state-matrix, a11y-quick-check, mobile-a11y-scan]
 status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT | UNREVIEWED(<axis>)
 verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
 severity:   IMPORTANT | NIT | PRE-EXISTING   # display: BLOCKER/HIGH→IMPORTANT · MEDIUM-off-primary-flow/LOW→NIT
-next:       the frontend or mobile fix path, /polish, /enhance-ui, /redesign (see What to do next)
+next:       /frontend-fix · /polish · /enhance-ui · /redesign (see What to do next)
 ```
 
-`mobile-a11y-scan` joins `skills:` once the mobile pack ships it. Bash is for running the detectors and probes. Write nothing into the repo. `a11y-scan` runs in its judge mode, from a scratch dir under `$TMPDIR`.
+The frontend and mobile detectors run only when their pack is installed (§ Dispatch). Bash is for running the detectors and probes. Write nothing into the repo. `a11y-scan` runs in its judge mode, from a scratch dir under `$TMPDIR`.
 
 ## Pre-flight
 
@@ -79,7 +79,7 @@ You grade detector rows; you do not re-derive their classes. Run each with the S
 | `a11y-scan` §1–§7 | frontend, when installed | a touched route or surface, and a harness | axe per route × state × theme × viewport, keyboard path, focus visible and obscured, contrast, target size, reflow, gate integrity | `a11y-quick-check` Lane A1 (axe on the touched screen); rendered SC rows read `blocked (frontend pack not installed)`; G9 unsigned |
 | `ui-state-scan` §1–§15 | ui-ux | a data hook, list, form, dialog, delete control or route | missing UI states, proved by a state-matrix test | — (this pack) |
 | `state-matrix` (lint mode) | ui-ux | a delivery run with `ux.md` | G12's computational half: every touched surface has a matrix, every row names a test that exists | — |
-| `mobile-a11y-scan` §1–§8 | mobile, when installed and shipping it | any React Native, Flutter, Compose, SwiftUI or Android XML screen | native labels, roles, touch targets, font scaling, reading order, actions, announcements, contrast | native SC rows read `blocked (mobile-a11y-scan not installed)`; status `UNREVIEWED(a11y-native)`. Never run DOM tooling on a native tree |
+| `mobile-a11y-scan` §1–§8 | mobile, when installed | any React Native, Flutter, Compose, SwiftUI or Android XML screen | native labels, roles, touch targets, font scaling, reading order, actions, announcements, contrast | native SC rows read `blocked (mobile-a11y-scan not installed)`; status `UNREVIEWED(a11y-native)`. Never run DOM tooling on a native tree |
 | `a11y-quick-check` | ui-ux | a single-screen diff when time is the constraint | Lane A fast path; Lane B is the human runbook | — |
 
 **Order:** `a11y-code-scan` first, then `a11y-scan` on the same routes (its Tab walk settles the static keyboard candidates), then `ui-state-scan`, whose state handlers also give `a11y-scan` its error and empty cells. A detector that returns `blocked (no harness)` passes that status straight into the SC rows it owns; it is never upgraded to `checked`.
@@ -188,7 +188,7 @@ The defaults below name each SC's source. A run prints the value it reached, nev
 | 4.1.2 Name, Role, Value | A | tool | as §1, §2; cs §1, §2, §8, §9 |
 | 4.1.3 Status Messages | AA | read | cs §6; live-region presence V93; spoken output manual |
 
-**Native screens** map the same SCs to `mobile-a11y-scan` §1–§8 when the mobile pack ships it: labels (1.1.1, 4.1.2), roles (4.1.2), targets (2.5.8 and the 44 pt / 48 dp platform minimum in `THR-A11Y`, reported as the platform rule), font scaling (1.4.4), reading order (1.3.2), custom actions (2.5.1), announcements (4.1.3), contrast (1.4.3). Without it those rows are `blocked (mobile-a11y-scan not installed)`.
+**Native screens** map the same SCs to `mobile-a11y-scan` (mobile pack, when installed): §1 labels (1.1.1, 4.1.2), §2 roles (4.1.2), §3 targets (2.5.8 and the 44 pt / 48 dp platform minimum in `THR-A11Y`, reported as the platform rule), §4 font scaling (1.4.4), §5 reading order (1.3.2), §6 custom actions (2.5.1), §7 announcements (4.1.3), §8 contrast (1.4.3). Without it those rows are `blocked (mobile-a11y-scan not installed)`.
 
 ## Usability dimensions
 
@@ -274,7 +274,7 @@ End every review with this section. Route each finding by its remedy:
 
 | Finding | Next |
 |---|---|
-| A code-level WCAG class (name, label, role, keyboard model, focus management, error association, live region) | The frontend pack's failing-first fix loop: the class oracle written to fail first, then the fix at the wrapper, then the detector re-run on the line. Until that command ships: `/ui-crawl-fix` for one mechanical class app-wide, or `/fix-bug` for one finding |
+| A code-level WCAG class (name, label, role, keyboard model, focus management, error association, live region) | `/frontend-fix` (frontend pack, when installed): the class oracle written to fail first, the fix at the wrapper, the detector re-run on the line. `/ui-crawl-fix` for one mechanical class app-wide. Without the frontend pack, `/fix-bug` per finding |
 | A visual a11y class (contrast, focus ring, tap target, affordance) | `/polish` or `/enhance-ui`, which run `ui-design-sweep` verbs 12 (lift-contrast), 13 (align-focus-ring), 16 (expand-tap-target), 18 (clarify-affordance) with render verification |
 | An existing token, a11y rule or naming rule not applied | `/align` |
 | A missing UI state | `ui-state-scan`'s state-matrix test first, then the fix; verbs 9–11 for the visual state |
@@ -314,7 +314,7 @@ You own **one question: can this person do the job on this screen, and does it m
 - `/ui-audit` takes its a11y and state verdicts from you and keeps the verbs as the fix path. Delivery P3 and the UI lanes run you on `ux.md` and on the diff.
 
 ### Skills and snippets
-- `a11y-code-scan`, `a11y-scan` (frontend pack, when installed), `ui-state-scan`, `state-matrix`, `a11y-quick-check` (this pack), `mobile-a11y-scan` (mobile pack, when it ships).
+- `a11y-code-scan`, `a11y-scan` (frontend pack, when installed), `ui-state-scan`, `state-matrix`, `a11y-quick-check` (this pack), `mobile-a11y-scan` (mobile pack, when installed).
 - [`refute-before-report.md`](../../../snippets/refute-before-report.md) § 10, [`precedents/ui.md`](../../../snippets/precedents/ui.md), [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Accessibility and UI states.
 
 ### Patterns and rules

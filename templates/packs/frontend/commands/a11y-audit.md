@@ -1,145 +1,43 @@
 ---
-description: Run accessibility-auditor against current UI changes; ground with axe if installed.
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+description: "WCAG 2.2 AA audit: preset of /frontend-audit --classes=a11y."
+kind: command
+pack: frontend
+allowed-tools: [Read, Grep, Glob, Skill]
 ---
 
-# /a11y-audit [path]
+# /a11y-audit [base-branch] [--whole-repo] [--routes=<glob>]
 
-Audit command. Static + (optional) automated a11y pass on changed UI files. Phases 1-3 + 6 dominate; Phase 4 produces findings (no code edits); Phase 5 logs the audit; Phase 7 captures patterns.
+A thin preset. The audit procedure lives once, in `/frontend-audit` (this pack): the detectors, the refute step, the class ledger, the production bar, the verdict and the report. This command fixes the class family and the judge, and hands the ask, with every flag the user passed, to
 
-## The Premise (read this first, internalize, do not deviate)
-
-**Find real issues. No hand-waves.** An audit's job is to surface concrete, fixable a11y violations — each one cited at `<path:line>` with the failing rule named and a concrete fix proposed. Vague gestures ("review focus management overall", "consider improving ARIA usage") are forbidden — they do nothing for the user and burn audit budget.
-
-**The agent's job is exactly this:**
-1. Resolve the file scope (changed UI files OR explicit path arg).
-2. Run the agent + axe (if present) and produce a findings table where every row has `<path:line>`, severity, rule name, concrete fix.
-3. Group by severity. Surface blockers first. Append-only audit log to `ai/audits/<date>-a11y.md`.
-
-**The agent ONLY asks the user when:**
-- **Decorative-vs-informative ambiguity** on an image — never auto-suggest fake alt text; ask for the real value or leave `alt=""` decorative.
-- **Dynamic content semantics** unclear — is this toast a status (`role="status"`) or alert (`role="alert"`)?
-- **Theme palette** missing token definitions — can't verify contrast across themes without the tokens.
-
-Everything else — focus order check, label association check, ARIA name presence, keyboard reachability — is mechanical. Run it, report.
-
-**Closure-verb table — audit scope → ceremony:**
-
-| Tier | Trigger | Ceremony | Default? |
-|---|---|---|---|
-| **Trivial** | Incremental audit on `git diff` UI files | Static agent pass + axe (if present) → findings table → audit log entry. **No ADR, no rule promotion.** | YES |
-| **Standard** | Full-area audit (`/a11y-audit src/components/orders`) | Trivial + per-rule recurrence count + manual-walk reminder | NO |
-| **Heavy** | Pre-release audit OR repeat findings ≥3× across audits | Standard + ADR proposal (palette overhaul / rule promotion) + queue to `.claude/rules/a11y-checklist.md` | NO |
-
-**Lightweight default.** Trivial-tier is the default. Drafting an ADR for every audit run is the same anti-pattern as the migration pack's "ADR-as-closure" trap — promote to ADR only on repeat-systemic-issue.
-
-## When to use / NOT to use
-- USE: after any visible UI change (component, page, modal, form).
-- USE: before merging a PR that adds new interactive elements.
-- NOT: backend-only / tooling-only changes — no UI surface to audit.
-- NOT: as a substitute for a manual keyboard + screen-reader walkthrough. Automation is a **floor**, not a coverage percentage — do not quote a "tools catch N%" figure you have not opened the source for. What is true: no scanner evaluates announcement order, keyboard interaction quality, cognitive load, or context.
-
-## Phase 1 — Understand
-- Resolve scope: `git diff --name-only` filtered to UI extensions (`.tsx`, `.vue`, `.svelte`, `.html`, framework-specific). If a path arg is given, use that.
-- Confirm intent: full audit vs incremental on this change-set.
-
-## Phase 2 — Organize
-- Decide automated tooling: the in-pack **`a11y-scan` skill** owns the axe run (`@axe-core/playwright` if in deps AND a Playwright config exists) — its WCAG 2.2 tag set, its `target-size` enable, its review-items handling. Do not hand-roll a second axe invocation here.
-- Decide reviewer: `accessibility-auditor` agent for semantics/flow; axe (via `a11y-scan`) for ground-truth contrast/ARIA.
-- **Lane split when the ui-ux pack is co-installed:** `a11y-quick-check` *(ui-ux pack)* is the 60-second in-review fast pass on a diff; this command is the full audit. Do not duplicate that lane — grade what it escalates, and say which lanes ran. If ui-ux is absent, this command is the only lane and reports it as such.
-
-## Phase 3 — Retrieve
-
-ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
-
-A11y-specific:
-- Project's design tokens (themes / dark-mode files) — contrast must hold across ALL themes.
-- Any prior `ai/audits/<date>-a11y-*.md` — repeat findings = systemic issue.
-
-## Phase 4 — Generate (findings, not code)
-- Dispatch `accessibility-auditor` with the resolved file list.
-- If axe is present, dispatch the `a11y-scan` skill on the affected routes and consume its report. **Do not write an axe invocation here** — Phase 2 already assigned that run to the skill, which owns the WCAG 2.2 tag set, the `target-size` enable and the route x theme x locale matrix. A second invocation in this file is a second tag set: the two runs disagree, and the disagreement reads as a flaky scanner rather than as two different configurations.
-  Carry the skill's **review items** (`results.incomplete`) into the report as their own block — axe could not decide those, and an unresolved review item is not a pass.
-  If `a11y-scan` reports `RENDER BLOCKED` (its login-wall halt), this command halts with it. A merged report built on an unauthenticated render grades the login page and calls it the app.
-- Merge agent findings + axe violations. Dedupe (axe is ground truth on contrast / ARIA names; agent catches semantics + flow).
-- Print findings table grouped by severity:
-  ```
-  file:line     severity   rule                fix
-  Button.tsx:24 blocker    button-name         Add aria-label or visible text
-  Modal.tsx:18  serious    focus-trap          Trap focus inside modal while open
-  Form.tsx:55   moderate   label-association   <label htmlFor> must match input id
-  ```
-
-### Hand-wave mechanical halt (mandatory, all tiers)
-
-Before declaring the report complete, scan every finding for hand-wave language. For each finding, return one of: `closed` (cites `<path:line>` with concrete fix), `still-open` (vague), `regressed` (claim made without evidence).
-
-**Halt if any finding contains:**
-
-- `etc.`, `...`, `and similar`, `and others`, `among other things`, `various` — open-ended gestures with no enumerated targets.
-- `N+` style ranges (`3+ violations`, `multiple issues`) without listing each `<path:line>`. Either enumerate or don't claim.
-- `consider`, `might want to`, `could be improved`, `review overall`, `look into` — non-actionable verbs. Every finding is a concrete fix or it doesn't ship.
-- `generally`, `mostly`, `seems to` — hedges. Either the rule fails at `<path:line>` or it doesn't.
-- A finding without a `<path:line>` anchor.
-- A finding without a named rule (axe rule id OR WCAG SC number OR named heuristic).
-- A blocker without a concrete fix proposal (not just "fix this" — the actual replacement code or attribute).
-- Auto-suggested fake `alt` text on a non-decorative image (hallucination risk — ask the user, never invent).
-- "All clear" claim based on axe alone — **or any "automation covers N%" figure quoted to justify it**. This command's own § When to use / NOT to use forbids the figure; `@accessibility-auditor` carries the sourced treatment and explains why the two figures in circulation are not interchangeable — Deque's study reports share of *issues found*, while the figure people quote alongside it means share of *success criteria a machine can decide*. State the floor, cite no percentage, and run the manual keyboard + screen-reader walk regardless.
-
-**Hard rule:** any hand-wave finding → HALT. Either rewrite the finding with `<path:line>` + named rule + concrete fix, or drop it from the report. Repeat findings (same rule, same path, prior audit) get flagged as `regressed` and surfaced separately.
-
-## Phase 5 — Update
-- `ai/audits/<YYYYMMDD>-a11y.md` — write the findings report (timestamped, append-only history).
-- `ai/dynamic/changelog.md` — one-line: `a11y audit on <scope>: N blockers, M serious`.
-
-## Phase 6 — Validate
-- Each blocker has a concrete fix proposal (not just a finding).
-- Footer reminder is present, and carries **no** coverage percentage: `Automated coverage is a floor, not a percentage — no scanner judges announcement order, keyboard interaction quality, or context. Run a keyboard-only walkthrough + screen reader (VoiceOver / NVDA) before shipping.`
-- No fabricated `alt` text — decorative images stay `alt=""`; ask user for real alt otherwise.
-
-## Phase 7 — Improve
-- `/learn-from-task` — capture recurring rule violations.
-- If same rule fails 3+ times across audits → queue to `ai/dynamic/learned-patterns.md` as a candidate for a `.claude/rules/a11y-checklist.md` rule.
-- If theme contrast fails repeatedly → queue an ADR proposal: token palette overhaul.
-
-## Output format
+```text
+/frontend-audit --classes=a11y <base-branch | --whole-repo> [--routes=<glob>]
 ```
-## /a11y-audit — <N> findings (<B> blockers, <S> serious, <M> moderate)
 
-Phase 1 (Understand): scope = <N files>
-Phase 3 (Retrieved): siblings + tokens read; axe present = <yes|no>
-Phase 4 (Generated): findings table (see above)
-Phase 5 (Updated): ai/audits/<date>-a11y.md, changelog
-Phase 6 (Validated): each blocker has a fix; manual-walk reminder printed
-Phase 7 (Improved): N recurring patterns queued
+through the Skill tool. The name is kept because `/do`, the docs and the delivery lanes route accessibility asks here.
 
-Status: COMPLETE | BLOCKED on <B> blockers
-```
+## What the preset fixes
+
+- **Families.** The four a11y rows of `/frontend-audit`'s class ledger: A11y static (`a11y-code-scan` §1–§14), A11y rendered (`a11y-scan` §1–§7), A11y motion (`motion-audit`, ui-ux pack, when installed) and the A11y manual pass. Every other row prints `N/A (out of scope: --classes=a11y)`. The report is `ai/audits/<date>-frontend-a11y.md`.
+- **Judge selection.** `@ux-reviewer` (ui-ux pack) when `.claude/agents/ux-reviewer.md` is installed: it is the single WCAG owner, it refutes every BLOCKER and HIGH under [`refute-before-report.md`](../../../snippets/refute-before-report.md) § 10 (the accessibility column), and its **SC-coverage block** is this run's ledger — every WCAG 2.2 A and AA success criterion `checked` / `N/A` / `blocked` / `NOT RUN (human lane)`. Without ui-ux, `@accessibility-auditor` (this pack) judges, and the ledger is the two detectors' class blocks plus its manual-lane checklist. The report header names the judge that ran.
+- **Ask the user** (on top of `/frontend-audit`'s cases) when an image is decorative or informative and the code cannot say: never invent `alt` text; `alt=""` stays on decoration ([`precedents/ui.md`](../../../snippets/precedents/ui.md) § 11).
+
+## The automation ceiling — printed in every report
+
+A clean run is the **automated floor**, never "accessible", "WCAG compliant" or "a11y ✓". Automation finds part of the problem: 57 % of issues by volume in Deque's 2021 study, 41 % of 143 barriers for the best single tool in the GDS 2017 test (`precedents/ui.md` § 58). A clean axe run says nothing about keyboard operability, focus order, live regions or state changes; a Lighthouse 100 is not axe (§ 51). A GO prints `GO — automated floor; manual pass <recorded at <path> | not recorded>`.
+
+## When the target is missing
+
+- `/frontend-audit` not installed (an install older than this preset): stop and print `Missing: /frontend-audit — run /setup-project --refresh.` Do not improvise the old single-agent audit.
+- A native mobile tree only: the a11y rows print `N/A (native UI — not a DOM)`; route the ask to the mobile pack's a11y detector when installed.
 
 ## What to do next — required closing section
 
-Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (WCAG A/AA failures, keyboard traps, missing labels) → **SHOULD FIX** (AA edge cases / best practice) → **OPTIONAL** (AAA / nice-to-have) — each step carrying `<file:line>` + **Fix** (concrete; cite the WCAG criterion) + **Verify** (axe rule and/or the keyboard/SR check that proves it), then the closing steps (re-run `/a11y-audit` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No violations — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
-
-## Failure modes
-- Axe in headless Chrome misses focus order — manual keyboard walk is non-negotiable; never claim "all clear" on axe alone.
-- `aria-label` on a `<div>` doesn't make it a button. Use semantic HTML first; ARIA is patching, not the cure.
-- Color-contrast checked only on default theme → re-test ALL themes (dark mode, high-contrast, brand variants).
-- Dynamic content (toasts, dialogs) without `aria-live` → axe won't flag missing announcements; agent must.
-- Auto-suggesting fake alt text → hallucination risk; leave decorative images empty, ask user for real alt otherwise.
+`/frontend-audit` writes it: the findings as one ordered to-do (MUST FIX → SHOULD FIX → OPTIONAL), each with `<file:line>`, the route-state, the WCAG SC, the **Fix** and the **Verify** oracle, closing with **`/frontend-fix`** on the report, then a re-run of `/a11y-audit` and `/learn-from-task`. The visual rows (contrast, focus ring, tap target, affordance) go to `/polish` or `/enhance-ui` (ui-ux, when installed). Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
 
 ## Related
 
-### Lanes this command orchestrates — it routes, it does not re-grade
-- `a11y-scan` (skill, this pack) — owns the axe run end to end: the WCAG 2.2 tag set, the `target-size` enable, and the `results.incomplete` review items. Phase 2 forbids hand-rolling a second invocation here.
-- `@accessibility-auditor` (agent, this pack) — owns the SC-by-SC grade, including the criteria no scanner reaches. This command resolves scope and merges the two outputs; it does not re-derive either.
-- `a11y-quick-check` *(ui-ux pack, when co-installed)* — the 60-second in-review lane on a diff. Absent that pack this command is the only lane, and Phase 2 says so in the report rather than implying a fast pass ran.
-
-### Sibling commands — where the boundary falls
-- `/i18n-audit` — the other read-only audit in this pack. It grades locale parity and hardcoded copy; this one grades semantics, contrast and keyboard reach. RTL *layout* breakage is the one overlap — report it once, from whichever run found it.
-- `/add-page` · `/add-component` · `/add-crud-page` — produce the surfaces this command grades. Each carries a creation-time a11y halt (accessible defaults, table semantics); this command is the sweep over what already shipped.
-
-### Patterns
-- `forms.md` — its § Accessibility carries the label / `aria-describedby` / error-announcement contract that most `label` and `aria-*` findings here trace back to. The other pack patterns are not read on this axis and are deliberately not listed.
-
-### Rules
-- `.claude/rules/frontend-principles.md`
+- `/frontend-audit` (this pack) — the procedure. `/frontend-fix` (this pack) — closes the findings, accepting an a11y fix only when the violation count at the cell strictly drops.
+- `a11y-code-scan`, `a11y-scan` (this pack) — the static and rendered detectors. `a11y-quick-check` (ui-ux, when installed) — the 60-second lane on a diff.
+- `@ux-reviewer` (ui-ux, when installed) — the WCAG judge; `@accessibility-auditor` (this pack) — the judge without ui-ux.
+- `/i18n-audit` (this pack) — locale parity and hard-coded copy; it becomes the `i18n` preset of `/frontend-audit`.
+- [`precedents/ui.md`](../../../snippets/precedents/ui.md) · [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Accessibility and UI states.

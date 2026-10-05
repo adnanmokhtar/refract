@@ -268,7 +268,7 @@ Assert four things beyond axe: the surface's accessible name (`aria-dialog-name`
 ### 3. Contrast per theme; non-text contrast
 
 ```
-BAD:   dark theme muted text #8a8a8a on #1e1e1e (3.9:1)  · input border #e5e5e5 on #fff (1.26:1, measured on the seeded page)
+BAD:   dark theme muted text #6b6b6b on #1e1e1e (3.1:1)  · input border #e5e5e5 on #fff (1.26:1, measured on the seeded page)
 GOOD:  ≥ 4.5:1 text (3:1 large) in every theme  · borders, focus rings, toggle states ≥ 3:1 against what they sit on
 ```
 
