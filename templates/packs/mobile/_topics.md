@@ -157,6 +157,16 @@ change.
   sections: [premise, halt_conditions, when_to_use, inputs, procedure, what_this_harness_cannot_decide, output_format, outputs, hard_rules, failure_modes]
   fallback: skills/device-harness/SKILL.md
 
+- name: mobile-lifecycle-scan
+  kind: skill
+  triggers: { mobile_framework_detected: true }
+  sections: [premise, the_rule, boundaries, lanes, pre_flight_greps, the_3000_hit_path, scans_for, detectors_1_to_7, proof, output, false_positives, when_to_run, halt_conditions, related]
+  fallback: skills/mobile-lifecycle-scan/SKILL.md
+  cite_evidence: strict
+  # fallback is the source ON PURPOSE: the pre-flight script, its version gates and the
+  # measured hit counts are the artifact; an abridgement would drop the halt conditions and
+  # the "no device means SKIPPED, never PASS" rule that keeps a host-only run honest.
+
 # The four patterns added at 1.7.0 declare `sources` as a REQUIRED section. Each quotes dated
 # platform figures (Android's published background limits, Play's vitals thresholds, the store
 # guidelines), and an AUTHOR-mode rewrite that drops the Sources block leaves those numbers standing

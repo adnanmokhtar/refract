@@ -1,6 +1,6 @@
 ---
 name: a11y-code-scan
-description: "Static WCAG 2.2 AA scan of UI source: per-stack a11y lint lanes plus tested greps for 14 classes, each proved at a route-state by axe, a keyboard path or a role query."
+description: "Static WCAG 2.2 AA detector for UI source: a11y lint lanes per stack plus greps for 14 classes, each proved at a route-state."
 kind: skill
 pack: frontend
 allowed-tools: [Read, Grep, Glob, Bash]
@@ -13,6 +13,8 @@ allowed-tools: [Read, Grep, Glob, Bash]
 Most accessibility defects are written into source long before anyone renders the page: a `div` that takes clicks, an icon button with no name, a focus ring removed in a stylesheet, a dialog that never moves focus, an error rendered as red text beside its field. This skill finds them in the code, across React, Vue, Svelte, Angular and plain HTML. It runs each stack's own a11y lint rules first, then greps for what lint cannot see — Tailwind classes, cross-file facts, multi-line JSX — and maps every candidate to the WCAG 2.2 success criterion it would fail.
 
 **Every finding cites the source `<file:line>` + the route that renders it + the WCAG 2.2 SC and level + the oracle that proved it (or the test that would settle it) + the fix in the project's own components.** A lint message or a grep hit is never a finding by itself. "No accessibility issues" is never printed: the output is a class-coverage block, and automation finds only part of the problem. Deque's study found 57 % of issues **by volume**; the best single tool in the GDS test caught 41 % of 143 barriers ([`precedents/ui.md`](../../../../snippets/precedents/ui.md) § 58). A clean run is the automated floor. The manual pass — keyboard walk, screen reader, zoom, content judgement — stays, and the report says so.
+
+Below, `ui § n` means [`precedents/ui.md`](../../../../snippets/precedents/ui.md) § n; a bare `§n` is a detector in this skill.
 
 **Detect statically, prove at a route-state.** The proof is an oracle from [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states, run on a production build at the route and state that expose the defect: the axe rule at that route-state, a keyboard path, a role or label query, a focus or geometry probe. A **static-fact** class whose failure is fully visible in source passes with the two-ended trace (`precedents/ui.md`, the proof rule). Every other candidate without a harness is **Unconfirmed**, carrying the settling test. It is never dropped, and never promoted on reading alone.
 
@@ -62,7 +64,7 @@ export default [{ ignores: ['**/node_modules/**', '**/dist/**', '**/build/**', '
     plugins: { 'jsx-a11y': jsxA11y },
     settings: { 'jsx-a11y': { polymorphicPropName: 'as', components: { /* the project's wrappers: Button: 'button', Link: 'a', TextField: 'input' */ } } },
     rules: { ...jsxA11y.flatConfigs.strict.rules, 'jsx-a11y/control-has-associated-label': 'error', 'jsx-a11y/no-aria-hidden-on-focusable': 'error',
-      'jsx-a11y/prefer-tag-over-role': 'off', 'jsx-a11y/no-autofocus': 'off' } }];   // advice, not SC failures (precedents/ui.md § 3, § 23)
+      'jsx-a11y/prefer-tag-over-role': 'off', 'jsx-a11y/no-autofocus': 'off' } }];   // advice, not SC failures (precedents/ui.md § 3, ui § 23)
 EOF
 cat > "$L/vue.mjs" <<'EOF'
 import vueA11y from 'eslint-plugin-vuejs-accessibility'; import tseslint from 'typescript-eslint';
@@ -173,9 +175,9 @@ A finding is a hit **plus** a read of the component **plus** the route that rend
 | `review-decoys/base/web` | 4: `Modal.tsx` | the base dialog the change later fixes |
 | `slow-marketplace`, `vuln-fullstack`, `quality-mix`, `brittle-suite` | 2d 1 (a search input); 6b 1 (`{status && <p role="status">}`); 8 R12 1 (a rating `span` with `aria-label`) | candidates for the label query, the live-region oracle and axe (`precedents/ui.md` § 24) |
 | research fixtures `A-rg/pos` / `neg` | every seeded positive caught (R01 8, R02 5, R03 5, R07 4, …) | 0 decoy hits, except 12a (it lists every `<video>` file; axe `video-caption` is needs-review) |
-| real React 19 + Vite app, 1,979 `.tsx` | 0d: 0 · 1: 3 · 2a–2e: 0 · 3: 0 · 4: 0 · 6a: 1 file · 6d: 1 · 6e: 6 files · 8: 1 + 13 reorder · 9a: 19 files · 9b: 1 · 10a: 3 files · 12a: 2 files · 13: 0 · 14: 0 | §1: a click-to-focus tag input (§ 16), a card row and an inbox row to read. 6e: one root cause — six integration dialogs render `{errors.x && <p>}` beside an unassociated input. 6a: a static notice (refuted on read). 6d: a price error with no role. 8: an image placeholder `div` named by `aria-label` with no role (axe decides). 9a: tab strips with no arrow keys (APG deviation, medium). 10a: two reorder lists are drag-only (native HTML5 DnD, no click or key path: real 2.5.7 candidates); the third has a click path. 12a: user-sent chat media |
+| real React 19 + Vite app, 1,979 `.tsx` | 0d: 0 · 1: 3 · 2a–2e: 0 · 3: 0 · 4: 0 · 6a: 1 file · 6d: 1 · 6e: 6 files · 8: 1 + 13 reorder · 9a: 19 files · 9b: 1 · 10a: 3 files · 12a: 2 files · 13: 0 · 14: 0 | §1: a click-to-focus tag input (ui § 16), a card row and an inbox row to read. 6e: one root cause — six integration dialogs render `{errors.x && <p>}` beside an unassociated input. 6a: a static notice (refuted on read). 6d: a price error with no role. 8: an image placeholder `div` named by `aria-label` with no role (axe decides). 9a: tab strips with no arrow keys (APG deviation, medium). 10a: two reorder lists are drag-only (native HTML5 DnD, no click or key path: real 2.5.7 candidates); the third has a click path. 12a: user-sent chat media |
 
-Before hardening, the same real app returned **R02 26** (icon children mis-anchored by `[^>]*` across prettier-formatted JSX — 0 true), **R13 46** (single-line lookahead on multi-line tags, many in comments — 1 true), **R01 10** (6 `stopPropagation` wrappers, 1 comment), **6e 23** (prop `error={errors.x}` into a wiring `Field` wrapper — `precedents/ui.md` § 14), **13: 3** (prefetch and row-highlight hovers — § 33) and **0d: 2** (`<html>` inside comments). The versions above are the fixed ones. Small fixtures prove the greps parse and catch seeded rows; precision at scale comes from the real-app row.
+Before hardening, the same real app returned **R02 26** (icon children mis-anchored by `[^>]*` across prettier-formatted JSX — 0 true), **R13 46** (single-line lookahead on multi-line tags, many in comments — 1 true), **R01 10** (6 `stopPropagation` wrappers, 1 comment), **6e 23** (prop `error={errors.x}` into a wiring `Field` wrapper — `precedents/ui.md` § 14), **13: 3** (prefetch and row-highlight hovers — ui § 33) and **0d: 2** (`<html>` inside comments). The versions above are the fixed ones. Small fixtures prove the greps parse and catch seeded rows; precision at scale comes from the real-app row.
 
 ## The 3,000-hit path
 
@@ -213,7 +215,7 @@ Severity is the WCAG impact on a reachable route: drop one step when an equivale
 BAD:   <div className="close" onClick={onClose}>×</div>          · <li v-on:click="pick(i)">  · <span (click)="go()">
 GOOD:  <button type="button" aria-label={t('close')} onClick={onClose}><XIcon aria-hidden /></button>
 ```
-**Read the code:** Is there a real `<button>` / `<a href>` child (delegation, `precedents/ui.md` § 34) or an equivalent control on the page? Is it a backdrop that also closes on Escape (§ 16)? Does a handler come through spread props? **Finding when** the element is the path to an action and Tab cannot reach it. **Proof:** keyboard path (V87): the control is absent from the Tab sequence, or Enter / Space do nothing. Fix: the native element. `role="button"` + `tabIndex` + key handlers is the fallback, never the first choice.
+**Read the code:** Is there a real `<button>` / `<a href>` child (delegation, `precedents/ui.md` § 34) or an equivalent control on the page? Is it a backdrop that also closes on Escape (ui § 16)? Does a handler come through spread props? **Finding when** the element is the path to an action and Tab cannot reach it. **Proof:** keyboard path (V87): the control is absent from the Tab sequence, or Enter / Space do nothing. Fix: the native element. `role="button"` + `tabIndex` + key handlers is the fallback, never the first choice.
 
 ### 2. Missing accessible name or label
 
@@ -221,7 +223,7 @@ GOOD:  <button type="button" aria-label={t('close')} onClick={onClose}><XIcon ar
 BAD:   <button onClick={close}><XIcon /></button>   · <button>↩</button>   · <img src={avatar}>   · <input placeholder="Amount">
 GOOD:  <button aria-label={t('close')}>…   · <img src={avatar} alt={name}> (alt="" when decorative)   · <label for="amt">…</label><input id="amt">
 ```
-**Read the code:** Does the icon component render a `<title>` or visually hidden text? Does a wrapper wire `htmlFor` / `aria-labelledby` (§ 14)? Is the image decorative (§ 11)? Is the name a translation key that resolves in every locale? **Finding when** the rendered control has no accessible name, or its name omits its visible label (2.5.3). **Proof:** role and label query (V88): `getByRole('button', { name: /close/i })` or `getByLabel('Amount')` finds nothing; axe `button-name` / `image-alt` / `label` at the route-state.
+**Read the code:** Does the icon component render a `<title>` or visually hidden text? Does a wrapper wire `htmlFor` / `aria-labelledby` (ui § 14)? Is the image decorative (ui § 11)? Is the name a translation key that resolves in every locale? **Finding when** the rendered control has no accessible name, or its name omits its visible label (2.5.3). **Proof:** role and label query (V88): `getByRole('button', { name: /close/i })` or `getByLabel('Amount')` finds nothing; axe `button-name` / `image-alt` / `label` at the route-state.
 
 ### 3. Focus indicator removed
 
@@ -229,15 +231,15 @@ GOOD:  <button aria-label={t('close')}>…   · <img src={avatar} alt={name}> (a
 BAD:   .btn:focus { outline: none; }        · className="focus:outline-none"     (no focus-visible ring on the line)
 GOOD:  .btn:focus-visible { outline: 2px solid var(--focus-ring); }   · "focus-visible:outline-none focus-visible:ring-2"
 ```
-**Read the code:** Is there a `:focus-visible` rule for the same element elsewhere, a ring from a wrapper class (`focus-ring`), or a `box-shadow` replacement (§ 18)? Tailwind v4 `outline-none` sets `outline-style: none`; `outline-hidden` is the forced-colours-safe reset (§ 55). **Finding when** a focusable element shows no visible change on keyboard focus. **Proof:** focus-visible delta (V89), normal and `forcedColors: 'active'`.
+**Read the code:** Is there a `:focus-visible` rule for the same element elsewhere, a ring from a wrapper class (`focus-ring`), or a `box-shadow` replacement (ui § 18)? Tailwind v4 `outline-none` sets `outline-style: none`; `outline-hidden` is the forced-colours-safe reset (ui § 55). **Finding when** a focusable element shows no visible change on keyboard focus. **Proof:** focus-visible delta (V89), normal and `forcedColors: 'active'`.
 
 ### 4. Dialog or overlay focus not managed
 
-**Read the code:** Does opening move focus inside, Tab stay inside a modal, Escape close it, and closing return focus to the trigger? Native `<dialog>.showModal()` and headless dialogs provide these (§ 12, § 13); a hand-rolled `role="dialog"` usually does not. **Finding when** any of the four fails. **Proof:** keyboard path (V90). Fix: the project's dialog primitive, or `showModal()`. Not `aria-hidden` on the page behind it.
+**Read the code:** Does opening move focus inside, Tab stay inside a modal, Escape close it, and closing return focus to the trigger? Native `<dialog>.showModal()` and headless dialogs provide these (ui § 12, ui § 13); a hand-rolled `role="dialog"` usually does not. **Finding when** any of the four fails. **Proof:** keyboard path (V90). Fix: the project's dialog primitive, or `showModal()`. Not `aria-hidden` on the page behind it.
 
 ### 5. SPA route change
 
-**Read the code:** Which router (grep 5a)? Next App Router and SvelteKit announce route changes and Nuxt has an optional announcer (§ 27). React Router, Vue Router and the Angular Router leave it to the app. Does every route set a distinct title (grep 5b), and does something move focus to the new heading or `main` after navigation? **Finding when** a client-side navigation leaves the title unchanged or focus on a removed element, and nothing announces it. **Proof:** keyboard path + live-region presence (V92), navigating by clicking a link.
+**Read the code:** Which router (grep 5a)? Next App Router and SvelteKit announce route changes and Nuxt has an optional announcer (ui § 27). React Router, Vue Router and the Angular Router leave it to the app. Does every route set a distinct title (grep 5b), and does something move focus to the new heading or `main` after navigation? **Finding when** a client-side navigation leaves the title unchanged or focus on a removed element, and nothing announces it. **Proof:** keyboard path + live-region presence (V92), navigating by clicking a link.
 
 ### 6. Status not announced; field error not associated
 
@@ -245,7 +247,7 @@ GOOD:  .btn:focus-visible { outline: 2px solid var(--focus-ring); }   · "focus-
 BAD:   {error && <span style={{ color: 'red' }}>{error}</span>}          · {saved && <div role="status">Saved</div>}
 GOOD:  <p id="amt-err" role="alert">{error}</p> + <input aria-invalid aria-describedby="amt-err">   · an always-mounted <div role="status">{msg}</div>
 ```
-**Read the code:** Does the toast go through a library that owns a live region (§ 26)? Is the conditional element `role="alert"` (§ 25, Low)? Does a shared field wrapper wire `aria-invalid` / `aria-describedby` (§ 14)? Does focus move to the first invalid field or an announced summary? **Finding when** the message is not announced, or the error is not the input's accessible description. **Proof:** live-region presence (V93): `toHaveAccessibleErrorMessage` / `toHaveAccessibleDescription`; the status region exists before the action.
+**Read the code:** Does the toast go through a library that owns a live region (ui § 26)? Is the conditional element `role="alert"` (ui § 25, Low)? Does a shared field wrapper wire `aria-invalid` / `aria-describedby` (ui § 14)? Does focus move to the first invalid field or an announced summary? **Finding when** the message is not announced, or the error is not the input's accessible description. **Proof:** live-region presence (V93): `toHaveAccessibleErrorMessage` / `toHaveAccessibleDescription`; the status region exists before the action.
 
 ### 7. Colour as the only signal
 
@@ -253,11 +255,11 @@ GOOD:  <p id="amt-err" role="alert">{error}</p> + <input aria-invalid aria-descr
 
 ### 8. ARIA misuse, positive tabindex, visual reorder
 
-**Read the code:** `aria-hidden` on a focusable, or on a container whose focusables are not also `inert` / `tabindex="-1"`? `role="presentation"` on a focusable? A positive `tabindex` (only positive counts, § 22)? `aria-label` on a generic element (trust axe `aria-prohibited-attr`, § 24)? A reverse or `order` layout whose focusables then tab out of visual order (not an RTL mirror, § 28)? **Finding when** the rendered tree misstates role, name, state or order. **Proof:** axe `aria-hidden-focus`, `aria-allowed-attr`, `tabindex` at the route-state; aria snapshot diff (V94).
+**Read the code:** `aria-hidden` on a focusable, or on a container whose focusables are not also `inert` / `tabindex="-1"`? `role="presentation"` on a focusable? A positive `tabindex` (only positive counts, ui § 22)? `aria-label` on a generic element (trust axe `aria-prohibited-attr`, ui § 24)? A reverse or `order` layout whose focusables then tab out of visual order (not an RTL mirror, ui § 28)? **Finding when** the rendered tree misstates role, name, state or order. **Proof:** axe `aria-hidden-focus`, `aria-allowed-attr`, `tabindex` at the route-state; aria snapshot diff (V94).
 
 ### 9. Composite widget without its keyboard model or state
 
-**Read the code:** Is the widget a headless primitive (§ 12)? For a hand-rolled one, does it follow the APG pattern — arrows, Home / End, roving `tabindex`, `aria-selected` / `aria-expanded` / `aria-checked` that change on interaction? **Finding when** the role promises a model the widget does not implement. Tabs that are plain buttons reachable by Tab are medium (a 4.1.2 promise gap); a combobox or menu with no arrow keys is high. **Proof:** keyboard path + aria snapshot diff (V95).
+**Read the code:** Is the widget a headless primitive (ui § 12)? For a hand-rolled one, does it follow the APG pattern — arrows, Home / End, roving `tabindex`, `aria-selected` / `aria-expanded` / `aria-checked` that change on interaction? **Finding when** the role promises a model the widget does not implement. Tabs that are plain buttons reachable by Tab are medium (a 4.1.2 promise gap); a combobox or menu with no arrow keys is high. **Proof:** keyboard path + aria snapshot diff (V95).
 
 ### 10. Dragging with no single-pointer alternative
 
@@ -269,15 +271,15 @@ GOOD:  <p id="amt-err" role="alert">{error}</p> + <input aria-invalid aria-descr
 BAD:   <input type="password" onPaste={(e) => e.preventDefault()}>   · <input type="password" autoComplete="off">   · <input type="email" name="email">
 GOOD:  paste allowed · autoComplete="current-password" / "new-password" / "one-time-code" · autoComplete="email"
 ```
-**Read the code:** Is the field about the user (§ 30)? Is the CAPTCHA an allowed exception (§ 31)? **Finding when** paste or password managers are blocked on a credential, or a personal-data field has no valid token. **Proof:** paste probe; axe `autocomplete-valid` (V97). Blocked paste and `autocomplete="off"` on a credential are static facts.
+**Read the code:** Is the field about the user (ui § 30)? Is the CAPTCHA an allowed exception (ui § 31)? **Finding when** paste or password managers are blocked on a credential, or a personal-data field has no valid token. **Proof:** paste probe; axe `autocomplete-valid` (V97). Blocked paste and `autocomplete="off"` on a credential are static facts.
 
 ### 12. Media
 
-**Read the code:** Is the video prerecorded with speech (captions required, 1.2.2) or decorative (§ 32)? Does audio autoplay more than three seconds with no control? **Proof:** axe `video-caption` (needs review) and `no-autoplay-audio`; media emulation (V98).
+**Read the code:** Is the video prerecorded with speech (captions required, 1.2.2) or decorative (ui § 32)? Does audio autoplay more than three seconds with no control? **Proof:** axe `video-caption` (needs review) and `no-autoplay-audio`; media emulation (V98).
 
 ### 13. Hover or focus content
 
-**Read the code:** Does the content also open on focus? Can Escape dismiss it without moving focus, and can the pointer move onto it? Prefetch and row-highlight handlers show nothing (§ 33). **Finding when** shown content fails dismissible, hoverable or persistent. **Proof:** keyboard path (V99).
+**Read the code:** Does the content also open on focus? Can Escape dismiss it without moving focus, and can the pointer move onto it? Prefetch and row-highlight handlers show nothing (ui § 33). **Finding when** shown content fails dismissible, hoverable or persistent. **Proof:** keyboard path (V99).
 
 ### 14. Context change on input; timing
 
@@ -308,7 +310,7 @@ Findings: 2 · Unconfirmed: 3
 
 3. src/shared/ui/card-list.tsx:156                                 [report-flagged]    high
    §1 clickable <li> with no role or key handler (2.1.1 A). Unproven link: whether the card holds a real link for
-   the same action (§ 17). Settling test: keyboard path on /customers (cards view) — the row is in the Tab sequence.
+   the same action (ui § 17). Settling test: keyboard path on /customers (cards view) — the row is in the Tab sequence.
 
 Verification: 41 candidates → 2 findings · 3 unconfirmed · 6 hardening · 0 pre-existing · 30 refuted
 Automated floor only: the manual pass (screen reader, zoom, content) is not part of this run.
@@ -337,10 +339,10 @@ Class coverage (WCAG 2.2 AA):
 
 The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (accessibility § 11–34, versions § 49–57) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the accessibility column). The ones this skill meets most:
 
-- **Headless and native primitives** own role, state and keyboard (§ 12, § 13). A shared field wrapper owns label and error wiring (§ 14).
-- **`stopPropagation`-only and click-to-focus wrappers, backdrops with Escape** (§ 16), and **cards with an inner link** (§ 17) are not controls.
-- **`alt=""` on decoration** (§ 11), **`role="alert"` mounted with its text** (§ 25), **toast libraries** (§ 26), **built-in route announcers** (§ 27), **RTL reorder** (§ 28).
-- **Lint advice is not an SC failure**: `prefer-tag-over-role`, `no-autofocus` in a dialog (§ 3, § 23).
+- **Headless and native primitives** own role, state and keyboard (ui § 12, ui § 13). A shared field wrapper owns label and error wiring (ui § 14).
+- **`stopPropagation`-only and click-to-focus wrappers, backdrops with Escape** (ui § 16), and **cards with an inner link** (ui § 17) are not controls.
+- **`alt=""` on decoration** (ui § 11), **`role="alert"` mounted with its text** (ui § 25), **toast libraries** (ui § 26), **built-in route announcers** (ui § 27), **RTL reorder** (ui § 28).
+- **Lint advice is not an SC failure**: `prefer-tag-over-role`, `no-autofocus` in a dialog (ui § 3, ui § 23).
 
 ## When to run
 
@@ -353,7 +355,7 @@ The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (
 - Do not report a high or critical row as confirmed until a verifier other than the run that found it has passed it through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10. Under an audit command that happens in its verification phase; run standalone, apply the protocol as a separate second pass, tag those rows `self-verified`, and list the rest as Unconfirmed, Hardening, Pre-existing or Refuted. Never drop them.
 - Halt on any finding without the source `<file:line>`, the route that renders it, the WCAG 2.2 SC and level, and the fix in the project's own components.
 - Do not mark a finding `[report-with-fix]` without an oracle that failed, unless the class is a static fact (`precedents/ui.md`, the proof rule).
-- Do not report a grep hit or a lint message as a finding. Do not report an AAA criterion or a house target as an AA failure (§ 4).
+- Do not report a grep hit or a lint message as a finding. Do not report an AAA criterion or a house target as an AA failure (ui § 4).
 - Do not print "accessible", "compliant", "WCAG AA ✓" or "no issues found". Print the coverage block and the automated-floor line; a class whose grep or lint lane did not run is `blocked`, never `checked`.
 - Do not propose `aria-hidden`, `disableRules`, a suppression comment or a wider `exclude` as a fix.
 - Do not re-derive a class another skill owns (§ Boundaries). Cross-link it.
