@@ -23,7 +23,6 @@ templates/packs/align/rules/align-discipline.md 1
 templates/packs/backend/rules/backend-principles.md 1
 templates/packs/backend/rules/concurrency-discipline.md 3
 templates/packs/business/rules/business-completeness.md 2
-templates/packs/code-quality/rules/quality-principles.md 2
 templates/packs/finops/rules/finops-principles.md 2
 templates/packs/frontend/rules/frontend-principles.md 4
 templates/packs/migration/rules/migration-discipline.md 2

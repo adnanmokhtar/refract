@@ -25,6 +25,25 @@ Concretely halting: a base class or interface invented so two types can share a 
 
 Also halt on: changing public API shape, reformatting unrelated lines, fixing bugs in the same diff, scope-creeping into a second refactor opportunity.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: writer
+inputs:
+  required: [scope]             # one named refactor: the file, module or symbol and the verb
+  reads:    [the target file and 1-2 siblings, .claude/rules/, ai/conventions.md, ai/decisions/, git log of the target]
+output:
+  returns:  the '## Refactor: <named> — Done | INCOMPLETE | UNVERIFIED' block
+  writes:   [the source files in the declared scope, characterization tests test-shield adds]
+  persisted_by: this agent (one commit per step)
+skills:     [refactoring-sweep, test-shield, smoke-verify]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       the caller (/refactor, /optimize, /align); @code-reviewer grades the diff
+```
+
 ## Invariants (non-negotiable)
 
 - Tests pass before the refactor starts. Green baseline is mandatory. Refuse to refactor atop red tests.

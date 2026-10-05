@@ -17,6 +17,27 @@ Reads the manifest and the lockfile across every dimension at once — vulnerabi
 
 **Hand-wave grep — auto-halt on these tokens in your own report:** `consider upgrading`, `might want to`, `could be`, `etc.`, `and so on`, `probably safe`, `looks fine`, `audit when convenient`. If your draft contains any of them, rewrite the row into a concrete package@version + CVE / measurement / grep-result + Fix + Owner, or delete it. Quarterly-cadence noise dressed as a finding wastes the team's upgrade budget. Halt and rewrite before emitting.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # the manifest(s) and lockfile(s) to audit
+  reads:    [package manifests, lockfiles, the bundle report when one exists, security deps-audit output when installed]
+  never:    [the builder's summary, PR text]
+output:
+  returns:  the '## Dependency audit — <package-manager>' block
+  writes:   none
+  persisted_by: caller
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+verdict:    PASS | CONCERNS | FAIL
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /upgrade-dep (one bump at a time); deps-audit (security pack) owns CVE triage
+```
+
 ## Pre-flight
 
 - Detect package manager: pnpm / npm / yarn / pip / poetry / uv / cargo / composer / bundler / go mod.

@@ -866,6 +866,8 @@ PYEOF
   p4_ok "$(own "$(ed "ai/runs/$R/design.md" implementer)")" 2 "own-implementer-writing-design-denied"
   p4_ok "$(own "$(ed src/x.ts my-plugin:implementer)")" 0 "own-implementer-writing-source-allowed"
   p4_ok "$(own "$(ed src/x.ts)")" 0 "own-no-open-run-main-unrestricted"
+  p4_ok "$(own '{"tool_name":"Read","agent_type":"implementer","tool_input":{"file_path":".claude/holdouts/r1/refund.test.js"}}')" 2 "own-implementer-reading-holdouts-denied"
+  p4_ok "$(own '{"tool_name":"Grep","agent_type":"verifier","tool_input":{"pattern":"refund","path":".claude/holdouts/r1"}}')" 0 "own-verifier-reading-holdouts-allowed"
   mkrun "$p" "$R" T2 P6 open "P0,P1,P2,P4,P5"
   p4_ok "$(own "$(ed src/x.ts)")/$(grep -c 'dispatch @implementer' "$work/own.err")" "2/1" "own-main-editing-source-at-T2-P6-denied"
   p4_ok "$(own "$(ed "ai/runs/$R/ledger.md")")" 0 "own-main-writing-ledger-at-T2-P6-allowed"

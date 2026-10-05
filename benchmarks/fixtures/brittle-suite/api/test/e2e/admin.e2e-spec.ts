@@ -9,7 +9,8 @@ describe('admin (e2e)', () => {
   });
 
   it('lets an admin list the agents of the tenant', async () => {
-    await request(booted.app.getHttpServer()).get('/admin/agents').set(asAgent('tn_a', 'admin')).expect(200);
+    const res = await request(booted.app.getHttpServer()).get('/admin/agents').set(asAgent('tn_a', 'admin')).expect(200);
+    expect(res.body).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'agent_tn_a', disabled: false })]));
   });
 
   it('refuses the agent list to a non-admin agent', async () => {

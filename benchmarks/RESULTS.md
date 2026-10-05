@@ -21,7 +21,7 @@ Distinguishing what is checked from what is measured, so the two never get confl
 
 | Checked | How | Status |
 |---------|-----|--------|
-| Every seeded anchor resolves to its recorded line | `run.sh --verify` | 234/234 across 7 fixtures (58 of them decoys) |
+| Every seeded anchor resolves to its recorded line | `run.sh --verify` | 413/413 across 10 fixtures (106 of them decoys) |
 | Staging never leaks the answer key | `run.sh --fixture=<n>`, then `find` for `DEFECTS.md` | 0 copies staged |
 | Staged tree is byte-identical to source minus `DEFECTS.md` | `diff -r --exclude=DEFECTS.md` | identical |
 | Scorer credits a correct report | synthetic findings → known ids | maps as intended |

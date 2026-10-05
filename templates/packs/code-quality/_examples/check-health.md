@@ -80,7 +80,8 @@ If any step fails: STOP, do not run agents. Fix mechanical first.
 
 ### Agent audit (parallel)
 - `code-reviewer` — last 20 commits via `git log -p -20`.
-- `dead-code-finder` — full repo scan.
+- `dead-code-finder` — triage of `dead-code-scan`'s Investigate bucket.
+- **Code quality** — read the latest `ai/audits/<YYYY-MM-DD>-quality.md` from `/quality-audit`; do not re-run it. `NO-GO` → RED, `GO-UNVERIFIED` → AMBER (open ledger rows named), `GO` → GREEN. None, or older than 30 days → AMBER `not audited — run /quality-audit`.
 - `security-auditor` — auth + data boundaries.
 - `performance-optimizer` — hot paths from logs/observability if linked.
 - `doc-writer` — `ai/status.md` freshness (FAIL if `Updated:` missing or > 30 days).
@@ -112,6 +113,7 @@ Mechanical:
 Agent audit:
   RED    Code         2 blockers, 4 requests, 12 nits
   AMBER  Dead code    3 unused exports
+  RED    Quality      NO-GO (1 blocker: error-handling-scan §1) — ai/audits/2026-04-18-quality.md
   RED    Security     1 blocker — missing auth on GET /admin/export
   AMBER  Performance  N+1 in listOrders()
   RED    Docs         ai/status.md last updated 2026-02-14 (71 days stale)

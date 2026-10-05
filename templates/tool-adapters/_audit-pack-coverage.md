@@ -31,7 +31,7 @@ Cross-cuts the tool-adapter registry. Documents how each tool surfaces **`/audit
 | `ai/audit/plan.md` | Cross-axis ranked P0–P4 fix-plan — id, axis, summary, `<file:line>`, closure verb, dependency-on, tier, impact-at-target, blast-radius, fix-cost |
 | `ai/audit/assessment.md` | `--assess` 8-section narrative (good / improve / unify / extract / simplify / redesign / remove / optimize) + `## Actionable next steps` |
 | `ai/audit/progress.md` | Multi-day state — per-tier counts (done / pending / halted) + halted-finding blockers + next-steps |
-| `ai/audit/_arch.md` `_quality.md` `_security.md` `_db.md` `_perf.md` `_scale.md` `_infra.md` `_obs.md` | Per-axis scan subfiles (the 8 fan-out emitters; merged by the cross-axis ranker) |
+| `ai/audit/_arch.md` `_quality.md` `_security.md` `_db.md` `_perf.md` `_scale.md` `_infra.md` `_observability.md` | Per-axis scan subfiles (the 8 fan-out emitters; merged by the cross-axis ranker) |
 | `ai/audit/perf-wins.md` | Baseline + post-fix measurements for P2 scale/perf fixes |
 | `ai/audit/final-report.md` | End-of-run report — ends with `## Actionable next steps` per the universal report contract |
 | `.claude/_extracted-idioms.md` | Oracle — primitives the universal detectors run against (no hard-coded language tokens) |

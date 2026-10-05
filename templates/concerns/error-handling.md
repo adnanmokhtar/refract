@@ -14,9 +14,15 @@ retry can recover from. Code that works on the happy path and hangs, corrupts, o
 swallows on the first failure is the canonical AI-generated-code defect, and it is not a style
 issue — a silent catch converts an incident into a mystery.
 
-`/align` already carries an `unhandled-io` detector for I/O call sites with no error path at all.
-This concern is the surface-level question underneath it: when the failure *is* caught, is the
-outcome recoverable and is anyone told.
+**Executor.** The code-quality pack's `error-handling-scan` skill is the runnable detector behind
+this concern: § 1 the error is dropped, § 2 a failure turned into a success-shaped value, § 3 a
+failure signal never read, § 4 an async failure nobody observes, § 5 catch-everything around
+business logic, § 6 the cause or the outcome rewritten, § 7 paired state the error path skips —
+each proved by a port fault injection, and `/quality-fix` closes them failing-first. `/align`'s
+`unhandled-io` and `silent-catch` classes and `/audit`'s Unhandled-I/O pass dispatch it. This
+concern stays the method: the four outcomes below are what every error verdict reads, and the
+per-surface fingerprints are where to look first. Outbound timeouts, retries and breakers belong
+to `@resilience-reviewer` when the distributed-systems pack is installed.
 
 ## Per-surface fingerprints
 

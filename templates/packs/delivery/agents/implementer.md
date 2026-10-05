@@ -30,8 +30,8 @@ status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT | SPEC_CONFLICT
 next:       the orchestrator (next task, then P7)
 ```
 
-`test-lock.sh` denies edits to the locked contract and its tests and your reads of
-`.claude/holdouts/`; `artifact-ownership.sh` denies writes to the run's role-owned artifacts.
+`test-lock.sh` denies edits to the locked contract and its tests; `artifact-ownership.sh` denies your
+reads of `.claude/holdouts/` and your writes to the run's role-owned artifacts.
 
 ## The Premise (read first, do not deviate)
 

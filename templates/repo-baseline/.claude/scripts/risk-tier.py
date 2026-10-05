@@ -85,31 +85,36 @@ LEXICON = {
         r"\bcheckout\b", r"\bbilling\b", r"\binvoice payments?\b", r"\btransfer(ring)? (funds|money)\b",
         r"\bwallets?\b", r"\bbalances?\b", r"\bcapture (the )?(payment|funds|charge)s?\b",
         r"\bcredit cards?\b", r"\bsubscription (charge|billing|renewal|payment)s?\b", r"\bpayable\b",
-        r"\bstripe\b", r"\bpaypal\b", r"\bpayroll\b"]),
+        r"\bstripe\b", r"\bpaypal\b", r"\bpayroll\b",
+        r"\bmoney back\b", r"\breimburs\w*", r"\bchargebacks?\b", r"\brevers(e|es|ing|al) (a |the )?(\w+ )?(purchase|payment|charge|transaction|order)s?\b", r"\bstore credit\b", r"\bpay (them |customers? |users? )?(out|back)\b"]),
     # auth-roles: who you are and what you may do.
     "auth-roles": ("T3", [
         r"\blog ?in\b", r"\bsign[- ]?(in|up)\b", r"\bpasswords?\b", r"\bauth(entication|orization|n|z)?\b",
         r"\bpermissions?\b", r"\broles?\b", r"\brbac\b", r"\badmins? can\b", r"\bsso\b", r"\boauth2?\b",
         r"\b(2fa|mfa|two[- ]factor)\b", r"\bsessions?\b", r"\bimpersonat\w*", r"\baccess control\b",
-        r"\bapi keys?\b", r"\b(access|refresh|auth|bearer) tokens?\b"]),
+        r"\bapi keys?\b", r"\b(access|refresh|auth|bearer) tokens?\b",
+        r"\badmins? (can |could |to )?(see|view|access|edit|manage)\b", r"\beveryone's\b", r"\b(other|another) users?'s?\b", r"\bwho can (see|access|edit)\b", r"\bprivileges?\b"]),
     # pii: data that identifies a person.
     "pii": ("T3", [
         r"\bpii\b", r"\bpersonal (data|information)\b", r"\bemail address(es)?\b", r"\bphone numbers?\b",
         r"\bdate of birth\b", r"\bssn\b", r"\bsocial security\b", r"\bnational id\b", r"\baddress book\b",
         r"\bgdpr\b", r"\bexport (the |all )?(user|customer|my|personal) data\b",
         r"\bdelete (my|the|a|user|customer)( \w+)? account\b", r"\b(home|postal|billing|shipping) address(es)?\b",
-        r"\bpassports?\b", r"\b(health|medical) records?\b"]),
+        r"\bpassports?\b", r"\b(health|medical) records?\b",
+        r"\beverything we (store|keep|have) about (them|users?|customers?|me)\b", r"\b(download|export) (all |everything )?(of )?(their|my|the user's|the customer's) data\b", r"\b(full|first|last)_?names?\b", r"\bemails? field\b"]),
     # tenant-isolation: one customer's data must never reach another.
     "tenant-isolation": ("T3", [
         r"\b(multi|cross)[- ]?tenan\w*", r"\btenants?\b", r"\btenancy\b",
-        r"\b(organi[sz]ation|workspace|account) isolation\b", r"\brow[- ]level security\b"]),
+        r"\b(organi[sz]ation|workspace|account) isolation\b", r"\brow[- ]level security\b",
+        r"\bworkspaces?\b", r"\b(another|other|one) compan(y|y's|ies)\b", r"\bevery (customer|tenant|client) account\b", r"\bacross (all )?(customers|accounts|organi[sz]ations|tenants)\b", r"\bby changing the id in the url\b"]),
     # migration-populated-table: a schema change on a table that already holds rows.
     "migration-populated-table": ("T3", [
         r"\b(alter|drop|rename) (a |the )?(\w+ )?(column|table)s?\b", r"\bbackfill\w*",
         r"\bchange (the )?column types?\b", r"\bcolumn type change\b",
         r"\bschema change (on|to) (an? |the )?existing table\b",
         r"\bmigrat(e|ion|ions) (on|of) (an? |the )?(existing|populated|production|live) \w+",
-        r"\bdata migration\b", r"\badd (an? |the )?([\w-]+ )?column (to|on) (the )?\w+"]),
+        r"\bdata migration\b", r"\badd (an? |the )?([\w-]+ )?column (to|on) (the )?\w+",
+        r"\bsplit (the )?\w+ column\b", r"\bnot null\b", r"\bmillions? of rows\b", r"\b\d+[mk]? rows\b", r"\bcolumns? on the \w+ table\b"]),
     # infra-ci: build, deploy and infrastructure definitions.
     "infra-ci": ("T3", [
         r"\bci\b", r"\bpipelines?\b", r"\bgithub actions?\b", r"\bworkflow files?\b",
@@ -127,7 +132,15 @@ LEXICON = {
         r"\bbreaking (api )?changes?\b", r"\bremov(e|ing) (the |an? )?(\w+ )?(endpoint|route|api)s?\b",
         r"\brename (a |the )?(\w+ )?field (in|on|of) the (api|response|payload)\b",
         r"\bchang(e|es|ing) (the )?(response|payload|api) (shape|format|contract|schema)\b",
-        r"\bdeprecat\w* (the )?(v\d+ )?(api|endpoint)s?\b", r"\bdrop (support for )?(the )?v\d+( api)?\b"]),
+        r"\bdeprecat\w* (the )?(v\d+ )?(api|endpoint)s?\b", r"\bdrop (support for )?(the )?v\d+( api)?\b",
+        r"\bchange (the )?public (\w+ )?api\b", r"\b(make|making) (the )?\w+ field required on the public\b", r"\brequired on the public\b", r"\bpublic (\w+ )?api to return\b"]),
+    # blast-radius (text half): the ask itself says many callers depend on what changes. The graph
+    # half (caller counts from .claude/_graph.json) decides it for a file set.
+    "blast-radius": ("T3", [
+        r"\bevery module\b", r"\bevery (button|page|screen|form|request|call|component) in the app\b",
+        r"\b(the )?shared (api client|http client|component|button|layout|base class)\b",
+        r"\bbase (\w+ )?(component|class|model|controller)\b", r"\bused everywhere\b",
+        r"\beverything (in the app )?goes through\b"]),
     # T2 ─────────────────────────────────────────────────────────────────────────────────────────
     # new-endpoint: a new way in from the network.
     "new-endpoint": ("T2", [
@@ -136,9 +149,12 @@ LEXICON = {
     # write-path: the change writes state (verbs whose object is not documentation).
     "write-path": ("T2", [
         r"\bcreat(e|es|ing)\b" + _DOCOBJ, r"\badd\b(\s+[\w'-]+){0,3}\s+forms?\b", r"\b(save|saves|saving)\b" + _DOCOBJ,
-        r"\bsubmit\w*", r"\bedit(s|ing)?\b" + _DOCOBJ, r"\bupdat(e|es|ing)\b" + _DOCOBJ,
+        r"\bsubmit\w*(?!\s+button)", r"\bedit(s|ing)?\b" + _DOCOBJ, r"\bupdat(e|es|ing)\b" + _DOCOBJ,
         r"\bdelet(e|es|ing)\b" + _DOCOBJ, r"\bupload\w*",
-        r"\bimport(s|ing)? (\w+ ){0,2}(csv|files?|data|spreadsheets?|records|contacts|users|orders)\b"]),
+        r"\bimport(s|ing)? (\w+ ){0,2}(csv|files?|data|spreadsheets?|records|contacts|users|orders)\b",
+        r"\bimport\w*\b[^.]{0,40}\b(csv|spreadsheet|excel)\b", r"\bduplicat(e|es|ing)\b",
+        r"\blet (\w+ ){0,2}(add|star|favou?rite|bookmark|import|drag|reorder|duplicate|edit|create|upload|delete|remove|save|rename|archive)\b",
+        r"\bmigrations?\b"]),
     # external-call: the change talks to a system it does not own.
     "external-call": ("T2", [
         r"\bintegrat(e|es|ing|ion) with\b", r"\bwebhooks?\b", r"\bthird[- ]party\b",
@@ -163,11 +179,12 @@ LEXICON = {
     # docs-only: documentation and comments.
     "docs-only": ("T0", [
         r"\breadme\b", r"\bdocs\b", r"\bdocumentation\b", r"\bcomments?\b", r"\bchangelog\b",
-        r"\bdocstrings?\b", r"\bjsdoc\b"]),
+        r"\bdocstrings?\b", r"\bjsdoc\b", r"\bdocument (how|what|why|the)\b"]),
     # copy-only: user-facing words, not behaviour.
     "copy-only": ("T0", [
         r"\bwording\b", r"\bcopy (change|tweak|edit|update)s?\b", r"\b(change|update|tweak|fix) (the )?copy\b",
-        r"\brename (the |a )?label( text)?\b", r"\blabel text\b", r"\bmicrocopy\b"]),
+        r"\brename (the |a )?label( text)?\b", r"\blabel text\b", r"\bmicrocopy\b",
+        r"\breword\w*", r"\bbutton label\b", r"\bto (say|read) [\"'\w]", r"\bcopyright\b", r"\bbroken link\b"]),
     # config-no-runtime: tooling config the running system never reads.
     "config-no-runtime": ("T0", [
         r"\b\.?editorconfig\b", r"\b\.?gitignore\b", r"\bprettierrc\b", r"\b(eslint|lint) (config|rules?)\b",
@@ -175,6 +192,7 @@ LEXICON = {
 }
 DERIVED = {"blast-radius": "graph caller count", "new-dependency-on-write-path": "manifest + write-path combination",
            "cross-module": "lexicon + module roots of the touched paths"}
+TOPIC_SIGNALS = {"money-movement", "auth-roles", "pii", "tenant-isolation", "crypto", "write-path"}
 NEGATORS = {"without", "no", "not", "never", "don't", "dont", "nor"}
 
 DOC_PATH = re.compile(r"(^|/)(docs?|documentation)/|(^|/)(README|CHANGELOG|CONTRIBUTING|LICENSE)[^/]*$|\.(md|mdx|rst|txt|adoc)$", re.I)
@@ -242,6 +260,21 @@ def text_reasons(text, source="request"):
                 break
         if hit:
             out.append({"tier": tier, "signal": trig, "source": source, "detail": "'%s'" % hit})
+    # A docs or copy change whose only T1+ hits are TOPIC words ("document how login works", "rename the
+    # Refund button label") is a docs change about that topic, not a change to it. Single-clause asks
+    # only — "update the README and let users reset their password" keeps every hit. The diff re-tiers
+    # it anyway (risk-tier.py --diff: any non-doc file sets a T1 floor; risk-map paths can raise it).
+    t0 = [r for r in out if r["tier"] == "T0"]
+    higher = [r for r in out if r["tier"] != "T0"]
+    if t0 and higher and all(r["signal"] in TOPIC_SIGNALS for r in higher) \
+            and not re.search(r"\b(and|also|then|plus)\b|;", text or "", re.I):
+        for r in higher:
+            r["detail"] = "%s (topic of a docs/copy change — not counted)" % r["detail"]
+            r["tier"] = "T0"
+    sig = {r["signal"]: r["detail"] for r in out}
+    if "new-dependency" in sig and "write-path" in sig:
+        out.append({"tier": "T3", "signal": "new-dependency-on-write-path", "source": source,
+                    "detail": "%s on %s" % (sig["new-dependency"], sig["write-path"])})
     return out
 
 

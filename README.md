@@ -5,7 +5,7 @@
 **Write your AI coding setup once. Run it in every tool.**
 
 Refract is a portable engineering brain for AI coding agents. You maintain one source of truth —
-commands, agents, rules, and 23 role-based knowledge packs — and it compiles itself into the
+commands, agents, rules, and 24 role-based knowledge packs — and it compiles itself into the
 native format of every AI coding tool on your machine.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -58,7 +58,7 @@ Every session starts from zero. It does not know your layering rules, why you ch
 which module is load-bearing.
 
 **→ `/setup-project`** reads the codebase and writes that knowledge down — conventions, entities,
-architecture, hot paths, past failures — as files the agent loads every session. **23 role-based
+architecture, hot paths, past failures — as files the agent loads every session. **24 role-based
 packs** supply the expertise (backend, security, database, frontend, ui-ux, and 18 more) rather than
 one generic prompt.
 
@@ -167,7 +167,7 @@ path or a plain-English description of the area you mean.
 | `/setup-project-adapters` | Re-sync tool adapters for the current repository. |
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
 
-Another 146 commands ship inside the packs and install per-project when their pack is selected.
+Another 147 commands ship inside the packs and install per-project when their pack is selected.
 
 **Every command supports `--plan`**, which is where this gets economical: plan on a strong model,
 execute on a cheap one.
@@ -207,14 +207,14 @@ re-verify rather than silently shipping a broken translation.
 
 ## What's inside
 
-![The twenty-three role-based packs and what each ships — agents, skills, commands and rules per pack](assets/pack-matrix.svg)
+![The twenty-four role-based packs and what each ships — agents, skills, commands and rules per pack](assets/pack-matrix.svg)
 
 | | |
 |---|---|
-| **23 packs** | Role-based knowledge tracks, not framework tracks |
-| **89 agents** | Specialised reviewers and architects |
-| **142 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **162 commands** | 16 global + 146 pack-level |
+| **24 packs** | Role-based knowledge tracks, not framework tracks |
+| **96 agents** | Specialised reviewers and architects |
+| **145 skills** | Reusable procedures, as `<name>/SKILL.md` |
+| **163 commands** | 16 global + 147 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
 | **139 scripts** | Validators, linters, sync, search and audit tooling |
@@ -261,7 +261,7 @@ refract/
 ├── templates/
 │   ├── repo-baseline/       # copied into every new repository
 │   ├── workspace-baseline/  # multi-repo workspaces (dispatcher, cross-repo commands)
-│   ├── packs/               # 23 role-based tracks
+│   ├── packs/               # 24 role-based tracks
 │   ├── tracks/              # stack-specific scaffolders
 │   ├── tool-adapters/       # per-tool translations
 │   ├── phases/              # /setup-project's phase files

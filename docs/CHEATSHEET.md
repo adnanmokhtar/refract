@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**208 commands** — core 16 · 23 packs (146) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**209 commands** — core 16 · 24 packs (147) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -19,6 +19,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — code-quality](#pack--code-quality) — 8
 - [Pack — data-engineering](#pack--data-engineering) — 4
 - [Pack — database](#pack--database) — 5
+- [Pack — delivery](#pack--delivery) — 1
 - [Pack — devops](#pack--devops) — 4
 - [Pack — distributed-systems](#pack--distributed-systems) — 4
 - [Pack — documentation](#pack--documentation) — 3
@@ -44,8 +45,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/align` | Enforce conventions the project ALREADY has, project-wide or across several areas. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/align the orders module` |
 | `/audit` | Rank what is WRONG with code that already exists, across eight engineering axes at once. | `--target-rps=<N>`, `--target-p95=<ms>`, `--plan-only`, `--assess`, `--target-vitals=<spec>`, `--target-cold-start=<ms>`, `--target-startup=<ms>`, `--target-bundle=<bytes>`, `--focus`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--surface=<list>`, `--concern=<list>`, `--exclude=<scope>`, `--surface-blockers`, `--skip-p4` | `/audit --target-rps=50000 --target-p95=120` |
 | `/delegate` | Dispatch ONE bounded coding task to a different AI coding CLI, then review its diff and land it. | `--to=<cli>`, `--read-only`, `--gate=<cmd>`, `--model=<id>`, `--session=<id>`, `--max-rounds=<N>`, `--plan`, `--files=<globs>`, `--allow-dirty`, `--timeout=<dur>`, `--dry-run`, `--repo` | `/delegate "extract the retry/backoff duplication in src/clients/ into one helper" --to=codex --gate="npm test"` |
-| `/do` | Route one natural-language request to the right specialized command, then run it. | — | `/do enhance the sidebar with cleaner padding` |
-| `/optimize` | Diagnose architecture first, then sweep code quality and measured performance. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/optimize the orders module` |
+| `/do` | Route one natural-language request to the right specialized command, then run it. | `--route-only` | `/do enhance the sidebar with cleaner padding` |
+| `/optimize` | Diagnose architecture first, then sweep code quality and measured performance. | `--plan`, `--include-classes`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/optimize the orders module` |
 | `/polish` | Introduce finish the project does not have yet, on the axis its PROJECT_KIND dictates. | `--plan`, `--direction`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--no-iterate`, `--surface-blockers`, `--stack=<override>` | `/polish the orders module` |
 | `/refactor` | Apply the closed Fowler verb set to ONE named file, module, or symbol. | `--plan`, `--dry-run`, `--allow-dirty`, `--status`, `--resume`, `--strict`, `--quiet`, `--phase-base=<git-ref>`, `--ledger=<path>` | `/refactor [<scope>]` |
 | `/refine-prompt` | Turn a rough idea, one-liner, or ticket into an execution-ready prompt file. | `--interview` | `/refine-prompt "<rough idea>"` |
@@ -96,7 +97,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-endpoint` | Add a new endpoint to an EXISTING module. | — | `/add-endpoint` |
-| `/add-feature` | Comprehensive orchestration for a new feature. | `--plan` | `/add-feature` |
+| `/add-feature` | Backend lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=backend <the ask, verbatim, with every flag the user passed>` |
 | `/add-module` | Scaffold a new backend module end-to-end following the project's declared architecture. | `--plan` | `/add-module` |
 | `/analyze-module` | Deep module analysis — architecture, performance, security, DB, tests, dead code, in parallel. | — | `/analyze-module <path\|name>` |
 | `/endpoint-test` | Hit a dev endpoint with curl and verify status + response shape via the endpoint-tester agent. | — | `/endpoint-test [controller\|method-path]` |
@@ -122,8 +123,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/check-health` | Periodic whole-repo health pulse (no diff) — mechanical checks that must go green, then a standing… | — | `/check-health` |
 | `/find-module` | Locate a module, feature, or concept across the codebase quickly. | — | `/find-module <name\|concept>` |
 | `/pre-commit` | Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on… | — | `/pre-commit` |
-| `/quality-audit` | Read-only code-quality audit: every correctness and maintainability detector on a whole repo, by… | — | `/quality-audit` |
-| `/quality-fix` | Close the findings a /quality-audit report lists, in two lanes: correctness proved failing-first… | — | `/quality-fix` |
+| `/quality-audit` | Read-only code-quality audit: every correctness and maintainability detector on a whole repo, by… | `--whole-repo` | `/quality-audit [base-branch] [--whole-repo]` |
+| `/quality-fix` | Close the findings a /quality-audit report lists, in two lanes: correctness proved failing-first… | `--all` | `/quality-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/refactor` | Language-agnostic targeted refactor — behaviour-preserving structure changes using… | — | `/refactor [<scope>]` |
 | `/review-changes` | Comprehensive, signal-aware review of a PENDING DIFF, ending in a merge verdict (APPROVE /… | — | `/review-changes` |
 | `/simplify` | Reduce entropy in CHANGED code using four closed verbs (remove / inline / dedupe /… | — | `/simplify [path]` |
@@ -146,6 +147,12 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/db-fix` | Close the findings a /db-audit report lists, one at a time: re-verify, a failing-first oracle test… | `--all` | `/db-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/migration-review` | Review a migration for safety, lock impact, reversibility, and deploy compatibility. | — | `/migration-review [file\|recent]` |
 | `/optimize-query` | Profile and optimize one query (SQL string or endpoint that owns it). | — | `/optimize-query <endpoint\|sql>` |
+
+## Pack — delivery
+
+| Command | Summary | Flags | Example |
+|---|---|---|---|
+| `/add-feature` | Build a feature as a run — risk tier chosen before code, then requirements, design, a locked… | `--lane=<lane>`, `--tier`, `--reason`, `--yes`, `--plan`, `--request-file=<spec>` | `/add-feature <description \| specs/<file> \| Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan]` |
 
 ## Pack — devops
 
@@ -189,7 +196,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/a11y-audit` | Run accessibility-auditor against current UI changes; ground with axe if installed. | — | `/a11y-audit [path]` |
 | `/add-component` | Scaffold a reusable component with typed props, tests, and (optional) Storybook entry. | — | `/add-component <name>` |
 | `/add-crud-page` | Scaffold list + create + edit + delete pages for one entity end-to-end. | — | `/add-crud-page <entity>` |
-| `/add-feature` | End-to-end frontend feature — pages + components + state + i18n + a11y + tests + docs. | `--plan` | `/add-feature` |
+| `/add-feature` | Frontend lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=frontend <the ask, verbatim, with every flag the user passed>` |
 | `/add-page` | Scaffold a page/route with view, store slice, service, types, i18n keys, and tests. | — | `/add-page <route>` |
 | `/i18n-audit` | Find hardcoded strings, missing keys, locale parity breaks, and unused keys. | — | `/i18n-audit [locale-dir]` |
 | `/refactor` | Frontend-targeted refactor — preserves render output, props contracts, and hydration safety. | — | `/refactor [<scope>]` |
@@ -247,7 +254,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-feature` | End-to-end mobile feature — multi-screen flow + state + offline + deep-link + native bridge if… | `--plan` | `/add-feature` |
+| `/add-feature` | Mobile lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=mobile <the ask, verbatim, with every flag the user passed>` |
 | `/add-screen` | Add a new screen — full chain — route + screen component + navigation wiring + state + i18n + a11y… | — | `/add-screen` |
 | `/optimize-bundle` | Mobile bundle-size + cold-start optimization. | — | `/optimize-bundle` |
 | `/refactor` | Mobile-targeted refactor — preserves navigation contracts, platform lifecycle, and bundle budgets. | — | `/refactor [<scope>]` |
@@ -296,7 +303,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-test` | Add tests for a target file or feature, mirroring the repo's test framework and style. | `--review` | `/add-test [target]` |
-| `/flaky-test-hunt` | Expose flaky tests by re-running the suite N times (N chosen for the flake rate you need to detect… | — | `/flaky-test-hunt [pattern]` |
+| `/flaky-test-hunt` | Expose flaky tests by re-running the suite N times (N chosen for the flake rate you need to detect… | `--force` | `/flaky-test-hunt [pattern]` |
 | `/run-tests` | Run the project's test suite (or a scoped subset) and surface results. | `--feature`, `--since`, `--all`, `--coverage`, `--watch`, `--bail`, `--update-snapshots`, `--shard=<i>` | `/run-tests <modules-root>/orders/` |
 | `/tdd` | Drive a feature test-first via the tdd-orchestrator — strict RED→GREEN→REFACTOR, one behavior per… | — | `/tdd [feature]` |
 | `/test-audit` | Read-only test-suite audit: every testing detector on a whole repo, by signal on a diff; each… | `--whole-repo` | `/test-audit [base-branch] [--whole-repo]` |

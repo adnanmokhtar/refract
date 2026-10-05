@@ -2,7 +2,7 @@
 # A pack may not GROW past its recorded size. Shrinking is always allowed — re-record after.
 align 6324
 business 1479
-code-quality 3628
+code-quality 2152
 documentation 1725
 finops 1589
 product 1520

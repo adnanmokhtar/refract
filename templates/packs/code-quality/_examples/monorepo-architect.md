@@ -18,6 +18,25 @@ For projects with multiple apps + shared libraries in one repo. Wrong monorepo t
 
 **Hand-wave grep — auto-halt on these tokens in your own report:** `consider`, `might want`, `could be`, `etc.`, `and so on`, `you may want to look into`, `probably needs`. If your draft contains any of them, rewrite into `<path:line>` + concrete fix (rule to add, file to extract, command to wire), or delete. The verdict (`HEALTHY / REQUEST / BLOCK`) must be consistent with the body. Halt and rewrite before emitting.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]             # the workspace root or the packages under review
+  reads:    [workspace manifests, the import graph (.claude/_graph.json when built), ai/architecture.md, ai/decisions/]
+output:
+  returns:  the '## /monorepo-architect — <review scope>' block
+  writes:   none                # proposes; the implementer applies behind an ADR
+  persisted_by: caller
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       /optimize or @refactorer applies; architectural-diagnosis measures the graph
+```
+
 ## When to use
 
 - CI runs everything on every change, and a measurable share of that work is for projects the PR did not touch.

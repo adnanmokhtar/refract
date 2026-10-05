@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -38,6 +40,19 @@ type Ledger struct {
 // New returns a ledger that keeps reserveCents on every balance.
 func New(store Store, reserveCents int64) *Ledger {
 	return &Ledger{store: store, reserve: reserveCents, pending: make(chan Entry, 64)}
+}
+
+// NewFromEnv reads the reserve from LEDGER_RESERVE_CENTS (default 0).
+func NewFromEnv(store Store) (*Ledger, error) {
+	raw := os.Getenv("LEDGER_RESERVE_CENTS")
+	if raw == "" {
+		return New(store, 0), nil
+	}
+	reserve, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("LEDGER_RESERVE_CENTS: %w", err)
+	}
+	return New(store, reserve), nil
 }
 
 // Debit posts a refund debit, refusing one that would dip into the reserve.

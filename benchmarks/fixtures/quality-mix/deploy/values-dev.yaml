@@ -1,0 +1,5 @@
+api:
+  replicas: 1
+  env:
+    FEATURE_NEW_PRORATION: "true"
+    LOG_LEVEL: debug

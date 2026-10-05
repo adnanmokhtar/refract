@@ -35,7 +35,7 @@ Technical debt that gets rediscovered on every audit is debt nobody is accountab
 ## The four debt kinds (inventory sources)
 
 1. **Undated / unowned markers** — `TODO`/`FIXME`/`HACK`/`XXX` with no `(owner, YYYY-MM)`. Age via `git blame`.
-2. **Unjustified suppressions** — `eslint-disable` / `@ts-ignore` / `# noqa` / `@SuppressWarnings` / `//nolint` with no adjacent reason.
+2. **Unjustified suppressions** — consumed from `suppression-scan` (this pack), never re-grepped: its grep 0b (the inventory, production vs test) is the accrual headline, its grep 2a (rule ids silenced in production, by count) gives one item per rule id. A suppression it judged justified is compliant; one it reported as a Finding is a defect on `/quality-fix`'s list, cited not ranked. No run for this commit → run its 0b and 2a lines verbatim and mark the section `inventory only (no unsuppressed re-run)`.
 3. **Deprecated-API call sites** — calls into `@deprecated` surface; rank by call-site count + removal timeline.
 4. **Major-version-behind deps** — ≥ 1 major behind; record lag magnitude + migration cost.
 
@@ -51,8 +51,8 @@ Header: run commit + previous ledger + accrual (`+new / −paid / net`). An accr
 
 1. **Pin commit** — `git rev-parse HEAD` → artifact header.
 2. **Load prior ledger** — read the previous `ai/debt-ledger.md` if present; else baseline mode.
-3. **Run the four inventory sources** — collect cite-backed candidates from markers, suppressions, deprecated-API call sites, dep version-lag.
-4. **Filter compliant items** — drop markers with owner+date, suppressions with justification, `@ts-expect-error` that self-heal; keep only real debt.
+3. **Run the four inventory sources** — collect cite-backed candidates from markers, deprecated-API call sites and dep version-lag; read the suppressions from `suppression-scan`'s grep 0b and 2a (source 2), never a second grep.
+4. **Filter compliant items** — drop markers with owner+date, suppressions `suppression-scan` judged justified (or reported as Findings — cited, not ranked), `@ts-expect-error` that self-heal; keep only real debt.
 5. **Age each item** — `git blame` / `git log` for first-seen date; compute age.
 6. **Rank** — blast-radius × fix-cost × age → priority bucket per item.
 7. **Diff against prior ledger** — match by (kind, path-anchor, identity); classify each as new / carried / paid-down. Compute the accrual headline.

@@ -12,7 +12,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 Produce the module-level picture **before any optimisation fix lands**: the foundation fixes whose closure dissolves tactical findings. `/optimize` dispatches it first (Phase 0) and applies its findings in Phase 1. The graph comes from a **tool lane**, never from reading: a graph built by eye misses aliases, re-exports and type-only edges.
 
-**A metric is never a finding** (`precedents/code-quality.md § 51`). Fan-in, fan-out, LOC, instability and complexity are triage inputs, cut at **this repo's own percentiles** unless the project configures a value (`THR-COMPLEXITY`, `THR-FN-LEN` in `templates/governance/thresholds.json`; the percentile cut-offs below are defaults and have no registry id yet). The fixed cut-offs this skill used to print (in-degree ≥ 30, outward imports ≥ 30, ≥ 500 LOC) flagged 458 files on a real monorepo, mostly its shared kernel and composition roots. A finding needs impact evidence: a **declared** rule broken, a runtime cycle with init-order impact or across declared boundaries, a hotspot with fix history. Standard: the **ISO/IEC 5055:2021 maintainability measure**, weaknesses named in prose (the CWE entries behind it are Prohibited for mapping; never cite their ids).
+**A metric is never a finding** (`precedents/code-quality.md § 51`). Fan-in, fan-out, LOC, instability and complexity are triage inputs, cut at **this repo's own percentiles** unless the project configures a value (`THR-COMPLEXITY`, `THR-FN-LEN` in `templates/governance/thresholds.json`; the percentile cut-offs below — fan-in, fan-out and LOC at p99, churn at p95, complexity at p90, SDP ΔI 0.25 — are `THR-ARCH-RELATIVE`). The fixed cut-offs this skill used to print (in-degree ≥ 30, outward imports ≥ 30, ≥ 500 LOC) flagged 458 files on a real monorepo, mostly its shared kernel and composition roots. A finding needs impact evidence: a **declared** rule broken, a runtime cycle with init-order impact or across declared boundaries, a hotspot with fix history. Standard: the **ISO/IEC 5055:2021 maintainability measure**, weaknesses named in prose (the CWE entries behind it are Prohibited for mapping; never cite their ids).
 
 **Every finding cites `<path:line>` + the number against the repo cut-off or the declared rule (`file:line`) + the impact evidence + the closure verb + the cascade.**
 
@@ -233,11 +233,11 @@ GOOD:  the domain owns a port, infrastructure implements it · cross-module acce
 
 ### 2. cyclic-dependency
 
-**Read the code:** Is every edge a value edge (traps 3, 4)? Does a module-level statement use an imported binding during evaluation (TDZ `undefined`; Python "partially initialized module")? ORM entities linked by `() => Entity` thunks resolve late, but `emitDecoratorMetadata` on a property typed with the other class reads it at definition (`Rel<T>` / `Ref<T>` avoid it). Does it cross declared boundaries? Does a home-grown gate (step 0b) agree? **Finding when** a runtime cycle crosses declared boundaries or has init-order impact; else Hardening. **Proof:** *Boot* (`smoke-verify`) fails, or the tool lists it; on a diff, absent at the base. Closure: `decouple-cycle` (move the shared piece down a layer, or import the leaf instead of the barrel).
+**Read the code:** Is every edge a value edge (traps 3, 4)? Does a module-level statement use an imported binding during evaluation (TDZ `undefined`; Python "partially initialized module")? ORM entities linked by `() => Entity` thunks resolve late, but `emitDecoratorMetadata` on a property typed with the other class reads it at definition (`Rel<T>` / `Ref<T>` avoid it). Does it cross declared boundaries? Does a home-grown gate (step 0b) agree? **Finding when** a runtime cycle crosses declared boundaries or has init-order impact; else Hardening (a type-only or thunk-only cycle: § 87). **Proof:** *Boot* (`smoke-verify`) fails, or the tool lists it; on a diff, absent at the base. Closure: `decouple-cycle` (move the shared piece down a layer, or import the leaf instead of the barrel).
 
 ### 3. bottleneck-module
 
-**Read the code:** Is the fan-in a shared kernel by design (errors, ids, UI primitives)? Is the SDP edge (stable module → markedly less stable) a real direction, or a type the stable side should own? Do its changes ripple (`git log --format=%H -- <file>` co-changing with ≥ 5 modules in 12 months)?
+**Read the code:** Is the fan-in a shared kernel by design (errors, ids, UI primitives; § 86)? Is the SDP edge (stable module → markedly less stable) a real direction, or a type the stable side should own? Do its changes ripple (`git log --format=%H -- <file>` co-changing with ≥ 5 modules in 12 months)?
 **Finding when** an SDP edge or above-p99 fan-in carries change coupling the design does not intend. **Proof:** `depcruise --metrics` Ca / Ce / I and the co-change count.
 
 ### 4. god-module
@@ -374,8 +374,7 @@ Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/pos
 
 ## False positives / precedents
 
-The verifier reads [`precedents/code-quality.md`](../../../../snippets/precedents/code-quality.md) (§ 51–70) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4, § 5, § 10. Most met here: a metric alone (§ 51), composition roots (§ 57), generated code and framework shapes (§ 54, § 56), two similar blocks (§ 58), untouched breaches (§ 61), Active Record (§ 66), structural co-change (§ 68). Local to this skill: a **shared kernel** has high fan-in by design, and a
-**type-only cycle** is erased at runtime (Hardening at most).
+The verifier reads [`precedents/code-quality.md`](../../../../snippets/precedents/code-quality.md) (§ 51–70, § 86–87) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4, § 5, § 10. Most met here: a metric alone (§ 51), composition roots (§ 57), generated code and framework shapes (§ 54, § 56), two similar blocks (§ 58), untouched breaches (§ 61), Active Record (§ 66), structural co-change (§ 68). A **shared kernel** has high fan-in by design (§ 86), and a **type-only or lazy ORM-entity cycle** does not exist at runtime (§ 87; Hardening at most).
 
 ## References
 

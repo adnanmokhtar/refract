@@ -168,6 +168,11 @@ fixture_blurb() {
 #   /perf-audit (bare)     (templates/packs/performance/commands/perf-audit.md — read-only; no
 #                          diff and no argument means the whole-repo dispatch of every installed
 #                          performance detector, plus the database ones when that pack is installed)
+#   /test-audit --whole-repo    (templates/packs/testing/commands/test-audit.md — read-only; a
+#                          whole-repo run dispatches every testing detector; the staged copy has no
+#                          base branch, and the flag says so instead of leaving the diff lookup to fail)
+#   /quality-audit --whole-repo (templates/packs/code-quality/commands/quality-audit.md — read-only;
+#                          the same, for every code-quality detector; /quality-fix is never invoked)
 # We measure DETECTION, so every invocation must stop before it starts fixing.
 fixture_invocation() {
   local ov
@@ -180,6 +185,8 @@ fixture_invocation() {
     /security-audit) echo "/security-audit" ;;
     /db-audit)       echo "/db-audit" ;;
     /perf-audit)     echo "/perf-audit" ;;
+    /test-audit)     echo "/test-audit --whole-repo" ;;
+    /quality-audit)  echo "/quality-audit --whole-repo" ;;
     *)               echo "$1" ;;
   esac
 }

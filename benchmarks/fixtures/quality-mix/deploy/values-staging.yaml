@@ -1,0 +1,7 @@
+api:
+  replicas: 2
+  env:
+    FEATURE_NEW_PRORATION: "true"
+    LOG_LEVEL: debug
+worker:
+  schedule: "*/30 * * * *"

@@ -184,6 +184,19 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 
 #### Universal skill checks
 - `dead-code-scan` (on changed files) — find what the change orphaned or made unreachable.
+
+#### Code-quality detectors (this pack), by signal on the changed lines
+The same detectors `/quality-audit` runs on a whole repo, each dispatched once when its signal fires on a changed file (each skill's `§ When to run`); a defect in lines the diff did not touch goes to **Pre-existing**, never blocking. Their rows are candidates until refuted ([`refute-before-report.md`](../../../snippets/refute-before-report.md) with `precedents/code-quality.md`); `code-reviewer` cites them and does not re-derive them.
+
+| Signal on a changed file | Detector | Classes |
+|---|---|---|
+| a `catch` / `except` / `rescue`, a promise chain, an `async` callback, an outbound call, a queue or webhook handler, a lock or busy flag | `error-handling-scan` | § 1–§ 7 — dropped error, failure as success, unread status, floating promise, catch-all, lost cause, paired state |
+| a parse, a JSON or storage read, a cast or non-null assertion, a checker config | `type-safety-scan` | § 1–§ 4 |
+| money or quantity arithmetic, a number or date parse, a status switch, a comparator, a loop closure, a truncation | `correctness-smell-scan` | § 1–§ 7 |
+| a suppression directive, an analyzer config, an ignore list or baseline file, the CI lint step | `suppression-scan` | § 1–§ 3 |
+| a bug fix (the sibling sweep), pasted code | `duplication-scan` | § 1 divergent copy, § 3 clones the change added |
+
+None fires → no row. A fired detector that did not run is `UNREVIEWED(<detector>)`, which ends the sweep INCOMPLETE like any missing reviewer. For a whole-repo question ("is the codebase hiding errors?") the answer is `/quality-audit`, not this command.
 - `doc-drift-scan` — does the change need doc updates? `ai/status.md`? `ai/modules.md`? `ai/conventions.md`?
 - `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
 - `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change.
@@ -200,17 +213,18 @@ Quick sweep per diff:
 - Pagination on list endpoints?
 - Response shape consistent with project?
 
-**Any new DB query** (db-repo + raw or query-builder):
-- Parameterized (no string concat)?
-- Tenant filter applied (if multi-tenant)?
+**Any new DB query** (db-repo + raw or query-builder) — each question has an owner; cite its row when it ran:
+- Parameterized (no string concat)? → `injection-scan` (security pack).
+- Tenant filter applied (if multi-tenant)? → `tenant-isolation-reviewer`.
 - Soft-delete filter (if used)?
-- Indexed columns?
+- Indexed columns? → `index-coverage-scan`; N+1 and unbounded reads → `n-plus-one-scan`, `query-shape-scan` (database pack).
 
 **Any new external call** (HTTP client, DB, queue, SDK):
-- Timeout explicit?
-- Retry policy (if applicable)?
-- Circuit breaker / bulkhead (if applicable)?
+- Timeout explicit? Retry policy? Circuit breaker / bulkhead? → `resilience-reviewer` (distributed-systems pack); `request-path-scan` § 12 (performance pack).
+- Failure observed — status checked, rejection awaited, error surfaced? → `error-handling-scan` § 3–§ 4 (this pack).
 - Logged + metered?
+
+Without the owner's pack, the question is answered here and the row tagged `<domain>-class (owner pack not installed)`.
 
 **Any auth/permission change**:
 - Tests cover unauthorized access?
@@ -364,6 +378,7 @@ Then: re-run `/review-changes` to confirm it comes back clean, and open the PR.
 
 ### Sibling commands in code-quality pack
 - `/pre-commit` — same sweep one moment earlier and one scope narrower (staged files), and it blocks the commit. Shares this file's category→reviewer routing; this file is the source of record.
+- `/quality-audit` — no diff required: every code-quality detector on the whole repo, a fixed class ledger and a verdict; `/quality-fix` closes its findings. This command dispatches the same detectors by signal on the diff.
 - `/check-health` — no diff at all: the weekly whole-repo pulse.
 - `/simplify` — applies four entropy-reducing verbs; this command produces findings only.
 - `/refactor` (pack overlay) — behaviour-preserving structure moves; route `refactor:`-shaped findings there.

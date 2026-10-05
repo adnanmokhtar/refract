@@ -24,6 +24,22 @@ violations, clean-code violations, performance issues, security weaknesses, and 
 (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design
 tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.
 
+## 1.12.0 — 2026-10-05
+
+**`silent-catch` was graded as a structural, behaviour-preserving cleanup, and it is neither.**
+Removing a swallow changes what the caller observes — the failure now surfaces — and the
+code-quality pack's `test-shield` pinned the swallow "bugs included" before the fix, so the pin
+went red the moment the fix landed. `silent-catch` is now **functional** (5 structural + 6
+functional): its fix is proved failing-first with a fault-injection test, halt #7 treats the change
+as intended once `notes` documents it, and `validate-align-artifacts.sh` no longer applies the
+`net-lines ≤ 0` check to it. When the code-quality pack is installed (it is universal),
+`detect-drift` dispatches its owners instead of re-deriving them: Detector 1 → `dead-code-scan`
+(Safe bucket only), Detector 2 → `duplication-scan` (a copy that diverged goes to `/quality-fix`,
+never `dedupe`; the min-token 50 is a triage default, project config wins), Detectors 4 and 11 →
+`error-handling-scan` § 1–§ 4, Detector 8 → `architectural-diagnosis` § 9 hotspots, so a cold
+function over a length threshold is not a row. Counts updated in `align-scan`, `_essentials.md`,
+`_topics.md`, the catalogue, `docs/COMMANDS.md` and `tool-adapters/_align-pack-coverage.md`.
+
 ## 1.11.0 — 2026-08-23
 
 **The headline safety claim was falsified two paragraphs later in its own file.** 1.10.0's rule said

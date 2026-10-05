@@ -51,19 +51,14 @@ Age each marker via `git blame` / `git log -L` — a `FIXME` that's 18 months ol
 
 ### 2. Unjustified suppressions
 
-Linter/compiler/analyzer suppressions with no justification comment on the same or preceding line:
+**Consumed from `suppression-scan` (this pack), not re-detected.** That skill owns suppression *detection* — blanket and rule-less directives, a suppressed rule hiding a live diagnostic, a rule switched off or left at warn — and proves each with an unsuppressed re-run. The ledger only *tracks* what it inventoried, run over run. Read two of its pre-flight outputs (`suppression-scan` § Pre-flight greps) instead of grepping again:
 
-- JS/TS: `// eslint-disable`, `// eslint-disable-next-line`, `// @ts-ignore`, `// @ts-expect-error`, `// @ts-nocheck`
-- Python: `# noqa`, `# type: ignore`, `# pylint: disable`
-- Java/Kotlin: `@SuppressWarnings`
-- Go: `//nolint`
-- C#: `#pragma warning disable`
+- **grep 0b — the inventory**, `production <n> · test <n>`: the headline count this ledger diffs run over run (accrual). Production and test are separate lines; a suppression in a test is debt with a lower blast radius.
+- **grep 2a — the rule ids silenced in production, by count**: one ledger item per rule id (`<rule-id> × <count>`), evidence the `<path:line>` list for that id. Its blast radius is the count and whether the rule is a correctness rule (`suppression-scan` § 2's list); its fix-cost is the per-site read.
 
-```bash
-rg -n 'eslint-disable|@ts-(ignore|nocheck)|# ?noqa|# ?type: ?ignore|@SuppressWarnings|//nolint|pragma warning disable' -g '!**/{node_modules,vendor,dist,build}/**' .
-```
+Classify each item against `suppression-scan`'s verdict for it: a suppression it marked **justified** (a specific rule id, a reason that names why it is safe, line-scoped — `precedents/code-quality.md` § 60) is compliant and is not debt; one it reported as a **Finding** (a live diagnostic behind the directive) is not debt either — it is a defect, already on `/quality-fix`'s list, and the ledger cites it rather than ranking it; everything else (no reason, a pointer reason such as `-- see above`, a blanket directive) is debt. `@ts-expect-error` is *slightly* better than `@ts-ignore` (it fails when the error goes away) but still needs a reason.
 
-Classify: a suppression with an adjacent justification (`// eslint-disable-next-line no-explicit-any -- upstream types are wrong, see #1234`) is compliant; a bare suppression is debt. `@ts-expect-error` is *slightly* better than `@ts-ignore` (it fails when the error goes away) but still needs a reason.
+**Without a `suppression-scan` run for this commit**, run that skill's grep 0b and 2a lines verbatim from its § Pre-flight greps (they carry the exclusion arrays and the test-path split) and mark the section `inventory only (no unsuppressed re-run)`; never fall back to a bare `rg 'eslint-disable|…'`, which mixes tests, vendored and generated code into the count.
 
 ### 3. Deprecated-API call sites
 
@@ -156,8 +151,8 @@ The ledger is INTERNAL (like the other pack artifacts); `check-health` / plannin
 
 1. **Pin commit** — `git rev-parse HEAD` → artifact header.
 2. **Load prior ledger** — read the previous `ai/debt-ledger.md` if present; else baseline mode.
-3. **Run the four inventory sources** — collect cite-backed candidates from markers, suppressions, deprecated-API call sites, dep version-lag.
-4. **Filter compliant items** — drop markers with owner+date, suppressions with justification, `@ts-expect-error` that self-heal; keep only real debt.
+3. **Run the four inventory sources** — collect cite-backed candidates from markers, deprecated-API call sites and dep version-lag; read the suppressions from `suppression-scan`'s grep 0b and 2a (source 2), never a second grep.
+4. **Filter compliant items** — drop markers with owner+date, suppressions `suppression-scan` judged justified (or reported as Findings — those are defects on `/quality-fix`'s list, cited not ranked), `@ts-expect-error` that self-heal; keep only real debt.
 5. **Age each item** — `git blame` / `git log` for first-seen date; compute age.
 6. **Rank** — blast-radius × fix-cost × age → priority bucket per item.
 7. **Diff against prior ledger** — match by (kind, path-anchor, identity); classify each as new / carried / paid-down. Compute the accrual headline.
@@ -180,6 +175,7 @@ The ledger is INTERNAL (like the other pack artifacts); `check-health` / plannin
 ## Related
 
 - `dead-code-scan` — finds unreachable code (delete); disjoint from reachable-but-suboptimal debt.
+- `suppression-scan` — detects suppressions and proves which hide a live diagnostic; this ledger consumes its grep 0b (inventory) and 2a (rule ids by count) for accrual.
 - `architectural-diagnosis` — unmarked structural debt; may spawn ledger items once acknowledged.
 - `@dependency-auditor` — owns dep vulnerabilities/licenses; this skill owns dep version-lag as tracked debt.
 - `check-health` — point-in-time health snapshot; cites this ledger's headline, doesn't own it.

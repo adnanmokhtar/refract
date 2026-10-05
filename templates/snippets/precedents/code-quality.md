@@ -153,6 +153,13 @@ is one finding with N locations.
 82. **Error Prone checks default to WARNING, and NullAway treats unannotated code as non-null** (unsound by design). A green build is not proof of null safety.
 83. **eslint-plugin-sonarjs ≥ 3.0 ships under the Sonar Source-Available License** although its `package.json` still says LGPL. Run it where the project installs it; never vendor or paraphrase its rule docs.
 
+## Not a finding — durations, display units and graph shape (added 2026-10-05)
+
+84. **An elapsed duration built from a fixed day length** — a TTL, a retention cutoff, a rate window (`now - days * DAY_MS`, `timedelta(days=n)` on an aware UTC instant). It measures elapsed time, which is what it means. *Must be true:* the value is compared with another instant, never shown or stepped as a calendar date. *Flips back:* it steps to "the same wall-clock time tomorrow" in a local zone, or its result is rendered or stored as a local date (`correctness-smell-scan` § 6).
+85. **Integer minor units divided for display** (`cents / 100`, `formatMoney(amountMinor)`). The amount stays an integer in arithmetic and storage; the division only renders it. *Must be true:* the quotient is never fed back into arithmetic, persisted or compared. *Flips back:* the divisor is a hard-coded 100 for a currency whose exponent is not 2 (JPY 0, KWD 3), or a float is converted *into* minor units (`Math.round(price * 100)` on a float input) (`correctness-smell-scan` § 4).
+86. **A shared kernel with high fan-in by design** — error types, ids, value types, config, UI primitives: modules whose purpose is to be imported. *Must be true:* the module holds no business decision and is cold (churn and fix share below the repo's own percentiles). *Flips back:* its changes ripple (co-change with ≥ 5 modules in 12 months), it holds a domain rule, or a stable module depends on it in the wrong direction (`architectural-diagnosis` § 3).
+87. **A cycle that does not exist at runtime** — every edge on it is type-only (an `import type`, or a specifier whose every import entry is type-only), or its only value edges are ORM relation thunks (`() => Entity`) resolved after module evaluation. Hardening at most. *Must be true:* no barrel on the cycle re-exports a value, and no decorator reads the other class at definition (`emitDecoratorMetadata` on a property typed with it). *Flips back:* one value re-export through a barrel, decorator metadata, a module-level statement that uses the imported binding, or a boot that fails (`architectural-diagnosis` § 2).
+
 ## Rationalizations to reject (code quality)
 
 **Wrongly accepting:** "this is a known anti-pattern" · "a linter flagged it" · "it could be null"

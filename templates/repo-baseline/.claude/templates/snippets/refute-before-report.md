@@ -18,7 +18,10 @@ The protocol is generic. Domain knowledge lives beside it, and the verifier read
   [`precedents/data.md`](precedents/data.md) (integrity, concurrency, migrations, types, tenancy,
   pooler semantics) and [`precedents/performance.md`](precedents/performance.md) (plans, indexes,
   query shape, request path, memory, caching, capacity, horizontal scale and overload, browser load,
-  measurement claims).
+  measurement claims), [`precedents/testing.md`](precedents/testing.md) (suite trust: assertion
+  strength, execution, determinism, doubles, coverage, mutation) and
+  [`precedents/code-quality.md`](precedents/code-quality.md) (error handling, type safety,
+  correctness smells, suppressions, dead code, duplication, architecture).
 - [`proof-oracles.md`](proof-oracles.md) — the oracle per class, its failing-first test shape per
   stack, and the whole-class variant list a fix must survive.
 
@@ -114,7 +117,8 @@ finding) · "it is async, so it does not block" (awaits in sequence are not conc
 ## 4. Precedents — settled questions, not re-argued per finding
 
 Read the domain file for the candidate's class:
-[`precedents/data.md`](precedents/data.md) and [`precedents/performance.md`](precedents/performance.md).
+[`precedents/data.md`](precedents/data.md), [`precedents/performance.md`](precedents/performance.md),
+[`precedents/testing.md`](precedents/testing.md) and [`precedents/code-quality.md`](precedents/code-quality.md).
 A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
 it back. A candidate can need both files: an index migration is data (its lock) and performance
 (whether it pays for itself). Three precedents hold in every domain:

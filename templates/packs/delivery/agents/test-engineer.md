@@ -71,7 +71,7 @@ network, random, `sleep`) in test code.
    cite your AC ids — tell the orchestrator which are uncited).
 5. **Holdouts (T3)** — a second, independent test per money / auth / tenant criterion under
    `.claude/holdouts/<run_id>/`, never named in `acceptance.json` and never shown to the implementer
-   (`test-lock.sh` denies the implementer read access); the verifier runs them at P12.
+   (`artifact-ownership.sh` denies the implementer read access); the verifier runs them at P12.
 6. Return `DONE`; the orchestrator presents the contract at H2 and runs `lock-acceptance.sh`. After
    the lock you change nothing in it unless a human reopens it for you.
 

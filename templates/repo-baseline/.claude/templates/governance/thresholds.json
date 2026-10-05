@@ -128,6 +128,13 @@
       "owner": "governance/engineering-baseline/architecture.md ARCH-4",
       "why": "a second copy of something that already exists reuses it; a NEW shared abstraction waits for the third occurrence (precedence A28)"
     },
+    "THR-ARCH-RELATIVE": {
+      "value": { "fan_in_percentile": 99, "fan_out_percentile": 99, "loc_percentile": 99, "churn_percentile": 95, "complexity_percentile": 90, "sdp_instability_delta": 0.25, "churn_window_months": 12 },
+      "unit": "percentile of this repo's own distribution",
+      "floor": false,
+      "owner": "code-quality architectural-diagnosis § 3, § 4, § 9 (triage cut-offs, never findings alone — precedents/code-quality.md § 51)",
+      "why": "fixed cut-offs (in-degree >= 30, >= 500 LOC) flagged 458 files on a real monorepo, mostly its shared kernel and composition roots; a cut at the repo's own percentiles (Alves et al., ICSM 2010) ranks against what is normal here. A module is a candidate above the fan-in, fan-out or LOC percentile; a function is a hotspot at or above the churn AND complexity percentiles; an SDP edge needs the depended-on module to be less stable by the delta. A project value in .claude/thresholds.local.json wins"
+    },
     "THR-TODO": {
       "value": { "requires": ["owner", "delete-by date"], "ticket": "optional, in addition", "form": "TODO(@owner YYYY-MM-DD): reason" },
       "unit": "enum",

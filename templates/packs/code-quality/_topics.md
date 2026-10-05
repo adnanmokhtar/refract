@@ -141,7 +141,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § "Repository shape" + _extracted-idioms.md § Layers + § Modules + ai/architecture.md
   sections: [purpose, when_to_use, inputs, outputs, detectors, procedure, hard_rules, failure_modes]
-  fallback: skills/architectural-diagnosis/SKILL.md
+  fallback: skills/architectural-diagnosis/SKILL.md   # rewritten at 2.0.0: import-graph lanes per stack, relative cut-offs (THR-ARCH-RELATIVE), § 9 churn × complexity hotspots, a nine-class coverage block; the Phase-0 evidence blocks validate-optimize-artifacts.sh reads are kept
   cite_evidence: strict
 
 - name: refactoring-sweep

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook (Edit|Write|MultiEdit|NotebookEdit) — one writer per run artifact.
+# PreToolUse hook (Edit|Write|MultiEdit|NotebookEdit; Read|Grep|Glob for holdouts) — one writer per run artifact.
 #
 # Every artifact of a delivery run (ai/runs/<run>/) has exactly one writer
 # (templates/snippets/run-ledger.md § 2), so the agent that checks it is never the one that wrote it.

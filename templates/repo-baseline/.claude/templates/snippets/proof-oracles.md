@@ -1,11 +1,11 @@
-# Proof oracles — the failing-first proof for each data and performance class
+# Proof oracles — the failing-first proof for each detector class
 
-Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix` and `/perf-fix`
-(reproduce failing-first, then validate the fix), and by every detector whose PROOF line names an
+Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix` and
+`/quality-fix` (reproduce failing-first, then validate the fix), and by every detector whose PROOF line names an
 oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md). Each class has one
 **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack, and
 a **whole-class variant list** the fix must survive. Sections are per domain (`## Data`,
-`## Performance`, `## Frontend`); later domains append their own.
+`## Performance`, `## Frontend`, `## Testing`, `## Code quality`); later domains append their own.
 
 ## Scope of use (read first)
 

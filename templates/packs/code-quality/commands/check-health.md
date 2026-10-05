@@ -85,7 +85,8 @@ If any step fails: STOP, do not run agents. Fix mechanical first.
 
 ### Agent audit (parallel)
 - `code-reviewer` — last 20 commits via `git log -p -20`.
-- `dead-code-finder` — full repo scan.
+- `dead-code-finder` — triage of `dead-code-scan`'s Investigate bucket (it does not run a second tool).
+- **Code quality (correctness + maintainability)** — read the latest `ai/audits/<YYYY-MM-DD>-quality.md` that `/quality-audit` wrote (this pack); do not re-run the audit here. Its verdict is the row: `NO-GO` → RED, `GO-UNVERIFIED` → AMBER with its open ledger rows named, `GO` → GREEN, and its class ledger (error handling · type safety · correctness smells · suppressions · dead code · duplication · architecture) is quoted, not re-derived. No report, or one older than 30 days → AMBER `not audited — run /quality-audit`.
 - `security-auditor` — auth + data boundaries.
 - `performance-optimizer` — hot paths from logs/observability if linked.
 - `doc-writer` — `ai/status.md` freshness (FAIL if `Updated:` missing or > 30 days).
@@ -120,6 +121,7 @@ Mechanical:
 Agent audit:
   RED    Code         2 blockers, 4 requests, 12 nits
   AMBER  Dead code    3 unused exports
+  RED    Quality      NO-GO (1 blocker: error-handling-scan §1) — ai/audits/2026-04-18-quality.md
   RED    Security     1 blocker — missing auth on GET /admin/export
   AMBER  Performance  N+1 in listOrders()
   AMBER  Tests        GO-UNVERIFIED (2 open) — ai/audits/2026-04-20-tests.md
@@ -177,6 +179,7 @@ Every run MUST end its report with a `## What to do next` block: the health find
 ### Sibling commands in code-quality pack
 - `/review-changes` — the per-PR twin: same reviewer panel, but scoped to a diff and ending in a merge verdict rather than a RAG grid.
 - `/pre-commit` — the same idea one scope narrower again (staged files) and one moment earlier (before the commit).
+- `/quality-audit` — the deep code-quality pass this grid's Quality row reads; `/quality-fix` closes its findings.
 - `/simplify` — this command *finds* rot; `/simplify` is one of the commands that removes it.
 - `/find-module` — locate a module the grid flagged.
 

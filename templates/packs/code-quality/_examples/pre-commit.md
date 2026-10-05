@@ -89,6 +89,8 @@ A commit is the last moment a secret can be stopped cheaply. After it lands, rem
 - **`secret-scan` on every staged file.** Not just `auth/` — a key in a test fixture, a seed script, or a config default is the same leak. A real secret is a **blocker**: the commit is refused. No skill installed → inline check over the *added* lines: high-entropy strings plus known prefixes (`AKIA`, `sk-`, `ghp_`, `xoxb-`, `-----BEGIN * PRIVATE KEY-----`, `postgres://…:…@`). Also refuse an accidentally-staged credential FILE (`.env`, `*.pem`, `*.p12`, `id_rsa`, service-account JSON) regardless of content.
 - **`coverage-gap` on staged lines.** New behaviour with no covering test is a finding **even when no test file was staged** — otherwise `test-reviewer` never dispatches (its trigger is a staged test path) and the gap is structurally invisible. Request by default; **blocker** on a security / data-integrity / write-path change.
 
+**Code-quality detectors, by signal on the staged lines** (routing: `review-changes.md` § Code-quality detectors, the source of record): `error-handling-scan`, `type-safety-scan`, `correctness-smell-scan`, `suppression-scan`, `duplication-scan`, each on the staged hunks only; a defect in unstaged or untouched lines is Pre-existing and never blocks. A fired detector that did not run is `UNREVIEWED(<detector>)`.
+
 **Never silently skip either axis** — a skipped axis reads as "clean" when it was never checked. Note the substitution (`inline:<skill-name>`).
 
 ### Self-audit

@@ -11,7 +11,7 @@
 <text x="562" y="146.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400" text-anchor="end">16 global commands</text>
 <rect x="584" y="128" width="252" height="28" rx="5" fill="#f2f5f8"/>
 <text x="594" y="146.5" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11" fill="#161b22" font-weight="600">templates/packs/</text>
-<text x="826" y="146.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400" text-anchor="end">23 role-based packs</text>
+<text x="826" y="146.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400" text-anchor="end">24 role-based packs</text>
 <rect x="320" y="160" width="252" height="28" rx="5" fill="#f2f5f8"/>
 <text x="330" y="178.5" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11" fill="#161b22" font-weight="600">templates/tool-adapters/</text>
 <text x="562" y="178.5" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="10" fill="#6b7684" font-weight="400" text-anchor="end">12 adapters</text>

@@ -97,6 +97,8 @@ A commit is the last moment a secret can be stopped cheaply. After it lands, rem
 - **`secret-scan` on every staged file.** Not just `auth/` — a key in a test fixture, a seed script, a `.env.example` that stopped being an example, or a config default is the same leak. A real secret in the staged diff is a **blocker**: the commit is refused. If the skill is not installed, run the inline check over the *added* lines: high-entropy strings plus known key prefixes (`AKIA`, `sk-`, `ghp_`, `xoxb-`, `-----BEGIN * PRIVATE KEY-----`, `postgres://…:…@`). Also refuse an accidentally-staged credential FILE (`.env`, `*.pem`, `*.p12`, `id_rsa`, service-account JSON) regardless of content.
 - **`coverage-gap` on staged lines.** New behaviour with no covering test is a finding **even when no test file was staged** — otherwise `test-reviewer` never dispatches (its trigger is a staged test path) and the gap is structurally invisible. Severity: request by default; **blocker** on a security / data-integrity / write-path change. Inline fallback when the skill is absent: for each added function / branch / write-path, grep the test tree for the symbol or route; no covering assertion is the finding.
 
+**Code-quality detectors, by signal on the staged lines.** The routing is `review-changes.md` § Code-quality detectors (this pack), by signal on the changed lines — the source of record; apply it to the staged files: `error-handling-scan` (a handler, promise chain, `async` callback, outbound call, lock or busy flag), `type-safety-scan` (a parse, a storage read, a cast or non-null assertion, a checker config), `correctness-smell-scan` (money or date arithmetic, a status switch, a comparator, a loop closure), `suppression-scan` (a new suppression directive or a rule turned off), `duplication-scan` (a bug fix — is the sibling copy fixed too?). Each runs on the staged hunks only; a defect in unstaged or untouched lines is Pre-existing and never blocks the commit. A row they raise is a candidate until refuted (`refute-before-report.md` with `precedents/code-quality.md`). A fired detector that did not run is `UNREVIEWED(<detector>)`, and the gate is incomplete.
+
 **Missing-skill fallback:** never skip either axis. A skipped axis reads as "clean" when it was never checked — note the substitution (`inline:<skill-name>`) in the report.
 
 ### Comprehension gate (change-brief)
@@ -126,6 +128,7 @@ Mechanical:
 Universal skills:
   PASS  secret-scan   (4 staged files, 0 hits)
   FAIL  coverage-gap  (1 uncovered write-path — see Blockers)
+  PASS  error-handling-scan   (signal: 1 new catch; 0 findings)
 
 Review verdict: REQUEST_CHANGES
 
@@ -173,6 +176,7 @@ Commit BLOCKED until blocker resolved.
 ### Sibling commands in code-quality pack
 - `/review-changes` — the wider twin and the **source of record for the category→reviewer routing table**. When the two disagree, that file wins.
 - `/check-health` — the no-diff periodic pulse.
+- `/quality-audit` — the whole-repo code-quality audit (class ledger + verdict) whose detectors this gate runs by signal; `/quality-fix` closes its findings.
 - `/simplify` — if the gate's findings are "this is more complicated than it needs to be", that command applies the fix.
 - `/find-module` — locate a symbol a blocker cites.
 

@@ -3,7 +3,6 @@ package ledger
 import (
 	"context"
 	"errors"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -38,6 +37,17 @@ func (m *memStore) Balance(_ context.Context, merchantID string) (int64, error) 
 	return b, nil
 }
 
+func TestReserveComesFromTheEnvironment(t *testing.T) {
+	t.Setenv("LEDGER_RESERVE_CENTS", "2500")
+	l, err := NewFromEnv(&memStore{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l.reserve != 2_500 {
+		t.Fatalf("reserve = %d, want 2500", l.reserve)
+	}
+}
+
 func TestDebitRefusesToDipIntoTheReserve(t *testing.T) {
 	store := &memStore{}
 	l := New(store, 1_000)
@@ -62,12 +72,5 @@ func TestQueuedPostingsAreFlushed(t *testing.T) {
 
 	if got, _ := store.Balance(ctx, "m_2"); got != 700 {
 		t.Fatalf("balance = %d, want 700", got)
-	}
-}
-
-func TestReserveComesFromTheEnvironment(t *testing.T) {
-	t.Setenv("LEDGER_RESERVE_CENTS", "2500")
-	if got := os.Getenv("LEDGER_RESERVE_CENTS"); got != "2500" {
-		t.Fatalf("reserve env = %q", got)
 	}
 }

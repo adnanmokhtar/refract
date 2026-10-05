@@ -9,6 +9,66 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-05
+
+**The pack reviewed, refactored and gated; nothing in it detected a correctness defect.** It had no
+audit and no fix command. Swallowed errors, unobserved async failures, casts that lie at a
+boundary, float money, naive time, suppressed rules and divergent copies were checklist lines in
+`@code-reviewer`, three greps in the align pack, one paragraph in `/audit`, and a rule bullet
+(`quality-principles`: "no `any` at boundaries", "a suppression needs justification") that no
+detector enforced. `architectural-diagnosis` had the best class list in the pack and no executor:
+"walk every file, extract imports", with fixed cut-offs (in-degree ≥ 30, ≥ 500 LOC) that flagged
+458 files on a real monorepo, mostly its shared kernel and composition roots.
+
+- **Six detector skills**, each a runnable pre-flight script with per-stack analyzer lanes,
+  BAD/GOOD and "read the code" questions per class, a 3,000-hit path and a class coverage block,
+  measured on a real NestJS + React monorepo (read-only) and on `benchmarks/fixtures/*`:
+  `error-handling-scan` (§1–§7; the executor behind `concerns/error-handling.md` C4, proved by port
+  fault injection), `type-safety-scan` (§1–§4), `correctness-smell-scan` (§1–§7, analyzer lane
+  first), `suppression-scan` (§1–§3, proved by an unsuppressed re-run), `dead-code-scan` (§1–§5;
+  replaces `dead-branch-scan`, deleted with its 18 references repointed) and `duplication-scan`
+  (§1–§3, proved by a divergence test or a new-clones-only run against the merge-base).
+- **`architectural-diagnosis` rewritten**, name kept: import-graph lanes per stack
+  (dependency-cruiser, import-linter, ArchUnit, packwerk, deptrac, the Refract graph as fallback),
+  cut-offs at the repo's own percentiles (`THR-ARCH-RELATIVE` in `governance/thresholds.json`), §9
+  churn × complexity hotspots, and a nine-class coverage block. The Phase-0 evidence blocks
+  `validate-optimize-artifacts.sh` reads are unchanged.
+- **`/quality-audit`** (read-only): every detector on a whole repo, by signal on a diff; analyzer
+  output parsed to rows, never pasted into a prompt; each BLOCKER and HIGH refuted by a verifier that
+  did not find it; a fixed class ledger (error handling 7 · type safety 4 · correctness smells 7 ·
+  suppressions 3 · dead code 5 · duplication 3 · architecture 9 · analyzer lanes · tests) and a
+  `GO` / `GO-UNVERIFIED` / `NO-GO` verdict. **`/quality-fix`** closes its findings in two lanes:
+  correctness failing-first with a concrete input, maintainability behaviour-preserving under a
+  metric ratchet, its own diff self-checked with `test-integrity.py` and `oracle-check.py`.
+- **One owner per class.** `/review-changes` and `/pre-commit` dispatch the detectors by signal on
+  the changed lines; `/check-health` reads the newest `/quality-audit` report instead of
+  re-deriving it. `@code-reviewer`'s Correctness, Security and Performance lines name their owner
+  (`n-plus-one-scan`, `query-shape-scan`, `injection-scan`, `@tenant-isolation-reviewer`, …) and
+  cite its row when it ran (D-13). `@dead-code-finder` no longer recommends `ts-prune` (last release
+  0.10.3, 2022): it reads `dead-code-scan`'s Investigate bucket (D-8). `@error-detective` no longer
+  greps source for swallowed errors inside a telemetry-only agent; it hands the code side to
+  `error-handling-scan` (D-10). `debt-ledger` consumes `suppression-scan`'s inventory (grep 0b) and
+  rule-id table (grep 2a) instead of a second, unexcluded grep.
+- **Behaviour-changing classes are not shielded.** `test-shield` pins today's behaviour "bugs
+  included", so pinning a swallowed error pinned the defect; it now skips the behaviour-changing
+  classes, which go to `/quality-fix` failing-first (D-6). Outside the pack, the align pack's
+  `silent-catch` moved from structural to functional, and `detect-drift` Detectors 1, 2, 4, 8 and 11
+  dispatch `dead-code-scan`, `duplication-scan`, `error-handling-scan` and §9 hotspots; `/audit`'s
+  Unhandled-I/O pass and code-quality axis, and `/optimize` Phase 2, dispatch these detectors.
+- **`quality-principles` settles its four open precedence sides** (A1 Boy Scout bounded to touched
+  lines, A5 the 30-line literal → `THR-FN-LEN`, A28 → `THR-DRY`, A30 validate at every trust
+  boundary), names an executor per class, and states a length or complexity score as a triage
+  cut-off, never a finding (D-7). It ships a `paths:` block at source (code and config files);
+  `engineering-principles` stays always-on (it governs where code goes before the file exists).
+  `scripts/test-rule-loading.sh` § 5 now asserts this pack too.
+- **`STACK.md`** carries an analyzer lane table across eight stacks and the WARN trap (D-16).
+- **All seven agents carry a `## Contract` block**; `scripts/lint-agent-contract.sh` now requires it
+  for this pack.
+- **Precedents** `precedents/code-quality.md` § 84–87 (elapsed durations, minor units shown with a
+  divisor, a shared kernel's fan-in, type-only and thunk-only cycles).
+- **Minimal install** adds `/quality-audit`; `/quality-fix` and five detectors ship in standard, and
+  a minimal run prints their ledger rows `not run`, so it reads as unchecked, never as clean.
+
 ## 1.8.2 — 2026-10-02
 
 **A missing reviewer no longer turns into the sweep reviewing itself.** `/review-changes`

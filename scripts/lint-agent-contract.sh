@@ -49,7 +49,7 @@ command -v python3 >/dev/null 2>&1 || { echo "ERR: python3 required" >&2; exit 2
 
 # Packs whose agents must carry a Contract (Phase 3: the packs Track A has finished, plus the
 # baseline). Add a pack here when its agents are migrated; never remove one.
-REQUIRED="${AGENT_CONTRACT_REQUIRED:-security database performance repo-baseline delivery testing}"
+REQUIRED="${AGENT_CONTRACT_REQUIRED:-security database performance repo-baseline delivery testing code-quality}"
 
 if [ "$MODE" = selftest ]; then
   TD=$(mktemp -d "${TMPDIR:-/tmp}/lint-agent-contract.XXXXXX"); trap 'rm -rf "$TD"' EXIT

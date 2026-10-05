@@ -442,8 +442,8 @@ skill meets most:
 - **Go `if err := f(); err != nil { return err }`** (§ 39); **Go ≥ 1.22 loop variables** — a `go.mod` `go` directive at 1.22 or later makes loop-capture findings obsolete (§ 71).
 - **Constant conditions from build flags**, `NODE_ENV` or `DEBUG` (§ 40); **integer wrap in hashing or PRNG code** (§ 41).
 - **Locale-default formatting in UI** meant to follow the user (§ 42) — never in protocols, cache keys, file names or comparisons; **a documented inclusive or exclusive range** (§ 43); **`time.Time ==` after `.UTC().Round(0)`** (§ 44); **a naive "now" in a system documented UTC-everywhere** stays Low (§ 45).
-- **Elapsed durations are not calendar days.** A TTL or retention cutoff `now - days * DAY_MS` is correct; only stepping to "the same wall-clock time tomorrow" breaks on DST.
-- **Integer minor units shown with `/ 100`** for display are correct; the bug is a float converted *into* minor units.
+- **Elapsed durations are not calendar days** (§ 84). A TTL or retention cutoff `now - days * DAY_MS` is correct; only stepping to "the same wall-clock time tomorrow" breaks on DST.
+- **Integer minor units shown with `/ 100`** for display are correct (§ 85); the bug is a float converted *into* minor units, or a fixed 100 for a currency whose exponent is not 2.
 
 ## When to run
 

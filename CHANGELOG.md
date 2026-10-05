@@ -6,6 +6,52 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The Run: a feature no longer starts with code (2026-10-05)
+
+Architecture proposal Phase 4. `/do "add a refund button"` used to reach a stack's `/add-feature` at
+the trivial tier — no requirements, no design, the tier promoted only after code existed — and which
+stack's `/add-feature` answered depended on install order.
+
+- **New always-on `delivery` pack, applied first.** One cross-stack **`/add-feature`** orchestrator
+  runs phases P0–P12 per risk tier and writes typed artifacts to `ai/runs/<run-id>/` (committed;
+  `evidence/raw/` ignored): `run.json`, `requirements.md` (EARS, REQ-/AC- ids, an IF-THEN clause per
+  story), `design.md`, `quality-attributes.md`, `threat-model.md` (T3), `test-plan.md`,
+  `acceptance.json` (red, then locked at H2), `plan.md`, persisted reviews, the verifier's
+  `verdict.json`. One writer of source at a time; one parallel fan-out of read-only lenses; COMPLETE
+  only from a fresh PASS verdict. Agents `product-analyst`, `requirements-reviewer`, `architect`,
+  `architecture-reviewer`, `test-engineer`, `plan-critic`, `implementer` (merged from the product,
+  business, testing and distributed-systems agents, which stay in place until Phase 6 measures
+  parity). Lane skills `lane-backend`, `lane-frontend`, `lane-mobile` are the stack procedure CUT
+  from the three former `add-feature` bodies; those files are now thin lane presets installed as
+  `/add-feature.<stack>` (decision O6). Phase 4.2 applies delivery first, installs stack
+  `add-feature` as presets, makes agent copies first-claim-wins, and installs a lane only for a
+  selected stack.
+- **One truth for tiers:** `templates/governance/tiers.json` (T0 direct edit, no run · T1 lite ·
+  T2 standard · T3 full + H1–H4). `templates/schemas/refract/run.schema.json`;
+  `acceptance.schema.json` accepts T1–T3; snippet `run-ledger.md` (run id = the `/analyze-task`
+  Spec-ID convention with the date in front, writer per file, budgets, ledger, handoff).
+- **Scripts (repo-baseline, stdlib):** `risk-tier.py` (request text, predicted files through
+  `ai/risk-map.json`, the actual diff and `_graph.json` caller counts; promote-only; `--ci` exits 3
+  on an under-tiered run), `ears-lint.py`, `trace-matrix.py` (REQ → AC → task → test, no orphans),
+  `ownership-guard.py`, `run-handoff.py`. Risk map is JSON, not YAML (stdlib parses JSON; a
+  hand-rolled YAML subset fails silently); a generic default ships in `repo-baseline/ai/`.
+- **Hooks:** `artifact-ownership.sh` (PreToolUse: each role writes only its paths; at T2+ the main
+  session never authors a role's artifact and never edits source during P6) and
+  `precompact-handoff.sh` (PreCompact — measured on Claude Code 2.1.236: hook stdout becomes the
+  summariser's custom instructions and exit 2 would block compaction, so it writes `handoff.json`,
+  prints a preserve-brief and always exits 0); `session-start.sh` re-prints the handoff after a
+  compaction.
+- **`/do`:** feature asks — and docs/copy/typo asks, as T0 — route to `/add-feature` with a
+  predicted tier from `risk-tier.py`; `/do --route-only` prints `ROUTE /<command> <tier>`.
+- **Benchmarks:** `feature-refund` (end-to-end `/do "add a refund button"`; hidden holdouts, a
+  reference solution, four seeded-wrong overlays — float money, no idempotency, no 403, no empty
+  state; a T0 typo control that must open no run) and `routing` (100 labelled asks → command +
+  tier). `risk-tier.py`'s text-only floor on the routing key: 42/76 tier accuracy and 14 under-tiered
+  T3 on first contact (key written independently, before scoring), 69/76 and 0 under-tiered after
+  lexicon work on plain-language phrasings — tuned on the same key, so the held-out number is still
+  owed. New CI step: `BENCH_STRICT_FLOOR=1 bash benchmarks/run.sh --verify` (72 gates). Hook suite:
+  236 checks (+45).
+
 ### The judge is not the builder: a locked contract, an independent verifier, stamped records (2026-10-05)
 
 Phase 1 made "done" a script's verdict on tests, lint and secrets. Whether the change does what was

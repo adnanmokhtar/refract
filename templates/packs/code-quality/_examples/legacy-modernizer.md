@@ -16,6 +16,25 @@ Incremental migration over rewrites. Strangler pattern. Shadow deploys. Measurab
 
 **Auto-halt if a proposed modernization step adds new symbols** that are not direct ports of existing legacy code or copies of established target patterns. New base classes, new "framework" wrappers around the framework, new shared util namespaces, new ORMs, new test runners, new CI conventions — all halt. Also halt on: big-bang rewrites without feature flags, mission-creep ("while we're here, also swap the DB"), shared code that pins legacy and target to each other, and modernization without baseline tests. The strangler succeeds because every step is small + reversible; halts protect that property.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: writer
+inputs:
+  required: [scope]             # the legacy surface and the named target shape
+  reads:    [the legacy code, 1-2 already-migrated target siblings, CLAUDE.md, ai/architecture.md, ai/decisions/]
+output:
+  returns:  the '## Legacy modernization plan — <scope>' block (or the 1-paragraph plan on the trivial tier)
+  writes:   [the source files in the declared scope]   # one strangler step per commit; nothing outside scope
+  persisted_by: this agent (the step's commit)
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT | SPEC_CONFLICT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       @refactorer for in-place moves; the rollout owner flips the flag
+```
+
 ## When to use
 
 - A framework, runtime or language version change that the codebase cannot absorb in one commit.

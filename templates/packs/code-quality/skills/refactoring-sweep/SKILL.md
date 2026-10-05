@@ -22,6 +22,8 @@ Apply Fowler-style refactorings as closure verbs in /optimize and /align-recheck
 
 ## The 10 closure verbs
 
+**The numbers in the fingerprints below are fix triggers, not findings** (D-7). Each is a default — the project's configured linter value wins (`THR-FN-LEN`, `THR-COMPLEXITY` in `governance/thresholds.json`). A fingerprint says which verb fits a function someone already decided to change; it never makes a function a finding by itself (`precedents/code-quality.md` § 51). Which functions are worth changing comes from impact — `architectural-diagnosis` § 9 hotspots, a `/quality-audit` row, the finding that dispatched this skill.
+
 ### 1. extract-method
 
 **Fingerprint**:

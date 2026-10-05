@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "1.8.2",
-  "released": "2026-10-02",
+  "version": "2.0.0",
+  "released": "2026-10-05",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/review-changes and /check-health: an uninstalled reviewer is reported UNREVIEWED(<axis>) and the sweep is INCOMPLETE — never performed inline by the agent running the sweep.",
+  "summary": "Six correctness and maintainability detectors (error handling, type safety, correctness smells, suppressions, dead code, duplication), architectural-diagnosis rewritten on import-graph lanes with relative cut-offs and hotspots, a read-only /quality-audit with a fixed class ledger and a /quality-fix that proves correctness fixes failing-first.",
   "changelog": "CHANGELOG.md"
 }

@@ -196,6 +196,24 @@ def decide(repo, rel, agent_type):
     return 0
 
 
+HOLDOUT_READERS = {"test-engineer", "verifier"}
+
+
+def read_guard(hook):
+    """Holdouts stay out of the builder's view (proposal §5.2): a subagent other than the test-engineer
+    that writes them and the verifier that runs them may not Read, Grep or Glob .claude/holdouts/.
+    The main session is not restricted here (it never builds at T3, where holdouts exist)."""
+    agent = agent_base(hook.get("agent_type") or "")
+    if not agent or agent in HOLDOUT_READERS:
+        return 0
+    ti = hook.get("tool_input") or {}
+    probe = " ".join(str(ti.get(k) or "") for k in ("file_path", "path", "pattern", "glob"))
+    if ".claude/holdouts" in probe or probe.strip().startswith("holdouts/"):
+        return deny("@%s may not read .claude/holdouts/ — holdout acceptance tests are kept out of the builder's "
+                    "view and run only by @verifier at P12. Build to acceptance.json and design.md § Interfaces." % agent)
+    return 0
+
+
 def rel_path(repo, path):
     ab = os.path.abspath(os.path.join(repo, path) if not os.path.isabs(path) else path)
     real_repo, real = os.path.realpath(repo), os.path.realpath(ab)
@@ -222,6 +240,8 @@ def main(argv):
             hook = json.loads(sys.stdin.read() or "{}")
         except ValueError:
             return 0
+        if hook.get("tool_name") in ("Read", "Grep", "Glob"):
+            return read_guard(hook)
         if hook.get("tool_name") not in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
             return 0
         ti = hook.get("tool_input") or {}

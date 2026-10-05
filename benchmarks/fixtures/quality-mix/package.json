@@ -1,0 +1,19 @@
+{
+  "name": "tollgate",
+  "private": true,
+  "version": "5.3.1",
+  "workspaces": ["api", "web"],
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p api && tsc -p web",
+    "test": "npm test --workspaces"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.21.0",
+    "eslint": "9.21.0",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "typescript": "5.7.3",
+    "typescript-eslint": "8.25.0"
+  },
+  "engines": { "node": ">=22" }
+}

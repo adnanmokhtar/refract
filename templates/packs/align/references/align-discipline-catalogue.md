@@ -222,7 +222,7 @@ These references are **convenience pointers for AI tools that support them**. Th
 
 ### For rule-only tools (Aider, Codex, Gemini, partial: Cline, Windsurf)
 
-This rule **is** the surface. The 11 universal finding categories (6 structural + 5 functional), the 14 phase-exit checks, the 11 per-finding halts, the closure-verb vocabulary (5 structural + 16 functional), and the three procedures (scan / find-and-align / gate) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist. The four align agents added in 1.9.0 change nothing here: they are the checklist given an owner and a dispatch address, not new discipline. A rule-only tool that runs the halts inline reaches the same enforcement floor.
+This rule **is** the surface. The 11 universal finding categories (5 structural + 6 functional), the 14 phase-exit checks, the 11 per-finding halts, the closure-verb vocabulary (5 structural + 16 functional), and the three procedures (scan / find-and-align / gate) are all inlined above. No skill / agent / command dispatch is required — follow the rule as a checklist. The four align agents added in 1.9.0 change nothing here: they are the checklist given an owner and a dispatch address, not new discipline. A rule-only tool that runs the halts inline reaches the same enforcement floor.
 
 ## Per-stack extensions
 

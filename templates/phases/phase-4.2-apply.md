@@ -181,6 +181,10 @@ so the order IS the ownership. Three delivery-specific rules ride on that order:
 - **Lane skills follow the stack tracks.** `delivery/skills/lane-<stack>/` installs only when
   `<stack>` (backend, frontend or mobile) is a selected track; the orchestrator reports a lane whose
   skill is absent instead of improvising it.
+- **The risk map ships with the baseline.** `ai/risk-map.json` (generic globs → tier signals) arrives
+  with the repo-baseline sync and is read by `.claude/scripts/risk-tier.py`. Generating a
+  project-specific map from `detect-signals.sh` and PROJECT_KIND is not done yet (deferred): edit the
+  generic one by hand when a path in this repo carries money, auth, PII or tenant data under another name.
 
 For each selected track, in that order, run these EXACT commands (substitute `<track>` for the track name):
 

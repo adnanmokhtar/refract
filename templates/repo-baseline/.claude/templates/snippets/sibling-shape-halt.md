@@ -1,6 +1,6 @@
 ---
 purpose: Canonical sibling-shape halt VERDICT vocabulary shared by every `/add-feature` variant. Each pack keeps its own stack-specific halt CRITERIA inline and links here for the verdict enum so the three variants stop speaking three dialects.
-imported-by: templates/packs/{backend,frontend,mobile}/commands/add-feature.md (and any future add-* command with a sibling-mirror gate).
+imported-by: templates/packs/delivery/skills/lane-{backend,frontend,mobile}/SKILL.md (cut from the former stack add-feature commands; and any future add-* command with a sibling-mirror gate).
 ---
 
 # Sibling-shape halt — canonical verdict vocabulary

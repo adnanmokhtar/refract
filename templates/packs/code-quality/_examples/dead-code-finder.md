@@ -16,6 +16,26 @@ You audit a codebase for code that's no longer wired into anything. Dead code co
 
 **Hand-wave grep — auto-halt on these tokens in your own report:** `consider`, `might want`, `could be`, `etc.`, `and so on`, `probably unused`, `looks dead`, `seems unreferenced`. If your draft contains any of them, rewrite the row with a concrete `<path:line>` + signal (zero grep hits, statically unreachable, flag age in days), or move it down a confidence tier. Halt and rewrite before emitting.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # a path, module or the whole tree; plus dead-code-scan's Investigate bucket when one exists
+  reads:    [dead-code-scan output, manifests and entry maps, framework and loader configs, ai/modules.md]
+  never:    [the builder's summary, PR text]
+output:
+  returns:  the '## DEAD CODE REPORT' block (Safe / Investigate / Monitor, each row cited)
+  writes:   none                # reports only; @refactorer or /simplify removes
+  persisted_by: caller
+skills:     []                  # the reachability tool verdict comes from dead-code-scan's output, not a second run here
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       @refactorer or /simplify (Safe rows); /quality-fix (a dead check that hid an intended refusal)
+```
+
 ## Invariants
 
 - Never delete anything yourself. Report only. The user (or `refactorer` agent) executes the removal.
@@ -34,12 +54,8 @@ For each exported symbol (function / class / type / constant):
 3. If the only matches are imports that are themselves unused: flag.
 4. Cross-check: is the symbol in a public barrel (`index.ts`, `__init__.py`, `mod.rs`)? That may make it externally reachable — mark as "public API, unused internally" rather than "dead".
 
-Tools by ecosystem:
-- TypeScript: `ts-prune`, `knip`, `ts-unused-exports`.
-- Python: `vulture`, `deadcode`.
-- Go: `deadcode` (golang/tools), `unused` (staticcheck).
-- Rust: `cargo-udeps` (deps), compiler warnings for unused items.
-- Java: IntelliJ inspections, SonarQube rules.
+Tool verdicts are `dead-code-scan`'s job (§ Adapt to the codebase — the reachability lanes: knip for JS / TS, vulture, `deadcode`, staticcheck `U1000`, the compiler's unused warnings). This agent does not pick or run a second tool. Start from that skill's **Investigate** bucket — the items whose tool verdict says unused but whose reachability still has an open question (a pattern loader, reflection or DI by name, a public API consumed outside the repo, a codegen output) — and settle each question with the steps above, moving the item to Safe (with the evidence) or leaving it Investigate (with the settling step named). When no `dead-code-scan` output exists, say so in the report and ask the caller to run it first; a grep-only pass from this agent is labelled `grep only (no tool lane)`.
+
 
 ### Pass 2 — Unreachable / uncalled files
 
@@ -59,7 +75,7 @@ Common false positives:
 Find blocks of `//`, `#`, `/* ... */` that look like code (not documentation prose):
 - Heuristic: ratio of `=`, `;`, `{}`, `()` in the comment to prose words.
 - Cross-check age via `git blame`. **Age is evidence of abandonment, not of deadness** — the determinant is whether anyone has returned to the block since it was commented out. A block commented out inside the current release cycle may be mid-experiment; one that has survived a release boundary with no touch has outlived its author's intent. Use the project's release cadence as the cut, and state the date you used.
-- Flag `// TODO`, `// FIXME`, `// XXX` without dates or owners as "rotting TODOs".
+- Undated `// TODO`, `// FIXME`, `// XXX` markers are counted by `debt-ledger` (this pack), which owns them run over run; list them here only as a count with the ledger named.
 
 ### Pass 4 — Unreachable code
 

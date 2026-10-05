@@ -76,6 +76,14 @@ jobs:
       - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules / gate-check)
         run: bash tests/hooks/run.sh
 
+      # Benchmark fixtures stay true to their answer keys: every anchor resolves; feature-refund's
+      # holdouts are red on the fixture, green on its reference solution, and each seeded-wrong
+      # overlay fails exactly its own trap; the routing key is well-formed and risk-tier.py's
+      # deterministic floor never under-tiers a T3 ask (BENCH_STRICT_FLOOR=1). Needs node (preinstalled
+      # on GitHub-hosted runners; without it the node half prints SKIP).
+      - name: Benchmark fixtures verify (anchors, holdout oracle strength, routing floor)
+        run: BENCH_STRICT_FLOOR=1 bash benchmarks/run.sh --verify
+
       # Every gate above compares this repo to itself. On 2026-08-31 three defects shipped through
       # all of them green, and none was a logic error in the usual sense — each was code that was
       # correct about an input that does not occur. The clearest: module-boundaries.sh compared a

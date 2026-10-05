@@ -2,8 +2,8 @@ from app.risk import RefundRequest, needs_review, score_refund
 
 
 def test_scores_a_long_standing_customer_as_safe(delivered_refund):
-    req = RefundRequest(**delivered_refund)
-    score_refund(req)
+    long_standing = RefundRequest(**delivered_refund)
+    score_refund(long_standing)
 
 
 def test_serial_refunder_on_a_new_account_needs_review():

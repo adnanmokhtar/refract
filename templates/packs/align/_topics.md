@@ -108,7 +108,7 @@ When extraction has no idiom inventory (greenfield CREATE without prior structur
     - tiered_floor                 # trivial / standard / heavy with promoter rules
     - anti_bloat_rules             # merge gates; pointer to catalogue for full definitions
     - realism_guards               # the 8 guards BY NAME; definitions live in ai-patterns/align-guardrails.md
-    - finding_categories           # 11 universal classes (6 structural + 5 functional) + stack-specific;
+    - finding_categories           # 11 universal classes (5 structural + 6 functional) + stack-specific;
                                    # detector signal / verb / tier live in detect-drift, NOT restated here
     - per_finding_audit_halts      # 11 halts — the enforceable core, with validator names
     - per_stack_and_tool_agnostic  # stack routing + the rule-only-tool procedure pointer
