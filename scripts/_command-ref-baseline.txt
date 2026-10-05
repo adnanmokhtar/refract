@@ -52,8 +52,6 @@ templates/packs/frontend/commands/add-page.md|orders   # a URL route / HTTP path
 templates/packs/frontend/commands/add-page.md|subscribers   # a URL route / HTTP path in an example, not a command
 templates/packs/frontend/skills/a11y-scan/SKILL.md|login   # a URL route / HTTP path in an example, not a command
 templates/packs/frontend/skills/seo-audit/SKILL.md|admin   # a URL route / HTTP path in an example, not a command
-templates/packs/frontend/skills/seo-audit/SKILL.md|canonical   # a URL route / HTTP path in an example, not a command
-templates/packs/frontend/skills/seo-audit/SKILL.md|checkout   # a URL route / HTTP path in an example, not a command
 templates/packs/frontend/skills/verify-with-playwright/SKILL.md|login   # a URL route / HTTP path in an example, not a command
 templates/packs/frontend/skills/visual-check/SKILL.md|auth   # a URL route / HTTP path in an example, not a command
 templates/packs/frontend/skills/visual-check/SKILL.md|login   # a URL route / HTTP path in an example, not a command

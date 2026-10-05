@@ -300,8 +300,8 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: seo-audit
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
-  extracts_from: _extracted-codebase.md (framework metadata primitive + router + i18n locales + sitemap/robots setup)
-  fallback: _examples/seo-audit.md
+  extracts_from: _extracted-codebase.md (framework metadata primitive + router + i18n locales + sitemap/robots setup) + _extracted-idioms.md (the project's own SEO wrapper — useSEO() / <Seo> — for the META pattern)
+  fallback: skills/seo-audit/SKILL.md
 
 - name: image-optimization
   kind: skill
