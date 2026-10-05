@@ -41,7 +41,7 @@ Without the frontend pack, the fallback is the same tag set in **one** `.options
 const r = await new AxeBuilder({ page }).options({ runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } }).analyze();
 ```
 
-Reach the surface first and prove it rendered (its own content marker, never `networkidle`); a route that lands on `/login` is `RENDER BLOCKED`, not clean. No browser, no harness → `SKIPPED (no harness)`; Lane A2 still runs. A Lighthouse score is not axe and not a conformance claim (`precedents/ui.md` § 51): report its failing audits if it ran, never the score as a pass.
+Reach the surface first and prove it rendered (its own content marker, never `networkidle`); a route that lands on the sign-in page is `RENDER BLOCKED`, not clean. No browser, no harness → `SKIPPED (no harness)`; Lane A2 still runs. A Lighthouse score is not axe and not a conformance claim (`precedents/ui.md` § 51): report its failing audits if it ran, never the score as a pass.
 
 ### Lane A2 — the static slice and computed contrast (no browser)
 
