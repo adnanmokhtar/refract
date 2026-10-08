@@ -109,12 +109,36 @@ empty creds → 401.** (`/task` also self-heals this — see Troubleshooting.)
 ### Flags
 | Flag | Effect |
 |---|---|
+| `--drain` | With `next`: work the pick lists card by card until empty, a halt, or `--max=N` (default 5). |
 | `--prompt-only` | Fetch + normalize, then **print a paste-ready prompt and stop** — no execution, no write-back. Hand it to another command/tool/agent. |
 | `--to=<command>` | Dispatch directly to `/<command>` instead of routing through `/do`. |
 | `--no-writeback` | Execute, but don't touch the source (no status move, no comment). |
 | `--review-only` | On finish, stop at the Review state; never auto-advance to Done. |
 
-Drain a list/sprint by looping `/task next`.
+Work the whole queue with `/task next --drain` (one card at a time, stops when the pick lists are
+empty, a card halts, or `--max=N` cards — default 5).
+
+### Board flow — `.claude/task-flow.json`
+Tell `/task` which lists hold approved work and where cards go. Tracked, so the team shares it:
+```json
+{
+  "pickFrom": ["Fixing", "Approved"],
+  "fixLists": ["Fixing"],
+  "labelRoutes": [
+    { "label": "Bug",     "to": "fix-bug" },
+    { "label": "Feature", "to": "add-feature" }
+  ],
+  "start":    "In Progress",
+  "review":   "Testing",
+  "done":     null
+}
+```
+`next` takes only from `pickFrom`, first non-empty list first, so Backlog cards are never picked.
+Cards from `fixLists` run as fixes (`/fix-bug`), with the tester's comment as the repro.
+`labelRoutes` maps work-type labels to commands, first match wins; area labels (API, Database, …)
+are passed along as context, and a card with no matching label is routed by `/do` from its text. `done: null` means the
+run stops at `review`; release lists and Done stay with people. Google Drive images on a card are
+readable only when shared as "Anyone with the link"; private ones are named in the card comment.
 
 ### Status-flow mapping
 `/task` resolves your board's status lists/states **by name at runtime**. Example (Trello board):

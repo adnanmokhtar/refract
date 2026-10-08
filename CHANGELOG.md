@@ -6,6 +6,32 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/task` works a board's queue, not one pasted card (2026-10-05)
+
+- **`.claude/task-flow.json`** (optional, tracked) states a board's flow: `pickFrom` (lists `next`
+  takes from, in priority order), `fixLists` (cards QA sent back, run as fixes with the tester's
+  comment as the repro, always `/fix-bug`), `labelRoutes` (work-type label → command, first match
+  wins; unmatched cards still route through `/do`), `start` / `review` / `done`. `done: null` stops
+  every run at `review`.
+  Without it, `next` took the leftmost list, which on most boards is the unapproved Backlog.
+- **`next --drain [--max=N]`** runs the lifecycle card by card, each closed before the next is
+  fetched; it stops on an empty queue, on the first halt (a halted card moved back would be picked
+  again forever), or after N cards (default 5).
+- **Google Drive links** on a card are downloaded when shared publicly; a private one is reported
+  in the write-back comment instead of failing the run. `/task` 1.0.0 → 1.1.0.
+- **No `gate-check.py`, no verdict line.** The finish comment lists only the checks that ran;
+  «verdict: UNVERIFIED» on a shared board read to testers as unverified work. The card still stops
+  at review, and the local `ai/_history.md` line notes `gate=none`.
+- **The finish comment is written for the tester.** It carries numbered «How to test» steps in the
+  product's UI. A passing suite is not mentioned (test counts go in the commit and `ai/_history.md`),
+  and only a failing check gets a line. The commit SHA moves from the opening line to one
+  reference line at the end.
+- **Every card's comments are read as requirements**, not only on fix cards: a comment can add or
+  change scope, the newest human statement wins a conflict, and `/task`'s own earlier comments count
+  as history. Trello comments are fetched separately; TaskSpec gains `comments`.
+- **Downloaded card attachments stay out of git**: before the first download `/task` makes sure
+  `.claude/tasks/` is in `.gitignore`.
+
 ### The Run: a feature no longer starts with code (2026-10-05)
 
 Architecture proposal Phase 4. `/do "add a refund button"` used to reach a stack's `/add-feature` at

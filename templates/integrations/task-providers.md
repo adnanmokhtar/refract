@@ -36,6 +36,7 @@ TaskSpec:
   subtasks:   [{ text: <string>, done: <bool> }] # checklist / sub-issues / task-list
   attachments: [{ name, url, mime, localPath }]  # downloaded in Phase 3
   labels:     [<string>, ...]
+  comments:   [{ author, date, text, own: <bool> }] # oldest first; own = posted by /task (ends with its reference line)
   priority:   <string|null>
   assignee:   <string|null>
   status:     <current provider status name>
@@ -58,9 +59,9 @@ Each adapter declares four things: **ref detection**, **fetch**, **field map**,
 at runtime via ToolSearch; the names below are the expected shape.
 
 ### trello — `@delorenj/mcp-server-trello`
-- **ref**: `trello.com/c/<shortLink>` URL · `trello:<id>` · bare card id · `next` (top card of the "To Do"/leftmost list on `TRELLO_BOARD_ID`).
-- **fetch**: `get_card` / `get_card_by_id`; `get_checklists`; card `attachments`; `get_lists` (to resolve status-flow list ids).
-- **field map**: `name`→title · `desc`→description · checklist items→subtasks · `attachments[]`→attachments · `labels[].name`→labels · list name of `idList`→status.
+- **ref**: `trello.com/c/<shortLink>` URL · `trello:<id>` · bare card id · `next` (top card of the first non-empty `pickFrom` list in `.claude/task-flow.json`; without that file, the "To Do"/leftmost list on `TRELLO_BOARD_ID`).
+- **fetch**: `get_card` / `get_card_by_id`; `get_checklists`; card `attachments`; card comments (`get_card_comments`, or REST `/cards/<id>/actions?filter=commentCard` — the card object does not carry them); `get_lists` (to resolve status-flow list ids).
+- **field map**: `name`→title · `desc`→description · checklist items→subtasks · `attachments[]`→attachments · `labels[].name`→labels · comment actions (`memberCreator.fullName`, `date`, `data.text`)→comments · list name of `idList`→status.
 - **status verbs**: move card via `update_card { idList }` — `start`=In Progress, `review`=Review/QA, `done`=Done; `add_comment_to_card` for the write-back; tick checklist item via `update_checkitem` as each subtask completes.
 
 ### jira — `@aashari/mcp-server-atlassian-jira`

@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**209 commands** — core 16 · 24 packs (147) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**213 commands** — core 16 · 24 packs (151) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -24,11 +24,11 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — distributed-systems](#pack--distributed-systems) — 4
 - [Pack — documentation](#pack--documentation) — 3
 - [Pack — finops](#pack--finops) — 4
-- [Pack — frontend](#pack--frontend) — 8
+- [Pack — frontend](#pack--frontend) — 10
 - [Pack — infrastructure](#pack--infrastructure) — 4
 - [Pack — learning](#pack--learning) — 8
 - [Pack — migration](#pack--migration) — 21
-- [Pack — mobile](#pack--mobile) — 4
+- [Pack — mobile](#pack--mobile) — 6
 - [Pack — observability](#pack--observability) — 4
 - [Pack — performance](#pack--performance) — 4
 - [Pack — product](#pack--product) — 5
@@ -55,7 +55,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/setup-project` | Install or refresh the Claude orchestration layer for a repo. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --upgrade` |
 | `/setup-project-adapters` | Re-sync tool adapters so every enabled CLI offers the same surface as Claude Code here. | `--legacy-opencode` | `/setup-project-adapters` |
 | `/setup-project-health` | Read-only report on whether this repo's /setup-project artifacts have drifted or gone stale. | — | `/setup-project-health` |
-| `/task` | Execute ONE tracker item end to end and write its status back to the source. | `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
+| `/task` | Execute ONE tracker item end to end and write its status back to the source. | `--drain`, `--max`, `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
 | `/unify-surfaces` | Consolidate every instance of ONE surface type behind ONE canonical shared implementation, app-wide. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
 | `/upgrade-dep` | Upgrade one dependency, framework or runtime to a named version — any ecosystem, any stack. | `--runtime`, `--all`, `--max-class`, `--security`, `--dry-run`, `--ecosystem=<name>`, `--oracle=<command>`, `--no-codemod`, `--allow-prerelease`, `--relock`, `--allow-dirty`, `--stay-on-major` | `/upgrade-dep tailwindcss@4` |
 
@@ -193,12 +193,14 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/a11y-audit` | Run accessibility-auditor against current UI changes; ground with axe if installed. | — | `/a11y-audit [path]` |
+| `/a11y-audit` | WCAG 2.2 AA audit: preset of /frontend-audit --classes=a11y. | `--whole-repo`, `--routes=<glob>` | `/a11y-audit [base-branch] [--whole-repo] [--routes=<glob>]` |
 | `/add-component` | Scaffold a reusable component with typed props, tests, and (optional) Storybook entry. | — | `/add-component <name>` |
 | `/add-crud-page` | Scaffold list + create + edit + delete pages for one entity end-to-end. | — | `/add-crud-page <entity>` |
 | `/add-feature` | Frontend lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=frontend <the ask, verbatim, with every flag the user passed>` |
 | `/add-page` | Scaffold a page/route with view, store slice, service, types, i18n keys, and tests. | — | `/add-page <route>` |
-| `/i18n-audit` | Find hardcoded strings, missing keys, locale parity breaks, and unused keys. | — | `/i18n-audit [locale-dir]` |
+| `/frontend-audit` | Read-only frontend audit: a11y, states, render, data, routing, i18n, perf; class ledger and verdict. | `--whole-repo`, `--classes=<family,…>`, `--routes=<glob>`, `--touched=<paths>` | `/frontend-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--routes=<glob>]` |
+| `/frontend-fix` | Close /frontend-audit findings, failing-first, fixed at the component. | `--all` | `/frontend-fix [audit-report-path \| finding-id ... \| --all]` |
+| `/i18n-audit` | i18n audit: preset of /frontend-audit --classes=i18n. | `--whole-repo`, `--routes=<glob>` | `/i18n-audit [base-branch] [--whole-repo] [--routes=<glob>]` |
 | `/refactor` | Frontend-targeted refactor — preserves render output, props contracts, and hydration safety. | — | `/refactor [<scope>]` |
 | `/setup-storybook` | Install Storybook with the MCP addon and a story for every shared component; on a repo that already… | — | `/setup-storybook [app-dir]` |
 
@@ -256,6 +258,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/add-feature` | Mobile lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=mobile <the ask, verbatim, with every flag the user passed>` |
 | `/add-screen` | Add a new screen — full chain — route + screen component + navigation wiring + state + i18n + a11y… | — | `/add-screen` |
+| `/mobile-audit` | Read-only mobile audit: lifecycle, a11y, perf, offline, store, platform; device-proved ledger and… | `--whole-repo`, `--classes=<family,…>`, `--device=<name>`, `--profile` | `/mobile-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--device=<name>] [--profile=L1\|L2]` |
+| `/mobile-fix` | Close /mobile-audit findings, failing-first on a device, across the class. | `--all`, `--device=<name>` | `/mobile-fix [audit-report-path \| finding-id ... \| --all] [--device=<name>]` |
 | `/optimize-bundle` | Mobile bundle-size + cold-start optimization. | — | `/optimize-bundle` |
 | `/refactor` | Mobile-targeted refactor — preserves navigation contracts, platform lifecycle, and bundle budgets. | — | `/refactor [<scope>]` |
 
@@ -319,7 +323,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/design-first` | The design-first front door. | `--source`, `--no-canvas`, `--plan` | `/design-first orders/list` |
 | `/design-review` | Review UI changes for UX, design system compliance, and accessibility in parallel. | — | `/design-review [path\|screenshot]` |
 | `/enhance-ui` | Orchestrator for UI/UX enhancement. | `--plan`, `--direction`, `--scope`, `--dry-detect`, `--auto-extract`, `--skip-cleanup`, `--skip-iterate`, `--re-detect-only` | `/enhance-ui the sidebar — complete` |
-| `/grab-site` | FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL… | `--plan`, `--pages`, `--max-assets=<N>` | `/grab-site https://shop.example.com/` |
+| `/grab-site` | FAITHFULLY MIRROR a live website into a folder of static HTML/CSS that looks like the ORIGINAL… | `--plan`, `--pages`, `--max-assets=<N>`, `--delay=<seconds>` | `/grab-site https://shop.example.com/` |
 | `/redesign` | One command full UI/UX redesign of a page / screen / flow — rethinks layout + UX from scratch (NOT… | `--plan`, `--direction`, `--yes`, `--max-refine=<n>`, `--canvas`, `--from-canvas=<path-or-url>` | `/redesign <description-or-path> [<more>...]` |
 | `/ui-audit` | The design team in one command — the visual sibling of /audit. | `--plan`, `--scope=<path>`, `--reimagine`, `--max-parallel=<N>`, `--first-run`, `--tier=<V0\|V1\|V2\|V3>`, `--re-scan` | `/ui-audit --plan` |
 | `/ui-crawl` | Automated cross-route UI crawler. | `--smoke`, `--filter=<substr>`, `--full-matrix`, `--skip-interactions`, `--refresh-inventory`, `--workers`, `--no-dark` | `/ui-crawl --smoke` |

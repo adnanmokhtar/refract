@@ -1,25 +1,25 @@
 ---
-description: Execute ONE tracker item end to end and write its status back to the source. Trigger only when the input IS a task reference — a Trello, Jira, Linear, or GitHub Issue URL, an issue key such as PROJ-123, or 'next' — as in 'do this card' or 'grab the next ticket and start'. Do NOT trigger for a whole board or sprint in one shot; loop /task next instead. Not when the code change is already known and the ticket is noise — call /add-feature or /fix-bug directly.
+description: Execute ONE tracker item end to end and write its status back to the source. Trigger only when the input IS a task reference — a Trello, Jira, Linear, or GitHub Issue URL, an issue key such as PROJ-123, or 'next' — as in 'do this card' or 'grab the next ticket and start'. 'next --drain' works the pick lists card by card until empty. Not when the code change is already known and the ticket is noise — call /add-feature or /fix-bug directly.
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.0.0
+version: 1.1.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /task <ref> [--prompt-only] [--to=<command>] [--no-writeback] [--review-only]
+# /task <ref> [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only]
 
 Pull ONE task from your project-management tool and do it. `<ref>` is a card/issue
-**URL**, a **key** (`PROJ-123`, `#42`, `trello:<id>`), or **`next`** (the top unstarted
-item assigned to you). Works the same whether the work lives in Trello, Jira, Linear,
+**URL**, a **key** (`PROJ-123`, `#42`, `trello:<id>`), or **`next`** (the top card of the
+repo's pick lists — § *Board flow* — else the top unstarted item assigned to you). Works the same whether the work lives in Trello, Jira, Linear,
 or GitHub Issues — the provider is resolved from the ref and the MCP configured in this
 repo. The code work is delegated to `/do`; this command owns the **task lifecycle**:
 fetch → normalize → ingest attachments → execute → write status back.
 
 ## When to use / NOT to use
 - USE: "do this card" with a link/key; "grab the next ticket and start"; turning an issue's description + attached spec/screenshot into a working change with the card updated.
-- USE: a daily loop — `/task next` repeatedly to drain a list/sprint.
-- NOT: bulk-porting a whole board in one shot (that's many tasks — loop `/task next`, or use a workflow). NOT: when you already know the exact code change and the ticket is just noise — call the specialist command (`/add-feature`, `/fix-bug`) directly.
+- USE: working the queue — `/task next --drain` takes every card in the pick lists, one at a time, each closed before the next starts.
+- NOT: bulk-porting a whole board in one shot (all cards in one change, or cards outside the pick lists). NOT: when you already know the exact code change and the ticket is just noise — call the specialist command (`/add-feature`, `/fix-bug`) directly.
 
 > **Specialist, not a wrapper.** Its value is provider-neutral task→spec translation
 > (checklist→worklist, attachment classification, acceptance-criteria extraction) plus
@@ -28,12 +28,62 @@ fetch → normalize → ingest attachments → execute → write status back.
 
 **Applies phases: 1–7** (Build/Fix command; Phase 4 = execute via routed specialist).
 
+## Board flow (`.claude/task-flow.json`, optional, tracked)
+
+A team's board has its own vocabulary — which lists are approved work, which list QA watches,
+whether an agent may ever reach Done. One tracked file per repo states it, so a teammate's run
+reads the same flow:
+
+```json
+{
+  "pickFrom": ["Fixing", "Approved"],
+  "fixLists": ["Fixing"],
+  "labelRoutes": [
+    { "label": "Bug",         "to": "fix-bug" },
+    { "label": "Feature",     "to": "add-feature" },
+    { "label": "UI/UX",       "to": "enhance-ui" }
+  ],
+  "start":    "In Progress",
+  "review":   "Testing",
+  "done":     null
+}
+```
+
+- **`pickFrom`** — the lists/states `next` takes from, **in priority order**: the first list with
+  a card wins, top card of that list first. A card in any other list is never picked by `next`
+  (Backlog-style lists hold work nobody approved yet). An explicit URL/key still runs any card.
+- **`fixLists`** — pick lists QA sends cards back to. A card taken from one is executed as a
+  fix: the tester's latest comment is the bug repro, and it dispatches to `/fix-bug` whatever its
+  labels say.
+- **`labelRoutes`** — work-type labels → the command that does that kind of work, **in priority
+  order**: the first entry whose label is on the card wins (Bug + UI/UX → `/fix-bug`). Labels
+  matched case-insensitively. Labels with no entry (area labels: API, Database, DevOps, …) never
+  pick the command; they ride along in the description as context. No matching label → `/do`
+  routes from the text as before. A target command that does not exist in this repo → fall back to
+  `/do` and say so in the echo.
+- **`start` / `review` / `done`** — the `statusFlow` names, matched case-insensitively. **`done:
+  null`** means the run never moves past `review`: release lists and Done belong to the humans who
+  ship. A name that matches no list on the board → halt before the start-move and name the lists
+  that exist.
+- **File absent** → the adapter defaults in the provider reference (Trello `next` = leftmost
+  list; start/review/done resolved by name).
+
+## Drain mode (`next --drain`)
+
+Runs the full Phase 1–7 lifecycle once per card, sequentially, re-reading the pick lists before
+each card (a human may have moved one meanwhile). **One card is closed — committed, written back,
+audited — before the next is fetched.** Stops when:
+- the pick lists are empty → print the per-card summary and end;
+- **any card halts** (§ *If the run halts after the card was marked*) → stop the whole drain; a
+  halted card moved back to its list would be picked again and loop forever;
+- `--max=N` cards were done (default **5**) — a long unattended run compounds one bad routing.
+
 ## Phase 1 — Understand (resolve the task)
 1. **Resolve provider** from `<ref>`:
    - URL → match host (`trello.com`→trello, `*.atlassian.net`/`/browse/`→jira, `linear.app`→linear, `github.com/.../issues/`→github).
    - Prefix → `jira:` / `linear:` / `trello:` / `gh:`.
    - Bare key shape → `PROJ-123`→jira, `ABC-123`→linear, `#42`→github (current repo).
-   - `next` or bare → the **single task-provider MCP present in `.mcp.json`** (trello/jira/linear/github). If more than one is configured and the ref is ambiguous → ask which provider (one question).
+   - `next` or bare → the provider of `.claude/task-flow.json` if it names one (`"provider"`), else the **single task-provider MCP present in `.mcp.json`** — or the single provider with creds in `.env` (trello/jira/linear/github). If more than one is configured and the ref is ambiguous → ask which provider (one question).
 2. **Load credentials from `.env`** (the MCP server is spawned at editor startup and may have been launched without the provider vars in its environment → it will 401 with empty creds). Before any provider call, make the creds available to this session's shell:
    ```bash
    [ -f .env ] && set -a && . ./.env && set +a    # exports TRELLO_*/JIRA_*/LINEAR_* for direct API calls
@@ -44,8 +94,14 @@ fetch → normalize → ingest attachments → execute → write status back.
    - **MCP healthy** → use it for fetch + write-back.
    - **MCP missing, OR returns 401 / auth failure / 0% health** → do NOT halt. Fall back to the provider's **direct REST API via Bash** using the `.env` creds loaded in step 2 (Trello: `curl "https://api.trello.com/1/cards/<id>?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&..."`; Jira/Linear: their REST/GraphQL endpoints). Fetch AND write-back both work over REST. Note in the run summary that REST fallback was used (so the user knows to fix the MCP env via `set -a; source .env; set +a` before relaunching).
    - **Only halt** if there is no provider MCP AND `.env` has no creds for the resolved provider → "Provider `<x>` not configured: add its creds to `.env` and run `/setup-project` (or `detect-mcp.sh --apply`)."
-4. **Fetch + normalize** to the canonical **TaskSpec** over whichever channel works (MCP or REST), using that provider's adapter (field map in the reference doc). Read title, description, checklist/sub-issues, attachments metadata, labels, current status, and the status-flow target names.
-5. **Echo the resolved spec** (title, key, AC count, subtask count, attachment count) in 4–5 lines and state the plan. Proceed without a pause unless the AC are empty AND the title is vague (then ask one scoping question).
+4. **Fetch + normalize** to the canonical **TaskSpec** over whichever channel works (MCP or REST), using that provider's adapter (field map in the reference doc). Read title, description, checklist/sub-issues, attachments metadata, labels, **every comment**, current status, and the status-flow target names. Trello does not return comments with the card — fetch them separately (`/cards/<id>/actions?filter=commentCard`), oldest first.
+5. **Read the comments as part of the requirements**, on every card in every list — people clarify, narrow and add scope in comments far more often than they edit the description:
+   - A human comment that clarifies, adds or changes what is wanted is requirement text — it joins the description and can add AC.
+   - **Conflict → the newest human statement wins** over the description and older comments; name the conflict and which one was followed in the echo and in the finish comment.
+   - **`/task`'s own earlier comments** (they end with the reference line, or open with a commit SHA in the older format) are history — what was tried and where it stopped — never new requirements. They post under the token owner's name, so the author alone does not tell them apart.
+   - Questions in comments that nobody answered → carry them into the echo; a question that blocks the work is the one scoping question.
+   - Links and Drive files in comments are attachments (Phase 3).
+6. **Echo the resolved spec** (title, key, AC count, subtask count, attachment count, comment count — and any requirement a comment changed) in 4–5 lines and state the plan. Proceed without a pause unless the AC are empty AND the title is vague (then ask one scoping question).
 
 ## Phase 2 — Organize (decompose)
 ```
@@ -55,21 +111,22 @@ fetch → normalize → ingest attachments → execute → write status back.
 3. PLAN      — AC + subtasks → ordered worklist; classify intent (feature/fix/refactor/audit)
 4. MARK      — write-back: move source to "In Progress" (unless --no-writeback)
 5. EXECUTE   — route the synthesized description to /do
-6. VERIFY    — check each AC / subtask against the change; run .claude/scripts/gate-check.py --local
+6. VERIFY    — check each AC / subtask against the change; run .claude/scripts/gate-check.py --local when the project has one
 7. CLOSE     — comment summary + commit/PR on the source; move to Review (Done only on gate-check PASS)
 ```
 All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP if healthy, else REST over `.env` creds).
 
 ## Phase 3 — Retrieve (ingest context)
 - **ALWAYS** — see [`templates/snippets/phase-3-always-reads.md`](../templates/snippets/phase-3-always-reads.md).
-- **Attachments** → download to `.claude/tasks/<provider>-<key>/` and classify:
+- **Attachments** → download to `.claude/tasks/<provider>-<key>/` and classify. Before the first download, check `git check-ignore -q .claude/tasks/`; if it is not ignored, append `.claude/tasks/` to `.gitignore` — card screenshots are working copies of the tracker's files, never source:
   - image (png/jpg/gif) → **design/repro reference** (feed to UI work; if it's an error screenshot, treat as the bug repro).
   - `.md`/`.txt`/`.pdf`/`.docx` → **spec** (read fully; its content is part of the requirements).
   - code/diff/`.json`/`.csv` → **reference data / fixtures**.
-- **Description links** to other cards/issues → fetch titles for context (do NOT recurse into doing them).
+- **Google Drive links** (attachment URLs or links in the description: `drive.google.com/file/d/<id>`, `open?id=<id>`) → fetch `https://drive.google.com/uc?export=download&id=<id>` into the same folder. A response that is an HTML sign-in page, not the file, means the link is not shared as "Anyone with the link": record it as unreadable, carry on, and say so in the write-back comment so the card owner can re-share it. Never ask for Google credentials.
+- **Description and comment links** to other cards/issues → fetch titles for context (do NOT recurse into doing them). Images and Drive links posted in comments are attachments, same rules as above.
 
 ## Phase 4 — Generate (execute the work)
-- Synthesize a single, faithful description from `title` + `description` + `acceptanceCriteria` + `subtasks` + attachment findings — verbatim intent, not paraphrased away.
+- Synthesize a single, faithful description from `title` + `description` + the requirement-bearing `comments` + `acceptanceCriteria` + `subtasks` + attachment findings — verbatim intent, not paraphrased away; where a comment overrode the description, the comment's version is the one dispatched. Name the card's labels in it (`Labels: Bug, Database`) — the area labels are the only place that context survives.
 - **`--prompt-only`** (emit, don't execute) → **STOP here.** Print a clean, paste-ready prompt block and do NOT dispatch, do NOT write back. Format:
   ```
   # Task: <title>  (<provider>:<key> · <priority>)
@@ -86,7 +143,7 @@ All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP
   ```
   The "Suggested command" line uses `--to`'s value if given, else the command `/do` would route to. End the run after printing — this is the hand-off mode.
   **Output integrity** — the printed block must be clean: no corruption artifacts (doubled punctuation, stray/truncated tokens, duplicated lines), every identifier (key, URL, type, perm) spelled consistently, every code snippet one canonical shape, and every "verify/likely/if X" hedge collected — not buried inline. Same bar as `/refine-prompt`'s output-integrity rule; for a *deep* class-tailored prompt (frontend feature, endpoint, audit, …) rather than a ticket transcription, prefer `/refine-prompt`.
-- **`--to=<command>`** (pin the target) → skip `/do` routing; dispatch the synthesized description **directly** to `/<command>` (must exist in this repo). Without `--to`, **dispatch to `/do`** so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
+- **`--to=<command>`** (pin the target) → skip `/do` routing; dispatch the synthesized description **directly** to `/<command>` (must exist in this repo). Without `--to`, the target is picked in this order: a `fixLists` card → `/fix-bug`; the first `labelRoutes` match → its command, dispatched exactly as `--to` would; otherwise **dispatch to `/do`** so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
 - **`--to=` naming a level-D command** (its frontmatter carries `disable-model-invocation: true` — deploy, rollback, provisioning, the mutating migration commands, `/delegate`, `/setup-project*`) is NOT dispatched: the Skill tool refuses it, and a human types those (H3). Run Phase 1–3 as normal, then print the exact `/<command> <synthesized description>` for the user to type and end the run without write-back — the same hand-back `/do` performs.
 - If the task obviously spans multiple specialists (e.g. "add endpoint AND its UI"), run them in dependency order; record each in the worklist.
 
@@ -120,20 +177,25 @@ the run ends before Phase 4 dispatches, so it never reaches the start-move eithe
 ## Phase 5 — Update (write back to the source)
 Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless `--no-writeback`:
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
-- **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post ONE comment via the adapter's comment verb: 1-line summary, the commit SHA(s)/PR link, the per-AC ✓/✗ checklist from Phase 6, and gate-check's `verdict:` line. Tick completed checklist items / close sub-issues.
-- **Move** to `statusFlow.review` by default (a human verifies). Move to `statusFlow.done` only when ALL hold: `--review-only` is NOT set; Phase 6 validated every AC ✓; and `python3 .claude/scripts/gate-check.py --local` ended `verdict: PASS` for the committed change (evidence in `.claude/evidence/<sha>/`). A `FAIL` or `UNVERIFIED` verdict — or a project with no `gate-check.py` — moves to Review with that line in the comment, never to Done. **Never delete** a card/issue.
+- **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post ONE comment via the adapter's comment verb. **Its reader is the tester, not a developer** — write it in the card's language:
+  1. What changed in one plain line (for a bug, the cause in one plain sentence). No commit SHA and no "will reach the server with the next deploy" here — the review list already says it is not deployed.
+  2. The per-AC ✓/✗ checklist from Phase 6.
+  3. **«How to test»** — numbered steps in the product's own UI: where to go, what to do, what should happen. Include the edge case the fix is about (the input that used to break) and any data the tester needs.
+  4. Checks — **only what a tester can act on**. A passing suite is not mentioned: test counts, file counts and "failed before / passes after" belong in the commit message and `ai/_history.md`. A failing or skipped check gets one line saying what failed. gate-check's `verdict:` line appears only when the project has `gate-check.py`; **no gate script → no verdict line**, since «verdict: UNVERIFIED» on a shared board reads to a tester as "not verified" (the missing gate goes in the local audit line).
+  5. Last, one small reference line: the commit SHA(s) or PR link (`Ref: e88913e4d`, in the card's language). It is for the developer who checks whether the deployed build carries the fix when a tester reports it still broken. Tick completed checklist items / close sub-issues.
+- **Move** to `statusFlow.review` by default (a human verifies). Move to `statusFlow.done` only when ALL hold: `task-flow.json` does not set `done: null`; `--review-only` is NOT set; Phase 6 validated every AC ✓; and `python3 .claude/scripts/gate-check.py --local` ended `verdict: PASS` for the committed change (evidence in `.claude/evidence/<sha>/`). A `FAIL` or `UNVERIFIED` verdict moves to Review with that line in the comment; a project with no `gate-check.py` moves to Review with no verdict line — never to Done either way. **Never delete** a card/issue.
 - **Write-back is post-execution — the work is already done and committed.** A failed status move / comment post (MCP error, REST 4xx/5xx, network) must NOT lose the work or leave the user without a record. When write-back fails AFTER execution:
   1. Do NOT halt silently and do NOT retry-loop forever (one retry max).
   2. **Print the exact comment body** that failed to post (the 1-line summary + commit SHA(s)/PR link + per-AC ✓/✗ list) so nothing is lost.
   3. **Print the exact command the user can run to post it manually** — the same channel that was being used: the MCP tool call args, OR a ready-to-paste `curl`/REST command using `.env` creds (e.g. Trello `curl -X POST "https://api.trello.com/1/cards/<id>/actions/comments?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&text=<body>"`; Jira/Linear comment endpoints similarly). Include the status-move command too.
   4. **STILL append the local audit line** (below) with a `writeback=FAILED(<reason>)` marker so the history reflects reality — the execution happened even though the source wasn't updated.
-- Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`).
+- Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`; with no `gate-check.py` in the project, append ` gate=none`).
 
 ## Phase 6 — Validate (verify against the card)
 Runs BEFORE Phase 5's finish write-back: the on-start move happens before the work, the on-finish move waits for this phase.
 - Each `acceptanceCriteria` item → checked against the actual change (test, run, or inspection). Empty AC → verify the title's intent is satisfied.
 - Tests run green (or explicitly report which fail). Attachment-derived specs honored (e.g. screenshot layout matched).
-- Run `python3 .claude/scripts/gate-check.py --local` once the change is committed and keep its last line (`verdict: PASS | FAIL | UNVERIFIED`) — it is the only verdict that can move the card to Done. The routed command's own "COMPLETE" is a claim; the gate's verdict is evidence.
+- When the project has `.claude/scripts/gate-check.py`, run `python3 .claude/scripts/gate-check.py --local` once the change is committed and keep its last line (`verdict: PASS | FAIL | UNVERIFIED`) — it is the only verdict that can move the card to Done. No gate script → nothing to run and nothing to report on the card; the card stops at Review. The routed command's own "COMPLETE" is a claim; the gate's verdict is evidence.
 - The write-back comment's ✓/✗ list must reflect reality — never report an unmet AC as met.
 
 ## Phase 7 — Improve (feed the loop)
@@ -142,11 +204,12 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - New provider needed? Point to the extension steps in the task-providers reference.
 
 ## Hard rules
-- **One task per invocation.** `<ref>` resolves to exactly one card/issue. For many, loop `/task next`.
+- **One task at a time.** `<ref>` resolves to exactly one card/issue; `--drain` runs cards sequentially, each closed before the next is fetched — never several cards in one change.
+- **`next` takes only from the pick lists.** With a `task-flow.json`, a card outside `pickFrom` is never picked, and `done: null` is never overridden by a passing gate.
 - **Read adapters, don't hard-code.** Provider field maps + status verbs come from `templates/integrations/task-providers.md`; tool names are discovered at runtime.
 - **Never delete; never silently downgrade.** Write-back moves forward (start→review→done) or comments; destructive ops are out of scope.
-- **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not.
-- **Faithful execution.** The routed description preserves the card's intent verbatim — no scope drift, no silent omission of AC.
+- **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not. The tracker comment is written for the tester: how to test it, and only the checks they can act on — no gate script, no verdict line.
+- **Faithful execution.** The routed description preserves the card's intent verbatim — no scope drift, no silent omission of AC, and no human comment left unread.
 - **Secrets stay in `.env`.** `/task` reads creds only via the provider MCP's env; it never prints or echoes tokens.
 
 ## Failure modes
@@ -154,6 +217,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - **Run halts after the card was marked In Progress** → the card is sitting on a shared board claiming work is in flight. Comment what stopped it, move it back unless commits exist, and state both the card's position and the local state. See § *If the run halts after the card was marked* — this is the one failure whose blast radius is other people.
 - **Provider MCP missing or 401 (stale/empty env)** → do NOT halt; load `.env` and use the REST fallback (Phase 1 step 3). Halt only when there is ALSO no `.env` creds for the provider.
 - **Ambiguous `next` (multiple providers)** → ask which provider (one question).
+- **Project has no `gate-check.py`** → not a halt and not a verdict: the comment carries no verdict line, the card stops at Review, and `ai/_history.md` notes `gate=none`.
 - **Card not found / no access** → halt; surface the provider's error verbatim.
 - **Empty description AND empty AC AND vague title** → ask one scoping question before executing.
 - **Routed specialist halts** (its own intent gate) → re-surface both routings; do not force.
@@ -169,6 +233,12 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 /task PROJ-128
 → jira:PROJ-128 "Orders list crashes on empty filter" · repro screenshot attached
   → In Progress → /fix-bug … → repro fixed, regression test added → transitioned to In Review
+
+/task next --drain
+→ task-flow.json: pickFrom [Fixing, Approved] · review=Testing · done=null
+  → Fixing: "Login rejects valid OTP" (tester comment = repro) → /fix-bug … → Testing
+  → Approved: "Export attendance as CSV" [Feature, API] → labelRoutes → /add-feature … → Testing
+  → pick lists empty → 2 cards done, 2 in Testing
 
 /task next
 → linear:ENG-44 "Tighten dashboard spacing" (top of my queue) → /enhance-ui … → In Review
@@ -189,6 +259,8 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 ## Flags
 | Flag | Effect |
 |---|---|
+| `--drain` | With `next`: work the pick lists card by card until empty, a card halts, or `--max`. |
+| `--max=N` | Cap a drain at N cards (default 5). |
 | `--prompt-only` | Fetch + normalize, then **print a paste-ready prompt and stop** — no `/do`, no execution, no write-back. Hand-off mode. |
 | `--to=<command>` | Dispatch directly to `/<command>` instead of routing through `/do` (command must exist in this repo). |
 | `--no-writeback` | Execute, but don't touch the source (no status move, no comment). |
