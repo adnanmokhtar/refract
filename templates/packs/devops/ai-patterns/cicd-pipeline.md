@@ -56,10 +56,28 @@ staleness is invisible because the workflow keeps passing. Two rules make this s
 
 ## CI example (GitHub Actions, Node stack)
 
-Two structural things in this example are load-bearing, and the obvious shape gets both wrong:
-the image is **scanned before it is published**, and the scan therefore happens in the **same job**
-that built it (a locally-loaded image does not cross a job boundary). Publishing first and scanning
-after means a vulnerable image is already pullable by the time the gate fails.
+Four structural things in this example are load-bearing, and the obvious shape gets each wrong:
+
+- **What ships is what was scanned.** The image is built **once**. On a pull request it is loaded
+  locally and scanned; on `main` it is pushed **by digest only** (no tag points at it), that digest
+  is scanned, and only that digest flows to the deploy jobs. Scanning a `load: true` image and then
+  publishing a second build is a rebuild: a different artifact from the one the gate passed, and
+  `load: true` also drops its attestations (`proof-oracles.md` V223, *digest continuity*).
+- **Cancel only what mutates nothing.** `cancel-in-progress` is right for a superseded PR run and
+  wrong for any run that deploys: a newer push to `main` would kill the prod deploy mid-apply. Each
+  deploy job therefore takes a job-level group keyed on its **environment** with
+  `cancel-in-progress: false`, so a second push queues behind the running deploy (V228;
+  `precedents/devops.md` § 15).
+- **SHA pins where the job is privileged.** The job that holds `packages: write` and `id-token: write`
+  pins every `uses:` to a commit SHA (the SHAs shown were resolved on 2026-10-10 and are stale by
+  the time you read this — resolve them again); the unprivileged `quality` job keeps major tags
+  (§ Action versions above).
+- **No credential left in `.git/config`.** Every checkout sets `persist-credentials: false`; nothing
+  in this pipeline pushes with git.
+
+`python3 .claude/scripts/ci-graph.py . --check=pin-priv,deploy-concurrency` prints nothing for this
+workflow. The earlier shape of this example printed 6 `PIN×PRIV` and 2 `DEPLOY-CANCEL` rows (measured
+2026-10-10).
 
 ```yaml
 name: CI
@@ -70,9 +88,11 @@ on:
 permissions:
   contents: read          # narrowest default; each job widens only what it needs
 
+# Cancel a superseded PR run, never a run on main: on main the run deploys, and a cancel there
+# kills a deploy mid-apply. Each deploy job also takes its own environment-keyed group below.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quality:
@@ -80,6 +100,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false  # nothing below pushes with git; keep the token out of .git/config
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -100,56 +122,68 @@ jobs:
       packages: write     # REQUIRED to push to ghcr.io with GITHUB_TOKEN — omit it and the push 403s
       id-token: write     # OIDC: keyless cosign signing + cloud auth, no long-lived keys
     outputs:
-      digest: ${{ steps.publish.outputs.digest }}
+      digest: ${{ steps.push.outputs.digest }}
+    # Every `uses:` in this job is pinned to a full commit SHA: it holds a write token and an OIDC
+    # identity, and a moved tag runs someone else's code with both (trivy-action's tags were
+    # force-moved in 2026-03). Resolve each SHA with `gh api repos/<o>/<r>/commits/<tag> --jq .sha`;
+    # Dependabot's `github-actions` ecosystem keeps the SHA and the comment current.
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
 
-      # 1. Build into the local daemon. No registry write yet, so a fork PR
-      #    cannot publish and the scan below has something to inspect.
-      - id: build
-        uses: docker/build-push-action@v7
+      # 1a. Pull request: build into the local daemon and scan it. No registry write, so a fork PR
+      #     cannot publish.
+      - if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
         with:
           load: true
           tags: ci-local/app:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 2. Gate. Non-zero exit here means nothing is published.
-      - uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ci-local/app:${{ github.sha }}
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: 1
-
-      # 3. Publish only on push, only after the gate. Rebuild is cache-hot.
+      # 1b. Push to main: build ONCE and push by digest only. No tag points at it and nothing
+      #     deploys it until the gate below passes; the deploy jobs receive this exact digest.
       - if: github.event_name == 'push'
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - id: publish
+      - id: push
         if: github.event_name == 'push'
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
         with:
-          push: true
-          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 2. Gate. It scans the artifact that ships: the local build on a PR, the pushed digest on
+      #    main. A non-zero exit fails the job, so no deploy job receives the digest.
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          image-ref: ${{ github.event_name == 'push' && format('ghcr.io/{0}@{1}', github.repository, steps.push.outputs.digest) || format('ci-local/app:{0}', github.sha) }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: 1
 
   deploy-staging:
     needs: build-scan-publish
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: staging
+    concurrency:              # one deploy per environment at a time; a newer push waits, never cancels
+      group: deploy-staging
+      cancel-in-progress: false
     steps:
       - name: Deploy
-        # Deploy the DIGEST, not the tag — a tag can be moved after the scan passed.
+        env:                  # the DIGEST the gate scanned, never a tag: a tag can move after the scan
+          IMAGE: ghcr.io/${{ github.repository }}@${{ needs.build-scan-publish.outputs.digest }}
         run: |
           # kubectl / fly / railway / etc.
-          echo "Deploying ghcr.io/${{ github.repository }}@${{ needs.build-scan-publish.outputs.digest }}"
+          echo "Deploying $IMAGE"
 
   smoke-test:
     needs: deploy-staging
@@ -159,14 +193,18 @@ jobs:
       - run: curl -f https://staging.example.com/health
 
   deploy-prod:
-    needs: smoke-test
+    needs: [build-scan-publish, smoke-test]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
-      name: production
-      # requires manual approval for prod
+      name: production      # requires manual approval for prod
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     steps:
-      - run: echo "Deploying to prod"
+      - env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ needs.build-scan-publish.outputs.digest }}
+        run: echo "Promoting $IMAGE to prod"   # the same digest staging ran, never a rebuild
 ```
 
 ## Principles
@@ -196,8 +234,15 @@ jobs:
   value as data. This is the most common Actions vulnerability class and it is invisible on review
   unless you are looking for the `${{ }}` inside the `run:`.
 - `pull_request_target` avoided with untrusted code.
-- Scan Docker images **before** push, not after (see the example) — a scan that runs after publish
-  gates the deploy, not the artifact.
+- **SHA-pin every `uses:` in a job that holds a write scope, `id-token: write`, an `environment:` or
+  a secret**, with the version as a trailing comment and Dependabot's `github-actions` ecosystem
+  bumping both. A moved tag runs someone else's code with that job's token (trivy-action's tags were
+  force-moved in 2026-03). Attacker-path review of a workflow is the security pack's
+  (`ci-security-scan`, else `iac-scan` § 5) when it is installed.
+- `persist-credentials: false` on every `actions/checkout` unless a later step pushes with git.
+- Scan Docker images **before** anything references them, not after (see the example) — a scan
+  that runs after a tagged publish gates the deploy, not the artifact. Then ship **that** digest:
+  a second build after the scan is a different artifact.
 - SBOM generation + signing (cosign, keyless via OIDC). Sign the digest, not the tag.
 
 ### Reliability
@@ -205,14 +250,19 @@ jobs:
 - If you MUST retry, retry targeted flake-prone suites, not everything.
 - `timeout-minutes:` on every job (prevents hung runs eating billable minutes). It is in the example
   above because "every job" includes the boring ones — a hung deploy job is the expensive case.
-- `concurrency:` group per ref with `cancel-in-progress` — otherwise force-pushes stack runs that
-  race each other to the same environment.
+- `concurrency:` with `cancel-in-progress` **only where the cancelled unit mutates nothing shared**:
+  PR CI and per-PR previews. A deploy, `terraform apply`, migration or publish job takes a job-level
+  group keyed on the environment (`deploy-staging`, `deploy-production`) with
+  `cancel-in-progress: false`; the default `queue: single` then keeps one running and one pending
+  run (`ci-platform-semantics.md` C1). A workflow-level cancel covers every job beneath it,
+  including the deploys.
 
 ### Deploys
-- Deploy via immutable artifact (Docker image / binary / lambda zip), not source.
+- Deploy via immutable artifact (Docker image / binary / lambda zip), not source. Staging and prod
+  receive the **same digest** the scan passed; promotion never rebuilds.
 - Environments (`staging`, `production`) configured in repo settings.
 - Prod requires approval.
-- Rollback = deploy previous SHA. One command.
+- Rollback = deploy the previous **digest**. One command; a tag may have moved or been pruned.
 
 ## GitOps alternative
 
@@ -229,7 +279,10 @@ in mind on every task — and because tool names are the least durable thing in 
 
 - **Workflow lint:** `actionlint` (syntax, shell, expression errors) and `zizmor` (Actions-specific
   security audit — injection, over-broad permissions, unpinned actions). `nektos/act` runs a job
-  locally before you push.
+  locally before you push; it is a smoke check, not proof of a gate (`precedents/devops.md` § 45–46).
+- **Pipeline structure:** `.claude/scripts/ci-graph.py` (deploy concurrency, deploy gating, pins ×
+  privilege, timeouts) and the `pipeline-integrity-scan` skill (a red build that still merges or
+  deploys, on every CI platform).
 - **Secrets:** `gitleaks` / `trufflehog` as a pre-commit hook *and* a CI job — the hook catches the
   author, the job catches everyone who bypassed the hook.
 - **Images:** `hadolint` lints the Dockerfile, `dive` measures layer waste, `trivy` / `grype` scan
@@ -252,4 +305,7 @@ in mind on every task — and because tool names are the least durable thing in 
 - `:latest` image tags pushed to prod.
 - Skipping security scans to speed up CI, or running them after publish and calling that a gate.
 - CI green but no deploy gate (prod deploy should require approval OR be tag-triggered).
+- A workflow-level `cancel-in-progress: true` over a workflow that holds a deploy or publish job.
+- Publishing or deploying a rebuild of the image the scan passed.
+- A tag-pinned third-party action in a job that holds a write token, an OIDC identity or a secret.
 - Flaky tests retried on every run (masks real issues).

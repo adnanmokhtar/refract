@@ -64,11 +64,20 @@ Workflow file:
 - **Action versions are resolved, not remembered** — `gh api repos/<owner>/<repo>/releases/latest
   --jq .tag_name` per action before emitting it. Never a branch ref (`@master` / `@main`). Add
   `github-actions` to `dependabot.yml` alongside the language ecosystem, or the pins rot.
+- **SHA-pin every `uses:` in a privileged job** (a write scope, `id-token`, an `environment:` or a
+  secret): `@<sha>  # v7.4.0`, resolved with `gh api repos/<o>/<r>/commits/<tag> --jq .sha`.
+- `persist-credentials: false` on every checkout unless a later step pushes with git.
 - Jobs: lint, typecheck, test, build — parallelized; `needs:` only where genuine dependency exists.
 - Cache step keyed on `<lockfile>-<runs-on>`.
 - Artifact upload on successful build.
-- Optional `docker-build` job gated on tag push.
-- `concurrency: ci-${{ github.ref }}` with `cancel-in-progress: true`, and `timeout-minutes:` on every job.
+- Optional `docker-build` job gated on tag push: build **once**, push by digest, scan **that** build
+  before any tag or deploy references it, and pass the digest on — never publish a rebuild of the
+  scanned image (`proof-oracles.md` V223).
+- **Concurrency split by what a cancel would kill:** workflow-level
+  `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` (PR runs only); every deploy or
+  publish job gets a job-level group keyed on its environment with `cancel-in-progress: false`
+  (`precedents/devops.md` § 15). Never `ci-${{ github.ref }}` + cancel over the docker job.
+- `timeout-minutes:` on every job.
 
 ## Phase 5 — Update
 
@@ -79,7 +88,12 @@ Workflow file:
 
 ## Phase 6 — Validate
 
-- **Dispatch `@ci-reviewer` on the workflow just generated**, before declaring done. A generator
+- **Run the detectors on the emitted file first:** `ci-graph.py <file> --check=pin-priv,deploy-concurrency,deploy-gate,timeout`
+  prints nothing (exit 2 = NOT-RUN, never "clean"); `pipeline-integrity-scan` §1–§8 on that file;
+  and `ci-security-scan` when the security pack is installed (until it ships, `iac-scan` § 5).
+  Without the security pack, `pipeline-integrity-scan`'s fallback lane runs and its rows are tagged
+  `security-class (owner pack not installed)`. A High or Critical row halts.
+- **Then dispatch `@ci-reviewer` on the workflow just generated**, before declaring done. A generator
   never read by its own reviewer drifts. Treat a Critical/BLOCKER finding as a halt — fix Phase 4's
   output and re-emit. If the agent is not installed, say so rather than reporting an unreviewed
   workflow as reviewed.
@@ -101,7 +115,10 @@ Perms:   workflow contents: read; docker job adds packages: write + id-token: wr
 Runner:  ubuntu-latest (unpinned — recorded in ai/runbooks/ci.md as a deliberate choice)
 Cache:   actions/cache@v6 (resolved via `gh api .../releases/latest`) keyed on bun.lockb
 
-ci-reviewer: PASS (0 blockers; 1 medium — SHA-pin the docker job's actions)
+Pins:    docker job SHA-pinned; lint/test jobs on major tags
+
+ci-graph.py: 0 rows · pipeline-integrity-scan: 0 findings · ci-security-scan: 0 findings
+ci-reviewer: PASS (0 blockers)
 
 Branch protection — set required checks to:
   ci / lint
@@ -123,4 +140,7 @@ Branch protection — set required checks to:
   that no longer receives security patches.
 - Cache key omits OS — cross-platform cache poisoning.
 - No `concurrency` block — stale runs pile up on force-pushes.
+- A workflow-level `cancel-in-progress: true` over a deploy or publish job — a newer push kills the
+  running deploy mid-apply.
+- Scanning one build and publishing another — what ships is not what the gate passed.
 - No `timeout-minutes:` — a hung job bills until the platform's default cap.

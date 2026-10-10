@@ -70,14 +70,19 @@ Workflow file:
 - **Action versions are resolved, not remembered** — `gh api repos/<owner>/<repo>/releases/latest
   --jq .tag_name` per action before emitting it. Never a branch ref (`@master` / `@main`). Emit
   `github-actions` in `dependabot.yml` alongside the language ecosystem, or the pins rot.
+- **SHA-pin every `uses:` in a privileged job** — one that holds a write scope, `id-token: write`,
+  an `environment:` or a secret. Resolve the SHA (`gh api repos/<o>/<r>/commits/<tag> --jq .sha`)
+  and keep the version as a trailing comment (`@<sha>  # v7.4.0`); Dependabot bumps both. A moved
+  tag runs someone else's code with that job's token. Unprivileged jobs may keep major tags.
+- **`persist-credentials: false` on every `actions/checkout`** unless a later step pushes with git.
 - Jobs: lint, typecheck, test, build — parallelized; `needs:` only where genuine dependency exists.
 - **`security` job** (#48 — on by default; opt out with `--no-security`): dependency vulnerability scan + secret scan, wiring the existing pack skills — `security/skills/deps-audit/SKILL.md` (CVEs / abandoned deps / license issues) + `security/skills/secret-scan/SKILL.md` (leaked secrets in tree + history). Runs in parallel with lint/test; advisories the project hasn't triaged are configurable (warn vs fail). A lint-typecheck-test-build CI with no deps/secret gate is the common gap this closes — keep it in sync with the cited `cicd-pipeline.md` pattern.
 - **Coverage threshold** on the `test` job — emit coverage and fail under the project's threshold (`ai/conventions.md § Coverage`, default advisory). Coverage tool from `ai/stack.md § Scripts`.
 - Cache step keyed on `<lockfile>-<runs-on>`.
 - Artifact upload on successful build.
 - Optional `docker-build` job gated on tag push. When present, add a **`hadolint` / image-lint step** before the build (mirrors the `dockerfile-lint` skill: non-root, multi-stage, pinned base, HEALTHCHECK) so a bad Dockerfile fails CI rather than shipping. GitHub Actions: `hadolint/hadolint-action`; GitLab/Bitbucket/Circle: run `hadolint Dockerfile` in the job script (the image is published on Docker Hub).
-- **`release-security` step (after the image builds + pushes)** — the build-artifact integrity gate the `release-security` skill executes: image CVE scan (`trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`), SBOM (`syft` → CycloneDX), digest signing (`cosign sign`, **keyless via the job's OIDC** — not a stored key), and SLSA provenance (`actions/attest-build-provenance` / `cosign attest`). This is what the security pack's `@security-auditor` A03 Supply-Chain check dispatches to — without it, "images scanned / SBOM generated / artifacts signed" is asserted but never produced. Fail the release on an unfixed CRITICAL or a missing signature.
-- `concurrency: ci-${{ github.ref }}` with `cancel-in-progress: true`.
+- **`release-security` step (before anything references the image)** — build the image **once**; on a PR load it locally, on the default branch push it **by digest only** (`outputs: type=image,push-by-digest=true,…` — no tag points at it yet), scan that build, and hand `steps.<id>.outputs.digest` to every later job. Tag, sign and deploy **that digest** after the gate; never publish a second build of the scanned image (a rebuild is a different artifact, and `load: true` drops attestations — `proof-oracles.md` V223). The gate is the build-artifact integrity check the `release-security` skill executes: image CVE scan (`trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1`), SBOM (`syft` → CycloneDX), digest signing (`cosign sign`, **keyless via the job's OIDC** — not a stored key), and SLSA provenance (`actions/attest-build-provenance` / `cosign attest`). This is what the security pack's `@security-auditor` A03 Supply-Chain check dispatches to — without it, "images scanned / SBOM generated / artifacts signed" is asserted but never produced. Fail the release on an unfixed CRITICAL or a missing signature.
+- **Concurrency, split by what a cancel would kill.** Workflow level: `group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}` with `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` — superseded PR runs cancel, default-branch runs do not. Every deploy, publish, `terraform apply` or migration job: a job-level `concurrency: { group: deploy-<environment>, cancel-in-progress: false }` keyed on the environment it mutates, so a newer push queues behind it instead of killing it mid-apply (`precedents/devops.md` § 15; `ci-platform-semantics.md` C1). Never `ci-${{ github.ref }}` + `cancel-in-progress: true` over a workflow that holds the docker publish job. GitLab: `resource_group: <environment>` on the deploy job and `interruptible: true` only on the jobs before it.
 
 ## Phase 5 — Update
 
@@ -88,7 +93,23 @@ Workflow file:
 
 ## Phase 6 — Validate
 
-- **Dispatch `@ci-reviewer` on the workflow this command just generated**, before the run is
+- **Run the detectors on the emitted file before anything else.** Every row is a defect this
+  Phase 4 emitted; fix Phase 4's output and re-emit — never ship and file it.
+  1. **Graph** (GitHub Actions): `python3 .claude/scripts/ci-graph.py <emitted file> --check=pin-priv,deploy-concurrency,deploy-gate,timeout`
+     (fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`) prints nothing.
+     Exit 2 is `NOT-RUN (no YAML loader)`, printed as such — never "clean".
+  2. **`pipeline-integrity-scan`** (this pack), §1–§8 on the emitted file only: masked non-domain
+     gates, pipes that lose a gate's exit, required checks a skip satisfies, deploy or publish not
+     gated on tests, unvalidated refs, timeouts, matrix, schedules. On GitLab, CircleCI, Bitbucket,
+     Azure and Jenkins it runs its grep lanes, because the graph does not model them.
+  3. **Security review of the emitted file** — `ci-security-scan` when the security pack is
+     installed (until that skill ships, `iac-scan` § 5, *CI workflows*). It owns every attacker-path
+     class: injection, privileged triggers, pins × privilege, cache poisoning, OIDC width, secrets.
+     **Without the security pack,** `pipeline-integrity-scan`'s fallback lane runs those greps and
+     tags its rows `security-class (owner pack not installed)`, and the output prints
+     `security: owner pack not installed — fallback lane ran` instead of a security PASS.
+  A High or Critical row from any of the three halts here.
+- **Then dispatch `@ci-reviewer` on the workflow this command just generated**, before the run is
   declared done. A generator that is never read by its own reviewer drifts: the reviewer's findings
   (mutable action pins, missing `permissions:`, expression injection in a `run:`, a scan that runs
   after publish) are exactly the defects this Phase 4 can emit. Treat a Critical/BLOCKER finding as
@@ -119,7 +140,13 @@ Perms:   workflow contents: read; docker job adds packages: write + id-token: wr
 Runner:  ubuntu-latest (unpinned — recorded in ai/runbooks/ci.md as a deliberate choice)
 Cache:   actions/cache@v6 (resolved via `gh api .../releases/latest`) keyed on bun.lockb
 
-ci-reviewer: PASS (0 blockers; 1 medium — SHA-pin the docker job's actions)
+Pins:    docker job SHA-pinned (resolved via `gh api …/commits/<tag>`); lint/test jobs on major tags
+Concurrency: PR runs cancel · docker publish job group publish-ghcr, cancel-in-progress: false
+
+ci-graph.py: 0 rows (pin-priv, deploy-concurrency, deploy-gate, timeout)
+pipeline-integrity-scan: 0 findings (§1–§8 on .github/workflows/ci.yml)
+ci-security-scan: 0 findings (security pack)       # or: security: owner pack not installed — fallback lane ran
+ci-reviewer: PASS (0 blockers)
 
 Branch protection — set required checks to:
   ci / lint
@@ -141,6 +168,10 @@ Branch protection — set required checks to:
   that no longer receives security patches. Resolve the supported set from the runtime's release schedule.
 - Cache key omits OS — cross-platform cache poisoning.
 - No `concurrency` block — stale runs pile up on force-pushes.
+- **A workflow-level `cancel-in-progress: true` over a deploy or publish job** — a newer push kills
+  the running deploy mid-apply. Cancel PR runs only; key each deploy job's group on its environment.
+- **Scanning one build and publishing another** — what ships is not what the gate passed. Push the
+  scanned build by digest and deploy that digest.
 - No `timeout-minutes:` — a hung job bills until the platform's default cap.
 
 ## Related
@@ -153,6 +184,8 @@ Branch protection — set required checks to:
   that agent reads it hostilely. A blocker from it halts Phase 7.
 
 ### Skills
+- `pipeline-integrity-scan` — run in Phase 6 on the emitted file; its §1–§8 rows are the delivery defects a generated pipeline most often carries. Its verdicts cite [`precedents/devops.md`](../../../snippets/precedents/devops.md) and [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md).
+- `ci-security-scan` / `iac-scan` § 5 (security pack, when installed) — the attacker-path review of the same file.
 - `gitops-audit` — the CI pipeline this command builds ends at *publish* (build → test → scan → push image). If the cluster is Argo CD / Flux managed, `gitops-audit` audits what happens **after** publish — the git→cluster reconciliation loop (drift, out-of-band `kubectl apply`, plaintext secrets in git, prune safety). Wire the pipeline here; audit the reconciliation there.
 
 ### Patterns

@@ -97,4 +97,10 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { k8s_or_gitops_detected: true }
   fallback: _examples/gitops-audit.md
+
+- name: pipeline-integrity-scan
+  kind: skill
+  triggers: { ci_config_detected: true }   # any of the six platforms: GitHub Actions, GitLab CI, CircleCI, Bitbucket, Azure Pipelines, Jenkins
+  extracts_from: _extracted-codebase.md (CI config files)
+  fallback: skills/pipeline-integrity-scan/SKILL.md   # source-as-fallback; no CI file → every § prints N/A (no CI file)
 ```
