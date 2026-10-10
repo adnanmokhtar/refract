@@ -54,11 +54,17 @@ Shell probe for S1–S7 (`proof-oracles.md` V210): `bash -e -c 'false | tee /dev
 | C4 | GitHub Actions | `jobs.<id>.timeout-minutes` defaults to **360**; a step timeout has no default (max 360). `THR-CI-JOB-TIMEOUT` | [V] 2026-10-10 · *Workflow syntax* |
 | C5 | GitHub Actions | Scheduled workflows are disabled after **60 days** with no repository activity (public repos) and are disabled by default on public forks | [V] 2026-10-10 · GitHub Docs, *Disabling and enabling workflows* |
 | C6 | GitHub Actions | A cache restores from its own branch, the default branch and the PR base branch; PR caches are scoped to `refs/pull/N/merge`; tags are isolated; keys are immutable; 7-day idle eviction; 10 GB default (raisable, billed above); entries are unsigned, and anyone with read access can open a PR and read cache contents | [V] 2026-10-10 · GitHub Docs, *Dependency caching reference* |
+| C7 | GitHub Actions | `actions/cache` sets `cache-hit` to `'true'` only on an exact key match; a `restore-keys` prefix hit is not `'true'`, so an install guarded by anything but `cache-hit != 'true'` is skipped on a partial restore (the README disagrees with itself on the non-exact value: compare to `'true'` only) | [V] 2026-10-10 · actions/cache README |
+| C8 | GitHub Actions | `actions/setup-node` with `cache:` builds its own key from the OS, the arch, the package manager and the lockfile hash; `actions/setup-python` adds the Python version. Their caches hold the download cache, not `node_modules` / the venv | [V] 2026-10-10 · the actions' `src/` cache modules |
+| C9 | GitLab CI | Protected and unprotected pipelines get separate caches by default (`-protected` / `-non_protected` key suffix; a project setting turns the split off, `cache:unprotect: true` shares one job's cache); `cache:fallback_keys` (up to 5) are tried in order, then `CACHE_FALLBACK_KEY`; caching is best-effort, never a guarantee | [V] 2026-10-10 · GitLab Docs, *Caching in GitLab CI/CD* |
+| C10 | CircleCI | A cache key is immutable and the **first write wins**: a later `save_cache` to the same key is discarded silently; each `restore_cache` key is a prefix and the most recent match wins; `{{ epoch }}` is a new key every run; caches are retained 15 days | [V] 2026-10-10 · CircleCI Docs, *Caching dependencies* |
+| C11 | BuildKit (any CI) | `cache-to` `mode=min` (the default) exports the final stage's layers only, so builder stages re-run; `mode=max` exports every stage; `inline` supports `min` only; `type=gha` `scope` defaults to `buildkit`, so every build sharing it overwrites the others; `type=gha` needs Buildx ≥ 0.21.0 and BuildKit ≥ 0.20.0 since the 2025-04-15 cache service change | [V] 2026-10-10 · Docker Docs, *Cache storage backends*, *GitHub Actions cache*; min vs max measured on buildx 0.37.1 |
 
 ## Dated changes that flip verdicts (gate 3)
 
 | Date | Platform | Change | Tag · source |
 |---|---|---|---|
+| 2025-04-15 | GitHub | Cache service API change: buildx `type=gha` needs Buildx ≥ 0.21.0 / BuildKit ≥ 0.20.0 (C11) | [V] · Docker Docs, *GitHub Actions cache* (fetched 2026-10-10) |
 | 2025-10-28 | GitHub | Immutable releases GA (`.immutable` on a release) | [V] · GitHub changelog |
 | 2025-12-08 | GitHub | `pull_request_target` always runs the default-branch workflow | [V] · GitHub changelog (2025-11-07) |
 | 2026-06-18 | GitHub | `actions/checkout` v7.0.0 refuses a fork-PR checkout under `pull_request_target` / `workflow_run` unless `allow-unsafe-pr-checkout: true` | [V] · actions/checkout releases |
@@ -67,4 +73,7 @@ Shell probe for S1–S7 (`proof-oracles.md` V210): `bash -e -c 'false | tee /dev
 | — | Helm | Helm 4 renames `--atomic` to `--rollback-on-failure` and changes `--wait` | [K?] · re-read `helm upgrade --help` on the installed major |
 
 Sources: the devops research notes C § 1 and § 8 (sources #1–#11) and A § 9, fetched 2026-10-10.
-Paraphrased; no text reproduced.
+C7–C11: the actions/cache README, the `setup-node` and `setup-python` cache modules, GitLab *Caching
+in GitLab CI/CD*, CircleCI *Caching dependencies* and Docker Docs *Cache storage backends* /
+*GitHub Actions cache*, fetched 2026-10-10 by `pipeline-cache-scan`, with the buildx `mode=min` vs
+`mode=max` reuse measured on a scratch builder the same day. Paraphrased; no text reproduced.

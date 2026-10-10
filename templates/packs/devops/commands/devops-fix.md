@@ -101,7 +101,7 @@ ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`
 
 DevOps-specific:
 - The report being closed: its context map (platforms and versions, the job graph, environments, the artifact hand-off, the owners installed), the finding rows and their evidence.
-- [`refute-before-report.md`](../../../snippets/refute-before-report.md), [`precedents/devops.md`](../../../snippets/precedents/devops.md), [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md), [`proof-oracles.md`](../../../snippets/proof-oracles.md) § DevOps (the oracle shapes, the per-platform seeded failure, and the *Class variants (DevOps)* V209–V243), and the owning skill's `## Proof`.
+- [`refute-before-report.md`](../../../snippets/refute-before-report.md), [`precedents/devops.md`](../../../snippets/precedents/devops.md), [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md), [`proof-oracles.md`](../../../snippets/proof-oracles.md) § DevOps (the oracle shapes, the per-platform seeded failure, and the *Class variants (DevOps)* V209–V243 and V290), and the owning skill's `## Proof`.
 - The site end to end, the shared unit it runs through, and **one sibling that does it right** (the shape to match). `.claude/rules/devops-principles.md`; `ai/patterns/cicd-pipeline.md` and `ai/patterns/deployment.md`.
 - The tool lanes: `G=.claude/scripts/ci-graph.py`, `TI=.claude/scripts/test-integrity.py`, `OC=.claude/scripts/oracle-check.py`, each falling back to `$HOME/.claude/templates/repo-baseline/.claude/scripts/<name>`; actionlint, hadolint, `docker build --check`, `docker compose config` as each detector's § Tool lane pins them.
 
@@ -139,7 +139,7 @@ Re-run the detector recorded in Phase 2 on the patched `<file:line>` and its sur
 python3 "$G" . --diff-guard="$FIX_BASE" --allow-job=<.github/workflows/file.yml>:<job>     # exit 0 clean · 1 a guarded key changed elsewhere · 2 NOT-RUN
 ```
 - It compares every workflow at `FIX_BASE` with the working tree and prints a row for each change to workflow `on:`, `concurrency:`, `permissions:`, to job `if:`, `needs:`, `concurrency:`, `permissions:`, `environment:`, `runs-on:`, `secrets:`, to a step `if:`, and for each job added or removed. Rows inside the allowed job print `GUARD-ALLOWED`; any `GUARD-CHANGED`, `GUARD-JOB-ADDED` or `GUARD-JOB-REMOVED` rejects the fix. Exit 2 is `diff guard: blocked`, never clean.
-- **A finding whose line is a workflow-level key** (a workflow-level `concurrency:` that covers a deploy job) needs `--allow-workflow=<file>`, and that flag allows **every** guarded key in the file — measured 2026-10-10: a step that also added `if:` to an unrelated test job passed under it. So run the job-scoped guard first: its only `GUARD-CHANGED` rows must be `scope=workflow` with the key the finding names; then run with `--allow-workflow` and require exit 0. Any other row rejects the fix.
+- **A finding whose line is a workflow-level key** (a workflow-level `concurrency:` that covers a deploy job) adds `--allow-workflow=<file>:<key>` with the one key the finding names (`on`, `concurrency` or `permissions`), and requires exit 0. The flag is key-scoped: it lets that workflow-level key through and nothing in any job. Until 2026-10-10 it took a bare file and allowed **every** guarded key in it (measured: a step that also added `if:` to an unrelated test job passed); a bare file is now refused with exit 2, as is a space-separated `--allow-job` / `--allow-workflow` or `--diff-guard "$FIX_BASE"` (a space means two files follow).
 - GitLab, CircleCI, Azure, Bitbucket and Jenkins are not modelled: read the hunks on `rules:`, `only:`/`except:`, `when:`, `needs:`, `dependencies:`, `resource_group:`, `interruptible:`, `environment:`, `requires:`, `dependsOn:`, `condition:` in `git diff -U0 "$FIX_BASE"` by hand, and the closure row says `diff guard: read (platform not modelled)`.
 
 ### 6. Self-check the fix's own diff
@@ -215,7 +215,7 @@ Every run ends with `## What to do next`: the remaining work as ONE ordered, num
 
 ## Failure modes
 - **Green by weakening.** A job deleted, a mask added, a path filter on the required workflow: the detector goes quiet and red builds merge. Steps 5–6 refuse them.
-- **A key rewritten next door.** An `if:`, `on:` or `concurrency:` changed in a job the finding never named; the diff guard rejects it, and `--allow-workflow` alone would have let it through.
+- **A key rewritten next door.** An `if:`, `on:` or `concurrency:` changed in a job the finding never named; the diff guard rejects it (before 2026-10-10 a bare `--allow-workflow=<file>` let it through; the flag is now `<file>:<key>`).
 - **One green run as proof.** A single green CI run, or `act`, proves nothing about a PC-* class (precedents § 45, § 46); the seeded failure does.
 - **The rebuild that ships.** Scanning one build and pushing another; the fix is one build pushed by digest.
 - **A raised grace instead of a handler.** `stop_grace_period` up, SIGTERM still unhandled.

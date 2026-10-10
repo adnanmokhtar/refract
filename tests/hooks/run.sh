@@ -1060,8 +1060,10 @@ run_phase5
 # ---- ci-graph.py: the GitHub Actions job graph the devops, security and testing detectors join on --
 # Its self-test carries the cases its rows are trusted on: the devops pattern example (6 PIN×PRIV +
 # 2 DEPLOY-CANCEL), the research fixture (job-level DEPLOY-CANCEL, 4 NO-TIMEOUT), the YAML 1.1 `on:`
-# → true remap, flow-map permissions, `uses:` caller jobs, the required-check join, --diff-guard, and
-# a parse error / an empty tree as NOT-RUN (exit 2), never clean. It needs a YAML loader (PyYAML,
+# → true remap, flow-map permissions, `uses:` caller jobs, the required-check join, --diff-guard with a
+# key-scoped --allow-workflow=FILE:KEY (a bare file or a space-separated flag is refused), publishes via
+# build-push-action `outputs: …push=true`, deploys via an action with no environment: (deploy-via and env
+# on JOB rows), and a parse error / an empty tree as NOT-RUN (exit 2), never clean. It needs a YAML loader (PyYAML,
 # ruby or uv); without one it exits 2 and this case fails rather than passing in silence.
 run_ci_graph() {
   local G="$REPO_ROOT/templates/repo-baseline/.claude/scripts/ci-graph.py" rc=0 out

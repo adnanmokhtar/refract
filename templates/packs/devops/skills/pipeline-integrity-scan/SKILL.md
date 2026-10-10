@@ -288,7 +288,7 @@ The oracles, their tiers and the per-platform seeded-failure reads are in [`proo
 | 5, 8 | Settings read: environment branch policy; workflow `state` and last run | A | V215, V216 |
 | 6, 7 | Graph assertion: `ci-graph.py --check=timeout,matrix` exits 0 after the fix, 1 before | T | V213, V214 |
 
-`act` is a smoke check, never the proof (precedents § 45, § 46). A row whose oracle needs A with no token prints `UNREADABLE(gh api …: 403)` and stays Unconfirmed. A fix is checked with `ci-graph.py --diff-guard "$FIX_BASE" --allow-job <file>:<job>`: a fix that touches `on:`, `if:`, `needs:`, `concurrency:`, `permissions:`, `environment:`, `runs-on:` or `secrets:` outside the finding's job is rejected.
+`act` is a smoke check, never the proof (precedents § 45, § 46). A row whose oracle needs A with no token prints `UNREADABLE(gh api …: 403)` and stays Unconfirmed. A fix is checked with `ci-graph.py --diff-guard="$FIX_BASE" --allow-job=<file>:<job>` (the `=` forms: with a space, `--diff-guard` expects two files and exits 2; a workflow-level finding adds `--allow-workflow=<file>:<key>`): a fix that touches `on:`, `if:`, `needs:`, `concurrency:`, `permissions:`, `environment:`, `runs-on:` or `secrets:` outside the finding's job is rejected.
 
 ## Output
 

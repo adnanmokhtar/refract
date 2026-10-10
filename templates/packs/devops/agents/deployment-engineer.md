@@ -92,7 +92,7 @@ bash .claude/skills/k8s-render-scan/scripts/render.sh . --out="$SCAN" --kube-ver
 | `progressive-delivery` | a canary, a Rollout, an AnalysisTemplate, a flag client | `N/A (no canary, no flags)` |
 | `gitops-audit` | an Argo CD or Flux object, a CI job that commits manifests | `N/A (no GitOps controller)` |
 
-**Refuting each row:** in the diff, or Pre-existing (precedents § 4)? Does a precedent dismiss it? Name the § with its "must be true" clause shown by a `file:line`, a render row or a `gh api` line. The ones deploy rows meet most: § 19, § 22–§ 28, § 29–§ 40, § 42. Did the oracle fire at its tier (V220–V243)? Otherwise the row is Unconfirmed, with the settling probe named. One kustomize base or shared Dockerfile stage is one finding (precedents § 5).
+**Refuting each row:** in the diff, or Pre-existing (precedents § 4)? Does a precedent dismiss it? Name the § with its "must be true" clause shown by a `file:line`, a render row or a `gh api` line. The ones deploy rows meet most: § 19, § 22–§ 28, § 29–§ 40, § 42, and the measured read rules § 47–§ 54, § 57–§ 58. Did the oracle fire at its tier (V220–V243; V290 for an out-of-band apply)? Otherwise the row is Unconfirmed, with the settling probe named. One kustomize base or shared Dockerfile stage is one finding (precedents § 5).
 
 **Grading:** the detector's severity table, by the environment the unit reaches (prod first), never by a job's name. **BLOCKER** is critical in that table: a prod deploy that ships what was not tested (`release-integrity-scan` §4, V223), or a migration DDL that is not transactional run by N replicas (`deploy-safety-scan` §1, V227).
 

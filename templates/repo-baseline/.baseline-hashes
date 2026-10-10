@@ -173,6 +173,7 @@
 .claude/scripts/baseline-capture.sh  922decd9349cd0f68296db2324bedff3fe0076e8ceed774231d809d7749e0f27
 .claude/scripts/behavior-diff.py  2c004150fa005f0befc7753670da4bd7437deaf9a7a13a91432c3d0915726264
 .claude/scripts/ci-graph.py  abb71be91e7fabf7d03c6d33c1a35ed8faf9882009ec6fa197e92a76d30996c5
+.claude/scripts/ci-graph.py  fbb2f430495454a0794dc7568c5368b0328799353d86cebdfcfd19a623770e97
 .claude/scripts/ears-lint.py  968fa1f402caa8b8eabb8bba9e0ee77dd7ba6df7ccdd94bc4680d19236122280
 .claude/scripts/gate-check.py  2f2ce62fa4f92058ba4f3a26c4f4b5759a0b3556d12c9fdccc3e2891af11eda6
 .claude/scripts/gate-check.py  88323e0ab25eae7d17bc36e81725897e4e347f3e99666e761ea3735d31bf85e5
@@ -244,6 +245,7 @@
 .claude/templates/snippets/acceptance-contract.md  f89ab63f415a556502cc8daca924774afc28cdfe1991c688ad8c7ff9065dbee7
 .claude/templates/snippets/actionable-next-steps.md  a0167c0232d41e8d641f6aa61cb3e2f80d9179d752bdfab951e18e789897e73e
 .claude/templates/snippets/ci-platform-semantics.md  458bd4eeb462f3618587b9d077f9552e8afeeaf6ca2727cef0f875b3120dd392
+.claude/templates/snippets/ci-platform-semantics.md  9ac68c13a0edf3fdc323803b4cfc50db10e721f6f27aa4db4620b489f060fe7d
 .claude/templates/snippets/closure-verbs.md  2baf51a794db5001f8f3243b81b1bd394cd8b6171319bc4c21bb7ef74f43066e
 .claude/templates/snippets/contract-block.md  f1fb9a6e908d5b2083c0d6bbc04f7c7cc470286eba96a2fd8db1a5f3054e3224
 .claude/templates/snippets/coverage-ledger.md  b62d2987efc66be94cff5e87782875bbec829817ffd8c453fede5b4116885238
@@ -269,6 +271,7 @@
 .claude/templates/snippets/precedents/code-quality.md  1a1e076fa62553c835c2ced7b716fe73ae5b7f7b68c950e61d3b39657e2568c4
 .claude/templates/snippets/precedents/code-quality.md  7b71e94b663f88a5ebf7c432dc1d82485b7c246d95d011ecbc1aba33165f5861
 .claude/templates/snippets/precedents/data.md  26f86347fe1e0202ee03317f887d860333b4d82e095c5044e2196e8044a048b1
+.claude/templates/snippets/precedents/devops.md  e880909460b917a0d7b30ae11854725abf21a14b73b964514f105ec8d04d2e4b
 .claude/templates/snippets/precedents/devops.md  f6d2542b0891426f159ce2bc9048bbc735f688b7dffd99311dbcec6c2bda0b7c
 .claude/templates/snippets/precedents/infrastructure.md  2c78d84407f33e1ed95828f57cd9bf8889a7e6be09056ff616aafd09a7fefd2d
 .claude/templates/snippets/precedents/infrastructure.md  fbe3d9914a5af06f302758b8700ad9dcdf0282879a91ca73d1b449853efb674a
@@ -286,6 +289,7 @@
 .claude/templates/snippets/proof-oracles.md  534b2ee2ba20809ae77af676e26ddba7f60d57b049db5c9a6beb803c16423197
 .claude/templates/snippets/proof-oracles.md  53fbe0952060846c74cda877eb62132e5e4842c5909eb41bd0c1bf87d7b19736
 .claude/templates/snippets/proof-oracles.md  6ed932b04ce4c2ef1c1e874eb713b4591abe56a372eea79d78ed8b3fc63961c8
+.claude/templates/snippets/proof-oracles.md  765edce919a7997e3858fea53887168c03438925ece5f97fda97184fef7d3230
 .claude/templates/snippets/proof-oracles.md  9864288fd3a0de92d0d550fcf2ba128449358063bb6be7c1e7d5377d991cba8f
 .claude/templates/snippets/proof-oracles.md  9b9504c13380e3f19d0e1a0ec0fc3da1a57d8f2c51711f88aa7347b89db01aac
 .claude/templates/snippets/proof-oracles.md  aec9024e204318855d5833ae01692b2c358774ab0c1a8710d62a3659a99fb04b

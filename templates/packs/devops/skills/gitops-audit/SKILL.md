@@ -20,7 +20,7 @@ None of this is visible in the manifests the controller syncs; it lives in scrip
 
 This skill owns `ownership.json` row `gitops-reconciliation` (§1–§3). `@deployment-engineer` (this pack) judges its rows. It does **not** own the controller's spec (prune, sync waves, `selfHeal` × an autoscaler, `ignoreDifferences`): that is infrastructure `k8s-render-scan` §4. It does not own committed Secrets: that is security.
 
-**Every finding cites the line `<file:line>` + the CD target that owns the namespace (Application or Flux Kustomization, with its file:line) + the object the verb touches + the sync policy that decides the effect + the oracle and its tier + the fix.** A pre-flight row is a candidate. "Git is the source of truth" is never printed; the output is the class-coverage block (§ Output). Verification follows [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/devops.md`](../../../../snippets/precedents/devops.md) (deploy § 22–28; § 23 is this skill's: a GitOps CI that only commits manifests is gated by the controller). The oracles are tier S (a two-ended static trace: the verb and the CD target that owns its namespace) and tier L (the controller's own diff); [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Infrastructure V266 routes live reconciliation drift here, and § DevOps has no V for it yet.
+**Every finding cites the line `<file:line>` + the CD target that owns the namespace (Application or Flux Kustomization, with its file:line) + the object the verb touches + the sync policy that decides the effect + the oracle and its tier + the fix.** A pre-flight row is a candidate. "Git is the source of truth" is never printed; the output is the class-coverage block (§ Output). Verification follows [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/devops.md`](../../../../snippets/precedents/devops.md) (deploy § 22–28; § 23 is this skill's: a GitOps CI that only commits manifests is gated by the controller). The oracles are tier S (a two-ended static trace: the verb and the CD target that owns its namespace) and tier L (the controller's own diff); [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Infrastructure V266 routes live reconciliation drift here, and § DevOps V290 is §1's oracle (out-of-band apply).
 
 ## The rule
 
@@ -169,7 +169,7 @@ GOOD:  commit the change (an image bump, a replica patch) and let the controller
 
 | § | Oracle | Tier | V |
 |---|---|---|---|
-| 1 | Static trace (verb line + CD target line); controller diff on a scratch cluster after the verb | S + L | — (integrator request) |
+| 1 | Static trace (verb line + CD target line); controller diff on a scratch cluster after the verb | S + L | V290 |
 | 2 | The controller's own diff on the named context | L | — |
 | 3 | Application sync policy + alert search; sync status on the named context | S + L | — |
 

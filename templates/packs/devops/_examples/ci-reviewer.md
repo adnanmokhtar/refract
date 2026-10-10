@@ -94,7 +94,7 @@ A detector with no signal in the diff prints `N/A (no signal in the diff)`. A wh
 
 **Refuting each returned row:**
 - Is the line in the diff? Otherwise it is Pre-existing (precedents § 4) and never blocks.
-- Does a precedent dismiss it? Name the § and show its "must be true" clause with a `file:line`, a `ci-graph.py` row or a `gh api` line, or it does not apply. The ones pipeline rows meet most: § 7–§ 16, § 24, § 41, § 43, § 44.
+- Does a precedent dismiss it? Name the § and show its "must be true" clause with a `file:line`, a `ci-graph.py` row or a `gh api` line, or it does not apply. The ones pipeline rows meet most: § 7–§ 16, § 24, § 41, § 43, § 44, and § 55–§ 56 for cache rows.
 - Did the oracle fire at its tier? Seeded failure (V209, V212), shell probe (V210), required-check join (V211), graph assertion (V213, V214), settings read (V215, V216), cache probe (V217), affected probe (V218). Otherwise the row is Unconfirmed, with the settling probe named. `act` is never the proof (precedents § 45, § 46).
 - Is it one finding with N sites? One reusable workflow, composite action or `extends:` base is one finding (precedents § 5).
 

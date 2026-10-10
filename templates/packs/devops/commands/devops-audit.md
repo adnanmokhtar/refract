@@ -19,7 +19,7 @@ allowed-tools: [Read, Write, Grep, Glob, Bash, Task, Skill]
 
 **Oracle tiers** ([`precedents/devops.md`](../../../snippets/precedents/devops.md) § The claim, restated): **T** `ci-graph.py` or a tool's exit code · **R** a sandbox run · **B** a built image or a registry read · **A** a settings API read · **S** a static trace. A Finding needs its oracle to fire, or a two-ended static trace for a static-fact class — `cancel-in-progress` covering an `environment:` job, `if: always()` on a deploy or publish job, migrate-on-boot × a rendered floor ≥ 2 × a lockless runner — marked `[report-flagged]` until the oracle runs.
 
-**Date-gate and version-gate every verdict.** Platform semantics come from [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md) by row id (S1–S7, C1–C6) and its dated changes: `actions/checkout` v7 and its backports, immutable releases, workflow execution protections, the Helm 4 flag renames (precedents § 42). Every action pin, Helm major, BuildKit frontend (`# syntax=`), runner image and tool version is read from a file or a command in this run and printed with its source (gate 3).
+**Date-gate and version-gate every verdict.** Platform semantics come from [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md) by row id (S1–S7, R1–R11, C1–C11) and its dated changes: `actions/checkout` v7 and its backports, immutable releases, workflow execution protections, the Helm 4 flag renames (precedents § 42). Every action pin, Helm major, BuildKit frontend (`# syntax=`), runner image and tool version is read from a file or a command in this run and printed with its source (gate 3).
 
 **The agent's job, in order:** map the context → dispatch the detectors → collect their rows and tool exits → hand the rows to the two judges → refute every kept BLOCKER and HIGH → print the class ledger → judge the verdict against the production bar → apply the posting bar → write the report → end with `/devops-fix`.
 
@@ -97,7 +97,7 @@ ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`
 
 DevOps-specific:
 - `.claude/rules/devops-principles.md`; `ai/patterns/cicd-pipeline.md` and `ai/patterns/deployment.md` when present; `ai/runtime/deploys.md` (the deploy ledger) and `ai/runbooks/` for how prod is actually shipped and rolled back.
-- [`refute-before-report.md`](../../../snippets/refute-before-report.md), [`precedents/devops.md`](../../../snippets/precedents/devops.md), [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md) and [`proof-oracles.md`](../../../snippets/proof-oracles.md) § DevOps: the oracle taxonomy and its variants V209–V243.
+- [`refute-before-report.md`](../../../snippets/refute-before-report.md), [`precedents/devops.md`](../../../snippets/precedents/devops.md), [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md) and [`proof-oracles.md`](../../../snippets/proof-oracles.md) § DevOps: the oracle taxonomy and its variants V209–V243 and V290 (`gitops-audit` §1).
 - Earlier `ai/audits/<date>-devops*.md`. A class that repeats is systemic (Phase 7).
 
 ### Context before hunting (whole-repo runs)

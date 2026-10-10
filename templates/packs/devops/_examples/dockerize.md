@@ -114,14 +114,23 @@ fi
 - Exercise the image's `HEALTHCHECK` **inside the running container**: `docker exec app-smoke <healthcheck-cmd>`. Never `docker run <image> <healthcheck-cmd>` — arguments to `docker run` override `CMD`, so the server never starts and the probe fails for an unrelated reason.
 - Confirm non-root: `docker exec app-smoke id`.
 - Image size from `docker image inspect --format '{{.Size}}'`; layer breakdown from `docker history` (`docker image inspect` has no per-layer sizes) or `dive`.
-- Tear down `docker rm -f app-smoke`. Halt on healthcheck failure or root-user run.
+- **Stop timing (V231, `proof-oracles.md` § DevOps).** A container that ignores SIGTERM passes every check above and still drops in-flight requests on every deploy. Read PID 1, then time a stop:
+
+  ```bash
+  docker exec app-smoke cat /proc/1/cmdline | tr '\0' ' '; echo        # node / python / the binary, not sh or npm
+  s=$(date +%s); docker stop -t 10 app-smoke; e=$(( $(date +%s) - s ))
+  echo "stop: ${e}s exit=$(docker inspect -f '{{.State.ExitCode}}' app-smoke)"
+  ```
+
+  PASS iff under 10 s and the exit code is not 137. ~10 s with exit 137: a shell-form `CMD`, `npm`/`pnpm` as PID 1, an entrypoint without `exec "$@"`, or no SIGTERM handler. Fix it in the Dockerfile you just generated (`container-build-scan` §2; the handler is `deploy-safety-scan` §5). Record the stop time in `ai/runbooks/docker.md`.
+- Tear down `docker rm -f app-smoke`. Halt on healthcheck failure, root-user run, or a stop that takes the full grace period.
 
 ## Phase 7 — Improve
 
 - Image size is judged against a baseline, not an absolute — a static Go binary is tens of MB, a
   scientific Python image is gigabytes. Record this build's size in `ai/runbooks/docker.md`. What
   warrants investigation is a regression against it, or a `docker history` showing builder layers
-  surviving into the runtime stage (always a bug, at any size).
+  surviving into the runtime stage (always a bug, at any size). `THR-IMAGE-GROWTH` reads this baseline (`precedents/devops.md` § 39).
 - If a base-image swap (alpine → distroless, or a libc change forced by question 2) emerged as a decision, queue ADR.
 
 ## Output
@@ -134,6 +143,7 @@ Files:
 
 container-build-scan: 0 findings  (§1–§10 checked; --check and hadolint ran; non-root, exec-form PID 1, frozen install, HEALTHCHECK binary present)
 Smoke test: PASS  (200 from $HEALTH_PATH on $PORT in 4.2s)
+Stop timing: PASS (PID 1 node; docker stop 0.2s, exit 0 — V231)
 
 Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 ```
@@ -142,7 +152,7 @@ Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 
 - `:latest` on the base image — non-reproducible; pin to digest or specific tag.
 - An EOL base image — the quiet version of `:latest`; it passes every pin check while receiving no security patches.
-- Running as root — #1 container CVE amplifier; use `USER nonroot` or `USER node`.
+- Running as root — #1 container CVE amplifier; use a numeric `USER 10001`, the form Kubernetes `runAsNonRoot` can verify (`precedents/devops.md` § 37).
 - `COPY . .` before `npm install` — invalidates dep cache on every source change.
 - Install-before-schema — the install (and its generate hook) runs before the generator's input file is copied. Builds green, starts red.
 - libc mismatch across stages — builder on Debian, runtime on Alpine, with a native addon between them.

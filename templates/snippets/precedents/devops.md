@@ -4,13 +4,13 @@ Read by the verifier under [`refute-before-report.md`](../refute-before-report.m
 every candidate in a **delivery-integrity** class: with no attacker involved, the pipeline's own
 semantics let a red build merge, ship what was not tested, cancel or race a mutating deploy, drop
 in-flight work at shutdown, or leave no rollback target. The oracles that prove them are in
-[`proof-oracles.md`](../proof-oracles.md) § DevOps (V209–V243). The platform facts every verdict
+[`proof-oracles.md`](../proof-oracles.md) § DevOps (V209–V243, V290). The platform facts every verdict
 cites (default shells, skip semantics, concurrency, default timeouts) are in
 [`ci-platform-semantics.md`](../ci-platform-semantics.md). The job graph comes from
 `.claude/scripts/ci-graph.py`. The detectors are `pipeline-integrity-scan`, `pipeline-cache-scan`,
-`release-integrity-scan`, `deploy-safety-scan`, `container-build-scan` and `compose-scan` (devops
-pack), judged by `@ci-reviewer` (pipeline rows) and `@deployment-engineer` (release, deploy,
-container and compose rows).
+`release-integrity-scan`, `deploy-safety-scan`, `container-build-scan`, `compose-scan`,
+`progressive-delivery` and `gitops-audit` (devops pack), judged by `@ci-reviewer` (pipeline rows)
+and `@deployment-engineer` (release, deploy, container, compose, delivery and GitOps rows).
 
 **An attacker-path claim is not a devops claim.** "Someone outside the trust boundary reaches code
 execution, a token, a secret or the published artifact" goes through
@@ -24,7 +24,9 @@ shown with a `file:line`, a `ci-graph.py` row or a `gh api` line. Numbers are st
 `precedents/devops.md § <n>`.
 
 Index: the claim and the gates · posting rules § 1–6 · pipeline § 7–16 · release § 17–21 · deploy
-§ 22–28 · containers and compose § 29–40 · tools and versions § 41–46 · rationalizations.
+§ 22–28 · containers and compose § 29–40 · tools and versions § 41–46 · read rules measured on the
+seeded sample and a real repo § 47–58 (deploy § 47–50, delivery and GitOps § 51–52, containers
+§ 53–54, caches § 55–56, compose § 57–58) · rationalizations.
 
 ## The claim, restated
 
@@ -122,6 +124,24 @@ written out. Neither is ever `checked`.
 45. **`act` is not authoritative** for concurrency, environments, OIDC or the merge queue [K: re-check the limits on the installed act before an oracle cites it].
 46. **A green `act` run, or a single green CI run, is not proof that a PC-* class is closed.** The seeded failure (`proof-oracles.md` V209, V212) is: one failing command per gate on a sandbox branch, every required context concluding `failure`.
 
+## Read rules measured on the seeded sample and a real repo (2026-10-10)
+
+Each was a false positive (or a near miss) on the first runs of the detectors named in brackets;
+the rule is what the read step settled. Numbers continue after § 46 and are never reused.
+
+47. **A `process.on(<variable>, …)` over a signal list that awaits the framework close is the shutdown handler** (`deploy-safety-scan` § 5). A loop over `['SIGTERM','SIGINT']` registering `process.on(signal, …)` that awaits `app.close()` runs NestJS's shutdown hooks exactly as `enableShutdownHooks()` does; a literal-only signal grep misses it. *Flips back:* the handler exits without awaiting the close (`process.exit()` first), or the signal list omits SIGTERM.
+48. **A migration Job applied alone and waited on before the rollout is the correct topology** (`deploy-safety-scan` § 1): delete the previous Job, apply the Job by itself, `kubectl wait --for=condition=complete`, then apply the workloads. *Flips back:* the Job is applied in the same `apply -k` as the Deployments, nothing waits on it, or it is never deleted or TTL'd, so the next release re-applies a completed Job.
+49. **A `kubectl apply` of a non-workload object has no rollout to wait on** (`deploy-safety-scan` § 4): a NetworkPolicy, a ConfigMap read only at start-up, a Service, an RBAC object. *Flips back:* the applied set contains a Deployment, StatefulSet, DaemonSet, Rollout or Job, or the ConfigMap is mounted by a workload that reloads on change.
+50. **A migrate call in a CI test job is not a deploy** (`deploy-safety-scan` § 1): it migrates the job's own throwaway database (a `services:` container, an e2e database). *Flips back:* its connection string resolves to a shared environment (a staging or prod secret, an `environment:` on the job).
+51. **A `STAGED` flag difference is the release order working** (`progressive-delivery` § 6): a value on in pre-prod and off in prod is the flag ramping. *Flips back:* prod is ahead of every pre-prod environment (`PROD-AHEAD`), or a non-boolean value differs with no note.
+52. **The controller's own install or upgrade into `argocd` / `flux-system` is not out-of-band** (`gitops-audit` § 1): that is how the controller gets onto the cluster. *Flips back:* the same verb targets a namespace a CD target owns, or patches an Application or Kustomization the controller syncs from git.
+53. **`ENV CI=true` in a build stage is not a frozen install** (`container-build-scan` § 4): pnpm 9.15.9 rewrote a drifted lockfile and installed with `CI=true` set in the stage (measured 2026-10-10); only `--frozen-lockfile` failed the build. The runner's `CI` never reaches `RUN` either. This entry keeps a candidate open; it never clears one.
+54. **`VOLUME` followed by a write in a later `RUN` keeps the write under BuildKit** (`container-build-scan` § 8, measured 2026-10-10 on buildx 0.37.1). It is a candidate only on a legacy builder `[K?]`. *Flips back:* the build runs with `DOCKER_BUILDKIT=0` or a builder that is not BuildKit.
+55. **A tool cache keyed on the tool's own config or version is correctly keyed** (`pipeline-cache-scan` § 1): a pre-commit cache on `hashFiles('.pre-commit-config.yaml')`, a linter cache on its version. It does not need the lockfile. *Flips back:* the cached tree is an installed dependency tree, or the tool's version is not in the key and the config does not pin it.
+56. **A download cache under a lockfile-verified install is speed, not correctness** (`pipeline-cache-scan` § 1): `~/.npm`, the pnpm store, `~/.cache/pip` restored by prefix, followed by an install that verifies the lockfile (`npm ci`, `pnpm install --frozen-lockfile`, `uv sync --locked`). A stale entry costs a download, never a wrong tree: L at most. *Flips back:* the install step is skipped on a cache hit, or it does not verify the lockfile.
+57. **An image `HEALTHCHECK` satisfies `depends_on: condition: service_healthy`** (`compose-scan` § 1–§ 2, measured 2026-10-10 on Compose v5.1.4): the service needs no compose `healthcheck:` of its own. *Flips back:* the compose file sets `healthcheck: disable: true`, or overrides it with a test whose binary the image lacks.
+58. **Redis used purely as a cache on an anonymous volume is Hardening** (`compose-scan` § 6): `down` + `up` drops the data, and the app rebuilds it. *Flips back:* Redis holds durable state (sessions that must survive, a queue with persistent jobs, AOF or RDB the app relies on), which is `STATEFUL-ANON` at its own severity.
+
 ## Rationalizations to reject (DevOps)
 
 **Wrongly accepting:** "zizmor / actionlint / hadolint flagged it" (which rule, on which reachable
@@ -143,4 +163,6 @@ Docs *Workflow syntax* and *Troubleshooting required status checks*, GitLab CI Y
 CircleCI and Atlassian support pages, all fetched 2026-10-10), C § 4–§ 6 (precedents 1–12), B § 4
 (P-1…P-18, with the measured `docker stop` matrix on node:22 alpine and bookworm-slim), and the
 batch-4 devops eval (2026-10-10), which renumbered them and verified the `on:` remap (P6) and the
-stage-chain user resolution (P2). Paraphrased; no text reproduced beyond short quoted identifiers.
+stage-chain user resolution (P2). § 47–58 are the read rules recorded by `deploy-safety-scan`,
+`progressive-delivery`, `gitops-audit`, `container-build-scan`, `pipeline-cache-scan` and
+`compose-scan` from their 2026-10-10 runs on the seeded sample and a read-only real repo. Paraphrased; no text reproduced beyond short quoted identifiers.

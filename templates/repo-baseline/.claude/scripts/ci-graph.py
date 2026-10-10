@@ -17,17 +17,30 @@ Usage:
   ci-graph.py [ROOT|FILE…] [--all | --check=pin-priv,deploy-concurrency,deploy-gate,timeout,matrix,cache-keys]
               [--required [--repo=o/r] [--branch=b] | --contexts=a,b [--merge-queue]] [--deploy-ancestors]
               [--job-of=FILE:LINE] [--shell-of=FILE:LINE] [--json]
-  ci-graph.py [ROOT] --diff-guard=<git-ref> [--allow-job=FILE:JOB …] [--allow-workflow=FILE …]
-  ci-graph.py --diff-guard OLD.yml NEW.yml [--allow-job=FILE:JOB …]
+  ci-graph.py [ROOT] --diff-guard=<git-ref> [--allow-job=FILE:JOB …] [--allow-workflow=FILE:KEY …]
+  ci-graph.py --diff-guard OLD.yml NEW.yml [--allow-job=FILE:JOB …] [--allow-workflow=FILE:KEY …]
+Only the `=` forms take a value: `--diff-guard REF` (a space) means "two files follow", and a bare
+`--allow-job` / `--allow-workflow` is refused (exit 2). `--allow-workflow` names ONE workflow-level key
+(on, concurrency, permissions); it never lets a job's keys through — that is `--allow-job`.
   ci-graph.py --self-test
 Rows: `file:line: CODE key=value…`. Exit 0 clean · 1 at least one finding row · 2 NOT-RUN (no loader,
 a parse error, no workflow found, the settings API unreadable). No arguments = `. --all`.
 GitHub Actions only; GitLab, CircleCI and Azure are grep + read until they are modelled.
 """
-import json, os, re, shutil, subprocess, sys, tempfile
+import contextlib, io, json, os, re, shutil, subprocess, sys, tempfile
 from itertools import product
 
 MUT = re.compile(r"\b(kubectl\s+(apply|set\s+image|replace|rollout\s+restart)|kustomize\s+edit\s+set\s+image|helm\s+(upgrade|install|rollback)|terraform\s+apply|tofu\s+apply|pulumi\s+up|fly\s+deploy|railway\s+up|vercel\b[^\n]*--prod|netlify\s+deploy[^\n]*--prod|npm\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|cargo\s+publish|gem\s+push|docker\s+(push|buildx\s+imagetools\s+create)|crane\s+(copy|tag)|gh\s+release\s+(create|upload)|aws\s+(ecs\s+update-service|lambda\s+update-function-code|s3\s+sync)|gcloud\s+run\s+deploy|az\s+webapp\s+deploy|serverless\s+deploy|cdk\s+deploy|argocd\s+app\s+sync)\b")
+# A deploy made by an action, not a shell verb: any action whose name says deploy (azure/webapps-deploy,
+# aws-actions/amazon-ecs-deploy-task-definition, google-github-actions/deploy-cloudrun, actions/deploy-pages,
+# easingthemes/ssh-deploy…, and a local `./.github/actions/deploy`; `deployment` status actions such as
+# chrnorm/deployment-action excluded), plus remote-shell and hosting actions
+# whose only job is to ship. CMD_DEPLOY: actions that deploy only for some command input (None = the default
+# command deploys unless `command:` says otherwise).
+DEPLOY_ACTIONS = re.compile(r"^[^@]*deploy(?!ment)|^(appleboy/(ssh|scp)-action|burnett01/rsync-deployments|amondnet/vercel-action|nwtgck/actions-netlify|peaceiris/actions-gh-pages|azure/functions-action|dokku/github-action)@", re.I)
+CMD_DEPLOY = {"superfly/flyctl-actions": ("args", r"\bdeploy\b"), "pulumi/actions": ("command", r"^\s*up\b"),
+              "cloudflare/wrangler-action": ("command", None)}
+ACTION_SHELL_INPUTS = ("script", "run", "command", "args", "cmd")
 PUBLISH_ACTIONS = re.compile(r"^(docker/build-push-action|pypa/gh-action-pypi-publish|softprops/action-gh-release|goreleaser/goreleaser-action|JS-DevTools/npm-publish|changesets/action)@", re.I)
 TESTISH = re.compile(r"\b((npm|pnpm|yarn|bun)\s+(run\s+)?test\b|npx\s+(jest|vitest|mocha|playwright\s+test|cypress\s+run)|jest\b|vitest\b|pytest\b|tox\b|nox\b|go\s+test\b|cargo\s+(test|nextest)\b|mvn\b[^\n]*\b(test|verify)\b|gradlew?\b[^\n]*\b(test|check)\b|rspec\b|phpunit\b|artisan\s+test\b|dotnet\s+test\b|mix\s+test\b|make\s+(test|check)\b)")
 STATUS_FN = re.compile(r"\b(always|failure|cancelled)\s*\(\s*\)|success\(\)\s*\|\|\s*failure\(\)")
@@ -239,15 +252,41 @@ class Workflow:
             why.append("secrets")
         return why
 
-    def deploys(self, jid):
+    def deploy_via(self, jid):
+        """Why a job counts as a deploy: environment, a shell verb, a deploy action, or "" (not a deploy)."""
         j = self.jobs[jid]
-        return bool(env_name(j)) or bool(MUT.search(run_text(j)))
+        if env_name(j):
+            return "environment"
+        if MUT.search(run_text(j)):
+            return "verb"
+        for s in j.get("steps") or []:
+            if not isinstance(s, dict) or not s.get("uses"):
+                continue
+            u, w = str(s["uses"]), (s.get("with") or {}) if isinstance(s.get("with"), dict) else {}
+            name = u.split("@", 1)[0].lower()
+            cmd = next(((k, rx) for a, (k, rx) in CMD_DEPLOY.items() if name == a), None)
+            if cmd:
+                v = str(w.get(cmd[0], "")).strip()
+                if (cmd[1] is None and (not v or re.search(r"\b(deploy|publish)\b", v))) or (cmd[1] and re.search(cmd[1], v)):
+                    return "action:" + name
+                continue
+            if DEPLOY_ACTIONS.match(u):
+                return "action:" + name
+            if MUT.search("\n".join(str(w.get(k, "")) for k in ACTION_SHELL_INPUTS)):
+                return "action-input:" + name
+        return ""
+
+    def deploys(self, jid):
+        return bool(self.deploy_via(jid))
 
     def publishes(self, jid):
         for s in self.jobs[jid].get("steps") or []:
             if isinstance(s, dict) and PUBLISH_ACTIONS.match(str(s.get("uses", ""))):
                 w = s.get("with") or {}
                 if "build-push-action" not in str(s.get("uses")) or str(w.get("push", "")).lower() not in ("", "false"):
+                    return True
+                # push via the exporter, no `push:` input: outputs: type=image,push=true / type=registry
+                if re.search(r"\bpush\s*=\s*true\b|\btype\s*=\s*registry\b", str(w.get("outputs", "")), re.I):
                     return True
         return False
 
@@ -572,8 +611,10 @@ def c_deploy_ancestors(wfs, rows, req):
         for jid in wf.jobs:
             of = sorted(d for d in dep if jid in wf.ancestors(d))
             r = "unknown" if req is None else ("yes" if (wf.rel, jid) in req else "no")
-            row(rows, wf, wf.jl(jid), "JOB", job=jid, deploys="yes" if wf.deploys(jid) else "no",
-                publishes="yes" if wf.publishes(jid) else "no", **{"ancestor-of": ",".join(of) or "-", "required": r})
+            via = wf.deploy_via(jid)
+            row(rows, wf, wf.jl(jid), "JOB", job=jid, deploys="yes" if via else "no",
+                publishes="yes" if wf.publishes(jid) else "no", env=env_name(wf.jobs[jid]) or "-",
+                **{"deploy-via": via or "-", "ancestor-of": ",".join(of) or "-", "required": r})
 
 
 # ---------------------------------------------------------------- job-of / shell-of
@@ -640,12 +681,12 @@ def guard_pair(rel, old, new, allow_jobs, allow_wf, rows, new_ix=None):
         if k == "on":
             a, b = triggers(a), triggers(b)
         if a != b:
-            code = "GUARD-ALLOWED" if rel in allow_wf else "GUARD-CHANGED"
+            code = "GUARD-ALLOWED" if (rel, k) in allow_wf else "GUARD-CHANGED"
             rows.append({"file": rel, "line": (new_ix.top_line(k) if new_ix else 0), "code": code, "scope": "workflow",
                          "key": k, "before": json.dumps(a, sort_keys=True), "after": json.dumps(b, sort_keys=True)})
     oj, nj = old.get("jobs") or {}, new.get("jobs") or {}
     for jid in sorted(set(oj) | set(nj), key=str):
-        ok = rel in allow_wf or (rel, str(jid)) in allow_jobs
+        ok = (rel, str(jid)) in allow_jobs
         span = new_ix.jobs.get(str(jid), (1, None)) if new_ix else (1, None)
         if jid not in nj or jid not in oj:
             code = "GUARD-ALLOWED" if ok else ("GUARD-JOB-REMOVED" if jid not in nj else "GUARD-JOB-ADDED")
@@ -675,8 +716,9 @@ def diff_guard(root, files, ref, allow_jobs, allow_wf, rows):
                 notrun.append("%s: %s" % (p, res[p][1]))
         if not notrun:
             rel = os.path.basename(files[1])
-            guard_pair(rel, res[files[0]][0], res[files[1]][0], {(rel if r == os.path.basename(files[1]) or r == files[1] else r, j) for r, j in allow_jobs},
-                       {rel if w in (files[1], rel) else w for w in allow_wf}, rows, Index(files[1]))
+            same = lambda r: rel if r in (files[1], rel) else r
+            guard_pair(rel, res[files[0]][0], res[files[1]][0], {(same(r), j) for r, j in allow_jobs},
+                       {(same(w), k) for w, k in allow_wf}, rows, Index(files[1]))
         return notrun
     tmp = tempfile.mkdtemp(prefix="ci-graph-guard-")
     try:
@@ -732,11 +774,22 @@ def run(argv, out=sys.stdout):
             if bad:
                 print("ci-graph: unknown check %s (known: %s)" % (",".join(bad), ",".join(CHECKS)), file=sys.stderr)
                 return 2
+        elif a in ("--allow-job", "--allow-workflow"):
+            print("ci-graph: %s takes its value with '=' (%s=FILE:%s)" % (a, a, "JOB" if a == "--allow-job" else "KEY"), file=sys.stderr)
+            return 2
         elif a.startswith("--allow-job="):
             f, _, j = a.split("=", 1)[1].rpartition(":")
+            if not f or not j:
+                print("ci-graph: --allow-job needs FILE:JOB (got %r)" % a, file=sys.stderr)
+                return 2
             opts["allow_job"].add((os.path.normpath(f), j))
         elif a.startswith("--allow-workflow="):
-            opts["allow_wf"].add(os.path.normpath(a.split("=", 1)[1]))
+            f, _, k = a.split("=", 1)[1].rpartition(":")
+            if not f or k not in GUARD_WF_KEYS:
+                print("ci-graph: --allow-workflow needs FILE:KEY with KEY one of %s (got %r); a bare file "
+                      "would let every guarded key through" % ("/".join(GUARD_WF_KEYS), a), file=sys.stderr)
+                return 2
+            opts["allow_wf"].add((os.path.normpath(f), k))
         elif a.startswith("--") and "=" in a:
             k, v = a[2:].split("=", 1)
             opts[k.replace("-", "_")] = v
@@ -969,6 +1022,71 @@ jobs:
       - run: kubectl apply -k deploy/k8s/overlays/prod && kubectl rollout status deploy/api
 """
 
+DEPLOY_ACTION = """on: { push: { branches: [main] } }
+permissions: { contents: read }
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - run: npm test
+      - uses: docker/build-push-action@v7
+        with:
+          outputs: type=image,name=ghcr.io/o/app,push=true
+  local-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: docker/build-push-action@v7
+        with:
+          outputs: type=docker
+  webapp:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: azure/webapps-deploy@v3
+        with: { app-name: app }
+  composite:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: ./.github/actions/deploy
+  remote:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: some/remote-shell@v1
+        with:
+          script: helm upgrade --install api ./chart --wait --timeout 5m
+  status-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: chrnorm/deployment-action@v2
+  pulumi-preview:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: pulumi/actions@v6
+        with: { command: preview }
+  pulumi-up:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: pulumi/actions@v6
+        with: { command: up }
+  worker:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: cloudflare/wrangler-action@v3
+"""
+
 GUARD_OLD = """on: { pull_request: {} }
 concurrency: { group: ci, cancel-in-progress: true }
 jobs:
@@ -1008,7 +1126,8 @@ def self_test():
 
     def go(args):
         buf = _Buf()
-        rc = run(args + ["--json"], out=buf)
+        with contextlib.redirect_stderr(io.StringIO()):
+            rc = run(args + ["--json"], out=buf)
         return rc, json.loads(buf.s) if buf.s.strip().startswith("{") else {"rows": [], "not_run": [buf.s]}
 
     def ok(cond, msg):
@@ -1087,6 +1206,46 @@ def self_test():
         ok(any(c == "GUARD-CHANGED" and s.startswith("job=b step=") and k == "if" for c, s, k in ch), "diff-guard: step if: change flagged")
         rc, o = go(["--diff-guard", os.path.join(g, "old.yml"), os.path.join(g, "old.yml")])
         ok(rc == 0 and not o["rows"], "diff-guard: identical files are clean")
+        # --allow-workflow is key-scoped: it lets ONE workflow-level key through, never a job's keys
+        rc, o = go(["--diff-guard", os.path.join(g, "old.yml"), os.path.join(g, "new.yml"), "--allow-job=new.yml:a",
+                    "--allow-workflow=new.yml:on"])
+        ch = {(r["code"], r["scope"], r.get("key")) for r in o["rows"]}
+        ok(("GUARD-ALLOWED", "workflow", "on") in ch, "allow-workflow=FILE:on lets the on: change through")
+        ok(rc == 1 and ("GUARD-CHANGED", "job=b", "concurrency") in ch
+           and any(c == "GUARD-CHANGED" and s.startswith("job=b step=") for c, s, _ in ch),
+           "allow-workflow=FILE:on still rejects job b's concurrency and step if: (the file-wide allow is gone)")
+        rc, o = go(["--diff-guard", os.path.join(g, "old.yml"), os.path.join(g, "new.yml"), "--allow-job=new.yml:a",
+                    "--allow-workflow=new.yml:concurrency"])
+        ok(rc == 1 and ("GUARD-CHANGED", "workflow", "on") in {(r["code"], r["scope"], r.get("key")) for r in o["rows"]},
+           "allow-workflow=FILE:concurrency does not let an on: change through")
+        for bad_args, why in ((["--allow-workflow=new.yml"], "a bare file"), (["--allow-workflow=new.yml:jobs"], "an unguarded key"),
+                              (["--allow-job", "new.yml:a"], "a space-separated --allow-job"),
+                              (["--allow-workflow", "new.yml:on"], "a space-separated --allow-workflow")):
+            rc, o = go(["--diff-guard", os.path.join(g, "old.yml"), os.path.join(g, "new.yml")] + bad_args)
+            ok(rc == 2 and not o["rows"], "diff-guard: %s is refused (exit 2), never a silent allow" % why)
+        rc, o = go(["--diff-guard", "HEAD~1"])
+        ok(rc == 2, "diff-guard: a ref after a space (not --diff-guard=REF) is refused (exit 2)")
+
+        da = repo("deploy-action", {".github/workflows/d.yml": DEPLOY_ACTION})
+        rc, o = go([da, "--deploy-ancestors", "--check=deploy-concurrency"])
+        jr = {r["job"]: r for r in o["rows"] if r["code"] == "JOB"}
+        ok(jr.get("image", {}).get("publishes") == "yes", "build-push-action with outputs push=true and no push: input publishes")
+        ok(jr.get("local-only", {}).get("publishes") == "no", "build-push-action with outputs type=docker does not publish")
+        ok(jr.get("webapp", {}).get("deploys") == "yes" and jr["webapp"].get("deploy-via") == "action:azure/webapps-deploy"
+           and jr["webapp"].get("env") == "-", "a deploy action with no environment: deploys (deploy-via=action, env=-)")
+        ok(jr.get("composite", {}).get("deploys") == "yes", "a local ./.github/actions/deploy composite deploys")
+        ok(jr.get("remote", {}).get("deploy-via") == "action-input:some/remote-shell", "a deploy verb in an action's script: input deploys")
+        ok(jr.get("status-only", {}).get("deploys") == "no", "a deployment-status action is not a deploy")
+        ok(jr.get("pulumi-preview", {}).get("deploys") == "no" and jr.get("pulumi-up", {}).get("deploys") == "yes",
+           "pulumi/actions deploys on command: up, not on preview")
+        ok(jr.get("worker", {}).get("deploys") == "yes", "wrangler-action with no command: deploys (its default)")
+        ok(jr.get("image", {}).get("ancestor-of") == "composite,pulumi-up,remote,webapp,worker",
+           "image is an ancestor of every action deploy (got %s)" % jr.get("image", {}).get("ancestor-of"))
+        ng = sorted(r["job"] for r in o["rows"] if r["code"] == "DEPLOY-NOGROUP")
+        ok(ng == ["composite", "pulumi-up", "remote", "webapp", "worker"], "action deploys with no group are DEPLOY-NOGROUP (got %s)" % ng)
+        rc, o = go([fc, "--deploy-ancestors"])
+        ok(any(r["code"] == "JOB" and r["job"] == "deploy" and r["env"] == "production" and r["deploy-via"] == "environment"
+               for r in o["rows"]), "JOB rows print the environment name (fixture C deploy env=production)")
 
         bad = repo("bad", {".github/workflows/x.yml": "on: [push\njobs: {\n"})
         rc, o = go([bad, "--all"])

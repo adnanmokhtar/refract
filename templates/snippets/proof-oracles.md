@@ -18,7 +18,7 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## Mobile` | V152–V179 | — (new section) |
 | `## SEO` | V180–V188 | — (new section) |
 | `## Observability` | V189–V208 | — (new section) |
-| `## DevOps` | V209–V243 | — (new section) |
+| `## DevOps` | V209–V243, V290 | Out-of-band apply (V290, `gitops-audit` §1) |
 | `## Infrastructure` | V244–V289 | — (new section) |
 
 ## Scope of use (read first)
@@ -3245,7 +3245,7 @@ through the real pipeline, image or compose file and asserts on what happened. E
 B (a built image or a registry read), A (a settings API read), S (a static trace), L (a live
 rollout). Settled questions are in [`precedents/devops.md`](precedents/devops.md). Users:
 `pipeline-integrity-scan`, `pipeline-cache-scan`, `release-integrity-scan`, `deploy-safety-scan`,
-`container-build-scan`, `compose-scan` and the rewritten `progressive-delivery` (devops pack),
+`container-build-scan`, `compose-scan`, the rewritten `progressive-delivery` and `gitops-audit` (devops pack),
 judged by `@ci-reviewer` and `@deployment-engineer`, and `/devops-fix`. Attacker-path classes in CI
 (injection, privileged triggers, pinning × privilege, cache poisoning, secret exposure) are
 security's and are proven with [`exploit-payloads.md`](exploit-payloads.md), not here.
@@ -3259,7 +3259,7 @@ the exact call and the user applies it. Three rules hold for every variant below
 
 - **Read the platform row first.** A verdict about a pipe, a skip, a cancel or a timeout names its row in `ci-platform-semantics.md`; a `[K?]` row is settled on a sandbox run before a fix relies on it.
 - **Graph before grep.** A cross-job fact (who needs whom, what a concurrency group covers, what is required) comes from `ci-graph.py`, which parses each workflow with a real YAML loader and remaps the `on:` key YAML 1.1 reads as `true` (precedents § 44). Exit 2 is NOT-RUN, never clean.
-- **A fix stays inside its job.** `ci-graph.py --diff-guard "$FIX_BASE" --allow-job <file>:<job>` rejects a fix that changes `on:`, `if:`, `needs:`, `concurrency:`, `permissions:`, `environment:`, `runs-on:` or `secrets:` anywhere else.
+- **A fix stays inside its job.** `ci-graph.py --diff-guard="$FIX_BASE" --allow-job=<file>:<job>` rejects a fix that changes `on:`, `if:`, `needs:`, `concurrency:`, `permissions:`, `environment:`, `runs-on:` or `secrets:` anywhere else. Only the `=` forms take a value: `--diff-guard "$FIX_BASE"` with a space expects two files and exits 2, and a bare `--allow-job` is refused. A finding on a workflow-level key adds `--allow-workflow=<file>:<key>` (`on`, `concurrency` or `permissions`), which lets that one key through and nothing in any job.
 
 ### Oracle taxonomy (DevOps)
 
@@ -3294,6 +3294,7 @@ the exact call and the user applies it. Three rules hold for every variant below
 | **Compose config / wait** | `docker compose config` clean; `up --wait` exits 0 on the prod invocation | R | V241 |
 | **Rebuild diff** | Build twice → `diffoci diff --semantic` empty | B | V242 |
 | **Size vs baseline** | `dive` / image size against the recorded baseline within `THR-IMAGE-GROWTH` | B | V243 |
+| **Controller diff** | The imperative verb against a controller-owned namespace leaves the CD target OutOfSync or reverted on a scratch cluster; after the fix the change arrives by commit and the diff is empty | S + L | V290 |
 
 ### Seeded failure, per platform
 
@@ -3330,7 +3331,8 @@ python3 .claude/scripts/ci-graph.py . --all                                   # 
 python3 .claude/scripts/ci-graph.py . --check=deploy-concurrency,deploy-gate,timeout
 python3 .claude/scripts/ci-graph.py . --required --deploy-ancestors           # needs gh + a token
 python3 .claude/scripts/ci-graph.py . --job-of=.github/workflows/ci.yml:42 --shell-of=.github/workflows/ci.yml:42
-python3 .claude/scripts/ci-graph.py . --diff-guard "$FIX_BASE" --allow-job .github/workflows/deploy.yml:deploy-prod
+python3 .claude/scripts/ci-graph.py . --diff-guard="$FIX_BASE" --allow-job=.github/workflows/deploy.yml:deploy-prod
+python3 .claude/scripts/ci-graph.py . --diff-guard="$FIX_BASE" --allow-workflow=.github/workflows/ci.yml:concurrency   # a workflow-level finding
 ```
 
 The rows, by check: `pin-priv` → `PIN×PRIV` (security's class; devops supplies the join) ·
@@ -3339,7 +3341,15 @@ The rows, by check: `pin-priv` → `PIN×PRIV` (security's class; devops supplie
 `NO-TIMEOUT`, `WAIT-NO-TIMEOUT` · `matrix` → `MATRIX-EXCLUDES-RUNTIME`, `MATRIX-DYNAMIC-UNGUARDED` ·
 `cache-keys` → `CACHE-KEY-NO-HASH`, `CACHE-NODE-MODULES`, `CACHE-PREFIX-SKIP-INSTALL` ·
 `--required` → `REQUIRED-UNMATCHED`, `REQUIRED-PATH-FILTERED`, `REQUIRED-IF-SKIP`,
-`REQUIRED-NEEDS-SKIP`, `NO-MERGE-GROUP`, `DUP-NAME`, `AGGREGATOR-WEAK`, `UNREADABLE`.
+`REQUIRED-NEEDS-SKIP`, `NO-MERGE-GROUP`, `DUP-NAME`, `AGGREGATOR-WEAK`, `UNREADABLE` ·
+`--deploy-ancestors` → one `JOB job= deploys= publishes= env= deploy-via= ancestor-of= required=` row
+per job. A job deploys when it has an `environment:` (`deploy-via=environment`), runs a deploy or
+publish verb (`verb`), uses a deploy action — any action whose name says deploy, a local
+`./…/deploy` composite, or a hosting action such as `appleboy/ssh-action`, `pulumi/actions` with
+`command: up`, `cloudflare/wrangler-action` with its default command (`action:<name>`) — or passes a
+deploy verb in an action's `script:` / `command:` / `args:` input (`action-input:<name>`). A
+`docker/build-push-action` publishes on a non-false `push:` or, with no `push:` input, on
+`outputs: …push=true` / `type=registry`.
 **Fails first:** the row prints for the cited job before the fix and is gone after it, with
 `--diff-guard` clean outside the finding's job. GitLab, CircleCI and Azure are not modelled yet:
 their rows are grep + read, and say so.
@@ -3440,7 +3450,7 @@ tail-execs a single command (precedents § 35). The in-flight half: start a slow
 - pass: `crane manifest <repo>@<N-1 digest>` resolves and `/rollback-deploy` R2 names that digest
 
 #### V227. Migration topology — scale cold start (`deploy-safety-scan` §1)
-- migrate in the entrypoint, CMD or `main.ts` boot (`getMigrator().up()`, `migrationsRun: true`); an initContainer; Spring Flyway/Liquibase auto-run; a Helm hook with no `hook-delete-policy`; migrate after the deploy verb; the lock disabled (`PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK`); a lockless runner (Django, Alembic, TypeORM, MikroORM [K?]); `--rollback-on-failure` / `--atomic` over a contract migration
+- migrate in the entrypoint, CMD or `main.ts` boot (`getMigrator().up()`, `migrationsRun: true`); an initContainer; Spring Flyway/Liquibase auto-run; a Helm hook with no `hook-delete-policy`; migrate after the deploy verb; the lock disabled (`PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK`); a lockless runner (Django, Alembic, TypeORM; MikroORM measured lockless: 6.6.16 on 2026-10-10, three concurrent `getMigrator().up()` applied a data migration 3 times, applied a DDL migration once with 2 boots exiting 1, and on a first-ever run 2 of 3 failed creating the migrations table itself); `--rollback-on-failure` / `--atomic` over a contract migration
 - pass: `docker compose up --scale app=3` from an empty database writes exactly one row per migration with 0 crash-loops, and a kill mid-run is recovered by the next start
 
 #### V228. Deploy concurrency — graph assertion + two-push race (§2)
@@ -3461,10 +3471,12 @@ tail-execs a single command (precedents § 35). The in-flight half: start a slow
 
 #### V232. Canary without a real gate — canary checks (`progressive-delivery` §5)
 - a `successCondition` / `failureCondition` that can never fail (`result[0] >= 0`); `failureLimit` ≥ the measurement count; no `inconclusiveLimit`; `dryRun:` metrics; a query without the canary selector; Flagger `metrics: []`; `autoPromotionEnabled: true` with no `prePromotionAnalysis`
+- a query with a zero fallback (`or vector(0)`, `scalar(`: an empty series reads as 0 and passes — `ZERO-FALLBACK`); a metric with neither `successCondition` nor `failureCondition` outside a `job` provider (`NO-CONDITION`); Flagger `skipAnalysis: true` (`SKIP-ANALYSIS`); a blue-green Rollout whose `autoPromotionEnabled` is left at its default `true` with no `prePromotionAnalysis` (`BG-AUTO-PROMOTE`); a **render-only** weakening — an overlay or values patch that raises `failureLimit` or drops the analysis on the prod render while the base stays sound (read the render row, not the source)
 - pass: the template can fail on a static read, every selector grounds (observability `rule-inventory.py --check=selectors` when installed), and a 20 %-error canary aborts (L, else `NO-DATA(rollout)`)
 
 #### V233. Flag safety — provider-error default (`progressive-delivery` §4, §8, §9)
 - an unsafe default on provider outage (`getBooleanValue(…, true)` on a risky path); a build-time flag (`NEXT_PUBLIC_FLAG_*`) that cannot be flipped; no kill switch on a risky path
+- an undeclared key: the SDK reads a key no registry declares (`progressive-delivery` §1 orphan), so every evaluation returns the code default forever — the provider-error path is the only path
 - pass: a unit test with a failing provider gets the safe default, and the kill switch flips without a deploy
 
 #### V234. Config read but not declared; per-env runtime drift — declared-keys boot (`deploy-safety-scan` §6)
@@ -3494,12 +3506,12 @@ tail-execs a single command (precedents § 35). The in-flight half: start a slow
 - pass: `docker run --platform linux/<arch> <img> <smoke>` succeeds per published platform, and `docker buildx imagetools inspect` lists them
 
 #### V240. Builder residue and runtime content — structure test (§8)
-- `COPY --from=<builder> … node_modules` without a prod prune; dev tooling in the final stage; a writable root; ownership without `--chown`; VOLUME before writes
+- `COPY --from=<builder> … node_modules` without a prod prune; dev tooling in the final stage; a writable root; ownership without `--chown` (a `VOLUME` followed by a write is not a variant: BuildKit keeps the write, measured 2026-10-10, precedents § 54)
 - pass: container-structure-test file and command tests (`--platform` set) show no dev dependency or build tool in the runtime image
 
 #### V241. Compose reliability — compose config / wait (`compose-scan` §1, §3–§7)
 - `depends_on` short form or `condition: service_started` on a service with no healthcheck; `${VAR}` without `:-` / `:?` in `image:`, `ports:` or credentials; an override file auto-merged on a prod host; `image:` untagged or `:latest`; top-level `version:`, `links:`, `container_name:` on a scaled service; `restart: always` on a one-shot migrator
-- pass: `docker compose config` on the prod invocation prints no warning and `docker compose up --wait` exits 0 (compose semantics stay `[K?]` until the plugin runs)
+- pass: `docker compose config` on the prod invocation prints no warning and `docker compose up -d --wait` exits 0 on the **long-running** services of the host set. `--wait` exits 1 when any selected service exits, even a one-shot (a migrator) exiting 0, so select the long-running services by name, or make the one-shot a `service_completed_successfully` dependency of them, which `--wait` then passes (measured 2026-10-10, Compose v5.1.4)
 
 #### V242. Claimed-reproducible build differs — rebuild diff (§10)
 - no `SOURCE_DATE_EPOCH` / `rewrite-timestamp=true`; an unpinned BuildKit; no snapshot repositories; a base by tag — only when the repo claims reproducible builds or SLSA L3
@@ -3508,6 +3520,14 @@ tail-execs a single command (precedents § 35). The in-flight half: start a slow
 #### V243. Image bloat regression — size vs baseline (§10)
 - growth with no dependency change; builder residue (V240) as the usual cause
 - pass: `dive` / the image size stays within `THR-IMAGE-GROWTH` of the baseline `/dockerize` Phase 7 recorded
+
+#### V290. Out-of-band apply into a controller-owned namespace — controller diff (`gitops-audit` §1)
+Numbered after the last variant in the file (V289), not after V243; the numbers are never reused.
+- an imperative write (`kubectl` / `oc` `apply`, `create`, `edit`, `scale`, `set image`, `set env`, `patch`, `replace`, `delete`, `annotate`, `label`, `rollout restart|undo`; `helm install|upgrade|rollback|uninstall`) in CI, a script or a Makefile against a namespace an Argo `Application` or a Flux `Kustomization` / `HelmRelease` deploys; `argocd app set|unset|patch`, or `argocd app sync --local|--revision|--prune|--force` (an override that lives in the Application, not git); `flux suspend` with no `resume` on every exit path
+- the two outcomes the sync policy decides: `selfHeal: false` (the change persists and git stops describing prod) and `selfHeal: true` (the change is reverted on the next reconcile, silently)
+- not variants: the controller's own install into `argocd` / `flux-system` (precedents § 52); a GitOps CI that only commits manifests (§ 23); a `--dry-run=client` render piped nowhere; a one-off `kubectl create job --from=cronjob/…` or `kubectl debug` (an untracked object: Hardening)
+- tier S: the verb's line and the CD target's line (namespace, sync policy); tier L: on a scratch kind cluster with the controller installed, through an isolated `--kubeconfig=<scratch>` (never the default context), run the verb, then `argocd app diff <app>` / `flux diff kustomization <name> --path <dir>`
+- pass: after the fix the change arrives through a commit, the same scratch run shows the CD target `Synced` with an empty controller diff, and the imperative line is gone from CI and scripts (or targets a namespace no CD target owns); without a scratch controller the row stays `[report-flagged]` with `NO-DATA(controller)`
 
 ### Sources (DevOps)
 
@@ -3519,8 +3539,12 @@ pages on default shells; the GitHub changelog (immutable releases 2025-10-28, wo
 protections 2026-09-17); actions/checkout releases (2026-06-18, 2026-07-20); the Prisma migrate
 docs (advisory lock); and local runs on 2026-10-10 of the `docker stop` matrix (node:22 alpine and
 bookworm-slim), the stage-chain user resolution on six Dockerfiles and the YAML `on:` remap
-(PyYAML, Ruby psych). Rows marked [K?] are settled on the `ci-defects` fixture or a sandbox repo
-before a skill asserts them. Paraphrased; no text reproduced.
+(PyYAML, Ruby psych). Later the same day, by the detectors that cite them: MikroORM 6.6.16 with umzug
+3.8.2 (three concurrent boots on postgres:16, `deploy-safety-scan`), Compose v5.1.4 `--wait` with a
+one-shot (`compose-scan`), the BuildKit `VOLUME` write (buildx 0.37.1, `container-build-scan`), and
+the `ci-graph.py` deploy-action, `outputs: …push=true` and key-scoped `--allow-workflow` cases (its
+`--self-test`, PyYAML and Ruby psych). Rows marked [K?] are settled on the `ci-defects` fixture or a
+sandbox repo before a skill asserts them. Paraphrased; no text reproduced.
 
 ## Infrastructure
 
