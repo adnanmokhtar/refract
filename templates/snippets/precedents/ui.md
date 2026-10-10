@@ -1,9 +1,10 @@
-# Precedents — UI (accessibility, UI states, rendering, client data, i18n presentation)
+# Precedents — UI (accessibility, UI states, rendering, client data, routing, i18n, design system, motion, charts)
 
 Read by the verifier under [`refute-before-report.md`](../refute-before-report.md) § 4 and § 10 for
 every candidate in a **UI** class: a WCAG 2.2 AA failure found in source or in a render, a UI state
 that is missing or wrong (loading, empty, error, partial, forbidden, offline, stale, pending), a
-render or hydration defect, a client data-flow defect, or locale presentation. The oracles that
+render or hydration defect, a client data-flow or routing defect, locale presentation, design-token
+or motion drift, chart encoding, or a render measurement. The oracles that
 prove them are in [`proof-oracles.md`](../proof-oracles.md) § Accessibility and UI states. The three
 cross-domain precedents are in `refute-before-report.md § 4`.
 
@@ -11,6 +12,13 @@ Each entry names when a pattern that *looks* like a defect is not one, and the e
 it back. A match makes the candidate **Hardening**; the flip evidence makes it a candidate again.
 A precedent applies only when its "must be true" clause is shown with a `file:line` or a recorded
 render. Numbers are stable: detectors cite `precedents/ui.md § <n>`.
+
+Index: posting rules § 1–10 · accessibility § 11–34 · UI states and client data § 35–41 · rendering,
+hydration and i18n presentation § 42–48 · version precedents § 49–57 · a clean automated run § 58 ·
+UI states (`ui-state-scan`) § 59–63 · client data (`client-data-scan`) § 64–69 · routing
+(`routing-scan`) § 70–75 · i18n (`i18n-scan`) § 76–83 · design tokens, motion and charts § 84–97 ·
+render measurement § 98–101. SEO has its own file, [`seo.md`](seo.md); native mobile UI is
+[`mobile.md`](mobile.md).
 
 ## The claim, restated
 
@@ -125,6 +133,75 @@ written out, never dropped and never promoted on reading alone.
 
 58. **Automation finds part of the problem, by any measure.** Deque's 2021 study (>2,000 audits, ~300,000 issues) found 57 % of issues **by volume** with axe-based automation, a share dominated by colour contrast; the UK GDS 2017 test of 143 barriers found the best single tool caught 41 % and all ten tools together 71 %. These measure different things — issue volume and barrier coverage — and neither is the share of success criteria. A clean detector run and a clean axe run are a floor: no report says "accessible", "WCAG compliant" or "a11y ✓" without the manual pass (keyboard walk, screen reader, zoom, content judgement) recorded beside it.
 
+## Not a finding — UI states (`ui-state-scan`)
+
+59. **A gate hook** (permissions, feature flags, the current principal) that defaults safely while it loads renders no data view, so it needs no loading state of its own. *Flips back:* the default while loading lets the guarded view render.
+60. **`catch → null` followed by a branch that tells the user** (a toast, a fallback label) is a handled error, not the error-rendered-as-empty class.
+61. **An inline refetch indicator beside the data** (`isFetching ? <Spinner/> : null`) is the correct stale-data shape; only a refetch that blanks the data is the class.
+62. **Live validation** of password strength, availability or a character counter is intended, not the validation-while-typing class.
+63. **Router loaders discard stale navigations by themselves** — React Router, SvelteKit and Next server-component loaders drop the superseded navigation — so an out-of-order or navigation-race row does not apply to data they load.
+
+## Not a finding — client data (`client-data-scan`)
+
+64. **Keyed caches are race-safe.** TanStack Query and SWR discard a stale response by key; Nuxt `useFetch` with a reactive key refetches per key; identical keys in flight are deduplicated (§ 38). The out-of-order class does not apply to them.
+65. **A key factory that takes the whole params object**, or a key built from the same input the fetch derives its arguments from (a day count → from / to dates), carries every input even when `exhaustive-deps` flags it — 5 of 6 measured lint hits on a real React app. *Flips back:* the fetch reads a value the key does not contain (the tenant, the user, a filter).
+66. **A dependent second read is not a waterfall**, and **a chunked fan-out** (pages of ids at the API's max page size) is the client twin of a chunked `IN (…)`: Hardening, not the N-requests class.
+67. **Writes that change no cached view** — sign-in, OTP, password reset, an export job, a message send — need no invalidation.
+68. **A sign-out that calls `queryClient.clear()`** refutes the sign-out half of the identity class, never a key that misses an input.
+69. **Polling that pauses in the background by default** is correct: TanStack `refetchIntervalInBackground` defaults to `false` (query-core 5.104.1 types, 2026-10-05). A poll that stops itself when the job completes is correct too.
+
+## Not a finding — routing (`routing-scan`)
+
+70. **Click navigation that is not a link's job:** a button that does work and then navigates; `navigate(-1)` / `router.back()`; drag, select and map-marker interactions. A row or card that also holds a real link is § 17.
+71. **View state that should stay out of the URL:** dialog, picker and combobox search; wizard steps not meant to be deep-linked; filters that carry personal data (privacy wins over shareability); state already mirrored through `nuqs`, `useSearchParams` or `router.replace({ query })`.
+72. **A param already validated:** parsed by a schema (`safeParse`, `validateSearch`, nuqs parsers) or checked before use; a param that only selects a tab and has a default.
+73. **Built-in not-found handling:** Next, Nuxt and SvelteKit answer unmatched paths with their own 404; a React Router data router whose root `errorElement` renders the 404 response; SvelteKit's plain `<a>` is client-routed (not the click-navigation class).
+74. **A guard that renders a fallback until the session is known** and redirects before rendering the protected outlet passes the protected-flash class (measured on a real app: refuted on reading the guard); so do server-side redirects in middleware, loaders, `hooks.server.ts` or `canActivate`.
+75. **Navigation races already closed:** router loaders (§ 63), keyed queries (§ 64), and an RxJS `switchMap` that cancels the previous inner request.
+
+## Not a finding — i18n (`i18n-scan`)
+
+76. **A single-locale product with no i18n library:** every i18n row is `N/A`, unless the brief names a second market.
+77. **Not copy:** text in `<code>`, `<pre>`, `<kbd>` and the project's code or LTR wrappers; `<Trans>`-family children; Angular `i18n`-marked elements; `alt=""` on a decorative image (§ 11); brand, product and standard names on a documented allow-list; units and symbols; data (user content, API values, SKUs); example-format placeholders (`john@example.com`, `https://…`, `01xxxxxxxxx`); developer text (`console.*`, logger calls, a `throw new Error` that never renders); routes the product declares single-language.
+78. **Machine formats:** `toISOString()`, `YYYY-MM-DD` built for an input or an API, `toFixed` on a non-money value, sorting ids, enum codes or ISO dates, `toLowerCase()` on ASCII protocol tokens.
+79. **A project wrapper owns the locale:** a `formatDate()`, `formatMoney()` or `Trans` wrapper that injects the active locale makes its call sites clean. Read the wrapper once and cite its line.
+80. **RTL exemptions** beyond § 48: symmetric pairs; content that must stay LTR (code, phone numbers, charts, maps, media timelines); vertical properties; React Native `marginLeft` under the default auto-swap; icons that must not mirror (play, clock, check, a two-way swap).
+81. **A server that localizes its messages by `Accept-Language`**, with the client sending the header: the raw-server-text row is Hardening.
+82. **SwiftUI `Text("literal")` is a `LocalizedStringKey`;** only `Text(verbatim:)` and `Text(stringVariable)` are hard-coded.
+83. **Charts that stay LTR in an RTL locale** (time axes, numeric scales) are an intended exception, not an RTL defect.
+
+## Not a finding — design system, motion and charts
+
+Design tokens (`design-token-audit`):
+
+84. **Definitions, not uses:** token files, `@theme` / `@theme inline`, DTCG JSON, a Tailwind config, and the design system's own primitives that define the scale.
+85. **Contexts that must carry literals:** SVG illustrations and brand logos, email templates (inline styles are required), print / receipt / label templates written into another document, web-manifest `theme_color`, third-party widget overrides.
+86. **Data, not design:** a user- or merchant-chosen colour stored with its default, a colour picker's swatch list or a legend's swatch list, an order or ticket number such as `#1234`.
+87. **A token through arbitrary syntax:** `bg-[var(--brand)]`, Tailwind v4 `bg-(--brand)`, `style={{ '--progress': x }}`.
+88. **Layout and dynamic geometry:** `w-[calc(100%-2rem)]`, `grid-cols-[1fr_auto]`, `max-h-[88vh]`, `width: ${pct}%`, a virtualised row's `top`.
+89. **Native elements inside the design system, Radix `asChild` / `Slot`, and headless-library hosts** are not re-implemented components (§ 12).
+90. **The reduced-motion reset and `.sr-only`** are the documented `!important` exceptions.
+
+Motion (`motion-audit`):
+
+91. **The reduced-motion reset itself** (`animation-duration: 0.01ms !important` under `prefers-reduced-motion: reduce`) and its essential-spinner exception.
+92. **The autofill-background workaround** (`transition: background-color 5000s`) is not motion.
+93. **A toast's `duration`** (sonner, react-hot-toast) is display time, not an animation.
+94. **Essential motion** — a progress spinner inside a loading branch — is not content that moves on its own; it still respects reduce where the reset reaches it.
+95. **Height animations a design-system accordion owns** (Radix's measured content-height variable) are one review row at the primitive, not one per consumer.
+
+Charts (`chart-encoding-audit`):
+
+96. **A zoomed line axis that prints its range** is the rule, not a baseline breach: the zero baseline binds length marks (bars, columns, areas).
+97. **A real zero plotted as zero is correct** (a store open with no sales); only a *missing* reading drawn as zero is the class. An emptiness check (`(d.value ?? 0) > 0` deciding whether to render) is not a plotted value. Read the source.
+
+## Not a finding — render measurement (`ui-design-sweep`, `measure.ts`)
+
+98. **A container whose computed fill equals its nearest painted ancestor's is a layout box, not a surface**, and is never a floating-surface finding. The pair is measured against the nearest painted ancestor, never the page (measured: comparing every container against `body` reported 28 false floating surfaces on seven screens), and a box that fills the viewport (≥ 95 % of the width, ≥ 90 % of the height) is the page itself.
+99. **A height difference across control classes is not a finding.** A switch, a checkbox or an icon-only button beside a text input keeps its intrinsic size; across classes only the vertical centres are compared. A declared size variant (a large primary CTA beside small actions) is a decision, not drift.
+100. **Not a control row:** controls in different landmark regions (a sidebar entry beside a content tab — measured as a false pair on a real app), buttons and badges inside a table row (`td` / `th`, graded as table density), a brand mark rendered as a button, and a composite control's inner field (a tag input, combobox or date picker is measured at its wrapper).
+101. **A difference under 2 px** is sub-pixel rounding or a 1 px border at some zoom levels, not a size or centre finding.
+
 ## Rationalizations to reject (UI)
 
 **Wrongly accepting:** "axe flagged it" (at which route-state, and is it `incomplete`?) · "a linter
@@ -152,3 +229,10 @@ SvelteKit, Nuxt and React Router accessibility pages and the Tailwind CSS upgrad
 fetched 2026-10-05, and an npm registry read of eslint-plugin-jsx-a11y's peer range and ESLint's
 current version. The prefer-tag-over-role and no-autofocus counts were measured on a read-only real
 React 19 + Vite application. Paraphrased; no text reproduced beyond short quoted identifiers.
+
+§ 59–101 were moved on 2026-10-10 from the False positives sections of `ui-state-scan`,
+`client-data-scan`, `routing-scan`, `i18n-scan`, `design-token-audit`, `motion-audit` and
+`chart-encoding-audit` (written 2026-10-05 from the same research notes; the TanStack default read from
+query-core 5.104.1 types; the lint and guard measurements from a read-only real React application) and
+from `ui-design-sweep/references/measured-from-the-render.md` (§ 98–101, each exclusion measured after
+a false positive on a real app).

@@ -21,7 +21,13 @@ The protocol is generic. Domain knowledge lives beside it, and the verifier read
   measurement claims), [`precedents/testing.md`](precedents/testing.md) (suite trust: assertion
   strength, execution, determinism, doubles, coverage, mutation) and
   [`precedents/code-quality.md`](precedents/code-quality.md) (error handling, type safety,
-  correctness smells, suppressions, dead code, duplication, architecture).
+  correctness smells, suppressions, dead code, duplication, architecture),
+  [`precedents/ui.md`](precedents/ui.md) (accessibility, UI states, rendering and hydration, client
+  data, routing, i18n presentation, design tokens, motion, charts, render measurement),
+  [`precedents/mobile.md`](precedents/mobile.md) (native lifecycle, permissions, links and push,
+  offline sync, native accessibility and performance, store gates, platform conventions) and
+  [`precedents/seo.md`](precedents/seo.md) (titles, canonicals, social cards, structured data,
+  indexation, sitemaps, hreflang, rendering for crawlers).
 - [`proof-oracles.md`](proof-oracles.md) — the oracle per class, its failing-first test shape per
   stack, and the whole-class variant list a fix must survive.
 
@@ -118,8 +124,9 @@ finding) · "it is async, so it does not block" (awaits in sequence are not conc
 
 Read the domain file for the candidate's class:
 [`precedents/data.md`](precedents/data.md), [`precedents/performance.md`](precedents/performance.md),
-[`precedents/testing.md`](precedents/testing.md) and [`precedents/code-quality.md`](precedents/code-quality.md).
-A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
+[`precedents/testing.md`](precedents/testing.md), [`precedents/code-quality.md`](precedents/code-quality.md),
+[`precedents/ui.md`](precedents/ui.md), [`precedents/mobile.md`](precedents/mobile.md) and
+[`precedents/seo.md`](precedents/seo.md). A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
 it back. A candidate can need both files: an index migration is data (its lock) and performance
 (whether it pays for itself). Three precedents hold in every domain:
 

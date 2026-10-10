@@ -1,11 +1,22 @@
 # Proof oracles — the failing-first proof for each detector class
 
-Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix` and
-`/quality-fix` (reproduce failing-first, then validate the fix), and by every detector whose PROOF line names an
-oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md). Each class has one
-**oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack, and
-a **whole-class variant list** the fix must survive. Sections are per domain (`## Data`,
-`## Performance`, `## Frontend`, `## Testing`, `## Code quality`); later domains append their own.
+Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
+`/quality-fix`, `/frontend-fix` and `/mobile-fix` (reproduce failing-first, then validate the fix), and by every
+detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
+Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
+and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
+and continue the V-numbers after the last one in the file, never renumbering:
+
+| Section | Variants | Oracles added after the section first shipped |
+|---|---|---|
+| `## Data` | V1–V24 | — |
+| `## Performance` | V25–V47 | — |
+| `## Frontend` | V48–V53, V147–V151 | Render-blocking list, Third-party ablation, Layout-shift observer, Build-output grep; § Lighthouse median carries the Lighthouse 13 ids |
+| `## Testing` | V54–V73 | — |
+| `## Code quality` | V74–V86 | — |
+| `## Accessibility and UI states` | V87–V146 | render and SSR (Heap slope, Server render, Build gate, Server + client request count, Cross-request leak probe, Console warning, View update); client data and routing (Request timeline … First protected frame); i18n (Missing-key run … Bidi isolation); design tokens, motion and charts (Token conformance … Colour-vision emulation); Render measurement |
+| `## Mobile` | V152–V179 | — (new section) |
+| `## SEO` | V180–V188 | — (new section) |
 
 ## Scope of use (read first)
 
@@ -16,7 +27,7 @@ a **whole-class variant list** the fix must survive. Sections are per domain (`#
 ## A fix passes the whole class, not the one query
 
 A fix tested against the reported list endpoint is a fix for that endpoint. The regression test runs
-**every** variant of the class (§ Class variants (data), (performance) and (frontend)) against the
+**every** variant of the class (the class-variant list of its domain) against the
 patched entry point and asserts the oracle stays quiet for all of them, while a **benign control** —
 the same entry point on its legitimate path — still succeeds with its count, plan or latency unchanged.
 
@@ -795,7 +806,8 @@ decision is written down. In a disposable cluster, stop the database for 60 s: n
 The core rule holds in the browser (§ The core rule: existence by invariant, cost by statistics).
 **Existence** is a run-invariant check: brotli bytes per route from a production build, a
 Lighthouse audit that fails on the median of five runs, a trace insight, a render count, a yield
-count, a heap-leak cluster. **Cost** is Lighthouse medians under the noise rules (lab) and field
+count, a heap-leak cluster, a render-blocking list, a layout-shift observer, a build-output
+grep. **Cost** is Lighthouse medians under the noise rules (lab) and field
 p75 (truth). **INP is field-only**: lab INP and Total Blocking Time are proxies. Every variant runs
 on **mobile** (Lighthouse's default throttling: 4× CPU, slow 4G) **and desktop**, against a
 production build (`vite preview`, `next start`, the deployed site) — never a dev server.
@@ -804,13 +816,17 @@ production build (`vite preview`, `next start`, the deployed site) — never a d
 
 | Oracle | Asserts | Classes |
 |---|---|---|
-| **Bytes per route** | Brotli bytes per route are equal across two builds of one commit; base → head is an exact delta under the budget | V48 |
-| **Lighthouse median** | A Lighthouse 12 audit id passes on the median of 5 runs, mobile and desktop | V48–V51 |
+| **Bytes per route** | Brotli bytes per route are equal across two builds of one commit; base → head is an exact delta under the budget | V48, V150 |
+| **Lighthouse median** | A Lighthouse audit id (the `*-insight` id when the version has it) passes on the median of 5 runs, mobile and desktop | V48–V51, V147, V149 |
 | **Trace insight** | A DevTools performance insight no longer names the element, request or script | V49–V51 |
 | **Field attribution** | The web-vitals attribution build no longer attributes the metric to the element or sub-part | V49–V51 |
 | **Render count** | A subtree's commits are unchanged by an unrelated update | V52 |
 | **Yield count** | A chunked handler yields at least once per chunk | V51 |
 | **Heap leak (memlab)** | An action repeated and reverted leaves no leak cluster; retained size stays flat | V53 |
+| **Render-blocking list** | After load, `performance.getEntriesByType('resource')` has no entry with `renderBlockingStatus === 'blocking'` for the candidate URL (Chromium) | V147 |
+| **Third-party ablation** | Aborting the vendor host moves the 5-run median LCP or TBT outside the measured band; LoAF `scripts[].sourceURL` grouped by host names it | V148 |
+| **Layout-shift observer** | No `layout-shift` entry (excluding `hadRecentInput`) of 0.01 or more has the candidate's node in `sources`, and session-window CLS ≤ 0.1, across load, consent accept/reject and a two-viewport scroll | V149, V50 |
+| **Build-output grep** | A dev-only marker or transpiler helper is absent from the production build output (deterministic, n = 1) | V150, V151 |
 
 ### Bytes per route
 
@@ -836,16 +852,36 @@ default) with one entry per route chunk glob, `npx size-limit --json`. Label the
 ### Lighthouse median
 
 `lighthouse-ci` (frontend pack) on the production build: `numberOfRuns: 5`, assertions with
-`aggregationMethod: "median-run"`, mobile and desktop. `@lhci/cli` 0.15.1 bundles Lighthouse 12.6.1,
-so assertions use the Lighthouse 12 ids — `lcp-lazy-loaded`, `largest-contentful-paint-element`,
-`render-blocking-resources`, `duplicated-javascript`, `legacy-javascript`, `third-party-summary`,
-`total-blocking-time`, `cumulative-layout-shift`; the Lighthouse 13 `*-insight` ids may not
-resolve there.
+`aggregationMethod: "median-run"`, mobile and desktop. **Read the Lighthouse version before choosing
+an id.** `@lhci/cli` 0.15.1 (still the latest release) bundles Lighthouse 12.6.1, where both the
+Lighthouse 12 audit ids and the `*-insight` audits exist. Lighthouse 13 (13.5.0, 2026-09-18) removed
+`render-blocking-resources`, `third-party-summary`, `third-party-facades`, `legacy-javascript`,
+`lcp-lazy-loaded`, `largest-contentful-paint-element`, `duplicated-javascript`, `dom-size` and
+`font-display`, so a standalone `npx lighthouse` 13 run has only the insight ids. Assert on the
+insight id when the version has both (it survives the upgrade), and print the version and the id
+beside the result.
+
+| Area | Lighthouse 12 id | Lighthouse 13 id (also present in 12.6.1) |
+|---|---|---|
+| Render-blocking requests | `render-blocking-resources` | `render-blocking-insight` |
+| Third parties | `third-party-summary` | `third-parties-insight` |
+| Legacy JavaScript | `legacy-javascript` | `legacy-javascript-insight` |
+| Duplicated JavaScript | `duplicated-javascript` | `duplicated-javascript-insight` |
+| LCP request discovery | `lcp-lazy-loaded`, `prioritize-lcp-image` | `lcp-discovery-insight` |
+| Layout-shift culprits | `layout-shifts` (kept in 13) | `cls-culprits-insight` |
+| DOM size · font display | `dom-size` · `font-display` | `dom-size-insight` · `font-display-insight` |
+| Third-party facades | `third-party-facades` | no named successor |
+| Metrics | `largest-contentful-paint`, `total-blocking-time`, `cumulative-layout-shift` | unchanged |
+
+The pairing in each row is by area: that an insight covers exactly what the removed audit covered is
+not verified. `largest-contentful-paint-element` names the element and carries no pass/fail, so it is
+not asserted: read the element from § Trace insight or `lcp-breakdown-insight` (`lcp-phases-insight`
+in Lighthouse 12).
 
 ```json
 { "ci": { "collect": { "numberOfRuns": 5, "startServerCommand": "npm run start", "url": ["http://localhost:3000/"] },
   "assert": { "assertions": {
-    "lcp-lazy-loaded": ["error", { "minScore": 1 }],
+    "lcp-discovery-insight": ["error", { "minScore": 1 }],
     "largest-contentful-paint": ["error", { "maxNumericValue": "<the route's budget, ms>", "aggregationMethod": "median-run" }] } } } }
 ```
 
@@ -902,6 +938,54 @@ snapshots. Pass: no leak cluster for the action, and retained size flat across 1
 server, `memlab analyze unbound-object --snapshot-dir <dir>` reads three or more Node heap
 snapshots of the same workload (§ Heap growth).
 
+### Render-blocking list
+
+Chromium, production build, after load:
+
+```ts
+const blocking = await page.evaluate(() => performance.getEntriesByType('resource')
+  .filter((e: any) => e.renderBlockingStatus === 'blocking')
+  .map((e: any) => ({ url: e.name, bytes: e.transferSize, end: Math.round(e.responseEnd) })));
+// fails first: the candidate URL is listed; green: it is gone. Lab cost: LH 12 `render-blocking-resources`
+// (maxLength: 0) / LH 13 `render-blocking-insight`; field: web-vitals onLCP attribution `elementRenderDelay`.
+```
+
+`renderBlockingStatus` exists in Chromium and is not Baseline (MDN, *PerformanceResourceTiming.renderBlockingStatus*,
+fetched 2026-10-05): on another engine the list is empty, which proves nothing.
+
+### Third-party ablation
+
+Measure the band first (three re-runs of the unchanged build, each a 5-run median). Then interleave
+5 runs with `await page.route(/googletagmanager|hotjar|intercom|…/, (r) => r.abort())` and 5 without,
+on the mobile profile. A delta inside the band is `NO-CHANGE`. Localise with
+`new PerformanceObserver((l) => …).observe({ type: 'long-animation-frame', buffered: true })`, grouping
+each entry's `scripts[]` by the host of `sourceURL` and summing `duration` and
+`forcedStyleAndLayoutDuration` (`PerformanceScriptTiming` is not Baseline either). Lab: LH 12
+`third-party-summary` / LH 13 `third-parties-insight`.
+
+### Layout-shift observer
+
+```ts
+await page.addInitScript(() => { (window as any).__ls = []; new PerformanceObserver((l) => { for (const e of l.getEntries() as any[])
+  if (!e.hadRecentInput) (window as any).__ls.push({ v: e.value, t: e.startTime,
+    src: e.sources.map((s: any) => ({ node: s.node?.outerHTML?.slice(0, 120), prev: s.previousRect.toJSON(), cur: s.currentRect.toJSON() })) }); })
+  .observe({ type: 'layout-shift', buffered: true }); });
+// load the route on a production build; accept, then (fresh context) reject consent with its own buttons;
+// scroll two viewports; wait 5 s. CLS = the largest session window (gaps < 1 s, window ≤ 5 s) of summed values.
+// Fails first: one shift ≥ 0.01 names the candidate node, or session CLS > 0.1. Field: web-vitals 6.2.3 onCLS
+// attribution `largestShiftTarget`, `largestShiftValue`, `loadState`. Lab: `layout-shifts`, `cls-culprits-insight`.
+```
+
+### Build-output grep
+
+Build with the project's production command; grep `dist`, `build`, `.next/static` or `.output/public`
+(never the source) for the class's markers: React's development warning text, `[Vue warn]`,
+`setupWorker`, `whyDidYouRender`, `react-scan`, `redux-logger`, `@faker-js`, RTK `devTools:!0`,
+`sourceMappingURL=…map` (and `curl` the map: 200 = served); for legacy JS, `regeneratorRuntime`,
+`_classCallCheck`, `core-js/modules/`, `_asyncToGenerator`, `@babel/runtime/helpers`, esbuild's
+`__publicField(` / `__spreadValues(` / `__async(` per chunk. Present before the fix, absent after,
+same build command. No noise band: one run decides.
+
 ### Class variants (frontend)
 
 #### V48. Bundle bytes per route — bytes per route
@@ -927,6 +1011,24 @@ snapshots of the same workload (§ Heap growth).
 
 #### V53. SPA memory growth across navigations — heap leak (memlab)
 - `window` / `document` listeners; intervals; RxJS, store, WebSocket or EventSource subscriptions; Resize, Intersection or Mutation observers; detached DOM; module-level caches; a third-party widget initialised again on every route
+
+#### V147. Render-blocking head — render-blocking list, Lighthouse median
+- a sync `<script src>` in `index.html`, `_document`, `app/layout`, `root.tsx`, `src/app.html`, Angular `index.html`, a Nuxt `app.head.script` entry
+- a cross-origin stylesheet in either attribute order; a CSS `@import` of a URL; a raw-served `@import` chain; a first-party `beforeInteractive` script; a tag a build plugin or edge rule adds to the emitted shell
+
+#### V148. Third party on the critical path — third-party ablation
+- a tag manager in the head; a pixel or tag manager injected from a mount effect; a sync consent stub; a leftover anti-flicker (`async-hide`) snippet
+- `next/script` `beforeInteractive` with a vendor src; `@nuxt/scripts` `useScript` with no trigger; a chat widget loaded eagerly instead of behind a facade
+
+#### V149. Late-inserted layout shift — layout-shift observer (extends V50)
+- a data-driven warning band in a `sticky` stack; a consent bar in flow; `Suspense fallback={null}` above the fold; `<ClientOnly>` with no sized `#fallback`
+- `dynamic(…, { ssr: false })` with no `loading`; Angular `@defer` with no `@placeholder`; an unsized iframe or ad slot; a skeleton of the wrong height
+
+#### V150. Legacy JS and polyfills — build-output grep, bytes per route
+- an explicit `build.target` below the bundler default; a browserslist with `ie 11` / `op_mini`; `core-js` entry imports; `polyfill.io` (also a security row); a `tsconfig` target that only matters when `tsc` emits
+
+#### V151. Dev-only code in the build — build-output grep
+- a development React or Vue build; MSW registered (`setupWorker` in a chunk); faker data; render debuggers; redux-logger; RTK `devTools` defaulting to true; served source maps; a mock arm chosen by a runtime flag (both arms ship)
 
 ## Testing
 
@@ -1481,15 +1583,19 @@ theme, the viewport, the locale, the response the API gave. Reading proves neith
 static-fact classes listed in [`precedents/ui.md`](precedents/ui.md) (the proof rule). No oracle here
 replaces the manual pass: automation finds part of the problem (`precedents/ui.md` § 58), so a run
 that passes every oracle is reported as "automated floor clean", never as "accessible". Users:
-`a11y-code-scan`, `a11y-scan`, and every later UI-state, rendering, client-data and i18n detector and
-fix command.
+`a11y-code-scan`, `a11y-scan`, `render-correctness-scan`, `ssr-audit`, `client-data-scan`, `routing-scan`
+and `i18n-scan` (frontend pack); `ui-state-scan`, `state-matrix`, `design-token-audit`, `motion-audit`,
+`chart-encoding-audit` and `ui-design-sweep` (ui-ux pack); and `/frontend-fix`. The section holds the
+accessibility and UI-state oracles (V87–V112), then render and SSR (V113–V119), client data and
+navigation (V120–V131), i18n (V132–V140), design tokens, motion and charts (V141–V144) and render
+measurement (V145–V146).
 
 ### Oracle taxonomy (accessibility and UI states)
 
 | Oracle | Asserts | Classes |
 |---|---|---|
-| **Axe at route-state** | One axe rule id has no violation node at the route-state, with the WCAG 2.2 tag set; `incomplete` nodes are listed, never dropped | V88, V94, V97, V98, V101–V103 |
-| **Keyboard path** | Tab reaches the control, Enter / Space activate it, Escape closes what it opened, focus returns to the trigger, nothing traps focus outside a modal | V87, V90, V92, V95, V96, V99, V100 |
+| **Axe at route-state** | One axe rule id has no violation node at the route-state, with the WCAG 2.2 tag set; `incomplete` nodes are listed, never dropped | V88, V94, V97, V98, V101–V103, V142 |
+| **Keyboard path** | Tab reaches the control, Enter / Space activate it, Escape closes what it opened, focus returns to the trigger, nothing traps focus outside a modal | V87, V90, V92, V95, V96, V99, V100, V142 |
 | **Role and label query** | `getByRole(role, { name })` or `getByLabel(text)` resolves exactly one element | V88 |
 | **Aria snapshot diff** | `toMatchAriaSnapshot` before and after the interaction shows the state change (`[expanded]`, `[selected]`, `[checked]`, `[pressed]`) | V94, V95 |
 | **Focus-visible delta** | The keyboard-focused element differs from its blurred render, in normal and forced-colours modes | V89 |
@@ -1497,7 +1603,7 @@ fix command.
 | **Live-region presence** | The status region exists and is empty before the action and holds the message after it; a field error is the input's accessible description or error message | V92, V93 |
 | **Geometry** | Each target's box is ≥ 24×24 CSS px or meets the spacing exception | V102 |
 | **Reflow probe** | At 320 CSS px wide nothing scrolls horizontally outside a 2-D container; injected 1.4.12 spacing clips nothing | V103 |
-| **Media emulation** | Under `reducedMotion: 'reduce'` no long animation runs; under `forcedColors: 'active'` the focus ring is still drawn | V89, V98 |
+| **Media emulation** | Under `reducedMotion: 'reduce'` no long animation runs; under `forcedColors: 'active'` the focus ring is still drawn | V89, V98, V143 |
 | **Paste probe** | A value pasted into a credential or OTP field arrives intact | V97 |
 | **Clock fast-forward** | A session-timeout warning with an extend action appears before sign-out | V100 |
 | **Injected violation** | A known violation added to the page turns the project's a11y gate red | V104 |
@@ -1507,8 +1613,40 @@ fix command.
 | **Mount/unmount balance** | After unmount, timers, listeners, observers and subscriptions are back at their starting count | V108 |
 | **Reorder identity** | Local state (typed text, focus, expansion) follows its item when the list reorders | V109 |
 | **Request order** | When responses arrive out of order, the UI shows the latest request's data | V110 |
-| **Pseudo-locale** | Every visible string carries the pseudo-locale marks, and +40 % text clips nothing | V111 |
-| **RTL mirror** | Under `dir="rtl"` the layout mirrors and `lang` / `dir` follow the locale | V112 |
+| **Pseudo-locale** | Every visible string carries the pseudo-locale marks, and +40 % text clips nothing | V111, V132, V134 (`bidi` strategy) |
+| **RTL mirror** | Under `dir="rtl"` the layout mirrors and `lang` / `dir` follow the locale | V112, V136 |
+| **Heap slope** | Across 20 A → B → A client navigations on a production build, the GC'd JS heap does not grow linearly, or it plateaus | V113, V53, V108 (cost) |
+| **Server render** | A production SSR server answers the route 200 and logs no `ReferenceError` for a browser global | V114 |
+| **Build gate** | The framework's production build fails on the boundary violation before the fix and passes after it; on the Next App Router, `next build` exits 0 with no `missing-suspense-with-csr-bailout` in its log | V115, V116 (Next 16 request APIs), V131 |
+| **Server + client request count** | One navigation fetches each URL once across the server render and the hydrated client | V116 |
+| **Cross-request leak probe** | 60 interleaved requests as two users and anonymous never return another session's marker | V117 |
+| **Console warning** | A component test logs none of the framework's warning family for the class | V119; `render-correctness-scan` §1 (update loops) |
+| **View update** | Changing the state through the real action changes the rendered output | V118 |
+| **Request timeline** | For one navigation, the request log (url, start, end) shows the independent reads overlapping, and the request count does not grow with N | V120 |
+| **Write-then-read** | After a create, update or delete through the UI, the list and the detail show the change with no reload, and stay correct after back/forward | V121 |
+| **Failed optimistic write** | A write that fails after a delay first shows the optimistic value, then restores the previous value and shows an error; a concurrent second write survives the rollback | V122 |
+| **Identity switch** | Switching the entity, the tenant or the signed-in user never paints the previous identity's data, and sign-out leaves no cached rows | V123 |
+| **Idle request rate** | With no input, the request count stays flat; with the tab hidden, polling stops (or runs at the declared background rate) | V124 |
+| **Open in new tab** | Middle-click / Ctrl-click on the navigating element opens a new page, and the element exposes an `href` | V125 |
+| **URL round trip** | The view state (filter, sort, page, tab, search) survives reload, back/forward and a fresh browser context opened on the copied URL | V126 |
+| **Garbage param** | A malformed route or search param renders a handled not-found or normalized view, with no `pageerror` and no request carrying `NaN` / `undefined` | V127 |
+| **Unknown URL** | A path no route matches answers 404 (SSR) or renders not-found content with a way home (SPA; 200 allowed) | V128 |
+| **Redirect hop count** | Each route, signed in and signed out, settles after at most one redirect; no `ERR_TOO_MANY_REDIRECTS`, no navigation ping-pong | V129 |
+| **First protected frame** | Signed out, opening a protected route sends no protected API request and paints no protected content before the redirect | V130 |
+| **Missing-key run** | The suite run under every shipped locale logs no missing key: i18next `saveMissing: true` + a `missingKeyHandler` that throws, vue-i18n `missingWarn` / `fallbackWarn` turned into failures, the formatjs or Angular compile step | V133 |
+| **Catalog parity (static fact)** | `catalog-parity.py` (frontend pack, `i18n-scan`) reports no `missing-key`, `placeholder` or `plural-forms` row for the set; the row is the two-ended trace | V133, V134 (catalog half) |
+| **Plural matrix** | Rendering n ∈ {0, 1, 2, 3, 11, 100, 101} under the locale gives one distinct, correct string per `Intl.PluralRules(locale).select(n)` category (Arabic: zero, one, two, few, many, other) | V134 |
+| **Locale format matrix** | The same fixture instant or amount renders as `Intl.DateTimeFormat` / `Intl.NumberFormat` produce for each shipped locale (`test.use({ locale, timezoneId })`); money across three locales × three currencies including JPY (0 decimals) and KWD (3) | V135 |
+| **Locale switch** | After the app's own switcher (and on first load), `html` carries `lang` matching the locale and `dir="rtl"` for an RTL one; an SPA switch updates both without a reload | V137 |
+| **Collation order** | A display list sorted by the code equals the same list sorted with `new Intl.Collator(locale).compare` (`['Ä','Z','A']` under `de` and `sv`; Arabic with and without diacritics) | V138 |
+| **Server-text sentinel** | With the API answering 4xx/5xx carrying the message `ZZ_SERVER_TEXT`, the sentinel is not visible under a non-base locale | V139 |
+| **Bidi isolation** | A user value such as `"Ali (CEO) 2"` interpolated into an RTL sentence keeps its parenthesis and digit in logical order (`Range.getClientRects()` x-order, or a screenshot) | V140 |
+| **Token conformance** | Every rendered colour, spacing, type and radius value at the route × theme is in the resolved token set (canvas-normalised); a value that stays identical across themes while its tokens change is the themed miss | V141 |
+| **Behavioural diff vs the DS component** | The same keyboard path and axe run pass on the design-system component and fail on the local re-implementation, both opened | V142 |
+| **Animation census** | `document.getAnimations()` at the route-state lists no layout or paint property, no duration over the ceiling, and no infinite animation still running on loaded content | V143 |
+| **Rendered chart geometry** | The value axis's lowest tick is 0 on a length mark; rendered bar heights and circle areas are proportional to their values; a seeded null breaks the path | V144 |
+| **Colour-vision emulation** | Under each CDP vision-deficiency type the series stay distinguishable, and each series clears 3:1 against the plot background | V144 |
+| **Render measurement** | On the rendered route × theme, `measure.ts` reports no `floating` surface (all three boundary cues absent against the nearest painted ancestor) and no `same-role`, `size` or `centre` control-row disagreement | V145, V146 |
 
 ### Axe at route-state
 
@@ -1641,6 +1779,21 @@ the other widgets still rendered (partial). Without MSW: `page.route(url, (r) =>
 then fail the refetch; the old rows stay visible with a stale or updating indicator. Every state also
 asserts `page.on('pageerror')` fired zero times.
 
+MSW 3 keeps `setupServer` in `msw/node` and `setupWorker` in `msw/browser`, and needs Node ≥ 22.12: read
+the engines before the first import. A Storybook story takes the same handler
+(`parameters: { msw: { handlers: [states.empty] } }`, msw-storybook-addon 3.0.3, matched to the msw major).
+With a service-worker MSW in the page, Playwright's `page.route` sees the requests only under
+`serviceWorkers: 'block'`; assert with `getByRole('alert' | 'status')` and one `toHaveScreenshot()` per state.
+
+- **The state sweep (the bulk oracle):** for each route in the route table × each state in {500, network
+  error, 403, `[]`, held, offline}, route every API call to that state, open the route and assert three
+  things: an error or status role is present, the empty copy is absent under an error, and no page error
+  fired. One run per state confirms or refutes whole groups of `ui-state-scan` candidates.
+- **Mobile:** RNTL with the API client mocked per state; a Flutter widget test whose fake repository returns
+  `Future.error(…)`, an empty list, or a `Completer` that never completes; a Compose UI test fed a
+  `MutableStateFlow` of each `UiState`; an XCTest per enum case of the view's state. The device-tier rules
+  are in § Mobile.
+
 ### Request count
 
 `let n = 0; await page.route('**/api/orders', (r) => { n++; return r.fulfill({ status: 201, json: {} }); });`
@@ -1682,6 +1835,352 @@ frameworks' shipped sources, read 2026-10-05; React production builds report min
   `html[lang="ar"][dir="rtl"]`, then compare bounding boxes of the shell landmarks and directional
   icons with the LTR render: the x-order flips, and text that must stay LTR (numbers, code, phone
   numbers) does not.
+
+### Heap slope
+
+Chromium only (CDP), on the **production** build (`vite preview`, `next start`, `nuxi preview`), never a
+dev server: StrictMode mounts twice and HMR keeps old modules alive. Three warm-up cycles, then 20
+measured A → B → A cycles through client-side links; GC before every sample.
+
+```ts
+const cdp = await page.context().newCDPSession(page); await cdp.send('Performance.enable');
+const sample = async () => { await cdp.send('HeapProfiler.collectGarbage');
+  const m = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
+  return { heap: m.JSHeapUsedSize, nodes: m.Nodes, listeners: m.JSEventListeners }; };
+const s = []; for (let i = 0; i < 23; i++) {
+  await page.click('a[href="/b"]'); await page.waitForURL('**/b'); await page.click('a[href="/a"]'); await page.waitForURL('**/a');
+  if (i >= 3) s.push(await sample()); }
+```
+
+- **Finding:** the least-squares slope of `heap` over the 20 samples is greater than max(64 KB, 0.5 % of
+  the first sample) per cycle, **and** R² ≥ 0.8, **and** `nodes` or `listeners` is also non-decreasing.
+- **Plateau check (refutes):** the slope over the second 10 cycles is under 10 % of the slope over the
+  first 10 — a bounded cache warming up (TanStack Query `gcTime`, a router cache, Apollo with eviction).
+  Run past the cache's TTL before calling a plateau a leak.
+- **Severity input:** > 1 MB per cycle on a primary route is high.
+- **Retainers:** memlab (§ Heap leak (memlab)) names what holds the memory: `npx memlab analyze
+  unbound-object`, `detached-DOM`, `unmounted-fiber-node`.
+- `performance.memory` is Chromium-only and quantised; prefer the CDP metrics.
+
+### Server render
+
+Production build and start (`next build && next start`, `nuxi build && node .output/server/index.mjs`,
+`vite build --ssr` + the project's server, the SvelteKit adapter's server, `ng build` + the SSR server).
+Request the route with no browser: `curl -s -o /dev/null -w '%{http_code}' <url>` is `200`, and the
+server log for that request holds no `ReferenceError: (window|document|localStorage|sessionStorage|navigator) is not defined`.
+Failing first: the route 500s (or renders the error page) before the guard moves into an effect or a
+client-only lifecycle, and answers 200 after.
+
+### Build gate
+
+The framework's own build is the oracle; the message is the evidence (strings read from Next 16.3.8):
+
+- a server module imported by a client module: add `import 'server-only'` to the server module;
+  `next build` fails with `This module cannot be imported from a Client Component module.` — failing
+  first proves the client reaches it;
+- a function or class instance passed from a Server to a Client Component: `next build && next start`
+  and a request log `Functions cannot be passed directly to Client Components unless you explicitly
+  expose it by marking it with "use server"` or `Only plain objects, and a few built-ins, can be passed
+  to Client Components from Server Components.`;
+- `dynamic(…, { ssr: false })` in a Server Component: the build error `` `ssr: false` is not allowed with
+  `next/dynamic` in Server Components. Please move it into a Client Component. ``;
+- synchronous `params` / `searchParams` / `cookies()` / `headers()` on Next 16: `next build` type errors
+  (with `next typegen` route types) — Next 16 removed the synchronous form;
+- `useSearchParams()` with no `<Suspense>` boundary (V131): `next build` (or `next build --debug-prerender`,
+  which names the component) on the unfixed tree exits non-zero, or prerenders the route as client-only,
+  with `missing-suspense-with-csr-bailout` in the log; after the fix it exits 0 with no such line. Next
+  App Router only.
+
+### Server + client request count
+
+One navigation, counted on both sides: the API's own access log (or a mock API that counts requests
+per URL and tags them by `user-agent` / an `x-ssr` header the server fetch adds) for the server render,
+plus `page.on('request')` for the browser after hydration. The same URL fetched by both is a double
+fetch (Nuxt `await $fetch` in setup, a SvelteKit universal `load` using the global `fetch` or axios,
+Angular without the HTTP transfer cache). After the fix each URL appears once.
+
+### Cross-request leak probe
+
+Node 22 global `fetch` against the production server; two signed-in sessions whose rendered page
+carries a unique marker (a display name `ZZ_U1_MARK` / `ZZ_U2_MARK`) plus anonymous requests,
+interleaved and concurrent:
+
+```ts
+const jobs = Array.from({ length: 60 }, (_, i) => (i % 6 === 5 ? ['anon', ''] : i % 2 ? ['U1', c1] : ['U2', c2]));
+const res = await Promise.all(jobs.map(async ([who, cookie]) => [who, await (await fetch(url, { headers: { cookie } })).text()]));
+const leaks = res.filter(([who, body]) => (who !== 'U1' && body.includes('ZZ_U1_MARK')) || (who !== 'U2' && body.includes('ZZ_U2_MARK')));
+```
+
+Any leak confirms the class (blocker when the state holds user or tenant data). 0 of 60 is evidence,
+not proof: interleaving depends on the server's concurrency, so cite the module-scope variable as the
+mechanism and keep the row `report-flagged` until a deterministic test (two requests with an awaited
+gap that writes and then reads the shared value) fails. Also request as U1, then anonymously: the
+anonymous HTML holds no U1 marker.
+
+### Console warning
+
+`vi.spyOn(console, 'error')` (or `warn`) in the component test, or `page.on('console')` in Playwright;
+fail on the framework's family for the class: React `Maximum update depth exceeded`, the React warning
+that a component changed an uncontrolled input to be controlled (wording not re-verified for 19.3 —
+match the regex `uncontrolled input to be controlled|controlled input to be uncontrolled`), Svelte runtime
+`effect_update_depth_exceeded`, `state_unsafe_mutation`, `ownership_invalid_mutation`.
+
+### View update
+
+Change the state through the real action (the store action, the emitted event, the signal setter), not
+by assigning the test's own reference, and assert the rendered text changes. Angular: under `fakeAsync`
+with one `fixture.detectChanges()`; Vue: `await nextTick()`; Svelte 5: `flushSync()`. It fails before
+the fix (destructured store state, a same-reference `signal.update`, a mutated non-bound `$props`).
+
+### Client data and navigation oracles
+
+Every oracle below runs on a production build (or a component test with MSW 3), fails on the unfixed
+code first, and is re-run for each class variant. **Request count** (V106), **Request order** (V110)
+and **State matrix** (V105) are reused as they stand for the client-data classes that need them.
+
+#### Request timeline
+
+`const log = []; page.on('request', (r) => log.push({ url: r.url(), t: Date.now() })); page.on('requestfinished', (r) => { const e = log.find((x) => x.url === r.url() && !x.end); if (e) e.end = Date.now(); });`
+Load the route once with MSW or a real backend seeded with **N = 2** and once with **N = 20**
+parents. Fails first when the request count for the route grows with N (an N-requests defect, the
+browser twin of § Query-count scaling), or when request B's start is at or after request A's end
+although B does not use A's response (a waterfall). Passes when the count is constant in N and
+independent requests overlap. Read the dependency before asserting overlap: a second read that needs
+the first one's id is not a waterfall.
+
+#### Write-then-read
+
+A stateful handler — `const db = [...seed]; http.post('/api/orders', async ({ request }) => { db.push(await request.json()); return HttpResponse.json({}, { status: 201 }); }), http.get('/api/orders', () => HttpResponse.json(db))` —
+or a real backend. Create (then update, then delete) through the UI on the list's own route; assert the
+row appears (changes, disappears) **without** `page.reload()`, on the list **and** on the detail view, and
+again after `page.goBack()` / `page.goForward()` (router cache, bfcache).
+
+#### Failed optimistic write
+
+`http.patch('/api/todos/:id', async () => { await delay(300); return HttpResponse.json({}, { status: 500 }); })`.
+Trigger the write; assert the optimistic value is visible within the delay, then that the previous value
+is back and an error is announced after it. With two writes in flight and the first failing, the second's
+value must survive (snapshot per mutation, `cancelQueries` before the write, invalidate on settle).
+
+#### Identity switch
+
+Render entity A; switch to B with B's response held (`delay(800)`); sample the visible heading or rows
+with `expect.poll` (or a `MutationObserver` log) and fail if any sample shows A's data under B's route.
+For users: sign in as U1, load a list, sign out, sign in as U2 on the same page — no U1 row ever paints;
+after sign-out, the query cache holds no entries (`queryClient.getQueryCache().getAll().length === 0`, or
+the app's own cache API) and any persisted cache is gone. The device-side twin is in § Mobile (V173).
+
+#### Idle request rate
+
+Component test with fake timers and an MSW request counter (`server.events.on('request:start', () => n++)`):
+hide the tab (TanStack: `focusManager.setFocused(false)`; otherwise stub `document.visibilityState` to
+`'hidden'` and dispatch `visibilitychange`), advance 60 s, assert `n` did not grow (or equals the declared
+background rate). Loop variant: visible, no input, 5 s → `n < 2` after the initial load.
+
+#### Open in new tab
+
+`const [popup] = await Promise.all([context.waitForEvent('page'), el.click({ button: 'middle' })]);` (or
+`click({ modifiers: ['ControlOrMeta'] })`), then `await expect(el).toHaveAttribute('href', /\/orders\//)`.
+Fails first on an element that navigates through a click handler only: no page opens and there is no
+`href`. A row that also contains a real link for the same action passes through that link.
+
+#### URL round trip
+
+Set the view state through the UI (a filter, the sort, page 2, a tab, a search); then (a) `page.reload()`,
+(b) `page.goBack()` after changing it once more, (c) open `page.url()` in a fresh `browser.newContext()`.
+Each must show the same control values and the same rows. Search typing writes with `replace`, not one
+history entry per keystroke: `history.length` grows by at most one per committed search.
+
+#### Garbage param
+
+`page.goto('/orders/abc')`, `/orders/-1`, `/orders/%27`, `/list?page=-5&size=1e9&sort=%27`. Collect
+`page.on('pageerror')` and the request log. Assert a handled state — the not-found view (SSR status 404)
+or a normalized view (page 1) — zero `pageerror`, and no request whose URL contains `NaN`, `undefined`
+or `null`.
+
+#### Unknown URL
+
+`const r = await page.goto('/__refract_404_probe');` On SSR or a static host that knows the route table,
+`expect(r.status()).toBe(404)`. On an SPA behind a history fallback the status is 200: assert the
+not-found heading and a link home instead, and that the home page did **not** render (a soft 404).
+
+#### Redirect hop count
+
+For each of the protected route, the login route and the root, signed in and signed out: count
+`framenavigated` on the main frame for 3 s after `goto` (fail above 2), catch `net::ERR_TOO_MANY_REDIRECTS`,
+and walk `response.request().redirectedFrom()` (server chain ≤ 1 hop).
+
+#### First protected frame
+
+Signed out, `page.on('request')` from before `goto(protectedRoute)`. Assert no request to a protected API
+path fired before the URL reached the login route, and that a screenshot taken at `waitUntil: 'commit'`
+plus the first `requestAnimationFrame` shows no protected content. Whether the server refuses those
+requests is the security pack's proof, not this one.
+
+### i18n oracles
+
+**Pseudo-locale** (V111) and **RTL mirror** (V112) above are reused as they stand. **Catalog parity** is a
+static fact: `catalog-parity.py` (`i18n-scan`, frontend pack) prints the row, and the two-ended trace (the
+catalog line and the code that reads the key) passes gate 6. **Collation order** needs no harness: sort the
+display list both ways in a unit test and compare.
+
+#### Missing-key run
+
+```ts
+// i18next: the test setup, before the app renders
+i18n.init({ ...config, saveMissing: true, missingKeyHandler: (lngs, ns, key) => { throw new Error(`missing ${ns}:${key} [${lngs}]`); } });
+// vue-i18n: createI18n({ ..., missingWarn: true, fallbackWarn: true, missing: (locale, key) => { throw new Error(`missing ${key} [${locale}]`); } })
+// then run the e2e or component suite once per shipped locale; one throw is one confirmed key.
+```
+
+A key reached only through a dynamic prefix fails here only when the run renders that value: pair it with the
+prefix × union sweep (enumerate the bound, then `` i18next.exists(`status.${v}`, { lng }) `` for every value × locale).
+
+#### Plural matrix
+
+```ts
+for (const n of [0, 1, 2, 3, 11, 100, 101]) {
+  const cat = new Intl.PluralRules('ar').select(n);                 // zero one two few many other other
+  render(<CartCount count={n} />, { locale: 'ar' });
+  expect(screen.getByTestId('cart-count')).toHaveTextContent(expectedFor[cat](n));
+}
+```
+
+Fails first when the code branches on `n === 1`, or when the catalog lacks a category the locale needs (the
+category's key is missing, so the raw key or the fallback renders).
+
+#### Locale format matrix
+
+```ts
+for (const [locale, timezoneId] of [['ar-SA', 'Asia/Riyadh'], ['en-US', 'America/Los_Angeles'], ['de-DE', 'Europe/Berlin']]) {
+  test.use({ locale, timezoneId });   // one describe block per pair
+  // render the fixture order; expect the date cell to equal new Intl.DateTimeFormat(locale, opts).format(FIXTURE_INSTANT)
+  // and the total to equal new Intl.NumberFormat(locale, { style: 'currency', currency }).format(FIXTURE_AMOUNT)
+}
+```
+
+Digits are a product decision for Arabic locales: read the runtime's default with
+`new Intl.NumberFormat('ar-SA').resolvedOptions().numberingSystem` (do not assume it), `-u-nu-latn` selects Latin,
+and assert what the product declares, cited where it declares it.
+
+#### Locale switch
+
+Switch through the app's own control, never by setting `localStorage` and reloading:
+`await expect(page.locator('html')).toHaveAttribute('lang', /^ar/)`, `toHaveAttribute('dir', 'rtl')`; switch back and
+assert `en` / `ltr`; repeat after a hard reload on each locale.
+
+#### Server-text sentinel
+
+`await page.route('**/api/**', (r) => r.fulfill({ status: 422, contentType: 'application/json', body: JSON.stringify({ message: 'ZZ_SERVER_TEXT', code: 'validation_failed' }) }))`;
+trigger the action under the non-base locale; `await expect(page.getByText('ZZ_SERVER_TEXT')).toHaveCount(0)` and the
+localized error for `validation_failed` is visible. A server that localizes by `Accept-Language` passes when the
+request carries the header and the body is localized: assert the header on the intercepted request.
+
+#### Bidi isolation
+
+Seed a user whose display name is `Ali (CEO) 2`; render the sentence that interpolates it under `ar`; take the
+`Range.getClientRects()` of the `(`, `)` and `2` characters and assert their x-order is the logical order of the
+name, not the reordered one. A screenshot diff against a reviewed baseline is the fallback.
+
+### Design tokens, motion and chart encoding
+
+#### Token conformance
+
+On a production build, at each route × theme, after the route's own content marker is visible. Resolve the palette from
+`getComputedStyle(document.documentElement).getPropertyValue('--token')` for every declared token, normalise each colour by
+painting it on a 1×1 canvas (`ctx.fillStyle = v; ctx.fillRect(0, 0, 1, 1); ctx.getImageData(0, 0, 1, 1).data`) so hex,
+`rgb()` and `oklch()` compare equal, and resolve the spacing and type scales to px. Then sample every visible element's
+`color`, `background-color`, `border-*-color`, `outline-color`, `padding-*`, `margin-*`, `gap`, `font-size`,
+`border-radius` and `z-index`; report (value, count, example selector) for every value not in the set. Exclude
+`transparent`, `rgba(0, 0, 0, 0)`, `0px`, `auto`, `currentColor`-derived borders, iframes and `svg *`. **Theme flip:** run
+light and dark; an element whose colour is identical in both while the tokens around it change is a literal on a themed
+surface. **Fails first:** the literal's value (or the off-scale px) is in the list with the candidate's selector before the
+fix, and gone after it, with nothing new added. Translucent tokens compare as their composited value; a ±1-channel
+difference is rounding. One run confirms or refutes whole groups of static hits: a literal that never renders is dead code.
+`design-token-audit` (ui-ux pack) carries the full `offToken` helper.
+
+#### Behavioural diff vs the DS component
+
+Render the design-system component and the local re-implementation in the same state (open, focused, with an error) on
+the same route or story. Run the keyboard path (Tab in, Enter / Space, Escape, focus return to the trigger) and axe at the
+route-state on both. **Fails first:** the DS component passes and the local copy fails at least one step. After the fix
+(the copy replaced by the DS component, or the DS component extended) both pass. A copy that passes every step is visual
+drift only: the finding keeps its visual severity, never the behavioural one.
+
+#### Animation census
+
+```ts
+export const census = (page: Page) => page.evaluate(() => document.getAnimations().map((a) => {
+  const t = a.effect?.getComputedTiming(); const el = (a.effect as KeyframeEffect | null)?.target as Element | null;
+  return { kind: a.constructor.name, name: (a as CSSAnimation).animationName ?? (a as CSSTransition).transitionProperty ?? a.id,
+    props: [...new Set(((a.effect as KeyframeEffect | null)?.getKeyframes() ?? []).flatMap((k) => Object.keys(k))
+      .filter((p) => !['offset', 'easing', 'composite', 'computedOffset'].includes(p)))],
+    duration: t?.duration, iterations: t?.iterations, state: a.playState,
+    target: el ? el.tagName.toLowerCase() + '.' + [...el.classList].slice(0, 3).join('.') : '' };
+}));
+```
+
+Trigger the hover, press, state change or mount, then census. A CSS transition reports the property that really moved even
+when it was declared `all`; a Web Animations or Motion animation reports its keyframe properties. **Fails first:** a
+layout property (`width`, `height`, `top`, `left`, `margin`, `padding`, `font-size`), a duration over the
+`motion.md` ceiling, or (after the data marker is visible) an `iterations: Infinity` animation in `running` state is in
+the list before the fix and absent after it. A `requestAnimationFrame`- or scroll-listener-driven animation is invisible
+here: prove it with a DevTools trace (§ Trace insight). A cost claim (frames dropped) always needs a trace or profile file
+on a throttled mobile profile; the census proves existence only.
+
+#### Rendered chart geometry
+
+Read the chart's SVG on the route, with the route's data or a seeded fixture holding a null, a zero and a large value:
+`text` nodes for the axis ticks, `rect` bounding-box heights for bars, `circle` `r` for bubbles, the line `path` across the
+null. **Fails first:** the lowest value tick on a bar, column or area chart is not 0; two bars' height ratio differs from
+their value ratio; two circles' area ratio (r²) differs from their value ratio; the path stays continuous across the
+seeded null, or a zero mark appears where the reading was missing. A canvas renderer has no DOM marks: switch it to its
+SVG renderer for the test, or read its option model.
+
+#### Colour-vision emulation
+
+Chromium only, through a CDP session:
+
+```ts
+const cdp = await page.context().newCDPSession(page);
+for (const type of ['deuteranopia', 'protanopia', 'tritanopia', 'achromatopsia'] as const) {
+  await cdp.send('Emulation.setEmulatedVisionDeficiency', { type });
+  await page.locator(chart).screenshot({ path: `${out}/${type}.png` });
+}
+await cdp.send('Emulation.setEmulatedVisionDeficiency', { type: 'none' });
+```
+
+**Fails first:** under at least one type two series cannot be told apart by any channel but colour (no label, pattern,
+marker shape or direct label separates them), or a series' computed colour falls below 3:1 against the plot background
+(1.4.11). After the fix (a second channel, direct labels, a CVD-safe ramp) every screenshot separates the series and every
+ratio clears 3:1, in light and dark. The screenshots are the artifact the report cites; "looks distinguishable" with no
+artifact is not a result.
+
+### Render measurement (floating surface, control rows)
+
+`ui-design-sweep`'s `scripts/measure.ts` (ui-ux pack; installed at `.claude/skills/ui-design-sweep/scripts/measure.ts`,
+needs only `@playwright/test`) measures two properties of the rendered box that no source read can answer: a card's fill
+can be inherited and its shadow flattened, and a control's height is padding + line-height + border from three separate
+declarations. The thresholds and every exclusion are in sections A–E of `ui-design-sweep/references/measured-from-the-render.md`.
+
+- **Floating surface** (V145) — `floatingSurfaces(page, theme)` skips viewport-filling boxes (≥ 95 % of the width and
+  ≥ 90 % of the height), composites each container's fill over its **nearest painted ancestor** (never the page), skips a
+  container whose fill equals that ancestor's (a layout box, not a surface), and reports `floating` when all three cues are
+  absent: no border at ≥ 3:1 against the adjacent fill, no elevation cue that survives the render, and a surface-pair ratio
+  under 1.2:1. A declared shadow with alpha under 0.05 is a `review` row, read on the screenshot.
+- **Control rows** (V146) — `controlRows(page, { steps, controlClass })` builds a row from three conditions together: the
+  same landmark region, vertical centres within 6 px, and a horizontal gap under 64 px. It reports `same-role`, `size`
+  (≥ 2 px apart, unless both heights are declared steps) and `centre` (≥ 2 px offset) rows, each with
+  `scale: declared | none`.
+- **Navigation** — `sweep(page, routes, opts)` loads the first route and reaches the rest through the app's own history
+  (`navigateInApp`) with a route-specific `ready` marker; a route that lands on the login path is
+  `blocked (redirected-to-login)` and is never measured.
+
+**Fails first:** the candidate's container or row is in the module's output before the fix and absent after it, on the same
+route, in light **and** dark, at every breakpoint the row renders in. A run with no render harness reports both classes
+`NOT RUN`, never pass. The module finds candidates and edits nothing. It has been run on a synthetic fixture page only
+(Playwright 1.63.0, Chromium 153, 2026-10-05): treat its first run on a real app as the stage where false positives are
+still being found, and record each new exclusion in the reference with its measurement.
 
 ### Class variants (accessibility and UI states)
 
@@ -1753,6 +2252,7 @@ frameworks' shipped sources, read 2026-10-05; React production builds report min
 
 #### V105. UI state coverage — state matrix
 - list, detail and infinite list (page 2 fails); a refetch error while data is present (stale, not blank); a dependent query idle ≠ loading; a client-only first paint; one of N widgets failing; 403 vs 404 vs 500; offline then online (a paused mutation resumes exactly once)
+- the dialog and the drawer, not only the page; the second locale and RTL; dark theme; 320 px; both mobile platforms
 
 #### V106. Pending and double submit — request count
 - click twice, `dblclick`, Enter twice in a field, Enter while the button is disabled, `requestSubmit()`, a mobile double tap; pending covers the whole await chain, including the navigation after save
@@ -1775,6 +2275,138 @@ frameworks' shipped sources, read 2026-10-05; React production builds report min
 #### V112. RTL — RTL mirror
 - shell, forms, tables, directional icons, carousels, charts; `lang` and `dir` after a runtime locale switch
 
+#### V113. SPA memory growth per navigation — heap slope, heap leak (memlab) (extends V53)
+- a listener, an interval, a timeout chain, an observer, a WebSocket / EventSource, a store or RxJS subscription, detached DOM held by a closure, a module-level cache, a third-party widget initialised again on every route
+- a bounded cache that must plateau (run past its TTL)
+
+#### V114. Browser global during SSR — server render
+- module scope; the render body; a plugin or composable at module top; a SvelteKit universal `load`; a React Router route-module body; Angular DOM access outside `afterNextRender`
+
+#### V115. Server → client boundary — build gate
+- a server module or secret imported by a client module; a function or class instance passed as a prop; `ssr: false` in a Server Component; a secret-reading module with no `server-only`
+
+#### V116. SSR data semantics — server + client request count, build gate
+- Nuxt `$fetch` in setup; an unkeyed `useAsyncData` in a reused composable; a SvelteKit universal `load` with the global `fetch`; Angular without `withHttpTransferCache`
+- Next 16 synchronous request APIs; `cookies()` in a layout making the subtree dynamic
+
+#### V117. Cross-request state on the server — cross-request leak probe
+- module `let`; a module `Map` / `Set` cache; module-scope `ref` / `reactive` / `writable` / signal / `$state`; a Zustand or Pinia store created at module scope and imported by SSR
+- `axios.defaults.headers.Authorization`; a server-side `i18next.changeLanguage`; a global dayjs / moment locale
+
+#### V118. Reactivity loss — view update
+- Pinia / `reactive` destructure; mutated props; `signal.update` returning the same array; OnPush opt-out with in-place mutation; a Svelte 5 child mutating a non-bound prop
+
+#### V119. Controlled ↔ uncontrolled — console warning
+- `useState()` feeding `value`; `value={x?.y}` before data loads; a form keyed by a value that changes during editing
+
+#### V120. Request waterfall; N requests where one would do — request timeline
+- independent reads awaited in sequence in a loader, an effect or a hook; one request per row, per selected item or per parent (`Promise.all(ids.map(get))`, a `for … of` with `await`)
+- N = 2 and N = 20 parents; a dependent read whose second request does not use the first's response
+- pass: the request count is constant in N and independent requests overlap; a read that needs the first one's id is not a waterfall
+
+#### V121. Write with no invalidation — write-then-read
+- create, update and delete; the list **and** the detail view; a paginated or infinite list (prefix invalidation); a second list under another filter
+- a Next Server Action (needs `revalidatePath` / `revalidateTag` / `updateTag` / `refresh()`); back and forward after the write (router cache, bfcache); server state copied into a global store
+- pass: the change shows on every view with no reload, and still after back/forward
+
+#### V122. Optimistic update with no rollback — failed optimistic write
+- a 500 after a delay; a 409 or 422; two writes in flight, the first failing; an infinite-query cache (`pages[]`); a refetch in flight during the mutation
+- pass: the previous value returns, an error is announced, and the surviving write's value is kept
+
+#### V123. Key missing an input; cache kept across identities — identity switch
+- entity A → B with B's response held; a tenant switch; sign-out and sign-in as another user on the same page; an expired session
+- a key that omits an input the fetch reads; a persisted cache (a storage or IndexedDB persister)
+- pass: no sample shows the previous identity's data; after sign-out the query cache and every persisted cache are empty
+
+#### V124. Polling and refetch loops — idle request rate
+- an interval refetch with the tab hidden; a `setInterval` fetch with no visibility check; a refetch on every render (an unstable key or dependency); a failing poll with no backoff; a poll that keeps running after the job completes
+- pass: hidden → no polling request (or the declared background rate); visible with no input for 5 s → fewer than 2 requests after the initial load
+
+#### V125. Navigation by click on a non-link — open in new tab
+- a table row, a card, an image, an icon, a breadcrumb and a menu item that navigate through a click handler, in each router present
+- pass: middle-click and Ctrl/Cmd-click open a new page and the element exposes an `href`; a row that also holds a real link for the same target passes through that link
+
+#### V126. View state kept only in component state — URL round trip
+- filter, sort, page, page size, tab, date range, search
+- pass: reload, back/forward and a fresh context on the copied URL show the same controls and rows; a typed search adds at most one history entry
+
+#### V127. Route or search params not validated — garbage param
+- `/orders/abc`, `/orders/-1`, `/orders/%27`, `?page=-5&size=1e9&sort=%27`; a defaulted destructure (`const { id = '' } = useParams()`); a cast with no parse
+- pass: a not-found view (SSR 404) or a normalized view, zero `pageerror`, no request URL carrying `NaN`, `undefined` or `null`
+
+#### V128. Unknown URL with no catch-all, or a soft 404 — unknown URL
+- an SSR or static host that knows the route table; an SPA behind a history fallback; an unmatched child of a nested layout; a locale prefix
+- pass: 404 where the host knows the table; on an SPA, the not-found heading and a link home, and the home page did not render
+
+#### V129. Redirect loop — redirect hop count
+- the protected route, the sign-in route and the root, each signed in and signed out; an expired session (a 401 from the API → one redirect, no loop); a trailing-slash or locale prefix; a deep link with `?redirect=`
+- pass: at most one server hop, at most two main-frame navigations in 3 s, no `ERR_TOO_MANY_REDIRECTS`
+
+#### V130. Protected content painted before the guard redirects — first protected frame
+- a hard load of the protected route; a client navigation from a public page; a session that expires mid-session
+- pass: no protected API request before the URL reaches sign-in, and no protected content in the first frame
+
+#### V131. Next `useSearchParams` with no `<Suspense>` boundary — build gate
+- a page or a layout that reads `useSearchParams()` in a client component with no `<Suspense>` above it; Next App Router only
+- pass: `next build` exits 0 with no `missing-suspense-with-csr-bailout` line, and the route still prerenders
+
+#### V132. Hard-coded copy — pseudo-locale (extends V111)
+- JSX text; an attribute (`alt`, `title`, `placeholder`, `aria-label`, `aria-description`); a template literal in JSX; both ternary branches (`{ok ? 'Saved' : 'Failed'}`); a default prop value (`label = 'Submit'`); a label map rendered elsewhere (`const LABELS = { open: 'Open' }`); `<option>` text
+- `<title>`, `document.title`, `useHead({ title })`, `generateMetadata`; `confirm()` / `alert()`; toast and validation messages (failure injected); email, push and print templates
+- a Vue `v-bind` literal; a Svelte `{'…'}` expression; an Angular `[title]="'…'"`; an icon button's `aria-label`; SVG `<title>`; native `android:text`, Compose `Text("…")`, Flutter `Text('…')`
+
+#### V133. Catalog defects — missing-key run, catalog parity
+- a key missing in one shipped locale; a whole namespace file missing; a key used in code and defined nowhere; a dynamic prefix whose bound has a value with no key
+- a placeholder spelled differently (`{{n}}` vs `{n}`, `%1$s` vs `%s`); invalid ICU; an Android `plurals` or `.xcstrings` plural variation missing a category; an `.xcstrings` entry `needs_review`; a fuzzy PO entry; an XLIFF unit with no target
+
+#### V134. Plurals and concatenation — plural matrix, pseudo-locale `bidi`
+- `count === 1`, `count > 1`, `count !== 1`, a truthy `count ? … : …` with 0; a `+ 's'` suffix
+- fragments joined with `+`, a template literal or `.join(' ')`; an ICU message with only `one|other` for Arabic; `#` vs `{count}` placement
+
+#### V135. Presentation formatting — locale format matrix
+- `toLocaleString()` with no arguments; `toLocaleDateString(undefined, …)`; a hard-coded `'en-US'`; `Intl.*()` with no locale; date-fns `format` with no `{ locale }`; a dayjs or moment global locale
+- `getMonth() + 1` built for display; `toFixed(2)` money; `'$' + x`; `` `${x} SAR` ``; server-side formatting with no `timeZone`
+
+#### V136. RTL physical layout — RTL mirror (extends V112)
+- a CSS property; a CSS value (`text-align`, `float`, `clear`); a 4-value `margin` / `padding` shorthand; `background-position: left`; a `translateX` slide-in; a `box-shadow` x-offset; a `border-radius` 4-value shorthand; an absolutely positioned close button
+- a Tailwind class; an inline style object; CSS-in-JS; an icon glyph; Android XML margins and gravity; Compose `absolutePadding`; Flutter `EdgeInsets.only`; UIKit `leftAnchor`
+
+#### V137. `<html lang>` and `dir` — locale switch
+- first load per locale; an SPA switch; a hard reload after a switch; an SSR first paint; a per-subtree `lang` on a quote (correct, must survive)
+
+#### V138. Collation and casing — collation order
+- names, cities and product titles sorted with `<` / `>` or `localeCompare` with no locale; `toLowerCase() ===` on user text (Turkish `İ` / `ı`); Arabic with diacritics
+
+#### V139. Raw server or exception text — server-text sentinel
+- JSX `{err.message}`; Vue / Angular `{{ error.message }}`; `toast.error(e.message)`; `error.message || t(…)` (the server message wins whenever it exists); `response.data.detail`
+
+#### V140. Bidi isolation — bidi isolation
+- a name in a sentence; a name beside a count or a price; a phone number or an order code inside RTL text; a `t()` interpolation of a user field; a comment of unknown direction in a list
+
+#### V141. Design-token drift — token conformance
+- CSS; a locally defined SCSS variable; styled-components / Emotion; an inline style; a Tailwind arbitrary value; the Tailwind default palette on a semantic theme; a component SVG `fill`; raw-scale theme access (`theme.colors.blue[500]`)
+- the dark-theme variant of the swapped token; the hover, focus and disabled states of the same control
+
+#### V142. Re-implemented DS component — behavioural diff, keyboard path, axe at route-state
+- a styled `<button>`; an `<a>` styled as a button; a hand-rolled `div role="dialog"`; a native `<select>`; `<input type="checkbox">`; a tooltip via `title` or a hover `div`; tabs built from buttons and state; a toast as a fixed `div`
+
+#### V143. Motion — animation census, media emulation
+- `transition: all`; a bare duration; `transition-[width]`; `@keyframes` on height; Motion `animate={{ height }}`; GSAP on `left`; a permanent `will-change`; an animated `filter: blur()`
+- a looping Lottie on a hidden tab; a shimmer over loaded data; an autoplay carousel past 5 s; parallax and scroll-linked motion under `reducedMotion: 'reduce'`
+
+#### V144. Chart encoding — rendered chart geometry, colour-vision emulation
+- Recharts, Chart.js, ECharts, Vega-Lite, hand-rolled d3 SVG and a canvas renderer; a bar axis from 50; a value mapped to radius; two y-axes; `connectNulls` / `spanGaps`; `?? 0` in the data transform
+- 2, 8 and 12 series; light and dark; print (greyscale)
+
+#### V145. Floating surface (1.4.11 boundary) — render measurement
+- cards, panels, modals, popovers, sticky headers, table row-groups; light and dark; 100 % zoom; a container on a painted ancestor that is not the page
+- pass: every container's boundary resolves by a ≥ 3:1 border, an elevation cue that survives the render, or a surface step ≥ 1.2:1 against its nearest painted ancestor, in both themes; the fix uses the project's existing elevation language at the role, never a darker page
+
+#### V146. Control-row disagreement — render measurement
+- a toolbar, a filter bar, a form row, a search + button pair; every breakpoint; composite controls (tag input, combobox, date picker) measured at the wrapper
+- text-entry and action controls compared on one scale; binary (switch, checkbox, radio) and icon-only controls compared within their own class only; across classes, centres only
+- pass: one border-box height per class (or a declared step), vertical centres within 1 px, and no control snapped under the 24×24 floor
+
 ### Sources (accessibility and UI states)
 
 The taxonomy and V87–V112 come from the frontend research notes for this batch (2026-10-05): the
@@ -1785,6 +2417,506 @@ signatures, Playwright route and offline APIs) and the i18n / SSR pass (hydratio
 from React 19.3.0, Vue 3.5.43, Svelte 5.57.1 and Angular 22.2.1 shipped sources; the
 `pseudoLocalizeString` vs `PseudoLocalizeDom` distinction). The keyboard-path, live-region and
 geometry shapes follow the research's ranked techniques. Paraphrased; no text reproduced.
+
+V113–V146 and their oracles were merged on 2026-10-10 from the batch-3 builders' drafts (written
+2026-10-05): render correctness and SSR (hydration and build-error strings read from React 19.3.0,
+Vue 3.5.43, Svelte 5.57.1, Angular 22.2.1 and Next 16.3.8 shipped sources), client data and routing
+(MSW 3.0.2 API names, TanStack Query 5.104 option signatures, Playwright route and navigation APIs, the
+Next.js `missing-suspense-with-csr-bailout` page), i18n (the frontend research catalog § 1.6 and § 5;
+pseudo-localization 3.1.3), design tokens, motion and charts (the catalog § 1.7 and technique 14; the
+Chrome DevTools Protocol `Emulation.pdl` vision-deficiency enum, read 2026-10-05), and render measurement
+(`ui-design-sweep/references/measured-from-the-render.md`, measured 2026-10-05). Paraphrased.
+
+## Mobile
+
+The core rule holds on a device (§ The core rule: existence by invariant, cost by statistics).
+**Existence** is a run-invariant check on a booted device or emulator, a release (or profile) build,
+and the OS event the class is about: the typed text is back after process death; the denied flow
+reaches Settings; one queued write reaches the server once; the call fails within its timeout.
+**Cost** (frames, startup, render counts) is measured under the frontend noise rules, release builds
+only. Every oracle names a **tier**: D (device or emulator), I (instrumented or widget test), A (the
+shipped artifact: merged manifest, signed entitlements, the bundle), S (static trace). **No booted
+device means `SKIPPED`, never PASS**, and a host-only unit test proves no lifecycle, permission,
+link, push or background fix. Every variant runs on **both platforms** the product ships to; a
+one-platform run is `PARTIAL`. Settled questions are in [`precedents/mobile.md`](precedents/mobile.md).
+Users: `mobile-lifecycle-scan`, `mobile-a11y-scan`, `mobile-perf-scan`, `offline-sync-scan`,
+`store-compliance-scan`, `platform-conventions-audit`, `native-bridge-audit`, `app-size-scan` and
+`device-harness` (mobile pack), and `/mobile-fix`.
+
+Tags: **[K]** — a command or API name not re-verified when this section was written (the authoring host
+had no Xcode, so every iOS command carries it): keep "read the installed version" wording or verify it
+before quoting it as fact. **[V]** — run on 2026-10-05 against a real release APK (build-tools 36.0.0).
+
+### Oracle taxonomy (mobile)
+
+| Oracle | Tier | Asserts | Classes |
+|---|---|---|---|
+| **Process-death restore** | D (I partial) | After background + system kill + relaunch from Recents, the screen, its typed input and its flow position are restored; the restore path does not crash | V152 |
+| **Scheduler trigger** | A + D | The declared job, service or BG task runs when the OS triggers it, stops within its budget, and is declared where the OS requires | V153 |
+| **Permission-denied flow** | D | Deny, deny twice and revoke-while-backgrounded each degrade in place and reach a Settings path; nothing crashes or loops | V154 |
+| **Network never answers** | I | A request held forever fails within the client timeout and the screen renders its error state | V155 |
+| **Link matrix** | D | Every link in {cold, warm} × {logged out, in, expired} × {valid, malformed, foreign} lands where the route table says, without a crash | V156 |
+| **Push matrix** | D | Each app state × payload kind is shown, routed on tap, and never delivered to a logged-out account | V157 |
+| **OTA compatibility** | D | An update that needs native code absent from the binary is not offered; a tampered update is rejected; a crash at first render rolls back | V158 |
+| **Offline kill** | D | A write submitted offline survives a system kill and reaches the server exactly once | V159 |
+| **Native a11y checker** | I | The platform checker reports no new violation at the screen-state (RNTL role and name queries; Flutter `meetsGuideline`; Compose / Espresso ATF; XCUITest `performAccessibilityAudit()`; versions in § Native accessibility checkers) | V160, V167 |
+| **Render count (Reassure)** | I | A component's render count and duration do not grow against the baseline run | V161 |
+| **Release-mode tripwire** | I/D | StrictMode `penaltyDeath`, Main Thread Checker or TSan stays silent on the path | V162, V178 |
+| **Store probe** | A | The shipped artifact carries the declaration the store requires (merged manifest, `PrivacyInfo.xcprivacy`, entitlements, 16 KB alignment) | V163 |
+| **Name and role query** | I | Every interactive element on the screen-state is found by role **and** accessible name; the custom action fires through the accessibility API | V164, V166 |
+| **Largest-size render** | D (I for Flutter) | At the largest font / display size the text has grown and nothing clips; targets meet 44 pt / 48 dp | V165 |
+| **Frame and render cost** | I / D | Render count, mount time and frame timing stay inside `THR-PERF-REGRESSION` against the baseline, release or profile build, ≥ 10 runs a side | V168 |
+| **Oversized-decode log** | I | No image decodes larger than its display size × scale on the screen-state | V169 |
+| **Startup metric** | D | Cold-start time to initial display, release + profileable build, named device, repeated runs, against the project budget (MOB-9) | V170 |
+| **Leak assertion** | I / D | After the owner is destroyed, nothing retains it: LeakCanary, a weak-reference teardown, `leaks` exit code, `leak_tracker` | V171 |
+| **Lost-response replay** | D (I with a mock server) | A write whose first response is dropped after the server committed it is applied exactly once when the client retries or the queue replays | V172 |
+| **Identity switch** | D | After sign-out and a second account's sign-in, nothing of the first account is on screen, in the local store, in the query cache, in the queue or in scheduled work; a fresh install starts signed out | V173 |
+| **Conflict and rollback** | I / D | A rejected optimistic write rolls the screen back and says so; two devices editing one record end in the entity's written policy, never a silent overwrite | V174 |
+| **Store flow walk** | D | The store-required flow works on the release build: account deletion from inside the app, the ATT prompt before any tracking call, restore purchases on a fresh install | V175 |
+| **Platform-convention capture** | D | The same screen captured on both platforms at the gate's API level shows no control under a system bar, the notch, the home indicator or the IME, and each platform's back and modal idiom intact | V176 |
+| **Back-gesture probe** | D (I for Flutter) | On an API 36 emulator running Android 16, the back gesture on a dirty screen runs the guard (the discard dialog appears) instead of leaving | V177 |
+| **Bridge contract test** | I | Every method one side calls is answered on every shipped platform; every failure path rejects within a bound; a synchronous method stays under the release-mode tripwire | V178 |
+| **Release-artifact size delta** | A | The release artifact the store receives shrinks by the claimed bytes, same toolchain, same artifact type (per-device download size for Play), stable across two builds | V179 |
+
+### Process-death restore
+
+The only Android trigger that kills the process the way the OS does is a **system kill of a
+backgrounded app**. `adb shell am kill` only kills a process that is safe to kill, so it is a no-op
+on a foreground app; `am force-stop`, Maestro `stopApp` and Android Studio Stop enter the stopped
+state and discard saved state by design; "Don't keep activities" keeps singletons alive;
+`ActivityScenario.recreate()` keeps the ViewModel. Those three are extra variants, never the test.
+
+```yaml
+# Maestro (killApp = am kill on Android)
+appId: com.example.app
+---
+- launchApp
+- tapOn: { id: "note_input" }
+- inputText: "draft-123"
+- pressKey: Home
+- killApp
+- launchApp: { stopApp: false }
+- assertVisible: "draft-123"
+```
+
+Shell form: `adb shell input keyevent KEYCODE_HOME`, `adb shell am kill <pkg>`, then
+`adb shell ps -A | grep <pkg>` must print nothing (otherwise `SKIPPED (kill did not land)`), then
+relaunch from Recents. Instrumented: UiAutomator `device.pressHome()` +
+`executeShellCommand("am kill <pkg>")`; Compose `StateRestorationTester` proves `rememberSaveable`
+only. Flutter: `tester.restartAndRestore()` (I), then the device run. iOS: background, stop the
+process from Xcode, relaunch from the home screen; `terminate()` + `launch()` is a cold start.
+React Native has no JS restoration: the oracle is no crash on restore plus every promised draft
+reloaded from storage.
+
+### Scheduler trigger
+
+Declaration first (A): the merged manifest carries the service's `foregroundServiceType` and its
+`FOREGROUND_SERVICE_<TYPE>` permission; the BG identifiers in `BGTaskSchedulerPermittedIdentifiers`
+equal the registered ones (`comm -3` set-difference with constants resolved). Behaviour (D):
+`adb shell cmd jobscheduler run -f <pkg> <jobId>`; WorkManager `TestDriver.setAllConstraintsMet`
+(I); `adb shell dumpsys alarm` / `dumpsys power` for alarms and wake locks; Doze with
+`adb shell dumpsys deviceidle force-idle`; iOS LLDB
+`_simulateLaunchForTaskWithIdentifier:` / `_simulateExpirationForTaskWithIdentifier:` on a device
+(debug builds only; private API, never shipped); Expo `triggerTaskWorkerForTestingAsync()` (dev
+builds).
+
+### Permission-denied flow
+
+Maestro `launchApp: { permissions: { all: deny } }` and `setPermissions` mid-flow; Detox
+`launchApp({ permissions })` (iOS only); `adb shell pm revoke <pkg> <perm>` (the OS kills the
+process; the relaunch must re-check), `adb shell pm clear-permission-flags <pkg> <perm> user-set
+user-fixed`, and `dumpsys package <pkg>` showing `USER_FIXED` for permanently denied; iOS
+`xcrun simctl privacy booted revoke <service> <bundle>` [K]. Pass: the feature degrades in place,
+the permanently-denied state shows a Settings path, nothing crashes or loops.
+
+### Network never answers
+
+A test server that accepts the connection and never responds: MSW with `delay('infinite')`,
+OkHttp `MockWebServer` with a no-response socket policy [K name per version], a `URLProtocol`
+stub that never calls back, a Dart `MockClient` returning a never-completing future. Assert the call
+fails within the configured timeout (fake clock where the client allows it) and the error state with
+a retry renders — not the loader.
+
+### Link, push and OTA matrices
+
+Links: `adb shell am start -W -a android.intent.action.VIEW -d "<url>" <pkg>` after a force-stop
+(a true cold start is right here) and backgrounded; `xcrun simctl openurl booted "<url>"`; Maestro
+`openLink`; Detox `launchApp({ newInstance: true, url })`. Push: FCM HTTP v1 send to the device token,
+`xcrun simctl push booted <bundle> payload.apns`, Detox `sendUserNotification`; after logout, a send
+to the old token shows nothing and the server receives `UNREGISTERED` (404). OTA: build binary B1,
+add a native module and a JS call, publish with the same runtime version → under the `fingerprint`
+policy the update is not offered; publish a tampered or wrongly signed update → rejected; publish one
+that throws at first render → rolled back on next launch.
+
+### Offline kill
+
+Airplane mode (`adb shell svc wifi disable && adb shell svc data disable`, Maestro
+`setAirplaneMode`), submit, background + `am kill`, relaunch, restore the network, and count the
+records on the server: exactly one. The proxy variant (mitmproxy drops the **response** of the first
+POST) proves idempotency.
+
+### Native accessibility checkers (verified 2026-10-05)
+
+- React Native: `@testing-library/react-native` 14.0.1 — `await render(<Screen />)` then
+  `screen.getByRole('button', { name: 'Add to cart' })`; a nameless or role-less control throws (I, host).
+- Flutter: `final handle = tester.ensureSemantics();` then
+  `await expectLater(tester, meetsGuideline(androidTapTargetGuideline));` and likewise
+  `iOSTapTargetGuideline` (44 × 44), `labeledTapTargetGuideline`, `textContrastGuideline`; `handle.dispose();`
+  (docs.flutter.dev accessibility testing, updated 2026-05-05) (I, host).
+- Compose: `androidx.compose.ui:ui-test-junit4-accessibility` (Compose 1.8.0 and later) —
+  `composeTestRule.enableAccessibilityChecks()` then `composeTestRule.onRoot().tryPerformAccessibilityChecks()`
+  (developer.android.com, updated 2026-09-22) (D; I where the project runs Robolectric).
+- Views: `androidx.test.espresso:espresso-accessibility` 3.7.0 — `AccessibilityChecks.enable().setRunChecksFromRootView(true)`,
+  on Accessibility Test Framework 4.1.1 (Google Maven, 2024-03-29) (D).
+- iOS: `XCUIApplication().performAccessibilityAudit(for:_:)` — iOS 17 / Xcode 15 and later; audit types
+  `contrast`, `elementDetection`, `hitRegion`, `sufficientElementDescription`, `dynamicType`, `textClipped`,
+  `trait`, `action`, `parentChild`, `all` (D, simulator).
+- Largest size: `adb shell settings put system font_scale 2.0`; iOS simulator
+  `xcrun simctl ui booted content_size accessibility-extra-extra-extra-large` [K]; Flutter
+  `MediaQuery(data: MediaQueryData(textScaler: TextScaler.linear(2.0)))` around the widget under test.
+
+A host-runnable checker (RNTL, Flutter) runs without a device; the Compose, Views and iOS checkers need
+an emulator or simulator, and without one the row is `SKIPPED (no device)`, never PASS.
+
+### Performance oracles (verified 2026-10-05 unless marked)
+
+- Render cost: Reassure 1.6.0 — `await measureRenders(<Screen />, { scenario })`, `reassure --baseline` on the
+  base, `reassure` on the change; compare against `THR-PERF-REGRESSION` (I, host).
+- Frames: Macrobenchmark `androidx.benchmark:benchmark-macro-junit4:1.5.0` with `FrameTimingMetric` on a
+  release, profileable, non-debuggable build; Flutter `flutter drive --profile` with `traceAction` (D).
+- Startup: Macrobenchmark `StartupTimingMetric` (`StartupMode.COLD`, `CompilationMode.None()` vs `Partial()`);
+  `XCTApplicationLaunchMetric` (iOS 13+) in `measure(metrics:)`; `flutter run --profile --trace-startup` (D).
+- Images: Flutter `debugInvertOversizedImages = true` in a widget test, assert no oversized-decode log line (I);
+  a heap dump's bitmap total or `dumpsys meminfo` before and after (D).
+- Leaks: LeakCanary 2.14 `DetectLeaksAfterTestSuccess` rule (I/D); XCTest
+  `addTeardownBlock { [weak sut] in XCTAssertNil(sut) }` [K]; `leaks -atExit -- <cmd>` exits 1 on a leak
+  (macOS man page); Flutter `LeakTesting.enable()` from `leak_tracker_flutter_testing` in
+  `test/flutter_test_config.dart` (I); Jest fake timers — timer and listener counts are zero after unmount (I).
+
+### Offline oracles
+
+- Airplane mode: `adb shell svc wifi disable && adb shell svc data disable` (restore with `enable`); Maestro
+  `setAirplaneMode: enabled`; iOS: Network Link Conditioner profile "100% Loss" on a device [K].
+- Lost response: a proxy (mitmproxy) script that forwards the first POST to the server and kills the
+  connection before the response reaches the app; or a mock server (MSW, `MockWebServer`
+  `SocketPolicy.DISCONNECT_AFTER_REQUEST` [K], a `URLProtocol` stub) that records the request and then fails
+  it. Assert the server-side count is 1 after the client's retry or replay.
+- Rollback: the proxy or mock answers the optimistic mutation with 500 or 409; assert the screen shows the
+  previous value and an error, and that a refetch in flight did not overwrite it.
+- Identity switch: sign in as A, load data, queue one offline write, sign out, sign in as B; then inspect the
+  screen, `adb shell run-as <pkg> ls databases files shared_prefs`, the simulator container
+  (`xcrun simctl get_app_container booted <bundle> data`), and send a push to A's old token. On iOS also delete
+  the app, reinstall it and launch: it must start signed out (Keychain items survive the uninstall). The web
+  twin is § Accessibility and UI states, *Identity switch* (V123).
+- Count, never assume: "exactly once" is a server-side count or a request log, not the absence of an error.
+
+### Store probes
+
+`apkanalyzer` needs a Java runtime and failed on a host without one, so `aapt2` is the primary Android probe.
+
+- Android, on the release artifact (APK; for an AAB, `bundletool build-apks --mode=universal` first):
+  `aapt2 dump badging app-release.apk | rg "targetSdkVersion|uses-permission"` [V];
+  `zipalign -c -P 16 -v 4 app-release.apk` → `Verification successful` [V]; `check_elf_alignment.sh app-release.apk`
+  or `llvm-objdump -p lib.so | rg LOAD` (`align 2**14` or higher) for each `arm64-v8a` / `x86_64` library;
+  `apkanalyzer manifest print app-release.apk` where a Java runtime exists.
+- iOS, on the archive or IPA: `plutil -p Payload/<App>.app/Info.plist | rg "DTXcode|DTSDKName|MinimumOSVersion"`
+  (the Xcode and SDK that built it, the deployment target) [K]; `plutil -p Payload/<App>.app/PrivacyInfo.xcprivacy`
+  and each `Frameworks/*.framework/PrivacyInfo.xcprivacy`; Xcode Organizer → the archive → Generate Privacy
+  Report [K]; `codesign -d --entitlements :- Payload/<App>.app`.
+- A probe on a stale build proves nothing about the change: record the artifact's build date beside the result.
+- No artifact and no toolchain on the host → `SKIPPED (no build artifact)`; the row stays `[report-flagged]`
+  with the probe written out, never PASS.
+
+### Platform-convention capture and back-gesture probe
+
+`device-harness` captures the screen on an API 35 and an API 36 emulator with gesture and 3-button navigation
+(`adb shell cmd overlay enable com.android.internal.systemui.navbar.threebutton` / `…gestural` [K: overlay names per image]), the
+keyboard up and down, and on a notched iOS simulator (`xcrun simctl io booted screenshot` [K]). Fail: a control's bounds intersect a
+system-bar or gesture inset (read from the UI tree's bounds against the status-bar height, or from the screenshot). Back: on the API
+36 emulator, make the screen dirty, send back — an edge swipe (`adb shell input swipe 0 <y> <x> <y>`) is the decisive variant;
+`adb shell input keyevent KEYCODE_BACK` is a second one [K: whether an injected key takes the same predictive-back path as the
+gesture is unverified] — and assert the guard's dialog in the tree. Flutter cheap first run:
+`await tester.binding.handlePopRoute()` in a widget test asserts `PopScope` decides.
+
+### Bridge contract test
+
+Per module or channel: a host test compares the codegen schema (or the Pigeon definition) with the call sites; an instrumented build
+(Android instrumented test, XCTest on a simulator [K], Detox, `integration_test`) calls each method once and asserts no
+`undefined is not a function` / `MissingPluginException`; a native unit test forces each failure path and asserts the promise
+rejects (or the result is `notImplemented`) within a bound; a sync method runs under StrictMode `penaltyDeath` / Main Thread
+Checker (V162). A platform with no runtime on the host is `SKIPPED (no <platform> runtime)`.
+
+### Release-artifact size delta
+
+`./gradlew :app:bundleRelease`, then `bundletool build-apks` and `bundletool get-size total --apks=<app>.apks` [K] for the per-device
+download size; `flutter build appbundle --analyze-size`; `EXPO_ATLAS=true npx expo export` + `npx expo-atlas .expo/atlas.jsonl`
+(expo-atlas 0.4.3); iOS App Thinning Size Report from the archive export [K]. Before and after on the same toolchain; a debug or
+universal-APK size against an AAB refutes the claim.
+
+### Class variants (mobile)
+
+#### V152. State lost on process death — process-death restore
+- config change (rotation, dark mode, font scale, locale, fold or resize, multi-window); Android 16 ignores orientation locks at sw600dp+ (`targetSdk` 36)
+- Don't keep activities; **background + `am kill` (mandatory)**; permission revoked while backgrounded
+- the state of screen N−1, not only the top; a dialog or sheet open at kill time; cursor and focus; scroll position; an in-flight request at kill time (resumes or re-issues idempotently); saved-state size (`TransactionTooLargeException`)
+- pass: input, position and selection restored on both platforms; no crash on restore
+
+#### V153. Background work — scheduler trigger
+- Doze; App Standby buckets; battery saver; no-network constraint; reboot; app update [K]; force-stop (jobs and alarms cancelled — must be re-scheduled on next launch)
+- Android 15 `dataSync` budget reached → `onTimeout`; `BOOT_COMPLETED` start; exact-alarm permission revoked or not restored from backup
+- iOS Low Power Mode; app swiped away (BG tasks wait for relaunch); a second `register` of the same id
+- pass: the work runs, stops inside its budget, and never crashes the process
+
+#### V154. Permissions — permission-denied flow
+- first request; deny once; deny twice (permanent on Android 11+); "Only this time"; revoke in Settings while running; auto-reset after disuse; partial photos (Android 14, iOS limited); approximate location; upgrade from an older `targetSdk`; restore to a new device
+- pass: no crash, no loop, a Settings path when permanently denied, a re-check on every use
+
+#### V155. Network timeouts — network never answers
+- connect never completes; headers never arrive; body stalls mid-stream; DNS hangs; a retry wrapper around the stalled call
+- pass: fails within the timeout on every path; the error state and retry render; a write is not silently dropped
+
+#### V156. Deep links — link matrix
+- {cold, warm, hot} × {logged out, logged in, expired} × {valid, malformed, `javascript:`, foreign host} × {verified https, custom scheme}; a link received during splash or init
+- pass: no crash; authed targets go through sign-in and then to the target; malformed input reaches a safe fallback
+
+#### V157. Push — push matrix
+- {foreground, background, terminated, killed by the system} × {notification, notification + data, data-only} × {before permission, denied, granted later} × token rotation (reinstall, restore, `deleteToken`) × account switch
+- pass: shown and routed in every state the product promises; nothing shown for a logged-out account; the server prunes `UNREGISTERED` tokens
+
+#### V158. OTA — OTA compatibility
+- same runtime with a new native call; a tampered or unsigned update; a throw at first render; a throw after the recovery window; `NEVER` policy; rollback to the embedded bundle
+- pass: incompatible updates are not offered, tampered ones are rejected, early crashes roll back
+
+#### V159. Offline writes — offline kill
+- kill during enqueue; during upload; after the server commit and before the ack; during a local migration; token expired while offline; clock skew; two devices; logout with a pending outbox (never replayed as the next account)
+- the drain trigger itself: reconnect, app start, the platform scheduler; a queue filled on one screen and drained with that screen closed
+- a payload written by the previous app version and read by this one (a migration, or a discard the user is told about)
+- a row that can never succeed (a 4xx): it reaches a terminal state the user can see, and the rows behind it are not blocked forever
+- pass: each write reaches the server exactly once, under the account that made it
+
+#### V160. Native accessibility — native a11y checker
+- the screen in each state (loading, empty, error, content); the largest font scale; dark theme; RTL; both platforms; an open dialog or sheet
+- pass: no new checker violation; every interactive element has a name and role; targets meet 48 dp / 44 pt
+
+#### V161. Render waste — render count (Reassure)
+- an unrelated parent update; a list scroll; typing in a sibling input; with the React Compiler on and off when the project toggles it
+- pass: render count and duration within the baseline's noise band (release build, repeated runs)
+
+#### V162. Main-thread and concurrency — release-mode tripwire
+- prefs `commit`, Room on main, `runBlocking` (including in an interceptor), sync `execute`, `Data(contentsOf:)`, `DispatchQueue.main.sync`, large JSON decode on main, Flutter `*Sync` IO
+- pass: StrictMode `penaltyDeath` / Main Thread Checker / TSan silent along the path
+
+#### V163. Store declarations — store probe
+- the merged manifest (permissions, FGS types, exported components); `PrivacyInfo.xcprivacy` vs required-reason APIs; release entitlements (`aps-environment`, `get-task-allow`); 16 KB alignment (`zipalign -c -P 16 -v 4`)
+- each dated gate in `store-compliance-scan` § The dated store gates, judged against the date of the run; the extension date where a store grants one
+- library-injected permissions (the merged manifest, not the source); every embedded framework's privacy manifest; the Xcode and SDK recorded in the built app, not the one in the README
+- pass: the shipped artifact carries every declaration the dated gate requires, cited "per the page as of <date>" with the page's URL and its last-updated date
+
+#### V164. Native names and roles — name and role query
+- every interactive element of the screen in each state (loading, empty, error, content); an open dialog or sheet; icon-only buttons; rows whose name should come from merged text; wrappers (`AppButton`, `Tappable`) and their call sites
+- both platforms; RN touchables, Flutter `IconButton` / `GestureDetector` / `InkWell`, Compose `clickable` / `pointerInput`, Views image controls and touch listeners, SwiftUI icon-only `Button` and `onTapGesture`, UIKit image buttons
+- pass: each element is found by role and name; no checker reports a missing name, description or trait
+
+#### V165. Target size and text scaling — largest-size render
+- the largest font scale (Android 2.0, iOS AX5) and display size; dark theme; RTL; landscape; both platforms
+- every pinned scope: a root builder, a theme density, a global default, each fixed-size text; every small target, `hitSlop`-only enlargement, shrink-wrapped Material target and turned-off minimum
+- pass: body text reaches 200 % without clipping; every target meets 44 pt / 48 dp (`THR-A11Y`); fixed-size marks are the only pinned text
+
+#### V166. Grouping, gestures and announcements — name and role query + action + announcement
+- every container that merges, clears or hides semantics; each swipe, drag or multi-finger action; each toast, banner, inline error and count that changes without focus moving
+- pass: no interactive child is hidden; every gesture action is invocable through the accessibility API; every status change is announced or sits in a live region
+
+#### V167. Contrast — native a11y checker
+- light and dark themes; disabled, pressed and focused states; text over images; the error colour on its surface
+- pass: text ≥ 4.5 : 1 (3 : 1 large text and non-text) by the platform checker on a render; no render, no pass
+
+#### V168. Lists and render waste — frame and render cost
+- 0, 1, 20 and 200+ rows; a reorder, insert and filter (row state stays with its item); an unrelated parent update; a scroll; typing in a sibling input; with the React Compiler on and off when the project toggles it
+- pass: the list is virtualized; identity holds across reorder; render count and duration within `THR-PERF-REGRESSION`, release or profile build
+
+#### V169. Image decode — oversized-decode log
+- list thumbnails from camera and remote photos; a GIF or animated image in a list; the image cache under a long scroll; a CDN-resized URL; a zoom viewer
+- pass: no decode above display size × scale in a list; every in-memory image cache is bounded
+
+#### V170. Startup — startup metric
+- cold, warm and hot start; first launch after install; with and without a baseline profile (`CompilationMode.None()` vs `Partial()`); the slowest device class in scope
+- pass: time to initial display within the project budget on a release build, with n and the spread reported; work not needed for the first useful frame is deferred
+
+#### V171. Leaks — leak assertion
+- open and leave the screen repeatedly; rotate; background and return; each listener, observer, receiver, timer, display link, controller, subscription, stored closure, delegate, fragment binding and static reference on the screen
+- pass: the destroyed owner is collected (LeakCanary, weak teardown, `leaks` exit 0, `leak_tracker` clean); listener and timer counts return to zero after unmount
+
+#### V172. Replay identity — lost-response replay
+- the first response dropped after the server commits; a timeout before the server answers; the app killed between send and response, then the queue replayed on next launch; two devices replaying one shared queue; a retry wrapper (axios-retry, dio_smart_retry, WorkManager backoff) around the call
+- pass: one record per user action on the server, on every path; the key on the retry equals the key on the first attempt
+
+#### V173. Identity bleed — identity switch
+- sign-out with an empty queue and with a non-empty queue; account switch without sign-out; token expiry while offline; a fresh install after an uninstall (iOS Keychain); every cache the root uses: query cache, persisted state, local DB, files and images, WebView cookies, scheduled work, push token
+- pass: B sees none of A's data; A's queued writes are never sent under B's session; a fresh install starts signed out
+
+#### V174. Conflict policy — conflict and rollback
+- the server rejects the optimistic write (409, 422, 500); a background refetch lands while the mutation is pending; two devices edit one record offline then sync; a device clock set a day ahead
+- pass: the screen rolls back and says why; the entity's written policy holds (server-wins, versioned reject, merge or prompt); a skewed clock changes nothing
+
+#### V175. Store-required flows — store flow walk
+- account deletion: from the account screen, signed in with each provider the app offers (email, Google, Sign in with Apple), with an unpaid order or an active subscription; Play's web deletion link opened from a browser
+- tracking: a fresh install with tracking denied and with it allowed; no ad-ID or attribution request before the prompt is answered (proxy log)
+- purchases: a fresh install on a second device, then Restore; a refunded or expired subscription
+- pass: deletion completes or tells the user its timeline; no tracking traffic before consent; owned items come back on restore
+
+#### V176. Edge-to-edge and safe area — platform-convention capture
+- API 35 and API 36 emulators; gesture and 3-button navigation; keyboard up and down; landscape; a notched iOS simulator; the largest font; every screen with a bottom-pinned action or a custom top bar; screens behind the edge-to-edge opt-out
+- pass: no control or text under a bar, the gesture area, the notch, the home indicator or the IME on either platform
+
+#### V177. Back handling — back-gesture probe
+- every screen whose back guard lived in `onBackPressed`, `onKeyDown(KEYCODE_BACK)`, `WillPopScope`, `Form.onWillPop`; with the temporary opt-out on and off; a nested navigator; a dialog open; iOS edge swipe on screens that hid the system back button
+- pass: the guard runs on the gesture on Android 16 at target 36; nothing leaves a dirty screen silently; iOS swipe-back works or an equivalent exit exists
+
+#### V178. Native boundary — bridge contract test
+- every module and channel; every method; each platform the app ships (an absent platform folder is SKIPPED, never PASS); the error path, the cancel path and an unknown method; a sync method with cold caches; module teardown on reload
+- pass: called = answered on every platform; every promise or future settles exactly once within its bound; no tripwire fires; nothing acquired at the boundary outlives teardown
+
+#### V179. App size — release-artifact size delta
+- AAB per-device download size and the APK if one is distributed; the IPA thinned for the smallest and largest device in scope; the JS / Dart bundle; each ABI; two consecutive builds
+- pass: the claimed bytes are gone on the artifact the store receives; the release smoke test on a device passes (shrinking on can strip a reflected class)
+
+### Sources (mobile)
+
+The taxonomy and V152–V179 come from the mobile research notes for this batch (2026-10-05) and the
+mobile pack builders' passes: the checker and performance tool versions were verified against primary
+sources on 2026-10-05 (`@testing-library/react-native` 14.0.1, the Flutter accessibility-testing page
+updated 2026-05-05, the Compose accessibility-checks page updated 2026-09-22, espresso-accessibility
+3.7.0 on ATF 4.1.1, Reassure 1.6.0, Macrobenchmark 1.5.0, LeakCanary 2.14, the macOS `leaks` man
+page, expo-atlas 0.4.3); the Android 15 and 16 behaviour facts are from developer.android.com's
+behaviour-change pages (updated 2026-10-01); the `aapt2` and `zipalign` probes were run against a real
+release APK with build-tools 36.0.0. Rows tagged [K] were not re-verified. Paraphrased; no text
+reproduced.
+
+## SEO
+
+A technical-SEO claim says a crawler that runs no JavaScript receives the wrong thing from the
+server: a `noindex` on a route meant to rank, the layout's title on every post, a canonical carrying
+`?utm_source=`, an empty `<div id="root">`. A browser, a unit test and a lint run never see the
+server HTML, so none of them is the oracle. The oracle is the **server HTML of a production build**,
+fetched as a crawler fetches it. A class is graded only on the route classes `seo-audit` assigns it
+to (its § Route class decides which classes run: indexable · public, not meant to rank · auth-gated ·
+not a document); a row with no route class is not graded. Settled questions are in [`precedents/seo.md`](precedents/seo.md). Users:
+`seo-audit` (frontend pack), judged by `@technical-seo`, and `/frontend-fix`.
+
+### Oracle taxonomy (SEO)
+
+| Oracle | Asserts | Classes |
+|---|---|---|
+| **Server HTML (`seo-head.py`)** | The finding's row (`title-dup`, `canonical-tracking`, `noindex`, `hreflang-not-reciprocal`, …) prints for the route set before the fix and is gone after it, on the same routes | V180–V188 |
+| **Rendered vs server text** | The server HTML's visible body text agrees with the rendered page's; a route whose content arrives only by script is a client-only shell | V187 |
+| **Two user agents** | The head is the same under `--ua=googlebot` and `--ua=facebook`; on Next.js, no metadata is streamed into `<body>` for the agent that reads it | V180, V182 |
+| **Robots and sitemap sampling** | `robots.txt` blocks no render asset and names a sitemap; each sitemap is absolute and within the limits, and a sample of its `<loc>` URLs answers 200 with no `noindex` | V184, V185 |
+
+### Server HTML (`seo-head.py`)
+
+`seo-head.py` ships with `seo-audit` (installed as `.claude/skills/seo-audit/scripts/seo-head.py`): Python 3
+standard library, read-only — GET requests only, no file written.
+
+```bash
+python3 .claude/skills/seo-audit/scripts/seo-head.py --self-test
+python3 .claude/skills/seo-audit/scripts/seo-head.py --base=http://localhost:3000 --routes=/,/blog/a,/blog/b,/en/shoes,/ar/shoes --expect-index=/,/blog/,/en/,/ar/ --robots
+python3 .claude/skills/seo-audit/scripts/seo-head.py --html=dist/browser/index.html --expect-index='*'   # a static or prerendered build
+```
+
+Fetch a **production** build — `next build && next start`, `nuxi build && node .output/server/index.mjs`,
+`vite build && vite preview` (plus the prerender output), `astro build && astro preview`, `ng build` with its
+SSR server or the built `index.html`. A dev server's HTML is not what ships. Exit 0 is no finding, 1 is at
+least one finding, 2 is a usage, fetch or parse error — never read as clean. `--expect-index` names the route
+prefixes meant to rank: a `noindex` there is a finding; elsewhere it is printed as a fact.
+
+The rows, by `seo-audit` class: §1 `title-missing`, `title-multiple`, `title-dup`, `desc-missing`, `desc-dup`,
+`meta-in-body` · §2 `canonical-missing`, `canonical-multiple`, `canonical-relative`, `canonical-in-body`,
+`canonical-tracking` · §3 `og-missing`, `og-image-relative`, `twitter-card-missing` · §4 `jsonld-invalid` ·
+§5 `noindex`, `status` · §6 `robots-disallow-all`, `robots-disallow-assets`, `robots-no-sitemap`,
+`sitemap-relative-loc`, `sitemap-over-limit`, `sitemap-loc-bad` · §7 `hreflang-code`, `hreflang-relative`,
+`hreflang-self-missing`, `hreflang-x-default-missing`, `hreflang-not-reciprocal` · §8 `csr-shell` ·
+§9 `h1-count`. **Candidates** print without changing the exit code and each needs a read:
+`jsonld-no-rich-result`, `canonical-elsewhere`, `anchor-generic`, and `meta-in-body` / `canonical-in-body` on a
+Next.js page.
+
+**Fails first:** the row prints for the cited route before the fix and is gone after it, on the **same route
+set** — every route template, not the one example (list, detail, article, category; every locale for §7).
+Google's Rich Results Test and Search Console URL Inspection (the rendered HTML Google stored) are manual rows,
+reported `manual-required`.
+
+### Rendered vs server text
+
+`await page.goto(url)`, wait for the route's own content marker (`networkidle` only when the route has none),
+then `(await page.locator('body').innerText()).length`, set beside the oracle's `text_chars` column for the same
+route. Server text under `--min-text` (200 visible characters by default) while the rendered page shows the
+content is `csr-shell`. Report it first: on that route, the §1–§4 and §7 rows grade tags a crawler that runs no
+JavaScript never reads, so they wait for the rendering fix (`ssr-audit`, the `rendering-strategy` pattern).
+
+### Two user agents
+
+`--ua=googlebot` (the default) and `--ua=facebook`. Next.js streams `generateMetadata` output into `<body>` for
+user agents it does not list as HTML-limited bots and keeps it in `<head>` for those on its `htmlLimitedBots`
+list (Next.js docs, *generateMetadata*, 16.3.8, updated 2026-08-25): run both agents and compare.
+`meta-in-body` / `canonical-in-body` on a Next page is a candidate settled by URL Inspection. Social scrapers
+run no JavaScript, so social cards are graded on the `facebook` run.
+
+### Robots and sitemap sampling
+
+`--robots` fetches `/robots.txt` and up to five sitemaps it names (else `/sitemap.xml`). It checks
+`Disallow: /`, a `Disallow` on the asset folders the pages render with (`/_next/`, `/_nuxt/`, `/assets/`), the
+`Sitemap:` line, absolute `<loc>` values and the 50,000-URL / 50 MB limit, then fetches a sample of `<loc>` URLs
+(`--sitemap-sample=20` by default): each must answer 200 with no `noindex` in the header or the meta. A sitemap
+index is checked for its limits, but its children are not sampled: name a child sitemap's routes with
+`--routes` to cover them.
+
+### Class variants (SEO)
+
+#### V180. Title and description — server HTML, two user agents (`seo-audit` §1)
+- a route file with no metadata of its own inheriting the layout's; one literal title in two metadata files; a project wrapper's fallback description; a React `<title>` with text and an expression as two children
+- every route template; both user agents on Next.js (`meta-in-body`)
+- pass: one title and one description per indexable route, unique across the route set, in `<head>` for both agents
+
+#### V181. Canonical — server HTML (§2)
+- a canonical built from the request URL (it keeps `?utm_source=` and every filter); a relative canonical with no `metadataBase` or site URL; two canonicals by two methods; a canonical in `<body>`; trailing-slash, `www` and `http` variants
+- pass: one absolute canonical in `<head>`, self-referencing or deliberately elsewhere, with no tracking parameters
+
+#### V182. Social cards — server HTML under `--ua=facebook` (§3)
+- articles, products and the home page; the layout's default image; a relative `og:image`; a client-only tag on an SPA
+- pass: `og:title`, an absolute `og:image` and `twitter:card` in the server HTML of every shareable route
+
+#### V183. Structured data — server HTML, Rich Results Test (manual) (§4)
+- a block that does not parse (the whole block is ignored); a property the page does not show (`aggregateRating` with no visible rating); a type that does not match the page
+- FAQ, How-to and `SearchAction` markup (candidates, Hardening); JSON-LD written with `JSON.stringify` into a raw `<script>` (`xss-scan`, security pack, when installed)
+- pass: every block parses, its type matches the page, and every property describes visible content
+
+#### V184. Indexable route blocked, or a private route left open — server HTML, robots sampling (§5)
+- a layout-level `robots: { index: false }` left from staging; a `noindex` added or removed by script; an `X-Robots-Tag` from a route rule or the host; a `noindex` route that robots.txt also disallows; an admin route with no auth gate and no `noindex`; a non-200 status on an indexable route
+- pass: no `noindex` and status 200 on every `--expect-index` route; must-not-rank routes that are server-rendered and reachable carry `noindex` in the first HTML or sit behind an auth wall
+
+#### V185. Sitemap and robots.txt — robots and sitemap sampling (§6)
+- `Disallow: /`; a `Disallow` on `/_next/`, `/_nuxt/` or `/assets/`; no `Sitemap:` line; a hand-written sitemap that lists only static pages; a relative `<loc>`; over 50,000 URLs or 50 MB; a sampled `<loc>` that answers non-200 or carries `noindex`
+- pass: render assets crawlable, a sitemap named and generated from the dynamic routes, every sampled `<loc>` 200 and indexable
+
+#### V186. hreflang — server HTML on every locale (§7)
+- an invalid code (`en-uk`, `en_US`); a relative URL; a version that omits itself; no `x-default`; a set that is not reciprocal across the fetched locales
+- pass: every localized URL lists every version and itself, with absolute URLs and valid codes, plus `x-default`
+
+#### V187. Client-only content on a route that must rank — rendered vs server text (§8)
+- `ssr: false` / `export const ssr = false`; Angular `RenderMode.Client`; a Vite SPA with no prerendering; a Next page that fetches its content in an effect; every indexable route template
+- pass: the server HTML carries the content (`text_chars` at or above `--min-text`) and agrees with the rendered text; the fix is a rendering change, never a client-side tag
+
+#### V188. Discoverable views and link signals — server HTML (§9)
+- hash routing (`#/`); an indexable target reachable only through a click handler (`routing-scan` §1, V125); zero or several `<h1>`; a generic anchor (`click here`, `read more`) as the only link to its target
+- pass: History-API routes, a real `<a href>` to every indexable target, exactly one `<h1>` per indexable route
+
+### Sources (SEO)
+
+`seo-audit` (frontend pack) and its `scripts/seo-head.py`, written 2026-10-05, and the pages that skill read
+and dates: Google Search Central — *How to specify a canonical URL* (updated 2026-07-10), *JavaScript SEO
+basics* (2026-03-04), *Block indexing with noindex* and *Introduction to robots.txt* (2025-12-10), *Build and
+submit a sitemap* (2026-07-08), *Tell Google about localized versions* (2026-09-21), the search gallery
+(2026-06-15) and the Search Central blog of 2023-08-08 on FAQ and How-to results; the Next.js
+*generateMetadata* page (16.3.8, 2026-08-25); react.dev *title*. Paraphrased; no text reproduced.
 
 ---
 
@@ -1834,4 +2966,4 @@ Kubernetes CronJob and probe docs, the AWS Builders' Library and Google SRE *Han
 The frontend oracles and V48–V53 come from its frontend notes: web-vitals 6.2.2 (2026-09-14),
 `@lhci/cli` 0.15.1 (2025-06-25) bundling Lighthouse 12.6.1, Chrome DevTools MCP 1.10.1
 (2026-09-23), memlab 2.0.5 (2026-08-29, MIT), the Vite manifest docs and the Next.js 16.1 release
-notes.
+notes. V147–V151 and the Lighthouse 13 id table come from the frontend research catalog § 1.9 (P-01–P-04, P-06) and its notes on Lighthouse 13.5.0 (2026-09-18) and `@lhci/cli` 0.15.1, and MDN *PerformanceResourceTiming.renderBlockingStatus* and *PerformanceScriptTiming* (fetched 2026-10-05: both exist, neither is Baseline); merged 2026-10-10.
