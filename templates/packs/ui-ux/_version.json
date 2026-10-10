@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.31.1",
+  "version": "1.31.2",
   "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Integration fixes: chart-encoding-audit catches ternary series colours and is dispatched by /frontend-audit; ui-state-scan catches store/ref resets in catch; design-token-audit drops Vue :class negations and pairs DS roots per app; boundaries point at client-data-scan, routing-scan and offline-sync-scan.",
+  "summary": "chart-encoding-audit, design-token-audit, motion-audit, state-matrix and ui-state-scan cite the merged proof-oracles and precedents/ui instead of inline copies; THR-UI-STATES cited by id.",
   "changelog": "CHANGELOG.md"
 }

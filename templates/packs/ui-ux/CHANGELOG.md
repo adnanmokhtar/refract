@@ -14,6 +14,10 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.31.2 — 2026-10-10
+
+**Citations switched to the merged oracles.** `chart-encoding-audit`, `design-token-audit`, `motion-audit`, `state-matrix` and `ui-state-scan` cite the merged `proof-oracles.md` variants and `precedents/ui.md` instead of draft or inline copies, and the `THR-UI-STATES` threshold by id; `ui-design-sweep`'s `references/measured-from-the-render.md` names its `measure.ts` as the *Render measurement* oracle (V145, V146) and its exclusions as `precedents/ui.md` § 98–101.
+
 ## 1.31.1 — 2026-10-10
 
 **Integration fixes after batch 3: the gaps the `a11y-states` fixture found, and the owners that shipped since 1.31.0.**

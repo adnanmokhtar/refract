@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Batch 3: every UI defect class has one owning detector (render-correctness, critical-path, client-data, routing, i18n, a11y-code; ssr-audit, bundle-analyze, a11y-scan, seo-audit + seo-head.py rewritten), judged by lens agents and run by /frontend-audit and /frontend-fix; /a11y-audit and /i18n-audit are now its presets.",
+  "summary": "Contract blocks on api-contract-sentry and ui-architect; skills and /frontend-fix cite the merged proof-oracles (V113–V188), precedents/ui and precedents/seo, THR-WEB-BUNDLE and THR-LHCI.",
   "changelog": "CHANGELOG.md"
 }

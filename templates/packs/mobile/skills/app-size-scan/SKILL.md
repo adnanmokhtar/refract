@@ -66,21 +66,24 @@ while IFS= read -r d; do ROOTS+=("$d"); done < <(
   } | while IFS= read -r f; do dirname "$f"; done | sort -u | awk 'p != "" && index($0, p "/") == 1 { next } { print; p = $0 }')
 [ ${#ROOTS[@]} -gt 0 ] || { echo 'no mobile project marker: every class N/A (no mobile surface)'; exit 0; }
 printf 'root %s\n' "${ROOTS[@]}"
-# Gradle modules can sit beside an Android root (a library module with no manifest): search the root's parent too.
-GROOTS=(); for r in "${ROOTS[@]}"; do GROOTS+=("$r"); case "$r" in */app) GROOTS+=("$(dirname "$r")") ;; esac; done
+# Gradle modules can sit beside an Android root (a library module with no manifest): search the parent of an `…/app` root
+# too, only when that parent is the Gradle build root (it holds settings.gradle*) — an Expo root named `app` never adds `.`.
+GROOTS=(); while IFS= read -r d; do GROOTS+=("$d"); done < <(for r in "${ROOTS[@]}"; do echo "$r"; p=$(dirname "$r")
+  [ "${r##*/}" = app ] && { [ -f "$p/settings.gradle" ] || [ -f "$p/settings.gradle.kts" ]; } && echo "$p"; done | sort -u | awk 'p != "" && index($0, p "/") == 1 { next } { print; p = $0 }')
 X=(-g '!**/{node_modules,Pods,build,.gradle,.dart_tool,.expo,DerivedData,dist,vendor,.cxx}/**' -g '!**/src/{test,androidTest,debug}/**'
    -g '!**/{test,tests,__tests__,__mocks__,mocks,fixtures,__fixtures__,testdata,e2e,integration_test,.maestro,docs,ai}/**'
    -g '!**/*{Tests,UITests}/**' -g '!**/*.{test,spec,stories}.*' -g '!**/*_test.dart' -g '!**/*.{g,freezed,mocks}.dart' -g '!**/*.{md,mdx,lock,snap,map}')
 JS=(-g '*.{js,jsx,ts,tsx}'); DA=(-g '*.dart'); IMG=(-g '*.{png,jpg,jpeg,gif,webp,bmp,tif,tiff,heic}')
 
 # 0. Versions: AGP (9.3 changes the shrink DSL), Expo build properties, RN, Flutter; the release command CI really runs.
-rg -n --pcre2 'com\.android\.tools\.build:gradle:[\d.]+|id\("com\.android\.application"\)\s*version\s*"[\d.]+"|^\s*agp\s*=\s*"[\d.]+"' -g '*.{gradle,kts,toml}' "${GROOTS[@]}"
-rg -n --pcre2 '"(?:react-native|expo|expo-build-properties)"\s*:' -g 'package.json' "${X[@]}" "${ROOTS[@]}"; rg -n --pcre2 '^\s+flutter:\s*["^>=]' -g 'pubspec.yaml' "${ROOTS[@]}"
+rg -n --pcre2 'com\.android\.tools\.build:gradle:[\d.]+|id\("com\.android\.application"\)\s*version\s*"[\d.]+"|^\s*agp\s*=\s*"[\d.]+"' -g '*.{gradle,kts,toml}' "${X[@]}" "${GROOTS[@]}"
+rg -n --pcre2 '"(?:react-native|expo|expo-build-properties)"\s*:' -g 'package.json' "${X[@]}" "${ROOTS[@]}"; rg -n --pcre2 '^\s+flutter:\s*["^>=]' -g 'pubspec.yaml' "${X[@]}" "${ROOTS[@]}"
 rg -n --pcre2 '\b(?:assemble|bundle)Release\b|\bflutter\s+build\s+(?:apk|appbundle|ipa|ios)\b|\beas\s+build\b|\bgradle\(\s*task:' -g '*.{sh,yml,yaml}' -g 'Fastfile' -g 'eas.json' -g 'package.json' "${X[@]}" .
 
-# 1. Release code shrinking off in an APPLICATION module (a library module is exempt: the app shrinks with consumer rules):
-#    no minify / optimization in release, minify bound to a variable that is false, the dropped proguard-android.txt.
-rg -l --pcre2 'com\.android\.application' -g 'build.gradle*' "${X[@]}" "${GROOTS[@]}" | sort -u | while IFS= read -r f; do
+# 1. Release code shrinking off in an APPLICATION module (a library module is exempt: the app shrinks with consumer rules;
+#    a root build file that declares the plugin `apply false` is not a module): no minify / optimization in release,
+#    minify bound to a variable that is false, the dropped proguard-android.txt.
+rg -l --pcre2 '^(?!.*\bapply\s+false\b).*com\.android\.application' -g 'build.gradle*' "${X[@]}" "${GROOTS[@]}" | sort -u | while IFS= read -r f; do
   rg -q --pcre2 'dev\.flutter\.flutter-gradle-plugin' "$f" && continue
   v=$(rg -o --no-filename --pcre2 '\bminifyEnabled\s+\K[a-z]\w*' "$f" | head -1)
   if [ -n "$v" ] && [ "$v" != true ]; then rg -q --pcre2 "\\b$v\\s*=\\s*true\\b" "$f" || rg -H -n --pcre2 "\\bminifyEnabled\\s+$v\\b|\\b$v\\s*=\\s*false\\b" "$f"
@@ -91,7 +94,7 @@ rg -n --pcre2 '"enable(?:Proguard|Minify|ShrinkResources)InReleaseBuilds"\s*:\s*
 # 2. Native code and ABIs: emulator ABIs shipped in release, universal APKs, the .so inventory with sizes (16 KB page
 #    alignment is store-compliance-scan § 7's).
 rg -n --pcre2 '\babiFilters\b[^\n]*\bx86|\buniversalApk\s*(?:=\s*)?true\b|\buseLegacyPackaging\s*(?:=\s*)?true\b' -g 'build.gradle*' "${X[@]}" "${GROOTS[@]}"
-rg --files -g '*.so' -g '!**/{node_modules,build,.gradle,.cxx}/**' "${GROOTS[@]}" | sort -u | while IFS= read -r f; do printf '2 %s %s KB\n' "$f" "$(( $(wc -c < "$f") / 1024 ))"; done
+rg --files -g '*.so' "${X[@]}" "${GROOTS[@]}" | sort -u | while IFS= read -r f; do printf '2 %s %s KB\n' "$f" "$(( $(wc -c < "$f") / 1024 ))"; done
 
 # 3. Assets. 3a every bundled raster of 256 KB or more (the budget is the project's: read it); 3b assets no file names;
 #    3c iOS images outside an asset catalog (never sliced by app thinning).
@@ -115,10 +118,11 @@ rg -n --pcre2 '\bENABLE_BITCODE\s*=\s*YES\b|\bDEAD_CODE_STRIPPING\s*=\s*NO\b|\bS
 #    Native-only and config-plugin packages are read, not reported: autolinking and app.json plugins use them with no import.
 for r in "${ROOTS[@]}"; do
   if [ -f "$r/package.json" ]; then used=$(rg -o --no-filename --pcre2 '(?:from\s+|require\(\s*|import\(\s*)["\x27]\K(?:@[\w.-]+/)?[\w.-]+' "${JS[@]}" "${X[@]}" "$r" | sort -u)
+    if [ -z "$used" ] && [ -n "$(rg --files "${JS[@]}" "$r" | head -1)" ]; then echo "6 $r: every source file is under an excluded path — not compared"; else
     plug=$(rg -o --no-filename --pcre2 '"plugins"\s*:\s*\[[\s\S]*?\]' -U -g 'app.json' "$r" | rg -o --pcre2 '"\K(?:@[\w.-]+/)?[\w.-]+(?=")' | sort -u)
     python3 -c 'import json,sys; print("\n".join(sorted(json.load(open(sys.argv[1])).get("dependencies",{}))))' "$r/package.json" | while IFS= read -r d; do
       printf '%s\n' "$used" | rg -q -x -F "$d" && continue; printf '%s\n' "$plug" | rg -q -x -F "$d" && continue
-      case "$d" in react|react-native|expo|react-dom|react-native-web|react-native-screens|expo-updates|expo-dev-client|expo-build-properties|expo-system-ui|@types/*|*babel*|*eslint*) continue ;; esac; echo "6 $r: $d imported nowhere (read: autolinked native module, peer, or config plugin?)"; done; fi
+      case "$d" in react|react-native|expo|react-dom|react-native-web|react-native-screens|expo-updates|expo-dev-client|expo-build-properties|expo-system-ui|@types/*|*babel*|*eslint*) continue ;; esac; echo "6 $r: $d imported nowhere (read: autolinked native module, peer, or config plugin?)"; done; fi; fi
   if [ -f "$r/pubspec.yaml" ]; then used=$(rg -o --no-filename --pcre2 "^(?:import|export)\\s+['\"]package:\\K\\w+" "${DA[@]}" "$r" | sort -u)
     sed -n '/^dependencies:/,/^[a-z_]*:/p' "$r/pubspec.yaml" | rg -o --pcre2 '^\s{2}\K\w+(?=:)' | while IFS= read -r d; do
       [ "$d" = flutter ] && continue; printf '%s\n' "$used" | rg -q -x -F "$d" || echo "6 $r: $d imported nowhere (read: plugin registered natively?)"; done; fi; done
@@ -130,7 +134,7 @@ rg -n --pcre2 'upload_to_play_store\([^)]*\bapk:|supply\([^)]*\bapk:|\bgradle\(\
 
 A finding is a script line **plus** a read **plus** a measurement. Three blind spots are structural: **merged config** (a Gradle convention plugin or `buildSrc` can turn shrinking on for every module — read it before calling a module unshrunk); **assets referenced by computed names** (`require(\`./img/${name}.png\`)` is invisible to § 3b — read before deleting); **native-only dependencies** (autolinked modules and config plugins are used with no import — § 6 prints them for a read, never as a verdict).
 
-**Measured** (2026-10-05, ripgrep 15.2.0; bash 3.2 and zsh give the same hit set, stdin piped or not; < 1 s). On the program's multi-stack sample (14 positives across the seven classes, 6 decoys) every positive surfaces and no decoy does: a library module with `isMinifyEnabled = false` (precedent § 41), referenced assets, an asset inside an asset catalog (sized, never flagged as unsliced), a Flutter build line that already passes `--split-debug-info`, packages consumed without imports. Six lines are left to the read step by design: four § 6 packages the sample declares and never imports, a 300 KB image inside an asset catalog (sized against the budget), and the `.so` inventory. On all 12 `benchmarks/fixtures/*` it prints `N/A`. On a read-only real Flutter app (440 Dart files) the first version printed 444 lines in 7.7 s, 442 false: 441 test screenshots and goldens counted as unused assets because two `-g` include globs are ORed (the asset filter is now a path filter after the exclusions), and a CI command in a shell comment continued with `\` onto the line carrying `--split-debug-info` (the grep now follows continuations and skips comments). After the fixes: 2 lines, both context (the AGP version, the release command), 0 candidates — the app shrinks in release and every dependency is imported.
+**Measured** (2026-10-05, ripgrep 15.2.0; bash 3.2 and zsh give the same hit set, stdin piped or not; < 1 s). On the program's multi-stack sample (14 positives across the seven classes, 6 decoys) every positive surfaces and no decoy does: a library module with `isMinifyEnabled = false` (precedent § 41), referenced assets, an asset inside an asset catalog (sized, never flagged as unsliced), a Flutter build line that already passes `--split-debug-info`, packages consumed without imports. Six lines are left to the read step by design: four § 6 packages the sample declares and never imports, a 300 KB image inside an asset catalog (sized against the budget), and the `.so` inventory. On every web and server fixture in `benchmarks/fixtures/*` it prints `N/A`; on `mobile-defects` (five mobile roots, measured 2026-10-10) it prints all 8 of its seeds in 27 lines — its `DEFECTS.md` § Detector measurement. A first version printed 7 noise lines there: an Expo root named `app` added `.` to `GROOTS` (every grep 0–2 hit twice, and the whole repository searched), and § 1 read a root build file whose `plugins {}` declares `com.android.application` with `apply false` as an unshrunk application module. Run from this repository's root, greps 0–2 now carry `X` and § 6 says `not compared` for a root whose every source file sits under an excluded path, instead of listing each dependency as unimported (35 lines → 10). On a read-only real Flutter app (440 Dart files) the first version printed 444 lines in 7.7 s, 442 false: 441 test screenshots and goldens counted as unused assets because two `-g` include globs are ORed (the asset filter is now a path filter after the exclusions), and a CI command in a shell comment continued with `\` onto the line carrying `--split-debug-info` (the grep now follows continuations and skips comments). After the fixes: 2 lines, both context (the AGP version, the release command), 0 candidates — the app shrinks in release and every dependency is imported.
 
 ## The 3,000-hit path
 

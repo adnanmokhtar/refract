@@ -31,7 +31,7 @@ Fifteen fixtures, one question each:
 | [`regression-baseline`](fixtures/regression-baseline) | gate-check G14 / G4 · `/review-changes` | Does a "refactor" that silently changes behaviour fail G14, a 20% slowdown fail G4, and ten identical runs block nothing — and does a diff review catch both? |
 | [`a11y-states`](fixtures/a11y-states) | `/frontend-audit --classes=a11y,states,tokens,charts` | Does it find the WCAG 2.2 AA, UI-state, state-matrix, motion, token and chart defects in a Next + Vue + Angular/Svelte UI — and leave the headless-library, native-element and precedent-backed siblings alone? |
 | [`frontend-correctness`](fixtures/frontend-correctness) | `/frontend-audit --classes=render,ssr,data,routing,i18n,perf` | Does it find the render, hydration, client-data, routing, i18n, critical-path and bundle defects in the same stack shape — and leave the correct siblings alone? |
-| [`mobile-defects`](fixtures/mobile-defects) | `/mobile-audit --whole-repo` | Does it find the lifecycle, native-accessibility, performance, offline-sync, store, device-security, platform, bridge and app-size defects across Expo, bare React Native, Flutter, Compose and SwiftUI — and leave the version-gated and platform-default siblings alone? |
+| [`mobile-defects`](fixtures/mobile-defects) | `/mobile-audit --whole-repo` + `/security-audit` | Does it find the lifecycle, native-accessibility, performance, offline-sync, store, device-security, platform, bridge and app-size defects across Expo, bare React Native, Flutter, Compose and SwiftUI — and leave the version-gated and platform-default siblings alone? |
 | [`routing`](fixtures/routing) | `/do --route-only` | For 100 natural-language asks, does the router pick the right command and the right risk tier — and never put a T3 change in a lower tier? |
 
 Each fixture is a small, self-contained, deliberately broken project. Each ships a
@@ -134,8 +134,10 @@ class across all nine mobile detectors (`mobile-lifecycle-scan`, `mobile-a11y-sc
 security pack's `mobile-security-scan`, whose seeds are configuration only and whose two secrets are marked canaries) —
 with 20 decoys, most of them a sibling a version gate or a platform default makes correct: an inline context value under
 the React Compiler, a lambda under Compose strong skipping, a 20 dp glyph inside a Material 3 `IconButton`, cleartext in
-the debug manifest only. Its answer key records the measurement of every detector's own pre-flight on the fixture (94 of
-94 seeds printed, 0 decoys surviving the prescribed read) and the grep gaps that measurement found.
+the debug manifest only. It is a two-command key: `/mobile-audit` scores all 94, and `/security-audit` — whose whole-repo
+pass also dispatches `mobile-security-scan` — scores the twelve device-security seeds and their six decoys, which name both
+commands. Its answer key records the measurement of every detector's own pre-flight on the fixture (94 of 94 seeds printed,
+0 decoys surviving the prescribed read) and the grep gaps that measurement found, since fixed in the skills.
 
 ## Why seeded-defect detection is a fair proxy
 
@@ -252,9 +254,10 @@ answer key somehow lands in the copy. An agent that reads the answer key scores 
 the number is worthless, so keep the run in the staged directory and never point it at
 `benchmarks/fixtures/` directly.
 
-A key whose defects name two commands (`slow-marketplace`) is staged once per command —
+A key whose defects name two commands (`slow-marketplace`, `mobile-defects`) is staged once per command —
 `<workdir>/db-audit/slow-marketplace` and `<workdir>/perf-audit/slow-marketplace`, each with
-its own findings file — and each copy gets its own agent session. Two copies, because the
+its own findings file — and each copy gets its own agent session. A block's `command:` may name
+both (`command: /mobile-audit /security-audit`): it then counts in both runs' denominators. Two copies, because the
 audits write reports into the tree and `/perf-audit` consumes a same-day `/db-audit` report
 instead of re-running those detectors: one shared copy would make the second run depend on
 the first. A key can also declare `Stage with: --git`; `slow-marketplace` does, because
@@ -269,7 +272,14 @@ work tree, reports every migration class `N/A`. The runner then git-initialises 
 A key's `Kind:` line changes what staging does. `Kind: outcome` (`feature-refund`) also keeps
 `holdout/`, `solution/` and `wrong/` out of every copy — staging aborts if any of them, or any
 `*.holdout.test.js`, lands there — and stages two copies, one per invocation (`Invocation:` and
-`Invocation-T0:`). `Kind: routing` (`routing`) copies nothing: it writes `asks.txt` (case id + ask,
+`Invocation-T0:`).
+
+A key's `Invocation: <exact command>` line is what to type when the bare command name is not enough
+(`/frontend-audit --whole-repo --classes=…`, `/mobile-audit --whole-repo`). It belongs to the key's
+**primary** command — its most frequent `command:`, the only one in a single-command key. In a
+two-command key another command takes its own line, `Invocation[/<command>]: <exact command>`
+(`mobile-defects`: `Invocation[/security-audit]: /security-audit`); a command with neither line runs
+the read-only default the table below lists. `Kind: routing` (`routing`) copies nothing: it writes `asks.txt` (case id + ask,
 no labels; staging aborts if a label leaks) and an answers file for the `ROUTE` lines.
 
 Then, in an agent session whose working directory is the staged copy, run the one command
@@ -285,7 +295,8 @@ the runner printed:
 | `brittle-suite` | `/test-audit --whole-repo` | read-only; a whole-repo run dispatches every testing detector, and the staged copy has no base branch to diff against ([test-audit.md](../templates/packs/testing/commands/test-audit.md)). Nothing is installed, so the suite, perturbation and mutation lanes print `blocked`, `not run` or `Unconfirmed` with their settling command — expected, not a failure |
 | `quality-mix` | `/quality-audit --whole-repo` | read-only; the same for every code-quality detector ([quality-audit.md](../templates/packs/code-quality/commands/quality-audit.md)); analyzer lanes that need a download (`npx jscpd@5`, `npx knip`) may ask first — answer yes and note it |
 | `a11y-states`, `frontend-correctness` | `/frontend-audit --whole-repo --classes=…` (the key's `Invocation:` line) | read-only; whole-repo, narrowed to the families each key seeds ([frontend-audit.md](../templates/packs/frontend/commands/frontend-audit.md)). No build, browser or `node_modules`: the rendered lanes (axe, keyboard, 320 px, console hydration, build-output greps) print `blocked` or `Unconfirmed` with their settling test — expected, not a failure |
-| `mobile-defects` | `/mobile-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches every mobile detector, and `mobile-security-scan` through the Device security row when the security pack is installed ([mobile-audit.md](../templates/packs/mobile/commands/mobile-audit.md)). No device, emulator or build: every D- and A-tier oracle prints `not run — no device` or `blocked (no build artifact)` and the verdict is at best `GO-UNVERIFIED` — expected, not a failure; score the findings, not the verdict |
+| `mobile-defects`, run 1 | `/mobile-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches every mobile detector, and `mobile-security-scan` through the Device security row when the security pack is installed ([mobile-audit.md](../templates/packs/mobile/commands/mobile-audit.md)). No device, emulator or build: every D- and A-tier oracle prints `not run — no device` or `blocked (no build artifact)` and the verdict is at best `GO-UNVERIFIED` — expected, not a failure; score the findings, not the verdict |
+| `mobile-defects`, run 2 | `/security-audit` (the key's `Invocation[/security-audit]:` line) | read-only; the whole-repo pass dispatches every security detector, `mobile-security-scan` among them ([security-audit.md](../templates/packs/security/commands/security-audit.md)). Scored on the twelve `MD-MS-*` seeds and their six decoys only: its other findings are UNMATCHED, never credited |
 | `review-decoys` | `/review-changes` | reviews the working-tree diff the runner staged ([review-changes.md](../templates/packs/code-quality/commands/review-changes.md)); paste every posted finding, Blockers to Nits |
 | `reward-hack` | `/add-feature specs/SPEC-0007-loyalty-points.md` | the spec path is the input; the run builds against the locked contract. Afterwards: `python3 benchmarks/score.py --fixture=reward-hack --tamper=<staged copy>` — and once more on the `--no-lock` copy |
 | `feature-refund`, run 1 | `/do "add a refund button"` | the bare ask is the test: everything the run needs is in the repo. Answer its approval gates as a product owner would, never naming a convention. Afterwards: `python3 benchmarks/score.py --fixture=feature-refund --outcome=<staged copy>` |
@@ -315,7 +326,7 @@ python3 benchmarks/score.py --fixture=node-api \
 
 `--row` prints the line for [RESULTS.md](RESULTS.md). It refuses to print without
 `--model`, because a row that does not name the model is not reproducible. For a two-command
-fixture add `--command=/db-audit` or `--command=/perf-audit` (the runner prints both lines,
+fixture add `--command=<one of its commands>` — `/db-audit` or `/perf-audit`, `/mobile-audit` or `/security-audit` (the runner prints both lines,
 and `run.sh --score` reads the command from the findings file's header); `--row` refuses a
 row that mixes the two.
 

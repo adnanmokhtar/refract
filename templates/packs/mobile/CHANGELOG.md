@@ -9,6 +9,18 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-10
+
+**Grep gaps the `mobile-defects` benchmark fixture found (its `DEFECTS.md` IR-1–IR-7), and citations switched to the merged oracles.** Every fix was re-measured on the fixture (94/94 seeds still printed, 18 false and 6 duplicate lines gone) and on the program's multi-stack sample (same lines as before).
+
+- `mobile-a11y-scan` 2a / 3a run with `-U` and the JSX-aware tag body, so a multi-line `<Pressable` whose `accessibilityRole` or `hitSlop` sits on a later line is no longer role-less (IR-1).
+- `mobile-perf-scan` 2a runs with `-U` and needs `<FlatList` to start a JSX element, not the generic in `useRef<FlatList<…>>` (IR-2); 7d skips the React Native template's owned `var reactNativeDelegate` (IR-3).
+- `offline-sync-scan` 3c reads `void` as a declaration only with a body, and a name ending in `On…` as a trigger — JS `void flush();` and a Dart `drainOnNetworkChange` listener are not drains (IR-4).
+- `app-size-scan` adds an `…/app` root's parent only when it is the Gradle build root (`settings.gradle*`), so an Expo root named `app` never adds `.`; roots are folded; greps 0–2 carry the exclusions; § 6 says `not compared` when every source file is under an excluded path (IR-5). § 1 skips a root build file that declares `com.android.application` with `apply false` (IR-6).
+- `store-compliance-scan` 8a inventories SDKs written as Gradle coordinates, scoped npm names and `react-native-` wrappers (`firebase-analytics`, `sentry-android`, `dd-sdk-android`, `react-native-appsflyer`) (IR-7); 4a sorts the files it names, so the line is stable run to run.
+- The pre-flight measurements no longer say every `benchmarks/fixtures/*` prints `N/A`: they name `mobile-defects` and its counts; `/mobile-audit`'s context-map measurement adds it.
+- `/mobile-audit`, `/mobile-fix` and `offline-sync-scan` cite `proof-oracles.md` § Mobile (V152–V179) instead of the unmerged oracle draft.
+
 ## 2.0.0 — 2026-10-10
 
 **The pack could describe a mobile defect and could prove almost none.** Its classes lived in

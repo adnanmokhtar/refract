@@ -14,6 +14,13 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.0.1 — 2026-10-10
+
+**Agent contracts and merged citations.**
+
+- `@api-contract-sentry` and `@ui-architect` carry a `## Contract` block (role, inputs, output, status, next), and their `_examples/` show it; `lint-agent-contract.sh` now lists frontend as a pack whose agents must have one.
+- `/frontend-fix` and the detectors (`bundle-analyze`, `client-data-scan`, `critical-path-scan`, `i18n-scan`, `lighthouse-ci`, `render-correctness-scan`, `routing-scan`, `seo-audit`, `ssr-audit`) cite the merged `proof-oracles.md` variants V113–V188, `precedents/ui.md` and `precedents/seo.md` instead of draft or inline copies, and the `THR-WEB-BUNDLE` / `THR-LHCI` thresholds by id.
+
 ## 2.0.0 — 2026-10-10
 
 **The frontend pack became a set of detectors with one audit and one fix loop (Track A batch 3).** Before this release the pack had prose patterns, one broken SSR table and two single-agent audits that judged their own findings. Now every UI defect class has one owning skill with a one-script pre-flight, a class-coverage block, a refute step and a failing-first oracle. Two commands dispatch them all and close what they find. Major version: `/a11y-audit` and `/i18n-audit` are no longer standalone audits; they are presets of `/frontend-audit`.

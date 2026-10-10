@@ -19,7 +19,10 @@
 #   --baseline  install Refract's repo-baseline guard layer (.claude/ hooks, scripts, schemas,
 #               agents, settings.json, gates.json, templates/) into the staged copy
 # and `Lock: <run-id>` (lock-acceptance.sh runs on the shipped contract, the lock is committed) and
-# `Invocation: <exact command>` (what to type, when the bare command name is not enough).
+# `Invocation: <exact command>` (what to type, when the bare command name is not enough). The plain
+# `Invocation:` line is the key's PRIMARY command's (its most frequent `command:`); a two-command key
+# gives another command its own line, `Invocation[/<command>]: <exact command>`, and a command with
+# neither runs the read-only default below.
 #
 # A key may also declare `Kind:`:
 #   Kind: routing   (routing) nothing is copied: staging writes asks.txt — case id + ask, never the
@@ -28,8 +31,8 @@
 #                   DEFECTS.md. Staged twice: the feature run (Invocation:) and the T0 control
 #                   (Invocation-T0:), each in its own copy; score with --score=<staged copy>.
 #
-# A fixture whose key targets two commands (slow-marketplace: /db-audit and /perf-audit) is
-# staged once per command, each in its own copy with its own findings file, and each run is
+# A fixture whose key targets two commands (slow-marketplace: /db-audit and /perf-audit;
+# mobile-defects: /mobile-audit and /security-audit) is staged once per command, each in its own copy with its own findings file, and each run is
 # scored against its own command's defects — two results rows. The command is read from the
 # findings file's header, or given as `-- --command=<cmd>`.
 #   run.sh --verify [--fixture=<name>]     # re-check every anchor line (fixture drift gate)
@@ -106,10 +109,12 @@ fixture_names() {
 }
 
 # Every command a fixture's key targets, most frequent first. Only ```defect blocks count:
-# a decoy names the command whose run it probes, never a command of its own.
+# a decoy names the command whose run it probes, never a command of its own. A `command:` line may
+# name several commands (space- or comma-separated): the defect counts for each.
 fixture_commands() {
   awk '/^```defect/ { d = 1; next } /^```/ { d = 0 }
-       d && /^command:/ { sub(/^command:[[:space:]]*/, ""); print }' "$FIXTURES_DIR/$1/DEFECTS.md" \
+       d && /^command:/ { sub(/^command:[[:space:]]*/, ""); gsub(/,/, " ")
+                          n = split($0, c, " "); for (i = 1; i <= n; i++) print c[i] }' "$FIXTURES_DIR/$1/DEFECTS.md" \
     | sort | uniq -c | sort -rn | sed 's/^[[:space:]]*[0-9]*[[:space:]]*//'
 }
 
@@ -124,7 +129,15 @@ fixture_wants_git() { grep -qE '^Stage with:.*--git' "$FIXTURES_DIR/$1/DEFECTS.m
 fixture_wants_diff()     { grep -qE '^Stage with:.*--diff' "$FIXTURES_DIR/$1/DEFECTS.md"; }
 fixture_wants_baseline() { grep -qE '^Stage with:.*--baseline' "$FIXTURES_DIR/$1/DEFECTS.md"; }
 fixture_lock_run()       { sed -n 's/^Lock:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1; }
-fixture_invocation_override() { sed -n 's/^Invocation:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1; }
+# The key's invocation for one command ($2): its `Invocation[/<command>]:` line, else the plain
+# `Invocation:` line when $2 is the primary command (or no command is given), else nothing.
+fixture_invocation_override() {
+  local key="$FIXTURES_DIR/$1/DEFECTS.md" own
+  own="$(awk -v t="Invocation[$2]:" 'index($0, t) == 1 { v = substr($0, length(t) + 1); sub(/^[[:space:]]+/, "", v); print v; exit }' "$key")"
+  if [[ -n "$own" ]]; then echo "$own"; return 0; fi
+  if [[ -n "$2" && "$2" != "$(fixture_command "$1")" ]]; then return 0; fi
+  sed -n 's/^Invocation:[[:space:]]*//p' "$key" | head -1
+}
 BASELINE_DIR="$(cd "$BENCH_DIR/.." && pwd)/templates/repo-baseline"
 
 fixture_kind() { sed -n 's/^Kind:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1 | tr 'A-Z' 'a-z'; }
@@ -176,7 +189,7 @@ fixture_blurb() {
 # We measure DETECTION, so every invocation must stop before it starts fixing.
 fixture_invocation() {
   local ov
-  ov="$(fixture_invocation_override "$FIXTURE")"
+  ov="$(fixture_invocation_override "$FIXTURE" "$1")"
   [[ -n "$ov" ]] && { echo "$ov"; return; }
   case "$1" in
     /audit)          echo "/audit --plan-only" ;;
@@ -200,15 +213,15 @@ require_fixture() {
 # --- --list ----------------------------------------------------------------
 
 if [[ "$DO_LIST" -eq 1 ]]; then
-  printf '\n%-18s %-26s %-8s %-7s %s\n' "FIXTURE" "COMMAND" "SEEDED" "DECOYS" "SHAPE"
-  printf '%-18s %-26s %-8s %-7s %s\n' "------------------" "--------------------------" "--------" "-------" "-----"
+  printf '\n%-20s %-32s %-8s %-7s %s\n' "FIXTURE" "COMMAND" "SEEDED" "DECOYS" "SHAPE"
+  printf '%-20s %-32s %-8s %-7s %s\n' "--------------------" "--------------------------------" "--------" "-------" "-----"
   while IFS= read -r name; do
     if [[ "$(fixture_kind "$name")" == "routing" ]]; then
       cmds="/do --route-only"
     else
       cmds="$(fixture_commands "$name" | paste -s -d '+' - | sed 's/+/ + /g')"
     fi
-    printf '%-18s %-26s %-8s %-7s %s\n' \
+    printf '%-20s %-32s %-8s %-7s %s\n' \
       "$name" "$cmds" \
       "$(fixture_count "$name")" "$(fixture_decoys "$name")" "$(fixture_blurb "$name")"
   done < <(fixture_names)
@@ -568,9 +581,10 @@ EOF
   done < <(fixture_commands "$FIXTURE")
   cat <<EOF
 
-  Each run is its own row in benchmarks/RESULTS.md. A finding one run makes about the other
-  command's classes is UNMATCHED in that row, never credited; concatenate both findings
-  files and score with no --command to see the union.
+  Each run is its own row in benchmarks/RESULTS.md. A finding one run makes about a defect its
+  command does not target is UNMATCHED in that row, never credited (a defect whose key names both
+  commands counts in both rows); concatenate both findings files and score with no --command to
+  see the union.
 
 EOF
 fi

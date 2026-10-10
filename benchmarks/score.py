@@ -59,7 +59,9 @@ TWO-COMMAND FIXTURES (a key whose ```defect blocks name more than one `command:`
 -------------------------------------------------------------------------------
 Each command is a separate run and a separate results row. `--command=<cmd>` keeps that
 command's defects and only the decoys whose `command:` matches it (a decoy with no
-`command:` is kept for every run). `--row` refuses to print a row for such a fixture
+`command:` is kept for every run). A block's `command:` may name more than one command,
+space- or comma-separated (`command: /mobile-audit /security-audit`): the block counts in
+each of those runs' denominators — for a defect two commands both dispatch. `--row` refuses to print a row for such a fixture
 without `--command`, because a row that mixes two commands' denominators matches no
 single invocation. Scoring with no `--command` is still allowed for a look at the union.
 
@@ -152,7 +154,7 @@ def find_path(text):
 
 
 class Defect:
-    __slots__ = ("id", "file", "line", "severity", "command", "cls", "anchor", "patterns", "raw")
+    __slots__ = ("id", "file", "line", "severity", "command", "commands", "cls", "anchor", "patterns", "raw")
 
     def __init__(self, fields, raw):
         self.id = fields.get("id", "")
@@ -160,6 +162,8 @@ class Defect:
         self.line = int(fields["line"]) if fields.get("line", "").isdigit() else 0
         self.severity = fields.get("severity", "unknown").lower()
         self.command = fields.get("command", "")
+        # `command:` may name several runs (`/mobile-audit /security-audit`): the defect counts in each.
+        self.commands = [c for c in re.split(r"[\s,]+", self.command) if c]
         self.cls = fields.get("class", "")
         self.anchor = fields.get("anchor", "")
         self.patterns = []
@@ -1242,10 +1246,10 @@ def main():
     clash = {d.id for d in defects} & {z.id for z in decoys}
     if clash:
         die(f"{defects_path}: id used by both a defect and a decoy: {', '.join(sorted(clash))}")
-    commands = sorted({d.command for d in defects if d.command})
+    commands = sorted({c for d in defects for c in d.commands})
     if args.command:
-        defects = [d for d in defects if d.command == args.command]
-        decoys = [z for z in decoys if not z.command or z.command == args.command]
+        defects = [d for d in defects if args.command in d.commands]
+        decoys = [z for z in decoys if not z.commands or args.command in z.commands]
         if not defects:
             die(f"no seeded defects target {args.command} in fixture {args.fixture!r}")
 

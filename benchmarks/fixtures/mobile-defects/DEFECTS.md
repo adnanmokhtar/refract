@@ -10,6 +10,7 @@ native bridge and app size defects — the mobile counterpart of `a11y-states` a
 five mobile roots, plus decoys: correct siblings that look like a seeded defect and must NOT be reported.
 
 Invocation: /mobile-audit --whole-repo
+Invocation[/security-audit]: /security-audit
 Stage with: --git — `/mobile-audit` reads the history for its context map, and a whole-repo run on a copy with no base
 branch says so with the flag instead of leaving the diff lookup to fail.
 
@@ -23,12 +24,13 @@ configuration-level only (§2 cleartext/ATS, §3 exported components, §4 links,
 backup, §7 canary secrets) — MSEC §1 storage has a decoy (MD-DECOY-03) and no seed; app-size §3 (assets) is not
 seeded because the scorer anchors on text lines and an asset seed would anchor in a binary file.
 
-Ownership and scoring. Every row names the detector § that owns it. All rows are scored under `/mobile-audit`: it
-dispatches every mobile detector on a whole-repo run, and its Device security row dispatches `mobile-security-scan`
-**when the security pack is installed** — without it the twelve `MD-MS-*` rows are that row's `not run` and score as
-misses. `/security-audit` also dispatches `mobile-security-scan` on a whole-repo run; a run of it can be scored with
-`score.py --fixture=mobile-defects --findings=<file>` and read for the `MD-MS-*` rows, but it is not a results row of
-its own: `run.sh` applies one `Invocation:` line to every command of a fixture (integrator request IR-9).
+Ownership and scoring. Every row names the detector § that owns it. Two runs, two results rows, each staged in its
+own copy. **`/mobile-audit`** (the `Invocation:` line) scores all 94 rows: it dispatches every mobile detector on a
+whole-repo run, and its Device security row dispatches `mobile-security-scan` **when the security pack is installed** —
+without it the twelve `MD-MS-*` rows are that row's `not run` and score as misses. **`/security-audit`** (the
+`Invocation[/security-audit]:` line) scores the twelve `MD-MS-*` rows and the six decoys that imitate them
+(`MD-DECOY-03`–`-06`, `-11`, `-20`): its whole-repo pass dispatches `mobile-security-scan` too, so those blocks name
+both commands, and its findings on the other classes are UNMATCHED, never credited.
 
 Secrets. The two secret-shaped values (`app/.env`, `native/android/app/build.gradle.kts`) are marked `CANARY` in the
 file and in the value; neither has the shape of a real provider key, and the Firebase file's `API_KEY` is a
@@ -100,18 +102,18 @@ same file for their scoring windows to overlap. If you edit fixture source, re-r
 | MD-ST-06b | `driver/ios/Podfile:2` | high | `/mobile-audit` | store/deployment-target-below-gate |
 | MD-ST-07a | `native/android/build.gradle.kts:2` | medium | `/mobile-audit` | store/16kb-agp-too-old |
 | MD-ST-07b | `native/android/app/build.gradle.kts:10` | medium | `/mobile-audit` | store/16kb-ndk-flags |
-| MD-MS-02a | `driver/android/app/src/main/res/xml/network_security_config.xml:4` | medium | `/mobile-audit` | security/cleartext-permitted |
-| MD-MS-02b | `native/ios/Merchant/Info.plist:23` | medium | `/mobile-audit` | security/ats-disabled |
-| MD-MS-03a | `native/android/app/src/main/AndroidManifest.xml:41` | high | `/mobile-audit` | security/exported-component |
-| MD-MS-03b | `picker/android/app/src/main/AndroidManifest.xml:36` | high | `/mobile-audit` | security/exported-component |
-| MD-MS-04a | `app/android/app/src/main/AndroidManifest.xml:34` | medium | `/mobile-audit` | security/app-link-unverified |
-| MD-MS-04b | `picker/src/auth/magicLink.ts:5` | high | `/mobile-audit` | security/credential-on-custom-scheme |
-| MD-MS-05a | `native/android/app/src/main/java/com/pantrygo/merchant/help/HelpActivity.kt:18` | high | `/mobile-audit` | security/webview-file-access |
-| MD-MS-05b | `app/src/screens/PromoWebView.tsx:21` | high | `/mobile-audit` | security/webview-bridge-any-origin |
-| MD-MS-06a | `native/android/app/src/main/AndroidManifest.xml:15` | high | `/mobile-audit` | security/debuggable-release |
-| MD-MS-06b | `picker/android/app/src/main/AndroidManifest.xml:10` | medium | `/mobile-audit` | security/backup-without-rules |
-| MD-MS-07a | `app/.env:5` | critical | `/mobile-audit` | security/server-secret-in-bundle |
-| MD-MS-07b | `native/android/app/build.gradle.kts:21` | critical | `/mobile-audit` | security/server-secret-in-binary |
+| MD-MS-02a | `driver/android/app/src/main/res/xml/network_security_config.xml:4` | medium | `/mobile-audit` `/security-audit` | security/cleartext-permitted |
+| MD-MS-02b | `native/ios/Merchant/Info.plist:23` | medium | `/mobile-audit` `/security-audit` | security/ats-disabled |
+| MD-MS-03a | `native/android/app/src/main/AndroidManifest.xml:41` | high | `/mobile-audit` `/security-audit` | security/exported-component |
+| MD-MS-03b | `picker/android/app/src/main/AndroidManifest.xml:36` | high | `/mobile-audit` `/security-audit` | security/exported-component |
+| MD-MS-04a | `app/android/app/src/main/AndroidManifest.xml:34` | medium | `/mobile-audit` `/security-audit` | security/app-link-unverified |
+| MD-MS-04b | `picker/src/auth/magicLink.ts:5` | high | `/mobile-audit` `/security-audit` | security/credential-on-custom-scheme |
+| MD-MS-05a | `native/android/app/src/main/java/com/pantrygo/merchant/help/HelpActivity.kt:18` | high | `/mobile-audit` `/security-audit` | security/webview-file-access |
+| MD-MS-05b | `app/src/screens/PromoWebView.tsx:21` | high | `/mobile-audit` `/security-audit` | security/webview-bridge-any-origin |
+| MD-MS-06a | `native/android/app/src/main/AndroidManifest.xml:15` | high | `/mobile-audit` `/security-audit` | security/debuggable-release |
+| MD-MS-06b | `picker/android/app/src/main/AndroidManifest.xml:10` | medium | `/mobile-audit` `/security-audit` | security/backup-without-rules |
+| MD-MS-07a | `app/.env:5` | critical | `/mobile-audit` `/security-audit` | security/server-secret-in-bundle |
+| MD-MS-07b | `native/android/app/build.gradle.kts:21` | critical | `/mobile-audit` `/security-audit` | security/server-secret-in-binary |
 | MD-PC-08a | `picker/src/screens/PickListScreen.tsx:3` | medium | `/mobile-audit` | platform/core-safe-area-view |
 | MD-PC-08b | `native/ios/Merchant/CheckoutPadView.swift:25` | high | `/mobile-audit` | platform/controls-under-safe-area |
 | MD-PC-10a | `native/android/app/src/main/java/com/pantrygo/merchant/ui/EditOrderScreen.kt:24` | high | `/mobile-audit` | platform/navigate-in-composition |
@@ -1131,7 +1133,7 @@ id:       MD-MS-02a
 file:     driver/android/app/src/main/res/xml/network_security_config.xml
 line:     4
 severity: medium
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/cleartext-permitted
 detector: mobile-security-scan §2
 anchor:   <base-config cleartextTrafficPermitted="true">
@@ -1147,7 +1149,7 @@ id:       MD-MS-02b
 file:     native/ios/Merchant/Info.plist
 line:     23
 severity: medium
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/ats-disabled
 detector: mobile-security-scan §2
 anchor:   <key>NSAllowsArbitraryLoads</key>
@@ -1163,7 +1165,7 @@ id:       MD-MS-03a
 file:     native/android/app/src/main/AndroidManifest.xml
 line:     41
 severity: high
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/exported-component
 detector: mobile-security-scan §3
 anchor:   android:name=".push.TokenRefreshReceiver"
@@ -1179,7 +1181,7 @@ id:       MD-MS-03b
 file:     picker/android/app/src/main/AndroidManifest.xml
 line:     36
 severity: high
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/exported-component
 detector: mobile-security-scan §3
 anchor:   android:name=".sync.PickSyncService"
@@ -1195,7 +1197,7 @@ id:       MD-MS-04a
 file:     app/android/app/src/main/AndroidManifest.xml
 line:     34
 severity: medium
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/app-link-unverified
 detector: mobile-security-scan §4
 anchor:   android:label="order_links"
@@ -1211,7 +1213,7 @@ id:       MD-MS-04b
 file:     picker/src/auth/magicLink.ts
 line:     5
 severity: high
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/credential-on-custom-scheme
 detector: mobile-security-scan §4
 anchor:   'pantrypicker://login?token='
@@ -1227,7 +1229,7 @@ id:       MD-MS-05a
 file:     native/android/app/src/main/java/com/pantrygo/merchant/help/HelpActivity.kt
 line:     18
 severity: high
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/webview-file-access
 detector: mobile-security-scan §5
 anchor:   web.settings.allowUniversalAccessFromFileURLs = true
@@ -1243,7 +1245,7 @@ id:       MD-MS-05b
 file:     app/src/screens/PromoWebView.tsx
 line:     21
 severity: high
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/webview-bridge-any-origin
 detector: mobile-security-scan §5
 anchor:   originWhitelist={['*']}
@@ -1259,7 +1261,7 @@ id:       MD-MS-06a
 file:     native/android/app/src/main/AndroidManifest.xml
 line:     15
 severity: high
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/debuggable-release
 detector: mobile-security-scan §6
 anchor:   android:debuggable="true"
@@ -1275,7 +1277,7 @@ id:       MD-MS-06b
 file:     picker/android/app/src/main/AndroidManifest.xml
 line:     10
 severity: medium
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/backup-without-rules
 detector: mobile-security-scan §6
 anchor:   android:allowBackup="true"
@@ -1291,7 +1293,7 @@ id:       MD-MS-07a
 file:     app/.env
 line:     5
 severity: critical
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/server-secret-in-bundle
 detector: mobile-security-scan §7
 anchor:   EXPO_PUBLIC_PAYMENTS_SECRET=
@@ -1307,7 +1309,7 @@ id:       MD-MS-07b
 file:     native/android/app/build.gradle.kts
 line:     21
 severity: critical
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    security/server-secret-in-binary
 detector: mobile-security-scan §7
 anchor:   buildConfigField("String", "ADMIN_API_TOKEN"
@@ -1763,7 +1765,7 @@ match:    virtuali|ScrollView|FlatList|unbounded
 id:       MD-DECOY-03
 file:     app/src/auth/session.ts
 line:     10
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    decoy/secure-store-token
 anchor:   await SecureStore.setItemAsync('refreshToken'
 match:    plain|storage|token|secure|keychain
@@ -1773,7 +1775,7 @@ match:    plain|storage|token|secure|keychain
 id:       MD-DECOY-04
 file:     native/ios/Merchant/GoogleService-Info.plist
 line:     6
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    decoy/firebase-config
 anchor:   <string>AIza-CANARY-placeholder-not-a-key</string>
 match:    secret|key|hard.?coded|API_KEY
@@ -1783,7 +1785,7 @@ match:    secret|key|hard.?coded|API_KEY
 id:       MD-DECOY-05
 file:     app/android/app/src/debug/AndroidManifest.xml
 line:     3
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    decoy/debug-only-cleartext
 anchor:   android:usesCleartextTraffic="true"
 match:    cleartext|http
@@ -1793,7 +1795,7 @@ match:    cleartext|http
 id:       MD-DECOY-06
 file:     driver/android/app/src/main/AndroidManifest.xml
 line:     14
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    decoy/exported-launcher
 anchor:   android:exported="true"
 match:    export
@@ -1843,7 +1845,7 @@ match:    idempoten|key|replay|retry
 id:       MD-DECOY-11
 file:     app/android/app/src/main/res/xml/network_security_config.xml
 line:     9
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    decoy/local-only-cleartext
 anchor:   <domain-config cleartextTrafficPermitted="true">
 match:    cleartext|http
@@ -1933,7 +1935,7 @@ match:    swipe|gesture|action
 id:       MD-DECOY-20
 file:     driver/android/app/src/main/AndroidManifest.xml
 line:     29
-command:  /mobile-audit
+command:  /mobile-audit /security-audit
 class:    decoy/verified-app-link
 anchor:   <intent-filter android:autoVerify="true">
 match:    autoVerify|App Link|verif|hijack
@@ -1952,29 +1954,37 @@ lines that name no file — the tagged line that names its module, channel, func
 `6c ./picker`, `7d ./picker`, `3b ./app`, `2a ScaleBridge.tare`, `2b pantrygo/scanner.flashOn`). A decoy is **hit** when
 a script prints it for the class it imitates; every decoy hit below is refuted by the read the skill already
 prescribes, so the decoy produces **0 findings**. These are grep results, not a scored `/mobile-audit` run — no run is
-recorded in `RESULTS.md` yet.
+recorded in `RESULTS.md` yet. Re-measured the same day after IR-1–IR-7 below were fixed in the skills: the five rows
+marked *re-measured* changed (each first count in parentheses), the other four did not.
 
 | detector | lines printed | seeds it owns | caught by its greps | decoys hit by the class they imitate → findings | other printed lines |
 |----------|---------------|---------------|--------------------|-----------------------------------------------|---------------------|
 | `mobile-lifecycle-scan` | 74 | 14 (§1–§7 × 2) | **14 / 14** — 1a, 1e, 2a, 2h, 3a, 3b, 4a, 4c, 5a × 2, 6c, 6d, 7b, 7d | DECOY-14 (1f), -15 (4b), -16 (5a): 0 hits | context only: 5 roots, 39 version lines; `3c ./picker` corroborates ML-03b; 5c link entry points (`picker/App.tsx` ×2); 5d routed rows — the `order_links` filter (= MS-04a) and the `pantrygo` / `pantrypicker` scheme declarations, which `mobile-security-scan` §4 owns |
-| `mobile-a11y-scan` | 39 | 12 (§1–§6 × 2) | **12 / 12** — 1a, 1b, 2a, 2c, 3b, 3c, 4a, 4e, 5a, 5b, 6 × 2 | DECOY-09 by 4a (`allowFontScaling={false}` on the monogram) → 0: a fixed-size logo in a 48 pt badge, § False positives b. DECOY-01, -19: 0 hits | **6 false** 2a lines — multi-line `<Pressable` tags whose `accessibilityRole` sits on the next line (`FavoriteButton:13`, `OrdersScreen:29`, `QtyStepper:10`, `:22`, `SortSheet:22`, `AccountScreen:16`; IR-1) |
-| `mobile-perf-scan` | 52 | 14 (§1–§7 × 2) | **14 / 14** — 1a, 1d, 2a, 2d, 3a, 3c, 4b, 4d, 5a, 5b, 6a, 6c, 7a, 7b | DECOY-08 by 3a (inline Provider value) → 0: the React Compiler is on in `app.json`, precedent § 33. DECOY-02, -07: 0 hits | **6 false** 2a lines — multi-line `<FlatList` tags with `keyExtractor` on a later line, and the generic in `useRef<FlatList<…>>` (IR-2); **2 false** 7d lines — the React Native / Expo template's `var reactNativeDelegate` (IR-3). Corroboration: 4a `InteractionManager` (= NB-06a), 6c `lodash` / `moment` imports (= AZ-04b / AZ-04a) |
-| `offline-sync-scan` | 26 | 6 (§1–§3 × 2) | **6 / 6** — 1a (QD), 1c, 2a, 2b, 3a, 3b | DECOY-10 by 2b (`idempotencyKey = uuid()`) → 0: minted once at enqueue, stored with the row and resent on every replay | **3 false** 3c lines on the drain *triggers* (`onStoreWifi.ts`, `onReconnect.ts`, `connectivity_trigger.dart`): `void flush();` is the JS `void` operator and `drainOnNetworkChange` is a listener, not a drain (IR-4) |
-| `store-compliance-scan` | 47 | 12 (§1–§4, §6, §7 × 2) | **12 / 12** — 1a, 1b, 2a, 2c, 3a, 3b, 4a × 2, and the §6 / §7 version lines for ST-06a/b, ST-07a/b (the gate comparison against today is the read step, by design) | no decoy imitates a store row | context: 3 `4c` SCHEDULE rows (Restore Credentials, from April 2027), 5 `1c` listed-SDK lines, every §6 / §7 version line. Gap, unseeded: 8a misses SDKs named in Gradle coordinates and npm wrappers (IR-7) |
+| `mobile-a11y-scan` | 33 *re-measured* (39) | 12 (§1–§6 × 2) | **12 / 12** — 1a, 1b, 2a, 2c, 3b, 3c, 4a, 4e, 5a, 5b, 6 × 2 | DECOY-09 by 4a (`allowFontScaling={false}` on the monogram) → 0: a fixed-size logo in a 48 pt badge, § False positives b. DECOY-01, -19: 0 hits | none false. Before IR-1: 6 false 2a lines — multi-line `<Pressable` tags whose `accessibilityRole` sits on the next line (`FavoriteButton:13`, `OrdersScreen:29`, `QtyStepper:10`, `:22`, `SortSheet:22`, `AccountScreen:16`) |
+| `mobile-perf-scan` | 44 *re-measured* (52) | 14 (§1–§7 × 2) | **14 / 14** — 1a, 1d, 2a, 2d, 3a, 3c, 4b, 4d, 5a, 5b, 6a, 6c, 7a, 7b | DECOY-08 by 3a (inline Provider value) → 0: the React Compiler is on in `app.json`, precedent § 33. DECOY-02, -07: 0 hits | none false. Before IR-2 / IR-3: 6 false 2a lines (multi-line `<FlatList` tags with `keyExtractor` on a later line, the generic in `useRef<FlatList<…>>`) and 2 false 7d lines (the template's `var reactNativeDelegate`). Corroboration: 4a `InteractionManager` (= NB-06a), 6c `lodash` / `moment` imports (= AZ-04b / AZ-04a) |
+| `offline-sync-scan` | 23 *re-measured* (26) | 6 (§1–§3 × 2) | **6 / 6** — 1a (QD), 1c, 2a, 2b, 3a, 3b | DECOY-10 by 2b (`idempotencyKey = uuid()`) → 0: minted once at enqueue, stored with the row and resent on every replay | none false. Before IR-4: 3 false 3c lines on the drain *triggers* (`onStoreWifi.ts`, `onReconnect.ts`, `connectivity_trigger.dart`) — `void flush();` is the JS `void` operator and `drainOnNetworkChange` is a listener, not a drain |
+| `store-compliance-scan` | 51 *re-measured* (47) | 12 (§1–§4, §6, §7 × 2) | **12 / 12** — 1a, 1b, 2a, 2c, 3a, 3b, 4a × 2, and the §6 / §7 version lines for ST-06a/b, ST-07a/b (the gate comparison against today is the read step, by design) | no decoy imitates a store row | context: 3 `4c` SCHEDULE rows (Restore Credentials, from April 2027), 5 `1c` listed-SDK lines, every §6 / §7 version line; 4 `8a` inventory lines — `react-native-appsflyer` and the merchant app's Firebase Analytics, Sentry and Datadog Gradle coordinates, which 8a missed before IR-7 |
 | `mobile-security-scan` | 46 | 12 (§2–§7 × 2) | **12 / 12** — 2a (NSC), 2b (ATS), 3a × 2, 4a, 4b, 5a, 5b, 6a debuggable, 6a backup, 7b × 2 | DECOY-04 by 7a (Firebase config listed) → 0: precedent § 44. DECOY-03, -05, -06, -11, -20: 0 hits | context: 4 `manifest … source` lines, 5 §8 inventory lines + 8d (L1), 4c link entry points; the `pantrygo` scheme (manifest, plist, `app.json`) — a link scheme that carries no credential (precedent § 27); `pantrypicker` scheme lines and `paymentSession.ts:3` corroborate MS-04b / MS-07a; the picker `release {}` block (minify off — the R-profile inventory line, = AZ-01a) |
 | `platform-conventions-audit` | 28 | 8 (§8, §10–§12 × 2) | **8 / 8** — 8a, 8b, 10a, 10b, 11c, 11d, 12 × 2 | DECOY-12 (`router.replace`), -13 (`PopScope` + handler), -18 (background-only `ignoresSafeArea`): 0 hits | context only (versions, `convention: haptics in 0 file(s)`) |
 | `native-bridge-audit` | 20 | 8 (§1–§3, §6 × 2) | **8 / 8** — 0 (dead flag), 1a, 2a, 2b, 3a, 3b, 6 × 2 | no decoy imitates a bridge row | 2 `1b` lines (`ScaleBridgeModule.kt`, `ScaleBridge.m`: no spec) — the native halves of NB-01a |
-| `app-size-scan` | 34 | 8 (§1, §2, §4, §5 × 2) | **8 / 8** — 1 (file-level), 1 (bound variable), 2 × 2, 4 × 2, 5 × 2 | DECOY-17 (`flutter build ipa … --split-debug-info`) → 0: printed only by grep 0 as the release command; §5 skips it | **1 false** §1 line — `native/android/build.gradle.kts`, a root `plugins { … apply false }` block read as an application module (IR-6); **6 duplicated** lines — a root literally named `app` adds `.` to `GROOTS` (IR-5) |
+| `app-size-scan` | 27 *re-measured* (34) | 8 (§1, §2, §4, §5 × 2) | **8 / 8** — 1 (file-level), 1 (bound variable), 2 × 2, 4 × 2, 5 × 2 | DECOY-17 (`flutter build ipa … --split-debug-info`) → 0: printed only by grep 0 as the release command; §5 skips it | none false, no duplicate. Before IR-5 / IR-6: 1 false §1 line (`native/android/build.gradle.kts`, a root `plugins { … apply false }` block read as an application module) and 6 duplicated lines (a root named `app` added `.` to `GROOTS`) |
 
 Totals: **94 of 94** seeds are printed by their owner's pre-flight. **0 decoys** survive their owner's prescribed read;
 the 5 decoy hits above (DECOY-04, -08, -09, -10, -17 as context) are the ones that read exists to refute. Unseeded
-noise: **18 false lines** across four scripts (a11y 6, perf 8, offline 3, size 1) plus 6 duplicates, all traced to the
-grep gaps below. Run from the repo root, the mobile scripts now find this fixture's five roots (until 2026-10-10 the
-benchmark fixtures held no mobile root); `mobile-security-scan` still prints its `N/A` line there because its root
-computation excludes `fixtures/`, and the others' `X` array drops `fixtures/` paths from most greps, but `app-size-scan`
-prints 29 lines from the repo root because its grep 0–2 and 4 run without `X` (IR-5).
+noise: **0 false lines** after IR-1–IR-7 (first measurement: 18 false lines across four scripts — a11y 6, perf 8,
+offline 3, size 1 — plus 6 duplicates, all traced to the grep gaps below). Run from the repo root, the mobile scripts
+find this fixture's five roots (until 2026-10-10 the benchmark fixtures held no mobile root); `mobile-security-scan`
+still prints its `N/A` line there because its root computation excludes `fixtures/`, and the others' `X` array drops
+`fixtures/` paths from their greps. `app-size-scan` printed 29 lines there before IR-5 (greps 0–2 without `X`, and
+§ 6 listing every dependency of a root whose sources `X` hides); it now prints 4 — `not compared` for `app` and
+`picker`, and two § 6 lines from `tests/stack-conformance/fixtures/flutter-app`.
 
 ### Integrator requests (skill gaps found by this fixture — the skills are other agents' files)
+
+**Status 2026-10-10: all nine resolved.** IR-1–IR-7 are fixed in the skills (re-measured above; the program's
+multi-stack sample prints the same lines as before each fix); IR-8 was already fixed in `mobile-audit.md`; IR-9 is
+fixed in `run.sh` (`Invocation[/<command>]:` lines, multi-command `command:` blocks in `score.py`), which gives this key
+its `/security-audit` row.
 
 - **IR-1 — `mobile-a11y-scan` greps 2a and 3a:** both run without `-U`, so `TG` stops at the end of the `<Pressable` line:
   a multi-line tag whose `accessibilityRole` / `hitSlop` sits on a later line is printed (6 false here). Run them with
