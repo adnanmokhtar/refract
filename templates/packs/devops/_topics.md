@@ -15,15 +15,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { ci_config_detected: true }
   extracts_from: _extracted-codebase.md (CI config files)
-  sections: [persona, pipeline_review_checklist, caching_opportunities, parallelization_check, output_format]
-  fallback: _examples/ci-reviewer.md
+  sections: [persona, contract, halt_conditions, detector_dispatch, axis_ownership, sibling_workflow_check, versions_read, generator_closure, output_format]
+  fallback: _examples/ci-reviewer.md   # generated-from copy of agents/ci-reviewer.md (COPY-DRIFT gated)
 
 - name: deployment-engineer
   kind: agent
   triggers: { dockerfile_or_k8s_detected: true }
   extracts_from: _extracted-codebase.md (deploy artifacts)
-  sections: [persona, deploy_strategy, rollback_strategy, smoke_tests, output_format]
-  fallback: _examples/deployment-engineer.md
+  sections: [persona, contract, halt_conditions, render, detector_dispatch, axis_ownership, deploy_strategy, rollback_strategy, safe_delivery_verdict, output_format]
+  fallback: _examples/deployment-engineer.md   # generated-from copy of agents/deployment-engineer.md (COPY-DRIFT gated)
 
 - name: cicd-pipeline
   kind: pattern
@@ -91,13 +91,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: progressive-delivery
   kind: skill
-  triggers: { deploy_target_detected: true }
-  fallback: _examples/progressive-delivery.md
+  triggers: { deploy_target_detected: true }   # an Argo Rollout/AnalysisTemplate, a Flagger Canary/MetricTemplate, a Kayenta stage, a flag registry, a flag SDK call or a FEATURE_* / public build-time flag
+  extracts_from: _extracted-codebase.md § Deploy (rollout objects, flag registries and SDKs, metrics backends)
+  fallback: skills/progressive-delivery/SKILL.md   # source-as-fallback; no rollout object and no flag → every § prints N/A
 
 - name: gitops-audit
   kind: skill
-  triggers: { k8s_or_gitops_detected: true }
-  fallback: _examples/gitops-audit.md
+  triggers: { k8s_or_gitops_detected: true }   # an Argo Application/ApplicationSet, a Flux Kustomization/HelmRelease or a Fleet GitRepo, or kubectl/helm/argocd/flux in a script or CI file
+  extracts_from: _extracted-codebase.md § Deploy (CD targets, the namespaces they own, imperative deploy scripts)
+  fallback: skills/gitops-audit/SKILL.md   # source-as-fallback; no GitOps controller → every § prints N/A (no GitOps controller)
 
 - name: pipeline-integrity-scan
   kind: skill
