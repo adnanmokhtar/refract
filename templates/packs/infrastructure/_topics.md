@@ -86,6 +86,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infra (proxy configs incl. k8s-render-scan § 0 embedded/, proxy image tags, LB/CDN IaC, app-server timeout settings, the route classes that stream, upload or run long)
   fallback: skills/edge-reliability-scan/SKILL.md
 
+- name: serverless-reliability-scan
+  kind: skill
+  triggers:
+    terraform_detected: true
+    OR_grep_evidence: "resource\\s+\"(aws_lambda_function|aws_sqs_queue|aws_lambda_event_source_mapping|google_cloud_run_v2_service|google_cloudfunctions2_function|azurerm_(linux|windows)_function_app)\"|AWS::(Serverless::Function|Lambda::Function|SQS::Queue)|\\[\\[queues\\.consumers\\]\\]|\"functionTimeout\""   # a function, a queue consumer, a SAM template, a wrangler consumer or an Azure host.json
+  extracts_from: _extracted-codebase.md § Infra (functions and their triggers per engine, queues and redrive, API Gateway integrations, Cloud Run / Azure / Cloudflare consumer settings, the downstream each function calls)
+  fallback: skills/serverless-reliability-scan/SKILL.md
+
+- name: iac-cost-scan
+  kind: skill
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "resource\\s+\"(aws_nat_gateway|aws_ebs_volume|aws_eip|aws_cloudwatch_log_group|aws_autoscaling_group|aws_dynamodb_table|google_cloud_run_v2_service)\"|^\\s*(maxReplicas|maxReplicaCount):|\\b(doctl|gcloud|az|hcloud)\\s+\\S+(\\s+\\S+)?\\s+create\\b"   # an always-on resource, a log sink, an autoscaler ceiling or a runbook create line
+  extracts_from: _extracted-codebase.md § Infra (IaC roots and their environments, runbook create lines with size slugs and node counts, autoscaler ceilings from k8s-render-scan § 0, installed finops pack)
+  fallback: skills/iac-cost-scan/SKILL.md
+
 - name: k8s-audit
   kind: skill
   triggers: { k8s_detected: true }
@@ -132,6 +148,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { terraform_detected: true }
   sections: [premise, halt_conditions, when_to_use, run_the_plan, categorize_changes, high_risk_patterns, safety_mechanisms, cross_reference, output_format, failure_modes]
   fallback: stub-from-sections
+
+- name: iac-lifecycle-scan
+  kind: skill
+  triggers:
+    terraform_detected: true
+    OR_grep_evidence: "AWSTemplateFormatVersion|Transform:\\s*AWS::Serverless|aws-cdk-lib|@pulumi/|RemovalPolicy\\.|reclaimPolicy:\\s*Delete"   # a CFN/SAM template, a CDK or Pulumi program, or a Delete reclaim policy
+  extracts_from: _extracted-codebase.md § Infra (IaC roots and the env each deploys, engine and provider versions, module defaults that reach prod, stateful resources, committed or CI plan JSON)
+  fallback: skills/iac-lifecycle-scan/SKILL.md
+
+- name: iac-state-scan
+  kind: skill
+  triggers:
+    terraform_detected: true
+    OR_grep_evidence: "^\\s*backend\\s+\"|remote_state\\s*\\{|Pulumi\\.ya?ml|helm\\s+(upgrade|install)\\b|targetRevision:|kind:\\s*HelmRelease"   # a backend, Terragrunt, Pulumi, or a chart installed by a runbook, CI, Argo or Flux (PIN-HELM)
+  extracts_from: _extracted-codebase.md § Infra (backends and lock settings, version pins and lock files, CI plan/apply steps, workspaces per env, k8s-render-scan § 0 platform inventory)
+  fallback: skills/iac-state-scan/SKILL.md
 
 - name: dr-audit
   kind: skill
