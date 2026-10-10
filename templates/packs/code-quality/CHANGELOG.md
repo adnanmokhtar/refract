@@ -9,6 +9,17 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.2 — 2026-10-10
+
+**`error-handling-scan` § Boundaries handed log questions to an agent that no longer detects.** It
+routed "log levels, log shape and missing metrics" to `@observability-reviewer`, which observability
+2.0.0 rebuilt as a judge (`writes: none`). The rows now go to the detectors that own them, when the
+observability pack is installed: a degrade path with no signal at warn or above → `log-signal-scan` §1
+(LG-01), an error logged without its stack or type → §2 (LG-02), level misuse and log shape → §3–§4,
+missing metrics → `metric-hygiene-scan`. Without the pack the line is listed tagged
+`observability-class (owner pack not installed)`. A log line that replaces propagation stays §1 here.
+§ Related names both skills.
+
 ## 2.0.1 — 2026-10-10
 
 **`correctness-smell-scan` § Related named one of the three frontend owners its Boundaries route to.**

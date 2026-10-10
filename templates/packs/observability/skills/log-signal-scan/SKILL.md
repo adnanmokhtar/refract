@@ -283,6 +283,8 @@ GOOD:  logger.error({ err }, 'capture failed') · this.logger.error(msg, err.sta
 
 **Finding when** bytes per request exceed the project's budget, or probes log at full rate. **Proof:** count bytes per request, and lines per 100 probe hits, which should be 0 (V192, V201).
 
+The probe row is named here once: **LG-05 probe — pino-http with no `autoLogging.ignore` (grep 5c)**. `metric-hygiene-scan` §8 (HC-02, probe traffic in telemetry) lists the same logger surface in its grep 8b as corroboration and credits this row, never a second finding; the metric and trace halves of HC-02 stay there.
+
 ### 6. Request id absent or colliding (CO-01)
 
 **Read the code:**

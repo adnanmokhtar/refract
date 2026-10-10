@@ -76,7 +76,7 @@ The agent:
    **Infrastructure + capacity** (dispatch `infra-architect` + `k8s-reviewer` if infra files present):
    - Missing horizontal pod autoscaler, no readiness/liveness probes, missing resource requests/limits, single replica for stateful services, no PodDisruptionBudget, no spread constraints, no graceful shutdown, missing connection-pool sizing relative to replica count.
 
-   **Observability gaps** (dispatch `observability-reviewer` + `telemetry-architect` + `sre-engineer`):
+   **Observability gaps** (when the observability pack is installed: consume the newest `ai/audits/<date>-observability.md` when it is newer than the scope's last commit, else dispatch `/obs-audit`'s detectors — `log-signal-scan`, `trace-propagation-scan`, `metric-hygiene-scan`, `error-tracking-scan`, `alert-rule-lint`, `slo-rule-scan`, `telemetry-config-scan` — judged by `observability-reviewer`, and print its class-ledger rows unchanged; without the pack this axis is recorded as deferred to `/obs-audit`, never as clean):
    - Missing structured logs at boundaries, missing trace propagation, missing histogram metrics for latency, missing error-rate / saturation / utilization counters, no SLO dashboard, no alert on error budget burn, no per-tenant metrics (multi-tenant only).
 
 2. **Cross-axis ranks findings** by `impact-at-target-scale × blast-radius × fix-cost` — NOT by axis. A missing DB index on a hot path that fires 10K times/sec ranks above a clean-code finding in test fixtures, and above a SOLID violation in a cron job. A scale-blocker (silent corruption under load, irrecoverable saturation, unbounded memory growth) ranks above everything else.
@@ -263,7 +263,7 @@ Wave B (global axes, unchanged — 8 concurrent subagents):
 | Runtime perf | `performance-optimizer` + `caching-architect` + the performance detectors (when installed: `request-path-scan`, `memory-growth-scan`, `caching-scan`) | source + `ai/patterns/caching-strategy.md` + `indexing-strategy.md` | `ai/audit/_perf.md` |
 | **Scale/resilience** (own detectors) | `system-architect` + `resilience-reviewer` + scale-lens scan | source + `ai/observability.md` + dashboards if wired | `ai/audit/_scale.md` |
 | Infra/capacity | `infra-architect` + `k8s-reviewer` (if k8s files) | Dockerfile + manifests + IaC | `ai/audit/_infra.md` |
-| Observability | `observability-reviewer` + `telemetry-architect` + `sre-engineer` | source + dashboards + alert config | `ai/audit/_observability.md` |
+| Observability | the `/obs-audit` class ledger (observability pack): read the newest `ai/audits/<date>-observability.md` when it is newer than the scope's last commit, else dispatch its detectors — `log-signal-scan`, `trace-propagation-scan`, `metric-hygiene-scan`, `error-tracking-scan`, `alert-rule-lint`, `slo-rule-scan`, `telemetry-config-scan` — judged by `observability-reviewer`, and print its ledger rows unchanged; without the pack, a deferred row naming `/obs-audit` | source + rule, Alertmanager, collector, dashboard and SLO files | `ai/audit/_observability.md` |
 
 Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<estimated-impact>` + `<estimated-cost>`. NOT shown to user.
 

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "correctness-smell-scan § Related lists the frontend owners its Boundaries route to: client-data-scan (§3, §4) and routing-scan (§8).",
+  "summary": "error-handling-scan § Boundaries routes invisible degrades and lost stacks to observability log-signal-scan §1/§2 (was @observability-reviewer).",
   "changelog": "CHANGELOG.md"
 }

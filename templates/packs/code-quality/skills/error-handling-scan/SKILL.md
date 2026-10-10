@@ -55,7 +55,7 @@ A handler, call or task is a finding when all four hold:
 - A connection, cursor or query runner not released → database `connection-config-scan` § 9; a multi-write use case with no transaction (partial write) → database `transaction-scan` § 2. Both when the database pack is installed; without it, §7 reports them tagged `data-class (owner pack not installed)`.
 - A handle whose cost is exhaustion under load (unconsumed response body, a `.pipe()` chain left open, sockets) → `memory-growth-scan` § 5, when the performance pack is installed. §7 here keeps the paired state whose skip **changes behaviour**: a lock never released, a busy flag stuck true, a written file's close error lost.
 - Secrets or PII in an error message or log → security `data-exposure-scan`; a fail-open authorization (a permission check that returns allow, or skips, on failure) → security `@security-auditor`. Both when the security pack is installed.
-- Log levels, log shape and missing metrics as an observability design question → observability `@observability-reviewer`, when installed. A log line that **replaces** propagation is §1 here.
+- A degrade path that leaves no signal at warn or above, and an error logged without its stack or type → observability `log-signal-scan` §1 (LG-01) and §2 (LG-02); level misuse and log shape → its §3–§4; missing metrics → `metric-hygiene-scan`. All when the observability pack is installed; without it such a line is listed tagged `observability-class (owner pack not installed)`, never graded here. A log line that **replaces** propagation is §1 here: the caller acts on a failure as success, whatever the log says.
 - Suppressed lint diagnostics → `suppression-scan` (this pack). Error-handling rules switched off in a linter config are listed in grep 0b as context.
 - Runtime error clusters from telemetry → `@error-detective`, which reads logs, not source.
 
@@ -468,7 +468,7 @@ this skill meets most:
 - `concerns/error-handling.md` (C4) is the method: the four outcomes and the closure verbs (`surface-to-caller`, `bound-the-retry`, `compensate-partial`, `declare-degrade-mode`, `fail-the-exit-code`, `render-error-state`).
 - Align's `detect-drift` detectors 4 (`silent-catch`) and 11 (`unhandled-io`), and `/audit`'s Unhandled-I/O pass, dispatch here when the code-quality pack is installed (it is universal).
 - `type-safety-scan` (this pack) owns the cast that turns an unparsed error body into a typed value; `@error-detective` (this pack) clusters the runtime errors this skill's findings stop hiding.
-- `@resilience-reviewer` (distributed-systems), `transaction-scan` and `connection-config-scan` (database), `memory-growth-scan` (performance), `data-exposure-scan` (security): the neighbouring classes in § Boundaries.
+- `@resilience-reviewer` (distributed-systems), `transaction-scan` and `connection-config-scan` (database), `memory-growth-scan` (performance), `data-exposure-scan` (security), `log-signal-scan` and `metric-hygiene-scan` (observability): the neighbouring classes in § Boundaries.
 
 Method credits: the "list the errors this catch could hide" read step adapts the
 `silent-failure-hunter` agent of Anthropic's `pr-review-toolkit` plugin

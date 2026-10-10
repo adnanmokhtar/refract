@@ -1674,7 +1674,7 @@ anchor:   - alert: OrdersApiMeanLatencyHigh
 match:    mean|average|_sum|_count|percentile|quantile
 ```
 
-`rate(_sum) / rate(_count)` hides the tail. Fix: `histogram_quantile(0.99, sum by (le) (rate(…_bucket[5m])))`. (`rule-inventory.py` also prints two AL-10 rows here — an inventory gap, see IR-1.) Proof: S.
+`rate(_sum) / rate(_count)` hides the tail. Fix: `histogram_quantile(0.99, sum by (le) (rate(…_bucket[5m])))`. (Before IR-1 was fixed, `rule-inventory.py` also printed two false AL-10 rows here: the inventory missed the multi-line `Histogram(` registration.) Proof: S.
 
 ## OD-AL-08a — `severity=critical` reaches the `dev-null` root
 
@@ -2680,7 +2680,7 @@ match:    loop|volume|per.?item|hot|per.?line
 
 ## Detector measurement — the pre-flights run on this fixture
 
-Measured 2026-10-10 with ripgrep 15.2.0 under `/bin/bash` 3.2.57 (stdin from `/dev/null`), Python 3 for the two
+Measured 2026-10-10 (re-measured the same day after the five integrator requests below were fixed) with ripgrep 15.2.0 under `/bin/bash` 3.2.57 (stdin from `/dev/null`), Python 3 for the two
 scripts, in a staged copy (this key removed, `git init`, `rule-inventory.py` and `burn-check.py` copied to
 `.claude/skills/<skill>/scripts/` where the pre-flights call them). Each skill's pre-flight block was copied verbatim
 from its `SKILL.md` as of that date; the only edit is `alert-rule-lint` step 4's placeholders, filled from its own step
@@ -2700,44 +2700,51 @@ grep results, not a scored `/obs-audit` run — no run is recorded in `RESULTS.m
 |----------|---------------|---------------|--------------------------|-----------------------|---------------------|
 | `log-signal-scan` | 64 (0.5 s) | 23 (§1–§8) | **23 / 23** — 1a, 1b, 2a ×2, 2c, 2d, 2e (file), 2g, 2h, 3a (Python), 3c (file), 3d, 4a (file), 4b, 4d, 5a + 5b, 5c (file), 6b ×2 (files), 7a (file), 7c (file), 8a (SDK list, empty bridge list), 8b | DECOY-03 by 2d → 0 (0b prints its `serializers: { error: … }`, § 22); DECOY-05 by 2b → 0 (`{ cause: e }` to `HttpExceptionFilter`, which logs `err` + `cause`, § 39); DECOY-02 by 4c (log-and-rethrow) → 0 (the rethrow reaches `AllExceptionsFilter`, which does not log: one log per error); DECOY-26 by 5b → 0 (§ 31). DECOY-01, -04, -23, -25: 0 hits | context only: 0a/0b/0c; 3a prints the LG-02c and LG-02g sites again (same lines, template / concatenation) |
 | `trace-propagation-scan` | 120 (0.4 s) | 20 (§1–§10) | **20 / 20** — 1a, 1c (file), 2a, 2a2 (Celery), 3a, 3d, 4a, 4c, 5a2 (`main.ts` import order; `api/Dockerfile` CMD in 0c), 5c (file), 6a, 6b (set-difference: every service but orders-api names itself), 7 ×2, 8a, 8a2, 9a, 9b, 10a, 10c | DECOY-07 by 9a → 0 (`ParentBased(...)`); DECOY-08 by 9b → 0 (dev-only init, § 30 / § 33). DECOY-18, -19: 0 hits | gate open (0a/0b ≈ 45 lines), 0c process map, 2b consumers, 2c inject sites, 3b Python client libraries, 3c instrumentation lists (the worker's IORedis-only list is OD-TR-03a's evidence), 5b the module-scope `TracerProvider` (uvicorn, no `preload_app`: refuted), 10b collector sampler lines |
-| `metric-hygiene-scan` | 187 (0.4 s) | 19 (§1–§8) | **19 / 19** — 1a ×3, 1b ×3, 2 ×2 + 2b (`db.py`), 3a, 3c + 3d (py buckets and the board's `le="0.3"`), 4a + 4b, 4c (Summary + `replicas: 3`), 5a, 5b, 6 ×2 (exactly the two seeds: every other registered name has a consumer), 7b ×2, 8b ×2 (files) | DECOY-14 by 7a (route list) → 0 (constant liveness is right); DECOY-21 by 3d → 0 (0.3 is an edge of `http_request_duration_seconds`). DECOY-06, -17, -20: 0 hits | 99 lines of 8c RED selectors with no probe filter — one root cause, the RED hook counting probes (OD-MT-08b); 2 `@Processor` at class level (metered inside `process()`, refuted); 8b `worker/src/tracing.ts` (no HTTP instrumentation, refuted) and `app.module.ts` (credited to OD-LG-05b); 7c `pingCheck` in liveness (= OD-HO-PERF-a, routed) |
+| `metric-hygiene-scan` | 187 (0.4 s) | 19 (§1–§8) | **19 / 19** — 1a ×3, 1b ×3, 2 ×2 + 2b (`db.py`), 3a, 3c + 3d (py buckets and the board's `le="0.3"`), 4a + 4b, 4c (Summary + `replicas: 3`), 5a, 5b, 6 ×2 (exactly the two seeds: every other registered name has a consumer; since IR-1 the name extraction runs with `-U`, so the multi-line `Histogram(` name is checked too — 25 names, it has one), 7b ×2, 8b ×2 (files) | DECOY-14 by 7a (route list) → 0 (constant liveness is right); DECOY-21 by 3d → 0 (0.3 is an edge of `http_request_duration_seconds`). DECOY-06, -17, -20: 0 hits | 99 lines of 8c RED selectors with no probe filter — one root cause, the RED hook counting probes (OD-MT-08b); 2 `@Processor` at class level (metered inside `process()`, refuted); 8b `worker/src/tracing.ts` (no HTTP instrumentation, refuted) and `app.module.ts` (credited to OD-LG-05b); 7c `pingCheck` in liveness (= OD-HO-PERF-a, routed) |
 | `error-tracking-scan` | 43 (0.2 s) | 8 (§1–§4) | **8 / 8** — 1b + 1c (`sentry.prod.ts`, `main.py`; 1d prints no `SENTRY_*` for orders-api), 2a + 2b (worker entry with no hook), 2c (`cmd/worker/main.go`), 3a, 3b (`admin` upload vs its init's `release`), 4b ×2 | DECOY-08 by 1a → 0 (it sets `release` and `environment`) | 0b start commands; 2c `go-svc/main.go` (a shutdown-only goroutine, refuted); R `sendDefaultPii` (= OD-HO-SEC-c, routed) |
-| `alert-rule-lint` + `rule-inventory.py` | 71 (0.2 s); 41 alerts, 65 recording rules, 32 H/M/L rows | 23 (§1–§9) | **23 / 23** — rows AL-01, AL-02, AL-04 ×2 (RefundErrors, Pyrra 7× tier), AL-05, AL-06, AL-08, AL-13, AL-20, AL-10, AL-22 ×2 (glob, `ruleSelector`), AL-12, AL-21, AL-16, AL-17, SY-01, SY-03, AM-01, AM-03; §9 from grep 3 (`noDataState: OK`, the two monitors' resource lines) | 0 H/M/L rows on DECOY-09, -10, -11, -12, -13, -22, -24; DECOY-15 by grep 3's resource list → 0 (error-count monitor, § 10) | **2 false AL-10 [H]** on `OrdersApiMeanLatencyHigh` (`orders_api_request_duration_seconds_sum/_count`): the inventory misses a multi-line `Histogram(` call — IR-1; AL-04 [L] "no summary" ×4 and AL-04 [M] on the 14× tier (the OD-AL-02d group, P4); AL-01 on `ApiTargetMissing` (same alert as OD-AL-06b) |
-| `slo-rule-scan` + `burn-check.py` | 49 (0.2 s); 15 burn alerts, 5 SLO specs, 3 rows | 12 (§1–§6) | **12 / 12**, one only on the prescribed re-run: SLO-01 (search), 0b Datadog SLO with no `slo alert` monitor, SLO-03 M (hand edit), SLO-04 H (OpenSLO 1.0), grep 3b (admin export), grep 4 ×2, step 5 `le` 0.25 vs `[0.1, 0.5, 1, 2]`, step 6 `retention.time=15d` with no long-term store, the empty policy grep. **OD-SLO-02a** prints only on the re-run the skill prescribes with the registry's objectives (`--slo='PaymentsAvailability.*=99.9/30d' …`): SLO-03 H ×3, "fires at 10× the intended burn". **OD-SLO-05b**: `le="0.2"` prints, but step 5 does not print the Go `Buckets: prometheus.DefBuckets` line (IR-2; `metric-hygiene-scan` 3c does) | 0 rows on DECOY-09 (Pyrra, objective and period read from the spec) and DECOY-10 (sloth 3× ticket tier); DECOY-21 by step 5 → 0 | the re-run with `--retention=15d` adds SLO-10 on 5 SLOs (one finding, OD-SLO-06a) |
-| `telemetry-config-scan` | 54 (0.2 s) | 17 (§1–§8) | **17 / 17** — key diff ×3 (order, batch, unused `filter/drop-probes`), grep 2 ×2, grep 3 (sampler + `decision_wait`, no balancer line), grep 4 ×2, grep 5 (Promtail image + config; both Alloy sources listed), grep 6 ×2, grep 7 (`debug` + monitor labels vs `serviceMonitorSelector`), `dash.py` ×3 | DECOY-16: 0 hits | versions; the matched collector ServiceMonitor; the grep 2/3/7 lines print without a file name (IR-3) |
+| `alert-rule-lint` + `rule-inventory.py` | 69 (0.2 s); 41 alerts, 65 recording rules, 30 H/M/L rows; inventory 25 names | 23 (§1–§9) | **23 / 23** — rows AL-01, AL-02, AL-04 ×2 (RefundErrors, Pyrra 7× tier), AL-05, AL-06, AL-08, AL-13, AL-20, AL-10, AL-22 ×2 (glob, `ruleSelector`), AL-12, AL-21, AL-16, AL-17, SY-01, SY-03, AM-01, AM-03; §9 from grep 3 (`noDataState: OK`, the two monitors' resource lines) | 0 H/M/L rows on DECOY-09, -10, -11, -12, -13, -22, -24; DECOY-15 by grep 3's resource list → 0 (error-count monitor, § 10) | 0 false rows: the 2 AL-10 [H] on `OrdersApiMeanLatencyHigh` (`orders_api_request_duration_seconds_sum/_count`) are gone since step 2 inventories the multi-line `Histogram(` call (IR-1, fixed; 71 lines, 32 rows, 24 names before); AL-04 [L] "no summary" ×4 and AL-04 [M] on the 14× tier (the OD-AL-02d group, P4); AL-01 on `ApiTargetMissing` (same alert as OD-AL-06b) |
+| `slo-rule-scan` + `burn-check.py` | 54 (0.2 s); 15 burn alerts, 5 SLO specs, registry 10 rows / 7 alerts tied, 6 rows | 12 (§1–§6) | **12 / 12**, all in the verbatim pre-flight: SLO-01 (search), 0b Datadog SLO with no `slo alert` monitor, SLO-03 M (hand edit), SLO-04 H (OpenSLO 1.0), grep 3b (admin export), grep 4 ×2, step 5 `le` 0.25 vs `[0.1, 0.5, 1, 2]`, step 6 `retention.time=15d` with no long-term store, the empty policy grep. **OD-SLO-02a**: step 2 passes `--registry=ai/runtime/slos.md`, which ties the three payments alerts to the `payments-capture-availability` row (their file is in its `rules` cell): SLO-03 H ×3, "fires at 10× the intended burn" (IR-4, fixed; before, it printed only on the `--slo` re-run). **OD-SLO-05b**: `le="0.2"` and the Go `Buckets: prometheus.DefBuckets` line, with the default edges printed beside it (IR-2, fixed) | 0 rows on DECOY-09 (Pyrra, objective and period read from the spec) and DECOY-10 (sloth 3× ticket tier); DECOY-21 by step 5 → 0 | the re-run with `--retention=15d` adds SLO-10 on 5 SLOs (one finding, OD-SLO-06a) |
+| `telemetry-config-scan` | 53 (0.2 s) | 17 (§1–§8) | **17 / 17** — key diff ×3 (order, batch, unused `filter/drop-probes`), grep 2 ×2, grep 3 (sampler + `decision_wait`, no balancer line), grep 4 ×2, grep 5 (Promtail image + config; both Alloy sources listed), grep 6 ×2, grep 7 (`debug` + monitor labels vs `serviceMonitorSelector`), `dash.py` ×3 | DECOY-16: 0 hits | versions; the matched collector ServiceMonitor. Greps 2, 3 and 7 now print the file name (`-H`) and start at the key's own line, so a blank line no longer leads the debug-exporter match (IR-3, fixed; 54 lines before) |
 | `synthetic-monitoring` | 15 (0.1 s) | 2 (§1–§2) | **2 / 2** — journey list (`@Controller('checkout')`, `CheckoutPage.tsx`) vs a target list with no checkout; 2b `…/health/ready` on the `login-probe` job | — | grep 4 lists the Datadog SLO (not a probe SLO) |
 | `alert-audit` | no pre-flight (consumes rows) | 2 (§5) | **2 / 2** from the rows above — the `CheckoutLatency*` burn alerts are two page tiers and no ticket tier (`burn-check.py --slo='CheckoutLatency.*=99/30d'` passes their arithmetic); `search-latency` is a registry row with no spec, rule or monitor | — | every other §1–§4 verdict is `NO-DATA(alert history)` on a fixture, as designed |
 
-Totals: **126 of 126** observability seeds surface in their owner's pre-flight or prescribed script re-run (124 in the
-verbatim pre-flight; OD-SLO-02a on the `--slo` re-run; OD-SLO-05b half-printed, its bucket half via
-`metric-hygiene-scan`). **0 decoys** survive their owner's prescribed read (9 decoy hits above, each refuted by one
-precedent or one printed line). Unseeded false lines: **2** (the AL-10 pair, IR-1). Excluded trees: the fixture has no
+Totals: **126 of 126** observability seeds surface in their owner's verbatim pre-flight (before the fixes: 124, with
+OD-SLO-02a only on the `--slo` re-run and OD-SLO-05b's bucket half only via `metric-hygiene-scan`). **0 decoys** survive their owner's prescribed read (9 decoy hits above, each refuted by one
+precedent or one printed line). Unseeded false lines: **0** (2 before IR-1: the AL-10 pair). Excluded trees: the fixture has no
 test, migration or i18n tree, so the "0 hits in excluded trees" check is not exercised here.
 
 Hand-off rows, run through their owners' pre-flights the same way: `data-exposure-scan` prints OD-HO-SEC-a (6c the
-`redact` block, 6d the accepted header names `x-carrier-token` / `x-partner-token` to diff against it) and OD-HO-SEC-c
-(6b `sendDefaultPii`) — **OD-HO-SEC-b is printed by none of its greps** (IR-5); `error-handling-scan` prints both CQ
+`redact` block, 6d the accepted header names `x-carrier-token` / `x-partner-token` to diff against it), OD-HO-SEC-c
+(6b `sendDefaultPii`) and OD-HO-SEC-b (6h, personal data by field name: the adapter's `{ …, name, phone, address }`
+call, the grep's only hit here — IR-5, fixed; before it no grep printed it); `error-handling-scan` prints both CQ
 rows; `request-path-scan` prints the liveness `pingCheck` (OD-HO-PERF-a).
 
 Self-check of the key: a findings file built from each seed's own title and text scores 126/126 under `/obs-audit`
 (3/3, 2/2, 1/1 under the owners) with 0 decoys pinned; a file of one typical false report per decoy pins 26/26.
 
-### Integrator requests (skill gaps found by this fixture — the skills are other agents' files)
+### Integrator requests (skill gaps found by this fixture — all five fixed 2026-10-10; kept as the record)
 
 - **IR-1 — `alert-rule-lint` pre-flight step 2 (inventory), `prometheus_client` line:** it runs without `-U`, so a
   black-formatted registration (`Histogram(\n    "orders_api_request_duration_seconds",`, `py-svc/app/metrics.py`) is
   not inventoried and every selector on it is a false AL-10 [H] (2 here). Run that line with `-U` and `\s*` across the
   newline, as the prom-client line already does. `metric-hygiene-scan` grep 6's name extraction has the same single-line
-  limit: a multi-line registration is never checked for a consumer (silently, no false line).
+  limit: a multi-line registration is never checked for a consumer (silently, no false line). **Fixed:** both lines
+  run with `-U` (grep 6 now captures the name with `-r '$1'`: rg 15.2.0 prints whole lines for a `\K` match that spans
+  lines); the Micrometer / OTel line too.
 - **IR-2 — `slo-rule-scan` pre-flight step 5:** the bucket-list grep matches `prometheus.ExponentialBuckets(...)` but not
   `Buckets: prometheus.DefBuckets` (no call parentheses), so a Go SLI on default buckets is never paired with its
   edges. Add `\bprometheus\.DefBuckets\b` (and print the default list beside it, as `metric-hygiene-scan` §3 states it).
+  **Fixed** as suggested.
 - **IR-3 — `telemetry-config-scan` greps 2, 3 and 7 (debug exporter):** they run over `"${COL[@]}"` without `-H`; with
   one collector config the lines print as `57:    retry_on_failure:` with no file name. Add `-H` (grep 6 already has it).
+  **Fixed**, and the two multi-line greps anchor on `^[ \t]*` so a match never starts on the blank line above the key.
 - **IR-4 — `slo-rule-scan` step 2 / `burn-check.py`:** the verbatim pre-flight runs `burn-check.py` without objectives,
   so a hand-written burn rule copied from another SLO (OD-SLO-02a) shows only a hidden `note`; it surfaces on the manual
   re-run the prose prescribes. Suggest a `--registry=ai/runtime/slos.md` input (or building the `--slo` list from the
-  registry table in the pre-flight) so the mismatch prints on the first pass.
+  registry table in the pre-flight) so the mismatch prints on the first pass. **Fixed:** `burn-check.py --registry=`
+  (ties by the row's `alerts` or `rules` cell or the slo-name words; self-test cases: a copied objective, two rows on
+  one file, an untied alert, a hand-written registry naming its alerts); step 2 passes it when the file exists.
 - **IR-5 — security `data-exposure-scan` § 6 (owner of OD-HO-SEC-b):** grep 6a's field list is secret-shaped only
   (`password|token|…`) and 6e needs a serializer call, so `logger.info({ name, phone, address }, …)` prints nowhere.
-  Add personal-data field names (`name|phone|address|email|dob`) to 6a or a 6h, read per hit.
+  Add personal-data field names (`name|phone|address|email|dob`) to 6a or a 6h, read per hit. **Fixed** as grep 6h
+  (security 2.3.1) — without a bare `name` key, which measured 9 of 9 non-person names on real trees.

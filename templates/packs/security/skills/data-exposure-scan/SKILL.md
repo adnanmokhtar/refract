@@ -112,6 +112,10 @@ rg -n --pcre2 '\b(getNodeAutoInstrumentations|NodeSDK|registerInstrumentations|\
 # 6g. The edge access log is a second sink for every URL and header secret (§6, §7): Caddy's JSON log writes
 #     `request.uri` and `request.headers`, nginx's `$request` the full query. Then the collector that ships it, and retention.
 rg -n --pcre2 '^\s*(access_log|log_format)\b|^\s*log\s*\{|^\s*format\s+(json|console|filter)\b|\b(accessLog|access-log|enable-access-log|log-format-upstream|CustomLog|LogFormat)\b|\bloki\.(write|source\.\w+)|\b(promtail|fluent-?bit|fluentd|otelcol)\b|\[sinks\.|retention_period' -g '*Caddyfile*' -g '*.conf' -g '*.y*ml' -g '*.toml' -g '*.alloy' -g '*.river' "${X[@]}" .
+# 6h. Personal data handed to a log call by field name (§6, PII sink): `{ name: …, phone, address }`, `"email", u.Email`,
+#     `email=${…}`, `${address}`, `order.customerPhone`. Keys are anchored to `{ , (`, so prose ("send email: …") and
+#     `queueName: 'email'` stay out; a bare `name` key is not listed (measured: 9 of 9 were metric, job or error names).
+rg -n -U --pcre2 '\b(console|logger|log|logging|Log|slog)\s*\.\s*(log|info|debug|warn|warning|error|verbose|trace|Info|Debug|Warn|Error)\s*\([^;]{0,240}?(?:(?<!\$)[{,(]\s*["\x27]?(?:first_?[Nn]ame|last_?[Nn]ame|full_?[Nn]ame|customer_?[Nn]ame|phone|phone_?[Nn]umber|mobile|address|street|post_?code|zip_?code|e_?mail|dob|date_?of_?birth|birth_?date)["\x27]?\s*[:=,}]|\b(?:phone|mobile|address|e_?mail|dob)=(?:\$\{|%|\{)|\$\{\s*(?:phone|mobile|address|e_?mail|dob)\s*\}|\.(?:e_?mail|phone(?:_?[Nn]umber)?|mobile|dob|date_?of_?birth|(?:first|last|full|customer)_?[Nn]ame|customer_?(?:[Pp]hone|[Ee]mail)|(?:delivery|billing|shipping|home)_?[Aa]ddress)\b(?!\s*\())' "${X[@]}" .
 
 # 7. Credentials in URLs, and the Referrer-Policy that decides how far they travel (§7).
 rg -n -i --pcre2 '[?&](access_?token|id_?token|refresh_?token|token|api_?key|apikey|secret|password|passwd|pwd|session_?id|sid|otp|ssn)=' "${X[@]}" .
@@ -152,6 +156,8 @@ rg -n 'timingSafeEqual|compare_digest|constant_time_compare|ConstantTimeCompare|
 A finding is a grep hit **plus** a read of the surrounding function and the production config that governs it. The greps narrow the search. They do not decide.
 
 Measured on a real repo (a NestJS-on-Fastify monorepo with MikroORM) before and after the exclusion array and the anchors: grep 5c went from 1,937 lines to 109, grep 3 from 529 to 30, grep 9 from 240 to 19, grep 1b from 351 to 142 and grep 13a from 58 to 17, while 4b, 4d and 5b gained the ORM-entity, `em.findOne` and hasher shapes they had missed. Every seeded defect of the benchmark fixture is still hit, and its debug-route defect, missed by every grep before, now is.
+
+Grep 6h (2026-10-10): 1 hit on `benchmarks/fixtures/obs-defects` (its dispatch adapter's `{ name, phone, address }` at `info`, which no other grep printed), 0 on the other 15 fixtures and on a seeded observability sample. On ten real trees, read-only, it printed 47 hits: 45 read as customer or admin emails, phones, delivery addresses and full names at `info`/`log`/`debug` level, 2 refuted on the read (a boolean `email: !!email`, a phone masked to its first six digits); the NestJS monorepo above had 6 (one email in a message, one delivery address logged by five verification paths). With a bare `name` key it printed 56: the 9 extra were metric, ad-set, cart-item and `error.name` names, so that key is left out.
 
 ## Scans for
 
@@ -247,7 +253,7 @@ GOOD:  log ids, not objects; redaction configured in the logger itself
        pino({ redact: ['req.headers.authorization', 'req.headers.cookie', '*.password', '*.token', '*.otp'] })
 ```
 
-Greps 6a and 6b are the sinks. Grep 6c is the set difference: if no redaction primitive exists, every whole-object hit is a finding. PII here is reported as a sink. Hand the lawful-basis and erasure reach to `@data-privacy-reviewer`. Forged log lines (CWE-117) are `injection-scan`'s.
+Greps 6a, 6b and 6h are the sinks: 6a is secret-shaped, 6h is personal data by field name (`phone`, `address`, `email`, `dob`, a customer's name), read per hit for whose value it is — a masked value (`phone.slice(0, 6) + '****'`) or a boolean (`email: !!email`) is refuted on the read. Grep 6c is the set difference: if no redaction primitive exists, every whole-object hit is a finding. PII here is reported as a sink. Hand the lawful-basis and erasure reach to `@data-privacy-reviewer`. Forged log lines (CWE-117) are `injection-scan`'s.
 
 **Present is not complete.** Grep 6c proves a redactor exists, not that it covers what the app accepts. Grep 6d lists every credential header name the app accepts; add 7b's query and path secrets. Every accepted name missing from the log's redact list is a candidate: the set difference is the detector, as 4b − 4c is for § 4. An app with two redactors usually has them drift — the request log's path list beside a webhook ledger's or audit trail's policy — so diff them against each other. A body signature (`x-…-signature`) only replays its own body; a bearer-style header token is the high case. Measured on a real repo: the log list named 6 headers, the app accepted 5 more carrier-token headers its ledger redactor already knew, and all 5 were logged whole at `info`.
 

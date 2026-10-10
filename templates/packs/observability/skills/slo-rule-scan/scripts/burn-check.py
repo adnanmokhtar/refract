@@ -12,10 +12,22 @@ its YAML-subset loader. Stdlib only, read-only.
 
 Usage:  burn-check.py <rule-file-or-dir> [...] [--spec=<sloth|pyrra|openslo file or dir>]...
                       [--objective=99.9] [--period=30d] [--slo='<alert-name regex>=<objective>[/<period>]']...
-                      [--retention=15d] [--format=text|json] [--all] [--rule-inventory=PATH]
+                      [--registry=ai/runtime/slos.md] [--retention=15d] [--format=text|json] [--all]
+                      [--rule-inventory=PATH]
         burn-check.py --self-test   (Workbook 3-tier; Workbook 4-tier as sloth 0.16.0 emits it; Pyrra 14/7/2/1 on
-                                     28d and on 30d with pyrra 0.10.2's minute-rounded windows; 10 negatives)
+                                     28d and on 30d with pyrra 0.10.2's minute-rounded windows; 10 negatives;
+                                     --registry: a copied objective, two rows on one file, an untied alert,
+                                     a hand-written registry that names its alerts)
 Exit:   0 no problem · 1 at least one H/M/L row (`note` never sets it) · 2 usage, parse or import error
+
+--registry reads the objective and period of a hand-written burn rule from the SLO registry: any table with
+a name column (slo / name / id) and an objective column (target / objective; the period from a window or
+period column, else the objective header's "(30 days)"). An alert is tied to a row that names it in an
+`alerts` cell (rows naming one alert must agree), else by its `slo` label, else when its file is in the
+row's `rules` cell and its name shares the most slo-name words with that row, else when every word of the
+slo name is in the alert name. A tie lends an objective only to a `> factor * budget` comparison, never to
+a plain threshold. A spec, sloth metadata and --slo win over the registry; the source prints as
+`registry <file>:<line> (<slo>)`.
 
 Codes (slo-rule-scan §): SLO-01 (§1) · SLO-02 single window / short ≠ long÷12, SLO-03 factor or objective
 (§2) · SLO-04 impossible or unfireable objective (§3) · SLO-10 period > retention (§6). A row is a
@@ -122,6 +134,73 @@ def read_specs(ri, paths):
                                      "objective": ob, "period": per, "period_src": "spec", "alert_name": "",
                                      "alerting": bool(spec.get("alertPolicies"))})
     return slos
+
+
+# ---------------------------------------------------------------- the SLO registry -------------
+def words(s):
+    """Lower-case words of an slo name or a CamelCase / snake / kebab alert name."""
+    return set(w.lower() for w in re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+", str(s)))
+
+
+def read_registry(ri, path):
+    """Rows of every registry table with a name column (`slo` / `name` / `id`) and an objective column
+    (`target` / `objective…`): slo-audit's `| slo | sli | target | window | … | rules |`, or a hand-written
+    `| id | SLI | objective (30 days) | budget | alerts |`. The period comes from a `window` / `period`
+    column, else from the objective header's `(30 days)`; `rules` names files, `alerts` names alerts."""
+    if not os.path.isfile(path):
+        die(f"registry not found: {path}")
+    rows, cols, hdr_per = [], None, None
+    for n, line in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
+        if not line.lstrip().startswith("|"):
+            cols = None  # a table ends at the first line that is not a row
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cols is None:
+            low = [re.sub(r"[^a-z]", "", re.sub(r"\(.*?\)", "", c.lower())) for c in cells]
+            key = {"slo": "name", "name": "name", "id": "name", "target": "objective", "objective": "objective",
+                   "window": "period", "period": "period", "rules": "rules", "alerts": "alerts", "alert": "alerts"}
+            cand = {}
+            for i, c in enumerate(low):
+                if key.get(c) and key[c] not in cand:
+                    cand[key[c]] = i
+            if "name" in cand and "objective" in cand:
+                cols = cand
+                m = re.search(r"\((\d+)\s*(day|d|week|w|hour|h)s?\b", cells[cand["objective"]].lower())
+                hdr_per = int(m.group(1)) * {"day": DAY, "d": DAY, "week": 7 * DAY, "w": 7 * DAY, "hour": HOUR, "h": HOUR}[m.group(2)] if m else None
+            continue
+        if all(re.fullmatch(r":?-+:?", c) for c in cells if c):
+            continue
+        get = lambda k: cells[cols[k]] if k in cols and cols[k] < len(cells) else ""
+        name, ob = get("name").strip("`"), frac(get("objective").replace(" ", ""), True)
+        if not name or ob is None:
+            continue
+        per = (ri.secs(get("period").replace(" ", "")) if get("period") else hdr_per) or None
+        files = [os.path.normpath(f.strip("`")) for f in re.split(r"[,\s]+", get("rules")) if f.strip("`") not in ("", "—", "-")]
+        alerts = re.findall(r"`([A-Za-z_:][\w:]*)`", get("alerts")) or \
+            [a for a in re.split(r"[,\s]+", get("alerts")) if re.fullmatch(r"[A-Z][\w:]*", a)]
+        rows.append({"name": name, "objective": ob, "period": per, "files": files, "alerts": alerts, "line": n, "file": path})
+    return rows
+
+
+def registry_row(reg, alert, lab):
+    """The registry row a hand-written alert implements, or None (ambiguous ties tie to nothing)."""
+    named = [r for r in reg if alert["name"] in r.get("alerts", [])]
+    if named:  # the row names the alert; two rows that agree on objective and period are one answer
+        return named[0] if len({(r["objective"], r["period"]) for r in named}) == 1 else None
+    if lab.get("slo"):
+        hit = [r for r in reg if r["name"] == lab["slo"]]
+        if len(hit) == 1:
+            return hit[0]
+    f = os.path.normpath(alert["file"])
+    aw = words(alert["name"])
+    on_file = [r for r in reg if any(f == x or f.startswith(x.rstrip("/") + os.sep) for x in r["files"])]
+    if on_file:
+        score = sorted(((len(words(r["name"]) & aw), i) for i, r in enumerate(on_file)), reverse=True)
+        if len(on_file) == 1 or (score[0][0] > 0 and (len(score) == 1 or score[0][0] > score[1][0])):
+            return on_file[score[0][1]]
+        return None
+    full = [r for r in reg if words(r["name"]) and words(r["name"]) <= aw]
+    return full[0] if len(full) == 1 else None
 
 
 # ---------------------------------------------------------------- burn clauses -----------------
@@ -312,6 +391,9 @@ def run_check(ri, rule_paths, specs, o):
                    or (s["alert_name"] and s["alert_name"] == r["name"] and s["gen"] == "sloth")), None)
         ob, P, src = None, None, "unread"
         cli = next((v for rx, v in o["slo"] if re.fullmatch(rx, r["name"])), None)
+        reg = registry_row(o["registry"], r, lab) if o["registry"] else None
+        # A registry row lends its objective only to a burn comparison (`> factor * budget`): it often names
+        # every alert an SLO owns, so a plain `> 10` depth or lag threshold beside them is no burn rule.
         tied = bool(sp or cli or lab.get("sloth_id") in meta)
         cl = [[c for c in (comparisons(ri, conj, records, tied) for conj in cj) if c] for cj in clauses(r["expr"])]
         cl = [c for c in cl if c]
@@ -325,6 +407,8 @@ def run_check(ri, rule_paths, specs, o):
             m = meta[lab["sloth_id"]]
             ob, P = m.get("slo:objective:ratio"), m.get("slo:time_period:days") and m["slo:time_period:days"] * DAY
             src = "sloth metadata recording rules"
+        elif reg:
+            ob, P, src = reg["objective"], reg["period"], f"registry {reg['file']}:{reg['line']} ({reg['name']})"
         if P is None and o["period"]:
             P, src = o["period"], "--period"
         if ob is None and o["objective"] is not None:
@@ -344,13 +428,14 @@ def run_check(ri, rule_paths, specs, o):
 
 def opts(argv, ri):
     o = {"paths": [], "specs": [], "objective": None, "period": None, "slo": [], "retention": None,
-         "format": "text", "all": False}
+         "format": "text", "all": False, "registry": [], "registry_path": None}
     for a in argv:
         k, _, v = a.partition("=")
         if k == "--spec": o["specs"].append(v)
         elif k == "--objective": o["objective"] = frac(v, True)
         elif k == "--period": o["period"] = ri.secs(v)
         elif k == "--retention": o["retention"] = ri.secs(v)
+        elif k == "--registry": o["registry_path"], o["registry"] = v, read_registry(ri, v)
         elif k == "--slo":
             rx, _, val = v.rpartition("=")
             ob, _, per = val.partition("/")
@@ -381,7 +466,9 @@ def main(argv):
             if p["severity"] in ("H", "M", "L") or o["all"]:
                 t = f" [{p['tier']}]" if p.get("tier") else ""
                 print(f"{r['file']}:{r['line']}  {r['kind']} {r['name']}{t}  §{p['section']} {p['code']} [{p['severity']}]  {p['message']}  (objective/period: {r['period_src']})")
-    print(f"burn-check: {sum(r['kind'] == 'alert' for r in out)} burn alerts, {sum(r['kind'] != 'alert' for r in out)} SLO specs, "
+    reg = "" if not o["registry_path"] else (f", registry {o['registry_path']}: {len(o['registry'])} rows, "
+                                            f"{sum(str(r['period_src']).startswith('registry ') for r in out)} alerts tied")
+    print(f"burn-check: {sum(r['kind'] == 'alert' for r in out)} burn alerts, {sum(r['kind'] != 'alert' for r in out)} SLO specs{reg}, "
           f"{bad} problems (H/M/L){'' if o['all'] else ' — --all shows ok rows and notes'}", file=sys.stderr)
     return 1 if bad else 0
 
@@ -446,9 +533,22 @@ def self_test():
                       "---\napiVersion: openslo/v1\nkind: SLO\nmetadata:\n  name: login\nspec:\n  budgetingMethod: Occurrences\n"
                       "  timeWindow:\n    - duration: 30d\n      isRolling: true\n  objectives:\n    - target: 0.995\n",
     }
+    # The registry (--registry): a burn rule copied from another SLO is caught on the first pass; two rows on
+    # one file are told apart by the alert's name; an alert in a file no row names, whose name does not hold
+    # every word of an slo name, stays untied (a note, never a borrowed objective).
+    files["reg.yml"] = W(_burn("PaymentsCaptureFastBurn", "1h", "5m", 14.4, 0.99),   # registry 99.9: SLO-03 H
+                         _burn("CheckoutLatencyFastBurn", "1h", "5m", 14.4, 0.99),   # registry 99 / 30d: ok
+                         _burn("InventoryLatencyFastBurn", "1h", "5m", 14.4, 0.995))  # registry 99.5: ok only on its own row
+    files["other.yml"] = W(_burn("OrphanLatencyBurn", "1h", "5m", 14.4, 0.99))       # no row names it: untied
+    reg = os.path.join(d, "slos.md")
+    open(reg, "w").write("# SLO registry\n\n| slo | sli | target | window | owner | origin | rules |\n|---|---|---|---|---|---|---|\n"
+                         f"| payments-capture-availability | ok / all | 99.9 % | 30d | payments | contract | {os.path.join(d, 'reg.yml')} |\n"
+                         f"| checkout-latency | < 250 ms / all | 99 % | 30d | checkout | terms | {os.path.join(d, 'reg.yml')} |\n"
+                         f"| inventory-latency | < 200 ms / all | 99.5 % | 30d | inventory | ADR | `{os.path.join(d, 'reg.yml')}` |\n"
+                         "| search-latency | < 400 ms / all | 99 % | 30d | catalog | measured | — |\n\nNot a row: | x | 1 |\n")
     for n, t in files.items():
         open(os.path.join(d, n), "w").write(t)
-    o = opts(["--slo=Hand14On30d=99.9/30d", "--slo=Wb14p4On28d=99.9/28d", "--slo=WrongObjective=99.9/30d",
+    o = opts([f"--registry={reg}", "--slo=Hand14On30d=99.9/30d", "--slo=Wb14p4On28d=99.9/28d", "--slo=WrongObjective=99.9/30d",
               "--slo=ThirtyDayOn7d=99.9/7d", "--slo=ShortTooLong=99.9/30d", "--slo=NinetyPct=90/30d",
               "--slo=SingleWindow=99.9/30d", "--slo=Wb3.*=99.9/30d", "--slo=Pyrra30x.*=99.5/30d", "--retention=15d"], ri)
     specs = read_specs(ri, [os.path.join(d, "specs.yaml")])
@@ -500,6 +600,38 @@ def self_test():
     expect("lax", {("SLO-04", "M")})
     expect("login", {("SLO-01", "M")})
     expect("checkout", {("SLO-10", "M")}, exact=True)
+    expect("PaymentsCaptureFastBurn", {("SLO-03", "H")})
+    for n in ("CheckoutLatencyFastBurn", "InventoryLatencyFastBurn"):
+        expect(n, {("OK", "ok")}, exact=True)
+    orphan = [r for r in out if r["name"] == "OrphanLatencyBurn"][0]
+    if orphan["objective"] is not None or any(p["severity"] in ("H", "M", "L") for p in orphan["problems"]):
+        ok = False
+        print(f"self-test: registry tied an alert no row names: {orphan['period_src']} {orphan['problems']}")
+    if len(o["registry"]) != 4 or [r for r in out if r["name"] == "PaymentsCaptureFastBurn"][0]["period"] != 30 * DAY:
+        ok = False
+        print(f"self-test: registry rows {len(o['registry'])}")
+    # A hand-written registry: `| id | SLI | objective (30 days) | budget | alerts |`, the alerts named in the row,
+    # the period in the objective header. Two rows naming one alert tie only when they agree.
+    reg2 = os.path.join(d, "slos-hand.md")
+    open(reg2, "w").write("| source | where |\n|---|---|\n| an audit | a laptop |\n\n"
+                          "| id | SLI — good / valid | objective (30 days) | budget | alerts |\n|---|---|---|---|---|\n"
+                          "| `slo:availability` | not 5xx / all | 99.9% | 0.001 | `HandAvailBurn` (page), `HandAvailTicket` (ticket) |\n"
+                          "| `slo:latency-read` | <= 100 ms / all | 99% | 0.01 | `HandLatencyBurn` (page), label `class=\"read\"` |\n"
+                          "| `slo:latency-write` | <= 300 ms / all | 99% | 0.01 | `HandLatencyBurn` (page), label `class=\"write\"` |\n"
+                          "| `slo:fresh-a` | fresh / all | 99.5% | 0.005 | `HandSplitBurn` (page) |\n"
+                          "| `slo:fresh-b` | fresh / all | 99.9% | 0.001 | `HandSplitBurn` (page) |\n")
+    open(os.path.join(d, "hand.yml"), "w").write(W(_burn("HandAvailBurn", "1h", "5m", 14.4, 0.99),
+                                                    _burn("HandLatencyBurn", "1h", "5m", 14.4, 0.99),
+                                                    _burn("HandSplitBurn", "1h", "5m", 14.4, 0.995)))
+    o2 = opts([f"--registry={reg2}"], ri)
+    got2 = {r["name"]: r for r in run_check(ri, [os.path.join(d, "hand.yml")], [], o2)}
+    sev = lambda n: {(p["code"], p["severity"]) for p in got2[n]["problems"]}
+    if len(o2["registry"]) != 5 or o2["registry"][0]["period"] != 30 * DAY or o2["registry"][0]["alerts"] != ["HandAvailBurn", "HandAvailTicket"]:
+        ok = False
+        print(f"self-test: hand-written registry rows {o2['registry']}")
+    if ("SLO-03", "H") not in sev("HandAvailBurn") or sev("HandLatencyBurn") != {("OK", "ok")} or got2["HandSplitBurn"]["objective"] is not None:
+        ok = False
+        print(f"self-test: hand-written registry ties {sev('HandAvailBurn')} {sev('HandLatencyBurn')} {got2['HandSplitBurn']['period_src']}")
     lg = [s for s in specs if s["name"] == "login"][0]
     if abs(lg["objective"] - 0.995) > 1e-9 or lg["period"] != 30 * DAY:
         ok = False

@@ -220,7 +220,7 @@ If a panel hasn't been looked at in 90 days, delete it. Dead dashboards rot.
 
 - **Page only on user impact.** "Error rate > X%" is a page if X represents user pain. CPU at 90% is NOT a page (the user doesn't care; the system might cope).
 - **Burn-rate alerts on SLOs**, not raw thresholds — see `slo.md`.
-- **Saturation alerts as warnings** — DB pool waiters > 10 for 5min ticket, > 50 page.
+- **Saturation alerts as tickets** — DB pool waiters > 10 for 5 min opens a ticket, and > 50 is still a ticket, never a page: pool saturation is a cause, not user impact (`alert-rule-lint` §7 SY-01, `alert-audit` CAUSE-AS-PAGE). Page on saturation only when exhaustion is definite and imminent (`precedents/observability.md` § 4: `predict_linear` disk-full within hours, quorum loss); otherwise the error and latency SLO burn pages if users feel it.
 - **Absent alerts** — the project's alerting backend's "no data" / `absent(...)` predicate catches "the service died and stopped reporting".
 
 Burn-rate alerts compare the ratio of error-status rate over total rate, on a long and a short window, to `(1 − SLO) × factor`. The factor is arithmetic (`THR-OBS-BURN`: `budget_fraction × period / long_window` — 14.4 for the 1h fast tier on a 30-day period); the tiers, which page and which ticket, are in `slo.md` — don't re-derive them here.
