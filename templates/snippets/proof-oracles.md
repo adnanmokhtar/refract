@@ -1,7 +1,7 @@
 # Proof oracles — the failing-first proof for each detector class
 
 Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
-`/quality-fix`, `/frontend-fix`, `/mobile-fix` and `/obs-fix` (reproduce failing-first, then validate the fix), and by every
+`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix` and `/devops-fix` (reproduce failing-first, then validate the fix), and by every
 detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
 Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
 and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
@@ -18,6 +18,7 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## Mobile` | V152–V179 | — (new section) |
 | `## SEO` | V180–V188 | — (new section) |
 | `## Observability` | V189–V208 | — (new section) |
+| `## DevOps` | V209–V243 | — (new section) |
 
 ## Scope of use (read first)
 
@@ -3223,6 +3224,296 @@ semantic-conventions pages; sloth 0.16.0 and pyrra 0.10.2 sources; the Google SR
 3.7.8 and dashboard-linter 0.3.0; sentry-cli 3.8.0's changelog; local runs of pino 10.4.0,
 pino-http 11.0.0 and winston 3.19.0. Rows marked [K?] are to be settled on the `obs-defects` fixture
 or a real repo before a skill asserts them. Paraphrased; no text reproduced.
+
+## DevOps
+
+A delivery-integrity claim says the pipeline's own semantics, with no attacker involved, let a red
+build merge, ship an artifact that was not tested, cancel or race a mutating deploy, drop in-flight
+work at shutdown, or leave no rollback target. Reading a workflow does not settle any of these:
+what a platform does with a pipe, a skipped job or a second push is a platform fact
+([`ci-platform-semantics.md`](ci-platform-semantics.md)), and what ships is a digest. The oracle
+drives the event (a seeded failure, a second push, a re-run, a SIGTERM, a cold start of N replicas)
+through the real pipeline, image or compose file and asserts on what happened. Every oracle names a
+**tier**: T (`ci-graph.py` or a tool's exit code), R (a sandbox run: a scratch repo, `act`, docker),
+B (a built image or a registry read), A (a settings API read), S (a static trace), L (a live
+rollout). Settled questions are in [`precedents/devops.md`](precedents/devops.md). Users:
+`pipeline-integrity-scan`, `pipeline-cache-scan`, `release-integrity-scan`, `deploy-safety-scan`,
+`container-build-scan`, `compose-scan` and the rewritten `progressive-delivery` (devops pack),
+judged by `@ci-reviewer` and `@deployment-engineer`, and `/devops-fix`. Attacker-path classes in CI
+(injection, privileged triggers, pinning × privilege, cache poisoning, secret exposure) are
+security's and are proven with [`exploit-payloads.md`](exploit-payloads.md), not here.
+
+**Scope of use.** Sandbox repositories, scratch builds and `${TMPDIR}` only — never the user's
+branches, registries, environments or clusters. A seeded failure, a two-push race or a release
+re-run happens in a sandbox repo the user names. Every `kubectl` / `helm` command passes an isolated
+`--kubeconfig=<scratch file>` pointing at a throwaway cluster (kind) or none; the default context is
+never relied on. A settings read (`gh api`) is read-only; a fix that needs a settings change prints
+the exact call and the user applies it. Three rules hold for every variant below:
+
+- **Read the platform row first.** A verdict about a pipe, a skip, a cancel or a timeout names its row in `ci-platform-semantics.md`; a `[K?]` row is settled on a sandbox run before a fix relies on it.
+- **Graph before grep.** A cross-job fact (who needs whom, what a concurrency group covers, what is required) comes from `ci-graph.py`, which parses each workflow with a real YAML loader and remaps the `on:` key YAML 1.1 reads as `true` (precedents § 44). Exit 2 is NOT-RUN, never clean.
+- **A fix stays inside its job.** `ci-graph.py --diff-guard "$FIX_BASE" --allow-job <file>:<job>` rejects a fix that changes `on:`, `if:`, `needs:`, `concurrency:`, `permissions:`, `environment:`, `runs-on:` or `secrets:` anywhere else.
+
+### Oracle taxonomy (DevOps)
+
+| Oracle | Asserts | Tier | V |
+|---|---|---|---|
+| **Seeded failure** | One failing command per gate on a sandbox branch → every required context and every deploy ancestor concludes `failure`; the deploy job is `skipped`; the published digest is unchanged (extends testing's V63 CI canary to non-test gates) | R | V209, V212 |
+| **Shell-semantics probe** | The four-line bash probe per platform row | T | V210 |
+| **Required-check join** | `ci-graph.py --required` + a docs-only PR and a merge-queue entry report real conclusions | A + R | V211 |
+| **Graph assertion** | `ci-graph.py --check=<code>` exits 0 on the tree after the fix, 1 before | T | V213, V214, V228 |
+| **Settings read** | The `gh api` line shows the protection | A | V215, V216, V220, V229 |
+| **Cache probe** | A lockfile change misses the exact key; a deleted cache stays green | R | V217 |
+| **Affected probe** | One-package PR → only it; shared-lib PR → its dependents | R | V218 |
+| **Run timing** | p50/p95 from `gh api`, labelled measured | A | V219 |
+| **Release dry run** | One version string across all outputs | T | V221 |
+| **Re-run idempotence** | A second release run on a sandbox registry is a no-op, same digests | R | V222 |
+| **Digest continuity** | Build = scanned = pushed = staging = prod digest | B | V223 |
+| **Verify negative test** | An image signed by another workflow or ref is rejected | B | V224 |
+| **Release PR checks** | `gh pr checks` shows the required checks ran | A | V225 |
+| **Rollback resolve** | `crane manifest <repo>@<N-1 digest>` resolves | B | V226 |
+| **Scale cold start** | `compose up --scale app=3` from an empty DB: one row per migration, 0 crash-loops; a kill mid-run recovers | R | V227 |
+| **Rollout red** | A crash-looping image fails the pipeline inside the timeout | R | V230 |
+| **Stop timing** | `time docker stop -t 10` < 10 s, exit ≠ 137; an in-flight request completes | B | V231 |
+| **Canary checks** | The AnalysisTemplate can fail (static), its selectors ground (observability), a 20 %-error canary aborts (L) | S + L | V232 |
+| **Provider-error default** | The flag client with a failing provider returns the safe default | R (unit) | V233 |
+| **Declared-keys boot** | The artifact boots with only the declared prod keys | B | V234 |
+| **Image-config user** | `docker image inspect` user + container-structure-test `metadataTest.user`; a `runAsNonRoot` dry run admits | B | V235 |
+| **Layer and lock probes** | Touch a source file → the install layer is `CACHED`; a mutated lockfile → the build fails | B | V236 |
+| **Build-check lane** | `docker build --check` (`check=error=true`) + hadolint at its threshold: 0 kept rule ids | T | V237 |
+| **Health status** | `.State.Health.Status` = `healthy` within the start period | B | V238 |
+| **Per-platform smoke** | `docker run --platform linux/<arch> <img> <smoke>` per published architecture | B | V239 |
+| **Structure test** | container-structure-test file and command tests on the runtime image | B | V240 |
+| **Compose config / wait** | `docker compose config` clean; `up --wait` exits 0 on the prod invocation | R | V241 |
+| **Rebuild diff** | Build twice → `diffoci diff --semantic` empty | B | V242 |
+| **Size vs baseline** | `dive` / image size against the recorded baseline within `THR-IMAGE-GROWTH` | B | V243 |
+
+### Seeded failure, per platform
+
+Seed **one** deterministic failing command in each gate the finding names (`exit 1` as the first
+line of the scan, smoke, build or migration-check step; a failing assertion in a test job when
+testing's V63 is co-run) on a sandbox branch, push, and read the conclusions. Revert the seed.
+
+| Platform | Read | Fails first when |
+|---|---|---|
+| GitHub Actions | `gh run view <id> --json jobs --jq '.jobs[]\|[.name,.conclusion]'`; `gh pr view <n> --json mergeStateStatus`; `crane digest <repo>:<tag>` before and after | the masked job concludes `success`, the PR is not `BLOCKED`, or the deploy job ran and the digest moved |
+| GitLab CI | `glab ci view` / `glab api projects/:id/pipelines/:pid/jobs` (`status`, `allow_failure`); the MR's merge status [K?: field name on the installed GitLab] | the seeded job is `failed` with `allow_failure: true` and the pipeline `success`, or the deploy job ran |
+| CircleCI | the workflow's job statuses from the API or UI | the seeded step is red and the job green, or a `requires:`-less deploy ran |
+| Bitbucket | the pipeline's step results | the step after a masked pipe is green (S5: `set -e`, no pipefail) |
+| Azure | the run's task results | a multi-line `script:` whose seeded first line failed ends green (S6 [K?]) |
+| Jenkins | the build result and the stage view | a `catchError(buildResult: 'SUCCESS')`, `returnStatus: true` or `propagate: false` turns the seeded stage green |
+
+**Green after the fix:** the same seed makes every required context and every deploy ancestor
+conclude `failure`, the deploy is `skipped`, and the digest (`crane digest`) or published version
+(`npm view <pkg> versions`) is unchanged. Locally, `act -j <job>` exiting non-zero is a smoke check,
+never the proof (precedents § 45, § 46).
+
+### Graph assertion (`ci-graph.py`)
+
+`ci-graph.py` ships in the repo baseline (`.claude/scripts/ci-graph.py`; fallback
+`$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`). It parses
+`.github/workflows/*.y{a,}ml` with PyYAML, else Ruby psych, else `uv run --with pyyaml`, and exits 2
+(`NOT-RUN (no YAML loader)`) when none is present. Rows print as `file:line: CODE key=value…`;
+exit 0 is clean, 1 is at least one finding row, 2 is NOT-RUN (no loader, a parse error, no
+workflow found, an unreadable settings API).
+
+```bash
+python3 .claude/scripts/ci-graph.py --self-test
+python3 .claude/scripts/ci-graph.py . --all                                   # every structural check
+python3 .claude/scripts/ci-graph.py . --check=deploy-concurrency,deploy-gate,timeout
+python3 .claude/scripts/ci-graph.py . --required --deploy-ancestors           # needs gh + a token
+python3 .claude/scripts/ci-graph.py . --job-of=.github/workflows/ci.yml:42 --shell-of=.github/workflows/ci.yml:42
+python3 .claude/scripts/ci-graph.py . --diff-guard "$FIX_BASE" --allow-job .github/workflows/deploy.yml:deploy-prod
+```
+
+The rows, by check: `pin-priv` → `PIN×PRIV` (security's class; devops supplies the join) ·
+`deploy-concurrency` → `DEPLOY-CANCEL`, `DEPLOY-NOGROUP`, `GROUP-NOT-ENV`, `ENV-SPLIT-GROUPS` ·
+`deploy-gate` → `DEPLOY-UNGATED`, `DEPLOY-ALWAYS`, `WORKFLOW_RUN-NO-CONCLUSION` · `timeout` →
+`NO-TIMEOUT`, `WAIT-NO-TIMEOUT` · `matrix` → `MATRIX-EXCLUDES-RUNTIME`, `MATRIX-DYNAMIC-UNGUARDED` ·
+`cache-keys` → `CACHE-KEY-NO-HASH`, `CACHE-NODE-MODULES`, `CACHE-PREFIX-SKIP-INSTALL` ·
+`--required` → `REQUIRED-UNMATCHED`, `REQUIRED-PATH-FILTERED`, `REQUIRED-IF-SKIP`,
+`REQUIRED-NEEDS-SKIP`, `NO-MERGE-GROUP`, `DUP-NAME`, `AGGREGATOR-WEAK`, `UNREADABLE`.
+**Fails first:** the row prints for the cited job before the fix and is gone after it, with
+`--diff-guard` clean outside the finding's job. GitLab, CircleCI and Azure are not modelled yet:
+their rows are grep + read, and say so.
+
+### Stop timing
+
+```bash
+docker run -d --name t <img>; sleep 3; docker exec t cat /proc/1/cmdline | tr '\0' ' '
+s=$(date +%s); docker stop -t 10 t; e=$(( $(date +%s) - s )); docker inspect -f '{{.State.ExitCode}}' t
+```
+
+PASS iff `e` < 10 and the exit code is not 137. Measured on node:22 (devops research B § 5): exec
+form with a handler stops in 0.1–0.2 s; exec form with no handler, a dash `sh -c`, `npm start` on
+bookworm-slim and an entrypoint script without `exec` all take ~10–12.7 s and exit 137; alpine's ash
+tail-execs a single command (precedents § 35). The in-flight half: start a slow request, send
+`docker stop`, and assert it returns 2xx.
+
+### Class variants (DevOps)
+
+#### V209. Failure swallowed on a non-domain gate — seeded failure (`pipeline-integrity-scan` §1)
+- `continue-on-error: true` on a job or a step, and an expression that evaluates true; `|| true`, `|| :`, `|| exit 0`, `|| echo`, `; true` at the end; `set +e` never re-enabled; a wrapper script ending in `exit 0` or `trap 'exit 0' ERR`; `make -k`
+- GitLab `allow_failure: true` / `allow_failure: exit_codes` and the `when: manual` default (R8); Azure `continueOnError: true`; Jenkins `catchError(buildResult: 'SUCCESS')`, unchecked `returnStatus: true`, `propagate: false`; CircleCI `when: always` on a gate step
+- scanner flags that zero the exit: `exit-code: 0`, `--exit-code 0`, `--soft-fail`, `--no-fail`, `--no-exit-codes`, zizmor `--format=sarif`, poutine without `--fail-on-violation`
+- every non-domain gate: deploy, publish, image scan, security scanner, smoke, migration check, build, the aggregator, the observability rules-gate job (test, lint and a11y jobs are testing V63, code-quality and frontend V104)
+- pass: the seeded failure turns every required context and every deploy ancestor `failure`; the cleanup step's `|| true` (precedents § 13) stays
+
+#### V210. Exit status lost by the shell — shell-semantics probe (§2)
+- a pipe into `tee`, `grep`, `head`, `tail`, `sed`, `awk`, `jq`, `sort`, `uniq`, `cut` or `xargs` under GitHub's default `bash -e` (S1), Bitbucket's `set -e` (S5), Jenkins' `sh -xe` (S7); a multi-line Azure `script:` with no `set -e` (S6 [K?])
+- the effective shell from step, job and workflow `defaults.run.shell` (S2); a `shell: sh` override
+- pass: the probe for that platform row exits non-zero on the seeded producer, and the step runs under `set -o pipefail` (or `shell: bash`, or a `PIPESTATUS` check)
+
+#### V211. Required check never reported, or satisfied by a skip — required-check join (§3)
+- workflow `paths`, `paths-ignore`, `branches` on a required workflow (R3); a job `if:` on actor, label, event or draft (R1); a needs-skip (R2); no `merge_group` with the queue on (R5); a name collision or a renamed job (R6, R7 [K?]); a matrix leg named as the context; a `workflow_dispatch` re-run (R4)
+- GitLab `rules:changes` without `compare_to` (R10) plus "skipped pipelines are considered successful"; `needs:optional` (R11); an Azure path-filtered build-validation policy
+- pass: a docs-only PR, a bot PR and a merge-queue entry each get a conclusion from a real run on every required context — never Pending-forever, never `skipped` on a non-aggregator context
+
+#### V212. Deploy or publish not gated on tests — seeded failure + digest unchanged (§4)
+- a missing `needs:` chain; `if: always()`, `!cancelled()`, `success() || failure()` on the deploy or an ancestor; a separate `on: push` deploy workflow; `workflow_run` with no `conclusion == 'success'` check
+- GitLab `needs: []`, `optional: true`, `when: always`; Azure `dependsOn: []`, `condition: always()`; CircleCI no `requires:`; Jenkins `post { always { deploy } }`; a dispatch from any ref
+- pass: the seeded failure leaves the deploy and publish jobs `skipped`, `crane digest` and `npm view <pkg> versions` unchanged
+
+#### V213. Timeouts unset, unbounded waits — graph assertion (§6)
+- every job with no `timeout-minutes` (C4: 360 min), except `uses:` callers (precedents § 11); `kubectl rollout status`, `argo rollouts status`, `helm … --wait` with no `--timeout`
+- pass: `ci-graph.py --check=timeout` prints nothing; every deploy wait carries a bound under `THR-CI-JOB-TIMEOUT`
+
+#### V214. Matrix hides signal — graph vs declared runtimes (§7)
+- an `exclude:` that removes a runtime the project declares (`engines`, `.nvmrc`, `.node-version`, `requires-python`); a dynamic `fromJSON(needs.x.outputs.m)` with no non-empty guard; a required context named after one leg
+- pass: `ci-graph.py --check=matrix` prints nothing, and every declared runtime runs on a required leg
+
+#### V215. Unvalidated ref built or deployed — settings read + dispatch refusal (§5)
+- `ref: ${{ inputs.* }}` / `github.event.inputs.*` into checkout or deploy; free-text dispatch inputs named `ref`, `branch`, `sha`, `tag`, `version`, `image`; `push: branches: ['**']` on a deploy workflow; GitLab deploy jobs with no `$CI_DEFAULT_BRANCH` rule
+- pass: the environment's `deployment_branch_policy` (A) restricts the refs, and a dispatch from a feature branch is refused (R)
+
+#### V216. Scheduled jobs dead or racing — settings read (§8)
+- a `schedule:` on a public repo with no activity (C5); a workflow in `disabled_inactivity`; two schedules writing one target
+- pass: `gh api repos/{o}/{r}/actions/workflows` shows `active` and the last run (`gh run list -w <file> -L 1`) is inside its period
+
+#### V217. Cache key wrong or stale; Docker layer cache misuse — cache probe (`pipeline-cache-scan` §1, §2)
+- `actions/cache` keys without `hashFiles(`; `node_modules` cached; `restore-keys` with an install skipped on a prefix hit; no `runner.arch` on mixed runners; setup-* `cache:`; GitLab `cache:key` without `files:`; CircleCI `restore_cache` without `{{ checksum`
+- buildx `type=gha` without `mode=max`, several images without `scope=`, a release build reading a PR-populated scope (the poisoning half is security's)
+- pass: a lockfile change misses the exact key and reinstalls; with the cache deleted the build is still green
+
+#### V218. Affected detection broken — affected probe (§3)
+- `nx affected`, `turbo --filter=…[`, `--affected`, `git diff … origin/` joined with a shallow `fetch-depth` (default 1); PR workflows with no concurrency (superseded runs)
+- pass: a PR touching one package runs only it; a PR touching a shared library runs its dependents; the empty set never skips a required test
+
+#### V219. Slow structure — run timing (§4)
+- serial `needs:` chains with no data dependency; no sharding; queue time per job
+- pass: p50/p95 per workflow from `gh api …/actions/runs?per_page=100`, labelled measured, against the project's declared budget (no default threshold; L, report-only)
+
+#### V220. Release ref movable — settings read (`release-integrity-scan` §1)
+- tag-push and `release: published` workflows with no tag ruleset; releases not immutable; no `merge-base --is-ancestor` check of the tagged commit; bypass actors beyond the release bot
+- pass: `gh api repos/{o}/{r}/rulesets` shows a tag rule and `…/releases/tags/<latest> --jq .immutable` is `true`
+
+#### V221. Version source split — release dry run (§2)
+- `git describe --tags` vs `package.json` `.version` vs `Chart.yaml` `version` / `appVersion` vs the image tag vs `-ldflags -X …version`; `.changeset/pre.json`; a release-please manifest
+- pass: `semantic-release --dry-run`, `changeset status`, `goreleaser check` or the project's release dry run prints one version across every output (declared independent versioning is precedents § 17)
+
+#### V222. Non-idempotent release — re-run idempotence (§3)
+- publish verbs with no existence guard (`npm view <pkg>@<v>`, `--skip-existing`, `--skip-duplicate`, goreleaser `keep-existing`); `docker push :<semver>` to a mutable tag; a half-published multi-registry release
+- pass: a second run against a sandbox registry (Verdaccio, `registry:2`, TestPyPI) is a no-op with the same digests
+
+#### V223. What ships is not what was tested — digest continuity (§4)
+- a rebuild in the deploy or publish job; per-env build args (`--build-arg …ENV…=`); `NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`, `EXPO_PUBLIC_` values per environment in a server image; per-env tags from one SHA; a checkout of a different ref in deploy
+- **a scanned `load: true` image that is not the pushed image** (a second `push: true` build after the scan; `load: true` also drops attestations)
+- pass: the digest recorded at build equals the scanned, pushed, staging and prod digests (`crane digest`; `kubectl get deploy -o jsonpath='{..image}'` with an isolated kubeconfig, or the platform API)
+
+#### V224. Verification verifies nothing — verify negative test (§5)
+- `--certificate-identity-regexp '.*'`; an org-wide identity; a missing issuer; `--insecure-ignore-tlog`; verify by tag, not digest; `|| true` or audit-mode admission; `gh attestation verify --owner` with no `--signer-workflow`; cosign < 3.1.3 (`THR-SCANNER-FLOOR`); `sign` without `--recursive` on a multi-arch index; release assets with no checksums
+- pass: an image signed by another workflow or ref is **rejected**, and every platform of the index verifies
+
+#### V225. Release automation misconfigured — release PR checks (§6)
+- release-please, changesets or semantic-release opening the release PR with `secrets.GITHUB_TOKEN` (its PR triggers no workflow runs)
+- pass: `gh pr checks <release PR>` shows the required checks ran on it
+
+#### V226. Rollback target not addressable — rollback resolve (§7)
+- a registry lifecycle that keeps 1–3 images (`countMoreThan`); `delete-package-versions` / `delete-untagged`; `--history-max 0|1`; release-bundle `retention-days: 1`; rollback by a mutable tag (`revisionHistoryLimit` is infrastructure's)
+- pass: `crane manifest <repo>@<N-1 digest>` resolves and `/rollback-deploy` R2 names that digest
+
+#### V227. Migration topology — scale cold start (`deploy-safety-scan` §1)
+- migrate in the entrypoint, CMD or `main.ts` boot (`getMigrator().up()`, `migrationsRun: true`); an initContainer; Spring Flyway/Liquibase auto-run; a Helm hook with no `hook-delete-policy`; migrate after the deploy verb; the lock disabled (`PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK`); a lockless runner (Django, Alembic, TypeORM, MikroORM [K?]); `--rollback-on-failure` / `--atomic` over a contract migration
+- pass: `docker compose up --scale app=3` from an empty database writes exactly one row per migration with 0 crash-loops, and a kill mid-run is recovered by the next start
+
+#### V228. Deploy concurrency — graph assertion + two-push race (§2)
+- `cancel-in-progress: true` at workflow or job scope covering a deploy; a deploy with no group; a group keyed on the ref, not the environment; two workflows deploying one environment under different groups; GitLab `interruptible: true` on deploy or no `resource_group` (C2); Jenkins with no `disableConcurrentBuilds()` / `lock(`
+- pass: `ci-graph.py --check=deploy-concurrency` prints nothing; two pushes 10 s apart in a sandbox repo → the first deploy completes, the final SHA is the latest, no `pending-upgrade` or Terraform lock is left (L); the PR workflow still cancels superseded runs (the control)
+
+#### V229. Environment unprotected — settings read + dispatch refusal (§3)
+- a deploy job with no `environment:`; an environment with no required reviewers, no branch policy, or `can_admins_bypass` on prod
+- pass: `gh api repos/{o}/{r}/environments` shows reviewers and a branch policy on prod, and a dispatch from a feature branch is refused
+
+#### V230. Rollout not gated — rollout red (§4)
+- a deploy verb with no `rollout status`, `--wait`, `services-stable`, `argocd app wait` or `argo rollouts status` in the same job; a smoke test with no version assertion (`curl …/version | grep "$SHA"`)
+- pass: deploying a crash-looping image to a throwaway cluster turns the pipeline red inside the timeout (isolated kubeconfig)
+
+#### V231. Shutdown chain, code and image — stop timing (`deploy-safety-scan` §5; `container-build-scan` §2; `compose-scan` §7)
+- shell-form CMD or ENTRYPOINT on a dash/bash base; `["sh","-c",…]` without `exec`; npm, yarn, pnpm or bun as PID 1; an entrypoint script whose exit paths do not `exec "$@"`; `su` / `sudo` privilege drop; no handler while PID 1 and no `tini` / `--init` / `init: true`; NestJS without `enableShutdownHooks()`; a drain longer than `THR-SHUTDOWN-GRACE`; compose `stop_grace_period` under the drain
+- pass: `docker stop -t 10` returns in under 10 s with an exit other than 137 on the real base, and an in-flight request completes (manifest timing, `preStop` and grace are infrastructure's)
+
+#### V232. Canary without a real gate — canary checks (`progressive-delivery` §5)
+- a `successCondition` / `failureCondition` that can never fail (`result[0] >= 0`); `failureLimit` ≥ the measurement count; no `inconclusiveLimit`; `dryRun:` metrics; a query without the canary selector; Flagger `metrics: []`; `autoPromotionEnabled: true` with no `prePromotionAnalysis`
+- pass: the template can fail on a static read, every selector grounds (observability `rule-inventory.py --check=selectors` when installed), and a 20 %-error canary aborts (L, else `NO-DATA(rollout)`)
+
+#### V233. Flag safety — provider-error default (`progressive-delivery` §4, §8, §9)
+- an unsafe default on provider outage (`getBooleanValue(…, true)` on a risky path); a build-time flag (`NEXT_PUBLIC_FLAG_*`) that cannot be flipped; no kill switch on a risky path
+- pass: a unit test with a failing provider gets the safe default, and the kill switch flips without a deploy
+
+#### V234. Config read but not declared; per-env runtime drift — declared-keys boot (`deploy-safety-scan` §6)
+- `process.env.X`, `import.meta.env`, `os.environ`, `os.Getenv`, `ENV.fetch`, `System.getenv`, `env::var` read at request time with no default and absent from prod's declared set (`.env.example`, compose, the **rendered** `env:` / `envFrom` / `configMapGenerator`, Helm values per env); `.nvmrc` / `engines` / `FROM node:` differing per environment
+- pass: the artifact boots with only the declared prod keys (`env -i <keys> node dist/main.js`) and readiness passes, or the config validator names the missing variable; the runtime version is equal across environments
+
+#### V235. Effective user wrong — image-config user (`container-build-scan` §1)
+- no USER; `root`, `0`, `root:root` and **`0:0`** in the final stage; USER only in a builder stage; `USER ${ARG}` defaulting to root or empty; a base that sets non-root followed by `USER root` never switched back
+- **inheritance:** `FROM base AS final` inherits the `USER 10001` of stage `base` (not root), and inherits root from a root stage; an external base with no USER (`INHERIT-EXTERNAL`, settled by `crane config`)
+- `--target` or compose `build.target` selecting a non-final stage; a named USER under `runAsNonRoot: true` without `runAsUser` (the kubelet refuses the pod)
+- pass: `docker image inspect -f '{{.Config.User}}'` is non-empty, not `root`/`0`/`0:*`, numeric where `runAsNonRoot` applies; container-structure-test `metadataTest.user` passes; a `runAsNonRoot` server dry run admits the pod (isolated kubeconfig)
+
+#### V236. Layer order and lockfile — layer and lock probes (§3, §4)
+- `COPY . .` before the dependency install; `npm install`; `pnpm install` without `--frozen-lockfile`; yarn without `--frozen-lockfile` / `--immutable`; `pip install` without hashes or constraints; `uv sync` without `--locked` / `--frozen`; cargo without `--locked`; `bundle install` without frozen — CI auto-freeze does not reach inside `docker build`
+- pass: touching one source file leaves the install layer `CACHED`; a lockfile mutated by one version makes the build fail
+
+#### V237. RUN correctness and the build-check lane — build-check lane (§5, §9)
+- a `RUN <<` heredoc without `set -e`; `RUN cd`; a relative `WORKDIR`; an `ARG` used after `FROM` without redeclaration; a pipe in `RUN` without `SHELL ["/bin/bash","-o","pipefail","-c"]`; duplicate CMD; package hygiene
+- pass: `docker build --check` with `# check=error=true` and hadolint v2.15.1 `--failure-threshold warning` report 0 kept rule ids, and a seeded failing line inside the heredoc fails the build
+
+#### V238. HEALTHCHECK broken — health status (§6; `compose-scan` §2)
+- `curl` or `wget` absent from the final base; a wrong port or path against `$PORT` / the app's `listen(`; no `--start-period`; compose `healthcheck.test` with a missing binary or `CMD` vs `CMD-SHELL` confusion
+- pass: `docker inspect -f '{{.State.Health.Status}}'` is `healthy` within start-period + interval × retries (a k8s-only image is precedents § 29)
+
+#### V239. Base, platform and libc — per-platform smoke (§7)
+- an EOL base; `FROM --platform=<constant>`; Go without `TARGETOS` / `TARGETARCH`; a `$BUILDPLATFORM` builder producing native artefacts; musl builder → glibc runtime with native or generated code; a single-arch publish to a mixed cluster
+- pass: `docker run --platform linux/<arch> <img> <smoke>` succeeds per published platform, and `docker buildx imagetools inspect` lists them
+
+#### V240. Builder residue and runtime content — structure test (§8)
+- `COPY --from=<builder> … node_modules` without a prod prune; dev tooling in the final stage; a writable root; ownership without `--chown`; VOLUME before writes
+- pass: container-structure-test file and command tests (`--platform` set) show no dev dependency or build tool in the runtime image
+
+#### V241. Compose reliability — compose config / wait (`compose-scan` §1, §3–§7)
+- `depends_on` short form or `condition: service_started` on a service with no healthcheck; `${VAR}` without `:-` / `:?` in `image:`, `ports:` or credentials; an override file auto-merged on a prod host; `image:` untagged or `:latest`; top-level `version:`, `links:`, `container_name:` on a scaled service; `restart: always` on a one-shot migrator
+- pass: `docker compose config` on the prod invocation prints no warning and `docker compose up --wait` exits 0 (compose semantics stay `[K?]` until the plugin runs)
+
+#### V242. Claimed-reproducible build differs — rebuild diff (§10)
+- no `SOURCE_DATE_EPOCH` / `rewrite-timestamp=true`; an unpinned BuildKit; no snapshot repositories; a base by tag — only when the repo claims reproducible builds or SLSA L3
+- pass: two builds of one commit give an empty `diffoci diff --semantic`
+
+#### V243. Image bloat regression — size vs baseline (§10)
+- growth with no dependency change; builder residue (V240) as the usual cause
+- pass: `dive` / the image size stays within `THR-IMAGE-GROWTH` of the baseline `/dockerize` Phase 7 recorded
+
+### Sources (DevOps)
+
+The devops research catalog and its notes A–D (2026-10-10) and the batch-4 devops eval (2026-10-10),
+which cite: GitHub Docs (*Workflow syntax*, *Troubleshooting required status checks*, *Secure use
+reference*, *Disabling and enabling workflows*, *Dependency caching reference*, fetched 2026-10-10);
+GitLab Docs (*CI/CD YAML syntax reference*, *CI/CD variables*); the CircleCI and Atlassian support
+pages on default shells; the GitHub changelog (immutable releases 2025-10-28, workflow execution
+protections 2026-09-17); actions/checkout releases (2026-06-18, 2026-07-20); the Prisma migrate
+docs (advisory lock); and local runs on 2026-10-10 of the `docker stop` matrix (node:22 alpine and
+bookworm-slim), the stage-chain user resolution on six Dockerfiles and the YAML `on:` remap
+(PyYAML, Ruby psych). Rows marked [K?] are settled on the `ci-defects` fixture or a sandbox repo
+before a skill asserts them. Paraphrased; no text reproduced.
 
 ---
 

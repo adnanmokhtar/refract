@@ -351,6 +351,96 @@
       "pack": "observability",
       "target": "observability-reviewer",
       "note": "collector and agent DaemonSet RBAC → infrastructure (observability reports the telemetry blast radius as corroboration)"
+    },
+    "ci-pipeline-integrity": {
+      "detector": "devops/skills/pipeline-integrity-scan §1–§8 (ci-graph.py)",
+      "owner": "devops/agents/ci-reviewer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "test-job mask, zero tests and test retries → testing suite-execution-scan §4/§6; lint-job mask → code-quality suppression-scan; a11y gate → frontend a11y-scan §7; devops supplies the required-check join (ci-graph.py --required) those owners read for severity"
+    },
+    "ci-cache": {
+      "detector": "devops/skills/pipeline-cache-scan §1–§4",
+      "owner": "devops/agents/ci-reviewer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "cache poisoning (a PR-writable cache read by release) → security ci-security-scan §5"
+    },
+    "release-integrity": {
+      "detector": "devops/skills/release-integrity-scan §1–§7 (executor: devops/skills/release-security)",
+      "owner": "devops/agents/deployment-engineer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "registry tag-mutability IaC → infrastructure; deploy by mutable tag → security iac-scan 4j (release §4/§7 corroborate); revisionHistoryLimit → infrastructure"
+    },
+    "deploy-safety": {
+      "detector": "devops/skills/deploy-safety-scan §1–§5",
+      "owner": "devops/agents/deployment-engineer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "migration statements → database migration-safety / migration-rehearsal; probes → performance request-path-scan §15, observability HC-01, infrastructure K-PROBE-*; preStop and grace timings → infrastructure (THR-SHUTDOWN-GRACE)"
+    },
+    "env-parity": {
+      "detector": "devops/skills/deploy-safety-scan §6",
+      "owner": "devops/agents/deployment-engineer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "flag drift across environments → devops/skills/progressive-delivery §6"
+    },
+    "container-build": {
+      "detector": "devops/skills/container-build-scan §1–§10",
+      "owner": "devops/agents/deployment-engineer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "final stage as root, secret ARG/ENV, secret files, ADD URL / curl|sh, TLS verification disabled → security iac-scan §1 (container-build-scan supplies the stage-chain awk)"
+    },
+    "compose-reliability": {
+      "detector": "devops/skills/compose-scan §1–§7",
+      "owner": "devops/agents/deployment-engineer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "ports, privilege, docker socket, default passwords → security iac-scan §2"
+    },
+    "progressive-delivery": {
+      "detector": "devops/skills/progressive-delivery §1–§9",
+      "owner": "devops/agents/deployment-engineer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "AnalysisTemplate selector grounding → observability rule-inventory.py --check=selectors (when installed; else report-flagged)"
+    },
+    "gitops-reconciliation": {
+      "detector": "devops/skills/gitops-audit §1–§3",
+      "owner": "devops/agents/deployment-engineer",
+      "fixer": "/devops-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "devops",
+      "target": "operability-reviewer",
+      "note": "controller spec (prune, waves, selfHeal × HPA, ignoreDifferences) → infrastructure; plaintext kind: Secret in git → security"
+    },
+    "ci-supply-chain": {
+      "detector": "security/skills/ci-security-scan (until it ships: security/skills/iac-scan §5)",
+      "owner": "security/agents/security-auditor",
+      "fixer": "/security-fix",
+      "fallback": "security/agents/security-auditor",
+      "pack": "security",
+      "target": "security-reviewer (supply-chain lens)",
+      "note": "every CI attacker-path class on all six platforms (injection, privileged triggers, pinning × privilege, cache poisoning, OIDC width, secret exposure, runner trust); pin × privilege is graded with ci-graph.py --check=pin-priv; without the security pack, devops pipeline-integrity-scan runs the greps and tags rows security-class (owner pack not installed)"
     }
   }
 }

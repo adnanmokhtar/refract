@@ -250,6 +250,41 @@
       "floor": false,
       "owner": "packs/observability/commands/alert-design.md Phase 6 · sre-engineer · alert-audit (noise, against fire history)",
       "why": "moved from alert-design so the number has one home: each page costs follow-up time (postmortem, fix, review), so a 12h shift absorbs about two pages before on-call stops fixing causes. Judged against fire history, else NO-DATA"
+    },
+    "THR-CI-JOB-TIMEOUT": {
+      "value": {"must_set": true, "platform_default_gha_min": 360, "ceiling_min": 60, "ceiling_override": "project sets its own ceiling in .claude/thresholds.local.json"},
+      "unit": "minutes",
+      "floor": false,
+      "owner": "packs/devops/skills/pipeline-integrity-scan §6 (ci-graph.py --check=timeout) · /devops-fix reward-hack grep (timeout-minutes raised past the ceiling) · ci-platform-semantics.md C4",
+      "why": "the GitHub Actions default of 360 minutes is the defect: a hung job holds a runner (and a self-hosted or larger runner's bill) for six hours. Every job sets timeout-minutes; 60 is a working ceiling a project tunes, not a platform constant. A uses: caller job cannot set it (precedents/devops.md § 11)"
+    },
+    "THR-DEPLOY-CONCURRENCY": {
+      "value": {"group_key": "environment", "cancel_in_progress_on_mutating": false, "queue": "single or max, never cancel"},
+      "unit": "enum",
+      "floor": true,
+      "owner": "packs/devops/skills/deploy-safety-scan §2 (ci-graph.py --check=deploy-concurrency) · precedents/devops.md § 15",
+      "why": "a deploy, publish, migration or terraform apply is serialized per environment and never cancelled mid-apply; cancel-in-progress belongs to PR CI and per-PR previews. The pack's own example pipeline violated it (workflow-level cancel over the staging and prod deploys)"
+    },
+    "THR-SHUTDOWN-GRACE": {
+      "value": {"docker_stop_default_s": 10, "k8s_grace_default_s": 30, "app_drain_lt_grace": true, "preStop_lt_grace": true},
+      "unit": "seconds",
+      "floor": true,
+      "owner": "packs/infrastructure (manifest timing: preStop, terminationGracePeriodSeconds) · cited by packs/devops/skills/deploy-safety-scan §5, container-build-scan §2 and observability's telemetry flush — the row is agreed in the infrastructure eval",
+      "why": "one number for the whole shutdown chain: Docker sends SIGKILL 10 s after SIGTERM and Kubernetes 30 s after by default, so the app's drain and any preStop sleep must finish inside the grace period or in-flight work dies on every rollout"
+    },
+    "THR-IMAGE-GROWTH": {
+      "value": {"max_growth_pct_without_dependency_change": 20, "baseline": "recorded by /dockerize Phase 7", "status": "proposal — measure the repo's image-size history before relying on it"},
+      "unit": "% of baseline image size",
+      "floor": false,
+      "owner": "packs/devops/skills/container-build-scan §10 · /dockerize Phase 7 · precedents/devops.md § 39",
+      "why": "image size is judged against the repo's own baseline, never an absolute number; growth with no dependency change is usually builder residue shipping in the runtime stage"
+    },
+    "THR-SCANNER-FLOOR": {
+      "value": {"zizmor": ">= 1.28", "cosign": ">= 3.1.3", "trivy": "version + digest pin", "hadolint": "v2.15.1 + --failure-threshold warning", "actionlint": ">= 1.7.12"},
+      "unit": "minimum version · pin form",
+      "floor": true,
+      "owner": "packs/devops (release-integrity-scan §5, release-security, container-build-scan §9) and packs/security jointly — security iac-scan cites it",
+      "why": "the scanners are supply chain too: trivy's images and action tags were compromised in 2026-03 and zizmor 1.27.0 logged GitHub credentials, so a scanner runs at or above its floor and is pinned by version and digest"
     }
   }
 }

@@ -1,4 +1,3 @@
 # Prescribed-search traps counted by scripts/lint-rg-traps.sh, per file and kind. May only shrink.
 # Regenerate: bash scripts/lint-rg-traps.sh --record   (after fixing a file, never to admit a new one)
 templates/packs/observability/agents/observability-reviewer.md	rg-follow	1
-templates/packs/observability/skills/alert-audit/SKILL.md	rg-follow	1
