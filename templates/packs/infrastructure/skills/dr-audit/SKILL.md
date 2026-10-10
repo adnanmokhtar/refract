@@ -123,10 +123,11 @@ rg -n --pcre2 "${CFG[@]}" '^\s*(schedule|backup_window|preferred_backup_window)\
 # 10. Operator and engine backups: Velero PV capture, WAL archiving that lies, CNPG with no stanza, zalando, etcd.
 rg -n --pcre2 "${CFG[@]}" '^\s*snapshotVolumes:\s*false|^\s*defaultVolumesToFsBackup:\s*false|^\s*snapshotMoveData:\s*false|^kind:\s*(Schedule|BackupStorageLocation|VolumeSnapshotLocation|ScheduledBackup|ObjectStore)\b' .
 rg -n --pcre2 "${CFG[@]}" '^\s*archive_mode\s*=\s*\x27?off|^\s*archive_command\s*=\s*\x27?(/bin/true|true|exit 0|:)\b|archive_command\s*=[^\n]*\|\|\s*(true|exit 0)|^\s*archive_timeout\s*=\s*0\b|archive-async\s*=\s*y' .
+# (the FNR == 1 flush runs after FILENAME has moved on, so each Cluster keeps its own file name in fn)
 rg -l --pcre2 "${CFG[@]}" '^apiVersion:\s*postgresql\.cnpg\.io/' . | xargs -r awk '
-  function f() { if (c && !b) print FILENAME ":" st ": CNPG Cluster with no backup:/plugins: stanza"; c = b = p = 0 }
+  function f() { if (c && !b) print fn ":" st ": CNPG Cluster with no backup:/plugins: stanza"; c = b = p = 0 }
   FNR == 1 { f() }  /^---/ { f(); next }  /^apiVersion: *postgresql\.cnpg\.io\// { p = 1 }
-  /^kind: *Cluster *$/ { if (p) { c = 1; st = FNR } }  /^  (backup|plugins):/ { b = 1 }  END { f() }'
+  /^kind: *Cluster *$/ { if (p) { c = 1; st = FNR; fn = FILENAME } }  /^  (backup|plugins):/ { b = 1 }  END { f() }'
 rg -n --pcre2 "${CFG[@]}" 'enableLogicalBackup:\s*false|barmanObjectStore:|etcd-snapshot|etcdctl\s+snapshot\s+save' .
 
 # 11. Drill records: dated restore lines, restore headings, IaC restore testing.

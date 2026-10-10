@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "review-changes: the ci row dispatches the devops, security and testing CI detectors under @ci-reviewer; new iac row under @infra-reviewer.",
+  "summary": "review-changes: the k8s row dispatches the four infrastructure k8s detectors under @k8s-reviewer in refute mode (UNREVIEWED(k8s) without the pack).",
   "changelog": "CHANGELOG.md"
 }

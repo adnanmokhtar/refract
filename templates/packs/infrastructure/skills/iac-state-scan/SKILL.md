@@ -58,11 +58,12 @@ Run as **one** script from the repo root after `k8s-render-scan` § 0 when Kuber
 
 ```bash
 SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/iac-state.XXXXXX")}"; LS="${LS:-.claude/skills/iac-lifecycle-scan/scripts}"; ROOTS=(.)
+AD='!.{claude,opencode,cursor,windsurf,codex,gemini,kiro,roo,agents}/**'   # installed AI-tool trees (their scripts self-test install lines): never read
 X=(-g '!**/node_modules/**' -g '!**/.terraform/**' -g '!**/.terragrunt-cache/**' -g '!**/cdk.out/**' -g '!**/vendor/**' -g '!**/.git/**'
-   -g '!**/{test,tests,testdata,__tests__,fixtures,examples,example}/**' -g '!**/*_test.go' -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**' -g '!ai/**')
+   -g '!**/{test,tests,testdata,__tests__,fixtures,examples,example}/**' -g '!**/*_test.go' -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**' -g '!ai/**' -g "$AD")
 TF=(-g '*.tf' -g '*.tofu' -g '*.tf.json' -g '*.hcl')
 CI=(-g '*.{yml,yaml,sh,bash,mk}' -g 'Makefile' -g 'Justfile' -g 'Jenkinsfile' -g 'Taskfile*')
-RB=(-g '*.{md,sh,bash,mk,yml,yaml}' -g 'Makefile' -g 'Justfile' -g '!**/node_modules/**' -g '!**/.git/**')   # runbooks ARE read, for install lines
+RB=(-g '*.{md,sh,bash,mk,yml,yaml}' -g 'Makefile' -g 'Justfile' -g '!**/node_modules/**' -g '!**/.git/**' -g "$AD")   # runbooks ARE read, for install lines
 blk(){ rg --files -0 "${TF[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r awk -v K="$1" -v T="$2" -v NEED="$3" -v HAVE="${4:-}" -f "$LS/blocks.awk"; }
 # 0. Engines and roots: version files, required_version, root blocks that lack it, directories with .tf and no terraform {} block.
 rg --files --hidden -g '.terraform.lock.hcl' -g '.terraform-version' -g '.opentofu-version' -g '.tool-versions' -g 'Pulumi*.y*ml' -g 'cdk.json' -g 'terragrunt.hcl' -g 'atlantis.yaml' "${X[@]}" "${ROOTS[@]}"
@@ -72,8 +73,8 @@ rg --files -0 -g '*.tf' -g '*.tofu' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r -n1 di
 rg -l --pcre2 -g '*.tf' -g '*.tofu' "${X[@]}" '^terraform\s*\{' "${ROOTS[@]}" | xargs -r -n1 dirname | sort -u | comm -23 "$SCAN/tf-dirs.txt" -
 # 1. Backend kind, lock, encryption (1a); committed state (1b); Pulumi backends (1c).
 rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*(backend\s+"[a-z0-9_]+"|cloud\s*\{|remote_state\s*\{|(dynamodb_table|use_lockfile|encrypt|kms_key_id|workspace_key_prefix)\b)|\bencryption\s*\{|\bkey_provider\s+"|\bmethod\s+"(aes_gcm|unencrypted)"' "${ROOTS[@]}"
-rg --files --hidden -g '*.tfstate' -g '*.tfstate.backup' -g '!**/.terraform/**' -g '!**/.git/**' "${ROOTS[@]}"
-rg -n --hidden --pcre2 -g 'Pulumi*.y*ml' -g '!**/node_modules/**' '^\s*backend:\s*$|^\s*url:\s*["\x27]?(s3|gs|azblob|file)://' "${ROOTS[@]}"
+rg --files --hidden -g '*.tfstate' -g '*.tfstate.backup' -g '!**/.terraform/**' -g '!**/.git/**' -g "$AD" "${ROOTS[@]}"
+rg -n --hidden --pcre2 -g 'Pulumi*.y*ml' -g '!**/node_modules/**' -g "$AD" '^\s*backend:\s*$|^\s*url:\s*["\x27]?(s3|gs|azblob|file)://' "${ROOTS[@]}"
 rg -n --hidden --pcre2 "${CI[@]}" -g '*.env' "${X[@]}" '\bPULUMI_BACKEND_URL\b|\bpulumi\s+login\b' "${ROOTS[@]}"
 # 2. Secret-shaped variables without sensitive (2a); outputs of secret attributes without sensitive (2b); the mechanism (2c).
 blk variable '[^"]*(password|passwd|secret|token|api_?key|private_?key|credential|client_secret)[^"]*' 'sensitive *= *true'
@@ -91,11 +92,11 @@ rg -n -U --hidden --pcre2 "${RB[@]}" '^[ \t]*(?:\$[ \t]+|-[ \t]+|run:[ \t]*)?hel
 rg -n --pcre2 -g '*.y*ml' "${X[@]}" '^\s*targetRevision:\s*["\x27]?(HEAD|\*|main|master|[~^]|>=?)|^\s*version:\s*["\x27]?([~^*]|>=?|\d+\.x|\d+\.\d+\.x|\d+\.\*)' "${ROOTS[@]}"
 # 3c. Which engine version CI installs.
 rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '\b(hashicorp/setup-terraform|opentofu/setup-opentofu|terraform_version|tofu_version|TF_VERSION|TOFU_VERSION)\b' "${ROOTS[@]}"
-# 4. Plan and apply in automation: drift jobs, -target/-exclude, saved plans.
-rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '\b(terraform|tofu|terragrunt)\s+(plan|apply|destroy)\b|\s-(target|exclude)(=|\s)|-target-file|-detailed-exitcode|-refresh-only|\bdetect-stack-drift\b|\bpulumi\s+(preview|up|refresh)\b|\bcdk\s+(diff|deploy)\b' "${ROOTS[@]}"
+# 4. Plan and apply in automation: drift jobs, -target/-exclude, saved plans. `-chdir=<dir>` sits between the binary and the subcommand in most CI.
+rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '\b(terraform|tofu|terragrunt)\b(?:\s+-chdir=\S+)?\s+(plan|apply|destroy)\b|\s-(target|exclude)(=|\s)|-target-file|-detailed-exitcode|-refresh-only|\bdetect-stack-drift\b|\bpulumi\s+(preview|up|refresh)\b|\bcdk\s+(diff|deploy)\b' "${ROOTS[@]}"
 # 5. Workspace branching and backend keys per environment.
 rg -n --pcre2 "${TF[@]}" "${X[@]}" '\bterraform\.workspace\b|(?:^|\{)\s*key\s*=\s*"[^"]*\.tfstate"|(?:^|\{)\s*(workspace_key_prefix|prefix)\s*=' "${ROOTS[@]}"
-rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '(?:^|\s)-backend-config(=|\s)|\b(terraform|tofu)\s+workspace\s+(select|new)\b|\bTF_WORKSPACE\b' "${ROOTS[@]}"
+rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '(?:^|\s)-backend-config(=|\s)|\b(terraform|tofu)\b(?:\s+-chdir=\S+)?\s+workspace\s+(select|new)\b|\bTF_WORKSPACE\b' "${ROOTS[@]}"
 # 6. Default tags and encoded invariants.
 rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*(default_tags|precondition|postcondition|validation)\s*\{|^check\s+"' "${ROOTS[@]}"
 rg --files -g '*.tftest.hcl' -g '*.tofutest.hcl' -g '!**/node_modules/**' "${ROOTS[@]}"

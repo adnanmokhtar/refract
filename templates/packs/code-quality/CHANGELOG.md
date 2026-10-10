@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.4 — 2026-10-10
+
+**`/review-changes` reviews Kubernetes diffs with the detectors.** The `k8s` row dispatched `@k8s-reviewer` alone; it now runs `k8s-render-scan` first, then `k8s-availability-scan`, `k8s-wiring-scan` and `k8s-api-version-scan` over that render (infrastructure pack, when installed), with `@k8s-reviewer` judging their rows in refute mode — the shape the `ci` and `iac` rows use. Without the pack the axis is `UNREVIEWED(k8s)`. The `_examples/` twin carries the same row.
+
 ## 2.0.3 — 2026-10-10
 
 **`/review-changes` reviews CI and IaC diffs with the detectors.** The `ci` row dispatches `pipeline-integrity-scan` (devops), `ci-security-scan` (security) and `suite-execution-scan` (testing), each when installed, with `@ci-reviewer` as the judge and `@deployment-engineer` grading the release, deploy, image and compose rows it hands over; a new `iac` row dispatches `iac-state-scan` and `iac-lifecycle-scan` under `@infra-reviewer`. Without the owner pack the axis is `UNREVIEWED(<axis>)`. The `_examples/` twin carries the same rows.

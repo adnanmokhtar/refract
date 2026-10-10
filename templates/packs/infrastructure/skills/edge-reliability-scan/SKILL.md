@@ -74,6 +74,7 @@ Run as **one** script from the repo root (shell state does not survive between t
 SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/edge.XXXXXX")}"; ES="${ES:-.claude/skills/edge-reliability-scan/scripts}"; ROOTS=(.)
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/.git/**' -g '!**/{test,tests,testdata,__tests__,examples,example}/**' -g '!**/*.{spec,test}.*'
    -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**' -g '!ai/**')
+AD='!.{claude,opencode,cursor,windsurf,codex,gemini,kiro,roo,agents}/**'   # installed AI-tool trees: never read by a --hidden grep
 E=(-g '*.conf' -g '*.nginx' -g '*.conf.template' -g 'Caddyfile*' -g '*.caddy' -g '*.y*ml' -g '*.toml' -g '*.cfg' -g '*.json' -g '*.tf' -g 'Dockerfile*')
 
 # 0. Which proxies run, at which version, built with which plugins.
@@ -105,9 +106,10 @@ rg -n --pcre2 "${E[@]}" "${X[@]}" '^\s*(limit_req(_zone|_status)?|limit_conn(_zo
 rg -n --pcre2 "${E[@]}" "${X[@]}" '\bmax_fails=\d|\bfail_timeout=|^\s*(health_uri|health_path|health_interval|fail_duration|unhealthy_status)\s|\bhealthCheck:\s*$|^\s*option\s+httpchk\b|^\s*server\s+\S+\s+\S+[^\n]*\bcheck\b|\b(health_checks|outlier_detection):' "${ROOTS[@]}"
 rg -n --pcre2 "${E[@]}" "${X[@]}" '^\s*(gzip|gzip_types|gzip_proxied|brotli|brotli_types)\s|^\s*encode\s+\w|\b(use-gzip|enable-brotli|gzip-types)\b|^\s*compression\s|\bcompress:\s*' "${ROOTS[@]}"
 rg -n --pcre2 "${E[@]}" "${X[@]}" '^\s*(worker_shutdown_timeout|grace_period|shutdown_delay)\s+\S+|\b(hard-stop-after|graceTimeOut|requestAcceptGraceTimeout|drain_timeout|worker-shutdown-timeout|drainListeners)\b' "${ROOTS[@]}"
-# 13. Does the deploy step validate the edge config, and which loaders fail silently?
-rg -n --pcre2 -g '*.{yml,yaml,sh,bash,mk}' -g 'Makefile' -g 'Dockerfile*' -g 'Justfile' "${X[@]}" '\bnginx\s+-t\b|\bcaddy\s+(validate|adapt)\b|\bhaproxy\s+-c\b|\benvoy\b[^\n]*--mode\s+validate|\btraefik\b[^\n]*(healthcheck|--configFile)|\bcaddy\s+list-modules\b' "${ROOTS[@]}"
-rg -n --pcre2 "${E[@]}" "${X[@]}" '^\s*providers:\s*$|--providers\.(file|kubernetes\w*)|\bwatch:\s*true|^\s*admin\s+off\b|\b--watch\b|^\s*import\s+/' "${ROOTS[@]}"
+# 13. Does the deploy step validate the edge config (13a reads .github/ with --hidden; .git/ and installed AI-tool trees stay out),
+#     and which loaders fail silently (13b: a `--watch` flag after a space, quote, `[` or comma — `\b` cannot precede `-`)?
+rg -n --hidden --pcre2 -g '*.{yml,yaml,sh,bash,mk}' -g 'Makefile' -g 'Dockerfile*' -g 'Justfile' "${X[@]}" -g "$AD" '\bnginx\s+-t\b|\bcaddy\s+(validate|adapt)\b|\bhaproxy\s+-c\b|\benvoy\b[^\n]*--mode\s+validate|\btraefik\b[^\n]*(healthcheck|--configFile)|\bcaddy\s+list-modules\b' "${ROOTS[@]}"
+rg -n --pcre2 "${E[@]}" "${X[@]}" '^\s*providers:\s*$|--providers\.(file|kubernetes\w*)|\bwatch:\s*true|^\s*admin\s+off\b|(?:^|[\s\x22\x27\[,])--watch\b|^\s*import\s+/' "${ROOTS[@]}"
 # 14. HTTP/3 vs the LB protocol; on-demand TLS; the controller inventory (E20 reads inventory-platform.tsv).
 rg -n --pcre2 "${E[@]}" "${X[@]}" '^\s*protocols\s+\S|^\s*(on_demand|on_demand_tls)\b|^\s*(ask|permission)\s+\S|\blisten\s[^;]*\bquic\b|\bhttp3\b|loadbalancer-protocol|aws-load-balancer-type' "${ROOTS[@]}"
 # 15. Access logs: format, request id, upstream timing, exclusions.

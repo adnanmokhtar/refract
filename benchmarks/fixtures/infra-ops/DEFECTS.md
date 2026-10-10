@@ -2899,24 +2899,25 @@ not a scored `/infra-audit` run — no run is recorded in `RESULTS.md` yet.
 
 | detector | lines | seeds owned | caught by its pre-flight | decoys hit → findings | other printed lines |
 |----------|-------|-------------|--------------------------|-----------------------|---------------------|
-| `iac-state-scan` | 84 | 12 (§1–§4) | **11 / 12** — 1a backend (01a), committed `*.tfstate` (01b), 2a/2b (11a/11b), 3a (03a, 04a), `blocks.awk` terraform/module (03b, 04b), inventory + 3b (PHa), 3b `targetRevision` (PHb), 4 `-target` (09a). **Missed: IO-ST-09b** — grep 4 needs the subcommand right after the binary, so `terraform -chdir=… plan` never matches (only the `setup-terraform` lines of that workflow print, via 3c) | DECOY-23 (`?ref=v1.4.0`) by 3a → 0 (§ 27) | 2 false PIN-HELM lines from the installed `.claude/skills/k8s-render-scan/scripts/render.sh` self-test, read by 3b's `--hidden` grep (IR-4); backend/key/default_tags context |
+| `iac-state-scan` | 85 | 12 (§1–§4) | **12 / 12** — 1a backend (01a), committed `*.tfstate` (01b), 2a/2b (11a/11b), 3a (03a, 04a), `blocks.awk` terraform/module (03b, 04b), inventory + 3b (PHa), 3b `targetRevision` (PHb), 4 `-target` (09a), 4 `terraform -chdir=… plan` (09b; missed before IR-3 — grep 4 needed the subcommand right after the binary) | DECOY-23 (`?ref=v1.4.0`) by 3a → 0 (§ 27) | the Makefile's `-chdir` `plan`/`apply` lines (4, context); backend/key/default_tags context. The 2 false PIN-HELM lines from the installed `render.sh` self-test are gone (IR-4: `--hidden` greps skip AI-tool trees) |
 | `iac-lifecycle-scan` | 118 + plan rows | 22 (§1–§7) | **22 / 22** — 1a/1c, 2a + `blocks.awk` CBD, 3 ×2, plan `STATEFUL-REPLACE` ×2 (08a, 08b; plus `DEL-01`/`DEL-02`/`DEL-03`/`DEL-05` rows corroborating D1a/D1b/D2a/D3a/D5a/D5b), 5 ×2, 6 ×2, 7a/7b/7c/7d/7e for every DEL seed | DECOY-22 (2a), DECOY-24 (3), DECOY-13 (7a ×3, 7b) → 0 (§ 25, ADR 0012, § 18); DECOY-12 quiet | 7b `prevent_destroy` absent on 5 resources, every one a seeded resource (the module's `aws_db_instance.this` = 08a's fix site, EFS = 08b, uploads = D3a, exports = D3b, analytics = D2b) |
-| `dr-audit` | 117 | 24 (§1–§12) | **24 / 24**, with two caveats — R8a's row is printed under the **wrong file** (`inventory-cluster.yaml:3` for catalog's missing stanza, IR-5); R11a/R11b surface at directory level (`./iac/envs/prod`, grep 12) and R4b by the absent `copy_action`/vault lock plus the plan's `cron(…)` line; 8j prints `larder-uploads-prod` (R3a) | DECOY-06 (11), DECOY-17 (10), DECOY-30 (8d), DECOY-13 (1–6, 12) → 0 | inventory, schedules, objectives header lines (context) |
+| `dr-audit` | 117 | 24 (§1–§12) | **24 / 24**, with one caveat — R8a prints as `catalog-cluster.yaml:3` (under the next file's name, `inventory-cluster.yaml:3`, before IR-5); R11a/R11b surface at directory level (`./iac/envs/prod`, grep 12) and R4b by the absent `copy_action`/vault lock plus the plan's `cron(…)` line; 8j prints `larder-uploads-prod` (R3a) | DECOY-06 (11), DECOY-17 (10), DECOY-30 (8d), DECOY-13 (1–6, 12) → 0 | inventory, schedules, objectives header lines (context) |
 | `serverless-reliability-scan` | 101 + joins | 10 (§2–§6) | **10 / 10** — `vis.jq` VIS (02a), grep 2 (02b), `lacks`/`cfnlacks` + `serverless.jq` DLQ (03a, 03b), `lacks` + PARTIAL (04a), grep 4's switch with no `batchItemFailures` in `payout-retry.ts` (04b, set difference), `lacks` + CONC (05a), Cloud Run `lacks` (05b), grep 6 + RETRY (06a, 06b) | DECOY-28 (grep 1) → 0 (§ 24); DECOY-14 quiet | timeouts, memory, reserved context |
 | `iac-cost-scan` | 57 + joins | 6 (§1, §4, §8) | **6 / 6** — grep 1 + `cost.jq` "gateway endpoints: 0 (N4)" (01a, 01b), `lacks` + `cost.jq` (04a), grep 4 (04b), `ceiling.jq` "max 100 (KEDA default)" (08a), grep 8 + `cost.jq` (08b) | DECOY-15 (grep 1) → 0 (§ 23) | 1 × load balancer (COST-11 candidate, low); `K-HPA-COST` quantity rows per env |
-| `k8s-render-scan` | 17 | 8 (§1, §3, §4) | **8 / 8** — 1a ×2, 3d ×2 (`.patches[1]`, `.patches[2]`), 4a ×2 | DECOY-25 quiet (`RespectIgnoreDifferences=true`) | 2d/3f rows for the same objects as GRa/GRb (one root cause each). Chart rows cite `k8s/storefront/templates/…`, a path that does not exist (IR-6) |
+| `k8s-render-scan` | 17 | 8 (§1, §3, §4) | **8 / 8** — 1a ×2, 3d ×2 (`.patches[1]`, `.patches[2]`), 4a ×2 | DECOY-25 quiet (`RespectIgnoreDifferences=true`) | 2d/3f rows for the same objects as GRa/GRb (one root cause each). Chart rows cite `k8s/chart/templates/…` (`k8s/storefront/templates/…`, a path that does not exist, before IR-6) |
 | `k8s-availability-scan` | 19 + 54 rows | 12 (§2–§4, §7, §9) | **12 / 12** — K-PDB-BLOCK / K-HPA-PDB, K-HPA-REPLICAS (raw ×2), K-HPA-NOREQ ×2, K-PROBE-SAME ×2, K-SHUTDOWN-GRACE (SGa), `ctx:SHUTDOWN` + grep 7 `DRAIN_TIMEOUT_MS = 40_000` (SGb), K-PLATFORM-SPOF ×2 | DECOY-08 (K-SPREAD, trial env) → 0 (§ 8, § 47); DECOY-32 prints only `route:K-PROBE-DEEP`; DECOY-01, -04 (ctx row: 10 + 30 + 5 = 45), -07, -09a/b/c, -10, -11, -27 quiet | K-RES-MISSING on the NRa/NRb containers (same root cause); K-PDB-MISSING on the chart (corroborates HVb); K-HPA-MINMAX on notifier (corroborates CO-08a) |
-| `k8s-wiring-scan` | 41 + 29 rows | 8 (§1–§3, §6) | **8 / 8** — K-CONFIG-ROLL (partial `config-revision`, CRa; chart, CRb), K-SVC-PORT ×2, K-NP-DNS ×2 (the row cites the workload and names the policy), K-SA-MISSING, K-RBAC-DANGLING | DECOY-26 quiet (hash suffix) | `read:NP-DEPENDENCY` ×5 (context) |
+| `k8s-wiring-scan` | 41 + 29 rows | 8 (§1–§3, §6) | **8 / 8** — K-CONFIG-ROLL (partial `config-revision`, CRa; chart, CRb), K-SVC-PORT ×2, K-NP-DNS ×2 (the row cites the workload and each policy's `file:line`: `netpol.yaml:1`, `dr/k8s/netpol.yaml:2` — IR-7), K-SA-MISSING, K-RBAC-DANGLING | DECOY-26 quiet (hash suffix) | `read:NP-DEPENDENCY` ×5 (context) |
 | `k8s-api-version-scan` | 9 + 51 rows | 2 (§1) | **2 / 2** — static table + pluto, both objects | — | 42 K-SCHEMA-MISSING (no local CRD schemas: NOT-RUN for those kinds); 5 `read:CONTROLLER-PIN` |
-| `edge-reliability-scan` | 77 | 14 (§1–§3, §5, §6, §13, §15) | **12 / 14** — `edge-locs.py` E1-SHORT, E2-CLIENT-KA, E3, E7 ×2, E8 ×2, E21; greps 1a (01b), 2 (02b + 1b `keepAliveTimeout = 5_000`), 3 (03b), 15 (21b). **Missed: IO-ED-17a** — grep 13b's `\b--watch\b` cannot match a flag preceded by a space or a quote (IR-2); **IO-ED-17b** — grep 13a runs without `--hidden`, so `.github/workflows/edge.yml` is never read (IR-1) | DECOY-02 (1a), DECOY-03 (1b), DECOY-19 (E7-STATIC-NAME) → 0 (§ 48, keep-alive read, § 32); DECOY-18 quiet (6a prints the app's `text/event-stream`, § 30) | HOP rows; `sec:E4-CACHE-NO-IDENTITY` (IO-SEC-E4a, routed) |
+| `edge-reliability-scan` | 83 | 14 (§1–§3, §5, §6, §13, §15) | **14 / 14** — `edge-locs.py` E1-SHORT, E2-CLIENT-KA, E3, E7 ×2, E8 ×2, E21; greps 1a (01b), 2 (02b + 1b `keepAliveTimeout = 5_000`), 3 (03b), 15 (21b), 13b `"--watch"]` (17a; missed before IR-2 — `\b--watch\b` cannot match), 13a `caddy validate … \|\| true` in `.github/workflows/edge.yml` (17b; missed before IR-1 — 13a ran without `--hidden`) | DECOY-02 (1a), DECOY-03 (1b), DECOY-19 (E7-STATIC-NAME) → 0 (§ 48, keep-alive read, § 32); DECOY-18 quiet (6a prints the app's `text/event-stream`, § 30) | HOP rows; `sec:E4-CACHE-NO-IDENTITY` (IO-SEC-E4a, routed); 13a's `nginx -t` steps in `edge.yml` (context) |
 | `dns-tls-lifecycle-scan` | 52 + `certs.jq` | 6 (§2, §4, §5) | **6 / 6** — 2a ×2, 4a ×2, `certs.jq` D6-PROD-ACME-NONPROD (06a), 2b (06b) | DECOY-20 (7) → 0 (§ 39); DECOY-21 quiet | 5 CERT inventory rows; grep 7 prints IO-SEC-D1a/D1b (fallback, routed) |
 | `network-exposure-audit` | 34 + `cidr-overlap.py` | 4 (§1, §2) | **4 / 4** — N3-NACL-RETURN ×2, N7-OVERLAP (analytics = prod; VPN inside both) | — | a third N7 row (analytics VPC vs the VPN range): the same two root causes |
 
-Totals: **123 of 126** infrastructure seeds print in their owner's verbatim pre-flight (one of them, IO-DR-R8a, under the
-wrong file name; IO-SL-04b by the set difference grep 4 prescribes: the switch prints, and the handler grep finds
-`batchItemFailures` in the other handler only). **3 missed**, each by a grep defect: IO-ST-09b, IO-ED-17a, IO-ED-17b.
-**0 decoys** survive the precedent their row names (17 hits above). Unseeded false lines: **3** (2 from the installed
-skill's own `render.sh`, 1 misattributed CNPG row). Excluded trees: the fixture has no test, vendor or i18n tree.
+Totals: **126 of 126** infrastructure seeds print in their owner's verbatim pre-flight (IO-SL-04b by the set difference grep
+4 prescribes: the switch prints, and the handler grep finds `batchItemFailures` in the other handler only). Re-measured
+2026-10-10 after IR-1–IR-7 landed (infrastructure 2.0.2); before them **123 of 126**, 3 missed by grep defects (IO-ST-09b,
+IO-ED-17a, IO-ED-17b) and IO-DR-R8a printed under the wrong file. **0 decoys** survive the precedent their row names (17
+hits above). Unseeded false lines: **0** (3 before: 2 from the installed skill's own `render.sh`, 1 misattributed CNPG row).
+Excluded trees: the fixture has no test, vendor or i18n tree.
 
 Security-owned rows, through `iac-scan`'s verbatim pre-flight (security pack, same staged copy): **12 / 12** print
 (re-measured 2026-10-10 after IR-8 landed in `iac-scan`; 4 / 12 before) — IO-SEC-NPa (4k "peers but no ports", and 4n
@@ -2934,24 +2935,27 @@ pins **34 / 34**.
 
 ### Integrator requests (skill gaps this fixture found — the skills are not edited here)
 
-- **IR-1 — `edge-reliability-scan` grep 13a:** add `--hidden` (with `-g '!**/.git/**' -g '!.claude/**'`) — CI lives in
+Status 2026-10-10: IR-1–IR-7 **done** in infrastructure 2.0.2, IR-8 **done** in security `iac-scan` (both re-measured in
+§ Detector measurement above); IR-9 is `benchmarks/score.py`'s, tracked there.
+
+- **IR-1 — `edge-reliability-scan` grep 13a:** **[done]** add `--hidden` (with `-g '!**/.git/**' -g '!.claude/**'`) — CI lives in
   `.github/`, so the deploy-validation step is never read (IO-ED-17b).
-- **IR-2 — `edge-reliability-scan` grep 13b:** `\b--watch\b` never matches (`\b` needs a word character before `-`);
+- **IR-2 — `edge-reliability-scan` grep 13b:** **[done]** `\b--watch\b` never matches (`\b` needs a word character before `-`);
   use `(?:^|[\s"'\[,])--watch\b` (IO-ED-17a; measured: 0 matches on `- --watch`, `"--watch"]` and `run --watch`).
-- **IR-3 — `iac-state-scan` grep 4:** allow global options between the binary and the subcommand,
+- **IR-3 — `iac-state-scan` grep 4:** **[done]** allow global options between the binary and the subcommand,
   `\b(terraform|tofu|terragrunt)\b(?:\s+-chdir=\S+)?\s+(plan|apply|destroy)\b` — `terraform -chdir=… plan` is the usual CI
   form (IO-ST-09b; the Makefile's `plan`/`apply` lines are missed the same way).
-- **IR-4 — `iac-state-scan` grep 3b (and every `--hidden` grep in the pack):** exclude `.claude/**` and the other agent
+- **IR-4 — `iac-state-scan` grep 3b (and every `--hidden` grep in the pack):** **[done]** exclude `.claude/**` and the other agent
   dirs — on an installed repo the `render.sh` self-test prints 2 false `helm upgrade --install` lines.
-- **IR-5 — `dr-audit` grep 10 CNPG awk:** the `FNR == 1 { f() }` flush runs after `FILENAME` has moved to the next file,
+- **IR-5 — `dr-audit` grep 10 CNPG awk:** **[done]** the `FNR == 1 { f() }` flush runs after `FILENAME` has moved to the next file,
   so the previous file's row prints under the wrong name (catalog → `inventory-cluster.yaml:3`). Keep the file name with
   `st` (`fn = FILENAME` where `c = 1` is set).
-- **IR-6 — `k8s-render-scan/scripts/render.sh`:** Helm `__src.file` is built from the `# Source: <chart name>/…` header
+- **IR-6 — `k8s-render-scan/scripts/render.sh`:** **[done]** Helm `__src.file` is built from the `# Source: <chart name>/…` header
   joined to the chart directory's parent; a chart directory not named after its chart (`k8s/chart`, `name: storefront`)
   makes every chart row cite `k8s/storefront/templates/…`, which does not exist. Join the source path to the chart
   directory instead.
-- **IR-7 — `k8s-wiring-scan` K-NP-DNS:** the row cites the workload; add the policy's `file:line` (the fix site).
-- **IR-8 — security `iac-scan`** (eval IR-1, re-measured): add `-g '*.caddy' -g '*.caddyfile'` to the edge globs
+- **IR-7 — `k8s-wiring-scan` K-NP-DNS:** **[done]** the row cites the workload; add the policy's `file:line` (the fix site).
+- **IR-8 — security `iac-scan`** **[done]** (eval IR-1, re-measured): add `-g '*.caddy' -g '*.caddyfile'` to the edge globs
   (`N=`, used by 7a–7f) — Caddy configs split into imported `*.caddy` files are never read (IO-SEC-VKa); 7h for E4, the D1 records grep, ipBlock width with ports
   (IO-SEC-NPb `10.0.0.0/8`), `image_tag_mutability = "MUTABLE"` as the 4j registry variant (IO-SEC-ECa), and a 7f
   join on a `secretKeyRef` shared between an edge and an app workload (IO-SEC-VKb).

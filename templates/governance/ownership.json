@@ -569,7 +569,7 @@
       "note": "a shared cache serving one user's response to another (E4); the two-identity probe is an exploit-payloads.md row; consistent with frontend's cross-user cache rule and tenant-leak"
     },
     "dangling-dns": {
-      "detector": "security/skills/iac-scan §4 (declared records) · /security-live-scan (live dig / NXDOMAIN)",
+      "detector": "security/skills/iac-scan §4 (grep 5h, declared records) · /security-live-scan (live dig / NXDOMAIN)",
       "owner": "security/agents/security-auditor",
       "fixer": "/security-fix",
       "fallback": "infrastructure/skills/dns-tls-lifecycle-scan §7 runs the greps when security is not installed, rows tagged security-class (owner pack not installed)",

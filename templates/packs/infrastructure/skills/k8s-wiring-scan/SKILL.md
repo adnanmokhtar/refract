@@ -26,6 +26,7 @@ This skill joins objects inside **one environment's render**: the env that `k8s-
 **Every finding cites:**
 
 - the source `<file:line>` from the object's `__src`;
+- for K-NP-DNS, also the NetworkPolicy's own `<file:line>` (the row's detail names each isolating policy with its `__src`): the fix lands in the policy, not the workload;
 - the env whose render shows it;
 - the CD target that deploys that env;
 - the oracle that proved it;
@@ -104,7 +105,7 @@ rg -l --pcre2 '@kubernetes/client-node|k8s\.io/client-go|^\s*(from|import)\s+kub
    "${X[@]}" -g '!*.{md,mdx,lock,snap,yml,yaml,json}' .
 ```
 
-**Measured 2026-10-10** (`wiring.sh --self-test`: 35/35 under bash 3.2 and zsh; kustomize 5.8.3, helm 4.2.4, jq 1.7.1, yq 4.54.1; offline, `KUBECONFIG` an empty scratch file, no cluster).
+**Measured 2026-10-10** (`wiring.sh --self-test`: 36/36 under bash 3.2 and zsh; kustomize 5.8.3, helm 4.2.4, jq 1.7.1, yq 4.54.1; offline, `KUBECONFIG` an empty scratch file, no cluster).
 
 | Target | Rows | After the read step |
 |---|---|---|

@@ -54,7 +54,7 @@ No version found → the version-gated rows are Unconfirmed, with the probe writ
 ```bash
 SCAN="$(mktemp -d "${TMPDIR:-/tmp}/k8s.XXXXXX")"
 bash .claude/skills/k8s-render-scan/scripts/render.sh . --out="$SCAN" --kube-version=<target minor from the version gate>
-# --self-test proves it on a built-in fixture (26 checks: per-env counts, source tags, a blocked remote base, the inventory, the canaries).
+# --self-test proves it on a built-in fixture (32 checks: per-env counts, source tags incl. a chart directory not named after its chart, a blocked remote base, the inventory, the canaries).
 ```
 
 | Output | What it holds | Who reads it |

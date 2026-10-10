@@ -144,7 +144,7 @@ def builtin_cr: test("^(cluster-admin|admin|edit|view|system:.*)$");
   # ---------------------------------------------------------------- § 3 network paths
   ($WL[] | . as $w | egress_np($w; $NP) as $pol | select(($pol | length) > 0) | [$pol[] | (.spec.egress // [])[]] as $rules
      | (dns_ok($rules; "UDP")) as $u | (dns_ok($rules; "TCP")) as $t | select(($u and $t) | not)
-     | row("3"; "K-NP-DNS"; "egress-isolated by \($pol | map(.metadata.name) | join(",")); port 53 allowed: UDP \($u), TCP \($t)\(if ($u | not) then " (every lookup fails)" else " (truncated answers fall back to TCP and fail)" end)")),
+     | row("3"; "K-NP-DNS"; "egress-isolated by \($pol | map("\(.metadata.name) (\(srcref))") | join(", ")); port 53 allowed: UDP \($u), TCP \($t)\(if ($u | not) then " (every lookup fails)" else " (truncated answers fall back to TCP and fail)" end)")),
   ($WL[] | . as $w | egress_np($w; $NP) as $pol | select(($pol | length) > 0)
      | [everyc | (.env // [])[] | select(.value != null) | select(.name | test("URL|URI|HOST|ADDR|ENDPOINT|DSN|BROKER|SERVER"; "i")) | "\(.name)=\(.value | .[0:80])"] as $deps
      | select(($deps | length) > 0)
@@ -301,6 +301,7 @@ EOF
   has   "§2 HTTPRoute: Gateway admits its own namespace only"          K-ROUTE-PARENT HTTPRoute/shop/web "allowedRoutes Same"
   has   "§3 NP-DNS: default-deny egress, no port 53"                   K-NP-DNS Deployment/shop/api "UDP false, TCP false"
   has   "§3 NP-DNS: UDP only (TCP fallback fails)"                     K-NP-DNS Deployment/shop/web "UDP true, TCP false"
+  has   "§3 NP-DNS: the row cites the policy file:line (the fix site)"  K-NP-DNS Deployment/shop/web "dns-udp (k/np.yaml:10)"
   hasnt "§3 decoy: UDP + TCP 53 via matchExpressions"                  K-NP-DNS Deployment/shop/edge
   has   "§3 read: configured dependency under an egress policy"        read:NP-DEPENDENCY Deployment/shop/api "DATABASE_URL=postgres://db.shop:5432"
   has   "§4 NS-MISSING: created only by another env"                   K-NS-MISSING Deployment/billing/lone "created only by env platform"

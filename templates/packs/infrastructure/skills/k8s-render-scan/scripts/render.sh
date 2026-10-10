@@ -104,7 +104,7 @@ kind: Namespace
 metadata: {name: web}
 EOF
   printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: ignored}\n' > "$F/node_modules/x/cm.yaml"
-  printf 'apiVersion: v2\nname: app\nversion: 0.1.0\n' > "$F/chart/app/Chart.yaml"
+  printf 'apiVersion: v2\nname: storefront\nversion: 0.1.0\n' > "$F/chart/app/Chart.yaml"   # directory not named after its chart
   printf 'replicas: 1\n' > "$F/chart/app/values.yaml"
   printf 'replicas: 3\n' > "$F/chart/app/values-prod.yaml"
   cat > "$F/chart/app/templates/deploy.yaml" <<'EOF'
@@ -177,6 +177,7 @@ EOF
     if have yq && have jq; then
       ok "the values-prod render carries replicas 3 and its template path" '[ "$(jq -r ".[0] | \"\(.spec.replicas) \(.__src.file)\"" "$O/render-chart__chart__app__values-prod.json")" = "3 chart/app/templates/deploy.yaml" ]'
       ok "the Argo valueFiles render exists" '[ "$(led argo__web 3)" = 1 ]'
+      ok "__src.file joins the chart directory, not the chart name (chart/app holds name: storefront; the file exists)" '[ "$(jq -r ".[0].__src.file" "$O/render-chart__chart__app__default.json")" = chart/app/templates/deploy.yaml ] && [ -f "$F/chart/app/templates/deploy.yaml" ]'
     fi
   else skip "helm checks: helm not installed"; fi
   ok "embedded source extraction keeps line numbers (nginx.conf body at line 6)" '[ "$(sed -n 6p "$O/embedded/src/manifests__edge.yaml.conf" | tr -d " ")" = "server{" ]'
@@ -328,13 +329,14 @@ render_helm() {  # $1 chart dir, $2 env, $3 origin, $4 values files, newline-sep
     helm_call "$c" "$rel" "$vl"; } > "$y" 2> "$e"; rc=$?
   sed "s#^#[$env] #" "$e" >> "$OUT/render.err"
   if [ "$JSON" -eq 1 ] && [ "$rc" -eq 0 ]; then
-    # `# Source: <chart>/templates/x.yaml` precedes each document; pair it with the non-empty docs in order.
+    # `# Source: <chart name>/templates/x.yaml` precedes each document; pair it with the non-empty docs in order.
+    # The first segment is the chart NAME (Chart.yaml `name:`), not the directory: drop it and join the rest to
+    # the chart directory, so `k8s/chart` with `name: storefront` cites `k8s/chart/templates/x.yaml`.
     awk '/^---/{ if (has) print src; has = 0; src = ""; next } /^# Source: /{ src = $3; next } /^[^#[:space:]]/{ has = 1 } END { if (has) print src }' "$y" > "$OUT/.src-$env"
-    cbase="$(relpath "$(dirname "$c")")"
-    yq -o=json ea '[.]' "$y" 2>/dev/null | jq --rawfile s "$OUT/.src-$env" --arg env "$env" --arg o "$origin" --arg root "$(relpath "$c")" --arg vals "$vals" --arg cb "$cbase" '
+    yq -o=json ea '[.]' "$y" 2>/dev/null | jq --rawfile s "$OUT/.src-$env" --arg env "$env" --arg o "$origin" --arg root "$(relpath "$c")" --arg vals "$vals" '
       ($s | split("\n")) as $src | map(select(type == "object")) | to_entries
       | map(.value + {__src: {env: $env, origin: $o, root: $root, line: null, values: (if $vals == "" then "default" else $vals end),
-            file: ($src[.key] // "" | if . == "" then null elif $cb == "." then . else "\($cb)/\(.)" end)}})' > "$OUT/render-$env.json"
+            file: ($src[.key] // "" | if . == "" then null else sub("^[^/]+/"; "") | if $root == "." then . else "\($root)/\(.)" end end)}})' > "$OUT/render-$env.json"
     rm -f "$OUT/.src-$env"
   fi
   ledger "$env" "$origin" "$(count_objs "$y" "$OUT/render-$env.json")" "$rc" "$(errlines "$e")" "$(relpath "$c")"; rm -f "$e"

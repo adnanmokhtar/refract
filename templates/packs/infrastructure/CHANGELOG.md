@@ -9,6 +9,15 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.2 — 2026-10-10
+
+**Seven pre-flight defects the `benchmarks/fixtures/infra-ops` fixture found (its DEFECTS.md § Integrator requests IR-1–IR-7).** Re-measured on a staged copy of the fixture and on the research fixtures: the three missed seeds (IO-ST-09b, IO-ED-17a, IO-ED-17b) now print, the two false PIN-HELM lines are gone, and nothing new prints on the research fixtures.
+- `edge-reliability-scan` grep 13a runs with `--hidden` (CI lives in `.github/`), `.git/` and the installed AI-tool trees (`AD`) excluded; grep 13b matched `\b--watch\b`, which can never match (`\b` needs a word character before `-`) — now `(?:^|[\s"'\[,])--watch\b`.
+- `iac-state-scan` grep 4 (and grep 5's `workspace select|new`) allows `-chdir=<dir>` between the binary and the subcommand — the usual CI and Makefile form. Every `--hidden` grep excludes `.{claude,opencode,cursor,windsurf,codex,gemini,kiro,roo,agents}/**`: on an installed repo grep 3b read `render.sh`'s own self-test install lines.
+- `dr-audit` grep 10: the CNPG awk printed a Cluster with no backup stanza under the NEXT file's name (the `FNR == 1` flush runs after `FILENAME` moved); the file name is kept with the line.
+- `k8s-render-scan/scripts/render.sh`: Helm `__src.file` joined the `# Source: <chart name>/…` header to the chart directory's parent, so `k8s/chart` with `name: storefront` cited `k8s/storefront/templates/…`, a path that does not exist. It now drops the chart name and joins the rest to the chart directory; `--self-test` 32/32 (the self-test chart's directory is no longer named after it).
+- `k8s-wiring-scan/scripts/wiring.sh`: K-NP-DNS names each isolating NetworkPolicy with its `file:line` (the fix site) beside the workload; `--self-test` 36/36.
+
 ## 2.0.1 — 2026-10-10
 
 **E4 and D1 run here only without the security pack.** security `iac-scan` 2.3.3 carries grep 7h (shared cache) and grep 5h (dangling DNS), so `edge-reliability-scan` § 4 and `dns-tls-lifecycle-scan` § 7 no longer run on every install: with the security pack they are skipped and the coverage line names the owner's grep. `dns-tls-lifecycle-scan`'s cmctl lane says `kind-harness.sh` is not built yet and points at the raw commands in `proof-oracles.md` § Scratch cluster.
