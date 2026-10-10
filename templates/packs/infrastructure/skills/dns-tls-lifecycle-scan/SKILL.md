@@ -65,37 +65,37 @@ SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/dnstls.XXXXXX")}"; DS="${DS:-.claude/
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/.git/**' -g '!**/.terraform/**' -g '!**/{test,tests,testdata,__tests__,examples,example}/**'
    -g '!**/*.{spec,test}.*' -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**' -g '!ai/**')
 D=(-g '*.tf' -g '*.tfvars' -g '*.y*ml' -g '*.json' -g '*.zone' -g '*.conf' -g '*.toml' -g 'Caddyfile*' -g '*.caddy')
-RB=(-g '!**/node_modules/**' -g '!**/.git/**' -g '*.{md,sh,bash,mk}' -g 'Makefile')   # runbooks: deploy commands only (precedent 45)
+RB=(-g '*.{md,sh,bash,mk}' -g 'Makefile' -g '!**/node_modules/**' -g '!**/.git/**')   # runbooks: deploy commands only (precedent 45)
 
 # 0a. Inventory: zones and records in IaC, certificate sources (cert-manager, ingress-shim, Caddy, Traefik, nginx files, LB/CDN certs).
-rg -n --pcre2 "${X[@]}" "${D[@]}" '^\s*resource\s+"(aws_route53_(zone|record)|cloudflare_(zone|record|dns_record)|google_dns_(managed_zone|record_set)|azurerm_dns_\w+_record|digitalocean_(domain|record)|aws_acm_certificate|google_compute_managed_ssl_certificate|google_certificate_manager_certificate|digitalocean_certificate)"|^kind:\s*(Certificate|Issuer|ClusterIssuer)\b|cert-manager\.io/(cluster-)?issuer:|^\s*(tls|on_demand_tls)\s*\{|^\s*tls:\s*(\[|$)|^\s*on_demand\s*$|\bcertResolver\b|^\s*ssl_certificate\s|loadbalancer-certificate-id|\bcertificate_arn\s*=' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" '^\s*resource\s+"(aws_route53_(zone|record)|cloudflare_(zone|record|dns_record)|google_dns_(managed_zone|record_set)|azurerm_dns_\w+_record|digitalocean_(domain|record)|aws_acm_certificate|google_compute_managed_ssl_certificate|google_certificate_manager_certificate|digitalocean_certificate)"|^kind:\s*(Certificate|Issuer|ClusterIssuer)\b|cert-manager\.io/(cluster-)?issuer:|^\s*(tls|on_demand_tls)\s*\{|^\s*tls:\s*(\[|$)|^\s*on_demand\s*$|\bcertResolver\b|^\s*ssl_certificate\s|loadbalancer-certificate-id|\bcertificate_arn\s*=' "${ROOTS[@]}"
 # 0b. Records, certificates and cert-manager created by a runbook or script.
 rg -n --pcre2 "${RB[@]}" '^\s*(helm\s+(upgrade|install)\b[^\n]*cert-manager|doctl\s+compute\s+(domain|certificate)\b|aws\s+(route53|acm)\b|gcloud\s+(dns|certificate-manager)\b|az\s+network\s+dns\b)' "${ROOTS[@]}"
 # 0c. The cert-manager joins over the render (k8s-render-scan § 0 wrote $SCAN/render-<env>.json); skipped, and said so, without a render.
 if ls "$SCAN"/render-*.json >/dev/null 2>&1; then find "$SCAN" -maxdepth 1 -name 'render-*.json' -exec jq -c '.[]' {} + | jq -rs -f "$DS/certs.jq" > "$SCAN/certs.tsv"; cut -f2 "$SCAN/certs.tsv" | sort | uniq -c
 else echo "certs.jq NOT-RUN (no render — run k8s-render-scan § 0 first)"; fi
 # 1a. Long TTLs, failover records, records whose target is a literal address.
-rg -n --pcre2 "${X[@]}" "${D[@]}" '^\s*(ttl|TTL|Ttl)\s*[=:]\s*[\x22\x27]?([3-9]\d{3}|[1-9]\d{4,})\b|^\s*(failover_routing_policy|set_identifier|health_check_id)\b|^\s*records\s*=\s*\[\s*"\d{1,3}(\.\d{1,3}){3}"|^\s*(content|value)\s*=\s*"\d{1,3}(\.\d{1,3}){3}"' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" '^\s*(ttl|TTL|Ttl)\s*[=:]\s*[\x22\x27]?([3-9]\d{3}|[1-9]\d{4,})\b|^\s*(failover_routing_policy|set_identifier|health_check_id)\b|^\s*records\s*=\s*\[\s*"\d{1,3}(\.\d{1,3}){3}"|^\s*(content|value)\s*=\s*"\d{1,3}(\.\d{1,3}){3}"' "${ROOTS[@]}"
 # 1b. The same, written as runbook commands.
 rg -n --pcre2 "${RB[@]}" '\b(--record-ttl|--ttl)[= ]+\d+|\brecords\s+(create|update)\b|\bchange-resource-record-sets\b' "${ROOTS[@]}"
 # 1c. Who owns the address a record points at: address resources, LB pins, static-IP annotations (comments excluded).
-rg -n --pcre2 "${X[@]}" "${D[@]}" '^(?!\s*#)\s*(resource\s+"(aws_eip|google_compute_(global_)?address|azurerm_public_ip|digitalocean_(reserved_ip|floating_ip|loadbalancer))"|loadBalancerIP:|[\w./-]*(load-balancer-id|do-loadbalancer-name|aws-load-balancer-eip-allocations|global-static-ip-name)[\x22\x27]?\s*:)' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" '^(?!\s*#)\s*(resource\s+"(aws_eip|google_compute_(global_)?address|azurerm_public_ip|digitalocean_(reserved_ip|floating_ip|loadbalancer))"|loadBalancerIP:|[\w./-]*(load-balancer-id|do-loadbalancer-name|aws-load-balancer-eip-allocations|global-static-ip-name)[\x22\x27]?\s*:)' "${ROOTS[@]}"
 # 2a. CAA records in IaC (record type lines and their issue/issuewild/iodef values).
-rg -n --pcre2 "${X[@]}" "${D[@]}" '\btype\s*=\s*"CAA"|^\s*type:\s*CAA\b|\bCAA\s+\d+\s+issue(wild)?\b|[\x22\x27\[]\s*\d+\s+(issue|issuewild|iodef)\s|\baccounturi=' "${ROOTS[@]}" || echo "no CAA in IaC"
+rg -n --pcre2 "${D[@]}" "${X[@]}" '\btype\s*=\s*"CAA"|^\s*type:\s*CAA\b|\bCAA\s+\d+\s+issue(wild)?\b|[\x22\x27\[]\s*\d+\s+(issue|issuewild|iodef)\s|\baccounturi=' "${ROOTS[@]}" || echo "no CAA in IaC"
 # 2b. Which CA each ACME client really uses, and how it proves control (the solver decides what CAA and DNS must allow).
-rg -n --pcre2 "${X[@]}" "${D[@]}" 'acme-v02\.api\.letsencrypt\.org|acme-staging-v02|acme\.zerossl\.com|dv\.acme-v02\.api\.pki\.goog|acme\.ssl\.com|acme\.digicert\.com|^\s*acme_ca\s|^\s*issuer\s+(acme|zerossl|internal)\b|^\s*(dns|dns_challenge)\s+\w+|\bcaServer\b|\bdns01\b|\bhttp01\b' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" 'acme-v02\.api\.letsencrypt\.org|acme-staging-v02|acme\.zerossl\.com|dv\.acme-v02\.api\.pki\.goog|acme\.ssl\.com|acme\.digicert\.com|^\s*acme_ca\s|^\s*issuer\s+(acme|zerossl|internal)\b|^\s*(dns|dns_challenge)\s+\w+|\bcaServer\b|\bdns01\b|\bhttp01\b' "${ROOTS[@]}"
 # 3. DNSSEC and the key behind it.
-rg -n --pcre2 "${X[@]}" "${D[@]}" '^\s*resource\s+"(aws_route53_key_signing_key|aws_route53_hosted_zone_dnssec|cloudflare_zone_dnssec)"|^\s*dnssec_config\s*\{|^\s*customer_master_key_spec\s*=\s*"ECC_NIST_P256"' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" '^\s*resource\s+"(aws_route53_key_signing_key|aws_route53_hosted_zone_dnssec|cloudflare_zone_dnssec)"|^\s*dnssec_config\s*\{|^\s*customer_master_key_spec\s*=\s*"ECC_NIST_P256"' "${ROOTS[@]}"
 # 4a. Expiry signals: a rule or alarm that names an expiry series.
-rg -n --pcre2 "${X[@]}" -g '*.y*ml' -g '*.json' -g '*.libsonnet' -g '*.jsonnet' -g '*.tf' 'probe_ssl_earliest_cert_expiry|probe_ssl_last_chain_expiry_timestamp_seconds|certmanager_certificate_(expiration_timestamp_seconds|ready_status|renewal_timestamp_seconds)|x509_cert_not_after|ssl_cert_not_after|\bDaysToExpiry\b' "${ROOTS[@]}" || echo "no cert-expiry signal"
+rg -n --pcre2 -g '*.y*ml' -g '*.json' -g '*.libsonnet' -g '*.jsonnet' -g '*.tf' "${X[@]}" 'probe_ssl_earliest_cert_expiry|probe_ssl_last_chain_expiry_timestamp_seconds|certmanager_certificate_(expiration_timestamp_seconds|ready_status|renewal_timestamp_seconds)|x509_cert_not_after|ssl_cert_not_after|\bDaysToExpiry\b' "${ROOTS[@]}" || echo "no cert-expiry signal"
 # 4b. Probes that would produce the series (blackbox http/tcp modules and their https targets).
-rg -n --pcre2 "${X[@]}" -g '*.y*ml' '^\s*prober:\s*(http|tcp)\b|^\s*(-\s*)?targets?:\s*\[?[\x22\x27]?https://|^\s*url:\s*[\x22\x27]?https://' "${ROOTS[@]}"
+rg -n --pcre2 -g '*.y*ml' "${X[@]}" '^\s*prober:\s*(http|tcp)\b|^\s*(-\s*)?targets?:\s*\[?[\x22\x27]?https://|^\s*url:\s*[\x22\x27]?https://' "${ROOTS[@]}"
 # 5. Issuer per environment and issuance volume: issuer refs and names, ACME storage shared or per replica.
-rg -n --pcre2 "${X[@]}" "${D[@]}" 'cert-manager\.io/(cluster-)?issuer:|^\s*issuerRef:|^\s*storage\s+(file_system|redis|consul|s3|\w+)\b|\bacme\.json\b|\bcertificatesResolvers\b|\bletsencrypt-(staging|prod\w*)\b' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" 'cert-manager\.io/(cluster-)?issuer:|^\s*issuerRef:|^\s*storage\s+(file_system|redis|consul|s3|\w+)\b|\bacme\.json\b|\bcertificatesResolvers\b|\bletsencrypt-(staging|prod\w*)\b' "${ROOTS[@]}"
 # 6. Rotation and renewal fields, OCSP residue, client-auth use of certificates.
-rg -n --pcre2 "${X[@]}" "${D[@]}" '^\s*(rotationPolicy|renewBefore|renewBeforePercentage):|^\s*isCA:\s*true\b|\bclient auth\b|^\s*ssl_stapling\s+on\b|must[_-]?staple|\bmustStaple\b|^\s*ssl_verify_client\s+(on|optional)\b|^\s*client_auth\s*\{|\bclientAuthType\b' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" '^\s*(rotationPolicy|renewBefore|renewBeforePercentage):|^\s*isCA:\s*true\b|\bclient auth\b|^\s*ssl_stapling\s+on\b|must[_-]?staple|\bmustStaple\b|^\s*ssl_verify_client\s+(on|optional)\b|^\s*client_auth\s*\{|\bclientAuthType\b' "${ROOTS[@]}"
 # 7. Fallback only (security's D1): literal third-party targets (research C § 3D).
-rg -n --pcre2 "${X[@]}" "${D[@]}" '\b(records|alias|value|target|cname|content)\b[^\n]*[\x22\x27][\w.-]+\.(s3-website[.-][\w.-]+\.amazonaws\.com|s3\.amazonaws\.com|cloudfront\.net|herokuapp\.com|herokudns\.com|azurewebsites\.net|cloudapp\.(net|azure\.com)|trafficmanager\.net|blob\.core\.windows\.net|azureedge\.net|azurefd\.net|github\.io|elasticbeanstalk\.com|netlify\.app|pages\.dev|vercel\.app|fly\.dev|surge\.sh|ghost\.io|myshopify\.com|readthedocs\.io|bitbucket\.io|wpengine\.com|pantheonsite\.io|web\.app|firebaseapp\.com)\.?[\x22\x27]' "${ROOTS[@]}"
+rg -n --pcre2 "${D[@]}" "${X[@]}" '\b(records|alias|value|target|cname|content)\b[^\n]*[\x22\x27][\w.-]+\.(s3-website[.-][\w.-]+\.amazonaws\.com|s3\.amazonaws\.com|cloudfront\.net|herokuapp\.com|herokudns\.com|azurewebsites\.net|cloudapp\.(net|azure\.com)|trafficmanager\.net|blob\.core\.windows\.net|azureedge\.net|azurefd\.net|github\.io|elasticbeanstalk\.com|netlify\.app|pages\.dev|vercel\.app|fly\.dev|surge\.sh|ghost\.io|myshopify\.com|readthedocs\.io|bitbucket\.io|wpengine\.com|pantheonsite\.io|web\.app|firebaseapp\.com)\.?[\x22\x27]' "${ROOTS[@]}"
 ```
 
 **Measured 2026-10-10** (ripgrep with PCRE2, jq 1.7.1, promtool 3.15.0; offline, `KUBECONFIG` an empty scratch file, no cluster, no lookup of any private name):

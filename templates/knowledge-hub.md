@@ -36,11 +36,11 @@ Each business domain has 6 files in `~/.claude/templates/business-domains/<domai
 - **Infrastructure**: docker, kubernetes, docker-swarm, terraform.
 - **Mobile**: react-native, flutter.
 
-### Agents materialized (51)
+### Agents materialized (52)
 
 Architect: `system-architect`, `resilience-reviewer`, `event-sourcing-architect`, `workflow-orchestrator`, `websocket-engineer`, `api-architect`, `schema-architect`, `ui-architect`, `design-system-architect`, `infra-architect`, `k8s-reviewer`, `kubernetes-architect`, `mobile-architect`, `telemetry-architect`.
 
-Review: `code-reviewer`, `api-reviewer`, `schema-reviewer`, `test-reviewer`, `ui-reviewer`, `observability-reviewer`, `security-auditor`, `auth-reviewer`, `tenant-isolation-reviewer`, `prompt-reviewer`, `ci-reviewer`, `ux-reviewer`, `design-system-guardian`, `accessibility-auditor`, `i18n-auditor`, `data-flow-auditor`, `api-contract-sentry`, `theme-specialist`, `error-detective`, `dependency-auditor`.
+Review: `code-reviewer`, `api-reviewer`, `schema-reviewer`, `test-reviewer`, `ui-reviewer`, `observability-reviewer`, `security-auditor`, `auth-reviewer`, `tenant-isolation-reviewer`, `prompt-reviewer`, `ci-reviewer`, `infra-reviewer`, `ux-reviewer`, `design-system-guardian`, `accessibility-auditor`, `i18n-auditor`, `data-flow-auditor`, `api-contract-sentry`, `theme-specialist`, `error-detective`, `dependency-auditor`.
 
 Specialists: `query-optimizer`, `database-optimizer`, `performance-optimizer`, `test-engineer`, `tdd-orchestrator`, `bug-investigator`, `dead-code-finder`, `refactorer`, `monorepo-architect`, `legacy-modernizer`, `sre-engineer`, `devops-architect`, `deployment-engineer`, `incident-responder`.
 
@@ -60,7 +60,7 @@ Security: `secret-scan`, `deps-audit`, `threat-model`.
 Performance: `profile-endpoint`.
 Observability: `alert-audit`.
 Frontend: `visual-check`, `ssr-audit`, `lighthouse-ci`, `bundle-analyze`, `a11y-audit`, `i18n-audit`.
-Infrastructure: `k8s-audit`, `container-build-scan`.
+Infrastructure: `k8s-render-scan`, `k8s-availability-scan`, `k8s-wiring-scan`, `k8s-api-version-scan`, `iac-state-scan`, `iac-lifecycle-scan`, `dr-audit`, `serverless-reliability-scan`, `iac-cost-scan`, `edge-reliability-scan`, `dns-tls-lifecycle-scan`, `network-exposure-audit`, `tf-plan-review`, `k8s-audit`, `admission-policy`. DevOps: `container-build-scan`.
 Distributed: `chaos-test`.
 
 ### Commands (40+)
@@ -74,7 +74,7 @@ Security: `/security-audit`.
 Performance: `/perf-audit`.
 Observability: `/add-telemetry`.
 Frontend: `/design-review`, `/design-system`, `/i18n-audit`, `/a11y-audit`.
-Infrastructure: `/k8s-generate`, `/dockerize`, `/add-ci`.
+Infrastructure: `/infra-audit`, `/infra-fix`, `/k8s-generate`, `/provision-tier`, `/cost-audit`, `/audit-iam`. DevOps: `/dockerize`, `/add-ci`.
 Business: `/analyze-task`, `/audit-business`, `/expand-task`.
 Domain: `/prompt-eval`, `/token-audit`, `/simulate-webhook`, `/tenant-leak-audit`, `/replay-charge`.
 Workspace: `/cross-repo-task`, `/project-map`, `/sync-contract`, `/sibling-sync`.

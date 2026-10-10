@@ -35,7 +35,7 @@ applies-to: infrastructure-track, every-code-writing-task-in-infrastructure
 - Secrets from a manager, mounted as files rather than env vars — env is readable from `/proc/<pid>/environ`, crash dumps, and every child process.
 - Persistent data on a managed store or object storage, never on container-local disk.
 - Every stateful production store: automated backups + point-in-time recovery + a restore drilled on a fixed cadence + a declared RPO/RTO. Backup config with no fresh drill is BLOCK, never ready — `dr-audit` verifies the coverage.
-- Every ingress path intentional and least-exposed: no `0.0.0.0/0` (or `::/0`) on non-public ports, datastores in private subnets, default-deny `NetworkPolicy` per namespace — `network-exposure-audit` sweeps the running and declared footprint.
+- Every ingress path intentional and least-exposed: no `0.0.0.0/0` (or `::/0`) on non-public ports, datastores in private subnets, default-deny `NetworkPolicy` per namespace. Declared exposure is the security pack's `iac-scan` when it is installed; `network-exposure-audit` checks that the network works (return paths, routes, CIDR overlap, IPv6, private resolution) and runs the live exposure reads, whose rows belong to security.
 - Resolve versions from the vendor, not from memory. Supported orchestrator minors, provider majors, runtime LTS windows and controller support status all move on a published schedule; a version recalled rather than looked up is how a manifest ships a removed API or an unpatched base.
 
 ## Must not
@@ -51,7 +51,7 @@ applies-to: infrastructure-track, every-code-writing-task-in-infrastructure
 - All infrastructure defined as code, reviewed in PRs like app code, linted in CI, with the provider lock file committed so a plan is reproducible.
 - Drift detection: a scheduled `plan` alerts on any diff vs main.
 - Image vulnerability scan in CI blocking on critical CVEs — and the signature it produces verified at admission, not merely generated (`release-security` signs, `admission-policy` enforces).
-- A PodDisruptionBudget on every served workload that runs at least two replicas (count the HPA or KEDA floor, not `spec.replicas`), with `maxUnavailable: 1` or a `minAvailable` below that floor, so a drain cannot take every replica at once. Never put a PDB on a single replica: it pins `disruptionsAllowed` at zero and blocks every drain and node upgrade. Run a second replica or accept the disruption. DaemonSets need none.
+- A PodDisruptionBudget on every served workload that runs at least two replicas (count the HPA or KEDA floor, not `spec.replicas`), with `maxUnavailable: 1` or a `minAvailable` below that floor, so a drain cannot take every replica at once. Never put a PDB on a single replica: it pins `disruptionsAllowed` at zero and blocks every drain and node upgrade. Run a second replica or accept the disruption. DaemonSets need none. The numbers are `THR-K8S-PROD-FLOOR` in `governance/thresholds.json`; `k8s-availability-scan` checks them on the render.
 - Cost guardrails: per-environment budget alerts, non-prod auto-shutdown overnight, object-storage lifecycle to a cheaper tier then expiry.
 
 Enforcement tooling is named in `STACK.md § Enforcement tooling`, not here — tools churn (two of the four manifest validators this rule used to name are unmaintained or dead); these rules do not.

@@ -103,6 +103,10 @@ Read project's:
 - IaC (Terraform / CloudFormation / Pulumi) — declared resources.
 - Last month's bill.
 
+**IaC candidates come from `iac-cost-scan`** (this pack), never re-detected here. It reads the IaC and the runbook create lines and emits one row per cost class with the quantity arithmetic and a price key (`quantity × unit (price key) = per-hour or per-month expression`), but never a `$`. This command prices those rows from the bill line, or from a dated pricing page under halt #5, and adds what only the live account shows: orphans by inventory diff, idle by recommender, commitments by utilisation. A class `iac-cost-scan` owns (log retention, scale ceilings, always-on NAT/EIP/volumes, autoscaler maxima) is cited by its row, not found twice.
+
+**Pricing hand-off.** When the finops pack is installed, `@finops-analyst` prices the bill-driven rows and `@cost-reviewer` prices `iac-cost-scan` candidates on a diff; this command passes them the rows (resource id or `<file:line>`, quantity, price key) and reports their figures with the bill line they cite. Without finops, this command prices them itself under halts #5–#7. Either way a `$` appears only beside a bill line or a dated pricing page.
+
 ## Phase 4 — Generate
 
 ```
@@ -166,10 +170,10 @@ enumerated somewhere — "47 volumes" with no list is not actionable and is drop
 
 ### Egress hot-spots
 
-NAT Gateway: $X/mo + $0.045/GB processed.
+NAT Gateway: $X/mo (bill line <id>) + $<per-GB processing rate from the provider's pricing page for this region, dated> × <GB processed from the export>.
 - Top sources of egress to NAT:
   - service-A: 1.2 TB/mo to fetch from public S3 → use VPC endpoint instead → $0/GB.
-  - service-B: 800 GB/mo to a same-region public AWS API → VPC endpoint → save $36/mo per 1 TB.
+  - service-B: 800 GB/mo to a same-region public AWS API → VPC endpoint → save 800 GB × <per-GB rate, dated> minus the endpoint's hourly charge (both from the pricing page, dated).
 - Egress to Internet (CloudFront): cache hit rate 62% — improve to 85% via better caching headers → save $X/mo.
 
 ### Reserved capacity / Savings Plan utilization
@@ -246,4 +250,6 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `audit-iam` — pair when restructuring resources (IAM stays in sync).
 - `provision-tier` — applies cost-optimal patterns to new resources.
 - `@infra-architect` agent — for structural cost recommendations (re-architecting a workload, not a line-item right-size).
-- `tf-plan-review` skill — verify cost implications of next IaC change.
+- `tf-plan-review` skill — verify cost implications of next IaC change (a `forget` keeps billing).
+- `iac-cost-scan` skill (this pack) — the IaC cost candidates and their quantity arithmetic this command prices.
+- finops `@finops-analyst` / `@cost-reviewer` *(finops pack, when installed)* — own the `$` on the bill and on a diff; without the pack, this command prices under its halts.

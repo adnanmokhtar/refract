@@ -6,7 +6,7 @@ pack: infrastructure
 
 # Infrastructure Principles
 
-> **Hard rule.** Production container images MUST be pinned to an immutable digest or git-SHA tag (`:latest` is forbidden); MUST run as non-root; MUST declare healthchecks + resource `requests` + `limits`. Secrets MUST come from a manager (not git, not env files in images), and every stateful workload MUST have a tested backup + restore runbook.
+> **Hard rule.** Production container images MUST be pinned to an immutable digest or git-SHA tag (`:latest` is forbidden); MUST run as non-root; MUST declare healthchecks, a CPU request, a memory request and a memory limit (a CPU limit is optional — see Must). Secrets MUST come from a manager (not git, not env files in images), and every stateful workload MUST have a tested backup + restore runbook.
 
 ## Must
 
@@ -15,7 +15,7 @@ pack: infrastructure
 - Non-root container user; read-only root filesystem where the app allows it.
 - Images pinned to an immutable reference in prod — `@sha256:…` or a git-SHA tag, never a moving tag.
 - Healthcheck at every layer: image healthcheck, orchestrator liveness + readiness (+ startup for slow boots), load-balancer health. No readiness probe means traffic hits a dead pod mid-deploy.
-- Resource `requests` + `limits` on every container. No `requests` — the scheduler over-packs the node; no `limits` — one container starves its neighbours.
+- A CPU request, a memory request and a memory limit on every container, init and sidecar containers included. No request: the scheduler over-packs the node and the pod is evicted first under pressure. No memory limit: one leak takes the node's memory from its neighbours. Keep the memory limit equal to the request unless a measured profile says otherwise. A missing CPU **limit** is not a defect: CPU requests already guarantee each neighbour its share, and a limit throttles a request-serving process while the node sits idle. Set one only for a noisy batch neighbour, or equal to the request where CPU-manager pinning needs Guaranteed QoS.
 - TLS everywhere, service-to-service included, auto-renewed.
 - Secrets from a manager, mounted as files rather than env vars — env is readable from `/proc/<pid>/environ`, crash dumps, and every child process.
 - Persistent data on a managed store or object storage, never on container-local disk.
@@ -36,7 +36,7 @@ pack: infrastructure
 - All infrastructure defined as code, reviewed in PRs like app code, linted in CI, with the provider lock file committed so a plan is reproducible.
 - Drift detection: a scheduled `plan` alerts on any diff vs main.
 - Image vulnerability scan in CI blocking on critical CVEs — and the signature it produces verified at admission, not merely generated.
-- PodDisruptionBudget on critical services so cluster maintenance MUST NOT take all replicas at once.
+- A PodDisruptionBudget on every served workload that runs at least two replicas (count the autoscaler floor, not `spec.replicas`), with `maxUnavailable: 1` or a `minAvailable` below that floor, so a drain cannot take every replica at once. Never put a PDB on a single replica: it blocks every drain and node upgrade. Run a second replica or accept the disruption.
 - Cost guardrails: per-environment budget alerts, non-prod auto-shutdown overnight, object-storage lifecycle to a cheaper tier then expiry.
 
 Enforcement tooling is named in the project's stack notes, not here — tools churn; these rules do not.

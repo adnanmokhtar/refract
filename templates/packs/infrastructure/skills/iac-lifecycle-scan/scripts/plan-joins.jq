@@ -53,7 +53,7 @@ def cfg_resources: [.configuration.root_module // {} | mods("") | .p as $p | (.m
       ( select($a.force_destroy == true or $a.force_delete == true) | "DEL-03\t\($r.address)\tforce_destroy/force_delete=true" ),
       ( select($a.delete_automated_backups == true) | "DEL-05\t\($r.address)\tdelete_automated_backups=true (provider default)" ),
       ( select(($a.deletion_window_in_days // 30) < 30) | "DEL-05\t\($r.address)\tdeletion_window_in_days=\($a.deletion_window_in_days) < THR-KMS-WINDOW 30" ) ),
-  # Serverless and DR joins (consumed by serverless-reliability-scan §2/§1 and dr-audit §4).
+  # Serverless and DR joins (consumed by serverless-reliability-scan §2/§1 and dr-audit §7).
   ( ($rc | map(select(.type == "aws_lambda_function") | {key: .address, value: (.change.after.timeout // 3)}) | from_entries) as $t
     | ($rc | map(select(.type == "aws_sqs_queue") | {key: .address, value: (.change.after.visibility_timeout_seconds // 30)}) | from_entries) as $v
     | $cfg[] | select(.type == "aws_lambda_event_source_mapping") | .pfx as $p

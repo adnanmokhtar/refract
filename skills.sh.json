@@ -174,12 +174,22 @@
     },
     {
       "title": "Infrastructure",
-      "description": "Terraform/Pulumi plan review, K8s and network-exposure audits, admission policy, and disaster-recovery readiness.",
+      "description": "Offline detectors for rendered Kubernetes (render, availability, wiring, API versions), IaC state, lifecycle and deletion safety, data durability, serverless, IaC cost candidates, edge proxies, DNS/TLS lifecycle and network correctness, plus the saved-plan verdict, a live cluster audit behind a context halt and admission policy. /infra-audit runs them; /infra-fix closes what they find.",
       "skills": [
         "admission-policy",
+        "dns-tls-lifecycle-scan",
         "dr-audit",
+        "edge-reliability-scan",
+        "iac-cost-scan",
+        "iac-lifecycle-scan",
+        "iac-state-scan",
+        "k8s-api-version-scan",
         "k8s-audit",
+        "k8s-availability-scan",
+        "k8s-render-scan",
+        "k8s-wiring-scan",
         "network-exposure-audit",
+        "serverless-reliability-scan",
         "tf-plan-review"
       ]
     },

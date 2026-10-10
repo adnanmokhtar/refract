@@ -35,7 +35,7 @@ source**, never the emitted file; `:561` counts **files**, and a 0-byte file cou
 `phase-5-verify.md:185-220` covers only the foundational `ai/` set and says so at `:187`. The size
 of an emitted pack artifact is measured nowhere. This ledger is the last place it is visible.
 
-**The ledger is 5 entries.** If a comment anywhere advertises a different number, that comment
+**The ledger is 4 entries.** If a comment anywhere advertises a different number, that comment
 is stale — this file is the authority, and check 3b FAILs when the sentence and the entries
 disagree.
 
@@ -79,7 +79,6 @@ infrastructure/audit-iam           STUB-OVER-SOURCE # 246 lines of provider-spec
 infrastructure/cost-audit          STUB-OVER-SOURCE # 248 lines keyed to a billing surface (tags, reservations, egress lanes) that only extraction can name; the skeleton preserves the audit's section order and lets AUTHOR mode fill it from the actual bill. Revisit if the command is ever rewritten cloud-agnostically.
 infrastructure/multi-region        STUB-OVER-SOURCE # the pattern is 197 lines of AWS/GCP/Azure-specific region topology; a project on one cloud that fails region detection is better served by its own section skeleton than by a three-cloud narrative it must delete. `sections:` is declared, so the stub is a real outline, not an empty file.
 infrastructure/provision-tier      STUB-OVER-SOURCE # 314 lines built around a tier ladder (dev/stage/prod sizing) whose numbers are wrong for every project that does not share this pack's assumed shape; a stub with the tier headings is the honest delivery.
-infrastructure/tf-plan-review      STUB-OVER-SOURCE # the skill is 191 lines of `terraform plan` output parsing; on a project where no Terraform was detected the sentinel is what keeps a Terraform-shaped skill from being installed as fact.
 ```
 
 ## Not in this ledger, deliberately
@@ -91,6 +90,10 @@ infrastructure/tf-plan-review      STUB-OVER-SOURCE # the skill is 191 lines of 
   discrimination a per-pack exception list would have destroyed — the check separates the
   legitimate use of the sentinel from the abuse of it without one.
 - **Coverage percentage at any severity** — see "Reviewing coverage" above.
+- **`infrastructure/tf-plan-review`, removed 2026-10-10 by repairing it.** The skill was rewritten as the
+  pre-apply verdict over `iac-lifecycle-scan`'s plan joins (no provider-specific grammar left to
+  mislead a project without Terraform, and its trigger is `terraform_detected`), so its fallback is now
+  the source, as for every other infrastructure detector.
 - **`testing/tdd`, removed from the ledger 2026-08-23 by repairing it rather than re-wording it.**
   It was the weakest of the six entries: a 3-item `sections:` list (`[understand, dispatch,
   surface]`) against a 98-line source, i.e. three empty headings — the closest thing in the ledger

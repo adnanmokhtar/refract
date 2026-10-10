@@ -25,9 +25,9 @@ Detect the admission engine in use (or recommend one) and generate for it:
 | **OPA Gatekeeper** | Rego-standardized orgs | constraint templates (+ a verifier such as `ratify` for signatures) |
 | **Native ValidatingAdmissionPolicy** | no extra controller wanted | CEL expressions — pod-security shape only; **image signatures still need a controller**, VAP cannot reach a registry |
 
-Mirror the cluster's existing engine; only introduce one if none exists (recommend Kyverno). Native `ValidatingAdmissionPolicy` reached GA in Kubernetes 1.30, so it is available on every currently-supported minor (https://kubernetes.io/releases/) — confirm with `kubectl api-resources --api-group=admissionregistration.k8s.io` rather than assuming.
+Mirror the cluster's existing engine; only introduce one if none exists (recommend Kyverno). Native `ValidatingAdmissionPolicy` reached GA in Kubernetes 1.30, so it is available on every currently-supported minor (https://kubernetes.io/releases/) — confirm with `kubectl --context=<ctx> api-resources --api-group=admissionregistration.k8s.io` on a context the user confirmed in this session (or on the scratch cluster below) rather than assuming.
 
-**Resolve the engine's own API shape before generating.** Policy-engine CRDs deprecate fields on their own schedule, independently of Kubernetes. `kubectl explain <kind>.<field>` against the installed engine prints the DEPRECATED marker when there is one; a generated policy that sets a deprecated field still applies today and stops applying at the next engine upgrade. The current live example is `validationFailureAction` (below).
+**Resolve the engine's own API shape before generating.** Policy-engine CRDs deprecate fields on their own schedule, independently of Kubernetes. `kubectl --context=<ctx> explain <kind>.<field>` against the installed engine (read-only, a context the user confirmed; or the scratch kind cluster with the engine installed at the cluster's pinned chart version) prints the DEPRECATED marker when there is one; a generated policy that sets a deprecated field still applies today and stops applying at the next engine upgrade. The current live example is `validationFailureAction` (below).
 
 ## Generates
 
@@ -90,7 +90,10 @@ Generated:
   policies/pod-security-restricted.yaml    Enforce — non-root, no-priv, drop-caps, RO-rootfs, seccomp
   policies/require-digest.yaml             Enforce — reject mutable :tag, require @sha256
 
-Verify:  kubectl apply --dry-run=server of an unsigned image → REJECTED with the policy message.
+Verify (scratch kind cluster, engine at the cluster's pinned version — never the user's cluster):
+  KUBECONFIG="$SCAN/kind.kubeconfig" kubectl apply -f policies/
+  KUBECONFIG="$SCAN/kind.kubeconfig" kubectl apply --dry-run=server -f unsigned-pod.yaml → REJECTED with the policy message
+  offline cross-check: kyverno apply policies/ --resource unsigned-pod.yaml → fail
 ```
 
 ## False positives / gotchas
@@ -107,10 +110,12 @@ Verify:  kubectl apply --dry-run=server of an unsigned image → REJECTED with t
 
 ## Halt conditions
 
+- **Context halt (2026-10-10 rule).** Never rely on the default or current kube context. A read (`kubectl explain`, `api-resources`, `get` of the installed engine) names its context and runs with `--context=<ctx>` only after the user confirms that context in this session. Every dry-run and every policy apply for proof goes to a scratch kind cluster through an explicit `KUBECONFIG="$SCAN/kind.kubeconfig"` (or `--kubeconfig`) on the same command line, never to the user's cluster: `--dry-run=server` still sends the request to the API server and its admission webhooks (precedents § 56). Applying the generated policies to a real cluster is the user's step, through their pipeline.
+
 - Halt on a generated policy left in `Audit`/`warn` when the intent is enforcement — say so explicitly and require the operator to opt into Audit.
 - Halt on any policy field written from memory. Confirm each against the installed engine (`kubectl explain <kind>.<field>`); a deprecated field applies today and stops applying at the next engine upgrade, which is the worst possible failure shape for a control that fails closed.
 - Do not generate a signature policy with a placeholder/over-broad `subject` — it must bind to the project's real CI identity or it verifies nothing.
-- Do not claim "images verified" without a policy that actually rejects an unsigned image (dry-run proof in the output).
+- Do not claim "images verified" without a policy that actually rejects an unsigned image (the scratch-cluster dry-run proof in the output, with its kubeconfig named). No docker for kind → the proof is `blocked (no scratch cluster)` with the commands written out, and the claim stays Unconfirmed.
 
 ## Related
 

@@ -62,41 +62,42 @@ X=(-g '!**/node_modules/**' -g '!**/.terraform/**' -g '!**/.terragrunt-cache/**'
    -g '!**/{test,tests,testdata,__tests__,fixtures,examples,example}/**' -g '!**/*_test.go' -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**' -g '!ai/**')
 TF=(-g '*.tf' -g '*.tofu' -g '*.tf.json' -g '*.hcl')
 CI=(-g '*.{yml,yaml,sh,bash,mk}' -g 'Makefile' -g 'Justfile' -g 'Jenkinsfile' -g 'Taskfile*')
-RB=(-g '!**/node_modules/**' -g '!**/.git/**' -g '*.{md,sh,bash,mk,yml,yaml}' -g 'Makefile' -g 'Justfile')   # runbooks ARE read, for install lines
-blk(){ rg --files -0 "${X[@]}" "${TF[@]}" "${ROOTS[@]}" | xargs -0 -r awk -v K="$1" -v T="$2" -v NEED="$3" -v HAVE="${4:-}" -f "$LS/blocks.awk"; }
+RB=(-g '*.{md,sh,bash,mk,yml,yaml}' -g 'Makefile' -g 'Justfile' -g '!**/node_modules/**' -g '!**/.git/**')   # runbooks ARE read, for install lines
+blk(){ rg --files -0 "${TF[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r awk -v K="$1" -v T="$2" -v NEED="$3" -v HAVE="${4:-}" -f "$LS/blocks.awk"; }
 # 0. Engines and roots: version files, required_version, root blocks that lack it, directories with .tf and no terraform {} block.
-rg --files --hidden "${X[@]}" -g '.terraform.lock.hcl' -g '.terraform-version' -g '.opentofu-version' -g '.tool-versions' -g 'Pulumi*.y*ml' -g 'cdk.json' -g 'terragrunt.hcl' -g 'atlantis.yaml' "${ROOTS[@]}"
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '(?:^|\{)\s*required_version\s*=' "${ROOTS[@]}"
+rg --files --hidden -g '.terraform.lock.hcl' -g '.terraform-version' -g '.opentofu-version' -g '.tool-versions' -g 'Pulumi*.y*ml' -g 'cdk.json' -g 'terragrunt.hcl' -g 'atlantis.yaml' "${X[@]}" "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*required_version\s*=' "${ROOTS[@]}"
 blk terraform '' 'required_version'
-rg --files -0 "${X[@]}" -g '*.tf' -g '*.tofu' "${ROOTS[@]}" | xargs -0 -r -n1 dirname | sort -u > "$SCAN/tf-dirs.txt"
-rg -l --pcre2 "${X[@]}" -g '*.tf' -g '*.tofu' '^terraform\s*\{' "${ROOTS[@]}" | xargs -r -n1 dirname | sort -u | comm -23 "$SCAN/tf-dirs.txt" -
+rg --files -0 -g '*.tf' -g '*.tofu' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r -n1 dirname | sort -u > "$SCAN/tf-dirs.txt"
+rg -l --pcre2 -g '*.tf' -g '*.tofu' "${X[@]}" '^terraform\s*\{' "${ROOTS[@]}" | xargs -r -n1 dirname | sort -u | comm -23 "$SCAN/tf-dirs.txt" -
 # 1. Backend kind, lock, encryption (1a); committed state (1b); Pulumi backends (1c).
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '(?:^|\{)\s*(backend\s+"[a-z0-9_]+"|cloud\s*\{|remote_state\s*\{|(dynamodb_table|use_lockfile|encrypt|kms_key_id|workspace_key_prefix)\b)|\bencryption\s*\{|\bkey_provider\s+"|\bmethod\s+"(aes_gcm|unencrypted)"' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*(backend\s+"[a-z0-9_]+"|cloud\s*\{|remote_state\s*\{|(dynamodb_table|use_lockfile|encrypt|kms_key_id|workspace_key_prefix)\b)|\bencryption\s*\{|\bkey_provider\s+"|\bmethod\s+"(aes_gcm|unencrypted)"' "${ROOTS[@]}"
 rg --files --hidden -g '*.tfstate' -g '*.tfstate.backup' -g '!**/.terraform/**' -g '!**/.git/**' "${ROOTS[@]}"
-rg -n --hidden --pcre2 -g '!**/node_modules/**' -g 'Pulumi*.y*ml' '^\s*backend:\s*$|^\s*url:\s*["\x27]?(s3|gs|azblob|file)://' "${ROOTS[@]}"
-rg -n --hidden --pcre2 "${X[@]}" "${CI[@]}" -g '*.env' '\bPULUMI_BACKEND_URL\b|\bpulumi\s+login\b' "${ROOTS[@]}"
+rg -n --hidden --pcre2 -g 'Pulumi*.y*ml' -g '!**/node_modules/**' '^\s*backend:\s*$|^\s*url:\s*["\x27]?(s3|gs|azblob|file)://' "${ROOTS[@]}"
+rg -n --hidden --pcre2 "${CI[@]}" -g '*.env' "${X[@]}" '\bPULUMI_BACKEND_URL\b|\bpulumi\s+login\b' "${ROOTS[@]}"
 # 2. Secret-shaped variables without sensitive (2a); outputs of secret attributes without sensitive (2b); the mechanism (2c).
 blk variable '[^"]*(password|passwd|secret|token|api_?key|private_?key|credential|client_secret)[^"]*' 'sensitive *= *true'
 blk output '[^"]+' 'sensitive *= *true' '[.](password|master_password|secret|token|private_key(_pem)?|result|access_key|secret_key)([^a-z_]|$)'
-rg -n --pcre2 "${X[@]}" "${TF[@]}" 'resource\s+"(random_password|tls_private_key|random_string)"|\bephemeral\s+"|\b\w+_wo(_version)?\s*=|\bmanage_master_user_password\s*=' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" 'resource\s+"(random_password|tls_private_key|random_string)"|\bephemeral\s+"|\b\w+_wo(_version)?\s*=|\bmanage_master_user_password\s*=' "${ROOTS[@]}"
 # 3a. Providers with no constraint, dynamic sources, git sources without a SHA, registry modules without version, helm_release without version.
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '(?:^|\{)\s*[a-z0-9_-]+\s*=\s*\{\s*source\s*=\s*"[^"]+"\s*\}|^\s*(source|version)\s*=\s*(var|local)\.' "${ROOTS[@]}"
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '^\s*source\s*=\s*"(git::|git@|github\.com/|bitbucket\.org/|https?://)[^"]*"' "${ROOTS[@]}" | rg -v --pcre2 '[?&]ref=[0-9a-f]{40}\b'
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*[a-z0-9_-]+\s*=\s*\{\s*source\s*=\s*"[^"]+"\s*\}|^\s*(source|version)\s*=\s*(var|local)\.' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '^\s*source\s*=\s*"(git::|git@|github\.com/|bitbucket\.org/|https?://)[^"]*"' "${ROOTS[@]}" | rg -v --pcre2 '[?&]ref=[0-9a-f]{40}\b'
 blk module '[^"]+' 'version *=|source *= *"([.][.]?/|git::|git@|github[.]com/|bitbucket[.]org/|https?://|s3::|gcs::)'
 blk resource 'helm_release' 'version *='
-# 3b. PIN-HELM: the inventory (joins continuation lines) and the grep below cross-check each other — same 14 lines on the real repo; dedupe by file:line.
-[ -f "$SCAN/inventory-platform.tsv" ] && awk -F'\t' 'NR > 1 && $2 == "helm" && $6 == "UNPINNED"' "$SCAN/inventory-platform.tsv"
+# 3b. PIN-HELM: the inventory (joins continuation lines, resolves variables and arrays) and the grep below cross-check each other —
+#     the grep's 14 real-repo lines = 13 UNPINNED + 1 array-passed UNREAD; dedupe by file:line. UNREAD(<var>) is a pin until read (precedents § 63).
+[ -f "$SCAN/inventory-platform.tsv" ] && awk -F'\t' 'NR > 1 && $2 == "helm" && ($6 == "UNPINNED" || $6 ~ /^UNREAD/)' "$SCAN/inventory-platform.tsv"
 rg -n -U --hidden --pcre2 "${RB[@]}" '^[ \t]*(?:\$[ \t]+|-[ \t]+|run:[ \t]*)?helm[ \t]+(?:upgrade|install)\b(?!(?:[^\n]*\\\n)*[^\n]*--version)' "${ROOTS[@]}"
-rg -n --pcre2 "${X[@]}" -g '*.y*ml' '^\s*targetRevision:\s*["\x27]?(HEAD|\*|main|master|[~^]|>=?)|^\s*version:\s*["\x27]?([~^*]|>=?|\d+\.x|\d+\.\d+\.x|\d+\.\*)' "${ROOTS[@]}"
+rg -n --pcre2 -g '*.y*ml' "${X[@]}" '^\s*targetRevision:\s*["\x27]?(HEAD|\*|main|master|[~^]|>=?)|^\s*version:\s*["\x27]?([~^*]|>=?|\d+\.x|\d+\.\d+\.x|\d+\.\*)' "${ROOTS[@]}"
 # 3c. Which engine version CI installs.
-rg -n --hidden --pcre2 "${X[@]}" "${CI[@]}" '\b(hashicorp/setup-terraform|opentofu/setup-opentofu|terraform_version|tofu_version|TF_VERSION|TOFU_VERSION)\b' "${ROOTS[@]}"
+rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '\b(hashicorp/setup-terraform|opentofu/setup-opentofu|terraform_version|tofu_version|TF_VERSION|TOFU_VERSION)\b' "${ROOTS[@]}"
 # 4. Plan and apply in automation: drift jobs, -target/-exclude, saved plans.
-rg -n --hidden --pcre2 "${X[@]}" "${CI[@]}" '\b(terraform|tofu|terragrunt)\s+(plan|apply|destroy)\b|\s-(target|exclude)(=|\s)|-target-file|-detailed-exitcode|-refresh-only|\bdetect-stack-drift\b|\bpulumi\s+(preview|up|refresh)\b|\bcdk\s+(diff|deploy)\b' "${ROOTS[@]}"
+rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '\b(terraform|tofu|terragrunt)\s+(plan|apply|destroy)\b|\s-(target|exclude)(=|\s)|-target-file|-detailed-exitcode|-refresh-only|\bdetect-stack-drift\b|\bpulumi\s+(preview|up|refresh)\b|\bcdk\s+(diff|deploy)\b' "${ROOTS[@]}"
 # 5. Workspace branching and backend keys per environment.
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '\bterraform\.workspace\b|(?:^|\{)\s*key\s*=\s*"[^"]*\.tfstate"|(?:^|\{)\s*(workspace_key_prefix|prefix)\s*=' "${ROOTS[@]}"
-rg -n --hidden --pcre2 "${X[@]}" "${CI[@]}" '(?:^|\s)-backend-config(=|\s)|\b(terraform|tofu)\s+workspace\s+(select|new)\b|\bTF_WORKSPACE\b' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '\bterraform\.workspace\b|(?:^|\{)\s*key\s*=\s*"[^"]*\.tfstate"|(?:^|\{)\s*(workspace_key_prefix|prefix)\s*=' "${ROOTS[@]}"
+rg -n --hidden --pcre2 "${CI[@]}" "${X[@]}" '(?:^|\s)-backend-config(=|\s)|\b(terraform|tofu)\s+workspace\s+(select|new)\b|\bTF_WORKSPACE\b' "${ROOTS[@]}"
 # 6. Default tags and encoded invariants.
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '(?:^|\{)\s*(default_tags|precondition|postcondition|validation)\s*\{|^check\s+"' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*(default_tags|precondition|postcondition|validation)\s*\{|^check\s+"' "${ROOTS[@]}"
 rg --files -g '*.tftest.hcl' -g '*.tofutest.hcl' -g '!**/node_modules/**' "${ROOTS[@]}"
 ```
 
@@ -197,7 +198,7 @@ GOOD:  default_tags { tags = { owner, service, env } } · a tftest asserting del
 | Tool (version) | Command | Reads | Trap |
 |---|---|---|---|
 | `iac-lifecycle-scan/scripts/blocks.awk` | `blk terraform '' required_version`, `blk variable …`, `blk module …` | comment-stripped HCL blocks | POSIX ERE only; silence also means "no such block" |
-| `k8s-render-scan/scripts/render.sh` | `render.sh . --out="$SCAN"` → `inventory-platform.tsv` | runbooks, scripts, Makefiles, CI | a version through a variable or array reads as `UNPINNED` — read it |
+| `k8s-render-scan/scripts/render.sh` | `render.sh . --out="$SCAN"` → `inventory-platform.tsv` | runbooks, scripts, Makefiles, CI | a version through a variable or array is resolved from the same file (`version-via=` in flags); one set outside the file reads `UNREAD(<var>)` — read its source before calling it PIN-HELM (precedents § 63) |
 | terraform 1.16.5 / tofu 1.13.1 | `init -backend=false -lockfile=readonly`; `plan -lock-timeout=0s` on a copy; `test` | the copy | `validate` passes the deprecated lock and provider-sensitive outputs (precedents § 58) |
 | tflint 0.64.0 | `tflint --chdir=<root> --format=json` (`terraform_required_version`, `terraform_required_providers`, `terraform_module_pinned_source`, `terraform_module_version`) | HCL | the only scanner that caught S01/S02; `--init` hits the GitHub API limit without `GITHUB_TOKEN` |
 | checkov 3.3.26 | `CKV_TF_1` (commit hash), `CKV_TF_2` (tag) | HCL | a tag satisfies CKV_TF_2 and is mutable (precedents § 27); no backend or lock rule |

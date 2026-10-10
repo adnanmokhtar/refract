@@ -311,7 +311,7 @@
       "value": {"data_key_min_days": 30},
       "unit": "days",
       "floor": true,
-      "owner": "packs/infrastructure/skills/iac-lifecycle-scan §7 (DEL-05)",
+      "owner": "packs/infrastructure/skills/iac-lifecycle-scan §7 (DEL-05) · dr-audit §12 (the key that decrypts the backups; fallback when iac-lifecycle-scan did not run)",
       "why": "a KMS key scheduled for deletion makes every object it encrypts unrecoverable when the window ends; 30 days is the AWS default and maximum, so only an explicit shorter window on a data key is a deviation"
     },
     "THR-CERT-EXPIRY-ALERT": {

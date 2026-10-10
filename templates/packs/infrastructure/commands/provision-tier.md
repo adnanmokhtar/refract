@@ -85,7 +85,8 @@ For Terraform (illustrative):
 ```hcl
 # tiers/staging/versions.tf — halt #10
 terraform {
-  required_version = "~> 1.15"                 # read the repo's own constraint; do not copy this
+  required_version = "~> 1.16"                 # read the repo's own constraint; do not copy this. Current on 2026-10-10:
+                                               # Terraform 1.16.5 (releases.hashicorp.com), OpenTofu 1.13.1 (github.com/opentofu/opentofu/releases)
   required_providers {
     aws = { source = "hashicorp/aws", version = "~> 6.0" }   # confirm on the provider's release page
   }
@@ -214,12 +215,16 @@ Validation splits into two classes. The agent runs the first class itself; the s
 
 These are checkable from the plan + IaC source, so the agent does them and gates the apply:
 
-- `terraform plan` clean (produces `tfplan`).
-- Dispatch the `tf-plan-review` skill on `tfplan.json` — pre-apply review for data-loss replacements, IAM widening, public exposure, missing `prevent_destroy`, removal of observability/backup resources. **A BLOCK verdict halts before apply.**
+- **The pack's detectors on this command's own output**, offline (no backend, no credentials, `KUBECONFIG` an empty scratch file):
+  - `iac-state-scan` on `tiers/<name>/`: backend per tier with `use_lockfile`, no committed state, pinning (`required_version`, providers, lock file, module refs), one backend key per tier (§ 1, § 3, § 5). 0 rows, or each row fixed.
+  - `iac-lifecycle-scan` on `tiers/<name>/` and the modules it calls: `count` over collections, `ignore_changes`, refactor blocks, and § 7 deletion safety on every stateful resource (`deletion_protection == true`, final snapshot, no `force_destroy`, KMS window ≥ `THR-KMS-WINDOW`), plus its plan lane: `init -backend=false` and `plan -refresh=false` on a copy with fake credentials, `plan-joins.jq` rows.
+  - `dr-audit` on the stateful stores the tier adds (backups, PITR, retention ≥ `THR-BACKUP-RETENTION`, a destination outside the app's own bucket) and `iac-cost-scan` for the quantity arithmetic of every always-on and autoscaled resource.
+- **The real plan is the user's step** (their backend and credentials, or the CI plan job): `terraform plan -out=tfplan -detailed-exitcode && terraform show -json tfplan > tfplan.json`. The agent never runs it on an ambient profile; it runs it only on a backend, workspace and profile the user confirms in this session.
+- Dispatch the `tf-plan-review` skill on that saved `tfplan.json` — the verdict over `iac-lifecycle-scan`'s rows joined by plan address (replacements, forgets, deletes, weak deletion guards), with exposure and IAM widening cited from security `iac-scan` § 4 when installed. **A BLOCK verdict halts before apply.**
 - Cost-tag static audit: every resource block in the generated `.tf` carries `tags = local.tags` and `local.tags` has the full sibling key set (re-run of the mechanical halt).
 - IAM static scope: no `*:*` outside an explicit break-glass role; OIDC federation present, no long-lived `aws_iam_access_key`.
 - `min_size`/`max_size` set on every compute module; backup config present on every stateful resource.
-- **Worst-case monthly spend computed and printed** (halt #11): every `max_size` × its instance price, plus fixed per-tier charges (NAT, load balancers, control plane, managed DB). State the assumptions. A tier nobody can price is a tier nobody can approve.
+- **Worst-case monthly spend computed and printed** (halt #11): `iac-cost-scan` writes the quantities (every `max_size` × its unit, plus fixed per-tier charges: NAT, load balancers, control plane, managed DB); each unit is priced from a dated pricing page or a bill line (finops prices it when that pack is installed), never a remembered rate. State the assumptions. A tier nobody can price is a tier nobody can approve.
 - State backend present, `key` unique to this tier, locking enabled, and no deprecated `dynamodb_table` (halt #9).
 - `required_version` / `required_providers` constrained and `.terraform.lock.hcl` committed (halt #10).
 - Budget + anomaly alarm resources declared in the plan, with the budget threshold set relative to the computed worst case rather than to a round number.
@@ -259,8 +264,9 @@ Compliance: <if applicable>
 Status: PROVISIONED, NOT VALIDATED (live gates pending operator)
 
 Static gates (agent-verified, pre-apply):
-- terraform plan: clean
-- tf-plan-review: <APPROVE | BLOCK — blockers listed>
+- iac-state-scan / iac-lifecycle-scan / dr-audit / iac-cost-scan on tiers/<name>/: <0 rows | rows fixed>
+- offline plan (copy, -backend=false, -refresh=false): <n> creates · plan-joins.jq rows: <n>
+- tf-plan-review (on the user's saved plan): <APPROVE | BLOCK — blockers listed>
 - state backend: per-tier key, locking on (no deprecated dynamodb_table)
 - version pinning: required_version + required_providers set; .terraform.lock.hcl committed
 - cost-tag static audit: 100% of IaC resources tagged

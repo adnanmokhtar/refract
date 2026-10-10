@@ -2968,7 +2968,7 @@ serializer or a sink re-runs that canary.
 | **Routes matrix** | T (L for inhibition) | Every emitted {severity × team} label set reaches the receiver the design names; `amtool config routes test --verify.receivers` exits 1 on mismatch | V206 |
 | **Vendor no-data check** | S (L for an export diff) | Each alerting tool has one no-data mechanism per signal | V205 |
 | **Regenerate and diff** | T | `sloth generate` / `pyrra generate` from the committed spec diffs empty against the committed rules; the burn arithmetic holds | V207 |
-| **Pipeline validate + key diff** | T + S | `otelcol-contrib validate` exits 0, no component is defined but unreferenced, `memory_limiter` is first and `batch` last; shipper and store configs validate | V208 |
+| **Pipeline validate + key diff** | T + S | `otelcol-contrib validate` exits 0, no component is defined but unreferenced, `memory_limiter` is first and `batch` last; shipper and Loki configs validate with both retention keys; each loaded dashboard has 0 error rows under the scoped linter rules | V208 |
 | **Weaver live-check** | T | Emitted attributes pass the semconv registry: no `deprecated`, `missing_attribute` or `type_mismatch` violation | V194 |
 | **Live series** | L only | `count(<selector>) > 0` on the running server; label cardinality from the TSDB or `logcli series --analyze-labels` | V198, V204 |
 
@@ -3211,9 +3211,13 @@ and mute timing cannot be proven from the route tree: they need a containerised 
 - an SLI that counts 4xx as bad or only `code="500"` (precedents § 13): replay 404s and the SLI does not move
 - pass: regenerate-and-diff is empty, `burn-check.py` passes against `THR-OBS-BURN`, the fast-burn promtool test fires and the slow leak tickets
 
-#### V208. Pipeline — validate + key diff + staged config (`telemetry-config-scan` §1–§3, §7)
+#### V208. Pipeline — validate + key diff + staged config (`telemetry-config-scan` §1–§3, §7; shippers §5, Loki §4 and §6, dashboards §8)
 - every collector config (agent and gateway): `memory_limiter` first, `batch` last, no unused component, `retry_on_failure` and `sending_queue` on every exporter, tail sampling behind a `loadbalancing` exporter keyed on `traceID`, no `debug` exporter at `verbosity: detailed` in production
 - pass: `otelcol-contrib validate` exits 0 and the key diff and order check print nothing
+- **shippers** (§5): every Alloy, Promtail, Vector and Fluent Bit config the deploy mounts, Helm-embedded River extracted from the chart values first. `alloy validate` exits 1 with the `file:line` of an undefined component, and `--config.format=promtail` validates a Promtail file by converting it; `vector validate --no-environment` checks config and VRL only, so a label map stays a key read; `fluent-bit -c <file> --dry-run` parses the config where a binary exists (none for macOS: the cell prints `blocked`). A Promtail image or chart in the production deploy is the end-of-life row whatever it validates to (precedents § 51)
+- **Loki** (§4, §6): the rendered config, never the values file. `loki -verify-config` exits 1 on `${VAR}` without `-config.expand-env=true` (pass the flag only when the deploy does) and exits 0 on `retention_period` with compactor retention off, so retention is a key check: `retention_enabled: true` with a `delete_request_store`. Stream labels come from every label map (Promtail, Alloy `stage.labels`, Fluent Bit, Vector); their live cardinality is `logcli series --analyze-labels` (L, V198)
+- **dashboards (DB-01..DB-05, §8):** every loaded board (a provisioning path, a ConfigMap with the sidecar label, rendered grafonnet). dashboard-linter runs on a copy with the scoped config; count its error rows, because it exits 0 without `--strict` while printing errors and `--strict` also exits 1 on a label warning. `dash.py` covers what the linter misses: a counter graphed raw behind a label selector, a literal window on a board with no datasource variable, a fixed datasource uid. Every panel selector is grounded in the metric inventory (precedents § 37), and an integer `le` is read on the server's major (§ 45)
+- pass, shippers and Loki: every validator exits 0 on the deployed version, both retention keys are present, and no stream label holds a per-request id. Pass, dashboards: each loaded board has 0 error rows under the scoped rules and 0 `dash.py` flags, and every selector resolves
 
 ### Sources (observability)
 
@@ -3579,7 +3583,7 @@ cluster, ever. Five rules hold for every variant below:
 | **SSA / upgrade twice** | `helm upgrade` twice on kind (Helm 4 server-side) exits 0 with the HPA owning replicas | K | V264 | `k8s-render-scan` §2 |
 | **Selector mutation** | Apply the base-branch render, then the head render, on kind → `field is immutable` before the fix | K | V265 | `k8s-render-scan` §5 |
 | **GitOps spec** | `argocd app diff` / `flux diff` on scratch; else the static two-ended trace | K / S | V266 | `k8s-render-scan` §4 |
-| **Pod-template classes** | `k8s-ops.jq` class rows over every pod template; `apply --dry-run=server` on kind | T + K | V267 | `k8s-availability-scan` §1, §2, §8 |
+| **Pod-template classes** | `availability.sh` class rows over every pod template; `apply --dry-run=server` on kind | T + K | V267 | `k8s-availability-scan` §1, §2, §8 |
 | **PDB drain** | `drain --dry-run=server` / an Eviction with `dryRun: ["All"]` on kind → 429 before the fix | K | V268 | `k8s-availability-scan` §3 |
 | **Scaling (HPA / KEDA)** | HPA `ScalingActive` True; the KEDA floor read from the render; replicas untouched by an apply | K | V269 | `k8s-availability-scan` §4 |
 | **Spread** | Multi-node kind placement under the declared constraint | K | V270 | `k8s-availability-scan` §5 |
@@ -3660,7 +3664,9 @@ bash k8s-render-scan/scripts/render.sh . --out="$SCAN" --kube-version="$TARGET_M
 kubeconform -strict -summary -output json -kubernetes-version "$TARGET_MINOR" \
   -schema-location default -schema-location '<CRDs-catalog URL>' "$SCAN/render-prod.yaml" "$SCAN/canary.yaml"
 pluto detect-files -d "$SCAN" -o json --target-versions "k8s=v$TARGET_MINOR"
-jq -f k8s-render-scan/scripts/k8s-ops.jq "$SCAN/render-prod.json"
+bash k8s-availability-scan/scripts/availability.sh "$SCAN" --repo=.      # § 1–§ 9 class rows, every env
+bash k8s-wiring-scan/scripts/wiring.sh "$SCAN" --repo=.                  # § 1–§ 6
+bash k8s-api-version-scan/scripts/apiversion.sh "$SCAN" --target="$TARGET_MINOR"
 ```
 
 **Fails first** means the class row prints for the cited object before the fix and is gone after it,
@@ -3806,7 +3812,7 @@ pricing page; finops prices the candidates when installed. Log retention (V260) 
 - K-RES-MISSING (CPU request, memory request, memory limit — no CPU-limit row, precedents § 1), K-MEM-OVERCOMMIT, K-QUOTA-SHAPE, K-PRIORITY; K-PROBE-SAME, -READINESS-MISSING, -STARTUP, -EXEC-TIMEOUT (default timeout 1 s), -GRPC, -JOB (precedents § 3); a liveness path on a dependency prints `route → performance request-path-scan §15`
 - StatefulSet: K-STS-SVC (`serviceName` without a headless Service), -VCT [K?: mutability on 1.35+], -PVC-RETENTION
 - a fleet-wide shape (memory limit = 2–4 × request on every workload) is one finding with N sites, fixed at the base or chart helper
-- pass: `k8s-ops.jq` prints no row for the class on any env's render, and `apply --dry-run=server` on kind admits every template
+- pass: `k8s-availability-scan/scripts/availability.sh` prints no row for the class on any env's render, and `apply --dry-run=server` on kind admits every template
 
 #### V268. PDB drain — eviction dry-run (`k8s-availability-scan` §3)
 - K-PDB-BLOCK: `minAvailable` ≥ the floor or `maxUnavailable: 0`, where the floor is HPA `minReplicas`, KEDA `minReplicaCount` (default 0), Rollout `spec.replicas` or `spec.replicas` (default 1) — precedents § 42; a PDB on 1 replica; percentage PDBs against the HPA floor; -MISSING on a served prod workload at ≥ 2 replicas; -ORPHAN (selector matches nothing); -UNHEALTHY (`unhealthyPodEvictionPolicy` not `AlwaysAllow`); K-PDB-API (`policy/v1beta1`); K-HPA-PDB; `matchExpressions` selectors; same namespace only
@@ -3904,13 +3910,21 @@ pricing page; finops prices the candidates when installed. Log retention (V260) 
 
 #### V288. DNS/TLS lifecycle (D2–D7, K-CERT) — dig + promtool + renewal (`dns-tls-lifecycle-scan` §1–§6)
 - D2 TTL above `THR-DNS-CUTOVER-TTL` on a record a failover or cutover changes; D3 CAA vs the ACME CA in use (apex, wildcard `issuewild`, each zone cut, a second CA; a missing CAA is LOW, precedents § 36); D4 DNSSEC with a deletable KSK key; D5 no expiry signal for an inventoried cert (cert-manager `Certificate`, Caddy managed domains, LB certs) — the rule's quality is observability's; D6 non-prod issuing from the production ACME endpoint, K-CERT-ISSUER (prod on staging, duplicate `secretName`); D7 OCSP residue, client-auth EKU removal breaking mTLS; K-CERT-ROTATION (`rotationPolicy: Always` from cert-manager 1.18 vs pinned trust); K-CERT-RENEW (`renewBefore ≥ duration`); ARI vs non-ARI renewal
+- **record target lifecycle** (§1): a record whose address belongs to an object something can delete — a LoadBalancer Service, a cluster teardown, an EIP or reserved IP with no deletion guard — while others hold a copy (customers' registrars, partners' allowlists). A static trace (S): the record value, the object that owns the address, and the guard or its absence. Read the configured TTL at the authoritative NS (`dig +noall +answer <name> @<NS>`); a recursive resolver prints the remaining TTL (precedents § 64)
+- **CDN-terminated probe** (§4): an expiry probe through a proxied name reads the CDN's edge certificate, so the origin and on-demand certificates have no signal (precedents § 65); the variant probes the origin directly, or lists the certificates the probe cannot see
+- CAA against Caddy's default issuer chain (Let's Encrypt, then ZeroSSL): a CAA naming only one CA blocks the fallback only (precedents § 66)
 - D1 dangling DNS is security's (`finding-verification.md`); infra runs it only as the tagged fallback
 - pass: `dig` from 2 resolvers agrees with the declared records and CAA names the issuer; `promtool test rules` fires the expiry alert at T-21 d (`THR-CERT-EXPIRY-ALERT`); a renewal on kind with cert-manager at the pinned version issues from the right issuer
 
-#### V289. Network correctness (N3, N7, N8) — overlap script (`network-exposure-audit` §1–§4)
+#### V289. Network correctness (N3, N7, N8, N-PEER-ROUTE, N-PRIVDNS) — overlap script (`network-exposure-audit` §1–§4)
 - N3 NACL asymmetry (stateless: the return path's ephemeral ports); N7 overlapping CIDRs across VPCs, peerings, TGW, VPN and pod / service ranges; N8 IPv6 parity, connectivity half (v6 routed and allowed where v4 is); declared vs running drift (§4, live)
+- **peer routes** (N-PEER-ROUTE, §1): a peering or TGW attachment the app uses with no route to the other side's CIDR on one side; a route made by `count`/`for_each` over every table covers every side — read the expansion first
+- **NAT zone affinity** (§1): a prod private route table in zone B whose default route uses zone A's NAT, so one zone's loss takes every zone's egress (NAT per AZ in prod is precedents § 23, intended)
+- **path MTU and ICMP** (§1): a path across a VPN, an internet gateway or inter-region peering (1500 / 8500 bytes, the vendor's dated MTU page) where a NACL or firewall drops the ICMP that path MTU discovery needs; live: `ping -M do -s <mtu−28>` / `tracepath` across the hop, on a confirmed context
+- **private resolution** (N-PRIVDNS, §3): an interface endpoint with `private_dns_enabled` unset (the provider default is `false`, read from the provider docs) or a private zone not linked to the VPC, so the app resolves the public name and leaves the private path; a private zone linked in another root clears it. Live: `getent hosts <name>` from a pod or instance, never a laptop resolver
+- SG `cidr_blocks` and NetworkPolicy `ipBlock` are references, never allocations, and are not compared (precedents § 67)
 - `0.0.0.0/0` / `::/0` ingress, egress-all (N2), ipBlock width and IMDS-v6 exceptions are security's; §5's live-exposure rows carry `owner: security`
-- pass: `python3 -I network-exposure-audit/scripts/cidr-overlap.py` reports 0 overlaps across every CIDR source, every NACL pair admits the return path, and Reachability Analyzer (live, confirmed profile) finds the path on v4 and v6
+- pass: `python3 -I network-exposure-audit/scripts/cidr-overlap.py` reports 0 overlaps and 0 `N-PEER-ROUTE` rows across every CIDR source, every NACL pair admits the return path, every prod private route table uses its own zone's NAT (or a regional NAT), the reduced-MTU hop passes ICMP, private names resolve to the endpoint from inside the network, and Reachability Analyzer (live, confirmed profile) finds the path on v4 and v6
 
 ### Sources (infrastructure)
 

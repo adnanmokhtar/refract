@@ -23,23 +23,26 @@ Wherever this pack's files show concrete manifests, examples lean **Kubernetes +
 | `ConfigMap` + `Secret` (KMS-backed) | SSM Parameter Store / Secrets Manager | Docker secrets (`/run/secrets/`) | Vault integration | provider secrets API | config + secrets |
 | `PersistentVolume` (managed CSI) | EBS / EFS via task definition | named volume on a labeled node | Nomad CSI plugin | provider persistent disk | persistence |
 | Argo CD / Flux GitOps | CDK deploy via pipeline | `docker stack deploy` from CI | Nomad pack deploy | provider deploy command | release flow |
-| `tfsec` / `checkov` / `kube-linter` | `cfn_nag` / `cdk-nag` | Compose linter | Nomad validate | provider validators | IaC lint |
+| `trivy config` / `checkov` / `kube-linter` | `cfn-lint` / `cdk-nag` | Compose linter | Nomad validate | provider validators | IaC lint |
 
 ## Enforcement tooling
 
 Named here, not in `rules/infra-principles.md`, because this list churns and the rules do not.
 Confirm each is still maintained before adopting it — this pack has already shipped two dead ones
 (`kubeval`, unmaintained and pointing at `kubeconform`; `datree`, archived 2024-06-06 after its
-sponsoring company closed in July 2023).
+sponsoring company closed in July 2023), and three more went the same way since: `tfsec` ("move to
+trivy"), `terrascan` (archived 2025-11-20) and `kubent` (last release 0.7.3, 2024-08, and it contacts
+the ambient kube context when run bare). Read a legacy `#tfsec:ignore` as data; never run these tools
+(precedents/infrastructure.md § 55, § 57).
 
 | Layer | Current default | Notes |
 |---|---|---|
 | Dockerfile lint | `hadolint` | layer bloat: `dive` |
 | K8s manifest schema | `kubeconform` | the maintained successor named by `kubeval`'s own README |
 | K8s manifest policy | `kube-linter`, `polaris`, `kube-score` | static; `kubesec` for a risk score |
-| K8s deprecated APIs | `kubent` (kube-no-trouble) | the only check that needs the live cluster's minor |
+| K8s deprecated APIs | `pluto` (`detect-files` on the render, offline; `detect-helm` live, on a confirmed context) | always pass `--target-versions k8s=v<minor>`: the default target is stale |
 | Cluster CIS benchmark | `kube-bench` | control ids are the citation |
-| IaC misconfiguration | `tfsec` / `checkov` / `terrascan` | plus `tflint` for provider-schema errors |
+| IaC misconfiguration | `trivy config` / `checkov` | checkov reads HCL and plan JSON differently, so a row names its input; plus `tflint` for provider-schema errors |
 | Image CVEs | `trivy` / `grype` | blocking on critical; see devops `release-security` |
 | Secrets in commits | `gitleaks` / `trufflehog` | pre-commit + CI |
 | Plan-then-apply gate | Terraform Cloud / Atlantis / Spacelift | "plan reviewed → apply", never a laptop |
@@ -50,4 +53,4 @@ sponsoring company closed in July 2023).
 - The project's `_extracted-codebase.md § Infrastructure` — manifest directory, environment-tier separation, deployment pipeline path.
 - `references/<tool>.md` — Docker / Docker Swarm / Kubernetes / Terraform per-tool conventions live here in this pack's references.
 
-Universal hard rules (digest-pinned images, non-root containers, healthchecks + resource requests/limits, no secrets in git, tested backups) apply across all orchestrators.
+Universal hard rules (digest-pinned images, non-root containers, healthchecks, a CPU request plus a memory request and memory limit — a CPU limit is optional — no secrets in git, tested backups) apply across all orchestrators.

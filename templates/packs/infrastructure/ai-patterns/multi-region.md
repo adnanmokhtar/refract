@@ -20,7 +20,7 @@ pack: infrastructure
 - Team has no working backup-restore drill — fix single-region resilience BEFORE multiplying regions.
 
 **Halt conditions / mandatory cites**
-- Cite the last successful DR drill record as `<path>` (date + measured RTO/RPO); > 90 days stale is a halt.
+- Cite the last successful DR drill record as `<path>` (date + measured RTO/RPO); older than `THR-BACKUP-DRILL-AGE` (`max_days: 90`, `governance/thresholds.json`) is a halt.
 - Cite the conflict-resolution policy as `<path:line>` per replicated store (CRDT, last-write-wins config, per-tenant primary); unstated policy is a halt.
 - Cite the cross-region egress cost projection as `<path>` before promoting to active-active; egress can dwarf compute and surprise budgets.
 - Cite the failover runbook (`ai/runbooks/failover-<region>.md`) by path; absent runbook = passive forever.
@@ -194,4 +194,4 @@ Are we losing customers / revenue from outages?
 
 ## Related
 
-- `dr-audit` — audits the backup + restore posture this pattern's DR topology assumes (its detector #7 reconciles the running footprint against the topology declared here).
+- `dr-audit` — audits the backup + restore posture this pattern's DR topology assumes: § 8 (copies, immutability, a second region or account) and § 9 (RPO/RTO arithmetic against the objectives declared here). The drill cadence is `THR-BACKUP-DRILL-AGE` (`governance/thresholds.json`), one number for this pattern and `dr-audit` § 11.

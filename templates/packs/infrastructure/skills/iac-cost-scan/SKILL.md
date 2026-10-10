@@ -92,8 +92,8 @@ Run as **one** script from the repo root; shell state does not survive between t
 SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/iac-cost.XXXXXX")}"; IL="${IL:-.claude/skills/iac-lifecycle-scan/scripts}"; ROOTS=(.)
 X=(-g '!**/node_modules/**' -g '!**/.terraform/**' -g '!**/cdk.out/**' -g '!**/vendor/**' -g '!**/.git/**'
    -g '!**/{test,tests,testdata,__tests__,fixtures,examples,example}/**' -g '!**/*_test.go' -g '!**/*.{spec,test}.*' -g '!**/{locales,i18n,translations}/**')
-TF=("${X[@]}" -g '*.{tf,tofu}'); IAC=("${X[@]}" -g '*.{tf,tofu,tfvars,y*ml,json,template}' -g '!**/{package,package-lock,tsconfig,composer}*.json' -g '!*.lock')
-DOC=("${X[@]}" -g '*.{md,mdx,sh,mk}' -g 'Makefile' -g '!**/CHANGELOG.md')       # runbooks ARE read for create lines
+TF=(-g '*.{tf,tofu}' "${X[@]}"); IAC=(-g '*.{tf,tofu,tfvars,y*ml,json,template}' "${X[@]}" -g '!**/{package,package-lock,tsconfig,composer}*.json' -g '!*.lock')
+DOC=(-g '*.{md,mdx,sh,mk}' -g 'Makefile' "${X[@]}" -g '!**/CHANGELOG.md')       # runbooks ARE read for create lines
 lacks(){ rg --files "${TF[@]}" "${ROOTS[@]}" | xargs -r awk -v T="$1" -v NEED="$2" -f "$IL/blocks.awk"; }
 
 # 0. Resources a runbook creates: size slugs, node counts, autoscale bounds.

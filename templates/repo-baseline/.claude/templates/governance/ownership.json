@@ -548,7 +548,7 @@
       "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
       "pack": "infrastructure",
       "target": "operability-reviewer (infrastructure lens)",
-      "note": "dangling DNS / takeover → security (§7 here is the tagged fallback); alert-rule quality → observability alert-rule-lint; THR-CERT-EXPIRY-ALERT, THR-DNS-CUTOVER-TTL"
+      "note": "§1 owns D2 TTL and the record target lifecycle (an address a deletable object owns, copied where you cannot edit it: D1's non-claimable half); dangling DNS / takeover → security (§7 here is the tagged fallback); alert-rule quality → observability alert-rule-lint; THR-CERT-EXPIRY-ALERT, THR-DNS-CUTOVER-TTL"
     },
     "network-correctness": {
       "detector": "infrastructure/skills/network-exposure-audit §1–§4",
@@ -557,7 +557,7 @@
       "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
       "pack": "infrastructure",
       "target": "operability-reviewer (infrastructure lens)",
-      "note": "§5 live exposure rows → security (executor lane, rows carry owner: security); declared exposure, egress-all (N2) and ipBlock width → security iac-scan"
+      "note": "classes here: N3 NACL return path, N-PEER-ROUTE, NAT zone affinity and path MTU/ICMP (§1), N7 CIDR overlap (§2), N8 IPv6 connectivity and N-PRIVDNS private resolution (§3), declared-vs-running drift (§4); §5 live exposure rows → security (executor lane, rows carry owner: security); declared exposure, egress-all (N2) and ipBlock width → security iac-scan; SG cidr_blocks and ipBlock are references, never allocations (precedents/infrastructure.md § 67)"
     },
     "shared-cache-leak": {
       "detector": "security/skills/iac-scan §6 (grep 7h)",

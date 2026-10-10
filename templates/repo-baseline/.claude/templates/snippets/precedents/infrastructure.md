@@ -28,7 +28,8 @@ flip evidence is shown with a `file:line`, a plan value or a recorded oracle run
 detectors cite `precedents/infrastructure.md § <n>`.
 
 Index: the claim and the gates · Kubernetes § 1–15 · IaC, data and serverless § 16–29 · edge, DNS
-and DR § 30–41 · real-repo precedents § 42–50 · tools and versions § 51–62 · rationalizations.
+and DR § 30–41 · real-repo precedents § 42–50 · tools and versions § 51–62 · measured at build
+§ 63–67 · rationalizations.
 
 ## The claim, restated
 
@@ -42,8 +43,8 @@ finding.
 > arithmetic written out]** instead of **[the expected behaviour]**, proven by **[the oracle and its
 > tier]**.
 
-**The proof rule.** A grep hit is a candidate; a `k8s-ops.jq` row, a plan-JSON join or a
-`blocks.awk` absence is a structural fact about the files. The class oracle in `proof-oracles.md`
+**The proof rule.** A grep hit is a candidate; a join row (`availability.sh`, `wiring.sh`,
+`apiversion.sh`, `plan-joins.jq`) or a `blocks.awk` absence is a structural fact about the files. The class oracle in `proof-oracles.md`
 § Infrastructure at its tier is the proof: T (a tool on files), P (the offline plan JSON), K (a
 scratch kind cluster), H (the edge harness), L (a live read-only describe on a context or profile
 the user confirmed in this session) or S (a static two-ended trace that includes the provider
@@ -96,7 +97,7 @@ is cited in the row.
 25. **`ignore_changes` on autoscaler-mutated fields is correct** (`desired_capacity`, `desired_count`, an ECS `task_definition` under CodeDeploy). `ignore_changes = all` is the finding.
 26. **`count = var.x ? 1 : 0` is not index churn.** Only `count` over a collection is TF-05.
 27. **A module tag pin (`?ref=v1.2.0`) passes CKV_TF_2 but is mutable.** It is Hardening unless the repo's own policy demands a SHA.
-28. **A plan "destroy" from a `removed` block or `lifecycle { destroy = false }` is not data loss.** It is an orphan that keeps billing (TF-07). `moved` is neither.
+28. **A plan "destroy" from a `removed` block or `lifecycle { destroy = false }` is not data loss.** It is an orphan that keeps billing (TF-07). `moved` is neither. *Flips back* (measured 2026-10-10, Terraform 1.16.5 and OpenTofu 1.13.1, offline): an attribute change that forces replacement of a `destroy = false` resource plans `["forget","create"]` on both engines — the store is dropped from state and an **empty** twin is created, a stateful replace (TF-08); and **deleting the resource block** that carried `destroy = false` plans a real `delete` on Terraform (`delete_because_no_resource_config`) but `forget` on OpenTofu. Read the engine (gate 3) before calling a block removal safe.
 29. **Caches and derived stores with a documented rebuild path are exempt** from DATA-01, DATA-02 and DEL-01. *Flips back:* the store holds the only copy (then DEL-03 still applies), or the "cache" is the queue or session store of record.
 
 ## Not a finding — edge, DNS and DR
@@ -122,7 +123,7 @@ is cited in the row.
 45. **A component installed by a runbook, a Makefile or an Argo `Application` is in scope.** Its chart defaults are its config: replicas, PDB and version. An unpinned install is PIN-HELM; a request-path component on chart-default 1 replica is K-PLATFORM-SPOF.
 46. **The app's drain time may be a code constant**; an env-only read misses it. Take devops `deploy-safety-scan` § 5's number, or read the constant, before judging `THR-SHUTDOWN-GRACE`.
 47. **Documented temporary sizing** (a single replica with a written exit condition, such as "delete this patch at launch") is Hardening with an `accepted-risk (<file:line>)` tag until the condition is met. *Flips back:* prod traffic has started (the launch date passed, a prod DNS record points at it).
-48. **Caddy `lb_try_duration` without `lb_retry_match` retries only safe cases** (dial failures, and GET after send) — not E3 [K?: prove with `edge-harness.py` on the fixture before a skill asserts it]. *Flips back:* `lb_retry_match` includes a write method.
+48. **Caddy `lb_try_duration` without `lb_retry_match` does not re-send a write** — not E3. Measured on Caddy 2.11.7 with `edge-harness.py` (2026-10-10): 4 POSTs → 4 executions under timeout-after-send, reset and 502, while GETs were retried (7 executions for 4). *Flips back:* `lb_retry_match` names a write method — measured, `lb_retry_match { method POST }` with a request body gave **36 executions for 4 POSTs**, each retry re-sending the headers with an empty body, and the client still saw 502s. `request_buffers` would make the replay carry the body, so the duplicate succeeds; the fix is taking the write method out of the match.
 49. **Stock `caddy adapt` / `caddy validate` on a config built with `xcaddy` plugins fails `module not registered`**, and an absolute `import` fails until rewritten to the extracted copy (both measured). Either is NOT-RUN, never a config error: the edge lane runs the project's own image.
 50. **kube-score `container-image-pull-policy` and the polaris pull-policy checks on SHA-tagged images are noise for infra**; tag mutability is security 4j.
 
@@ -135,11 +136,19 @@ is cited in the row.
 55. **kubent is stale (0.7.3, 2024-08) and, without flags, contacts the ambient cluster.** Use pluto `--target-versions`; a live read names its context and runs only after the user confirms it in this session.
 56. **`helm template --dry-run=server` and `kubectl … --dry-run=server` contact the current context.** Every dry-run and runtime oracle runs with an explicit `--kubeconfig` / `KUBECONFIG` to a scratch kind cluster; the ambient context is never relied on.
 57. **tfsec, terrascan and regula are archived or superseded** (tfsec: "move to trivy"; terrascan archived 2025-11-20; regula 2024-09-03). Read a legacy `#tfsec:ignore` as data, never run the tool.
-58. **`terraform validate` passes sensitive outputs and the deprecated `dynamodb_table` lock backend.** A validate PASS says nothing about TF-01 or TF-11; `terraform test` fails first with "Output refers to sensitive values".
+58. **`terraform validate` passes the deprecated `dynamodb_table` lock backend and an output of a provider-sensitive attribute.** A validate PASS says nothing about TF-01 or TF-11. Measured on both engines (2026-10-10): a root output that interpolates a `sensitive` **variable** fails `validate` and `plan` ("Output refers to sensitive values"); an output of a provider-marked attribute (`aws_db_instance.x.password`) passes `validate` and fails only `plan` / `test`. Prove the second shape with `plan` or `terraform test`, never `validate`.
 59. **Unset `deletion_protection` reads as null, not false**, in `terraform test` and plan JSON: assert `== true`, never `!= false`. TF 1.14+ ignores `prevent_destroy` during test cleanup, so cleanup never proves a guard; a forced replacement that fails `plan` ("Instance cannot be destroyed") does.
 60. **Helm 4 applies server-side by default for new installs**, so a chart that renders `replicas` for an HPA target **fails** the upgrade with a field-manager conflict (Helm 3 silently reset it); `--atomic` became `--rollback-on-failure`. Read the Helm major from CI before reporting K-HELM-FLAGS or K-HELM-SSA.
 61. **The native `preStop` `sleep` action is GA in 1.34 and validated** (`sleep ≥ terminationGracePeriodSeconds` is rejected by the API server); **`exec: [sleep, N]` is not validated** — only arithmetic catches it (`THR-SHUTDOWN-GRACE`).
 62. **Dated support facts are inputs, re-read at audit time**: Kubernetes 1.34 reaches EOL 2026-10-27 (supported 1.34–1.37 on 2026-10-10); ingress-nginx is retired (last release v1.15.1, 2026-03-19); cert-manager ≥ 1.18 defaults `privateKey.rotationPolicy` to `Always`; Terraform 1.16 / OpenTofu 1.12 add `lifecycle { destroy = false }` (forget, not destroy); TLS lifetimes follow `THR-CERT-EXPIRY-ALERT`. A row that cites one names its source date.
+
+## Measured at build (batch 4, 2026-10-10)
+
+63. **A version passed through a variable or an array is a pin until read, never UNPINNED.** `helm upgrade --install x repo/x --version "$X_VERSION"`, or `"${ARGS[@]}"` where `ARGS=(--version …)`, names a version the runbook sets elsewhere. `render.sh` resolves it from the same file (a shell, Make or YAML `env:` assignment, `${V:-default}`, `${{ env.V }}`, a one- or multi-line array) and prints the literal with `version-via=`; when the value comes from outside the file — a command substitution, a CI variable, an argument — the row reads `UNREAD(<expression>)`. An UNREAD row is Unconfirmed for PIN-HELM until the value's source is read; it is never counted with the UNPINNED lines. *Flips back:* the source the variable reads is itself unpinned (a `helm list` of whatever is deployed, a `latest` lookup) — then it is PIN-HELM at that source.
+64. **A recursive resolver shows the remaining TTL, not the configured one.** `dig <name>` through a cache prints a countdown; D2 (`THR-DNS-CUTOVER-TTL`) is read from the declared record or `dig +noall +answer <name> @<authoritative NS>`, never from a recursive answer.
+65. **A probe that goes through a CDN reads the CDN's edge certificate**, not the origin's. A blackbox `probe_ssl_earliest_cert_expiry` on a proxied name says nothing about the origin wildcard or on-demand certificates behind it (D5, measured on the real repo). *Flips back:* the probe targets the origin directly, or the CDN is in pass-through (DNS-only) mode for that name.
+66. **Caddy's default issuers are Let's Encrypt, then ZeroSSL when Let's Encrypt fails** (caddyserver.com, *Automatic HTTPS*, fetched 2026-10-10). A CAA record that names only `letsencrypt.org` blocks only the fallback: it is LOW (a lost fallback), not a D3 issuance failure. *Flips back:* the CAA names neither CA, or Caddy pins `issuer zerossl` / `acme_ca` to a CA the CAA omits.
+67. **A security-group `cidr_blocks` entry and a NetworkPolicy `ipBlock` are references, not allocations.** They are never compared in an N7 overlap join (measured: `cidr-overlap.py --self-test`); their width is security's (§ 41, security `iac-scan` § 4k). Only VPC/subnet CIDRs, peering and VPN ranges, pod and service ranges and compose/daemon `ipam` pools are allocations.
 
 ## Rationalizations to reject (infrastructure)
 
@@ -156,7 +165,9 @@ Multi-AZ, so we have backups" (§ 21) · "Object Lock is on" (governance mode, �
 says `minAvailable: 1`" (on one replica, or above the KEDA floor) · "the controller is just a chart
 default" (§ 45) · "the drain fits" (read the code constant, § 46) · "the restore was tested" (with
 no new target, counts, duration or date — `THR-BACKUP-DRILL-AGE`) · "the plan only shows an update"
-(read `replace_paths`; a `-/+` on a stateful type is TF-08).
+(read `replace_paths`; a `-/+` on a stateful type is TF-08) · "it has `destroy = false`, so it is safe"
+(a forced replacement plans `forget,create`; Terraform deletes on block removal, § 28) · "the chart
+version is a variable, so it is unpinned" (read the variable, § 63).
 
 ---
 
@@ -168,5 +179,8 @@ oracles, the scanner bake-off), C § 2, § 4 and § 5 (nginx, ingress-nginx, Cad
 can-i-take-over-xyz documentation, measured nginx and Caddy runs) — and the batch-4 infrastructure
 eval (2026-10-10) § 3.5 and § 3.7 (precedents 42–50 from a read-only, offline real-repo run;
 kustomize 5.8.3, kubeconform 0.8.0, pluto 5.24.4, kube-score 1.20.0, kube-linter 0.8.3, caddy
-2.11.7). Precedent 44 was checked against kubernetes.io on 2026-10-10. Paraphrased; no text
+2.11.7). Precedent 44 was checked against kubernetes.io on 2026-10-10. Precedents 28 (flip), 48, 58
+and 63–67 were measured at build on 2026-10-10: Terraform 1.16.5 and OpenTofu 1.13.1 offline images,
+Caddy 2.11.7 behind `edge-harness.py`, `render.sh` and `cidr-overlap.py` self-tests, and the
+read-only real-repo run; precedent 66 cites caddyserver.com fetched that day. Paraphrased; no text
 reproduced beyond short quoted identifiers.

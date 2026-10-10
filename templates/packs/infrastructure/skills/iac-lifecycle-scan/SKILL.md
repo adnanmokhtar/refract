@@ -40,7 +40,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/infr
 - **The pre-apply verdict on a saved plan** (APPROVE / BLOCK) → `tf-plan-review` (this pack). It consumes § 4 and § 7 rows by plan address; this skill never prints a verdict on a pending apply.
 - **Exposure** (public bucket, IAM widening, `0.0.0.0/0`, KMS key policy breadth, secrets in state values) → security `iac-scan` and `secret-scan` when the security pack is installed. Without it, tag the row `security-class (owner pack not installed)`, list it, never grade it.
 - **Kubernetes selector mutation** (the K8s half of IV-4) → `k8s-render-scan` § 5 (V265). **A rendered StorageClass** comes from `k8s-render-scan` § 0's render; § 7 reads it.
-- **Queue, Lambda and API Gateway timing joins** in `plan-joins.jq` (`VIS`, `APIGW`) → `serverless-reliability-scan`; **`BUCKET-NO-VERSIONING`** → `dr-audit` § 4. This skill prints them in its ledger and does not grade them.
+- **Queue, Lambda and API Gateway timing joins** in `plan-joins.jq` (`VIS`, `APIGW`) → `serverless-reliability-scan`; **`BUCKET-NO-VERSIONING`** → `dr-audit` § 7 (object versioning and lifecycle). This skill prints them in its ledger and does not grade them.
 - **Cost of an orphan** (§ 3) → `iac-cost-scan` emits the quantity; finops prices it when installed.
 
 ## Version gate (gate 3), read from files
@@ -64,27 +64,27 @@ X=(-g '!**/node_modules/**' -g '!**/.terraform/**' -g '!**/.terragrunt-cache/**'
    -g '!**/{test,tests,testdata,__tests__,fixtures,examples,example}/**' -g '!**/*_test.go' -g '!**/*.{spec,test}.*' -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**' -g '!ai/**')
 # NOT excluded: envs/dev, ci-ephemeral/, preview stacks — tagged by environment (precedents § 16, § 18), never dropped.
 TF=(-g '*.tf' -g '*.tofu' -g '*.tf.json'); CF=(-g '*.y*ml' -g '*.json' -g '*.template'); CODE=(-g '*.{ts,js,mjs,py,go,java,cs}')
-blk(){ rg --files -0 "${X[@]}" "${TF[@]}" "${ROOTS[@]}" | xargs -0 -r awk -v K="$1" -v T="$2" -v NEED="$3" -v HAVE="${4:-}" -f "$LS/blocks.awk"; }
+blk(){ rg --files -0 "${TF[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r awk -v K="$1" -v T="$2" -v NEED="$3" -v HAVE="${4:-}" -f "$LS/blocks.awk"; }
 # 0. Engines, versions, environment evidence, committed plans.
-rg --files "${X[@]}" -g '*.tf' -g '*.tofu' -g 'Pulumi*.y*ml' -g 'cdk.json' -g 'terragrunt.hcl' -g 'samconfig.toml' -g '*.tfplan' -g '*plan*.json' "${ROOTS[@]}"
-rg -n --pcre2 "${X[@]}" "${CF[@]}" '^\s*(AWSTemplateFormatVersion|Transform:\s*AWS::Serverless)' "${ROOTS[@]}"
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '^\s*required_version\s*=|^\s*(TTL|ttl|Env|env|Environment|environment|Stage|stage)\s*=\s*"|\bterraform\.workspace\b' "${ROOTS[@]}"
+rg --files -g '*.tf' -g '*.tofu' -g 'Pulumi*.y*ml' -g 'cdk.json' -g 'terragrunt.hcl' -g 'samconfig.toml' -g '*.tfplan' -g '*plan*.json' "${X[@]}" "${ROOTS[@]}"
+rg -n --pcre2 "${CF[@]}" "${X[@]}" '^\s*(AWSTemplateFormatVersion|Transform:\s*AWS::Serverless)' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '^\s*required_version\s*=|^\s*(TTL|ttl|Env|env|Environment|environment|Stage|stage)\s*=\s*"|\bterraform\.workspace\b' "${ROOTS[@]}"
 # 1. Identity: count over a collection (1a), computed for_each keys (1b), CDK/Pulumi ids built in loops (1c, IaC files only).
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '^\s*count\s*=\s*length\(|^\s*count\s*=\s*(var|local)\.[a-z0-9_]+\s*$' "${ROOTS[@]}"
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '^\s*for_each\s*=\s*\{\s*for\b|^\s*for_each\s*=\s*toset\(\s*\[' "${ROOTS[@]}"
-rg -l --pcre2 "${X[@]}" "${CODE[@]}" '@pulumi/|aws-cdk-lib|\bfrom\s+["\x27]?constructs\b|^\s*import\s+pulumi\b|\baws_cdk\b|\bcdktf\b' "${ROOTS[@]}" > "$SCAN/iac-code.txt"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '^\s*count\s*=\s*length\(|^\s*count\s*=\s*(var|local)\.[a-z0-9_]+\s*$' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '^\s*for_each\s*=\s*\{\s*for\b|^\s*for_each\s*=\s*toset\(\s*\[' "${ROOTS[@]}"
+rg -l --pcre2 "${CODE[@]}" "${X[@]}" '@pulumi/|aws-cdk-lib|\bfrom\s+["\x27]?constructs\b|^\s*import\s+pulumi\b|\baws_cdk\b|\bcdktf\b' "${ROOTS[@]}" > "$SCAN/iac-code.txt"
 tr '\n' '\0' < "$SCAN/iac-code.txt" | xargs -0 -r rg -n --pcre2 'new\s+[\w.]+\(\s*(this|scope|self)\s*,\s*`[^`]*\$\{|\.overrideLogicalId\(|\baliases\s*:|new\s+[\w.]+\(\s*`[^`]*\$\{[^`]*`\s*,|\bcdk\s+refactor\b'
 # 2. Lifecycle keys, inline or block form (2a); create_before_destroy on a block with no name_prefix (2b).
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '(?:^|\{)\s*(ignore_changes\s*=|create_before_destroy\s*=\s*true|replace_triggered_by\s*=|prevent_destroy\s*=\s*(false|var\.|local\.))' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*(ignore_changes\s*=|create_before_destroy\s*=\s*true|replace_triggered_by\s*=|prevent_destroy\s*=\s*(false|var\.|local\.))' "${ROOTS[@]}"
 blk resource '[a-z0-9_]+' 'name_prefix' 'create_before_destroy *= *true'
 # 3. Refactor blocks and forget semantics.
-rg -n -U --pcre2 "${X[@]}" "${TF[@]}" '^\s*(moved|removed|import)\s*\{|lifecycle\s*\{[^}]*\b(destroy\s*=\s*(false|var\.|local\.)|enabled\s*=)' "${ROOTS[@]}"
+rg -n -U --pcre2 "${TF[@]}" "${X[@]}" '^\s*(moved|removed|import)\s*\{|lifecycle\s*\{[^}]*\b(destroy\s*=\s*(false|var\.|local\.)|enabled\s*=)' "${ROOTS[@]}"
 # 5. Imperative escapes (TF, CFN custom resources, CDK AwsCustomResource, Pulumi command).
-rg -n --pcre2 "${X[@]}" "${TF[@]}" "${CF[@]}" "${CODE[@]}" 'provisioner\s+"(local-exec|remote-exec|file)"|resource\s+"(null_resource|terraform_data)"|data\s+"external"|Type:\s*["\x27]?(Custom::|AWS::CloudFormation::CustomResource)|\bAwsCustomResource\b|\bcommand\.local\.Command\b' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${CODE[@]}" "${X[@]}" 'provisioner\s+"(local-exec|remote-exec|file)"|resource\s+"(null_resource|terraform_data)"|data\s+"external"|Type:\s*["\x27]?(Custom::|AWS::CloudFormation::CustomResource)|\bAwsCustomResource\b|\bcommand\.local\.Command\b' "${ROOTS[@]}"
 # 6. Perpetual diff.
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '\b(timestamp|uuid|bcrypt)\(\)|\bplantimestamp\(\)|^\s*most_recent\s*=\s*true' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '\b(timestamp|uuid|bcrypt)\(\)|\bplantimestamp\(\)|^\s*most_recent\s*=\s*true' "${ROOTS[@]}"
 # 7a. Deletion-safety values set to the unsafe side (inline or block form).
-rg -n --pcre2 "${X[@]}" "${TF[@]}" '(?:^|\{)\s*(skip_final_snapshot\s*=\s*true|deletion_protection(_enabled)?\s*=\s*false|enable_deletion_protection\s*=\s*false|delete_protection\s*=\s*false|force_destroy\s*=\s*true|force_delete\s*=\s*true|purge_soft_delete_on_destroy\s*=\s*true|delete_automated_backups\s*=\s*true|deletion_window_in_days\s*=\s*([7-9]|1\d|2\d)|final_snapshot\s*=\s*false|retain_on_delete\s*=\s*false)\b' "${ROOTS[@]}"
+rg -n --pcre2 "${TF[@]}" "${X[@]}" '(?:^|\{)\s*(skip_final_snapshot\s*=\s*true|deletion_protection(_enabled)?\s*=\s*false|enable_deletion_protection\s*=\s*false|delete_protection\s*=\s*false|force_destroy\s*=\s*true|force_delete\s*=\s*true|purge_soft_delete_on_destroy\s*=\s*true|delete_automated_backups\s*=\s*true|deletion_window_in_days\s*=\s*([7-9]|1\d|2\d)|final_snapshot\s*=\s*false|retain_on_delete\s*=\s*false)\b' "${ROOTS[@]}"
 # 7b. Guards ABSENT per type (unset = provider default; precedents § 59).
 blk resource 'aws_db_instance|aws_rds_cluster|aws_docdb_cluster|aws_neptune_cluster' 'deletion_protection *= *true'
 blk resource 'aws_dynamodb_table' 'deletion_protection_enabled *= *true'
@@ -94,13 +94,13 @@ blk resource 'aws_elasticache_replication_group' 'final_snapshot_identifier'
 blk resource 'hcloud_volume|hcloud_server|hcloud_load_balancer|hcloud_primary_ip|hcloud_floating_ip|hcloud_network' 'delete_protection *= *true'
 blk resource 'aws_db_instance|aws_rds_cluster|aws_dynamodb_table|aws_s3_bucket|aws_efs_file_system|aws_kms_key|google_sql_database_instance|google_storage_bucket|azurerm_postgresql_flexible_server|azurerm_mysql_flexible_server|azurerm_storage_account|digitalocean_database_cluster|digitalocean_volume|digitalocean_spaces_bucket|hcloud_volume' 'prevent_destroy *= *true'
 # 7c. Module variables whose DEFAULT decides a guard (the precedents § 18 flip).
-rg -n -U --pcre2 "${X[@]}" "${TF[@]}" 'variable\s+"[^"]*(final_snapshot|deletion_protection|delete_protection|force_destroy|force_delete|prevent_destroy|retention|backup)[^"]*"\s*\{[^}]*\bdefault\s*=\s*(true|false|\d+)' "${ROOTS[@]}"
+rg -n -U --pcre2 "${TF[@]}" "${X[@]}" 'variable\s+"[^"]*(final_snapshot|deletion_protection|delete_protection|force_destroy|force_delete|prevent_destroy|retention|backup)[^"]*"\s*\{[^}]*\bdefault\s*=\s*(true|false|\d+)' "${ROOTS[@]}"
 # 7d. CloudFormation / SAM (and cdk.out after a synth): policies, protection, the stateful types to read.
-rg -n --pcre2 "${X[@]}" "${CF[@]}" '^\s*(DeletionPolicy|UpdateReplacePolicy):\s*\S|DeletionProtection(Enabled)?:\s*["\x27]?false|EnableTerminationProtection|^\s*Type:\s*["\x27]?AWS::(RDS::DB(Instance|Cluster)|DynamoDB::(Global)?Table|S3::Bucket|EFS::FileSystem|EC2::Volume|KMS::Key|ElastiCache::ReplicationGroup|DocDB::DBCluster|Neptune::DBCluster|Redshift::Cluster)\b' "${ROOTS[@]}"
+rg -n --pcre2 "${CF[@]}" "${X[@]}" '^\s*(DeletionPolicy|UpdateReplacePolicy):\s*\S|DeletionProtection(Enabled)?:\s*["\x27]?false|EnableTerminationProtection|^\s*Type:\s*["\x27]?AWS::(RDS::DB(Instance|Cluster)|DynamoDB::(Global)?Table|S3::Bucket|EFS::FileSystem|EC2::Volume|KMS::Key|ElastiCache::ReplicationGroup|DocDB::DBCluster|Neptune::DBCluster|Redshift::Cluster)\b' "${ROOTS[@]}"
 # 7e. CDK and Pulumi source.
-rg -n --pcre2 "${X[@]}" "${CODE[@]}" 'RemovalPolicy\.(DESTROY|SNAPSHOT|RETAIN\w*)|removal_policy\s*=|autoDeleteObjects\s*:\s*true|auto_delete_objects\s*=\s*True|deletionProtection\s*:\s*false|\bprotect\s*:\s*(true|false)|\bretainOnDelete\s*:' "${ROOTS[@]}"
+rg -n --pcre2 "${CODE[@]}" "${X[@]}" 'RemovalPolicy\.(DESTROY|SNAPSHOT|RETAIN\w*)|removal_policy\s*=|autoDeleteObjects\s*:\s*true|auto_delete_objects\s*=\s*True|deletionProtection\s*:\s*false|\bprotect\s*:\s*(true|false)|\bretainOnDelete\s*:' "${ROOTS[@]}"
 # 7f. Kubernetes volumes (read the RENDER from k8s-render-scan § 0 for what a deployed env really gets).
-rg -n --pcre2 "${X[@]}" -g '*.y*ml' '^\s*(reclaimPolicy|persistentVolumeReclaimPolicy):\s*\S|^kind:\s*(StorageClass|PersistentVolumeClaim|StatefulSet)\b' "${ROOTS[@]}"
+rg -n --pcre2 -g '*.y*ml' "${X[@]}" '^\s*(reclaimPolicy|persistentVolumeReclaimPolicy):\s*\S|^kind:\s*(StorageClass|PersistentVolumeClaim|StatefulSet)\b' "${ROOTS[@]}"
 ```
 
 **§ 4 has no grep.** A replacement exists only in a plan: a committed plan JSON (grep 0), a CI artifact, or the offline plan below. With none, § 4 is `blocked (no plan)` and § 1's stateful rows carry the churn-plan probe.
@@ -256,7 +256,7 @@ Rows: 40 grep + 15 plan → 9 findings (13 sites) · 1 unconfirmed · 1 refuted 
 
 3. ci-ephemeral/main.tf:17 · aws_db_instance.ci                                    Refuted (precedents § 18: TTL tag main.tf:20)
 
-Routed: VIS aws_lambda_event_source_mapping.orders → serverless-reliability-scan §2 · BUCKET-NO-VERSIONING ×2 → dr-audit §4
+Routed: VIS aws_lambda_event_source_mapping.orders → serverless-reliability-scan §2 · BUCKET-NO-VERSIONING ×2 → dr-audit §7
 Class coverage:
   §1 checked (2 lines, 1 resource → 1 unconfirmed) · §2 checked (1 → 1, ignore_changes = all) · §3 checked (0) · §4 checked (plan: 33 creates, 0 replace)
   §5 checked (2 lines → 1, null_resource local-exec) · §6 checked (0) · §7 checked (26 lines + 11 plan rows → 7 findings on 6 stores, 1 refuted group)

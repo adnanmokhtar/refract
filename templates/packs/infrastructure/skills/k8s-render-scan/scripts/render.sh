@@ -6,12 +6,14 @@
 #   render-<env>.yaml   the render exactly as it would apply, documents joined by an explicit `---`
 #                       (a kustomize render does not start with one; `cat a b` glues two objects)
 #   render-<env>.json   the same objects as one JSON array; each carries `__src`
-#                       {env, origin, root, file, line, values} for <file:line> citations
+#                       {env, origin, root, file, line, values} for <file:line> citations (Kustomize:
+#                       line = the source document's first key, or the generator entry; null = no match)
 #   render.err          every renderer's stderr, prefixed `[env]` (kustomize deprecations land here)
 #   render-ledger.tsv   env · origin · objects · exit · stderr lines · root
 #   inventory-platform.tsv  `helm install|upgrade|template` and `kubectl apply|create -f|-k` lines in
-#                       runbooks, scripts, Makefiles and CI: file:line, release, chart, version or
-#                       UNPINNED, values files, namespace, notable flags (Helm 4 renames among them)
+#                       runbooks, scripts, Makefiles and CI: file:line, release, chart, version,
+#                       UNPINNED (no --version) or UNREAD(<var>) (a variable pin not resolved in the
+#                       file), values files, namespace, notable flags (Helm 4 renames among them)
 #   cd-targets.tsv      Argo CD Application/ApplicationSet and Flux Kustomization/HelmRelease objects, with the
 #                       env each one deploys (or `-` when its source is not this repo)
 #   embedded/src/       edge configs inside YAML (a Caddyfile or nginx.conf in a ConfigMap, a snippet
@@ -69,6 +71,7 @@ configMapGenerator:
     files: [Caddyfile]
 EOF
   cat > "$F/k/base/deploy.yaml" <<'EOF'
+# the api Deployment (a head comment: the object starts on line 2)
 apiVersion: apps/v1
 kind: Deployment
 metadata: {name: api}
@@ -130,6 +133,12 @@ helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx -n ingress-ngin
   --set controller.replicaCount=1 --atomic
 helm upgrade --install metrics-server metrics-server/metrics-server --version 3.14.0 -n kube-system
 kubectl apply -f k/overlays/prod/np.yaml
+KEDA_VERSION=2.18.0
+helm upgrade --install keda kedacore/keda --version "${KEDA_VERSION}" -n keda
+CM_ARGS=(--version v1.18.2
+  --set crds.enabled=true)
+helm upgrade --install cert-manager jetstack/cert-manager "${CM_ARGS[@]}" -n cert-manager
+helm upgrade --install reloader stakater/reloader --version "$RELOADER_VERSION" -n reloader
 ```
 EOF
   # shellcheck disable=SC2034  # read inside the ok() eval strings below
@@ -154,6 +163,8 @@ EOF
       ok "prod overlay JSON: Deployment replicas 4 from the patch" '[ "$(jq -r ".[] | select(.kind==\"Deployment\") | .spec.replicas" "$O/render-k__overlays__prod.json")" = 4 ]'
       ok "dev overlay JSON: replicas 1 from the transformer" '[ "$(jq -r ".[] | select(.kind==\"Deployment\") | .spec.replicas" "$O/render-k__overlays__dev.json")" = 1 ]'
       ok "__src.file of the prod Deployment is the base file" '[ "$(jq -r ".[] | select(.kind==\"Deployment\") | .__src.file" "$O/render-k__overlays__prod.json")" = k/base/deploy.yaml ]'
+      ok "__src.line of the prod Deployment is its first key in the base file (line 2, after the comment)" '[ "$(jq -r ".[] | select(.kind==\"Deployment\") | .__src.line" "$O/render-k__overlays__prod.json")" = 2 ]'
+      ok "__src.line of the generated ConfigMap is its generator entry (kustomization.yaml:3)" '[ "$(jq -r ".[] | select(.kind==\"ConfigMap\") | \"\(.__src.file):\(.__src.line)\"" "$O/render-k__overlays__prod.json")" = k/base/kustomization.yaml:3 ]'
       ok "the origin annotation is moved out of the object" '! grep -q "config.kubernetes.io/origin" "$O/render-k__overlays__prod.json"'
       ok "raw docs carry file and line" '[ "$(jq -r ".[] | select(.kind==\"Namespace\") | \"\(.__src.file):\(.__src.line)\"" "$O/render-raw__manifests.json")" = manifests/edge.yaml:10 ]'
       ok "embedded config extracted from the rendered ConfigMap (generator)" 'ls "$O/embedded/k__overlays__prod/" | grep -q Caddyfile'
@@ -172,6 +183,9 @@ EOF
   ok "inventory: ingress-nginx UNPINNED with the Helm-4-removed --atomic flag" 'grep "ingress-nginx/ingress-nginx" "$O/inventory-platform.tsv" | grep -q "UNPINNED" && grep "ingress-nginx/ingress-nginx" "$O/inventory-platform.tsv" | grep -q -- "--atomic"'
   ok "inventory: the continuation line is joined (the --set on the next line is read)" 'grep "ingress-nginx/ingress-nginx" "$O/inventory-platform.tsv" | grep -q "set=1"'
   ok "inventory: metrics-server pinned 3.14.0" 'grep "metrics-server/metrics-server" "$O/inventory-platform.tsv" | grep -q "3.14.0"'
+  ok "inventory: --version from a variable resolves (keda 2.18.0, version-via)" 'grep "kedacore/keda" "$O/inventory-platform.tsv" | grep "2.18.0" | grep -q "version-via=\$KEDA_VERSION"'
+  ok "inventory: --version inside a multi-line array resolves (cert-manager v1.18.2, args-from)" 'grep "jetstack/cert-manager" "$O/inventory-platform.tsv" | grep "v1.18.2" | grep -q "args-from=CM_ARGS"'
+  ok "inventory: an unassigned version variable is UNREAD, not UNPINNED" 'grep "stakater/reloader" "$O/inventory-platform.tsv" | grep -q "UNREAD(\$RELOADER_VERSION)"'
   ok "inventory: the kubectl apply -f line is listed" 'grep -q "kubectl	apply" "$O/inventory-platform.tsv"'
   ok "canary.yaml holds the two canaries" '[ "$(grep -c "^kind:" "$O/canary.yaml")" = 2 ]'
   ok "KUBECONFIG was a scratch file, never the caller's" 'grep -q "kubeconfig=scratch" "$O/render-meta.txt"'
@@ -231,7 +245,11 @@ while IFS= read -r k; do
             (.patchesJson6902[]? | .path), (.configMapGenerator[]?.files[]?), (.secretGenerator[]?.files[]?),
             (.configMapGenerator[]?.envs[]?), (.secretGenerator[]?.envs[]?), (.replacements[]? | .path)] | .[] | select(. != null)' "$k" 2>/dev/null
   else
-    awk '/^[^ #-]/{s=$1} s ~ /^(resources|bases|components):/ && /^ *- /{sub(/^ *- */,""); print}' "$k"
+    # No yq: block lists (`- a`) and one-line flow lists (`resources: [a, b]`) of resources/bases/components.
+    awk '/^[^ #-]/{s=$1} s ~ /^(resources|bases|components):/ && /^ *- /{sub(/^ *- */,""); gsub(/["\047]/,""); print}
+         /^(resources|bases|components):[ \t]*\[/ || /^[ \t-]*(files|envs):[ \t]*\[/{l=$0; sub(/^[^[]*\[/,"",l); sub(/\].*/,"",l); n=split(l,a,/,/)
+           for(i=1;i<=n;i++){v=a[i]; gsub(/^[ \t"\047]+|[ \t"\047]+$/,"",v); if(v!="") print v}}
+         /^[ \t-]*path:[ \t]*[^ \t]/{v=$0; sub(/^[ \t-]*path:[ \t]*/,"",v); sub(/[ \t]+#.*/,"",v); gsub(/["\047]/,"",v); print v}' "$k"
   fi | sed 's#^[^=]*=##' | while IFS= read -r ref; do
     case "$ref" in *://*|github.com/*|git@*) continue ;; esac
     t="$d/$ref"
@@ -239,6 +257,34 @@ while IFS= read -r k; do
     elif [ -f "$t" ]; then printf '%s/%s\n' "$(cd -P "$(dirname "$t")" 2>/dev/null && pwd)" "$(basename "$t")" >> "$OUT/.kz-refs"; fi
   done
 done < "$OUT/.kz-files"
+
+kz_lines() {  # $1 render JSON: fill __src.line from the cited source file (kind + name; generators by entry)
+  # The origin annotation names the file, never the line. Index every document of each cited file (kind, name,
+  # first-key line) plus each configMapGenerator/secretGenerator entry, then match: the exact name, else the longest
+  # source name the rendered name contains (namePrefix/nameSuffix/hash suffix), else the only document of that kind.
+  # No match leaves line null: the citation is file-only, never a guessed line.
+  # yq's `line` on a document with a head comment is off by one (measured, yq 4.54.1), so a document's line comes
+  # from awk (the first top-level key after its `---`) joined on yq's document index `di`.
+  jq -r '[.[] | select(.__src.line == null) | .__src.file // empty] | unique[]' "$1" 2>/dev/null | while IFS= read -r f; do
+    [ -f "$ROOT/$f" ] || continue
+    awk '/^---/ { if (s) i++; s = 1; next } /^[ \t]*(#|$)/ { next } { s = 1 } /^[A-Za-z_"]/ && !((i + 0) in L) { L[i + 0] = NR; print (i + 0) "\t" NR }' "$ROOT/$f" > "$OUT/.di"
+    yq -o=json ea '[. | select(tag == "!!map") | {"k": (.kind // ""), "n": (.metadata.name // ""), "di": di}]
+      + [(.configMapGenerator[]? | {"k": "ConfigMap", "n": (.name // ""), "l": line}), (.secretGenerator[]? | {"k": "Secret", "n": (.name // ""), "l": line})]' \
+      "$ROOT/$f" 2>/dev/null | jq -c --arg f "$f" --rawfile d "$OUT/.di" '
+        ($d | split("\n") | map(select(. != "") | split("\t") | {key: .[0], value: (.[1] | tonumber)}) | from_entries) as $dl
+        | map(. + {f: $f} | if has("di") then .l = $dl[(.di | tostring)] else . end)'
+  done | jq -s 'add // []' > "$OUT/.lines-idx.json" 2>/dev/null || return 0
+  rm -f "$OUT/.di"
+  jq --slurpfile ix "$OUT/.lines-idx.json" '($ix[0] // []) as $ix
+    | map(if .__src.line == null and .__src.file != null then
+        . as $o | [$ix[] | select(.f == $o.__src.file and .k == $o.kind)] as $c
+        | (([$c[] | select(.n == $o.metadata.name)][0].l)
+           // ([$c[] | select(.n != "") | . as $e | select($o.metadata.name | contains($e.n))] | sort_by(-(.n | length)) | .[0].l)
+           // (if ($c | length) == 1 then $c[0].l else null end)) as $l
+        | .__src.line = $l
+      else . end)' "$1" > "$1.tmp" 2>/dev/null && [ -s "$1.tmp" ] && mv "$1.tmp" "$1"
+  rm -f "$1.tmp" "$OUT/.lines-idx.json"; return 0
+}
 
 render_kz() {  # $1 dir → plain render (what applies) + origin-annotated render (for __src.file)
   d="$1"; env="$(envname "$(relpath "$d")")"; origin=overlay
@@ -265,8 +311,9 @@ render_kz() {  # $1 dir → plain render (what applies) + origin-annotated rende
           | .__src = {env: $env, origin: $o, root: $root, file: ($f // null), line: null, values: null}
           | del(.metadata.annotations["config.kubernetes.io/origin"])
           | if (.metadata.annotations // {}) == {} then del(.metadata.annotations) else . end)' > "$OUT/render-$env.json" 2>/dev/null
-    [ -s "$OUT/render-$env.json" ] || yq -o=json ea '[.]' "$y" 2>/dev/null | jq --arg env "$env" --arg o "$origin" --arg root "$(relpath "$d")" \
-      'map(select(type == "object") | .__src = {env: $env, origin: $o, root: $root, file: null, line: null, values: null})' > "$OUT/render-$env.json"
+    if [ -s "$OUT/render-$env.json" ]; then kz_lines "$OUT/render-$env.json"
+    else yq -o=json ea '[.]' "$y" 2>/dev/null | jq --arg env "$env" --arg o "$origin" --arg root "$(relpath "$d")" \
+      'map(select(type == "object") | .__src = {env: $env, origin: $o, root: $root, file: null, line: null, values: null})' > "$OUT/render-$env.json"; fi
   fi
   ledger "$env" "$origin" "$(count_objs "$y" "$OUT/render-$env.json")" "$rc" "$(errlines "$e")" "$(relpath "$d")"; rm -f "$e"
   return "$rc"
@@ -385,22 +432,69 @@ awk -F'\t' -v OFS='\t' 'NR == FNR { if (FNR > 1) { e[$6] = $1; if ($2 == "argo")
 
 # ---------------------------------------------------------------- platform inventory -------------
 # Components installed outside the render are in scope (precedent 45): their chart defaults are their
-# config. Continuation lines are joined; tokens are whitespace-split (quotes are not interpreted).
+# config. Continuation lines are joined; tokens are whitespace-split (one level of quotes is stripped).
+# A --version (or a chart/release) given as a variable is resolved from the same file: a shell, Make or YAML
+# `env:` assignment, a `${V:-default}`, a GitHub `${{ env.V }}`, or an array spliced in with "${ARGS[@]}"
+# (one-line or multi-line `ARGS=( … )` / `ARGS+=( … )`). Resolved → the literal plus `version-via=<V>` in
+# flags. Unresolved → `UNREAD(<expression>)`: a pin whose value was not read, never UNPINNED
+# (precedents/infrastructure.md § 63). A name assigned two different literals in one file stays UNREAD.
 printf 'file:line\ttool\tverb\trelease\tchart\tversion\tvalues\tnamespace\tflags\n' > "$OUT/inventory-platform.tsv"
 walk -name '*.md' -o -name '*.sh' -o -name '*.bash' -o -name Makefile -o -name '*.mk' -o -name Justfile -o -name justfile \
      -o -name 'Taskfile*.y*ml' -o -name Jenkinsfile -o -name '.gitlab-ci.yml' -o -path '*/.github/workflows/*' \
      -o -path '*/.circleci/*' -o -path '*/.buildkite/*' | while IFS= read -r f; do
   grep -Eq '(helm[[:space:]]+(upgrade|install|template)|kubectl[[:space:]]+(apply|create)[[:space:]])' "$f" || continue
-  awk -v F="$(relpath "$f")" '
-    function flush(   n, t, i, tool, verb, rel, ch, ver, vals, ns, fl, pos, v, nsets) {
-      n = split(cmd, t, /[ \t]+/); tool = ""; i = 1
+  awk -v F="$(relpath "$f")" -v Q="'" '
+    function unq(s,   a, z) { a = substr(s, 1, 1); z = substr(s, length(s), 1)
+      if (length(s) >= 2 && (a == "\"" || a == Q) && z == a) return substr(s, 2, length(s) - 2)
+      if (a == "\"" || a == Q) return substr(s, 2); if (z == "\"" || z == Q) return substr(s, 1, length(s) - 1); return s }
+    function setvar(nm, val) { val = unq(val); if (val == "") return
+      if ((nm in vars) && vars[nm] != val) amb[nm] = 1; vars[nm] = val }
+    function addarr(nm, s) { gsub(/\\[ \t]*$/, "", s); arr[nm] = arr[nm] " " s }
+    function resolve(tok,   k, nm, d, e) {  # literal value, or "" (RN = what was not read)
+      tok = unq(tok); RN = ""
+      for (k = 0; k < 4; k++) {
+        if (substr(tok, 1, 1) != "$") return tok
+        d = ""; e = tok
+        if (e ~ /^\$\{\{/) { gsub(/^\$\{\{[ \t]*|[ \t]*\}\}$/, "", e); if (RN == "") RN = "${{" e "}}"
+          if (e !~ /^env\.[A-Za-z_][A-Za-z0-9_]*$/) return ""; nm = substr(e, 5) }
+        else if (e ~ /^\$\{[A-Za-z_][A-Za-z0-9_]*(:?-[^}]*)?\}$/) { nm = substr(e, 3, length(e) - 3)
+          if (match(nm, /:?-/)) { d = substr(nm, RSTART + RLENGTH); nm = substr(nm, 1, RSTART - 1) } }
+        else if (e ~ /^\$\([A-Za-z_][A-Za-z0-9_]*\)$/ || e ~ /^\$[A-Za-z_][A-Za-z0-9_]*$/) { nm = e; gsub(/^\$\(?|\)$/, "", nm) }
+        else { if (RN == "") RN = tok; return "" }
+        if (RN == "") RN = "$" nm
+        if (nm in amb) return ""
+        if (nm in vars) tok = vars[nm]; else if (d != "") { tok = d; RN = RN "(default)" } else return ""
+      }
+      return "" }
+    # Pass 1 over the file: assignments and arrays (shell, Make, YAML env maps).
+    NR == FNR {
+      l = $0; sub(/^[ \t]*(export|readonly|local|declare([ \t]+-[A-Za-z]+)?)[ \t]+/, "", l); sub(/^[ \t]*/, "", l)
+      if (inarr != "") { s = l; if (s ~ /\)/) { sub(/\).*/, "", s); addarr(inarr, s); inarr = "" } else addarr(inarr, s); next }
+      if (match(l, /^[A-Za-z_][A-Za-z0-9_]*\+?=\(/)) { nm = substr(l, 1, RLENGTH - 2); sub(/\+$/, "", nm); s = substr(l, RLENGTH + 1)
+        if (s ~ /\)/) { sub(/\).*/, "", s); addarr(nm, s) } else { addarr(nm, s); inarr = nm }; next }
+      if (match(l, /^[A-Za-z_][A-Za-z0-9_]*=/)) { nm = substr(l, 1, RLENGTH - 1); s = substr(l, RLENGTH + 1)
+        if (substr(s, 1, 1) == "\"" || substr(s, 1, 1) == Q) { c = substr(s, 1, 1); s = substr(s, 2); sub(c ".*", "", s) } else sub(/[ \t;#].*/, "", s)
+        setvar(nm, s); next }
+      if (match(l, /^[A-Za-z_][A-Za-z0-9_]*[ \t]*(\?|:|::)?=[ \t]*/)) { nm = l; sub(/[ \t]*(\?|:|::)?=.*/, "", nm); s = substr(l, RLENGTH + 1); sub(/[ \t]*(#.*)?$/, "", s)
+        if (s !~ /[ \t]/) setvar(nm, s); next }
+      if (l ~ /^[A-Z][A-Z0-9_]*:[ \t]*[^ \t{}|>]+[ \t]*$/) { nm = l; sub(/:.*/, "", nm); s = l; sub(/^[^:]*:[ \t]*/, "", s); sub(/[ \t]*$/, "", s); setvar(nm, s) }
+      next }
+    function flush(   n, t, i, j, tool, verb, rel, ch, ver, vtok, vals, ns, fl, pos, v, nsets, ex, an, spl, unk, r) {
+      n = split(cmd, t, /[ \t]+/); ex = ""; spl = ""; unk = ""
+      for (j = 1; j <= n; j++) { v = unq(t[j])
+        if (v ~ /^\$\{[A-Za-z_][A-Za-z0-9_]*\[[@*]\]\}$/) { an = substr(v, 3); sub(/\[.*/, "", an)
+          if (an in arr) { ex = ex " " arr[an]; spl = spl (spl ? "," : "") an } else unk = unk (unk ? "," : "") "${" an "[@]}"; continue }
+        ex = ex " " t[j] }
+      n = split(ex, t, /[ \t]+/); tool = ""; i = 1
       while (i < n && !((t[i] == "helm" && t[i + 1] ~ /^(upgrade|install|template)$/) || (t[i] == "kubectl" && t[i + 1] ~ /^(apply|create)$/))) i++
       if (i >= n) return
-      tool = t[i]; verb = t[i + 1]; i += 2; rel = ch = ns = vals = fl = ""; ver = "UNPINNED"; pos = 0; nsets = 0
+      tool = t[i]; verb = t[i + 1]; i += 2; rel = ch = ns = vals = fl = vtok = ""; ver = "UNPINNED"; pos = 0; nsets = 0
       for (; i <= n; i++) {
         v = t[i]; if (v == "" || v ~ /^(#|&&|\|\||;|\||>|2>)/) break
-        if (v ~ /^--version=/) { ver = substr(v, 11); continue }
-        if (v == "--version") { ver = t[++i]; continue }
+        if (v ~ /^--version=/) { vtok = substr(v, 11); continue }
+        if (v == "--version") { vtok = t[++i]
+          if (vtok ~ /^"?\$\{\{/) while (vtok !~ /\}\}"?$/ && i < n) vtok = vtok " " t[++i]
+          continue }
         if (v == "-f" || v == "--values" || v == "-k" || v == "--filename" || v == "--kustomize") { vals = vals (vals ? "," : "") t[++i]; continue }
         if (v ~ /^(--values|--filename|--kustomize)=/) { sub(/^[^=]*=/, "", v); vals = vals (vals ? "," : "") v; continue }
         if (v == "-n" || v == "--namespace") { ns = t[++i]; continue }
@@ -412,6 +506,12 @@ walk -name '*.md' -o -name '*.sh' -o -name '*.bash' -o -name Makefile -o -name '
         if (v ~ /^-/) continue
         pos++; if (pos == 1) rel = v; else if (pos == 2) ch = v
       }
+      if (rel != "") { r = resolve(rel); if (r != "") rel = r }
+      if (ch != "") { r = resolve(ch); if (r != "") ch = r }
+      if (vtok != "") { r = resolve(vtok)
+        if (r != "") { ver = r; if (RN != "") fl = fl (fl ? " " : "") "version-via=" RN } else ver = "UNREAD(" RN ")" }
+      else if (unk != "") ver = "UNREAD(" unk ")"
+      if (spl != "") fl = fl (fl ? " " : "") "args-from=" spl
       if (tool == "helm" && verb == "template" && ch == "") ch = rel
       if (tool == "kubectl") { if (vals == "") return; ver = "-"; ch = "-"; rel = "-" }
       if (nsets) fl = fl (fl ? " " : "") "set=" nsets
@@ -421,10 +521,10 @@ walk -name '*.md' -o -name '*.sh' -o -name '*.bash' -o -name Makefile -o -name '
       line = $0
       if (cont) { sub(/^[ \t]+/, "", line); cmd = cmd " " line } else {
         if (line !~ /(^|[ \t$`(]|run:[ \t]*)(helm[ \t]+(upgrade|install|template)|kubectl[ \t]+(apply|create)[ \t])/) next
-        cmd = line; start = NR }
+        cmd = line; start = FNR }
       if (cmd ~ /\\[ \t]*$/) { sub(/\\[ \t]*$/, "", cmd); cont = 1; next }
       cont = 0; flush()
-    }' "$f" >> "$OUT/inventory-platform.tsv"
+    }' "$f" "$f" >> "$OUT/inventory-platform.tsv"
 done
 
 # ---------------------------------------------------------------- embedded configs ---------------
@@ -481,9 +581,10 @@ if [ "$QUIET" -eq 0 ]; then
   envs="$(awk 'NR > 1' "$OUT/render-ledger.tsv" | wc -l | tr -d ' ')"; objs="$(awk -F'\t' 'NR > 1 { s += $3 } END { print s + 0 }' "$OUT/render-ledger.tsv")"
   h="$(awk -F'\t' 'NR > 1 && $2 == "helm"' "$OUT/inventory-platform.tsv" | wc -l | tr -d ' ')"
   u="$(awk -F'\t' 'NR > 1 && $2 == "helm" && $6 == "UNPINNED"' "$OUT/inventory-platform.tsv" | wc -l | tr -d ' ')"
+  ur="$(awk -F'\t' 'NR > 1 && $2 == "helm" && $6 ~ /^UNREAD/' "$OUT/inventory-platform.tsv" | wc -l | tr -d ' ')"
   k="$(awk -F'\t' 'NR > 1 && $2 == "kubectl"' "$OUT/inventory-platform.tsv" | wc -l | tr -d ' ')"
   say "envs: $envs · objects rendered: $objs · stderr lines: $(errlines "$OUT/render.err") (read render.err)"
-  say "platform inventory: $h helm lines ($u UNPINNED) · $k kubectl apply/create lines → inventory-platform.tsv"
+  say "platform inventory: $h helm lines ($u UNPINNED, $ur UNREAD: a pin whose value was not read) · $k kubectl apply/create lines → inventory-platform.tsv"
   say "cd targets: $(awk 'NR > 1' "$OUT/cd-targets.tsv" | wc -l | tr -d ' ') → cd-targets.tsv · embedded configs: $(ls "$OUT/embedded/src" | wc -l | tr -d ' ') source, $(find "$OUT/embedded" -mindepth 2 -type f ! -path '*/src/*' | wc -l | tr -d ' ') rendered"
   [ "$JSON" -eq 1 ] || say "NOT-INSTALLED: yq and/or jq (brew install yq jq) — no render-*.json; the jq detectors are blocked"
   say "canaries: canary.yaml (2 objects) — pass it to every tool beside the render; outputs in $OUT"

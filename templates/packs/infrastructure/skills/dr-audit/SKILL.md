@@ -72,32 +72,25 @@ No version found → the version-gated rows are Unconfirmed, with the probe writ
 
 ## Pre-flight greps
 
-Run as **one** script from the repo root; shell state does not survive between tool calls. Grep **N** feeds **§ N**. Every `rg` names its path and recurses. The previous version of this skill ran `grep -rn '<re>' *.tf`. The shell expands that glob to top-level files only, so every module was skipped: on a scratch tree whose DynamoDB table lives in `modules/db`, it found 0 from `envs/prod`, where `rg … .` finds 1 (measured 2026-10-10). Absence checks split HCL into blocks and strip comments (`blocks.awk`). A comment naming the attribute must not satisfy the check, and on that tree it does not. An `rg` exit 2 is a failed grep, never zero hits.
+Run as **one** script from the repo root; shell state does not survive between tool calls. Grep **N** feeds **§ N**. Every `rg` names its path and recurses. The previous version of this skill ran `grep -rn '<re>' *.tf`. The shell expands that glob to top-level files only, so every module was skipped: on a scratch tree whose DynamoDB table lives in `modules/db`, it found 0 from `envs/prod`, where `rg … .` finds 1 (measured 2026-10-10). Absence checks split HCL into blocks and strip `#` and `//` comments with the pack's shared splitter, `iac-lifecycle-scan/scripts/blocks.awk` (installed as `.claude/skills/iac-lifecycle-scan/scripts/blocks.awk`). A comment naming the attribute must not satisfy the check, and on that tree it does not. An `rg` exit 2 is a failed grep, never zero hits.
 
 ```bash
 SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/dr-audit.XXXXXX")}"
 X=(-g '!**/node_modules/**' -g '!**/.terraform/**' -g '!**/cdk.out/**' -g '!**/vendor/**' -g '!**/.git/**' -g '!**/CHANGELOG.md'
    -g '!**/{test,tests,testdata,__tests__,fixtures,examples,example}/**' -g '!**/*_test.go' -g '!**/*.{spec,test}.*' -g '!**/{locales,i18n,translations}/**')
-CFG=("${X[@]}" -g '*.{tf,tofu,tfvars,hcl,yaml,yml,json,template,conf,env,sh,toml}' -g 'Makefile' -g '!**/{package,package-lock,tsconfig,composer}*.json')
-TF=("${X[@]}" -g '*.{tf,tofu}'); DOC=("${X[@]}" -g '*.{md,mdx,adoc,txt}')    # runbooks and ADRs ARE read here
-cat > "$SCAN/blocks.awk" <<'EOF'
-function flush(){ if(hdr!="" && body !~ NEED) print hdr; hdr=""; body="" }
-FNR==1{ flush(); depth=0 }
-{ line=$0; sub(/#.*/,"",line) }
-depth==0 && match(line, "^resource[ \t]+\"(" T ")\"[ \t]+\"[^\"]+\"") { flush(); hdr=FILENAME ":" FNR ": " substr(line,RSTART,RLENGTH) }
-hdr!="" { body=body "\n" line }
-{ n=gsub(/\{/,"{",line); m=gsub(/\}/,"}",line); depth+=n-m; if(depth==0 && hdr!="" && n+m>0) flush() }
-END{ flush() }
-EOF
-lacks(){ rg --files "${TF[@]}" . | xargs -r awk -v T="$1" -v NEED="$2" -f "$SCAN/blocks.awk"; }
+CFG=(-g '*.{tf,tofu,tfvars,hcl,yaml,yml,json,template,conf,env,sh,toml}' -g 'Makefile' "${X[@]}" -g '!**/{package,package-lock,tsconfig,composer}*.json')
+TF=(-g '*.{tf,tofu}' "${X[@]}"); DOC=(-g '*.{md,mdx,adoc,txt}' "${X[@]}")    # runbooks and ADRs ARE read here
+LS="${LS:-.claude/skills/iac-lifecycle-scan/scripts}"   # blocks.awk ships with iac-lifecycle-scan (this pack); one splitter for every absence check
+[ -f "$LS/blocks.awk" ] || echo "blocks.awk missing at $LS: every lacks row below is blocked, never 0 hits" >&2
+lacks(){ rg --files -0 "${TF[@]}" . | xargs -0 -r awk -v K=resource -v T="$1" -v NEED="$2" -f "$LS/blocks.awk"; }
 
 # 0. Inventory: one store = one matrix row. TF, CFN, CDK/Pulumi, operators and PVCs, compose, runbook create lines.
 rg -n --pcre2 "${TF[@]}" '^\s*resource\s+"(aws_(db_instance|rds_cluster|docdb_cluster|neptune_cluster|redshift_cluster|dynamodb_table|elasticache_replication_group|memorydb_cluster|efs_file_system|ebs_volume|s3_bucket)|google_(sql_database_instance|alloydb_cluster|spanner_instance|storage_bucket|redis_instance|filestore_instance)|azurerm_(postgresql_flexible_server|mysql_flexible_server|mssql_database|cosmosdb_account|storage_account|redis_cache)|digitalocean_(database_cluster|spaces_bucket|volume)|hcloud_volume)"\s+"' .
 rg -n --pcre2 "${CFG[@]}" '^\s*Type:\s*["\x27]?AWS::(RDS::DB(Instance|Cluster)|DynamoDB::(Global)?Table|ElastiCache::ReplicationGroup|S3::Bucket|EFS::FileSystem|EC2::Volume|DocDB::DBCluster|Neptune::DBCluster|MemoryDB::Cluster)\b' .
-rg -n --pcre2 "${X[@]}" -g '*.{ts,js,py,go,java,cs}' '\bnew\s+(rds\.Database(Instance|Cluster)|dynamodb\.Table(V2)?|s3\.Bucket|efs\.FileSystem|aws\.rds\.(Instance|Cluster)|aws\.dynamodb\.Table|aws\.s3\.Bucket(V2)?|gcp\.sql\.DatabaseInstance)\(' .
+rg -n --pcre2 -g '*.{ts,js,py,go,java,cs}' "${X[@]}" '\bnew\s+(rds\.Database(Instance|Cluster)|dynamodb\.Table(V2)?|s3\.Bucket|efs\.FileSystem|aws\.rds\.(Instance|Cluster)|aws\.dynamodb\.Table|aws\.s3\.Bucket(V2)?|gcp\.sql\.DatabaseInstance)\(' .
 rg -n --pcre2 "${CFG[@]}" '^kind:\s*(StatefulSet|PersistentVolumeClaim)\b|^apiVersion:\s*(postgresql\.cnpg\.io|acid\.zalan\.do|postgres-operator\.crunchydata\.com|pxc\.percona\.com|psmdb\.percona\.com|mysql\.oracle\.com)/' .
-rg -n --pcre2 "${X[@]}" -g '*compose*.y*ml' '^\s*image:\s*["\x27]?(docker\.io/)?(library/|bitnami/)?(postgres|postgresql|postgis/postgis|mysql|mariadb|mongo|mongodb|redis|valkey/valkey|elasticsearch|minio/minio)[:@"\x27\s]' .
-rg -n --pcre2 "${DOC[@]}" -g '*.{sh,mk}' -g 'Makefile' '\b(doctl\s+databases\s+create|doctl\s+compute\s+volume\s+create|aws\s+rds\s+create-db-(instance|cluster)|aws\s+s3\s+mb|aws\s+s3api\s+create-bucket|s3cmd\s+mb|gcloud\s+sql\s+instances\s+create|az\s+(postgres|mysql)\s+flexible-server\s+create|hcloud\s+volume\s+create)\b' .
+rg -n --pcre2 -g '*compose*.y*ml' "${X[@]}" '^\s*image:\s*["\x27]?(docker\.io/)?(library/|bitnami/)?(postgres|postgresql|postgis/postgis|mysql|mariadb|mongo|mongodb|redis|valkey/valkey|elasticsearch|minio/minio)[:@"\x27\s]' .
+rg -n --pcre2 -g '*.{sh,mk}' -g 'Makefile' "${DOC[@]}" '\b(doctl\s+databases\s+create|doctl\s+compute\s+volume\s+create|aws\s+rds\s+create-db-(instance|cluster)|aws\s+s3\s+mb|aws\s+s3api\s+create-bucket|s3cmd\s+mb|gcloud\s+sql\s+instances\s+create|az\s+(postgres|mysql)\s+flexible-server\s+create|hcloud\s+volume\s+create)\b' .
 
 # 1–6. Values: backups off or short, PITR off, single-AZ, apply_immediately, Extended Support (TF + CFN); then R2 retention spellings.
 rg -n --pcre2 "${CFG[@]}" '^\s*(backup_retention_period|snapshot_retention_limit|backup_retention_days|transaction_log_retention_days)\s*=\s*[0-6]\b|^\s*(point_in_time_recovery_enabled|binary_log_enabled)\s*=\s*false|^\s*(multi_az|automatic_failover_enabled)\s*=\s*false|^\s*availability_type\s*=\s*"ZONAL"|^\s*num_cache_clusters\s*=\s*1\b|^\s*apply_immediately\s*=\s*true|^\s*engine_lifecycle_support\s*=|^\s*(BackupRetentionPeriod:\s*["\x27]?[0-6]["\x27]?|MultiAZ:\s*false|PointInTimeRecoveryEnabled:\s*false)\s*$' .
@@ -143,11 +136,11 @@ rg -n --pcre2 "${CFG[@]}" '^\s*resource\s+"aws_backup_restore_testing_(plan|sele
 
 # 12. Destroy reaches the backups (R11) or the key (THR-KMS-WINDOW); backups in the store's own root; any off-host tool (C7).
 rg -n --pcre2 "${CFG[@]}" '^\s*(skip_final_snapshot\s*=\s*true|delete_automated_backups\s*=\s*true|force_destroy\s*=\s*true|deletion_protection(_enabled)?\s*=\s*false|prevent_destroy\s*=\s*false|deletion_window_in_days\s*=\s*([7-9]|1\d|2[0-9])\b|PendingWindowInDays:\s*["\x27]?([7-9]|1\d|2[0-9])\b|DeletionPolicy:\s*Delete\b|reclaimPolicy:\s*Delete\b)' .
-rg -n --pcre2 "${X[@]}" -g '*.{ts,js,py,go,java,cs}' 'RemovalPolicy\.DESTROY|autoDeleteObjects\s*:\s*true|deletionProtection\s*:\s*false|retainOnDelete\s*:\s*false|\bprotect\s*:\s*false' .
+rg -n --pcre2 -g '*.{ts,js,py,go,java,cs}' "${X[@]}" 'RemovalPolicy\.DESTROY|autoDeleteObjects\s*:\s*true|deletionProtection\s*:\s*false|retainOnDelete\s*:\s*false|\bprotect\s*:\s*false' .
 lacks 'aws_db_instance|aws_rds_cluster|aws_docdb_cluster|aws_neptune_cluster' 'deletion_protection *= *true'
 rg -l --pcre2 "${TF[@]}" '^\s*resource\s+"aws_(backup_vault|backup_plan|db_snapshot|db_cluster_snapshot|db_snapshot_copy)"' . | xargs -r -n1 dirname | sort -u
-rg -l --pcre2 "${CFG[@]}" -g 'Dockerfile*' -g '*.{py,rb,go,js,ts}' '\b(pg_dump(all)?|mysqldump|mongodump|restic|borg(matic)?|kopia|rclone|velero|pgbackrest|wal-g|barman|litestream|gsutil\s+(cp|rsync)|azcopy)\b|\baws\s+s3\s+(cp|sync)\b' .
-rg -l --pcre2 "${X[@]}" -g '*compose*.y*ml' '^services:' .
+rg -l --pcre2 -g 'Dockerfile*' -g '*.{py,rb,go,js,ts}' "${CFG[@]}" '\b(pg_dump(all)?|mysqldump|mongodump|restic|borg(matic)?|kopia|rclone|velero|pgbackrest|wal-g|barman|litestream|gsutil\s+(cp|rsync)|azcopy)\b|\baws\s+s3\s+(cp|sync)\b' .
+rg -l --pcre2 -g '*compose*.y*ml' "${X[@]}" '^services:' .
 ```
 
 **Measured 2026-10-10** (ripgrep 15.2.0, BSD awk, bash 3.2; offline; no cloud CLI, no cluster, an empty scratch `KUBECONFIG`):
@@ -295,7 +288,7 @@ GOOD:  backups in a separate account or state that `destroy` cannot reach · del
 
 | Tool | Command | Trap |
 |---|---|---|
-| rg + `blocks.awk` (above) | the pre-flight script, on the repo root | absence by regex is wrong (the comment trap); a glob is not a recursion |
+| rg + `iac-lifecycle-scan/scripts/blocks.awk` | the pre-flight script, on the repo root (`lacks <types> <needed re>`; POSIX ERE, no `\b` or `\s`) | absence by regex is wrong (the comment trap); a glob is not a recursion |
 | terraform/tofu `test` | `mock_provider`, `command = plan`, `== true` assertions, on a **copy**, `init -backend=false` (proof-oracles § Offline Terraform) | unset reads null (precedents § 59); never `apply`, never a backend |
 | checkov 3.3.26, trivy 0.75.0 | CKV_AWS_133, CKV_AWS_28, CKV_AWS_21, CKV2_AWS_61, CKV_AWS_300; trivy AWS-0077 | HCL and plan disagree (§ 52); silence is not a pass (§ 51); none reads a CronJob's destination |
 | Live, read-only | `aws --profile "$PROFILE"` with `rds describe-db-instances`, `dynamodb describe-continuous-backups`, `s3api get-bucket-versioning`/`get-object-lock-configuration`/`get-bucket-lifecycle-configuration`, `backup get-backup-vault-lock-configuration`/`list-restore-jobs`, `iam simulate-principal-policy` | only on a profile the user named and confirmed **in this session**; else `NO-DATA(<profile>)` |

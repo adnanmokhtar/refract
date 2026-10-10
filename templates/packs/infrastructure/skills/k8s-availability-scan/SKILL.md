@@ -69,9 +69,9 @@ rg -n --pcre2 '(?i)\bleader[-_]?elect\w*|\bleaderelection\b|\bLeaseLock\b|\bpg_t
 rg -n --pcre2 '(?i)\b(?:shutdown|drain|grace(?:ful)?|terminat\w*)_?(?:drain_)?(?:timeout|delay|period|seconds|ms)\w*\s*[:=]\s*[\d_.]+|\bforceCloseConnections\b|\bcloseGraceDelay\b|\benableShutdownHooks\s*\(|\bserver\.close\s*\(|timeout-per-shutdown-phase|\bgraceful[-_]timeout\b|\bGracefulStop\s*\(|\.Shutdown\s*\(\s*ctx|\bshutdown_timeout\b' "${X[@]}" "${CODE[@]}" . \
   | rg -v --pcre2 '^[^:]+:\d+:\s*(?:\*|//|#|/\*)'
 # 8. Cluster shape: node pools, node counts (precedent 8; required anti-affinity needs the nodes).
-rg -n --pcre2 '(?:\bclusters?\s+create\b|\bcreate\s+cluster\b|\baks\s+create\b)|--node-pool\b[^\n]*\bcount=\d|\b(?:min|max)-nodes[= ]\d|^\s*(?:node_count|min_node_count|max_node_count|min_nodes|max_nodes|desired_size|min_size|initial_node_count)\s*=' "${X[@]}" "${RB[@]}" .
+rg -n --pcre2 '(?:\bclusters?\s+create\b|\bcreate\s+cluster\b|\baks\s+create\b)|--node-pool\b[^\n]*\bcount=\d|\b(?:min|max)-nodes[= ]\d|^\s*(?:node_count|min_node_count|max_node_count|min_nodes|max_nodes|desired_size|min_size|initial_node_count)\s*=' "${RB[@]}" "${X[@]}" .
 # 9. Request-path charts deployed by an Argo Application or Flux HelmRelease (the runbook lines are in inventory-platform.tsv).
-rg -n --pcre2 '^\s*(?:chart|repoURL):\s*\S*(?:ingress-nginx|nginx-ingress|traefik|contour|envoy-gateway|gateway-helm|kong|haproxy|istio|cert-manager|keda|metrics-server|prometheus-adapter|coredns)\b' "${X[@]}" -g '*.{yml,yaml}' .
+rg -n --pcre2 '^\s*(?:chart|repoURL):\s*\S*(?:ingress-nginx|nginx-ingress|traefik|contour|envoy-gateway|gateway-helm|kong|haproxy|istio|cert-manager|keda|metrics-server|prometheus-adapter|coredns)\b' -g '*.{yml,yaml}' "${X[@]}" .
 ```
 
 `availability.sh` row shape: `§ · class · env · origin · Kind/ns/name · detail · source file[:line]`. Class prefixes: `route:` (another owner; listed, not graded), `ctx:` (arithmetic inputs for the read step, never a finding), `info:` (state-the-intent, coverage only). `__src.line` is empty for Kustomize objects: cite the source file plus the `name:` line you read. Missing jq → § 1–§ 8 are `blocked (jq not installed)`. A failed or blocked render (`render-ledger.tsv`) makes every row for that env `blocked (render failed: <env>)`.

@@ -195,13 +195,14 @@ The mitigation is a `preStop` delay on the container: keep serving for long enou
 ```yaml
 lifecycle:
   preStop:
-    exec: { command: ["sleep", "10"] }   # serve through endpoint-removal propagation
+    sleep: { seconds: 10 }   # native action, GA in Kubernetes 1.34: serve through endpoint-removal propagation
+# on an image with a shell and a cluster below the native action: exec: { command: ["sleep", "10"] }
 ```
 
 Three things to get right:
 - The delay must exceed your propagation time, which depends on the proxy and any external load balancer in front — measure it (watch for 5xx during a rollout) rather than copying a number.
-- `terminationGracePeriodSeconds` must be larger than `preStop` delay + real drain time, or the pod is SIGKILLed mid-drain and you have simply moved the dropped requests.
-- Recent Kubernetes minors offer a native `preStop.sleep` action instead of shelling out to `sleep` (which distroless images do not have). Confirm on the target minor with `kubectl explain pod.spec.containers.lifecycle.preStop` before using it.
+- `preStop` delay + the app's real drain time + a 5 s margin must fit inside `terminationGracePeriodSeconds` (default 30 s), or the pod is SIGKILLed mid-drain and you have simply moved the dropped requests. That arithmetic is `THR-SHUTDOWN-GRACE` (`governance/thresholds.json`); the drain time may be a constant in the app's code, not an env var (precedents/infrastructure.md § 46). `k8s-availability-scan` § 7 checks it on the render.
+- Prefer the native `preStop.sleep` action: it is GA in Kubernetes 1.34, so it exists on every supported minor (1.34–1.37 on 2026-10-10; re-read the support window at audit time), it needs no `sleep` binary (distroless images have none), and the API server **rejects** a native sleep ≥ the grace period. `exec: ["sleep", N]` is **not validated** — only the arithmetic above catches an `exec` sleep longer than the grace period (precedents § 61).
 
 ## Rollback
 

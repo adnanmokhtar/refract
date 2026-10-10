@@ -30,7 +30,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/infr
 
 ## Boundaries
 
-- **Replica floors, PDBs, HPA and KEDA shape, probes, rollout, shutdown timing, platform single points of failure** → `k8s-availability-scan` (this pack). Its § 4 owns K-HPA-REPLICAS on plain manifests; here the same root cause is graded only in its Helm (§ 2), Kustomize (§ 3) and GitOps (§ 4) forms.
+- **Replica floors, PDBs, HPA and KEDA shape, probes, rollout, shutdown timing, platform single points of failure** → `k8s-availability-scan` (this pack), against `THR-K8S-PROD-FLOOR` (`governance/thresholds.json`). Its § 4 owns K-HPA-REPLICAS on plain manifests; here the same root cause is graded only in its Helm (§ 2), Kustomize (§ 3) and GitOps (§ 4) forms.
 - **Service and port wiring, config propagation (K-CONFIG-ROLL), NetworkPolicy paths, Jobs, RBAC wiring** → `k8s-wiring-scan` (this pack). § 3b finds the generator setting; the consumer's rollout gap is graded there.
 - **Removed APIs, schema and CRD validity, admission rejection** → `k8s-api-version-scan` (this pack). § 0's canaries are shared with it.
 - **Unpinned charts and platform components** (PIN-HELM: `helm upgrade --install` with no `--version`, Argo `targetRevision: HEAD`) → `iac-state-scan` § 3 (this pack). § 0's `inventory-platform.tsv` is its input.
@@ -60,10 +60,10 @@ bash .claude/skills/k8s-render-scan/scripts/render.sh . --out="$SCAN" --kube-ver
 | Output | What it holds | Who reads it |
 |---|---|---|
 | `render-<env>.yaml` | the render as it would apply, documents joined by an explicit `---` (a Kustomize render does not start with one; `cat a b` glues two objects and a linter reports a duplicate key) | the tool lane |
-| `render-<env>.json` | the same objects; each carries `__src` {env, origin `base`/`overlay`/`chart`/`argo`/`raw`, root, file, line, values} | every jq join; the citation |
+| `render-<env>.json` | the same objects; each carries `__src` {env, origin `base`/`overlay`/`chart`/`argo`/`raw`, root, file, line, values}. Kustomize lines come from the cited file: the document's first key, or the generator entry; no match leaves `line` null (a file-only citation, never a guessed line) | every jq join; the citation |
 | `render-ledger.tsv` | env · origin · objects · exit · stderr lines · root | the ledger line of every k8s detector |
 | `render.err` | every renderer's stderr, prefixed `[env]` | § 3a (deprecations), § 0 failures |
-| `inventory-platform.tsv` | each `helm install/upgrade/template` and `kubectl apply/create -f/-k` line in runbooks, scripts, Makefiles and CI, with release, chart, version or `UNPINNED`, values files, namespace and flags | `iac-state-scan` § 3, `k8s-availability-scan` § 9, § 2f |
+| `inventory-platform.tsv` | each `helm install/upgrade/template` and `kubectl apply/create -f/-k` line in runbooks, scripts, Makefiles and CI, with release, chart, version, `UNPINNED` (no `--version`) or `UNREAD(<var>)` (a version passed through a variable or array the file does not set: a pin until read, precedents § 63), values files, namespace and flags | `iac-state-scan` § 3, `k8s-availability-scan` § 9, § 2f |
 | `cd-targets.tsv` | Argo Applications and ApplicationSets, Flux Kustomizations and HelmReleases, with sync policy and the env each one deploys | § 4; the "is it deployed" gate for every detector |
 | `embedded/src/`, `embedded/<env>/` | edge configs found inside YAML, line-preserved from the source, and as each env renders them | `edge-reliability-scan` |
 | `canary.yaml` | a `policy/v1beta1` PodDisruptionBudget and a ConfigMap named `n` | every tool run |
@@ -93,9 +93,9 @@ bash .claude/skills/k8s-render-scan/scripts/render.sh . --out="$SCAN" --kube-ver
 
 | Target | Result |
 |---|---|
-| Base and overlay | 26 / 25 objects, exit 0, empty stderr; every object's `__src.file` resolved to its base file |
+| Base and overlay | 26 / 25 objects, exit 0, empty stderr; every object's `__src.file` resolved to its base file, and (re-run the same day after the line fill) all 51 objects carry `__src.line` |
 | Unloaded manifests | two raw envs (2 and 7 objects): manifests the runbook applies by hand |
-| Platform inventory | 16 `helm` lines, 14 of them `UNPINNED` (the PIN-HELM input); 22 `kubectl apply` lines |
+| Platform inventory | 16 `helm` lines: first run 14 `UNPINNED`; after variable and array resolution 13 `UNPINNED`, 2 `UNREAD` (one version from a command substitution reading the deployed release, one from a loop variable), 1 pinned (the PIN-HELM input); 22 `kubectl apply` lines |
 | Embedded configs | 2 extracted from the source (a Caddyfile ConfigMap and an ingress snippet) and 2 per env |
 | kubeconform 0.8.0 `-strict` with the canaries | 26 + 2 and 25 + 2 objects read. `refract-canary-removed-api` came back `statusError`; the ConfigMap canary came back as `ConfigMap/false`, so kubeconform decodes YAML 1.1. |
 | pluto 5.24.4 `--target-versions k8s=v1.36.0` | flagged the canary only |
@@ -122,7 +122,7 @@ awk -F'\t' 'NR > 1 && $4 != 0' "$SCAN/render-ledger.tsv"; rg -n -i 'deprecat|err
 
 # 1. Helm values ↔ templates per chart × values file: the shallowest key no template reads (1a); a template path values.yaml
 #    does not define (1b; `guarded` = behind default/required/if/with — a guarded ref beside a 1a key of a similar name is a typo pair).
-rg --files . "${X[@]}" -g 'Chart.yaml' | while IFS= read -r ch; do C="$(dirname "$ch")"; [ -d "$C/templates" ] || continue
+rg --files . -g 'Chart.yaml' "${X[@]}" | while IFS= read -r ch; do C="$(dirname "$ch")"; [ -d "$C/templates" ] || continue
   rg -o -N --no-filename --pcre2 '\$?\.Values(?:\.[A-Za-z0-9_]+)+' "$C/templates" | sed 's/^\$//; s/^\.Values\.//' | sort -u > "$SCAN/.refs"
   sub="$(yq -r '[.dependencies[]? | (.alias // .name)] + ["global"] | join(" ")' "$ch")"
   find "$C" -maxdepth 1 -type f -name 'values*.y*ml' | sort | while IFS= read -r V; do
@@ -139,12 +139,12 @@ done
 #    autoscaler in a chart (2d); prod-critical values with no required/default (2e); Helm-4-renamed flags in deploy paths
 #    (2f: --atomic, --force; a bare --wait is context for the Helm-major read); server-side apply in deploy paths (2g).
 rg -n --pcre2 '\blookup\s+"' -g '**/templates/**' "${X[@]}" .
-rg --files . "${X[@]}" -g '**/crds/*.y*ml' -g '!**/charts/*/charts/**'
+rg --files . -g '**/crds/*.y*ml' "${X[@]}" -g '!**/charts/*/charts/**'
 rg -l --pcre2 '^\s*["\x27]?helm\.sh/hook["\x27]?\s*:' -g '**/templates/**' "${X[@]}" . | xargs -r rg --files-without-match 'helm\.sh/hook-delete-policy'
 J | jq -rs "$HR" | awk -F'\t' '$3 == "chart" || $3 == "argo" { print "2d K-HELM-REPLICAS\t" $0 }'
 rg -n --pcre2 '\.Values\.(?:image\.(?:tag|repository|digest)|\w*(?:[Hh]ost|[Dd]omain)s?)\b' -g '**/templates/**' "${X[@]}" . | rg -v --pcre2 '\b(required|default|if|with)\b'
 awk -F'\t' 'NR > 1 && $2 == "helm" && $9 ~ /(^| )--(atomic|force|wait)( |=|$)/' "$SCAN/inventory-platform.tsv"
-rg -n --pcre2 '\bhelm\s[^\n]*--(server-side|force-conflicts)\b|\bkubectl\s+apply\b[^\n]*--server-side\b' "${X[@]}" -g '*.{sh,bash,mk,yml,yaml,md}' -g 'Makefile' -g 'Justfile' .
+rg -n --pcre2 '\bhelm\s[^\n]*--(server-side|force-conflicts)\b|\bkubectl\s+apply\b[^\n]*--server-side\b' -g '*.{sh,bash,mk,yml,yaml,md}' -g 'Makefile' -g 'Justfile' "${X[@]}" .
 
 # 3. Kustomize: commonLabels / includeSelectors (3a); generator hash off (3b); prefix/suffix not rewritten inside strings (3c);
 #    patch no-op, by deleting each patch on a COPY and comparing renders (3d); a container with no image, from an SMP patch that
@@ -237,6 +237,8 @@ J | jq -r --slurpfile B "$SCAN/base/selectors.json" '"\(.kind)/\(.metadata.names
 
 Severity drops one step on a non-prod env that is deployed (precedent 7), and to Hardening on one nothing deploys. No Kubernetes class has a CWE; the class ids are the pack's.
 
+Oracles, by name and number, in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Infrastructure: *Render matrix* V262 (§ 0, § 1, Helm values xref merged in) · *Patch no-op/phantom* V263 (§ 3) · *SSA / upgrade twice* V264 (§ 2) · *Selector mutation* V265 (§ 5) · *GitOps spec* V266 (§ 4).
+
 ### 0. A CD-target env that does not render
 
 ```
@@ -279,9 +281,9 @@ GOOD:  {{- if not .Values.autoscaling.enabled }}replicas: {{ .Values.replicaCoun
 
 **Proof:**
 
-- *Render matrix*: `helm template` at the target `--kube-version` with the prod values.
-- *SSA / upgrade twice*: install, then upgrade twice on a scratch kind cluster through an explicit `--kubeconfig`. Helm 4 fails with a conflict against `kube-controller-manager` on `.spec.replicas` (measured on kind, node v1.37.0, Helm 4.2.4, 2026-10-10).
-- *GitOps spec* for a lookup branch Argo never sees.
+- *Render matrix* (V262): `helm template` at the target `--kube-version` with the prod values.
+- *SSA / upgrade twice* (V264): install, then upgrade twice on a scratch kind cluster through an explicit `--kubeconfig`. Helm 4 fails with a conflict against `kube-controller-manager` on `.spec.replicas` (measured on kind, node v1.37.0, Helm 4.2.4, 2026-10-10).
+- *GitOps spec* (V266) for a lookup branch Argo never sees.
 
 ### 3. Kustomize patches and transformers
 
@@ -312,8 +314,8 @@ GOOD:  a patch target that exists in the base render · labels: [{pairs: {team: 
 
 **Proof:**
 
-- *Patch no-op/phantom*: the 3d render-hash comparison, and a server dry-run on scratch kind rejecting the image-less container ("image: Required value").
-- *Render matrix* for 3a, 3b and 3c.
+- *Patch no-op/phantom* (V263): the 3d render-hash comparison, and a server dry-run on scratch kind rejecting the image-less container ("image: Required value").
+- *Render matrix* (V262) for 3a, 3b and 3c.
 
 ### 4. GitOps spec
 
@@ -333,7 +335,7 @@ GOOD:  omit replicas from the manifest · or ignoreDifferences /spec/replicas WI
 
 ApplicationSet generators are not expanded here. Their rows are Unconfirmed, listing the generator's file:line.
 
-**Finding when** the deployed Application's spec makes the controller undo, delete or misorder something the render needs. **Proof:** *GitOps spec* — `argocd app diff` / `flux diff kustomization` against a scratch kind cluster with the controller installed, else Unconfirmed with that command written out. **Fix:** in the Application or Kustomization spec, or by removing `replicas` from the manifest.
+**Finding when** the deployed Application's spec makes the controller undo, delete or misorder something the render needs. **Proof:** *GitOps spec* (V266) — `argocd app diff` / `flux diff kustomization` against a scratch kind cluster with the controller installed, else Unconfirmed with that command written out. **Fix:** in the Application or Kustomization spec, or by removing `replicas` from the manifest.
 
 ### 5. Selector mutation between base and head
 
@@ -341,7 +343,7 @@ ApplicationSet generators are not expanded here. Their rows are Unconfirmed, lis
 BAD:   base: selector {app: pay, team: payments}  →  head: {app: pay, team: billing}      # commonLabels edit, or a label helper
 GOOD:  new label on the template only (includeSelectors: false); a selector change ships as a new object name + migration
 ```
-**Read the code:** Is the object already live? A first deploy is not a mutation. Does the Service's selector move in the same diff? It applies before the workload fails, which leaves an EndpointSlice with no endpoints. Is the change from `commonLabels`, a chart's `selectorLabels` helper or a direct edit? **Finding when** a deployed workload's `spec.selector` differs between the base render and the head render. **Proof:** *Selector mutation* — apply the base render, then the head render, to a scratch kind cluster (explicit `--kubeconfig`). The second apply fails with `spec.selector … field is immutable`, while the Service has already moved (measured on kind, node v1.37.0, 2026-10-10). **Fix:** revert the selector and put the label on the template only. If the selector change is wanted, ship it as a recreate plan: a new object name plus a migration. Either way, stop before merge (`/infra-fix`, when present, asks the user first).
+**Read the code:** Is the object already live? A first deploy is not a mutation. Does the Service's selector move in the same diff? It applies before the workload fails, which leaves an EndpointSlice with no endpoints. Is the change from `commonLabels`, a chart's `selectorLabels` helper or a direct edit? **Finding when** a deployed workload's `spec.selector` differs between the base render and the head render. **Proof:** *Selector mutation* (V265) — apply the base render, then the head render, to a scratch kind cluster (explicit `--kubeconfig`). The second apply fails with `spec.selector … field is immutable`, while the Service has already moved (measured on kind, node v1.37.0, 2026-10-10). **Fix:** revert the selector and put the label on the template only. If the selector change is wanted, ship it as a recreate plan: a new object name plus a migration. Either way, stop before merge (`/infra-fix`, when present, asks the user first).
 
 ## Tool lane
 
@@ -379,12 +381,12 @@ Findings: 2 · Unconfirmed: 1
 1. chart/app/values-prod.yaml:1 + chart/app/templates/deploy.yaml:5          [report-with-fix]   high
    §4 K-GITOPS-REPLICAS — env argo__web renders Deployment/web replicas 3 while HPA web (min 2, max 6) owns the count;
    Application argocd/web (apps/app.yaml:7) runs selfHeal with no RespectIgnoreDifferences: every scale-up is reverted.
-   Proof: Render matrix — argo__web render shows both objects; values.yaml:2 `autoscaling` is read by no template (1a).
+   Proof: Render matrix (V262) — argo__web render shows both objects; values.yaml:2 `autoscaling` is read by no template (1a).
    Fix: wrap replicas in {{- if not .Values.autoscaling.enabled }} (templates/deploy.yaml:5); siblings: 2 chart envs.
 
 2. k8s/overlays/prod/kustomization.yaml:4                                        [report-with-fix]   high
    §3 K-KZ-PATCH-NOOP — patches[0] targets Deployment `payment`; the base renders `pay`. The 6-replica patch applies nothing.
-   Proof: Patch no-op — render hash identical with and without patches[0]. Fix: target name `pay`.
+   Proof: Patch no-op (V263) — render hash identical with and without patches[0]. Fix: target name `pay`.
 
 3. chart/app/templates/deploy.yaml:1                                             [report-flagged]    medium
    §2 K-HELM-LOOKUP — the lookup branch is empty under Argo's helm template. Unproven link: whether the prod path relies on

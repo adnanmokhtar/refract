@@ -69,21 +69,21 @@ SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/net.XXXXXX")}"; NS="${NS:-.claude/ski
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/.git/**' -g '!**/.terraform/**' -g '!**/{test,tests,testdata,__tests__,examples,example}/**'
    -g '!**/*.{spec,test}.*' -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**' -g '!ai/**')
 T=(-g '*.tf' -g '*.tfvars' -g '*.y*ml' -g '*.json' -g '*.template')
-RB=(-g '!**/node_modules/**' -g '!**/.git/**' -g '*.{md,sh,bash,mk}' -g 'Makefile')   # runbooks: deploy commands only
+RB=(-g '*.{md,sh,bash,mk}' -g 'Makefile' -g '!**/node_modules/**' -g '!**/.git/**')   # runbooks: deploy commands only
 
 # 0a. Inventory: networks, subnets, route tables, NACLs, gateways, endpoints, peering/TGW/VPN, managed clusters.
-rg -n --pcre2 "${X[@]}" "${T[@]}" '^\s*resource\s+"(aws_(vpc|subnet|route_table|route|network_acl|network_acl_rule|default_network_acl|nat_gateway|internet_gateway|egress_only_internet_gateway|vpc_endpoint|vpc_peering_connection(_accepter)?|ec2_transit_gateway\w*|vpn_connection\w*)|google_compute_(network|subnetwork|router|router_nat|route|network_peering|vpn_tunnel)|azurerm_(virtual_network|subnet|route_table|route|nat_gateway|private_endpoint|virtual_network_peering|virtual_network_gateway\w*)|digitalocean_(vpc|vpc_peering|kubernetes_cluster))"' "${ROOTS[@]}"
+rg -n --pcre2 "${T[@]}" "${X[@]}" '^\s*resource\s+"(aws_(vpc|subnet|route_table|route|network_acl|network_acl_rule|default_network_acl|nat_gateway|internet_gateway|egress_only_internet_gateway|vpc_endpoint|vpc_peering_connection(_accepter)?|ec2_transit_gateway\w*|vpn_connection\w*)|google_compute_(network|subnetwork|router|router_nat|route|network_peering|vpn_tunnel)|azurerm_(virtual_network|subnet|route_table|route|nat_gateway|private_endpoint|virtual_network_peering|virtual_network_gateway\w*)|digitalocean_(vpc|vpc_peering|kubernetes_cluster))"' "${ROOTS[@]}"
 # 0b. The same created by a runbook or script (the address plan when no IaC declares it).
 rg -n --pcre2 "${RB[@]}" '^\s*(doctl\s+(vpcs|kubernetes\s+cluster\s+create|databases\s+firewalls)|aws\s+ec2\s+create-(vpc|subnet|route|network-acl\w*|vpc-peering-connection|transit-gateway\w*)|gcloud\s+compute\s+(networks|routers)|az\s+network\s+(vnet|route-table|private-endpoint))\b' "${ROOTS[@]}"
 # 1–3. The joins: NACL return path, peering routes, overlaps, IPv6 parity, interface-endpoint DNS. Add the plan when one exists:
 #      python3 -I "$NS/cidr-overlap.py" . "$SCAN/plan.json"; a range created outside the repo: --alloc=vpc=<cidr> (cite where it is stated).
 python3 -I "$NS/cidr-overlap.py" "${ROOTS[@]}" > "$SCAN/net.tsv"; cut -f2 "$SCAN/net.tsv" | sort | uniq -c
 # 1. Route targets, NAT placement, MTU and ICMP settings (the read step joins NAT to the zones it serves).
-rg -n --pcre2 "${X[@]}" "${T[@]}" '^\s*(nat_gateway_id|transit_gateway_id|vpc_peering_connection_id|egress_only_gateway_id|connectivity_type|availability_mode)\s*=|^\s*resource\s+"aws_nat_gateway"|\b(mtu|veth_mtu|vxlanMTU|wireguardMTU|tunnel_inside_ip_version)\b\s*[=:]|^\s*(icmp_type|icmp_code)\s*=' "${ROOTS[@]}"
+rg -n --pcre2 "${T[@]}" "${X[@]}" '^\s*(nat_gateway_id|transit_gateway_id|vpc_peering_connection_id|egress_only_gateway_id|connectivity_type|availability_mode)\s*=|^\s*resource\s+"aws_nat_gateway"|\b(mtu|veth_mtu|vxlanMTU|wireguardMTU|tunnel_inside_ip_version)\b\s*[=:]|^\s*(icmp_type|icmp_code)\s*=' "${ROOTS[@]}"
 # 3a. IPv6 switches and private-resolution switches.
-rg -n --pcre2 "${X[@]}" "${T[@]}" '^\s*(private_dns_enabled|private_dns_zone_group|ip_address_type|assign_generated_ipv6_cidr_block|assign_ipv6_address_on_creation|ipv6_native|enable_dns64|dualstack\w*)\b|^\s*ipFamil(y|ies)Policy:|^\s*ipFamilies:|privatelink\.' "${ROOTS[@]}"
+rg -n --pcre2 "${T[@]}" "${X[@]}" '^\s*(private_dns_enabled|private_dns_zone_group|ip_address_type|assign_generated_ipv6_cidr_block|assign_ipv6_address_on_creation|ipv6_native|enable_dns64|dualstack\w*)\b|^\s*ipFamil(y|ies)Policy:|^\s*ipFamilies:|privatelink\.' "${ROOTS[@]}"
 # 3b. Managed-service hostnames in config: is the private name used where one exists (comments excluded)?
-rg -n --pcre2 "${X[@]}" -g '*.y*ml' -g '*.tf' -g '*.env*' -g '*.properties' '^(?!\s*#)[^\n]*\b[\w-]+\.(db\.ondigitalocean\.com|rds\.amazonaws\.com|cache\.amazonaws\.com|postgres\.database\.azure\.com|redis\.cache\.windows\.net|documents\.azure\.com|digitaloceanspaces\.com)\b' "${ROOTS[@]}"
+rg -n --pcre2 -g '*.y*ml' -g '*.tf' -g '*.env*' -g '*.properties' "${X[@]}" '^(?!\s*#)[^\n]*\b[\w-]+\.(db\.ondigitalocean\.com|rds\.amazonaws\.com|cache\.amazonaws\.com|postgres\.database\.azure\.com|redis\.cache\.windows\.net|documents\.azure\.com|digitaloceanspaces\.com)\b' "${ROOTS[@]}"
 ```
 
 **Measured 2026-10-10** (`cidr-overlap.py --self-test` 23/23 on Python 3.14: 13 seeds, 9 decoys and the ipBlock-is-never-an-allocation check; offline, no cloud CLI, no profile, `KUBECONFIG` an empty scratch file):

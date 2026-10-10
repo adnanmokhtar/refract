@@ -68,8 +68,11 @@ Run as **one** script from the repo root; shell state does not survive between t
 SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/serverless.XXXXXX")}"; IL="${IL:-.claude/skills/iac-lifecycle-scan/scripts}"; ROOTS=(.)
 X=(-g '!**/node_modules/**' -g '!**/.terraform/**' -g '!**/cdk.out/**' -g '!**/.serverless/**' -g '!**/.aws-sam/**' -g '!**/.wrangler/**' -g '!**/vendor/**' -g '!**/.git/**'
    -g '!**/{test,tests,testdata,__tests__,fixtures,examples,example}/**' -g '!**/*_test.go' -g '!**/*.{spec,test}.*' -g '!*.{md,mdx,lock,snap}' -g '!**/{docs,locales,i18n,translations}/**')
-TF=("${X[@]}" -g '*.{tf,tofu}'); CF=("${X[@]}" -g '*.{yml,yaml,json,template}' -g '!**/{package,package-lock,tsconfig,composer}*.json')
-SF=("${X[@]}" -g 'serverless.{yml,yaml,ts,js,json}' -g 'wrangler.{toml,json,jsonc}' -g 'host.json' -g 'function.json'); CODE=("${X[@]}" -g '*.{ts,js,mjs,cjs,py,go,java,kt,cs,rb}')
+# Include globs first, exclusions last: ripgrep's LAST matching glob wins. G_* hold includes only; a multi-family search
+# lists its G_* arrays and then "${X[@]}" "${XJ[@]}" once, so no family's exclusions come before another family's includes.
+G_TF=(-g '*.{tf,tofu}'); G_CF=(-g '*.{yml,yaml,json,template}'); G_SF=(-g 'serverless.{yml,yaml,ts,js,json}' -g 'wrangler.{toml,json,jsonc}' -g 'host.json' -g 'function.json')
+G_CODE=(-g '*.{ts,js,mjs,cjs,py,go,java,kt,cs,rb}'); XJ=(-g '!**/{package,package-lock,tsconfig,composer}*.json')
+TF=("${G_TF[@]}" "${X[@]}"); CF=("${G_CF[@]}" "${X[@]}" "${XJ[@]}"); SF=("${G_SF[@]}" "${X[@]}"); CODE=("${G_CODE[@]}" "${X[@]}")
 lacks(){ rg --files "${TF[@]}" "${ROOTS[@]}" | xargs -r awk -v T="$1" -v NEED="$2" -f "$IL/blocks.awk"; }
 cfnlacks(){ rg -l --pcre2 "${CF[@]}" "Type:\s*[\"']?($1)\b" "${ROOTS[@]}" | xargs -r awk -v T="$1" -v NEED="$2" -v HAVE="${3:-.}" '
   function f(){ if (h != "" && b ~ ("Type:[ \t]*[^A-Za-z]?(" T ")([^A-Za-z:]|$)") && b ~ HAVE && b !~ NEED) print h; h = ""; b = "" }
@@ -82,24 +85,24 @@ rg -n --pcre2 "${CF[@]}" '^\s*Type:\s*["\x27]?AWS::(Serverless::Function|Lambda:
 rg -n --pcre2 "${SF[@]}" '^\s*(functions|provider):\s*$|^\s*\[\[queues\.(consumers|producers)\]\]|"(consumers|producers)"\s*:|"(functionTimeout|extensions)"\s*:' "${ROOTS[@]}"
 rg -n --pcre2 "${CODE[@]}" '\bnew\s+(lambda\.(Function|DockerImageFunction)|nodejs\.NodejsFunction|sqs\.Queue|lambdaEventSources\.\w+EventSource|aws\.lambda\.(Function|EventSourceMapping)|aws\.sqs\.Queue)\(' "${ROOTS[@]}"
 # 1. Caller timeouts (API Gateway, Azure, Cloud Run). 2. Queue visibility, batching window, consumer timeout, Managed Instances.
-rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${SF[@]}" '^\s*(timeout_milliseconds|integration_timeout|TimeoutInMillis|timeoutInMillis)\b\s*[=:]|^\s*"functionTimeout"\s*:|^\s*timeout\s*=\s*"\d+s"' "${ROOTS[@]}"
+rg -n --pcre2 "${G_TF[@]}" "${G_CF[@]}" "${G_SF[@]}" "${X[@]}" "${XJ[@]}" '^\s*(timeout_milliseconds|integration_timeout|TimeoutInMillis|timeoutInMillis)\b\s*[=:]|^\s*"functionTimeout"\s*:|^\s*timeout\s*=\s*"\d+s"' "${ROOTS[@]}"
 rg -n --pcre2 "${TF[@]}" '^\s*(visibility_timeout_seconds|maximum_batching_window_in_seconds|ack_deadline_seconds|lock_duration|timeout)\s*=\s*\S|^\s*capacity_provider_config\s*\{' "${ROOTS[@]}"
-rg -n --pcre2 "${CF[@]}" "${SF[@]}" '^\s*(VisibilityTimeout|MaximumBatchingWindowInSeconds|visibilityTimeout|maximumBatchingWindow|Timeout|timeout|max_batch_timeout|visibility_timeout_ms)\s*[=:]\s*["\x27]?\d+["\x27]?\s*$|^\s*CapacityProviderConfig:\s*$' "${ROOTS[@]}"
+rg -n --pcre2 "${G_CF[@]}" "${G_SF[@]}" "${X[@]}" "${XJ[@]}" '^\s*(VisibilityTimeout|MaximumBatchingWindowInSeconds|visibilityTimeout|maximumBatchingWindow|Timeout|timeout|max_batch_timeout|visibility_timeout_ms)\s*[=:]\s*["\x27]?\d+["\x27]?\s*$|^\s*CapacityProviderConfig:\s*$' "${ROOTS[@]}"
 # 3. Dead-letter paths, and the queues and mappings that have none.
-rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${SF[@]}" '^\s*(redrive_policy|RedrivePolicy|redrivePolicy|dead_letter_config|DeadLetterConfig|deadLetterQueue|dead_letter_policy|dead_letter_queue|max_delivery_count|maxReceiveCount|on_failure|OnFailure|destination_config|DestinationConfig)\b' "${ROOTS[@]}"
+rg -n --pcre2 "${G_TF[@]}" "${G_CF[@]}" "${G_SF[@]}" "${X[@]}" "${XJ[@]}" '^\s*(redrive_policy|RedrivePolicy|redrivePolicy|dead_letter_config|DeadLetterConfig|deadLetterQueue|dead_letter_policy|dead_letter_queue|max_delivery_count|maxReceiveCount|on_failure|OnFailure|destination_config|DestinationConfig)\b' "${ROOTS[@]}"
 lacks 'aws_sqs_queue' 'redrive_policy|redrive_allow_policy'; cfnlacks 'AWS::SQS::Queue' 'RedrivePolicy'
-rg --files "${X[@]}" -g 'wrangler.toml' "${ROOTS[@]}" | xargs -r awk '/^[ \t]*\[/ { if (c && !d) print FILENAME ":" s ": consumer with no dead_letter_queue"; c = 0 } /^[ \t]*\[\[queues\.consumers\]\]/ { c = 1; d = 0; s = FNR } c && /^[ \t]*dead_letter_queue[ \t]*=/ { d = 1 } END { if (c && !d) print FILENAME ":" s ": consumer with no dead_letter_queue" }'
+rg --files -g 'wrangler.toml' "${X[@]}" "${ROOTS[@]}" | xargs -r awk '/^[ \t]*\[/ { if (c && !d) print FILENAME ":" s ": consumer with no dead_letter_queue"; c = 0 } /^[ \t]*\[\[queues\.consumers\]\]/ { c = 1; d = 0; s = FNR } c && /^[ \t]*dead_letter_queue[ \t]*=/ { d = 1 } END { if (c && !d) print FILENAME ":" s ": consumer with no dead_letter_queue" }'
 # 4. Partial batch: the IaC switch, its absence, and the handler half.
-rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${SF[@]}" "${CODE[@]}" '^\s*(function_response_types|FunctionResponseTypes|functionResponseType)\s*[=:]|\breportBatchItemFailures\s*:' "${ROOTS[@]}"
+rg -n --pcre2 "${G_TF[@]}" "${G_CF[@]}" "${G_SF[@]}" "${G_CODE[@]}" "${X[@]}" "${XJ[@]}" '^\s*(function_response_types|FunctionResponseTypes|functionResponseType)\s*[=:]|\breportBatchItemFailures\s*:' "${ROOTS[@]}"
 lacks 'aws_lambda_event_source_mapping' 'ReportBatchItemFailures'; cfnlacks 'AWS::Lambda::EventSourceMapping' 'FunctionResponseTypes'; cfnlacks 'AWS::Serverless::Function' 'FunctionResponseTypes' 'Type:[ \t]*(SQS|Kinesis|DynamoDB)'
 rg -n --pcre2 "${CODE[@]}" '\bbatchItemFailures\b|\b(msg|message)\.(ack|retry)\(\)|\bbatch\.(ackAll|retryAll)\(\)' "${ROOTS[@]}"
 # 5. Concurrency ceilings, and the functions and services with none.
-rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${SF[@]}" '^\s*(reserved_concurrent_executions|ReservedConcurrentExecutions|reservedConcurrency|maximum_concurrency|MaximumConcurrency|max_instance_count|max_instance_request_concurrency|app_scale_limit|maximum_instance_count|max_concurrency)\b\s*[=:]|autoscaling\.knative\.dev/maxScale|functionAppScaleLimit' "${ROOTS[@]}"
+rg -n --pcre2 "${G_TF[@]}" "${G_CF[@]}" "${G_SF[@]}" "${X[@]}" "${XJ[@]}" '^\s*(reserved_concurrent_executions|ReservedConcurrentExecutions|reservedConcurrency|maximum_concurrency|MaximumConcurrency|max_instance_count|max_instance_request_concurrency|app_scale_limit|maximum_instance_count|max_concurrency)\b\s*[=:]|autoscaling\.knative\.dev/maxScale|functionAppScaleLimit' "${ROOTS[@]}"
 lacks 'aws_lambda_function' 'reserved_concurrent_executions'; lacks 'google_cloud_run_v2_service|google_cloud_run_service' 'max_instance_count|maxScale'
 # 6. Retry knobs. 7. Warm capacity. 8. Memory. 9. Cloud Run concurrency and long timeouts, Pub/Sub push, Workers limits.
-rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${SF[@]}" '^\s*(maximum_retry_attempts|MaximumRetryAttempts|maximumRetryAttempts|bisect_batch_on_function_error|BisectBatchOnFunctionError|maximum_record_age_in_seconds|MaximumRecordAgeInSeconds|maximum_event_age_in_seconds|max_retries|retry_policy|starting_position|StartingPosition)\b\s*[=:{]' "${ROOTS[@]}"
-rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${SF[@]}" '^\s*(provisioned_concurrent_executions|ProvisionedConcurrentExecutions|provisionedConcurrency|snap_start|SnapStart|snapStart|min_instance_count|cpu_idle|always_ready|minimum_elastic_instance_count)\b\s*[=:{]|autoscaling\.knative\.dev/minScale|run\.googleapis\.com/cpu-throttling' "${ROOTS[@]}"
-rg -n --pcre2 "${TF[@]}" "${CF[@]}" "${SF[@]}" '^\s*(memory_size|MemorySize|memorySize|instance_memory_in_mb)\b\s*[=:]\s*\d' "${ROOTS[@]}"
+rg -n --pcre2 "${G_TF[@]}" "${G_CF[@]}" "${G_SF[@]}" "${X[@]}" "${XJ[@]}" '^\s*(maximum_retry_attempts|MaximumRetryAttempts|maximumRetryAttempts|bisect_batch_on_function_error|BisectBatchOnFunctionError|maximum_record_age_in_seconds|MaximumRecordAgeInSeconds|maximum_event_age_in_seconds|max_retries|retry_policy|starting_position|StartingPosition)\b\s*[=:{]' "${ROOTS[@]}"
+rg -n --pcre2 "${G_TF[@]}" "${G_CF[@]}" "${G_SF[@]}" "${X[@]}" "${XJ[@]}" '^\s*(provisioned_concurrent_executions|ProvisionedConcurrentExecutions|provisionedConcurrency|snap_start|SnapStart|snapStart|min_instance_count|cpu_idle|always_ready|minimum_elastic_instance_count)\b\s*[=:{]|autoscaling\.knative\.dev/minScale|run\.googleapis\.com/cpu-throttling' "${ROOTS[@]}"
+rg -n --pcre2 "${G_TF[@]}" "${G_CF[@]}" "${G_SF[@]}" "${X[@]}" "${XJ[@]}" '^\s*(memory_size|MemorySize|memorySize|instance_memory_in_mb)\b\s*[=:]\s*\d' "${ROOTS[@]}"
 rg -n --pcre2 "${TF[@]}" '^\s*(max_instance_request_concurrency|ack_deadline_seconds)\s*=|^\s*push_config\s*\{|^\s*timeout\s*=\s*"(9\d\d|[1-9]\d\d\d+)s"' "${ROOTS[@]}"
 rg -n --pcre2 "${SF[@]}" '^\s*cpu_ms\s*=|"cpu_ms"\s*:|^\s*\[limits\]|"functionTimeout"\s*:' "${ROOTS[@]}"
 ```

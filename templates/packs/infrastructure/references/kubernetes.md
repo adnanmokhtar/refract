@@ -55,8 +55,8 @@ spec:
             - name: DATABASE_URL
               valueFrom: { secretKeyRef: { name: api-secrets, key: database_url } }
           resources:
-            requests: { cpu: 100m, memory: 256Mi }
-            limits:   { cpu: 500m, memory: 512Mi }
+            requests: { cpu: 100m, memory: 256Mi }   # CPU request + memory request + memory limit
+            limits:   { memory: 256Mi }              # = request unless measured; no CPU limit (it throttles while the node idles)
           livenessProbe:
             httpGet: { path: /health, port: http }
             initialDelaySeconds: 15
@@ -86,7 +86,7 @@ spec:
 - **Service** (ClusterIP) — stable DNS + load balance across pods.
 - **North-south edge** — `Ingress` or Gateway API; see below. Whichever the cluster already serves wins.
 - **HorizontalPodAutoscaler** — CPU-based scaling `{ min: 2, max: 10, target-cpu: 70% }`. Memory is a poor scaling signal (it grows and holds); use a custom/external metric for queue- or IO-bound work.
-- **PodDisruptionBudget** — `minAvailable: 1` prevents voluntary drains from killing everything.
+- **PodDisruptionBudget** — `maxUnavailable: 1` (or a `minAvailable` below the replica floor) stops a voluntary drain from taking every replica at once — **only at ≥ 2 replicas**. Count the HPA `minReplicas` or KEDA `minReplicaCount`, not `spec.replicas`. On a single replica, `minAvailable: 1` pins `disruptionsAllowed` at 0 and blocks every drain and node upgrade: run a second replica or accept the disruption, never a PDB (`THR-K8S-PROD-FLOOR`).
 - **NetworkPolicy** — default-deny + explicit allows for DNS + service ports.
 - **ServiceAccount + RoleBinding** — least-privilege for pod-to-API access.
 
