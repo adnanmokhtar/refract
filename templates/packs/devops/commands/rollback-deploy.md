@@ -103,7 +103,7 @@ Each has a halt. This is the step that separates this command from typing the re
 |---|---|---|---|
 | **R1 — migration direction** | Did the bad deploy run a schema/format migration, and is it backward-compatible? | Diff the migration directory between the two revisions. An **expand** step (add nullable column, add index, add table) is safe to leave in place — old code ignores it. A **contract** step (drop column, drop table, rename, NOT NULL on a column old code omits, enum narrowing) is **not**: the old code's queries reference what is gone | **HALT.** A contract step already applied means rollback is not available as a code-only operation. Surface the manual reconciliation (re-add the column as nullable, then roll back) or route to forward-fix. Never auto-run a destructive down-migration |
 | **R2 — does the target still exist?** | Is the prior revision's artifact still retained? | K8s: `.spec.revisionHistoryLimit` caps retained old ReplicaSets (**defaults to 10**, and teams commonly set it to 0-2 to reduce clutter — at 0 there is nothing to roll back to). Helm: is the revision still in `helm history`? Registry: is the previous image still present, or did a retention policy reap it? | **HALT.** If nothing is retained, `rollout undo` will fail or no-op. The recovery is a fresh deploy of the previous SHA, which needs the image to exist — check before you need it |
-| **R3 — is the artifact reference immutable?** | Does the target resolve to a fixed digest/SHA, or to a moving tag? | If the previous deploy used `:latest` / `:staging` / a branch tag, that tag now points at the **bad** build. "Roll back to the previous tag" redeploys the same broken image | **HALT.** Resolve the digest explicitly, or the rollback is a no-op that looks like a success. This is `/deploy-stage`'s S5 breaking S1 in real time |
+| **R3 — is the artifact reference immutable?** | Does the target resolve to a fixed digest/SHA, or to a moving tag? | If the previous deploy used `:latest` / `:staging` / a branch tag, that tag now points at the **bad** build. "Roll back to the previous tag" redeploys the same broken image. **When `release-integrity-scan` ran** (a same-day `ai/audits/<date>-devops.md`, or the skill installed — run its §7 on the deploy path), read its §7 rows first: a retention rule that deletes the N-1 digest, a rollback unit that redeploys a tag variable, or a second producer that can rewrite the tag (§4) each fail R3 before you resolve anything. Then prove it: `crane manifest <repo>@<N-1 digest>` resolves (V226) | **HALT.** Resolve the digest explicitly, or the rollback is a no-op that looks like a success. This is `/deploy-stage`'s S5 breaking S1 in real time. A §7 row on this path is cited in the gate output |
 | **R4 — shared state the old version cannot read** | Did the new version write anything the old version will choke on? | Four places, in descending order of how often they bite: (a) **cache / session store** entries written in a new serialization format the old code cannot parse — often invisible until a cache hit; (b) **queue / topic messages** produced under the new schema that old consumers reject or dead-letter; (c) **feature flags** the new version's bootstrap flipped, which do not flip back with the artifact; (d) **an API contract** a client has already consumed | **Amber, not red.** Name the mitigation with the rollback: flush/namespace the cache by version, drain or pause the consumer, revert the flag explicitly. Rolling back without naming these is how the second incident starts |
 
 Under `--dry-run` this is where the run stops, reporting resolved target + gate result.
@@ -197,7 +197,7 @@ Current (bad): rev 42 (def5678)
 Reversibility gate:
   R1 migrations   PASS   1 migration in rev 42: add nullable column `users.phone2` (expand) — safe to leave
   R2 target       PASS   rev 41 present in `helm history web`; image digest still in registry
-  R3 immutable    PASS   rev 41 pins web@sha256:9f2c… (not a moving tag)
+  R3 immutable    PASS   rev 41 pins web@sha256:9f2c… (not a moving tag); release-integrity-scan §7: keep-30 rule, N-1 resolves (V226)
   R4 shared state AMBER  rev 42 wrote session blobs with `v2` envelope — old code cannot parse.
                          Mitigation REQUIRED alongside revert: flush session namespace `sess:v2:*`
 
@@ -216,6 +216,8 @@ Follow-ups:    (1) session envelope needs a version-tolerant reader before the n
   that a rollback path exists.
 - `devops/skills/monitor-deploy/SKILL.md` — the health-watch used to confirm the rolled-back
   revision recovered to GREEN, and the source of the GREEN records step 3 reads.
+- `devops/skills/release-integrity-scan/SKILL.md` — §7 (rollback target retention, digest
+  addressability) is what R3 reads before it resolves the target.
 - `devops/skills/progressive-delivery/SKILL.md` — audits whether a kill-switch flag exists for the
   step-2 "flip, don't revert" path.
 - `code-quality/skills/smoke-verify/SKILL.md` — the boot-check used to confirm recovery.

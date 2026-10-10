@@ -186,7 +186,7 @@ Branch protection — set required checks to:
 ### Skills
 - `pipeline-integrity-scan` — run in Phase 6 on the emitted file; its §1–§8 rows are the delivery defects a generated pipeline most often carries. Its verdicts cite [`precedents/devops.md`](../../../snippets/precedents/devops.md) and [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md).
 - `ci-security-scan` / `iac-scan` § 5 (security pack, when installed) — the attacker-path review of the same file.
-- `gitops-audit` — the CI pipeline this command builds ends at *publish* (build → test → scan → push image). If the cluster is Argo CD / Flux managed, `gitops-audit` audits what happens **after** publish — the git→cluster reconciliation loop (drift, out-of-band `kubectl apply`, plaintext secrets in git, prune safety). Wire the pipeline here; audit the reconciliation there.
+- `gitops-audit` — the CI pipeline this command builds ends at *publish* (build → test → scan → push image). If the cluster is Argo CD / Flux managed, `gitops-audit` audits what happens **after** publish — the git→cluster reconciliation loop (out-of-band `kubectl`/`helm` applies, live drift, drift nobody sees). The controller spec (prune, sync waves, `selfHeal` × HPA) is infrastructure `k8s-render-scan` §4's, and a plaintext `kind: Secret` in git is security `iac-scan` §3's, each when its pack is installed. Wire the pipeline here; audit the reconciliation there.
 
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`

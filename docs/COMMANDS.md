@@ -1281,8 +1281,8 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 | `/deploy-stage`        | Deploy current branch to staging. Detects deploy mechanism (Helm / k8s / Vercel / Netlify / etc.). Pre-flight + monitor + report. Halt-on-red. |
 | `/dockerize`           | Add Dockerfile + docker-compose. |
 | `/add-ci`              | Add CI workflow. |
-| `/devops-audit` | Read-only delivery audit: CI gates, caches, releases, deploys, images, compose; class ledger and verdict. |
-| `/devops-fix` | Close /devops-audit findings, failing-first at each oracle tier, diff-guarded. |
+| `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. |
+| `/devops-fix` | Close /devops-audit findings failing-first, diff-guarded. |
 
 ### Documentation track
 

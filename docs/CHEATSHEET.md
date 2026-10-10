@@ -160,8 +160,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/add-ci` | Generate or update a CI workflow for the detected platform and stack. | — | `/add-ci [platform]` |
 | `/deploy-stage` | Deploy current branch to staging environment. | `--branch=<name>`, `--commit=<sha>`, `--no-monitor`, `--watch=<duration>`, `--allow-dirty`, `--skip-ci-check`, `--out` | `/deploy-stage --branch=feature/refund-button` |
-| `/devops-audit` | Read-only delivery audit: CI gates, caches, releases, deploys, images, compose; class ledger and… | — | `/devops-audit` |
-| `/devops-fix` | Close /devops-audit findings, failing-first at each oracle tier, diff-guarded. | — | `/devops-fix` |
+| `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. | `--whole-repo`, `--classes=<family,…>`, `--contexts=<a,b>`, `--settings`, `--sandbox=<owner/repo>` | `/devops-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--contexts=<a,b>] [--settings] [--sandbox=<owner/repo>]` |
+| `/devops-fix` | Close /devops-audit findings failing-first, diff-guarded. | `--all`, `--sandbox=<owner/repo>` | `/devops-fix [audit-report-path \| finding-id ... \| --all] [--sandbox=<owner/repo>]` |
 | `/dockerize` | Generate a production-ready Dockerfile, .dockerignore, and optional compose for local dev. | — | `/dockerize` |
 | `/rollback-deploy` | Roll back the current environment to a previous known-good deploy. | `--to=<version>`, `--env`, `--dry-run`, `--force` | `/rollback-deploy --env=staging` |
 
@@ -214,7 +214,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/cost-audit` | Cloud cost audit. | — | `/cost-audit` |
 | `/infra-audit` | Read-only infrastructure audit: IaC, DR, serverless, k8s, edge, DNS/TLS, network; class ledger and… | `--whole-repo`, `--classes=<family,…>`, `--env=<overlay\|values\|workspace>`, `--plan`, `--kind`, `--live=<context\|profile>` | `/infra-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--env=<overlay\|values\|workspace>] [--plan] [--kind] [--live=<context\|profile>]` |
 | `/infra-fix` | Close /infra-audit findings, failing-first at each oracle tier, with a full re-scan. | `--all`, `--kind`, `--live=<context\|profile>` | `/infra-fix [audit-report-path \| finding-id ... \| --all] [--kind] [--live=<context\|profile>]` |
-| `/k8s-generate` | Generate production-ready k8s manifests (Deployment, Service, Ingress, HPA, PDB, NetworkPolicy). | — | `/k8s-generate <service>` |
+| `/k8s-generate` | Generate production-ready k8s manifests (Deployment, Service, Ingress, HPA, PDB, NetworkPolicy). | `--out`, `--kube-version`, `--target`, `--repo` | `/k8s-generate <service>` |
 | `/provision-tier` | Provision a new environment tier (dev / staging / prod / DR). | — | `/provision-tier` |
 
 ## Pack — learning

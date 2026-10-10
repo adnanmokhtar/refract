@@ -94,7 +94,7 @@ A `[K?]` lock is settled by V227 on the fixture before a finding relies on it; u
 
 ## Pre-flight
 
-Run as **one** script from the repo root (shell state does not survive between tool calls; bash 3.2, bash 5 and zsh give the same rows). Grep **N** feeds **§N**; 0 is the inventory, the render, the graph and the deploy-unit table. Every `rg` names its path; an rg exit 2 is a failed grep, never zero hits; `--hidden` is required for `.github`, `.gitlab-ci.yml` and `.env.example`. Nothing is written inside the repo: renders, sets and the graph go to `$SCAN`.
+Run as **one** script from the repo root (shell state does not survive between tool calls; bash 3.2, bash 5 and zsh give the same rows). Grep **N** feeds **§N**; 0 is the inventory, the render, the graph and the deploy-unit table. Every `rg` names its path; an rg exit 2 is a failed grep, never zero hits; in every rg call the include globs come first and the exclusion array last, because ripgrep lets the later `-g` win; `--hidden` is required for `.github`, `.gitlab-ci.yml` and `.env.example`. Nothing is written inside the repo: renders, sets and the graph go to `$SCAN`.
 
 ```bash
 X=(--hidden -g '!.git/**' -g '!**/node_modules/**' -g '!**/{dist,build,out,target,vendor,.venv,venv,__pycache__,coverage,.next,.turbo,generated}/**'
@@ -112,11 +112,11 @@ SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/deploy-safety.XXXXXX")}"; echo "SCAN=
 RENDERS() { find "$SCAN" -maxdepth 1 -name 'render-*.yaml' | sort; }   # no bare glob: zsh aborts on a glob with no match
 echo '# 0a inventory: CI files, deploy scripts, platform release files; service roots (a server or worker dependency)'
 rg --files "${CI[@]}" . | sort; rg --files "${SH[@]}" . | sort; rg --files . -g '{Procfile,fly.toml,render.yaml,app.json,railway.*,app.yaml}' -g '!**/node_modules/**'
-{ rg -l --pcre2 "${X[@]}" -g '**/package.json' '"(express|fastify|@nestjs/core|koa|@hapi/hapi|hono|bullmq|bull|bee-queue|@nestjs/microservices)"\s*:' .
-  rg -l --pcre2 "${X[@]}" -g '**/{requirements*.txt,pyproject.toml,Pipfile}' '(?i)^\s*["\x27]?(gunicorn|uvicorn|hypercorn|django|flask|fastapi|celery)\b' .
-  rg -l "${X[@]}" -g '**/*.go' -e '^package main$' . | while IFS= read -r f; do d=${f%/*}; while [ "$d" != "." ] && [ ! -f "$d/go.mod" ]; do d=${d%/*}; done; echo "$d/go.mod"; done
-  rg -l "${X[@]}" -g '**/Gemfile' -e '\b(rails|puma|sidekiq)\b' .
-  rg -l "${X[@]}" -g '**/{pom.xml,build.gradle,build.gradle.kts}' -e 'spring-boot' .; rg -l "${X[@]}" -g '**/*.csproj' -e 'Microsoft\.NET\.Sdk\.Web' .
+{ rg -l --pcre2 -g '**/package.json' "${X[@]}" '"(express|fastify|@nestjs/core|koa|@hapi/hapi|hono|bullmq|bull|bee-queue|@nestjs/microservices)"\s*:' .
+  rg -l --pcre2 -g '**/{requirements*.txt,pyproject.toml,Pipfile}' "${X[@]}" '(?i)^\s*["\x27]?(gunicorn|uvicorn|hypercorn|django|flask|fastapi|celery)\b' .
+  rg -l -g '**/*.go' "${X[@]}" -e '^package main$' . | while IFS= read -r f; do d=${f%/*}; while [ "$d" != "." ] && [ ! -f "$d/go.mod" ]; do d=${d%/*}; done; echo "$d/go.mod"; done
+  rg -l -g '**/Gemfile' "${X[@]}" -e '\b(rails|puma|sidekiq)\b' .
+  rg -l -g '**/{pom.xml,build.gradle,build.gradle.kts}' "${X[@]}" -e 'spring-boot' .; rg -l -g '**/*.csproj' "${X[@]}" -e 'Microsoft\.NET\.Sdk\.Web' .
 } | sed 's|/[^/]*$||' | sort -u > "$SCAN/roots.txt"
 [ "$(wc -l < "$SCAN/roots.txt")" -gt 1 ] && sed -i.bak '/^\.$/d' "$SCAN/roots.txt"; ROOTS=(); while IFS= read -r r; do ROOTS+=("$r"); done < "$SCAN/roots.txt"; echo "roots: ${ROOTS[*]:-none}"
 echo '# 0b render (offline, isolated kubeconfig); reuse the infrastructure render when it is there'
@@ -164,15 +164,15 @@ rg -n --pcre2 "${X[@]}" "$MIG" . | "${NC[@]}" | sort | awk -F: '{w="boot-code"; 
   if (f ~ /(Dockerfile|Containerfile|entrypoint)/) w="image/entrypoint"; else if (f ~ /\.(sh|bash)$|Makefile|Justfile/) w="script"; else if (f ~ /(\.github\/|gitlab-ci|\.gitlab\/|\.circleci|Jenkinsfile|azure-pipelines|bitbucket-pipelines)/) w="ci-step"
   else if (f ~ /\.(ya?ml|tpl)$/) w="manifest"; else if (f ~ /(Procfile|fly\.toml|render\.yaml|app\.json|railway)/) w="platform-release"; else if (f ~ /package\.json$/) w="npm-script"; print w "\t" $0 }'
 echo '# 1b placement: initContainers, hooks, Jobs; hooks with no delete policy'
-rg -n --pcre2 "${X[@]}" -g '*.{yml,yaml,tpl}' '^\s*initContainers\s*:|helm\.sh/hook["\x27]?\s*:|argocd\.argoproj\.io/hook["\x27]?\s*:|^\s*kind\s*:\s*Job\b' . | "${NC[@]}"
-rg -l --pcre2 "${X[@]}" -g '*.{yml,yaml,tpl}' 'helm\.sh/hook["\x27]?\s*:' . | while IFS= read -r f; do rg -q --pcre2 'helm\.sh/hook-delete-policy["\x27]?\s*:' "$f" || echo "$f: HOOK-NO-DELETE-POLICY"; done
+rg -n --pcre2 -g '*.{yml,yaml,tpl}' "${X[@]}" '^\s*initContainers\s*:|helm\.sh/hook["\x27]?\s*:|argocd\.argoproj\.io/hook["\x27]?\s*:|^\s*kind\s*:\s*Job\b' . | "${NC[@]}"
+rg -l --pcre2 -g '*.{yml,yaml,tpl}' "${X[@]}" 'helm\.sh/hook["\x27]?\s*:' . | while IFS= read -r f; do rg -q --pcre2 'helm\.sh/hook-delete-policy["\x27]?\s*:' "$f" || echo "$f: HOOK-NO-DELETE-POLICY"; done
 echo '# 1c replica floor per rendered workload (replicas, HPA minReplicas, KEDA minReplicaCount) and on platform files'
 FLOOR='/^---/ { k=""; n="" } /^kind:/ { k=$2 } /^  name:/ && n == "" { n=$2 } /^metadata:.*name:/ && n == "" { n=$0; sub(/.*name:[ \t]*/, "", n); sub(/[ ,}].*/, "", n) } /^  (replicas|minReplicas|minReplicaCount):/ { print F ": " k "/" n " " $1 " " $2 }'
 if [ -n "$(RENDERS)" ]; then RENDERS | while IFS= read -r f; do awk -v F="${f##*/}" "$FLOOR" "$f"; done
-else rg -l --pcre2 "${X[@]}" -g '*.{yml,yaml}' '^kind:\s*(Deployment|StatefulSet|HorizontalPodAutoscaler|ScaledObject)\b' . | while IFS= read -r f; do awk -v F="raw:$f" "$FLOOR" "$f"; done; fi
+else rg -l --pcre2 -g '*.{yml,yaml}' "${X[@]}" '^kind:\s*(Deployment|StatefulSet|HorizontalPodAutoscaler|ScaledObject)\b' . | while IFS= read -r f; do awk -v F="raw:$f" "$FLOOR" "$f"; done; fi
 rg -n --pcre2 "${X[@]}" '\b(min_machines_running|desired_count|min_instances|instance_count|numInstances|minScale)\b\s*[=:]\s*["\x27]?\d+' . | "${NC[@]}"
 echo '# 1d controls: release phases (Heroku, Fly, Render), leader gates, lock switches (Prisma, Rails advisory_locks, Laravel --isolated)'
-rg -n --pcre2 "${X[@]}" -g 'Procfile*' -g 'fly.toml' -g 'render.yaml' -g 'app.json' -g 'railway.*' '^\s*release\s*:|\brelease_command\b|\bpreDeployCommand\b|\bpredeploy\b' .
+rg -n --pcre2 -g 'Procfile*' -g 'fly.toml' -g 'render.yaml' -g 'app.json' -g 'railway.*' "${X[@]}" '^\s*release\s*:|\brelease_command\b|\bpreDeployCommand\b|\bpredeploy\b' .
 rg -n --pcre2 "${X[@]}" '\b(RUN_MIGRATIONS|MIGRATE_ON_BOOT|PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK)\b|advisory_locks\s*:\s*false|\bmigrate\b[^\n]*--isolated\b|\bpg_(try_)?advisory_(xact_)?lock\b' . | "${NC[@]}"
 echo '# 1e auto-rollback in a deploy unit; contract statements in migration dirs (database migration-safety decides)'
 rg -n --pcre2 "${CI[@]}" "${SH[@]}" '(?:--atomic|--rollback-on-failure)\b|\brollout\s+undo\b|\bautoRollback\b|deployment_circuit_breaker' . | "${NC[@]}" | tee "$SCAN/autorollback.txt"
@@ -181,30 +181,30 @@ echo '# 2 non-GitHub mutex lines (the UNIT rows carry mutex= per unit)'
 rg -n --pcre2 "${CI[@]}" '^\s*interruptible\s*:\s*true\b|^\s*resource_group\s*:|\bdisableConcurrentBuilds\s*\(|\block\s*\(' . | "${NC[@]}"
 echo '# 5a per service root: a shutdown signal in code, or a server that owns it (python/ruby/jvm: read the timeout)'
 while IFS= read -r r; do [ -z "$r" ] && continue
-  if [ -n "$(rg -n --pcre2 "${X[@]}" "${CODE[@]}" "$SIG" "$r" | "${NC[@]}" | head -1)" ]; then echo "$r: handler present"
+  if [ -n "$(rg -n --pcre2 "${CODE[@]}" "${X[@]}" "$SIG" "$r" | "${NC[@]}" | head -1)" ]; then echo "$r: handler present"
   elif [ -n "$(rg -l --pcre2 -g '**/{requirements*.txt,pyproject.toml,Pipfile,Gemfile,pom.xml,build.gradle*}' '(?i)\b(gunicorn|uvicorn|hypercorn|celery|puma|sidekiq|spring-boot)\b' "$r")" ]; then echo "$r: server-managed (read the graceful timeout, 5c)"
   else echo "$r: NO-SHUTDOWN-HANDLER"; fi; done < "$SCAN/roots.txt"
 echo '# 5b NestJS: lifecycle hooks vs enableShutdownHooks / a manual SIGTERM handler (comment lines dropped)'
 while IFS= read -r r; do rg -q '"@nestjs/core"' "$r/package.json" 2>/dev/null || continue
-  H=$(rg -n --pcre2 "${X[@]}" "${CODE[@]}" '\b(onModuleDestroy|beforeApplicationShutdown|onApplicationShutdown)\s*\(' "$r" | "${NC[@]}" | wc -l | tr -d ' ')
-  E=$(rg -n --pcre2 "${X[@]}" "${CODE[@]}" '\benableShutdownHooks\s*\(' "$r" | "${NC[@]}" | head -1)
-  M=$(rg -n --pcre2 "${X[@]}" "${CODE[@]}" "process\.(on|once)\(\s*(['\"](SIGTERM|SIGINT)['\"]|[A-Za-z_\$][\w\$]*\s*,)" "$r" | "${NC[@]}" | head -1)
+  H=$(rg -n --pcre2 "${CODE[@]}" "${X[@]}" '\b(onModuleDestroy|beforeApplicationShutdown|onApplicationShutdown)\s*\(' "$r" | "${NC[@]}" | wc -l | tr -d ' ')
+  E=$(rg -n --pcre2 "${CODE[@]}" "${X[@]}" '\benableShutdownHooks\s*\(' "$r" | "${NC[@]}" | head -1)
+  M=$(rg -n --pcre2 "${CODE[@]}" "${X[@]}" "process\.(on|once)\(\s*(['\"](SIGTERM|SIGINT)['\"]|[A-Za-z_\$][\w\$]*\s*,)" "$r" | "${NC[@]}" | head -1)
   if [ -n "$E" ]; then echo "$r: hooks=$H enableShutdownHooks: $E"; elif [ -n "$M" ]; then echo "$r: hooks=$H manual handler (read: awaits app.close()?): $M"
   else echo "$r: NEST-HOOKS-INERT hooks=$H"; fi; done < "$SCAN/roots.txt"
 echo '# 5c drain numbers the app sets (infrastructure k8s-availability-scan §7 does the THR-SHUTDOWN-GRACE arithmetic)'
-rg -n --pcre2 "${X[@]}" "${CODE[@]}" -g '*.{conf,toml,ini,yml,yaml,properties}' '(?i)\b(shutdown|drain|grace(ful)?)[_-]?(drain[_-]?)?(timeout|delay|period|seconds|ms)\w*\s*[:=]\s*[\d_.]+|--graceful-timeout[ =]\d+|--timeout-graceful-shutdown[ =]\d+|timeout-per-shutdown-phase|\bforceCloseConnections\b|ShutdownTimeout' . | "${NC[@]}"
+rg -n --pcre2 "${CODE[@]}" -g '*.{conf,toml,ini,yml,yaml,properties}' "${X[@]}" '(?i)\b(shutdown|drain|grace(ful)?)[_-]?(drain[_-]?)?(timeout|delay|period|seconds|ms)\w*\s*[:=]\s*[\d_.]+|--graceful-timeout[ =]\d+|--timeout-graceful-shutdown[ =]\d+|timeout-per-shutdown-phase|\bforceCloseConnections\b|ShutdownTimeout' . | "${NC[@]}"
 echo '# 6a read set (code) vs declared set (.env.example, compose, rendered env); envFrom refs make the declared set partial'
-: > "$SCAN/env-read.txt"; [ ${#ROOTS[@]} -gt 0 ] && rg -o --no-filename --pcre2 "${X[@]}" "${CODE[@]}" -r '$1$2$3$4$5$6$7$8' -e 'process\.env\.([A-Z][A-Z0-9_]+)' -e "process\.env\[['\"]([A-Z][A-Z0-9_]+)" -e 'import\.meta\.env\.([A-Z][A-Z0-9_]+)' -e "os\.(?:environ\[|environ\.get\(|getenv\()['\"]([A-Z][A-Z0-9_]+)" -e 'os\.Getenv\("([A-Z][A-Z0-9_]+)' -e "ENV(?:\.fetch\(|\[)['\"]([A-Z][A-Z0-9_]+)" -e 'System\.getenv\("([A-Z][A-Z0-9_]+)' -e 'env::var\("([A-Z][A-Z0-9_]+)' "${ROOTS[@]}" | sort -u > "$SCAN/env-read.txt"
+: > "$SCAN/env-read.txt"; [ ${#ROOTS[@]} -gt 0 ] && rg -o --no-filename --pcre2 "${CODE[@]}" "${X[@]}" -r '$1$2$3$4$5$6$7$8' -e 'process\.env\.([A-Z][A-Z0-9_]+)' -e "process\.env\[['\"]([A-Z][A-Z0-9_]+)" -e 'import\.meta\.env\.([A-Z][A-Z0-9_]+)' -e "os\.(?:environ\[|environ\.get\(|getenv\()['\"]([A-Z][A-Z0-9_]+)" -e 'os\.Getenv\("([A-Z][A-Z0-9_]+)' -e "ENV(?:\.fetch\(|\[)['\"]([A-Z][A-Z0-9_]+)" -e 'System\.getenv\("([A-Z][A-Z0-9_]+)' -e 'env::var\("([A-Z][A-Z0-9_]+)' "${ROOTS[@]}" | sort -u > "$SCAN/env-read.txt"
 { rg -o --no-filename --hidden --pcre2 -r '$1' -g '**/.env.{example,sample,template,dist}' -g '!**/node_modules/**' '^\s*(?:export\s+)?([A-Z][A-Z0-9_]+)=' .
   rg -o --no-filename --pcre2 -r '$1$2' -g '*compose*.{yml,yaml}' -g '!**/node_modules/**' '^\s+([A-Z][A-Z0-9_]+)\s*:|^\s+-\s*([A-Z][A-Z0-9_]+)=' .
   RENDERS | while IFS= read -r f; do rg -o --no-filename --pcre2 -r '$1$2' '^\s*-\s*name\s*:\s*["\x27]?([A-Z][A-Z0-9_]+)|^\s*-\s*([A-Z][A-Z0-9_]+)=' "$f"; done; } | sort -u > "$SCAN/env-declared.txt"
 echo "read=$(wc -l < "$SCAN/env-read.txt" | tr -d ' ') declared=$(wc -l < "$SCAN/env-declared.txt" | tr -d ' ')"
 echo "read, not declared: $(comm -23 "$SCAN/env-read.txt" "$SCAN/env-declared.txt" | tr '\n' ' ')"; echo "declared, never read: $(comm -13 "$SCAN/env-read.txt" "$SCAN/env-declared.txt" | tr '\n' ' ')"
-rg -n --pcre2 "${X[@]}" -g '*.{yml,yaml}' '\b(secretRef|configMapRef)\s*:|\benv_file\s*:' . | "${NC[@]}"
+rg -n --pcre2 -g '*.{yml,yaml}' "${X[@]}" '\b(secretRef|configMapRef)\s*:|\benv_file\s*:' . | "${NC[@]}"
 echo '# 6b runtime versions per environment: version files, engines, FROM per Dockerfile, CI setup-*'
 rg -n --pcre2 --hidden -g '.nvmrc' -g '.node-version' -g '.python-version' -g '.tool-versions' -g '!**/node_modules/**' '\S' .
-rg -n --pcre2 "${X[@]}" -g '**/package.json' '"node"\s*:\s*"[^"]+"' .
-rg -n --pcre2 "${X[@]}" -g '**/Dockerfile*' -g '**/*.dockerfile' -g '**/Containerfile*' '^\s*FROM\s+(\S+/)?(node|python|golang|ruby|eclipse-temurin|openjdk|php|dotnet/aspnet):\S+' .
+rg -n --pcre2 -g '**/package.json' "${X[@]}" '"node"\s*:\s*"[^"]+"' .
+rg -n --pcre2 -g '**/Dockerfile*' -g '**/*.dockerfile' -g '**/Containerfile*' "${X[@]}" '^\s*FROM\s+(\S+/)?(node|python|golang|ruby|eclipse-temurin|openjdk|php|dotnet/aspnet):\S+' .
 rg -n --pcre2 "${CI[@]}" '\b(node-version|python-version|go-version|ruby-version|java-version)\s*:\s*\S+' . | "${NC[@]}"
 ```
 
@@ -345,7 +345,7 @@ The oracles are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) �
 | 5 | Stop timing on the real image: under the stop timeout, exit ≠ 137, the in-flight request completes | B | V231 |
 | 6 | Declared-keys boot; runtime version equal across environments | B | V234 |
 
-A fix is checked with `ci-graph.py --diff-guard "$FIX_BASE" --allow-job <file>:<job>`: a fix that changes `concurrency:`, `environment:`, `needs:` or `if:` outside the finding's job is rejected.
+A fix is checked with `ci-graph.py --diff-guard="$FIX_BASE" --allow-job=<file>:<job>` (the `=` forms: with a space, `--diff-guard` expects two files and exits 2): a fix that changes `concurrency:`, `environment:`, `needs:` or `if:` outside the finding's job is rejected.
 
 ## Output
 

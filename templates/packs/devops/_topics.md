@@ -73,6 +73,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [premise, when_to_use, args, what_happens, platform_mapping, halts, hard_rules, output, cross_references]
   fallback: commands/rollback-deploy.md   # no _examples/ stub — fall back to the live source
 
+- name: devops-audit
+  kind: command
+  triggers: { ci_or_dockerfile_detected: true }   # any CI file (six platforms), Dockerfile/Containerfile, compose file, render root, release config or GitOps object
+  extracts_from: _extracted-codebase.md § Deploy (CI files, deploy units, images, compose sets, render roots, release tooling)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/devops-audit.md   # the source IS the fallback, as for obs-audit and db-audit; the eight-detector dispatch, the judge hand-off, the fixed class ledger and the five GO-critical controls are the contract
+
+- name: devops-fix
+  kind: command
+  triggers: { ci_or_dockerfile_detected: true }
+  extracts_from: _extracted-codebase.md § Deploy (CI files, deploy units, images, compose sets)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/devops-fix.md   # the source IS the fallback, as for obs-fix and db-fix; a skeleton would drop the tier order, the diff guard, the weakening grep and the who-or-what-deploys STOP line
+
 - name: container-build-scan
   kind: skill
   triggers: { dockerfile_detected: true }   # Dockerfile*, *.dockerfile, Containerfile*, an ignore file, or a build invocation (CI build-push, compose build:, bake)

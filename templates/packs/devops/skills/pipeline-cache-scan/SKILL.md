@@ -66,7 +66,7 @@ A reusable workflow or composite action that builds the key is **one finding wit
 
 ## Pre-flight greps
 
-Run as **one** script from the repo root; bash 3.2, bash 5 and zsh print identical output. Grep **N** feeds **§N**; 0 is the inventory and the graph; R lists the security-routed rows. Every `rg` names its path; an rg exit 2 is a failed grep, never zero hits. File-level checks use `rg -l` / `rg -q`, never `rg -L` (that is `--follow`). `--hidden` is required for `.github`, `.gitlab` and `.circleci`.
+Run as **one** script from the repo root; bash 3.2, bash 5 and zsh print identical output. Grep **N** feeds **§N**; 0 is the inventory and the graph; R lists the security-routed rows. Every `rg` names its path; an rg exit 2 is a failed grep, never zero hits; in every rg call the include globs come first and the exclusion array last, because ripgrep lets the later `-g` win. File-level checks use `rg -l` / `rg -q`, never `rg -L` (that is `--follow`). `--hidden` is required for `.github`, `.gitlab` and `.circleci`.
 
 ```bash
 [ -n "${ZSH_VERSION:-}" ] && setopt shwordsplit nonomatch
@@ -82,7 +82,7 @@ SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/pipeline-cache.XXXXXX")}"; echo "SCAN
 G=.claude/scripts/ci-graph.py; [ -f "$G" ] || G="$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py"
 echo '# 0a CI files by platform; lockfiles the keys must hash'
 rg --files "${CI[@]}" . | tee "$SCAN/ci.txt"
-rg --files --hidden "${X[@]}" -g '{package-lock.json,npm-shrinkwrap.json,pnpm-lock.yaml,yarn.lock,bun.lock,bun.lockb,poetry.lock,uv.lock,Pipfile.lock,requirements*.txt,Gemfile.lock,go.sum,Cargo.lock,composer.lock,gradle.lockfile,*.gradle*,pom.xml,packages.lock.json,mix.lock,pubspec.lock,Podfile.lock}' . | sort | head -20
+rg --files --hidden -g '{package-lock.json,npm-shrinkwrap.json,pnpm-lock.yaml,yarn.lock,bun.lock,bun.lockb,poetry.lock,uv.lock,Pipfile.lock,requirements*.txt,Gemfile.lock,go.sum,Cargo.lock,composer.lock,gradle.lockfile,*.gradle*,pom.xml,packages.lock.json,mix.lock,pubspec.lock,Podfile.lock}' "${X[@]}" . | sort | head -20
 echo '# 0b graph (GitHub Actions): CACHE-KEY-NO-HASH, CACHE-NODE-MODULES, CACHE-PREFIX-SKIP-INSTALL; exit 2 = NOT-RUN, never clean'
 if rg -q '^\./\.github/workflows/' "$SCAN/ci.txt"; then python3 "$G" . --check=cache-keys; echo "ci-graph exit=$?"; else echo 'ci-graph: N/A (no GitHub workflow)'; fi
 cat > "$SCAN/cache.awk" <<'AWK'

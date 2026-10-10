@@ -139,14 +139,33 @@ fi
 - Print image size (`docker image inspect --format '{{.Size}}'`) **and** the layer breakdown from
   `docker history` — `docker image inspect` returns the config and a digest list with no per-layer
   sizes, so it cannot produce a breakdown. `dive` gives the same view interactively.
-- Tear down: `docker rm -f app-smoke`. Halt on healthcheck failure or root-user run.
+- **Stop timing (V231, `proof-oracles.md` § DevOps).** A container that ignores SIGTERM passes every
+  check above and still drops in-flight requests on every deploy: the runtime waits the grace period,
+  then SIGKILLs it. Read what PID 1 is, then time a stop on the running smoke container:
+
+  ```bash
+  docker exec app-smoke cat /proc/1/cmdline | tr '\0' ' '; echo        # node / python / the binary, not sh or npm
+  s=$(date +%s); docker stop -t 10 app-smoke; e=$(( $(date +%s) - s ))
+  echo "stop: ${e}s exit=$(docker inspect -f '{{.State.ExitCode}}' app-smoke)"
+  ```
+
+  PASS iff the stop takes under 10 s and the exit code is not 137. ~10 s with exit 137 means SIGTERM
+  never reached a handler: a shell-form `CMD`, `npm`/`pnpm` as PID 1, an entrypoint script without
+  `exec "$@"`, or an app with no SIGTERM handler (NestJS without `app.enableShutdownHooks()`, a Go
+  server without `signal.NotifyContext`, a Python worker with no `SIGTERM` handler or server-managed drain).
+  Halt and fix it here, in the Dockerfile you just generated (`container-build-scan` §2; the app's
+  handler is `deploy-safety-scan` §5). An alpine/busybox base that ends in one shell-form command
+  tail-execs it ([`precedents/devops.md`](../../../snippets/precedents/devops.md) § 35). Record the measured stop time in `ai/runbooks/docker.md`.
+- Tear down: `docker rm -f app-smoke`. Halt on healthcheck failure, root-user run, or a stop that
+  takes the full grace period.
 
 ## Phase 7 — Improve
 
 - **Image size is judged against a baseline, not an absolute.** A static Go binary in `scratch` is
   tens of MB; a Python image with a scientific stack is gigabytes, and neither number is a defect on
   its own. Record this build's size in `ai/runbooks/docker.md` as the baseline. What warrants
-  investigation is a **regression** against it (roughly: a jump with no dependency change) or a
+  investigation is a **regression** against it (a jump with no dependency change; `THR-IMAGE-GROWTH`
+  reads this baseline, `precedents/devops.md` § 39) or a
   `docker history` breakdown showing the *builder's* layers surviving into the runtime stage —
   that one is always a bug, at any size. Queue either to `ai/dynamic/learned-patterns.md`.
 - If a base-image swap (alpine → distroless, or musl → glibc forced by Phase 4 question 2) emerged
@@ -162,6 +181,7 @@ Files:
 
 container-build-scan: 0 findings  (§1–§10 checked; --check and hadolint ran; non-root, exec-form PID 1, frozen install, HEALTHCHECK binary present)
 Smoke test: PASS  (200 from $HEALTH_PATH on $PORT in 4.2s)
+Stop timing: PASS (PID 1 node; docker stop 0.2s, exit 0 — V231)
 
 Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 ```
@@ -171,7 +191,7 @@ Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 - `:latest` on the base image — non-reproducible; pin to digest or specific tag.
 - **An EOL base image.** `:latest` is the loud version of this; a pinned-but-unsupported major is the
   quiet one, and it passes every pin check in the pack while receiving no security patches.
-- Running as root — #1 container CVE amplifier; use `USER nonroot` or `USER node`.
+- Running as root — #1 container CVE amplifier; use a numeric `USER 10001`, the form Kubernetes `runAsNonRoot` can verify (`precedents/devops.md` § 37).
 - `COPY . .` before `npm install` — invalidates dep cache on every source change.
 - **Install-before-schema.** The mirror-image mistake: the dependency install (and its generate hook)
   runs before the file the generator reads has been copied, so the client is silently absent or

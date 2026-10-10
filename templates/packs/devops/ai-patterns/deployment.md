@@ -33,13 +33,13 @@ Zero-downtime. Reversible. Automated. No hand-edits on prod.
 ```
 PR merged to main
   ├─ CI: lint + typecheck + test + build
-  ├─ Build artifact (Docker image / bundle / binary)
-  ├─ Scan the artifact, THEN push to registry / artifact store
+  ├─ Build artifact ONCE (Docker image / bundle / binary) and record its digest
+  ├─ Scan THAT build, THEN push it by digest to registry / artifact store
   │    (scanning after publish gates the deploy, not the artifact)
-  ├─ Deploy to staging
+  ├─ Deploy to staging — by digest
   ├─ Smoke test staging (automated)
-  ├─ Manual approval (or tag-based) → promote to prod
-  ├─ Migrations run (backward-compatible)
+  ├─ Manual approval (or tag-based) → promote to prod: the SAME digest
+  ├─ Migration Job runs alone, waited on to completion (backward-compatible)
   ├─ Rolling deploy of app instances
   ├─ Health check → traffic shifts
   └─ Old instances terminated
@@ -80,6 +80,35 @@ that pack is installed.
 **Declare, per migration:** which of the three rows above it is, and — if it is a decomposition —
 which step of the sequence *this* PR is. A PR that says "expand-contract" without saying which step
 it contains is the one that ships expand and contract together.
+
+### Migration topology — who runs it, how many times, under which lock
+
+Ordering says *when* a migration runs relative to the code; topology says *who* runs it and *how many
+times*. A migration called at boot, or from an initContainer, runs once per pod, per restart and per
+scale-up — three replicas means three concurrent runs, and many runners take no cross-process lock
+(MikroORM 6.6.16 measured none on 2026-10-10: a data migration applied three times). The shape that
+runs it exactly once:
+
+```
+delete the previous migration Job (or ttlSecondsAfterFinished)   # a fixed-name Job is immutable: re-applying it fails
+apply the migration Job ALONE, with the new image digest
+kubectl wait --for=condition=complete job/<migrate> --timeout=<n>  # a failed migration stops the release here
+apply the rollout (Deployments), then wait on it
+```
+
+A platform release phase (Heroku `release:`, Fly `release_command`) or a runner lock with one leader
+is the same guarantee. Never apply the migration Job in the same `apply -k` as the Deployments: it
+races the rollout it must precede. `deploy-safety-scan` §1 audits this; the database pack's
+`migration-safety` judges the statements themselves.
+
+## Promotion is the same digest
+
+What prod runs is the digest that was built once, scanned, tested and run in staging — not a rebuild,
+not a re-tag. A rebuild "from the same commit" is a different artifact (a base image moved, a
+dependency resolved differently, a scanner that never saw it), and a tag is a pointer anyone with push
+rights can move. Promote with kustomize `images[].digest`, `crane copy <src>@<digest> <dst>`, or the
+platform's deploy-by-digest flag, and record the digest in the deploy ledger: it is also the rollback
+target (`release-integrity-scan` §4 and §7).
 
 ## Rollback
 
@@ -145,7 +174,8 @@ to carry into every task.
 - [ ] Liveness and readiness both declared, and distinct.
 - [ ] Container runs as non-root in the **final** stage.
 - [ ] Image built from a pinned base that is still receiving upstream security patches.
-- [ ] Deployed reference is immutable (digest or git SHA), so a rollback target exists.
+- [ ] Migration runs exactly once per release: one Job applied alone and waited on, a release phase, or a runner lock — never at boot or in an initContainer on more than one replica.
+- [ ] Deployed reference is the digest staging ran (not a rebuild, not a tag), so a rollback target exists.
 - [ ] CI green on lint, type, test, build, scan.
 
 ## Forbidden

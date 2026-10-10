@@ -70,7 +70,7 @@ Discover every release unit (pre-flight 0a–0d); never assume `.github/`, `rele
 
 ## Pre-flight
 
-Run as **one** script from the repo root (shell state does not survive between tool calls; bash 3.2 and zsh print the same rows). Grep **N** feeds **§N**; 0 is the inventory, the graph, the GitHub step table and the joined-line file. Every `rg` names its path; an rg exit 2 is a failed grep, never zero hits; `--hidden` is required for `.github`, `.gitlab-ci.yml` and `.changeset`. Nothing is written inside the repo, nothing is pushed or pulled: the graph, the step table and the joined lines go to `$SCAN`.
+Run as **one** script from the repo root (shell state does not survive between tool calls; bash 3.2 and zsh print the same rows). Grep **N** feeds **§N**; 0 is the inventory, the graph, the GitHub step table and the joined-line file. Every `rg` names its path; an rg exit 2 is a failed grep, never zero hits; in every rg call the include globs come first and the exclusion array last, because ripgrep lets the later `-g` win; `--hidden` is required for `.github`, `.gitlab-ci.yml` and `.changeset`. Nothing is written inside the repo, nothing is pushed or pulled: the graph, the step table and the joined lines go to `$SCAN`.
 
 ```bash
 X=(--hidden -g '!.git/**' -g '!**/node_modules/**' -g '!**/{dist,build,out,target,vendor,.venv,venv,__pycache__,coverage,.next,.turbo,generated}/**'
@@ -132,7 +132,7 @@ echo '# 1a release triggers (tag push, release published, GitLab tag pipelines, 
 rg -n --sort path --pcre2 "${CI[@]}" '^\s{4}tags\s*:|^\s{2}release\s*:|^\s*types\s*:\s*\[?\s*(published|released|created)\b|\bif\s*:\s*[\x27"]?\$CI_COMMIT_TAG\b|^\s*-\s*tags\s*$|\bbuildingTag\s*\(|\bwhen\s*\{\s*tag\b' . | "${NC[@]}" | tee "$SCAN/triggers.txt"
 cut -d: -f1 "$SCAN/triggers.txt" | sort -u | while IFS= read -r f; do rg -q --pcre2 'merge-base\s+--is-ancestor|branch\s+(-r\s+)?--contains|\bgithub\.event\.base_ref\b|\$CI_COMMIT_REF_PROTECTED\b' "$f" || echo "$f: NO-ANCESTRY-CHECK"; done
 echo '# 2 version sources: manifests, chart, release-please manifest, changesets pre mode, ldflags / VERSION build args, changelog head'
-rg -n --sort path --pcre2 "${X[@]}" -g '**/package.json' -g '**/pyproject.toml' -g '**/Cargo.toml' -g '**/Chart.yaml' -g '**/pubspec.yaml' '^\s{0,2}"version"\s*:\s*"[^"]+"|^\s*version\s*=\s*"[^"]+"|^(version|appVersion)\s*:\s*\S+' . | rg -v '"0\.0\.0"'
+rg -n --sort path --pcre2 -g '**/package.json' -g '**/pyproject.toml' -g '**/Cargo.toml' -g '**/Chart.yaml' -g '**/pubspec.yaml' "${X[@]}" '^\s{0,2}"version"\s*:\s*"[^"]+"|^\s*version\s*=\s*"[^"]+"|^(version|appVersion)\s*:\s*\S+' . | rg -v '"0\.0\.0"'
 rg -n --sort path --hidden -g '.release-please-manifest.json' -g '.changeset/pre.json' -g '!**/node_modules/**' '"[^"]+"\s*:\s*"[^"]+"' .
 L -e '-ldflags[^\n]*-X[^\n]*[Vv]ersion=|--build-arg\s+\w*VERSION\w*='
 rg --files . -g 'CHANGELOG.md' -g '!**/node_modules/**' | while IFS= read -r f; do rg -n -m1 --pcre2 '^#{1,3}\s*\[?v?\d+\.\d+\.\d+' "$f" | sed "s|^|$f:|"; done
@@ -143,8 +143,8 @@ L "$PUB" | tee "$SCAN/publish.txt"
 L '\bdocker\s+push\s+\S+:["\x27]?(\$\{?\{?\s*(env\.)?\w*(VERSION|TAG|ref_name|COMMIT_TAG)\w*|v?\d+\.\d+)|\bbuildx\s+build\b[^\n]*\s-t\s+\S+:["\x27]?\$\{?\w*(VERSION|TAG)\w*[^\n]*--push'
 echo '# 4a per-environment build inputs; 4b digest hand-off vs deploy by tag; 4c scans outside GitHub steps (by tag or by digest)'
 L -e '--build-arg\s+\w*(ENV|STAGE|PROFILE)\w*=|--build-arg\s+(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC)_\w+=|^[^:]+:\d+:\s+(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC)_\w+='
-rg -n --sort path --pcre2 "${X[@]}" -g '**/Dockerfile*' -g '**/*.dockerfile' -g '**/Containerfile*' '^\s*ARG\s+\w*(ENV|STAGE|PROFILE)\b|^\s*COPY\s+\S*\.env\.(prod|production|staging)\b' .
-echo "digest hand-off lines: $(L 'outputs\.digest\b|@sha256:|\bcrane\s+(copy|digest)\b|\bskopeo\s+copy\b|\boras\s+cp\b|\bimagetools\s+create\b' | wc -l | tr -d ' ') · kustomize digest: $(rg -c --pcre2 "${X[@]}" -g '**/kustomization.{yml,yaml}' '^\s+digest\s*:' . | wc -l | tr -d ' ') files · newTag (deploy by tag, security iac-scan 4j): $(rg -n --pcre2 "${X[@]}" -g '**/kustomization.{yml,yaml}' '^\s+newTag\s*:' . | wc -l | tr -d ' ')"
+rg -n --sort path --pcre2 -g '**/Dockerfile*' -g '**/*.dockerfile' -g '**/Containerfile*' "${X[@]}" '^\s*ARG\s+\w*(ENV|STAGE|PROFILE)\b|^\s*COPY\s+\S*\.env\.(prod|production|staging)\b' .
+echo "digest hand-off lines: $(L 'outputs\.digest\b|@sha256:|\bcrane\s+(copy|digest)\b|\bskopeo\s+copy\b|\boras\s+cp\b|\bimagetools\s+create\b' | wc -l | tr -d ' ') · kustomize digest: $(rg -c --pcre2 -g '**/kustomization.{yml,yaml}' "${X[@]}" '^\s+digest\s*:' . | wc -l | tr -d ' ') files · newTag (deploy by tag, security iac-scan 4j): $(rg -n --pcre2 -g '**/kustomization.{yml,yaml}' "${X[@]}" '^\s+newTag\s*:' . | wc -l | tr -d ' ')"
 L '\btrivy\b[^\n]*\bimage\b|\bgrype\s|\bdocker\s+scout\s+cves\b' | rg -v '^\./\.github/workflows/' | awk '{ print $0 (($0 ~ /@sha256|[Dd][Ii][Gg][Ee][Ss][Tt]/) ? "  ref=digest" : "  ref=TAG") }'
 echo '# 5a verify / sign / attest / attach, classified; 5b scanner and signer floors and pins (THR-SCANNER-FLOOR); 5c SBOM and provenance producers; 5d release assets with no checksum; 5e secret build args (routed)'
 L '\bcosign\s+(verify|sign|attest|attach)\b|\bgh\s+attestation\s+verify\b|\bslsa-verifier\b' | awk '{ b = $0; split(b, h, ":"); at = h[1] ":" h[2] ":"
@@ -171,7 +171,7 @@ rg -n --sort path -U --pcre2 "${CI[@]}" 'build-args\s*:[^\n]*\n(?:[ \t]{8,}[^\n]
 echo '# 6 release automation outside GitHub (GitHub rows are RELEASE-BOT in 0c)'
 L '\bsemantic-release\b|\brelease-please\b|\bchangeset\s+version\b' | rg -v '^\./\.github/workflows/'
 echo '# 7a retention that can delete N-1 (registry lifecycle, package cleanup, Helm history, artifact retention); 7b rollback units: what they redeploy'
-rg -n --sort path --pcre2 "${X[@]}" "${CI[@]}" "${SH[@]}" -g '*.{json,tf,yml,yaml}' -g '!**/package.json' '"countNumber"\s*:\s*[1-3]\b|\bcount_number\s*=\s*[1-3]\b|countMoreThan"?\s*:\s*[1-3]\b|\bmin-versions-to-keep\s*:\s*[0-3]\b|\bdelete-only-untagged-versions\s*:\s*true|\bdelete-untagged\b|--history-max[ =][01]\b|\bretention-days\s*:\s*1\b|\bkeep[-_]last\s*[:=]\s*[1-3]\b' . | "${NC[@]}"
+rg -n --sort path --pcre2 "${CI[@]}" "${SH[@]}" -g '*.{json,tf,yml,yaml}' "${X[@]}" -g '!**/package.json' '"countNumber"\s*:\s*[1-3]\b|\bcount_number\s*=\s*[1-3]\b|countMoreThan"?\s*:\s*[1-3]\b|\bmin-versions-to-keep\s*:\s*[0-3]\b|\bdelete-only-untagged-versions\s*:\s*true|\bdelete-untagged\b|--history-max[ =][01]\b|\bretention-days\s*:\s*1\b|\bkeep[-_]last\s*[:=]\s*[1-3]\b' . | "${NC[@]}"
 L '\brollout\s+undo\b|\bhelm\s+rollback\b|\bargocd\s+app\s+rollback\b|\bset\s+image\b[^\n]*(PREV|[Pp]revious|ROLLBACK)|^[^:]+:\d+:\s*-?-(to|rollback|previous)\)' | rg -v --pcre2 '\b(die|echo|printf|say|warn|fail)\s+["\x27]'
 rg --files "${CI[@]}" "${SH[@]}" . | rg -i 'rollback' | sed 's/$/: ROLLBACK-UNIT (read what it redeploys)/'
 ```
