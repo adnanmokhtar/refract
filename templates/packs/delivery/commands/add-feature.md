@@ -55,7 +55,7 @@ next:       the human (H4 merge) · /ship
 |---|---|---|
 | P1–P2 | `@product-analyst` (delivery) | T1: you write the P1-lite file; T2+: `UNREVIEWED(requirements)` → INCOMPLETE |
 | P1 check | `@requirements-reviewer` (delivery) | `UNREVIEWED(requirements)` → INCOMPLETE |
-| P3 | `@ux-designer` *(ui-ux, Phase 6)* — today the architect's UI slice; `@ux-reviewer` *(ui-ux)* reviews it | skip with `covered_by: design.md UI slice` |
+| P3 | `@ux-designer` *(ui-ux)* writes `ux.md`; `@ux-reviewer` *(ui-ux)* reviews it at P4 | the architect's UI slice in `design.md`; skip with `covered_by: design.md UI slice (P4)` |
 | P4–P5 | `@architect`, `@architecture-reviewer` (delivery) | `UNREVIEWED(architecture)` → INCOMPLETE |
 | P5 | `@test-engineer` (delivery), `@plan-critic` (delivery) | `UNREVIEWED(contract)` → INCOMPLETE |
 | P6 | `@implementer` (delivery) · doc-writer *(documentation)* | T2+: never yourself — BLOCKED |
@@ -132,11 +132,17 @@ deliberate parallel. Then `python3 .claude/scripts/trace-matrix.py <run-id> --ph
 
 ## P3 — UX (UI lanes, T2/T3)
 
-Until `@ux-designer` ships (Phase 6), the UI design lives in the lane skill's *Phase 2 design slice*
-that `@architect` writes into `design.md` — routes or screens, components, the state matrix
-(loading · empty · error · partial · permission · offline · stale, one row per `IF … THEN`
-clause), interface contracts, a11y and i18n notes. When the ui-ux pack is installed, `@ux-reviewer`
-reviews that slice in P4. Record `skips[]: {phase: P3, covered_by: "design.md UI slice (P4)"}`.
+**ui-ux pack installed:** dispatch `@ux-designer` (`run_id`). It writes `ai/runs/<run-id>/ux.md` —
+flows, the `## State matrix` (the `state-matrix` skill's design mode: a row per surface × state in
+`THR-UI-STATES`, each `n-a` with a reason or naming the story or test that will force it, one row per
+`IF … THEN` clause), interface contracts, a11y and i18n notes — and lints it before it returns:
+`python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --run=ai/runs/<run-id> --phase=design`.
+`NEEDS_INPUT` → ask the human; the architect then reads `ux.md` at P4.
+
+**Without it:** the UI design lives in the lane skill's *Phase 2 design slice* that `@architect`
+writes into `design.md`, with the same `## State matrix` section in the same format. Record
+`skips[]: {phase: P3, covered_by: "design.md UI slice (P4)"}`; the state-matrix lint is not installed,
+so G12's computational half reports `UNVERIFIED` for the run.
 
 ## P4 — Architecture (T2, T3)
 
@@ -148,7 +154,9 @@ per new primitive or dependency. Then:
 - `python3 .claude/scripts/risk-tier.py --run=<id> --files-from=ai/runs/<id>/design.md --write` —
   the predicted file set through `ai/risk-map.json` and the graph; a promotion re-opens phases.
 - `@architecture-reviewer` mode `design`; at T3 also `@security-auditor` on `threat-model.md`
-  (lens `security-threat-model`); `@ux-reviewer` on the UI slice when installed.
+  (lens `security-threat-model`); `@ux-reviewer` on `ux.md` or the UI slice when installed, after
+  `state-matrix-lint.py --run=ai/runs/<run-id> --phase=design` passes (a named, not-yet-written test
+  passes here; at the gate, G12 requires it to exist).
 - **Exit:** every binding constraint satisfied or waived with a reason (the mechanical gate the
   stack add-features always had) and no IMPORTANT finding standing.
 
@@ -250,7 +258,8 @@ cap at `THR-LOOP.review_rounds_max`; a fix re-runs only the lens that found it.
 2. **Accept.** Dispatch `@verifier` mode `acceptance` (`contract: ai/runs/<run-id>/acceptance.json`,
    holdouts at T3) → `verdict.json`.
 3. `python3 .claude/scripts/gate-check.py --local` — G0 lock intact, G1 acceptance fresh PASS, G2,
-   G3, G7 (lint, typecheck, standards, review), G14 behaviour (every baseline entry in the touched scope
+   G3, G7 (lint, typecheck, standards, review), G12 state-matrix on a UI run (every touched surface has
+   every state, each proof exists; shadow), G14 behaviour (every baseline entry in the touched scope
    re-run at HEAD; shadow), G15 signer ≠ author. G4 (performance entries, interleaved base/head) runs in CI.
 
 | `verdict.json` | Run |

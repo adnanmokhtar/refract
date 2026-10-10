@@ -49,7 +49,7 @@ That's it. Three escalation triggers. Everything else — style, error handling,
 - **Zero placeholders** in output. Every file has real content. No `<TODO>` comments.
 - **New npm dependency is gated** — a package no sibling already imports halts for a dependency review (maintenance / license / bundle-size / supply-chain) before it lands. No silent `npm install`, any tier. See Phase 4 § New-dependency gate.
 - **All relevant patterns consulted** — not just principles, specific pattern docs (`ai/patterns/forms.md`, `rendering-strategy.md`, `i18n.md`, etc.).
-- **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews (carrying the framework-specific lens — Vue/React/Svelte/etc.); `accessibility-auditor` audits; `i18n-auditor` if i18n in scope.
+- **All applicable agents dispatched** — `ui-architect` designs; `ui-reviewer` reviews (carrying the framework-specific lens — Vue/React/Svelte/etc.); `@ux-reviewer` *(ui-ux pack)* judges WCAG and UI states, with `@accessibility-auditor` as the fallback when ui-ux is not installed; `i18n-auditor` if i18n in scope.
 - **Signal-aware** — RTL locale detected → RTL audit fires. SSR detected → ssr-safety pattern consulted. Multi-theme detected → `@design-system-guardian` *(ui-ux pack)* audits, or — when that pack is absent — the theme lane is reported `UNREVIEWED(theme) — design-system-guardian not installed (ui-ux pack)` and the run is INCOMPLETE; it is never self-graded.
 - **Zero unverified UI ships.** Real Playwright/Cypress test or, at minimum, manual checklist with screenshots.
 - **Accessibility from the start, not retrofitted.** WCAG 2.2 AA is the floor.
@@ -90,7 +90,7 @@ Before anything else, parse the user's description for **enhancement / fix / bug
 | "enhance" / "improve" / "polish" / "cleaner" / "better look" / "refine the design" / "redesign" / "match colors" / "fix padding" | `/enhance-ui` *(ui-ux pack)* | Halt; suggest `/enhance-ui <description>` — or `/polish` (core) if ui-ux is not installed |
 | "align" / "convention" / "drift" / "cleanup" / "remove duplication" | `/align-recheck` *(align pack)* | Halt; suggest `/align-recheck <description>` — or `/align` (core) if that pack is not installed |
 | "fix" + ("bug" / "broken" / "wrong" / "crash" / "error") — when the issue is incorrect behavior, NOT visual polish | `/fix-bug` | Halt; suggest `/fix-bug <description>` |
-| "audit" / "review" / "inspect" — without intent to change code | `/a11y-audit` + `/i18n-audit` (this pack); `/design-review` *(ui-ux pack)* | Halt; suggest the right read-only audit |
+| "audit" / "review" / "inspect" — without intent to change code | `/frontend-audit` (this pack; `/a11y-audit` and `/i18n-audit` are its presets), then `/frontend-fix` to close what it finds; `/design-review` *(ui-ux pack)* | Halt; suggest the right read-only audit |
 | "iterate" / "try variants" / "few options" — visual exploration | `design-iterate` skill *(ui-ux pack)* | Halt; suggest "use design-iterate skill on <path>" — absent that pack, `/polish` (core) |
 | "add" / "new" / "create" / "build" / "implement" — actually adding new feature work | `/add-feature` (the delivery run) | Proceed |
 
@@ -139,7 +139,7 @@ Otherwise default to the project's prior conventions (read `ai/business-domain.m
 
 ## Phase 2 — Organize: the frontend design slice (run P4 — @architect writes it into design.md)
 
-`@architect` writes this slice into `design.md` (dispatching `ui-architect` for it when the frontend pack is installed). Shape:
+`@architect` writes this slice into `design.md` (dispatching `ui-architect` for it when the frontend pack is installed). When the ui-ux pack is installed, `@ux-designer` has already written the flows and the state matrix into `ux.md` at P3: the architect reads them and leaves `## State matrix` out of this slice. Without ui-ux, the slice carries it, written in the `state-matrix` format (a row per surface × `THR-UI-STATES` state, `n-a` with a reason or the story or test that will force it). Shape:
 
 ```
 ## Feature: <name>
@@ -192,7 +192,21 @@ Otherwise default to the project's prior conventions (read `ai/business-domain.m
 
 ### Open questions
 <anything you had to assume — flag for the user>
+
+## State matrix
+Surfaces:
+- `new-order` — app/orders/new/page.tsx, components/orders/OrderForm.tsx
+
+| Surface | State | Source | Expected (message · action · focus) | Proof |
+|---|---|---|---|---|
+| new-order | loading | AC-001 | product picker skeleton, aria-busy · — · — | components/orders/OrderForm.stories.tsx#Loading |
+| new-order | error | AC-003 | "Couldn't load products" · Retry · focus on Retry | e2e/orders/new.e2e.ts::products error shows retry |
+| new-order | pending-submit | AC-004 | "Placing order…" · submit disabled · inputs kept on 500 | components/orders/OrderForm.test.tsx::one order per double click |
+| new-order | offline | n-a | n-a — <why this state cannot occur on this surface> | — |
+<one row per required state; the conditional states the surface has>
 ```
+
+The `## State matrix` heading is an h2 on purpose: `state-matrix-lint.py` reads the first `## State matrix` section of `ux.md`, else `design.md`. Lint it before P4 closes (`--phase=design`: a named, not-yet-written test passes) — and gate G12 lints it again at P12, when every proof must exist.
 
 ## Phase 3 — Retrieve (run P6 — read before each task)
 
@@ -231,8 +245,8 @@ For each component / page / route in the design:
 Lens set for this lane at P10 (gated by run tier; the orchestrator dispatches them in its one parallel fan-out):
 
 - **T1:** `@ui-reviewer` only — convention adherence, prop types, no business logic in templates. The sibling-shape halt below is the primary gate.
-- **T2:** add `@i18n-auditor` (if i18n in scope) and `@accessibility-auditor`.
-- **T3:** the full cascade — `@ui-reviewer`, `@accessibility-auditor`, `@i18n-auditor`, `@design-system-guardian`, `@security-auditor` (if auth/payment in scope — which the Phase 1 data-sensitivity gate guarantees is reachable: a sensitive surface promotes to T3 on data grounds, so it can no longer be T1 by virtue of mirroring a sibling). Run in parallel. `@ui-reviewer` carries the framework-specific lens (Vue/React/Svelte/etc.) — there is no separate per-framework reviewer agent.
+- **T2:** add `@i18n-auditor` (if i18n in scope) and `@ux-reviewer` *(ui-ux pack)* for WCAG and UI states — `@accessibility-auditor` when ui-ux is not installed.
+- **T3:** the full cascade — `@ui-reviewer`, `@ux-reviewer` (fallback `@accessibility-auditor`), `@i18n-auditor`, `@design-system-guardian`, `@security-auditor` (if auth/payment in scope — which the Phase 1 data-sensitivity gate guarantees is reachable: a sensitive surface promotes to T3 on data grounds, so it can no longer be T1 by virtue of mirroring a sibling). Run in parallel. `@ui-reviewer` carries the framework-specific lens (Vue/React/Svelte/etc.) — there is no separate per-framework reviewer agent.
 
 If a named **agent, command, or skill** is not installed in this project, that lane is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Label it `UNREVIEWED(<axis>) — <name> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`) — never silently skip the axis, never claim a reviewer that did not run, and never halt into a redirect target the project does not have.
 
@@ -290,7 +304,8 @@ The same `Spec: <Spec-ID>` line belongs in the PR description on every tier, so 
 - Bundle-size delta acceptable — measured with the `bundle-analyze` skill (in-pack; it is a skill, not an agent). No analyzer available → report the delta as `bundle: unmeasured`, never as `acceptable`.
 - **Navigation-speed / streaming / instant-loading MUSTs verified** on every new route (frontend-principles, not optional) — via the `navigation-speed` (prefetch / Speculation Rules / bfcache / View Transitions), `streaming-ssr` (stream-the-shell boundary scan), and `lcp-audit` (LCP-resource priority hints) skills; field INP via `web-vitals-field` (authoritative; lab INP is a proxy) with per-interaction budget from the `inp-responsiveness` pattern. Framework specifics come from `references/<framework>.md` + these skills — keep this stack-agnostic. A missing MUST HALTs (see Spec-conformance gate).
 - **SEO + asset MUSTs verified** on every new PUBLIC route (frontend-principles, not optional) — unique metadata + self-referencing canonical + OG/Twitter + page-appropriate JSON-LD via the project's own primitive, reciprocal `hreflang` for localized routes, and SSR/SSG/prerender (never CSR-only) — via `seo-audit` + `@technical-seo`; content images via `image-optimization` (format / responsive / dimensions-CLS / lazy-below-fold); web fonts via `font-optimization` (font-display / self-host / size-adjust fallback). A missing MUST on a public route HALTs. Admin/authenticated-only routes report `seo: n/a` explicitly.
-- A11y automated check passes (axe, Lighthouse a11y category ≥95).
+- A11y automated check passes: `a11y-scan` §1 on every touched route-state, diffed against the baseline — no new serious or critical violation (`THR-A11Y.axe_gate`, gate G9). A Lighthouse accessibility score is not axe and not conformance; it is never the gate.
+- **State matrix (G12):** `python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --run=ai/runs/<run_id> --base=<merge-base>` — every touched surface has every required state, and every cited story or test exists (ui-ux pack; `gate-check.py` runs the same lint as `G12 state-matrix`). Without ui-ux: `UNREVIEWED(states) — state-matrix not installed (ui-ux pack)`.
 - Locale completeness — no missing keys for declared locales.
 - **Live browser verification (default for any user-visible feature):**
   1. `dev-server-start` skill — boot the running app (idempotent; reuses already-running server).
@@ -362,5 +377,5 @@ If a named agent, command, or skill (`@accessibility-auditor`, `@i18n-auditor`, 
 ## Related
 
 - `/add-page` · `/add-component` · `/add-crud-page` (frontend pack) — the leaf commands; a task may call them with the dispatch contract of `lane-backend` § Dispatch contract.
-- `/i18n-audit` + `/a11y-audit` (frontend pack) — standalone audits of what this lane validates.
+- `/frontend-audit` (frontend pack; `/a11y-audit` and `/i18n-audit` are its presets) — the standalone read-only audit of what this lane validates; `/frontend-fix` closes its findings failing-first.
 - `lane-backend` — the counterpart for the API a UI task consumes; cross-stack runs carry both lanes.

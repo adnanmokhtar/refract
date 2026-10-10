@@ -17,9 +17,10 @@
     },
     {
       "title": "Security",
-      "description": "OWASP-aligned scanners — secrets in history, dependency advisories, SSRF egress sinks — plus STRIDE threat modelling.",
+      "description": "OWASP-aligned scanners — secrets in history, dependency advisories, SSRF egress sinks, the on-device mobile lane — plus STRIDE threat modelling.",
       "skills": [
         "deps-audit",
+        "mobile-security-scan",
         "secret-scan",
         "ssrf-scan",
         "threat-model"
@@ -147,17 +148,23 @@
     },
     {
       "title": "Frontend",
-      "description": "Core Web Vitals scanners (LCP, images, fonts, SEO, hydration, navigation), bundle analysis, and Playwright-driven verification.",
+      "description": "Code-first detectors for WCAG source defects, UI request races, routing, i18n and render correctness, plus Core Web Vitals scanners (LCP, critical path, images, fonts, SEO, SSR, navigation), bundle analysis and live Playwright verification. /frontend-audit runs them; /frontend-fix closes what they find.",
       "skills": [
+        "a11y-code-scan",
         "a11y-scan",
         "bundle-analyze",
+        "client-data-scan",
         "component-playground",
+        "critical-path-scan",
         "dev-server-start",
         "font-optimization",
+        "i18n-scan",
         "image-optimization",
         "lcp-audit",
         "lighthouse-ci",
         "navigation-speed",
+        "render-correctness-scan",
+        "routing-scan",
         "seo-audit",
         "ssr-audit",
         "streaming-ssr",
@@ -188,11 +195,16 @@
     },
     {
       "title": "Mobile",
-      "description": "App-size classes, JS-to-native bridge auditing, and platform conventions (edge-to-edge, predictive back, iOS / Material drift).",
+      "description": "Native accessibility, lifecycle (process death, permissions, push, OTA), render and startup cost, offline sync, the dated store gates, app size, bridge auditing and platform conventions. /mobile-audit runs them; /mobile-fix closes what they find.",
       "skills": [
         "app-size-scan",
+        "mobile-a11y-scan",
+        "mobile-lifecycle-scan",
+        "mobile-perf-scan",
         "native-bridge-audit",
-        "platform-conventions-audit"
+        "offline-sync-scan",
+        "platform-conventions-audit",
+        "store-compliance-scan"
       ]
     },
     {
@@ -216,13 +228,16 @@
     },
     {
       "title": "UI/UX",
-      "description": "Design-token drift, motion and reduced-motion auditing, a fast a11y pass, and the 19-verb UI design sweep.",
+      "description": "UI-state coverage and the state matrix behind gate G12, design-token drift, motion and reduced-motion, chart encoding, a fast a11y pass, and the 19-verb closure vocabulary.",
       "skills": [
         "a11y-quick-check",
+        "chart-encoding-audit",
         "design-iterate",
         "design-token-audit",
         "motion-audit",
-        "ui-design-sweep"
+        "state-matrix",
+        "ui-design-sweep",
+        "ui-state-scan"
       ]
     }
   ]

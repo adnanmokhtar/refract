@@ -25,17 +25,17 @@ Folder shape and per-pack metadata are documented in `templates/packs/README.md`
 | `distributed-systems` | — | message buses (Kafka, NATS, RabbitMQ), service mesh, multi-service repos | Service boundaries, resilience |
 | `documentation` | always | every project | Docs structure, ADR conventions, runbooks |
 | `finops` | — | infrastructure-as-code (`*.tf`, `terraform/`, `pulumi/`, `infra/`, `cdk.json`, `Pulumi.yaml`), infracost config | Cost as a reviewed engineering dimension — unit economics, spend attribution, commitment posture, guardrails, diff-time cost lens |
-| `frontend` | — | React, Vue, Angular, Svelte, mobile UI frameworks | Client-side application work |
+| `frontend` | — | React, Vue, Angular, Svelte, mobile UI frameworks | Client-side application work — code-first detectors (source WCAG, render correctness, SSR, client data, routing, i18n, critical path, bundle) run by the read-only `/frontend-audit` (`/a11y-audit` and `/i18n-audit` are its presets) and closed failing-first by `/frontend-fix` |
 | `infrastructure` | — | terraform, pulumi, cloudformation, helm | Cloud / on-prem infra patterns |
 | `learning` | always | every project | Continuous-learning loop (corrections, decisions-pending, failure catalog) |
 | `migration` | — | parallel V1+V2 directories, `legacy/`+`new/` folders, version-suffixed module trees, dual-app workspaces with `-v2`/`-next`/`-new` suffixes, README mentions of V1→V2 / legacy migration | Per-feature V1→V2 port with parity guarantees + migration-time perf uplift |
-| `mobile` | — | iOS / Android / React-Native / Flutter / Expo | Mobile-specific patterns + release flow |
+| `mobile` | — | iOS / Android / React-Native / Flutter / Expo | Mobile-specific patterns + release flow — lifecycle, native a11y, render and startup cost, offline sync, store gates, app size, bridge and platform detectors run by the read-only `/mobile-audit` and closed on a device by `/mobile-fix`; on-device security is the security pack's `mobile-security-scan` |
 | `observability` | — | OpenTelemetry, Datadog, Sentry, Prometheus | Logs, metrics, traces, alerts |
 | `performance` | — | bottleneck-shaped tickets, profiling tooling, large datasets | Profiling, optimization patterns |
 | `product` | — | product artifacts a team maintains: `ai/product/`, `docs/prd/`, `docs/product/`, `ai/roadmap.md`, `ai/users-and-personas.md`, `ai/project-goals.md`, root `PRD.md`/`ROADMAP.md` | Decide what to build and why — evidence-labelled problem framing, falsifiable requirements, research synthesis, launches that can be judged |
 | `security` | always | every project | OWASP-aligned rules, threat-model patterns |
 | `testing` | — | test/ folders, vitest/jest/pytest/rspec/junit, e2e tooling | Unit / integration / e2e patterns + factories |
-| `ui-ux` | — | any project with a UI surface — **web OR mobile**. A UI library or `.storybook/` is the strong signal; otherwise any detected `frontend` **or** `mobile` stack adds it, because tokens, spacing and type scales, states, contrast and text direction are not web-only. Gating this behind `frontend` alone excluded every Flutter / React-Native / Expo app and contradicted the pack's own commands, which declare "frontend / mobile only" | Visual + interaction conventions |
+| `ui-ux` | — | any project with a UI surface — **web OR mobile**. A UI library or `.storybook/` is the strong signal; otherwise any detected `frontend` **or** `mobile` stack adds it, because tokens, spacing and type scales, states, contrast and text direction are not web-only. Gating this behind `frontend` alone excluded every Flutter / React-Native / Expo app and contradicted the pack's own commands, which declare "frontend / mobile only" | Visual + interaction conventions — @ux-reviewer judges WCAG and UI states, web and native; @ux-designer writes the delivery run's P3 `ux.md`; `ui-state-scan` + `state-matrix` back gate G12 |
 
 **Always-applied** tracks: `delivery`, `code-quality`, `documentation`, `learning`, `security`. They are added to `selected_tracks` even when no signal is detected — they're the base substrate every project benefits from.
 

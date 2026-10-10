@@ -82,7 +82,7 @@ Each JSON finding carries `RuleID`, `Description`, `File`, `StartLine`, `Commit`
 
 ## What to look for
 
-- Anthropic / OpenAI / Gemini: `sk-ant-`, `sk-`, `AIza`
+- Anthropic / OpenAI / Gemini: `sk-ant-`, `sk-`, `AIza` (a Gemini Developer API key; most `AIza…` keys are Firebase project identifiers — § False positives)
 - Stripe: `sk_live_`, `pk_live_`, `whsec_`
 - AWS: `AKIA[0-9A-Z]{16}`, `aws_secret_access_key`
 - GitHub: `ghp_` (classic PAT), `github_pat_` (fine-grained PAT), `gho_` / `ghs_` / `ghu_` (OAuth/app tokens)
@@ -132,6 +132,7 @@ Next: hand BLOCKERS to `/secret-scan` for the rotation playbook + history scrub.
   paths = ['''(^|/)(test|tests|__tests__|e2e|__mocks__|mocks|fixtures)/''', '''\.(spec|test|e2e-spec|mock)\.[cm]?[jt]sx?$''']
   ```
   **Measured on a real repo** (a NestJS + React monorepo; gitleaks 8.30.1): together with the repo's own image-tag allow-list, this cut the tree scan from 46 hits to 7 and full history from 50 to 12. The one provider-prefixed key in a test file was still reported. Keep the allow-list narrow, as that repo's own is: one rule, a pattern, a reason in the comment. Never disable a rule to quiet a path.
+- **Firebase `AIza…` keys are not secrets.** In `google-services.json`, `GoogleService-Info.plist` (`API_KEY`), a Firebase web config or a Flutter `firebase_options.dart`, the `AIza…` value identifies the project and ships in every client by design; gitleaks' `gcp-api-key` rule still matches it. Classify it as an identifier ([`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) § 44): the controls are the key's API restrictions and App Check, not rotation. The exception is a **Gemini Developer API key** — an `AIza…` passed to `GenerativeModel(apiKey:)` or a Generative Language API client — which bills to the project and is critical. Allow-list a Firebase config file by path for that one rule, with the reason in the comment.
 - Generated JWTs in tests look like real tokens; the body is base64 — entropy scanners flag them.
 - Long config values (a 200-char URL, a lockfile integrity hash) trip entropy detection — review context.
 - `git filter-repo` rewrites history — every collaborator must re-clone or hard-reset to the new history.

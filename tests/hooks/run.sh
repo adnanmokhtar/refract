@@ -536,6 +536,33 @@ run_gate_check() {
   gc_ok "$(python3 -c 'import json,sys,glob; print(json.load(open(glob.glob(sys.argv[1]+"/.claude/evidence/*/G1-tests.json")[0]))["tool"])' "$p")" \
     "test-lane.sh verified" "green-lane-run-is-accepted"
 
+  # G12: the ui-ux pack's state-matrix-lint.py over each run in the change. A UI run with no lint
+  # installed is UNVERIFIED (never N-A, never PASS); a T2 UI run with no matrix FAILs, recorded in
+  # shadow and blocking only in block mode; a complete matrix whose proof exists PASSes.
+  p="$work/g12-ui-run"; gc_project "$p"
+  mkdir -p "$p/ai/runs/r1" "$p/src/orders"
+  printf '{"tier": "T2", "lanes": ["frontend"]}\n' > "$p/ai/runs/r1/run.json"
+  printf '# Design\n\n## Components\n' > "$p/ai/runs/r1/design.md"
+  printf 'export function OrdersPage() {}\n' > "$p/src/orders/OrdersPage.tsx"
+  rc=0; gc_run "$p" --local --only=G12 >/dev/null || rc=$?
+  gc_ok "$rc/$(verdict "$p" G12-state-matrix)" "0/UNVERIFIED" "G12-ui-run-without-the-lint-is-unverified"
+  mkdir -p "$p/.claude/skills/state-matrix/scripts"
+  cp "$REPO_ROOT/templates/packs/ui-ux/skills/state-matrix/scripts/state-matrix-lint.py" "$p/.claude/skills/state-matrix/scripts/"
+  rc=0; gc_run "$p" --local --only=G12 >/dev/null || rc=$?
+  gc_ok "$rc/$(verdict "$p" G12-state-matrix)/$(rules "$p" G12-state-matrix)" "0/FAIL/no-matrix@ai/runs/r1/design.md:None" "G12-ui-run-with-no-matrix-fails-in-shadow"
+  rc=0; gc_run "$p" --local --only=G12 --mode=block >/dev/null || rc=$?
+  gc_ok "$rc" 2 "G12-blocks-in-block-mode"
+  printf 'export const Loading = {}\n' > "$p/src/orders/OrdersPage.stories.tsx"
+  { printf '# Design\n\n## State matrix\n\nSurfaces:\n- `orders-list` — src/orders/OrdersPage.tsx\n\n'
+    printf '| Surface | State | Source | Expected | Proof |\n|---|---|---|---|---|\n'
+    printf '| orders-list | loading | AC-001 | skeleton rows, aria-busy | src/orders/OrdersPage.stories.tsx#Loading |\n'
+    for st in empty error partial permission offline stale; do
+      printf '| orders-list | %s | n-a | n-a — a fixed seed list served from memory | — |\n' "$st"
+    done
+    printf '\n## Components\n'; } > "$p/ai/runs/r1/design.md"
+  gc_run "$p" --local --only=G12 >/dev/null
+  gc_ok "$(verdict "$p" G12-state-matrix)" "PASS" "G12-complete-matrix-passes"
+
   # Every record written above must be the shape the schema promises (a subset validator: the
   # keywords evidence.schema.json uses — type, enum, const, required, properties,
   # additionalProperties, items, pattern, minimum).

@@ -119,7 +119,7 @@ For tools without native parallel sub-agent dispatch (Kimi, Aider, Codex, OpenCo
 | `align-parallel.sh` | `/align` | `ai/align/ledger.md` |
 | `optimize-parallel.sh` | `/optimize` | `ai/optimize/ledger.md` |
 | `polish-parallel.sh` | `/polish` | `ai/polish/ledger.md` |
-| `audit-parallel.sh --pack=<name>` | `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/db-audit`, `/ui-sweep` | `ai/<pack>/ledger.md` |
+| `audit-parallel.sh --pack=<name>` | `/security-audit`, `/perf-audit`, `/db-audit`, `/ui-sweep`; `--pack=frontend` (aliases `i18n`, `a11y`) for `/frontend-audit` and its `/i18n-audit`, `/a11y-audit` presets, closed the `/frontend-fix` way | `ai/<pack>/ledger.md`; `frontend` has no default (its report is dated) — `--ledger=` is required |
 | `unify-surfaces-parallel.sh` *(planned)* | `/unify-surfaces` | `ai/unify-surfaces/progress.md` (per-category fan-out — buttons / headers / tabs / forms / tables / filters / validation; respects category dependency edges) |
 
 Tool support (per `_parallel-tool-config.sh`): kimi, qwen, aider, opencode, codex, claude. Adding a new tool = one function in the config file. Adapter responsibility: ensure the chosen tool ships a headless / non-interactive invocation flag (verified per-tool: `kimi --headless --prompt`, `qwen -p`, `aider --message --no-stream --yes`, `opencode run`, `codex exec`, `claude --print`).

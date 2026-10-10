@@ -278,7 +278,7 @@ Align dispatches detectors from other packs at scan time:
 | `deps-audit` skill | `security/skills/` | security (vuln-deps subclass) |
 | `accessibility-auditor` agent | `frontend/agents/` | a11y (frontend stacks) |
 | `i18n-auditor` agent | `frontend/agents/` | i18n (frontend stacks) |
-| `data-flow-auditor` agent | `frontend/agents/` | UI state coverage (frontend stacks) |
+| `ui-state-scan` skill | `ui-ux/skills/` | UI state coverage (frontend stacks; ui-ux pack, when installed) |
 | `design-token-audit` skill | `ui-ux/skills/` | design-token drift (frontend stacks) |
 | `motion-audit` skill | `ui-ux/skills/` | motion drift (frontend stacks) |
 

@@ -12,12 +12,13 @@
       "note": "query-optimizer's knowledge is fix guidance for this class, not a second detector"
     },
     "wcag": {
-      "detector": "frontend/skills/a11y-scan (axe)",
-      "owner": "ui-ux/agents/ux-reviewer",
-      "fixer": "/a11y-audit → implementer",
-      "fallback": "frontend/agents/accessibility-auditor",
+      "detector": "frontend/skills/a11y-code-scan (source) · frontend/skills/a11y-scan (axe at route-state; THR-A11Y.axe_gate, gate G9) · mobile/skills/mobile-a11y-scan (native)",
+      "owner": "ui-ux/agents/ux-reviewer (the one WCAG judge, web and native)",
+      "fixer": "/frontend-fix (frontend) · /mobile-fix (mobile); contrast, focus ring and tap target through ui-design-sweep verbs 12, 13 and 16 (/polish, /enhance-ui); the implementer applies",
+      "fallback": "frontend/agents/accessibility-auditor when ui-ux is not installed; native screens: the verifier judges mobile-a11y-scan's rows",
       "pack": "ui-ux",
-      "target": "ux-reviewer"
+      "target": "ux-reviewer",
+      "note": "one class, three detectors: mobile-a11y is the native half of this row, not a second owner"
     },
     "tenant-leak": {
       "detector": "security/skills/data-exposure-scan · security/skills/logic-race-scan",
@@ -106,6 +107,151 @@
       "fallback": "UNREVIEWED(acceptance) ⇒ INCOMPLETE — never self-graded",
       "pack": "repo-baseline",
       "target": "verifier"
+    },
+    "ui-states": {
+      "detector": "ui-ux/skills/ui-state-scan · ui-ux/skills/state-matrix (state-matrix-lint.py, gate G12 state-matrix; vocabulary THR-UI-STATES)",
+      "owner": "ui-ux/agents/ux-reviewer (signs G12's inferential half)",
+      "fixer": "/frontend-fix · /mobile-fix (the missing branch, failing first); the visual treatment through ui-design-sweep verbs 9–11 (/polish, /enhance-ui)",
+      "fallback": "UNREVIEWED(states) — ux-reviewer not installed (ui-ux pack); the lint still runs when the skill is installed",
+      "pack": "ui-ux",
+      "target": "ux-reviewer",
+      "note": "the matrix is written at P3 by ui-ux/agents/ux-designer (design.md UI slice by the architect without it)"
+    },
+    "client-data": {
+      "detector": "frontend/skills/client-data-scan",
+      "owner": "frontend/agents/data-flow-auditor (judges and ranks)",
+      "fixer": "/frontend-fix; a server-side cause → /db-fix or /perf-fix; a cross-user cache leak → /security-fix",
+      "fallback": "client-data-scan's own report, verified by the verifier",
+      "pack": "frontend",
+      "target": "code-reviewer (frontend lens)",
+      "note": "owns optimistic rollback (CD-05) and UI request races across renders (§3); code-quality correctness-smell-scan §3 keeps the single-effect case"
+    },
+    "routing": {
+      "detector": "frontend/skills/routing-scan",
+      "owner": "frontend/agents/ui-reviewer",
+      "fixer": "/frontend-fix (a path, param, redirect target or public status code is a stop-and-ask change)",
+      "fallback": "routing-scan's own report, verified by the verifier",
+      "pack": "frontend",
+      "target": "code-reviewer (frontend lens)",
+      "note": "navigation-speed keeps hard reloads and scroll restoration; a11y-code-scan keeps route-change focus"
+    },
+    "i18n-completeness": {
+      "detector": "frontend/skills/i18n-scan (+ catalog-parity.py)",
+      "owner": "frontend/agents/i18n-auditor",
+      "fixer": "/frontend-fix (non-source locales are the translators' call — stop and ask)",
+      "fallback": "i18n-scan's own report, verified by the verifier",
+      "pack": "frontend",
+      "target": "ux-reviewer",
+      "note": "/i18n-audit is /frontend-audit --classes=i18n; correctness-smell-scan §6 keeps clock and zone arithmetic, i18n-scan §4 the presentation formatting"
+    },
+    "seo": {
+      "detector": "frontend/skills/seo-audit (seo-head.py on server HTML)",
+      "owner": "frontend/agents/technical-seo",
+      "fixer": "/frontend-fix (SEO row); a canonical or public status change is stop-and-ask",
+      "fallback": "seo-audit's own report, verified by the verifier",
+      "pack": "frontend",
+      "target": "growth-reviewer"
+    },
+    "design-tokens": {
+      "detector": "ui-ux/skills/design-token-audit",
+      "owner": "ui-ux/agents/design-system-guardian",
+      "fixer": "by remedy: ui-design-sweep verbs 1–2 (/polish, /enhance-ui) · /align once the token exists · /unify-surfaces for a wrapper",
+      "fallback": "design-token-audit's own report; ui-reviewer detects and routes",
+      "pack": "ui-ux",
+      "target": "ux-reviewer"
+    },
+    "motion": {
+      "detector": "ui-ux/skills/motion-audit",
+      "owner": "ui-ux/agents/ux-reviewer (grades 2.2.2 from its coverage block)",
+      "fixer": "ui-design-sweep through /polish or /enhance-ui (motion-drift)",
+      "fallback": "motion-audit's own report",
+      "pack": "ui-ux",
+      "target": "ux-reviewer"
+    },
+    "chart-encoding": {
+      "detector": "ui-ux/skills/chart-encoding-audit",
+      "owner": "ui-ux/agents/ux-reviewer",
+      "fixer": "the implementer at the chart; a data ramp as tokens → ui-ux/agents/design-system-architect",
+      "fallback": "chart-encoding-audit's own report",
+      "pack": "ui-ux",
+      "target": "ux-reviewer"
+    },
+    "mobile-lifecycle": {
+      "detector": "mobile/skills/mobile-lifecycle-scan · mobile/skills/device-harness (D-tier oracles)",
+      "owner": "repo-baseline/.claude/agents/verifier (judges /mobile-audit's Lifecycle row)",
+      "fixer": "/mobile-fix",
+      "fallback": "mobile-lifecycle-scan's own report",
+      "pack": "mobile",
+      "target": "code-reviewer (mobile lens)",
+      "note": "durability of queued writes is offline-sync's; a purpose string that changes the store answer is store-compliance's"
+    },
+    "mobile-perf": {
+      "detector": "mobile/skills/mobile-perf-scan (existence) · mobile/skills/device-harness (cost on a named device)",
+      "owner": "mobile/agents/device-performance-auditor (judge; runs mobile-perf-scan and device-harness itself, measures and ranks)",
+      "fixer": "/mobile-fix; the cost proof is re-measured by device-performance-auditor",
+      "fallback": "the verifier judges mobile-perf-scan's rows; cost: not measured",
+      "pack": "mobile",
+      "target": "performance-reviewer"
+    },
+    "mobile-a11y": {
+      "detector": "mobile/skills/mobile-a11y-scan",
+      "owner": "ui-ux/agents/ux-reviewer",
+      "fixer": "/mobile-fix",
+      "fallback": "repo-baseline/.claude/agents/verifier when ui-ux is not installed",
+      "pack": "mobile",
+      "target": "ux-reviewer",
+      "note": "the native half of wcag (same owner); platform-conventions-audit keeps platform conventions only"
+    },
+    "offline-sync": {
+      "detector": "mobile/skills/offline-sync-scan",
+      "owner": "mobile/agents/offline-sync-auditor (judge)",
+      "fixer": "/mobile-fix; server-side idempotency → backend (api-architect) when installed",
+      "fallback": "offline-sync-scan's own report, durability capped at unproven",
+      "pack": "mobile",
+      "target": "code-reviewer (mobile lens)"
+    },
+    "store-compliance": {
+      "detector": "mobile/skills/store-compliance-scan (the one dated store-gate table)",
+      "owner": "mobile/agents/app-store-reviewer (judge)",
+      "fixer": "/mobile-fix (config and code); wording, metadata and review notes stay with the human",
+      "fallback": "store-compliance-scan's own report (release-blocker axis)",
+      "pack": "mobile",
+      "target": "operability-reviewer"
+    },
+    "app-size": {
+      "detector": "mobile/skills/app-size-scan",
+      "owner": "mobile/agents/device-performance-auditor (cold start as the measured cost)",
+      "fixer": "/optimize-bundle",
+      "fallback": "app-size-scan's own report",
+      "pack": "mobile",
+      "target": "performance-reviewer",
+      "note": "store size limits are store-compliance-scan's table, cited not restated"
+    },
+    "native-bridge": {
+      "detector": "mobile/skills/native-bridge-audit",
+      "owner": "repo-baseline/.claude/agents/verifier (judges /mobile-audit's Native bridge row); whether a bridge should exist → mobile/agents/mobile-architect",
+      "fixer": "/mobile-fix",
+      "fallback": "native-bridge-audit's own report",
+      "pack": "mobile",
+      "target": "code-reviewer (mobile lens) · architect (design)"
+    },
+    "platform-conventions": {
+      "detector": "mobile/skills/platform-conventions-audit",
+      "owner": "repo-baseline/.claude/agents/verifier (judges /mobile-audit's Platform row)",
+      "fixer": "/mobile-fix · /polish (§ Mobile) for the finish",
+      "fallback": "platform-conventions-audit's own report",
+      "pack": "mobile",
+      "target": "ux-reviewer",
+      "note": "touch targets route to mobile-a11y-scan §3"
+    },
+    "mobile-security": {
+      "detector": "security/skills/mobile-security-scan",
+      "owner": "security/agents/security-auditor",
+      "fixer": "/security-fix (mobile row); a shipped server secret is rotated first",
+      "fallback": "security/agents/security-auditor",
+      "pack": "security",
+      "target": "security-reviewer",
+      "note": "/mobile-audit's Device security row consumes it when the security pack is installed"
     }
   }
 }

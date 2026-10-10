@@ -171,11 +171,42 @@
       "why": "descriptions are routing text paid before anyone asks; over the platform budget descriptions are truncated to names"
     },
     "THR-A11Y": {
-      "value": { "wcag": "2.2 AA", "touch_target": { "ios_pt": 44, "android_dp": 48 } },
+      "value": {
+        "wcag": "2.2 AA",
+        "touch_target": { "ios_pt": 44, "android_dp": 48 },
+        "target_size_css_px": 24,
+        "contrast": { "text": 4.5, "large": 3, "non_text": 3 },
+        "reflow_css_px": 320,
+        "axe_gate": "no new serious or critical violation vs the baseline, per touched route-state"
+      },
       "unit": "standard",
       "floor": true,
-      "owner": "governance/engineering-baseline/web.md WEB-8 · mobile.md MOB-7",
-      "why": "the platform guidelines' minimums"
+      "owner": "governance/engineering-baseline/web.md WEB-8 · mobile.md MOB-7 · frontend a11y-scan (axe_gate, gate G9) · ui-ux ux-reviewer",
+      "why": "the platform guidelines' minimums; 24×24 CSS px is SC 2.5.8 (AA) and 44×44 the house target (2.5.5 is AAA). axe_gate replaces a Lighthouse accessibility score: a score is not axe and not conformance, and a baseline diff is the only automated a11y result a change can fail"
+    },
+    "THR-UI-STATES": {
+      "value": {
+        "required": ["loading", "empty", "error", "partial", "permission", "offline", "stale"],
+        "conditional": ["long-content", "pending-submit", "not-found", "destructive-confirm", "unsaved-changes", "validation", "timeout"]
+      },
+      "unit": "enum",
+      "floor": true,
+      "owner": "ui-ux state-matrix (state-matrix-lint.py, gate G12 state-matrix) · ui-state-scan",
+      "why": "every UI surface has a row for every required state, written or n-a with a reason; a conditional state is required where the surface has the trigger (a write, a delete, a detail route, a form). A project may ADD states in .claude/thresholds.local.json, never drop a required one"
+    },
+    "THR-WEB-BUNDLE": {
+      "value": { "initial_route_brotli_kb": 150, "measure": "brotli bytes of the entry closure a route loads, production build", "project_budget_wins": true, "no_budget": "report-flagged (declare a budget), never OVER BUDGET" },
+      "unit": "KB brotli",
+      "floor": false,
+      "owner": "frontend bundle-analyze · performance /bundle-perf · /audit --target-bundle (frontend)",
+      "why": "one default where bundle-analyze and /bundle-perf said 150 KB brotli and /audit --target-bundle said 250 KB: a working default for an interactive app on a mid-tier mobile connection, not an industry constant. A budget the project declared (ai/runtime/perf-budgets.md, size-limit, lighthouserc) wins outright"
+    },
+    "THR-LHCI": {
+      "value": { "numberOfRuns": 5, "aggregationMethod": "median-run", "build": "production" },
+      "unit": "runs",
+      "floor": true,
+      "owner": "frontend lighthouse-ci · proof-oracles.md § Lighthouse median",
+      "why": "a single Lighthouse run is not a measurement; the median of five runs against the production build is, and every numeric assertion reads the median run"
     }
   }
 }

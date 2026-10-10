@@ -9,6 +9,18 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.1 — 2026-10-10
+
+- `/security-fix`: a **mobile on-device** row in the fix-class table — `mobile-security-scan` §1–§7
+  findings close with the platform primitive in the release variant (Keystore / Keychain storage,
+  a delegating TrustManager, `exported="false"` or a `signature` permission, verified links, a
+  WebView origin allow-list, release flags off, a shipped server secret moved server-side and rotated
+  first); obfuscation, root detection and pinning are never the fix.
+- `secret-scan` § False positives: a Firebase `AIza…` key in `google-services.json`,
+  `GoogleService-Info.plist`, a web config or `firebase_options.dart` is a project identifier
+  (`precedents/mobile.md` § 44) — its controls are API restrictions and App Check — except a Gemini
+  Developer API key, which is critical.
+
 ## 2.2.0 — 2026-10-05
 
 **The pack had no client-side mobile lane.** Every detector was server-centric; an app's manifest,

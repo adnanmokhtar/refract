@@ -51,6 +51,10 @@ fail() { red "✗ $*"; ERRORS=$((ERRORS+1)); }
 # The tool surface an artifact may name. A name outside this set grants nothing at load
 # time and reads as a working restriction — worse than declaring no restriction at all.
 KNOWN='Read|Write|Edit|MultiEdit|NotebookEdit|Grep|Glob|Bash|BashOutput|KillShell|Task|Skill|WebFetch|WebSearch|TodoWrite|SlashCommand|AskUserQuestion'
+# MCP tools are named by their server, so no fixed list can hold them: `mcp__<server>` (every tool
+# of that server), `mcp__<server>__<tool>`, or `mcp__<server>__*`. The shape is checked; a server
+# name with a typo still grants nothing, which is the user's MCP config to resolve, not this lint's.
+MCP='mcp__[A-Za-z0-9_-]+(__([A-Za-z0-9_-]+|\*))?'
 
 # Role suffixes whose Output contract is a report or a design, never a file.
 ADVISORY='reviewer|auditor|architect|analyst|detector|detective|investigator|watcher|finder|sentry|integrity|guardian|arbiter|synthesizer|seo|strategist|planner|modeler|tester|scout|profiler'
@@ -83,7 +87,7 @@ check_vocabulary() {  # $1=file $2=value $3=key
   local t
   while IFS= read -r t; do
     [ -n "$t" ] || continue
-    printf '%s' "$t" | grep -qE "^($KNOWN)$" || fail "$1: $3 names an unknown tool '$t'"
+    printf '%s' "$t" | grep -qE "^($KNOWN|$MCP)$" || fail "$1: $3 names an unknown tool '$t'"
   done <<< "$(tool_names "$2")"
 }
 

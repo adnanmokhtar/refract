@@ -59,6 +59,14 @@ jobs:
       - name: Every rg an artifact prescribes parses (regex + --type)
         run: bash scripts/lint-rg-parses.sh
 
+      # …and means what its author meant: `rg -L` is --follow, not files-without-match; `--files`
+      # takes paths, so a pattern beside it searches nothing; `grep -L 'a|b'` without -E matches a
+      # literal pipe and lists every file; a `\|` in a table cell reaches ripgrep as a literal pipe.
+      # Each parses and exits 0, which is why the two gates above pass them. Ratchet: existing hits
+      # in scripts/_rg-traps-baseline.txt may only shrink.
+      - name: A prescribed file-level search answers the question it asks (rg -L, --files, BRE pipe)
+        run: bash scripts/lint-rg-traps.sh
+
       # /setup-project writes skillOverrides into the project's settings: it may only add entries,
       # never overwrite an owner's value, and a run with nothing to add must not write.
       - name: skillOverrides merge contract

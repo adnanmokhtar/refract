@@ -6,6 +6,23 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.2.0 — 2026-10-10
+
+**P3 has a writer, and the state matrix has a gate.**
+
+- `/add-feature` P3: with the ui-ux pack installed, `@ux-designer` writes `ux.md` (flows, the
+  `## State matrix` over `THR-UI-STATES`, interface contracts, a11y and i18n notes) and lints it with
+  `state-matrix-lint.py --phase=design`; without ui-ux the architect's UI slice carries the matrix and
+  P3 is recorded as covered by it. P4 lints it again before `@ux-reviewer` reviews it; P12 reads gate
+  `G12 state-matrix` (shadow).
+- `lane-frontend`: the Phase 2 slice carries a `## State matrix` example; WCAG and UI states are
+  judged by `@ux-reviewer` at T2/T3 with `@accessibility-auditor` as the fallback when ui-ux is
+  absent; the a11y check is the `a11y-scan` baseline diff (`THR-A11Y.axe_gate`, G9), not a Lighthouse
+  score; audits route to `/frontend-audit` (`/a11y-audit`, `/i18n-audit` presets) and `/frontend-fix`.
+- `lane-mobile`: native a11y is `@ux-reviewer` over `mobile-a11y-scan` §1–§8 — the web
+  `@accessibility-auditor` row is gone, and without ui-ux the axis is `UNREVIEWED(a11y)`; Phase 6 adds
+  G12 and `device-harness` § 7 process-death checks; Related names `/mobile-audit` and `/mobile-fix`.
+
 ## 1.1.0 — 2026-10-05
 
 **P5 records the behaviour before anyone changes it** (architecture proposal §7 rule 1, Phase 5).

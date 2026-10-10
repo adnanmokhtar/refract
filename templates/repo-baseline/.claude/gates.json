@@ -8,6 +8,7 @@
     "G3": { "secrets": "block" },
     "G4": { "perf": "shadow" },
     "G7": { "lint": "block", "typecheck": "block", "standards": "warn", "review": "shadow" },
+    "G12": { "state-matrix": "shadow" },
     "G14": { "behaviour": "shadow" },
     "G15": { "trailer": "shadow", "signer": "shadow" }
   }

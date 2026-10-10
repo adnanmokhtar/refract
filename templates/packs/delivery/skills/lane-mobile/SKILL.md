@@ -105,7 +105,7 @@ If user provides Figma + spec, treat as authoritative.
 
 ## Phase 2 — Organize: the mobile design slice (run P4 — @architect writes it into design.md)
 
-`@architect` writes this slice into `design.md` (dispatching `mobile-architect` for it when the mobile pack is installed). Shape:
+`@architect` writes this slice into `design.md` (dispatching `mobile-architect` for it when the mobile pack is installed). When the ui-ux pack is installed, `@ux-designer` has already written the flows and the state matrix into `ux.md` at P3: the architect reads them and leaves `## State matrix` out of this slice. Without ui-ux, the slice carries it, in the `state-matrix` format (a row per screen × `THR-UI-STATES` state, `n-a` with a reason or the test that will force it — a fake repository or a fake `UiState` flow on mobile). Shape:
 
 ```
 ## Feature: <name>
@@ -181,7 +181,19 @@ Where the project has no budget at all, `/optimize-bundle` establishes the basel
 
 ### Open questions
 <flag for user>
+
+## State matrix
+Surfaces:
+- `feature-detail` — src/screens/FeatureDetailScreen.tsx
+
+| Surface | State | Source | Expected (message · action · focus) | Proof |
+|---|---|---|---|---|
+| feature-detail | loading | AC-001 | skeleton card, accessibilityState busy · — · — | src/screens/FeatureDetailScreen.test.tsx::shows skeleton while loading |
+| feature-detail | offline | AC-005 | cached copy + "Offline — showing saved data" · Retry · focus on banner | src/screens/FeatureDetailScreen.test.tsx::offline shows cached copy |
+<one row per required state; the conditional states the screen has>
 ```
+
+The `## State matrix` heading is an h2 on purpose: `state-matrix-lint.py` reads the first `## State matrix` section of `ux.md`, else `design.md`. Lint it before P4 closes (`--phase=design`) — gate G12 lints it again at P12, when every proof must exist.
 
 ## Phase 3 — Retrieve (run P6 — read before each task)
 
@@ -217,13 +229,12 @@ Lens set for this lane at P10. The orchestrator dispatches read-only lenses in o
 | Agent | Precondition (skip if false) | Always-on? |
 |---|---|---|
 | `@mobile-architect` | Always | yes |
-| `@accessibility-auditor` | Always (a11y is non-optional) | yes |
 | `@i18n-auditor` | `i18n_lib` detected in `.claude/codebase-profile.md` | no |
 | `@app-store-reviewer` | Shipping a store update this change | no |
 | `@security-auditor` | Diff touches biometric / keychain / secrets / auth | no |
 | `@offline-sync-auditor` | The diff adds or changes a **queue, cache, or optimistic-update path** (a `write-path` trigger) | no |
-| `@device-performance-auditor` | T2 and above (a **bundle / cold-start delta check**), or the feature adds a launch-path import, a long-running listener, or a background job | no |
-| `@ux-reviewer` | Always | yes |
+| `@device-performance-auditor` — runs `mobile-perf-scan` and `device-harness` itself (it holds Bash and Skill) and ranks the measured cost | T2 and above (a **bundle / cold-start delta check**), or the feature adds a launch-path import, a long-running listener, or a background job | no |
+| `@ux-reviewer` *(ui-ux)* — native a11y over `mobile-a11y-scan` *(mobile)* §1–§8, and UI states | Always (a11y is non-optional) | yes — without ui-ux: `UNREVIEWED(a11y) — ux-reviewer not installed (ui-ux pack)`; the web `@accessibility-auditor` is not a substitute for native screens |
 
 If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.
 
@@ -269,7 +280,9 @@ Run [`templates/snippets/standards-gate.md`](../../../../snippets/standards-gate
 - Lint + type-check + tests pass on iOS + Android.
 - Cold-start regression check (compare baseline).
 - Bundle-size delta acceptable.
-- A11y check pass on both platforms.
+- A11y check pass on both platforms: `mobile-a11y-scan` §1–§8 on every touched screen, judged by `@ux-reviewer`, plus the TalkBack / VoiceOver walk at the largest font scale (a human lane — `NOT RUN` unless a recorded pass is cited).
+- **State matrix (G12):** `python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --run=ai/runs/<run_id> --base=<merge-base>` — every touched screen has every required state, and every cited test exists (ui-ux pack; `gate-check.py` runs it as `G12 state-matrix`).
+- Process death and restore on a screen with input: `device-harness` § 7 (mobile pack), on each platform shipped.
 - Locale completeness.
 - Deep-link manual test (open from cold + warm states).
 - Push-notification manual test (cold tap, warm tap, foreground display).
@@ -334,6 +347,7 @@ Record `spec_sections_checked=N / spec_sections_met=N` in the report; ship only 
 ## Related
 
 - `/add-screen` (mobile pack) — the single-screen leaf command.
+- `/mobile-audit` (mobile pack) — the standalone read-only audit of what this lane validates (lifecycle, native a11y, perf, offline, store, platform); `/mobile-fix` closes its findings failing-first on a device.
 - `/optimize-bundle` — when bundle delta exceeds budget.
 - `@mobile-architect` — design.
 - `@app-store-reviewer` — pre-release review.

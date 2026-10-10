@@ -37,6 +37,10 @@ GATES (v2). Verdicts: PASS · FAIL · UNVERIFIED (could not be checked — never
                       files; standards-check.py --json beside this file
   G7  review          INFERENTIAL — persisted reviews (ai/runs/<run>/reviews/*.json) and the verifier's
                       refute verdict: fresh, and no confirmed IMPORTANT finding standing
+  G12 state-matrix    state-matrix-lint.py (ui-ux pack, .claude/skills/state-matrix/scripts/) over each run in
+                      the change: every touched UI surface has a row for each THR-UI-STATES state, n-a with a
+                      reason or proved by a story or test that exists. Lint not installed: N-A with no UI run,
+                      UNVERIFIED with one. Its inferential half is @ux-reviewer's persisted review (G7 review)
   G14 behaviour       behavior-diff.py: every behavioural baseline entry (.claude/baselines/) whose scope
                       the change touched, re-run at HEAD and compared with the base side; a difference no
                       acceptance criterion declares (`changes_baseline`) FAILs, and so does a T2/T3 run
@@ -87,11 +91,12 @@ except ImportError:          # an older install: the inferential gates report UN
 VERSION = "2"
 CHECKS = [("G0", "acceptance-lock"), ("G1", "tests"), ("G1", "acceptance"), ("G2", "test-integrity"),
           ("G2", "oracle"), ("G3", "secrets"), ("G4", "perf"), ("G7", "lint"), ("G7", "typecheck"), ("G7", "standards"),
-          ("G7", "review"), ("G14", "behaviour"), ("G15", "trailer"), ("G15", "signer")]
+          ("G7", "review"), ("G12", "state-matrix"), ("G14", "behaviour"), ("G15", "trailer"), ("G15", "signer")]
 DEFAULTS = {"G0": {"acceptance-lock": "block"}, "G1": {"tests": "block", "acceptance": "shadow"},
             "G2": {"test-integrity": "warn", "oracle": "shadow"}, "G3": {"secrets": "block"},
             "G4": {"perf": "shadow"},
             "G7": {"lint": "block", "typecheck": "block", "standards": "warn", "review": "shadow"},
+            "G12": {"state-matrix": "shadow"},
             "G14": {"behaviour": "shadow"},
             "G15": {"trailer": "shadow", "signer": "shadow"}}
 INFERENTIAL = {("G1", "acceptance"), ("G7", "review")}
@@ -659,6 +664,51 @@ def run_g2_oracle(ctx):
                findings=[{"file": f["file"], "line": f["line"], "rule": f["kind"], "message": f["message"]} for f in found])
 
 
+# ── G12 usability and state coverage ───────────────────────────────────────────────────────────
+STATE_LINT = os.path.join(".claude", "skills", "state-matrix", "scripts", "state-matrix-lint.py")
+UI_LANES = {"frontend", "mobile"}
+
+
+def run_g12(ctx):
+    """The computational half of G12: the ui-ux pack's state-matrix-lint.py, once per run in the change.
+    The lint's own exit convention: 0 no finding (PASS, or N-A with its reason), 1 findings, anything
+    else could not run — UNVERIFIED, never PASS."""
+    runs = runs_in_change(ctx)
+    ui = [r for r in runs if UI_LANES & set((load(os.path.join(ctx.repo, "ai", "runs", r, "run.json")) or {}).get("lanes") or [])]
+    lint = os.path.join(ctx.repo, STATE_LINT)
+    if not os.path.isfile(lint):
+        if ui:
+            return rec("G12", "state-matrix", "UNVERIFIED", "%d UI run(s) (%s) and %s is not installed — the ui-ux pack "
+                       "ships it (/setup-project --include=ui-ux)" % (len(ui), ", ".join(ui), STATE_LINT), "SKIPPED")
+        return rec("G12", "state-matrix", "N-A", "no UI run in this change (state-matrix-lint.py, ui-ux pack, not installed)")
+    if not runs:
+        return rec("G12", "state-matrix", "N-A", "no run contract in this change")
+    shown = "%s --run=ai/runs/<id> --base=%s --json × %d run(s)" % (STATE_LINT, (ctx.base or "none")[:12], len(runs))
+    findings, errors, verdicts, notes, outs, rcs = [], [], [], [], [], []
+    for r in runs:
+        cmd = [sys.executable, lint, "--run=ai/runs/" + r, "--repo=" + ctx.repo, "--json"] + (["--base=" + ctx.base] if ctx.base else [])
+        rc, out, err = run(cmd, ctx.repo, timeout=TIMEOUT)
+        rcs.append(rc if rc is not None else -1)
+        try:
+            d = json.loads(out) if rc in (0, 1) else None
+        except ValueError:
+            d = None
+        if not isinstance(d, dict):
+            errors.append("ai/runs/%s: state-matrix-lint.py could not run (exit %s): %s" % (r, rc, (err or out).strip()[-160:]))
+            continue
+        outs.append(out)
+        verdicts.append(d.get("verdict"))
+        notes.append("%s %s%s" % (r, d.get("verdict"), " (%s)" % d["reason"] if d.get("reason") else ""))
+        findings += [{"file": x.get("file"), "line": x.get("line") if isinstance(x.get("line"), int) else None,
+                      "rule": x.get("kind"), "message": x.get("message") or ""} for x in d.get("findings", [])]
+    verdict = ("FAIL" if findings else "UNVERIFIED" if errors else "PASS" if "PASS" in verdicts else "N-A")
+    reason = ("%d finding(s): %s" % (len(findings), "; ".join(f["message"] for f in findings[:2])) if findings
+              else "; ".join(errors[:2]) if errors else "; ".join(notes))[:300]
+    return rec("G12", "state-matrix", verdict, reason, "SKIPPED" if verdict == "UNVERIFIED" and not outs else "RAN",
+               tool="state-matrix-lint.py", command=shown, rc=max(rcs) if rcs else None, out="\n".join(outs),
+               findings=findings + [{"message": e} for e in errors])
+
+
 # ── G4 performance · G14 behavioural baseline ──────────────────────────────────────────────────
 def run_baseline_gate(ctx, gate):
     """Both gates are behavior-diff.py: one manifest reader, one scope rule, one AC-declaration rule."""
@@ -694,6 +744,7 @@ RUNNERS = {("G0", "acceptance-lock"): run_g0, ("G1", "acceptance"): run_g1_accep
            ("G1", "tests"): run_g1, ("G2", "test-integrity"): run_g2, ("G3", "secrets"): run_g3,
            ("G7", "lint"): lambda c: run_g7_tools(c, "lint"), ("G7", "typecheck"): lambda c: run_g7_tools(c, "typecheck"),
            ("G7", "standards"): run_g7_standards, ("G15", "trailer"): run_g15,
+           ("G12", "state-matrix"): run_g12,
            ("G4", "perf"): lambda c: run_baseline_gate(c, "G4"), ("G14", "behaviour"): lambda c: run_baseline_gate(c, "G14")}
 
 

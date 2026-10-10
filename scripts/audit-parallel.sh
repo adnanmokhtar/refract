@@ -8,8 +8,9 @@
 # Supported packs (one wrapper per pack-level audit):
 #   security    → ai/security-audit/ledger.md (security pack — security-audit command)
 #   perf        → ai/perf-audit/ledger.md (performance pack — perf-audit command)
-#   i18n        → ai/i18n-audit/ledger.md (frontend pack — i18n-audit command)
-#   a11y        → ai/a11y-audit/ledger.md (frontend pack — a11y-audit command)
+#   frontend    → --ledger=<file> required (frontend pack — /frontend-audit writes a dated report,
+#                 ai/audits/<date>-frontend*.md; workers close rows with /frontend-fix)
+#   i18n, a11y  → aliases of `frontend`: /i18n-audit and /a11y-audit are /frontend-audit presets
 #   db          → ai/db-audit/ledger.md (database pack — db-audit command)
 #   ui-sweep    → ai/ui-sweep/ledger.md (ui-ux pack — ui-sweep command)
 #
@@ -82,15 +83,12 @@ case "$PACK" in
     DEFAULT_STATES="detected,in-progress,halted"
     PROMPT_TEMPLATE='Read performance-principles.md and the project profile. Pick row {{TASK}} from ai/perf-audit/ledger.md. Apply the closure verb (parallelize-independent / batch-load / project-columns / add-cache / add-index / push-filter-to-db / replace-loop-with-pipeline / lazy-load / debounce-call / etc.). Behavior-preserving — observable identical, faster. Capture before/after measurement (latency p50/p95, query count, payload size — whichever the row identifies). VERIFY: lint+typecheck+scoped tests; perf regression test if the row needs one. RECORD: one commit; ledger update with file lock; gaps_in must equal gaps_closed; record measurement in ai/perf-audit/measurements/<row-id>.md.'
     ;;
-  i18n)
-    DEFAULT_LEDGER="ai/i18n-audit/ledger.md"
+  frontend|i18n|a11y)
+    # /frontend-audit (and its /i18n-audit, /a11y-audit presets) writes a dated report, so there is
+    # no fixed default: pass --ledger=<file> holding one `## <finding-id>` + `status:` row per finding.
+    DEFAULT_LEDGER=""
     DEFAULT_STATES="detected,in-progress,halted"
-    PROMPT_TEMPLATE='Read the project i18n rule (frontend/rules/i18n.md or equivalent). Pick row {{TASK}} from ai/i18n-audit/ledger.md. Apply the closure verb (add-missing-key / fix-key-namespace / extract-hardcoded-string / unify-key-shape / remove-stale-key). Every user-facing string MUST resolve in EVERY declared locale. VERIFY: lint+typecheck+scoped tests + check_i18n_locale_parity. RECORD: one commit; ledger update with file lock; gaps_in must equal gaps_closed.'
-    ;;
-  a11y)
-    DEFAULT_LEDGER="ai/a11y-audit/ledger.md"
-    DEFAULT_STATES="detected,in-progress,halted"
-    PROMPT_TEMPLATE='Read the project a11y rule + WCAG baseline. Pick row {{TASK}} from ai/a11y-audit/ledger.md. Apply the closure verb (add-aria-label / fix-keyboard-trap / add-focus-management / fix-color-contrast / add-skip-link / fix-heading-order / add-form-label / etc.). Run axe-core (or project-equivalent) before/after; the resolved violation MUST disappear without introducing new ones. VERIFY: lint+typecheck+scoped tests + axe-core baseline diff. RECORD: one commit; ledger update with file lock; gaps_in must equal gaps_closed.'
+    PROMPT_TEMPLATE='Pick finding {{TASK}} from the frontend audit ledger. Close it the way /frontend-fix does (frontend pack): re-verify it; write the oracle from proof-oracles.md § Accessibility and UI states at its route-state and see it FAIL on current code; fix at the component (the shared wrapper when the root is one); run the oracle and every variant of its class green — an accessibility fix is accepted only when the violation count at the cell strictly drops and no new rule id appears; RE-DETECT with the detector that raised it; self-check the diff with test-integrity.py, oracle-check.py and the suppression grep (no aria-hidden, disableRules, skipped test, raised threshold or re-recorded baseline); sweep siblings with a balanced ledger (N_found == N_fixed + N_explained + N_followup). A security-class finding while the security pack is installed is not yours: set it halted with "routed → /security-fix". A token, design-system, non-source-locale copy or URL-contract change: set it halted and name the decision the user owes. RECORD: one commit per finding; update the ledger row with file lock; gaps_in must equal gaps_closed.'
     ;;
   db)
     DEFAULT_LEDGER="ai/db-audit/ledger.md"
@@ -104,7 +102,7 @@ case "$PACK" in
     ;;
   *)
     echo "ERR: unknown pack '$PACK'." >&2
-    echo "Supported: security, perf, i18n, a11y, db, ui-sweep" >&2
+    echo "Supported: security, perf, frontend (aliases i18n, a11y), db, ui-sweep" >&2
     echo "(or use migrate-parallel.sh / align-parallel.sh / optimize-parallel.sh / polish-parallel.sh for those)" >&2
     exit 2
     ;;
@@ -112,6 +110,11 @@ esac
 
 # Apply user overrides on top of pack defaults
 LEDGER="${LEDGER:-$DEFAULT_LEDGER}"
+if [[ -z "$LEDGER" ]]; then
+  echo "ERR: pack '$PACK' has no default ledger — its audit writes a dated report." >&2
+  echo "     pass --ledger=<file> with one '## <finding-id>' + 'status:' row per finding." >&2
+  exit 2
+fi
 STATES="${STATES:-$DEFAULT_STATES}"
 
 if [[ ! -f "$LEDGER" ]]; then
