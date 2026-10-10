@@ -103,4 +103,10 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { ci_config_detected: true }   # any of the six platforms: GitHub Actions, GitLab CI, CircleCI, Bitbucket, Azure Pipelines, Jenkins
   extracts_from: _extracted-codebase.md (CI config files)
   fallback: skills/pipeline-integrity-scan/SKILL.md   # source-as-fallback; no CI file → every § prints N/A (no CI file)
+
+- name: deploy-safety-scan
+  kind: skill
+  triggers: { deploy_target_detected: true }   # a CI deploy job, deploy script, manifest/chart, migration runner or service bootstrap
+  extracts_from: _extracted-codebase.md § Deploy (deploy units, manifests, migration runner, service roots)
+  fallback: skills/deploy-safety-scan/SKILL.md   # source-as-fallback; no deploy unit → §2–§4 print N/A (no deploy unit)
 ```
