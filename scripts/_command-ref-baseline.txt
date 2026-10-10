@@ -55,7 +55,6 @@ templates/packs/frontend/skills/seo-audit/SKILL.md|admin   # a URL route / HTTP 
 templates/packs/frontend/skills/verify-with-playwright/SKILL.md|login   # a URL route / HTTP path in an example, not a command
 templates/packs/frontend/skills/visual-check/SKILL.md|auth   # a URL route / HTTP path in an example, not a command
 templates/packs/frontend/skills/visual-check/SKILL.md|login   # a URL route / HTTP path in an example, not a command
-templates/packs/infrastructure/agents/k8s-reviewer.md|tmp   # a filesystem path (/tmp), not a command
 templates/packs/infrastructure/skills/network-exposure-audit/SKILL.md|metrics   # a URL route / HTTP path in an example, not a command
 templates/packs/learning/skills/compute-anchor-density/SKILL.md|health   # a URL route / HTTP path in an example, not a command
 templates/packs/migration/agents/migration-architect.md|orders   # a URL route / HTTP path in an example, not a command

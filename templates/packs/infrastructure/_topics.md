@@ -20,10 +20,23 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: k8s-reviewer
   kind: agent
+  # the judge of the four k8s detectors' rows (k8s-render-scan, k8s-availability-scan, k8s-wiring-scan,
+  # k8s-api-version-scan) and the PRODUCTION-GRADE verdict /k8s-generate gates on.
   triggers: { k8s_detected: true }
-  extracts_from: _extracted-codebase.md (k8s manifests)
-  sections: [persona, manifest_review_checklist, output_format]
-  fallback: _examples/k8s-reviewer.md
+  extracts_from: _extracted-codebase.md § Infra (Kustomize roots, charts and values files, CD targets, runbook install lines, target minor, Helm major) + the sibling manifest per kind
+  sections: [persona, contract, premise, halt_conditions, detector_dispatch, axis_ownership, sibling_divergence_check, production_grade_verdict, output_format]
+  fallback: _examples/k8s-reviewer.md   # generated-from copy of agents/k8s-reviewer.md (COPY-DRIFT gated)
+
+- name: infra-reviewer
+  kind: agent
+  # the judge of the non-Kubernetes detectors' rows: iac-state-scan, iac-lifecycle-scan, dr-audit,
+  # serverless-reliability-scan, iac-cost-scan, edge-reliability-scan, dns-tls-lifecycle-scan, network-exposure-audit.
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "^\\s*(proxy_pass|reverse_proxy)\\b|AWSTemplateFormatVersion|aws-cdk-lib|@pulumi/|\\b(pg_dump|mysqldump|velero)\\b|\\b(doctl|gcloud|az|hcloud)\\s+\\S+(\\s+\\S+)?\\s+create\\b"   # a proxy config, a CFN/CDK/Pulumi program, a backup job or a runbook create line
+  extracts_from: _extracted-codebase.md § Infra (IaC roots and the env each deploys, CI apply jobs and runbook deploy lines, stateful stores, functions and queues, proxy/LB/CDN configs, DNS and certificates) + the sibling module per resource kind
+  sections: [persona, contract, premise, halt_conditions, detector_dispatch, axis_ownership, single_owner_per_site, evidence_closure, output_format]
+  fallback: _examples/infra-reviewer.md   # generated-from copy of agents/infra-reviewer.md (COPY-DRIFT gated)
 
 - name: zero-downtime-deploys
   kind: pattern
@@ -110,8 +123,19 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: network-exposure-audit
   kind: skill
-  triggers: { dockerfile_or_k8s_or_terraform_detected: true }
-  fallback: _examples/network-exposure-audit.md
+  triggers:
+    terraform_detected: true
+    OR_grep_evidence: "resource\\s+\"(aws_(vpc|subnet|network_acl|route_table|vpc_endpoint|vpc_peering_connection)|google_compute_(network|subnetwork)|azurerm_(virtual_network|private_endpoint)|digitalocean_(vpc|kubernetes_cluster))\"|--(cluster-subnet|service-subnet|pod-network-cidr|service-cidr)\\b|^\\s*(podSubnet|serviceSubnet):"   # a declared network, endpoint or peering, or a cluster's pod/service range set by a runbook or kind/kubeadm config
+  extracts_from: _extracted-codebase.md § Infra (VPCs, subnets, NACLs, routes, NAT, endpoints, peering/TGW/VPN; cluster pod and service ranges incl. runbook create lines; IPv6 switches; managed-service hostnames)
+  fallback: skills/network-exposure-audit/SKILL.md
+
+- name: dns-tls-lifecycle-scan
+  kind: skill
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "resource\\s+\"(aws_route53_(zone|record)|cloudflare_(record|dns_record)|google_dns_record_set|azurerm_dns_\\w+_record|digitalocean_record|aws_acm_certificate)\"|^kind:\\s*(Certificate|ClusterIssuer|Issuer)\\b|cert-manager\\.io/|^\\s*(on_demand_tls|acme_ca)\\b|\\bcertResolver\\b|^\\s*ssl_certificate\\s"   # a DNS record, a certificate or issuer, an ACME-capable proxy, or a hand-placed certificate file
+  extracts_from: _extracted-codebase.md § Infra (DNS zones and records incl. runbook record lines, certificate sources per env, ACME CA and solver, CAA and DNSSEC resources, expiry alert rules and probes)
+  fallback: skills/dns-tls-lifecycle-scan/SKILL.md
 
 - name: admission-policy
   kind: skill
