@@ -74,23 +74,19 @@ The rule is absolute and its enforcement is mechanical: CI holds the material in
 
 ## The dated store gates
 
-These are not advice. They are dated conditions that block an upload, and they are the class of thing a new project discovers at the worst possible moment. Each row cites the page that publishes it; re-read the source before acting, because these dates move.
+These are not advice. They are dated conditions that block an upload, and they are the class of thing a new project discovers at the worst possible moment.
+
+**The dates live once, in `store-compliance-scan` § The dated store gates (this pack)** — the Apple toolchain, SDK and deployment floors, required-reason APIs and third-party SDK manifests, age-rating answers, the Play target API and its extension window, Data safety, foreground-service declarations, the Play Billing Library floor, 16 KB page sizes (which bind every app carrying NDK libraries, directly or through an SDK — so every React Native, Flutter, Expo and Capacitor build — and are proved by **rebuilding**, not by a manifest flag), and the scheduled Play vitals and Restore Credentials thresholds. Each row there carries its in-force date, its axis and the primary page with the date it was read. This pattern used to keep a second, *planning* copy of the same table; two copies of a date are one correction that lands in only one place, so it now points there. Put every row that applies to this app on the release calendar with its days remaining.
+
+One gate is release planning only, so it is kept here rather than in the scan (no file in the repository can show it):
 
 | Gate | What it says | Source |
 |---|---|---|
-| **Apple SDK floor** | Since **April 28, 2026**: "Apps uploaded to App Store Connect must be built with Xcode 26 or later using an SDK for iOS 26, iPadOS 26, tvOS 26, visionOS 26, or watchOS 26." | [Apple upcoming requirements](https://developer.apple.com/news/upcoming-requirements/) |
-| **Apple age ratings** | Answers to the updated age-rating questions were required by **January 31, 2026**, "to avoid an interruption when submitting your app updates in App Store Connect." | [Apple upcoming requirements](https://developer.apple.com/news/upcoming-requirements/) |
-| **Apple required-reason APIs** | Since **May 1, 2024**: "You'll need to include approved reasons for the listed APIs used by your app's code to upload a new or updated app to App Store Connect." | [Apple developer news](https://developer.apple.com/news/?id=3d8a9yyh) |
-| **Apple third-party SDK manifests** | Privacy manifests, and signatures for binary dependencies, are required for the SDKs on Apple's published list — which includes the major cross-platform frameworks, so it applies to cross-platform apps too. | [Third-party SDK requirements](https://developer.apple.com/support/third-party-SDK-requirements/) |
-| **Play target API level** | From **August 31, 2026**, new apps and updates must target **Android 16 (API 36)** or higher (Wear OS and Automotive: API 35; Android TV and XR: API 34). Existing apps must target API 35 or higher to remain available to new users on newer OS versions. An extension to **November 1, 2026** can be requested in Play Console. | [Play target API requirements](https://developer.android.com/google/play/requirements/target-sdk) |
-| **Play 16 KB page size** | "All apps targeting Android 15 (API level 35) and higher must support 16 KB memory page sizes on 64-bit devices on Google Play." From **February 1, 2027**, "if your app updates don't support 16 KB memory page sizes, you won't be able to release these updates." It binds any app carrying NDK libraries — "either directly or indirectly through an SDK" — which is every React Native, Flutter, Expo and Capacitor build, so a cross-platform project cannot treat this as a native-Android concern. Support is proved by **rebuilding**, not by a manifest flag. | [16 KB page sizes](https://developer.android.com/guide/practices/page-sizes) |
-| **Play Data safety** | "Even developers with apps that do not collect any user data must complete this form and provide a link to their privacy policy." Non-compliance draws "policy enforcement, like blocked updates or removal from Google Play." | [Play Data safety](https://support.google.com/googleplay/android-developer/answer/10787469) |
-| **Play foreground-service types** | "If your app targets Android 14 or higher, you'll need to declare your app's foreground service types in the Play Console's app content page (Policy > App content)." | [FGS types](https://developer.android.com/develop/background-work/services/fgs/service-types) |
 | **Play closed-testing prerequisite (personal accounts created after 2023-11-13)** | The requirement applies to personal — not organization — developer accounts **created after November 13, 2023**. For those, production access requires a closed test with "a minimum of 12 testers who have been opted in continuously for at least 14 days", and "Testers who opt in, test for fewer than 14 days, and then opt out do not count toward the requirement." | [Play closed testing](https://support.google.com/googleplay/android-developer/answer/14151465) |
 
-**Who owns these dates.** `@app-store-reviewer` § 1 carries the same gate set and **re-fetches every figure at review time** — it is the authority at submission. This table is the *planning* copy: it exists because these dates change the release schedule months before a build is ever uploaded. The two must move together; a correction to either is a correction to both.
+**Who owns these dates.** `store-compliance-scan` holds them and probes the shipped configuration against them; `@app-store-reviewer` re-reads the live pages and quotes them at review time. This pattern owns the *calendar*: these dates change the release schedule months before a build is ever uploaded.
 
-**The last row is a schedule dependency, not a checklist item.** If the account is a personal one created after 2023-11-13, the launch date cannot be earlier than the day the continuous-testing window closes — and the window only starts once twelve real testers have opted in. Discover this in week one, not in launch week. Whether the account is personal or an organization is therefore a **release-planning input**, which is why it appears in the project-specific block above.
+**The closed-testing row is a schedule dependency, not a checklist item.** If the account is a personal one created after 2023-11-13, the launch date cannot be earlier than the day the continuous-testing window closes — and the window only starts once twelve real testers have opted in. Discover this in week one, not in launch week. Whether the account is personal or an organization is therefore a **release-planning input**, which is why it appears in the project-specific block above.
 
 ## Beta before production
 
@@ -149,19 +145,19 @@ Cross-platform toolchains bundle several of these behind one command; native pro
 1. **Signing material in the repository.**
    - BAD: a keystore, `.p12`, `.mobileprovision`, `.p8`, or a password in a properties file under version control.
    - GOOD: only a reference to a secret-store entry.
-   - `git ls-files | grep -niE "\.(keystore|jks|p12|pem|p8|mobileprovision|cer)$"` and `grep -rniE "storePassword|keyPassword|ASC_KEY|API_KEY" --include='*.properties' --include='*.gradle*' --include='*.plist' .` — any hit is a blocker; rotate.
+   - `git ls-files | grep -niE "\.(keystore|jks|p12|pem|p8|mobileprovision|cer)$"` and `rg -n -i -e 'storePassword|keyPassword|ASC_KEY|API_KEY' -g '*.properties' -g '*.gradle*' -g '*.plist' .` — any hit is a blocker; rotate. (The template `debug.keystore` is not one: `precedents/mobile.md` § 48.)
 2. **No CI release workflow.**
    - BAD: releases produced locally; no workflow file references a store upload.
    - GOOD: a tag-triggered workflow that builds, signs, uploads symbols, and distributes to beta.
-   - `ls -a .github/workflows .gitlab-ci.yml bitrise.yml codemagic.yaml fastlane 2>/dev/null` — then read the release job.
+   - `rg --files --hidden -g '.github/workflows/*.{yml,yaml}' -g '.gitlab-ci.yml' -g 'bitrise.yml' -g 'codemagic.yaml' -g '**/fastlane/Fastfile' -g 'eas.json' .` — no line printed is the finding; otherwise read the release job.
 3. **Missing symbol upload.**
    - BAD: a release job that builds and uploads a binary but never uploads dSYMs or `mapping.txt`.
    - GOOD: symbol upload in the same job, and a failure there fails the build.
-   - `grep -rniE "dSYM|upload-symbols|mapping.txt|uploadCrashlyticsMappingFile|sentry-cli" .github/ fastlane/ ci/ 2>/dev/null`
+   - `rg -n -i --hidden -e 'dSYM|upload-symbols|mapping\.txt|uploadCrashlyticsMappingFile|sentry-cli' -g '.github/**' -g '**/fastlane/**' -g '**/ci/**' -g '*.{yml,yaml,gradle,kts,sh}' -g '!**/node_modules/**' .` — read the release job the hit sits in.
 4. **Shared identity across environments.**
    - BAD: one bundle id / application id for every environment, switched by a runtime flag.
    - GOOD: distinct identifiers per identity, so both can be installed side by side.
-   - `grep -rniE "applicationId|PRODUCT_BUNDLE_IDENTIFIER|bundleIdentifier" android/ ios/ app.json app.config.* 2>/dev/null`
+   - `rg -n -e 'applicationId|PRODUCT_BUNDLE_IDENTIFIER|bundleIdentifier' -g '*.{gradle,kts,pbxproj,xcconfig}' -g 'app.json' -g 'app.config.*' -g '!**/node_modules/**' .`
 5. **Direct-to-production release path.**
    - BAD: the release job publishes to the production track with no beta step and no rollout percentage.
    - GOOD: beta track first; production behind a staged rollout.
@@ -173,7 +169,7 @@ Cross-platform toolchains bundle several of these behind one command; native pro
 7. **Version number edited by hand in more than one place.**
    - BAD: version strings in a manifest, a project file, and a package file, drifting apart.
    - GOOD: one source, propagated by the build.
-   - `grep -rniE "versionName|versionCode|MARKETING_VERSION|CURRENT_PROJECT_VERSION|\"version\":" android/ ios/ package.json pubspec.yaml 2>/dev/null`
+   - `rg -n -e 'versionName|versionCode|MARKETING_VERSION|CURRENT_PROJECT_VERSION|"version":|^version:' -g '*.{gradle,kts,pbxproj,xcconfig}' -g 'package.json' -g 'pubspec.yaml' -g '!**/node_modules/**' .`
 
 ## Closure verbs
 
@@ -194,7 +190,7 @@ Cross-platform toolchains bundle several of these behind one command; native pro
 - **One identity for all environments** — cross-contaminated push tokens, keychain entries and analytics, and no way to install beta beside production.
 - **Full-rollout by default** — the entire installed base as the canary group, with no recall.
 - **A halt criterion invented during the incident** — the thresholds get set to whatever makes the current number look acceptable.
-- **Discovering a store gate at submission** — the target-API and closed-testing gates in the table above have dates; they are plannable, and only ever painful when they are not planned.
+- **Discovering a store gate at submission** — the target-API gate (in `store-compliance-scan`'s table) and the closed-testing gate above have dates; they are plannable, and only ever painful when they are not planned.
 - **Treating a halted rollout as a rollback** — the users who already updated are still on the bad build; the forward fix is still required.
 - **A beta group of one** — the developer who wrote the change is the worst available tester of it.
 

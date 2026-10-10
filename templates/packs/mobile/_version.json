@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "mobile",
-  "version": "1.10.0",
-  "released": "2026-10-05",
+  "version": "2.0.0",
+  "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "add-feature is a thin lane preset of the delivery orchestrator; its procedure moved to delivery's lane-mobile skill (architecture proposal Phase 4, decision O6).",
+  "summary": "Five new detectors (lifecycle, a11y, perf, offline sync, store gates), three rewrites (platform conventions, native bridge, bundle-analyze renamed app-size-scan), /mobile-audit and /mobile-fix, and device-harness's iOS half.",
   "changelog": "CHANGELOG.md"
 }

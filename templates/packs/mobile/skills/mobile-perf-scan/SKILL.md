@@ -301,14 +301,7 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. The ones this skill meets most: app-lifetime listeners and returned unsubscribes (§ 14); selector observers (§ 15); `[weak self]` not needed (§ 16); off-main blocking inside a Worker or IO dispatcher (§ 21); strong skipping (§ 32); the React Compiler (§ 33); FlashList v2 (§ 34); Hermes the default (§ 35); about 20 static items (§ 36); `InteractionManager` by version (§ 51); AGP 9.3 minify DSL (§ 53); Swift default isolation (§ 58). Until they are numbered in `precedents/mobile.md`, these also hold:
-
-- **a. Library-owned lifecycle and threads.** Glide `with(fragment)`, Coil in Compose and `cached_network_image` clear themselves; Reanimated worklets run on the UI thread, not the JS thread; MMKV sync reads are microsecond-scale.
-- **b. Small and one-off.** `JSON.parse` / `jsonDecode` of a config or session blob, a single `existsSync` in an async function, a static `Opacity(opacity: 0.5)`.
-- **c. Not convertible.** `useNativeDriver: false` on a layout property (width, height, top, flex) the native driver cannot animate.
-- **d. Owned elsewhere.** A controller passed in by a parent (the parent disposes it); `lateinit var binding` in an Activity; `applicationContext` or `Application` held in a singleton.
-- **e. Sized by design.** CDN-resized image URLs; a zoom viewer with subsampling using the original size; SVG and vector icons.
-- **f. Not shipped.** Mock APIs, `tool/` and `bin/` scripts, benchmark and test source sets; a Flutter or RN host module without a baseline profile (the profile would cover only the embedding).
+The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. The ones this skill meets most: app-lifetime listeners and returned unsubscribes (§ 14); selector observers (§ 15); `[weak self]` not needed (§ 16); off-main blocking inside a Worker or IO dispatcher (§ 21); strong skipping (§ 32); the React Compiler (§ 33); FlashList v2 (§ 34); Hermes the default (§ 35); about 20 static items (§ 36); `InteractionManager` by version (§ 51); AGP 9.3 minify DSL (§ 53); Swift default isolation (§ 58); library-owned lifecycle and threads (§ 67); small and one-off work (§ 68); a layout property the native driver cannot animate (§ 69); a controller or context owned elsewhere (§ 70); images sized by design (§ 71); code that does not ship (§ 72).
 
 ## When to run
 

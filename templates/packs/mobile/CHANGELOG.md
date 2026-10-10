@@ -9,6 +9,57 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-10
+
+**The pack could describe a mobile defect and could prove almost none.** Its classes lived in
+prose — four agents, nine patterns with path-less greps — and one oracle (process death, Android
+only). Batch 3 (Track A) turned it into detectors, an audit, a fixer and a device harness with both
+halves. Major, because a skill was renamed and three agents changed their tools and contracts.
+
+- **Five new detector skills**, each a single pre-flight script (every `rg` names its path, release
+  exclusions, version gates read from the lockfile), a class-coverage block, a 3,000-hit path and a
+  failing-first device oracle: `mobile-lifecycle-scan` (§ 1–§ 7: process death, background and FGS
+  limits, permissions, timeouts, deep-link payloads, push, OTA), `mobile-a11y-scan` (§ 1–§ 8: name,
+  role, target size, text scaling, reading order, actions, announcements, contrast — judged by
+  `@ux-reviewer` when ui-ux is installed), `mobile-perf-scan` (§ 1–§ 7: lists, identity, rebuild
+  waste, thread blocking, image decode, startup, leaks), `offline-sync-scan` (§ 1–§ 6: queue
+  durability, replay identity, ordering and poison, conflict policy, identity bleed, reachability),
+  `store-compliance-scan` (§ 1–§ 9, holding the pack's **single** dated store-gate table, G1–G18).
+- **Three rewrites.** `platform-conventions-audit` no longer halts on an input nothing produced; it
+  reads conventions from the code and adds edge-to-edge insets (targetSdk 35/36) and predictive back.
+  `native-bridge-audit` stops offering the legacy bridge as a peer: New Architecture only from RN
+  0.82. **`bundle-analyze` is renamed `app-size-scan`** — the old name collided with the frontend
+  pack's skill, and `/perf-audit` dispatched by bare name; size is proved by a release-artifact delta.
+- **`/mobile-audit` and `/mobile-fix`.** A read-only audit with static, artifact and device lanes,
+  a fixed class ledger, two severity axes (engineering, store release-blocker) and a GO /
+  GO-UNVERIFIED / NO-GO verdict; and a fixer that re-verifies, reproduces each finding failing first
+  at its tier on a device, fixes the root, runs the class variants and never closes a row without a
+  device.
+- **`device-harness` gained its iOS half** (launch metric and `xctrace`, the accessibility tree,
+  the backgrounded `kill -9` restore with its proof line), and § 7 now relaunches from **Recents**
+  after `am kill`, not from the launcher or `monkey`.
+- **Agents.** `device-performance-auditor`, `offline-sync-auditor`, `app-store-reviewer` and
+  `mobile-architect` carry `## Contract` blocks. The three judges name the detector whose rows they
+  grade (`mobile-perf-scan` with `device-harness`, `offline-sync-scan`, `store-compliance-scan`) and
+  hold Bash and Skill to run them; `device-performance-auditor` had no shell yet was told to run the
+  harness or stop. `app-store-reviewer` § 1 now points at the dated table instead of keeping a copy
+  that lacked four of its rows. Their `_examples/` abridgements were deleted (stale routing, no
+  Contract) and `_topics` falls back to the sources.
+- **Precedents.** The skill-local false-positive lists (a11y a–g, perf a–f, offline O1–O7, store
+  S1–S4, platform, bridge, size) are numbered in `precedents/mobile.md` § 60–97 and cited by number.
+- **Defects fixed in place.** `_essentials` claimed the security pack covered keychain and pinning
+  and that `a11y-quick-check` ran on mobile (both false; now `mobile-security-scan` and
+  `mobile-a11y-scan`), and lists the detectors and the audit and fix commands; permissions, push and
+  release-pipeline greps gained paths and lost `2>/dev/null`; `native-storage` no longer recommends
+  Realm Sync (end of life 2025-09-30); `deep-linking` replaces the discontinued `uni_links` and a
+  nonexistent `expo push` command; `push-notifications` prunes on FCM v1 `UNREGISTERED` and Expo
+  `DeviceNotRegistered`; `optimize-bundle` stops reading size from `xcodebuild -showBuildSettings`;
+  the 16 KB and target-API dates in `release-pipeline`, `optimize-bundle` and `jetpack-compose` point
+  at the one table; `references/react-native.md` and `flutter.md` gain Accessibility sections and
+  stop framing the New Architecture as opt-in; pointers into the old `/add-feature` sections now
+  resolve in the delivery pack's `lane-mobile`; `mobile-lifecycle-scan` grep 3a checks a purpose
+  string per root (one app's `Info.plist` no longer hides another's missing key).
+
 ## 1.10.0 — 2026-10-05
 
 **The pack's `/add-feature` became a lane of the one delivery run (architecture proposal Phase 4).**

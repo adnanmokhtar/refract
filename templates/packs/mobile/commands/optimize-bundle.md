@@ -16,10 +16,9 @@ Reduces app size + cold-start time.
 | Play — legacy APK cap | "a maximum APK size of 100MB" for apps still publishing APKs rather than app bundles | same |
 | Apple — total uncompressed app | 4 GB (iOS 9.0 and later) | [Apple maximum build file sizes](https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes) |
 | Apple — all `__TEXT` sections | 80 MB | same |
-| Play — 16 KB page size (a **rebuild** gate, not a size one) | "all apps targeting Android 15 (API level 35) and higher must support 16 KB memory page sizes on 64-bit devices on Google Play", and from **February 1, 2027** non-conforming updates cannot be released. It binds any app with NDK libraries "either directly or indirectly through an SDK" — i.e. every RN, Flutter, Expo and Capacitor build. | [16 KB page sizes](https://developer.android.com/guide/practices/page-sizes) |
 | Android vitals — "excessive" startup | "Cold startup takes 5 seconds or longer. Warm startup takes 2 seconds or longer. Hot startup takes 1.5 seconds or longer." | [Android vitals launch time](https://developer.android.com/topic/performance/vitals/launch-time) |
 
-The vitals row is a *floor of badness*, not a target — a project's own cold-start budget should be well under it, and it is the project's to set and to measure. This command states no other size or timing threshold as fact.
+Play's 16 KB page-size requirement is a **rebuild** gate, not a size one, and its date lives in `store-compliance-scan` § The dated store gates (G16) with the alignment probe in its § 7. The vitals row is a *floor of badness*, not a target — a project's own cold-start budget should be well under it, and it is the project's to set and to measure. This command states no other size or timing threshold as fact.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -42,7 +41,7 @@ The vitals row is a *floor of badness*, not a target — a project's own cold-st
 
 Before emitting any recommendation in Phase 4, for each heaviest-N finding the agent MUST:
 - Name the pattern class (1 line).
-- Run a repo-wide scan for the same pattern (e.g., `rg "from 'moment'" `, `rg "import _ from 'lodash'"`, `find assets -name "*@3x.png"`).
+- Run a repo-wide scan for the same pattern (e.g., `rg -n "from 'moment'" -g '!**/node_modules/**' .`, `rg -n "import _ from 'lodash'" -g '!**/node_modules/**' .`, `rg --files -g '**/*@3x.png' -g '!**/node_modules/**' .`).
 - Report **count of instances**, not just the heaviest one.
 - If count > 1 — recommendation is "fix all N", not "fix the heaviest one."
 
@@ -63,14 +62,14 @@ A recommendation that addresses 1 of N pattern instances is rejected as partial.
 
 - USE: bundle size or cold start regressed.
 - USE: pre-store-submission optimization.
-- NOT: a single screen is slow → use `/profile-perf` (if available) or `@performance-optimizer` agent.
+- NOT: a single screen is slow → `mobile-perf-scan` (the cause) and `@device-performance-auditor` (the measured cost); `/mobile-audit --classes=perf` runs both.
 - NOT: server-side latency → backend pack.
 
 ## Phase 1 — Understand
 
 Confirm:
 - Platform: iOS / Android / both.
-- Current bundle size (from last release or `xcodebuild -showBuildSettings` / Android `analyze APK`).
+- Current size, measured on the release artifact: the App Store Connect / Xcode App Thinning Size Report for iOS (build settings are not a size), Android Studio's APK Analyzer, or `bundletool get-size total` on the APK set built from the AAB — `app-size-scan` § Measure holds the per-stack table.
 - Cold-start budget — **the project's own**, stated as `<budget> on <named device>`. If the project has none, the first job of this run is to measure a baseline and propose one, not to assume a number.
 - Any features explicitly excluded from optimization (e.g., legal SDK).
 
@@ -201,4 +200,3 @@ Next: pick recommendations to apply — highest measured saving per unit of effo
 - Google Play, [app size limits](https://support.google.com/googleplay/android-developer/answer/9859372) — 200MB mobile-data dialog, 500MB base module, 100MB legacy APK.
 - Apple, [maximum build file sizes](https://developer.apple.com/help/app-store-connect/reference/maximum-build-file-sizes) — 4 GB uncompressed, 80 MB `__TEXT`.
 - Android, [vitals launch time](https://developer.android.com/topic/performance/vitals/launch-time) — the "excessive" cold / warm / hot thresholds.
-- Android, [16 KB page sizes](https://developer.android.com/guide/practices/page-sizes) — the API-35 requirement and the 2027-02-01 update cutoff (read 2026-08-20).

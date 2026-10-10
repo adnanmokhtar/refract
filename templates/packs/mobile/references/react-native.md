@@ -28,7 +28,7 @@ src/
 
 ## Core choices (opinionated)
 
-- **New Architecture** — enable Fabric + TurboModules. Avoid legacy bridge issues.
+- **New Architecture** — not a choice on current React Native: from **0.82** it is the only architecture, and `newArchEnabled=false` / `RCT_NEW_ARCH_ENABLED=0` are ignored; 0.81 (Expo SDK 54) was the last release that could run the legacy one (`precedents/mobile.md` § 50, RN 0.82 release post 2025-10-08). Write new native modules as Turbo Native Modules with a codegen spec; legacy modules run through the interop layer and are `native-bridge-audit` § 1's findings.
 - **Expo Modules / Expo SDK** — use even in bare workflow for common primitives (Image, SecureStore, Notifications).
 - **Navigation** — React Navigation 7+.
 - **State** — Zustand (or Redux Toolkit if team prefers).
@@ -61,9 +61,20 @@ Check each against `package.json` and the installed RN version before adding one
 ## Performance
 
 - Profile with the **Hermes sampling profiler** and React DevTools Profiler. **Not Flipper** — it was decoupled from React Native core and removed from the app template (https://github.com/react-native-community/discussions-and-proposals/blob/main/proposals/0641-decoupling-flipper-from-react-native-core.md); advice naming it is several years stale.
-- Confirm Hermes is on in the release config before measuring anything — a JSC release build has a different startup profile entirely.
+- Hermes is the default engine (Hermes V1 the default from 0.84; `precedents/mobile.md` § 35). Confirm the release config does not opt out before measuring anything — a JSC release build has a different startup profile entirely.
 - Avoid anonymous functions in render when they become props (memo invalidation) — detector 4.
 - `useCallback` / `useMemo` where the profiler shows waste. Blanket memoization is itself a finding (`rules/render-discipline.md` § Must not).
+
+## Accessibility
+
+The detector is `skills/mobile-a11y-scan/SKILL.md` (§ 1–§ 8), judged by `@ux-reviewer` when the ui-ux pack is installed; this is the React Native vocabulary it reads.
+
+- **Name and role.** `accessibilityLabel` (or `aria-label`) and `accessibilityRole` (or `role`) on every touchable whose only child is an icon or image; a touchable whose child is `Text` is named by it (`precedents/mobile.md` § 60). State through `accessibilityState` / `aria-*` (selected, checked, disabled, expanded).
+- **Target size.** 44 pt iOS, 48 dp Android: `minWidth` / `minHeight` on the touchable. `hitSlop` enlarges the touch area only, not the layout box the checker measures.
+- **Text scaling.** `allowFontScaling` is on by default; `allowFontScaling={false}` on body or control text is § 4's finding, and `maxFontSizeMultiplier` below 2 blocks 200 %. A fixed-size badge is the exception (§ 61).
+- **Grouping and actions.** `accessible` on a container merges its children — never over interactive children (§ 5); a swipe or drag gesture needs `accessibilityActions` + `onAccessibilityAction` (§ 6).
+- **Announcements.** A toast or banner the app draws itself is spoken through `AccessibilityInfo.announceForAccessibility` or an Android `accessibilityLiveRegion` (§ 7).
+- **Lint and proof.** `eslint-plugin-react-native-a11y` (3.5.1, peer ESLint ≤ 8 — the skill runs it in a scratch install); the oracle is a React Native Testing Library role-and-name query, `screen.getByRole('button', { name: 'Add to cart' })`, failing before the fix. Versions as verified in the skill (2026-10-05).
 
 ## Biometrics
 
@@ -102,9 +113,9 @@ Verify a version and its access-control surface against the registry before writ
 
 ## Cross-references
 
-- `rules/render-discipline.md` — the 8 detectors these fingerprints close; this file carries the RN signal and its lint / profiler enforcement.
+- `rules/render-discipline.md` — the 8 detectors these fingerprints close; this file carries the RN signal and its lint / profiler enforcement. `skills/mobile-perf-scan/SKILL.md` is the static detector that finds them (§ 1–§ 3).
 - `rules/mobile-principles.md` — Keychain, permissions, crash reporting, budgets.
 - `references/expo.md` — read it *in addition* to this file on any Expo project: config plugins, EAS build/submit/update, and the CNG-vs-ejected fork.
 - `ai-patterns/native-storage.md` — which primitive holds which data class, and why no speed multiple is stated here.
 - `ai-patterns/offline-sync.md` · `app-lifecycle.md` — the queue and the window it drains in.
-- `agents/app-store-reviewer.md` — the submission audit; every dated store figure lives there, none here.
+- `skills/store-compliance-scan/SKILL.md` § The dated store gates — every dated store figure lives there, none here; `agents/app-store-reviewer.md` judges the submission.

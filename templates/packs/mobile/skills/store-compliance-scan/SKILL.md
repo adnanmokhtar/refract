@@ -366,12 +366,7 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) — § 3 (fix Expo CNG in app config), § 6 (store-text quality is the reviewer's), § 18 (legitimate special access), § 24–25 (plugin-supplied strings, removed permissions), § 49 (3.1.5, 4.8 as VERIFY, "per the page as of"), § 52 (what raising `targetSdk` opts into) — and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. Store-specific ones applied from here (not yet in the shared file):
-
-- **S1 A missing manifest is not a finding by itself.** An app whose own code uses no required-reason API and collects nothing needs no app-level manifest; its SDKs carry theirs (1c). *Flips back:* a category hit in native code, or collected data.
-- **S2 SDK-merged `AD_ID`** in an app that uses ads is the expected declaration (G12), not over-declaration.
-- **S3 Debug-only manifests and entitlements**, `src/debug`, and a `profile` variant are not what the store reads.
-- **S4 Dates past their extension are not "upcoming".** A row after its in-force date with no extension is HARD-BLOCK, not SCHEDULE; quote the extension only while it is open.
+The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) — § 3 (fix Expo CNG in app config), § 6 (store-text quality is the reviewer's), § 18 (legitimate special access), § 24–25 (plugin-supplied strings, removed permissions), § 49 (3.1.5, 4.8 as VERIFY, "per the page as of"), § 52 (what raising `targetSdk` opts into), and the store-specific § 80–83: a missing manifest is not a finding by itself (§ 80, § 1c here); SDK-merged `AD_ID` in an app that uses ads (§ 81, G12); debug-only manifests and entitlements (§ 82); dates past their extension are HARD-BLOCK, not SCHEDULE (§ 83) — and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4.
 
 ## When to run
 
@@ -380,7 +375,7 @@ The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobi
 
 ## Halt conditions
 
-- Do not report a row as confirmed until a verifier other than the run that found it has passed it through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) and S1–S4. Under `/mobile-audit` that is its verification phase; standalone, apply the protocol as a separate pass, tag those rows `self-verified`, and keep the rest as Unconfirmed, Hardening or Refuted. Never drop them.
+- Do not report a row as confirmed until a verifier other than the run that found it has passed it through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md), § 80–83 above all. Under `/mobile-audit` that is its verification phase; standalone, apply the protocol as a separate pass, tag those rows `self-verified`, and keep the rest as Unconfirmed, Hardening or Refuted. Never drop them.
 - Halt on any row without the `<file:line>`, the gate row and its date, and the axis.
 - Do not give a store row a security severity, or a security finding a store date.
 - Do not quote a gate whose page was last read more than 90 days before the run without re-reading it; do not quote a date or a guideline number that is not in the table or read on this run.

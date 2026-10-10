@@ -257,7 +257,7 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4: the New Architecture on ≥ 0.82 (§ 50), `InteractionManager` and `AppState.removeEventListener` by version (§ 51), a fix in generated native folders of an Expo CNG project (§ 3), Hermes the default (§ 35). Skill-local, until they are numbered there: a synchronous spec method that returns a constant or cached value; a method implemented in a dependency's native folder; a call guarded by a platform check with a fallback; a Turbo Native Module whose mismatch the build already fails (that is a build error, not an audit finding); a Pigeon-generated channel.
+The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4: the New Architecture on ≥ 0.82 (§ 50), `InteractionManager` and `AppState.removeEventListener` by version (§ 51), a fix in generated native folders of an Expo CNG project (§ 3), Hermes the default (§ 35). And the bridge-specific § 89–93: a synchronous spec method that returns a constant or cached value (§ 89); a method implemented in a dependency's native folder (§ 90); a call guarded by a platform check with a fallback (§ 91); a Turbo Native Module whose mismatch the build already fails — a build error, not an audit finding (§ 92); a Pigeon-generated channel (§ 93).
 
 ## When to run
 

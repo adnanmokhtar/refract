@@ -145,6 +145,9 @@ The names differ; the four states do not. If the stack's API returns a boolean, 
 
 ## Detectors (cite-or-halt)
 
+Design-time spot checks. The maintained detector — release-build exclusions, the purpose-string map, the permission-denied flow oracle — is `mobile-lifecycle-scan` § 3 (this pack); store declarations are `store-compliance-scan` § 2.
+
+
 1. **Request at launch / no in-context trigger.**
    - BAD: a request in an app-root mount, splash controller, or `didFinishLaunching`.
    - GOOD: the request is reached from the tap that needs the capability.
@@ -156,7 +159,7 @@ The names differ; the four states do not. If the stack's API returns a boolean, 
 3. **No permanently-denied branch.**
    - BAD: `if (granted) {…} else { showToast() }` — two states for a four-state world.
    - GOOD: a switch over the four states, with a settings deep link on the permanent branch.
-   - `grep -rniE "openSettings|openAppSettings|APPLICATION_DETAILS_SETTINGS|shouldShowRequestPermissionRationale"` — absence across the repo is the finding.
+   - `grep -rniE "openSettings|openAppSettings|APPLICATION_DETAILS_SETTINGS|shouldShowRequestPermissionRationale" src/ app/ lib/ ios/ android/` — absence across the repo is the finding (`mobile-lifecycle-scan` grep 3c runs it per root).
 4. **Declared but unreachable.**
    - BAD: an `Info.plist` usage key or a `<uses-permission>` with no call site (often inherited via manifest merge from a dependency).
    - GOOD: every declared permission maps to a cited call site.

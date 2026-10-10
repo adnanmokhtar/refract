@@ -109,18 +109,23 @@ Closure verbs:
 
 ### Mobile (`mobile-*`)
 
-Skill: `platform-conventions-audit` (mobile pack), reused frontend skills (a11y / design-iterate / design-token-audit / motion-audit).
+Skills: `platform-conventions-audit` (mobile pack) for platform finish; `mobile-a11y-scan` (mobile pack) for native accessibility — never the web a11y skills, whose DOM tooling proves nothing on a native tree; and the ui-ux skills reused for design-iterate / design-token-audit / motion-audit. `device-harness` (mobile pack) supplies the per-platform captures.
 
-Detectors: ALL frontend detectors PLUS:
-- ios-hig-drift (touch targets < 44pt, navigation patterns non-conformant, system fonts not used where appropriate).
-- material-spec-drift (Android Material 3 component usage drift, elevation/shadow drift, ripple states missing).
-- platform-icon-drift (iOS uses Cupertino icons; Android uses Material icons; mixed usage = drift).
+Detectors: the frontend branch's detector skills (`design-token-audit`, `motion-audit`; its `a11y-quick-check` is replaced by `mobile-a11y-scan`, whose rows feed the same `lift-contrast` / `expand-tap-target` / `clarify-affordance` verbs) PLUS `platform-conventions-audit`'s:
+- ios-hig-drift (system back and swipe-to-go-back removed, a full-screen modal where a sheet is the idiom).
+- material-spec-drift (Android Material 3 press feedback removed, component usage drift).
+- platform-icon-drift (iOS uses SF Symbols / Cupertino icons; Android uses Material icons; mixed usage against the app's own convention = drift).
 - platform-typography-drift (San Francisco vs Roboto not honoured per platform).
-- per-platform-surface-drift (iOS-specific affordances missing; Android-specific affordances missing).
-- haptic-feedback-coverage (missing haptics where convention dictates).
+- per-platform-surface-drift (iOS-specific or Android-specific affordances missing).
+- haptic-feedback-coverage (missing haptics where the app's own convention uses them).
 - safe-area-handling (notches / home indicators not respected).
+- elevation-drift (elevation / shadow literals outside the token source).
+- navigation-pattern-drift (navigate during composition or build, a sign-in left on the back stack, a drawer as primary navigation against the iOS idiom) — correctness rows carry `routed_to: /mobile-fix`, not a verb.
+- edge-to-edge-insets (Android 15 at `targetSdk` 35, opt-out ignored at 36: content under a system bar, a dropped `Scaffold` padding) — closed with `respect-safe-area`.
+- predictive-back (Android 16 at `targetSdk` 36: `onBackPressed` not called; Flutter's deprecated back APIs) — closed with `apply-platform-spec --platform=android`.
+- touch-target-drift — **routed, no verb here**: the detector is `mobile-a11y-scan` § 3 (44 pt iOS, 48 dp Android), and the fix is the ui-ux `tap-target` axis's `expand-tap-target`.
 
-Closure verbs: ALL frontend closure verbs PLUS:
+Closure verbs: ALL 19 frontend closure verbs PLUS:
 - `apply-platform-spec`, `unify-platform-icon`, `apply-platform-typography`, `add-haptic-feedback`, `respect-safe-area`.
 
 ## When to use

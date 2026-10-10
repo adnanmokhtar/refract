@@ -135,6 +135,9 @@ Whatever the stack, the shape is the same: **one** observer module, **one** sche
 
 ## Detectors (cite-or-halt)
 
+Design-time spot checks. The maintained detector — release-build exclusions, `targetSdk` gates, the process-death and scheduler oracles — is `mobile-lifecycle-scan` § 1–§ 2 (this pack), which `/mobile-audit` runs on a whole repo.
+
+
 1. **Timer or interval used as background work.**
    - BAD: a repeating interval, or a `setTimeout` chain, expected to keep running after the app leaves the foreground.
    - GOOD: the work is handed to the platform scheduler before backgrounding.

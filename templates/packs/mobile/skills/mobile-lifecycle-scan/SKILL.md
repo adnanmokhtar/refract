@@ -114,10 +114,10 @@ rg -o --no-filename --pcre2 '(?:Workmanager\(\)\.initialize|onBackgroundMessage|
 # 3. Permissions. 3a iOS purpose string missing for an API in use (Info.plist, build settings, Expo config);
 #    3b request in an entry file at launch; 3c roots with requests and no permanently-denied path;
 #    3d permission state persisted; 3e Android POST_NOTIFICATIONS / partial-photo declarations.
-while IFS='~' read -r api key; do
-  rg -q --pcre2 "$api" -g '*.{swift,m,mm}' "${X[@]}" "${ROOTS[@]}" || continue
-  rg -q "$key" -g 'Info.plist' -g '*.{pbxproj,xcconfig}' -g 'app.{json,config.js,config.ts}' "${X[@]}" "${ROOTS[@]}" || echo "3a $key missing; used at $(rg -l --pcre2 "$api" -g '*.{swift,m,mm}' "${X[@]}" "${ROOTS[@]}" | head -3 | tr '\n' ' ')"
-done <<'MAP'
+while IFS='~' read -r api key; do for r in "${ROOTS[@]}"; do   # per root: one app's Info.plist never covers another's API use
+  rg -q --pcre2 "$api" -g '*.{swift,m,mm}' "${X[@]}" "$r" || continue
+  rg -q "$key" -g 'Info.plist' -g '*.{pbxproj,xcconfig}' -g 'app.{json,config.js,config.ts}' "${X[@]}" "$r" || echo "3a $r: $key missing; used at $(rg -l --pcre2 "$api" -g '*.{swift,m,mm}' "${X[@]}" "$r" | head -3 | tr '\n' ' ')"
+done; done <<'MAP'
 \bAVCaptureDevice\b~NSCameraUsageDescription
 \brequestWhenInUseAuthorization\(~NSLocationWhenInUseUsageDescription
 \brequestAlwaysAuthorization\(~NSLocationAlwaysAndWhenInUseUsageDescription

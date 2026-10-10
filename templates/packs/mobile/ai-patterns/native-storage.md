@@ -38,9 +38,9 @@ pack: mobile
 | Auth tokens, refresh tokens, biometric secrets | Keychain (kSecAttrAccessibleWhenUnlockedThisDeviceOnly) | Android Keystore directly (**not** `EncryptedSharedPreferences` — see below) | `react-native-keychain` | `flutter_secure_storage` |
 | User preferences (theme, locale) | UserDefaults / NSUbiquitousKeyValueStore | SharedPreferences | MMKV | shared_preferences / hive |
 | Cached API responses | NSCache / FileManager | LruCache / DataStore | TanStack Query persister + MMKV | dio_cache_interceptor |
-| Structured local data (offline queue, drafts) | Core Data / SwiftData | Room | WatermelonDB / Realm / SQLite (op-sqlite) | drift / sqflite / hive |
+| Structured local data (offline queue, drafts) | Core Data / SwiftData | Room | WatermelonDB / SQLite (op-sqlite, expo-sqlite) | drift / sqflite / hive |
 | Large blobs (images, documents) | FileManager (Documents/Caches) | InternalStorage / ExternalFiles | RNFS / FileSystem | path_provider |
-| Real-time / sync state | UserDefaults + iCloud / Firestore | DataStore + Firebase | Firestore / Realm Sync | Firestore / hive_flutter |
+| Real-time / sync state | UserDefaults + iCloud / Firestore | DataStore + Firebase | Firestore (not Realm's Atlas Device Sync — end of life 2025-09-30, `offline-sync-scan` § 1) | Firestore / hive_flutter |
 
 ## Hard rules per data class
 
@@ -56,7 +56,7 @@ pack: mobile
 
 ### Biometric-gated secrets
 
-Biometrics do not *store* anything. The secret still lives in the Keychain / Keystore; what biometry adds is an **access-control constraint on the item or the key**, enforced by the secure hardware. A boolean the app checks after a `LAContext` / `BiometricPrompt` callback is not that — it is a UI gesture in front of an unprotected item, and it is the shape this pattern exists to reject. `add-feature` § Hard rules states the floor: **no biometric without secure-enclave / hardware-backed keystore.**
+Biometrics do not *store* anything. The secret still lives in the Keychain / Keystore; what biometry adds is an **access-control constraint on the item or the key**, enforced by the secure hardware. A boolean the app checks after a `LAContext` / `BiometricPrompt` callback is not that — it is a UI gesture in front of an unprotected item, and it is the shape this pattern exists to reject. The delivery pack's `lane-mobile` skill, § Hard rules (lane), states the floor: **no biometric without secure-enclave / hardware-backed keystore.**
 
 | Decision | iOS | Android |
 |---|---|---|
@@ -81,7 +81,7 @@ Also handle: no hardware enrolled, hardware present but locked out after repeate
 ### Structured local data
 
 - Pick ONE per project. Mixing Realm + SQLite + Core Data = nightmare.
-- Modern picks: Realm (cross-platform), Drift (Flutter SQLite), SwiftData (iOS 17+), Room (Android), op-sqlite or WatermelonDB (RN).
+- Modern picks: Drift (Flutter SQLite), SwiftData (iOS 17+), Room (Android), op-sqlite, expo-sqlite or WatermelonDB (RN). Realm's local database still runs, but its Atlas Device Sync reached end of life on 2025-09-30 (MongoDB's Atlas Device SDKs deprecation page, as cited in `offline-sync-scan` § 1): do not pick Realm for a new project because of its sync, and treat an existing `SyncConfiguration` as a sync layer with no server behind it.
 - Schema migrations are NOT optional — write them up front.
 - Indexes on every query path. Audit slow queries with the lib's profiler.
 

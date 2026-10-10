@@ -177,14 +177,17 @@ xcrun xctrace record --template 'App Launch' --device "<UDID>" --launch -- "<pat
 ### 7. Optional lifecycle checks
 
 ```bash
-# Process death, then relaunch from the launcher — the app-lifecycle restoration test.
+# Process death, then relaunch from Recents — the app-lifecycle restoration test.
 # STEP 1 IS NOT OPTIONAL: `am kill` "kills only processes that are safe to kill and that will
 # not impact the user experience" — a FOREGROUNDED app is not safe to kill, so on a foregrounded
 # app this line is a no-op and the relaunch below resumes the live process.
 adb shell input keyevent KEYCODE_HOME      # background it first, or the kill does nothing
 adb shell am kill "<application.id>"       # system-style kill; NOT a task-switcher swipe
 adb shell ps -A | grep "<application.id>"  # MUST print nothing — this is the proof the kill landed
-adb shell monkey -p "<application.id>" -c android.intent.category.LAUNCHER 1
+adb shell input keyevent KEYCODE_APP_SWITCH   # open Recents; the killed app's task is still listed
+adb shell screencap -p /sdcard/recents.png && adb pull /sdcard/recents.png "<out>/recents.png"   # find its card
+adb shell input tap "<x>" "<y>"                # tap the app's card — the task relaunches with its saved state
+# Instrumented form: UiDevice.pressHome(); executeShellCommand("am kill <application.id>"); pressRecentApps(); click the task.
 
 # Permission states — reset to exercise the not-determined path; revoke to exercise the denied one
 adb shell pm reset-permissions
@@ -193,7 +196,7 @@ xcrun simctl privacy booted reset all "<bundle.identifier>"
 xcrun simctl privacy booted revoke "<service>" "<bundle.identifier>"   # [K]
 ```
 
-`adb shell am kill` exercises the saved-state path that a task-switcher swipe does not. This is the mechanism behind `app-lifecycle`'s cold-start-after-process-death test; run it, capture the restored screen, and compare against the screen you left.
+`adb shell am kill` exercises the saved-state path that a task-switcher swipe does not. This is the mechanism behind `app-lifecycle`'s cold-start-after-process-death test; run it, capture the restored screen, and compare against the screen you left. **Relaunch from Recents, never from the launcher** (`monkey -c android.intent.category.LAUNCHER`, the home-screen icon, `am start` of the launcher activity): the restoration contract is the task being brought back with its saved state, which is the path the research catalog's process-death row and `mobile-lifecycle-scan` § Proof specify; a launcher intent is a different entry, and whether it resumes the task or starts the root activity again depends on the root activity's launch mode and flags — so a pass through it is not this test. Record which entry ran.
 
 **Report the process check, not just the restore.** The `ps` line above is the only evidence that a kill happened at all, and without it this step is the easiest false PASS in the pack: a no-op kill followed by a resume looks exactly like a perfect restoration. If `ps` still shows the process, the step is `SKIPPED (kill did not land)` — never a restore claim. `@offline-sync-auditor` caps every `durable` verdict at `unproven` without a real kill, so a false PASS here launders an unproven write into a proven one. (`am force-stop` stops everything associated with the package, but it also clears state the saved-state path is supposed to exercise — it is the wrong instrument for *this* test and the right one for the cold-start measurement in step 6.)
 
@@ -266,7 +269,7 @@ Status: OK | PARTIAL (<platform not covered>) | SKIPPED (<reason>)
 | <name> | <path, or SKIPPED (<command> unavailable)> | <path/to/android-tree.xml> |
 
 ### Lifecycle checks
-- Process death → relaunch (Android, `am kill` + `ps` proof): <restored to <screen> | lost state | SKIPPED (kill did not land) | not run>
+- Process death → relaunch from Recents (Android, `am kill` + `ps` proof): <restored to <screen> | lost state | SKIPPED (kill did not land) | not run>
 - Process death → relaunch (iOS, which variant ran: `kill -9` + launchctl proof, or Xcode Stop): <restored | lost state | SKIPPED (<reason>) | not run>
 - Install-over-upgrade: <clean | failed at <step> | not run>
 
@@ -299,6 +302,7 @@ Status: OK | PARTIAL (<platform not covered>) | SKIPPED (<reason>)
 - Left `pm reset-permissions` / privacy reset applied and confused a later run's permission state; left a font-scale, dark-mode or status-bar override in place for the next run.
 - Reported an iOS row from a `[K]` command that was never run on a Mac with Xcode.
 - Treated a task-switcher swipe as process death — it does not exercise the saved-state path.
+- Relaunched from the launcher icon or `monkey` after the kill and reported the result as a Recents restore.
 - Let the log stream keep running after the app exited, filling the artifact directory with noise the report then cites.
 
 ## Related

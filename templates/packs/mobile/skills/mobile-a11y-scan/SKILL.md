@@ -22,7 +22,7 @@ A candidate is a finding when all five hold:
 
 1. **It ships and renders.** A release build (not `__DEV__`, `kDebugMode`, `#if DEBUG`, `src/debug/`, a design gallery or a story) reaches the screen, in a state a user can reach.
 2. **A real user meets it.** TalkBack or VoiceOver, Switch Access / Full Keyboard Access, the largest font or display size, the dark theme.
-3. **Nothing already provides it.** The component library or a wrapper supplies the name, role, size or action (Material components pad to 48 dp — [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) § 37; a merged parent carries the label; Flutter's `SnackBar` is its own live region; § False positives).
+3. **Nothing already provides it.** The component library or a wrapper supplies the name, role, size or action (Material components pad to 48 dp — [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) § 37; a merged parent carries the label; Flutter's `SnackBar` is its own live region; precedents § 60–63).
 4. **The version gate holds.** The API and its default exist on the project's versions, read from grep 0: `react-native`, `expo`, Flutter, the Compose BOM / Material 3, the iOS deployment target.
 5. **The checker fired at the class's tier**, or the failure is a static fact fully visible in source (an unlabelled element with no wrapper, a literal `allowFontScaling={false}`). Otherwise it stays Unconfirmed.
 
@@ -247,7 +247,7 @@ BAD:   <Text allowFontScaling={false}>   maxFontSizeMultiplier={1}       builder
        .dynamicTypeSize(...DynamicTypeSize.large)                        UIFont.systemFont(ofSize: 15)  // no UIFontMetrics
 GOOD:  sp · text styles · .custom(_:size:) (scales with body [K]) · @ScaledMetric · UIFontMetrics + adjustsFontForContentSizeCategory · a clamp ≥ 2.0
 ```
-**Read the code:** Is the scope app-wide (a root `builder:`, a theme-level `Density`, a global default) — high — or one fixed-size mark (a badge, an avatar initial, a spinner slot) that must not grow (§ False positives b)? Does a clamp below 2.0 stop body text reaching 200 %? Does the text clip or truncate at the largest size instead of wrapping? **Finding when** body or control text cannot reach 200 %, or clips at the largest setting. **Severity:** high when app-wide; medium per element. **Proof:** static fact for a literal pin; for clipping, a D-tier render at the largest size — `adb shell settings put system font_scale 2.0`, iOS simulator `xcrun simctl ui booted content_size accessibility-extra-extra-extra-large` [K], audit `.dynamicType` and `.textClipped`; Flutter test with `TextScaler.linear(2.0)`.
+**Read the code:** Is the scope app-wide (a root `builder:`, a theme-level `Density`, a global default) — high — or one fixed-size mark (a badge, an avatar initial, a spinner slot) that must not grow (precedents § 61)? Does a clamp below 2.0 stop body text reaching 200 %? Does the text clip or truncate at the largest size instead of wrapping? **Finding when** body or control text cannot reach 200 %, or clips at the largest setting. **Severity:** high when app-wide; medium per element. **Proof:** static fact for a literal pin; for clipping, a D-tier render at the largest size — `adb shell settings put system font_scale 2.0`, iOS simulator `xcrun simctl ui booted content_size accessibility-extra-extra-extra-large` [K], audit `.dynamicType` and `.textClipped`; Flutter test with `TextScaler.linear(2.0)`.
 
 ### 5. Grouping, hiding and reading order
 
@@ -345,15 +345,7 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) (§ 1–8 posting rules, § 37 Material 48 dp padding) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10 (the accessibility column of the gate table). Until they are numbered in `precedents/mobile.md`, these hold for this skill:
-
-- **a. Names from structure.** A touchable whose child is `Text`, a Compose `clickable` row whose descendants include text (it merges them), a Flutter `InkWell` with a `Text` child, a SwiftUI `Label("Delete", systemImage:)` with `.labelStyle(.iconOnly)`: named. `contentDescription = null` on an icon beside text in a merged row is correct.
-- **b. Fixed-size marks.** `allowFontScaling={false}`, `withNoTextScaling` or a fixed font on a badge, an avatar initial, a spinner slot or a medallion whose box must not grow is acceptable when body text still scales. A pin on a root `builder:`, a theme `Density` or a global default flips it back.
-- **c. Decorative content hidden on purpose.** `accessible={false}`, `importantForAccessibility="no"`, `Image(decorative:)`, `ExcludeSemantics` / `clearAndSetSemantics` over static content (a star row read as "4 of 5 stars") is correct.
-- **d. Library-owned semantics.** Material buttons and `IconButton` (48 dp, role), Paper / gluestack / core `Button` (role), Flutter `SnackBar` (live region), SwiftUI `.swipeActions` (exposed actions [K]), a long press on Flutter `GestureDetector` (exposed as an action).
-- **e. A persistent banner present on first render** needs no announcement; one that appears in response to an event does.
-- **f. Hints are optional.** A missing `accessibilityHint` is Low at most, never a § 1 finding.
-- **g. Not a native tree.** React Native Web output, a WebView's page content (the web skills' and security's), a design gallery or Storybook screen outside the release navigator.
+The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) (§ 1–8 posting rules, § 37 Material 48 dp padding) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10 (the accessibility column of the gate table). The ones this skill meets most, each with the evidence that flips it back: names from structure (§ 60); fixed-size marks while body text scales (§ 61); decorative content hidden on purpose (§ 62); library-owned semantics (§ 63); a persistent banner present on first render (§ 64); hints are optional (§ 65); not a native tree (§ 66).
 
 ## When to run
 

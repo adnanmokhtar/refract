@@ -248,7 +248,7 @@ Write the report to `ai/runtime/app-size-<date>.md`; optionally append a row (da
 
 ## False positives / precedents
 
-The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4: minify off in a library module (§ 41); a missing `isMinifyEnabled` on AGP ≥ 9.3 with the `optimization` DSL (§ 53); "enable Hermes" when the build does not opt out (§ 35); a fix in generated Expo CNG folders (§ 3). Skill-local, until they are numbered there: a debug or universal-APK size compared with an AAB; an asset in a design gallery or test target; a large asset that is the product (a bundled offline map, a sound library); a dependency used only through autolinking or a config plugin.
+The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4: minify off in a library module (§ 41); a missing `isMinifyEnabled` on AGP ≥ 9.3 with the `optimization` DSL (§ 53); "enable Hermes" when the build does not opt out (§ 35); a fix in generated Expo CNG folders (§ 3). And the size-specific § 94–97: a debug or universal-APK size compared with an AAB (§ 94); an asset in a design gallery or test target (§ 95); a large asset that is the product — a bundled offline map, a sound library (§ 96); a dependency used only through autolinking or a config plugin (§ 97).
 
 ## When to run
 

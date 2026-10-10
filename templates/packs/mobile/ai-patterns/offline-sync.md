@@ -132,5 +132,5 @@ Two things this pattern deliberately does not carry, because the auditor's premi
 - `push-notifications.md` (a silent/background push is a best-effort trigger to wake THIS sync — treat delivery as unreliable and back it with a foreground reconcile)
 - `app-lifecycle.md` (owns WHEN the OS lets the queue drain — background windows, process death, foreground reconcile; this pattern owns WHAT is replayed and how conflicts resolve. State the seam; do not restate the other half.)
 - `mobile-api-contract.md` (a mutation queued by an old client lands on a newer server — the additive-only rule is what makes replay survivable)
-- `@offline-sync-auditor` (the audit this design is written to survive; `/add-feature` § Phase 4 dispatches it on any write-path change)
+- `@offline-sync-auditor` (the audit this design is written to survive; the delivery run's reviewer fan-out — `lane-mobile` § Phase 4 — dispatches it on any write-path change) · `offline-sync-scan` (the detector whose rows it judges)
 - `@device-performance-auditor` (a memory kill *is* process death — its kill measurement turns a `lossy` verdict into an active data-loss bug)

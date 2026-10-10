@@ -56,7 +56,7 @@ If any of these don't land the user on the right screen with the right state, th
 - iOS: `Info.plist` → `CFBundleURLTypes`.
 - Android: `<intent-filter>` with `<data android:scheme="myapp" />`.
 - RN: `app.json` `scheme` (Expo) or `react-native-deep-linking` config.
-- Flutter: `flutter_app_links` / `uni_links` package + native config.
+- Flutter: `app_links` package + native config, or the framework's own deep linking with `go_router`. `uni_links` is discontinued on pub.dev and names `app_links` as its replacement (last release 0.5.1; pub.dev read 2026-10-10).
 
 Use case: app-internal links (notifications opening specific screens). Browsers will warn before opening unknown schemes — not for cross-app sharing.
 
@@ -126,7 +126,7 @@ Deep link from a new email mentions a feature that didn't exist in v1.0. App is 
 | iOS universal link | `xcrun simctl openurl booted "https://example.com/orders/123"` |
 | Android scheme | `adb shell am start -W -a android.intent.action.VIEW -d "myapp://orders/123" com.example.app` |
 | Android App Link | `adb shell am start -W -a android.intent.action.VIEW -d "https://example.com/orders/123"` |
-| Push (Expo) | `expo push --to <token> --data '{"screen":"OrderDetails","params":{"id":"123"}}'` |
+| Push (Expo) | `curl -H "Content-Type: application/json" -X POST "https://exp.host/--/api/v2/push/send" -d '{"to":"ExponentPushToken[...]","data":{"screen":"OrderDetails","params":{"id":"123"}}}'` — Expo's push API ([sending notifications](https://docs.expo.dev/push-notifications/sending-notifications/), read 2026-10-10); there is no `expo push` CLI command. |
 | Push (FCM) | `curl -X POST "https://fcm.googleapis.com/v1/projects/<project-id>/messages:send" -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" -d '{"message":{"token":"<token>","data":{...}}}'` — HTTP v1 with an OAuth access token ([send a message](https://firebase.google.com/docs/cloud-messaging/send/v1-api)). The legacy `/fcm/send` endpoint with `Authorization: key=<server-key>` is retired; a test script still using it is a finding, not a working test. |
 
 For each, test from cold start, warm start, foreground.

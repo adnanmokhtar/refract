@@ -2,42 +2,28 @@
 
 Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
-**Fallback convention in this pack: the source IS the fallback, except where an abridgement is
-genuinely different.** Three entries point at `_examples/` — `mobile-architect`,
-`offline-sync-auditor` and `device-performance-auditor` — because those are the artifacts a project
-rewrites in its own voice, against its own entities, screens and device list, so a shorter,
-project-shaped starting point is the right thing to receive. Every other entry points at its own
-source file, and that is a decision, not drift. The test is whether the abridgement would differ:
-where it would not, a second copy is only a second place for a correction to fail to land.
-
-The two auditor abridgements are cut against the copied-verbatim rule stated further down this
-paragraph rather than around it, and the claim is countable file against file: each keeps **every** halt condition
-(11 for `offline-sync-auditor`, 14 for `device-performance-auditor`), **every** invariant (9 each),
-both named failure poles, **every row** of the delegated-floor table (9 and 10 rows), and every
-platform figure with the URL that publishes it — including `device-performance-auditor`'s § Sources
-and its "Deliberately absent" list, which is the safety signal in that file. What is shortened is
-the worked prose around the diagnosis tables, the explanatory tail of each § Failure modes bullet,
-and the § Related pointer list — the part a project replaces with its own screens and device
-classes on first contact. Exactly one § Failure modes bullet per file is dropped outright, and only
-because its substance is stated elsewhere in the same abridgement: `reachability-as-truth` survives
-as a § Failure catalogue row, and "a metric with no budget is a finding, not a blank" survives as an
-output-section heading. Nothing dropped is a number, a citation, a halt, or a boundary. The reason is `phase-4.2-apply.md`
-§ 4.2-AUTHOR step 2: it resolves each topic's `fallback:` field and copies THAT file VERBATIM, so
-whatever this column names becomes the artifact the project runs on — and for mobile the greenfield
-case is the COMMON case. These files carry dated store gates, cited platform limits and
-cite-or-halt detectors; an abridgement of one is a shorter document that has quietly dropped a
-safety signal, which is exactly what `validate-pack-consistency.sh` check 8b exists to catch. A
-greenfield mobile project is better served by the whole artifact than by a summary of it. If you
-later cut a real `_examples/` abridgement for one of these, re-point the `fallback:` in the same
-change.
+**Fallback convention in this pack: the source IS the fallback.** Every entry points at its own
+source file, and that is a decision, not drift. Until 2.0.0 three agents — `mobile-architect`,
+`offline-sync-auditor` and `device-performance-auditor` — pointed at `_examples/` abridgements. They
+were deleted at 2.0.0: the batch-3 rewrite gave each agent a `## Contract` block, its detector skill
+(`offline-sync-scan`, `mobile-perf-scan`) and the Bash and Skill tools to run it, and the
+abridgements still routed frame causes to `render-discipline` alone, carried no Contract and held a
+tool list that could not run a device — a shorter document that had quietly dropped the
+done-condition (`validate-pack-consistency.sh` CLOSING-SIGNAL-LOSS). The reason the source wins is
+`phase-4.2-apply.md` § 4.2-AUTHOR step 2: it resolves each topic's `fallback:` field and copies THAT
+file VERBATIM, so whatever this column names becomes the artifact the project runs on — and for
+mobile the greenfield case is the COMMON case. These files carry dated store gates, cited platform
+limits and cite-or-halt detectors; a greenfield mobile project is better served by the whole
+artifact than by a summary of it. If you later cut a real `_examples/` abridgement, re-point the
+`fallback:` in the same change and keep the Contract block in it.
 
 ```yaml
 - name: mobile-architect
   kind: agent
   triggers: { mobile_framework_detected: true }
   extracts_from: _extracted-codebase.md § Stack (mobile framework) + § Modules
-  sections: [persona, premise_two_poles, five_powers, halt_conditions, invariants, delegated_floor, modes, pre_flight, method, design_smells, output_format, failure_modes, sources]
-  fallback: _examples/mobile-architect.md
+  sections: [persona, contract, premise_two_poles, five_powers, halt_conditions, invariants, delegated_floor, modes, pre_flight, method, design_smells, output_format, failure_modes, sources]
+  fallback: agents/mobile-architect.md
   cite_evidence: strict
 
 - name: mobile-principles
@@ -67,7 +53,7 @@ change.
 - name: app-store-reviewer
   kind: agent
   triggers: { mobile_framework_detected: true }
-  sections: [persona, premise_two_poles_three_buckets, halt_conditions, invariants, dated_machine_gates, audit_dimensions, output_format, hard_rules, failure_modes, sources]
+  sections: [persona, contract, premise_two_poles_three_buckets, halt_conditions, invariants, dated_machine_gates, audit_dimensions, output_format, hard_rules, failure_modes, sources]
   fallback: agents/app-store-reviewer.md
   # fallback is the source ON PURPOSE: every figure in it is cited to a fetched URL, so a
   # greenfield project is better served by the whole reviewer than by an abridgement of it.
@@ -76,16 +62,16 @@ change.
   kind: agent
   triggers: { mobile_framework_detected: true }
   extracts_from: _extracted-idioms.md § State management + § Storage + _extracted-codebase.md § Modules
-  sections: [persona, premise_two_poles, halt_conditions, invariants, delegated_floor, pre_flight, write_path_trace, failure_catalogue, output_format, hard_rules, failure_modes, sources]
-  fallback: _examples/offline-sync-auditor.md
+  sections: [persona, contract, premise_two_poles, halt_conditions, invariants, delegated_floor, pre_flight, write_path_trace, failure_catalogue, output_format, hard_rules, failure_modes, sources]
+  fallback: agents/offline-sync-auditor.md
   cite_evidence: strict
 
 - name: device-performance-auditor
   kind: agent
   triggers: { mobile_framework_detected: true }
   extracts_from: _extracted-codebase.md § Stack (mobile framework) + ai/runtime/perf-budgets.md (or the project's sibling)
-  sections: [persona, premise_two_poles_three_kinds_of_number, four_costs, halt_conditions, invariants, delegated_floor, pre_flight, method, diagnosis_table, output_format, hard_rules, failure_modes, sources]
-  fallback: _examples/device-performance-auditor.md
+  sections: [persona, contract, premise_two_poles_three_kinds_of_number, four_costs, halt_conditions, invariants, delegated_floor, pre_flight, method, diagnosis_table, output_format, hard_rules, failure_modes, sources]
+  fallback: agents/device-performance-auditor.md
   cite_evidence: strict
   # `sources` is REQUIRED, for the same reason the 1.7.0 patterns declare it: this agent is the one
   # artifact in the pack that quotes Android vitals figures for startup, frames, memory and wake
@@ -98,13 +84,12 @@ change.
   triggers: { mobile_framework_detected: true }
   sections: [pack_overlay, scope, screen_scoped_mirror_axes, tier, sensitive_entity_gate, phase_2_screen_design, phase_3_reads, deep_link_registration, phase_6_validation, output_format]
   fallback: commands/add-screen.md
-  # `/add-screen` became a scope-narrowing OVERLAY on this pack's `/add-feature` at 1.9.0 — the
-  # same shape `commands/refactor.md` already uses. It previously restated ~60% of `/add-feature`
-  # verbatim while missing every safety mechanism that command has: the reviewer precondition
-  # table, `@security-auditor`, `@app-store-reviewer`, the BLOCKER halt rule and the
-  # agent-not-installed fallback. A Heavy tier defined by "biometric / Keychain / secrets touch"
-  # dispatched no security review at all. The sections above are what a SCREEN adds on top; the
-  # seven phases are `/add-feature`'s and are not re-emitted here.
+  # `/add-screen` is a scope-narrowing OVERLAY on the delivery pack's `lane-mobile` skill (since
+  # 1.10.0; before that it overlaid this pack's own `/add-feature`, whose procedure was cut into
+  # `lane-mobile`). It once restated ~60% of that procedure verbatim while missing every safety
+  # mechanism: the reviewer lens set, `@security-auditor`, `@app-store-reviewer`, the BLOCKER halt
+  # and the `UNREVIEWED(<axis>)` contract. The sections above are what a SCREEN adds on top; the
+  # phases are `lane-mobile`'s and are not re-emitted here.
 
 - name: add-feature
   kind: command

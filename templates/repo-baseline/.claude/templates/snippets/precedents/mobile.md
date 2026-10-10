@@ -1,10 +1,11 @@
-# Precedents — mobile (lifecycle, background, permissions, links, push, OTA, rendering, device security, store)
+# Precedents — mobile (lifecycle, background, permissions, links, push, OTA, rendering, accessibility, offline sync, platform, bridges, size, device security, store)
 
 Read by the verifier under [`refute-before-report.md`](../refute-before-report.md) § 4 and § 10 for
 every candidate a mobile detector raises: state lost on process death, background work, permissions,
-network timeouts, deep-link payloads, push, OTA updates, render and list cost, native accessibility
-and store gates, on React Native / Expo, Flutter, iOS (Swift, SwiftUI, UIKit) and Android (Kotlin,
-Compose, Views). Device-security classes (storage, transport, IPC, WebView, release flags) are judged
+network timeouts, deep-link payloads, push, OTA updates, render and list cost, native accessibility,
+offline sync, platform conventions, the native bridge, app size and store gates, on React Native /
+Expo, Flutter, iOS (Swift, SwiftUI, UIKit) and Android (Kotlin, Compose, Views). § 60–97 are the
+per-detector calibrations each mobile skill used to carry in its own § False positives. Device-security classes (storage, transport, IPC, WebView, release flags) are judged
 by the security pack's [`finding-verification.md`](../finding-verification.md) when that pack is
 installed; § 42–48 are the calibration it reads for them. The oracles are in
 [`proof-oracles.md`](../proof-oracles.md) § Mobile. The three cross-domain precedents are in
@@ -129,6 +130,65 @@ a lifecycle, permission, link, push or background fix.
 58. **Swift 6.2 default MainActor isolation**, when the target enables it, runs unannotated functions on the main actor: read `SWIFT_DEFAULT_ACTOR_ISOLATION` before claiming code runs off main.
 59. **`flutter_secure_storage` 11** removed `encryptedSharedPreferences`; a 9 → 11 jump without the migration path loses stored values.
 
+## Not a finding — native accessibility (`mobile-a11y-scan`)
+
+60. **Names from structure.** A touchable whose child is `Text`, a Compose `clickable` row whose descendants include text (it merges them), a Flutter `InkWell` with a `Text` child, a SwiftUI `Label("Delete", systemImage:)` with `.labelStyle(.iconOnly)`: named. `contentDescription = null` on an icon beside text in a merged row is correct. *Flips back:* the only child is an icon or image, or the merge is cleared.
+61. **Fixed-size marks.** `allowFontScaling={false}`, `withNoTextScaling` or a fixed font on a badge, an avatar initial, a spinner slot or a medallion whose box must not grow is acceptable when body text still scales. *Flips back:* a pin on a root `builder:`, a theme `Density` or a global default.
+62. **Decorative content hidden on purpose.** `accessible={false}`, `importantForAccessibility="no"`, `Image(decorative:)`, `ExcludeSemantics` / `clearAndSetSemantics` over static content (a star row read as "4 of 5 stars") is correct. *Flips back:* the hidden subtree holds an interactive child.
+63. **Library-owned semantics.** Material buttons and `IconButton` (48 dp, role), Paper / gluestack / core `Button` (role), Flutter `SnackBar` (live region), SwiftUI `.swipeActions` (exposed actions [K]), a long press on Flutter `GestureDetector` (exposed as an action).
+64. **A persistent banner present on first render** needs no announcement. *Flips back:* it appears in response to an event.
+65. **Hints are optional.** A missing `accessibilityHint` is Low at most, never an accessible-name finding.
+66. **Not a native tree.** React Native Web output, a WebView's page content (the web skills' and security's), a design gallery or Storybook screen outside the release navigator.
+
+## Not a finding — performance (`mobile-perf-scan`)
+
+67. **Library-owned lifecycle and threads.** Glide `with(fragment)`, Coil in Compose and `cached_network_image` clear themselves; Reanimated worklets run on the UI thread, not the JS thread; MMKV sync reads are microsecond-scale.
+68. **Small and one-off.** `JSON.parse` / `jsonDecode` of a config or session blob, a single `existsSync` in an async function, a static `Opacity(opacity: 0.5)`. *Flips back:* the same call inside a list item, a scroll or animation listener, or over fetched data.
+69. **Not convertible.** `useNativeDriver: false` on a layout property (width, height, top, flex) the native driver cannot animate.
+70. **Owned elsewhere.** A controller passed in by a parent (the parent disposes it); `lateinit var binding` in an Activity; `applicationContext` or `Application` held in a singleton.
+71. **Sized by design.** CDN-resized image URLs; a zoom viewer with subsampling using the original size; SVG and vector icons.
+72. **Not shipped.** Mock APIs, `tool/` and `bin/` scripts, benchmark and test source sets; a Flutter or RN host module without a baseline profile (the profile would cover only the embedding).
+
+## Not a finding — offline sync (`offline-sync-scan`)
+
+73. **Write-through buffer.** An in-memory list mirrored from a durable store, written to disk before the acknowledgement. *Flips back:* the acknowledgement fires before the durable write returns.
+74. **Idempotent by method.** GET, a full-resource PUT and DELETE retried without a key; a client UUID in the body that the server dedupes on. *Flips back:* PATCH with increments, or a POST.
+75. **Library defaults that are safe.** axios-retry's default condition (no POST); TanStack `refetchOnReconnect` (active stale queries only); Apollo `optimisticResponse` (rolls back itself). *Flips back:* a custom condition or a manual cache write.
+76. **A reachability flag that drives only a banner** while requests are still attempted. *Flips back:* the flag gates a send.
+77. **One wipe covers all.** A single `deleteDatabase` / `clearAllTables` for a single-database app; a logout helper that clears every category.
+78. **Single-writer entities** (a preference only one device edits, a read-only catalogue) need no conflict policy; machinery for them is `@offline-sync-auditor`'s `ceremony-without-concurrency`, reported as cost, not as a missing policy.
+79. **A queue nobody acknowledges** (fire-and-forget analytics) is not a durability promise.
+
+## Not a finding — store gates (`store-compliance-scan`)
+
+80. **A missing privacy manifest is not a finding by itself.** An app whose own code uses no required-reason API and collects nothing needs no app-level manifest; its SDKs carry theirs. *Flips back:* a category hit in native code, or collected data.
+81. **SDK-merged `AD_ID`** in an app that uses ads is the expected declaration, not over-declaration.
+82. **Debug-only manifests and entitlements**, `src/debug`, and a `profile` variant are not what the store reads.
+83. **Dates past their extension are not "upcoming".** A row after its in-force date with no extension is HARD-BLOCK, not SCHEDULE; quote the extension only while it is open.
+
+## Not a finding — platform conventions (`platform-conventions-audit`)
+
+84. **One look on both platforms with no adaptive site anywhere** is a brand decision, not drift.
+85. **A `TouchableWithoutFeedback` that dismisses the keyboard** is not an action; no press feedback is owed.
+86. **`ignoresSafeArea` on a background `Color` or image** is the idiom. *Flips back:* the container that ignores it holds controls.
+87. **`canPop: false` with `onPopInvokedWithResult`** is a guarded back, not a blocked one.
+88. **A bar colour that no longer applies** (edge-to-edge at the gated `targetSdk`) is low, never high.
+
+## Not a finding — native bridge (`native-bridge-audit`)
+
+89. **A synchronous spec method that returns a constant or a cached value.** *Flips back:* its body does I/O, crypto or waits on a lock.
+90. **A method implemented in a dependency's native folder** — the contract set-difference cannot see it; read the dependency before reporting a gap.
+91. **A call guarded by a platform check with a fallback.**
+92. **A Turbo Native Module whose mismatch the build already fails** — a build error, not an audit finding.
+93. **A Pigeon-generated channel**: both sides are generated from one definition.
+
+## Not a finding — app size (`app-size-scan`)
+
+94. **A debug or universal-APK size compared with an AAB** — not the artifact users download.
+95. **An asset in a design gallery or a test target.**
+96. **A large asset that is the product** (a bundled offline map, a sound library).
+97. **A dependency used only through autolinking or a config plugin** — it ships with no import.
+
 ## Rationalizations to reject (mobile)
 
 **Wrongly accepting:** "MobSF flagged it" · "it crashes in debug" (release reachability?) · "the
@@ -153,4 +213,7 @@ blog and CHANGELOG (0.82, 0.87), react-native-screens README, FlashList v2 chang
 and firebase.google.com (FCM receive, ErrorCode, manage tokens, migration FAQ), Microsoft Learn App
 Center retirement, OWASP MASVS 2.1.0 / MASWE (CC BY-SA 4.0, paraphrased), and library source read
 the same day (axios, dio, dart-lang/http, okhttp, react-native v0.87.1). Paraphrased; no text
-reproduced beyond short quoted identifiers.
+reproduced beyond short quoted identifiers. § 60–97 (numbered 2026-10-10) moved here from the
+§ False positives sections of `mobile-a11y-scan`, `mobile-perf-scan`, `offline-sync-scan`,
+`store-compliance-scan`, `platform-conventions-audit`, `native-bridge-audit` and `app-size-scan`;
+the library behaviour they rest on is cited, with its read date, in those skills.

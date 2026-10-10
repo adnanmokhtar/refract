@@ -59,7 +59,7 @@ pack: mobile
 - **Register on grant.** Obtain the device token only after permission is granted (`getToken()` / `didRegisterForRemoteNotificationsWithDeviceToken`).
 - **Sync to server.** POST the token with a user + device binding. The server addresses sends by user; the device id lets you replace a rotated token for the same device instead of accumulating duplicates.
 - **Refresh on rotation.** Tokens rotate (reinstall, restore, OS refresh). Subscribe to the rotation callback (`onTokenRefresh` / `messaging().onTokenRefresh` / `didRegisterForRemoteNotifications`) and re-sync every time.
-- **Invalidate.** On logout, unbind the token server-side. When APNs/FCM returns **410 Unregistered** / `NotRegistered`, delete the token server-side. Stale tokens waste send quota and — worse — leak notifications to a device that has been wiped and reassigned to another user.
+- **Invalidate.** On logout, unbind the token server-side. Delete the token server-side when the provider says it is dead: APNs **410** `Unregistered`; FCM HTTP v1 `UNREGISTERED` (HTTP 404) — the legacy `NotRegistered` belongs to the retired legacy API, so sender code that prunes only on it never prunes (`precedents/mobile.md` § 56); Expo's push service `DeviceNotRegistered` in a ticket or receipt ([sending notifications](https://docs.expo.dev/push-notifications/sending-notifications/), read 2026-10-10). Stale tokens waste send quota and — worse — leak notifications to a device that has been wiped and reassigned to another user.
 
 ## Channels (Android) & categories (iOS)
 
@@ -95,7 +95,7 @@ Handle all three. A tap-only handler misses the foreground case; a foreground-on
 
 ## Delivery diagnostics
 
-- Read APNs/FCM response codes per token: **400** bad token, **410** unregistered (delete it), **429/`Unavailable`** back off, **200/`success`** delivered-to-provider (not to device — push is best-effort). Log per-token failures and feed 410s into the invalidation path.
+- Read the provider's response per token: a bad-token error, a dead token (APNs 410 `Unregistered`, FCM v1 `UNREGISTERED`, Expo `DeviceNotRegistered` — delete it), a throttle (back off), and a success that means delivered *to the provider*, not to the device — push is best-effort. Log per-token failures and feed the dead-token codes into the invalidation path.
 
 ## Routing hand-off
 
@@ -113,6 +113,9 @@ Parsing the tapped payload into a `{ screen, params }` intent and navigating —
 
 ## Detectors (cite-or-halt)
 
+Design-time spot checks. The maintained detector — release-build exclusions, version gates, the push matrix oracle — is `mobile-lifecycle-scan` § 6 (this pack), which `/mobile-audit` runs on a whole repo.
+
+
 1. **Permission at cold-start / no priming.**
    - BAD: `requestPermission()` in `App` mount / `AppDelegate.didFinishLaunching`.
    - GOOD: priming screen gates the request, fired from an in-context feature entry.
@@ -120,7 +123,7 @@ Parsing the tapped payload into a `{ screen, params }` intent and navigating —
 2. **Token obtained but never synced / never invalidated.**
    - BAD: `getToken()` result logged or held in state only; no `/devices` POST; no logout/410 unbind.
    - GOOD: token POSTed with user+device binding; logout + 410/`NotRegistered` delete it.
-   - `grep -rniE "getToken|getExpoPushToken|deviceToken" src/ | ...` then confirm a server-sync + invalidation call exists.
+   - `grep -rniE "getToken|getExpoPushToken|deviceToken" src/ app/ lib/ ios/ android/` — then, for each hit, confirm a server-sync call and an invalidation path (logout and the dead-token codes above) exist.
 3. **Android O+ notification with no channel.**
    - BAD: `NotificationCompat.Builder(ctx, ...)` posted with a channel id that was never created.
    - GOOD: `createNotificationChannel()` runs at startup for every channel id used.

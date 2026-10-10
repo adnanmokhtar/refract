@@ -27,7 +27,7 @@ lib/
 
 ## Core choices (opinionated)
 
-- **State management**: Riverpod 2 (preferred). Bloc for event-sourced / complex flows.
+- **State management**: Riverpod (preferred) — read its major from `pubspec.lock` before writing provider code, because the API changes across majors. Bloc for event-sourced / complex flows.
 - **Navigation**: `go_router` with typed routes.
 - **Networking**: `dio` + interceptors. `freezed` for DTOs + `json_serializable`.
 - **Forms**: `reactive_forms` or `flutter_form_builder`.
@@ -77,6 +77,17 @@ lib/
 - Integration tests (`integration_test`) for end-to-end.
 - Golden tests (pixel snapshots) for widget appearance regressions.
 
+## Accessibility
+
+The detector is `skills/mobile-a11y-scan/SKILL.md` (§ 1–§ 8), judged by `@ux-reviewer` when the ui-ux pack is installed; this is the Flutter vocabulary it reads.
+
+- **Name and role.** `IconButton(tooltip:)` names an icon button; a `GestureDetector` or `InkWell` around an icon or image needs `Semantics(button: true, label: …)`; images carry `semanticLabel` or are excluded. An `InkWell` with a `Text` child is named by it (`precedents/mobile.md` § 60).
+- **Target size.** 48 dp on Android, 44 pt on iOS: Material components pad to `kMinInteractiveDimension` while `MaterialTapTargetSize.padded` is in effect; `shrinkWrap` or a small `SizedBox` around a raw tap handler is § 3's finding.
+- **Text scaling.** The user's `TextScaler` reaches text unless something pins it: a `MediaQuery.withClampedTextScaling` / `textScaler` clamp below 2.0 on a root `builder:` blocks 200 % (§ 4); a fixed-size badge is the exception (§ 61).
+- **Grouping and hiding.** `MergeSemantics` for a row read as one item; `ExcludeSemantics` / `Semantics(excludeSemantics: true)` only over static content, never over interactive children (§ 5, § 62).
+- **Announcements.** `SnackBar` is its own live region; an overlay the app draws itself is spoken with `SemanticsService.announce` or `Semantics(liveRegion: true)` (§ 7).
+- **Proof.** `flutter analyze` sees none of these classes; the oracle is a widget test — `final h = tester.ensureSemantics();` then `await expectLater(tester, meetsGuideline(androidTapTargetGuideline));` (also `iOSTapTargetGuideline`, `labeledTapTargetGuideline`, `textContrastGuideline`), `h.dispose();` — failing before the fix, plus a render at `TextScaler.linear(2.0)`.
+
 ## Biometrics
 
 `local_auth` (3.0.2, 2026-07-09 — https://pub.dev/packages/local_auth) wraps `LAContext.evaluatePolicy` / `BiometricPrompt` and is therefore the **UI gate** only: a successful call does not make anything in `flutter_secure_storage` unreadable. Binding the secret to the key means reaching the platform's own access control — `SecAccessControl` on Apple, `setUserAuthenticationRequired` on Android — through the plugin's platform options or a `MethodChannel`. Which of the two the design needs is `agents/mobile-architect.md` § Biometric gates; the semantics are in `references/swiftui.md` and `references/jetpack-compose.md`, including the enrollment-change decision that neither plugin makes for you.
@@ -109,8 +120,8 @@ lib/
 
 ## Cross-references
 
-- `rules/render-discipline.md` — the 8 detectors these fingerprints close; this file carries the Flutter signal and its lint / profiler enforcement.
+- `rules/render-discipline.md` — the 8 detectors these fingerprints close; this file carries the Flutter signal and its lint / profiler enforcement. `skills/mobile-perf-scan/SKILL.md` is the static detector that finds them (§ 1–§ 3).
 - `rules/mobile-principles.md` — secure storage, permissions, crash reporting, budgets.
 - `ai-patterns/native-storage.md` — `flutter_secure_storage` vs `shared_preferences` vs `drift`, per data class.
 - `ai-patterns/offline-sync.md` · `app-lifecycle.md` — the queue and the window it drains in.
-- `agents/app-store-reviewer.md` — the submission audit; every dated store figure lives there, none here.
+- `skills/store-compliance-scan/SKILL.md` § The dated store gates — every dated store figure lives there, none here; `agents/app-store-reviewer.md` judges the submission.

@@ -192,7 +192,7 @@ GOOD:  await db.runAsync('INSERT INTO outbox …', op.id, …); onSaved()   // w
        queryClient.setMutationDefaults(key, { mutationFn }); onSuccess={() => queryClient.resumePausedMutations()}
        NetInfo / onlineManager / WorkManager / BGTaskScheduler trigger that calls drain() outside the screen
 ```
-**Read the code:** Where does the UI acknowledge, and is the durable write awaited before that line? Is the in-memory collection a write-through buffer of a durable store (precedent O1 below), or the only copy? For TanStack Query v5 persistence: only mutation *state* is persisted, so a restored paused mutation needs a default `mutationFn` (`setMutationDefaults`) and an explicit `resumePausedMutations()` after restore (TanStack mutations guide, read 2026-10-05). What drains the queue when the screen that filled it is closed — reconnect, app start, the platform scheduler? Does the project use Realm's Atlas Device Sync (`SyncConfiguration`, `flexibleSync`)? It reached end of life on 2025-09-30 (MongoDB Atlas Device SDKs deprecation page, via search 2026-10-05): a sync layer with no server behind it. **Finding when** an acknowledged write exists only in memory, the acknowledgement precedes the durable write, or nothing outside the filling screen drains the queue. **Severity:** high. **Proof:** offline kill (§ Proof) — airplane mode, submit, background, `am kill`, relaunch, network on: the server count is 0 before the fix and 1 after.
+**Read the code:** Where does the UI acknowledge, and is the durable write awaited before that line? Is the in-memory collection a write-through buffer of a durable store (precedents § 73), or the only copy? For TanStack Query v5 persistence: only mutation *state* is persisted, so a restored paused mutation needs a default `mutationFn` (`setMutationDefaults`) and an explicit `resumePausedMutations()` after restore (TanStack mutations guide, read 2026-10-05). What drains the queue when the screen that filled it is closed — reconnect, app start, the platform scheduler? Does the project use Realm's Atlas Device Sync (`SyncConfiguration`, `flexibleSync`)? It reached end of life on 2025-09-30 (MongoDB Atlas Device SDKs deprecation page, via search 2026-10-05): a sync layer with no server behind it. **Finding when** an acknowledged write exists only in memory, the acknowledgement precedes the durable write, or nothing outside the filling screen drains the queue. **Severity:** high. **Proof:** offline kill (§ Proof) — airplane mode, submit, background, `am kill`, relaunch, network on: the server count is 0 before the fix and 1 after.
 
 ### 2. Replay identity
 
@@ -201,7 +201,7 @@ BAD:   axiosRetry(api, { retries: 5, retryCondition: () => true })  + api.post('
        http.post(url, body, { headers: { 'Idempotency-Key': uuid() } })                       // new key per attempt
 GOOD:  key = row.id minted at enqueue, persisted with the row, sent on every attempt; axiosRetry(… retryDelay: axiosRetry.exponentialDelay)
 ```
-**Read the code:** Is the call idempotent by HTTP semantics (GET, PUT of a full resource, DELETE)? Then no key is needed (precedent O2). axios-retry's **default** condition retries only network errors and 5xx on idempotent methods and its default delay is none (axios-retry README, read 2026-10-05) — a custom `retryCondition` that admits POST is the defect, and the missing `retryDelay` is the storm. Is a client-generated id in the body (`clientMutationId`) the dedupe key the server uses? Where is the key minted — at enqueue (good) or on the send line (2b, decorative)? **Finding when** a POST or PATCH can be delivered twice and nothing lets the server tell. **Severity:** high; critical for payments and orders. **Proof:** lost-response replay — a proxy or mock server commits the first POST and drops the response; after the client's retry the server count is 2 before the fix and 1 after.
+**Read the code:** Is the call idempotent by HTTP semantics (GET, PUT of a full resource, DELETE)? Then no key is needed (precedents § 74). axios-retry's **default** condition retries only network errors and 5xx on idempotent methods and its default delay is none (axios-retry README, read 2026-10-05) — a custom `retryCondition` that admits POST is the defect, and the missing `retryDelay` is the storm. Is a client-generated id in the body (`clientMutationId`) the dedupe key the server uses? Where is the key minted — at enqueue (good) or on the send line (2b, decorative)? **Finding when** a POST or PATCH can be delivered twice and nothing lets the server tell. **Severity:** high; critical for payments and orders. **Proof:** lost-response replay — a proxy or mock server commits the first POST and drops the response; after the client's retry the server count is 2 before the fix and 1 after.
 
 ### 3. Ordering and poison
 
@@ -223,7 +223,7 @@ BAD:   onMutate: (n) => qc.setQueryData(['notes'], …)                   // no 
 GOOD:  await qc.cancelQueries({ queryKey }); const prev = qc.getQueryData(…); … onError: rollback(prev); onSettled: invalidate
        req.setValue(etag, forHTTPHeaderField: "If-Match")   ·   remote.version >= local.version ? remote : local
 ```
-**Read the code:** Can two devices or two sessions write this entity? A single-writer record needs no conflict machinery, and adding it is `ceremony-without-concurrency` (precedent O6). Is the policy written down per entity, or inherited from the library? Does an in-flight refetch overwrite the optimistic value — TanStack's guide cancels outgoing refetches in `onMutate` for exactly this. Is `updatedAt` a server timestamp, or a device clock the user can set? **Finding when** a rejected write stays on screen as if accepted, or a stale copy silently overwrites a newer one. **Severity:** high; low when the server merges and the client only lacks a conflict UI. **Proof:** conflict and rollback — the mock answers 409/500: the screen must roll back and say so; two sessions edit offline then sync: the written policy holds.
+**Read the code:** Can two devices or two sessions write this entity? A single-writer record needs no conflict machinery, and adding it is `ceremony-without-concurrency` (precedents § 78). Is the policy written down per entity, or inherited from the library? Does an in-flight refetch overwrite the optimistic value — TanStack's guide cancels outgoing refetches in `onMutate` for exactly this. Is `updatedAt` a server timestamp, or a device clock the user can set? **Finding when** a rejected write stays on screen as if accepted, or a stale copy silently overwrites a newer one. **Severity:** high; low when the server merges and the client only lacks a conflict UI. **Proof:** conflict and rollback — the mock answers 409/500: the screen must roll back and say so; two sessions edit offline then sync: the written policy holds.
 
 ### 5. Identity bleed
 
@@ -243,7 +243,7 @@ BAD:   const s = await NetInfo.fetch(); if (!s.isConnected) return;             
        onlineManager.subscribe((online) => { if (online) queryClient.invalidateQueries(); })   // refetch everything
 GOOD:  attempt + queue; treat the flag as a scheduling hint; invalidate only the entity keys the queue touched
 ```
-**Read the code:** Is the flag only driving a banner (precedent O4) or gating a send? NetInfo's `isConnected` and `isInternetReachable` are `null` until known (NetInfo README, v12.0.1, per the research catalog), so `!isConnected` treats "unknown" as offline at cold start. Does reconnect refetch every query (battery, data, and a clobber risk for pending writes)? TanStack's own `refetchOnReconnect` refetches only active stale queries (precedent O5). **Finding when** a real send is skipped on a flag, or a reconnect resyncs everything. **Severity:** medium; high when the skipped send is the only drain. **Proof:** cold start offline, then online: the queued write is sent without a relaunch; behind a captive portal the queue holds rather than marking rows sent.
+**Read the code:** Is the flag only driving a banner (precedents § 76) or gating a send? NetInfo's `isConnected` and `isInternetReachable` are `null` until known (NetInfo README, v12.0.1, per the research catalog), so `!isConnected` treats "unknown" as offline at cold start. Does reconnect refetch every query (battery, data, and a clobber risk for pending writes)? TanStack's own `refetchOnReconnect` refetches only active stale queries (precedents § 75). **Finding when** a real send is skipped on a flag, or a reconnect resyncs everything. **Severity:** medium; high when the skipped send is the only drain. **Proof:** cold start offline, then online: the queued write is sent without a relaunch; behind a captive portal the queue holds rather than marking rows sent.
 
 ## Proof — the device oracles
 
@@ -286,27 +286,19 @@ Verification: 29 candidates → 2 findings · 1 unconfirmed · 2 hardening · 0 
 Routed: push token at logout → mobile-lifecycle-scan §6 · offline copy → ui-state-scan (ui-ux installed)
 
 Class coverage:
-  §1  queue durability          checked (11 hits → 1 finding; queue.ts write-through is precedent O1)
+  §1  queue durability          checked (11 hits → 1 finding; queue.ts write-through is precedents § 73)
   §2  replay identity           checked (4 hits → 1 finding)
   §3  ordering and poison       checked (5 hits / 4 groups → 0 findings; folded into §1 and §2 roots)
-  §4  conflict policy           checked (5 hits → 0 findings; NoteDto is single-writer per its ADR: precedent O6)
+  §4  conflict policy           checked (5 hits → 0 findings; NoteDto is single-writer per its ADR: precedents § 78)
   §5  identity bleed            checked (2 hits → 1 unconfirmed)
-  §6  reachability as truth     checked (5 hits → 0 findings; the banner monitor is precedent O4)
+  §6  reachability as truth     checked (5 hits → 0 findings; the banner monitor is precedents § 76)
 ```
 
 `[report-with-fix]`: the promise, the store, the event and the version gate are cited, the oracle failed at the class's tier, and the fix is local. `[report-flagged]`: one link is unproven (no device, a helper not read, server dedupe unconfirmed), and the row names it and the settling run. The coverage block lists **all six** classes on every run: `checked (k hits → m findings)`; `N/A (<reason>)` only when the repo has no such surface (no queue, no optimistic write, no sign-in); `blocked (<reason>)` when a grep failed; `Live, unreviewed (k groups / n hits)` for a partial review.
 
 ## False positives / precedents
 
-The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) (§ 3 CNG, § 4 lint, § 7 one finding per root cause, § 9 force-stop is not process death, § 12 a cached repository read) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. Offline-specific precedents, each with the evidence that flips it back (not yet in the shared file — the verifier applies them from here):
-
-- **O1 Write-through buffer.** An in-memory list mirrored from a durable store, written to disk before the acknowledgement. *Flips back:* the acknowledgement fires before the durable write returns.
-- **O2 Idempotent by method.** GET, a full-resource PUT and DELETE retried without a key; a client UUID in the body that the server dedupes on. *Flips back:* PATCH with increments, or a POST.
-- **O3 Library defaults that are safe.** axios-retry's default condition (no POST); TanStack `refetchOnReconnect` (active stale queries only); Apollo `optimisticResponse` (rolls back itself). *Flips back:* a custom condition or a manual cache write.
-- **O4 A reachability flag for a banner** while requests are still attempted.
-- **O5 One wipe covers all.** A single `deleteDatabase` / `clearAllTables` for a single-database app; a logout helper that clears every category.
-- **O6 Single-writer entities** (a preference only one device edits, a read-only catalogue) need no conflict policy; machinery for them is the auditor's `ceremony-without-concurrency`, reported as cost, not as a missing policy.
-- **O7 A queue nobody acknowledges** (fire-and-forget analytics) is not a durability promise.
+The verifier reads [`precedents/mobile.md`](../../../../snippets/precedents/mobile.md) (§ 3 CNG, § 4 lint, § 7 one finding per root cause, § 9 force-stop is not process death, § 12 a cached repository read) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. The offline-specific ones, each with the evidence that flips it back: a write-through buffer (§ 73); idempotent by method (§ 74); library defaults that are safe (§ 75); a reachability flag that drives only a banner (§ 76); one wipe covers all (§ 77); single-writer entities (§ 78); a queue nobody acknowledges (§ 79).
 
 ## When to run
 
