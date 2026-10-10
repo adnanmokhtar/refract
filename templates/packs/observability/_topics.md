@@ -158,6 +158,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Observability (tracer, SDK and instrumentation versions, start commands, queue clients)
   fallback: skills/trace-propagation-scan/SKILL.md   # source-as-fallback; the skill's own SDK gate prints N/A (no tracing SDK) for every § but §5's flush half and §10's requirement half
 
+- name: metric-hygiene-scan
+  kind: skill
+  triggers:
+    metrics_lib_detected: true
+    OR_grep_evidence: "@nestjs/terminus|MapHealthChecks|management\\.endpoint\\.health|/(healthz|readyz|livez)\\b|@Get\\(['\"](health|ready|live)"   # §7–§8 (lying readiness, probe traffic) need no metrics client: a repo can serve probes with none
+  extracts_from: _extracted-codebase.md § Observability (metrics client and version, registry module, health routes, probe paths)
+  fallback: skills/metric-hygiene-scan/SKILL.md   # source-as-fallback; the skill's own metrics gate prints N/A (no metrics library) for §1–§6 and still runs §7–§8
+
 - name: alert-design
   kind: command
   triggers: { metrics_lib_detected: true }
