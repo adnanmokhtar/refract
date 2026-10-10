@@ -79,7 +79,8 @@ E=(-g '*.conf' -g '*.nginx' -g '*.conf.template' -g 'Caddyfile*' -g '*.caddy' -g
 # 0. Which proxies run, at which version, built with which plugins.
 rg -n --pcre2 "${X[@]}" "${E[@]}" '\b(nginx(-unprivileged)?|openresty|caddy|traefik|haproxy|envoyproxy/envoy|ingress-nginx/controller)(:|@)[\w.${}-]+|^\s*ARG\s+(NGINX|CADDY|TRAEFIK|HAPROXY|ENVOY)_VERSION=|\bxcaddy\s+build\b|^\s*--with\s+github\.com/' "${ROOTS[@]}"
 # nginx: the effective value every location gets, http → server → location (one TSV row per hop and per candidate).
-python3 -I "$ES/edge-locs.py" --nginx-version="${NGINX_VERSION:-}" "${ROOTS[@]}" ${SCAN_K8S:+"$SCAN_K8S/embedded/src"} > "$SCAN/edge-locs.tsv"
+EMB=(); [ -d "$SCAN/embedded/src" ] && EMB=("$SCAN/embedded/src")   # present when k8s-render-scan § 0 wrote $SCAN
+python3 -I "$ES/edge-locs.py" ${NGINX_VERSION:+--nginx-version="$NGINX_VERSION"} "${ROOTS[@]}" "${EMB[@]}" > "$SCAN/edge-locs.tsv"
 cut -f2 "$SCAN/edge-locs.tsv" | sort | uniq -c
 # 1. Request timeouts at every hop: proxy, ingress, LB/CDN IaC, Gateway, app server, app client, DB.
 rg -n --pcre2 "${X[@]}" "${E[@]}" '^\s*(proxy_(read|send|connect)_timeout|(uwsgi|fastcgi|grpc)_read_timeout|send_timeout|client_(body|header)_timeout)\s+\S+|^\s*(response_header_timeout|read_timeout|write_timeout|dial_timeout|try_duration|lb_try_duration)\s+\S+|\b(readTimeout|writeTimeout|responseHeaderTimeout|dialTimeout)\b\s*[:=]|^\s*timeout\s+(client|server|connect|http-request|tunnel|queue)\b|^\s*(timeout|request|backendRequest|stream_idle_timeout|request_timeout):\s*[\x22\x27]?\d|nginx\.ingress\.kubernetes\.io/proxy-(read|send|connect)-timeout|\b(origin_read_timeout|timeout_sec|integration_timeout|timeout_milliseconds)\b\s*=' "${ROOTS[@]}"
@@ -118,8 +119,8 @@ rg -n --pcre2 "${X[@]}" "${E[@]}" '^\s*(log_format|access_log)\s|^\s*log(\s+\w+)
 | Target | Result |
 |---|---|
 | Research fixture (one nginx.conf, 11 seeds + 6 decoys; 3 small nginx files; Caddy; Traefik) | `edge-locs.py`: **11/11 seeds, 6/6 decoys quiet**. gixy-ng found 2 (resolver, Host) and `nginx -t` 0. The parser adds what a location regex cannot: the http-level `resolver` that clears a variable `proxy_pass`, the upstream's `keepalive` against the location's `proxy_http_version`, the access-log format a location inherits. Extra true rows: E10 on 7 locations (one group), E9 idle cut, E16, E21 ×2, and on a second file `limit_req` with no `burst`, 503 status and a peer-keyed zone (gixy-ng missed all three) |
-| `benchmarks/fixtures/*` (15 trees) | one nginx file (`vuln-fullstack`): 1 hop row, E21 ×2, the `$request` format routed to security, E6 on `/assets/`. Grep hits on 2 of 15 trees (`vuln-fullstack` 0/2/7/8/15: 1/2/3/3/2; `slow-marketplace` 1b/6a/8: 4/1/1); 13 trees have no edge surface (`N/A`) |
-| Real repo (read-only, offline; Cloudflare → TCP load balancer with PROXY protocol → a Caddy DaemonSet → ingress-nginx → a Fastify API and an SPA nginx) | greps 0–15: 13/7/12/0/0/0/4/60/0/6/13/2/0/2/0/5/2/6 (6a is the socket.io surface). `edge-locs.py`: 3 nginx files (the SPA's static server, its header include, the ingress `server-snippet`), 5 locations, **0 proxied → 0 rows**; 5 absolute includes `NOT-READ` until mapped to the repo copy. Stock `caddy adapt`: **NOT-RUN** (absolute `import`, then `module not registered: caddy.storage.redis`, precedent 49). A plugin-stripped copy adapts: one `reverse_proxy` with `try_duration 5s`, no `retry_match`, no transport timeouts; `protocols` unset. Triage: § 3 **Refuted** (precedent 48, now measured); § 2 Fastify 72 s > ingress-nginx 60 s **Refuted**; Caddy's 2 min upstream idle vs the controller's 75 s client keep-alive → **Unconfirmed** (V283 probe at 75 ± 1 s); § 14 E18 Unconfirmed low, E19 `[report-flagged]` until the `ask` probe, E20 high — one site with K-INGRESS-RETIRED; § 15 E21 low (no request id on the edge line). **Routed to security:** the Caddy JSON access log ships the full `uri` and every request header except the redacted Authorization/Cookie — the app's own redaction list names five webhook token headers — to Loki through the pod-log shipper |
+| `benchmarks/fixtures/*` (16 trees) | one nginx file (`vuln-fullstack`): 1 hop row, E21 ×2, the `$request` format routed to security, E6 on `/assets/`; `mime.types` include `NOT-READ`. Grep hits on 2 of 16 trees (`vuln-fullstack` 0/2/7/8/15: 1/2/3/3/2; `slow-marketplace` 1b/6a/8: 4/1/1); 14 trees have no edge surface (`N/A`) |
+| Real repo (read-only, offline; Cloudflare → TCP load balancer with PROXY protocol → a Caddy DaemonSet → ingress-nginx → a Fastify API and an SPA nginx) | greps 0, 1a, 1b, 2–5, 6a, 6b, 7, 8, 9–12, 13a, 13b, 14, 15: 13, 6, 12, 0/0/0/2, 60, 0, 3, 13, 1/0/2/0, 5, 1, 4, 5 (6a is the socket.io surface; 5 is two DNS-01 `resolvers` lines, not upstreams; 13b is the absolute blocklist `import`). `edge-locs.py`: 3 nginx files (the SPA's static server, its header include, the ingress `server-snippet`), 5 locations, **0 proxied → 0 rows**; 5 absolute includes `NOT-READ` until mapped to the repo copy. Stock `caddy adapt`: **NOT-RUN** (absolute `import`, then `module not registered: caddy.storage.redis`, precedent 49). A plugin-stripped copy adapts: one `reverse_proxy` with `try_duration 5s`, no `retry_match`, no transport timeouts; `protocols` unset. Triage: § 3 **Refuted** (precedent 48, now measured); § 2 Fastify 72 s > the controller's 60 s upstream keep-alive [K?] **Refuted**; Caddy's 2 min upstream idle vs the controller's 75 s client keep-alive [K?] → **Unconfirmed** (V283 probe at 75 ± 1 s); § 14 E18 Unconfirmed low, E19 `[report-flagged]` until the `ask` probe, E20 high — one site with K-INGRESS-RETIRED; § 15 E21 low (no request id on the edge line). **Routed to security:** the Caddy JSON access log ships the full `uri` and every request header except the redacted Authorization/Cookie — the app's own redaction list names five webhook token headers — to Loki through the pod-log shipper |
 
 ## The 3,000-hit path
 
@@ -140,7 +141,7 @@ rg -n --pcre2 "${X[@]}" "${E[@]}" '^\s*(log_format|access_log)\s|^\s*log(\s+\w+)
 
 One step down on a deployed non-prod edge (precedent 7); Hardening on an edge nothing deploys. Edge classes carry no CWE; the class ids are the research catalog's (E1–E21).
 
-### 1. Timeout chain (V282)
+### 1. Timeout chain — E1, SLS-01 shared (V282)
 ```
 BAD:   CDN origin_read_timeout 30 → ALB → nginx proxy_read_timeout 30s → app export p99 55 s   # 504 while the export still runs
 GOOD:  every hop's request timeout ≥ the slowest legitimate request behind it, or the route answers 202 and the client polls
@@ -149,7 +150,7 @@ GOOD:  every hop's request timeout ≥ the slowest legitimate request behind it,
 **Read the code:** What is the slowest legitimate request per route class: exports, reports, uploads, webhooks, imports? (SSE and WebSocket go to § 6.) Is the long route async? Which hop is shortest, and does a retry above it re-run the work?
 **Finding when** a deployed hop's request timeout is shorter than a legitimate request behind it and nothing above it makes the route async. **Proof:** V282 — `curl -sS -o /dev/null -w '%{http_code} %{time_total}\n'` through the chain returns 504 at the shortest hop while `edge-harness.py serve --mode=slow:S` counts the execution (measured: 504 at 1.00 s, the upstream finished).
 
-### 2. Keep-alive inversion and the unused pool (V283)
+### 2. Keep-alive inversion and the unused pool — E2, E10 (V283)
 ```
 BAD:   ALB idle 60 s → Node keepAliveTimeout 5 s (default)        # the ALB reuses a socket the app just closed: 502
        upstream api { keepalive 32; }  location / { proxy_pass http://api; }   # nginx < 1.29.7: HTTP/1.0, pool unused
@@ -159,7 +160,7 @@ GOOD:  each hop's idle timeout > the idle timeout of the hop in front of it (Nod
 **Read the code:** Does the proxy pool upstream connections at all (nginx without `keepalive` does not, so its upstream hop cannot invert)? What is the idle timeout of every hop in front — including a proxy in front of another proxy? Is the value a code constant (precedent 46's lesson applies to keep-alive too)?
 **Finding when** a hop's idle timeout is shorter than the idle timeout of the hop that pools connections to it. E10 is a finding only on nginx < 1.29.7, read from the image tag (precedent 33). **Proof:** V283 — `edge-harness.py idle --url=… --gaps=<idle−1>,<idle+1>`: the second request on the reused connection fails past the downstream idle (measured on nginx `keepalive_timeout 2s`: gap 1 s → 200, gap 3 s → `ConnectionResetError`).
 
-### 3. Non-idempotent retries (V284)
+### 3. Non-idempotent retries — E3 (V284)
 ```
 BAD:   proxy_next_upstream error timeout non_idempotent;          lb_retry_match { method POST }
        retryNonIdempotentMethod: true  ·  retry-on all-retryable-errors  ·  Envoy retry_policy with no method gate
@@ -167,25 +168,25 @@ GOOD:  the default (nginx never re-sends a sent POST, precedent 35) · retries o
        the handler enforces and the client sends
 ```
 **Read the code:** Which routes take writes behind this retry rule? Does the handler enforce an idempotency key, and does every client send one? Is there a second retry layer (a mesh, a client SDK, queue redelivery)?
-**Finding when** a deployed retry rule can re-send a write the upstream already received and the route has no enforced key. Caddy `lb_try_duration` with no `lb_retry_match` is **Refuted** (precedent 48 — measured on 2.11.7: 4 POSTs → 4 executions under timeout-after-send, reset and 502; GETs were retried, 7 executions for 4). **Proof:** V284 — the hit counter. Measured: nginx 1.27.4 with `non_idempotent`, 4 POSTs → **6 executions**, every client saw 200 (4 → 4 with two 504s without it); Caddy `lb_retry_match { method POST }` with a request body → **36 executions for 4 POSTs**, two still 502: each retry re-sent the headers with an empty body (`ContentLength=1 with Body length 0`). `request_buffers` makes the duplicate succeed; it is not the fix.
+**Finding when** a deployed retry rule can re-send a write the upstream already received and the route has no enforced key. Caddy `lb_try_duration` with no `lb_retry_match` is **Refuted** (precedent 48 — measured on 2.11.7: 4 POSTs → 4 executions under timeout-after-send, reset and 502; GETs were retried, 7 executions for 4). **Proof:** V284 — the hit counter. Measured: nginx 1.27.4 with `non_idempotent`, 4 POSTs → **6 executions**, every client saw 200 (4 → 4 with two 504s without it); Caddy `lb_retry_match { method POST }` with a request body → **36 executions for 4 POSTs**, two still 502: each retry re-sent the headers with an empty body (`ContentLength=1 with Body length 0`). Adding `request_buffers` would only let the retry replay the body, so the duplicate succeeds; the fix is taking the write method out of `lb_retry_match`.
 
-### 4. Shared cache — fallback only (security's)
+### 4. Shared cache — E4, fallback only (security's)
 ```
 BAD:   location /api/me { proxy_cache api; proxy_ignore_headers Set-Cookie Cache-Control; }   # Bob gets Alice's profile
 GOOD:  proxy_no_cache $http_authorization $cookie_session; proxy_cache_bypass … ; or no shared cache on authenticated routes
 ```
 Runs only as § Boundaries says. `edge-locs.py` rows `sec:E4-*` and grep 4 are listed as `security-class (owner pack not installed)`, with the two-identity probe from security's `exploit-payloads.md` named as the settling run. Never graded here.
 
-### 5. DNS re-resolution (V285)
+### 5. DNS re-resolution — E7 (V285)
 ```
 BAD:   set $b "orders.internal"; proxy_pass http://$b:8080;     # no resolver at any level: 502 "no resolver defined" at runtime
        upstream rds { server mydb.xxxx.rds.amazonaws.com:5432; }    # resolved once at start; stale after an IP rotation
 GOOD:  resolver 10.0.0.2 valid=30s; (any enclosing level) · server … resolve in a zoned upstream (nginx ≥ 1.27.3)
 ```
 **Read the code:** Is the name a ClusterIP Service (precedent 32: Refuted), a headless or ExternalName Service, or a cloud endpoint whose IPs rotate? Does the resolver also answer IPv6 (`ipv6=off`)?
-**Finding when** a deployed proxy resolves a rotating name once, or a variable target has no resolver at any enclosing level (gixy-ng's `missing_resolver` is a real defect with the wrong stated reason, precedent 34). **Proof:** V285 — change the harness upstream's address; the proxy follows within the record's TTL (measured: the variable target returns 502 with `no resolver defined`).
+**Finding when** a deployed proxy resolves a rotating name once, or a variable target has no resolver at any enclosing level (gixy-ng's `missing_resolver` is a real defect with the wrong stated reason, precedent 34). **Proof:** V285 — change the harness upstream's address; the proxy follows within the record's TTL (measured by the research on nginx 1.27.4: the variable target returns 502 with `no resolver defined`).
 
-### 6. Streaming: SSE, long-poll, WebSocket (V286)
+### 6. Streaming: SSE, long-poll, WebSocket — E8, E9 (V286)
 ```
 BAD:   location /events { proxy_pass http://app; }                 # nginx buffers: 3 events 1 s apart arrive together at 3 s
        location /ws { proxy_pass http://app; }                     # no Upgrade/Connection: the handshake never reaches 101
@@ -195,7 +196,7 @@ GOOD:  proxy_buffering off (or X-Accel-Buffering: no from the app); proxy_read_t
 **Read the code:** Which routes stream (grep 6a: `text/event-stream`, socket.io, WebSocket gateways)? Does the app heartbeat faster than every hop's read and idle timeout? SSE through ingress-nginx and through Caddy is Refuted (precedent 30).
 **Finding when** a deployed streaming route is buffered, loses its upgrade, or is cut by a hop's timeout between heartbeats. **Proof:** V286 — `edge-harness.py sse --url=…` against `serve --mode=sse:3:1` (measured on nginx: buffered arrivals `[3.02, 3.02, 3.02]`; with `proxy_buffering off` `[0.0, 1.01, 2.02]`); `curl -i` with `Upgrade: websocket` → 101.
 
-### 7. Forwarding headers, redirect-loop half (V283)
+### 7. Forwarding headers, redirect-loop half — E11 (V283)
 ```
 BAD:   TLS ends at the edge; the hop behind sees http and answers 308 to https:// — forever
 GOOD:  X-Forwarded-Proto https set by the TLS hop, and the next hop trusts it (ingress-nginx use-forwarded-headers=true)
@@ -203,7 +204,7 @@ GOOD:  X-Forwarded-Proto https set by the TLS hop, and the next hop trusts it (i
 **Read the code:** Where does TLS end? Does the next hop force https (`ssl-redirect`, framework middleware)? Does it read `X-Forwarded-Proto` only from a trusted peer? `X-Forwarded-For` from the client and `Host $http_host` trust are security 7e (rows `sec:E11-*`).
 **Finding when** a deployed hop redirects to https on a request that already arrived over TLS. **Proof:** V283 — `curl -sIL --max-redirs 5 https://<route>` follows exactly one redirect.
 
-### 8. Upload and body limits (V282)
+### 8. Upload and body limits — E12 (V282)
 ```
 BAD:   location /upload { proxy_pass …; }    # 1m default; the app accepts 25 MB — 413 at the proxy only
        Traefik entryPoint readTimeout 60 s (default) in front of a slow 200 MB upload
@@ -212,7 +213,7 @@ GOOD:  the edge limit per upload route ≥ the app's own cap, and the read timeo
 **Read the code:** What is the app's own cap per route (grep 8: `bodyLimit`, `fileSize`, framework limits)? An edge limit at or below the app's cap is consistent. `0` (unbounded) is security's.
 **Finding when** the edge rejects or cuts a request the app is written to accept. **Proof:** V282 — a 5 MB upload, and `curl --limit-rate 50k` past the read timeout, both complete.
 
-### 9. Rate-limit shape, ops half (V284)
+### 9. Rate-limit shape, ops half — E13 (V284)
 ```
 BAD:   limit_req zone=z;  (no burst)    limit_req_zone $binary_remote_addr … behind a CDN with no real-IP    limit_req_status unset (503)
 GOOD:  limit_req zone=z burst=20 nodelay; limit_req_status 429; the key derived from the trusted client IP (security 7e) or an account id
@@ -220,7 +221,7 @@ GOOD:  limit_req zone=z burst=20 nodelay; limit_req_status 429; the key derived 
 **Read the code:** Is there an LB or CDN in front (then every user shares the peer address)? Do clients and the CDN treat 503 as an outage?
 **Finding when** a deployed limit rejects normal browser bursts or shares one bucket across all users. **Proof:** V284 — 10 parallel requests from one client get 429 with `Retry-After`, not 503; two clients are counted apart.
 
-### 10. Upstream health checks (V284)
+### 10. Upstream health checks — E14 (V284)
 ```
 BAD:   upstream pool { server a max_fails=0; server b max_fails=0; }   ·   HAProxy server line with no `check`
        Traefik healthCheck path /health/db                                # a DB blip ejects the whole pool
@@ -229,14 +230,14 @@ GOOD:  passive ejection on (nginx default max_fails=1) or an active shallow chec
 **Read the code:** Is there more than one upstream server? Does the platform already remove dead endpoints (a Kubernetes Service with readiness)? Then a single-upstream proxy is Refuted.
 **Finding when** a dead upstream keeps its share of traffic, or one dependency blip ejects every upstream. **Proof:** V284 — kill one harness upstream under load; errors stay at that upstream's share for at most `fail_timeout`.
 
-### 11. Compression (V283)
+### 11. Compression — E15 (V283)
 ```
 BAD:   gzip on; (gzip_types default text/html only)   ·   gzip_proxied off behind a CDN that adds Via
 GOOD:  gzip_types … application/json; gzip_proxied any; or the CDN compresses
 ```
 **Read the code:** Does the CDN compress? Are the large responses JSON? **Finding when** large deployed API responses leave uncompressed with no compressing hop. **Proof:** V283 — `curl -sI -H 'Accept-Encoding: gzip' -H 'Via: 1.1 x' <route> | grep -i content-encoding`.
 
-### 12. Drain on reload and rollout (V286)
+### 12. Drain on reload and rollout — E16 (V286)
 ```
 BAD:   nginx with WebSockets and no worker_shutdown_timeout   ·   Traefik lifecycle.graceTimeOut 10 s (default) vs 60 s requests
        Caddy with no stream_close_delay: every config reload closes every WebSocket
@@ -245,7 +246,7 @@ GOOD:  a drain window ≥ the longest request, below the pod's terminationGraceP
 **Read the code:** How often does the edge reload (every ConfigMap edit, every cert)? What is the longest request or stream?
 **Finding when** a reload or rollout of a deployed edge cuts in-flight requests or every open stream. **Proof:** V286 — a reload during an open `sse` stream and a rolling restart under load close nothing before the drain window.
 
-### 13. Silent config rejection and the validation lane (V287)
+### 13. Silent config rejection and the validation lane — E17 (V287)
 ```
 BAD:   Traefik file provider with a typo → the process stays up, every route in that file answers 404, one ERR line
        a deploy job that applies the config and never validates it; nginx reload failure keeps the old config live
@@ -254,7 +255,7 @@ GOOD:  the deploy step fails on a bad config: nginx -t, caddy validate in the pr
 ```
 **Read the code:** What does the deploy step run (grep 13a)? Does a dynamic loader (Traefik file/Kubernetes providers, Caddy with `--watch`) reject a file and keep running? **Finding when** a deployed edge can accept a broken config without failing the deploy. **Proof:** V287 — each seeded typo (static, dynamic, unknown middleware, missing service, missing cert) makes the deploy step exit non-zero (measured by the research: a Traefik 3.7.14 dynamic typo kept the process up and 404ed every route of the file).
 
-### 14. Protocol and support (V287)
+### 14. Protocol and support — E18, E19, E20 (V287)
 ```
 BAD:   Caddy `protocols` unset (h3 advertised) behind an LB that forwards TCP only     ·   on-demand TLS whose ask answers 200 for any domain
        ingress-nginx (retired) on the request path
@@ -262,7 +263,7 @@ GOOD:  protocols h1 h2 (or UDP 443 open end to end) · an ask endpoint that answ
 ```
 **Read the code:** What does the LB forward (`loadbalancer-protocol`, listener protocol)? What does the ask handler return for an unknown name (read it, then probe it)? Is ingress-nginx in `inventory-platform.tsv` or an image tag? **Finding when** h3 is advertised with no UDP path (low), the ask endpoint mints for strangers (medium), or a retired controller is on the request path (one site with K-INGRESS-RETIRED). **Proof:** V287 — `curl --http3-only` succeeds or h3 is not advertised; `curl '<ask>?domain=unknown.example'` is not 2xx.
 
-### 15. Access logs: format, request id, upstream timing, volume (V283)
+### 15. Access logs: format, request id, upstream timing, volume — E6, E21 (V283)
 ```
 BAD:   log_format main '$remote_addr "$request" $status';      # no $request_id, no $upstream_response_time
        Caddy log { format json } in front of an app that logs x-request-id: the edge line and the app line cannot be joined
@@ -276,8 +277,8 @@ GOOD:  the edge mints or forwards one id ($request_id → proxy_set_header X-Req
 
 | Tool (measured version) | Command | Reads | Trap |
 |---|---|---|---|
-| `edge-locs.py` (this skill) | `python3 -I "$ES/edge-locs.py" --nginx-version=<tag> . "$SCAN_K8S/embedded/src"` · `--self-test` (26/26) | nginx files and embedded nginx; effective values with inheritance | absolute `include` paths are `NOT-READ` until mapped to the repo copy the Dockerfile `COPY`s; Caddyfiles are skipped, never parsed as nginx |
-| `edge-harness.py` (this skill) | `serve --port=P --mode=ok|slow:S|bad|reset|sse:N:GAP [--idle=S]` · `hits` · `idle` · `sse` · `--self-test` (5/5) | the H-tier oracles V282–V287 | 127.0.0.1 only, behind the project's own proxy image or config; stop every process it started |
+| `scripts/edge-locs.py` (this skill) | `python3 -I "$ES/edge-locs.py" --nginx-version=<tag> . "$SCAN/embedded/src"` · `--self-test` (26/26) | nginx files and embedded nginx; effective values with inheritance | absolute `include` paths are `NOT-READ` until mapped to the repo copy the Dockerfile `COPY`s; Caddyfiles are skipped, never parsed as nginx |
+| `scripts/edge-harness.py` (this skill) | `serve --port=P --mode=<ok, slow:S, bad, reset, sse:N:GAP> [--idle=S]` · `hits` · `idle` · `sse` · `--self-test` (5/5) | the H-tier oracles V282–V287 | 127.0.0.1 only, behind the project's own proxy image or config; stop every process it started |
 | nginx 1.27.4 | `nginx -t -p "$SCAN" -c "$SCAN/nginx.conf"` on a copy | syntax, includes, literal upstream hosts | passes variable targets, retries, cache and buffering (precedent 40) |
 | gixy-ng 0.2.55 | `uvx --from gixy-ng gixy -f json nginx.conf` on a copy | 36 checks | never `--fix`; TLS checks fire on plain listeners (precedent 34); absolute includes skipped |
 | caddy 2.11.7 | `docker run --rm -v "$SCAN:/w" <project edge image> caddy adapt --config /w/Caddyfile` then `jq` | Caddy JSON: `reverse_proxy` `load_balancing`, `transport`, `flush_interval`, server `protocols`, `logging` | stock caddy on an xcaddy config is NOT-RUN (precedent 49); a plugin-stripped copy reads the rest as Unconfirmed |
@@ -298,9 +299,12 @@ GOOD:  the edge mints or forwards one id ($request_id → proxy_set_header X-Req
 
 ## Output
 
+Illustrative: finding 1 is the research fixture's measured shape; finding 2 and the hop table are the real repo's.
+
 ```
 edge-reliability-scan — nginx 1.27.4 (Dockerfile:1) · caddy 2.11.6 (xcaddy, 3 plugins) · ingress-nginx chart UNPINNED · 2 envs
-Hop table /api (prod): Cloudflare ≈100 s [K?] → LB tcp (PROXY) → Caddy none → ingress-nginx read 3600 s (ingress.yaml:28) → Fastify requestTimeout 40 s
+Hop table /api (prod): Cloudflare ≈100 s [K?] → LB tcp (PROXY) → Caddy none → ingress-nginx read 3600 s (ingress.yaml:28)
+                       → Fastify requestTimeout 100 s, app deadline 90 s (configure-app.ts:83) — shortest hop: the app's own deadline
 Rows: 41 (18 hop · 23 candidate) → 2 findings · 2 unconfirmed · 3 hardening · 9 refuted · 2 routed
 
 1. deploy/nginx/nginx.conf:37                                     [report-with-fix]   high

@@ -135,9 +135,9 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: dr-audit
   kind: skill
-  triggers: { stateful_store_detected: true }
-  extracts_from: _extracted-codebase.md § Infrastructure (stateful stores + backup config) + terraform state
-  sections: [premise, ownership_boundary, when_to_run, adapt_to_codebase, scans_for, output_format, false_positives, halt_conditions]
-  mirror_existing: true
-  fallback: _examples/dr-audit.md
+  triggers:
+    stateful_store_detected: true
+    OR_grep_evidence: "\\b(pg_dump|mysqldump|velero|pgbackrest|wal-g|restic|borg)\\b|backup_retention_period|point_in_time_recovery|postgresql\\.cnpg\\.io/|doctl\\s+databases\\s+create"   # a backup job, a retention attribute, an operator Postgres or a runbook-created managed store
+  extracts_from: _extracted-codebase.md § Infra (stateful stores from IaC, renders and runbook create lines; backup jobs and their destinations; the app's file bucket; declared RPO/RTO; restore drill records)
+  fallback: skills/dr-audit/SKILL.md
 ```

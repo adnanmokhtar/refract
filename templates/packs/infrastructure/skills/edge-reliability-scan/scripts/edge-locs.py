@@ -140,7 +140,8 @@ def src(file, line):
 
 def scan(root, ver, out):
     ups = {d.args[0]: d for d in walk(root) if d.name == "upstream" and d.args}
-    gated = ver is not None and tuple(int(x) for x in ver.split(".")[:3]) >= (1, 29, 7)
+    nums = re.findall(r"\d+", ver or "")[:3]
+    gated = len(nums) >= 2 and tuple(int(x) for x in nums) >= (1, 29, 7)
     def row(s, c, d, loc, det):
         out.append("%s\t%s\t%s\t%s\t%s" % (s, c, src(d.file, d.line), loc, det))
     fmts = {d.args[0]: " ".join(d.args[1:]) for d in walk(root) if d.name == "log_format" and d.args}
@@ -267,10 +268,12 @@ def run(paths, ver):
     for p in paths:
         if os.path.isdir(p):
             for dp, dn, fn in os.walk(p):
-                dn[:] = [d for d in dn if d not in ("node_modules", ".git", "vendor")]
+                dn[:] = [d for d in dn if d not in ("node_modules", ".git", "vendor", "test", "tests", "testdata", "__tests__", "examples", "example")]
                 files += [os.path.join(dp, f) for f in fn if re.search(r"(\.conf|\.nginx|\.conf\.template)$|^nginx.*\.conf", f)]
-        else:
+        elif os.path.isfile(p):
             files.append(p)
+        else:
+            sys.stderr.write("edge-locs: path not found, NOT-READ: %s\n" % p)
     for f in sorted(set(files)):
         led["files"] += 1
         text = open(f, errors="replace").read()
