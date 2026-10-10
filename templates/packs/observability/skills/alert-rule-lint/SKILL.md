@@ -111,7 +111,7 @@ X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,target,bin,obj,vendor,.venv,
 RX=(-g '*.{yml,yaml,jsonnet,libsonnet}' -g '!**/node_modules/**' -g '!**/{vendor,.git,charts/*/charts}/**' -g '!**/{test,tests,__tests__,fixtures,__fixtures__,testdata,e2e}/**' -g '!**/{docs,ai,.claude}/**')
 CODE=(-g '*.{ts,tsx,js,mjs,cjs,py,go,java,kt,kts,cs,rb,php}'); NM='([A-Za-z_:][\w.:]*)'
 # 0 versions (gate 3): image tags, the kube-prometheus-stack chart, the Prometheus CR (spec.version, ruleSelector).
-rg -n --pcre2 '(?:prom/(?:prometheus|alertmanager)|prometheus/(?:prometheus|alertmanager)|cloudflare/pint|grafana/mimir)\S*:v?\d[\w.]*' "${RX[@]}" -g '*.{tf,toml,json}' -g 'Dockerfile*' -g '!**/package*.json' .
+rg -n --pcre2 '(?:prom/(?:prometheus|alertmanager)|prometheus/(?:prometheus|alertmanager)|cloudflare/pint|grafana/mimir)\S*:v?\d[\w.]*' -g '*.{tf,toml,json}' -g 'Dockerfile*' "${RX[@]}" -g '!**/package*.json' .
 rg -n -A3 '\bkube-prometheus-stack\b' -g 'Chart.yaml' -g 'helmfile*.y*ml' -g '*.{tf,sh,bash,mk}' -g 'Makefile' -g '!**/node_modules/**' .   # a helm line with no --version pins nothing
 PCR=(); while IFS= read -r f; do PCR+=("$f"); done < <(rg -l --pcre2 '^kind:\s*Prometheus\s*$' "${RX[@]}" .)
 [ ${#PCR[@]} -gt 0 ] && rg -n -H --pcre2 '^\s+version:\s*\S+|^\s*(?:ruleSelector|ruleNamespaceSelector|serviceMonitorSelector):|^\s+(?:release|app\.kubernetes\.io/\S+):\s*\S+' "${PCR[@]}"
@@ -120,7 +120,7 @@ rg -n --pcre2 '\bruleSelectorNilUsesHelmValues\b|^\s*ruleSelector:' -g '*values*
 RULE_FILES=(); while IFS= read -r f; do RULE_FILES+=("$f"); done < <( { rg -l --pcre2 '^\s*-?\s*(?:alert|record):\s*\S' "${RX[@]}" . ; rg -l --pcre2 '\bkind:\s*PrometheusRule\b|\badditionalPrometheusRules(?:Map)?:|\bprometheus(?:Alerts|Rules)\b' "${RX[@]}" . ; } | sort -u)
 echo "rule files: ${#RULE_FILES[@]}"; [ ${#RULE_FILES[@]} -gt 0 ] && printf '  %s\n' "${RULE_FILES[@]}"
 rg -n -A6 '^rule_files:' "${RX[@]}" .
-rg -n --pcre2 '^\s*(?:scrape_interval|evaluation_interval):\s*\S+|\bscrape_interval\s*=\s*"\d+[smh]"' "${RX[@]}" -g '*.{alloy,river}' .
+rg -n --pcre2 '^\s*(?:scrape_interval|evaluation_interval):\s*\S+|\bscrape_interval\s*=\s*"\d+[smh]"' -g '*.{alloy,river}' "${RX[@]}" .
 SM=(); while IFS= read -r f; do SM+=("$f"); done < <(rg -l --pcre2 '^kind:\s*(?:ServiceMonitor|PodMonitor|Probe)\s*$' "${RX[@]}" .)
 [ ${#SM[@]} -gt 0 ] && rg -n -H --pcre2 '^\s+(?:-\s*)?interval:\s*\S+' "${SM[@]}"
 # 2 the inventory (§4, precedents § 37, § 43): metric names registered in shipped code — prom-client and

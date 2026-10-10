@@ -20,7 +20,9 @@
 #                       array definition). Measured on ripgrep 15.2.0 (2026-10-10): for a path several
 #                       globs match, the LAST matching glob wins, so
 #                         X=(-g '!**/*.spec.*' -g '!tests/**'); CODE=(-g '*.ts')
-#                         rg -n PAT "${X[@]}" "${CODE[@]}" .     # re-includes every spec and tests/ file
+#                         rg -n PAT "${X[@]}" "${CODE[@]}" .     # re-includes every spec file, and files directly in tests/
+#                       (a directory matching `!**/D/**` is pruned before its subdirectories are walked, so
+#                       only files sitting directly in D/ come back; a file-name exclusion fails at any depth).
 #                       Includes first, exclusions last. Every --iglob is matched AFTER every -g/--glob
 #                       whatever its argv position (ripgrep adds -g globs, then iglobs, to one override
 #                       set), so `--iglob 'Dockerfile*' … -g '!**/vendor/**'` re-includes vendor/.

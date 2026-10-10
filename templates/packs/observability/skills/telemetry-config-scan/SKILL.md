@@ -132,7 +132,7 @@ CFG=(-g '*.{yml,yaml,json,alloy,river,conf,toml}' -g '!**/node_modules/**' -g '!
      -g '!**/{test,tests,__tests__,spec,fixtures,__fixtures__,testdata,e2e,mocks}/**' -g '!**/{docs,ai,.claude}/**' -g '!**/{package,package-lock,composer,tsconfig}*.json' -g '!**/*.lock')
 ID='(?:trace_?id|traceId|span_?id|spanId|request_?id|requestId|req_?id|reqId|user_?id|userId|session_?id|sessionId|tenant_?id|tenantId|order_?id|orderId|customer_?id|email|client_?ip|remote_?addr|ip|path|url|uri)'
 # 0 versions (gate 3): image tags, chart installs (runbooks included: a helm line with no --version pins nothing), chart deps.
-rg -n --pcre2 '(?:opentelemetry-collector(?:-contrib|-k8s)?|grafana/(?:loki|promtail|alloy|agent|grafana|tempo)|prom/prometheus|prometheus/prometheus|fluent/fluent-bit|timberio/vector)\S*:v?\d[\w.-]*' "${CFG[@]}" -g 'Dockerfile*' .
+rg -n --pcre2 '(?:opentelemetry-collector(?:-contrib|-k8s)?|grafana/(?:loki|promtail|alloy|agent|grafana|tempo)|prom/prometheus|prometheus/prometheus|fluent/fluent-bit|timberio/vector)\S*:v?\d[\w.-]*' -g 'Dockerfile*' "${CFG[@]}" .
 rg -n --pcre2 '\bhelm\s+(?:upgrade|install|template)\b.*\b(?:loki|promtail|alloy|tempo|opentelemetry-collector|kube-prometheus-stack|fluent-bit|vector)\b' -g '*.{sh,bash,mk,md,yml,yaml}' -g 'Makefile' -g '!**/node_modules/**' .
 rg -n -A1 --pcre2 '^\s*-?\s*name:\s*(?:loki|promtail|alloy|tempo|opentelemetry-collector|kube-prometheus-stack|fluent-bit|vector)\s*$' -g 'Chart.yaml' -g 'helmfile*.y*ml' -g '!**/node_modules/**' .
 # 1 collector configs (§1–§3, §7): service pipelines + exporters in one file; key diff and processor order per file.

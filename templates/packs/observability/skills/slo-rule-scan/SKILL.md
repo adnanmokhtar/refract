@@ -150,7 +150,7 @@ echo "burn-rule files: ${#BURN[@]}"; [ ${#BURN[@]} -gt 0 ] && printf '  %s\n' "$
 SP=(); for s in "${SPECS[@]}"; do SP+=("--spec=$s"); done; [ -f ai/runtime/slos.md ] && SP+=("--registry=ai/runtime/slos.md")
 if [ $((${#BURN[@]} + ${#SPECS[@]})) -gt 0 ]; then python3 "$BC" "${BURN[@]}" "${SP[@]}" --format=text; echo "burn-check exit $?"; else echo "burn-check: N/A (no burn rule, no spec)"; fi
 # 3 objectives on the edge (100, five nines, ≤ 90) and SLOs on admin / cron / batch paths (SLO-09).
-rg -n --pcre2 '^\s*-?\s*(?:objective|targetPercent|target_percentage|target)\s*[:=]\s*["\x27]?(?:100(?:\.0+)?|99\.99\d*|[1-8]\d(?:\.\d+)?|90(?:\.0+)?|1(?:\.0+)?|0\.9999\d*|0\.[1-8]\d*|0\.90*)["\x27]?\s*$' "${RX[@]}" "${TF[@]}" .
+rg -n --pcre2 '^\s*-?\s*(?:objective|targetPercent|target_percentage|target)\s*[:=]\s*["\x27]?(?:100(?:\.0+)?|99\.99\d*|[1-8]\d(?:\.\d+)?|90(?:\.0+)?|1(?:\.0+)?|0\.9999\d*|0\.[1-8]\d*|0\.90*)["\x27]?\s*$' -g '*.tf' "${RX[@]}" -g '!**/.terraform/**' .
 [ ${#SPECS[@]} -gt 0 ] && rg -n -H --pcre2 -i '^\s*-?\s*name:\s*["\x27]?[\w-]*(?:admin|cron|batch|nightly|backfill|export|report)[\w-]*' "${SPECS[@]}"
 # 4 SLI error definitions: 4xx counted as bad, a 200 allow-list, only 500 (precedents § 13); 4b an edge that sees requests the app never does.
 rg -n --pcre2 '\b(?:code|status|status_code|http_status|response_code)\s*(?:=~\s*"[^"]*4(?:\.\.|xx|\d\d|\[)|!=\s*"200"|!~\s*"2\.\."|=\s*"500")' "${RX[@]}" -g '!**/{dashboards,grafana}/**' .
@@ -160,8 +160,8 @@ rg -o -N --no-filename --pcre2 '\ble\s*=~?\s*"\K[^"]+' "${RX[@]}" . | sort -u > 
 rg -n --pcre2 '\bbuckets\s*(?:[:=]\s*[\[(]\s*\.?\d|:\s*[A-Z][A-Z0-9_]*\b|=\s*[A-Z][A-Z0-9_]*BUCKETS?\b)[^\n]*|\b[A-Z][A-Z0-9_]*BUCKETS?\s*(?::[^=\n]*)?=\s*[\[(]\s*\.?\d[^\n]*|\bBuckets:\s*(?:\[\]float64\{[^}\n]*\}|prometheus\.\w+Buckets\([^)\n]*\)|prometheus\.DefBuckets\b)|\.buckets\([^)\n]*\)|\bserviceLevelObjectives\([^)\n]*\)|ExplicitBucketBoundaries\s*=\s*new\b[^;\n]*' "${CODE[@]}" .
 rg -q --pcre2 '\bprometheus\.DefBuckets\b' "${CODE[@]}" . && echo "prometheus.DefBuckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10] (client_golang default)"
 # 6 TSDB retention vs the SLO period, and any long-term store (SLO-10).
-rg -n --pcre2 'storage\.tsdb\.retention\.(?:time|size)|^\s*retention(?:Size)?:\s*\S+' "${RX[@]}" -g '**/Dockerfile*' -g '*.{sh,tf}' .
-rg -l --pcre2 '\bthanos\b|\bmimir\b|\bcortex\b|\bremote_?write\b|\bvictoria-?metrics\b' "${RX[@]}" -g '*.tf' .
+rg -n --pcre2 'storage\.tsdb\.retention\.(?:time|size)|^\s*retention(?:Size)?:\s*\S+' -g '**/Dockerfile*' -g '*.{sh,tf}' "${RX[@]}" .
+rg -l --pcre2 '\bthanos\b|\bmimir\b|\bcortex\b|\bremote_?write\b|\bvictoria-?metrics\b' -g '*.tf' "${RX[@]}" .
 echo "scratch: $T"
 ```
 

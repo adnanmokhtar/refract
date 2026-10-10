@@ -124,7 +124,7 @@ PCR=(); while IFS= read -r f; do PCR+=("$f"); done < <(rg -l --pcre2 '^kind:\s*P
 [ ${#PCR[@]} -gt 0 ] && rg -n -H --no-heading --pcre2 '^\s+version:\s*\S+|^\s*(?:ruleSelector|serviceMonitorSelector|podMonitorSelector|retention):' "${PCR[@]}"
 rg -n --no-heading -A2 --pcre2 '\b(?:prometheus-community|grafana|open-telemetry)/(?:kube-prometheus-stack|prometheus|loki|loki-stack|alloy|promtail|tempo|grafana|mimir-distributed|opentelemetry-collector|opentelemetry-operator)\b' -g '*.{sh,bash,md,mk,yml,yaml,tf}' -g 'Makefile' -g '!**/node_modules/**' -g '!**/{.claude,ai/audits}/**' . > "$T/charts.txt"; cat "$T/charts.txt"
 awk '/^[^:]+:[0-9]+:[[:space:]]*#/ { next } /^[^:]+:[0-9]+:/ { if (b && !v) n++; b = 1; v = 0 } /--version|[[:space:]]version:/ { v = 1 } END { if (b && !v) n++; print "chart references with no version beside them (version UNREAD unless an image tag or CR spec.version pins it): " n + 0 }' "$T/charts.txt"
-rg -n --no-heading --pcre2 '\bOTEL_SEMCONV_STABILITY_OPT_IN\b' "${CFG[@]}" "${CODE[@]}" "${X[@]}" .
+rg -n --no-heading --pcre2 '\bOTEL_SEMCONV_STABILITY_OPT_IN\b' "${CODE[@]}" "${CFG[@]}" "${X[@]}" .
 # F2 process types (Dockerfile CMD/ENTRYPOINT, Procfile, k8s workloads, compose files) and entry points as file counts.
 rg -n --no-heading --pcre2 '^(?:CMD|ENTRYPOINT)\b' -g '**/Dockerfile*' -g '!**/node_modules/**' .
 rg -n --no-heading --pcre2 '^[\w-]+:\s*\S' -g '**/Procfile' .
