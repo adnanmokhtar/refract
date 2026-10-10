@@ -139,7 +139,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Observability (probe configs — k6, Checkly, blackbox, synthetics Terraform — and the route table)
-  fallback: skills/synthetic-monitoring/SKILL.md   # source-as-fallback; its pre-flight prints §2–§5 N/A (no probe config) and still lists §1 journeys
+  fallback: _examples/synthetic-monitoring.md   # generated-from copy of skills/synthetic-monitoring/SKILL.md (COPY-DRIFT gated); its pre-flight prints §2–§5 N/A (no probe config) and still lists §1 journeys
 
 - name: add-metrics
   kind: command
