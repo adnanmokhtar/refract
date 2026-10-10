@@ -185,7 +185,7 @@ GOOD:  the line breaks at the gap, or the gap is marked; a real zero stays zero,
 
 ## Proof
 
-Run on a production build at the chart's route, with the data the route really serves (or a seeded fixture with a null, a zero and a large value). The CVD emulation uses the Chrome DevTools Protocol's `Emulation.setEmulatedVisionDeficiency` (types `achromatopsia`, `deuteranopia`, `protanopia`, `tritanopia`, plus `blurredVision` and `reducedContrast`; read from the protocol's `Emulation.pdl`, 2026-10-05), which Playwright reaches through a CDP session on Chromium. The rendered-geometry and CVD checks are queued for `proof-oracles.md` § Accessibility and UI states (integrator); until they land, this section is the reference.
+Run on a production build at the chart's route, with the data the route really serves (or a seeded fixture with a null, a zero and a large value). The CVD emulation uses the Chrome DevTools Protocol's `Emulation.setEmulatedVisionDeficiency` (types `achromatopsia`, `deuteranopia`, `protanopia`, `tritanopia`, plus `blurredVision` and `reducedContrast`; read from the protocol's `Emulation.pdl`, 2026-10-05), which Playwright reaches through a CDP session on Chromium. Both checks are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states: *Rendered chart geometry* and *Colour-vision emulation* (V144). The geometry reader below is this skill's helper; the CVD loop (one screenshot per deficiency, then `type: 'none'`) is the snippet's.
 
 ```ts
 // §2 / §3 / §8: read the rendered SVG. Recharts, Nivo, Visx, Victory, ECharts' SVG renderer and d3 all draw <text> ticks and
@@ -196,15 +196,8 @@ export const geometry = (page: Page, chart: string) => page.locator(chart).evalu
   const dots = [...root.querySelectorAll('circle')].map((c) => Number(c.getAttribute('r')));
   return { ticks, bars, dots };
 });
-// §6: one screenshot per deficiency; the series must stay distinguishable, and each series colour clears 3:1 on the plot.
-export async function cvd(page: Page, chart: string, out: string) {
-  const cdp = await page.context().newCDPSession(page);
-  for (const type of ['deuteranopia', 'protanopia', 'tritanopia', 'achromatopsia'] as const) {
-    await cdp.send('Emulation.setEmulatedVisionDeficiency', { type });
-    await page.locator(chart).screenshot({ path: `${out}/${type}.png` });
-  }
-  await cdp.send('Emulation.setEmulatedVisionDeficiency', { type: 'none' });
-}
+// §6: the Colour-vision emulation loop in proof-oracles.md; the series must stay distinguishable in every screenshot,
+// and each series colour clears 3:1 on the plot.
 ```
 
 **Fails first:** before the fix, the lowest value tick reads above 0 on a bar chart; bar heights are out of ratio to their values; two circles' area ratio departs from their value ratio; the seeded null draws a continuous path or a zero; a CVD screenshot merges two series, or a series computes below 3:1 (contrast with `a11y-scan`'s `contrastOf` helper when the frontend pack is installed, else the WCAG relative-luminance formula on the computed fills). After the fix each check passes on the same route and data. Write the colour-vision artifact paths into the report; with no browser, print `Colour-vision check: NOT RUN` and keep every §6 row `[report-flagged]`.
@@ -246,13 +239,13 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10; contrast exemptions § 19) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. Settled here:
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10; contrast exemptions § 19; charts § 83, 86, 96, 97) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The chart precedents, in short:
 
-- **A zoomed line axis that prints its range** is the rule, not a breach.
-- **A real zero** (a store open with no sales) plotted as zero is correct; only a *missing* reading is §5. Read the source.
-- **An emptiness check** (`(d.value ?? 0) > 0` deciding whether to render) is not a plotted value.
-- **A colour picker's palette or a legend swatch list** is data, not the series ramp.
-- **Charts that stay LTR** in an RTL locale (time axes, numeric scales) are an intended exception, not an RTL defect (research catalog, i18n precedents, 2026-10-05).
+- **A zoomed line axis that prints its range** is the rule, not a breach (§ 96).
+- **A real zero** (a store open with no sales) plotted as zero is correct; only a *missing* reading is §5. Read the source (§ 97).
+- **An emptiness check** (`(d.value ?? 0) > 0` deciding whether to render) is not a plotted value (§ 97).
+- **A colour picker's palette or a legend swatch list** is data, not the series ramp (§ 86).
+- **Charts that stay LTR** in an RTL locale (time axes, numeric scales) are an intended exception, not an RTL defect (§ 83).
 
 ## When to run
 

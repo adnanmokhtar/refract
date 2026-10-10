@@ -266,6 +266,10 @@ should be assumed to be at the twenty-eight-findings stage rather than the zero 
 § A–§ C were prose until 2026-10-05. `scripts/measure.ts` (this skill, about 155 lines, needs only
 `@playwright/test`) implements them. Copy it beside a Playwright spec in the project's test root.
 The installed copy lives at `.claude/skills/ui-design-sweep/scripts/measure.ts`.
+The verifier cites it as [`proof-oracles.md`](../../../../../snippets/proof-oracles.md) § Accessibility and UI
+states, *Render measurement (floating surface, control rows)* — variants V145 (floating surface) and V146
+(control-row disagreement) — and reads the exclusions below as [`precedents/ui.md`](../../../../../snippets/precedents/ui.md)
+§ 98–101 (same-fill layout box and page-sized box, cross-class height, not a control row, under 2 px).
 
 | Export | Implements | Returns |
 |---|---|---|

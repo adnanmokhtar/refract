@@ -185,24 +185,11 @@ GOOD:  the skeleton unmounts when data arrives  ·  the loop pauses offscreen or
 
 ## Proof
 
-Run on a production build at the route-state that triggers the animation. The reduced-motion oracle is in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states, *Geometry, reflow and media* (Motion), with the variant list V98. The census below is queued for that file (integrator); until it lands, this section is the reference.
+Run on a production build at the route-state that triggers the animation. Both oracles are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states: reduced motion is *Geometry, reflow and media* (Motion, variant list V98), and the census is *Animation census* (V143) — `document.getAnimations()` mapped to kind, name, the properties that really move, duration, iterations and play state. rAF-driven JS motion is invisible to it: prove those with a trace. Per class:
 
-```ts
-// Census: every animation running now, with what actually moves. A CSS transition reports its real property even when
-// it was declared `all`; a WAAPI / Motion animation reports its keyframe properties. rAF-driven JS motion is invisible here:
-// prove those with a trace.
-export const census = (page: Page) => page.evaluate(() => document.getAnimations().map((a) => {
-  const t = a.effect?.getComputedTiming(); const el = (a.effect as KeyframeEffect | null)?.target as Element | null;
-  return { kind: a.constructor.name, name: (a as CSSAnimation).animationName ?? (a as CSSTransition).transitionProperty ?? a.id,
-    props: [...new Set(((a.effect as KeyframeEffect | null)?.getKeyframes() ?? []).flatMap((k) => Object.keys(k)).filter((p) => !['offset', 'easing', 'composite', 'computedOffset'].includes(p)))],
-    duration: t?.duration, iterations: t?.iterations, state: a.playState,
-    target: el ? el.tagName.toLowerCase() + '.' + [...el.classList].slice(0, 3).join('.') : '' };
-}));
-// §1 / §2: trigger the hover, press or state change, then census → a layout property in `props` fails first.
-// §3 / §5: await page.emulateMedia({ reducedMotion: 'reduce' }); reload; trigger; census filtered to running
-//          animations longer than 200 ms must be empty; a carousel's index is unchanged after 6 s.
-// §7: wait for the data marker; census filtered to iterations === Infinity && state === 'running' must be empty.
-```
+- **§1 / §2:** trigger the hover, press or state change, then census → a layout property in `props` fails first.
+- **§3 / §5:** `page.emulateMedia({ reducedMotion: 'reduce' })`, reload, trigger; the census filtered to running animations longer than 200 ms must be empty; a carousel's index is unchanged after 6 s.
+- **§7:** wait for the data marker; the census filtered to `iterations === Infinity && state === 'running'` must be empty.
 
 **Fails first:** the census lists the property, the duration or the still-running loop before the fix, and does not after it, at the same route-state. **A cost claim** (frames dropped, a long task) needs a trace or profile file from the platform's own tool, on a mid-tier device profile (CPU throttled), cited by path. A frame rate nobody recorded is not a measurement.
 
@@ -244,13 +231,13 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10; AAA as a house rule § 4; muted autoplay ≤ 5 s and videos with controls § 32) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. Also settled here:
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10; AAA as a house rule § 4; muted autoplay ≤ 5 s and videos with controls § 32; motion § 90–95) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The motion precedents, in short:
 
-- **The reduced-motion reset itself** (`animation-duration: 0.01ms !important` under `prefers-reduced-motion: reduce`) and its essential-spinner exception.
-- **The autofill-background workaround** (`transition: background-color 5000s`) is not motion.
-- **A toast's `duration`** (sonner, react-hot-toast) is display time, not an animation.
-- **Essential motion** — a progress spinner inside a loading branch — is not §5; it still respects reduce where the reset reaches it.
-- **Height animations a DS accordion owns** (Radix's measured content-height variable) are one review row at the primitive, not one per consumer.
+- **The reduced-motion reset itself** (`animation-duration: 0.01ms !important` under `prefers-reduced-motion: reduce`) and its essential-spinner exception (§ 90, 91).
+- **The autofill-background workaround** (`transition: background-color 5000s`) is not motion (§ 92).
+- **A toast's `duration`** (sonner, react-hot-toast) is display time, not an animation (§ 93).
+- **Essential motion** — a progress spinner inside a loading branch — is not §5; it still respects reduce where the reset reaches it (§ 94).
+- **Height animations a DS accordion owns** (Radix's measured content-height variable) are one review row at the primitive, not one per consumer (§ 95).
 
 ## When to run
 

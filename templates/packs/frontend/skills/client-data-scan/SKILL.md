@@ -16,7 +16,7 @@ This skill finds those defects in the source across the data libraries real apps
 
 **Every finding cites the request site `<file:line>` + the route or component that issues it + the user intent that triggers it + the oracle that proved it (or the test that would settle it) + the fix in the project's own data layer.** A grep hit or a lint message is never a finding by itself. "No data-flow issues" is never printed: the output is the class-coverage block (§ Output).
 
-**Detect statically, prove by request.** The proof is an oracle from [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states — **Request count** (V106), **Request order** (V110), **State matrix** (V105) — or one of the five request-level shapes spelled out in § Proof below, run against MSW 3 handlers in a component test or a production build in Playwright. A candidate read in code with no harness is **Unconfirmed**, carrying the test that would settle it. It is never dropped, and never promoted on reading alone ([`precedents/ui.md`](../../../../snippets/precedents/ui.md), the proof rule).
+**Detect statically, prove by request.** The proof is an oracle from [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states — **Request count** (V106), **Request order** (V110), **State matrix** (V105) — or one of the five request-level shapes in the same section (V120–V124, listed in § Proof below), run against MSW 3 handlers in a component test or a production build in Playwright. A candidate read in code with no harness is **Unconfirmed**, carrying the test that would settle it. It is never dropped, and never promoted on reading alone ([`precedents/ui.md`](../../../../snippets/precedents/ui.md), the proof rule).
 
 ## The rule
 
@@ -224,13 +224,13 @@ GOOD:  onMutate: async (t, ctx) => { await ctx.client.cancelQueries(…); const 
 
 ## Proof
 
-Each § names its oracle. Request count (V106), Request order (V110) and State matrix (V105) are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states. The five request-level shapes below are not in that file yet (integrator request); until they are, the test writer uses them as written here:
+Each § names its oracle. All of them are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states: Request count (V106), Request order (V110) and State matrix (V105), and the five request-level shapes under *Client data and navigation oracles*:
 
-- **Request timeline** — record `page.on('request')` / `requestfinished` (url, start, end) for one navigation at N = 2 and N = 20 parents. Fails when the count grows with N, or an independent read starts after another ends.
-- **Write-then-read** — a stateful MSW handler (POST appends to an in-memory array that GET returns) or a real backend; create, update, delete through the UI; the list **and** the detail show the change with no `page.reload()`, and still after `goBack()` / `goForward()`.
-- **Failed optimistic write** — the write answers 500 after `delay(300)`; the optimistic value is visible, then the previous value returns and an error is announced; with two writes in flight the second survives the first's rollback.
-- **Identity switch** — switch entity, tenant or user with the new response held; `expect.poll` sampling never sees the previous identity's rows; after sign-out the query cache and any persisted cache are empty.
-- **Idle request rate** — fake timers plus an MSW counter; hide the tab (`focusManager.setFocused(false)`, or `document.visibilityState` stubbed to `'hidden'` + `visibilitychange`), advance 60 s: no polling request; visible with no input for 5 s: fewer than 2 requests after the initial load.
+- **Request timeline** (V120, §1) — the route at N = 2 and N = 20 parents; fails when the count grows with N or an independent read starts after another ends.
+- **Write-then-read** (V121, §4, §9) — create, update, delete through the UI against a stateful handler; list **and** detail change with no reload, and after back / forward.
+- **Failed optimistic write** (V122, §5) — the write answers 500 after a delay; the previous value returns and an error is announced; a second write in flight survives.
+- **Identity switch** (V123, §6) — switch entity, tenant or user with the new response held; no sample shows the previous identity; the cache is empty after sign-out.
+- **Idle request rate** (V124, §7) — fake timers and a request counter; hidden tab for 60 s, no polling; visible and idle for 5 s, fewer than 2 requests.
 
 Every test runs on a production build or a component test with MSW 3 (`http`, `HttpResponse`, `delay` from `'msw'`; `graphql` now from `'msw/graphql'`), asserts the **one** behaviour the finding names, and **fails before the fix**. A test that passes on the unfixed code proves nothing: rebuild it until it fails. A fix is accepted when the oracle goes green, the class variants pass (V106 / V110 variant lists, plus: the list **and** the detail key, a paginated and an infinite key, two concurrent writes, an expired session), and the owning grep goes quiet on the line. Never accepted: raising `staleTime` or a TTL to hide a stale view, clearing the cache on sign-out as the fix for a key missing the tenant, `retry: false` on a read to hide a 4xx loop without rendering the state, deleting the test.
 
@@ -280,16 +280,14 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (UI states and client data § 35–41) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the correctness column). The ones this skill meets most:
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (UI states and client data § 35–41; client data § 63–69) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the correctness column). The ones this skill meets most:
 
-- **Keyed caches and router loaders are race-safe.** TanStack / SWR keyed queries discard a stale response by key; React Router, SvelteKit and Next server-component loaders drop the superseded navigation; Nuxt `useFetch` with a reactive key refetches per key. §3 does not apply to them. Identical keys in flight are deduplicated (`precedents/ui.md` § 38).
-- **A key factory that takes the whole params object, or a key built from the same input the fetch derives its arguments from** (a day count → from / to dates), satisfies §6 even when `exhaustive-deps` flags it (5 of 6 measured lint hits).
-- **A dependent second read is not a waterfall**; **a chunked fan-out** (pages of ids at the API's max page size) is the client twin of a chunked `IN (…)` — Hardening, not §1.
-- **Writes that change no cached view** — sign-in, OTP, password reset, an export job, a message send — need no invalidation.
-- **Optimistic UI that reverts by construction** (`precedents/ui.md` § 37). **Default retries** (§ 38). **Sign-out that calls `queryClient.clear()`** refutes the §6 sign-out half, never a §6 key defect.
-- **Polling that pauses in the background by default** — TanStack `refetchIntervalInBackground` defaults to `false` (query-core 5.104.1 types, 2026-10-05). A poll that stops itself when the job completes is correct.
-
-These local precedents are proposed for `precedents/ui.md` (integrator request); until they land, cite this section.
+- **Keyed caches and router loaders are race-safe.** TanStack / SWR keyed queries discard a stale response by key; React Router, SvelteKit and Next server-component loaders drop the superseded navigation; Nuxt `useFetch` with a reactive key refetches per key. §3 does not apply to them. Identical keys in flight are deduplicated (`precedents/ui.md` § 38, 63, 64).
+- **A key factory that takes the whole params object, or a key built from the same input the fetch derives its arguments from** (a day count → from / to dates), satisfies §6 even when `exhaustive-deps` flags it (5 of 6 measured lint hits; § 65).
+- **A dependent second read is not a waterfall**; **a chunked fan-out** (pages of ids at the API's max page size) is the client twin of a chunked `IN (…)` — Hardening, not §1 (§ 66).
+- **Writes that change no cached view** — sign-in, OTP, password reset, an export job, a message send — need no invalidation (§ 67).
+- **Optimistic UI that reverts by construction** (`precedents/ui.md` § 37). **Default retries** (§ 38). **Sign-out that calls `queryClient.clear()`** refutes the §6 sign-out half, never a §6 key defect (§ 68).
+- **Polling that pauses in the background by default** — TanStack `refetchIntervalInBackground` defaults to `false` (query-core 5.104.1 types, 2026-10-05). A poll that stops itself when the job completes is correct (§ 69).
 
 ## When to run
 

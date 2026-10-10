@@ -10,7 +10,7 @@ allowed-tools: [Read, Grep, Glob, Bash]
 
 ## Premise
 
-Find real perf regressions, not noise. Every failure cites the metric + measured value + budget + the suspected cause (commit / file / chunk). "Score dropped" without numbers is not a finding. A single run is not a measurement — the median of 5 runs (`numberOfRuns: 5`, `aggregationMethod: "median-run"` on every numeric assertion) against the production build, or the result is invalid. Five is this pack's default, with no registry id yet; [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Lighthouse median" uses the same shape. Dev-mode runs are forbidden; HMR inflates TBT and LCP misleadingly.
+Find real perf regressions, not noise. Every failure cites the metric + measured value + budget + the suspected cause (commit / file / chunk). "Score dropped" without numbers is not a finding. A single run is not a measurement — the median of 5 runs (`numberOfRuns: 5`, `aggregationMethod: "median-run"` on every numeric assertion) against the production build, or the result is invalid. Five runs, median-run, production build is `THR-LHCI` in `templates/governance/thresholds.json`; [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Lighthouse median" uses the same shape. Dev-mode runs are forbidden; HMR inflates TBT and LCP misleadingly.
 
 A failed budget without a named cause is unfinished investigation — and naming it is step 7 below, not an act of intuition.
 
@@ -112,7 +112,7 @@ Eight of this pack's skills are performance scanners and none of them is a front
 }
 ```
 
-Customize per-project. Mobile budgets stricter than desktop. Critical-JS budget tighter than total-JS. The run count and aggregation are this pack's default, with no registry id yet; when the threshold registry gains one, cite it here instead of the literal.
+Customize per-project. Mobile budgets stricter than desktop. Critical-JS budget tighter than total-JS. The run count and aggregation are `THR-LHCI` (`templates/governance/thresholds.json`: 5 runs, median-run, production build); cite the id, not the literal.
 
 Notes:
 - **No `interaction-to-next-paint` assertion.** That audit declares `supportedModes: ['timespan']` in both Lighthouse 12.6.1 and 13.5.0 (read from the unpacked packages, 2026-10-05); `lhci autorun` collects navigation runs, where it does not exist. TBT is the lab proxy; INP is field-only (callout below).

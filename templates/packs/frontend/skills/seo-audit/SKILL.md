@@ -231,7 +231,7 @@ GOOD:  language: 'en-US' · hreflang="en-GB" · every version lists every versio
 
 ## Proof
 
-`seo-head.py` (beside this file, installed as `.claude/skills/seo-audit/scripts/seo-head.py`) is the oracle. It is Python 3 standard library and read-only: GET requests only, no file written.
+`seo-head.py` (beside this file, installed as `.claude/skills/seo-audit/scripts/seo-head.py`) is the oracle. It is Python 3 standard library and read-only: GET requests only, no file written. Its oracle shapes and the class variants (§1–§9 → V180–V188) are [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § SEO.
 
 ```bash
 python3 .claude/skills/seo-audit/scripts/seo-head.py --self-test
@@ -285,14 +285,14 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the correctness column). There is no SEO precedents file yet; these are the local precedents (integrator request):
+The verifier reads [`precedents/seo.md`](../../../../snippets/precedents/seo.md) (posting rules § 1–6, class precedents § 7–21, version facts § 22–29) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the correctness column). The class precedents, in short:
 
-- **§1:** a title outside the 50–60 character band (guidance, not a limit); a duplicate between a layout and the one page that overrides it; a dynamic title the oracle shows unique.
-- **§2:** a self-referencing canonical (expected); a relative canonical that Next resolves against `metadataBase`, or that an SEO module resolves against its site URL; a print or AMP view pointing at its article; trailing-slash, `www` and `http` variants (one canonical plus one redirect target, not four findings).
-- **§4:** FAQ, How-to and `SearchAction` markup left on the page (Hardening, not a defect); `Organization` on every page.
-- **§5:** `noindex` on staging, auth, thank-you, error and filter-permutation routes; `Disallow` of `/api/` and `/admin/`; an `X-Robots-Tag: noindex` route rule for an auth segment.
-- **§8:** an auth-gated SPA (no route must rank); a stray `index.html` in a Nuxt or Next project, which the framework never serves.
-- **§9:** `navigate(-1)`; a card that also holds a real link for the same target.
+- **§1** (seo § 7, 8): a title outside the 50–60 character band (guidance, not a limit); a duplicate between a layout and the one page that overrides it; a dynamic title the oracle shows unique.
+- **§2** (seo § 9–12): a self-referencing canonical (expected); a relative canonical that Next resolves against `metadataBase`, or that an SEO module resolves against its site URL; a print or AMP view pointing at its article; trailing-slash, `www` and `http` variants (one canonical plus one redirect target, not four findings).
+- **§4** (seo § 13, 14): FAQ, How-to and `SearchAction` markup left on the page (Hardening, not a defect); `Organization` on every page.
+- **§5** (seo § 15–17): `noindex` on staging, auth, thank-you, error and filter-permutation routes; `Disallow` of `/api/` and `/admin/`; an `X-Robots-Tag: noindex` route rule for an auth segment.
+- **§8** (seo § 18, 19): an auth-gated SPA (no route must rank); a stray `index.html` in a Nuxt or Next project, which the framework never serves.
+- **§9** (seo § 20, 21): `navigate(-1)`; a card that also holds a real link for the same target.
 
 ## When to run
 

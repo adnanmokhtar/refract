@@ -14,7 +14,7 @@ A server-rendered page is rendered twice: once on the server into HTML, once in 
 
 **Every finding cites `<file:line>` + the pattern + the lane (framework and rendering mode) + the oracle that failed (or the test that would settle it) + the fix in the project's own server/client primitive.** "Might have hydration issues" is not a finding. A grep hit is a candidate. "No SSR issues" is never printed without the class-coverage block (§ Output).
 
-**Detect statically, prove on a production build.** The proof is runtime: the console-hydration capture, a server render answering 200, the framework's build failing on the boundary, a request count across server and client, and a 60-request leak probe for module-scope state ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Console hydration" and § "Request count"; the rest in § Proof). A dev server is never the oracle: React reports hydration differently in development, and HMR keeps state alive. A candidate with no harness is **Unconfirmed** with its settling test written out ([`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 2, gate 6).
+**Detect statically, prove on a production build.** The proof is runtime: the console-hydration capture, a server render answering 200, the framework's build failing on the boundary, a request count across server and client, and a 60-request leak probe for module-scope state ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states: *Console hydration*, *Server render*, *Build gate*, *Server + client request count*, *Cross-request leak probe*; V107, V114–V117). A dev server is never the oracle: React reports hydration differently in development, and HMR keeps state alive. A candidate with no harness is **Unconfirmed** with its settling test written out ([`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 2, gate 6).
 
 **No SSR, no audit.** A client-rendered app (a Vite or CRA SPA with `createRoot`) has no server render, so every § is `N/A (client-rendered)`. The pre-flight checks that first and stops. Measured below: ungated, the same greps return about 440 client-only lines on a real SPA.
 
@@ -229,18 +229,13 @@ Output per finding: `file:line` of the directive + why it is unjustified + the d
 
 ## Proof
 
-1. **Console hydration** (§1) — above and `proof-oracles.md` § "Console hydration".
-2. **Server render** (§2) — the production server answers the route 200 with no `ReferenceError` for a browser global in its log.
-3. **Build gate** (§3, §4a) — the framework's production build fails on the violation before the fix and passes after it; the message is quoted.
-4. **Server + client request count** (§4 double fetch) — each URL fetched once for one navigation.
-5. **Cross-request leak probe** (§4f, §4g) — Node 22 `fetch` against the production server, two signed-in sessions whose page carries a unique marker, plus anonymous requests, 60 interleaved and concurrent:
+Each oracle is in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states, under the heading of the same name:
 
-```ts
-const jobs = Array.from({ length: 60 }, (_, i) => (i % 6 === 5 ? ['anon', ''] : i % 2 ? ['U1', c1] : ['U2', c2]));
-const res = await Promise.all(jobs.map(async ([who, cookie]) => [who, await (await fetch(url, { headers: { cookie } })).text()]));
-const leaks = res.filter(([who, body]) => (who !== 'U1' && body.includes('ZZ_U1_MARK')) || (who !== 'U2' && body.includes('ZZ_U2_MARK')));
-```
-Any leak confirms the class. Zero of 60 is evidence, not proof: interleaving depends on the server's concurrency, so the row stays `[report-flagged]`, citing the module variable as the mechanism, until a deterministic test (request A writes the shared value, request B reads it after an awaited gap) fails. Also request as U1 and then anonymously: the anonymous HTML holds no U1 marker.
+1. **Console hydration** (§1, V107) — above.
+2. **Server render** (§2, V114) — the production server answers the route 200 with no `ReferenceError` for a browser global in its log.
+3. **Build gate** (§3, §4a; V115, V116) — the framework's production build fails on the violation before the fix and passes after it; the message is quoted.
+4. **Server + client request count** (§4 double fetch, V116) — each URL fetched once for one navigation.
+5. **Cross-request leak probe** (§4f, §4g; V117) — two signed-in sessions with unique page markers plus anonymous requests, 60 interleaved and concurrent against the production server. Any leak confirms the class; zero of 60 keeps the row `[report-flagged]` until the deterministic two-request test fails.
 
 Whole-class variants: a value in render, in a custom hook, in a `useState` initialiser, in `useMemo`, in a Vue `computed`, in Svelte `{#if browser}`, in Angular `@if (isBrowser)`; nesting across components; a suppression moved one level up; for 4f, `let`, a `Map`/`Set` cache, module-scope `ref` / `reactive` / `writable` / signal / `$state`, a Zustand or Pinia store at module scope, `axios.defaults.headers`, a server-side `changeLanguage`, a global dayjs locale.
 

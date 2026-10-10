@@ -14,7 +14,7 @@ A render bug shows the wrong thing, or keeps doing work after the user has left.
 
 **Every finding cites the component `<file:line>` + the rule or pattern it breaks + the route or component that mounts it + the oracle that failed (or the test that would settle it) + the fix in the project's framework.** A lint message or a grep hit is a candidate, never a finding by itself. "No render bugs found" is never printed without the class-coverage block (§ Output).
 
-**Detect statically, prove by execution.** Each class has a deterministic oracle — a render count, a timer and listener balance, a heap slope across navigations, a reorder test, a console warning — in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Mount/unmount balance, reorder identity, request order" and § "Render count" (frontend). A candidate read in code with no harness to run the test is **Unconfirmed**, carrying the test that would settle it. It is never dropped as "speculative" and never promoted on reading alone ([`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 2, gate 6).
+**Detect statically, prove by execution.** Each class has a deterministic oracle — a render count, a timer and listener balance, a heap slope across navigations, a reorder test, a console warning — in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Mount/unmount balance, reorder identity, request order", *Heap slope*, *Console warning* and *View update* (§ Accessibility and UI states), and § "Render count" (frontend). A candidate read in code with no harness to run the test is **Unconfirmed**, carrying the test that would settle it. It is never dropped as "speculative" and never promoted on reading alone ([`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 2, gate 6).
 
 ## The rule
 
@@ -205,23 +205,9 @@ The oracle per class, failing first and green after the fix ([`proof-oracles.md`
 1. **Render count** (§1) — § "Render count" in the frontend section; StrictMode off, or halve the count.
 2. **Mount/unmount balance** (§2) and **reorder identity** (§3) — § "Mount/unmount balance, reorder identity, request order"; variants V108 and V109.
 3. **Heap leak (memlab)** (§2 across routes) — § "Heap leak (memlab)", variant V53: a scenario with `url`, `action` and `back`, then `npx memlab analyze unbound-object` or `detached-DOM` for the retainer trace.
-4. **Heap slope with a plateau check** (§2 across routes, Chromium) — on the **production** build (`vite preview`, `next start`), never a dev server, which double-mounts under StrictMode and keeps HMR state:
-
-```ts
-const cdp = await page.context().newCDPSession(page); await cdp.send('Performance.enable');
-const sample = async () => { await cdp.send('HeapProfiler.collectGarbage');
-  const m = Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((x) => [x.name, x.value]));
-  return { heap: m.JSHeapUsedSize, nodes: m.Nodes, listeners: m.JSEventListeners }; };
-const s = []; for (let i = 0; i < 23; i++) {                       // 3 warm-up cycles, then 20 measured A → B → A
-  await page.click('a[href="/b"]'); await page.waitForURL('**/b'); await page.click('a[href="/a"]'); await page.waitForURL('**/a');
-  if (i >= 3) s.push(await sample()); }
-// Finding: least-squares heap slope > max(64 KB, 0.5 % of the first sample) per cycle AND R² ≥ 0.8 AND Nodes or
-// JSEventListeners also non-decreasing. Plateau check: slope over the second 10 cycles < 10 % of the first 10 → a cache
-// warming up (TanStack gcTime, a router cache), Refuted. Run past the cache's TTL before calling a plateau a leak.
-```
-
-5. **Console warning** (§1 loops, §5) — `vi.spyOn(console, 'error')` in the component test, or `page.on('console')` in Playwright; the test fails on the framework's message.
-6. **View update** (§4) — the component test above; for Angular, under `fakeAsync` with change detection run once.
+4. **Heap slope with a plateau check** (§2 across routes, Chromium) — § Accessibility and UI states, *Heap slope*, variant V113: on the **production** build, 3 warm-up then 20 measured A → B → A cycles with GC before each CDP sample. Finding when the heap slope exceeds max(64 KB, 0.5 % of the first sample) per cycle with R² ≥ 0.8 and nodes or listeners non-decreasing; a second-half slope under 10 % of the first is a cache warming up, Refuted.
+5. **Console warning** (§1 loops, §5) — § Accessibility and UI states, *Console warning*, variant V119 (§5; the §1 update loops have no variant of their own): `vi.spyOn(console, 'error')` or `page.on('console')`, failing on the framework's message.
+6. **View update** (§4) — § Accessibility and UI states, *View update*, variant V118: change the state through the real action and assert the rendered text changes (Angular `fakeAsync` + one `detectChanges()`, Vue `nextTick()`, Svelte 5 `flushSync()`).
 
 A static fact needs no runtime oracle only when the rule is the claim (a `key={Math.random()}` remount, a mutated prop the linter reports); every other class needs its oracle to fire. Without a harness the candidate is Unconfirmed with the test written out.
 

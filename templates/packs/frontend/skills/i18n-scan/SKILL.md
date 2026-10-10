@@ -295,10 +295,10 @@ GOOD:  <bdi>{user.name}</bdi>  ·  <span dir="auto">{comment}</span>  ·  unicod
 
 The oracle per class, failing first and green after the fix ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states):
 
-1. **Pseudo-locale walk** (§1, §3 concatenation, §6) — § "Pseudo-locale and RTL mirror", V111. Wrap every catalog **value** with `pseudoLocalizeString(v, { strategy: 'accented' | 'bidi' })` (pseudo-localization 3.1.3), skipping ICU placeholders and tags. Never `PseudoLocalizeDom.start()`: it rewrites hard-coded text too, so it cannot tell the two apart. Walk the visible text nodes and `[alt], [title], [placeholder], [aria-label]` values: a node with two or more Latin letters and no pseudo marks is hard-coded unless it is seeded data.
-2. **RTL mirror** (§5, §7) — same section, V112.
-3. **Missing-key run** (§2, §9) — the suite under every shipped locale with `missingKeyHandler` (i18next), `missingWarn`/`fallbackWarn` (vue-i18n) or the compile step (formatjs, Angular) turned into a failure.
-4. **Plural matrix** (§3), **locale format matrix** (§4), **collation order** (§8), **server-text sentinel** (§10), **bidi isolation** (§11) — the shapes in each § above.
+1. **Pseudo-locale walk** (§1, §3 concatenation, §6) — § "Pseudo-locale and RTL mirror", V111 and V132. Wrap every catalog **value** with `pseudoLocalizeString(v, { strategy: 'accented' | 'bidi' })` (pseudo-localization 3.1.3), skipping ICU placeholders and tags. Never `PseudoLocalizeDom.start()`: it rewrites hard-coded text too, so it cannot tell the two apart. Walk the visible text nodes and `[alt], [title], [placeholder], [aria-label]` values: a node with two or more Latin letters and no pseudo marks is hard-coded unless it is seeded data.
+2. **RTL mirror** (§5, §7) — same section, V112 and V136.
+3. **Missing-key run** (§2, §9) — the suite under every shipped locale with `missingKeyHandler` (i18next), `missingWarn`/`fallbackWarn` (vue-i18n) or the compile step (formatjs, Angular) turned into a failure — *Missing-key run* under `### i18n oracles`, V133.
+4. **Plural matrix** (§3, V134), **locale format matrix** (§4, V135), **locale switch** (§7, V137), **collation order** (§8, V138), **server-text sentinel** (§10, V139), **bidi isolation** (§11, V140) — `### i18n oracles` in the same section; the per-§ shape above names the fixture.
 
 A static fact needs no runtime oracle only when the source is the whole claim: a key absent from a shipped locale's catalog, a placeholder spelled differently, `<html lang="en">` never updated on a bilingual shell. Every other class needs its oracle to fire. Without a harness the candidate is Unconfirmed with the test written out.
 
@@ -342,15 +342,15 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (§ 47–48 for this skill) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The ones this skill meets most:
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (§ 47–48 and i18n § 76–83 for this skill) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The ones this skill meets most:
 
-- **A single-locale product with no i18n library**: every row `N/A`, unless the brief names a second market.
-- **Not copy:** text in `<code>`, `<pre>`, `<kbd>` and the project's code or LTR wrappers; `<Trans>`-family children; Angular `i18n`-marked elements; `alt=""` on a decorative image; brand, product and standard names on a documented allow-list; units and symbols; data (user content, API values, SKUs); example-format placeholders (`john@example.com`, `https://…`, `01xxxxxxxxx`); developer text (`console.*`, logger calls, `throw new Error` that never renders); routes the product declares single-language.
-- **Machine formats:** `toISOString()`, `YYYY-MM-DD` built for an input or an API, `toFixed` on a non-money value, sorting ids, enum codes or ISO dates, `toLowerCase()` on ASCII protocol tokens.
-- **A project wrapper owns the locale:** a `formatDate()`, `formatMoney()` or `Trans` wrapper that injects the active locale. Read it once; its call sites are clean.
-- **RTL:** symmetric pairs; `[dir]`, `:dir()`, `rtl:` and `ltr:` overrides (`precedents/ui.md` § 48); content that must stay LTR (code, phone numbers, charts, maps, media timelines); vertical properties; React Native `marginLeft` under the default auto-swap; icons that must not mirror (play, clock, check, two-way swap).
-- **A server that localizes** its messages by `Accept-Language`, with the client sending the header: §10 is Hardening.
-- **SwiftUI `Text("literal")`** is a `LocalizedStringKey`; only `Text(verbatim:)` and `Text(stringVariable)` are hard-coded.
+- **A single-locale product with no i18n library**: every row `N/A`, unless the brief names a second market (§ 76).
+- **Not copy:** text in `<code>`, `<pre>`, `<kbd>` and the project's code or LTR wrappers; `<Trans>`-family children; Angular `i18n`-marked elements; `alt=""` on a decorative image; brand, product and standard names on a documented allow-list; units and symbols; data (user content, API values, SKUs); example-format placeholders (`john@example.com`, `https://…`, `01xxxxxxxxx`); developer text (`console.*`, logger calls, `throw new Error` that never renders); routes the product declares single-language (§ 77).
+- **Machine formats:** `toISOString()`, `YYYY-MM-DD` built for an input or an API, `toFixed` on a non-money value, sorting ids, enum codes or ISO dates, `toLowerCase()` on ASCII protocol tokens (§ 78).
+- **A project wrapper owns the locale:** a `formatDate()`, `formatMoney()` or `Trans` wrapper that injects the active locale. Read it once; its call sites are clean (§ 79).
+- **RTL:** symmetric pairs; `[dir]`, `:dir()`, `rtl:` and `ltr:` overrides (`precedents/ui.md` § 48); content that must stay LTR (code, phone numbers, charts, maps, media timelines); vertical properties; React Native `marginLeft` under the default auto-swap; icons that must not mirror (play, clock, check, two-way swap) (§ 80, 83).
+- **A server that localizes** its messages by `Accept-Language`, with the client sending the header: §10 is Hardening (§ 81).
+- **SwiftUI `Text("literal")`** is a `LocalizedStringKey`; only `Text(verbatim:)` and `Text(stringVariable)` are hard-coded (§ 82).
 - **Pseudo-locale-only clipping** of a brand mark or a code-like value (`precedents/ui.md` § 47).
 
 ## When to run

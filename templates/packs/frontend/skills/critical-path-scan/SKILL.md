@@ -170,23 +170,11 @@ GOOD:  reserve the band's height while the query is pending, or render the notic
 
 ## Proof
 
-Run on the **production** build (`vite preview`, `next start`, `nuxi preview`, the deployed site), never a dev server (`precedents/performance.md` § 90), on the mobile profile and on desktop. Shared shapes are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Lighthouse median", § "Trace insight" and § "Field attribution" (frontend). Resource Timing `renderBlockingStatus` and Long Animation Frames `scripts[]` are Chromium features, not Baseline (MDN, fetched 2026-10-05); the oracles run in Chromium.
+Run on the **production** build (`vite preview`, `next start`, `nuxi preview`, the deployed site), never a dev server (`precedents/performance.md` § 90), on the mobile profile and on desktop. Shared shapes are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Frontend: "Lighthouse median", "Trace insight", "Field attribution" and the three oracles below. Resource Timing `renderBlockingStatus` and Long Animation Frames `scripts[]` are Chromium features, not Baseline (MDN, fetched 2026-10-05); the oracles run in Chromium.
 
-1. **Render-blocking list** (§1, run-invariant). After load, list the resources the browser marked blocking; the candidate's URL is on it before the fix and gone after:
-   ```ts
-   const blocking = await page.evaluate(() => performance.getEntriesByType('resource')
-     .filter((e: any) => e.renderBlockingStatus === 'blocking')
-     .map((e: any) => ({ url: e.name, bytes: e.transferSize, end: Math.round(e.responseEnd) })));
-   ```
-2. **Third-party ablation and LoAF** (§2, cost). Interleave runs with and without `page.route(/googletagmanager|hotjar|intercom|…/, r => r.abort())`, 5 runs each, after measuring the band (three re-runs of the unchanged build). A delta inside the band is `NO-CHANGE` (`precedents/performance.md` § 51). Localise with `new PerformanceObserver(l => …).observe({ type: 'long-animation-frame', buffered: true })` and group each entry's `scripts[].sourceURL` by host, with `duration` and `forcedStyleAndLayoutDuration`.
-3. **Layout-shift observer** (§3, run-invariant per scenario). Install before navigation, load the route, accept and then reject consent through its own buttons, scroll two viewports, wait 5 s:
-   ```ts
-   await page.addInitScript(() => { (window as any).__ls = []; new PerformanceObserver((l) => { for (const e of l.getEntries() as any[])
-     if (!e.hadRecentInput) (window as any).__ls.push({ v: e.value, t: e.startTime,
-       src: e.sources.map((s: any) => ({ node: s.node?.outerHTML?.slice(0, 120), prev: s.previousRect.toJSON(), cur: s.currentRect.toJSON() })) }); })
-     .observe({ type: 'layout-shift', buffered: true }); });
-   ```
-   CLS is the largest session window (gaps under 1 s, windows up to 5 s) of the summed values. Fails first when one shift of 0.01 or more names the candidate's node, or the session CLS is over 0.1; green when neither holds.
+1. **Render-blocking list** (§1, run-invariant; § Frontend, *Render-blocking list*, V147). After load, the resources Resource Timing marks `renderBlockingStatus === 'blocking'`; the candidate's URL is on the list before the fix and gone after.
+2. **Third-party ablation and LoAF** (§2, cost; *Third-party ablation*, V148). Measure the band, then interleave 5 runs with the third-party hosts aborted and 5 without; a delta inside the band is `NO-CHANGE` (`precedents/performance.md` § 51). Localise with Long Animation Frames `scripts[]` grouped by host.
+3. **Layout-shift observer** (§3, run-invariant per scenario; *Layout-shift observer*, V149). Observer installed before navigation; load, accept and then reject consent through its own buttons, scroll two viewports, wait 5 s. Fails first when one shift of 0.01 or more names the candidate's node, or the session CLS is over 0.1; green when neither holds.
 4. **Field attribution** (cost). `web-vitals/attribution` 6.2.3: `onCLS` → `largestShiftTarget`, `largestShiftValue`, `loadState`; `onLCP` → `elementRenderDelay` for §1. A CrUX "after" needs 28 days of post-deploy traffic; the project's own RUM reads sooner.
 
 Without a browser harness, every candidate is Unconfirmed with the run that would settle it written out; it is never promoted on reading alone ([`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 2, gate 6).

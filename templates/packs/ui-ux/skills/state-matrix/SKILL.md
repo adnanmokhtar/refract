@@ -54,7 +54,7 @@ Its rows are the defects `ui-state-scan` (this pack) looks for afterwards. A mat
 | `validation` | every form | when an error first shows (blur, not keystroke), and where server field errors land |
 | `timeout` | a request with a stated budget | the deadline and what replaces the loader |
 
-The **required** set is the seven above. The thresholds registry has no UI-states entry yet. When one is added to `.claude/templates/governance/thresholds.json` (and a project's `.claude/thresholds.local.json` may then add states), the lint reads it instead; the script's docstring names the id it looks for. A state outside this vocabulary is an `unknown-state` finding, so a typo cannot pass as an extra row.
+The **required** set is the seven above, and the conditional set the seven after them: `THR-UI-STATES` in `templates/governance/thresholds.json` (installed at `.claude/templates/governance/thresholds.json`). The lint reads that entry when installed, else this default; a project's `.claude/thresholds.local.json` may add states, never drop a required one. A state outside this vocabulary is an `unknown-state` finding, so a typo cannot pass as an extra row.
 
 ## The format
 
@@ -143,7 +143,7 @@ A copy-only change touches catalogs, not surfaces, so it reads N-A.
 
 **What the lint cannot see.** It proves that a cited test exists, not that the test forces the state or fails first. That half of G12 is `@ux-reviewer`'s: it opens each cited test and checks the handler and the assertion against the row. The state-matrix tests themselves are run at P7 like every other test.
 
-**Until gate-check runs it,** `@ux-reviewer` runs the lint at P4 (`--phase=design`, on the UI slice) and at P8–P11 (on the diff), and reports the result in its review. When the gate wiring lands, the check is `G12 state-matrix` in `.claude/gates.json`, starting in shadow mode like every new gate.
+**Gate wiring:** the check is `G12 state-matrix` in `.claude/gates.json`, in shadow mode like every new gate; `gate-check.py` runs the lint once per UI run in the change (`run_g12`), and a missing lint on a UI run is UNVERIFIED, never PASS. `@ux-reviewer` also runs it at P4 (`--phase=design`, on the UI slice) and at P8–P11 (on the diff), and reports the result in its review.
 
 ## Output
 

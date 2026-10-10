@@ -135,17 +135,17 @@ GOOD:  if (import.meta.env.DEV) { const { worker } = await import('./mocks/brows
 A verdict of OVER BUDGET is only meaningful against a budget somebody chose. Resolve in this order and **print which arm was used**:
 
 1. **A project budget** — `ai/runtime/perf-budgets.md`, `ai/stack.md`, a `size-limit` / `bundlesize` config, a `resource-summary:script:size` assertion in the project's `lighthouserc.json`, a CI budget file. `frontend-principles` § Should requires a budget gate but sets no number, because the right number is per product. If the project has one, it wins outright. **When the budget comes from Lighthouse:** that assertion sums every script the audited *page* loads, while this skill measures one route's initial bundle. It is a ceiling above your number, not the same measurement: print which one you measured, and treat a per-route figure under a page-level ceiling as unproven rather than passing.
-2. **This skill's own default**, when none exists: **150 KB brotli on the initial critical path**. It is a working default for an interactive app on a mid-tier mobile connection, not an industry constant, and no rule in this pack writes it down. Say so in the report. (The `/audit` command's `--target-bundle` default is a different scope and number; no shared threshold id exists yet.)
+2. **The shared default**, when none exists: **150 KB brotli on the initial critical path** — `THR-WEB-BUNDLE` in `templates/governance/thresholds.json`, shared with `/bundle-perf` and `/audit --target-bundle`. It is a working default for an interactive app on a mid-tier mobile connection, not an industry constant, and a project budget wins outright. Say so in the report.
 
-**Budget absent → the verdict is `report-flagged`, never OVER BUDGET.** Emit the measured sizes, the named heavy chunks and the anchoring imports, and flag "no budget declared; measured against this skill's default of 150 KB br initial" as its own finding, whose fix is *declare a budget*, not *delete a dependency*. Failing a build on a number the project never agreed to is how a bundle gate gets disabled permanently.
+**Budget absent → the verdict is `report-flagged`, never OVER BUDGET.** Emit the measured sizes, the named heavy chunks and the anchoring imports, and flag "no budget declared; measured against the THR-WEB-BUNDLE default of 150 KB br initial" as its own finding, whose fix is *declare a budget*, not *delete a dependency*. Failing a build on a number the project never agreed to is how a bundle gate gets disabled permanently.
 
 ## Proof
 
-Failing first, green after the fix ([`proof-oracles.md`](../../../../snippets/proof-oracles.md), frontend section):
+Failing first, green after the fix ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Frontend):
 
-1. **Bytes per route** (§1–§4, §6) — § "Bytes per route": two builds of one commit agree exactly; base → head is an exact delta under the budget. For §6, the helper count from 6c falls to zero in the chunks modern browsers load.
-2. **Build-output grep** (§7) — the 7b marker is present before the fix and absent after, on the same build command. Deterministic; no Lighthouse run needed.
-3. **Lighthouse median** (§4, §6) — § "Lighthouse median", 5 runs, median-run, mobile and desktop. Under LHCI 0.15.1 (Lighthouse 12.6.1) assert `duplicated-javascript` and `legacy-javascript`; under Lighthouse 13 only `duplicated-javascript-insight` and `legacy-javascript-insight` exist. `unused-javascript` exists in both. Print the version and the id used.
+1. **Bytes per route** (§1–§4, §6) — § "Bytes per route": two builds of one commit agree exactly; base → head is an exact delta under the budget. For §6, the helper count from 6c falls to zero in the chunks modern browsers load (V150).
+2. **Build-output grep** (§6, §7; V150, V151) — § "Build-output grep": the 6c or 7b marker is present in the built output before the fix and absent after, on the same build command. Deterministic; no Lighthouse run needed.
+3. **Lighthouse median** (§4, §6) — § "Lighthouse median", 5 runs, median-run, mobile and desktop. Under LHCI 0.15.1 (Lighthouse 12.6.1) assert `duplicated-javascript` and `legacy-javascript`; under Lighthouse 13 only `duplicated-javascript-insight` and `legacy-javascript-insight` exist. `unused-javascript` exists in both (the LH 12 ↔ 13 id table is in that section). Print the version and the id used.
 
 A candidate read in code with no build to measure is Unconfirmed, with the build command that settles it.
 
@@ -158,7 +158,7 @@ Bundle classes rarely reach 3,000 hits; when they do (a monorepo with many apps,
 ```
 bundle-analyze — lane: vite 8.2 + react 19.2 (apps/web/package.json) · measured (brotli, vite manifest walk, a1b2c3d)
 
-Initial (entry closure):  171.4 KB br / 150 KB br   OVER by 21.4 KB   (budget: this skill's default — no project budget declared)
+Initial (entry closure):  171.4 KB br / 150 KB br   OVER by 21.4 KB   (budget: THR-WEB-BUNDLE default — no project budget declared)
 
 Top chunks:
   vendor-react-*.js     58.2 KB br   every route

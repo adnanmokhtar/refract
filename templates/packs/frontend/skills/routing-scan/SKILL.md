@@ -199,14 +199,14 @@ GOOD:  a loader · a keyed useQuery({ queryKey: ['item', id] }) · AbortControll
 
 ## Proof
 
-§8 uses **Request order** (V110) and §7 uses the **Build gate** shape, as in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states once that section carries them. The navigation oracles below are not in that file yet (integrator request); until they are, the test writer uses them as written here, on a production build:
+Each oracle is in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states — the six navigation shapes under *Client data and navigation oracles*, §7 under *Build gate* (V131), §8 under § "Mount/unmount balance, reorder identity, request order" (V110). Run on a production build:
 
-- **Open in new tab** — `Promise.all([context.waitForEvent('page'), el.click({ button: 'middle' })])` resolves (or `click({ modifiers: ['ControlOrMeta'] })`), and `expect(el).toHaveAttribute('href', …)`.
-- **URL round trip** — set the view through the UI, then `page.reload()`, then `page.goBack()` after one more change, then `page.url()` opened in a fresh `browser.newContext()`: each shows the same control values and rows; a typed search adds at most one history entry.
-- **Garbage param** — `goto('/orders/abc')`, `/orders/-1`, `/list?page=-5&sort=%27`: a not-found view (SSR status 404) or a normalized view, zero `pageerror`, and no request URL containing `NaN`, `undefined` or `null`.
-- **Unknown URL** — `goto('/__refract_404_probe')`: status 404 on SSR; on an SPA behind a history fallback, a not-found heading and a link home, and not the home page.
-- **Redirect hop count** — for the protected, sign-in and root routes, signed in, signed out and with an expired session: no `net::ERR_TOO_MANY_REDIRECTS`, at most 2 main-frame `framenavigated` events in 3 s, and a server redirect chain (`redirectedFrom()`) of at most one hop.
-- **First protected frame** — signed out, record `page.on('request')` from before `goto`; no protected API request fires before the URL reaches sign-in, and a screenshot at `waitUntil: 'commit'` plus one animation frame shows no protected content.
+- **Open in new tab** (V125, §1) — middle-click or Ctrl/Cmd-click opens a page, and the element has an `href`.
+- **URL round trip** (V126, §2) — reload, back after one more change, and a fresh context all show the same controls and rows; a typed search adds at most one history entry.
+- **Garbage param** (V127, §3) — `/orders/abc`, `/orders/-1`, `?page=-5&sort=%27` give a not-found or normalized view, zero `pageerror`, no request URL with `NaN` / `undefined` / `null`.
+- **Unknown URL** (V128, §4) — status 404 on SSR; on an SPA fallback, a not-found heading and a link home, not the home page.
+- **Redirect hop count** (V129, §5) — signed in, signed out and expired: no `ERR_TOO_MANY_REDIRECTS`, at most 2 main-frame navigations in 3 s, a server chain of at most one hop.
+- **First protected frame** (V130, §6) — signed out, no protected API request before the URL reaches sign-in, and no protected content at commit plus one frame.
 
 Every test asserts the **one** behaviour the finding names and **fails before the fix**; a test that passes on the unfixed code proves nothing. A fix is accepted when the oracle goes green, the class variants pass (§1: row, card, image, icon, breadcrumb, menu item in each stack present; §2: filter, sort, page, page size, tab, date range, search; §5–§6: hard load, client navigation from a public page, session expiry mid-session; §8: next / previous, list-detail, fast clicks), and the owning grep goes quiet on the line. Never accepted: `role="link"` + `tabIndex` on a `div` in place of an `href`, a `try/catch` that renders the home page for a bad param, `suppressHydrationWarning` or `export const dynamic = 'force-dynamic'` added only to silence §7 without a reason, deleting the test.
 
@@ -248,14 +248,14 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (§ 17 cards with an inner link, § 27 route announcers, § 41 history-fallback 200) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the correctness column). Local precedents, proposed for `precedents/ui.md` (integrator request):
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (§ 17 cards with an inner link, § 27 route announcers, § 41 history-fallback 200, routing § 70–75) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the correctness column). The routing precedents, in short:
 
-- **§1:** a row or card that also holds a real link for the same action; a button that does work and then navigates; `navigate(-1)` / `router.back()`; drag, select and map-marker interactions.
-- **§2:** dialog, picker and combobox search; wizard steps not meant to be deep-linked; filters that carry PII (privacy wins over shareability); state already mirrored through `nuqs`, `useSearchParams` or `router.replace({ query })`.
-- **§3:** a param parsed by a schema (`safeParse`, `validateSearch`, nuqs parsers) or checked before use; a param that only selects a tab with a default.
-- **§4:** Next, Nuxt and SvelteKit unmatched paths (built-in 404); a React Router data router whose root `errorElement` renders the 404 response; SvelteKit's plain `<a>` is client-routed.
-- **§5–§6:** a guard that renders a fallback until the session is known and redirects before rendering the protected outlet (measured: refuted on read); server-side redirects in middleware, loaders, `hooks.server.ts` or `canActivate`.
-- **§8:** router loaders (React Router, SvelteKit, Next server components) drop the superseded navigation; keyed TanStack / SWR queries discard a stale response by key; `switchMap` cancels.
+- **§1** (ui § 17, 70): a row or card that also holds a real link for the same action; a button that does work and then navigates; `navigate(-1)` / `router.back()`; drag, select and map-marker interactions.
+- **§2** (ui § 71): dialog, picker and combobox search; wizard steps not meant to be deep-linked; filters that carry PII (privacy wins over shareability); state already mirrored through `nuqs`, `useSearchParams` or `router.replace({ query })`.
+- **§3** (ui § 72): a param parsed by a schema (`safeParse`, `validateSearch`, nuqs parsers) or checked before use; a param that only selects a tab with a default.
+- **§4** (ui § 73): Next, Nuxt and SvelteKit unmatched paths (built-in 404); a React Router data router whose root `errorElement` renders the 404 response; SvelteKit's plain `<a>` is client-routed.
+- **§5–§6** (ui § 74): a guard that renders a fallback until the session is known and redirects before rendering the protected outlet (measured: refuted on read); server-side redirects in middleware, loaders, `hooks.server.ts` or `canActivate`.
+- **§8** (ui § 63, 75): router loaders (React Router, SvelteKit, Next server components) drop the superseded navigation; keyed TanStack / SWR queries discard a stale response by key; `switchMap` cancels.
 
 ## When to run
 

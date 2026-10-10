@@ -297,7 +297,7 @@ export const offToken = (page: Page, tokens: string[], scale: number[]) => page.
 }, { tokens, scale });
 ```
 
-**Fails first:** before the fix the literal's value (or the off-scale px) is in the list with the candidate's selector. After it, the value is gone and nothing new appeared. **Theme flip:** run in light and dark; an element whose colour is identical in both while the tokens it should use differ is the themed miss — the strongest §1 and §8 evidence. Translucent tokens (`color-mix`, alpha) normalise to their composited value on the canvas's black ground; compare like with like and treat a near-miss within ±1 channel as rounding. The §6 oracle is the behavioural diff in § 6. The draft text for this oracle is queued for `proof-oracles.md` § Accessibility and UI states (integrator); until it lands, this section is the reference.
+**Fails first:** before the fix the literal's value (or the off-scale px) is in the list with the candidate's selector. After it, the value is gone and nothing new appeared. **Theme flip:** run in light and dark; an element whose colour is identical in both while the tokens it should use differ is the themed miss — the strongest §1 and §8 evidence. Translucent tokens (`color-mix`, alpha) normalise to their composited value on the canvas's black ground; compare like with like and treat a near-miss within ±1 channel as rounding. The §6 oracle is the behavioural diff in § 6. Both are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Accessibility and UI states: *Token conformance* (V141; this skill carries the full `offToken` helper) and *Behavioural diff vs the DS component* (V142).
 
 **Whole-class variants** a fix must survive: CSS, a locally defined SCSS variable, styled-components / Emotion, an inline style, a Tailwind arbitrary value, the default palette, a component SVG `fill`, raw-scale theme access (`theme.colors.blue[500]`), the dark-theme variant of the swapped token, and the hover / focus / disabled states of the same control.
 
@@ -348,15 +348,15 @@ Write the report to `ai/audits/design-tokens-<date>.md`. A previous report gives
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10, contrast exemptions § 19) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The UI precedents file has no design-system section yet, so these settled questions apply here (research catalog, design-system class precedents, 2026-10-05):
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10, contrast exemptions § 19, design system § 84–90) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The design-system precedents, in short:
 
-- **Definitions, not uses:** token files, `@theme` / `@theme inline`, DTCG JSON, a Tailwind config, the DS's own primitives defining the scale.
-- **Contexts that must carry literals:** SVG illustrations and brand logos, email templates (inline styles are required), print / receipt / label templates written into another document, web-manifest `theme_color`, third-party widget overrides.
-- **Data, not design:** a user- or merchant-chosen colour stored with its default, a colour picker's swatch list, an order or ticket number such as `#1234`.
-- **Token through arbitrary syntax:** `bg-[var(--brand)]`, v4 `bg-(--brand)`, `style={{ '--progress': x }}`.
-- **Layout and dynamic geometry:** `w-[calc(100%-2rem)]`, `grid-cols-[1fr_auto]`, `max-h-[88vh]`, `width: ${pct}%`, a virtualised row's `top`.
-- **Native elements inside the DS, Radix `asChild` / `Slot`, headless-library hosts** are not §6 (`ui § 12`).
-- **The reduced-motion reset and `.sr-only`** are the documented `!important` exceptions.
+- **Definitions, not uses** (§ 84): token files, `@theme` / `@theme inline`, DTCG JSON, a Tailwind config, the DS's own primitives defining the scale.
+- **Contexts that must carry literals** (§ 85): SVG illustrations and brand logos, email templates (inline styles are required), print / receipt / label templates written into another document, web-manifest `theme_color`, third-party widget overrides.
+- **Data, not design** (§ 86): a user- or merchant-chosen colour stored with its default, a colour picker's swatch list, an order or ticket number such as `#1234`.
+- **Token through arbitrary syntax** (§ 87): `bg-[var(--brand)]`, v4 `bg-(--brand)`, `style={{ '--progress': x }}`.
+- **Layout and dynamic geometry** (§ 88): `w-[calc(100%-2rem)]`, `grid-cols-[1fr_auto]`, `max-h-[88vh]`, `width: ${pct}%`, a virtualised row's `top`.
+- **Native elements inside the DS, Radix `asChild` / `Slot`, headless-library hosts** are not §6 (§ 12, § 89).
+- **The reduced-motion reset and `.sr-only`** are the documented `!important` exceptions (§ 90).
 
 ## When to run
 
