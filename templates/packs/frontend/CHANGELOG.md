@@ -14,6 +14,10 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.0.2 — 2026-10-10
+
+**rg-glob-order: `a11y-scan` lists include globs before its exclusions.** The `T` array now names its include before `!.git/**`, and grep 7b puts `-g '*.{md,sh}'` ahead of `T`. ripgrep's last matching glob wins, so a `.md`/`.sh` file in `locales/` and a `.json`/`.yml` file in a root `.git/` were re-included. Measured 2026-10-10 on rg 15.2.0: `a11y-states` and `frontend-correctness` both print the same lines before and after (36 and 3). On planted copies the totals drop from 42 to 36 and from 9 to 3, and a root-level app with planted `.git/` files drops from 30 to 25. Every line that disappeared came from an excluded tree.
+
 ## 2.0.1 — 2026-10-10
 
 **Agent contracts and merged citations.**

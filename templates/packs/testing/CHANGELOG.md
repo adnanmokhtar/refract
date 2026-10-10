@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.2 — 2026-10-10
+
+**rg-glob-order: `suite-execution-scan` greps 1b and 6a put their include globs before `"${K[@]}" "${C[@]}"`.** ripgrep's last matching glob wins, so an `.eslintrc*`, `*.test.*` or `test_*.py` file directly inside `node_modules/` was re-included. Measured 2026-10-10 on rg 15.2.0: `brittle-suite` and `quality-mix` print the same lines before and after (67 and 9). On copies with planted `node_modules/` files the totals drop from 71 to 67 and from 12 to 9.
+
 ## 2.1.1 — 2026-10-10
 
 **Two citations to `mutation-probe` named sections that are not headings.** `/test-audit`'s class

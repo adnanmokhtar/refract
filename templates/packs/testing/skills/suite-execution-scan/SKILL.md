@@ -98,7 +98,7 @@ rg -n --no-heading --pcre2 "$TC" "${C[@]}" . | "${NC[@]}" | rg -v --pcre2 '^[^:]
 #    commands CI runs (1c).
 rg -n --pcre2 '^\s*(?:it|test|describe|context|suite|specify)\.only\s*\(|^\s*(?:fit|fdescribe|fcontext|ftest|fspecify)\s*\(|@pytest\.mark\.only\b' "${T[@]}" "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 '^\s*(?:fit|fdescribe|fcontext|focus)\s+["\x27]|(?:,|\()\s*(?::focus\b|focus:\s*true)' -g '**/*_spec.rb' "${V[@]}" . | "${NC[@]}"
-rg -n --pcre2 'forbidOnly\s*:|allowOnly\s*:|--forbid-only|--forbid-pending|no-focused-tests|no-exclusive-tests|RSpec/Focus|filter_run_when_matching' "${K[@]}" "${C[@]}" -g '**/{eslint.config.*,.eslintrc*,.rubocop.yml,.rspec,spec_helper.rb}' . | "${NC[@]}"
+rg -n --pcre2 'forbidOnly\s*:|allowOnly\s*:|--forbid-only|--forbid-pending|no-focused-tests|no-exclusive-tests|RSpec/Focus|filter_run_when_matching' -g '**/{eslint.config.*,.eslintrc*,.rubocop.yml,.rspec,spec_helper.rb}' "${K[@]}" "${C[@]}" . | "${NC[@]}"
 rg -n --pcre2 "$TC"'[^\n]*\s(?:-t|--testNamePattern|--grep|-g|-k|-run|--filter|-m)[ =]["\x27]?[\w^$|.-]' "${C[@]}" . | "${NC[@]}"
 
 # 2. §2 skips: skips and disables, every stack (2a; Ruby on *_spec.rb only, 2b); suites gated on an env var or a
@@ -178,7 +178,7 @@ rg -n --pcre2 'coveragePathIgnorePatterns|collectCoverageFrom|coverageThreshold|
 rg -n --pcre2 '^\s*(?:omit|exclude|exclude_also|exclude_lines|include|source|informational)\s*[=:]' --hidden -g '**/{.coveragerc,.nycrc*,.c8rc*,codecov.yml}' -g '!**/node_modules/**' .
 
 # 6. §6 retries: configured in runner config, test files or CI (6a; Ruby forms on Ruby files, 6b); flaky gates (6c).
-rg -n --pcre2 '\bjest\.retryTimes\s*\(|\bthis\.retries\s*\(\s*[1-9]|^\s*retr(?:y|ies)\s*:\s*(?:[1-9]|process\.env|\{\s*(?:count|runMode|openMode)\s*:\s*[1-9])|--retr(?:y|ies)[= ]+[1-9]|@pytest\.mark\.flaky\b|^\s*@flaky\b|--reruns(?:[= ]+[1-9])|\breruns\s*=\s*[1-9]|@(?:RetryingTest|RepeatedIfExceptionsTest|Flaky|FlakyTest|RetryOnFailure)\b|rerunFailingTestsCount|\bmaxRetries\s*(?:=|\.set\()\s*[1-9]|\[\s*(?:Retry|RetryFact|RetryTheory)\b|--rerun-fails\b|^\s*retries\s*=\s*[1-9]' "${K[@]}" "${C[@]}" -g '**/*.{test,spec,e2e-spec,flow,cy}.{js,ts,jsx,tsx,mjs,cjs}' -g '**/{test_*,*_test,conftest}.py' -g '**/*{Test,Tests,IT}.{java,kt,cs}' . | "${NC[@]}"
+rg -n --pcre2 '\bjest\.retryTimes\s*\(|\bthis\.retries\s*\(\s*[1-9]|^\s*retr(?:y|ies)\s*:\s*(?:[1-9]|process\.env|\{\s*(?:count|runMode|openMode)\s*:\s*[1-9])|--retr(?:y|ies)[= ]+[1-9]|@pytest\.mark\.flaky\b|^\s*@flaky\b|--reruns(?:[= ]+[1-9])|\breruns\s*=\s*[1-9]|@(?:RetryingTest|RepeatedIfExceptionsTest|Flaky|FlakyTest|RetryOnFailure)\b|rerunFailingTestsCount|\bmaxRetries\s*(?:=|\.set\()\s*[1-9]|\[\s*(?:Retry|RetryFact|RetryTheory)\b|--rerun-fails\b|^\s*retries\s*=\s*[1-9]' -g '**/*.{test,spec,e2e-spec,flow,cy}.{js,ts,jsx,tsx,mjs,cjs}' -g '**/{test_*,*_test,conftest}.py' -g '**/*{Test,Tests,IT}.{java,kt,cs}' "${K[@]}" "${C[@]}" . | "${NC[@]}"
 rg -n --pcre2 '(?:^|[\s,(])retry:\s*[1-9]|\bdefault_retry_count\b|\brspec-retry\b' -g '**/*_spec.rb' -g '**/{spec_helper.rb,Gemfile}' "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 -e '--fail-on-flaky-tests|failOnFlakyTests|failOnPassedAfterRetry\s*=\s*true|failOnFlakeCount|--flaky-result[= ]fail|flaky-result\s*=\s*"fail"' "${K[@]}" "${C[@]}" .
 ```

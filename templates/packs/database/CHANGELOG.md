@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.1 — 2026-10-10
+
+**rg-glob-order: `transaction-scan` grep 6b puts `-g '*.{yml,yaml,properties}'` before `"${X[@]}"`.** ripgrep's last matching glob wins, so an `application.yml` or `.properties` file directly inside `node_modules/`, `vendor/`, `tests/`, `migrations/` or `fixtures/` was re-included. Measured 2026-10-10 on rg 15.2.0: `slow-marketplace` prints 33 lines before and after. On a copy with planted files in those trees the total drops from 43 to 33.
+
 ## 2.1.0 — 2026-10-05
 
 **schema-diff gains a stored-snapshot baseline (architecture proposal §7, Phase 5).**

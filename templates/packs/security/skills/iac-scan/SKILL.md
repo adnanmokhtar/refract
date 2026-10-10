@@ -55,45 +55,45 @@ SCAN="$(mktemp -d "${TMPDIR:-/tmp}/iac-scan.XXXXXX")"
 
 # 1. Inventory — which surfaces exist (decides every SKIPPED n/a in the ledger).
 rg --files . --hidden "${X[@]}" -g '!.git/**' | rg --pcre2 -i '(^|/)(Dockerfile[^/]*|[^/]+\.dockerfile|(docker-)?compose[^/]*\.ya?ml|[^/]+\.tf|[^/]+\.tfvars|Chart\.yaml|kustomization\.ya?ml|Pulumi[^/]*\.ya?ml|\.gitlab-ci\.yml|[^/]*nginx[^/]*\.conf|Caddyfile|httpd\.conf|apache2?\.conf|\.htaccess|traefik[^/]*\.(ya?ml|toml)|\.env[^/]*|\.dockerignore)$|\.github/workflows/[^/]+\.ya?ml$|(^|/)(conf\.d|sites-(available|enabled))/'
-rg -l --pcre2 "${X[@]}" -g '*.y*ml' '^kind:\s*(Deployment|StatefulSet|DaemonSet|Pod|Job|CronJob|Service|Ingress|IngressRoute|HTTPRoute|Role|ClusterRole|RoleBinding|ClusterRoleBinding|Secret|NetworkPolicy|ServiceAccount)\b' .
-rg -l "${X[@]}" -g '*.y*ml' -g '*.json' -g '*.template' 'AWSTemplateFormatVersion|Type:\s*"?AWS::' .
-rg -l --pcre2 "${X[@]}" -g '*.conf' -g '*.nginx' -g '*.conf.template' '^\s*(server_name|proxy_pass|listen|location)\s' .
+rg -l --pcre2 -g '*.y*ml' "${X[@]}" '^kind:\s*(Deployment|StatefulSet|DaemonSet|Pod|Job|CronJob|Service|Ingress|IngressRoute|HTTPRoute|Role|ClusterRole|RoleBinding|ClusterRoleBinding|Secret|NetworkPolicy|ServiceAccount)\b' .
+rg -l -g '*.y*ml' -g '*.json' -g '*.template' "${X[@]}" 'AWSTemplateFormatVersion|Type:\s*"?AWS::' .
+rg -l --pcre2 -g '*.conf' -g '*.nginx' -g '*.conf.template' "${X[@]}" '^\s*(server_name|proxy_pass|listen|location)\s' .
 #  e. Edge config embedded in YAML — a ConfigMap key (`Caddyfile: |`, `nginx.conf: |`) or an ingress snippet annotation.
 #     Grep 7 globs file names and cannot see it: each block is copied to "$SCAN/edge" with the source's line numbers kept.
 E='^\s*-?\s*"?(Caddyfile|[\w.-]+\.(conf|caddy|caddyfile)|nginx\.ingress\.kubernetes\.io/(server|configuration|stream)-snippet)"?\s*:\s*[|>]'
-mkdir -p "$SCAN/edge"; rg -l --pcre2 "${X[@]}" -g '*.y*ml' "$E" . | while IFS= read -r f; do awk 'b { if ($0 ~ /^[ \t]*$/) { print ""; next } match($0, /^ */); if (RLENGTH > k) { print substr($0, k + 1); next } b = 0 }
+mkdir -p "$SCAN/edge"; rg -l --pcre2 -g '*.y*ml' "${X[@]}" "$E" . | while IFS= read -r f; do awk 'b { if ($0 ~ /^[ \t]*$/) { print ""; next } match($0, /^ */); if (RLENGTH > k) { print substr($0, k + 1); next } b = 0 }
   /^ *(- +)?"?(Caddyfile|[A-Za-z0-9_.-]+\.(conf|caddy|caddyfile)|nginx\.ingress\.kubernetes\.io\/(server|configuration|stream)-snippet)"? *: *[|>]/ { match($0, /^ */); k = RLENGTH; b = 1 }
   { print "" }' "$f" > "$SCAN/edge/$(echo "${f#./}" | sed 's#/#__#g').conf"; echo "$f"; done
 #  f. Render every Kustomize dir (Helm: `helm template <chart> -f <values> > "$SCAN/rendered-<chart>.yaml"`); grep 4 reads both.
-rg --files . "${X[@]}" -g 'kustomization.y*ml' | while IFS= read -r k; do d="$(dirname "$k")"; kubectl kustomize "$d" > "$SCAN/rendered-$(echo "${d#./}" | tr '/' '_').yaml" && echo "$d"; done
+rg --files . -g 'kustomization.y*ml' "${X[@]}" | while IFS= read -r k; do d="$(dirname "$k")"; kubectl kustomize "$d" > "$SCAN/rendered-$(echo "${d#./}" | tr '/' '_').yaml" && echo "$d"; done
 #  g. No Terraform / Pulumi / CloudFormation found above → the provisioning commands in runbooks and scripts are the plan § 4 reads.
-rg -n --pcre2 "${X[@]}" -g '*.md' -g '*.sh' '^\s*(\$\s+)?(doctl|aws|gcloud|az|gsutil|s3cmd)\s+[\w-]+\s+[\w-]+|kubectl\s+create\s+secret\b[^\n]*--from-literal' .
+rg -n --pcre2 -g '*.md' -g '*.sh' "${X[@]}" '^\s*(\$\s+)?(doctl|aws|gcloud|az|gsutil|s3cmd)\s+[\w-]+\s+[\w-]+|kubectl\s+create\s+secret\b[^\n]*--from-literal' .
 
 # 2. Dockerfile (§ 1) — final-stage user, build secrets, secret files copied in, unverified downloads (pipe or `<(curl …)`),
 #    floating bases, then build-time module fetches with no version (`xcaddy --with mod`, `go install …@latest`, `npm i -g x`).
 #  a. The final stage's effective USER through the stage chain (`FROM <stage>` inherits it); root:*/0:* are ROOT; a chain
 #     that ends at an external base with no USER prints INHERIT-EXTERNAL — read the base's user before rating it.
-rg --files . "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' | while IFS= read -r f; do awk 'toupper($1) == "FROM" { n++; r = ""; m = ""; c = 0
+rg --files . -g 'Dockerfile*' -g '*.dockerfile' "${X[@]}" | while IFS= read -r f; do awk 'toupper($1) == "FROM" { n++; r = ""; m = ""; c = 0
     for (i = 2; i <= NF; i++) { if ($i ~ /^--/) continue; if (r == "") { r = $i; continue } if (toupper($i) == "AS" && i < NF) m = tolower($(i + 1)) }
     par[n] = r; ln[n] = FNR; if (m != "") idx[m] = n; next } toupper($1) == "USER" && n { usr[n] = $2; set[n] = 1 } toupper($1) ~ /^(CMD|ENTRYPOINT)$/ { c = FNR }
   END { if (!n) exit; s = n; h = 0; while (!set[s] && (tolower(par[s]) in idx) && h++ < 50) s = idx[tolower(par[s])]; at = FILENAME ":" (c ? c : ln[n]) ": final stage (FROM line " ln[n] ")"
     if (!set[s]) { print at " sets no USER; base " par[s] " -> INHERIT-EXTERNAL (read: crane config " par[s] " | jq -r .config.User)"; exit }
     v = (usr[s] ~ /^(root|0)(:|$)/) ? "ROOT" : (usr[s] ~ /\$/ ? "ARG-DRIVEN (resolve the default)" : "")
     if (v != "") print at " user " usr[s] " -> " v (s != n ? " [inherited from the stage at line " ln[s] "]" : "") }' "$f"; done
-rg -n --pcre2 -i "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' '^\s*(ARG|ENV)\s+\w*(SECRET|TOKEN|PASSW(OR)?D|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL)\w*' .
-rg -n --pcre2 -i "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' '^\s*(COPY|ADD)\s+(--\S+\s+)*[^\n]*(\.env\b|\.pem\b|\.key\b|\.p12\b|\.pfx\b|id_rsa|id_ed25519|\.npmrc|\.pypirc|\.netrc|credentials)' .
-rg -n --pcre2 -i "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' '^\s*ADD\s+(--\S+\s+)*https?://' .
-rg -n --pcre2 -i "${X[@]}" --hidden -g 'Dockerfile*' -g '*.dockerfile' -g '*.sh' -g '*.y*ml' '\b(curl|wget)\b[^|\n]*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b|\b((ba|z|da|k)?sh|source|\.)\s+<\(\s*(curl|wget)\b' .
-rg -n --pcre2 -i "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' '^\s*FROM\s+(--\S+\s+)*[^\s:@]+(:latest)?(\s|$)' .
-rg -n --pcre2 "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' -g '*.sh' '(?:--with\s+[^\s@=\\]+(?=\s|$))|\bgo\s+(install|get)\s+\S+@(latest|master|main)\b|\b(npm|pnpm|yarn)\s+(i|install|add)\s+(-g|--global)\s+(@[\w.-]+/)?[\w.-]+(?=\s|$)' .
+rg -n --pcre2 -i -g 'Dockerfile*' -g '*.dockerfile' "${X[@]}" '^\s*(ARG|ENV)\s+\w*(SECRET|TOKEN|PASSW(OR)?D|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL)\w*' .
+rg -n --pcre2 -i -g 'Dockerfile*' -g '*.dockerfile' "${X[@]}" '^\s*(COPY|ADD)\s+(--\S+\s+)*[^\n]*(\.env\b|\.pem\b|\.key\b|\.p12\b|\.pfx\b|id_rsa|id_ed25519|\.npmrc|\.pypirc|\.netrc|credentials)' .
+rg -n --pcre2 -i -g 'Dockerfile*' -g '*.dockerfile' "${X[@]}" '^\s*ADD\s+(--\S+\s+)*https?://' .
+rg -n --pcre2 -i --hidden -g 'Dockerfile*' -g '*.dockerfile' -g '*.sh' -g '*.y*ml' "${X[@]}" '\b(curl|wget)\b[^|\n]*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b|\b((ba|z|da|k)?sh|source|\.)\s+<\(\s*(curl|wget)\b' .
+rg -n --pcre2 -i -g 'Dockerfile*' -g '*.dockerfile' "${X[@]}" '^\s*FROM\s+(--\S+\s+)*[^\s:@]+(:latest)?(\s|$)' .
+rg -n --pcre2 -g 'Dockerfile*' -g '*.dockerfile' -g '*.sh' "${X[@]}" '(?:--with\s+[^\s@=\\]+(?=\s|$))|\bgo\s+(install|get)\s+\S+@(latest|master|main)\b|\b(npm|pnpm|yarn)\s+(i|install|add)\s+(-g|--global)\s+(@[\w.-]+/)?[\w.-]+(?=\s|$)' .
 
 # 3. Compose (§ 2) — ports without a loopback host IP, literal/default passwords, host-level privilege.
-rg -n --pcre2 "${X[@]}" -g '*compose*.y*ml' '^\s*-\s*[\x22\x27]?(?!127\.0\.0\.1:|localhost:|\[::1\]:)[\d.\[\]:]*\d+:\d+' .
-rg -n --pcre2 -i "${X[@]}" -g '*compose*.y*ml' '\w*(PASSWORD|_PASS|_PWD)\w*[\x22\x27]?\s*[:=]\s*[\x22\x27]?(?!\$\{)[^\s\x22\x27]+|ALLOW_EMPTY_PASSWORD|HOST_AUTH_METHOD[\x22\x27]?\s*[:=]\s*[\x22\x27]?trust' .
-rg -n --pcre2 "${X[@]}" -g '*compose*.y*ml' '^\s*(privileged:\s*true|network_mode:\s*[\x22\x27]?host|pid:\s*[\x22\x27]?host|ipc:\s*[\x22\x27]?host|cap_add:|userns_mode:\s*[\x22\x27]?host)|(/var)?/run/docker\.sock|seccomp[:=]unconfined|apparmor[:=]unconfined|label[:=]disable' .
+rg -n --pcre2 -g '*compose*.y*ml' "${X[@]}" '^\s*-\s*[\x22\x27]?(?!127\.0\.0\.1:|localhost:|\[::1\]:)[\d.\[\]:]*\d+:\d+' .
+rg -n --pcre2 -i -g '*compose*.y*ml' "${X[@]}" '\w*(PASSWORD|_PASS|_PWD)\w*[\x22\x27]?\s*[:=]\s*[\x22\x27]?(?!\$\{)[^\s\x22\x27]+|ALLOW_EMPTY_PASSWORD|HOST_AUTH_METHOD[\x22\x27]?\s*[:=]\s*[\x22\x27]?trust' .
+rg -n --pcre2 -g '*compose*.y*ml' "${X[@]}" '^\s*(privileged:\s*true|network_mode:\s*[\x22\x27]?host|pid:\s*[\x22\x27]?host|ipc:\s*[\x22\x27]?host|cap_add:|userns_mode:\s*[\x22\x27]?host)|(/var)?/run/docker\.sock|seccomp[:=]unconfined|apparmor[:=]unconfined|label[:=]disable' .
 
 # 4. Kubernetes (§ 3) — the source tree AND the rendered output from 1f (a field set only by an overlay exists only there).
-K=("${X[@]}" -g '*.y*ml' -g '!*compose*.y*ml')
+K=(-g '*.y*ml' "${X[@]}" -g '!*compose*.y*ml')
 rg -n --pcre2 "${K[@]}" '^\s*(privileged:\s*true|allowPrivilegeEscalation:\s*true|runAsNonRoot:\s*false|runAsUser:\s*0\s*$|host(Network|PID|IPC):\s*true|hostPath:|readOnlyRootFilesystem:\s*false|automountServiceAccountToken:\s*true)|\b(SYS_ADMIN|NET_ADMIN|SYS_PTRACE|SYS_MODULE|DAC_READ_SEARCH|BPF)\b|^\s*add:\s*\[?\s*[\x22\x27]?ALL\b' . "$SCAN"
 #  b. Per DOCUMENT, not per file: a workload with no runAsNonRoot: true — rendered output plus raw manifests that are not patches.
 awk 'function f() { if (w && !ok) print fn ":" s ": " w " " n " has no runAsNonRoot: true"; w = n = ""; ok = 0 } FNR == 1 || /^---/ { f() }
@@ -123,14 +123,14 @@ rg -n --pcre2 -i "${K[@]}" '^(?!\s*#)[^\n]*?(\bname:\s*[\x22\x27]?([\w-]*migrat[
 
 # 5. Terraform / CloudFormation / bucket policies (§ 4): (a) public data + public DBs, a policy with Principal "*",
 #    (b) world-open ingress, (c) Pulumi programs, (d) wildcard IAM, (e) encryption / IMDS / TLS floor, (f) literal passwords.
-T=("${X[@]}" -g '*.tf' -g '*.tfvars' -g '*.y*ml' -g '*.json' -g '*.template' -g '!*compose*' -g '!package*.json')
+T=(-g '*.tf' -g '*.tfvars' -g '*.y*ml' -g '*.json' -g '*.template' "${X[@]}" -g '!*compose*' -g '!package*.json')
 rg -n --pcre2 "${T[@]}" '\b(acl\s*=\s*"public-read(-write)?"|AccessControl:\s*PublicRead(Write)?|(block_public_acls|block_public_policy|ignore_public_acls|restrict_public_buckets)\s*=\s*false|"?(allUsers|allAuthenticatedUsers)"?|container_access_type\s*=\s*"(blob|container)"|allow_nested_items_to_be_public\s*=\s*true|publicly_accessible\s*=\s*true|PubliclyAccessible:\s*true)|[\x22\x27]?Principal[\x22\x27]?\s*[:=]\s*(\{\s*[\x22\x27]?AWS[\x22\x27]?\s*[:=]\s*)?\[?\s*[\x22\x27]\*[\x22\x27]' .
 rg -n --pcre2 "${T[@]}" '\b(cidr_blocks|ipv6_cidr_blocks|CidrIpv6|CidrIp|source_ranges|source_address_prefix(es)?|cidrBlocks)\b[^\n]*(0\.0\.0\.0/0|::/0|[\x22\x27]\*[\x22\x27]|Internet)' .
-rg --files . -g 'Pulumi.y*ml' | xargs -n1 dirname | sort -u | xargs -r -I{} rg -n --pcre2 -g '!**/node_modules/**' -g '*.{ts,js,py,go,cs,java,yaml,yml}' \
+rg --files . -g 'Pulumi.y*ml' | xargs -n1 dirname | sort -u | xargs -r -I{} rg -n --pcre2 -g '*.{ts,js,py,go,cs,java,yaml,yml}' -g '!**/node_modules/**' \
   '\b(acl|cannedAcl|publiclyAccessible|publicly_accessible|PubliclyAccessible|httpTokens|http_tokens|HttpTokens|storageEncrypted|storage_encrypted|StorageEncrypted|encrypted)\b\s*[:=]\s*[\x22\x27]?(public-read(-write)?|[Tt]rue|optional|[Ff]alse)\b|\b(cidrBlocks|cidr_blocks|CidrBlocks)\b[^\n]*0\.0\.0\.0/0|[\x22\x27]?\b(Action|Resource)[\x22\x27]?\s*:\s*[\x22\x27]\*[\x22\x27]|\b(allUsers|allAuthenticatedUsers)\b' {}
 rg -n --pcre2 "${T[@]}" '[\x22\x27]?\b(Action|actions)[\x22\x27]?\s*[:=]\s*\[?\s*[\x22\x27](\*|[a-z0-9-]+:\*)[\x22\x27]|[\x22\x27]?\bResource[\x22\x27]?\s*[:=]\s*\[?\s*[\x22\x27]\*[\x22\x27]|\bNotAction\b|roles/(owner|editor)\b|role_definition_name\s*=\s*"(Owner|Contributor)"' .
 rg -n --pcre2 "${T[@]}" '\b(http_tokens\s*=\s*"optional"|HttpTokens:\s*optional|(storage_)?encrypted\s*=\s*false|StorageEncrypted:\s*false|enable_https_traffic_only\s*=\s*false|min_tls_version\s*=\s*"TLS1_[01]")' .
-rg -n --pcre2 "${X[@]}" -g '*.tf' -g '*.tfvars' '^\s*(password|master_password|admin_password|secret)\s*=\s*"[^"$]+' .
+rg -n --pcre2 -g '*.tf' -g '*.tfvars' "${X[@]}" '^\s*(password|master_password|admin_password|secret)\s*=\s*"[^"$]+' .
 
 # 6. CI (§ 5) — the candidate list `ci-security-scan` judges; its pre-flight is the full set on six platforms.
 W=(--hidden -g '**/.github/workflows/*.y*ml' -g '**/action.y*ml')

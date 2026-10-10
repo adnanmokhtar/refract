@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "2.1.0",
-  "released": "2026-10-05",
+  "version": "2.1.1",
+  "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "schema-diff gains § Baseline registration: the code-declared schema is compared with a stored snapshot, not the live DB, as a schema baseline under gate G14 (proposal §7, Phase 5).",
+  "summary": "rg-glob-order: transaction-scan grep 6b puts *.{yml,yaml,properties} before X, so config files directly inside excluded trees stay excluded.",
   "changelog": "CHANGELOG.md"
 }

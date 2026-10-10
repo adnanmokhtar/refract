@@ -116,7 +116,7 @@ rg --files "${X[@]}" . | rg -i '(worker|processor|consumer|relay|poller|cron|sch
 rg -n -i --pcre2 'skip\s+locked|skipLocked|skip_locked|PESSIMISTIC_PARTIAL_WRITE|setOnLocked\(|SKIP_LOCKED' "${X[@]}" . | "${NC[@]}"
 # 6. Loops within 40 lines of an opener (6a; also feeds §3 and §10); request-wide transactions (6b); unmanaged begins (6c).
 rg -n -A40 --pcre2 "${TXO}|${TXW}" "${X[@]}" . | rg --pcre2 "^[^:]+-\d+-.*(${LOOP})" | "${NC[@]}"
-rg -n --pcre2 'ATOMIC_REQUESTS\s*[:=]\s*True|around_action\s+:\w*transaction|useGlobalInterceptors\([^)]*Transaction|APP_INTERCEPTOR[^\n]*Transaction|\bTransactionInterceptor\b|open-in-view' "${X[@]}" -g '*.{yml,yaml,properties}' .
+rg -n --pcre2 'ATOMIC_REQUESTS\s*[:=]\s*True|around_action\s+:\w*transaction|useGlobalInterceptors\([^)]*Transaction|APP_INTERCEPTOR[^\n]*Transaction|\bTransactionInterceptor\b|open-in-view' -g '*.{yml,yaml,properties}' "${X[@]}" .
 rg -n --pcre2 '=\s*await\s+[\w.]+\.transaction\(\s*\)|\b(start|begin)Transaction\(\s*\)|DB::beginTransaction\(|\.Begin(Tx)?\(|BeginTransaction(Async)?\(|query\(\s*["\x27\x60]BEGIN\b' "${X[@]}" . | "${NC[@]}"
 # 7. Write-skew shapes: a range-overlap predicate, a single "default"/"primary" flag, an at-least-one count on roles or members.
 rg -n --pcre2 '\b(start|from|begin|starts|valid_from|check_in)\w*\s*(<=?|>=?|\$lte?|\$gte?|__lte?|__gte?|lte?:|gte?:)[^\n]{0,80}\b(end|to|until|ends|valid_to|check_out)\w*\b|\bis_?(default|primary|main|current)\b\s*(:|=|==)\s*(true|True|1)\b|\bisDefault\b\s*:\s*true|\bisPrimary\b\s*:\s*true|\b(count|countBy|exists|existsBy)\w*\([^)]*\b(admin|owner|role|on_?call|member)s?\b' "${X[@]}" . | "${NC[@]}"

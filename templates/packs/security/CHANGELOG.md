@@ -9,6 +9,23 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.2 — 2026-10-10
+
+**rg-glob-order: include globs now precede the exclusions** in `iac-scan` (the `K` and `T` arrays plus 18 calls), `ci-security-scan` (the `W` and `G` arrays, grep 6d) and `sast-scan` grep 3. ripgrep's last matching glob wins, so a Dockerfile, compose file, `*.tf`, workflow or `.semgrep.yml` placed directly inside `node_modules/`, `vendor/`, `dist/`, `build/`, `.terraform/`, `fixtures/` or `examples/` was re-included. Measured 2026-10-10 on rg 15.2.0: `vuln-fullstack` and the devops CI sample print the same lines before and after (36, 4, 237). On copies with the fixture's files planted in those trees, the totals drop from 100 to 52 (iac), 473 to 349 (ci) and 13 to 11 (sast), and every line that disappeared came from an excluded tree.
+
+## 2.3.1 — 2026-10-10
+
+**`data-exposure-scan` § 6 printed no personal data on a log call unless it was serialized.** Grep 6a's
+field list is secret-shaped (`password`, `token`, …) and 6e needs a `JSON.stringify` / `json.dumps`
+call, so `logger.info({ orderId, name: order.customerName, phone: order.customerPhone, address }, …)`
+reached no grep (the `obs-defects` fixture's OD-HO-SEC-b). New grep **6h** lists a log call whose
+object or kwargs key, `key=${…}` pair, `${phone}` interpolation or `.customerPhone`-style property is
+personal data (`phone`, `mobile`, `address`, `email`, `dob`, first/last/full/customer name), keys
+anchored to `{ , (` so prose and `queueName: 'email'` stay out; read per hit. Measured 2026-10-10:
+1 hit on `obs-defects` (the seed), 0 on the other 15 fixtures and the seeded observability sample, 47
+on ten real trees (45 read as personal data, 2 refuted on the read). A bare `name` key added 9 hits,
+all metric, job or error names, so it is not in the list.
+
 ## 2.3.0 — 2026-10-10
 
 **No skill owned CI pipelines as attack surface.** `iac-scan` § 5 had one paragraph for GitHub

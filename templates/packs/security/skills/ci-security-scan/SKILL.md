@@ -58,9 +58,9 @@ Run as **one** script from the repo root, so the shell arrays survive. Grep **N*
 
 ```bash
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/{fixtures,__fixtures__,testdata,examples}/**' -g '!.git/**')
-W=(--hidden "${X[@]}" -g '**/.github/workflows/*.y*ml' -g '**/action.y*ml')
+W=(--hidden -g '**/.github/workflows/*.y*ml' -g '**/action.y*ml' "${X[@]}")
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*#')
-G=(--hidden "${X[@]}" -g '.gitlab-ci.yml' -g '*.gitlab-ci.yml' -g '**/.gitlab/**/*.y*ml')
+G=(--hidden -g '.gitlab-ci.yml' -g '*.gitlab-ci.yml' -g '**/.gitlab/**/*.y*ml' "${X[@]}")
 CIG="${CIG:-.claude/scripts/ci-graph.py}"
 TRIG='^(on:\s*\[?[^\n#]*?\b|\s{2}-?\s*)(pull_request_target|workflow_run|issue_comment|pull_request_review_comment|pull_request_review|discussion_comment|discussion|issues|workflow_dispatch|repository_dispatch|workflow_call)\b(?!\s*:\s*(write|read|none)\b)'
 EXT='^(on:\s*\[?[^\n#]*?\b|\s{2}-?\s*)(pull_request_target|workflow_run|issue_comment|pull_request_review_comment|pull_request_review|discussion_comment|discussion|issues)\b(?!\s*:\s*(write|read|none)\b)'
@@ -132,7 +132,7 @@ echo '## 6c'
 rg -n --pcre2 "${W[@]}" '\b(echo|printf|cat)\b[^\n]*\$\{\{\s*secrets\.|\s(--password|--token|-p)\s+[\x22\x27]?\$\{\{\s*secrets\.|\bset\s+-[a-z]*x|ACTIONS_(STEP|RUNNER)_DEBUG|\bprintenv\b' . | "${NC[@]}"
 echo '## 6d'
 rg -n --pcre2 "${W[@]}" 'permissions:\s*write-all|\b(contents|packages|id-token|actions|pull-requests|deployments|security-events|statuses|checks|issues|attestations|pages|discussions|repository-projects)\s*:\s*write\b' . | "${NC[@]}"
-rg --files-without-match --hidden "${X[@]}" -g '**/.github/workflows/*.y*ml' '^\s*permissions\s*:' .
+rg --files-without-match --hidden -g '**/.github/workflows/*.y*ml' "${X[@]}" '^\s*permissions\s*:' .
 echo '## 6e'
 rg -n -U --pcre2 "${W[@]}" '^permissions:\s*(\{[^}\n]*\bid-token:\s*write|\n(?:[ \t]+[\w-]+:[^\n]*\n)*?[ \t]+id-token:\s*write)' .
 echo '## 6f'

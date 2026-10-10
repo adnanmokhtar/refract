@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/test-audit and /test-fix cite mutation-probe § Scans for, rows 1–5, instead of § 1–§ 5, which are table rows rather than headings.",
+  "summary": "rg-glob-order: suite-execution-scan greps 1b and 6a name their include globs before K and C, so node_modules/ files stay excluded.",
   "changelog": "CHANGELOG.md"
 }

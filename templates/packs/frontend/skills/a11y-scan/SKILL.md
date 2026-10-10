@@ -66,7 +66,7 @@ Run as **one** script from the repo root. Grep **N** feeds **§N**; grep 0 is co
 ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|vue|svelte|@angular/core|solid-js|preact|astro|@builder\.io/qwik|lit)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
 X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,.next,.nuxt,.output,.svelte-kit,.angular,coverage,storybook-static}/**' -g '!**/docs/**' -g '!/ai/**' -g '!**/*.min.*')
 S=(-g '*.{jsx,tsx,vue,svelte,astro,html,css,scss,sass,less,pcss,ts,js,mjs}' -g '!**/*.{test,spec,stories,story,e2e,flow,d}.*' -g '!**/{test,tests,__tests__,__mocks__,mocks,e2e,fixtures,playwright,cypress,scripts}/**' -g '!**/{locales,locale,i18n,translations}/**')
-T=(--hidden -g '!.git/**' -g '*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,json,yml,yaml}' -g '!**/package.json' -g '!*.lock' -g '!**/{locales,locale,i18n,translations}/**')
+T=(--hidden -g '*.{ts,tsx,js,jsx,mjs,cjs,vue,svelte,json,yml,yaml}' -g '!.git/**' -g '!**/package.json' -g '!*.lock' -g '!**/{locales,locale,i18n,translations}/**')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(?://|/\*|\*(?:\s|/|$)|\{/\*|<!--|#(?!\{))')   # drops comment-only lines
 # 0a tool versions; 0b the Playwright harness (testDir/testMatch name the file §1 writes); 0c every place axe already runs;
 # 0d how a cell sets dark and RTL, and how to read back what the page drew.
@@ -83,7 +83,7 @@ rg -n --pcre2 'scroll-padding|scroll-margin|(?<![\w-])scroll-(?:p|m)[tb]?-' "${S
 rg -n --pcre2 'user-scalable\s*=\s*(?:no|0)\b|maximum-scale\s*=\s*(?:1(?:\.0*)?|0?\.\d+)\b|userScalable\s*:\s*false|maximumScale\s*:\s*(?:1(?:\.0+)?|0?\.\d+)\b|<html\b(?![^>]*\blang=)[^>]*>|screen\.orientation\.lock\(|"orientation"\s*:\s*"(?:portrait|landscape)' -g '*.{html,webmanifest}' -g '**/{layout,root,_document,app,index}.{tsx,jsx,vue,svelte,ts,js}' -g '**/app.html' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 7. Gate integrity: 7a neutering shapes; 7b tag lists with no wcag22aa; 7c stories raised to a11y.test 'error'.
 rg -n --pcre2 '\.disableRules\(|\.exclude\(\s*["\x27](?:main|body|html|#root|#app|#__next)["\x27]|includedImpacts|resultTypes\s*:\s*\[\s*["\x27]violations["\x27]\s*\]|\btest\s*:\s*["\x27](?:todo|off)["\x27]|["\x27]color-contrast["\x27]\s*:\s*\{\s*enabled\s*:\s*false|page\.accessibility\b|\.withTags\([^)]*\)\s*\.options\(' "${T[@]}" "${X[@]}" "${ROOTS[@]}"
-rg -n --pcre2 '\[(?![^\]]*wcag22aa)[^\]]*["\x27]wcag2a["\x27]|--tags[\s=](?!\S*wcag22aa)\S*wcag2' "${T[@]}" -g '*.{md,sh}' "${X[@]}" "${ROOTS[@]}"
+rg -n --pcre2 '\[(?![^\]]*wcag22aa)[^\]]*["\x27]wcag2a["\x27]|--tags[\s=](?!\S*wcag22aa)\S*wcag2' -g '*.{md,sh}' "${T[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -c --pcre2 '\ba11y\s*:\s*\{[^}]*\btest\s*:\s*["\x27]error["\x27]' -g '*.{stories,story}.*' -g '**/.storybook/preview.*' --hidden "${X[@]}" "${ROOTS[@]}"
 ```
 

@@ -64,9 +64,9 @@ rg -n -i -g 'package.json' -g 'pyproject.toml' -g 'requirements*.txt' -g 'Pipfil
   -e 'laravel/framework' -e 'spring-boot' -e 'Microsoft\.AspNetCore' .
 
 # 3. What the project already runs — its own config and CI wiring is the lane to prefer.
-rg --files --hidden . -g '!**/node_modules/**' -g '.semgrep.y*ml' -g '.semgrep/**' -g '.semgrepignore' -g '.bandit' \
+rg --files --hidden . -g '.semgrep.y*ml' -g '.semgrep/**' -g '.semgrepignore' -g '.bandit' \
   -g 'bandit.y*ml' -g 'eslint.config.*' -g '.eslintrc*' -g 'psalm.xml*' -g 'phpstan.neon*' -g 'brakeman.ignore' \
-  -g '*spotbugs*.xml' -g '.golangci.y*ml' -g '.editorconfig'
+  -g '*spotbugs*.xml' -g '.golangci.y*ml' -g '.editorconfig' -g '!**/node_modules/**'
 rg -n -i --hidden -g '*.y*ml' -g 'package.json' -g 'pom.xml' -g '*.gradle*' -g '*.csproj' -g 'composer.json' -g 'Gemfile' \
   -g 'pyproject.toml' -g '!**/node_modules/**' \
   'semgrep|bandit|gosec|golangci|brakeman|psalm|spotbugs|findsecbugs|eslint-plugin-(security|no-unsanitized)|codeql|SecurityCodeScan|NetAnalyzers' .
