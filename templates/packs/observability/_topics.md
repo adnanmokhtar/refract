@@ -13,13 +13,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: observability-reviewer
   kind: agent
-  # always: this reviewer's first check is "no direct stdout / unstructured print calls in
-  # committed code". Gating it on logger_lib_detected installed it only where that defect had
-  # already been solved — the projects that need it most were the ones that never received it.
+  # always: the judge of the seven detectors' rows (log-signal-scan §3 owns the stdout check this
+  # entry was first gated for). Gating it on logger_lib_detected installed it only where logging was
+  # already solved — the projects that need it most were the ones that never received it.
   triggers: { always: true }
-  extracts_from: _extracted-codebase.md § Observability + sample handlers
-  sections: [persona, review_checklist, missing_correlation_id_check, log_level_discipline, output_format]
-  fallback: _examples/observability-reviewer.md
+  extracts_from: _extracted-codebase.md § Observability + sample handlers + the sibling service per signal
+  sections: [persona, contract, halt_conditions, detector_dispatch, axis_ownership, sibling_divergence_check, emit_and_assert_closure, output_format]
+  fallback: _examples/observability-reviewer.md   # generated-from copy of agents/observability-reviewer.md (COPY-DRIFT gated)
 
 - name: sre-engineer
   kind: agent
@@ -138,7 +138,8 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: synthetic-monitoring
   kind: skill
   triggers: { always: true }
-  fallback: _examples/synthetic-monitoring.md
+  extracts_from: _extracted-codebase.md § Observability (probe configs — k6, Checkly, blackbox, synthetics Terraform — and the route table)
+  fallback: skills/synthetic-monitoring/SKILL.md   # source-as-fallback; its pre-flight prints §2–§5 N/A (no probe config) and still lists §1 journeys
 
 - name: add-metrics
   kind: command
@@ -174,7 +175,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: slo-audit
   kind: skill
   triggers: { metrics_lib_detected: true }
-  fallback: skills/slo-audit/SKILL.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on a no-signal project.
+  fallback: skills/slo-audit/SKILL.md   # source-as-fallback; the single writer of ai/runtime/slos.md (write mode), read-only under /obs-audit (--no-write)
 
 - name: error-tracking-scan
   kind: skill
@@ -191,4 +192,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
     OR_grep_evidence: "^version:\\s*\"?prometheus/v1|kind:\\s*(PrometheusServiceLevel|ServiceLevelObjective)|apiVersion:\\s*openslo/|\\*\\s*\\(1\\s*-\\s*0?\\.\\d|resource \"(datadog_service_level_objective|honeycombio_slo|newrelic_service_level)\""   # SLO specs, burn rules and vendor SLOs: a deploy repo can declare SLOs with no metrics client in its code
   extracts_from: _extracted-codebase.md § Observability (SLO specs and generators, burn-rule files, the SLO registry, TSDB retention)
   fallback: skills/slo-rule-scan/SKILL.md   # source-as-fallback; burn-check.py ships beside it and imports alert-rule-lint's rule-inventory.py
+
+- name: telemetry-config-scan
+  kind: skill
+  triggers:
+    metrics_lib_detected: true
+    OR_grep_evidence: "otelcol|opentelemetry-collector|grafana/(loki|promtail|alloy)|loki\\.(process|write|source)|pipeline_stages:|limits_config:|kind:\\s*(ServiceMonitor|PodMonitor)|\"panels\"\\s*:|^scrape_configs:"   # collector, shipper, Loki, scrape-selection and dashboard config often lives in a deploy tree with no metrics client in the app code
+  extracts_from: _extracted-codebase.md § Observability (collector, shipper and Loki configs, chart values and pins, Prometheus CR selectors, dashboards)
+  fallback: skills/telemetry-config-scan/SKILL.md   # source-as-fallback; every § prints N/A (<reason>) for a surface the repo does not ship
 ```
