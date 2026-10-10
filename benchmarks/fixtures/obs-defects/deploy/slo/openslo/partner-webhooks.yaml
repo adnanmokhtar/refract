@@ -1,0 +1,50 @@
+# Imported into the SLO vendor by the platform team's OpenSLO sync (make slo-sync).
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: partner-webhooks-delivery
+  displayName: Partner webhook delivery
+spec:
+  service: api
+  description: Every order event the fulfilment partner subscribes to is delivered.
+  budgetingMethod: Occurrences
+  timeWindow:
+    - duration: 30d
+      isRolling: true
+  indicator:
+    metadata:
+      name: partner-webhook-deliveries
+    spec:
+      ratioMetric:
+        counter: true
+        good:
+          metricSource:
+            type: Prometheus
+            spec:
+              query: sum(worker_jobs_total{queue="partner-webhooks",outcome="ok"})
+        total:
+          metricSource:
+            type: Prometheus
+            spec:
+              query: sum(worker_jobs_total{queue="partner-webhooks"})
+  objectives:
+    - displayName: All deliveries succeed
+      target: 1.0
+  alertPolicies:
+    - kind: AlertPolicy
+      metadata:
+        name: partner-webhooks-burn
+      spec:
+        alertWhenBreaching: true
+        conditions:
+          - kind: AlertCondition
+            metadata:
+              name: fast-burn
+            spec:
+              severity: page
+              condition:
+                kind: burnrate
+                op: gt
+                threshold: 14.4
+                lookbackWindow: 1h
+                alertAfter: 5m

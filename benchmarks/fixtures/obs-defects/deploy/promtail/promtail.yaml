@@ -1,0 +1,37 @@
+server:
+  http_listen_port: 9080
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Edge access log: one JSON line per request through nginx.
+  - job_name: nginx-access
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: nginx
+          __path__: /var/log/nginx/access.log
+    pipeline_stages:
+      - json:
+          expressions:
+            status: status
+            trace_id: trace_id
+            user_id: user_id
+      - labels:
+          status:
+          trace_id:
+          user_id:
+
+  # Refund audit trail written by the API (api/src/audit/audit-logger.ts).
+  - job_name: harbor-audit
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: harbor-audit
+          stream: audit
+          __path__: /var/log/harbor/audit.log

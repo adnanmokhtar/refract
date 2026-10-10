@@ -1,0 +1,43 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: invoice-worker
+  labels:
+    release: kps
+spec:
+  groups:
+    - name: invoice-worker
+      rules:
+        - alert: InvoiceJobsFailing
+          expr: sum(rate(worker_jobs_total{queue="invoices",outcome="error"}[5m])) > 0.5
+          for: 10m
+          labels:
+            severity: page
+            team: billing
+          annotations:
+            summary: Invoice jobs are failing
+            runbook_url: https://runbooks.harbor.internal/worker/invoice-failures
+        - alert: InvoiceQueueBacklog
+          expr: max(queue_waiting_jobs{queue="invoices"}) > 500
+          for: 15m
+          labels:
+            severity: ticket
+            team: billing
+          annotations:
+            summary: More than 500 invoices waiting
+        - alert: InvoiceRenderSlow
+          expr: avg(invoice_render_seconds{quantile="0.99"}) > 5
+          for: 15m
+          labels:
+            severity: ticket
+            team: billing
+          annotations:
+            summary: Invoice render p99 above 5 s
+        - alert: InvoiceJobsSlow
+          expr: histogram_quantile(0.95, sum by (le) (rate(worker_job_duration_seconds_bucket{queue="invoices"}[10m]))) > 30
+          for: 15m
+          labels:
+            severity: ticket
+            team: billing
+          annotations:
+            summary: Invoice jobs p95 above 30 s

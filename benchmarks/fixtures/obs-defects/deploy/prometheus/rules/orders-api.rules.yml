@@ -1,0 +1,13 @@
+# orders-api (FastAPI) latency rules. Traffic and error rules for the same job: platform.rules.yml.
+groups:
+  - name: orders-api
+    rules:
+      - alert: OrdersApiMeanLatencyHigh
+        expr: rate(orders_api_request_duration_seconds_sum{job="orders-api"}[5m]) / rate(orders_api_request_duration_seconds_count{job="orders-api"}[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: page
+          team: orders
+        annotations:
+          summary: orders-api mean latency above 500 ms
+          runbook_url: https://runbooks.harbor.internal/orders-api/latency

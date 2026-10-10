@@ -1,0 +1,21 @@
+{
+  "name": "@harbor/admin",
+  "version": "1.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && vite build && npm run sentry:upload",
+    "sentry:upload": "sentry-cli sourcemaps upload --release \"$GIT_SHA\" dist"
+  },
+  "dependencies": {
+    "@sentry/react": "10.17.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "@sentry/cli": "3.0.1",
+    "@vitejs/plugin-react": "5.0.4",
+    "typescript": "5.9.3",
+    "vite": "7.1.9"
+  }
+}

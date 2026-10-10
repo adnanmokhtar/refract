@@ -14,7 +14,7 @@ This directory is the apparatus for measuring the other half. It does not contai
 
 ## What is measured
 
-Fifteen fixtures, one question each:
+Sixteen fixtures, one question each:
 
 | Fixture | Command | Question |
 |---------|---------|----------|
@@ -32,6 +32,7 @@ Fifteen fixtures, one question each:
 | [`a11y-states`](fixtures/a11y-states) | `/frontend-audit --classes=a11y,states,tokens,charts` | Does it find the WCAG 2.2 AA, UI-state, state-matrix, motion, token and chart defects in a Next + Vue + Angular/Svelte UI — and leave the headless-library, native-element and precedent-backed siblings alone? |
 | [`frontend-correctness`](fixtures/frontend-correctness) | `/frontend-audit --classes=render,ssr,data,routing,i18n,perf` | Does it find the render, hydration, client-data, routing, i18n, critical-path and bundle defects in the same stack shape — and leave the correct siblings alone? |
 | [`mobile-defects`](fixtures/mobile-defects) | `/mobile-audit --whole-repo` + `/security-audit` | Does it find the lifecycle, native-accessibility, performance, offline-sync, store, device-security, platform, bridge and app-size defects across Expo, bare React Native, Flutter, Compose and SwiftUI — and leave the version-gated and platform-default siblings alone? |
+| [`obs-defects`](fixtures/obs-defects) | `/obs-audit --whole-repo` + `/security-audit` · `/quality-audit` · `/perf-audit` (hand-offs) | Does it find the logs that lose their stack, the traces that split at a queue, the labels that explode, the alerts and SLOs that can never fire, and the pipeline that drops data — route the redaction, swallowed-error and liveness rows to their owners — and leave the precedent-backed siblings alone? |
 | [`routing`](fixtures/routing) | `/do --route-only` | For 100 natural-language asks, does the router pick the right command and the right risk tier — and never put a T3 change in a lower tier? |
 
 Each fixture is a small, self-contained, deliberately broken project. Each ships a
@@ -139,6 +140,21 @@ pass also dispatches `mobile-security-scan` — scores the twelve device-securit
 commands. Its answer key records the measurement of every detector's own pre-flight on the fixture (94 of 94 seeds printed,
 0 decoys surviving the prescribed read) and the grep gaps that measurement found, since fixed in the skills.
 
+`obs-defects` is the observability pack's whole-repo audit, measured on one order platform: a NestJS 11 / Fastify 5 API
+with nestjs-pino, a BullMQ + winston worker, React/Vite storefront and admin bundles, a FastAPI + Celery service, a Go
+service and a Spring Boot service, plus the `deploy/` tree that observes them — Prometheus 3 rules, Alertmanager, Loki,
+Promtail and Alloy, an OpenTelemetry collector gateway, Grafana boards and alerting, sloth / Pyrra / OpenSLO specs with
+generated rules, Datadog and New Relic monitors, and an SLO registry. It seeds 126 observability defects — at least
+two per § across the seven detectors (`log-signal-scan`, `trace-propagation-scan`, `metric-hygiene-scan`,
+`error-tracking-scan`, `alert-rule-lint`, `slo-rule-scan`, `telemetry-config-scan`) plus `alert-audit` §5 and
+`synthetic-monitoring` §1–§2 — with 26 decoys taken from `precedents/observability.md` (pino `error(err, msg)`, Nest
+`error(msg, err.stack)`, a rethrow with `cause` to a logging filter, `ParentBased(TraceIdRatioBased)`, Pyrra 14/7/2/1 on
+28d, a Watchdog with no `for`, a constant liveness). Six hand-off rows — a redaction gap, PII in a log line, Sentry
+default PII, two swallowed errors, a liveness that pings the database — are scored only under their owners'
+commands, which is why the key carries four `Invocation` lines. Its answer key records every detector pre-flight run
+on the fixture with the tool lane blocked (126 of 126 seeds surfaced, one only on the script re-run the skill
+prescribes; 0 decoys surviving the prescribed read; 2 false lines) and the grep gaps that measurement found.
+
 ## Why seeded-defect detection is a fair proxy
 
 The honest alternative — take real codebases, have experts enumerate every real defect,
@@ -185,7 +201,7 @@ Stated plainly, because the gaps are large:
 - **Precision, properly.** See below — the harness cannot tell a hallucinated finding from
   a real unseeded one without a human reading it. The one exception is narrow: a finding
   pinned to a decoy (`vuln-fullstack` has 6, `slow-marketplace` 32, `brittle-suite` 21, `a11y-states` 23,
-  `frontend-correctness` 21, `mobile-defects` 20,
+  `frontend-correctness` 21, `mobile-defects` 20, `obs-defects` 26,
   `quality-mix` 27) is a false positive by
   construction, and is counted as one. A few dozen known-safe sites are a probe, not a
   precision rate.
@@ -254,7 +270,7 @@ answer key somehow lands in the copy. An agent that reads the answer key scores 
 the number is worthless, so keep the run in the staged directory and never point it at
 `benchmarks/fixtures/` directly.
 
-A key whose defects name two commands (`slow-marketplace`, `mobile-defects`) is staged once per command —
+A key whose defects name two or more commands (`slow-marketplace`, `mobile-defects`, `obs-defects`) is staged once per command —
 `<workdir>/db-audit/slow-marketplace` and `<workdir>/perf-audit/slow-marketplace`, each with
 its own findings file — and each copy gets its own agent session. A block's `command:` may name
 both (`command: /mobile-audit /security-audit`): it then counts in both runs' denominators. Two copies, because the
@@ -297,6 +313,8 @@ the runner printed:
 | `a11y-states`, `frontend-correctness` | `/frontend-audit --whole-repo --classes=…` (the key's `Invocation:` line) | read-only; whole-repo, narrowed to the families each key seeds ([frontend-audit.md](../templates/packs/frontend/commands/frontend-audit.md)). No build, browser or `node_modules`: the rendered lanes (axe, keyboard, 320 px, console hydration, build-output greps) print `blocked` or `Unconfirmed` with their settling test — expected, not a failure |
 | `mobile-defects`, run 1 | `/mobile-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches every mobile detector, and `mobile-security-scan` through the Device security row when the security pack is installed ([mobile-audit.md](../templates/packs/mobile/commands/mobile-audit.md)). No device, emulator or build: every D- and A-tier oracle prints `not run — no device` or `blocked (no build artifact)` and the verdict is at best `GO-UNVERIFIED` — expected, not a failure; score the findings, not the verdict |
 | `mobile-defects`, run 2 | `/security-audit` (the key's `Invocation[/security-audit]:` line) | read-only; the whole-repo pass dispatches every security detector, `mobile-security-scan` among them ([security-audit.md](../templates/packs/security/commands/security-audit.md)). Scored on the twelve `MD-MS-*` seeds and their six decoys only: its other findings are UNMATCHED, never credited |
+| `obs-defects`, run 1 | `/obs-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches every observability detector plus `alert-audit`, `slo-audit --no-write` and `synthetic-monitoring` ([obs-audit.md](../templates/packs/observability/commands/obs-audit.md)). No backend, no binaries: promtool, pint, amtool, otelcol, alloy, loki, sloth and pyrra print `blocked` and every live half `NO-DATA(<source>)`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The six `OD-HO-*` rows must appear as routed, and score only in runs 2–4 |
+| `obs-defects`, runs 2–4 | `/security-audit`, `/quality-audit --whole-repo`, `/perf-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (3, 2, 1) and on the decoys that name it; findings on the observability rows are UNMATCHED, never credited |
 | `review-decoys` | `/review-changes` | reviews the working-tree diff the runner staged ([review-changes.md](../templates/packs/code-quality/commands/review-changes.md)); paste every posted finding, Blockers to Nits |
 | `reward-hack` | `/add-feature specs/SPEC-0007-loyalty-points.md` | the spec path is the input; the run builds against the locked contract. Afterwards: `python3 benchmarks/score.py --fixture=reward-hack --tamper=<staged copy>` — and once more on the `--no-lock` copy |
 | `feature-refund`, run 1 | `/do "add a refund button"` | the bare ask is the test: everything the run needs is in the repo. Answer its approval gates as a product owner would, never naming a convention. Afterwards: `python3 benchmarks/score.py --fixture=feature-refund --outcome=<staged copy>` |
@@ -354,7 +372,7 @@ so two defects a few lines apart need two findings for both to count. That is de
 this can be verified.
 
 **Decoys** (only fixtures whose key has ```` ```decoy ```` blocks — today `vuln-fullstack`, `a11y-states`, `frontend-correctness`,
-`mobile-defects`, `slow-marketplace`, `brittle-suite`, `quality-mix`, `review-decoys` and `reward-hack`).
+`mobile-defects`, `obs-defects`, `slow-marketplace`, `brittle-suite`, `quality-mix`, `review-decoys` and `reward-hack`).
 A decoy is known-safe code that looks like a seeded defect. A finding is *pinned* to decoy
 Z when it names Z's file, cites a line within the tolerance window of Z's line, and matches
 every one of Z's `match:` patterns. A pinned finding is removed before assignment, so it

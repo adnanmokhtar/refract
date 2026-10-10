@@ -1,0 +1,84 @@
+# OpenTelemetry collector gateway (Kubernetes, 3 replicas behind the otel-gateway Service).
+# Every service exports OTLP here; traces go to Tempo, logs to Loki, span metrics to Prometheus.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+
+  batch:
+    send_batch_size: 8192
+    timeout: 5s
+
+  k8sattributes: {}
+
+  probabilistic_sampler:
+    sampling_percentage: 25
+
+  tail_sampling:
+    decision_wait: 1s
+    num_traces: 50000
+    policies:
+      - name: slow-traces
+        type: latency
+        latency:
+          threshold_ms: 2000
+      - name: baseline
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+
+  filter/drop-probes:
+    error_mode: ignore
+    traces:
+      span:
+        - 'attributes["url.path"] == "/health/live"'
+        - 'attributes["url.path"] == "/health/ready"'
+
+connectors:
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [100ms, 300ms, 1s, 3s]
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo.monitoring.svc:4317
+    tls:
+      insecure: true
+    retry_on_failure:
+      enabled: false
+
+  otlphttp/loki:
+    endpoint: http://loki.harbor.internal:3100/otlp
+    sending_queue:
+      enabled: false
+
+  prometheusremotewrite:
+    endpoint: http://prometheus.harbor.internal:9090/api/v1/write
+
+  debug:
+    verbosity: detailed
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, memory_limiter, k8sattributes, probabilistic_sampler, tail_sampling]
+      exporters: [otlp/tempo, spanmetrics, debug]
+    metrics/spanmetrics:
+      receivers: [spanmetrics]
+      processors: [memory_limiter, batch]
+      exporters: [prometheusremotewrite]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]

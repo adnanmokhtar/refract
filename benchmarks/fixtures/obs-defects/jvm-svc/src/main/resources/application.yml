@@ -1,0 +1,12 @@
+spring.application.name: refunds
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  tracing:
+    sampling:
+      probability: 0.1
+  otlp:
+    tracing:
+      endpoint: http://otel-gateway.harbor.internal:4318/v1/traces

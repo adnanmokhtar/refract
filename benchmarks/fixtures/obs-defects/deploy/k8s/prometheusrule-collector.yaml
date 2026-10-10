@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: otel-gateway
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: otel-gateway
+      rules:
+        - alert: OtelGatewayDown
+          expr: up{job="otel-gateway"} == 0
+          for: 5m
+          labels:
+            severity: page
+            team: platform
+          annotations:
+            summary: An OpenTelemetry gateway replica is down
+            runbook_url: https://runbooks.harbor.internal/platform/otel-gateway

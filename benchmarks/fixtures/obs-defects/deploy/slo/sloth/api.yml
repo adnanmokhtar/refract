@@ -1,0 +1,62 @@
+# Sloth spec for the API service. Generated rules: deploy/slo/generated/api.yml
+# (make slo-generate → sloth generate -i deploy/slo/sloth/api.yml -o deploy/slo/generated/api.yml).
+version: "prometheus/v1"
+service: "api"
+labels:
+  owner: "checkout"
+slos:
+  - name: "requests-availability"
+    objective: 99.9
+    description: "Storefront API requests that do not fail."
+    sli:
+      events:
+        error_query: sum(rate(http_requests_total{job="api",code=~"4..|5.."}[{{.window}}]))
+        total_query: sum(rate(http_requests_total{job="api"}[{{.window}}]))
+    alerting:
+      name: ApiRequestsAvailabilityBurn
+      annotations:
+        summary: "API availability SLO is burning its error budget"
+        runbook_url: "https://runbooks.harbor.internal/slo/api-availability"
+      page_alert:
+        labels:
+          severity: page
+          team: checkout
+      ticket_alert:
+        labels:
+          severity: ticket
+          team: checkout
+
+  - name: "admin-export-availability"
+    objective: 99.9
+    description: "Back-office CSV exports (a few dozen a day) that complete."
+    sli:
+      events:
+        error_query: sum(rate(http_requests_total{job="api",route="/admin/exports",code="500"}[{{.window}}]))
+        total_query: sum(rate(http_requests_total{job="api",route="/admin/exports"}[{{.window}}]))
+    alerting:
+      name: AdminExportAvailabilityBurn
+      annotations:
+        summary: "Admin export SLO is burning its error budget"
+        runbook_url: "https://runbooks.harbor.internal/slo/admin-export"
+      page_alert:
+        labels:
+          severity: page
+          team: backoffice
+      ticket_alert:
+        labels:
+          severity: ticket
+          team: backoffice
+
+  - name: "search-availability"
+    objective: 99.5
+    description: "Catalog search requests that do not fail."
+    sli:
+      events:
+        error_query: sum(rate(http_requests_total{job="api",route="/search",code=~"5.."}[{{.window}}]))
+        total_query: sum(rate(http_requests_total{job="api",route="/search"}[{{.window}}]))
+    alerting:
+      name: SearchAvailabilityBurn
+      page_alert:
+        disable: true
+      ticket_alert:
+        disable: true

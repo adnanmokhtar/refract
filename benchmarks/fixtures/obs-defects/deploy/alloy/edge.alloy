@@ -1,0 +1,29 @@
+// Replacement for the promtail nginx job (converted with `alloy convert --source-format=promtail`).
+// Being rolled out on the edge host; promtail keeps running until this one is green.
+
+local.file_match "nginx" {
+  path_targets = [{ __path__ = "/var/log/nginx/access.log", job = "nginx" }]
+}
+
+loki.source.file "nginx" {
+  targets    = local.file_match.nginx.targets
+  forward_to = [loki.process.nginx.receiver]
+}
+
+loki.process "nginx" {
+  stage.json {
+    expressions = { status = "status", trace_id = "trace_id" }
+  }
+
+  stage.structured_metadata {
+    values = { trace_id = "" }
+  }
+
+  forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.write "edge" {
+  endpoint {
+    url = "http://loki.harbor.internal:3100/loki/api/v1/push"
+  }
+}

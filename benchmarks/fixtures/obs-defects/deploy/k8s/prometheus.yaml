@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: cluster
+  namespace: monitoring
+spec:
+  version: v3.5.0
+  replicas: 2
+  retention: 30d
+  serviceAccountName: prometheus
+  serviceMonitorNamespaceSelector: {}
+  serviceMonitorSelector:
+    matchLabels:
+      release: monitoring
+  ruleNamespaceSelector: {}
+  ruleSelector:
+    matchLabels:
+      release: monitoring
+  alerting:
+    alertmanagers:
+      - namespace: monitoring
+        name: alertmanager-bridge
+        port: web

@@ -1,0 +1,141 @@
+name: harbor
+
+# Production host app-1: `docker compose -f deploy/docker-compose.yml up -d` (deploy.sh, on every release tag).
+# The invoice worker fleet and the OpenTelemetry collector gateway run on the Kubernetes cluster (deploy/k8s/).
+# Postgres and Redis are the provider's managed instances (backups and persistence are theirs); only their URLs are here.
+
+services:
+  api:
+    image: registry.harbor.internal/api:4.12.0
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: ${API_DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      OTEL_SERVICE_NAME: api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-gateway.harbor.internal:4317
+    volumes:
+      - /var/log/harbor:/var/log/harbor
+    ports:
+      - "3000:3000"
+
+  orders-api:
+    image: registry.harbor.internal/orders-api:2.7.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${ORDERS_DATABASE_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      SENTRY_DSN: ${ORDERS_SENTRY_DSN}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-gateway.harbor.internal:4317
+      OTEL_PROPAGATORS: b3
+    ports:
+      - "8000:8000"
+
+  orders-worker:
+    image: registry.harbor.internal/orders-api:2.7.0
+    restart: unless-stopped
+    command: ["celery", "-A", "app.tasks", "worker", "--concurrency", "4", "--loglevel", "INFO"]
+    environment:
+      DATABASE_URL: ${ORDERS_DATABASE_URL}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      SENTRY_DSN: ${ORDERS_SENTRY_DSN}
+
+  inventory:
+    image: registry.harbor.internal/inventory:1.9.3
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${INVENTORY_DATABASE_URL}
+      WAREHOUSE_URL: https://wms.partner.example
+      OTEL_SERVICE_NAME: inventory
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-gateway.harbor.internal:4317
+
+  inventory-relay:
+    image: registry.harbor.internal/inventory:1.9.3
+    restart: unless-stopped
+    command: ["/app/relay"]
+    environment:
+      DATABASE_URL: ${INVENTORY_DATABASE_URL}
+
+  refunds:
+    image: registry.harbor.internal/refunds:3.2.0
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: ${REFUNDS_JDBC_URL}
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - ./slo:/etc/slo:ro
+      - prometheus-data:/prometheus
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    restart: unless-stopped
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - /etc/harbor/secrets:/etc/alertmanager/secrets:ro
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0
+    restart: unless-stopped
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    command: ["--path.rootfs=/host"]
+
+  loki:
+    image: grafana/loki:3.7.8
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki.yaml"]
+    environment:
+      LOKI_BUCKET: harbor-logs-prod
+    volumes:
+      - ./loki/loki.yaml:/etc/loki/loki.yaml:ro
+
+  grafana:
+    image: grafana/grafana:12.2.0
+    restart: unless-stopped
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./promtail/promtail.yaml:/etc/promtail/config.yml:ro
+      - /var/log:/var/log:ro
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    restart: unless-stopped
+    command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345"]
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  alloy-edge:
+    image: grafana/alloy:v1.20.1
+    restart: unless-stopped
+    command: ["run", "/etc/alloy/edge.alloy"]
+    volumes:
+      - ./alloy/edge.alloy:/etc/alloy/edge.alloy:ro
+      - /var/log/nginx:/var/log/nginx:ro
+
+volumes:
+  prometheus-data: {}

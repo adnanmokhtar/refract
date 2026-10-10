@@ -1,0 +1,40 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  log_level: info
+
+common:
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    s3:
+      bucketnames: ${LOKI_BUCKET}
+      region: eu-central-1
+      s3forcepathstyle: false
+
+schema_config:
+  configs:
+    - from: "2025-01-01"
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 744h
+  retention_stream:
+    - selector: '{stream="audit"}'
+      priority: 1
+      period: 8760h
+  max_query_series: 5000
+  ingestion_rate_mb: 8
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m

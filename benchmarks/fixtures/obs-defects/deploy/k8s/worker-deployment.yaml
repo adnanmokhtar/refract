@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invoice-worker
+  labels:
+    app: invoice-worker
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: invoice-worker
+  template:
+    metadata:
+      labels:
+        app: invoice-worker
+    spec:
+      containers:
+        - name: worker
+          image: registry.harbor.internal/worker:4.12.0
+          envFrom:
+            - configMapRef:
+                name: worker-config
+          env:
+            - name: OTEL_SERVICE_NAME
+              value: invoice-worker
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-gateway.harbor.svc:4317
+            - name: OTEL_TRACES_SAMPLER
+              value: traceidratio
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.1"
+          ports:
+            - name: metrics
+              containerPort: 9464
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: invoice-worker
+  labels:
+    app: invoice-worker
+spec:
+  selector:
+    app: invoice-worker
+  ports:
+    - name: metrics
+      port: 9464

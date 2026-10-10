@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: otel-gateway
+  labels:
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: otel-gateway
+  endpoints:
+    - port: metrics
+      interval: 30s

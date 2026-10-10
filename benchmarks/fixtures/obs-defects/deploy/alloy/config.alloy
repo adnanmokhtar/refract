@@ -1,0 +1,60 @@
+// Container logs from the compose host → Loki.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "app"
+  }
+}
+
+loki.source.docker "app" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.api.receiver]
+}
+
+loki.process "api" {
+  stage.json {
+    expressions = { level = "level", trace_id = "trace_id", path = "req.url" }
+  }
+
+  stage.structured_metadata {
+    values = { trace_id = "" }
+  }
+
+  stage.labels {
+    values = { level = "", path = "" }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+// Host and platform logs (systemd, docker daemon) keep a small, fixed label set.
+loki.source.journal "host" {
+  forward_to = [loki.process.system.receiver]
+  labels     = { job = "journal" }
+}
+
+loki.process "system" {
+  stage.static_labels {
+    values = { cluster = "app-1", namespace = "host" }
+  }
+
+  stage.labels {
+    values = { level = "", app = "" }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

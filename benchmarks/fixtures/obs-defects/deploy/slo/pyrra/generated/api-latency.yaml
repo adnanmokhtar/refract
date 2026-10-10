@@ -1,0 +1,79 @@
+groups:
+- interval: 30s
+  name: api-latency
+  rules:
+  - expr: (sum(rate(http_request_duration_seconds_count{job="api"}[5m])) - sum(rate(http_request_duration_seconds_bucket{job="api",le="0.3"}[5m]))) / sum(rate(http_request_duration_seconds_count{job="api"}[5m]))
+    labels:
+      job: api
+      slo: api-latency
+    record: http_request_duration_seconds:burnrate5m
+  - expr: (sum(rate(http_request_duration_seconds_count{job="api"}[30m])) - sum(rate(http_request_duration_seconds_bucket{job="api",le="0.3"}[30m]))) / sum(rate(http_request_duration_seconds_count{job="api"}[30m]))
+    labels:
+      job: api
+      slo: api-latency
+    record: http_request_duration_seconds:burnrate30m
+  - expr: (sum(rate(http_request_duration_seconds_count{job="api"}[1h])) - sum(rate(http_request_duration_seconds_bucket{job="api",le="0.3"}[1h]))) / sum(rate(http_request_duration_seconds_count{job="api"}[1h]))
+    labels:
+      job: api
+      slo: api-latency
+    record: http_request_duration_seconds:burnrate1h
+  - expr: (sum(rate(http_request_duration_seconds_count{job="api"}[2h])) - sum(rate(http_request_duration_seconds_bucket{job="api",le="0.3"}[2h]))) / sum(rate(http_request_duration_seconds_count{job="api"}[2h]))
+    labels:
+      job: api
+      slo: api-latency
+    record: http_request_duration_seconds:burnrate2h
+  - expr: (sum(rate(http_request_duration_seconds_count{job="api"}[6h])) - sum(rate(http_request_duration_seconds_bucket{job="api",le="0.3"}[6h]))) / sum(rate(http_request_duration_seconds_count{job="api"}[6h]))
+    labels:
+      job: api
+      slo: api-latency
+    record: http_request_duration_seconds:burnrate6h
+  - expr: (sum(rate(http_request_duration_seconds_count{job="api"}[1d])) - sum(rate(http_request_duration_seconds_bucket{job="api",le="0.3"}[1d]))) / sum(rate(http_request_duration_seconds_count{job="api"}[1d]))
+    labels:
+      job: api
+      slo: api-latency
+    record: http_request_duration_seconds:burnrate1d
+  - expr: (sum(rate(http_request_duration_seconds_count{job="api"}[4d])) - sum(rate(http_request_duration_seconds_bucket{job="api",le="0.3"}[4d]))) / sum(rate(http_request_duration_seconds_count{job="api"}[4d]))
+    labels:
+      job: api
+      slo: api-latency
+    record: http_request_duration_seconds:burnrate4d
+  - alert: ErrorBudgetBurn
+    expr: http_request_duration_seconds:burnrate5m{job="api",slo="api-latency"} > (14 * (1-0.99)) and http_request_duration_seconds:burnrate1h{job="api",slo="api-latency"} > (14 * (1-0.99))
+    for: 2m0s
+    labels:
+      exhaustion: 2d
+      job: api
+      long: 1h
+      severity: critical
+      short: 5m
+      slo: api-latency
+  - alert: ErrorBudgetBurn
+    expr: http_request_duration_seconds:burnrate30m{job="api",slo="api-latency"} > (7 * (1-0.99)) and http_request_duration_seconds:burnrate6h{job="api",slo="api-latency"} > (7 * (1-0.99))
+    for: 15m0s
+    labels:
+      exhaustion: 4d
+      job: api
+      long: 6h
+      severity: critical
+      short: 30m
+      slo: api-latency
+  - alert: ErrorBudgetBurn
+    expr: http_request_duration_seconds:burnrate2h{job="api",slo="api-latency"} > (2 * (1-0.99)) and http_request_duration_seconds:burnrate1d{job="api",slo="api-latency"} > (2 * (1-0.99))
+    for: 1h0m0s
+    labels:
+      exhaustion: 2w
+      job: api
+      long: 1d
+      severity: warning
+      short: 2h
+      slo: api-latency
+  - alert: ErrorBudgetBurn
+    expr: http_request_duration_seconds:burnrate6h{job="api",slo="api-latency"} > (1 * (1-0.99)) and http_request_duration_seconds:burnrate4d{job="api",slo="api-latency"} > (1 * (1-0.99))
+    for: 3h0m0s
+    labels:
+      exhaustion: 4w
+      job: api
+      long: 4d
+      severity: warning
+      short: 6h
+      slo: api-latency

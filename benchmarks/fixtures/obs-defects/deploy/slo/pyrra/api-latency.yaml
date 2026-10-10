@@ -1,0 +1,16 @@
+# Pyrra spec; rules generated with `pyrra generate --config-files=deploy/slo/pyrra/*.yaml
+# --prometheus-folder=deploy/slo/pyrra/generated/` (make slo-generate).
+apiVersion: pyrra.dev/v1alpha1
+kind: ServiceLevelObjective
+metadata:
+  name: api-latency
+spec:
+  target: "99"
+  window: 28d
+  description: 99 % of API requests finish within 300 ms.
+  indicator:
+    latency:
+      success:
+        metric: http_request_duration_seconds_bucket{job="api",le="0.3"}
+      total:
+        metric: http_request_duration_seconds_count{job="api"}
