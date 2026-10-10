@@ -49,7 +49,7 @@ Push notification body is delivered to lock screen → screenshots → social. S
 
 ### Unsubscribe link missing in marketing
 ```bash
-rg "templates/marketing/.+\.html" src/ --files | xargs grep -L "unsubscribe\|{{.*unsubscribe.*}}"
+rg --files-without-match -i 'unsubscribe' -g '**/templates/marketing/**/*.html' src/   # marketing templates with no unsubscribe link
 ```
 Every marketing template MUST have unsubscribe; transactional MAY have account-management.
 

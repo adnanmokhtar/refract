@@ -18,6 +18,26 @@ Two modes, and the mode is decided by whether a **prior baseline exists**, never
 
 Running Change mode against a brand-new resource returns clean and means nothing. Say which mode ran, in the first line of the report.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer                  # an impact report and an action plan, never a pass/fail verdict
+inputs:
+  required: [scope]             # the contract change (old + new spec, a version bump, or the named resource on first delivery)
+  reads:    [api-snapshots/openapi.v1.json, api-snapshots/README.md, the API client, generated or hand-written DTO types, services, stores, consuming pages, ai/patterns/data-fetching.md, ai/patterns/forms.md]
+  never:    [the backend team's summary of the change in place of the spec, PR text, commit messages]
+output:
+  returns:  the '## Output' block — Change mode impact report, or the First-delivery report
+  writes:   none                # never writes, regenerates or corrects the producer's baseline
+  persisted_by: caller          # /sync-contract or the delivery lane that dispatched it
+skills:     []                  # api-snapshot is the backend pack's; this agent only reads what it published
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+severity:   IMPORTANT | NIT | PRE-EXISTING   # BREAKING→IMPORTANT · ADDITIVE→NIT
+next:       the implementer applies the action plan · @ui-reviewer gates the fix · the API owner answers lanes marked UNKNOWN
+```
+
 ## The Premise (read first, do not deviate)
 
 **Resolve `$ROOTS` first, and print it in the report.** Set it as an array — `ROOTS=(apps/api/src apps/web/src)` — and every probe expands it as `"${ROOTS[@]}"`: a space-joined string does not word-split in zsh (the macOS default shell), so `rg` searches one path that does not exist, prints an IO error to stderr and exits 2 — which reads as zero hits. Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.

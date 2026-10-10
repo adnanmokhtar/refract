@@ -23,11 +23,17 @@ Find the seam before judging the sites. Detect from `_extracted-codebase.md § A
 | What to find | How to find it | What it tells you |
 |---|---|---|
 | **The gateway module** | a house `llm/`, `ai/client`, `gateway`, `model-client` module; or an OSS proxy/router the project runs; or **none** | the seam's path — every other provider call is a bypass |
-| **Provider SDK imports** | the project's package manifest + `rg -n "anthropic\|openai\|google.genai\|mistralai\|cohere\|bedrock\|vertexai\|ollama\|litellm\|openrouter"` | the bypass candidates, one line each |
+| **Provider SDK imports** | the project's package manifest + the provider search below this table | the bypass candidates, one line each |
 | **Timeout + cap conventions** | how the seam sets them (client-level default, per-call kwarg, an HTTP-client timeout, a framework config) | whether a call-site absence is really an absence or a seam default |
 | **Cost/telemetry sink** | the project's logger / metrics client / tracer, and whether the LLM call is a span inside the request trace | where a cost field would be written, and whether it is |
 | **Redaction primitive** | the project's own scrubber / masker / allow-list on the log path | what the finding should call for — never a second redaction library |
 | **Cache layer** | an exact-match store, a semantic cache, or provider prompt-caching markers on a stable prefix | which of the three caching findings can even apply |
+
+The provider search — one root per code root the project has (`src/` stands for them); it is kept out of the table because a table cell needs `\|`, and ripgrep reads that escape as a literal pipe:
+
+```bash
+rg -n "anthropic|openai|google.genai|mistralai|cohere|bedrock|vertexai|ollama|litellm|openrouter" src/
+```
 
 If the project runs a mature OSS gateway/proxy, the seam is that proxy's client — a call that bypasses the proxy is still a bypass. Mirror the project's mechanism; the pattern is the *seam*, not bespoke code.
 
