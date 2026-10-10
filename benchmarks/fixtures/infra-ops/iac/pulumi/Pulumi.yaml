@@ -1,0 +1,5 @@
+name: larder-loyalty-replica
+runtime: nodejs
+description: Read replica of the loyalty database for the partner reporting portal.
+backend:
+  url: s3://larder-pulumi-state

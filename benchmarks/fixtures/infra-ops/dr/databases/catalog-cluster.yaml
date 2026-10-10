@@ -1,0 +1,15 @@
+# Product catalog (system of record for SKUs, prices are synced from pricing). CloudNativePG.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: catalog
+  namespace: larder-data
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.6
+  storage:
+    size: 100Gi
+    storageClass: gp3-retain
+  postgresql:
+    parameters:
+      max_connections: "300"

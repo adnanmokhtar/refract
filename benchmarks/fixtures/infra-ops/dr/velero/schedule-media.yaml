@@ -1,0 +1,12 @@
+# Media library (the RWX claim media-library in larder-media), file-system backup.
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: media-daily
+  namespace: velero
+spec:
+  schedule: "0 3 * * *"
+  template:
+    includedNamespaces: ["larder-media"]
+    defaultVolumesToFsBackup: true
+    ttl: 720h0m0s

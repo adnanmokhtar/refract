@@ -1,0 +1,1041 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.16.5",
+  "variables": {
+    "orders_table_stream_arn": {
+      "value": "arn:aws:dynamodb:eu-central-1:000000000000:table/larder-orders/stream/2026-01-01T00:00:00.000"
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_sqs_queue.payouts_dlq",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "payouts_dlq",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-payouts-dlq",
+          "visibility_timeout_seconds": 30,
+          "message_retention_seconds": 1209600,
+          "fifo_queue": false
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "url": true,
+          "redrive_allow_policy": true
+        }
+      }
+    },
+    {
+      "address": "aws_sqs_queue.payouts",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "payouts",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-payouts",
+          "visibility_timeout_seconds": 30,
+          "message_retention_seconds": 345600,
+          "fifo_queue": false
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "url": true,
+          "redrive_policy": true
+        }
+      }
+    },
+    {
+      "address": "aws_sqs_queue.refunds",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "refunds",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-refunds",
+          "visibility_timeout_seconds": 360,
+          "message_retention_seconds": 345600,
+          "fifo_queue": false
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "url": true
+        }
+      }
+    },
+    {
+      "address": "aws_sqs_queue.ledger_sync_dlq",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "ledger_sync_dlq",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-ledger-sync-dlq",
+          "visibility_timeout_seconds": 30,
+          "message_retention_seconds": 1209600,
+          "fifo_queue": false
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "url": true,
+          "redrive_allow_policy": true
+        }
+      }
+    },
+    {
+      "address": "aws_sqs_queue.ledger_sync",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "ledger_sync",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-ledger-sync",
+          "visibility_timeout_seconds": 540,
+          "message_retention_seconds": 345600,
+          "fifo_queue": false
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "url": true,
+          "redrive_policy": true
+        }
+      }
+    },
+    {
+      "address": "aws_sqs_queue.ingest_dlq",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "ingest_dlq",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-ingest-dlq",
+          "visibility_timeout_seconds": 30,
+          "message_retention_seconds": 1209600,
+          "fifo_queue": false
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "url": true,
+          "redrive_allow_policy": true
+        }
+      }
+    },
+    {
+      "address": "aws_sqs_queue.ingest",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "ingest",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-ingest",
+          "visibility_timeout_seconds": 180,
+          "message_retention_seconds": 345600,
+          "fifo_queue": false
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "url": true,
+          "redrive_policy": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_function.payout_settle",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "payout_settle",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "function_name": "larder-payout-settle",
+          "runtime": "nodejs22.x",
+          "timeout": 120,
+          "memory_size": 512,
+          "reserved_concurrent_executions": 10,
+          "dead_letter_config": [],
+          "logging_config": []
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "invoke_arn": true,
+          "logging_config": true
+        }
+      }
+    },
+    {
+      "address": "aws_cloudwatch_log_group.payout_settle",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "payout_settle",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "/aws/lambda/larder-payout-settle",
+          "retention_in_days": 30
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_function.refund_issue",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "refund_issue",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "function_name": "larder-refund-issue",
+          "runtime": "nodejs22.x",
+          "timeout": 60,
+          "memory_size": 512,
+          "reserved_concurrent_executions": 5,
+          "dead_letter_config": [],
+          "logging_config": []
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "invoke_arn": true,
+          "logging_config": true
+        }
+      }
+    },
+    {
+      "address": "aws_cloudwatch_log_group.refund_issue",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "refund_issue",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "/aws/lambda/larder-refund-issue",
+          "retention_in_days": 30
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_function.ledger_sync",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "ledger_sync",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "function_name": "larder-ledger-sync",
+          "runtime": "nodejs22.x",
+          "timeout": 90,
+          "memory_size": 1024,
+          "reserved_concurrent_executions": -1,
+          "dead_letter_config": [],
+          "logging_config": []
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "invoke_arn": true,
+          "logging_config": true
+        }
+      }
+    },
+    {
+      "address": "aws_cloudwatch_log_group.ledger_sync",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "ledger_sync",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "/aws/lambda/larder-ledger-sync",
+          "retention_in_days": 30
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_function.order_events_fanout",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "order_events_fanout",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "function_name": "larder-order-events-fanout",
+          "runtime": "nodejs22.x",
+          "timeout": 30,
+          "memory_size": 256,
+          "reserved_concurrent_executions": 20,
+          "dead_letter_config": [],
+          "logging_config": []
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "invoke_arn": true,
+          "logging_config": true
+        }
+      }
+    },
+    {
+      "address": "aws_cloudwatch_log_group.order_events_fanout",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "order_events_fanout",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "/aws/lambda/larder-order-events-fanout",
+          "retention_in_days": 30
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_function.ingest",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "ingest",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "function_name": "larder-ingest",
+          "runtime": "nodejs22.x",
+          "timeout": 30,
+          "memory_size": 256,
+          "reserved_concurrent_executions": 8,
+          "dead_letter_config": [],
+          "logging_config": []
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "invoke_arn": true,
+          "logging_config": true
+        }
+      }
+    },
+    {
+      "address": "aws_cloudwatch_log_group.ingest",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "ingest",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "/aws/lambda/larder-ingest",
+          "retention_in_days": 30
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_function.partner_quote",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "partner_quote",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "function_name": "larder-partner-quote",
+          "runtime": "nodejs22.x",
+          "timeout": 40,
+          "memory_size": 512,
+          "reserved_concurrent_executions": 25,
+          "dead_letter_config": [],
+          "logging_config": []
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "invoke_arn": true,
+          "logging_config": true
+        }
+      }
+    },
+    {
+      "address": "aws_cloudwatch_log_group.partner_quote",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "partner_quote",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "/aws/lambda/larder-partner-quote",
+          "retention_in_days": 30
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_event_source_mapping.payouts",
+      "mode": "managed",
+      "type": "aws_lambda_event_source_mapping",
+      "name": "payouts",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "batch_size": 10,
+          "function_response_types": [
+            "ReportBatchItemFailures"
+          ],
+          "enabled": true
+        },
+        "after_unknown": {
+          "id": true,
+          "uuid": true,
+          "function_arn": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_event_source_mapping.refunds",
+      "mode": "managed",
+      "type": "aws_lambda_event_source_mapping",
+      "name": "refunds",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "batch_size": 10,
+          "function_response_types": [],
+          "enabled": true
+        },
+        "after_unknown": {
+          "id": true,
+          "uuid": true,
+          "function_arn": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_event_source_mapping.ledger_sync",
+      "mode": "managed",
+      "type": "aws_lambda_event_source_mapping",
+      "name": "ledger_sync",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "batch_size": 10,
+          "function_response_types": [
+            "ReportBatchItemFailures"
+          ],
+          "enabled": true
+        },
+        "after_unknown": {
+          "id": true,
+          "uuid": true,
+          "function_arn": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_event_source_mapping.order_events",
+      "mode": "managed",
+      "type": "aws_lambda_event_source_mapping",
+      "name": "order_events",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "batch_size": 100,
+          "function_response_types": [
+            "ReportBatchItemFailures"
+          ],
+          "enabled": true,
+          "starting_position": "LATEST",
+          "maximum_retry_attempts": -1,
+          "bisect_batch_on_function_error": false,
+          "destination_config": []
+        },
+        "after_unknown": {
+          "id": true,
+          "uuid": true,
+          "function_arn": true
+        }
+      }
+    },
+    {
+      "address": "aws_lambda_event_source_mapping.ingest",
+      "mode": "managed",
+      "type": "aws_lambda_event_source_mapping",
+      "name": "ingest",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "batch_size": 10,
+          "function_response_types": [
+            "ReportBatchItemFailures"
+          ],
+          "enabled": true
+        },
+        "after_unknown": {
+          "id": true,
+          "uuid": true,
+          "function_arn": true
+        }
+      }
+    },
+    {
+      "address": "aws_api_gateway_integration.quote",
+      "mode": "managed",
+      "type": "aws_api_gateway_integration",
+      "name": "quote",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "type": "AWS_PROXY",
+          "integration_http_method": "POST",
+          "timeout_milliseconds": 45000
+        },
+        "after_unknown": {
+          "id": true,
+          "uri": true
+        }
+      }
+    },
+    {
+      "address": "aws_budgets_budget.payments_async",
+      "mode": "managed",
+      "type": "aws_budgets_budget",
+      "name": "payments_async",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "name": "larder-payments-async",
+          "budget_type": "COST",
+          "limit_amount": "400",
+          "limit_unit": "USD",
+          "time_unit": "MONTHLY"
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true
+        }
+      }
+    }
+  ],
+  "configuration": {
+    "provider_config": {
+      "aws": {
+        "name": "aws",
+        "full_name": "registry.terraform.io/hashicorp/aws",
+        "version_constraint": "~> 6.14"
+      }
+    },
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_sqs_queue.payouts_dlq",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "payouts_dlq",
+          "expressions": {
+            "name": {
+              "constant_value": "larder-payouts-dlq"
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 30
+            },
+            "redrive_allow_policy": {
+              "constant_value": "{\"redrivePermission\":\"allowAll\"}"
+            }
+          }
+        },
+        {
+          "address": "aws_sqs_queue.payouts",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "payouts",
+          "expressions": {
+            "name": {
+              "constant_value": "larder-payouts"
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 30
+            },
+            "redrive_policy": {
+              "references": [
+                "aws_sqs_queue.payouts_dlq.arn",
+                "aws_sqs_queue.payouts_dlq"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_sqs_queue.refunds",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "refunds",
+          "expressions": {
+            "name": {
+              "constant_value": "larder-refunds"
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 360
+            }
+          }
+        },
+        {
+          "address": "aws_sqs_queue.ledger_sync_dlq",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "ledger_sync_dlq",
+          "expressions": {
+            "name": {
+              "constant_value": "larder-ledger-sync-dlq"
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 30
+            },
+            "redrive_allow_policy": {
+              "constant_value": "{\"redrivePermission\":\"allowAll\"}"
+            }
+          }
+        },
+        {
+          "address": "aws_sqs_queue.ledger_sync",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "ledger_sync",
+          "expressions": {
+            "name": {
+              "constant_value": "larder-ledger-sync"
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 540
+            },
+            "redrive_policy": {
+              "references": [
+                "aws_sqs_queue.ledger_sync_dlq.arn",
+                "aws_sqs_queue.ledger_sync_dlq"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_sqs_queue.ingest_dlq",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "ingest_dlq",
+          "expressions": {
+            "name": {
+              "constant_value": "larder-ingest-dlq"
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 30
+            },
+            "redrive_allow_policy": {
+              "constant_value": "{\"redrivePermission\":\"allowAll\"}"
+            }
+          }
+        },
+        {
+          "address": "aws_sqs_queue.ingest",
+          "mode": "managed",
+          "type": "aws_sqs_queue",
+          "name": "ingest",
+          "expressions": {
+            "name": {
+              "constant_value": "larder-ingest"
+            },
+            "visibility_timeout_seconds": {
+              "constant_value": 180
+            },
+            "redrive_policy": {
+              "references": [
+                "aws_sqs_queue.ingest_dlq.arn",
+                "aws_sqs_queue.ingest_dlq"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_function.payout_settle",
+          "mode": "managed",
+          "type": "aws_lambda_function",
+          "name": "payout_settle",
+          "expressions": {
+            "function_name": {
+              "constant_value": "larder-payout-settle"
+            },
+            "timeout": {
+              "constant_value": 120
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.fn.arn",
+                "aws_iam_role.fn"
+              ]
+            },
+            "reserved_concurrent_executions": {
+              "constant_value": 10
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_function.refund_issue",
+          "mode": "managed",
+          "type": "aws_lambda_function",
+          "name": "refund_issue",
+          "expressions": {
+            "function_name": {
+              "constant_value": "larder-refund-issue"
+            },
+            "timeout": {
+              "constant_value": 60
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.fn.arn",
+                "aws_iam_role.fn"
+              ]
+            },
+            "reserved_concurrent_executions": {
+              "constant_value": 5
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_function.ledger_sync",
+          "mode": "managed",
+          "type": "aws_lambda_function",
+          "name": "ledger_sync",
+          "expressions": {
+            "function_name": {
+              "constant_value": "larder-ledger-sync"
+            },
+            "timeout": {
+              "constant_value": 90
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.fn.arn",
+                "aws_iam_role.fn"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_function.order_events_fanout",
+          "mode": "managed",
+          "type": "aws_lambda_function",
+          "name": "order_events_fanout",
+          "expressions": {
+            "function_name": {
+              "constant_value": "larder-order-events-fanout"
+            },
+            "timeout": {
+              "constant_value": 30
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.fn.arn",
+                "aws_iam_role.fn"
+              ]
+            },
+            "reserved_concurrent_executions": {
+              "constant_value": 20
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_function.ingest",
+          "mode": "managed",
+          "type": "aws_lambda_function",
+          "name": "ingest",
+          "expressions": {
+            "function_name": {
+              "constant_value": "larder-ingest"
+            },
+            "timeout": {
+              "constant_value": 30
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.fn.arn",
+                "aws_iam_role.fn"
+              ]
+            },
+            "reserved_concurrent_executions": {
+              "constant_value": 8
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_function.partner_quote",
+          "mode": "managed",
+          "type": "aws_lambda_function",
+          "name": "partner_quote",
+          "expressions": {
+            "function_name": {
+              "constant_value": "larder-partner-quote"
+            },
+            "timeout": {
+              "constant_value": 40
+            },
+            "role": {
+              "references": [
+                "aws_iam_role.fn.arn",
+                "aws_iam_role.fn"
+              ]
+            },
+            "reserved_concurrent_executions": {
+              "constant_value": 25
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_event_source_mapping.payouts",
+          "mode": "managed",
+          "type": "aws_lambda_event_source_mapping",
+          "name": "payouts",
+          "expressions": {
+            "function_name": {
+              "references": [
+                "aws_lambda_function.payout_settle.arn",
+                "aws_lambda_function.payout_settle"
+              ]
+            },
+            "event_source_arn": {
+              "references": [
+                "aws_sqs_queue.payouts.arn",
+                "aws_sqs_queue.payouts"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_event_source_mapping.refunds",
+          "mode": "managed",
+          "type": "aws_lambda_event_source_mapping",
+          "name": "refunds",
+          "expressions": {
+            "function_name": {
+              "references": [
+                "aws_lambda_function.refund_issue.arn",
+                "aws_lambda_function.refund_issue"
+              ]
+            },
+            "event_source_arn": {
+              "references": [
+                "aws_sqs_queue.refunds.arn",
+                "aws_sqs_queue.refunds"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_event_source_mapping.ledger_sync",
+          "mode": "managed",
+          "type": "aws_lambda_event_source_mapping",
+          "name": "ledger_sync",
+          "expressions": {
+            "function_name": {
+              "references": [
+                "aws_lambda_function.ledger_sync.arn",
+                "aws_lambda_function.ledger_sync"
+              ]
+            },
+            "event_source_arn": {
+              "references": [
+                "aws_sqs_queue.ledger_sync.arn",
+                "aws_sqs_queue.ledger_sync"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_event_source_mapping.order_events",
+          "mode": "managed",
+          "type": "aws_lambda_event_source_mapping",
+          "name": "order_events",
+          "expressions": {
+            "function_name": {
+              "references": [
+                "aws_lambda_function.order_events_fanout.arn",
+                "aws_lambda_function.order_events_fanout"
+              ]
+            },
+            "event_source_arn": {
+              "references": [
+                "var.orders_table_stream_arn"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_lambda_event_source_mapping.ingest",
+          "mode": "managed",
+          "type": "aws_lambda_event_source_mapping",
+          "name": "ingest",
+          "expressions": {
+            "function_name": {
+              "references": [
+                "aws_lambda_function.ingest.arn",
+                "aws_lambda_function.ingest"
+              ]
+            },
+            "event_source_arn": {
+              "references": [
+                "aws_sqs_queue.ingest.arn",
+                "aws_sqs_queue.ingest"
+              ]
+            }
+          }
+        },
+        {
+          "address": "aws_api_gateway_integration.quote",
+          "mode": "managed",
+          "type": "aws_api_gateway_integration",
+          "name": "quote",
+          "expressions": {
+            "uri": {
+              "references": [
+                "aws_lambda_function.partner_quote.invoke_arn",
+                "aws_lambda_function.partner_quote"
+              ]
+            },
+            "timeout_milliseconds": {
+              "constant_value": 45000
+            }
+          }
+        }
+      ]
+    }
+  }
+}

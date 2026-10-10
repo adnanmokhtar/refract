@@ -1,0 +1,24 @@
+name: terraform
+on:
+  pull_request:
+    paths: ["iac/**"]
+  push:
+    branches: [main]
+    paths: ["iac/**"]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # pinned by commit SHA
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # pinned by commit SHA
+        with:
+          terraform_version: 1.16.5
+      - run: terraform -chdir=iac/envs/prod init -input=false
+      - run: terraform -chdir=iac/envs/prod plan -input=false -no-color -out=tfplan
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # pinned by commit SHA
+        with:
+          name: tfplan
+          path: iac/envs/prod/tfplan

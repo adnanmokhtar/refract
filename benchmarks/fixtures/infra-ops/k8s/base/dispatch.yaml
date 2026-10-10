@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dispatch
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dispatch
+  template:
+    metadata:
+      labels:
+        app: dispatch
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: dispatch
+          image: registry.larder.example/larder/dispatch@sha256:880acbfab66e871d0dfe490a4b47a9e2f0ff162266792b47ed317ae0609797d9
+          args: ["node", "dist/dispatch-worker.js"]
+          ports:
+            - name: http
+              containerPort: 3100
+          env:
+            - name: COURIER_API_URL
+              value: https://couriers.partner.example/v1
+          resources:
+            requests:
+              cpu: 300m
+              memory: 384Mi
+            limits:
+              memory: 384Mi
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dispatch
+spec:
+  selector:
+    app: dispatch
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: dispatch
+spec:
+  minAvailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app: dispatch

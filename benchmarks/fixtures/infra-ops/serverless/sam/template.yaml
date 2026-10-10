@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Larder settlements — partner settlement files, payout retries and inventory change fan-out.
+
+Parameters:
+  SettlementsDlqArn:
+    Type: String
+    Description: ARN of larder-settlements-dlq (owned by serverless/terraform).
+  InventoryTableStreamArn:
+    Type: String
+
+Resources:
+  SettlementsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: larder-settlements
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !Ref SettlementsDlqArn
+        maxReceiveCount: 5
+
+  SettlementsConsumer:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: larder-settlements-consumer
+      Runtime: nodejs22.x
+      Handler: settlements.handler
+      CodeUri: build/
+      Timeout: 300
+      MemorySize: 1024
+      ReservedConcurrentExecutions: 10
+      Events:
+        Settlements:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SettlementsQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  PayoutRetryQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: larder-payout-retry
+      VisibilityTimeout: 900
+
+  PayoutRetryConsumer:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: larder-payout-retry
+      Runtime: nodejs22.x
+      Handler: payout-retry.handler
+      CodeUri: build/
+      Timeout: 60
+      MemorySize: 512
+      ReservedConcurrentExecutions: 5
+      Events:
+        Retries:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt PayoutRetryQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  InventoryFanout:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: larder-inventory-fanout
+      Runtime: nodejs22.x
+      Handler: inventory-fanout.handler
+      CodeUri: build/
+      Timeout: 30
+      MemorySize: 256
+      ReservedConcurrentExecutions: 10
+      Events:
+        InventoryChanges:
+          Type: DynamoDB
+          Properties:
+            Stream: !Ref InventoryTableStreamArn
+            StartingPosition: LATEST
+            BatchSize: 100
+            MaximumRetryAttempts: -1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures

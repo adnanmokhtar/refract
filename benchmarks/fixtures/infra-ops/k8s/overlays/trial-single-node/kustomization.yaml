@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Trial cluster: one node, applied by hand (k8s/ops/runbooks/platform.md). Delete this overlay at launch.
+resources:
+  - ../../base
+commonAnnotations:
+  larder.io/env: trial
+patches:
+  # single node: a hostname spread constraint has one domain here, so it is dropped until launch
+  - target:
+      kind: Deployment
+      name: (api|web)
+    patch: |-
+      - op: remove
+        path: /spec/template/spec/topologySpreadConstraints

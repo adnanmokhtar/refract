@@ -1,0 +1,2 @@
+# Live order-status updates for the shop (server-sent events from the storefront's events service).
+reverse_proxy /events/* storefront-events.larder.svc.cluster.local:80

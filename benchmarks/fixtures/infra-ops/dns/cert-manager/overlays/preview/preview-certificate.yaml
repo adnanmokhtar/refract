@@ -1,0 +1,13 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: preview-wildcard
+  namespace: larder-tls
+spec:
+  secretName: preview-wildcard-tls
+  dnsNames: ["*.preview.larder.example"]
+  duration: 2160h
+  renewBefore: 720h
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-prod

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: storefront
+description: Larder storefront (server-rendered shop pages)
+type: application
+version: 1.4.0
+appVersion: "2026.10.2"
+kubeVersion: ">=1.33.0-0"

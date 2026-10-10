@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: larder-prod
+  namespace: argocd
+spec:
+  project: larder
+  source:
+    repoURL: https://git.larder.example/platform/larder.git
+    targetRevision: deploy/prod
+    path: k8s/overlays/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: larder
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: tls
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: tls
+      rules:
+        - alert: CertificateNotReady
+          expr: max by (name, namespace) (certmanager_certificate_ready_status{condition="False"}) == 1
+          for: 15m
+          labels:
+            severity: page
+          annotations:
+            summary: "Certificate {{ $labels.namespace }}/{{ $labels.name }} is not Ready"
+            runbook_url: https://runbooks.larder.example/tls/certificate-not-ready
+        - alert: StorefrontCertificateExpiring
+          expr: (probe_ssl_earliest_cert_expiry{job="blackbox-https"} - time()) / 86400 < 21
+          for: 1h
+          labels:
+            severity: ticket
+          annotations:
+            summary: "TLS certificate for {{ $labels.instance }} expires in under 21 days"

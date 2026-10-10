@@ -1,0 +1,12 @@
+# Cluster configuration objects only: ConfigMaps, Secrets and RBAC of larder-config (no volumes live there).
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: config-hourly
+  namespace: velero
+spec:
+  schedule: "0 * * * *"
+  template:
+    includedNamespaces: ["larder-config"]
+    snapshotVolumes: false
+    ttl: 336h0m0s

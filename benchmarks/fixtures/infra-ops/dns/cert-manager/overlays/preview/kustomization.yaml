@@ -1,0 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Applied by the preview workflow for every pull request (one wildcard certificate per preview cluster).
+resources:
+  - ../../issuers
+  - preview-certificate.yaml

@@ -1,0 +1,22 @@
+image:
+  repository: registry.larder.example/larder/storefront
+  digest: sha256:0ce98ff118e7b6e8c5c507cd7ac272a369e58e98658ae3349ace75d3dbdb2b95
+replicaCount: 2
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  targetCPU: 70
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    memory: 256Mi
+service:
+  port: 80
+probes:
+  path: /status
+config:
+  featureFlags: "checkout-v2,new-basket"
+  apiBaseUrl: http://api.larder.svc.cluster.local

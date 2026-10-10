@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - api.yaml
+  - web.yaml
+  - worker.yaml
+  - notifier.yaml
+  - dispatch.yaml
+  - pricing.yaml
+  - checkout.yaml
+  - courier-tracker.yaml
+  - loyalty.yaml
+  - scheduler.yaml
+  - migrate-job.yaml
+  - media.yaml
+  - rbac.yaml
+  - support-rbac.yaml
+  - netpol.yaml
+configMapGenerator:
+  - name: api-config
+    literals:
+      - LOG_LEVEL=info
+      - ORDER_HOLD_MINUTES=15

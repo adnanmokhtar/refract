@@ -1,0 +1,43 @@
+# caddy-edge: storefront and partner sites, a DaemonSet behind the NLB (edge/k8s/caddy.yaml).
+{
+	email ops@larder.example
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+	order cache before rewrite
+	servers {
+		protocols h1 h2
+	}
+	storage redis {
+		host valkey.larder.internal
+		port 6379
+		username larder-app
+		password {env.VALKEY_APP_PASSWORD}
+		key_prefix caddy-certs
+	}
+}
+
+shop.larder.example {
+	log {
+		output stdout
+		format json
+	}
+
+	import events.caddy
+
+	@exports path /exports/*
+	reverse_proxy @exports storefront.larder.svc.cluster.local:80 {
+		transport http {
+			response_header_timeout 20s
+		}
+	}
+
+	reverse_proxy storefront.larder.svc.cluster.local:80 {
+		transport http {
+			keepalive 120s
+		}
+	}
+}
+
+partners.larder-partners.example {
+	import api.caddy
+	import partner_api
+}

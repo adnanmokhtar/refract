@@ -1,0 +1,17 @@
+name: edge
+on:
+  pull_request:
+    paths: ["edge/**"]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # pinned by commit SHA
+      - name: nginx -t (nginx-edge and partner-gateway)
+        run: |
+          docker run --rm -v "$PWD/edge/nginx:/etc/nginx/conf:ro" nginx:1.27.4-alpine nginx -t -c /etc/nginx/conf/nginx.conf
+          docker run --rm -v "$PWD/edge/nginx:/etc/nginx/conf:ro" nginx:1.27.4-alpine nginx -t -c /etc/nginx/conf/partner-gateway.conf
+      - name: caddy validate
+        run: docker run --rm -v "$PWD/edge/caddy:/etc/caddy:ro" caddy:2.11.7 caddy validate --config /etc/caddy/shop.caddy --adapter caddyfile || true

@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
+        app: checkout
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: checkout
+          matchLabelKeys: [pod-template-hash]
+      containers:
+        - name: checkout
+          image: registry.larder.example/larder/checkout:release-2026.10
+          ports:
+            - name: http
+              containerPort: 3200
+          env:
+            - name: PSP_BASE_URL
+              value: https://psp.partner.example/v3
+            - name: SHUTDOWN_DRAIN_SECONDS
+              value: "60"
+          resources:
+            requests:
+              cpu: 400m
+              memory: 512Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "10"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout
+spec:
+  selector:
+    app: checkout
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: checkout
+spec:
+  maxUnavailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app: checkout

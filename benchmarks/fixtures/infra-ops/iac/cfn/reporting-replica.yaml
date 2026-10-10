@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Finance reporting replica (Postgres) — month-end close runs its reports here.
+
+Parameters:
+  SubnetGroup:
+    Type: String
+  SourceDbArn:
+    Type: String
+
+Resources:
+  FinanceReportingDb:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      DBInstanceIdentifier: larder-finance-reporting
+      Engine: postgres
+      EngineVersion: "17.6"
+      DBInstanceClass: db.r7g.large
+      AllocatedStorage: "300"
+      MaxAllocatedStorage: 1000
+      DBSubnetGroupName: !Ref SubnetGroup
+      ManageMasterUserPassword: true
+      MasterUsername: finance_admin
+      BackupRetentionPeriod: 14
+      DeletionProtection: true
+      MultiAZ: true

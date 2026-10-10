@@ -1,0 +1,31 @@
+# Warehouse inventory (stock levels per SKU and site). CloudNativePG with barman to S3.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: inventory
+  namespace: larder-data
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.6
+  storage:
+    size: 400Gi
+    storageClass: gp3-retain
+  backup:
+    retentionPolicy: "30d"
+    barmanObjectStore:
+      destinationPath: s3://larder-db-backups/inventory
+      s3Credentials:
+        inheritFromIAMRole: true
+      wal:
+        compression: gzip
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: inventory-weekly
+  namespace: larder-data
+spec:
+  schedule: "0 0 4 * * 0"
+  backupOwnerReference: self
+  cluster:
+    name: inventory

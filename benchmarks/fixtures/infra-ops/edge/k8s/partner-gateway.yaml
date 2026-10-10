@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: partner-gateway
+  namespace: edge
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: partner-gateway
+  template:
+    metadata:
+      labels:
+        app: partner-gateway
+      annotations:
+        larder.io/config-revision: "14"
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: partner-gateway
+          matchLabelKeys: [pod-template-hash]
+      containers:
+        - name: nginx
+          image: nginx:1.27.4-alpine@sha256:512c3ce5160063323e1749106e675d68ae7af77f2e8e17b90f903188a95ff505
+          args: ["nginx", "-c", "/etc/nginx/conf/partner-gateway.conf", "-g", "daemon off;"]
+          ports:
+            - name: http
+              containerPort: 8081
+          resources:
+            requests:
+              cpu: 100m
+              memory: 96Mi
+            limits:
+              memory: 96Mi
+          livenessProbe:
+            tcpSocket:
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf
+      volumes:
+        - name: conf
+          configMap:
+            name: partner-gateway-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: partner-gateway
+  namespace: edge
+spec:
+  selector:
+    app: partner-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: partner-gateway
+  namespace: edge
+spec:
+  maxUnavailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app: partner-gateway

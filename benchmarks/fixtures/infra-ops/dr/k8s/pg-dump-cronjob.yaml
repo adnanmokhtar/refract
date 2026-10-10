@@ -1,0 +1,42 @@
+# Nightly logical dump of the orders database, copied off-cluster to object storage.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: orders-pg-dump
+  namespace: larder-backup
+spec:
+  schedule: "0 2 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 5400
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: dump
+              image: registry.larder.example/larder/pgdump@sha256:f3f0f2573ff5d4cb2c7bcb3da51414a025e4f495055dc4f4e94554a3ae27d349
+              command: ["/bin/sh", "-c"]
+              args:
+                - >-
+                  pg_dump --format=custom "$ORDERS_DB_URL"
+                  | aws s3 cp - "s3://larder-uploads-prod/backups/orders/$(date +%F).dump"
+              env:
+                - name: ORDERS_DB_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: orders-backup
+                      key: url
+                - name: ORDERS_DB_HOST
+                  value: larder-orders-v2.cluster.larder.internal
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 512Mi
+                limits:
+                  memory: 512Mi

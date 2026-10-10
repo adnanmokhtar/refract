@@ -1,0 +1,15 @@
+# Preview edge: one Caddy per pull-request namespace, started by the preview workflow.
+{
+	email ops@larder.example
+	acme_ca https://acme-v02.api.letsencrypt.org/directory
+	servers {
+		protocols h1 h2
+	}
+}
+
+*.preview.larder.example {
+	tls {
+		dns route53
+	}
+	reverse_proxy preview-router.{$PREVIEW_NAMESPACE}.svc.cluster.local:80
+}

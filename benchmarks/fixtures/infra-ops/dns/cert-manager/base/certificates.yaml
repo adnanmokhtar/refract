@@ -1,0 +1,27 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: www
+  namespace: larder-tls
+spec:
+  secretName: www-tls
+  dnsNames: ["www.larder.example", "shop.larder.example"]
+  duration: 2160h
+  renewBefore: 720h
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-prod
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: api
+  namespace: larder-tls
+spec:
+  secretName: api-tls
+  dnsNames: ["api.larder.example"]
+  duration: 2160h
+  renewBefore: 720h
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt-prod

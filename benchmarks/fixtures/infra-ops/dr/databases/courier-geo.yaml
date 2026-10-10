@@ -1,0 +1,19 @@
+# Courier location history (proof of delivery disputes are settled from it). Zalando postgres-operator.
+apiVersion: acid.zalan.do/v1
+kind: postgresql
+metadata:
+  name: larder-courier-geo
+  namespace: larder-data
+spec:
+  teamId: larder
+  numberOfInstances: 2
+  postgresql:
+    version: "17"
+  volume:
+    size: 200Gi
+    storageClass: gp3-retain
+  enableLogicalBackup: false
+  users:
+    geo_app: []
+  databases:
+    courier_geo: geo_app

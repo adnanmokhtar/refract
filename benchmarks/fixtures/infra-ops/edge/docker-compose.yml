@@ -1,0 +1,14 @@
+# Local edge sandbox: nginx-edge in front of a stub api, for trying config changes on a laptop.
+services:
+  nginx-edge:
+    image: nginx:1.27.4-alpine@sha256:512c3ce5160063323e1749106e675d68ae7af77f2e8e17b90f903188a95ff505
+    command: ["nginx", "-c", "/etc/nginx/conf/nginx.conf", "-g", "daemon off;"]
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx:/etc/nginx/conf:ro
+  api-stub:
+    image: mendhak/http-https-echo@sha256:3f4a1c9e2b7d6e8f0a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3e4f5a6b7
+    environment:
+      HTTP_PORT: "3000"

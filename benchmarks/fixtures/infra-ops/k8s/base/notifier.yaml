@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifier
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  selector:
+    matchLabels:
+      app: notifier
+  template:
+    metadata:
+      labels:
+        app: notifier
+    spec:
+      containers:
+        - name: notifier
+          image: registry.larder.example/larder/notifier@sha256:f3a41bc09b9b16d828f8b54efd54e21bae958d3780adce46344605a7b45cd120
+          args: ["node", "dist/notifier.js"]
+          env:
+            - name: SMS_PROVIDER_URL
+              value: https://sms.partner.example/v2/messages
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: notifier
+spec:
+  scaleTargetRef:
+    name: notifier
+  minReplicaCount: 1
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: https://sqs.eu-central-1.amazonaws.com/000000000000/larder-notifications
+        queueLength: "20"
+        awsRegion: eu-central-1
+        identityOwner: operator
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notifier
+spec:
+  minAvailable: 1
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app: notifier

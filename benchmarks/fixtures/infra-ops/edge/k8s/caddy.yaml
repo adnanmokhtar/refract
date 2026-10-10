@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: caddy-edge
+  namespace: edge
+  annotations:
+    secret.reloader.stakater.com/reload: "valkey-app"
+spec:
+  selector:
+    matchLabels:
+      app: caddy-edge
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: caddy-edge
+    spec:
+      containers:
+        - name: caddy
+          image: registry.larder.example/larder/caddy@sha256:f9d9553aeb891ce70adc6c0c68870794de3926956fa8350322d58ebdcd617192
+          args: ["caddy", "run", "--config", "/etc/caddy/shop.caddy", "--adapter", "caddyfile", "--watch"]
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          env:
+            - name: VALKEY_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-app
+                  key: password
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 256Mi
+          livenessProbe:
+            tcpSocket:
+              port: https
+          readinessProbe:
+            tcpSocket:
+              port: http
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          volumeMounts:
+            - name: config
+              mountPath: /etc/caddy
+      volumes:
+        - name: config
+          configMap:
+            name: caddy-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: caddy-edge
+  namespace: edge
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+spec:
+  type: LoadBalancer
+  selector:
+    app: caddy-edge
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+    - name: https
+      port: 443
+      targetPort: https
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: caddy-edge
+  namespace: edge
+spec:
+  minAvailable: 2
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels:
+      app: caddy-edge

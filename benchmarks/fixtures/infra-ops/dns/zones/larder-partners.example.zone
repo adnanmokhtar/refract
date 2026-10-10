@@ -1,0 +1,11 @@
+; larder-partners.example — exported from Cloudflare (2026-10-01). Partner-facing sites served by caddy-edge,
+; certificates issued by Caddy's ACME client (edge/caddy/shop.caddy).
+$ORIGIN larder-partners.example.
+$TTL 3600
+@        IN SOA   ns1.cloudflare.example. dns.larder.example. 2026100101 7200 3600 1209600 300
+@        IN NS    ns1.cloudflare.example.
+@        IN NS    ns2.cloudflare.example.
+@        IN CAA   0 issue "sectigo.com"
+@        IN CAA   0 iodef "mailto:security@larder.example"
+partners IN CNAME caddy-edge-nlb-0f3e2d1c.elb.eu-central-1.amazonaws.com.
+status   IN CNAME larder-status.herokuapp.com.

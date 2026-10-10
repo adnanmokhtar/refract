@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: larder-dev
+  namespace: argocd
+spec:
+  project: larder
+  source:
+    repoURL: https://git.larder.example/platform/larder.git
+    targetRevision: deploy/dev
+    path: k8s/overlays/dev
+  destination:
+    server: https://dev.k8s.larder.example
+    namespace: larder
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true

@@ -1,0 +1,13 @@
+autoscaling:
+  maxReplicas: 16
+resource:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    memory: 512Mi
+pdb:
+  enabled: true
+  maxUnavailable: 1
+config:
+  featureFlags: "checkout-v2"
