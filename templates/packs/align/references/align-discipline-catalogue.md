@@ -206,7 +206,7 @@ These references are **convenience pointers for AI tools that support them**. Th
 - `frontend/rules/migration-frontend.md` — frontend-specific anti-pattern catalogue (extends align).
 - `frontend/agents/accessibility-auditor.md` — dispatched for `frontend-*` a11y class.
 - `frontend/agents/i18n-auditor.md` — dispatched for `frontend-*` i18n class.
-- `frontend/agents/data-flow-auditor.md` — dispatched for `frontend-*` UI-state class.
+- `ui-ux/skills/ui-state-scan/SKILL.md` — dispatched for `frontend-*` UI-state class (ui-ux pack, when installed; otherwise the class is `NOT RUN`).
 - `ui-ux/skills/design-token-audit/SKILL.md` — dispatched for `frontend-*` token class.
 - `ui-ux/skills/motion-audit/SKILL.md` — dispatched for `frontend-*` motion class.
 - `backend/rules/migration-backend.md` — backend-specific anti-pattern catalogue (extends align).
@@ -240,7 +240,7 @@ For any `PROJECT_KIND in {frontend-*}`, the align scan MUST dispatch UI/UX detec
 | **design-token drift** | hardcoded color hex / rgb / hsl, hardcoded spacing / font-size / radius, raw Tailwind utility where the project's token alias exists, inline `style="color: #..."` | `replace-with-shared` (swap raw value for the design token named in `_extracted-idioms.md`) | `ui-ux/skills/design-token-audit/SKILL.md` |
 | **i18n key drift** | hardcoded user-visible string in markup (no `t('...')` / `$t('...')` / `useTranslation` call), orphan locale key (defined in JSON but no resolver), missing key (resolver call resolves to literal), namespace casing mismatch | `replace-with-shared` (swap hardcoded string for translation key) OR `remove` (orphan key in locale JSON) | `frontend/agents/i18n-auditor.md` + `frontend/commands/i18n-audit.md` |
 | **raw library component used in app code** | a raw component from the project's UI library (e.g., button / modal / input / table) used directly in a page where the project's wrapper equivalent exists (per `_extracted-idioms.md` — concrete library and wrapper names vary by stack) | `replace-with-shared` (swap raw component for project wrapper) | universal `reinvented-wrapper` detector + frontend's gold-standard inventory |
-| **missing UI state** | data-fetching component with no loading state OR no empty state OR no error state (hooks/composables that fetch data without surfacing the 3 states the project's standard fetch wrapper provides) | `replace-with-shared` (route through the project's standard fetch wrapper named in `_extracted-idioms.md`) | `frontend/agents/data-flow-auditor.md` |
+| **missing UI state** | data-fetching component with no loading state OR no empty state OR no error state (hooks/composables that fetch data without surfacing the 3 states the project's standard fetch wrapper provides) | `replace-with-shared` (route through the project's standard fetch wrapper named in `_extracted-idioms.md`) | `ui-ux/skills/ui-state-scan/SKILL.md` (§1–§3; ui-ux pack, when installed) |
 | **motion / transition drift** | hardcoded `transition: all 0.3s` / inconsistent easing curves / missing `prefers-reduced-motion` guard / animation defined inline where the project has a token system | `replace-with-shared` (swap inline motion for project's motion token) | `ui-ux/skills/motion-audit/SKILL.md` |
 | **responsive breakpoint drift** | hardcoded `min-width: 768px` where the project has named breakpoints (`tablet`, `desktop`); responsive-only-at-page-level where the component should adapt; `display: none` for mobile-hide where the project's responsive utility exists | `replace-with-shared` (swap raw media query for project breakpoint utility) | `ui-ux` pack detector OR custom grep |
 | **duplicated surface styles** | same affordance (button / card / badge / input / list-row) carries similar inline or scoped styling across **≥ 2** leaf pages or routes with no shared wrapper extracting it; detected by shape / component usage + style-rule similarity per `_extracted-idioms.md` | `extract-to-shared` (introduce or reuse the wrapper named in idioms; rewire callers) OR fold styles into the shared token / wrapper variant — see `ui-ux/commands/enhance-ui.md` Phase 1.5 | `/enhance-ui` orchestration + `frontend/agents/ui-architect.md` |
@@ -253,7 +253,7 @@ For any `PROJECT_KIND in {frontend-*}`, the align scan MUST dispatch UI/UX detec
 In addition to the universal 7 detectors, `/align-scan` runs:
 1. `accessibility-auditor` agent — full repo a11y scan
 2. `i18n-auditor` agent — locale-tree drift + orphan keys
-3. `data-flow-auditor` agent — UI-state coverage
+3. `ui-state-scan` skill — UI-state coverage (ui-ux pack, when installed; otherwise `NOT RUN`)
 4. `design-token-audit` skill — token drift
 5. `motion-audit` skill — animation drift
 6. Per-stack pack's `migration-frontend.md` fingerprint set (if the frontend pack is loaded) — Transposition Trap, default-true props, permission-gate drop, reinvented wrappers

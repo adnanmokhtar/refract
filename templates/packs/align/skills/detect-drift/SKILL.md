@@ -275,7 +275,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 2. **Classify each site**: routed through the project's wrapped I/O primitive / error boundary? → not a finding. Raw call?
 3. **Trace the failure path for raw calls**: is the error surfaced — handler call, error-return checked, rejection awaited-and-handled, UI error state wired? Does the medium need a timeout and is one set?
 4. **Cross-check the caller chain before flagging**: a raw call whose CALLER handles the rejection is NOT a finding (cite the handling site in `notes`); a raw call whose only "handler" is a top-level crash logger IS one.
-5. **Skip frontend fetch-in-component sites** — those belong to the `missing UI state` sub-class (frontend stack-conditional detector). This universal detector covers the non-UI layers: services, jobs, queue handlers, CLI paths, scripts.
+5. **Skip frontend fetch-in-component sites** — those belong to the `missing-ui-state` sub-class (`ui-state-scan`, ui-ux pack, when installed — Step 3). This universal detector covers the non-UI layers: services, jobs, queue handlers, CLI paths, scripts.
 
 **Closure verb suggestion**: `replace-with-shared` (route through the project's wrapped I/O primitive — the wrapper provides the error path / timeout / failure surfacing). If no wrapped primitive exists for that I/O medium: halt → `/setup-project --refine`; do NOT hand-roll per-site try/catch.
 
@@ -291,6 +291,7 @@ The orchestrator (`/align-scan`) merges these into the canonical ledger, assigni
 STACK — RAN <M> of <T> stack-conditional detectors (PROJECT_KIND=<kind>)
   SKIP — design-token-audit NOT RUN (ui-ux pack not installed)
   SKIP — motion-audit       NOT RUN (ui-ux pack not installed)
+  SKIP — ui-state-scan      NOT RUN (ui-ux pack not installed)
 ```
 
 `<T>` is the count for the resolved `PROJECT_KIND` lane, not the total across lanes. A run whose `<M>` is below `<T>` lists every reason. This line is emitted alongside `RAN <N> of 11` and never in place of it — the universal set and the stack set have separate denominators, and a full universal line has never said anything about the stack lane.
@@ -298,7 +299,7 @@ STACK — RAN <M> of <T> stack-conditional detectors (PROJECT_KIND=<kind>)
 For `PROJECT_KIND in {frontend-*}`:
 - Dispatch `accessibility-auditor` (a11y).
 - Dispatch `i18n-auditor` (i18n key drift).
-- Dispatch `data-flow-auditor` (UI state coverage).
+- Dispatch `ui-state-scan` skill (ui-state coverage → `missing-ui-state`; ui-ux pack, when installed). Align takes only its Findings whose fix routes the surface through the shared state or fetch wrapper `_extracted-idioms.md` names (`replace-with-shared`); a state the project has no wrapper for is introduced by `/polish`, not aligned. Without the ui-ux pack the class prints `SKIP — ui-state-scan NOT RUN (ui-ux pack not installed)` and emits no `missing-ui-state` row.
 - Dispatch `design-token-audit` skill (token drift).
 - Dispatch `motion-audit` skill (motion drift).
 - Apply `frontend/rules/migration-frontend.md` fingerprint set (lifecycle hooks, default-true wrapper props, permission-gate drop, raw library components).

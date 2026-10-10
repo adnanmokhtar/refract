@@ -289,7 +289,7 @@ Align owned no agents until 1.9.0. The commands dispatched *other packs'* detect
 
 ## Per-stack additions
 
-- For `PROJECT_KIND in frontend-*`: also load `frontend/agents/{accessibility-auditor, i18n-auditor, data-flow-auditor}` and `ui-ux/skills/{design-token-audit, motion-audit}`. These are referenced by `align-discipline.md § Per-stack extensions` AND dispatched by `detect-drift` for the UI/UX sub-classes.
+- For `PROJECT_KIND in frontend-*`: also load `frontend/agents/{accessibility-auditor, i18n-auditor}` and `ui-ux/skills/{design-token-audit, motion-audit, ui-state-scan}`. These are referenced by `align-discipline.md § Per-stack extensions` AND dispatched by `detect-drift` for the UI/UX sub-classes.
 - For `PROJECT_KIND in backend-*`: also load `security/agents/security-auditor` (universal, but heavily used in backend) and any `backend/rules/*.md` that defines fingerprints.
 - For `PROJECT_KIND in data-*`: load `database/skills/migration-rehearsal/SKILL.md` for the `add-index` verb's `EXPLAIN ANALYZE` step.
 - For `PROJECT_KIND in mobile-*`: load `mobile/skills/native-bridge-audit/SKILL.md`.

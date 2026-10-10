@@ -9,6 +9,28 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.0 — 2026-10-10
+
+**`/bundle-perf` dispatches the frontend owners for every row; its interim lanes are gone.**
+
+- **`commands/bundle-perf.md` re-pointed.** The interim greps P2–P5 are removed; their rows now run
+  the frontend owner (*when the frontend pack is installed*; without it each row prints
+  `N/A (owner pack frontend not installed)` and the verdict caps at `GO-UNVERIFIED`): L2
+  render-blocking `<head>` → `critical-path-scan` §1, I3 third parties → `critical-path-scan` §2,
+  B4 legacy targets → `bundle-analyze` §6, B5 dev-only build code → `bundle-analyze` §7, B2 →
+  `bundle-analyze` §4–§5, W1 waterfalls → `client-data-scan` §1 (`@data-flow-auditor` judges a W1
+  finding on a named page). X1 had no owner and printed `blocked`; it now runs
+  `render-correctness-scan` §2 (SPA memory) and `critical-path-scan` §3 (late-inserted CLS). New
+  rows L4 (below-fold images not lazy, `image-optimization` §4), L5 (LCP component behind `lazy()`,
+  `code-splitting` detector 7) and I4 (virtualized-list defects, `list-virtualization` detectors
+  4–7). LHCI oracles name the Lighthouse 12.6.1 audit and its Lighthouse 13 insight id.
+- **Stale owners removed from the rest of the pack.** `ai-patterns/inp-responsiveness.md` and
+  `ai-patterns/lazy-loading.md` sent third-party long tasks to "`/bundle-perf` interim lane P3";
+  they cite `critical-path-scan` §2. `/perf-audit`'s dispatch row and class ledger name the new
+  owners and rows (L1–L5, I1–I4) instead of "interim lanes"; `/perf-fix`'s browser row names the
+  owning skills. `request-path-scan` routes N requests from the browser to `client-data-scan` §1.
+  The `_examples/` cuts of `perf-audit` and `inp-responsiveness` carry the same lines.
+
 ## 2.1.0 — 2026-10-05
 
 **profile-endpoint registers hot paths as `performance` baselines (architecture proposal §7, Phase 5).**

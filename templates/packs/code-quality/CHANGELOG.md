@@ -9,6 +9,14 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-10
+
+**`correctness-smell-scan` § Related named one of the three frontend owners its Boundaries route to.**
+Boundaries send client cache staleness to `client-data-scan` §4, UI request races to
+`client-data-scan` §3 and route-param races to `routing-scan` §8; Related listed only
+`@data-flow-auditor`. It now lists `client-data-scan` (§3, §4, judged by `@data-flow-auditor`) and
+`routing-scan` (§8), when the frontend pack is installed.
+
 ## 2.0.0 — 2026-10-05
 
 **The pack reviewed, refactored and gated; nothing in it detected a correctness defect.** It had no

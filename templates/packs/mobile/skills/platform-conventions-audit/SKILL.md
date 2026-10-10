@@ -308,7 +308,7 @@ Roots: 6 · Devices: emulator-5554 (API 36, gesture nav); no iOS simulator → i
    Unproven link: no API 36 capture of the affected screens. Fix: remove the opt-out; apply insets (useSafeAreaInsets).
 
 Verification: 24 candidates → 2 findings · 1 unconfirmed · 3 hardening · 0 pre-existing · 18 refuted
-Routed: §3 → mobile-a11y-scan § 3 · §10 2 rows → /mobile-fix
+Routed: §3 → mobile-a11y-scan § 3 · this skill's §10 (navigation stack) 2 rows → /mobile-fix
 
 Class coverage:
   §1  iOS back / modal          checked (2 hits → 0 findings; 1 Unconfirmed — no simulator)

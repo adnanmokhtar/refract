@@ -151,7 +151,7 @@ One row per class family, sourced from each owner's coverage block. **The list i
 | Doubles and seams | SUT mocked · unchecked doubles · doubles of what the project does not own · engine substitution · test seams in shipped code · special-cased test inputs | `test-double-scan` § 1–§ 6 |
 | Risk coverage | changed lines or files unexecuted · guarded route with no denial test · error never asserted · critical module untested · route-level gap · fix without a regression test | `coverage-gap` § 1–§ 5, § 7 |
 | Contracts | consumed API with no contract test · pact never verified or gated | `coverage-gap` § 6 → `contract-test` |
-| Measured strength | surviving mutant · boundary · error path · pseudo-tested method · executed but unchecked | `mutation-probe` § 1–§ 5 |
+| Measured strength | surviving mutant · boundary · error path · pseudo-tested method · executed but unchecked | `mutation-probe` § Scans for, rows 1–5 |
 | Input space | example-only pure functions (candidates, never findings) | `property-invariants` |
 | Diff weakening | deleted test or case · fewer assertions · new skip / only / xfail · lowered coverage floor · removed CI test step | `test-integrity.py` (diff runs; `N/A (whole-repo: diff-time class)` otherwise) |
 | Suite run | the suite's state at the start, per config, with time per layer | `/run-tests` (transcribed, never composed) |

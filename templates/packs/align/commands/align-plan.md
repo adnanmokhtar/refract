@@ -61,7 +61,7 @@ For `PROJECT_KIND in {frontend-*}`, a typical phase order is:
 | 2 | Mechanical cleanup | silent-catch | trivial-only |
 | 3 | Auth domain UI/UX | a11y + design-tokens + i18n + raw-library-component (auth pages only) | trivial + standard |
 | 4 | Core flow UI/UX | a11y + design-tokens + i18n (dashboard / list pages) | trivial + standard |
-| 5 | Data-fetch states | missing-ui-state (any page that fetches data) | trivial + standard |
+| 5 | Data-fetch states | missing-ui-state (any page that fetches data; found by `ui-state-scan` when the ui-ux pack is installed — without it the class is NOT RUN and this phase is omitted) | trivial + standard |
 | 6 | Reinvented wrappers | reinvented-wrapper (cross-domain) | standard |
 | 7 | Lifecycle / permission gates | lifecycle-hook-wrong + permission-gate-drop + default-true-prop | standard + heavy |
 | 8 | Drift cleanup | drift (cross-cutting conventions) | standard + heavy |

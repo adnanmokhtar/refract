@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "1.12.0",
-  "released": "2026-10-05",
+  "version": "1.12.1",
+  "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "silent-catch reclassed functional (a swallow's fix changes behaviour, so it is proved failing-first, not net-lines ≤ 0); detect-drift dispatches the code-quality detectors (dead-code-scan, duplication-scan, error-handling-scan, architectural-diagnosis § 9) for Detectors 1, 2, 4, 8 and 11.",
+  "summary": "missing-ui-state dispatches ui-state-scan (ui-ux pack, when installed; otherwise NOT RUN) instead of @data-flow-auditor, in detect-drift, /align-scan, /align-plan and the discipline catalogue.",
   "changelog": "CHANGELOG.md"
 }

@@ -24,6 +24,18 @@ violations, clean-code violations, performance issues, security weaknesses, and 
 (happy-path-only call sites). Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design
 tokens, i18n, motion) automatically. Phased + parallel dispatch like /migration-fast.
 
+## 1.12.1 — 2026-10-10
+
+**`missing-ui-state` was dispatched to an agent that no longer owns it.** `detect-drift` Step 3,
+`/align-scan`, `align-discipline-catalogue.md`, `_essentials.md` and `_topics.md` sent the UI-state
+class to frontend `@data-flow-auditor`, which now judges client cache and request findings, not
+whether a surface renders its loading, empty and error states. The class now dispatches
+`ui-state-scan` (§1–§3 for the loading / empty / error triad) **when the ui-ux pack is installed**;
+without it the class prints `SKIP — ui-state-scan NOT RUN (ui-ux pack not installed)`, `/align-scan`'s
+summary row says so instead of a 0, and `/align-plan` omits the data-fetch-states phase. Align still
+takes only the findings whose fix routes the surface through a shared wrapper `_extracted-idioms.md`
+names; a state the project has no wrapper for is `/polish`'s.
+
 ## 1.12.0 — 2026-10-05
 
 **`silent-catch` was graded as a structural, behaviour-preserving cleanup, and it is neither.**

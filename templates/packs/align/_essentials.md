@@ -88,8 +88,8 @@ Align:      /align-scan      → /align-plan      → /align-fast 1     → /ali
 - **code-quality** pack — align inherits the closure-verb vocabulary from `simplify` and dispatches `dead-code-finder` / `refactorer` / `code-reviewer` during scan.
 - **performance** pack — `performance-optimizer` is dispatched for the performance finding class. It lives at `performance/agents/performance-optimizer.md`, NOT in `code-quality/agents/` (which several align files claimed through 1.8.2). When the performance pack is not loaded, the perf detector falls back to the project's own profiler / query log and the row still requires a baseline in `notes`.
 - **security** pack — align dispatches `security-auditor` agent + `deps-audit` skill for the security finding class.
-- **frontend** pack — align dispatches `accessibility-auditor` / `i18n-auditor` / `data-flow-auditor` for `frontend-*` projects, and applies `migration-frontend.md`'s fingerprint set.
-- **ui-ux** pack — align dispatches `design-token-audit` + `motion-audit` skills for `frontend-*`.
+- **frontend** pack — align dispatches `accessibility-auditor` / `i18n-auditor` for `frontend-*` projects, and applies `migration-frontend.md`'s fingerprint set.
+- **ui-ux** pack — align dispatches `design-token-audit` + `motion-audit` + `ui-state-scan` skills for `frontend-*`; without the pack those classes print `NOT RUN`.
 - **migration** pack — sibling discipline; if both packs are active, alignment fixes never use V1's old shape (V2 gold standards win for align).
 - **backend** pack — align applies backend-specific anti-patterns (tenant-gate, transaction-boundary).
 - **mobile** pack — align dispatches `native-bridge-audit` for `mobile-*`.

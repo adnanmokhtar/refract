@@ -150,7 +150,7 @@ The detector dispatch is parallel where independent. Orchestration:
    (parallel waves)         (parallel waves)         (sequential after)
         |                         |
    STRUCTURAL (6):                 frontend-*:
-   1. dead-code                      a11y, i18n, design-tokens, motion, data-flow,
+   1. dead-code                      a11y, i18n, design-tokens, motion, ui-state,
    2. duplicates                     lifecycle, default-true-prop, permission-gate
    3. reinvented-wrapper           backend-*:
    4. silent-catch                   tenant-gate, transaction-boundary, query-without-tenant
@@ -280,7 +280,7 @@ Detectors run: <list>
 | design-token-drift | <N> | <T> | <S> | <H> |
 | i18n-key-drift | <N> | <T> | <S> | <H> |
 | raw-library-component | <N> | <T> | <S> | <H> |
-| missing-ui-state | <N> | <T> | <S> | <H> |
+| missing-ui-state *(`ui-state-scan`, ui-ux pack; without it `SKIP — NOT RUN`, never 0)* | <N> | <T> | <S> | <H> |
 | motion-drift | <N> | <T> | <S> | <H> |
 | responsive-drift | <N> | <T> | <S> | <H> |
 | lifecycle-hook-wrong | <N> | <T> | <S> | <H> |
@@ -434,7 +434,7 @@ A rejection rate above ~20% is a signal about the detector or the oracle, not ab
 - No hand-wave tokens (`etc.`, `...`, `several`, `multiple`) in any field.
 - Every row has a `closure_verb` in the universal vocabulary.
 - Every row has a `tier` ∈ `{trivial, standard, heavy}` matching the promoter rules in `align-discipline.md`.
-- All 11 universal detectors ran, or each that did not carries a `SKIP — <class> NOT RUN (<reason>)` line; the summary states `<N> of 11 ran`. For frontend stacks: + a11y / i18n / design-token / data-flow / motion. For backend stacks: + tenant-gate / N+1 / transaction-boundary.
+- All 11 universal detectors ran, or each that did not carries a `SKIP — <class> NOT RUN (<reason>)` line; the summary states `<N> of 11 ran`. For frontend stacks: + a11y / i18n / design-token / ui-state / motion. For backend stacks: + tenant-gate / N+1 / transaction-boundary.
 - Every security finding has `severity ∈ {low, medium, high, critical}`.
 - Every security finding has `tier ≥ standard` (no security-trivial rows).
 - Every functional finding (SOLID / clean-code / perf / security) has `idiom_cited` resolving to an entry in `_extracted-idioms.md`.
@@ -543,10 +543,10 @@ Every row in the output must be re-derivable by another reader given the same co
 - `code-quality/agents/refactorer.md` — dispatched in detect-only mode for over-abstraction.
 - `frontend/agents/accessibility-auditor.md` — dispatched for `frontend-*`.
 - `frontend/agents/i18n-auditor.md` — dispatched for `frontend-*`.
-- `frontend/agents/data-flow-auditor.md` — dispatched for `frontend-*`.
 - `performance/agents/performance-optimizer.md` — dispatched for the performance class. Lives in the **performance** pack, not code-quality. Without that pack, the perf detector falls back to the project's profiler / query log; the row still requires a baseline in `notes`.
 - `ui-ux/skills/design-token-audit/SKILL.md` — dispatched for `frontend-*`.
 - `ui-ux/skills/motion-audit/SKILL.md` — dispatched for `frontend-*`.
+- `ui-ux/skills/ui-state-scan/SKILL.md` — dispatched for `frontend-*` (the `missing-ui-state` class); without the ui-ux pack the class is `NOT RUN`.
 - `frontend/rules/migration-frontend.md` — frontend fingerprint set for stack-anti-pattern detector.
 - `backend/rules/migration-backend.md` — backend fingerprint set for stack-anti-pattern detector.
 

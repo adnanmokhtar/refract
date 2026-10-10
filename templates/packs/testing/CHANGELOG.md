@@ -9,6 +9,13 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.1 — 2026-10-10
+
+**Two citations to `mutation-probe` named sections that are not headings.** `/test-audit`'s class
+ledger and `/test-fix`'s proof table cited `mutation-probe` "§ 1–§ 5"; those are the numbered rows of
+its `## Scans for` table (a harness skill, like `contract-test` and `property-invariants`, carries
+no `### N.` detector headings). Both now cite `mutation-probe` § Scans for, rows 1–5.
+
 ## 2.1.0 — 2026-10-05
 
 **"Behaviour preserved" was a claim; it is now a comparison** (architecture proposal §7, Phase 5).

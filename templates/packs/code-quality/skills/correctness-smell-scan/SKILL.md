@@ -474,6 +474,6 @@ skill meets most:
 
 - `/quality-audit` dispatches this skill and folds its coverage block into the class ledger; `/quality-fix` closes the findings failing-first and re-runs this detector on the patched line.
 - `error-handling-scan`, `type-safety-scan`, `dead-code-scan`, `duplication-scan` and `suppression-scan` (this pack) own the neighbouring classes; a suppressed rule from the lane table above is `suppression-scan` § 2.
-- Security `logic-race-scan`, `injection-scan` and `sast-scan`, database `transaction-scan` and `schema-integrity-scan`, frontend `@data-flow-auditor` and testing `flake-source-scan` own the routed classes, when those packs are installed (§ Boundaries).
+- Security `logic-race-scan`, `injection-scan` and `sast-scan`; database `transaction-scan` and `schema-integrity-scan`; frontend `client-data-scan` (§3, §4, judged by `@data-flow-auditor`) and `routing-scan` (§8); testing `flake-source-scan` — these own the routed classes when their packs are installed (§ Boundaries).
 
 Rule ids, tool versions and the CQ-C class ids come from the code-quality research catalog for this pack (2026-10-05).

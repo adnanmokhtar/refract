@@ -115,7 +115,7 @@ Reading layout (`offsetWidth`, `getBoundingClientRect`) right after writing to t
 | Input delay during hydration | `ssr-audit` § Client-boundary cost, `streaming-ssr` §1 *(frontend pack, when installed)* |
 | DOM size: unvirtualized lists, grids, infinite scroll | `list-virtualization` detectors 1–3; index keys on windowed rows: detector 4 *(frontend pack, when installed)* |
 | Render storm from a high-frequency stream | `realtime-client` detector 6 *(frontend pack, when installed)* |
-| Third-party long tasks | `/bundle-perf` interim lane P3 (this pack) |
+| Third-party long tasks | `critical-path-scan` §2 *(frontend pack, when installed)* |
 | Animating layout or paint properties | `motion-audit` § 2 *(ui-ux pack, when installed)* |
 | The field oracle for every row | `web-vitals-field` § Attribution fields (this pack) |
 

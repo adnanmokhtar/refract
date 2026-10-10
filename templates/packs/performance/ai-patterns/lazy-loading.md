@@ -52,7 +52,7 @@ The tiers below have no other owner, so their rules and detectors live here.
 | Tier | Examples | Strategy |
 |---|---|---|
 | **Off-screen videos** | Tutorials, hero videos that auto-play | `preload="none"` + autoplay-on-intersection. |
-| **Third-party scripts** | Chat widget, ad scripts, analytics, A/B testing | Load on user gesture, after first interaction, or in idle time; guard against double-load. Detection: `/bundle-perf` interim lane P3. |
+| **Third-party scripts** | Chat widget, ad scripts, analytics, A/B testing | Load on user gesture, after first interaction, or in idle time; guard against double-load. Detection: `critical-path-scan` §2 (frontend pack, when installed; `/bundle-perf` row I3 dispatches it and prints that row N/A without the pack). |
 | **Modal / drawer contents** | Account settings dialog, share sheet | Render the shell; fetch and mount the body on open (the component split itself is `code-splitting` detector 1). |
 | **Server data not needed yet** | Tab content not currently selected | Fetch on tab activate. |
 | **Hydration scheduling (interactive islands)** | Counter widget, accordion, carousel, comment box | Hydrate only what is interactive, and schedule when (§ Hydration scheduling). |

@@ -87,7 +87,7 @@ Universal routing: see [`templates/snippets/intent-gate-skeleton.md`](../../../s
 | Unexecuted line or file; critical module untested; route-level gap; fix without a regression test (`coverage-gap` § 1, § 4, § 5, § 7) | Coverage inventory, then break the SUT (V54) | A test that executes **and** pins the line; for § 7, one that fails on the fix's parent source |
 | Guarded route with no denial test; error never asserted (`coverage-gap` § 2, § 3) | Seeded violation (V71) | A negative test per role, tenant, token state and mapped error. Red on current code means the guard does not hold: `/security-fix` (security pack, when installed) or `/fix-bug`, tagged `security-class` |
 | Consumed API with no contract test (`coverage-gap` § 6) | The `contract-test` skill's verification | Hand to `contract-test` |
-| Surviving mutant; boundary; error path; pseudo-tested (`mutation-probe` § 1–§ 5) | Mutant kill (V66) — `mutation-probe` § Evidence row | The killing assertion, which also kills the non-equivalent siblings on that line |
+| Surviving mutant; boundary; error path; pseudo-tested (`mutation-probe` § Scans for, rows 1–5) | Mutant kill (V66) — `mutation-probe` § Evidence row | The killing assertion, which also kills the non-equivalent siblings on that line |
 
 ## Phase 3 — Retrieve
 
