@@ -247,7 +247,7 @@ hold in mind on every task.
 - **Secrets:** `gitleaks` / `trufflehog` as a pre-commit hook *and* a CI job — the hook catches the
   author, the job catches everyone who bypassed the hook.
 - **Images:** `hadolint` lints the Dockerfile, `dive` measures layer waste, `trivy` / `grype` scan
-  the built image. The `dockerfile-lint` and `release-security` skills execute these two halves.
+  the built image. The `container-build-scan` and `release-security` skills execute these two halves.
 - **Dependency updates:** Renovate or Dependabot, grouped by ecosystem. Auto-merge patch bumps on
   green tests; auto-merging a *major* is how a breaking change reaches main unattended. SHA-pinned
   actions only stay current because one of these is running.

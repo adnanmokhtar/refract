@@ -60,7 +60,7 @@ Security: `secret-scan`, `deps-audit`, `threat-model`.
 Performance: `profile-endpoint`.
 Observability: `alert-audit`.
 Frontend: `visual-check`, `ssr-audit`, `lighthouse-ci`, `bundle-analyze`, `a11y-audit`, `i18n-audit`.
-Infrastructure: `k8s-audit`, `dockerfile-lint`.
+Infrastructure: `k8s-audit`, `container-build-scan`.
 Distributed: `chaos-test`.
 
 ### Commands (40+)

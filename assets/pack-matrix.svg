@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1040" height="916" viewBox="0 0 1040 916" role="img" aria-label="Refract pack matrix: twenty-four role-based packs and the agents, skills, commands and rules each contributes">
 <title>Refract pack matrix: twenty-four role-based packs and the agents, skills, commands and rules each contributes</title>
-<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 97 agents, 178 skills, 153 pack commands, 28 rules.</desc>
+<desc>File counts measured on disk for each pack's agents, skills, commands and rules. Totals: 97 agents, 182 skills, 153 pack commands, 28 rules.</desc>
 <rect x="0" y="0" width="1040" height="916" rx="10" fill="#f7f9fb" stroke="#d5dce5" stroke-width="1"/>
 <text x="28" y="46" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="21" fill="#161b22" font-weight="700">Twenty-four role-based packs</text>
 <text x="28" y="70" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="12.5" fill="#6b7684" font-weight="400">Work is organised by role, not by framework — one api-architect works for every backend. /setup-project selects packs</text>
@@ -149,9 +149,9 @@
 <text x="268" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="375" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="375" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">8</text>
+<text x="352" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">10</text>
 <rect x="358" y="375" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="375" width="16.8" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="375" width="21" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="383" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="375" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="375" width="8" height="5" rx="2.5" fill="#5b3d99"/>
@@ -222,9 +222,9 @@
 <text x="268" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">3</text>
 <rect x="274" y="505" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="274" y="505" width="18" height="5" rx="2.5" fill="#1a5fb4"/>
-<text x="352" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">12</text>
+<text x="352" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">14</text>
 <rect x="358" y="505" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
-<rect x="358" y="505" width="25.2" height="5" rx="2.5" fill="#0f6b52"/>
+<rect x="358" y="505" width="29.4" height="5" rx="2.5" fill="#0f6b52"/>
 <text x="436" y="513" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#3d4754" font-weight="600" text-anchor="end">4</text>
 <rect x="442" y="505" width="42" height="5" rx="2.5" fill="#e7ecf2"/>
 <rect x="442" y="505" width="8" height="5" rx="2.5" fill="#5b3d99"/>
@@ -367,7 +367,7 @@
 <line x1="28" y1="762" x2="1012" y2="762" stroke="#d5dce5" stroke-width="1.2"/>
 <text x="28" y="784" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="11.5" fill="#161b22" font-weight="700">TOTAL</text>
 <text x="268" y="784" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">97</text>
-<text x="352" y="784" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">178</text>
+<text x="352" y="784" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">182</text>
 <text x="436" y="784" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">153</text>
 <text x="520" y="784" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="12" fill="#161b22" font-weight="700" text-anchor="end">28</text>
 <text x="568" y="784" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif" font-size="11" fill="#3d4754" font-weight="400">24 packs · 115 ai-patterns and 34 framework references not counted</text>

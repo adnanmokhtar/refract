@@ -87,8 +87,8 @@ If repo has DB / Redis dep AND no compose → generate `docker-compose.yml` for 
 
 ## Phase 6 — Validate
 
-Dispatch `dockerfile-lint` on the generated Dockerfile first. A BLOCK finding (`:latest`, final
-`USER root`, baked secret) halts before the smoke test. After the image builds in release/CI,
+Dispatch `container-build-scan` on the generated Dockerfile first. Any finding (a root or empty-ARG
+user, shell-form PID 1 on a dash base, an unfrozen install, a HEALTHCHECK binary the base lacks) halts before the smoke test. After the image builds in release/CI,
 dispatch `release-security` on the built image (CVE scan + SBOM + digest signing + provenance).
 
 Then smoke-test against `$PORT` / `$HEALTH_PATH` — the container must be **named** (nothing to read
@@ -132,7 +132,7 @@ Files:
   .dockerignore    new
   docker-compose.yml   new (postgres + redis for local dev)
 
-dockerfile-lint: PASS  (hadolint clean; non-root, multi-stage, pinned base, HEALTHCHECK)
+container-build-scan: 0 findings  (§1–§10 checked; --check and hadolint ran; non-root, exec-form PID 1, frozen install, HEALTHCHECK binary present)
 Smoke test: PASS  (200 from $HEALTH_PATH on $PORT in 4.2s)
 
 Image:  app:test  142MB  (builder discarded; 6 runtime layers)

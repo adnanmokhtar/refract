@@ -229,7 +229,7 @@ GOOD:  FROM node:22.11-slim@sha256:<digest>
 
 Severity: secret file or secret build-arg in a pushed image **critical** (hand the value to `secret-scan`); root final stage **high** (mitigated by the base's `USER` or the pod's securityContext → hardening); `curl | sh`, `bash <(curl …)` / `ADD` URL **high**; unpinned build-time module into an internet-facing binary **medium**; floating base **medium**. A02 / A08:2025 · CWE-250, 522, 538, 494, 829.
 
-When the devops pack is installed, also dispatch its `dockerfile-lint` skill (multi-stage, `.dockerignore`, `docker history` inspection of a real build) and `release-security` (image CVEs, SBOM, signature). Without it, this detector reports the Dockerfile only, and the ledger says `built image: not scanned`.
+When the devops pack is installed, also dispatch its `container-build-scan` skill (stage chain, PID 1, lockfile, HEALTHCHECK, `--check`/hadolint lane, `docker history`) and `release-security` (image CVEs, SBOM, signature). Without it, this detector reports the Dockerfile only, and the ledger says `built image: not scanned`.
 
 ### 2. Compose — what the host exposes and hands to containers
 
@@ -436,6 +436,6 @@ Measured on the sample described in § Premise:
 - `/security-audit` — dispatches this skill in § Phase 2 — Organize; its § Class coverage ledger takes this skill's coverage block as the "Container, orchestration, cloud IAM, CI, reverse-proxy config" row, and § Phase 6 — Validate rates the suppression list.
 - `sast-scan` — owns semgrep on application code; this skill runs the IaC rulesets. `secret-scan` — owns every secret value and its rotation. `ssrf-scan` — § 6 there is the code half of the IMDSv1 finding. `data-exposure-scan` — an `.env` or backup reachable over HTTP.
 - `/security-live-scan` — what the running edge actually serves (TLS handshake, headers, exposed paths); this skill reads the config that should produce it.
-- `ci-security-scan` (same pack) — every CI attacker-path class on six platforms (§ 5). devops pack, when installed — `dockerfile-lint` and `release-security` (§ 1, § 7); `@ci-reviewer` judges delivery-integrity rows through `ci-security-scan`'s boundary.
+- `ci-security-scan` (same pack) — every CI attacker-path class on six platforms (§ 5). devops pack, when installed — `container-build-scan` and `release-security` (§ 1, § 7); `@ci-reviewer` judges delivery-integrity rows through `ci-security-scan`'s boundary.
 - infrastructure pack, when installed — `@k8s-reviewer` and `admission-policy` (§ 3); `/audit-iam`, `tf-plan-review` and `network-exposure-audit` (§ 4, § 6).
 - `@security-auditor` — its A02 rows (S3 public, `hostNetwork`, privileged containers) are the surface pass this skill executes; its A03 build-integrity row is `release-security`'s.

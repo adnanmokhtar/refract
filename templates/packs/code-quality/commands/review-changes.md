@@ -166,7 +166,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | ui | `ui-reviewer`, `design-system-guardian`, `accessibility-auditor` | `a11y-scan` (on changed routes if significant) |
 | i18n | `i18n-auditor` | — |
 | auth | `security-auditor`, `auth-reviewer` | — |
-| docker | — | `dockerfile-lint` |
+| docker | — | `container-build-scan` (devops pack, when installed) |
 | k8s | `k8s-reviewer` | — |
 | ci | `ci-reviewer` | `suite-execution-scan` (testing pack, when installed) when a workflow runs or gates tests — focus, skips, uncollected suites, `\|\| true` / `continue-on-error`, coverage config, retries |
 | api-contract | — | `api-snapshot` (breaking-change detection) |

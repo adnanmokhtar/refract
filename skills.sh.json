@@ -131,7 +131,7 @@
       "title": "DevOps",
       "description": "Dockerfile linting, GitOps reconciliation, deploy monitoring, progressive delivery, and container supply-chain gating.",
       "skills": [
-        "dockerfile-lint",
+        "container-build-scan",
         "gitops-audit",
         "monitor-deploy",
         "progressive-delivery",

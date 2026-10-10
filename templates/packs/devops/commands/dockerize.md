@@ -19,7 +19,7 @@ All 7. Phase 6 includes a smoke test against the built image.
 
 - Confirm runtime port + health endpoint. Record them as `$PORT` and `$HEALTH_PATH` (default `$HEALTH_PATH=/health`) — Phase 6's smoke test uses these, not hardcoded values. If the app serves health on a non-default path or a separate admin port, capture both.
 - Consolidated question if env-var inventory not in `.env.example`.
-- Success: image builds reproducibly, runs as non-root, smoke test against `$HEALTH_PATH` on `$PORT` returns 200, `dockerfile-lint` passes, `.dockerignore` excludes secrets and lock-rebuilt artifacts.
+- Success: image builds reproducibly, runs as non-root, smoke test against `$HEALTH_PATH` on `$PORT` returns 200, `container-build-scan` reports no finding on the shipped stage, `.dockerignore` excludes secrets and lock-rebuilt artifacts.
 
 ## Phase 2 — Organize
 
@@ -103,9 +103,9 @@ If repo has DB / Redis dep AND no compose → generate `docker-compose.yml` for 
 
 ## Phase 6 — Validate
 
-Dispatch the `dockerfile-lint` skill on the generated Dockerfile first — it ships hadolint + the project-rule checks (non-root, multi-stage, pinned base, HEALTHCHECK, `.dockerignore`, secret-in-history). A BLOCK finding (`:latest`, final `USER root`, baked secret) halts before the smoke test.
+Dispatch the `container-build-scan` skill on the generated Dockerfile first — the shipped stage's effective user through the stage chain, PID 1, layer order and the ignore file that applies, lockfile enforcement inside the build, RUN correctness, the HEALTHCHECK binary and port, base/platform/libc, runtime content, and the `docker build --check` + hadolint lane (a parse error is NOT-RUN, never a pass). Root, baked secrets and unpinned fetches are security `iac-scan` §1's rows when that pack is installed. Any finding from either halts before the smoke test.
 
-After the image builds (release/CI, not local dev), dispatch the **`release-security`** skill on the built image — CVE scan (`trivy image`, gate on HIGH/CRITICAL) + SBOM (`syft`) + digest signing (`cosign`, keyless OIDC) + SLSA provenance. `dockerfile-lint` checks the *Dockerfile*; `release-security` checks the *built image + its signature/SBOM*. This is the producer the security pack's A03 Supply-Chain audit dispatches to.
+After the image builds (release/CI, not local dev), dispatch the **`release-security`** skill on the built image — CVE scan (`trivy image`, gate on HIGH/CRITICAL) + SBOM (`syft`) + digest signing (`cosign`, keyless OIDC) + SLSA provenance. `container-build-scan` checks the *Dockerfile*; `release-security` checks the *built image + its signature/SBOM*. This is the producer the security pack's A03 Supply-Chain audit dispatches to.
 
 Then smoke-test against the Phase 1 `$PORT` / `$HEALTH_PATH` (never hardcoded `8080` / `/health`).
 The container must be **named** (there is nothing to read logs from otherwise) and the readiness
@@ -135,7 +135,7 @@ fi
   is being asked to probe a process that was never launched. It will fail for a reason that has
   nothing to do with the image. If the exec exits non-zero, halt and surface `docker logs`.
 - Confirm non-root user: `docker exec app-smoke id` (the runtime user of the *running* container,
-  which is what actually matters — see `dockerfile-lint`'s final-stage check).
+  which is what actually matters — see `container-build-scan` §1's stage-chain check).
 - Print image size (`docker image inspect --format '{{.Size}}'`) **and** the layer breakdown from
   `docker history` — `docker image inspect` returns the config and a digest list with no per-layer
   sizes, so it cannot produce a breakdown. `dive` gives the same view interactively.
@@ -160,7 +160,7 @@ Files:
   .dockerignore    new
   docker-compose.yml   new (postgres + redis for local dev)
 
-dockerfile-lint: PASS  (hadolint clean; non-root, multi-stage, pinned base, HEALTHCHECK)
+container-build-scan: 0 findings  (§1–§10 checked; --check and hadolint ran; non-root, exec-form PID 1, frozen install, HEALTHCHECK binary present)
 Smoke test: PASS  (200 from $HEALTH_PATH on $PORT in 4.2s)
 
 Image:  app:test  142MB  (builder discarded; 6 runtime layers)
@@ -191,7 +191,7 @@ Image:  app:test  142MB  (builder discarded; 6 runtime layers)
 - `/add-ci` — sibling command in devops pack
 
 ### Skills
-- `dockerfile-lint` — dispatched in Phase 6 to lint the generated Dockerfile before the smoke test.
+- `container-build-scan` — dispatched in Phase 6 on the generated Dockerfile before the smoke test.
 
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`
