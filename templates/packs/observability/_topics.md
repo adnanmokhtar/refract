@@ -117,7 +117,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: alert-audit
   kind: skill
   triggers: { metrics_lib_detected: true }
-  fallback: _examples/alert-audit.md
+  fallback: skills/alert-audit/SKILL.md   # source-as-fallback: the rewrite is the behavioural half only and consumes alert-rule-lint; _examples/alert-audit.md still carries the file-granularity `grep -L` runbook check (eval D2)
+
+- name: alert-rule-lint
+  kind: skill
+  triggers:
+    metrics_lib_detected: true
+    OR_grep_evidence: "^\\s*-\\s*alert:|kind:\\s*PrometheusRule|additionalPrometheusRules|^rule_files:|resource \"(datadog_monitor|newrelic_nrql_alert_condition|grafana_rule_group|honeycombio_trigger)\""   # rule, CRD, Helm, monitor surfaces — a repo can ship alert rules with no metrics client in its code
+  extracts_from: _extracted-codebase.md § Observability (Prometheus / Alertmanager versions, rule and monitor locations)
+  fallback: skills/alert-rule-lint/SKILL.md
 
 - name: synthetic-monitoring
   kind: skill
@@ -133,6 +141,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { tracer_lib_detected: true }
   fallback: commands/add-tracing.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on a no-signal project.
+
+- name: trace-propagation-scan
+  kind: skill
+  triggers:
+    tracer_lib_detected: true
+    OR_grep_evidence: "OTEL_(EXPORTER_OTLP|TRACES_SAMPLER|SERVICE_NAME|PROPAGATORS)|-javaagent:|opentelemetry-instrument|ddtrace-run|dd-trace|tracesSampleRate|traces_sample_rate"   # zero-code wiring and tracker tracing keys: a repo can trace with no tracer in its own manifests
+  extracts_from: _extracted-codebase.md § Observability (tracer, SDK and instrumentation versions, start commands, queue clients)
+  fallback: skills/trace-propagation-scan/SKILL.md   # source-as-fallback; the skill's own SDK gate prints N/A (no tracing SDK) for every § but §5's flush half and §10's requirement half
 
 - name: alert-design
   kind: command
