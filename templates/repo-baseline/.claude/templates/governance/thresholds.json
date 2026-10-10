@@ -143,11 +143,11 @@
       "why": "an owner and a date make a TODO expire; a ticket alone does not (precedence A2)"
     },
     "THR-LOG-LEVEL": {
-      "value": { "error": "page-worthy", "warn": "recovered failure, ticket-worthy", "info": "state-change milestone", "debug": "off in production" },
+      "value": { "error": "page-worthy", "warn": "recovered failure, ticket-worthy", "info": "state-change milestone", "debug": "off in production", "4xx": "≤ warn", "5xx": "error" },
       "unit": "enum",
       "floor": false,
-      "owner": "packs/observability/rules/observability-principles.md",
-      "why": "a recovered catch logs at warn so the recovery is visible in production (precedence A9)"
+      "owner": "packs/observability/rules/observability-principles.md · observability log-signal-scan §4 (V192)",
+      "why": "a recovered catch logs at warn so the recovery is visible in production (precedence A9); a client error (404, validation) is the caller's mistake and logs at warn or below, a server error logs at error, once per request"
     },
     "THR-CLAUDE-MD-LINES": {
       "value": 200,
@@ -207,6 +207,49 @@
       "floor": true,
       "owner": "frontend lighthouse-ci · proof-oracles.md § Lighthouse median",
       "why": "a single Lighthouse run is not a measurement; the median of five runs against the production build is, and every numeric assertion reads the median run"
+    },
+    "THR-OBS-BURN": {
+      "value": {
+        "rule": "factor = budget_fraction × period / long_window",
+        "short_window": "long/12",
+        "accepted_sets": {
+          "workbook-3": ["14.4/1h/5m page", "6/6h/30m page", "1/3d/6h ticket"],
+          "workbook-4": ["14.4/1h/5m page", "6/6h/30m page", "3/24h/2h ticket", "1/3d/6h ticket"],
+          "pyrra": "14/7/2/1, windows scaled to the SLO period (28d)"
+        }
+      },
+      "unit": "burn-rate factor",
+      "floor": false,
+      "owner": "packs/observability/skills/slo-rule-scan §2 (burn-check.py) · alert-rule-lint · alert-audit · precedents/observability.md § 12",
+      "why": "the literal is the review defect, the arithmetic is the rule: a hard-coded 14.4 marks every Pyrra rule (14/7/2/1 on 28d) and the Workbook's own 4th 3× 24h/2h tier (sloth google-30d) as wrong. A factor is a finding only when it fails the formula for the declared objective and period"
+    },
+    "THR-OBS-RATE-WINDOW": {
+      "value": { "min_multiple_of_scrape": 2, "recommended": 4, "prom3_exact_1x": "empty" },
+      "unit": "multiple of the job's scrape interval",
+      "floor": true,
+      "owner": "packs/observability/skills/alert-rule-lint §5 (AL-12, AL-21) · precedents/observability.md § 6, § 45",
+      "why": "a rate window under 2× the scrape interval can hold fewer than two samples and returns nothing; on Prometheus 3 range selectors are left-open, so exactly 1× is empty. 2–4× is style, not a bug"
+    },
+    "THR-OBS-ALERT": {
+      "value": { "page_for_max": "30m", "group_wait_page_max": "5m", "repeat_interval_min": "30m", "severity_vocab": ["page", "ticket", "info"], "severity_vocab_override": "project may replace the vocabulary with the one its Alertmanager routes use" },
+      "unit": "duration · enum",
+      "floor": true,
+      "owner": "packs/observability/skills/alert-rule-lint §1, §2, §8 (AL-02, AL-03, AM-04) · /obs-fix reward-hack grep (for raised past page_for_max)",
+      "why": "a page that waits 30m before firing has spent the incident; a pager route that groups for over 5m delays the first page; a repeat under 30m is noise. The severity vocabulary is whatever the routes match on, so a project override names its own, never none"
+    },
+    "THR-OBS-CARDINALITY": {
+      "value": { "label_values_soft": 10, "label_values_investigate": 100, "loki_dynamic_label_values": "tens", "loki_active_streams_per_tenant": 100000 },
+      "unit": "distinct values per label · streams",
+      "floor": true,
+      "owner": "packs/observability/skills/metric-hygiene-scan §1 · telemetry-config-scan §4 (MT-01, PL-04, PL-08) · finops prices the series",
+      "why": "series = ∏ distinct label values × replicas; past ~10 values a label is a design question and past ~100 an investigation, and an unbounded value (id, raw path, email, trace id) is a TSDB outage risk. Loki labels index streams: keep dynamic labels to tens of values and the rest in the line"
+    },
+    "THR-OBS-PAGE-BUDGET": {
+      "value": { "formula": "pages_per_shift ≤ shift_hours / followup_hours_per_page", "defaults": { "shift_hours": 12, "followup_hours": 6 } },
+      "unit": "pages per on-call shift",
+      "floor": false,
+      "owner": "packs/observability/commands/alert-design.md Phase 6 · sre-engineer · alert-audit (noise, against fire history)",
+      "why": "moved from alert-design so the number has one home: each page costs follow-up time (postmortem, fix, review), so a 12h shift absorbs about two pages before on-call stops fixing causes. Judged against fire history, else NO-DATA"
     }
   }
 }

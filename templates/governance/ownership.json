@@ -252,6 +252,105 @@
       "pack": "security",
       "target": "security-reviewer",
       "note": "/mobile-audit's Device security row consumes it when the security pack is installed"
+    },
+    "obs-logs": {
+      "detector": "observability/skills/log-signal-scan §1–§5",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "dropped or swallowed error → code-quality error-handling-scan; a sensitive value or redaction gap → security data-exposure-scan § 6; log injection → security injection-scan; volume cost → finops"
+    },
+    "obs-correlation": {
+      "detector": "observability/skills/log-signal-scan §6–§8",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "proxy and ingress access-log format → infrastructure"
+    },
+    "obs-tracing": {
+      "detector": "observability/skills/trace-propagation-scan §1–§8",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "coverage target → distributed-systems; observability owns the propagation mechanics and the telemetry flush inside the shutdown chain (devops owns the chain)"
+    },
+    "obs-sampling": {
+      "detector": "observability/skills/trace-propagation-scan §9–§10",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "a sampling-rate change is stop-and-ask in /obs-fix; cost → finops"
+    },
+    "obs-metrics": {
+      "detector": "observability/skills/metric-hygiene-scan §1–§6",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "cost → finops (observability carries the series arithmetic, THR-OBS-CARDINALITY)"
+    },
+    "obs-health": {
+      "detector": "observability/skills/metric-hygiene-scan §7–§8",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "liveness on a shared dependency → performance request-path-scan §15; probe presence and shape in manifests → infrastructure k8s-reviewer; public health details → security data-exposure-scan § 3"
+    },
+    "obs-error-tracking": {
+      "detector": "observability/skills/error-tracking-scan §1–§4",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "publicly served source maps → security xss-scan § 13; sendDefaultPii / dataCollection → security; native symbol upload (dSYM, R8 mapping) → mobile"
+    },
+    "obs-alert-rules": {
+      "detector": "observability/skills/alert-rule-lint §1–§7 (rule-inventory.py)",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "alert-rule-lint's own report; behaviour (dead, noisy, flapping) → observability/skills/alert-audit, NO-DATA without fire history",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "alert-audit keeps the behavioural half and consumes alert-rule-lint's rows; PrometheusRule schema → infrastructure; a neutered CI rules gate → devops"
+    },
+    "obs-routing": {
+      "detector": "observability/skills/alert-rule-lint §8–§9",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "AM and notification secrets inline → security secret-scan; who gets paged is stop-and-ask in /obs-fix"
+    },
+    "obs-slo": {
+      "detector": "observability/skills/slo-rule-scan §1–§6 (burn-check.py)",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "slo-rule-scan's own report; attainment → observability/skills/slo-audit, NO-DATA without a backend",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "slo-audit owns attainment and is the single writer of ai/runtime/slos.md; /alert-design proposes rows and dispatches it; burn arithmetic is THR-OBS-BURN"
+    },
+    "obs-pipeline": {
+      "detector": "observability/skills/telemetry-config-scan §1–§8",
+      "owner": "observability/agents/observability-reviewer",
+      "fixer": "/obs-fix",
+      "fallback": "the detector's own report, verified by the verifier",
+      "pack": "observability",
+      "target": "observability-reviewer",
+      "note": "collector and agent DaemonSet RBAC → infrastructure (observability reports the telemetry blast radius as corroboration)"
     }
   }
 }

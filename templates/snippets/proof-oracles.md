@@ -1,7 +1,7 @@
 # Proof oracles — the failing-first proof for each detector class
 
 Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
-`/quality-fix`, `/frontend-fix` and `/mobile-fix` (reproduce failing-first, then validate the fix), and by every
+`/quality-fix`, `/frontend-fix`, `/mobile-fix` and `/obs-fix` (reproduce failing-first, then validate the fix), and by every
 detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
 Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
 and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
@@ -17,6 +17,7 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## Accessibility and UI states` | V87–V146 | render and SSR (Heap slope, Server render, Build gate, Server + client request count, Cross-request leak probe, Console warning, View update); client data and routing (Request timeline … First protected frame); i18n (Missing-key run … Bidi isolation); design tokens, motion and charts (Token conformance … Colour-vision emulation); Render measurement |
 | `## Mobile` | V152–V179 | — (new section) |
 | `## SEO` | V180–V188 | — (new section) |
+| `## Observability` | V189–V208 | — (new section) |
 
 ## Scope of use (read first)
 
@@ -2917,6 +2918,311 @@ basics* (2026-03-04), *Block indexing with noindex* and *Introduction to robots.
 submit a sitemap* (2026-07-08), *Tell Google about localized versions* (2026-09-21), the search gallery
 (2026-06-15) and the Search Central blog of 2023-08-08 on FAQ and How-to results; the Next.js
 *generateMetadata* page (16.3.8, 2026-08-25); react.dev *title*. Paraphrased; no text reproduced.
+
+## Observability
+
+An observability claim says a signal will fail on-call during a real incident: the error is logged
+without its stack, the request id collides across replicas, the trace breaks at the queue, the page
+rule can never fire, the critical alert routes to a null receiver, the burn rule's factor does not
+match its objective. Reading the code does not settle any of these, because the signal is only what
+the logger, exporter, registry, rule evaluator or route tree actually emits. The oracle drives the
+failure through the real entry point (or the real rule evaluation) and asserts on the **emitted**
+signal. Every oracle names a **tier**: T (a tool's exit code), U (a test with log capture, an
+in-memory span exporter, the metrics registry or a tracker test transport), L (a live backend), S (a
+static trace). **An L-tier class with no reachable backend is `NO-DATA(<source>)`, never PASS**, and
+its static half (inventory grounding) still runs. Three rules hold for every variant below:
+
+- **Read the version first.** The Prometheus and Alertmanager majors, the logger and SDK majors and
+  the semconv opt-in are read from files (gate 3); a promtool test runs on the binary of the
+  server's Prometheus major.
+- **Ground every name.** A metric, label or log field a test, rule or fix names must resolve in the
+  repo inventory (metric names registered in code, recording-rule outputs, exporter defaults, the
+  logger's fields) or a live series call; a mocked series never proves a metric exists
+  ([`precedents/observability.md`](precedents/observability.md) § 16, § 37).
+- **Tools run on copies.** Every tool runs in `${TMPDIR:-/tmp}` on a copy; `pint`, `mimirtool rules
+  lint` without `-n` and `lokitool rules lint` rewrite in place and never run in the project tree.
+
+Settled questions are in [`precedents/observability.md`](precedents/observability.md). Users:
+`log-signal-scan`, `trace-propagation-scan`, `metric-hygiene-scan`, `error-tracking-scan`,
+`alert-rule-lint`, `slo-rule-scan` and `telemetry-config-scan` (observability pack), judged by
+`@observability-reviewer`, and `/obs-fix`. The redaction variant list (every logger, sink, span
+attribute, breadcrumb, access log, crash dump and metric label a seeded canary must be absent from)
+is security's: `data-exposure-scan` § 6, cited, not restated here. A fix that touches a logger, a
+serializer or a sink re-runs that canary.
+
+### Oracle taxonomy (observability)
+
+| Oracle | Tier | Asserts | Classes |
+|---|---|---|---|
+| **Captured log** | U | The line the failure emits, captured from the logger's real destination and parsed, carries the error type, message and a stack frame, at the expected level, with the request and trace ids | V189–V193 |
+| **Fault injection** | U | A handled failure (a dependency error, a timeout, a fallback taken) produces a log at ≥ warn, **or** a counter +1, **or** a span `exception` event | V190 |
+| **In-memory span exporter** | U | One traceId with correct parentage (or a span link) across the hop; finished spans; `status=ERROR` plus an exception event on failure; resource `service.name` ≠ `unknown_service*` | V194–V197 |
+| **Registry scrape** | U | After randomized ids and paths the series count is bounded and holds only route templates; durations land in finite buckets; a bucket edge exists at each SLO threshold; each entry point observes a counter and a duration | V198–V201 |
+| **Tracker test transport** | U (L for symbolication) | The event the SDK sends carries `release` and `environment`; an unhandled rejection and a boundary 500 reach it | V202 |
+| **promtool rule test** | T | One test fires at the failure point and one stays silent at a blip; annotations render; a total outage is not silent | V203, V204 |
+| **pint and the rule inventory** | T | Per rule, never per file: `alerts/for`, `alerts/annotation`, `alerts/template`, `alerts/comparison`, `promql/counter`, `promql/rate`, `promql/nan`, `alerts/absent`, `promql/impossible`; offline, or `rule-inventory.py --check=…` when pint is not installed | V203, V204 |
+| **Routes matrix** | T (L for inhibition) | Every emitted {severity × team} label set reaches the receiver the design names; `amtool config routes test --verify.receivers` exits 1 on mismatch | V206 |
+| **Vendor no-data check** | S (L for an export diff) | Each alerting tool has one no-data mechanism per signal | V205 |
+| **Regenerate and diff** | T | `sloth generate` / `pyrra generate` from the committed spec diffs empty against the committed rules; the burn arithmetic holds | V207 |
+| **Pipeline validate + key diff** | T + S | `otelcol-contrib validate` exits 0, no component is defined but unreferenced, `memory_limiter` is first and `batch` last; shipper and store configs validate | V208 |
+| **Weaver live-check** | T | Emitted attributes pass the semconv registry: no `deprecated`, `missing_attribute` or `type_mismatch` violation | V194 |
+| **Live series** | L only | `count(<selector>) > 0` on the running server; label cardinality from the TSDB or `logcli series --analyze-labels` | V198, V204 |
+
+### Captured log
+
+Drive the failure through the real entry point (`fastify.inject`, supertest, a job handler called
+with a real job object), capture the logger's own destination, parse each line, and assert on the
+emitted fields. A test that spies on the call arguments proves what was passed, not what was
+written; use it only for a façade that has no destination of its own (the Nest `ConsoleLogger`).
+
+| Stack | Capture | Assert (fails first on an LG-02 line) |
+|---|---|---|
+| **pino + Fastify 5** | `const lines = []; const logger = pino({ level: 'info' }, { write: (s) => lines.push(JSON.parse(s)) });` then `Fastify({ loggerInstance: logger })` (Fastify 5 takes a pino instance through `loggerInstance` [K?: read the installed major]) | `const e = lines.find((l) => l.level === 50); expect(e.err.type).toBeDefined(); expect(e.err.stack).toMatch(/\n\s+at /);` |
+| **nestjs-pino** | `LoggerModule.forRoot({ pinoHttp: [{ level: 'info' }, stream] })` in the testing module, with `stream` the same `{ write }` collector, then `app.useLogger(app.get(Logger))` | same assertion on the parsed line; run `error(msg, err)`, `error(err)` and `error(msg, err.stack)` once each to settle what the installed version emits [K?] |
+| **Nest `ConsoleLogger`** | `class Capture extends ConsoleLogger { calls: unknown[][] = []; error(...a: unknown[]) { this.calls.push(a); } }`, `app.useLogger(capture)` | a call carries the stack string as its second argument (precedents § 38), or a JSON line under `json: true` carries it [K?] |
+| **winston 3** | a `new winston.transports.Stream({ stream })` transport on the app's own logger (keep its `format`) | the parsed line has `stack`; without `format.errors({ stack: true })` it is `{"level":"error"}` |
+| **Python logging / structlog** | pytest `caplog`; `structlog.testing.capture_logs()` | `caplog.records[-1].exc_info is not None` (or `exc_text`); the structlog entry carries `exc_info` / `exception` |
+| **Go slog / zap** | `slog.New(slog.NewJSONHandler(&buf, nil))` then decode `buf`; `core, logs := observer.New(zap.ErrorLevel)` (`zaptest/observer`) | the `error` field is the error value, not a `%v` string with the context stripped; for zap, `logs.All()[0].ContextMap()["error"]` is present |
+| **Logback** | `ListAppender<ILoggingEvent> app = new ListAppender<>(); app.start();` added to the class's `ch.qos.logback.classic.Logger` | `app.list.get(0).getThrowableProxy()` is not null |
+| **.NET** | `FakeLogger<T>` (`Microsoft.Extensions.Diagnostics.Testing`) | `logger.Collector.LatestRecord.Exception` is not null and the level is `Error` |
+
+**Level (V192):** drive a 404, a validation failure and a 500 through the same entry point; assert
+the 404 and the validation failure log at ≤ warn, the 500 at error, and the 500 logs **once** per
+request (`THR-LOG-LEVEL`). **Correlation (V193):** fire two requests concurrently and one job they
+enqueue; every captured line carries its own request id, the two ids differ, the job's lines carry
+the originating id or `trace_id`, and with tracing on, the log `trace_id` equals the exporter's
+traceId for that request. **Volume (V192, V201):** count bytes per request against the budget and
+lines per probe hit (expected 0).
+
+### In-memory span exporter
+
+| Stack | Exporter |
+|---|---|
+| **JS** | `InMemorySpanExporter` + `SimpleSpanProcessor`, passed as `spanProcessors: [...]` to the tracer provider (SDK 2.x removed `addSpanProcessor` [K?: read the installed major]); `exporter.getFinishedSpans()` |
+| **Python** | `InMemorySpanExporter` (`opentelemetry.sdk.trace.export.in_memory_span_exporter`) + `SimpleSpanProcessor`; `get_finished_spans()` |
+| **Go** | `sr := tracetest.NewSpanRecorder()`; `sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(sr))`; `sr.Ended()` |
+| **Java** | `InMemorySpanExporter.create()` (`opentelemetry-sdk-testing`) + `SimpleSpanProcessor` |
+| **.NET** | `AddInMemoryExporter(list)` on the `TracerProviderBuilder` |
+
+Drive **HTTP → enqueue → consume** (or HTTP → outbound call, or the async hop the class is about)
+and assert: one traceId across every span of the flow, each child's parent is the span that caused
+it (or the consumer span carries a link to the producer's context); no span is left unfinished; on
+the failure path `status=ERROR` plus an `exception` event; span names come from a closed set
+(route templates, not ids); the resource's `service.name` is set. **SIGTERM flush (V196):** spawn
+the real process with its OTLP endpoint pointed at a local sink (a Weaver live-check or a
+throw-away HTTP receiver), serve one request, send SIGTERM, and assert the sink received the last
+span and the last log line. **Sampling (V197):** read the resolved sampler (its description names
+`ParentBased`), then send N error traces through the configured ratio and the collector config, and
+count the retained ones against the stated requirement.
+
+### Registry scrape
+
+prom-client `await register.metrics()`; Python `generate_latest(REGISTRY)`; Go
+`testutil.CollectAndCount(c, "name")` and `testutil.ToFloat64`; Micrometer `SimpleMeterRegistry`.
+Hit the entry point with 100 random ids and paths, then assert the metric's series count stays at
+the number of route templates × the bounded label values (`THR-OBS-CARDINALITY`), and that no label
+value is a raw path, id or error string. Pipe a scrape through `promtool check metrics` (exit 3 is a
+naming lint, exit 1 an error). **Units and buckets (V199):** observe one known duration and assert
+it lands in the finite bucket its seconds value belongs in (a ms value lands in `+Inf`), and that
+`x_bucket{le="T"}` exists for each SLO threshold T. **Coverage (V200):** run each job, consumer and
+cron handler once and assert its counter (with an outcome label) and duration moved. **Health
+(V201):** stop the dependency; `/readyz` answers 503 while `/livez` stays 200; restore it and
+readiness recovers; 100 probe hits leave span, log-line and RED-series counts unchanged.
+
+### Tracker test transport
+
+Initialise the SDK with a `beforeSend` / `before_send` hook that records the event and drops it
+(returns `null` / `None`), or the SDK's own test transport. Assert the recorded event carries
+`release` and `environment` (V202), that an unhandled rejection raised in a spawned child of the
+real process type (API, worker, cron) reaches it, and that a boundary handler mapping to 500 sends
+one. Symbolication (ET-03) is L-tier: one event in the backend shows resolved frames; without a
+backend the row is `NO-DATA(tracker)` with the upload written out (`sentry-cli sourcemaps inject
+<dist> && sentry-cli sourcemaps upload --release <release> <dist>`, sentry-cli 3.x — `sourcemaps
+explain` no longer exists, precedents § 49).
+
+### promtool rule test
+
+Copy the rule files to `${TMPDIR}` and write one test file per page-tier rule. Each needs a test
+that **must fire** at the failure point and one that **must stay silent** at a blip; a ratio rule
+also needs a total-outage test, where its traffic-absent sibling must fire.
+
+```yaml
+rule_files: [rules/api.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m                       # sustained failure: must fire
+    input_series:
+      - series: 'http_requests_total{job="api",code="500"}'
+        values: '0+10x30'
+      - series: 'http_requests_total{job="api",code="200"}'
+        values: '0+90x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ApiHighErrorRate
+        exp_alerts:
+          - exp_labels: { severity: page, job: api }
+  - interval: 1m                       # one bad minute: must stay silent
+    input_series:
+      - series: 'http_requests_total{job="api",code="500"}'
+        values: '0 0 0 40 40 40 40 40 40 40'
+      - series: 'http_requests_total{job="api",code="200"}'
+        values: '0+90x9'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: ApiHighErrorRate
+        exp_alerts: []
+```
+
+This is the shape only: take the series, `eval_time` and windows from the rule itself, and keep the blip shorter than the rule's `for`. `promtool test rules <file>` exits non-zero on any mismatch. Add `exp_annotations` to prove the
+annotations render with the labels the expression keeps (AL-05). Run it with the binary of the
+server's major: Prometheus 3 makes ranges left-open and normalizes `le`, so a test that passes on
+2.x can fail on 3.x (precedents § 45). The input series are mocked, so a passing test never proves
+the metric exists (precedents § 16): pair it with the selector grounding below.
+
+### pint and the rule inventory
+
+`pint --offline lint <copy-of-rules>` in `${TMPDIR}`; online checks (`promql/series`) only with a
+Prometheus URL the user gave. Without pint, `rule-inventory.py` (stdlib, shipped with
+`alert-rule-lint`) emits one JSON row per rule — name, file:line, group, `for`, `keep_firing_for`,
+labels (group labels version-gated, precedents § 41), annotation keys, metric tokens, range windows
+and functions — and checks them with `--check=annotations,for,windows,selectors,prom3,value-in-labels,nan,absent,watchdog`;
+`--self-test` proves the parser. `--check=selectors` diffs every selector against the inventory: a
+selector that resolves nowhere is a never-fire candidate (HIGH Unconfirmed until a live
+`count(<selector>)`), and a rule file matched by no `rule_files` glob, or a PrometheusRule whose
+labels miss the Prometheus CR `ruleSelector`, is never loaded.
+
+### Routes matrix
+
+`amtool check-config am.yml`, then one case per {severity × team} label set the rules actually emit:
+`amtool config routes test --config.file=am.yml --verify.receivers=<expected> severity=page team=payments`.
+Without `--verify.receivers` amtool exits 0 whatever it resolves, so that is not a test. Inhibition
+and mute timing cannot be proven from the route tree: they need a containerised Alertmanager with
+`amtool alert add` and `amtool alert query` (L).
+
+### Regenerate, validate and diff
+
+- SLOs: `sloth generate -i <spec> -o "$TMPDIR/out.yml"` (or `pyrra generate --config-files='<specs>' --prometheus-folder="$TMPDIR/pyrra/"`), then `diff -u <committed> <generated>`: empty, or the drift is the finding. `burn-check.py` (shipped with `slo-rule-scan`) checks `factor = budget_fraction × period / long_window` and the short window = long/12 against the accepted sets in `THR-OBS-BURN` (Workbook 30d: 2 % × 720h / 1h = 14.4; 5 % × 720h / 6h = 6; 10 % × 720h / 72h = 1; the 4th tier 10 % × 720h / 24h = 3; Pyrra 14/7/2/1 on 28d-scaled windows).
+- Collector: `otelcol-contrib validate --config=file:<copy>` (exit code), plus the two checks it skips: components defined under `receivers` / `processors` / `exporters` / `connectors` but referenced by no `service.pipelines.*`, and processor order (`memory_limiter` first, `batch` last).
+- Shippers and stores: `alloy validate <cfg>`, `vector validate --no-environment <cfg>`, `fluent-bit -c <cfg> --dry-run`, `loki -config.file=<cfg> -verify-config -config.expand-env=true`, `refinery -c <cfg> -r <rules> --validate`.
+- Dashboards: `dashboard-linter lint --strict <dashboard.json>` (non-strict exit behaviour is [K?]).
+- Semconv: start `weaver registry live-check --format json -o <out> --fail-on violation`, point the app's OTLP exporter at it, drive the test traffic, send SIGHUP, read the exit code.
+
+### Class variants (observability)
+
+#### V189. Error object or stack lost — captured log (`log-signal-scan` §2)
+- pino `error(msg, err)`, `{ error: err }` with no `error` serializer, `err.message`, `String(err)`, `` `${err}` ``, `` `${(err as Error).message}` ``; winston with no `format.errors`; Nest `error(err)` vs `error(msg, err.stack)` (precedents § 38 is the control)
+- Python `logger.error(str(e))`, `logger.warning(e)`, structlog `error=str(e)`, a loguru f-string; Go `%v`, `errors.New(err.Error())`, `zap.String("err", err.Error())`, `slog.String`, logrus `WithField`
+- Java concatenation, `getMessage()`, `printStackTrace`, a cause-less rethrow; C# `ex.Message`, `$"{ex}"`, `throw ex;`; Ruby `e.message`, stdlib `logger.error(e)`; PHP `getMessage()`, `['error' => …]` instead of `['exception' => $e]`
+- every logger factory and wrapper the repo has, not the one call site
+- pass: the captured line carries the error type and a stack frame at error level on every variant; the healthy path logs nothing at error
+
+#### V190. Handled failure invisible — fault injection (`log-signal-scan` §1)
+- a default or empty return, a retry, a fallback to a cache; a debug- or trace-only log; `contextlib.suppress`; `.catch(() => fallback)`; a Go `if err != nil { return def }`
+- payment, auth and consumer paths first; CQ's V74 owns the *dropped* variant
+- pass: the injected fault yields a log at ≥ warn, a counter +1 or a span exception event; the degrade stays the documented behaviour
+
+#### V191. Unstructured or stdout logging in production — linter + stable template (`log-signal-scan` §3)
+- every interpolation form per stack (template literal, f-string, `%` format, concatenation, `fmt.Sprintf` into the message); `console.*`, `print`, `puts`, `var_dump`, `System.out`, `Console.Write`, `fmt.Print` in server roots; an odd key-value count; zerolog with no `Msg` / `Send`
+- a Nest bootstrap with no `useLogger` / `bufferLogs`; `pino-pretty` with no environment guard
+- pass: the linter rule at error is clean, and two calls with different data emit the same message template with the data in fields
+
+#### V192. Level misuse and volume — captured log (`log-signal-scan` §4–§5)
+- an error logged at info or debug inside a catch; a 4xx or validation failure at error; log-and-rethrow at every layer; pino-http / nestjs-pino with no `customLogLevel`
+- debug in every production-loaded config (`level`, `root`, `LOG_LEVEL`, `"Default"`, `DEBUG=True`, `log_level`) — read which file production loads (precedents § 30)
+- a full payload serialized into a log call; a log call inside a request-path loop
+- pass: 404 and validation at ≤ warn, 500 at error, one log per error per request, bytes per request within budget
+
+#### V193. Correlation — two concurrent requests + one async hop (`log-signal-scan` §6–§8)
+- request-id middleware present **and** unique across replicas (no per-process counter: pino-http's default, precedents § 52); an upstream id honoured
+- every logger bound to context: handlers, services, background jobs, queue consumers, cron; MDC cleared after the request and propagated to `@Async` and executors; `threading.local` under asyncio
+- `trace_id` / `span_id` injected under the snake_case names (`instrumentation-pino` / `-winston`, `OTEL_PYTHON_LOG_CORRELATION`, the otelslog bridge, the Java agent)
+- pass: every captured line carries its own request id, the job's lines carry the originating id, and the log `trace_id` equals the exporter's traceId
+
+#### V194. Async, queue and outbound propagation — in-memory exporter (`trace-propagation-scan` §1–§3, §7–§8)
+- every hop kind the repo has: goroutine, executor, thread pool, `run_in_executor`, coroutine, `setInterval` / emitter
+- each queue client (Kafka, RabbitMQ, SQS, BullMQ, Celery, Sidekiq, NATS): producer inject **and** consumer extract
+- each outbound client (fetch, axios, `requests` / `httpx`, `net/http`, OkHttp, `HttpClient`) and every wrapper that rebuilds headers from an allow-list
+- span names from a closed set; deprecated semconv names (Weaver live-check)
+- pass: one traceId end to end (or a link) with correct parentage on every hop
+
+#### V195. Span lifecycle — in-memory exporter (`trace-propagation-scan` §4)
+- end on every exit path: early return, throw, `defer`, `finally`; `recordException` + `setStatus(ERROR)` in every catch that owns a span (precedents § 25 is the Python control)
+- pass: the exporter shows every span finished, and the failing path's span with ERROR and an exception event
+
+#### V196. SDK init, identity and flush — first-request spans + SIGTERM (`trace-propagation-scan` §5–§6)
+- CJS `--require`, ESM `--import` + the loader hook, `NODE_OPTIONS` in the Dockerfile, Procfile and compose; Gunicorn `post_fork` with a batch processor; the SDK imported before `@nestjs/core` / `fastify`
+- `service.name` per service; one propagator set across services (`OTEL_PROPAGATORS`)
+- `sdk.shutdown()` / `tp.Shutdown` / `logger.Sync()` / `forceFlush` on SIGTERM, in serverless and on crash paths; `process.exit` right after a log (precedents § 44 is the CLI control)
+- pass: the first request yields server spans, the resource names the service, and the last span and log line reach the sink after SIGTERM
+
+#### V197. Sampling — resolved sampler + retained count (`trace-propagation-scan` §9–§10)
+- every service's sampler in code and in env; parent-based everywhere; a tail policy on `status_code` where errors are required (or tracker capture beside the sampled trace); `probabilistic_sampler` placed after `spanmetrics` / `servicegraph`; `OTEL_TRACES_SAMPLER(_ARG)` equal across services
+- pass: the resolved sampler is parent-based and N error traces at the configured ratio are all retained where the requirement says so
+
+#### V198. Cardinality — registry scrape, live series (`metric-hygiene-scan` §1, §4; `telemetry-config-scan` §4)
+- every `.labels` / `WithLabelValues` / `.With` / meter attribute site; relabel and `metric_relabel_configs`; collector `transform` / `attributes`; SDK Views; every Loki label map (Promtail, Alloy, Fluent Bit); DogStatsD tags; span names
+- type misuse: a gauge used as a counter; a summary aggregated across instances
+- pass: after randomized ids and paths the series count is bounded by `THR-OBS-CARDINALITY`; `trace_id` appears only as an exemplar (precedents § 20)
+
+#### V199. Units and buckets — registry scrape (`metric-hygiene-scan` §3; `slo-rule-scan` §5)
+- every `observe(` with a duration (`Date.now() - t` into `_seconds`); every `_ms` name; every histogram bucket list against each SLO threshold in seconds; each SLI `le` on the running Prometheus version (integer `le` on 3.x)
+- pass: samples land in finite buckets and `count(x_bucket{le="T"}) > 0` for every T
+
+#### V200. RED/USE coverage — per-entry-point scrape (`metric-hygiene-scan` §2)
+- every handler family, consumer, cron and job, and every pool
+- pass: running each entry point once moves its counter (with an outcome label) and its duration
+
+#### V201. Health — dependency kill + probe hits (`metric-hygiene-scan` §7–§8)
+- readiness reflects each dependency the pod needs; liveness stays constant (a liveness that checks a shared dependency is performance `request-path-scan` §15, V47)
+- probe paths excluded from tracing, access logs and SLI metrics
+- pass: stopping the dependency flips `/readyz` to 503 only; 100 probe hits add 0 spans, 0 log lines and no SLI series
+
+#### V202. Error tracking — tracker test transport (`error-tracking-scan` §1–§4)
+- every SDK init (server, worker, browser, mobile) has `release` and `environment`, in code or in the deploy env; the build's release name equals the SDK's
+- source maps uploaded with debug IDs and not served publicly (`hidden` + delete after upload; serving them is security `xss-scan` § 13)
+- process hooks in every process type; every boundary handler that maps to 500 captures or logs
+- pass: the transport receives an event carrying both fields, the unhandled rejection reaches it, and one backend event shows resolved frames (L, else `NO-DATA(tracker)`)
+
+#### V203. Rule annotations, labels and `for` — pint / rule inventory + promtool (`alert-rule-lint` §1–§2, §4)
+- every surface: rule files from every `rule_files` glob, PrometheusRule CRDs (Helm templates and `additionalPrometheusRules*`), jsonnet mixins (fix the source, regenerate, diff), Mimir / Thanos / VictoriaMetrics / Loki rulers, Grafana-managed alerts (provisioning and `grafana_rule_group`), Datadog `message`, New Relic `runbook_url`, Honeycomb `description`, and the recording rules feeding them
+- AL-01 / AL-02 a page with no `for` or a `for` past `THR-OBS-ALERT.page_for_max`; AL-09 `keep_firing_for` longer than `for` or past 30m on a page; AL-03 / AL-04 severity outside the vocabulary, a page with no `runbook_url`, any alert with no `summary`; AL-05 an annotation reading a label the aggregation dropped
+- AL-22 a rule file matched by no `rule_files` glob; a PrometheusRule whose labels miss the `ruleSelector`
+- pass: pint or `rule-inventory.py` prints nothing for the page tiers; promtool `exp_annotations` render; every rule file is loaded
+
+#### V204. Never fires, or fires on a blip — promtool fire/blip pair + grounding (`alert-rule-lint` §2–§6)
+- AL-06 `$value` in labels; AL-07 no comparison; AL-08 a raw counter compared; AL-13 `rate` on a gauge or `rate(sum(…))`; AL-10 a selector that resolves in no inventory; AL-11 impossible PromQL; AL-12 a window under 2× the job's scrape interval; AL-16 a ratio with no traffic-absent sibling; AL-17 `absent` with no `for` or with a regex; AL-21 Prometheus 3 breakage (integer `le`, `[Xm:Xm]`, `holt_winters`, `.` in a regex)
+- the **never-loaded** variant: the rule is correct but no `rule_files` glob or `ruleSelector` picks it up
+- pass: for each page rule a promtool test fires at the failure point and one stays silent at a blip, on the server's major; every selector is grounded (live `count(<selector>) > 0` when a backend is given); one traffic-absent companion per ratio; the rule is loaded
+
+#### V205. Missing-data story — vendor no-data check (`alert-rule-lint` §9)
+- one no-data mechanism per signal across every tool that alerts on it: `absent` / `absent_over_time`, Grafana `noDataState` / `execErrState`, Datadog `notify_no_data` / `on_missing_data`, New Relic `expiration_duration`, Honeycomb COUNT triggers (precedents § 10 is the error-count control)
+- pass: a traffic or heartbeat signal that stops produces an alert in every tool that watches it
+
+#### V206. Routing — routes matrix (`alert-rule-lint` §7–§8)
+- every Alertmanager (root, per-tenant, `AlertmanagerConfig` CRDs) and Grafana notification policy; a `severity=warning` set that reaches the pager (SY-02); deprecated keys; timers after inheritance; receivers no route reaches
+- pass: `routes test --verify.receivers` passes for every emitted {severity × team}; `check-config` is clean; inhibition is proven in a containerised Alertmanager (L)
+
+#### V207. SLO burn — regenerate and diff + burn arithmetic (`slo-rule-scan` §1–§4, §6)
+- every SLO spec; generated rules regenerated, never hand-edited (precedents § 42); vendor SLO objects with burn alerts; every environment's objective; a 100 % objective (precedents § 14); TSDB retention ≥ the SLO window or a long-term store
+- an SLI that counts 4xx as bad or only `code="500"` (precedents § 13): replay 404s and the SLI does not move
+- pass: regenerate-and-diff is empty, `burn-check.py` passes against `THR-OBS-BURN`, the fast-burn promtool test fires and the slow leak tickets
+
+#### V208. Pipeline — validate + key diff + staged config (`telemetry-config-scan` §1–§3, §7)
+- every collector config (agent and gateway): `memory_limiter` first, `batch` last, no unused component, `retry_on_failure` and `sending_queue` on every exporter, tail sampling behind a `loadbalancing` exporter keyed on `traceID`, no `debug` exporter at `verbosity: detailed` in production
+- pass: `otelcol-contrib validate` exits 0 and the key diff and order check print nothing
+
+### Sources (observability)
+
+The observability research catalog and its batch eval (2026-10-10), which cite: the Prometheus
+docs (promtool, unit testing for rules, migration to v3, naming, alerting practices, Alertmanager
+configuration) and `cmd/promtool/main.go`; cloudflare/pint 0.89.2 docs; Alertmanager 0.34.1 amtool;
+the OpenTelemetry Collector 0.162.0 source and processor READMEs, Weaver 0.27.0, the OTel in-memory
+exporters (JS 2.12, Python 1.45.1, Go 1.47, Java 1.67, .NET 1.19.1) and the OTel sampling and
+semantic-conventions pages; sloth 0.16.0 and pyrra 0.10.2 sources; the Google SRE Workbook
+*Alerting on SLOs* (re-fetched 2026-10-10; CC BY-NC-ND, paraphrased); Grafana Alloy 1.20.1, Loki
+3.7.8 and dashboard-linter 0.3.0; sentry-cli 3.8.0's changelog; local runs of pino 10.4.0,
+pino-http 11.0.0 and winston 3.19.0. Rows marked [K?] are to be settled on the `obs-defects` fixture
+or a real repo before a skill asserts them. Paraphrased; no text reproduced.
 
 ---
 
