@@ -36,7 +36,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { i18n_lib_detected: true }
   extracts_from: _extracted-codebase.md (i18n lib + locale files + key convention)
   sections: [persona, key_convention_in_use, missing_key_detection, untranslated_string_detection, output_format]
-  fallback: _examples/i18n-auditor.md
+  fallback: agents/i18n-auditor.md   # source IS the fallback: the lens over i18n-scan + catalog-parity.py; the abridged _examples copy predated both and was deleted
 
 - name: data-flow-auditor
   kind: agent
@@ -217,12 +217,12 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: a11y-audit
   kind: command
   triggers: { primary_frontend_framework_detected: true }
-  fallback: commands/a11y-audit.md   # a thin preset of /frontend-audit --classes=a11y; _examples/a11y-audit.md describes the retired single-agent audit
+  fallback: commands/a11y-audit.md   # a thin preset of /frontend-audit --classes=a11y; the retired single-agent _examples copy was deleted
 
 - name: i18n-audit
   kind: command
   triggers: { i18n_lib_detected: true }
-  fallback: _examples/i18n-audit.md
+  fallback: commands/i18n-audit.md   # a thin preset of /frontend-audit --classes=i18n; the retired single-agent _examples copy was deleted
 
 - name: setup-storybook
   kind: command
@@ -252,7 +252,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: ssr-audit
   kind: skill
   triggers: { ssr_enabled: true }
-  fallback: _examples/ssr-audit.md
+  fallback: skills/ssr-audit/SKILL.md   # source IS the fallback: the old _examples copy kept the broken per-stack table greps (rg -L)
 
 - name: render-correctness-scan
   kind: skill

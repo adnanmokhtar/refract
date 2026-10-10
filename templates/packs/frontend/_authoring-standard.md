@@ -25,7 +25,7 @@ Not every skill is a static scanner. Hold each to the parts of the contract that
 
 | Class | Examples | Required sections |
 |---|---|---|
-| **Scanner** (emits cited fixes) | lcp-audit, seo-audit, image-optimization, font-optimization, navigation-speed, streaming-ssr, ssr-audit | ALL of §1.1 |
+| **Scanner** (emits cited fixes) | lcp-audit, seo-audit, image-optimization, font-optimization, navigation-speed, streaming-ssr, ssr-audit, render-correctness-scan, critical-path-scan, client-data-scan, routing-scan, i18n-scan, a11y-code-scan | ALL of §1.1 |
 | **Runner** (drives a tool) | lighthouse-ci, bundle-analyze, a11y-scan, visual-check | Premise · Prerequisites/Procedure · Output · gotchas · Halt (no `Adapt`/`Scans for`) |
 | **Utility / generator** | dev-server-start, verify-with-playwright, component-playground | Premise · Procedure · Failure-modes · Halt (+ per-framework mapping if it generates code) |
 

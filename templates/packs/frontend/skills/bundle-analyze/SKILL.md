@@ -66,8 +66,9 @@ else for(const m of t.matchAll(/^"?((?:@[^\/@\s"]+\/)?[^@\s"\/]+)@[^\n]*:\n\s+ve
 for(const[n,s]of Object.entries(v))if(s.size>1)console.log(p.relative(".",lock)+": "+n+" "+[...s].join(" "))' "$r"; done
 # 5a. knip needs installed dependencies; say so instead of skipping silently.
 for r in "${ROOTS[@]}"; do [ -d "$r/node_modules" ] || [ -d node_modules ] || echo "$r: §5 knip blocked (no node_modules)"; done
-# 6a. Legacy targets and polyfills in config and source; 6b. an explicit build target below the Vite 8 / Next 16 floor.
-rg -n --no-heading --pcre2 '\b(?:core-js|regenerator-runtime|@babel/polyfill|@vitejs/plugin-legacy|react-app-polyfill|whatwg-fetch)\b|polyfill\.io|polyfill-fastly|"target"\s*:\s*"ES5"|\bie\s*(?:11|>=?\s*\d)|\bop_mini\b' "${CFG[@]}" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 6a. Legacy targets and polyfills in config and source (`(?<![\w@/.-])`, not `\b`: `\b` never fits before the `@` of a
+#     scoped name); 6b. an explicit build target below the Vite 8 / Next 16 floor.
+rg -n --no-heading --pcre2 '(?<![\w@/.-])(?:core-js|regenerator-runtime|@babel/polyfill|@vitejs/plugin-legacy|react-app-polyfill|whatwg-fetch)\b|polyfill\.io|polyfill-fastly|"target"\s*:\s*"ES5"|\bie\s*(?:11|>=?\s*\d)|\bop_mini\b' "${CFG[@]}" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --no-heading --pcre2 '\b(?:target|esbuildTarget)\s*:\s*\[?[^\]\n]*["\x27](?:es5|es20(?:1\d|20|21)|chrome(?:[1-9]\d|10\d|110)|safari(?:1[0-5]|16\.[0-3])|firefox(?:[1-9]\d|10\d|11[0-3])|edge(?:[1-9]\d|10\d|110))\b' -g '**/{vite,webpack,nuxt,rsbuild,rspack,svelte,astro}.config.*' -g '**/{tsconfig*.json,angular.json}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 7a. Dev-only packages imported by shipped source (read the guard); 7c. a mock/demo switch read at runtime.
 rg -n --no-heading --pcre2 '\bfrom\s+["\x27](?:msw(?:/browser)?|@faker-js/faker|@welldone-software/why-did-you-render|react-scan|redux-logger|@redux-devtools/\w+|@vue/devtools)["\x27]|import\(\s*["\x27](?:msw|@faker-js|react-scan|@welldone-software)|\bdevTools\s*:\s*true\b' "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"

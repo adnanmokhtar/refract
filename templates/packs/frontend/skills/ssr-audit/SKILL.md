@@ -61,11 +61,14 @@ X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output
    -g '!**/*.{test,spec,e2e,stories,story,mock}.*' -g '!ai/**' -g '!docs/**')
 UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro}')
 TB='(?:[^>{]|\{(?:[^{}]|\{[^{}]*\})*\})*?'   # a lazy JSX tag body that survives `onClick={() => x}`
-# 0. Lanes, versions and rendering mode. The SSR gate: an SSR framework, or a custom SSR entry. Neither → stop.
+# 0. Lanes, versions and rendering mode. The SSR gate: an SSR framework, or a custom SSR entry. Neither → stop. The gate
+#    is per root: ROOTS narrows to the roots that own one (an SPA or widget loader beside a Next app cannot hydrate).
 rg -n --no-heading '"(next|nuxt|@sveltejs/kit|@remix-run/[\w-]+|react-router|@react-router/dev|@angular/ssr|@angular/core|astro|@solidjs/start|@builder\.io/qwik-city|vike|@tanstack/react-start|server-only)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -n --no-heading --pcre2 'output\s*:\s*["\x27]export["\x27]|\bssr\s*:\s*(?:true|false)\b|\bexport\s+const\s+(?:ssr|prerender)\s*=|provideClientHydration\([^)\n]*\)|\bhydrateRoot\(|renderToPipeableStream|renderToReadableStream|createSSRApp\(' "${UI[@]}" "${X[@]}" "${ROOTS[@]}"
-SSR=$(rg -l --pcre2 '"(?:next|nuxt|@sveltejs/kit|@remix-run/[\w-]+|@react-router/dev|@angular/ssr|astro|@solidjs/start|@builder\.io/qwik-city|vike|@tanstack/react-start)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}")$(rg -l --pcre2 '\bhydrateRoot\(|renderToPipeableStream|renderToReadableStream|createSSRApp\(' "${UI[@]}" "${X[@]}" "${ROOTS[@]}")
-[ -n "$SSR" ] || { echo 'SSR gate: no SSR framework or SSR entry under ROOTS — every § is N/A (client-rendered)'; exit 0; }
+SSR=( $( { rg -l --pcre2 '"(?:next|nuxt|@sveltejs/kit|@remix-run/[\w-]+|@react-router/dev|@angular/ssr|astro|@solidjs/start|@builder\.io/qwik-city|vike|@tanstack/react-start)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}" | xargs -r -n1 dirname
+  rg -l --pcre2 '\bhydrateRoot\(|renderToPipeableStream|renderToReadableStream|createSSRApp\(' "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | while IFS= read -r f; do printf '%s\n' "${ROOTS[@]}" | awk -v f="$f" 'index(f, $0 "/")==1 {print length($0) "\t" $0}' | sort -n | tail -1 | cut -f2; done; } | sort -u ) )
+[ ${#SSR[@]} -gt 0 ] || { echo 'SSR gate: no SSR framework or SSR entry under ROOTS — every § is N/A (client-rendered)'; exit 0; }
+ROOTS=( "${SSR[@]}" ); echo "SSR roots: ${ROOTS[*]}"
 NEXT=$(rg -l '"next"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}")
 # 1. Hydration nondeterminism: 1a an impure value in render (effect, handler and timer lines skipped), 1b an environment
 #    branch in markup, 1c storage / matchMedia in initial state or a two-argument useSyncExternalStore, 1d invalid nesting
@@ -90,21 +93,26 @@ rg -l0 --pcre2 '^\s*["\x27]use client["\x27]' "${UI[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -l0 --pcre2 '\bssr\s*:\s*false' -g '*.{tsx,jsx,ts,js}' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg -l0 'next/dynamic' | xargs -0 -r rg --files-without-match --pcre2 '^\s*["\x27]use client["\x27]'
 # 4. SSR data semantics: 4c Nuxt $fetch awaited in setup / an unkeyed useAsyncData, 4d a SvelteKit universal load that
 #    does not take the event's fetch (or imports axios), 4e Angular hydration and transfer-cache wiring (context),
-#    4f module-scope mutable state on a server path, 4g tenant or user identity read from browser storage.
+#    4f module-scope mutable state on a server path (in `.vue` / `.svelte`, only a module script — a Vue `<script>` with no
+#    `setup`, a Svelte `<script module>` — since `<script setup>` / instance-script state is per component), 4g tenant or
+#    user identity read from browser storage.
 rg -n --pcre2 '^\s*(?:const|let)\s+[\w{}:\s,]+=\s*await\s+\$fetch\(|useAsyncData\(\s*(?:\(|async\b|function\b)' -g '*.{vue,ts,js}' "${X[@]}" "${ROOTS[@]}"
 rg -n --pcre2 'export\s+(?:async\s+function\s+load|const\s+load\s*(?::[^=]+)?=\s*async)\s*\(\s*(?!\{[^}]*\bfetch\b)|^import\s+axios\b' -g '**/+{page,layout}.{ts,js}' "${X[@]}" "${ROOTS[@]}"
 rg -n --pcre2 'provideClientHydration|withHttpTransferCache|withNoHttpTransferCache|\bTransferState\b|withEventReplay|withIncrementalHydration' -g '*.ts' "${X[@]}" "${ROOTS[@]}"
-rg -n --pcre2 '^(?:export\s+)?(?:let|var)\s+\w+|^(?:export\s+)?const\s+\w+\s*(?::\s*[^=\n]+)?=\s*(?:new\s+(?:Map|Set|WeakMap|Array)\b|\[\s*\]|\{\s*\}|(?:ref|reactive|shallowRef|writable|signal|atom|observable|proxy)\(|\$state\(|create(?:Store)?\s*(?:<[^>\n]*>)?\(\s*(?:\(\s*set|set\b))|\baxios\.defaults\.headers|\bi18n(?:ext)?\.changeLanguage\(|\bdayjs\.locale\(|\bmoment\.locale\(' "${UI[@]}" "${X[@]}" "${ROOTS[@]}"
+F4='^(?:export\s+)?(?:let|var)\s+\w+|^(?:export\s+)?const\s+\w+\s*(?::\s*[^=\n]+)?=\s*(?:new\s+(?:Map|Set|WeakMap|Array)\b|\[\s*\]|\{\s*\}|(?:ref|reactive|shallowRef|writable|signal|atom|observable|proxy)\(|\$state\(|create(?:Store)?\s*(?:<[^>\n]*>)?\(\s*(?:\(\s*set|set\b))|\baxios\.defaults\.headers|\bi18n(?:ext)?\.changeLanguage\(|\bdayjs\.locale\(|\bmoment\.locale\('
+rg -n --pcre2 "$F4" "${UI[@]}" -g '!*.{vue,svelte}' "${X[@]}" "${ROOTS[@]}"
+rg -n --pcre2 "$F4" -g '*.{vue,svelte}' "${X[@]}" "${ROOTS[@]}" | while IFS= read -r h; do f=${h%%:*}; r=${h#*:}; awk -v n="${r%%:*}" '/^<script/ {m = (FILENAME ~ /\.vue$/ && $0 !~ /setup/) || $0 ~ /context="module"|[ ]module[ >]/} /^<\/script>/ {m=0} NR==n {exit !m}' "$f" && echo "$h"; done
 rg -n --pcre2 '(?:localStorage|sessionStorage)\.getItem\(\s*["\x27`](?:tenant|org|organization|workspace|account|store|shop|merchant|company)\w*|document\.cookie' "${UI[@]}" "${X[@]}" "${ROOTS[@]}"
 # CB. Client-boundary cost: CB1 'use client' files with no hook, handler, browser API or context; CB2 a client page,
 #     layout or template (the boundary at the top of a route).
 rg -l0 --pcre2 '^\s*["\x27]use client["\x27]' "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 '\buse[A-Z]\w*\(|\buse\(|\bon[A-Z]\w*=\{|\b(?:window|document|navigator|localStorage|sessionStorage)\.|createContext\(|addEventListener|\bmotion\.|forwardRef'
 rg -l --pcre2 '^\s*["\x27]use client["\x27]' -g '**/app/**/{layout,page,template}.{tsx,jsx}' "${X[@]}" "${ROOTS[@]}"
 if [ -n "$NEXT" ]; then
-# 3b a module reading a non-public env var with no `import 'server-only'`; 3c a function or class instance passed as a prop
+# 3b a module under lib/ server/ services/ actions/ data/ (a path filter: two -g include globs are a union, not an
+#    intersection) reading a non-public env var with no `import 'server-only'`; 3c a function or class instance passed as a prop
 #    from a Server Component (a file under app/ with no 'use client'); 4a synchronous request APIs (removed in Next 16);
 #    4b request APIs in a layout (the whole subtree turns dynamic).
-rg -l0 --pcre2 'process\.env\.(?!NEXT_PUBLIC_|NODE_ENV\b)\w+' -g '**/{lib,server,services,actions,data}/**' "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 '^\s*import\s+["\x27]server-only["\x27]|^\s*["\x27]use server["\x27]'
+rg -l --pcre2 'process\.env\.(?!NEXT_PUBLIC_|NODE_ENV\b)\w+' "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | rg --pcre2 '/(?:lib|server|services|actions|data)/' | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '^\s*import\s+["\x27]server-only["\x27]|^\s*["\x27]use server["\x27]'
 rg --files-without-match --pcre2 '^\s*["\x27]use client["\x27]' -g '**/app/**/*.{tsx,jsx}' "${X[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg -n -H -U --pcre2 "<[A-Z]\w*\b${TB}\s(?!action=|formAction=)\w+=\{\s*(?:\([^)]*\)\s*=>|\w+\s*=>|async\s|function\b|new\s+(?!Date\b)[A-Z])"
 rg -n --pcre2 '\b(?:cookies|headers|draftMode)\(\)\s*\.(?!then)|\b(?:params|searchParams)\.(?!then\b)\w+' -g '**/app/**/{page,layout,route,default,template}.{tsx,jsx,ts,js}' "${X[@]}" "${ROOTS[@]}"
 rg -n --pcre2 '\b(?:cookies|headers|connection|draftMode)\(\)' -g '**/app/**/layout.{tsx,jsx,ts,js}' "${X[@]}" "${ROOTS[@]}"

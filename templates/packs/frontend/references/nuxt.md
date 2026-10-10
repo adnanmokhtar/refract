@@ -74,7 +74,7 @@ Where the network is unavailable, this file is what you have; it does not halt.
 - Images: `<NuxtImg>` / `<NuxtPicture>` (`@nuxt/image`) with explicit `width`/`height` + `sizes` + `format="avif"` — fixed dimensions prevent CLS, responsive `sizes` cuts bytes. (Sibling audit: `frontend/skills/lcp-audit/SKILL.md`.)
 - LCP image: set `preload` and `:loading="'eager'"` (default is `lazy`) — NEVER lazy-load the hero / above-the-fold LCP image. Reinforce with `useHead({ link: [{ rel: 'preload', as: 'image', href }] })` when the LCP source isn't statically discoverable.
 - Fonts: `@nuxt/fonts` for self-hosted + `font-display` + preload, avoiding layout shift from late web-font swaps.
-- INP: keep main-thread work off the interaction path — field INP (good = 200ms at p75) is measured in the field, not in lab (sibling: `performance/skills/web-vitals-field/SKILL.md`, `performance/ai-patterns/inp-responsiveness.md`).
+- INP: keep main-thread work off the interaction path — field INP (good = 200ms at p75) is measured in the field, not in lab (siblings, performance pack, when installed: the `web-vitals-field` skill and the `inp-responsiveness` pattern at `ai/patterns/inp-responsiveness.md`; without it, `web-vitals` `onINP` attribution in the field).
 
 ## Anti-patterns
 

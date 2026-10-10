@@ -56,7 +56,7 @@ code-quality             3
 database                 3
 devops                   2
 documentation            2
-frontend                 15
+frontend                 11
 observability            1
 performance              1
 security                 1

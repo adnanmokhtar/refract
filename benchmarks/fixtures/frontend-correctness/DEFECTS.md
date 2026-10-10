@@ -1486,7 +1486,8 @@ match:    key|reset|controlled|remount
 
 Measured 2026-10-05 with ripgrep 15.2.0 (PCRE2 10.45), from this directory, each skill's pre-flight block copied
 verbatim from `templates/packs/frontend/skills/<skill>/SKILL.md` as of that date, plus
-`i18n-scan/scripts/catalog-parity.py . --used=./apps/admin,./apps/shop,./packages/widgets`. A seed is **caught** when a
+`i18n-scan/scripts/catalog-parity.py . --used=./apps/admin,./apps/shop,./packages/widgets` (re-measured 2026-10-10, same
+ripgrep, for `ssr-audit`, `client-data-scan`, `routing-scan`, `bundle-analyze` and the script after IR-6…IR-15). A seed is **caught** when a
 grep prints its file (file-level greps) or a line within 6 of its anchor for the class it seeds. A decoy is **hit**
 when a grep prints it for the class it imitates; every decoy hit below is refuted by the read the skill already
 prescribes, so the decoy produces **0 findings**. These are grep results, not a scored `/frontend-audit` run — no run
@@ -1495,16 +1496,16 @@ is recorded in `RESULTS.md` yet. Run from the repo root the greps print nothing 
 | detector | seeds it owns | caught by its greps | decoys hit by the class they imitate → findings | notes |
 |----------|---------------|--------------------|-----------------------------------------------|-------|
 | `render-correctness-scan` | 10 (RC-01…05 × 2) | **10 / 10** (1a, 1c, 2, 3a/3a′, 4a, 4b, 5a, 5b) | FC-DECOY-01 by 3a (`key={i}`, footer) → 0: a constant list (ui § 42). FC-DECOY-21 by 5c (`<AddressForm key={line1}>`) → 0: the reset on a picked match is the point. DECOY-11, -12, -20: 0 hits | 5a also prints `CheckoutSlots`' hidden input (`value={picked}` renders only when set — refuted) |
-| `ssr-audit` | 8 (SSR-01…04 × 2) | **8 / 8** (1a, 1d, 2a, 2b, 3a, 3b, 4a, 4f) | FC-DECOY-02 by 1a/1f (`suppressHydrationWarning` on a `<time>`) → 0: ui § 44. FC-DECOY-04 by 1a (`new Date()` on its own line inside a multi-line `useEffect`) → 0: ui § 43. DECOY-05: 0 hits | noise: SPA roots scanned (IR-11), Vue `<script setup>` refs in 4f (IR-12), 3b's union globs (IR-13) |
-| `client-data-scan` | 14 (CD-01…07 × 2) | **13 / 14** (1a, 2a, 3a, 4a, 5a, 6a, 6c-read, 7a, 7b); **CD-01b missed** (IR-6) | DECOY-03 (same key twice), -07 (invalidate helper), -08 (`AbortController`): 0 hits | 1a also pairs `getTranslations()` with a fetch on three pages (a local message load — refuted on read); 2a leaks multi-line `queryFn`/`mutationFn` bodies (IR-7); 6a false hit on `PickersView` (IR-8) |
-| `routing-scan` | 10 (§1, §3, §4, §6, §7 × 2) | **9 / 10** (1a, 3a, 4b, 4d, 6a, 7a); **RT-07b missed** — 7a prints `SortSelect … 1 with <Suspense>` (IR-9) | DECOY-16 (catch-all with `notFound()`), -17 (zod-validated param), -18 (server `redirect()`): 0 hits in 4b / 3a / 6a; -19 printed by 7a as wrapped, which is correct for `Pagination` | 4c lists all 7 static pages under `[locale]` (IR-10); 5a lists redirect sites as context |
-| `i18n-scan` + `catalog-parity.py` | 14 (I18N-01…07 × 2) | **14 / 14** — greps 1a, 3a, 3b, 4a, 4b, 5a, 5c, 6 (×2), 7a; the script's `missing-key [ar] checkout.placeOrder` (02a) and `used-undefined orders.bulkRefund` (02b); 07b by 7a on `apps/admin/index.html` plus 7b listing no back-office sync site | DECOY-09 (ICU plural), -10 (`ms-4`): 0 hits | 1a also prints the widgets' English-only strings, `index.html`'s title, `/kg` and the brand name (candidates to read); the script reports 2 cross-app `missing-file` rows (IR-15) |
+| `ssr-audit` | 8 (SSR-01…04 × 2) | **8 / 8** (1a, 1d, 2a, 2b, 3a, 3b, 4a, 4f) | FC-DECOY-02 by 1a/1f (`suppressHydrationWarning` on a `<time>`) → 0: ui § 44. FC-DECOY-04 by 1a (`new Date()` on its own line inside a multi-line `useEffect`) → 0: ui § 43. DECOY-05: 0 hits | since IR-11 the gate narrows `ROOTS` to `./apps/shop` (the Vue SPA's `main.ts`, `DeliveryRow.vue`, `LocaleSwitcher.vue` and the widget `loader.ts` are gone); since IR-12 a `.vue`/`.svelte` file reaches 4f only from a module script (the 6 `<script setup>` lines are gone even when `apps/admin` is scanned); since IR-13 3b lists `lib/pricing.ts` alone |
+| `client-data-scan` | 14 (CD-01…07 × 2) | **14 / 14** (1a, 1b — `stores/pickers.ts:8-9` since IR-6, 2a, 3a, 4a, 5a, 6a, 6c-read, 7a, 7b) | DECOY-03 (same key twice), -07 (invalidate helper), -08 (`AbortController`): 0 hits | 1a also pairs `getTranslations()` with a fetch on three pages (a local message load — refuted on read); since IR-7 2a drops calls under an enclosing `queryFn`/`mutationFn`/`fetcher` line (`DispatchView:22`, `DeliverySlots:16`, `AddressForm:16` gone); since IR-8 6a no longer prints `PickersView` |
+| `routing-scan` | 10 (§1, §3, §4, §6, §7 × 2) | **10 / 10** (1a, 3a, 4b, 4d, 6a, 7a — `SortSelect … 0 with every <SortSelect> inside <Suspense>` since IR-9) | DECOY-16 (catch-all with `notFound()`), -17 (zod-validated param), -18 (server `redirect()`): 0 hits in 4b / 3a / 6a; -19 printed by 7a as wrapped, which is correct for `Pagination` | 4c lists only `c/[...slug]/page.tsx` (the 6 static pages under `[locale]` are gone since IR-10); 5a lists redirect sites as context |
+| `i18n-scan` + `catalog-parity.py` | 14 (I18N-01…07 × 2) | **14 / 14** — greps 1a, 3a, 3b, 4a, 4b, 5a, 5c, 6 (×2), 7a; the script's `missing-key [ar] checkout.placeOrder` (02a) and `used-undefined orders.bulkRefund` (02b); 07b by 7a on `apps/admin/index.html` plus 7b listing no back-office sync site | DECOY-09 (ICU plural), -10 (`ms-4`): 0 hits | 1a also prints the widgets' English-only strings, `index.html`'s title, `/kg` and the brand name (candidates to read); the 2 cross-app `missing-file` rows are gone since IR-15 (declared locales are scoped per package) |
 | `critical-path-scan` | 6 (§1–§3 × 2) | **6 / 6** (1a, 1b, 2b, 2c, 3a, 3b) | FC-DECOY-13 by 2a (GTM host) → 0: consent-gated, `lazyOnload`. FC-DECOY-15 by 2a (plausible host) → 0: `async defer`. 3d prints the `<Suspense fallback={null}>` beside FC-DECOY-19 → 0: page-bottom pagination shifts nothing above it | 3a also prints `<ConsentScripts />` (`Consent\w*`; it renders a script tag, no box) |
-| `bundle-analyze` | 4 (§6, §7 × 2) | **4 / 4** (6a, 6b, 7a, 7c) — §1–§3, 6c, 7b `blocked` (no build output), §4 `blocked` (no lockfile), §5 `blocked` (no `node_modules`) | FC-DECOY-14 (`import.meta.env.DEV` dynamic import): 0 hits. FC-DECOY-06 (`plugin-legacy`): 0 hits — but only because 6a cannot match a scoped package name at all (IR-14) | |
+| `bundle-analyze` | 4 (§6, §7 × 2) | **4 / 4** (6a, 6b, 7a, 7c) — §1–§3, 6c, 7b `blocked` (no build output), §4 `blocked` (no lockfile), §5 `blocked` (no `node_modules`) | FC-DECOY-14 (`import.meta.env.DEV` dynamic import): 0 hits. FC-DECOY-06 by 6a (`vite.config.ts:2` import, `package.json:17`; 6a matches scoped names since IR-14) → 0: `plugin-legacy` nomodule chunks modern browsers never fetch, the §6 read (performance § 89) | |
 
-Totals: **64 of 66** seeds are printed by their owner's pre-flight (with `catalog-parity.py` for the two catalog
-seeds); **2** are missed (CD-01b, RT-07b). **0 decoys** survive their owner's prescribed read; the 6 decoy grep hits
-above are the ones that read exists to refute.
+Totals: **66 of 66** seeds are printed by their owner's pre-flight (with `catalog-parity.py` for the two catalog
+seeds); **0** are missed (CD-01b and RT-07b were, until IR-6 and IR-9 on 2026-10-10). **0 decoys** survive their
+owner's prescribed read; the 7 decoy grep hits above (FC-DECOY-06 joined on 2026-10-10) are the ones that read exists to refute.
 
 ### Integrator requests (skill gaps found by this fixture — the skills are other agents' files)
 
@@ -1512,31 +1513,41 @@ above are the ones that read exists to refute.
   the result — `for (const id of ids) { const { data } = await api.get(…) }` — is invisible (FC-CD-01b). Use a
   lazy `[\s\S]{0,200}?` bounded by the loop's own closing brace, or match `await NET` on the lines following a
   `for…of` head.
+  — **fixed 2026-10-10**: 1b's loop body is `(?:[^{}]|\{[^{}]*\}){0,200}?` (balanced one-level braces, so it never leaves the loop) and the loop variable may be destructured; prints `pickers.ts:8-9`.
 - **IR-7 — `client-data-scan` 2a:** the `queryFn|mutationFn|fetcher` exclusion is per line; a multi-line
   `queryFn: async () => {` body leaks its `api.get` line (DispatchView:22, DeliverySlots:16, AddressForm:16). Exclude
   by enclosing property (read the 3 preceding lines) or move the call-site test into a `-U` pattern.
+  — **fixed 2026-10-10**: 2a pipes each hit through an awk walk up its enclosing (less-indented) lines; one that opens `queryFn`/`mutationFn`/`fetcher` drops it. The 3 leaked lines are gone; CD-02a/b stay.
 - **IR-8 — `client-data-scan` 6a:** `[^\n]*\(\s*[a-z]\w*` treats `(await` as the fetcher's argument, so
   `queryKey: ['pickers'], queryFn: async () => (await api.get('/pickers')).data` is reported. Exclude `await`/`async`
   as the captured word.
+  — **fixed 2026-10-10**: 6a's argument is `\(\s*(?!(?:await|async)\b)[a-z]\w*`; `PickersView` is gone, CD-06a stays.
 - **IR-9 — `routing-scan` 7a:** Suspense is counted per renderer *file*: a page that wraps one `useSearchParams`
   client in `<Suspense>` reports every other such client it renders as wrapped (`SortSelect` in
   `c/[...slug]/page.tsx`, FC-RT-07b). Check JSX ancestry — the `<SortSelect` tag must sit between `<Suspense` and
   `</Suspense>` in the renderer.
+  — **fixed 2026-10-10**: 7a counts a renderer only when every `<Tag` sits at `<Suspense>` depth ≥ 1 (an awk depth counter over the file); `SortSelect` prints 0, `Pagination` (DECOY-19) 1.
 - **IR-10 — `routing-scan` 4c:** `find … -path '*\[*'` matches every page below an `app/[locale]/` segment, so all
   static pages are printed as "dynamic segments with no notFound()". Test the page's own segment chain below the
   locale root, or require a bracket segment other than the first under `app/`.
+  — **fixed 2026-10-10**: 4c strips a leading `[locale]`/`[lang]`/`[lng]`/`[language]` segment and needs a bracket segment below it; only `c/[...slug]` remains.
 - **IR-11 — `ssr-audit`:** the SSR gate is repo-wide, then every grep runs over all `ROOTS`; in this monorepo the Vue
   SPA and the Angular widget loader produce 1c, 1e, 2a and 2b hits (`main.ts`, `DeliveryRow.vue`, `LocaleSwitcher.vue`,
   `loader.ts`) that cannot hydrate. Narrow `ROOTS` to the roots whose `package.json` carries the SSR framework.
+  — **fixed 2026-10-10**: the gate collects SSR roots (a package.json with an SSR framework, or the root owning an SSR entry) and sets `ROOTS` to them, printing `SSR roots:`.
 - **IR-12 — `ssr-audit` 4f:** top-level `const x = ref(…)` / `let timer` inside a Vue `<script setup>` block is
   per-component-instance state, not module scope; 6 such lines are printed. Exclude `.vue` setup blocks (in Nuxt the
   real module-scope risk lives in `.ts` composables and server routes).
+  — **fixed 2026-10-10**: 4f runs on `.vue`/`.svelte` only for lines inside a module script (Vue `<script>` without `setup`, Svelte `<script module>` / `context="module"`).
 - **IR-13 — `ssr-audit` 3b:** `-g '**/{lib,server,services,actions,data}/**'` followed by `"${UI[@]}"`'s `-g` globs is a
   union in ripgrep, not an intersection, so every UI file with a non-public env read is listed (a `'use client'`
   component, a server page). Filter the path with a second `rg`/`grep` stage instead.
+  — **fixed 2026-10-10**: 3b greps every UI file, then path-filters `/(lib|server|services|actions|data)/` with a second `rg`; `DeliverySlots.tsx` and the recipes page are gone.
 - **IR-14 — `bundle-analyze` 6a:** `\b(?:…|@babel/polyfill|@vitejs/plugin-legacy|…)\b` can never match the two scoped
   names: `\b` needs a word character beside it and `@` is not one. `packages/widgets`' `@vitejs/plugin-legacy` import
   and dependency are invisible. Use `(?<![\w@/.-])` before the alternation.
+  — **fixed 2026-10-10**: 6a starts with `(?<![\w@/.-])`; `@vitejs/plugin-legacy` now prints (FC-DECOY-06, refuted by the §6 read).
 - **IR-15 — `i18n-scan/scripts/catalog-parity.py`:** catalog sets from different apps of a monorepo are folded into one
   family, so `apps/admin` (en, de) is told it lacks `ar` and `apps/shop` (en, ar) that it lacks `de`. Scope the
   declared-locale set per catalog set (or per nearest `package.json`).
+  — **fixed 2026-10-10**: the declared-locale set is keyed by (family, nearest package.json directory); a self-test case covers two apps with different locales. The 2 rows are gone; `missing-key [ar] checkout.placeOrder` and `used-undefined orders.bulkRefund` stay.

@@ -86,13 +86,17 @@ NET='(?:\bfetch|\$fetch|\baxios(?:\.\w+)?|\bky(?:\.\w+)?|\b(?:api|http|client|ap
 rg -n --no-heading --pcre2 '"(?:@tanstack/(?:react|vue|svelte|solid|angular)-query(?:-experimental)?|@tanstack/eslint-plugin-query|swr|@reduxjs/toolkit|@apollo/client|urql|@pinia/colada|pinia|@ngrx/\w+|rxjs|ky|axios|axios-retry|msw|next|nuxt|@sveltejs/kit|react-router(?:-dom)?|zustand)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -n --pcre2 'new\s+(?:QueryClient|MutationCache|QueryCache)\s*\(|defaultOptions\s*:' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 1a two consecutive awaited reads in a loader, page, component or hook (read: does the second use the first?);
-# 1b fan-out — Promise.all over a .map, an awaited call per loop item, useQueries over a list; 1c a data-fetching component rendered inside .map.
+# 1b fan-out — Promise.all over a .map, an awaited call per loop item (the body may hold balanced braces, e.g. a
+#    destructured `const { data } = await …`), useQueries over a list; 1c a data-fetching component rendered inside .map.
 rg -n -U --pcre2 '^[ \t]*(?:const|let|var)\s+[^=\n]+=\s*await\s+[\w.$]+\s*[<(][^\n]*\n(?:[ \t]*(?://[^\n]*)?\n){0,2}[ \t]*(?:const|let|var)\s+[^=\n]+=\s*await\s+[\w.$]+\s*[<(]' -g '**/{routes,pages,app,views,screens,features,components,hooks,composables}/**/*.{ts,tsx,js,jsx,vue,svelte}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-rg -n -U --pcre2 'Promise\.all(?:Settled)?\(\s*\w+(?:\??\.\w+)*\.map\(\s*(?:async\s*)?\(?[\w{}\s,]*\)?\s*=>\s*(?:await\s+)?[\w.$]+\(|for\s*(?:await\s*)?\(\s*(?:const|let)\s+\w+\s+of\s+[^)]+\)\s*\{[^}]{0,200}?\bawait\s+'"$NET"'|\buseQueries\(\s*\{\s*queries\s*:\s*\w+(?:\??\.\w+)*\.map\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --pcre2 'Promise\.all(?:Settled)?\(\s*\w+(?:\??\.\w+)*\.map\(\s*(?:async\s*)?\(?[\w{}\s,]*\)?\s*=>\s*(?:await\s+)?[\w.$]+\(|for\s*(?:await\s*)?\(\s*(?:const|let)\s+(?:\w+|\{[^}]*\}|\[[^\]]*\])\s+of\s+[^)]+\)\s*\{(?:[^{}]|\{[^{}]*\}){0,200}?\bawait\s+'"$NET"'|\buseQueries\(\s*\{\s*queries\s*:\s*\w+(?:\??\.\w+)*\.map\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 Q=$(rg -l --pcre2 '\buse(?:Suspense)?Query\(|\buseSWR\(|\buseFetch\(|\bcreateQuery\(' "${T[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg -o --no-filename --pcre2 'export\s+(?:default\s+)?(?:function|const)\s+([A-Z]\w+)' -r '$1' | sort -u | paste -sd'|' -)
 [ -n "$Q" ] && rg -n -U --pcre2 '\.map\(\s*\(?[^)]*\)?\s*=>\s*\(?\s*<(?:'"$Q"')\b' "${T[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 2a a network call written in a component file, outside a queryFn / mutationFn / fetcher; 9a a store that fetches and keeps its own loading flag (S-10).
-rg -n --pcre2 "$NET" "${T[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | rg -v --pcre2 'queryFn|mutationFn|fetcher'
+# 2a a network call written in a component file, outside a queryFn / mutationFn / fetcher — on its line, or on any
+#    enclosing (less-indented) line above it, so a multi-line `queryFn: async () => {` body is dropped too;
+# 9a a store that fetches and keeps its own loading flag (S-10).
+rg -n --pcre2 "$NET" "${T[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | rg -v --pcre2 'queryFn|mutationFn|fetcher' | while IFS= read -r h; do f=${h%%:*}; r=${h#*:}
+  awk -v n="${r%%:*}" 'NR<n{L[NR]=$0;next} {d=match($0,/[^ \t]/); for(i=n-1;i>0;i--){ if(L[i]!~/[^ \t]/) continue; j=match(L[i],/[^ \t]/); if(j<d){ if(L[i]~/(queryFn|mutationFn|fetcher)[ \t]*[:=(]/) exit 1; d=j; if(j==1) exit 0 } } exit 0}' "$f" && echo "$h"; done
 rg -l --pcre2 'createAsyncThunk|createSlice|\bcreate\(\s*\(set|defineStore\(|createStore\(|signalStore\(|createReducer\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg -l --pcre2 "$NET" | xargs -r rg -l --pcre2 '\b(?:loading|isLoading|status|error)\s*[:=]'
 # 3a files where an effect / watcher fetches and writes state with no cancellation and no keyed cache; 3b RxJS typeahead flattened with mergeMap / concatMap.
 rg -l --pcre2 '\buseEffect\(|\bwatch(?:Effect)?\(|\$effect\(|\bonMount\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg -l --pcre2 "$NET" | xargs -r rg -l --pcre2 '\bset(?!Interval|Timeout|Immediate)[A-Z]\w*\b|\.value\s*=|\bthis\.\w+\s*=(?!=)' | xargs -r rg --files-without-match --pcre2 'AbortController|\bsignal\b|\bignore\b|cancel(?:l)?ed|isMounted|\bactive\s*=\s*false|onCleanup|onWatcherCleanup|switchMap|useQuery|useSWR|createQuery'
@@ -105,8 +109,8 @@ rg -l --pcre2 "^['\"]use server['\"]" "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs 
 rg -l --pcre2 '\bonMutate\s*[:(]' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match --pcre2 '\bonError\s*[:(]'
 rg -l --pcre2 '\bupdateQueryData\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match --pcre2 '\.undo\(\)'
 rg -n --pcre2 'rollbackOnError\s*:\s*false' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 6a a literal one-word key whose fetcher takes an argument; 6b SWR string key with a closure argument; 6c sign-out sites, then cache clears; 6d persisted caches.
-rg -n -U --pcre2 'queryKey\s*:\s*\[\s*["\x27`][^"\x27`$]+["\x27`]\s*\]\s*,\s*queryFn\s*:\s*(?:async\s*)?\(\s*\)\s*=>\s*[^\n]*\(\s*[a-z]\w*' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 6a a literal one-word key whose fetcher takes an argument (`(await …)` is not an argument); 6b SWR string key with a closure argument; 6c sign-out sites, then cache clears; 6d persisted caches.
+rg -n -U --pcre2 'queryKey\s*:\s*\[\s*["\x27`][^"\x27`$]+["\x27`]\s*\]\s*,\s*queryFn\s*:\s*(?:async\s*)?\(\s*\)\s*=>\s*[^\n]*\(\s*(?!(?:await|async)\b)[a-z]\w*' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --pcre2 "useSWR(?:Immutable|Infinite)?\(\s*['\"][^'\"\$]+['\"]\s*,\s*(?:async\s*)?\(\)\s*=>\s*\w+\(\s*[a-z]" "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --pcre2 '\b(?:logout|logOut|signOut|signout)\s*(?:=\s*(?:async\s*)?\(|\(|:\s*(?:async\s*)?\()' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --pcre2 '(?:queryClient|qc|client)\.(?:clear|removeQueries|resetQueries)\(|\.(?:clearStore|resetStore)\(|cache\.reset\(|\bmutate\(\s*\(\)\s*=>\s*true' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"

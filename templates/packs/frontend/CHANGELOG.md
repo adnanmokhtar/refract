@@ -14,6 +14,32 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.0.0 — 2026-10-10
+
+**The frontend pack became a set of detectors with one audit and one fix loop (Track A batch 3).** Before this release the pack had prose patterns, one broken SSR table and two single-agent audits that judged their own findings. Now every UI defect class has one owning skill with a one-script pre-flight, a class-coverage block, a refute step and a failing-first oracle. Two commands dispatch them all and close what they find. Major version: `/a11y-audit` and `/i18n-audit` are no longer standalone audits; they are presets of `/frontend-audit`.
+
+New detectors (`skills/`):
+- `render-correctness-scan` — React and Compiler rules, effect cleanup and SPA memory growth (bundle-perf X1a), keys and identity, reactivity loss, controlled ↔ uncontrolled.
+- `critical-path-scan` — render-blocking `<head>` (bundle-perf L2), third parties on the critical path (I3), late-inserted layout shift (X1b), with Lighthouse 12.6.1 / 13 ids side by side.
+- `client-data-scan` — waterfalls and N requests (bundle-perf W1) … server state copied into a client store; it owns optimistic rollback (§5).
+- `routing-scan` — click navigation on a non-link, URL state, params, soft 404, redirect loop, protected flash, `useSearchParams` without Suspense, navigation race.
+- `i18n-scan` with `scripts/catalog-parity.py` — eleven classes from hard-coded copy to bidi isolation, and a catalog script for parity, unused and undefined keys.
+- `a11y-code-scan` — static WCAG 2.2 AA, §1–§14.
+
+Rewritten in place, with their § numbers and cited headings kept: `ssr-audit` (the broken per-stack table is replaced by one fenced script; `§ Client-boundary cost` is unchanged), `bundle-analyze` (§6 legacy targets and §7 dev-only build code take bundle-perf's interim lanes P4/P5), `a11y-scan` (rendered WCAG per route × state × theme, gate integrity; it owns the static riders — zoom lock, `<html lang>`, orientation lock — as grep 6), and `seo-audit` with the `scripts/seo-head.py` oracle (server HTML of a production build, two user agents, robots and sitemap). `lighthouse-ci`, `lcp-audit`, `image-optimization`, `font-optimization`, `streaming-ssr`, `navigation-speed`, `visual-check`, `verify-with-playwright` and `dev-server-start` gained pre-flights and Lighthouse 13 ids.
+
+Agents: `@accessibility-auditor` is the WCAG judge only when the ui-ux pack is absent (`@ux-reviewer` owns WCAG otherwise); `@data-flow-auditor`, `@ui-reviewer`, `@i18n-auditor` and `@technical-seo` are lenses that judge and rank their detectors' rows and never re-grep them.
+
+Commands: `/frontend-audit` (read-only; class ledger, production bar, three-state verdict) and `/frontend-fix` (re-verify, failing-first oracle at the route-state, strict decrease, re-detect). `/a11y-audit` is `/frontend-audit --classes=a11y`; `/i18n-audit` is `--classes=i18n`.
+
+Integration (2026-10-10):
+- `/frontend-audit` dispatches `chart-encoding-audit` (ui-ux, when installed) as a new `charts` ledger row; the SSR row names `@ui-reviewer` as judge; `--classes=seo` needs a production build per UI root. `/frontend-fix` gains SEO (`seo-head.py`, failing before the fix) and Chart encoding oracle rows.
+- Fixture gaps closed (benchmarks `a11y-states` and `frontend-correctness`, IR-6…IR-15): `client-data-scan` 1b sees a loop that destructures its result, 2a drops multi-line `queryFn` bodies, 6a no longer reads `(await …)` as a fetcher argument; `routing-scan` 7a checks JSX ancestry under `<Suspense>`, 4c ignores a leading `[locale]` segment; `ssr-audit`'s gate narrows `ROOTS` to SSR roots, 4f skips Vue `<script setup>` state, 3b filters paths in a second stage; `bundle-analyze` 6a matches scoped names (`@vitejs/plugin-legacy`); `catalog-parity.py` scopes declared locales per app. Both fixtures now print every seed their owners own (66/66, and 76/82 with the rest rendered-only or read-only by design).
+- `a11y-code-scan` dropped its rider grep 0d (now only `a11y-scan` grep 6, so one site is reported once) and names `routing-scan` §1 and `mobile-a11y-scan` as the neighbouring owners.
+- `ai-patterns/i18n.md`, `rules/i18n.md`, `_examples/i18n.md`: detection is `i18n-scan`, judged by `@i18n-auditor`; `/i18n-audit` no longer "owns the extractor pass".
+- `references/react.md` and `nuxt.md` name the performance pack's `web-vitals-field` and `inp-responsiveness` by installed name, not by pack source path. `_authoring-standard.md` lists the new scanners.
+- Deleted `_examples/seo-audit.md`, `ssr-audit.md`, `a11y-audit.md`, `i18n-audit.md` and `i18n-auditor.md`: each described a retired shape (the broken SSR greps, the single-agent audits). Their `_topics.md` fallbacks are the sources themselves. The greenfield boundary-loss budget was re-recorded at 11 (from 15).
+
 ## 1.19.0 — 2026-10-05
 
 **visual-check and lighthouse-ci register as behavioural baselines (architecture proposal §7, Phase 5).**

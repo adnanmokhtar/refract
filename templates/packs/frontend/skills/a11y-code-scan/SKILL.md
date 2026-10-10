@@ -29,12 +29,12 @@ A candidate is a finding when all four hold:
 
 ## Boundaries
 
-- **Rendered-only classes** belong to `a11y-scan` (this pack): the axe floor per route × state × theme, contrast (1.4.3, 1.4.11), target size (2.5.8), reflow, zoom and text spacing (1.4.4, 1.4.10, 1.4.12), focus obscured (2.4.11), headings, landmarks and `lang` as axe sees them, and the integrity of the project's a11y gate. Grep 0d here lists their static riders (`user-scalable=no`, `<html>` without `lang`, an orientation lock). Report those as static facts only when `a11y-scan` did not run, tagged `owner: a11y-scan`.
+- **Rendered-only classes** belong to `a11y-scan` (this pack): the axe floor per route × state × theme, contrast (1.4.3, 1.4.11), target size (2.5.8), reflow, zoom and text spacing (1.4.4, 1.4.10, 1.4.12), focus obscured (2.4.11), headings, landmarks and `lang` as axe sees them, and the integrity of the project's a11y gate. Their static riders (`user-scalable=no`, `<html>` without `lang`, an orientation lock) are `a11y-scan` grep 6; this skill no longer greps them, so one site is never reported twice.
 - **Motion and animation** (2.2.2 auto-moving content, 2.3.3) → `motion-audit` (ui-ux pack), when installed; §12 here keeps media captions and autoplay audio. Without ui-ux, autoplay rows stay here and reduced-motion rows print `N/A (owner pack ui-ux not installed)`.
 - **Contrast values and token pairs** → `design-token-audit` (ui-ux pack) computes them; the visual fix is `ui-design-sweep` verbs 12 (lift-contrast), 13 (align-focus-ring), 16 (expand-tap-target) and 18 (clarify-affordance) when ui-ux is installed.
-- **Native mobile accessibility** (React Native, Flutter, Compose, SwiftUI) is not this skill's: DOM tooling on a native tree proves nothing. Without a mobile a11y detector, those files print `N/A (native UI — not a DOM)`.
+- **Native mobile accessibility** (React Native, Flutter, Compose, SwiftUI) is not this skill's: DOM tooling on a native tree proves nothing. It is `mobile-a11y-scan` (mobile pack, when installed); without it, those files print `N/A (native UI — not a DOM)`.
 - **Security in markup** — `dangerouslySetInnerHTML`, `v-html`, `target=_blank` without `noopener` — → `xss-scan` (security pack, when installed).
-- **Navigation by `onClick` on a non-link** is reported here as §1 (2.1.1). The routing and crawl half is the routing detector's once it ships. Hard-coded `aria-label` text is i18n's; the missing name is this skill's.
+- **Navigation by `onClick` on a non-link** is reported here as §1 (2.1.1, the keyboard half). The routing and crawl half (no `href`, no new tab, no copy-link) is `routing-scan` §1 (this pack): one element, one finding, credited to both. Hard-coded `aria-label` text is i18n's; the missing name is this skill's.
 - **The judge** of an a11y finding is `@ux-reviewer` (ui-ux pack) when installed, else `@accessibility-auditor` (this pack). This skill is the static detector both consume.
 
 ## Adapt to the codebase — lane table
@@ -104,11 +104,10 @@ NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(?://|/\*|\*(?:\s|/|$)|\{/\*|<!--|#(?!\{))')   
 TB='(?:[^>{]|\{(?:[^{}]|\{[^{}]*\})*\})*'
 BTN='button|Button|IconButton'   # add the project's icon-button wrappers from _extracted-idioms.md
 ICON='(?:<(?:[A-Z][\w.]*|svg|i)\b(?!'"$TB"'\baria-label)'"$TB"'/>|<(?:svg|i|mat-icon)\b(?!'"$TB"'\baria-label)'"$TB"'>(?:[^<]|<(?!/?(?:button|svg|i|mat-icon|title)\b)[^>]*>)*</(?:svg|i|mat-icon)>)'
-# 0a lanes and versions; 0b headless libraries and form wrappers (gate 4); 0c a11y lint suppressions; 0d static riders owned by a11y-scan.
+# 0a lanes and versions; 0b headless libraries and form wrappers (gate 4); 0c a11y lint suppressions. (The static riders — zoom lock, <html> without lang, orientation lock — are a11y-scan grep 6, run there only.)
 rg -n --no-heading --pcre2 '"(?:eslint|eslint-plugin-jsx-a11y|eslint-plugin-vuejs-accessibility|@angular-eslint/template|angular-eslint|svelte|svelte-check|html-validate|@double-great/stylelint-a11y|@axe-core/playwright|@storybook/addon-a11y|react|vue|@angular/core|next|nuxt|@sveltejs/kit|react-router(?:-dom)?|vue-router|tailwindcss)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -n --no-heading --pcre2 '"(?:@radix-ui/react-[\w-]+|react-aria(?:-components)?|@headlessui/\w+|@ark-ui/\w+|reka-ui|bits-ui|@angular/cdk|@angular/material|vaul|focus-trap(?:-react)?|sonner|react-hot-toast|react-toastify|vue-sonner|ngx-toastr|@dnd-kit/core|react-hook-form|formik|vee-validate)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -n --pcre2 'svelte-ignore\s+a11y[_-]|eslint-disable(?:-next-line|-line)?\b[^\n]*(?:jsx-a11y|vuejs-accessibility|@angular-eslint/template/(?:alt-text|click-events|elements-content|interactive-supports|label-has|mouse-events|no-autofocus|role-has|valid-aria|table-scope|no-positive-tabindex))' "${J[@]}" "${X[@]}" "${ROOTS[@]}"
-rg -n --pcre2 'user-scalable\s*=\s*(?:no|0)\b|maximum-scale\s*=\s*(?:1(?:\.0*)?|0?\.\d+)\b|userScalable\s*:\s*false|maximumScale\s*:\s*(?:1(?:\.0+)?|0?\.\d+)\b|<html\b(?![^>]*\blang=)[^>]*>|screen\.orientation\.lock\(|"orientation"\s*:\s*"(?:portrait|landscape)' -g '*.{html,webmanifest}' -g '**/{layout,root,_document,app,index}.{tsx,jsx,vue,svelte,ts,js}' -g '**/app.html' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 1. A non-interactive element with a click handler and no role (R01); a stopPropagation-only wrapper is excluded.
 rg -n -U --pcre2 '<(?:div|span|li|td|tr|p|img|section|article|label)\b(?='"$TB"'\s(?:onClick|@click|v-on:click|on:click|onclick|\(click\))\s*=)(?!'"$TB"'\srole\s*=)(?!'"$TB"'\s(?:onClick|\(click\))\s*=\s*["{]\s*(?:\(\s*\$?\w*\s*\)\s*=>\s*)?\$?\w+\.stopPropagation\(\)\s*["}])'"$TB"'>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 2. Names and labels: 2a icon-only button (R02), 2b glyph-only button, 2c image with no alt, 2d placeholder-only input, 2e redundant alt (R11).
@@ -175,9 +174,9 @@ A finding is a hit **plus** a read of the component **plus** the route that rend
 | `review-decoys/base/web` | 4: `Modal.tsx` | the base dialog the change later fixes |
 | `slow-marketplace`, `vuln-fullstack`, `quality-mix`, `brittle-suite` | 2d 1 (a search input); 6b 1 (`{status && <p role="status">}`); 8 R12 1 (a rating `span` with `aria-label`) | candidates for the label query, the live-region oracle and axe (`precedents/ui.md` § 24) |
 | research fixtures `A-rg/pos` / `neg` | every seeded positive caught (R01 8, R02 5, R03 5, R07 4, …) | 0 decoy hits, except 12a (it lists every `<video>` file; axe `video-caption` is needs-review) |
-| real React 19 + Vite app, 1,979 `.tsx` | 0d: 0 · 1: 3 · 2a–2e: 0 · 3: 0 · 4: 0 · 6a: 1 file · 6d: 1 · 6e: 6 files · 8: 1 + 13 reorder · 9a: 19 files · 9b: 1 · 10a: 3 files · 12a: 2 files · 13: 0 · 14: 0 | §1: a click-to-focus tag input (ui § 16), a card row and an inbox row to read. 6e: one root cause — six integration dialogs render `{errors.x && <p>}` beside an unassociated input. 6a: a static notice (refuted on read). 6d: a price error with no role. 8: an image placeholder `div` named by `aria-label` with no role (axe decides). 9a: tab strips with no arrow keys (APG deviation, medium). 10a: two reorder lists are drag-only (native HTML5 DnD, no click or key path: real 2.5.7 candidates); the third has a click path. 12a: user-sent chat media |
+| real React 19 + Vite app, 1,979 `.tsx` | 0d (the riders, now `a11y-scan` grep 6): 0 · 1: 3 · 2a–2e: 0 · 3: 0 · 4: 0 · 6a: 1 file · 6d: 1 · 6e: 6 files · 8: 1 + 13 reorder · 9a: 19 files · 9b: 1 · 10a: 3 files · 12a: 2 files · 13: 0 · 14: 0 | §1: a click-to-focus tag input (ui § 16), a card row and an inbox row to read. 6e: one root cause — six integration dialogs render `{errors.x && <p>}` beside an unassociated input. 6a: a static notice (refuted on read). 6d: a price error with no role. 8: an image placeholder `div` named by `aria-label` with no role (axe decides). 9a: tab strips with no arrow keys (APG deviation, medium). 10a: two reorder lists are drag-only (native HTML5 DnD, no click or key path: real 2.5.7 candidates); the third has a click path. 12a: user-sent chat media |
 
-Before hardening, the same real app returned **R02 26** (icon children mis-anchored by `[^>]*` across prettier-formatted JSX — 0 true), **R13 46** (single-line lookahead on multi-line tags, many in comments — 1 true), **R01 10** (6 `stopPropagation` wrappers, 1 comment), **6e 23** (prop `error={errors.x}` into a wiring `Field` wrapper — `precedents/ui.md` § 14), **13: 3** (prefetch and row-highlight hovers — ui § 33) and **0d: 2** (`<html>` inside comments). The versions above are the fixed ones. Small fixtures prove the greps parse and catch seeded rows; precision at scale comes from the real-app row.
+Before hardening, the same real app returned **R02 26** (icon children mis-anchored by `[^>]*` across prettier-formatted JSX — 0 true), **R13 46** (single-line lookahead on multi-line tags, many in comments — 1 true), **R01 10** (6 `stopPropagation` wrappers, 1 comment), **6e 23** (prop `error={errors.x}` into a wiring `Field` wrapper — `precedents/ui.md` § 14), **13: 3** (prefetch and row-highlight hovers — ui § 33) and **0d: 2** (`<html>` inside comments; the riders grep now lives in `a11y-scan` as grep 6). The versions above are the fixed ones. Small fixtures prove the greps parse and catch seeded rows; precision at scale comes from the real-app row.
 
 ## The 3,000-hit path
 
@@ -330,7 +329,7 @@ Class coverage (WCAG 2.2 AA):
   §12 media                       checked (2 files → 0 findings: user-sent chat media, Hardening)
   §13 hover content               checked (0 hits)
   §14 context change / timing     checked (0 hits)
-  riders (owner a11y-scan)        zoom, lang, orientation: 0 static hits — contrast, target size, reflow, obscured: not this skill
+  riders                          not this skill — zoom, lang, orientation are a11y-scan grep 6; contrast, target size, reflow, obscured are a11y-scan
 ```
 
 `[report-with-fix]`: the source line, the route and a failing oracle are all present, and the fix is a local change in the project's own components. `[report-flagged]`: one link is unproven (no harness, a wrapper not read, a spread prop), and the row names that link and the settling test. The coverage block lists **all fourteen** classes on every run: `checked (k hits → m findings)` only when the grep and lint lane ran on a present stack; `N/A (<reason>)` only when the repo has no such surface (no dialogs, no media, no drag); `blocked (<reason>)` when a grep failed or a lint lane could not install. A partial review reads `Live, unreviewed (k groups / n hits)`, never `checked`.
@@ -363,7 +362,8 @@ The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (
 ## Related
 
 - `a11y-scan` (this pack) — the rendered half: axe per route × state × theme, contrast, target size, reflow, focus obscured. Run it after this skill on the same routes.
-- `/a11y-audit` (this pack) — the audit command that should dispatch this skill and fold its coverage block into the class ledger (integrator request).
+- `/frontend-audit` (this pack) — dispatches this skill and folds its coverage block into the A11y static row of the class ledger; `/a11y-audit` is its `--classes=a11y` preset. `/frontend-fix` closes the findings.
+- `routing-scan` §1 (this pack) — the routing half of a click-navigation `div`.
 - `@ux-reviewer` (ui-ux pack, when installed) — the WCAG judge; `@accessibility-auditor` (this pack) is the judge without ui-ux, and keeps the manual keyboard and screen-reader checklist.
 - `ui-design-sweep` verbs 12, 13, 16 and 18, `design-token-audit` and `motion-audit` (ui-ux pack, when installed) — the visual fixes, contrast values and motion. Without ui-ux, those rows print `N/A (owner pack ui-ux not installed)`.
 - `xss-scan` (security pack, when installed) — markup sinks; never reported here.

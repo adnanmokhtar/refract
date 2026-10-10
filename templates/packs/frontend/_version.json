@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "1.19.0",
-  "released": "2026-10-05",
+  "version": "2.0.0",
+  "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "visual-check and lighthouse-ci gain § Baseline registration: committed screenshots register as a visual baseline (G14, CI) and one Lighthouse metric per route as a performance baseline (G4, interleaved, TOO-NOISY is a refusal) (proposal §7, Phase 5).",
+  "summary": "Batch 3: every UI defect class has one owning detector (render-correctness, critical-path, client-data, routing, i18n, a11y-code; ssr-audit, bundle-analyze, a11y-scan, seo-audit + seo-head.py rewritten), judged by lens agents and run by /frontend-audit and /frontend-fix; /a11y-audit and /i18n-audit are now its presets.",
   "changelog": "CHANGELOG.md"
 }

@@ -32,9 +32,9 @@ A missing state is a finding when all four hold:
 - **Swallowed errors in services and API clients** belong to `error-handling-scan` § 2 and § 7 (code-quality pack, when installed). This skill owns the same root cause when it is in a component or a UI hook (§3); dedupe by `<file:line>`. Without the code-quality pack, report it here.
 - **Double charge on money, stock or single-use writes** belongs to `logic-race-scan` § 4 (security pack, when installed): the server-side idempotency key is the fix. §8 here owns the UI pending state. Without the security pack, §8 reports the row tagged `security-class (owner pack not installed)`.
 - **Hiding a control is not authorization.** A client-only check belongs to `xss-scan` § 16 (security pack, when installed). §6 owns only how a refusal is rendered.
-- **Optimistic rollback mechanics** (cache snapshot, `cancelQueries`, restore) belong to the frontend pack's client-data detector (`client-data-scan`) once it is installed. Until then, §8 runs grep 8c and reports the row itself. **Queue durability and replay for offline writes** belong to the mobile pack's offline-sync detector once it ships; §7 owns the offline indicator and the rejected-or-queued answer the user sees.
+- **Optimistic rollback mechanics** (cache snapshot, `cancelQueries`, restore) belong to `client-data-scan` §5 (frontend pack, when installed): with it installed, 8c/8d hits are deferred there and §8 keeps only the pending state the user sees. Without the frontend pack, §8 runs greps 8c/8d and reports the row itself. **Queue durability and replay for offline writes** belong to `offline-sync-scan` (mobile pack, when installed); §7 owns the offline indicator and the rejected-or-queued answer the user sees.
 - **Contrast, focus and announcement of a state** (an error that is never announced, SC 4.1.3) go to `@ux-reviewer`'s WCAG lane. **Translated text that overflows** goes to i18n. §9 owns overflow from user data: names, emails, numbers.
-- **Unknown URLs with no catch-all route** (a soft 404) are routing. §15 owns a known detail route that renders a generic error for a missing record.
+- **Unknown URLs with no catch-all route** (a soft 404) are `routing-scan` §4 (frontend pack, when installed; without it, list them under §15 tagged `owner: routing-scan (frontend pack not installed)`). §15 owns a known detail route that renders a generic error for a missing record.
 - **Visual fixes** (an empty state that exists but looks unfinished) go to `ui-design-sweep` verbs 9–11 through `/polish` or `/enhance-ui`. This skill reports the missing branch, not its look.
 
 ## Adapt to the codebase — the lane table
@@ -87,13 +87,14 @@ rg -n --no-heading --pcre2 'export\s+(?:default\s+)?(?:function|const|class)\s+\
 rg -l --pcre2 'from\s+["\x27]msw(?:/\w+)?["\x27]|\bpage\.route\(|\bcontext\.setOffline\(|msw-storybook-addon|\bsetupServer\(' -g '!**/node_modules/**' .
 
 # 1-4. Consumers with no loading token (1), lists with no empty branch (2), no error token (3a), failure turned into
-#      an empty value (3b, 3c), an error branch with no way out (4a), routers with no error element (4b), Next pages
-#      with no error.tsx in any ancestor segment (4c).
+#      an empty value (3b a one-line `.catch` callback; 3c a catch block, either form, whose first statement empties a
+#      setter, a store field `this.x` or a Vue ref `x.value`), an error branch with no way out (4a), routers with no
+#      error element (4b), Next pages with no error.tsx in any ancestor segment (4c).
 tr '\n' '\0' < "$W/cons" | xargs -0 -r rg --files-without-match --pcre2 '\b(?:isPending|isLoading|isFetching|isInitialLoading|pending|loading|status\s*===?\s*["\x27](?:pending|loading)|aria-busy|Skeleton\w*|Spinner|<Suspense|\{#await|@defer|\.isLoading\(\))\b' | hooks
 tr '\n' '\0' < "$W/cons" | xargs -0 -r rg -l --pcre2 '\.map\(|v-for=|\{#each\b|@for\s*\(|\*ngFor=' | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\.length\b|\bisEmpty\b|@empty\b|\{:else\}|v-else\b|\bEmpty\w*|\bNoResults\w*|\bempty\b'
 tr '\n' '\0' < "$W/cons" | xargs -0 -r rg --files-without-match --pcre2 '\b(?:isError|isRefetchError|isLoadingError|error|errors|status\s*===?\s*["\x27]error|ErrorState|ErrorBoundary|hasError|\.error\(\)|onError|throwOnError)\b' | hooks
-rg -n --pcre2 'catch\s*(?:\([^)]*\))?\s*\{\s*set\w+\(\s*(?:\[\]|null|\{\}|["\x27]{2}|0)\s*\)|\.catch\(\s*\(\s*\w*\s*\)\s*=>\s*(?:\[\]|null|\(\s*\{\s*\}\s*\)|set\w+\(\s*(?:\[\]|null)\s*\))\s*\)' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
-rg -n -U --pcre2 '\.catch\(\s*(?:\(\s*\w*\s*\)|\w+)\s*=>\s*\{(?:\s*(?://[^\n]*|if\s*\([^)]*\)))*\s*set\w+\(\s*(?:\[\]|null|\{\}|["\x27]{2}|0)\s*\)' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
+rg -n --pcre2 '\.catch\(\s*\(\s*\w*\s*\)\s*=>\s*(?:\[\]|null|\(\s*\{\s*\}\s*\)|set\w+\(\s*(?:\[\]|null)\s*\))\s*\)' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
+rg -n -U --pcre2 '(?:(?<![\w.])catch\s*(?:\([^)\n]*\))?|\.catch\(\s*(?:\(\s*\w*\s*\)|\w+)\s*=>)\s*\{(?:\s*(?://[^\n]*|if\s*\([^)]*\)))*\s*(?:set\w+\(\s*(?:\[\]|null|\{\}|["\x27]{2}|0)\s*\)|(?:this\.\w+|\w+\.value)\s*=\s*(?:\[\]|null|\{\}|["\x27]{2}|0)(?![\w.]))' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
 tr '\n' '\0' < "$W/cons" | xargs -0 -r rg -l --pcre2 '\b(?:isError|error)\b' | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\b(?:refetch|retry|onRetry|reset|resetErrorBoundary|invalidateQueries|reload|tryAgain|ErrorState|QueryBoundary|QueryState)\b'
 rg -l --pcre2 'createBrowserRouter|createHashRouter|createMemoryRouter|RouterProvider|provideRouter|createRouter\(' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 'errorElement|ErrorBoundary|errorComponent|withNavigationErrorHandler|ErrorHandler'
 for r in "${ROOTS[@]}"; do find "$r" -path '*/node_modules' -prune -o -type f -name 'page.[jt]sx' -path '*/app/*' -print; done | while IFS= read -r p; do d=$(dirname "$p"); ok=0; while :; do ls "$d"/error.[jt]sx >/dev/null 2>&1 && { ok=1; break; }; case "$d" in */app|.|/) break ;; esac; d=$(dirname "$d"); done; [ $ok = 0 ] && echo "4c no error.tsx at or above: $p"; done

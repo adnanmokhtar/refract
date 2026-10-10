@@ -104,15 +104,21 @@ rg -n --pcre2 '(?<![\w-])(?:[\w-]+:)*!?-?(?:bg|text|border(?:-[xytrblse])?|ring|
 rg -n --pcre2 'style=\{\{[^}]*\b(?:color|background\w*|border\w*Color|margin\w*|padding\w*|fontSize|fontWeight|lineHeight|letterSpacing|gap|borderRadius|boxShadow|zIndex)\s*:\s*["\x27\x60]?(?:#|-?(?!0(?![.\d]))(?!\d+(?:\.\d+)?%)\d|rgb|hsl|oklch)|:style="\{[^"]*\b(?:color|background\w*|margin\w*|padding\w*|fontSize|fontWeight|lineHeight|gap|borderRadius|boxShadow|zIndex)\s*:\s*\x27?(?:#|-?(?!0(?![.\d]))(?!\d+(?:\.\d+)?%)\d|rgb|hsl)|(?<![:\w.-])style="[^"]*\b(?:color|background(?:-color)?|border(?:-\w+)?-color|margin(?:-\w+)?|padding(?:-\w+)?|font-size|font-weight|line-height|gap|border-radius|box-shadow|z-index)\s*:\s*(?:#|-?(?!0(?![.\d]))(?!\d+(?:\.\d+)?%)\d|rgb|hsl)|\[style\.(?:color|background(?:-color)?|margin[\w-]*|padding[\w-]*|font-size|z-index)(?:\.px)?\]="[^"]*(?:#|\d)|\[ngStyle\]="\{[^"]*\x27(?:color|background[\w-]*|margin[\w.-]*|padding[\w.-]*|font-size[\w.-]*|z-index)\x27\s*:\s*\x27?(?:#|\d|rgb)' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 4. z-index magic numbers (D-04): two or more digits, any syntax.
 rg -n --pcre2 '(?<![\w-])z-index\s*:\s*-?\d{2,}|\bzIndex\s*:\s*-?\d{2,}|(?<![\w-])-?z-\[-?\d+\]' "${U[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | "${DROP[@]}"
-# 5. !important and the Tailwind important modifier (D-05): v3 prefix `!mt-2`, v4 suffix `mt-2!`.
-rg -n --pcre2 '!important\b|(?:class(?:Name)?=["\x27\x60{][^"\x27\x60]*?(?<![\w-]))![a-z][\w:-]*|(?:class(?:Name)?=["\x27\x60{][^"\x27\x60]*?)[a-z0-9\]]!(?=[\s"\x27\x60])' "${U[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 5. !important and the Tailwind important modifier (D-05): v3 prefix `!mt-2`, v4 suffix `mt-2!`. Only inside a class
+#    string: a bound `:class="{ a: !b }"` or `className={!open && …}` is JS, where `!` is negation.
+rg -n --pcre2 '!important\b|(?:(?<![:\w.-])class(?:Name)?=\{?["\x27\x60][^"\x27\x60]*?(?<![\w-]))![a-z][\w:-]*|(?:(?<![:\w.-])class(?:Name)?=\{?["\x27\x60][^"\x27\x60]*?)[a-z0-9\]]!(?=[\s"\x27\x60])' "${U[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 6. A native element styled outside the DS root, in a file that does not import the DS equivalent (D-06; rg fallback —
-#    the ast-grep lane below is primary). Pairs run only when the DS exports that component.
-for pair in 'button:Button:<button\b(?='"$TB"'\bclass(?:Name)?\s*=)' 'dialog:Dialog:<(?:div|section)\b(?='"$TB"'(?:\brole=["\x27](?:dialog|alertdialog)["\x27]|\baria-modal\s*=|\bfixed inset-0\b))' 'select:Select:<select\b' 'checkbox:Checkbox:<input\b(?='"$TB"'\btype=["\x27]checkbox["\x27])' 'tabs:Tabs:\brole=["\x27]tablist["\x27]'; do
-  f=${pair%%:*}; r=${pair#*:}; n=${r%%:*}; p=${r#*:}
-  [ ${#DSR[@]} -gt 0 ] && rg --files "${DSR[@]}" | rg -q -i "/${f}s?\.(?:tsx|jsx|vue|svelte)$" || continue
-  rg -l0 -U --pcre2 "$p" "${M[@]}" "${X[@]}" $(printf -- "-g !%s/** " "${DSR[@]#./}") "${ROOTS[@]}" | xargs -0 -r rg --files-without-match -U --pcre2 "import\s*(?:type\s+)?\{[^}]*\b${n}\b[^}]*\}|import\s+${n}\b" | sed "s/^/§6 ${f} → ${n}: /"
-done
+#    the ast-grep lane below is primary). Per app root: a root is paired only with the DS roots inside it or in a
+#    workspace package its package.json names (owner = longest ROOTS prefix), and a pair runs only when that DS exports it.
+own() { printf '%s\n' "${ROOTS[@]}" | awk -v d="$1/" 'index(d, $0 "/")==1 {print length($0) "\t" $0}' | sort -n | tail -1 | cut -f2; }
+for root in "${ROOTS[@]}"; do RDIR=(); for d in "${DSR[@]}"; do o=$(own "$d"); nm=$(rg -o -m1 --pcre2 '"name"\s*:\s*"\K[^"]+' "$o/package.json" | head -1)
+  { [ "$o" = "$root" ] || { [ -n "$nm" ] && rg -q -F "\"$nm\"" "$root/package.json"; }; } && RDIR+=("$d"); done; [ ${#RDIR[@]} -eq 0 ] && continue
+  NEST=( $(printf '%s\n' "${ROOTS[@]}" | awk -v r="$root" '$0!=r && index($0, r "/")==1 {sub(/^\.\//, ""); print "-g\n!" $0 "/**"}') )
+  for pair in 'button:Button:<button\b(?='"$TB"'\bclass(?:Name)?\s*=)' 'dialog:Dialog:<(?:div|section)\b(?='"$TB"'(?:\brole=["\x27](?:dialog|alertdialog)["\x27]|\baria-modal\s*=|\bfixed inset-0\b))' 'select:Select:<select\b' 'checkbox:Checkbox:<input\b(?='"$TB"'\btype=["\x27]checkbox["\x27])' 'tabs:Tabs:\brole=["\x27]tablist["\x27]'; do
+    f=${pair%%:*}; r=${pair#*:}; n=${r%%:*}; p=${r#*:}
+    rg --files "${RDIR[@]}" | rg -q -i "/${f}s?\.(?:tsx|jsx|vue|svelte)$" || continue
+    rg -l0 -U --pcre2 "$p" "${M[@]}" "${X[@]}" $(printf -- "-g !%s/** " "${RDIR[@]#./}") "${NEST[@]}" "$root" | xargs -0 -r rg --files-without-match -U --pcre2 "import\s*(?:type\s+)?\{[^}]*\b${n}\b[^}]*\}|import\s+${n}\b" | sed "s/^/§6 ${f} → ${n}: /"
+  done; done
 # 7. Deprecated DS exports: the names (read), then their consumers (the typed lint lane is primary).
 [ ${#DSR[@]} -gt 0 ] && rg -n -U --pcre2 -o '@deprecated\b[^\n]*\n(?:\s*\*[^\n]*\n)*?\s*\*/\s*\n\s*export\s+(?:declare\s+)?(?:const|function|class|let|type|interface)\s+(\w+)' -r '$1' "${DSR[@]}"
 # 8. Default-palette utility on a semantic theme (D-08) — only when 0e > 0.
@@ -128,7 +134,7 @@ grep -v -E -x -e "--($NS)-($(paste -sd'|' "$T/dta-nsused"))" "$T/dta-unref"
 rg -n --pcre2 '(?<![\w-])(?:(?:margin|padding|inset)(?:-(?:top|right|bottom|left|inline|block)(?:-(?:start|end))?)?|gap|row-gap|column-gap|font-size|line-height|letter-spacing|border(?:-(?:top|bottom)-(?:left|right))?-radius)\s*:\s*(?![^;{}]*(?:var|calc|clamp|min|max|env|theme)\()[^;{},]*?(?<![\w.#-])(?!0(?:\.0+)?(?:px|rem|em)?\b)(?!1px\b)\d+(?:\.\d+)?(?:px|rem|em)\b|(?<![\w-])box-shadow\s*:\s*(?!\s*(?:none|var\(|inherit|initial|unset))[^;{}]*\d+px' "${S[@]}" -g '*.{vue,svelte,astro,js,jsx,ts,tsx}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | "${DROP[@]}"
 ```
 
-**The ast-grep lane (§6, primary for TSX).** One rule per pair the DS exports, generated from grep 0d; the `not` block keeps a file that imports the DS component. It is structural, so it sees multi-line JSX the rg fallback reads line by line. Run it with the `ast-grep` binary (the `sg` alias prints a deprecation warning in 0.45.3), excluding the DS root:
+**The ast-grep lane (§6, primary for TSX).** One rule per pair the DS exports, generated from grep 0d; the `not` block keeps a file that imports the DS component. It is structural, so it sees multi-line JSX the rg fallback reads line by line. Run it with the `ast-grep` binary (the `sg` alias prints a deprecation warning in 0.45.3), excluding the DS root. In a monorepo, scan each app root only with the rules of the DS roots grep 6 paired it with (`RDIR`), not `"${ROOTS[@]}"` at once:
 
 ```bash
 npx -y -p @ast-grep/cli@0.45.3 ast-grep scan --globs '!**/components/ui/**' --globs '!**/shared/ui/**' --json=compact "${ROOTS[@]}" --inline-rules '

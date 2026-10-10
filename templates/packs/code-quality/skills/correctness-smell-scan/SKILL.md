@@ -56,7 +56,7 @@ This skill owns the classic bug patterns in code. It routes what another skill o
 - **Unreachable branches and dead flags** → `dead-code-scan`; **two copies of one rule that drifted** → `duplication-scan` (both this pack).
 - **Money and time column types** (float money, timestamp without zone, the DB session zone) → database `schema-integrity-scan`, when installed. §4 and §6 here own the arithmetic and the clock in code; one seeded float price is usually both — dedupe by `<file:line>`.
 - **Regexes with a security job** — ReDoS, URL and host allow-lists, trojan-source Unicode → security `injection-scan` § 13 and `ssrf-scan`. **Security rules of the same analyzers** (semgrep, gosec, ruff `S`) → security `sast-scan`; dedupe by `<file:line>`, security wins.
-- **Cache staleness and invalidation** in a client → frontend `@data-flow-auditor`, when installed; §3 keeps the stale closure and the out-of-order response inside one effect.
+- **Cache staleness and invalidation** in a client → frontend `client-data-scan` §4, judged by `@data-flow-auditor`, when the frontend pack is installed. **UI request races across renders** (a response from an earlier render or input painted over a later one, no cancellation) → `client-data-scan` §3, and **route-param races** (navigation 1's response painted on navigation 2) → `routing-scan` §8, when installed. §3 keeps the stale closure inside one effect; without the frontend pack it also keeps the out-of-order response.
 - **`console.log` left in server code** → `standards-check.py` OBS-5. **A debug endpoint** → security `data-exposure-scan`. §7 owns only breakpoints and dump-and-die calls.
 - **Time-dependent tests** → testing `flake-source-scan`, when installed; §6 owns the production clock.
 

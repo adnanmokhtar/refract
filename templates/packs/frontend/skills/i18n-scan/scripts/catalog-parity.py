@@ -19,10 +19,12 @@ messages, intl) or a file named exactly for its locale. A token is an ISO 639-1 
 script), or any code passed in --locales. Tests, fixtures, build output and vendored trees are skipped.
 
 A SET is the files that differ only by the locale token. Parity is computed per set, and the
-locales a set must have are the locales its catalog family declares (web, android, ios, arb, po, xlf).
+locales a set must have are the locales its catalog family (web, android, ios, arb, po, xlf) declares
+within the same package — the nearest directory above it with a package.json, else the repo — so two
+apps of a monorepo that ship different locales are never told they lack each other's.
 
 FINDINGS (exit 1):
-  missing-file     a set has no file for a locale its family declares
+  missing-file     a set has no file for a locale its family declares in the same package
   missing-key      a key one locale of the set has and another lacks (i18next plural suffixes and
                    Android/ICU plural forms are folded into their base key first)
   placeholder      the interpolation tokens of one key differ between locales ({{n}} vs {n}, %1$s vs %s)
@@ -537,9 +539,21 @@ def main(argv):
                     del v[l]
                 if not v:
                     del sets[k]
+    pkg_cache = {}
+
+    def package_of(sid):
+        """The nearest directory above a set (relative to the repo) holding a package.json; '' = the repo."""
+        d = os.path.dirname(sid)
+        while d and d not in pkg_cache:
+            if os.path.isfile(os.path.join(repo, d, "package.json")):
+                pkg_cache[d] = d
+                break
+            d = os.path.dirname(d)
+        return pkg_cache.get(d, "") if d else ""
+
     family_locales = {}
     for (kind, sid), per in sets.items():
-        family_locales.setdefault(FAMILY[kind], set()).update(per)
+        family_locales.setdefault((FAMILY[kind], package_of(sid)), set()).update(per)
     all_locales = sorted({l for s in family_locales.values() for l in s if not l.startswith("_")})
     rtl = sorted(l for l in all_locales if l.split("-")[0] in RTL)
     base = args["base"] or ("en" if "en" in all_locales else (all_locales[0] if all_locales else None))
@@ -550,10 +564,12 @@ def main(argv):
     for (kind, sid), per in sorted(sets.items(), key=lambda x: x[0][1]):
         fam = FAMILY[kind]
         locs = sorted(per)
-        declared = family_locales[fam] if kind != "xcstrings" else set(per)
+        pkg = package_of(sid)
+        declared = family_locales[(fam, pkg)] if kind != "xcstrings" else set(per)
         for miss in sorted(declared - set(per)):
             if not (kind == "xlf" and miss == "_src"):
-                findings.append(("missing-file", sid, miss, f"no {kind} catalog for `{miss}` (family {fam} declares it)"))
+                findings.append(("missing-file", sid, miss, f"no {kind} catalog for `{miss}` (family {fam}"
+                                 f"{' in ' + pkg if pkg else ''} declares it)"))
         # i18next plural keys (key_one … key_other) fold into their base, but only when some locale of the
         # set has `<base>_other` — `errors.too_many` is a key, not a plural form.
         bases = set()
@@ -740,12 +756,17 @@ def self_test():
     w("app/src/main/res/values/strings.xml", '<resources><string name="hi">Hi %1$s</string><string name="v" translatable="false">1</string></resources>')
     w("app/src/main/res/values-ar/strings.xml", '<resources><string name="hi">مرحبا</string></resources>')
     w("src/App.tsx", "t('a.b'); t('nope.key'); t(`status.${s}`)")
+    # two apps of a monorepo with different locale sets: neither is told it lacks the other's locale
+    w("apps/one/package.json", "{}"); w("apps/one/locales/en.json", '{"k": "K"}'); w("apps/one/locales/de.json", '{"k": "K2"}')
+    w("apps/two/package.json", "{}"); w("apps/two/messages/en.json", '{"k": "K"}'); w("apps/two/messages/ar.json", '{"k": "ك"}')
     out = subprocess.run([sys.executable, __file__, d, "--used=src", "--json"], capture_output=True, text=True)
     r = json.loads(out.stdout)
     got = {(f["class"], f["detail"].split()[0].rstrip(":")) for f in r["findings"]}
     expect = {("missing-key", "only_en"), ("placeholder", "a.b"), ("missing-file", "no"), ("placeholder", "hi"),
               ("plural-forms", "items"), ("used-undefined", "t('nope.key')")}
-    ok = expect <= got and out.returncode == 1 and r["locales"] == ["ar", "en"]
+    cross = [f for f in r["findings"] if f["class"] == "missing-file" and f["set"].startswith("apps/")]
+    ok = expect <= got and not cross and out.returncode == 1 and r["locales"] == ["ar", "de", "en"]
+    print(("  ok   " if not cross else "  FAIL ") + "no cross-package missing-file" + "".join(f" ({f['set']} {f['locale']})" for f in cross))
     import shutil; shutil.rmtree(d, ignore_errors=True)
     for e in sorted(expect):
         print(("  ok   " if e in got else "  FAIL ") + " ".join(e))

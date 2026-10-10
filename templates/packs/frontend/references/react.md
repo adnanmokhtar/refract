@@ -91,7 +91,7 @@ const Heavy = React.lazy(() => import('./Heavy'));
 - `useTransition` / `startTransition` — keep input urgent, defer the expensive re-render.
 - `useDeferredValue` — render a lagging copy of an expensive value off the urgent path.
 - Rule: filtering/sorting a big list inside an `onChange` handler MUST be wrapped in a transition (or fed through `useDeferredValue`), or the keystroke blocks the main thread and tanks INP.
-- See `performance/skills/web-vitals-field/SKILL.md` (field INP/LCP/CLS attribution) and `performance/ai-patterns/inp-responsiveness.md` (INP main-thread-cost pattern).
+- See the `web-vitals-field` skill (field INP/LCP/CLS attribution) and the `inp-responsiveness` pattern at `ai/patterns/inp-responsiveness.md` (INP main-thread cost) — both performance pack, when installed; without it, measure INP in the field with `web-vitals` directly.
 
 ```tsx
 const [isPending, startTransition] = useTransition();

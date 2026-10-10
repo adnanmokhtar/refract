@@ -14,6 +14,16 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.31.1 — 2026-10-10
+
+**Integration fixes after batch 3: the gaps the `a11y-states` fixture found, and the owners that shipped since 1.31.0.**
+
+- `chart-encoding-audit` grep 6 catches a series colour chosen by a ternary or a `.map` callback (`fill={c >= 0 ? '#16a34a' : '#dc2626'}`); it missed both colour-only seeds (IR-2). `/frontend-audit` (frontend pack, when installed) now dispatches it as its `charts` row.
+- `ui-state-scan` 3c (multi-line) catches a `catch` block whose first statement empties `this.x`, `x.value` or a setter — a Pinia store's `catch { this.items = [] }` was invisible to the one-line 3b (IR-3). Its Boundaries now name the owners that shipped: optimistic rollback is `client-data-scan` §5 (8c/8d defer to it when frontend is installed), a soft 404 is `routing-scan` §4, offline queue durability is the mobile pack's `offline-sync-scan`.
+- `design-token-audit` grep 5 reads `!` as a Tailwind important modifier only inside a class string, so `:class="{ unread: !n.read }"` is no longer a hit (IR-4). §6 pairs each design-system root only with the app root that contains it or depends on it through `package.json`; in a monorepo the other apps' files are no longer listed against a `Button` they cannot import (IR-5).
+- `@ux-reviewer` names `@ux-designer` among its siblings: it grades `ux.md` at P4, never writes it.
+- `/ui-sweep` names the `ui-design-sweep` skill by its installed path, not the pack source path.
+
 ## 1.31.0 — 2026-10-05
 
 **Accessibility and UI states had several judges and no proof.**

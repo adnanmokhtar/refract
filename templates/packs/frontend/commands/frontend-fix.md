@@ -90,6 +90,8 @@ V-numbers are [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Access
 | Routing (`routing-scan` §1–§8) | *Open in new tab*, *URL round trip*, *Garbage param*, *Unknown URL*, *Redirect hop count*, *First protected frame* (draft); *Build gate* R-09 (draft); request order V110 | A link; the view state in the search params; a schema parse with a handled state; a catch-all route; one guard; a guard before render; a `<Suspense>` boundary; a keyed loader. A URL contract change is STOP |
 | i18n (`i18n-scan`) | Pseudo-locale (V111) · RTL mirror (V112) · the missing-key handler test | A catalog key in the source locale; `Intl` with the active locale; logical properties. Other locales' copy is STOP |
 | Critical path · bundle · loading perf | `proof-oracles.md` § Frontend (V48–V53) and the draft *Render-blocking list*, *Third-party ablation*, *Layout-shift observer*, *Build-output grep* | The owning skill's primitive; the cost proof is `/perf-fix`'s |
+| SEO (`seo-audit` §1–§9) | `seo-head.py` row for the route on a **production build** (server HTML; `--ua=<bot>` for social tags, `--robots` for robots and sitemap), failing before the fix | The project's metadata primitive (`generateMetadata`, `useSeoMeta`, `<svelte:head>`, the `Meta` service, the shared `<Seo>`) in the route or layout that owns the head. A canonical, `noindex` or robots change is STOP (a URL contract) |
+| Chart encoding (`chart-encoding-audit` §1–§8, ui-ux) | Rendered chart geometry and colour-vision emulation (the skill's § Proof), failing before the fix | The chart config in the project's charting wrapper; series colours from the data-ramp tokens. A new ramp token is STOP (`/polish`) |
 
 ## Phase 3 — Retrieve
 
@@ -211,7 +213,7 @@ Every run ends with `## What to do next`: the remaining work as ONE ordered, num
 - `/security-fix` (security pack, when installed): client security classes. `/perf-fix` (performance pack, when installed): perf cost. `/fix-bug`: the general discipline ([`fix-bug-core.md`](../../../snippets/fix-bug-core.md)).
 
 ### Detector skills (re-run for RE-DETECT)
-This pack: `a11y-code-scan` · `a11y-scan` · `render-correctness-scan` · `ssr-audit` · `client-data-scan` · `routing-scan` · `i18n-scan` · `critical-path-scan` · `bundle-analyze` · the loading-perf skills · `seo-audit`. ui-ux (when installed): `ui-state-scan` · `state-matrix`.
+This pack: `a11y-code-scan` · `a11y-scan` · `render-correctness-scan` · `ssr-audit` · `client-data-scan` · `routing-scan` · `i18n-scan` · `critical-path-scan` · `bundle-analyze` · the loading-perf skills · `seo-audit` (and its `scripts/seo-head.py` oracle). ui-ux (when installed): `ui-state-scan` · `state-matrix` · `chart-encoding-audit`.
 
 ### Tool lanes (repo-baseline, when installed)
 `.claude/scripts/test-integrity.py` and `.claude/scripts/oracle-check.py` (the Step-5 self-check) · `.claude/hooks/test-lane.sh` · `.claude/skills/state-matrix/scripts/state-matrix-lint.py` (ui-ux; the state rows' closure).

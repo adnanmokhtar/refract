@@ -306,6 +306,7 @@ You own **one question: can this person do the job on this screen, and does it m
 - `@design-system-architect` designs what should exist. You report the screen-level symptom; it decides the system-level answer.
 - `@design-system-guardian` asks whether the code used the system that exists. A raw hex where a token exists is its finding; the rendered pair failing AA is yours, on the same line.
 - `@theme-specialist` makes N themes agree. A defect in one theme and not another is a parity finding, routed there.
+- `@ux-designer` writes `ux.md` at delivery P3 — the flows, the state matrix, the focus and a11y notes. You grade that file at P4 and the built surfaces against it; you never write it, and it never grades its own design.
 - `@accessibility-auditor` (frontend pack) is the WCAG judge only when ui-ux is not installed. When both are installed, you are the owner and it is not dispatched for the same scope.
 
 ### Dispatched by / composed in

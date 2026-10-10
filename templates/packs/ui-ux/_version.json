@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.31.0",
-  "released": "2026-10-05",
+  "version": "1.31.1",
+  "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "The pack judged accessibility and UI states in five places and could prove neither. WCAG had several claimants (/design-review gave it to a11y-quick-check, /ui-audit to its V1 tier, ux-reviewer to itself) and the one recipe that ran axe's 2.2 rule sat in another pack, while three files certified 'axe clean, so 24x24' from runs whose tags never switched target-size on. 1.31.0 names one owner and gives it detectors. @ux-reviewer is the single WCAG 2.2 AA judge: it dispatches a11y-code-scan and a11y-scan (frontend pack, when installed), ui-state-scan and state-matrix, refutes every candidate, prints one SC-coverage line per A/AA criterion and signs G9 and G12. ui-state-scan (new) finds the states a surface cannot render, from loading to stale, with a state-matrix test as proof; state-matrix (new) writes the design-time matrix and ships state-matrix-lint.py, the G12 checker nothing provided. @ux-designer (new) writes delivery P3's ux.md: flows, the matrix, interface contracts and a11y notes, after looking the design system up. design-token-audit, motion-audit and chart-encoding-audit became detectors with one-script pre-flights, class coverage blocks and a refute step; a11y-quick-check became ux-reviewer's 60-second Lane A and owns no class list. The measured-from-the-render algorithms (floating surface, control-size rows, SPA history navigation) ship as code in ui-design-sweep/scripts/measure.ts. Ten in-place defects were fixed, among them grab-site's browser User-Agent (it now names itself, obeys robots.txt and waits between requests).",
+  "summary": "Integration fixes: chart-encoding-audit catches ternary series colours and is dispatched by /frontend-audit; ui-state-scan catches store/ref resets in catch; design-token-audit drops Vue :class negations and pairs DS roots per app; boundaries point at client-data-scan, routing-scan and offline-sync-scan.",
   "changelog": "CHANGELOG.md"
 }

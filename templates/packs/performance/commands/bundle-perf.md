@@ -27,21 +27,21 @@ A proven defect with no field number is still a Finding, ranked by a labelled `E
 - **Intent gate.** "Fix the bundle" with a report in hand → `/perf-fix`. One component's re-render → `inp-responsiveness` directly. Otherwise proceed.
 - **Scope.** `--changed` = client files in `git diff --name-only "origin/${BASE:-main}"...HEAD`, dispatching by signal; no diff or `routes` omitted = **whole repo, every owner below runs** whatever the signals say. Routes: the list given, else the route table (router file / `app/**/page.*` / `src/routes/**`) ranked by traffic (RUM or analytics when present; else landing, product/detail, search, checkout-class routes first).
 - **Form factors:** mobile (Lighthouse default throttling: 4× CPU, slow 4G) **and** desktop. Mobile is what CWV is scored on.
-- **Budget, one arm, printed:** the project's (`ai/runtime/perf-budgets.md`, `.size-limit.*`, a `lighthouserc` assertion) → else `bundle-analyze`'s labelled 150 KB gzip default. No project budget → that is its own `report-flagged` finding (*declare a budget*), never an `OVER BUDGET` verdict.
+- **Budget, one arm, printed:** the project's (`ai/runtime/perf-budgets.md`, `.size-limit.*`, a `lighthouserc` assertion) → else `bundle-analyze`'s labelled 150 KB brotli default (`bundle-analyze` § Where the budget comes from). No project budget → that is its own `report-flagged` finding (*declare a budget*), never an `OVER BUDGET` verdict.
 
 ## Phase 2 — Organize (the owners)
 
-**When the frontend pack is installed**, its skills sit at `.claude/skills/<name>/SKILL.md` and its patterns at `ai/patterns/<name>.md`; run each owner below in one pass (`Task` per skill), consume its findings, and dedupe by `<file:line>` (one finding per site, credited to the owner that traced it). **Without the frontend pack**, this command still runs its own lanes (bytes per route, the interim lanes, `inp-responsiveness`, `web-vitals-field`, `caching-scan` §6, `request-path-scan` §6), every frontend-owned row prints `N/A (owner pack frontend not installed — /setup-project --include=frontend)`, and the verdict cannot be better than `GO-UNVERIFIED`.
+**When the frontend pack is installed**, its skills sit at `.claude/skills/<name>/SKILL.md` and its patterns at `ai/patterns/<name>.md`; run each owner below in one pass (`Task` per skill), consume its findings, and dedupe by `<file:line>` (one finding per site, credited to the owner that traced it). **Without the frontend pack**, this command still runs its own lanes (bytes per route, `inp-responsiveness`, `web-vitals-field`, `caching-scan` §6, `request-path-scan` §6), every frontend-owned row prints `N/A (owner pack frontend not installed — /setup-project --include=frontend)`, and the verdict cannot be better than `GO-UNVERIFIED`.
 
 | Row | Class | Owner (§ = its numbered detector) | Existence → cost oracle |
 |---|---|---|---|
 | B1 | Initial JS/CSS per route over budget; route not split; heavy dep eager; barrel / whole-library import | `bundle-analyze` (measures, names the anchoring import) + `code-splitting` detectors 1, 2, 5 *(frontend)* | bytes per route → LHCI `total-blocking-time` |
-| B2 | Duplicate packages; unused files / exports | `bundle-analyze` Procedure steps 4–5 *(frontend)* | dedupe dry-run + bytes → LHCI `duplicated-javascript` |
+| B2 | Duplicate packages; unused files / exports | `bundle-analyze` §4–§5 *(frontend; formerly "Procedure steps 4–5", same content)* | dedupe dry-run + bytes → LHCI `duplicated-javascript` |
 | B3 | Over-split chunks; lazy import without fallback / error boundary | `code-splitting` detectors 3, 4, 6 *(frontend)* | chunk count + sizes from the analyzer |
-| B4 | Legacy targets / polyfills | interim lane P4 (below) | bytes → LHCI `legacy-javascript` |
-| B5 | Dev-only code in the production client | interim lane P5 | the BUILD output grep (n = 1) |
-| L1 | LCP resource: lazy hero, no `fetchpriority`, late discovery, no preconnect, framework primitive missing | `lcp-audit` §1–§5 *(frontend)* | LHCI `lcp-lazy-loaded` + `largest-contentful-paint-element` → WV `resourceLoadDelay` |
-| L2 | Render-blocking `<head>` resources | interim lane P2 | LHCI `render-blocking-resources` (`maxLength: 0`) → WV `elementRenderDelay` |
+| B4 | Legacy targets / polyfills | `bundle-analyze` §6 *(frontend)* | bytes → LHCI `legacy-javascript` (Lighthouse 12.6.1) / `legacy-javascript-insight` (Lighthouse 13) |
+| B5 | Dev-only code in the production client | `bundle-analyze` §7 *(frontend)* | the BUILD output grep (n = 1) |
+| L1 | LCP resource: lazy hero, no `fetchpriority`, late discovery, no preconnect, framework primitive missing | `lcp-audit` §1–§5 *(frontend)* | LHCI `lcp-lazy-loaded` / `prioritize-lcp-image` (Lighthouse 12.6.1) or `lcp-discovery-insight` (12.6.1 and 13) → WV `resourceLoadDelay`; `largest-contentful-paint-element` only names the node and is not assertable (`lcp-audit` § Identifying the LCP element) |
+| L2 | Render-blocking `<head>` resources | `critical-path-scan` §1 *(frontend)* | LHCI `render-blocking-resources` (`maxLength: 0`) / `render-blocking-insight` → WV `elementRenderDelay` |
 | L3 | Image format, `srcset`, raw `<img>`, oversized source, placeholder | `image-optimization` §1, §2, §5–§7 *(frontend)* | bytes per image → LCP `resourceLoadDuration` |
 | C1 | Unsized media → CLS | `image-optimization` §3 *(frontend)* | LHCI `cumulative-layout-shift` → WV `largestShiftTarget` |
 | F1 | Fonts: FOIT, preload, remote CSS, swap CLS, subset, count, format, primitive | `font-optimization` §1–§8 *(frontend)* | LHCI median → WV CLS / text LCP |
@@ -50,41 +50,29 @@ A proven defect with no field number is still a Finding, ranked by a labelled `E
 | N1 | Navigation: prefetch, Speculation Rules, bfcache, instant UI, full reload, scroll, View Transitions, announce | `navigation-speed` §1–§8 *(frontend)* | LHCI `bf-cache` → soft-navigation field data (§ Proof, item 3) |
 | I1 | INP: long handlers, layout thrash, re-render storms, framework reactivity | `inp-responsiveness` § Detectors §1–§4 (this pack) | WV `onINP` attribution (field only) |
 | I2 | DOM size / unvirtualized lists | `list-virtualization` detectors 1–3 *(frontend)* | DOM node count → INP |
-| I3 | Third-party scripts on the critical path | interim lane P3 | LHCI `third-party-summary` → LoAF `scripts[].sourceURL` by host |
-| W1 | Client request waterfalls / N requests where 1 would do | `@data-flow-auditor` class 3 *(frontend)* | request count in the network panel |
+| I3 | Third-party scripts on the critical path | `critical-path-scan` §2 *(frontend)* | LHCI `third-party-summary` / `third-parties-insight` → LoAF `scripts[].sourceURL` by host |
+| W1 | Client request waterfalls / N requests where 1 would do | `client-data-scan` §1 *(frontend)* | request count in the network panel (`client-data-scan` § Proof, request timeline) |
 | D1 | Hashed assets without immutable caching; no compression | `caching-scan` §6 (caching headers) · `request-path-scan` §6 (compression) (this pack) | `curl -sI -H 'Accept-Encoding: br, gzip' <asset>` |
-| X1 | SPA memory growth across navigations; late-inserted content CLS | **no owner shipped** | `blocked (no detector shipped)` — never a silent clean |
+| X1 | SPA memory growth across navigations; late-inserted content CLS | `render-correctness-scan` §2 (memory) + `critical-path-scan` §3 (late-inserted CLS) *(frontend)* | mount/unmount balance, then heap slope or memlab across routes (`render-correctness-scan` § Proof); the layout-shift observer, LHCI `layout-shifts` / `cls-culprits-insight` → WV `largestShiftTarget` |
+| L4 | Below-fold images not lazy (and lazy above the fold) | `image-optimization` §4 *(frontend)* | LHCI `offscreen-images` (Lighthouse 12.6.1) / `image-delivery-insight` (13) → bytes before first paint |
+| L5 | LCP-critical component behind `lazy()` | `code-splitting` detector 7 *(frontend)* → `lcp-audit` §1 | the L1 oracle |
+| I4 | Virtualized-list defects: index keys, no reserved height (CLS), lost a11y, `content-visibility` missed | `list-virtualization` detectors 4–7 *(frontend)* | reorder identity; LHCI `layout-shifts`; DOM node count |
 | M | Lab + field measurement | `lighthouse-ci` *(frontend)* · `web-vitals-field` (this pack) | § Proof, items 2 and 3 |
 
 ## Phase 3 — Retrieve
 
-One script, run from the repo root. `ROOTS` = the directories whose `package.json` names a UI framework, so server code is never scanned as browser code. P2–P5 are **interim lanes** for classes no frontend skill owns yet; each hit is a candidate, read before it is anything else.
+One script, run from the repo root. `ROOTS` = the directories whose `package.json` names a UI framework, so server code is never scanned as browser code. It finds the owners and the context they need; the class greps live in the owners (render-blocking `<head>` and third parties in `critical-path-scan` §1–§2, legacy targets and dev-only build code in `bundle-analyze` §6–§7) and are not copied here. Every owner hit is a candidate, read before it is anything else.
 
 ```bash
 ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|vue|svelte|@angular/core|solid-js|preact|astro)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
-FX=(-g '!**/node_modules/**' -g '!**/{dist,build,out,.next,.nuxt,.output,.svelte-kit,.angular,coverage,storybook-static}/**'
-    -g '!**/{test,tests,__tests__,__mocks__,mocks,e2e,fixtures,__fixtures__,scripts,tools,playwright,cypress}/**'
-    -g '!**/*.{test,spec,stories,story}.*' -g '!*.{md,mdx,snap,map,lock}' -g '!**/*lock.{json,yaml}'
-    -g '!**/{locales,locale,i18n,translations}/**' -g '!**/docs/**' -g '!/ai/**' -g '!**/*.min.*')
-UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
 # P0 owners installed? (missing ones become N/A rows, never a skipped row)
-ls .claude/skills/{bundle-analyze,lcp-audit,image-optimization,font-optimization,streaming-ssr,ssr-audit,navigation-speed,lighthouse-ci}/SKILL.md ai/patterns/{code-splitting,list-virtualization}.md 2>&1
+ls .claude/skills/{bundle-analyze,critical-path-scan,render-correctness-scan,client-data-scan,lcp-audit,image-optimization,font-optimization,streaming-ssr,ssr-audit,navigation-speed,lighthouse-ci}/SKILL.md ai/patterns/{code-splitting,list-virtualization}.md 2>&1
 # P1 stack, bundler, React Compiler, budgets, lab + field harness
 rg -n --no-heading '"(next|nuxt|vite|@sveltejs/kit|@angular/core|react-router(-dom)?|vue-router|astro|webpack|@rsbuild/core|babel-plugin-react-compiler|web-vitals|@lhci/cli|size-limit)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -n --no-heading 'reactCompiler|chunkSizeWarningLimit|manualChunks|optimizePackageImports|\btarget\s*:\s*["\x27](?:es20|es5)' -g '**/{next,vite,nuxt,svelte,astro,rsbuild,webpack}.config.*' -g '!**/node_modules/**' "${ROOTS[@]}"
-# P2 render-blocking <head>: sync script src in a document shell; cross-origin stylesheet or CSS @import of a URL
-rg -n --no-heading --pcre2 '<script\b(?![^>]*\b(?:async|defer|type=["\x27]module))[^>]*\bsrc=' -g '*.html' -g '**/{_document,document,root}.{tsx,jsx,js}' "${FX[@]}" "${ROOTS[@]}"
-rg -n --no-heading --pcre2 '@import\s+(?:url\()?["\x27]https?:|<link\b[^>]*\brel=["\x27]stylesheet["\x27][^>]*\bhref=["\x27]https?://' -g '*.{css,scss,less,html,tsx,jsx,vue,svelte,astro}' "${FX[@]}" "${ROOTS[@]}"
-# P3 third-party vendors and anti-flicker snippets
-rg -n --no-heading -i 'googletagmanager\.com|connect\.facebook\.net|static\.hotjar\.com|clarity\.ms/|cdn\.segment\.com|widget\.intercom\.io|client\.crisp\.chat|embed\.tawk\.to|js\.driftt\.com|js\.hs-scripts\.com|cdn\.optimizely\.com|dev\.visualwebsiteoptimizer\.com|cdn\.cookielaw\.org|app\.usercentrics\.eu|\basync-hide\b' "${UI[@]}" "${FX[@]}" "${ROOTS[@]}"
-# P4 legacy targets and polyfills
-rg -n --no-heading '\b(?:core-js|regenerator-runtime|@babel/polyfill|@vitejs/plugin-legacy)\b|polyfill\.io|polyfill-fastly|"target"\s*:\s*"ES5"|\bie\s*11\b' -g '**/package.json' -g '**/{.browserslistrc,tsconfig*.json,babel.config.*,.babelrc*}' -g '**/{vite,webpack,next,nuxt,rsbuild}.config.*' "${UI[@]}" "${FX[@]}" "${ROOTS[@]}"
-# P5 dev-only code — grep the production BUILD output, never the source (after the § Proof item 1 build). The MSW worker and faker
-#    apply to any stack (a SvelteKit or Nuxt build alike); the render debuggers and the redux logger are React-only
-rg -l 'why-did-you-render|react-scan|redux-logger|mockServiceWorker|@faker-js' dist build .next/static .output/public 2>/dev/null
 ```
 
-Read before deciding: **P2** — is the file the shell users receive, and is the resource cross-origin or > 50 KB? **P3** — does the tag load before first interaction or only after consent / idle / a click, and what is its main-thread time? **P4** — does a documented old-browser share (RUM) require it, or is it `plugin-legacy` nomodule output that modern browsers skip? **P5** — present in the build output is a Finding (High); source-only behind a `NODE_ENV` / `import.meta.env.DEV` guard is Refuted. Also read the context the owners need once: the route table, the client entry, React Compiler on or off, `optimizePackageImports`, and whether `web-vitals` already reports to a RUM sink.
+Read before deciding the context the owners need once: the route table, the client entry, React Compiler on or off, `optimizePackageImports`, and whether `web-vitals` already reports to a RUM sink. Each owner's own "read the code" questions decide its rows (`critical-path-scan` §1–§2 for L2 / I3, `bundle-analyze` §6–§7 for B4 / B5 — a dev-only module in the build output is a Finding; source-only behind a `NODE_ENV` / `import.meta.env.DEV` guard is Refuted).
 
 **3,000 hits** (a large app: hundreds of `<img>`, links or handlers): group each owner's hits by `(component, pattern)`; rank groups by route rank from Phase 1; read the top 30 groups fully, one decision per group that shares the pattern and its data source; the rest go to the ledger as `Live, unreviewed (k groups / n hits)` with the command that continues them — never `checked`.
 
@@ -106,7 +94,7 @@ Read before deciding: **P2** — is the file the shell users receive, and is the
 The block below is a shape, not a result: every number in a real run is transcribed from the tool that produced it.
 
 ```
-## /bundle-perf — <routes> — verdict GO-UNVERIFIED (1: X1 blocked)
+## /bundle-perf — <routes> — verdict GO-UNVERIFIED (1: X1 memory blocked)
 Budget: ai/runtime/perf-budgets.md (initial 170 KB br)   Build: vite 8.x @ 4f2c1e0, deterministic (2 builds equal)
 Bytes per route (brotli): entry 233.1 KB · +/settings 68.6 KB · +/reports 41.0 KB
 Lab: lighthouse-ci 5-run median, mobile; band ±4 pts (3 re-runs)   Field: RUM p75, 28 days (no soft-nav data: Chromium 151+ only)
@@ -121,9 +109,9 @@ Lab: lighthouse-ci 5-run median, mobile; band ±4 pts (3 re-runs)   Field: RUM p
 Verification: 11 candidates → 4 findings · 2 unconfirmed · 4 hardening · 1 refuted
 
 Class coverage:
-  B1 checked (4 hits → 1 finding) · B2 checked (1 → 0) · B4 checked (0 hits) · B5 checked (0 in build output)
-  L1 checked (lcp-audit: 2 → 1) · L2 checked (0 hits) · I1 checked (inp-responsiveness: 28 → 1) · I3 checked (3 → 0, 1 unconfirmed)
-  T1 N/A (client-rendered SPA, no SSR) · D1 checked (caching-scan §6: 1 → 1) · X1 blocked (no detector shipped)
+  B1 checked (4 hits → 1 finding) · B2 checked (1 → 0) · B4 checked (bundle-analyze §6: 0 hits) · B5 checked (bundle-analyze §7: 0 in build output)
+  L1 checked (lcp-audit: 2 → 1) · L2 checked (critical-path-scan §1: 0 hits) · I1 checked (inp-responsiveness: 28 → 1) · I3 checked (critical-path-scan §2: 3 → 0, 1 unconfirmed)
+  T1 N/A (client-rendered SPA, no SSR) · D1 checked (caching-scan §6: 1 → 1) · X1 CLS checked (critical-path-scan §3: 2 → 0) · X1 memory blocked (no staging build to run the heap slope on)
 ```
 
 ## Phase 5 — Update
@@ -150,6 +138,6 @@ End with `## What to do next`: one ordered list by measured savings — **BIGGES
 
 ## Related
 
-- Frontend owners *(frontend pack, when installed)*: `bundle-analyze`, `lcp-audit`, `image-optimization`, `font-optimization`, `streaming-ssr`, `ssr-audit`, `navigation-speed`, `lighthouse-ci`; patterns `code-splitting`, `list-virtualization`; agent `@data-flow-auditor`.
+- Frontend owners *(frontend pack, when installed)*: `bundle-analyze`, `critical-path-scan`, `render-correctness-scan`, `client-data-scan`, `lcp-audit`, `image-optimization`, `font-optimization`, `streaming-ssr`, `ssr-audit`, `navigation-speed`, `lighthouse-ci`; patterns `code-splitting`, `list-virtualization`; `@data-flow-auditor` judges W1 findings on a named page.
 - This pack: `web-vitals-field` (field oracle), `inp-responsiveness` and `lazy-loading` (patterns, at `ai/patterns/`), `caching-scan`, `/perf-audit` (dispatches this command for browser kinds), `/perf-fix` (applies the fixes), `/profile-perf` (server latency).
 - `/optimize-bundle` *(mobile pack, when installed)* — the native counterpart.

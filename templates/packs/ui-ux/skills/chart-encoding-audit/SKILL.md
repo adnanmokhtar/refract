@@ -82,8 +82,9 @@ CF '<ZAxis\b|\btype\s*:\s*["\x27]bubble["\x27]|\bsymbolSize\s*:|\.attr\(\s*["\x2
 CF '\byAxisId\s*=\s*\{?["\x27]?(?!left\b|0\b)\w+|\by1\s*:\s*\{|\bposition\s*:\s*["\x27]right["\x27]|\b[yY][aA]xis\s*:\s*\[\s*\{[^\]]*\}\s*,\s*\{|"resolve"\s*:\s*\{\s*"scale"\s*:\s*\{\s*"y"\s*:\s*"independent"|\bopposite\s*:\s*true|\brightAxis\b|\baxisRight\b'
 # 5. Missing data drawn as data: gap bridging, and nulls coerced to zero in the transform.
 CF '\bconnectNulls\b(?!\s*=\s*\{\s*false)|\bspanGaps\s*:\s*(?:true|\d)|\bconnectNulls\s*:\s*true|\?\?\s*0\b|\|\|\s*0\b|\bfillna\(0\)|Number\([^)]*\)\s*\|\|\s*0'
-# 6. Series colour chosen at the call site: literal hexes, palette arrays, semantic red/green on series.
-CF '(?:fill|stroke|color|colors|backgroundColor|borderColor)\s*[:=]\s*\{?\s*\[?\s*["\x27]#[0-9a-fA-F]{3,8}["\x27]|\b(?:COLORS|PALETTE|SERIES_COLORS|CHART_COLORS)\w*\s*[:=]|\bcolors\s*:\s*\[|\b(?:red|green|success|danger|destructive)\b[^\n]*\b(?:fill|stroke|color)\b'
+# 6. Series colour chosen at the call site: literal hexes, palette arrays, a hex picked per point by a ternary (also
+#    inside a `.map` callback: up/down, hit/miss), semantic red/green on series.
+CF '(?:fill|stroke|color|colors|backgroundColor|borderColor)\s*[:=]\s*\{?\s*\[?\s*["\x27]#[0-9a-fA-F]{3,8}["\x27]|\?\s*["\x27]#[0-9a-fA-F]{3,8}["\x27]\s*:\s*["\x27]#[0-9a-fA-F]{3,8}["\x27]|\b(?:COLORS|PALETTE|SERIES_COLORS|CHART_COLORS)\w*\s*[:=]|\bcolors\s*:\s*\[|\b(?:red|green|success|danger|destructive)\b[^\n]*\b(?:fill|stroke|color)\b'
 # 7. Chart files with no unit, value label or tick formatter anywhere (read: axis titles, legend order, hover-only values).
 tr '\n' '\0' < "$CFL" | xargs -0 -r rg --files-without-match --pcre2 '\btickFormatter\b|\bvalueFormatter\b|\bunit\s*=|\blabel\s*=\s*\{|\baxisLabel\b|\btitle\s*:\s*\{|\bformatter\s*[:=]|<LabelList\b|\bdataLabels\b|\bticks\s*:\s*\{[^}]*callback'
 # 8. Sort and aspect (read): declared plot shapes to compare across comparable charts.
@@ -277,3 +278,4 @@ The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (
 - `ui-design-sweep` § `normalize-surface` (this pack) — re-theming and composite-surface completeness.
 - `a11y-code-scan`, `a11y-scan` §3 (frontend pack, when installed) — the chart's text alternative and keyboard access, and series contrast as a WCAG finding.
 - `@design-system-architect` — emits the sequential, diverging and categorical ramps as tokens. `@ux-reviewer` — receives findings where the misread has a task cost.
+- `/frontend-audit` (frontend pack, when installed) — dispatches this skill as its Chart encoding row (`--classes=charts`) and folds this coverage block into its class ledger; `/frontend-fix` closes the rows.

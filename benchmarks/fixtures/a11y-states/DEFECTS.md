@@ -9,7 +9,7 @@ Accessibility (WCAG 2.2 AA), UI-state, state-matrix, motion, design-token and ch
 counterpart of `vuln-fullstack` — seeded across the storefront, the back office, the widgets and a design-time state
 matrix, plus decoys: correct siblings that look like a seeded defect and must NOT be reported.
 
-Invocation: /frontend-audit --whole-repo --classes=a11y,states,tokens
+Invocation: /frontend-audit --whole-repo --classes=a11y,states,tokens,charts
 Stage with: --git — `/frontend-audit` reads the history for its context map and `state-matrix-lint.py --base` lists
 touched files with `git diff`; an un-initialised copy has neither.
 
@@ -28,8 +28,8 @@ dark background (the light pair is 7.63:1), and the back office's dark `--text-s
 
 Ownership. Every row names the detector that owns its class: frontend `a11y-code-scan` (static WCAG), `a11y-scan`
 (rendered WCAG and gate integrity), ui-ux `ui-state-scan`, `state-matrix-lint.py`, `motion-audit`,
-`design-token-audit`, `chart-encoding-audit`. `/frontend-audit` dispatches all of them but `chart-encoding-audit`
-(see § Detector measurement — integrator request IR-1); its rows are scored under `/frontend-audit` because that is the
+`design-token-audit`, `chart-encoding-audit`. `/frontend-audit` dispatches all of them; `chart-encoding-audit` is its
+`charts` row since 2026-10-10 (integrator request IR-1, fixed), so every row is scored under `/frontend-audit`, the
 whole-repo UI audit this fixture runs.
 
 Line numbers are exact against the files in this directory and are re-checked by
@@ -847,7 +847,8 @@ match:    error|catch|swallow|empty|fail|caught up
 ```
 
 The Pinia action's `catch { this.items = [] }` sets `fetched`, so `NotificationsPanel` says "You're all caught up."
-when the request failed. Grep 3b only knows `setX([])`; a store mutation is invisible to it (integrator request IR-3).
+when the request failed. Grep 3b once knew only `setX([])` and missed this store mutation (integrator request IR-3);
+since 2026-10-10 grep 3c (multi-line) prints it.
 Proof: fulfil 500 on `/notifications`; the caught-up copy shows.
 
 ## AS-ST-04a — Account segment has no `error.tsx` at or above it
@@ -1797,7 +1798,8 @@ match:    important
 ## Detector measurement — the pre-flight greps run on this fixture
 
 Measured 2026-10-05 with ripgrep 15.2.0 (PCRE2 10.45), from this directory, each skill's pre-flight block copied
-verbatim from `templates/packs/{frontend,ui-ux}/skills/<skill>/SKILL.md` as of that date, plus
+verbatim from `templates/packs/{frontend,ui-ux}/skills/<skill>/SKILL.md` as of that date (re-measured 2026-10-10, same
+ripgrep, for `ui-state-scan`, `design-token-audit` and `chart-encoding-audit` after IR-2…IR-5), plus
 `state-matrix-lint.py ai/design/state-matrix/checkout.md --repo=.`. A seed is **caught** when a grep prints its file
 (file-level greps) or a line within 6 of its anchor for the class it seeds. A decoy is **hit** when a grep prints it
 for the class it imitates; every decoy hit below is refuted by the read the skill already prescribes, so the decoy
@@ -1806,33 +1808,44 @@ produces **0 findings**. These are grep results, not a scored `/frontend-audit` 
 
 | detector | seeds it owns | caught by its greps | decoys hit by the class they imitate → findings | notes |
 |----------|---------------|--------------------|-----------------------------------------------|-------|
-| `a11y-code-scan` | 24 (A11Y-01…08, -14, -15, -17, -18 × 2) | **24 / 24** | AS-DECOY-07 by §1 (backdrop `div onClick`) → 0: Escape + a focused close button, precedents/ui § 16. DECOY-01, -04, -05, -12, -13, -16: 0 hits | also prints AS-A11Y-12a (0d rider) and AS-CH-06b (§7 colour ternary) |
+| `a11y-code-scan` | 24 (A11Y-01…08, -14, -15, -17, -18 × 2) | **24 / 24** | AS-DECOY-07 by §1 (backdrop `div onClick`) → 0: Escape + a focused close button, precedents/ui § 16. DECOY-01, -04, -05, -12, -13, -16: 0 hits | also prints AS-CH-06b (§7 colour ternary). 2026-10-10: its 0d rider grep was removed (the riders are `a11y-scan` grep 6 only), so AS-A11Y-12a is now printed once, by `a11y-scan` |
 | `a11y-scan` | 10 (A11Y-09, -11, -12, -16, -22 × 2) | **5 / 10** static (12a rider, 16a and 16b as pinned layers with no `scroll-padding`, 22a and 22b by 7a/7b); 09a, 09b, 11a, 11b, 12b have no static signal **by design** — axe `color-contrast` in dark, `target-size` under `wcag22aa`, the 320 px probe | AS-DECOY-18 by 7a (`color-contrast` off in jsdom) → 0: `e2e/a11y.spec.ts` runs contrast in Chromium with `wcag22aa`. DECOY-09, -10: no static grep | §2 lists `ConfirmDeleteDialog` (AS-DECOY-02) as a surface to open — a render instruction, not a candidate |
-| `ui-state-scan` | 18 (ST-01…08, -10 × 2) | **14 / 18** by a printed hit (01a, 01b, 02a, 02b, 03a, 04a via 4c on the five account pages, 04b via 4a, 05a, 05b, 06b via 4a, 08a, 08b, 10a, 10b); 07a and 07b by the **repo-level** signal (grep 7 prints nothing: no network-state primitive exists); 06a by **read** only (6a counts the files that tell 403 apart — `StoreCreditPanel`, `lib/api.ts`, `AuditLogView` — and `GiftCardsPanel` is absent); **03b missed** (IR-3) | AS-DECOY-11 by 1 and 3a (`OrdersPanel`) → 0: the child renders every branch, precedents/ui § 36. DECOY-14, -15: 0 hits | other printed candidates, all refuted on read: `PlaceOrderButton`/`CheckoutSummary` (suspense hook under `checkout/loading.tsx` + `error.tsx`, ui § 35), `CartSync` (renders nothing), `lib/api.ts:21` (error-body parse), axios `create` (has `timeout`), 13 on `CartLine` remove and `SavedListsSortable` delete (one is not destructive, ui § 40; the other opens a confirm) |
+| `ui-state-scan` | 18 (ST-01…08, -10 × 2) | **15 / 18** by a printed hit (01a, 01b, 02a, 02b, 03a, 03b via 3c — `notifications.ts:16-17`, since IR-3, 04a via 4c on the five account pages, 04b via 4a, 05a, 05b, 06b via 4a, 08a, 08b, 10a, 10b); 07a and 07b by the **repo-level** signal (grep 7 prints nothing: no network-state primitive exists); 06a by **read** only (6a counts the files that tell 403 apart — `StoreCreditPanel`, `lib/api.ts`, `AuditLogView` — and `GiftCardsPanel` is absent) | AS-DECOY-11 by 1 and 3a (`OrdersPanel`) → 0: the child renders every branch, precedents/ui § 36. DECOY-14, -15: 0 hits | other printed candidates, all refuted on read: `PlaceOrderButton`/`CheckoutSummary` (suspense hook under `checkout/loading.tsx` + `error.tsx`, ui § 35), `CartSync` (renders nothing), `lib/api.ts:21` (error-body parse), axios `create` (has `timeout`), 13 on `CartLine` remove and `SavedListsSortable` delete (one is not destructive, ui § 40; the other opens a confirm) |
 | `state-matrix-lint.py` | 8 (SM-01…08) | **8 / 8**, exit 1 — both `state-missing` rows at line 6, the rest at their own rows | — | |
 | `motion-audit` | 8 (MO-01…04 × 2) | **8 / 8** (§1, §2, §3, §5) | AS-DECOY-21 (`transition-opacity duration-150`): 0 hits in §1/§2, counted once in the §4 duration census | §6 also prints `KpiCounter` 1.2 s and the ticker; §7 prints 11 `animate-pulse` skeletons (stop when content loads) |
-| `design-token-audit` | 8 (TK-01, -02, -04, -08 × 2) | **8 / 8** (§1, §2, §4, §8) | AS-DECOY-23 by §5 (reduced-motion `!important`) → 0: the documented exception. DECOY-19 (hex inside `@theme`), DECOY-22 (`w-[320px]`): 0 hits | §1 also prints the chart colours of CH-06a/b. Noise: §5 one Vue `:class` negation (IR-4); §6 24 files, 13 of them cross-app (IR-5); §9 none after the fixture's own unused tokens were removed |
-| `chart-encoding-audit` | 6 (CH-02, -05, -06 × 2) | **4 / 6** (§2, §5); **06a and 06b missed** by grep 6 (IR-2) — both printed by `design-token-audit` §1, 06b also by `a11y-code-scan` §7 | AS-DECOY-20 by §2 (`beginAtZero: false` on a labelled line) → 0: chart-encoding §2 allows a labelled zoom on a line | |
+| `design-token-audit` | 8 (TK-01, -02, -04, -08 × 2) | **8 / 8** (§1, §2, §4, §8) | AS-DECOY-23 by §5 (reduced-motion `!important`) → 0: the documented exception. DECOY-19 (hex inside `@theme`), DECOY-22 (`w-[320px]`): 0 hits | §1 also prints the chart colours of CH-06a/b. §5: 4 lines, all DECOY-23 (the Vue `:class` negation is gone since IR-4); §6: 10 `apps/shop` files (was 24 — the 14 cross-app `apps/admin` files are gone since IR-5); §9 none after the fixture's own unused tokens were removed |
+| `chart-encoding-audit` | 6 (CH-02, -05, -06 × 2) | **6 / 6** (§2, §5, §6 — 06a `SpendChart.tsx:30` and 06b `RevenueBars.vue:17` by grep 6's two-hex ternary since IR-2; both also printed by `design-token-audit` §1, 06b by `a11y-code-scan` §7) | AS-DECOY-20 by §2 (`beginAtZero: false` on a labelled line) → 0: chart-encoding §2 allows a labelled zoom on a line | |
 
-Totals: **73 of 82** seeds produce a grep hit (or, for ST-07, the repo-level empty result) in their owner's
-pre-flight; **5** are rendered-only by design (A11Y-09a/b, -11a/b, -12b); **2** are caught only by another detector's
-grep (CH-06a/b); **1** is reachable only by reading (ST-06a); **1** is missed outright (ST-03b). **0 decoys** survive their owner's prescribed read; the 5 decoy
+Totals: **76 of 82** seeds produce a grep hit (or, for ST-07, the repo-level empty result) in their owner's
+pre-flight; **5** are rendered-only by design (A11Y-09a/b, -11a/b, -12b); **1** is reachable only by reading (ST-06a);
+**0** are missed (ST-03b and CH-06a/b were, until IR-3 and IR-2 on 2026-10-10). **0 decoys** survive their owner's prescribed read; the 5 decoy
 grep hits above are the ones that read exists to refute.
 
 ### Integrator requests (skill gaps found by this fixture — the skills are other agents' files)
 
 - **IR-1 — `/frontend-audit` (frontend pack):** no command dispatches `chart-encoding-audit`; the class ledger has no
-  chart row. Add a `charts` row (or fold it into `tokens`) so CH-02/-05/-06 have an owner in the audit.
+  chart row. Add a `charts` row (or fold it into `tokens`) so CH-02/-05/-06 have an owner in the audit. — **fixed
+  2026-10-10**: `/frontend-audit` dispatches `chart-encoding-audit` (ui-ux, when installed) as the Chart encoding row,
+  family `charts`; `/frontend-fix` carries its oracle row; the Invocation above adds `charts`.
 - **IR-2 — `chart-encoding-audit` grep 6:** it requires the hex directly after `fill=` / `backgroundColor:`, so a series
   colour chosen by a ternary or a `.map` callback is invisible — `fill={c >= 0 ? '#16a34a' : '#dc2626'}`,
   `backgroundColor: points.map((p) => (ok ? '#22c55e' : '#ef4444'))`. Add a two-hex ternary alternation, e.g.
-  `\?\s*["']#[0-9a-fA-F]{3,8}["']\s*:\s*["']#[0-9a-fA-F]{3,8}["']`, scoped to `$CFL`.
+  `\?\s*["']#[0-9a-fA-F]{3,8}["']\s*:\s*["']#[0-9a-fA-F]{3,8}["']`, scoped to `$CFL`. — **fixed 2026-10-10**: grep 6
+  gained that alternation; it prints CH-06a and CH-06b and no decoy.
 - **IR-3 — `ui-state-scan` greps 3b/3c:** only `setX([])` counts as "failure turned into empty". A store or ref
   mutation in the `catch` is missed — Pinia `catch { this.items = [] }` (AS-ST-03b), Vue `items.value = []`, a MobX
-  class field. Add `catch\s*(?:\([^)]*\))?\s*\{\s*(?:this\.\w+|\w+\.value)\s*=\s*(?:\[\]|null|\{\}|""|''|0)`.
+  class field. Add `catch\s*(?:\([^)]*\))?\s*\{\s*(?:this\.\w+|\w+\.value)\s*=\s*(?:\[\]|null|\{\}|""|''|0)`. — **fixed
+  2026-10-10**: 3b keeps the one-line `.catch(() => …)` forms; 3c (`-U`) now takes every catch block, `catch {` or
+  `.catch(e => {`, whose first statement empties a setter, `this.x` or `x.value` — the IR's pattern alone could not
+  match, since the seed's assignment sits on the line after `catch {`. Prints `notifications.ts:16-17`; nothing else new.
 - **IR-4 — `design-token-audit` grep 5:** the class-attribute alternation matches a JS negation in a Vue object binding,
   `:class="{ unread: !n.read }"`, as a Tailwind important modifier. Exclude `:class=` / `v-bind:class=` bodies, or
-  require a utility-shaped token (`!\w+-`) after the `!`.
+  require a utility-shaped token (`!\w+-`) after the `!`. — **fixed 2026-10-10**: the modifier alternations now need a
+  class *string* — `(?<![:\w.-])class(?:Name)?=\{?["'\x60]` — so bound `:class` / `className={!x …}` JS is skipped
+  (`!hidden`, which has no `-`, is still caught). `NotificationsPanel.vue:19` is gone.
 - **IR-5 — `design-token-audit` §6:** in a monorepo the DS root found in one app (`apps/shop/components/ui`, which
   exports `Button`) is paired against every root, so 13 `.vue` files in `apps/admin` — an app with no `Button` — are
-  listed `button → Button`. Pair each DS root only with files under the root (`ROOTS` entry) that contains it.
+  listed `button → Button`. Pair each DS root only with files under the root (`ROOTS` entry) that contains it. —
+  **fixed 2026-10-10**: grep 6 loops per app root; a root is paired with the DS roots inside it or in a workspace
+  package its `package.json` names, and nested roots are excluded. The 14 `apps/admin` rows are gone; the 10
+  `apps/shop` rows remain.
