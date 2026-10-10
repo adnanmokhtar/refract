@@ -62,6 +62,22 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infra (k8s-render-scan § 0 render per env, the platform inventory, target minor, node pools, the app's drain constant)
   fallback: skills/k8s-availability-scan/SKILL.md
 
+- name: k8s-wiring-scan
+  kind: skill
+  triggers:
+    k8s_detected: true
+    OR_grep_evidence: "^kind:\\s*(Service|Ingress|HTTPRoute|NetworkPolicy|CronJob|Job|RoleBinding|ClusterRoleBinding|ServiceAccount)\\b"
+  extracts_from: _extracted-codebase.md § Infra (k8s-render-scan § 0 render per env, CD targets, the platform inventory, CNI, Reloader/ESO presence)
+  fallback: skills/k8s-wiring-scan/SKILL.md
+
+- name: k8s-api-version-scan
+  kind: skill
+  triggers:
+    k8s_detected: true
+    OR_grep_evidence: "^apiVersion:\\s*\\S+/v\\d+(alpha|beta)\\d+|kind:\\s*(CustomResourceDefinition|ClusterPolicy|ValidatingAdmissionPolicy)\\b|pod-security\\.kubernetes\\.io/enforce|kubernetes\\s+cluster\\s+create"   # a beta API, a CRD, a policy or a cluster-create line
+  extracts_from: _extracted-codebase.md § Infra (k8s-render-scan § 0 render, the target minor(s) from runbooks/IaC/CI, policy engines, the platform inventory)
+  fallback: skills/k8s-api-version-scan/SKILL.md
+
 - name: k8s-audit
   kind: skill
   triggers: { k8s_detected: true }

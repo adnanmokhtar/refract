@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**213 commands** — core 16 · 24 packs (151) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**215 commands** — core 16 · 24 packs (153) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -29,7 +29,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — learning](#pack--learning) — 8
 - [Pack — migration](#pack--migration) — 21
 - [Pack — mobile](#pack--mobile) — 6
-- [Pack — observability](#pack--observability) — 4
+- [Pack — observability](#pack--observability) — 6
 - [Pack — performance](#pack--performance) — 4
 - [Pack — product](#pack--product) — 5
 - [Pack — security](#pack--security) — 6
@@ -270,7 +270,9 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-metrics` | Add metrics (counters / gauges / histograms) to a service. | — | `/add-metrics` |
 | `/add-telemetry` | Wire structured logs, metrics, and traces into a feature; create alert + runbook stubs. | — | `/add-telemetry <feature>` |
 | `/add-tracing` | Add distributed tracing to a service / endpoint / job. | — | `/add-tracing` |
-| `/alert-design` | Design alerts for a service. | — | `/alert-design` |
+| `/alert-design` | Design alerts for a service. | `--slo` | `/alert-design` |
+| `/obs-audit` | Read-only observability audit: logs, traces, metrics, errors, alerts, SLOs, pipeline; class ledger… | `--whole-repo`, `--classes=<family,…>`, `--live=<source=url,…>` | `/obs-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<source=url,…>]` |
+| `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. | `--all`, `--live=<source=url,…>` | `/obs-fix [audit-report-path \| finding-id ... \| --all] [--live=<source=url,…>]` |
 
 ## Pack — performance
 
