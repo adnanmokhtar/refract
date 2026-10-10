@@ -152,7 +152,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-feature` | Build a feature as a run — risk tier chosen before code, then requirements, design, a locked… | `--lane=<lane>`, `--tier`, `--reason`, `--yes`, `--plan`, `--request-file=<spec>` | `/add-feature <description \| specs/<file> \| Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan]` |
+| `/add-feature` | Build a feature as a run — risk tier chosen before code, then requirements, design, a locked… | `--lane=<lane>`, `--tier`, `--reason`, `--yes`, `--plan`, `--request-file=<spec>`, `--run`, `--phase` | `/add-feature <description \| specs/<file> \| Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan]` |
 
 ## Pack — devops
 
