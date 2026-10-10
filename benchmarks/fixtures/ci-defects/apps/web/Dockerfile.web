@@ -1,0 +1,28 @@
+# web: the React storefront, built once and served by nginx.
+FROM node:18-alpine AS build
+WORKDIR /app
+# Install from the lockfile first so a source edit does not re-run it.
+# The build reads VITE_* values from .env.production and the build arguments below.
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+ARG VITE_FLAG_NEW_SEARCH=false
+RUN npm run build
+
+FROM nginx:1.27-alpine
+# nginx drains open connections on SIGQUIT (its graceful stop); the official image declares it,
+# repeated here so the intent survives a base change.
+STOPSIGNAL SIGQUIT
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+# The unprivileged user owns the cache and pid paths it writes at runtime.
+RUN mkdir -p /var/cache/nginx /var/run/nginx \
+ && chown nginx:nginx /var/cache/nginx /var/run/nginx \
+ && sed -i 's|^pid .*|pid /var/run/nginx/nginx.pid;|' /etc/nginx/nginx.conf
+# Listen on 8080: an unprivileged process cannot bind 80.
+EXPOSE 8080
+# Logs go to stdout and stderr through the base image's symlinks.
+# The storefront is static: no runtime configuration beyond nginx.conf.
+# Image metadata for the registry UI.
+LABEL org.opencontainers.image.source="https://github.com/acme/shop"
+USER nginx

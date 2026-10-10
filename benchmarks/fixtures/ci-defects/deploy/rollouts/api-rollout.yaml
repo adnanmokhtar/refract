@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: api
+spec:
+  replicas: 3
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+    scaleDown: progressively
+  strategy:
+    canary:
+      steps:
+        - setWeight: 20
+        - analysis:
+            templates:
+              - templateName: api-error-rate
+            args:
+              - name: canary-hash
+                valueFrom:
+                  podTemplateHashValue: Latest
+        - setWeight: 50
+        - analysis:
+            templates:
+              - templateName: api-latency
+        - setWeight: 100

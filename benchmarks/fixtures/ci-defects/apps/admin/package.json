@@ -1,0 +1,21 @@
+{
+  "name": "acme-admin",
+  "version": "2.3.1",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "11.1.6",
+    "@nestjs/core": "11.1.6",
+    "@nestjs/platform-express": "11.1.6",
+    "@prisma/client": "6.16.2",
+    "express": "5.1.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "11.0.10",
+    "prisma": "6.16.2",
+    "typescript": "5.9.3"
+  }
+}

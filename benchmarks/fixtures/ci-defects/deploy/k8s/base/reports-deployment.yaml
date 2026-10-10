@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reports
+  labels: { app: reports }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: reports }
+  template:
+    metadata:
+      labels: { app: reports }
+    spec:
+      terminationGracePeriodSeconds: 20
+      initContainers:
+        - name: migrate
+          image: ghcr.io/acme/shop-reports:2.3.1
+          command: ["sh", "-c", "uv run alembic upgrade head"]
+          env:
+            - name: REPORTS_DATABASE_URL
+              valueFrom: { secretKeyRef: { name: reports-db, key: url } }
+      containers:
+        - name: reports
+          image: ghcr.io/acme/shop-reports:2.3.1
+          ports:
+            - containerPort: 8000
+          env:
+            - name: REPORTS_DATABASE_URL
+              valueFrom: { secretKeyRef: { name: reports-db, key: url } }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { memory: 512Mi }

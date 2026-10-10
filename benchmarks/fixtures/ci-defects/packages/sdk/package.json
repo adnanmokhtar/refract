@@ -1,0 +1,10 @@
+{
+  "name": "@acme/shop-sdk",
+  "version": "1.4.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  }
+}

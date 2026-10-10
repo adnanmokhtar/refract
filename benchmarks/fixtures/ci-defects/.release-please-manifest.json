@@ -1,0 +1,5 @@
+{
+  "apps/api": "2.3.1",
+  "apps/worker": "2.3.1",
+  "apps/web": "2.3.1"
+}

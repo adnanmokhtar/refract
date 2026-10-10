@@ -1,0 +1,8 @@
+# Local development: source mounted over the image and the Node inspector published.
+services:
+  api:
+    command: ["node", "--inspect=0.0.0.0:9229", "dist/main.js"]
+    ports:
+      - "9229:9229"
+    volumes:
+      - ./apps/api/src:/app/src

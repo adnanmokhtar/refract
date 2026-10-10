@@ -1,0 +1,23 @@
+name: Setup
+description: Node, pnpm and the workspace install, shared by every Node job.
+inputs:
+  node-version-file:
+    description: File that pins the Node version
+    default: .nvmrc
+  who:
+    description: Caller label printed in the log
+    default: ci
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: echo "Setting up the workspace for ${{ inputs.who }}"
+    - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+      with:
+        version: 9.15.9
+    - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+      with:
+        node-version-file: ${{ inputs.node-version-file }}
+        cache: pnpm
+    - shell: bash
+      run: pnpm install --frozen-lockfile

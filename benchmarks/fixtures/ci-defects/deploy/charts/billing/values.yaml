@@ -1,0 +1,4 @@
+replicaCount: 2
+image:
+  repository: registry.gitlab.com/acme/shop/billing
+  tag: "2.3.1"

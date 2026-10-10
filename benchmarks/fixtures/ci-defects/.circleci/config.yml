@@ -1,0 +1,68 @@
+# reports-py: tests and the Python client publish. Moving to GitHub Actions in Q4.
+version: 2.1
+
+jobs:
+  test-reports:
+    docker:
+      - image: cimg/python:3.12.7
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run:
+          name: Run the report tests and keep the log
+          no_output_timeout: 15m
+          command: |
+            cd services/reports-py
+            python -m pytest -q --junitxml=junit.xml | tee pytest.log
+      - store_test_results:
+          path: services/reports-py/junit.xml
+      - store_artifacts:
+          path: services/reports-py/pytest.log
+      - store_artifacts:
+          path: services/reports-py/junit.xml
+
+  lint-reports:
+    docker:
+      - image: cimg/python:3.12.7
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - restore_cache:
+          keys: [deps-v1]
+      - run:
+          name: Install into the cached venv
+          no_output_timeout: 10m
+          command: |
+            python -m venv .venv
+            .venv/bin/pip install -r services/reports-py/requirements.txt
+      - save_cache:
+          key: deps-v1
+          paths: [./.venv]
+      - run: .venv/bin/ruff check services/reports-py
+
+  publish-client:
+    docker:
+      - image: cimg/python:3.12.7
+    steps:
+      - checkout
+      - run:
+          name: Print the ref being published
+          command: echo "Publishing the reports client from << pipeline.git.branch >>"
+      - run:
+          name: Build and upload the reports client
+          no_output_timeout: 10m
+          command: |
+            cd services/reports-py/client
+            python -m build
+            twine upload dist/*
+
+workflows:
+  reports:
+    jobs:
+      - test-reports
+      - lint-reports
+      - publish-client:
+          requires: [test-reports, lint-reports]
+          filters:
+            branches:
+              only: [main]

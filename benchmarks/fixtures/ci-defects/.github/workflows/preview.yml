@@ -1,0 +1,32 @@
+name: Preview
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths: ['apps/web/**']
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: preview
+      url: https://pr-${{ github.event.pull_request.number }}.preview.shop.example
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
+      - name: Write the preview-cluster kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PREVIEW }}
+        run: printf '%s' "$KUBE_CONFIG" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+      - name: Deploy this pull request's storefront
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: helm upgrade --install "web-pr-$PR" deploy/charts/web-preview --kubeconfig "$RUNNER_TEMP/kubeconfig" -n previews --set prNumber="$PR" --wait --timeout 10m

@@ -14,7 +14,7 @@ This directory is the apparatus for measuring the other half. It does not contai
 
 ## What is measured
 
-Seventeen fixtures, one question each:
+Eighteen fixtures, one question each:
 
 | Fixture | Command | Question |
 |---------|---------|----------|
@@ -34,6 +34,7 @@ Seventeen fixtures, one question each:
 | [`mobile-defects`](fixtures/mobile-defects) | `/mobile-audit --whole-repo` + `/security-audit` | Does it find the lifecycle, native-accessibility, performance, offline-sync, store, device-security, platform, bridge and app-size defects across Expo, bare React Native, Flutter, Compose and SwiftUI — and leave the version-gated and platform-default siblings alone? |
 | [`obs-defects`](fixtures/obs-defects) | `/obs-audit --whole-repo` + `/security-audit` · `/quality-audit` · `/perf-audit` (hand-offs) | Does it find the logs that lose their stack, the traces that split at a queue, the labels that explode, the alerts and SLOs that can never fire, and the pipeline that drops data — route the redaction, swallowed-error and liveness rows to their owners — and leave the precedent-backed siblings alone? |
 | [`infra-ops`](fixtures/infra-ops) | `/infra-audit --whole-repo` + `/security-audit` (routed rows) | Does it find the state, pinning, deletion-safety, backup and restore, serverless-timing, rendered-Kubernetes, edge, DNS/TLS and network defects that take a platform down or lose its data with no attacker — route the cache, takeover, RBAC, NetworkPolicy, shared-credential and registry rows to security — and leave the precedent-backed siblings alone? |
+| [`ci-defects`](fixtures/ci-defects) | `/devops-audit --whole-repo` + `/security-audit` · `/test-audit` · `/infra-audit` · `/obs-audit` (hand-offs) | Does it find the masked gates, lost exit codes, skip-satisfied required checks, ungated deploys, stale caches, movable releases, rebuilt-after-scan images, boot-time migrations, unprotected environments, signal-deaf containers, compose drift, never-failing canaries and out-of-band GitOps edits across six CI platforms — route the attacker, test-job, manifest and alert rows to their owners — and leave the precedent-backed siblings alone? |
 | [`routing`](fixtures/routing) | `/do --route-only` | For 100 natural-language asks, does the router pick the right command and the right risk tier — and never put a T3 change in a lower tier? |
 
 Each fixture is a small, self-contained, deliberately broken project. Each ships a
@@ -171,6 +172,26 @@ Every Kustomize root renders offline. Its answer key records every detector pre-
 seeds printed, 3 missed by grep defects, 0 decoys surviving the prescribed read) and the nine integrator requests that
 measurement found.
 
+`ci-defects` is the devops pack's whole-repo audit, measured on one NestJS 11 / Fastify monorepo (`Acme Shop`) shipped
+from six CI platforms: 13 GitHub workflows and a composite action, plus one GitLab, CircleCI, Bitbucket, Azure and
+Jenkins pipeline each; Dockerfiles for a NestJS API, a BullMQ worker, a Vite storefront on nginx, a Prisma admin console,
+a Go service and a FastAPI + `uv` service; compose with an override and a production overlay; kustomize with staging and
+prod overlays, a migration Job, three Argo Rollouts with their AnalysisTemplates, an Argo CD Application, a Helm chart,
+release-please, changesets and an ECR lifecycle policy. Repository settings (required checks, merge queue, rulesets,
+environments) are committed as offline `gh api` snapshots under `.refract-fixture/gh-api/`. It seeds 117 devops defects
+across the eight detectors `/devops-audit` dispatches (`pipeline-integrity-scan`, `pipeline-cache-scan`,
+`release-integrity-scan`, `deploy-safety-scan`, `container-build-scan`, `compose-scan`, `progressive-delivery`,
+`gitops-audit`), and 28 hand-off rows scored only under their owners — 20 `/security-audit` (expression injection on
+five platforms, privileged triggers, an AI agent fed an issue body, pins × privilege, a root final stage, a secret build
+arg), 3 `/test-audit`, 3 `/infra-audit`, 2 `/obs-audit` — which is why the key carries five `Invocation` lines; with 28
+decoys from `precedents/devops.md` (PR-CI cancel, a preview deploy, `|| true` cleanup, an experimental matrix leg, an
+alls-green aggregator, a pipe under `shell: bash` and on CircleCI, a one-shot migration Job, a single replica with
+Prisma's lock, `USER 10001` inherited through `FROM base`, `STOPSIGNAL SIGQUIT`, an exact cosign identity by digest).
+Every root renders offline. Its answer key records every detector pre-flight run on a staged copy with docker blocked
+(107 of 117 seeds printed with their class row, 4 partial, 6 missed by grep defects or settings that no step reads;
+every printed decoy cleared by one precedent), the owners' pre-flights on the hand-off rows (25 of 28; the three
+infrastructure rows blocked without `yq`), and the ten integrator requests that measurement found.
+
 ## Why seeded-defect detection is a fair proxy
 
 The honest alternative — take real codebases, have experts enumerate every real defect,
@@ -217,7 +238,7 @@ Stated plainly, because the gaps are large:
 - **Precision, properly.** See below — the harness cannot tell a hallucinated finding from
   a real unseeded one without a human reading it. The one exception is narrow: a finding
   pinned to a decoy (`vuln-fullstack` has 6, `slow-marketplace` 32, `brittle-suite` 21, `a11y-states` 23,
-  `frontend-correctness` 21, `mobile-defects` 20, `obs-defects` 26, `infra-ops` 34,
+  `frontend-correctness` 21, `mobile-defects` 20, `obs-defects` 26, `infra-ops` 34, `ci-defects` 28,
   `quality-mix` 27) is a false positive by
   construction, and is counted as one. A few dozen known-safe sites are a probe, not a
   precision rate.
@@ -286,7 +307,7 @@ answer key somehow lands in the copy. An agent that reads the answer key scores 
 the number is worthless, so keep the run in the staged directory and never point it at
 `benchmarks/fixtures/` directly.
 
-A key whose defects name two or more commands (`slow-marketplace`, `mobile-defects`, `obs-defects`, `infra-ops`) is staged once per command —
+A key whose defects name two or more commands (`slow-marketplace`, `mobile-defects`, `obs-defects`, `infra-ops`, `ci-defects`) is staged once per command —
 `<workdir>/db-audit/slow-marketplace` and `<workdir>/perf-audit/slow-marketplace`, each with
 its own findings file — and each copy gets its own agent session. A block's `command:` may name
 both (`command: /mobile-audit /security-audit`): it then counts in both runs' denominators. Two copies, because the
@@ -333,6 +354,8 @@ the runner printed:
 | `obs-defects`, runs 2–4 | `/security-audit`, `/quality-audit --whole-repo`, `/perf-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (3, 2, 1) and on the decoys that name it; findings on the observability rows are UNMATCHED, never credited |
 | `infra-ops`, run 1 | `/infra-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches all twelve infrastructure detectors after `k8s-render-scan` § 0 ([infra-audit.md](../templates/packs/infrastructure/commands/infra-audit.md)). Lanes: static and render required (kustomize, helm, yq, jq on `PATH`); plan, kind and live absent, so every P-, K- and L-tier oracle prints `blocked`/`NO-DATA` with its command and the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The committed plans under `iac/plans/` and `serverless/terraform/plans/` are the plan-join inputs. The 12 `IO-SEC-*` rows must appear as routed to security |
 | `infra-ops`, run 2 | `/security-audit` (the key's `Invocation[/security-audit]:` line) | scored on the 12 `IO-SEC-*` rows and the one decoy that names it; findings on the infrastructure rows are UNMATCHED, never credited |
+| `ci-defects`, run 1 | `/devops-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches all eight devops detectors plus `ci-graph.py` ([devops-audit.md](../templates/packs/devops/commands/devops-audit.md)). No sandbox repository, no token: every A-tier settings read prints `UNREADABLE` unless the run passes the snapshot's contexts (`.refract-fixture/gh-api/`), every R-tier seeded failure prints `not run` with its command, and docker-less runs print the build-check and compose model lanes `blocked`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The 28 `CD-HO-*` rows must appear as routed, and score only in runs 2–5 |
+| `ci-defects`, runs 2–5 | `/security-audit`, `/test-audit --whole-repo`, `/infra-audit --whole-repo`, `/obs-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (20, 3, 3, 2) and on the decoys that name it (`CD-DECOY-20` under `/security-audit`); findings on the devops rows are UNMATCHED, never credited |
 | `review-decoys` | `/review-changes` | reviews the working-tree diff the runner staged ([review-changes.md](../templates/packs/code-quality/commands/review-changes.md)); paste every posted finding, Blockers to Nits |
 | `reward-hack` | `/add-feature specs/SPEC-0007-loyalty-points.md` | the spec path is the input; the run builds against the locked contract. Afterwards: `python3 benchmarks/score.py --fixture=reward-hack --tamper=<staged copy>` — and once more on the `--no-lock` copy |
 | `feature-refund`, run 1 | `/do "add a refund button"` | the bare ask is the test: everything the run needs is in the repo. Answer its approval gates as a product owner would, never naming a convention. Afterwards: `python3 benchmarks/score.py --fixture=feature-refund --outcome=<staged copy>` |
@@ -390,7 +413,7 @@ so two defects a few lines apart need two findings for both to count. That is de
 this can be verified.
 
 **Decoys** (only fixtures whose key has ```` ```decoy ```` blocks — today `vuln-fullstack`, `a11y-states`, `frontend-correctness`,
-`mobile-defects`, `obs-defects`, `infra-ops`, `slow-marketplace`, `brittle-suite`, `quality-mix`, `review-decoys` and `reward-hack`).
+`mobile-defects`, `obs-defects`, `infra-ops`, `ci-defects`, `slow-marketplace`, `brittle-suite`, `quality-mix`, `review-decoys` and `reward-hack`).
 A decoy is known-safe code that looks like a seeded defect. A finding is *pinned* to decoy
 Z when it names Z's file, cites a line within the tolerance window of Z's line, and matches
 every one of Z's `match:` patterns. A pinned finding is removed before assignment, so it

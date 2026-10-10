@@ -1,0 +1,49 @@
+name: Nightly
+on:
+  schedule:
+    - cron: '0 3 * * *'
+    - cron: '0 0 31 2 *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup-verify:
+    if: github.repository == 'acme/old-name'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - name: Restore last night's backup into a scratch database and check it
+        env:
+          BACKUP_BUCKET: s3://acme-shop-backups/postgres
+        run: ./scripts/verify-backup.sh
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: ./.github/actions/setup
+        with:
+          who: nightly
+      - run: pnpm audit --prod --audit-level=high
+
+  e2e-next-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+        include:
+          - node: 24
+            experimental: true
+    continue-on-error: ${{ matrix.experimental == true }}
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ matrix.node }}
+      - run: corepack enable && pnpm install --frozen-lockfile && pnpm e2e

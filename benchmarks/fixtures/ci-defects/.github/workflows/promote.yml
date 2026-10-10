@@ -1,0 +1,28 @@
+name: Publish docs
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: docs-site
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df
+        with:
+          role-to-assume: arn:aws:iam::111122223333:role/docs-publisher
+          aws-region: eu-west-1
+      - uses: ./.github/actions/setup
+        with:
+          who: docs
+      - run: pnpm --filter docs build
+      - run: aws s3 sync apps/docs/dist s3://docs.shop.example --delete

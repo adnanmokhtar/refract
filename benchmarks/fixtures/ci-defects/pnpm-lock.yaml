@@ -1,0 +1,16 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      '@changesets/cli':
+        specifier: 2.29.7
+        version: 2.29.7
+      nx:
+        specifier: 21.6.3
+        version: 21.6.3

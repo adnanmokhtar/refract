@@ -1,0 +1,25 @@
+# Feature flags served by the flag service (flagd), read by the web and api SDKs.
+flags:
+  new-checkout:
+    owner: payments
+    expires: 2026-12-31
+    description: The redesigned checkout.
+    environments:
+      staging: true
+      production: false
+  legacy-export:
+    owner: data
+    type: permanent
+    description: The v1 CSV export for accounts that still need it.
+  bulk-refund:
+    owner: payments
+    expires: 2027-03-31
+    description: Refund every order of a cancelled campaign in one call.
+  dead-banner:
+    owner: growth
+    expires: 2026-11-30
+    description: The autumn sale banner on the home page.
+  new-search:
+    owner: search
+    expires: 2027-01-31
+    description: Flip at runtime from the flag service to roll the storefront back to the old search.

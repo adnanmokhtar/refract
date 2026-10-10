@@ -1,0 +1,92 @@
+# billing-go pipeline. The billing service still builds and deploys from GitLab while the
+# rest of the monorepo runs on GitHub Actions; this file is mirrored from the GitLab project.
+stages: [lint, typecheck, test, build, release, deploy]
+
+default:
+  image: golang:1.24-bookworm
+  timeout: 30m
+
+variables:
+  GOOSE_DRIVER: postgres
+  GOOSE_MIGRATION_DIR: services/billing-go/migrations
+  BILLING_IMAGE: $CI_REGISTRY_IMAGE/billing
+
+lint_billing:
+  stage: lint
+  script:
+    - cd services/billing-go && golangci-lint run ./...
+
+vet_billing:
+  stage: typecheck
+  script:
+    - cd services/billing-go && go vet ./...
+
+test_billing:
+  stage: test
+  retry: 2
+  script:
+    - cd services/billing-go && go test ./...
+
+security_scan:
+  stage: test
+  allow_failure: true
+  script:
+    - trivy fs --exit-code 1 --severity HIGH,CRITICAL services/billing-go
+
+mr_title:
+  stage: lint
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - eval "echo Building merge request $CI_MERGE_REQUEST_TITLE"
+
+build_billing:
+  stage: build
+  image: docker:29.5.2-cli
+  services: ["docker:29.5.2-dind"]
+  script:
+    - docker build -t "$BILLING_IMAGE:$CI_COMMIT_SHORT_SHA" services/billing-go
+    - docker push "$BILLING_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+release_billing:
+  stage: release
+  image: docker:29.5.2-cli
+  services: ["docker:29.5.2-dind"]
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - docker pull "$BILLING_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker tag "$BILLING_IMAGE:$CI_COMMIT_SHORT_SHA" "$BILLING_IMAGE:$CI_COMMIT_TAG"
+    - docker push "$BILLING_IMAGE:$CI_COMMIT_TAG"
+    - trivy image --exit-code 1 --severity HIGH,CRITICAL "$BILLING_IMAGE:$CI_COMMIT_TAG"
+
+migrate_billing_staging:
+  stage: deploy
+  image: alpine/k8s:1.31.2
+  environment: staging
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - kubectl apply -k deploy/k8s/billing-migrate -n shop-staging
+    - kubectl -n shop-staging wait --for=condition=complete job/billing-migrate --timeout=10m
+
+deploy_billing_staging:
+  stage: deploy
+  image: alpine/helm:3.18.6
+  needs: [migrate_billing_staging, test_billing]
+  interruptible: true
+  environment: staging
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+    - helm upgrade --install billing deploy/charts/billing -n shop-staging --set image.tag="$CI_COMMIT_SHORT_SHA"
+
+deploy_billing:
+  stage: deploy
+  image: alpine/k8s:1.31.2
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+  script:
+    - helm upgrade --install billing deploy/charts/billing -n shop-prod --set image.tag="$CI_COMMIT_SHORT_SHA" --wait --timeout 10m
+    - goose up

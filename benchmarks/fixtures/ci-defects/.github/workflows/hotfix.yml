@@ -1,0 +1,43 @@
+name: Hotfix
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Released image tag to put back in production
+        type: choice
+        options: [v2.3.1, v2.3.0, v2.2.4]
+
+permissions:
+  contents: read
+
+jobs:
+  hotfix-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: ./.github/actions/setup
+        with:
+          who: hotfix
+      - run: pnpm test
+
+  hotfix-prod:
+    needs: hotfix-tests
+    concurrency:
+      group: hotfix-${{ github.sha }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede
+      - name: Write the production kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PROD }}
+        run: printf '%s' "$KUBE_CONFIG" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+      - name: Put the released image back
+        run: |
+          kubectl --kubeconfig "$RUNNER_TEMP/kubeconfig" -n shop-prod set image deploy/api api=ghcr.io/acme/shop-api:${{ inputs.tag }}
+          kubectl --kubeconfig "$RUNNER_TEMP/kubeconfig" -n shop-prod rollout status deploy/api --timeout=10m
+          curl -fsS https://api.shop.example/version | grep -q "${{ inputs.tag }}"

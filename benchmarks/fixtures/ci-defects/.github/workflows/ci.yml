@@ -1,0 +1,175 @@
+name: CI
+on: # CI for every pull request and for main
+  pull_request:
+    paths-ignore: ['docs/**']
+  push:
+    branches: [main]
+
+# Required checks on main (repository ruleset "main"): all-green, test, build, image-scan.
+# The api, worker and admin images are built here for the scan; the web app has its own workflow.
+# Releases are tag-driven (release.yml); deploys run from deploy.yml after a push to main.
+
+permissions:
+  contents: read
+
+env:
+  PNPM_VERSION: 9.15.9
+  NX_NO_CLOUD: 'true'
+  TURBO_TELEMETRY_DISABLED: '1'
+  FORCE_COLOR: '1'
+  API_IMAGE: shop-api:ci
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      pkgs: ${{ steps.affected.outputs.pkgs }}
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: ./.github/actions/setup
+        with:
+          who: ci
+      - name: Lint the affected projects
+        run: npx nx affected -t lint --base=origin/main --head=HEAD
+      - id: affected
+        run: echo "pkgs={\"pkg\":$(npx nx show projects --affected --json --base=origin/main)}" >> "$GITHUB_OUTPUT"
+
+  test:
+    runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
+    continue-on-error: true # TODO(#812): the DB suite flakes on the shared runner
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16.4-bookworm@sha256:6f1b3f0d5a1e9c4b2a7d8e3f6c5b4a3928170615f4e3d2c1b0a9f8e7d6c5b4a3
+        env:
+          POSTGRES_HOST_AUTH_METHOD: md5
+          POSTGRES_PASSWORD: ${{ secrets.CI_PG_PASSWORD }}
+        ports: ['5432:5432']
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: ./.github/actions/setup
+        with:
+          who: ci
+      - run: pnpm --filter acme-api run test:ci
+
+  compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        node: [20, 22]
+        exclude:
+          - node: 22
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ matrix.node }}
+      - run: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @acme/shop-sdk test
+
+  package-tests:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix: ${{ fromJSON(needs.lint.outputs.pkgs) }}
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: ./.github/actions/setup
+        with:
+          who: ci
+      - run: pnpm nx test ${{ matrix.pkg }}
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: ./.github/actions/setup
+        with:
+          who: ci
+      - name: Build every app
+        shell: bash
+        run: pnpm build 2>&1 | tee build.log
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: build-log
+          path: build.log
+      - name: Report the bundle sizes
+        run: du -sh apps/*/dist
+      - name: Check the build left no stray files
+        run: git status --porcelain --untracked-files=no
+      - name: Print the toolchain
+        run: node --version && pnpm --version
+
+  image-scan:
+    needs: build
+    runs-on: ubuntu-latest
+    continue-on-error: true # advisory until the base images are rebuilt
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - run: docker build -t "$API_IMAGE" apps/api
+      - name: Scan the api image
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha256:2c1ec3f1a3b5d7e9f0a2c4e6b8d0f2a4c6e8a0b2d4f6a8c0e2b4d6f8a0c2e4b6 image --exit-code 1 --severity HIGH,CRITICAL "$API_IMAGE" | tee trivy.txt
+      - name: Keep the scan report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: trivy-report
+          path: trivy.txt
+
+  smoke:
+    needs: image-scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - run: docker build -t "$API_IMAGE" apps/api
+      - name: Boot the image and probe it
+        run: |
+          docker run -d --name smoke -p 3000:3000 -e DATABASE_URL=postgres://ci@localhost/ci "$API_IMAGE"
+          ./scripts/smoke.sh http://localhost:3000
+      - name: Remove the smoke container
+        if: always()
+        run: docker rm -f smoke || true
+      - name: Upload the smoke logs when it fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: smoke-logs
+          path: smoke.log
+      - name: Record the image size
+        run: docker image inspect "$API_IMAGE" --format '{{.Size}}' > image-size.txt
+      - name: Keep the image size for the size baseline
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: image-size
+          path: image-size.txt
+
+  all-green:
+    needs: [lint, test, build, image-scan, smoke]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every required job passed
+        run: |
+          test "${{ needs.lint.result }}" != "failure"
+          test "${{ needs.test.result }}" != "failure"
+          test "${{ needs.build.result }}" != "failure"
+          test "${{ needs.image-scan.result }}" != "failure"
+          test "${{ needs.smoke.result }}" != "failure"
+
+  images:
+    if: github.event_name == 'push'
+    needs: all-green
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_build.yml

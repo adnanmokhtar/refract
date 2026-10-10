@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: worker
+spec:
+  replicas: 2
+  workloadRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+    scaleDown: progressively
+  strategy:
+    canary:
+      analysis:
+        templates:
+          - templateName: worker-failure-ratio
+        args:
+          - name: canary-hash
+            valueFrom:
+              podTemplateHashValue: Latest
+      steps:
+        - setWeight: 50
+        - pause: { duration: 10m }

@@ -1,0 +1,9 @@
+fastapi==0.118.0
+gunicorn==23.0.0
+uvicorn==0.37.0
+sqlalchemy==2.0.43
+alembic==1.16.5
+psycopg[binary]==3.2.10
+boto3==1.40.40
+pytest==8.4.2
+ruff==0.13.2

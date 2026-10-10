@@ -1,0 +1,61 @@
+# Canary gates for the prod Rollouts (Prometheus in the monitoring namespace).
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: api-error-rate
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    - name: error-ratio
+      interval: 1m
+      count: 5
+      failureLimit: 1
+      successCondition: result[0] >= 0
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc:9090
+          query: |
+            sum(rate(http_requests_total{route!="/health",status=~"5..",rollouts_pod_template_hash="{{args.canary-hash}}"}[2m]))
+            /
+            sum(rate(http_requests_total{route!="/health",rollouts_pod_template_hash="{{args.canary-hash}}"}[2m]))
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: api-latency
+spec:
+  metrics:
+    - name: p99-latency
+      interval: 1m
+      count: 5
+      failureLimit: 1
+      successCondition: result[0] <= 0.5
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc:9090
+          query: |
+            histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{route!="/health"}[2m])))
+---
+# The worker gate: failed jobs on the canary pods only, against every job those pods finished.
+# A canary that fails more than 1 % of its jobs once in five checks is aborted.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: worker-failure-ratio
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    - name: job-failure-ratio
+      interval: 2m
+      count: 5
+      failureLimit: 1
+      successCondition: result[0] < 0.01
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc:9090
+          query: |
+            sum(rate(bullmq_jobs_failed_total{rollouts_pod_template_hash="{{args.canary-hash}}"}[5m]))
+            /
+            sum(rate(bullmq_jobs_completed_total{rollouts_pod_template_hash="{{args.canary-hash}}"}[5m]))

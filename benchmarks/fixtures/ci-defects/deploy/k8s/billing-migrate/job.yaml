@@ -1,0 +1,21 @@
+# One-shot billing schema migration, applied alone and waited on before the billing rollout.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: billing-migrate
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: registry.gitlab.com/acme/shop/billing:2.3.1
+          command: ["/bin/sh", "-c"]
+          args: ["goose up"]
+          env:
+            - name: GOOSE_DRIVER
+              value: postgres
+            - name: GOOSE_DBSTRING
+              valueFrom: { secretKeyRef: { name: billing-db, key: url } }

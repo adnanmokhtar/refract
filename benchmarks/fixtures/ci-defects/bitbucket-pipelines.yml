@@ -1,0 +1,22 @@
+# reports-py deploy. Bitbucket Pipelines still owns the reports rollout to production.
+image: alpine/k8s:1.31.2
+
+options:
+  max-time: 30
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Test reports
+          image: python:3.12-slim
+          script:
+            - pip install -r services/reports-py/requirements.txt
+            - python -m pytest -q services/reports-py
+      - step:
+          name: Deploy reports
+          deployment: production
+          trigger: manual
+          script:
+            - kubectl apply -f deploy/k8s/base/reports-deployment.yaml | tee apply.log
+            - kubectl -n shop-prod rollout status deploy/reports --timeout=5m || kubectl -n shop-prod rollout undo deploy/reports

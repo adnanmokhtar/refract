@@ -1,0 +1,8 @@
+{
+  "mode": "pre",
+  "tag": "beta",
+  "initialVersions": {
+    "@acme/shop-sdk": "1.4.0"
+  },
+  "changesets": []
+}

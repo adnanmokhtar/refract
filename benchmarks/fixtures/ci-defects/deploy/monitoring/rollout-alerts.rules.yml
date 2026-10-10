@@ -1,0 +1,19 @@
+# Deploy-path alerts, loaded by Prometheus from /etc/prometheus/rules/*.rules.yml.
+groups:
+  - name: shop-deploys
+    rules:
+      - alert: ApiCanaryErrorBudgetBurn
+        expr: sum(rate(shop_api_http_errors_total{job="shop-api"}[5m])) / sum(rate(http_requests_total{job="shop-api"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: The api is failing more than 5 % of requests during a rollout
+          runbook_url: https://runbooks.shop.example/api-errors
+      - alert: WorkerQueueBacklog
+        expr: sum(bullmq_queue_waiting{queue="invoices"}) > 500
+        labels:
+          severity: page
+        annotations:
+          summary: The invoice queue is backing up
+          runbook_url: https://runbooks.shop.example/worker-backlog

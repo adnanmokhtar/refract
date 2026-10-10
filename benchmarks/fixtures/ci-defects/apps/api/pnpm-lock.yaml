@@ -1,0 +1,16 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@nestjs/core':
+        specifier: 11.1.6
+        version: 11.1.6
+      argon2:
+        specifier: 0.44.0
+        version: 0.44.0

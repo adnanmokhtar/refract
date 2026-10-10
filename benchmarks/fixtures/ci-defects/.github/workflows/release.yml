@@ -1,0 +1,77 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+permissions: { contents: write, packages: write }
+
+env:
+  VERSION: ${{ github.ref_name }}
+
+jobs:
+  publish-sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @acme/shop-sdk build
+      - name: Publish the SDK
+        working-directory: packages/sdk
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  release-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: ./.github/actions/setup
+        with:
+          who: release
+      - run: pnpm test
+
+  image:
+    needs: release-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the api image for the scan
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        with:
+          context: apps/api
+          load: true
+          tags: shop-api:scan
+      - name: Scan it
+        run: docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy@sha256:2c1ec3f1a3b5d7e9f0a2c4e6b8d0f2a4c6e8a0b2d4f6a8c0e2b4d6f8a0c2e4b6 image --exit-code 1 --severity HIGH,CRITICAL shop-api:scan
+      - name: Build and publish the api image
+        id: publish
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83
+        with:
+          context: apps/api
+          push: true
+          tags: ghcr.io/acme/shop-api:${{ github.ref_name }}
+      - name: Publish the worker image
+        run: |
+          docker build -t "ghcr.io/acme/shop-worker:${VERSION}" apps/worker
+          docker push ghcr.io/acme/shop-worker:${VERSION}
+      - name: SBOM
+        run: |
+          syft "ghcr.io/acme/shop-api:${VERSION}" -o cyclonedx-json > sbom.cdx.json
+          cosign attach sbom --sbom sbom.cdx.json "ghcr.io/acme/shop-api:${VERSION}"

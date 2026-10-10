@@ -1,0 +1,22 @@
+{
+  "name": "acme-web",
+  "version": "2.3.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@openfeature/web-sdk": "1.6.1",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "7.1.5",
+    "vitest": "3.2.4"
+  }
+}

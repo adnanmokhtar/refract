@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "linked-versions": true,
+  "packages": {
+    "apps/api": {},
+    "apps/worker": {},
+    "apps/web": {}
+  },
+  "plugins": [
+    { "type": "linked-versions", "groupName": "shop", "components": ["api", "worker", "web"] }
+  ]
+}

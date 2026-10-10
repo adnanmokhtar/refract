@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  labels: { app: worker }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/acme/shop-worker:2.3.1
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: api-db, key: url } }
+            - name: REDIS_URL
+              value: redis://redis.shop-prod.svc:6379
+            - name: WORKER_CONCURRENCY
+              value: "4"
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { memory: 512Mi }

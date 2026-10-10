@@ -1,0 +1,63 @@
+name: Issue triage
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  label:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Record the issue
+        run: |
+          echo "Triage #${{ github.event.issue.number }}: ${{ github.event.issue.title }}"
+          echo "ISSUE_TITLE=${{ github.event.issue.title }}" >> "$GITHUB_ENV"
+      - run: gh issue edit "${{ github.event.issue.number }}" --add-label triage --repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  preview-from-comment:
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: preview
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+      - run: ./scripts/deploy-preview.sh
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG_PREVIEW }}
+
+  comment-echo:
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "Command received ${{ github.event['comment'].body }}"
+
+  ai-triage:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+      - uses: anthropics/claude-code-action@5b8a2e7f1c9d3e4a6b0c8d2f4e6a8b0c2d4f6a8b
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Triage this issue and fix it if it is small.
+            ${{ github.event.issue.body }}
+          claude_args: --allowedTools "Bash(*)"
