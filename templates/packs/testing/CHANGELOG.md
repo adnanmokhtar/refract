@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.3 — 2026-10-10
+
+**`suite-execution-scan` reads the required set instead of guessing it.** Grep 4d now runs `ci-graph.py . --required` when the repo baseline ships it and the repo has a GitHub workflow: a `REQUIRED` row (or `REQUIRED-IF-SKIP`, `REQUIRED-NEEDS-SKIP`, `REQUIRED-PATH-FILTERED`) puts a § 4 row at its critical default, and `UNREADABLE` (no token) leaves that half Unconfirmed, never "not required". Grep 4b's shell reading cites `ci-platform-semantics.md` S1–S7 and `ci-graph.py --shell-of`. Measured 2026-10-10 on `brittle-suite`: the call runs and exits 0 (devops eval IR-G5).
+
 ## 2.1.2 — 2026-10-10
 
 **rg-glob-order: `suite-execution-scan` greps 1b and 6a put their include globs before `"${K[@]}" "${C[@]}"`.** ripgrep's last matching glob wins, so an `.eslintrc*`, `*.test.*` or `test_*.py` file directly inside `node_modules/` was re-included. Measured 2026-10-10 on rg 15.2.0: `brittle-suite` and `quality-mix` print the same lines before and after (67 and 9). On copies with planted `node_modules/` files the totals drop from 71 to 67 and from 12 to 9.

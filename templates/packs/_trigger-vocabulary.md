@@ -109,7 +109,7 @@ Valid signal names (must match `~/.claude/templates/domains/<name>/`):
 - `terraform_detected` — `*.tf` files.
 - `ci_config_detected` — `.github/workflows/*` / `.gitlab-ci.yml` / `.circleci/config.yml` / `bitbucket-pipelines.yml`.
 - `ci_or_dockerfile_detected` — convenience union.
-- `container_target_likely` — Dockerfile present OR build output is server-side OR deploy mention in README.
+- `container_target_likely` — a Dockerfile, a Kubernetes or Helm manifest, any compose file (`compose.yaml`, the legacy `docker-compose.y*ml`, override and per-environment files, nested up to four levels), or a platform deploy file (`Procfile`, `fly.toml`, `render.yaml`, `app.yaml`, `vercel.json`). A deploy mention in a README does not count: nearly every README has one.
 
 ## VCS / external
 

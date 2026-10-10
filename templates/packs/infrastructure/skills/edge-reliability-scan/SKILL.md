@@ -45,7 +45,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/infr
 
 ## Boundaries
 
-- **E4 shared cache serving one user's response to another** → security `iac-scan` § 6 (grep 7h) when the security pack is installed; **§ 4 here runs only as the fallback**, every row tagged `security-class (owner pack not installed)` and listed, never graded. Until 7h lands in `iac-scan`, § 4 runs on every install and its rows are routed, not graded.
+- **E4 shared cache serving one user's response to another** → security `iac-scan` § 6 (grep 7h) when the security pack is installed; **§ 4 here runs only as the fallback**, every row tagged `security-class (owner pack not installed)` and listed, never graded. With the security pack installed, § 4 does not run: grep 4 and the `sec:E4-*` rows are skipped and the coverage line reads `§4 security iac-scan §6 7h`.
 - **Access-log content** (tokens in query strings, secret-bearing headers, request bodies) → security `data-exposure-scan` § 6. § 15 owns only format, request id, upstream timing and volume. Without the security pack: tagged and listed.
 - **Client-IP trust** (`X-Forwarded-For` from the client, `trusted_proxies`, `set_real_ip_from` width), **snippet annotations**, `client_max_body_size 0`, admin APIs → security `iac-scan` § 6 (7e, 7g). § 7 owns only the redirect-loop half; § 9 the throttle's shape, not who it trusts.
 - **Shipper, Loki/Prometheus retention, log pipelines** → observability `telemetry-config-scan` when installed, else `N/A (owner pack observability not installed)`.

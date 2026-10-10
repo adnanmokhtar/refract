@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "rg-glob-order: suite-execution-scan greps 1b and 6a name their include globs before K and C, so node_modules/ files stay excluded.",
+  "summary": "suite-execution-scan grep 4d calls ci-graph.py --required and § 4 cites ci-platform-semantics.",
   "changelog": "CHANGELOG.md"
 }

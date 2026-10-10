@@ -394,7 +394,13 @@ row that mixes the two.
 The whole rule, so a reader can audit a score without reading the code. A reported finding
 F matches seeded defect D when **both**:
 
-1. `basename(F.file) == basename(D.file)`, and
+1. F names D's file: the same basename and, when F's path carries a directory, the same
+   trailing path components relative to the fixture root (`web/Dockerfile` names
+   `apps/web/Dockerfile`; `apps/admin/Dockerfile` does not). A bare basename
+   (`Dockerfile:12`) is matched by basename alone. Bare build files (`Dockerfile`,
+   `Containerfile`, `Jenkinsfile`, `Caddyfile`, `Makefile`, `Justfile`, `.env.*`) and
+   extensions up to 10 characters (`terraform.tfstate`, `gradle.properties`) parse as paths
+   when cited with a `:line` or a directory; and
 2. every one of D's `match:` patterns hits F's text (case-insensitive regex).
 
 Text is always required — landing on the right line while describing something else is not

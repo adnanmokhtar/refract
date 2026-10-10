@@ -165,7 +165,8 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | auth | `security-auditor`, `auth-reviewer` | — |
 | docker | — | `container-build-scan` (devops pack, when installed) |
 | k8s | `k8s-reviewer` | — |
-| ci | `ci-reviewer` | — |
+| ci | `ci-reviewer` (devops pack) — the judge: refutes every row the skills return and grades the pipeline and cache rows; `deployment-engineer` (devops pack) grades the release, deploy, image and compose rows `ci-reviewer` hands over (listed `handed (judge not installed)` without it) | `pipeline-integrity-scan` (devops pack, when installed) on the changed workflows — masking, exit status, the required-check join, deploy and publish gating; `ci-security-scan` (security pack, when installed) — privileged triggers × PR code, expression injection, pinning × privilege, credentials; its rows stay security's (`ci-reviewer` refutes, never grades them); `suite-execution-scan` (testing pack, when installed) when a workflow runs or gates tests — focus, skips, uncollected suites, `\|\| true` / `continue-on-error`, coverage config, retries. Without the devops pack the axis is `UNREVIEWED(ci)` |
+| iac | `infra-reviewer` (infrastructure pack) — the judge: refutes the detector rows and ranks what survives | `iac-state-scan` (backend and locking, pinning, plan discipline, environment isolation) and `iac-lifecycle-scan` (identity churn, lifecycle misuse, stateful replacement, deletion safety) (infrastructure pack, when installed). Without the pack the axis is `UNREVIEWED(iac)` |
 | api-contract | — | `api-snapshot` (breaking-change detection) |
 | tests | `test-reviewer` | — |
 | ai-code | `prompt-reviewer` | — |

@@ -182,6 +182,21 @@ assert "§2c" "$MBM" controller_pattern_detected          yes
 assert "§2c" "$MBM" mobile_framework_detected            no
 assert "§2c" "$MBM" terraform_detected                   no
 
+# ── § 2d  container_target_likely reads every compose shape, and nothing else ─────────────
+# The defect this pins: only root `docker-compose.y*ml` and `compose.yml` counted, so the Compose
+# Specification's canonical `compose.yaml`, an override or per-environment file and a compose file
+# nested under deploy/ all reported `no` — and the devops and infrastructure topics gated on it never fired.
+say "§ 2d  container_target_likely: compose.yaml, override files, nested compose"
+for shape in compose.yaml compose.override.yaml docker-compose.prod.yml deploy/compose.yaml infra/docker/docker-compose.yml; do
+  C="$TD/compose-$(printf '%s' "$shape" | tr '/.' '__')"; mkdir -p "$C/$(dirname "$shape")"; printf '{}\n' > "$C/package.json"
+  printf 'services:\n  api:\n    image: api\n' > "$C/$shape"
+  assert "§2d $shape" "$(mb "$C")" container_target_likely yes
+done
+# and an empty repo, or one whose only YAML merely mentions compose, stays dark
+assert "§2d empty" "$MB0" container_target_likely no
+C="$TD/compose-none"; mkdir -p "$C"; printf '{}\n' > "$C/package.json"; printf 'composer: true\n' > "$C/composer.yaml"
+assert "§2d composer.yaml" "$(mb "$C")" container_target_likely no
+
 # ── § 3  --stdout writes NOTHING under the target ────────────────────────────────────────
 say "§ 3  --stdout is read-only against the target"
 R="$TD/readonly"; mkdir -p "$R"; printf '{}\n' > "$R/package.json"

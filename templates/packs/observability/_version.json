@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "observability",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "rg-glob-order: include globs precede the exclusions in 19 pre-flight greps (7 files), so a config or code file directly inside an excluded tree is no longer re-included; seeds unchanged.",
+  "summary": "Probe, schema, access-log and RBAC routes cite infrastructure detector sections; alert-design passes --registry; slo-rule-scan co-install documented.",
   "changelog": "CHANGELOG.md"
 }

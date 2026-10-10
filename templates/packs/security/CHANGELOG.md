@@ -9,6 +9,13 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.3 — 2026-10-10
+
+**`iac-scan` prints all 12 security rows of the `infra-ops` fixture (was 4).** New greps: 4n (a NetworkPolicy `ipBlock` of /20 or wider, with or without `ports:`), 5g (registry tag mutability: ECR `MUTABLE` or the attribute absent, CloudFormation, Artifact Registry), 5h (dangling DNS: a record whose literal target is a claimable third-party name; CloudFront and ELB left out), 7f's join (a Secret an edge workload and an app workload both read) and 7h (a shared cache that can serve one user's response to another: `proxy_cache` with no bypass, `proxy_ignore_headers`, a Caddy/Souin `cache` handler, CDN cache behaviours); the edge globs read `*.caddy` / `*.caddyfile`. § 3, § 4 and § 6 describe the classes; the hadolint gotcha adds `DL1000` after a heredoc terminator and the `# syntax=` frontend that decides `--check`'s rules. Measured 2026-10-10 on staged copies: `infra-ops` 4 → 12 of 12 security rows, 1 unseeded context line; `vuln-fullstack` unchanged (37 lines).
+- `finding-verification.md` § 4: the CI precedents C1–C11 are now **CIP1–CIP11** (they collided with `ci-platform-semantics.md` C1–C11); `ci-security-scan` cites them by the new ids. Mirrored.
+- `/security-fix`: a CI fix-class row (`ci-security-scan` §1–§9) with the root-cause primitives and the `ci-graph.py --diff-guard` rule.
+- Exclusion arrays on the greps that had none: `ci-security-scan` 4f and 9b–9e, `iac-scan`'s edge array and `COPY . .` / `.dockerignore` greps, `sast-scan` grep 3. Same hits on `vuln-fullstack` and the devops security sample; planted `node_modules/` and `fixtures/` copies no longer print.
+
 ## 2.3.2 — 2026-10-10
 
 **rg-glob-order: include globs now precede the exclusions** in `iac-scan` (the `K` and `T` arrays plus 18 calls), `ci-security-scan` (the `W` and `G` arrays, grep 6d) and `sast-scan` grep 3. ripgrep's last matching glob wins, so a Dockerfile, compose file, `*.tf`, workflow or `.semgrep.yml` placed directly inside `node_modules/`, `vendor/`, `dist/`, `build/`, `.terraform/`, `fixtures/` or `examples/` was re-included. Measured 2026-10-10 on rg 15.2.0: `vuln-fullstack` and the devops CI sample print the same lines before and after (36, 4, 237). On copies with the fixture's files planted in those trees, the totals drop from 100 to 52 (iac), 473 to 349 (ci) and 13 to 11 (sast), and every line that disappeared came from an excluded tree.

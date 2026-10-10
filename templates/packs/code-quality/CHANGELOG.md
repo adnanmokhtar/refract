@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.3 — 2026-10-10
+
+**`/review-changes` reviews CI and IaC diffs with the detectors.** The `ci` row dispatches `pipeline-integrity-scan` (devops), `ci-security-scan` (security) and `suite-execution-scan` (testing), each when installed, with `@ci-reviewer` as the judge and `@deployment-engineer` grading the release, deploy, image and compose rows it hands over; a new `iac` row dispatches `iac-state-scan` and `iac-lifecycle-scan` under `@infra-reviewer`. Without the owner pack the axis is `UNREVIEWED(<axis>)`. The `_examples/` twin carries the same rows.
+
 ## 2.0.2 — 2026-10-10
 
 **`error-handling-scan` § Boundaries handed log questions to an agent that no longer detects.** It

@@ -37,7 +37,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/infr
 
 ## Boundaries
 
-- **D1 dangling DNS / subdomain takeover** → security `iac-scan` § 4 (declared records) and `/security-live-scan` (live `dig` and NXDOMAIN) when the security pack is installed. **§ 7 here runs only as the fallback.** Every row is tagged `security-class (owner pack not installed)` and listed, never graded (ownership row `dangling-dns`). Until `iac-scan` § 4 carries the records grep (integrator request IR-1), § 7 runs on every install and routes its rows. A record whose target is not claimable (a released address, a deleted zone) only breaks resolution, and stays here in § 1.
+- **D1 dangling DNS / subdomain takeover** → security `iac-scan` § 4 (declared records) and `/security-live-scan` (live `dig` and NXDOMAIN) when the security pack is installed. **§ 7 here runs only as the fallback.** Every row is tagged `security-class (owner pack not installed)` and listed, never graded (ownership row `dangling-dns`). With the security pack installed, § 7 does not run (`iac-scan` grep 5h is the records grep) and the coverage line reads `§7 security iac-scan §4 5h`. A record whose target is not claimable (a released address, a deleted zone) only breaks resolution, and stays here in § 1.
 - **D8** (one wildcard key copied into N stores) and **D9** (plaintext internal hops, mesh `PERMISSIVE`) → security. So are the **TLS floor, ciphers and HSTS** (`iac-scan` § 6), the **DNS-01 API token's scope**, and the **credential the edge holds for its certificate store** (`iac-scan` § 3, 7f).
 - **Alert-rule quality** (the expression, `for:`, routing, a rule that never fires) → observability `alert-rule-lint` when that pack is installed. § 4 owns whether a signal **exists** for each inventoried certificate. Without the pack, § 4 also runs the `promtool` oracle below.
 - **On-demand TLS `ask` that answers 200 for any name** (E19) → `edge-reliability-scan` § 14. § 5 reads the same `ask` only for issuance volume.
@@ -201,7 +201,7 @@ Runs only as § Boundaries says. Grep 7 rows are listed as `security-class (owne
 | dig / delv (system) | `dig +noall +answer <name> @<authoritative NS>` · `dig +short CAA <name>` · `dig +dnssec <apex> SOA` · `delv @<resolver> <apex> A` | live records | a recursive resolver shows the remaining TTL, not the configured one; L-tier: only names the user confirmed in this session |
 | promtool 3.15.0 | `promtool test rules expiry-test.yml` with a T-20 d series | the expiry rule | observability owns the rule's quality; this run proves only that a signal fires at 21 days |
 | openssl | `openssl s_client -connect <origin>:443 -servername <name> </dev/null \| openssl x509 -noout -enddate -ext extendedKeyUsage` | the certificate actually served | through a CDN it reads the CDN's certificate |
-| cmctl / kind | `KUBECONFIG="$SCAN/kind.kubeconfig" cmctl status certificate <c>` on a scratch cluster from `kind-harness.sh` | renewal, issuer, key rotation | never the ambient context (precedent 56) |
+| cmctl / kind | `KUBECONFIG="$SCAN/kind.kubeconfig" cmctl status certificate <c>` on a scratch kind cluster (`kind-harness.sh` is not built yet: the raw commands in `proof-oracles.md` § Scratch cluster) | renewal, issuer, key rotation | never the ambient context (precedent 56) |
 | checkov / trivy | — | DNSSEC off only (research C § 1b) | scanner silence is not a pass (precedent 51) |
 
 **Stacks real repos use:**

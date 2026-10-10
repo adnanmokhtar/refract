@@ -191,13 +191,13 @@ the generators' output shapes the skills measured (sloth 0.16.0, pyrra 0.10.2) a
 | OD-SY-01a | `api/src/checkout/checkout.controller.ts:4` | high | `/obs-audit` | synthetic/journey-without-probe |
 | OD-SY-02a | `deploy/prometheus/prometheus.yml:44` | high | `/obs-audit` | synthetic/health-probe-claimed-as-journey |
 | OD-HO-SEC-a | `api/src/app.module.ts:31` | high | `/security-audit` | security/log-redaction-gap |
-| OD-HO-SEC-b | `api/src/dispatch/dispatch.adapter.ts:22` | high | `/security-audit` | security/pii-in-logs |
+| OD-HO-SEC-b | `api/src/dispatch/dispatch.adapter.ts:22` | medium | `/security-audit` | security/pii-in-logs |
 | OD-HO-SEC-c | `web/src/sentry.prod.ts:10` | medium | `/security-audit` | security/tracker-default-pii |
 | OD-HO-CQ-a | `api/src/orders/orders.service.ts:49` | medium | `/quality-audit` | quality/error-dropped |
 | OD-HO-CQ-b | `api/src/webhooks/carrier-webhook.controller.ts:21` | medium | `/quality-audit` | quality/error-dropped |
 | OD-HO-PERF-a | `api/src/health/health.controller.ts:14` | medium | `/perf-audit` | performance/liveness-checks-shared-dependency |
 
-Severity split: 33 high · 85 medium · 14 low. Total 132 seeded defects (126 scored under `/obs-audit`, 6 routed hand-offs scored under their owners), 26 decoys.
+Severity split: 32 high · 86 medium · 14 low. Total 132 seeded defects (126 scored under `/obs-audit`, 6 routed hand-offs scored under their owners), 26 decoys.
 
 ### Coverage by detector §
 
@@ -2306,7 +2306,7 @@ Node lower-cases header names, so `req.headers["X-Partner-Token"]` never matches
 id:       OD-HO-SEC-b
 file:     api/src/dispatch/dispatch.adapter.ts
 line:     22
-severity: high
+severity: medium
 command:  /security-audit
 class:    security/pii-in-logs
 detector: data-exposure-scan §6 (security)
@@ -2314,7 +2314,7 @@ anchor:   { orderId: order.id, name: order.customerName, phone: order.customerPh
 match:    PII|personal|phone|address
 ```
 
-Customer personal data in every dispatch line, shipped to Loki and kept by its retention. Routed (precedents § 32: never offer a hash as the fix).
+Customer personal data in every dispatch line, shipped to Loki and kept by its retention. Medium: `data-exposure-scan` § 6 grades PII medium (high is for credentials, tokens, session cookies and card data). Routed (precedents § 32: never offer a hash as the fix).
 
 ## OD-HO-SEC-c — The storefront sends default PII to Sentry
 

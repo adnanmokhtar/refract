@@ -92,7 +92,7 @@ miss can be read as "this detector did not fire" rather than as a number.
 | authentication | `@auth-reviewer` | 2 | AUTH-01, AUTH-02 |
 | committed secrets | `secret-scan` | 2 | SEC-01, SEC-02 |
 | container / proxy / orchestration | `iac-scan` | 5 | IAC-01, IAC-02, IAC-05, IAC-06, IAC-07 |
-| CI workflows | `iac-scan` | 2 | IAC-03, IAC-04 |
+| CI workflows | `ci-security-scan` (dispatched by `iac-scan` § 5) | 2 | IAC-03, IAC-04 |
 | **decoys (must not be reported)** | — | **6** | DECOY-01 … DECOY-06 |
 
 ---
@@ -846,11 +846,17 @@ anchor:   ref: ${{ github.event.pull_request.head.sha }}
 match:    pull_request_target|pwn.?request|head\.sha|head ref|untrusted (code|pr|fork)|\bfork|checkout.{0,40}(pr|head|untrusted)
 ```
 
-`pull_request_target` runs with the base repository's secrets and a write token; checking
-out the PR head and running `npm ci` / `npm run build` executes the fork author's install
-scripts and build config in that context, and the following step hands
-`PREVIEW_DEPLOY_TOKEN` to the poisoned workspace. Build on `pull_request`, deploy from a
-separate `workflow_run` job that never executes PR code. OWASP A03:2025 · CWE-829.
+`pull_request_target` runs with the base repository's secrets, a write token and the `preview`
+environment. `actions/checkout@v4` now resolves to v4.4.0 (2026-07-20), which refuses a **fork**
+PR's head under `pull_request_target` unless `allow-unsafe-pr-checkout: true`
+(`finding-verification.md` § 4 CIP6), so the fork path is closed at this pin; an older SHA pin or
+that input reopens it. The defect still holds at critical through two paths the block never
+covers: a PR from a **same-repo branch** is checked out, `npm ci` / `npm run build` run its install
+scripts and build config, and the next step hands `PREVIEW_DEPLOY_TOKEN` to that workspace; and
+`setup-node` with `cache: npm` saves a cache in the default-branch scope that later privileged
+runs restore (`ci-security-scan` § 5). Build on `pull_request`, deploy from a separate
+`workflow_run` job that never executes PR code and restores no cache a PR wrote. Detector:
+`ci-security-scan` § 1 (dispatched by `iac-scan` § 5). OWASP A03:2025 · CWE-829.
 
 ## VFS-IAC-05 — nginx alias traversal (missing trailing slash)
 

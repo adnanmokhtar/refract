@@ -45,7 +45,7 @@ A candidate is a finding when all four hold. These are `precedents/observability
 - **Probe traffic polluting RED, traces and logs** is `metric-hygiene-scan` §8 (precedents § 18).
 - **Real-user field measurement** (RUM, CWV) belongs to `web-vitals-field`, when the performance pack is installed; without it the row is listed `UNREVIEWED(field)` and never graded here.
 - **The route table** comes from `/frontend-audit`'s F2 route map when the frontend pack is installed; without it, step 1's grep and a read of the router config stand in.
-- **Liveness probes in manifests** belong to infrastructure `@k8s-reviewer`, when that pack is installed.
+- **Liveness probes in manifests** (presence, shape, timings) belong to infrastructure `k8s-availability-scan` §2, when that pack is installed; without it they are listed, never graded here.
 
 ## Adapt to the codebase — the probe lanes
 

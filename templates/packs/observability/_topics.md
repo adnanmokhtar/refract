@@ -191,7 +191,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
     metrics_lib_detected: true
     OR_grep_evidence: "^version:\\s*\"?prometheus/v1|kind:\\s*(PrometheusServiceLevel|ServiceLevelObjective)|apiVersion:\\s*openslo/|\\*\\s*\\(1\\s*-\\s*0?\\.\\d|resource \"(datadog_service_level_objective|honeycombio_slo|newrelic_service_level)\""   # SLO specs, burn rules and vendor SLOs: a deploy repo can declare SLOs with no metrics client in its code
   extracts_from: _extracted-codebase.md § Observability (SLO specs and generators, burn-rule files, the SLO registry, TSDB retention)
-  fallback: skills/slo-rule-scan/SKILL.md   # source-as-fallback; burn-check.py ships beside it and imports alert-rule-lint's rule-inventory.py
+  fallback: skills/slo-rule-scan/SKILL.md   # source-as-fallback; burn-check.py ships beside it and imports alert-rule-lint's rule-inventory.py — CO-INSTALL alert-rule-lint (no dependency key exists: standard mode copies every skill of this pack, _essentials.md lists both)
 
 - name: obs-audit
   kind: command

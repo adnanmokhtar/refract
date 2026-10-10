@@ -373,10 +373,18 @@ sig "ci_or_dockerfile_detected=$( { [ -n "$CI" ] || [ -n "$DOCKERFILE" ]; } && e
 DEPLOY_ART=""
 [ -n "$DOCKERFILE" ] && DEPLOY_ART="Dockerfile"
 [ -n "$K8S" ]        && DEPLOY_ART="${DEPLOY_ART:-k8s/helm}"
-for _f in docker-compose.yml docker-compose.yaml compose.yml Procfile fly.toml render.yaml app.yaml vercel.json; do
+for _f in Procfile fly.toml render.yaml app.yaml vercel.json; do
   [ -f "$_f" ] && DEPLOY_ART="${DEPLOY_ART:-$_f}" && break
 done
 unset _f
+# Compose: the Compose Specification's canonical `compose.yaml`, both legacy names, override and per-environment
+# files (`compose.override.yaml`, `docker-compose.prod.yml`), and a compose file nested under deploy/, infra/ or a
+# service directory. A root-only, three-name list missed every one of those (`compose.yaml` first among them).
+_cf="$(find -L . -maxdepth 4 \( $PRUNE \) -prune -o -type f \( -name 'compose.yaml' -o -name 'compose.yml' -o -name 'compose.*.yaml' \
+  -o -name 'compose.*.yml' -o -name 'docker-compose.yaml' -o -name 'docker-compose.yml' -o -name 'docker-compose.*.yaml' \
+  -o -name 'docker-compose.*.yml' \) -print 2>/dev/null | head -1)"
+[ -n "$_cf" ] && DEPLOY_ART="${DEPLOY_ART:-${_cf#./}}"
+unset _cf
 sig "container_target_likely=$( [ -n "$DEPLOY_ART" ] && echo yes || echo no )" "$DEPLOY_ART"
 
 # ===== VCS ===============================================================================

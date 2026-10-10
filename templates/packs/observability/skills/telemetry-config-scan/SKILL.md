@@ -30,7 +30,7 @@ A candidate is a finding when all four hold (the protocol's gates as `precedents
 ## Boundaries
 
 - **Secrets, PII or tokens written to logs, spans or a telemetry sink**, and a scrub processor's coverage → security `data-exposure-scan` § 6, when the security pack is installed; without it, `telemetry PII (owner pack not installed)`, listed, never graded (precedents P2). §1 here still reports a scrub processor that is *defined but in no pipeline* as an unused component, and routes the redaction verdict.
-- **Proxy / ingress access-log format, request-id minting and upstream timing fields** → the infrastructure pack (`@k8s-reviewer`), when installed. This skill consumes the request id at the app; `log-signal-scan` (this pack) owns its correlation.
+- **Proxy / ingress access-log format, request-id minting and upstream timing fields** → infrastructure `edge-reliability-scan` §15 (E6, E21), when that pack is installed; without it the hit is listed `edge access-log (owner pack infrastructure not installed)`, never graded here. This skill consumes the request id at the app; `log-signal-scan` (this pack) owns its correlation.
 - **Collector and agent RBAC**: privilege breadth (cluster-wide `secrets`, wildcards) → security `iac-scan` § 3; missing or dangling wiring → infrastructure `k8s-wiring-scan` §6, each when installed. §7 reports only the telemetry blast radius as corroboration.
 - **PrometheusRule / ServiceMonitor / PodMonitor schema** (kubeconform) → the infrastructure pack, when installed. §7 owns whether a monitor is *selected*.
 - **Log, metric and trace retention cost in money** → finops (`@cost-reviewer`), when installed. §6 owns retention that does not do what the config says, and carries the bytes-per-day arithmetic.
@@ -357,4 +357,4 @@ The verifier reads `precedents/observability.md` § 19–21, § 30–31, § 35�
 
 - `@observability-reviewer` (this pack) judges these rows in refute mode; `/obs-audit` dispatches, `/obs-fix` closes.
 - `alert-rule-lint` (selection makes rules fire or not), `trace-propagation-scan` (samplers), `metric-hygiene-scan` (metric labels, probe filters), `log-signal-scan` (what the shipper carries), `slo-rule-scan` (Prometheus retention) — this pack's neighbours.
-- Security `data-exposure-scan` § 6 and `iac-scan` § 3, infrastructure `k8s-wiring-scan` §6 and `@k8s-reviewer`, finops `@cost-reviewer` — each when installed (§ Boundaries).
+- Security `data-exposure-scan` § 6 and `iac-scan` § 3, infrastructure `k8s-wiring-scan` §6, `k8s-api-version-scan` §2 and `edge-reliability-scan` §15, finops `@cost-reviewer` — each when installed (§ Boundaries).

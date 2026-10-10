@@ -61,7 +61,7 @@ A candidate is a finding when all four hold. These are the protocol's gates as `
 - **Attainment, budget remaining, too lax / too tight against data, STALE vs NO-DATA, and the registry write** belong to `slo-audit` (this pack, L-tier). This skill never estimates attainment and never writes `ai/runtime/slos.md`.
 - **Burn-rule hygiene that is not burn arithmetic** belongs to `alert-rule-lint` (this pack): `for`, runbook and severity (no `for` on a multiwindow burn rule is correct, precedents § 2), selector grounding (AL-10), routing of the burn alert's labels (§8), and integer `le="1"` on Prometheus 3 (AL-21). Burn rules use its `rule-inventory.py` reader too (§ Tool lane), so both skills see the same rows.
 - **The histogram registration itself** (units, default buckets, `observe(Date.now()-t)`) belongs to `metric-hygiene-scan` §3 (this pack). §5 here owns only the SLI side, the threshold `T`, and joins on the bucket list. A site both see is reported once, by `<file:line>`.
-- **Ingress, load-balancer or mesh request metrics** (whether the edge exports them at all) belong to infrastructure `@k8s-reviewer` when that pack is installed. §4 asks only whether the SLI should read them.
+- **Ingress, load-balancer or mesh request metrics and access-log fields** (whether the edge emits them at all, with a request id and upstream timing) belong to infrastructure `edge-reliability-scan` §15 when that pack is installed; without it the question is listed as `edge telemetry (owner pack infrastructure not installed)`. §4 asks only whether the SLI should read them.
 - **The budget-policy text** belongs to `@sre-engineer` (this pack); §6 reports only its absence. **The dollar cost of longer retention** is priced by `@cost-reviewer` (finops pack, when installed; unpriced without it).
 - **A page budget** (`THR-OBS-PAGE-BUDGET`, pages per shift) is judged by `alert-audit` against fire history. It is never estimated here.
 
@@ -99,7 +99,7 @@ Run in `${TMPDIR:-/tmp}` on **copies**, pinned to the versions above: sloth 0.16
 "$B/oslo" validate -f <openslo file>
 ```
 
-`scripts/burn-check.py` (beside this file, installed as `.claude/skills/slo-rule-scan/scripts/burn-check.py`) is the arithmetic. It is Python 3 standard library, read-only, and imports `alert-rule-lint`'s `rule-inventory.py` (`../../alert-rule-lint/scripts/`, or `--rule-inventory=`). So plain rule files, PrometheusRule CRDs and Helm-embedded groups are parsed once, the same way, by both skills, and SLO specs use the same YAML reader. Without `rule-inventory.py` it prints `blocked (rule-inventory.py not found …)` and exits 2.
+`scripts/burn-check.py` (beside this file, installed as `.claude/skills/slo-rule-scan/scripts/burn-check.py`) is the arithmetic. It is Python 3 standard library, read-only, and imports `alert-rule-lint`'s `rule-inventory.py` (`../../alert-rule-lint/scripts/`, or `--rule-inventory=`). So plain rule files, PrometheusRule CRDs and Helm-embedded groups are parsed once, the same way, by both skills, and SLO specs use the same YAML reader. Without `rule-inventory.py` it prints `blocked (rule-inventory.py not found …)` and exits 2. **Co-install:** no pack manifest has a dependency key, so the pairing rests on how the pack installs — standard mode copies every observability skill, and minimal mode's `_essentials.md` lists both. On a project where `alert-rule-lint` was removed, restore it from the observability pack or pass `--rule-inventory=<path>`; never report the burn rows `checked` while burn-check is blocked.
 
 What it does:
 - Splits each burn alert into tiers: `or` branches, then `and` conjuncts.
@@ -383,7 +383,7 @@ The verifier reads [`precedents/observability.md`](../../../../snippets/preceden
 
 - `slo-audit` (this pack) consumes these rows for attainment and writes the registry. `alert-rule-lint` (this pack) lints the same burn rules for `for`, runbook, selectors and routing, through the same `rule-inventory.py`.
 - `metric-hygiene-scan` §3 (this pack) owns the bucket registration §5 joins. `@sre-engineer` writes the budget policy. `@observability-reviewer` judges these rows. `/obs-audit` dispatches, `/obs-fix` closes, and `/alert-design` proposes.
-- `@k8s-reviewer` (infrastructure, when installed) for edge request metrics, and `@cost-reviewer` (finops, when installed) for retention cost: § Boundaries.
+- `edge-reliability-scan` §15 (infrastructure, when installed) for edge request metrics and access-log fields, and `@cost-reviewer` (finops, when installed) for retention cost: § Boundaries.
 
 ## Sources
 

@@ -3575,7 +3575,7 @@ state backend, cloud account or cluster. No `apply`, `destroy`, `import`, `state
 cluster, ever. Five rules hold for every variant below:
 
 - **Read the version first** (gate 3): TF/Tofu from `required_version` and the lockfile, the target Kubernetes minor, the Helm major, the controller image tag or chart pin. A version-gated variant with no version read is Unconfirmed with the probe written out.
-- **Every Kubernetes oracle carries an explicit kubeconfig.** `KUBECONFIG="$SCAN/kind.kubeconfig"` (or `--kubeconfig`) on the same command line as every `kubectl` / `helm` / `kind` call, pointing at a cluster `kind-harness.sh` created; the harness refuses an unset `KUBECONFIG` or one that resolves to the user's default file, and never reads `~/.kube/config`. `helm template --dry-run=server` and bare `kubent` reach for the current context (precedents § 55, § 56).
+- **Every Kubernetes oracle carries an explicit kubeconfig.** `KUBECONFIG="$SCAN/kind.kubeconfig"` (or `--kubeconfig`) on the same command line as every `kubectl` / `helm` / `kind` call, pointing at a scratch kind cluster the run created itself (§ Scratch cluster: `kind-harness.sh` is planned, **not built yet**); an unset `KUBECONFIG`, or one that resolves to the user's default file, is refused, and `~/.kube/config` is never read. `helm template --dry-run=server` and bare `kubent` reach for the current context (precedents § 55, § 56).
 - **Terraform is offline.** `init -backend=false` on a copy, fake credentials with the provider's skip flags, `plan -refresh=false` and `test` with `mock_provider` + `command = plan`. Provider download is network but credential-free; a backend is never configured.
 - **Tools run on copies.** Never `gixy --fix`, `helm dependency update` in-tree, `checkov --download-external-modules` in-tree or `terraform init` in-tree.
 - **The ledger counts objects, not exit codes.** A tool that read fewer objects or files than were rendered is NOT-RUN for the difference; the two canaries (a removed-API PDB and a `name: n` ConfigMap) ride every run (precedents § 53). An L-tier variant with no target the user confirmed in this session prints `NO-DATA(<target>)`, never PASS.
@@ -3633,8 +3633,11 @@ cluster, ever. Five rules hold for every variant below:
 
 ### Scratch cluster (`kind-harness.sh`)
 
-`k8s-render-scan/scripts/kind-harness.sh` creates and deletes a throwaway kind cluster at the
-target minor with its own kubeconfig. Its contract, with the raw commands it wraps:
+**Not built yet (2026-10-10).** `k8s-render-scan/scripts/kind-harness.sh` does not ship: only
+`render.sh` is in that directory. It is planned to create and delete a throwaway kind cluster at the
+target minor with its own kubeconfig. Until it lands, run the raw commands below by hand, in one
+shell, with the explicit kubeconfig on every line; a K-tier oracle whose run did not print their
+output stays Unconfirmed. The contract the harness will wrap:
 
 ```bash
 export SCAN="${TMPDIR:-/tmp}/infra-scan"; mkdir -p "$SCAN"; : > "$SCAN/kind.kubeconfig"

@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.3 — 2026-10-10
+
+**Routes to infrastructure name the detector section, not `@k8s-reviewer`.** `metric-hygiene-scan` (probe manifests → `k8s-availability-scan` §2, the grace period §7), `synthetic-monitoring` and its twin (liveness probes → §2), `telemetry-config-scan` and `slo-rule-scan` (proxy access-log format, request id and edge request metrics → `edge-reliability-scan` §15), `@observability-reviewer` and its twin (collector RBAC → `k8s-wiring-scan` §6, PrometheusRule / ServiceMonitor schema → `k8s-api-version-scan` §2).
+- `/alert-design` Phase 6 step 3 passes `--registry=ai/runtime/slos.md` to `burn-check.py`, so existing SLO rows tie to their rules; `--slo` covers the rows the run proposed.
+- `slo-rule-scan` and `_topics.md` state the co-install with `alert-rule-lint` (`burn-check.py` imports `rule-inventory.py`): no dependency key exists, standard mode copies every skill of the pack and `_essentials.md` lists both.
+
 ## 2.0.2 — 2026-10-10
 
 **rg-glob-order: include globs now precede the exclusions** in `/obs-audit` (the `OTEL_SEMCONV_STABILITY_OPT_IN` grep), `alert-rule-lint` (grep 0 image tags, grep 1 Alloy intervals), `error-tracking-scan` (1d, 3a, 3b, 3d), `metric-hygiene-scan` (7a, 8a), `slo-rule-scan` (grep 3, grep 6 ×2), `telemetry-config-scan` (grep 0) and `trace-propagation-scan` (6a, 6b, 8b, 9a–9c); no array changed. ripgrep's last matching glob wins, but a directory matched by `!**/D/**` is pruned whatever the order, so the fault re-included only a file directly inside an excluded tree (`tests/Dockerfile`, `node_modules/.env`, `charts/x/charts/svc.ts`) and nothing under hidden `.github/`. Measured 2026-10-10 on rg 15.2.0: `obs-defects` and the seeded sample print the same lines before and after, sorted (108/150, 69/176, 43/94, 187/287, 54/45, 53/106, 120/178), so all 126 seeds still print; on copies with one file of each touched shape planted directly in `node_modules/`, `vendor/`, `tests/`, `fixtures/`, `docs/`, `i18n/`, `migrations/` and `charts/a/charts/`, the fixture totals drop 132→131, 96→78, 142→132, 216→193, 80→63, 79→67 and 136→136, every vanished line from an excluded tree, and the control copy outside them prints unchanged.

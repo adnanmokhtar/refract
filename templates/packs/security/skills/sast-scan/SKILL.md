@@ -66,10 +66,11 @@ rg -n -i -g 'package.json' -g 'pyproject.toml' -g 'requirements*.txt' -g 'Pipfil
 # 3. What the project already runs — its own config and CI wiring is the lane to prefer.
 rg --files --hidden . -g '.semgrep.y*ml' -g '.semgrep/**' -g '.semgrepignore' -g '.bandit' \
   -g 'bandit.y*ml' -g 'eslint.config.*' -g '.eslintrc*' -g 'psalm.xml*' -g 'phpstan.neon*' -g 'brakeman.ignore' \
-  -g '*spotbugs*.xml' -g '.golangci.y*ml' -g '.editorconfig' -g '!**/node_modules/**'
+  -g '*spotbugs*.xml' -g '.golangci.y*ml' -g '.editorconfig' -g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' \
+  -g '!**/build/**' -g '!**/.next/**' -g '!**/target/**' -g '!.git/**'
 rg -n -i --hidden -g '*.y*ml' -g 'package.json' -g 'pom.xml' -g '*.gradle*' -g '*.csproj' -g 'composer.json' -g 'Gemfile' \
-  -g 'pyproject.toml' -g '!**/node_modules/**' \
-  'semgrep|bandit|gosec|golangci|brakeman|psalm|spotbugs|findsecbugs|eslint-plugin-(security|no-unsanitized)|codeql|SecurityCodeScan|NetAnalyzers' .
+  -g 'pyproject.toml' -g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/.next/**' \
+  -g '!**/target/**' -g '!.git/**' 'semgrep|bandit|gosec|golangci|brakeman|psalm|spotbugs|findsecbugs|eslint-plugin-(security|no-unsanitized)|codeql|SecurityCodeScan|NetAnalyzers' .
 
 # 4. Suppression pragmas on security rules — every hit is surfaced (§ 10). 4b inventories every rule an
 #    eslint-disable names in code: a project's own guard (a no-restricted-* selector, a local plugin rule) shows up here.

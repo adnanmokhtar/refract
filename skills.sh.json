@@ -17,13 +17,21 @@
     },
     {
       "title": "Security",
-      "description": "OWASP-aligned scanners — secrets in history, dependency advisories, SSRF egress sinks, the on-device mobile lane — plus STRIDE threat modelling.",
+      "description": "OWASP-aligned detectors — injection, XSS, SSRF, file access, logic races, data exposure, SAST, IaC and CI pipelines as attack surface, secrets in history, dependency advisories, the on-device mobile lane — plus STRIDE threat modelling.",
       "skills": [
+        "ci-security-scan",
+        "data-exposure-scan",
         "deps-audit",
+        "file-access-scan",
+        "iac-scan",
+        "injection-scan",
+        "logic-race-scan",
         "mobile-security-scan",
+        "sast-scan",
         "secret-scan",
         "ssrf-scan",
-        "threat-model"
+        "threat-model",
+        "xss-scan"
       ]
     },
     {
@@ -129,12 +137,17 @@
     },
     {
       "title": "DevOps",
-      "description": "Dockerfile linting, GitOps reconciliation, deploy monitoring, progressive delivery, and container supply-chain gating.",
+      "description": "Pipeline integrity and caches, release integrity, deploy safety, container builds and compose, GitOps drift, deploy monitoring, progressive delivery, and container supply-chain gating.",
       "skills": [
+        "compose-scan",
         "container-build-scan",
+        "deploy-safety-scan",
         "gitops-audit",
         "monitor-deploy",
+        "pipeline-cache-scan",
+        "pipeline-integrity-scan",
         "progressive-delivery",
+        "release-integrity-scan",
         "release-security"
       ]
     },
@@ -219,11 +232,18 @@
     },
     {
       "title": "Observability",
-      "description": "Alert hygiene, SLO reality-checks, and synthetic/blackbox coverage of critical user journeys.",
+      "description": "Log, trace, metric and error-tracking detectors, alert-rule and SLO burn-rule lint, telemetry pipeline config, alert hygiene, SLO reality-checks, and synthetic/blackbox coverage of critical user journeys.",
       "skills": [
         "alert-audit",
+        "alert-rule-lint",
+        "error-tracking-scan",
+        "log-signal-scan",
+        "metric-hygiene-scan",
         "slo-audit",
-        "synthetic-monitoring"
+        "slo-rule-scan",
+        "synthetic-monitoring",
+        "telemetry-config-scan",
+        "trace-propagation-scan"
       ]
     },
     {

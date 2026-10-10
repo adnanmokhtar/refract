@@ -22,7 +22,11 @@ THE MATCH RULE (the whole of it; nothing else is consulted)
 ----------------------------------------------------------
 A reported finding F matches seeded defect D when BOTH hold:
 
-  1. basename(F.file) == basename(D.file), and
+  1. F names D's file: the same basename and, when F's path carries a directory, the same
+     trailing path components (`web/Dockerfile` and `apps/web/Dockerfile` agree;
+     `apps/admin/Dockerfile` does not). A bare basename (`Dockerfile:12`) is matched by
+     basename alone, as it always was. Paths are compared relative to the fixture root;
+     an absolute path to the staged copy keeps its tail, which is what is compared. And
   2. every one of D's `match:` patterns hits F's text (case-insensitive regex search).
 
 Text is always required. A finding that lands on the right line while describing
@@ -117,11 +121,13 @@ PATH_RE = re.compile(
     r"(?![\w/])"
 )
 
-# Build/config files PATH_RE cannot see: no extension (Dockerfile) or a whole word after
-# the dot (.env.production). See find_path() for when one of these is preferred.
+# Build/config files PATH_RE cannot see: no extension (Dockerfile, Jenkinsfile, Caddyfile,
+# Makefile, Justfile), a whole word after the dot (.env.production, Caddyfile.preview), or an
+# extension of 7-10 characters (terraform.tfstate). See find_path() for when one is preferred.
 BARE_PATH_RE = re.compile(
     r"(?<![\w./-])"
-    r"((?:[\w.@-]+/)*(?:(?i:dockerfile|containerfile)(?:\.[\w-]+)?|\.env(?:\.[\w-]+)?))"
+    r"((?:[\w.@-]+/)*(?:(?i:dockerfile|containerfile|jenkinsfile|caddyfile|makefile|justfile)(?:\.[\w-]+)?"
+    r"|\.env(?:\.[\w-]+)?|[\w@-][\w.@-]*\.[A-Za-z][A-Za-z0-9]{6,9}))"
     r"(?::(\d+))?"
     r"(?![\w/])"
 )
@@ -135,7 +141,7 @@ LINE_LEAD_RE = re.compile(r"^[\s>*+#|`\[(\d.-]*")
 def find_path(text):
     """The path token a finding line cites: (path, line-or-None), or None.
 
-    PATH_RE's first match, exactly as before — unless a Dockerfile/.env token comes before
+    PATH_RE's first match, exactly as before — unless a BARE_PATH_RE token comes before
     it (or there is none) AND that token is CITED: it carries a :line, or it carries a
     directory and opens the line. A bare ".env" in prose stays prose, so a continuation
     line that mentions one is still appended to the finding above it."""
@@ -392,13 +398,27 @@ def _findings_from_text(raw):
 
 # --------------------------------------------------------------------------- matching
 
+
+def _path_parts(p):
+    return [x for x in p.replace("\\", "/").lower().split("/") if x not in ("", ".")]
+
+
+def same_file(finding_file, key_file):
+    """Does a finding's path name this key file? Same basename; when the finding's path has a
+    directory, the shorter path must be a component-wise suffix of the longer one."""
+    f, k = _path_parts(finding_file), _path_parts(key_file)
+    if not f or not k or f[-1] != k[-1]:
+        return False
+    n = min(len(f), len(k))
+    return len(f) == 1 or f[-n:] == k[-n:]
+
 EXACT, TEXT = 2, 1
 NO_LINE = 10_000  # sorts every line-less match behind every line-bearing one
 
 
 def pair_strength(defect, finding, tolerance, strict_line=False):
     """(EXACT|TEXT, line_distance) or None when the pair cannot match."""
-    if not finding.basename or finding.basename != defect.basename:
+    if not finding.basename or not same_file(finding.file, defect.file):
         return None
 
     if defect.patterns:
@@ -445,7 +465,7 @@ def pin_decoys(decoys, defects, findings, tolerance):
             continue
         best = None
         for zi, decoy in enumerate(decoys):
-            if finding.basename != decoy.basename or not decoy.line:
+            if not same_file(finding.file, decoy.file) or not decoy.line:
                 continue
             distance = abs(finding.line - decoy.line)
             if distance > tolerance:

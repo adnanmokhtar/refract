@@ -6,6 +6,62 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Track A batch 4: delivery, infrastructure and telemetry become detectors (2026-10-10)
+
+Before this batch the devops, infrastructure and observability packs were design packs: agents that
+graded in prose, one runnable devops detector with a root-check false positive, eight infrastructure
+detectors that were all live-cluster-only or broken, and observability searches built on `rg -L`
+(`--follow`, not files-without-match). Each pack is now a set of detectors with measured greps, one
+audit, one fix loop and judges that refute rather than detect. Per-pack detail is in each pack's
+`CHANGELOG.md`.
+
+- **devops 2.0.0** — `pipeline-integrity-scan`, `pipeline-cache-scan`, `release-integrity-scan`,
+  `deploy-safety-scan`, `container-build-scan` (replaces `dockerfile-lint`) and `compose-scan`;
+  `progressive-delivery` and `gitops-audit` rewritten; `/devops-audit` and `/devops-fix` (diff guard
+  on every workflow change); `@ci-reviewer` and `@deployment-engineer` rebuilt as judges.
+- **infrastructure 2.0.x** — twelve detectors (`k8s-render-scan` renders first; `k8s-availability-scan`,
+  `k8s-wiring-scan`, `k8s-api-version-scan`, `iac-state-scan`, `iac-lifecycle-scan`,
+  `serverless-reliability-scan`, `iac-cost-scan`, `edge-reliability-scan`, `dns-tls-lifecycle-scan`,
+  plus `dr-audit` and `network-exposure-audit` rewritten); `/infra-audit` and `/infra-fix`;
+  `@infra-reviewer` (new) and `@k8s-reviewer` as judges. The always-loaded rule no longer demands a
+  CPU limit on every container or a PDB on one replica (`THR-K8S-PROD-FLOOR`).
+- **observability 2.0.x** — seven detectors (`log-signal-scan`, `trace-propagation-scan`,
+  `metric-hygiene-scan`, `error-tracking-scan`, `alert-rule-lint` with `rule-inventory.py`,
+  `slo-rule-scan` with `burn-check.py`, `telemetry-config-scan`); `/obs-audit` and `/obs-fix`;
+  `burn-check.py --registry` ties a hand-written burn rule to its `ai/runtime/slos.md` row.
+- **security 2.3.x** — `ci-security-scan` § 1–9 (CI pipelines as attack surface on six platforms,
+  severity = trigger reach × job capability); `data-exposure-scan` grep 6h (personal data in log
+  calls); `iac-scan` greps 4n (ipBlock width), 5g (registry tag mutability), 5h (dangling DNS), 7f's
+  edge/app shared-Secret join and 7h (a shared cache serving one user's response to another), with
+  `*.caddy` in the edge globs. The CI precedents in `finding-verification.md` § 4 are now **CIP1–CIP11**
+  (they collided with `ci-platform-semantics.md`'s C1–C11).
+- **`ci-graph.py`** (repo baseline, `.claude/scripts/`) — the GitHub Actions job graph the devops,
+  security and testing detectors join on: a real YAML loader with the `on:` remap, `--required`,
+  `--deploy-ancestors`, `--check=pin-priv|deploy-concurrency|deploy-gate|timeout|matrix|cache-keys`,
+  `--diff-guard=<ref>` with key-scoped `--allow-job` / `--allow-workflow`; `tests/hooks/run.sh` runs
+  its self-test (266 checks). Testing's `suite-execution-scan` grep 4d now calls `--required`.
+- **Snippets** — new `ci-platform-semantics.md` (shells S1–S7, required checks R1–R11, concurrency,
+  environments and caches C1–C11, dated changes); new `precedents/devops.md` § 1–58,
+  `precedents/infrastructure.md` § 1–67 and `precedents/observability.md` § 1–55; `proof-oracles.md`
+  § Observability V189–V208, § DevOps V209–V243 and V290, § Infrastructure V244–V289 (the scratch-cluster
+  harness the K-tier variants name is marked not built yet). All mirrored into the repo baseline.
+- **Governance** — ownership rows for the three packs (11 observability, 10 devops, 13 infrastructure,
+  2 security: `shared-cache-leak`, `dangling-dns`) and thresholds (`THR-OBS-*`, `THR-DEPLOY-CONCURRENCY`,
+  `THR-CI-JOB-TIMEOUT`, `THR-IMAGE-GROWTH`, `THR-SHUTDOWN-GRACE`, `THR-K8S-PROD-FLOOR`, `THR-CERT-EXPIRY-ALERT`
+  among them); `lint-agent-contract.sh` requires Contracts in observability, infrastructure and devops.
+- **`lint-rg-traps.sh` rg-glob-order** — ripgrep's last matching glob wins, so an include glob placed
+  after an exclusion array re-includes the excluded trees (measured on rg 15.2.0). The rule fails that
+  order; the sweep fixed it in devops, infrastructure, observability, security, frontend, testing and
+  database. Greps that had no exclusion array at all (`ci-security-scan` 4f and 9b–9e, `iac-scan`'s
+  edge and `COPY . .` greps, `sast-scan` grep 3) now carry one.
+- **Routing** — `/audit`'s infrastructure axis consumes `ai/audits/<date>-infrastructure.md` /
+  `-devops.md` or dispatches `/infra-audit` / `/devops-audit`; `/review-changes` dispatches
+  `pipeline-integrity-scan`, `ci-security-scan` and `suite-execution-scan` on a CI diff (judged by
+  `@ci-reviewer`) and adds an `iac` row (`@infra-reviewer`); `detect-signals.sh` reads `compose.yaml`,
+  override and nested compose files for `container_target_likely`.
+- **Benchmarks** — `obs-defects`, `infra-ops` and `ci-defects` fixtures with seeded defects, decoys and
+  per-detector pre-flight measurements.
+
 ### `/task` works a board's queue, not one pasted card (2026-10-05)
 
 - **`.claude/task-flow.json`** (optional, tracked) states a board's flow: `pickFrom` (lists `next`

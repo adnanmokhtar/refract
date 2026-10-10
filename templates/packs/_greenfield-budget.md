@@ -34,7 +34,7 @@ gate green.
 
 ```
 backend                  9
-infrastructure           5
+infrastructure           4
 ```
 
 ## Boundary-loss outside agents

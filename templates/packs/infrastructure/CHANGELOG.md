@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-10
+
+**E4 and D1 run here only without the security pack.** security `iac-scan` 2.3.3 carries grep 7h (shared cache) and grep 5h (dangling DNS), so `edge-reliability-scan` § 4 and `dns-tls-lifecycle-scan` § 7 no longer run on every install: with the security pack they are skipped and the coverage line names the owner's grep. `dns-tls-lifecycle-scan`'s cmctl lane says `kind-harness.sh` is not built yet and points at the raw commands in `proof-oracles.md` § Scratch cluster.
+
 ## 2.0.0 — 2026-10-10
 
 **The infrastructure pack became a set of detectors with one audit, one fix loop and two judges (Track A batch 4).** Before this release, of 179 infrastructure defect classes 8 had a runnable detector, and all 8 were live-cluster-only or broken; the pack's own rules were its biggest noise source. "Requests **and limits** for CPU and memory on every container" was the always-loaded rule's Hard rule, `/k8s-generate` halt #4 and its scorecard, `@k8s-reviewer`'s Blocker and the canonical Deployment in `references/kubernetes.md`, and `@k8s-reviewer` demanded a PDB on a single replica (which blocks every drain). Now every class has one owning skill with a one-script pre-flight (every `rg` names its path; include globs first, exclusions last), a version gate read from files, a tool lane run on copies, a class-coverage block, a refute step and a failing-first oracle at a named tier (T tool, P offline plan, K scratch kind, H edge harness, L live read-only, S static two-ended trace). Major version: new commands and a new judge, `@k8s-reviewer` rebuilt as a judge, `network-exposure-audit` and `dr-audit` rewritten, three `_examples` deleted, and Contracts on every agent.

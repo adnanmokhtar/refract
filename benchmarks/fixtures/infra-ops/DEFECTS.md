@@ -2918,12 +2918,13 @@ wrong file name; IO-SL-04b by the set difference grep 4 prescribes: the switch p
 **0 decoys** survive the precedent their row names (17 hits above). Unseeded false lines: **3** (2 from the installed
 skill's own `render.sh`, 1 misattributed CNPG row). Excluded trees: the fixture has no test, vendor or i18n tree.
 
-Security-owned rows, through `iac-scan`'s verbatim pre-flight (security pack, same staged copy): **4 / 12** print —
-IO-SEC-NPa (4k "peers but no ports"), IO-SEC-RBa, IO-SEC-RBb (wildcards), IO-SEC-ECb (4j mutable tag). Not printed by
-any security grep: E4a/E4b (no 7h yet), D1a/D1b (no records grep), NPb (an ipBlock with `ports:` — width is not checked),
-VKa (7f's file globs are `Caddyfile*` only, so `edge/caddy/shop.caddy` is never read; while the file was still named
-`Caddyfile` in a first run, 7f printed the `storage redis` block), VKb (a shared `secretKeyRef`), ECa
-(`image_tag_mutability`). The
+Security-owned rows, through `iac-scan`'s verbatim pre-flight (security pack, same staged copy): **12 / 12** print
+(re-measured 2026-10-10 after IR-8 landed in `iac-scan`; 4 / 12 before) — IO-SEC-NPa (4k "peers but no ports", and 4n
+`10.40.0.0/16`), IO-SEC-NPb (4n: an ipBlock of /20 or wider, with or without `ports:`), IO-SEC-RBa, IO-SEC-RBb
+(wildcards), IO-SEC-ECb (4j mutable tag), IO-SEC-ECa (5g `image_tag_mutability = "MUTABLE"`), IO-SEC-D1a/D1b (5h records
+grep; DECOY-20's CloudFront CNAME is not printed), IO-SEC-VKa (7f, now that the edge globs read `*.caddy`), IO-SEC-VKb
+(7f's join: `valkey-app` read by `caddy-edge` and `api`), IO-SEC-E4a/E4b (7h: the `/api/me` `proxy_cache` in a file with no
+bypass, the Caddy `cache` handler). One unseeded line: 7h's CloudFront `cache_policy_id` (context to read). The
 infrastructure fallbacks print E4a (`edge-locs.py` `sec:` row), E4b (edge grep 4), D1a/D1b (dns grep 7) and VKa (dns
 grep 5), each tagged security-class.
 

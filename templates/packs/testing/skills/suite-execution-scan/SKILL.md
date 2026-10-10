@@ -170,6 +170,11 @@ rg -n --pcre2 '^\s*(?:continue-on-error|allow_failure)\s*:\s*(?:true|\$\{\{)|'"$
 rg -n --pcre2 "$TC"'[^\n|]*\|\s*(?:tee|grep|tail|head|sed|awk|go-junit-report|tparse)\b' "${C[@]}" . | "${NC[@]}"
 rg -n --pcre2 -e '--passWithNoTests|passWithNoTests\s*:\s*true|--pass-with-no-tests|--no-tests=pass|failOnEmptyTestSuite="false"|--do-not-fail-on-(?:risky|warning|empty-test-suite)|failOn(?:Risky|Warning|Incomplete)="false"|beStrictAboutTestsThatDoNotTestAnything="false"|-DskipTests\b|-Dmaven\.test\.(?:skip|failure\.ignore)=true|<testFailureIgnore>\s*true|<skipTests>\s*true|ignoreFailures\s*=\s*true|\btest\s*\{\s*enabled\s*=\s*false|-p\s+no:warnings|--disable-warnings|-W\s+ignore\b|--forceExit\b|\bPYTHONOPTIMIZE\b|\bpython3?\s+-O{1,2}\b' "${C[@]}" "${K[@]}" . | "${NC[@]}"
 rg -n --pcre2 '^\s*paths(?:-ignore)?\s*:|^\s*if\s*:\s*(?:false|\$\{\{\s*false\s*\}\})|^\s*shard(?:Total|Index|s)?\s*:' --hidden -g '.github/workflows/*.{yml,yaml}' -g '**/.gitlab-ci*.yml' .
+#    4d (GitHub Actions, when the repo baseline is installed): the required set joined to the job graph — a test job
+#    skipped by its `if:` or a needs-skip, a required workflow behind a path filter, no `merge_group` (ci-platform-semantics
+#    R1–R5). No token → `NOT-RUN UNREADABLE(…)`, exit 2: required-ness is unknown, never "not required".
+G=.claude/scripts/ci-graph.py; [ -f "$G" ] || G="$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py"
+if [ -f "$G" ] && [ -n "$(rg --files --hidden -g '.github/workflows/*.{yml,yaml}' .)" ]; then python3 "$G" . --required; echo "ci-graph exit=$? (0 clean, 1 rows, 2 NOT-RUN)"; else echo 'ci-graph: N/A (no ci-graph.py or no GitHub workflow)'; fi
 
 # 5. §5 coverage that hides code: pragmas on shipped code (5a); coverage scope, exclusions and floors in runner and CI
 #    config (5b) and in dedicated coverage files (5c). Zero 5b and 5c lines means no floor is declared.
@@ -188,7 +193,7 @@ A finding is a hit **plus** a read of the CI job that runs (or does not run) the
 
 - **Configs are code.** Grep 3a parses literal `roots`, `testRegex`, `testMatch` and `include` from Jest, Vitest and Playwright configs; a computed pattern, a glob `testMatch`, a workspace or `projects` file prints the config line for reading, and the runner's own list (§ Adapt) is the authority when dependencies are installed.
 - **CI reachability is textual.** Grep 3b matches script names and config paths in CI files; a script reached through an alias (`pnpm --filter api test:e2e`) or a reusable workflow reads `NOT-IN-CI` until you follow it — read before reporting.
-- **Masking lives in shells, not only in YAML.** A step's default shell decides `pipefail`; read the step's `shell:` and the workflow `defaults` before rating grep 4b.
+- **Masking lives in shells, not only in YAML.** A step's default shell decides `pipefail`; read the step's `shell:` and the workflow `defaults` before rating grep 4b. The per-platform defaults are [`ci-platform-semantics.md`](../../../../snippets/ci-platform-semantics.md) S1–S7 (GitHub's bare `run:` is `bash -e` with **no** pipefail; `shell: bash` adds it); `ci-graph.py --shell-of=<file>:<line>` resolves a GitHub step's effective shell.
 
 **Measured** (2026-10-05, read-only) on a real NestJS-on-Fastify + MikroORM + React monorepo of
 about 14,200 tracked files with one CI workflow, three Jest configs, two Vitest configs and one
@@ -275,7 +280,7 @@ BAD:   continue-on-error: true on the job that runs `pnpm test` · pytest -q || 
 GOOD:  the required job fails on red; `set -o pipefail` (or `shell: bash`) before a pipe; --forceExit removed after
        --detectOpenHandles names the leak
 ```
-**Read the code:** Is the job the one that runs the required tests, or an advisory job with an owner and an end date (§ 28)? Does the step's shell set `pipefail`? For `--forceExit`, did `assertion-strength-scan` § 3 find a floating assertion in that suite ([`precedents/testing.md`](../../../../snippets/precedents/testing.md) § 2, § 30)? Is the job a required check in the host (visible only with admin rights — else that half is Unconfirmed)? **Finding when** a failing test in that job leaves the job green. **Proof:** the CI canary (V63); where pushing is not allowed, the masking line and its job are the static fact and the canary is the settling probe.
+**Read the code:** Is the job the one that runs the required tests, or an advisory job with an owner and an end date (§ 28)? Does the step's shell set `pipefail`? For `--forceExit`, did `assertion-strength-scan` § 3 find a floating assertion in that suite ([`precedents/testing.md`](../../../../snippets/precedents/testing.md) § 2, § 30)? Is the job a required check in the host? Grep 4d's `ci-graph.py --required` settles it on GitHub: a `REQUIRED` row (or `REQUIRED-IF-SKIP` / `REQUIRED-NEEDS-SKIP` / `REQUIRED-PATH-FILTERED`, a required check a skip satisfies or leaves Pending — [`ci-platform-semantics.md`](../../../../snippets/ci-platform-semantics.md) R1–R5) puts the row at the critical default; `UNREADABLE` (no token or no admin rights) leaves that half Unconfirmed, never "not required". **Finding when** a failing test in that job leaves the job green. **Proof:** the CI canary (V63); where pushing is not allowed, the masking line and its job are the static fact and the canary is the settling probe.
 
 ### 5. Coverage configuration that hides shipped code
 
