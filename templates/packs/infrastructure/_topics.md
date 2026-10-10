@@ -54,6 +54,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infra (Kustomize roots, charts and values files, CD targets, Helm major and target Kubernetes minor)
   fallback: skills/k8s-render-scan/SKILL.md
 
+- name: k8s-availability-scan
+  kind: skill
+  triggers:
+    k8s_detected: true
+    OR_grep_evidence: "^kind:\\s*(Deployment|StatefulSet|DaemonSet|PodDisruptionBudget|HorizontalPodAutoscaler|ScaledObject|Rollout)\\b|helm\\s+(upgrade|install)\\b"   # a runbook-installed controller is a § 9 platform row even with no workload in the repo
+  extracts_from: _extracted-codebase.md § Infra (k8s-render-scan § 0 render per env, the platform inventory, target minor, node pools, the app's drain constant)
+  fallback: skills/k8s-availability-scan/SKILL.md
+
 - name: k8s-audit
   kind: skill
   triggers: { k8s_detected: true }
