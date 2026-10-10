@@ -160,7 +160,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/add-ci` | Generate or update a CI workflow for the detected platform and stack. | — | `/add-ci [platform]` |
 | `/deploy-stage` | Deploy current branch to staging environment. | `--branch=<name>`, `--commit=<sha>`, `--no-monitor`, `--watch=<duration>`, `--allow-dirty`, `--skip-ci-check`, `--out` | `/deploy-stage --branch=feature/refund-button` |
-| `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. | `--whole-repo`, `--classes=<family,…>`, `--contexts=<a,b>`, `--settings`, `--sandbox=<owner/repo>` | `/devops-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--contexts=<a,b>] [--settings] [--sandbox=<owner/repo>]` |
+| `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. | `--whole-repo`, `--classes=<family,…>`, `--contexts=<a,b>`, `--settings`, `--settings-dir=<dir>`, `--sandbox=<owner/repo>` | `/devops-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--contexts=<a,b>] [--settings \| --settings-dir=<dir>] [--sandbox=<owner/repo>]` |
 | `/devops-fix` | Close /devops-audit findings failing-first, diff-guarded. | `--all`, `--sandbox=<owner/repo>` | `/devops-fix [audit-report-path \| finding-id ... \| --all] [--sandbox=<owner/repo>]` |
 | `/dockerize` | Generate a production-ready Dockerfile, .dockerignore, and optional compose for local dev. | — | `/dockerize` |
 | `/rollback-deploy` | Roll back the current environment to a previous known-good deploy. | `--to=<version>`, `--env`, `--dry-run`, `--force` | `/rollback-deploy --env=staging` |
@@ -274,7 +274,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-metrics` | Add metrics (counters / gauges / histograms) to a service. | — | `/add-metrics` |
 | `/add-telemetry` | Wire structured logs, metrics, and traces into a feature; create alert + runbook stubs. | — | `/add-telemetry <feature>` |
 | `/add-tracing` | Add distributed tracing to a service / endpoint / job. | — | `/add-tracing` |
-| `/alert-design` | Design alerts for a service. | `--slo` | `/alert-design` |
+| `/alert-design` | Design alerts for a service. | `--registry`, `--slo` | `/alert-design` |
 | `/obs-audit` | Read-only observability audit: logs, traces, metrics, errors, alerts, SLOs, pipeline; class ledger… | `--whole-repo`, `--classes=<family,…>`, `--live=<source=url,…>` | `/obs-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<source=url,…>]` |
 | `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. | `--all`, `--live=<source=url,…>` | `/obs-fix [audit-report-path \| finding-id ... \| --all] [--live=<source=url,…>]` |
 
