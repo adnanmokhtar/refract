@@ -116,4 +116,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { ci_config_detected: true }   # a publish site (registry push, package publish, release asset), a release trigger or tool, a verify step, or a retention rule
   extracts_from: _extracted-codebase.md § Deploy (release units, registries, release tooling, version sources)
   fallback: skills/release-integrity-scan/SKILL.md   # source-as-fallback; no publish site → §3–§5 print N/A (no publish site)
+
+- name: pipeline-cache-scan
+  kind: skill
+  triggers: { ci_config_detected: true }   # a cache step (actions/cache, setup-* cache:, GitLab cache:, CircleCI restore_cache, Azure Cache@2), a buildx cache-from/to, or affected detection (nx/turbo/changed-files)
+  extracts_from: _extracted-codebase.md (CI config files)
+  fallback: skills/pipeline-cache-scan/SKILL.md   # source-as-fallback; no CI file → every § prints N/A (no CI file)
+
+- name: compose-scan
+  kind: skill
+  triggers: { container_target_likely: true }   # a root compose file, Dockerfile or k8s tree (detect-signals); the skill itself discovers every *compose*.y(a)ml and each invocation that loads it
+  extracts_from: _extracted-codebase.md § Deploy (compose files, the invocations that load them, profiles, host env)
+  fallback: skills/compose-scan/SKILL.md   # source-as-fallback; no compose file → every § prints N/A (no compose file)
 ```
