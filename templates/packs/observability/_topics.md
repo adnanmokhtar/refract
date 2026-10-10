@@ -117,7 +117,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: alert-audit
   kind: skill
   triggers: { metrics_lib_detected: true }
-  fallback: skills/alert-audit/SKILL.md   # source-as-fallback: the rewrite is the behavioural half only and consumes alert-rule-lint; _examples/alert-audit.md still carries the file-granularity `grep -L` runbook check (eval D2)
+  fallback: skills/alert-audit/SKILL.md   # source-as-fallback: the rewrite is the behavioural half only and consumes alert-rule-lint
+
+- name: log-signal-scan
+  kind: skill
+  triggers:
+    logger_lib_detected: true
+    OR_grep_evidence: "\\b(logger|log|LOG|LOGGER)\\.(error|warn|exception)\\(|\\bconsole\\.(log|error)\\(|NestFactory\\.create|\\bprint\\(|System\\.out\\.print"   # a repo with no logger library still logs: stdout and the Nest default ConsoleLogger are LG-03's subject
+  extracts_from: _extracted-codebase.md § Observability (logger libraries and versions, request-log config, exception filters, job processors)
+  fallback: skills/log-signal-scan/SKILL.md   # source-as-fallback
 
 - name: alert-rule-lint
   kind: skill

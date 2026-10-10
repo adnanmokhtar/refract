@@ -1,181 +1,141 @@
 ---
 name: alert-audit
-description: Audit the alerting system — dead alerts that never fire, noisy alerts that fire too often, alerts with no runbook or owner, and alerts on causes instead of symptoms. Run as a quarterly hygiene review, after an incident where the right alert didn't fire, on any new alert-rule PR, and when on-call reports fatigue. Owns alert quality — `slo-audit` owns whether the SLO targets themselves are right.
+description: "Alert behaviour from fire history: dead, noisy, flapping, orphaned and cause-paging alerts; NO-DATA without a backend."
+kind: skill
+pack: observability
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
-# alert-audit
-
-Alert fatigue kills teams. Half of "oncall hell" is garbage alerts drowning out real ones.
+# Skill: alert-audit
 
 ## Premise
 
-Find real issues. Every "dead", "noisy", "missing runbook", "missing owner" finding cites a specific alert name, the rule file path, and the query / pager-history that supports the verdict. Fire counts come from the actual alert history (the project's alerting backend API + paging service incidents) — not estimates. A "broken query" finding cites the metric name that was renamed and the commit that did it. SLO burn-rate gaps cite the SLO from `slos.md` that lacks coverage.
+Alert fatigue and silent alerts are both behaviour: a rule that has not fired in 90 days, a page that fires forty times a week and resolves in under a minute, a page whose owner left, a CPU page that never once matched an incident. None of that is in the rule file. It is in the alerting backend's history and the paging service's incident record, and an agent running beside the code usually cannot reach either. That case has a first-class verdict, `NO-DATA(<source>)`: an estimate is the fabrication this skill exists to prevent (precedents/observability.md § 36).
 
-**Two of this audit's checks read files; two read a live backend, and those two are usually
-unreachable from a repo.** Runbook-presence and cause-vs-symptom are decidable by grepping the rule
-files — no excuse there. Dead-alert and noisy-alert verdicts require 90d of fire history from the
-alerting backend and the paging service, and an agent running where the code is generally cannot
-query either. That case has a first-class verdict (`NO-DATA`); guessing a fire count is the
-fabrication this skill exists to prevent.
+**This skill is the behavioural, L-tier half of alert quality.** Everything decidable from files — a missing `for`, a page without a runbook, a selector no inventory resolves, a rule file no glob loads, `$value` in labels, a window under the scrape interval, a label set the route tree sends to a null receiver — is `alert-rule-lint`'s (this pack), proved by promtool, pint, amtool or `rule-inventory.py`. This skill **consumes those rows and never re-greps a rule file**. It answers what only history can: did this alert fire, how often, for how long, who acted, and did it matter.
 
-## Halt conditions
+**Every verdict cites the alert name + its rule `file:line` (from the `alert-rule-lint` row) + the history query or export that was read + what came back.** An empty Evidence cell is a fabricated verdict. Verification follows [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/observability.md`](../../../../snippets/precedents/observability.md); the live oracles are [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Observability (*Live series*, V204).
 
-- **A verdict with an empty evidence cell is fabricated.** Every finding records the query / grep run and what it returned. No evidence → `NO-DATA`, never a blank and never an estimate.
-- Refuse to call an alert "dead" without the 90d fire history backing it — record `NO-DATA(alert history unreachable)` and move on. Do not downgrade it to "probably fine".
-- Refuse to flag "no runbook" without grepping the rule file (cite path). This one is always decidable from the repo, so `NO-DATA` is never the honest answer for it.
-- Halt on hand-waves like "this alert seems noisy" — produce the fire count or drop the claim.
-- Don't propose deletion without confirming nobody's runbook references it.
-- An adjective where a count belongs ("fires a lot") is not a finding. Produce the number or produce `NO-DATA`.
+## Inputs
 
-## When to run
+1. **`alert-rule-lint` rows for the same tree, run today** — the per-rule inventory (name, `file:line`, tier, labels, grounding, problems). Under `/obs-audit` they are already in the run; standalone, run `alert-rule-lint` first. Without them this skill halts: it has no rule list it may trust.
+2. **Alert history (L):** the Prometheus `ALERTS` / `ALERTS_FOR_STATE` series over the window, through the HTTP API at a URL the user gave; Grafana alert state history; the Datadog / New Relic monitor event stream. The TSDB retention must cover the window (`--storage.tsdb.retention.time`, a long-term store) or the row is `NO-DATA(history shorter than window)`.
+3. **Paging history (L):** a PagerDuty / Opsgenie / Grafana OnCall incident export or API — fire episodes, acknowledgements, responders, incident linkage.
+4. **Ownership:** the `team` / `owner` label from the lint row, the route it reaches (lint §8 matrix), the on-call schedule or `CODEOWNERS` for the rule file.
+5. **SLOs:** `ai/runtime/slos.md` (written by `slo-audit`) and `slo-rule-scan` rows for burn-rule coverage.
 
-- Quarterly alert-hygiene review.
-- After an incident where the right alert didn't fire (or the wrong one paged).
-- On a new alert-rule PR — same rigor as code review.
-- When on-call reports alert fatigue.
-
-## Sources
-
-- **The project's alerting backend** — rule files (whatever format the backend uses) + alert history via its API (Prometheus / Alertmanager, Grafana alerting, Datadog Monitors, vendor monitor APIs).
-- **The project's paging service** — incident / page history (PagerDuty, Opsgenie, Grafana OnCall, etc.).
-- **The project's error tracker** — error alerts (Sentry, Rollbar, Bugsnag, etc.).
+Window default: 90 days for dead, 7 and 30 days for noise. Print the window and each source's reachability in the header.
 
 ## Checks
 
-### Dead alerts
-Never fired in the last 90 days.
-
-Query the project's alerting backend API for the rule list, then cross-reference against the paging service's incident history: did they fire recently?
-
-Possible reasons:
-- Threshold too high — never triggered (maybe good).
-- Underlying metric deprecated / renamed — broken query (bad, silent failure).
-- Condition can't happen — rule obsolete (remove).
-
-For each dead alert:
-- Verify the metric still exists + the query works.
-- If query returns data but never crosses threshold: confirm the threshold is right.
-- If broken: fix or delete.
-
-### Noisy alerts
-Fired > N times in the window, resolved quickly each time. Likely flapping.
-
-```
-alert_name              fires_7d   median_duration   action
-cpu_high                      47             45s     flapping (threshold too tight or need "for 5m")
-db_connection_timeout         23              2m     real issue worth investigating
-disk_space_low                 3          2h to ack   real + action taken
-```
-
-Flapping alerts burn trust. Fix the rule (add `for: 5m`, raise threshold, group by instance).
-
-### Alerts without runbooks
-
-Every alert should link to a runbook. Grep the project's alert rule files for a `runbook`-style annotation; flag any rule lacking one.
-
-Alert without runbook = nobody knows what to do at 3am. Remediation: write the runbook OR delete the alert.
-
-### Alerts without owners
-
-Every alert has an owning team / on-call rotation. If the owner left the company 2 years ago, alert is orphaned.
-
-### Alerting on causes, not symptoms
-
-**Symptom alerts (good)**: `error_rate > 5%`, `p95_latency > 1s`, `orders_per_hour < 10` (business dropped).
-
-**Cause alerts (often bad)**: `cpu > 80%`, `memory > 90%`, `disk > 70%`. These may not correlate with user pain.
-
-Rule: alert on what users feel. Cause alerts useful as supplementary info on a dashboard, not as pages.
-
-### SLO burn-rate alerts missing?
-
-Check each SLO in `slos.md` for the **three** canonical tiers (`ai/patterns/slo.md` owns the derivation):
-- Fast burn — 1h window, 14.4× budget, confirmed at 5m → **page**.
-- Medium burn — 6h window, 6× budget, confirmed at 30m → **page**. (Not a ticket. An alert set that labels this `ticket` is a finding.)
-- Slow burn — 3d window, 1× budget, confirmed at 6h → **ticket**.
-
-The slow-burn tier is the one usually absent, and its absence is the highest-value finding in this
-section: a leak burning at exactly 1× trips neither page tier by construction, so a service with
-only the two page tiers has **no detector at all** for "we will miss the SLO at month-end". Flag a
-two-tier set as a gap, not as coverage.
-
-## Output (illustrative ledger)
-
-One row per finding, and the `Evidence` column carries the query or grep that produced it plus what
-came back. The shape below is illustrative; its numbers are placeholders. Reproducing them without
-having queried anything is the fabrication the `NO-DATA` verdict exists to make unnecessary.
-
-```
-Alert audit — <alerting backend> + <paging service>
-
-Rules read: 42 (from <rule file paths>)
-Fire history: <reachable | UNREACHABLE — reason>
-
-| Alert | Finding | Evidence (query/grep run → observed) | Verdict |
+| § | Verdict | Needs | Default severity |
 |---|---|---|---|
-| cache_evictions | broken query — metric renamed | rules/cache.yaml:31 refs `cache_evictions_total`; series absent since <commit> | DEAD |
-| cpu_high_api | never crosses threshold | backend rule-history API → 0 fires/90d; query returns data | DEAD |
-| db_pool_near_capacity | flapping | paging API → 47 fires/7d, median 45s | NOISY |
-| payment_webhook_backlog | no runbook annotation | `rg -L runbook rules/payment.yaml` → no match | ORPHAN |
-| legacy_import_job_failed | no owner label | rules/import.yaml:8, no `team`/`owner` label | ORPHAN |
-| cpu_usage_high | cause, routed as page | rules/node.yaml:12 `severity: page` on a CPU threshold | CAUSE-AS-PAGE |
-| certificate_expiring | fire count not retrievable | paging API unreachable from this environment (no credentials) | NO-DATA(paging history) |
+| 1 | **DEAD** — loaded and grounded, never fired in the window | alert history | M; H when the rule guards a critical SLO and the series it reads is empty |
+| 2 | **NOISY** — fires above the page budget; **flapping** — fires and resolves faster than anyone can act | alert + paging history | M |
+| 3 | **ORPHAN** — no owner, or an owner no longer on the rotation | paging history, schedule | L–M |
+| 4 | **CAUSE-AS-PAGE** — a cause page (lint §7 SY-01) that history shows never matched an incident | paging history, incident linkage | M |
+| 5 | **BURN GAP** — an SLO whose burn set is not an accepted set in `THR-OBS-BURN`, or whose slow tier never fired before the budget ran out | `slo-rule-scan` rows; alert history | M; H for an SLO with no burn alert at all |
 
-SLO coverage (from slos.md + the rule files — decidable without fire history):
-  ✓ api.availability      1h/14.4× page + 6h/6× page + 3d/1× ticket — all three tiers
-  ✗ checkout.success      NO burn-rate alert at all — critical gap
-  ✗ search.latency.p95    1h page + 6h page only — no 3d/1× ticket; a target-rate leak is undetectable
-  ✗ orders.success        6h/6× labelled `ticket` — that tier pages; a 6h outage waits for Monday
+### 1. Dead alerts
 
-Audit status: INCOMPLETE — unmeasured: certificate_expiring (paging history unreachable;
-re-run where the paging API is reachable, or paste a 90d incident export).
+Start from the lint row, never from the rule file. A rule the lint already flagged is **not** a behaviour finding:
+- `AL-22` (never loaded) — the rule cannot fire; credit `alert-rule-lint` §4.
+- `AL-10` (selector in no inventory) — run the live check it names (`count(<selector>)` at the given URL). Empty → the rule is dead *because the query is broken*: credit lint §4 and promote it from Unconfirmed with this evidence. Non-empty → continue below.
+- `AL-12`, `AL-16`, `AL-21` — a rule that cannot fire on this server version; credit lint §5–§6.
 
-Action plan:
-  1. Fix broken queries (a DEAD alert with a broken query is a silent failure, not a spare rule).
-  2. Remove alerts confirmed dead with intent checked.
-  3. Add debounce to flapping alerts.
-  4. Write missing runbooks.
-  5. Reassign orphaned alerts.
-  6. Add the missing burn-rate tiers, slow-burn ticket first.
+For the rest: zero firing samples of `ALERTS{alertname="<name>", alertstate="firing"}` over the window means one of three things, and the verdict names which:
+- **Threshold never approached** — the query returns data, and its maximum over the window (the expression without its comparison, as a `max_over_time` subquery) stays far from the threshold. Possibly a deliberate last-line safety net: confirm intent with the owner before proposing removal.
+- **Condition obsolete** — the code path or dependency it watches is gone (cite the commit).
+- **Cannot tell** — history unreachable or shorter than the window: `NO-DATA(<source>)`, never "probably fine".
+
+Never propose deleting an alert that another alert's runbook, a dashboard link or an incident record references.
+
+### 2. Noisy and flapping alerts
+
+Count **fire episodes**, not samples: from the paging export (incidents per alert), or from Alertmanager's notification log. The `ALERTS` series gives firing time, not episodes. Judge against `THR-OBS-PAGE-BUDGET` (`pages_per_shift ≤ shift_hours / followup_hours_per_page`, defaults 12 h / 6 h — about two pages per shift): a page that alone breaks the budget is NOISY. **Flapping:** median firing duration shorter than the rule's `for` plus one evaluation interval, or resolved before anyone acknowledged. The fix is in the rule (`for`, a longer window, an aggregate instead of per-instance — lint §1, §7) or in the system: a flapping alert may be a real intermittent fault, so read the median duration and the downstream impact before prescribing a `for`. Low-traffic services paging on single errors are a design question (precedents § 15).
+
+### 3. Orphaned alerts
+
+The owner comes from the rule's `team` / `owner` label and the receiver it routes to (lint §8 matrix), never from a guess. ORPHAN when there is no owner label and the route is a catch-all, or the owning team or person is not on the current schedule, or no current member acknowledged its last N pages. The static half (no owner label, a route to `null`) is lint's; this check needs the paging service or the schedule, else `NO-DATA(on-call schedule)`.
+
+### 4. Cause pages, judged by history
+
+Lint §7 flags a page whose expression reads only resource metrics. This check asks what history says: of its N fires in the window, how many were linked to an incident, and how many preceded user impact? A cause page that is definite and imminent — `predict_linear` disk-full within hours, certificate expiry before the next business day, quorum loss — is correct (precedents § 4); CPU over 80 % is never that. A cause signal kept on a dashboard or as a ticket is not a finding.
+
+### 5. Burn-rate coverage
+
+The arithmetic is `slo-rule-scan`'s (§2, `burn-check.py`): a factor is right when `factor = budget_fraction × period / long_window` holds for the declared objective and period, and the short window is `long/12` (`THR-OBS-BURN`). Never judge a literal — Pyrra's 14 / 7 / 2 / 1 on 28d-scaled windows and the Workbook's fourth 3× 24h/2h ticket tier (sloth `google-30d`) are accepted sets (precedents § 12). Per SLO in `ai/runtime/slos.md`, read its `slo-rule-scan` row and record:
+- **No burn alert at all** — BURN GAP, H.
+- **Page tiers only** — no slow (1×, 3d/6h) ticket: a leak burning at exactly 1× trips neither page tier by construction, so the service has no detector for "we will miss the SLO this period". BURN GAP, M. This is usually the highest-value row here.
+- **Behaviour:** did a fast-burn page fire during the last incident that spent budget? Did the slow ticket fire before the budget was exhausted? History, or `NO-DATA(<source>)`.
+
+Without the `slo-rule-scan` row, apply `THR-OBS-BURN` to the burn rules `alert-rule-lint` listed and tag the row `burn arithmetic not verified (slo-rule-scan not run)`.
+
+## Output
+
+```
+alert-audit — window 90d (dead) / 7d, 30d (noise) · alert-rule-lint rows: 35 alerts, run 2026-10-10
+Alert history: UNREACHABLE (no Prometheus URL given) · Paging history: pagerduty export 2026-07-01..2026-09-30 (pasted)
+
+| Alert | file:line | Verdict | Evidence (query or export → observed) |
+|---|---|---|---|
+| CheckoutLatency | rules/api.yml:132 | LINT(alert-rule-lint §4 AL-10) | selector in no inventory; live count() not run → stays HIGH Unconfirmed there |
+| LegacyImportStalled | rules-extra/legacy.yml:5 | LINT(alert-rule-lint §4 AL-22) | file matched by no rule_files glob — cannot fire |
+| NodeCpuHigh | rules/api.yml:142 | CAUSE-AS-PAGE | pagerduty export → 31 incidents/90d, 0 linked to a customer incident, median ack 4m |
+| DiskAlmostFull | rules/api.yml:112 | NOISY | pagerduty export → 19 pages/30d on platform; budget 2/shift exceeded on 6 shifts |
+| ApiHighErrorRate | rules/api.yml:5 | NO-DATA(alert history) | needs ALERTS over 90d; no Prometheus URL |
+| OrdersFailing | rules/api.yml:46 | NO-DATA(alert history) | lint §1 AL-01 open; firing history needed for NOISY |
+
+SLO burn coverage (slo-rule-scan rows, THR-OBS-BURN):
+  checkout.success  workbook-3 (14.4 1h/5m, 6 6h/30m page · 1 3d/6h ticket) — covered; behaviour NO-DATA(alert history)
+  search.success    workbook-4 (adds 3 24h/2h ticket) — covered
+  api.availability  pyrra 14/7/2/1 on 28d — covered; lint §8: severity=critical routes to dev-null (AM-01), so the pages reach no one
+
+Audit status: INCOMPLETE — unmeasured: ApiHighErrorRate, OrdersFailing (+26 rules) — re-run with a Prometheus URL
+or paste a 90d ALERTS export.
 ```
 
-Per-row `Verdict` vocabulary — pick exactly one, no synonyms:
-- **DEAD / NOISY / ORPHAN / CAUSE-AS-PAGE** — the check ran and the evidence supports it.
-- **NO-DATA(reason)** — the source needed for this check was unreachable from this environment. Name what was unreachable. A NO-DATA row is UNVERIFIED, not a pass: it never rounds to "healthy", and it downgrades the run to `INCOMPLETE`.
+Per-row verdict — exactly one, no synonyms:
+- **DEAD / NOISY / ORPHAN / CAUSE-AS-PAGE / BURN GAP** — the check ran on a reachable source and the evidence supports it.
+- **LINT(alert-rule-lint §N <code>)** — a decidable defect owned by the lint; credited there, never graded twice.
+- **NO-DATA(<source>)** — the history this check needs was unreachable or shorter than the window. It is UNVERIFIED, never a pass, and it makes the run `INCOMPLETE`.
 
-### Closure gate — COMPLETE only when every check had its source
+### Closure gate
 
-- **`COMPLETE`** — every alert was checked against a reachable source and every finding carries evidence.
-- **`INCOMPLETE — unmeasured: <list>`** — the moment any row is `NO-DATA`. Name each alert, what was unreachable, and the one command that would close it.
+- **`COMPLETE`** — every alert was checked against a reachable source and every row carries evidence.
+- **`INCOMPLETE — unmeasured: <list>`** — the moment any row is `NO-DATA`. Name each alert, what was unreachable, and the one command or export that would close it.
 
-**[self-policed]** on the status line, wired to checkable evidence: the rule-file paths and grep
-results are inspectable, and `@observability-reviewer` will BLOCK a COMPLETE whose findings carry
-empty evidence cells.
+Under `/obs-audit` this skill is the *Alert behaviour* row. At `NO-DATA` that row alone does not force GO-UNVERIFIED (the verdict line prints `behaviour lane NO-DATA(<source>)`), because most repos never reach the backend; a never-fire candidate from the lint still does.
 
-## False positives / gotchas
+## False positives / precedents
 
-- A "dead" alert with a deliberately high threshold (a last-line safety net that should almost never fire) is correct — confirm intent before deleting.
-- A cause-based signal (`cpu > 80%`) kept as dashboard-only context rather than a page is correct — don't flag it as a bad alert.
-- Staging / non-prod alerts on a separate route are fine; only flag them if they page the prod rotation.
-- A flapping alert may be a real intermittent fault, not a bad rule — check median duration + downstream impact before prescribing `for: 5m`.
-- Don't propose deleting an alert that another alert's runbook references.
-- **Estimating a fire count because the paging API was unreachable.** "Probably noisy" is not a finding; `NO-DATA(paging history)` is. The two checks that *are* decidable from the repo — runbook presence and cause-vs-symptom — still run, so a NO-DATA run is a partial audit, not a wasted one.
+- **A dead alert with a deliberately high threshold** (a last-line safety net) is correct — confirm intent before proposing removal.
+- **"The alert has been quiet, so it works"** is the rationalization the dead check exists to reject: an empty query looks exactly like healthy (precedents § Rationalizations; § 16 — a promtool test with mocked series never proves the metric exists).
+- **A `for` of hours on batch staleness** (precedents § 3) and **a definite-and-imminent cause page** (§ 4) are not findings.
+- **A non-production alert on its own route** is fine unless it pages the production rotation.
+- **A cause signal on a dashboard or as a ticket** is not CAUSE-AS-PAGE.
+- **Burn factors that differ from 14.4 / 6 / 1** are not a gap when they match an accepted set in `THR-OBS-BURN` (§ 12).
 
-Invariants this audit enforces: every alert has a runbook + owner; alerts fire on symptoms not causes; dead alerts get fixed or deleted, never ignored; new alert PRs get code-level review.
+## When to run
+
+- Quarterly alert-hygiene review, with the backend URL or the exports in hand.
+- After an incident where the right alert did not fire, or the wrong one paged.
+- When on-call reports fatigue; before deleting or demoting an alert.
+- On every whole-repo `/obs-audit`, after `alert-rule-lint` (behaviour row, L-tier).
+
+## Halt conditions
+
+- Do not report a high or critical row as confirmed until a verifier other than the run that found it has passed it through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10. Run standalone, apply the protocol as a separate second pass, tag those rows `self-verified`, and keep the rest as Unconfirmed, Hardening or Refuted — never drop them.
+- Halt without `alert-rule-lint` rows for the same tree: this skill does not read rule files itself, and a rule list built from a grep is the file-granularity mistake the lint replaced.
+- A verdict with an empty Evidence cell is fabricated. No evidence → `NO-DATA(<source>)`, never an estimate, never "probably fine". An adjective where a count belongs ("fires a lot") is not a finding.
+- Do not grade a decidable defect here: it is `LINT(…)`, credited to `alert-rule-lint`.
+- Do not judge burn factors by a literal; cite `THR-OBS-BURN` and the `slo-rule-scan` row.
+- Do not propose deleting an alert that a runbook, dashboard or incident references, or whose intent the owner has not confirmed.
 
 ## Related
 
-### Skills
-- `slo-audit` — sibling audit; its SLO definitions feed this audit's burn-rate coverage check.
-- `synthetic-monitoring` — sibling audit; the blackbox/synthetic page routes it produces must meet this audit's runbook/owner/symptom bar.
-
-### Agents
-- `@sre-engineer` — owns SLO / error-budget / burn-rate policy.
-- `@incident-responder` — consumes alert quality during a live page.
-- `@observability-reviewer` — reviews new alert rules at the code-change level.
-
-### Patterns
-- `ai/patterns/metrics.md`
-- `ai/patterns/slo.md`
-- `ai/patterns/dashboards.md` — the alert→panel link this audit checks is defined there; a well-formed alert drills into a versioned panel.
+- `alert-rule-lint` (this pack) — every decidable check; the rule inventory this skill reads.
+- `slo-rule-scan` (this pack) — burn arithmetic and generated-rule drift; `slo-audit` (this pack) — attainment and the `ai/runtime/slos.md` registry this skill reads.
+- `synthetic-monitoring` (this pack) — blackbox probe pages, held to the same owner and symptom bar.
+- `@observability-reviewer` (this pack) — judges these rows; `@sre-engineer` — burn and page-budget policy; `@incident-responder` — consumes alert quality during a page.
+- `/obs-audit`, `/alert-design` (this pack) — the audit that dispatches this skill; the command that designs the alerts it judges.
