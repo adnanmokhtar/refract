@@ -56,7 +56,11 @@ Read project's:
 Define the meter, then register one counter for request count, one counter for error count, one histogram for duration, and observable gauges for resource utilization (e.g., DB connection pool used / max). Use the project's stack-native API for whichever metrics library is in use; the conceptual shape is identical across libraries:
 
 - A meter scoped to the service name.
-- RED counters/histograms labeled by `method`, `route`, `status` (bounded cardinality).
+- RED counters/histograms labeled by `method`, `route`, `status` (bounded cardinality). `route` is the
+  **template**, read from the framework, never the raw path: Fastify `request.routeOptions.url`, the
+  Nest controller path, Express `req.route?.path`, chi `RoutePattern()`, Spring's templated `uri`
+  (precedents § 29). `request.url` / `req.originalUrl` / `r.URL.Path` as a label value is
+  `metric-hygiene-scan` §1 (MT-01).
 - Business counters labeled by `plan` / `channel` — and by `tenant` only after running the arithmetic below.
 - Observable gauges for resource saturation (pool used, queue depth, FD count).
 
@@ -66,8 +70,13 @@ Wire metric recording into request middleware / interceptors / decorators per th
 
 - Base SI units, always: `_seconds`, `_bytes`, `_ratio`. **Never `_milliseconds`** — and never a
   bucket list expressed in milliseconds either, which is the same violation one level down.
-- Counter suffix `_total`; service prefix so `requests_total` from three services is three
-  distinguishable series.
+- Counter suffix `_total`. A **domain** metric carries a domain prefix (`orders_placed_total`,
+  `payments_authorized_total`), so two services' domain counters never collide. A **generic** metric
+  keeps its shared name across services (`http_server_request_duration_seconds`, the semconv
+  `http.server.request.duration`) and is told apart by `job` / `service.name` — prefixing it per
+  service breaks every shared dashboard and rule that reads the generic name.
+- Name the OTel instrument, then ground the **translated** Prometheus name (unit and `_total`
+  suffixes, precedents § 43) — that is the name rules and dashboards select.
 - Where the project mirrors OTel semantic conventions rather than a local scheme, the stable HTTP
   server latency metric is `http.server.request.duration` — a Histogram in **seconds**. The
   pre-stabilization `http.server.duration` is not the current name.
@@ -115,7 +124,9 @@ Agent-verified (static + synthetic):
 - Cardinality is bounded — the computed series count is recorded, and a test asserts the label allow-list.
 - No PII in metric labels — same label-allow-list assertion.
 - Histograms declare explicit buckets, in seconds, with an edge at T where an SLO exists — assert on the meter config.
-- The metric is reachable: scrape the local `/metrics` endpoint (or run the exporter in a test) and assert the new series names + label keys appear.
+- **Unit trap (V199, `metric-hygiene-scan` §3):** observe one known duration through the real code path in a test and assert it lands in the finite bucket its **seconds** value belongs in. `observe(Date.now() - t0)` writes milliseconds into a `_seconds` histogram, so every sample lands in `+Inf` and the latency SLI reads 0 %; the test fails on it.
+- **Bounded labels (V198):** hit the entry point with 100 random ids and paths, scrape, and assert the series count stays at route templates × the bounded values (`THR-OBS-CARDINALITY`).
+- The metric is reachable: scrape the local `/metrics` endpoint (or run the exporter in a test) and assert the new series names + label keys appear. Pipe the scrape through `promtool check metrics` (exit 3 is a naming lint, 1 an error — precedents § 53).
 
 **Record the result in the emit-and-assert ledger** defined in `commands/add-telemetry.md` — one row
 per metric, evidence column carrying the scrape command and what it returned, `Status` from that
@@ -166,8 +177,10 @@ Status: <computed from the ledger per add-telemetry's closure gate>
 - Cardinality explosion (every `user_id` as label) → metrics backend OOM.
 - No buckets set on histograms → useless P99.
 - Buckets with no edge at the SLO threshold → the SLI and its own burn-rate alert disagree.
-- Counter that never resets across deploys (use `_total` suffix where the project's metrics convention requires it).
+- A gauge only ever incremented, used as a count → `rate()` cannot compensate its resets the way it does a counter's (`metric-hygiene-scan` §4).
+- `observe(Date.now() - t)` into a `_seconds` histogram → every sample in `+Inf`.
 - Custom metric named `error_count` then later `errors_count` → broken dashboards.
+- A generic metric renamed per service (`orders_http_requests_total`) → the shared RED dashboard and SLO rules read nothing.
 - Metric only in one environment → dashboards break in others.
 - Reporting done on "the code compiles" without a scrape → the series may not exist at all.
 
@@ -177,6 +190,7 @@ Status: <computed from the ledger per add-telemetry's closure gate>
 - `add-tracing` — the trace-side narrow entry point; pair them.
 - `alert-design` — alerts on these metrics.
 - `slo-audit` — uses these metrics for SLO measurement.
+- `metric-hygiene-scan` skill — the detector whose registry-scrape oracle (V198–V201) the Phase 6 checks reuse; `/obs-audit` runs it repo-wide.
 - `@telemetry-architect` — broader strategy.
 - `ai/patterns/metrics.md` — buckets, cardinality arithmetic, naming, references.
 - `.claude/rules/observability-principles.md`.

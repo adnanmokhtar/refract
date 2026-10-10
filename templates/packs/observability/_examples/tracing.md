@@ -115,9 +115,10 @@ Never an attribute: raw request/response bodies, a full URL carrying query param
 
 ## Sampling
 
-- 100% of errors (always).
-- 1-10% of successful requests (adjust by volume).
-- Tail sampling (decide to keep/drop AFTER the trace completes) preferred to head sampling when you can run a collector.
+- **Parent-based everywhere.** The head sampler is `ParentBased(TraceIdRatioBased(r))` (`parentbased_traceidratio`): the root decides once and every downstream service follows. A bare ratio re-decides per service and delivers half-traces (SA-01).
+- **1-10% of requests at the head** (adjust by volume); rate 1.0 in production only with a per-route sampler or a stated budget.
+- **Errors cannot be kept by a head sampler** — it decides before the outcome is known. Where error traces must be kept, use a collector `tail_sampling` policy on `status_code: ERROR` (behind a `loadbalancing` exporter keyed on `traceID`, so every span of a trace reaches the same collector), or capture every error in the error tracker beside the sampled trace (SA-02, `trace-propagation-scan` §10).
+- Span-derived metrics (`spanmetrics`, `servicegraph`) are computed **before** any sampling processor, or they report the sampled fraction as the request rate (SA-04).
 
 ## Dashboards + alerts
 
@@ -140,7 +141,8 @@ Never an attribute: raw request/response bodies, a full URL carrying query param
 - **Every span `INTERNAL`** — SpanKind never set on process-boundary calls, so the backend shows one node and no service map.
 - **Broken async boundary** — publisher opens a span, consumer starts a *new* trace because context never reached the message metadata. Two half-traces, no join.
 - **Trace context but no log correlation** — no log line carries `trace_id` / `span_id`, so a slow trace can't be turned into the log lines that explain it.
-- **Head sampler in front of the errors** — fixed-ratio sampling at the edge with no always-sample-on-error rule; the traces you need most are the likeliest dropped.
+- **Head sampler in front of the errors** — a fixed-ratio head sampler where error traces are required, with no tail `status_code` policy and no tracker capture: the traces you need most are the likeliest dropped, and no head-sampler setting can fix it (SA-02).
+- **Bare ratio sampler** — `TraceIdRatioBased` not wrapped in `ParentBased`, so each service re-decides and traces arrive split (SA-01).
 
 ## References
 

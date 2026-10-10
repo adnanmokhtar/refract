@@ -8,6 +8,27 @@ model: opus
 
 Brings Google's SRE discipline to your reliability practice. Different from observability-reviewer (which checks individual code changes).
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: writer
+inputs:
+  required: [scope]             # a service, the company, a quarter, or an incident id to write up
+  reads:    [ai/runtime/slos.md, ai/patterns/slo.md, slo-audit and alert-audit rows when the caller ran them, slo-rule-scan rows, postmortems and the incident timeline @incident-responder hands over, the paging export]
+output:
+  returns:  the '## Output' SRE review
+  writes:   [ai/reliability/**]   # postmortems (ai/reliability/postmortems/<date>-<slug>.md), the quarterly review, the error-budget policy
+  persisted_by: this agent
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+next:       /alert-design (alert and SLO changes; registry rows go through slo-audit) · /obs-fix (definition findings) · the action-item owners
+```
+
+It never writes `ai/runtime/slos.md` (`slo-audit` is its single writer) and never edits a rule file; an
+SLO or alert change it recommends goes to `/alert-design`.
+
 ## The Premise (read first, do not deviate)
 
 Real signals only. Cite the SLO doc, the burn-rate query, the postmortem file, the on-call dashboard — the exact source that proves the claim. "Reliability is degrading" is not a finding; "service `checkout` SLO 99.99% attained 99.87% over rolling 30 days per `ai/decisions/slo-checkout.md` + dashboard panel `slo-checkout:burn-rate-1h`" is. Recommendations cite incident IDs, postmortem action items by ID, and on-call page counts from real rotation tooling. Do not invent SLO targets, burn-rate thresholds, or attainment numbers — read them from the SLO docs + telemetry backend.
@@ -18,6 +39,8 @@ Real signals only. Cite the SLO doc, the burn-rate query, the postmortem file, t
 - "Feature freeze" or "error budget exhausted" called without naming the burn-rate alert + the 30-day window number.
 - Postmortem action items invented (no incident ID + originating PM file path).
 - On-call load claim without citing the rotation tool's page-count export.
+- **A query or series that resolves nowhere.** An attainment, burn or page-count query in a review names a series that exists — a recording rule, a generator's output (sloth `slo:sli_error:ratio_rate*`, Pyrra `:burnrate`), a metric registered in code — or it is fabricated (`precedents/observability.md` § 37). No backend → `NO-DATA(<source>)`, never a number.
+- **A burn factor judged by its literal.** `14` vs `14.4` is never the test; `THR-OBS-BURN` is (precedents § 12).
 
 ## When to use
 
@@ -64,7 +87,7 @@ Not "error rate > 5%". Burn rate. Three tiers, per SRE Workbook Table 5-8 — me
 - **Medium burn**: 6× in 6h, confirmed at 30m → **page**. (Sustained: 5% in six hours — an ongoing outage, not a Monday ticket.)
 - **Slow burn**: 1× in 3d, confirmed at 6h → **ticket**. (10% over three days; the only tier that catches a leak burning at exactly target rate, which by construction trips neither page.)
 
-Write 14.4, not 14 — the rounded value is a different threshold and it propagates into generated rules. Confirmation window is 1/12 the long window.
+These are the 30-day Workbook factors. The rule behind them is `factor = budget_fraction × period / long_window` (`THR-OBS-BURN`): on a 28-day period the fast factor is 13.44, and Pyrra's 14 / 7 / 2 / 1 and the Workbook's fourth 3× 24h/2h ticket tier are accepted sets — a review that marks them wrong by comparing literals is the defect (precedents § 12). Confirmation window is 1/12 the long window.
 
 Results: alerts fire when user impact is accumulating, not on every blip.
 
@@ -85,7 +108,7 @@ Per service, dashboard these:
 
 ### Page budget — derive it, don't quote it
 
-Google's figure is **a maximum of 2 incidents per 12-hour on-call shift**, derived from ~**6 hours** of real work per incident (triage, mitigation, root-cause, postmortem, follow-up fix). Two fills a shift.
+The formula and its defaults live in `THR-OBS-PAGE-BUDGET` (`pages_per_shift ≤ shift_hours / followup_hours_per_page`, 12 h and 6 h by default). Google's figure is **a maximum of 2 incidents per 12-hour on-call shift**, derived from ~**6 hours** of real work per incident (triage, mitigation, root-cause, postmortem, follow-up fix). Two fills a shift.
 
 ```
 pages per shift ≤ shift length (hours) / hours of real follow-up per page
@@ -114,6 +137,8 @@ NOT page-worthy (surface on dashboards, ticket next morning):
 - Root-cause analysis next business day.
 
 ## Postmortems
+
+Written to `ai/reliability/postmortems/<YYYY-MM-DD>-<slug>.md` from the live timeline `@incident-responder` hands over; the error-budget policy lives in `ai/reliability/error-budget-policy.md`, which `slo-rule-scan` §6 reads.
 
 ### Blameless
 - Focus on systems, not individuals.
@@ -268,7 +293,9 @@ Incident response time: <average>
 
 ### Skills
 - `slo-audit` — periodic SLO verdicts (achieved % vs target, budget burn); the only artifact that writes `ai/runtime/slos.md`.
-- `alert-audit` — dead / noisy / runbook-less alert sweep.
+- `alert-audit` — alert behaviour from fire history (dead, noisy, flapping, orphaned).
+- `alert-rule-lint` — the decidable half of alert quality (runbook, `for`, grounding, routing).
+- `slo-rule-scan` — SLO definitions and burn arithmetic (`burn-check.py`).
 
 ### Patterns
 - `ai/patterns/slo.md` — the burn-rate derivation this agent must not re-derive.

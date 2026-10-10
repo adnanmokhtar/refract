@@ -20,7 +20,7 @@ number.
 
 Index: the claim and the gates · posting rules P1–P4 · alerts and routing § 1–17 · logs, traces and
 metrics § 18–35 · verdict discipline § 36–37 · detector precedents § 38–44 · version and tool
-precedents § 45–53 · rationalizations.
+precedents § 45–53 · health § 54–55 · rationalizations.
 
 ## The claim, restated
 
@@ -117,7 +117,7 @@ or a tracing decorator is one finding with N sites.
 38. **Nest `Logger.error(message, err.stack)` keeps the stack.** The second argument is the trace; it is not LG-02.
 39. **A catch that rethrows with `{ cause: e }` to a global filter that logs the cause** is not LG-02 at the inner site. Two logs of one error (inner site and filter) is LG-04, not LG-02. *Must be true:* the filter's log call carries the cause or the stack.
 40. **Fastify `request.log` and nestjs-pino `PinoLogger` are request-bound.** Jobs, consumers and cron are not: a BullMQ processor or an `@Cron` handler needs CLS (`nestjs-cls`, `AsyncLocalStorage`) or an explicit id in the job payload, or it is CO-02.
-41. **Prometheus group-level `labels:`** count toward a rule's labels on a server version that supports them. The minimum version is [K?]: read the server version, and where it is unsupported the group label does not count.
+41. **Prometheus group-level `labels:`** count toward a rule's labels on a server that applies them, and break the whole file on one that does not. Measured 2026-10-10 (`alert-rule-lint` § Measured): promtool 3.15.0 applies a group `labels: {severity: page}` to the alert in `promtool test rules`; promtool 2.55.1 rejects the file (`field labels not found in type rulefmt.RuleGroup`). Read the server version (gate 3): on 3.x the group label counts; on 2.x the rule file never loads, which is AL-22, not a missing label. The first release that accepts them is [K?].
 42. **Generated rules** (sloth, pyrra, jsonnet mixins) are judged at their spec. A finding on the generated file is a drift finding (regenerate and diff), never a hand-edit request.
 43. **OTel → Prometheus name translation adds unit and `_total` suffixes.** Ground the translated name, not the OTel instrument name; the exact suffixing depends on the server's `translation_strategy` [K?].
 44. **`process.exit` / `os.Exit` in a CLI or a one-shot migration script** is not LG-06. *Flips back:* the same call in a server, worker or consumer process after a log or span it expects to ship.
@@ -132,7 +132,12 @@ or a tracing decorator is one finding with N sites.
 50. **.NET 10: CA1848 is off by default.** A clean build log is not evidence that `LoggerMessage` is used; read the `.editorconfig` severity first.
 51. **Promtail reached end of life on 2026-03-02;** Alloy replaces it (`alloy convert --source-format=promtail`). Promtail in a config or image tag is PL-05 on any version.
 52. **Node logger behaviour, measured** (pino 10.4.0, pino-http 11.0.0, winston 3.19.0, run 2026-10-10): pino `logger.error('failed', err)` drops the error entirely; `logger.error({ error: err })` serializes it as `{}` without a custom serializer; `logger.error(err.message)` loses the stack. pino-http logs every request header and the full query string by default, and its default request id is a per-process counter, so ids collide across replicas without `genReqId`. winston without `format.errors({ stack: true })` turns `logger.error(err)` into `{"level":"error"}`. Re-run the captured-log oracle (V189) on the installed versions before citing these as fact for a different major.
-53. **Tool exit codes are read, never assumed:** promtool exits 1 on error and 3 on lint, and `check rules` exits 3 on duplicates only with `--lint-fatal`; `amtool config routes test` without `--verify.receivers` always exits 0, so it is not a test; `otelcol validate` passes defined-but-unused components and does not check processor order; `pint`, `mimirtool rules lint` (without `-n`) and `lokitool rules lint` rewrite files in place and never run in the project tree; pint has no `promql/performance` check.
+53. **Tool exit codes are read, never assumed:** promtool exits 1 on error and 3 on lint, and `check rules` exits 3 on duplicates only with `--lint-fatal`; `amtool config routes test` without `--verify.receivers` always exits 0, so it is not a test; `otelcol validate` passes defined-but-unused components and does not check processor order; `mimirtool rules lint` without `-n`, `lokitool rules lint` without `--dry-run` and `dashboard-linter lint --fix` rewrite files in place and never run in the project tree. pint 0.89.2 `lint` does **not** rewrite (measured 2026-10-10: every file byte-identical, `alert-rule-lint` § Measured), but it still runs on copies like every other tool; pint has no `promql/performance` check.
+
+## Health precedents (added 2026-10-10)
+
+54. **A readiness route reflects only the dependencies one pod can lose on its own** — its DB pool, its broker or cache client, its warm-up. A fleet-wide fact (a schema or migration assertion, a shared upstream's health) on a seconds-scale readiness loop takes every pod out of the endpoints at once when it fails; it belongs in a startup probe or a deploy gate, so leaving it out of readiness is not HC-01 (`metric-hygiene-scan` §7). *Flips back:* a per-pod dependency the pod holds that the readiness route never checks.
+55. **Probe traffic filtered in every consuming selector closes HC-02's metric half.** A `route!~".*/health/.*"` matcher (or a `by (route)` grouping that keeps probe rows apart) in each rule, recording rule and dashboard that reads the RED series means probes never reach an SLI; exclusion at the source is not required for that half (`metric-hygiene-scan` §8). *Must be true:* every consumer of the series was read (grep 8c), not a sample. *Flips back:* one consumer reads it unfiltered. The span and request-log halves still need exclusion at the source (§ 18; `log-signal-scan` §5).
 
 ## Rationalizations to reject (observability)
 

@@ -227,7 +227,7 @@
       "value": { "min_multiple_of_scrape": 2, "recommended": 4, "prom3_exact_1x": "empty" },
       "unit": "multiple of the job's scrape interval",
       "floor": true,
-      "owner": "packs/observability/skills/alert-rule-lint §5 (AL-12, AL-21) · precedents/observability.md § 6, § 45",
+      "owner": "packs/observability/skills/alert-rule-lint §5 (AL-12, AL-21) · telemetry-config-scan §8 (DB-04 dashboard windows) · precedents/observability.md § 6, § 45",
       "why": "a rate window under 2× the scrape interval can hold fewer than two samples and returns nothing; on Prometheus 3 range selectors are left-open, so exactly 1× is empty. 2–4× is style, not a bug"
     },
     "THR-OBS-ALERT": {

@@ -66,12 +66,15 @@ You need all three. Each answers a different question.
 
 Histogram > summary in distributed systems: histograms aggregate across instances (you can compute `p95(global)` from per-instance buckets), summaries do not (a per-instance p95 doesn't average to a global p95).
 
+A counter goes back to 0 when its process restarts, and that is normal: `rate()` and `increase()` detect the drop and compensate. What they cannot compensate is a gauge used as a counter, or counters summed before the rate is taken (§ Common mistakes).
+
 ## Naming conventions (Prometheus / OpenTelemetry)
 
 - Lowercase with underscores: `http_request_duration_seconds`.
 - Counter suffix: `_total`. So `http_requests_total`, NOT `http_requests`.
 - Unit suffix: `_seconds`, `_bytes`, `_ratio`. NEVER `_milliseconds` (Prometheus convention is base SI units).
-- Service prefix: `orders_requests_total` not `requests_total` — disambiguates when you have many services.
+- Domain metrics carry a domain prefix: `orders_placed_total`, `payments_authorized_total` — so two services' domain counters never collide.
+- Generic metrics keep their shared name: `http_server_request_duration_seconds` (semconv `http.server.request.duration`) is the same name in every service, told apart by `job` / `service.name`. Prefixing it per service breaks every shared dashboard and SLO rule that reads the generic name.
 - Labels lowercase: `status`, `method`, `endpoint`, `plan`.
 - Where the project mirrors OTel semantic conventions rather than a local scheme, the stable HTTP server latency metric is `http.server.request.duration` — a Histogram in **seconds**. The pre-stabilization `http.server.duration` (milliseconds) is not the current name.
 
@@ -121,13 +124,13 @@ import { Counter, Histogram, Gauge } from 'prom-client';
 
 // RED: rate + duration
 const httpRequests = new Counter({
-  name: 'orders_http_requests_total',
-  help: 'Total HTTP requests to orders service',
+  name: 'http_requests_total',   // generic: same name in every service, split by job
+  help: 'Total HTTP requests',
   labelNames: ['method', 'endpoint', 'status'],
 });
 
 const httpDuration = new Histogram({
-  name: 'orders_http_request_duration_seconds',
+  name: 'http_request_duration_seconds',
   help: 'HTTP request duration',
   labelNames: ['method', 'endpoint'],
   // OTel advisory set + an edge at 0.3, this service's SLO threshold
@@ -216,15 +219,23 @@ If a panel hasn't been looked at in 90 days, delete it. Dead dashboards rot.
 - **Page only on user impact.** "Error rate > X%" is a page if X represents user pain. CPU at 90% is NOT a page (the user doesn't care; the system might cope).
 - **Burn-rate alerts on SLOs**, not raw thresholds — see `slo.md`.
 - **Saturation alerts as warnings** — DB pool waiters > 10 for 5min ticket, > 50 page.
-- **Absent alerts** — `absent(http_requests_total{service="api"})` catches "the service died and stopped reporting".
+- **Absent alerts** — `absent(http_requests_total{job="orders"})` with `for: 5m` catches "the service died and stopped reporting"; an exact `job`, never a regex, and never without `for`.
 
 ```promql
-# fast SLO burn: 14.4x over 1h burns 2% of monthly budget
+# fast SLO burn page: factor 14.4 for the 1h fast tier on a 30-day period (THR-OBS-BURN), confirmed by a 5m window
 (
-  sum(rate(orders_http_requests_total{status=~"5..|4.."}[1h])) /
-  sum(rate(orders_http_requests_total[1h]))
+  sum(rate(http_requests_total{job="orders",status=~"5.."}[1h])) /
+  sum(rate(http_requests_total{job="orders"}[1h]))
+) > (1 - 0.999) * 14.4
+and
+(
+  sum(rate(http_requests_total{job="orders",status=~"5.."}[5m])) /
+  sum(rate(http_requests_total{job="orders"}[5m]))
 ) > (1 - 0.999) * 14.4
 ```
+
+5xx only: a 4xx is the caller's error and counts as good (precedents § 13). The other tiers and the
+accepted sets are in `slo.md`; on a period other than 30 days recompute the factor.
 
 ## Trade-offs
 
@@ -235,12 +246,12 @@ For per-request investigation, use traces. For "what was in this exact request",
 ## Common mistakes
 
 - **Labelling by user_id, request_id, or anything user-input.** TSDB fills up, queries slow to a crawl, eventually pager goes off because Prometheus itself is at capacity.
-- **`gauge.inc()` as a counter.** Gauges are for "current value"; using them as counters loses data on restart and races between instances. Use `Counter`.
+- **`gauge.inc()` as a counter.** Gauges are for "current value"; a gauge only ever incremented loses `rate()`'s counter-reset handling (a restart reads as a drop) and races between instances. Use `Counter`.
+- **`rate(sum(...))` instead of `sum(rate(...))`.** Summing counters first hides one instance's reset inside the total, so `rate()` sees a drop it cannot correct. Take the rate per series, then aggregate.
 - **Average latency, not percentiles.** A mean of 100ms across 99% fast + 1% timeout is meaningless. p95/p99 reveal the slow tail.
-- **Same metric name across services.** `requests_total` in three services = ambiguous in queries. Prefix: `orders_requests_total`, `auth_requests_total`.
+- **A domain metric with a generic name.** `requests_total` for "orders accepted" in three services = ambiguous in queries; name the domain (`orders_accepted_total`). Generic RED metrics are the opposite case: one shared name, split by `job`.
 - **Dead metrics.** Emitted but never graphed or alerted = pure cost. Delete or hide behind a feature flag.
 - **Panel screenshots in incident reports.** A panel from "10 minutes ago" doesn't reproduce the data — link the dashboard at a time range.
-- **Counters that reset.** A counter that goes back to 0 on restart breaks `rate()` calculations. Counters must monotonically increase across the process lifetime; cumulative across restarts is the TSDB's job.
 
 ## Testing
 

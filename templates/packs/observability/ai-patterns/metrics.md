@@ -76,12 +76,15 @@ You need all three. Each answers a different question.
 
 Histogram > summary in distributed systems: histograms aggregate across instances (you can compute `p95(global)` from per-instance buckets), summaries do not (a per-instance p95 doesn't average to a global p95).
 
+A counter goes back to 0 when its process restarts, and that is normal: `rate()` and `increase()` detect the drop and compensate. What they cannot compensate is a gauge used as a counter, or counters summed before the rate is taken (§ Common mistakes).
+
 ## Naming conventions (Prometheus / OpenTelemetry style; adapt to the project's convention)
 
 - Lowercase with underscores: `http_request_duration_seconds`.
 - Counter suffix: `_total`. So `http_requests_total`, NOT `http_requests`.
 - Unit suffix: `_seconds`, `_bytes`, `_ratio`. NEVER `_milliseconds` (base SI units convention).
-- Service prefix: `orders_requests_total` not `requests_total` — disambiguates when you have many services.
+- Domain metrics carry a domain prefix: `orders_placed_total`, `payments_authorized_total` — so two services' domain counters never collide.
+- Generic metrics keep their shared name: `http_server_request_duration_seconds` (semconv `http.server.request.duration`) is the same name in every service, told apart by `job` / `service.name`. Prefixing it per service (`orders_http_requests_total`) breaks every shared dashboard and SLO rule that reads the generic name.
 - Labels lowercase: `status`, `method`, `endpoint`, `tenant`.
 
 If the project's metrics backend uses a different convention (e.g., dot-separated names, or the OTel semantic conventions, where the stable HTTP server latency metric is `http.server.request.duration` — a Histogram in **seconds**, not the pre-stabilization `http.server.duration` in milliseconds), mirror sibling services rather than this pattern.
@@ -220,7 +223,7 @@ If a panel hasn't been looked at in 90 days, delete it. Dead dashboards rot.
 - **Saturation alerts as warnings** — DB pool waiters > 10 for 5min ticket, > 50 page.
 - **Absent alerts** — the project's alerting backend's "no data" / `absent(...)` predicate catches "the service died and stopped reporting".
 
-Fast SLO burn: 14.4× over 1h burns 2% of the monthly budget. Express in the project's alerting backend syntax: ratio of error-status rate over total rate, compared to `(1 − SLO) × 14.4`. The full three-tier table (which tiers page and which tickets) is in `slo.md` — don't re-derive it here.
+Burn-rate alerts compare the ratio of error-status rate over total rate, on a long and a short window, to `(1 − SLO) × factor`. The factor is arithmetic (`THR-OBS-BURN`: `budget_fraction × period / long_window` — 14.4 for the 1h fast tier on a 30-day period); the tiers, which page and which ticket, are in `slo.md` — don't re-derive them here.
 
 ## Trade-offs
 
@@ -231,12 +234,12 @@ For per-request investigation, use traces. For "what was in this exact request",
 ## Common mistakes
 
 - **Labelling by user_id, request_id, or anything user-input.** TSDB fills up, queries slow to a crawl, eventually pager goes off because the metrics backend itself is at capacity.
-- **Using a gauge increment as a counter.** Gauges are for "current value"; using them as counters loses data on restart and races between instances. Use a counter primitive.
+- **Using a gauge increment as a counter.** Gauges are for "current value"; a gauge only ever incremented loses `rate()`'s counter-reset handling (a restart reads as a drop) and races between instances. Use a counter primitive.
+- **`rate(sum(...))` instead of `sum(rate(...))`.** Summing counters first hides one instance's reset inside the total, so `rate()` sees a drop it cannot correct. Take the rate per series, then aggregate.
 - **Average latency, not percentiles.** A mean of 100ms across 99% fast + 1% timeout is meaningless. p95/p99 reveal the slow tail.
-- **Same metric name across services.** `requests_total` in three services = ambiguous in queries. Prefix: `orders_requests_total`, `auth_requests_total`.
+- **A domain metric with a generic name.** `requests_total` for "orders accepted" in three services = ambiguous in queries; name the domain (`orders_accepted_total`). Generic RED metrics are the opposite case: one shared name, split by `job` (see Naming conventions).
 - **Dead metrics.** Emitted but never graphed or alerted = pure cost. Delete or hide behind a feature flag.
 - **Panel screenshots in incident reports.** A panel from "10 minutes ago" doesn't reproduce the data — link the dashboard at a time range.
-- **Counters that reset.** A counter that goes back to 0 on restart breaks rate calculations. Counters must monotonically increase across the process lifetime; cumulative across restarts is the TSDB's job.
 
 ## Testing
 

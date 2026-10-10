@@ -71,7 +71,7 @@ Bootstrap tracing in the project's entry point BEFORE any instrumented library l
 3. Register auto-instrumentations for the project's HTTP server / client / DB / queue libraries; disable noisy ones (e.g., raw filesystem ops).
 4. For business operations not covered by auto-instrumentation, wrap the operation in a manual span: open span with a **low-cardinality name** and the right **SpanKind**, set attributes (`tenant_id`, `entity.id`, counts), record exception + ERROR status on failure, end span in finally.
 5. Configure the logger to inject the active span's `trace_id` + `span_id` as fields on every log line.
-6. Configure the sampler — parent-based with a head-based ratio (1–10%) for steady-state; tail-based at the collector for "always sample errors / slow requests" where the collector supports it.
+6. Configure the sampler — **parent-based** with a head-based ratio (1–10%) for steady-state (`parentbased_traceidratio`; a bare ratio sampler re-decides mid-trace and splits traces, SA-01). A head sampler decides before the outcome is known, so it cannot keep every error trace: where errors must be kept, add a collector `tail_sampling` policy on `status_code: ERROR` behind a `loadbalancing` exporter keyed on `traceID` (`telemetry-config-scan` §3), or rely on tracker capture beside the sampled trace (SA-02).
 
 ### Span names and SpanKind
 
@@ -90,8 +90,8 @@ carries the deprecated→current table). Project attributes — the ones no conv
 project prefix, a bounded value space, and the sibling's exact spelling. Never a raw body, never a
 URL carrying query params, never anything per-request-unique.
 
-Production sampling: head-based 1–10% for steady-state plus a tail-based collector for "always
-sample errors / slow requests".
+Production sampling: parent-based head ratio 1–10% for steady-state, plus a tail-sampling collector
+(status policy, trace-id load balancing in front) or tracker capture when errors must be kept.
 
 ## Phase 5 — Update
 
@@ -106,8 +106,9 @@ sample errors / slow requests".
 Split: gates the agent verifies from code/config, and a live checklist the operator confirms against the running backend (the agent cannot see the backend UI — it must NOT report "trace appeared" as auto-passed).
 
 Agent-verified (static + synthetic):
-- Trace ID present in log lines (assert programmatically: emit a log inside an active span in a unit/integration test, parse the line, confirm `trace_id`/`span_id` fields).
-- Sampling configured (you're not sampling 100% in production) — read the sampler config.
+- Trace ID present in log lines (assert programmatically: emit a log inside an active span in a unit/integration test, parse the line, confirm `trace_id`/`span_id` fields equal the exporter's ids — V193).
+- **Cross-hop test (V194, `trace-propagation-scan` §1–§3).** With the in-memory exporter wired into the test harness the repo already runs (same bootstrap file production uses), drive the real entry point **across every hop this run instruments**: HTTP → enqueue → consume against a real broker (testcontainers, or a local Redis for BullMQ — whose telemetry must be set on both the `Queue` and the `Worker`), HTTP → outbound call to a local sink that records the received `traceparent`, HTTP → executor or thread pool. Assert one traceId with correct parentage, or a span link, on the far side. A mocked queue or client proves nothing about headers. Context propagation is the main failure of LLM-written instrumentation (OTelBench, Quesma, 2026-01), so a span this run added is unverified until this test passes.
+- **Sampler (V197, `trace-propagation-scan` §9–§10).** A config-load test prints the **resolved** sampler; its description names `ParentBased`. Rate 1.0 in production needs a per-route `tracesSampler` or a stated low-RPS budget (precedents § 33). **Where a project document (an ADR, the SLO doc, a runbook, a rule) says error traces are kept**, a head ratio alone fails that requirement (SA-02): show the collector `tail_sampling` `status_code` policy (with trace-id load balancing in front) or the error tracker capturing on the same paths, then send N error traces through the configured ratio and the collector config and count the retained ones. A requirement with no mechanism is a FAILED row. Services on one call graph resolve to the same sampler (SA-04).
 - Resource attributes set (`service.name`, version, env) — assert on the `Resource` in a test.
 - Span names are low-cardinality and SpanKind is set on process-boundary spans — assert on the span-export test.
 - No deprecated semantic-convention attribute emitted (`http.url`, `http.method`, `http.status_code`, `db.system`, `db.statement`) unless `OTEL_SEMCONV_STABILITY_OPT_IN` is set to a `/dup` value and the migration is recorded.
@@ -138,7 +139,8 @@ Service:                  <name>
 Backend:                  <project's trace backend>
 Auto-instrumentations:    <count>
 Manual spans:             <count>
-Sampling rate:            <%>
+Sampling rate:            <%> · resolved sampler: <description> · errors kept by: <tail policy file:line | tracker | no requirement>
+Cross-hop test:           <hops asserted, e.g. HTTP → BullMQ → worker: one traceId | SKIPPED(reason)>
 Trace↔log correlation:    <asserted | SKIPPED(reason)>
 Semconv generation:       <current | dup-emitting during migration>
 Sensitive data filtering: configured
@@ -159,7 +161,7 @@ Status: <computed from the ledger per add-telemetry's closure gate>
 - **No PII / secrets in span attributes.** Names, emails, tokens, full URLs with query strings — all forbidden.
 - **Resource attributes set.** Without `service.name` + env, traces are useless across services.
 - **`trace_id` in logs.** Without correlation, logs and traces are two unrelated data sources.
-- **Sampling configured.** 100% in production = expensive + noisy. Default ~1–10% with always-sample-errors via tail sampling.
+- **Sampling configured.** Parent-based everywhere; ~1–10% head ratio in production. Errors you must keep need a tail `status_code` policy or tracker capture — a head sampler cannot keep them (SA-02).
 - **Auto-instrumentation first; manual second.** Custom spans only where auto doesn't reach.
 - **Current semantic conventions.** A deprecated attribute name fails silently — the dashboard is empty, nothing errors.
 - **Closure comes from the ledger**, not from a hand-written line.
@@ -169,6 +171,9 @@ Status: <computed from the ledger per add-telemetry's closure gate>
 - Forgot to bootstrap tracing FIRST → some libraries won't be instrumented.
 - Auto-instrumentation noisy → too many spans of low value.
 - Sampling too aggressive (1%) → missing the slow tail.
+- A bare ratio sampler (no `ParentBased`) → each service re-decides, and half-traces arrive.
+- "Head sampling keeps errors" assumed → the error traces are the ones dropped.
+- A queue hop with the context left out of the message → the consumer starts a new trace; only a cross-hop test shows it.
 - Shipped with PII in span attributes → privacy violation.
 - `trace_id` missing from logs → every debugging session starts with "find me the request."
 - Resource attributes hardcoded → all envs look the same in the backend.
@@ -180,6 +185,7 @@ Status: <computed from the ledger per add-telemetry's closure gate>
 - `add-metrics` — the metrics-side narrow entry point; pair them.
 - `alert-design` — uses tracing data.
 - `slo-audit` skill — uses tracing latencies for SLO measurement.
+- `trace-propagation-scan` skill — the detector whose in-memory-exporter oracle (V194–V197) the Phase 6 checks reuse; `/obs-audit` runs it repo-wide.
 - `@telemetry-architect` agent — broader observability strategy.
 - `ai/patterns/tracing.md` — span naming, SpanKind, the deprecated→current attribute table, the migration switch, detectors, references.
 - `.claude/rules/observability-principles.md` — the always-loaded observability rule this command satisfies.

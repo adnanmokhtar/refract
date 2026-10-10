@@ -23,12 +23,12 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 ## Must not
 
 - Direct stdout / unstructured print calls (any language's `console.log` / `print` / `fmt.Println` / `puts` / `echo` / `System.out.println`) in committed code. Use the project logger with fields.
-- Log passwords, full tokens, full PANs, full national IDs, full health data. Mask: last 4 digits or hash.
+- Log passwords, full tokens, full PANs, full national IDs, full health data. The redaction set is security's (`data-exposure-scan` § 6); a hash of an email or id is not redaction.
 - Log objects whole (e.g., logging the entire user / request object) without scrubbing — leaks PII via field names you forgot.
 - High-cardinality labels on metrics: `user_id`, `request_id`, `email`, `path` with IDs in it. A label is safe only when `series = ∏(distinct label values) × replicas` is bounded and you have **computed** it, not asserted it.
 - Alert on causes (CPU > 80%, queue depth > 100) when the symptom is what users feel (latency, error rate, SLO burn).
-- Sample errors. 100% of errors trace; 1–10% of successes is fine.
-- Ship a metric without a dashboard or alert. Dead metrics = paid storage, no value.
+- Rely on a head sampler to keep errors — it decides before the outcome; keep error traces with a tail `status_code` policy or tracker capture beside the sampled trace.
+- Ship a metric with no consumer (a rule, dashboard or SLO) named in the change. Dead metrics = paid storage, no value.
 - "Best-effort" telemetry — dropping spans on a slow exporter or logs on a full buffer. Bounded queues + back-pressure.
 
 ## Should
@@ -47,7 +47,7 @@ Every rule above says "mirror the sibling". On a project with no instrumented si
 |---|---|---|
 | Log field casing | `snake_case` / `camelCase` | Whatever the language's ecosystem already emits. `trace_id` / `span_id` stay snake_case either way — the OTel log-correlation convention fixes them. |
 | Correlation-ID mechanism | honor an inbound `traceparent` / mint at the edge and echo it back | Whether anything upstream already propagates trace context. If nothing does, mint at the edge; either way it must reach every log line through the runtime's ambient-context primitive, not a threaded parameter. |
-| Metric name + prefix | `<service>_<thing>_<unit>` counters/histograms / dotted OTel-style names | The metrics backend's own convention. Pick once; a rename later breaks every dashboard and alert. |
+| Metric name + prefix | `<domain>_<thing>_<unit>` counters/histograms / dotted OTel-style names | The metrics backend's own convention. Pick once; a rename later breaks every dashboard and alert. The prefix is for domain metrics; generic HTTP / RPC metrics keep their semantic-convention name and are told apart by `job` / `service.name`. |
 | Span attribute namespace | current OTel semantic conventions / a project-local `<domain>.<field>` prefix | Use the semantic convention wherever one exists — backends key their built-in views off it. Only invent a namespace for domain attributes no convention covers. |
 
 Record the four in `ai/conventions.md` the first time `/add-telemetry` runs. From then on, "mirror the sibling" has a sibling.

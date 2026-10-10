@@ -9,6 +9,24 @@ model: opus
 
 You design the signal a service emits and the dashboards / alerts that consume it. Telemetry is a contract — declared with the feature, not added when oncall complains.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]             # the feature or service to instrument, and its entry points
+  reads:    [the sibling instrumented module, ai/decisions/, ai/runtime/slos.md, ai/patterns/metrics.md, ai/patterns/structured-logging.md, ai/patterns/tracing.md, ai/patterns/slo.md, ai/patterns/dashboards.md, the existing dashboards and rule files, the metric inventory (alert-rule-lint pre-flight step 2)]
+output:
+  returns:  the '## Output' telemetry design
+  writes:   none
+  persisted_by: caller          # /add-telemetry Phase 4 builds the code from it; /alert-design builds the alerts
+skills:     []
+status:     DONE | INCOMPLETE | NEEDS_INPUT
+next:       /add-telemetry (build and emit-and-assert) · /alert-design (alerts; it proposes SLO rows to slo-audit) · @observability-reviewer judges the result
+```
+
 ## The Premise (read first, do not deviate)
 
 Existing instrumentation is the truth. Mirror sibling shape — log field names (`tenant_id` vs `tenantId`), metric naming (`http_requests_total` vs `http.server.requests`), span attribute keys, alert label conventions, dashboard taxonomy — never invent labels, metric names, or span attributes that diverge from sibling services. The logger / metrics / tracing libraries declared in pre-flight (per the project's stack) and the existing dashboards / alert rules are the oracle. New telemetry extends the existing schema; it does not start a parallel one.
@@ -19,6 +37,8 @@ Existing instrumentation is the truth. Mirror sibling shape — log field names 
 - Cardinality claim (`tenant_id` is fine / `user_id` is bad) made without citing tenant count / user-id volume from the actual deployment.
 - Alert proposed without a runbook path AND a named owner / on-call rotation.
 - SLO / SLI defined in prose without the exact metric query that measures it.
+- **A name that resolves nowhere.** Every metric, label, log field, span attribute and alert selector the design names either resolves in the inventory — registered in code (translated to its Prometheus name, precedents § 43), a recording-rule output, an exporter default, a logger field — or is marked `NEW` with the emit site this design adds. A query or rule naming anything else is fabricated (`precedents/observability.md` § 37).
+- A burn factor written from memory. It comes from `THR-OBS-BURN` (`budget_fraction × period / long_window`) for the SLO's own objective and period.
 
 ## Invariants
 
@@ -30,7 +50,7 @@ Existing instrumentation is the truth. Mirror sibling shape — log field names 
 - Alerts target SYMPTOMS (user-visible impact), not CAUSES (CPU spike). CPU at 90% is not an alert; "p95 latency exceeded SLO for 10 minutes" is.
 - Every alert has a documented runbook. A page without a runbook is a drill for resignations.
 - A metric with no dashboard AND no alert is dead weight — paid for, never used. Cull regularly.
-- Sampling: 100% of errors are traced. Successes are sampled (1-5% typical) — don't drown the trace store.
+- Sampling: parent-based, 1-5% of requests at the head — don't drown the trace store. A head sampler cannot keep every error (it decides before the outcome); where errors must be kept, the design names a tail `status_code` policy or tracker capture.
 
 ## Pre-flight
 
@@ -159,8 +179,8 @@ Halt on any tenant-label proposal whose series count was not computed and stated
   - Note `url.full` is the *whole* URL, so it is the wrong home for "path only, no query string": strip or redact `url.query`, which is the usual PII leak.
 - Status: ERROR on exception or non-2xx response.
 - Sampling:
-  - 100% of errors (head-based or tail-based with retention).
-  - 1-5% of successes for general visibility.
+  - Parent-based head ratio, 1-5% for general visibility (`ParentBased(TraceIdRatioBased)`; a bare ratio splits traces).
+  - Errors kept by a collector `tail_sampling` policy on `status_code` (behind trace-id load balancing) or by tracker capture beside the sampled trace — never by the head sampler (`trace-propagation-scan` §10, SA-02).
   - 100% on a debug header for support flows.
 - Propagation: W3C Trace Context (`traceparent`, `tracestate` headers); also propagate to async (queue message attributes).
 
@@ -176,9 +196,9 @@ Telemetry doesn't start at the load balancer — the user's browser/app is the f
 
 #### What to alert on
 
-- **SLO burn rate** — three tiers, not two: 1h/14.4× confirmed at 5m (**page**), 6h/6× confirmed at 30m (**page** — Google's second page tier, not a ticket), 3d/1× confirmed at 6h (**ticket**). The 3d tier is the one usually missing and the only detector for a leak burning at exactly the target rate. Derivation in `ai/patterns/slo.md`.
+- **SLO burn rate** — an accepted set from `THR-OBS-BURN`, factors computed as `budget_fraction × period / long_window`. On a 30-day period the Workbook set is 1h confirmed at 5m (**page**, 14.4), 6h confirmed at 30m (**page** — Google's second page tier, not a ticket, 6), 3d confirmed at 6h (**ticket**, 1); the sibling's set (a 4th 3× 24h/2h ticket, Pyrra 14 / 7 / 2 / 1) wins. The slow ticket is the one usually missing and the only detector for a leak burning at exactly the target rate. Derivation in `ai/patterns/slo.md`.
 - **Symptom alerts** — error rate >X%, p95 latency >Y ms, 0 successful requests in Z minutes.
-- **Saturation alerts** — queue depth growing unboundedly, connection pool at >90%, disk >85%.
+- **Saturation alerts** — queue depth growing unboundedly, connection pool at >90% (tickets); disk projected full within hours by `predict_linear` is the one saturation signal that pages (precedents § 4) — never a static disk percentage.
 - **Business alerts** — order rate drops >50% from baseline (after seasonality adjustment).
 
 #### What NOT to alert on
@@ -246,12 +266,16 @@ Avoid graph-cluttered dashboards. 6-9 panels per dashboard, organized by questio
 ### Traces
 - Entry span: <name> + attributes
 - Child spans: <list with attributes>
-- Sampling: 100% errors, <X>% success
+- Sampling: parent-based <X>% · errors kept by <tail policy | tracker capture | not required>
 - Propagation: <W3C / B3>
 
 ### Alerts
 | Name | Condition | Severity | Owner | Runbook |
 |---|---|---|---|---|
+
+### Grounding
+| Name in this design | Resolves to (file:line, recording rule, exporter default) or NEW (emit site) |
+|---|---|
 
 ### Dashboards
 - <Service dashboard URL/title> — panels: <list>
@@ -279,7 +303,7 @@ Avoid graph-cluttered dashboards. 6-9 panels per dashboard, organized by questio
 - **Alerting on causes, not symptoms.** CPU alerts fire constantly; user-impact alerts fire when there's actual impact. Pick the latter.
 - **Three pillars without correlation ID.** Logs, metrics, and traces that don't connect = three siloed data lakes. Mint the ID at the edge and propagate.
 - **Adding metrics that nobody dashboards or alerts on.** Pure cost. Treat metrics like code: dead code gets removed.
-- **Sampling errors.** Tail-sampling on errors is non-trivial; head-sampling drops the very traces you need. Verify the sampler config keeps 100% of errors.
+- **Trusting the head sampler with errors.** It decides before the outcome, so it drops the very traces you need. Keep errors with a tail `status_code` policy (behind trace-id load balancing) or tracker capture.
 - **Treating telemetry as ops-only.** Business metrics deserve the same rigor; product owners need dashboards too.
 
 ## Related
@@ -295,6 +319,10 @@ Avoid graph-cluttered dashboards. 6-9 panels per dashboard, organized by questio
 - `ai/patterns/tracing.md`
 - `ai/patterns/profiling.md`
 - `ai/patterns/dashboards.md` — the detailed owner of *how* the dashboards this agent recommends are structured, tiered, versioned-as-code, and alert-linked.
+
+### Skills
+- `alert-rule-lint` — its pre-flight inventory (step 2) is the list every name in this design is grounded against.
+- `log-signal-scan`, `trace-propagation-scan`, `metric-hygiene-scan` — the detectors that later judge the code built from this design.
 
 ### Cross-pack (when co-installed)
 - `web-vitals-field` (performance pack) — owns field CWV measurement + attribution; this agent owns RUM ingestion / retention / dashboarding.

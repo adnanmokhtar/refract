@@ -2941,8 +2941,10 @@ its static half (inventory grounding) still runs. Three rules hold for every var
   repo inventory (metric names registered in code, recording-rule outputs, exporter defaults, the
   logger's fields) or a live series call; a mocked series never proves a metric exists
   ([`precedents/observability.md`](precedents/observability.md) § 16, § 37).
-- **Tools run on copies.** Every tool runs in `${TMPDIR:-/tmp}` on a copy; `pint`, `mimirtool rules
-  lint` without `-n` and `lokitool rules lint` rewrite in place and never run in the project tree.
+- **Tools run on copies.** Every tool runs in `${TMPDIR:-/tmp}` on a copy. `mimirtool rules lint`
+  without `-n`, `lokitool rules lint` without `--dry-run` and `dashboard-linter lint --fix` rewrite
+  in place and never run in the project tree; pint 0.89.2 `lint` left every file byte-identical
+  (measured 2026-10-10) and runs on copies all the same.
 
 Settled questions are in [`precedents/observability.md`](precedents/observability.md). Users:
 `log-signal-scan`, `trace-propagation-scan`, `metric-hygiene-scan`, `error-tracking-scan`,
@@ -3175,8 +3177,8 @@ and mute timing cannot be proven from the route tree: they need a containerised 
 - pass: running each entry point once moves its counter (with an outcome label) and its duration
 
 #### V201. Health — dependency kill + probe hits (`metric-hygiene-scan` §7–§8)
-- readiness reflects each dependency the pod needs; liveness stays constant (a liveness that checks a shared dependency is performance `request-path-scan` §15, V47)
-- probe paths excluded from tracing, access logs and SLI metrics
+- readiness reflects each dependency one pod can lose on its own, and no fleet-wide fact (precedents § 54); liveness stays constant (a liveness that checks a shared dependency is performance `request-path-scan` §15, V47)
+- probe paths excluded from tracing and access logs at the source, and from SLI metrics at the source or in every consuming selector (precedents § 55)
 - pass: stopping the dependency flips `/readyz` to 503 only; 100 probe hits add 0 spans, 0 log lines and no SLI series
 
 #### V202. Error tracking — tracker test transport (`error-tracking-scan` §1–§4)

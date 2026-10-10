@@ -78,6 +78,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Infra (k8s-render-scan § 0 render, the target minor(s) from runbooks/IaC/CI, policy engines, the platform inventory)
   fallback: skills/k8s-api-version-scan/SKILL.md
 
+- name: edge-reliability-scan
+  kind: skill
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "^\\s*(proxy_pass|reverse_proxy|upstream)\\b|^(FROM|\\s*image:)\\s*\\S*(nginx|caddy|traefik|haproxy|envoy)|nginx\\.ingress\\.kubernetes\\.io/|\\b(origin_read_timeout|idle_timeout|keepAliveTimeout)\\b"   # a proxy config, a proxy image, an ingress annotation, an LB/CDN or app-server timeout
+  extracts_from: _extracted-codebase.md § Infra (proxy configs incl. k8s-render-scan § 0 embedded/, proxy image tags, LB/CDN IaC, app-server timeout settings, the route classes that stream, upload or run long)
+  fallback: skills/edge-reliability-scan/SKILL.md
+
 - name: k8s-audit
   kind: skill
   triggers: { k8s_detected: true }

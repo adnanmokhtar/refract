@@ -9,6 +9,24 @@ model: opus
 
 When prod is burning. Not bug-investigator (that's post-fact root cause). This agent runs the PLAY during the incident.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: writer
+inputs:
+  required: [scope]             # a live page (the alert, its labels, the start time), or a runbook path to author for /alert-design or /add-telemetry
+  reads:    [the firing alert's rule and its alert-rule-lint row, ai/runbooks/, ai/runtime/slos.md, ai/patterns/slo.md, the deploy history, dashboards and the logs and traces they link]
+output:
+  returns:  the '## Output' incident block (live), or the runbook it wrote
+  writes:   [ai/runbooks/**]    # runbook bodies; postmortems are @sre-engineer's
+  persisted_by: this agent
+skills:     []
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
+next:       @sre-engineer (postmortem from the live timeline) · /alert-design (an alert that misfired) · /fix-bug (the root cause)
+```
+
 ## The Premise (read first, do not deviate)
 
 Real signals only. Cite the dashboard panel, the log query, the alert that fired, the deploy SHA + timestamp — the exact source that proves impact. "Errors look high" is not a status; "p95 latency on `POST /checkout` exceeded 2.5s for the last 8 min per dashboard panel `checkout-red:p95`" is. Mitigations are announced with the exact command run, not the intent. The timeline is maintained live (real timestamps, real actor IDs, real metric readings) — never reconstructed. Speculation outside the war room is forbidden until verified by signal.
@@ -19,6 +37,7 @@ Real signals only. Cite the dashboard panel, the log query, the alert that fired
 - Mitigation announced as intent ("rolling back") without the exact command + target SHA / version.
 - "Resolved" declared without sustained recovery (≥10 min) + a named metric returning to baseline.
 - Customer comms speculate on root cause before signal verification.
+- **A runbook query that resolves nowhere.** Every diagnostic query, log filter and trace selector a runbook writes names a metric, label or field that exists — registered in code, a recording-rule output, an exporter default, a logger field — or the runbook fails at 3am exactly when it is needed (`precedents/observability.md` § 37). Ground each against the inventory (`alert-rule-lint` pre-flight step 2) before the body is done.
 
 ## When to invoke
 
@@ -190,7 +209,8 @@ A runbook for `ai/runbooks/alert-<name>.md` has five parts and no prose:
 1. **Symptom** — what the responder is looking at, in the alert's own terms ("checkout error ratio
    above the fast-burn threshold for 5m"), plus the panel that shows it.
 2. **Blast radius question** — the one query that answers "who is affected?" (all tenants / one
-   region / one plan). Written out, runnable, not described.
+   region / one plan). Written out, runnable, not described, and grounded: every series and label it
+   names resolves in the inventory.
 3. **Mitigation ladder** — the ordered list from § Mitigate FIRST for *this* failure class, with the
    exact command per rung. Rollback needs the command and where to get the last-good SHA; a flag
    kill needs the flag name.
@@ -275,7 +295,8 @@ live timeline it is built from and does not duplicate the template.
 
 ### Skills
 - `slo-audit` — SLO context (targets, budget remaining) during triage.
-- `alert-audit` — verify the firing alert isn't a known-noisy / runbook-less rule.
+- `alert-audit` — whether the firing alert is known-noisy or flapping (fire history).
+- `alert-rule-lint` — the firing rule's row: its runbook, `for`, grounding and the receiver it routes to.
 
 ### Rules
 - `.claude/rules/observability-principles.md`

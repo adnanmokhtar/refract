@@ -68,6 +68,34 @@ Every log line must have:
 
 Additional per domain: `user_id`, `order_id`, `payment_id`, `webhook_id`, etc.
 
+## Logging an error — what each logger keeps (LG-02)
+
+The most common log defect looks logged and isn't: the call exists, the line is emitted, and the
+error's type and stack are gone, because each logger takes the error object in exactly one argument
+shape and silently drops it in the others. Pass the error **object** in the shape the receiver keeps;
+a message built from `err.message` or `String(err)` keeps the text and loses the stack and the type.
+
+| Logger | Keeps type + stack | Drops it |
+|---|---|---|
+| pino 10 (and pino-http) | `logger.error(err, 'msg')` · `logger.error({ err }, 'msg')` | `logger.error('msg', err)` — the error is dropped entirely · `{ error: err }` without a custom `error` serializer serializes as `{}` · `` `${err.message}` `` / `String(err)` in the message |
+| NestJS `Logger` façade over nestjs-pino 5 | `error(err)` · `error({ err }, msg)` · `error(msg, err.stack)` (the stack as the second argument) | `error('msg', err)` · `` error(`… ${err.message}`) `` |
+| nestjs-pino `PinoLogger` | `error(err, msg)` · `error({ err }, msg)` | `error('msg', err)` · `{ error: err }` · `{ err: String(e) }` |
+| winston 3 | `logger.error(err)` with `format.errors({ stack: true })` in the logger's format | the same call without `format.errors` writes `{"level":"error"}` |
+| Python `logging` / structlog | `logger.exception('msg')` inside `except` · `logger.error('msg', exc_info=True)` | `logger.error(str(e))` · an f-string in `except` (ruff `TRY400`) · structlog `error=str(e)` |
+| Go slog / zap [K?] | the error **value** as a field: `zap.Error(err)` (adds `errorVerbose` when the error carries a stack) · `slog.Any("err", err)` (what it renders is the handler's choice) | `zap.String("err", err.Error())` · `%v` folded into the message |
+| SLF4J / Logback | a trailing throwable: `log.error("refund failed for {}", id, e)` | `log.error("failed: " + e)` · `e.getMessage()` · `e.printStackTrace()` |
+
+Measured on pino 10.4.0, pino-http 11.0.0, winston 3.19.0, nestjs-pino 5.3.1 and NestJS 11.2.7
+(`precedents/observability.md` § 22–24, § 38, § 52; `log-signal-scan` § Adapt). Re-run the
+captured-log test on the installed majors before relying on a row for another version. The Go row
+was not measured: a Go error has no stack unless its type adds one, and its type is lost once the
+value becomes a string — settle it with the captured log (V189) before citing it.
+
+**Detector and proof:** `log-signal-scan` §2 finds the shapes; the captured-log test (V189) settles
+them — drive the failure through the real entry point, capture the logger's own destination, and
+assert the error line carries the type and a stack frame. A spy on the call arguments proves what was
+passed, not what was written.
+
 ## Correlation-ID propagation — the part that is actually hard
 
 Choosing the field name is trivial. Getting it onto **every** line is the whole difficulty, and it is where implementations fail: present in the controller, gone three frames down, gone entirely in the job the request enqueued.
@@ -120,7 +148,7 @@ NEVER log:
 - Full email (`john@example.com` → `j**@example.com`)
 - Full names with other PII on the same line
 
-Redaction at the log library level — not "remember not to log it":
+Which values are sensitive, and the redaction set itself, are security's call (`data-exposure-scan` § 6, when the security pack is installed); a hash of an email or id is not redaction — small input spaces reverse (`precedents/observability.md` § 32). This pattern owns only the mechanism: redaction at the log library level — not "remember not to log it":
 ```ts
 // Pino example
 const logger = pino({

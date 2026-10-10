@@ -88,10 +88,11 @@ Telemetry-specific:
   - Histograms: `<feature>_duration_seconds`, buckets from `ai/patterns/metrics.md` (the OTel advisory set) **plus an edge at the SLO threshold T** — a latency SLI is a count under T and a histogram can only count at a bucket edge.
   - Trace span around use-case entry; sub-spans on external IO. Low-cardinality span names, SpanKind set, attribute keys per `ai/patterns/tracing.md`.
   - **Tenant labels are a computation, not a preference.** Compute `series = ∏(distinct label values) × replicas` before labelling by `tenant_id` (`3 statuses × 20 routes × 10,000 tenants × 6 replicas = 3.6M series`). Default: top-N tenants + an `other` bucket on the metric; full tenant fidelity on logs, traces and exemplars, where it costs nothing.
-- Alert config in project's format — **SLO-linked, not static thresholds.** Three tiers per `ai/patterns/slo.md`:
-  - Fast burn — 1h window, **14.4×** budget, confirmed at 5m, `severity: page`.
-  - Medium burn — 6h window, 6× budget, confirmed at 30m, `severity: page`. This tier **pages**; it is Google's second page tier, not a ticket.
-  - Slow burn — 3d window, 1× budget, confirmed at 6h, `severity: ticket`. Emit it even though it fires rarely: a leak burning at exactly the target rate trips neither page tier by construction.
+- Alert config in project's format — **SLO-linked, not static thresholds.** Factors come from `THR-OBS-BURN` (`budget_fraction × period / long_window`; derivation in `ai/patterns/slo.md`), never from a remembered literal; a sibling on another accepted set (the 4-tier variant with 3× over 24h/2h, Pyrra 14 / 7 / 2 / 1) or another period wins: recompute the factors for it. On a 30-day period:
+  - Fast burn — 1h window confirmed at 5m, 2% → factor 14.4, `severity: page`.
+  - Medium burn — 6h window confirmed at 30m, 5% → 6, `severity: page`. This tier **pages**; it is Google's second page tier, not a ticket.
+  - Slow burn — 3d window confirmed at 6h, 10% → 1, `severity: ticket`. Emit it even though it fires rarely: a leak burning at exactly the target rate trips neither page tier by construction.
+  - Every ratio page gets a traffic-absent sibling for the same job (AL-16); rate windows ≥ 2× the job's scrape interval (`THR-OBS-RATE-WINDOW`).
   - Latency SLO burn against the histogram's objective, NOT a bare `p95 > Nms` threshold.
   - **A static `error-rate > X% over Nmin` threshold is a FAILED alert here.** If no SLO exists, halt and route to `/alert-design` Phase 1, which dispatches `slo-audit` to define one.
 - Runbook stub `ai/runbooks/alert-<name>.md` — **dispatch `@incident-responder` to write the body**: symptom, blast-radius query, mitigation ladder with exact commands, known false-positives, escalation. A body that says "investigate" fails the gate below exactly as a missing file does.
@@ -110,14 +111,17 @@ Agent-verified (static):
 - No high-cardinality labels (`user_id`, `request_id`, full URL) in metric labels.
 - `tenant_id` as a metric label: the series arithmetic is stated in the run summary. Unbounded by tenant count → top-N + `other`.
 - Multi-tenant projects: `tenant_id` present on every log entry and every span.
-- PII redacted at the logger level, not at call sites.
-- **Dispatch the `alert-audit` skill** on the alerts just generated — dead-on-arrival, runbook, owner, symptom-vs-cause. An open finding halts before completion.
+- PII redacted at the logger level, not at call sites. The redaction set is security's (`data-exposure-scan` § 6, when installed); a hash of an email or id is not redaction (precedents § 32).
+- **Prometheus version read (gate 3)** from a file — compose image, Helm values, the Prometheus CR `spec.version`, a pinned chart — and printed. Unread → pin it (ask) or run the promtool pair on both 3.15.0 and 2.55.1.
+- **Dispatch the `alert-rule-lint` skill first** on every rule file this run wrote: promtool check, pint, `rule-inventory.py` rows, selector grounding (§4, the dead-on-arrival check), rule loading, the `--verify.receivers` routes matrix. Any H/M/L row on a generated rule halts.
+- **Then dispatch the `alert-audit` skill** with those rows (it halts without them): fire history, noise, ownership. On a rule with no history it prints `NO-DATA(<source>)`, shown on the Status line, never counted as a pass.
+- **Burn arithmetic:** `burn-check.py` (`slo-rule-scan` §2) on the generated burn rules; exit 0.
 
 Emit-and-assert (executable gate per primitive — a run scoped to one signal runs that primitive's gate and produces a one-row ledger; it does not skip it):
 - **Metrics**: scrape the local `/metrics` endpoint (or run the exporter in a test) and assert the new series names + label keys appear. A counter that doesn't show up on scrape is not instrumented — halt.
-- **Traces**: emit a log inside an active span in a test, parse the line, assert `trace_id`/`span_id` present; and run a span-export test asserting the new span is exported with its expected attributes.
-- **Logs**: assert the structured entry emits on entry/success/failure with the required fields via the same log-parse test — a missing field halts.
-- **Alerts**: for every generated alert assert (a) it references a series THIS run instrumented and asserted, (b) it burns against a named SLO/SLI, and (c) `test -f` on its `runbook:` path succeeds AND the body names a first action.
+- **Traces**: emit a log inside an active span in a test, parse the line, assert `trace_id`/`span_id` present and equal to the exporter's ids; run a span-export test asserting the new span is exported with its expected attributes; and a **cross-hop test** (V194) — drive the entry point across every hop the feature adds (HTTP → enqueue → consume against a real broker, HTTP → outbound to a local sink) and assert one traceId with correct parentage or a link. A mocked queue proves nothing about headers.
+- **Logs** — the captured-log oracle (V189): drive the failure through the real entry point, capture the logger's own destination, parse the line, and assert the error line carries the error type and a stack frame (not only its message), the required fields are present on entry/success/failure, and levels follow `THR-LOG-LEVEL` (4xx ≤ warn, 5xx error). A missing field, a stackless error line or a wrong level halts.
+- **Alerts**: for every generated alert assert (a) `promtool check rules` exits 0 and `alert-rule-lint` printed no row for it; (b) a page rule's `promtool test rules` pair fires at the failure and stays silent at a blip, on the server's major; (c) `rule-inventory.py --check=selectors` grounds every selector in a series THIS run asserted on scrape; (d) it burns against a named SLO/SLI and `burn-check.py` exits 0; (e) `test -f` on its runbook path succeeds AND the body names a first action.
 
 ### Emit-and-assert ledger — REQUIRED OUTPUT ARTIFACT (the run is not done until this table exists)
 
@@ -128,16 +132,18 @@ Signal (name)                     | Kind    | Assertion evidence (command → ob
 <feature>_requests_total          | metric  | scrape /metrics → series+labels present                      | ASSERTED
 <feature>_duration_seconds        | metric  | scrape /metrics → histogram+buckets present                  | ASSERTED
 log: entry/success/failure fields | log     | log-parse test → request_id,tenant_id,duration_ms present    | ASSERTED
+log: failure line error fidelity  | log     | captured-log test (V189) → err.type + stack frame at error   | ASSERTED
 span: <feature> root + IO subspan | trace   | span-export test → span exported w/ trace_id in log line     | ASSERTED
-alert: <feature>-fast-burn (page) | alert   | alert-audit → not-dead + SLO-linked + runbook w/ first action| ASSERTED
-alert: <feature>-med-burn (page)  | alert   | alert-audit → not-dead + SLO-linked + runbook w/ first action| ASSERTED
-alert: <feature>-slow-burn (tkt)  | alert   | alert-audit → not-dead + SLO-linked + runbook w/ first action| ASSERTED
+span: enqueue → consume hop       | trace   | cross-hop test (V194) → one traceId, consumer parent = producer | ASSERTED
+alert: <feature>-fast-burn (page) | alert   | promtool test → fire ✓ blip ✓ · lint 0 rows · grounded · burn-check 0 · runbook first action | ASSERTED
+alert: <feature>-med-burn (page)  | alert   | promtool test → fire ✓ blip ✓ · lint 0 rows · grounded · burn-check 0 · runbook first action | ASSERTED
+alert: <feature>-slow-burn (tkt)  | alert   | promtool check exit 0 · lint 0 rows · grounded · burn-check 0 · runbook file exists | ASSERTED
 ```
 
 Per-row `Status` — pick exactly one, no synonyms:
 - **ASSERTED** — the evidence command ran and the observation confirms the signal. Only ASSERTED counts as production-grade.
 - **SKIPPED(reason)** — the harness to assert it is genuinely absent (no `/metrics` endpoint in this stack, no test runner wired). Name the reason. A SKIPPED row is UNVERIFIED, not a pass — it downgrades the run to INCOMPLETE.
-- **FAILED** — the assertion ran and the signal was absent / the alert was dead-on-arrival / not SLO-linked / runbook-less. Halt; do not emit COMPLETE.
+- **FAILED** — the assertion ran and the signal was absent / the error line lost its stack / the trace split at a hop / the alert failed promtool, its pair, its grounding, its burn arithmetic, or was not SLO-linked / runbook-less. Halt; do not emit COMPLETE.
 
 Never write ASSERTED without a runnable command + its observed result in the evidence column. A fabricated ASSERTED is the enforcement-theater failure this pack exists to kill.
 
@@ -168,7 +174,7 @@ Phase 6 (Validated): every metric paired; tenant_id present; PII redacted
   <the ledger table above, verbatim, with evidence per row>
 Phase 7 (Improved): pattern queued
 
-Reminder: PII in logs — masked email + last-4 of card only. Verify before merging.
+Reminder: sensitive values in logs are security's call (data-exposure-scan § 6) — never a hash of an email or id. Verify before merging.
 Status: <computed from the ledger by the gate below — never hand-written>
 ```
 
@@ -176,8 +182,8 @@ Status: <computed from the ledger by the gate below — never hand-written>
 
 Compute Status from the ledger — do NOT hand-write COMPLETE:
 
-- **`Status: COMPLETE`** — ONLY when every ledger row is `ASSERTED`, the `alert-audit` dispatch returned zero dead/orphaned/runbook-less/cause-based findings, and every `page` alert names its SLO + burn window. Nothing else earns COMPLETE.
-- **`Status: INCOMPLETE — unmet: <list>`** — the moment any row is `SKIPPED` or `FAILED`, or `alert-audit` has an open finding. NAME each unmet signal and why (e.g., `checkout_duration_seconds — SKIPPED: no /metrics endpoint in this stack, scrape unverified`). "Functional but unverified" is INCOMPLETE, never COMPLETE.
+- **`Status: COMPLETE`** — ONLY when every ledger row is `ASSERTED`, `alert-rule-lint` printed no H/M/L row on a rule this run wrote, `alert-audit` returned no DEAD / NOISY / ORPHAN / CAUSE-AS-PAGE verdict on one (its `NO-DATA(<source>)` on a rule with no history is printed on the Status line), and every `page` alert names its SLO + burn window. Nothing else earns COMPLETE.
+- **`Status: INCOMPLETE — unmet: <list>`** — the moment any row is `SKIPPED` or `FAILED`, `alert-rule-lint` has an open row on a generated rule, or `alert-audit` has an open verdict. NAME each unmet signal and why (e.g., `checkout_duration_seconds — SKIPPED: no /metrics endpoint in this stack, scrape unverified`). "Functional but unverified" is INCOMPLETE, never COMPLETE.
 
 **[self-policed]** — no shell forces the Status line — but wired to a checkable artifact: the evidence column and the referenced runbook files are inspectable by the operator or `@observability-reviewer`, who will BLOCK a COMPLETE whose rows lack real evidence.
 

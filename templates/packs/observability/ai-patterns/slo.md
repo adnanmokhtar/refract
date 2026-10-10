@@ -94,10 +94,17 @@ Two things about this table are routinely gotten wrong, and both change behaviou
   alarm at all for the failure mode "we will miss the SLO at the end of the month and nothing ever
   fired".
 
-**Deriving the burn rates** (so you can compute a tier this table doesn't have): at 1× you spend
-`window / 720h` of a 30-day budget. Fast: 2% in 1h → `0.02 / (1/720) = 14.4×`. Medium: 5% in 6h →
-`0.05 / (6/720) = 6×`. Slow: 10% in 3d (72h) → `0.10 / (72/720) = 1×`. Write **14.4**, not 14 — the
-rounded value is a different threshold and it propagates into generated rules.
+**Deriving the burn rates** (so you can compute a tier this table doesn't have, or a period it
+doesn't assume): `factor = budget_fraction × period / long_window` (`THR-OBS-BURN`). On a 30-day
+period (720h): fast, 2% in 1h → `0.02 × 720 / 1 = 14.4`; medium, 5% in 6h → `0.05 × 720 / 6 = 6`;
+slow, 10% in 3d (72h) → `0.10 × 720 / 72 = 1`. On a 28-day period the fast factor is 13.44, and
+on 7 days 3.36: recompute, never copy a 30-day factor into another period.
+
+**Other accepted sets.** The Workbook's own final rule adds a fourth tier — 3× over 24h with a 2h
+confirmation window, a second ticket (sloth's `google-30d` emits it). Pyrra writes 14 / 7 / 2 / 1 on
+windows scaled to the SLO's period. Both are correct; a reviewer who checks "the factor must be
+14.4" fails every one of them. The arithmetic is the test, never the literal
+(`precedents/observability.md` § 12) — `burn-check.py` (`slo-rule-scan` §2) applies it.
 
 **Deriving the confirmation window:** make the short window **1/12 the long window**. That is where
 5m/1h and 30m/6h come from, and it is what lets you pick a window pair this table doesn't list — a
@@ -126,6 +133,9 @@ Keep the *spec* in version control next to the service; let the tool emit the ru
 - **Cause-based SLI** — the SLI thresholds CPU / pool / queue depth instead of a user-facing symptom. Move it to a saturation warning; put the SLO on latency/errors/freshness.
 - **Latency SLO stated as a raw percentile** (`p99 < 300ms` *as the SLO*) rather than a good-request count — it doesn't compose into a budget.
 - **SLA with no headroom** — internal SLO equals the contractual SLA, so you find out you breached from the customer.
+- **A factor that fails the arithmetic** — `factor × (1 − objective)` copied from another SLO (`14.4 * 0.01` on a 99.9% objective fires at ten times the intended burn), or a 30-day factor on a 7-day period. Judge it with `budget_fraction × period / long_window`, never against a remembered number.
+
+**Not a defect:** Pyrra's 14 / 7 / 2 / 1, the 4th 3× 24h/2h ticket tier, 13.44 on a 28-day period — each passes the arithmetic.
 
 ## Related
 

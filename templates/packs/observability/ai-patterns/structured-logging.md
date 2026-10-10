@@ -78,6 +78,34 @@ Every log line must have:
 
 Additional per domain: `user_id`, `order_id`, `payment_id`, `webhook_id`, etc.
 
+## Logging an error — what each logger keeps (LG-02)
+
+The most common log defect looks logged and isn't: the call exists, the line is emitted, and the
+error's type and stack are gone, because each logger takes the error object in exactly one argument
+shape and silently drops it in the others. Pass the error **object** in the shape the receiver keeps;
+a message built from `err.message` or `String(err)` keeps the text and loses the stack and the type.
+
+| Logger | Keeps type + stack | Drops it |
+|---|---|---|
+| pino 10 (and pino-http) | `logger.error(err, 'msg')` · `logger.error({ err }, 'msg')` | `logger.error('msg', err)` — the error is dropped entirely · `{ error: err }` without a custom `error` serializer serializes as `{}` · `` `${err.message}` `` / `String(err)` in the message |
+| NestJS `Logger` façade over nestjs-pino 5 | `error(err)` · `error({ err }, msg)` · `error(msg, err.stack)` (the stack as the second argument) | `error('msg', err)` · `` error(`… ${err.message}`) `` |
+| nestjs-pino `PinoLogger` | `error(err, msg)` · `error({ err }, msg)` | `error('msg', err)` · `{ error: err }` · `{ err: String(e) }` |
+| winston 3 | `logger.error(err)` with `format.errors({ stack: true })` in the logger's format | the same call without `format.errors` writes `{"level":"error"}` |
+| Python `logging` / structlog | `logger.exception('msg')` inside `except` · `logger.error('msg', exc_info=True)` | `logger.error(str(e))` · an f-string in `except` (ruff `TRY400`) · structlog `error=str(e)` |
+| Go slog / zap [K?] | the error **value** as a field: `zap.Error(err)` (adds `errorVerbose` when the error carries a stack) · `slog.Any("err", err)` (what it renders is the handler's choice) | `zap.String("err", err.Error())` · `%v` folded into the message |
+| SLF4J / Logback | a trailing throwable: `log.error("refund failed for {}", id, e)` | `log.error("failed: " + e)` · `e.getMessage()` · `e.printStackTrace()` |
+
+Measured on pino 10.4.0, pino-http 11.0.0, winston 3.19.0, nestjs-pino 5.3.1 and NestJS 11.2.7
+(`precedents/observability.md` § 22–24, § 38, § 52; `log-signal-scan` § Adapt). Re-run the
+captured-log test on the installed majors before relying on a row for another version. The Go row
+was not measured: a Go error has no stack unless its type adds one, and its type is lost once the
+value becomes a string — settle it with the captured log (V189) before citing it.
+
+**Detector and proof:** `log-signal-scan` §2 finds the shapes; the captured-log test (V189) settles
+them — drive the failure through the real entry point, capture the logger's own destination, and
+assert the error line carries the type and a stack frame. A spy on the call arguments proves what was
+passed, not what was written.
+
 ## Correlation-ID propagation — the part that is actually hard
 
 Deciding *which* field carries the correlation ID is trivial. Getting it onto **every** log line is
@@ -129,7 +157,7 @@ NEVER log:
 - Full email (`john@example.com` → `j**@example.com`)
 - Full names with other PII on the same line
 
-Redaction at the log library level — not "remember not to log it". Configure the project's logger with redaction paths for sensitive field names (e.g., `password`, `token`, nested variants `*.password`, `*.token`, payment fields like `card.number`); the censor renders as `[REDACTED]`.
+Which values are sensitive, and the redaction set itself, are security's call (`data-exposure-scan` § 6, when the security pack is installed); a hash of an email or id is not redaction — small input spaces reverse (`precedents/observability.md` § 32). This pattern owns only the mechanism: redaction at the log library level — not "remember not to log it". Configure the project's logger with redaction paths for sensitive field names (e.g., `password`, `token`, nested variants `*.password`, `*.token`, payment fields like `card.number`); the censor renders as `[REDACTED]`.
 
 ## Transport
 
@@ -163,6 +191,7 @@ weeks without blocking anything.
 ## Detectors (what a reviewer flags)
 
 - **Direct stdout / unstructured print in committed code** — the pack's most basic defect and the one a lint rule should own rather than a reviewer.
+- **Error logged without the error** — `error('msg', err)` on pino, `` `${err.message}` ``, `String(err)`, winston with no `format.errors` (table above): the line exists and the stack does not.
 - **Interpolated message** — a variable concatenated into the message string instead of emitted as a field. Unqueryable by that value, and it is how PII escapes redaction (the redactor inspects fields, not the message).
 - **Correlation gap below the edge** — an edge middleware sets a correlation ID and a service-layer log line has none: threading, or an async hop with no context re-entry.
 - **`traceId` / `spanId` in camelCase** — correlatable data, no automatic backend linking, no error.

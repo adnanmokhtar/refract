@@ -42,16 +42,46 @@ than in `rules/observability-principles.md`:
   § Testing).
 - **Dashboards + alert rules as code** — boards and rules live in the repo (Terraform / Crossplane /
   Grafonnet / vendor dashboards-as-code API) and are reviewed in PRs like any other file.
+- **Alert rules gate** — CI runs `promtool check rules` and the committed `promtool test rules`
+  files (fire at the failure, silent at a blip) over every loaded rule file, with pint or the
+  pack's `rule-inventory.py` beside them, on the binary of the server's Prometheus major; the job
+  fails on a seeded bad rule. `/obs-audit` checks this as its RULES GATE row.
 - **Telemetry pipeline back-pressure** — the OpenTelemetry Collector (or the equivalent agent) is
   configured with a bounded memory queue and an explicit drop policy, so "best-effort" is a decision
   someone made rather than a default nobody read.
 
 ## Cross-pack boundaries this pack asserts
 
-- **RUM / field Core Web Vitals** — the *performance* pack owns field measurement + attribution (`web-vitals-field`); this pack owns RUM ingestion, retention, cardinality and dashboarding. Design the pipe here; defer the field optimisation there.
-- **Profiling** — the *performance* pack owns ad-hoc / dev-time profiling (`/profile-perf`); this pack owns always-on production profiling and its trace linkage.
-- **Audit logging** — the *security* pack owns WHAT must be recorded and for how long; this pack owns the pipeline that records it tamper-evidently.
-- **Tracing** — the *distributed-systems* pack owns trace coverage as a resilience SLO; this pack owns the span mechanics that satisfy it.
+One owner per class. Each row applies **when the owner pack is installed**; without it the row is
+listed by the observability detector that saw it, tagged `<class> (owner pack not installed)`, and
+never graded here (`precedents/observability.md` P2). The observability column is everything this pack
+may file for that class.
+
+| Class | Owner | What observability keeps |
+|---|---|---|
+| A secret, token or PII value in any log, span, tracker event or telemetry sink; the redaction set; `sendDefaultPii` / `dataCollection` | **security** `data-exposure-scan` § 6 | The redaction *mechanism* in the logger and collector; `/obs-fix` re-runs that skill's canary after touching a logger, serializer or sink. Hashing an email or id is never offered as redaction (precedents § 32) |
+| Log injection (CR/LF into text logs) | **security** `injection-scan` § 10 | — (a JSON encoder downgrades it) |
+| Public health or actuator details · publicly served source maps · inline notification secrets (Slack webhook, PagerDuty key, Sentry auth token) | **security** `data-exposure-scan` § 3 · `xss-scan` § 13 · `secret-scan` | "The tracker cannot symbolicate" (`error-tracking-scan` §3); `hidden` maps + delete-after-upload satisfy both |
+| A dropped or swallowed error; a cause lost on rethrow; an empty or comment-only catch | **code-quality** `error-handling-scan` | A handled failure that writes no log ≥ warn, counter or span event (LG-01, `log-signal-scan` §1) and an error log that loses its stack or type (LG-02, §2) |
+| Liveness that checks a shared dependency | **performance** `request-path-scan` §15 | Readiness that lies (HC-01, `metric-hygiene-scan` §7) and probe traffic in telemetry (HC-02, §8) |
+| Probe presence, shape and timings in manifests; `terminationGracePeriodSeconds` | **infrastructure** `k8s-availability-scan` §2, `@k8s-reviewer` | — (the handler's semantics above are observability's and performance's) |
+| PrometheusRule / ServiceMonitor / PodMonitor schema; collector and agent RBAC wiring; proxy and ingress access-log format | **infrastructure** (`@k8s-reviewer`, `k8s-wiring-scan` §6); RBAC privilege breadth → **security** `iac-scan` § 3 | Whether a rule or monitor is *selected* (AL-22, `alert-rule-lint` §4; PL-09, `telemetry-config-scan` §7) and the telemetry blast radius of a collector, as corroboration |
+| A CI job that runs promtool / pint but is masked (`continue-on-error`, `\|\| true`, a skipped required check) | **devops** `pipeline-integrity-scan` §1–§3 | The RULES GATE's existence and power in `/obs-audit`, corroborated |
+| The graceful-shutdown chain (SIGTERM → drain → exit) | **devops** (code chain) · **infrastructure** (manifest) | Only the telemetry flush inside it (LG-06, `trace-propagation-scan` §5) |
+| Canary analysis and post-deploy watch queries | **devops** (`progressive-delivery`, `monitor-deploy`) | The grounding technique: an analysis selector that resolves in no inventory is AL-10-shaped — devops cites `rule-inventory.py --check=selectors` |
+| Volume, series and retention cost in money | **finops** `@cost-reviewer` | The arithmetic: series = ∏ distinct label values × replicas, bytes per request, bytes per day |
+| Native symbol upload (dSYM, R8 / ProGuard mapping) | **mobile** | Release, environment and process hooks for mobile tracker SDKs (`error-tracking-scan` §1–§2) |
+| RUM / field Core Web Vitals | **performance** `web-vitals-field` (field measurement + attribution) | RUM ingestion, retention, label cardinality and dashboarding — design the pipe here, defer the field optimisation there |
+| Profiling | **performance** `/profile-perf` (ad-hoc, dev-time) | Always-on production profiling and its trace linkage |
+| Audit logging | **security** (WHAT must be recorded, and for how long) | The pipeline that records it tamper-evidently |
+| Trace coverage as a resilience target | **distributed-systems** | The span mechanics that satisfy it |
+
+Inside the pack, one owner per output: `alert-rule-lint` owns every decidable alert check and
+`alert-audit` only alert behaviour; `slo-rule-scan` owns SLO definitions, `slo-audit` attainment and
+the single write of `ai/runtime/slos.md` (`/alert-design` proposes rows and dispatches it);
+`@sre-engineer` owns the budget-policy text and postmortems (`ai/reliability/**`);
+`@incident-responder` owns runbook bodies (`ai/runbooks/**`). The class → detector map is
+`ownership.json` rows `obs-logs` … `obs-pipeline`.
 
 ## Where stack-specific names live
 

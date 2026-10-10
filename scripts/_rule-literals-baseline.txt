@@ -28,7 +28,7 @@ templates/packs/frontend/rules/frontend-principles.md 4
 templates/packs/migration/rules/migration-discipline.md 2
 templates/packs/mobile/rules/mobile-principles.md 2
 templates/packs/mobile/rules/render-discipline.md 1
-templates/packs/observability/rules/observability-principles.md 4
+templates/packs/observability/rules/observability-principles.md 2
 templates/packs/performance/rules/performance-principles.md 3
 templates/packs/security/rules/security-principles.md 1
 templates/packs/ui-ux/rules/ui-principles.md 6

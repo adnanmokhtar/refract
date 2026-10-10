@@ -38,12 +38,12 @@ Prevents the 3am gap: incident fires, you have no correlation ID, no trace, no m
 ## Must not
 
 - Direct stdout / unstructured print calls (any language's `console.log` / `print` / `fmt.Println` / `puts` / `echo` / `System.out.println`) in committed code. Use the project logger with fields.
-- Log passwords, full tokens, full PANs, full national IDs, full health data. Mask: last 4 digits or hash.
+- Log passwords, full tokens, full PANs, full national IDs, full health data. The redaction set is security's (`data-exposure-scan` § 6); a hash of an email or id is not redaction.
 - Log objects whole (e.g., logging the entire user / request object) without scrubbing — leaks PII via field names you forgot.
 - High-cardinality labels on metrics: `user_id`, `request_id`, `email`, `path` with IDs in it. A label is safe only when `series = ∏(distinct label values) × replicas` is bounded and you have **computed** it, not asserted it.
 - Alert on causes (CPU > 80%, queue depth > 100) when the symptom is what users feel (latency, error rate, SLO burn).
-- Sample errors. 100% of errors trace; 1–10% of successes is fine.
-- Ship a metric without a dashboard or alert. Dead metrics = paid storage, no value.
+- Rely on a head sampler to keep errors — it decides before the outcome; keep error traces with a tail `status_code` policy or tracker capture beside the sampled trace.
+- Ship a metric with no consumer (a rule, dashboard or SLO) named in the change. Dead metrics = paid storage, no value.
 - "Best-effort" telemetry — dropping spans on a slow exporter or logs on a full buffer. Bounded queues + back-pressure.
 
 ## Should

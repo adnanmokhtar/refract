@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "observability",
-  "version": "1.4.1",
-  "released": "2026-08-23",
+  "version": "2.0.0",
+  "released": "2026-10-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "audits get a NO-DATA verdict and an evidence column; OTel semconv names refreshed; the three-tier burn table reconciled pack-wide.",
+  "summary": "Seven tool-proved detectors, /obs-audit and /obs-fix; alert-audit and slo-audit narrowed to behaviour; burn factors and page budget by arithmetic (THR-OBS-BURN, THR-OBS-PAGE-BUDGET); agent Contracts.",
   "changelog": "CHANGELOG.md"
 }

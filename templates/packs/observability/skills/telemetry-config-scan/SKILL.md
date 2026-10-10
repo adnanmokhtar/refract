@@ -62,7 +62,7 @@ Exit codes are read, never assumed (precedents § 53), and these were measured:
 - **promtool check config** exits 1 on `scrape_timeout` greater than `scrape_interval`, with or without `--syntax-only`.
 - **dashboard-linter** exits **0 without `--strict` while printing errors** (13 on the seeded board). With `--strict` it also exits 1 on a datasource-variable *label* warning, so its exit code is not the oracle: count the error rows of the rules §8 names. Its counter rule fires on `sum(orders_total)` but not on `orders_total{job="api"}`, and its rate-interval rule is silent on a board with no datasource template variable — `dash.py` (pre-flight 8) closes both gaps. The v2 rule id is `v2-required-fields-rule`.
 - **vector validate --no-environment** checks config and VRL only; a label map is grep-only.
-- **Rewrites in place:** `lokitool rules lint` (measured: it added `namespace:`; `--dry-run` and `rules check` leave the file), `mimirtool rules lint` without `-n`, `dashboard-linter lint --fix`. Precedents § 53 also lists pint, but pint 0.89.2 `lint` left every file byte-identical (`alert-rule-lint` § Measured). None of them runs in the project tree.
+- **Rewrites in place:** `lokitool rules lint` (measured: it added `namespace:`; `--dry-run` and `rules check` leave the file), `mimirtool rules lint` without `-n`, `dashboard-linter lint --fix`.
 
 dashboard-linter keeps only §8's rules through a scratch config (`-c "$T/dl.lint"`): `exclusions:` for `template-job-rule`, `template-instance-rule`, `target-job-rule`, `target-instance-rule`, `template-label-promql-rule`, `template-on-time-change-reload-rule`, `panel-title-description-rule` and `uneditable-dashboard` (style, and noise on multi-datasource boards), each with a `reason:`.
 

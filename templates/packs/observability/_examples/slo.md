@@ -52,7 +52,7 @@ Keep the internal SLO *below* any contractual SLA (SLA 99.9% → SLO 99.95%) so 
 
 `6h / 6×` is a **page**, not a ticket — a six-hour burn at that rate is an ongoing outage. The tier that tickets is `3d / 1×`, and it is the one usually missing: a leak burning at exactly 1× never trips either page tier by construction, so without this row nothing ever fires for "we will miss the SLO at month-end".
 
-Burn rates: `0.02 / (1/720) = 14.4×`; `0.05 / (6/720) = 6×`; `0.10 / (72/720) = 1×`. Confirmation window = **1/12 of the long window** (that is where 5m/1h, 30m/6h, 6h/3d come from — use it to derive any pair this table lacks). The alert fires only when long AND short both exceed threshold: the short window makes the burn *current* (kills the alert after recovery), the long window stops flapping on a spike. A single-window alert does neither.
+Burn rates come from one formula, `factor = budget_fraction × period / long_window` (`THR-OBS-BURN`): on 30 days (720h) `0.02 × 720 / 1 = 14.4`, `0.05 × 720 / 6 = 6`, `0.10 × 720 / 72 = 1`; on 28 days the fast factor is 13.44 — recompute, never copy a 30-day factor into another period. The Workbook's fourth tier (3× over 24h/2h, a second ticket; sloth `google-30d`) and Pyrra's 14 / 7 / 2 / 1 on period-scaled windows are accepted sets: the arithmetic is the test, never the literal (`precedents/observability.md` § 12). Confirmation window = **1/12 of the long window** (that is where 5m/1h, 30m/6h, 6h/3d come from — use it to derive any pair this table lacks). The alert fires only when long AND short both exceed threshold: the short window makes the burn *current* (kills the alert after recovery), the long window stops flapping on a spike. A single-window alert does neither.
 
 ```promql
 # SLO = 99.9%  →  budget = 0.001
@@ -110,6 +110,7 @@ Sloth compiles this into the recording + multi-window burn-rate rules above. Ope
 - Single-window burn alert (no short confirmation window) — fires stale, misses fast burns.
 - Only two tiers wired (no `3d / 1×` ticket) — a leak at exactly target rate never alerts.
 - `6h / 6×` labelled `ticket` — that tier pages; a six-hour outage should not wait for business hours.
+- A factor that fails the arithmetic — `14.4 * 0.01` on a 99.9% objective, or a 30-day factor on a 7-day period (`burn-check.py`, `slo-rule-scan` §2). Not a defect: Pyrra's 14 / 7 / 2 / 1, the 4th 3× 24h/2h ticket tier, 13.44 on 28 days.
 
 ## References
 
