@@ -788,6 +788,8 @@ These ship with their respective packs when the track is selected/detected.
 | `/perf-fix` | Close the findings a /perf-audit report lists, one at a time — re-verify, a failing-first run-invariant oracle across the class, a root-cause fix, guardrails re-measured inside the noise band, the owning detector re-run, a sibling sweep. Never claims a speedup without a measured before/after; stops and asks before changing caching semantics, the data model or infrastructure. |
 | `/obs-audit` | Read-only observability audit: logs, traces, metrics, errors, alerts, SLOs, pipeline; class ledger and verdict. |
 | `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. |
+| `/infra-audit` | Read-only infrastructure audit: IaC, DR, serverless, k8s, edge, DNS/TLS, network; class ledger and verdict. |
+| `/infra-fix` | Close /infra-audit findings, failing-first at each oracle tier, with a full re-scan. |
 
 ### Migration track (when `--include=migration` or auto-detected)
 
@@ -1279,6 +1281,8 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 | `/deploy-stage`        | Deploy current branch to staging. Detects deploy mechanism (Helm / k8s / Vercel / Netlify / etc.). Pre-flight + monitor + report. Halt-on-red. |
 | `/dockerize`           | Add Dockerfile + docker-compose. |
 | `/add-ci`              | Add CI workflow. |
+| `/devops-audit` | Read-only delivery audit: CI gates, caches, releases, deploys, images, compose; class ledger and verdict. |
+| `/devops-fix` | Close /devops-audit findings, failing-first at each oracle tier, diff-guarded. |
 
 ### Documentation track
 

@@ -44,7 +44,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md (deploy artifacts) + _extracted-codebase.md § "Data model" (migrations may need pre-deploy)
   sections: [overview, deploy_strategy_in_use, db_migration_compatibility, rollback_path, examples, pitfalls]
   mirror_existing: true
-  fallback: _examples/zero-downtime-deploys.md
+  fallback: ai-patterns/zero-downtime-deploys.md   # the source IS the fallback (the abridged copy carried the pre-1.34 preStop text)
 
 - name: infra-principles
   kind: rule
@@ -57,7 +57,25 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: k8s-generate
   kind: command
   triggers: { container_target_likely: true }
-  fallback: _examples/k8s-generate.md
+  fallback: commands/k8s-generate.md   # the source IS the fallback: the abridged copy demanded CPU limits and the old scorecard
+
+- name: infra-audit
+  kind: command
+  # dispatches all twelve detectors on a whole repo (k8s-render-scan first: its render ledger feeds the rest); each prints
+  # N/A for an absent surface, so a repo whose only infrastructure is a runbook, a proxy config or a backup job still gets the ledger.
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "helm\\s+(upgrade|install)\\b|^\\s*(proxy_pass|reverse_proxy)\\b|AWSTemplateFormatVersion|aws-cdk-lib|@pulumi/|\\b(pg_dump|mysqldump|velero)\\b|\\b(doctl|gcloud|az|hcloud)\\s+\\S+(\\s+\\S+)?\\s+create\\b"   # a runbook-installed chart, a proxy, a CFN/CDK/Pulumi program, a backup job or a runbook create line
+  extracts_from: _extracted-codebase.md § Infra (IaC engines and lock files; render roots and the env -> CD-target map incl. runbook deploy lines; target Kubernetes minor; platform installs and their pins; edge hops; stateful stores and backup paths; queues and functions) + the installed owner packs and judges
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/infra-audit.md   # the source IS the fallback, as for obs-audit and db-audit; the render-first dispatch, the offline lane rules, the fixed class ledger, the five GO-critical controls and the READY-unverified → GO-UNVERIFIED rule are the contract
+
+- name: infra-fix
+  kind: command
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "helm\\s+(upgrade|install)\\b|^\\s*(proxy_pass|reverse_proxy)\\b|AWSTemplateFormatVersion|aws-cdk-lib|@pulumi/|\\b(pg_dump|mysqldump|velero)\\b|\\b(doctl|gcloud|az|hcloud)\\s+\\S+(\\s+\\S+)?\\s+create\\b"
+  fallback: commands/infra-fix.md   # the source IS the fallback, as for obs-fix and db-fix; a skeleton would drop the full re-scan, the 3-iteration cap, the installed-schema rule, the silencing grep and the STOP lines (stateful replace, deletion, retention, network, live apply)
 
 - name: k8s-render-scan
   kind: skill
@@ -119,7 +137,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { k8s_detected: true }
   sections: [boundary, premise, halt_conditions, tools, checks, output, rules]
-  fallback: _examples/k8s-audit.md
+  fallback: skills/k8s-audit/SKILL.md   # the source IS the fallback: the abridged copy ran kubent and had no context halt
 
 - name: network-exposure-audit
   kind: skill
@@ -141,7 +159,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { grep_evidence: "kyverno|gatekeeper|ClusterImagePolicy|ValidatingAdmissionPolicy|cosign|policy-controller|PodSecurity" }
   extracts_from: _extracted-codebase.md § "Infra" (admission engine + registry + CI OIDC identity)
-  fallback: _examples/admission-policy.md
+  fallback: skills/admission-policy/SKILL.md   # the source IS the fallback: the abridged copy dry-ran against the ambient context
 
 - name: multi-region
   kind: pattern
@@ -170,8 +188,8 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: tf-plan-review
   kind: skill
   triggers: { terraform_detected: true }
-  sections: [premise, halt_conditions, when_to_use, run_the_plan, categorize_changes, high_risk_patterns, safety_mechanisms, cross_reference, output_format, failure_modes]
-  fallback: stub-from-sections
+  sections: [premise, boundaries, halt_conditions, when_to_use, read_the_saved_plan, join_by_plan_address, read_the_config, safety_checks, output_format, failure_modes]
+  fallback: skills/tf-plan-review/SKILL.md
 
 - name: iac-lifecycle-scan
   kind: skill

@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**215 commands** — core 16 · 24 packs (153) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**219 commands** — core 16 · 24 packs (157) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -20,12 +20,12 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — data-engineering](#pack--data-engineering) — 4
 - [Pack — database](#pack--database) — 5
 - [Pack — delivery](#pack--delivery) — 1
-- [Pack — devops](#pack--devops) — 4
+- [Pack — devops](#pack--devops) — 6
 - [Pack — distributed-systems](#pack--distributed-systems) — 4
 - [Pack — documentation](#pack--documentation) — 3
 - [Pack — finops](#pack--finops) — 4
 - [Pack — frontend](#pack--frontend) — 10
-- [Pack — infrastructure](#pack--infrastructure) — 4
+- [Pack — infrastructure](#pack--infrastructure) — 6
 - [Pack — learning](#pack--learning) — 8
 - [Pack — migration](#pack--migration) — 21
 - [Pack — mobile](#pack--mobile) — 6
@@ -159,7 +159,9 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-ci` | Generate or update a CI workflow for the detected platform and stack. | — | `/add-ci [platform]` |
-| `/deploy-stage` | Deploy current branch to staging environment. | `--branch=<name>`, `--commit=<sha>`, `--no-monitor`, `--watch=<duration>`, `--allow-dirty`, `--skip-ci-check` | `/deploy-stage --branch=feature/refund-button` |
+| `/deploy-stage` | Deploy current branch to staging environment. | `--branch=<name>`, `--commit=<sha>`, `--no-monitor`, `--watch=<duration>`, `--allow-dirty`, `--skip-ci-check`, `--out` | `/deploy-stage --branch=feature/refund-button` |
+| `/devops-audit` | Read-only delivery audit: CI gates, caches, releases, deploys, images, compose; class ledger and… | — | `/devops-audit` |
+| `/devops-fix` | Close /devops-audit findings, failing-first at each oracle tier, diff-guarded. | — | `/devops-fix` |
 | `/dockerize` | Generate a production-ready Dockerfile, .dockerignore, and optional compose for local dev. | — | `/dockerize` |
 | `/rollback-deploy` | Roll back the current environment to a previous known-good deploy. | `--to=<version>`, `--env`, `--dry-run`, `--force` | `/rollback-deploy --env=staging` |
 
@@ -210,6 +212,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/audit-iam` | Audit IAM (cloud + service) policies for least-privilege violations, dead permissions, overly-broad… | — | `/audit-iam` |
 | `/cost-audit` | Cloud cost audit. | — | `/cost-audit` |
+| `/infra-audit` | Read-only infrastructure audit: IaC, DR, serverless, k8s, edge, DNS/TLS, network; class ledger and… | `--whole-repo`, `--classes=<family,…>`, `--env=<overlay\|values\|workspace>`, `--plan`, `--kind`, `--live=<context\|profile>` | `/infra-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--env=<overlay\|values\|workspace>] [--plan] [--kind] [--live=<context\|profile>]` |
+| `/infra-fix` | Close /infra-audit findings, failing-first at each oracle tier, with a full re-scan. | `--all`, `--kind`, `--live=<context\|profile>` | `/infra-fix [audit-report-path \| finding-id ... \| --all] [--kind] [--live=<context\|profile>]` |
 | `/k8s-generate` | Generate production-ready k8s manifests (Deployment, Service, Ingress, HPA, PDB, NetworkPolicy). | — | `/k8s-generate <service>` |
 | `/provision-tier` | Provision a new environment tier (dev / staging / prod / DR). | — | `/provision-tier` |
 

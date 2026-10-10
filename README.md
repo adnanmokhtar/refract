@@ -167,7 +167,7 @@ path or a plain-English description of the area you mean.
 | `/setup-project-adapters` | Re-sync tool adapters for the current repository. |
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
 
-Another 155 commands ship inside the packs and install per-project when their pack is selected.
+Another 157 commands ship inside the packs and install per-project when their pack is selected.
 
 **Every command supports `--plan`**, which is where this gets economical: plan on a strong model,
 execute on a cheap one.
@@ -214,7 +214,7 @@ re-verify rather than silently shipping a broken translation.
 | **24 packs** | Role-based knowledge tracks, not framework tracks |
 | **97 agents** | Specialised reviewers and architects |
 | **183 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **171 commands** | 16 global + 155 pack-level |
+| **173 commands** | 16 global + 157 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
 | **140 scripts** | Validators, linters, sync, search and audit tooling |
