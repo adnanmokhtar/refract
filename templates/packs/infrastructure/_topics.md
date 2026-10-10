@@ -46,6 +46,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { container_target_likely: true }
   fallback: _examples/k8s-generate.md
 
+- name: k8s-render-scan
+  kind: skill
+  triggers:
+    k8s_detected: true
+    OR_grep_evidence: "^kind:\\s*Kustomization|^apiVersion:\\s*v2$|helm\\s+(upgrade|install|template)\\b|argoproj\\.io/|fluxcd\\.io/"   # a runbook-installed chart or an Argo/Flux object is a render root even with no manifest in the repo
+  extracts_from: _extracted-codebase.md § Infra (Kustomize roots, charts and values files, CD targets, Helm major and target Kubernetes minor)
+  fallback: skills/k8s-render-scan/SKILL.md
+
 - name: k8s-audit
   kind: skill
   triggers: { k8s_detected: true }
