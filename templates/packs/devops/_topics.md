@@ -73,10 +73,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [premise, when_to_use, args, what_happens, platform_mapping, halts, hard_rules, output, cross_references]
   fallback: commands/rollback-deploy.md   # no _examples/ stub — fall back to the live source
 
-- name: dockerfile-lint
+- name: container-build-scan
   kind: skill
-  triggers: { dockerfile_detected: true }
-  fallback: _examples/dockerfile-lint.md
+  triggers: { dockerfile_detected: true }   # Dockerfile*, *.dockerfile, Containerfile*, an ignore file, or a build invocation (CI build-push, compose build:, bake)
+  extracts_from: _extracted-codebase.md § Deploy (Dockerfiles, build invocations and targets, base images, stack lanes)
+  fallback: skills/container-build-scan/SKILL.md   # source-as-fallback; replaces dockerfile-lint; no Dockerfile → every § prints N/A (no Dockerfile)
 
 - name: release-security
   kind: skill
@@ -109,4 +110,10 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { deploy_target_detected: true }   # a CI deploy job, deploy script, manifest/chart, migration runner or service bootstrap
   extracts_from: _extracted-codebase.md § Deploy (deploy units, manifests, migration runner, service roots)
   fallback: skills/deploy-safety-scan/SKILL.md   # source-as-fallback; no deploy unit → §2–§4 print N/A (no deploy unit)
+
+- name: release-integrity-scan
+  kind: skill
+  triggers: { ci_config_detected: true }   # a publish site (registry push, package publish, release asset), a release trigger or tool, a verify step, or a retention rule
+  extracts_from: _extracted-codebase.md § Deploy (release units, registries, release tooling, version sources)
+  fallback: skills/release-integrity-scan/SKILL.md   # source-as-fallback; no publish site → §3–§5 print N/A (no publish site)
 ```

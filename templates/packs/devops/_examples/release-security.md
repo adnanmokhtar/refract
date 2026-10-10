@@ -1,61 +1,69 @@
 ---
 name: release-security
-description: Container-image supply-chain gate — trivy/grype CVE scan of the image's OS and baked libraries, syft SBOM, cosign digest signing plus provenance attestation. Run in CI after the image is built and pushed, before deploy promotes it. Not the Dockerfile linter (`dockerfile-lint`) and not the lockfile audit (`deps-audit`) — this scans the built image, and `admission-policy` is what verifies the signature at deploy.
+description: "Image gate runner: scan the built digest, SBOM, sign and attest, verify by exact identity; cosign ≥ 3.1.3."
 kind: example
 pack: devops
 ---
 
 # Skill: release-security
 
-A built image is a supply-chain artifact. The build→registry gate: scan CVEs, generate SBOM, sign the digest, attest provenance, verify at deploy. The executor the security pack's OWASP A03 check dispatches to. Every finding cites the image + CVE id (or missing gate) + fix. Covers the image OS/baked-lib layer (what deps-audit's manifest scan misses) and the signature/SBOM (what dockerfile-lint's Dockerfile check misses).
-
 ## Premise
 
-A built container image is a **supply-chain artifact**, not just a deploy blob. The build→registry gate has four jobs the pack references everywhere but executes nowhere: **scan** the image for OS/library CVEs, **generate an SBOM**, **sign** the digest, and **attest provenance** — then **verify** at deploy. This skill is the executor that closes that loop (the security pack's `@security-auditor` A03 check *dispatches here*; `dockerfile-lint` stops at hadolint; `deps-audit` scans the manifest, not the image's OS layer).
+A built image is a supply-chain artifact. The gate: scan CVEs, generate an SBOM, sign the digest, attest provenance, verify by the exact workflow and ref. Two modes: **CI mode** (wired by `/dockerize` and `/add-ci`; signs and pushes in the user's pipeline) and **audit mode** (called by `release-integrity-scan` §5 and security's A03 with an existing digest; read-only — never signs, tags or pushes). Every finding cites `<repo>@<digest>` + the CVE id (or the missing gate, or the identity a verify accepts) + the fix. Oracles: `proof-oracles.md` § DevOps V223, V224; precedents § 19, § 21, § 41.
 
-**Every finding cites the image + the CVE id (or the missing gate) + the fix.** "Image looks insecure" without the cited CVE/digest is not a finding. This is a runner — it executes the tools and gates the pipeline on the result.
+## Prerequisites — floors first (`THR-SCANNER-FLOOR`)
 
-## Prerequisites
-
-- `trivy` (or `grype`) for image CVE scan; `syft` for SBOM; `cosign` for signing/attestation.
-- A registry the image is pushed to (sign the digest there).
-- **Keyless signing via OIDC** (Fulcio/Rekor) preferred over a long-lived cosign key — no key to leak; identity = the CI workload.
+cosign **≥ 3.1.3** (GHSA-fx35-mq7g-6g98, a verification bypass fixed 2026-08-06); trivy pinned by version **and** digest (`aquasec/trivy:0.75.0@sha256:<digest>`; 76 of 77 `trivy-action` tags were force-moved on 2026-03-19); syft and grype pinned the same way; keyless OIDC signing over a stored key. A tool below its floor makes its rows `NOT-RUN`, never PASS.
 
 ## Procedure
 
-1. `trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 <image>@<digest>` (or grype) — triage by CVSS + EPSS + KEV. Note that `--ignore-unfixed` makes a PASS mean "no *fixable* HIGH/CRITICAL"; report which claim you actually made.
-2. `syft <image>@<digest> -o cyclonedx-json > sbom.cdx.json`, then **attest** it:
-   `cosign attest --yes --type cyclonedx --predicate sbom.cdx.json <image>@<digest>`.
-   `cosign attach sbom` is deprecated — cosign's CLI declares `attach` "will be removed in v4.0.0" —
-   and it is weaker anyway: an attached SBOM is an unsigned blob beside the image; an attestation is
-   signed by the same identity that signed the digest, so `cosign verify-attestation` can prove it belongs to this build.
-3. `cosign sign --yes <image>@<digest>` — sign the DIGEST, keyless via CI OIDC (not a stored key).
-4. `cosign attest --type slsaprovenance` (or actions/attest-build-provenance).
-5. Verify at deploy: `cosign verify` / `cosign verify-attestation` + a K8s admission policy (Kyverno/Sigstore — infra pack) so unsigned/CVE-failing images can't admit.
+0. Work on `<repo>@<digest>` (the one build that pushes: `steps.build.outputs.digest`), never a tag.
+1. Scan **before** the image is pullable (push by digest to a staging repo, scan, promote that digest) — or scan the pushed digest and gate the deploy on it, said plainly. Never scan a `load: true` image and push a second build (unscanned, and no attestations).
+   `trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 <repo>@<digest>` — a PASS means "no *fixable* High/Critical" (precedents § 21); triage by CVSS + EPSS + KEV.
+2. `syft scan <repo>@<digest> --scope all-layers -o cyclonedx-json=sbom.cdx.json` (the default `squashed` hides packages deleted in a later layer), then **attest** it:
+   `cosign attest --yes --type cyclonedx --predicate sbom.cdx.json <repo>@<digest>` (or `actions/attest` v4 with `sbom-path`).
+   `cosign attach sbom` is deprecated — cosign declares `attach` "will be removed in v4.0.0" — and weaker: an attached SBOM is an unsigned blob; an attestation is signed by the build identity.
+3. `cosign sign --yes --recursive <repo>@<digest>` — the digest, every platform of an index, keyless.
+4. Provenance SLSA v1: `actions/attest` v4, or `cosign attest --type slsaprovenance1` (`slsaprovenance` is v0.2). build-push-action's own provenance is v0.2 by default and `mode=max` on public repos records build-arg values: a secret build arg is security's (`iac-scan` 2b); use `--mount=type=secret`.
+5. Verify by exact identity and issuer:
+   `cosign verify --certificate-identity 'https://github.com/<o>/<r>/.github/workflows/<release>.yml@refs/heads/main' --certificate-oidc-issuer https://token.actions.githubusercontent.com <repo>@<digest>`;
+   `gh attestation verify oci://<repo>@<digest> --repo <o>/<r> --signer-workflow <o>/<r>/.github/workflows/<release>.yml --source-ref refs/heads/main --deny-self-hosted-runners`.
+   A valid attestation from the wrong workflow is the TanStack shape (2026-05-11). Regexp identities, `--owner` alone, a missing issuer, `--insecure-ignore-tlog`, a tag or `|| true` verify nothing. **Negative test (V224):** a scratch image signed by another workflow or ref, in a sandbox repo and a scratch registry, must be rejected.
+6. Digest equality (V223): scanned = signed = pushed = deployed.
+
+Admission enforcement with the same identity → infrastructure `admission-policy`; upgrade the verifier with a cosign v3 signer (bundles, OCI 1.1 referrers).
+
+## Runner contract (`release-integrity-scan` §5)
+
+Input: `<repo>@<digest>`, expected identity + issuer, platforms, `THR-SCANNER-FLOOR`. Output rows, each with its command and exit, or `NOT-RUN (<reason>)`: `FLOOR` · `SCAN` · `SBOM` (attested / attached / none, scope) · `SIGN` (platforms signed) · `VERIFY+` · `VERIFY-` (REJECTED is the pass; ACCEPTED = V224 failure) · `DIGEST` (built = scanned = pushed = deployed). A `NOT-RUN` makes §5 `blocked`.
 
 ## Output
 
 ```
-release-security — <image>@<digest>   (scanner: trivy | grype)
+release-security — <repo>@<digest>   (mode: audit · trivy 0.75.0@sha256 · cosign 3.1.3)
 
-CVE scan:   FAIL — 2 HIGH, 1 CRITICAL (fixed available)
-  - CVE-2025-XXXX (CRITICAL, EPSS 0.72, KEV=yes) openssl 3.0.x → 3.0.y  [BLOCKER]
-  - CVE-2025-YYYY (HIGH) libxml2 → update base image
-SBOM:       OK (cyclonedx, 214 components, attached)
-Signature:  MISSING — image not signed (cosign sign the digest, keyless OIDC)  [BLOCKER]
-Provenance: MISSING — no SLSA attestation
+FLOOR:    OK
+CVE scan: FAIL — 1 CRITICAL, 2 HIGH (fixes available; --ignore-unfixed)
+SBOM:     attached, not attested — replace with cosign attest / actions/attest
+Sign:     1 of 2 platform manifests unsigned (no --recursive)
+Verify+:  pass (exact identity + issuer) · Verify-: REJECTED (another workflow's signature)
+Digest:   built = scanned = pushed; deployed: NOT-RUN (no cluster access)
 
-Verdict: BLOCK — fix the CRITICAL + sign before release.
+Verdict: BLOCK — fix the CRITICAL and sign every platform before release.
 ```
 
 ## Gotchas
 
-Sign the digest not the mutable tag; keyless > stored keys; unfixed base CVEs → slimmer base, not suppress; signing without verify-at-admission is theater; **attaching is not attesting** (an attached SBOM is an unsigned blob anyone with push access can replace); don't re-report app-lockfile CVEs (that's deps-audit).
+Sign the digest, not the tag; signing without a pinned-identity verify is theatre; unfixed base CVEs → a slimmer base, not suppression; a manifest list is one digest (precedents § 19) — promote the index, sign `--recursive`; don't re-report app-lockfile CVEs (that's `deps-audit`).
+
+## When to run
+
+CI mode on every release or tag build (scan before the push that makes it pullable, or gate the deploy on the pushed digest's scan). Audit mode when `release-integrity-scan` §5 or security A03 hands it a digest, and on a base-image bump or a new advisory.
 
 ## Halt conditions
 
-No CVE finding without the cited id + fix; never sign an image that failed the CVE gate; no PASS on an unfixed CRITICAL without explicit EPSS/KEV-informed risk-acceptance; "signed/verified" only if cosign verify actually ran.
+No CVE finding without the cited id + fix; never sign an image that failed the CVE gate; no PASS on an unfixed CRITICAL without explicit EPSS/KEV-informed risk acceptance; "verified" only if a verify ran with an exact identity and issuer, saying whether the negative test ran; a tool below its floor is `NOT-RUN`; audit mode never signs, tags, pushes or deletes on the user's registry.
 
 ## Related
 
-dockerize / add-ci (wire the gate), dockerfile-lint (Dockerfile half), @ci-reviewer, security-auditor A03 (dispatches here), deps-audit (manifest counterpart), infrastructure pack (admission policy).
+`release-integrity-scan` (the detector that calls this), `/dockerize` / `/add-ci` (wire the gate), `container-build-scan` (the Dockerfile half), `@ci-reviewer` / `@deployment-engineer`, security-auditor A03 (dispatches here), `deps-audit` (manifest counterpart), infrastructure `admission-policy` (enforces verify).
