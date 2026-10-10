@@ -786,6 +786,8 @@ These ship with their respective packs when the track is selected/detected.
 | `/security-fix` | Close the findings a /security-audit report lists — one finding at a time, an exploit test that fails first, a root-cause fix, the same detector re-run on the patched line, then a re-audit. |
 | `/security-live-scan` | Non-destructive external scan of hosts you own — TLS, security headers, exposed files and admin panels, CORS, open ports, rate limits — against the running frontend and API, scoped to an allow-list you confirm first. |
 | `/perf-fix` | Close the findings a /perf-audit report lists, one at a time — re-verify, a failing-first run-invariant oracle across the class, a root-cause fix, guardrails re-measured inside the noise band, the owning detector re-run, a sibling sweep. Never claims a speedup without a measured before/after; stops and asks before changing caching semantics, the data model or infrastructure. |
+| `/obs-audit` | Read-only observability audit: logs, traces, metrics, errors, alerts, SLOs, pipeline; class ledger and verdict. |
+| `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. |
 
 ### Migration track (when `--include=migration` or auto-detected)
 

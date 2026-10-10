@@ -34,7 +34,7 @@ A candidate is a finding when all four hold. These are the protocol's gates as `
   - **Without code-quality:** dropped-error hits are listed as `quality-class (owner pack not installed)` and are not graded. A site both skills see is reported once, by `<file:line>`.
 - **A secret, token or PII value in any log, or a redaction gap**, goes to security `data-exposure-scan` § 6, when the security pack is installed. This skill cites its rows and stops. Hashing an id is never offered as redaction (precedents § 32). **Log injection** (CR/LF into text logs) goes to security `injection-scan` § 10. Without the security pack, these rows are tagged `security-class (owner pack not installed)`, listed and never graded here (precedents P2). §5 keeps only the *volume* half of a payload logged per item.
 - **Telemetry lost on exit** (LG-06: flush on SIGTERM, `process.exit` after a log) goes to `trace-propagation-scan` § 5 (this pack).
-- **Exceptions that never reach the error tracker** go to `error-tracking-scan` (this pack, when shipped). **Browser and mobile logging** are excluded from the pre-flight and belong there too.
+- **Exceptions that never reach the error tracker** go to `error-tracking-scan` (this pack). **Browser and mobile logging** are excluded from the pre-flight and belong there too.
 - **The dollar cost of volume** is priced by `@cost-reviewer` (finops pack, when installed; without it the arithmetic is reported unpriced). §5 here does the arithmetic: bytes per request and lines per probe.
 
 ## Adapt to the codebase — the logger lanes
@@ -403,8 +403,8 @@ The verifier reads [`precedents/observability.md`](../../../../snippets/preceden
 ## When to run
 
 - On any diff that adds or changes a catch, a logger call at warn or above, a logger or request-log config, a Nest bootstrap, an exception filter, a job processor or consumer, or a tracing bootstrap.
-- On every whole-repo `/obs-audit` (when it ships), reporting all eight classes.
-- As the evidence `@observability-reviewer` judges, and as `/obs-fix`'s RE-DETECT for logger fixes (when it ships).
+- On every whole-repo `/obs-audit`, reporting all eight classes.
+- As the evidence `@observability-reviewer` judges, and as `/obs-fix`'s RE-DETECT for logger fixes.
 
 ## Halt conditions
 
@@ -417,6 +417,6 @@ The verifier reads [`precedents/observability.md`](../../../../snippets/preceden
 
 ## Related
 
-- `@observability-reviewer` (this pack) judges these rows. `trace-propagation-scan` (this pack) owns LG-06 flush. `error-tracking-scan` (this pack, when shipped) owns tracker capture.
+- `@observability-reviewer` (this pack) judges these rows. `trace-propagation-scan` (this pack) owns LG-06 flush. `error-tracking-scan` (this pack) owns tracker capture.
 - `error-handling-scan` (code-quality, when installed) owns dropped and swallowed errors. `data-exposure-scan` § 6 and `injection-scan` § 10 (security, when installed) own sensitive values and log injection.
 - `ai-patterns/structured-logging.md` and `rules/observability-principles.md` (this pack) set the project's logger convention, which every fix follows.

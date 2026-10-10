@@ -193,6 +193,21 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § Observability (SLO specs and generators, burn-rule files, the SLO registry, TSDB retention)
   fallback: skills/slo-rule-scan/SKILL.md   # source-as-fallback; burn-check.py ships beside it and imports alert-rule-lint's rule-inventory.py
 
+- name: obs-audit
+  kind: command
+  # always: every detector it dispatches carries its own gate (no tracing SDK, no metrics library, no
+  # tracker, no rule surface) and prints N/A for an absent surface, so the audit is useful on a repo
+  # that only logs — the case a capability-gated trigger would have withheld it from.
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Observability (logger, tracer, tracker and metric-client versions; Prometheus / Alertmanager image tags, chart pins and the Prometheus CR spec.version — an unpinned chart leaves the Prometheus major UNREAD) + process types and entry points + rule, Alertmanager, SLO, collector, shipper and dashboard locations + the test harness and the CI rules gate
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/obs-audit.md   # the source IS the fallback, as for db-audit, frontend-audit and mobile-audit; the fixed class ledger, the five GO-critical controls and the L-tier verdict rule are the contract
+
+- name: obs-fix
+  kind: command
+  triggers: { always: true }
+  fallback: commands/obs-fix.md   # the source IS the fallback, as for db-fix, frontend-fix and mobile-fix; a skeleton would drop the oracle-tier order, the silencing grep, the who-gets-paged STOP line and the security canary re-run
+
 - name: telemetry-config-scan
   kind: skill
   triggers:
