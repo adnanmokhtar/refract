@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Pantry Go",
+    "slug": "pantry-go",
+    "scheme": "pantrygo",
+    "version": "4.12.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "runtimeVersion": { "policy": "fingerprint" },
+    "updates": {
+      "url": "https://updates.pantrygo.example/api/manifest",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "experiments": { "reactCompiler": true, "typedRoutes": true },
+    "ios": {
+      "bundleIdentifier": "com.pantrygo.shopper",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.pantrygo.shopper",
+      "edgeToEdgeEnabled": true
+    },
+    "plugins": ["expo-router", "expo-secure-store", "expo-notifications", "expo-sqlite"]
+  }
+}

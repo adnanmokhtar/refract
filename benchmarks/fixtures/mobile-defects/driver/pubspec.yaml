@@ -1,0 +1,30 @@
+name: pantrygo_driver
+description: Pantry Go driver app — routes, proof of delivery, hand-over.
+publish_to: 'none'
+version: 3.4.0+340
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.47.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  connectivity_plus: ^7.0.0
+  dio: ^5.9.0
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+  geolocator: ^14.0.2
+  go_router: ^16.2.4
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.5
+  workmanager: ^0.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
