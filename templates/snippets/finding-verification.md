@@ -63,6 +63,20 @@ company VPN" · "it is an internal tool".
 - Shell scripts and CI steps that never see untrusted input are not command injection.
 - Test files, fixtures and documentation are out of scope, except for a secret committed in them, which is `secret-scan`'s.
 
+**CI pipelines.** `ci-security-scan` and `iac-scan` § 5 cite these as `§ 4 C<n>`. Each applies only when its condition is shown at a `file:line` or by a `gh api` line. The dated ones follow a platform change, so re-read the platform's changelog when a row is older than its docs. Sources: the GitHub changelog and the `actions/checkout` releases, read 2026-10-10 (paraphrased).
+
+- **C1.** Integer, enum and boolean contexts are not injectable: `.number`, `.id`, `github.run_id`, `run_number`, `run_attempt`, `workflow_run.conclusion`, `steps.<id>.outcome`, `head.repo.fork`, `draft`, `merged`, and an expression that is a `==` / `!=` comparison. zizmor stopped flagging them in 1.28.
+- **C2.** A SHA context is safe inside an expression, and dangerous as a checkout `ref:` under a privileged trigger. The sink decides, not the field.
+- **C3.** `${{ }}` in `with:` is data, unless the action evaluates it. The actions that evaluate it are a github-script `script:`, a composite `run:`, an AI agent's `prompt:`, and an action that passes the input to `sh -c`. Open the action at its pinned ref before deciding either way.
+- **C4.** `env:` plus a quoted `"$VAR"` is the fix, unless `$VAR` then reaches `eval`, `bash -c`, `GITHUB_ENV` / `GITHUB_PATH` / `GITHUB_OUTPUT`, an unquoted command position or an unquoted heredoc.
+- **C5.** `pull_request_target` or `workflow_run` is not a finding on its own. A job with no PR-code checkout, no cache save, no artifact download and no PR text in a script is fine — a labeler, a welcome bot. Refute the trigger hit.
+- **C6.** `actions/checkout` refuses a fork-PR ref under `pull_request_target` / `workflow_run` unless `allow-unsafe-pr-checkout: true`. That covers v7.0.0 (2026-06-18) and the backports v6.1.0 / v5.1.0 / v4.4.0 / v3.7.0 / v2.8.0 (2026-07-20). A floating major tag such as `@v4` resolves to the blocking release. Refute **that checkout step** only. Never refute through C6: an `issue_comment` checkout, a same-repo PR branch, `gh pr checkout`, `git fetch … pull/`, an older SHA pin, or a cache the same job saves.
+- **C7.** Since 2025-12-08, `pull_request_target` always runs the default-branch workflow. A defect that exists only on a non-default branch is unreachable through that trigger. It is still reachable through that branch's own `push` / `pull_request` runs, with their permissions.
+- **C8.** An exact tag whose release reports `immutable: true` cannot move (immutable releases GA 2025-10-28; read it with `gh api repos/O/R/releases/tags/<tag> --jq .immutable`), so its pin is low. A major tag is never immutable, and `actions/checkout` releases are not immutable.
+- **C9.** A SHA pin with no bot covering `github-actions` (Dependabot or Renovate) is rot. Report it once per repo as Hardening, not once per pin.
+- **C10.** In a private repo with forking disabled (`gh api repos/O/R --jq '{private,allow_forking}'`), fork-PR classes are rated at insider severity.
+- **C11.** A bot check is sound when it tests `github.event.pull_request.user.login` and a same-repo head (`head.repo.full_name == github.repository`). A check on `github.actor` is not sound.
+
 ## 5. Score and bucket
 
 Each candidate gets a confidence from 1 to 10 for **exploitability as described**:

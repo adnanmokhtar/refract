@@ -32,12 +32,12 @@ Like `sast-scan`, it has two halves:
 
 | Surface | Scanner lane (one-shot first) | Install for later | Suppression to inventory |
 |---|---|---|---|
-| **Dockerfile** | `docker run --rm -i hadolint/hadolint hadolint -f json - < <file>`; `trivy config`; `checkov --framework dockerfile` | `brew install hadolint trivy` · `pipx install checkov` | `# hadolint ignore=DL####` · `.hadolint.yaml` · `#checkov:skip=` · `#trivy:ignore:` |
+| **Dockerfile** | `docker run --rm -i "hadolint/hadolint:v2.15.1@$HADOLINT_DIGEST" hadolint -f json --failure-threshold warning - < <file>`; `trivy config`; `checkov --framework dockerfile` | `brew install hadolint trivy` · `pipx install checkov` | `# hadolint ignore=DL####` · `.hadolint.yaml` · `#checkov:skip=` · `#trivy:ignore:` |
 | **Compose** | semgrep `p/docker-compose` — matches only files with a top-level `version:` key; checkov and trivy do not read compose. **Greps are the primary lane.** | — | `# nosemgrep` |
 | **Kubernetes** (raw, Helm, Kustomize) | render first: `helm template <chart> -f <values> > "$SCAN/rendered.yaml"` / `kubectl kustomize <dir> > …`; then `trivy config`, `checkov`, `kube-linter lint --add-all-built-in`; `kubescape scan <path> --format json --output … --keep-local` as an alternative | `brew install kube-linter kubescape helm` | `ignore-check.kube-linter.io/<check>` · `checkov.io/skip<N>` annotations · `#trivy:ignore:` |
 | **Terraform / CloudFormation** | `checkov -d`; `trivy config` (tfsec's successor) | as above | `#checkov:skip=` · `#trivy:ignore:` / legacy `#tfsec:ignore:` · `.trivyignore` |
 | **Pulumi** | no scanner reads Pulumi programs; grep 5c on the program, then `pulumi preview --json` read as a plan | — | — |
-| **GitHub Actions** | `uvx zizmor --offline --persona=auditor --format json .github/workflows`; `actionlint -format '{{json .}}'` (or `docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:latest …`); semgrep `p/github-actions` | `brew install zizmor actionlint` | `# zizmor: ignore[<audit>]` · `zizmor.yml` · `.github/actionlint.yaml` |
+| **GitHub Actions** (and the other five CI platforms) | `ci-security-scan` owns the lane and its ledger (zizmor ≥ 1.28, poutine, octoscan, actionlint); this skill runs `uvx zizmor@1.30.1 --offline --persona=auditor --format json .github/workflows` for its own row; semgrep `p/github-actions` | `brew install zizmor actionlint` | `# zizmor: ignore[<audit>]` · `zizmor.yml` · `.github/actionlint.yaml` |
 | **GitLab CI** | `checkov --framework gitlab_ci` — zero failures on the sample that held `eval "$CI_COMMIT_MESSAGE"`; **greps are the primary lane** | — | — |
 | **nginx** | `uvx --from gixy-ng gixy -f json <conf>` (maintained fork of yandex/gixy); semgrep `p/nginx` | `pipx install gixy-ng` | `--skips` in the project's own invocation |
 | **Caddy, Apache, Traefik** | no maintained static scanner — **greps are the primary lane** | — | — |
@@ -71,9 +71,15 @@ rg -n --pcre2 "${X[@]}" -g '*.md' -g '*.sh' '^\s*(\$\s+)?(doctl|aws|gcloud|az|gs
 
 # 2. Dockerfile (§ 1) — final-stage user, build secrets, secret files copied in, unverified downloads (pipe or `<(curl …)`),
 #    floating bases, then build-time module fetches with no version (`xcaddy --with mod`, `go install …@latest`, `npm i -g x`).
-rg --files . "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' | while IFS= read -r f; do
-  awk -v f="$f" 'toupper($1)=="FROM"{n++; u=""; fl=NR; cl=0} toupper($1)=="USER"{u=$2} toupper($1)~/^(CMD|ENTRYPOINT)$/{cl=NR}
-    END{if(u==""||u=="root"||u=="0") print f":" (cl?cl:fl) ": final stage (FROM line " fl ", stage " n ") runs as root"}' "$f"; done
+#  a. The final stage's effective USER through the stage chain (`FROM <stage>` inherits it); root:*/0:* are ROOT; a chain
+#     that ends at an external base with no USER prints INHERIT-EXTERNAL — read the base's user before rating it.
+rg --files . "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' | while IFS= read -r f; do awk 'toupper($1) == "FROM" { n++; r = ""; m = ""; c = 0
+    for (i = 2; i <= NF; i++) { if ($i ~ /^--/) continue; if (r == "") { r = $i; continue } if (toupper($i) == "AS" && i < NF) m = tolower($(i + 1)) }
+    par[n] = r; ln[n] = FNR; if (m != "") idx[m] = n; next } toupper($1) == "USER" && n { usr[n] = $2; set[n] = 1 } toupper($1) ~ /^(CMD|ENTRYPOINT)$/ { c = FNR }
+  END { if (!n) exit; s = n; h = 0; while (!set[s] && (tolower(par[s]) in idx) && h++ < 50) s = idx[tolower(par[s])]; at = FILENAME ":" (c ? c : ln[n]) ": final stage (FROM line " ln[n] ")"
+    if (!set[s]) { print at " sets no USER; base " par[s] " -> INHERIT-EXTERNAL (read: crane config " par[s] " | jq -r .config.User)"; exit }
+    v = (usr[s] ~ /^(root|0)(:|$)/) ? "ROOT" : (usr[s] ~ /\$/ ? "ARG-DRIVEN (resolve the default)" : "")
+    if (v != "") print at " user " usr[s] " -> " v (s != n ? " [inherited from the stage at line " ln[s] "]" : "") }' "$f"; done
 rg -n --pcre2 -i "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' '^\s*(ARG|ENV)\s+\w*(SECRET|TOKEN|PASSW(OR)?D|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL)\w*' .
 rg -n --pcre2 -i "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' '^\s*(COPY|ADD)\s+(--\S+\s+)*[^\n]*(\.env\b|\.pem\b|\.key\b|\.p12\b|\.pfx\b|id_rsa|id_ed25519|\.npmrc|\.pypirc|\.netrc|credentials)' .
 rg -n --pcre2 -i "${X[@]}" -g 'Dockerfile*' -g '*.dockerfile' '^\s*ADD\s+(--\S+\s+)*https?://' .
@@ -126,13 +132,19 @@ rg -n --pcre2 "${T[@]}" '[\x22\x27]?\b(Action|actions)[\x22\x27]?\s*[:=]\s*\[?\s
 rg -n --pcre2 "${T[@]}" '\b(http_tokens\s*=\s*"optional"|HttpTokens:\s*optional|(storage_)?encrypted\s*=\s*false|StorageEncrypted:\s*false|enable_https_traffic_only\s*=\s*false|min_tls_version\s*=\s*"TLS1_[01]")' .
 rg -n --pcre2 "${X[@]}" -g '*.tf' -g '*.tfvars' '^\s*(password|master_password|admin_password|secret)\s*=\s*"[^"$]+' .
 
-# 6. CI (§ 5) — GitHub Actions, then GitLab CI.
-W=(--hidden -g '**/.github/workflows/*.y*ml' -g 'action.y*ml')
-rg -n --pcre2 "${W[@]}" '\b(pull_request_target|workflow_run)\b' .
-rg -n --pcre2 "${W[@]}" 'ref:\s*\$\{\{\s*github\.(event\.pull_request\.head\.(sha|ref)|head_ref|event\.workflow_run\.head_(sha|branch))' .
-rg -n --pcre2 "${W[@]}" '\$\{\{\s*(github\.event\.(issue|pull_request|comment|review|review_comment|discussion|discussion_comment|head_commit|commits|pages|workflow_run)\b|github\.head_ref|inputs\.|steps\.[\w-]+\.outputs\.|needs\.[\w-]+\.outputs\.)[^}]*\}\}' .
+# 6. CI (§ 5) — the candidate list `ci-security-scan` judges; its pre-flight is the full set on six platforms.
+W=(--hidden -g '**/.github/workflows/*.y*ml' -g '**/action.y*ml')
+#  a. Privileged and comment triggers (a permission key such as `issues: write` is excluded).
+EXT='^(on:\s*\[?[^\n#]*?\b|\s{2}-?\s*)(pull_request_target|workflow_run|issue_comment|pull_request_review_comment|pull_request_review|discussion_comment|discussion|issues)\b(?!\s*:\s*(write|read|none)\b)'
+rg -n --pcre2 "${W[@]}" "$EXT" .
+#  b. Every way PR code reaches the runner, in those files only: head/merge refs, refs/pull/, the head repo, gh pr checkout, git fetch pull/.
+rg -l --null --pcre2 "${W[@]}" "$EXT" . | xargs -0 -r rg -H -n --pcre2 'ref:\s*[\x22\x27]?\$\{\{\s*github\.(event\.pull_request\.head\.(sha|ref)|head_ref|event\.workflow_run\.head_(sha|branch))|refs/pull/|\bpull/\$\{\{|allow-unsafe-pr-checkout:\s*true|\bgh\s+pr\s+checkout\b|\bgit\s+fetch\b[^\n]*\bpull/|\bmerge_commit_sha\b|repository:\s*[\x22\x27]?\$\{\{\s*github\.event\.(pull_request\.head\.repo|workflow_run\.head_repository)\.full_name'
+#  c. Each tainted expression on its own line (-o); integer, enum, boolean and comparison expressions are filtered out.
+INJ='\$\{\{(?:(?!\}\}).)*?(?:\bgithub\.event\s*\[|\bgithub\.event\.(?:issue|pull_request|comment|review|review_comment|discussion|discussion_comment|head_commit|commits|pages|workflow_run|inputs|release|merge_group|check_run|check_suite|deployment|client_payload)\b|\bgithub\.head_ref\b|(?<![\w.])inputs\.|(?<![\w.])env\.|\bsteps\.[\w-]+\.outputs\.|\bneeds\.[\w-]+\.outputs\.|(?<![\w.])matrix\.)(?:(?!\}\}).)*\}\}'
+rg -n -o --pcre2 "${W[@]}" "$INJ" . | rg -v --pcre2 ':\$\{\{\s*github\.event\.[\w.]+\.(?:number|id|run_number|run_attempt|conclusion|fork|draft|merged)\s*\}\}$|:\$\{\{(?:(?!&&|\|\|)[^}])*(?:==|!=)(?:(?!&&|\|\|)[^}])*\}\}$'
+#  d. Non-SHA `uses:`; e. write scopes in every form, flow-map included; f. files with no permissions block; g. secrets in logs; h. self-hosted.
 rg -n --pcre2 "${W[@]}" '^\s*-?\s*uses:\s*(?!\./|docker://)[^@\s]+@(?![0-9a-f]{40}\b)\S+' .
-rg -n --pcre2 "${W[@]}" 'permissions:\s*write-all|^\s*(contents|packages|id-token|actions|pull-requests|deployments):\s*write' .
+rg -n --pcre2 "${W[@]}" 'permissions:\s*write-all|\b(contents|packages|id-token|actions|pull-requests|deployments|security-events|statuses|checks|issues|attestations|pages|discussions|repository-projects)\s*:\s*write\b' .
 rg --files-without-match "${W[@]}" '^\s*permissions:' .
 rg -n --pcre2 "${W[@]}" '\b(echo|printf|cat)\b[^\n]*\$\{\{\s*secrets\.|\bset\s+-[a-z]*x|ACTIONS_STEP_DEBUG|\bprintenv\b|toJSON\(\s*secrets\s*\)' .
 rg -n --pcre2 "${W[@]}" 'runs-on:\s*\[?[^\n]*\bself-hosted\b' .
@@ -140,6 +152,8 @@ rg -n --pcre2 "${W[@]}" 'runs-on:\s*\[?[^\n]*\bself-hosted\b' .
 rg -l "${W[@]}" 'actions/checkout@' . | xargs -r awk 'function f() { if (c && !k) print cf ":" c ": checkout keeps its token in .git/config"; c = 0 } FNR == 1 { f() }
   /^ *[^ #]/ { match($0, /^ */); if (c && (RLENGTH < i || (RLENGTH == i && /^ *- /))) f() } /persist-credentials: *false/ { k = 1 }
   /uses: *actions\/checkout@/ { f(); c = FNR; cf = FILENAME; k = 0; match($0, /^ */); i = /^ *- / ? RLENGTH : RLENGTH - 2 } END { f() }'
+#  j. Job containers, service images and `docker://` steps with no digest (a flow-map `container: { image: x }` is a read).
+rg -n --pcre2 "${W[@]}" '^\s*(container|image)\s*:\s*[\x22\x27]?(?!\$\{\{)(?![^\n]*@sha256:)[\w./-]+(:[\w.-]+)?[\x22\x27]?\s*$|\buses\s*:\s*[\x22\x27]?docker://(?![^\n]*@sha256:)' .
 G=(--hidden -g '.gitlab-ci.yml' -g '*.gitlab-ci.yml' -g '**/.gitlab/**/*.y*ml')
 rg -n --pcre2 "${G[@]}" '\b(eval|sh\s+-c|bash\s+-c)\b[^\n]*\$\{?CI_(MERGE_REQUEST_\w+|COMMIT_(MESSAGE|TITLE|DESCRIPTION|BRANCH|REF_NAME|TAG_MESSAGE)|EXTERNAL_PULL_REQUEST_\w+)|\$\{?CI_(MERGE_REQUEST_(TITLE|DESCRIPTION|SOURCE_BRANCH_NAME)|COMMIT_(MESSAGE|TITLE|DESCRIPTION|BRANCH|REF_NAME))\b' .
 rg -n --pcre2 "${G[@]}" '^\s*-?\s*(remote|project):|^\s*image:\s*[\x22\x27]?[^\s:@\x22\x27]+(:latest)?[\x22\x27]?\s*$|\becho\s+[\x22\x27]?\$\{?\w*(TOKEN|SECRET|PASSWORD|KEY)\w*' .
@@ -174,8 +188,8 @@ Then the scanners. All output goes to the pre-flight's `$SCAN`, never into the r
 checkov -d . --skip-path node_modules --skip-path vendor -o json -o sarif --output-file-path "$SCAN/checkov" --quiet --compact
 trivy config --skip-dirs node_modules --skip-dirs vendor --format json --output "$SCAN/trivy-config.json" .
 for f in $(rg --files . -g 'Dockerfile*' -g '*.dockerfile' -g '!**/node_modules/**'); do
-  docker run --rm -i hadolint/hadolint hadolint -f json - < "$f" > "$SCAN/hadolint-$(echo "$f" | tr '/' '_').json"; done
-uvx zizmor --offline --persona=auditor --format json .github/workflows > "$SCAN/zizmor.json" 2> "$SCAN/zizmor.err"
+  docker run --rm -i "hadolint/hadolint:v2.15.1@$HADOLINT_DIGEST" hadolint -f json --failure-threshold warning - < "$f" > "$SCAN/hadolint-$(echo "$f" | tr '/' '_').json"; done
+uvx zizmor@1.30.1 --offline --persona=auditor --format json .github/workflows > "$SCAN/zizmor.json" 2> "$SCAN/zizmor.err"; echo "zizmor exit $? (3 = no inputs → NOT-RUN)"
 actionlint -format '{{json .}}' > "$SCAN/actionlint.json"
 MANIFESTS=("$SCAN"/rendered-*.yaml)   # 1f's output; with nothing to render, the manifest dir
 NGINX_CONF=nginx.conf           # each nginx config the repo ships — a copy in $SCAN with absolute `include`s rewritten to repo paths
@@ -187,16 +201,18 @@ semgrep scan --metrics=off --config p/dockerfile --config p/docker-compose --con
 
 One-shots when a tool is absent — feed containers through **stdin, not a bind mount** (§ False positives):
 - checkov: `uvx checkov …` / `pipx run checkov …`.
-- trivy: `tar -cf - --exclude node_modules --exclude .git . | docker run --rm -i --entrypoint sh aquasec/trivy -c 'mkdir /src && tar -xf - -C /src && trivy config --quiet --format json /src' > "$SCAN/trivy-config.json"`.
+- trivy: `tar -cf - --exclude node_modules --exclude .git . | docker run --rm -i --entrypoint sh "aquasec/trivy:0.75.0@$TRIVY_DIGEST" -c 'mkdir /src && tar -xf - -C /src && trivy config --quiet --format json /src' > "$SCAN/trivy-config.json"`.
 - kube-linter: `docker run --rm -i stackrox/kube-linter lint --add-all-built-in --exclude schema-validation --format json - < <file>`. The image has no shell; stdin works.
-- actionlint: `docker run --rm -i rhysd/actionlint:latest -format '{{json .}}' - < <workflow>`, one file per run.
+- actionlint: `docker run --rm -i "rhysd/actionlint:1.7.12@$ACTIONLINT_DIGEST" -format '{{json .}}' - < <workflow>`, one file per run.
+
+Scanners are supply chain too: the 2026-03 trivy-action compromise force-moved 76 of 77 tags. Every image above runs by version **and** digest, never `:latest`. Record each `*_DIGEST` once (`crane digest <image>:<version>`) in the ledger. A different digest under the same version is a stop, not an update. zizmor below 1.28 is refused (1.27.0 logged GitHub credentials, GHSA-f42p-wjw5-97qh).
 - semgrep: `uvx semgrep …`.
 
 Read each output's file or target count before calling the row RAN. **A scanner that scanned 0 files is NOT-RUN, whatever its exit code.**
 
 ### 1. Dockerfile — what the shipped image runs as and carries
 
-Flag: the **final** stage has no `USER`, or `USER root` / `USER 0` (grep 2's awk resets at every `FROM`); a secret-named `ARG` / `ENV` (both persist in the image config and history); `COPY` / `ADD` of `.env`, keys, `.npmrc`, `.netrc`; `ADD https://…` or `curl … | sh` (code fetched with no integrity check); an untagged or `:latest` base. `HEALTHCHECK` is ops — skip it.
+Flag: the **final** stage's effective user is root — `USER root` / `root:*` / `0` / `0:*`, set in it or inherited through `FROM <stage>` (grep 2a resolves the chain; a final `FROM builder` takes the builder's `USER`) — or it sets none over an external base (`INHERIT-EXTERNAL`: `crane config <ref> | jq -r .config.User` settles it); a secret-named `ARG` / `ENV` (both persist in the image config and history); `COPY` / `ADD` of `.env`, keys, `.npmrc`, `.netrc`; `ADD https://…` or `curl … | sh` (code fetched with no integrity check); an untagged or `:latest` base. `HEALTHCHECK` is ops — skip it.
 
 ```
 BAD:   FROM node:22 AS build
@@ -272,33 +288,15 @@ IMDSv1 is the SSRF amplifier — when `ssrf-scan` § 6 has any user-URL fetch on
 
 Pulumi programs are code — grep 5c reads them; when a stack is configured, `pulumi preview --json` is the plan to read. When the infrastructure pack is installed, dispatch `/audit-iam` for usage-based IAM analysis (dead permissions, entitlement chains), `tf-plan-review` for the pre-apply plan and `network-exposure-audit` for the running footprint. Without it, these findings stand on the declared code alone.
 
-### 5. CI workflows — script injection, trust boundaries, token scope
+### 5. CI workflows — dispatched to `ci-security-scan`
 
-**GitHub Actions.** Flag:
-- `pull_request_target` or `workflow_run` that checks out the PR head (`ref: ${{ github.event.pull_request.head.sha }}`) and then runs its code. Read the `actions/checkout` pin — per `@ci-reviewer` § 1, v7 refuses that checkout by default.
-- `${{ github.event.* }}`, `github.head_ref`, `inputs.*` or a step output inside `run:` or an `actions/github-script` `script:`. The expression is substituted **before** the shell parses it, so a PR title is code. Integer fields (`github.event.issue.number`, `.pull_request.number`) cannot carry a payload — note them as false positives. A grep-6 hit inside `with:` is data handed to an action, not shell. Dismiss it unless that action evaluates the input.
-- A third-party `uses:` pinned to a tag or branch instead of a 40-hex SHA. In a job holding `packages: write` or `id-token: write`, it is the path to the deployed image tag (§ 3).
-- `actions/checkout` without `persist-credentials: false` (grep 6i). The default writes the job token into `.git/config` for every later step; zizmor calls this `artipacked`. Grep 6's `persist-credentials: true` check alone misses the default.
-- `curl … | sh` or `bash <(curl …)` in a `run:` (grep 2e): an unverified script from a mutable ref.
-- `permissions: write-all`, or no `permissions:` block at all.
-- Secrets echoed, `set -x` near secrets, or `toJSON(secrets)`.
-- `runs-on: self-hosted` in a public repo — check with `gh repo view --json visibility -q .visibility`.
+Every CI attacker-path class on GitHub Actions, GitLab CI, CircleCI, Bitbucket, Azure Pipelines and Jenkins belongs to the security pack's [`ci-security-scan`](../ci-security-scan/SKILL.md) skill. That covers a privileged trigger running untrusted code, expression injection, AI agents in CI, pinning × privilege, cache and artifact trust, credentials and OIDC, gates, and runners. Dispatch it whenever grep 1 finds a CI file. Grep 6 here is its candidate list:
+- 6a / 6b: privileged triggers and every PR-code checkout form;
+- 6c: one tainted expression per line, the bracket form included;
+- 6e: every write scope;
+- 6j: images with no digest.
 
-**GitLab CI.** Variables expand at shell run time, so `echo "$CI_MERGE_REQUEST_TITLE"` is data. The hole is `eval`, `sh -c "…$CI_COMMIT_MESSAGE…"`, an unquoted command position, or a tool that interprets the string. Also flag `include: remote:` / `project:` with no pinned `ref`, `image: …:latest`, a token echoed, and `curl | bash`.
-
-```
-BAD:   on: pull_request_target
-       - uses: actions/checkout@v4  with: { ref: "${{ github.event.pull_request.head.sha }}" }
-       - run: echo "Title: ${{ github.event.pull_request.title }}"
-GOOD:  on: pull_request                      # untrusted code runs with a read-only token and no secrets
-       permissions: { contents: read }
-       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   # v4.2.2
-       - env: { TITLE: "${{ github.event.pull_request.title }}" }
-         run: echo "Title: $TITLE"
-```
-Severity: PR-head checkout under a privileged trigger, script injection, or self-hosted runner on a public repo **critical**; unpinned third-party action with secrets in scope, a secret in logs **high**; missing or over-wide `permissions` **medium**; unpinned `actions/*` / `github/*` **low**. A03 / A05 / A08:2025 · CWE-94, 78, 829, 532, 250.
-
-When the devops pack is installed, dispatch `@ci-reviewer` (its § 10 owns expression injection, § 9 the supply chain, § 2 branch-protection alignment) and the `release-security` skill. Without it, these findings stand and the ledger says `branch protection / required checks: not reviewed`.
+That skill owns the severity (reach × the job's capability), the `ci-graph.py --check=pin-priv` join, the tool ledger and the § 4 CI precedents of [`finding-verification.md`](../../../../snippets/finding-verification.md). This detector's coverage row is that skill's class-coverage block. A CI hit is never rated here.
 
 ### 6. Edge config — nginx, Caddy, Apache, Traefik
 
@@ -353,7 +351,7 @@ Tool ledger
   zizmor 1.30.1         RAN            exit 14 · --persona=auditor · 2 workflows parsed of 2 · 15 hits → 6 merged
   kube-linter 0.8.3     RAN            --add-all-built-in · rendered chart · 27 hits → 8 merged
   gixy-ng 0.2.55        RAN            1 nginx config · 6 hits → 5 merged
-  actionlint            NOT-INSTALLED  blocked — brew install actionlint  (or docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:latest)
+  actionlint            NOT-INSTALLED  blocked — brew install actionlint  (or the pinned rhysd/actionlint:1.7.12 one-shot on stdin)
 
 Findings: 6
 
@@ -404,6 +402,7 @@ Measured on the sample described in § Premise:
 - **Three scanners read the wrong stage.** hadolint's root check fires only on an explicit `USER root`; checkov's `CKV_DOCKER_3` and trivy's `DS-0002` pass a multi-stage file whose only `USER` is in the builder. Grep 2's awk is the check of record.
 - **semgrep `p/docker-compose` matches only files with a top-level `version:` key.** The Compose Specification made that key obsolete, so a modern compose file scans clean. Checkov and trivy do not read compose at all.
 - **"World-open port" checks are SSH/RDP-shaped.** checkov `CKV_AWS_24` and trivy `AWS-0107` cover 22/3389; `0.0.0.0/0` on 5432 or 3306 passed both. Read every `cidr_blocks` hit's port range.
+- **A parse error or an empty input is NOT-RUN, never a pass.** hadolint skips a whole file on one line it cannot parse (an `EXPOSE ip:port:port`), so a parse error makes that file NOT-RUN. zizmor exit 3 means no inputs were collected; `--format=sarif` and `--no-exit-codes` force exit 0. hadolint's default `info` threshold buries the signal; the commands carry `--failure-threshold warning`.
 - **zizmor's default persona hides findings.** `self-hosted-runner`, `excessive-permissions` on `write-all` and secret interpolation surfaced only with `--persona=auditor`. A workflow it cannot parse is skipped with a `WARN … failed to parse input` on stderr while the other files still produce results — read `zizmor.err` and count parsed files. Exit codes 11–14 mean findings at that maximum severity, not a crash.
 - **kube-linter's defaults omit `wildcard-in-rules`, `exposed-services` and `non-isolated-pod`.** `--add-all-built-in` turns them on, along with label and ordering noise (`required-label-owner`, `sorted-keys`) to triage as ops. Offline, it also emits one `schema-validation` error per object, which is why the commands above carry `--exclude schema-validation` (88 → 63 reports on a 25-object render).
 - **kubescape with no path argument scans the cluster in your current kube context**, not the repo. Always pass the path, and `--keep-local`.
@@ -413,6 +412,8 @@ Measured on the sample described in § Premise:
 - **gixy-ng silently skips an absolute `include`** (`include /etc/nginx/conf.d/…` logs only a WARNING), so its `add_header` analysis runs without the headers file. Copy the config to `$SCAN` with each include rewritten to its repo path, and scan the copy.
 - **gixy-ng has `--fix`, and it rewrites the config in place.** Never pass it here.
 - **checkov's raw count is mostly ops.** On the sample, 42 Terraform failures across 9 resources were largely logging, versioning, replication and Multi-AZ. Report the triaged set, not the raw number.
+- **The final-stage awk was wrong both ways** until grep 2a resolved the stage chain. It reported ROOT for a final `FROM base` whose `USER node` sat in `base`, and it passed `USER 0:0` and `USER root:root`. Measured 2026-10-10 on nine cases (no USER, builder-only USER, an inherited non-root USER, an inherited `root`, `0:0`, `root:root`, `USER ${ARG}`, numeric non-root, a mixed-case stage name): 9 of 9 correct. The seeded `vuln-fullstack` root image still prints at its `CMD` line, and a real repo's edge image prints `INHERIT-EXTERNAL` for its `caddy:${RUNTIME_TAG}` base, as before.
+- **Measured: grep 6 against the old greps** (a seeded six-platform CI sample, 2026-10-10). 6c keeps 10 of 10 injection seeds, including the bracket form, where the old grep missed 5. 6b finds 8 of 8 PR-code checkouts, where the old one found 2. 6e finds 15 write-scope lines, including a flow-map block, where the old one found 10. 6j finds 3 of 3 undigested images, and neither digest decoy.
 - **`0.0.0.0/0` on 80/443 of a public load balancer, and a `LoadBalancer` Service for the public ingress controller, are intended.** Note them, do not file them.
 - **Measured on a real repo** (Kustomize base + one overlay, a Caddy edge in a ConfigMap, GitHub Actions; 2026-10). The old greps saw none of the Caddy edge or the ingress snippet: 0 files, so § 6 would have read "Caddy N/A". Grep 1e now extracts 2 embedded configs. Its storage backend appears only in the extracted copy, and 7a–7d read it too. On source, 4b flagged 7 files, 5 of them kustomize patches. Per document, on the render plus non-patch manifests, it flags 3 workloads, all local-dev. Grep 8c's false "no .dockerignore entry" is gone. 8b went from 5 hits to 1 (the four `KEY=""` lines). New detectors on the same repo: 2e went from 0 to 2 (`bash <(curl …)` in CI and a release script); 2g found 3 (unpinned `xcaddy --with`), 4j 13, 4k 2 rules (+2 rendered copies), 4l 2, 4m 8, 5a 1 (`"Principal": "*"`), and 6i 5 checkouts (zizmor `artipacked` found the same 5). The seeded IaC and CI defects in `benchmarks/fixtures/vuln-fullstack` are all still hit.
 
@@ -435,6 +436,6 @@ Measured on the sample described in § Premise:
 - `/security-audit` — dispatches this skill in § Phase 2 — Organize; its § Class coverage ledger takes this skill's coverage block as the "Container, orchestration, cloud IAM, CI, reverse-proxy config" row, and § Phase 6 — Validate rates the suppression list.
 - `sast-scan` — owns semgrep on application code; this skill runs the IaC rulesets. `secret-scan` — owns every secret value and its rotation. `ssrf-scan` — § 6 there is the code half of the IMDSv1 finding. `data-exposure-scan` — an `.env` or backup reachable over HTTP.
 - `/security-live-scan` — what the running edge actually serves (TLS handshake, headers, exposed paths); this skill reads the config that should produce it.
-- devops pack, when installed — `dockerfile-lint` and `release-security` (§ 1, § 7), `@ci-reviewer` (§ 5).
+- `ci-security-scan` (same pack) — every CI attacker-path class on six platforms (§ 5). devops pack, when installed — `dockerfile-lint` and `release-security` (§ 1, § 7); `@ci-reviewer` judges delivery-integrity rows through `ci-security-scan`'s boundary.
 - infrastructure pack, when installed — `@k8s-reviewer` and `admission-policy` (§ 3); `/audit-iam`, `tf-plan-review` and `network-exposure-audit` (§ 4, § 6).
 - `@security-auditor` — its A02 rows (S3 public, `hostNetwork`, privileged containers) are the surface pass this skill executes; its A03 build-integrity row is `release-security`'s.

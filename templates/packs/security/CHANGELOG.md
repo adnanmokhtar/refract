@@ -9,6 +9,42 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.0 — 2026-10-10
+
+**No skill owned CI pipelines as attack surface.** `iac-scan` § 5 had one paragraph for GitHub
+Actions and one for GitLab. Its greps missed whole forms, measured on a seeded sample: 5 of 10
+injection seeds, 6 of 8 PR-code checkouts, 5 of 15 write-scope lines and every image with no digest. It
+had no CircleCI, Bitbucket, Azure or Jenkins lane.
+
+- **New skill `ci-security-scan`** (§ 1–9). It covers:
+  - a privileged trigger running untrusted code;
+  - expression injection in every substitution form;
+  - AI agents in CI;
+  - pinning joined to the job's privilege (`ci-graph.py --check=pin-priv`);
+  - cache and artifact trust;
+  - credentials and OIDC;
+  - gates an attacker can pass;
+  - runners and repository settings;
+  - GitLab, CircleCI, Bitbucket, Azure and Jenkins.
+
+  Severity is reach × the job's capability. The tool ledger (zizmor ≥ 1.28, poutine
+  `--fail-on-violation`, octoscan per file, actionlint) records each tool's false-clean trap, and a
+  tool that parsed nothing is NOT-RUN, never a pass. The skill is static: settings are read with
+  `gh api` GETs, and no event is ever sent.
+- **`finding-verification.md` § 4: CI precedents C1–C11.** They are dated, and include the
+  `actions/checkout` v7 block and its 2026-07-20 backports, and the post-2025-12-08
+  `pull_request_target` rule. Mirrored into the repo baseline.
+- **`iac-scan`** changes:
+  - § 5 is now the dispatch line to `ci-security-scan`.
+  - Grep 6 is corrected: one tainted expression per line with the bracket form, every PR-code
+    checkout form, every write scope including flow-map, and images with no digest.
+  - Grep 2a resolves the final stage's user through the stage chain. It is no longer a false ROOT
+    on `FROM <stage>`, and no longer misses `0:0` / `root:root`.
+  - Scanner images are pinned by version and digest, with hadolint `--failure-threshold warning`
+    and the parse-error / zizmor-exit-3 NOT-RUN rule.
+- **`/security-audit`** dispatches `ci-security-scan` on any repo with a CI file, and adds the
+  "CI pipelines" class-ledger row.
+
 ## 2.2.1 — 2026-10-10
 
 - `/security-fix`: a **mobile on-device** row in the fix-class table — `mobile-security-scan` §1–§7

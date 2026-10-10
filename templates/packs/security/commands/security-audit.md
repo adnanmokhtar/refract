@@ -55,7 +55,8 @@ The broad `security-auditor` pass is the OWASP-Top-10 net; the specialist review
   - **`data-exposure-scan`** — on any diff touching an error handler, a logger call, a serializer / response DTO, an auth message, a debug / docs / metrics route, or a static / public directory. The depth behind A02's verbose-error bullet, A09's redaction and A10's leak bullet.
   - **`logic-race-scan`** — on any diff touching money, quantity, balance, coupon / invite / redeem, a status transition, a role grant, or a find-then-write sequence. The depth behind A06; also owns the per-role authorization matrix.
   - **`sast-scan`** — always on a whole-repo run; on a diff, whenever the stack has a scanner installed. It is the one skill that runs third-party analyzers, so its RAN / SKIPPED ledger is part of this run's coverage — a scanner that exists for the stack and did not run is a `COVERAGE:` gap.
-  - **`iac-scan`** — on any diff touching a Dockerfile, compose file, Kubernetes manifest, Terraform / CloudFormation / Pulumi, a CI workflow, or a reverse-proxy config; always on a whole-repo run that holds any of them. The depth behind A02's infra bullets and A03's CI integrity.
+  - **`iac-scan`** — on any diff touching a Dockerfile, compose file, Kubernetes manifest, Terraform / CloudFormation / Pulumi, or a reverse-proxy config; always on a whole-repo run that holds any of them. The depth behind A02's infra bullets.
+  - **`ci-security-scan`** — on any repo with a CI file: GitHub Actions workflows or composite actions, `.gitlab-ci.yml`, `.circleci/config.yml`, `bitbucket-pipelines.yml`, `azure-pipelines*.yml` or a `Jenkinsfile`. It runs on a diff touching one, and on every whole-repo run that holds one. Its scope is privileged triggers running untrusted code, expression injection, AI agents in CI, pinning × the job's privilege, cache and artifact trust, credentials and OIDC, gates and runners. It is the depth behind A03's CI integrity. A repo with no CI file reports its nine classes N/A in one line.
   - **`mobile-security-scan`** — on any diff touching an `android/` or `ios/` tree, a React Native, Expo or Flutter app (`AndroidManifest.xml`, a network security config, `Info.plist`, an `.entitlements` file, `app.json` / `app.config.*`, a Gradle build type, mobile storage / HTTP-client / WebView / deep-link code); always on a whole-repo run. A repo with no mobile tree reports its eight classes N/A in one line. The client-side lane: device storage, transport, exported components, links, WebView bridges, release flags, shipped secrets.
   - A skill that was triggered and not run is the same defect as a reviewer that was dispatched and not run: it forces at least `GO-UNVERIFIED`.
   - **Dedupe by `<file:line>`.** Several skills can reach the same sink (a `sast-scan` hit on an `exec` that `injection-scan` also traced). One finding per sink, credited to the skill that traced the taint path; the other is listed under it as corroboration.
@@ -143,7 +144,8 @@ Alongside the unit-level coverage ledger, print one row per **vulnerability clas
 | Committed secrets | `secret-scan` |
 | Mobile client: device storage, cleartext / trust, exported components, deep links, WebView bridges, release flags + device logs, secrets and crypto shipped in the app, pinning posture | `mobile-security-scan` |
 | Vulnerable dependencies | `deps-audit` |
-| Container, orchestration, cloud IAM, CI, reverse-proxy config | `iac-scan` |
+| Container, orchestration, cloud IAM, reverse-proxy config | `iac-scan` |
+| CI pipelines (privileged triggers, expression injection, AI agents, pinning × privilege, cache, credentials / OIDC, gates, runners — six platforms) | `ci-security-scan` |
 | AuthN, session, token lifecycle | `@auth-reviewer` |
 | BOLA / BOPLA / BFLA, API inventory | `@api-security-reviewer` |
 | Cross-tenant access | `@tenant-isolation-reviewer` |
@@ -232,7 +234,8 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `data-exposure-scan` — error leakage, debug endpoints, over-returning responses, enumeration, log redaction.
 - `logic-race-scan` — business-logic abuse, races, per-role authorization matrix.
 - `sast-scan` — runs the stack's static analyzers and triages every hit.
-- `iac-scan` — Dockerfile, compose, Kubernetes, IaC, CI workflows, reverse-proxy configs.
+- `iac-scan` — Dockerfile, compose, Kubernetes, IaC, reverse-proxy configs; its CI grep is `ci-security-scan`'s candidate list.
+- `ci-security-scan` — CI pipelines on GitHub Actions, GitLab, CircleCI, Bitbucket, Azure and Jenkins: what an outsider can make a privileged job run, graded by what its token can do.
 - `mobile-security-scan` — Android, iOS, React Native, Expo and Flutter apps: storage, transport, IPC, links, WebViews, release config, shipped secrets.
 
 ### Commands

@@ -147,6 +147,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }   # a repo with no infra files reports every iac class N/A
   fallback: skills/iac-scan/SKILL.md
 
+- name: ci-security-scan
+  kind: skill
+  triggers: { ci_config_detected: true }   # /security-audit also dispatches it on any whole-repo run holding a CI file
+  fallback: skills/ci-security-scan/SKILL.md
+
 - name: mobile-security-scan
   kind: skill
   triggers: { mobile_framework_detected: true }   # /security-audit also runs it on every whole-repo run; no mobile root → one N/A line
