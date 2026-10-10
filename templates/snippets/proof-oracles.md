@@ -1,7 +1,7 @@
 # Proof oracles — the failing-first proof for each detector class
 
 Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
-`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix` and `/devops-fix` (reproduce failing-first, then validate the fix), and by every
+`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix` and `/infra-fix` (reproduce failing-first, then validate the fix), and by every
 detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
 Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
 and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
@@ -19,6 +19,7 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## SEO` | V180–V188 | — (new section) |
 | `## Observability` | V189–V208 | — (new section) |
 | `## DevOps` | V209–V243 | — (new section) |
+| `## Infrastructure` | V244–V289 | — (new section) |
 
 ## Scope of use (read first)
 
@@ -3514,6 +3515,416 @@ docs (advisory lock); and local runs on 2026-10-10 of the `docker stop` matrix (
 bookworm-slim), the stage-chain user resolution on six Dockerfiles and the YAML `on:` remap
 (PyYAML, Ruby psych). Rows marked [K?] are settled on the `ci-defects` fixture or a sandbox repo
 before a skill asserts them. Paraphrased; no text reproduced.
+
+## Infrastructure
+
+An infrastructure claim says that, with no attacker involved, a declared or rendered configuration
+takes the system down, loses its data, executes a request twice or bills without bound. Reading a
+manifest or a `.tf` file does not settle any of these: what the API server rejects, what a drain
+does to a PDB, what the provider fills in for an unset attribute and what a proxy does with a slow
+upstream are runtime and provider facts. The oracle drives the disruption (a drain, a forced
+replacement, a `destroy`, a config edit, a poison message, a slow or killed upstream, a second
+schedule tick) against a copy, an offline plan or a scratch cluster, and asserts on what happened.
+Every oracle names a **tier**: T (a tool on files: kubeconform, pluto, conftest, `terraform test`,
+cfn-lint, `nginx -t`, `caddy adapt`), P (the offline plan JSON), K (a scratch kind cluster), H (the
+edge harness), L (live, read-only) or S (a static two-ended trace that includes the provider or
+chart default). Settled questions are in [`precedents/infrastructure.md`](precedents/infrastructure.md).
+Users: `iac-state-scan`, `iac-lifecycle-scan`, `dr-audit`, `serverless-reliability-scan`,
+`iac-cost-scan`, `k8s-render-scan`, `k8s-availability-scan`, `k8s-wiring-scan`,
+`k8s-api-version-scan`, `edge-reliability-scan`, `dns-tls-lifecycle-scan` and
+`network-exposure-audit` (infrastructure pack), judged by `@k8s-reviewer` (the four Kubernetes
+detectors) and `@infra-reviewer` (the rest), and `/infra-fix`. Exposure, privilege, RBAC breadth, the
+shared-cache leak (E4), dangling DNS (D1), D8/D9, DATA-06 and secret values in state are security's
+and are proven with [`exploit-payloads.md`](exploit-payloads.md) and
+[`finding-verification.md`](finding-verification.md); their variant lists are cited there, not
+restated here.
+
+**Scope of use.** Copies under `$SCAN`, offline plans and scratch clusters only — never the user's
+state backend, cloud account or cluster. No `apply`, `destroy`, `import`, `state mv/rm`,
+`helm install/upgrade`, `kubectl apply/delete/patch` or cloud mutation outside a scratch kind
+cluster, ever. Five rules hold for every variant below:
+
+- **Read the version first** (gate 3): TF/Tofu from `required_version` and the lockfile, the target Kubernetes minor, the Helm major, the controller image tag or chart pin. A version-gated variant with no version read is Unconfirmed with the probe written out.
+- **Every Kubernetes oracle carries an explicit kubeconfig.** `KUBECONFIG="$SCAN/kind.kubeconfig"` (or `--kubeconfig`) on the same command line as every `kubectl` / `helm` / `kind` call, pointing at a cluster `kind-harness.sh` created; the harness refuses an unset `KUBECONFIG` or one that resolves to the user's default file, and never reads `~/.kube/config`. `helm template --dry-run=server` and bare `kubent` reach for the current context (precedents § 55, § 56).
+- **Terraform is offline.** `init -backend=false` on a copy, fake credentials with the provider's skip flags, `plan -refresh=false` and `test` with `mock_provider` + `command = plan`. Provider download is network but credential-free; a backend is never configured.
+- **Tools run on copies.** Never `gixy --fix`, `helm dependency update` in-tree, `checkov --download-external-modules` in-tree or `terraform init` in-tree.
+- **The ledger counts objects, not exit codes.** A tool that read fewer objects or files than were rendered is NOT-RUN for the difference; the two canaries (a removed-API PDB and a `name: n` ConfigMap) ride every run (precedents § 53). An L-tier variant with no target the user confirmed in this session prints `NO-DATA(<target>)`, never PASS.
+
+### Oracle taxonomy (infrastructure)
+
+| Oracle | Asserts | Tier | V | Detector § |
+|---|---|---|---|---|
+| **State lock** | Two parallel `plan -lock-timeout=0s` on a copy: one fails on the lock; the state bucket is versioned; `terraform test` fails "Output refers to sensitive values" before the fix; `plan -refresh-only -detailed-exitcode` runs on a schedule | T + P | V244 | `iac-state-scan` §1, §2, §4–§6 |
+| **Pinning** | `init -lockfile=readonly` passes on every CI platform; `.terraform/modules/modules.json` resolves to immutable refs; a chart's resolved version is fixed across two dates | T | V245 | `iac-state-scan` §3 |
+| **Identity** | Churn plan: removing item 0 of a `count` collection plans delete/create on every later index before the fix, only the intended key after | P | V246 | `iac-lifecycle-scan` §1 |
+| **Lifecycle / refactor blocks** | Two consecutive plans; `action_reason`; Tofu's forgotten count; the side-effect shows no plan diff | P | V247 | `iac-lifecycle-scan` §2, §3, §5, §6 |
+| **Stateful replace** | `replace_paths` on a stateful type; a conftest deny over the plan JSON fails before the fix | P + T | V248 | `iac-lifecycle-scan` §4 |
+| **Deletion safety** | `terraform test` asserts `== true` (unset reads null); a forced replacement fails `plan` with the guard; cfn-lint `I3011`; a staging destroy drill leaves backups | T + P | V249 | `iac-lifecycle-scan` §7; `dr-audit` §12 corroborates |
+| **Backups / PITR** | `terraform test` on retention and PITR; the live describe on a confirmed profile | T + L | V250 | `dr-audit` §1–§7 |
+| **Immutability & writer-can-delete** | `simulate-principal-policy` (or the provider's key-scope listing) **denies** delete and re-policy for the app and backup identities; the vault lock is compliance mode | L + S | V251 | `dr-audit` §8 |
+| **RPO arithmetic** | Schedule × retention × discovery lag against the declared RPO/RTO table, written out | S | V252 | `dr-audit` §9 |
+| **Restore evidence** | A restore to a **new** target with a row or checksum diff, a measured duration vs RTO and a date within `THR-BACKUP-DRILL-AGE` | L / recorded | V253 | `dr-audit` §11, §12 |
+| **Operator backups** | `pgbackrest check`, `pg_stat_archiver.failed_count`, `velero backup describe --details`, `kubectl cnpg status` on a scratch cluster, `etcdutl snapshot status` | K + L | V254 | `dr-audit` §10 |
+| **Queue timing** | `vis.jq` over the plan: `visibility < 6 × (timeout + window)` prints before the fix, nothing after | P | V255 | `serverless-reliability-scan` §2 |
+| **DLQ path** | The plan has a redrive or destination on the source, with DLQ retention > source retention | P | V256 | `serverless-reliability-scan` §3 |
+| **Partial batch** | A unit test with one failing record returns exactly that id in `batchItemFailures` | T (unit) | V257 | `serverless-reliability-scan` §4 |
+| **Concurrency ceiling** | The plan value of reserved / maximum concurrency × per-instance connections ≤ the downstream's limit; `reserved = 0` flagged separately | P + S | V258 | `serverless-reliability-scan` §5, §7–§9 |
+| **Retry storm** | One poison record injected on a sandbox stack → retries bounded, `IteratorAge` recovers | L (sandbox) | V259 | `serverless-reliability-scan` §6 |
+| **Log retention** | Plan JSON `retention_in_days`, read against the HCL (they disagree on unset, precedents § 52) | P | V260 | `iac-cost-scan` §3 |
+| **Scale ceilings** | Every autoscaler has a max; `max × unit` written out against the quota | P + S | V261 | `iac-cost-scan` (COST-08, K-HPA-COST); `serverless-reliability-scan` §5 corroborates |
+| **Render matrix** | Every values file × env and every overlay renders, at the oldest and newest target minor; Helm values cross-reference clean | T | V262 | `k8s-render-scan` §0–§2 |
+| **Patch no-op / phantom** | The render with and without the patch differs only where intended | T | V263 | `k8s-render-scan` §3 |
+| **SSA / upgrade twice** | `helm upgrade` twice on kind (Helm 4 server-side) exits 0 with the HPA owning replicas | K | V264 | `k8s-render-scan` §2 |
+| **Selector mutation** | Apply the base-branch render, then the head render, on kind → `field is immutable` before the fix | K | V265 | `k8s-render-scan` §5 |
+| **GitOps spec** | `argocd app diff` / `flux diff` on scratch; else the static two-ended trace | K / S | V266 | `k8s-render-scan` §4 |
+| **Pod-template classes** | `k8s-ops.jq` class rows over every pod template; `apply --dry-run=server` on kind | T + K | V267 | `k8s-availability-scan` §1, §2, §8 |
+| **PDB drain** | `drain --dry-run=server` / an Eviction with `dryRun: ["All"]` on kind → 429 before the fix | K | V268 | `k8s-availability-scan` §3 |
+| **Scaling (HPA / KEDA)** | HPA `ScalingActive` True; the KEDA floor read from the render; replicas untouched by an apply | K | V269 | `k8s-availability-scan` §4 |
+| **Spread** | Multi-node kind placement under the declared constraint | K | V270 | `k8s-availability-scan` §5 |
+| **Rollout shape** | `apply --dry-run=server`; an RWO volume across a surge on two nodes | K | V271 | `k8s-availability-scan` §6 |
+| **Shutdown timing** | Load during `rollout restart` → 0 errors; a pod deleted mid-request exits 0/143, not 137 | K | V272 | `k8s-availability-scan` §7 |
+| **Platform SPOF** | Kill the single controller pod during load on kind → 5xx before the fix | K | V273 | `k8s-availability-scan` §9 |
+| **Config propagation** | A ConfigMap edit leaves `generation` and pod UIDs unchanged before the fix; subPath stale | K | V274 | `k8s-wiring-scan` §1 |
+| **Service / endpoints** | The EndpointSlice has ≥ 1 ready endpoint on the named port | K | V275 | `k8s-wiring-scan` §2, §4 |
+| **NP DNS and paths** | `nslookup` 1 → 0 → 1 on kind with a policy-enforcing CNI | K | V276 | `k8s-wiring-scan` §3 |
+| **Jobs / CronJobs** | A `*/1` schedule with a 90 s job → two active Jobs before the fix | K | V277 | `k8s-wiring-scan` §5 |
+| **RBAC wiring** | `kubectl auth can-i --as=system:serviceaccount:<ns>:<sa>` on kind with the rendered RBAC | K | V278 | `k8s-wiring-scan` §6 |
+| **Target minor** | Render + kubeconform + dry-run on kind node images of the oldest and newest minor; pluto `--target-versions` | T + K | V279 | `k8s-api-version-scan` §1, §4 |
+| **Schema + CRDs** | `kubeconform -strict` with the CRDs catalog, objects read = objects rendered, canaries reported | T | V280 | `k8s-api-version-scan` §2 |
+| **Admission rejection** | Dry-run on kind with the namespace PSA labels and the repo's policies; `kyverno apply` offline | T + K | V281 | `k8s-api-version-scan` §3 |
+| **Timeout chain** | The hop table; `curl -w '%{http_code} %{time_total}'` through the chain → 504 at the shortest hop while the upstream finishes | S + H | V282 | `edge-reliability-scan` §1, §8; `serverless-reliability-scan` §1 |
+| **Keep-alive** | Idle-gap probe at LB-idle ± 1 s; one request id across every hop's log line | H | V283 | `edge-reliability-scan` §2, §7, §11, §15 |
+| **Non-idempotent retries** | `edge-harness.py` hit counter: N POSTs through a failing upstream → N executions | H | V284 | `edge-reliability-scan` §3, §9, §10 |
+| **Re-resolution** | The upstream IP changes; the proxy follows within the TTL | H | V285 | `edge-reliability-scan` §5 |
+| **Streaming** | SSE arrival spacing; `Upgrade` → 101; a reload during an open stream | H | V286 | `edge-reliability-scan` §6, §12 |
+| **Silent rejection** | Static typo, dynamic typo, unknown middleware, missing service, missing cert each **fail the deploy step** | T + H | V287 | `edge-reliability-scan` §13, §14 |
+| **DNS/TLS lifecycle** | `dig` from 2 resolvers; CAA vs the issuer; `promtool test rules` with a T-21 d series; a renewal on kind | T + K + L | V288 | `dns-tls-lifecycle-scan` §1–§6 |
+| **Network correctness** | `cidr-overlap.py` over every CIDR source; Reachability Analyzer when live | T + L | V289 | `network-exposure-audit` §1–§4 |
+
+### Scratch cluster (`kind-harness.sh`)
+
+`k8s-render-scan/scripts/kind-harness.sh` creates and deletes a throwaway kind cluster at the
+target minor with its own kubeconfig. Its contract, with the raw commands it wraps:
+
+```bash
+export SCAN="${TMPDIR:-/tmp}/infra-scan"; mkdir -p "$SCAN"; : > "$SCAN/kind.kubeconfig"
+kind create cluster --name infra-oracle --image "kindest/node:v${TARGET_MINOR}" --kubeconfig "$SCAN/kind.kubeconfig"
+KUBECONFIG="$SCAN/kind.kubeconfig" kubectl -n default get sa default        # wait for it before creating pods
+KUBECONFIG="$SCAN/kind.kubeconfig" kubectl apply --dry-run=server -f "$SCAN/render-prod.yaml"
+kind delete cluster --name infra-oracle --kubeconfig "$SCAN/kind.kubeconfig"
+```
+
+Use a multi-node config (`nodes: [control-plane, worker, worker]`) for spread, RWO and drain
+variants; add metrics-server (`--kubelet-insecure-tls`) for HPA variants. kindnet enforces
+NetworkPolicy, so the DNS oracle runs as is. Starting docker or a VM for kind is a side effect the
+run reports, and stops when it started it.
+
+### Offline Terraform (`terraform test` + plan JSON)
+
+```hcl
+# tests/ops_invariants.tftest.hcl, beside a COPY of the module under test
+mock_provider "aws" {}
+run "data_stores_survive_destroy" {
+  command = plan
+  assert {
+    condition     = aws_db_instance.orders.deletion_protection == true
+    error_message = "deletion_protection not true (unset reads null)"
+  }
+  assert {
+    condition     = aws_db_instance.orders.skip_final_snapshot == false
+    error_message = "skip_final_snapshot"
+  }
+}
+```
+
+```bash
+terraform -chdir="$SCAN/mod" init -backend=false && terraform -chdir="$SCAN/mod" test -json
+terraform -chdir="$SCAN/stack" plan -refresh=false -out=tfplan && terraform -chdir="$SCAN/stack" show -json tfplan > "$SCAN/plan.json"
+jq -r '.resource_changes[]|select(.change.actions|index("delete"))|"\(.address) \(.change.actions|join(",")) \(.change.replace_paths//[])"' "$SCAN/plan.json"
+```
+
+The plan needs fake credentials with the provider's skip flags (`skip_credentials_validation`,
+`skip_requesting_account_id`, `skip_metadata_api_check`) and no data source that calls an API.
+Tofu needs valid-looking ARNs in `mock_resource` defaults. A root output that references a sensitive
+attribute aborts the test run first: test a child module, or that output is the TF-11 finding.
+Module-nested resources live under `.configuration.root_module.module_calls.<m>.module.resources`;
+walk them recursively. `plan-joins.jq` (`iac-lifecycle-scan/scripts/`) holds the stateful-replace,
+`vis.jq`, API-Gateway ↔ Lambda and bucket ↔ versioning joins.
+
+### Render ledger
+
+```bash
+bash k8s-render-scan/scripts/render.sh . --out="$SCAN" --kube-version="$TARGET_MINOR"
+kubeconform -strict -summary -output json -kubernetes-version "$TARGET_MINOR" \
+  -schema-location default -schema-location '<CRDs-catalog URL>' "$SCAN/render-prod.yaml" "$SCAN/canary.yaml"
+pluto detect-files -d "$SCAN" -o json --target-versions "k8s=v$TARGET_MINOR"
+jq -f k8s-render-scan/scripts/k8s-ops.jq "$SCAN/render-prod.json"
+```
+
+**Fails first** means the class row prints for the cited object before the fix and is gone after it,
+in every environment's render. Never `-ignore-missing-schemas` for core groups: it turns a removed
+API into `skipped`, exit 0.
+
+### Edge harness (`edge-harness.py`)
+
+`edge-reliability-scan/scripts/edge-harness.py` (stdlib, `python3 -I`) is an upstream that counts
+hits per method and path, can stall, close mid-body, return 502/503/504 or stream SSE, and probes an
+idle gap. It runs behind the project's **own** proxy image or config (a stock `caddy` cannot load an
+`xcaddy` build, precedents § 49), never in front of a real service. `curl -w '%{http_code}
+%{time_total}\n'` drives the timing variants; `curl --http3-only` the protocol variant.
+
+### Cost candidates (no V of their own)
+
+COST-01…07, 09–13 and N4 are candidates, not findings. Their proof is the plan value (P) plus the
+quantity expression `quantity × unit (price key) = per-hour or per-month expression`, written out
+under the `/cost-audit` arithmetic halts. A `$` appears only with a cited bill line or a dated
+pricing page; finops prices the candidates when installed. Log retention (V260) and scale ceilings
+(V261) have class oracles because their failure is a behaviour, not a price.
+
+### Class variants (infrastructure)
+
+#### V244. State lock, hygiene and plan discipline — parallel plan + test (`iac-state-scan` §1, §2, §4–§6)
+- backend `s3` with `dynamodb_table` only (deprecated), no `use_lockfile = true`, no `encrypt`; local state or no backend in a team repo (CODEOWNERS, a CI apply job); a committed `*.tfstate*`; Terragrunt `remote_state {}`; Pulumi `backend.url` / `PULUMI_BACKEND_URL`; Tofu `encryption {}` absent where policy needs it
+- TF-11: a secret-shaped `variable` without `sensitive = true`, outputs referencing it, `random_password` / `tls_private_key` outputs; a write-only `*_wo` argument or ephemeral resource available at the locked provider version and unused (TF-02 values → security `secret-scan`)
+- TF-09 no scheduled `plan -refresh-only -detailed-exitcode`; TF-14 `-target=` / `-exclude=` outside a break-glass runbook; an apply of a fresh plan instead of the saved file; CFN `detect-stack-drift` never run
+- TF-12 `terraform.workspace ==` branching on prod; one backend key for every environment; prod and non-prod sharing credentials; TF-15 `default_tags` absent (plan `tags_all == {}`); TF-16 no `*.tftest.hcl`, `precondition` or `check` (low)
+- pass: one of two parallel `plan -lock-timeout=0s` fails on the lock; the state bucket is versioned; `terraform test` is clean of "Output refers to sensitive values"; a scheduled drift job exits 0 or 2, never unread
+
+#### V245. Pinning (IV-3) — readonly init (`iac-state-scan` §3)
+- `required_version` absent or open-ended; each `required_providers` entry without a constraint; `.terraform.lock.hcl` missing or missing a CI platform (`runs-on`); a git module without a SHA (a tag pin is precedents § 27); a registry module without `version`; nested module sources inside fetched modules; TF 1.15 dynamic sources resolved; Terragrunt `source = "…?ref="`; Pulumi and CDK package lockfiles
+- PIN-HELM: `helm (upgrade --install|install) <rel> <repo>/<chart>` without `--version` in a runbook, Makefile or CI file; Argo `targetRevision: HEAD`, `*` or a range; Flux `HelmRelease.spec.chart.spec.version` with a semver range
+- pass: `init -lockfile=readonly` succeeds on every CI platform, `modules.json` resolves to immutable refs, and every platform-component install names a `--version`
+
+#### V246. Identity (IV-4) — churn plan (`iac-lifecycle-scan` §1)
+- `count = length(<collection>)` → `for_each` keyed by a stable id + a `moved` block per address, module renames included; a `for_each` key derived from a mutable value
+- CDK construct-id churn in loops (`` new X(this, `…${i}`) ``), `overrideLogicalId`, `cdk refactor`; Pulumi rename or re-parent without `aliases`; CFN logical-id rename base → head
+- Kubernetes selectors changed through a label helper or `commonLabels` (V265 owns the apply proof)
+- pass: the churn plan after the fix destroys only the intended key; `cdk diff` / `pulumi preview` show no replace of a stateful resource
+
+#### V247. Lifecycle and refactor blocks — two plans (`iac-lifecycle-scan` §2, §3, §5, §6)
+- TF-06 `ignore_changes = all` (autoscaler-mutated fields are precedents § 25); `create_before_destroy` on a fixed-name resource
+- TF-07 `removed {}` or `lifecycle { destroy = false }` (TF 1.16 / Tofu 1.12) or Tofu `enabled =` where destroy was meant: an orphan that keeps billing (precedents § 28)
+- TF-10 `provisioner "local-exec"`, `null_resource` / `terraform_data` migrations, `data "external"`
+- TF-13 perpetual diff: `timestamp()`, `uuid()`, `most_recent = true` feeding an `ami`
+- pass: a second consecutive plan is empty; `action_reason` and Tofu's forgotten count match the documented hand-off (ADR); no side effect lives only in a provisioner
+
+#### V248. Stateful replace — plan + conftest (`iac-lifecycle-scan` §4)
+- `.change.actions == ["delete","create"]` or `["create","delete"]` on a stateful type (DB instance or cluster, volume, bucket, file system, KMS key, queue with messages, DNS zone, StatefulSet PVC) with its `replace_paths`; a ForceNew attribute edited (engine, AZ, `storage_encrypted`, `identifier`, Azure geo-redundant backup)
+- CFN replacement in a change set; `cdk diff` `[-/+]`; Pulumi `replace`
+- pass: the conftest deny over the plan fails before the fix; after it the plan shows an in-place update, or the replacement carries a snapshot → restore → cut-over plan with an ADR (`/infra-fix` stops before it)
+
+#### V249. Deletion safety (IV-1) — test + guard proof (`iac-lifecycle-scan` §7; `dr-audit` §12 corroborates)
+- TF `prevent_destroy` (+ Tofu `= var.x`); provider `deletion_protection` / `deletion_protection_enabled` / `enable_deletion_protection`; Cloud SQL TF flag **and** `settings.deletion_protection_enabled`
+- CFN `DeletionPolicy` + `UpdateReplacePolicy` + stack termination protection; CDK `RemovalPolicy.DESTROY`, `autoDeleteObjects: true`; Pulumi `protect: false` / `retainOnDelete`; a rendered StorageClass `reclaimPolicy: Delete` under system-of-record PVCs
+- `force_destroy` / `force_delete` / azurerm purge features; `skip_final_snapshot` / `final_snapshot_identifier` / `final_backup_config` / EBS `final_snapshot`; `delete_automated_backups = true`; KMS `deletion_window_in_days` < `THR-KMS-WINDOW` on a data key
+- the module default that reaches prod (precedents § 18 flip); DigitalOcean / Hetzner / other provider equivalents only where the provider has the attribute at the locked version [K?]
+- backups inside the destroyable state (R11)
+- pass: `terraform test` asserts `== true` per spelling; a forced replacement fails `plan` with the guard; cfn-lint `--include-checks I` reports no `I3011`; a staging destroy drill leaves the backups and final snapshot in place
+
+#### V250. Backups and PITR (IV-2) — test + describe (`dr-audit` §1–§7)
+- RDS instance (`backup_retention_period` doc default 0 — assert on the plan value [K?]), Aurora cluster (default 1 day), DocDB, Neptune, Redshift, ElastiCache / MemoryDB, DynamoDB PITR (+ global-table replicas), Cloud SQL backup + PITR + `transaction_log_retention_days`, Azure PG / MySQL flexible (`backup_retention_days`; geo-redundant **at create**), Cosmos continuous, EBS (DLM / AWS Backup selection), EFS backup policy, S3 versioning + noncurrent expiry + multipart abort (DATA-09)
+- retention ≥ `THR-BACKUP-RETENTION` (discovery lag; Velero default TTL 720 h); DATA-03 single-AZ prod store; DATA-04 storage growth uncapped (`max_allocated_storage` unset); DATA-07 `apply_immediately = true`, an EOL major on Extended Support; DATA-08 a cache used as a store (precedents § 29)
+- the managed provider's own window vs the repo's logical dumps, per store
+- pass: `terraform test` holds retention and PITR for every store type present; the live describe on a confirmed profile agrees (else `NO-DATA(<profile>)`)
+
+#### V251. Immutability and writer-can-delete — deny simulation (`dr-audit` §8)
+- R3 backups in the app's own bucket, account or project (the backup Job's `s3://` / `gs://` / `az://` URI or `BACKUP_*_URI` equals the app's upload bucket); DATA-10 copies inside the prod blast radius
+- R4 no Object Lock, or **governance** mode (precedents § 38); no vault lock; R5 the writer or the app key can delete, overwrite or re-policy backups
+- every identity that touches the backups: the app role, the backup role, a CI deploy role
+- pass: `iam simulate-principal-policy` (or the provider's key-scope listing) **denies** delete and policy changes for each identity; `get-backup-vault-lock-configuration` shows compliance mode (the exposure chain over the backup prefix is security's)
+
+#### V252. RPO arithmetic (R1) — written-out table (`dr-audit` §9)
+- each store's schedule × retention × discovery lag × replication delay against the declared RPO and RTO (`ai/runbooks/*restore*`, ADRs, the multi-region block)
+- no declared table → `blocked (no declared objectives)`, which forces GO-UNVERIFIED; an objective is never invented
+- pass: every store's worst-case loss window and restore time fit its declared objective, with the arithmetic written out
+
+#### V253. Restore evidence (R10) and off-host backups (C7) — restore record (`dr-audit` §11, §12)
+- a drill record with a job id, a **new** target, a row-count or checksum diff, a measured duration against RTO and a date within `THR-BACKUP-DRILL-AGE`; each stateful store type (managed DB, operator Postgres, PV, object store, Redis with persistence, etcd)
+- R11 backups that survive `terraform destroy` of the stack; C7 a single host with no off-host copy
+- pass: the record carries every evidence field of `THR-BACKUP-DRILL-AGE`, or a restore to scratch produces them; a store with no drill is a BLOCK finding, not an unchecked row
+
+#### V254. Operator backups — tool checks (`dr-audit` §10)
+- R6 Velero `snapshotVolumes: false` or no file-system backup on a namespace with PVCs (precedents § 37); R7 WAL archiving that lies (`archive_command` that always succeeds, `pgbackrest` stanza unchecked, `repo1-retention-full` unset); R8 CNPG / zalando cluster with no backup stanza (CNPG in-tree `barmanObjectStore` deprecated since 1.26; zalando `logical_backup_s3_retention_time` empty keeps everything); R9 self-managed etcd without snapshots (managed control planes are precedents § 37)
+- pass: `pgbackrest --stanza=<s> check` passes and `pg_stat_archiver.failed_count` stays 0; `velero backup describe <b> --details` lists PV data; `kubectl cnpg status` on a scratch cluster shows a completed backup; `etcdutl snapshot status` reads the snapshot
+
+#### V255. Queue timing (IV-5) — `vis.jq` (`serverless-reliability-scan` §2)
+- Lambda + SQS standard and FIFO; a batching window added; Lambda Managed Instances (90 min, precedents § 24); ECS or Kubernetes workers polling SQS (visibility vs the worst-case job); SNS → SQS → Lambda; EventBridge Pipes; Cloud Run + Pub/Sub push (ack deadline); Azure Functions + Service Bus (lock duration)
+- pass: `vis.jq` prints nothing: every `visibility ≥ 6 × (timeout + batching window)` per `THR-QUEUE-VISIBILITY` (AWS itself rejects only below 1×)
+
+#### V256. DLQ path (IV-6) — plan join (`serverless-reliability-scan` §3)
+- SQS redrive with DLQ retention > source retention; Lambda async destination / DLQ (precedents § 19 for SQS-polled functions); stream event-source `destination_config` + `maximum_retry_attempts` (default -1, forever) + `bisect_batch_on_function_error`; EventBridge target DLQ; SNS subscription redrive; Step Functions `Catch`; Pub/Sub `dead_letter_policy`; Service Bus `max_delivery_count`
+- pass: every source in the plan has a dead-letter path whose retention outlives the source's
+
+#### V257. Partial batch — one-bad-record unit test (`serverless-reliability-scan` §4)
+- `function_response_types` missing `ReportBatchItemFailures`; set while the handler never returns `batchItemFailures` on some catch path; CDK `SqsEventSource({ reportBatchItemFailures })`; SAM `FunctionResponseTypes`; Serverless Framework `functionResponseType`
+- pass: a unit test with one failing record in a batch of N returns exactly that record's id, and the other N-1 are not redelivered
+
+#### V258. Concurrency ceiling and cold-start cost — plan + arithmetic (`serverless-reliability-scan` §5, §7–§9)
+- SLS-05 reserved or ESM maximum concurrency unbounded toward a finite downstream (DB `max_connections`, a rate-limited API); `reserved_concurrent_executions = 0` disables the function (a separate finding); SLS-08 provisioned concurrency or min instances on a non-latency path; SLS-09 memory at the extremes (low); SLS-10 Cloud Run / Functions / Azure Functions max instances, concurrency and timeout shape
+- pass: `max concurrency × connections per instance ≤ downstream limit`, written out with both values cited; a cold-start control names its latency requirement
+
+#### V259. Retry storm — one poison record (`serverless-reliability-scan` §6)
+- stream sources with `maximum_retry_attempts = -1`; no `maximum_record_age_in_seconds`; no bisect; SDK retries × platform retries × queue redelivery multiplying; async invoke retries on a non-idempotent handler
+- pass: one bad record injected on a sandbox stack is retried a bounded number of times, lands in the dead-letter path, and `IteratorAge` recovers (L on a sandbox the user names, else the static product of retry counts)
+
+#### V260. Log retention (IV-8) — plan vs HCL (`iac-cost-scan` §3)
+- explicit log groups with `retention_in_days` unset (0 = never expire, so a plan-based check passes, precedents § 52); Lambda auto-created `/aws/lambda/*`; API Gateway execution and access logs; VPC flow logs; RDS `enabled_cloudwatch_logs_exports`; ECS `awslogs-create-group`; GCP log bucket `retention_days`; Azure Log Analytics `retention_in_days`; proxy access logs with health and static paths not excluded (E6)
+- self-hosted Loki / Prometheus retention is observability's; audit-log retention too short for compliance is security's
+- pass: every log sink in the plan has a finite retention, and each auto-created group is declared in IaC with one
+
+#### V261. Scale ceilings (IV-9) — quantity arithmetic (`iac-cost-scan`; `serverless-reliability-scan` §5)
+- ASG max; ECS service autoscaling max; Lambda reserved + ESM maximum concurrency; Cloud Run max instances (default 100); DynamoDB autoscaling max and static `PROVISIONED`; Aurora Serverless v2 `max_capacity`; Azure `app_scale_limit`; HPA `maxReplicas` and KEDA `maxReplicaCount` × requests vs the namespace quota (K-HPA-COST)
+- pass: every autoscaler has a max (`THR-SCALE-CEILING`), and `max × unit` is written out against the quota; a capacity increase is the user's decision
+
+#### V262. Render matrix (+ Helm values xref) — render + validate (`k8s-render-scan` §0–§2)
+- every `values-<env>.yaml` and CI `--set`; subchart values; `Capabilities` branches at the oldest and newest target `--kube-version` (precedents § 12); hooks; `crds/`; library charts; `tpl` strings
+- every overlay over its base; Argo `valueFiles` / `parameters` / in-Application patches; Flux `postBuild.substitute`, `HelmRelease.spec.values`
+- K-HELM-VALUE-UNUSED / -UNDEFINED (`helm-values-xref.sh`); K-HELM-LOOKUP (empty offline and under Argo); -CRDS; -HOOK-DELETE; -REQUIRED
+- pass: every env renders with exit 0 and an empty `render.err` for the class, kubeconform reads every object, and a `values.schema.json` with `additionalProperties: false` makes `helm lint --strict` fail on a typo key
+
+#### V263. Patch no-op and phantom — render diff (`k8s-render-scan` §3)
+- K-KZ-PATCH-NOOP: a strategic-merge or JSON6902 patch whose `target` (name, label, kind) or path matches nothing; K-KZ-PHANTOM: an SMP naming a container that does not exist (K-IMAGE-MISSING corroborates); -NAMEPREFIX references not rewritten; -HASH generators referenced by a literal name; -COMMONLABELS (deprecated, rewrites selectors); `components`; a remote base by an unpinned ref
+- pass: `kz-patch-noop.sh` shows the render with and without each patch differs exactly where the patch intends
+
+#### V264. SSA / upgrade twice — kind (`k8s-render-scan` §2)
+- K-HELM-REPLICAS: a chart that renders `replicas` for an HPA or KEDA target; K-HELM-SSA under Helm 4 server-side apply; K-HELM-FLAGS: `--atomic` / `--force` in CI under Helm 4 (`--rollback-on-failure`, `--force-replace`, `--wait` strategies)
+- pass: `helm upgrade` twice on kind (Helm major as CI runs it) exits 0, and the HPA-set replica count survives both
+
+#### V265. Selector mutation — base then head on kind (`k8s-render-scan` §5)
+- `spec.selector` changed base → head on a Deployment, StatefulSet, DaemonSet or Job, through a label helper, `commonLabels`, a chart `fullname` change or a rename; a Service selector changed in the same apply (non-atomic: the Service moves, the workload is rejected)
+- pass: apply the base render, then the head render, on kind: no `field is immutable` error, and the Service's EndpointSlice stays non-empty throughout
+
+#### V266. GitOps spec — diff on scratch (`k8s-render-scan` §4)
+- K-GITOPS-REPLICAS (`selfHeal` × an HPA or KEDA target with `replicas`; precedents § 14); -PRUNE (prune off with deleted objects, or on with shared objects); -WAVES (a dependency synced before its CRD or namespace); -IGNORE-WIDE (`ignoreDifferences` over a whole kind or `/spec`)
+- live reconciliation drift is devops `gitops-audit`
+- pass: `argocd app diff` / `flux diff` on a scratch cluster show no reset of autoscaler-owned fields and the intended prune and order; with no scratch controller, the static two-ended trace (the Application spec and the controller's default at its pinned version)
+
+#### V267. Pod-template classes (+ StatefulSet) — class rows + dry-run (`k8s-availability-scan` §1, §2, §8)
+- every template: Deployment, StatefulSet, DaemonSet, Job, CronJob `jobTemplate.spec.template`, Argo Rollout (`template` or `workloadRef`), bare Pod; every container, not `[0]`; initContainers and native sidecars (`restartPolicy: Always`); ephemeral containers excluded
+- K-RES-MISSING (CPU request, memory request, memory limit — no CPU-limit row, precedents § 1), K-MEM-OVERCOMMIT, K-QUOTA-SHAPE, K-PRIORITY; K-PROBE-SAME, -READINESS-MISSING, -STARTUP, -EXEC-TIMEOUT (default timeout 1 s), -GRPC, -JOB (precedents § 3); a liveness path on a dependency prints `route → performance request-path-scan §15`
+- StatefulSet: K-STS-SVC (`serviceName` without a headless Service), -VCT [K?: mutability on 1.35+], -PVC-RETENTION
+- a fleet-wide shape (memory limit = 2–4 × request on every workload) is one finding with N sites, fixed at the base or chart helper
+- pass: `k8s-ops.jq` prints no row for the class on any env's render, and `apply --dry-run=server` on kind admits every template
+
+#### V268. PDB drain — eviction dry-run (`k8s-availability-scan` §3)
+- K-PDB-BLOCK: `minAvailable` ≥ the floor or `maxUnavailable: 0`, where the floor is HPA `minReplicas`, KEDA `minReplicaCount` (default 0), Rollout `spec.replicas` or `spec.replicas` (default 1) — precedents § 42; a PDB on 1 replica; percentage PDBs against the HPA floor; -MISSING on a served prod workload at ≥ 2 replicas; -ORPHAN (selector matches nothing); -UNHEALTHY (`unhealthyPodEvictionPolicy` not `AlwaysAllow`); K-PDB-API (`policy/v1beta1`); K-HPA-PDB; `matchExpressions` selectors; same namespace only
+- pass: on kind, `drain --dry-run=server --ignore-daemonsets` (or an Eviction with `dryRun: ["All"]`) allows ≥ 1 eviction with every pod healthy, per `THR-K8S-PROD-FLOOR`
+
+#### V269. Scaling (HPA / KEDA) — conditions on kind (`k8s-availability-scan` §4)
+- K-HPA-NOREQ (a resource metric on a container with no request → `ScalingActive False`); -REPLICAS (`replicas` rendered on an HPA target, fought on every client-side apply); -MINMAX (`min == max`, `min` 1 on a served prod workload); -VPA (VPA `Auto` on the HPA's metric); -BEHAVIOR; KEDA `minReplicaCount: 0` on a served workload; HPA → StatefulSet / Rollout targets
+- pass: HPA `ScalingActive` is True on kind with metrics-server; an apply leaves `.spec.replicas` to the autoscaler; the floor read from the render meets `THR-K8S-PROD-FLOOR`
+
+#### V270. Spread — multi-node placement (`k8s-availability-scan` §5)
+- K-SPREAD (no constraint where a PDB, SLO or zone-loss requirement needs a guarantee; precedents § 44), -HARD (`DoNotSchedule` that strands a rollout), -ROLLOUT (`matchLabelKeys` missing so old and new ReplicaSets count together); zone constraints on a single-zone cluster are precedents § 8
+- pass: on a 3-node kind cluster the replicas place per the declared constraint, and a rollout completes under it
+
+#### V271. Rollout shape — dry-run + RWO surge (`k8s-availability-scan` §6)
+- K-ROLLOUT-SHAPE (`maxSurge: 0` with `maxUnavailable: 0`, or `maxUnavailable` taking a 2-replica service to 0), -DEADLINE (`progressDeadlineSeconds` shorter than a cold start), K-HISTORY (`revisionHistoryLimit: 0`), K-RWO-ROLLING (an RWO PVC under `RollingUpdate`), K-STATEFUL-RECREATE, K-DS-UPDATE, K-STS-PODMGMT, K-SELECTOR-TEMPLATE (selector ≠ template labels), K-PULLPOLICY (citing security 4j; precedents § 9, § 50)
+- pass: `apply --dry-run=server` on kind admits the shape; a two-node rollout with an RWO volume completes (`Recreate` or RWX) instead of `Multi-Attach` until the deadline
+
+#### V272. Shutdown timing — rollout under load (`k8s-availability-scan` §7)
+- K-SHUTDOWN-PRESTOP (no `preStop` delay on a served workload behind an endpoint-propagating LB); K-SHUTDOWN-GRACE (`preStop + app drain + 5 s > terminationGracePeriodSeconds`, `THR-SHUTDOWN-GRACE`; the drain from devops `deploy-safety-scan` §5 or a code constant, precedents § 46); `exec: [sleep, N]` (unvalidated) vs native `sleep` (GA 1.34, validated, precedents § 61); K-SIDECAR-ORDER (a sidecar that exits before the app drains); workers judged on checkpointing, not `preStop`
+- pass: load through the Service during `rollout restart` gives 0 errors (3 runs, within the noise band); a pod deleted mid-request ends with exit 0 or 143, never 137, and the request completes
+
+#### V273. Platform SPOF — controller kill on kind (`k8s-availability-scan` §9)
+- K-PLATFORM-SPOF: a request-path component installed by a runbook, Makefile or Argo `Application` (precedents § 45) — ingress or Gateway controller, CoreDNS customisation, cert-manager webhook, KEDA operator, metrics-server under an HPA — with no replica count or PDB, so it inherits the chart default at the pinned version (unpinned → Unconfirmed, V245); K-INGRESS-RETIRED corroborates (V279)
+- pass: with the chart's values at its pinned version on kind, killing one controller pod during load gives 0 5xx; the install sets ≥ 2 replicas and a non-blocking PDB
+
+#### V274. Config propagation — edit on kind (`k8s-wiring-scan` §1)
+- K-CONFIG-ROLL: a ConfigMap or Secret consumed with no checksum annotation, Reloader, hash suffix or `immutable` + versioned name (precedents § 13); a hand-bumped `*-revision` annotation is partial (precedents § 43); K-SUBPATH (a `subPath` mount never updates); K-ENV-SECRET-ROTATE (env from a rotated Secret); an embedded proxy config without `--watch` or a reload hook
+- pass: on kind, editing the source and re-applying the render rolls the pods (template hash changes); a directory mount shows the new value; no subPath mount holds config that changes
+
+#### V275. Service and endpoints — EndpointSlice (`k8s-wiring-scan` §2, §4)
+- K-SVC-SELECTOR (matches no pod; `matchExpressions`), -PORT (named `targetPort` absent on the container, numeric mismatch), K-IMAGE-MISSING, K-INGRESS-BACKEND (Service or port absent), HTTPRoute `parentRefs` / `allowedRoutes` / `ResolvedRefs`; selector-less Services; same namespace only (absent = the release or kustomize namespace)
+- K-NS-MISSING (an object in a namespace nothing creates and the platform does not own); K-CM-SIZE (a ConfigMap over 1 MiB)
+- pass: every Service's EndpointSlice has ≥ 1 ready endpoint on the named port on kind; every namespace exists before its objects; HTTPRoute status shows `Accepted` and `ResolvedRefs` True
+
+#### V276. NP DNS and paths (N5) — nslookup on kind (`k8s-wiring-scan` §3)
+- K-NP-DNS: an egress policy with no UDP **and** TCP 53 allow to kube-dns (label as the cluster names it); NodeLocal DNSCache at `169.254.20.10` needing an ipBlock; CoreDNS in another namespace; Cilium / Calico / VPC CNI semantics
+- an egress policy that omits a dependency the app's config names (DB / Redis host:port from the deploy config, the OTLP endpoint, IMDS / STS for a pod that needs them) — read, not grep
+- policy width is security 4k
+- pass: on kind with a policy-enforcing CNI, `nslookup kubernetes.default` answers under the policy, and a connection to each configured dependency succeeds
+
+#### V277. Jobs and CronJobs — schedule overlap (`k8s-wiring-scan` §5)
+- K-CRON (`concurrencyPolicy: Allow` default on a non-idempotent job; `startingDeadlineSeconds` unset; no `activeDeadlineSeconds`), K-JOB (`backoffLimit` default 6 on a side-effect job), K-CRON-TZ (`CRON_TZ=` in `schedule` is rejected; `timeZone` GA 1.27), K-JOB-RESTART; CronJob-owned Job TTL is precedents § 10
+- pass: on kind, a `*/1` schedule with a 90 s job never has two active Jobs (`Forbid`), and a failing Job stops within its deadline
+
+#### V278. RBAC wiring — can-i on kind (`k8s-wiring-scan` §6)
+- `serviceAccountName` with no rendered ServiceAccount and no platform owner; a RoleBinding or ClusterRoleBinding whose `roleRef` or subject is absent; a binding to a Role in another namespace; `automountServiceAccountToken: false` on a workload whose code or image calls the API (client-go, `@kubernetes/client-node`, the `kubernetes` Python client, a controller image); a controller or collector Role missing a verb its docs require at its pinned version
+- privilege breadth (wildcards, `cluster-admin`, `escalate` / `bind` / `impersonate`, cluster-wide `secrets`, `pods/exec`, `nodes/proxy`, token automount on a non-API workload, default-SA use) is security's
+- pass: `kubectl auth can-i <verb> <resource> --as=system:serviceaccount:<ns>:<sa>` on kind with the rendered RBAC answers `yes` for every verb the workload needs
+
+#### V279. Target minor — render + dry-run at both ends (`k8s-api-version-scan` §1, §4)
+- K-API-REMOVED at the oldest and newest target minor (`policy/v1beta1` PDB and `batch/v1beta1` CronJob 1.25, `autoscaling/v2beta2` HPA 1.26, `networking.k8s.io/v1beta1` Ingress 1.22); a `Capabilities` guard (precedents § 12); Helm `--api-versions` in CI
+- support status: the target minor outside the supported window (1.34 EOL 2026-10-27, precedents § 62); K-INGRESS-RETIRED (an ingress-nginx image or chart in the platform inventory); cert-manager, KEDA, Argo CD and Flux minors past their support
+- pass: render + kubeconform + `apply --dry-run=server` on kind node images of the oldest and newest minor are clean, and pluto `--target-versions` reports 0 with the canary flagged
+
+#### V280. Schema + CRDs — strict validation (`k8s-api-version-scan` §2)
+- core kinds and CRDs: PrometheusRule, ServiceMonitor, PodMonitor, KEDA ScaledObject, cert-manager Certificate / ClusterIssuer, Gateway API HTTPRoute, Argo Application / Rollout, Flux kinds; YAML-1.1 coercion (`name: n` → `"false"`, `on`, `yes`); a CRD missing from the catalog (NOT-RUN for that kind, never skipped)
+- PromQL content is observability `alert-rule-lint`
+- pass: `kubeconform -strict` with the CRDs catalog reads every rendered object (count matches the render ledger), reports the canaries, and finds 0 invalid
+
+#### V281. Admission rejection — dry-run with policies (`k8s-api-version-scan` §3)
+- K-PSA-LABELS: a namespace `enforce: restricted` (or `baseline`) whose own workloads violate it; the repo's Kyverno / ValidatingAdmissionPolicy / Gatekeeper policies applied offline (`kyverno apply --resource`; one unmappable GVK aborts the run → NOT-RUN); a weak enforce level is security's
+- pass: `apply --dry-run=server` on kind with the namespace labels and the repo's policies installed admits every workload, and `kyverno apply` reports 0 failures on a run that read every resource
+
+#### V282. Timeout chain (IV-7) — hop table + curl (`edge-reliability-scan` §1, §8; `serverless-reliability-scan` §1)
+- every hop of each public route: CDN (CloudFront `origin_read_timeout`, Cloudflare proxied [K?]), LB idle (ALB 60 s, GCP backend service 30 s, DO LB annotations), API Gateway (REST regional / private / edge, HTTP API; precedents § 24), ingress (annotations, Gateway `HTTPRoute.timeouts`), proxy (nginx `proxy_read_timeout`, Caddy `response_header_timeout`, Traefik `serversTransport`, HAProxy `timeout server` — unset is infinite, Envoy route 15 s), sidecar, app server (Node `requestTimeout`, Fastify, gunicorn `--timeout`, uvicorn, Go `http.Server`, Puma), **the app's own HTTP client**, DB `statement_timeout`; Lambda ↔ API Gateway integration (SLS-01)
+- E12 upload and body: `client_max_body_size`, `proxy-body-size`, Traefik `readTimeout` against the slowest legitimate upload (`0` = unlimited is security's)
+- HTTP/1.1 and HTTP/2; a cold start after deploy; the slowest legitimate route class (exports, reports, uploads, webhooks; SSE and WS exempt → V286)
+- pass: the hop table holds `each request timeout ≥ the slowest legitimate request behind it` with every value cited; `curl -w '%{http_code} %{time_total}'` through the chain completes the slowest route, and a 5 MB slow upload completes
+
+#### V283. Keep-alive (+ hop headers and access logs) — idle-gap probe (`edge-reliability-scan` §2, §7, §11, §15)
+- E2 idle inversion: each hop's idle timeout must exceed the idle timeout of the hop in front of it (ALB 60 s → Node `keepAliveTimeout` 5 s is the canonical 502; GCP needs > 600 s); E10 upstream keepalive unused (version-gated, precedents § 33)
+- E11 forwarding headers, redirect-loop half (`X-Forwarded-Proto` not trusted behind TLS termination → an http → https loop; client-IP trust is security 7e); E15 compression (`gzip_types`, `gzip_proxied`; the CDN compresses or not)
+- E6 access-log volume (health and static not excluded); E21 format: a request id minted (`$request_id`, `{http.request.uuid}`, ingress-nginx `generate-request-id` [K?]) and forwarded (`X-Request-Id`), upstream timing fields present; log **content** is security `data-exposure-scan` §6
+- pass: an idle-gap probe at LB-idle − 1 s and + 1 s gives no 502; an http request redirects once; one request through every hop carries one id in every hop's log line with upstream timing
+
+#### V284. Non-idempotent retries (E3) — hit counter (`edge-reliability-scan` §3, §9, §10)
+- POST, PUT, PATCH, DELETE × connect-refused (safe), timeout-after-send, 502/503/504 from upstream, reset mid-body × every layer: nginx `proxy_next_upstream` with `non_idempotent` (default is precedents § 35), Caddy `lb_retry_match` with a write method (precedents § 48), Envoy `retry_policy` with no method gate, Traefik `retryNonIdempotentMethod: true`, HAProxy `retry-on`, mesh retries, client SDK retries, queue redelivery; with and without an idempotency key the app enforces **and** the client sends
+- E13 rate-limit shape, ops half: `limit_req` without `burst`; `$binary_remote_addr` behind a CDN; 503 vs 429; E14 health checks: passive only, a deep check that ejects the whole pool, HAProxy `server` without `check`
+- pass: `edge-harness.py` counts exactly N executions for N POSTs through a failing upstream; 10 parallel requests get 429, not 503; killing one upstream sheds only its share
+
+#### V285. Re-resolution (E7) — upstream IP change (`edge-reliability-scan` §5)
+- a variable `proxy_pass` with no `resolver`; a literal ELB, RDS or SaaS hostname in an `upstream` block resolved once at start; `resolve` on upstream servers; IPv6 answers (`ipv6=off`); resolver timeout; TTL-0 records; a headless or ExternalName Service (ClusterIP is precedents § 32)
+- pass: the harness changes the upstream's address and the proxy follows within the record's TTL, with no 502 window beyond it
+
+#### V286. Streaming (E8/E9) and drain (E16) — SSE spacing + reload (`edge-reliability-scan` §6, §12)
+- SSE, long-poll, chunked download, gRPC-web, WebSocket, HTTP/2 streams; idle longer than every read timeout; buffering (version-gated: precedents § 30); `Upgrade` / `Connection` headers forwarded
+- E16 drain on reload or rollout: nginx `worker_shutdown_timeout`, Traefik `graceTimeOut`, HAProxy `hard-stop-after`, Caddy `grace_period` / `stream_close_delay`; a reload during an open stream
+- pass: SSE events arrive at the upstream's spacing, not batched; an `Upgrade` request gets 101; a reload or rolling restart under load closes no open stream before its drain window
+
+#### V287. Silent rejection (E17) and protocol support (E18–E20) — the deploy step fails (`edge-reliability-scan` §13, §14)
+- a static typo, a dynamic typo (Traefik drops the whole file and keeps running), an unknown middleware reference, a route to a missing service, a missing cert file: each must **fail the deploy step**, not log (precedents § 40)
+- validation lanes: `nginx -t -p $SCAN`, `caddy adapt` / `caddy validate` **with the project's own image when plugins exist**, else NOT-RUN (precedents § 49); Traefik booted against an empty provider then grep `ERR`; `haproxy -c`; `envoy --mode validate`
+- E18 HTTP/3 advertised (Caddy `protocols` unset) behind a TCP-only LB; E19 on-demand TLS `ask` endpoint returning 200 for an unknown domain (Caddy 2.8+ fails closed with no `ask`); E20 ingress-nginx still deployed (one finding per site with K-INGRESS-RETIRED)
+- pass: each seeded typo makes the deploy step exit non-zero; `curl --http3-only` either succeeds or h3 is not advertised; the `ask` probe refuses an unknown domain
+
+#### V288. DNS/TLS lifecycle (D2–D7, K-CERT) — dig + promtool + renewal (`dns-tls-lifecycle-scan` §1–§6)
+- D2 TTL above `THR-DNS-CUTOVER-TTL` on a record a failover or cutover changes; D3 CAA vs the ACME CA in use (apex, wildcard `issuewild`, each zone cut, a second CA; a missing CAA is LOW, precedents § 36); D4 DNSSEC with a deletable KSK key; D5 no expiry signal for an inventoried cert (cert-manager `Certificate`, Caddy managed domains, LB certs) — the rule's quality is observability's; D6 non-prod issuing from the production ACME endpoint, K-CERT-ISSUER (prod on staging, duplicate `secretName`); D7 OCSP residue, client-auth EKU removal breaking mTLS; K-CERT-ROTATION (`rotationPolicy: Always` from cert-manager 1.18 vs pinned trust); K-CERT-RENEW (`renewBefore ≥ duration`); ARI vs non-ARI renewal
+- D1 dangling DNS is security's (`finding-verification.md`); infra runs it only as the tagged fallback
+- pass: `dig` from 2 resolvers agrees with the declared records and CAA names the issuer; `promtool test rules` fires the expiry alert at T-21 d (`THR-CERT-EXPIRY-ALERT`); a renewal on kind with cert-manager at the pinned version issues from the right issuer
+
+#### V289. Network correctness (N3, N7, N8) — overlap script (`network-exposure-audit` §1–§4)
+- N3 NACL asymmetry (stateless: the return path's ephemeral ports); N7 overlapping CIDRs across VPCs, peerings, TGW, VPN and pod / service ranges; N8 IPv6 parity, connectivity half (v6 routed and allowed where v4 is); declared vs running drift (§4, live)
+- `0.0.0.0/0` / `::/0` ingress, egress-all (N2), ipBlock width and IMDS-v6 exceptions are security's; §5's live-exposure rows carry `owner: security`
+- pass: `python3 -I network-exposure-audit/scripts/cidr-overlap.py` reports 0 overlaps across every CIDR source, every NACL pair admits the return path, and Reachability Analyzer (live, confirmed profile) finds the path on v4 and v6
+
+### Sources (infrastructure)
+
+The infrastructure research catalog and its notes A–C (2026-10-10) and the batch-4 infrastructure
+eval (2026-10-10), which cite: the Terraform 1.16 / OpenTofu 1.13 docs and changelogs (`test`,
+`mock_provider`, `removed`, `lifecycle destroy`), the AWS provider docs (main branch, defaults
+table), the Kubernetes docs (releases, deprecation guide, disruptions, probes, topology spread —
+the built-in default constraints re-checked on 2026-10-10), the Helm 4 and kustomize 5.8 release
+notes, the nginx, ingress-nginx, Caddy, Traefik, HAProxy and Envoy documentation, cert-manager 1.18
+release notes, CA/B Forum SC-081, and local measured runs on 2026-10-10: `terraform test` /
+`tofu test` with mock providers, offline plan JSON with checkov / trivy / kics / conftest, kind
+v0.33.0 (node v1.37.0, isolated kubeconfig) for drain, eviction, HPA, ConfigMap, NetworkPolicy and
+preStop oracles, nginx and Caddy harness runs, and a read-only real-repo run (kustomize 5.8.3,
+kubeconform 0.8.0, pluto 5.24.4, kube-score 1.20.0, kube-linter 0.8.3, caddy 2.11.7). Rows marked
+[K?] are settled on the `infra-ops` fixture before a skill asserts them. Paraphrased; no text
+reproduced.
 
 ---
 

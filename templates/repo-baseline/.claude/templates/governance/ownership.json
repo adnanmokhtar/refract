@@ -305,7 +305,7 @@
       "fallback": "the detector's own report, verified by the verifier",
       "pack": "observability",
       "target": "observability-reviewer",
-      "note": "liveness on a shared dependency → performance request-path-scan §15; probe presence and shape in manifests → infrastructure k8s-reviewer; public health details → security data-exposure-scan § 3"
+      "note": "liveness on a shared dependency → performance request-path-scan §15; probe presence and shape in manifests → infrastructure k8s-availability-scan §2; public health details → security data-exposure-scan § 3"
     },
     "obs-error-tracking": {
       "detector": "observability/skills/error-tracking-scan §1–§4",
@@ -350,7 +350,7 @@
       "fallback": "the detector's own report, verified by the verifier",
       "pack": "observability",
       "target": "observability-reviewer",
-      "note": "collector and agent DaemonSet RBAC → infrastructure (observability reports the telemetry blast radius as corroboration)"
+      "note": "collector RBAC: breadth → security iac-scan §3; missing or dangling (SA, roleRef, a needed verb) → infrastructure k8s-wiring-scan §6 (observability reports the telemetry blast radius as corroboration)"
     },
     "ci-pipeline-integrity": {
       "detector": "devops/skills/pipeline-integrity-scan §1–§8 (ci-graph.py)",
@@ -377,7 +377,7 @@
       "fallback": "the detector's own report, verified by the verifier",
       "pack": "devops",
       "target": "operability-reviewer",
-      "note": "registry tag-mutability IaC → infrastructure; deploy by mutable tag → security iac-scan 4j (release §4/§7 corroborate); revisionHistoryLimit → infrastructure"
+      "note": "registry tag-mutability → security iac-scan 4j (registry variant); retention/rollback → devops DP-9; deploy by mutable tag → security iac-scan 4j (release §4/§7 corroborate); revisionHistoryLimit → infrastructure"
     },
     "deploy-safety": {
       "detector": "devops/skills/deploy-safety-scan §1–§5",
@@ -441,6 +441,141 @@
       "pack": "security",
       "target": "security-reviewer (supply-chain lens)",
       "note": "every CI attacker-path class on all six platforms (injection, privileged triggers, pinning × privilege, cache poisoning, OIDC width, secret exposure, runner trust); pin × privilege is graded with ci-graph.py --check=pin-priv; without the security pack, devops pipeline-integrity-scan runs the greps and tags rows security-class (owner pack not installed)"
+    },
+    "iac-state": {
+      "detector": "infrastructure/skills/iac-state-scan §1–§6",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "secret values in state → security secret-scan (iac-state-scan §2 corroborates the mechanism: ephemeral, write-only, state encryption); PIN-HELM covers charts installed by runbooks, CI and Argo/Flux"
+    },
+    "iac-lifecycle": {
+      "detector": "infrastructure/skills/iac-lifecycle-scan §1–§6",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "infrastructure/skills/tf-plan-review is the plan-time verdict over §4 on a saved plan; IAM and security-group widening in a plan → security iac-scan"
+    },
+    "deletion-safety": {
+      "detector": "infrastructure/skills/iac-lifecycle-scan §7",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "destroy-surviving backups → infrastructure dr-audit §12 corroborates; one class across TF, CFN/SAM, CDK, Pulumi and K8s PV/StorageClass (THR-KMS-WINDOW)"
+    },
+    "data-durability": {
+      "detector": "infrastructure/skills/dr-audit §1–§12",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "backup exposure chain (a public policy over the backup prefix) → security iac-scan §4; DB TLS not enforced (DATA-06) → security; recoverability (backups in the app's bucket, writer can delete) stays here; THR-BACKUP-DRILL-AGE, THR-BACKUP-RETENTION"
+    },
+    "serverless-reliability": {
+      "detector": "infrastructure/skills/serverless-reliability-scan §1–§9",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "log retention (SLS-07) → infrastructure iac-cost; unbounded scale on a finite downstream is credited here (SLS-05), cost corroborates; THR-QUEUE-VISIBILITY"
+    },
+    "iac-cost": {
+      "detector": "infrastructure/skills/iac-cost-scan",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode) for existence · finops/agents/cost-reviewer (diff) / finops/agents/finops-analyst (bill) for price",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "candidates carry quantity × unit (price key), never a $ without a bill line or a dated pricing page; fallback for pricing: infrastructure /cost-audit, which consumes the candidates and never re-detects an IaC class; THR-SCALE-CEILING"
+    },
+    "k8s-render": {
+      "detector": "infrastructure/skills/k8s-render-scan §0–§5",
+      "owner": "infrastructure/agents/k8s-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "live reconciliation drift → devops gitops-audit; the render contract (§0) is the shared input of the four k8s detectors"
+    },
+    "k8s-availability": {
+      "detector": "infrastructure/skills/k8s-availability-scan §1–§9",
+      "owner": "infrastructure/agents/k8s-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "liveness on a dependency → performance request-path-scan §15; shutdown code and image chain → devops deploy-safety-scan §5 / container-build-scan §2 (THR-SHUTDOWN-GRACE is owned here); CPU limits are precedents/infrastructure.md § 1, not a class; THR-K8S-PROD-FLOOR"
+    },
+    "k8s-wiring": {
+      "detector": "infrastructure/skills/k8s-wiring-scan §1–§6",
+      "owner": "infrastructure/agents/k8s-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "RBAC privilege breadth → security iac-scan §3; RBAC wiring (missing SA, dangling roleRef or subject, a missing needed verb, automount off on an API caller) stays here (§6); NetworkPolicy width → security iac-scan 4k"
+    },
+    "k8s-api-schema": {
+      "detector": "infrastructure/skills/k8s-api-version-scan §1–§4",
+      "owner": "infrastructure/agents/k8s-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "PromQL content → observability alert-rule-lint; weak PSA enforce level → security (an enforce level that rejects the namespace's own workloads stays here, §3)"
+    },
+    "edge-reliability": {
+      "detector": "infrastructure/skills/edge-reliability-scan §1–§15",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "cross-user cache (E4) → security iac-scan §6 (§4 here is the tagged fallback); log content → security data-exposure-scan §6; shipper and retention of self-hosted backends → observability telemetry-config-scan; access-log format and request id (E21) stay here (§15)"
+    },
+    "dns-tls-lifecycle": {
+      "detector": "infrastructure/skills/dns-tls-lifecycle-scan §1–§6",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "dangling DNS / takeover → security (§7 here is the tagged fallback); alert-rule quality → observability alert-rule-lint; THR-CERT-EXPIRY-ALERT, THR-DNS-CUTOVER-TTL"
+    },
+    "network-correctness": {
+      "detector": "infrastructure/skills/network-exposure-audit §1–§4",
+      "owner": "infrastructure/agents/infra-reviewer (judge, refute mode)",
+      "fixer": "/infra-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
+      "pack": "infrastructure",
+      "target": "operability-reviewer (infrastructure lens)",
+      "note": "§5 live exposure rows → security (executor lane, rows carry owner: security); declared exposure, egress-all (N2) and ipBlock width → security iac-scan"
+    },
+    "shared-cache-leak": {
+      "detector": "security/skills/iac-scan §6 (grep 7h)",
+      "owner": "security/agents/security-auditor",
+      "fixer": "/security-fix",
+      "fallback": "infrastructure/skills/edge-reliability-scan §4 runs the greps when security is not installed, rows tagged security-class (owner pack not installed)",
+      "pack": "security",
+      "target": "security-reviewer",
+      "note": "a shared cache serving one user's response to another (E4); the two-identity probe is an exploit-payloads.md row; consistent with frontend's cross-user cache rule and tenant-leak"
+    },
+    "dangling-dns": {
+      "detector": "security/skills/iac-scan §4 (declared records) · /security-live-scan (live dig / NXDOMAIN)",
+      "owner": "security/agents/security-auditor",
+      "fixer": "/security-fix",
+      "fallback": "infrastructure/skills/dns-tls-lifecycle-scan §7 runs the greps when security is not installed, rows tagged security-class (owner pack not installed)",
+      "pack": "security",
+      "target": "security-reviewer",
+      "note": "D1 takeover: credited to security when the target is claimable; a dangling record that only breaks resolution (released EIP, deleted zone) is infrastructure dns-tls-lifecycle-scan §1-adjacent; a literal CNAME to CloudFront or an ELB is not a takeover (precedents/infrastructure.md § 39)"
     }
   }
 }

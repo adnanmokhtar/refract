@@ -266,11 +266,11 @@
       "why": "a deploy, publish, migration or terraform apply is serialized per environment and never cancelled mid-apply; cancel-in-progress belongs to PR CI and per-PR previews. The pack's own example pipeline violated it (workflow-level cancel over the staging and prod deploys)"
     },
     "THR-SHUTDOWN-GRACE": {
-      "value": {"docker_stop_default_s": 10, "k8s_grace_default_s": 30, "app_drain_lt_grace": true, "preStop_lt_grace": true},
+      "value": {"k8s_grace_default_s": 30, "docker_stop_default_s": 10, "rule": "preStop_s + app_drain_s + margin_s <= terminationGracePeriodSeconds", "margin_s": 5, "native_sleep_lt_grace_validated": true, "exec_sleep_validated": false},
       "unit": "seconds",
       "floor": true,
-      "owner": "packs/infrastructure (manifest timing: preStop, terminationGracePeriodSeconds) · cited by packs/devops/skills/deploy-safety-scan §5, container-build-scan §2 and observability's telemetry flush — the row is agreed in the infrastructure eval",
-      "why": "one number for the whole shutdown chain: Docker sends SIGKILL 10 s after SIGTERM and Kubernetes 30 s after by default, so the app's drain and any preStop sleep must finish inside the grace period or in-flight work dies on every rollout"
+      "owner": "packs/infrastructure/skills/k8s-availability-scan §7 (manifest timing: preStop, terminationGracePeriodSeconds; precedents/infrastructure.md § 46, § 61) · cited by packs/devops/skills/deploy-safety-scan §5 (the app drain number), container-build-scan §2 and observability's telemetry flush — defined in the batch-4 infrastructure eval § 3.5",
+      "why": "one number for the whole shutdown chain: Docker sends SIGKILL 10 s after SIGTERM and Kubernetes 30 s after by default, so the preStop delay, the app's drain and a 5 s margin must fit inside the grace period or in-flight work dies on every rollout. The API server rejects a native preStop sleep >= grace (GA 1.34) but never validates an exec sleep, so only this arithmetic catches it; the drain may be a code constant, not an env var"
     },
     "THR-IMAGE-GROWTH": {
       "value": {"max_growth_pct_without_dependency_change": 20, "baseline": "recorded by /dockerize Phase 7", "status": "proposal — measure the repo's image-size history before relying on it"},
@@ -285,6 +285,62 @@
       "floor": true,
       "owner": "packs/devops (release-integrity-scan §5, release-security, container-build-scan §9) and packs/security jointly — security iac-scan cites it",
       "why": "the scanners are supply chain too: trivy's images and action tags were compromised in 2026-03 and zizmor 1.27.0 logged GitHub credentials, so a scanner runs at or above its floor and is pinned by version and digest"
+    },
+    "THR-BACKUP-DRILL-AGE": {
+      "value": {"max_days": 90, "evidence": ["job_id", "new_target", "row_or_checksum_diff", "measured_duration_vs_rto", "date"]},
+      "unit": "days · evidence fields",
+      "floor": true,
+      "owner": "packs/infrastructure/skills/dr-audit §11 · ai-patterns/multi-region.md (drill cadence) · /infra-audit RECOVERY bar",
+      "why": "a restore that was never drilled is a hope, and a drill record with only a date proves nothing: it needs a new target, a row or checksum diff and a measured duration against RTO (R10). dr-audit and multi-region cite one number"
+    },
+    "THR-BACKUP-RETENTION": {
+      "value": {"min_days": 7, "must_also_cover": "the RPO-derived window", "velero_default_ttl_h": 720},
+      "unit": "days",
+      "floor": true,
+      "owner": "packs/infrastructure/skills/dr-audit §1",
+      "why": "retention shorter than the time it takes to notice corruption restores the corruption (R2); Velero's 720 h default TTL is a value to read, not a policy"
+    },
+    "THR-QUEUE-VISIBILITY": {
+      "value": {"rule": "visibility_s >= 6 * (function_timeout_s + batching_window_s)", "aws_rejects_below": "1x function timeout"},
+      "unit": "seconds",
+      "floor": true,
+      "owner": "packs/infrastructure/skills/serverless-reliability-scan §2 (vis.jq)",
+      "why": "a message whose visibility expires while the consumer still works on it is delivered twice; AWS validates only the 1x floor, so a queue at 1-5x passes deployment and double-executes under retries and batching (SLS-02)"
+    },
+    "THR-KMS-WINDOW": {
+      "value": {"data_key_min_days": 30},
+      "unit": "days",
+      "floor": true,
+      "owner": "packs/infrastructure/skills/iac-lifecycle-scan §7 (DEL-05)",
+      "why": "a KMS key scheduled for deletion makes every object it encrypts unrecoverable when the window ends; 30 days is the AWS default and maximum, so only an explicit shorter window on a data key is a deviation"
+    },
+    "THR-CERT-EXPIRY-ALERT": {
+      "value": {"alert_at_days_before": 21, "max_lifetime_days_by_date": {"2026-03-15": 200, "2027-03-15": 100, "2029-03-15": 47}},
+      "unit": "days",
+      "floor": true,
+      "owner": "packs/infrastructure/skills/dns-tls-lifecycle-scan §4 (D5) · alert-rule quality → observability alert-rule-lint",
+      "why": "public certificate lifetimes shrink on a dated schedule (CA/B Forum SC-081) and Let's Encrypt ended expiry emails on 2025-06-04, so every inventoried cert needs an expiry alert that fires 21 days out (promtool test rules with a T-21 d series)"
+    },
+    "THR-DNS-CUTOVER-TTL": {
+      "value": {"max_s": 300, "applies_to": "records a failover or cutover changes"},
+      "unit": "seconds",
+      "floor": false,
+      "owner": "packs/infrastructure/skills/dns-tls-lifecycle-scan §1 (D2)",
+      "why": "a long TTL on a record a failover changes keeps clients on the dead target for the TTL; a project may set its own value per its cutover runbook"
+    },
+    "THR-K8S-PROD-FLOOR": {
+      "value": {"served_prod_min_replicas": 2, "floor_sources": ["HPA minReplicas", "KEDA minReplicaCount (default 0)", "Argo Rollout spec.replicas", "spec.replicas (default 1)"], "pdb": "maxUnavailable: 1 or minAvailable < floor", "never_pdb_on_single_replica": true},
+      "unit": "replicas",
+      "floor": true,
+      "owner": "packs/infrastructure/skills/k8s-availability-scan §3–§4 (K-PDB-*, K-HPA-MINMAX) · /infra-audit ROLLOUT bar · replaces the literals in @k8s-reviewer",
+      "why": "a served prod workload on one replica is down for every drain and rollout, and a PDB on one replica (or minAvailable >= the floor) blocks every drain with 429; the floor includes KEDA and Rollout, not only HPA (precedents/infrastructure.md § 42)"
+    },
+    "THR-SCALE-CEILING": {
+      "value": {"every_autoscaler_has_max": true, "max_times_unit_written": true},
+      "unit": "enum",
+      "floor": true,
+      "owner": "packs/infrastructure/skills/iac-cost-scan (COST-08, K-HPA-COST) · serverless-reliability-scan §5 (SLS-05) · rules/infra-principles.md (min + max)",
+      "why": "an autoscaler with no ceiling turns a traffic spike, a retry storm or a bug into an unbounded bill and an exhausted downstream; the max is written as max x unit so its cost and its downstream load are visible"
     }
   }
 }
