@@ -103,7 +103,7 @@ J && /^  [A-Za-z0-9_.-]+:[ \t]*$/ { flush(); MIXED = A = B = 0 }
   for (i = 1; i <= n; i++) if (t[i] ~ /arm|aarch64|macos-1[4-9]|macos-latest|graviton/) A = 1; else if (t[i] ~ /ubuntu|windows|macos-13|x64|amd64/) B = 1
   if (A && B) MIXED = 1 }
 /^[ \t]*-[ \t]/ { if (L) { match($0, /^[ \t]*/); if (RLENGTH <= D) flush() } }
-/uses:[ \t]*actions\/cache(\/restore|\/save)?@/ { flush(); L = FNR; match($0, /^[ \t]*-?/); D = RLENGTH - 1; if ($0 !~ /^[ \t]*-/) { D = RLENGTH - 3 } next }
+/uses:[ \t]*actions\/cache(\/restore|\/save)?@/ { flush(); L = FNR; match($0, /^[ \t]*-?/); D = RLENGTH - 1; if ($0 !~ /^[ \t]*-/) { D = RLENGTH - 2 } next }
 L && /^[ \t]*key:/ { K = $0; sub(/^[ \t]*key:[ \t]*/, "", K); blk = "" ; next }
 L && /^[ \t]*path:/ { P = $0; sub(/^[ \t]*path:[ \t]*\|?[ \t]*/, "", P); blk = "path"; next }
 L && /^[ \t]*restore-keys:/ { R = $0; sub(/^[ \t]*restore-keys:[ \t]*\|?[ \t]*/, "", R); blk = "rk"; next }
@@ -136,7 +136,15 @@ rg -N -o '^[^:]+' "$SCAN/aff.txt" | sort -u | while IFS= read -r f; do awk -v F=
   /fetch-depth:[ \t]*0([^0-9]|$)|GIT_DEPTH:[ \t]*["\x27]?0|git[ \t]+fetch.*(--unshallow|--depth|origin[ \t])/ { deep[j] = 1 }
   /nx[ \t]+affected|nx-set-shas|turbo.*--filter=.*\[|--affected|lerna.*--since|git[ \t]+diff.*origin\/|changed-files|paths-filter/ { n++; h[n] = FNR; hj[n] = j; ht[n] = $0 }
   END { for (i = 1; i <= n; i++) { t = ht[i]; sub(/^[ \t]+/, "", t); printf "%s:%d: job=%s deep-clone=%s :: %s\n", F, h[i], (hj[i] == "" ? "-" : hj[i]), (deep[hj[i]] ? "yes" : "NO (default fetch-depth 1)"), t } }' "$f"; done
-echo '# 4 speed is data, not a grep: run timing needs gh + a token'
+echo '# 4 speed: static candidates (serial needs: chains with no hand-off; GitLab stage ladders with no needs:), then run timing (gh + a token)'
+if rg -q '^\./\.github/workflows/' "$SCAN/ci.txt"; then python3 "$G" . --serial-chains; fi
+rg '\.gitlab-ci[^/]*\.yml$|^\./\.gitlab/' "$SCAN/ci.txt" | while IFS= read -r f; do awk -v F="$f" 'function fl() { if (j != "" && !nd && !ev) nn[st == "" ? "test" : st] = 1; j = ""; st = ""; nd = ev = 0 }
+  /^stages:/ { sl = FNR; s = $0; if (s ~ /\[/) { gsub(/^[^[]*\[|\].*$/, "", s); ns = split(s, o, /[ \t]*,[ \t]*/) } else il = 1; next }
+  il && /^[ \t]+-[ \t]/ { x = $0; sub(/^[ \t]+-[ \t]+/, "", x); sub(/[ \t#].*/, "", x); o[++ns] = x; next }
+  /^[^ \t#]/ { il = 0; fl(); if ($0 ~ /^[A-Za-z0-9_-][A-Za-z0-9_.-]*:[ \t]*$/ && $1 !~ /^(stages|variables|default|workflow|include|image|services|cache|before_script|after_script):$/) { j = $1 } }
+  j != "" && /^  stage:/ { st = $2; gsub(/["\x27]/, "", st) }  j != "" && /^  needs:/ { nd = 1 }  j != "" && /^  environment:/ { ev = 1 }
+  END { fl(); for (i = 1; i <= ns; i++) { gsub(/["\x27 ]/, "", o[i]); if (o[i] in nn) { c++; l = l (l == "" ? "" : ">") o[i] } }
+    if (sl && c >= 3) printf "%s:%d: STAGE-LADDER stages=%d serial=%s (jobs with no needs: and no environment: wait for the whole previous stage)\n", F, sl, ns, l }' "$f"; done
 if gh auth status >/dev/null 2>&1; then echo "4: gh api repos/{o}/{r}/actions/runs?per_page=100 (p50/p95 per workflow); …/runs/{id}/jobs (queue = started_at - created_at)"; else echo '4: UNREADABLE (gh not authenticated): gh api repos/{o}/{r}/actions/runs?per_page=100'; fi
 echo '# R routed to security ci-security-scan §5 when installed: cache writers in outsider-startable workflows, cache restores in tag- or release-triggered workflows'
 rg -l --pcre2 "${GH[@]}" '^\s{2}(pull_request_target|workflow_run|issue_comment)\s*:' . | while IFS= read -r f; do rg -n --pcre2 'actions/cache(/save)?@|(?<![\w-])cache\s*:\s*[\x27"]?(npm|pnpm|yarn|pip|pipenv|poetry|gradle|maven|sbt)\b|cache-to\s*:' "$f" | sed "s|^|$f:|"; done
@@ -228,7 +236,11 @@ GOOD:  concurrency: { group: ${{ github.workflow }}-${{ github.event.pull_reques
 
 ### 4. Slow structure (FS-5)
 
-Run timing is data, not a grep. With a token: p50/p95 per workflow from `gh api repos/{o}/{r}/actions/runs?per_page=100` (`…/runs/{id}/timing`), queue time per job (`started_at - created_at`), and serial `needs:` chains with no artifact passed between them (`ci-graph.py --deploy-ancestors` shows the chain). There is no default threshold: compare against a budget the project declares. Without a token the row is `UNREADABLE`. **Proof (V219):** the measured numbers, labelled measured. L, report-only.
+Two static candidates print without a token: `SERIAL-CHAIN` (`ci-graph.py --serial-chains`: three or more GitHub jobs, each needing only its parent and taking nothing from it — no `download-artifact`, no `needs.<parent>.*` read — and none a deploy, publish, environment or status-function job) and `STAGE-LADDER` (a GitLab `stages:` list where jobs with no `needs:` and no `environment:` sit in three or more stages, so each waits for the whole previous stage).
+
+**Read the code:** Does the child reuse anything the parent made: an image pushed by SHA, a cache the parent warmed, a gate the team wants ordered (a smoke after a scan)? Could the chain run in parallel behind one filter or aggregator job, or the ladder become a `needs:` DAG?
+
+Run timing is data, not a grep. With a token: p50/p95 per workflow from `gh api repos/{o}/{r}/actions/runs?per_page=100` (`…/runs/{id}/timing`) and queue time per job (`started_at - created_at`). There is no default threshold: compare against a budget the project declares. Without a token the timing half is `UNREADABLE` and a static candidate stays `[report-flagged]`. **Proof (V219):** the measured numbers, labelled measured. L, report-only.
 
 ## Proof
 
@@ -263,13 +275,13 @@ Class coverage:
   §1  cache keys               checked (graph 5 rows + 1a 7 + 1c 3 → 1 finding, 3 unconfirmed; pre-commit cache refuted)
   §2  docker layer cache       checked (5 lines → 2 unconfirmed; scoped mode=max image refuted)
   §3  superseded / affected    checked (2 PR workflows without concurrency → hardening; 3 shallow affected → 1 unconfirmed)
-  §4  speed                    UNREADABLE (gh not authenticated): gh api repos/{o}/{r}/actions/runs?per_page=100
+  §4  speed                    checked (1 SERIAL-CHAIN + 1 STAGE-LADDER → 2 unconfirmed); timing UNREADABLE (gh not authenticated)
   R   routed                   triage.yml:10 (pull_request_target cache), release.yml:14 (tag workflow restores) → security ci-security-scan §5
 ```
 
 `[report-with-fix]`: what the cache holds, the key's missing dimension, the consuming step and the oracle are in hand, and the fix is local to the job. `[report-flagged]`: one link is unproven — the arch collision `[K?]`, a key built in a script, a composite action not read, no sandbox run. The row names the link and the settling test.
 
-The coverage block lists **all four** §s and the R lane on every run: `checked (k hits → m findings)` only when the lane ran on a present surface; `N/A (no CI file)` or `N/A (no image build)`; `blocked (<reason>)` when the graph exits 2 or a grep fails; `UNREADABLE (<api>)` for §4 without a token; `Live, unreviewed (k groups / n hits)` for a partial review.
+The coverage block lists **all four** §s and the R lane on every run: `checked (k hits → m findings)` only when the lane ran on a present surface; `N/A (no CI file)` or `N/A (no image build)`; `blocked (<reason>)` when the graph exits 2 or a grep fails; `UNREADABLE (<api>)` for §4's timing half without a token (its static candidates still run); `Live, unreviewed (k groups / n hits)` for a partial review.
 
 ## False positives / precedents
 

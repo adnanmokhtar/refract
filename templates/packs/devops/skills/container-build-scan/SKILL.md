@@ -71,7 +71,9 @@ Run as **one** script from the repo root (bash 3.2 and zsh print the same rows).
 ```bash
 X=(-g '!**/{node_modules,vendor,dist,build,out,target,.venv,venv,coverage,.next,.turbo,generated}/**'
    -g '!**/{test,tests,__tests__,spec,e2e,fixtures,__fixtures__,mocks,__mocks__,testdata,examples}/**' -g '!**/{docs,ai,.claude,.git}/**')
-DF=(--hidden --iglob 'Dockerfile*' --iglob '*.dockerfile' --iglob 'Containerfile*' --iglob '*.containerfile' --iglob '!*.dockerignore' "${X[@]}")
+DF=(--hidden --iglob 'Dockerfile*' --iglob '*.dockerfile' --iglob 'Containerfile*' --iglob '*.containerfile' --iglob '!*.dockerignore'
+    --iglob '!**/{node_modules,vendor,dist,build,out,target,.venv,venv,coverage,.next,.turbo,generated}/**'
+    --iglob '!**/{test,tests,__tests__,spec,e2e,fixtures,__fixtures__,mocks,__mocks__,testdata,examples}/**' --iglob '!**/{docs,ai,.claude,.git}/**')   # X as --iglob: every --iglob is matched after every -g, so the exclusions must be --iglob too
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*#')   # drops comment-only hit lines
 SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/container-build.XXXXXX")}"; echo "SCAN=$SCAN"
 echo '# 0a inventory: Dockerfiles; ignore files; build invocations (context, file, target) in CI, compose, bake, scripts'
@@ -104,6 +106,7 @@ function lc(s) { return tolower(s) }; function out(c, l, m) { printf "%s:%d: %s 
 function fam(r) { r = lc(r); if (r == "scratch") return "scratch"; if (r ~ /distroless\/static|static-debian|chainguard\/static/) return "static"
   if (r ~ /distroless|chainguard|cgr\.dev|wolfi/) return "distroless"; if (r ~ /alpine/) return "alpine"; if (r ~ /slim|minimal|micro/) return "slim"; return "full" }
 function libc(f) { return f == "alpine" ? "musl" : (f == "scratch" || f == "static") ? "none" : "glibc" }
+function unq(s,   o, q) { o = ""; while (match(s, /'[^']*'|"[^"]*"/)) { q = substr(s, RSTART, RLENGTH); o = o substr(s, 1, RSTART - 1) ((q ~ /[ \t]\|[ \t]/) ? q : "''"); s = substr(s, RSTART + RLENGTH) } return o s }   # a quoted span is data (`sed 's|a|b|'`) unless it holds a spaced pipe (`sh -c 'x | y'`)
 function pin(r, l,   v) { if (lc(r) == "scratch") return; if (r ~ /\$/) v = "ARG-DRIVEN"; else if (r ~ /@sha256:/) v = "digest"; else if (r ~ /:latest$/) v = "LATEST"
   else if (r !~ /:[^\/]*$/) v = "UNTAGGED"; else if (r ~ /:[^:\/]*[0-9]+\.[0-9]+/) v = "version"; else v = "floating"; out("BASE", l, r " pin=" v) }
 BEGIN { g["TARGETOS"] = g["TARGETARCH"] = g["TARGETPLATFORM"] = g["BUILDPLATFORM"] = 1 }
@@ -132,7 +135,7 @@ I == "CMD" { cmd[n] = r; cl[n] = L }; I == "ENTRYPOINT" { ep[n] = r; el[n] = L }
 I == "COPY" || I == "ADD" { fr = ""; src = ""; for (i = 2; i < NF; i++) { if ($i ~ /^--from=/) fr = lc(substr($i, 8)); else if ($i !~ /^--/) src = src " " $i }
   if (fr == "" && src ~ / \.\/?( |$)/ && !cp[n]) cp[n] = L; if (fr != "") { cf[n] = cf[n] " " fr; cfs[n, fr] = cfs[n, fr] src; cfl[n, fr] = L } }
 I == "RUN" { s = r; if (s ~ /^cd[ \t]/) out("RUN-CD", L, "cd in RUN (use WORKDIR)")
-  t = s; gsub(/\|[ \t]*grep[ \t]+-[A-Za-z]*q[A-Za-z]*/, "", t)
+  t = unq(s); gsub(/\|[ \t]*grep[ \t]+-[A-Za-z]*q[A-Za-z]*/, "", t)
   if (t !~ /^\[/ && t ~ /[^|]\|[^|]/ && t !~ /pipefail/) { st = n; h = 0; ok = 0; while (st && h++ < 50) { if (pfs[st]) ok = 1; st = pst[st] } if (!ok) out("PIPE-NO-PIPEFAIL", L, "a failing producer is masked by /bin/sh -c") }
   ins = (s ~ /(^|[ \t;&|(])(npm[ \t]+(ci|install|i)|pnpm[ \t]+(install|i)|yarn[ \t]+install|pip[0-9.]*[ \t]+install|uv[ \t]+sync|poetry[ \t]+install|bundle[ \t]+install|composer[ \t]+install|go[ \t]+mod[ \t]+download|cargo[ \t]+(build|fetch))([ \t;&|]|$)/ || s ~ /(^|[ \t;&])yarn[ \t]*($|&&|;)/) && s !~ /[ \t](-g|--global|--offline)([ \t]|$)/
   if (ins) { dep[n] = 1; if (s ~ /npm|pnpm|yarn/) js[n] = 1; if (cp[n] && !lo[n]) { lo[n] = 1; out("LAYER-ORDER", L, "dependency install after COPY . . at line " cp[n]) } }
@@ -141,7 +144,8 @@ I == "RUN" { s = r; if (s ~ /^cd[ \t]/) out("RUN-CD", L, "cd in RUN (use WORKDIR
   if (s ~ /go[ \t]+build/) { gob[n] = L; if (s ~ /CGO_ENABLED=0/) cg0[n] = 1; if (s ~ /GOARCH/) gar[n] = 1 }
   if (s ~ /(apt-get|apt|apk|dnf|yum|microdnf)[ \t].*(install|add)[ \t].*(build-essential|gcc|g\+\+|[ \t]make|[ \t]git|-dev([ \t]|$)|alpine-sdk|cmake)/) tl[n] = L
   if (s ~ /(apt-get|apt|apk|dnf|yum)[ \t].*(install|add)[^&;|]*curl/) cu[n] = 1; if (s ~ /(apt-get|apt|apk|dnf|yum)[ \t].*(install|add)[^&;|]*wget/) wg[n] = 1
-  if (s ~ /ch(own|mod)[ \t]+-[A-Za-z]*R/) chr[n] = L }
+  if (s ~ /ch(own|mod)[ \t]+-[A-Za-z]*R/) chr[n] = L
+  if (s ~ /apt(-get)?[ \t]+([^ \t]+[ \t]+)*update([ \t;&]|$)/ && s !~ /apt(-get)?[ \t]+([^ \t]+[ \t]+)*(install|upgrade|dist-upgrade)([ \t]|$)/) out("APT-UPDATE-ALONE", L, "apt-get update with no install in the same RUN: a later install reuses this layer's stale index (no --check or hadolint rule fires on it, §9)") }
 END { if (!n) exit; S = (T != "" && (lc(T) in idx)) ? idx[lc(T)] : n; b = base[S]; f = fm[S]; st = S; h = 0
   while (st && h++ < 50) { if (e == "" && ep[st] != "") { e = ep[st]; eL = el[st] } if (!cst && c == "" && cmd[st] != "") { c = cmd[st]; cL = cl[st] } if (e != "" && c == "") cst = 1
     if (hv == "" && hcx[st] != "") { hv = hcx[st]; hL = hcl[st] } if (sg == "" && sig[st] != "") sg = sig[st]; if (pt == "" && port[st] != "") pt = port[st]; exs = exs ex[st]
@@ -211,7 +215,7 @@ if docker info >/dev/null 2>&1; then while IFS= read -r f; do docker build --che
     else echo "$f: hadolint rc=$rc $(rg -o '"code":"(DL\d+|SC\d+)","column":\d+,"file":"[^"]*","level":"(error|warning)"' -r '$1' "$SCAN/hl.json" | sort -u | tr '\n' ' ')"; fi
   done < "$SCAN/df.txt"; else echo '9: blocked (no docker daemon): docker build --check -f <file> <ctx>; docker run --rm -i <HL> hadolint -f json --failure-threshold warning - < <file>'; fi
 echo '# 10 reproducibility claims (only a claim makes §10 a finding) and the recorded size baseline'
-rg -n -i --pcre2 --hidden -g '*.{md,yml,yaml,hcl,json}' --iglob 'Dockerfile*' -g '!**/{node_modules,vendor,fixtures,testdata,.claude,.opencode,.cursor,.git,ai}/**' '\breproducible[- ](builds?|images?|containers?)\b|\bSLSA\b[^\n]*\b(L|level\s*)3\b|SOURCE_DATE_EPOCH|rewrite-timestamp' . | "${NC[@]}"
+rg -n -i --pcre2 --hidden -g '*.{md,yml,yaml,hcl,json}' --iglob 'Dockerfile*' --iglob '!**/{node_modules,vendor,fixtures,testdata,.claude,.opencode,.cursor,.git,ai}/**' '\breproducible[- ](builds?|images?|containers?)\b|\bSLSA\b[^\n]*\b(L|level\s*)3\b|SOURCE_DATE_EPOCH|rewrite-timestamp' . | "${NC[@]}"
 rg -n -i --pcre2 -g '**/runbooks/docker.md' '\b\d+(\.\d+)?\s*(MB|GB|MiB|GiB)\b' .
 ```
 
@@ -352,9 +356,11 @@ GOOD:  npm ci --omit=dev / pnpm deploy --prod before the copy · COPY --chown=10
 ```
 BAD:   CMD ["node", "worker.js"] / CMD ["node", "server.js"]   (only the last counts)
        a file hadolint did not parse, reported as "hadolint: 0 findings"
+       RUN apt-get update   (alone; the install is a later RUN that reuses this cached index)
 GOOD:  one CMD per stage · hadolint DL1000 → that file NOT-RUN in the ledger, the fix re-parses it
+       RUN apt-get update && apt-get install -y --no-install-recommends … (one RUN)
 ```
-**Read the code:** Map each rule id to its §: DL3025/`JSONArgsRecommended` → §2; DL3000/`WorkdirRelativePath`, DL3003, DL4006, `UndefinedVar`, `UndefinedArgInFrom` → §5; DL3029/`FromPlatformFlagConstDisallowed` → §7; DL3066 → §1; DL4003/`MultipleInstructionsDisallowed` → here. DL3008/DL3018 pins are not findings unless reproducibility is claimed (precedents § 32). DL3002, DL3006, DL3007, DL3064, `SecretsUsedInArgOrEnv` → security. A tool that did not parse or resolve is NOT-RUN (§ 41).
+**Read the code:** Map each rule id to its §: DL3025/`JSONArgsRecommended` → §2; DL3000/`WorkdirRelativePath`, DL3003, DL4006, `UndefinedVar`, `UndefinedArgInFrom` → §5; DL3029/`FromPlatformFlagConstDisallowed` → §7; DL3066 → §1; DL4003/`MultipleInstructionsDisallowed` → here. A lone `apt-get update` fires no `--check` or hadolint rule, so the awk prints `APT-UPDATE-ALONE` for it whether this lane ran or not. DL3008/DL3018 pins are not findings unless reproducibility is claimed (precedents § 32). DL3002, DL3006, DL3007, DL3064, `SecretsUsedInArgOrEnv` → security. A tool that did not parse or resolve is NOT-RUN (§ 41).
 
 **Finding when** a kept rule fires on a shipped Dockerfile. **Proof (V237):** `--check` with `# check=error=true` and hadolint `--failure-threshold warning` report 0 kept rule ids.
 

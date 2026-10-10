@@ -15,10 +15,14 @@ because the loaders drop marks.
 
 Usage:
   ci-graph.py [ROOT|FILE…] [--all | --check=pin-priv,deploy-concurrency,deploy-gate,timeout,matrix,cache-keys]
-              [--required [--repo=o/r] [--branch=b] | --contexts=a,b [--merge-queue]] [--deploy-ancestors]
-              [--job-of=FILE:LINE] [--shell-of=FILE:LINE] [--json]
+              [--required [--repo=o/r] [--branch=b] | --contexts=a,b [--merge-queue] | --settings-dir=DIR [--branch=b]]
+              [--deploy-ancestors]
+              [--job-of=FILE:LINE] [--shell-of=FILE:LINE] [--serial-chains] [--json]
   ci-graph.py [ROOT] --diff-guard=<git-ref> [--allow-job=FILE:JOB …] [--allow-workflow=FILE:KEY …]
   ci-graph.py --diff-guard OLD.yml NEW.yml [--allow-job=FILE:JOB …] [--allow-workflow=FILE:KEY …]
+--settings-dir=DIR reads the same `gh api` responses offline from JSON files (rules-branches-<b>.json,
+required-status-checks.json, environments.json, rulesets.json): the required join as --required would, plus
+ENVIRONMENT and RULESET fact rows. No token, no network; a DIR with no rules file is UNREADABLE (exit 2).
 Only the `=` forms take a value: `--diff-guard REF` (a space) means "two files follow", and a bare
 `--allow-job` / `--allow-workflow` is refused (exit 2). `--allow-workflow` names ONE workflow-level key
 (on, concurrency, permissions); it never lets a job's keys through — that is `--allow-job`.
@@ -30,7 +34,14 @@ GitHub Actions only; GitLab, CircleCI and Azure are grep + read until they are m
 import contextlib, io, json, os, re, shutil, subprocess, sys, tempfile
 from itertools import product
 
-MUT = re.compile(r"\b(kubectl\s+(apply|set\s+image|replace|rollout\s+restart)|kustomize\s+edit\s+set\s+image|helm\s+(upgrade|install|rollback)|terraform\s+apply|tofu\s+apply|pulumi\s+up|fly\s+deploy|railway\s+up|vercel\b[^\n]*--prod|netlify\s+deploy[^\n]*--prod|npm\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|cargo\s+publish|gem\s+push|docker\s+(push|buildx\s+imagetools\s+create)|crane\s+(copy|tag)|gh\s+release\s+(create|upload)|aws\s+(ecs\s+update-service|lambda\s+update-function-code|s3\s+sync)|gcloud\s+run\s+deploy|az\s+webapp\s+deploy|serverless\s+deploy|cdk\s+deploy|argocd\s+app\s+sync)\b")
+# kubectl takes global flags before the verb in most CI shapes (`kubectl --kubeconfig "$K" -n ns apply`): the
+# flag-tolerant form gitops-audit's OOB pattern uses — any run of non-separator text, then whitespace, then the verb.
+KUBECTL = r"kubectl\b[^\n|;&]*?\s"
+MUT = re.compile(r"\b(" + KUBECTL + r"(apply|set\s+image|replace|rollout\s+restart)|kustomize\s+edit\s+set\s+image|helm\s+(upgrade|install|rollback)|terraform\s+apply|tofu\s+apply|pulumi\s+up|fly\s+deploy|railway\s+up|vercel\b[^\n]*--prod|netlify\s+deploy[^\n]*--prod|npm\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|cargo\s+publish|gem\s+push|docker\s+(push|buildx\s+imagetools\s+create)|crane\s+(copy|tag)|gh\s+release\s+(create|upload)|aws\s+(ecs\s+update-service|lambda\s+update-function-code|s3\s+sync)|gcloud\s+run\s+deploy|az\s+webapp\s+deploy|serverless\s+deploy|cdk\s+deploy|argocd\s+app\s+sync)\b")
+# The MUT verbs that only publish an artifact (a package, an image, a release asset) and deploy no environment:
+# a job whose only verb is one of these is `deploy-via=publish-verb` — JOB prints it as publishes=yes, deploys=no,
+# and the deploy-concurrency check skips DEPLOY-NOGROUP / GROUP-NOT-ENV for it (DEPLOY-CANCEL still fires).
+PUB_VERB = re.compile(r"\b(npm\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|cargo\s+publish|gem\s+push|docker\s+(push|buildx\s+imagetools\s+create)|crane\s+(copy|tag)|gh\s+release\s+(create|upload))\b")
 # A deploy made by an action, not a shell verb: any action whose name says deploy (azure/webapps-deploy,
 # aws-actions/amazon-ecs-deploy-task-definition, google-github-actions/deploy-cloudrun, actions/deploy-pages,
 # easingthemes/ssh-deploy…, and a local `./.github/actions/deploy`; `deployment` status actions such as
@@ -44,7 +55,7 @@ ACTION_SHELL_INPUTS = ("script", "run", "command", "args", "cmd")
 PUBLISH_ACTIONS = re.compile(r"^(docker/build-push-action|pypa/gh-action-pypi-publish|softprops/action-gh-release|goreleaser/goreleaser-action|JS-DevTools/npm-publish|changesets/action)@", re.I)
 TESTISH = re.compile(r"\b((npm|pnpm|yarn|bun)\s+(run\s+)?test\b|npx\s+(jest|vitest|mocha|playwright\s+test|cypress\s+run)|jest\b|vitest\b|pytest\b|tox\b|nox\b|go\s+test\b|cargo\s+(test|nextest)\b|mvn\b[^\n]*\b(test|verify)\b|gradlew?\b[^\n]*\b(test|check)\b|rspec\b|phpunit\b|artisan\s+test\b|dotnet\s+test\b|mix\s+test\b|make\s+(test|check)\b)")
 STATUS_FN = re.compile(r"\b(always|failure|cancelled)\s*\(\s*\)|success\(\)\s*\|\|\s*failure\(\)")
-WAIT = re.compile(r"\b(kubectl\s+rollout\s+status|argo\s+rollouts\s+status|helm\s+(upgrade|install)\b[^\n]*--wait)\b")
+WAIT = re.compile(r"\b(" + KUBECTL + r"rollout\s+status|argo\s+rollouts\s+status|helm\s+(upgrade|install)\b[^\n]*--wait)\b")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 FINDING = {"PIN×PRIV", "DEPLOY-CANCEL", "DEPLOY-NOGROUP", "GROUP-NOT-ENV", "ENV-SPLIT-GROUPS", "DEPLOY-UNGATED",
            "DEPLOY-ALWAYS", "WORKFLOW_RUN-NO-CONCLUSION", "NO-TIMEOUT", "WAIT-NO-TIMEOUT", "MATRIX-EXCLUDES-RUNTIME",
@@ -257,7 +268,8 @@ class Workflow:
         j = self.jobs[jid]
         if env_name(j):
             return "environment"
-        if MUT.search(run_text(j)):
+        rt = run_text(j)
+        if any(not PUB_VERB.fullmatch(m.group(0)) for m in MUT.finditer(rt)):
             return "verb"
         for s in j.get("steps") or []:
             if not isinstance(s, dict) or not s.get("uses"):
@@ -274,7 +286,7 @@ class Workflow:
                 return "action:" + name
             if MUT.search("\n".join(str(w.get(k, "")) for k in ACTION_SHELL_INPUTS)):
                 return "action-input:" + name
-        return ""
+        return "publish-verb" if MUT.search(rt) else ""
 
     def deploys(self, jid):
         return bool(self.deploy_via(jid))
@@ -395,7 +407,8 @@ def env_keyed(group, env):
 
 def c_deploy_concurrency(wf, rows, env_groups):
     for jid, j in wf.jobs.items():
-        if not wf.deploys(jid):
+        via = wf.deploy_via(jid)
+        if not via:
             continue
         env, line = env_name(j), wf.jl(jid)
         scope, c = ("job", j.get("concurrency")) if j.get("concurrency") is not None else ("workflow", wf.conc)
@@ -409,6 +422,8 @@ def c_deploy_concurrency(wf, rows, env_groups):
             if "${{" in str(cancel):
                 kv["cancel"] = str(cancel)
             row(rows, wf, cl or line, "DEPLOY-CANCEL", **kv)
+        elif via == "publish-verb":
+            continue   # publish-only: no environment to serialise; release-integrity-scan §3 owns a re-run that re-publishes
         elif c is None:
             row(rows, wf, line, "DEPLOY-NOGROUP", job=jid, env=env or "-")
         elif not env_keyed(group, env):
@@ -562,6 +577,80 @@ def fetch_required(root, repo, branch):
     return {c for c in ctx if c}, mq, None
 
 
+def settings_dir(root, d, branch, wfs, rows):
+    """Offline settings: the same read-only `gh api` responses saved as JSON files in DIR (a snapshot, a fixture).
+    rules-branches-<branch>.json (GET …/rules/branches/<b>) and/or required-status-checks.json (GET …/branches/<b>/
+    protection/required_status_checks) give the required set and the merge queue; environments.json (GET …/environments)
+    gives ENVIRONMENT rows; rulesets.json (GET …/rulesets) gives RULESET rows. Returns (contexts, merge_queue, error)."""
+    base = d if os.path.isabs(d) else os.path.join(root, d)
+    if not os.path.isdir(base):
+        return None, False, "settings-dir %s: not a directory" % d
+    rel = lambda f: os.path.relpath(os.path.join(base, f), root)
+
+    def load(f):
+        try:
+            return json.load(open(os.path.join(base, f))), open(os.path.join(base, f)).read().split("\n")
+        except (OSError, ValueError) as e:
+            return None, str(e)[:120]
+
+    def line_of(lines, pat, start=0):
+        for i in range(start, len(lines)):
+            if re.search(pat, lines[i]):
+                return i + 1
+        return 0
+    rules = sorted(f for f in os.listdir(base) if re.match(r"rules-branches-.+\.json$", f))
+    if branch:
+        rules = [f for f in rules if f == "rules-branches-%s.json" % branch]
+    elif len(rules) > 1:
+        rules = [f for f in rules if f in ("rules-branches-main.json", "rules-branches-master.json")][:1] or rules[:1]
+    ctx, mq, read = set(), False, 0
+    for f in rules:
+        dd, _ = load(f)
+        if isinstance(dd, list):
+            read += 1
+            for r in dd:
+                if r.get("type") == "required_status_checks":
+                    ctx |= {c.get("context") for c in (r.get("parameters") or {}).get("required_status_checks", [])}
+                if r.get("type") == "merge_queue":
+                    mq = True
+    if os.path.isfile(os.path.join(base, "required-status-checks.json")):
+        dd, _ = load("required-status-checks.json")
+        if isinstance(dd, dict):
+            read += 1
+            ctx |= set(dd.get("contexts") or []) | {c.get("context") for c in dd.get("checks") or []}
+    if os.path.isfile(os.path.join(base, "environments.json")):
+        dd, lines = load("environments.json")
+        envs = (dd or {}).get("environments") if isinstance(dd, dict) else None
+        used = {env_name(wf.jobs[j]) for wf in wfs for j in wf.jobs if env_name(wf.jobs[j]) and "${{" not in env_name(wf.jobs[j])}
+        for e in envs or []:
+            name = str(e.get("name"))
+            nl = line_of(lines, r'"name"\s*:\s*"%s"' % re.escape(name))
+            pol = e.get("deployment_branch_policy")
+            bp = "NONE" if not pol else ("protected" if pol.get("protected_branches") else "custom")
+            revs = sum(len(r.get("reviewers") or []) for r in e.get("protection_rules") or [] if r.get("type") == "required_reviewers")
+            wait = sum(int(r.get("wait_timer") or 0) for r in e.get("protection_rules") or [] if r.get("type") == "wait_timer")
+            line = (line_of(lines, r'"deployment_branch_policy"\s*:\s*null', nl) if bp == "NONE" else 0) or nl
+            rows.append({"file": rel("environments.json"), "line": line, "code": "ENVIRONMENT", "env": name, "branch-policy": bp,
+                         "reviewers": revs, "wait-timer": wait, "admin-bypass": "yes" if e.get("can_admins_bypass") else "no",
+                         "used-by-workflows": "yes" if name in used else "no"})
+        for name in sorted(used - {str(e.get("name")) for e in envs or []}):
+            rows.append({"file": rel("environments.json"), "line": 1, "code": "ENVIRONMENT", "env": name, "branch-policy": "ABSENT",
+                         "note": "not in the snapshot: GitHub creates it unprotected on first use"})
+    if os.path.isfile(os.path.join(base, "rulesets.json")):
+        dd, lines = load("rulesets.json")
+        tags = 0
+        for r in dd if isinstance(dd, list) else []:
+            tags += r.get("target") == "tag"
+            rows.append({"file": rel("rulesets.json"), "line": line_of(lines, r'"id"\s*:\s*%s\b' % re.escape(str(r.get("id")))) or 1,
+                         "code": "RULESET", "name": str(r.get("name")), "target": str(r.get("target")), "enforcement": str(r.get("enforcement"))})
+        if isinstance(dd, list) and not tags:
+            rows.append({"file": rel("rulesets.json"), "line": 1, "code": "RULESET", "target": "tag", "name": "NONE",
+                         "note": "no tag ruleset: any writer can push or move a release tag"})
+    if not read:
+        return None, False, "settings-dir %s: no rules-branches-*.json or required-status-checks.json" % d
+    return {c for c in ctx if c}, mq, None
+
+
 def c_required(wfs, rows, contexts, mq):
     emitted = {}
     for wf in wfs:
@@ -612,9 +701,36 @@ def c_deploy_ancestors(wfs, rows, req):
             of = sorted(d for d in dep if jid in wf.ancestors(d))
             r = "unknown" if req is None else ("yes" if (wf.rel, jid) in req else "no")
             via = wf.deploy_via(jid)
-            row(rows, wf, wf.jl(jid), "JOB", job=jid, deploys="yes" if via else "no",
-                publishes="yes" if wf.publishes(jid) else "no", env=env_name(wf.jobs[jid]) or "-",
+            row(rows, wf, wf.jl(jid), "JOB", job=jid, deploys="yes" if via and via != "publish-verb" else "no",
+                publishes="yes" if wf.publishes(jid) or via == "publish-verb" else "no", env=env_name(wf.jobs[jid]) or "-",
                 **{"deploy-via": via or "-", "ancestor-of": ",".join(of) or "-", "required": r})
+
+
+def c_serial_chains(wf, rows):
+    """pipeline-cache-scan §4 speed candidates (facts, not findings): maximal chains of >= 3 jobs in which each job
+    needs exactly its parent and takes nothing from it — no download-artifact, no needs.<parent>.* read — and is not
+    a deploy, publish, environment, reusable-workflow or status-function job (those needs are gates, not data)."""
+    def parent(c):
+        j = wf.jobs[c]
+        ns = needs_of(j)
+        if len(ns) != 1 or ns[0] not in wf.jobs or "uses" in j or env_name(j) or wf.deploys(c) or wf.publishes(c):
+            return None
+        body = json.dumps(j)
+        if STATUS_FN.search(str(j.get("if", ""))) or "download-artifact" in body or "needs.%s." % ns[0] in body or "needs[" in body:
+            return None
+        return ns[0]
+    up = {c: p for c, p in ((c, parent(c)) for c in wf.jobs) if p}
+    seen = set()
+    for leaf in sorted(set(up) - set(up.values())):
+        path, guard = [leaf], 0
+        while path[-1] in up and guard < 100:
+            path.append(up[path[-1]])
+            guard += 1
+        path.reverse()
+        if len(path) >= 3 and tuple(path) not in seen:
+            seen.add(tuple(path))
+            lo, hi = wf.ix.jobs.get(path[1], (1, None))
+            row(rows, wf, wf.ix.key_line("needs", lo, hi) or wf.jl(path[1]), "SERIAL-CHAIN", jobs=">".join(path), handoff="none")
 
 
 # ---------------------------------------------------------------- job-of / shell-of
@@ -826,7 +942,7 @@ def run(argv, out=sys.stdout):
                 notrun.append("%s: %s" % (rel, err))
             elif d is not None:
                 wfs.append(Workflow(p, d, rel))
-        modes = [k for k in ("required", "contexts", "deploy_ancestors", "job_of", "shell_of") if k in opts]
+        modes = [k for k in ("required", "contexts", "settings_dir", "deploy_ancestors", "job_of", "shell_of", "serial_chains") if k in opts]
         checks = opts["check"] or ([] if modes else list(CHECKS))
         env_groups = {}
         for wf in wfs:
@@ -841,9 +957,13 @@ def run(argv, out=sys.stdout):
             if len({g for _, g in gs}) > 1:
                 row(rows, None, 0, "ENV-SPLIT-GROUPS", env=env, groups=";".join("%s=%s" % x for x in sorted(gs)))
         req = None
-        if "contexts" in opts or "required" in opts:
+        if "contexts" in opts or "required" in opts or "settings_dir" in opts:
             if "contexts" in opts:
                 ctx, mq = {c.strip() for c in str(opts["contexts"]).split(",") if c.strip()}, bool(opts.get("merge_queue"))
+            elif "settings_dir" in opts:
+                ctx, mq, err = settings_dir(root, str(opts["settings_dir"]), opts.get("branch"), wfs, rows)
+                if err:
+                    notrun.append("UNREADABLE(%s)" % err)
             else:
                 ctx, mq, err = fetch_required(root, opts.get("repo"), opts.get("branch"))
                 if err:
@@ -853,6 +973,9 @@ def run(argv, out=sys.stdout):
                 req = {(r["file"], r["job"]) for r in rows if r["code"] == "REQUIRED"}
         if "deploy_ancestors" in opts:
             c_deploy_ancestors(wfs, rows, req)
+        if "serial_chains" in opts:
+            for wf in wfs:
+                c_serial_chains(wf, rows)
         if "job_of" in opts:
             job_of(wfs, opts["job_of"], root, rows)
         if "shell_of" in opts:
@@ -1087,6 +1210,50 @@ jobs:
       - uses: cloudflare/wrangler-action@v3
 """
 
+KUBE_FLAGS = """on: { push: { branches: [main] } }
+permissions: { contents: read }
+jobs:
+  stage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+    concurrency: { group: deploy-staging, cancel-in-progress: false }
+    steps:
+      - run: |
+          kubectl --kubeconfig "$RUNNER_TEMP/kc" -n shop apply -k deploy/overlays/staging
+          kubectl --kubeconfig "$RUNNER_TEMP/kc" -n shop rollout status deploy/api
+  bounded:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+    concurrency: { group: deploy-staging-b, cancel-in-progress: false }
+    steps:
+      - run: kubectl --context=staging -n shop set image deploy/api api=x@sha256:abc && kubectl -n shop rollout status deploy/api --timeout=5m
+  read-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - run: kubectl --kubeconfig "$RUNNER_TEMP/kc" -n shop get deploy/apply-config -o yaml | tee live.yaml
+  publish-sdk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - run: npm test
+      - run: npm publish --provenance
+  push-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - run: npm test
+      - run: docker push ghcr.io/o/app:${{ github.sha }}
+  push-and-roll:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - run: npm test
+      - run: docker push ghcr.io/o/app:1 && kubectl -n shop set image deploy/api api=ghcr.io/o/app:1
+"""
+
 GUARD_OLD = """on: { pull_request: {} }
 concurrency: { group: ci, cancel-in-progress: true }
 jobs:
@@ -1178,6 +1345,22 @@ def self_test():
         ok(any(r["code"] == "REQUIRED-IF-SKIP" and r["job"] == "lint" for r in o["rows"]), "required: lint skipped by if: reports success")
         ok(any(r["code"] == "JOB" and r["job"] == "test" and r["ancestor-of"] == "deploy" and r["required"] == "yes" for r in o["rows"]),
            "deploy-ancestors: test is required and an ancestor of deploy")
+        sd = os.path.join(fc, "gh-api")
+        os.makedirs(sd)
+        json.dump([{"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": c} for c in ("test (20)", "lint", "missing-check")]}},
+                   {"type": "merge_queue", "parameters": {}}], open(os.path.join(sd, "rules-branches-main.json"), "w"), indent=1)
+        json.dump({"environments": [{"name": "production", "protection_rules": [], "deployment_branch_policy": None, "can_admins_bypass": True}]},
+                  open(os.path.join(sd, "environments.json"), "w"), indent=1)
+        json.dump([{"id": 1, "name": "main", "target": "branch", "enforcement": "active"}], open(os.path.join(sd, "rulesets.json"), "w"), indent=1)
+        rc, o2 = go([fc, "--settings-dir=gh-api", "--deploy-ancestors"])
+        pick = lambda rs: sorted((r["code"], r.get("job", r.get("context", ""))) for r in rs if r["code"] != "JOB")
+        ok(pick(o2["rows"]) and [x for x in pick(o2["rows"]) if x[0] not in ("ENVIRONMENT", "RULESET")] == pick(o["rows"]),
+           "settings-dir: the rules snapshot gives the same required rows as --contexts=… --merge-queue")
+        ok(any(r["code"] == "ENVIRONMENT" and r["env"] == "production" and r["branch-policy"] == "NONE" and r["file"] == os.path.join("gh-api", "environments.json")
+               and r["line"] > 1 for r in o2["rows"]) and any(r["code"] == "RULESET" and r.get("name") == "NONE" and r["target"] == "tag" for r in o2["rows"]),
+           "settings-dir: ENVIRONMENT branch-policy=NONE on the policy line; no tag ruleset is a RULESET name=NONE row")
+        rc, o2 = go([fc, "--settings-dir=no-such-dir"])
+        ok(rc == 2 and any("UNREADABLE" in n for n in o2["not_run"]), "settings-dir: a missing dir is UNREADABLE (exit 2), never clean")
 
         mi = repo("misc", {".github/workflows/m.yml": MISC})
         rc, o = go([mi, "--all"])
@@ -1246,6 +1429,34 @@ def self_test():
         rc, o = go([fc, "--deploy-ancestors"])
         ok(any(r["code"] == "JOB" and r["job"] == "deploy" and r["env"] == "production" and r["deploy-via"] == "environment"
                for r in o["rows"]), "JOB rows print the environment name (fixture C deploy env=production)")
+
+        kf = repo("kube-flags", {".github/workflows/k.yml": KUBE_FLAGS})
+        rc, o = go([kf, "--all", "--deploy-ancestors"])
+        jr = {r["job"]: r for r in o["rows"] if r["code"] == "JOB"}
+        wt = [r["job"] for r in o["rows"] if r["code"] == "WAIT-NO-TIMEOUT"]
+        ok(all(MUT.search(c) for c in ('kubectl --kubeconfig "$K" -n shop apply -k .', "kubectl --context=prod -n shop set image deploy/a a=x",
+                                       "kubectl -n shop rollout restart deploy/a")) and not MUT.search("kubectl -n shop get cm/apply-config"),
+           "kubectl with global flags before the verb (--kubeconfig, --context, -n) is a deploy verb; a get is not")
+        ok(wt == ["stage"], "kubectl --kubeconfig … rollout status with no --timeout is WAIT-NO-TIMEOUT; a bounded one is not (got %s)" % wt)
+        ok(jr.get("read-only", {}).get("deploys") == "no", "kubectl … get deploy/apply-config is not a deploy verb")
+        ng = sorted(r["job"] for r in o["rows"] if r["code"] in ("DEPLOY-NOGROUP", "GROUP-NOT-ENV"))
+        ok(ng == ["push-and-roll"], "publish-only jobs (npm publish, docker push) get no DEPLOY-NOGROUP; a push + rollout does (got %s)" % ng)
+        ok(jr.get("publish-sdk", {}).get("deploys") == "no" and jr["publish-sdk"].get("publishes") == "yes"
+           and jr["publish-sdk"].get("deploy-via") == "publish-verb" and jr.get("push-image", {}).get("publishes") == "yes"
+           and jr.get("push-and-roll", {}).get("deploys") == "yes",
+           "JOB rows: a publish-only verb job is publishes=yes deploys=no (deploy-via=publish-verb); push + set image deploys")
+
+        chain = ("on: { pull_request: {} }\njobs:\n"
+                 "  lint: { runs-on: x, steps: [{ run: npm run lint }] }\n"
+                 "  types:\n    needs: lint\n    runs-on: x\n    steps: [{ run: npm run typecheck }]\n"
+                 "  unit:\n    needs: types\n    runs-on: x\n    steps: [{ run: npm test }]\n"
+                 "  build: { runs-on: x, steps: [{ run: npm run build }, { uses: actions/upload-artifact@v4 }] }\n"
+                 "  e2e:\n    needs: build\n    runs-on: x\n    steps: [{ uses: actions/download-artifact@v4 }]\n"
+                 "  report:\n    needs: e2e\n    runs-on: x\n    steps: [{ run: echo done }]\n")
+        sc = repo("serial", {".github/workflows/c.yml": chain})
+        rc, o = go([sc, "--serial-chains"])
+        ch = [(r["jobs"], r["line"]) for r in o["rows"] if r["code"] == "SERIAL-CHAIN"]
+        ok(rc == 0 and ch == [("lint>types>unit", 5)], "serial-chains: lint>types>unit at types' needs: line; an artifact hand-off breaks build>e2e>report (got %s)" % ch)
 
         bad = repo("bad", {".github/workflows/x.yml": "on: [push\njobs: {\n"})
         rc, o = go([bad, "--all"])

@@ -86,9 +86,9 @@ A `[K?]` lock is settled by V227 on the fixture before a finding relies on it; u
 
 | Lane | Command | Trap that makes a clean result false |
 |---|---|---|
-| Graph | `python3 "$G" . --check=deploy-gate,deploy-concurrency --deploy-ancestors` (`ci-graph.py`, repo baseline; fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`) | Exit 2 = NOT-RUN (no YAML loader, a parse error), never clean (precedents § 41); GitHub only; `deploys=` counts `environment:` or a deploy verb — a deploy through a third-party action with neither is read by hand |
+| Graph | `python3 "$G" . --check=deploy-gate,deploy-concurrency --deploy-ancestors` (`ci-graph.py`, repo baseline; fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`) | Exit 2 = NOT-RUN (no YAML loader, a parse error), never clean (precedents § 41); GitHub only; `deploys=` counts `environment:` or a deploy verb (`kubectl` with its global flags before the verb included; a job whose only verbs publish is `publishes=yes`, and gets no `DEPLOY-NOGROUP`) — a deploy through a third-party action with neither is read by hand |
 | Render | `render.sh` from infrastructure `k8s-render-scan` when installed; else `kubectl --kubeconfig=<scratch> kustomize <dir>` and `helm template --kubeconfig <scratch>` into `$SCAN` | A failed render makes its replica rows `blocked (render failed: <dir>)`; a remote base is not fetched. The scratch kubeconfig never names a real cluster |
-| Settings | `gh api repos/{o}/{r}/environments --jq '.environments[]\|{name,rules:[.protection_rules[]?.type],policy:.deployment_branch_policy,can_admins_bypass}'`; GitLab `glab api projects/:id/protected_environments` [K] | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6) |
+| Settings | `gh api repos/{o}/{r}/environments --jq '.environments[]\|{name,rules:[.protection_rules[]?.type],policy:.deployment_branch_policy,can_admins_bypass}'`; GitLab `glab api projects/:id/protected_environments` [K]. Offline: the same response saved as `environments.json` in a snapshot dir → `ci-graph.py --settings-dir=<dir>` prints one `ENVIRONMENT env= branch-policy= reviewers= admin-bypass=` row per environment (0c passes `$SETTINGS_DIR`) | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6) |
 | Helm | `helm version --short` and the CI's Helm pin | Helm 4 renamed `--atomic` to `--rollback-on-failure` (precedents § 42): read the major before a flag is a finding |
 | Runtime | `docker` for V227 / V231 / V234 | No daemon → `blocked (no docker)` with the command written out |
 
@@ -128,13 +128,14 @@ if [ -z "$(RENDERS)" ]; then RS=.claude/skills/k8s-render-scan/scripts/render.sh
       helm template x "$d" --kubeconfig "$SCAN/none.kubeconfig" > "$SCAN/render-$(echo "$d" | tr '/.' '__').yaml" 2>>"$SCAN/render.err" || echo "render FAILED: $d"; done; fi; fi
 ls "$SCAN" | rg '^render-.*\.yaml$'
 echo '# 0c graph (GitHub): deploy jobs, concurrency, gating; exit 2 = NOT-RUN, never clean'
-if [ -n "$(rg --files --hidden -g '.github/workflows/*.{yml,yaml}' .)" ]; then python3 "$G" . --check=deploy-gate,deploy-concurrency --deploy-ancestors > "$SCAN/graph.txt"; echo "ci-graph exit=$?"
-  rg 'deploys=yes|publishes=yes|DEPLOY-|GROUP-NOT-ENV|ENV-SPLIT|WORKFLOW_RUN|NOT-RUN|UNREADABLE' "$SCAN/graph.txt"; else echo 'ci-graph: N/A (no GitHub workflow)'; fi
+if [ -n "$(rg --files --hidden -g '.github/workflows/*.{yml,yaml}' .)" ]; then python3 "$G" . --check=deploy-gate,deploy-concurrency --deploy-ancestors ${SETTINGS_DIR:+--settings-dir="$SETTINGS_DIR"} > "$SCAN/graph.txt"; echo "ci-graph exit=$?"
+  rg 'deploys=yes|publishes=yes|DEPLOY-|GROUP-NOT-ENV|ENV-SPLIT|WORKFLOW_RUN|ENVIRONMENT|NOT-RUN|UNREADABLE' "$SCAN/graph.txt"; else echo 'ci-graph: N/A (no GitHub workflow)'; fi
 echo '# 0d deploy units on every platform and in scripts: verbs, environment, mutex, unwaited verbs, smoke, version check, migrate order'
 rg --files "${CI[@]}" "${SH[@]}" . | sort | while IFS= read -r f; do awk -f - "$f" <<'AWK'
 function flush() { if (u != "" && (nv || env == "yes")) printf "%s:%d: UNIT %s unit=%s verbs=%d unwaited=%d env=%s mutex=%s interruptible=%s smoke=%s version=%s migrate=%s first=%s\n", FILENAME, (ml ? ml : ul), p, u, nv, pend, (p == "script" ? "n/a" : env), mtx, intr, smk, ver, mig, mut
   u=""; mut="-"; ml=0; nv=0; pend=0; env="no"; mtx=wmx; intr="no"; smk="no"; ver="no"; mig="no" }
 function start(n) { flush(); u=n; ul=FNR }
+BEGIN { V = "kubectl([ \t]+[^ \t|;&]+)*[ \t]+(apply|set[ \t]+image|replace|rollout[ \t]+(restart|undo)|create)([^A-Za-z0-9_-]|$)|kustomize[ \t]+edit[ \t]+set[ \t]+image|helm[ \t]+(upgrade|install|rollback)|terraform[ \t]+apply|tofu[ \t]+apply|pulumi[ \t]+up|fly(ctl)?[ \t]+deploy|railway[ \t]+up|vercel.*--prod|netlify[ \t]+deploy.*--prod|aws[ \t]+(ecs[ \t]+update-service|lambda[ \t]+update-function-code)|gcloud[ \t]+run[ \t]+deploy|az[ \t]+webapp[ \t]+deploy|serverless[ \t]+deploy|cdk[ \t]+deploy|argocd[ \t]+app[ \t]+sync" }
 FNR==1 { p = (FILENAME ~ /\.github\/workflows/) ? "gh" : (FILENAME ~ /gitlab/) ? "gl" : (FILENAME ~ /Jenkinsfile/) ? "jenkins" : (FILENAME ~ /\.(sh|bash)$|Makefile|Justfile/) ? "script" : "ci"
   wmx="no"; injobs=0; if (p != "gh" && p != "gl" && p != "jenkins") start("(file)") }
 /^[ \t]*(#|\/\/)/ || /^[ \t]*(\|\|[ \t]*)?(die|echo|say|warn|printf|log|info|fail)[ \t(]/ { next }
@@ -149,9 +150,9 @@ u=="" { next }
 /^[ \t]+(concurrency|resource_group)[ \t]*:/ { mtx = ($1 ~ /resource_group/) ? "resource_group" : "job-group" }
 p=="script" && /flock|mkdir[^#]*\.lock|--lock|(^|[^a-z])lease([^a-z]|$)/ { mtx="script-lock" }
 /interruptible[ \t]*:[ \t]*true/ { intr="yes" }
-{ w = ($0 ~ /rollout[ \t]+status|--wait|--rollback-on-failure|--atomic|services-stable|argocd[ \t]+app[ \t]+wait|rollouts[ \t]+status|kubectl[ \t]+wait/) }
-/kubectl[ \t]+(apply|set[ \t]+image|replace|rollout[ \t]+(restart|undo)|create)|kustomize[ \t]+edit[ \t]+set[ \t]+image|helm[ \t]+(upgrade|install|rollback)|terraform[ \t]+apply|tofu[ \t]+apply|pulumi[ \t]+up|fly(ctl)?[ \t]+deploy|railway[ \t]+up|vercel.*--prod|netlify[ \t]+deploy.*--prod|aws[ \t]+(ecs[ \t]+update-service|lambda[ \t]+update-function-code)|gcloud[ \t]+run[ \t]+deploy|az[ \t]+webapp[ \t]+deploy|serverless[ \t]+deploy|cdk[ \t]+deploy|argocd[ \t]+app[ \t]+sync/ {
-  nv++; if (!w) pend++; if (mut == "-") { mut=$0; sub(/^[ \t-]*(run:|sh)?[ \t'"]*/, "", mut); mut=substr(mut, 1, 40); gsub(/[ \t]/, "_", mut); ml=FNR }; next }
+{ w = match($0, /rollout[ \t]+status|--wait|--rollback-on-failure|--atomic|services-stable|argocd[ \t]+app[ \t]+wait|rollouts[ \t]+status|kubectl([ \t]+[^ \t|;&]+)*[ \t]+wait([^A-Za-z0-9_-]|$)/); wp = RSTART }
+$0 ~ V {
+  nv++; vp = match($0, V); if (!w) { if ($0 !~ /kustomize[ \t]+edit/) pend++ } else if (wp < vp && pend > 0) pend--; if (mut == "-") { mut=$0; sub(/^[ \t-]*(run:|sh)?[ \t'"]*/, "", mut); mut=substr(mut, 1, 40); gsub(/[ \t]/, "_", mut); ml=FNR }; next }
 w && pend > 0 { pend-- }
 /curl|wget|smoke|k6[ \t]+run|hey[ \t]/ { smk="yes"; if ($0 ~ /version|[Ss][Hh][Aa]|COMMIT/) ver="yes" }
 /jsonpath=[^ ]*image/ && ver == "no" { ver="spec" }
@@ -192,7 +193,7 @@ while IFS= read -r r; do rg -q '"@nestjs/core"' "$r/package.json" 2>/dev/null ||
   if [ -n "$E" ]; then echo "$r: hooks=$H enableShutdownHooks: $E"; elif [ -n "$M" ]; then echo "$r: hooks=$H manual handler (read: awaits app.close()?): $M"
   else echo "$r: NEST-HOOKS-INERT hooks=$H"; fi; done < "$SCAN/roots.txt"
 echo '# 5c drain numbers the app sets (infrastructure k8s-availability-scan §7 does the THR-SHUTDOWN-GRACE arithmetic)'
-rg -n --pcre2 "${CODE[@]}" -g '*.{conf,toml,ini,yml,yaml,properties}' "${X[@]}" '(?i)\b(shutdown|drain|grace(ful)?)[_-]?(drain[_-]?)?(timeout|delay|period|seconds|ms)\w*\s*[:=]\s*[\d_.]+|--graceful-timeout[ =]\d+|--timeout-graceful-shutdown[ =]\d+|timeout-per-shutdown-phase|\bforceCloseConnections\b|ShutdownTimeout' . | "${NC[@]}"
+rg -n --pcre2 -g '*.{conf,toml,ini,yml,yaml,properties}' "${CODE[@]}" "${X[@]}" '(?i)\b(shutdown|drain|grace(ful)?)[_-]?(drain[_-]?)?(timeout|delay|period|seconds|ms)\w*\s*[:=]\s*[\d_.]+|--graceful-timeout[ =]\d+|--timeout-graceful-shutdown[ =]\d+|timeout-per-shutdown-phase|\bforceCloseConnections\b|ShutdownTimeout' . | "${NC[@]}"
 echo '# 6a read set (code) vs declared set (.env.example, compose, rendered env); envFrom refs make the declared set partial'
 : > "$SCAN/env-read.txt"; [ ${#ROOTS[@]} -gt 0 ] && rg -o --no-filename --pcre2 "${CODE[@]}" "${X[@]}" -r '$1$2$3$4$5$6$7$8' -e 'process\.env\.([A-Z][A-Z0-9_]+)' -e "process\.env\[['\"]([A-Z][A-Z0-9_]+)" -e 'import\.meta\.env\.([A-Z][A-Z0-9_]+)' -e "os\.(?:environ\[|environ\.get\(|getenv\()['\"]([A-Z][A-Z0-9_]+)" -e 'os\.Getenv\("([A-Z][A-Z0-9_]+)' -e "ENV(?:\.fetch\(|\[)['\"]([A-Z][A-Z0-9_]+)" -e 'System\.getenv\("([A-Z][A-Z0-9_]+)' -e 'env::var\("([A-Z][A-Z0-9_]+)' "${ROOTS[@]}" | sort -u > "$SCAN/env-read.txt"
 { rg -o --no-filename --hidden --pcre2 -r '$1' -g '**/.env.{example,sample,template,dist}' -g '!**/node_modules/**' '^\s*(?:export\s+)?([A-Z][A-Z0-9_]+)=' .
@@ -209,7 +210,7 @@ rg -n --pcre2 "${CI[@]}" '\b(node-version|python-version|go-version|ruby-version
 ```
 
 How to read it:
-- **0d `UNIT` rows** are the §2–§4 candidate table, one per deploy unit on every platform: `verbs` (deploy verbs; `npm publish`/`docker push` are `release-integrity-scan`'s), `unwaited` (verbs with no wait on their own line or after them in the unit), `env`, `mutex`, `interruptible`, `smoke`, `version` (`yes` = the smoke compares a SHA or version; `spec` = the script reads the Deployment's image back, which with a completed `rollout status` equals what serves), `migrate` (`before` / `AFTER-DEPLOY`). Lines that only print a message (`die`, `echo`, `printf`) are skipped. For GitHub, `ci-graph.py` (0c) decides concurrency; the `UNIT` mutex column is context.
+- **0d `UNIT` rows** are the §2–§4 candidate table, one per deploy unit on every platform: `verbs` (deploy verbs, `kubectl --kubeconfig … -n ns apply` included; `npm publish`/`docker push` are `release-integrity-scan`'s), `unwaited` (verbs with no wait after them in the unit — a wait earlier on the same line, `rollout status … || rollout undo`, covers the verb before it, `kubectl -n ns wait` is a wait, and a local `kustomize edit set image` is never pending), `env`, `mutex`, `interruptible`, `smoke`, `version` (`yes` = the smoke compares a SHA or version; `spec` = the script reads the Deployment's image back, which with a completed `rollout status` equals what serves), `migrate` (`before` / `AFTER-DEPLOY`). Lines that only print a message (`die`, `echo`, `printf`) are skipped. For GitHub, `ci-graph.py` (0c) decides concurrency; the `UNIT` mutex column is context.
 - **1a** labels each migrate call by where it runs: `boot-code`, `image/entrypoint`, `manifest` (read: initContainer, Job or hook), `ci-step` (counts only inside a deploy `UNIT`), `script`, `npm-script` (follow who calls it), `platform-release` (a control, precedents § 22).
 - **5a** is a repo-level negative per service root, so its rows are candidates for the whole root: read the root's entry point before posting. **5b** reports NestJS separately because hooks exist and silently never run.
 - **6a** is partial when a `secretRef`/`configMapRef`/`env_file` brings keys the repo cannot see: every "read, not declared" key is then Unconfirmed until the secret's key list is read (`kubectl get secret -o jsonpath='{.data}' --kubeconfig=<scratch>` on a sandbox, or the platform's secret list). A typed schema validated at boot is the declaration (precedents § 26).

@@ -10,7 +10,7 @@ progressive delivery and GitOps drift — seeded across every platform file, fiv
 28 hand-offs to the security, testing, infrastructure and observability audits, and 28 decoys: correct siblings that
 look like a seeded defect and must NOT be reported.
 
-Invocation: /devops-audit --whole-repo
+Invocation: /devops-audit --whole-repo --settings-dir=.refract-fixture/gh-api
 Invocation[/security-audit]: /security-audit
 Invocation[/test-audit]: /test-audit --whole-repo
 Invocation[/infra-audit]: /infra-audit --whole-repo
@@ -34,8 +34,10 @@ AnalysisTemplates), `deploy/web` + `deploy/argocd/app-web.yaml` (Argo CD owns `s
 **Settings are scored offline.** `.refract-fixture/gh-api/` holds the verbatim response shapes of
 `GET /repos/acme/shop/rules/branches/main` (required contexts `all-green`, `test`, `build`, `image-scan`, `web-green`;
 a `merge_queue` rule), `/rulesets` (one branch ruleset, no tag ruleset) and `/environments` (production with
-`deployment_branch_policy: null`). `ci-graph.py` takes them as `--contexts=all-green,test,build,image-scan,web-green
---merge-queue`; a real repo answers the same calls with `gh api`. The rows that rest on them are CD-PI-03a–d, CD-PI-05a,
+`deployment_branch_policy: null`). `/devops-audit --settings-dir=.refract-fixture/gh-api` reads them offline (each
+detector gets `SETTINGS_DIR`; `ci-graph.py --settings-dir=` prints the required join plus `ENVIRONMENT` and `RULESET`
+rows); `--contexts=all-green,test,build,image-scan,web-green --merge-queue` gives the required half alone. A real repo
+answers the same calls with `gh api`. The rows that rest on them are CD-PI-03a–d, CD-PI-05a,
 CD-DS-03b and CD-RI-01a.
 
 Departures from the eval, stated so a reader can audit them:
@@ -44,7 +46,8 @@ Departures from the eval, stated so a reader can audit them:
   the evidence of CD-DS-01e (devops' DP-1d, auto-rollback over a contract migration), and two observability rows
   (`alert-rule-lint` §1/§4 through `rule-inventory.py`) take the freed slots. 20 security + 3 testing + 3
   infrastructure + 2 observability = 28.
-- **`ci-graph.py` has no `--rules-file`/`--env-file`** (the eval's names); it takes `--contexts=` and `--merge-queue`.
+- **`ci-graph.py` has no `--rules-file`/`--env-file`** (the eval's names); it takes `--settings-dir=<dir>` (the saved
+  `gh api` responses, devops 2.0.1) or `--contexts=` and `--merge-queue`.
 - **CD-PI-03d** is the `always()` + `!= "failure"` aggregator (`AGGREGATOR-WEAK`), the shape the graph decides; the
   eval's `!failure()` form prints no graph row.
 - **The gitops pair targets the Argo-managed `shop-web` namespace** (`deploy/argocd/app-web.yaml`): the CI step is in
@@ -57,8 +60,9 @@ Departures from the eval, stated so a reader can audit them:
   § 20. Release §4's third seed is a GitLab scan by tag after the push (CD-RI-04c). Release §3 gains `twine upload`
   on CircleCI; total release rows 17, deploy rows 18 (the eval's 16 and 17).
 - **Bitbucket carries no security seed**: the eval's security list names none for it.
-- **File names chosen for the scorer**: `score.py` keys a finding on the file's basename and cannot parse a bare
-  `Jenkinsfile`, so the Jenkins pipeline is `Jenkinsfile.groovy` (every detector globs `Jenkinsfile*`), the admin image
+- **File names chosen for the scorer** (when the key was written; IR-10 has since taught `score.py` bare `Jenkinsfile`
+  and path-suffix matching, and the names stay): `score.py` keyed a finding on the file's basename and could not parse a
+  bare `Jenkinsfile`, so the Jenkins pipeline is `Jenkinsfile.groovy` (every detector globs `Jenkinsfile*`), the admin image
   is `apps/admin/Containerfile` and the storefront's is `apps/web/Dockerfile.web` — otherwise a report on a decoy in one
   `Dockerfile` is credited to a seed at a nearby line of another `Dockerfile` (IR-10).
 - **The compose drain is gunicorn's 25 s** (`--graceful-timeout 25`), so the infrastructure grace row reads 20 s
@@ -2922,7 +2926,7 @@ match:    never fail|condition|scope|canary|unscoped
 
 Measured 2026-10-10 on a staged copy (answer key removed, `git init`), each `SKILL.md` pre-flight extracted verbatim and
 run as one bash 3.2 script from the copy's root, `SCAN` set per detector, an empty isolated `KUBECONFIG` first.
-ripgrep 15.2.0; `ci-graph.py` loader Ruby psych (no PyYAML on the machine), `--self-test` 55/55. **Docker lane
+ripgrep 15.2.0; `ci-graph.py` loader Ruby psych (no PyYAML on the machine), `--self-test` 55/55 (64/64 after the IR fixes). **Docker lane
 blocked**: the daemon was not reachable (the client points at a stopped colima VM, which was not started), so
 `docker build --check`, hadolint and the compose model lane print `blocked` — this is the eval's run 1, "tools and
 docker blocked". `kubectl kustomize` and `helm template` rendered all seven roots offline (`render-*.yaml`).
@@ -2934,24 +2938,29 @@ but not the class-specific flag. These are grep results, not a scored `/devops-a
 
 | detector | lines printed (stderr) | seeds it owns | caught by its pre-flight | not caught / partial | decoys hit → read |
 |----------|------------------------|---------------|--------------------------|----------------------|-------------------|
-| `ci-graph.py` (`--all`; `--contexts=… --merge-queue`) | 27 rows (exit 1) + 4 required-join rows; 0.2 s | — (structural facts for the rows below) | `REQUIRED-PATH-FILTERED`, `NO-MERGE-GROUP`, `REQUIRED-IF-SKIP`, `AGGREGATOR-WEAK`, `DEPLOY-ALWAYS`, `DEPLOY-UNGATED` (publish-sdk), `WORKFLOW_RUN-NO-CONCLUSION`, `NO-TIMEOUT`, `MATRIX-EXCLUDES-RUNTIME`, `MATRIX-DYNAMIC-UNGUARDED`, `DEPLOY-CANCEL`, `GROUP-NOT-ENV` + `ENV-SPLIT-GROUPS`, `CACHE-*` ×4, `PIN×PRIV` (routed) | **no `WAIT-NO-TIMEOUT`** for CD-PI-06b (IR-1) | DECOY-02 → `DEPLOY-CANCEL` + `DEPLOY-UNGATED` on the preview (§ 24) |
-| `pipeline-integrity-scan` | 160 (0) · 0.5 s | 24 (§1–§8) | **21** — §1 ×4 (grep 1a), §2 ×3 (2a), §3 ×4 (grep 3 + graph), §4 ×5 (4a/4b + graph), §5 CD-PI-05a (grep 5), §6 CD-PI-06a (graph), §7 ×2 (grep 7 + graph), §8 CD-PI-08b (grep 8) | CD-PI-06b **missed** (grep 6 and the graph's wait regex need `kubectl rollout status` adjacent; the line is `kubectl --kubeconfig … -n shop-staging rollout status`, IR-1); CD-PI-05b partial (the job's `needs: []`/verb lines print, the missing default-branch rule is a read); CD-PI-08a partial (grep 8 lists the file's schedules, the `if:` is a read) | DECOY-01, -03, -04, -07, -08, -09 printed; each cleared by one precedent (§ 15, § 13, § 12, § 43, § 14, § 8) |
-| `pipeline-cache-scan` | 66 (0) · 0.4 s | 9 (§1–§4) | **7** — CD-PC-01a (graph), 01b (1c `NO-LOCKFILE-IN-KEY`), 01c (graph + 1a `PREFIX-RESTORE-INSTALL-DIR`), 02a (`MODE-MIN`), 02b (`GHA-DEFAULT-SCOPE` + "2 image builds"), 03a (`deep-clone=NO`), 03b ("PR workflow without concurrency") | CD-PC-04a, 04b **not surfaced**: §4 is timing data (`UNREADABLE` without a token) and no grep looks at serial `needs:` chains or GitLab stages (IR-8). 1a printed no row for the `ci-web.yml` cache (IR-2; the graph caught it) | DECOY-06 by grep 3 (paths-filter, `deep-clone=NO`) → cleared: the filter reads the PR API |
-| `release-integrity-scan` | 127 (0) · 0.6 s | 17 (§1–§7) | **16** — §1 ×2 (1a + `NO-ANCESTRY-CHECK`), §2 ×2, §3 ×3 (3a + `NO-EXISTENCE-GUARD`, 3c), §4: `BUILD-IN-DEPLOY` + `NO-DIGEST-HANDOFF` (04a), 4c `ref=TAG` (04c), §5 ×3 (`identity=REGEXP ref=TAG`, `scope=OWNER-ONLY`, `ATTACH`), §6 ×2 (`RELEASE-BOT token=GITHUB_TOKEN` / `default`), §7 ×2 | CD-RI-04b partial: 0c prints the `load: true` and the `push: true` BUILD rows but `scans=0` and no `REBUILD-AFTER-SCAN` — a scanner run as `docker run … aquasec/trivy@sha256:… image` is not a SCAN row (IR-3) | DECOY-23 → `VERIFY identity=exact issuer=yes ref=digest` (cleared); DECOY-24: 0 rows |
-| `deploy-safety-scan` | 153 (0) · 0.9 s | 18 (§1–§6) | **16** — §1 ×5 (1a boot-code / entrypoint / manifest × 1c floors 3/2/2; `migrate=AFTER-DEPLOY`; 1e `rollout undo` + the `DROP COLUMN` file), §2 ×3 (graph + `interruptible=yes`), §3 CD-DS-03a (`env=no`), §4 CD-DS-04b (`unwaited=1`), §5 ×3 (5a `NO-SHUTDOWN-HANDLER` ×3 roots, 5b `NEST-HOOKS-INERT hooks=1`), §6 ×3 (6a `read, not declared: … REPORTS_BUCKET STRIPE_WEBHOOK_SECRET`, 6b `.nvmrc 22` vs `FROM node:20`) | CD-DS-04a **missed**: the 0d awk counts `kubectl[ \t]+apply`, so `kubectl --kubeconfig … apply -k …/overlays/prod` is `verbs=0` (also `deploy-web`, `hotfix-prod` and the whole Azure unit vanish; `kubectl -n … wait` is not a wait, so `migrate_billing_staging` reads `unwaited=1`; IR-1). CD-DS-03b is a settings row: no grep reads the offline snapshot (IR-6) | DECOY-10, -11 (1a) → cleared (one-shot Job applied alone; 1 replica + Prisma lock, § 22); DECOY-21 by 6a (`PORT HOSTNAME`) → § 26; DECOY-22: not printed (schema-declared) |
-| `container-build-scan` | 99 (0) · 0.4 s (110 with the docker lane) | 24 (§1–§10) | **23** — every awk fact fires on its seed: `NAMED` ×2 + `NONROOT-NO-UID` ×2, `PID1-SHELL-FORM` ×2, `PID1-SCRIPT` + 2b `NO-EXEC`, `LAYER-ORDER` ×2, grep 4 ×3, `HEREDOC-NO-E`, `RUN-CD` + `WORKDIR-RELATIVE`, `ARG-SCOPE`, `HC-BINARY`, `HC-PORT`, `BASE node:18-alpine`, `PLATFORM-CONST`, `LIBC-MISMATCH`, `RESIDUE`, `BUILD-TOOLS`, `DUP-CMD`, grep 10 (`SLSA Build L3`) + `BASE python:3.12-slim pin=version` | CD-CB-09b (`RUN apt-get update` alone) **not surfaced**: no awk fact, and the §9 lane (hadolint, `--check`) is blocked here (IR-9) | DECOY-12, -14, -15, -16, -18, -19, -20 printed as facts (`npm ci`, `user=10001 [inherited]`, `PID1-INIT tini`, R lane `ADD --checksum`) → each cleared by the read the skill prescribes |
+| `ci-graph.py` (`--all`; `--contexts=… --merge-queue` or `--settings-dir=.refract-fixture/gh-api`) | 26 rows (exit 1) + 4 required-join rows (the same 4 from either input; `--settings-dir` adds 3 `ENVIRONMENT` + 2 `RULESET` rows); 0.2 s; `--self-test` 64/64 | — (structural facts for the rows below) | `REQUIRED-PATH-FILTERED`, `NO-MERGE-GROUP`, `REQUIRED-IF-SKIP`, `AGGREGATOR-WEAK`, `DEPLOY-ALWAYS`, `DEPLOY-UNGATED` (publish-sdk), `WORKFLOW_RUN-NO-CONCLUSION`, `NO-TIMEOUT`, `WAIT-NO-TIMEOUT` (CD-PI-06b, `deploy.yml:78`), `MATRIX-EXCLUDES-RUNTIME`, `MATRIX-DYNAMIC-UNGUARDED`, `DEPLOY-CANCEL`, `GROUP-NOT-ENV` + `ENV-SPLIT-GROUPS`, `CACHE-*` ×4, `PIN×PRIV` (routed); `ENVIRONMENT env=production branch-policy=NONE` on `environments.json:36` (CD-DS-03b; the environment half of CD-PI-05a); `RULESET target=tag name=NONE` (the ruleset half of CD-RI-01a) | — | DECOY-02 → `DEPLOY-CANCEL` + `DEPLOY-UNGATED` on the preview (§ 24) |
+| `pipeline-integrity-scan` | 165 (0) · 0.5 s; 179 with `SETTINGS_DIR` | 24 (§1–§8) | **22** — §1 ×4 (grep 1a), §2 ×3 (2a), §3 ×4 (grep 3 + graph; with `SETTINGS_DIR` the four required-join rows print in 0b), §4 ×5 (4a/4b + graph), §5 CD-PI-05a (grep 5), §6 ×2: CD-PI-06a (graph), CD-PI-06b (grep 6 `deploy.yml:79` + graph `WAIT-NO-TIMEOUT`), §7 ×2 (grep 7 + graph), §8 CD-PI-08b (grep 8). Grep 4a now also prints the five flag-first `kubectl` deploy lines (`deploy.yml:77/107/122`, `hotfix.yml:41`, `azure-pipelines.yml:20`) | CD-PI-05b partial (the job's `needs: []`/verb lines print, the missing default-branch rule is a read); CD-PI-08a partial (grep 8 lists the file's schedules, the `if:` is a read) | DECOY-01, -03, -04, -07, -08, -09 printed; each cleared by one precedent (§ 15, § 13, § 12, § 43, § 14, § 8) |
+| `pipeline-cache-scan` | 70 (0) · 0.4 s | 9 (§1–§4) | **9** — CD-PC-01a (graph + 1a `KEY-NO-RUNTIME` on the `ci-web.yml:63` step), 01b (1c `NO-LOCKFILE-IN-KEY`), 01c (graph + 1a `PREFIX-RESTORE-INSTALL-DIR`), 02a (`MODE-MIN`), 02b (`GHA-DEFAULT-SCOPE` + "2 image builds"), 03a (`deep-clone=NO`), 03b ("PR workflow without concurrency"), 04a (`SERIAL-CHAIN jobs=web-lint>web-typecheck>web-unit` on `ci-web.yml:43`), 04b (`STAGE-LADDER stages=6 serial=lint>typecheck>test>build>release` on `.gitlab-ci.yml:3`) | — ; §4 timing stays `UNREADABLE` without a token, so both §4 rows are `[report-flagged]` | DECOY-06 by grep 3 (paths-filter, `deep-clone=NO`) → cleared: the filter reads the PR API |
+| `release-integrity-scan` | 127 (0) · 0.6 s; 129 with `SETTINGS_DIR` | 17 (§1–§7) | **17** — §1 ×2 (1a + `NO-ANCESTRY-CHECK`; with `SETTINGS_DIR` 0b adds `RULESET target=tag name=NONE`), §2 ×2, §3 ×3 (3a + `NO-EXISTENCE-GUARD`, 3c), §4: `BUILD-IN-DEPLOY` + `NO-DIGEST-HANDOFF` (04a), `release.yml:62 SCAN via=run ref=tag` + `JOB … scans=1 REBUILD-AFTER-SCAN SCAN-BY-TAG` (04b), 4c `ref=TAG` (04c), §5 ×3 (`identity=REGEXP ref=TAG`, `scope=OWNER-ONLY`, `ATTACH`), §6 ×2 (`RELEASE-BOT token=GITHUB_TOKEN` / `default`), §7 ×2 | — | DECOY-23 → `VERIFY identity=exact issuer=yes ref=digest` (cleared); DECOY-24: 0 rows |
+| `deploy-safety-scan` | 152 (0) · 0.9 s; 155 with `SETTINGS_DIR` | 18 (§1–§6) | **18** — §1 ×5 (1a boot-code / entrypoint / manifest × 1c floors 3/2/2; `migrate=AFTER-DEPLOY`; 1e `rollout undo` + the `DROP COLUMN` file), §2 ×3 (graph + `interruptible=yes`), §3 ×2: CD-DS-03a (`env=no`), CD-DS-03b (with `SETTINGS_DIR`: 0c `ENVIRONMENT env=production branch-policy=NONE admin-bypass=yes` on `environments.json:36`), §4 ×2: CD-DS-04a (`deploy.yml:107 UNIT unit=deploy-prod verbs=1 unwaited=1`), CD-DS-04b (`unwaited=1`), §5 ×3 (5a `NO-SHUTDOWN-HANDLER` ×3 roots, 5b `NEST-HOOKS-INERT hooks=1`), §6 ×3 (6a `read, not declared: … REPORTS_BUCKET STRIPE_WEBHOOK_SECRET`, 6b `.nvmrc 22` vs `FROM node:20`). 0d now lists `deploy-web`, `hotfix-prod` and the Azure unit (waited), and `migrate_billing_staging` reads `unwaited=0` (`kubectl -n … wait`) | — | DECOY-10, -11 (1a) → cleared (one-shot Job applied alone; 1 replica + Prisma lock, § 22); DECOY-21 by 6a (`PORT HOSTNAME`) → § 26; DECOY-22: not printed (schema-declared) |
+| `container-build-scan` | 99 (0) · 0.4 s (110 with the docker lane) | 24 (§1–§10) | **24** — every awk fact fires on its seed: `NAMED` ×2 + `NONROOT-NO-UID` ×2, `PID1-SHELL-FORM` ×2, `PID1-SCRIPT` + 2b `NO-EXEC`, `LAYER-ORDER` ×2, grep 4 ×3, `HEREDOC-NO-E`, `RUN-CD` + `WORKDIR-RELATIVE`, `ARG-SCOPE`, `HC-BINARY`, `HC-PORT`, `BASE node:18-alpine`, `PLATFORM-CONST`, `LIBC-MISMATCH`, `RESIDUE`, `BUILD-TOOLS`, `DUP-CMD`, `APT-UPDATE-ALONE` (CD-CB-09b, `services/reports-py/Dockerfile:6`, with the §9 lane blocked), grep 10 (`SLSA Build L3`) + `BASE python:3.12-slim pin=version` | — | DECOY-12, -14, -15, -16, -18, -19, -20 printed as facts (`npm ci`, `user=10001 [inherited]`, `PID1-INIT tini`, R lane `ADD --checksum`) → each cleared by the read the skill prescribes |
 | `compose-scan` | 54 (0) · 0.3 s (59 with the model lane NOT-RUN) | 14 (§1–§7) | **13** in the static lane (model lane blocked: every row `[report-flagged]`): depends_on ×3 blocks, curl healthcheck, `${TAG}`/`${API_PORT}`, 0b `files=DEFAULT(+override)` on the shop host + 0c override + R 9229, `postgres:latest`/`redis`, `version:`, `container_name` + `replicas: 2`, `restart: always`, `stop_grace_period: 2s` | CD-CP-02b partial: the `service_healthy` block prints; "the target has no healthcheck" is the model lane's `DEP-HEALTHY-NO-HC` | DECOY-25, -26 (compose.prod depends_on block) → cleared on read (`pg_isready`, `restart: "no"`) |
 | `progressive-delivery` | 46 (0) · 0.6 s | 9 (§1, §2, §5, §8, §9) | **9** — `dead-banner literal=0 snake=0`, `new-search literal=0 snake=1` (→ §9), grep 2, `NEVER-FAILS`, `UNSCOPED`, `NO-ANALYSIS`, grep 8 ×2, grep 9; harness ok (3 keys) | — ; 5g grounding `NOT-RUN (owner pack observability not installed)` as designed | DECOY-28 → `scope=hash -> ok`; DECOY-27: 0 rows |
 | `gitops-audit` | 26 (0) · 0.2 s | 2 (§1) | **2** — `MANAGED ns=shop-web` ×2 (CD target `web-prod`, `selfHeal=true prune=true`) | — | 13 other imperative lines tagged `unmanaged`/`unknown` (no controller owns `shop-prod`/`shop-staging`) |
 
-Totals: **107 of 117** devops seeds surface in their owner's verbatim pre-flight with the class-specific row, 4 more as
-a partial (the unit or line printed, the class settled by the read: CD-PI-05b, CD-PI-08a, CD-RI-04b, CD-CP-02b), and
-**6 are missed**: CD-PI-06b and CD-DS-04a (IR-1), CD-DS-03b (the settings snapshot, IR-6), CD-PC-04a/b (IR-8) and
-CD-CB-09b (IR-9). Decoys: every decoy a pre-flight prints clears by one precedent or one printed fact; DECOY-22, -24
-and -27 print nothing. Unseeded lines worth naming: `DEPLOY-UNGATED` on `_build.yml` (the caller in `ci.yml` gates it on
-`all-green`), on `deploy.yml` `build-image` (a sha-tagged candidate image) and on `release-pr.yml` (changesets with no
-`publish:`); `DEPLOY-NOGROUP` ×2 on the release publish jobs (IR-7); release 1a `types: [created]` under
-`issue_comment:` (IR-4); container `PIPE-NO-PIPEFAIL` on a `|` inside a quoted `sed` expression (IR-5).
+Totals (re-measured after the IR-1…IR-10 fixes, devops 2.0.1, same staged-copy method): **114 of 117** devops seeds
+surface in their owner's verbatim pre-flight with the class-specific row — CD-DS-03b only when `SETTINGS_DIR` is set, as
+`/devops-audit --settings-dir=` does — 3 more as a partial (the unit or line printed, the class settled by the read:
+CD-PI-05b, CD-PI-08a, CD-CP-02b), and **none is missed**. Run 1 printed 107 / 4 partial / 6 missed (CD-PI-06b and
+CD-DS-04a on flag-first `kubectl`, CD-DS-03b with no settings input, CD-PC-04a/b with no §4 static row, CD-CB-09b with no
+fact) and CD-RI-04b partial (a containerised trivy was not a scan). Decoys: every decoy a pre-flight prints clears by
+one precedent or one printed fact; DECOY-22, -24 and -27 print nothing; no new line lands on a decoy. Unseeded lines
+worth naming: `DEPLOY-UNGATED` on `_build.yml` (the caller in `ci.yml` gates it on `all-green`), on `deploy.yml`
+`build-image` (a sha-tagged candidate image) and on `release-pr.yml` (changesets with no `publish:`); `SERIAL-CHAIN
+jobs=build>image-scan>smoke` (`ci.yml:112`: both children rebuild the image, so the chain is real; the read decides
+whether smoke-after-scan is a wanted order). Gone since run 1: `DEPLOY-NOGROUP` ×2 on the release publish jobs (publish-only
+jobs are `deploy-via=publish-verb`), `BUILD-IN-DEPLOY` on `release.yml` `image`, release 1a's `issue_comment:` `types:
+[created]` + `issue-triage.yml: NO-ANCESTRY-CHECK`, and container `PIPE-NO-PIPEFAIL` on the quoted `sed` expression.
 
 **Run 3 (no YAML loader)** — `env PATH=<python3 only> CI_GRAPH_NO_UV=1 ci-graph.py . --all` prints
 `NOT-RUN (no YAML loader)` and exits 2: every GitHub structural row above must then read `blocked (ci-graph NOT-RUN)`,
@@ -2985,7 +2994,17 @@ Self-check of the key: a findings file built from each seed's own title and text
 (20/20, 3/3, 3/3, 2/2 under the owners) with 0 decoys pinned; a file of one typical false report per decoy pins 27/27
 under `/devops-audit`.
 
-### Integrator requests (skill gaps this fixture found — none fixed here; the skills are another agent's files)
+### Integrator requests (skill gaps this fixture found)
+
+**Status 2026-10-10: all ten fixed** (devops 2.0.1; `score.py` for IR-10) and re-measured above. IR-1: the
+flag-tolerant `kubectl\b[^\n|;&]*?\s<verb>` form in `pipeline-integrity-scan` greps 4a/6 and `ci-graph.py` `MUT`/`WAIT`,
+and an awk equivalent in `deploy-safety-scan` 0d (whose waits are now position-aware and count `kubectl … wait`). IR-2:
+`RLENGTH - 2`. IR-3: a containerised scanner is a `SCAN` row; publish-only jobs are `deploy-via=publish-verb`. IR-4: the
+`types:` alternative keeps `published|released` only, plus `on: … release`. IR-5: quoted spans with no spaced pipe are
+dropped before the pipe test. IR-6: `ci-graph.py --settings-dir=<dir>` and `/devops-audit --settings-dir=` (`SETTINGS_DIR`
+for every detector). IR-7: no `DEPLOY-NOGROUP`/`GROUP-NOT-ENV` on publish-only jobs. IR-8: `ci-graph.py --serial-chains`
+(`SERIAL-CHAIN`) and a GitLab `STAGE-LADDER` awk in §4. IR-9: `APT-UPDATE-ALONE`. IR-10: bare `Jenkinsfile`, `Caddyfile`,
+`Makefile`, `Justfile`, extensions up to 10 characters, and path-suffix pairing. The original requests follow.
 
 - **IR-1 — `kubectl` with flags before the verb** (`kubectl --kubeconfig "$K" -n ns apply …`, the common CI shape).
   `pipeline-integrity-scan` grep 4a (`MUT`) and grep 6, `ci-graph.py`'s `MUT`/`WAIT` regexes and `deploy-safety-scan`

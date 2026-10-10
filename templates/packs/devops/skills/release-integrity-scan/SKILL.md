@@ -62,7 +62,7 @@ Discover every release unit (pre-flight 0a–0d); never assume `.github/`, `rele
 | Lane | Command | Trap that makes a clean result false |
 |---|---|---|
 | Graph | `python3 "$G" . --deploy-ancestors` (`ci-graph.py`, repo baseline; fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`) | Exit 2 = NOT-RUN, never clean (precedents § 41, § 44). **`publishes=` misses `docker/build-push-action` with `outputs: …push=true` and no `push:` input** [V 2026-10-10]: 0c prints those as `publish=outputs` / `PUSH-VIA-OUTPUTS` |
-| Settings | `gh api repos/{o}/{r}/rulesets --jq '.[]\|select(.target=="tag")\|{id,name,enforcement}'`, then `gh api repos/{o}/{r}/rulesets/<id> --jq '{rules:[.rules[].type],bypass:.bypass_actors}'`; `gh api repos/{o}/{r}/releases/latest --jq '{tag_name,immutable}'` | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6). The tag-rule `type` values and the immutable-release field are [K?] (research unknown 4): settle on the first real read and quote it |
+| Settings | `gh api repos/{o}/{r}/rulesets --jq '.[]\|select(.target=="tag")\|{id,name,enforcement}'`, then `gh api repos/{o}/{r}/rulesets/<id> --jq '{rules:[.rules[].type],bypass:.bypass_actors}'`; `gh api repos/{o}/{r}/releases/latest --jq '{tag_name,immutable}'`. Offline: `rulesets.json` in a snapshot dir → `ci-graph.py --settings-dir=<dir>` prints `RULESET` rows, and `RULESET target=tag name=NONE` when no tag ruleset exists (0b passes `$SETTINGS_DIR`) | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6). The tag-rule `type` values and the immutable-release field are [K?] (research unknown 4): settle on the first real read and quote it |
 | Registry | `crane digest <ref>`, `crane manifest <repo>@<digest>`, `docker buildx imagetools inspect <ref>` | Registry unreachable or no credential → `blocked (registry)`, with the command written out (precedents § 41). Reads only: this skill never pushes, tags or deletes |
 | Release dry runs | `npx semantic-release --dry-run --no-ci`, `npx changeset status --verbose`, `goreleaser check`, release-please `release-pr --dry-run` [K flags] | A dry run that needs a token it does not have prints an error, not a version: `blocked` |
 | Executor | `release-security` (this pack) in audit mode, given the digest, the expected identity and the floors | Its rows come back `NOT-RUN` when a tool is below `THR-SCANNER-FLOOR` or missing; §5 is then `blocked`, never `checked` |
@@ -86,8 +86,8 @@ echo '# 0a inventory: CI files, release scripts, release tooling and version fil
 rg --files "${CI[@]}" "${SH[@]}" . | rg -v 'package\.json$' | sort
 rg --files --hidden . -g '{.release-please-manifest.json,release-please-config.json,.releaserc*,release.config.*,.goreleaser.y*ml,Chart.yaml,lerna.json,CHANGELOG.md}' -g '.changeset/{config,pre}.json' -g '!**/node_modules/**' | sort
 echo '# 0b graph (GitHub): which jobs deploy or publish; exit 2 = NOT-RUN, never clean'
-: > "$SCAN/graph.txt"; if [ -n "$(rg --files --hidden -g '.github/workflows/*.{yml,yaml}' .)" ]; then python3 "$G" . --deploy-ancestors > "$SCAN/graph.txt"; echo "ci-graph exit=$?"
-  rg 'deploys=yes|publishes=yes|NOT-RUN|UNREADABLE' "$SCAN/graph.txt"; else echo 'ci-graph: N/A (no GitHub workflow)'; fi
+: > "$SCAN/graph.txt"; if [ -n "$(rg --files --hidden -g '.github/workflows/*.{yml,yaml}' .)" ]; then python3 "$G" . --deploy-ancestors ${SETTINGS_DIR:+--settings-dir="$SETTINGS_DIR"} > "$SCAN/graph.txt"; echo "ci-graph exit=$?"
+  rg 'deploys=yes|publishes=yes|RULESET|NOT-RUN|UNREADABLE' "$SCAN/graph.txt"; else echo 'ci-graph: N/A (no GitHub workflow)'; fi
 DJ=" $(rg -o --no-filename --pcre2 '^[^:]+:\d+: JOB job=\S+ deploys=yes' "$SCAN/graph.txt" | sed -E 's/:[0-9]+: JOB job=/:/; s/ deploys=yes//' | tr '\n' ' ')"
 echo '# 0c GitHub steps: BUILD / SCAN / PUSH / RELEASE-BOT rows, then one JOB row with its flags'
 rg --files --hidden -g '.github/workflows/*.{yml,yaml}' . | sort | while IFS= read -r f; do awk -v DJ="$DJ" -f - "$f" <<'AWK'
@@ -120,7 +120,7 @@ sl && /^[ \t]+token:/ { stok = val($0) }
 /docker[ \t]+(buildx[ \t]+)?build[ \t]/ { p = ($0 ~ /--push/) ? "yes" : "no"; build(FNR, p, (p == "yes") ? "no" : "yes", "run") }
 /(npm|pnpm|yarn)[ \t]+(run[ \t]+)?build\b|go[ \t]+build[ \t]|mvn[ \t]+(package|install)|gradlew?[ \t]+(build|assemble)/ { row("BUILD", FNR, "via=run kind=app"); nb++ }
 /docker[ \t]+push[ \t]/ { row("PUSH", FNR, "via=run"); np++; if (ns) late = 1 }
-/trivy[ \t].*image|grype[ \t]|docker[ \t]+scout[ \t]+cves/ { scan(FNR, ($0 ~ /@sha256|digest|DIGEST/) ? "digest" : "tag", "run") }
+/trivy([:@][^ \t]*)?[ \t].*image|grype([:@][^ \t]*)?[ \t]|docker[ \t]+scout[ \t]+cves/ { t = $0; sub(/.*(trivy|grype)([:@][^ \t]*)?[ \t]|.*scout[ \t]+cves/, "", t); scan(FNR, (t ~ /@sha256|digest|DIGEST/) ? "digest" : "tag", "run") }   # a docker-run scanner's own @sha256 pin is not the scanned ref
 END { jobend() }
 AWK
 done | tee "$SCAN/steps.txt"
@@ -129,7 +129,7 @@ rg --files "${CI[@]}" "${SH[@]}" . | sort | while IFS= read -r f; do awk -v F="$
 L() { rg -N --no-filename --pcre2 "$@" "$SCAN/lines.txt" | "${NC[@]}"; }
 wc -l < "$SCAN/lines.txt" | sed 's/^ */logical lines: /'
 echo '# 1a release triggers (tag push, release published, GitLab tag pipelines, Jenkins tag stages); 1b files with no ancestry check'
-rg -n --sort path --pcre2 "${CI[@]}" '^\s{4}tags\s*:|^\s{2}release\s*:|^\s*types\s*:\s*\[?\s*(published|released|created)\b|\bif\s*:\s*[\x27"]?\$CI_COMMIT_TAG\b|^\s*-\s*tags\s*$|\bbuildingTag\s*\(|\bwhen\s*\{\s*tag\b' . | "${NC[@]}" | tee "$SCAN/triggers.txt"
+rg -n --sort path --pcre2 "${CI[@]}" '^\s{4}tags\s*:|^\s{2}release\s*:|^on\s*:[^\n#]*\brelease\b|^\s*types\s*:\s*\[?\s*(published|released)\b|\bif\s*:\s*[\x27"]?\$CI_COMMIT_TAG\b|^\s*-\s*tags\s*$|\bbuildingTag\s*\(|\bwhen\s*\{\s*tag\b' . | "${NC[@]}" | tee "$SCAN/triggers.txt"
 cut -d: -f1 "$SCAN/triggers.txt" | sort -u | while IFS= read -r f; do rg -q --pcre2 'merge-base\s+--is-ancestor|branch\s+(-r\s+)?--contains|\bgithub\.event\.base_ref\b|\$CI_COMMIT_REF_PROTECTED\b' "$f" || echo "$f: NO-ANCESTRY-CHECK"; done
 echo '# 2 version sources: manifests, chart, release-please manifest, changesets pre mode, ldflags / VERSION build args, changelog head'
 rg -n --sort path --pcre2 -g '**/package.json' -g '**/pyproject.toml' -g '**/Cargo.toml' -g '**/Chart.yaml' -g '**/pubspec.yaml' "${X[@]}" '^\s{0,2}"version"\s*:\s*"[^"]+"|^\s*version\s*=\s*"[^"]+"|^(version|appVersion)\s*:\s*\S+' . | rg -v '"0\.0\.0"'
@@ -145,7 +145,7 @@ echo '# 4a per-environment build inputs; 4b digest hand-off vs deploy by tag; 4c
 L -e '--build-arg\s+\w*(ENV|STAGE|PROFILE)\w*=|--build-arg\s+(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC)_\w+=|^[^:]+:\d+:\s+(NEXT_PUBLIC|VITE|REACT_APP|EXPO_PUBLIC)_\w+='
 rg -n --sort path --pcre2 -g '**/Dockerfile*' -g '**/*.dockerfile' -g '**/Containerfile*' "${X[@]}" '^\s*ARG\s+\w*(ENV|STAGE|PROFILE)\b|^\s*COPY\s+\S*\.env\.(prod|production|staging)\b' .
 echo "digest hand-off lines: $(L 'outputs\.digest\b|@sha256:|\bcrane\s+(copy|digest)\b|\bskopeo\s+copy\b|\boras\s+cp\b|\bimagetools\s+create\b' | wc -l | tr -d ' ') · kustomize digest: $(rg -c --pcre2 -g '**/kustomization.{yml,yaml}' "${X[@]}" '^\s+digest\s*:' . | wc -l | tr -d ' ') files · newTag (deploy by tag, security iac-scan 4j): $(rg -n --pcre2 -g '**/kustomization.{yml,yaml}' "${X[@]}" '^\s+newTag\s*:' . | wc -l | tr -d ' ')"
-L '\btrivy\b[^\n]*\bimage\b|\bgrype\s|\bdocker\s+scout\s+cves\b' | rg -v '^\./\.github/workflows/' | awk '{ print $0 (($0 ~ /@sha256|[Dd][Ii][Gg][Ee][Ss][Tt]/) ? "  ref=digest" : "  ref=TAG") }'
+L '\btrivy\b[^\n]*\bimage\b|\bgrype\s|\bdocker\s+scout\s+cves\b' | rg -v '^\./\.github/workflows/' | awk '{ t = $0; sub(/.*(trivy|grype)([:@][^ \t]*)?[ \t]|.*scout[ \t]+cves/, "", t); print $0 ((t ~ /@sha256|[Dd][Ii][Gg][Ee][Ss][Tt]/) ? "  ref=digest" : "  ref=TAG") }'
 echo '# 5a verify / sign / attest / attach, classified; 5b scanner and signer floors and pins (THR-SCANNER-FLOOR); 5c SBOM and provenance producers; 5d release assets with no checksum; 5e secret build args (routed)'
 L '\bcosign\s+(verify|sign|attest|attach)\b|\bgh\s+attestation\s+verify\b|\bslsa-verifier\b' | awk '{ b = $0; split(b, h, ":"); at = h[1] ":" h[2] ":"
   if (b ~ /cosign[ \t]+verify/) { id = (b ~ /--certificate-identity-regexp/) ? "REGEXP" : (b ~ /--certificate-identity[ =]/) ? "exact" : (b ~ /--key[ =]/) ? "key" : "NONE"
@@ -171,13 +171,13 @@ rg -n --sort path -U --pcre2 "${CI[@]}" 'build-args\s*:[^\n]*\n(?:[ \t]{8,}[^\n]
 echo '# 6 release automation outside GitHub (GitHub rows are RELEASE-BOT in 0c)'
 L '\bsemantic-release\b|\brelease-please\b|\bchangeset\s+version\b' | rg -v '^\./\.github/workflows/'
 echo '# 7a retention that can delete N-1 (registry lifecycle, package cleanup, Helm history, artifact retention); 7b rollback units: what they redeploy'
-rg -n --sort path --pcre2 "${CI[@]}" "${SH[@]}" -g '*.{json,tf,yml,yaml}' "${X[@]}" -g '!**/package.json' '"countNumber"\s*:\s*[1-3]\b|\bcount_number\s*=\s*[1-3]\b|countMoreThan"?\s*:\s*[1-3]\b|\bmin-versions-to-keep\s*:\s*[0-3]\b|\bdelete-only-untagged-versions\s*:\s*true|\bdelete-untagged\b|--history-max[ =][01]\b|\bretention-days\s*:\s*1\b|\bkeep[-_]last\s*[:=]\s*[1-3]\b' . | "${NC[@]}"
+rg -n --sort path --pcre2 -g '*.{json,tf,yml,yaml}' "${CI[@]}" "${SH[@]}" "${X[@]}" -g '!**/package.json' '"countNumber"\s*:\s*[1-3]\b|\bcount_number\s*=\s*[1-3]\b|countMoreThan"?\s*:\s*[1-3]\b|\bmin-versions-to-keep\s*:\s*[0-3]\b|\bdelete-only-untagged-versions\s*:\s*true|\bdelete-untagged\b|--history-max[ =][01]\b|\bretention-days\s*:\s*1\b|\bkeep[-_]last\s*[:=]\s*[1-3]\b' . | "${NC[@]}"
 L '\brollout\s+undo\b|\bhelm\s+rollback\b|\bargocd\s+app\s+rollback\b|\bset\s+image\b[^\n]*(PREV|[Pp]revious|ROLLBACK)|^[^:]+:\d+:\s*-?-(to|rollback|previous)\)' | rg -v --pcre2 '\b(die|echo|printf|say|warn|fail)\s+["\x27]'
 rg --files "${CI[@]}" "${SH[@]}" . | rg -i 'rollback' | sed 's/$/: ROLLBACK-UNIT (read what it redeploys)/'
 ```
 
 How to read it:
-- **0c** is the §4 table for GitHub. `BUILD publish=` is `yes`, `expr` (a `${{ }}` — read when it is true), `outputs` (a push the graph misses) or `no`; `load=yes` is a local image. The `JOB` row's flags are candidates: `REBUILD-AFTER-SCAN` (a build that publishes after a scan in the same job: the scanned image is not the pushed one), `SCAN-BY-TAG` (the scan reads a tag, which can move before deploy), `BUILD-IN-DEPLOY` (a build inside a job `ci-graph.py` marks `deploys=yes`), `NO-DIGEST-HANDOFF` (the job publishes and nothing in it records a digest), `PUSH-VIA-OUTPUTS`. `RELEASE-BOT token=` is `default(GITHUB_TOKEN)` when the input is absent — the same trap as passing it.
+- **0c** is the §4 table for GitHub. `BUILD publish=` is `yes`, `expr` (a `${{ }}` — read when it is true), `outputs` (a push the graph misses) or `no`; `load=yes` is a local image. The `JOB` row's flags are candidates: `REBUILD-AFTER-SCAN` (a build that publishes after a scan in the same job: the scanned image is not the pushed one), `SCAN-BY-TAG` (the scan reads a tag, which can move before deploy), `BUILD-IN-DEPLOY` (a build inside a job `ci-graph.py` marks `deploys=yes`; a job whose only verbs publish — `docker push`, `npm publish` — is `deploys=no publishes=yes deploy-via=publish-verb` and never gets it), `NO-DIGEST-HANDOFF` (the job publishes and nothing in it records a digest), `PUSH-VIA-OUTPUTS`. `RELEASE-BOT token=` is `default(GITHUB_TOKEN)` when the input is absent — the same trap as passing it. A scanner run as a container (`docker run … aquasec/trivy@sha256:… image <ref>`) is a `SCAN` row; its `ref=` reads the scanned reference, never the scanner's own pin.
 - **3a plus every 0c `BUILD publish≠no` row is the full producer list.** Two producers that write the same `<repository>:<tag>` (a CI job and a local ship script, two workflows) are the §3/§4 read: which push lands last, and which one was scanned?
 - **3b** is per file: one guard anywhere in the file clears it, so read each publish verb against its own guard.
 - **5a** rows come from joined lines, so a `cosign verify \` split over four lines is one row with all its flags. `identity=REGEXP` or `NONE`, `issuer=NO`, `tlog=IGNORED`, `ref=TAG`, `MASKED`, `scope=OWNER-ONLY` and `signer=NO` are each a §5 candidate.

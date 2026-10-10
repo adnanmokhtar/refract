@@ -66,7 +66,7 @@ A GitLab template, `extends:` base, reusable workflow or composite action is **o
 
 | Lane | Command | Trap that makes a clean result false |
 |---|---|---|
-| Graph | `python3 "$G" . --all`; `--contexts=<a,b> [--merge-queue]` (offline, from a rules snapshot) or `--required [--repo=o/r --branch=b]` (`gh` + token); `--deploy-ancestors`; `--job-of=F:L`, `--shell-of=F:L` | No YAML loader → exit 2; GitHub only; a job that pushes through `docker/build-push-action` `outputs: …push=true` with no `push:` input is not counted as a publish (read it) |
+| Graph | `python3 "$G" . --all`; `--contexts=<a,b> [--merge-queue]` or `--settings-dir=<dir>` (offline, from saved `gh api` responses; 0b passes `$SETTINGS_DIR` when the caller sets it) or `--required [--repo=o/r --branch=b]` (`gh` + token); `--deploy-ancestors`; `--job-of=F:L`, `--shell-of=F:L` | No YAML loader → exit 2; GitHub only; a job that pushes through `docker/build-push-action` `outputs: …push=true` with no `push:` input is not counted as a publish (read it) |
 | Settings | `gh api repos/{o}/{r}/rules/branches/{b}` **and** legacy `…/branches/{b}/protection/required_status_checks`; `…/actions/workflows`; GitLab `glab api projects/:id` | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6); rulesets in evaluate mode are not returned `[K]` |
 | GHA lint | `actionlint -format '{{json .}}'` 1.7.12, or `docker run --rm -i rhysd/actionlint:1.7.12 - < <file>` per file `[K]` | exit 3 = no project (a bind-mount trap) → NOT-RUN; it checks that `needs:` exists, not that it is sufficient |
 | Shell probe | the four lines of V210 (below) | none: runs with no CI access |
@@ -84,11 +84,11 @@ GH=(--hidden -g '.github/workflows/*.{yml,yaml}' -g '**/action.{yml,yaml}' -g '!
 GL=(--hidden -g '**/.gitlab-ci*.yml' -g '.gitlab/**/*.{yml,yaml}' -g '!**/{node_modules,vendor,fixtures,__fixtures__,testdata}/**')
 AZ=(-g '**/azure-pipelines*.yml' -g '**/*.azure-pipelines.yml' -g '!**/{node_modules,vendor,fixtures,__fixtures__,testdata}/**')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(#|//)')   # drops YAML and Groovy comment-only lines
-MUT='\b(kubectl\s+(apply|set\s+image|replace|rollout\s+restart)|kustomize\s+edit\s+set\s+image|helm\s+(upgrade|install|rollback)|terraform\s+apply|tofu\s+apply|pulumi\s+up|fly\s+deploy|railway\s+up|vercel\b[^\n]*--prod|netlify\s+deploy[^\n]*--prod|npm\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|cargo\s+publish|gem\s+push|docker\s+(push|buildx\s+imagetools\s+create)|crane\s+(copy|tag)|gh\s+release\s+(create|upload)|aws\s+(ecs\s+update-service|lambda\s+update-function-code|s3\s+sync)|gcloud\s+run\s+deploy|az\s+webapp\s+deploy|serverless\s+deploy|cdk\s+deploy|argocd\s+app\s+sync)\b'
+MUT='\b(kubectl\b[^\n|;&]*?\s(apply|set\s+image|replace|rollout\s+restart)|kustomize\s+edit\s+set\s+image|helm\s+(upgrade|install|rollback)|terraform\s+apply|tofu\s+apply|pulumi\s+up|fly\s+deploy|railway\s+up|vercel\b[^\n]*--prod|netlify\s+deploy[^\n]*--prod|npm\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|cargo\s+publish|gem\s+push|docker\s+(push|buildx\s+imagetools\s+create)|crane\s+(copy|tag)|gh\s+release\s+(create|upload)|aws\s+(ecs\s+update-service|lambda\s+update-function-code|s3\s+sync)|gcloud\s+run\s+deploy|az\s+webapp\s+deploy|serverless\s+deploy|cdk\s+deploy|argocd\s+app\s+sync)\b'
 G=.claude/scripts/ci-graph.py; [ -f "$G" ] || G="$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py"
 echo '# 0a lanes: every CI file, by platform'; rg --files "${CI[@]}" . | sort
 echo '# 0b graph (GitHub Actions only): structural rows; exit 2 = NOT-RUN, never clean'
-if [ -n "$(rg --files "${GH[@]}" -g '!**/action.{yml,yaml}' .)" ]; then python3 "$G" . --all; echo "ci-graph exit=$?"; else echo 'ci-graph: N/A (no GitHub workflow)'; fi
+if [ -n "$(rg --files "${GH[@]}" -g '!**/action.{yml,yaml}' .)" ]; then python3 "$G" . --all ${SETTINGS_DIR:+--settings-dir="$SETTINGS_DIR"}; echo "ci-graph exit=$?"; else echo 'ci-graph: N/A (no GitHub workflow)'; fi
 echo '# 1a masking: continue-on-error / allow_failure / continueOnError / || true / set +e / Jenkins catchError, returnStatus, propagate'
 rg -n --pcre2 "${CI[@]}" '^\s*-?\s*(continue-on-error|allow_failure|continueOnError)\s*:\s*(true\b|\$\{\{|\{?\s*exit_codes)|\|\|\s*(true|:|exit\s+0|echo)\b|^\s*-?\s*set\s+\+e\b|\bcatchError\s*\(|\breturnStatus\s*:\s*true|\bpropagate\s*:\s*false|\bunstable\s*\(|\btrap\s+[\x27"]exit 0[\x27"]\s+ERR|\bmake\s+-k\b|--if-present\b' . | "${NC[@]}"
 echo '# 1b scanner flags that zero the exit; GitLab when: manual (allow_failure defaults true)'
@@ -108,7 +108,7 @@ rg -n --pcre2 -g '**/Jenkinsfile*' -g '**/*.jenkinsfile' -g '!**/{node_modules,v
 echo '# 5 refs from inputs; deploy workflows on any branch; free-text dispatch inputs'
 rg -n --pcre2 "${CI[@]}" '\bref\s*:\s*\$\{\{\s*(github\.event\.)?inputs\.|\bbranches\s*:\s*\[?\s*[\x27"]\*\*?[\x27"]|^\s{6,8}(ref|branch|sha|tag|version|image)\s*:\s*$' . | "${NC[@]}"
 echo '# 6 unbounded deploy waits; non-GitHub CI files with no timeout key at all'
-rg -n --pcre2 "${CI[@]}" '\b(kubectl\s+rollout\s+status|(kubectl\s+)?argo\s+rollouts\s+status|helm\s+(upgrade|install)\b[^\n]*--wait)\b(?![^\n]*--timeout)' . | "${NC[@]}"
+rg -n --pcre2 "${CI[@]}" '\b(kubectl\b[^\n|;&]*?\srollout\s+status|(kubectl\s+)?argo\s+rollouts\s+status|helm\s+(upgrade|install)\b[^\n]*--wait)\b(?![^\n]*--timeout)' . | "${NC[@]}"
 rg --files-without-match --pcre2 "${CI[@]}" -g '!.github/**' -g '!**/action.{yml,yaml}' '^\s*-?\s*(timeout|timeoutInMinutes|no_output_timeout|max-time)\s*:|\btimeout\s*\(' .
 echo '# 7 matrix exclude lists and dynamic matrices (the graph checks them against .nvmrc / engines / requires-python)'
 rg -n --pcre2 "${CI[@]}" '^\s*exclude\s*:|\bfromJSON\(\s*needs\.' . | "${NC[@]}"
