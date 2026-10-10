@@ -175,4 +175,20 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { metrics_lib_detected: true }
   fallback: skills/slo-audit/SKILL.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on a no-signal project.
+
+- name: error-tracking-scan
+  kind: skill
+  triggers:
+    api_surface_detected: true
+    OR_grep_evidence: "@sentry/|sentry[-_]sdk|getsentry/sentry-go|io\\.sentry|Sentry\\.AspNetCore|@bugsnag/|\"rollbar\"|@datadog/browser-rum|firebase-crashlytics|@Catch\\(|@ControllerAdvice|exception_handler\\("   # a browser-only app ships a tracker with no API surface; §2 and §4 (process hooks, boundary capture) run with no tracker at all
+  extracts_from: _extracted-codebase.md § Observability (tracker SDKs and versions, bundler plugins, process types and start commands, global exception filters)
+  fallback: skills/error-tracking-scan/SKILL.md   # source-as-fallback; the skill's own tracker gate prints N/A (no tracker SDK) for §1 and §3 and still runs §2 and §4
+
+- name: slo-rule-scan
+  kind: skill
+  triggers:
+    metrics_lib_detected: true
+    OR_grep_evidence: "^version:\\s*\"?prometheus/v1|kind:\\s*(PrometheusServiceLevel|ServiceLevelObjective)|apiVersion:\\s*openslo/|\\*\\s*\\(1\\s*-\\s*0?\\.\\d|resource \"(datadog_service_level_objective|honeycombio_slo|newrelic_service_level)\""   # SLO specs, burn rules and vendor SLOs: a deploy repo can declare SLOs with no metrics client in its code
+  extracts_from: _extracted-codebase.md § Observability (SLO specs and generators, burn-rule files, the SLO registry, TSDB retention)
+  fallback: skills/slo-rule-scan/SKILL.md   # source-as-fallback; burn-check.py ships beside it and imports alert-rule-lint's rule-inventory.py
 ```
