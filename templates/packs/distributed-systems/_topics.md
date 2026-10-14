@@ -173,4 +173,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
     OR_grep_evidence: "\"(axios-retry|p-retry|async-retry|exponential-backoff|cockatiel|got|bullmq|@aws-sdk/client-[a-z0-9-]+|@grpc/grpc-js|@temporalio/client)\"\\s*:|^\\s*(tenacity|backoff|stamina|celery|grpcio)\\b|Polly|Microsoft\\.Extensions\\.Http\\.Resilience|resilience4j|spring-retry|spring-kafka|go-retryablehttp|cenkalti/backoff|retry-go|MassTransit|gem ['\"](sidekiq|faraday-retry|retriable)['\"]"   # a retry library, an SDK that retries by itself, or a job system whose attempts are an outer layer
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (outbound clients, retry policies, job options, deadlines) + the shared outbound client or kernel
   fallback: skills/retry-deadline-scan/SKILL.md   # source-as-fallback; F2 reuses messaging-scan's scripts/ds-inventory.py
+
+- name: workflow-scan
+  kind: skill
+  triggers:
+    signal_confirmed_any: [background-jobs, event-sourced]
+    OR_grep_evidence: "\"(@temporalio/workflow|@restatedev/restate-sdk|@dbos-inc/dbos-sdk|inngest|durable-functions|@aws-sdk/client-sfn|@camunda8/sdk|zeebe-node|@nestjs/cqrs)\"\\s*:|go\\.temporal\\.io/sdk|^\\s*(temporalio|azure-functions-durable|dbos)\\b|Temporalio|Microsoft\\.DurableTask|temporal-sdk|eventuate-tram-sagas|MassTransit|\\bFlowProducer\\b|addCompensation\\(|\\.withCompensation\\("   # a durable workflow SDK or engine, a BullMQ flow, or a saga framework or helper
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (workflow engines, sagas, state machines) + sample workflow, activity and saga files
+  fallback: skills/workflow-scan/SKILL.md   # source-as-fallback
 ```
