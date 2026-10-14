@@ -1,7 +1,7 @@
 # Proof oracles — the failing-first proof for each detector class
 
 Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
-`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix`, `/infra-fix` and `/ds-fix` (reproduce failing-first, then validate the fix), and by every
+`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix`, `/infra-fix`, `/ds-fix` and `/backend-fix` (reproduce failing-first, then validate the fix), and by every
 detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
 Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
 and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
@@ -21,6 +21,7 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## DevOps` | V209–V243, V290 | Out-of-band apply (V290, `gitops-audit` §1) |
 | `## Infrastructure` | V244–V289 | — (new section) |
 | `## Distributed` | V291–V327 | — (new section; V290 is DevOps) |
+| `## Backend` | V328–V357 | — (new section) |
 
 ## Scope of use (read first)
 
@@ -4265,6 +4266,331 @@ draft numbering differs from V303 on and is superseded); and the defaults in
 [`broker-semantics.md`](broker-semantics.md), fifteen of them re-read at their sources on
 2026-10-14. Rows marked [K?] are settled on the `ds-defects` fixture or in a container before a
 detector asserts them. Paraphrased; no text reproduced.
+
+## Backend
+
+A backend claim says that the wiring between the HTTP framework and the domain answers a request,
+a job run or an event with a status, body, value, run count or state the contract does not allow:
+the validation pipe never saw the body, the transform changed a value before validation, a
+catch-all turned a 400 into a 500, the serializer dropped scale from a Decimal, a schedule ran
+twice at once, an illegal event returned success. Reading the handler does not settle any of
+these: which pipe, filter, adapter and serializer run, and what their defaults do on the installed
+version, are facts of the project's own bootstrap. The oracle builds the app **from the project's
+own factory** and drives the request, the job or the event through it, then reads the rendered
+response, the stored row and the effect counters. Every oracle names a **tier**: U (a request or
+job run through the real bootstrap: the e2e harness when it imports the real app module, else the
+app factory under supertest, `fastify.inject`, the Django/DRF test client, FastAPI `TestClient`,
+MockMvc on the full context, `httptest`, a request spec or a Laravel HTTP test), T (a tool's exit:
+oasdiff with `--fail-on ERR`, Schemathesis with ≥ 1 stateful link, a linter rule that parsed the
+file), S (a static fact with both ends cited: the setting and the code that depends on it) or L (a
+non-production base URL named in `--live`). Settled questions are in
+[`precedents/backend.md`](precedents/backend.md). Users: `http-contract-scan`,
+`validation-boundary-scan`, `edge-error-scan`, `wire-format-scan`, `job-lifecycle-scan` and
+`state-transition-scan` (backend pack), run by `/backend-audit`, judged by `@api-reviewer` in
+refute mode (with `@verifier` mode `refute` on every BLOCKER and HIGH it keeps), and `/backend-fix`;
+`/fix-bug` reads a variant list here when its bug is one of these classes, and `/add-endpoint`'s
+production-readiness gate cites V340, V342 and V345 for the endpoint it generates. In-transaction
+enqueue and model-callback side effects are § Data (V7, V8); a transition persisted without a
+status predicate or version is § Data (V5); retry eligibility and a key minted per attempt are
+§ Distributed (V304, V307); a job that repeats its effect on redelivery is V292; arithmetic, minor
+units and the clock in code are § Code quality (V83); an unchecked outbound status and an outbound
+cast are V76 and V80; config read lazily and boot validation are § DevOps (V234); migrate-on-boot
+is V227 and V40; upload caps, repeated-key caps and money idempotency are security's
+(`logic-race-scan`, `file-access-scan`) and are proven with [`exploit-payloads.md`](exploit-payloads.md).
+
+**Scope of use.** A scratch database in a container and `${TMPDIR}` only — never the user's
+production database, queue or API. A runtime variant runs against `localhost` or a base URL the
+user named in `--live` as non-production, with the `endpoint-test` safety invariants (no writes to
+shared data without a scratch tenant, no load). Six rules hold for every variant below:
+
+- **The real bootstrap, never a hand-built one.** The app comes from the project's factory: its
+  `main.ts`/`configure-app` function or the module that registers `APP_PIPE`, `APP_FILTER` and the
+  interceptors; Django settings; `create_app()`; the Spring context. A test that builds its own
+  `new ValidationPipe()`, `Fastify()`, `express()` or filter proves nothing about what ships
+  (`precedents/backend.md` P4, B-D7). The e2e harness counts when it imports the real app module.
+- **The adapter and the version that ship.** Run on the adapter `main.ts` uses and the versions the
+  lockfile pins; a variant that depends on a default names the version it read (V357). No lockfile
+  → the version-gated variant is `Unconfirmed (version UNREAD)`, never assumed.
+- **The production engine for database-dependent rows.** Unique violations, not-found errors from
+  the ORM, `select_for_update` and ordering run on the engine production uses, in a container;
+  SQLite standing in for Postgres hides them (`precedents/backend.md` B-R16).
+- **Read the rendered bytes.** Wire variants assert on the response body as text (or the raw broker
+  payload), parsed by the client's parser — never on the object the handler returned.
+- **Count effects where they land** — rows, enqueued jobs, provider-stub hits, emails — never log
+  lines or handler invocations; time through an injected clock or fake timers, never the host clock.
+- **Fail first, pass after, keep the control.** The oracle fails on its assertion before the fix and
+  passes after, and the benign control still behaves: the documented tolerant reader still ignores
+  unknown keys, the action endpoint still answers its documented status, the read-only cron still
+  runs on time. A tool exit that did not run is `NOT-RUN`, never PASS: oasdiff without `--fail-on
+  ERR` exits 0 on a breaking diff, and Schemathesis with 0 links on response objects never runs its
+  stateful phase.
+
+### Oracle taxonomy (backend)
+
+| Oracle | Tier | Asserts | V |
+|---|---|---|---|
+| **Real-bootstrap request** | U | the app built from the project's own factory answers the request with the documented status, content type and body | V328–V349 |
+| **Failure-class matrix** | U | ten failure classes (unknown route, wrong method, malformed JSON, wrong content type, validation, not-found, conflict, unique violation, uncaught, panic or thrown non-Error) each answer the declared status class, content type and envelope; the next request is served | V330, V345 |
+| **Rendered-body round trip** | U | parse(rendered) equals the seeded value: digits, scale, offset, precision, id width | V339, V347–V349 |
+| **Schemathesis run** | T | `st run <spec> --url <base> --checks all` exits 0 and the stateful phase covered ≥ 1 link | V328–V338, V340–V344 |
+| **Spec diff** | T | `oasdiff breaking <committed> <generated> --fail-on ERR` exits 0 | V337, V338 |
+| **Side-effect counter** | U | rows written, jobs enqueued, emails, provider-stub hits equal the expected count | V332, V334, V336, V350–V356 |
+| **Cross-commit replay** | U | payloads from the previous commit (a git worktree) are consumed by the new code, and the reverse | V351 |
+| **Fire-time iterator + concurrency counter** | U | the scheduler library's own iterator gives one run per business day at the intended local time; max concurrency on one process is 1 | V352 |
+
+| V | Oracle | Asserts | Tier | Detector § |
+|---|---|---|---|---|
+| V328 | Create and action status | create → 201 + a `Location` that GETs 200; action POST → 200; 204 bodies empty | U, T | `http-contract-scan` §1 |
+| V329 | Missing resource | an unknown id → 404 in the envelope, never 200 `null` | U, T | `http-contract-scan` §2 |
+| V330 | Domain and DB error mapping | ORM not-found, unique, FK, stale `If-Match`, illegal state → the documented 4xx; nothing reaches 500 | U | `edge-error-scan` §2 |
+| V331 | Method and media negotiation | wrong method → 405 + `Allow` where documented; wrong body type → 415 | U, T | `http-contract-scan` §3 |
+| V332 | Two GETs, no effect | two GETs leave the row snapshot and the effect counters unchanged | U | `http-contract-scan` §4 |
+| V333 | PUT and PATCH semantics | PUT replaces or 400s; PATCH clears only on `null`, never 500; omitted fields keep their value | U | `http-contract-scan` §5 |
+| V334 | Repeated key, one effect | same key + body → one effect and the stored response; other principal → never the first response; concurrent → one 2xx + one 409 | U (S1) | `http-contract-scan` §6 |
+| V335 | Walk every page | rows with identical sort keys, inserts between pages → every pre-existing id once; `limit` clamped; a bad cursor → 400 | U (S3) | `http-contract-scan` §7 |
+| V336 | Batch outcome | all-or-nothing with zero rows, or 207 with `results[i]` aligned — whichever the contract states | U | `http-contract-scan` §8 |
+| V337 | Deprecation headers | `Deprecation: @<epoch>`; `Sunset` ≥ `Deprecation`; the spec marks the same operations | U, T | `http-contract-scan` §9 |
+| V338 | Spec and output drift | the spec diff and Schemathesis clean; the response equals the domain object projected to the documented fields, no value changed | T, U | `http-contract-scan` §10; `wire-format-scan` §3 |
+| V339 | Numbers on the wire | Decimal digits and scale, and ids above 2^53, survive the rendered body | U | `wire-format-scan` §1–§2 |
+| V340 | Validation reachability | a wrong-typed required field and an unknown key are rejected through every transport the app exposes | U | `validation-boundary-scan` §1, §2, §7, §8 |
+| V341 | Coercion table | each value of the table is rejected or becomes the documented typed value | U | `validation-boundary-scan` §3–§4 |
+| V342 | Null and defaults | no `null` reaches a NOT NULL write (no 500); no omitted field is reset | U | `validation-boundary-scan` §5; `http-contract-scan` §5 (BV-14) |
+| V343 | Unknown-key policy | the documented policy holds identically at every depth and transport | U | `validation-boundary-scan` §6 |
+| V344 | Arrays and groups | one and many values behave alike; over-max rejected; every group validates | U | `validation-boundary-scan` §9 |
+| V345 | Failure-class matrix | the ten classes answer the declared envelope; no `FST_ERR_REP_ALREADY_SENT` / `ERR_HTTP_HEADERS_SENT`; the server survives | U | `edge-error-scan` §1, §3–§7 |
+| V346 | Version and adapter pair | the same e2e requests give the same status and body on both sides of the pair, or each difference is documented | U | `http-contract-scan` §11; `edge-error-scan` §3 |
+| V347 | Time binding | one stored instant per input whatever the server `TZ`, or 422 for naive input; date-only strings unchanged | U | `wire-format-scan` §6 |
+| V348 | Rendering and carriers | rendered == charged at ties; carriers hold strings or integer minor units | U | `wire-format-scan` §4–§5 |
+| V349 | Time serialization | the same instant, offset and precision out; identical responses under two server zones | U | `wire-format-scan` §7 |
+| V350 | State × event | an illegal pair → 409/422 and zero side effects; terminal states never change | U (S4) | `state-transition-scan` §1–§2 |
+| V351 | Job payload replay | the job acts on current data, discards a missing record once, and both consumer directions across a deploy succeed | U | `job-lifecycle-scan` §1–§3 |
+| V352 | Fire times and overlap | max concurrency 1 on one process; the documented misfire count; one run per business day in the business zone | U | `job-lifecycle-scan` §4–§6 |
+| V353 | Job failure recorded | a failing job leaves an observable failure record | U | `job-lifecycle-scan` §7 |
+| V354 | Outbound response handling | bodies closed (FD count stable); a provider error mapped to our own 502/503/424 | U | `http-contract-scan` §12; `edge-error-scan` §8 |
+| V355 | POST redirect | a 301/302/303 on POST never silently becomes a GET that "succeeds" | U | `http-contract-scan` §12 |
+| V356 | Multipart order and abort | file-first and file-last give one outcome; an abort leaves no object and no row | U | `http-contract-scan` §13 |
+| V357 | The version pair rule | the oracle ran on the installed version and the finding states it | U | every framework-trap row (HC §11, VB, EE, WF, JL lanes) |
+
+Static-fact classes with no V of their own: the clock seam (`wire-format-scan` §8 — reported only
+as `blocked (no clock seam)` on the proof it blocks), and a pipe, filter or serializer setting
+whose effect is self-proving from the config line (S tier, both ends cited).
+
+### Real-bootstrap harness
+
+One harness shape covers most slots: build the app from the project's own module and configure
+function, on the adapter `main.ts` uses, against a scratch database in a container; send the
+request; read the rendered bytes and the stores.
+
+```ts
+// vitest + @nestjs/testing on the adapter main.ts uses (Fastify here); the same shape exists for
+// Express (supertest over the app factory), Django/DRF (APIClient), FastAPI (TestClient(create_app())),
+// Spring (@SpringBootTest + MockMvc, not a @WebMvcTest slice), Go (httptest over the real router
+// constructor), Rails request specs and Laravel HTTP tests.
+import { Test } from "@nestjs/testing";
+import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
+import { AppModule } from "../src/app.module";           // the real module: APP_PIPE, APP_FILTER, interceptors
+import { configureApp } from "../src/configure-app";      // whatever main.ts calls — never a copy
+const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+const app = mod.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
+configureApp(app); await app.init(); await app.getHttpAdapter().getInstance().ready();
+// V342: null on an optional, NOT NULL field must be a 400, never a 500
+const res = await app.inject({ method: "PATCH", url: `/products/${id}`, payload: { name: null } });
+expect(res.statusCode).toBe(400);
+expect(res.headers["content-type"]).toMatch(/application\/json/);
+```
+
+- **Failure-class matrix** (V330, V345): one request per class through the same app — `GET /__nope`,
+  `DELETE` on a GET-only path, a body of `{`, `Content-Type: text/plain`, a validation failure, a
+  random id, a duplicate insert (sequential **and** after a passing pre-check), a route that throws
+  `new Error()`, one that throws a string, a framework `HttpException` (400, 404, 413, 415, 429) —
+  then one healthy request to prove the process survived. Assert status class, content type and the
+  declared envelope for each; capture the logger and assert no `FST_ERR_REP_ALREADY_SENT` /
+  `ERR_HTTP_HEADERS_SENT`.
+- **Coercion table** (V341): `""`, `" "`, `"false"`, `"FALSE"`, `"0"`, `"no"`, `null`, missing,
+  `"12abc"`, `"1e3"`, `"0x10"`, `"Infinity"`, `"-0"`, `3.7` into an integer, `2^53+1`, the enum
+  **key** — each in body, query, params, headers and form fields; for env loaders, the same strings
+  into the project's config loader at boot.
+- **Rendered-body round trip** (V339, V347–V349): seed `10.10`, `0.10`, `1000.00`, `-0.00`,
+  `9007199254740993.00`, an id above 2^53, `…10:00:00.123456+03:00`; GET the list, the detail, the
+  export and the webhook payload; parse the **text** with the client's parser and compare digits,
+  scale, offset and precision. Run twice, under `TZ=UTC` and `TZ=Pacific/Kiritimati` in the test
+  process environment.
+- **Tool lane** (V328–V338, V340–V344): oasdiff as the Go binary or its Docker image at a pinned
+  version — never `npm i oasdiff` (a placeholder package) or `npx @tufin/oasdiff` (not on npm);
+  `oasdiff breaking <committed> <generated> --fail-on ERR`, where `<generated>` comes from the code
+  in the same run. Schemathesis: `st run <spec> --url <base> --checks all --max-examples 50 --seed 1
+  --max-time 300 --report junit`, `ran` only when the stateful phase covered ≥ 1 link (links come
+  from response objects or `Location` headers) — 0 links is `NOT-RUN (no links on response objects)`.
+- **Jobs and schedules** (V351–V353): the processor class the module registers, on the real queue
+  in a container (an eager or in-process queue proves nothing); the scheduler library's own
+  iterator (`cron`'s `sendAt`, APScheduler `get_next_fire_time`, Quartz `getFireTimeAfter`, robfig
+  `Next`) for fire times; a 1 s schedule running a 2.5 s job for 6 s with a concurrency counter for
+  overlap; fake timers for misfire windows.
+- **Cross-commit replay** (V351): `git worktree add $SCRATCH/prev <base>`; enqueue with the old
+  producer, consume with the new processor, then the reverse.
+
+### Property shapes (backend)
+
+Fuzzers find 5xx and schema violations; none checks one effect per key, completeness under
+inserts or legal transitions. Each shape below is written per fix and **shown to fail on the
+pre-fix code first** — a property that never fails proves nothing. Engines: fast-check
+(`fc.commands` + `fc.asyncModelRun`, `fc.scheduler()` to reorder promise resolution), Hypothesis
+`RuleBasedStateMachine`, jqwik `ActionChain`, Schemathesis stateful (learns links from `Location`).
+
+| Shape | Closes | Property |
+|---|---|---|
+| **S1** repeated key → one effect | V334 | POST twice with one key and body → equal status, id and body; effect count 1 (where AIP-155 "current state" applies, assert the same id) |
+| **S3** pagination completeness | V335 | walk the tokens while the scheduler interleaves inserts between pages → no duplicate ids, every pre-existing id present, order by (sort key, id) |
+| **S4** (state × event) model | V350 | command sequences over {create, pay, ship, cancel, refund, …} against a transition-table model → `(ok, state)` matches the model after every step; terminal states accept nothing; effect counts match |
+
+### Class variants (backend)
+
+A fix passes the class only when every variant the repo has passes the oracle and the benign
+control still succeeds unchanged.
+
+#### V328. Create status, `Location`, non-creating POST, 204 body — create and action status (`http-contract-scan` §1)
+- POST create; PUT-to-create (201) vs PUT-update (200); bulk create (207 or 201 + per-item ids); async create (202 + `Location` of a status resource); nested create; upsert; `Location` absolute vs relative
+- action POSTs (search, login, verify, calculate, preview, export) → 200 (the Nest default is 201); `@HttpCode(204)` handlers that return a value
+- pass: the documented status on every variant; `Location` GETs 200 with the same id; 204 bodies are empty and undocumented
+
+#### V329. Missing resource answered as success — missing resource (`http-contract-scan` §2)
+- GET by id, by slug or natural key; nested parent-missing vs child-missing; soft-deleted rows; tenant-scoped miss (identical to absent); HEAD; both Nest adapters (empty body vs `"null"`); a GraphQL nullable field (a documented null is the control)
+- pass: 404 + the error envelope; Schemathesis `use_after_free` clean
+
+#### V330. Domain and DB errors mapped to the right status — domain and DB error mapping (`edge-error-scan` §2)
+- unique violation (sequential duplicate **and** the race-time violation after a passing pre-check); FK violation; NOT NULL and CHECK violations; not-found from the ORM (MikroORM `NotFoundError` from `findOneOrFail` unless `findOneOrFailHandler` is set, Prisma `P2025`, TypeORM `EntityNotFoundError`, `RecordNotFound`, `ObjectDoesNotExist`, GORM `ErrRecordNotFound`); a domain class sharing the ORM class's name; stale `If-Match` → 412; illegal state → 409
+- pass: each maps to its documented 4xx with the envelope; nothing reaches 500
+
+#### V331. Method and media negotiation — wrong method, wrong type (`http-contract-scan` §3)
+- wrong method on an existing path; OPTIONS; `text/plain`, `application/xml`, form-urlencoded to a JSON route; `Accept: application/xml`; Go ServeMux patterns under `GODEBUG=httpmuxgo121`
+- pass: 405 + `Allow` where the spec documents it; 415 for an unsupported body type; 406 or the documented default representation
+
+#### V332. Unsafe GET — two GETs, no effect (`http-contract-scan` §4)
+- `@Get` handlers that write; GET that enqueues, emails or calls a webhook; a `get*` service method that lazily creates; `@All()` / `app.all()`; HEAD auto-routes that run the GET handler
+- pass: two GETs leave the row snapshot and the effect counters unchanged (an audit row or analytics counter is the control, `precedents/backend.md` B-A6)
+
+#### V333. PUT and PATCH semantics (`http-contract-scan` §5)
+- PUT omitting an optional field, a nested object, an array (replace vs append); PATCH `null` on nullable, non-nullable and nested fields; PATCH with an unknown field; merge-patch array replacement; a JSON Patch `test` failure mid-sequence; DRF `partial=True` forced on PUT
+- pass: PUT replaces or 400s; PATCH clears only on `null`, never 500; a failing JSON Patch leaves state unchanged; omitted fields keep their stored value
+
+#### V334. Idempotency-key semantics, routes outside security's money set — repeated key, one effect (`http-contract-scan` §6; money, credit, order, paid-send, webhook routes → security `logic-race-scan` §4)
+- same key + body sequential; same key + different body; N concurrent with one key; same key from another principal or tenant; same key on another path or method; first attempt 5xx then retry; first attempt validation 4xx then retry; key after expiry; missing key on a required route; key above the length limit
+- pass: one effect; the replay returns the original status and body; a different body → the documented 4xx (`precedents/backend.md` B-G7); concurrent → one 2xx + one 409; another principal never receives the first principal's response (property S1)
+
+#### V335. Pagination correctness — walk every page (`http-contract-scan` §7)
+- offset; page/size; keyset on a unique id; keyset on a non-unique key + tiebreak; descending; filters changed between pages; insert and delete between pages; last page exactly `limit`; `limit` = 0, negative, huge, non-numeric; a garbage or tampered cursor; `total` under filters; cursor timestamps truncated by the encoder; DRF on an unordered queryset; an unpaged query cut at a cap on a non-unique key
+- pass: walking all pages over rows with **identical** sort keys returns every pre-existing id exactly once; `limit` is clamped or 400; a bad cursor is 400, not 500 (property S3)
+
+#### V336. Batch partial failure — batch outcome (`http-contract-scan` §8)
+- all valid; all invalid; mixed; duplicates inside the batch; empty; over the max size; order preserved; a DB failure mid-batch; an idempotency key on the batch
+- pass: either a 4xx and **zero** rows written, or 207/200 with `results[i]` aligned to the input index and exactly the valid rows written — whichever the contract states
+
+#### V337. Deprecation signalling — deprecation headers (`http-contract-scan` §9)
+- a deprecated operation; a whole version prefix deprecated by middleware; Sunset already passed; the `Link rel="deprecation"` target; the draft-syntax `Deprecation: true`
+- pass: `Deprecation` matches `^@\d+$`; `Sunset` is an HTTP-date not earlier than `Deprecation`; the generated spec marks the same operations
+
+#### V338. Spec and output drift (`http-contract-scan` §10; `wire-format-scan` §3)
+- required vs optional (a decorator that says optional over a validator that requires, and the reverse); nullable vs optional; an enum added or removed (request and response side); statuses added or removed; a response field added in code that Fastify response schemas or FastAPI `response_model` drop; defaults; `date` vs `date-time`; `int64`; tRPC procedures without `.output()`; Fastify response coercions (`12.7` → `12`, `"no"` → `true`, `null` → `""`)
+- pass: Schemathesis and the spec diff are clean, and the response equals the domain object projected to the documented fields with no value changed
+
+#### V339. Numbers on the wire (`wire-format-scan` §1–§2)
+- ids above 2^53; BigInt in a response; Decimal `10.10`, `0.10`, `1000.00`, `-0.00`, `9007199254740993.00`; `stripTrailingZeros` paths; DRF `COERCE_DECIMAL_TO_STRING = False`; pydantic v1 → v2 Decimal; list, detail, CSV export, webhook payload and cached response; money nested in arrays; `null` money; Go decode through `any` without `UseNumber()`
+- pass: the rendered digits and scale equal the seed on every variant (a `bigint` read only through a guarded mapper is the control, `precedents/backend.md` B-D5)
+
+#### V340. Validation reachability (`validation-boundary-scan` §1, §2, §7, §8)
+- interface, `type` alias, `Dto[]`, `Partial<>`/`Pick<>`/`Omit<>`/`Record<>`, `any`/`object`/`unknown`, generic wrappers, **unions including `X | null`** (TypeScript emits `Object`), untyped `@Body()`; the same on `@Query`, `@Param`, `@Headers`, `@MessageBody`, `@Payload`, `@Args`
+- nested object, array of nested, optional and nullable nested, 3 levels deep, nested in `PartialType`/`PickType`/`IntersectionType`, discriminated nested; `@ValidateNested` without `@Type` **and** `@Type` without `@ValidateNested`; Spring nested fields and `List<T>` without `@Valid`
+- hybrid microservices without `inheritAppConfig`, gateways without `UsePipes`, custom param decorators without `validateCustomDecorators`, Nest 12 `@Body({ schema })` without the Standard Schema pipe, raw adapter routes, Fastify plugins outside Nest, queue consumers receiving external payloads; named primitive params given an object
+- pass: a wrong-typed required field and an unknown key are rejected through **every** transport the app exposes (a deliberate `unknown` body with a bounding parser is the control, B-D1)
+
+#### V341. Coercion table (`validation-boundary-scan` §3–§4; the env-loader rows absorb the parse half of BC-02)
+- boolean `"false"`, `"0"`, `""`, `"FALSE"`, `"no"`, missing; number `""`, `" "`, `null`, `"1e3"`, `"0x10"`, `"12abc"`, `"Infinity"`, `"-0"`, `3.7` into an integer, `2^53+1`; date `"2026-02-30"`, date-only, date-time with no offset, `null`, an epoch number; a string from a number or an object; arrays from a scalar and from repeated params; the enum **key** of a numeric enum
+- `enableImplicitConversion` (`"false"` → `true`); `@Type(() => Boolean)`; `z.coerce.*`; Fastify ajv `coerceTypes`; Jackson `ACCEPT_FLOAT_AS_INT` and missing primitives → 0; .NET case-insensitive numbers from strings; gin zero values (`0`, `false`) on `binding:"required"`; each in body, query, params, headers, form fields and multipart fields
+- env loaders at boot: `false`, `0`, `no`, `off`, `FALSE`, `""`, `" true"`, `10s`, `1e3` through `bool(os.getenv(…))`, `!!process.env.X`, `=== 'true'`, `parseInt(process.env.X)`
+- pass: each value is rejected or becomes the documented typed value; the handler receives the validated type; an env value is typed or fails the boot
+
+#### V342. Null and default handling (`validation-boundary-scan` §5; `http-contract-scan` §5 for PATCH defaults)
+- `null` on required, optional, nullable, nested, array item (`[null]`), enum and boolean fields; `@IsOptional()` (skips `null` as well as absent) over a NOT NULL column with a `!== undefined` guard downstream; absent vs `undefined` vs `null` in PATCH; zod `.optional()` / `.nullable()` / `.nullish()`; pydantic v2 `Optional[int]` required; Spring `@RequestBody(required=false)`; Fastify `null → 0` coercion and `useDefaults` mutation; class-field initialisers in PATCH DTOs
+- pass: no NOT NULL write reaches the database (no 500); no omitted field is reset
+
+#### V343. Unknown-key policy (`validation-boundary-scan` §6)
+- top-level, nested, inside array items; `__proto__` / `constructor`; a misspelled optional field with a default; unknown query params; `whitelist` without `forbidNonWhitelisted` (silent strip); Fastify `additionalProperties:false` (stripped by ajv's default `removeAdditional`) vs absent (kept); Go case-insensitive and duplicate keys, trailing data, no `DisallowUnknownFields`; echo `c.Bind` letting a body `id` override the path `id`; Jackson ignore-unknown; System.Text.Json case-insensitive matching; Laravel `$request->all()` after a Form Request
+- pass: the documented policy holds (400, or ignored with the documented default), identically across all variants (`precedents/backend.md` B-A11, B-G17)
+
+#### V344. Arrays and validation groups (`validation-boundary-scan` §9)
+- `[]`, one item, many, over `ArrayMaxSize`/`maxItems`; `?ids=1` vs `?ids=1&ids=2`; `@IsX()` on `T[]` without `each: true`; every validation group, a group with no validators, `groups` without `always: true`
+- pass: valid input accepted, invalid rejected, the same semantics for one and many query values
+
+#### V345. Failure-class matrix (`edge-error-scan` §1, §3–§7)
+- unknown route; wrong method; malformed JSON; wrong content type; validation error; domain not-found; conflict and unique violation; uncaught exception; thrown non-Error; panic; the framework's own `HttpException`s (pipe 400, 404, 413, 415, throttler 429) through a catch-all
+- errors from guards, interceptors, pipes and middleware; an error after headers sent; async throw (Express 4 crashes Node 22); rejected promise; error in a timer callback; double send; Koa un-awaited `next` at each middleware position; `@Res()` without `passthrough` returning a value; an Express-API filter on the Fastify adapter; both Nest adapters
+- non-Node defaults: DRF `IntegrityError` → HTML 500; FastAPI unhandled → `text/plain` 500; Flask `errorhandler(Exception)` turning 404/405 into 500; ASP.NET `[ApiController]` auto-400 outside the envelope; gin `New()` with no recovery; Go `http.Error` with no `return`; axum rejections in plain text and panics without `CatchPanicLayer`; the proxy's 413 page
+- pass: each class answers its documented status with the declared content type and envelope; the server answers the next request; no `FST_ERR_REP_ALREADY_SENT` / `ERR_HTTP_HEADERS_SENT` in captured logs (a documented v1 door shape is the control, B-D6)
+
+#### V346. Framework-migration and adapter deltas — version and adapter pair (`http-contract-scan` §11; `edge-error-scan` §3)
+- Express 5 route syntax (`:id?`, `/*`, `:id(\d+)`), bracket query filters under the `simple` parser, `req.query` writes, `req.body` undefined with no parser, `res.send(404)`; Nest Express → Fastify (body limit, empty JSON body, `text/plain`, XML, `__proto__`, a `null` return, filters, `@Res()` typed from `express`); pydantic v1 → v2 `Optional`; Rails 7.1 → 7.2 transaction exit; Jackson 2 → 3; Go `httpmuxgo121`; axum 0.7 → 0.8 paths; Apollo 4 → 5 variable errors; Fastify hooks reading `request.body` in `onRequest`, plugins without `fp()`; DataLoader at module scope
+- pass: the same e2e requests give the same status and body on both sides of the version or adapter pair, or each difference is documented
+
+#### V347. Time binding (`wire-format-scan` §6)
+- no offset, `Z`, `+03:00`, `+0300`, date-only, epoch int, µs and ns precision; pydantic `datetime` vs `AwareDatetime`; `LocalDateTime` in a request body for an instant; .NET `DateTime` vs `DateTimeOffset`; `@Type(() => Date)` / `z.coerce.date()` with no strict ISO check; calendar fields (`dob`, `due`, `valid_until`) typed as instants; Go `time.Parse` with no zone; server under `TZ=UTC`, `Pacific/Kiritimati`, `Asia/Kathmandu`
+- pass: one stored instant per input regardless of server `TZ`, or 422 for naive input; `2026-02-30` → 400; date-only strings unchanged (dates kept as strings with a strict validator are the control, B-D12)
+
+#### V348. Rounding and money in carriers — rendering and carriers (`wire-format-scan` §4–§5; minor units, mixed currencies and the rounding point in code → § Code quality V83)
+- a serializer or field setting that rounds differently from the compute (`DecimalField` places, `quantize` with no rounding argument, `setScale(n)` with no mode); ties `x.xx5` positive and negative; the rendered amount vs the amount sent to the PSP stub
+- `float(`, `Number(`, `.toNumber()`, `doubleValue()` of an amount inside `queue.add(`, `.delay(`, `apply_async(`, `publish(`, `emit(`, a cache `set(` or an outbound body; `double` amounts in Avro, Protobuf or JSON Schema; payloads already in the queue
+- pass: rendered == charged at every tie; the raw broker payload, cache value and outbound body hold a string decimal or integer minor units
+
+#### V349. Time serialization and zone configuration — time serialization (`wire-format-scan` §7)
+- the configured mapper bean **and** hand-built `new ObjectMapper()`; `ADJUST_DATES_TO_CONTEXT_TIME_ZONE`; `LocalDateTime`, `OffsetDateTime`, `Instant`, `java.util.Date`; cursor fields; `DjangoJSONEncoder` on cursor keys; `USE_TZ = False`; `TimeZone.setDefault(`; Rails `Time.now` vs `Time.current`; US and EU DST gap and overlap dates
+- pass: the same instant and the contracted offset and precision out; identical responses under two server zones
+
+#### V350. Illegal events and terminal states — state × event (`state-transition-scan` §1–§2; a transition persisted without a status predicate → § Data V5)
+- every (state × event) pair from the state graph, entered via HTTP, job, webhook, admin action and a replayed provider event; `ignore_invalid_triggers=True`, `allow_event_without_transition=True`, AASM `whiny_transitions: false`, an XState `actor.send` with no `can()`, a looplab/fsm error dropped, a Spring Statemachine `sendEvent` result ignored; wildcard sources and events with no `from:`; terminal states × every event
+- pass: an illegal pair yields a typed error (409/422) and **zero** side effects (effects counted, not the state); terminal states never change (property S4; UI statecharts and handlers that check the result are the control, B-R5)
+
+#### V351. Job payloads across time and deploys — job payload replay (`job-lifecycle-scan` §1–§3)
+- a model object or entity in the payload, pickle serialization, a Quartz `JobDataMap` entity; update after enqueue; delete and soft-delete after enqueue (ActiveJob without `discard_on ActiveJob::DeserializationError`, Laravel `SerializesModels` without `$deleteWhenMissingModels`, an id-based `findOneOrFail` with no not-found branch); a relation changed after enqueue; old → new and new → old consumer; scheduled and delayed jobs; retries of failed jobs
+- pass: the job acts on current data (or a documented snapshot), discards a missing record once with a log line and 0 retries, and both consumer directions succeed (cross-commit replay; drained-by-runbook queues and versioned payloads are the control, B-R7)
+
+#### V352. Schedules — fire times and overlap (`job-lifecycle-scan` §4–§6; once-per-fleet → V40; the DST-day count of a coordinated schedule → V319)
+- a run longer than the period × 1 and × 2 on one process: npm `cron` without `waitForCompletion`, node-cron without `noOverlap`, `@nestjs/schedule` (read the installed version), Laravel without `withoutOverlapping`, Spring `fixedRate` on virtual threads, Quartz without `@DisallowConcurrentExecution`, robfig without `SkipIfStillRunning`; after a restart
+- downtime across 1 and N fire times on a must-run job (billing, settlement, payout, month-end) with no misfire instruction, grace or coalesce (APScheduler's default grace is 1 s); a schedule with no `timeZone` / `zone=` / `->timezone(` / `spec.timeZone`; an hour field 0–3 in a DST zone; month-end (`L`, the 31st)
+- pass: max concurrency 1 on one process; executions after downtime equal the documented misfire policy; exactly one run per business day at the intended local time (idempotent, read-only, cheap jobs are the control, B-R8)
+
+#### V353. Job result or failure discarded — job failure recorded (`job-lifecycle-scan` §7; retry classification and partial effects → V304, V308)
+- a BullMQ `Worker` with no `failed` listener and `attempts` ≤ 1 or `removeOnFail: true`; Celery `ignore_result=True` with a later `AsyncResult`; Spring `@Async` `void` business methods; FastAPI `BackgroundTasks` on a money path (they raise after the 200); Laravel money jobs with no `failed()`
+- pass: making the job throw leaves an observable failure record (a failed-jobs row, a DLQ entry, a counter an alert reads)
+
+#### V354. Outbound response handling — body closed, status mapped (`http-contract-scan` §12; `edge-error-scan` §8; status unchecked → V76; shape trusted → V80)
+- Go `resp.Body` never closed or drained (golangci `bodyclose`); Python `stream=True` outside `with`; 2 × pool size + 1 calls; a provider 401/404/429 passed through as our status (`res.status(err.response.status)`, `HTTPException(status_code=e.status_code)`)
+- pass: the FD count stays stable at 2 × pool + 1 calls; a provider error becomes our own 502/503/424 with our code (a documented proxy or BFF is the control)
+
+#### V355. POST redirected to GET — POST redirect (`http-contract-scan` §12; retries and per-attempt keys → V307; a redirect to an internal host → security `ssrf-scan` §4)
+- 301/302/303/307/308 on an outbound POST through `fetch`/axios/`requests` with default redirect settings to a configurable base URL
+- pass: a POST is never silently turned into a GET that "succeeds"; 307/308 keep the method and body or the redirect is refused
+
+#### V356. Multipart order and partial uploads — multipart order and abort (`http-contract-scan` §13; caps → security `file-access-scan` §2; temp-file cleanup → V79)
+- file-first and file-last part order (busboy/multer `fileFilter` or `destination` reading `req.body`, `@fastify/multipart` `request.parts()` loops reading a field after a file); abort at 1 %, 50 %, 99 %; streaming to object storage with no byte-count check; `CompleteMultipartUpload` in a `finally`
+- pass: the same outcome for either part order; no object and no row after an abort
+
+#### V357. The version pair rule — every framework-trap row (HC §11 and the lane rows of VB, EE, WF and JL)
+- for each framework trap, the two most recent majors where behaviour differs (Express 4/5, Nest 11/12, Fastify 4/5, pydantic 1/2, Jackson 2/3, Rails 7.1/7.2, axum 0.7/0.8, Apollo 4/5, Spring Boot 3/4)
+- pass: the oracle is run on the installed version, and the finding states that version; a row whose version is `UNREAD` is Unconfirmed
+
+### Sources (backend)
+
+The backend research catalog (2026-10-14) § 5 (the oracle taxonomy, the variant lists and the
+property shapes) and its notes A (API contract and validation on Node, with oasdiff 1.33 and
+Schemathesis 4.31 runs in its lab), B (runtime correctness per framework, defaults read from
+installed source) and C (public API guidelines, incidents, fast-check 4.10.2 property runs); and the
+batch-5 backend eval (2026-10-14) § 4.2 and § 5.10, which fixed the slot order B-V1…B-V30 — the
+research's V291–V313, V317–V321, V323 and V324 in that order, with V311, V319, V320, V321 and V323
+narrowed to the backend-owned classes and V304 absorbing V322's env-loader rows — merged here as
+V328–V357 after § Distributed (the research's draft numbers collide with § Distributed and are
+superseded). Rows the research left [K]/[K?] (Spring Boot 4 and Jackson 3 defaults, the
+`@nestjs/schedule` overlap default, Nest 11 `ValidationPipe` rows, .NET, Rails, Laravel and Rust
+rows) are settled on the `backend-defects` fixture before a detector asserts them. Paraphrased; no
+text reproduced.
 
 ---
 
