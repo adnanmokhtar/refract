@@ -283,10 +283,10 @@ Each topic declares:
   kind: agent
   triggers:
     primary_framework_detected: true
-  extracts_from: _extracted-codebase.md + _extracted-idioms.md (all)
-  sections: [persona, when_to_invoke, review_checklist_per_layer, signal_specific_checks, output_format]
+  extracts_from: _extracted-codebase.md § "API surface" (the bootstrap: adapter, pipe, filters, interceptors, serializer) + _extracted-idioms.md (all)
+  sections: [persona, contract, premise, halt_conditions, preflight, detector_dispatch, axis_ownership, example_finding, output_format, production_readiness_verdict, hard_rules]
   mirror_existing: true
-  fallback: _examples/api-reviewer.md
+  fallback: _examples/api-reviewer.md   # generated-from copy of agents/api-reviewer.md (COPY-DRIFT gated); the judge of the six backend detectors
 
 - name: bug-investigator
   kind: agent
@@ -479,6 +479,22 @@ Each topic declares:
     OR_grep_evidence: "\"(xstate|javascript-state-machine|typescript-fsm|robot3)\"\\s*:|^\\s*(transitions|python-statemachine|django-fsm)\\b|gem\\s+[\"'](aasm|state_machines|statesman)[\"']|symfony/workflow|spatie/laravel-model-states|looplab/fsm|qmuntal/stateless|spring-statemachine|PackageReference Include=\"Stateless\""   # a state-machine library: what it does with an illegal event is the subject; without one §1–§2 report N/A and only routed rows print
   extracts_from: _extracted-codebase.md § "API surface" + the machine definitions and the state graph (business pack's @workflow-integrity, ai/business-flows.md)
   fallback: skills/state-transition-scan/SKILL.md   # source-as-fallback; fills ownership.json `workflow-transitions` (detector "—" today; the governance edit is a later build item)
+
+- name: backend-audit
+  kind: command
+  triggers:
+    api_surface_detected: true   # any HTTP edge, job processor or scheduler; a whole-repo run dispatches all six detectors and a surface the repo lacks prints N/A
+  extracts_from: _extracted-codebase.md § "API surface" (server roots, the bootstrap and its wiring, framework/adapter/validator/ORM versions, the spec and its CI step, jobs and schedules, the e2e harness)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/backend-audit.md   # the source IS the fallback, as for devops-audit and obs-audit; the wiring map, the six-detector dispatch on server-code ROOTS, the @api-reviewer hand-off, the fixed class ledger and the four GO-critical controls are the contract
+
+- name: backend-fix
+  kind: command
+  triggers:
+    api_surface_detected: true
+  extracts_from: _extracted-codebase.md § "API surface" (the bootstrap, the e2e harness and its database engine)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/backend-fix.md   # the source IS the fallback, as for devops-fix and obs-fix; a skeleton would drop the real-bootstrap rule, the loosening grep and the public-contract and money-on-the-wire STOP lines
 
 - name: log-tail
   kind: command

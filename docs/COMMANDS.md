@@ -533,8 +533,8 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | `/log-tail`       | Tail logs filtered by request-id / tenant.                                          |
 | `/trace-flow`     | Trace a request from controller → service → repository → DB.                       |
 | `/analyze-module` | Audit a module's shape vs conventions.                                              |
-| `/backend-audit` | Read-only backend audit: validation, edge errors, HTTP contract, wire, jobs, transitions; verdict. |
-| `/backend-fix` | Close /backend-audit findings failing-first through the real bootstrap. |
+| `/backend-audit` | Read-only backend audit: six detectors, wiring map, verdict. |
+| `/backend-fix` | Close /backend-audit findings failing-first, real bootstrap. |
 
 ### Frontend track
 

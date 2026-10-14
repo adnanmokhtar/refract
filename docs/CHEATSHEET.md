@@ -100,8 +100,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-feature` | Backend lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=backend <the ask, verbatim, with every flag the user passed>` |
 | `/add-module` | Scaffold a new backend module end-to-end following the project's declared architecture. | `--plan` | `/add-module` |
 | `/analyze-module` | Deep module analysis — architecture, performance, security, DB, tests, dead code, in parallel. | — | `/analyze-module <path\|name>` |
-| `/backend-audit` | Read-only backend audit: validation, edge errors, HTTP contract, wire, jobs, transitions; verdict. | — | `/backend-audit` |
-| `/backend-fix` | Close /backend-audit findings failing-first through the real bootstrap. | — | `/backend-fix` |
+| `/backend-audit` | Read-only backend audit: six detectors, wiring map, verdict. | `--whole-repo`, `--classes=<family,…>`, `--live=<base-url>`, `--spec=<path>` | `/backend-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<base-url>] [--spec=<path>]` |
+| `/backend-fix` | Close /backend-audit findings failing-first, real bootstrap. | `--all`, `--live=<base-url>` | `/backend-fix [audit-report-path \| finding-id ... \| --all] [--live=<base-url>]` |
 | `/endpoint-test` | Hit a dev endpoint with curl and verify status + response shape via the endpoint-tester agent. | — | `/endpoint-test [controller\|method-path]` |
 | `/fix-bug` | Comprehensive orchestration for a bug fix. | `--plan` | `/fix-bug` |
 | `/log-tail` | Tail structured dev logs filtered by level, correlation id, or module. | — | `/log-tail [filter]` |

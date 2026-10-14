@@ -23,7 +23,6 @@ templates/domains/rate-limiting/agents/rate-limit-reviewer.md|search   # a URL r
 templates/domains/rate-limiting/ai-patterns/rate-limiter.md|export   # a URL route / HTTP path in an example, not a command
 templates/domains/rate-limiting/rules/rate-limit-discipline.md|export   # a URL route / HTTP path in an example, not a command
 templates/domains/real-time/rules/realtime-discipline.md|realtime-audit   # DANGLING — domain RULE file (rule owners): the real-time command is /test-realtime
-templates/packs/backend/agents/api-reviewer.md|readyz   # a URL route / HTTP path in an example, not a command
 templates/packs/backend/skills/api-consistency-audit/SKILL.md|addresses   # a URL route / HTTP path in an example, not a command
 templates/packs/backend/skills/api-consistency-audit/SKILL.md|analytics   # a URL route / HTTP path in an example, not a command
 templates/packs/backend/skills/api-consistency-audit/SKILL.md|cancel-order   # a URL route / HTTP path in an example, not a command
