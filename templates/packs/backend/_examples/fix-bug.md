@@ -191,14 +191,15 @@ Output: symptom → reproducer → ROOT CAUSE (one sentence) → call chain → 
 
 After fixing the reported site, the auditor:
 
-1. **Greps the codebase for the root-cause pattern** — the actual buggy expression, not a vague concept. If the bug is "raw SQL missing tenant filter in reports.repository", the grep is a literal pattern over query construction APIs, not a hand-wave like "audit all DB code."
+1. **Greps the codebase for the root-cause pattern** — the actual buggy expression, not a vague concept. When the root cause is a backend correctness class, the grep **is the owning detector's pre-flight block for that §**, run on `"${ROOTS[@]}"` with its read step — `validation-boundary-scan` §1–§9, `edge-error-scan` §1–§8, `http-contract-scan` §1–§13, `wire-format-scan` §1–§8, `job-lifecycle-scan` §1–§7, `state-transition-scan` §1–§2 (the class → § table is in `@bug-investigator` § Similar-bugs scan). Those blocks carry paired good/bad samples and decoy rules; a one-off line grep asked a block question returns the wrong count. Outside those classes, write the literal pattern yourself. Either way the search names the project's real roots — `ROOTS` is an array (`ROOTS=(apps/api/src)`), never a guessed `src/modules/` (a missing directory makes `rg` exit 2, which reads as zero hits):
 
    ```bash
-   rg "createQueryBuilder|datasource\.query|em\.createQueryBuilder" src/modules/*/infrastructure/
-   # For each hit: is the tenant filter applied?
+   # e.g. "a PATCH wrote NULL into a NOT NULL column through @IsOptional": the first count; validation-boundary-scan §5's pre-flight and read step decide N_found
+   rg -n --pcre2 '@IsOptional\(\)' -g '*.dto.ts' -g '!**/*.spec.ts' "${ROOTS[@]}"
+   # for each hit: does the use case guard `!= null`, and is the column nullable?
    ```
 
-2. **Counts hits.** Record `N_found = <count>` in the PR description.
+2. **Counts hits.** Record `N_found = <count>` in the PR description — for a detector-owned class, the candidates that survived the detector's read step, with the § that produced them.
 
 3. **Each hit gets one of three closure verbs:**
    - **(a) fixed in this PR** (preferred default) — the same fix applied to the sibling site.
@@ -206,6 +207,8 @@ After fixing the reported site, the auditor:
    - **(c) escalated as a follow-up ticket** — link the ticket id; row out of scope for this PR but tracked.
 
 4. **PR refuses merge if `N_found != N_fixed + N_explained + N_followup`.** The reviewer halts merge on count mismatch. No silent advance. The validator reads `N_found`, `N_fixed`, `N_explained`, `N_followup` from the PR description; missing or mismatched fields HALT.
+
+5. **RE-DETECT after the fix.** Re-run the same pre-flight block and read step on `"${ROOTS[@]}"`: every fixed site must drop out, and any hit that was not in the first run (a sibling the fix created or moved) joins `N_found` before merge.
 
 **Trivial-tier opt-out:** if the closure-verb table places this fix at trivial (1 site, 1-line fix, root-cause obvious), the scan is a quick `rg` confirming `N_found == 1`; no ledger required. The mechanical halt activates the moment a second hit appears — at which point the row promotes to standard-tier.
 
@@ -216,6 +219,8 @@ Plan the fix accordingly — sometimes a broader fix (with approval), sometimes 
 Dispatch `test-engineer` with the root cause + a spec for a test that REPRODUCES the bug.
 
 Requirements:
+- **The test's cases come from the class's variant list**, not from the one input that was reported: for a backend class, the oracle the detector § cites in [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Backend (V328–V357 — e.g. V342 for `null` and defaults, V345 for the failure-class matrix, V338 for output drift) lists the variants a fix must close; the test covers each that applies.
+- **It runs through the real bootstrap** — the project's own `main.ts` / app factory with its global pipe, filters, interceptors and adapter — never a test-only `new ValidationPipe()` or a hand-built filter: a test that builds its own wiring proves nothing about production.
 - Test currently FAILS (confirms it catches the bug).
 - Deterministic (no sleep, seeded randomness, fake time).
 - Right level (unit if pure logic; integration if DB; e2e if HTTP).

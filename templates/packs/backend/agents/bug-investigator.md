@@ -83,27 +83,25 @@ Never print values — they are secrets, and the finding is the key name plus wh
 
 ## Similar-bugs scan (MANDATORY before fix)
 
-Once root cause named, grep for the pattern across codebase.
+Once the root cause is named, find its siblings with **the owning detector's own pre-flight block**, not a one-off grep. A hand-written line grep asked a block question misleads the count: a `SELECT … FROM` line search filtered by `tenant_id` never sees multi-line SQL; an after-context window negated per line prints nearly every async function; dropping the lines that mention `timeout` flags every call through a client built once with `axios.create({ timeout })`. The detectors carry paired good/bad samples, a read step and the decoys that make their count honest.
 
-Examples:
+Map the root cause to its class, then run that detector's pre-flight greps for the named § on `"${ROOTS[@]}"` and its read step:
 
-**"Missing tenant filter in raw SQL":**
-```bash
-rg "SELECT .* FROM" src/modules/ --type ts | grep -v "tenant_id"
-```
+| Root cause shape | Detector § whose pre-flight is the sibling scan |
+|---|---|
+| a body, query or param that never validated; a coercion (`"false"` → `true`); `null` through `@IsOptional` | `validation-boundary-scan` §1–§9 (this pack) |
+| a 500 for a client error; an unmapped domain or ORM error; a filter on the wrong adapter; an async throw that escaped; a double send, hang or empty 200 | `edge-error-scan` §1–§8 (this pack) |
+| a wrong status, `Location`, 404-as-200, PATCH that reset a field, a page that skipped rows, a router or framework trap | `http-contract-scan` §1–§13 (this pack) |
+| a value changed on the way out — decimal as float, a 64-bit id rounded, a serializer that dropped or rewrote a field, a time zone shifted | `wire-format-scan` §1–§8 (this pack) |
+| a job that ran on stale data, double-ran on one process, fired at the wrong hour, failed silently | `job-lifecycle-scan` §1–§7 (this pack) |
+| an illegal state change accepted, a terminal state re-opened | `state-transition-scan` §1–§2 (this pack) |
+| a tenant filter missing from a query | security `data-exposure-scan` / `logic-race-scan` and `@tenant-isolation-reviewer`, when the security pack is installed |
+| an outbound call with no timeout | performance `request-path-scan` §12, when the performance pack is installed |
+| an error swallowed or turned into a success value inside a service | code-quality `error-handling-scan` §1–§7, when the code-quality pack is installed |
 
-**"Unhandled promise in async handler":**
-```bash
-# an async function whose brace-balanced body has no try/catch (the unit is the body, not a line)
-rg -nU --pcre2 'async\s+(?:function\b[^(\n]*)?\([^)]*\)[^{;\n]*(?=(?<b>\{(?:(?!\b(?:try|catch)\b)[^{}]|(?&b))*\}))' "${ROOTS[@]}"
-```
+Without the owning pack, run the pre-flight block from its detector file if it ships in this repo; otherwise say `sibling scan: owner pack <x> not installed` and list the call sites you read by hand — never a count from a line grep.
 
-**"Missing timeout on external HTTP":**
-```bash
-rg "fetch\\(|axios\\.|httpClient\\." "${ROOTS[@]}" | grep -v "timeout\\|signal"
-```
-
-Report: N sibling-bugs found + file list + severity per site.
+Report: N sibling-bugs found (the detector's candidates that survived its read step) + the detector § that produced them + file list + severity per site.
 
 ## Output
 

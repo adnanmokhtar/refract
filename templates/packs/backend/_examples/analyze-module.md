@@ -2,6 +2,12 @@
 description: Deep module analysis — architecture, performance, security, DB, tests, dead code, in parallel.
 ---
 
+<!-- generated-from: templates/packs/backend/commands/analyze-module.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the detector pointers, halts and gates reach a greenfield
+     project intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever
+     the source changes — do not hand-edit; edit the source and re-copy. -->
+
 # /analyze-module <path|name>
 
 Pre-flight before refactoring or extending a module. Multiple agents run in parallel and consolidate findings by severity.
@@ -23,8 +29,20 @@ Pre-flight before refactoring or extending a module. Multiple agents run in para
 
 **The agent ONLY escalates to the user when:**
 - A reviewer fails to return (incomplete dispatch — the audit is not done).
-- **Stack mismatch — halt, do not re-aim.** A frontend feature directory or mobile screen module is not this command's reviewer set, and this command does not own the right one. Halt and redirect to that pack's audit when it is installed; say so plainly when it is not. A backend audit re-labelled reports six green axes it never examined.
+- **Stack mismatch — halt, do not re-aim.** If the target path is a frontend feature directory or a mobile screen module, this command's reviewer set is the wrong one and it does not own the right one. Halt and redirect to that pack's audit (`/design-review` or `/a11y-audit` in the frontend pack; the mobile pack's own module audit) *when it is installed*, and say so plainly when it is not — a backend audit re-labelled is worse than no audit, because it reports six green axes it never examined.
 - A BLOCKER cites a file:line that is dynamically loaded (DI auto-discovery, Next.js auto-routing) and may be a false positive — confirm before reporting.
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Artifacts | Reviewers |
+|---|---|---|---|
+| **Trivial** (default) | Single small module (<500 LOC, <8 files), routine pre-flight before a small extension. | 1-page report + ledger row in `ai/audits/`. **No drift-log update unless drift found.** | `api-reviewer` + `test-reviewer` + `dead-code-finder` (3 dispatches) |
+| **Standard** | Mid-size module (500-2000 LOC) OR module owns DB tables OR multi-tenant. | Full report + drift-log entry per finding category. | + `schema-reviewer` + `performance-optimizer` + `security-auditor` (6 dispatches) |
+| **Heavy** | Large module (>2000 LOC) OR sensitive surface (auth / payment / cross-tenant) OR untouched 90+ days OR known-flaky. | ADR queue for systemic findings + cross-module pattern check. | All 6 + signal-driven (`tenant-isolation-reviewer`, `prompt-reviewer`, etc.) |
+
+**Default is trivial.** Most pre-flights are 3-reviewer scans on a small module. The audit promotes itself to standard/heavy if first-pass findings reveal scope; agent does NOT pre-emptively pick heavy "to be thorough."
 
 ## Hand-wave halt (mechanical gate, all tiers)
 
@@ -50,7 +68,7 @@ No silent advance. The output's reviewer-clean count is meaningless if half the 
 
 ## Phases applied
 
-AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the consolidated report; no code changes here. Phase 5 records the audit; Phase 7 feeds repeat-finding patterns.
+AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the consolidated report; no code changes here. Phase 5 records the audit; Phase 7 feeds repeat-finding patterns. **Heavy-tier only runs all phases below; trivial/standard tiers skip Phase 7 unless a finding repeats across modules.**
 
 ## When to use / NOT to use
 - USE: before extending a module untouched in 30+ days; before merging a 3rd-party module; after a refactor (verify nothing got worse).
@@ -71,7 +89,7 @@ AUDIT type — 1, 2, 3, 6 dominate. Phase 4 = the consolidated report; no code c
 
 ## Phase 3 — Retrieve
 
-ALWAYS (universal pre-flight): see `templates/snippets/phase-3-always-reads.md`.
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 `ai/dynamic/feedback-learned.md` is load-bearing *here specifically*: it holds the findings a maintainer already looked at and rejected. An audit that never reads it re-raises them, and a second identical finding is how a maintainer learns to stop reading the report.
 
@@ -86,18 +104,27 @@ MODULE-SCOPED:
 ## Phase 4 — Generate (dispatch agents; consolidate)
 
 Dispatch in parallel:
-- **`api-reviewer`** — architecture compliance: layer boundaries, DTO usage, mapper presence, naming.
+- **`api-reviewer`, through `/backend-audit`** — backend correctness. Run `/backend-audit` on this module (a module scope: `ROOTS` = the module's source directory) with `--classes=` the families the module carries: `validation,edge,http` for any module with a controller or router, `wire` when it returns money, 64-bit ids or times, `jobs` with a processor or schedule entry, `transitions` with a status field. It dispatches the six detectors — `validation-boundary-scan` §1–§9, `edge-error-scan` §1–§8, `http-contract-scan` §1–§13, `wire-format-scan` §1–§8, `job-lifecycle-scan` §1–§7, `state-transition-scan` §1–§2 — and `@api-reviewer` judges their rows in refute mode. This command takes its verified findings and its class ledger as the backend-correctness axis; a family it prints `N/A` is not reviewed here either.
+- **Architecture compliance** (layer imports, DTO and mapper presence, naming) — covered inline against `.claude/rules/backend-principles.md`, one `file:line` per violation; a module whose shape is wrong as a whole escalates to `@api-architect`.
 - **`schema-reviewer`** — entity design, FK indexes, query shapes (only if module owns DB tables).
 - **`performance-optimizer`** — N+1, missing indexes (cross-checked with schema-reviewer), unnecessary serialization.
 - **`security-auditor`** — auth on every endpoint, input validation at boundary, tenant isolation if multi-tenant, output filtering.
 - **`test-reviewer`** — coverage %, test quality, presence of tenant-isolation tests, flake history.
 - **`dead-code-finder`** — unused exports, files with no imports, dead branches.
 
+If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run. **This matters more here than anywhere else in the pack:** only `api-reviewer` ships in the backend pack itself. The other five come from the database, performance, security, testing and code-quality packs, so on a backend-only install five of the six axes have no agent behind them. An axis with no agent is an axis that produced no findings — which is not the same as an axis that found nothing, so it is reported `UNREVIEWED(<axis>)`, never as clean.
+
 Wait for all; consolidate by severity (BLOCKER / REQUEST / NIT) and area.
 
-Compute verdict:
-- 0 blockers → ready to extend.
-- 1+ blocker → must fix or write ADR before extending.
+Compute verdict — **coverage first, then blockers**:
+
+| Condition | Verdict |
+|---|---|
+| Any axis neither dispatched nor covered inline | **INCOMPLETE** — name the uncovered axes explicitly. Do not report a blocker count as if it were the whole picture. |
+| Every axis dispatched or covered inline, 0 blockers | Ready to extend. |
+| Every axis dispatched or covered inline, 1+ blocker | Must fix or write an ADR before extending. |
+
+A "0 blockers" read off a partial run is a manufactured pass — the same failure `/add-endpoint`'s production-readiness gate exists to prevent, and worse than a missing agent, because it looks like a green light.
 
 ## Phase 5 — Update
 
@@ -109,6 +136,7 @@ Compute verdict:
 ## Phase 6 — Validate
 
 - Self-audit: did every dispatched agent return? Missing agent = incomplete analysis.
+- **Coverage ledger before the verdict.** One row per axis: `dispatched` / `covered inline` / `NOT COVERED`. Any `NOT COVERED` row forces verdict INCOMPLETE regardless of blocker count.
 - Cross-check N+1 finding (perf agent) against query shapes (schema agent) — same root cause should not appear twice as different findings.
 - For BLOCKER findings: confirm file:line evidence is real (not a false positive on dynamically loaded code).
 
@@ -136,6 +164,12 @@ Performance:
          Fix: eager join via repo qb or DataLoader.
   PASS   Queries indexed (FK + tenant_id + created_at composite)
 
+Backend correctness (/backend-audit --classes=validation,edge,http,wire, judged by @api-reviewer):
+  FAIL   update-order.dto.ts:14 @IsOptional() name admits null → NOT NULL write → 500 (validation-boundary-scan §5, V342) (BLOCKER)
+  FAIL   orders.filter.ts:9 @Catch() maps every non-domain error to 500 (edge-error-scan §1, V345) (BLOCKER)
+  PASS   create → 201 + Location; missing id → 404 (http-contract-scan §1–§2 checked, oracle ran)
+  N/A    jobs, transitions — no processor, schedule or status field in this module
+
 Security:
   PASS   All endpoints behind auth guard
   FAIL   getReport() raw query missing tenant filter (BLOCKER)
@@ -152,8 +186,8 @@ Tests:
 Dead code:
   WARN   UnusedMapper.ts not imported anywhere (NIT — confirm before delete)
 
-Verdict: 3 blockers. Fix or ADR before extending.
-Suggested next: /fix-bug for blockers, then re-run /analyze-module.
+Verdict: 5 blockers. Fix or ADR before extending.
+Suggested next: /backend-fix for the backend-correctness blockers, /fix-bug for the rest, then re-run /analyze-module.
 ```
 
 ## Hard rules
@@ -163,9 +197,13 @@ Suggested next: /fix-bug for blockers, then re-run /analyze-module.
 - **A verdict states its coverage.** "Ready to extend" is a claim about six axes; it may only be made when all six were actually examined. Uncovered axes are named in the output, never averaged away.
 - **A BLOCKER is fixed OR written into an ADR before extending.** "Acknowledged" alone doesn't count.
 - **Cross-check findings to avoid duplicate reporting.** N+1 from perf-reviewer and missing-eager-load from schema-reviewer = one issue, not two.
-- **Don't mark dead code dead without confirming it's not framework-magic loaded** (DI containers, auto-discovered modules, auto-routed pages).
+- **Don't mark dead code dead without confirming it's not framework-magic loaded** (NestJS auto-discovered modules, Next.js auto-routed pages, Django apps registered in INSTALLED_APPS).
 - **Coverage % is not quality.** A test-reviewer that says 95% but never asserts anything is failing the audit.
-- **Stack-aware reviewer dispatch.** Backend reviewers on frontend modules produce noise; pick the right set.
+- **This command audits backend modules only.** It does not carry a frontend or mobile reviewer set and must not improvise one; a non-backend target halts and redirects (§ Premise). Naming twelve agents from four other packs would be the same manufactured coverage the verdict table exists to prevent.
+
+## What to do next — required closing section
+
+Every run MUST end its report with a `## What to do next` block: the analysis findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (BLOCKERS — structural / coupling / layer-boundary / security-relevant problems that gate extending the module) → **SHOULD FIX** (REQUESTS — fix now unless you have a reason not to) → **OPTIONAL** (NITS — safe to defer) — each step carrying `<file:line>` + **Fix** (concrete — the named refactor / index / guard, never "consider X") + **Verify** (required on every MUST-FIX step; the test or re-check that proves it's closed), then the closing steps (re-run `/analyze-module` to confirm the verdict comes back clean, `/learn-from-task`, then extend the module). A clean run collapses to a single line ("No blockers — clear to extend"). The reader must never reassemble the next steps from the severity groups themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
 
 ## Failure modes
 
@@ -174,3 +212,23 @@ Suggested next: /fix-bug for blockers, then re-run /analyze-module.
 - Coverage % treated as quality — `test-reviewer` looks at assertions; 95% coverage of getter tests means nothing.
 - Dead-code finding on dynamically loaded files (DI containers, framework auto-discovery) — false positive; verify before deletion.
 - Re-running not scheduled — module clean today won't stay that way; re-audit on each significant change.
+- Treated module size (LOC) as quality signal — large is not bad, complex is. Audit complexity per agent (cyclomatic / coupling), not LOC.
+
+## Related
+
+### Sibling commands — where the boundary falls
+- `/fix-bug` — **closes what this command opens.** This run produces blockers and stops; it never edits code. Every BLOCKER either becomes a `/fix-bug` run (`/backend-fix` for a row a backend detector produced — it proves the fix failing-first through the real bootstrap and re-runs the detector) or an ADR.
+- `/add-endpoint` · `/add-module` — the work this audit gates. Run this BEFORE extending, not after; post-change analysis grades the diff instead of the module.
+- `/trace-flow` · `/log-tail` — evidence sources when a static finding needs a runtime confirmation (an unmeasurable hot path, a suspected N+1 nobody can reproduce).
+
+### Patterns
+Patterns are read as the **oracle each axis grades against**, not as background:
+- `ai/patterns/api-contract.md` + `error-handling.md` — the oracle for `api-reviewer`'s envelope and error-shape findings.
+- `ai/patterns/multi-tenancy.md` — the oracle for the tenant-isolation axis on any module owning tenant-scoped tables.
+- `ai/patterns/parallel-io.md` + `caching-strategy.md` — the oracle for `performance-optimizer`'s sequential-await and invalidation findings.
+
+A pattern with no axis behind it produced no findings; listing it here would manufacture coverage the run did not have.
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

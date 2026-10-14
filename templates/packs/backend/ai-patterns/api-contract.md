@@ -224,6 +224,13 @@ Output DTOs are plain typed shapes — no decorators. They exist so:
 - Renaming an internal column doesn't break clients.
 - A test `toDto` takes a fixture and produces a known string — contract change shows up as a snapshot diff.
 
+### Money and ids on the wire
+
+- **Money is a string decimal (`"10.10"`) or integer minor units with the currency (`{ "amount": 1010, "currency": "USD" }`), never a JSON float.** A float renders `10.1` for `10.10`, rounds on the client, and a serializer can rewrite it silently (Fastify's response schema turns `12.7` into `12` under `integer`; pydantic v2 and DRF render a `Decimal` as a string by default — `references/fastify.md`).
+- **A 64-bit id or amount is a string.** `JSON.parse` turns `9007199254740993` into `9007199254740992`; a `BigInt` with no serializer answers 500.
+- Switching an existing field from number to string is a type change — the NO row of the evolution table: add the string field beside the old one, deprecate, then remove.
+- Runnable detection with the round-trip proof: `wire-format-scan` §1 (decimal leaves as a float or loses scale), §2 (64-bit ids and amounts), §3 (output reshaped by the serializer).
+
 ## Evolution rules
 
 | Change | Safe? | Why |
@@ -377,6 +384,8 @@ If you've inherited inconsistent endpoints:
 
 Each finding cites `<path:line>` + the matched pattern + the fix. "The API looks inconsistent" without a cited handler / DTO is not a finding.
 
+These are writing-time checks. The runnable, oracle-backed detectors (this pack, run together by `/backend-audit`): `http-contract-scan` §1–§13 for status, method, PATCH, pagination, batch, deprecation and spec drift; `wire-format-scan` §1–§8 for what the serializer puts on the wire; `validation-boundary-scan` §1–§9 for the input side; `api-consistency-audit` for drift between sibling endpoints.
+
 ### 1. Response not in the single envelope
 
 ```
@@ -391,15 +400,15 @@ Flag a controller/handler returning a bare array/object or a bespoke `{ orders: 
 BAD:   return this.productRepo.findOne(id);  // ships password_hash, tenant_id, deleted_at
 GOOD:  return this.productMapper.toDto(entity);
 ```
-`grep` for a handler returning a repository/entity result with no mapper (`return this.*Repo.find`, `return await *.findOne`) → `map-to-output-dto`.
+`grep` for a handler returning a repository/entity result with no mapper (`return this.*Repo.find`, `return await *.findOne`) → `map-to-output-dto`. Runnable: a sensitive field over-returned is security `data-exposure-scan` §4 (when the security pack is installed); a field dropped or a value changed by the serializer is `wire-format-scan` §3.
 
 ### 3. Breaking field change with no version bump
 
-A removed / renamed / retyped response field, a new required input field, or tightened validation shipped on the same `/vN` path with no ADR (any "NO" row in the evolution table) → `bump-version` (route to `ai-patterns/api-versioning.md`).
+A removed / renamed / retyped response field, a new required input field, or tightened validation shipped on the same `/vN` path with no ADR (any "NO" row in the evolution table) → `bump-version` (route to `ai-patterns/api-versioning.md`). Runnable: `http-contract-scan` §10 — `oasdiff breaking base rev --fail-on ERR` (without `--fail-on` it exits 0 on a breaking diff) plus Schemathesis against the running app.
 
 ### 4. DTO field with no validator
 
-`@Body() body: any`, or an input DTO field carrying no `class-validator` / zod / pydantic decorator — the "validation as documentation" trap → `add-validator`.
+`@Body() body: any`, or an input DTO field carrying no `class-validator` / zod / pydantic decorator — the "validation as documentation" trap → `add-validator`. Runnable: `validation-boundary-scan` §1 (an interface, `Dto[]` or union body is never validated, even with a decorated class behind it).
 
 ### 5. Changed `code` value
 
@@ -419,7 +428,15 @@ GOOD:  POST /orders/42/cancellations   (sub-resource — better, if you want an 
 
 Ships through the deprecation flow like any other path change: the new path lands first, the old one redirects or dual-routes, removal follows the sunset. A path rename is a breaking change even though no field moved.
 
-**Closure verbs:** `wrap-in-envelope`, `map-to-output-dto`, `bump-version`, `add-validator`, `restore-or-version-code`, `fix-resource-path`.
+### 7. Money or a 64-bit number as a JSON number
+
+```
+BAD:   total: number   (mapped from a Decimal / numeric column)  ·  id: bigint → res.json  ·  { "amount": 10.1 }
+GOOD:  total: string   ("10.10")  ·  id: string  ·  { "amount": 1010, "currency": "USD" }
+```
+Flag a response DTO that types money or a 64-bit id as a JSON number → `stringify-wire-number` (through the expand-contract flow, since it changes a field's type). Runnable, with the rendered-body proof: `wire-format-scan` §1–§2.
+
+**Closure verbs:** `wrap-in-envelope`, `map-to-output-dto`, `bump-version`, `add-validator`, `restore-or-version-code`, `fix-resource-path`, `stringify-wire-number`.
 
 ## Publishing the contract — the first delivery
 

@@ -4,41 +4,199 @@ kind: example
 pack: backend
 ---
 
+<!-- generated-from: templates/packs/backend/ai-patterns/request-validation.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the detector pointers, halts and gates reach a greenfield
+     project intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever
+     the source changes — do not hand-edit; edit the source and re-copy. -->
+
 # Pattern: Request Validation
 
-> **Hard rule:** Every inbound request is validated at ONE declared boundary before any use-case logic runs — `decode → validate (types / bounds / format) → normalize / canonicalize → authorize` — and writes bind through an explicit allow-list of writable fields. `save(req.body)`, `Object.assign(entity, body)`, or validating deep inside business logic is forbidden. This pattern owns WHAT / WHERE / HOW to validate; the error *envelope* on failure is owned by `error-handling.md`.
+> **Hard rule:** Every inbound request is validated at ONE declared boundary before any use-case logic runs — `decode → validate (types / bounds / format) → normalize / canonicalize → authorize` — and writes bind through an explicit allow-list of writable fields. Trusting a request body's shape, binding it straight onto a persistence model (`save(req.body)`, `Object.assign(entity, body)`), or validating deep inside business logic is forbidden. This pattern owns WHAT / WHERE / HOW to validate inbound data; the error *envelope* it emits on failure is owned by `error-handling.md`.
 
-**When to apply** — any handler reading attacker-controlled input (body / query / path / headers / cookies), any write path (over-posting is a privilege-escalation write), retrofitting untyped `req.body.x` handlers.
+**When to apply**
+- Any handler that reads attacker-controlled input — bodies, query params, path params, headers, cookies. That is every public endpoint.
+- Any write path that persists or mutates state — over-posting is a privilege-escalation write, not a cosmetic bug.
+- Retrofitting a codebase where handlers read `req.body.x` untyped and each validates ad-hoc (or not at all).
 
-## Rules
+**When NOT to apply**
+- Internal service-to-service payloads that crossed a trust boundary already validated at the mesh/gateway and are transported with integrity (mTLS + schema-pinned codegen) — validate once at the trust edge, don't re-ceremony every hop. Document the boundary.
+- Pure static config loaded at boot from a trusted source (not request-derived).
 
-1. Validate ONCE at the edge; the boundary emits a typed value object (DTO / command) — services never re-check "is this a string?".
-2. Order is load-bearing: canonicalize AFTER validate, so normalization can't manufacture a valid value from an invalid one.
-3. Allow-list writable fields (`whitelist` / `.strict()` / `extra="forbid"`); server-set fields (`id`, `role`, `tenant_id`, `ownerId`, `price`) never come from the body.
-4. Bounds on everything: `@MaxLength` / `@ArrayMaxSize` / `@Min`/`@Max` / nesting depth — nothing unbounded.
-5. Content-Type allow-list (`415`) + max body size (`413`) BEFORE parsing.
-6. Failure → structured `422` field-error map with stable machine codes (envelope shape owned by `error-handling.md`).
+**Halt conditions / mandatory cites**
+- A handler that reads a request field with no boundary schema MUST be cited at `<path:line>` — "it looks validated" is a vibe, not a finding.
+- A write that binds a whole body onto an entity MUST cite the bind site (`save(req.body)` / `Object.assign` / `Model.update(params)`) AND name the fields a client can now set that it shouldn't (`role`, `isAdmin`, `tenant_id`, `price`, `ownerId`).
+- A "this is bounded" claim MUST cite the length / size / range / depth constraint at `<path:line>` — an unbounded string or array with no cite is a finding.
+- A `422` shape claim MUST cite the field-error response builder; an inconsistent one hands off to `error-handling.md` + `api-consistency-audit`.
+- Hand-wave grep on `etc.`, `...`, `appears to`, `roughly` is forbidden — every input surface is named or it is not covered.
+
+Untrusted input is the widest attack surface a service has. This pattern fixes where validation happens (one boundary), the order it runs in (so canonicalization can't smuggle a value past a check), and the allow-list that stops a client writing fields it was never offered. It deliberately stops at the failure *response shape* — that boundary belongs to `error-handling.md`.
+
+## Validate once, at the boundary
+
+Validation lives at the **edge** — the controller / route handler / request-schema layer — NOT scattered through services. The boundary decodes the raw request into a **typed value object** (a validated DTO / command), and only that typed object crosses inward. A use-case that receives `CreateOrderCommand` never re-checks `customerId` is a non-empty string; the type is the proof it was validated.
+
+```ts
+// NestJS illustration — substitute your stack's primitive (see Adapt table)
+@Post()
+create(@Body() dto: CreateOrderDto) {   // ValidationPipe already ran: dto is trusted, typed
+  return this.orders.create(dto);       // service receives a value object, not req.body
+}
+```
+
+Validation *deep inside a service* is the anti-pattern: the same rule gets re-implemented at three call sites, drifts, and one path forgets it. If a service is string-checking a field, the boundary leaked — Detector 3 is the mechanical form of that check.
+
+**Validation that looks on but is off** (NestJS `ValidationPipe`, the same in 11.2.7 and 12.1.3 — `references/nestjs.md`):
+- The pipe's constructor sets `forbidUnknownValues: false` unless you pass it, undoing class-validator's secure default — pass `forbidUnknownValues: true` explicitly.
+- `transformOptions: { enableImplicitConversion: true }` converts **before** validating: `"false"` becomes `true`, `""` becomes `0`, and `5` passes `@IsString` as `"5"`. Leave it off; give every boolean query field an explicit `@Transform`.
+- A body typed as an interface, a `type`, `Dto[]`, `Partial<Dto>`, `Record<…>` or a `Dto | null` union reaches the pipe as `Object`/`Array` and is **never validated** — even with `whitelist` + `forbidNonWhitelisted`. Use a class DTO, `ParseArrayPipe({ items: Dto })`, or `PartialType(Dto)` (a class).
+- Other stacks have the same shape of trap: zod `z.coerce.boolean()` turns `"false"` into `true`, Fastify's ajv strips unknown keys silently and coerces `null` to `0`, pydantic v2 makes `Optional[int]` with no default required, DRF drops unknown keys — the per-validator table is `validation-boundary-scan` §4.
+
+## The order: decode → validate → normalize → authorize
+
+**This section is the one thing in this file that is regularly got wrong by people who already agree with everything else in it.** "Validate at the boundary" is a belief every competent engineer already holds; *validate before you canonicalize* is a rule most codebases violate in at least one place, because trimming and lowercasing feel like cleanup rather than like a decision, and they usually happen in whatever layer touched the value first.
+
+The four steps are ordered, and the order is load-bearing:
+
+1. **Decode** — parse the wire format (JSON/form/multipart) into a candidate structure. Enforce `Content-Type` and body-size limits HERE, before parsing, so a hostile body is rejected before it costs memory.
+2. **Validate** — types, presence, bounds, format (email/URL/enum). Reject on the *raw* value.
+3. **Normalize / canonicalize** — trim, Unicode-normalize (NFC), lowercase emails/usernames, strip control chars, collapse path separators — AFTER validation.
+4. **Authorize** — check the caller may perform this action on this (now-canonical) object.
+
+**Why canonicalize AFTER validate:** if you lowercase/trim *before* validating, an attacker slips a value past a check that the canonical form would have failed — or defeats a later uniqueness check. `"Admin@x.com "` and `"admin@x.com"` must be the same identity for the uniqueness lookup, so canonicalize first *relative to that lookup* — but a format validator must see the raw bytes so `"a‮b"` (bidi override) or an over-long input is rejected, not silently rewritten into something that passes. Validate the shape on raw input; canonicalize for identity/storage; never let normalization *manufacture* a valid value out of an invalid one.
+
+## Mass-assignment / over-posting — the allow-list
+
+A client sends `{ name, email, isAdmin: true, tenant_id: "other", balance: 999 }`. If the handler binds the whole body onto the entity, the client just granted itself admin, jumped tenants, and set its own balance. This is OWASP **API3 / BOPLA** — a privilege-escalation *write*.
+
+```ts
+// WRONG — every property the client sends is now writable
+Object.assign(user, req.body); await this.users.save(user);   // over-posting
+await this.orders.save(req.body);                              // same hole
+
+// RIGHT — only the offered fields bind; unknown fields are stripped or rejected
+const dto = plainToInstance(UpdateUserDto, req.body);  // DTO declares name, email — nothing else
+await this.users.update(id, { name: dto.name, email: dto.email });
+```
+
+The allow-list is the set of fields the DTO/schema *declares* — everything else is dropped (`whitelist`) or rejected (`forbidNonWhitelisted`). Never bind by reflection over the entity's columns, and never `save(req.body)`. Server-controlled fields (`id`, `role`, `tenant_id`, `ownerId`, `createdAt`, `price` on a customer-facing write) are set by the server from context, never accepted from the body — even if a validator is present.
+
+## Bounds — nothing unbounded
+
+Every string, array, number and nesting depth carries a server-side ceiling regardless of what the client claims; the Adapt table's third column gives the decorator per stack. That much is floor, and any validator's own docs will teach it.
+
+**The part that is not floor:** a bound is only a bound where it is *enforced*, and the two places it usually is not are the ones nobody writes a test for.
+
+- **An array bound and a fan-out cap are different numbers, and the array bound is the one that must exist.** `@ArrayMaxSize(100)` on the DTO is what stops a client sending 10K ids; a concurrency cap downstream only decides how fast you melt. `parallel-io.md` Detector 2 explicitly cites *this* validator as the thing that should have capped the length — the two patterns meet here, and a bounded fan-out over an unbounded input is still an unbounded input.
+- **Nesting depth is usually enforced by the parser, not the schema, and most schema libraries cannot express it.** Find where the limit actually lives (body-parser option, JSON parser config, a gateway rule) and cite it; a `@ValidateNested()` chain that recurses is a stack-depth problem the DTO cannot see.
+
+## Content-Type + body-size limits (DoS)
+
+Before the body is parsed, two gates:
+
+- **`Content-Type` allow-list** — reject anything the endpoint doesn't accept with `415 Unsupported Media Type`. A JSON endpoint must not hand an arbitrary body to a permissive parser.
+- **Max body size** — a per-endpoint byte cap; reject oversize with `413 Content Too Large` (RFC 9110 §15.5.14) *before* buffering. A JSON write needs kilobytes; the deliberate exception is an upload route (validation of the stream itself is owned by `file-upload.md`). The framework body-parser limit that enforces this is wired in `references/<framework>.md` — declare the contract here, route the config there.
+
+## The 422 error-to-field contract (hand-off)
+
+When validation fails, the response is a **structured field-error** map with **stable machine codes** — not a prose blob:
+
+```json
+{ "status": "error", "code": "VALIDATION_FAILED", "message": "Validation failed",
+  "data": { "fieldErrors": [
+    { "field": "email", "code": "INVALID_FORMAT", "message": "Enter a valid email" },
+    { "field": "items", "code": "TOO_MANY", "message": "At most 100 items" }
+  ] },
+  "meta": { "traceId": "trace_xyz" } }
+```
+
+The **placement** above (`data.fieldErrors[]`, inside the project's five-key envelope) is `error-handling.md`'s call, not this pattern's — reproduced here only so the example is copy-able. On the RFC 9457 branch the same rows live in an `errors` extension member of the `problem+json` body instead. What this pattern owns is the *row shape*: `field` (a path, `items[0].quantity`), a stable machine `code`, and a dev-facing `message`.
+
+`422 Unprocessable Content` for a well-formed body that fails semantic validation; `400` for a body that couldn't be parsed at all. The **envelope shape** (where the field-error rows sit — `data.fieldErrors[]` on the project-envelope branch, an `errors` extension member on the RFC 9457 branch — and the status mapping) is owned by `error-handling.md` — this pattern's job is to *produce* per-field errors with stable codes; the wire format is that pattern's contract. Divergent `422` shapes across endpoints are an `api-consistency-audit` finding.
+
+## Idempotency-key / header validation
+
+Headers are untrusted input too. An `Idempotency-Key` header MUST be validated (present when required, bounded length, expected charset/format) before it's used as a store key — an unbounded or attacker-shaped key is a cache-poisoning / storage hole. The *replay semantics* of the key belong to the distributed-systems pack; validating its *shape* at the boundary belongs here.
 
 ## Adapt to the codebase
 
+Core is stack-agnostic; the primitive differs. Column three is how each does the **writable-field allow-list + bounds** — the load-bearing part.
+
 | Stack | Boundary primitive | Allow-list + bounds |
 |---|---|---|
-| **NestJS** | class-validator DTO + `ValidationPipe` | `whitelist` / `forbidNonWhitelisted`; `@MaxLength`/`@ArrayMaxSize`/`@Min`/`@Max` |
-| **Express** | `zod` / `joi` middleware | `z.object({}).strict()`; `.max()`/`.min()`/`.length()` |
-| **FastAPI** | Pydantic model | `ConfigDict(extra="forbid")`; `Field(max_length=, ge=, le=)` |
-| **Spring** | Bean Validation `@Valid` DTO record | DTO declares only writable fields; `@Size`/`@Max`/`@Min` |
-| **Rails** | strong params | `params.require(:user).permit(:name, :email)` + model bounds |
+| **NestJS** | class-validator / class-transformer DTO + `ValidationPipe` | `whitelist: true` strips unknown fields, `forbidNonWhitelisted: true` rejects them; `@MaxLength` / `@ArrayMaxSize` / `@Min`/`@Max` for bounds |
+| **Express** | `zod` / `joi` / `express-validator` middleware | `z.object({...}).strict()` rejects unknown keys; `.max()` / `.min()` / `.length()` for bounds; parse → typed, never `req.body` downstream |
+| **FastAPI** | Pydantic model | `model_config = ConfigDict(extra="forbid")` rejects unknown fields; `Field(max_length=…, ge=…, le=…)` + `conlist(max_length=…)` for bounds |
+| **Spring** | Bean Validation `@Valid` on a DTO record | DTO declares only writable fields (no `@JsonIgnoreProperties`-leaked setters); `@Size` / `@Max` / `@Min` / `@Pattern` for bounds |
+| **Go** | `validator/v10` + explicit struct binding | Bind into a request struct with only writable tagged fields (never the domain model); `validate:"max=100,min=1"` tags for bounds |
+| **Rails** | strong params | `params.require(:user).permit(:name, :email)` is the allow-list; length/range via model validations + a bounded permit set |
+
+Record the chosen primitive + where the boundary lives in `references/<framework>.md`.
 
 ## Detectors (cite-or-halt)
 
-1. Whole body bound onto a model (`Object.assign(entity, body)` / `save(req.body)` / `.update(params)`) → name the escalatable fields → `report-with-fix` (OWASP API3 / BOPLA).
-2. Untyped `req.body.*` read with no boundary schema → `add-boundary-schema`.
-3. String/array/number DTO field with no `@MaxLength`/`@ArrayMaxSize`/`@Min`/`@Max` → `add-bounds`.
-4. Body-parsing endpoint with no Content-Type allow-list or max-body-size → `add-body-limit`.
-5. `.trim()`/`.toLowerCase()`/`normalize()` applied BEFORE validation → `fix-validate-order`.
+Each finding cites `<path:line>` + the matched pattern + the fix. "Validation looks thin" without a cited handler / bind site is not a finding.
 
-Closure verbs: `report-with-fix` / `report-flagged` (shared `422` envelope / trust boundary — ADR) / `dismiss` (already-validated internal payload behind a trust boundary).
+These are writing-time checks. The runnable, oracle-backed detection — grep, read step, failing-first proof through the real bootstrap — is the `validation-boundary-scan` skill (this pack): §1 the pipe sees no class, §2 nested never validated, §3 conversion before validation, §4 coercion per validator, §5 optional admits `null`, §6 unknown-key policy, §7 named primitive param, §8 contexts the pipe never reaches, §9 arrays and groups. Media type and PATCH defaults are `http-contract-scan` §3 and §5; a validator exception answered 500 is `edge-error-scan` §6; output reshaped by a serializer is `wire-format-scan` §3. `/backend-audit` runs them together.
+
+### 1. Whole body bound onto a persistence model (mass-assignment)
+
+```
+BAD:   Object.assign(entity, req.body); save(entity)   // or  save(req.body)  /  Model.update(params)
+GOOD:  update(id, { name: dto.name, email: dto.email })  // explicit allow-list from a typed DTO
+```
+`grep` for `Object.assign(*, *body)`, `save(req.body)`, `.update(params)`, `new Entity(req.body)` → `report-with-fix` (name the escalatable fields). Also OWASP API3 / BOPLA — the runnable detector is security `injection-scan` (mass assignment) and `@api-security-reviewer`, when the security pack is installed.
+
+### 2. No boundary validation (untyped body read)
+
+```
+BAD:   const x = req.body.customerId;   // untyped, unvalidated, straight into logic
+GOOD:  create(@Body() dto: CreateOrderDto)   // boundary schema produced a typed value object
+```
+Flag a handler reading `req.body.*` / `request.json()[…]` with no DTO/schema at the edge → `report-with-fix` (`add-boundary-schema`). Runnable: `validation-boundary-scan` §1 (a body the pipe cannot see) and §8 (transports and decorators the pipe never reaches).
+
+### 3. Validation deep inside a service instead of the edge
+
+Flag a service/use-case string-checking or format-checking a field the boundary should have proven (`if (typeof x !== 'string')`, re-running an email regex) → the boundary leaked → `report-with-fix` (move the check to the edge, pass a value object inward).
+
+### 4. No length / size / range bound (unbounded input)
+
+Flag a string DTO field with no `@MaxLength` (or stack equivalent), an array with no `@ArrayMaxSize`, a number with no `@Min`/`@Max` → `report-with-fix` (`add-bounds`). Runnable: `validation-boundary-scan` §9 for arrays (one vs many, over-max rejected); size as load is performance `request-path-scan` §13.
+
+### 5. Missing Content-Type / body-size limit
+
+Flag a body-parsing endpoint with no `Content-Type` allow-list or no max-body-size cap → parser-DoS surface → `report-with-fix` (`add-body-limit`; route framework config to `references/<framework>.md`). Runnable: `http-contract-scan` §3 (wrong media type → 415); the byte cap is performance `request-path-scan` §13.
+
+### 6. Inconsistent 422 field-error shape
+
+Flag validation failures returning a bare string / bespoke `{ error: "..." }` instead of the project's structured field-error envelope → hand off to `error-handling.md` + `api-consistency-audit` → `report-flagged`. Runnable: `edge-error-scan` §6 (the framework's default validation answer outside the envelope).
+
+### 7. Normalization before validation (canonicalization-order bug)
+
+Flag `.trim()` / `.toLowerCase()` / `normalize()` applied to a value *before* it is validated (rewriting input into something that passes a check the raw value would fail) → `report-with-fix` (`fix-validate-order`).
+
+### 8. Validation that looks on but is off
+
+```
+BAD:   new ValidationPipe({ whitelist: true, transform: true, transformOptions: { enableImplicitConversion: true } })   // "false" → true
+       @Body() dto: CreateOrderInput   (an interface)  ·  @Body() items: OrderDto[]  ·  @ValidateNested() address  (no @Type)
+GOOD:  new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true, transform: true })
+       @Body() dto: CreateOrderDto   (a class)  ·  @Body(new ParseArrayPipe({ items: OrderDto })) items  ·  @ValidateNested() @Type(() => AddressDto) address
+```
+Flag a pipe with implicit conversion, a body or query typed so the pipe sees `Object`/`Array`, or a nested DTO with no `@Type` → `report-with-fix`. Runnable, with the proof: `validation-boundary-scan` §1, §2, §3 and §6.
+
+## Closure verbs
+
+Exactly one verb per finding. What each means for *this* pattern:
+
+- `report-with-fix` — matched at `<file:line>` + the concrete allow-list / boundary-schema / bound / body-limit / order patch.
+- `report-flagged` — the fix is a shared-contract decision (adopt one `422` field-error envelope; carve the internal trust boundary) → surface for ADR / hand-off.
+- `dismiss` — a documented carve-out applies (an already-validated internal payload behind a trust boundary; trusted static config).
 
 ## Related
 
-`error-handling.md` (error envelope — boundary), `api-contract.md` (tightening input is a breaking change), `file-upload.md` (upload-stream validation hands off here), `api-consistency-audit` (skill — `422` consistency), security pack + `security-principles` (mass-assignment = OWASP API3 / BOPLA).
+- `error-handling.md` — the error *envelope*. **Boundary:** this pattern owns WHAT to validate and produces per-field errors with stable codes; `error-handling` owns the error response SHAPE + status mapping.
+- `api-contract.md` — contract *evolution* (tightening input validation is a breaking change; this pattern's bounds feed that table).
+- `file-upload.md` — validation of the upload stream itself (magic bytes, size, filename) hands off here.
+- `api-consistency-audit` (skill) — `422` field-error consistency across endpoints.
+- `@api-reviewer` / `@security-auditor` — mass-assignment is also a security sink (OWASP API3 / BOPLA); cross-pack `security` pack + `security-principles` rule (explicit field allow-list, no whole-body mass-assignment).

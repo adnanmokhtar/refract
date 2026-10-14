@@ -142,8 +142,10 @@ adapters/http/dtos/
 
 Input DTO:
 - Every field has validator (class-validator / zod / pydantic).
-- Optional ≠ nullable (be explicit).
-- Nested with `@ValidateNested()` + `@Type()`.
+- The body and query are typed as a **class** — an interface, `type`, `Dto[]`, `Partial<Dto>` or `Dto | null` union reaches Nest's pipe as `Object`/`Array` and is never validated (`validation-boundary-scan` §1); an array body goes through `ParseArrayPipe({ items: Dto })`.
+- Optional ≠ nullable (be explicit): `@IsOptional()` lets `null` through, so a PATCH `{"field": null}` reaches a NOT NULL write as a 500 — refuse `null` (`@ValidateIf(o => o.field !== undefined)`) unless clearing is documented (`validation-boundary-scan` §5).
+- Nested with `@ValidateNested()` + `@Type()` — either alone validates nothing below it (`validation-boundary-scan` §2).
+- Booleans and numbers in a query carry an explicit `@Transform`; never rely on `enableImplicitConversion` (`"false"` becomes `true`, `validation-boundary-scan` §3).
 - No `any`.
 
 Output DTO:
@@ -309,10 +311,20 @@ Dispatch `/add-telemetry` if gaps *(observability pack, when co-installed)*. **A
 - `endpoint-test` skill against dev server — success, invalid-body (at the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one) and 401 scenarios run through.
 - `api-snapshot` skill — is this a breaking change? If yes and no ADR → fail. If the snapshot flags a **removal / breaking change** to an existing surface, the superseded route MUST emit `Deprecation` (RFC 9745) + `Sunset` (RFC 8594, HTTP-date) headers for the announced overlap window before it disappears — failing to announce the retirement is itself a fail. (ENF-2)
 
+### Run the backend detectors on what this command generated
+
+The generated DTOs, controller and use case are candidates like any other code. Before review, run the detectors with `ROOTS` set to the module directory that received the new files (an array: `ROOTS=(<module dir>)`), reading only the rows on the new or changed lines:
+- `validation-boundary-scan` §1, §2, §3, §5, §7 — the new DTOs and handler signature;
+- `edge-error-scan` §1, §2, §6 — every error the new use case throws reaches its status, and the framework's own validation answer stays in the envelope;
+- `http-contract-scan` §1, §2, §3, §5 (and §7 for a list endpoint, §6 when it takes an `Idempotency-Key`) — create status and `Location`, missing id → 404, wrong method or media type, PATCH semantics;
+- `wire-format-scan` §1, §2, §6, §7 when the response carries money, a 64-bit id or a time.
+
+A row on the new code is fixed before review — this command wrote it. Each detector's coverage block is the evidence `@api-reviewer` reads for floor rows 1 and 2; a detector not installed prints `not run (detector absent)` and those rows fall back to the named e2e tests alone.
+
 ### Review (parallel)
 
 Dispatch:
-- `api-reviewer` — architecture + contract + data access + observability.
+- `api-reviewer` — judges the detector rows above in refute mode and fills the production-readiness verdict table this gate reads; routes architecture, data access and observability rows to their owners.
 - `schema-reviewer` — if DB touched.
 - `test-reviewer` — coverage + determinism + mocks.
 - `security-auditor` — if auth / crypto / secrets / sensitive data.
@@ -335,8 +347,8 @@ Fill this ledger (one row per floor item) before writing the Output block:
 
 | # | Production floor | MET requires (evidence — a claim is not evidence) | Wired to |
 |---|---|---|---|
-| 1 | **Input validated at the edge** | every input DTO field has a validator AND the invalid-body e2e test passes (named), asserting the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one (`ai-patterns/error-handling.md` § Status mapping) | api-reviewer `edge-validation`; `endpoint-test` skill (invalid-body case) |
-| 2 | **Standard error envelope** | error paths return the project envelope / Problem Details (RFC 9457) at a cited `<path:line>`; no stack trace / PII leaked | api-reviewer `error-envelope` + error-contract |
+| 1 | **Input validated at the edge** | every input DTO field has a validator AND the invalid-body e2e test passes (named), asserting the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one (`ai-patterns/error-handling.md` § Status mapping) — AND a `{"<optional field>": null}` request answers 400 or the documented clear, never 500; both through the real bootstrap | api-reviewer `edge-validation`; `validation-boundary-scan` §1/§5 (V340, V342); `endpoint-test` skill (invalid-body case) |
+| 2 | **Standard error envelope** | error paths return the project envelope / Problem Details (RFC 9457) at a cited `<path:line>`, including the framework's own validation and not-found answers; no stack trace / PII leaked | api-reviewer `error-envelope` + error-contract; `edge-error-scan` §6 (V345) |
 | 3 | **Correct transaction boundary** | a multi-write use-case is wrapped in ONE transaction at the service layer (cite the tx site); no external call held inside the tx — OR `n-a` (single write), reason stated | api-reviewer `txn-boundary` (TXN). `[self-policed]` — no grep proves two writes are one unit |
 | 4 | **Idempotency on unsafe methods where the convention requires** | `Idempotency-Key` accepted + stored + a replay e2e test proves the second call returns the first result — OR `n-a`, reason stated (naturally idempotent PUT / not retry-sensitive) | api-reviewer `idempotency`; signal table row |
 | 5 | **No N+1 / unbounded query** | `n-plus-one-scan` clean on any new list/query path AND (for a list endpoint) a default + hard-max page size is enforced (over-cap `limit` clamp asserted by e2e) | `n-plus-one-scan` + `query-shape-scan` §1 skills (database pack, when installed); api-reviewer `no-N+1`/pagination (API-8, PERF-5) |

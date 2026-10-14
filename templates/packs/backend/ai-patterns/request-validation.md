@@ -41,6 +41,12 @@ create(@Body() dto: CreateOrderDto) {   // ValidationPipe already ran: dto is tr
 
 Validation *deep inside a service* is the anti-pattern: the same rule gets re-implemented at three call sites, drifts, and one path forgets it. If a service is string-checking a field, the boundary leaked — Detector 3 is the mechanical form of that check.
 
+**Validation that looks on but is off** (NestJS `ValidationPipe`, the same in 11.2.7 and 12.1.3 — `references/nestjs.md`):
+- The pipe's constructor sets `forbidUnknownValues: false` unless you pass it, undoing class-validator's secure default — pass `forbidUnknownValues: true` explicitly.
+- `transformOptions: { enableImplicitConversion: true }` converts **before** validating: `"false"` becomes `true`, `""` becomes `0`, and `5` passes `@IsString` as `"5"`. Leave it off; give every boolean query field an explicit `@Transform`.
+- A body typed as an interface, a `type`, `Dto[]`, `Partial<Dto>`, `Record<…>` or a `Dto | null` union reaches the pipe as `Object`/`Array` and is **never validated** — even with `whitelist` + `forbidNonWhitelisted`. Use a class DTO, `ParseArrayPipe({ items: Dto })`, or `PartialType(Dto)` (a class).
+- Other stacks have the same shape of trap: zod `z.coerce.boolean()` turns `"false"` into `true`, Fastify's ajv strips unknown keys silently and coerces `null` to `0`, pydantic v2 makes `Optional[int]` with no default required, DRF drops unknown keys — the per-validator table is `validation-boundary-scan` §4.
+
 ## The order: decode → validate → normalize → authorize
 
 **This section is the one thing in this file that is regularly got wrong by people who already agree with everything else in it.** "Validate at the boundary" is a belief every competent engineer already holds; *validate before you canonicalize* is a rule most codebases violate in at least one place, because trimming and lowercasing feel like cleanup rather than like a decision, and they usually happen in whatever layer touched the value first.
@@ -126,13 +132,15 @@ Record the chosen primitive + where the boundary lives in `references/<framework
 
 Each finding cites `<path:line>` + the matched pattern + the fix. "Validation looks thin" without a cited handler / bind site is not a finding.
 
+These are writing-time checks. The runnable, oracle-backed detection — grep, read step, failing-first proof through the real bootstrap — is the `validation-boundary-scan` skill (this pack): §1 the pipe sees no class, §2 nested never validated, §3 conversion before validation, §4 coercion per validator, §5 optional admits `null`, §6 unknown-key policy, §7 named primitive param, §8 contexts the pipe never reaches, §9 arrays and groups. Media type and PATCH defaults are `http-contract-scan` §3 and §5; a validator exception answered 500 is `edge-error-scan` §6; output reshaped by a serializer is `wire-format-scan` §3. `/backend-audit` runs them together.
+
 ### 1. Whole body bound onto a persistence model (mass-assignment)
 
 ```
 BAD:   Object.assign(entity, req.body); save(entity)   // or  save(req.body)  /  Model.update(params)
 GOOD:  update(id, { name: dto.name, email: dto.email })  // explicit allow-list from a typed DTO
 ```
-`grep` for `Object.assign(*, *body)`, `save(req.body)`, `.update(params)`, `new Entity(req.body)` → `report-with-fix` (name the escalatable fields). Also OWASP API3 / BOPLA — route to `@api-reviewer` / `@security-auditor`.
+`grep` for `Object.assign(*, *body)`, `save(req.body)`, `.update(params)`, `new Entity(req.body)` → `report-with-fix` (name the escalatable fields). Also OWASP API3 / BOPLA — the runnable detector is security `injection-scan` (mass assignment) and `@api-security-reviewer`, when the security pack is installed.
 
 ### 2. No boundary validation (untyped body read)
 
@@ -140,7 +148,7 @@ GOOD:  update(id, { name: dto.name, email: dto.email })  // explicit allow-list 
 BAD:   const x = req.body.customerId;   // untyped, unvalidated, straight into logic
 GOOD:  create(@Body() dto: CreateOrderDto)   // boundary schema produced a typed value object
 ```
-Flag a handler reading `req.body.*` / `request.json()[…]` with no DTO/schema at the edge → `report-with-fix` (`add-boundary-schema`).
+Flag a handler reading `req.body.*` / `request.json()[…]` with no DTO/schema at the edge → `report-with-fix` (`add-boundary-schema`). Runnable: `validation-boundary-scan` §1 (a body the pipe cannot see) and §8 (transports and decorators the pipe never reaches).
 
 ### 3. Validation deep inside a service instead of the edge
 
@@ -148,19 +156,29 @@ Flag a service/use-case string-checking or format-checking a field the boundary 
 
 ### 4. No length / size / range bound (unbounded input)
 
-Flag a string DTO field with no `@MaxLength` (or stack equivalent), an array with no `@ArrayMaxSize`, a number with no `@Min`/`@Max` → `report-with-fix` (`add-bounds`).
+Flag a string DTO field with no `@MaxLength` (or stack equivalent), an array with no `@ArrayMaxSize`, a number with no `@Min`/`@Max` → `report-with-fix` (`add-bounds`). Runnable: `validation-boundary-scan` §9 for arrays (one vs many, over-max rejected); size as load is performance `request-path-scan` §13.
 
 ### 5. Missing Content-Type / body-size limit
 
-Flag a body-parsing endpoint with no `Content-Type` allow-list or no max-body-size cap → parser-DoS surface → `report-with-fix` (`add-body-limit`; route framework config to `references/<framework>.md`).
+Flag a body-parsing endpoint with no `Content-Type` allow-list or no max-body-size cap → parser-DoS surface → `report-with-fix` (`add-body-limit`; route framework config to `references/<framework>.md`). Runnable: `http-contract-scan` §3 (wrong media type → 415); the byte cap is performance `request-path-scan` §13.
 
 ### 6. Inconsistent 422 field-error shape
 
-Flag validation failures returning a bare string / bespoke `{ error: "..." }` instead of the project's structured field-error envelope → hand off to `error-handling.md` + `api-consistency-audit` → `report-flagged`.
+Flag validation failures returning a bare string / bespoke `{ error: "..." }` instead of the project's structured field-error envelope → hand off to `error-handling.md` + `api-consistency-audit` → `report-flagged`. Runnable: `edge-error-scan` §6 (the framework's default validation answer outside the envelope).
 
 ### 7. Normalization before validation (canonicalization-order bug)
 
 Flag `.trim()` / `.toLowerCase()` / `normalize()` applied to a value *before* it is validated (rewriting input into something that passes a check the raw value would fail) → `report-with-fix` (`fix-validate-order`).
+
+### 8. Validation that looks on but is off
+
+```
+BAD:   new ValidationPipe({ whitelist: true, transform: true, transformOptions: { enableImplicitConversion: true } })   // "false" → true
+       @Body() dto: CreateOrderInput   (an interface)  ·  @Body() items: OrderDto[]  ·  @ValidateNested() address  (no @Type)
+GOOD:  new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, forbidUnknownValues: true, transform: true })
+       @Body() dto: CreateOrderDto   (a class)  ·  @Body(new ParseArrayPipe({ items: OrderDto })) items  ·  @ValidateNested() @Type(() => AddressDto) address
+```
+Flag a pipe with implicit conversion, a body or query typed so the pipe sees `Object`/`Array`, or a nested DTO with no `@Type` → `report-with-fix`. Runnable, with the proof: `validation-boundary-scan` §1, §2, §3 and §6.
 
 ## Closure verbs
 

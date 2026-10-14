@@ -99,7 +99,8 @@ MODULE-SCOPED:
 ## Phase 4 — Generate (dispatch agents; consolidate)
 
 Dispatch in parallel:
-- **`api-reviewer`** — architecture compliance: layer boundaries, DTO usage, mapper presence, naming.
+- **`api-reviewer`, through `/backend-audit`** — backend correctness. Run `/backend-audit` on this module (a module scope: `ROOTS` = the module's source directory) with `--classes=` the families the module carries: `validation,edge,http` for any module with a controller or router, `wire` when it returns money, 64-bit ids or times, `jobs` with a processor or schedule entry, `transitions` with a status field. It dispatches the six detectors — `validation-boundary-scan` §1–§9, `edge-error-scan` §1–§8, `http-contract-scan` §1–§13, `wire-format-scan` §1–§8, `job-lifecycle-scan` §1–§7, `state-transition-scan` §1–§2 — and `@api-reviewer` judges their rows in refute mode. This command takes its verified findings and its class ledger as the backend-correctness axis; a family it prints `N/A` is not reviewed here either.
+- **Architecture compliance** (layer imports, DTO and mapper presence, naming) — covered inline against `.claude/rules/backend-principles.md`, one `file:line` per violation; a module whose shape is wrong as a whole escalates to `@api-architect`.
 - **`schema-reviewer`** — entity design, FK indexes, query shapes (only if module owns DB tables).
 - **`performance-optimizer`** — N+1, missing indexes (cross-checked with schema-reviewer), unnecessary serialization.
 - **`security-auditor`** — auth on every endpoint, input validation at boundary, tenant isolation if multi-tenant, output filtering.
@@ -158,6 +159,12 @@ Performance:
          Fix: eager join via repo qb or DataLoader.
   PASS   Queries indexed (FK + tenant_id + created_at composite)
 
+Backend correctness (/backend-audit --classes=validation,edge,http,wire, judged by @api-reviewer):
+  FAIL   update-order.dto.ts:14 @IsOptional() name admits null → NOT NULL write → 500 (validation-boundary-scan §5, V342) (BLOCKER)
+  FAIL   orders.filter.ts:9 @Catch() maps every non-domain error to 500 (edge-error-scan §1, V345) (BLOCKER)
+  PASS   create → 201 + Location; missing id → 404 (http-contract-scan §1–§2 checked, oracle ran)
+  N/A    jobs, transitions — no processor, schedule or status field in this module
+
 Security:
   PASS   All endpoints behind auth guard
   FAIL   getReport() raw query missing tenant filter (BLOCKER)
@@ -174,8 +181,8 @@ Tests:
 Dead code:
   WARN   UnusedMapper.ts not imported anywhere (NIT — confirm before delete)
 
-Verdict: 3 blockers. Fix or ADR before extending.
-Suggested next: /fix-bug for blockers, then re-run /analyze-module.
+Verdict: 5 blockers. Fix or ADR before extending.
+Suggested next: /backend-fix for the backend-correctness blockers, /fix-bug for the rest, then re-run /analyze-module.
 ```
 
 ## Hard rules
@@ -205,7 +212,7 @@ Every run MUST end its report with a `## What to do next` block: the analysis fi
 ## Related
 
 ### Sibling commands — where the boundary falls
-- `/fix-bug` — **closes what this command opens.** This run produces blockers and stops; it never edits code. Every BLOCKER either becomes a `/fix-bug` run or an ADR.
+- `/fix-bug` — **closes what this command opens.** This run produces blockers and stops; it never edits code. Every BLOCKER either becomes a `/fix-bug` run (`/backend-fix` for a row a backend detector produced — it proves the fix failing-first through the real bootstrap and re-runs the detector) or an ADR.
 - `/add-endpoint` · `/add-module` — the work this audit gates. Run this BEFORE extending, not after; post-change analysis grades the diff instead of the module.
 - `/trace-flow` · `/log-tail` — evidence sources when a static finding needs a runtime confirmation (an unmeasurable hot path, a suspected N+1 nobody can reproduce).
 
