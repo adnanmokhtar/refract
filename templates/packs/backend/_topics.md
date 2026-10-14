@@ -466,6 +466,20 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § "API surface" (the serializer and its settings, the ORM and driver versions, the process time zone) + response DTOs, mappers and producer wrappers
   fallback: skills/wire-format-scan/SKILL.md   # source-as-fallback
 
+- name: job-lifecycle-scan
+  kind: skill
+  triggers:
+    OR_grep_evidence: "\"(bullmq|bull|@nestjs/schedule|cron|node-cron|node-schedule|agenda|bree|pg-boss|graphile-worker)\"\\s*:|^\\s*(celery|apscheduler|rq|dramatiq|huey|arq)\\b|gem\\s+[\"'](sidekiq|good_job|solid_queue|resque|delayed_job)[\"']|\"laravel/framework\"|robfig/cron|hibiken/asynq|spring-boot-starter-quartz|@Scheduled\\(|BackgroundTasks"   # a queue, a scheduler or in-process background work in any manifest or source; lanes the repo lacks report N/A
+  extracts_from: _extracted-codebase.md § "API surface" + the queue and scheduler modules (library versions, the base processor and scheduler wrapper, the producer wrapper, the process TZ)
+  fallback: skills/job-lifecycle-scan/SKILL.md   # source-as-fallback
+
+- name: state-transition-scan
+  kind: skill
+  triggers:
+    OR_grep_evidence: "\"(xstate|javascript-state-machine|typescript-fsm|robot3)\"\\s*:|^\\s*(transitions|python-statemachine|django-fsm)\\b|gem\\s+[\"'](aasm|state_machines|statesman)[\"']|symfony/workflow|spatie/laravel-model-states|looplab/fsm|qmuntal/stateless|spring-statemachine|PackageReference Include=\"Stateless\""   # a state-machine library: what it does with an illegal event is the subject; without one §1–§2 report N/A and only routed rows print
+  extracts_from: _extracted-codebase.md § "API surface" + the machine definitions and the state graph (business pack's @workflow-integrity, ai/business-flows.md)
+  fallback: skills/state-transition-scan/SKILL.md   # source-as-fallback; fills ownership.json `workflow-transitions` (detector "—" today; the governance edit is a later build item)
+
 - name: log-tail
   kind: command
   triggers:
