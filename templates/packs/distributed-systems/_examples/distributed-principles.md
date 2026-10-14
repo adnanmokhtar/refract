@@ -6,7 +6,7 @@ pack: distributed-systems
 
 # Distributed Systems Principles
 
-> **Hard rule.** Exactly ONE service owns writes to an entity; cross-service writes go through that owner. Every external call MUST have a timeout + retry + circuit breaker; every retried mutation MUST be idempotent (server-stored idempotency key); every cross-service workflow MUST use saga + outbox — 2PC / XA and shared mutable databases are forbidden.
+> **Hard rule.** Exactly ONE service owns writes to an entity; cross-service writes go through that owner. Every external call MUST have a timeout inside the caller's budget; a call chain retries at exactly ONE layer, and every retried mutation MUST be idempotent (server-stored idempotency key); a circuit breaker goes where the dependency's failure can cascade, else `n-a` with the reason; every cross-service workflow MUST use saga + outbox — 2PC / XA and shared mutable databases are forbidden.
 
 Prevents the failures that turn a microservice migration into a distributed monolith with extra latency: shared DBs, sync chains, missing idempotency, retries without timeouts, distributed transactions. Every rule below is a fallacy of distributed computing (Deutsch/Gosling) made enforceable — the network is not reliable, latency is not zero, topology changes.
 
@@ -14,6 +14,7 @@ Prevents the failures that turn a microservice migration into a distributed mono
 
 - Exactly ONE service owns writes to an entity. Other services read via API or read replicas. Two writers = data corruption.
 - Every external call has a TIMEOUT (e.g. 2s default for in-region, longer for cross-region). No-timeout calls cascade failures.
+- Retries live at exactly ONE layer per call chain — the SDK, the client wrapper, the job's `attempts`, broker redelivery or a workflow activity's policy: pick one and set the others to no retry. Layers multiply: 3 layers × 3 attempts is 27 calls on the bottom dependency (AWS Builders' Library, *Timeouts, retries and backoff with jitter*: 5 × 3 → 243×; Google SRE book ch. 22: 3 × 4 → 64×). That layer is bounded, backs off with jitter, and retries transient errors only (`THR-RES-RETRY`).
 - Every write a client might retry is idempotent. Client supplies a UUID `Idempotency-Key`; server stores it with a unique constraint and returns the original response on replay.
 - Correlation / trace ID generated at the edge and propagated through every hop (HTTP `traceparent` per W3C, queue metadata, RPC headers, DB query comments). OpenTelemetry preferred.
 - Outbox pattern for "write to DB + publish event" atomicity: write the row + an outbox row in one transaction; a relay publishes asynchronously. No 2PC required.
@@ -29,7 +30,7 @@ Prevents the failures that turn a microservice migration into a distributed mono
 - Synchronous chain of services where the caller doesn't need an immediate answer. Convert to async via queue / event bus.
 - Retries without idempotency. Every retried POST that isn't idempotent doubles your data.
 - External call inside a DB transaction. Holds a connection across unbounded network time = pool exhaustion + lock contention.
-- Catch + swallow on a network error. Either retry with policy + circuit breaker, or fail with a typed error the caller can handle.
+- Catch + swallow on a network error. Either let the chain's one retrying layer retry it, or fail with a typed error the caller can handle.
 - **Exactly-once *delivery* is impossible** across a network (the two-generals problem). What you build is **effectively-once = at-least-once delivery + idempotent processing** — the message may arrive 2+ times; idempotency makes the duplicate a no-op. For business-critical flows (payments, orders): outbox (at-least-once publish) + a stored idempotency key on the consumer. Never claim "exactly-once" — claim effectively-once and show the idempotency key.
 - Cross-tenant data leak via incorrect partitioning / cache key / event filter — silent until a customer notices.
 - Event / RPC pattern names as inline string literals. They live in a shared constants file or schema registry; a typo in an inline `"order.created"` is a silently-dropped subscription, not a compile error.
@@ -37,7 +38,7 @@ Prevents the failures that turn a microservice migration into a distributed mono
 ## Should
 
 - Use async via queue / event bus when the caller doesn't need an immediate answer. Decouples availability — A is no longer at most as available as B.
-- Wrap every external dependency in a circuit breaker (every mainstream language has at least one library — e.g., `opossum` / `cockatiel` for Node, Resilience4j for JVM, Polly for .NET, `gobreaker` / `failsafe-go` for Go, `pybreaker` for Python, `Stoplight` / `circuit_breaker` for Ruby). Fail fast when the downstream is sick; let it recover.
+- A circuit breaker where the dependency's failure can cascade — a shared, slow or overloaded downstream on the request path (e.g., `opossum` / `cockatiel` for Node, Resilience4j for JVM, Polly for .NET, `gobreaker` / `failsafe-go` for Go, `pybreaker` for Python, `Stoplight` / `circuit_breaker` for Ruby). Fail fast when the downstream is sick; let it recover. Where it cannot cascade — an async consumer with its own backoff, a call already bounded by its timeout and the one retrying layer — record `n-a` with the reason (baseline RES-2). A missing breaker alone is Hardening, never a finding: AWS prefers a local retry token bucket to a breaker's hard-to-test modal behaviour.
 - Bulkheads: separate connection pools / thread pools per dependency. One slow dep MUST NOT starve the others.
 - Graceful degradation: cached / default response when downstream is down. Catalog without prices beats no catalog.
 - End-to-end backpressure: producer slows when consumer / queue is full. Unbounded buffers are forbidden.
@@ -50,5 +51,5 @@ Prevents the failures that turn a microservice migration into a distributed mono
 
 - Contract tests (the project's contract-test stack) gate consumer-incompatible changes.
 - Trace coverage SLO — every endpoint has spans visible in the project's trace backend.
-- Chaos drills (the project's chaos tooling, or kill-the-process in staging) validate timeout / retry / circuit breaker actually engages.
+- Chaos drills (the project's chaos tooling, or kill-the-process in staging) validate that the timeout, the one retrying layer and any breaker the cascade analysis placed actually engage.
 - Cross-tenant smoke tests on multi-tenant boundaries (cache key, event filter, query filter).

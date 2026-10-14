@@ -29,12 +29,15 @@ The protocol is generic. Domain knowledge lives beside it, and the verifier read
   [`precedents/seo.md`](precedents/seo.md) (titles, canonicals, social cards, structured data,
   indexation, sitemaps, hreflang, rendering for crawlers),
   [`precedents/observability.md`](precedents/observability.md) (logs, correlation, traces,
-  sampling, metrics, health, error tracking, alert rules, routing, SLOs, telemetry pipeline) and
+  sampling, metrics, health, error tracking, alert rules, routing, SLOs, telemetry pipeline),
   [`precedents/devops.md`](precedents/devops.md) (pipeline integrity, CI cache, release, deploy,
   environment parity, containers, compose; platform facts in
-  [`ci-platform-semantics.md`](ci-platform-semantics.md)) and
+  [`ci-platform-semantics.md`](ci-platform-semantics.md)),
   [`precedents/infrastructure.md`](precedents/infrastructure.md) (IaC state and lifecycle, deletion
-  safety, data durability, serverless, IaC cost, Kubernetes, edge, DNS/TLS, network correctness).
+  safety, data durability, serverless, IaC cost, Kubernetes, edge, DNS/TLS, network correctness) and
+  [`precedents/distributed.md`](precedents/distributed.md) (delivery, ordering, dual write, retries
+  and deadlines, locks and leases, schedulers, workflows and sagas, event contracts, clocks; library
+  and broker defaults in [`broker-semantics.md`](broker-semantics.md)).
 - [`proof-oracles.md`](proof-oracles.md) — the oracle per class, its failing-first test shape per
   stack, and the whole-class variant list a fix must survive.
 
@@ -134,7 +137,7 @@ Read the domain file for the candidate's class:
 [`precedents/testing.md`](precedents/testing.md), [`precedents/code-quality.md`](precedents/code-quality.md),
 [`precedents/ui.md`](precedents/ui.md), [`precedents/mobile.md`](precedents/mobile.md),
 [`precedents/seo.md`](precedents/seo.md), [`precedents/observability.md`](precedents/observability.md),
-[`precedents/devops.md`](precedents/devops.md) and [`precedents/infrastructure.md`](precedents/infrastructure.md). A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
+[`precedents/devops.md`](precedents/devops.md), [`precedents/infrastructure.md`](precedents/infrastructure.md) and [`precedents/distributed.md`](precedents/distributed.md). A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
 it back. A candidate can need both files: an index migration is data (its lock) and performance
 (whether it pays for itself). Three precedents hold in every domain:
 

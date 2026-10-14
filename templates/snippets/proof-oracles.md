@@ -1,7 +1,7 @@
 # Proof oracles — the failing-first proof for each detector class
 
 Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
-`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix` and `/infra-fix` (reproduce failing-first, then validate the fix), and by every
+`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix`, `/infra-fix` and `/ds-fix` (reproduce failing-first, then validate the fix), and by every
 detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
 Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
 and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
@@ -20,6 +20,7 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## Observability` | V189–V208 | — (new section) |
 | `## DevOps` | V209–V243, V290 | Out-of-band apply (V290, `gitops-audit` §1) |
 | `## Infrastructure` | V244–V289 | — (new section) |
+| `## Distributed` | V291–V327 | — (new section; V290 is DevOps) |
 
 ## Scope of use (read first)
 
@@ -3968,6 +3969,302 @@ preStop oracles, nginx and Caddy harness runs, and a read-only real-repo run (ku
 kubeconform 0.8.0, pluto 5.24.4, kube-score 1.20.0, kube-linter 0.8.3, caddy 2.11.7). Rows marked
 [K?] are settled on the `infra-ops` fixture before a skill asserts them. Paraphrased; no text
 reproduced.
+
+## Distributed
+
+A distributed-systems claim says that a redelivery, a crash between two writes, a paused lock
+holder, a retry, a rebalance, a deploy or a skewed clock turns into a lost, duplicated, reordered
+or stale effect. Reading the handler does not settle any of these: what the broker does with a
+nack, whether a library acks before the handler returns, whether a lock outlives its holder and
+how many layers retry one call are runtime and library facts — the rows of
+[`broker-semantics.md`](broker-semantics.md). The oracle drives the failure (a duplicate delivery,
+a kill between two writes, a paused holder, a stepped clock, a poison message, a rebalance, a
+replay of recorded histories, a schema diff) against the real broker or store in a container and
+counts the effects where they land. Every oracle names a **tier**: C (a container oracle:
+Testcontainers or `docker run` with the real broker or store, Toxiproxy for faults), T (a tool's
+exit: `workflowcheck`, a DURABLE analyzer, `buf breaking`, `asyncapi diff`, `json-schema-diff`,
+`no-floating-promises`), S (a static fact with both ends cited) or L (a live, read-only broker
+read under `--live`). Settled questions are in
+[`precedents/distributed.md`](precedents/distributed.md). Users: `messaging-scan`,
+`dual-write-scan`, `retry-deadline-scan`, `coordination-scan`, `workflow-scan` and
+`event-contract-scan` (distributed-systems pack), run by `/ds-audit`, judged by
+`@resilience-reviewer` (with `@system-architect` on leader rows), `@workflow-orchestrator` and
+`@event-sourcing-architect`, and `/ds-fix`; `/add-event-handler` and `/add-saga` run the same
+oracles in their Phase 6 gate. Money, stock and credit effects are security's
+(`logic-race-scan` §4–§5) and are proven with [`exploit-payloads.md`](exploit-payloads.md) and
+[`finding-verification.md`](finding-verification.md); publish inside a transaction is § Data (V8);
+the fencing half of a lease is § Performance (V38); once-per-fleet schedulers and migrations are
+V40; Lambda event sources are § Infrastructure (V255–V259).
+
+**Scope of use.** Scratch containers and `${TMPDIR}` only — never the user's brokers, caches,
+databases, clusters or cloud accounts. A broker CLI runs only against a target named in `--live`,
+read-only. Six rules hold for every variant below:
+
+- **Read the default row first** (gate 3). A variant that depends on a default — a nack that does or does not count, a void handler that does or does not delete, a library that does or does not retry POST — names its `broker-semantics.md` row at the installed version, and the container runs **that** version of the client and the broker. A managed broker's server setting that is not in the repo is `UNREAD`, and the variant runs with the self-hosted default only as a labelled assumption.
+- **The real broker, never a mock.** `Queue::fake()`, eager Celery, an in-memory MassTransit harness or a stubbed client prove nothing about delivery semantics (`precedents/distributed.md` § 33); `@EmbeddedKafka` is acceptable for ordering and poison only.
+- **Small real durations for broker-side timers.** Fake timers are valid for client-side backoff, jitter and clock skew, and **never** for Redis TTL, BullMQ lock expiry, SQS visibility or a JetStream `AckWait`: set those low in the test config (a 1–2 s `lockDuration`, a 2 s visibility) and wait for real.
+- **Count effects where they land** — rows in the effect table, calls on the provider mock, messages on the output topic — never log lines or handler invocations.
+- **Fail first, pass after, keep the control.** The oracle fails on its assertion (not on setup) before the fix and passes after, and the benign control — one clean delivery — still yields exactly one effect. A fix that turns a duplicate into a loss (`attempts: 1`, `maxStalledCount: 0`, at-most-once ack, `removeOnFail: true`) fails the variant list unless a written precedent-6 decision covers it.
+- **No cluster, no cloud.** The first line of every Bash call that may run `kubectl`, `helm` or a cluster tool is `export KUBECONFIG="$SCAN/empty-kubeconfig"; : > "$KUBECONFIG"`; a leader-election variant runs on a throwaway kind cluster with its own kubeconfig in `$SCAN`, or on client-go's fake clientset. No default cloud profile: SQS and SNS run on LocalStack, Pub/Sub on its emulator (DLQ and exactly-once support there [K?]).
+
+### Oracle taxonomy (distributed)
+
+| Oracle | Asserts | Tier | V | Detector § |
+|---|---|---|---|---|
+| **Crash mid-handler** | Killed after the effect, before the ack → redelivered, 1 effect; killed before the effect → done once after restart; the auto-ack variant loses it before the fix | C | V291 | `messaging-scan` §1 |
+| **Duplicate replay** | The same logical message twice, sequential and behind a barrier → 1 effect; the reserve key is a business or publisher-set id | C | V292 | `messaging-scan` §2; `dual-write-scan` §4 |
+| **Poison among good** | 1 bad + 100 good → 100 effects; the bad one dead-lettered after N bounded attempts, with an alert-able count | C | V293 | `messaging-scan` §3 |
+| **Ordered replay** | v1…v100 for one key with a transient failure on v3 → final state v100, handled in order | C | V294 | `messaging-scan` §4 |
+| **Rebalance during processing** | A slow handler past the poll interval plus a joining member → 1 effect per message, no committed offset past an unprocessed one | C | V295 | `messaging-scan` §5 |
+| **Run past the lock** | A job running 1.5 × the lock, visibility or ack-wait → exactly 1 effect (§ Performance V44 probe 1) | C | V296 | `messaging-scan` §6 |
+| **Broker down / stalled producer** | Broker stopped or stalled → the use case fails visibly or persists to an outbox, never "success" with the message gone | C | V297 | `messaging-scan` §7 |
+| **Expiry, trim, eviction** | Memory pressure, a `MAXLEN` trim, a TTL → every unprocessed message processed or dead-lettered | C | V298 | `messaging-scan` §8 |
+| **Flood** | 100 000 published → RSS flat, unacked ≤ prefetch | C | V299 | `messaging-scan` §9 |
+| **Kill between commit and publish** | A crash after commit, before publish → published exactly once after restart; the reverse probe → no event for a rolled-back row | C | V300 | `dual-write-scan` §1–§2 |
+| **Relay kill and gap** | The relay killed between send and mark → 1 effect per event, per-aggregate order kept; tx A holds sequence 10 while B commits 11 → event 10 still delivered | C | V301 | `dual-write-scan` §3, §6 |
+| **CDC replay** | A connector restart, a re-snapshot and a tombstone → consumer state unchanged, tombstones handled, order per aggregate kept | C | V302 | `dual-write-scan` §5 |
+| **Crash between reserve and effect** | A crash after the reserve, before the effect (and the reverse) → redelivery completes the effect exactly once | C | V303 | `dual-write-scan` §4 |
+| **Fault-injected retry** | Permanent error → 1 attempt; persistent transient error → attempts ≤ the stated cap, then surfaced or dead-lettered | C (unit + container) | V304 | `retry-deadline-scan` §1–§2 |
+| **Backoff under a fake clock** | Gaps grow, are capped, and two clients' schedules differ | C (unit, fake clock) | V305 | `retry-deadline-scan` §3 |
+| **Downstream call count** | One failing user action → downstream calls ≤ the stated budget (one retrying layer) | C (unit + mock server) | V306 | `retry-deadline-scan` §4 |
+| **Succeed-then-lose-the-response** | The provider applies the call, the response is lost, the retry carries the same idempotency key → 1 provider effect | C (unit + mock server) | V307 | `retry-deadline-scan` §5 |
+| **Partial work on attempt 1** | Attempt 1 fails after partial work → attempt 2 leaves exactly one result | C | V308 | `retry-deadline-scan` §6 |
+| **Deadline budget** | The outbound call carries ≤ the remaining budget; the callee stops within a margin of cancel; an expired command is dropped or dead-lettered; inner × attempts < outer | C + S | V309 | `retry-deadline-scan` §7–§8 |
+| **TTL expiry, then release** | The old holder's release after expiry leaves the new holder's lock in place | C | V310 | `coordination-scan` §1 |
+| **Holder killed** | The holder killed → a second acquirer succeeds within the TTL, never "never" | C | V311 | `coordination-scan` §2 |
+| **Pre-held lock** | The lock held by another → the job performs 0 effects | C | V312 | `coordination-scan` §3 |
+| **Paused holder** | The holder paused past the TTL → it stops before its next write, or the resource rejects the stale write (the fencing half is § Performance V38) | C | V313 | `coordination-scan` §4 |
+| **Advisory lock through a pool** | Pool max 2: after "unlock", `pg_locks` holds no orphan; a transaction pooler hands no session lock to another client | C | V314 | `coordination-scan` §5 |
+| **Leader renewals blocked** | A's renewals blocked → A stops acting before B starts | C (kind or fake clientset) | V315 | `coordination-scan` §6 |
+| **Wall clock stepped** | The wall clock stepped back 10 s → the timeout or lease fires on monotonic time | C (unit, fake clock) | V316 | `coordination-scan` §7 |
+| **Two clocks** | App clock = DB clock + 5 s → no early expiry, no overlapping holders, no skipped event | C | V317 | `coordination-scan` §8 |
+| **Skewed writers** | Two writers with skewed clocks → the later write wins by version, not by timestamp | C | V318 | `coordination-scan` §9 |
+| **DST-day fire count** | A schedule across a DST transition → the documented number of fires (not 0, not 2) | C (unit, fake clock) | V319 | `coordination-scan` §11 |
+| **Replay recorded histories** | The previous release's histories replay against the new code with no non-determinism error; `workflowcheck` / DURABLE analyzers exit 0 | T + C | V320 | `workflow-scan` §1–§2 |
+| **Time-skipping activity env** | Activity configuration under the time-skipping test environment: bounded retries on a non-idempotent activity, heartbeats arrive, no history-limit loop | C | V321 | `workflow-scan` §3 |
+| **Saga failure matrix** | Step k failing (clean and ambiguous) → C(k-1)…C1 exactly once each, in reverse; replaying the failure path changes nothing | C | V322 | `workflow-scan` §4–§6 |
+| **Compatibility tool exit** | base → head: the format's tool exits non-zero before the fix, 0 after | T | V323 | `event-contract-scan` §1 |
+| **Tolerant reader and old events** | Malformed, extra-field and unknown-type fixtures are acked or parked by policy, never a crash loop; the replay-old-events corpus deserialises with 0 failures | C (unit) | V324 | `event-contract-scan` §2–§5 |
+| **Concurrent decide-append** | Two deciders behind a barrier → one append, one `WrongExpectedVersion` (or a unique violation) | C | V325 | `event-contract-scan` §6–§7 |
+| **Projection redelivery** | Redelivery, or a crash between the projection write and the checkpoint → the read model unchanged; a replay sends nothing | C | V326 | `event-contract-scan` §8–§9 |
+| **Write, then read through the flow** | Write → redirect or trigger → read returns the new value, or waits on a position | C | V327 | `event-contract-scan` §10 |
+
+Static-fact classes with no V of their own: broker durability configuration (`messaging-scan` §10:
+the config value and the code that depends on it), version traps (§11: the version read from the
+lockfile against its `broker-semantics.md` row), time used as an identifier (`coordination-scan`
+§10), and the arithmetic halves of §5, §6 and `retry-deadline-scan` §8 (both terms cited).
+Scheduler-explorer shapes and migration runners without a lock are variants of § Performance V40,
+not slots here.
+
+### Container harness
+
+One harness shape covers most slots: start the broker and the store, put Toxiproxy between the
+service and each when a fault needs injecting, drive the failure, count the effects in the store.
+The container images and client versions are the ones the repo pins (gate 3).
+
+```ts
+// vitest + testcontainers (Node); the same shape exists for Java, Go, .NET and Python
+import { GenericContainer, Network } from "testcontainers";
+const net = await new Network().start();
+const redis = await new GenericContainer("redis:7-alpine").withNetwork(net).withExposedPorts(6379).start();
+const pg = await new GenericContainer("postgres:16").withNetwork(net)
+  .withEnvironment({ POSTGRES_PASSWORD: "x" }).withExposedPorts(5432).start();
+// V292: deliver the same logical message twice, then twice behind a barrier
+await handler(msg); await handler(msg);
+await Promise.all([handler(msg2), handler(msg2)]);
+expect(await countEffects(pg, msg.businessId)).toBe(1);
+expect(await countEffects(pg, msg2.businessId)).toBe(1);
+```
+
+- **BullMQ** (V291, V296): a 1–2 s `lockDuration` in the test worker, a processor that blocks the event loop (`Atomics.wait` on a `SharedArrayBuffer`, or a busy loop) past it; count rows. Run the processor class the module registers (the base class and its subclass), not a copy.
+- **Kafka** (V294, V295): Redpanda or `apache/kafka` in a container; two consumers in one group; a handler that sleeps past `max.poll.interval.ms` set low; read committed offsets with the admin client.
+- **RabbitMQ** (V293): `rabbitmq:<the repo's 4.x tag>` with the repo's `definitions.json` loaded; publish 1 poison + 100 good; count the dead-letter queue and the redelivery counter (`x-delivery-count`, `x-acquired-count` on ≥ 4.3).
+- **SQS** (V292, V296): LocalStack with the queue and redrive policy the IaC declares; a visibility of 2 s; the sqs-consumer version the lockfile pins.
+- **Kill points** (V291, V300, V303, V308): a spy that throws, or `process.kill(process.pid, "SIGKILL")` in a child process, placed exactly between the two writes; the restart runs the real relay or consumer.
+- **Clocks** (V316–V319): `@sinonjs/fake-timers` / vitest fake timers, `time-machine`, an injected `Clock` or `TimeProvider`, Go `testing/synctest`; the database clock is moved with a session `SET` of a shifted timestamp source or by writing the app clock ahead, never by changing the host clock.
+- **Temporal** (V320, V321): `Worker.runReplayHistories`, `WorkflowReplayer`, `Replayer`; `TestWorkflowEnvironment.createTimeSkipping()` (TS) or the SDK's equivalent; histories fetched from a dev server (`temporal server start-dev`) or committed under `test/histories/`.
+
+### Class variants (distributed)
+
+#### V291. Ack, commit or delete before the effect — crash mid-handler (`messaging-scan` §1)
+- BullMQ un-awaited processor body or `handle()` in a subclass of a base processor; Bull `done()` first; kafkajs un-awaited `eachMessage`, `resolveOffset` before the effect; confluent-js periodic commit with an early return (KJ7); Spring `acknowledge()` first under `MANUAL_IMMEDIATE`, a raw poll handing records to an executor
+- RabbitMQ `noAck: true`, ack first; SQS delete first, Spring Cloud AWS `ALWAYS`, sqs-consumer `alwaysAcknowledge`; NATS `AckNone`, `AckAll` with concurrent handlers, core NATS; Redis Streams `NOACK`, pub/sub
+- Celery early ack (CY1), `acks_late` without `reject_on_worker_lost` (a signal-killed child is still acked); OSS Sidekiq `kill -9` (RB1); librdkafka `enable.auto.offset.store=true` (LD1); Azure Service Bus `ReceiveAndDelete`; kafka-go `ReadMessage` with a `GroupID`; franz-go `GreedyAutoCommit`
+- pass: `kill -9` after the effect and before the ack → redelivered, effect count 1; kill before the effect → completed once after restart
+
+#### V292. At-least-once with no idempotent consumer — duplicate replay (`messaging-scan` §2; `dual-write-scan` §4 corroborates)
+- the same message twice sequentially; twice concurrently behind a barrier (read-then-insert dedupe fails here); redelivery after a visibility or lock expiry; a producer retry after a timeout (a new broker id, the same business id); an SNS duplicate arriving as a new SQS message (AW6)
+- BullMQ re-add after `removeOnComplete` (BQ4); a reserve keyed on `job.id` (auto), `deliveryTag`, `ReceiptHandle`, an SNS-fed SQS `MessageId`, a Sidekiq `jid` (ID1–ID9); sqs-consumer ≥ 14 handler returning void (AW4); a random `MessageDeduplicationId`
+- Kafka EOS consumer with an external DB or HTTP effect (KJ8); Celery `autoretry_for=(Exception,)` on an effect
+- pass: 1 effect row or provider call in every variant; the reserve key is a business or publisher-set id
+
+#### V293. Poison: requeue loop, no DLQ, swallow-and-ack, whole-batch retry — poison among good (`messaging-scan` §3)
+- kafkajs `restartOnFailure` loop (KJ4); Spring `new DefaultErrorHandler()` — the record is skipped, which fails the variant (KA7); a batch listener without `BatchListenerFailedException` (KA8)
+- RabbitMQ `nack(msg)` (requeue defaults true, RQ4) on a classic queue and on a quorum queue ≥ 4.3 (RQ2, RQ3); a quorum queue at its limit with no DLX (a silent drop, RQ1); Spring AMQP default requeue (RQ6)
+- SQS whole-batch retry, a batch `Failed` list ignored, no redrive, `maxReceiveCount` 1; NATS `Nak()` with `MaxDeliver` -1 (NA1); Redis Streams with no reclaim cap; Watermill nack resend (GL4); MassTransit `DiscardFaultedMessages`; Sidekiq `retry: false` / `dead: false`
+- BullMQ swallowed `catch` in the processor; `removeOnFail: true` (BQ3)
+- pass: the 100 good drain; the poison lands in a dead-letter queue or failed set **with an alert-able count** after N bounded attempts; nothing is redelivered without bound
+
+#### V294. Ordering assumption broken — ordered replay (`messaging-scan` §4)
+- kafkajs `Promise.all(batch.messages.map(…))`; a produce with no key; mixed partitioners on one topic (librdkafka CRC32 vs murmur2, LD4; kafkajs `LegacyPartitioner`, KJ6)
+- `@RetryableTopic` on an ordered stream (KA11); retry by re-publishing to the tail; RabbitMQ prefetch > 1 with several consumers and no single active consumer
+- an SQS FIFO constant or random `MessageGroupId`; BullMQ `concurrency > 1` on a queue whose handler overwrites per-entity state; Java producer idempotence off with `max.in.flight > 5` (KA4); a relay without `ORDER BY` or with parallel publish (V301 owns the relay)
+- pass: final state v100 and per-key handler order v1…v100
+
+#### V295. Consumer-group rebalance — rebalance during processing (`messaging-scan` §5)
+- kafkajs `eachBatch` without `heartbeat()` / `isStale()` (KJ3); `max.poll.records × p99 > max.poll.interval.ms` (both terms cited, KA2); manual commits with no `ConsumerRebalanceListener`; a confluent-js handler longer than `rebalanceTimeout` (KJ7)
+- pass: per-message effect 1; no committed offset past an unprocessed message; no rebalance storm at the stated load
+
+#### V296. Visibility, lock or ack-wait shorter than processing, non-serverless — run past the lock (`messaging-scan` §6; = § Performance V44 probe 1; Lambda → V255)
+- a BullMQ CPU-bound inline processor at the default `lockDuration` (BQ2), `skipLockRenewal`, `skipStalledCheck`, `maxStalledCount ≥ 2`; a stalled job re-run once at `attempts: 1` (BQ2, [K?] on the installed 6.x)
+- sqs-consumer `handleMessageTimeout` without `heartbeatInterval` (AW4); NATS with no `InProgress()`; Celery ETA or countdown > `visibility_timeout` (CY4); Laravel `--timeout ≥ retry_after` (LV2); RabbitMQ `consumer_timeout` (RQ8)
+- pass: a job running 1.5 × the timeout produces exactly 1 effect. A fix that only raises the number fails unless the effect is idempotent or a heartbeat holds the lock
+
+#### V297. Producer side: fire-and-forget, no confirms, weak acks — broker down or stalled (`messaging-scan` §7)
+- an un-awaited `send` / `add` / `publish` (BullMQ, kafkajs, amqplib); a non-confirm channel, no `mandatory`, `persistent: false` (RQ4); `acks` 0 or 1; idempotence disabled explicitly or silently (`retries=0`, `max.in.flight > 5`, `acks` ≠ all: KA4; librdkafka LD2); a batch `Failed` list ignored (AW7)
+- **stall-then-recover**: an enqueue bounded by a race timer that answers "refused" while the losing `add` sits in the client's offline queue and lands when the broker returns; a client that retries the refusal without a dedupe key enqueues twice
+- pass: with the broker stopped the use case fails visibly or persists to an outbox — never "success" with the message gone; after a stall, one logical enqueue produces one job
+
+#### V298. Retention, TTL, eviction drops unprocessed work — expiry, trim, eviction (`messaging-scan` §8)
+- `maxmemory-policy` ≠ `noeviction` on the job Redis under memory pressure (BQ6; managed: RD5); Streams `MAXLEN` / `MINID` without `ACKED` on Redis ≥ 8.2 (RD1); RabbitMQ `x-message-ttl` / `x-max-length` with no DLX; an SQS DLQ whose retention ≤ the source's (AW3); JetStream `MaxAge` with `DiscardOld`; quorum dead-lettering at-most-once (RQ7)
+- pass: every unprocessed message is processed or dead-lettered — none silently gone
+
+#### V299. Unbounded consumer buffering — flood (`messaging-scan` §9; sizing → § Performance V43)
+- no `prefetch()` or `prefetch(0)` (RQ4); `XREADGROUP` without `COUNT` (RD3); `Promise.all` over a receive batch; a goroutine per message with no semaphore
+- pass: 100 000 published, RSS flat, unacked ≤ prefetch
+
+#### V300. Dual write — kill between commit and publish (`dual-write-scan` §1–§2; inside a transaction → § Data V8)
+- commit → publish (a crash between; the broker down); publish → commit (a rollback after publish)
+- after-commit helpers — Celery `delay_on_commit`, Rails after-commit enqueue, Laravel `afterCommit`, Sidekiq `after_commit` — keep the loss window (OX5); `@nestjs/cqrs` `EventBus.publish` after `save` (OX6); MassTransit publish after the last `SaveChangesAsync` (NT2, [K?]); Spring `ChainedKafkaTransactionManager` (KA10); Solid Queue on a separate database (RB4)
+- pass: the event is delivered exactly once after restart; no event for a rolled-back row
+
+#### V301. Outbox relay and gap-blind cursor — relay kill and gap (`dual-write-scan` §3, §6; claim without `SKIP LOCKED` → § Data)
+- the relay killed between send and mark (a duplicate the consumer's reserve must absorb); mark before the publish is confirmed; parallel publish (`Promise.all(rows.map(publish))`); a relay read with no `ORDER BY`; an outbox with no relay or no pruning; a relay leader lease whose `extend()` result is dropped
+- `WHERE id > $last` over a sequence written by concurrent transactions; a time-ordered id (UUIDv7, ULID, Snowflake) minted on several hosts compared to a floor with no lag and no rescan
+- pass: 1 effect per event; per-aggregate order kept; with tx A holding sequence 10 uncommitted while B commits 11, event 10 is delivered after A commits
+
+#### V302. CDC consumer gaps — snapshot replay and tombstone (`dual-write-scan` §5)
+- a tombstone (`value == null`) reaching a consumer with no null branch (OX3); the initial snapshot re-emitting rows as reads (OX2); a connector restart replay; an UPDATE on an outbox row with `table.op.invalid.behavior=warn` (OX1); the key overridden away from `aggregateid`
+- pass: consumer state unchanged by replays; tombstones handled; per-aggregate order kept
+
+#### V303. Inbox absent or not atomic with the effect — crash between reserve and effect (`dual-write-scan` §4)
+- the reserve written after the effect; a Redis `SET NX` reserve with the effect in SQL; `SELECT exists` then `INSERT`; a claims ledger in its own transaction beside the effect with no reserve on the effect table (`precedents/distributed.md` § 2); a reserve "released" after a partially applied effect; inbox retention shorter than the redelivery window (broker retention + DLQ retention + the replay window)
+- pass: a crash after the reserve and before the effect, then redelivery → the effect exactly once; a crash after the effect and before the ack → no second effect; the concurrent variant of V292 also passes
+
+#### V304. Retry IF and cap — fault-injected retry (`retry-deadline-scan` §1–§2; money → security)
+- a permanent error (validation, 4xx, deserialisation) retried: tenacity `@retry` without `retry=` (RY1), Polly default `ShouldHandle` (RY6), Resilience4j default predicate (RY8), Spring 7 `@Retryable` without `includes` (RY9), BullMQ with no `UnrecoverableError` and no classification before the throw, Temporal activities with no non-retryable types (WK6)
+- no cap: bare tenacity; p-retry `forever` / `retries: Infinity`; Celery `max_retries=None` (CY3); redlock `retryCount: -1` (LO2); the Temporal default activity policy; `while (true) { try … catch { continue } }` with retry vocabulary; a negative configured cap read as infinite
+- pass: permanent → 1 attempt; persistent transient → attempts ≤ the stated cap, then surfaced or dead-lettered
+
+#### V305. Backoff and jitter — fake clock (`retry-deadline-scan` §3; `THR-RES-RETRY`)
+- zero delay: axios-retry default (RY3), Spring Kafka `DefaultErrorHandler()` (KA7), MassTransit `r.Immediate(n)`; constant: Polly (RY6), Resilience4j (RY8); unjittered exponential: p-retry (RY2), go-retryablehttp (RY5); BullMQ `attempts` with no `backoff` (BQ2); Polly `UseJitter = false`
+- pass: under a fake clock the gaps grow, are capped, and two clients' schedules differ
+
+#### V306. Retries multiplied across layers — downstream call count (`retry-deadline-scan` §4)
+- an AWS SDK call (3 attempts, RY10) inside a p-retry / tenacity / Polly loop; `ConfigureHttpClientDefaults(…AddStandardResilienceHandler())` plus a per-client handler (RY7); `@Retryable` around a `@KafkaListener` with its own error handler; job `attempts` × a client's `retry.attempts` × broker redelivery × activity retry
+- pass: one failing user action produces ≤ the stated budget of downstream calls, counted on the mock; exactly one layer retries
+
+#### V307. Retry of a non-idempotent call — succeed-then-lose-the-response (`retry-deadline-scan` §5; proxy retries → V284; money → security)
+- POST through go-retryablehttp (RY5); the .NET standard handler without `DisableForUnsafeHttpMethods()` (RY7); `axiosRetry(client)` on a network error, or a `retryCondition` admitting POST (RY3); an idempotency key minted inside the retry callback; job or activity retry around a provider call with no key from the business id; Celery autoretry on a charge
+- pass: the response lost after success → the retry carries the same idempotency key, and the provider records 1 effect
+
+#### V308. State not reset, or a retry repeats an earlier step — partial work on attempt 1 (`retry-deadline-scan` §6)
+- a retry wrapper outside the unit of work it retries; a reused request stream; an ORM session reused after a failed flush; a double-incremented attempt counter; a handler with two external effects and no per-step checkpoint; a zombie original and its retry writing one key (a deadline that does not abort, `precedents/distributed.md` § 36)
+- pass: attempt 2 succeeds and leaves exactly one result; the first effect is not repeated
+
+#### V309. Deadline propagation and timeout order — deadline budget (`retry-deadline-scan` §7–§8; the platform chain → V282)
+- gRPC Node or Python outbound without the inbound deadline (RY11); a user-facing command enqueued with no `expiresAt`, consumed hours later; a worker that ignores a deadline header; a per-attempt deadline that rejects without aborting
+- inner timeout × attempts + backoff ≥ the outer budget across queue → worker → downstream; Temporal Start-To-Close ≥ the workflow's business deadline
+- pass: the outbound budget ≤ the remaining budget; the callee stops within a margin of cancel; expired commands are dropped or dead-lettered; the arithmetic, both terms cited, leaves margin
+
+#### V310. Release without an owner check — TTL expiry, then release (`coordination-scan` §1)
+- `DEL` / `unlink` of a lock key with no check; `GET` → compare in the app → `DEL`, with a pause injected between the read and the delete (`precedents/distributed.md` § 21); a hand-written `DEL` beside a library-managed release
+- pass: A's lock expires, B acquires, A releases → B's key survives
+
+#### V311. No TTL, or a TTL set non-atomically — holder killed (`coordination-scan` §2)
+- `SET k v NX` with no `PX` / `EX`; `setnx` then `expire` in two round trips; Go `SetNX(…, 0)`; Spring `setIfAbsent(k, v)` (2 arguments); redis-py `r.lock(name)` with no `timeout=` (LO3)
+- pass: the holder killed → a second acquirer succeeds within the TTL
+
+#### V312. Acquire result ignored — pre-held lock (`coordination-scan` §3)
+- Redisson `tryLock(…)` as a statement (LO4); `acquire(blocking=False)` unchecked; a redsync `Lock()` error dropped (LO6); `TryAcquire*` null unchecked (LO7); `pg_try_advisory_lock` result discarded
+- pass: with the lock pre-held by another holder, the job performs 0 effects
+
+#### V313. Lease shorter than the work; renewal missing or unchecked — paused holder (`coordination-scan` §4; fencing → V38)
+- redlock `using(…, async (signal) => …)` never reading `signal.aborted` (LO2); `await lock.extend();` with the result dropped and no later check; Redisson `lock(leaseTime)` (watchdog off, LO4); ShedLock `lockAtMostFor` below the job's bound (LO5); redsync `ErrLockAlreadyExpired` dropped (LO6); a fixed-TTL lock around an unbounded loop with no renewal
+- pass: the holder paused past the TTL (`SIGSTOP`, a latch, a busy loop — small real TTLs) stops before its next write, or the resource rejects the stale write; for a correctness lock, the fencing token is checked at the write (V38)
+
+#### V314. Session advisory lock through a pool or a transaction pooler — pool max 2 (`coordination-scan` §5; pooler config → database `connection-config-scan` §3)
+- a session `pg_advisory_lock` through `pool.query`; the same behind `?pgbouncer=true`, port 6432 or `pool_mode = transaction`; a migration wrapper doing the same (LO10)
+- pass: with a pool of 2, after "unlock" `pg_locks` shows no orphaned advisory lock, and a second client cannot inherit it
+
+#### V315. Leader keeps acting after losing leadership — renewals blocked (`coordination-scan` §6; once-per-fleet → V40)
+- client-go `OnStartedLeading` running work under `context.Background()`; `OnStoppedLeading` that only logs; `LeaseDuration > RenewDeadline > 1.2 × RetryPeriod` violated (LO8); a Redis leader key whose holder never re-checks before a side effect
+- pass: with A's renewals blocked, A stops acting (or exits) before B starts; on a scratch kind cluster with its own kubeconfig, or client-go's fake clientset
+
+#### V316. Wall-clock duration guarding a timeout or lease — wall clock stepped (`coordination-scan` §7)
+- `Date.now() - start > limit`; `time.time() - start`; `System.currentTimeMillis() - start`; `DateTime.UtcNow - started`; a Go start time stripped of its monotonic reading (`Round(0)`, `Truncate`, `.UTC()`, a marshalled time — TM1)
+- pass: the wall clock stepped back 10 s → the timeout or lease fires on monotonic time (TM2)
+
+#### V317. Expiry written on one clock, compared on another — two clocks (`coordination-scan` §8)
+- the app writes `expiresAt = now + ttl` and SQL compares `< now()`; a time-ordered id minted on several hosts compared to a floor computed on one host
+- pass: app clock = DB clock + 5 s → no early takeover, no overlapping holders, no event skipped past the floor
+
+#### V318. Last-write-wins or ordering on wall-clock timestamps — skewed writers (`coordination-scan` §9; client LWW → mobile)
+- `incoming.updatedAt > row.updatedAt` from two services; client-supplied `USING TIMESTAMP`; `ORDER BY created_at` across event streams in a projector
+- pass: with skewed writers the later write by version wins, and the projection order follows the stream position
+
+#### V319. DST and local-time schedules — DST-day fire count (`coordination-scan` §11; CronJob `concurrencyPolicy` → V40)
+- a process `TZ` set to a DST zone (`ENV TZ`, a manifest `env: TZ`, a JVM `-Duser.timezone`) with `@Cron` / `cron.schedule` at a time inside the transition hour; an explicit DST `timeZone`; Laravel `->timezone(`; a CronJob without `timeZone` on a cluster whose controller runs in a DST zone (SD6); Laravel timezone schedules (SD3)
+- pass: on the DST transition day the job fires the documented number of times (once), under a fake clock in the job's zone
+
+#### V320. Workflow non-determinism and unversioned change — replay recorded histories (`workflow-scan` §1–§2)
+- the per-SDK token lists: TS Node or I/O imports in the bundle, `process.env`, `crypto.randomUUID`, activity value-imports, branching on `unsafe.isReplaying` — never `Date.now()` / `Math.random()` in TS (WK1, `precedents/distributed.md` § 25); Go via `workflowcheck` (WK2); Java (WK3); Python with the sandbox off (WK4); .NET (WK5); Durable JS / Python orchestrators that are not generators, DURABLE0001–0011 (WK8); Inngest or Restate time, random or reads outside `step.run` / `ctx.run` (WK10)
+- a workflow file changed with no `patched()` / `deprecatePatch` / `GetVersion` / `getVersion` / `workflow.patched` and no worker-versioning change; workflows with no replay test in CI; a DURABLE0011 loop without ContinueAsNew
+- pass: `workflowcheck -show-pos ./...` and the DURABLE analyzers exit 0; replaying the previous release's committed histories raises no non-determinism error
+
+#### V321. Activity configuration — time-skipping environment (`workflow-scan` §3)
+- the default unlimited retry on a non-idempotent activity, no non-retryable error types (WK6); a long activity with no heartbeat, or `heartbeatTimeout` with no `heartbeat()` call ([K?] on the dev server); an unbounded loop without continue-as-new against the history limit (WK7); payloads over 2 MB; signal-then-poll where an Update belongs; Step Functions `TimeoutSeconds` absent (WK9; infrastructure when in IaC)
+- pass: under the time-skipping environment the non-idempotent activity runs at most its stated attempts, heartbeats arrive within the timeout, and the loop continues-as-new before the limit
+
+#### V322. Saga compensation — step-k failure matrix, clean and ambiguous (`workflow-scan` §4–§6; isolation → § Data V5)
+- a side-effecting step with no compensation (not the pivot, `precedents/distributed.md` § 26); Eventuate `.invokeParticipant(..)` without `.withCompensation`; compensations run in forward order (`push` + `for…of`); a swallowed compensation error; a Go `defer ExecuteActivity(ctx, …)` without `NewDisconnectedContext` (WK11); a compensation registered after a limited-retry activity returns (the ambiguous failure: a timeout after the effect)
+- a non-idempotent compensation with no `(sagaId, step)` reserve; an irreversible step before a fallible one; no persisted saga state for a choreographed saga; NestJS `@Saga()` holding compensation in memory (OX6)
+- pass: for each step k, clean and ambiguous, C(k-1)…C1 run exactly once each in reverse; replaying the failure path changes nothing; the final status is FAILED or COMPENSATED with the original error surfaced
+
+#### V323. Breaking schema change — compatibility tool exit (`event-contract-scan` §1; HTTP API drift → backend)
+- a field removed, renamed or retyped; a required field added; a proto tag reused; an enum symbol added for closed readers (SZ2); `BACKWARD` (latest only) where `_TRANSITIVE` is needed (SZ3); a TS-only event type changed
+- tools: `buf breaking --against '.git#branch=<base>'` at WIRE_JSON minimum (SZ1); `asyncapi diff base head -t breaking` (SZ4); `json-schema-diff` (SZ5); Avro `SchemaCompatibility` offline; TS: compile the old consumer against the new type; `--contract-base=<dir>` where the repo has no base branch
+- pass: the tool exits non-zero on base → head before the fix and 0 after; a fix that passes `--no-error` or sets the registry to `NONE` fails the variant
+
+#### V324. Unvalidated payload, intolerant reader, semantic change, name drift — tolerant-reader fixtures and the replay-old-events corpus (`event-contract-scan` §2–§5)
+- `JSON.parse(msg.value…)` / `json.loads(body)` used as a typed event with no schema parse; `assertNever(evt.type)` or a throw on an unknown type in a consumer; zod `.strict()`, pydantic `extra="forbid"`, STJ `UnmappedMemberHandling.Disallow`, plain `new ObjectMapper()` on the consumer side (SZ6)
+- a unit change with the same type (minor ↔ major units, s ↔ ms); a topic literal spelled differently across files; an event produced but never consumed, or subscribed but never produced
+- pass: the malformed fixture is parked, not a crash loop; the extra-field and unknown-type fixtures are acked or parked by policy without a throw; the replay-old-events corpus deserialises with 0 failures and the same meaning
+
+#### V325. Append without expected version; no stream uniqueness — concurrent decide-append (`event-contract-scan` §6–§7)
+- KurrentDB `appendToStream(s, events)` after a read-decide with the default `streamState: ANY` (EV1), `StreamState.Any` (EV2); Marten `Append` after `AggregateStreamAsync` instead of `FetchForWriting` (EV3); a custom event table without UNIQUE(stream, version); a Prisma `model *Event` without `@@unique`
+- pass: two deciders released together by a barrier → one append succeeds and one gets `WrongExpectedVersion` (or a unique violation at the SQL layer)
+
+#### V326. Projection not idempotent; side effects on replay — projection redelivery (`event-contract-scan` §8–§9; per-replica daemon → V40)
+- `SET n = n + 1` with the checkpoint saved separately; the checkpoint saved before the projection write; side effects in `apply` / `when`; a snapshot with no version column; `ORDER BY created_at` over events
+- pass: redelivery, or a crash between the projection write and the checkpoint, leaves the read model unchanged; a full replay sends nothing
+
+#### V327. Eventual consistency assumed in a flow — write, then read through the flow (`event-contract-scan` §10; replica read-your-writes → database `connection-config-scan` §8)
+- a command handler returns and the UI immediately redirects to a list read from an asynchronously fed projection, with no version or position wait; the same in a route loader
+- pass: write → redirect → read returns the new value, or the read waits on the returned position
+
+### Sources (distributed)
+
+The distributed-systems research catalog (2026-10-14) § 5 and its notes A (per-broker delivery
+semantics and the stable-id table), B (locks, leaders, workflow SDKs, sagas, contracts, event
+stores, clocks) and C (the AWS Builders' Library, Google SRE ch. 21–22, WASABI SOSP '24, Jepsen
+NATS 2.12.1, and the dynamic-proof toolbox: Testcontainers, Toxiproxy 2.12.0, fast-check
+`fc.scheduler`, Go `testing/synctest`); the batch-5 distributed-systems eval (2026-10-14) § 3.5,
+which fixed the slot order DS-V1…DS-V37, merged here as V291–V327 in that order (the research's
+draft numbering differs from V303 on and is superseded); and the defaults in
+[`broker-semantics.md`](broker-semantics.md), fifteen of them re-read at their sources on
+2026-10-14. Rows marked [K?] are settled on the `ds-defects` fixture or in a container before a
+detector asserts them. Paraphrased; no text reproduced.
 
 ---
 
