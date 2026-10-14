@@ -533,6 +533,8 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | `/log-tail`       | Tail logs filtered by request-id / tenant.                                          |
 | `/trace-flow`     | Trace a request from controller → service → repository → DB.                       |
 | `/analyze-module` | Audit a module's shape vs conventions.                                              |
+| `/backend-audit` | Read-only backend audit: validation, edge errors, HTTP contract, wire, jobs, transitions; verdict. |
+| `/backend-fix` | Close /backend-audit findings failing-first through the real bootstrap. |
 
 ### Frontend track
 
@@ -790,6 +792,8 @@ These ship with their respective packs when the track is selected/detected.
 | `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. |
 | `/infra-audit` | Read-only infrastructure audit: IaC, DR, serverless, k8s, edge, DNS/TLS, network; class ledger and verdict. |
 | `/infra-fix` | Close /infra-audit findings, failing-first at each oracle tier, with a full re-scan. |
+| `/ds-audit` | Read-only distributed-systems audit: queues, outbox, retries, locks, workflows, contracts; verdict. |
+| `/ds-fix` | Close /ds-audit findings failing-first on a throwaway broker, across the class. |
 
 ### Migration track (when `--include=migration` or auto-detected)
 

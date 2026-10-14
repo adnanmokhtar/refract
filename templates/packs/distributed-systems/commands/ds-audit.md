@@ -1,0 +1,279 @@
+---
+description: "Read-only distributed-systems audit: queues, outbox, retries, locks, workflows, contracts; verdict."
+kind: command
+pack: distributed-systems
+allowed-tools: [Read, Write, Grep, Glob, Bash, Task]
+---
+
+# /ds-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<source=target,…>] [--contract-base=<dir>] [--runtime]
+
+> **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../../../snippets/coverage-ledger.md). The population is every delivery surface on the context map: each consumer and producer row of the F2 inventory, each outbox, inbox, claims or event-store table (F4), each lock acquisition and leader key, each retry construct and outbound kernel, each workflow, activity or saga file and each schema file (F5), and each broker, cache or engine the deploy reaches (F1, F3). Each lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the four counts are printed summing to the population. The **class ledger** in Phase 4 is the second half: "no findings" and "did not look" must never print the same way.
+
+## The Premise (read this first, internalize, do not deviate)
+
+**Find the places where a redelivery, a crash between two writes, a paused lock holder, a retry, a rebalance, a deploy or a skewed clock turns into a lost, duplicated, reordered or stale effect — prove each one with its oracle against the real broker or store in a throwaway container, and say what was not looked at.** Four lanes:
+
+- The **static lane always runs.** A whole-repo run (no diff, or `--whole-repo`) dispatches **all six** detectors in Phase 2, whatever the signals say. A detector whose surface is absent prints its §s `N/A (<reason>)` in its own coverage block (no broker client, no outbox, no lock helper, no workflow SDK, no schema file); it is never skipped. A diff run dispatches each detector whose signal fires on a changed file.
+- The **tool lane runs where a binary installs**: `workflowcheck`, the `DURABLE00xx` analyzers, `buf breaking`, `asyncapi diff`, `json-schema-diff`, typescript-eslint `no-floating-promises`, `errcheck`, ruff `RUF006`, Error Prone `FutureReturnValueIgnored`. Each detector prints `ran` or `blocked (lane not installed: <tool>@<ver>)`; a blocked tool never makes a row `checked`.
+- The **live lane (L) runs only on a target the user named** (`--live=redis=<url>,rabbitmq=<mgmt-url>,kafka=<bootstrap>,sqs=<profile>@<region>,temporal=<address>`), read-only, with credentials from the user's environment and a named cloud profile — never the default one. Without it every L half prints `NO-DATA(<source>)` and its static half still reports.
+- The **runtime lane** (`--runtime`) is the old `/audit-distributed-tx` count — stuck saga and workflow instances, DLQ depth and oldest age, compensation gaps, unknown event versions — run **only** against the sources `--live` names. It prints its own block, never mixed into code findings; without `--live` every runtime row is `NO-DATA(<source>)`. Replaying a dead letter is never part of an audit: those rows print `not run (dlq-replay is a write lane)`, or `not run (dlq-replay absent)` when the skill is not installed — never a halt.
+
+**Oracle tiers** ([`precedents/distributed.md`](../../../snippets/precedents/distributed.md) § The claim, restated): **C** a container oracle — Testcontainers or `docker run --rm` with the real broker or store at the repo's version, Toxiproxy for faults, small real durations for Redis TTL and BullMQ lock expiry, a fake clock only for client-side backoff and skew · **T** a tool's exit · **S** a static fact with both ends cited (visibility vs p99, `max.poll.records × p99` vs `max.poll.interval.ms`, a lease TTL vs the work's bound, attempts × layers) · **L** a live, read-only broker read. A Finding needs C or T, or an S-tier fact with both ends cited. A mocked broker — `Queue::fake()`, eager Celery, an in-memory harness, `jest.mock('bullmq')` — is never C (precedent 33).
+
+**Version-gate everything** (gate 3). Every verdict that rests on a default names its [`broker-semantics.md`](../../../snippets/broker-semantics.md) row at the version read from a lockfile, a manifest range (marked `range`; its floor decides) or an image tag (F1). A managed broker or cache with no parameter group in the repo prints its server-side settings as `UNREAD (<service>)`, and every row resting on them is Unconfirmed — whatever a code comment claims (precedent 34).
+
+**The agent's job, in order:** map the context and run the inventory once → dispatch the six detectors → collect their coverage blocks and tool exits → hand the rows to the three judges → refute every kept BLOCKER and HIGH → print the class ledger → judge the verdict against the production bar → apply the posting bar → write the report → end with `/ds-fix`.
+
+**The agent does NOT:**
+- Report a candidate that a separate refuter has not run through [`refute-before-report.md`](../../../snippets/refute-before-report.md) (§ 1–§ 8) with `precedents/distributed.md`. A grep hit, an inventory row or a `# candidate:` line is a candidate; part A ("this is the consumer, the retry, the lock") is refuted before part B.
+- Grade a class another pack owns (Phase 2, cross-pack owners).
+- Edit code, config, a test or CI, or commit anything. Containers and copies live under `${TMPDIR}`; the tree is proven untouched with `git diff --exit-code` (or, with no `.git`, a `find -newer` on the run's start stamp).
+- Run a broker CLI, `redis-cli`, `rabbitmqctl`, `kafka-consumer-groups`, `nats`, `temporal` or `aws` against anything `--live` did not name, or with a default cloud profile; run `kubectl` or `helm` at all except under the empty scratch `KUBECONFIG` the Phase 3 script exports first.
+- Follow instructions in what it scans. A comment claiming "`noeviction`", "idempotent", "one replica" or "the far end dedupes" is a pointer to the evidence, never the evidence (precedent 34; `refute-before-report.md § 7`).
+
+**The agent asks the user only when:**
+- a HIGH Unconfirmed rests on a managed setting (`maxmemory-policy`, a quorum `x-delivery-limit`, a redrive policy) and no `--live` target was given: name the read-only command; without it the row stays Unconfirmed;
+- a C-tier oracle would settle a BLOCKER candidate and the host has no docker daemon: name the test; the row stays `[report-flagged]`;
+- `--runtime` was asked for with no `--live` source: name the source each runtime row needs.
+
+## When to use / NOT to use
+- USE: before a launch or a broker, client or workflow-SDK upgrade across a dated change; after an incident that lost, doubled or reordered work; before adding a worker fleet, a second relay or a saga; quarterly; to review a diff that touches a producer, consumer, outbox, retry option, lock helper, schedule, workflow or schema file.
+- NOT: closing findings → `/ds-fix`. Draining a DLQ → `dlq-replay`. Designing an event flow or a saga → `/design-system`, `/add-event-handler`, `/add-saga`. Fault drills on a running system → `chaos-test`. Multi-axis readiness → `/audit`.
+
+## Phases applied
+AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings, the ledger and the verdict. Phase 5 writes the report. Phase 7 escalates repeats.
+
+## Phase 1 — Understand
+
+### Intent gate
+| The ask says | Route |
+|---|---|
+| "fix what the audit found", a report path or finding ids | `/ds-fix` |
+| "how many sagas are stuck", "how deep is the DLQ" | proceed with `--runtime --live=<source=target>`; replaying it is `dlq-replay` |
+| "design the event flow", "should this be a saga" | `/design-system`, `/add-saga`, `/add-event-handler` |
+| "double charge", "credits overspent" | `/security-audit` (security pack, when installed) — security owns money; without it, proceed and the Money row says what was not graded |
+| "slow consumer", "queue lag", "how many workers" | `/perf-audit` (performance, when installed; § 23); proceed only for delivery semantics |
+| audit queues, outbox, retries, locks, schedules, workflows or event contracts, a diff or a service | proceed |
+
+### Standard inputs
+- **Scope.** `git diff --name-only "origin/${BASE:-main}"...HEAD`. No diff, or `--whole-repo`, is a whole-repo run.
+- **`--classes=<family,…>`** narrows the run to ledger families: `delivery`, `ordering`, `brokers`, `dualwrite`, `retries`, `deadlines`, `locks`, `clocks`, `workflows`, `sagas`, `contracts`, `eventsourcing`, `runtime`. Every other row prints `N/A (out of scope: --classes=<list>)` and the verdict names its scope.
+- **`--contract-base=<dir>`** gives `event-contract-scan` §1 its base copy of the schema files for a repo with no shared base branch (a fixture, a vendored contract set). Without it and without a base branch, §1 prints `N/A (no base: pass a base branch or --contract-base)`; §2–§10 still run.
+- **`--live`, `--runtime`** as in § The Premise. Credentials come from the user's environment, never from a file in the repo.
+- **Stack and versions** from files (F1), never from memory.
+- **Judges.** `.claude/agents/resilience-reviewer.md` grades every `messaging-scan`, `dual-write-scan`, `retry-deadline-scan` and `coordination-scan` row in refute mode — its `## Contract` gives it `role: judge`, `writes: none` under this command — with `@system-architect` on the leader rows (`coordination-scan` §6). `.claude/agents/workflow-orchestrator.md` judges `workflow-scan`; `.claude/agents/event-sourcing-architect.md` judges `event-contract-scan`. `.claude/agents/verifier.md` (repo-baseline) refutes every BLOCKER and HIGH a judge keeps, in mode `refute`; absent → a `Task` refuter (`refute-before-report.md § 8`).
+
+## Phase 2 — Organize
+
+### Detectors — every one on a whole repo, by signal on a diff
+Run the Phase 3 script first: it runs `ds-inventory.py` **once** and leaves the TSV in its scratch directory. Pass that directory to every detector as `SCAN` and the TSV path as its inventory: `messaging-scan` and `retry-deadline-scan` read their F2 from it, and a detector that re-runs F2 must print the same `# resolved` line (a different one means the tree moved; re-run). Then run the six detectors once, in parallel; each writes its own coverage block, and this command never re-greps a class a detector owns. A detector not on disk, or one whose file has no coverage block yet, prints `not run (detector absent)` when its surface exists.
+
+| Detector | Owns (§ = its own numbering) | Diff signal | Judge |
+|---|---|---|---|
+| `messaging-scan` | §1 ack before effect · §2 consumer idempotency · §3 poison · §4 ordering · §5 rebalance · §6 lock vs run · §7 producer · §8 retention and eviction · §9 buffering · §10 broker durability · §11 version traps | a producer, consumer, base processor or producer wrapper; a queue registration; broker config | `@resilience-reviewer` |
+| `dual-write-scan` | §1 commit then publish · §2 publish then commit · §3 relay · §4 inbox atomicity · §5 CDC · §6 gap-blind cursor | a write followed by a publish; an outbox entity, writer or relay; an inbox table; a CDC config; a stored cursor | `@resilience-reviewer` |
+| `retry-deadline-scan` | §1 retry IF · §2 cap · §3 backoff and jitter · §4 layers · §5 non-idempotent retry · §6 state reset · §7 deadline propagation · §8 timeout order | a retry library or option (`attempts`, `retry:`, `@Retryable`), a client factory or kernel, a deadline helper | `@resilience-reviewer` |
+| `coordination-scan` | §1 release · §2 TTL · §3 acquire result · §4 lease vs work · §5 advisory lock via a pool · §6 leader after loss · §7 wall-clock durations · §8 two clocks · §9 LWW · §10 time as id · §11 DST schedules | a lock helper, `SET … NX`, a leader election, a time comparison, a schedule | `@resilience-reviewer` (+ `@system-architect` on §6) |
+| `workflow-scan` | §1 non-determinism · §2 versioning · §3 activity config · §4 missing compensation · §5 order, swallow, context · §6 compensation idempotency and state | a workflow, activity or orchestrator file; a state machine; a flow; a saga | `@workflow-orchestrator` |
+| `event-contract-scan` | §1 breaking change · §2 unvalidated payload · §3 intolerant reader · §4 semantic change · §5 name drift · §6 append without expected version · §7 stream uniqueness · §8 projection idempotency · §9 side effects in apply · §10 read-model lag | a schema file, an event type, an event-store append, a projection | `@event-sourcing-architect` |
+
+**Order inside the dispatch is fixed where one detector's pre-flight is another's control.** `dual-write-scan` resolves the project's outbox writer (its F2) **before** its §1 — on the read-only real repo 27 of 28 write-then-publish matches went through the project's own port — and halts before §1 when that F2 did not run; that halt is a `blocked (dual-write-scan F2 did not run)` Dual write row, never `checked`. `workflow-scan` scopes every §1 token to its F2 workflow files and never flags TypeScript `Date.now()` (precedent 25).
+
+**Dedupe by `<file:line>`:** one finding per site, credited to the owner, the other detector listed as corroboration. Known overlaps: a consumer with no reserve — `messaging-scan` §2 owns, `dual-write-scan` §4 corroborates when a reserve exists but is not atomic; a relay's lease `extend()` dropped — `dual-write-scan` §3 owns it for relays, `coordination-scan` §4 everywhere else; a job retried by both `attempts` and an inner client — `retry-deadline-scan` §4 owns, `messaging-scan` §3 corroborates when `attempts` has no backoff; a gap-blind cursor — `dual-write-scan` §6 owns, `coordination-scan` §8 corroborates on the clock half; an activity's retry policy — `workflow-scan` §3 owns, it is one layer of `retry-deadline-scan`'s §4 worksheet. One base processor, producer wrapper, outbox port, lock helper, retry constant or saga helper is **one finding with N sites** (`refute-before-report.md § 6`). A triggered detector that did not run is a `not run` ledger row.
+
+### Cross-pack owners
+Each routed row names the owner's detector and § when its pack is installed. Consume a same-day `ai/audits/<date>-<owner>.md` when it holds those class lines instead of re-running. **Without the owner pack**, its row prints `N/A (owner pack <x> not installed)` and the hits the distributed detectors raised for it are listed tagged `<class> (owner pack not installed)`, never graded at the owner's severity. **With the pack but an install older than the detector**, the row prints `not run (<detector> absent)`.
+- **Database** — `transaction-scan` §1: publish or enqueue **inside** an open transaction (V8); §5: an outbox or queue claim without `SKIP LOCKED`; §8: a lost update mid-saga. `connection-config-scan` §3: the transaction-mode pooler a session advisory lock runs through (`coordination-scan` §5 owns the lock call).
+- **Security** — `logic-race-scan` §4: idempotency on money and side-effect consumers, endpoints and PSP keys; §5: check-then-act on a balance, stock or credit, the clamped debit. Distributed rows on a money effect arrive there with their redelivery, stall or retry mechanism as evidence.
+- **Performance** — `request-path-scan` §12: timeout presence on an outbound call; §20: once-per-fleet work (schedulers, migrations at boot, V40); §18: a per-replica lock and the fencing half of a lease (V38); §23: worker capacity. **§24 is the fallback** for consumer idempotency, poison and lock vs run when this pack is absent: under this command `messaging-scan` §2, §3 and §6 own them and a same-day perf report's §24 rows are corroboration, deduped by `file:line`. `caching-scan` §4 and §7: cache invalidation, including a cache filled from another service's API and invalidated by its events.
+- **Infrastructure** — `serverless-reliability-scan` §1–§6: Lambda, EventBridge and SQS-to-Lambda timing, DLQ path, partial batch response and retry storms (the distributed detectors keep long-lived pollers); `edge-reliability-scan` §1, §3: the proxy timeout chain and proxy retries.
+- **Observability** — `trace-propagation-scan` §2: trace context across a queue hop.
+- **Backend** — `job-lifecycle-scan` §3: job payload drift across deploys inside one service; §4: a schedule overlapping itself on one process; §6: a schedule's own zone (`coordination-scan` §11 keeps the coordinated half).
+
+## Phase 3 — Retrieve
+
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
+
+Distributed-specific:
+- `.claude/rules/distributed-principles.md`; `ai/patterns/` files for idempotency, outbox, saga, distributed locks and event sourcing when present; `ai/runbooks/` for how a DLQ is drained and who owns each broker.
+- [`refute-before-report.md`](../../../snippets/refute-before-report.md), [`precedents/distributed.md`](../../../snippets/precedents/distributed.md), [`broker-semantics.md`](../../../snippets/broker-semantics.md) and [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Distributed: the oracle taxonomy and its variants V291–V327.
+- Earlier `ai/audits/<date>-distributed*.md`. A class that repeats is systemic (Phase 7).
+
+### Context before hunting (whole-repo runs)
+The detectors and the judges share one map. Build it first, as one script from the repo root (`bash <<'EOF' … EOF`: macOS ships bash 3.2, so no `mapfile`). Every `rg` names its path, and **in every rg call the include globs come first and the exclusion array comes last**: ripgrep lets the later `-g` win, so `"${X[@]}" -g '*.yml'` re-includes `tests/`. Any rg exit 2 is a failed grep, never zero hits. F4 reads migrations and F5–F6 read tests **on purpose**: the schema is the evidence for ES-2 and DW-5, and a replay test or a container harness is the evidence for a gate.
+
+```bash
+T="$(mktemp -d "${TMPDIR:-/tmp}/ds-audit.XXXXXX")"; export KUBECONFIG="$T/empty-kubeconfig"; : > "$KUBECONFIG"   # first line: nothing below may reach a cluster
+ROOTS=(.)   # the server-side code: in a monorepo name the apps (ROOTS=(apps/api apps/worker)); manifests, config, schemas and CI always search .
+CODE=(-g '*.{ts,mts,cts,js,mjs,cjs,py,java,kt,go,cs,rb,php}')
+CFG=(--hidden -g '*.{json,yml,yaml,conf,tf,tfvars,properties,toml,ini,env}' -g '**/Dockerfile*' -g '**/.env*' -g '**/Procfile')
+X=(-g '!.git/**' -g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output,generated,__generated__,vendor,target,bin,obj,.venv,venv,__pycache__,.terraform}/**'
+   -g '!**/{test,tests,__tests__,spec,specs,e2e,fixtures,__fixtures__,mocks,__mocks__,testdata}/**' -g '!**/*.{spec,test,e2e-spec,fuzz,stories}.*'
+   -g '!**/{test_*,*_test}.{py,go}' -g '!**/*{Test,Tests,IT}.{java,kt,cs}' -g '!**/*.d.ts' -g '!**/*.min.*' -g '!**/{docs,ai,.claude}/**')   # exclusions: always LAST in an rg call (a later -g wins)
+XL=(-g '!**/{package-lock,npm-shrinkwrap,composer}.json' -g '!**/pnpm-lock.yaml' -g '!**/yarn.lock')
+NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(?://|/\*|\*(?:\s|/|$)|#)')   # drops comment-only hit lines
+echo '# F1 versions (gate 3): F1a clients and libraries per manifest; F1b locked versions; F1c broker, store and engine images, managed services; F1d brokers reached by URL (server settings UNREAD)'
+rg -n --no-heading --pcre2 -g '**/package.json' "${X[@]}" '"(?:bullmq|bull|@nestjs/bullmq|@nestjs/bull|kafkajs|@confluentinc/kafka-javascript|node-rdkafka|amqplib|amqp-connection-manager|@golevelup/nestjs-rabbitmq|@aws-sdk/client-(?:sqs|sns|eventbridge|sfn|kinesis)|sqs-consumer|nats|@nats-io/[\w-]+|ioredis|redis|@google-cloud/pubsub|@nestjs/cqrs|@nestjs/schedule|node-cron|p-retry|axios-retry|got|cockatiel|opossum|redlock|@temporalio/[\w-]+|@restatedev/restate-sdk[\w-]*|@dbos-inc/dbos-sdk|inngest|durable-functions|@kurrent/kurrentdb-client|@eventstore/db-client|@bufbuild/[\w-]+|@asyncapi/[\w-]+|testcontainers|@testcontainers/[\w-]+)"\s*:\s*"[^"]+"' .
+rg -n --no-heading -i --pcre2 -g '**/{requirements*.txt,pyproject.toml,Pipfile,pom.xml,build.gradle,build.gradle.kts,*.csproj,Directory.Packages.props,go.mod,Gemfile,composer.json}' "${X[@]}" '\b(?:celery|kombu|dramatiq|tenacity|stamina|temporalio|confluent-kafka|aiokafka|pika|spring-kafka|spring-rabbit|spring-retry|spring-modulith-events[\w-]*|resilience4j[\w-]*|kafka-streams|redisson|shedlock[\w-]*|masstransit[\w.]*|polly[\w.]*|microsoft\.extensions\.http\.resilience|microsoft\.durabletask[\w.]*|go\.temporal\.io/sdk|confluent-kafka-go|segmentio/kafka-go|twmb/franz-go|ibm/sarama|nats-io/nats\.go|go-redsync|go-retryablehttp|sidekiq|good_job|solid_queue|laravel/horizon|testcontainers[\w.-]*)\b' .
+rg -n --no-heading -U --pcre2 -g '**/{pnpm-lock.yaml,package-lock.json,yarn.lock}' -g '!**/node_modules/**' '^\s*["\x27]?/?(?:bullmq|kafkajs|amqplib|sqs-consumer|ioredis|redlock|@temporalio/workflow)@\d[\w.-]*|"node_modules/(?:bullmq|kafkajs|amqplib|sqs-consumer|ioredis|redlock|@temporalio/workflow)":\s*\{\s*\n\s*"version":\s*"[^"]+"|^"?(?:bullmq|kafkajs|amqplib|sqs-consumer|ioredis|redlock)@[^\n]*:\s*\n\s+version:?\s+"?[\d.]+' . | rg --pcre2 'bullmq|kafkajs|amqplib|sqs-consumer|ioredis|redlock|temporalio' > "$T/locked"; echo "locked versions: $(wc -l < "$T/locked" | tr -d ' ') lines"; head -12 "$T/locked"
+rg -n --no-heading --pcre2 "${CFG[@]}" "${XL[@]}" "${X[@]}" '\bimage:\s*["\x27]?(?:[\w.-]+/)*(?:redis|valkey|rabbitmq|nats|localstack|elasticmq[\w-]*|cp-kafka|kafka|kafka-native|redpanda|postgres|auto-setup|temporal|kurrentdb|eventstore)[:@\s"\x27]|^\s*FROM\s+(?:[\w.-]+/)*(?:redis|valkey|rabbitmq|nats)\b|\bresource\s+"(?:aws_elasticache_\w+|aws_msk_cluster|aws_mq_broker|aws_sqs_queue|aws_lambda_event_source_mapping|aws_sfn_state_machine|google_redis_instance|google_pubsub_subscription|digitalocean_database_cluster|azurerm_redis_cache|confluent_kafka_cluster)"|^\s*Type:\s*["\x27]?AWS::(?:SQS::Queue|Lambda::EventSourceMapping|StepFunctions::StateMachine)\b' . | "${NC[@]}"
+rg -n --no-heading --pcre2 "${CFG[@]}" -g '!**/package.json' "${XL[@]}" "${X[@]}" '\b(?:REDIS|VALKEY|RABBITMQ|AMQP|KAFKA|NATS|SQS|TEMPORAL)_(?:URL|URI|HOST|BROKERS?|ENDPOINT|ADDRESS)\b|\b(?:rediss|amqps)://|\b[\w.-]+\.(?:cache\.amazonaws\.com|ondigitalocean\.com|redis\.cache\.windows\.net|confluent\.cloud|tmprl\.cloud)\b|\bport:\s*2506[01]\b' . | "${NC[@]}" > "$T/managed"; echo "broker endpoints from config (server settings UNREAD unless a parameter group is here): $(wc -l < "$T/managed" | tr -d ' ')"; head -8 "$T/managed"
+echo '# F2 the inventory (ds-inventory.py, shared by messaging-scan and retry-deadline-scan): consumers, producers, wrappers, resolved options with their source'
+DSI=.claude/skills/messaging-scan/scripts/ds-inventory.py; [ -f "$DSI" ] || DSI="$HOME/.claude/templates/packs/distributed-systems/skills/messaging-scan/scripts/ds-inventory.py"
+if command -v python3 >/dev/null 2>&1 && [ -f "$DSI" ]; then python3 -B "$DSI" . > "$T/inventory.tsv"; echo "ds-inventory exit=$? (TSV: $T/inventory.tsv)"; rg '^# (?:resolved|UNRESOLVED|candidate)' "$T/inventory.tsv"
+else echo 'F2 NOT-RUN (python3 or ds-inventory.py absent): each detector reads its consumers and producers by hand; messaging-scan F2a-F2c are the fallback'; fi
+echo '# F3 deployment shape (gate 7): workloads, replicas, autoscalers, Jobs and CronJobs, start commands per process type, process time zone'
+{ rg -n --no-heading --pcre2 "${CFG[@]}" "${XL[@]}" "${X[@]}" '^kind:\s*(?:Deployment|StatefulSet|DaemonSet|Job|CronJob|HorizontalPodAutoscaler|ScaledObject|ScaledJob)\s*$|^\s*(?:min|max)Replicas:\s*\d|^(?:CMD|ENTRYPOINT)\b|^\s*ENV\s+TZ\b|^\s*-?\s*name:\s*["\x27]?TZ["\x27]?\s*$|\bTZ=|-Duser\.timezone' . | "${NC[@]}"
+  rg -l0 --pcre2 "${CFG[@]}" "${XL[@]}" "${X[@]}" '^kind:\s*(?:Deployment|StatefulSet)\s*$' . | xargs -0 -r rg -H -n --no-heading --pcre2 '^\s*replicas:\s*\d'
+  rg -n --no-heading --pcre2 -g '**/Procfile' '^[\w-]+:\s*\S' . ; } > "$T/deploy"; echo "deploy lines: $(wc -l < "$T/deploy" | tr -d ' ') (TZ lines: $(rg -c 'TZ|timezone' "$T/deploy" || echo 0))"; head -24 "$T/deploy"
+echo '# F4 outbox, inbox, claims, saga-state and event-store tables — entities AND migrations (the schema is the evidence for ES-2 and DW-5, so migrations are read here on purpose)'
+rg -n --no-heading --pcre2 "${CODE[@]}" -g '*.{sql,prisma}' "${X[@]}" '(?i:\btableName\s*:\s*["\x27`][\w.]*(?:outbox|inbox|processed_(?:messages|events)|claims?|saga\w*|event_?store|events?)\b|@(?:Entity|Table)\(\s*(?:\{\s*tableName\s*:\s*|name\s*=\s*)?["\x27][\w.]*(?:outbox|inbox|processed_(?:messages|events)|claims?|saga\w*|event_?store|events?)["\x27]|\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["\x60]?[\w.]*(?:outbox|inbox|processed_(?:messages|events)|claims?|saga\w*|event_?store|events?)\b|\bpgTable\(\s*["\x27][\w.]*(?:outbox|inbox|saga\w*|\w+_events)\b|\bdb_table\s*=\s*["\x27][\w.]*(?:outbox|inbox|saga\w*|\w+_events)\b)|^\s*model\s+\w*(?:Outbox|Inbox|Saga|Event)\w*\s*\{' . > "$T/stores"; echo "store lines: $(wc -l < "$T/stores" | tr -d ' ')"; cut -d: -f1 "$T/stores" | sort | uniq -c | sort -rn | head -12
+echo '# F5 workflow and schema files, and the CI gates that run on them (REPLAY GATE, CONTRACT GATE); tests are included for replay tests'
+echo "workflow files: TS $(rg -l --pcre2 "${CODE[@]}" "${X[@]}" '^\s*import\s+(?!type\b)[^;]*?from\s+["\x27]@temporalio/workflow["\x27]' "${ROOTS[@]}" | wc -l | tr -d ' ') · Go $(rg -l --pcre2 -g '*.go' "${X[@]}" '\bfunc\s+\w+\s*\(\s*\w+\s+workflow\.Context\b' "${ROOTS[@]}" | wc -l | tr -d ' ') · Java $(rg -l --pcre2 -g '*.{java,kt}' "${X[@]}" '@WorkflowImpl\b|\bimplements\s+\w*Workflow\b|\bWorkflow\.newActivityStub\(' "${ROOTS[@]}" | wc -l | tr -d ' ') · Python $(rg -l --pcre2 -g '*.py' "${X[@]}" '@workflow\.defn\b' "${ROOTS[@]}" | wc -l | tr -d ' ') · .NET $(rg -l --pcre2 -g '*.cs' "${X[@]}" '^\s*\[Workflow(?:\(|\])|\[OrchestrationTrigger\]|\bTaskOrchestrator<' "${ROOTS[@]}" | wc -l | tr -d ' ') · sagas $(rg -l --pcre2 "${CODE[@]}" "${X[@]}" '\baddCompensation\(|\.withCompensation\(|@Saga\(\)|\bMassTransitStateMachine<|\bnew\s+Saga\(|\bFlowProducer\b' "${ROOTS[@]}" | wc -l | tr -d ' ') · state machines $(rg -l --pcre2 -g '*.{json,yml,yaml,tf,ts,py}' "${X[@]}" '"StartAt"\s*:|^\s*StartAt\s*:|\bnew\s+(?:sfn|stepfunctions)\.StateMachine\(|\baws_sfn_state_machine\b' . | wc -l | tr -d ' ')"
+rg --files -g '**/*.{proto,avsc,avdl}' "${X[@]}" . > "$T/schemas"; rg -l --pcre2 -g '*.{yml,yaml,json}' "${XL[@]}" "${X[@]}" '^\s*["\x27]?asyncapi["\x27]?\s*:\s*["\x27]?[23]\.' . >> "$T/schemas"; rg -l --pcre2 -g '**/{schema,schemas,events,contracts}/**/*.json' "${X[@]}" '"\$schema"\s*:' . >> "$T/schemas"
+echo "schema files: $(sort -u "$T/schemas" | wc -l | tr -d ' ')"; sort -u "$T/schemas" | head -8
+rg -n --no-heading --pcre2 -g '*.{ts,js,py,go,java,kt,cs}' -g '!**/node_modules/**' -g '!**/{dist,build,vendor,target}/**' '\brunReplayHistor(?:y|ies)\(|\bWorkflowReplayer\b|\bReplayer\(\s*workflows|\bReplayWorkflowHistory\w*\(|\breplay_workflows?\(|\bcreateTimeSkipping\(|\bstart_time_skipping\(' . | "${NC[@]}" | sed 's/^/replay or time-skipping harness: /'
+rg -n --no-heading --hidden --pcre2 -g '.github/workflows/*.{yml,yaml}' -g '**/.gitlab-ci*.yml' -g '.circleci/*.{yml,yaml}' -g '**/bitbucket-pipelines.yml' -g '**/azure-pipelines*.yml' -g '**/Jenkinsfile*' -g '**/Makefile' -g '**/package.json' -g '**/*.{csproj,props,editorconfig}' -g '!**/node_modules/**' '\bworkflowcheck\b|\borchestratorvet\b|DURABLE00\d\d|\bbuf\s+breaking\b|\basyncapi\s+diff\b|\bjson-schema-diff\b|\bcan-i-deploy\b|\b(?:test|replay)[:\w-]*replay\w*' . > "$T/gates"; [ -s "$T/gates" ] && sed 's/^/ci gate line: /' "$T/gates" || echo 'ci gate lines: none (a REPLAY GATE gap when workflow files exist, a CONTRACT GATE gap when schema files exist)'
+echo '# F6 the harness: container libraries, brokers in test compose files, mocked-broker markers (never a C tier, precedent 33), the docker daemon'
+rg -n --no-heading --pcre2 "${CODE[@]}" -g '**/{package.json,requirements*.txt,pyproject.toml,pom.xml,build.gradle*,*.csproj,go.mod,Gemfile}' -g '!**/node_modules/**' -g '!**/{dist,build,vendor,target}/**' '\b(?:GenericContainer|PostgreSqlContainer|RedisContainer|KafkaContainer|RabbitMQContainer|LocalstackContainer|ToxiProxyContainer|Toxiproxy\w*)\b|["\x27](?:testcontainers|@testcontainers/[\w-]+|toxiproxy-node-client)["\x27]\s*:' . | cut -d: -f1 | sort -u | sed 's/^/container harness: /' | head -10
+rg -l --pcre2 -g '**/*compose*.{yml,yaml}' -g '!**/node_modules/**' '\bimage:\s*["\x27]?(?:[\w.-]+/)*(?:redis|valkey|rabbitmq|nats|cp-kafka|kafka|redpanda|localstack|postgres|toxiproxy)\b' . | sed 's/^/compose with a broker or store: /'
+echo "mocked-broker files (Queue::fake, eager Celery, in-memory harness, ioredis-mock): $(rg -l --pcre2 -g '*.{ts,js,py,php,cs,java,rb}' -g '!**/node_modules/**' '\bQueue::fake\(|\b(?:CELERY_)?(?:task_)?always_eager\b|\bCELERY_TASK_ALWAYS_EAGER\b|\bInMemoryTestHarness\b|\bAddMassTransitTestHarness\b|["\x27]ioredis-mock["\x27]|\bjest\.mock\(\s*["\x27](?:bullmq|kafkajs|amqplib|ioredis)["\x27]' . | wc -l | tr -d ' ')"
+D=$(command -v docker >/dev/null 2>&1 && docker version --format '{{.Server.Version}}' 2>/dev/null); [ -n "$D" ] && echo "docker daemon: $D (C-tier oracles can run in throwaway containers)" || echo 'docker: no daemon (C-tier oracles blocked: rows stay Unconfirmed with the test written out)'
+echo '# F7 installed detectors, owners, judges and scripts; tool lanes on PATH (presence only, nothing is run)'
+for p in .claude/skills/{messaging-scan,dual-write-scan,retry-deadline-scan,coordination-scan,workflow-scan,event-contract-scan,dlq-replay,transaction-scan,connection-config-scan,logic-race-scan,request-path-scan,caching-scan,serverless-reliability-scan,edge-reliability-scan,trace-propagation-scan,job-lifecycle-scan,offline-sync-scan} .claude/agents/{resilience-reviewer,workflow-orchestrator,event-sourcing-architect,system-architect,verifier}.md .claude/scripts/{test-integrity,oracle-check}.py; do [ -e "$p" ] && echo "installed: $p" || echo "absent: $p"; done | awk '{ print } /^absent/ { a++ } END { print "absent: " a + 0 " of " NR }'
+for t in workflowcheck buf asyncapi json-schema-diff dotnet errcheck ruff temporal toxiproxy-cli; do command -v "$t" >/dev/null 2>&1 && echo "lane on PATH: $t"; done
+echo "scratch: $T"
+```
+
+Measured 2026-10-14 (bash 3.2). Every grep exited 0 or 1, never 2, and stderr was empty; excluded trees gave 0 hits except F6's deliberate harness line.
+- **The program's distributed research samples** (two trees, 83 files over BullMQ, kafkajs, amqplib, SQS, NATS, Redis Streams, Celery, Spring, Go, .NET, Ruby, PHP, Temporal in five SDKs, sagas, event stores): 0.31 s and 0.23 s. With no manifest in the trees, F2 resolves 1 of 23 rows and prints every other default as `UNRESOLVED (… needs the <lib> version)` — the no-guess rule working. F4 1 event-store migration; F5 TS 2 · Go 2 · Python 1 · .NET 2 workflow files, 2 saga files.
+- **A read-only NestJS 11 + Fastify + BullMQ 6 monorepo** (about 11,100 files, managed Valkey, Kubernetes manifests): 3.1 s wall, of which `ds-inventory.py` takes about 2.5 s; 94 lines; nothing written into the tree (`find -newer` on the start stamp: 0 files). F1 6 manifest lines (BullMQ `^6.3.4` as a range, no lockfile: 0 locked lines), 3 store images, 2 managed-port lines → server settings `UNREAD`; F2 **20/20 resolved**, 1 `# candidate:` line (a custom backoff whose worker sets no strategy); F3 30 lines — API and worker Deployments, an HPA, a KEDA `ScaledObject`, two migration Jobs, a backup CronJob, **no `TZ`** (UTC, precedent 35); F4 15 lines over 12 files (the outbox, the consumer claims, and domain `*_event` tables that part A dismisses); F5 0 workflow and 0 schema files, no gate lines → REPLAY and CONTRACT GATE `N/A`; F6 `testcontainers` ^12.1 and one e2e harness, 0 mocked-broker files, no docker daemon.
+- **`benchmarks/fixtures/*`** (18 trees): 44–86 lines and about 0.26 s each, 0 rg errors. Four FP classes were fixed before shipping: an indented `HEALTHCHECK … CMD` continuation counted as a process command (now column 0 only), `replicas:` in third-party chart values counted as deployment shape (now only in files that declare a Deployment or StatefulSet), a bare `CREATE TABLE events` missed, and a Java workflow declared as `implements OrderWorkflow` missed.
+
+From these lines write a one-page map: the **clients, servers and versions** with their sources, and every managed server `UNREAD (<service>)` (F1); the **inventory** — consumers, producers and wrappers with their resolved options (F2); the **process types**, replicas, autoscalers and the process time zone (F3); the **outbox, inbox, claims and event stores** (F4); the **workflow and schema files and the gates in CI** (F5); the **harness** — can a C-tier oracle run here at all (F6); the **owners installed** (F7). Then list the **assumptions nothing enforces** — "the queue never redelivers", "the lock is held for the whole job", "the comment says `noeviction`", "only one replica runs this", "the workflow never changes while executions are open", "the far end dedupes" — and hand them to the detectors as seeds.
+
+## Phase 4 — Generate (verified findings, ledger, verdict)
+
+### Verify every candidate before it becomes a finding
+Follow `refute-before-report.md` with `precedents/distributed.md`: the claim restated in its distributed shape (§ The claim, restated: *under [redelivery / a crash between X and Y / a rebalance / a paused holder / skew / a retry / a deploy with open executions], [the consumer, job, handler, lock holder or workflow at file:line] performs [effect] without [reserve / outbox / fencing / version check / version gate], which causes [a duplicate charge / a lost event / a stale overwrite / a replay break], proven by [V-number, tier]*), the seven gates as § Reading the seven gates for distributed systems reads them. Five checks decide most candidates: **part A** (is this really the consumer, retry, lock or workflow — polling is not retry, a cache key is not a lock, precedent 16); **the default row at the installed version**; **the cross-file control** (the base processor, `defaultJobOptions`, the outbox port, the claims ledger, the lock helper, an aborting deadline, broker definitions in another repo — read the whole file and its callees); **reach and roles** (F3: which process starts it, how many replicas — one replica does **not** make a delivery or dual-write row latent, precedent 32); **the oracle tier reached**.
+
+**The judges — one per detector family.**
+1. **`@resilience-reviewer`** receives every `messaging-scan`, `dual-write-scan`, `retry-deadline-scan` and `coordination-scan` row with the F2 inventory row, the version lines and the default-table row each cites. It refutes and **grades** them (under this command it dispatches nothing). Leader rows (`coordination-scan` §6) are graded jointly with **`@system-architect`**.
+2. **`@workflow-orchestrator`** grades the `workflow-scan` rows in its verdict vocabulary (DURABLE / FRAGILE / ORPHAN-RISK / DOUBLE-EFFECT), on the SDK and version F1 read.
+3. **`@event-sourcing-architect`** grades the `event-contract-scan` rows (CORRUPT / UNREPLAYABLE for event-store and projection rows).
+4. **Every BLOCKER or HIGH a judge keeps goes to `@verifier` mode `refute` exactly once**, dispatched with a [delegation brief](../../../snippets/delegation-brief.md) under `ai/runs/<YYYYMMDD>-ds-audit-<4hex>/`, its record in `verdict-refute.json`; else a `Task` refuter. The refuter gets the candidate, part A and part B, the `broker-semantics.md` row, the version lines and the inventory row — **never the detector's or the judge's reasoning**. MEDIUM and LOW may share one batch refuter. A `self-verified` detector row is verified again here.
+5. **A judge not installed:** its rows go straight to `@verifier`, which grades them and lists them `graded (judge not installed)`.
+
+- **Proof by execution beats proof by reading** (gate 6): the container oracle with the repo's broker version, the tool exit, the replay of recorded histories. Below the class's tier the candidate is **Unconfirmed** with that oracle written out — the V-number, the variant, and the container it needs.
+- **Buckets** (`refute-before-report.md § 5`): **Finding** · **Unconfirmed** (the gate and the settling oracle) · **Hardening** (a precedent) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted · <r> routed`.
+- **Siblings** (`refute-before-report.md § 6`): state the root cause at the shared unit ("the base processor returns before the effect's promise settles", not "the receipts job acks early").
+- **Every Finding carries:** the `<file:line>`; part A and part B; the delivery event it breaks under; the default row and the version line it rests on; reach (process type, replicas); the owning detector, § and class; severity; the restated claim; the proof (V-number, tier, measured or not run); and the fix in the project's own primitive. `/ds-fix` turns that oracle into its failing-first test.
+
+**Severity.** A Finding keeps the owning detector's severity; confidence decides only the bucket. Critical maps to **BLOCKER**, and these are BLOCKER whatever the detector printed: an ack, commit or delete before the effect on a consumer that creates orders, moves stock or sends customer messages (`messaging-scan` §1, V291); a commit-then-publish whose fact another service relies on for fulfilment, with nothing that reconciles (`dual-write-scan` §1, V300); a poison message that blocks an ordered partition or queue on a revenue path (`messaging-scan` §3, V293); a workflow non-determinism or an unversioned change while executions are open (`workflow-scan` §1–§2, V320); a correctness lock released or reclaimed while the holder still writes, with no fencing (`coordination-scan` §1, §4, V310, V313; performance §18 corroborates). **HIGH** is the detector's high. Money effects are security's, and BLOCKER there.
+
+### Class coverage ledger (required — the answer to "did it look for everything?")
+One row per class family, sourced from each owner's coverage block. **The list is fixed**, so no run can quietly shrink it:
+
+| Row (`--classes` family) | Classes | Owner · judge |
+|---|---|---|
+| Delivery (`delivery`) | ack before effect · consumer idempotency · poison · lock or visibility vs run | `messaging-scan` §1–§3, §6 · `@resilience-reviewer` |
+| Order and groups (`ordering`) | ordering · rebalance | `messaging-scan` §4–§5 · same |
+| Producers and brokers (`brokers`) | producer durability · retention and eviction · buffering · broker durability · version traps | `messaging-scan` §7–§11 · same |
+| Dual write (`dualwrite`) | commit/publish order · relay · inbox atomicity · CDC · gap-blind cursor | `dual-write-scan` §1–§6 · same |
+| Retries (`retries`) | IF · cap · backoff and jitter · layers · non-idempotent retry · state reset | `retry-deadline-scan` §1–§6 · same |
+| Deadlines (`deadlines`) | propagation across hops · timeout order | `retry-deadline-scan` §7–§8 · same |
+| Locks and leaders (`locks`) | release · TTL · acquire · lease and renewal · advisory via pool · leader after loss | `coordination-scan` §1–§6 · same (+ `@system-architect` on §6) |
+| Clocks (`clocks`) | wall-clock durations · two clocks · LWW · time ids · DST schedules | `coordination-scan` §7–§11 · same |
+| Workflows (`workflows`) | determinism · versioning · activity config | `workflow-scan` §1–§3 · `@workflow-orchestrator` |
+| Sagas (`sagas`) | missing compensation · order, swallow, context · compensation idempotency and state | `workflow-scan` §4–§6 · same |
+| Contracts (`contracts`) | breaking change · unvalidated payload · intolerant reader · semantic change · name drift | `event-contract-scan` §1–§5 · `@event-sourcing-architect` |
+| Event sourcing (`eventsourcing`) | expected version · stream uniqueness · projection idempotency · apply side effects · read-model lag | `event-contract-scan` §6–§10 · same |
+| Runtime (`runtime`, L) | stuck instances · DLQ depth and age · compensation gaps · unknown event versions | `--runtime` on `--live` sources — `NO-DATA(<source>)` without them |
+| In-transaction publish (routed) | publish or enqueue inside a transaction · claim without `SKIP LOCKED` · lost update mid-saga | database `transaction-scan` §1, §5, §8 · `connection-config-scan` §3 |
+| Money and credits (routed) | money consumer and endpoint idempotency · PSP key · check-then-act · clamped debit | security `logic-race-scan` §4–§5 |
+| Fleet and capacity (routed) | timeout presence · per-replica lock and fencing · once-per-fleet work · worker capacity · consumer fallback | performance `request-path-scan` §12, §18, §20, §23, §24 (fallback) |
+| Cross-service cache (routed) | invalidation by another service's events · cache-aside vs write-through | performance `caching-scan` §4, §7 |
+| Serverless queues (routed) | Lambda/SQS/EventBridge timing, DLQ path, partial batch, retry storms | infrastructure `serverless-reliability-scan` §1–§6 · `edge-reliability-scan` §1, §3 |
+| Queue trace hop (routed) | context across a queue | observability `trace-propagation-scan` §2 |
+| Job lifecycle (routed) | payload drift inside one service · self-overlap on one process · a schedule's own zone | backend `job-lifecycle-scan` §3, §4, §6 |
+
+Each row prints `checked (k hits → m findings)` / `N/A (<reason>)` / `blocked (<reason>)` / `not run (<reason>)` / `NO-DATA(<source>)` / `Live, unreviewed (k groups / n hits — <continuing command>)`. A row whose owner's block lacks one of its §s prints `not run (§n: no line in <owner>'s block)`. A row resting on a managed setting prints it (`checked (k → m) · Valkey maxmemory-policy UNREAD`). **On a whole-repo run, a `not run` or `blocked` row forces `GO-UNVERIFIED`, except Runtime and the routed rows**; a GO names the routed rows whose owner is absent.
+
+### Production bar and control verification (GO-critical)
+- **REDELIVERY SAFETY:** every consumer whose effect writes or calls out has an atomic reserve keyed on a stable id (rows ID1–ID9), or is naturally idempotent. Proof: V292 on the top consumer of each group, at the C tier (`messaging-scan` §2, `dual-write-scan` §4).
+- **POISON BOUNDED:** every consumer has bounded attempts with backoff and a dead letter something alerts on; a failed set nobody reads is a gap (V293, `messaging-scan` §3).
+- **DUAL WRITE:** every cross-service fact is published through an outbox, a framework outbox, or is advisory with a reconciler (precedents 10–11; V300, `dual-write-scan` §1).
+- **RETRY BUDGET:** the top three outbound call chains have exactly one retrying layer (the `retry-deadline-scan` §4 worksheet; V306).
+- **REPLAY GATE:** when workflows exist, CI replays recorded histories or runs `workflowcheck` / the DURABLE analyzers, and fails on a seeded non-deterministic change (V320). No workflow SDK → `N/A`.
+- **CONTRACT GATE:** when schema files exist, CI runs the format's compatibility tool and fails on a seeded breaking change (V323). No schema file → `N/A`.
+
+Write a **control verification table**: one row per control, each with an Evidence token — **Injected** (the CI job's own command, run here on a copy with a seeded break, exited non-zero), **Test** (a container oracle run in a scratch worktree against a throwaway broker), **Tool** (a tool's exit), **Static** (the line, for a self-proving fact) — or `UNVERIFIED`. A control that was read but never exercised is `UNVERIFIED`, not a pass.
+
+### Verdict (three states)
+- **NO-GO:** at least one Finding at BLOCKER or HIGH.
+- **GO-UNVERIFIED (N):** no such Finding, but N open items, each named: Unconfirmed candidates at HIGH or above; `not run` or `blocked` rows other than the exempt ones; **a managed setting `UNREAD` while a HIGH row depends on it**; production-bar gaps; `UNVERIFIED` control rows; dispatched detectors with no result. A run on a host with no docker daemon is the common case: REDELIVERY SAFETY and POISON BOUNDED cannot be shown by reading, so the verdict line prints `C tier not run (no docker daemon)` and stays GO-UNVERIFIED. A GO-UNVERIFIED is not a GO.
+- **GO:** none of the above. MEDIUM and LOW Findings are listed and do not block. The line prints `GO — runtime lane <ran | NO-DATA(<source>)>; not looked at here: <routed rows whose owner is absent | none>`.
+
+### Posting bar — what reaches a human
+[`posting-bar.md`](../../../snippets/posting-bar.md) § 1–§ 4 applies after verification: BLOCKER and HIGH Findings are **IMPORTANT**; MEDIUM and LOW are **NIT**, at most 5 printed with the rest as a count (the report keeps them all); Pre-existing is listed, never blocking. Nothing another pack owns; one finding per base processor, producer wrapper, outbox port, lock helper or retry constant. Every posted finding is its one-sentence restatement.
+
+### RE-DETECT
+On a re-audit after `/ds-fix`, re-run the owning detector on each first-pass finding's `<file:line>` and its oracle at the same tier against the same broker version. A finding is closed only when the detector goes quiet there and the oracle passes with the benign control at one effect. Any first-pass BLOCKER that still reproduces keeps the verdict NO-GO.
+
+## Phase 5 — Update
+- Write `ai/audits/<YYYY-MM-DD>-distributed.md` (a `--classes` run: `-distributed-<families>.md`): the context map with the version lines and every `UNREAD`, the inventory summary, the class ledger, the coverage ledger, the tool ledger (`ran` / `blocked` per lane), the verification line, findings by bucket, the production bar, the control verification table, the runtime block (or its `NO-DATA` rows), the verdict, and `## What to do next`. **A `GO` printed without the ledger and the control table in this file is a defective run.**
+- `ai/dynamic/changelog.md`: `Distributed audit on <scope>: B blockers, H high, U unconfirmed, brokers <list with versions | UNREAD>, C tier <ran | not run>, verdict <state>`.
+- `ai/status.md` `## Recent Changes`: one bullet when the verdict is NO-GO or there is a BLOCKER.
+- Nothing else. Scratch containers (`docker rm -f` on the run's label), copies and the scratch directory are removed; no product file, config or test is touched; `git diff --exit-code` proves the tree.
+
+## Phase 6 — Validate
+- Every Finding has a `<file:line>`, part A and part B, a default row and a version line, reach, an owner, an oracle at its tier (or is Unconfirmed with it), and a fix in the project's own primitive. Grep the draft for hand-waves ([`hand-wave-grep.md`](../../../snippets/hand-wave-grep.md)) plus `looks fine`, `exactly-once`, `should be idempotent`, `no issues`, `might`, `seems`, `TBD`.
+- Every version came from a file or a command run in this session; every managed setting reads its value from the repo or `UNREAD`; every live and runtime claim cites its `--live` source or reads `NO-DATA`.
+- The class ledger has every row; the coverage ledger's counts sum to the population; the verdict matches the open-item count.
+
+## Phase 7 — Improve
+- `/learn-from-task`: capture each confirmed class.
+- A class seen in two audits is systemic. Queue an ADR and the mechanical gate that refuses it: a duplicate-delivery container test (V292) per base processor in CI, a kill-between test for the outbox port (V300), `no-floating-promises` at error, a retry-budget constant with one retrying layer, the project's atomic lock helper as the only acquire/release path, a replay test over recorded histories, the schema compatibility tool as a required check.
+
+## Output format
+```
+## /ds-audit — verdict GO-UNVERIFIED (5)   scope=whole repo   Valkey (managed) maxmemory-policy UNREAD · C tier not run (no docker daemon)
+Stack: api nestjs 11 + fastify · @nestjs/bullmq ^11.0.5 · bullmq ^6.3.4 range (no lockfile) · ioredis ^5.4.2 · @nestjs/schedule ^6.1.3 (apps/api/package.json)
+Inventory: 7 consumers, 13 producer rows (1 wrapper), 20/20 resolved · processes: api (HPA), worker (KEDA) · TZ unset (UTC)
+Lanes: static ✓ · tools: no-floating-promises blocked (not installed) · workflowcheck N/A (no Go workflows) · live: none (NO-DATA) · runtime: not asked
+Verification: 82 candidates → 0 findings · 8 unconfirmed · 5 hardening · 0 pre-existing · 66 refuted · 1 routed · 2 live, unreviewed
+UNCONFIRMED (HIGH, 1):
+  apps/api/src/wallets/collections.port.ts:132   dual-write-scan §6 ES-4 · createdAt watermark over concurrent writers   settle: V301 gap variant (security §5 corroborates)
+UNCONFIRMED (MEDIUM/LOW, 7): webhook job 5 × kernel 3 GETs (retry §4, V306) · enqueue raced against a timer (messaging §7, V297) · GET→compare→DEL ×9 (coordination §1, V310) · …
+Class ledger: Delivery checked (8 consumer files → 0) · Dual write checked (28 → 27 outbox port, 1 refuted) · Locks checked (22 acquisitions → 1 group) ·
+              Workflows N/A (no workflow SDK) · Contracts checked (§1 N/A: no schema files, no --contract-base) · Runtime NO-DATA(redis) · Money routed (1) · …
+Production bar: REDELIVERY SAFETY UNVERIFIED (no C tier) · POISON BOUNDED UNVERIFIED · DUAL WRITE Static (outbox port read once) · RETRY BUDGET UNVERIFIED (1 chain) · REPLAY GATE N/A · CONTRACT GATE N/A
+GO-UNVERIFIED — runtime lane not asked; Valkey policy UNREAD while messaging §8 depends on it
+```
+
+## What to do next — required closing section
+Every run ends its report with `## What to do next`: the findings as ONE ordered, numbered to-do. **MUST FIX** (BLOCKER + HIGH) first, then **SHOULD FIX** (MEDIUM), then **OPTIONAL** (LOW / Hardening). Each step carries `<file:line>`, the **Fix** (in the base processor, producer wrapper, outbox port, relay, lock helper, retry constant, workflow options or schema) and the **Verify** (the oracle, its tier and its V-number). On `GO-UNVERIFIED` the MUST FIX list also carries a **PROVE** section: each Unconfirmed candidate with its container oracle and the broker image it needs, each `UNREAD` managed setting with the read-only command `--live` would run, each `UNVERIFIED` control with the run that settles it. The closing steps are: run **`/ds-fix`** on this report (it re-verifies each finding, proves it failing first against a throwaway broker at the repo's version, fixes it at the root primitive, refuses a fix that turns a duplicate into a loss, stops before changing a delivery guarantee, and re-detects); routed rows go to `/security-fix`, `/db-fix`, `/perf-fix`, `/infra-fix` or the owning pack's fix command; replay dead letters with `dlq-replay` only after the fix ships; re-run `/ds-audit`; `/learn-from-task`. A clean run collapses to one line, which still names the C tier and the runtime lane. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
+## Failure modes
+- **"We use exactly-once."** It clears producer duplicates only; the consumer's effect still needs a reserve (precedent 4).
+- **"The comment says `noeviction`."** A managed cache with no parameter group in the repo is `UNREAD` (precedent 34).
+- **"One replica, so no duplicates."** Redelivery, rebalance and broker crashes happen on one replica too (precedent 32).
+- **The outbox port counted as 28 dual writes.** The writer is resolved before §1, or the lane is 96 % noise.
+- **TypeScript `Date.now()` in a workflow reported.** The sandbox makes it deterministic (precedent 25).
+- **A mocked broker as proof.** `Queue::fake()` and eager Celery prove nothing about delivery (precedent 33).
+- **The finder judging itself.** Every BLOCKER and HIGH goes to a separate refuter.
+- **A shrunken ledger.** A missing row reads as "looked, nothing found".
+
+## Related
+
+### Detector skills (dispatched in Phase 2)
+This pack: `messaging-scan` (`scripts/ds-inventory.py`) · `dual-write-scan` · `retry-deadline-scan` · `coordination-scan` · `workflow-scan` · `event-contract-scan`; `dlq-replay` (never dispatched by an audit). Database (when installed): `transaction-scan` · `connection-config-scan`. Security (when installed): `logic-race-scan`. Performance (when installed): `request-path-scan` · `caching-scan`. Infrastructure (when installed): `serverless-reliability-scan` · `edge-reliability-scan`. Observability (when installed): `trace-propagation-scan`. Backend (when installed): `job-lifecycle-scan`.
+
+### Agents
+- `@resilience-reviewer` (this pack): the judge of the messaging, dual-write, retry and coordination rows. `@system-architect` (this pack): co-judge of leader rows. `@workflow-orchestrator` (this pack): the judge of workflow and saga rows. `@event-sourcing-architect` (this pack): the judge of contract and event-sourcing rows. `@verifier` (repo-baseline, mode `refute`): the refuter for every kept BLOCKER and HIGH.
+
+### Commands
+- `/ds-fix`: closes this report's findings. `/audit-distributed-tx` (this pack): the runtime procedure `--runtime` runs. `/add-event-handler`, `/add-saga`, `/design-system` (this pack). `/security-audit`, `/db-audit`, `/perf-audit` (when installed): the routed classes.
+
+### Shared contracts
+[`refute-before-report.md`](../../../snippets/refute-before-report.md) · [`precedents/distributed.md`](../../../snippets/precedents/distributed.md) · [`broker-semantics.md`](../../../snippets/broker-semantics.md) · [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Distributed · [`posting-bar.md`](../../../snippets/posting-bar.md) · [`coverage-ledger.md`](../../../snippets/coverage-ledger.md) · [`delegation-brief.md`](../../../snippets/delegation-brief.md)

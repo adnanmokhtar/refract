@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**219 commands** — core 16 · 24 packs (157) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**223 commands** — core 16 · 24 packs (161) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -14,14 +14,14 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — ai-engineering](#pack--ai-engineering) — 3
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
-- [Pack — backend](#pack--backend) — 9
+- [Pack — backend](#pack--backend) — 11
 - [Pack — business](#pack--business) — 5
 - [Pack — code-quality](#pack--code-quality) — 8
 - [Pack — data-engineering](#pack--data-engineering) — 4
 - [Pack — database](#pack--database) — 5
 - [Pack — delivery](#pack--delivery) — 1
 - [Pack — devops](#pack--devops) — 6
-- [Pack — distributed-systems](#pack--distributed-systems) — 4
+- [Pack — distributed-systems](#pack--distributed-systems) — 6
 - [Pack — documentation](#pack--documentation) — 3
 - [Pack — finops](#pack--finops) — 4
 - [Pack — frontend](#pack--frontend) — 10
@@ -100,6 +100,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-feature` | Backend lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=backend <the ask, verbatim, with every flag the user passed>` |
 | `/add-module` | Scaffold a new backend module end-to-end following the project's declared architecture. | `--plan` | `/add-module` |
 | `/analyze-module` | Deep module analysis — architecture, performance, security, DB, tests, dead code, in parallel. | — | `/analyze-module <path\|name>` |
+| `/backend-audit` | Read-only backend audit: validation, edge errors, HTTP contract, wire, jobs, transitions; verdict. | — | `/backend-audit` |
+| `/backend-fix` | Close /backend-audit findings failing-first through the real bootstrap. | — | `/backend-fix` |
 | `/endpoint-test` | Hit a dev endpoint with curl and verify status + response shape via the endpoint-tester agent. | — | `/endpoint-test [controller\|method-path]` |
 | `/fix-bug` | Comprehensive orchestration for a bug fix. | `--plan` | `/fix-bug` |
 | `/log-tail` | Tail structured dev logs filtered by level, correlation id, or module. | — | `/log-tail [filter]` |
@@ -171,8 +173,10 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 |---|---|---|---|
 | `/add-event-handler` | Add an event handler. | — | `/add-event-handler` |
 | `/add-saga` | Implement a saga (orchestration / choreography) for a multi-step distributed transaction with… | — | `/add-saga` |
-| `/audit-distributed-tx` | Audit distributed transactions / sagas / event flows for stuck instances, missing compensations… | — | `/audit-distributed-tx` |
+| `/audit-distributed-tx` | Runtime lane of /ds-audit: stuck sagas, DLQ depth, compensation gaps, unknown event versions on… | `--live=<source=target,…>` | `/audit-distributed-tx --live=<source=target,…>` |
 | `/design-system` | Produce a system design — service boundaries, data ownership, consistency, failure modes, ADRs. | — | `/design-system <feature>` |
+| `/ds-audit` | Read-only distributed-systems audit: queues, outbox, retries, locks, workflows, contracts; verdict. | `--whole-repo`, `--classes=<family,…>`, `--live=<source=target,…>`, `--contract-base=<dir>`, `--runtime` | `/ds-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<source=target,…>] [--contract-base=<dir>] [--runtime]` |
+| `/ds-fix` | Close /ds-audit findings failing-first on a throwaway broker, across the class. | `--all` | `/ds-fix [audit-report-path \| finding-id ... \| --all]` |
 
 ## Pack — documentation
 
