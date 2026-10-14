@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.3 — 2026-10-14
+
+**`serverless-reliability-scan` Boundaries hand non-serverless pollers to distributed-systems.** An ECS, Kubernetes or VM worker on SQS, Pub/Sub, Service Bus or a self-hosted broker is `messaging-scan` §6 (visibility, lock or ack-wait vs the worst-case job) and §3 (poison, DLQ) when that pack is installed, printed here as `→ messaging-scan §3/§6`; without it, § 2's poller variants and § 3 apply as written (distributed-systems eval IR-12).
+
 ## 2.0.2 — 2026-10-10
 
 **Seven pre-flight defects the `benchmarks/fixtures/infra-ops` fixture found (its DEFECTS.md § Integrator requests IR-1–IR-7).** Re-measured on a staged copy of the fixture and on the research fixtures: the three missed seeds (IO-ST-09b, IO-ED-17a, IO-ED-17b) now print, the two false PIN-HELM lines are gone, and nothing new prints on the research fixtures.

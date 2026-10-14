@@ -37,30 +37,41 @@ Token in URL → leaks via referrer, server log, browser history, proxy log. Use
 
 ### Subscribe without scope check
 ```bash
-rg "@SubscribeMessage|client\.join\(|socket\.join\(" src/ -A 8 \
-  | grep -v "tenantId\|userId\|ACL\|canSubscribe\|assertCan"
+# a subscribe handler or join with no scope check within 8 lines above or below it (a block window:
+# `-A 8 | grep -v` drops lines, never handlers, and misses a check written above the join)
+rg -l0 --pcre2 '@SubscribeMessage\(|\b(?:client|socket)\.join\(' src/ \
+  | X='@SubscribeMessage\(|(client|socket)\.join\(' \
+    Y='tenantId|userId|ACL|canSubscribe|assertCan' xargs -0r awk -v B=8 -v A=8 '
+  function flush(  i, j, ok) { for (i = 1; i <= n; i++) if (L[i] ~ ENVIRON["X"]) { ok = 0
+      for (j = i - B; j <= i + A; j++) if (j >= 1 && j <= n && L[j] ~ ENVIRON["Y"]) ok = 1
+      if (!ok) print f ":" i ":" L[i] } n = 0 }
+  FNR == 1 && NR > 1 { flush() }  { f = FILENAME; L[++n] = $0 }  END { flush() }'
 ```
+A guard on the method or the gateway class (`@UseGuards`) can hold the check instead — read it before reporting.
 Client joins channel `room:tenant:abc-123` — does the gateway VERIFY this client belongs to tenant abc-123? Or just trust the room name?
 
 ### Broadcast without tenant filter
 ```bash
-rg "io\.emit\(|server\.emit\(|broadcast\(" src/ -A 3 \
-  | grep -v "to\(|in\(|tenant\|user\|room"
+# an emit on the server object itself, or socket.broadcast.emit: neither names a room (.to()/.in() would sit between)
+rg -n --pcre2 '\b(?:io|server|this\.server|nsp|wss)\.emit\(|\.broadcast\.emit\(' src/
 ```
 Global broadcast = every connected client receives, including other tenants' admins.
 
 ### Unbounded queue / no backpressure
 ```bash
-rg "messageQueue|outboundQueue|sendBuffer" src/ -A 5 \
-  | grep -v "maxSize\|drop\|backpressure"
+# files that keep a per-client send queue and never bound it (file level: the bound may sit far from the push)
+rg -l0 --pcre2 '\b(?:messageQueue|outboundQueue|sendBuffer)\b' src/ \
+  | xargs -0r rg --files-without-match --pcre2 '\b(?:maxSize|maxLength|highWaterMark|bufferedAmount|backpressure|drop\w*)\b'
 ```
 Slow client + fast producer = memory grows per client until OOM.
 
 ### No heartbeat / ping
 ```bash
-rg "@WebSocketGateway|new WebSocketServer" src/ -A 10 \
-  | grep -v "pingInterval\|heartbeat\|keepAlive"
+# a gateway or server file with no ping or heartbeat setting anywhere in it
+rg -l0 --pcre2 '@WebSocketGateway\b|\bnew\s+(?:WebSocket\.)?(?:WebSocketServer|Server)\(' src/ \
+  | xargs -0r rg --files-without-match --pcre2 '\b(?:pingInterval|pingTimeout|heartbeat\w*|keepAlive)\b|\.ping\('
 ```
+Check the library's own default before reporting: Socket.IO (and Nest gateways on it) pings by default; a raw `ws` server does not.
 Connections die silently behind NAT/proxies after ~60s without traffic; client thinks open, sends, lost.
 
 ### Single-node fanout in multi-node deploy
@@ -71,8 +82,9 @@ In-process emitter = events only delivered to clients on the SAME node. Need Red
 
 ### Reconnect without backoff
 ```bash
-rg "websocket.*reconnect|setTimeout.*?connect\(" src/ -A 3 \
-  | grep -v "exponential\|backoff\|jitter"
+# files with a hand-written reconnect and no backoff or jitter anywhere in them (the delay is often computed above the setTimeout)
+rg -l0 --pcre2 '\breconnect\w*\s*[(=:]|setTimeout\([^\n]*\bconnect\(' src/ \
+  | xargs -0r rg --files-without-match --pcre2 '\b(?:exponential\w*|backoff\w*|jitter\w*|reconnectionDelay\w*|randomizationFactor)\b|Math\.(?:random|pow)\(|\*\*'
 ```
 Tight reconnect loop = thundering herd at outage recovery.
 

@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "2.3.3",
-  "released": "2026-10-10",
+  "version": "2.3.4",
+  "released": "2026-10-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "iac-scan 4n/5g/5h/7f join/7h + *.caddy; CI precedents renamed CIP1–CIP11; security-fix CI row; exclusions on the greps that had none.",

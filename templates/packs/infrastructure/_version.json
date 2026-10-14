@@ -1,8 +1,8 @@
 {
   "kind": "pack",
   "name": "infrastructure",
-  "version": "2.0.2",
-  "released": "2026-10-10",
+  "version": "2.0.3",
+  "released": "2026-10-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,
   "summary": "Grep fixes the infra-ops fixture found: edge 13a reads .github/, 13b matches --watch, iac-state 4 reads terraform -chdir, --hidden greps skip AI-tool trees, CNPG rows keep their file, Helm __src.file joins the chart directory, K-NP-DNS cites the policy.",

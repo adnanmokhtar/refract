@@ -131,9 +131,16 @@ A privileged *function / operation* is reachable by a lower-privileged role — 
 - **Liveness on routes that need no permission.** When a member is paused or removed, emptying their permission set closes only the routes that ask for a permission. Own-account and "the session is the subject" routes still answer: chat, notifications, profile, attendance. Check that the session is revoked on deprovision, or that those routes read membership liveness.
 - **Guard order on alternate doors.** In NestJS, global guards run before controller-level guards, and those before route-level guards; Express middleware and a Spring Security filter chain run in registration order the same way. On a route marked public for the global chain and authenticated by its own `@UseGuards(DoorGuard)` (an API-key, signed-link or webhook door), every global guard — permissions, read-only workspace, tenant or portal checks — runs **before** that door has set a principal. So each of them sees no principal and passes. Each such door must re-apply those checks itself; the fourth probe lists the doors.
 ```bash
-# admin/privileged routes lacking a role check
-rg -n "@(Get|Post|Put|Patch|Delete)\(['\"][^'\"]*(admin|internal|manage|config)" "${ROOTS[@]}" -A3 \
-  | rg -v "Roles?\(|hasPermission|hasRole|can\(|requireRole|@Admin|authorize\("
+# admin/privileged routes with no role check within 6 lines above or 3 below the route decorator (a block
+# window: `-A3 | rg -v` drops lines, never routes, and never sees a @Roles stacked above). A class-level
+# role guard or a global one also covers a hit — read it; an auth-only guard does not.
+rg -l0 --pcre2 '@(?:Get|Post|Put|Patch|Delete)\([^)]*(?:admin|internal|manage|config)' "${ROOTS[@]}" \
+  | X='@(Get|Post|Put|Patch|Delete)\([^)]*(admin|internal|manage|config)' \
+    Y='Roles?\(|hasPermission|hasRole|can\(|requireRole|@Admin|authorize\(' xargs -0r awk -v B=6 -v A=3 '
+  function flush(  i, j, ok) { for (i = 1; i <= n; i++) if (L[i] ~ ENVIRON["X"]) { ok = 0
+      for (j = i - B; j <= i + A; j++) if (j >= 1 && j <= n && L[j] ~ ENVIRON["Y"]) ok = 1
+      if (!ok) print f ":" i ":" L[i] } n = 0 }
+  FNR == 1 && NR > 1 { flush() }  { f = FILENAME; L[++n] = $0 }  END { flush() }'
 rg -n "/(admin|internal)/" "${ROOTS[@]}" | rg -v "role|permission|guard"
 # machine-credential authenticators, and the principal each one builds — owner/admin there is the question
 rg -l -i --pcre2 'api_?key|apikey|service_?token|access_?token|webhook_?secret|personal_?access|signed_?link|x-api-key' -g '!**/*.{spec,test,e2e-spec}.*' "${ROOTS[@]}" | rg -i '(guard|strateg|middleware|authenticat|interceptor|resolver)[^/]*$' | tr '\n' '\0' | xargs -0 -r rg -n -i --pcre2 '\b\w*(owner|admin|superuser|root|minter|created_?by|issuer|principal)\w*\b'

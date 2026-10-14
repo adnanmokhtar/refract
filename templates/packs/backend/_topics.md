@@ -107,7 +107,7 @@ Each topic declares:
   mirror_existing: true
   fallback: _examples/multi-tenancy.md
 
-- name: caching
+- name: caching-strategy   # the filename every consumer reads (ai/patterns/caching-strategy.md); was `caching`, which authored a file nothing dispatched by
   kind: pattern
   triggers:
     grep_evidence: "@Cacheable|cache\\.(get|set)|getOrSet|Cache::|redis|memcached|fastcache|cachetools"   # generic cache-API shapes across stacks; Phase 2 fills in the actual cache lib name
@@ -479,6 +479,39 @@ Each topic declares:
     OR_grep_evidence: "\"(xstate|javascript-state-machine|typescript-fsm|robot3)\"\\s*:|^\\s*(transitions|python-statemachine|django-fsm)\\b|gem\\s+[\"'](aasm|state_machines|statesman)[\"']|symfony/workflow|spatie/laravel-model-states|looplab/fsm|qmuntal/stateless|spring-statemachine|PackageReference Include=\"Stateless\""   # a state-machine library: what it does with an illegal event is the subject; without one §1–§2 report N/A and only routed rows print
   extracts_from: _extracted-codebase.md § "API surface" + the machine definitions and the state graph (business pack's @workflow-integrity, ai/business-flows.md)
   fallback: skills/state-transition-scan/SKILL.md   # source-as-fallback; fills ownership.json `workflow-transitions` (detector "—" today; the governance edit is a later build item)
+
+# The five tool skills below shipped unconditionally before they had entries. `always: true` keeps
+# that: a narrower trigger would remove a skill from projects that receive it today.
+
+- name: api-snapshot
+  kind: skill
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § "API surface" (the OpenAPI generator or the committed spec, its path, the CI diff step)
+  fallback: _examples/api-snapshot.md
+
+- name: debug-tenant
+  kind: skill
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" § multi-tenant (tenant resolution, scoping filter, cache keys)
+  fallback: _examples/debug-tenant.md
+
+- name: env-diff
+  kind: skill
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md (the env schema or config loader and the .env.example path)
+  fallback: _examples/env-diff.md
+
+- name: module-scaffold
+  kind: skill
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Modules + _extracted-idioms.md § DI / module wiring (the declared layers, the base classes, the test layout)
+  fallback: _examples/module-scaffold.md
+
+- name: parallelize-independent-ops
+  kind: skill
+  triggers: { always: true }
+  extracts_from: _extracted-idioms.md § Concurrency (the project's bounded-fan-out primitive) + DB pool config
+  fallback: _examples/parallelize-independent-ops.md
 
 - name: backend-audit
   kind: command

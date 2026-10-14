@@ -30,8 +30,15 @@ Search is a giant, denormalized cache outside your DB transactions. A bad index 
 
 ### Queries without tenant filter
 ```bash
-rg "client\.search\(|index\.search\(|esClient\.search\(|meili.*?\.search\(" src/ -A 10 \
-  | grep -v "tenant_id\|tenantId\|filterBy\|filter:.*tenant"
+# a search call with no tenant filter within 10 lines above or below it (a block window: `-A 10 | grep -v`
+# drops lines, never calls, and misses a filter built above the call)
+rg -l0 --pcre2 '\b(?:client|index|esClient|meili\w*)\.search\(' src/ \
+  | X='(client|index|esClient|meili[A-Za-z]*)\.search\(' \
+    Y='tenant_id|tenantId|filterBy|filter:.*tenant' xargs -0r awk -v B=10 -v A=10 '
+  function flush(  i, j, ok) { for (i = 1; i <= n; i++) if (L[i] ~ ENVIRON["X"]) { ok = 0
+      for (j = i - B; j <= i + A; j++) if (j >= 1 && j <= n && L[j] ~ ENVIRON["Y"]) ok = 1
+      if (!ok) print f ":" i ":" L[i] } n = 0 }
+  FNR == 1 && NR > 1 { flush() }  { f = FILENAME; L[++n] = $0 }  END { flush() }'
 ```
 Engine has no concept of tenant; every query MUST scope.
 
@@ -44,35 +51,53 @@ Sync index = handler latency bound to engine availability + slow under load.
 
 ### Index updates not idempotent
 ```bash
-rg "index\.add\(|addDocuments\(|client\.create\(" src/ -A 3 \
-  | grep -v "id:\|primaryKey\|_id"
+# an index write with no document id or primary key within 3 lines above or below it
+rg -l0 --pcre2 '\b(?:index\.add|addDocuments|client\.create)\(' src/ \
+  | X='(index\.add|addDocuments|client\.create)\(' \
+    Y='[^A-Za-z_]id:|primaryKey|_id' xargs -0r awk -v B=3 -v A=3 '
+  function flush(  i, j, ok) { for (i = 1; i <= n; i++) if (L[i] ~ ENVIRON["X"]) { ok = 0
+      for (j = i - B; j <= i + A; j++) if (j >= 1 && j <= n && L[j] ~ ENVIRON["Y"]) ok = 1
+      if (!ok) print f ":" i ":" L[i] } n = 0 }
+  FNR == 1 && NR > 1 { flush() }  { f = FILENAME; L[++n] = $0 }  END { flush() }'
 ```
 Re-indexing without stable doc ID = duplicates on retry.
 
 ### Ranking signals inline magic numbers
 ```bash
-rg "boost:.*?[0-9]|score.*?\*\s*[0-9]|ranking_rules" src/ -A 2 \
-  | grep -v "src/search/ranking\|ranking\.config"
+# numeric boosts outside the ranking module (the module itself is excluded by path, not by a filter over context lines)
+rg -n --pcre2 'boost:\s*\d|score\w*\s*\*\s*\d|ranking_rules' src/ -g '!**/search/ranking/**' -g '!**/ranking.config.*'
 ```
 Boosts hidden in feature code = silent ranking drift; impossible to A/B.
 
 ### Query without timeout
 ```bash
-rg "client\.search\(|esClient\.search\(" src/ -A 8 \
-  | grep -v "timeout:\|timeoutMs"
+# a search call with no timeout within 2 lines above or 8 below it; a client-level requestTimeout also covers it — read the client
+rg -l0 --pcre2 '\b(?:client|esClient)\.search\(' src/ \
+  | X='(client|esClient)\.search\(' \
+    Y='timeout|timeoutMs|requestTimeout|signal' xargs -0r awk -v B=2 -v A=8 '
+  function flush(  i, j, ok) { for (i = 1; i <= n; i++) if (L[i] ~ ENVIRON["X"]) { ok = 0
+      for (j = i - B; j <= i + A; j++) if (j >= 1 && j <= n && L[j] ~ ENVIRON["Y"]) ok = 1
+      if (!ok) print f ":" i ":" L[i] } n = 0 }
+  FNR == 1 && NR > 1 { flush() }  { f = FILENAME; L[++n] = $0 }  END { flush() }'
 ```
 Engine slow = your endpoint hangs at p99.
 
 ### No fallback on engine outage
 ```bash
-rg "client\.search\(" src/ -A 15 \
-  | grep -v "catch\|fallback\|orFallback\|circuit"
+# a search call with no try/catch, fallback or breaker within 8 lines above or 15 below it
+rg -l0 --pcre2 '\bclient\.search\(' src/ \
+  | X='client\.search\(' \
+    Y='try *\{|catch|fallback|orFallback|circuit' xargs -0r awk -v B=8 -v A=15 '
+  function flush(  i, j, ok) { for (i = 1; i <= n; i++) if (L[i] ~ ENVIRON["X"]) { ok = 0
+      for (j = i - B; j <= i + A; j++) if (j >= 1 && j <= n && L[j] ~ ENVIRON["Y"]) ok = 1
+      if (!ok) print f ":" i ":" L[i] } n = 0 }
+  FNR == 1 && NR > 1 { flush() }  { f = FILENAME; L[++n] = $0 }  END { flush() }'
 ```
 Engine down → search endpoint 500 across the board. Need DB fallback OR explicit "search temporarily unavailable" UX.
 
 ### PII in indexed fields
 ```bash
-rg "addDocuments\(.*email|phone|address|cardNumber|ssn" src/
+rg -n --pcre2 'addDocuments\(.*\b(?:email|phone|address|cardNumber|ssn)\b' src/
 ```
 Search engines often have weaker access controls than DB; minimize indexed PII.
 

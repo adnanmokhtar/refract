@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.4 — 2026-10-14
+
+**`logic-race-scan` §4/§5 name the distributed-systems owners, and `@api-security-reviewer`'s admin-route probe is block-aware.** With distributed-systems installed, money and credit rows from queue consumers and scheduled jobs arrive from `messaging-scan` §2/§6 or `coordination-scan` §4 with the redelivery, stall or overlap evidence; §4/§5 grade the money side only (distributed-systems eval IR-11). The BFLA probe's `-A3 | rg -v` (a per-line negation that never saw a `@Roles` stacked above the route) is now a 6-above/3-below window per route decorator, measured on scratch good/bad controllers: the bad route only, where the old probe also printed both guarded routes; `lint-rg-traps.sh` rg-context-negation baseline row removed.
+
 ## 2.3.3 — 2026-10-10
 
 **`iac-scan` prints all 12 security rows of the `infra-ops` fixture (was 4).** New greps: 4n (a NetworkPolicy `ipBlock` of /20 or wider, with or without `ports:`), 5g (registry tag mutability: ECR `MUTABLE` or the attribute absent, CloudFormation, Artifact Registry), 5h (dangling DNS: a record whose literal target is a claimable third-party name; CloudFront and ELB left out), 7f's join (a Secret an edge workload and an app workload both read) and 7h (a shared cache that can serve one user's response to another: `proxy_cache` with no bypass, `proxy_ignore_headers`, a Caddy/Souin `cache` handler, CDN cache behaviours); the edge globs read `*.caddy` / `*.caddyfile`. § 3, § 4 and § 6 describe the classes; the hadolint gotcha adds `DL1000` after a heredoc terminator and the `# syntax=` frontend that decides `--check`'s rules. Measured 2026-10-10 on staged copies: `infra-ops` 4 → 12 of 12 security rows, 1 unseeded context line; `vuln-fullstack` unchanged (37 lines).

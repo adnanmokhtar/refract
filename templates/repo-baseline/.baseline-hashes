@@ -250,6 +250,7 @@
 .claude/templates/snippets/acceptance-contract.md  c4acf61377e495edf9d9a19777eadaf4a94a7b4bca1383f89a742982f2aac601
 .claude/templates/snippets/acceptance-contract.md  f89ab63f415a556502cc8daca924774afc28cdfe1991c688ad8c7ff9065dbee7
 .claude/templates/snippets/actionable-next-steps.md  a0167c0232d41e8d641f6aa61cb3e2f80d9179d752bdfab951e18e789897e73e
+.claude/templates/snippets/broker-semantics.md  5a48dac3100b0fbdb74efba75b932ab8e72434f544f49612f8bc8634da416258
 .claude/templates/snippets/broker-semantics.md  8ddfb53f5313561cbbf74e14804087e379265890769276bf9b4abe944561d59b
 .claude/templates/snippets/broker-semantics.md  9abac9decd7f4a0f027df177f283b48d3144f5aaf952183186133b7274b7e3f3
 .claude/templates/snippets/ci-platform-semantics.md  458bd4eeb462f3618587b9d077f9552e8afeeaf6ca2727cef0f875b3120dd392

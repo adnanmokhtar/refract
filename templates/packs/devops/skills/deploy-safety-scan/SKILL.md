@@ -58,18 +58,22 @@ Discover every deploy unit (pre-flight 0a–0d); never assume `.github/`, `k8s/`
 
 Read the runner's version from the lockfile; a lock fact is valid only for the version it names.
 
-| Runner | Boot or CLI signal | Cross-process lock |
+| Runner | Boot or CLI signal | Cross-process lock (versions, dates and sources: `broker-semantics.md` MG1–MG14 and [`precedents/performance.md`](../../../../snippets/precedents/performance.md) § 77) |
 |---|---|---|
-| **MikroORM** | `getMigrator().up(`, `mikro-orm migration:up` | **none** — [V] 6.6.16 (umzug 3.8.2), source read and measured 2026-10-10. No advisory lock, no lock table; umzug's opt-in `FileLocker` is not attached (and is per-filesystem anyway); `mikro_orm_migrations` has no unique key on `name`. Three concurrent `up()` on postgres:16 with the defaults (`transactional`, `allOrNothing`): **DML-only migration → applied 3 times, 3 rows**; DDL migration → 1 applied, 2 boots exit 1 (`relation … already exists`, or a duplicate key on the catalog), the restart is a no-op; first-ever run → 2 of 3 fail creating the table itself. Re-read on another major |
-| Prisma | `prisma migrate deploy` | `pg_advisory_lock`, 10 s timeout → the loser crash-loops; `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK` removes it [R] |
-| TypeORM | `migrationsRun: true`, `.runMigrations()` | none [K?] |
-| Drizzle · Sequelize/umzug | `migrate(db, …)`, `drizzle-kit migrate` · `db:migrate` | [K?] · none [K?] |
-| Knex · Rails · Alembic · Django | `migrate:latest` · `db:migrate`/`db:prepare` · `alembic upgrade` · `manage.py migrate` | lock table [K] · advisory lock [K] · none [K] · none (#30490 wontfix) [R] |
-| Laravel | `artisan migrate --force` | `--isolated` (cache lock) [K?] |
-| Flyway · Liquibase (Spring auto-run) | `spring.flyway/liquibase` on the classpath | history-table lock · `DATABASECHANGELOGLOCK` (a killed pod leaves it locked) [K] |
-| golang-migrate · goose · Ecto · EF Core | CLI or `Database.Migrate()` | advisory lock + dirty flag · [K?] · `migration_lock` · none [K?] |
+| **MikroORM** | `getMigrator().up(`, `mikro-orm migration:up` | **none** — [V] 6.6.16 (umzug 3.8.2), source read and measured 2026-10-10; still none in migrations 7.2.5 (MG9, source 2026-10-14). No advisory lock, no lock table; umzug's opt-in `FileLocker` is not attached (and is per-filesystem anyway); `mikro_orm_migrations` has no unique key on `name`. Three concurrent `up()` on postgres:16 with the defaults (`transactional`, `allOrNothing`): **DML-only migration → applied 3 times, 3 rows**; DDL migration → 1 applied, 2 boots exit 1 (`relation … already exists`, or a duplicate key on the catalog), the restart is a no-op; first-ever run → 2 of 3 fail creating the table itself. Re-read on another major |
+| Prisma | `prisma migrate deploy` | **waits 10 s** [V] (MG1): `pg_advisory_lock`; after the timeout the loser fails (P1002) and crash-loops on a long migration; `PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK` removes it |
+| TypeORM · Drizzle · Sequelize/umzug | `migrationsRun: true`, `.runMigrations()` · `migrate(db, …)`, `drizzle-kit migrate` · `db:migrate` | **none** [V] (MG10–MG12): TypeORM runs in a transaction with no lock; Drizzle reads the last applied row outside the transaction (a migration merged with an older timestamp is silently skipped); umzug's `FileLocker` is per host |
+| Django · Alembic · Doctrine | `manage.py migrate` · `alembic upgrade` · `doctrine:migrations:migrate` | **none** [V] (MG13, MG14; Django #30490 wontfix; Doctrine: `precedents/performance.md` § 77). Alembic is cleared only by a `pg_advisory_lock` the project added in `env.py` (read it) |
+| Knex · golang-migrate · EF Core ≥ 9 | `migrate:latest` · `migrate up` · `Database.Migrate()`, `dotnet ef database update`, a bundle | **waits** [V] (MG5–MG7): `knex_migrations_lock` row · `pg_advisory_lock` + dirty flag · the EF Core 9 lock. An EF Core SQL script takes no lock, its SQLite lock table can be abandoned, and EF Core < 9 has none |
+| Flyway · Liquibase (Spring auto-run) | `spring.flyway/liquibase` on the classpath | **waits** [V] (MG3, MG4): PG advisory lock · `DATABASECHANGELOGLOCK` row, up to 5 min (a killed pod leaves it locked) |
+| Rails | `db:migrate` / `db:prepare` | **fails fast** [V] (MG2): advisory lock; the others raise `ConcurrentMigrationError` and crash-loop instead of waiting; breaks under a transaction-mode pooler |
+| Laravel | `artisan migrate --force` | **skips** with `--isolated` (cache mutex, `precedents/performance.md` § 77): a held or stale mutex (1 h default expiry) skips the migrations **and exits 0**, so the replica serves on an unmigrated schema; `--isolated=1` makes the skip exit non-zero. Without `--isolated`: none |
+| goose | `goose up`, `goose.NewProvider` | **opt-in** [V] (MG8): `NewPostgresSessionLocker` passed to the Provider; default none |
+| Ecto | `mix ecto.migrate`, a release `migrate/0` | `migration_lock` [K] |
 
-A `[K?]` lock is settled by V227 on the fixture before a finding relies on it; until then the row is `[report-flagged]`.
+Only a **waits** row clears gate 4, and only behind a session-mode pooler or none (`precedents/performance.md` § 77 *Flips back*). **Fails fast** turns the race into a crash-loop and **skips** into a silently unmigrated replica: both stay findings at floor ≥ 2. **None**, and **opt-in** without the locker passed, stay candidates unless the run is a Job, an init container or a release step.
+
+A `[K]` / `[K?]` lock (Ecto; EF Core's Npgsql and Pomelo specifics) is settled by V227 on the fixture before a finding relies on it; until then the row is `[report-flagged]`.
 
 ### Shutdown (§5) — the handler per stack
 
@@ -268,7 +272,7 @@ GOOD:  one migration Job applied alone, waited on, then the rollout · a platfor
 - For an `AFTER-DEPLOY` row, or an auto-rollback (1e) beside a migration in the same release: is that migration a contract (database `migration-safety` §4 / §8)?
 - A migration Job: is it applied alone and waited on before the Deployments, and deleted (or TTL'd) before the next release re-applies it?
 
-**Finding when** N processes can apply the same migration (floor ≥ 2 with a lockless or `[K?]` runner, an initContainer on a multi-replica workload, a CI matrix that migrates), the old pods meet a contract schema (`AFTER-DEPLOY` with an expand step missing, an auto-rollback over a contract), or a hook or Job blocks the next release. Precedents § 22 clears one replica plus a lock, a leader gate, or a release phase. **Proof (V227):** `docker compose up --scale app=3` (or three concurrent boots) from an empty database: exactly one row per migration, 0 crash-loops; a kill mid-run is recovered by the next start. The 2026-10-10 MikroORM run above is this oracle.
+**Finding when** N processes can apply the same migration (floor ≥ 2 with a **none**, **fails fast**, **skips**, locker-less **opt-in** or `[K?]` runner, an initContainer on a multi-replica workload, a CI matrix that migrates), the old pods meet a contract schema (`AFTER-DEPLOY` with an expand step missing, an auto-rollback over a contract), or a hook or Job blocks the next release. Precedents § 22 clears one replica plus a lock, a leader gate, or a release phase. **Proof (V227):** `docker compose up --scale app=3` (or three concurrent boots) from an empty database: exactly one row per migration, 0 crash-loops; a kill mid-run is recovered by the next start. The 2026-10-10 MikroORM run above is this oracle.
 
 ### 2. Deploy concurrency (DP-2)
 

@@ -6,6 +6,69 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Track A batch 5: service contracts and distributed delivery become detectors (2026-10-14)
+
+Before this batch the backend pack's correctness review was `@api-reviewer`'s prose floor plus four
+shell probes that could not answer what they asked, and the distributed-systems pack had two skills
+and no detector: validation that never ran, errors answered 500, money leaving as a float, acks
+before the effect, enqueues outside the transaction, stacked retries and lock releases without an
+owner check were found, if at all, by reading. Each class now has one owning skill with a measured
+pre-flight, a version gate read from files, a coverage block, a refute step and a failing-first
+oracle. Per-pack detail is in each pack's `CHANGELOG.md`.
+
+- **backend 2.0.x** — six detectors (`validation-boundary-scan` with `scripts/dto-types.py`,
+  `edge-error-scan`, `http-contract-scan`, `wire-format-scan`, `job-lifecycle-scan`,
+  `state-transition-scan`); `/backend-audit` (the wiring map first, versions from the lockfile) and
+  `/backend-fix` (failing-first through the project's real bootstrap, STOP before a contract or
+  money-on-the-wire change); `@api-reviewer` rebuilt as the judge, every agent carries a Contract.
+  `dto-types.py` (stdlib, `--self-test` 75/75) resolves every `@Body`/`@Query`/`@Param` type through
+  imports and barrels, follows project decorators that wrap a pipe, and flags passthrough handlers
+  that set no status and initialisers on Update-DTO fields. 2.0.1 registers the five tool skills and
+  `caching-strategy` in `_topics.md`.
+- **distributed-systems 2.0.x** — six detectors (`messaging-scan` with `scripts/ds-inventory.py`,
+  `dual-write-scan`, `retry-deadline-scan`, `coordination-scan`, `workflow-scan`,
+  `event-contract-scan`); `/ds-audit` (the outbox-writer pre-flight before dual-write § 1, three
+  judges, `--runtime` on named sources only) and `/ds-fix` (a throwaway broker only, the loss probe
+  beside every duplicate probe). `ds-inventory.py` resolves queue options across wrappers, subclass
+  overrides, imported constants and env fallbacks. `chaos-test` names its kubeconfig and context
+  before any fault (the default context may be a real cluster); Toxiproxy with Testcontainers is the
+  local default.
+- **Neighbour patches** — performance 2.2.1 (`request-path-scan` § 24 is the fallback for consumer
+  idempotency, poison/DLQ and lock vs run time when distributed-systems is absent; § 20 finds
+  registry-built schedules), database 2.1.2 (`transaction-scan` § 2 names the outbox-writer owner;
+  `connection-config-scan` § 8 the cross-process read-after-write), code-quality 2.0.5
+  (`type-safety-scan` names the event-contract split), security 2.3.4 (`logic-race-scan` § 4/§ 5
+  take queue and job money rows from the distributed-systems owners), devops 2.0.2
+  (`deploy-safety-scan` § 1's lock column: waits / fails fast / skips / none per runner),
+  infrastructure 2.0.3 (`serverless-reliability-scan` hands non-serverless pollers to
+  `messaging-scan`).
+- **Snippets** — new `broker-semantics.md` (dated defaults, each row `[V]`/`[K]`/`[K?]` with a
+  source: brokers and clients, job systems, outbox and stable ids, retry libraries, locks, schedulers,
+  migration runners MG1–MG14, workflow engines WK1–WK14, schema tools with measured exit codes, event
+  stores, clocks); new `precedents/backend.md` and `precedents/distributed.md` § 1–36;
+  `precedents/performance.md` § 77 carries the migration-runner lock table; `proof-oracles.md`
+  § Distributed V291–V327 and § Backend V328–V357. All mirrored into the repo baseline.
+- **Governance** — ownership rows for both packs (`messaging-delivery`, `dual-write`, `retry-policy`,
+  `distributed-lock`, `clock-misuse`, `event-contract` among the distributed ones; `api-contract`,
+  `input-validation`, `edge-errors`, `wire-format`, `job-lifecycle` and the `workflow-transitions`
+  detector for backend); thresholds `THR-DS-CONSUMER-TIMING`, `THR-DS-DEDUPE-WINDOW`, `THR-DS-LEASE`
+  and `THR-RES-RETRY` `layers: 1` (exactly one retrying layer per call chain);
+  `lint-agent-contract.sh` requires Contracts in backend and distributed-systems.
+- **`lint-rg-traps.sh` rg-context-negation** — an `rg`/`grep` printing context (`-A`/`-B`/`-C`)
+  piped into a per-line negation drops lines, never blocks, so it can never prove an absence (an
+  `@Throttle` or `@Roles` stacked above the route is never seen). The rule fails that shape; every
+  baselined site (backend and domain reviewers, `@api-security-reviewer`) is now a lookahead window, a
+  bidirectional per-match window or a file-level `--files-without-match`, measured on good/bad
+  samples, and the baseline holds 0 rows.
+- **Routing** — `/audit`'s scale axis consumes a same-day `ai/audits/<date>-distributed.md` /
+  `-backend.md` or dispatches `/ds-audit` / `/backend-audit`; `/audit-distributed-tx` is the runtime
+  lane of `/ds-audit`. The background-jobs queue reviewer cites the distributed-systems detectors and
+  states each library's retry default from `broker-semantics.md` (it claimed "infinite on most libs";
+  BullMQ's default is `attempts: 1`); its secrets grep and the search reviewer's PII grep lost an
+  unparenthesised alternation that matched any line containing `token` or `phone`.
+- **Benchmarks** — `backend-defects` and `ds-defects` fixtures with seeded defects, routed seeds and
+  decoys.
+
 ### Track A batch 4: delivery, infrastructure and telemetry become detectors (2026-10-10)
 
 Before this batch the devops, infrastructure and observability packs were design packs: agents that

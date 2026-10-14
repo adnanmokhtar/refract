@@ -46,6 +46,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/infr
 - **IAM breadth of the execution role, public function URLs, resource policies with `Principal: *`** → security `iac-scan` § 3–§ 4 when the security pack is installed; otherwise tagged `security-class (owner pack not installed)` and listed, never graded.
 - **Deletion safety of queues and tables** → `iac-lifecycle-scan` § 7. **Unpinned runtimes, layers and providers** → `iac-state-scan` § 3.
 - **Kubernetes workers scaled by KEDA** → `k8s-availability-scan` § 4 owns the scaler's floor and ceiling; § 2 here owns only the queue's visibility against the worker's worst-case job.
+- **Non-serverless pollers** (an ECS, Kubernetes or VM worker on SQS, Pub/Sub, Service Bus or a self-hosted broker) → distributed-systems `messaging-scan` §6 (visibility, lock or ack-wait against the worst-case job) and §3 (poison, DLQ) when that pack is installed: § 2–§ 4 here grade the serverless consumers and print each poller row as `→ messaging-scan §3/§6`. Without the pack, § 2's poller variants and § 3 apply as written.
 - **Alarm content** (`IteratorAge`, `ApproximateAgeOfOldestMessage` rules) → observability `alert-rule-lint` when installed. **The handler's own outbound timeouts and retries** → performance / backend.
 
 ## Version gate (gate 3), read from files

@@ -28,6 +28,8 @@ Background jobs fail silently more often than HTTP. A bad worker eats memory, bl
 
 ## Automatic scans
 
+**When the distributed-systems pack is installed, its detectors own these classes and this reviewer cites their rows instead of re-grepping:** consumer idempotency, poison messages and DLQ wiring, prefetch and visibility/lock timing → `messaging-scan` §1–§6; enqueue beside a database write (the DB-commit + queue race, outbox) → `dual-write-scan`; retry caps, backoff and stacked retry layers → `retry-deadline-scan`. Without the pack, run the scans below.
+
 ### Producers without job IDs (idempotency surface)
 ```bash
 # an enqueue with no jobId / deduplication in its next 3 lines (one window per call)
@@ -40,7 +42,7 @@ Every job a tenant can trigger more than once needs `jobId` derived from a stabl
 # a worker with no retry setting in its next 5 lines
 rg -nU --pcre2 '(?:Worker|@Process|consume)(?!(?:[^\n]*\n){0,5}[^\n]*(?:attempts:|maxRetries|retry))' src/
 ```
-Default retry = infinite on most libs. Cap explicitly.
+Defaults differ per library, so read the installed one (`.claude/templates/snippets/broker-semantics.md`): BullMQ `attempts` 1 = **no retry**, and no `backoff` retries immediately (BQ2); Celery retries nothing unless `autoretry_for` or `self.retry` (`max_retries` 3, `None` = forever, CY3); Sidekiq 25 retries (RB1); Spring Kafka's no-arg `DefaultErrorHandler` 10 attempts, then logs and **skips** (KA7); an amqplib or pika nack/reject requeues by default and a classic queue has no delivery limit — an unbounded loop (RQ2–RQ5); SQS redelivers until `maxReceiveCount` sends it to a DLQ, or until retention without one (AW3); a Temporal activity retries **forever** by default (WK6). Set the cap and the backoff explicitly either way.
 
 ### Long jobs (no checkpoint)
 ```bash
@@ -51,7 +53,7 @@ Loops over >1k items without a save = full restart on crash.
 
 ### Secrets in payload
 ```bash
-rg "queue\.add\(.*password|token|secret|cardNumber|ssn" src/
+rg -n --pcre2 '(?:queue\.add|\.enqueue|\.publish|perform_async|\.delay|apply_async)\(.*\b(?:password|token|secret|cardNumber|ssn)\b' src/
 ```
 Job payloads land in Redis / SQS — readable by anyone with infra access. Fetch by ID instead.
 
