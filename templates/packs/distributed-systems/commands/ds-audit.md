@@ -58,7 +58,7 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 ### Standard inputs
 - **Scope.** `git diff --name-only "origin/${BASE:-main}"...HEAD`. No diff, or `--whole-repo`, is a whole-repo run.
 - **`--classes=<family,…>`** narrows the run to ledger families: `delivery`, `ordering`, `brokers`, `dualwrite`, `retries`, `deadlines`, `locks`, `clocks`, `workflows`, `sagas`, `contracts`, `eventsourcing`, `runtime`. Every other row prints `N/A (out of scope: --classes=<list>)` and the verdict names its scope.
-- **`--contract-base=<dir>`** gives `event-contract-scan` §1 its base copy of the schema files for a repo with no shared base branch (a fixture, a vendored contract set). Without it and without a base branch, §1 prints `N/A (no base: pass a base branch or --contract-base)`; §2–§10 still run.
+- **`--contract-base=<dir>`** gives `event-contract-scan` its base copy of the schema files — a tree that mirrors repo-relative paths, passed to it as `CONTRACT_BASE` — for a repo with no shared base branch (a fixture, a vendored contract set). Without it the detector uses the merge-base with the base branch; with neither (a shallow clone, no such branch) its §1 and §4 print `NOT-RUN (no base)` — a `blocked` Contracts row on a repo that has schema files — and §2–§3, §5–§10 still run.
 - **`--live`, `--runtime`** as in § The Premise. Credentials come from the user's environment, never from a file in the repo.
 - **Stack and versions** from files (F1), never from memory.
 - **Judges.** `.claude/agents/resilience-reviewer.md` grades every `messaging-scan`, `dual-write-scan`, `retry-deadline-scan` and `coordination-scan` row in refute mode — its `## Contract` gives it `role: judge`, `writes: none` under this command — with `@system-architect` on the leader rows (`coordination-scan` §6). `.claude/agents/workflow-orchestrator.md` judges `workflow-scan`; `.claude/agents/event-sourcing-architect.md` judges `event-contract-scan`. `.claude/agents/verifier.md` (repo-baseline) refutes every BLOCKER and HIGH a judge keeps, in mode `refute`; absent → a `Task` refuter (`refute-before-report.md § 8`).
@@ -159,8 +159,8 @@ Follow `refute-before-report.md` with `precedents/distributed.md`: the claim res
 
 **The judges — one per detector family.**
 1. **`@resilience-reviewer`** receives every `messaging-scan`, `dual-write-scan`, `retry-deadline-scan` and `coordination-scan` row with the F2 inventory row, the version lines and the default-table row each cites. It refutes and **grades** them (under this command it dispatches nothing). Leader rows (`coordination-scan` §6) are graded jointly with **`@system-architect`**.
-2. **`@workflow-orchestrator`** grades the `workflow-scan` rows in its verdict vocabulary (DURABLE / FRAGILE / ORPHAN-RISK / DOUBLE-EFFECT), on the SDK and version F1 read.
-3. **`@event-sourcing-architect`** grades the `event-contract-scan` rows (CORRUPT / UNREPLAYABLE for event-store and projection rows).
+2. **`@workflow-orchestrator`** grades the `workflow-scan` rows in its verdict vocabulary (DURABLE / FRAGILE / ORPHAN-RISK, DOUBLE-EFFECT on a step), on the SDK and version F1 read.
+3. **`@event-sourcing-architect`** grades the `event-contract-scan` rows (SOUND / DEGRADED / CORRUPT; UNREPLAYABLE for a stream a rebuild cannot read).
 4. **Every BLOCKER or HIGH a judge keeps goes to `@verifier` mode `refute` exactly once**, dispatched with a [delegation brief](../../../snippets/delegation-brief.md) under `ai/runs/<YYYYMMDD>-ds-audit-<4hex>/`, its record in `verdict-refute.json`; else a `Task` refuter. The refuter gets the candidate, part A and part B, the `broker-semantics.md` row, the version lines and the inventory row — **never the detector's or the judge's reasoning**. MEDIUM and LOW may share one batch refuter. A `self-verified` detector row is verified again here.
 5. **A judge not installed:** its rows go straight to `@verifier`, which grades them and lists them `graded (judge not installed)`.
 
@@ -246,7 +246,7 @@ UNCONFIRMED (HIGH, 1):
   apps/api/src/wallets/collections.port.ts:132   dual-write-scan §6 ES-4 · createdAt watermark over concurrent writers   settle: V301 gap variant (security §5 corroborates)
 UNCONFIRMED (MEDIUM/LOW, 7): webhook job 5 × kernel 3 GETs (retry §4, V306) · enqueue raced against a timer (messaging §7, V297) · GET→compare→DEL ×9 (coordination §1, V310) · …
 Class ledger: Delivery checked (8 consumer files → 0) · Dual write checked (28 → 27 outbox port, 1 refuted) · Locks checked (22 acquisitions → 1 group) ·
-              Workflows N/A (no workflow SDK) · Contracts checked (§1 N/A: no schema files, no --contract-base) · Runtime NO-DATA(redis) · Money routed (1) · …
+              Workflows N/A (no workflow SDK) · Contracts checked (§1 N/A: no schema files) · Runtime NO-DATA(redis) · Money routed (1) · …
 Production bar: REDELIVERY SAFETY UNVERIFIED (no C tier) · POISON BOUNDED UNVERIFIED · DUAL WRITE Static (outbox port read once) · RETRY BUDGET UNVERIFIED (1 chain) · REPLAY GATE N/A · CONTRACT GATE N/A
 GO-UNVERIFIED — runtime lane not asked; Valkey policy UNREAD while messaging §8 depends on it
 ```
