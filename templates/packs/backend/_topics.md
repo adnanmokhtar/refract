@@ -437,6 +437,14 @@ Each topic declares:
   fallback: skills/api-consistency-audit/SKILL.md
   cite_evidence: strict
 
+- name: validation-boundary-scan
+  kind: skill
+  triggers:
+    api_surface_detected: true
+    OR_grep_evidence: "\"(class-validator|zod|joi|yup|valibot|ajv|fastify)\"\\s*:|^\\s*(pydantic|djangorestframework|fastapi)\\b|spring-boot-starter-validation|gin-gonic/gin|labstack/echo|FluentValidation"   # a request validator or binder in any manifest: whether it runs, and on what, is the subject
+  extracts_from: _extracted-codebase.md § "API surface" (the validation pipe or middleware and its options) + sample DTOs
+  fallback: skills/validation-boundary-scan/SKILL.md   # source-as-fallback; scripts/dto-types.py ships beside it
+
 - name: log-tail
   kind: command
   triggers:
