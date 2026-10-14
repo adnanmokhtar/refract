@@ -38,7 +38,7 @@ run. Ids are stable and lettered by family: detectors cite `precedents/backend.m
 
 Index: the claim and the gates · posting rules P1–P5 · API, validation and edge B-A1–B-A18 ·
 runtime, jobs, outbound and config B-R1–B-R16 · public API guidelines B-G1–B-G24 · real-repo
-decoys B-D1–B-D14 · the incident record · rationalizations.
+decoys B-D1–B-D17 · the incident record · rationalizations.
 
 ## The claim, restated
 
@@ -193,6 +193,7 @@ is what the verifier shows before it clears one, and *flips back* is what keeps 
 - **B-D14 — The reference idempotency module** (HC §6). The shape HC §6 compares against: key unique per tenant and operation; the caller folded into the fingerprint (another principal's reuse → 422, never their stored answer); in-flight lease → 409; a lapsed lease → 409 `OUTCOME_UNKNOWN`, never re-run. A module that matches it clears the route; each missing part is its own B-V7 variant.
 - **B-D15 — An error family translated by an application-layer mapper** (EE §2, 2c). *Must be true:* the family's classes (a domain `RefusalError` tree, a module's `LedgerError`) are caught and turned into an `HttpException` (or the project's envelope) by one mapper — a module's `toHttpError(err)`, a refusal mapper every use case returns through — and every path that can throw the family reaches it (cite the mapper and the call sites, or the base use case that wraps them all). The global filter never naming the family is then expected. *Flips back:* one path throws the family outside the mapper (a job, a webhook handler, a second controller), or the mapper has a default arm that answers 500 for a member the contract gives 404/409/422.
 - **B-D16 — A body parsed by a project schema pipe** (VB §1/§8; dto-types bucket `custom-pipe(<Pipe>)`). *Must be true:* the param decorator (a wrapper such as `@ContractBody(schema)` that calls `Body(new SchemaPipe(schema))`) parses the **whole** body with a schema on every route that uses it, its refusal reaches the project's error envelope with the same status as the global pipe's, and its unknown-key and `null` behaviour is recorded once as a wiring row (P5). The global `ValidationPipe` skipping the `z.infer` type is then expected. *Flips back:* the pipe catches a parse failure and passes the raw value on, a route passes a permissive schema (`z.any()`, `.passthrough()`, `z.record(z.unknown())`) for a body the domain reads field by field, or a `createParamDecorator` returns `req.body` with no pipe (`custom-pipe(none)`).
+- **B-D17 — A Nest catch-all on Fastify that never reads a non-HttpException `statusCode`** (EE §1, 1c; lab, 2026-10-14). *Must be true:* the adapter is Fastify, the catch-all keeps `instanceof HttpException ? getStatus()` before its 500, and the errors in question are Fastify's own refusals — malformed or empty JSON (400), over `bodyLimit` (413), an unparsed content type (415), an unknown route (404), a `FastifyError` thrown in a Fastify hook. Nest converts each to `HttpException` with Fastify's status before any filter runs (measured on Nest 11.2.6 with Fastify 5.12.3 and Nest 12.1.3 with 5.12.5: same status as with no filter). *Flips back:* a `statusCode`-carrying non-HttpException thrown inside the pipeline (`@fastify/multipart` limits read in a handler, an `http-errors` or `@fastify/error` object from a library) or a plain `Error` with `statusCode` thrown in a Fastify hook — measured 500 through that catch-all on both versions; or the Express adapter, where the 11.2.6 core converts only `SyntaxError`/`URIError`.
 
 Two filter rules from the same run, not precedents: comment-only lines are dropped from every
 pre-flight grep (5 of 761 `@Body()` and 7 of 106 `@ValidateNested` hits were doctrine comments);
@@ -236,5 +237,5 @@ contract and validation, Node frameworks), B (runtime correctness per framework)
 guidelines — Google AIPs, the Azure and Zalando guidelines, CC BY 4.0, paraphrased — incidents and
 property shapes); and the batch-5 backend eval (2026-10-14) § 3 and § 5.10, which moved B-R6,
 B-R12 and B-R13 to their owners, sent B-P20a–f to `precedents/performance.md` § 77, and added
-B-D1–B-D14 from a read-only real-repo run. Paraphrased; no text reproduced beyond short quoted
+B-D1–B-D14 from a read-only real-repo run; B-D17 is from a scratch lab on the versions that run locks (Nest 11.2.6, Fastify 5.12.3), repeated on Nest 12.1.3. Paraphrased; no text reproduced beyond short quoted
 identifiers.

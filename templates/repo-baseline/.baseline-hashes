@@ -279,6 +279,7 @@
 .claude/templates/snippets/postcondition-check.md  cf5d9f2898658013abeb70decd1593a08db9ecc9c94d4d689f712947a1241178
 .claude/templates/snippets/posting-bar.md  11eb6253de5a0e3e8d602d33b4ac035c6c2add3e5dad9c50c92d4a06b33732fb
 .claude/templates/snippets/posting-bar.md  d33c3ffd4f08d3ed580988bddb0c579ca032df3d13d583e24f3196bd757c5ef8
+.claude/templates/snippets/precedents/backend.md  0cd5e552122fa1c4b74cbe71edc93e613e47fac0ea7f539946a11818837e161d
 .claude/templates/snippets/precedents/backend.md  3c104e4c955bf934ee4b0030a39a3ee61bee4e9300f8cc16463cb1ee8bcabf99
 .claude/templates/snippets/precedents/backend.md  5f2d24fa52956b5184afb19b0e7888981a2182c2a09d4ccc7c7e6785069b34d1
 .claude/templates/snippets/precedents/code-quality.md  1a1e076fa62553c835c2ced7b716fe73ae5b7f7b68c950e61d3b39657e2568c4
