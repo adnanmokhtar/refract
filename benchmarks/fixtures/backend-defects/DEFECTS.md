@@ -2869,7 +2869,7 @@ no network call was made; `git status` on the copy after all seven runs showed o
 
 **Wall time and errors** (re-run the same way after backend 2.0.1 closed IR-1 to IR-12; the first run's line counts
 follow in brackets). Wiring map 0.7 s, 130 lines [130]; `validation-boundary-scan` 0.36 s / 90 [91];
-`edge-error-scan` 0.76 s / 81 [82]; `http-contract-scan` 0.70 s / 113 [118]; `wire-format-scan` 0.20 s / 53 [49];
+`edge-error-scan` 0.53 s / 86 [82] (81 before its F1 read the lockfile: +5 locked-version lines); `http-contract-scan` 0.70 s / 113 [118]; `wire-format-scan` 0.22 s / 59 [49] (53 before its lockfile line: +6);
 `job-lifecycle-scan` 0.59 s / 51 [52]; `state-transition-scan` 0.19 s / 25 [25]. Every block exited 0 with **empty stderr** (no
 `rg` exit 2). `dto-types.py --self-test`: 75/75. On the copy it read 167 files, parsed 57 of 58 raw param hits (the 58th
 is a GraphQL method-level `@Query(() => T)`), 0 `UNPARSED`, 100 % resolved, `strictNullChecks` on for all 57 (from

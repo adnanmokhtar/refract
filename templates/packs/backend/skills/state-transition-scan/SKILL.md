@@ -109,7 +109,7 @@ Two blind spots are structural. **The result checked one call away** — a helpe
 
 ### Measured (2026-10-14)
 
-- **Real repo, read-only, full tree** (the NestJS 11 monorepo of `job-lifecycle-scan`; `ROOTS=(apps/api/src)`): 0.5 s, 13 lines, 0 `rg` errors, 0 files written into the tree. F1: **no state-machine library** in any manifest; grep 0: **0 machine files** — the domain's transitions are hand-written methods on aggregates — and the declared-graph file (`ai/business-flows.md`) is present for the business pack. §1 and §2 are therefore `N/A (no FSM library)`. 2c prints 8 lines in 5 files: 6 status writes in 4 files on job, consumer and admin paths (two consumers' ledger rows, a tasks port and its use case) and 2 lines of SQL text inside a template string in the outbox's claim query (`… .state = 'run'`, a predicate the pattern cannot tell from code); with no library machine none are this skill's rows. Routed: database §8 0, security §3 **4** (ports that assign `row.status = input.status`), code-quality §5 2. An earlier run on `ROOTS=(apps/api)` over an older partial copy printed 6 writes in 4 files.
+- **Real repo, read-only, full tree** (the NestJS 11 monorepo of `job-lifecycle-scan`; `ROOTS=(apps/api/src)`): 0.5 s, 13 lines, 0 `rg` errors, 0 files written into the tree. F1: **no state-machine library** in any manifest; grep 0: **0 machine files** — the domain's transitions are hand-written methods on aggregates — and the declared-graph file (`ai/business-flows.md`) is present for the business pack. §1 and §2 are therefore `N/A (no FSM library)`. 2c prints 6 status writes in 4 files on job, consumer and admin paths (two consumers' ledger rows, a tasks port and its use case); with no library machine none are this skill's rows. The first full-tree run printed 8 lines in 5 files: the other 2 were SQL text inside a template string in the outbox's claim query (`… ${claim}.state = 'run' or …`, a predicate), so 2c's assignment now has to start a statement (line start, or after `;`, `{`, `)`, `=>`, `else`, `then`, `do`). Routed: database §8 0, security §3 **4** (ports that assign `row.status = input.status`), code-quality §5 2. An earlier run on `ROOTS=(apps/api)` over an older partial copy printed 6 writes in 4 files.
 - **Fixtures** (`benchmarks/fixtures/*`, 18 roots): 0 `rg` errors; **no root uses a state-machine library**, so §1/§2 print `N/A` everywhere; 2c lists 3 writes in 2 files (`brittle-suite`) and 3 in 1 file (`node-api`), all hand-written → routed. The `backend-defects` fixture (a later build item) seeds `transitions.Machine(…, ignore_invalid_triggers=True)` followed by a refund call.
 - **Research lab B** (the scripts that measured the library defaults): `py/sm.py` — 1a 3 (the setting, plus two `print` lines that echo it: read), 1e 1 (a `conditions=` guard), 2a 2 (`source='*'`); `node/x.mjs` — its XState machine in grep 0 and its final state in the terminal line, 1b quiet (the script asks `can()`). A first 1c draft matched every `.Event(x)` in a Go module cache; 1c now reads only files that import looplab/fsm or qmuntal/stateless.
 - **Paired samples** (scratch, Python, Ruby, TypeScript, Go): every POS line hit (1a ×3, 1b, 1c, 1e, 2a ×2, 2b); every NEG line stayed quiet — the default `Machine(…)`, an XState handler that asks `can()` first, a Go call whose error is checked, an AASM transition with `from:`.
@@ -153,15 +153,15 @@ V350 of `proof-oracles.md` § Backend through the project's real entry points �
 ## Output
 
 ```
-state-transition-scan — lanes: none (no FSM library in apps/api/package.json) · lockfile absent
-Machines: 0 · graph: business pack not run (no ai/business-flows.md)
+state-transition-scan — lanes: none (no FSM library in any manifest)
+Machines: 0 · graph: ai/business-flows.md present (the business pack's; no library machine to read it against)
 Tools: (state × event) matrix N/A (no library machine) · property S4 N/A
 
 Findings: 0 · Unconfirmed: 0
 
 Class coverage:
   §1 illegal event → success   N/A (no FSM library; transitions are hand-written aggregate methods)
-  §2 terminal state re-opened  N/A (no FSM library) · 2c 6 status writes on job, consumer and admin paths → routed
+  §2 terminal state re-opened  N/A (no FSM library) · 2c 6 status writes in 4 files on job, consumer and admin paths → routed
   routed                       → database transaction-scan §8 (0) · → security logic-race-scan §3 (4) · → code-quality correctness-smell-scan §5 (2)
 ```
 

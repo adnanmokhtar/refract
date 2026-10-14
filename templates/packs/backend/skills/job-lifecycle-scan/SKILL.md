@@ -360,13 +360,13 @@ The three oracles of `proof-oracles.md` § Backend, run on the project's **regis
 ## Output
 
 ```
-job-lifecycle-scan — lanes: @nestjs/schedule ^6.1.3, bullmq ^6.3.4, @nestjs/bullmq ^11.0.5 (apps/api/package.json:44,52,65) · lockfile absent: default rows UNREAD (V357)
-Inventory: 62 schedule entries in 55 files (21 with a guard word) · 7 processors on one tenant base processor · 1 producer wrapper · process TZ: unset (UTC)
+job-lifecycle-scan — lanes: @nestjs/schedule 6.1.3 on cron 4.4.0, bullmq 6.3.4, @nestjs/bullmq 11.0.5 (pnpm-lock.yaml)
+Inventory: 62 schedule entries in 55 files (18 with a guard word) · 8 processor files, 7 on one tenant base processor · 20 producer files, 1 wrapper · process TZ: unset (UTC)
 Tools: fire-time iterator NOT-RUN (no harness in this run) · concurrency counter NOT-RUN · cross-commit replay N/A (whole repo) · failure record NOT-RUN
 
 Findings: 0 · Unconfirmed: 2
 
-1. apps/api/src/modules/reports/infrastructure/performance-snapshots.job.ts:83,89,95                [report-flagged]  low
+1. src/reports/performance-snapshots.job.ts:45,51,57                                                 [report-flagged]  low
    §5 — each fire closes one period (yesterday, last week, last month) and nothing backfills a missed one: no process at 03:50 UTC
    on the 1st → that month's snapshot is never written. Fix: on each tick, close every period since the last stored snapshot. Settling: V352 downtime row.
 2. same file, the three @Cron decorators                                                              [report-flagged]  low
@@ -374,18 +374,18 @@ Findings: 0 · Unconfirmed: 2
    those times UTC. Fix: { timeZone: '<the workspace zone>' }, or correct the comment. Settling: V352 iterator in the business zone.
 
 Verification: 6 candidates read → 0 findings · 2 unconfirmed · 1 hardening (usage rollup: one missed night caught up, two not) · 3 refuted
-  (self-verified: billing and order rollup catch up; a missing order settles once) · grouped: §4 61 entries (leases one hop down; 2 samplers, B-R8), §6 41 zone-less (UTC, B-R9)
+  (self-verified: billing and order rollup catch up; a missing order settles once) · grouped: §4 62 entries (60 under a lease or claim one hop down; 2 samplers, B-R8), §6 42 zone-less (UTC, B-R9)
 
 Class coverage:
   §1 model in payload          checked (0)
-  §2 deleted record            checked (2c 0; 1 of 7 processors read one hop down → 0) · Live, unreviewed (6 processors)
+  §2 deleted record            checked (2c 0; 1 of 8 processor files read one hop down → 0) · Live, unreviewed (6 processors)
   §3 payload drift             checked (3w: every compared queue and task read) · diff lane N/A (whole-repo run)
-  §4 self-overlap              checked (61 entries → 0; guards one hop down, B-R8) · → distributed-systems coordination-scan §1–§4 (21 files)
-  §5 misfire                   checked (5a 2 · 5b 10 files → 1 unconfirmed, 1 hardening)
-  §6 schedule zone             checked (41 zone-less, UTC process → 1 unconfirmed) · → infrastructure k8s-wiring-scan §5 (2)
-  §7 failure discarded         checked (7a 0 · 7g 0 · 7h 0) · → distributed-systems messaging-scan §3 (0 removeOnFail)
-  routed                       → database transaction-scan §1 (8) · → distributed-systems messaging-scan §2/§6 (8), retry-deadline-scan §1/§6 (103),
-                               dual-write-scan §1 (1) · → performance request-path-scan §20 (34 files, 2 after one hop)
+  §4 self-overlap              checked (62 entries → 0; guards one hop down, 2 samplers B-R8) · → distributed-systems coordination-scan §1–§4 (18 files)
+  §5 misfire                   checked (5a 2 · 5b 9 files → 1 unconfirmed, 1 hardening)
+  §6 schedule zone             checked (42 zone-less, UTC process → 1 unconfirmed) · → infrastructure k8s-wiring-scan §5 (2)
+  §7 failure discarded         checked (7a 0 · 7g 1 → 0, a delegated leader-locked prune · 7h 0) · → distributed-systems messaging-scan §3 (0 removeOnFail)
+  routed                       → database transaction-scan §1 (8) · → distributed-systems messaging-scan §2/§6 (8), retry-deadline-scan §1/§6 (100),
+                               dual-write-scan §1 (1) · → performance request-path-scan §20 (37 files, 2 after one hop)
 ```
 
 `[report-with-fix]`: V351–V353 failed on the project's own queue and scheduler at the installed version and the fix is local to the project's wrapper, processor or schedule. `[report-flagged]`: one link is unproven (no harness run, the version `UNREAD`, a guard not traced one hop down); the row names it and the settling run. The coverage block lists **all seven** §s on every run: `checked (k → m)`, `N/A (<reason>)`, `blocked (<grep or tool>)`, `→ <owner> (k)` or `Live, unreviewed (k groups / n hits)`. A missing line is printed by `/backend-audit` as `not run`.
