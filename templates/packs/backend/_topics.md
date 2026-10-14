@@ -459,6 +459,13 @@ Each topic declares:
   extracts_from: _extracted-codebase.md § "API surface" (framework, adapter and router versions; the pagination kernel, idempotency store and HTTP-client wrapper) + the committed OpenAPI spec and its CI diff step
   fallback: skills/http-contract-scan/SKILL.md   # source-as-fallback; reads validation-boundary-scan's scripts/dto-types.py (same pack)
 
+- name: wire-format-scan
+  kind: skill
+  triggers:
+    api_surface_detected: true   # every response, carrier and request binder has a wire format; lanes the repo lacks (no Decimal type, no Jackson, no Go) report N/A
+  extracts_from: _extracted-codebase.md § "API surface" (the serializer and its settings, the ORM and driver versions, the process time zone) + response DTOs, mappers and producer wrappers
+  fallback: skills/wire-format-scan/SKILL.md   # source-as-fallback
+
 - name: log-tail
   kind: command
   triggers:
