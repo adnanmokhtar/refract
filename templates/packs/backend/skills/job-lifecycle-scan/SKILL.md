@@ -70,7 +70,7 @@ Run as **one** script from the repo root (shell state does not survive between t
 
 ```bash
 ROOTS=(.)   # server and worker code; in a monorepo name the apps: ROOTS=(apps/api apps/worker). Manifests always search .
-BASE="${BASE:-}"   # §3 is diff-only: BASE=<base-branch> runs it; empty → N/A
+BASE="${BASE:-}"   # §3 diff lane: BASE=<base-branch> runs it; empty → N/A (the 3w whole-repo lane always runs)
 SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/jl.XXXXXX")}"; mkdir -p "$SCAN"
 CODE=(-g '*.{ts,mts,cts,js,mjs,cjs,py,java,kt,cs,go,php,rb}')
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/{dist,build,out,target,coverage,.next,.venv,venv,generated,__generated__}/**'
@@ -106,14 +106,96 @@ rg -n --no-heading --pcre2 '\bJobDataMap\b[^\n]*\.put\s*\(|\.usingJobData\s*\(\s
 echo "2a rails jobs: $(rg -l --pcre2 '<\s*(?:ApplicationJob|ActiveJob::Base)\b' -g '*.rb' "${X[@]}" "${ROOTS[@]}" | wc -l | tr -d ' ') · with discard_on/retry_on DeserializationError: $(rg -l --pcre2 '(?:discard_on|retry_on|rescue_from)\s*\(?\s*ActiveJob::DeserializationError' -g '*.rb' "${X[@]}" "${ROOTS[@]}" | wc -l | tr -d ' ') (a hit in application_job.rb covers every job)"
 rg -l --null --pcre2 '\bSerializesModels\b' -g '*.php' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 '\$deleteWhenMissingModels\s*=\s*true|#\[DeleteWhenMissingModels\]' | sed 's/^/2b SerializesModels, no deleteWhenMissingModels: /'
 xargs -0 -r rg -n --no-heading --pcre2 '\.(?:findOneOrFail|findOrFail|findOneByOrFail|findUniqueOrThrow|findFirstOrThrow|firstOrFail|getReferenceById|orElseThrow)\s*\(|::findOrFail\s*\(|\.objects\.get\s*\(|\b\w+\.find\s*\(\s*\w*_?id\b|\.(?:one|scalar_one)\s*\(\s*\)' < "$SCAN/proc" | "${NC[@]}"
-# 3 payload or signature drift across deploys — diff-only: changed task signatures, job-data types and job.data reads in inventory files
+# 3 payload or signature drift across deploys — 3w whole repo: job.data reads no literal producer payload of the same queue sets; Celery tasks whose required
+#   positional args outnumber what a .delay / apply_async / send_task caller passes. Candidates — V351 settles them. Then the diff lane: changed signatures and job.data reads
+if command -v python3 >/dev/null 2>&1; then python3 -I - "$SCAN/proc" "$SCAN/prod" <<'PY'
+import re, sys
+def L(p): return [f for f in open(p, 'rb').read().decode('utf-8', 'replace').split('\0') if f]
+def R(f):
+    try: return open(f, encoding='utf-8', errors='replace').read()
+    except OSError: return ''
+def N(s, i): return s.count('\n', 0, i) + 1
+def A(s, i):   # top-level arguments of the call whose '(' ends at i
+    d, q, out, cur, j = 0, None, [], i, i
+    while j < len(s):
+        c = s[j]
+        if q:
+            if c == '\\': j += 1
+            elif c == q: q = None
+        elif c in '"\'`': q = c
+        elif c in '([{': d += 1
+        elif c in ')]}':
+            if d == 0: return out + [s[cur:j]]
+            d -= 1
+        elif c == ',' and d == 0: out.append(s[cur:j]); cur = j + 1
+        j += 1
+    return out
+proc, prod = L(sys.argv[1]), L(sys.argv[2]); JS = ('.ts', '.mts', '.cts', '.js', '.mjs', '.cjs')
+reads, sets, opened = {}, {}, set()
+for f in proc:
+    s = R(f) if f.endswith(JS) else ''
+    qs = {a or b for a, b in re.findall(r'@Processor\(\s*["\'`]([^"\'`]+)|\bnew\s+Worker\s*(?:<[^>]*>)?\(\s*["\'`]([^"\'`]+)', s)}
+    if len(qs) != 1: continue
+    q = qs.pop()
+    for m in re.finditer(r'\bjob\.data\??\.(\w+)(?!\s*(?:\?\?|\|\|))', s): reads.setdefault(q, []).append((f, N(s, m.start()), m.group(1)))
+    for m in re.finditer(r'\{([^{}]*)\}\s*=\s*job\.data\b', s):
+        for k in m.group(1).split(','):
+            k = re.match(r'\s*(\w+)\s*(:[^=]*)?$', k)
+            if k: reads.setdefault(q, []).append((f, N(s, m.start()), k.group(1)))
+for f in prod:
+    s = R(f) if f.endswith(JS) else ''
+    v = {m.group(2): m.group(1) for m in re.finditer(r'@InjectQueue\(\s*["\'`]([^"\'`]+)["\'`]\s*\)\s*(?:(?:private|public|protected|readonly)\s+)*(\w+)', s)}
+    v.update({m.group(1): m.group(2) for m in re.finditer(r'\b(?:const|let|var)\s+(\w+)\s*=\s*new\s+Queue\s*(?:<[^>]*>)?\(\s*["\'`]([^"\'`]+)', s)})
+    for m in re.finditer(r'\b(\w+)\s*\.\s*(add|addBulk)\s*\(', s):
+        q = v.get(m.group(1))
+        if not q: continue
+        a = A(s, m.end()); p = a[1].strip() if len(a) > 1 else ''
+        items = A(p[1:-1] + ')', 0) if m.group(2) == 'add' and p.startswith('{') and p.endswith('}') else None
+        keys = [re.match(r'\s*["\']?(\w+)["\']?\s*(?::|$)', x) for x in items or [] if x.strip()]
+        if items is None or not all(keys): opened.add(q); continue
+        sets.setdefault(q, []).append((f, N(s, m.start()), {k.group(1) for k in keys}))
+cmp_ = skip = 0
+for q in sorted(reads):
+    if q in opened or q not in sets: skip += 1; continue
+    cmp_ += 1; have = set().union(*[k for _, _, k in sets[q]])
+    for f, n, k in reads[q]:
+        if k not in have: print(f"3w {f}:{n} job.data.{k} — no producer of '{q}' sets it (" + "; ".join(f"{pf}:{pn} sets {', '.join(sorted(pk))}" for pf, pn, pk in sets[q]) + ")")
+tasks = {}
+for f in proc:
+    s = R(f) if f.endswith('.py') else ''
+    for m in re.finditer(r'^[ \t]*@(?:shared_task|\w+\.task)\b(\((?:[^()]|\([^()]*\))*\))?[^\n]*\n(?:[ \t]*@[^\n]*\n)*[ \t]*(?:async\s+)?def\s+(\w+)\s*\(', s, re.M):
+        req, ps = [], A(s, m.end())
+        for i, p in enumerate(x.strip() for x in ps):
+            if p.startswith('*'): break
+            if not p or p == '/' or (i == 0 and re.search(r'\bbind\s*=\s*True', m.group(1) or '')) or re.search(r'(?<![=<>!])=(?!=)', p): continue
+            req.append(re.match(r'\w+', p).group(0))
+        tasks[m.group(2)] = (f, N(s, m.start(2)), req)
+calls = 0
+for f in prod:
+    s = R(f) if f.endswith('.py') else ''
+    for m in re.finditer(r'\b(\w+)\.(delay|apply_async)\s*\(|\bsend_task\s*\(\s*["\'](?:[\w.]*\.)?(\w+)["\']\s*,?', s):
+        name = m.group(1) or m.group(3); t = tasks.get(name)
+        if not t: continue
+        a = [x.strip() for x in A(s, m.end()) if x.strip()]; kw = {x.split('=', 1)[0].strip(): x.split('=', 1)[1].strip() for x in a if re.match(r'\w+\s*=(?!=)', x)}
+        if m.group(2) == 'delay': pos, ks = [x for x in a if not re.match(r'\w+\s*=(?!=)', x)], set(kw)
+        else:
+            lit = kw.get('args', a[0] if a and not re.match(r'\w+\s*=(?!=)', a[0]) else '()')
+            if not re.match(r'^[\[(].*[\])]$', lit, re.S): continue
+            pos = [x for x in A(lit[1:-1] + ')', 0) if x.strip()]
+            ks = set(re.findall(r'["\'](\w+)["\']\s*:', kw.get('kwargs', '')))
+        if any(x.startswith('*') for x in pos): continue
+        calls += 1; miss = [r for r in t[2][len(pos):] if r not in ks]
+        if miss: print(f"3w {t[0]}:{t[1]} {name}() requires {len(t[2])} ({', '.join(t[2])}) — {f}:{N(s, m.start())} passes {len(pos)}: missing {', '.join(miss)}")
+print(f"3w whole-repo lane: {cmp_} queues compared (job.data reads vs literal producer payloads), {skip} skipped (no literal producer in ROOTS, or a spread / non-literal / addBulk payload: read) · {len(tasks)} tasks, {calls} callers checked")
+PY
+else echo "3w NOT-RUN (python3 absent): read each processor's job.data reads against its producers"; fi
 if [ -n "$BASE" ]; then
   git diff --name-only "$BASE"...HEAD -- "${ROOTS[@]}" | sed 's|^\./||' | sort -u > "$SCAN/changed"
   cat "$SCAN/proc" "$SCAN/prod" | tr '\0' '\n' | sed 's|^\./||' | sort -u > "$SCAN/jobfiles"
   comm -12 "$SCAN/changed" "$SCAN/jobfiles" | while IFS= read -r f; do
     git diff -U0 "$BASE"...HEAD -- "$f" | rg -n --no-heading --pcre2 '^[-+](?![-+])[^\n]*(?:\bdef\s+\w+\s*\(|\bperform\s*\(|\bhandle\s*\(|\bjob\.data\b|\b(?:interface|type)\s+\w*(?:Job|Payload|Data|Message)\w*\b|\bpublic\s+function\s+__construct\s*\(|\bdata\s+class\b|\brecord\s+\w+\s*\(|\bversion\s*[:=])' | sed "s|^|3 $f |"
   done
-else echo "3 N/A (diff-only: run with BASE=<base-branch>)"; fi
+else echo "3 diff lane N/A (run with BASE=<base-branch>; 3w above is the whole-repo lane)"; fi
 # 4 a schedule that overlaps itself on one process: Nest @Cron / npm cron without waitForCompletion (4a) and @Interval = setInterval (4b);
 #   node-cron without noOverlap (4c); Laravel without withoutOverlapping (4d); Spring fixedRate under virtual threads (4e); Quartz (4f); robfig (4g);
 #   APScheduler max_instances raised (4h); BullMQ schedulers (4i, read). Each hit is tagged with the file's guard words (a lock or flag clears it on read)
@@ -128,11 +210,11 @@ rg -l --null --pcre2 'implements\s+(?:org\.quartz\.)?Job\b|extends\s+QuartzJobBe
 rg -l --null --pcre2 '\bcron\.New\s*\(' -g '*.go' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 '\b(?:SkipIfStillRunning|DelayIfStillRunning)\b' | sed 's/^/4g robfig cron, no SkipIfStillRunning: /'
 rg -n --no-heading --pcre2 '\bmax_instances\s*[=:]\s*(?:[2-9]|\d{2,})\b' -g '*.py' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/4h /'
 rg -n --no-heading --pcre2 '\bupsertJobScheduler\s*\(|\brepeat\s*:\s*\{' -g '*.{ts,mts,cts,js,mjs,cjs}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/4i /'
-# 5 misfire / catch-up: must-run schedule entries by handler name (5a) or path (5b) — in-process schedulers never catch up; APScheduler entries without
+# 5 misfire / catch-up: must-run schedule entries by handler name (5a) or path (5b) — in-process schedulers never catch up (5b and 7g match the file NAME, never a directory); APScheduler entries without
 #   misfire_grace_time or coalesce (5c, scheduler-level job_defaults is the control); Quartz triggers vs misfire instructions (5d)
 MUST='\w*(?i:bill|invoic|settl|payout|charge|renew|subscri|month|statement|ledger|accru|interest|reconcil|payroll|dunning|rollup|snapshot|close|cutoff|usage)\w*'
 rg -U -n --no-heading --pcre2 "@(?:Cron|Scheduled|Interval)\s*\((?=$B\)[^\n]*\n(?:[ \t]*(?:@[^\n]*|//[^\n]*)?\n){0,4}?[ \t]*(?:(?:public|private|protected|async|static|void|def|fun)\s+)*$MUST\s*\()" "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/5a /'
-tr '\0' '\n' < "$SCAN/sched" | rg --pcre2 "(?i)(bill|invoic|settl|payout|charge|renew|subscri|month|statement|ledger|accru|interest|reconcil|payroll|dunning|rollup|snapshot|cutoff|usage)" | sed 's/^/5b /'
+tr '\0' '\n' < "$SCAN/sched" | rg --pcre2 "(?i)(?:^|/)[^/]*(?:bill|invoic|settl|payout|charge|renew|subscri|month|statement|ledger|accru|interest|reconcil|payroll|dunning|rollup|snapshot|cutoff|usage)[^/]*$" | sed 's/^/5b /'
 rg -U -n --no-heading --pcre2 "\.add_job\s*\((?=(?:(?!misfire_grace_time|coalesce)$U)*\))|@\w+\.scheduled_job\s*\((?=(?:(?!misfire_grace_time|coalesce)$U)*\))" -g '*.py' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/5c /'
 echo "5c apscheduler job_defaults: $(rg -l --pcre2 '\bjob_defaults\b' -g '*.py' "${X[@]}" "${ROOTS[@]}" | wc -l | tr -d ' ') · 5d quartz triggers: $(rg -c --no-heading --pcre2 '\bnewTrigger\s*\(|\bTriggerBuilder\b' -g '*.{java,kt}' "${X[@]}" "${ROOTS[@]}" | awk -F: '{s+=$NF} END {print s+0}') misfire instructions: $(rg -c --no-heading --pcre2 'withMisfireHandlingInstruction\w*|MISFIRE_INSTRUCTION_\w+' -g '*.{java,kt}' "${X[@]}" "${ROOTS[@]}" | awk -F: '{s+=$NF} END {print s+0}')"
 # 6 schedule zone: entries with no zone (6a Nest/npm cron, 6b node-cron, 6c Spring, 6d Laravel, 6e robfig, 6f APScheduler); 6g fire hours in 00:00–03:59
@@ -158,7 +240,7 @@ echo "7c ignore_result=True: $(rg -c --no-heading --pcre2 '\bignore_result\s*=\s
 rg -U -n --no-heading --pcre2 '@Async\b(?=[^\n]*\n(?:[ \t]*@[^\n]*\n){0,3}[ \t]*(?:public|protected|private)?\s*void\b)' -g '*.{java,kt}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/7d /'
 rg -n --no-heading --pcre2 '\b\w+\.add_task\s*\(' -g '*.py' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/7e /'
 rg -l --null --pcre2 'implements\s+ShouldQueue\b' -g '*.php' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 'function\s+failed\s*\(' | sed 's/^/7f no failed(): /'
-tr '\0' '\n' < "$SCAN/sched" | rg --pcre2 "(?i)(bill|invoic|settl|payout|charge|renew|subscri|month|statement|ledger|accru|interest|reconcil|payroll|dunning|rollup|snapshot|cutoff|usage)" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '(?i)record\w*fail|\bfailed\b|failure|\.inc\s*\(|capture(?:Exception|IfExhausted)|status\s*[:=]\s*["\x27]failed|\brun(?:Log|Record|History)\b' | sed 's/^/7g must-run schedule file (5b), no failure record: /'
+tr '\0' '\n' < "$SCAN/sched" | rg --pcre2 "(?i)(?:^|/)[^/]*(?:bill|invoic|settl|payout|charge|renew|subscri|month|statement|ledger|accru|interest|reconcil|payroll|dunning|rollup|snapshot|cutoff|usage)[^/]*$" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '(?i)record\w*fail|\bfailed\b|failure|\.inc\s*\(|capture(?:Exception|IfExhausted)|status\s*[:=]\s*["\x27]failed|\brun(?:Log|Record|History)\b' | sed 's/^/7g must-run schedule file (5b), no failure record: /'
 xargs -0 -r rg -l --null --pcre2 "status\s*[:=]\s*[\"'](?:running|processing|in_progress|started)[\"']|\bstate\s*[:=]\s*[\"'](?:running|processing)[\"']" < "$SCAN/proc" | xargs -0 -r rg --files-without-match --pcre2 "[\"']failed[\"']|\bFAILED\b|\.fail\s*\(" | sed 's/^/7h running status, no failed write: /'
 # R routed rows — counted here, graded by their owners (§ Boundaries)
 TXO='\.transaction(?:al)?\s*\(|\btransaction\.atomic\b|\bDB::transaction\s*\(|\.transaction\s+do\b|\$transaction\s*\(|@Transactional\b|\bBeginTx\s*\(|\btx\.run\s*\('
@@ -178,6 +260,7 @@ Three blind spots are structural; work around them rather than trust a quiet gre
 - **Real repo, read-only, full tree** (a NestJS 11 monorepo on Fastify with MikroORM; `ROOTS=(apps/api/src)`, the server code only — an earlier run on `ROOTS=(apps/api)` over an older partial copy also swept the app's maintenance scripts: 21 guarded files, 4a 42, 6a 41, 103 retry settings and 34 unguarded files, against the numbers below; the pnpm lockfile pins BullMQ 6.3.4, `@nestjs/bullmq` 11.0.5, `@nestjs/schedule` 6.1.3 on `cron` 4.4.0 — F1's lockfile line, added after the first run printed ranges only, reads them, so §4's default is no longer `UNREAD`): 1.7 s, 0 `rg` errors, 166 lines. F2: no `TZ` in the image, manifests or code → the process runs in UTC. Grep 0: **55 schedule files, 62 entries** (42 `@Cron`, 19 `@Interval`, 1 `@Timeout`), 18 files with a guard word; **8 processor files** (7 on one tenant base processor); 20 producer files behind one producer wrapper; the P5 listing names the base processor and the lock helpers (`lockKey`, `advisoryLockKey`). **§1 0** — every enqueue passes an object literal of ids; the wrapper forwards `data` (P5). **§2: 2c 0** direct throw-on-missing loads in processors; one read one hop down (the bulk-dispatch line) → a missing order throws the domain not-found error, which the use case settles as `failed` once with no retry → cleared; 6 processors `Live, unreviewed`. **§3 N/A** (whole-repo run). **§4: 4a 43 + 4b 19**; the eval's one-hop read found 60 of 62 entries under a lease or claim, and the 2 unguarded ones are process-local metrics samplers → B-R8 → **0 rows**. **§5: 5a 2, 5b 10 files** → storage billing posts every due-and-unposted charge by its ledger (catches up), the order rollup catches up on every 60 s tick, the usage rollup recomputes yesterday and today (one missed night caught up, two not → Hardening), **the performance-snapshot job closes one period per fire time and nothing backfills a missed one** → `[report-flagged]` low. **§6: 6a 42** zone-less entries, **6g 5** expressions in hours 1–3 + 3 `EVERY_DAY_AT_3AM` → all in a UTC process (`precedents/distributed.md` § 35, B-R9) → 0 rows except one: the snapshot job's doc comment says its three `@Cron`s fire at 03:20/03:40/03:50 "on the workspace's own clock" (UTC+3), while zone-less in a UTC process they fire at those times UTC → `[report-flagged]` low; 6g also lists a backup CronJob at 02:15 → infrastructure `k8s-wiring-scan` §5 (which refuted it as a backup time with no business meaning). **§7: 7a 0** (every processor declares a `failed` listener that dead-letters and settles its status row), 7b 0, **7g 1 → 0** (a retention prune whose file name says `billing`: it delegates to the shared leader-locked sweep helper, and a missed night is pruned the next), 7h 0. Routed: database §1 8 files (a DB-row export-jobs port enqueued in the same transaction — the outbox shape, database's to clear), messaging-scan 8 processor files, retry-deadline-scan 100 retry settings, coordination-scan 18 guarded files (its own run found the nine GET-then-DEL releases), dual-write-scan 1, performance §20 37 files with no guard word in the file (one hop: 2), infrastructure §5 2 manifests.
 - **Fixtures** (`benchmarks/fixtures/*`, 18 roots; none seeds a JL class yet — the `backend-defects` fixture is a later build item): 0 `rg` errors on any root. `obs-defects`: a renewal charge `@Cron('0 2 * * *')` hits 4a, 5a, 5b, 6a, 6g and 7g — §5 holds as a candidate (its doc comment and `findDueToday()` charge what renews today, so a 02:00 with no worker up skips that day's renewals; the repository is not in the fixture, so the catch-up read is Unconfirmed), §4 does not (a daily run does not outlive its period), §6 is a UTC process, §7 holds (a throw leaves a log line; observability's `metric-hygiene-scan` §2 seeds the missing counter on the same line), and its 3 worker replicas are performance §20's; 7a lists the invoice processor, cleared on read (its `catch` increments an error counter and rethrows). `slow-marketplace`: an hourly reminder (§4/§5 not rows; performance §20's seed) and a nightly summary claimed by a unique insert — the fixture's own decoy, tagged `[guard in file]`. `infra-ops`, `quality-mix`: 6g lists Velero and CronJob schedules → infrastructure. Every other root prints only the F lines.
 - **Research labs and paired samples**: lab B's `cron.mjs` hits 4a (the default job) and stays quiet on the `waitForCompletion: true` job, hits 4c on node-cron, and 6g lists its two New York DST expressions; lab B's FastAPI script hits 7e. A scratch sample set (Node, Python, Ruby, PHP, Java, Go, k8s) gave every POS line a hit and kept every NEG line quiet except by design: a positional `waitForCompletion` (4a, read), a load inside a `try/except DoesNotExist` (2c, read), and a file-level guard tag.
+- **`backend-defects` fixture** (2026-10-14, after the fixture's IR-4 and IR-6). The new whole-repo **3w** lane prints the 2 static drift seeds: BD-JL-3a (`job.data.currency`, which no `settlement` producer sets) and BD-JL-3b (`send_dunning` needs 2 arguments; `apply_async(args=[inv.pk])` passes 1). It compared 1 queue, skipped 4 (a non-literal payload, or no producer in ROOTS) and checked 6 callers of 5 tasks. A paired sample kept every NEG quiet: a defaulted destructure, `?? default`, kwargs, `apply_async((a, b))`, a spread payload, `*args`. 5b and 7g now match file names only, so `fx_scheduler.py` and `scheduler.py` no longer print because of the `billing/` directory (BD-DECOY-46). On the other 22 fixtures 3w prints its summary line only.
 
 ## The 3,000-hit path
 
@@ -218,14 +301,14 @@ GOOD:  discard_on ActiveJob::DeserializationError (in ApplicationJob) · public 
 ```
 **Read the code:** which loads can find nothing (2c, and one hop down in the use case the processor calls)? Does a missing row end as one discard with a log line, or as N retries and a dead-letter row — and is the thrown class one the processor treats as permanent (a domain not-found error settled `failed`) or one the queue retries (an ORM's own `NotFoundError`)? A job whose missing row must alert fails once by design. **Finding when** a deleted or soft-deleted row turns into retries, a dead letter, or a skipped cleanup branch. **Proof:** V351 — enqueue, delete the row, run: one discard, 0 retries, no dead-letter entry.
 
-### 3. Payload or signature drift across deploys (diff-only)
+### 3. Payload or signature drift across deploys
 
 ```
 BAD:   - def charge(order_id):            + def charge(order_id, currency):     # old payloads: TypeError: missing argument
        - interface ShipJob { orderId }     + interface ShipJob { orderId; carrierId }   // old jobs: job.data.carrierId undefined
 GOOD:  + def charge(order_id, currency="USD") · a `version` field and a dispatcher for every version · drain, then deploy (enforced, B-R7)
 ```
-**Read the code:** can the queue hold a job across the deploy — a delay, a retry with backoff, a scheduler, a dead letter someone replays? Does the new code still read every old payload, and does the **old** code (still running during a rolling deploy) read the new one? Cross-service event schemas are `event-contract-scan`'s; Temporal histories are `workflow-scan` §2's. **Finding when** a payload produced by one side of the deploy fails or misreads on the other. **Proof:** V351 — cross-commit replay in both directions on the real queue.
+Two drift shapes are static, so the **3w** lane prints them on every run, whole-repo included: a processor reading a `job.data` field that no literal payload sent to the same queue sets, and a Celery task whose required positional arguments outnumber what a `.delay` / `apply_async` / `send_task` caller passes. A 3w row is a candidate — a producer outside `ROOTS`, a wrapper, a spread or a guarded read (`?? default`) can clear it on read; the summary line counts the queues it could not compare. The diff lane (`BASE`) adds every changed signature and payload type. **Read the code:** can the queue hold a job across the deploy — a delay, a retry with backoff, a scheduler, a dead letter someone replays? Does the new code still read every old payload, and does the **old** code (still running during a rolling deploy) read the new one? Cross-service event schemas are `event-contract-scan`'s; Temporal histories are `workflow-scan` §2's. **Finding when** a payload produced by one side of the deploy fails or misreads on the other. **Proof:** V351 — cross-commit replay in both directions on the real queue.
 
 ### 4. A schedule overlaps itself on one process
 
@@ -296,7 +379,7 @@ Verification: 6 candidates read → 0 findings · 2 unconfirmed · 1 hardening (
 Class coverage:
   §1 model in payload          checked (0)
   §2 deleted record            checked (2c 0; 1 of 7 processors read one hop down → 0) · Live, unreviewed (6 processors)
-  §3 payload drift             N/A (diff-only; whole-repo run)
+  §3 payload drift             checked (3w: every compared queue and task read) · diff lane N/A (whole-repo run)
   §4 self-overlap              checked (61 entries → 0; guards one hop down, B-R8) · → distributed-systems coordination-scan §1–§4 (21 files)
   §5 misfire                   checked (5a 2 · 5b 10 files → 1 unconfirmed, 1 hardening)
   §6 schedule zone             checked (41 zone-less, UTC process → 1 unconfirmed) · → infrastructure k8s-wiring-scan §5 (2)

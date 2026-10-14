@@ -1,7 +1,7 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "released": "2026-10-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,

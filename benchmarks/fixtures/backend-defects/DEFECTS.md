@@ -48,10 +48,9 @@ Departures from the eval, stated so a reader can audit them:
   distributed-systems. The eval's two devops rows (a lazily read PSP secret, `migrator.up()` in `main.ts` with three
   replicas) are not seeded; two performance rows (an outbound call with no timeout, a fully buffered upload) and two
   observability rows (a 500 with no capture, a lost stack) take the slots.
-- **`job-lifecycle-scan` §3 is diff-only** in its pre-flight (`BASE=<base-branch>`); a `--whole-repo` run prints it
-  `N/A (diff-only)`. Its two seeds are statically visible (a processor reading a field its producer never sets, a task
-  that gained a required argument) and are scored anyway; the measurement below records the miss and the integrator
-  request.
+- **`job-lifecycle-scan` §3 has two lanes.** Its diff lane needs `BASE=<base-branch>`, so a `--whole-repo` run
+  prints that lane `N/A`. Its whole-repo **3w** lane (added in backend 2.0.1 from IR-4 below) prints the two static
+  seeds: a processor reading a field its producer never sets, and a task that gained a required argument.
 - **Spec drift is evidence, not a separate seed**: `openapi/openapi.generated.yaml` differs from the committed spec in
   four places (201 on the preview action, `total` string → number, `partnerReference` no longer required, 204 on the
   subscription DELETE). Each difference is credited to the code seed that causes it (BD-HC-1a, BD-WF-1b, BD-HC-10b,
@@ -2868,9 +2867,10 @@ last line; `job-lifecycle-scan` ran with `BASE` empty (a whole-repo run). Tools:
 wiring map's F6 line calls `docker version` (local daemon only). No package was installed, nothing was built or booted,
 no network call was made; `git status` on the copy after all seven runs showed only the `.claude/` install.
 
-**Wall time and errors.** Wiring map 0.7 s, 130 lines; `validation-boundary-scan` 0.45 s / 91 lines;
-`edge-error-scan` 0.66 s / 82; `http-contract-scan` 0.71 s / 118; `wire-format-scan` 0.27 s / 49;
-`job-lifecycle-scan` 0.63 s / 52; `state-transition-scan` 0.22 s / 25. Every block exited 0 with **empty stderr** (no
+**Wall time and errors** (re-run the same way after backend 2.0.1 closed IR-1 to IR-12; the first run's line counts
+follow in brackets). Wiring map 0.7 s, 130 lines [130]; `validation-boundary-scan` 0.36 s / 90 [91];
+`edge-error-scan` 0.76 s / 81 [82]; `http-contract-scan` 0.70 s / 113 [118]; `wire-format-scan` 0.20 s / 53 [49];
+`job-lifecycle-scan` 0.59 s / 51 [52]; `state-transition-scan` 0.19 s / 25 [25]. Every block exited 0 with **empty stderr** (no
 `rg` exit 2). `dto-types.py --self-test`: 75/75. On the copy it read 167 files, parsed 57 of 58 raw param hits (the 58th
 is a GraphQL method-level `@Query(() => T)`), 0 `UNPARSED`, 100 % resolved, `strictNullChecks` on for all 57 (from
 `apps/api/tsconfig.json` `strict: true`), and bucketed `@ZodBody` as `custom-pipe(ZodValidationPipe)` — not a VB1 row.
@@ -2899,18 +2899,18 @@ nothing in the block points at it.
 |---|---|---|---|---|---|
 | `validation-boundary-scan` | 21 | 20 | 1 (VB-6b: 6c lists the Go file) | — | 0 |
 | `edge-error-scan` | 17 | 14 | 1 (EE-2a: the ORM-name row names the filter file) | 2 (EE-2b: `EE2c family named by NO mapper: LedgerError (4 classes)`; EE-6a: `6 drf: EXCEPTION_HANDLER=0`) | 0 |
-| `http-contract-scan` | 38 | 32 | 4 (HC-1d, HC-1e from HC1d; HC-12a, HC-12b from HC12a/HC12c) | — | 2 (HC-10a, HC-11d) |
-| `wire-format-scan` | 14 | 12 | 1 (WF-2b: 2c lists the Go file) | — | 1 (WF-3a) |
-| `job-lifecycle-scan` | 14 | 10 | 1 (JL-7a: `7a no failed listener`) | 1 (JL-7b: `7c ignore_result=True: 1 · result reads: 1`) | 2 (JL-3a, JL-3b: `3 N/A (diff-only)`) |
+| `http-contract-scan` | 38 | 34 | 4 (HC-1d, HC-1e from HC1d; HC-12a, HC-12b from HC12a/HC12c) | — | 0 (first run: 2, HC-10a and HC-11d — IR-1, IR-2) |
+| `wire-format-scan` | 14 | 13 | 1 (WF-2b: 2c lists the Go file) | — | 0 (first run: 1, WF-3a — IR-3) |
+| `job-lifecycle-scan` | 14 | 12 | 1 (JL-7a: `7a no failed listener`) | 1 (JL-7b: `7c ignore_result=True: 1 · result reads: 1`) | 0 (first run: 2, JL-3a and JL-3b at `3 N/A (diff-only)` — IR-4; now the 3w lane) |
 | `state-transition-scan` | 5 | 5 | — | — | 0 |
-| **total** | **109** | **93** | **8** | **3** | **5** |
+| **total** | **109** | **98** | **8** | **3** | **0** (first run: 5) |
 
-**104 of 109 seeds are printed by their own detector's pre-flight; 5 are missed by grep shape** (IR-1 to IR-4). Notes
+**All 109 seeds are printed by their own detector's pre-flight** (backend 2.0.1). The first run missed 5 by grep shape
+(IR-1 to IR-4); each now prints at its own line. Notes
 on the printed ones that still need the read the skill prescribes: BD-VB-6a prints as the `class AppValidationPipe
 extends ValidationPipe` line (the options sit two lines down in `super(...)`); BD-EE-4b is the `4d go routers: 1 ·
 recover layers: 0` count (the ServeMux shares `main.go` with BD-EE-4a); BD-HC-6a/6b print as the module's in-flight lines
-— the grep lists composition terms that are present, so the missing principal and the missing fingerprint are found by
-reading the module W0-idem names (IR-10); BD-HC-9b prints as the two `reply.header` lines that use the constants;
+and, since IR-10, as `HC6-no-principal` and `HC6-no-fingerprint` on the interceptor that reads the header; BD-HC-9b prints as the two `reply.header` lines that use the constants;
 BD-JL-5b's 5a row also names `payout-cutoff.scheduler.ts` (BD-JL-6a's site: one entry, two classes).
 
 **Routed rows.** The backend blocks print the routed counts their skills promise — `job-lifecycle-scan` R lines (`→
@@ -2920,24 +2920,26 @@ files`), EE §6's Django row (IntegrityError/ObjectDoesNotExist named by no mapp
 
 ### Decoys
 
-19 decoys are printed by some backend block or the wiring map, each by design, and each cleared by the read its skill
+19 decoys are printed by some backend block or the wiring map (after backend 2.0.1), each by design, and each cleared by the read its skill
 prescribes: BD-DECOY-01 (VB1, B-D1), -05 (grep 4a, B-A13), -08 (6c, tolerant reader), -09 (VB7, B-D10), -10 (grep 8,
 principal), -18 (EE 1a and F2, B-D6 — and since the legacy filter reads `statusCode`, not in 1c), -20 (EE8, documented
-proxy), -21 (VB grep 0 `ShouldBindJSON`), -26 (HC7a, B-D4), -28 (HC8/HC8b, 207), -29 (HC9, RFC 9745), -30 (wiring F4,
-see IR-8), -33 (HC12c-setting, P5), -34 (HC13b, field-first enforced), -38 (WF 2a, B-D5), -45 (JL 4a, B-R8), -46 (JL
-5b/7g, see IR-6), -50 (ST 1a, B-R5), -52 (ST 2c, no machine). BD-DECOY-02 (`@ZodBody`) is **not** a VB1 row:
+proxy), -21 (VB grep 0 `ShouldBindJSON`), -26 (HC7a, B-D4), -28 (HC8/HC8b, 207), -29 (HC9, RFC 9745), -30 (wiring F4 and
+HC10-ci, both tagging the `changelog` step informational), -33 (HC12c-setting, P5), -34 (HC13b, field-first enforced), -38 (WF 2a, B-D5), -42 (WF 3a, B-A12 — the
+`-U` of IR-3 makes 3a list every schema), -45 (JL 4a, B-R8), -50 (ST 1a, B-R5), -52 (ST 2c, no machine). BD-DECOY-02 (`@ZodBody`) is **not** a VB1 row:
 `dto-types.py` buckets it `custom-pipe(ZodValidationPipe)` and only the wiring map's F3 line names it, with the
-instruction to read the pipe. The other 36 decoys print in no block; they measure false positives an agent adds by
+instruction to read the pipe. BD-DECOY-46 printed in JL 5b/7g in the first run and prints in no block since IR-6. The other 36 decoys print in no block; they measure false positives an agent adds by
 reading, not by grep.
 
-**Unseeded rows the blocks print (precision noise, each closed by one read):** HC11g 16 lines (every `express` import
-of the admin app, because the Fastify gate is repo-wide — IR-5); VB 6c `upstream/catalog.go` (an outbound decoder —
-IR-7); JL 5b/7g `fx_scheduler.py` and `scheduler.py` via the `billing` directory name (IR-6); HC4b the Django
-`path(".../approve/")` route, which is `@require_POST` (IR-12); EE2c `IllegalTransition` (a DRF `APIException`, which DRF
-maps — IR-11) and HC11d-nofp `files.plugin.ts` (an encapsulated error handler, intended); VB5 lists 10
+**Unseeded rows the blocks print (precision noise, each closed by one read):** `HC4b-django(method unknown: read the
+view)` — the Django `path(".../approve/")` route, which is `@require_POST` (IR-12 took the tag, not the drop); HC10-ci's
+two `Install oasdiff` step names and two `curl` lines (untagged); HC11d-nofp `files.plugin.ts` (an encapsulated error
+handler, intended); VB5 lists 10
 `optional-admits-null` props on Update DTOs — 2 are seeds (BD-VB-5a/5b), the rest reach a mapped NOT NULL arm (400), a
 nullable column or a JSON merge; HC7a the cache warmer's internal `order by rank limit 50`; ST 2c `tasks.py`
-`invoice.status = "sent"` (no machine on `Invoice`). Two unseeded true rows found by the first run were removed from the
+`invoice.status = "sent"` (no machine on `Invoice`). Gone since backend 2.0.1: HC11g's 16 admin-app `express`
+imports (IR-5), VB 6c `upstream/catalog.go` (IR-7), JL 5b/7g `fx_scheduler.py` and `scheduler.py` (IR-6), EE2c
+`IllegalTransition` (IR-11), the F4-ci tags on step names, `curl` and `changelog` lines (IR-8), and F3's doc-comment
+`@ZodBody` use (IR-9: `1 uses`). Two unseeded true rows found by the first run were removed from the
 tree rather than left unscored: `UpstreamError` is now mapped to 502 by the global filter, and the PSP calls in
 `billing/psp.py` pass `allow_redirects=False`; the files plugin's direct upload now sets `Location`.
 
@@ -2951,7 +2953,9 @@ the decoy's line) pins **55/55** and credits 0 seeds.
 
 ### Integrator requests (skill gaps this fixture found)
 
-Not edited here (the fixture owns no skill file); each names the grep and the seed that shows it.
+Not edited here (the fixture owns no skill file); each names the grep and the seed that shows it. **All twelve were closed
+in backend 2.0.1 (2026-10-14)**, and the measurement above is the re-run after the fixes. IR-10's absence rows run
+over the idempotency files that read the request header; IR-12 kept the Django row as `HC4b-django`, tagged.
 
 - **IR-1 — `http-contract-scan` HC10-ci never reads `.github/`.** The `rg` has no `--hidden`, so
   `.github/workflows/*.yml` is skipped and the CI `oasdiff breaking` step without `--fail-on` is invisible (BD-HC-10a
