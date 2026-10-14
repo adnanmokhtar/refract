@@ -77,7 +77,7 @@ product: 3 × 3 = 9 calls per failing action (THR-RES-RETRY.max_attempts 5; prec
 budget:  15 s × 3 + 2 waits ≤ 5 s = 55 s per inner call vs the 30 s job deadline → §8 candidate (aborted by the job signal? P36)
 ```
 
-A layer counts only when its exhausted failure **propagates** to the layer above: a client that catches and returns a result, a `null` or a logged warning ends the chain there, and the product is that layer's attempts alone. The product > `THR-RES-RETRY.max_attempts` (5; 3 for money-moving and LLM calls), or more than one retrying layer on a dependency other callers share, is a candidate. The eval's proposed `"layers": 1` amendment to `THR-RES-RETRY` (precedent 14) is the target; until it lands, cite precedent 14.
+A layer counts only when its exhausted failure **propagates** to the layer above: a client that catches and returns a result, a `null` or a logged warning ends the chain there, and the product is that layer's attempts alone. The product > `THR-RES-RETRY.max_attempts` (5; 3 for money-moving and LLM calls), or more than one retrying layer on a dependency other callers share, is a candidate. `THR-RES-RETRY.layers` is 1 and its `budget` caps the product across layers at `max_attempts` (precedent 14).
 
 ## Pre-flight greps
 

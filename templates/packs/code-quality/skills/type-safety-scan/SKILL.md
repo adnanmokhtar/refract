@@ -53,6 +53,7 @@ An escape is a correctness finding when all four hold:
 - The cast of a body whose HTTP status was never checked → `error-handling-scan` § 3 owns the unchecked status; this skill owns the unvalidated shape. One site, two classes: dedupe by `<file:line>`, credit both.
 - A nullable column the code assumes non-null → database `schema-integrity-scan` owns the constraint, when the database pack is installed; the dereference is §2 here.
 - Contract drift between services (a renamed field, an unknown enum value from a newer client) → backend `api-snapshot` and testing `contract-test`; this skill reports the cast that hides the drift.
+- A broker message or event parsed and cast (`JSON.parse(msg.value) as OrderEvent`) is §1 here — distributed-systems `event-contract-scan` §2 routes these casts to this skill. That skill owns the contract half when installed: a breaking schema change between releases (§1) and a topic whose schema exists but is read without its schema or registry deserializer, and what a malformed event does to the consumer (§2). One site, two classes: dedupe by `<file:line>`.
 
 ## Adapt to the codebase — the checker lanes
 

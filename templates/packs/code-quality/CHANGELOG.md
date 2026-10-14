@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.5 — 2026-10-14
+
+**`type-safety-scan` Boundaries name the event-contract split.** A broker message parsed and cast with no runtime check (`JSON.parse(msg.value) as OrderEvent`) is §1 here. Distributed-systems `event-contract-scan` §2 routes those casts to this skill, and owns the contract half when installed: a breaking schema change (§1), and a schema'd topic read without its deserializer (§2). One site, two classes, deduped by `file:line`; `governance/ownership.json` row `event-contract` records it.
+
 ## 2.0.4 — 2026-10-10
 
 **`/review-changes` reviews Kubernetes diffs with the detectors.** The `k8s` row dispatched `@k8s-reviewer` alone; it now runs `k8s-render-scan` first, then `k8s-availability-scan`, `k8s-wiring-scan` and `k8s-api-version-scan` over that render (infrastructure pack, when installed), with `@k8s-reviewer` judging their rows in refute mode — the shape the `ci` and `iac` rows use. Without the pack the axis is `UNREVIEWED(k8s)`. The `_examples/` twin carries the same row.

@@ -37,9 +37,9 @@
       "target": "security-reviewer (api-security lens)"
     },
     "workflow-transitions": {
-      "detector": "—",
+      "detector": "backend/skills/state-transition-scan §1–§2 (FSM-library semantics: an illegal event answered as success, a terminal state re-opened)",
       "owner": "business/agents/workflow-integrity",
-      "fixer": "implementer",
+      "fixer": "/backend-fix",
       "fallback": "code-quality/agents/code-reviewer",
       "pack": "business",
       "target": "code-reviewer"
@@ -576,6 +576,114 @@
       "pack": "security",
       "target": "security-reviewer",
       "note": "D1 takeover: credited to security when the target is claimable; a dangling record that only breaks resolution (released EIP, deleted zone) is infrastructure dns-tls-lifecycle-scan §1-adjacent; a literal CNAME to CloudFront or an ELB is not a takeover (precedents/infrastructure.md § 39)"
+    },
+    "messaging-delivery": {
+      "detector": "distributed-systems/skills/messaging-scan §1–§11 (ds-inventory.py for the option table)",
+      "owner": "distributed-systems/agents/resilience-reviewer (judge, refute mode)",
+      "fixer": "/ds-fix",
+      "fallback": "performance/skills/request-path-scan §24 runs its greps for consumer idempotency, poison/DLQ and lock or visibility vs run time when distributed-systems is not installed; with it installed §24 prints → messaging-scan §2/§3/§6 and does not grade",
+      "pack": "distributed-systems",
+      "target": "resilience-reviewer",
+      "note": "one oracle for the shared half: V296 is perf V44 probe 1; money, stock and credit effects → security logic-race-scan §4–§5; Lambda and EventBridge event sources → infrastructure serverless-reliability-scan §2–§4 (THR-QUEUE-VISIBILITY); worker concurrency, prefetch numbers and partitions vs consumers → performance request-path-scan §23; publish inside an open transaction → database transaction-scan §1; THR-DS-CONSUMER-TIMING"
+    },
+    "dual-write": {
+      "detector": "distributed-systems/skills/dual-write-scan §1–§6",
+      "owner": "distributed-systems/agents/resilience-reviewer (judge, refute mode)",
+      "fixer": "/ds-fix (the outbox table migration: /db-fix)",
+      "fallback": "the detector's own report, tagged, when the judge is not run; publish or enqueue inside an open transaction stays database transaction-scan §1 whether or not this pack is installed",
+      "pack": "distributed-systems",
+      "target": "resilience-reviewer",
+      "note": "publish or enqueue INSIDE a transaction is database transaction-scan §1 (V8); the outbox writer outside the caller's transaction is §1 here and database transaction-scan §2 corroborates; the relay's claim without SKIP LOCKED is database transaction-scan §5; a consumer with no reserve is messaging-scan §2; money effects → security logic-race-scan §4–§5; THR-DS-DEDUPE-WINDOW"
+    },
+    "retry-policy": {
+      "detector": "distributed-systems/skills/retry-deadline-scan §1–§8",
+      "owner": "distributed-systems/agents/resilience-reviewer (judge, refute mode)",
+      "fixer": "/ds-fix",
+      "fallback": "backend outbound-client rows, tagged retry-policy (owner pack not installed)",
+      "pack": "distributed-systems",
+      "target": "resilience-reviewer",
+      "note": "timeout presence → performance request-path-scan §12; proxy and load-balancer retries → infrastructure edge-reliability-scan §3; serverless retries → infrastructure serverless-reliability-scan §6; a retried charge or a provider key minted per attempt → security logic-race-scan §4; a message that keeps failing → messaging-scan §3; Temporal activity options → workflow-scan §3; THR-RES-RETRY (layers: 1)"
+    },
+    "distributed-lock": {
+      "detector": "distributed-systems/skills/coordination-scan §1–§6",
+      "owner": "distributed-systems/agents/resilience-reviewer (judge, refute mode; locks and leases) · distributed-systems/agents/system-architect (leader rows, §6)",
+      "fixer": "/ds-fix",
+      "fallback": "performance/skills/request-path-scan §18 for the per-replica and fencing half when distributed-systems is not installed",
+      "pack": "distributed-systems",
+      "target": "resilience-reviewer",
+      "note": "a lock held per replica and a correctness lease with no fencing token stay performance request-path-scan §18 (V38) — §4 here supplies the 4d fencing grep and the lease arithmetic; once-per-fleet schedulers stay performance §20 (V40); migrations at boot → devops deploy-safety-scan §1 (the runner table is precedents/performance.md § 77); the pooler setting → database connection-config-scan §3; a queue job outliving its broker lock → messaging-scan §6; THR-DS-LEASE"
+    },
+    "clock-misuse": {
+      "detector": "distributed-systems/skills/coordination-scan §7–§11",
+      "owner": "distributed-systems/agents/resilience-reviewer (judge, refute mode)",
+      "fixer": "/ds-fix",
+      "fallback": "—",
+      "pack": "distributed-systems",
+      "target": "resilience-reviewer",
+      "note": "token exp/iat units and leeway → security (@auth-reviewer); client last-write-wins → mobile offline-sync-scan §4; a single process's schedule zone and self-overlap → backend job-lifecycle-scan §6 and §4 (§11 here owns the coordinated half); events ordered by created_at across streams are §9 here (event-contract-scan hands them over)"
+    },
+    "workflow-determinism": {
+      "detector": "distributed-systems/skills/workflow-scan §1–§6 (workflowcheck, Microsoft.DurableTask.Analyzers)",
+      "owner": "distributed-systems/agents/workflow-orchestrator (judge, refute mode)",
+      "fixer": "/ds-fix",
+      "fallback": "—",
+      "pack": "distributed-systems",
+      "target": "workflow-orchestrator",
+      "note": "activity configuration (retries, timeouts, heartbeats) is §3 here, and the activity is one layer of retry-deadline-scan §4; saga isolation (lost update) → database transaction-scan §8; money compensations → security logic-race-scan §4; job payload drift inside one service → backend job-lifecycle-scan §3; Step Functions Task TimeoutSeconds/HeartbeatSeconds stay §3 here"
+    },
+    "event-contract": {
+      "detector": "distributed-systems/skills/event-contract-scan §1–§10 (buf, json-schema-diff, asyncapi, oasdiff for webhooks, the avsc resolver)",
+      "owner": "distributed-systems/agents/event-sourcing-architect (judge, refute mode)",
+      "fixer": "/ds-fix",
+      "fallback": "testing/skills/contract-test for consumer-driven contracts (Pact message pacts)",
+      "pack": "distributed-systems",
+      "target": "event-sourcing-architect",
+      "note": "split at the boundary: a parsed message cast to a type with no runtime check is code-quality type-safety-scan §1 (§2 here owns the contract half: a schema'd topic read without its deserializer, and what a malformed event does to the consumer); HTTP API spec drift → backend http-contract-scan §10 (oasdiff here only on webhooks this service sends); job payload drift inside one service → backend job-lifecycle-scan §3; money as a float in a payload → backend wire-format-scan §5; ORDER BY created_at across streams → coordination-scan §9; a per-replica projection daemon → performance request-path-scan §20"
+    },
+    "api-contract": {
+      "detector": "backend/skills/http-contract-scan §1–§13 (dto-types.py for the body-type and status columns)",
+      "owner": "backend/agents/api-reviewer (judge, refute mode)",
+      "fixer": "/backend-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode",
+      "pack": "backend",
+      "target": "code-reviewer (api lens)",
+      "note": "BA-10 on money, credit, order, paid-send and webhook routes → security logic-race-scan §4; consistency across sibling endpoints → backend api-consistency-audit; webhook contracts this service sends → distributed-systems event-contract-scan"
+    },
+    "input-validation": {
+      "detector": "backend/skills/validation-boundary-scan §1–§9 (dto-types.py)",
+      "owner": "backend/agents/api-reviewer (judge, refute mode)",
+      "fixer": "/backend-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode",
+      "pack": "backend",
+      "target": "code-reviewer (api lens)",
+      "note": "operator objects and mass assignment → security injection-scan; BO-03 outbound casts → code-quality type-safety-scan §1; @Type(() => Date) and other time binding → backend wire-format-scan §6"
+    },
+    "edge-errors": {
+      "detector": "backend/skills/edge-error-scan §1–§8",
+      "owner": "backend/agents/api-reviewer (judge, refute mode)",
+      "fixer": "/backend-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode",
+      "pack": "backend",
+      "target": "code-reviewer (api lens)",
+      "note": "error body content → security data-exposure-scan §1/§2; a local catch → code-quality error-handling-scan §6; the error envelope's shape → THR-ERR-ENVELOPE"
+    },
+    "wire-format": {
+      "detector": "backend/skills/wire-format-scan §1–§8 (§8 the clock seam is an enabler, never a finding)",
+      "owner": "backend/agents/api-reviewer (judge, refute mode)",
+      "fixer": "/backend-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode",
+      "pack": "backend",
+      "target": "code-reviewer (api lens)",
+      "note": "arithmetic and the clock in code → code-quality correctness-smell-scan §4/§6; money as a float in an event payload is §5 here; THR-MONEY.wire"
+    },
+    "job-lifecycle": {
+      "detector": "backend/skills/job-lifecycle-scan §1–§7",
+      "owner": "backend/agents/api-reviewer (judge, refute mode)",
+      "fixer": "/backend-fix",
+      "fallback": "the detector's own report, verified by the verifier in refute mode",
+      "pack": "backend",
+      "target": "code-reviewer (api lens)",
+      "note": "in-transaction enqueue → database transaction-scan §1; consumer idempotency, retry eligibility, poison/DLQ → distributed-systems messaging-scan; coordinated schedules across replicas → distributed-systems coordination-scan §11; once-per-fleet → performance request-path-scan §20"
     }
   }
 }

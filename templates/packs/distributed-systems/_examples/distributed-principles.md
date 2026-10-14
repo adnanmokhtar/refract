@@ -50,6 +50,7 @@ Prevents the failures that turn a microservice migration into a distributed mono
 ## Enforcement
 
 - Contract tests (the project's contract-test stack) gate consumer-incompatible changes.
+- `/ds-audit` reads both CI gates: the CONTRACT GATE (a compatibility tool or a provider verification on the schema files) and the REPLAY GATE (workflow code replayed against recorded histories); a missing gate is printed beside the findings.
 - Trace coverage SLO — every endpoint has spans visible in the project's trace backend.
 - Chaos drills (the project's chaos tooling, or kill-the-process in staging) validate that the timeout, the one retrying layer and any breaker the cascade analysis placed actually engage.
 - Cross-tenant smoke tests on multi-tenant boundaries (cache key, event filter, query filter).

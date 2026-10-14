@@ -9,6 +9,12 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.2 — 2026-10-14
+
+**`transaction-scan` §2 names the outbox-writer case's owner.** An outbox row written outside the caller's transaction (a second connection, a repository not taken from the transaction's handle) is distributed-systems `dual-write-scan` §1's "outbox misused" when that pack is installed. §2 lists the same `file:line` as corroboration, deduped, and reports it itself without that pack. `governance/ownership.json` row `dual-write` records the split.
+
+**`connection-config-scan` §8 names the cross-process read-after-write.** A job, consumer or webhook handler enqueued after a write and reading the row on a replica can run before replay reaches it (distributed-systems eval IR-4; event-contract-scan §10 owns projection lag, this § the replica).
+
 ## 2.1.1 — 2026-10-10
 
 **rg-glob-order: `transaction-scan` grep 6b puts `-g '*.{yml,yaml,properties}'` before `"${X[@]}"`.** ripgrep's last matching glob wins, so an `application.yml` or `.properties` file directly inside `node_modules/`, `vendor/`, `tests/`, `migrations/` or `fixtures/` was re-included. Measured 2026-10-10 on rg 15.2.0: `slow-marketplace` prints 33 lines before and after. On a copy with planted files in those trees the total drops from 43 to 33.

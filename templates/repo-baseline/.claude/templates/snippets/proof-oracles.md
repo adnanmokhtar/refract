@@ -4234,8 +4234,8 @@ expect(await countEffects(pg, msg2.businessId)).toBe(1);
 
 #### V323. Breaking schema change — compatibility tool exit (`event-contract-scan` §1; HTTP API drift → backend)
 - a field removed, renamed or retyped; a required field added; a proto tag reused; an enum symbol added for closed readers (SZ2); `BACKWARD` (latest only) where `_TRANSITIVE` is needed (SZ3); a TS-only event type changed
-- tools: `buf breaking --against '.git#branch=<base>'` at WIRE_JSON minimum (SZ1); `asyncapi diff base head -t breaking` (SZ4); `json-schema-diff` (SZ5); Avro `SchemaCompatibility` offline; TS: compile the old consumer against the new type; `--contract-base=<dir>` where the repo has no base branch
-- pass: the tool exits non-zero on base → head before the fix and 0 after; a fix that passes `--no-error` or sets the registry to `NONE` fails the variant
+- tools: `buf breaking --against '.git#branch=<base>'` at WIRE_JSON minimum (SZ1), with `,subdir=<module>` when the module is not the repo root — without it an additive change exits 100 (SZ8); `asyncapi diff base head -t breaking` with metrics off, reading the `unclassified` payload changes too (SZ4, SZ10); `json-schema-diff` both directions, enum/const/pattern read by hand (SZ5, SZ9); `oasdiff breaking --fail-on WARN` on webhook payloads (SZ7, SZ11); the `avsc` resolver both ways or Avro `SchemaCompatibility` offline (SZ12); TS: compile the old consumer against the new type; `--contract-base=<dir>` where the repo has no base branch
+- pass: the tool exits non-zero **at its breaking code** on base → head before the fix and 0 after, having parsed both sides (an exit that is not the tool's breaking code is NOT-RUN, never a pass: SZ8–SZ11); a fix that passes `--no-error` or sets the registry to `NONE` fails the variant
 
 #### V324. Unvalidated payload, intolerant reader, semantic change, name drift — tolerant-reader fixtures and the replay-old-events corpus (`event-contract-scan` §2–§5)
 - `JSON.parse(msg.value…)` / `json.loads(body)` used as a typed event with no schema parse; `assertNever(evt.type)` or a throw on an unknown type in a consumer; zod `.strict()`, pydantic `extra="forbid"`, STJ `UnmappedMemberHandling.Disallow`, plain `new ObjectMapper()` on the consumer side (SZ6)
@@ -4247,7 +4247,7 @@ expect(await countEffects(pg, msg2.businessId)).toBe(1);
 - pass: two deciders released together by a barrier → one append succeeds and one gets `WrongExpectedVersion` (or a unique violation at the SQL layer)
 
 #### V326. Projection not idempotent; side effects on replay — projection redelivery (`event-contract-scan` §8–§9; per-replica daemon → V40)
-- `SET n = n + 1` with the checkpoint saved separately; the checkpoint saved before the projection write; side effects in `apply` / `when`; a snapshot with no version column; `ORDER BY created_at` over events
+- `SET n = n + 1` with the checkpoint saved separately; the checkpoint saved before the projection write; side effects in `apply` / `when`; a snapshot with no version column (events ordered by `ORDER BY created_at` across streams are `coordination-scan` §9's single owner, V318 — not a V326 variant)
 - pass: redelivery, or a crash between the projection write and the checkpoint, leaves the read model unchanged; a full replay sends nothing
 
 #### V327. Eventual consistency assumed in a flow — write, then read through the flow (`event-contract-scan` §10; replica read-your-writes → database `connection-config-scan` §8)

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "2.1.1",
-  "released": "2026-10-10",
+  "version": "2.1.2",
+  "released": "2026-10-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "rg-glob-order: transaction-scan grep 6b puts *.{yml,yaml,properties} before X, so config files directly inside excluded trees stay excluded.",
+  "summary": "transaction-scan §2: an outbox row outside the caller's transaction corroborates distributed-systems dual-write-scan §1; connection-config-scan §8 names the cross-process read-after-write.",
   "changelog": "CHANGELOG.md"
 }

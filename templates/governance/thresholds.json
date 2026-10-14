@@ -16,29 +16,31 @@
         "honor_retry_after": true,
         "backoff": "exponential",
         "jitter": "required",
-        "max_attempts": { "default": 5, "money_moving": 3, "llm_provider": 3 }
+        "max_attempts": { "default": 5, "money_moving": 3, "llm_provider": 3 },
+        "layers": 1,
+        "budget": "product of attempts across layers <= max_attempts"
       },
       "unit": "attempts",
       "floor": true,
-      "owner": "governance/engineering-baseline/backend-api.md RES-4",
-      "why": "429 is a back-off signal, not a terminal 4xx: retry it no sooner than Retry-After (precedence A7); unbounded attempts turn a provider storm into a bill or a ban"
+      "owner": "governance/engineering-baseline/backend-api.md RES-4 · layers and budget: packs/distributed-systems/skills/retry-deadline-scan §4 (the layer worksheet; precedents/distributed.md § 14)",
+      "why": "429 is a back-off signal, not a terminal 4xx: retry it no sooner than Retry-After (precedence A7); unbounded attempts turn a provider storm into a bill or a ban. Layers multiply: a layer counts when its exhausted failure propagates to the one above (the SDK, a wrapper, a job's attempts, broker redelivery, an activity policy), and the product hits the bottom dependency — the AWS Builders' Library shows 5 layers x 3 attempts as 243x, the Google SRE book (ch. 22) 3 x 4 as 64x — so exactly one layer retries"
     },
     "THR-MONEY": {
-      "value": { "floor": "exact decimal DECIMAL(p,s) or integer minor units, always with a currency; never float", "payments_ledger": "integer minor units + currency tag", "display_rounding": "at presentation only" },
+      "value": { "floor": "exact decimal DECIMAL(p,s) or integer minor units, always with a currency; never float", "payments_ledger": "integer minor units + currency tag", "display_rounding": "at presentation only", "wire": "string decimal or integer minor units, never a JSON float; 64-bit ids and amounts as strings" },
       "unit": "enum",
       "floor": true,
       "owner": "governance/engineering-baseline/data.md DATA-9",
       "why": "DATA-9 is the floor; inside the payment and ledger domains integer minor units win (precedence A14)"
     },
     "THR-ERR-ENVELOPE": {
-      "value": { "shape": "{ error: { code, message, details?, requestId } }", "single_mapping_site": true, "never_exposes": ["stack trace", "SQL", "file path"] },
+      "value": { "shape": "{ error: { code, message, details?, requestId } }", "single_mapping_site": true, "never_exposes": ["stack trace", "SQL", "file path"], "covers": "the ten failure classes, framework default paths included" },
       "unit": "enum",
       "floor": true,
       "owner": "governance/engineering-baseline/backend-api.md API-9",
       "why": "one envelope mapped in one place; public APIs document it as their contract"
     },
     "THR-PAGINATION": {
-      "value": { "default_limit": 20, "max_limit": 100, "offset_ceiling": 1000, "deep_paging": "cursor" },
+      "value": { "default_limit": 20, "max_limit": 100, "offset_ceiling": 1000, "deep_paging": "cursor", "tiebreak": "a unique key appended to every sort", "total": "computed under the same filter as the page" },
       "unit": "items",
       "floor": true,
       "owner": "governance/engineering-baseline/backend-api.md API-8",
@@ -341,6 +343,27 @@
       "floor": true,
       "owner": "packs/infrastructure/skills/iac-cost-scan (COST-08, K-HPA-COST) · serverless-reliability-scan §5 (SLS-05) · rules/infra-principles.md (min + max)",
       "why": "an autoscaler with no ceiling turns a traffic spike, a retry storm or a bug into an unbounded bill and an exhausted downstream; the max is written as max x unit so its cost and its downstream load are visible"
+    },
+    "THR-DS-CONSUMER-TIMING": {
+      "value": {"lock_or_visibility_s": ">= 2 x p99_run_s, or a heartbeat that renews at <= 1/3 of it", "kafka": "max.poll.interval.ms >= 1.5 x max.poll.records x p99_record_ms", "celery": "eta/countdown < visibility_timeout", "laravel": "retry_after > timeout + 30 s"},
+      "unit": "seconds",
+      "floor": true,
+      "owner": "packs/distributed-systems/skills/messaging-scan §6 (MQ-6, non-serverless consumers; broker-semantics.md BQ2 and the per-broker rows) · Lambda event sources stay THR-QUEUE-VISIBILITY",
+      "why": "a job that outlives its broker lock or visibility is handed to a second worker while the first still runs (BullMQ stall, SQS visibility, JetStream AckWait), and a Kafka consumer that misses max.poll.interval.ms is rebalanced out mid-batch; 2 x the p99 run or a renewal at a third of the window keeps one owner per message (V296, = perf V44 probe 1)"
+    },
+    "THR-DS-DEDUPE-WINDOW": {
+      "value": {"reserve_retention": ">= broker retention + DLQ retention + the replay window"},
+      "unit": "time",
+      "floor": true,
+      "owner": "packs/distributed-systems/skills/dual-write-scan §4 (grep 4d) · cited by messaging-scan §2",
+      "why": "a dedupe reserve that expires before the last redelivery can arrive (broker retention, a DLQ replay, a consumer-group reset) reads as 'never seen' and the effect runs again; the reserve must outlive every path a message can come back by (V303)"
+    },
+    "THR-DS-LEASE": {
+      "value": {"ttl": ">= 2 x the protected work's bound, or a renewal at <= ttl/3 whose failed result stops the work", "correctness": "a fencing token checked at the write"},
+      "unit": "time",
+      "floor": true,
+      "owner": "packs/distributed-systems/skills/coordination-scan §4 (LK-4; grep 4c, 4d) · the per-replica and fencing half: packs/performance/skills/request-path-scan §18 (V38)",
+      "why": "a lease shorter than the work, or a renewal whose result is dropped, lets a second holder act while the first still writes (a GC pause, a slow call); TTL alone never makes a correctness lock safe — the resource must reject a stale holder's write by its fencing token (redis.io Distributed locks; V313)"
     }
   }
 }

@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.1 — 2026-10-14
+
+**`request-path-scan` §24 becomes the fallback for the classes distributed-systems 2.0.0 owns (batch-5 decision).**
+
+- **§24 is fallback only.** With the distributed-systems pack installed (`.claude/skills/messaging-scan/` exists) it prints `→ distributed-systems messaging-scan §2/§3/§6 (k)` with the 24a/24b counts and does not grade; without it, it grades as before. V44 probe 1 stays the shared oracle (distributed-systems V296). The Boundaries retry bullet now names `retry-deadline-scan` §1–§8, `messaging-scan` §2/§3/§6 and `coordination-scan` §1–§4 (they replace the old `@resilience-reviewer` § "2. Retries" pointer, whose heading changed).
+- **§20 and grep 20a.** 20a adds `SchedulerRegistry`, `.addCronJob(` / `.addInterval(`, `redbeat`, Hangfire `RecurringJob.AddOrUpdate` and `UseInMemoryStorage(` / `UseMemoryStorage(` — registrations with no decorator at the call site, such as a NestJS explorer built on `DiscoveryService` (distributed-systems research SC-1). Measured 2026-10-14: the 18 benchmark fixtures print the same lines as before. The research scheduler samples print 5 more lines, including the S1 explorer's `addCronJob`. A seeded tree prints the explorer, the Hangfire pair and the RedBeat line, and its `list.add(` and `cache.addItem(` decoys stay quiet. The §20 read step carries the runner lock facts — no lock: MikroORM, TypeORM, umzug, Drizzle, Django, Alembic, Doctrine; Laravel `--isolated` skips and exits 0; Rails fails the others; Prisma waits 10 s — and names devops `deploy-safety-scan` §1 as the owner of migrate-on-boot when that pack is installed.
+- **§18 and `caching-scan` §2.** A shared lock's own mechanics (owner-checked release, atomic TTL, acquire result, renewal) point to distributed-systems `coordination-scan` §1–§4, and its grep 4d supplies the fencing evidence §18 clears with.
+- **`caching-scan` §4** asks about the cross-service shape: a cache filled from another service's API and invalidated by its events, with no version or lease compare (distributed-systems eval IR-5).
+- **`precedents/performance.md` § 77** now holds the dated runner table (lock and wait, skip, fail fast, no lock, opt-in) with sources. The same rows appear as `broker-semantics.md` MG1–MG14.
+
 ## 2.2.0 — 2026-10-10
 
 **`/bundle-perf` dispatches the frontend owners for every row; its interim lanes are gone.**

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "distributed-systems",
-  "version": "1.4.0",
-  "released": "2026-08-23",
+  "version": "2.0.0",
+  "released": "2026-10-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Fabricated Temporal API removed; both zero-dispatch agents wired, cite-or-halt, and now reachable on greenfield (4 empty-stub fallbacks repaired); PACELC and capacity arithmetic corrected; rule -310 tok.",
+  "summary": "Six detectors with oracles (messaging, dual write, retries and deadlines, locks and clocks, workflows, event contracts), ds-inventory.py, /ds-audit and /ds-fix, three judges; broker-semantics defaults, precedents and V291–V327; chaos-test never touches the default context.",
   "changelog": "CHANGELOG.md"
 }
