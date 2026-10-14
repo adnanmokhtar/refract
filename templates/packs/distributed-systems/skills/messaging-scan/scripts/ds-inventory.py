@@ -18,7 +18,8 @@ Spring (`@KafkaListener`, `@RabbitListener`) as a locate-only lane. Stdlib only.
 Usage:  ds-inventory.py <repo-root> [--format=tsv|json] [--lane=bullmq,kafkajs,amqplib,sqs,celery,spring]
         ds-inventory.py --self-test
 Output: one TSV row per consumer, producer and producer wrapper:
-        kind  lane  name  file:line  status  resolved (key=value[source]; …)
+        kind  lane  name  file:line  status  version  resolved (key=value[source]; …)
+        version: the lockfile's (pnpm, npm, yarn) marked `locked`, else the manifest range; its major gates the defaults
         then `# resolved r/n — consumers a/b, producers c/d` and one `# UNRESOLVED` line per shape.
 Exit:   0 always after a run (the rows are candidates for the read step, never findings) · 2 usage
 """
@@ -32,7 +33,7 @@ SKIP_FILE = re.compile(r"\.(?:spec|test|e2e-spec|fuzz|stories)\.[cm]?[jt]sx?$|\.
 TS_EXT = (".ts", ".mts", ".cts", ".js", ".mjs", ".cjs")
 
 # Library defaults — the rows of templates/snippets/broker-semantics.md the verdict must cite.
-# Applied only when the package's major is read from a manifest; otherwise the key is UNRESOLVED.
+# Applied only when the package's major is read (the lockfile's version, else the manifest range); otherwise UNRESOLVED.
 DEFAULTS = {
     "bullmq.worker": {"concurrency": 1, "lockDuration": 30000, "stalledInterval": 30000, "maxStalledCount": 1},
     "bullmq.job": {"attempts": 1, "backoff": "none", "removeOnComplete": "keep", "removeOnFail": "keep"},
@@ -48,6 +49,64 @@ PKG_OF = {"bullmq": ("bullmq",), "kafkajs": ("kafkajs", "@confluentinc/kafka-jav
 POLICY = {"bullmq.worker": ("concurrency", "lockDuration", "stalledInterval", "maxStalledCount", "skipLockRenewal",
                             "skipStalledCheck", "limiter", "settings.backoffStrategy"),
           "bullmq.job": ("attempts", "backoff", "removeOnComplete", "removeOnFail")}
+
+
+LOCKFILES = ["pnpm-lock.yaml", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock"]
+SEMVER = re.compile(r"\d+\.\d+\.\d+[\w.+-]*")
+
+
+def yaml_tree(text):
+    """Block-mapping YAML as nested dicts (enough for pnpm-lock.yaml: no anchors, lists skipped)."""
+    root = {}
+    stack = [(-1, root)]
+    for ln in text.split("\n"):
+        if not ln.strip() or ln.lstrip().startswith(("#", "- ")): continue
+        ind = len(ln) - len(ln.lstrip())
+        mt = re.match(r"\s*('[^']*'|\"[^\"]*\"|[^:\s][^:]*?):(?:\s+(.*))?$", ln)
+        if not mt: continue
+        k, v = mt.group(1).strip("'\""), (mt.group(2) or "").strip()
+        while stack[-1][0] >= ind: stack.pop()
+        parent = stack[-1][1]
+        if not isinstance(parent, dict): continue
+        if v: parent[k] = v.strip("'\"")
+        else: parent[k] = {}; stack.append((ind, parent[k]))
+    return root
+
+
+def lock_version(kind, text, imp, pkg, rng):
+    """Locked version of `pkg` for importer `imp` (a path relative to the lockfile's folder, '.' at its root)."""
+    if kind == "pnpm-lock.yaml":
+        t = yaml_tree(text)
+        scopes = [(t.get("importers") or {}).get(imp)] + ([t] if imp == "." else [])
+        for sc in scopes:
+            for sec in ("dependencies", "devDependencies", "optionalDependencies"):
+                e = ((sc or {}).get(sec) or {}).get(pkg) if isinstance(sc, dict) else None
+                e = e.get("version") if isinstance(e, dict) else e
+                mt = isinstance(e, str) and SEMVER.match(e)          # strips `(peer@x)` and `_peer@x` suffixes
+                if mt: return re.split(r"[(_]", mt.group())[0]
+        seen = set()                                                   # keys: /pkg/1.2.3 (v5), /pkg@1.2.3 (v6), pkg@1.2.3 (v9)
+        for k in (t.get("packages") or {}):
+            mt = re.match(r"/?%s[@/](%s)" % (re.escape(pkg), SEMVER.pattern), k)
+            if mt: seen.add(re.split(r"[(_]", mt.group(1))[0])
+        return seen.pop() if len(seen) == 1 else None
+    if kind in ("package-lock.json", "npm-shrinkwrap.json"):
+        try: d = json.loads(text)
+        except ValueError: return None
+        pk = d.get("packages") or {}
+        for k in (("" if imp == "." else imp + "/") + "node_modules/" + pkg, "node_modules/" + pkg):
+            if isinstance(pk.get(k), dict) and pk[k].get("version"): return pk[k]["version"]
+        e = (d.get("dependencies") or {}).get(pkg)                     # lockfileVersion 1
+        return e.get("version") if isinstance(e, dict) else None
+    if kind == "yarn.lock":                                            # classic `version "x"` and berry `version: x`
+        found, any_v = None, set()
+        for mt in re.finditer(r'(?m)^("?[^\s#][^\n]*):\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+version:?\s+"?([^"\s]+)', text):
+            specs = [x.strip().strip('"') for x in mt.group(1).split(",")]
+            mine = [x for x in specs if x.startswith(pkg + "@")]
+            if not mine: continue
+            any_v.add(mt.group(2))
+            if any(x in (pkg + "@" + rng, pkg + "@npm:" + rng) for x in mine): found = mt.group(2)
+        return found or (any_v.pop() if len(any_v) == 1 else None)
+    return None
 
 
 class Fn(str): pass                       # a function value: code, not data
@@ -296,12 +355,13 @@ def literal(v):
 class Repo:
     def __init__(self, root):
         self.root = os.path.abspath(root)
-        self.mods, self.py, self.java, self.pkgs = {}, {}, {}, {}
+        self.mods, self.py, self.java, self.pkgs, self.locks, self.lock_cache = {}, {}, {}, {}, {}, {}
         for dp, dn, fn in os.walk(self.root):
             dn[:] = [d for d in dn if d not in SKIP_DIRS and not d.startswith(".")]
             for f in fn:
                 p = os.path.join(dp, f); rel = os.path.relpath(p, self.root)
                 if f == "package.json": self.pkgs[os.path.dirname(p)] = self.read_pkg(p)
+                if f in LOCKFILES: self.locks.setdefault(dp, []).append(f)
                 if SKIP_FILE.search(rel): continue
                 if f.endswith(TS_EXT):
                     try: self.mods[p] = Mod(p, rel, open(p, encoding="utf-8", errors="replace").read())
@@ -324,14 +384,35 @@ class Repo:
             out.update(d.get(k) or {})
         return out
 
+    def locked(self, mdir, pkg, rng):
+        """The version a lockfile pins for `pkg` as the manifest in `mdir` declares it: the nearest
+        pnpm-lock.yaml / package-lock.json / npm-shrinkwrap.json / yarn.lock at or above `mdir`."""
+        d = mdir
+        while d.startswith(self.root):
+            for f in sorted(self.locks.get(d, ()), key=LOCKFILES.index):
+                lp = os.path.join(d, f)
+                if lp not in self.lock_cache:
+                    try: self.lock_cache[lp] = open(lp, encoding="utf-8", errors="replace").read()
+                    except OSError: self.lock_cache[lp] = ""
+                imp = os.path.relpath(mdir, d).replace(os.sep, "/")
+                v = lock_version(f, self.lock_cache[lp], imp, pkg, rng)
+                if v: return v, os.path.relpath(lp, self.root)
+            if d == self.root: break
+            d = os.path.dirname(d)
+        return None, None
+
     def version(self, path, lane):
         d = os.path.dirname(path)
         while d.startswith(self.root):
             deps = self.pkgs.get(d)
             for pkg in PKG_OF.get(lane, ()):
                 if deps and pkg in deps:
+                    man = os.path.relpath(os.path.join(d, "package.json"), self.root)
+                    lv, lf = self.locked(d, pkg, deps[pkg])
+                    if lv:   # the lockfile wins: the range's floor is not what is installed
+                        return "%s %s locked (%s; %s in %s)" % (pkg, lv, lf, deps[pkg], man), int(re.match(r"\d+", lv).group())
                     mj = re.search(r"\d+", deps[pkg])
-                    return "%s %s (%s)" % (pkg, deps[pkg], os.path.relpath(os.path.join(d, "package.json"), self.root)), mj and int(mj.group())
+                    return "%s %s (%s)" % (pkg, deps[pkg], man), mj and int(mj.group())
             if d == self.root: break
             d = os.path.dirname(d)
         if lane == "celery":
@@ -945,6 +1026,36 @@ EXPECT = [  # (kind, name, site-suffix, status-prefix, {key: rendered value subs
     ("consumer", "charge", "tasks.py:3", "RESOLVED", {"acks_late": "true", "max_retries": "7"}),
 ]
 
+# Lockfile cases: (files, the file asking, lane, wanted version-cell substring, wanted major).
+LOCK_CASES = [
+    ({"pnpm-lock.yaml": "lockfileVersion: '9.0'\nimporters:\n  .:\n    devDependencies:\n      typescript:\n        specifier: ^5.6.0\n"
+                        "        version: 5.6.3\n  apps/api:\n    dependencies:\n      bullmq:\n        specifier: ^6.0.0\n"
+                        "        version: 6.3.4(ioredis@5.11.1)\npackages:\n  bullmq@6.3.4:\n    resolution: {integrity: sha512-x}\n",
+      "package.json": '{"private": true}', "apps/api/package.json": '{"dependencies": {"bullmq": "^6.0.0"}}'},
+     "apps/api/src/q.ts", "bullmq", "bullmq 6.3.4 locked (pnpm-lock.yaml; ^6.0.0 in apps/api/package.json)", 6),
+    ({"package-lock.json": '{"lockfileVersion": 3, "packages": {"": {}, "node_modules/kafkajs": {"version": "1.16.0"},'
+                           ' "svc/node_modules/kafkajs": {"version": "2.2.4"}}}',
+      "package.json": '{"workspaces": ["svc"]}', "svc/package.json": '{"dependencies": {"kafkajs": "^2.0.0"}}'},
+     "svc/k.ts", "kafkajs", "kafkajs 2.2.4 locked (package-lock.json; ^2.0.0 in svc/package.json)", 2),
+    ({"yarn.lock": '"amqplib@^0.10.0", amqplib@^0.10.3:\n  version "0.10.9"\n  resolved "https://x"\n',
+      "package.json": '{"dependencies": {"amqplib": "^0.10.3"}}'}, "a.ts", "amqplib", "amqplib 0.10.9 locked (yarn.lock", 0),
+    ({"yarn.lock": '__metadata:\n  version: 8\n\n"bullmq@npm:^5.1.0":\n  version: 5.76.1\n  resolution: "bullmq@npm:5.76.1"\n',
+      "package.json": '{"dependencies": {"bullmq": "^5.1.0"}}'}, "b.ts", "bullmq", "bullmq 5.76.1 locked (yarn.lock; ^5.1.0", 5),
+    ({"package.json": '{"dependencies": {"bullmq": "^6.3.4"}}'}, "c.ts", "bullmq", "bullmq ^6.3.4 (package.json)", 6),   # no lockfile: the range
+]
+
+
+def lock_test():
+    fails = 0
+    for files, asker, lane, want, major in LOCK_CASES:
+        d = tempfile.mkdtemp(prefix="ds-inventory-lock-")
+        for rel, txt in files.items():
+            p = os.path.join(d, rel); os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w").write(txt)
+        got, mj = Repo(d).version(os.path.join(d, asker), lane)
+        if not got or want not in got or mj != major:
+            fails += 1; print("self-test: lockfile %s: got %r major %r, want ~%r major %d" % (sorted(files)[0], got, mj, want, major))
+    return fails
+
 
 def self_test():
     d = tempfile.mkdtemp(prefix="ds-inventory-")
@@ -965,7 +1076,8 @@ def self_test():
             if want not in txt: fails += 1; print("self-test: %s %s: %s = %s, want ~%s" % (kind, site, k, txt, want))
     if any("spec" in r["site"] for r in inv.rows): fails += 1; print("self-test: a spec file was inventoried")
     if not any(r["kind"] == "producer-wrapper" for r in inv.rows): fails += 1; print("self-test: the producer wrapper was not found")
-    print("self-test:", "PASS (%d expectations)" % len(EXPECT) if not fails else "FAIL (%d)" % fails)
+    fails += lock_test()
+    print("self-test:", "PASS (%d expectations, %d lockfile cases)" % (len(EXPECT), len(LOCK_CASES)) if not fails else "FAIL (%d)" % fails)
     return 0 if not fails else 1
 
 
