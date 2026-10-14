@@ -3269,7 +3269,7 @@ the exact call and the user applies it. Three rules hold for every variant below
 |---|---|---|---|
 | **Seeded failure** | One failing command per gate on a sandbox branch → every required context and every deploy ancestor concludes `failure`; the deploy job is `skipped`; the published digest is unchanged (extends testing's V63 CI canary to non-test gates) | R | V209, V212 |
 | **Shell-semantics probe** | The four-line bash probe per platform row | T | V210 |
-| **Required-check join** | `ci-graph.py --required` + a docs-only PR and a merge-queue entry report real conclusions | A + R | V211 |
+| **Required-check join** | `ci-graph.py --required --online` + a docs-only PR and a merge-queue entry report real conclusions | A + R | V211 |
 | **Graph assertion** | `ci-graph.py --check=<code>` exits 0 on the tree after the fix, 1 before | T | V213, V214, V228 |
 | **Settings read** | The `gh api` line shows the protection | A | V215, V216, V220, V229 |
 | **Cache probe** | A lockfile change misses the exact key; a deleted cache stays green | R | V217 |

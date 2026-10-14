@@ -59,7 +59,7 @@ Run as **one** script from the repo root. Grep **N** feeds detector **§N**; gre
 ROOTS=( $(rg -l --pcre2 '"(?:react|vue|svelte|@angular/core|solid-js|preact|next|nuxt)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
 X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,.next,.nuxt,.output,.svelte-kit,.angular,coverage,storybook-static}/**'
    -g '!**/{test,tests,__tests__,__mocks__,mocks,e2e,fixtures,__fixtures__,playwright,cypress,msw,scripts}/**' -g '!**/*.{test,spec,stories,story,e2e,mock,mocks}.*'
-   -g '!**/{locales,locale,i18n,translations,docs,generated,__generated__}/**' -g '!**/*.min.*')
+   -g '!**/*.{test-data,fixture,fixtures}.*' -g '!**/{locales,locale,i18n,translations,docs,generated,__generated__}/**' -g '!**/*.min.*')
 J=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte}'); M=(-g '*.{jsx,tsx,vue,svelte,html}')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(?://|/\*|\*(?:\s|/|$)|\{/\*|<!--)')   # drops comment-only lines
 TB='(?:[^>{]|\{(?:[^{}]|\{[^{}]*\})*\})*'
@@ -70,15 +70,23 @@ S2='const\s*\[\s*(?:filters?|sort\w*|order(?:By|Dir\w*)|page|pageIndex|pageNumbe
 rg -n --no-heading --pcre2 '"(?:next|nuxt|vue-router|@sveltejs/kit|@angular/router|react-router(?:-dom)?|@remix-run/react|@tanstack/react-router|wouter|nuqs|zod|valibot)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -l --pcre2 'createBrowserRouter|createHashRouter|createMemoryRouter|<Routes\b|createRouter\(|createFileRoute\(|provideRouter\(|RouterModule\.for(?:Root|Child)\(|\bRoutes\s*=\s*\[|defineNuxtRouteMiddleware|router\.beforeEach' "${J[@]}" "${X[@]}" "${ROOTS[@]}"
 for r in "${ROOTS[@]}"; do find "$r" \( -name node_modules -o -name .next -o -name dist \) -prune -o -type f \( -name 'middleware.[jt]s' -o -name 'proxy.[jt]s' -o -name 'hooks.server.[jt]s' -o -name 'routes.[jt]s' \) -print; done
-# 1a a non-link element that navigates on click; 1b a button whose only job is to navigate; 1c a table / card prop that navigates.
+# 1a a non-link element that navigates on click; 1b a button whose only job is to navigate; 1c a table / card prop that navigates;
+# 1d the same through a named handler: functions whose body navigates within 3 lines (sign-out actions dropped), then every
+#    event prop that calls one (`onOpen={() => actions.openOrder(id)}`, `onRowClick={(o) => openOrder(o.id)}`) or passes it
+#    on (`openOrder={openOrder}` in a column factory) — the wrapper button inside the cell is the §1 row.
 rg -n -U --pcre2 '<(?:div|span|tr|td|li|section|article|img|p|Card|Box|Stack|Row|TableRow)\b(?='"$TB"'\s(?:onClick|@click|v-on:click|\(click\)|onclick|on:click)\s*=\s*["{]\s*(?:\(\s*\w*\s*\)\s*=>\s*\{?\s*)?'"$NAV"')'"$TB"'>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -U --pcre2 '<(?:button|Button)\b(?='"$TB"'\s(?:onClick|@click|\(click\)|onclick)\s*=\s*["{]\s*(?:\(\s*\)\s*=>\s*)?'"$NAV"'[^;{}]*\)\s*["}])'"$TB"'>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --pcre2 '\bon(?:Row|Card|Item|Select)Click\s*=\s*\{\s*(?:\(\s*\w*\s*\)|\w+)\s*=>\s*\{?\s*'"$NAV" "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+W="$(mktemp -d "${TMPDIR:-/tmp}/rt-pre.XXXXXX")"
+rg -o -U --no-filename --pcre2 '(?:(?:const|let)\s+(\w+)\s*=\s*(?:useCallback\(\s*)?(?:async\s*)?(?:\([^()\n]*\)|\w+)\s*(?::[^=\n]{1,60})?=>|function\s+(\w+)\s*\([^()\n]*\)[^{\n]*\{)[^\n]*\n?(?:[^\n]*\n){0,2}?[^\n]*?'"$NAV" -r '$1$2' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | rg -v -i '^(?:handle)?(?:log|sign)_?out$' | sort -u > "$W/navfn"
+rg -n -o --pcre2 '\bon[A-Z]\w*\s*=\s*\{\s*(?:(?:async\s*)?\(\s*[\w,\s]*\)\s*=>\s*\{?\s*)?(?:[\w.]+\.)?(\w+)\s*[(}]|\b\w+=\{\s*(?:[\w.]+\.)?(\w+)\s*\}' -r '$1$2' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | awk -F: 'NR==FNR{n[$1]=1;next} ($NF in n)' "$W/navfn" -
 # 2a URL-able view state held in component state, in route-level code that never writes the URL (overlay components dropped).
 rg -l --pcre2 "$S2" -g '**/{pages,routes,app,views,screens,features}/**' "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match --pcre2 'setSearchParams|useQueryStates?\b|router\.(?:replace|push)\(\s*\{[^}]*query|navigate\(\s*\{[^}]*search|[?&]page=|goto\(\s*[`"\x27]\?|queryParamsHandling|\$page\.url\.searchParams\.set' | rg -v --pcre2 '(?:Dialog|Popover|Combobox|Picker|Sheet|Drawer|Modal|Select|Menu)\w*\.(?:tsx|vue|svelte)$' | xargs -r rg -H -n --pcre2 "$S2"
-# 3a a route or search param coerced or cast with no validation; 3b every route-param consumer (targets for the garbage-param oracle).
+# 3a a route or search param coerced or cast with no validation; 3b every route-param consumer (targets for the garbage-param oracle);
+#    a bare `params` object counts only in a page, layout or route file (elsewhere it is any local `params`, e.g. an API helper's).
 rg -n --pcre2 '\b(?:Number|parseInt|parseFloat|BigInt)\(\s*(?:params|searchParams|query|route\.(?:params|query)|\$route\.(?:params|query)|page\.(?:params|url\.searchParams)|this\.route\.snapshot\.(?:params|queryParams|paramMap))\b|\bsearchParams\.get\(\s*["\x27]\w+["\x27]\s*\)\s*(?:as\s+[A-Z]|!(?!=))|\buseParams(?:<[^>]*>)?\(\)\s*as\b|\b(?:route|\$route)\.(?:params|query)\.\w+\s+as\s+(?!const)\w' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-rg -n --pcre2 'const\s*\{[^}]+\}\s*=\s*(?:use(?:Params|Route)(?:<[^>]*>)?\(\)|(?:await\s+)?params\b|route\.params|\$page\.params|page\.params)' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --pcre2 'const\s*\{[^}]+\}\s*=\s*(?:use(?:Params|Route)(?:<[^>]*>)?\(\)|await\s+(?:props\.)?params\b|props\.params\b|route\.params|\$page\.params|page\.params)' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --pcre2 'const\s*\{[^}]+\}\s*=\s*params\b' -g '**/{page,layout,route,default,template}.{js,jsx,ts,tsx}' -g '**/+{page,layout}{,.server}.{js,ts}' -g '**/{routes,pages}/**/*.{js,jsx,ts,tsx,vue}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 4a catch-all routes, error elements and 404 files present; 4b catch-all pages that never 404; 4d route tables with no catch-all and no error element.
 rg -n --pcre2 'path\s*:\s*["\x27](?:\*|\*\*)["\x27]|path=["\x27]\*["\x27]|pathMatch\(\.\*\)\*|:catchAll\(\.\*\)|errorElement\s*[:=]|ErrorBoundary\b' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 for r in "${ROOTS[@]}"; do find "$r" \( -name node_modules -o -name .next -o -name dist -o -name .nuxt -o -name .svelte-kit \) -prune -o -type f \( -name 'not-found.[jt]s*' -o -name '+error.svelte' -o -name 'error.vue' -o -name '404.*' -o -path '*\[...*' -o -path '*\[\[...*' \) -print; done
@@ -104,7 +112,7 @@ rg -n -U --pcre2 '(?:paramMap|params|queryParamMap|queryParams)\s*\.\s*pipe\([^;
 
 A finding is a hit **plus** a read **plus** the route **plus** the oracle. Three blind spots are structural:
 
-- **Navigation hides behind handlers and view models.** `onClick={open}` where `open` calls `navigate`, or a view-model hook that owns `page` state, is invisible to a single-line grep. Read the handler; add the project's table and card components to 1c.
+- **Navigation hides behind handlers and view models.** `onClick={open}` where `open` calls `navigate` is what 1d resolves, one file hop at a time: a handler built inside a view-model hook and returned as `vm.open` resolves by name, but a handler named by a computed key or built by a factory does not. A view-model hook that owns `page` state is invisible to 2a. Read the handler; add the project's table and card components to 1c.
 - **Guards compose.** A layout guard, a loader redirect and middleware can each be correct alone and loop together. §5 needs the route table read as a whole, then the hop-count oracle.
 - **The router's own behaviour is version-specific.** Read the lockfile version before asserting a built-in (a data router's `errorElement`, Next's default 404, SvelteKit's `+error.svelte`).
 
@@ -117,6 +125,7 @@ A finding is a hit **plus** a read **plus** the route **plus** the oracle. Three
 | `benchmarks/fixtures/slow-marketplace/web` | 2a 2 · 3b 2 | the catalog keeps its search and sort in `useState` — a §2 candidate (unseeded); the router's root `errorElement` satisfies 4d |
 | `benchmarks/fixtures/vuln-fullstack/web` | 3b 2 · 4d 1 | `<Routes>` with no `path="*"` and no `/` route: an unknown URL renders nothing — a §4 candidate (unseeded). The first 2a counted a `status` save-message variable; the name list now takes `statusFilter` only |
 | real React 19 + React Router 7 app, 28 route files | 1a 0 · 1b 30 · 1c 2 · 2a 176 lines in 107 files · 3a 0 · 3b 21 · 4a catch-all present · 5a 27 · 5b 0 · 6b 1 · 7 N/A (no Next) · 8a 0 | 1b: call-to-action buttons that only navigate (sign-in, install, back-to-list) — low-severity §1 rows, one group per wrapper. 1c: two table rows navigating through `onRowClick` (read for a real link in the row). 2a: `search` 56, `page` 34, `pageSize` 21, `tab` 15 — three read: a tab read once from the URL and never written back, a hub tab and a storefront grid in state — candidates; grouped by view-model hook. 3a: a `!==` comparison the first version took for a non-null assertion. 3b: route params destructured from `useParams()` with an empty-string default — garbage-param targets. 6b: the layout guard renders a fallback until the session is known, then `<Navigate>` before `<Outlet>` — no flash, refuted on read (authorization stays security's). 8a: every param-keyed read goes through a keyed query |
+| a real NestJS + React monorepo (React Router 7.18 SPA), re-measured 2026-10-15 | 1d 71 · 3a 11 → 0 · 3b 26 → 19 | 3a: all 11 were `*-backend.test-data.ts` builders, now excluded by X. 3b: the 7 dropped were API helpers destructuring a local `params`. 1d (new): 16 navigating handlers, 71 call sites — it is the only grep that reaches the largest §1 row, an order code rendered as a `<button>` whose `onOpen` prop is bound to `navigate` in a column factory (4 tables) plus `onRowClick={(o) => openOrder(o.id)}`; 42 of the 71 are one `openCreate` handler on "new" buttons (one low group). Fixtures: nothing lost; 3 new 1d candidates (a save-then-navigate button — read, not a link — and two React Native screens) |
 
 Small fixtures prove the greps parse and catch seeded rows; precision at scale comes from the real-app row.
 
@@ -150,7 +159,7 @@ Severity is the user-visible consequence on a reachable route. Raise one step on
 BAD:   <tr onClick={() => navigate(`/orders/${o.id}`)}>   · <div @click="router.push(`/p/${p.id}`)">   · <Button onClick={() => navigate('/login')}>
 GOOD:  <Link to={`/orders/${o.id}`}>…</Link> (a stretched link for a whole row)   · <Button asChild><Link to="/login">…</Link></Button>
 ```
-**Read the code:** Does the row or card also hold a real link for the same action (`precedents/ui.md` § 17)? Does the button do work first (save, then navigate — not this class)? Is the target a route (not an external origin, which routes to the security owners)? **Finding when** the only path to a route is a click handler: no new tab, no copy-link, and no `href` for crawlers. The keyboard half is credited to `a11y-code-scan` §1. **Proof:** *Open in new tab* (§ Proof).
+**Read the code:** For a 1d hit, open the component that receives the handler and find the element it lands on (a cell's `<button onClick={(e) => { e.stopPropagation(); onOpen(); }}>` is the row). Does the row or card also hold a real link for the same action (`precedents/ui.md` § 17)? Does the button do work first (save, then navigate — not this class)? Is the target a route (not an external origin, which routes to the security owners)? **Finding when** the only path to a route is a click handler: no new tab, no copy-link, and no `href` for crawlers. The keyboard half is credited to `a11y-code-scan` §1. **Proof:** *Open in new tab* (§ Proof).
 
 ### 2. URL-able view state kept only in component state
 

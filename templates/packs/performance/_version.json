@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "performance",
-  "version": "2.2.1",
-  "released": "2026-10-14",
+  "version": "2.3.0",
+  "released": "2026-10-15",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Consumer idempotency, poison and lock vs run time move to distributed-systems; §20 carries the migration-runner lock table and the scheduler-registry shapes.",
+  "summary": "New 20d lane (side effects before a cron's fleet lock), proxy keep-alive chain, metric-label cardinality grep; P3/P5/2c/14/20c/24a/6a/11a/memory/caching greps re-measured.",
   "changelog": "CHANGELOG.md"
 }

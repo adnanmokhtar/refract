@@ -88,8 +88,9 @@ error on stderr (exit 2) is a failed grep, never zero hits.
 ```bash
 # Searched: production and test code alike (a suppression in a test is still inventoried); vendored, built, generated, docs and ai/ are not.
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/.next/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/*.min.*'
-   -g '!**/{generated,__generated__}/**' -g '!*.{md,mdx,json,lock,snap,map,svg}' -g '!docs/**' -g '!ai/**')
-T='(?:/|^)(?:test|tests|__tests__|spec|specs|e2e|__mocks__|mocks|fixtures|__fixtures__|testdata|stories)/|\.(?:spec|test|e2e-spec|mock|stories)\.|(?:_test|_spec)\.\w+$|(?:^|/)(?:test_[^/]*|conftest)\.py$'
+   -g '!**/{generated,__generated__}/**' -g '!*.{md,mdx,json,lock,snap,map,svg}' -g '!{eslint.config.*,.eslintrc*}' -g '!docs/**' -g '!ai/**')   # a lint config's prose about directives is not a directive
+T='(?:/|^)(?:test|tests|__tests__|spec|specs|e2e|__mocks__|mocks|fixtures|__fixtures__|testdata|stories)/|\.(?:spec|test|e2e-spec|mock|stories|test-data|fixture)\.|(?:_test|_spec)\.\w+$|(?:^|/)(?:test_[^/]*|conftest)\.py$'
+SP='(?:/|^)(?:scripts|tools|bin)/'   # one-off and ops scripts: counted apart (a CI lint step often skips them — read 0a)
 P='eslint-disable(?:-next-line|-line)?\b|@ts-(?:ignore|expect-error)\b|#\s*noqa\b|#\s*type:\s*ignore\b|#\s*pyright:\s*ignore\b|#\s*pylint:\s*disable\b|//\s*nolint\b|@SuppressWarnings\(|@Suppress\(|#pragma\s+warning\s+disable\b|\[SuppressMessage\(|rubocop:disable\b|@phpstan-ignore|@psalm-suppress\b|\bNOSONAR\b|#!?\[(?:allow|expect)\('
 for t in js ts py go java kotlin cs ruby php rust; do printf '%-7s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
 
@@ -97,7 +98,7 @@ for t in js ts py go java kotlin cs ruby php rust; do printf '%-7s %s\n' "$t" "$
 #    production vs test. Both read every stack present (NestJS, Django, Rails, dotnet alike).
 rg -n --pcre2 '"(?:eslint|typescript-eslint|@typescript-eslint/eslint-plugin|eslint-plugin-react-hooks|@eslint-community/eslint-plugin-eslint-comments|eslint-plugin-sonarjs)"\s*:|^\s*(?:ruff|mypy|pyright)\s*[=<>~]|\b(?:eslint|ruff\s+check|mypy|pyright|golangci-lint\s+run|staticcheck|rubocop|phpstan\s+analyse|detekt\w*|spotbugs\w*|dotnet\s+build|cargo\s+clippy)\b[^\n]*' -g '{package.json,pyproject.toml,requirements*.txt,Makefile,justfile,.pre-commit-config.yaml,lefthook.yml,go.mod,Gemfile,composer.json,build.gradle*,pom.xml}' -g '!**/node_modules/**' .
 rg -n --hidden --pcre2 '\b(?:eslint|lint|ruff|mypy|pyright|golangci|staticcheck|rubocop|phpstan|detekt|clippy|tsc)\b[^\n]*|continue-on-error\s*:\s*true|allow_failure\s*:\s*true|\|\|\s*true\b' -g '.github/workflows/*.{yml,yaml}' -g '**/.gitlab-ci*.yml' -g '**/{azure-pipelines,bitbucket-pipelines}.yml' -g '**/.circleci/config.yml' .
-printf 'production %s · test %s\n' "$(rg -c --pcre2 "$P" "${X[@]}" . | rg -v --pcre2 "$T" | awk -F: '{s+=$NF} END{print s+0}')" "$(rg -c --pcre2 "$P" "${X[@]}" . | rg --pcre2 "$T" | awk -F: '{s+=$NF} END{print s+0}')"
+printf 'production %s · scripts %s · test %s\n' "$(rg -c --pcre2 "$P" "${X[@]}" . | rg -v --pcre2 "$T|$SP" | awk -F: '{s+=$NF} END{print s+0}')" "$(rg -c --pcre2 "$P" "${X[@]}" . | rg -v --pcre2 "$T" | rg --pcre2 "$SP" | awk -F: '{s+=$NF} END{print s+0}')" "$(rg -c --pcre2 "$P" "${X[@]}" . | rg --pcre2 "$T" | awk -F: '{s+=$NF} END{print s+0}')"
 
 # 1. Blanket, rule-less or file-wide: a disable that names no rule, a bare noqa / type: ignore / nolint, `all`, a crate-wide allow.
 rg -n --pcre2 '/\*\s*eslint-disable\s*\*/|/\*\s*eslint-disable\s+--|//\s*eslint-disable(?:-next-line|-line)?\s*(?:$|--)|@ts-(?:ignore|expect-error)\s*(?:\*/)?\s*$|#\s*noqa(?!\s*:)\s*(?:$|#)|#\s*type:\s*ignore(?!\s*\[)|#\s*pyright:\s*ignore(?!\s*\[)|#\s*pylint:\s*disable\s*=\s*all\b|//\s*nolint(?!:)\b|//\s*nolint:all\b|@SuppressWarnings\(\s*"all"\s*\)|@Suppress\(\s*"(?i:all)"\s*\)|#pragma\s+warning\s+disable\s*$|rubocop:disable\s+all\b|@phpstan-ignore-(?:line|next-line)\b|@psalm-suppress\s+all\b|#!\[allow\(\s*(?:warnings|clippy::all)\s*\)\]|\bNOSONAR\b' "${X[@]}" .
@@ -120,13 +121,21 @@ rg -n --pcre2 '\b(?:jest|vi)\.spyOn\(\s*console\s*,\s*["\x27](?:error|warn)["\x2
 # 3. Config that silences a class: 3a a correctness rule at off / warn, unused-directive reporting off, golangci presets that
 #    hide errors, correctness codes in a Ruff ignore list, mypy disabled codes, C# NoWarn; 3b warn-level entries and the
 #    zero-warning gate (none → warnings never fail CI); 3c baselines and ignore lists; 3d rule blocks whose `files` glob is
-#    anchored at a workspace path (read against the directory each CI lint command runs from).
+#    anchored at a workspace path (read against the directory each CI lint command runs from); 3d′ such a glob that names a
+#    layer folder and misses folders of that layer; 3e an `ignores` glob that drops shipped source (an `ignores` in a block
+#    that also has `files` or `rules` is local to that block — read it; probe: `npx eslint --no-ignore <file>`).
 rg -n --pcre2 '["\x27]?(?:@typescript-eslint/|react-hooks/)?(?:no-floating-promises|no-misused-promises|await-thenable|exhaustive-deps|rules-of-hooks|switch-exhaustiveness-check|no-unsafe-\w+|no-non-null-assertion|no-explicit-any|ban-ts-comment|eqeqeq|use-isnan|no-fallthrough|no-cond-assign|no-constant-condition|no-unreachable|no-empty|preserve-caught-error|no-unsafe-finally|require-array-sort-compare|no-debugger)["\x27]?\s*:\s*\[?\s*(?:["\x27](?:off|warn)["\x27]|[01]\b)|reportUnusedDisableDirectives\s*:\s*(?:["\x27](?:off|warn)["\x27]|false|0)|default-signifies-exhaustive\s*:\s*true|\bstd-error-handling\b|^\s*(?:ignore|extend-ignore)\s*=\s*\[[^\]\n]*\b(?:B\d{3}|BLE001|E722|S110|S112|RUF006|ASYNC\d{3}|DTZ\d{3}|F\d{3})\b|\bdisable_error_code\s*=|<NoWarn>[^<]*(?:CS\d{4}|CA\d{4})|\breportUnmatchedIgnoredErrors\s*:\s*false' -g '{eslint.config.*,.eslintrc*,pyproject.toml,setup.cfg,ruff.toml,.ruff.toml,mypy.ini,.golangci.*,*.csproj,Directory.Build.props,.editorconfig,.rubocop.yml,phpstan.neon*,detekt.yml,clippy.toml}' -g '!**/node_modules/**' .
 rg -c --pcre2 '["\x27]warn["\x27]|:\s*1\s*[,}\]]' -g '{eslint.config.*,.eslintrc*}' -g '!**/node_modules/**' .
 rg -n --pcre2 -e '--max-warnings(?:=|\s+)0\b' -g '{package.json,Makefile,.pre-commit-config.yaml,lefthook.yml}' -g '!**/node_modules/**' --hidden -g '.github/workflows/*' .
 rg --files -g '{eslint-suppressions.json,phpstan-baseline.neon,psalm-baseline.xml,detekt-baseline.xml,.rubocop_todo.yml,mypy-baseline.txt,.eslintignore}' -g '!**/node_modules/**' .
 rg -n --pcre2 '^\s*ignores\s*:\s*\[|^\s*(?:exclude|extend-exclude|per-file-ignores)\s*=|^\s*exclude-(?:dirs|files)\s*:|^\s*ignoreErrors\s*:' -g '{eslint.config.*,pyproject.toml,ruff.toml,.ruff.toml,setup.cfg,.golangci.*,phpstan.neon*}' -g '!**/node_modules/**' .
 rg -n --pcre2 '\bfiles\s*:\s*\[[^\]\n]*["\x27](?!\*\*/|\*\.)[\w.@-]+/' -g 'eslint.config.*' -g '!**/node_modules/**' .
+rg -o --no-filename --pcre2 '\bfiles\s*:\s*\[\K[^\]\n]*' -g 'eslint.config.*' -g '!**/node_modules/**' . | rg -o --pcre2 '["\x27]\K(?!\*\*/|\*\.)[\w.@-]+/[^"\x27\n]*(?=["\x27])' | sort -u | while read -r g; do
+  L=$(printf '%s' "$g" | rg -o --pcre2 '(?<=/)(?:interface|presentation|controllers|application|domain|infrastructure|adapters|features|entities|widgets|pages)(?=/)' | tail -1); [ -n "$L" ] || continue
+  comm -13 <(rg --files -g "$g" . | rg -o --pcre2 "^.*?/$L/" | sort -u) <(rg --files -g '!**/node_modules/**' -g "$(printf '%s' "$g" | cut -d/ -f1-2)/**" . | rg -v --pcre2 "$T" | rg -o --pcre2 "^.*?/$L/" | sort -u) | sed "s#^#3d′ $g misses #"; done
+rg -o -U --no-filename --pcre2 '\bignores\s*:\s*\[\K[^\]]*' -g 'eslint.config.*' -g '!**/node_modules/**' . | rg -o --pcre2 '["\x27]\K[^"\x27!\n][^"\x27\n]*(?=["\x27])' | sort -u | while read -r g; do
+  rg --files -g "$g" -g '!**/node_modules/**' -g '!**/{dist,build,coverage,generated,__generated__,migrations}/**' . | rg -v --pcre2 "$T" | rg --pcre2 '(?:^|/)src/.*\.(?:[cm]?[jt]sx?|vue|svelte)$' > "${TMPDIR:-/tmp}/cq-ign.txt"
+  n=$(wc -l < "${TMPDIR:-/tmp}/cq-ign.txt" | tr -d ' '); [ "$n" -gt 0 ] && echo "3e ignores '$g' drops $n shipped source file(s): $(head -3 "${TMPDIR:-/tmp}/cq-ign.txt" | tr '\n' ' ')"; done
 ```
 
 A finding is a hit **plus** a read of the reason **plus** the unsuppressed re-run. Two blind spots
@@ -155,8 +164,16 @@ platform-scope file); 3d 5 rule blocks
 anchored at `apps/api/src/…` — the same shape that repo's own config comments record as a dead gate
 for its web blocks once lint ran inside the workspace (Unconfirmed until the probe runs; that copy
 has no `node_modules`). The type-aware async rules are not configured at all; that gap is
-`error-handling-scan` § 4's, not a suppression. Go, JVM, C#, Ruby, PHP and Rust greps are not
-measured: no measured repo has that code.
+`error-handling-scan` § 4's, not a suppression. **Re-measured 2026-10-15** on the same monorepo
+(history re-rooted): 0b first printed `production 187 · test 310` — 62 of those "production" lines
+were ops and repair scripts no CI lint step reads, and 5 were the lint config's own prose about
+directives; now `production 120 · scripts 62 · test 310`. 2a 137 `no-restricted-syntax` (down from
+166), 39 accessibility-rule disables, 0 without a reason. 3d′ names the two interface folders
+(`webhooks/interface`, `idempotency/interface`) the API's `modules/*/interface` layer glob never
+reaches; 3e names a global `**/*.config.*` ignore that also drops a 690-line navigation-permission
+file under `src/` and the ORM config, plus four block-local ignores to read (module files, a UI
+folder, a crypto folder, one scope file). Go, JVM, C#, Ruby, PHP and Rust greps are not measured: no
+measured repo has that code.
 
 ## The 3,000-hit path
 

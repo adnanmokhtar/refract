@@ -80,7 +80,7 @@ shallow clone, an unfetched `origin/main`) and no `SCOPE` — the block prints `
 and an empty scope; it never widens itself to the whole repo.
 
 ```bash
-BASE=$(git merge-base HEAD "${BASE_REF:-origin/main}" 2>/dev/null); W=$(mktemp -d); : > "$W/ranges.all"; : > "$W/lines.all"
+BASE=$(git merge-base HEAD "${BASE_REF:-origin/main}" 2>/dev/null); W=$(mktemp -d "${TMPDIR:-/tmp}/mutation-probe.XXXXXX"); : > "$W/ranges.all"; : > "$W/lines.all"
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/mutants/**'
    -g '!**/{test,tests,__tests__,spec,e2e,testdata,fixtures,__fixtures__,mocks,__mocks__,migrations,generated,__generated__,scripts}/**'
    -g '!**/*.{spec,test,e2e-spec,stories,d}.*' -g '!**/{test_*,*_test,conftest}.*' -g '!**/*{Test,Tests,IT}.{java,kt,cs,php}' -g '!**/*_spec.rb'

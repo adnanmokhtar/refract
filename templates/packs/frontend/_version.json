@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "2.0.2",
-  "released": "2026-10-10",
+  "version": "2.1.0",
+  "released": "2026-10-15",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "rg-glob-order: a11y-scan's T array lists its include before !.git/**, and grep 7b puts *.{md,sh} before T, so locales/ and .git/ files stay excluded.",
+  "summary": "Real-repo detector fixes: a11y orphan-label/label-id/tooltip-trigger lanes, frontend-audit F6 --hidden, data/routing/seo/i18n/perf greps re-measured; catalog-parity resolves template-key heads.",
   "changelog": "CHANGELOG.md"
 }

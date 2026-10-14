@@ -14,6 +14,21 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.1.0 — 2026-10-15
+
+**Detector fixes from a read-only audit of a real NestJS + React monorepo.** Each request was reproduced on that repo and on every `benchmarks/fixtures/*`, fixed, and re-measured; no seeded fixture hit was lost.
+
+- `frontend-audit` F6 greps pass `--hidden` (`.storybook/` and `.auth/` were invisible: 1→3 harness files).
+- `a11y-scan`: grep 6 reads `*manifest*.json` (0→5 orientation locks); 7c `-U` reads a multi-line `a11y: { test: 'error' }`; new 7d flags AxeBuilder/`axe.run` files that never read `incomplete`.
+- `a11y-code-scan`: new 2f orphan `<label>` (14 hits, 11 real), 2g ids built from label text, 13b `TooltipTrigger`/`HoverCardTrigger asChild` on a non-focusable host (9/9 real); 2a trigger/link list with an `asChild aria-label` mark; 3a `outline(?:-style)?`; 11b multi-line and type-aware; 6a follows one import hop to a live region; lint lane names `eslint-plugin-jsx-a11y-x`.
+- `render-correctness-scan` reads the workspace-root manifest; 3a counts `k|n|j` only as the second `.map` parameter; 3a′ sees `onRemove(i)`, `.filter((_, j) => j !== i)` and row components.
+- `client-data-scan`: 1c resolves query hooks per function (0→5); 1b `mutateAsync` loops + 1b′ fan-out helpers; 4a per `useMutation` block (10 files → 94 blocks); new 4d multi-request `mutationFn` with no `onSettled`.
+- `routing-scan`: test-data excluded (3a 11→0); 3b `params` only in route files; new 1d navigation wired through props and column factories.
+- `seo-audit`: router-table SPA lane takes routes from routing 0b (1a 269→0); `document.title =`; canonical only from `rel`/alternates/SEO components (5→0); new 0d crawler user-agent rewrites at the edge.
+- `i18n-scan`: `catalog-parity.py` credits constant-prefix template keys (unused 509→314), adds `placeholder-token` and `untranslated-slot` candidates (self-test +7); new 1g English labels in TS label maps; isolation wrappers detected (`<Ltr>`); 10b error→text helpers.
+- Performance skills: lcp hero marker only in class/id/alt/data values with `(?<!object-)(?<!bg-)cover` and CSS-variable backgrounds; image §3a Tailwind sizing; navigation `io(` and `focus({preventScroll})`; critical-path 1b reads `.ts` print templates; fonts skip `local()`-only faces; bundle 4a walks the web importer's production closure; §5 no-install fallback and budget unit.
+- Precedents `ui.md` § 102–107.
+
 ## 2.0.2 — 2026-10-10
 
 **rg-glob-order: `a11y-scan` lists include globs before its exclusions.** The `T` array now names its include before `!.git/**`, and grep 7b puts `-g '*.{md,sh}'` ahead of `T`. ripgrep's last matching glob wins, so a `.md`/`.sh` file in `locales/` and a `.json`/`.yml` file in a root `.git/` were re-included. Measured 2026-10-10 on rg 15.2.0: `a11y-states` and `frontend-correctness` both print the same lines before and after (36 and 3). On planted copies the totals drop from 42 to 36 and from 9 to 3, and a root-level app with planted `.git/` files drops from 30 to 25. Every line that disappeared came from an excluded tree.

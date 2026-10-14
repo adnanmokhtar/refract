@@ -14,7 +14,7 @@ Find real drift, cite `<table>.<column>` and the file/line in the entity definit
 
 ## Halt conditions
 
-- Refuse to report drift without both sides captured (`/tmp/db.sql` AND the ORM expected schema).
+- Refuse to report drift without both sides captured (`$RUN/db.sql` or the static mode's schema map, AND the ORM expected schema). `RUN=$(mktemp -d "${TMPDIR:-/tmp}/schema-diff.XXXXXX")`: never a fixed temp-dir path (two runs overwrite each other) and never a file inside the repo.
 - Refuse to flag a "ghost column" without confirming via `\d <table>` that it actually exists.
 - Halt if the target DB is prod — re-run against a restored snapshot.
 - Don't propose `db push` / destructive sync as the fix; propose a generated migration with the exact name.
@@ -36,10 +36,11 @@ Find real drift, cite `<table>.<column>` and the file/line in the entity definit
 
 1. Snapshot the live schema:
    ```bash
+   RUN=$(mktemp -d "${TMPDIR:-/tmp}/schema-diff.XXXXXX")
    # Postgres
-   pg_dump --schema-only --no-owner --no-privileges "$DATABASE_URL" > /tmp/db.sql
+   pg_dump --schema-only --no-owner --no-privileges "$DATABASE_URL" > "$RUN/db.sql"
    # MySQL
-   mysqldump --no-data --skip-comments -h $H -u $U -p $DB > /tmp/db.sql
+   mysqldump --no-data --skip-comments -h $H -u $U -p $DB > "$RUN/db.sql"
    ```
 2. Generate the ORM's expected schema:
    ```bash
@@ -57,6 +58,21 @@ Find real drift, cite `<table>.<column>` and the file/line in the entity definit
    - Missing index declared in entity → query performance regression.
    - Missing FK / CHECK / NOT NULL → integrity hole.
 4. Categorize each finding as blocker (deploy will fail), warning (perf/integrity), or info (cosmetic).
+
+## Static mode (no database reachable)
+
+`/db-audit` runs this skill on repos with no database in reach. Two lines run first, from the repo root:
+
+```bash
+# S1. The project's own drift gate: a test that compares the migrated schema with the entities, and its accepted-drift list.
+rg -l --pcre2 'SchemaComparator|getUpdateSchemaSQL|migration:check|migrate\s+diff[^\n]*--exit-code|makemigrations\s+--check|alembic\s+check|KNOWN_DRIFT|schema:log' -g '!**/node_modules/**' -g '!**/dist/**' -g '!*.md' .
+# S2. MikroORM: the entity decorators against the snapshot plus the migrations after its horizon (schema-map.py --entities).
+SM=.claude/skills/index-coverage-scan/scripts/schema-map.py; if command -v python3 >/dev/null 2>&1 && [ -f "$SM" ]; then python3 -I -B "$SM" . --entities; else echo 'S2 NOT-RUN (python3 or schema-map.py absent)'; fi
+```
+
+- **S1 hit:** the project already gates drift. Read the test and its accepted list (`KNOWN_DRIFT` or the like). Its pass or fail needs a database, so the live row stays `not run`, but every static row below that the list names is `accepted (<file:line>)`, not drift. A test that exists but is excluded from CI is the finding.
+- **S2** prints the snapshot's horizon (see `index-coverage-scan` § "Pre-flight (static lane)" H0), then one row per difference: `MISSING-TABLE` / `MISSING-COLUMN` (the entity maps what the schema lacks: a deploy-time failure), `NULLABLE`, `GHOST-COLUMN` / `GHOST-TABLE` (only the schema has it), `MISSING-INDEX` (a named `@Index` / `@Unique` the schema lacks). Without the replay, every column added by a hand-written migration after the snapshot reads as `MISSING-*`: the horizon line is the first thing to check. Other ORMs: diff the schema map (`schema-map.py .`, the `ddl` lane) against the model files by reading; the live procedure below stays the oracle.
+- **Measured** (2026-10-15) on a real NestJS + React monorepo (MikroORM 6.6, 376 migrations, snapshot 5 files behind HEAD): the snapshot alone gave 19 rows, 8 of them `MISSING-*` for columns and tables the 5 later migrations add; with the replay, 6 rows (5 ghost columns, 1 ghost table), and S1 found the project's own comparator test whose `KNOWN_DRIFT` names all 6 → 0 drift findings. A property under a `// prettier-ignore` comment and a `tableName:` given as a constant were the two parser misses fixed on that run.
 
 ## Output
 

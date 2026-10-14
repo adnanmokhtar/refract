@@ -31,9 +31,14 @@ HONEST LIMITS — read these before trusting the order:
     appear in the census at all — so on a Go or Java repo `present` reads 0 and the ranking is
     empty rather than wrong. This tool does not pretend to parse a language it cannot, and it
     does not pretend to have counted one either.
-  * A specifier that does not resolve to a file in the repo is dropped, not guessed. Package
-    imports, build aliases that RENAME (`@core/*` → `src/billing/*` via tsconfig), and generated
-    barrels therefore contribute nothing. Under-counting is the intended failure direction: it
+  * A specifier that does not resolve to a file in the repo is dropped, not guessed. What IS
+    read, all of it data on disk: every tsconfig/jsconfig `paths` + `baseUrl` (scoped to its own
+    directory, `extends` followed, same-dir `references` read), jest `moduleNameMapper`, the
+    workspace member list (pnpm-workspace.yaml / package.json `workspaces` / lerna.json) and each
+    member's `exports` / `main` / `types`, mapped from build output back to source through that
+    package's own outDir -> rootDir. Aliases declared only in JS (vite/webpack) and generated
+    barrels contribute nothing. The drop count is split external / asset / local; a LOCAL miss
+    is the one that means a blind spot. Under-counting is the intended failure direction: it
     demotes a file, it never invents importance.
   * `in_degree` counts static imports only. A file reached solely through DI, a registry, or a
     string-keyed dynamic require looks isolated here and will rank low. That is a real blind
@@ -99,15 +104,57 @@ def read(path):
 
 
 def specifiers(rel, text):
+    return [s for s, _ in specifier_kinds(rel, text)]
+
+
+# Statement-level type-only erasure. `import type …`, `export type … from`, and a braced clause
+# whose EVERY item is `type X` are erased by the compiler — they never run, so they cannot close a
+# runtime cycle. A clause with one value item (or a default / namespace binding) is a value import.
+# `import()` is dynamic: it runs, but not at module init, so it does not close an init-order cycle
+# either. An EDGE is type-only only when every statement behind it is (dependency-cruiser's rule
+# too): one value import of a file that is also re-exported as a type keeps the edge a value.
+TS_CLAUSE = re.compile(r"""[\s;{(=]?(?:import|export)\s+(type\s+(?!from\b))?(.*?)\s*from\s*['"]""", re.S)
+TYPE_ITEM = re.compile(r'^type\s')
+TS_BLOCK_COMMENT = re.compile(r'^[ \t]*/\*.*?\*/', re.S | re.M)
+TS_LINE_COMMENT = re.compile(r'^[ \t]*//[^\n]*', re.M)
+
+
+def _ts_statement_kind(m):
+    if m.group(4):
+        return "dynamic"
+    if not m.group(1):
+        return "value"                    # bare `import 'x'` and require() both run
+    mm = TS_CLAUSE.match(m.group(0))
+    if not mm:
+        return "value"
+    if mm.group(1):
+        return "type"
+    clause = mm.group(2)
+    braced = re.search(r'\{([^}]*)\}', clause)
+    outside = re.sub(r'\{[^}]*\}', ' ', clause).replace(",", " ").split()
+    if braced and not outside:
+        items = [x.strip() for x in braced.group(1).split(",") if x.strip()]
+        if items and all(TYPE_ITEM.match(x) for x in items):
+            return "type"
+    return "value"
+
+
+def specifier_kinds(rel, text):
+    """[(specifier, 'value' | 'type' | 'dynamic')] in source order."""
     if rel.endswith(PY_EXT):
-        return [a or b for a, b in PY_IMPORT.findall(text) if (a or b)]
+        return [(a or b, "value") for a, b in PY_IMPORT.findall(text) if (a or b)]
     if rel.endswith(DART_EXT):
-        return DART_IMPORT.findall(text)
+        return [(x, "value") for x in DART_IMPORT.findall(text)]
     if rel.endswith(SFC_EXT):
         # Only the <script> blocks. Scanning the whole SFC would read `@import` in <style> and any
         # string in the template as a specifier, and a wrong edge is worse than a missing one.
         text = "\n".join(SFC_SCRIPT.findall(text))
-    return [next(g for g in m if g) for m in TS_IMPORT.findall(text)]
+    # A comment is not an import. A JSDoc `@import import { X } from '@/x'` line closed two
+    # phantom value cycles on a real React app; only comments that START a line are cut, so a
+    # `'src/**/*.ts'` string can never open a "block" that swallows real imports after it.
+    text = TS_LINE_COMMENT.sub("", TS_BLOCK_COMMENT.sub("", text))
+    return [(next(g for g in m.groups() if g), _ts_statement_kind(m))
+            for m in TS_IMPORT.finditer(text)]
 
 
 # A tsconfig/jsconfig `paths` entry RENAMES rather than shortens (`@app/database/*` ->
@@ -259,30 +306,36 @@ ROUTED_FRAMEWORKS = (
 )
 
 
-def routed_blind_spots(root):
-    """(framework, [dirs]) when a file-based router owns part of this tree — else None."""
-    for name, configs, dirs in ROUTED_FRAMEWORKS:
-        if not any(os.path.isfile(os.path.join(root, c)) for c in configs):
-            continue
-        found = [d for d in dirs if os.path.isdir(os.path.join(root, d))]
-        if found:
-            return name, found
-    return None
+def routed_blind_spots(root, pkg_dirs=("",)):
+    """[(framework, [dirs])] for every package dir (the root, and each workspace app) a
+    file-based router owns — [] when none. In a monorepo the Next app is apps/web, not the root."""
+    out = []
+    for pd in sorted(pkg_dirs):
+        base = os.path.join(root, pd)
+        for name, configs, dirs in ROUTED_FRAMEWORKS:
+            if not any(os.path.isfile(os.path.join(base, c)) for c in configs):
+                continue
+            found = [(pd + "/" + d) if pd else d for d in dirs if os.path.isdir(os.path.join(base, d))]
+            if found:
+                out.append((name, found))
+                break
+    return out
 
 
-def alias_blind_spots(root):
+def alias_blind_spots(root, pkg_dirs=("",)):
     """Config files that look like they declare aliases and that nothing here can read."""
     out = []
-    for name in JS_ALIAS_CONFIGS:
-        p = os.path.join(root, name)
-        if not os.path.isfile(p):
-            continue
-        try:
-            with open(p, encoding="utf-8", errors="replace") as fh:
-                if JS_ALIAS_HINT.search(fh.read(200000)):
-                    out.append(name)
-        except OSError:
-            continue
+    for pd in sorted(pkg_dirs):
+        for name in JS_ALIAS_CONFIGS:
+            p = os.path.join(root, pd, name)
+            if not os.path.isfile(p):
+                continue
+            try:
+                with open(p, encoding="utf-8", errors="replace") as fh:
+                    if JS_ALIAS_HINT.search(fh.read(200000)):
+                        out.append((pd + "/" + name) if pd else name)
+            except OSError:
+                continue
     return out
 
 
@@ -298,63 +351,157 @@ def dart_package_name(root):
     return m.group(1) if m else None
 
 
-def path_aliases(root, _depth=0, _file=None):
-    """[(prefix, suffix, [target templates])] from tsconfig/jsconfig `paths`, longest first.
+# ---------------------------------------------------------------- tsconfig `paths`, per scope
+#
+# ONE table for the whole repo was the shape of a real miss: a pnpm/turbo monorepo keeps shared
+# compiler options in tsconfig.base.json (no `paths` at all) and each app's own tsconfig.json
+# carries that app's table (`apps/web/tsconfig.json: "@/*": ["src/*"]`). Reading only
+# <root>/tsconfig.json read 0 alias rules on a real NestJS + React monorepo and left 21,101
+# specifiers unresolved (2026-10-15). TypeScript resolves a file with the config that includes
+# it, so the rules are SCOPED: every tsconfig.json / jsconfig.json under the repo governs the
+# files below its directory, nearest first. A nearest config that declares nothing (no `paths`,
+# no `baseUrl`) falls through to the next one up, which is the old single-table behaviour.
 
-    `extends` is followed (capped), because a monorepo routinely keeps `paths` in a base config.
-    Targets are made repo-relative through `baseUrl`, so the caller can match them against the
-    file index directly.
-    """
-    if _depth > 4:
-        return []
-    if _file is None:
-        for name in ("tsconfig.json", "jsconfig.json"):
-            cand = os.path.join(root, name)
-            if os.path.isfile(cand):
-                _file = cand
-                break
-        else:
-            # No tsconfig is not "no aliases": a project can declare them only in package.json's
-            # jest block. Returning [] here made that table unreachable, which the fixture caught.
-            return package_json_aliases(root)[0]
-    cfg = _read_jsonc(_file)
-    if not isinstance(cfg, dict):
-        return []
+CONFIG_NAMES = ("tsconfig.json", "jsconfig.json")
+# At the root a monorepo often has no tsconfig.json at all, only the base the apps extend.
+ROOT_CONFIG_NAMES = ("tsconfig.json", "jsconfig.json", "tsconfig.base.json")
 
-    rules = []
+
+def _extends_files(cfg, cfg_file, root):
+    """The config files `extends` names (string or, since TS 5.0, a list), in order. A package
+    name is followed only when it is installed — a base that is not on disk is not guessed at."""
     ext = cfg.get("extends")
-    if isinstance(ext, str) and not ext.startswith("@") and "/" not in ext[:1]:
-        parent = os.path.normpath(os.path.join(os.path.dirname(_file), ext))
-        if not parent.endswith(".json"):
-            parent += ".json"
-        if os.path.isfile(parent):
-            rules.extend(path_aliases(root, _depth + 1, parent))
+    if isinstance(ext, str):
+        ext = [ext]
+    if not isinstance(ext, list):
+        return []
+    here = os.path.dirname(cfg_file)
+    out = []
+    for e in ext:
+        if not isinstance(e, str) or not e:
+            continue
+        if e.startswith((".", "/")):
+            c = os.path.normpath(os.path.join(here, e))
+            cands = [c] if c.endswith(".json") else [c + ".json", c, os.path.join(c, "tsconfig.json")]
+        else:
+            cands, d = [], here
+            while True:
+                b = os.path.join(d, "node_modules", e)
+                cands += [b, b + ".json", os.path.join(b, "tsconfig.json")]
+                if d == root or os.path.dirname(d) == d:
+                    break
+                d = os.path.dirname(d)
+        for c in cands:
+            if os.path.isfile(c):
+                out.append(c)
+                break
+    return out
 
+
+def _effective(cfg_file, root, _depth=0):
+    """The options this script needs, after `extends`, by TypeScript's merge rule.
+
+    A child's `paths` REPLACES its parent's (it never merges); `baseUrl`, `outDir`, `rootDir`
+    and `declarationDir` resolve against the config that DECLARED them; with no `baseUrl`,
+    `paths` targets resolve against the config that declared `paths` (TS 4.1+); `include`
+    resolves against its own declaring config. Returns {} when the file cannot be parsed.
+    """
+    if _depth > 6:
+        return {}
+    cfg = _read_jsonc(cfg_file)
+    if not isinstance(cfg, dict):
+        return {}
+    eff = {}
+    for parent in _extends_files(cfg, cfg_file, root):
+        eff.update(_effective(parent, root, _depth + 1))
+    here = os.path.dirname(cfg_file)
     co = cfg.get("compilerOptions")
     if isinstance(co, dict):
-        base_url = co.get("baseUrl") or "."
-        base_dir = os.path.normpath(os.path.join(os.path.dirname(_file), base_url))
-        paths = co.get("paths")
-        if isinstance(paths, dict):
-            for key, targets in paths.items():
-                if not isinstance(targets, list) or key.count("*") > 1:
-                    continue
-                pre, _, suf = key.partition("*")
-                tmpl = []
-                for t in targets:
-                    if not isinstance(t, str) or t.count("*") > 1:
-                        continue
-                    abs_t = os.path.normpath(os.path.join(base_dir, t))
-                    r = os.path.relpath(abs_t, root).replace(os.sep, "/")
-                    if not r.startswith(".."):
-                        tmpl.append(r)
-                if tmpl:
-                    rules.append((pre, suf, tmpl))
-    if _depth == 0:
-        pj_rules, _ = package_json_aliases(root)
-        rules.extend(pj_rules)
-    # Longest literal prefix wins, which is TypeScript's own precedence rule.
-    rules.sort(key=lambda r: len(r[0]), reverse=True)
+        for key in ("baseUrl", "outDir", "rootDir", "declarationDir"):
+            if isinstance(co.get(key), str):
+                eff[key] = os.path.normpath(os.path.join(here, co[key]))
+        for key in ("jsx", "module", "moduleResolution", "target", "allowJs"):
+            if isinstance(co.get(key), (str, bool)):
+                eff["opt:" + key] = co[key]       # carried into --ts-wrapper only
+        if isinstance(co.get("paths"), dict):
+            eff["paths"], eff["paths_dir"] = co["paths"], here
+    inc = cfg.get("include")
+    if isinstance(inc, list):
+        eff["include"] = [os.path.normpath(os.path.join(here, i)) for i in inc if isinstance(i, str)]
+    if isinstance(cfg.get("references"), list):
+        eff["references"] = [(here, r.get("path")) for r in cfg["references"]
+                             if isinstance(r, dict) and isinstance(r.get("path"), str)]
+    else:
+        eff.pop("references", None)        # references are never inherited
+    return eff
+
+
+def _paths_rules(paths, base_dir, root):
+    rules = []
+    for key, targets in paths.items():
+        if not isinstance(targets, list) or key.count("*") > 1:
+            continue
+        pre, _, suf = key.partition("*")
+        tmpl = []
+        for t in targets:
+            if not isinstance(t, str) or t.count("*") > 1:
+                continue
+            r = os.path.relpath(os.path.normpath(os.path.join(base_dir, t)), root).replace(os.sep, "/")
+            if not r.startswith(".."):
+                tmpl.append(r)
+        if tmpl:
+            rules.append((pre, suf, tmpl))
+    return rules
+
+
+def _rel_or_none(abs_path, root):
+    r = os.path.relpath(abs_path, root).replace(os.sep, "/")
+    if r.startswith(".."):
+        return None
+    return "" if r == "." else r
+
+
+def config_rules(cfg_file, root):
+    """(rules, baseUrl repo-relative or None) for ONE config file, `extends` followed.
+
+    A solution-style tsconfig.json (`"files": []` + `references`, the stock Vite template) keeps
+    its table in tsconfig.app.json; a reference that lives in the SAME directory is read in its
+    place. A reference into another directory is that directory's scope, not this one's.
+    """
+    eff = _effective(cfg_file, root)
+    rules, base = [], None
+    if isinstance(eff.get("paths"), dict):
+        rules = _paths_rules(eff["paths"], eff.get("baseUrl") or eff["paths_dir"], root)
+    if eff.get("baseUrl"):
+        base = _rel_or_none(eff["baseUrl"], root)
+    if not rules:
+        for here, ref in eff.get("references", []):
+            c = os.path.normpath(os.path.join(here, ref))
+            if not c.endswith(".json"):
+                c = os.path.join(c, "tsconfig.json")
+            if os.path.dirname(c) != os.path.dirname(cfg_file) or c == cfg_file:
+                continue
+            if os.path.isfile(c):
+                r2, b2 = config_rules(c, root)
+                rules.extend(r2)
+                base = base if base is not None else b2
+    return rules, base
+
+
+def path_aliases(root, _depth=0, _file=None):
+    """[(prefix, suffix, [target templates])] for the ROOT scope, longest first: the root
+    tsconfig/jsconfig (else tsconfig.base.json), `extends` followed, plus package.json's jest
+    moduleNameMapper. Kept for callers that want one table; resolution uses Resolver."""
+    rules = []
+    for name in ROOT_CONFIG_NAMES:
+        cand = os.path.join(root, name)
+        if os.path.isfile(cand):
+            rules = config_rules(cand, root)[0]
+            break
+    # No tsconfig is not "no aliases": a project can declare them only in package.json's jest
+    # block. Returning [] there made that table unreachable, which the fixture caught.
+    rules.extend(package_json_aliases(root)[0])
+    rules.sort(key=lambda r: len(r[0]), reverse=True)  # longest literal prefix wins, as in tsc
     return rules
 
 
@@ -374,73 +521,431 @@ def apply_aliases(spec, aliases):
     return out
 
 
-def resolve(spec, rel, index, aliases=(), dart_pkg=None):
-    """Specifier → a repo-relative source path, or None. Never guesses."""
-    here = os.path.dirname(rel)
-    if rel.endswith(DART_EXT):
-        if spec.startswith("dart:"):
-            return None                       # SDK library, never a file in this repo
-        if spec.startswith("package:"):
-            pkg, _, tail = spec[len("package:"):].partition("/")
-            # `package:` names THIS package only when pubspec says so; every other name is a
-            # dependency, and inventing an edge for it would point at a file that is not here.
-            if not tail or dart_pkg is None or pkg != dart_pkg:
-                return None
-            candidates = ["lib/" + tail]
-        else:
-            # Dart relative imports are relative to the importing FILE, with or without `./`.
-            candidates = [os.path.normpath(os.path.join(here, spec)).replace(os.sep, "/")]
-    elif rel.endswith(PY_EXT):
-        if spec.startswith("."):
-            up = len(spec) - len(spec.lstrip("."))
-            base = here
-            for _ in range(up - 1):
-                base = os.path.dirname(base)
-            cand = os.path.normpath(os.path.join(base, spec.lstrip(".").replace(".", "/")))
-        else:
-            cand = spec.replace(".", "/")
-        candidates = [cand + ".py", cand + "/__init__.py"]
+# ---------------------------------------------------------------- workspace packages
+#
+# `@scope/contracts/orders` is a workspace package, not npm — but nothing in a tsconfig says so.
+# The package manager's workspace list says which directories are packages; each package.json's
+# `exports` (else main/types) says which file a subpath names; and that file is usually BUILD
+# OUTPUT (`./dist/orders/index.d.ts`), which the package's own tsconfig maps back to source
+# through outDir -> rootDir. All three are data on disk. Measured on the same monorepo: 1 edge
+# into packages/ before, against 1,669 import lines naming the contracts package.
+
+# Condition order: the one most likely to name a source or declaration file first. Every leaf
+# is TRIED (first that resolves wins), so the order decides ties, never whether an edge exists.
+EXPORT_CONDITIONS = ("source", "types", "typings", "import", "module", "require", "node",
+                     "browser", "development", "production", "default")
+BUILD_EXT = (".d.ts", ".d.mts", ".d.cts", ".js", ".mjs", ".cjs", ".jsx")
+
+
+def workspace_globs(root):
+    """Member globs from pnpm-workspace.yaml, package.json `workspaces`, and lerna.json."""
+    globs = []
+    pj = _read_jsonc(os.path.join(root, "package.json"))
+    ws = pj.get("workspaces") if isinstance(pj, dict) else None
+    if isinstance(ws, dict):
+        ws = ws.get("packages")
+    if isinstance(ws, list):
+        globs += [g for g in ws if isinstance(g, str)]
+    lerna = _read_jsonc(os.path.join(root, "lerna.json"))
+    if isinstance(lerna, dict) and isinstance(lerna.get("packages"), list):
+        globs += [g for g in lerna["packages"] if isinstance(g, str)]
+    try:
+        with open(os.path.join(root, "pnpm-workspace.yaml"), encoding="utf-8", errors="replace") as fh:
+            text = fh.read(200000)
+    except OSError:
+        text = ""
+    inside = False
+    for line in text.splitlines():
+        if re.match(r'^packages:\s*$', line):
+            inside = True
+            continue
+        if inside:
+            m = re.match(r'''^\s+-\s*['"]?([^'"#\s]+)['"]?\s*(#.*)?$''', line)
+            if m:
+                globs.append(m.group(1))
+            elif line.strip() and not line.startswith((" ", "\t", "#")):
+                inside = False
+    return globs
+
+
+def _out_root_pairs(pkg_abs, root):
+    """(outDir, rootDir) pairs, repo-relative, from every tsconfig*.json in the package dir."""
+    pairs = []
+    try:
+        names = sorted(n for n in os.listdir(pkg_abs) if re.match(r'^tsconfig.*\.json$', n))
+    except OSError:
+        return pairs
+    for n in names:
+        eff = _effective(os.path.join(pkg_abs, n), root)
+        rd = eff.get("rootDir")
+        if rd is None and eff.get("include"):
+            # tsc's implied rootDir is the common root of the inputs; `include: ["src/**/*"]`
+            # makes that src/. Only a single literal leading directory is taken.
+            heads = {re.split(r'[*{]', i)[0].rstrip("/") for i in eff["include"]}
+            if len(heads) == 1:
+                rd = heads.pop()
+        if rd is None:
+            continue
+        for key in ("outDir", "declarationDir"):
+            o = eff.get(key)
+            if o:
+                ro, rr = _rel_or_none(o, root), _rel_or_none(rd, root)
+                if ro and rr is not None and (ro, rr) not in pairs:
+                    pairs.append((ro, rr))
+    pairs.sort(key=lambda p: len(p[0]), reverse=True)
+    return pairs
+
+
+def workspace_packages(root):
+    """{package name: {dir, exports, entries, outmap}} for every declared workspace member."""
+    import glob as _glob
+    dirs = set()
+    for g in workspace_globs(root):
+        if g.startswith("!"):
+            continue
+        for d in _glob.glob(os.path.join(root, g.rstrip("/")), recursive=True):
+            rel = _rel_or_none(d, root)
+            if rel is None or not os.path.isfile(os.path.join(d, "package.json")):
+                continue
+            if any(seg in PRUNE for seg in rel.split("/")):
+                continue
+            dirs.add(rel)
+    pkgs = {}
+    for rel in sorted(dirs):
+        pj = _read_jsonc(os.path.join(root, rel, "package.json"))
+        if not isinstance(pj, dict) or not isinstance(pj.get("name"), str):
+            continue
+        pkgs[pj["name"]] = {
+            "dir": rel,
+            "exports": pj.get("exports"),
+            "entries": [pj[k] for k in ("types", "typings", "module", "main")
+                        if isinstance(pj.get(k), str)],
+            "outmap": _out_root_pairs(os.path.join(root, rel), root),
+        }
+    return pkgs
+
+
+def _export_leaves(v, star=None, _depth=0):
+    """Every target string under an `exports` value, preferred conditions first."""
+    if _depth > 8 or v is None:
+        return []                       # null blocks the subpath: no edge, by the package's say
+    if isinstance(v, str):
+        return [v.replace("*", star) if star is not None else v]
+    out = []
+    if isinstance(v, list):
+        for x in v:
+            out += _export_leaves(x, star, _depth + 1)
+    elif isinstance(v, dict):
+        keys = [k for k in EXPORT_CONDITIONS if k in v] + [k for k in v if k not in EXPORT_CONDITIONS]
+        for k in keys:
+            out += _export_leaves(v[k], star, _depth + 1)
+    return out
+
+
+def _match_exports(exports, sub):
+    """The leaves `exports` maps subpath `sub` ('.' or './x') to; [] when it maps nothing."""
+    if isinstance(exports, (str, list)) or (
+            isinstance(exports, dict) and not any(k.startswith(".") for k in exports)):
+        exports = {".": exports}
+    if not isinstance(exports, dict):
+        return []
+    if sub in exports:
+        return _export_leaves(exports[sub])
+    best = None
+    for k in exports:
+        if k.count("*") != 1:
+            continue
+        pre, _, suf = k.partition("*")
+        if sub.startswith(pre) and sub.endswith(suf) and len(sub) >= len(pre) + len(suf):
+            if best is None or len(pre) > len(best[0]):
+                best = (pre, suf, k)
+    if best:
+        return _export_leaves(exports[best[2]], sub[len(best[0]):len(sub) - len(best[1])])
+    return []
+
+
+def workspace_bases(spec, pkgs):
+    """(matched, [repo-relative base paths]) for a specifier naming a workspace package."""
+    name = None
+    for n in pkgs:
+        if spec == n or spec.startswith(n + "/"):
+            if name is None or len(n) > len(name):
+                name = n
+    if name is None:
+        return False, []
+    pkg = pkgs[name]
+    sub = "." if spec == name else "./" + spec[len(name) + 1:]
+    if pkg["exports"] is not None:
+        leaves = _match_exports(pkg["exports"], sub)
+    elif sub == ".":
+        leaves = pkg["entries"] + ["index"]
     else:
-        if spec.startswith("."):
-            bases = [os.path.normpath(os.path.join(here, spec))]
+        leaves = [sub]
+    out = []
+    for leaf in leaves:
+        p = os.path.normpath(os.path.join(pkg["dir"], leaf)).replace(os.sep, "/")
+        if p.startswith(".."):
+            continue
+        stripped = p
+        for e in BUILD_EXT:
+            if p.endswith(e):
+                stripped = p[:-len(e)]
+                break
+        out.append(p)
+        for o, r in pkg["outmap"]:
+            if stripped == o or stripped.startswith(o + "/"):
+                out.append((r + stripped[len(o):]).lstrip("/"))
+                break
+        out.append(stripped)
+    return True, out
+
+
+# ---------------------------------------------------------------- resolution
+
+# An import of a stylesheet, an image, a font or a data file names a real file this walk does not
+# census. Counted apart so "did not resolve" can be read: external packages and assets are
+# correct to drop; LOCAL misses are the ones that mean the resolver is blind somewhere.
+ASSET_SPEC = re.compile(r'\.(?:css|scss|sass|less|styl|pcss|svg|png|jpe?g|gif|webp|avif|ico|bmp|'
+                        r'woff2?|ttf|otf|eot|json|jsonc|ya?ml|toml|md|mdx|txt|html?|wasm|mp4|webm|'
+                        r'mp3|wav|ogg|glsl|wgsl|graphql|gql|csv|pdf)(?:\?.*)?$|\?(?:raw|url|inline|'
+                        r'worker|react|component)\b', re.I)
+SIGILS = ("@/", "~/", "#/")
+JS_TO_TS = {".js": (".ts", ".tsx"), ".jsx": (".tsx",), ".mjs": (".mts",), ".cjs": (".cts",)}
+
+
+class Resolver:
+    """Specifier -> repo-relative source path, using every table the repo declares. Never guesses:
+    each rule below is either a config the compiler/package manager reads, or the pre-existing
+    sigil/rooted fallback."""
+
+    def __init__(self, root, index, dart_pkg=None):
+        self.root, self.index, self.dart_pkg = root, index, dart_pkg
+        self.scopes = {}                     # dir -> (rules, baseUrl) ; "" is the root
+        self.pkg_dirs = {""}
+        for name in ROOT_CONFIG_NAMES:
+            cand = os.path.join(root, name)
+            if os.path.isfile(cand):
+                self.scopes[""] = config_rules(cand, root)
+                break
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = sorted(d for d in dirnames if d not in PRUNE and not d.startswith("."))
+            rel = _rel_or_none(dirpath, root)
+            if rel is None:
+                continue
+            if rel and "package.json" in filenames:
+                self.pkg_dirs.add(rel)
+            if rel:
+                for name in CONFIG_NAMES:
+                    if name in filenames:
+                        self.scopes[rel] = config_rules(os.path.join(dirpath, name), root)
+                        break
+            if "package.json" in filenames:
+                mnm, _ = package_json_aliases(dirpath)
+                if mnm:
+                    r, b = self.scopes.get(rel, ([], None))
+                    prefix = (rel + "/") if rel else ""
+                    self.scopes[rel] = (r + [(p, s, [prefix + t for t in ts]) for p, s, ts in mnm], b)
+        for k, (r, b) in list(self.scopes.items()):
+            self.scopes[k] = (sorted(r, key=lambda x: len(x[0]), reverse=True), b)
+        self.pkgs = workspace_packages(root)
+        self._scope_cache = {}
+
+    @property
+    def alias_rule_count(self):
+        return sum(len(r) for r, _ in self.scopes.values())
+
+    def _ancestors(self, d):
+        while True:
+            yield d
+            if not d:
+                return
+            d = os.path.dirname(d)
+
+    def _scope(self, d):
+        """(rules of the nearest scope that has any, baseUrl of the nearest that sets one)."""
+        if d not in self._scope_cache:
+            rules = base = None
+            for a in self._ancestors(d):
+                if a in self.scopes:
+                    r, b = self.scopes[a]
+                    if rules is None and r:
+                        rules = r
+                    if base is None and b is not None:
+                        base = b
+                if rules is not None and base is not None:
+                    break
+            self._scope_cache[d] = (rules or [], base)
+        return self._scope_cache[d]
+
+    def _pkg_root(self, d):
+        for a in self._ancestors(d):
+            if a in self.pkg_dirs:
+                return a
+        return ""
+
+    def _ts_bases(self, spec, here):
+        """(bases, local?) for a TS/JS non-relative specifier."""
+        rules, base = self._scope(here)
+        bases = list(apply_aliases(spec, rules))
+        local = bool(bases)
+        if base is not None:
+            # baseUrl alone makes `src/modules/x` (and `modules/x`) resolvable from that dir.
+            bases.append((base + "/" + spec) if base else spec)
+        hit, ws = workspace_bases(spec, self.pkgs)
+        if hit:
+            bases += ws
+            local = True
+        if spec[:2] in SIGILS:
+            local = True
+            tail = spec[2:]
+            pr = self._pkg_root(here)
+            # The nearest package first: `@/x` in apps/web means apps/web/src/x, not <root>/src/x.
+            if pr:
+                bases += [pr + "/" + p + tail for p in ("", "src/", "app/", "lib/")]
+            bases.append(tail)               # then the repo root (src/ app/ lib/ tried below)
+        elif "/" in spec and not spec.startswith("@"):
+            bases.append(spec)               # rooted, e.g. `src/billing/charge`
+        return bases, local
+
+    def resolve(self, spec, rel):
+        """A repo-relative source path, or None."""
+        return self._resolve(spec, rel)[0]
+
+    def _resolve(self, spec, rel):
+        """(path or None, local?) — local means the specifier named something in this repo."""
+        index = self.index
+        here = os.path.dirname(rel)
+        if rel.endswith(DART_EXT):
+            if spec.startswith("dart:"):
+                return None, False
+            if spec.startswith("package:"):
+                pkg, _, tail = spec[len("package:"):].partition("/")
+                if not tail or self.dart_pkg is None or pkg != self.dart_pkg:
+                    return None, False
+                candidates, local = ["lib/" + tail], True
+            else:
+                candidates = [os.path.normpath(os.path.join(here, spec)).replace(os.sep, "/")]
+                local = True
+        elif rel.endswith(PY_EXT):
+            if spec.startswith("."):
+                up = len(spec) - len(spec.lstrip("."))
+                base = here
+                for _ in range(up - 1):
+                    base = os.path.dirname(base)
+                cand = os.path.normpath(os.path.join(base, spec.lstrip(".").replace(".", "/")))
+                local = True
+            else:
+                cand = spec.replace(".", "/")
+                local = False
+            candidates = [cand + ".py", cand + "/__init__.py"]
         else:
-            # The config table first: it is the only thing that can undo a RENAMING alias, and
-            # it is read, not inferred. With no tsconfig the list is empty and the two rules
-            # below are exactly the behaviour that shipped before aliases existed.
-            bases = list(apply_aliases(spec, aliases))
-            if spec[:2] in ("@/", "~/", "#/"):
-                bases.append(spec[2:])
-            elif "/" in spec and not spec.startswith("@"):
-                bases.append(spec)            # rooted, e.g. `src/billing/charge`
-        if not bases:
-            return None                       # bare package name, or an alias nothing declares
-        candidates = []
-        for cand in bases:
-            cand = cand.replace(os.sep, "/")
-            _, ext = os.path.splitext(cand)
-            if ext in SOURCE_EXT:
-                candidates.append(cand)
-            for e in TS_EXT + SFC_EXT:
-                candidates.append(cand + e)
-                candidates.append(cand + "/index" + e)
-    for c in candidates:
-        c = c.lstrip("./")
-        if c in index:
-            return c
-        for prefix in ("src/", "app/", "lib/"):
-            if (prefix + c) in index:
-                return prefix + c
-    return None
+            if spec.startswith("."):
+                bases, local = [os.path.normpath(os.path.join(here, spec))], True
+            else:
+                bases, local = self._ts_bases(spec, here)
+            if not bases:
+                return None, local
+            candidates = []
+            for cand in bases:
+                cand = cand.replace(os.sep, "/")
+                stem, ext = os.path.splitext(cand)
+                if ext in SOURCE_EXT:
+                    candidates.append(cand)
+                # ESM-style TypeScript writes the OUTPUT extension (`./schema.js`) and the
+                # compiler maps it back to the source (`./schema.ts`) — its own rule, not a guess.
+                for e in JS_TO_TS.get(ext, ()):
+                    candidates.append(stem + e)
+                for e in TS_EXT + SFC_EXT:
+                    candidates.append(cand + e)
+                    candidates.append(cand + "/index" + e)
+        for c in candidates:
+            c = c.lstrip("./")
+            if c in index:
+                return c, True
+            for prefix in ("src/", "app/", "lib/"):
+                if (prefix + c) in index:
+                    return prefix + c, True
+        return None, local
+
+    def classify(self, spec, rel):
+        """'external' | 'asset' | 'local' for a specifier that did not resolve."""
+        if ASSET_SPEC.search(spec):
+            return "asset"
+        return "local" if self._resolve(spec, rel)[1] else "external"
+
+
+def resolve(spec, rel, index, aliases=(), dart_pkg=None):
+    """Back-compat single-table entry point (one alias table, no scopes, no workspaces)."""
+    r = Resolver.__new__(Resolver)
+    r.root, r.index, r.dart_pkg = "", index, dart_pkg
+    r.scopes, r.pkg_dirs, r.pkgs, r._scope_cache = {"": (list(aliases), None)}, {""}, {}, {}
+    return r.resolve(spec, rel)
+
+
+def ts_wrapper(root, scope_dir, res):
+    """A self-contained tsconfig for one project dir, for a resolver run OUTSIDE the repo.
+
+    dependency-cruiser on a read-only checkout has to run with its config in a scratch folder.
+    Measured 2026-10-15 on a real NestJS + React monorepo: a scratch tsconfig that only
+    `extends` the app's own config resolved 0 of 10,314 aliased imports; one with an ABSOLUTE
+    `baseUrl` and the `paths` table written out resolved them (39,313 edges). This prints the
+    second shape: absolute baseUrl, the effective `paths` (after `extends`) made absolute, one
+    entry per workspace package export mapped to its source file (there is no node_modules
+    symlink to follow on a checkout nobody installed), and `include` = the dir's src/ (or the
+    dir). No `extends` at all, so nothing is resolved relative to the scratch folder.
+    """
+    d_abs = os.path.normpath(os.path.join(root, scope_dir))
+    cfg = None
+    for name in CONFIG_NAMES + (("tsconfig.base.json",) if scope_dir in ("", ".") else ()):
+        c = os.path.join(d_abs, name)
+        if os.path.isfile(c):
+            cfg = c
+            break
+    eff = _effective(cfg, root) if cfg else {}
+    co = {k[4:]: v for k, v in eff.items() if k.startswith("opt:")}
+    co["baseUrl"] = eff.get("baseUrl") or d_abs
+    paths = {}
+    if isinstance(eff.get("paths"), dict):
+        pbase = eff.get("baseUrl") or eff["paths_dir"]
+        for key, targets in eff["paths"].items():
+            if isinstance(targets, list):
+                paths[key] = [os.path.normpath(os.path.join(pbase, t)) for t in targets
+                              if isinstance(t, str)]
+    probe = os.path.join(scope_dir, "__probe__.ts").lstrip("./")
+    for name, pkg in sorted(res.pkgs.items()):
+        if pkg["dir"] == scope_dir or name in paths:
+            continue
+        subs = ["."]
+        exp = pkg["exports"]
+        if isinstance(exp, dict) and any(k.startswith(".") for k in exp):
+            subs = [k for k in exp if "*" not in k]
+        for sub in subs:
+            spec = name if sub == "." else name + sub[1:]
+            tgt = res.resolve(spec, probe)
+            if tgt:
+                paths[spec] = [os.path.join(root, tgt)]
+        if not isinstance(exp, dict) or not any(k.startswith(".") for k in exp):
+            paths[name + "/*"] = [os.path.join(root, pkg["dir"], "*")]
+    if paths:
+        co["paths"] = paths
+    inc = os.path.join(d_abs, "src") if os.path.isdir(os.path.join(d_abs, "src")) else d_abs
+    return {"compilerOptions": co, "include": [inc]}
 
 
 def write_routed_disclosure(routed):
-    if not routed:
-        return
-    name, dirs = routed
-    sys.stderr.write("NOT AN EDGE SOURCE: %s routes from %s by FILE PATH, not by import. Files "
-                     "there having no importers is correct and is NOT a clearance to change them; "
-                     "a component used only inside a <template> under auto-import produces no "
-                     "specifier either.\n" % (name, "/, ".join(dirs) + "/"))
+    for name, dirs in routed or ():
+        sys.stderr.write("NOT AN EDGE SOURCE: %s routes from %s by FILE PATH, not by import. Files "
+                         "there having no importers is correct and is NOT a clearance to change "
+                         "them; a component used only inside a <template> under auto-import "
+                         "produces no specifier either.\n" % (name, "/, ".join(dirs) + "/"))
+
+
+def write_alias_disclosure(blind):
+    if blind:
+        sys.stderr.write("NOT READ: %s declare aliases in JavaScript. Reading them means executing "
+                         "JS; a regex scrape would be a guess. Edges through those aliases are "
+                         "MISSING, not absent — unless a tsconfig `paths` entry declares the same "
+                         "alias, which IS read.\n" % ", ".join(blind))
 
 
 def main():
@@ -452,52 +957,87 @@ def main():
     ap.add_argument("--hub-share", type=float, default=0.75,
                     help="fraction of --limit given to hubs (default 0.75)")
     ap.add_argument("--emit-edges", metavar="PATH",
-                    help="write every RESOLVED import edge as TSV (kind, importer, imported, '') "
+                    help="write every RESOLVED import edge as TSV (kind, importer, imported, label: '' "
+                         "value · 'type' every statement type-only · 'dynamic' import() only) "
                          "and exit. A specifier that did not resolve is not an edge and is not "
                          "written; the count of those is reported on stderr rather than dropped "
                          "silently. --limit does not apply: a ranking is a selection, a graph is "
                          "not, and emitting only the top N would produce a map whose missing "
                          "edges look like absent dependencies.")
+    ap.add_argument("--ts-wrapper", metavar="DIR",
+                    help="print a self-contained tsconfig (absolute baseUrl + paths, workspace "
+                         "packages mapped to source, no extends) for DIR (repo-relative) and "
+                         "exit — for running dependency-cruiser from a scratch folder against a "
+                         "read-only checkout")
     args = ap.parse_args()
 
     root = os.path.abspath(args.repo)
     if not os.path.isdir(root):
         sys.stderr.write("no such directory: %s\n" % args.repo)
         return 2
+    if args.ts_wrapper is not None:
+        d = os.path.normpath(args.ts_wrapper).replace(os.sep, "/").strip("/")
+        d = "" if d == "." else d
+        if not os.path.isdir(os.path.join(root, d)):
+            sys.stderr.write("no such directory in the repo: %s\n" % args.ts_wrapper)
+            return 2
+        files = walk(root, True)
+        print(json.dumps(ts_wrapper(root, d, Resolver(root, set(files))), indent=2))
+        return 0
 
     files = walk(root, args.include_tests)
     index = set(files)
-    aliases = path_aliases(root)
-    dart_pkg = dart_package_name(root)
-    blind = alias_blind_spots(root)
-    routed = routed_blind_spots(root)
+    res = Resolver(root, index, dart_package_name(root))
+    n_alias = res.alias_rule_count
+    blind = alias_blind_spots(root, res.pkg_dirs)
+    routed = routed_blind_spots(root, res.pkg_dirs)
     parseable = [f for f in files if f.endswith(SOURCE_EXT)]
 
     importers = {f: set() for f in files}          # file -> set of files importing it
     out_deg = {f: set() for f in files}
+    edge_kinds = {}                                 # (importer, imported) -> statement kinds
     unresolved = 0
+    kinds = {"external": 0, "asset": 0, "local": 0}
+    local_examples = {}
     for f in parseable:
-        for spec in specifiers(f, read(os.path.join(root, f))):
-            tgt = resolve(spec, f, index, aliases, dart_pkg)
+        for spec, sk in specifier_kinds(f, read(os.path.join(root, f))):
+            tgt = res.resolve(spec, f)
             if tgt is None or tgt == f:
                 unresolved += 1
+                k = "local" if tgt == f else res.classify(spec, f)
+                kinds[k] += 1
+                if k == "local":
+                    local_examples.setdefault(spec, f)
                 continue
             importers[tgt].add(f)
             out_deg[f].add(tgt)
+            edge_kinds.setdefault((f, tgt), set()).add(sk)
+    breakdown = ("%d external package(s) · %d asset(s) · %d local miss(es)"
+                 % (kinds["external"], kinds["asset"], kinds["local"]))
+    scope_note = ("%d alias rule(s) read from %d tsconfig/package.json scope(s); %d workspace "
+                  "package(s)" % (n_alias, sum(1 for r, _ in res.scopes.values() if r),
+                                  len(res.pkgs)))
 
     if args.emit_edges:
         with open(args.emit_edges, "w", encoding="utf-8") as fh:
             for f in sorted(out_deg):
                 for tgt in sorted(out_deg[f]):
-                    fh.write("code\t%s\t%s\t\n" % (f, tgt))
+                    k = edge_kinds.get((f, tgt), {"value"})
+                    # label: '' a value edge (runs at init) · 'type' erased by the compiler ·
+                    # 'dynamic' only import() — the last two cannot close an init-order cycle.
+                    lab = "" if "value" in k else ("dynamic" if "dynamic" in k else "type")
+                    fh.write("code\t%s\t%s\t%s\n" % (f, tgt, lab))
         n = sum(len(v) for v in out_deg.values())
-        sys.stderr.write("%d resolved edge(s) written; %d specifier(s) did not resolve "
-                         "(dropped, not guessed); %d alias rule(s) read from "
-                         "tsconfig/package.json\n" % (n, unresolved, len(aliases)))
-        if blind:
-            sys.stderr.write("NOT READ: %s declare aliases in JavaScript. Reading them means "
-                             "executing JS; a regex scrape would be a guess. Edges through those "
-                             "aliases are MISSING, not absent.\n" % ", ".join(blind))
+        n_val = sum(1 for k in edge_kinds.values() if "value" in k)
+        sys.stderr.write("%d resolved edge(s) written (%d value, %d type-only or import()-only); "
+                         "%d specifier(s) did not resolve (dropped, not guessed: %s); %s\n"
+                         % (n, n_val, n - n_val, unresolved, breakdown, scope_note))
+        if kinds["local"]:
+            ex = sorted(local_examples.items())[:5]
+            sys.stderr.write("LOCAL MISSES (a relative path, an alias or a workspace package that "
+                             "named no source file), e.g. %s\n"
+                             % "; ".join("%s in %s" % (s_, f_) for s_, f_ in ex))
+        write_alias_disclosure(blind)
         write_routed_disclosure(routed)
         return 0
 
@@ -532,18 +1072,16 @@ def main():
     else:
         picked = hubs + roots + rest
 
-    if blind:
-        sys.stderr.write("NOT READ: %s declare aliases in JavaScript. Reading them means executing "
-                         "JS; a regex scrape would be a guess. Edges through those aliases are "
-                         "MISSING, not absent.\n" % ", ".join(blind))
+    write_alias_disclosure(blind)
     write_routed_disclosure(routed)
 
     if args.format == "json":
         print(json.dumps({
             "present": len(files), "selected": len(picked),
             "hubs": len(hubs), "roots": len(roots), "isolated": len(rest),
-            "unresolved_specifiers": unresolved,
-            "alias_rules": len(aliases), "alias_configs_not_read": blind,
+            "unresolved_specifiers": unresolved, "unresolved_kinds": kinds,
+            "alias_rules": n_alias, "alias_configs_not_read": blind,
+            "workspace_packages": sorted(res.pkgs),
             "rows": picked}, indent=2))
         return 0
 
@@ -554,8 +1092,8 @@ def main():
 
     print("# rank-source-files — %d/%d source files selected" % (len(picked), len(files)))
     print("# hubs %d · roots %d · isolated %d · %d specifiers did not resolve (dropped, not "
-          "guessed) · %d alias rule(s) read from tsconfig/package.json"
-          % (len(hubs), len(roots), len(rest), unresolved, len(aliases)))
+          "guessed: %s) · %s"
+          % (len(hubs), len(roots), len(rest), unresolved, breakdown, scope_note))
     print("# walk_scope: centrality-ranked (importing dirs, then importer count); "
           "hub share %.2f" % args.hub_share)
     print("%-4s %-9s %7s %7s %7s  %s" % ("#", "kind", "impBy", "impDirs", "imports", "path"))

@@ -35,9 +35,15 @@ FINDINGS (exit 1):
   used-undefined   (--used) a literal key in code that no catalog defines under any namespace
 CANDIDATES (printed, never exit 1 — each needs a read):
   same-as-base     a value identical to the base locale's (brand names and units are legitimate)
-  dynamic-prefix   (--used) t(`status.${x}`) / t('status.' + x): the prefix and the keys under it —
-                   cross them with the variable's bound (i18n-scan §2, the prefix × union sweep)
+  dynamic-prefix   (--used) t(`status.${x}`) / t('status.' + x), and `${KEY}.jt.${x}` where KEY is a string
+                   constant ('ns:carrierReason'): the prefix and the keys under it — cross them with the
+                   variable's bound (i18n-scan §2, the prefix × union sweep). A template whose head is
+                   itself a variable (`${group}.${key}.label`) prints as `<fully dynamic>`.
   unused-key       (--used) a base key with no literal reference and no dynamic prefix above it
+  placeholder-token  a value that is exactly one placeholder token in every locale ({{variable}} vs
+                   {{متغير}}), or a key read with skipInterpolation — a display token, not an argument
+  untranslated-slot  an empty value whose siblings form one sentence (heroTitleA / heroTitleMid /
+                   heroTitleB): a word-order slot one locale leaves empty on purpose
 """
 import json, os, re, subprocess, sys, tempfile
 import xml.etree.ElementTree as ET
@@ -444,14 +450,30 @@ def discover(repo, extra):
     return found
 
 
+def is_slot(key, vals):
+    """An empty leaf whose siblings share its stem — `heroTitleA` / `heroTitleMid` / `heroTitleB` — is a word-order slot."""
+    parent, _, leaf = key.rpartition(".")
+    stem = re.sub(r"(?:Mid(?:dle)?|Infix|Between|Before|After|Prefix|Suffix|Start|End|[A-Z]|_?\d+)$", "", leaf)
+    if len(stem) < 3 or stem == leaf:
+        return False
+    sib = [k for k in vals if k != key and k.rpartition(".")[0] == parent and k.rpartition(".")[2].startswith(stem) and vals[k]]
+    return len(sib) >= 2
+
+
 def used_keys(repo, roots):
     call = re.compile(r"(?<![\w$.])(?:t|\$t|\$tc|tc|i18n\.t|i18next\.t|translate|intl\.formatMessage)\(\s*"
                       r"(?:(['\"])([^'\"`\s{}$<>]+)\1|`([^`$]*)\$\{|(['\"])([\w.:-]*[.:])\4\s*\+)")
     other = re.compile(r"\bi18nKey\s*=\s*\{?\s*(['\"])([^'\"\s]+)\1|(['\"])([\w.:-]+)\3\s*\|\s*translate\b")
     uses, dyn, lits = [], [], set()
     lit = re.compile(r"(['\"`])([A-Za-z_$][\w$.:\[\]-]*)\1|[\w$-]+(?:\.[\w$-]+)+")
-    tpl_prefix = re.compile(r"`(?:\$\{[^}`]+\}:)?([A-Za-z_][\w.-]*[._])\$\{")
+    tpl_prefix = re.compile(r"`(?:\$\{[^}`]+\}:|[\w-]+:)?([A-Za-z_][\w.-]*[._])\$\{")   # `ns:carrierCode.${x}` too
     ns_tpl = re.compile(r"(?<![\w$.])(?:t|\$t|i18n\.t|i18next\.t)\(\s*`\$\{[^}`]+\}:([\w.-]+)`")
+    # `const KEY = 'ns:carrierReason'` … `${KEY}.jt.${code}`: a key built on a string constant (resolved after the walk)
+    const_def = re.compile(r"\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::\s*[\w$.]+\s*)?=\s*(['\"])([\w.:-]+)\2\s*(?:as\s+const\s*)?[;,\n]")
+    const_tpl = re.compile(r"`\$\{\s*([A-Za-z_$][\w$]*)\s*\}((?:\.[\w-]+)*\.?)(\$\{|`)")
+    dyn_head = re.compile(r"(?<![\w$.])(?:t|\$t|i18n\.t|i18next\.t)\(\s*(`\$\{\s*([A-Za-z_$][\w$]*)\s*\}\.[^`]*`)")
+    skip_call = re.compile(r"(?<![\w$.])(?:t|\$t|i18n\.t|i18next\.t)\(\s*(['\"])([^'\"`\s]+)\1\s*,\s*\{[^}]*\b(?:skipInterpolation\s*:\s*true|skipOnVariables)")
+    consts, local, tpls, heads, skips = {}, {}, [], [], set()
     for root in roots:
         base = os.path.join(repo, root)
         for dp, dns, fns in os.walk(base):
@@ -466,6 +488,8 @@ def used_keys(repo, roots):
                 except OSError:
                     continue
                 lits.update(m.group(2) or m.group(0) for m in lit.finditer(text))
+                for m in const_def.finditer(text):
+                    consts.setdefault(m.group(1), set()).add(m.group(3)); local[(rel, m.group(1))] = m.group(3)
                 for ln, line in enumerate(text.splitlines(), 1):
                     if re.match(r"\s*(?://|/?\*|#|<!--)", line):
                         continue
@@ -478,9 +502,27 @@ def used_keys(repo, roots):
                         uses.append((rel, ln, m.group(1))); lits.add(m.group(1))
                     for m in tpl_prefix.finditer(line):
                         lits.add("\x00" + m.group(1))
+                    for m in const_tpl.finditer(line):
+                        tpls.append((rel, ln, m.group(1), m.group(2), m.group(3) == "`"))
+                    for m in dyn_head.finditer(line):
+                        heads.append((rel, ln, m.group(2), m.group(1)))
+                    for m in skip_call.finditer(line):
+                        skips.add(m.group(2).split(":", 1)[-1])
                     for m in other.finditer(line):
                         uses.append((rel, ln, m.group(2) or m.group(4)))
-    return uses, dyn, lits
+    resolved = set()
+    for rel, ln, name, rest, whole in tpls:
+        val = local.get((rel, name)) or (next(iter(consts[name])) if len(consts.get(name, ())) == 1 else None)
+        if not val:
+            continue
+        key = val.split(":", 1)[-1] + rest
+        resolved.add(name)
+        if whole:
+            lits.add(key)
+        elif key.endswith("."):
+            lits.add("\x00" + key); dyn.append((rel, ln, key))
+    heads = [(rel, ln, tpl) for rel, ln, name, tpl in heads if name not in resolved and not local.get((rel, name))]
+    return uses, dyn, lits, heads, skips
 
 
 def main(argv):
@@ -611,7 +653,8 @@ def main(argv):
             for k, v in sorted(fk.items()):
                 filled_elsewhere = any(folded[l][1].get(k) for l in locs if l != loc)
                 if v is None or (v == "" and filled_elsewhere):
-                    findings.append(("untranslated", sid, loc, f"{k}  ({'empty' if v == '' else 'not translated'})"))
+                    row = (sid, loc, f"{k}  ({'empty' if v == '' else 'not translated'})")
+                    findings.append(("untranslated",) + row) if v is None or not is_slot(k, fk) else cands.append(("untranslated-slot",) + row)
             # plural forms the locale needs (Intl.PluralRules), from i18next suffixes, Android/xcstrings
             # quantities and ICU plural arguments
             lang = loc if loc in req else loc.split("-")[0]
@@ -638,7 +681,9 @@ def main(argv):
                     continue
                 pa, pb = placeholders(rv, kind)[0], placeholders(v, kind)[0]
                 if pa != pb:
-                    findings.append(("placeholder", sid, loc, f"{k}: {src_loc} {' '.join(pa) or '—'} · {loc} {' '.join(pb) or '—'}"))
+                    row = (sid, loc, f"{k}: {src_loc} {' '.join(pa) or '—'} · {loc} {' '.join(pb) or '—'}")
+                    lone = all(re.fullmatch(r"\s*(?:\{\{[^{}]+\}\}|\{[^{},]+\}|%(?:\d+\$)?[sd@])\s*", s) for s in (rv, v))
+                    (cands if lone else findings).append(("placeholder-token" if lone else "placeholder",) + row)
                 # multi-word text left in the source language; single tokens are usually names, units or keys
                 if v == rv and re.search(r"[^\W\d_]{2,}\s+[^\W\d_]{2,}", v) and loc.split("-")[0] != str(src_loc).split("-")[0]:
                     same.append(k)
@@ -648,7 +693,10 @@ def main(argv):
     used_out = []
     if args["used"] is not None and all_locales:
         roots = [os.path.normpath(r) for r in args["used"].split(",") if r] or ["."]
-        uses, dyn, lits = used_keys(repo, roots)
+        uses, dyn, lits, heads, skips = used_keys(repo, roots)
+        # a key read with skipInterpolation renders its {{token}} literally: not an argument mismatch
+        for f in [f for f in findings if f[0] == "placeholder" and f[3].split(":", 1)[0] in skips]:
+            findings.remove(f); cands.append(("placeholder-token",) + f[1:3] + (f[3] + "  (read with skipInterpolation)",))
 
         def spans(key):
             parts = re.sub(r"\[(\d+)\]", r".\1", key).split(".")
@@ -679,6 +727,8 @@ def main(argv):
                 prefixes[p2] = (rel, ln, sum(1 for k in known_set if k.startswith(p2) and "." not in k[len(p2):]))
         for p, (rel, ln, cnt) in sorted(prefixes.items()):
             cands.append(("dynamic-prefix", f"{rel}:{ln}", "-", f"`{p}${{…}}` — {cnt} catalog key(s) under it; cross with the variable's bound"))
+        for rel, ln, tpl in sorted(set(heads)):
+            cands.append(("dynamic-prefix", f"{rel}:{ln}", "-", f"{tpl} — <fully dynamic> head: read the variable's bound; keys under it are not credited"))
         if base:
             ref_spans = set()
             for lit in lits:
@@ -750,12 +800,19 @@ def self_test():
     d = tempfile.mkdtemp(prefix="catalog-parity-")
     def w(rel, text):
         p = os.path.join(d, rel); os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w", encoding="utf-8").write(text)
-    w("src/locales/en.json", json.dumps({"a": {"b": "Save {{name}}"}, "items_one": "{{count}} item", "items_other": "{{count}} items", "only_en": "x"}))
-    w("src/locales/ar.json", json.dumps({"a": {"b": "احفظ"}, "items_one": "عنصر", "items_other": "{{count}} عناصر"}))
+    # 2026-10-15 rows: a key built on a string constant and on an `ns:` literal head are referenced; a lone display
+    # token and a skipInterpolation key are placeholder-token candidates; an empty A/Mid/B sibling is a slot
+    extra_en = {"reason": {"jt": {"a": "A"}}, "code": {"x": {"y": "Y"}}, "tok": "{{variable}}", "raw": "Hi {{name}}",
+                "hero": {"heroTitleA": "Fast", "heroTitleMid": "", "heroTitleB": "shipping"}, "dead": "Dead"}
+    extra_ar = {"reason": {"jt": {"a": "أ"}}, "code": {"x": {"y": "ي"}}, "tok": "{{متغير}}", "raw": "مرحبا {{اسم}}",
+                "hero": {"heroTitleA": "شحن", "heroTitleMid": "سريع", "heroTitleB": "جدا"}, "dead": "ميت"}
+    w("src/locales/en.json", json.dumps({"a": {"b": "Save {{name}}"}, "items_one": "{{count}} item", "items_other": "{{count}} items", "only_en": "x", **extra_en}))
+    w("src/locales/ar.json", json.dumps({"a": {"b": "احفظ"}, "items_one": "عنصر", "items_other": "{{count}} عناصر", **extra_ar}))
     w("src/i18n/en/errors.json", json.dumps({"e": "Boom"}))
     w("app/src/main/res/values/strings.xml", '<resources><string name="hi">Hi %1$s</string><string name="v" translatable="false">1</string></resources>')
     w("app/src/main/res/values-ar/strings.xml", '<resources><string name="hi">مرحبا</string></resources>')
-    w("src/App.tsx", "t('a.b'); t('nope.key'); t(`status.${s}`)")
+    w("src/App.tsx", "t('a.b'); t('nope.key'); t(`status.${s}`)\nconst KEY = 'app:reason';\nconst l = `${KEY}.jt.${c}`;\n"
+      "const m = `app:code.${f}.${g}`;\nt('raw', { skipInterpolation: true }); t('tok'); t('hero.heroTitleA');\nt(`${group}.${k}.label`)")
     # two apps of a monorepo with different locale sets: neither is told it lacks the other's locale
     w("apps/one/package.json", "{}"); w("apps/one/locales/en.json", '{"k": "K"}'); w("apps/one/locales/de.json", '{"k": "K2"}')
     w("apps/two/package.json", "{}"); w("apps/two/messages/en.json", '{"k": "K"}'); w("apps/two/messages/ar.json", '{"k": "ك"}')
@@ -765,7 +822,18 @@ def self_test():
     expect = {("missing-key", "only_en"), ("placeholder", "a.b"), ("missing-file", "no"), ("placeholder", "hi"),
               ("plural-forms", "items"), ("used-undefined", "t('nope.key')")}
     cross = [f for f in r["findings"] if f["class"] == "missing-file" and f["set"].startswith("apps/")]
-    ok = expect <= got and not cross and out.returncode == 1 and r["locales"] == ["ar", "de", "en"]
+    cand = {(c["class"], c["detail"].split()[0].rstrip(":")) for c in r["candidates"]}
+    unused = {c["detail"] for c in r["candidates"] if c["class"] == "unused-key"}
+    want = [("placeholder-token tok", ("placeholder-token", "tok") in cand),
+            ("placeholder-token raw (skipInterpolation)", ("placeholder-token", "raw") in cand and ("placeholder", "raw") not in got),
+            ("untranslated-slot hero.heroTitleMid", ("untranslated-slot", "hero.heroTitleMid") in cand and ("untranslated", "hero.heroTitleMid") not in got),
+            ("const-prefix key referenced (reason.jt.a)", "reason.jt.a" not in unused),
+            ("ns-literal template key referenced (code.x.y)", "code.x.y" not in unused),
+            ("unreferenced key still unused (dead)", "dead" in unused),
+            ("fully dynamic head printed", any("<fully dynamic>" in c["detail"] for c in r["candidates"]))]
+    ok = expect <= got and not cross and out.returncode == 1 and r["locales"] == ["ar", "de", "en"] and all(v for _, v in want)
+    for name, v in want:
+        print(("  ok   " if v else "  FAIL ") + name)
     print(("  ok   " if not cross else "  FAIL ") + "no cross-package missing-file" + "".join(f" ({f['set']} {f['locale']})" for f in cross))
     import shutil; shutil.rmtree(d, ignore_errors=True)
     for e in sorted(expect):

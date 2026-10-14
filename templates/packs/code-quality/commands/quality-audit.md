@@ -107,7 +107,7 @@ The detectors and the verifier share one map. Build it first, from the repo root
 ```bash
 V=(-g '!**/node_modules/**' -g '!**/{vendor,dist,build,target,.venv,.next,coverage,generated}/**' -g '!**/*.min.*' -g '!.git')
 X=(-g '!**/{test,tests,spec,specs,e2e,__tests__,__mocks__,mocks,fixtures,__fixtures__,testdata,stories,migrations,seeds,locales,i18n}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,lock,snap,po}' -g '!**/{docs,ai}/**')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,fixture,fixtures}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,lock,snap,po}' -g '!**/{docs,ai}/**')
 # Q1 analyzer and checker configs (gate 4, and the lanes each detector prints)
 rg --files --hidden -g '**/{eslint.config.*,.eslintrc*,biome.json*,tsconfig*.json,ruff.toml,.ruff.toml,pyproject.toml,setup.cfg,mypy.ini,pyrightconfig.json,.golangci.*,phpstan.neon*,psalm.xml,.rubocop.yml,detekt*.yml,clippy.toml,.editorconfig,knip.*,.knip.*,.jscpd.json,.dependency-cruiser.*,.importlinter,Directory.Build.props}' "${V[@]}" .
 # Q2 CI and hook steps that run an analyzer, a type check or a lint script, and the zero-warning gate
@@ -117,16 +117,17 @@ rg -n --pcre2 '"(?:engines|packageManager)"|"node"\s*:|"typescript"\s*:|^go\s+1\
 # Q4 risk surface: shipped modules named for money, auth, tenant, webhook or idempotency
 rg --files "${X[@]}" "${V[@]}" . | rg -i --pcre2 '(?:auth|guard|permission|polic|tenant|payment|billing|invoice|refund|wallet|ledger|payout|checkout|price|pricing|tax|webhook|idempoten)[^/]*\.(?:[cm]?[jt]sx?|py|go|java|kt|rb|php|cs|rs)$'
 # Q5 churn and fix density of source files over 12 months (docs, lockfiles and config are not hotspots; never a finding alone)
-S='\.(?:[cm]?[jt]sx?|py|go|java|kt|rb|php|cs|rs|sh)$'
-git log --since=12.months --no-merges --format= --name-only -- . | rg --pcre2 "$S" | sort | uniq -c | sort -rn | head -30
-git log --since=12.months --no-merges -i -E --grep='^(fix|bug|hotfix)(\(|:|!| )|fixes #[0-9]+' --format= --name-only -- . | rg --pcre2 "$S" | sort | uniq -c | sort -rn | head -30
+#    Tests, specs, fixtures, stories and migrations churn with every change and are never the hotspot: they are filtered out.
+S='\.(?:[cm]?[jt]sx?|py|go|java|kt|rb|php|cs|rs|sh)$'; TP='(^|/)(test|tests|__tests__|spec|specs|e2e|__mocks__|mocks|fixtures|testdata|stories|migrations)/|\.(spec|test|e2e-spec|stories|test-data)\.|(^|/)(test_[^/]*|[^/]*_test)\.\w+$'
+git log --since=12.months --no-merges --format= --name-only -- . | rg --pcre2 "$S" | rg -v --pcre2 "$TP" | sort | uniq -c | sort -rn | head -30
+git log --since=12.months --no-merges -i -E --grep='^(fix|bug|hotfix)(\(|:|!| )|fixes #[0-9]+' --format= --name-only -- . | rg --pcre2 "$S" | rg -v --pcre2 "$TP" | sort | uniq -c | sort -rn | head -30
 # Q6 the repo-baseline's verifier and gate scripts
 ls .claude/agents/verifier.md .claude/scripts/{gate-check,standards-check,test-integrity,oracle-check}.py 2>/dev/null
 ```
 
 Then run each detector's grep 0 once here and keep its lines in the map: `error-handling-scan` 0a (the error primitives: global filter, error boundary, process hooks, error tracker) and 0b, `type-safety-scan` 0a–0b (checker settings, files that import a validator), `correctness-smell-scan` 0a–0c (versions, pinned zones, date and decimal libraries), `suppression-scan` 0a–0b (the analyzers CI runs, the suppression inventory).
 
-Measured on the seven `benchmarks/fixtures/*` (2026-10-05): Q1 3 files (two `tsconfig.json`, one `pyproject.toml`); Q2 0 (no fixture has CI) and 14 lines on this repository's validator fixtures (`pnpm lint`, `pnpm typecheck` per workflow); Q3 13 lines (Node engines, TypeScript ranges, `requires-python`); Q4 45 files (23 in `slow-marketplace`, 11 in `vuln-fullstack`); Q5 flat on the fixtures (one commit per file, no fix commit — no hotspot), and on this repository `scripts/audit-setup.sh` first on both lists (59 changes, 35 of them in fix commits) — the hotspot shape; Q6 0. A real repo of each stack the project ships still has to be measured before trusting these counts.
+Measured on the seven `benchmarks/fixtures/*` (2026-10-05): Q1 3 files (two `tsconfig.json`, one `pyproject.toml`); Q2 0 (no fixture has CI) and 14 lines on this repository's validator fixtures (`pnpm lint`, `pnpm typecheck` per workflow); Q3 13 lines (Node engines, TypeScript ranges, `requires-python`); Q4 45 files (23 in `slow-marketplace`, 11 in `vuln-fullstack`); Q5 flat on the fixtures (one commit per file, no fix commit — no hotspot), and on this repository `scripts/audit-setup.sh` first on both lists (59 changes, 35 of them in fix commits) — the hotspot shape; Q6 0. On a real NestJS + React monorepo (2026-10-15): Q5's 12-month top 30 held 8 test and spec files until the test-path filter (0 after); the history there had been re-rooted three days earlier, so Q5 is short — say so in the map instead of reading it as a calm repo. Other stacks still have to be measured before trusting these counts.
 
 From these lines write a one-page map: the **lanes** per stack with versions and, for each analyzer, whether CI runs it and at what level (Q2; a lint step with no `--max-warnings 0` lets warn-level rules ship); the **error primitives** and **validators** (gate 4 for every error and cast verdict); the **risk surfaces** ranked money → auth → tenant → webhook → write paths, the order every detector's `§ The 3,000-hit path` ranks by; the **hotspots** (Q5 files high on both lists); the **suite state** from one run of the project's runner (through `/run-tests` when the testing pack is installed): `PASS`, `FAIL` with names, or `NOT-RUN` with the blocker — a red or not-run suite makes the proofs that need it `blocked (suite <state>)`. Then list the **assumptions nothing enforces** — "the global filter catches it", "every body is validated", "lint runs in CI at error", "the clock is UTC everywhere" — and hand them to the detectors as seeds.
 
@@ -162,7 +163,7 @@ Each row prints `checked (k hits → m findings)` / `N/A (<reason>)` / `partial 
 ### Production bar and control verification (GO-critical)
 - **SURFACED:** every I/O and handler path on a risk surface has a declared outcome (C4: propagate, retry with a bound, compensate, degrade visibly), shown by a fault injection, not by reading.
 - **TYPED:** every boundary value on a risk surface is validated before it is cast or asserted; the boundary value vector is refused with a typed error.
-- **CHECKED:** the analyzer lanes the stack has run in CI at error with a zero-warning gate, the type-aware async rules are on, and no correctness rule is suppressed without a checkable reason.
+- **CHECKED:** the analyzer lanes the stack has run in CI at error with a zero-warning gate, the type-aware async rules are on, and no correctness rule is suppressed without a checkable reason. **No type-aware lane AND no process rejection handler** (`error-handling-scan` 0b shows no `projectService` / `*TypeChecked`, 0a no `process.on('unhandledRejection')` in a Node service) is a gap on its own line: nothing catches a floating promise before it ships, and on Node ≥ 15 one unhandled rejection ends the process (default `--unhandled-rejections=throw`).
 
 Write a **control verification table**: one row per GO-critical control — each risk surface's error path, each boundary's validator, each analyzer's CI step and level. Each row carries an Evidence token — **Injection**, **Hook**, **Vector**, **Diagnostic**, **Re-run**, **Ratchet**, **Boot**, **Static** (the line, for a self-proving fact) — or `UNVERIFIED`. A control that was read but never exercised is `UNVERIFIED`, not a pass.
 

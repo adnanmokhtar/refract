@@ -48,7 +48,7 @@ Mechanical. Each stops the review or kills the finding.
 
 1. **Hand-wave tokens**: `etc.`, `...`, `consider`, `seems`, `might`, `probably`, `several`. Re-enumerate each instance with its own `<file:line>`, or drop the claim.
 2. **A finding without a `<file:line>`, or one that does not resolve.**
-3. **Required-ness asserted without a read.** "This check is required" needs `ci-graph.py --required` (a `gh` token), `--contexts=` from a rules snapshot, or the legacy protection read. A 403 or 404 is `UNREADABLE`, never "absent" (precedents § 6). Such a row stays `[report-flagged]`, never cleared and never upgraded.
+3. **Required-ness asserted without a read.** "This check is required" needs `ci-graph.py --required --online` (a `gh` token), `--contexts=` from a rules snapshot, or the legacy protection read. A 403 or 404 is `UNREADABLE`, never "absent" (precedents § 6). Such a row stays `[report-flagged]`, never cleared and never upgraded.
 4. **A version graded from memory.** "`@v4` is stale" or "is current" needs `gh api repos/<owner>/<repo>/releases/latest --jq .tag_name` in this run. Platform behaviour needs its row in [`ci-platform-semantics.md`](../../../snippets/ci-platform-semantics.md). Otherwise the claim is deleted (gate 3).
 5. **A sibling divergence without the sibling named.** A recommended job name, runner label, action, setup step or shell that differs from a sibling workflow names that sibling's `file:line`.
 6. **A fix that weakens a gate.** The fix adds no `continue-on-error`, no `|| true`, no path filter on a required workflow, and deletes no required job. `ci-graph.py --diff-guard=<base> --allow-job=<file>:<job>` must be clean outside the finding's job.
@@ -62,7 +62,7 @@ Mechanical. Each stops the review or kills the finding.
 - **Discover every CI file; never assume `.github/`:**
   `rg --files --hidden -g '.github/workflows/*.y*ml' -g '**/action.y*ml' -g '.gitlab-ci.yml' -g '.circleci/config.yml' -g 'bitbucket-pipelines.yml' -g 'azure-pipelines*.yml' -g 'Jenkinsfile*' -g '!**/{node_modules,vendor,fixtures,__fixtures__,testdata}/**' .`
 - **Read the sibling** each changed job should mirror. That is the nearest workflow of the same kind (another service's CI, the other release job, the deploy job of the other environment). Its job names, runner labels, action refs, shell and setup steps are the convention the diff is judged against.
-- **Read the job graph once:** `python3 .claude/scripts/ci-graph.py . --all` (fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`). Then the required set, `--required` with a token or `--contexts=<a,b>` from a rules snapshot, and `--deploy-ancestors`. Exit 2 makes every GitHub structural row `blocked (ci-graph NOT-RUN: <reason>)`.
+- **Read the job graph once:** `python3 .claude/scripts/ci-graph.py . --all` (fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`). Then the required set, `--required --online` with a token or `--contexts=<a,b>` from a rules snapshot, and `--deploy-ancestors`. Exit 2 makes every GitHub structural row `blocked (ci-graph NOT-RUN: <reason>)`.
 - **Record the installed owners**, which decides § Axis ownership's column 2:
   - security: `.claude/skills/ci-security-scan/`, `.claude/skills/iac-scan/`;
   - testing: `.claude/skills/suite-execution-scan/`;
@@ -114,7 +114,7 @@ Read this before writing a single finding. Column 3 is all this agent may put in
 | Masking on non-domain gates, shell exit status, required-check join, deploy/publish gating, refs, timeouts, matrix, schedules | `pipeline-integrity-scan` → **this agent judges** | Graded rows |
 | Cache keys, Docker layer cache, superseded PR runs, affected detection, run timing | `pipeline-cache-scan` → **this agent judges** | Graded rows. The old `${{ runner.os }}-buildx-${{ github.sha }}` key with a local cache directory is §2's row: one key per commit, and a directory that only grows. The fix is `cache-from: type=gha,scope=<image>` + `cache-to: type=gha,mode=max,scope=<image>`, one scope per image |
 | Release, deploy, image and compose classes | the four detectors above → `@deployment-engineer` | Refute verdict only |
-| Test-job masking, zero tests, test retries | testing `suite-execution-scan` §4/§6 (when installed) | Nothing graded. The required-check join from `ci-graph.py --required` is handed over for its severity (precedents § 2) |
+| Test-job masking, zero tests, test retries | testing `suite-execution-scan` §4/§6 (when installed) | Nothing graded. The required-check join from `ci-graph.py --required --online` is handed over for its severity (precedents § 2) |
 | A masked lint step · the a11y gate · the rules-gate content | code-quality `suppression-scan` §3 · frontend `a11y-scan` §7 · observability `alert-rule-lint` (each when installed) | Nothing graded. The CI-level mask on the rules-gate job stays `pipeline-integrity-scan` §1 |
 | Privileged trigger × untrusted code, including the `actions/checkout` v7 fork-checkout block (read the pin, not just the trigger) | security `ci-security-scan` §1 (when installed) | Nothing graded |
 | Expression injection in any form, including multi-line `run: \|` blocks | `ci-security-scan` §2 | Nothing graded, and **no `${{` grep here**: a single-line `grep '\${{' \| grep run` misses every line inside a `run: \|` block (the batch-4 devops eval measured the miss, 2026-10-10) |
@@ -162,7 +162,7 @@ REQUEST (§2 table: high on a gate). Fix: the sibling's `shell: bash` on the ste
 ```
 /ci-reviewer — <scope>
 CI files: <paths, by platform> · Siblings read: <paths> · ci-graph.py: <loader | NOT-RUN(<reason>)>
-Required set: <--required | --contexts snapshot | UNREADABLE(gh api …: 403)>
+Required set: <--required --online | NOT-RUN OFFLINE | --contexts snapshot | UNREADABLE(gh api …: 403)>
 Owners: security ✓ · testing ✓ · code-quality ✗ · frontend ✗ · observability ✗ · deployment-engineer ✓ · verifier ✓
 
 Verdict: PASS | CONCERNS | FAIL          (display: APPROVE | REQUEST_CHANGES | BLOCK)

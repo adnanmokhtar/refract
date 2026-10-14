@@ -133,18 +133,24 @@ rg '^interaction-only' "$TMP/census.tsv"
 rg -l --pcre2 '\bverify\(|\bto\s+(?:have_)?receive\b|\.AssertExpectations\(|\.EXPECT\(\)' "${T[@]}" "${V[@]}" . | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\bassert(?:That|Equals|True|False|Eq)\w*\s*\(|\bassert\.\w+\(|\brequire\.\w+\(|\.to\s+(?:eq|eql|equal|match|include|be_\w+)\b|\bisEqualTo\('
 
 # 3. §3 unreached or un-awaited: census `floating-async` (3a); an `expect` inside a catch whose own case holds no guard
-#    (`fail(`, a `throw new` after the call, `.toThrow`, `.rejects`, `expect.assertions`) — a sibling case's guard no longer
-#    hides it (3b); an `expect` in a callback that may never run (3c); assertions in a loop or branch (3d); Python assert in
-#    except, a raises block with trailing statements, assert on an un-awaited call in an async test (3e); JUnit 4
+#    (`fail(`, a `throw new` before or after the catch, `.toThrow`, `.rejects`, `expect.assertions`, or a catch that returns a
+#    value its caller asserts) — the window is the enclosing case or helper, so a sibling case's guard never hides it (3b);
+#    an `expect` in a callback that may never run (3c); assertions in a loop or branch (3d); Python assert in except, a raises block with trailing statements, assert on an un-awaited call in an async test (3e); JUnit 4
 #    `expected=`, un-awaited .NET async asserts, async void tests, Go t.Fatal / require in a goroutine (3f).
 rg '^floating-async' "$TMP/census.tsv"
 rg -n -U --pcre2 'catch\s*(?:\([^)]*\))?\s*\{[^{}]*\bexpect\(' "${T[@]}" "${V[@]}" . | rg --pcre2 '^[^:]+:\d+:\s*(?:\}\s*)?catch\b' | python3 -c '
 import re, sys
-C, G = re.compile(r"^\s*(?:it|test)(?:\.\w+)*\s*\("), re.compile(r"\bfail\(|(?:^|[;{])\s*throw\s+new\b|\.toThrow|\.rejects\b|expect\.assertions\(", re.M)
-for l in sys.stdin:                                  # drop a site only when ITS case guards it, never for a sibling case
-    f, n, _ = l.split(":", 2); L = open(f, errors="replace").read().split("\n"); j = int(n) - 1
-    while j > 0 and not C.match(L[j]): j -= 1
-    if not G.search("\n".join(L[j:int(n) - 1])): print(l.rstrip() + ("  [file sets expect.hasAssertions]" if "expect.hasAssertions(" in "\n".join(L) else ""))'
+G = re.compile(r"\bfail\(|(?:^|[;{])\s*throw\s+new\b|\.toThrow|\.rejects\b|expect\.assertions\(", re.M)
+ind = lambda s: len(s) - len(s.lstrip())
+for l in sys.stdin:                                  # the window is the enclosing case or helper, before AND after the catch
+    f, n, _ = l.split(":", 2); L = open(f, errors="replace").read().split("\n"); c = int(n) - 1; j = c
+    while j > 0 and not (L[j].strip() and ind(L[j]) < ind(L[c]) and re.search(r"\{\s*$", L[j])): j -= 1
+    k = j + 1
+    while k < len(L) and not (L[k].strip() and ind(L[k]) <= ind(L[j]) and L[k].lstrip().startswith("}")): k += 1
+    e = c + 1
+    while e < k and not (L[e].strip() and ind(L[e]) <= ind(L[c])): e += 1
+    if G.search("\n".join(L[j:c] + L[e:k + 1])) or re.search(r"^\s*return\s+[^;\s]", "\n".join(L[c:e]), re.M): continue
+    print(l.rstrip() + ("  [file sets expect.hasAssertions]" if "expect.hasAssertions(" in "\n".join(L) else ""))'
 rg -n --pcre2 '\.(?:on|once|addEventListener|addListener|subscribe|then)\(.*=>\s*\{?\s*expect\(|\bset(?:Timeout|Immediate)\(\s*(?:\(\)\s*=>|function)\s*\{?\s*expect\(' "${T[@]}" "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 '^\s*(?:for\s*\(\s*(?:const|let)\s+\w+\s+of\b|[\w.]+\.forEach\(|if\s*\().*\bexpect\(' "${T[@]}" "${V[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '^\s+(?:if\s+[^\n]+|for\s+\w+(?:,\s*\w+)*\s+in\s+[^\n]+):\s*\n\s+assert\b|^\s*except\b[^\n]*:\s*\n\s+assert\b|with\s+pytest\.raises\([^\n]*\):\s*\n(\s+)[^\n]+\n\1(?!assert\b)\S' -g '**/{test_*,*_test}.py' "${V[@]}" . | "${NC[@]}"
@@ -182,13 +188,18 @@ oracle-check installed): the script runs in about 3 s. Lane 1a with the global o
 checked 24,986 cases and returned 1,007 rows — 689 were supertest status lines (`.expect(403)` on
 refusal tests, [`precedents/testing.md`](../../../../snippets/precedents/testing.md) § 16), 110
 were pseudo-cases parsed from comment lines, 20 were Testing Library `getBy*` existence checks
-(§ 14), leaving 188 to read. The census returned weak-sole 62, no-assertion 21 (most assert through a helper such as `refused(…)` — read it), interaction-only
+(§ 14), leaving 188 to read. Re-measured 2026-10-15 (3,930 test files, 27,835 cases): 1,044 → 870 rows
+after oracle-check stopped parsing cases out of comments (−132), closed arrow `it.each` bodies that span
+lines, and counted a lone `not.toHaveBeenCalled()` as an oracle (§ 20); its `precedent` column then
+tags 612 `§16 status-4xx` (bulk-close), 35 `§16 2xx-paired`, 61 `§16 2xx-unpaired` (read), 162 untagged. The census returned weak-sole 62, no-assertion 21 (most assert through a helper such as `refused(…)` — read it), interaction-only
 380 (55 count-only), snapshot-only 27, floating-async 0. Grep 1c: 0. 3b: 2 sites, both a
 `try { parse() } catch (e) { expect(e)… }` whose catch the parser may never enter — real § 3
 candidates; the other 17 catch-with-`expect` sites are cleared by a guard in their own case (a
 `throw new Error('should have refused')` after the call, or a `.toThrow` on the same call above the
 `try`). Until 2.0.1 the guard was read per file, so a sibling case's `.toThrow` hid a site —
-`brittle-suite`'s `refund-window.spec.ts`, now listed. 3c: 5 (`.then(r => expect(…))` inside awaited chains — read). 3d: 149 lines (loops over
+`brittle-suite`'s `refund-window.spec.ts`, now listed. Re-measured 2026-10-15 on the same repo: 3b 4 → 0 —
+all four were helpers whose `throw new` sits after the catch or whose catch returns the code the caller
+asserts, and the window then stopped at the catch; it now spans the enclosing case or helper (`refund-window` still listed). 3c: 5 (`.then(r => expect(…))` inside awaited chains — read). 3d: 149 lines (loops over
 fixed vocabularies; read for a length assertion). 4a: 0. 4b: 21 (teardown and navigation `.catch(() => undefined)` — read for an assertion in the chain).
 5a: 16 (determinism checks, § 18). 5b: 25. 6: 54 snapshot assertions in 5 files; 13 entries over 50
 lines, all in one characterization file (§ 22); 6c: 0. On `benchmarks/fixtures/*` (7 test files, all
@@ -196,7 +207,7 @@ JS or Python) every grep returns 0 and the census returns no row.
 
 ## The 3,000-hit path
 
-1. **Drop what a precedent closes in bulk, with the reason counted.** From `$TMP/oracle.json`: rows whose case line is a comment (a parse artifact), rows whose body asserts an HTTP status (§ 16 — keep only 2xx-only reads), rows whose only matcher sits on a `getBy*` / `findBy*` query (§ 14). Each removal is a line in the coverage block, never silence.
+1. **Drop what a precedent closes in bulk, with the reason counted.** From `$TMP/oracle.json`: rows whose `precedent` is `§16 status-4xx` or `§16 2xx-paired` (§ 16 — `§16 2xx-unpaired` stays to read), rows whose case line is a comment (an older oracle-check without the comment mask), rows whose only matcher sits on a `getBy*` / `findBy*` query (§ 14). Each removal is a line in the coverage block, never silence.
 2. **Group** by (file, kind, matcher): `python3 -c 'import json,collections,sys; d=json.load(open(sys.argv[1])); c=collections.Counter((f["file"],f["kind"]) for f in d["findings"]); [print(n,k) for k,n in c.most_common()]' "$TMP/oracle.json"`, and `cut -f1,2 "$TMP/census.tsv" | sed 's/:[0-9]*$//' | sort | uniq -c | sort -rn` for the census.
 3. **Rank by risk surface** from the context map: money, auth, tenant, webhook and write paths first; a group whose SUT is a pure formatter last.
 4. **Read the top 30 groups**: the case, the production function, every other test of that function.

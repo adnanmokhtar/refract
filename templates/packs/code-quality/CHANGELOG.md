@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-10-15
+
+**Graph fixes and detector fixes from a read-only audit of a real NestJS + React monorepo.**
+
+- **Integrator #44 closed.** `scripts/rank-source-files.py` read aliases from the root `tsconfig.json` only; a monorepo with per-app configs got "0 alias rules" and 21,101 unresolved specifiers. Every tsconfig/jsconfig now governs its own directory (`extends` followed, child `paths` replace the parent's, `tsconfig.base.json` fallback), workspace members resolve through `exports`/`main`/`types` mapped back to `src`, and unresolved specifiers split into external/asset/local: 8,543 unresolved (8,221 external, 204 assets, 118 local), 1→2,007 edges into `packages/`. Edges are labelled value/type/dynamic. Self-test 52/52.
+- **`architectural-diagnosis` is read-only.** Its pre-flight ran `build-graph.py --corpus=project`, which wrote `<repo>/.claude/_graph.json`; `build-graph.py` has `--no-cache`/`--cache-dir` (self-test 14/14) and the pre-flight passes `--no-cache`. The fallback lane searches value edges only (0 runtime cycles, 28 type-only SCCs on that repo); `--ts-wrapper` prints a scratch tsconfig with absolute `baseUrl`/`paths` for dependency-cruiser on a read-only checkout; §9 prints `blocked (history …)` on a re-rooted or shallow history and falls back to the committed complexity baseline; step-8 retry grep 8→9; assets dropped from the graph.
+- **`duplication-scan` ships an offline clone finder** (`scripts/clones.py`, jscpd report shape, `--self-test`); step 1b prints `history-blind k/n` and `WIDE?` rows; step 2 stop-list (16→10 names) and new 2b api/web same-stem pairs (24).
+- error-handling 6a cause-as-first-argument (7→6), 4a memoisers (5→0), 4d framework-owned `void` and query-cache calls (364→136); correctness 4e test-data (21→10); type-safety 1a 60→56; suppression 0b split production/scripts/test, 3d′ unreached interface folders, 3e `ignores` that drop shipped code; dead-code grep 1 gates `pages/`/`app/` on a file router, `TEST-ONLY` rows, new 1b resolver lane, grep 4 `env.X` flags, 5b commented keys; `/quality-audit` Q5 excludes tests and a new production-bar line (no type-aware lint AND no `unhandledRejection` handler).
+- Precedents `code-quality.md` § 88–92.
+
 ## 2.0.5 — 2026-10-14
 
 **`type-safety-scan` Boundaries name the event-contract split.** A broker message parsed and cast with no runtime check (`JSON.parse(msg.value) as OrderEvent`) is §1 here. Distributed-systems `event-contract-scan` §2 routes those casts to this skill, and owns the contract half when installed: a breaking schema change (§1), and a schema'd topic read without its deserializer (§2). One site, two classes, deduped by `file:line`; `governance/ownership.json` row `event-contract` records it.

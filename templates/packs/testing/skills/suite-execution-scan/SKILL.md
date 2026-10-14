@@ -102,10 +102,12 @@ rg -n --pcre2 'forbidOnly\s*:|allowOnly\s*:|--forbid-only|--forbid-pending|no-fo
 rg -n --pcre2 "$TC"'[^\n]*\s(?:-t|--testNamePattern|--grep|-g|-k|-run|--filter|-m)[ =]["\x27]?[\w^$|.-]' "${C[@]}" . | "${NC[@]}"
 
 # 2. §2 skips: skips and disables, every stack (2a; Ruby on *_spec.rb only, 2b); suites gated on an env var or a
-#    capability (2c — read whether the CI job provides it); non-strict xfail and the strict switch (2d).
+#    capability, inline or helper-built — `const d = HAS_X ? describe : describe.skip` in a test-dir helper, `(sel() ? describe
+#    : describe.skip)(` (2c — read whether the CI job provides it; rg the helper's name for the specs it gates); non-strict
+#    xfail and the strict switch (2d).
 rg -n --pcre2 '^\s*(?:it|test|describe|context|suite|specify)\.(?:skip|todo|fixme)\s*\(|^\s*(?:xit|xdescribe|xtest|xcontext|xspecify)\s*\(|@pytest\.mark\.(?:skip|xfail)\b|\bpytest\.(?:skip|xfail)\(|@unittest\.skip|\bself\.skipTest\(|^\s*pytestmark\s*=.*\bskip|\bt\.Skip(?:f|Now)?\(|@(?:Disabled\w*|Ignore)\b|\[(?:Fact|Theory)\([^\]]*\bSkip\s*=|\[Ignore\b|#\[ignore\b|->markTest(?:Skipped|Incomplete)\(' "${T[@]}" "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 '^\s*(?:xit|xdescribe|xcontext|xspecify|skip|pending)\b' -g '**/*_spec.rb' "${V[@]}" . | "${NC[@]}"
-rg -n -U --pcre2 '\b(?:describe|it|test|suite)\.(?:skipIf|runIf)\s*\(|(?:process\.env|import\.meta\.env)\.\w+[^\n]{0,40}\?\s*(?:describe|it|test)(?:\.\w+)?\s*:\s*(?:describe|it|test)\.skip\b|@pytest\.mark\.skipif\([^)]*\b(?:environ|getenv)\b|os\.(?:Getenv|LookupEnv)\([^)\n]*\)[^\n]*\n?[^\n]*t\.Skip|^//go:build\s+[^\n]*\b(?:integration|e2e|slow|manual)\b|@(?:EnabledIf|DisabledIf)EnvironmentVariable|\bassume(?:True|That)\([^)\n]*getenv' "${T[@]}" "${V[@]}" . | "${NC[@]}"
+rg -n -U --pcre2 '\b(?:describe|it|test|suite)\.(?:skipIf|runIf)\s*\(|\?\s*(?:describe|it|test)(?:\.\w+)?\s*:\s*(?:describe|it|test)\.skip\b|\?\s*(?:describe|it|test)\.skip\s*:\s*(?:describe|it|test)\b|@pytest\.mark\.skipif\([^)]*\b(?:environ|getenv)\b|os\.(?:Getenv|LookupEnv)\([^)\n]*\)[^\n]*\n?[^\n]*t\.Skip|^//go:build\s+[^\n]*\b(?:integration|e2e|slow|manual)\b|@(?:EnabledIf|DisabledIf)EnvironmentVariable|\bassume(?:True|That)\([^)\n]*getenv' "${T[@]}" -g '**/{test,tests,__tests__,e2e}/**/*.{js,ts,mjs,cjs,mts,cts}' "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 '@pytest\.mark\.xfail\b(?![^\n]*strict\s*=\s*True)|xfail_strict\s*=' -g '**/*.py' -g '**/{pytest.ini,pyproject.toml,setup.cfg,tox.ini}' "${V[@]}" . | "${NC[@]}"
 
 # 3. §3 never collected, never run: test-looking files no Jest / Vitest / Playwright config claims (3a); test scripts no
@@ -117,19 +119,57 @@ import os, re, subprocess
 fs = lambda d: subprocess.run(['rg', '--files', '-g', '!**/node_modules/**', '-g', '!**/dist/**', d], capture_output=True, text=True).stdout.split()
 LOOK = re.compile(r'[._-](?:test|spec|e2e-spec|e2e|it|flow|cy)\.[cm]?[jt]sx?$|/__tests__/.+\.[cm]?[jt]sx?$')
 cfgs = subprocess.run(['rg', '--files', '-g', '**/{jest,vitest,playwright}*.config.{js,cjs,mjs,ts,mts}', '-g', '!**/node_modules/**', '.'], capture_output=True, text=True).stdout.split()
+def glob_rx(g):                                   # a runner glob → a regex: ** / * / ? / [..] / {a,b} / ?(x) +(x) @(x) *(x)
+    o, i = '', 0
+    while i < len(g):
+        c = g[i]
+        if g.startswith('**/', i): o += '(?:.*/)?'; i += 3; continue
+        if g.startswith('**', i): o += '.*'; i += 2; continue
+        if c in '?+@*' and g[i + 1:i + 2] == '(':
+            j = g.index(')', i); o += '(?:' + glob_rx(g[i + 2:j]).replace('\\|', '|') + ')' + {'?': '?', '+': '+', '@': '', '*': '*'}[c]; i = j + 1; continue
+        if c == '{': j = g.index('}', i); o += '(?:' + '|'.join(glob_rx(p) for p in g[i + 1:j].split(',')) + ')'; i = j + 1; continue
+        if c == '[': j = g.index(']', i); o += g[i:j + 1]; i = j + 1; continue
+        o += '[^/]*' if c == '*' else '[^/]' if c == '?' else re.escape(c); i += 1
+    return o
+def strip(s):                                     # comments (a `/*` inside a glob string is not one), then coverage / typecheck / benchmark blocks
+    s = re.sub(r'(?:^|(?<=\s))/\*[\s\S]*?\*/', '', s); s = re.sub(r'(?m)(?:^|(?<=\s))//[^\n]*', '', s)
+    for m in reversed(list(re.finditer(r'\b(?:coverage|typecheck|benchmark)\s*:\s*\{', s))):
+        d, j = 0, m.end() - 1
+        for j in range(m.end() - 1, len(s)):
+            d += {'{': 1, '}': -1}.get(s[j], 0)
+            if d == 0: break
+        s = s[:m.start()] + s[j + 1:]
+    return s
+RXLIT = r'(?<![\w)\]])/((?:\\.|\[[^\]\n]*\]|[^/\\\n\[])+)/[dgimsuyv]*'
+def value(s, key):                                # every `key: <expr>` → the expression (an array across lines, else to the line end)
+    for m in re.finditer(r'\b' + key + r'\s*:\s*', s):
+        rest = s[m.end():]
+        if rest.startswith('['):
+            d = 0
+            for j, ch in enumerate(rest):
+                d += {'[': 1, ']': -1}.get(ch, 0)
+                if d == 0: yield rest[:j + 1]; break
+        else: yield re.split(r',\s*(?:\n|$)|\n', rest, 1)[0]
 claimed, dirs = set(), set()
 for c in cfgs:
-    s = open(c, errors='replace').read(); d = os.path.dirname(c); dirs.add(d)
-    roots = re.findall(r"['\"]<rootDir>/([^'\"]+)['\"]", s) + re.findall(r"testDir\s*:\s*['\"]([^'\"]+)", s)
-    rx = [x.replace('\\\\', '\\') for x in re.findall(r"testRegex\s*:\s*['\"]([^'\"]+)['\"]", s)] + re.findall(r"testMatch\s*:\s*/(.+?)/[gimsuy]*\s*,", s)
-    rx = rx or [r'\.(?:test|spec)\.[cm]?[jt]sx?$']            # the Jest / Vitest default shape; an unparsed testMatch glob → read the config
-    inc = re.findall(r"\binclude\s*:\s*\[([^\]]*)\]", s)
+    s = strip(open(c, errors='replace').read()); d = os.path.dirname(c); dirs.add(d); pw = 'playwright' in os.path.basename(c)
+    consts = dict(re.findall(r'\b(?:const|let|var)\s+(\w+)\s*=\s*([^;\n]+)', s))
+    roots = re.findall(r"['\"]<rootDir>/([^'\"]+)['\"]", ' '.join(value(s, 'roots'))) + re.findall(r"testDir\s*:\s*['\"]([^'\"]+)", s)
+    rx = [x.replace('\\\\', '\\') for x in re.findall(r"testRegex\s*:\s*['\"]([^'\"]+)['\"]", s)]
+    globs = []
+    for key in ('testMatch', 'include'):          # include: Vitest's test.include (coverage.include is stripped); testMatch: Jest / Playwright
+        for e in value(s, key):
+            e = ' '.join([e] + [consts.get(w, '') for w in re.findall(r'\b[A-Za-z_]\w*\b', e)])   # a ternary or a named constant: every branch
+            rx += re.findall(RXLIT, re.sub(r"(['\"`])(?:\\.|(?!\1).)*\1", '""', e))
+            globs += [g for g in re.findall(r"['\"`]([^'\"`\n]*[*/.][^'\"`\n]*)['\"`]", e) if not g.startswith('!')]
+    if not rx and not globs: rx = [r'\.(?:test|spec)\.[cm]?[jt]sx?$'] + ([] if pw or 'vitest' in c else [r'/__tests__/.+\.[cm]?[jt]sx?$'])   # the runners' default shapes
+    grx = [glob_rx(g.lstrip('./')) for g in globs]
     for f in fs(d):
         rel = os.path.relpath(f, d)
         if roots and not any(rel.startswith(r.strip('./').rstrip('/') + '/') for r in roots if '.' not in os.path.basename(r)): continue
-        if inc and not any(re.fullmatch(g.strip(" '\"").replace('.', r'\.').replace('**/', '(?:.*/)?').replace('*', '[^/]*'), rel) for g in inc[0].split(',') if g.strip()): continue
-        if any(re.search(r, f) for r in rx): claimed.add(os.path.normpath(f))
-    print('config %-44s roots=%s match=%s include=%s' % (c, roots or '-', rx, inc or '-'))
+        rels = [rel] + [os.path.relpath(f, os.path.join(d, r)) for r in roots if '.' not in os.path.basename(r)]
+        if any(re.search(r, f) for r in rx) or any(re.fullmatch(g, x) for g in grx for x in rels): claimed.add(os.path.normpath(f))
+    print('config %-44s roots=%s match=%s globs=%s' % (c, roots or '-', rx or '-', globs or '-'))
 for d in sorted(dirs):
     for f in fs(d):
         if LOOK.search(f) and os.path.normpath(f) not in claimed: print('UNCLAIMED', f)
@@ -172,9 +212,12 @@ rg -n --pcre2 -e '--passWithNoTests|passWithNoTests\s*:\s*true|--pass-with-no-te
 rg -n --pcre2 '^\s*paths(?:-ignore)?\s*:|^\s*if\s*:\s*(?:false|\$\{\{\s*false\s*\}\})|^\s*shard(?:Total|Index|s)?\s*:' --hidden -g '.github/workflows/*.{yml,yaml}' -g '**/.gitlab-ci*.yml' .
 #    4d (GitHub Actions, when the repo baseline is installed): the required set joined to the job graph — a test job
 #    skipped by its `if:` or a needs-skip, a required workflow behind a path filter, no `merge_group` (ci-platform-semantics
-#    R1–R5). No token → `NOT-RUN UNREADABLE(…)`, exit 2: required-ness is unknown, never "not required".
+#    R1–R5). OFFLINE form: no network call. With a saved settings snapshot (CI_SETTINGS_DIR, the `gh api` JSON) it joins
+#    offline; without one it prints `NOT-RUN OFFLINE(…)`, exit 2 — required-ness unknown, never "not required". `--online`
+#    (a read-only `gh api`) only when the user allows outbound calls for this run.
 G=.claude/scripts/ci-graph.py; [ -f "$G" ] || G="$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py"
-if [ -f "$G" ] && [ -n "$(rg --files --hidden -g '.github/workflows/*.{yml,yaml}' .)" ]; then python3 "$G" . --required; echo "ci-graph exit=$? (0 clean, 1 rows, 2 NOT-RUN)"; else echo 'ci-graph: N/A (no ci-graph.py or no GitHub workflow)'; fi
+RQ=(--required); [ -n "${CI_SETTINGS_DIR:-}" ] && RQ=(--settings-dir="$CI_SETTINGS_DIR")
+if [ -f "$G" ] && [ -n "$(rg --files --hidden -g '.github/workflows/*.{yml,yaml}' .)" ]; then python3 "$G" . "${RQ[@]}"; echo "ci-graph exit=$? (0 clean, 1 rows, 2 NOT-RUN)"; else echo 'ci-graph: N/A (no ci-graph.py or no GitHub workflow)'; fi
 
 # 5. §5 coverage that hides code: pragmas on shipped code (5a); coverage scope, exclusions and floors in runner and CI
 #    config (5b) and in dedicated coverage files (5c). Zero 5b and 5c lines means no floor is declared.
@@ -191,7 +234,7 @@ rg -n --pcre2 -e '--fail-on-flaky-tests|failOnFlakyTests|failOnPassedAfterRetry\
 A finding is a hit **plus** a read of the CI job that runs (or does not run) the affected tests
 **plus** the proof. The structural blind spots, worked around rather than trusted:
 
-- **Configs are code.** Grep 3a parses literal `roots`, `testRegex`, `testMatch` and `include` from Jest, Vitest and Playwright configs; a computed pattern, a glob `testMatch`, a workspace or `projects` file prints the config line for reading, and the runner's own list (§ Adapt) is the authority when dependencies are installed.
+- **Configs are code.** Grep 3a parses literal `roots`, `testDir`, `testRegex`, `testMatch` (regex or glob, every branch of a ternary, a named constant) and Vitest's `test.include` (never `coverage.include`) from Jest, Vitest and Playwright configs; a pattern built by a function call, a workspace file or a `projects` entry in another file prints the config line for reading, and the runner's own list (§ Adapt) is the authority when dependencies are installed.
 - **CI reachability is textual.** Grep 3b matches script names and config paths in CI files; a script reached through an alias (`pnpm --filter api test:e2e`) or a reusable workflow reads `NOT-IN-CI` until you follow it — read before reporting.
 - **Masking lives in shells, not only in YAML.** A step's default shell decides `pipefail`; read the step's `shell:` and the workflow `defaults` before rating grep 4b. The per-platform defaults are [`ci-platform-semantics.md`](../../../../snippets/ci-platform-semantics.md) S1–S7 (GitHub's bare `run:` is `bash -e` with **no** pipefail; `shell: bash` adds it); `ci-graph.py --shell-of=<file>:<line>` resolves a GitHub step's effective shell.
 
@@ -201,7 +244,7 @@ Playwright config: the script runs in about 2 s. 1a–1c: 0 — and no focus gua
 the Playwright config sets no `forbidOnly`, the lint config enables no focused-test rule). 2a: 4,
 all in Playwright flow files (`test.skip(!id, …)` and a `test.fixme` queue — read). 2c: 2
 capability gates (`runIf(existsSync(dist))` after a CI build step; `runIf(browser available)`).
-3a: 0 unclaimed files across the six configs. 3b: the Playwright flow suite (6 files), the Storybook
+3a: 0 unclaimed files across the six configs. Re-measured 2026-10-15 on the same repo: 3a had regressed to 1,734 false `UNCLAIMED` (it read Vitest's `coverage.include`, did not expand `{ts,tsx}`, and missed a Playwright `testMatch: VISUAL ? SPEC : /.*\.flow\.ts$/`); it now strips coverage / typecheck blocks and comments, expands braces and extglobs, and takes every regex branch and named constant of a `testMatch` — 2 left, both non-test modules named `*-flow.ts` / `*.flow.ts` under `src/` (§ 32). 2c 2 → 9: seven helper-built gates (`const describeBuilt = built ? describe : describe.skip`, `(suiteSelected('money') ? describe : describe.skip)(`, and a `describeV1` exported from a `test/unit/_v1-reference.ts` helper that seven specs import). 4d prints `NOT-RUN OFFLINE(…)`: the pre-flight no longer calls GitHub. 3b: the Playwright flow suite (6 files), the Storybook
 story-test project and the fuzz suites (money and stock among them) are invoked by no CI file — the
 fuzz suites only from a local release script — the run's real § 3 candidates; the root aliases
 resolve to in-CI jobs. 3d: 0 (no Maven module). 4a: 1 (`continue-on-error` on an
@@ -280,7 +323,7 @@ BAD:   continue-on-error: true on the job that runs `pnpm test` · pytest -q || 
 GOOD:  the required job fails on red; `set -o pipefail` (or `shell: bash`) before a pipe; --forceExit removed after
        --detectOpenHandles names the leak
 ```
-**Read the code:** Is the job the one that runs the required tests, or an advisory job with an owner and an end date (§ 28)? Does the step's shell set `pipefail`? For `--forceExit`, did `assertion-strength-scan` § 3 find a floating assertion in that suite ([`precedents/testing.md`](../../../../snippets/precedents/testing.md) § 2, § 30)? Is the job a required check in the host? Grep 4d's `ci-graph.py --required` settles it on GitHub: a `REQUIRED` row (or `REQUIRED-IF-SKIP` / `REQUIRED-NEEDS-SKIP` / `REQUIRED-PATH-FILTERED`, a required check a skip satisfies or leaves Pending — [`ci-platform-semantics.md`](../../../../snippets/ci-platform-semantics.md) R1–R5) puts the row at the critical default; `UNREADABLE` (no token or no admin rights) leaves that half Unconfirmed, never "not required". **Finding when** a failing test in that job leaves the job green. **Proof:** the CI canary (V63); where pushing is not allowed, the masking line and its job are the static fact and the canary is the settling probe.
+**Read the code:** Is the job the one that runs the required tests, or an advisory job with an owner and an end date (§ 28)? Does the step's shell set `pipefail`? For `--forceExit`, did `assertion-strength-scan` § 3 find a floating assertion in that suite ([`precedents/testing.md`](../../../../snippets/precedents/testing.md) § 2, § 30)? Is the job a required check in the host? Grep 4d's `ci-graph.py --required` settles it on GitHub: a `REQUIRED` row (or `REQUIRED-IF-SKIP` / `REQUIRED-NEEDS-SKIP` / `REQUIRED-PATH-FILTERED`, a required check a skip satisfies or leaves Pending — [`ci-platform-semantics.md`](../../../../snippets/ci-platform-semantics.md) R1–R5) puts the row at the critical default; `OFFLINE` (no snapshot, no `--online`) or `UNREADABLE` (no token or no admin rights) leaves that half Unconfirmed, never "not required". **Finding when** a failing test in that job leaves the job green. **Proof:** the CI canary (V63); where pushing is not allowed, the masking line and its job are the static fact and the canary is the settling probe.
 
 ### 5. Coverage configuration that hides shipped code
 

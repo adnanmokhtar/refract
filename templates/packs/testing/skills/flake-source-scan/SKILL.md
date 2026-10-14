@@ -79,10 +79,47 @@ rg -l --pcre2 'disableNetConnect|onUnhandledRequest\s*:\s*["\x27]error|--disable
 rg -l0 --pcre2 '\bnew\s+Date\s*\(\s*\)|\bDate\.now\s*\(\s*\)' "${TJ[@]}" "${X[@]}" . | xargs -0 -r rg -l --files-without-match --pcre2 "$FZ" | wc -l
 
 # 1. Clock. 1a calendar or zone read off a real or parsed date (flips under TZ); 1b fixed near-future dates by an
-#    expiry word, in files that freeze no clock (time bombs); 1c other stacks' real-clock reads in files that freeze none;
+#    expiry word, in files that freeze no clock (time bombs) — a JS/TS unit test is kept only when a module it imports
+#    (or one those import) reads the real clock, tagged with that line; e2e and other stacks keep every hit; 1c other stacks' real-clock reads in files that freeze none;
 #    1d the zone read in a module under test.
 rg -n --pcre2 'expect\([^;\n]*(?:new\s+Date\(\s*\)|Date\.now\(\s*\))|\.(?:getDate|getDay|getMonth|getFullYear|getHours|toDateString|toLocaleDateString|toLocaleTimeString|toLocaleString)\(\s*\)|\.toISOString\(\)\s*\.\s*(?:slice|substring|substr|split)\(|\bdatetime\.(?:now|today)\(\s*\)\.(?:date|day|month|year|hour|strftime)|\bdate\.today\(\)' "${TJ[@]}" "${TO[@]}" "${X[@]}" . | "${NC[@]}"
-rg -l0 --pcre2 "$K[^\n]{0,80}$D|$D[^\n]{0,80}$K" "${TJ[@]}" "${TO[@]}" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-match --pcre2 "$FN" | xargs -0 -r rg -Hn --pcre2 "$K[^\n]{0,80}$D|$D[^\n]{0,80}$K" | "${NC[@]}"
+rg -l0 --pcre2 "$K[^\n]{0,80}$D|$D[^\n]{0,80}$K" "${TJ[@]}" "${TO[@]}" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-match --pcre2 "$FN" | xargs -0 -r rg -Hn --pcre2 "$K[^\n]{0,80}$D|$D[^\n]{0,80}$K" | "${NC[@]}" | python3 -c '
+import os, re, sys
+CLK = re.compile(r"\bnew\s+Date\s*\(\s*\)|\bDate\.now\s*\(|\b(?:datetime|date)\.(?:now|today|utcnow)\s*\(|\btime\.time\s*\(|\btime\.Now\s*\(")
+def res(base, spec):                           # a relative or `@/` import → a source file, else None
+    if spec.startswith("@/"):
+        d = base
+        while d and os.path.basename(d) != "src": d = os.path.dirname(d)
+        if not d: return None
+        p = os.path.join(d, spec[2:])
+    elif spec.startswith("."): p = os.path.normpath(os.path.join(base, spec))
+    else: return None
+    for c in (p, *(p + e for e in (".ts", ".tsx", ".js", ".jsx", ".mjs")), *(os.path.join(p, "index" + e) for e in (".ts", ".tsx", ".js"))):
+        if os.path.isfile(c): return c
+    return None
+def reads(f, depth, seen):                     # the first real-clock read in f or what it imports (2 levels), or None
+    if f in seen: return None
+    seen.add(f); s = open(f, errors="replace").read()
+    for i, l in enumerate(s.split("\n"), 1):
+        if CLK.search(l) and not l.lstrip().startswith(("//", "*")): return "%s:%d" % (f, i)
+    if depth:
+        for spec in re.findall(r"from\s+[\x27\"]([^\x27\"]+)[\x27\"]", s):
+            r = res(os.path.dirname(f), spec)
+            if r and not re.search(r"\.(?:test|spec)\.", r):
+                hit = reads(r, depth - 1, seen)
+                if hit: return hit
+    return None
+cache = {}
+for l in sys.stdin:
+    f = l.split(":", 1)[0]
+    if f not in cache:
+        if re.search(r"e2e|\.flow\.|/flows?/|\.py$|\.go$|\.rb$|\.java$|\.kt$|\.cs$|\.php$", f): cache[f] = "  [e2e or non-JS: the app reads the clock — read]"
+        else:
+            s = open(f, errors="replace").read(); specs = re.findall(r"from\s+[\x27\"]([^\x27\"]+)[\x27\"]", s)
+            local = [x for x in specs if x.startswith((".", "@/"))]; rs = [res(os.path.dirname(f), x) for x in local]
+            hit = next((h for h in (reads(r, 1, set()) for r in rs if r) if h), None)
+            cache[f] = "  [SUT reads the clock: %s]" % hit if hit else "  [imports unresolved — read]" if None in rs else None
+    if cache[f]: print(l.rstrip("\n") + cache[f])'
 C='\b(?:datetime|date|dt|timezone)\.(?:now|today|utcnow)\s*\(|\btime\.time(?:_ns)?\s*\(\s*\)|\btime\.Now\s*\(\s*\)|\b(?:LocalDate|LocalDateTime|ZonedDateTime|OffsetDateTime|Instant)\.now\s*\(\s*\)|\bSystem\.currentTimeMillis\s*\(|\b(?:Time|Date|DateTime)\.(?:now|today|current)\b|\bCarbon(?:Immutable)?::(?:now|today)\s*\(|\bDateTime(?:Offset)?\.(?:Now|UtcNow|Today)\b|\b(?:Utc|Local)::now\s*\(|\bSystemTime::now\s*\(|(?<![\w>$:])(?:time|microtime|now|today)\s*\(\s*\)|\bnew\s+\\?DateTime(?:Immutable)?\s*\(\s*\)'
 rg -l0 --pcre2 "$C" "${TO[@]}" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-match --pcre2 "$FZ" | xargs -0 -r rg -Hn --pcre2 "$C" | "${NC[@]}"
 # 1d. The zone read in the code under test (1a sees only the test): a zone-dependent format or calendar read in shipped
@@ -91,7 +128,7 @@ rg -l0 --pcre2 "$C" "${TO[@]}" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-
 #     goes on the source line.
 ZD='\.toLocale(?:Date|Time)?String\((?![^\n]*timeZone)|\bnew\s+Intl\.DateTimeFormat\((?![^\n]*timeZone)|\.get(?:Date|Day|Month|FullYear|Hours)\(\s*\)|\bdatetime\.fromtimestamp\((?![^\n]*\btz\b)|\.astimezone\(\s*\)'
 DL='(?:expect|assert|toBe|toEqual|toHaveTextContent|toContain)[^\n]*["\x27\x60][^"\x27\x60\n]*(?:\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s\d{1,2}\b|\b\d{1,2}/\d{1,2}/\d{2,4}\b|\b\d{4}-\d{2}-\d{2}["\x27\x60])'
-Z=$(mktemp -d); rg -n --pcre2 "$ZD" -g '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,py,vue,svelte}' -g '!*.{test,spec,e2e-spec,cy,stories}.*' -g '!**/{__tests__,test,tests,e2e,cypress,playwright,spec,__mocks__}/**' -g '!{test_*,*_test,conftest}.py' "${X[@]}" . | "${NC[@]}" > "$Z/src"
+Z=$(mktemp -d "${TMPDIR:-/tmp}/flake-scan.XXXXXX"); rg -n --pcre2 "$ZD" -g '*.{js,jsx,ts,tsx,mjs,cjs,mts,cts,py,vue,svelte}' -g '!*.{test,spec,e2e-spec,cy,stories}.*' -g '!**/{__tests__,test,tests,e2e,cypress,playwright,spec,__mocks__}/**' -g '!{test_*,*_test,conftest}.py' "${X[@]}" . | "${NC[@]}" > "$Z/src"
 rg -n --pcre2 "$DL" "${TJ[@]}" "${TO[@]}" "${X[@]}" . > "$Z/dl"; cut -d: -f1 "$Z/dl" | sort -u | tr '\n' '\0' | xargs -0 -r rg -H -o -N --pcre2 "(?:from\s+|require\(\s*|import\s+)['\"][^'\"]+['\"]|^\s*from\s+[\w.]+\s+import\s+[\w, ]+" > "$Z/imp"
 python3 - "$Z/src" "$Z/imp" "$Z/dl" <<'PY'
 import os, re, sys, collections
@@ -122,11 +159,32 @@ rg -n --pcre2 'expect\(\s*\w*(?:[Dd]uration|[Ee]lapsed|[Tt]ook|[Ll]atency|[Mm]s)
 rg -n --pcre2 "\b(?:fetch|axios(?:\.(?:get|post|put|patch|delete|head|request))?|got(?:\.\w+)?|superagent\.\w+|request(?:\.\w+)?|https?\.(?:get|request)|ky(?:\.\w+)?)\s*\(\s*[\"'\x60]https?://$H" "${TJ[@]}" "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 "\b(?:requests|httpx|session|client)\.(?:get|post|put|patch|delete|head|request)\s*\(\s*f?[\"']https?://$H|\burlopen\s*\(\s*[\"']https?://$H|\bhttp\.(?:Get|Head|Post|PostForm|NewRequest(?:WithContext)?)\s*\((?:\s*ctx\s*,)?\s*(?:\"[A-Z]+\"\s*,\s*)?\"https?://$H|\b(?:Net::HTTP\.\w+|HTTParty\.\w+|Faraday\.\w+|RestClient\.\w+|URI\.open)\s*\(\s*(?:URI\s*\(\s*)?[\"']https?://$H|(?:file_get_contents|curl_init|Http::(?:get|post|put|patch|delete))\s*\(\s*[\"']https?://$H|\.(?:GetAsync|PostAsync|PutAsync|DeleteAsync|SendAsync|GetStringAsync|GetFromJsonAsync)\s*\(\s*(?:new\s+Uri\s*\(\s*)?\"https?://$H|\breqwest::(?:blocking::)?get\s*\(\s*\"https?://$H|(?:URI\.create|new\s+URL|\.uri|getForObject|getForEntity|postForObject|postForEntity|exchange)\s*\(\s*\"https?://$H" "${TO[@]}" "${X[@]}" . | "${NC[@]}"
 
-# 5. Shared state. 5a JS/TS env writes in files that restore nothing; 5b files that spy and never restore (moot when 0a shows
+# 5. Shared state. 5a JS/TS env writes in files that restore nothing — a key set then `delete`d, a restore loop, and
+#    a module-scope write under Jest (each test file gets its own process.env copy) are dropped; 5b files that spy and never restore (moot when 0a shows
 #    restoreMocks); 5c empty module-level containers in files that never reset them; 5d other stacks' process-global writes
 #    and module / static state; 5e beforeAll / session / class fixtures that create data, and @DirtiesContext.
 E='\bprocess\.env(?:\.\w+|\[\s*[\x27"\x60]?\w+[\x27"\x60]?\s*\])\s*=(?!=)|\bdelete\s+process\.env\b|\bObject\.assign\s*\(\s*process\.env\b'
-rg -l0 --pcre2 "$E" "${TJ[@]}" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-match --pcre2 '\bprocess\.env\s*=\s*(?:\{\s*\.\.\.|\w*(?:OLD|ORIG|SAVED|old|orig|saved|original|prev|backup)\w*)|\b(?:vi\.unstubAllEnvs|jest\.replaceProperty|vi\.stubEnv)\b|=\s*process\.env\.\w+\s*;?\s*$' | xargs -0 -r rg -Hn --pcre2 "$E" | "${NC[@]}"
+rg -l0 --pcre2 "$E" "${TJ[@]}" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-match --pcre2 '\bprocess\.env\s*=\s*(?:\{\s*\.\.\.|\w*(?:OLD|ORIG|SAVED|old|orig|saved|original|prev|backup)\w*)|\bObject\.assign\s*\(\s*process\.env\s*,\s*\w*(?:OLD|ORIG|SAVED|old|orig|saved|original|prev|backup)\w*\s*\)|\b(?:vi\.unstubAllEnvs|jest\.replaceProperty|vi\.stubEnv)\b|=\s*process\.env\.\w+\s*;?\s*$' | xargs -0 -r rg -Hn --pcre2 "$E" | "${NC[@]}" | python3 -c '
+import os, re, sys, collections
+K = r"process\.env(?:\.(\w+)|\[\s*[\x27\"\x60]?(\w+)[\x27\"\x60]?\s*\])"
+hits = collections.defaultdict(list)
+for l in sys.stdin: f, n, t = l.rstrip("\n").split(":", 2); hits[f].append((n, t))
+def jest(f):                                   # Jest gives each test file its own copy of process.env
+    d = os.path.dirname(f)
+    while True:
+        if any(re.match(r"jest(?:\.[\w-]+)?\.config\.[cm]?[jt]s$|jest\.json$", x) for x in os.listdir(d or ".")): return True
+        if any(re.match(r"vitest\.config\.", x) for x in os.listdir(d or ".")) or d in ("", "."): return False
+        d = os.path.dirname(d)
+for f, rows in hits.items():
+    src = open(f, errors="replace").read()
+    dele = {a or b for a, b in re.findall(r"\bdelete\s+" + K, src)}
+    for n, t in rows:
+        if re.search(r"\bif\s*\(\s*\w+\s*===?\s*undefined\s*\)\s*delete\s+process\.env|^\s*else\s+process\.env\[", t): continue   # a restore loop
+        w = [a or b for a, b in re.findall(K + r"\s*=(?!=)", t)]
+        if w and all(k in dele for k in w): continue                       # set, then deleted in this file: restored (read: was it set before?)
+        if re.match(r"\s*delete\s", t): continue                            # the restore half
+        if jest(f) and not t[:1].isspace(): continue                        # module scope under Jest: the whole file, no order
+        print("%s:%s:%s%s" % (f, n, t, "  [jest: per-file env]" if jest(f) else ""))'
 rg -l0 --pcre2 '\b(?:jest|vi)\.spyOn\(' "${TJ[@]}" "${X[@]}" . | xargs -0 -r rg -l --files-without-match --pcre2 '\bmockRestore\(|\b(?:jest|vi)\.restoreAllMocks\('
 M='^(?:export\s+)?(?:const|let|var)\s+\w+(?:\s*:\s*[^=\n]+)?\s*=\s*(?:\[\s*\]|\{\s*\}|new\s+(?:Map|Set|WeakMap|Array)\s*(?:<[^>\n]*>)?\s*\(\s*\))\s*;?\s*$'
 rg -l0 --pcre2 "$M" "${TJ[@]}" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-match --pcre2 '\.length\s*=\s*0|\.clear\(\s*\)|\.splice\(\s*0\b|^\s*\w+\s*=\s*(?:\[\s*\]|\{\s*\}|new\s+(?:Map|Set)\b)' | xargs -0 -r rg -Hn --pcre2 "$M" | "${NC[@]}"
@@ -156,7 +214,7 @@ A finding is a grep hit **plus** a read of the test **plus** the path from the s
 - **Helpers move the sleep.** 3a keys on `sleep` / `delay` / `wait`. A project helper with another name (`settle()`, `tick(500)`) is missed: add its name to the line after reading `test/support`.
 - **Unordered results come from the database.** Rows from a query with no `ORDER BY`, asserted by index (`body.data[0]`), flip with the planner — no grep separates them from single-row results (548 such assertions on the measured repo below, nearly all single-row). Read the query behind every multi-row index assertion in a list test; NonDex 2.2.5 (JVM) and `PYTHONHASHSEED=random` (Python) are the runtime oracles for in-memory order.
 
-**Measured** (2026-10-05, read-only). On a real NestJS-on-Fastify + MikroORM API (Jest 30) with a React web app (Vitest 4, Playwright 1.63) — about 14,200 tracked files, 3,328 JS/TS test files — the script runs in about 2 s and returns: 0a 16 config lines (`clearMocks` only, no shuffle anywhere, `--forceExit` on the e2e job); 0b 0 guard files; 0c 590 test files read the real clock and freeze nothing (the inventory, not candidates); 1a 111 (`new Date().toISOString().slice(0, 10)` used as "today" in e2e helpers — the UTC day, not the local one; `getDate()` / `getHours()` on parsed dates); 1b 77 raw, 47 after the frozen-clock filter (`expiryDate: '2026-12-31'` in a stock-ledger e2e and `dueDate: '2026-10-20'` — both expire within months; a `settledAt` false hit fixed with `\bttl\b`); 1d 61 source lines in 16 modules, reached by 22 date-asserting test files (local-calendar reads — `getMonth()` / `getDate()` building a `YYYY-MM-DD` — read whether the test builds a local `Date`, zone-safe, or parses a UTC instant, which flips); 2a 120 (unique phones and codes from `Math.random()` — opaque, except `+2010${Math.floor(Math.random() * 1e8)}`, whose digit count depends on the draw); 3a 99 (`setTimeout(resolve, 100)` waits for async processing in e2e — candidates); 3c 2; 4a 0; 5a 29; 5b 47 files; 5c 344 raw, 89 after the reset filter (module-level request recorders); 6a 4; 6c 0 (a line-start form returned 6, all multi-line arrow returns; the statement-start anchor removed them); 7a 3; 8: 20 lines in 6 browser-driving files (`waitForTimeout(300 … 1200)` in flows, one `xpath=ancestor::form`). Every other line returned 0. Against the research corpus of tagged positives and decoys for 65 per-stack patterns, the script hits no decoy; its misses are the routed retries and the same-file decoys the file-level filters drop by design. The other `benchmarks/fixtures/*` seed no flake class: at most one line per grep (a SQL `now()` in a fixture insert, a `uuid4()` id). On `brittle-suite` (2.0.1) 1d prints one line, `RefundDue.tsx:3 <- RefundDue.test.tsx:7` — the `toLocaleDateString` with no `timeZone` behind a `Mar 29` assertion — and not the coupon decoy, whose module reads no zone.
+**Measured** (2026-10-05, read-only). On a real NestJS-on-Fastify + MikroORM API (Jest 30) with a React web app (Vitest 4, Playwright 1.63) — about 14,200 tracked files, 3,328 JS/TS test files — the script runs in about 2 s and returns: 0a 16 config lines (`clearMocks` only, no shuffle anywhere, `--forceExit` on the e2e job); 0b 0 guard files; 0c 590 test files read the real clock and freeze nothing (the inventory, not candidates); 1a 111 (`new Date().toISOString().slice(0, 10)` used as "today" in e2e helpers — the UTC day, not the local one; `getDate()` / `getHours()` on parsed dates); 1b 77 raw, 47 after the frozen-clock filter (`expiryDate: '2026-12-31'` in a stock-ledger e2e and `dueDate: '2026-10-20'` — both expire within months; a `settledAt` false hit fixed with `\bttl\b`); 1d 61 source lines in 16 modules, reached by 22 date-asserting test files (local-calendar reads — `getMonth()` / `getDate()` building a `YYYY-MM-DD` — read whether the test builds a local `Date`, zone-safe, or parses a UTC instant, which flips); 2a 120 (unique phones and codes from `Math.random()` — opaque, except `+2010${Math.floor(Math.random() * 1e8)}`, whose digit count depends on the draw); 3a 99 (`setTimeout(resolve, 100)` waits for async processing in e2e — candidates); 3c 2; 4a 0; 5a 29; 5b 47 files; 5c 344 raw, 89 after the reset filter (module-level request recorders); 6a 4; 6c 0 (a line-start form returned 6, all multi-line arrow returns; the statement-start anchor removed them); 7a 3; 8: 20 lines in 6 browser-driving files (`waitForTimeout(300 … 1200)` in flows, one `xpath=ancestor::form`). Re-measured 2026-10-15 on the same repo: 1b 52 → 41 — 11 rows in unit tests whose imported modules never read the real clock (wire mappers: the date is data) dropped; the 21 e2e rows stay; 5a 27 → 8 — keys set in `beforeAll` and `delete`d in `afterAll`, a save-and-`Object.assign` restore, a restore loop and module-scope writes in Jest files dropped (Jest builds one environment per test file, with its own copy of `process.env` — jest-util `createProcessObject`, read 2026-10-15); `brittle-suite` keeps its 1b seed and its four 5a lines. Every other line returned 0. Against the research corpus of tagged positives and decoys for 65 per-stack patterns, the script hits no decoy; its misses are the routed retries and the same-file decoys the file-level filters drop by design. The other `benchmarks/fixtures/*` seed no flake class: at most one line per grep (a SQL `now()` in a fixture insert, a `uuid4()` id). On `brittle-suite` (2.0.1) 1d prints one line, `RefundDue.tsx:3 <- RefundDue.test.tsx:7` — the `toLocaleDateString` with no `timeZone` behind a `Mar 29` assertion — and not the coupon decoy, whose module reads no zone.
 
 ## The 3,000-hit path
 
@@ -330,6 +388,7 @@ The verifier reads [`precedents/testing.md`](../../../../snippets/precedents/tes
 - **Immutable shared fixtures** — servers, pools, containers, read-only reference data (§ 37); real network in a tagged e2e or contract suite (§ 38); declared ordering (§ 33).
 - **Insertion-ordered collections.** JS objects, Sets and Maps and Python dicts iterate in insertion order; `[...new Set(x)]` is deterministic.
 - **A flake the SUT causes means the test is right** (§ 42) — route the race to `/fix-bug`, never to a wait.
+- **A module-scope env write in a Jest test file** — Jest gives each file its own `process.env` (§ 44); **a fixed future date in a unit test whose code reads no clock** is data, not a time bomb (§ 46).
 - **Bulk triage is not a verdict.** "590 files read the clock" is an inventory. A group is dismissed only with its read or its perturbation run.
 
 ## When to run

@@ -5,6 +5,7 @@ state, and every row is proved by a story or test that exists.
 Usage:  state-matrix-lint.py [<matrix.md>] [--run=ai/runs/<run-id>] [--repo=<dir>]
                              [--touched=<path>,<path>…] [--base=<ref>] [--surface-glob=<glob>]…
                              [--phase=design] [--json]
+        state-matrix-lint.py --repo=<dir> [--surface-glob=<glob>]… [--json]     (whole-repo audit)
         state-matrix-lint.py --self-test
 Exit:   0  no finding (PASS, or N-A with its reason)    1  at least one finding    2  usage or read error
         (the convention of test-integrity.py / oracle-check.py, which gate-check.py reads: 0/1 = ran, 2 = could not)
@@ -42,11 +43,16 @@ ADVISORIES (printed, never fail): clause-unmapped — an AC whose sentence has I
 N-A, with its reason: no run, no matrix and no touched surface; a run with no frontend/mobile lane; a T1 run
 with no matrix (P3 is not required at T1, tiers.json).
 
+WHOLE-REPO AUDIT (--repo alone, what an audit's STATES line runs): every `## State matrix` under ai/runs/*/
+(ux.md, else design.md) and ai/design/state-matrix/*.md is linted and the findings pooled. None at all while the
+repo has surface files is one `no-matrix` finding (exit 1: the STATES line is a gap, not a usage error); no
+surface file is N-A. Surface files no matrix covers are one `surfaces-uncovered` advisory with the count.
+
 HONEST LIMITS:
   * Existence, not meaning: the lint proves the cited story or test exists, not that it forces the state or
     fails first. @ux-reviewer (the inferential half of G12) and the state-matrix tests themselves do that.
-  * "Looks like a surface" is a filename rule (…Page/View/Screen/Route.{tsx,jsx,vue,svelte}, page/+page files,
-    *_screen.dart, …Screen.kt, …View.swift). Add --surface-glob for a project that names surfaces otherwise.
+  * "Looks like a surface" is a filename rule (…Page/View/Screen/Route and the overlays …Dialog/Sheet/Drawer/
+    Modal/Panel .{tsx,jsx,vue,svelte}, page/+page files, *_screen.dart, …Screen.kt, …View.swift). Add --surface-glob for a project that names surfaces otherwise.
   * One table per section; a row wrapped onto two lines is read as two rows.
 """
 import fnmatch
@@ -61,8 +67,8 @@ CONDITIONAL = ["long-content", "pending-submit", "not-found", "destructive-confi
                "validation", "timeout"]
 PLACEHOLDER = re.compile(r"^(?:n[-/]?a|none|tbd|todo|tba|-+|—|\.\.\.|…|later|same|see above)$", re.I)
 SURFACE_NAME = re.compile(
-    r"(?:^|/)(?:[A-Z]\w*(?:Page|View|Screen|Route)\.(?:tsx|jsx|vue|svelte)|\+?page\.(?:tsx|jsx|svelte)"
-    r"|[\w-]+[-.]page\.(?:ts|vue|svelte)|[\w-]+\.page\.ts|\w+_(?:screen|page|view)\.dart|\w+Screen\.kt"
+    r"(?:^|/)(?:[A-Z]\w*(?:Page|View|Screen|Route|Dialog|Sheet|Drawer|Modal|Panel)\.(?:tsx|jsx|vue|svelte)|\+?page\.(?:tsx|jsx|svelte)"
+    r"|[\w-]+[-.]page\.(?:vue|svelte)|[\w-]+\.page\.ts|\w+_(?:screen|page|view)\.dart|\w+Screen\.kt"
     r"|\w+(?:Screen|View)\.swift|pages/[\w/\[\]-]+\.vue)$")
 TESTISH = re.compile(r"(?:\.(?:test|spec|stories|story|e2e|cy)\.[\w]+$|(?:^|/)(?:tests?|__tests__|e2e|spec|"
                      r"integration_test|androidTest|UITests?|stories)/|_test\.dart$|Tests?\.(?:swift|kt)$|Test\.java$)")
@@ -263,6 +269,67 @@ def lint(repo, matrix=None, run=None, opts=None):
                   "written and proved or n-a with a reason" % len(surfaces), matrix, len(surfaces), findings, adv)
 
 
+SKIP_DIRS = {"node_modules", ".git", "dist", "build", "out", ".next", ".nuxt", ".svelte-kit", ".output", "coverage",
+             "storybook-static", ".dart_tool", "Pods", "DerivedData", "vendor", ".turbo", ".cache"}
+
+
+def repo_matrices(repo):
+    found = []
+    runs = os.path.join(repo, "ai", "runs")
+    for rid in sorted(os.listdir(runs)) if os.path.isdir(runs) else []:
+        for name in ("ux.md", "design.md"):
+            rel = os.path.join("ai", "runs", rid, name)
+            if os.path.isfile(os.path.join(repo, rel)) and parse(read(os.path.join(repo, rel)))[0]:
+                found.append(rel)
+                break
+    d = os.path.join(repo, "ai", "design", "state-matrix")
+    for name in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+        rel = os.path.join("ai", "design", "state-matrix", name)
+        if name.endswith(".md") and parse(read(os.path.join(repo, rel)))[0]:
+            found.append(rel)
+    return found
+
+
+def repo_surfaces(repo, globs):
+    out = []
+    for root, dirs, files in os.walk(repo):
+        dirs[:] = sorted(x for x in dirs if x not in SKIP_DIRS and not (x.startswith(".") and x != ".storybook"))
+        for name in sorted(files):
+            rel = os.path.relpath(os.path.join(root, name), repo).replace(os.sep, "/")
+            if TESTISH.search(rel) or rel.startswith(("ai/", "docs/")):
+                continue
+            if SURFACE_NAME.search(rel) or any(fnmatch.fnmatch(rel, g) for g in globs):
+                out.append(rel)
+    return out
+
+
+def lint_repo(repo, opts=None):
+    """--repo alone: pool every matrix in the repo; none while surfaces exist is the STATES gap (exit 1)."""
+    opts = opts or {}
+    surfaces = repo_surfaces(repo, opts.get("surface_glob", []))
+    matrices = repo_matrices(repo)
+    if not matrices:
+        if not surfaces:
+            return result("N-A", "no state matrix and no UI surface file in the repo", None, 0, [], [])
+        return result("FAIL", None, None, 0, [f(".", None, "no-matrix",
+                      "%d UI surface file(s) (e.g. %s) and no `## State matrix` in ai/runs/*/ux.md|design.md or "
+                      "ai/design/state-matrix/*.md: the STATES line is a gap" % (len(surfaces), ", ".join(surfaces[:3])))], [])
+    findings, adv, n, covered = [], [], 0, []
+    for m in matrices:
+        r = lint(repo, matrix=m)
+        findings += r["findings"]
+        adv += r["advisories"]
+        n += r["surfaces_checked"]
+        covered += [p for ps in parse(read(os.path.join(repo, m)))[2].values() for p in ps]
+    unc = [t for t in surfaces if not any(t == p or t.startswith(p.rstrip("/") + "/") for p in covered)]
+    if unc:
+        adv.append(f(".", None, "surfaces-uncovered", "%d of %d surface file(s) appear in no matrix (e.g. %s)"
+                     % (len(unc), len(surfaces), ", ".join(unc[:3]))))
+    return result("FAIL" if findings else "PASS", None if findings else "%d matrix file(s), %d surface(s), every "
+                  "required state written and proved or n-a with a reason" % (len(matrices), n),
+                  ", ".join(matrices), n, findings, adv)
+
+
 def result(verdict, reason, matrix, n, findings, adv):
     return {"verdict": verdict, "reason": reason, "matrix": matrix, "surfaces_checked": n,
             "findings": findings, "advisories": adv}
@@ -330,6 +397,7 @@ def self_test():
         expect("touched surface outside the matrix", ["surface-unlisted"], "FAIL", run="ai/runs/r1",
                opts={"touched": "src/orders/OrdersPage.tsx,src/billing/InvoicesPage.tsx,src/i18n/en.json"})
         expect("no run, copy-only change", [], "N-A", opts={"touched": "src/i18n/en.json,README.md"})
+        expect("a backend list-page.ts is not a surface", [], "N-A", opts={"touched": "api/src/shared/list-page.ts"})
         w("ai/design/state-matrix/dup.md", good.replace("| orders-list | stale |", "| orders-list | empty |")
           .replace("Surfaces:\n", "Surfaces:\n- `ghost` — src/ghost/GhostView.tsx\n"))
         expect("a duplicate row; a listed surface with no rows", ["duplicate-row", "state-missing"], "FAIL",
@@ -341,6 +409,31 @@ def self_test():
         cases += 1
         if [a["kind"] for a in lint(td, matrix="ai/design/state-matrix/odd.md")["advisories"]] != ["proof-unanchored"]:
             fails.append("a file-only proof is not flagged proof-unanchored")
+        expect("a touched dialog is a surface", ["surface-unlisted"], "FAIL", run="ai/runs/r1",
+               opts={"touched": "src/orders/OrdersPage.tsx,src/orders/RefundDialog.tsx"})
+        cases += 1
+        rr = lint_repo(td)
+        if rr["verdict"] != "FAIL" or sorted({x["kind"] for x in rr["findings"]}) != sorted(
+                ["state-missing", "na-without-reason", "proof-missing", "proof-not-a-test", "source-unknown",
+                 "unknown-state", "no-proof", "duplicate-row", "unknown-surface"]):
+            fails.append("whole repo: pooled kinds %s" % sorted({x["kind"] for x in rr["findings"]}))
+        td2 = tempfile.mkdtemp(prefix="smlint.")
+        try:
+            os.makedirs(os.path.join(td2, "src", "orders"))
+            with open(os.path.join(td2, "src", "orders", "OrdersPage.tsx"), "w", encoding="utf-8") as fh:
+                fh.write("export function OrdersPage() {}\n")
+            cases += 1
+            rr = lint_repo(td2)
+            if rr["verdict"] != "FAIL" or [x["kind"] for x in rr["findings"]] != ["no-matrix"]:
+                fails.append("whole repo, surfaces and no matrix: %s %s" % (rr["verdict"], rr["findings"]))
+            if main(["--repo=" + td2, "--json"], quiet=True) != 1:
+                fails.append("--repo alone with no matrix does not exit 1")
+            os.remove(os.path.join(td2, "src", "orders", "OrdersPage.tsx"))
+            cases += 1
+            if lint_repo(td2)["verdict"] != "N-A":
+                fails.append("whole repo with no surface is not N-A")
+        finally:
+            shutil.rmtree(td2, ignore_errors=True)
         r = lint(td, run="ai/runs/r1")
         cases += 1
         if [a["kind"] for a in r["advisories"]] != []:
@@ -353,7 +446,7 @@ def self_test():
     return 1 if fails else 0
 
 
-def main(argv):
+def main(argv, quiet=False):
     opts, pos = {"surface_glob": []}, []
     for a in argv:
         if a.startswith("--surface-glob="):
@@ -368,20 +461,29 @@ def main(argv):
     unknown = set(opts) - {"surface_glob", "run", "repo", "touched", "base", "json", "phase"}
     if opts.get("phase") not in (None, "design"):
         unknown.add("phase")
-    if unknown or len(pos) > 1 or not (pos or opts.get("run") or opts.get("touched") or opts.get("base")):
+    whole = not (pos or opts.get("run") or opts.get("touched") or opts.get("base"))
+    if unknown or len(pos) > 1 or (whole and not opts.get("repo")) or opts.get("repo") is True:
         print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2
     repo = os.path.abspath(opts.get("repo") or ".")
+    if not os.path.isdir(repo):
+        print("state-matrix-lint: no such repo directory: %s" % repo, file=sys.stderr)
+        return 2
     if pos and not os.path.isfile(os.path.join(repo, pos[0])):
         print("state-matrix-lint: no such matrix file: %s" % pos[0], file=sys.stderr)
         return 2
     try:
-        r = lint(repo, pos[0] if pos else None, opts.get("run") or None,
-                 {k: opts[k] for k in ("touched", "base", "surface_glob", "phase") if opts.get(k)})
+        if whole:
+            r = lint_repo(repo, {"surface_glob": opts["surface_glob"]})
+        else:
+            r = lint(repo, pos[0] if pos else None, opts.get("run") or None,
+                     {k: opts[k] for k in ("touched", "base", "surface_glob", "phase") if opts.get(k)})
     except (OSError, ValueError) as e:
         print("state-matrix-lint: %s" % e, file=sys.stderr)
         return 2
-    if opts.get("json"):
+    if quiet:
+        pass
+    elif opts.get("json"):
         print(json.dumps(r, indent=2))
     else:
         print("G12 state matrix: %s%s%s" % (r["verdict"], " — " + r["reason"] if r["reason"] else "",

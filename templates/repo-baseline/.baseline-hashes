@@ -173,6 +173,7 @@
 .claude/schemas/verdict.schema.json  357b7364588fcf3f9214eed523f88d7d57e8046394dfcaf0f3cdfa16e6d5fc62
 .claude/scripts/baseline-capture.sh  922decd9349cd0f68296db2324bedff3fe0076e8ceed774231d809d7749e0f27
 .claude/scripts/behavior-diff.py  2c004150fa005f0befc7753670da4bd7437deaf9a7a13a91432c3d0915726264
+.claude/scripts/ci-graph.py  8ed641232684a88ee516b09c95c6adc92866e354e6913305b9d0d9e0f1e0281f
 .claude/scripts/ci-graph.py  abb71be91e7fabf7d03c6d33c1a35ed8faf9882009ec6fa197e92a76d30996c5
 .claude/scripts/ci-graph.py  bc8b123cde79f9ab6f51dd4138796f77b9be171bbf1a953205a5a3b73b2f8616
 .claude/scripts/ci-graph.py  fbb2f430495454a0794dc7568c5368b0328799353d86cebdfcfd19a623770e97
@@ -182,6 +183,7 @@
 .claude/scripts/gate-check.py  8f2b02e1f8e194dbaeaf30197e8157f5ae7849c458685d1843243673719176fd
 .claude/scripts/judge-guard.py  b4816c5e154faba5ed5aa165a74130f34b48cd5919433d6b275cf0aade298e9e
 .claude/scripts/lock-acceptance.sh  64cbd642f60cc6c914547852dbbe3c7d48d590b95017025db8f6b6ce7c74ea96
+.claude/scripts/oracle-check.py  18c95d29ae5cb8a74b0730fb2c6f8465991936ce66a57fa64d071e3916fbe778
 .claude/scripts/oracle-check.py  fc61cbe51a58c35861953d82d805db31e7a95daa1c6c20af286acec5eaffe626
 .claude/scripts/ownership-guard.py  e4724ba3f7963e2695103a72c1a9f70e3628976f03c79acc1062da773f12dfca
 .claude/scripts/ownership-guard.py  ee479e3f239e12d2c1083bc6c86a98acdce8773c583b3383f1bac96109999928
@@ -284,6 +286,8 @@
 .claude/templates/snippets/precedents/backend.md  5f2d24fa52956b5184afb19b0e7888981a2182c2a09d4ccc7c7e6785069b34d1
 .claude/templates/snippets/precedents/code-quality.md  1a1e076fa62553c835c2ced7b716fe73ae5b7f7b68c950e61d3b39657e2568c4
 .claude/templates/snippets/precedents/code-quality.md  7b71e94b663f88a5ebf7c432dc1d82485b7c246d95d011ecbc1aba33165f5861
+.claude/templates/snippets/precedents/code-quality.md  e531ddf1c91b91fdf6413ab6cba1ebacab3c4544880870af3e6d20773b69617b
+.claude/templates/snippets/precedents/data.md  1fbc432fcf3b7abdfde3f2cdec4bc0f2120b8c242b2aea9f1d79b04e8fe8c005
 .claude/templates/snippets/precedents/data.md  26f86347fe1e0202ee03317f887d860333b4d82e095c5044e2196e8044a048b1
 .claude/templates/snippets/precedents/devops.md  e880909460b917a0d7b30ae11854725abf21a14b73b964514f105ec8d04d2e4b
 .claude/templates/snippets/precedents/devops.md  f6d2542b0891426f159ce2bc9048bbc735f688b7dffd99311dbcec6c2bda0b7c
@@ -298,9 +302,12 @@
 .claude/templates/snippets/precedents/observability.md  f5b60f6acffe71722b178f876783bce9694704a8a2b14c24daa5bfc23c5b2a77
 .claude/templates/snippets/precedents/performance.md  2c86c71c300fef8a999beb21c9c6f6eaf0aa66bfa440378fdbc37325477bb690
 .claude/templates/snippets/precedents/performance.md  d12bf33265759b881fdd8ec16fb9e82bf8de9f651ffbe93610e6913e2f4e8c94
+.claude/templates/snippets/precedents/performance.md  f26615b029a02c441d6e79260eb00ddd74e5bdeba6ec4c8175047c1f3be36d11
 .claude/templates/snippets/precedents/seo.md  1ee5b92dd8b392e407b90336499024bce2e9c93483c6104c2ec9b4b220c8765c
 .claude/templates/snippets/precedents/testing.md  1b8cac214f8781c81f6cde5bb75e3e76c7335006ae21612038b4a65de6beb00f
+.claude/templates/snippets/precedents/testing.md  43ea241e3b65a9da12aa3f3a460382dff99d1657c3e6de61182ff1eba10679e3
 .claude/templates/snippets/precedents/testing.md  480ecda5b48e698b2059a5080777246e5cdfdb863cd6b4b1d4aaaa9547522e96
+.claude/templates/snippets/precedents/ui.md  059b147a7d9f45924efd35ff61873cc7c28c72165414b3941e3923498dd7f718
 .claude/templates/snippets/precedents/ui.md  492c9a899413dc12dca81eb1c1301d0320bbd5a504c01f633d2b5bc8e3a382e8
 .claude/templates/snippets/precedents/ui.md  89949160332d12ef1ea8fe974981ddad42f8586389ec206e363b51548676cb37
 .claude/templates/snippets/proof-oracles.md  08e07029f670151cab3e99b1f350858fd795c3481f391abb4b16cc200ce4f668
@@ -316,6 +323,7 @@
 .claude/templates/snippets/proof-oracles.md  a88037844ad6de11c262d407ae533b2ef27f65fa855535aa5608a1b3a8e26b4a
 .claude/templates/snippets/proof-oracles.md  aec9024e204318855d5833ae01692b2c358774ab0c1a8710d62a3659a99fb04b
 .claude/templates/snippets/proof-oracles.md  bc998a1594989e090166095ecf87bb4cfda2fdbc56643e0f413f43b6799cdcb0
+.claude/templates/snippets/proof-oracles.md  c353f692a8f848f1b44def4d3aa4b4881eac03900551b751748eeed2ed671709
 .claude/templates/snippets/proof-oracles.md  d2132d9e4d5ffd4cdbbe367761e4be0824076dfc0360255921b56e9035e2d475
 .claude/templates/snippets/proof-oracles.md  db4b8aac5f7d7cb9bffc9c67bc23367ed8e850f870ad65fdf870b18d2c27c4d5
 .claude/templates/snippets/proof-oracles.md  f152dbc8ffe502e4a9b3d7827a40da2830920362f1b58bdb32b3fd6f8448d3e2

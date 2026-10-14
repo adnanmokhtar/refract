@@ -10,7 +10,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 ## Purpose
 
-Detect drift across the project's database schema + migration history so /polish can unify it. The skill operates on the live schema (introspection) + migration history + the project's conventions (`_extracted-idioms.md § Schema conventions` or `ai/schema-conventions.md`).
+Detect drift across the project's database schema + migration history so /polish can unify it. The skill operates on the live schema (introspection) or the static schema map + migration history + the project's conventions (`_extracted-idioms.md § Schema conventions`, `ai/schema-conventions.md`, or the schema section of `ai/conventions.md` — `## Persistence`, `## Schema`, `## Database`, `## Data model`).
 
 ## When to use
 
@@ -24,9 +24,9 @@ Detect drift across the project's database schema + migration history so /polish
 | Input | Source | Required |
 |---|---|---|
 | Codebase root | Orchestrator | YES |
-| `PROJECT_KIND` | `_extracted-codebase.md § Gold standards` | YES (`data-*` or `backend-*` with schema scope) |
-| Schema conventions | `_extracted-idioms.md § Schema conventions` OR `ai/schema-conventions.md` | YES (without it, drift is undefined — halt) |
-| Schema introspection access | DB connection OR migration history dump | YES (one of the two) |
+| `PROJECT_KIND` | `_extracted-codebase.md § Gold standards`, else `.claude/codebase-profile.md` (its stack line names the ORM and engine) | YES under `/polish` (`data-*` or `backend-*` with schema scope); under `/db-audit` a backend with migrations is enough |
+| Schema conventions | `_extracted-idioms.md § Schema conventions`, `ai/schema-conventions.md`, or the schema section of `ai/conventions.md` (S1 prints which) | YES (without one, drift is undefined: under `/polish` halt; under `/db-audit` print `blocked (no conventions file)` and still print S2's profile as context) |
+| Schema introspection access | DB connection, OR the schema map (S2, `index-coverage-scan/scripts/schema-map.py`), OR the migration history | YES (one of the three) |
 | Scope filter (optional) | Caller flag (e.g., `--scope=analytics`) | NO (default: all tables) |
 
 ## Outputs (precise contract)
@@ -47,6 +47,59 @@ migration_strategy: rename-in-place | expand-contract | rename-with-dual-read | 
 risk: low | medium | high
 integrity_class: <one of: corrupts-data | loses-precision | breaks-queries | cosmetic>
 ```
+
+## Pre-flight (runnable, read-only)
+
+Run from the repo root. S1 finds the conventions and the project kind; S2 profiles the schema the migrations leave behind, one line per detector family. Every number is a candidate list for a detector below, never a finding: a drift is a finding only against what the conventions say.
+
+```bash
+# S1. Where the conventions live (first that exists wins) and PROJECT_KIND (the extract, else the codebase profile).
+for f in _extracted-idioms.md .claude/_extracted-idioms.md ai/schema-conventions.md ai/conventions.md; do [ -f "$f" ] && rg -n -i --pcre2 '^#{1,4}\s*(schema|persistence|database|data\s*model|migrations?)\b' "$f"; done
+for f in _extracted-codebase.md .claude/codebase-profile.md; do [ -f "$f" ] && rg -n -i --pcre2 '\bPROJECT_KIND\b|\b(MikroORM|Prisma|TypeORM|Sequelize|Drizzle|Django|SQLAlchemy|ActiveRecord|Eloquent|Hibernate|GORM|EF Core)\b[^\n]{0,40}\b(Postgres|MySQL|MariaDB|SQLite|SQL Server)' "$f" | head -3; done
+# S2. The schema (index-coverage-scan H0's map) profiled per detector, and object-name patterns by the date of the migration that made them.
+SM=.claude/skills/index-coverage-scan/scripts/schema-map.py; RUN=$(mktemp -d "${TMPDIR:-/tmp}/schema-consistency.XXXXXX")
+if command -v python3 >/dev/null 2>&1 && [ -f "$SM" ] && python3 -I -B "$SM" . > "$RUN/schema.sql"; then grep '^-- schema-map l' "$RUN/schema.sql"; python3 - "$RUN/schema.sql" . <<'PY'
+import os, re, sys
+from collections import Counter, defaultdict
+sql, root = open(sys.argv[1], encoding='utf-8').read(), sys.argv[2]
+cols = defaultdict(dict)                                   # cols[table][column] = (type, nullable)
+for m in re.finditer(r'(?im)^alter table "(\w+)" add column "(\w+)" ([^;\n]+?)(?: default [^;\n]*)?;', sql):
+    t = m.group(3).lower(); cols[m.group(1)][m.group(2)] = (re.sub(r'\s*not null$', '', t), not t.endswith('not null'))
+case = Counter('camel' if re.search(r'[a-z][A-Z]', c) else 'Pascal' if c[:1].isupper() else 'snake' for T in cols.values() for c in T)
+print('column case styles: %s' % dict(case))
+ts = [(t, c, ty) for t, T in cols.items() for c, (ty, n) in T.items() if ty.startswith('timestamp') or ty.startswith('datetime')]
+naive = [x for x in ts if not re.match(r'timestamptz|timestamp\S* with time zone', x[2])]
+print('timezone: %d timestamp columns, %d without a zone%s' % (len(ts), len(naive), ': ' + ', '.join('%s.%s' % x[:2] for x in naive[:10]) if naive else ''))
+by = defaultdict(list)
+for t, T in cols.items():
+    for c, (ty, n) in T.items(): by[c].append((t, re.sub(r'\(.*', '', ty), n))
+drift = sorted(((c, Counter(x[1] for x in v)) for c, v in by.items() if len(v) >= 3 and len({x[1] for x in v}) > 1), key=lambda x: -sum(x[1].values()))
+print('type drift (same name, several base types; %d names): %s' % (len(drift), '; '.join('%s %s' % (c, dict(k)) for c, k in drift[:12])))
+nul = sorted(((c, sum(x[2] for x in v), len(v)) for c, v in by.items() if len(v) >= 3 and 0 < sum(x[2] for x in v) < len(v) and c not in ('id',)), key=lambda x: -x[2])
+print('nullable drift (same name; %d names): %s' % (len(nul), '; '.join('%s %d/%d nullable' % x for x in nul[:12])))
+stamp = Counter(c for T in cols.values() for c in T if re.match(r'(created|updated|modified|inserted|deleted)(_?at|_?on|_time|_date)?$|^(creation|modification)_\w+$|^last_modified$', c))
+print('timestamp names: %s' % dict(stamp))
+miss = [t for t, T in cols.items() if not {'created_at', 'updated_at'} <= set(T) and not {'createdAt', 'updatedAt'} <= set(T)]
+print('audit fields: %d of %d tables lack created_at + updated_at%s' % (len(miss), len(cols), ': ' + ', '.join(sorted(miss)[:12]) if miss else ''))
+print('collation: %d explicit COLLATE clauses (Postgres has no per-table charset: charset-drift is N/A there)' % len(re.findall(r'(?i)\bcollate\b', sql)))
+pat = lambda n: next((p for p, r in (('idx_*', r'^idx_'), ('ix_*', r'^ix_'), ('*_idx', r'_idx$'), ('*_index', r'_index$'), ('*_unique', r'_unique$'), ('*_uniq', r'_uniq$'),
+        ('*_key', r'_key$'), ('*_pkey', r'_pkey$'), ('*_fkey', r'_fkey$'), ('*_foreign', r'_foreign$'), ('*_fk', r'_fk$'), ('*_check', r'_check$')) if re.search(r, n)), 'other')
+first, last, count = {}, {}, Counter()
+for dp, dns, fns in os.walk(root):
+    dns[:] = [d for d in dns if d not in ('node_modules', '.git', 'dist', 'build', 'vendor', '.venv')]
+    if not re.search(r'(^|/)(migrations?|migrate|alembic|versions)(/|$)', os.path.relpath(dp, root)): continue
+    for f in sorted(fns):
+        d = re.search(r'(\d{8})', f)
+        if not d or not re.search(r'\.(sql|ts|js|py|rb|php)$', f): continue
+        t = open(os.path.join(dp, f), encoding='utf-8', errors='replace').read()
+        for m in re.finditer(r'(?i)(?:create\s+(?:unique\s+)?index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?|add\s+constraint\s+)["`]?(\w+)', t):
+            p = pat(m.group(1)); count[p] += 1; first[p] = min(first.get(p, d.group(1)), d.group(1)); last[p] = max(last.get(p, d.group(1)), d.group(1))
+print('object-name patterns by migration date (pattern count first..last): %s' % '; '.join('%s %d %s..%s' % (p, n, first[p], last[p]) for p, n in count.most_common()))
+PY
+else echo 'S2 NOT-RUN (python3 or schema-map.py absent): profile the schema by reading the migrations'; fi
+```
+
+**Measured** (2026-10-15) on a real NestJS + React monorepo (MikroORM 6.6, Postgres 16, 291 tables): S1 found `ai/conventions.md` `## Persistence` (there is no `ai/schema-conventions.md`, so the earlier halt read every such repo as unconfigured) and the stack line in `.claude/codebase-profile.md`; S2 ran in about 2 s and printed snake case only, 737 timestamps all with a zone, 37 names with several base types (`order_id` `uuid` ×50 and `varchar` ×3), 80 names with mixed nullability (`currency` nullable in 7 of 44 tables, the tables whose amounts sit beside it), 4 tables without both audit fields, 0 `COLLATE` clauses, and the index suffixes by date (`*_idx` last used 2027-01-17, `*_index` still in use) — the input to grandfathering below.
 
 ## The 11 detectors
 
@@ -77,6 +130,8 @@ Common drifts:
 ### 3. object-naming-drift (indexes and foreign-key constraints)
 
 **Fingerprint**: index or FK-constraint names follow different patterns across the schema — `idx_orders_status` / `ix_orders_status` / `orders_status_idx` / `orders_idx_status`, and the equivalent spread on constraint names.
+
+**Grandfathering**: a naming rule binds the objects created after the rule was adopted (the conventions file's date, its ADR, or the first migration that follows it). S2 prints each name pattern with the first and last migration date that used it; a pattern whose last use predates the rule is grandfathered (one summary line with its count), and only a pattern still used after the rule is drift.
 
 **Closure verb**: `unify-object-naming`.
 
@@ -138,7 +193,7 @@ Common drifts:
 
 ### 9. charset-drift
 
-**Fingerprint**: tables use different charsets (e.g., MySQL `utf8` vs `utf8mb4` for the same concept).
+**Fingerprint**: tables use different charsets (e.g., MySQL `utf8` vs `utf8mb4` for the same concept). **Postgres has no per-table or per-column charset** — the encoding is the database's — so on Postgres this detector is `N/A (engine)` and the text-comparison drift lives in detector 10 (`COLLATE` clauses, ICU or nondeterministic collations).
 
 **Closure verb**: `unify-charset`.
 
@@ -146,7 +201,7 @@ Common drifts:
 
 ### 10. collation-drift
 
-**Fingerprint**: tables use different collations affecting ordering / comparison.
+**Fingerprint**: tables use different collations affecting ordering / comparison. On Postgres read the column-level `COLLATE` clauses (S2 counts them) and `CREATE COLLATION`; on MySQL, the table and column `COLLATE` options.
 
 **Closure verb**: `unify-collation`.
 
@@ -163,9 +218,10 @@ Common drifts:
 ## Procedure
 
 1. **Pre-flight**:
-   - `PROJECT_KIND` is `data-*` OR `backend-*` with schema scope. Halt otherwise.
-   - `_extracted-idioms.md § Schema conventions` OR `ai/schema-conventions.md` exists. Halt if missing.
-   - DB introspection access OR migration-history readable. Halt if neither.
+   - Run the block in § "Pre-flight (runnable, read-only)".
+   - `PROJECT_KIND` is `data-*` OR `backend-*` with schema scope (the extract, else the codebase profile). Under `/polish`, halt otherwise.
+   - A conventions source exists (S1). Under `/polish`, halt if none; under `/db-audit`, print `blocked (no conventions file)`.
+   - DB introspection access, the schema map, OR migration history readable. Halt if none.
 2. **Introspect schema** — get tables, columns, types, indexes, FKs, constraints. Emit `_schema-snapshot.md`.
 3. **Walk migration history** — emit `_migration-summary.md` listing files + patterns + reversibility.
 4. **Run the 11 detectors**; emit findings. Detector order is not report order — see step 6.
@@ -181,7 +237,7 @@ Common drifts:
      - `loses-precision`: values survive but detail does not — a narrower type, a lower-precision timestamp.
      - `breaks-queries`: comparisons or ordering behave differently across tables — collation drift, nullability that makes a `NOT IN` silently return nothing.
      - `cosmetic`: a reader is inconvenienced. Naming drift is always this.
-6. **Write `ai/polish/_schema-decisions.md`** — findings **ranked by `integrity_class` first** (`corrupts-data` → `loses-precision` → `breaks-queries` → `cosmetic`), then grouped by table, then ordered foundation-first within a table (audit fields before nullability tightening; column rename before type change on the same column). Detector index carries no weight: a charset drift that truncates emoji outranks every naming finding in the report, and a report that lists them at the same level has mis-sorted the reader's afternoon.
+6. **Write the decisions file** — under `/polish`, `ai/polish/_schema-decisions.md`; under `/db-audit` or a standalone read-only run, `$RUN/_schema-decisions.md` (the run folder S2 made; the audit writes nothing in the repo but its report). The file holds findings **ranked by `integrity_class` first** (`corrupts-data` → `loses-precision` → `breaks-queries` → `cosmetic`), then grouped by table, then ordered foundation-first within a table (audit fields before nullability tightening; column rename before type change on the same column). Detector index carries no weight: a charset drift that truncates emoji outranks every naming finding in the report, and a report that lists them at the same level has mis-sorted the reader's afternoon.
 
 ## Hard rules
 
@@ -192,7 +248,7 @@ Common drifts:
 - **Type changes via expand-contract** — add new column, backfill, switch reads, switch writes, drop old. NEVER `ALTER COLUMN TYPE` directly on prod tables with significant data.
 - **One conceptual change per migration** — bundling rename + type change + nullable change in one migration makes rollback ambiguous.
 - **Migration tested in staging** — every closure verb's migration runs in staging before prod; staging dataset must reflect prod scale (≥ 10% sample).
-- **No detector invents conventions** — canonical comes from `_extracted-idioms.md § Schema conventions`.
+- **No detector invents conventions** — canonical comes from the conventions source S1 names (`_extracted-idioms.md § Schema conventions`, `ai/schema-conventions.md`, or the schema section of `ai/conventions.md`).
 
 ## Verify (postconditions)
 
@@ -200,7 +256,7 @@ Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/pos
 
 ## Failure modes
 
-- **Conventions missing** → halt; surface "/setup-project --refine to declare schema conventions first".
+- **Conventions missing** → under `/polish` halt; surface "/setup-project --refine to declare schema conventions first". Under `/db-audit`, the Conventions ledger row prints `blocked (no conventions file)` with S2's profile as context.
 - **Cannot introspect** → halt; user provides DB access OR migration-history dump.
 - **High-risk closure** (type conversion with data-loss potential) → flag, halt that finding, surface ADR template; rest continue.
 - **Engine cannot rename the object in place** → the naming finding is deferred, not converted into a drop + recreate.
@@ -208,7 +264,8 @@ Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/pos
 
 ## References
 
-- `_extracted-idioms.md § Schema conventions`.
+- `_extracted-idioms.md § Schema conventions`, `ai/schema-conventions.md`, `ai/conventions.md` (its schema section).
+- `index-coverage-scan/scripts/schema-map.py` (this pack) — the schema map S2 profiles; `index-coverage-scan` § "Pre-flight (static lane)" H0 says what its lanes and horizons mean.
 - `migration-rehearsal.md` (this pack) — every `expand-contract` or high-risk closure verb's migration goes through rehearsal. In-place renames do not need one.
 - `align-discipline.md` — closed-vocabulary discipline.
 - `polish` command — dispatches this skill on data stacks.

@@ -28,16 +28,20 @@ X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#|<!--|\{/\*)')
 UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
 TB='(?:[^>{<\x60]|\{(?:[^{}]|\{[^{}]*\})*\})*'
-HERO='(?i:hero|banner|cover|masthead|splash|jumbotron|above-?(?:the-)?fold|\blcp\b)'
+TL='(?:[^>]|=>)*?'   # a lookahead body that also enters {…}: `alt={t('catalog.bannerAlt')}`, `className={cn('…')}`
+# the marker counts only inside a class / id / alt / data-* value — never an identifier (`src={heroImageSrc}`) — and
+# Tailwind's object-cover / bg-cover is a fit utility, not a hero
+HERO='\b(?:class|className|id|alt|data-[\w-]+)\s*=\s*(?:"[^"]*?|\x27[^\x27]*?|\{[^}]*?)(?i:hero|banner|(?<!object-)(?<!bg-)cover|masthead|splash|jumbotron|above-?(?:the-)?fold|\blcp\b)'
 IMG='<(?:img|Image|NuxtImg|NuxtPicture|Picture|enhanced:img)\b'
 # 0. Lanes and versions.
 rg -n --no-heading '"(next|nuxt|@nuxt/image|astro|@angular/core|@sveltejs/enhanced-img|vite-imagetools|web-vitals|@lhci/cli|lighthouse)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 # 1. Lazy on an LCP candidate (an image tag carrying a hero marker and loading=lazy; multi-line tag bodies read with -U).
-rg -n -U --no-heading --pcre2 "${IMG}(?=${TB}${HERO})(?=${TB}\\bloading=[\"'{]*lazy)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --no-heading --pcre2 "${IMG}(?=${TL}${HERO})(?=${TL}\\bloading=[\"'{]*lazy)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 2. Hero image with no priority hint (fetchpriority / priority / preload absent from the tag).
-rg -n -U --no-heading --pcre2 "${IMG}(?=${TB}${HERO})(?!${TB}\\b(?:fetch[pP]riority|priority|preload)\\b)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 3. Late-discovered image: a CSS / style-object background url (3a) vs the image preloads that exist (3b).
-rg -n --no-heading --pcre2 'background(?:-image)?\s*:\s*[^;]*\burl\(|backgroundImage\s*:' -g '*.{css,scss,sass,less,vue,svelte,tsx,jsx,astro}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --no-heading --pcre2 "${IMG}(?=${TL}${HERO})(?!${TL}\\b(?:fetch[pP]riority|priority|preload)\\b)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 3. Late-discovered image: a CSS / style-object background url, a Tailwind arbitrary background, or a CSS custom
+#    property carrying a url (`'--brand-bg': \`url(${…})\`` read by `bg-[image:var(--brand-bg)]`) (3a) vs the image preloads that exist (3b).
+rg -n --no-heading --pcre2 'background(?:-image)?\s*:\s*[^;]*\burl\(|backgroundImage\s*:|\bbg-\[(?:url|image:)|["\x27]--[\w-]+["\x27]\s*:\s*\x60?url\(' -g '*.{css,scss,sass,less,vue,svelte,tsx,jsx,astro}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --no-heading --pcre2 '<link\b(?=[^>]*\brel=["\x27]?preload)(?=[^>]*\bas=["\x27]?image)|\brel\s*:\s*["\x27]preload["\x27][^}]*\bas\s*:\s*["\x27]image|ReactDOM\.preload\(|\bpreload\([^)]*as\s*:\s*["\x27]image' "${UI[@]}" -g '**/{nuxt,next,astro}.config.*' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 4. Cross-origin image sources (4a) vs preconnects declared (4b).
 rg -n --no-heading --pcre2 "${IMG}${TB}\\b(?:src|ngSrc)=[\"'{]*(?:https?:)?//" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
@@ -52,7 +56,7 @@ A hit is a **candidate**, never a finding: the hero marker is a naming conventio
 - **An unmarked hero is invisible to greps 1 and 2.** A first-in-page `<img>` with no `hero`/`banner`/`cover` class is the LCP element as often as a marked one. The lab arm finds it; the grep never will.
 - **Grep 3a cannot tell a hero background from a decorative one.** Read the selector, then check 3b for a matching `<link rel="preload" as="image">`.
 
-**Measured** (2026-10-05, read-only). Scratch fixture of 5 positives and 3 decoys: every positive hits; the `fetchpriority="high"` cover, the commented-out image and the SVG icon stay out. Benchmark fixtures: 0 on every fixture except `slow-marketplace` (1: the lazy `hero__image` its DEFECTS file seeds; 4: one preconnect). Real repos: a Nuxt 4 storefront with three themes (grep 2: 2 tags, a banner list whose first item is `:loading="index === 0 ? 'eager' : 'lazy'"` with no `fetchpriority`, and a cross-sell banner; 1: 0), a Vue 3 + Vite admin SPA (3a: 2) and an Angular 19 admin template (3a: 17 background URLs, all decorative on read). The first version of the tag-body pattern ran across a template literal for 20 lines; it now stops at `<` and a backtick.
+**Measured** (2026-10-05, read-only). Scratch fixture of 5 positives and 3 decoys: every positive hits; the `fetchpriority="high"` cover, the commented-out image and the SVG icon stay out. Benchmark fixtures: 0 on every fixture except `slow-marketplace` (1: the lazy `hero__image` its DEFECTS file seeds; 4: one preconnect). Real repos: a Nuxt 4 storefront with three themes (grep 2: 2 tags, a banner list whose first item is `:loading="index === 0 ? 'eager' : 'lazy'"` with no `fetchpriority`, and a cross-sell banner; 1: 0), a Vue 3 + Vite admin SPA (3a: 2) and an Angular 19 admin template (3a: 17 background URLs, all decorative on read). The first version of the tag-body pattern ran across a template literal for 20 lines; it now stops at `<` and a backtick. Re-measured 2026-10-15 on a real NestJS + React monorepo (Vite SPA, Tailwind 4): grep 1 was 9 tags and grep 2 26, 8 and 23 of them only Tailwind `object-cover` on list thumbnails, plus a `heroImageSrc` identifier; with the marker read inside class / id / alt / data-* values and `(?<!object-)(?<!bg-)cover`, grep 1 is 0 and grep 2 is 2 tags — one of them the catalog hero banner whose marker sits inside `alt={… t('portal.catalog.bannerAlt')}`, which the brace-blind lookahead had missed. 3a 0 → 4: a sign-in shell sets `'--brand-bg': \`url(${…})\`` and paints it with `bg-[image:var(--brand-bg)]` — a late-discovered LCP candidate. Fixtures: the `slow-marketplace` seed still hits; one `object-cover` gallery thumbnail in `a11y-states` drops out.
 
 ## The 3,000-hit path
 

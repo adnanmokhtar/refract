@@ -9,6 +9,22 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.0 — 2026-10-15
+
+**`schema-map.py` and ~60 detector fixes from a read-only audit of a real NestJS + React monorepo.**
+
+- **New `index-coverage-scan/scripts/schema-map.py`** (stdlib, read-only git, `--self-test` 23/23). Snapshot lane: reads MikroORM's committed `.snapshot-*.json`, finds its horizon (git and content), replays only later migrations with `${this.x}`/module-list names resolved and loops unrolled. DDL lane: every migration's `up()` with names resolved. `--entities`: entity-vs-schema for schema-diff's new static mode. Wired into index-coverage H0/H, schema-integrity H0/H, query-shape 4e′, schema-diff S2, db-audit C4b and schema-consistency S2. On that repo the DDL-text parsers had reported 86 stale FK rows and a converted column as float; the map gives 291 tables / 124 FKs / 976 indexes and 0 uncovered FKs.
+- `db-audit` C5 recognises project query counters (`countQueries(`, `expectNoNPlusOne(`).
+- index-coverage: `drop constraint`/`drop table` honoured, FK columns compared as sets, `WHERE fk IS NOT NULL` partials cover, `PARTIAL-CANDIDATE`/`UNKNOWN` rows, INCLUDE columns; §4 21→2; 2c needs query context (109→18); new 1c scalar uuid references.
+- schema-integrity IR1–IR10: composite FK coverage, ON DELETE after a composite key, nested expression uniques, PII names with prefixes, exact external-id tags, `upsert(` in grep 3, new 9b hand-rolled soft-delete reads, grep 11 needs a sequence context; §1 prints summaries (546→279).
+- n-plus-one: 0b anchored to ORM decorators; receiver noise dropped in 1a/5a/6a; new 2c await-in-loop over data-layer files; new 3b any-callee `Promise.all(xs.map)`.
+- query-shape: 1b aggregate lookahead before the select list (117→11); new 1g persistence-wrapper calls with no limit; grep 2 sees both OFFSET kernels; 4a SQL context only; 6a `-U`; 6b `EXACT_COUNT`.
+- migration-safety: 3a `-U`; new 5c NOT VALID + VALIDATE in one transaction; 7a aliased/templated UPDATE; 7b′ DO-loop batching; NEW filter ignores ON DELETE/UPDATE; new 6c opt-out files without a session lock_timeout; new 9c squashed-history check per deployed ref.
+- transaction-scan: 8b writes to a per-run `mktemp -d` (the fixed `${TMPDIR}/tx-rmw.txt` side effect is gone); the 40-line window stops at the opener's closing brace; 0b function-typed parameters; 6b split config/code; 9a qualified `"t"."c" + 1`.
+- connection-config: 2e reads YAML comments; 2f DSN-secret clients; budget template rows for exporters and terminating rollout pods; Redis/S3 timeouts filtered.
+- schema-consistency-audit accepts `ai/conventions.md` § Persistence, falls back to `.claude/codebase-profile.md`, has a runnable pre-flight and writes decisions to the run folder under /db-audit.
+- Precedents `data.md` § 41–43 (`~~*` not leakproof under RLS; `SET LOCAL` outside a transaction; NOT VALID + VALIDATE in one transaction).
+
 ## 2.1.2 — 2026-10-14
 
 **`transaction-scan` §2 names the outbox-writer case's owner.** An outbox row written outside the caller's transaction (a second connection, a repository not taken from the transaction's handle) is distributed-systems `dual-write-scan` §1's "outbox misused" when that pack is installed. §2 lists the same `file:line` as corroboration, deduped, and reports it itself without that pack. `governance/ownership.json` row `dual-write` records the split.

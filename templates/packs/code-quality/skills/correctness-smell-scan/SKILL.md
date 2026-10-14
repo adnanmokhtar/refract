@@ -91,7 +91,7 @@ stderr (exit 2, or `match limit exceeded`) is a failed grep, never zero hits.
 # Not production code: vendored, built, tests, specs, mocks, fixtures, stories, migrations, seeds, generated, catalogs, docs, ai/.
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/.next/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/*.min.*' -g '!**/*.d.ts'
    -g '!**/{test,tests,__tests__,spec,specs,e2e,__mocks__,mocks,fixtures,__fixtures__,testdata,stories,migrations,migrate,seeds,generated,__generated__,locales,i18n}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!docs/**' -g '!ai/**')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,fixture,fixtures}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!docs/**' -g '!ai/**')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#(?!\{)|<!--)')   # drops comment-only lines
 M='(?i:price|amount|total|subtotal|cost|balance|fee|tax|vat|discount|refund|payout|charge|credit|debit|wallet|cents?|money|currency)'
 for t in js ts py go java kotlin cs ruby php rust; do printf '%-7s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
@@ -211,8 +211,11 @@ are elapsed durations, beside a daily rollup stepping by 24 h from a UTC midnigh
 fallthrough lines (a lookahead that let `return` through); both shapes are fixed above. Greps 4f,
 4g and 6f were added after `quality-mix` measured its reach: on the seven fixtures each prints its
 seeded line (a chunk loop that drops the tail, `setTimeout(resolve, retryAfter)`, a monthly renewal
-as `timedelta(days=30)`), and nothing else (6f's other match, `30 * DAY_MS` in a spec, is dropped by the exclusion array). Not
-yet run on a real repo. Go, JVM,
+as `timedelta(days=30)`), and nothing else (6f's other match, `30 * DAY_MS` in a spec, is dropped by the exclusion array).
+**Re-measured 2026-10-15** on the same monorepo (history re-rooted, about 11,800 files): 0b 13 (core
+correctness rules, still no type-aware set); 1a 2; 2a 2; 3c 3; 3d 16; 4b 44 (form drafts through
+`parseFloat`, then the project's string-exact `toMinorUnits` — § 92 — or a display); 4d 10; 4e 21 → 10
+once `*.test-data.*` builders left the exclusion gap; 4f 0; 4g 0; 5a 18; 6a 19; 6e 45; 6f 3; 7 0. Go, JVM,
 C#, Ruby, PHP and Rust greps are not measured: no measured repo has that code.
 
 ## The 3,000-hit path
@@ -319,7 +322,12 @@ floats? Where is the rounding mode and the rounding point (per line or per total
 many minor units does each currency have (JPY 0, KWD 3)? What is the widest realistic value (ms
 timestamps, ids above 2^53, files above 2 GiB) against the declared type? What does the parse do with
 `""`, `" 1 "`, `"1e3"`, `"08"`, `"12abc"`, `"١٢"`? Is the page index 0- or 1-based on both sides?
-Can the list be empty? **Finding when** a value from the partitions gives a wrong number, a silent
+Can the list be empty? For a 4b `parseFloat(form value)`: is the float handed **straight** to a
+converter that works on the decimal the number prints as (`String(x)` digits scaled with integers,
+`Decimal(str(x))`, `BigDecimal.valueOf(double)`)? A typed decimal of ≤ 15 significant digits
+round-trips exactly through a double and its shortest print, so that path is § 92, not a finding —
+unless arithmetic touches the float first (`parseFloat(a) * qty`, a sum) or the converter multiplies
+(`Math.round(x * 100)`). **Finding when** a value from the partitions gives a wrong number, a silent
 wrap, an accepted junk string, a dropped or duplicated row, or a crash. **Proof:** the exact-decimal
 table (`1.005`, `0.125`, ties `2.5` and `-2.5` under the stated mode, `allocate(100.00, 3)` sums to
 `100.00`), the per-type boundary table (MAX, MAX+1, MIN, `2^53+1`), the size table (0, 1, k−1, k, k+1)

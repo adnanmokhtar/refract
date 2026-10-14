@@ -85,7 +85,7 @@ SELECT a.indrelid::regclass AS tbl, a.indexrelid::regclass AS redundant, b.index
   FROM pg_index a JOIN pg_index b ON b.indrelid = a.indrelid AND b.indexrelid <> a.indexrelid
   JOIN pg_class ca ON ca.oid = a.indexrelid JOIN pg_class cb ON cb.oid = b.indexrelid
  WHERE ca.relam = cb.relam AND a.indpred IS NULL AND b.indpred IS NULL AND a.indexprs IS NULL AND b.indexprs IS NULL
-   AND NOT a.indisunique AND a.indnkeyatts <= b.indnkeyatts
+   AND NOT a.indisunique AND a.indnatts = a.indnkeyatts AND a.indnkeyatts <= b.indnkeyatts   -- a shorter index with INCLUDE columns is not redundant
    AND (string_to_array(a.indkey::text, ' ')::int2[])[1:a.indnkeyatts] = (string_to_array(b.indkey::text, ' ')::int2[])[1:a.indnkeyatts]
    AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conindid = a.indexrelid);
 -- L4 (§4, §5). Invalid indexes (a failed CREATE INDEX CONCURRENTLY still costs writes), then never-scanned ones.
@@ -112,7 +112,7 @@ Run as **one** script from the repo root (shell state does not survive between t
 ```bash
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/*.min.*' -g '!*.md' -g '!ai/**' -g '!docs/**'
    -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,fixtures,__fixtures__,testdata,seeds,seeders,scripts,generated,__generated__,temp,locales}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,test_*}.*' -g '!**/*.{snap,lock,map,po,json}')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,doc}.*' -g '!**/{*_test,test_*}.*' -g '!**/*.{snap,lock,map,po,json}')
 N=(-g '!**/{migrations,migration,migrate,alembic}/**')   # query greps skip migrations; DDL greps keep them
 C='^(?!\s*(?://|\*|/\*|#|--))[^\n]*?'                     # the hit is not on a comment line
 
@@ -120,13 +120,20 @@ C='^(?!\s*(?://|\*|/\*|#|--))[^\n]*?'                     # the hit is not on a 
 rg -n --pcre2 -i 'image:\s*["\x27]?\S*(postgres|postgis|mysql|mariadb|mongo)\S*:\S+|engine_version\s*=|\b(postgres|mysql)_?version\s*[:=]' -g '*.{yml,yaml,tf,tfvars,env}' -g '!**/node_modules/**' .
 rg -n --pcre2 '"(@mikro-orm/\w+|typeorm|@prisma/client|sequelize|drizzle-orm|knex|mongoose)"\s*:|^\s*(django|sqlalchemy|alembic)\b|gem\s+["\x27](rails|activerecord)["\x27]|"laravel/framework"|hibernate-core|spring-boot-starter-data-jpa|gorm\.io/gorm|Microsoft\.EntityFrameworkCore|provider\s*=\s*"(postgresql|mysql|sqlite|mongodb)"' -g '{package.json,pyproject.toml,requirements*.txt,Gemfile,composer.json,pom.xml,build.gradle*,go.mod,*.csproj,*.prisma}' -g '!**/node_modules/**' .
 
+# H0. The schema map (database pack script index-coverage-scan/scripts/schema-map.py): a MikroORM `.snapshot-*.json` plus a
+#     replay of the migrations written after its horizon, else every migration's up() with `${…}` names resolved and
+#     template loops unrolled. H reads it instead of the files it covers. NOT-RUN = interpolated DDL is invisible to H.
+SM=.claude/skills/index-coverage-scan/scripts/schema-map.py; RUN=$(mktemp -d "${TMPDIR:-/tmp}/db-scan.XXXXXX")
+if command -v python3 >/dev/null 2>&1 && [ -f "$SM" ] && python3 -I -B "$SM" . > "$RUN/schema.sql"; then export SCHEMA_SQL="$RUN/schema.sql"; grep '^-- schema-map [lhr]' "$SCHEMA_SQL"; else unset SCHEMA_SQL; echo 'schema-map NOT-RUN (python3 or schema-map.py absent): H parses the migrations; ${...} names stay invisible'; fi
+
 # H. Schema-and-predicate map. Parses CREATE TABLE / ALTER TABLE / CREATE INDEX / DROP (SQL, and SQL inside addSql(),
 #    queryRunner.query(), knex.raw()), Prisma models and Rails schema.rb, in path order, skipping down()/downgrade
-#    bodies. Then raw-SQL `FROM t WHERE … ORDER BY …` in code. Extra arguments are captured query logs (R2 below).
+#    bodies, then H0's map. Then raw-SQL `FROM t WHERE … ORDER BY …` in code. Extra arguments are captured query logs (R2).
 python3 - . ${QLOG:+"$QLOG"} <<'PY'
 import os, re, sys
 R = sys.argv[1] if len(sys.argv) > 1 else '.'
 SKIP = {'node_modules','vendor','dist','build','target','.git','.venv','coverage','test','tests','__tests__','spec','e2e','__mocks__','mocks','fixtures','__fixtures__','testdata','.next','tmp'}
+SQ = os.environ.get('SCHEMA_SQL') or ''; COV = re.findall(r'(?m)^-- schema-map covers (.+)$', open(SQ, encoding='utf-8').read()) if SQ else []
 I = r'[\\"`\[]*(?:\w+[\\"`\]]*\.[\\"`\[]*)?(\w+)[\\"`\]]*'                      # [schema.]name, quotes stripped
 def split(s):
     out, d, cur = [], 0, ''
@@ -135,81 +142,107 @@ def split(s):
         if ch == ',' and d == 0: out.append(cur); cur = ''
         else: cur += ch
     return out + [cur]
+def bal(s, i):                                                                    # the ')' closing s[i], at any depth
+    d = 0
+    for j in range(i, len(s)):
+        d += (s[j] == '(') - (s[j] == ')')
+        if not d: return j
+    return len(s) - 1
 def cols(s): return [('(' + ' '.join(q.split()) + ')') if '(' in q else re.match(r'[\\"`\[]*(\w*)', q).group(1).lower() for q in (x.strip() for x in split(s)) if q]
-fks, idx, preds = [], {}, []
-def add(n, t, c, k): idx[(n or '').strip('"`[]\\') or '%s(%s)#%d' % (t, ','.join(c), len(idx))] = (t.lower(), c, k)
+fks, idx, preds = {}, {}, []                                                      # fks[name] = (table, cols, parent, at)
+def add(n, t, c, k, w=''): idx[(n or '').strip('"`[]\\').lower() or '%s(%s)#%d' % (t, ','.join(c), len(idx))] = (t.lower(), c, k, w)
+def fk(n, t, c, par, at): fks[(n or '').strip('"`[]\\').lower() or '%s_%s_fkey' % (t.lower(), '_'.join(c))] = (t.lower(), c, par.lower(), at)
 files = sorted(os.path.join(dp, f) for dp, dns, fns in os.walk(R) for f in fns if not dns.__setitem__(slice(None), [d for d in dns if d not in SKIP])
-               and re.search(r'\.(sql|prisma|ts|js|mjs|py|rb|php|java|kt|go|cs|exs)$', f) and not re.search(r'\.(spec|test|e2e-spec|mock|stories)\.', f)) + sys.argv[2:]   # argv[2:]: captured query logs (R2)
+               and re.search(r'\.(sql|prisma|ts|js|mjs|py|rb|php|java|kt|go|cs|exs)$', f) and not re.search(r'\.(spec|test|e2e-spec|mock|stories)\.', f)) + sys.argv[2:] + [SQ][:bool(SQ)]
 for p in files:
-    t = open(p, encoding='utf-8', errors='replace').read().replace('\\"', '"'); rel = p if p in sys.argv[2:] else os.path.relpath(p, R)
-    ln = lambda pos: '%s:%d' % (rel, t.count('\n', 0, pos) + 1)
-    if not re.search(r'(?i)migrat|(^|/)(scripts?|seeds?|seeders?|ai|docs?)/', rel):                    # raw-SQL access paths (§2/§3)
+    t = open(p, encoding='utf-8', errors='replace').read().replace('\\"', '"'); rel = p if p in sys.argv[2:] + [SQ] else os.path.relpath(p, R)
+    def ln(pos):                                                                  # H0's `-- @src file:line` markers name the origin
+        k = t.rfind('-- @src ', 0, pos) if p == SQ else -1
+        if k < 0: return '%s:%d' % (rel, t.count('\n', 0, pos) + 1)
+        e = t.find('\n', k); f, _, l = t[k + 8:e].rpartition(':'); return '%s:%d' % (f, int(l) + t.count('\n', e + 1, pos))
+    if p != SQ and not re.search(r'(?i)migrat|(^|/)(scripts?|seeds?|seeders?|ai|docs?)/', rel):              # raw-SQL access paths (§2/§3)
         for m in re.finditer(r'(?is)\bfrom\s+' + I + r'(?:\s+(?:as\s+)?(?!where\b)["`]?\w+["`]?)?\s+where\s+(.{1,300}?)(?:\border\s+by\s+(?:["`]?\w+["`]?\.)?["`]?(\w+)\b(?!\s*\()|\b(?:limit|offset|returning|group\s+by)\b|;|["\'`]\s*[+),;]|$)', t):
             pc = [c.lower() for c in re.findall(r'(?i)(?:["`]?\w+["`]?\.)?["`]?([a-z_]\w*)["`]?\s*(?:=|<|>|!=|\bin\b|\bis\b|\bi?like\b|\bbetween\b)', m.group(2))]
-            if pc and not re.match(r'\s*(\*|//|#|--)', t[t.rfind('\n', 0, m.start()) + 1:m.start()]): preds.append((m.group(1).lower(), pc, (m.group(3) or '').lower(), ln(m.start())))
+            ob = '' if re.search(r'(?i)\bunion\b', t[max(0, m.start() - 600):m.start()]) else (m.group(3) or '').lower()   # a later UNION branch: the ORDER BY is the outer one
+            if (pc or '${' in m.group(2)) and not re.match(r'\s*(\*|//|#|--)', t[t.rfind('\n', 0, m.start()) + 1:m.start()]): preds.append((m.group(1).lower(), pc, ob, ln(m.start()), '${' in m.group(2)))
+    if any(rel == c or c.endswith('/') and rel.startswith(c) for c in COV): continue        # H0's map already holds this file's DDL
     if p.endswith('.prisma'):
         for mm in re.finditer(r'(?ms)^model\s+(\w+)\s*\{(.*?)^\}', t):
             b = mm.group(2); tb = (re.search(r'@@map\("(\w+)"\)', b) or mm).group(1)
             for f in re.finditer(r'(?m)^\s*(\w+)\s+\w+[?\[\]]*\s+[^\n]*?@(id|unique)\b', b): add(None, tb, [f.group(1).lower()], 'unique')
-            for f in re.finditer(r'(?m)^\s*\w+\s+(\w+)\??\s+@relation\([^)]*fields:\s*\[([^\]]*)\]', b): fks.append((tb.lower(), cols(f.group(2)), f.group(1), ln(mm.start(2) + f.start())))
+            for f in re.finditer(r'(?m)^\s*\w+\s+(\w+)\??\s+@relation\([^)]*fields:\s*\[([^\]]*)\]', b): fk(None, tb, cols(f.group(2)), f.group(1), ln(mm.start(2) + f.start()))
             for f in re.finditer(r'@@(index|unique|id)\(\s*(?:fields:\s*)?\[([^\]]*)\]', b): add(None, tb, cols(f.group(2)), 'index' if f.group(1) == 'index' else 'unique')
         continue
-    if not re.search(r'(?i)\b(create\s+(unique\s+)?index|foreign\s+key|references|create\s+table|primary\s+key|add_index|t\.index)\b', t): continue
+    if not re.search(r'(?i)\b(create\s+(unique\s+)?index|foreign\s+key|references|create\s+table|primary\s+key|add_index|t\.index|drop\s+(table|index|constraint))\b', t): continue
     dn = re.search(r'(?m)^\s*(?:public\s+|override\s+)*(?:async\s+)?(?:def\s+|function\s+)?(?:down|downgrade)\s*(?:[(:]|$)|\bexports\.down\b|^--\s*\+(?:goose|migrate)\s+Down', t); t = t[:dn.start()] if dn else t   # skip down()/downgrade
     for m in re.finditer(r'(?is)create\s+(?:unlogged\s+)?table\s+(?:if\s+not\s+exists\s+)?' + I + r'\s*\(', t):     # CREATE TABLE body
-        d, i = 1, m.end()
-        while i < len(t) and d: d += {'(': 1, ')': -1}.get(t[i], 0); i += 1
-        for q in (x.strip() for x in split(t[m.end():i - 1])):
+        for q in (x.strip() for x in split(t[m.end():bal(t, m.end() - 1)])):
             k = re.match(r'(?is)(?:constraint\s+\S+\s+)?(primary\s+key|unique|(?:unique\s+)?(?:key|index)\s+\S+)\s*\(([^)]*)\)', q)
             if k: add(None, m.group(1), cols(k.group(2)), 'index' if re.match(r'(?i)(key|index)', k.group(1)) else 'unique'); continue
-            k = re.match(r'(?is)(?:constraint\s+\S+\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I, q) or \
-                re.match(r'(?is)[\\"`\[]*(\w+)[\\"`\]]*\s+\w[^,]*?\breferences\s+' + I, q)
-            if k: fks.append((m.group(1).lower(), cols(k.group(1)), k.group(2).lower(), ln(m.end() + t[m.end():].find(q)))); continue
+            k = re.match(r'(?is)(?:constraint\s+(\S+)\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I, q)
+            if k: fk(k.group(1), m.group(1), cols(k.group(2)), k.group(3), ln(m.end() + t[m.end():].find(q))); continue
+            k = re.match(r'(?is)[\\"`\[]*(\w+)[\\"`\]]*\s+\w[^,]*?\breferences\s+' + I, q)
+            if k: fk(None, m.group(1), [k.group(1).lower()], k.group(2), ln(m.end() + t[m.end():].find(q))); continue
             k = re.match(r'(?is)[\\"`\[]*(\w+)[\\"`\]]*\s+\w[^,]*?\b(primary\s+key|unique)\b', q)
             if k and k.group(1).lower() not in ('constraint', 'check'): add(None, m.group(1), [k.group(1).lower()], 'unique')
     A = r'(?is)alter\s+table\s+(?:only\s+)?(?:if\s+exists\s+)?' + I
-    for m in re.finditer(A + r'\s+add\s+(?:constraint\s+\S+\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I, t): fks.append((m.group(1).lower(), cols(m.group(2)), m.group(3).lower(), ln(m.start())))
-    for m in re.finditer(A + r'\s+add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?[\\"`]*(\w+)[\\"`]*\s+\w[\w ()]*?\breferences\s+' + I, t): fks.append((m.group(1).lower(), [m.group(2).lower()], m.group(3).lower(), ln(m.start())))
+    for m in re.finditer(A + r'\s+add\s+(?:constraint\s+(\S+)\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I, t): fk(m.group(2), m.group(1), cols(m.group(3)), m.group(4), ln(m.start()))
+    for m in re.finditer(A + r'\s+add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?[\\"`]*(\w+)[\\"`]*\s+\w[\w ()]*?\breferences\s+' + I, t): fk(None, m.group(1), [m.group(2).lower()], m.group(3), ln(m.start()))
     for m in re.finditer(A + r'\s+add\s+(?:constraint\s+(\S+)\s+)?(?:primary\s+key|unique)\s*\(([^)]*)\)', t): add(m.group(2), m.group(1), cols(m.group(3)), 'unique')
-    for m in re.finditer(r'(?is)create\s+(unique\s+)?index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?(?:' + I + r'\s+)?on\s+(?:only\s+)?' + I + r'\s*(?:using\s+(\w+)\s*)?\(((?:[^()]|\([^()]*\))*)\)([^;`\'"]{0,200})', t):
-        add(m.group(2), m.group(3), cols(m.group(5)), ('unique' if m.group(1) else 'index') + ('/' + m.group(4).lower() if m.group(4) and m.group(4).lower() != 'btree' else '') + ('/partial' if re.search(r'(?i)\bwhere\b', m.group(6)) else ''))
+    for m in re.finditer(r'(?is)create\s+(unique\s+)?index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?(?:' + I + r'\s+)?on\s+(?:only\s+)?' + I + r'\s*(?:using\s+(\w+)\s*)?\(', t):
+        e = bal(t, m.end() - 1); tail = re.split(r'[;`]', t[e + 1:e + 300])[0]; wh = re.search(r'(?is)\bwhere\b\s*(.*)', tail)
+        add(m.group(2), m.group(3), cols(t[m.end():e]), ('unique' if m.group(1) else 'index') + ('/' + m.group(4).lower() if m.group(4) and m.group(4).lower() != 'btree' else '') + ('/partial' if wh else '') + ('/include' if re.match(r'(?is)\s*include\s*\(', tail) else ''), ' '.join(wh.group(1).split()) if wh else '')
     for m in re.finditer(r'(?s)create_table "(\w+)".*?\n  end\b', t):                                  # Rails db/schema.rb (Prisma and SQL DDL above)
         add(None, m.group(1), ['id'], 'unique')
         for f in re.finditer(r't\.index \[([^\]]*)\](.*)', m.group(0)): add(f.group(2) and (re.search(r'name: "(\w+)"', f.group(2)) or [None, None])[1], m.group(1), re.findall(r'"(\w+)"', f.group(1)), 'unique' if 'unique: true' in f.group(2) else 'index')
-    for m in re.finditer(r'add_foreign_key "(\w+)", "(\w+)"(?:, column: "(\w+)")?', t): fks.append((m.group(1), [m.group(3) or re.sub(r'ies$', 'y', m.group(2)).rstrip('s') + '_id'], m.group(2), ln(m.start())))
-    for m in re.finditer(r'(?is)(?:' + A[5:] + r'\s+drop\s+constraint|drop\s+index)\s+(?:concurrently\s+)?(?:if\s+exists\s+)?' + I, t): idx.pop(m.group(m.lastindex), None)
+    for m in re.finditer(r'add_foreign_key "(\w+)", "(\w+)"(?:, column: "(\w+)")?', t): fk(None, m.group(1), [m.group(3) or re.sub(r'ies$', 'y', m.group(2)).rstrip('s') + '_id'], m.group(2), ln(m.start()))
+    for m in re.finditer(r'(?is)\bdrop\s+(?:constraint|index)\s+(?:concurrently\s+)?(?:if\s+exists\s+)?' + I, t): idx.pop(m.group(1).lower(), None); fks.pop(m.group(1).lower(), None)
+    for m in re.finditer(r'(?is)\bdrop\s+table\s+(?:if\s+exists\s+)?' + I, t):
+        for d in (idx, fks): [d.pop(n) for n in [n for n, v in d.items() if v[0] == m.group(1).lower()]]
 lead = {}
-for n, (tb, c, k) in idx.items(): lead.setdefault(tb, []).append((n, c, k))
+for n, (tb, c, k, w) in idx.items(): lead.setdefault(tb, []).append((n, c, k, w))
 HOT = r'^(updated_at|last_\w+|\w+_count|\w+_seen_at|heartbeat\w*|accessed_at|locked_\w+|attempts?)$'
-print('§1 FK with no index/key leading with its columns (Postgres/SQLite; InnoDB creates one):')
-for tb, c, par, at in fks:
-    if not any(ic[:len(c)] == c and 'partial' not in k for _, ic, k in lead.get(tb, [])):
-        sec = [n for n, ic, k in lead.get(tb, []) if ic[1:1 + len(c)] == c]
-        print('  %s.%s -> %s  %s%s' % (tb, ','.join(c), par, at, '  [2nd column of %s]' % sec[0] if sec else ''))
-print('§2/§3 raw-SQL filter (| sort) with no index leading with a filter column, or the sort not inside one:')
-for tb, pc, ob, at in preds:
-    hit = [(n, c) for n, c, k in lead.get(tb, []) if c[0] in pc and 'partial' not in k]
-    if tb in lead and not hit: print('  NO-INDEX %s: %s | %s  %s' % (tb, ','.join(pc), ob or '-', at))
+TEN = r'^(tenant|org|organi[sz]ation|account|workspace|company|team)_id$'
+print('§1 FK with no index/key leading with its columns, compared as a set (Postgres/SQLite; InnoDB creates one):'); led = 0
+for n, (tb, c, par, at) in sorted(fks.items(), key=lambda x: x[1][3]):
+    L = [(ic, k) for _, ic, k, w in lead.get(tb, []) if 'partial' not in k or all(re.fullmatch(r'(\w+) is not null', x) and x.split()[0] in c for x in ' '.join(re.sub(r'[()"]', ' ', w.lower()).split()).split(' and '))]   # `WHERE fk IS NOT NULL` serves the check
+    if any(set(ic[:len(c)]) == set(c) for ic, k in L): continue
+    if len(c) > 1 and any(ic[0] in c and not re.match(TEN, ic[0]) for ic, k in L): led += 1; continue        # (tenant_id, x) served by an index led by x
+    sec = [n2 for n2, ic, k, w in lead.get(tb, []) if ic[1:1 + len(c)] == c]
+    print('  %s.%s -> %s  %s%s' % (tb, ','.join(c), par, at, '  [2nd column of %s]' % sec[0] if sec else ''))
+if led: print('  (%d composite FKs served by an index led by their non-tenant column: not listed)' % led)
+print('§2/§3 raw-SQL filter (| sort) with no index leading with a filter column, or the sort not inside one:'); blind = []
+for tb, pc, ob, at, var in preds:
+    hit = [(n, c) for n, c, k, w in lead.get(tb, []) if c[0] in pc and 'partial' not in k]
+    part = [('%s(%s)' % (n, ','.join(c)), w) for n, c, k, w in lead.get(tb, []) if 'partial' in k and (c[0] in pc or any(re.search(r'\b%s\b' % x, w) for x in pc))]
+    if tb in lead and not hit and not pc: blind.append(at)
+    elif tb in lead and not hit and var: print('  UNKNOWN  %s: %s + ${…} | %s  %s (the WHERE is partly interpolated: read its builder)' % (tb, ','.join(pc), ob or '-', at))
+    elif tb in lead and not hit and part: print('  PARTIAL-CANDIDATE %s: %s | %s  %s (%s where %s: serves it only if the query implies that predicate)' % (tb, ','.join(pc), ob or '-', at, part[0][0], part[0][1][:80]))
+    elif tb in lead and not hit: print('  NO-INDEX %s: %s | %s  %s' % (tb, ','.join(pc), ob or '-', at))
     elif hit and ob and ob not in pc and not any(ob in c for _, c in hit): print('  SORT     %s: %s | %s  %s (best %s)' % (tb, ','.join(pc), ob, at, hit[0][0]))
+if blind: print('  UNKNOWN  %d statement(s) whose whole WHERE is interpolated (`${where}`): read each builder — %s' % (len(blind), ' '.join(blind[:4]) + (' …' if len(blind) > 4 else '')))
 print('§3 composite led by a time/range-looking column · §4 left-prefix duplicate · §7 hot-update column indexed:')
 for tb, L in sorted(lead.items()):
-    for n, c, k in L:
+    for n, c, k, w in L:
         if len(c) > 1 and re.search(r'(_at|_on|date|time|ts)$', c[0]): print('  §3 %s: %s(%s)' % (tb, n, ','.join(c)))
-        for n2, c2, k2 in L:
+        for n2, c2, k2, w2 in L:
             if n != n2 and k == 'index' and '/' not in k2 and c2[:len(c)] == c and (len(c2) > len(c) or n < n2): print('  §4 %s: %s(%s) inside %s(%s) [%s]' % (tb, n, ','.join(c), n2, ','.join(c2), k2))
         if any(re.match(HOT, x) for x in c): print('  §7 %s: %s(%s)  [%d indexes on table]' % (tb, n, ','.join(c), len(L)))
-print('parsed: %d FKs, %d live indexes/keys in %d tables' % (len(fks), len(idx), len(lead)))
+print('parsed: %d FKs, %d live indexes/keys in %d tables%s' % (len(fks), len(idx), len(lead), ' (H0 map: %s)' % SQ if SQ else ''))
 PY
 
 # 1. ORM relation declarations (entity-first repos have no SQL for H to read) and the switches that turn an index off.
 rg -n --pcre2 '@(ManyToOne|OneToOne|JoinColumn)\(|\bmodels\.(ForeignKey|OneToOneField)\(|^\s*(belongs_to|t\.references|add_reference)\b|\bforeignId(For)?\(|->foreign\(|\.references\(\s*(\(\)\s*=>|["\x27])|\bHasForeignKey\(|\bgorm:"[^"]*foreignKey|\bbelongsTo\(\s*\w+' "${X[@]}" .
 rg -n --pcre2 'ForeignKey\([^)]*db_index\s*=\s*False|\b(add_reference|t\.references)\b[^\n]*index:\s*false|relationMode\s*=\s*"prisma"' "${X[@]}" .
+#    1c. References kept as scalar uuid properties (`@Property({ type: 'uuid' }) orderId`): one count line, then the top files.
+rg -c -U --pcre2 '@Property\(\s*\{[^}]*\btype:\s*["\x27]uuid["\x27][^}]*\}\s*\)\s*(?:readonly\s+)?(?!tenantId\b)\w+Id[!?]?\s*:' "${X[@]}" . | sort -t: -k2 -nr | awk -F: '{s+=$2; if (NR<=5) top=top" "$0} END {print s+0" scalar uuid *Id properties in "NR" files (relation candidates on entity-first repos):"top}'
 
 # 2. Access paths in ORM code. 2a: sorted queries (the filter + sort pair is the composite question; read each
-#    query's filter). 2b: Spring Data derived finders spell their columns. 2c: worker polls and claims run every tick.
+#    query's filter). 2b: Spring Data derived finders spell their columns. 2c: worker polls and claims run every tick
+#    (a status literal only inside a query call or a `where: {` object, SQL `WHERE status =`, or SKIP LOCKED).
 rg -n --pcre2 "$C"'(?:\border(?:By)?\s*:\s*[\[{]|\.(?:orderBy|addOrderBy|order_by|OrderBy|Order)\(\s*[\[{"\x27`:]|\bORDER\s+BY\b)' "${N[@]}" "${X[@]}" .
 rg -n --pcre2 '\b(find|read|get|query|search|stream|count|exists|delete)(First|Top)?\d*(Distinct)?(All)?By[A-Z]\w*\s*\(' -t java -t kotlin "${X[@]}" .
-rg -n --pcre2 "$C"'(?:\b(?i:status|state)\b["\x27`]?\s*(?:=|:|=>|==)\s*["\x27](?i:pending|queued|new|ready|scheduled|retrying|waiting)["\x27]|\b(?i:where)\b[^\n]{0,80}\b(?i:status|state)\b["`]?\s*(?:=|in\b)[^\n]{0,40}\b(?i:pending|queued|ready|scheduled)\b|(?i:for\s+update\s+skip\s+locked))' "${N[@]}" "${X[@]}" .
+rg -n -U --pcre2 "$C"'(?:\b(?:(?:find\w*|count\w*|native(?:Update|Delete)|(?:update|delete)Many|where|andWhere|orWhere|exists\w*)\s*\(|where\s*:\s*\{)(?:[^;()]|\([^;()]*\)){0,240}?\K\b(?i:status|state)\b["\x27`]?\s*(?::|=>)\s*["\x27](?i:pending|queued|new|ready|scheduled|retrying|waiting)["\x27]|\b(?i:where)\b[^\n]{0,80}\b(?i:status|state)\b["`]?\s*(?:=|in\b)[^\n]{0,40}\b(?i:pending|queued|ready|scheduled)\b|(?i:for\s+update\s+skip\s+locked))' "${N[@]}" "${X[@]}" -g '!**/*.{yml,yaml}' .
 
 # 4. ORM-declared indexes, for the lanes H does not parse (decorators, Meta.indexes, fluent builders, tags).
 rg -n --pcre2 '@Index\(|@Unique\(|\bmodels\.(Index|UniqueConstraint)\(|\bindex_together\b|^\s*(add_index|t\.index)\b|->(index|unique)\(|@Table\([^)]*indexes\s*=|\bHasIndex\(|\bgorm:"[^"]*index|\b(uniqueIndex|index)\(\s*["\x27]\w+["\x27]\s*\)\.on\(' "${X[@]}" .
@@ -223,13 +256,15 @@ rg -n --pcre2 '\bdeleted_?[aA]t\b["`]?\s*(?:(?i:IS\s+NULL)|:\s*null|===?\s*null)
 rg -n --pcre2 -i '\)\s*partition\s+by\s+(range|list|hash)\s*\(|\bpartition\s+of\s+["\x60]?[\w.]+["\x60]?\s+(for\s+values|default)\b|\bpg_partman\b|\bcreate_parent\s*\(' "${X[@]}" .
 ```
 
-**Entity-first repos** (no SQL migrations, so H prints 0 tables): write the DDL dump from the lane table's last column to `schema-dump.sql` at the repo root, re-run H, then delete the file.
+**H0 decides what H reads.** `lane=mikro-orm-snapshot` prints both horizons (`git`: the files added after the snapshot's last commit; `content`: the last migration creating an object the snapshot holds) and replays the files after the earlier one; every object keeps a `-- @src` origin, so H's rows cite the snapshot line or the replayed migration line. `lane=ddl` is a reconstruction (on the measured repo it recovered 52 of the 124 FKs the snapshot holds, because helper functions still build some DDL): its §1 rows are candidates to read. A non-zero `not understood` or `unresolved ${...}` count names files to read by hand. **Entity-first repos** (no SQL migrations, so H prints 0 tables): write the DDL dump from the lane table's last column to a file in `$RUN` (never in the repo), point `SCHEMA_SQL` at it and re-run H; grep 1c counts the scalar `uuid` references such repos use.
 
 **§7 follow-up.** For each `§7` row H prints, list the column's writers. Use `rg -n -w '<column>|<camelCaseColumn>' "${N[@]}" "${X[@]}" .` and read which update paths set it and how often.
 
 **R2 — the SQL the ORM really emits** settles more §2 candidates than any amount of reading. Turn on the ORM's query logger from the `n-plus-one-scan` lane table, run the e2e or integration suite, save the log, and re-run H with `QLOG=<log>`. H then reads every logged `FROM … WHERE … ORDER BY` against the index map.
 
-**Measured** (2026-10-02) on a real NestJS-on-Fastify + MikroORM + Postgres monorepo (~13,100 tracked files, 294 TS migrations), H ran in 1.5 s. It parsed 72 FKs and 711 live indexes in 245 tables. The output: §1 61 FK columns with no leading index, 42 of them second in a `(tenant_id, fk, …)` composite; §2 5 raw-SQL paths; §3 2; §4 18 left-prefix duplicates; §7 6. Two parser fixes came from that run. Skipping `down()` bodies raised the live-index count from 646 to 711 and removed false §1 rows. Dropping comment lines removed V1-reference SQL quoted in doc comments. Grep 6 went from 148 to 95 lines once `new Date(` and comment lines were excluded, 2a from 518 to 464, and grep 8 from 2 (prose saying "partition of") to 0 once it matched only DDL. 2c printed 79 and 4 printed 415 entity-declared indexes. On the fixtures, H's §2 rows on `node-api` are the three paths `NAPI-PERF-04` names (`orders.customer_id` + sort, the `tenant_id` sort, `order_items.order_id`). `half-built-crm` gives 3 unindexed FKs (SQLite) and `vuln-fullstack` 4 Prisma `@relation` fields with no `@@index`.
+**Measured** (2026-10-15) on a real NestJS + React monorepo (MikroORM 6.6, Postgres 16, 376 TS migrations, 125 of them building DDL with `${…}`). Before H0, H parsed 105 FKs and 813 indexes from the migration text and printed §1 86 rows (all stale: FKs later rewritten as tenant composites, dropped by name), §2 10 (4 false: a partial index that serves, an index created through `${this.x}`, an interpolated `${where}`), §4 21 (19 stale: one migration drops them in a loop over a module-level list). With H0 (snapshot horizon `content` = 5 files before HEAD, `git` = 2; 5 replayed, 14 statements, 0 not understood) H reads 124 FKs and 976 indexes in 291 tables in 3.7 s: §1 **0** rows (29 composite FKs served by an index led by their non-tenant column, plus partial `WHERE fk IS NOT NULL` indexes, which serve the check), §2 9 rows + 1 UNKNOWN line (16 statements whose whole WHERE is `${where}`), §4 2. Grep 2c went from 109 lines (type declarations, writes, YAML alert rules) to 18, every one a poll or claim filter; grep 1c counts 397 scalar `uuid` references in 127 files. On the fixtures every seeded row stays (`slow-marketplace` SM-IDX-01/02; `node-api`'s three NAPI-PERF-04 paths; `half-built-crm` 3 FKs; `vuln-fullstack` 4 `@relation` fields), and `slow-marketplace`'s two outbox/webhook polls now print `PARTIAL-CANDIDATE` (their partial index serves them) instead of `NO-INDEX`.
+
+Earlier measurement (2026-10-02) on the same repo, 294 TS migrations, H ran in 1.5 s. It parsed 72 FKs and 711 live indexes in 245 tables. The output: §1 61 FK columns with no leading index, 42 of them second in a `(tenant_id, fk, …)` composite; §2 5 raw-SQL paths; §3 2; §4 18 left-prefix duplicates; §7 6. Two parser fixes came from that run. Skipping `down()` bodies raised the live-index count from 646 to 711 and removed false §1 rows. Dropping comment lines removed V1-reference SQL quoted in doc comments. Grep 6 went from 148 to 95 lines once `new Date(` and comment lines were excluded, 2a from 518 to 464, and grep 8 from 2 (prose saying "partition of") to 0 once it matched only DDL. 2c printed 79 and 4 printed 415 entity-declared indexes. On the fixtures, H's §2 rows on `node-api` are the three paths `NAPI-PERF-04` names (`orders.customer_id` + sort, the `tenant_id` sort, `order_items.order_id`). `half-built-crm` gives 3 unindexed FKs (SQLite) and `vuln-fullstack` 4 Prisma `@relation` fields with no `@@index`.
 
 ## From candidate to finding
 
@@ -266,7 +301,7 @@ BAD:   ALTER TABLE order_items ADD CONSTRAINT … FOREIGN KEY (order_id) REFEREN
        CREATE INDEX order_items_tenant_order_idx ON order_items (tenant_id, order_id);   -- order_id is second: the RI check cannot seek
 GOOD:  CREATE INDEX CONCURRENTLY order_items_order_id_idx ON order_items (order_id);    -- or lead the composite with order_id
 ```
-Candidates: H's §1 rows on Postgres or SQLite; on entity-first repos, grep 1 checked against grep 4 and the lane table. A row is a finding when the child grows **and** a production path deletes the parent or updates its key (each such statement makes the FK trigger look up the child rows by that column), or the column is a join or filter key on a hot path. `[2nd column of …]` rows are the multi-tenant shape. On PG ≥ 18 with few tenants, skip scan may already serve the check: prove it with a plan, do not assume either way. Never a BLOCKER; the fix is a worth-it verdict, then `/add-migration`. **Proof — plan shape:** `EXPLAIN SELECT 1 FROM <child> WHERE <fk> = <sampled id>` shows a Seq Scan before and an Index (Only) Scan after. On a confirmed non-production copy, `BEGIN; EXPLAIN (ANALYZE) DELETE FROM <parent> WHERE id = <id>; ROLLBACK;` prints the FK trigger's own time (the PG "Using EXPLAIN" docs: each trigger's total time is shown separately; a deferred constraint trigger is not measured), which drops after the fix. Precedents: `precedents/performance.md` § 8, § 9.
+Candidates: H's §1 rows on Postgres or SQLite; on entity-first repos, grep 1 checked against grep 4 and the lane table. H compares the FK's columns with an index's leading columns **as a set**, accepts a partial index whose only predicate is `<fk column> IS NOT NULL` (the check's `=` implies it), and counts a composite `(tenant_id, x)` served by an index led by `x` instead of listing it. A row is a finding when the child grows **and** a production path deletes the parent or updates its key (each such statement makes the FK trigger look up the child rows by that column), or the column is a join or filter key on a hot path. `[2nd column of …]` rows are the multi-tenant shape. On PG ≥ 18 with few tenants, skip scan may already serve the check: prove it with a plan, do not assume either way. Never a BLOCKER; the fix is a worth-it verdict, then `/add-migration`. **Proof — plan shape:** `EXPLAIN SELECT 1 FROM <child> WHERE <fk> = <sampled id>` shows a Seq Scan before and an Index (Only) Scan after. On a confirmed non-production copy, `BEGIN; EXPLAIN (ANALYZE) DELETE FROM <parent> WHERE id = <id>; ROLLBACK;` prints the FK trigger's own time (the PG "Using EXPLAIN" docs: each trigger's total time is shown separately; a deferred constraint trigger is not measured), which drops after the fix. Precedents: `precedents/performance.md` § 8, § 9.
 
 ### 2. Filter or join path with no matching index
 
@@ -276,7 +311,7 @@ BAD:   SELECT * FROM orders WHERE customer_id = $1 ORDER BY created_at DESC   --
 GOOD:  CREATE INDEX … ON orders (customer_id, created_at DESC);
        CREATE INDEX … ON payouts (created_at) WHERE status = 'pending';            -- partial: the poll reads one slice
 ```
-Candidates: H's `NO-INDEX` rows (raw SQL and logged queries), grep 2a–2c, and Spring Data finders (`findByCustomerIdAndStatusOrderByCreatedAtDesc` spells `customer_id`, `status`, `created_at`). It is a finding when the table grows with users, orders, events or tenants, the predicate is selective, and the path is hot. Include the filters a base repository adds: a `tenant_id` the global filter prepends changes which composite serves the query. **Proof — plan shape** on production-shaped data (seed with `generate_series` to the row estimate, then `ANALYZE`). Before: `Seq Scan` with `Rows Removed by Filter` ≫ rows returned. After: `Index Scan using <new index>`. The test shape per stack is `proof-oracles.md` § "Plan shape"; the fix must survive V2's variants there (every filter combination and sort, first and deep page, case-insensitive match, parameter type, generic plan). `hypopg` makes the before and after a pure plan test without a build. Its plans are estimates, and `EXPLAIN ANALYZE` ignores hypothetical indexes. Precedents: `precedents/performance.md` § 4, § 7, § 12.
+Candidates: H's `NO-INDEX` rows (raw SQL and logged queries), its `PARTIAL-CANDIDATE` rows (only a partial index leads with the column: it serves the query when the query's predicate implies the index's `WHERE` — read both), its `UNKNOWN` rows (a WHERE built from `${…}`: read the builder, which often carries `tenant_id`), grep 2a–2c, and Spring Data finders (`findByCustomerIdAndStatusOrderByCreatedAtDesc` spells `customer_id`, `status`, `created_at`). It is a finding when the table grows with users, orders, events or tenants, the predicate is selective, and the path is hot. Include the filters a base repository adds: a `tenant_id` the global filter prepends changes which composite serves the query. **Proof — plan shape** on production-shaped data (seed with `generate_series` to the row estimate, then `ANALYZE`). Before: `Seq Scan` with `Rows Removed by Filter` ≫ rows returned. After: `Index Scan using <new index>`. The test shape per stack is `proof-oracles.md` § "Plan shape"; the fix must survive V2's variants there (every filter combination and sort, first and deep page, case-insensitive match, parameter type, generic plan). `hypopg` makes the before and after a pure plan test without a build. Its plans are estimates, and `EXPLAIN ANALYZE` ignores hypothetical indexes. Precedents: `precedents/performance.md` § 4, § 7, § 12.
 
 ### 3. Composite in the wrong order; sort not served
 
@@ -365,7 +400,8 @@ Class coverage:
 ## False positives / gotchas
 
 - **The index exists under another name**, or in a later migration, or in an ORM declaration H does not parse. Grep 4 and the live catalog decide. H is a map, not a verdict.
-- **H reads statements per file, `create` before `drop`.** A file that drops and recreates the same index name can show a false gap: read it.
+- **H reads statements per file, `create` before `drop`.** A file that drops and recreates the same index name can show a false gap: read it. H0's snapshot lane has no such order problem for the files before its horizon.
+- **A rewritten FK.** `drop constraint <name>` removes the FK and index of that name, and an inline `references` FK carries Postgres's default name (`<table>_<cols>_fkey`). An FK added under another default (an ORM's `_foreign`) and dropped by that name is matched only when the DDL spells the name: H0's snapshot lane settles it.
 - **Generated queries add predicates.** A global filter (tenant, soft delete) changes the leading column a query needs. Read the base repository before judging a composite.
 - **Small and bounded tables** (countries, statuses, settings) are right to scan (`precedents/performance.md` § 7). Growth class first.
 - **InnoDB, Django, Rails `t.references` and EF Core already index FKs** (`precedents/performance.md` § 9). PG 18 skip scan changes §1 and §3 verdicts (§ 11 there).

@@ -101,7 +101,7 @@ handler, call or chain **starts**: read down from it.
 # Not production code: vendored, built, tests, specs, mocks, fixtures, stories, migrations, seeds, generated, catalogs, docs, ai/.
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/.next/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/*.min.*'
    -g '!**/{test,tests,__tests__,spec,specs,e2e,__mocks__,mocks,fixtures,__fixtures__,testdata,stories,migrations,migrate,seeds,generated,__generated__,locales,i18n}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!docs/**' -g '!ai/**')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,fixture,fixtures}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!docs/**' -g '!ai/**')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#(?!\{)|<!--)')   # drops comment-only lines
 Z='(?:\[\]|null|undefined|nil|None|false|False|0|\{\s*\}|""|\x27\x27)'  # a neutral "success" value
 for t in js ts py go java kotlin cs ruby php rust; do printf '%-7s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
@@ -133,10 +133,14 @@ rg -n -U --pcre2 '(?:\bfunction\s*\w*\s*)?\(\s*(err|error)\s*(?::\s*[\w.|<> ]+)?
 # 4. An async failure nobody observes: 4a async callbacks handed to APIs that drop the promise, dangling tasks, async void;
 #    4b `.map(async` not collected by Promise.all / await / return; 4c a `.then(` chain started as a statement with no `.catch(`;
 #    4d a promise discarded with `void` inside a function (`void` also silences no-floating-promises: its ignoreVoid default).
-rg -n --pcre2 '\.(?:forEach|forEachRight)\(\s*async\b|\bnew\s+Promise\(\s*async\b|\.(?:on|once|addListener|addEventListener)\(\s*["\x27][\w:.-]+["\x27]\s*,\s*async\b|\b(?:setTimeout|setInterval|setImmediate|queueMicrotask)\(\s*async\b|^\s*asyncio\.(?:create_task|ensure_future)\(|^\s*(?:self\.)?\w*loop\.create_task\(|\basync\s+void\s+\w+\s*\((?![^)]*EventArgs)|\bGlobalScope\.(?:launch|async)\b' "${X[@]}" . | "${NC[@]}"
+rg -n --pcre2 '\.(?:forEach|forEachRight)\(\s*async\b|\bnew\s+Promise\(\s*async\b|\b(?:setTimeout|setInterval|setImmediate|queueMicrotask)\(\s*async\b|^\s*asyncio\.(?:create_task|ensure_future)\(|^\s*(?:self\.)?\w*loop\.create_task\(|\basync\s+void\s+\w+\s*\((?![^)]*EventArgs)|\bGlobalScope\.(?:launch|async)\b' "${X[@]}" . | "${NC[@]}"
+#    4a′ an async listener registered as a STATEMENT. A `.once('key', async () => …)` that an arrow returns (`=> ctx.once(…)`) is a memoiser whose promise the caller awaits — not a listener (§ 88).
+rg -n -U --pcre2 '(?<!=>\n)^[ \t]*(?:[\w$]+(?:\.[\w$]+)*)?\.(?:on|once|addListener|addEventListener)\(\s*["\x27][\w:.-]+["\x27]\s*,\s*async\b' "${X[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '(?:(?<=[;{}]\n)|\A)[ \t]*(?!(?:return|await|yield|const|let|var|this\.\w+\s*=)\b)(?![^\n]*\bPromise\.\w+\()[^\n]*?\.(?:map|flatMap)\(\s*async\b' -t js -t ts "${X[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '(?:(?<=[;{}]\n)|\A)([ \t]*)(?!(?:return|await|yield|const|let|var|export|void|throw)\b)(?![\w$.]+\(\s*(?:async\s+)?(?:\([^()]*\)|\w+)\s*=>)(?:this\.)?[\w$]+(?:\.[\w$]+)*\((?=(?:(?!\.catch\(|;[ \t]*$|\{[ \t]*$)[\s\S]){0,300}?\.then\((?:(?!\.catch\()[\s\S]){0,300}?;[ \t]*$)' -t js -t ts "${X[@]}" . | "${NC[@]}"
-rg -n --pcre2 '^[ \t]+void\s+(?:this\.)?[\w$]+(?:\.[\w$]+)*\((?![^\n]*\.catch\()' -t js -t ts "${X[@]}" . | "${NC[@]}"
+#    Not 4d (§ 89): a framework reply (`void reply.status(…).send(…)` — Fastify's own dispatch handles a rejection), a TanStack
+#    cache call (`invalidateQueries`, `refetch`, `prefetchQuery`, …: errors land in the query cache), a confirm dialog helper.
+rg -n --pcre2 '^[ \t]+void\s+(?!(?:this\.)?(?:reply|res|response)\.(?:status|code|send|header|headers|type|redirect|hijack)\b)(?![\w$.]*\.(?:invalidateQueries|refetch\w*|prefetch\w*|cancelQueries|resetQueries|ensureQueryData)\()(?!(?:ask)?[Cc]onfirm\w*\()(?:this\.)?[\w$]+(?:\.[\w$]+)*\((?![^\n]*\.catch\()' -t js -t ts "${X[@]}" . | "${NC[@]}"
 
 # 5. Catch-everything: bare except / BaseException / Exception, suppress(Exception), catch Throwable / Exception /
 #    RuntimeException, C# catch (Exception), rescue Exception / bare rescue, PHP catch (\Throwable).
@@ -145,7 +149,7 @@ rg -n --pcre2 '^\s*except\s*:|^\s*except\s+\(?\s*(?:BaseException|Exception)\b|\
 # 6. The cause or the outcome rewritten: 6a a new error thrown inside a catch without the caught one as cause;
 #    6b Python raise inside except without `from`; 6c errors compared by text, Go %v; 6d return/throw in finally,
 #    InterruptedException swallowed.
-rg -n -U --pcre2 '\bcatch\s*\(\s*(?:[\w.\\|]+\s+)?\$?(\w+)(?:\s*:\s*[\w.]+)?\s*\)\s*\{(?:[^{}]|\{[^{}]*\})*?\K\bthrow\s+new\s+\w+\((?=(?:(?!\bcause\b|[(,]\s*\$?\1\s*[,)])[^;])*\)\s*;)' "${X[@]}" . | "${NC[@]}"
+rg -n -U --pcre2 '\bcatch\s*\(\s*(?:[\w.\\|]+\s+)?\$?(\w+)(?:\s*:\s*[\w.]+)?\s*\)\s*\{(?:[^{}]|\{[^{}]*\})*?\K\bthrow\s+new\s+\w++(?=\()(?=(?:(?!\bcause\b|[(,]\s*\$?\1\s*[,)])[^;])*\)\s*;)' "${X[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '^([ \t]*)except\b[^\n]*:[ \t]*\n(?:\1[ \t]+[^\n]*\n|[ \t]*\n)*?\1[ \t]+\Kraise\s+\w+(?:\.\w+)*\((?![^\n]*\bfrom\b)[^\n]*$' -t py "${X[@]}" . | "${NC[@]}"
 rg -n --pcre2 'Errorf\([^)]*%v[^)]*\berr\b|\berr\.Error\(\)\s*[!=]=|strings\.Contains\(\s*err\.Error\(\)|\b(?:e|err|error|ex|exc)\.message\s*(?:[!=]==?|\.(?:includes|startsWith|endsWith|match)\()|\bstr\((?:e|err|exc|ex)\)\s*(?:==|!=|\bin\b)|\bgetMessage\(\)\.(?:equals|contains|startsWith)\(' "${X[@]}" . | "${NC[@]}"
 rg -n -U --pcre2 '\bfinally\s*\{(?:[^{}]|\{[^{}]*\})*?\K\b(?:return|throw)\b|^([ \t]*)finally\s*:[ \t]*\n(?:\1[ \t]+[^\n]*\n)*?\1[ \t]+\K(?:return|break|continue)\b|\bcatch\s*\(\s*(?:final\s+)?InterruptedException\s+\w+\s*\)\s*\{(?=(?:(?!\binterrupt\(\)|\bthrow\b)[^{}])*\})' "${X[@]}" . | "${NC[@]}"
@@ -191,8 +195,17 @@ shipped: async `ctx.once` listeners); 4b 0; 4c 3 — the first draft printed 147
 and `lazy(() => import().then())` arguments) until the statement-start anchor; 5 0 (no Python, JVM
 or C#); 6a 7; 6c 13 (domain codes matched with `e.message === 'CODE'`); 7a 0; 7b 0. Grep 4d was added
 after `quality-mix` measured its reach (`void this.ledger.post(…)` reached by no grep): on the seven
-fixtures it prints 2 — that line and a `void reply.send(…)` to read; top-level `void main()` is
-excluded by the indent anchor, a `.catch(` on the line by the lookahead. Not yet run on a real repo.
+fixtures it printed 2 — that line and a `void reply.send(…)` — and prints 1 since the § 89
+exclusions; top-level `void main()` is excluded by the indent anchor, a `.catch(` on the line by
+the lookahead. **Re-measured 2026-10-15** on the same monorepo (history re-rooted, about 11,800
+files; about 3 s): 0a 13 (no `process.on('unhandledRejection')` in the API), 0b 3 (still no
+type-aware rule: together, the production-bar gap `/quality-audit` prints); 1a 55; 1b 119; 2a 180
+(one dropped audit write in a protocol handler was the run's only Finding); 3c 1; 4a 5 → 0 and 4a′ 2
+(the three `ctx.once('key', async …)` memoisers, § 88, no longer match); 4c 4; 4d 364 → 136 (Fastify
+replies, TanStack cache calls and confirm dialogs dropped; what is left is UI handlers such as
+`void vm.submit()`, read with the mutation's `onError`); 5 1; 6a 7 → 6 (a cause passed as the first
+constructor argument, `new XError(error)`, was matched because the lookahead started after the
+consumed `(`); 6c 5; 7a 0; 7b 2.
 
 ## The 3,000-hit path
 

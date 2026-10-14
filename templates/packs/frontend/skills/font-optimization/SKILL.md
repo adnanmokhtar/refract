@@ -46,8 +46,8 @@ FF='@font-face\s*\{[^}]*\}'                                             # one @f
 # 0. Lanes: next/font, @nuxt/fonts, Fontsource, Fontaine, a remote kit.
 rg -n --no-heading '"(next|@nuxt/fonts|@fontsource(?:-variable)?/[\w-]+|fontaine|unplugin-fontaine|@capsizecss/[\w-]+|nuxt-font-metrics)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -l --no-heading --pcre2 "from\\s+[\"']next/font/(?:google|local)[\"']" -g '*.{ts,tsx,js,jsx}' "${X[@]}" "${ROOTS[@]}"
-# 1. An @font-face with no font-display.
-rg -n -U --no-heading --pcre2 "@font-face\\s*\\{(?![^}]*font-display)[^}]*\\}" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 1. An @font-face with no font-display (a metric-fallback face whose src is only local() downloads nothing: skipped).
+rg -n -U --no-heading --pcre2 "@font-face\\s*\\{(?![^}]*font-display)(?=[^}]*\\burl\\()[^}]*\\}" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 2. Font preloads that exist (2a; read each for crossorigin and for the above-the-fold face) vs self-hosted woff2 faces (2b).
 rg -n --no-heading --pcre2 '<link\b(?=[^>]*\brel=["\x27]?preload)(?=[^>]*\bas=["\x27]?font)|\bas\s*:\s*["\x27]font["\x27]' "${UI[@]}" -g '**/{nuxt,next,astro,vite}.config.*' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -c --pcre2 '\burl\(\s*["\x27]?[^)"\x27]*\.woff2' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
@@ -55,15 +55,16 @@ rg -c --pcre2 '\burl\(\s*["\x27]?[^)"\x27]*\.woff2' "${CSS[@]}" "${X[@]}" "${ROO
 rg -n --no-heading --pcre2 'fonts\.googleapis\.com|use\.typekit\.net|p\.typekit\.net|fonts\.bunny\.net|fonts\.cdnfonts\.com|fast\.fonts\.net' "${UI[@]}" "${CSS[@]}" -g '**/{nuxt,next,astro,vite}.config.*' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 4. Metric overrides in use (size-adjust / ascent-override, or a primitive that generates them).
 rg -n --no-heading --pcre2 '\b(?:size-adjust|ascent-override|descent-override|line-gap-override)\s*:|adjustFontFallback|fallbacks\s*:' "${CSS[@]}" -g '*.{ts,tsx,js,jsx,mjs}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 5. Files declaring @font-face with no unicode-range (subset candidates; read the locale set first).
-rg -l --pcre2 '@font-face' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match 'unicode-range'
+# 5. Files declaring @font-face with no unicode-range (subset candidates; read the locale set first). Greps 5 and 8 anchor
+#    @font-face at the start of a line, so a stylesheet comment that mentions it is not a face.
+rg -l --pcre2 '^\s*@font-face' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match 'unicode-range'
 # 6. Weight fan-out: @font-face weight declarations (6a) and remote URLs requesting a weight list (6b).
 rg -c -U --pcre2 '@font-face\s*\{[^}]*\bfont-weight\s*:' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -n -o --no-heading --pcre2 'family=[^&"\x27\s]*(?:wght|ital,wght)@[\d;,.]+' "${UI[@]}" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
-# 7. A non-woff2 primary source, or a src url with no format() hint.
-rg -n -U --no-heading --pcre2 "@font-face\\s*\\{[^}]*\\bsrc\\s*:\\s*url\\([^)]*\\.(?:ttf|otf|eot|woff)(?:[?#][^)]*)?[\"']?\\)|@font-face\\s*\\{(?![^}]*\\bformat\\()[^}]*\\bsrc\\s*:" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 7. A non-woff2 primary source, or a src url with no format() hint (local()-only fallback faces skipped).
+rg -n -U --no-heading --pcre2 "@font-face\\s*\\{[^}]*\\bsrc\\s*:\\s*url\\([^)]*\\.(?:ttf|otf|eot|woff)(?:[?#][^)]*)?[\"']?\\)|@font-face\\s*\\{(?![^}]*\\bformat\\()(?=[^}]*\\burl\\()[^}]*\\bsrc\\s*:" "${CSS[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 8. Hand-rolled faces in a project that ships a font primitive: compare grep 0 with the @font-face count.
-rg -c --pcre2 '@font-face' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
+rg -c --pcre2 '^\s*@font-face' "${CSS[@]}" "${X[@]}" "${ROOTS[@]}"
 ```
 
 A hit is a candidate. Two blind spots are structural:
@@ -71,7 +72,7 @@ A hit is a candidate. Two blind spots are structural:
 - **A framework primitive writes its faces at build time.** `next/font`, `@nuxt/fonts` and Fontaine emit `@font-face`, `font-display`, preloads and metric overrides into the build output, so greps 1, 2 and 4 see nothing in source. On those lanes read the primitive's options (`display`, `preload`, `adjustFontFallback`, `fallbacks`) and, once, the built CSS.
 - **Grep 5 is file-level.** One `unicode-range` anywhere in a file hides an unsubset face beside it; read every face in the files it does not list.
 
-**Measured** (2026-10-05, read-only). Scratch fixture: a face with no `font-display`, a `.ttf` face with no `format()`, a Google Fonts `@import` with five weights, all hit; the `optional` + `unicode-range` face stays out of 1, 5 and 7. Benchmark fixtures: 0 on every grep (none ships a web font). Real repos: a Nuxt 4 storefront (3: a Google Fonts URL built at runtime from the theme's family, 4 lines, with a preconnect; 4: hand-written metric overrides on its fallback face), a Vue 3 + Vite admin SPA (3: 2) and an Angular 19 admin template (1: one icon-font face plus two minified vendor stylesheets that each match as one long line; 5: 6 files, all vendor or icon-font CSS copied into `public/`: one vendor group). An SCSS interpolation `#{$var}` closes the `[^}]*` block early, so a hit inside a `.scss` face (grep 7 on the template's Tabler icons) is read before it is believed. Before restricting 6a to inside `@font-face` blocks it counted every `font-weight` rule (119 on the storefront).
+**Measured** (2026-10-05, read-only). Scratch fixture: a face with no `font-display`, a `.ttf` face with no `format()`, a Google Fonts `@import` with five weights, all hit; the `optional` + `unicode-range` face stays out of 1, 5 and 7. Benchmark fixtures: 0 on every grep (none ships a web font). Real repos: a Nuxt 4 storefront (3: a Google Fonts URL built at runtime from the theme's family, 4 lines, with a preconnect; 4: hand-written metric overrides on its fallback face), a Vue 3 + Vite admin SPA (3: 2) and an Angular 19 admin template (1: one icon-font face plus two minified vendor stylesheets that each match as one long line; 5: 6 files, all vendor or icon-font CSS copied into `public/`: one vendor group). An SCSS interpolation `#{$var}` closes the `[^}]*` block early, so a hit inside a `.scss` face (grep 7 on the template's Tabler icons) is read before it is believed. Before restricting 6a to inside `@font-face` blocks it counted every `font-weight` rule (119 on the storefront). Re-measured 2026-10-15 on a real NestJS + React monorepo (Vite SPA, self-hosted Arabic and Latin faces): greps 1 and 7 had each flagged the metric-fallback face (`src: local('Segoe UI'), local('Arial')` with `size-adjust` overrides) — it downloads nothing, so neither a `font-display` nor a `format()` hint applies; both now require a `url(` in the face: 1 → 0, 7 → 0. Greps 5 and 8 had counted a stylesheet comment that names `@font-face` as a declaring file: 5 1 → 0 files, 8 2 → 1 file. Fixtures: unchanged (none ships a web font).
 
 ## The 3,000-hit path
 

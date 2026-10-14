@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.0 — 2026-10-15
+
+**Detector fixes from a read-only audit of a real NestJS + React monorepo.**
+
+- `perf-audit`: P3a recognises project query counters, new P3b load/stress/bench directories; every P line prints its rg exit code; the header says how many performance skills the target has installed.
+- `request-path-scan`: 2c hand-rolled limiters (0→34 files); 14 bulkheads/shedding/Retry-After (0→24); 20c project lock helpers (0→45); **new 20d** side-effecting awaits before the first lock call in a scheduled method (found both sites of the audit's once-per-fleet finding); 24a only queue code (60→24); 6a `.toBuffer()`/`Buffer.concat(chunks)`; 11a drops string `includes` (63→42); §13 orders the keep-alive chain hop by hop with new 13c proxy hops.
+- `memory-growth-scan`: 2a drops metric `.observe(` (12→4); 4a possessive `=\s*+` (17→1); 7b `extends Command`/`@Command(` (5→1); new 1c metric-label cardinality (routes to observability when installed).
+- `caching-scan`: 8a reads a client factory's call sites for timeouts; 2a says "check its callers" for single-flight.
+- Precedents `performance.md` § 91–92.
+
 ## 2.2.1 — 2026-10-14
 
 **`request-path-scan` §24 becomes the fallback for the classes distributed-systems 2.0.0 owns (batch-5 decision).**

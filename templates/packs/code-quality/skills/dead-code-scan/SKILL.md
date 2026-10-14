@@ -106,21 +106,31 @@ stderr (exit 2) is a failed grep, never zero hits.
 # Not production code: vendored, built, tests, specs, mocks, fixtures, stories, migrations, seeds, generated, catalogs, env files, docs, ai/.
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/.next/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/*.min.*' -g '!**/*.d.ts'
    -g '!**/{test,tests,__tests__,spec,specs,e2e,__mocks__,mocks,fixtures,__fixtures__,testdata,stories,migrations,migrate,seeds,generated,__generated__,locales,i18n}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!**/.env*' -g '!docs/**' -g '!ai/**')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,fixture,fixtures}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!**/.env*' -g '!docs/**' -g '!ai/**')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#(?!\{)|<!--)')   # drops comment-only lines
 # Entry conventions: CLI and tooling folders, framework-loaded files, configs. A file matching these is reached by its runner.
-ENTRY='(?:^|/)(?:scripts|bin|tools|cli|cmd)/|(?:\.(?:module|controller|resolver|gateway|processor|consumer|subscriber|listener|handler|entity|orm-entity|config|cli|setup)|(?:^|/)(?:main|index|server|app|manage|wsgi|asgi|settings|urls|admin|apps|conftest|vite-env))\.\w+$|/(?:pages|app|routes)/|(?:^|/)[\w.-]*config\.\w+$'
+ENTRY='(?:^|/)(?:scripts|bin|tools|cli|cmd)/|(?:\.(?:module|controller|resolver|gateway|processor|consumer|subscriber|listener|handler|entity|orm-entity|config|cli|setup)|(?:^|/)(?:main|server|app|manage|wsgi|asgi|settings|urls|admin|apps|conftest|vite-env))\.\w+$|(?:^|/)[\w.-]*config\.\w+$'
+# pages/ app/ routes/ are entries ONLY under a file-based router; in a plain React app a page nothing imports is dead
+# (counting them as entries hid 8 dead pages on a real monorepo). An index.* is judged by its folder name, which is what imports name.
+rg -q --pcre2 '"(?:next|nuxt|@remix-run/[\w-]+|@react-router/dev|@sveltejs/kit|astro|expo-router|@tanstack/router-plugin|gatsby|@solidjs/start)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . && ENTRY="$ENTRY|/(?:pages|app|routes)/"
 for t in ts js py go java kotlin cs rust php ruby; do printf '%-7s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
 
 # 0. Context: 0a the reachability tools and compiler switches already configured; 0b the entry-point map's loaders
-#    that reach files by pattern or by name (a file they load has no importer and is not dead).
-rg -n --pcre2 '"(?:knip|ts-prune|ts-unused-exports|unimported)"\s*:|\b(?:vulture|deadcode|debride|cargo-(?:udeps|machete)|deptry)\b|^\s*-\s*unused\b|\bnoUnused(?:Locals|Parameters)\b|\ballowUnreachableCode\b|\bno-unreachable\b|\bno-constant-condition\b' -g '{package.json,pyproject.toml,setup.cfg,.golangci.y*ml,tsconfig*.json,eslint.config.*,.eslintrc*,Makefile,knip.json*,.knip.json*}' -g '!**/node_modules/**' .
+#    that reach files by pattern or by name (a file they load has no importer and is not dead). `js.configs.recommended`
+#    turns on no-unused-vars and no-unreachable (gate 4 for §1 locals and §3). A project's own dead-export spec is a lane.
+rg --files -g '*{every-export-is,unused-export,dead-export,dead-code,unimported}*.{test,spec}.{ts,tsx,js,mjs,py}' -g '*{every-export-is,unused-export,dead-export}*.json' -g '!**/node_modules/**' .
+rg -n --pcre2 '"(?:knip|ts-prune|ts-unused-exports|unimported)"\s*:|\b(?:vulture|deadcode|debride|cargo-(?:udeps|machete)|deptry)\b|^\s*-\s*unused\b|\bnoUnused(?:Locals|Parameters)\b|\ballowUnreachableCode\b|\bno-unreachable\b|\bno-constant-condition\b|\bjs\.configs\.recommended\b|\beslint:recommended\b' -g '{package.json,pyproject.toml,setup.cfg,.golangci.y*ml,tsconfig*.json,eslint.config.*,.eslintrc*,Makefile,knip.json*,.knip.json*}' -g '!**/node_modules/**' .
 rg -n --pcre2 '\bimport\.meta\.glob(?:Eager)?\s*(?:<[^>\n]*>)?\s*\(|\brequire\.context\(|\bimportlib\.import_module\(|\b__import__\(|\bClass\.forName\(|\bAssembly\.(?:Load\w*|GetTypes)\b|\bINSTALLED_APPS\b|\bautoload(?:_paths)?\b|\bentities\s*:\s*\[\s*["\x27][^"\x27\n]*\*|\bglob(?:Sync)?\(\s*["\x27][^"\x27\n]*\*' "${X[@]}" . | "${NC[@]}"
 
 # 1. TS / JS source files whose basename no import names, grouped by folder; entry conventions dropped. A folder that a
 #    0b loader reads is one group, not N findings. (Other stacks: the tool lane, then this question by hand.)
 rg -o --no-filename --pcre2 '(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+|\bexport\s+\*\s+from\s+)["\x27]\K[^"\x27]+' -t ts -t js -g '!**/node_modules/**' -g '!**/dist/**' . | sed -E 's#.*/##; s#\.(ts|tsx|js|jsx|mjs|cjs)$##' | sort -u > "${TMPDIR:-/tmp}/dcs-imported.txt"
-rg --files -t ts -t js "${X[@]}" . | rg -v --pcre2 "$ENTRY" | while IFS= read -r f; do b=${f##*/}; b=${b%.*}; grep -qxF "$b" "${TMPDIR:-/tmp}/dcs-imported.txt" || echo "$f"; done | sed -E 's#/[^/]+$##' | sort | uniq -c | sort -rn
+rg -o --no-filename --pcre2 '(?:\bfrom\s+|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+|\bexport\s+\*\s+from\s+)["\x27]\K[^"\x27]+' -t ts -t js "${X[@]}" . | sed -E 's#.*/##; s#\.(ts|tsx|js|jsx|mjs|cjs)$##' | sort -u > "${TMPDIR:-/tmp}/dcs-imported-prod.txt"   # production importers only
+rg --files -t ts -t js "${X[@]}" . | rg -v --pcre2 "$ENTRY" | while IFS= read -r f; do b=${f##*/}; b=${b%.*}; [ "$b" = index ] && { d=${f%/*}; b=${d##*/}; }
+  if ! grep -qxF "$b" "${TMPDIR:-/tmp}/dcs-imported.txt"; then echo "$f"; elif ! grep -qxF "$b" "${TMPDIR:-/tmp}/dcs-imported-prod.txt"; then echo "TEST-ONLY $f"; fi; done | sed -E 's#/[^/]+$##' | sort | uniq -c | sort -rn
+# 1b. The resolver lane: files no PRODUCTION import resolves to (tsconfig paths, workspace exports and barrels resolved, so a dead
+#     file cannot hide behind another file's basename — 2 did on a real monorepo). Tests are not importers here.
+RK="$HOME/.claude/scripts/rank-source-files.py"; [ -f "$RK" ] && python3 "$RK" . --format json 2>/dev/null | python3 -c 'import json,re,sys; E=re.compile(sys.argv[1]); N=re.compile(r"(^|/)(test|tests|__tests__|spec|specs|e2e|__mocks__|mocks|fixtures|__fixtures__|testdata|stories|migrations|migrate|seeds|generated|__generated__|locales|i18n|docs|ai)/|\.(spec|test|e2e-spec|mock|stories|test-data|fixtures?|d)\.\w+$"); [print(r["path"]) for r in json.load(sys.stdin)["rows"] if r["importers"]==0 and not E.search(r["path"]) and not N.search(r["path"])]' "$ENTRY" | sed -E 's#/[^/]+$##' | sort | uniq -c | sort -rn
 
 # 3. Unreachable statements: 3a a constant condition; 3b a statement at the same indentation right after return / throw /
 #    raise / exit / panic (a continuation, a chain or a template line is indented deeper or starts with . or `, so it is skipped).
@@ -129,20 +139,25 @@ rg -n -U --pcre2 '^([ \t]+)(?:(?:return|throw|raise)\b(?:[^\n]*[^\n({\[,=+\-*/&|
 
 # 4. Feature-flag reads, any SDK shape (LaunchDarkly, Unleash, GrowthBook, OpenFeature, Flagsmith, Statsig, Flipper,
 #    env-var flags): the key list that a flag config and a last-evaluation record settle.
-rg -n -o --pcre2 '\b(?:isEnabled|isFeatureEnabled|isOn|isOff|useFlag|useFeature(?:Flag|IsOn|Value)?|boolVariation|variation|getBooleanValue|getFeatureValue|hasFeature|checkGate|feature_enabled|is_enabled|flag_enabled)\s*\(\s*["\x27`][\w.:-]+["\x27`]|\bFlipper\.enabled\?\s*\(\s*:\w+|\b(?:process\.env|import\.meta\.env|os\.environ(?:\.get)?|os\.getenv|ENV)\s*[\[.(]\s*["\x27]?(?:FEATURE|FF|FLAG|ENABLE|DISABLE|USE)_\w+' "${X[@]}" . | "${NC[@]}"
+rg -n -o --pcre2 '\b(?:isEnabled|isFeatureEnabled|isOn|isOff|useFlag|useFeature(?:Flag|IsOn|Value)?|boolVariation|variation|getBooleanValue|getFeatureValue|hasFeature|checkGate|feature_enabled|is_enabled|flag_enabled)\s*\(\s*["\x27`][\w.:-]+["\x27`]|\bFlipper\.enabled\?\s*\(\s*:\w+|\b(?:process\.env|import\.meta\.env|os\.environ(?:\.get)?|os\.getenv|ENV|env|config|cfg|settings)\s*[\[.(]\s*["\x27]?(?:FEATURE|FF|FLAG|ENABLE|DISABLE|USE)_\w+' "${X[@]}" . | "${NC[@]}"   # `env.X` / `config.X`: a validated env object
 
 # 5. 5a commented-out code: runs of >= 3 comment lines that parse as statements (count per file, one per run);
 #    5b keys in an env template that no source file reads.
 rg -U --count-matches --pcre2 '(?:^[ \t]*(?://|#)[ \t]*(?:(?:const|let|var|return|await|import|export|function|class|if|for|while|def|from|elif|try|except|func|public|private)\b[^\n]*|[\w.$\[\]]+\s*(?:\([^\n]*[;{(),:]|=[^=\n][^\n]*)|\}[^\n]*)[ \t]*\n){3,}' "${X[@]}" .
-rg -o --no-filename --hidden --pcre2 '^[A-Z][A-Z0-9_]*(?==)' -g '**/.env.example' -g '**/.env.sample' -g '!**/node_modules/**' . | sort -u | while IFS= read -r k; do rg -q -w -F "$k" "${X[@]}" . || echo "unreferenced env key: $k"; done
+rg -o --no-filename --hidden --pcre2 '^(?:#[ \t]*)?\K[A-Z][A-Z0-9_]*(?==)' -g '**/.env.example' -g '**/.env.sample' -g '!**/node_modules/**' . | sort -u | while IFS= read -r k; do rg -q -w -F "$k" "${X[@]}" . || echo "unreferenced env key: $k"; done   # a commented `# KEY=` is an optional key, still a key
 ```
 
 A finding is a hit **plus** the importer search in every path form **plus** the entry-point map
 **plus** the tool lane's verdict. Three blind spots are structural:
 
 - **Grep 1 matches basenames.** Two files named `utils.ts` hide each other: the one nothing imports
-  survives, because the other is imported. On any hit, and on a folder of shared names, run the
-  lane's tool, or search the full specifier (`rg -n "from ['\"].*/<folder>/<name>['\"]" .`).
+  survives, because the other is imported. Grep 1b resolves real specifiers (tsconfig `paths`,
+  workspace `exports`, barrels) and has no such collision; where it is absent, run the lane's tool,
+  or search the full specifier (`rg -n "from ['\"].*/<folder>/<name>['\"]" .`).
+- **A test is not a user.** A file only tests import is printed `TEST-ONLY` by grep 1 (and is a
+  zero-importer row in 1b): the code ships but nothing in production runs it — gate 1 fails for
+  any defect in it, and a copy of a server rule kept alive only by its own test is this skill's
+  (§ 90), not a duplication finding.
 - **Exports are not files.** Grep 1 finds dead files. An unused *export* inside a live file needs
   the tool lane (knip `exports` / `types`, vulture, `U1000`) or `rg -w <symbol> .` read hit by hit.
 - **Registration by string is invisible.** A NestJS provider resolved by token, a Celery task
@@ -163,7 +178,16 @@ files in 3 folders (the fixture has no app entry: Investigate); `slow-marketplac
 receipt template, which nothing imports; `review-decoys` 6, its base and change snapshots; 0b
 `slow-marketplace` 2 (a Django `INSTALLED_APPS` list, a NestJS service's MikroORM `entities` glob). Greps 3, 4 and 5 are
 0 on every fixture. A seeded sample confirmed that 3a, 3b and 5a fire on TS and Python: an
-`if (false)`, a statement after `return`, and a three-line commented-out block.
+`if (false)`, a statement after `return`, and a three-line commented-out block. **Re-measured
+2026-10-15** on the same monorepo (history re-rooted): grep 1 had grown to 110 files in 3 folders
+because `pages/`, `app/` and every `index.*` counted as entries in a React app with no file-based
+router; gated on the router dependency, with barrels judged by their folder name and a
+production-only importer list, it prints 38 groups — 133 dead files (108 in the glob-loaded docs
+folder, 8 page shells, about 20 barrels nothing imports) and 17 `TEST-ONLY` files. Grep 1b (the
+resolver lane) 48 production files with no production importer, the DI-token barrel among them;
+0a found the project's own export-liveness spec and ledger and `js.configs.recommended`; grep 4
+1 (`env.ENABLE_DEV_BOOTSTRAP`, a validated env object, missed before); grep 5b reads 73 keys (20
+before: commented `# KEY=` lines are keys), 0 unreferenced.
 
 ## The 3,000-hit path
 

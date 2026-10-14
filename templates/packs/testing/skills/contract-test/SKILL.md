@@ -73,6 +73,66 @@ const verifier = new Verifier({
 await verifier.verify();
 ```
 
+## Pre-flight
+
+Run as **one** script from the repo root. Every `rg` names its path (`.`); an rg error on stderr is a
+failed lane, never zero hits. Grep 0 decides whether a consumer contract exists at all; when it is
+empty, lane 2 is the only check that a canned provider response still matches the wire, and its
+`UNCHECKED` rows are the candidates `coverage-gap` § 6 hands here (the consumed API with no contract).
+
+```bash
+V=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**')
+T=(-g '**/*.{test,spec,e2e-spec,int-spec}.{js,jsx,ts,tsx,mjs,cjs}' -g '**/{test,tests,__tests__,e2e,__mocks__,mocks}/**/*.{js,jsx,ts,tsx,mjs,cjs,py,json}' -g '**/*.{test-data,fixture,fixtures,handlers}.{ts,tsx,js}'
+   -g '**/{test_*,*_test,conftest}.py' -g '**/*_test.go' -g '**/src/test/**/*.{java,kt,json}' -g '**/{cassettes,__recordings__,recordings}/**')
+# 0. Contract tooling in manifests (0a), committed pact files (0b), a broker / can-i-deploy step in CI (0c). All empty: no
+#    consumer contract exists, and lane 2 is the only wire check.
+rg -n --pcre2 '"@pact-foundation/pact[\w-]*"|\bpact-python\b|au\.com\.dius\.pact|pact-foundation/pact-go|spring-cloud-(?:starter-)?contract|\bspecmatic\b|\bschemathesis\b|"dredd"|"@stoplight/prism-cli"|"jest-openapi"|"openapi-response-validator"' -g '**/{package.json,pyproject.toml,requirements*.txt,pom.xml,build.gradle*,go.mod,Gemfile,composer.json}' "${V[@]}" .
+rg --files -g '**/pacts/*.json' -g '**/*.pact.json' "${V[@]}" .
+rg -n --hidden --pcre2 '\bcan-i-deploy\b|\bpact-broker\b|\bpactflow\b|PACT_BROKER_\w+' -g '.github/workflows/*.{yml,yaml}' -g '**/.gitlab-ci.yml' -g '**/Jenkinsfile' -g '**/package.json' "${V[@]}" .
+# 1. Consumer call sites: shipped files that call an HTTP API (the interactions a contract would hold — cite each).
+rg -l --pcre2 '\baxios\.create\(|\b(?:ky|got)\.(?:create|extend)\(|\bthis\.(?:http|httpClient|httpService|client|apiClient)\w*\.(?:get|post|put|patch|delete|request)\(|\bfetch\(\s*(?:`\$\{|\w*(?:BASE|[Bb]ase)_?(?:URL|Url))|\brequests\.(?:Session|get|post|put|patch|delete)\(|\bhttpx\.(?:Async)?Client\(|\bRestTemplate\b|\bWebClient\.(?:create|builder)\(|@FeignClient\b|\bhttp\.NewRequest(?:WithContext)?\(' -g '!**/{test,tests,__tests__,e2e,__mocks__,mocks,fixtures}/**' -g '!**/*.{test,spec,e2e-spec,stories,test-data,fixture}.*' -g '!**/*.d.ts' "${V[@]}" . | wc -l
+# 2. Recorded-response lane: test files that stand in for a provider — MSW handlers, nock, responses / respx, WireMock,
+#    httptest servers, recorded cassettes — each marked SCHEMA-CHECKED when the file (or a helper it imports by name)
+#    parses the canned body through a schema, else UNCHECKED: a canned body that drifts from the provider stays green.
+rg --files "${T[@]}" "${V[@]}" . | python3 -c '
+import collections, os, re, sys
+STAND = re.compile(r"\bhttp\.(?:get|post|put|patch|delete|all)\(\s*[\x27\"`]|\brest\.(?:get|post|put|patch|delete)\(|\bsetupServer\(|\bnock\(|\bresponses\.(?:add|get|post)\(|\brespx\.(?:get|post|route)\(|\bWireMock\b|\bstubFor\(|\bhttptest\.NewServer\(|\bPolly\b|\bvcr\.use_cassette\b|@pytest\.mark\.vcr\b")
+SC = re.compile(r"\b\w+(?:Schema|Codec|Validator)\.(?:parse|safeParse|decode|validate|assert)\(|toMatchSchema\(|toSatisfyApiSpec\(|toSatisfySchemaInApiSpec\(|\bajv\b|jsonschema\.validate\(|\bmodel_validate(?:_json)?\(|\bparse_obj_as\(|\bTypeAdapter\(")
+IS_T = re.compile(r"\.(?:test|spec|e2e-spec|int-spec)\.|(?:^|/)test_[^/]*\.py$|_test\.(?:go|py)$")
+files = [l.strip() for l in sys.stdin if l.strip() and not l.strip().endswith(".json")]; src = {f: open(f, errors="replace").read() for f in files}
+helpers = [f for f in files if not IS_T.search(f)]
+top = lambda f: "/".join(f.split("/")[:3])        # a helper is matched only inside its own app or package
+stand_h = {(top(f), re.sub(r"\.[^./]+$", "", os.path.basename(f))) for f in helpers if STAND.search(src[f])}
+fns = set()                                       # helper functions that parse a canned body through a schema (`wire(schema, x)`)
+for f in helpers:
+    for name, body in re.findall(r"export\s+(?:const|function)\s+(\w+)([^\n]*(?:\n(?!export)[^\n]*){0,12})", src[f]):
+        if re.search(r"\b(?:ZodType|Schema|schema)\b", body) and re.search(r"\.(?:parse|safeParse)\(|\b(?:sampleOf|completeTo)\(", body): fns.add(name)
+CALL = re.compile(r"\b(?:%s)\(" % "|".join(map(re.escape, sorted(fns)))) if fns else None
+rows = collections.Counter()
+for f in files:
+    if not IS_T.search(f): continue
+    s = src[f]; via = [h for t, h in stand_h if t == top(f) and re.search(r"[\x27\"/]%s[\x27\"]" % re.escape(h), s)]
+    if not (STAND.search(s) or via): continue
+    ok = bool(SC.search(s) or (CALL and CALL.search(s))); rows[ok] += 1
+    print("%s %s%s" % ("SCHEMA-CHECKED" if ok else "UNCHECKED     ", f, "  (via %s)" % ",".join(sorted(via)) if via else ""))
+print("recorded-response test files: %d schema-checked · %d unchecked · schema helpers: %s" % (rows[True], rows[False], ",".join(sorted(fns)) or "-"))'
+rg -l --pcre2 '\bschema\s*:\s*\w+(?:Schema|Codec)\b|\b\w+(?:Schema|Codec)\.(?:parse|safeParse)\(\s*(?:await\s+)?\w*(?:res|response|body|json|data)\w*\b' -g '!**/{test,tests,__tests__,e2e,__mocks__,mocks,fixtures}/**' -g '!**/*.{test,spec,e2e-spec,stories,test-data,fixture}.*' "${V[@]}" . | wc -l | sed 's/^ */shipped files that parse a response through a schema (the consumer-side wire check a canned body also meets): /'
+```
+
+`SCHEMA-CHECKED` means the test file, or a helper it calls (`wire(schema, body)`, a fixture built
+from the schema), parses the canned body through the consumer's schema — a drift fails the test.
+`UNCHECKED` is a literal body: read whether the request layer under test parses every response
+anyway (the last line counts the shipped files that do); if it does, the row is Hardening, else it
+is a contract candidate. A helper is matched by its file name inside its own app or package — a
+same-named helper elsewhere is a false `via`; read it.
+
+**Measured** (2026-10-15, read-only) on a real NestJS + React monorepo: 0a–0c empty (no contract
+tooling, no pact file, no broker); 6 shipped files call an HTTP API through a client; lane 2 finds
+483 web test files answering requests through one MSW helper — 215 build or parse the canned body
+through the contracts schema (`wire`, `filled`), 268 hand-write it — and 191 shipped files parse
+responses through a schema, so most unchecked rows meet the wire check at runtime. On
+`benchmarks/fixtures/*` every lane but 1 is empty. About 7 s.
+
 ## Procedure
 
 Provider-side verification (the side with real teeth — replay each interaction against the running provider and cite every mismatch):

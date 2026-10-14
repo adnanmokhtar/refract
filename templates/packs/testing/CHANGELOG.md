@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.0 — 2026-10-15
+
+**Detector fixes from a read-only audit of a real NestJS + React monorepo.**
+
+- **`suite-execution-scan` 3a `claims.py` rewritten.** It read the first `include:` (a coverage block), expanded no braces and skipped a ternary `testMatch`: 1,734 false UNCLAIMED rows against 2 real. It now strips comments and coverage/typecheck blocks, expands braces and extglobs, takes every ternary branch and resolves named constants: 2 rows.
+- **4d no longer goes online.** `ci-graph.py --required` is offline by default (see repo-baseline); the pre-flight uses `--settings-dir` or prints `NOT-RUN OFFLINE`.
+- 2c catches helper-built gates (`describeV1 = HAS_V1 ? describe : describe.skip`) 2→9; test-audit C1 glob 10→8; assertion 3b guard window spans the case (4→0); flake 5a delete-restore and Jest per-file env (27→8); flake 1b keeps unit hits only where the SUT reads the clock (52→41); test-double 5a guard-off switches, 5b ignores test-data modules; coverage-gap §3 whole-word `raise` + `untested-code` list, §5 router receivers, new route-sweep arms (§2/§5 Unconfirmed instead of gaps), §4 booted-app tags; bare `mktemp -d` uses `TMPDIR`.
+- `contract-test` and `property-invariants` gained runnable `## Pre-flight` sections (recorded-response lane, codec-pair grep).
+- Precedents `testing.md` § 44–46.
+
 ## 2.1.3 — 2026-10-10
 
 **`suite-execution-scan` reads the required set instead of guessing it.** Grep 4d now runs `ci-graph.py . --required` when the repo baseline ships it and the repo has a GitHub workflow: a `REQUIRED` row (or `REQUIRED-IF-SKIP`, `REQUIRED-NEEDS-SKIP`, `REQUIRED-PATH-FILTERED`) puts a § 4 row at its critical default, and `UNREADABLE` (no token) leaves that half Unconfirmed, never "not required". Grep 4b's shell reading cites `ci-platform-semantics.md` S1–S7 and `ci-graph.py --shell-of`. Measured 2026-10-10 on `brittle-suite`: the call runs and exits 0 (devops eval IR-G5).

@@ -108,8 +108,11 @@ The block above is an excerpt. A real matrix carries a row for every required st
 ```bash
 python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --run=ai/runs/<run-id> --base=<merge-base> --json
 python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py ai/design/state-matrix/<feature>.md --touched=<paths>
+python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --repo=. --json      # whole-repo audit: the STATES line
 python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --self-test
 ```
+
+**Whole-repo audit (`--repo` alone).** The lint pools every `## State matrix` under `ai/runs/*/` (`ux.md`, else `design.md`) and `ai/design/state-matrix/*.md`. No matrix at all while the repo has surface files is one `no-matrix` finding and exit 1: the audit's STATES line is a gap, never a usage error. Surface files that no matrix covers are one `surfaces-uncovered` advisory with the count. Measured 2026-10-15 on a real NestJS + React monorepo with no matrix: before this mode, `--repo` alone printed the usage text and exited 2, and an audit could not tell "no matrix" from "lint broken"; now it exits 1 with `no-matrix` over 478 surface files (187 views, 122 dialogs, 116 pages, 49 panels, 2 routes, 2 sheets) in 0.3 s. A touched `…Dialog.tsx`, `…Sheet`, `…Drawer`, `…Modal` or `…Panel` file is a surface too: a dialog is a surface by `ui-state-scan` § The rule 1, and before this a touched POS dialog got neither `no-matrix` nor `surface-unlisted`. A backend `list-page.ts` no longer counts (`-page` names a surface only in `.vue` and `.svelte`).
 
 **Exit codes:** 0 means no finding (PASS, or N-A with its reason). 1 means at least one finding. 2 means a usage or read error. This is the convention of `test-integrity.py` and `oracle-check.py`. `gate-check.py` reads 0 and 1 as "ran" and anything else as UNVERIFIED.
 
@@ -120,7 +123,7 @@ python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --self-test
 | Kind | Meaning |
 |---|---|
 | `no-matrix` | a T2/T3 UI run, or a touched surface, with no `## State matrix` |
-| `surface-unlisted` | a touched page, screen, view or route file that no surface's paths cover |
+| `surface-unlisted` | a touched page, screen, view, route, dialog, sheet, drawer, modal or panel file that no surface's paths cover |
 | `state-missing` | a surface with no row for a required state |
 | `na-without-reason` | an `n-a` row with no reason, or a placeholder for one |
 | `no-proof` | a row that is not `n-a` and names no proof |
@@ -137,7 +140,8 @@ python3 .claude/skills/state-matrix/scripts/state-matrix-lint.py --self-test
 
 - the run has no frontend or mobile lane;
 - a T1 run with no matrix (P3 is skipped at T1);
-- no run, no matrix and no touched surface.
+- no run, no matrix and no touched surface;
+- `--repo` alone, when the repo has no matrix and no surface file.
 
 A copy-only change touches catalogs, not surfaces, so it reads N-A.
 

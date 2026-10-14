@@ -22,10 +22,18 @@ TWO CORPORA, ONE ENGINE — the same split scripts/pack-search.py already makes.
   --corpus=project  a CONSUMING project's SOURCE CODE, via scripts/rank-source-files.py, which
                     resolves TS/JS, Vue/Svelte SFC, Python and Dart imports from the AST.
                     Cached in that project's
-                    own .claude/ tree, never here.
+                    own .claude/ tree, never here — unless --cache-dir or --no-cache says
+                    otherwise.
 
   python3 scripts/build-graph.py --corpus=project --repo=/path/to/app --stats
   python3 scripts/build-graph.py --corpus=project --repo=/path/to/app --who-breaks src/lib/db.ts
+  python3 scripts/build-graph.py --corpus=project --repo=/ro/checkout --no-cache --json
+
+READ-ONLY TARGETS. The default cache WRITES <repo>/.claude/_graph.json. An audit that promised
+not to touch the checkout broke that promise in its own pre-flight (2026-10-15). `--no-cache`
+builds in memory and writes nothing anywhere; `--cache-dir=DIR` keeps the cache, in DIR. Each
+code edge carries the ranker's label: '' a value import, 'type' erased by the compiler,
+'dynamic' import() only — so a cycle search can run on value edges alone.
 
 THE HONESTY DIFFERENCE, which is printed and never buried. A `self` edge was PROVEN by a gate
 that fails CI when it breaks. A `project` edge was RESOLVED from an import statement: deterministic,
@@ -224,8 +232,10 @@ def run_ranker(root, repo):
         proc = subprocess.run([sys.executable, ranker, repo, "--emit-edges", out],
                               capture_output=True, text=True)
         err = (proc.stderr or "").strip()
+        # The ranker's first stderr line is the census (value/type edges, unresolved split
+        # external/asset/local, alias rules, workspace packages) — kept whole, not cut mid-word.
         status["code"] = {"script": "scripts/rank-source-files.py", "exit": proc.returncode,
-                          "detail": err[:200]}
+                          "detail": (err.splitlines() or [""])[0][:400]}
         # The ranker discloses alias configs it cannot read. That disclosure has to survive into
         # the graph, or a project whose aliases live in vite.config.ts gets a quietly partial map.
         for line in err.splitlines():
@@ -233,9 +243,11 @@ def run_ranker(root, repo):
                 status["code"]["not_read"] = line
             # A file-based router is the other way a project's real edges go missing, and it is
             # the one most likely to be misread: an empty --who-breaks on a Nuxt page looks like
-            # "nothing depends on this" when it means "the router does".
+            # "nothing depends on this" when it means "the router does". A monorepo can have one
+            # per app, so every line is kept.
             elif line.startswith("NOT AN EDGE SOURCE:"):
-                status["code"]["routed"] = line
+                prev = status["code"].get("routed")
+                status["code"]["routed"] = (prev + "\n          " + line) if prev else line
         if os.path.isfile(out):
             with open(out, encoding="utf-8") as fh:
                 for line in fh:
@@ -266,9 +278,15 @@ def build(root, corpus="self", repo=None):
     }
 
 
-def load(root, rebuild=False, corpus="self", repo=None):
+def load(root, rebuild=False, corpus="self", repo=None, cache_dir=None, no_cache=False):
+    """(graph, served_from_cache). `no_cache` reads and writes nothing; `cache_dir` moves the
+    cache file out of the target tree (a read-only checkout must not gain a .claude/ file)."""
     base = repo if corpus == "project" else root
+    if no_cache:
+        return build(root, corpus, repo), False
     cache = os.path.join(base, CORPORA[corpus]["cache"])
+    if cache_dir:
+        cache = os.path.join(os.path.abspath(cache_dir), os.path.basename(cache))
     files = source_files(root, corpus, repo)
     fp = fingerprint(base, files, corpus)
     if not rebuild and os.path.isfile(cache):
@@ -394,6 +412,10 @@ def main():
     ap.add_argument("--corpus", choices=("self", "project"), default="self")
     ap.add_argument("--repo", help="the consuming project's root (required for --corpus=project)")
     ap.add_argument("--rebuild", action="store_true", help="ignore the cache")
+    ap.add_argument("--no-cache", action="store_true",
+                    help="build in memory; read and write no cache file (read-only targets)")
+    ap.add_argument("--cache-dir", metavar="DIR",
+                    help="keep the cache in DIR instead of the default location")
     ap.add_argument("--who-breaks", metavar="FILE",
                     help="every file that reaches FILE, transitively")
     ap.add_argument("--neighbors", metavar="FILE", help="one hop, both directions")
@@ -421,7 +443,11 @@ def main():
             sys.stderr.write("--check is a CI invariant over this repo's own gates; "
                              "it does not apply to --corpus=project.\n")
             return 2
-    g, cached = load(root, rebuild=a.rebuild, corpus=a.corpus, repo=repo)
+    if a.no_cache and a.cache_dir:
+        sys.stderr.write("--no-cache and --cache-dir contradict each other; pass one.\n")
+        return 2
+    g, cached = load(root, rebuild=a.rebuild, corpus=a.corpus, repo=repo,
+                     cache_dir=a.cache_dir, no_cache=a.no_cache)
 
     if a.json:
         json.dump(g, sys.stdout, indent=1, sort_keys=True)
@@ -440,7 +466,7 @@ def main():
         for kind, st in g["gates"].items():
             if st["exit"] != 0:
                 problems.append("%s gate exits %d — graph is partial" % (kind, st["exit"]))
-        g2, _ = load(root, rebuild=True)
+        g2, _ = load(root, rebuild=True, cache_dir=a.cache_dir, no_cache=a.no_cache)
         if g2["fingerprint"] != g["fingerprint"]:
             problems.append("fingerprint is not stable across two builds")
         if [(e["kind"], e["from"], e["to"]) for e in sorted(
@@ -525,7 +551,7 @@ def main():
         return 0
 
     print_stats(g, root)
-    print("\n(cache %s)" % ("hit" if cached else "rebuilt"))
+    print("\n(cache %s)" % ("off" if a.no_cache else ("hit" if cached else "rebuilt")))
     return 0
 
 

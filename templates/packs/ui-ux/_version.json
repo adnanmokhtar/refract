@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.31.2",
-  "released": "2026-10-10",
+  "version": "1.32.0",
+  "released": "2026-10-15",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "chart-encoding-audit, design-token-audit, motion-audit, state-matrix and ui-state-scan cite the merged proof-oracles and precedents/ui instead of inline copies; THR-UI-STATES cited by id.",
+  "summary": "ui-state-scan no longer fails silent on large repos (names file + exit-2 halt); new 3d/13f lanes; state-matrix-lint whole-repo mode; token/motion/chart greps re-measured.",
   "changelog": "CHANGELOG.md"
 }

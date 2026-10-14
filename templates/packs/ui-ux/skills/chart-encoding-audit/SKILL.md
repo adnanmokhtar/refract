@@ -59,7 +59,7 @@ Run as **one** script from the repo root. Grep **N** feeds detector **§N**; gre
 ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|vue|svelte|@angular/core|solid-js|preact|astro|lit|react-native)"\s*:' -g '**/package.json' -g '!**/node_modules/**' . | xargs -n1 dirname | sort -u) ); [ ${#ROOTS[@]} -eq 0 ] && ROOTS=(.)
 { [ -f pubspec.yaml ] || [ -d ios ] || [ -d android ]; } && ROOTS+=(.)
 X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,.next,.nuxt,.output,.svelte-kit,.angular,coverage,storybook-static,generated,__generated__,Pods,DerivedData}/**'
-   -g '!**/{test,tests,__tests__,__mocks__,mocks,e2e,fixtures,__fixtures__,playwright,cypress,scripts,tools}/**' -g '!**/*.{test,spec,stories,story,e2e,cy,mock}.*'
+   -g '!**/{test,tests,__tests__,__mocks__,mocks,e2e,fixtures,__fixtures__,playwright,cypress,scripts,tools}/**' -g '!**/*.{test,spec,stories,story,e2e,cy,mock}.*' -g '!**/*.{test-data,fixture,fixtures}.*'
    -g '!*.{md,mdx,snap,map,lock}' -g '!**/{locales,locale,i18n,translations,docs,vendor}/**' -g '!/ai/**' -g '!**/*.min.*')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(?://|/\*|\*(?:\s|/|$)|\{/\*|<!--)')
 LIB='recharts|chart\.js(?:/auto)?|react-chartjs-2|vue-chartjs|ng2-charts|echarts(?:-for-react)?|vue-echarts|ngx-echarts|(?:react-|vue3-|ng-)?apexcharts|@nivo/[\w-]+|@visx/[\w-]+|victory(?:-native)?|highcharts(?:-react-official)?|vega(?:-lite|-embed)?|react-vega|@observablehq/plot|d3(?:-[\w-]+)?|@tremor/react|@mui/x-charts[\w/-]*|ag-charts-[\w-]+|uplot|plotly\.js[\w-]*|react-plotly\.js|layerchart|@unovis/[\w-]+|lightweight-charts|react-native-gifted-charts|react-native-chart-kit'
@@ -80,13 +80,16 @@ CF '\bbeginAtZero\s*:\s*false|\b(?:min|suggestedMin|minY|minValue|yMin)\s*[:=]\s
 CF '<ZAxis\b|\btype\s*:\s*["\x27]bubble["\x27]|\bsymbolSize\s*:|\.attr\(\s*["\x27]r["\x27]|\br\s*[:=]\s*\{?\s*(?:\w+\.)?(?:value|count|size|amount|total)\b|scaleLinear\(\)[^;\n]*\.range\(\[\s*\d+\s*,\s*\d+\s*\]\)|\bBubbleChart\b|\bScatterChart\b'
 # 4. Two value axes.
 CF '\byAxisId\s*=\s*\{?["\x27]?(?!left\b|0\b)\w+|\by1\s*:\s*\{|\bposition\s*:\s*["\x27]right["\x27]|\b[yY][aA]xis\s*:\s*\[\s*\{[^\]]*\}\s*,\s*\{|"resolve"\s*:\s*\{\s*"scale"\s*:\s*\{\s*"y"\s*:\s*"independent"|\bopposite\s*:\s*true|\brightAxis\b|\baxisRight\b'
-# 5. Missing data drawn as data: gap bridging, and nulls coerced to zero in the transform.
+# 5. Missing data drawn as data: gap bridging, and nulls coerced to zero in the transform. 5b: the model and view-model
+#    files that feed the charts (the chart file's feature, two directories up, past components/pages/views): a division
+#    whose empty-denominator branch is 0 (`d > 0 ? n / d : 0`, `n / d || 0`). Read whether the value reaches a series.
 CF '\bconnectNulls\b(?!\s*=\s*\{\s*false)|\bspanGaps\s*:\s*(?:true|\d)|\bconnectNulls\s*:\s*true|\?\?\s*0\b|\|\|\s*0\b|\bfillna\(0\)|Number\([^)]*\)\s*\|\|\s*0'
+grep -v -E '/shared/|/ui/|/design-system/' "$CFL" | while IFS= read -r f; do d=$(dirname "$(dirname "$f")"); case "$d" in */components|*/pages|*/views) d=$(dirname "$d") ;; esac; echo "$d"; done | sort -u | tr '\n' '\0' | xargs -0 -r rg -n --pcre2 '\?\s*[^:;?\n]*\w\s*/\s*[\w(][^:;?\n]*:\s*0\b(?![.\w])|/\s*[\w.]+\s*\)?\s*(?:\|\||\?\?)\s*0\b(?![.\w])' -g '*.{ts,js,mjs}' -g '!*.d.ts' "${X[@]}" | "${NC[@]}"
 # 6. Series colour chosen at the call site: literal hexes, palette arrays, a hex picked per point by a ternary (also
 #    inside a `.map` callback: up/down, hit/miss), semantic red/green on series.
 CF '(?:fill|stroke|color|colors|backgroundColor|borderColor)\s*[:=]\s*\{?\s*\[?\s*["\x27]#[0-9a-fA-F]{3,8}["\x27]|\?\s*["\x27]#[0-9a-fA-F]{3,8}["\x27]\s*:\s*["\x27]#[0-9a-fA-F]{3,8}["\x27]|\b(?:COLORS|PALETTE|SERIES_COLORS|CHART_COLORS)\w*\s*[:=]|\bcolors\s*:\s*\[|\b(?:red|green|success|danger|destructive)\b[^\n]*\b(?:fill|stroke|color)\b'
 # 7. Chart files with no unit, value label or tick formatter anywhere (read: axis titles, legend order, hover-only values).
-tr '\n' '\0' < "$CFL" | xargs -0 -r rg --files-without-match --pcre2 '\btickFormatter\b|\bvalueFormatter\b|\bunit\s*=|\blabel\s*=\s*\{|\baxisLabel\b|\btitle\s*:\s*\{|\bformatter\s*[:=]|<LabelList\b|\bdataLabels\b|\bticks\s*:\s*\{[^}]*callback'
+tr '\n' '\0' < "$CFL" | xargs -0 -r rg --files-without-match --pcre2 '\btickFormatter\b|\bvalueFormatter\b|\bformat\w*\s*=|\bunit\s*=|\blabel\s*=\s*\{|\baxisLabel\b|\btitle\s*:\s*\{|\bformatter\s*[:=]|<LabelList\b|\bdataLabels\b|\bticks\s*:\s*\{[^}]*callback'
 # 8. Sort and aspect (read): declared plot shapes to compare across comparable charts.
 CF '<ResponsiveContainer\b[^>]*\b(?:aspect|height)\s*=|\baspectRatio\s*:|\bmaintainAspectRatio\s*:'
 ```
@@ -96,7 +99,9 @@ CF '<ResponsiveContainer\b[^>]*\b(?:aspect|height)\s*=|\baspectRatio\s*:|\bmaint
 - 0c: a full data ramp. `--series-1…6` per theme carries the series; a `--chart-1…5` set is left over beside it (`design-token-audit` §9 finds it unreferenced).
 - 1: 1 (a donut).
 - 2, 3, 4, 6: 0.
-- 5: 3. One is a real candidate: `row[w.name] = d.values[w.id] ?? 0` feeds a per-warehouse series, so a warehouse with no reading plots as zero.
+- 5: 3, all refuted on read. An earlier version of this line called `row[w.name] = d.values[w.id] ?? 0` a real candidate; read in full (2026-10-15) it sums hourly quantities into a stacked bar, where an hour with no movement is a true zero (§ 97). Another is an emptiness check and the third an accumulator.
+
+**Re-measured 2026-10-15** on the same app inside a real NestJS + React monorepo. Grep 5b reads the 14 division-to-zero lines in the model files next to the chart files; one is the defect grep 5 could not see: a `pct(n, d)` helper returns 0 when nothing has shipped yet, and the daily delivery- and rejection-rate lines plot it as 0 % on the most recent days (high, § 103). Grep 7 fell from 10 files to 7 once `formatValue=` and other `format…=` props count as a value label (the shared donut and ranked-list callers carry them); a caller of the money mini-trend that shows no currency is still among the 7. The fixtures return 0 for 5b.
 - 7: 7 files with no unit or formatter; the shared chrome formats values for some of them, so read each.
 
 ## The 3,000-hit path
@@ -155,7 +160,7 @@ GOOD:  two charts sharing the x-axis (small multiples), or both series indexed t
 BAD:   <Line connectNulls />  ·  spanGaps: true  ·  row[s.name] = d.values[s.id] ?? 0 before plotting
 GOOD:  the line breaks at the gap, or the gap is marked; a real zero stays zero, a missing reading stays null
 ```
-`spanGaps` and null-to-zero coercion are the two that hide furthest from the chart config: check the data transform, not only the options object. **Read the code:** can the source return no reading for a bucket (a store with no sales that day versus no report)? Is zero meaningful? **Finding when** a missing reading is bridged or plotted as zero. **Proof:** render with one null in the fixture data: the path stays continuous across the gap, or a zero bar or point appears.
+`spanGaps` and null-to-zero coercion are the two that hide furthest from the chart config: check the data transform, not only the options object. The transform often lives in a model or view-model file the chart file never names (grep 5b): a rate helper that returns 0 on an empty denominator draws "no rate yet" as 0 % (`precedents/ui.md` § 103). **Read the code:** can the source return no reading for a bucket (a store with no sales that day versus no report)? Is zero meaningful? **Finding when** a missing reading is bridged or plotted as zero. **Proof:** render with one null in the fixture data: the path stays continuous across the gap, or a zero bar or point appears.
 
 ### 6. Data colour
 
@@ -213,23 +218,25 @@ Colour-vision check: CDP emulation, 4 types — artifacts at ai/audits/charts-20
 
 Findings: 1 · Unconfirmed: 1
 
-1. src/features/inventory/warehouses/components/warehouse-analytics-charts.tsx:60     [report-with-fix]   high
-   §5 missing data drawn as data — `row[w.name] = d.values[w.id] ?? 0` before plotting. Question: how stock moved per
-   warehouse per day. A warehouse with no report plots a zero, which reads as "emptied". Route /inventory/analytics.
-   Proof: seeded fixture with one null — the line drops to 0 at that day. Fix: keep null; let the line break.
+1. src/features/merchants/model/merchant-reports.ts:121                             [report-with-fix]   high
+   §5 missing data drawn as data — `pct(n, d)` returns 0 when `d` is 0, and the daily delivery-rate and rejection-rate
+   lines plot it (merchant-report-charts.tsx:111). Question: how did daily delivery and rejection rates move. A day with
+   orders but nothing shipped yet has no rate; it plots as 0 %, which reads as delivery collapsing on the latest days.
+   Route /merchant/reports. Proof: a unit test where the daily builder gets shipped = 0 expects null (it gets 0). Fix:
+   return null; the area breaks at the gap by default.
 
 2. src/features/delivery/analytics/components/DeliveryCharts.tsx:116                  [report-flagged]    medium
    §1 mark — a donut over carrier shares. Unproven link: whether the surface asks for share of whole (fits) or a ranking
    across 9 carriers (a sorted bar). Settling input: the analytics spec or the stakeholder's question.
 
-Verification: 14 candidates → 1 finding · 1 unconfirmed · 2 hardening · 0 pre-existing · 10 refuted
+Verification: 28 candidates → 1 finding · 1 unconfirmed · 2 hardening · 0 pre-existing · 24 refuted
 
 Class coverage:
   §1  mark to question     checked (1 hit → 1 unconfirmed)
   §2  baseline             checked (0 hits; 17 charts' lowest ticks read 0 on the rendered pass)
   §3  size channel         checked (0 hits)
   §4  dual axes            checked (0 hits)
-  §5  missing data         checked (3 hits → 1 finding; 2 are emptiness checks, not plotted values)
+  §5  missing data         checked (3 hits → 0, an emptiness check, a stacked sum and an accumulator; 5b 14 → 1 finding)
   §6  data colour          checked (data ramp present; 4 CVD types on 6 chart routes → 0 findings)
   §7  units and labels     checked (7 files → 0 findings; the shared chrome formats values) · Live, unreviewed (2 files)
   §8  order and aspect     checked (rendered order read on 6 routes → 0 findings)
@@ -239,11 +246,12 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10; contrast exemptions § 19; charts § 83, 86, 96, 97) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The chart precedents, in short:
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (posting rules § 1–10; contrast exemptions § 19; charts § 83, 86, 96, 97, 103) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10. The chart precedents, in short:
 
 - **A zoomed line axis that prints its range** is the rule, not a breach (§ 96).
 - **A real zero** (a store open with no sales) plotted as zero is correct; only a *missing* reading is §5. Read the source (§ 97).
 - **An emptiness check** (`(d.value ?? 0) > 0` deciding whether to render) is not a plotted value (§ 97).
+- **A sum over buckets with no events** (hourly quantities in a stacked bar) is a true zero; a **rate over an empty denominator** is a missing reading (§ 103).
 - **A colour picker's palette or a legend swatch list** is data, not the series ramp (§ 86).
 - **Charts that stay LTR** in an RTL locale (time axes, numeric scales) are an intended exception, not an RTL defect (§ 83).
 

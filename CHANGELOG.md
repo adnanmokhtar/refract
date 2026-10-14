@@ -6,6 +6,32 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Real-repo detector fixes for batches 1–3 (2026-10-15)
+
+Batch 1–3 packs were run read-only against a real NestJS + React monorepo. The runs found
+defects in the detectors themselves: greps that failed silent, missed whole classes, or drowned in
+noise; a pre-flight that wrote into the audited repo; a script that called GitHub during an offline
+pre-flight. Every request was reproduced on that repo and on `benchmarks/fixtures/*`, fixed and
+re-measured; no seeded fixture hit was lost. Per-pack detail is in each pack's `CHANGELOG.md`.
+
+- **ui-ux 1.32.0** — `ui-state-scan` no longer fails silent on a large repo (a 1,718-name PCRE2
+  alternation made rg exit 2 unchecked; consumers 2→454); `state-matrix-lint.py --repo=.` reports
+  the STATES gap.
+- **frontend 2.1.0** — new a11y lanes (orphan labels, label-text ids, tooltip triggers on
+  non-focusable hosts); `catalog-parity.py` resolves template-key heads; data, routing, SEO, i18n
+  and perf greps re-measured.
+- **database 2.2.0** — `schema-map.py` reads MikroORM's snapshot and replays later migrations; it
+  feeds index-coverage, schema-integrity, query-shape, schema-diff (new static mode) and
+  schema-consistency; `transaction-scan` 8b no longer writes a fixed temp file.
+- **testing 2.2.0** — `claims.py` rewritten (1,734→2 false UNCLAIMED); `oracle-check.py` gains a
+  precedent column and a self-test.
+- **performance 2.3.0** — new lane for side effects that run before a cron's fleet lock.
+- **code-quality 2.1.0** — `rank-source-files.py` resolves per-app tsconfigs and workspace exports
+  (integrator #44); `build-graph.py --no-cache` keeps `architectural-diagnosis` read-only;
+  offline `clones.py` for `duplication-scan`.
+- **devops 2.0.3 / repo-baseline** — `ci-graph.py --required` is offline unless `--online` (or
+  `CI_GRAPH_ONLINE=1`) is passed; callers updated.
+
 ### Track A batch 5: service contracts and distributed delivery become detectors (2026-10-14)
 
 Before this batch the backend pack's correctness review was `@api-reviewer`'s prose floor plus four

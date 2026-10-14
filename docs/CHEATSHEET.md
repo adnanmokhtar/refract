@@ -204,7 +204,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-crud-page` | Scaffold list + create + edit + delete pages for one entity end-to-end. | — | `/add-crud-page <entity>` |
 | `/add-feature` | Frontend lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=frontend <the ask, verbatim, with every flag the user passed>` |
 | `/add-page` | Scaffold a page/route with view, store slice, service, types, i18n keys, and tests. | — | `/add-page <route>` |
-| `/frontend-audit` | Read-only frontend audit: a11y, states, render, data, routing, i18n, perf; class ledger and verdict. | `--whole-repo`, `--classes=<family,…>`, `--routes=<glob>`, `--touched=<paths>` | `/frontend-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--routes=<glob>]` |
+| `/frontend-audit` | Read-only frontend audit: a11y, states, render, data, routing, i18n, perf; class ledger and verdict. | `--whole-repo`, `--classes=<family,…>`, `--routes=<glob>`, `--touched=<paths>`, `--repo` | `/frontend-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--routes=<glob>]` |
 | `/frontend-fix` | Close /frontend-audit findings, failing-first, fixed at the component. | `--all` | `/frontend-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/i18n-audit` | i18n audit: preset of /frontend-audit --classes=i18n. | `--whole-repo`, `--routes=<glob>` | `/i18n-audit [base-branch] [--whole-repo] [--routes=<glob>]` |
 | `/refactor` | Frontend-targeted refactor — preserves render output, props contracts, and hydration safety. | — | `/refactor [<scope>]` |

@@ -63,23 +63,31 @@ ROOTS=( $(rg -l --pcre2 '"(?:react|react-dom|react-native|expo|vue|svelte|@angul
 X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,.next,.nuxt,.svelte-kit,.output,coverage,storybook-static,.dart_tool,Pods,DerivedData}/**' -g '!**/*.{min.js,md,mdx,lock,map,snap,json,svg}')
 # Never a surface: tests, stories, mocks, fixtures, e2e probes, scripts/tools, catalogs, generated clients, docs, ai/.
 T=(-g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,fixtures,__fixtures__,stories,playwright,cypress,locales,i18n,generated,__generated__,scripts,tools,bin}/**'
-   -g '!**/*.{spec,test,stories,story,e2e,mock}.*' -g '!**/*_test.dart' -g '!ai/**' -g '!docs/**')
+   -g '!**/*.{spec,test,stories,story,e2e,mock,test-data,fixture,fixtures}.*' -g '!**/*_test.dart' -g '!ai/**' -g '!docs/**')
 C=(-g '*.{tsx,jsx,vue,svelte,astro}' -g '*.component.html')
-W=$(mktemp -d)
+W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
+# rg exit 2 is a failed grep: halt loudly, never print the empty list that would make greps 1, 3a, 4a and 15 silent.
+rgok() { [ "$1" -le 1 ] || { echo "BLOCKED: grep $2 failed (rg exit $1); every grep that reads the consumer list is void" >&2; exit 2; }; }
 D='\b(?:useQuery|useSuspenseQuery|useInfiniteQuery|useSuspenseInfiniteQuery|useQueries|useSWR|useSWRInfinite|createQuery|createInfiniteQuery|injectQuery|useFetch|useAsyncData|useLazyFetch|useLazyAsyncData|httpResource|rxResource|use[A-Z]\w*Query)\s*[<(]'
 TB='(?:[^>{]|\{(?:[^{}]|\{[^{}]*\})*\})*'   # a JSX-aware tag body: `[^>]*` stops at the `>` of an arrow handler
 
 # 0a files that read data (a library primitive, or an effect that fetches); 0b the hooks built on them, followed two
 #    hops (api hook → model hook); 0c consumers = component files calling either, printed with the hooks they call.
+#    The hook names live in a file, and every `useX(` call is listed once and joined against it: an `\b(?:a|b|…)`
+#    alternation of 1,718 names is past PCRE2's compiled-pattern limit, and its unchecked exit 2 once cut 454 consumers
+#    to 2. A word match (`rg -w -F -f`) is no substitute: it adds every `ReturnType<typeof useX>` presenter (680, not 454).
 { rg -l --pcre2 "$D" "${X[@]}" "${T[@]}" "${ROOTS[@]}"
   rg -l --pcre2 '\b(?:useEffect|onMounted|onMount|ngOnInit|useFocusEffect)\b' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg -l --pcre2 '\bfetch\(|\baxios\b|\bky\b|\$fetch\(|\b(?:api|apiClient|client|http)\.(?:get|post|put|patch|delete|request)\b|\bget<'
-} | sort -u > "$W/def"; cp "$W/def" "$W/hookfiles"; H=__none__
+} | sort -u > "$W/def"; cp "$W/def" "$W/hookfiles"; : > "$W/names"
 for hop in 1 2; do
-  H=$( { echo "$H" | tr '|' '\n'; tr '\n' '\0' < "$W/hookfiles" | xargs -0 -r rg -o --no-filename -r '$1' --pcre2 'export\s+(?:async\s+)?(?:function|const)\s+(use[A-Z]\w*)'; } | sort -u | paste -sd'|' -)
-  rg -l --pcre2 "\b(?:$H)\s*\(" -g '*.{ts,js,mjs}' "${X[@]}" "${T[@]}" "${ROOTS[@]}" >> "$W/hookfiles"; sort -u -o "$W/hookfiles" "$W/hookfiles"
+  { cat "$W/names"; tr '\n' '\0' < "$W/hookfiles" | xargs -0 -r rg -o --no-filename -r '$1' --pcre2 'export\s+(?:async\s+)?(?:function|const)\s+(use[A-Z]\w*)'; } | sort -u > "$W/n"; mv "$W/n" "$W/names"
+  rg -o -H -N --no-heading -r '$1' '\b(use[A-Z]\w*)\s*\(' -g '*.{ts,js,mjs}' "${X[@]}" "${T[@]}" "${ROOTS[@]}" > "$W/calls"; rgok $? "0b hop $hop"
+  awk -F: 'FILENAME == ARGV[1] { n[$1]; next } ($NF in n) { print $1 }' "$W/names" "$W/calls" >> "$W/hookfiles"; sort -u -o "$W/hookfiles" "$W/hookfiles"
 done
-{ rg -l --pcre2 "$D|\b(?:$H)\s*\(" "${C[@]}" "${X[@]}" "${T[@]}" "${ROOTS[@]}"; grep -E '\.(tsx|jsx|vue|svelte|astro)$|\.component\.html$' "$W/def"; } | sort -u > "$W/cons"
-hooks() { while IFS= read -r f; do printf '%s\t%s\n' "$f" "$(rg -o --no-filename --pcre2 "$D|\b(?:$H)(?=\s*\()" "$f" | sort -u | paste -sd, -)"; done; }
+rg -l --pcre2 "$D" "${C[@]}" "${X[@]}" "${T[@]}" "${ROOTS[@]}" > "$W/c"; rgok $? 0c
+rg -o -H -N --no-heading -r '$1' '\b(use[A-Z]\w*)\s*\(' "${C[@]}" "${X[@]}" "${T[@]}" "${ROOTS[@]}" > "$W/calls"; rgok $? 0c
+{ awk -F: 'FILENAME == ARGV[1] { n[$1]; next } ($NF in n) { print $1 }' "$W/names" "$W/calls"; grep -E '\.(tsx|jsx|vue|svelte|astro)$|\.component\.html$' "$W/def"; } >> "$W/c"; sort -u "$W/c" > "$W/cons"
+hooks() { while IFS= read -r f; do printf '%s\t%s\n' "$f" "$( { rg -o --no-filename --pcre2 "$D" "$f"; rg -o --no-filename --pcre2 '\buse[A-Z]\w*(?=\s*\()' "$f" | grep -Fxf "$W/names"; } | sort -u | paste -sd, -)"; done; }
 echo "0a $(wc -l < "$W/def") data files · 0c $(wc -l < "$W/cons") consumers"
 # 0d shared state wrappers, global handlers, retry policy (decide §1–§4, §6, §12 before any read).
 rg -n --no-heading --pcre2 'export\s+(?:default\s+)?(?:function|const|class)\s+\w*(?:QueryState|QueryBoundary|AsyncBoundary|DataState|StateBlock|ErrorState|EmptyState|ErrorBoundary)\b|new\s+(?:QueryCache|MutationCache|QueryClient)\(|\bthrowOnError\b|\buseErrorBoundary\b|\bnetworkMode\b' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
@@ -88,13 +96,15 @@ rg -l --pcre2 'from\s+["\x27]msw(?:/\w+)?["\x27]|\bpage\.route\(|\bcontext\.setO
 
 # 1-4. Consumers with no loading token (1), lists with no empty branch (2), no error token (3a), failure turned into
 #      an empty value (3b a one-line `.catch` callback; 3c a catch block, either form, whose first statement empties a
-#      setter, a store field `this.x` or a Vue ref `x.value`), an error branch with no way out (4a), routers with no
-#      error element (4b), Next pages with no error.tsx in any ancestor segment (4c).
+#      setter, a store field `this.x` or a Vue ref `x.value`), 3d a query result whose `.data` is folded to `[]`/0/null
+#      while the file never reads its wait or failure field (the presenter split at hook level), an error branch with
+#      no way out (4a), routers with no error element (4b), Next pages with no error.tsx in any ancestor segment (4c).
 tr '\n' '\0' < "$W/cons" | xargs -0 -r rg --files-without-match --pcre2 '\b(?:isPending|isLoading|isFetching|isInitialLoading|pending|loading|status\s*===?\s*["\x27](?:pending|loading)|aria-busy|Skeleton\w*|Spinner|<Suspense|\{#await|@defer|\.isLoading\(\))\b' | hooks
-tr '\n' '\0' < "$W/cons" | xargs -0 -r rg -l --pcre2 '\.map\(|v-for=|\{#each\b|@for\s*\(|\*ngFor=' | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\.length\b|\bisEmpty\b|@empty\b|\{:else\}|v-else\b|\bEmpty\w*|\bNoResults\w*|\bempty\b'
+tr '\n' '\0' < "$W/cons" | xargs -0 -r rg -l --pcre2 '\.map\(|v-for=|\{#each\b|@for\s*\(|\*ngFor=' | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\.length\b|\bisEmpty\b|@empty\b|\{:else\}|v-else\b|\bEmpty\w*|\bNoResults\w*|\bempty\w*\s*[=:]|\bempty\b'
 tr '\n' '\0' < "$W/cons" | xargs -0 -r rg --files-without-match --pcre2 '\b(?:isError|isRefetchError|isLoadingError|error|errors|status\s*===?\s*["\x27]error|ErrorState|ErrorBoundary|hasError|\.error\(\)|onError|throwOnError)\b' | hooks
 rg -n --pcre2 '\.catch\(\s*\(\s*\w*\s*\)\s*=>\s*(?:\[\]|null|\(\s*\{\s*\}\s*\)|set\w+\(\s*(?:\[\]|null)\s*\))\s*\)' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
 rg -n -U --pcre2 '(?:(?<![\w.])catch\s*(?:\([^)\n]*\))?|\.catch\(\s*(?:\(\s*\w*\s*\)|\w+)\s*=>)\s*\{(?:\s*(?://[^\n]*|if\s*\([^)]*\)))*\s*(?:set\w+\(\s*(?:\[\]|null|\{\}|["\x27]{2}|0)\s*\)|(?:this\.\w+|\w+\.value)\s*=\s*(?:\[\]|null|\{\}|["\x27]{2}|0)(?![\w.]))' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
+rg -n -U --pcre2 '\bconst\s+(\w+)\s*=\s*(?!use(?:QueryClient|Translation|Memo|State|Callback|Ref|Form|Confirm|Navigate|Params|Location|SearchParams|Id|Context|Reducer)\b)(?!use\w*(?:Mutation|Create|Update|Delete|Save|Add|Remove|Toggle|Send|Upload))use[A-Z]\w*\s*[<(](?=[\s\S]*?\b\1\.data\b(?:\?\.[\w?.]+)?\s*(?:\?\?|\|\|)\s*(?:\[\]|0\b|\{\}|null\b|["\x27]{2}))(?![\s\S]*\b\1\.(?:isPending|isLoading|isError|error|status|isSuccess|isFetched|isPlaceholderData|failureReason|isLoadingError)\b)' -g '*.{ts,tsx,js,jsx}' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
 tr '\n' '\0' < "$W/cons" | xargs -0 -r rg -l --pcre2 '\b(?:isError|error)\b' | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\b(?:refetch|retry|onRetry|reset|resetErrorBoundary|invalidateQueries|reload|tryAgain|ErrorState|QueryBoundary|QueryState)\b'
 rg -l --pcre2 'createBrowserRouter|createHashRouter|createMemoryRouter|RouterProvider|provideRouter|createRouter\(' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 'errorElement|ErrorBoundary|errorComponent|withNavigationErrorHandler|ErrorHandler'
 for r in "${ROOTS[@]}"; do find "$r" -path '*/node_modules' -prune -o -type f -name 'page.[jt]sx' -path '*/app/*' -print; done | while IFS= read -r p; do d=$(dirname "$p"); ok=0; while :; do ls "$d"/error.[jt]sx >/dev/null 2>&1 && { ok=1; break; }; case "$d" in */app|.|/) break ;; esac; d=$(dirname "$d"); done; [ $ok = 0 ] && echo "4c no error.tsx at or above: $p"; done
@@ -107,7 +117,7 @@ rg -n --pcre2 'navigator\.onLine|\bonlineManager\b|\buseOnline\b|\bisPaused\b|ad
 # 8. Forms with no pending binding (8a); an action button whose own tag carries no disabled/loading (8b, JSX-aware);
 #    optimistic cache writes with no restore (8c TanStack, 8d RTK Query).
 rg -l --pcre2 '<form\b[^>]*\bonSubmit=|\(ngSubmit\)=|@submit(?:\.prevent)?=|\bonsubmit=|\bhandleSubmit\(' "${C[@]}" "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\bdisabled=|aria-disabled|\bisPending\b|\bisSubmitting\b|useFormStatus|\bpending\b|\bsubmitting\b|\bloading\b|\bbusy\b'
-rg -n -U --pcre2 "<(?:button|Button|IconButton|Pressable|TouchableOpacity)\b(?!$TB\b(?:disabled|isDisabled|loading|isLoading|aria-disabled|busy)\b)$TB\bon(?:Click|Press)=\{\s*(?:\(\)\s*=>\s*)?(?:\w+\.)*(?:handle|on|do)?(?:[Ss]ubmit|[Ss]ave|[Pp]ay|[Cc]reate|[Rr]efund|[Ss]end|[Pp]lace|[Cc]heckout|[Tt]ransfer|[Pp]ublish|[Cc]harge|[Cc]onfirm)(?:[A-Z]\w*)?\(" "${C[@]}" "${X[@]}" "${T[@]}" "${ROOTS[@]}"
+rg -n -U --pcre2 "<(?:button|Button|IconButton|Pressable|TouchableOpacity)\b(?!$TB\b(?:(?:disabled|isDisabled|loading|isLoading|aria-disabled|busy)\b|(?:pending|isPending|submitting|isSubmitting)\s*=))$TB\bon(?:Click|Press)=\{\s*(?:\(\)\s*=>\s*)?(?:\w+\.)*(?:handle|on|do)?(?:[Ss]ubmit|[Ss]ave|[Pp]ay|[Cc]reate|[Rr]efund|[Ss]end|[Pp]lace|[Cc]heckout|[Tt]ransfer|[Pp]ublish|[Cc]harge|[Cc]onfirm)(?:[A-Z]\w*)?\(" "${C[@]}" "${X[@]}" "${T[@]}" "${ROOTS[@]}"
 rg -l --pcre2 '\bonMutate\s*:' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\bonError\s*[:(]'
 rg -l --pcre2 'updateQueryData\(' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\.undo\(\)'
 # 9. Text that cannot wrap and is not truncated (a render candidate only).
@@ -121,6 +131,10 @@ rg -l --pcre2 '\bfetch\(' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xar
 rg -n --pcre2 'if\s*\([^)\n]*\bisFetching\b[^)\n]*\)\s*(?:\{\s*)?return\b|\bisFetching\s*\?\s*\(?\s*<\w*(?:Skeleton|Loading)\w*' "${C[@]}" "${X[@]}" "${T[@]}" "${ROOTS[@]}"
 # 13. A destructive call wired straight to the control (a call that stages a confirm — set/ask/open… — is not matched).
 rg -n --pcre2 '(?:onClick|onPress|onPressed|@click|v-on:click|\(click\)|onclick|on:click)\s*[=:]\s*["{]?\s*(?:\(\)\s*=>\s*)?(?:\w+\.)*(?:handle|on|do)?(?:[Dd]elete|[Rr]emove|[Dd]estroy|[Aa]rchive|[Pp]urge|[Rr]evoke|[Dd]iscard)(?:[A-Z]\w*)?(?:\.mutate(?:Async)?)?\((?!\s*(?:i|idx|index)\s*\))' "${C[@]}" -g '*.dart' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
+# 13f follows each grep-13 handler to its definitions three directories up (the feature's model hook): a confirm or an
+#     undo in the first 8 body lines dismisses the hit; NO-CONFIRM rows on a server call and NO-DEF rows are what to read.
+rg -n -o --no-heading -r '$1' --pcre2 '(?:onClick|onPress|onPressed|@click|v-on:click|\(click\)|onclick|on:click)\s*[=:]\s*["{]?\s*(?:\(\)\s*=>\s*)?(?:\w+\.)*((?:handle|on|do)?(?:[Dd]elete|[Rr]emove|[Dd]estroy|[Aa]rchive|[Pp]urge|[Rr]evoke|[Dd]iscard)(?:[A-Z]\w*)?)(?:\.mutate(?:Async)?)?\((?!\s*(?:i|idx|index)\s*\))' "${C[@]}" -g '*.dart' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | while IFS=: read -r f l h; do
+  rg -n -A8 --pcre2 "\b(?:const|let|function)\s+$h\b|\b$h\s*[:=]\s*(?:async\s*)?(?:\([^)\n]*\)|\w+)\s*=>(?!\s*(?:void|Promise|unknown|boolean)\b)|^\s*(?:async\s+)?$h\s*\([^)\n]*\)\s*\{" -g '*.{ts,tsx,js,jsx,vue,svelte,dart}' "${X[@]}" "${T[@]}" "$(dirname "$(dirname "$(dirname "$f")")")" | awk -v h="$h" -v at="$f:$l" 'function out(){ if (loc != "") print "13f " (ok ? "confirm/undo " : "NO-CONFIRM   ") at "  " h " → " loc } /^--$/{ next } match($0, /^[^:]*:[0-9]+:/){ out(); loc = substr($0, 1, RLENGTH - 1); ok = 0 } /[Cc]onfirm|[Uu]ndo/{ ok = 1 } END{ if (NR == 0) print "13f NO-DEF       " at "  " h " (read the parent that passes it)"; out() }'; done
 # 14. Validation that fires while typing (14a); field errors from the server never mapped to fields (14b).
 rg -n --pcre2 'useForm\s*(?:<[^>]*>)?\(\s*\{[^}]*\bmode\s*:\s*["\x27](?:onChange|all)["\x27]|@if\s*\(\s*\w+(?:\.controls\.\w+|\.get\([^)]*\))\??\.(?:errors|invalid)\s*\)|validateOnInput\s*:\s*true' "${X[@]}" "${T[@]}" "${ROOTS[@]}"
 rg -l --pcre2 '\b422\b|fieldErrors|\bfield_errors\b|\bviolations\b' "${C[@]}" -g '*.{ts,js}' "${X[@]}" "${T[@]}" "${ROOTS[@]}" | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\bsetError\(|\bsetErrors\(|\bsetFieldError\(|setFields\('
@@ -132,14 +146,15 @@ rg -l --pcre2 '\b(?:FutureBuilder|StreamBuilder)\b' -t dart "${X[@]}" "${T[@]}" 
 rg -n --pcre2 '\.requireValue\b|\.value!\s*[.;)]' -t dart "${X[@]}" "${T[@]}" .
 rg -l --pcre2 'collectAsState(?:WithLifecycle)?\(' -t kotlin "${X[@]}" "${T[@]}" . | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\b(?:Loading|Error|Empty|isLoading|errorMessage)\b'
 rg -l --pcre2 '\.task\s*(?:\(id:[^)]*\))?\s*\{|\bAsyncImage\(' -t swift "${X[@]}" "${T[@]}" . | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\.failure\b|case\s+\.error|\bProgressView\b|\bisLoading\b|ContentUnavailableView'
-rm -rf "$W"
 ```
 
 Greps 1–4, 10 and 15 are **file-level absence** checks (a set difference, never `rg -L`, which is `--follow`). They see one file. Three blind spots are structural, so work around them rather than trust a quiet grep:
 
-- **The presenter split.** A container calls the hook and hands the whole result to a view (`<OrdersView vm={vm} />`); the view branches. The container is a hit and the view is not a consumer. Read the view before deciding.
+- **The presenter split.** A container calls the hook and hands the whole result to a view (`<OrdersView vm={vm} />`); the view branches. The container is a hit and the view is not a consumer. Read the view before deciding. The reverse split, a model hook that exports only `query.data ?? []` and drops the state fields, is invisible to every file-level grep; grep 3d lists it at hook level.
 - **The hook definition is not the surface.** Measured on two fixtures, a file-level grep over `useQuery` callers flags the hook files (3/3 and 2/2) and never the components. Grep 0b follows the exported hooks two hops so the consumers are what grep 1 lists, printed beside the hooks they call. A hit's verdict is decided where the hook's result is rendered.
 - **Gate hooks.** A permissions or feature-flag hook read only to show or hide a control renders no data view. One read of the hook (does it default safely while loading?) dismisses its whole group.
+
+**Measured** (2026-10-15, the app of the next paragraph, now inside a real NestJS + React monorepo). The hop-2 name list reached 1,718 hooks (34.5 KB); as one PCRE2 alternation it failed to compile (`regular expression is too large`, exit 2, unchecked), 0c fell to 2 consumers and greps 1, 2, 3a, 4a and 15 printed 0 with no error. The file-and-join form returns 454, the same set a 300-name chunked run gives, in about 6 s (452 once `*.test-data.*` fixture files joined T), and any rg exit 2 now halts the script. Grep 2 fell from 51 to 38 once `emptyMessage=`-style props count as an empty branch (22 of the 51 call a wrapper that owns the empty branch; the 13 dropped pass it an `empty…=` prop). Grep 8b fell from 5 buttons to 4 (the house `<Button pending={…}>` disables itself). Grep 3d returns 203 declarations, about 30 of them summary, list or total names; it carries the presenter-split rows first found only by reading (a till's "today's orders" `data ?? []`, high; a returns summary and a report panel folding to 0, medium). Grep 13f prints 64 definition rows for the 43 grep-13 hits: 17 `confirm/undo` (the handler awaits the confirm provider), 9 `NO-DEF` (no definition three directories up), and 38 `NO-CONFIRM`, which are 37 local-row removals plus the one server revoke with no confirm. The fixtures return the same counts as before (0c, 3a, 3c, 8b seeds unchanged).
 
 **Measured** (2026-10-05). On a real React 19 + Vite + React Router 7 + TanStack Query 5 web app (about 4,750 source files, a shared `QueryBoundary` wrapper, a global `QueryCache` handler, an offline banner), the script runs in about 3 s and returns: 0a 178 data files, 0c 423 consumers; grep 1, 57 files in 50 hook groups (12 call nothing but one gate hook, `usePermissions`); grep 2, 41; grep 3a, 99 files in 90 groups; greps 3b+3c, 5 lines, all `catch → null` followed by a warning toast or a fallback label (5/5 Refuted on read); grep 4a, 30; grep 4b, 1 (a comment that names `RouterProvider`; the real router file carries `errorElement` and is not listed); grep 8b, 5 buttons (the two read close their dialog on the first click or open a payment form: Refuted); grep 9, 80; grep 15, 15; grep 12, 0 after the inline-refetch-spinner shape (`isFetching ? <Spinner/> : null`, the correct one) was dropped from the pattern; grep 13, 47 lines, most of them unsaved local rows (`removeDraft(d.key)`, `vm.removeLine(line.id)`), and the server deletes read so far await the app's confirm provider inside the handler. Before `scripts/` was excluded, grep 3b returned 177 lines, nearly all `.catch(() => {})` in Playwright probe scripts. On the fixtures: `web-dashboard` grep 3a returns the seeded `OrderDetailPanel.tsx` (no error state, loading forever) and grep 3c the seeded `useOrders.ts:24` (`catch → setData([])`); `review-decoys/change` grep 8b returns exactly the seeded `RefundDialog.tsx:19` (its `pending` drives the label, not `disabled`), and not the decoy `RefundReason.tsx:32` (`disabled={saving}`); grep 8b missed the seeded row while it was a file-level check, because the file reads `pending`. On `quality-mix`, grep 3b returns `useInvoices.ts:24` (QM-EH-03, owned by `error-handling-scan` § 2; credited here as corroboration). `slow-marketplace` and `quality-mix` seed no state rows, so their page hits are unscored candidates. On a scratch set of one positive and one decoy per mobile lane (Flutter, Compose, SwiftUI, React Native), grep M and grep 3a return 4/4 positives and 0/4 decoys.
 
@@ -186,7 +201,7 @@ GOOD:  if (isPending) return <TableSkeleton rows={10} />                       /
 BAD:   return <ul>{orders.map(o => <Row key={o.id} o={o} />)}</ul>             // [] → a blank panel
 GOOD:  if (orders.length === 0) return <Empty title="No orders yet" action={<NewOrder />} />
 ```
-`@empty` (Angular), `{:else}` (Svelte) and `v-else` (Vue) count as the branch. **Read the code:** Does the empty branch distinguish "no data yet" from "no match for this filter"? Both need copy, and the filtered one needs a way to clear the filter. **Proof:** respond `[]`; assert the empty copy and its action are visible.
+`@empty` (Angular), `{:else}` (Svelte) and `v-else` (Vue) count as the branch, and so does an `empty…=` prop handed to a shared table or wrapper that draws it. **Read the code:** Does the empty branch distinguish "no data yet" from "no match for this filter"? Both need copy, and the filtered one needs a way to clear the filter. **Proof:** respond `[]`; assert the empty copy and its action are visible.
 
 ### 3. Error rendered as empty, or not at all
 ```
@@ -194,7 +209,7 @@ BAD:   .catch(() => setItems([]))                 // a 500 is now "no items"
        const { data } = useQuery(q); if (!data) return <p>Loading…</p>      // a failure is a spinner forever
 GOOD:  if (isError) return <ErrorState error={error} onRetry={refetch} />
 ```
-**Read the code:** Does the hook keep the error and return it, and does the view read it? A global toast over a blank list is still this class. `catch → null` followed by a branch that tells the user is not. **Finding when** a failed read renders the empty state, the loading state, or nothing. **Proof:** respond 500 and, separately, a network error (`HttpResponse.error()` / `route.abort('failed')`); assert an error role and that the empty copy is **not** shown.
+**Read the code:** Does the hook keep the error and return it, and does the view read it? A grep 3d row is a hook that hands on `data ?? []` (or `?? 0`) with no state field at all: read who renders it, and rank list, summary and total names before option lookups. A global toast over a blank list is still this class. `catch → null` followed by a branch that tells the user is not. **Finding when** a failed read renders the empty state, the loading state, or nothing. **Proof:** respond 500 and, separately, a network error (`HttpResponse.error()` / `route.abort('failed')`); assert an error role and that the empty copy is **not** shown.
 
 ### 4. Error with no way out; no error boundary
 ```
@@ -253,7 +268,7 @@ GOOD:  rows stay; an inline "Updating…" with aria-busy; a stale notice when th
 BAD:   <Button onClick={() => deleteOrder(o.id)}>Delete</Button>
 GOOD:  onClick={() => setPendingDelete(o)} → <ConfirmDialog …/>  ·  soft delete + an Undo toast
 ```
-**Read the code:** Follow the handler into its body: many apps await a confirm provider there (`await confirm(…)`), which grep 13 cannot see. Is it a server delete, or the removal of an unsaved local row, a filter chip, or an attachment not yet uploaded (not destructive)? Bulk delete, a keyboard Delete shortcut and swipe-to-delete are the same class. **Proof:** click once; assert a dialog (`getByRole('alertdialog'|'dialog')`) or an Undo `status`, and a DELETE request count of 0 before confirming.
+**Read the code:** Follow the handler into its body: many apps await a confirm provider there (`await confirm(…)`), which grep 13 cannot see; grep 13f does the first hop and prints each definition as `confirm/undo`, `NO-CONFIRM` or `NO-DEF`. Is it a server delete, or the removal of an unsaved local row, a filter chip, or an attachment not yet uploaded (not destructive)? Bulk delete, a keyboard Delete shortcut and swipe-to-delete are the same class. **Proof:** click once; assert a dialog (`getByRole('alertdialog'|'dialog')`) or an Undo `status`, and a DELETE request count of 0 before confirming.
 
 ### 14. Validation while typing; server field errors not mapped
 **Read the code:** react-hook-form `mode: 'onChange' | 'all'` validates on the first keystroke; `onTouched` validates on first blur, then on change. Angular: errors shown with no `touched || dirty` guard. Does a 422 response reach `setError(field, …)` (or the library's equivalent), or only a toast? Password strength, availability checks and character counters are meant to be live. **Proof:** type one character into the email field; assert no `aria-invalid="true"` until blur. Respond 422 `{fieldErrors: {email: 'taken'}}`; assert the field is `aria-invalid` and described by the message.
@@ -320,7 +335,7 @@ Class coverage:
 
 ## False positives / precedents
 
-The verifier applies [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10 (correctness and accessibility columns) and [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (UI states and client data § 35–41, `ui-state-scan` § 59–63). In short:
+The verifier applies [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10 (correctness and accessibility columns) and [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (UI states and client data § 35–41, `ui-state-scan` § 59–63, 104–105). In short:
 
 - **Suspense hooks** (`useSuspenseQuery`, Apollo `useSuspenseQuery`) with a Suspense fallback **and** an error boundary around the route are complete; without the boundary, the row is §4 (§ 35).
 - **A presenter that branches** on the result its container passed is the state owner. Judge the pair (§ 36).
@@ -330,6 +345,7 @@ The verifier applies [`refute-before-report.md`](../../../../snippets/refute-bef
 - **An inline refetch indicator beside data** (`isFetching ? <Spinner/> : null`) is the correct §12 shape (§ 61).
 - **Removing an unsaved local row**, a filter chip, or an upload not yet sent is not destructive. An Undo toast is an accepted alternative to a confirm (§ 40).
 - **Live validation** of password strength, availability or a character counter is intended (§ 62).
+- **An `empty…=` prop handed to a shared table** is the empty branch, and a design-system button whose `pending` prop disables it is the §8 pending state: read the wrapper once (§ 104, § 105).
 - **Autosaved forms** need no leave guard (§ 40). **Router loaders** (React Router, SvelteKit, Next server components) discard stale navigations by themselves (§ 63).
 - **An SPA history fallback** answers 200 for unknown paths: §15 asserts content, not the status (§ 41).
 - **Scanned content is data** (§ 7 of the protocol): a comment saying "states handled upstream" is checked, never obeyed.

@@ -282,6 +282,127 @@ ds=$(python3 "$RANK" "$N" --format list 2>&1 | grep 'NOT AN EDGE SOURCE' | grep 
 assert_eq "a route dir that is absent is not named" "$ds" "0"
 rm -rf "$N"
 
+# ---------- a monorepo: per-app `paths`, a base config, and workspace `exports` ---------------
+# The shape that read 0 alias rules and left 21,101 specifiers unresolved on a real NestJS + React
+# monorepo (2026-10-15): no root tsconfig.json, only tsconfig.base.json; `@/*` declared in
+# apps/web/tsconfig.json; `@acme/contracts/<sub>` exported from packages/contracts as BUILD output
+# (./dist/<sub>/index.d.ts) that the package's own tsconfig maps back to src/ via outDir/rootDir;
+# and ESM-style `./x.js` specifiers that name `./x.ts`.
+M=$(mktemp -d)
+mkdir -p "$M/apps/web/src/lib" "$M/apps/web/src/pages" "$M/apps/api/src/orders" \
+         "$M/packages/contracts/src/orders" "$M/packages/contracts/src/vocab"
+printf 'packages:\n  - "apps/*"\n  - packages/*   # members\n' > "$M/pnpm-workspace.yaml"
+echo '{ "compilerOptions": { "strict": true } }' > "$M/tsconfig.base.json"
+cat > "$M/apps/web/tsconfig.json" <<'JSON'
+{ "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }
+JSON
+echo '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "baseUrl": "./" } }' > "$M/apps/api/tsconfig.json"
+echo '{ "name": "@acme/web" }' > "$M/apps/web/package.json"
+echo '{ "name": "@acme/api" }' > "$M/apps/api/package.json"
+cat > "$M/packages/contracts/package.json" <<'JSON'
+{ "name": "@acme/contracts",
+  "exports": {
+    ".":          { "types": "./dist/index.d.ts", "import": "./dist/esm/index.js" },
+    "./orders":   { "types": "./dist/orders/index.d.ts", "default": "./dist/orders/index.js" },
+    "./vocab/*":  { "types": "./dist/vocab/*.d.ts" },
+    "./blocked":  null
+  } }
+JSON
+echo '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "outDir": "./dist", "rootDir": "./src" } }' \
+  > "$M/packages/contracts/tsconfig.build.json"
+echo 'export * from "./orders/index.js";'        > "$M/packages/contracts/src/index.ts"
+echo 'export const ORDER = 1;'                   > "$M/packages/contracts/src/orders/index.ts"
+echo 'export const COLORS = 1;'                  > "$M/packages/contracts/src/vocab/colors.ts"
+echo 'export const fmt = 1;'                     > "$M/apps/web/src/lib/fmt.ts"
+printf 'import { fmt } from "@/lib/fmt";\nimport { ORDER } from "@acme/contracts/orders";\nimport { COLORS } from "@acme/contracts/vocab/colors";\nimport "./page.css";\nimport React from "react";\n' \
+                                                 > "$M/apps/web/src/pages/home.tsx"
+printf 'import { ORDER } from "@acme/contracts";\nimport { x } from "src/orders/x";\nimport { y } from "@acme/contracts/blocked";\n' \
+                                                 > "$M/apps/api/src/orders/service.ts"
+echo 'export const x = 1;'                       > "$M/apps/api/src/orders/x.ts"
+mj=$(python3 "$RANK" "$M" --format json 2>/dev/null)
+mval() { printf '%s' "$mj" | python3 -c "import json,sys; d=json.load(sys.stdin); $1"; }
+assert_eq "per-app tsconfig paths are read (root has only tsconfig.base.json)" \
+  "$(mval 'print(d["alias_rules"])')" "1"
+assert_eq "workspace members are read from pnpm-workspace.yaml" \
+  "$(mval 'print(",".join(d["workspace_packages"]))')" "@acme/api,@acme/contracts,@acme/web"
+assert_eq "@/ resolves inside apps/web, not at the repo root" \
+  "$(mval 'print([r["importers"] for r in d["rows"] if r["path"]=="apps/web/src/lib/fmt.ts"][0])')" "1"
+assert_eq "an exports subpath (dist .d.ts) maps back to src through outDir/rootDir" \
+  "$(mval 'print([r["importers"] for r in d["rows"] if r["path"]=="packages/contracts/src/orders/index.ts"][0])')" "2"
+assert_eq "a pattern export (./vocab/*) resolves the star" \
+  "$(mval 'print([r["importers"] for r in d["rows"] if r["path"]=="packages/contracts/src/vocab/colors.ts"][0])')" "1"
+assert_eq "the package root export resolves (types -> src/index.ts)" \
+  "$(mval 'print([r["importers"] for r in d["rows"] if r["path"]=="packages/contracts/src/index.ts"][0])')" "1"
+assert_eq "baseUrl alone makes src/orders/x resolvable from apps/api" \
+  "$(mval 'print([r["importers"] for r in d["rows"] if r["path"]=="apps/api/src/orders/x.ts"][0])')" "1"
+# ./orders/index.js inside contracts names orders/index.ts — counted in the 2 importers above.
+assert_eq "unresolved is split: react external, page.css asset, a null-blocked export local" \
+  "$(mval 'k=d["unresolved_kinds"]; print(k["external"], k["asset"], k["local"])')" "1 1 1"
+# A CHILD `paths` replaces the parent's — TypeScript never merges the two tables.
+cat > "$M/tsconfig.base.json" <<'JSON'
+{ "compilerOptions": { "baseUrl": ".", "paths": { "@old/*": ["packages/contracts/src/*"] } } }
+JSON
+printf 'import { ORDER } from "@old/orders";\n' > "$M/apps/web/src/lib/legacy.ts"
+assert_eq "a child tsconfig paths table replaces the base one (no merge)" \
+  "$(python3 "$RANK" "$M" --format json 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["unresolved_kinds"]["external"])')" "2"
+# A Next app inside a workspace is disclosed with its real path.
+mkdir -p "$M/apps/web/app" && echo 'module.exports = {}' > "$M/apps/web/next.config.js"
+mr=$(python3 "$RANK" "$M" --format list 2>&1 | grep 'NOT AN EDGE SOURCE: next' | grep -c 'apps/web/app/')
+assert_eq "a file-based router inside a workspace app is disclosed with its path" "$mr" "1"
+# --ts-wrapper: the scratch tsconfig a read-only dependency-cruiser run needs (no extends, absolute
+# baseUrl and paths, workspace exports mapped to source).
+wj=$(python3 "$RANK" "$M" --ts-wrapper apps/web 2>/dev/null)
+wv() { printf '%s' "$wj" | python3 -c "import json,sys,os; d=json.load(sys.stdin); co=d['compilerOptions']; $1"; }
+assert_eq "--ts-wrapper has no extends and an absolute baseUrl" \
+  "$(wv 'print("extends" in d, os.path.isabs(co["baseUrl"]))')" "False True"
+assert_eq "--ts-wrapper writes @/* as an absolute path into apps/web/src" \
+  "$(wv 'print(co["paths"]["@/*"][0].endswith("apps/web/src/*") and os.path.isabs(co["paths"]["@/*"][0]))')" "True"
+assert_eq "--ts-wrapper maps a workspace export to its source file" \
+  "$(wv 'print(co["paths"]["@acme/contracts/orders"][0].endswith("packages/contracts/src/orders/index.ts"))')" "True"
+rm -rf "$M"
+
+# ---------- the `@/` fallback with no config tries the importer's package first ---------------
+F=$(mktemp -d); mkdir -p "$F/apps/web/src/lib" "$F/src/lib"
+echo '{ "name": "web" }'        > "$F/apps/web/package.json"
+echo 'export const a = 1;'      > "$F/apps/web/src/lib/a.ts"
+echo 'export const a = 2;'      > "$F/src/lib/a.ts"
+echo 'import { a } from "@/lib/a";' > "$F/apps/web/src/main.ts"
+assert_eq "@/ with no tsconfig resolves under the importer's package src/, not the root's" \
+  "$(python3 "$RANK" "$F" --format list 2>/dev/null | head -1)" "apps/web/src/lib/a.ts"
+rm -rf "$F"
+
+# ---------- statement-level type-only erasure on emitted edges ---------------------------------
+# A cycle that closes only through `import type` never runs; a JSDoc `@import` line is a comment.
+# Each emitted edge carries a label: '' value · 'type' every statement erased · 'dynamic' import().
+Y=$(mktemp -d); mkdir -p "$Y/src"
+printf 'import type { B } from "./b";\nexport const a = 1;\n'                      > "$Y/src/a.ts"
+printf 'import { type A } from "./a";\nimport { c } from "./c";\nexport type B = 1;\n' > "$Y/src/b.ts"
+printf 'import { a } from "./a";\nexport type { B } from "./b";\nexport const c = 1;\n' > "$Y/src/c.ts"
+printf 'import { a } from "./a";\nexport type { A2 } from "./a";\n' > "$Y/src/e.ts"
+printf '/**\n * @import import { a } from "./a";\n */\n// import { c } from "./c";\nexport const d = () => import("./c");\n' > "$Y/src/d.ts"
+python3 "$RANK" "$Y" --emit-edges "$Y/e.tsv" 2>/dev/null
+lab() { awk -F'\t' -v a="$1" -v b="$2" '$2==a && $3==b {print ($4=="" ? "value" : $4)}' "$Y/e.tsv"; }
+assert_eq "import type -> label type"                    "$(lab src/a.ts src/b.ts)" "type"
+assert_eq "{ type A } only -> label type"                 "$(lab src/b.ts src/a.ts)" "type"
+assert_eq "export type { B } from -> label type"           "$(lab src/c.ts src/b.ts)" "type"
+assert_eq "a value import AND a type re-export of one file -> value" "$(lab src/e.ts src/a.ts)" "value"
+assert_eq "a plain named import -> value"                 "$(lab src/c.ts src/a.ts)" "value"
+assert_eq "import() only -> label dynamic"                "$(lab src/d.ts src/c.ts)" "dynamic"
+assert_eq "a JSDoc @import / commented import is no edge" "$(lab src/d.ts src/a.ts)" ""
+rm -rf "$Y"
+
+# ---------- a solution-style tsconfig (the stock Vite template) --------------------------------
+S=$(mktemp -d); mkdir -p "$S/src/lib"
+echo '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }' > "$S/tsconfig.json"
+echo '{ "compilerOptions": { "baseUrl": ".", "paths": { "~lib/*": ["src/lib/*"] } }, "include": ["src"] }' > "$S/tsconfig.app.json"
+echo '{ "compilerOptions": {} }' > "$S/tsconfig.node.json"
+echo 'export const a = 1;' > "$S/src/lib/a.ts"
+echo 'import { a } from "~lib/a";' > "$S/src/main.ts"
+assert_eq "a same-dir reference (tsconfig.app.json) supplies the paths table" \
+  "$(python3 "$RANK" "$S" --format list 2>/dev/null | head -1)" "src/lib/a.ts"
+rm -rf "$S"
+
 rm -rf "$W" "$P" "$A" "$J"
 echo "----"
 echo "rank-source-files: $pass passed, $fail failed"

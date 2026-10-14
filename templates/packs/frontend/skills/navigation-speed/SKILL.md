@@ -39,9 +39,10 @@ rg -n --no-heading --pcre2 '<a\b[^>]*\bhref=["\x27{`]*/(?![/\\])' "${CMP[@]}" "$
 rg -n --no-heading --pcre2 '\bprefetch=\{?\s*false\b|:prefetch=["\x27]false|data-sveltekit-preload-(?:data|code)=["\x27]off|\bpreload=\{?\s*false\b' "${CMP[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 2. Speculation Rules present (2a) — the detector fires only on a document-navigation surface (§2 conditions).
 rg -n --no-heading --pcre2 'type=["\x27]speculationrules|Speculation-Rules\s*:' "${UI[@]}" -g '**/{nuxt,next,astro}.config.*' -g '**/_headers' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 3. bfcache breakers: unload / beforeunload listeners (3a); long-lived connections (3b) in files that never listen for pagehide (3c).
+# 3. bfcache breakers: unload / beforeunload listeners (3a); long-lived connections — WebSocket, socket.io `io(…)`,
+#    EventSource, BroadcastChannel, IndexedDB (3b) — in files that never listen for pagehide (3c).
 rg -n --no-heading --pcre2 'addEventListener\(\s*["\x27](?:unload|beforeunload)["\x27]|\bon(?:before)?unload\s*=|useEventListener\([^,]*,\s*["\x27](?:before)?unload' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-rg -l --pcre2 '\bnew\s+(?:WebSocket|BroadcastChannel|EventSource)\s*\(|\bindexedDB\.open\s*\(|\bopenDB\s*\(' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match 'pagehide'
+rg -l --pcre2 '\bnew\s+(?:WebSocket|BroadcastChannel|EventSource|Manager)\s*\(|\bio\s*\(|from\s+["\x27]socket\.io-client["\x27]|\bindexedDB\.open\s*\(|\bopenDB\s*\(' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match 'pagehide'
 # 4. Instant-loading UI: Next App Router page dirs with no loading.* (4a); pending-state primitives in use — React Router useNavigation,
 #    Nuxt <NuxtLoadingIndicator>, Vue/React <Suspense>, SvelteKit navigating (4b); the deprecated SvelteKit $app/stores import (4c).
 rg --files -g '**/app/**/page.{tsx,jsx,ts,js}' "${X[@]}" "${ROOTS[@]}" | while read -r f; do ls "$(dirname "$f")"/loading.* >/dev/null 2>&1 || echo "$f"; done
@@ -54,8 +55,8 @@ rg -n --no-heading --pcre2 'scrollRestoration\s*=\s*["\x27]manual' "${CODE[@]}" 
 # 7. View Transitions in use (7a) and whether a reduced-motion guard exists anywhere in the styles (7b).
 rg -n --no-heading --pcre2 'startViewTransition\s*\(|view-transition-name|@view-transition|viewTransition\s*:|withViewTransitions\(|<ViewTransitions\b' "${CODE[@]}" -g '*.{css,scss}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -c --pcre2 'prefers-reduced-motion' -g '*.{css,scss,sass,less,vue,svelte,tsx,jsx,ts}' "${X[@]}" "${ROOTS[@]}"
-# 8. Route-change announcement: live regions, focus moves, framework announcers.
-rg -n --no-heading --pcre2 'aria-live=|role=["\x27]status["\x27]|<NuxtRouteAnnouncer\b|\.focus\(\s*\)' "${CODE[@]}" -g '*.component.html' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 8. Route-change announcement: live regions, focus moves (`.focus()` and `.focus({ preventScroll: true })`), framework announcers.
+rg -n --no-heading --pcre2 'aria-live=|role=["\x27]status["\x27]|<NuxtRouteAnnouncer\b|\.focus\(\s*(?:\{[^)]*\})?\s*\)' "${CODE[@]}" -g '*.component.html' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 ```
 
 A hit is a candidate. Two blind spots are structural:
@@ -63,7 +64,7 @@ A hit is a candidate. Two blind spots are structural:
 - **A listener added by a library is invisible to grep 3a.** Analytics, chat and session-replay SDKs register `unload` / `beforeunload` themselves. The Lighthouse `bf-cache` audit's `notRestoredReasons` (same id in 12 and 13) is the ground truth; the grep only finds the first-party ones.
 - **Grep 1a sees literal paths only.** A raw anchor whose `href` is built from a variable (`:href="url"`, `href={link}`) is not listed; read the shared link components instead.
 
-**Measured** (2026-10-05, read-only). Scratch fixture: a raw internal anchor, a `preload-data="off"` link, an `unload` listener, a `location.href` assignment, a page with no `loading.tsx` and a `$app/stores` import, all hit; the external and protocol-relative anchors, the comparison `location.href === …`, and the WebSocket in a file that listens for `pagehide` stay out. Benchmark fixtures: 1a hits once each in `quality-mix` and `vuln-fullstack`; 8 lists the existing live regions; the rest 0. Real repos: a Nuxt 4 storefront (3a: 2 `beforeunload` listeners in an engagement tracker; 5: 1 post-checkout redirect, a legitimate cross-origin carve-out on read; 1a: 4, of which 2 are anchors inside translated HTML strings), a Vue 3 + Vite admin SPA (5: 1 hard reload in a router guard) and an Angular 19 template (5: 6, four of them `mailto:` assignments, which are not navigations).
+**Measured** (2026-10-05, read-only). Scratch fixture: a raw internal anchor, a `preload-data="off"` link, an `unload` listener, a `location.href` assignment, a page with no `loading.tsx` and a `$app/stores` import, all hit; the external and protocol-relative anchors, the comparison `location.href === …`, and the WebSocket in a file that listens for `pagehide` stay out. Benchmark fixtures: 1a hits once each in `quality-mix` and `vuln-fullstack`; 8 lists the existing live regions; the rest 0. Real repos: a Nuxt 4 storefront (3a: 2 `beforeunload` listeners in an engagement tracker; 5: 1 post-checkout redirect, a legitimate cross-origin carve-out on read; 1a: 4, of which 2 are anchors inside translated HTML strings), a Vue 3 + Vite admin SPA (5: 1 hard reload in a router guard) and an Angular 19 template (5: 6, four of them `mailto:` assignments, which are not navigations). Re-measured 2026-10-15 on a real NestJS + React monorepo (Vite SPA, socket.io realtime): 3b 0 → 1 — the app's socket bus opens `io(env.wsUrl, …)` and never listens for `pagehide`, a bfcache blocker the WebSocket-only pattern missed; 8: 56 → 61 lines, five new `.focus({ preventScroll: … })` calls, two of them the portal shell's route-change focus on `<main>` that the bare `.focus()` pattern had missed (the other three move focus inside a form, a popover and a landing tour). Fixtures: unchanged.
 
 ## The 3,000-hit path
 

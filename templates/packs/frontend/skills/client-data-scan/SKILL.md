@@ -54,7 +54,7 @@ TanStack facts this skill relies on, read from the `@tanstack/query-core` 5.104.
 
 ## Lint lane
 
-Run in a scratch directory, never in the project, and never commit the config. The plugin's eight rules are `exhaustive-deps`, `stable-query-client`, `no-rest-destructuring`, `no-unstable-deps`, `infinite-query-property-order`, `no-void-query-fn`, `mutation-property-order` and `prefer-query-options`. **No rule checks a mutation with no invalidation or a missing `onError` rollback** — greps 4a and 5a cover those. Keep `exhaustive-deps` (→ §6), `no-unstable-deps` and `stable-query-client` (→ §7); the rest are advice. A lint lane that cannot install prints `blocked (<reason>)` for its rule column; the greps still run.
+Run in a scratch directory, never in the project, and never commit the config. The plugin's eight rules are `exhaustive-deps`, `stable-query-client`, `no-rest-destructuring`, `no-unstable-deps`, `infinite-query-property-order`, `no-void-query-fn`, `mutation-property-order` and `prefer-query-options`. **No rule checks a mutation with no invalidation or a missing `onError` rollback** — greps 4a and 5a cover those. Keep `exhaustive-deps` (→ §6), `no-unstable-deps` and `stable-query-client` (→ §7); the rest are advice. A lint lane that cannot install prints `blocked (<reason>)` for its rule column; the greps still run. Offline or read-only, there is no substitute that is worth its noise: a key-versus-`queryFn` identifier diff measured 2026-10-15 on a real React app (533 query blocks → 114 rows) was about 95 % helper-name noise. Print `§6 lint: blocked (offline)`, run grep 6a, open every key factory (§ blind spots), and ledger the rest `Live, unreviewed` — never `checked`.
 
 ```bash
 L="$(mktemp -d "${TMPDIR:-/tmp}/cd-lint.XXXXXX")" && (cd "$L" && echo '{"private":true}' > package.json && npm i --silent --no-audit --no-fund eslint@9 @tanstack/eslint-plugin-query@5.104.1 typescript-eslint >/dev/null)
@@ -87,11 +87,21 @@ rg -n --no-heading --pcre2 '"(?:@tanstack/(?:react|vue|svelte|solid|angular)-que
 rg -n --pcre2 'new\s+(?:QueryClient|MutationCache|QueryCache)\s*\(|defaultOptions\s*:' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 1a two consecutive awaited reads in a loader, page, component or hook (read: does the second use the first?);
 # 1b fan-out — Promise.all over a .map, an awaited call per loop item (the body may hold balanced braces, e.g. a
-#    destructured `const { data } = await …`), useQueries over a list; 1c a data-fetching component rendered inside .map.
+#    destructured `const { data } = await …`; an awaited `mutateAsync` counts), useQueries over a list; 1b′ fan-out behind
+#    a bounded-concurrency helper (add the project's own); 1c a data-fetching component rendered inside .map — React lane:
+#    hooks that reach a query hook are resolved per top-level function, three hops deep (a query in an api/*.ts hook
+#    behind a view-model hook), then the components that call one; Vue `v-for` / Svelte `{#each}` rows are read by hand.
 rg -n -U --pcre2 '^[ \t]*(?:const|let|var)\s+[^=\n]+=\s*await\s+[\w.$]+\s*[<(][^\n]*\n(?:[ \t]*(?://[^\n]*)?\n){0,2}[ \t]*(?:const|let|var)\s+[^=\n]+=\s*await\s+[\w.$]+\s*[<(]' -g '**/{routes,pages,app,views,screens,features,components,hooks,composables}/**/*.{ts,tsx,js,jsx,vue,svelte}' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-rg -n -U --pcre2 'Promise\.all(?:Settled)?\(\s*\w+(?:\??\.\w+)*\.map\(\s*(?:async\s*)?\(?[\w{}\s,]*\)?\s*=>\s*(?:await\s+)?[\w.$]+\(|for\s*(?:await\s*)?\(\s*(?:const|let)\s+(?:\w+|\{[^}]*\}|\[[^\]]*\])\s+of\s+[^)]+\)\s*\{(?:[^{}]|\{[^{}]*\}){0,200}?\bawait\s+'"$NET"'|\buseQueries\(\s*\{\s*queries\s*:\s*\w+(?:\??\.\w+)*\.map\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-Q=$(rg -l --pcre2 '\buse(?:Suspense)?Query\(|\buseSWR\(|\buseFetch\(|\bcreateQuery\(' "${T[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg -o --no-filename --pcre2 'export\s+(?:default\s+)?(?:function|const)\s+([A-Z]\w+)' -r '$1' | sort -u | paste -sd'|' -)
-[ -n "$Q" ] && rg -n -U --pcre2 '\.map\(\s*\(?[^)]*\)?\s*=>\s*\(?\s*<(?:'"$Q"')\b' "${T[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --pcre2 'Promise\.all(?:Settled)?\(\s*\w+(?:\??\.\w+)*\.map\(\s*(?:async\s*)?\(?[\w{}\s,]*\)?\s*=>\s*(?:await\s+)?[\w.$]+\(|for\s*(?:await\s*)?\(\s*(?:const|let)\s+(?:\w+|\{[^}]*\}|\[[^\]]*\])\s+of\s+[^)]+\)\s*\{(?:[^{}]|\{[^{}]*\}){0,200}?\bawait\s+(?:'"$NET"'|[\w.$]+\.mutateAsync\s*\()|\buseQueries\(\s*\{\s*queries\s*:\s*\w+(?:\??\.\w+)*\.map\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --pcre2 '\b(?:mapBounded|mapLimit|mapSeries|pMap|pLimit|asyncPool|promisePool)\s*\(\s*[\w.]+' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+W="$(mktemp -d "${TMPDIR:-/tmp}/cd-pre.XXXXXX")"   # name lists, never one PCRE2 alternation (thousands of names exceed its size limit)
+OWN='NR==FNR{h[$1]=1;next} FNR==1{cur=""} match($0,/^(export[ \t]+)?(default[ \t]+)?(async[ \t]+)?(function|const|let)[ \t]+[A-Za-z_$][A-Za-z0-9_$]*/){s=substr($0,RSTART,RLENGTH); sub(/.*[ \t]/,"",s); cur=(s ~ P) ? s : ""} {l=$0; while(cur!="" && match(l,/use[A-Z][A-Za-z0-9_]*[ \t]*[<(]/)){n=substr(l,RSTART,RLENGTH); sub(/[ \t]*[<(]$/,"",n); if(n in h) print cur; l=substr(l,RSTART+RLENGTH)}}'
+printf '%s\n' useQuery useQueries useInfiniteQuery useSuspenseQuery useSuspenseQueries useSuspenseInfiniteQuery useSWR useSWRInfinite useSWRImmutable useFetch useLazyFetch useAsyncData useLazyAsyncData > "$W/hooks"
+rg -l0 --pcre2 '\buse[A-Z]\w*\s*[<(]' "${J[@]}" "${X[@]}" "${ROOTS[@]}" > "$W/jf"
+for hop in 1 2 3; do xargs -0 -r awk -v P='^use[A-Z]' "$OWN" "$W/hooks" < "$W/jf" | cat - "$W/hooks" | sort -u > "$W/h2" && mv "$W/h2" "$W/hooks"; done
+rg -l0 --pcre2 '\buse[A-Z]\w*\s*[<(]' "${T[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r awk -v P='^[A-Z]' "$OWN" "$W/hooks" | sort -u > "$W/comps"
+echo "1c: $(wc -l < "$W/hooks") data hooks, $(wc -l < "$W/comps") data components"
+rg -n -U -o --pcre2 '\.map\(\s*\(?[^)]*\)?\s*=>\s*\(?\s*<([A-Z]\w*)' -r '$1' "${T[@]}" "${X[@]}" "${ROOTS[@]}" | awk -F: 'NR==FNR{c[$1]=1;next} ($NF in c)' "$W/comps" -
 # 2a a network call written in a component file, outside a queryFn / mutationFn / fetcher — on its line, or on any
 #    enclosing (less-indented) line above it, so a multi-line `queryFn: async () => {` body is dropped too;
 # 9a a store that fetches and keeps its own loading flag (S-10).
@@ -101,8 +111,17 @@ rg -l --pcre2 'createAsyncThunk|createSlice|\bcreate\(\s*\(set|defineStore\(|cre
 # 3a files where an effect / watcher fetches and writes state with no cancellation and no keyed cache; 3b RxJS typeahead flattened with mergeMap / concatMap.
 rg -l --pcre2 '\buseEffect\(|\bwatch(?:Effect)?\(|\$effect\(|\bonMount\(' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg -l --pcre2 "$NET" | xargs -r rg -l --pcre2 '\bset(?!Interval|Timeout|Immediate)[A-Z]\w*\b|\.value\s*=|\bthis\.\w+\s*=(?!=)' | xargs -r rg --files-without-match --pcre2 'AbortController|\bsignal\b|\bignore\b|cancel(?:l)?ed|isMounted|\bactive\s*=\s*false|onCleanup|onWatcherCleanup|switchMap|useQuery|useSWR|createQuery'
 rg -n -U --pcre2 '(?:valueChanges|fromEvent\([^)]*\)|\w+\$)\s*\.pipe\([^;]{0,300}?\b(?:mergeMap|flatMap|concatMap)\(' -g '*.ts' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 4a mutation files that touch no cache; 4b RTK Query mutations (read invalidatesTags against providesTags); 4c Server Action files that never revalidate.
-rg -l --pcre2 '\b(?:useMutation|createMutation|injectMutation)\s*[<(]' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match --pcre2 'invalidateQueries|setQueryData|setQueriesData|refetchQueries|resetQueries|removeQueries|\brefetch\(|revalidate|\binvalidate\w*\(|cache\.(?:modify|evict|writeQuery|updateQuery)|update\s*\(\s*cache|awaitRefetchQueries'
+# 4a each mutation BLOCK (paren-matched from `useMutation(`) that touches no cache — per block, so one invalidating sibling
+#    no longer hides the rest of its file; a block that names the query client is credited (it may write through a helper);
+# 4d the same block whose mutationFn loops or Promise.all-s requests with no onSettled: a partial failure (request k of n
+#    fails) skips the onSuccess invalidation, the view stays stale, and a resubmit repeats the writes that landed;
+# 4b RTK Query mutations (read invalidatesTags against providesTags); 4c Server Action files that never revalidate.
+MB='FNR==1{o=0} !o && match($0,/(useMutation|createMutation|injectMutation)[ \t]*(<[^>(]*>)?[ \t]*[(]/){o=1; d=0; b=""; L=FNR; $0=substr($0,RSTART)}
+o{s=$0; for(i=1;i<=length(s);i++){c=substr(s,i,1); if(c=="(")d++; else if(c==")" && --d==0) break} b=b s "\n"
+  if(d==0){o=0; h=FILENAME":"L": "; if(b !~ C) print h "4a no cache op in this mutation block"
+    m=b; if(match(m,/mutationFn/)){m=substr(m,RSTART); if(match(m,/\n[ \t]*on(Success|Error|Settled|Mutate)[ \t]*[:(]/)) m=substr(m,1,RSTART)
+      if(((m ~ /for[ \t]*(await[ \t]*)?[(][^)]*[ \t]of[ \t]/ && m ~ /await/) || m ~ /Promise[.]all(Settled)?[(]/) && b !~ /onSettled/) print h "4d multi-request mutationFn, no onSettled"}}}'
+rg -l0 --pcre2 '\b(?:useMutation|createMutation|injectMutation)\s*[<(]' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r awk -v C='invalidateQueries|setQueryData|setQueriesData|refetchQueries|resetQueries|removeQueries|refetch[(]|revalidate|[Ii]nvalidat[A-Za-z]*[(]|cache[.](modify|evict|writeQuery|updateQuery)|update[ \t]*[(][ \t]*cache|awaitRefetchQueries|queryClient|(^|[^A-Za-z0-9_])qc([^A-Za-z0-9_]|$)' "$MB"
 rg -n --pcre2 '\b\w+\s*:\s*(?:builder|build)\.mutation\s*[<(]' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -l --pcre2 "^['\"]use server['\"]" "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match --pcre2 'revalidatePath|revalidateTag|updateTag|\brefresh\(|\bredirect\('
 # 5a onMutate with no onError in the file; 5b RTK updateQueryData never undone; 5c SWR rollback switched off.
@@ -119,15 +138,15 @@ rg -n --pcre2 'persistQueryClient|PersistQueryClientProvider|create(?:Sync|Async
 rg -n --pcre2 '\b(?:refetchInterval|refreshInterval|pollingInterval|pollInterval)\s*:|refetchIntervalInBackground\s*:\s*true|refreshWhenHidden\s*:\s*true' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -l -U --pcre2 'setInterval\(\s*(?:async\s*)?(?:\(\)\s*=>|function)[^;]{0,300}?(?:'"$NET"'|refetch\(|invalidate\w*\()' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -r rg --files-without-match --pcre2 'visibilitychange|visibilityState|document\.hidden|focusManager|useDocumentVisibility'
 rg -n -U --pcre2 'const\s+(\w+)\s*=\s*\{[^;]{0,400}?\};?[\s\S]{0,800}?useEffect\([\s\S]{0,600}?\[\s*[^\]]*\b\1\b[^\]]*\]\s*\)' "${T[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 8a mutations retried; 8b query / client retry config (read for 4xx); 8c a hand-rolled retry wrapper around a write.
+# 8a mutations retried; 8b query / client retry config (read for 4xx; `-U`: ky's `retry: {` object spans lines); 8c a hand-rolled retry wrapper around a write.
 rg -n -U --pcre2 'mutations\s*:\s*\{[^}]{0,200}?\bretry\s*:(?!\s*(?:0|false)\b)|\b(?:useMutation|createMutation|injectMutation)\s*[<(][^;]{0,600}?\bretry\s*:(?!\s*(?:0|false)\b)' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-rg -n --pcre2 '\bretry\s*:\s*(?:true|[1-9]\d*)\b|\bretry\s*:\s*\{[^}]*methods\s*:[^}]*\bpost\b|axiosRetry\(|retryCondition\s*:' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --pcre2 '\bretry\s*:\s*(?:true|[1-9]\d*)\b|\bretry\s*:\s*\{[^}]*methods\s*:[^}]*\bpost\b|axiosRetry\(|retryCondition\s*:' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -U --pcre2 '\b(?:withRetry|retry\w*|pRetry|backoff\w*)\(\s*(?:async\s*)?\(\)\s*=>[^;]{0,400}?\bmethod\s*:\s*["\x27](?:POST|PATCH|DELETE|post|patch|delete)\b' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 ```
 
 A finding is a hit **plus** a read of the call site **plus** the user intent that reaches it **plus** the oracle. Three blind spots are structural:
 
-- **Wrappers hide the library.** A project hook (`useApiMutation`, a `source()` helper, a query-options factory) may add invalidation, `signal` or retry for every caller. Read each wrapper once; a defect in it is one finding with N call sites, and a correct one refutes them all.
+- **Wrappers hide the library.** A project hook (`useApiMutation`, a `source()` helper, a query-options factory) may add invalidation, `signal` or retry for every caller; a project fan-out helper (`mapBounded(ids, getOrder)`) hides N requests behind one call — add its name to grep 1b′. Read each wrapper once; a defect in it is one finding with N call sites, and a correct one refutes them all.
 - **The key factory hides the key.** `keys.list(params)` can carry every input; lint and grep 6a see only the call. Open the factory before reporting §6.
 - **Counts exist only at runtime.** A component that looks N+1 may be deduplicated by the query layer, and one that looks fine may fan out through a child (`@data-flow-auditor` halt 6). §1 and §7 are candidates until the request log runs.
 
@@ -141,6 +160,7 @@ A finding is a hit **plus** a read of the call site **plus** the user intent tha
 | `quality-mix/web` | 2a 1 · 8c 1 | `BillingPage.tsx:13–15` wraps a credit **POST** in `withRetry` — a §8 candidate the first version (8a/8b only) missed |
 | `review-decoys/change/web` | 3a 1 | `useRefund.ts`: an effect fetch with `[]` deps and no abort (candidate; the stale-prop half is code-quality's) |
 | real React 19 + TanStack Query + React Router app, 2,696 source files | 0b 6 · 1a 1 · 1b 9 · 1c 0 · 2a 0 · 3a 0 · 4a 11 files · 6c 12 sign-out sites + 5 clears · 7a 20 · 8a–8c 0 | 1a: a GET whose result feeds the next POST — dependent, refuted. 1b: four candidates — two exports that fetch each selected order by id, a serial `for … of` with one awaited POST per task, one write per card — and five Hardening: chunked `Promise.all` / `useQueries` over pages of ids, and one PUT per currency (a domain constant). 4a: 5 sign-in / registration flows and 2 export jobs change no cached list (refuted on read), 1 hit is a doc comment, 3 remain to read. 6c: sign-out clears the query cache (`queryClient.clear()`), so the logout half is refuted. 7a: 20 `refetchInterval` sites, none opting into background polling (TanStack default `false`). 0b shows query retry as a function on status — the §8 decoy |
+| a real NestJS + React monorepo (React 19.2, TanStack Query 5.102, every query in an `api/*.ts` hook), re-measured 2026-10-15 | 1b 17 → 24 lines · 1b′ 1 · 1c 0 → 5 · 4a 10 files → 94 blocks · 4d 2 · 8b 0 → 1 | 1c was structurally empty (it seeded only from `.tsx` files calling `useQuery` directly): the per-function hook resolution (1,040 data hooks, 450 data components) prints exactly the 5 row-level fetchers a by-hand trace found (a store card, a journal-entry row, a phone-actions cell ×2, an issue block). 1b now prints awaited `mutateAsync` loops (serial assign / scan-many) and 1b′ a `mapBounded(ids, getOrder)` fan-out. 4a per block: one invalidating sibling had hidden its file's non-invalidating mutations (create-order, bulk-create and bulk-import beside an invalidating exchange). 4d: a serial-POST task create invalidating `onSuccess` only (Unconfirmed, V121) and a per-currency PUT loop (Hardening). 8b: ky's multi-line `retry: { methods: ['post'], statusCodes: [429] }` on the auth-refresh client — read: 429 only, which the throttler answers before the token rotates, refuted. Fixtures: the three file-level 4a seeds now print their block line; nothing lost |
 
 Before the fixes, 1a matched 226 lines on the real app (one-off Playwright scripts under `scripts/` — now excluded — and positive globs OR-ed with the extension glob, which nullified the directory restriction). Small fixtures prove the greps parse and catch seeded rows; precision at scale comes from the real-app row.
 
@@ -193,9 +213,11 @@ GOOD:  const ac = new AbortController(); fetch(url, { signal: ac.signal })…; r
 
 ```
 BAD:   useMutation({ mutationFn: createTodo })                      · 'use server' export async function create(fd) { await db.insert(fd) }
+       useMutation({ mutationFn: async (ts) => { for (const t of ts) await http.post(url, t) }, onSuccess: invalidate })   // 4d: POST 2 of 3 fails → no invalidation, the board misses task 1; a resubmit posts task 1 again
 GOOD:  onSuccess / onSettled: invalidateQueries({ queryKey: todoKeys.all }) or setQueryData · revalidatePath('/todos') / updateTag(…)
+       one batch endpoint · or onSettled: invalidate (runs on failure too), and a per-item idempotency key kept across the resubmit
 ```
-**Read the code:** Which keys does the write change — the list under every filter, the detail, counters, an infinite query's pages? Does a project helper or a global `MutationCache` already invalidate? RTK Query: does every `invalidatesTags` type appear in some `providesTags` (grep 4b; read the api slice)? Apollo: does the type have an `id` / `keyFields` so the result normalizes, or does the mutation `refetchQueries` / `update` the cache? SWR: does the bound `mutate` key match the list's key (a `?page=1` suffix does not)? A write that changes no cached view (sign-in, an export job, a message send) is not a candidate. **Finding when** a view that shows the written entity still shows the old value after the write, without a reload — or after back/forward (R-08). **Proof:** *Write-then-read* (§ Proof).
+**Read the code:** Which keys does the write change — the list under every filter, the detail, counters, an infinite query's pages? Does a project helper or a global `MutationCache` already invalidate? RTK Query: does every `invalidatesTags` type appear in some `providesTags` (grep 4b; read the api slice)? Apollo: does the type have an `id` / `keyFields` so the result normalizes, or does the mutation `refetchQueries` / `update` the cache? SWR: does the bound `mutate` key match the list's key (a `?page=1` suffix does not)? A write that changes no cached view (sign-in, an export job, a message send) is not a candidate. 4a prints one line per mutation block: before reporting one, read its call sites — `mutate(vars, { onSuccess: () => qc.invalidateQueries(…) })` at the call site invalidates too. **Multi-request mutation (4d):** a `mutationFn` that loops or `Promise.all`-s several requests and invalidates only `onSuccess` leaves the view stale when request k of n fails (the k−1 that landed never appear), and a resubmit with fresh idempotency keys writes them twice; read whether the server takes one key per item and keeps it across the retry. **Finding when** a view that shows the written entity still shows the old value after the write, without a reload — or after back/forward (R-08). **Proof:** *Write-then-read* (§ Proof); for 4d, V121 with MSW failing request 2 of 3, then a resubmit (request count, V106).
 
 ### 5. Optimistic update with no rollback
 

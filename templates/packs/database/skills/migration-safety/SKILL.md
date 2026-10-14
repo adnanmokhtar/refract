@@ -127,7 +127,7 @@ import os, re, sys
 diff, files = os.environ.get("DIFF") == "1", sys.argv[1:]
 CT = re.compile(r'(?i)\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?([\w."`]+)|\bcreate_table\s+[:"\x27]([\w.]+)|'
                 r'Schema::create\(\s*["\x27]([\w.]+)|\bcreateTable\(\s*["\x27`]([\w.]+)|\bop\.create_table\(\s*["\x27]([\w.]+)')
-TB = re.compile(r'(?i)(?:\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?|\bon\s+(?:only\s+)?|\badd_index\s+:|'
+TB = re.compile(r'(?i)(?:\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?|\bon\s+(?!delete\b|update\b)(?:only\s+)?|\badd_index\s+:|'
                 r'Schema::table\(\s*["\x27]|\balterTable\(\s*["\x27`])([\w."`]+)')
 norm = lambda t: t.split(".")[-1].strip("\"`'").lower()
 src, made = {}, {}
@@ -166,7 +166,7 @@ rg -n -H -i --pcre2 '\balter\s+column\s+["\x60\w]+\s+(set\s+data\s+)?type\b|\bmo
 rg -n -H --pcre2 '\bchange_column\b(?!_(null|default|comment))|\bmigrations\.AlterField\(|\bop\.alter_column\([^)]*\btype_\s*=|->change\(\)|\.alter\(\)|^\s*modify\s+:' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}"
 
 # 3. NOT NULL: SET NOT NULL, ADD COLUMN … NOT NULL with no default (3a); the same through ORM helpers (3b).
-rg -n -H -i --pcre2 '\bset\s+not\s+null\b|\badd\s+(column\s+)?(if\s+not\s+exists\s+)?["\x60\w]+\s+[^,;\n]*\bnot\s+null\b(?![^,;\n]*\bdefault\b)' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}" | "${NEW[@]}"
+rg -n -H -U -i --pcre2 '\bset\s+not\s+null\b|\badd\s+(column\s+)?(if\s+not\s+exists\s+)?["\x60\w]+\s+[^,;\n]*\bnot\s+null\b(?![^,;]*\bdefault\b)' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}" | "${NEW[@]}"
 rg -n -H --pcre2 '\bchange_column_null\b[^\n]*\bfalse\b|\badd_column\b[^\n]*\bnull:\s*false\b(?![^\n]*\bdefault:)|\bop\.(add_column|alter_column)\([^\n]*\bnullable\s*=\s*False|->nullable\(false\)|\.notNullable\(\)|^\s*(add|modify)\s+:\w+[^\n]*\bnull:\s*false' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}"
 
 # 4. Breaking the running (N-1) release: rename / drop / enum-value rename (4a); a Django field whose default lives only in
@@ -180,6 +180,9 @@ rg -n -H -i '\badd\s+column\b' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}" | cut
 # 5. Constraints validated in the statement that adds them: FK / CHECK with no NOT VALID (multi-line aware), inline REFERENCES on
 #    an added column (5a); ORM helpers without deferred validation (5b).
 rg -n -H -U -i --pcre2 '\badd\s+(?=(constraint\s+["\x60\w]+\s+)?(foreign\s+key|check)\b)(?![^;]*\bnot\s+valid\b)|\badd[ \t]+(column[ \t]+)?(?!constraint\b|foreign\b)["\x60\w]+[ \t]+[^;\n]*\breferences\b(?![^;]*\bnot\s+valid\b)' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}" | "${NEW[@]}"
+#    5c. NOT VALID and VALIDATE in one file the runner wraps in a transaction: the ADD's lock is held through the validation
+#    (precedent 43). Read each: a new or empty table is precedent 12.
+rg -l -i --pcre2 '\bnot\s+valid\b' "${MIG_PATHS[@]}" | sort > "$T/notvalid"; rg -l -i --pcre2 '\bvalidate\s+constraint\b' "${MIG_PATHS[@]}" | sort | comm -12 - "$T/notvalid" | comm -23 - "$T/optout"
 rg -n -H --pcre2 '\badd_(foreign_key|check_constraint)\b(?!.*validate:\s*false)|\badd_reference\b.*\bforeign_key:\s*true|\bop\.create_(foreign_key|check_constraint)\(|\bmigrations\.AddConstraint\(|->(foreign|constrained)\(|\.foreign\(|\bforeign_key_checks\b' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}"
 
 # 6. Files that change an existing table with no lock timeout in the file (6a); the timeout set anywhere else (6b).
@@ -187,10 +190,16 @@ DDL='\b(alter\s+table|create\s+(unique\s+)?index|drop\s+index|add\s+constraint|a
 rg -n -H -i --pcre2 "$DDL" "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}" | "${NEW[@]}" 2>/dev/null | cut -d: -f1 | sort -u > "$T/ddl"
 rg -n -H -i --pcre2 '\b(lock_timeout|lock_wait_timeout)\b' "${MIG_PATHS[@]}" | "${NC[@]}" | cut -d: -f1 | sort -u | comm -23 "$T/ddl" -
 rg -n -H -i --pcre2 '\b(lock_timeout|lock_wait_timeout)\b|StrongMigrations\.lock_timeout|ZERO_DOWNTIME_MIGRATIONS_LOCK_TIMEOUT|SafePgMigrations' "${X[@]}" . | "${NC[@]}"
+#    6c. Files that opt out of the runner's transaction: `SET LOCAL lock_timeout` is a no-op there (precedent 42), and a runner
+#    may set 0 for them (read 6b). ALTER/ADD CONSTRAINT/DROP/LOCK with no session `SET lock_timeout` or `set_config('lock_timeout',
+#    …)` (a CONCURRENTLY-only file is not listed); and files that rely on SET LOCAL.
+comm -12 "$T/optout" "$T/ddl" | while IFS= read -r f; do rg -q -i --pcre2 '\b(alter\s+table|add\s+constraint|drop\s+table|lock\s+table|alter\s+type)\b' "$f" && ! rg -q -i --pcre2 "\bset\s+(session\s+)?lock_timeout\b|set_config\(\s*'lock_timeout'" "$f" && echo "6c no session lock_timeout: $f"; rg -q -i --pcre2 '\bset\s+local\s+lock_timeout\b' "$f" && echo "6c SET LOCAL in a non-transactional file: $f"; done
 
 # 7. Data inside a schema migration: files with both DML and DDL (7a); how many DML lines carry a batch key (7b).
-rg -n -H -i --pcre2 '\b(update\s+["\x60\w.]+\s+set|insert\s+into|delete\s+from)\b|\bupdate_all\b|\bmigrations\.RunPython\(|\bDB::(update|insert|delete)\(' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}" | tee "$T/dml" | cut -d: -f1 | sort -u | comm -12 "$T/ddl" -
+rg -n -H -i --pcre2 '\b(update\s+(only\s+)?["\x60\w.${}]+(\s+(as\s+)?(?!set\b)\w+)?\s+set|insert\s+into|delete\s+from)\b|\bupdate_all\b|\bmigrations\.RunPython\(|\bDB::(update|insert|delete)\(' "${MIG_PATHS[@]}" | "${NC[@]}" | "${UP[@]}" | tee "$T/dml" | cut -d: -f1 | sort -u | comm -12 "$T/ddl" -
 rg -c -H -i --pcre2 '\b(limit|between|batch|chunk|in_batches|find_each|iterator)\b' "$T/dml"
+#    7b′. Files whose DML runs batched inside a `DO $$ … LOOP … LIMIT … $$` block (the key is lines away from the DML line).
+rg -l -U -i --pcre2 'do\s+\$\$(?:(?!\$\$)[\s\S])*?\bloop\b(?:(?!\$\$)[\s\S])*?\blimit\b' "${MIG_PATHS[@]}"
 
 # 8. Reversal: empty or raising down, RunPython / RunSQL with no reverse (8a); empty downs that carry a note — read the reason (8b);
 #    destructive steps, to check for a recovery point (8c).
@@ -201,6 +210,15 @@ rg -n -H -i --pcre2 '\b(drop\s+table|drop\s+column|truncate)\b' "${MIG_PATHS[@]}
 # 9. Migrations edited after they were added: in this diff (9a); across history, most-edited first (9b).
 git diff --name-only --diff-filter=M "$BASE"...HEAD 2>/dev/null | rg -i "$MIGRE"
 git log --diff-filter=M --format= --name-only -- "${MIG_PATHS[@]}" | sort | uniq -c | sort -rn | head -20
+# 9c. A squashed or re-rooted history hides 9b's edits. Compare each deployed ref's migrations with HEAD's, comments stripped.
+#     Refs: $DEPLOYED_REFS, else git tags plus every commit-hash image tag the deploy files ever pinned (kustomize newTag, Helm
+#     tag:, image: x:<sha>). Read-only: commits only, never the worktree. `history starts` near the first deploy = squashed.
+git log --reverse --format='9c history starts %h %cs' | head -1
+PINF=$(rg -l --pcre2 '\b(?:newTag|tag|image)\s*:\s*["\x27]?(?:\S+:)?[0-9a-f]{7,40}\b' -g '*.{yml,yaml}' "${X[@]}" . | tr '\n' ' ')
+REFS="${DEPLOYED_REFS:-}"; [ -n "$REFS" ] || REFS=$( { git tag; [ -n "$PINF" ] && git log -p --format= -- $PINF | tr -d "\"'" | grep -oE '^\+\s*(newTag|tag|image)\s*:\s*([^ ]*:)?[0-9a-f]{7,40}' | grep -oE '[0-9a-f]{7,40}$'; } | sort -u)
+for r in $REFS; do git cat-file -e "$r^{commit}" 2>/dev/null || continue; git diff --name-only --diff-filter=M "$r" HEAD -- "${MIG_PATHS[@]}" | while IFS= read -r f; do
+  cmp -s <(git show "$r:$f" | sed -E '/^[[:space:]]*(\*|\/\/|--|\/\*)/d; s#[[:space:]]//.*$##') <(git show "HEAD:$f" | sed -E '/^[[:space:]]*(\*|\/\/|--|\/\*)/d; s#[[:space:]]//.*$##') || echo "9c code differs from deployed $r: $f"; done; done | sort -u
+echo "9c refs: $(printf '%s\n' $REFS | grep -c .)"
 ```
 
 A finding is a grep hit **plus** a read of the statement, the file's wrapping, the table's size rung and, for §4, the code that touches the column. Three blind spots are structural: SQL assembled at runtime (`create table "${name}"` defeats `NEW`, so its index hits survive and are read), helper methods that wrap DDL (`this.createIndexConcurrently(t, cols)` — grep the helper's name once found), and statements split across files (a `NOT VALID` here, its `VALIDATE` in the next migration — read both before reporting §5).
@@ -242,6 +260,8 @@ Migration history accumulates; a whole-repo run over years of files returns thou
 2. **Count, never re-read, the new-table hits** `NEW` drops.
 3. **Read every pending file in full**, grouped by `(file, class)`: one decision covers a file's repeated statement on one table.
 4. **Whatever is left unread** goes to the ledger as `Live, unreviewed (k files / n hits)` with the command that continues it. Never `checked`.
+
+Measured (2026-10-15) on a real NestJS + React monorepo (MikroORM 6.6, 376 TS migrations, history squashed on 2026-10-12): 3a 6 → 4 (two `DEFAULT`s on the next line were read as missing); 7a 21 → 24 files (aliased `update public.order_items i set` and `update "${this.table}" set`); the `NEW` filter no longer reads `ON DELETE` as a table named `delete`; new 5c 17 transactional files with `NOT VALID` and `VALIDATE` together (the four files a full read found, plus first-deploy sites); new 6c 6 non-transactional files with lock DDL and no session timeout plus 4 relying on `SET LOCAL` (a full read found the runner sets 0 for those files); new 7b′ 3 files batching inside a `DO` loop; 9c resolved 11 deployed refs from the kustomize `newTag` history and found 0 code edits, the same answer a by-hand comparison of every deployed sha gave. No fixture line was lost.
 
 Measured on a real NestJS-on-Fastify + MikroORM 6.6 + Postgres monorepo (293 TS migrations, 2026-10-02): grep 1a returned 448 hits, of which `NEW` closed 347; 5a returned 330, of which it closed 265; 6a listed 183 files with no in-file lock timeout (65 files set one). 1c returned 0, as it should — all 23 `CONCURRENTLY` files opt out and the config sets `allOrNothing: false`, after both failures in the MikroORM row had been hit there. squawk on the lifted SQL (280 files) returned `require-concurrent-index-creation` ×76 and `constraint-missing-not-valid` ×62, close to greps 1a and 5a; 19 files with runtime-assembled SQL returned `syntax-error` and went to the read lane. On a synthetic corpus (Rails, Django, Alembic, Laravel, Knex, TypeORM, Prisma, Ecto, MySQL Flyway, goose), all 26 seeded defects stay in the candidate set and the 12 decoys stay out (a concurrent build with the right opt-out, `now()` as a default, a `NOT VALID` FK, a goose `Down` section).
 
@@ -317,7 +337,7 @@ BAD:   ALTER TABLE orders ADD CONSTRAINT orders_user_fk FOREIGN KEY (user_id) RE
 GOOD:  … REFERENCES users (id) NOT VALID;      -- migration N
        ALTER TABLE orders VALIDATE CONSTRAINT orders_user_fk;   -- migration N+1: SHARE UPDATE EXCLUSIVE, writes continue
 ```
-Greps 5a and 5b. **Read:** Is the `VALIDATE` in this file (then it holds this file's transaction lock: split it) or in a later migration? On MySQL, there is no `NOT VALID`: an FK with checks on is COPY. With checks off, the anti-join recipe in `/add-migration` applies, and a `LOCK=NONE` choice needs the anti-join re-run after commit. An FK with `ON DELETE CASCADE` / `SET NULL` refuses `LOCK=NONE` on that table afterwards. **Finding when** a populated table gets a validated-on-add FK or CHECK. **Severity:** high. **Proof:** the lock-budget oracle; after the fix, constraint rejection (a violating insert fails with `23503` / `23514`).
+Greps 5a, 5b and 5c (files the runner wraps in a transaction that hold both `NOT VALID` and `VALIDATE`, precedent 43). **Read:** Is the `VALIDATE` in this file (then it holds this file's transaction lock: split it) or in a later migration? On MySQL, there is no `NOT VALID`: an FK with checks on is COPY. With checks off, the anti-join recipe in `/add-migration` applies, and a `LOCK=NONE` choice needs the anti-join re-run after commit. An FK with `ON DELETE CASCADE` / `SET NULL` refuses `LOCK=NONE` on that table afterwards. **Finding when** a populated table gets a validated-on-add FK or CHECK. **Severity:** high. **Proof:** the lock-budget oracle; after the fix, constraint rejection (a violating insert fails with `23503` / `23514`).
 
 ### 6. No lock timeout
 
@@ -326,7 +346,7 @@ BAD:   ALTER TABLE orders ADD COLUMN note text;                   -- cheap, but 
 GOOD:  SET lock_timeout = '3s';  ALTER TABLE …                    -- PG: fail fast, retry
        SET SESSION lock_wait_timeout = 5;  ALTER TABLE …          -- MySQL: the default is one year
 ```
-Grep 6a lists files that change an existing table with no timeout in the file. Grep 6b finds a timeout set elsewhere: the runner config, a wrapper (strong_migrations, safe-pg-migrations, django-pg-zero-downtime-migrations), or a role (`ALTER ROLE … SET lock_timeout`). Under a PgBouncer transaction pooler, a session `SET` does not stick, so only the role setting counts. **Finding when** neither the file nor the runner, wrapper or role bounds the wait. A control set elsewhere clears it (precedent 15). **Severity:** medium, whatever the op class. **Proof:** the lock-budget oracle's lock-queue variant: one session holds `ACCESS SHARE`, the migration must fail within the timeout, and a third session must not queue.
+Grep 6a lists files that change an existing table with no timeout in the file. Grep 6c lists the non-transactional files with lock-taking DDL and no session `SET lock_timeout` / `set_config('lock_timeout', …, true)`, and those that rely on `SET LOCAL` there (a no-op outside a transaction, precedent 42); in a file of `DO` blocks, read that each block sets its own. Grep 6b finds a timeout set elsewhere: the runner config, a wrapper (strong_migrations, safe-pg-migrations, django-pg-zero-downtime-migrations), or a role (`ALTER ROLE … SET lock_timeout`). Under a PgBouncer transaction pooler, a session `SET` does not stick, so only the role setting counts. **Finding when** neither the file nor the runner, wrapper or role bounds the wait. A control set elsewhere clears it (precedent 15). **Severity:** medium, whatever the op class. **Proof:** the lock-budget oracle's lock-queue variant: one session holds `ACCESS SHARE`, the migration must fail within the timeout, and a third session must not queue.
 
 ### 7. Data inside the schema migration
 
@@ -348,7 +368,7 @@ Grep 8a lists empty or raising reversals; grep 8b counts empty ones with a note 
 
 ### 9. An applied migration edited after it ran
 
-Grep 9a lists migrations this diff modifies; grep 9b lists files modified after they were added. **Read:** `git log -p --follow -- <file>`: did the SQL change, or only a comment? Is the original on the deployed ref, or in the runner's table? Flyway's `validate` stops on the edit (`Migration checksum mismatch`, flyway-nc source 13.9.0); a runner whose table records only names (MikroORM keeps `name` and `executed_at`) skips the edited file silently, so production never gets the change. **Finding when** executable content of an applied migration changed. **Severity:** high: fix forward with a new migration. **Proof:** the deployed ref or runner table shows it applied, and the diff shows changed SQL.
+Grep 9a lists migrations this diff modifies; grep 9b lists files modified after they were added. 9b is blind on a squashed or re-rooted history (the first commit prints as `9c history starts`): grep 9c compares every deployed ref it can resolve (`DEPLOYED_REFS`, git tags, the image tags the deploy files ever pinned) with HEAD, comments stripped, and prints each migration whose code differs. Zero resolvable refs is `blocked (no deployed ref)`, not `checked`. **Read:** `git log -p --follow -- <file>`: did the SQL change, or only a comment? Is the original on the deployed ref, or in the runner's table? Flyway's `validate` stops on the edit (`Migration checksum mismatch`, flyway-nc source 13.9.0); a runner whose table records only names (MikroORM keeps `name` and `executed_at`) skips the edited file silently, so production never gets the change. **Finding when** executable content of an applied migration changed. **Severity:** high: fix forward with a new migration. **Proof:** the deployed ref or runner table shows it applied, and the diff shows changed SQL.
 
 ## Output
 

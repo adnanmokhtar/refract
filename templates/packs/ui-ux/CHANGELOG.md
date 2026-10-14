@@ -14,6 +14,16 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.32.0 — 2026-10-15
+
+**Detector fixes from a read-only audit of a real NestJS + React monorepo.**
+
+- **`ui-state-scan` 0b/0c failed silent on a large repo.** Hop 2 joined 1,718 hook names into one PCRE2 alternation; rg exited 2 ("regular expression is too large"), nothing checked it, and consumers fell from 454 to 2, emptying §1, §3a, §4a and §15. The names now go to a file joined with awk, and an `rgok` helper halts `BLOCKED` on any rg exit 2. On that repo: consumers 2→454, grep 1 0→83, 3a 0→133, 15 0→17.
+- New 3d (a hook-level `.data` folded with `?? []/0/null` and no state field ever read) and 13f (follows a destructive handler to its definition for a confirm); §2 accepts `empty…=` props; §8b accepts `pending=` buttons.
+- `state-matrix-lint.py --repo=.` alone now runs a whole-repo mode: no matrix while surfaces exist is `no-matrix`, exit 1 (the STATES gap); surfaces include Dialog/Sheet/Drawer/Modal/Panel; backend `*-page.ts` dropped. Self-test 13→18.
+- `design-token-audit` §9 knows Tailwind v4 namespaces and the `(--x)` shorthand (36→23); `motion-audit` §3 lists JS chart libraries, new 5b auto-advancing carousels; `chart-encoding-audit` new 5b division-to-zero in view-models, §7 accepts `format…=`, and its example no longer calls a true zero a false drop.
+- Test-data and fixture files excluded across the four skills.
+
 ## 1.31.2 — 2026-10-10
 
 **Citations switched to the merged oracles.** `chart-encoding-audit`, `design-token-audit`, `motion-audit`, `state-matrix` and `ui-state-scan` cite the merged `proof-oracles.md` variants and `precedents/ui.md` instead of draft or inline copies, and the `THR-UI-STATES` threshold by id; `ui-design-sweep`'s `references/measured-from-the-render.md` names its `measure.ts` as the *Render measurement* oracle (V145, V146) and its exclusions as `precedents/ui.md` § 98–101.

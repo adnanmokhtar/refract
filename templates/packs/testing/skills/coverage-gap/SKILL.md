@@ -80,7 +80,7 @@ lane that prints nothing because the stack is absent is an `N/A` reason; an rg e
 
 ```bash
 MODE=${MODE:-diff}; REPORT=${REPORT:-}                      # MODE=diff|whole-repo; REPORT=the merged coverage report, when one exists
-BASE=$(git merge-base HEAD "${BASE_REF:-origin/main}" 2>/dev/null); W=$(mktemp -d)
+BASE=$(git merge-base HEAD "${BASE_REF:-origin/main}" 2>/dev/null); W=$(mktemp -d "${TMPDIR:-/tmp}/coverage-gap.XXXXXX")
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/coverage/**'
    -g '!**/{test,tests,__tests__,spec,e2e,testdata,fixtures,__fixtures__,mocks,__mocks__,migrations,generated,__generated__,scripts}/**'
    -g '!**/*.{spec,test,e2e-spec,stories,d}.*' -g '!**/{test_*,*_test,conftest}.*' -g '!**/*{Test,Tests,IT}.{java,kt,cs,php}' -g '!**/*_spec.rb'
@@ -157,7 +157,7 @@ DN, CASE = re.compile(os.environ.get('DN') or r'(?!)'), re.compile(r'^[ \t]*(?:x
 def denial(s):                                   # the preamble, then only the cases that assert a refusal
     cut = [m.start() for m in CASE.finditer(s)]; parts = [s[a:b] for a, b in zip([0] + cut, cut + [len(s)])]
     return '\n'.join([parts[0]] + [p for p in parts[1:] if DN.search(p) and not re.match(r'\s*(?:(?:it|test)\.(?:skip|todo)|x(?:it|test))\b', p)])
-R = re.compile(r"""@(?:Get|Post|Put|Patch|Delete|All)\(\s*['"]([^'"]*)['"]|@(?:Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:(?:value|path)\s*=\s*)?\{?\s*"([^"]*)"|\.(?:get|post|put|patch|delete|api_route)\(\s*['"](/[^'"]*)['"]""")
+R = re.compile(r"""@(?:Get|Post|Put|Patch|Delete|All)\(\s*['"]([^'"]*)['"]|@(?:Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:(?:value|path)\s*=\s*)?\{?\s*"([^"]*)"|(?:\b\w*(?:[Rr]outer|[Aa]pp|[Ss]erver|[Ff]astify|[Ii]nstance|[Rr]outes?|[Bb]lueprint)|\bapi|\bbp|\br)(?:\(\))?\.(?:get|post|put|patch|delete|api_route)\(\s*['"](/[^'"]*)['"]""")
 P = re.compile(r"""@Controller\(\s*(?:\{[^}]*?path:\s*)?['"]([^'"]*)['"]|@RequestMapping\(\s*(?:(?:value|path)\s*=\s*)?"([^"]*)"|APIRouter\([^)]*prefix\s*=\s*['"]([^'"]*)['"]""")
 PUB = re.compile(r"@Public\(|@AllowAnonymous|@PermitAll|AllowAny\b|skip_before_action\s+:authenticate|@SkipAuth")
 mode, tests, roots = sys.argv[1], [t for t in open(sys.argv[2]).read().split('\0') if t], sys.argv[3:]
@@ -178,12 +178,44 @@ print(f'§{2 if mode == "deny" else 5}: routes={n} public={pub} test-files={len(
 PY
 DN="$DN" python3 "$W/routes.py" deny "$W/deny" "${X[@]}" .
 python3 "$W/routes.py" any "$W/route" "${X[@]}" .
-# 3. Typed errors thrown in source whose name no test line mentions. Generic and framework HTTP exceptions are judged
-#    by branch (1c's UNEXECUTED on the throw line), not by name.
+# 2s / 5s. Route sweeps: a test helper that lists the REGISTERED routes from framework metadata reaches every route without
+#     naming one. A sweep test that asserts a refusal is the runtime arm; one that pins the metadata against a committed
+#     table or snapshot is the decorator arm. A gap above that a sweep reaches is Unconfirmed until the sweep is read.
+SW='\b(?:PATH_METADATA|ModulesContainer|DiscoveryService|MetadataScanner|RequestMappingHandlerMapping|get_resolver)\b|\bapp\._router\.stack\b|\.printRoutes\(|\bRails\.application\.routes\b|\burl_map\.iter_rules\(|\bapp\.routes\b'
+rg -l --pcre2 "$SW" "${T[@]}" . | DN="$DN" python3 -c '
+import os, re, subprocess, sys
+DN = re.compile(os.environ["DN"] + r"|\b(?:401|403)\b\s*\]|want:\s*\[\s*40[13]"); SNAP = re.compile(r"toMatch(?:Inline|File)?Snapshot\(|[\x27\"][^\x27\"\n]*\.json[\x27\"]"); GATE = re.compile(r"\bGUARDS_METADATA\b|\b\w*(?:PERMISSION|ROLE|PUBLIC|GUARD)\w*_KEY\b|getMetadata\(\s*[\x27\"](?:roles|permissions)")
+helpers = [l.strip() for l in sys.stdin if l.strip()]; run, deco, other = set(), set(), set()
+IS_T = re.compile(r"\.(?:test|spec|e2e-spec)\.|(?:^|/)test_[^/]*\.py$|_test\.(?:go|py)$")
+imp = lambda f: subprocess.run(["rg", "-l", "--pcre2", r"[\x27\"/]" + re.escape(re.sub(r"\.[^./]+$", "", os.path.basename(f))) + r"[\x27\"]", "-g", "!**/node_modules/**", "-g", "!**/*.{md,json}", "."], capture_output=True, text=True).stdout.split()
+for h in helpers:                                # the sweep tests: h itself, what imports h, and what imports a helper that does
+    near = set(imp(h)); near |= {u for n in list(near) if not IS_T.search(n) for u in imp(n)}
+    for t in {x for x in near | {h} if IS_T.search(x)}:
+        s = open(t, errors="replace").read()
+        if DN.search(s): run.add(t)
+        if SNAP.search(s) and GATE.search(s) and t == h: deco.add(t)
+        elif not DN.search(s): other.add(t)
+print("route sweeps: helpers=%d · runtime arm (a refusal asserted over every registered route) %d: %s · decorator arm (guard metadata pinned to a committed table) %d: %s · other sweeps (tenant rows, idempotency — read) %d" % (len(helpers), len(run), " ".join(sorted(run)) or "-", len(deco), " ".join(sorted(deco)) or "-", len(other)))
+if run: print("  → §2 / §5 gaps above are reached by the runtime sweep: Unconfirmed until its per-route rows and exclusions are read, never a gap by literal")'
+# 3. Typed errors thrown in source whose name no test line mentions — unless every code literal it throws is asserted
+#    (3a); thrown code literals (`throw new X('PIECE_NOT_FOUND')`) no test line names, whatever the type (3b). Generic and
+#    framework HTTP exceptions are judged by branch (1c's UNEXECUTED on the throw line), not by name. `raise` is a word.
 echo '== 3'; rg -o -N --no-filename --pcre2 '^(?!\s*(?://|#|\*)).*' "${T[@]}" . | rg -o --pcre2 '\b[A-Z]\w*\b' | sort -u > "$W/tw"
 G='^(Error|Exception|ValueError|TypeError|RuntimeError|KeyError|HttpException|Illegal[A-Za-z]+Exception|[A-Za-z]*(BadRequest|NotFound|Forbidden|Unauthorized|Conflict|UnprocessableEntity|InternalServerError|ServiceUnavailable|TooManyRequests|NotImplemented)(Exception|Error))$'
-rg -o -N --no-filename --pcre2 '(?:throw\s+new|raise|panic\()\s*\K[A-Z]\w*|return\s+[^,\n]*,\s*\KErr[A-Z]\w*|\bErr\(\s*\K\w+(?=::)' "${X[@]}" . | sort | uniq -c | sort -rn |
-  while read -r k e; do [[ $e =~ $G ]] || grep -qx "$e" "$W/tw" || echo "untested-type $e (thrown x$k)"; done
+rg -n -o --pcre2 '(?:throw\s+new\s+|\braise\s+|\bpanic\(\s*)\K[A-Z]\w*(?:\(\s*[\x27"\x60][A-Z][A-Z0-9_]{3,}[\x27"\x60])?|\breturn\s+[^,\n]*,\s*\KErr[A-Z]\w*|\bErr\(\s*\K\w+(?=::)' "${X[@]}" . | G="$G" python3 -c '
+import collections, os, re, sys
+tw = set(open(sys.argv[1]).read().split()); n, codes = collections.Counter(), collections.defaultdict(list)
+for l in sys.stdin:
+    f, ln, hit = l.rstrip("\n").split(":", 2); m = re.match(r"(\w+)(?:\(\s*.([A-Z][A-Z0-9_]+))?", hit); n[m[1]] += 1
+    if m[2]: codes[m[1]].append((m[2], "%s:%s" % (f, ln)))
+for t, k in n.most_common():                    # a type no test names, unless every code it throws is asserted by literal
+    cs = {c for c, _ in codes[t]}; hit = {c for c in cs if c in tw}
+    if not re.match(os.environ["G"], t) and t not in tw and not (cs and hit == cs):
+        print("untested-type %s (thrown x%d%s)" % (t, k, "; codes asserted %d/%d" % (len(hit), len(cs)) if cs else ""))
+seen = set()
+for t in codes:                                  # 3b: a thrown code literal no test line names, whatever the type
+    for c, at in codes[t]:
+        if c not in tw and c not in seen: seen.add(c); print("untested-code %s  %s (%s)" % (c, at, t))' "$W/tw"
 # 4. Critical modules (money / auth / tenant / webhook / idempotency, by name) with executable code no test imports by
 #    basename or is named after: quoted specifiers (JS, Go), dotted imports (Python, JVM), test-file stems. Only a file
 #    extension is stripped — `./refund.service` stays `refund.service`, the stem of refund.service.ts.
@@ -193,7 +225,19 @@ echo '== 4'; { rg -o -N --no-filename --pcre2 "(?:from\s+|require\(\s*|import\s+
 } | sed -E 's/\.(c|m)?[jt]sx?$|\.(py|go|java|kt|rb|php|cs|rs|vue|svelte)$//' | sort -u > "$W/ti"
 rg --files "${X[@]}" . | rg -i --pcre2 '(?:^|/)[^/]*(?:pay|refund|charge|invoice|billing|wallet|ledger|settle|payout|pric|tax|money|balance|auth|login|session|token|permission|guard|polic|tenant|webhook|idempoten|signature|crypto)[^/]*\.(?:ts|tsx|js|py|go|java|kt|rb|php|cs|rs)$' |
   while read -r f; do b=$(basename "$f"); grep -qxF "${b%.*}" "$W/ti" || echo "$f"; done > "$W/crit"
-tr '\n' '\0' < "$W/crit" | xargs -0 -r rg -l --pcre2 '^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\b|(?:abstract\s+)?class\b|const\s+\w+\s*=\s*(?:async\s*)?\(|def\s|func\s|(?:public|private|protected)\s+[\w<>\[\]]+\s+\w+\s*\()'
+#    4b. When a test boots the whole app (Nest `AppModule`, `@SpringBootTest`), a row whose classes are all registered in a
+#    module (or carry a Spring stereotype) is reached by every e2e request through it: tagged Unconfirmed, the merged
+#    coverage run decides — never a gap by name.
+BOOT=$(rg -l --pcre2 'NestFactory\.create\(\s*AppModule|imports:\s*\[\s*AppModule\b|@SpringBootTest\b' "${T[@]}" . | head -1)
+tr '\n' '\0' < "$W/crit" | xargs -0 -r rg -l --pcre2 '^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\b|(?:abstract\s+)?class\b|const\s+\w+\s*=\s*(?:async\s*)?\(|def\s|func\s|(?:public|private|protected)\s+[\w<>\[\]]+\s+\w+\s*\()' |
+  BOOT="$BOOT" python3 -c '
+import os, re, subprocess, sys
+rows = [l.strip() for l in sys.stdin if l.strip()]; boot = os.environ["BOOT"]
+mods = "\n".join(open(f, errors="replace").read() for f in subprocess.run(["rg", "--files", "-g", "*.module.ts", "-g", "!**/node_modules/**", "."], capture_output=True, text=True).stdout.split()) if boot else ""
+for f in rows:
+    s = open(f, errors="replace").read(); cs = re.findall(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+(\w+)", s, re.M)
+    reg = boot and cs and (all(re.search(r"\b%s\b" % c, mods) for c in cs) or re.search(r"@(?:Service|Component|Controller|RestController|Repository)\b", s))
+    print(f + ("  [booted by the e2e app (%s) — Unconfirmed: the merged coverage run decides]" % boot if reg else ""))'
 # 6. Outbound API clients (6a) and contract tooling in tests (6b). 6a with 6b empty: every consumed API is a candidate.
 echo '== 6a'; rg -l --pcre2 '\baxios\.create\(|\bthis\.(?:http|httpClient|httpService|client|apiClient)\w*\.(?:get|post|put|patch|delete|request|call|send|fetch)\(|\bfetch\(\s*(?:`\$\{|this\.\w*(?:[Bb]ase|[Uu]rl)|\w*(?:BASE|[Bb]ase)_?(?:URL|Url))|\brequests\.(?:Session|get|post|put|patch|delete)\(|\bhttpx\.(?:Async)?Client\(|\bRestTemplate\b|\bWebClient\.(?:create|builder)\(|@FeignClient\b|\bhttp\.NewRequest(?:WithContext)?\(|\bFaraday\.new\(|\bGuzzleHttp\\Client\b' "${X[@]}" .
 echo '== 6b'; rg -l --pcre2 '@pact-foundation/pact|\bPactV[34]\b|\bpact_python\b|au\.com\.dius\.pact|pact-go|\bspecmatic\b|spring-cloud-contract|\bschemathesis\b|@stoplight/prism|\bopenapi-msw\b|\bjest-openapi\b|\btoSatisfyApiSpec\b' "${T[@]}" .
@@ -225,7 +269,7 @@ config sets no `collectCoverageFrom`, so its unit report would carry the MC-4 bl
 over 30 commits produced 3,565 changed source lines. On `benchmarks/fixtures/*` the script runs
 clean; the fixtures with no test files report every route as a §2 / §5 gap, as they should. On
 `brittle-suite` (2026-10-05, 2.0.1): §2 lists `GET /orders/:id`, named in a deny file only by a
-same-tenant 200 case, and §4 falls from 25 files to 14.
+same-tenant 200 case, and §4 falls from 25 files to 14. Re-measured 2026-10-15 on the same monorepo (about 10 s): §2 418 → 417 and §5 40 → 39 — the dropped route was an outbound payment-gateway call (`this.http.post('/api/v3/…')`) that the bare `.post('/…')` arm read as a route; the arm now needs a router / app / server / instance receiver, which also drops five outbound clients across the fixtures and no seeded row. The new sweep line names the e2e that asserts 401 over every registered route (the runtime arm) and the unit test that pins every route's guard metadata to a committed JSON table (the decorator arm), so all 417 + 39 rows are Unconfirmed, not gaps — the 2026-10-15 audit had found 18 of 20 sampled §5 rows reached that way. §3 17 → 13 types (`raise` inside `raiseCashReturn(` produced 4) plus 69 `untested-code` literals — `PIECE_NOT_FOUND` among them. §4 tags 99 of 304 rows booted by the e2e app.
 
 ## The 3,000-hit path
 
@@ -264,7 +308,7 @@ BAD:   @RequirePermission('orders.refund') @Post('orders/:id/refund')   — no t
 GOOD:  it('refuses a cashier', () => request(app).post(`/orders/${id}/refund`).set(cashier).expect(403))
        it('hides another tenant's order', () => … .set(otherTenant).expect(404))
 ```
-**Read the code:** Is the route really guarded (a class-level guard, a global guard with a public opt-out — grep 2 skips `@Public` within four lines above the route)? Does a test reach it through a helper that builds the URL (a gap line whose path the test assembles from variables is a false absence — read the helpers)? Does the suite assert refusals through a helper (`refused(res)`, `expectForbidden`)? Grep 2 counts a case as a denial only by `DN` — add the helper's name and re-run. Does a metadata test assert the decorator (that pins the annotation, not the guard's behaviour — it lowers severity one step, it does not clear the row)? Is there a permission-matrix test that iterates every route? **Finding when** no test sends the wrong user, the wrong role or another tenant to that route family and asserts the refusal. **Proof:** the seeded violation — remove the guard or the tenant predicate on a scratch branch, run the suite, restore; green proves nothing pins it ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Seeded violation, variants V71).
+**Read the code:** Does a route sweep reach it (the `route sweeps` line: a runtime-arm test asserting a refusal over every registered route, a decorator-arm test pinning guard metadata to a committed table) — then the row is Unconfirmed, and the question is the sweep's exclusions and whether it covers the tenant arm, not the literal? Is the route really guarded (a class-level guard, a global guard with a public opt-out — grep 2 skips `@Public` within four lines above the route)? Does a test reach it through a helper that builds the URL (a gap line whose path the test assembles from variables is a false absence — read the helpers)? Does the suite assert refusals through a helper (`refused(res)`, `expectForbidden`)? Grep 2 counts a case as a denial only by `DN` — add the helper's name and re-run. Does a metadata test assert the decorator (that pins the annotation, not the guard's behaviour — it lowers severity one step, it does not clear the row)? Is there a permission-matrix test that iterates every route? **Finding when** no test sends the wrong user, the wrong role or another tenant to that route family and asserts the refusal. **Proof:** the seeded violation — remove the guard or the tenant predicate on a scratch branch, run the suite, restore; green proves nothing pins it ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Seeded violation, variants V71).
 
 ### 3. Typed errors and error branches never asserted
 
@@ -272,11 +316,11 @@ GOOD:  it('refuses a cashier', () => request(app).post(`/orders/${id}/refund`).s
 BAD:   throw new InsufficientFundsError(balance)     — no test names InsufficientFundsError, and the throw line has 0 hits
 GOOD:  await expect(debit(w, 101)).rejects.toThrow(InsufficientFundsError); expect(res.status).toBe(409)
 ```
-**Read the code:** Is the error mapped to a status at the boundary, and does an HTTP test assert that status for this path (a name match is not required then)? Is it a defensive impossible state (`assertNever`, an `unreachable!()` branch)? For a generic error, use 1c's line data on the throw or `catch` line instead of the name. **Finding when** the error's branch is never executed, or executed but never asserted by type and external mapping. **Proof:** the throw line at 0 hits; or the seeded violation — inject the dependency failure, delete the branch's handling, and the suite stays green.
+**Read the code:** For an `untested-code` row, does a test assert the code through a message bundle or a mapped status instead of the literal? Is the error mapped to a status at the boundary, and does an HTTP test assert that status for this path (a name match is not required then)? Is it a defensive impossible state (`assertNever`, an `unreachable!()` branch)? For a generic error, use 1c's line data on the throw or `catch` line instead of the name. **Finding when** the error's branch is never executed, or executed but never asserted by type and external mapping. **Proof:** the throw line at 0 hits; or the seeded violation — inject the dependency failure, delete the branch's handling, and the suite stays green.
 
 ### 4. Critical module with no test
 
-**Read the code:** Is the module reached by an e2e or integration test (the coverage inventory decides, not the basename grep)? Is it type-only, a port interface, or generated? **Finding when** the merged report shows the file absent or every line at 0. **Proof:** the coverage inventory ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Coverage inventory).
+**Read the code:** A row tagged `booted by the e2e app` is reachable by every request through the booted module — Unconfirmed until the merged report reads it. Is the module reached by an e2e or integration test (the coverage inventory decides, not the basename grep)? Is it type-only, a port interface, or generated? **Finding when** the merged report shows the file absent or every line at 0. **Proof:** the coverage inventory ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Coverage inventory).
 
 ### 5. Integration-layer gap
 
@@ -334,7 +378,7 @@ absent; `blocked (<reason>)` when a grep failed or no report could be produced f
 
 ## False positives / precedents
 
-The verifier reads [`precedents/testing.md`](../../../../snippets/precedents/testing.md) (§ 31 coverage exclusions, § 40 engines, § 41 mutation) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. The ones this skill meets most:
+The verifier reads [`precedents/testing.md`](../../../../snippets/precedents/testing.md) (§ 31 coverage exclusions, § 40 engines, § 41 mutation, § 45 route sweeps) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. The ones this skill meets most:
 
 - **Another layer pins it.** An e2e or integration test that executes or names the code clears the row; merge the reports before ruling (rationalization: "the e2e covers it" — name it and show its assertion).
 - **A report from a narrowed run is not evidence of absence** — `--changedSince`, `--coverage.changed`, a single-file run, a shard.

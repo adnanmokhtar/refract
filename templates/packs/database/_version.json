@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "database",
-  "version": "2.1.2",
-  "released": "2026-10-14",
+  "version": "2.2.0",
+  "released": "2026-10-15",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "transaction-scan §2: an outbox row outside the caller's transaction corroborates distributed-systems dual-write-scan §1; connection-config-scan §8 names the cross-process read-after-write.",
+  "summary": "schema-map.py: MikroORM snapshot lane + resolved DDL lane feed index-coverage, schema-integrity, query-shape, schema-diff (static mode) and schema-consistency; ~60 grep fixes re-measured.",
   "changelog": "CHANGELOG.md"
 }

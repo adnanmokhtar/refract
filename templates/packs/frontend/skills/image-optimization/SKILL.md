@@ -44,8 +44,9 @@ X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,coverage,.next,.nuxt,.output
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#|<!--|\{/\*)')
 UI=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
 TB='(?:[^>{<\x60]|\{(?:[^{}]|\{[^{}]*\})*\})*'
+TL='(?:[^>]|=>)*?'   # lookahead body that also enters {…}: `className={cn('h-16 w-16')}`, `src={x ?? '/a.svg'}`
 RAW='(?<![\w.$])<img\b'                                                  # a raw <img>, not <Image> / <NuxtImg>
-NOTICON="(?!${TB}\\b(?:src|ngSrc)=[\"'{]*[^\"'}\\s]*\\.svg\\b)(?!${TB}\\bsrc=[\"'{]*data:)"   # SVG and data: URIs are exempt
+NOTICON="(?!${TL}\\b(?:src|ngSrc)=[\"'{]*[^\"'}\\s]*\\.svg\\b)(?!${TL}\\bsrc=[\"'{]*data:)"   # SVG and data: URIs are exempt
 # 0. Lanes: the image primitive the project ships (next/image, @nuxt/image, NgOptimizedImage, astro:assets, enhanced-img, an image CDN SDK).
 rg -n --no-heading '"(next|@nuxt/image|@angular/common|astro|@sveltejs/enhanced-img|vite-imagetools|@unpic/[\w-]+|cloudinary|@cloudinary/[\w-]+|@imgix/[\w-]+)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -l --no-heading --pcre2 "from\\s+[\"'](?:next/image|astro:assets)[\"']|NgOptimizedImage|<NuxtImg\\b|<NuxtPicture\\b|<enhanced:img\\b" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | wc -l
@@ -53,12 +54,13 @@ rg -l --no-heading --pcre2 "from\\s+[\"'](?:next/image|astro:assets)[\"']|NgOpti
 rg -n -U --no-heading --pcre2 "${RAW}${TB}\\b(?:src|ngSrc)=[\"'{]*[^\"'}\\s]*\\.(?:jpe?g|png)\\b${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg --files -g '**/{public,static,assets,src/assets}/**/*.{jpg,jpeg,png,JPG,JPEG,PNG}' -g '!**/node_modules/**' "${ROOTS[@]}" | wc -l
 # 2. A raw raster <img> with no srcset (SVG and data: URIs skipped).
-rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TB}\\b(?:srcset|srcSet|:srcset|\\[srcset\\])=)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 3. No reserved box: a raw <img> with neither width+height nor an aspect/size utility (3a); a NuxtImg/Picture with no width (3b).
-rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TB}\\b(?:width|:width|\\[width\\])=)(?!${TB}\\b(?:aspect-|size-\\d|h-\\d|aspectRatio|aspect-ratio))${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TL}\\b(?:srcset|srcSet|:srcset|\\[srcset\\])=)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 3. No reserved box: a raw <img> with neither width+height nor an aspect/size utility — Tailwind `size-full`, `size-[…]`,
+#    `h-[…]` and `h-full` (sized by its frame — see the blind spot) included (3a); a NuxtImg/Picture with no width (3b).
+rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TL}\\b(?:width|:width|\\[width\\])=)(?!${TL}\\b(?:aspect-|size-(?:\\d|full|\\[)|h-(?:\\d|\\[|full)|aspectRatio|aspect-ratio))${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -U --no-heading --pcre2 "<(?:NuxtImg|NuxtPicture)\\b(?!${TB}\\b:?(?:width|sizes)=)${TB}>" -g '*.vue' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 4. A raw <img> with no loading attribute (position decides: below the fold wants lazy, the LCP wants eager — read, then route the hero to lcp-audit).
-rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TB}\\b(?:loading|:loading|\\[loading\\])=)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n -U --no-heading --pcre2 "${RAW}${NOTICON}(?!${TL}\\b(?:loading|:loading|\\[loading\\])=)${TB}>" "${UI[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 5. Raw <img> count per file — a finding only where grep 0 shows a framework image primitive.
 rg -c --pcre2 "${RAW}${NOTICON}" "${UI[@]}" "${X[@]}" "${ROOTS[@]}"
 # 6. Oversized sources: committed raster files over 300 KB (the slot size is read from the consuming tag).
@@ -71,9 +73,10 @@ rg -n -U --no-heading --pcre2 "<(?:Image|NuxtImg|NuxtPicture|Picture)\\b(?=${TB}
 A hit is a candidate. The greps see **raw** `<img>` tags only (greps 2–5); a framework component already negotiates format, `srcset` and lazy loading, so its findings come from grep 3b, grep 7b and a read of its props. Two blind spots are structural:
 
 - **Sizing in a stylesheet is invisible to grep 3a.** A project class with a fixed `height` or `aspect-ratio` reserves the box; read the class before calling the tag unsized.
+- **Sizing by the parent frame is assumed, not seen.** 3a trusts `h-full` / `size-full` (`<img className="h-full w-full object-cover">` inside an avatar circle, a `size-10` logo slot, a `h-[56px]` rail): the box is the parent's. A parent that is not sized itself, or a `w-auto` logo with no fixed height, shifts the layout anyway — read one level up once per component, and read the tag when its class comes from a prop (`className={className}`).
 - **An image CDN or a build plugin rewrites `src` outside the source.** A `?format=auto` loader, `vite-imagetools` query, or a CDN rule turns grep 1a hits into dismissals; read the loader once.
 
-**Measured** (2026-10-05, read-only, counts are tags). Scratch fixture: a raster `src` with no modern path, a tag with no `srcset`, an unsized tag, a 400 KB PNG, all hit; the SVG icon, the commented-out tag and the sized `srcSet` tag stay out of the greps they should. Benchmark fixtures: `web-dashboard` 6 tags with no `srcset` and no `loading` (0 unsized), `vuln-fullstack` 3 / 2 unsized / 3, `slow-marketplace` 3 with no `srcset` (its hero is sized), the rest 0. Real repos: a Nuxt 4 storefront with three themes (grep 2: 111 tags in 68 files; 3a: 91 in 58; 4: 55 in 30, with no image primitive installed, so §5 is N/A and every theme repeats the same components: group first), a Vue 3 + Vite admin SPA (2: 11; 3a: 11; 4: 9) and an Angular 19 admin template (2: 209 in 34 files; 6: 10 files over 300 KB; demo pages, dismissed by the route table).
+**Measured** (2026-10-05, read-only, counts are tags). Scratch fixture: a raster `src` with no modern path, a tag with no `srcset`, an unsized tag, a 400 KB PNG, all hit; the SVG icon, the commented-out tag and the sized `srcSet` tag stay out of the greps they should. Benchmark fixtures: `web-dashboard` 6 tags with no `srcset` and no `loading` (0 unsized), `vuln-fullstack` 3 / 2 unsized / 3, `slow-marketplace` 3 with no `srcset` (its hero is sized), the rest 0. Real repos: a Nuxt 4 storefront with three themes (grep 2: 111 tags in 68 files; 3a: 91 in 58; 4: 55 in 30, with no image primitive installed, so §5 is N/A and every theme repeats the same components: group first), a Vue 3 + Vite admin SPA (2: 11; 3a: 11; 4: 9) and an Angular 19 admin template (2: 209 in 34 files; 6: 10 files over 300 KB; demo pages, dismissed by the route table). Re-measured 2026-10-15 on a real NestJS + React monorepo (Vite SPA, Tailwind 4, no image primitive): 3a 29 → 8 tags. The 21 dropped were all sized — `h-full w-full object-cover` inside a sized frame, `size-full`, arbitrary `h-[…]`, or a `className={cn('h-16 w-16 …')}` the brace-blind lookahead could not read (the tag-body lookaheads now enter `{…}`); the 8 left are six print-template HTML strings, one wrapper whose class arrives as a prop and one receipt viewer to read. Grep 2 57 and grep 4 39 tags, unchanged. Fixtures: unchanged.
 
 ## The 3,000-hit path
 

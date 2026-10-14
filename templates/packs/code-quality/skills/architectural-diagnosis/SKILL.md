@@ -58,7 +58,7 @@ Run the project's own tool first. Versions: code-quality research catalog, 2026-
 | Ruby · PHP · Rust | packwerk 3.3.1 · deptrac 4.7.2 · `cargo modules dependencies --lib --acyclic` | `bin/packwerk check` · `deptrac analyse` · crate split | RuboCop `Metrics/*` · PHPMD 3.0.0 · clippy |
 | any | — | — | **lizard 1.24.0** `--csv` (30+ languages) |
 
-**Traps, measured 2026-10-05.** (1) dependency-cruiser 18.5.0 refuses Node 23 (`^22||^24||>=26`): the script then prints §2 `blocked` for that root, never `0 cycles`, and lists the Refract graph's strongly connected components as candidates. (2) `--ts-config apps/x/tsconfig.json` from the repo root cannot read its `extends` (TS5083): run from the tsconfig's directory. (3) `dependencyTypesNot: ['type-only']` on `to` alone still reported 4 cycles closing through an `import type`; adding `viaOnly` with the same filter gave 0. (4) One specifier imported as a value **and** re-exported as a type gives two entries: an edge is type-only only when every entry is. A home-grown cycle gate that erased by specifier text missed a 12-file runtime cycle that dependency-cruiser reported. (5) The Refract graph (`~/.claude/scripts/build-graph.py --corpus=project`) printed `0 alias rule(s) read` on a monorepo with per-app tsconfig `paths`: 9,560 `@/` imports gave no edge. It is a fallback lane for TS/JS.
+**Traps, measured 2026-10-05.** (1) dependency-cruiser 18.5.0 refuses Node 23 (`^22||^24||>=26`): the script then prints §2 `blocked` for that root, never `0 cycles`, and lists the Refract graph's strongly connected components as candidates. (2) `--ts-config apps/x/tsconfig.json` from the repo root cannot read its `extends` (TS5083): run from the tsconfig's directory. (3) `dependencyTypesNot: ['type-only']` on `to` alone still reported 4 cycles closing through an `import type`; adding `viaOnly` with the same filter gave 0. (4) One specifier imported as a value **and** re-exported as a type gives two entries: an edge is type-only only when every entry is. A home-grown cycle gate that erased by specifier text missed a 12-file runtime cycle that dependency-cruiser reported. (5) The Refract graph (`~/.claude/scripts/build-graph.py --corpus=project`, built by `rank-source-files.py`) reads every tsconfig's `paths`/`baseUrl` scoped to its own directory, each workspace package's `exports` mapped back to source through its outDir → rootDir, and labels every edge value / `type` / `dynamic` per statement (an edge is type-only only when every statement behind it is). Measured 2026-10-15 on a real NestJS + React monorepo: 0 → 1 alias rule and 3 workspace packages read, 21,101 → 8,543 unresolved (8,221 external packages, 204 assets, 118 local: template strings in a scaffold script and test-only targets), 1 → 2,007 edges into the contracts package; 0 value cycles and 28 type-only SCCs (largest 40), as a hand-built value-edge checker found. Its cycles are value cycles over **resolved** edges; it still cannot read JS-declared aliases (it names the file) and has no `moreUnstable`, so it stays the fallback lane for TS/JS. (6) **Read-only target** (an audit that must not write the checkout): the build-graph cache defaults to `<repo>/.claude/_graph.json`, so the pre-flight passes `--no-cache`; set `RO=1` and dependency-cruiser runs from `$D` against a wrapper `rank-source-files.py --ts-wrapper <root>` prints (absolute `baseUrl` and `paths`, workspace packages mapped to source, no `extends`). A wrapper that only `extends` the app's tsconfig resolved 0 of 10,314 aliased imports; the absolute one gave 7,240 files and 39,313 edges (2026-10-15).
 
 ## Pre-flight (one script)
 
@@ -68,7 +68,7 @@ Run from the repository root (shell state does not survive between calls). Step 
 D="${TMPDIR:-/tmp}/arch-diag"; rm -rf "$D"; mkdir -p "$D"
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/{dist,build,target,.next,.venv,coverage}/**' -g '!**/*.{min.js,d.ts}'
    -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,fixtures,testdata,stories,migrations,seeds,generated,__generated__,locales,i18n,scripts}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,test_*,conftest}.*' -g '!docs/**' -g '!ai/**')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,fixture,fixtures}.*' -g '!**/{*_test,test_*,conftest}.*' -g '!docs/**' -g '!ai/**')
 for t in ts js py go java kotlin cs php ruby rust dart; do printf '%-6s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
 # 0a. The declared architecture and what already enforces it (gate 4). A rule file here is §1's oracle.
 rg --files --hidden -g '{.dependency-cruiser.*,.importlinter,tach.toml,.go-arch-lint.y*ml,deptrac.y*ml,sheriff.config.*,archunit.properties,package.yml,thresholds.local.json,architecture.md,modules.md}' -g '!**/{node_modules,vendor}/**' .
@@ -86,16 +86,20 @@ module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {
   options: { doNotFollow: { path: 'node_modules' }, tsPreCompilationDeps: true,
     exclude: { path: '(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|stories|migrations|seeds|generated)/|\\.(spec|test|e2e-spec|stories)\\.' } } };
 JS
+RK="$HOME/.claude/scripts/rank-source-files.py"; HERE=$PWD
 n=0; for c in $(rg --files -g 'tsconfig.json' -g '!**/node_modules/**' .); do r=$(dirname "$c"); [ -d "$r/src" ] || continue; n=$((n+1)); echo "$r" > "$D/dc.$n.root"
-  (cd "$r" && npx -y -p dependency-cruiser@18 -p typescript@5 depcruise src --config "$D/dc.cjs" --ts-config tsconfig.json --metrics --output-type json) > "$D/dc.$n.json" 2> "$D/dc.$n.err" \
+  if [ -n "${RO:-}" ] && [ -f "$RK" ]; then   # read-only target (trap 6): cwd and tsconfig in $D, never in the checkout
+    python3 "$RK" . --ts-wrapper "$r" > "$D/tsc.$n.json" && python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1]))' "$D" > "$D/dc.$n.root"
+    (cd "$D" && npx -y -p dependency-cruiser@18 -p typescript@5 depcruise "$HERE/$r/src" --config "$D/dc.cjs" --ts-config "$D/tsc.$n.json" --metrics --output-type json)
+  else (cd "$r" && npx -y -p dependency-cruiser@18 -p typescript@5 depcruise src --config "$D/dc.cjs" --ts-config tsconfig.json --metrics --output-type json); fi > "$D/dc.$n.json" 2> "$D/dc.$n.err" \
     || { echo "graph blocked in $r — $(rg -m1 -i 'error|node version' "$D/dc.$n.err")"; rm -f "$D/dc.$n.json"; }; done
-# Python, Vue/Svelte, Dart (and TS/JS when the lane above is blocked): the Refract graph, no type-only flag, so its cycles are candidates (trap 5).
-[ -f "$HOME/.claude/scripts/build-graph.py" ] && python3 "$HOME/.claude/scripts/build-graph.py" --corpus=project --repo=. --json > "$D/graph.json" 2> "$D/graph.err"
+# Python, Vue/Svelte, Dart (and TS/JS when the lane above is blocked): the Refract graph, value edges only (type-only and import()-only erased per statement, trap 5). --no-cache: writes nothing into the repo (trap 6).
+[ -f "$HOME/.claude/scripts/build-graph.py" ] && python3 "$HOME/.claude/scripts/build-graph.py" --corpus=project --repo=. --no-cache --json > "$D/graph.json" 2> "$D/graph.err"
 [ -f go.mod ] && go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' ./... > "$D/go.txt"   # package edges; Go package cycles do not compile
 python3 - "$D" <<'PY'
 import json,glob,os,re,sys,collections as C
 D=sys.argv[1]; E=set(); VAL=set(); FB=set(); lane=[]; pc=lambda v,q: sorted(v)[int(q*(len(v)-1))] if v else 0
-TEST=re.compile(r'(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|testdata|stories|migrations|seeds|generated|scripts|docs|ai|node_modules|vendor|dist|build)/|\.(spec|test|e2e-spec|stories|d)\.|(^|/)(test_[^/]*|[^/]*_test)\.\w+$')
+TEST=re.compile(r'(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|testdata|stories|migrations|seeds|generated|scripts|docs|ai|node_modules|vendor|dist|build)/|\.(spec|test|e2e-spec|stories|test-data|fixtures?|d)\.|(^|/)(test_[^/]*|[^/]*_test)\.\w+$')
 for p in sorted(glob.glob(D+'/dc.*.json')):
     r=open(p[:-4]+'root').read().strip(); J=lambda s: os.path.normpath(os.path.join(r,s)); lane.append('dependency-cruiser '+r)
     for m in json.load(open(p))['modules']:
@@ -104,11 +108,13 @@ for p in sorted(glob.glob(D+'/dc.*.json')):
             e=(J(m['source']),J(d['resolved'])); E.add(e); VAL.update([e] if 'type-only' not in d['dependencyTypes'] else [])   # type-only only if EVERY entry is (trap 4)
 done={a.split('/src/')[0] for a,_ in E}
 if os.path.exists(D+'/graph.json'):
-    g=json.load(open(D+'/graph.json')); lane.append('refract graph ('+g['gates']['code']['detail'].split(';')[-1].strip()+')')
-    G0={(x['from'],x['to']) for x in g['edges'] if x['from'].split('/src/')[0] not in done}; E|=G0; VAL|=G0; FB|=G0
+    g=json.load(open(D+'/graph.json')); lane.append('refract graph ('+g['gates']['code']['detail']+')')
+    GA=[x for x in g['edges'] if x['from'].split('/src/')[0] not in done]; GV={(x['from'],x['to']) for x in GA if not x.get('label')}   # label '' = value edge
+    E|={(x['from'],x['to']) for x in GA}; VAL|=GV; FB|=GV
 if os.path.exists(D+'/go.txt'):
     mp=open('go.mod').read().split()[1]; lane.append('go list'); G0={(a,b) for l in open(D+'/go.txt') for a,*bs in [l.split()] for b in bs if b.startswith(mp)}; E|=G0; VAL|=G0
-E={e for e in E if not TEST.search(e[0]) and not TEST.search(e[1]) and e[0]!=e[1]}; V=E&VAL
+NS=re.compile(r'\.(?:json|ya?ml|ttf|otf|woff2?|eot|css|scss|sass|less|svg|png|jpe?g|gif|webp|ico|md|mdx|txt|html|wasm|mp[34]|webm)$')   # assets and data files are not modules (§4 read 15 of 113 as fonts and i18n json)
+E={e for e in E if not TEST.search(e[0]) and not TEST.search(e[1]) and not NS.search(e[0]) and not NS.search(e[1]) and e[0]!=e[1]}; V=E&VAL
 cat=sorted({t.strip('/') for l in (open('ai/modules.md') if os.path.exists('ai/modules.md') else []) if l.startswith('|') for t in re.findall(r'`([\w@.\-/]+)`','|'.join(l.split('|')[1:3])) if '/' in t},key=len,reverse=True)
 KEYS={'modules','features','domains','contexts','slices','internal','pkg','packages','apps','libs','services','src'}
 def mod(f):   # the ai/modules.md catalog wins; else the deepest <container>/<name> segment
@@ -164,7 +170,7 @@ for v0 in list(adj):   # iterative Tarjan over the fallback graph: SCCs are cycl
 if BL: print(f'§2 blocked (dependency-cruiser failed in {", ".join(BL)} — see the "graph blocked" line above; never "0 cycles" there)')
 if glob.glob(D+'/dc.*.json'): print(f'§2 runtime cycles {len(grp)} (dependency-cruiser, {len(cy)} reported paths, value edges only)'); [print(f'   {len(g)} files / {len({M[x] for x in g if x in M})} modules:',' '.join(sorted(g)[:4])) for g in sorted(grp,key=len,reverse=True)[:5]]
 elif not FB and not BL: print('§2 blocked (no lane computed cycles: no dependency-cruiser run, no Refract graph; Go package cycles do not compile)')
-if FB: print(f'§2 cycle candidates from the Refract graph {len(scc)} (type-only edges included — read each before reporting, trap 5)'); [print(f'   {len(c)} files:',' '.join(sorted(c)[:4])) for c in sorted(scc,key=len,reverse=True)[:5]]
+if FB: print(f'§2 value cycles from the Refract graph {len(scc)} (type-only and import()-only erased per statement; resolved edges only — read each, trap 5)'); [print(f'   {len(c)} files:',' '.join(sorted(c)[:4])) for c in sorted(scc,key=len,reverse=True)[:5]]
 Ca=C.defaultdict(set); Ce=C.defaultdict(set); MS=set(M.values()); root=lambda m: m.split('/')[-1]=='src' or '/' not in m
 for a,b in V:
     if M[a]!=M[b]: Ce[M[a]].add(M[b]); Ca[M[b]].add(M[a])
@@ -181,12 +187,16 @@ rg -n --pcre2 '\b(?:em|entityManager|prisma|knex|dataSource|queryRunner|db)\.(?:
 # 7. Cross-cutting concerns rolled by hand (catch-and-log, inline auth check): files per directory; ≥ 5 directories → read.
 rg -c -U --pcre2 'catch\s*\(\s*\w+(?:\s*:\s*\w+)?\s*\)\s*\{\s*(?:console|this\.logger|logger|log)\.(?:error|warn)\(|\bif\s*\(\s*!\s*(?:req\.)?(?:user|session|currentUser)\b[^\n]*\)\s*(?:\{\s*)?(?:throw|return\s+res\.status\(\s*40[13])' "${X[@]}" . | sed -E 's#^\./##; s#/[^/]+:[0-9]+$##' | sort | uniq -c | sort -rn | awk 'NR<=10 {print} END {print NR" directories"}'
 # 8. Hand-rolled retry and pagination loops (one primitive missing at ≥ 3 sites, THR-DRY); clones across modules: duplication-scan step 1.
-rg -n --pcre2 '\bfor\s*\(\s*let\s+(?:attempt|retry|tries)\b|\bwhile\s*\(\s*(?:attempt|retries|tries)\s*<|\b(?:offset|skip)\s*[+]=\s*(?:limit|take|pageSize|PAGE_SIZE)\b' "${X[@]}" .
+rg -n --pcre2 '\bfor\s*\(\s*let\s+(?:attempt|retry|tries)\b|\bwhile\s*\(\s*(?:attempt|retries|tries)\s*<|\bfor\s*\(\s*let\s+\w+\s*=\s*\d+\s*;\s*\w+\s*<=?\s*(?:\w+\.)?\w*(?:ATTEMPT|Attempt|RETR|Retr|TRIES|Tries)\w*|\b(?:offset|skip)\s*[+]=\s*(?:limit|take|pageSize|PAGE_SIZE)\b' "${X[@]}" .
 # 9. Hotspots: 12-month churn (commits touching > 30 files dropped) × summed cyclomatic complexity × the share of fix commits.
 git log --since=12.months --no-merges --format='%x00%H%x09%s' --name-only -- . ':!*.lock' ':!**/CHANGELOG*' > "$D/log.txt"
+{ git rev-parse --is-shallow-repository; git log --max-parents=0 --format=%cs HEAD | sort | head -1; } > "$D/hist.txt"   # re-rooted / squashed / shallow history
+rg --files -g '*{complexity,function-size}*baseline*.json' -g '!**/node_modules/**' . > "$D/cx-baselines.txt"   # a committed ESLint complexity baseline: the §9 fallback lane
 python3 - "$D" <<'PY'
-import re,sys,os,csv,shutil,subprocess,collections as C
-D=sys.argv[1]; FIX=re.compile(r'^(?:fix|hotfix|bugfix|revert)\b|\b(?:fixes|closes|resolves)\s+#\d+',re.I); pc=lambda v,q: sorted(v)[int(q*(len(v)-1))] if v else 0
+import re,sys,os,csv,json,shutil,datetime,subprocess,collections as C
+D=sys.argv[1]; sh,*rt=open(D+'/hist.txt').read().split(); age=(datetime.date.today()-datetime.date.fromisoformat(rt[0])).days if rt else 0
+if sh=='true' or age<90: sys.exit(f'§9 blocked (history {rt[0] if rt else "none"}: {"shallow clone" if sh=="true" else f"root commit {age} days ago"}; churn needs ≥ 90 days of history — re-rooted or squashed history is not a calm repo)')
+FIX=re.compile(r'^(?:fix|hotfix|bugfix|revert)\b|\b(?:fixes|closes|resolves)\s+#\d+',re.I); pc=lambda v,q: sorted(v)[int(q*(len(v)-1))] if v else 0
 SRC=re.compile(r'\.(?:ts|tsx|js|jsx|mjs|py|go|java|kt|cs|rb|php|rs|swift|dart|vue|svelte)$'); SKIP=re.compile(r'(^|/)(test|tests|__tests__|spec|e2e|__mocks__|mocks|fixtures|testdata|migrations|seeds|generated|locales|i18n|scripts|docs|ai|vendor|dist|build)/|\.(spec|test|e2e-spec|stories|d)\.|(^|/)(test_[^/]*|[^/]*_test)\.\w+$')
 ch=C.Counter(); fx=C.Counter(); n=m=0
 for b in open(D+'/log.txt').read().split('\0')[1:]:
@@ -195,20 +205,30 @@ for b in open(D+'/log.txt').read().split('\0')[1:]:
     for f in fs:
         if SRC.search(f) and not SKIP.search(f) and os.path.isfile(f): ch[f]+=1; fx[f]+=bool(FIX.search(h.split('\t',1)[1]))
 print(f'§9 commits {n} ({m} mass dropped) · files {len(ch)} · repo fix share {sum(fx.values())/max(sum(ch.values()),1):.2f}')
-if not shutil.which('lizard'): sys.exit('§9 complexity lane blocked — lizard absent (pipx install lizard==1.24.0, or a stack lane from the table)')
-open(D+'/churn.txt','w').write('\n'.join(ch)); s=C.Counter(); mx={}
-for r in csv.reader(subprocess.run(['lizard','--csv','-f',D+'/churn.txt'],capture_output=True,text=True).stdout.splitlines()):
-    s[r[6]]+=int(r[1]); mx[r[6]]=max(mx.get(r[6],(0,)),(int(r[1]),r[7],r[9],r[10]))
-F=[f for f in ch if f in s]; cc,kc=pc([ch[f] for f in F],.95),pc([s[f] for f in F],.90); base=sum(fx[f] for f in F)/max(sum(ch[f] for f in F),1)
+s=C.Counter(); mx={}; part=''
+if shutil.which('lizard'):
+    open(D+'/churn.txt','w').write('\n'.join(ch))
+    for r in csv.reader(subprocess.run(['lizard','--csv','-f',D+'/churn.txt'],capture_output=True,text=True).stdout.splitlines()):
+        s[r[6]]+=int(r[1]); mx[r[6]]=max(mx.get(r[6],(0,)),(int(r[1]),r[7],r[9],r[10]))
+else:   # fallback: the project's committed complexity baseline (ESLint `complexity` over its limit): only over-limit functions are visible
+    def walk(o,f=None,k=False):
+        if isinstance(o,dict): [walk(v,(x if SRC.search(x) else f),k or 'complex' in x.lower()) for x,v in o.items()]
+        elif isinstance(o,list): [walk(v,f,k) for v in o]
+        elif k and f and isinstance(o,(int,float)) and not isinstance(o,bool): s[f]=max(s[f],int(o)); mx[f]=max(mx.get(f,(0,)),(int(o),'(baseline)','?','?'))
+    B=[l.strip()[2:] if l.startswith('./') else l.strip() for l in open(D+'/cx-baselines.txt') if l.strip()]
+    for b in B: walk(json.load(open(b)))
+    if not s: sys.exit('§9 complexity lane blocked — lizard absent and no committed complexity baseline (pipx install lizard==1.24.0, or a stack lane from the table)')
+    part=f' · partial: complexity from {", ".join(B)} (only functions over its limit), lizard absent'
+F=[f for f in ch if f in s]; cc,kc=pc([ch[f] for f in (ch if part else F)],.95),(1 if part else pc([s[f] for f in F],.90)); base=sum(fx[f] for f in F)/max(sum(ch[f] for f in F),1)
 H=sorted([f for f in F if ch[f]>=cc and s[f]>=kc],key=lambda f:-fx[f]/ch[f])
-print(f'§9 hotspots {len(H)} (churn ≥ p95 {cc} commits AND summed CCN ≥ p90 {kc}) · fix share ≥ repo {base:.2f}: {sum(fx[f]/ch[f]>=base for f in H)}')
+print(f'§9 hotspots {len(H)} (churn ≥ p95 {cc} commits AND summed CCN ≥ p90 {kc}) · fix share ≥ repo {base:.2f}: {sum(fx[f]/ch[f]>=base for f in H)}{part}')
 [print(f'   {ch[f]:3d} commits {fx[f]:3d} fix · CCN sum {s[f]:4d} max {mx[f][0]:3d} {mx[f][1]} · {f}:{mx[f][2]}-{mx[f][3]}') for f in H[:12]]
 PY
 ```
 
 A candidate is an output line **plus** the code read at both ends **plus** the declared rule or the impact evidence. Blind spots: DI by token, dynamic `import()`, reflection, event buses and file-based routing produce no edge (read each composition root); the module unit is a guess until `ai/modules.md` names it; squash merges and fixes filed as `chore:` starve §9's fix share (read the top hotspots' commit subjects).
 
-**Measured** (2026-10-05) on a real NestJS-on-Fastify + MikroORM + React monorepo (6,038 production files, 31,366 edges, 3,552 commits; about 22 s). §1: 0 edges against the declared hexagonal order in the API, which its ESLint rules hold at error; 108 default FSD hits in the web app, all inside the exemption those rules carry, so the declared tool wins. §2: 1 runtime cycle, 12 files across three feature slices through their barrels, missed by the project's own gate (trap 4). §3: every file above the fan-in p99 (19 importing modules) is shared kernel. §4: the eight largest fan-outs are composition roots (§ 57). §6: 0. §8: six hand-rolled unique-code retry loops in four modules. §9: 82 hotspots, 46 at or above the repo's 0.46 fix share; on the top one, a 426-line function with CCN 75, 20 of the 28 commits on its own lines were fixes. The most-churned file (90 commits) was a composition root the complexity cut removed. `benchmarks/fixtures/slow-marketplace`: §2 lists 3 ORM-entity cycles (§2 read). `quality-mix` on Node 23.8: 1b → the one seeded `@prisma/client` import in `api/src/domain` (the declared rule exists but no CI runs it); dependency-cruiser blocked in both roots, so §2 prints `blocked` and the Refract graph's 2 strongly connected components as candidates — one is the seeded `billing.events` ↔ `billing.service` value cycle, the other an `import type` pair (Hardening).
+**Measured** (2026-10-05) on a real NestJS-on-Fastify + MikroORM + React monorepo (6,038 production files, 31,366 edges, 3,552 commits; about 22 s). §1: 0 edges against the declared hexagonal order in the API, which its ESLint rules hold at error; 108 default FSD hits in the web app, all inside the exemption those rules carry, so the declared tool wins. §2: 1 runtime cycle, 12 files across three feature slices through their barrels, missed by the project's own gate (trap 4). §3: every file above the fan-in p99 (19 importing modules) is shared kernel. §4: the eight largest fan-outs are composition roots (§ 57). §6: 0. §8: six hand-rolled unique-code retry loops in four modules. §9: 82 hotspots, 46 at or above the repo's 0.46 fix share; on the top one, a 426-line function with CCN 75, 20 of the 28 commits on its own lines were fixes. The most-churned file (90 commits) was a composition root the complexity cut removed. `benchmarks/fixtures/slow-marketplace`: §2 lists 3 ORM-entity cycles (§2 read). `quality-mix` on Node 23.8: 1b → the one seeded `@prisma/client` import in `api/src/domain` (the declared rule exists but no CI runs it); dependency-cruiser blocked in both roots, so §2 prints `blocked` and the Refract graph's value cycles: 1, the seeded `billing.events` ↔ `billing.service` (the `import type` pair it used to list is erased per statement since 2026-10-15). **Re-measured 2026-10-15** on the same monorepo, read-only and offline (Refract graph lane only, `--no-cache`, about 8 s): 7,046 files, 39,118 edges (9,110 type-only); §1 107 default FSD hits (the declared ESLint rules own them); §2 0 value cycles — the 12-file cycle is gone — and 28 type-only SCCs, the largest 40 files (§ 87); §4 the eight largest fan-outs are composition roots, and fonts and i18n JSON (15 of 113 rows) no longer enter it; §7 16 directories; §8 9 loops (the `n <= DERIVED_TRIES` shape was missed before); §9 `blocked (history 2026-10-12)` — the history had been re-rooted three days earlier, which the old script read as a calm repo of 136 commits; forced past that, the committed complexity baseline (lizard absent) gives 3 hotspots. `slow-marketplace`: the same 3 ORM-entity cycles.
 
 ## Diff runs — worse than the merge-base, or Pre-existing
 
@@ -400,7 +420,7 @@ Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/pos
 
 ## False positives / precedents
 
-The verifier reads [`precedents/code-quality.md`](../../../../snippets/precedents/code-quality.md) (§ 51–70, § 86–87) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4, § 5, § 10. Most met here: a metric alone (§ 51), composition roots (§ 57), generated code and framework shapes (§ 54, § 56), two similar blocks (§ 58), untouched breaches (§ 61), Active Record (§ 66), structural co-change (§ 68). A **shared kernel** has high fan-in by design (§ 86), and a **type-only or lazy ORM-entity cycle** does not exist at runtime (§ 87; Hardening at most).
+The verifier reads [`precedents/code-quality.md`](../../../../snippets/precedents/code-quality.md) (§ 51–70, § 86–87, § 91) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4, § 5, § 10. Most met here: a metric alone (§ 51), composition roots (§ 57), generated code and framework shapes (§ 54, § 56), two similar blocks (§ 58), untouched breaches (§ 61), Active Record (§ 66), structural co-change (§ 68). A **shared kernel** has high fan-in by design (§ 86), and a **type-only or lazy ORM-entity cycle** does not exist at runtime (§ 87; Hardening at most).
 
 ## References
 

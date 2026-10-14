@@ -50,18 +50,32 @@ Run as **one** script from the repo root. **H** is the schema map, which feeds �
 ```bash
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/*.min.*' -g '!*.md' -g '!ai/**' -g '!docs/**'
    -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,fixtures,__fixtures__,testdata,seeds,seeders,generated,__generated__,temp,locales}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,test_*}.*' -g '!**/*.{snap,lock,map,po,json}')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,doc}.*' -g '!**/{*_test,test_*}.*' -g '!**/*.{snap,lock,map,po,json}')
 C='^(?!\s*(?://|\*|/\*|#|--))[^\n]*?'      # the hit is not on a comment line
 M='price|amount|total|sub_?total|balance|cost|fee|tax|discount|credit|debit|payout|refund|salary|commission'
 
-# H. Schema map: CREATE/ALTER TABLE and CREATE UNIQUE INDEX (SQL, and SQL inside addSql(), queryRunner.query(),
-#    knex.raw()), Prisma models, Django models, Rails db/schema.rb, in path order, skipping down()/downgrade bodies.
-#    It applies ALTER COLUMN TYPE / SET NOT NULL / DROP COLUMN, so the map is the schema after the last migration.
+# H0. The schema map (index-coverage-scan/scripts/schema-map.py; index-coverage-scan § Pre-flight H0 says what it holds): a MikroORM
+#     snapshot plus the migrations after its horizon, else every migration's up() with `${…}` names resolved.
+SM=.claude/skills/index-coverage-scan/scripts/schema-map.py; RUN=$(mktemp -d "${TMPDIR:-/tmp}/db-scan.XXXXXX")
+if command -v python3 >/dev/null 2>&1 && [ -f "$SM" ] && python3 -I -B "$SM" . > "$RUN/schema.sql"; then export SCHEMA_SQL="$RUN/schema.sql"; grep '^-- schema-map [lhr]' "$SCHEMA_SQL"; else unset SCHEMA_SQL; echo 'schema-map NOT-RUN (python3 or schema-map.py absent): H parses the migrations; ${...} names stay invisible'; fi
+
+# H. Schema map: CREATE/ALTER/DROP TABLE and CREATE UNIQUE INDEX (SQL, and SQL inside addSql(), queryRunner.query(),
+#    knex.raw()), Prisma models, Django models, Rails db/schema.rb, in path order, skipping down()/downgrade bodies, then
+#    H0's map instead of the files it covers. It applies ALTER COLUMN TYPE / SET NOT NULL / DROP COLUMN / DROP TABLE.
 python3 - . <<'PY'
 import os, re, sys
 R = sys.argv[1] if len(sys.argv) > 1 else '.'
 SKIP = {'node_modules','vendor','dist','build','target','.git','.venv','coverage','test','tests','__tests__','spec','e2e','__mocks__','mocks','fixtures','__fixtures__','testdata','.next','tmp'}
+SQ = os.environ.get('SCHEMA_SQL') or ''; COV = re.findall(r'(?m)^-- schema-map covers (.+)$', open(SQ, encoding='utf-8').read()) if SQ else []
 I = r'[\\"`\[]*(?:\w+[\\"`\]]*\.[\\"`\[]*)?(\w+)[\\"`\]]*'
+RF = r'\s*(?:\([^)]*\))?(?:[^,;]*?(\bon\s+delete\s+(\w+(?:\s+(?:null|default|action))?)))?'   # past the referenced columns to ON DELETE
+def bal(s, i):
+    d = 0
+    for j in range(i, len(s)):
+        d += (s[j] == '(') - (s[j] == ')')
+        if not d: return j
+    return len(s) - 1
+def ecols(q): return [x.lower() for x in re.findall(r'[a-z_]\w*', re.sub(r'\b\w+\s*\(', '(', re.sub(r'::\s*\w+(?:\s+(?:varying|precision))?', '', re.sub(r"'[^']*'", '', q))), re.I) if x.lower() not in ('null', 'true', 'false', 'and', 'or', 'not', 'is', 'nulls', 'distinct')]
 def split(s):
     out, d, cur = [], 0, ''
     for ch in s:
@@ -70,20 +84,24 @@ def split(s):
         else: cur += ch
     return out + [cur]
 def names(s): return [re.match(r'[\\"`\[]*(\w*)', q.strip()).group(1).lower() for q in split(s) if q.strip()]
-col, fks, uq, chk, raws, softuq = {}, [], {}, {}, [], set()      # col[(t,c)] = [type, notnull, default, where]
+col, fks, uq, chk, raws, softuq = {}, {}, {}, {}, [], set()      # col[(t,c)] = [type, notnull, default, at]; fks[name] = (t, cols, parent, on delete, at)
 def setcol(t, c, spec, at):
     m = re.match(r'(?is)\s*((?:double\s+precision\b|character\s+varying\b|timestamp(?:\s*\(\d\))?(?:\s+with(?:out)?\s+time\s+zone)?\b|[\w.]+)(?:\s*\([^)]*\))?(?:\s*\[\])?)(.*)', spec)
     if m: col[(t.lower(), c.lower())] = [m.group(1).lower(), bool(re.search(r'(?i)\bnot\s+null\b|\bprimary\s+key\b', m.group(2))), (re.search(r'(?i)\bdefault\s+(\S+)|\b(generated\b[^,]*identity|auto_?increment)\b', m.group(2)) or [None])[0], at]
     if re.search(r'(?i)\bunique\b|\bprimary\s+key\b', spec): uq.setdefault(t.lower(), []).append([c.lower()])
     if re.search(r'(?i)\bcheck\s*\(', spec): chk.setdefault(t.lower(), set()).add(c.lower())
-    r = re.search(r'(?is)\breferences\s+' + I + r'(?:[^,;]*?(\bon\s+delete\s+(\w+(?:\s+(?:null|default|action))?)))?', spec)
-    if r: fks.append((t.lower(), [c.lower()], r.group(1).lower(), (r.group(3) or '').lower(), at))
+    r = re.search(r'(?is)\breferences\s+' + I + RF, spec)
+    if r: fks['%s_%s_fkey' % (t.lower(), c.lower())] = (t.lower(), [c.lower()], r.group(1).lower(), (r.group(3) or '').lower(), at)
 files = sorted(os.path.join(dp, f) for dp, dns, fns in os.walk(R) for f in fns if not dns.__setitem__(slice(None), [d for d in dns if d not in SKIP])
-               and re.search(r'\.(sql|prisma|ts|js|mjs|py|rb|php|java|kt|go|cs)$', f) and not re.search(r'\.(spec|test|e2e-spec|mock|stories)\.', f))
+               and re.search(r'\.(sql|prisma|ts|js|mjs|py|rb|php|java|kt|go|cs)$', f) and not re.search(r'\.(spec|test|e2e-spec|mock|stories)\.', f)) + [SQ][:bool(SQ)]
 for p in files:
-    t = open(p, encoding='utf-8', errors='replace').read().replace('\\"', '"'); rel = os.path.relpath(p, R)
-    ln = lambda pos: '%s:%d' % (rel, t.count('\n', 0, pos) + 1)
-    if not re.search(r'(?i)migrat|(^|/)(scripts?|seeds?|seeders?|ai|docs?)/', rel):        # raw SQL in code: §9 needs it
+    t = open(p, encoding='utf-8', errors='replace').read().replace('\\"', '"'); rel = SQ if p == SQ else os.path.relpath(p, R)
+    def ln(pos):                                                                  # H0's `-- @src file:line` markers name the origin
+        k = t.rfind('-- @src ', 0, pos) if p == SQ else -1
+        if k < 0: return '%s:%d' % (rel, t.count('\n', 0, pos) + 1)
+        e = t.find('\n', k); f, _, l = t[k + 8:e].rpartition(':'); return '%s:%d' % (f, int(l) + t.count('\n', e + 1, pos))
+    if any(rel == c or c.endswith('/') and rel.startswith(c) for c in COV): continue        # H0's map holds this file's DDL
+    if p != SQ and not re.search(r'(?i)migrat|(^|/)(scripts?|seeds?|seeders?|ai|docs?)/', rel):        # raw SQL in code: §9 needs it
         for m in re.finditer(r'(?is)\b(?:from|join)\s+' + I + r'\b(?!\s*\()', t):
             if re.match(r'\s*(\*|//|#|--)', t[t.rfind('\n', 0, m.start()) + 1:m.start()]): continue
             w = re.split(r';|["\'`]\s*[+),;]', t[m.start():m.start() + 700])[0]
@@ -100,7 +118,7 @@ for p in files:
                 col[(tb, fm[n])] = [ty.lower(), not opt, (re.search(r'@default\(([^)]*\)?)\)', rest) or [None, None])[1], ln(mm.start(2) + f.start())]
                 if re.search(r'@(unique|id)\b', rest): uq.setdefault(tb, []).append([fm[n]])
             for f in re.finditer(r'(?m)^\s*\w+\s+(\w+)\??\s+@relation\(([^)]*fields:\s*\[([^\]]*)\][^)]*)\)', b):
-                fks.append((tb, [fm.get(x, x.lower()) for x in re.findall(r'\w+', f.group(3))], f.group(1).lower(), (re.search(r'onDelete:\s*(\w+)', f.group(2)) or [None, ''])[1].lower(), ln(mm.start(2) + f.start())))
+                fks['%s#%d' % (tb, len(fks))] = (tb, [fm.get(x, x.lower()) for x in re.findall(r'\w+', f.group(3))], f.group(1).lower(), (re.search(r'onDelete:\s*(\w+)', f.group(2)) or [None, ''])[1].lower(), ln(mm.start(2) + f.start()))
             for f in re.finditer(r'@@(unique|id)\(\s*(?:fields:\s*)?\[([^\]]*)\]', b): uq.setdefault(tb, []).append([fm.get(x, x.lower()) for x in re.findall(r'\w+', f.group(2))])
         continue
     if p.endswith('schema.rb'):                                                                       # Rails db/schema.rb (Prisma above, Django below)
@@ -112,7 +130,7 @@ for p in files:
             for f in re.finditer(r't\.index \[([^\]]*)\][^\n]*unique: true', m.group(3)): uq.setdefault(tb, []).append(re.findall(r'"(\w+)"', f.group(1)))
         for m in re.finditer(r'add_foreign_key "(\w+)", "(\w+)"([^\n]*)', t):
             c = re.search(r'column: "(\w+)"', m.group(3)); od = re.search(r'on_delete: :(\w+)', m.group(3))
-            fks.append((m.group(1), [c.group(1) if c else re.sub(r'ies$', 'y', m.group(2)).rstrip('s') + '_id'], m.group(2), od.group(1) if od else '', ln(m.start())))
+            fks['%s#%d' % (m.group(1), len(fks))] = (m.group(1), [c.group(1) if c else re.sub(r'ies$', 'y', m.group(2)).rstrip('s') + '_id'], m.group(2), od.group(1) if od else '', ln(m.start()))
         continue
     if re.search(r'(?m)^class\s+\w+\(.*\bmodels\.Model\b', t):                                       # Django models (Rails above, SQL DDL below)
         for cm in re.finditer(r'(?ms)^class\s+(\w+)\([^)]*\):(.*?)(?=^class\s|\Z)', t):
@@ -121,48 +139,59 @@ for p in files:
                 ty = f.group(2).lower(); a = f.group(3)
                 col[(tb, f.group(1).lower())] = [ty, 'null=True' not in a.replace(' ', ''), None, ln(cm.start(2) + f.start())]
                 if 'unique=True' in a.replace(' ', ''): uq.setdefault(tb, []).append([f.group(1).lower()])
-                if ty in ('foreignkey', 'onetoonefield'): fks.append((tb, [f.group(1).lower() + '_id'], 'model', ('db_constraint=False ' if 'db_constraint=False' in a.replace(' ', '') else '') + (re.search(r'on_delete\s*=\s*models\.(\w+)', a) or [None, ''])[1].lower(), ln(cm.start(2) + f.start())))
+                if ty in ('foreignkey', 'onetoonefield'): fks['%s#%d' % (tb, len(fks))] = (tb, [f.group(1).lower() + '_id'], 'model', ('db_constraint=False ' if 'db_constraint=False' in a.replace(' ', '') else '') + (re.search(r'on_delete\s*=\s*models\.(\w+)', a) or [None, ''])[1].lower(), ln(cm.start(2) + f.start()))
             for f in re.finditer(r'UniqueConstraint\([^)]*fields\s*=\s*[\[(]([^\])]*)', cm.group(2)): uq.setdefault(tb, []).append(names(f.group(1).replace("'", '').replace('"', '')))
         continue
-    if not re.search(r'(?i)\b(create\s+table|alter\s+table|create\s+unique\s+index)\b', t): continue
+    if not re.search(r'(?i)\b(create\s+table|alter\s+table|create\s+unique\s+index|drop\s+table)\b', t): continue
     dn = re.search(r'(?m)^\s*(?:public\s+|override\s+)*(?:async\s+)?(?:def\s+|function\s+)?(?:down|downgrade)\s*(?:[(:]|$)|\bexports\.down\b|^--\s*\+(?:goose|migrate)\s+Down', t); t = t[:dn.start()] if dn else t
     for m in re.finditer(r'(?is)create\s+(?:unlogged\s+)?table\s+(?:if\s+not\s+exists\s+)?' + I + r'\s*\(', t):
-        d, i = 1, m.end()
-        while i < len(t) and d: d += {'(': 1, ')': -1}.get(t[i], 0); i += 1
-        for q in split(t[m.end():i - 1]):
+        for q in split(t[m.end():bal(t, m.end() - 1)]):
             s = q.strip(); at = ln(m.end() + t[m.end():].find(s))
             k = re.match(r'(?is)(?:constraint\s+\S+\s+)?(primary\s+key|unique(?:\s+nulls\s+not\s+distinct)?)\s*\(([^)]*)\)', s)
             if k: uq.setdefault(m.group(1).lower(), []).append(names(k.group(2))); continue
-            k = re.match(r'(?is)(?:constraint\s+\S+\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I + r'(?:[^,;]*?(\bon\s+delete\s+(\w+(?:\s+(?:null|default|action))?)))?$', s)
-            if k: fks.append((m.group(1).lower(), names(k.group(1)), k.group(2).lower(), (k.group(4) or '').lower(), at)); continue
+            k = re.match(r'(?is)(?:constraint\s+(\S+)\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I + RF + r'.*$', s)
+            if k: fks[(k.group(1) or '').strip('"`').lower() or '%s_%s_fkey' % (m.group(1).lower(), '_'.join(names(k.group(2))))] = (m.group(1).lower(), names(k.group(2)), k.group(3).lower(), (k.group(5) or '').lower(), at); continue
             k = re.match(r'(?is)(?:constraint\s+\S+\s+)?check\s*\((.*)\)', s)
             if k: chk.setdefault(m.group(1).lower(), set()).update(x.lower() for x in re.findall(r'\b([a-z_]\w*)\b', k.group(1))); continue
             k = re.match(r'(?is)[\\"`\[]*(\w+)[\\"`\]]*\s+(.*)', s)
             if k and k.group(1).lower() not in ('key', 'index', 'unique', 'primary', 'constraint', 'like', 'exclude'): setcol(m.group(1), k.group(1), k.group(2), at)
     for m in re.finditer(r'(?is)alter\s+table\s+(?:only\s+)?(?:if\s+exists\s+)?' + I + r'\s+([^;`]*)', t):
         tb, body = m.group(1).lower(), m.group(2)
-        for a in re.finditer(r'(?is)\badd\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?(?!constraint\b|primary\b|unique\b|foreign\b|check\b|index\b)[\\"`]*(\w+)[\\"`]*\s+([^,]*)', body): setcol(tb, a.group(1), a.group(2), ln(m.start()))
+        for a in re.finditer(r'(?is)\badd\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?(?!constraint\b|primary\b|unique\b|foreign\b|check\b|index\b)[\\"`]*(\w+)[\\"`]*\s+((?:[^,(]|\([^)]*\))*)', body): setcol(tb, a.group(1), a.group(2), ln(m.start()))
         for a in re.finditer(r'(?is)\balter\s+column\s+[\\"`]*(\w+)[\\"`]*\s+(?:set\s+data\s+)?type\s+([\w ]+(?:\([^)]*\))?)', body):
             if (tb, a.group(1).lower()) in col: col[(tb, a.group(1).lower())][0] = a.group(2).strip().lower()
         for a in re.finditer(r'(?is)\balter\s+column\s+[\\"`]*(\w+)[\\"`]*\s+(set|drop)\s+not\s+null', body):
             if (tb, a.group(1).lower()) in col: col[(tb, a.group(1).lower())][1] = a.group(2).lower() == 'set'
         for a in re.finditer(r'(?is)\bdrop\s+column\s+(?:if\s+exists\s+)?[\\"`]*(\w+)', body): col.pop((tb, a.group(1).lower()), None)
-        for a in re.finditer(r'(?is)\badd\s+(?:constraint\s+\S+\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I + r'(?:[^,;]*?(\bon\s+delete\s+(\w+(?:\s+(?:null|default|action))?)))?', body): fks.append((tb, names(a.group(1)), a.group(2).lower(), (a.group(4) or '').lower(), ln(m.start())))
+        for a in re.finditer(r'(?is)\badd\s+(?:constraint\s+(\S+)\s+)?foreign\s+key\s*\(([^)]*)\)\s*references\s+' + I + RF, body): fks[(a.group(1) or '').strip('"`').lower() or '%s_%s_fkey' % (tb, '_'.join(names(a.group(2))))] = (tb, names(a.group(2)), a.group(3).lower(), (a.group(5) or '').lower(), ln(m.start()))
+        for a in re.finditer(r'(?is)\bdrop\s+constraint\s+(?:if\s+exists\s+)?' + I, body): fks.pop(a.group(1).lower(), None)
         for a in re.finditer(r'(?is)\badd\s+(?:constraint\s+\S+\s+)?(?:primary\s+key|unique(?:\s+nulls\s+not\s+distinct)?)\s*\(([^)]*)\)', body): uq.setdefault(tb, []).append(names(a.group(1)))
         for a in re.finditer(r'(?is)\badd\s+(?:constraint\s+\S+\s+)?check\s*\((.*?)\)\s*(?:not\s+valid)?\s*(?:,|$)', body): chk.setdefault(tb, set()).update(x.lower() for x in re.findall(r'\b([a-z_]\w*)\b', a.group(1)))
-    for m in re.finditer(r'(?is)create\s+unique\s+index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?(?:\S+\s+)?on\s+(?:only\s+)?' + I + r'\s*(?:using\s+\w+\s*)?\(((?:[^()]|\([^()]*\))*)\)([^;`\'"]{0,120})', t):
-        if re.search(r'(?i)where[^;]*deleted', m.group(3)): softuq.add(m.group(1).lower())
-        uq.setdefault(m.group(1).lower(), []).append([re.findall(r'(\w+)[\\"`\]]*\s*\)*\s*$', q.strip())[-1].lower() for q in split(m.group(2)) if re.findall(r'(\w+)[\\"`\]]*\s*\)*\s*$', q.strip())])
+    for m in re.finditer(r'(?is)create\s+unique\s+index\s+(?:concurrently\s+)?(?:if\s+not\s+exists\s+)?(?:\S+\s+)?on\s+(?:only\s+)?' + I + r'\s*(?:using\s+\w+\s*)?\(', t):
+        e = bal(t, m.end() - 1)                                                       # nested expressions: lower(btrim(email)) keys on email
+        if re.search(r'(?i)where[^;]*deleted', re.split(r'[;`]', t[e + 1:e + 300])[0]): softuq.add(m.group(1).lower())
+        uq.setdefault(m.group(1).lower(), []).append([x for q in split(t[m.end():e]) for x in ecols(q)])
+    for m in re.finditer(r'(?is)\bdrop\s+table\s+(?:if\s+exists\s+)?' + I, t):
+        tb = m.group(1).lower(); uq.pop(tb, None); chk.pop(tb, None); softuq.discard(tb)
+        for k in [k for k in col if k[0] == tb]: col.pop(k)
+        for k in [k for k, v in fks.items() if v[0] == tb]: fks.pop(k)
 tables = {t for t, _ in col}
 NAT = r'^(email|email_?address|username|login|handle|phone|phone_?number|mobile|slug|sku|idempotency_?key|external_?id)$'
 SKIPT = r'(^|_)(logs?|events?|messages?|notifications?|audits?|history|histories|snapshots?|items|lines|attempts?|sessions?|tokens?|outbox|jobs?|webhooks?|deliveries|imports?|exports?)($|_)'
 MONEY = r'^(\w*_)?(price|amount|total|balance|cost|fee|fees|salary|revenue|commission|discount|tax|subtotal|credit|debit|payout|wage|refund|charge)s?(_\w*)?$|^[a-z]+(Price|Amount|Total|Balance|Cost|Fee|Discount|Tax|Refund)s?$'
-FKC = {(t, c[0]) for t, c, *_ in fks}
+FKC = {(t, x) for t, c, *_ in fks.values() for x in c}                                    # every column of a composite FK
+PKT = max(set(v[0] for (t, c), v in col.items() if c == 'id') or {''}, key=lambda y: sum(1 for (t, c), v in col.items() if c == 'id' and v[0] == y)).split('(')[0]
+LOGT = r'(^|_)(logs?|events?|audits?|history|histories|snapshots?|messages?|notifications?|attempts?|outbox|webhooks?|deliveries)($|_)'   # rows that outlive the parent (§ 25)
+STR = r'(text|varchar|character\s+varying|string|charfield)'                     # a string *_id beside non-string primary keys
+EXT = r'^(external|provider|stripe|remote|payment_intent|customer_ext|vendor|gateway|psp)\w*_id$|^(request|session|trace|correlation|idempotency|message|span)_id$'
 out = lambda tag, s: print('  %-4s %s' % (tag, s))
 print('schema-integrity map — %d tables, %d columns, %d FKs, %d unique keys' % (len(tables), len(col), len(fks), sum(map(len, uq.values()))))
-for (t, c), (ty, nn, df, at) in sorted(col.items(), key=lambda x: x[1][3]):
+ten, logs = [], []
+for (t, c), (ty, nn, df, at) in sorted(col.items(), key=lambda x: (x[1][3].rpartition(':')[0], int('0' + x[1][3].rpartition(':')[2]))):
     if re.search(r'_id$', c) and (t, c) not in FKC and ty not in ('foreignkey', 'onetoonefield'):
-        out('§1', '%s.%s %s no FK%s  %s' % (t, c, ty, '  [external-looking]' if re.search(r'^(external|provider|stripe|remote|session|request|trace|correlation|idempotency|message|payment_intent|customer_ext)', c) else '', at))
+        if c == 'tenant_id': ten.append(t)
+        elif re.search(LOGT, t): logs.append(t)
+        else: out('§1', '%s.%s %s no FK%s  %s' % (t, c, ty, '  [external-looking]' if re.match(EXT, c) or re.match(STR, ty) and not re.match(STR, PKT) else '', at))
     if re.match(NAT, c) and not re.search(SKIPT, t) and not any(c in x for k in uq.get(t, []) for x in k):
         out('§3', '%s.%s no unique key covers it%s  %s' % (t, c, '' if (t, 'tenant_id') not in col else '  [tenant table]', at))
     elif re.match(NAT, c) and (t, 'tenant_id') in col and [c] in uq.get(t, []): out('§3', '%s.%s unique WITHOUT tenant_id on a tenant table  %s' % (t, c, at))
@@ -172,7 +201,9 @@ for (t, c), (ty, nn, df, at) in sorted(col.items(), key=lambda x: x[1][3]):
         out('§6', '%s.%s %s, no CHECK/enum%s  %s' % (t, c, ty, '' if nn else ', nullable', at))
     if c == 'id' and re.match(r'(serial|integer|int|int4|smallint|mediumint|autofield)$', ty) and (df or '').lower() != 'autoincrement': out('§7', '%s.id %s  %s' % (t, ty, at))
     if re.search(r'(invoice|receipt|credit_?note|bill|voucher|fiscal)\w*_?(number|no|num|seq)$', c) and re.search(r'(?i)nextval|serial|identity|auto_increment|autoincrement', '%s %s' % (ty, df)): out('§11', '%s.%s from a sequence (%s)  %s' % (t, c, df or ty, at))
-for t, c, par, od, at in fks:
+if ten: out('§1', 'tenant_id has no FK on %d tables: one decision (the tenancy policy), not %d rows' % (len(set(ten)), len(ten)))
+if logs: out('§1', '%d *_id columns without an FK in %d log/event/history tables (precedents/data.md § 21, § 25): read the table list only if no policy names them' % (len(logs), len(set(logs))))
+for t, c, par, od, at in fks.values():
     if not od or 'db_constraint' in od: out('§2', '%s.%s -> %s  ON DELETE %s  %s' % (t, ','.join(c), par, od or 'not stated (the engine or ORM default applies)', at))
     elif 'cascade' in od and re.search(r'^(users?|tenants?|accounts?|organi[sz]ations?|merchants?|customers?|companies|workspaces?)$', par) and re.search(r'invoice|payment|ledger|transaction|journal|audit|receipt|payout|refund|order', t): out('§2', '%s.%s -> %s  ON DELETE CASCADE into a record of fact  %s' % (t, ','.join(c), par, at))
 soft = sorted({t for t, c in col if re.match(r'(deleted_?at|is_?deleted|deleted|archived_?at)$', c)})
@@ -181,7 +212,7 @@ for t in soft:
     if t not in softuq and any(re.match(NAT, x) for k in uq.get(t, []) for x in k): out('§3', '%s: unique key on a natural column ignores soft delete (no WHERE deleted_at IS NULL)' % t)
 for t, w, at in raws:
     if t in soft and not re.search(r'(?i)deleted|archived', w): out('§9', '%s read with no deleted predicate in the statement  %s' % (t, at))
-PII = r'^(e?mail\w*|phone\w*|mobile\w*|(first|last|full|middle|display)_?name|address\w*|street\w*|postal_?code|zip\w*|dob|date_of_birth|birth_?date|national_?id\w*|ssn|passport\w*|tax_?id|iban|card_\w+|ip_?address|ip|lat|lng|latitude|longitude|device_?id)$'
+PII = r'^(?!\w*_(?:id|prefix|type)$|(?:require|is|has|show|allow)_)(\w+_)?(e?mail\w*|phone\w*|mobile\w*|(first|last|full|middle|display)_?name|address\w*|street\w*|postal_?code|zip\w*|dob|date_of_birth|birth_?date|national_?id\w*|ssn|passport\w*|tax_?id|iban|card_\w+|ip_?address|ip|lat|lng|latitude|longitude|device_?id)$'
 pii = {}
 for t, c in col:
     if re.match(PII, c) and not re.search(SKIPT, t): pii.setdefault(t, []).append(c)
@@ -193,7 +224,7 @@ PY
 # 1. ORM and engine switches that drop the DB-level FK, plus integrity-free modelling (polymorphic, generic FK).
 rg -n --pcre2 "$C"'(?:relationMode\s*=\s*"prisma"|(?:createF|f)oreignKeyConstraints?\s*:\s*false|db_constraint\s*=\s*False|\bconstraints\s*:\s*false|DisableForeignKeyConstraintWhenMigrating\s*:\s*true|ConstraintMode\.NO_CONSTRAINT|(?i:foreign_key_checks)\s*=\s*0|(?i:engine\s*=\s*MyISAM)|(?i:\bNOT\s+ENFORCED\b)|\bpolymorphic:\s*true|\bmorphTo\(|\bGenericForeignKey\(|(?i:PRAGMA\s+foreign_keys))' "${X[@]}" .
 # 3. Code that assumes uniqueness: model validations and find-or-create (the race itself is logic-race-scan §7's).
-rg -n --pcre2 "$C"'(?:\buniqueness:\s*(?:true|\{)|\bvalidates_uniqueness_of\b|\bRule::unique\(|\bunique:[a-z_]+|\b(?:findOrCreate|find_or_create_by|get_or_create|update_or_create|firstOrCreate|updateOrCreate|FirstOrCreate)\b)' "${X[@]}" .
+rg -n --pcre2 "$C"'(?:\buniqueness:\s*(?:true|\{)|\bvalidates_uniqueness_of\b|\bRule::unique\(|\bunique:[a-z_]+|\b(?:findOrCreate|find_or_create_by|get_or_create|update_or_create|firstOrCreate|updateOrCreate|FirstOrCreate)\b|\bupsert(?:Many)?\()' "${X[@]}" .
 # 4. Money typed as binary float in ORM declarations H does not parse (decorators, SQLAlchemy, JPA, Go, Laravel, Rails).
 rg -n -i --pcre2 "$C"'(?:\b\w*(?:'"$M"')\w*\b["\x27\x60]?\s*[:=\s]\s*(?:[\w.]*\(\s*)?(?:\w+\.)?(?:double precision|float[48]?|float32|float64|real|double|FloatField|Float)\b|\b(?:double|float|float32|float64)\s+\w*(?:'"$M"')|\b(?:type|columnType)\s*:\s*["\x27](?:double(?: precision)?|float[48]?|real|money)["\x27]|\bColumn\(\s*["\x27](?:double(?: precision)?|float[48]?|real)["\x27]|->(?:float|double)\(\s*["\x27]\w*(?:'"$M"')|\bt\.float\s+[:"\x27]\w*(?:'"$M"'))' "${X[@]}" .
 # 5. Time semantics set in code or config: naive-time switches, wall-clock column types, inclusive BETWEEN on instants.
@@ -207,13 +238,18 @@ rg -n --pcre2 "$C"'(?:@PrimaryGeneratedColumn\(\s*(?:["\x27]increment["\x27])?\s
 rg -n --pcre2 "$C"'(?:\bsynchronize\s*:\s*true|\bdropSchema\s*:\s*true|\bdb\s+push\b|--accept-data-loss|\bmigrate\s+reset\b|--force-reset|hbm2ddl\.auto\s*[=:]\s*["\x27]?(?:update|create|create-drop)|ddl-auto\s*[=:]\s*["\x27]?(?:update|create|create-drop)|\.sync\(\s*\{[^}]*\b(?:alter|force)\s*:\s*true|\bcreate_all\(|getSchemaGenerator\(\)\s*\.\s*(?:updateSchema|createSchema|refreshDatabase|dropSchema)|\bschema:(?:update|fresh|drop)\b[^\n]*(?:--run|-r\b)|\bmigrate:(?:fresh|reset)\b|\bdb:(?:wipe|schema:load)\b|\bdrizzle-kit\s+push\b|\.AutoMigrate\(|\bEnsureCreated(?:Async)?\()' -g '!**/node_modules/**' -g '!**/{test,tests,__tests__,spec,e2e}/**' -g '!**/*.{spec,test,e2e-spec}.*' -g '!*.md' -g '!ai/**' -g '!docs/**' .
 # 9. Soft-delete escapes and raw paths that carry no ORM filter (H lists raw reads of soft-delete tables).
 rg -n --pcre2 "$C"'(?:\bwithDeleted\(|\bunscoped\b|\bwithTrashed\(|\bonlyTrashed\(|\bUnscoped\(\)|\bfilters\s*:\s*(?:false|\{[^}]*:\s*false)|\ball_objects\b|\b_base_manager\b|\bparanoid\s*:\s*false|\bIgnoreQueryFilters\(\)|\bcreateNativeQuery\(|\$queryRaw(?:Unsafe)?\b|\bknex\.raw\(|\bem\.execute\(|\bDB::(?:select|table)\()' "${X[@]}" .
+# 9b. Hand-rolled soft delete (an entity with a deletedAt / isDeleted property and no @Filter, @DeleteDateColumn, paranoid or
+#     SoftDeletes): its ORM reads that never name the column. Each must carry the predicate or be an admin/restore path.
+SD=$(rg -l --pcre2 '^\s*(?:deletedAt|isDeleted|deleted_at|is_deleted)[!?]?\s*[:=]' -t ts -t js -t py "${X[@]}" . | xargs -r rg --files-without-match --pcre2 '@Filter\(|@DeleteDateColumn|paranoid\s*:\s*true|SoftDeletes|@SQLRestriction' | xargs -r rg -o --no-filename --pcre2 '\bclass\s+\K\w+' | sort -u | head -40 | paste -sd'|' -)
+[ -n "$SD" ] && rg -n -U --pcre2 "$C"'\b(?:find\w*|count\w*|exists\w*|getReference)\s*\(\s*(?:'"$SD"')\b\s*,(?:(?!deleted|isDeleted|isActive)[^;])*?\)\s*[;,)]' "${X[@]}" . || echo '9b: no hand-rolled soft-delete entity'
 # 10. Files that implement retention or erasure. Zero files means no mechanism: every PII table is a candidate.
 rg -l --pcre2 -i "$C"'\b(?:retention|purge\w*|anonymi[sz]e\w*|pseudonymi[sz]e\w*|erasure|right_to_(?:be_forgotten|erasure)|gdpr|expireAfterSeconds|drop\s+partition|detach\s+partition)\b' "${X[@]}" .
 # 11. Document numbers taken from a sequence in code (H covers column defaults).
-rg -n --pcre2 -i "$C"'(?:(?:invoice|receipt|credit_?note|fiscal|bill)\w*[^\n]{0,80}\b(?:nextval|sequence|serial|identity|auto_?increment|@GeneratedValue)\b|\b(?:nextval|sequence)\b[^\n]{0,80}(?:invoice|receipt|credit_?note|fiscal))' "${X[@]}" .
+#     A number source must be on the line: nextval(, max(…) + 1, a serial / identity / auto-increment column, @GeneratedValue.
+rg -n --pcre2 -i "$C"'(?:(?:invoice|receipt|credit_?note|fiscal|bill)\w*[^\n]{0,80}(?:\bnextval\s*\(|\bmax\s*\([^)\n]*\)\s*\+\s*1\b|\b(?:serial|bigserial|auto_?increment)\b|\bgenerated\b[^\n]{0,30}\bidentity\b|@GeneratedValue\b)|\bnextval\s*\([^\n]{0,80}(?:invoice|receipt|credit_?note|fiscal))' "${X[@]}" .
 ```
 
-**Entity-first repos** (no SQL migrations, so H maps 0 tables): write the DDL dump (`index-coverage-scan` § "Adapt to the codebase", last column) to `schema-dump.sql` at the repo root, re-run H, then delete the file.
+**H0** is the same map `index-coverage-scan` reads (its § "Pre-flight (static lane)" H0 paragraph says what the lanes, horizons and counts mean). A MikroORM snapshot stores a `col IN (…)` CHECK as the column's `enumItems`; H0 gives it back as a CHECK, so §6 does not report it. **Entity-first repos** (no SQL migrations, so H maps 0 tables): write the DDL dump (`index-coverage-scan` § "Adapt to the codebase", last column) to a file in `$RUN` (never in the repo), point `SCHEMA_SQL` at it and re-run H.
 
 **Live lane** (only when a database is reachable). It follows the rules in `index-coverage-scan` § "Live lane — read-only by construction": read-only catalog and stat queries, never DDL, never `EXPLAIN ANALYZE`, unless the user has confirmed a non-production target in this session. Its queries:
 - §1 existing orphans: `SELECT c.id FROM <child> c LEFT JOIN <parent> p ON p.id = c.<fk> WHERE c.<fk> IS NOT NULL AND p.id IS NULL LIMIT 20` (SQLite: `PRAGMA foreign_key_check`).
@@ -222,7 +258,9 @@ rg -n --pcre2 -i "$C"'(?:(?:invoice|receipt|credit_?note|fiscal|bill)\w*[^\n]{0,
 - §7 headroom: `SELECT sequencename, last_value, max_value FROM pg_sequences`.
 - §6: `SELECT @@sql_mode` on MySQL. SQLite: `PRAGMA foreign_keys` on an **app** connection.
 
-**Measured** (2026-10-02) on a real NestJS-on-Fastify + MikroORM + Postgres monorepo (~13,100 tracked files). H mapped 238 tables, 2,851 columns, 72 FKs and 437 unique keys. Per class:
+**Measured** (2026-10-15) on a real NestJS + React monorepo (MikroORM 6.6, Postgres 16, 376 migrations, 125 of them building DDL with `${…}`), before → after H0 and the H fixes: map 261 tables / 3,182 columns / 86 FKs → 291 / 3,523 / 124 (snapshot + 5 replayed files); §1 546 rows → 279 + 2 summary lines (`tenant_id` on 171 tables is one line; 58 `*_id` columns in 31 log, event and audit tables are one line; every column of a composite FK now counts as covered, so a `(tenant_id, order_id)` FK no longer prints `order_id`), and `requester_id` is no longer tagged external (exact `request_id` only, or a string `*_id` beside uuid keys); §2 4 → 0 (all four were an `ON DELETE` after `("tenant_id", "id")` the regex stopped at); §3 17 → 8 (9 were covered by `lower(btrim(email))`-style expression uniques H could not parse); §4 2 → 0 (both converted to `numeric(14,4)` by a migration that loops over a list); §10 21 → 25 tables (prefixed columns such as `customer_phone`; `*_id`, `*_prefix`, `*_type`, `require_*` dropped); grep 3 0 → 25 (`upsert(` / `upsertMany(`); grep 9b 13 hand-rolled soft-delete reads (`Membership` has `deletedAt`, no filter); grep 11 2 → 0 (both were the word "receipt" beside "sequence" in PII-label strings). Fixture rows are unchanged except node-api's `audit_log.actor_id` and `tenant_id` rows, now in the two summary lines (`NAPI-ARCH-02`'s `order_items.order_id` still prints).
+
+Earlier measurement (2026-10-02) on the same repo with 294 migrations. H mapped 238 tables, 2,851 columns, 72 FKs and 437 unique keys. Per class:
 - §1: 483 `*_id` columns with no FK, over 108 column names; `tenant_id` alone is 194, so grouping by name makes it one decision.
 - §2: 1 FK with no stated `ON DELETE`. Before the ON-DELETE capture was fixed, it reported all 72.
 - §3: 17 natural keys with no unique key. Counting a unique key on a normalised sibling (`phone_key`) as cover dropped one.
@@ -279,7 +317,7 @@ BAD:   order_id uuid NOT NULL,                                      -- order_ite
 GOOD:  ALTER TABLE order_items ADD CONSTRAINT order_items_order_fk FOREIGN KEY (order_id) REFERENCES orders (id) NOT VALID;
        ALTER TABLE order_items VALIDATE CONSTRAINT order_items_order_fk;   -- after the orphan clean-up
 ```
-Candidates: H's `§1` rows and grep 1. It is a finding when the column references another table's rows (its name, the code that joins on it, or an ORM relation), the parent is in the same database, and no precedent applies: cross-database or sharded references, audit rows meant to outlive the parent, or a documented polymorphic association with an orphan sweep (`precedents/data.md` § 25). On SQLite, every FK on a connection without `PRAGMA foreign_keys = ON` is in this class; so is a Postgres 18 `NOT ENFORCED` constraint (§ 27). **Proof — constraint rejection** (`proof-oracles.md` § "Constraint rejection", V20): a raw orphan insert as the app role must fail with `23503`. It succeeds before the fix. Live, the orphan query counts what already leaked.
+Candidates: H's `§1` rows and grep 1. Two summary lines replace row lists: `tenant_id` (one decision: the tenancy policy) and the `*_id` columns of log, event, audit, history and outbox tables (rows meant to outlive the parent, § 25 — read that list only when no written policy covers it). `[external-looking]` marks a provider, request or trace id, or a string `*_id` beside non-string primary keys; read it, never drop it. It is a finding when the column references another table's rows (its name, the code that joins on it, or an ORM relation), the parent is in the same database, and no precedent applies: cross-database or sharded references, audit rows meant to outlive the parent, or a documented polymorphic association with an orphan sweep (`precedents/data.md` § 25). On SQLite, every FK on a connection without `PRAGMA foreign_keys = ON` is in this class; so is a Postgres 18 `NOT ENFORCED` constraint (§ 27). **Proof — constraint rejection** (`proof-oracles.md` § "Constraint rejection", V20): a raw orphan insert as the app role must fail with `23503`. It succeeds before the fix. Live, the orphan query counts what already leaked.
 
 ### 2. FK with no explicit `ON DELETE`; `CASCADE` into records of fact
 
@@ -296,7 +334,7 @@ BAD:   customers.email text NOT NULL                                -- checked b
        UNIQUE (email) on a tenant table · UNIQUE (email) on a soft-delete table · UNIQUE (email) on case-sensitive text
 GOOD:  CREATE UNIQUE INDEX … ON customers (tenant_id, lower(email)) WHERE deleted_at IS NULL;
 ```
-Candidates: H's `§3` rows (no key, a global key on a tenant table, a key that ignores soft delete) and grep 3 (code that assumes uniqueness). It is a finding when the domain says "only one" (identity, slug, SKU, external or provider id, idempotency key) and no unique key covers the column. A key on a normalised sibling (`phone_key`, `email_normalized`, `lower(email)`) counts. The skip list is log, event and line-item tables (`precedents/data.md` § 21); NULLs being distinct is intended (§ 22). A global key on a tenant table is a finding twice (§ 32): cross-link `@tenant-isolation-reviewer` (security pack) for the existence leak. **Proof — invariant under concurrency** (`proof-oracles.md` § "Invariant under concurrency", V6): N concurrent creates with one key leave exactly one row, and the others get a clean conflict (`23505` / MySQL `1062`). Add V6's case, trailing-space, other-tenant and re-create-after-soft-delete variants.
+Candidates: H's `§3` rows (no key, a global key on a tenant table, a key that ignores soft delete) and grep 3 (code that assumes uniqueness, `upsert` included). An expression unique (`(tenant_id, lower(btrim(email)))`) covers every column it reads. It is a finding when the domain says "only one" (identity, slug, SKU, external or provider id, idempotency key) and no unique key covers the column. A key on a normalised sibling (`phone_key`, `email_normalized`, `lower(email)`) counts. The skip list is log, event and line-item tables (`precedents/data.md` § 21); NULLs being distinct is intended (§ 22). A global key on a tenant table is a finding twice (§ 32): cross-link `@tenant-isolation-reviewer` (security pack) for the existence leak. **Proof — invariant under concurrency** (`proof-oracles.md` § "Invariant under concurrency", V6): N concurrent creates with one key leave exactly one row, and the others get a clean conflict (`23505` / MySQL `1062`). Add V6's case, trailing-space, other-tenant and re-create-after-soft-delete variants.
 
 ### 4. Money in binary floating point
 
@@ -347,7 +385,7 @@ BAD:   SELECT * FROM products WHERE store_id = $1             -- raw report; pro
        em.find(Product, { slug }, { filters: false })          // storefront path
 GOOD:  … AND deleted_at IS NULL; or read through a view that applies it; the escape only on admin/restore/erasure paths, named in a comment
 ```
-Candidates: H's `§9` rows (raw SQL on a soft-delete table with no `deleted` predicate in the statement) and grep 9 (escapes and raw paths). It is a finding when the path is user-facing or feeds an export, aggregate or authorization check. Audit, admin, restore and erasure paths that use the explicit escape are correct (`precedents/data.md` § 30). A view or RLS policy that applies the filter is the control (§ 31), and so is a lint rule that bans the escape outside allow-listed files: read it. Deactivated accounts still able to act is `logic-race-scan` §11's (security pack). **Proof** (V17): soft-delete a seeded row, then hit the endpoint, export and count. None may return it, and each does before the fix.
+Candidates: H's `§9` rows (raw SQL on a soft-delete table with no `deleted` predicate in the statement), grep 9 (escapes and raw paths) and grep 9b (a hand-rolled soft delete — a `deletedAt` property with no global filter — read through the ORM without naming the column: every such read must carry it, or be an admin, restore or erasure path). It is a finding when the path is user-facing or feeds an export, aggregate or authorization check. Audit, admin, restore and erasure paths that use the explicit escape are correct (`precedents/data.md` § 30). A view or RLS policy that applies the filter is the control (§ 31), and so is a lint rule that bans the escape outside allow-listed files: read it. Deactivated accounts still able to act is `logic-race-scan` §11's (security pack). **Proof** (V17): soft-delete a seeded row, then hit the endpoint, export and count. None may return it, and each does before the fix.
 
 ### 10. PII stored with no classification, retention mechanism or erasure path
 
@@ -409,7 +447,7 @@ The block lists **all eleven** classes on every run:
 
 ## False positives / gotchas
 
-- **H is a map, not a verdict.** A constraint added by a trigger, a view, an ORM declaration H does not parse, or a later migration in an unusual folder decides the row. Grep the constraint name, and query the live catalog when it is reachable.
+- **H is a map, not a verdict.** A constraint added by a trigger, a view, an ORM declaration H does not parse, or a later migration in an unusual folder decides the row. Grep the constraint name, and query the live catalog when it is reachable. Without H0 (`schema-map NOT-RUN`), DDL whose names are built with `${…}` is invisible and every row on those tables is suspect.
 - **Statement order within one file:** H applies statements in path order and skips `down()` bodies. A file that adds and drops the same column in its `up` can mislead it: read it.
 - **Validation is not a constraint**, and a constraint the engine does not enforce is not one either (`precedents/data.md` § 27). A model validation, a DTO decorator or a `SELECT` before `INSERT` never clears §1, §3 or §6.
 - **The engine decides:** SQLite `INTEGER PRIMARY KEY` is 64-bit; InnoDB creates FK indexes (not this skill's, but often confused with §1); MySQL `DATETIME` does not convert zones while `TIMESTAMP` does.

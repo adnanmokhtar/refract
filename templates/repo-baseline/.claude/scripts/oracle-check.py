@@ -2,6 +2,7 @@
 """oracle-check.py — does each new or changed test actually assert something?
 
 Usage:  oracle-check.py [--base=<ref>] [--head=<ref>] [--repo=<dir>] [--files=a,b] [--all] [--json]
+        oracle-check.py --self-test
 Exit:   0  no finding    1  at least one finding    2  usage or git error
 
 WHY. A test that runs code and asserts nothing passes against every implementation, including the
@@ -20,13 +21,20 @@ least one added line. --files= checks the named files whole; --all checks every 
                  `verifyX(` helpers count as assertions)
   weak-oracle    every assertion in the body is one that holds for almost any result:
                  toBeDefined / toBeTruthy / not.toThrow / not.toBeNull / toHaveBeenCalled() with no
-                 arguments; Python bare `assert x`, `assert x is not None`, assertIsNotNone,
+                 arguments (`not.toHaveBeenCalled()` pins "no side effect" — precedents/testing.md § 20 —
+                 and counts as an oracle); Python bare `assert x`, `assert x is not None`, assertIsNotNone,
                  assertTrue(x); Go assert.NotNil / require.NoError / assert.True alone
   tautology      an assertion that cannot fail: expect(true).toBe(true), assert True,
                  assertEqual(a, a), expect(x).toBe(x)
 
-Per-case bodies are delimited by braces (JS/TS, Go, JVM, .NET, PHP, Rust, Dart, Swift), indentation
-(Python) or `end` (Ruby, Elixir). NOT COVERED: snapshot-only tests (a snapshot is an oracle, if a
+Per-case bodies are delimited by braces (JS/TS, Go, JVM, .NET, PHP, Rust, Dart, Swift) — an arrow body
+with no braces by the call's closing parenthesis, over as many lines as it takes — indentation (Python)
+or `end` (Ruby, Elixir). A case "declared" inside a comment (`it (\`x\`)` in a docblock) is not a case.
+
+PRECEDENT COLUMN (JS/TS rows). A row whose weak lines are HTTP status checks carries `precedent`:
+`§16 status-4xx` (a refusal status is the behaviour — bulk-close by precedents/testing.md § 16),
+`§16 2xx-paired` (2xx only, but another case in the file asserts the body of the same route) or
+`§16 2xx-unpaired` (2xx only and nothing pins the body — § 16 flips back: read it). NOT COVERED: snapshot-only tests (a snapshot is an oracle, if a
 weak one — test-integrity.py flags snapshot rewrites instead), property tests with generator-only
 bodies, and assertions inside helper functions whose names do not start with expect / assert /
 verify / check / should.
@@ -47,7 +55,7 @@ _spec.loader.exec_module(ti)
 HELPER = r"\b(?:expect|assert|verify|check|should)[A-Z_]\w*\s*\("
 WEAK = {
     "js": r"\.(?:toBeDefined|toBeTruthy|toBeFalsy)\(\s*\)|\.not\.(?:toThrow|toThrowError|toBeNull|toBeUndefined|toBeFalsy)\(\s*\)"
-          r"|\.toHaveBeenCalled\(\s*\)|\.toBeInstanceOf\(\s*Object\s*\)|\bexpect\([^()]*(?:\([^()]*\))?[^()]*\)\s*;?\s*$",
+          r"|(?<!\.not)\.toHaveBeenCalled\(\s*\)|\.toBeInstanceOf\(\s*Object\s*\)|\bexpect\([^()]*(?:\([^()]*\))?[^()]*\)\s*;?\s*$",
     "py": r"^\s*assert\s+(?:not\s+)?[\w.]+(?:\([^()]*\))?\s*(?:,.*)?$|^\s*assert\s+.+\s+is\s+not\s+None\s*(?:,.*)?$"
           r"|\bassertIsNotNone\(|\bassertTrue\(\s*[\w.]+\s*\)|\bassert_called\(\s*\)",
     "go": r"\b(?:assert|require)\.(?:NotNil|NoError|NotEmpty|True)\(",
@@ -62,6 +70,33 @@ TAUTOLOGY = (r"\bexpect\(\s*(true|false|null|undefined|\d+|'[^']*'|\"[^\"]*\")\s
              r"|\bexpect\(\s*([\w.]+)\s*\)\.(?:toBe|toEqual|toStrictEqual)\(\s*\2\s*\)"
              r"|^\s*assert\s+True\b|\bassert(?:Equal|Equals|Same)\(\s*([\w.]+)\s*,\s*\3\s*\)|\bXCTAssertTrue\(\s*true\s*\)")
 BRACES = {"js", "go", "jvm", "cs", "php", "rs", "dart", "swift"}
+STATUS = re.compile(r"\.expect\(\s*([1-5]\d\d)\s*[,)]|\bstatus(?:Code)?\b[^\n]{0,40}?\.(?:toBe|toEqual)\(\s*([1-5]\d\d)\s*\)"
+                    r"|toHaveProperty\(\s*['\"]status(?:Code)?['\"]\s*,\s*([1-5]\d\d)|toHaveStatus\(\s*([1-5]\d\d)")
+ROUTE = re.compile(r"\.(?:get|post|put|patch|delete|head|options)\(\s*([`'\"])(/[^`'\"$?]*)")
+BODY = re.compile(r"\.body\b[^\n]*\.(?:toEqual|toStrictEqual|toMatchObject|toBe|toContain\w*|toHaveLength|toHaveProperty)\(|expect\(\s*(?:res|response|r)\.body")
+
+
+TOKENS = re.compile(r"""'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`|(?<!:)//[^\n]*|/\*[\s\S]*?\*/""")
+
+
+def mask_comments(text):
+    """Blank `//` and `/* */` comments outside string literals, keeping every newline (line numbers hold).
+    A `/*` inside a string — a glob such as 'src/**/*.ts' — is not a comment."""
+    return TOKENS.sub(lambda m: m.group(0) if m.group(0)[0] in "'\"`" else re.sub(r"[^\n]", " ", m.group(0)), text)
+
+
+def precedent(lang, body, siblings):
+    """§ 16 tag for a weak JS/TS row whose weak lines are status checks; None otherwise."""
+    if lang != "js":
+        return None
+    codes = [int(next(g for g in m.groups() if g)) for m in STATUS.finditer(body)]
+    if not codes:
+        return None
+    if any(c >= 400 for c in codes):
+        return "§16 status-4xx"
+    routes = {m.group(2).rstrip("/") for m in ROUTE.finditer(body)}
+    paired = any(BODY.search(o) and routes & {m.group(2).rstrip("/") for m in ROUTE.finditer(o)} for o in siblings)
+    return "§16 2xx-paired" if paired else "§16 2xx-unpaired"
 
 
 def body_span(lang, lines, start):
@@ -93,12 +128,26 @@ def body_span(lang, lines, start):
                     depth, opened = depth + 1, True
                 elif ch == "}":
                     depth -= 1
-            if not opened and j >= start + 1:
-                return start, start              # arrow body on one line, no braces
+            if not opened and j >= start + 1:    # an arrow body with no braces: it ends where the call's parenthesis closes
+                return start, paren_end(lines, start)
             if opened and depth <= 0:
                 return start, j + 1
         return start, min(n, start + 40)
     return start, min(n, start + 30)
+
+
+def paren_end(lines, start):
+    depth, seen = 0, False
+    for j in range(start - 1, min(len(lines), start + 60)):
+        code = re.sub(r"(['\"`])(?:\\.|(?!\1).)*\1", "''", lines[j])
+        for ch in re.sub(r"//.*$", "", code):
+            if ch == "(":
+                depth, seen = depth + 1, True
+            elif ch == ")":
+                depth -= 1
+        if seen and depth <= 0:
+            return j + 1
+    return start
 
 
 def classify(lang, body_lines):
@@ -141,28 +190,95 @@ def check_file(repo, path, added, whole):
     if not lang or not os.path.isfile(fp):
         return [], 0
     text = open(fp, encoding="utf-8", errors="replace").read()
+    return scan(lang, path, text, added, whole)
+
+
+def scan(lang, path, text, added, whole):
     lines = text.split("\n")
-    out, n = [], 0
-    seen = set()
-    for name, ln in ti.cases(lang, text):
+    out, n, seen, spans = [], 0, set(), []
+    for name, ln in ti.cases(lang, mask_comments(text) if lang in BRACES else text):
         if ln in seen:
             continue
         seen.add(ln)
-        a, b = body_span(lang, lines, ln)
+        spans.append((name, ln) + body_span(lang, lines, ln))
+    bodies = ["\n".join(lines[a - 1:b]) for _, _, a, b in spans]
+    for k, (name, ln, a, b) in enumerate(spans):
         if not whole and not any(a <= x <= b for x in added):
             continue
         n += 1
         kind = classify(lang, lines[a - 1:b])
         if kind:
-            out.append({"kind": kind, "file": path, "line": ln, "case": name, "message": MESSAGES[kind] % name})
+            row = {"kind": kind, "file": path, "line": ln, "case": name, "message": MESSAGES[kind] % name}
+            tag = precedent(lang, bodies[k], bodies[:k] + bodies[k + 1:]) if kind == "weak-oracle" else None
+            if tag:
+                row["precedent"] = tag
+            out.append(row)
     return out, n
 
 
+def self_test():
+    """Synthetic files through scan(); every case below is a regression a real repo produced."""
+    js = """import { it, expect } from 'vitest';
+/**
+ * Only the owner edits it (`SectionGuideDialog.tsx`) — a docblock, not a case.
+ */
+// it('is a comment, not a case', () => {})
+const glob = 'src/**/*.ts'; it('reads a glob string', () => { expect(glob).toEqual('src/**/*.ts'); });
+it.each([[1, 2]])('adds %i', (a, b) =>
+  expect(a + 1).toBe(b),
+);
+it('sends nothing when the cart is empty', () => {
+  expect(send).not.toHaveBeenCalled();
+});
+it('calls send', () => {
+  expect(send).toHaveBeenCalled();
+});
+it('refuses a stranger', async () => {
+  await request(app).get('/api/v1/orders/1').expect(403);
+});
+it('lists orders', async () => {
+  await request(app).get('/api/v1/orders').expect(200);
+});
+it('lists orders with their totals', async () => {
+  const res = await request(app).get('/api/v1/orders');
+  expect(res.body).toEqual([{ id: 1 }]);
+});
+it('lists refunds', async () => {
+  await request(app).get('/api/v1/refunds').expect(200);
+});
+it('does nothing', () => {
+  run();
+});
+it('is always true', () => { expect(true).toBe(true); });
+"""
+    rows, n = scan("js", "x.test.ts", js, set(), True)
+    got = {r["case"]: (r["kind"], r.get("precedent")) for r in rows}
+    names = {c for c, _ in ti.cases("js", mask_comments(js))}
+    want_names = {"reads a glob string", "adds %i", "sends nothing when the cart is empty", "calls send", "refuses a stranger",
+                  "lists orders", "lists orders with their totals", "lists refunds", "does nothing", "is always true"}
+    want = {"calls send": ("weak-oracle", None), "refuses a stranger": ("weak-oracle", "§16 status-4xx"),
+            "lists orders": ("weak-oracle", "§16 2xx-paired"), "lists refunds": ("weak-oracle", "§16 2xx-unpaired"),
+            "does nothing": ("no-assertion", None), "is always true": ("tautology", None)}
+    checks = [
+        (n == 10 and names == want_names, "10 cases: the docblock `it (` and the `// it(` line are not cases (got %d: %s)" % (n, sorted(names ^ want_names))),
+        ("adds %i" not in got, "an arrow it.each body over two lines holds its expect (got %s)" % got.get("adds %i")),
+        ("sends nothing when the cart is empty" not in got, "not.toHaveBeenCalled() alone is an oracle (§ 20)"),
+        ("reads a glob string" not in got, "a `/*` inside a string is not a comment"),
+    ] + [(got.get(k) == v, "%s → %s (got %s)" % (k, v, got.get(k))) for k, v in want.items()]
+    fails = [m for ok, m in checks if not ok]
+    for m in fails:
+        print("FAIL  " + m)
+    print("oracle-check self-test: %d/%d passed" % (len(checks) - len(fails), len(checks)))
+    return 1 if fails else 0
+
+
 def main(argv):
+    if argv == ["--self-test"]:
+        return self_test()
     opts = dict(a[2:].split("=", 1) for a in argv if a.startswith("--") and "=" in a)
     flags = {a for a in argv if a.startswith("--") and "=" not in a}
     if (set(opts) - {"base", "head", "repo", "files"}) or (flags - {"--json", "--all"}) or any(not a.startswith("--") for a in argv):
-        print(__doc__.split("\n\n")[0].split("\n", 1)[1], file=sys.stderr)
+        print(__doc__.split("\n\n")[1], file=sys.stderr)
         return 2
     repo = os.path.abspath(opts.get("repo", "."))
     findings, checked, files = [], 0, []
@@ -195,16 +311,9 @@ def main(argv):
                     lang = ti.lang_of(path)
                     if not lang:
                         continue
-                    ls = content.split("\n")
-                    for name, ln in ti.cases(lang, content):
-                        a, b = body_span(lang, ls, ln)
-                        if "--all" not in flags and not any(a <= x <= b for x in lines):
-                            continue
-                        checked += 1
-                        kind = classify(lang, ls[a - 1:b])
-                        if kind:
-                            findings.append({"kind": kind, "file": path, "line": ln, "case": name,
-                                             "message": MESSAGES[kind] % name})
+                    got, n = scan(lang, path, content, lines, "--all" in flags)
+                    findings += got
+                    checked += n
                     continue
                 files.append(path)
                 got, n = check_file(repo, path, lines, "--all" in flags)
@@ -219,7 +328,8 @@ def main(argv):
     else:
         print("oracle-check — %d changed test case(s) checked" % checked)
         for f in findings:
-            print("  %-13s %s:%s — %s" % (f["kind"], f["file"], f["line"], f["message"]))
+            print("  %-13s %s:%s — %s%s" % (f["kind"], f["file"], f["line"], f["message"],
+                                          "  [%s]" % f["precedent"] if f.get("precedent") else ""))
         print("summary: %d finding(s)" % len(findings))
     return 1 if findings else 0
 

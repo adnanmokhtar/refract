@@ -17,7 +17,7 @@ Index: posting rules § 1–10 · accessibility § 11–34 · UI states and clie
 hydration and i18n presentation § 42–48 · version precedents § 49–57 · a clean automated run § 58 ·
 UI states (`ui-state-scan`) § 59–63 · client data (`client-data-scan`) § 64–69 · routing
 (`routing-scan`) § 70–75 · i18n (`i18n-scan`) § 76–83 · design tokens, motion and charts § 84–97 ·
-render measurement § 98–101. SEO has its own file, [`seo.md`](seo.md); native mobile UI is
+render measurement § 98–101 · real-repo additions 2026-10-15 (links named by an `asChild` parent, rate vs true zero, `empty…=` wrapper props, `pending` buttons, word-order slots, display placeholder tokens) § 102–107. SEO has its own file, [`seo.md`](seo.md); native mobile UI is
 [`mobile.md`](mobile.md).
 
 ## The claim, restated
@@ -236,3 +236,25 @@ React 19 + Vite application. Paraphrased; no text reproduced beyond short quoted
 query-core 5.104.1 types; the lint and guard measurements from a read-only real React application) and
 from `ui-design-sweep/references/measured-from-the-render.md` (§ 98–101, each exclusion measured after
 a false positive on a real app).
+
+## Not a finding — added 2026-10-15 (a real NestJS + React monorepo audit)
+
+102. **A link rendered through `<Button asChild aria-label=…>` is named by its parent.** The headless `asChild` merges the
+     parent's props, `aria-label` included, onto the `<a>`; `a11y-code-scan` grep 2a marks such a hit `^` instead of
+     dropping it. Read the parent: a parent with no name, or a name that omits the visible label (2.5.3), is still §2.
+103. **A sum over buckets with no events is a true zero; a rate over an empty denominator is not.** A helper that returns
+     0 when the denominator is 0 (orders placed, none shipped yet, so no delivery rate) and feeds a plotted series draws
+     a missing reading as 0 % — `chart-encoding-audit` §5. The same helper behind a KPI tile is a copy question, not §5.
+     Hourly quantities summed into a stacked bar, where an hour with no movement moved nothing, stay zero (§ 97).
+104. **An `empty…=` prop handed to a shared table or query wrapper is the empty branch** (`emptyMessage=`, `empty=`):
+     the wrapper draws it, so `ui-state-scan` §2 is answered at the wrapper. Read the wrapper once for the whole group.
+105. **A design-system button whose `pending` prop disables it** answers `ui-state-scan` §8b. Read the button once
+     (does `pending` set `disabled` or `aria-disabled` and block the handler?); every call site then follows.
+106. **An empty value in one locale whose siblings form one sentence is a word-order slot.** `heroTitleA` / `heroTitleMid` /
+     `heroTitleB` rendered in a row, with `heroTitleMid` empty in English and filled in Arabic, is the translator moving a
+     word, not a missing translation; `catalog-parity.py` prints it as `untranslated-slot`, a candidate. *Flips back:* the
+     siblings are not rendered together, or the empty locale leaves the sentence ungrammatical in the render.
+107. **A placeholder that is a display token, not an argument.** A value that is exactly one token in every locale
+     (`{{variable}}` / `{{متغير}}`), or a key read with `skipInterpolation` / `interpolation: { skipOnVariables }`, is shown
+     literally — the token names differ on purpose; `catalog-parity.py` prints it as `placeholder-token`. *Flips back:* a
+     call site of the same key passes an interpolation value (then the names must match, `i18n-scan` §2).

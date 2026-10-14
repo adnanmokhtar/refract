@@ -117,6 +117,31 @@ else
   bad "an unknown node did not exit 2 — an empty answer reads as 'nothing breaks'"
 fi
 
+# ---------- 6. --corpus=project on a READ-ONLY target: --no-cache / --cache-dir -------------
+# The default project cache is <repo>/.claude/_graph.json. An audit pre-flight that promised not
+# to write the checkout wrote that file (2026-10-15). Both flags must leave the target untouched.
+PJ=$(mktemp -d); CD=$(mktemp -d)
+mkdir -p "$PJ/src"
+echo 'export const a = 1;'                                   > "$PJ/src/a.ts"
+printf 'import type { T } from "./c";\nimport { a } from "./a";\nexport const b = a;\n' > "$PJ/src/b.ts"
+printf 'import { b } from "./b";\nexport type T = typeof b;\n'  > "$PJ/src/c.ts"
+python3 "$G" --corpus=project --repo="$PJ" --no-cache --stats >/dev/null 2>&1
+assert_eq "--no-cache writes nothing into the target" "$(find "$PJ" -name '_graph.json' | wc -l | tr -d ' ')" "0"
+nc=$(python3 "$G" --corpus=project --repo="$PJ" --no-cache --stats 2>/dev/null | grep -c 'cache off')
+assert_eq "--no-cache says so instead of claiming a hit or a rebuild" "$nc" "1"
+python3 "$G" --corpus=project --repo="$PJ" --cache-dir="$CD" --stats >/dev/null 2>&1
+assert_eq "--cache-dir writes the cache there, not into the target" \
+  "$(find "$PJ" -name '_graph.json' | wc -l | tr -d ' ') $(find "$CD" -maxdepth 1 -name '_graph.json' | wc -l | tr -d ' ')" "0 1"
+hit=$(python3 "$G" --corpus=project --repo="$PJ" --cache-dir="$CD" --stats 2>/dev/null | grep -c 'cache hit')
+assert_eq "--cache-dir is served on the second run" "$hit" "1"
+lab=$(python3 "$G" --corpus=project --repo="$PJ" --no-cache --json 2>/dev/null \
+  | python3 -c 'import json,sys; print(sorted((e["from"][4:],e["to"][4:],e["label"]) for e in json.load(sys.stdin)["edges"]))')
+assert_eq "code edges carry the ranker's type-only label" "$lab" \
+  "[('b.ts', 'a.ts', ''), ('b.ts', 'c.ts', 'type'), ('c.ts', 'b.ts', '')]"
+both=$(python3 "$G" --corpus=project --repo="$PJ" --no-cache --cache-dir="$CD" --stats >/dev/null 2>&1; echo $?)
+assert_eq "--no-cache with --cache-dir is a usage error" "$both" "2"
+rm -rf "$PJ" "$CD"
+
 echo ""
 echo "reach: $((pass + fail)) assertions · $pass passed · $fail failed"
 [ $fail -gt 0 ] && { echo "FAIL  $fail assertion(s)."; exit 1; }

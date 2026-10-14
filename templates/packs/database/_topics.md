@@ -179,7 +179,7 @@ Schema + semantics: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: index-coverage-scan
   kind: skill
   triggers: { always: true }   # its schema map reads migrations and schema.sql, so raw-SQL repos are a lane; no schema reports N/A
-  fallback: skills/index-coverage-scan/SKILL.md
+  fallback: skills/index-coverage-scan/SKILL.md   # source-as-fallback; scripts/schema-map.py (the H0 schema map: MikroORM snapshot + replay, or resolved migration DDL) ships beside it — the folder is copied whole — and schema-integrity-scan, query-shape-scan, schema-diff, schema-consistency-audit and /db-audit read it from there
 
 - name: schema-integrity-scan
   kind: skill

@@ -89,6 +89,7 @@ minimum token count beats jscpd's default of 50.
 | **Python** | pylint 4.1.2: `pylint --disable=all --enable=duplicate-code --min-similarity-lines=6 <pkg>` (R0801) | exact | Ruff has no R0801 |
 | **Ruby** | flay 2.14.4: `flay --mass 32 app lib` | AST, near-miss | — |
 | **PHP** | jscpd or PMD CPD | — | phpcpd is archived |
+| **Offline fallback** (`scripts/clones.py`, this skill; no download) | `CLONES=fallback` in step 1, or automatic when jscpd fails; `--self-test` | exact; `similar` (gap ≤ 3 lines) | type-1 only (no renamed copies); boilerplate windows shared by > 40 places are skipped and counted |
 | **Type-4 (semantic)** | jscpd `--semantic` (experimental; downloads a 548 MB model, or calls an embeddings API you name) | semantic | a candidate generator for §2 only, never a required lane |
 
 The jscpd traps, measured on 5.4.0 on 2026-10-05:
@@ -119,43 +120,63 @@ diff run. On a whole-repo run with no merge-base, step 3 prints `N/A`.
 D="${TMPDIR:-/tmp}/duplication-scan"; rm -rf "$D"; mkdir -p "$D"
 BASE="${BASE:-$(git merge-base origin/main HEAD 2>/dev/null)}"   # empty on a whole-repo run with no remote: §3 diff lane is N/A
 # jscpd's --ignore is one comma-separated list, so no {a,b} braces: one glob per entry.
-IGN='**/node_modules/**,**/vendor/**,**/dist/**,**/build/**,**/.next/**,**/target/**,**/.venv/**,**/*.min.*,**/*.d.ts,**/test/**,**/tests/**,**/__tests__/**,**/spec/**,**/e2e/**,**/__mocks__/**,**/mocks/**,**/fixtures/**,**/testdata/**,**/stories/**,**/migrations/**,**/seeds/**,**/generated/**,**/__generated__/**,**/locales/**,**/i18n/**,**/*.spec.*,**/*.test.*,**/*.e2e-spec.*,**/*.stories.*,**/*_test.*,**/test_*.py,**/scripts/**,**/docs/**,**/ai/**,**/*.md,**/*.json,**/*.lock,**/*.yml,**/*.yaml,**/*.sql,**/*.svg,**/*.html'
+IGN='**/node_modules/**,**/vendor/**,**/dist/**,**/build/**,**/.next/**,**/target/**,**/.venv/**,**/*.min.*,**/*.d.ts,**/test/**,**/tests/**,**/__tests__/**,**/spec/**,**/e2e/**,**/__mocks__/**,**/mocks/**,**/fixtures/**,**/testdata/**,**/stories/**,**/migrations/**,**/seeds/**,**/generated/**,**/__generated__/**,**/locales/**,**/i18n/**,**/*.spec.*,**/*.test.*,**/*.test-data.*,**/*.fixture.*,**/*.e2e-spec.*,**/*.stories.*,**/*_test.*,**/test_*.py,**/scripts/**,**/docs/**,**/ai/**,**/*.md,**/*.json,**/*.lock,**/*.yml,**/*.yaml,**/*.sql,**/*.svg,**/*.html'
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/*.d.ts' -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,mocks,fixtures,testdata,stories,migrations,seeds,generated,__generated__,locales,i18n,scripts}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,test_*,conftest}.*' -g '!docs/**' -g '!ai/**')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,fixture,fixtures}.*' -g '!**/{*_test,test_*,conftest}.*' -g '!docs/**' -g '!ai/**')
 for t in ts js py go java kotlin cs rust php ruby; do printf '%-7s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
 # 0. Context: a clone tool the project already runs (it owns §3 at its own threshold, which beats jscpd's 50-token default).
 rg --files -g '{.jscpd.json,.jscpd.yml,cpd.xml}' -g '!**/node_modules/**' . ; rg -n --pcre2 '\bjscpd\b|\bpmd\s+cpd\b|\bdupl\b|duplicate-code|\bR0801\b|\bflay\b' -g '{package.json,pyproject.toml,setup.cfg,.pylintrc,pylintrc,.golangci.y*ml,Makefile,*.gradle*,pom.xml,Gemfile}' -g '!**/node_modules/**' .
 # 1. Every clone pair, exact and near-miss (--max-gap-lines 3 merges copies that differ by up to 3 lines: kind "similar").
 #    --fail-on-empty makes a mis-globbed scan exit 1 instead of printing a clean report. Never add -a: with absolute paths
 #    jscpd 5.4 matches --ignore against the whole path, and a checkout under any folder named fixtures/ or build/ scans 0 files.
-npx -y jscpd@5 --max-gap-lines 3 --ignore "$IGN" --fail-on-empty -r json -o "$D/all" --no-colors . > "$D/all.log" 2>&1 || echo "§1 blocked — $(tail -1 "$D/all.log")"
+#    Offline or read-only (no download allowed), or jscpd failed: CLONES=fallback runs the shipped token-window finder, which
+#    writes the same report shape (type-1 only: renamed copies are not found). It is a lane, so its line is printed.
+CL=.claude/skills/duplication-scan/scripts/clones.py; [ -f "$CL" ] || CL="$HOME/.claude/skills/duplication-scan/scripts/clones.py"; mkdir -p "$D/all"
+{ [ "${CLONES:-}" != fallback ] && npx -y jscpd@5 --max-gap-lines 3 --ignore "$IGN" --fail-on-empty -r json -o "$D/all" --no-colors . > "$D/all.log" 2>&1; } \
+  || { echo "§1 jscpd ${CLONES:-blocked — $(tail -1 "$D/all.log" 2>/dev/null)} → clones.py"; rg --files -t ts -t js -t py -t go -t java -t kotlin -t cs -t php -t ruby "${X[@]}" . > "$D/files.txt"
+       [ -f "$CL" ] && python3 -B "$CL" . "$D/files.txt" "$D/all/jscpd-report.json" || echo "§1 blocked — jscpd unavailable and clones.py absent"; }
 # 1b. Divergence: a near-miss pair where one copy took a fix commit the other never got. The commit counts when its subject
 #     is a fix (conventional type or "fixes #n"), it is newer than the other copy, and it touched <= 30 files (not a sweep).
-#     Exact pairs are skipped: copies identical today have not diverged inside the matched range.
+#     Exact pairs are skipped: copies identical today have not diverged inside the matched range. A one-sided fix wider than
+#     30 files is printed WIDE? (a sweep, or the only real fix), never dropped. A copy whose line history starts at the repo's
+#     root commit is history-blind: a re-rooted, squashed or shallow history hides every fix made before it.
 [ -f "$D/all/jscpd-report.json" ] && python3 - "$D/all/jscpd-report.json" <<'PY'
 import json,os,re,subprocess,sys,collections
 d=json.load(open(sys.argv[1]))['duplicates']
 FIX=re.compile(r'^(?:fix|hotfix|bugfix|revert)\b|\b(?:fixes|closes|resolves)\s+#\d+',re.I)
 git=lambda *a: subprocess.run(['git',*a],capture_output=True,text=True).stdout
 width=lambda h: len(git('show','--format=','--name-only',h).split())
+ROOTS=set(git('rev-list','--max-parents=0','HEAD').split()); RD=git('log','-1','--format=%cs',*sorted(ROOTS)[:1]).strip() if ROOTS else '?'
 def hist(f,s,e): return [l.split('\t',2) for l in git('log','--no-patch','--format=%H\t%ct\t%s','-L',f'{s},{e}:{f}').splitlines() if l.count('\t')>=2 and len(l.split('\t')[0])==40]
-def only(h,o): born=min(int(c[1]) for c in o); oh={c[0] for c in o}; return [c for c in h if c[0] not in oh and FIX.search(c[2]) and int(c[1])>born and width(c[0])<=30]
+def only(h,o): born=min(int(c[1]) for c in o); oh={c[0] for c in o}; return [c for c in h if c[0] not in oh and FIX.search(c[2]) and int(c[1])>born]
 print('pairs',len(d),dict(collections.Counter(x['kind'] for x in d)),'cross-file',sum(x['firstFile']['name']!=x['secondFile']['name'] for x in d))
+n=blind=0
 for x in d:
     if x['kind']=='exact': continue
     a,b=[(os.path.normpath(y['name']),y['start'],y['end']) for y in (x['firstFile'],x['secondFile'])]
-    ha,hb=hist(*a),hist(*b)
+    ha,hb=hist(*a),hist(*b); n+=1
+    if (ha and ha[-1][0] in ROOTS) or (hb and hb[-1][0] in ROOTS): blind+=1
     if not ha or not hb: continue
     fa,fb=only(ha,hb),only(hb,ha)
     if bool(fa)!=bool(fb):
-        fx,(p,q)=(fa,(a,b)) if fa else (fb,(b,a))
-        print(f"DIVERGENT? {p[0]}:{p[1]}-{p[2]} fixed by {fx[0][0][:9]} \"{fx[0][2][:90]}\" | not in {q[0]}:{q[1]}-{q[2]} (similarity {x.get('similarity')})")
+        fx,(p,q)=(fa,(a,b)) if fa else (fb,(b,a)); nar=[c for c in fx if width(c[0])<=30]; c=(nar or fx)[0]
+        print(f"{'DIVERGENT?' if nar else 'WIDE?'} {p[0]}:{p[1]}-{p[2]} fixed by {c[0][:9]} \"{c[2][:90]}\"{'' if nar else f' ({width(c[0])} files: a sweep, or the only fix — read it)'} | not in {q[0]}:{q[1]}-{q[2]} (similarity {x.get('similarity')})")
+print(f'history-blind {blind}/{n} near-miss pairs (a copy reaching back to the root commit, {RD})')
+if n and 2*blind>n: print(f'§1 partial — history-blind {blind}/{n}: 1b cannot see fixes before {RD}; read every near-miss pair side by side (pair diff), never report "0 divergent"')
 PY
 # 2. One business rule implemented twice: a domain-verb function defined under the same name in two top-level areas
 #    (server and client, two services). Read both bodies.
-V='(?:[a-z]\w*)?(?:[Cc]alc|[Cc]ompute|[Pp]rice|[Pp]ricing|[Rr]ound|[Pp]rorat|[Tt]ax|[Ff]ee|[Cc]ommission|[Dd]iscount|[Tt]otal|[Aa]mount|[Bb]alance|[Rr]efund|[Cc]harge|[Cc]onvert|[Nn]ormali[sz]e|[Vv]alidate|[Ee]ligib|[Ss]ettle|[Pp]ayout|[Qq]uota|[Ll]imit)\w*'
+V='(?:[a-z]\w*)?(?:[Cc]alc|[Cc]ompute|[Pp]rice|[Pp]ricing|[Rr]ound|[Pp]rorat|[Tt]ax|[Ff]ee|[Cc]ommission|[Dd]iscount|[Tt]otal|[Aa]mount|[Bb]alance|[Rr]efund|[Cc]harge|[Cc]onvert|[Nn]ormali[sz]e|[Vv]alidate|[Ee]ligib|[Ss]ettle|[Pp]ayout|[Qq]uota|[Ll]imit|[Bb]ucket|[Tt]ransition|[Ss]core|[Cc]losed|[Aa]llowed|[Ss]tatusOf|[Cc]ountKey|[Ee]ffective)\w*'
+#    Stop-list: a bare verb or noun (`validate`, `settle`, `price`, `round1`, `invalidate`, `statusOf`) is a homonym, not a rule (9 of 16 names on a real monorepo).
 rg -n -o --pcre2 '^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function\s*\*?\s+|def\s+|func\s+(?:\([^)]*\)\s*)?)\K'"$V"'(?=\s*[(<\[])|^\s*(?:export\s+)?const\s+\K'"$V"'(?=\s*(?::[^=\n]+)?=\s*(?:async\s*)?(?:\([^)\n]*\)|\w+)\s*(?::[^=\n]+)?=>)|^\s+(?:(?:public|private|protected|static|async|override|internal)\s+)*\K'"$V"'(?=\s*\([^)\n]*\)\s*(?::\s*[^{\n]+)?\{\s*$)' -t ts -t js -t py -t go -t java -t kotlin -t cs -t php -t ruby "${X[@]}" . \
- | awk -F: '{ n=split($1,p,"/"); area=p[2]"/"p[3]; k=$3; if (!((k,area) in seen)) { seen[k,area]=1; c[k]++; at[k]=at[k]" "$1":"$2 } } END { for (k in c) if (c[k]>1) print c[k], k, at[k] }' | sort -rn
+ | awk -F: '{ n=split($1,p,"/"); area=p[2]"/"p[3]; k=$3; if (tolower(k) ~ /^(in)?(calc|calculate|compute|price[ds]?|pricing|round[0-9]*|tax|fee|commission|discount|total|amount|balance|refund|charge|convert|normali[sz]e|validate|eligib[a-z]*|settled?|payout|quota|limit|bucket|transition|score|closed|allowed|effective)s?$|^(amount|status|price|total|count)of$/) next; if (!((k,area) in seen)) { seen[k,area]=1; c[k]++; at[k]=at[k]" "$1":"$2 } } END { for (k in c) if (c[k]>1) print c[k], k, at[k] }' | sort -rn
+# 2b. A rule copied as a WHOLE FILE escapes grep 2's names: one file stem (`perf-scoring`, `settlement-day.rules` ~ `settlement-day`) in two
+#     top-level areas (apps/api vs apps/web, server vs client). Glue files (`x.api.ts`, `x.schema.ts`, `x.controller.ts`) and generic stems are
+#     skipped: only a plain stem or a rule-ish suffix pairs. Read both files; agreeing copies are Hardening (they will drift), not findings.
+rg --files -t ts -t js -t py -t go -t java -t kotlin -t cs -t php -t ruby "${X[@]}" . | awk -F/ '{ f=$NF; sub(/\.[^.]*$/,"",f); k=split(f,q,"."); g=q[1]; x=(k>1?q[2]:""); area=$2"/"$3
+  if (k>2 || (x!="" && x !~ /^(rules?|polic(y|ies)|logic|calc|utils?|helpers?|domain|model|vocab|machine|mappers?|assemblers?|format)$/)) next
+  if (tolower(g) ~ /^(mainactivity|mainapplication|appdelegate|gradle|index|main|app|types?|utils?|helpers?|constants?|config|schemas?|errors?|api|client|server|module|routes?|router|registry|hooks?|store|service|controller|models?|mappers?|contracts?|dto|entit(y|ies)|enums?|common|shared|lib|csv|money|logger|http|quer(y|ies)|keys|i18n|setup|env|vocab|phone|format|labels?|columns|fixtures?|mocks?)$/) next
+  if (!((g,area) in s)) { s[g,area]=1; c[g]++; at[g]=at[g]" "$0 } } END { for (g in c) if (c[g]>1) print c[g], g, at[g] }' | sort -rn
 # 3. Diff lane: clones the change added (absent from the merge-base tree), and how many of their ends the diff touched.
 #    Exit 1 from --fail-on-new-clones is the signal; "analyzed no files" in the log is a blocked scan.
 if [ -n "$BASE" ]; then
@@ -183,7 +204,15 @@ the hops to an entry point. Three blind spots are structural:
   read every near-miss pair whose two sides have different last commits.
 - **The same rule under two names** (`prorate` / `proRata`, `fee` / `commission`) escapes grep 2.
   Read the domain glossary (`ai/` docs, the money and quota modules). jscpd `--similarity 0.85`
-  (JS / TS function AST) or `--semantic` will propose pairs; read each one.
+  (JS / TS function AST) or `--semantic` will propose pairs; read each one. A rule copied as a
+  whole file under the same stem is step 2b's.
+- **A history that starts recently.** A re-rooted, squashed or shallow history puts every copy's
+  birth at one commit, and 1b then sees no one-sided fix at all. 1b prints `history-blind k/n`;
+  above half, §1 is `partial` (§ 91) and every near-miss pair is read side by side
+  (`diff <(sed -n a,bp f1) <(sed -n c,dp f2)`), never reported as "0 divergent".
+- **Gate 1 shortcut.** A project that commits an export-liveness ledger (a JSON of exports only
+  tests import, such as an `every-export-is-imported.json` with a `testOnly` list, enforced by a
+  test) already answers "is the lagging copy live?": read it before walking callers.
 
 **Measured** (2026-10-05). On a real NestJS-on-Fastify + MikroORM + React monorepo (about 14,200
 tracked files; the script runs in about 5 s without step 3), step 1 found 1,623 pairs: 1,546 exact
@@ -200,9 +229,18 @@ copy does neither. But the client copy is imported only by a mock and its test, 
 Hardening, plus a `dead-code-scan` item. The rest are name collisions (`validate`, `settle`,
 `price`). Step 3, on a scratch clone 40 commits back (232 changed files), found 20 new clones: 15
 with both ends in the diff, 5 with one, 0 with neither. Fixtures: `web-dashboard` 3 exact pairs and
-`review-decoys` 2 (its base and change snapshots of one file); every other fixture has 0; 1b and 2
-return 0. Step 3 run from inside a fixture folder reported every clone as new, with `neither` equal
-to the total: trap 3.
+`review-decoys` 2 (its base and change snapshots of one file); every other fixture has 0. Step 3 run
+from inside a fixture folder reported every clone as new, with `neither` equal to the total: trap 3.
+**Re-measured 2026-10-15** on the same monorepo, read-only and offline (`CLONES=fallback`, about
+15 s): `clones.py` 1,214 pairs (1,178 exact, 36 similar), 2.94 % duplicated lines; 1b printed
+`history-blind 35/36` (the history had been re-rooted three days earlier, so §1 is `partial`) and
+one `WIDE?` row, a 172-file fix that reached the web copy of a carrier problem-code table and not
+the API's — the old 30-file filter had dropped the only one-sided fix. Step 2 16 → 10 names after
+the stop-list and the `*.test-data.*` exclusion, with the settlement-closure and import-row pairs
+kept. Step 2b 24 stem pairs, among them a permission tree copied whole into the web app and live
+there, and four rule files the late reader confirmed as copies (scoring, rescue rules, settlement
+day, module access). Fixtures with the fallback: `quality-mix` step 2 lists both seeded rules
+(`prorate`, `computeTax`) and one decoy; `web-dashboard` 3 exact pairs, `review-decoys` 3.
 
 ## The 3,000-hit path
 
@@ -256,7 +294,8 @@ GOOD:  one implementation the client receives (from the API, or a shared package
 ```
 **Read the code:** Is it really one rule, the same name and the same domain meaning? Or a name
 collision (`validate`, `settle`, `price`)? Is one copy generated from the other, or held to it by
-an agreement test (§ 46)? Is each copy reachable: not only a mock, a story or a test? Which copy
+an agreement test (§ 46)? Is each copy reachable: not only a mock, a story or a test (a copy only its own test imports is
+`dead-code-scan`'s, § 90)? Which copy
 is right? Use the spec, the domain docs, or the copy the data actually flows through. **Finding
 when** the differential test disagrees on an input the live path receives. **Proof:** divergence —
 a property test feeding both copies the same generated inputs (`fc.assert(fc.property(arb, x =>

@@ -89,7 +89,7 @@ stderr (exit 2) is a failed grep, never zero hits.
 # Not production code: vendored, built, tests, specs, mocks, fixtures, stories, migrations, seeds, generated, catalogs, docs, ai/.
 X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/.next/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/*.min.*' -g '!**/*.d.ts'
    -g '!**/{test,tests,__tests__,spec,specs,e2e,__mocks__,mocks,fixtures,__fixtures__,testdata,stories,migrations,migrate,seeds,generated,__generated__,locales,i18n}/**'
-   -g '!**/*.{spec,test,e2e-spec,mock,stories}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!docs/**' -g '!ai/**')
+   -g '!**/*.{spec,test,e2e-spec,mock,stories,test-data,fixture,fixtures}.*' -g '!**/{*_test,*_spec,test_*,conftest}.*' -g '!*.{md,mdx,json,lock,snap,map,svg,yml,yaml,sql,html}' -g '!docs/**' -g '!ai/**')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(//|/\*|\*(\s|/|$)|#(?!\{)|<!--)')   # drops comment-only lines
 A='(?!unknown\b|const\b|never\b)'                                         # a cast that is not a widening to unknown / as const
 for t in ts js py go java kotlin cs swift rust php ruby; do printf '%-7s %s\n' "$t" "$(rg --files -t "$t" "${X[@]}" . | wc -l)"; done   # 0 = lane absent
@@ -158,7 +158,11 @@ files; 1a 61 — 35 `JSON.parse … as` (13 of them Redis, session and cache pay
 event payloads `event.payload as { … }`, 2 storage, 2 request; 2 199 — 98 an index after a bound
 (`xs[i]!`, § 27 to verify), 19 on a lookup call (`map.get(k)!`, `config.get('jwt')!`), the rest
 optional members; 3 0; 4a 201 (175 in the API, nearly all ORM rows re-typed `r as unknown as Row`,
-§ 30); 4b 0 (`no-explicit-any` is at error there, so the tool owns it). Go: `quality-mix` 1c 4 —
+§ 30); 4b 0 (`no-explicit-any` is at error there, so the tool owns it). **Re-measured 2026-10-15**
+on the same monorepo (history re-rooted): 0a 4, validators imported in 439 files; 1a 60 → 56
+once `*.test-data.*` builders were excluded; 2 190 (about 110 `xs[i]!` outside the one package with
+`noUncheckedIndexedAccess`, optional mapper methods called with `!`); 3 0; 4a 179 (173 in the API, ORM
+rows). Go: `quality-mix` 1c 4 —
 `raw["id"].(string)` on a decoded `map[string]any` (the commonest decoded-JSON shape; the first cut
 of 1c matched only `v.(T)` and `f().(T)` and missed all four, so an index before the assertion is now
 part of the receiver). JVM, C#, PHP, Rust and Ruby greps are not measured: no measured repo has that

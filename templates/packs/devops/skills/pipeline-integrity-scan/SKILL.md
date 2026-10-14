@@ -28,7 +28,7 @@ This skill finds those defects on **six platforms**: GitHub Actions, GitLab CI, 
 
 A candidate is a finding when all four hold. They are the protocol's gates as `precedents/devops.md` § Reading the seven gates applies them to pipelines.
 
-1. **The gate matters.** The job is in the required set (`ci-graph.py --required`, or `--contexts=` from a rules snapshot), or it is an ancestor of a deploy or publish job (`--deploy-ancestors`), or it is that deploy or publish job. Unknown required-ness (no token) is `UNREADABLE`: the row stays `[report-flagged]` and is never cleared (precedents § 7).
+1. **The gate matters.** The job is in the required set (`ci-graph.py --required --online`, or `--contexts=` from a rules snapshot), or it is an ancestor of a deploy or publish job (`--deploy-ancestors`), or it is that deploy or publish job. Unknown required-ness (no token) is `UNREADABLE`: the row stays `[report-flagged]` and is never cleared (precedents § 7).
 2. **The platform does what the candidate claims.** The verdict names its row in `ci-platform-semantics.md`. Examples: S1 for a GitHub pipe, R1/R2 for a skip, R8 for GitLab `when: manual`. A `[K?]` row (S3, S6, R7) keeps the finding Unconfirmed until its sandbox run (V210 probe, V209 seed).
 3. **No control already catches it.** These all count as controls:
    - an aggregator that fails on `needs.*.result` (precedents § 8, § 10);
@@ -41,7 +41,7 @@ A candidate is a finding when all four hold. They are the protocol's gates as `p
 ## Boundaries
 
 - **Attacker-path classes are security's.** That covers expression injection, privileged triggers with untrusted code, pins × privilege, cache poisoning, OIDC width and secret exposure. They go to `ci-security-scan` when the security pack is installed (until that skill ships, `iac-scan` § 5, *CI workflows*). Without it, § Security fallback lane runs here, tagged (`precedents/devops.md` § 1).
-- **Masking on a test job, zero tests, test retries** → testing `suite-execution-scan` §4/§6, when that pack is installed. **A masked lint step** → code-quality `suppression-scan` §3. **The a11y gate** → frontend `a11y-scan` §7. Each owner reads `ci-graph.py --required` from here for severity (precedents § 2). Without the owner pack, the row prints `<class> (owner pack <x> not installed)` at this skill's severity.
+- **Masking on a test job, zero tests, test retries** → testing `suite-execution-scan` §4/§6, when that pack is installed. **A masked lint step** → code-quality `suppression-scan` §3. **The a11y gate** → frontend `a11y-scan` §7. Each owner reads `ci-graph.py --required --online` from here for severity (precedents § 2). Without the owner pack, the row prints `<class> (owner pack <x> not installed)` at this skill's severity.
 - **The observability rules gate** (promtool/pint) → observability `alert-rule-lint` owns its content. The CI-level mask on that job is §1 here.
 - **Deploy concurrency, environment protection, rollout gating, migration topology** → `deploy-safety-scan` (this pack). **Cache keys and affected detection** → `pipeline-cache-scan`. **Rebuild-after-scan, release refs, retention** → `release-integrity-scan`. This skill owns whether a red build can **reach** a merge or a deploy, not how the deploy behaves.
 
@@ -66,7 +66,7 @@ A GitLab template, `extends:` base, reusable workflow or composite action is **o
 
 | Lane | Command | Trap that makes a clean result false |
 |---|---|---|
-| Graph | `python3 "$G" . --all`; `--contexts=<a,b> [--merge-queue]` or `--settings-dir=<dir>` (offline, from saved `gh api` responses; 0b passes `$SETTINGS_DIR` when the caller sets it) or `--required [--repo=o/r --branch=b]` (`gh` + token); `--deploy-ancestors`; `--job-of=F:L`, `--shell-of=F:L` | No YAML loader → exit 2; GitHub only; a job that pushes through `docker/build-push-action` `outputs: …push=true` with no `push:` input is not counted as a publish (read it) |
+| Graph | `python3 "$G" . --all`; `--contexts=<a,b> [--merge-queue]` or `--settings-dir=<dir>` (offline, from saved `gh api` responses; 0b passes `$SETTINGS_DIR` when the caller sets it) or `--required --online [--repo=o/r --branch=b]` (`gh` + token; without `--online` it prints `NOT-RUN OFFLINE` and exits 2); `--deploy-ancestors`; `--job-of=F:L`, `--shell-of=F:L` | No YAML loader → exit 2; GitHub only; a job that pushes through `docker/build-push-action` `outputs: …push=true` with no `push:` input is not counted as a publish (read it) |
 | Settings | `gh api repos/{o}/{r}/rules/branches/{b}` **and** legacy `…/branches/{b}/protection/required_status_checks`; `…/actions/workflows`; GitLab `glab api projects/:id` | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6); rulesets in evaluate mode are not returned `[K]` |
 | GHA lint | `actionlint -format '{{json .}}'` 1.7.12, or `docker run --rm -i rhysd/actionlint:1.7.12 - < <file>` per file `[K]` | exit 3 = no project (a bind-mount trap) → NOT-RUN; it checks that `needs:` exists, not that it is sufficient |
 | Shell probe | the four lines of V210 (below) | none: runs with no CI access |
@@ -116,7 +116,7 @@ echo '# 8 schedules'
 rg -n --pcre2 "${CI[@]}" '^\s*-?\s*cron\s*:|\bcron\s*\(\s*[\x27"]|^\s*schedules\s*:' . | "${NC[@]}"
 ```
 
-Then, for every GitHub hit in greps 1–2: `python3 "$G" . --job-of=<file:line> --shell-of=<file:line>`. That names the job and the effective shell. The shell row (`pipefail=yes|no`, `source=step|job|workflow|default`) is what decides §2. Once per run, `python3 "$G" . --required --deploy-ancestors` (or `--contexts=` from a rules snapshot) prints, for every job, `required=` and `ancestor-of=`. Rule 1 reads that column.
+Then, for every GitHub hit in greps 1–2: `python3 "$G" . --job-of=<file:line> --shell-of=<file:line>`. That names the job and the effective shell. The shell row (`pipefail=yes|no`, `source=step|job|workflow|default`) is what decides §2. Once per run, `python3 "$G" . --required --online --deploy-ancestors` (or `--contexts=` from a rules snapshot) prints, for every job, `required=` and `ancestor-of=`. Rule 1 reads that column.
 
 Blind spots, worked around rather than trusted:
 - **A wrapper script.** `run: ./scripts/ci.sh` hides its `|| true` and pipes. Read every script a gate step runs: it either sets `set -euo pipefail`, or each pipe is checked.
@@ -133,7 +133,7 @@ Blind spots, worked around rather than trusted:
 
 ## The 3,000-hit path
 
-1. **Intersect** with `ci-graph.py --required --deploy-ancestors`. Keep the hits in a required job, an ancestor of a deploy or publish job, or that job itself. Dismiss the rest with one read each (precedents § 7), and name them in the coverage block.
+1. **Intersect** with `ci-graph.py --required --online --deploy-ancestors`. Keep the hits in a required job, an ancestor of a deploy or publish job, or that job itself. Dismiss the rest with one read each (precedents § 7), and name them in the coverage block.
 2. **Group** by unit: reusable workflow, composite action, GitLab template or `extends:` base, CircleCI orb command, Jenkins shared-library step (precedents § 5).
 3. **Rank:** prod deploy and publish paths first, then required checks, then the rest.
 4. **Read the top 30 groups.**
@@ -199,7 +199,7 @@ BAD:   on: pull_request: paths-ignore: ['docs/**']   on the workflow holding a r
 GOOD:  path filtering inside the workflow behind an always() aggregator that fails unless every needs.*.result is success or skipped-by-design (precedents § 9)
 ```
 **Read the code:**
-- Which contexts are required? Use `--required`, or a rules snapshot via `--contexts=`. Read both the rulesets and the legacy protection, because they coexist.
+- Which contexts are required? Use `--required --online`, or a rules snapshot via `--contexts=`. Read both the rulesets and the legacy protection, because they coexist.
 - Does each context map to a job (`REQUIRED-UNMATCHED`, `DUP-NAME`)? A matrix job's context is `name (leg)`.
 - Is the merge queue on? Then `merge_group:` is needed (R5).
 - GitLab: are `only_allow_merge_if_pipeline_succeeds` and `allow_merge_on_skipped_pipeline` set (`glab api projects/:id`)? Does any `rules:changes` lack `compare_to:` (R10)?

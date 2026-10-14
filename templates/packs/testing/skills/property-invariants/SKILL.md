@@ -46,6 +46,54 @@ Detect the stack, then use its idiomatic property framework. Do not introduce a 
 
 If no framework is pinned, propose the row above and STATE it — do not silently add a heavy dependency.
 
+## Pre-flight
+
+Run as **one** script from the repo root; every `rg` names its path (`.`). Grep 1 is the candidate
+list for the round-trip class; the other three classes (idempotence, algebraic laws, invariants) are
+found by reading, ranked by the money, parsing and wire modules on the context map.
+
+```bash
+X=(-g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' -g '!**/target/**' -g '!**/.venv/**' -g '!**/coverage/**' -g '!**/*.d.ts'
+   -g '!**/{test,tests,__tests__,spec,e2e,__mocks__,fixtures,__fixtures__,testdata,generated,__generated__,migrations}/**' -g '!**/*.{test,spec,e2e-spec,stories,test-data,fixture}.*' -g '!**/{test_*,*_test,conftest}.*')
+T=(-g '**/*.{test,spec,e2e-spec}.{js,jsx,ts,tsx,mjs,cjs}' -g '**/{test_*,*_test}.py' -g '**/*_test.go' -g '**/*{Test,Tests}.{java,kt}' -g '**/*_spec.rb' -g '!**/node_modules/**')
+# 0. Property frameworks pinned (0a) and the test files that already state a property (0b).
+rg -n --pcre2 '"fast-check"|"@fast-check/\w+"|^\s*hypothesis\b|\bjqwik\b|\bproptest\b|pgregory\.net/rapid|\bquickcheck\b|\bscalacheck\b|\bstream_data\b|\bpropcheck\b' -g '**/{package.json,pyproject.toml,requirements*.txt,setup.cfg,pom.xml,build.gradle*,go.mod,Cargo.toml,mix.exs,build.sbt}' -g '!**/node_modules/**' .
+rg -l --pcre2 '\bfc\.(?:assert|property|asyncProperty)\(|@given\(|@Property\b|\bproptest!\s*\{|\brapid\.Check\(|\bquick\.Check\(|\bforAll\(|\bcheck\s+all\(' "${T[@]}" . | wc -l
+# 1. Codec pairs: a function and its inverse exported from one file (to/from<X>, encode/decode, serialize/deserialize|parse,
+#    marshal/unmarshal, format/parse<X>, pack/unpack, compress/decompress), with the test files that name either half and
+#    whether any of them states a property. `PAIR … property=no` is the candidate list.
+rg -n --pcre2 '^\s*(?:export\s+)?(?:async\s+)?(?:function\s+|const\s+|def\s+|func\s+(?:\([^)]*\)\s*)?|(?:public\s+)?(?:static\s+)?[\w<>\[\]]+\s+)(?:to|from|encode|decode|serialize|deserialize|parse|format|marshal|unmarshal|pack|unpack|compress|decompress|stringify)[A-Z_]\w*\s*(?:[=(:<]|\s*=\s*(?:async\s*)?\()' -g '*.{ts,tsx,js,mjs,py,go,java,kt}' "${X[@]}" . | python3 -c '
+import collections, re, subprocess, sys
+INV = [("to", "from"), ("encode", "decode"), ("serialize", "deserialize"), ("serialize", "parse"), ("marshal", "unmarshal"), ("format", "parse"), ("pack", "unpack"), ("compress", "decompress"), ("stringify", "parse")]
+fns = collections.defaultdict(dict)
+for l in sys.stdin:
+    f, n, t = l.split(":", 2); m = re.search(r"\b((?:to|from|encode|decode|serialize|deserialize|parse|format|marshal|unmarshal|pack|unpack|compress|decompress|stringify)([A-Z_]\w*))", t)
+    if m: fns[f].setdefault(m[1], n)
+tests = subprocess.run(["rg", "-l", "--pcre2", ".", "-g", "*.{test,spec}.{ts,tsx,js,mjs}", "-g", "{test_*,*_test}.py", "-g", "*_test.go", "-g", "*Test.{java,kt}", "-g", "!**/node_modules/**", "."], capture_output=True, text=True).stdout.split()
+src = {t: open(t, errors="replace").read() for t in tests}; words = {t: set(re.findall(r"\w+", s)) for t, s in src.items()}
+PROP = re.compile(r"\bfc\.(?:assert|property)|@given\(|@Property\b|proptest!|rapid\.Check|quick\.Check|\bforAll\(")
+pairs = 0
+for f, names in sorted(fns.items()):
+    for a, b in INV:
+        for x in [n for n in names if n.startswith(a) and n[len(a):][:1].isupper()]:
+            y = b + x[len(a):]
+            if y in names:
+                pairs += 1; ts = [t for t, w in words.items() if x in w or y in w]
+                print("PAIR %s:%s %s/%s tests=%d property=%s" % (f, names[x], x, y, len(ts), "yes" if any(PROP.search(src[t]) for t in ts) else "no"))
+print("pairs=%d" % pairs)'
+```
+
+A `PAIR … property=no` row is a candidate, not a finding: read both halves (is it total over a real
+domain, or a lossy projection such as `toDay` / `fromDay` that drops the time?) before stating the
+predicate. Pairs the regex cannot see — two `to*` functions that invert each other
+(`toMinorUnits` / `toMajorUnits`), a codec split across two files, a class with `encode` / `decode`
+methods — come from reading the money and wire modules.
+
+**Measured** (2026-10-15, read-only) on a real NestJS + React monorepo: 0a empty (no property
+framework pinned), 0b 2 test files state a property; grep 1 finds 49 same-file inverse pairs, 48
+with no property test (the portal-claims codec is the one with a property). The money minor/major
+pair is not a `to`/`from` pair and is listed by reading. About 1 s; every fixture returns 0 pairs.
+
 ## Procedure
 
 1. **Spot candidates.** Scan changed/critical code for the four smells:

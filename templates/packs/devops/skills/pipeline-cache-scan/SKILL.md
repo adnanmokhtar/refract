@@ -172,7 +172,7 @@ Blind spots, worked around rather than trusted:
 
 ## The 3,000-hit path
 
-1. **Intersect** with `ci-graph.py --required --deploy-ancestors`: keep caches in a required job, a deploy or publish ancestor, or the publish job itself. Dismiss the rest with one read each.
+1. **Intersect** with `ci-graph.py --required --online --deploy-ancestors`: keep caches in a required job, a deploy or publish ancestor, or the publish job itself. Dismiss the rest with one read each.
 2. **Group** by key family (one key template across N jobs is one finding), then by reusable workflow or composite action (precedents § 5).
 3. **Rank:** installed trees feeding a build or publish first; affected detection on required tests next; download caches and speed last.
 4. **Read the top 30 groups.**
@@ -230,7 +230,7 @@ BAD:   on: pull_request with no concurrency                     (every push runs
 GOOD:  concurrency: { group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}, cancel-in-progress: true }   (PR CI only: precedents § 15)
        fetch-depth: 0 + nrwl/nx-set-shas · or git fetch --depth=<n> origin ${{ github.base_ref }} before turbo/changed-files
 ```
-**Read the code:** Does the tool fail on a missing base (red, visible) or fall back silently, and to what: everything (slow) or nothing (a required test skipped)? Is the job required (`ci-graph.py --required`)? Concurrency belongs on PR CI only; on a deploy it is `deploy-safety-scan` §2's finding, and `cancel-in-progress` on PR CI is fine (precedents § 15).
+**Read the code:** Does the tool fail on a missing base (red, visible) or fall back silently, and to what: everything (slow) or nothing (a required test skipped)? Is the job required (`ci-graph.py --required --online`)? Concurrency belongs on PR CI only; on a deploy it is `deploy-safety-scan` §2's finding, and `cancel-in-progress` on PR CI is fine (precedents § 15).
 
 **Finding when** a PR's affected set is computed without the base ref, or superseded PR runs keep running. **Proof (V218):** on a sandbox repo, a PR touching one package runs only that package's tasks, a PR touching a shared library runs its dependents, and the empty set never skips a required test.
 

@@ -43,7 +43,7 @@ Read each framework and lint plugin **with its version** from the lockfile, and 
 
 | Lane | Lint lane (rule source, version read 2026-10-05) | What lint misses (the greps cover it) | Built-in that is a precedent |
 |---|---|---|---|
-| **React / Next / React Router 7 / Remix** | eslint-plugin-jsx-a11y 6.10.2. Its peers stop at ESLint 9 while ESLint 10.12.0 is current, so it runs in a scratch ESLint 9 install with `control-has-associated-label` and `no-aria-hidden-on-focusable` turned on and design-system components mapped (`precedents/ui.md` § 52–53) | icon children it cannot resolve, Tailwind `outline-none`, dialog focus, live regions, error association | Next App Router route announcer (`precedents/ui.md` § 27) |
+| **React / Next / React Router 7 / Remix** | eslint-plugin-jsx-a11y 6.10.2. Its peers stop at ESLint 9 while ESLint 10.12.0 is current, so it runs in a scratch ESLint 9 install with `control-has-associated-label` and `no-aria-hidden-on-focusable` turned on and design-system components mapped (`precedents/ui.md` § 52–53). On ESLint 10 projects read the fork `eslint-plugin-jsx-a11y-x` (0.2.0, peers `eslint ^9 \|\| ^10`, lockfile read 2026-10-15): same rules, prefix `jsx-a11y-x/` | icon children it cannot resolve, Tailwind `outline-none`, dialog focus, live regions, error association | Next App Router route announcer (`precedents/ui.md` § 27) |
 | **Vue 3 / Nuxt 4** | eslint-plugin-vuejs-accessibility 2.6.0 `flat/recommended` + `no-aria-hidden-on-focusable` + `no-role-presentation-on-focusable` | icon-only buttons (it saw none of the 5 seeded), redundant alt | `<NuxtRouteAnnouncer>` from 3.12, optional — check `app.vue` |
 | **Svelte 5 / SvelteKit** | the compiler's `a11y_*` warnings via `svelte-check` (eslint-plugin-svelte 3.23.0 has no a11y rules) | Tailwind, live regions, error association | SvelteKit announcer + focus reset to `body` |
 | **Angular 20–22** | @angular-eslint/eslint-plugin-template 22.5.0: the 11 `templateAccessibility` rules + `no-positive-tabindex` | `mat-icon` buttons (it counts the ligature as content), paste blocking, focus | CDK `cdkTrapFocus`, Material dialog |
@@ -53,7 +53,7 @@ Read each framework and lint plugin **with its version** from the lockfile, and 
 
 ## Lint lanes
 
-Run in a scratch directory, never in the project, and never commit the config. Keep only the a11y rule ids. Each message is a candidate for the § its rule maps to (§ Scans for). A lint lane that cannot install prints `blocked (<reason>)` for its rule column. The class's greps still run.
+Run in a scratch directory, never in the project, and never commit the config. Keep only the a11y rule ids. Offline or sandboxed, where `npm i` cannot run, the fallback lane is the project's own installed lint (`npx --no-install eslint` from the root, when `node_modules` exists): print which preset and which rules it holds at error, and mark the strict-only rules `blocked (no install)`. Each message is a candidate for the § its rule maps to (§ Scans for). A lint lane that cannot install prints `blocked (<reason>)` for its rule column. The class's greps still run.
 
 ```bash
 L="$(mktemp -d "${TMPDIR:-/tmp}/a11y-lint.XXXXXX")" && (cd "$L" && echo '{"private":true}' > package.json && npm i --silent --no-audit --no-fund eslint@9 eslint-plugin-jsx-a11y@6.10.2 eslint-plugin-vuejs-accessibility@2.6.0 typescript-eslint @angular-eslint/eslint-plugin-template@22.5.0 @angular-eslint/template-parser@22.5.0 html-validate@11.16.2 >/dev/null)
@@ -102,22 +102,26 @@ X=(-g '!**/node_modules/**' -g '!**/{dist,build,out,.next,.nuxt,.output,.svelte-
 M=(-g '*.{jsx,tsx,vue,svelte,astro,html}'); C=(-g '*.{css,scss,sass,less,pcss,vue,svelte,astro}'); J=(-g '*.{js,jsx,ts,tsx,mjs,vue,svelte,astro,html}')
 NC=(rg -v --pcre2 '^[^:]+:\d+:\s*(?://|/\*|\*(?:\s|/|$)|\{/\*|<!--|#(?!\{))')   # drops comment-only lines
 TB='(?:[^>{]|\{(?:[^{}]|\{[^{}]*\})*\})*'
-BTN='button|Button|IconButton'   # add the project's icon-button wrappers from _extracted-idioms.md
-ICON='(?:<(?:[A-Z][\w.]*|svg|i)\b(?!'"$TB"'\baria-label)'"$TB"'/>|<(?:svg|i|mat-icon)\b(?!'"$TB"'\baria-label)'"$TB"'>(?:[^<]|<(?!/?(?:button|svg|i|mat-icon|title)\b)[^>]*>)*</(?:svg|i|mat-icon)>)'
+BTN='button|Button|IconButton|a|Link|NavLink|(?!SelectTrigger\b)[A-Z]\w*Trigger'   # + the project's icon-button wrappers (_extracted-idioms.md); SelectTrigger holds a SelectValue
+ICON='(?:<(?:[A-Z][\w.]*|svg|i)\b(?!'"$TB"'\b(?:aria-label|alt\s*=\s*(?!["\x27]{2}|\{\s*["\x27]{2}\s*\})))'"$TB"'/>|<(?:svg|i|mat-icon)\b(?!'"$TB"'\baria-label)'"$TB"'>(?:[^<]|<(?!/?(?:button|svg|i|mat-icon|title)\b)[^>]*>)*</(?:svg|i|mat-icon)>)'
 # 0a lanes and versions; 0b headless libraries and form wrappers (gate 4); 0c a11y lint suppressions. (The static riders — zoom lock, <html> without lang, orientation lock — are a11y-scan grep 6, run there only.)
 rg -n --no-heading --pcre2 '"(?:eslint|eslint-plugin-jsx-a11y|eslint-plugin-vuejs-accessibility|@angular-eslint/template|angular-eslint|svelte|svelte-check|html-validate|@double-great/stylelint-a11y|@axe-core/playwright|@storybook/addon-a11y|react|vue|@angular/core|next|nuxt|@sveltejs/kit|react-router(?:-dom)?|vue-router|tailwindcss)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -n --no-heading --pcre2 '"(?:@radix-ui/react-[\w-]+|react-aria(?:-components)?|@headlessui/\w+|@ark-ui/\w+|reka-ui|bits-ui|@angular/cdk|@angular/material|vaul|focus-trap(?:-react)?|sonner|react-hot-toast|react-toastify|vue-sonner|ngx-toastr|@dnd-kit/core|react-hook-form|formik|vee-validate)"\s*:' -g '**/package.json' -g '!**/node_modules/**' "${ROOTS[@]}"
 rg -n --pcre2 'svelte-ignore\s+a11y[_-]|eslint-disable(?:-next-line|-line)?\b[^\n]*(?:jsx-a11y|vuejs-accessibility|@angular-eslint/template/(?:alt-text|click-events|elements-content|interactive-supports|label-has|mouse-events|no-autofocus|role-has|valid-aria|table-scope|no-positive-tabindex))' "${J[@]}" "${X[@]}" "${ROOTS[@]}"
 # 1. A non-interactive element with a click handler and no role (R01); a stopPropagation-only wrapper is excluded.
 rg -n -U --pcre2 '<(?:div|span|li|td|tr|p|img|section|article|label)\b(?='"$TB"'\s(?:onClick|@click|v-on:click|on:click|onclick|\(click\))\s*=)(?!'"$TB"'\srole\s*=)(?!'"$TB"'\s(?:onClick|\(click\))\s*=\s*["{]\s*(?:\(\s*\$?\w*\s*\)\s*=>\s*)?\$?\w+\.stopPropagation\(\)\s*["}])'"$TB"'>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-# 2. Names and labels: 2a icon-only button (R02), 2b glyph-only button, 2c image with no alt, 2d placeholder-only input, 2e redundant alt (R11).
-rg -n -U --pcre2 '<('"$BTN"')\b(?!'"$TB"'\b(?:aria-label|aria-labelledby|title|label)\]?\s*=)(?!'"$TB"'\{\s*\.\.\.)'"$TB"'>\s*(?:'"$ICON"'\s*)+</\1>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 2. Names and labels: 2a icon-only button or link (R02; a link under an `asChild` parent that carries aria-label is marked),
+#    2b glyph-only button, 2c image with no alt, 2d placeholder-only input, 2e redundant alt (R11), 2f a <label> that neither
+#    names a control (no htmlFor/for) nor wraps one, 2g an id built from label text (rows that render it twice collide).
+rg -n -U --pcre2 '<('"$BTN"')\b(?!'"$TB"'\b(?:aria-label|aria-labelledby|title|label)\]?\s*=)(?!'"$TB"'\{\s*\.\.\.)'"$TB"'>\s*(?:'"$ICON"'\s*)+</\1>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | awk -F: '{ print } $3 ~ /^[ \t]*<(a|Link|NavLink)([ \t>]|$)/ { c = "sed -n " ($2 > 8 ? $2 - 8 : 1) "," ($2 - 1) "p \"" $1 "\""; s = ""; while ((c | getline x) > 0) s = s " " x; close(c); if (s ~ /asChild/ && s ~ /aria-label/) print "  ^ 2a: child of an asChild parent with aria-label: read the parent (gate 4), it likely names this link" }'
 rg -n -U --pcre2 '<button\b(?!'"$TB"'\b(?:aria-label|aria-labelledby|title)\]?\s*=)'"$TB"'>\s*(?:[^\w\s<{}]{1,2}|&\w+;)\s*</button>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -U --pcre2 '<(?:img|Image|NuxtImg|NuxtPicture)\b(?!'"$TB"'(?:\balt|\{\s*\.\.\.)\]?\s*=?)'"$TB"'/?>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -U --pcre2 '<(?:input|textarea)\b(?='"$TB"'\bplaceholder\]?\s*=)(?!'"$TB"'\b(?:id|aria-label|aria-labelledby)\]?\s*=)(?!'"$TB"'\{\s*\.\.\.)(?!'"$TB"'\btype=["\x27](?:hidden|submit|button|reset|checkbox|radio|file)["\x27])'"$TB"'/?>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -i --pcre2 '\balt=["\x27](?:(?:an?\s+)?(?:image|picture|photo|graphic|icon)(?:\s+of)?\b[^"\x27]*|[^"\x27]*\.(?:png|jpe?g|svg|webp|gif|avif))["\x27]' "${M[@]}" "${X[@]}" "${ROOTS[@]}"
-# 3. Focus indicator removed: 3a CSS outline none/0 outside :focus:not(:focus-visible) (R17); 3b Tailwind outline-none with no focus replacement on the line (R18).
-rg -n -U --pcre2 '(?m)^(?![^{\n]*:not\(:focus-visible\))[^{}\n]*\{[^{}]*\boutline\s*:\s*(?:none|0)\s*(?:!important\s*)?[;}]' "${C[@]}" "${X[@]}" "${ROOTS[@]}"
+rg -n -U --pcre2 '<label\b(?!'"$TB"'\b(?:htmlFor|for)\]?\s*=)(?!'"$TB"'\{\s*\.\.\.)'"$TB"'>\s*(?:[^<{]|\{[^{}]*\})*</label>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -n --pcre2 '\b(?:id|\w+Id)\s*[=:]\s*\{?\s*`[^`\n]*\$\{\s*(?:props\.)?(?:label|title|heading|text|caption|placeholder)\b' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+# 3. Focus indicator removed: 3a CSS outline or outline-style none/0 outside :focus:not(:focus-visible) (R17); 3b Tailwind outline-none with no focus replacement on the line (R18).
+rg -n -U --pcre2 '(?m)^(?![^{\n]*:not\(:focus-visible\))[^{}\n]*\{[^{}]*\boutline(?:-style)?\s*:\s*(?:none|0)\s*(?:!important\s*)?[;}]' "${C[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -n --pcre2 '^(?!.*\b(?:focus-visible|focus|focus-within):(?:ring|outline-(?!none\b)|shadow|border|underline|bg-)).*(?<![.\w-])(?:focus:)?outline-none\b(?!-)' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 4. Files that declare a dialog with no focus primitive and no headless library.
 rg -n --pcre2 'role=["\x27](?:alert)?dialog["\x27]|aria-modal' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | cut -d: -f1 | sort -u | tr '\n' '\0' | xargs -0 -r rg --files-without-match --pcre2 '\.focus\(|showModal\(|FocusTrap|focus-trap|useFocusTrap|FocusScope|cdkTrapFocus|\binert\b|@radix-ui/react-(?:dialog|alert-dialog)|@headlessui/|react-aria|vaul|@ark-ui/|reka-ui|bits-ui|@angular/cdk|@angular/material'
@@ -126,7 +130,9 @@ rg -l --pcre2 'createBrowserRouter|createHashRouter|<BrowserRouter|createRouter\
 rg -n --pcre2 'document\.title\s*=|useDocumentTitle|useHead\(|useSeoMeta\(|TitleStrategy|NuxtRouteAnnouncer|RouteAnnouncer|export\s+(?:const|function)\s+meta\b|<title>' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 6. Announcements and errors: 6a custom toast with no live region; 6b live region mounted with its content (R14, alert excluded);
 #    6c live region created with content (R25); 6d error text rendered with no role; 6e field errors with no association in the file.
-rg -l0 --pcre2 '(?:function|const|class)\s+\w*(?:Toast|Toaster|Snackbar|Flash|Notice)\w*\b' -g '*.{jsx,tsx,vue,svelte}' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 'role=["\x27](?:status|alert|log)|aria-live|from\s+["\x27](?:sonner|react-hot-toast|react-toastify|vue-sonner|vue-toastification|ngx-toastr|svelte-french-toast|@radix-ui/react-toast)'
+#    6a follows one hop: a hit that renders a component exported from a live-region file is marked, not dropped.
+LIVE=$(rg -l0 --pcre2 'role=["\x27](?:status|alert|log)|aria-live' -g '*.{jsx,tsx,vue,svelte}' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg -o -N --no-filename -r '$1' --pcre2 'export\s+(?:default\s+)?(?:function|const|class)\s+([A-Z]\w*)' | sort -u)
+rg -l0 --pcre2 '(?:function|const|class)\s+\w*(?:Toast|Toaster|Snackbar|Flash|Notice)\w*\b' -g '*.{jsx,tsx,vue,svelte}' "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 'role=["\x27](?:status|alert|log)|aria-live|from\s+["\x27](?:sonner|react-hot-toast|react-toastify|vue-sonner|vue-toastification|ngx-toastr|svelte-french-toast|@radix-ui/react-toast)' | while IFS= read -r f; do h=$(rg -o -N --no-filename -r '$1' '<([A-Z]\w*)' "$f" | sort -u | grep -Fx -- "${LIVE:-__none__}" | head -1); [ -n "$h" ] && echo "6a renders <$h>, a live-region component (one hop: read it): $f" || echo "$f"; done
 rg -n -U --pcre2 '(?:&&\s*\(?\s*<[^>]*|v-if=[^>]*|\*ngIf=[^>]*|@if\s*\([^)]*\)\s*\{\s*<[^>]*|\{#if[^}]*\}\s*<[^>]*)(?:aria-live=|role=["\x27](?:status|log)["\x27])' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n -U --pcre2 'setAttribute\(\s*["\x27]aria-live["\x27][^;]*;[^\n]*(?:textContent|innerText|innerHTML)\s*=[^\n]*appendChild' "${J[@]}" "${X[@]}" "${ROOTS[@]}"
 rg -n --pcre2 '\{\s*!?!?\s*(?:\w+\.)*\w*(?:[eE]rror|[pP]roblem)\w*\??\s*&&\s*\(?\s*<[a-z][\w-]*\b(?![^>]*\b(?:role=|aria-live=|id=))' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
@@ -147,13 +153,16 @@ rg -l --pcre2 '@dnd-kit/|react-beautiful-dnd|@hello-pangea/dnd|react-dnd\b|vuedr
 rg -l0 --pcre2 'useSensor\(\s*PointerSensor' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match 'KeyboardSensor'
 # 11. Input purpose and authentication: paste blocked (R07), password with autocomplete off (R08), personal-data input with no autocomplete (R09), CAPTCHA (R24).
 rg -n --pcre2 'on[Pp]aste\s*=\s*\{[^}]*preventDefault|@paste\.prevent|\(paste\)\s*=\s*"[^"]*preventDefault|on:paste\|preventDefault|onpaste\s*=\s*["\x27]\s*return\s+false|addEventListener\(\s*["\x27]paste["\x27][^)]*preventDefault' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
-rg -n --pcre2 '<input\b(?=[^>]*type=["\x27]password["\x27])[^>]*\bauto[cC]omplete=["\x27](?:off|false)["\x27]|<input\b(?=[^>]*(?:type=["\x27](?:email|tel)["\x27]|name=["\x27](?:e-?mail|phone|tel|username|given-?name|family-?name|first_?name|last_?name|postal|zip|address\w*)["\x27]))(?![^>]*\bauto[cC]omplete=)[^>]*>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+PN='e-?mail|phone|tel|username|given-?name|family-?name|first_?name|last_?name|postal|zip|address\w*|organization|company(?:_?name)?|business_?name'
+rg -n -U --pcre2 '<[iI]nput\b(?='"$TB"'\btype=["\x27]password["\x27])'"$TB"'\bauto[cC]omplete=["\x27](?:off|false)["\x27]|<[iI]nput\b(?='"$TB"'(?:\btype=["\x27](?:email|tel)["\x27]|\bname=["\x27](?:'"$PN"')["\x27]|\{\s*\.\.\.(?:\w+\.)*register\(\s*["\x27](?:'"$PN"')["\x27]))(?!'"$TB"'\bauto[cC]omplete=)'"$TB"'/?>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --pcre2 '<ReCAPTCHA\b|grecaptcha\.|hcaptcha|<HCaptcha\b|data-sitekey=|recaptcha/api\.js' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 12. Media: files with <video> and no captions track (12a); autoplay without controls (R10, 12b).
 rg -l0 --pcre2 '<video\b' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 '<track\b[^>]*kind=["\x27](?:captions|subtitles)'
 rg -n --pcre2 '<(?:video|audio)\b(?=[^>]*\bauto[pP]lay\b)(?![^>]*\bcontrols\b)[^>]*>' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 13. Content shown on hover (a handler that opens or shows something) in a file with no Escape handling and no tooltip library.
 rg -l0 --pcre2 '(?:onMouseEnter|onPointerEnter|onMouseOver|@mouseenter|@mouseover|\(mouseenter\)|on:mouseenter|onmouseenter)\s*=\s*["{][^"}]*(?:set\w*(?:Open|Show|Shown|Visible|Hover\w*|Tooltip|Popover|Tip)\w*\(\s*(?:true|!0)|\b(?:show|open)\w*\(|(?:open|show|visible|hovered|isOpen)\w*\s*=\s*true)' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 'Escape|keydown\.esc|@radix-ui/react-(?:tooltip|hover-card|popover)|@floating-ui/|useDismiss|matTooltip|v-tooltip'
+# 13b. A tooltip or hover-card trigger `asChild` onto a host that takes no focus: the tip is mouse-only and never reaches AT.
+rg -n -U --pcre2 '<(?:TooltipTrigger|HoverCardTrigger)\b(?='"$TB"'\basChild\b)'"$TB"'>\s*<(?!(?:Button|button|a|Link|NavLink|input|select|textarea|summary|Toggletip)\b)[A-Za-z][\w.]*' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 # 14. Context change on input (A-28); timing: sign-out by timer (R23), idle libraries, meta refresh.
 rg -n --pcre2 '(?:onChange|@change|\(change\)|onchange|on:change)\s*=\s*[{"\x27][^}"\x27]*(?:navigate\(|router\.push|\.submit\(\)|requestSubmit\(|location\.(?:href|assign))' "${M[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -n --pcre2 'setTimeout\(\s*(?:\(\)\s*=>|function)[^;]*\b(?:sign[oO]ut|log[oO]ut|logout|endSession|expireSession)\b|react-idle-timer|useIdle\(|@ng-idle/|http-equiv=["\x27]refresh' "${J[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
@@ -175,6 +184,7 @@ A finding is a hit **plus** a read of the component **plus** the route that rend
 | `slow-marketplace`, `vuln-fullstack`, `quality-mix`, `brittle-suite` | 2d 1 (a search input); 6b 1 (`{status && <p role="status">}`); 8 R12 1 (a rating `span` with `aria-label`) | candidates for the label query, the live-region oracle and axe (`precedents/ui.md` § 24) |
 | research fixtures `A-rg/pos` / `neg` | every seeded positive caught (R01 8, R02 5, R03 5, R07 4, …) | 0 decoy hits, except 12a (it lists every `<video>` file; axe `video-caption` is needs-review) |
 | real React 19 + Vite app, 1,979 `.tsx` | 0d (the riders, now `a11y-scan` grep 6): 0 · 1: 3 · 2a–2e: 0 · 3: 0 · 4: 0 · 6a: 1 file · 6d: 1 · 6e: 6 files · 8: 1 + 13 reorder · 9a: 19 files · 9b: 1 · 10a: 3 files · 12a: 2 files · 13: 0 · 14: 0 | §1: a click-to-focus tag input (ui § 16), a card row and an inbox row to read. 6e: one root cause — six integration dialogs render `{errors.x && <p>}` beside an unassociated input. 6a: a static notice (refuted on read). 6d: a price error with no role. 8: an image placeholder `div` named by `aria-label` with no role (axe decides). 9a: tab strips with no arrow keys (APG deviation, medium). 10a: two reorder lists are drag-only (native HTML5 DnD, no click or key path: real 2.5.7 candidates); the third has a click path. 12a: user-sent chat media |
+| the same app on 2026-10-15, in a real NestJS + React monorepo | **2f: 14 labels, 11 true** (bare `<label>` captions beside `Input`s outside the kit `Field`; 3 refuted by the input's own `aria-label`) · **2g: 1, true** (an editor field's id from its label text, repeated per list row) · **13b: 9, all true** (`TooltipTrigger asChild` onto an icon, a `span` or a `Badge`) · 3a: 0 → 1 (`.focus-ring` sets `outline-style: none` + a shadow) · 2a with the wider `BTN`: 11, the 6 `<a>` under `<Button asChild aria-label>` marked `^` · 6a: 3 files, 2 marked as rendering a live-region component · 11b: 0 → 21 inputs (2 real on sign-up; most are staff entering other people's data, ui § 30) | all four classes were found only by reading before; every fixture count is unchanged |
 
 Before hardening, the same real app returned **R02 26** (icon children mis-anchored by `[^>]*` across prettier-formatted JSX — 0 true), **R13 46** (single-line lookahead on multi-line tags, many in comments — 1 true), **R01 10** (6 `stopPropagation` wrappers, 1 comment), **6e 23** (prop `error={errors.x}` into a wiring `Field` wrapper — `precedents/ui.md` § 14), **13: 3** (prefetch and row-highlight hovers — ui § 33) and **0d: 2** (`<html>` inside comments; the riders grep now lives in `a11y-scan` as grep 6). The versions above are the fixed ones. Small fixtures prove the greps parse and catch seeded rows; precision at scale comes from the real-app row.
 
@@ -222,7 +232,7 @@ GOOD:  <button type="button" aria-label={t('close')} onClick={onClose}><XIcon ar
 BAD:   <button onClick={close}><XIcon /></button>   · <button>↩</button>   · <img src={avatar}>   · <input placeholder="Amount">
 GOOD:  <button aria-label={t('close')}>…   · <img src={avatar} alt={name}> (alt="" when decorative)   · <label for="amt">…</label><input id="amt">
 ```
-**Read the code:** Does the icon component render a `<title>` or visually hidden text? Does a wrapper wire `htmlFor` / `aria-labelledby` (ui § 14)? Is the image decorative (ui § 11)? Is the name a translation key that resolves in every locale? **Finding when** the rendered control has no accessible name, or its name omits its visible label (2.5.3). **Proof:** role and label query (V88): `getByRole('button', { name: /close/i })` or `getByLabel('Amount')` finds nothing; axe `button-name` / `image-alt` / `label` at the route-state.
+**Read the code:** Does the icon component render a `<title>` or visually hidden text? Does a wrapper wire `htmlFor` / `aria-labelledby` (ui § 14)? A 2f `<label>` that holds only text sits beside its control instead of naming it: is the control inside the project's `Field` wrapper (which wires the id), or named by its own `aria-label`? A 2g id built from label text collides as soon as a list renders the component twice (axe `duplicate-id-aria`; the fix is `useId`). A 2a link marked `^` sits under a `<Button asChild aria-label>`, which names it. Is the image decorative (ui § 11)? Is the name a translation key that resolves in every locale? **Finding when** the rendered control has no accessible name, or its name omits its visible label (2.5.3). **Proof:** role and label query (V88): `getByRole('button', { name: /close/i })` or `getByLabel('Amount')` finds nothing; axe `button-name` / `image-alt` / `label` at the route-state.
 
 ### 3. Focus indicator removed
 
@@ -230,7 +240,7 @@ GOOD:  <button aria-label={t('close')}>…   · <img src={avatar} alt={name}> (a
 BAD:   .btn:focus { outline: none; }        · className="focus:outline-none"     (no focus-visible ring on the line)
 GOOD:  .btn:focus-visible { outline: 2px solid var(--focus-ring); }   · "focus-visible:outline-none focus-visible:ring-2"
 ```
-**Read the code:** Is there a `:focus-visible` rule for the same element elsewhere, a ring from a wrapper class (`focus-ring`), or a `box-shadow` replacement (ui § 18)? Tailwind v4 `outline-none` sets `outline-style: none`; `outline-hidden` is the forced-colours-safe reset (ui § 55). **Finding when** a focusable element shows no visible change on keyboard focus. **Proof:** focus-visible delta (V89), normal and `forcedColors: 'active'`.
+**Read the code:** Is there a `:focus-visible` rule for the same element elsewhere, a ring from a wrapper class (`focus-ring`), or a `box-shadow` replacement (ui § 18)? Tailwind v4 `outline-none` sets `outline-style: none`; `outline-hidden` is the forced-colours-safe reset (ui § 55). Grep 3a reads `outline-style: none` too: a ring class that pairs it with a `box-shadow` draws nothing under forced colours (ui § 18, Low). **Finding when** a focusable element shows no visible change on keyboard focus. **Proof:** focus-visible delta (V89), normal and `forcedColors: 'active'`.
 
 ### 4. Dialog or overlay focus not managed
 
@@ -246,7 +256,7 @@ GOOD:  .btn:focus-visible { outline: 2px solid var(--focus-ring); }   · "focus-
 BAD:   {error && <span style={{ color: 'red' }}>{error}</span>}          · {saved && <div role="status">Saved</div>}
 GOOD:  <p id="amt-err" role="alert">{error}</p> + <input aria-invalid aria-describedby="amt-err">   · an always-mounted <div role="status">{msg}</div>
 ```
-**Read the code:** Does the toast go through a library that owns a live region (ui § 26)? Is the conditional element `role="alert"` (ui § 25, Low)? Does a shared field wrapper wire `aria-invalid` / `aria-describedby` (ui § 14)? Does focus move to the first invalid field or an announced summary? **Finding when** the message is not announced, or the error is not the input's accessible description. **Proof:** live-region presence (V93): `toHaveAccessibleErrorMessage` / `toHaveAccessibleDescription`; the status region exists before the action.
+**Read the code:** Does the toast go through a library that owns a live region (ui § 26), or render a project component that does (6a marks the hit `renders <X>, a live-region component`: read X once, and check the region is mounted before the message)? Is the conditional element `role="alert"` (ui § 25, Low)? Does a shared field wrapper wire `aria-invalid` / `aria-describedby` (ui § 14)? Does focus move to the first invalid field or an announced summary? **Finding when** the message is not announced, or the error is not the input's accessible description. **Proof:** live-region presence (V93): `toHaveAccessibleErrorMessage` / `toHaveAccessibleDescription`; the status region exists before the action.
 
 ### 7. Colour as the only signal
 
@@ -270,7 +280,7 @@ GOOD:  <p id="amt-err" role="alert">{error}</p> + <input aria-invalid aria-descr
 BAD:   <input type="password" onPaste={(e) => e.preventDefault()}>   · <input type="password" autoComplete="off">   · <input type="email" name="email">
 GOOD:  paste allowed · autoComplete="current-password" / "new-password" / "one-time-code" · autoComplete="email"
 ```
-**Read the code:** Is the field about the user (ui § 30)? Is the CAPTCHA an allowed exception (ui § 31)? **Finding when** paste or password managers are blocked on a credential, or a personal-data field has no valid token. **Proof:** paste probe; axe `autocomplete-valid` (V97). Blocked paste and `autocomplete="off"` on a credential are static facts.
+**Read the code:** Is the field about the user (ui § 30)? Grep 11b reads the kit `<Input>` and the name a form library registers (`{...register('username')}`) as well as `name=`; on an admin app most hits are staff typing someone else's data, which 1.3.5 does not cover. Is the CAPTCHA an allowed exception (ui § 31)? **Finding when** paste or password managers are blocked on a credential, or a personal-data field has no valid token. **Proof:** paste probe; axe `autocomplete-valid` (V97). Blocked paste and `autocomplete="off"` on a credential are static facts.
 
 ### 12. Media
 
@@ -278,7 +288,7 @@ GOOD:  paste allowed · autoComplete="current-password" / "new-password" / "one-
 
 ### 13. Hover or focus content
 
-**Read the code:** Does the content also open on focus? Can Escape dismiss it without moving focus, and can the pointer move onto it? Prefetch and row-highlight handlers show nothing (ui § 33). **Finding when** shown content fails dismissible, hoverable or persistent. **Proof:** keyboard path (V99).
+**Read the code:** Does the content also open on focus? Can Escape dismiss it without moving focus, and can the pointer move onto it? Prefetch and row-highlight handlers show nothing (ui § 33). **13b:** a headless `TooltipTrigger asChild` (or `HoverCardTrigger`) merges onto its child, so a `<span>`, an icon or a `Badge` host takes no focus: the tip is reachable by mouse hover only and never exposed to AT (2.1.1 and 1.3.1 when the tip is the only telling; medium). Read whether the same text is on screen elsewhere, and whether the kit ships a focusable variant (a toggletip). **Finding when** shown content fails dismissible, hoverable or persistent, or a 13b tip is the only place the information lives. **Proof:** keyboard path (V99): Tab never reaches the trigger, no `role=tooltip` appears.
 
 ### 14. Context change on input; timing
 
@@ -336,12 +346,13 @@ Class coverage (WCAG 2.2 AA):
 
 ## False positives / precedents
 
-The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (accessibility § 11–34, versions § 49–57) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the accessibility column). The ones this skill meets most:
+The verifier reads [`precedents/ui.md`](../../../../snippets/precedents/ui.md) (accessibility § 11–34, versions § 49–57, § 102) and [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4 and § 10 (the accessibility column). The ones this skill meets most:
 
 - **Headless and native primitives** own role, state and keyboard (ui § 12, ui § 13). A shared field wrapper owns label and error wiring (ui § 14).
 - **`stopPropagation`-only and click-to-focus wrappers, backdrops with Escape** (ui § 16), and **cards with an inner link** (ui § 17) are not controls.
 - **`alt=""` on decoration** (ui § 11), **`role="alert"` mounted with its text** (ui § 25), **toast libraries** (ui § 26), **built-in route announcers** (ui § 27), **RTL reorder** (ui § 28).
 - **Lint advice is not an SC failure**: `prefer-tag-over-role`, `no-autofocus` in a dialog (ui § 3, ui § 23).
+- **A link rendered through `<Button asChild aria-label>`** takes the parent's name (ui § 102); grep 2a marks it `^`.
 
 ## When to run
 

@@ -7,19 +7,23 @@ parses every workflow with a real YAML loader and joins them. Detectors (devops 
 pipeline-cache, deploy-safety; security ci-security-scan; testing suite-execution-scan) take its rows
 as structural facts and still read the code before reporting (precedents/devops.md).
 
-LOADER. PyYAML, else Ruby psych (`ruby -ryaml`), else `uv run --with pyyaml==6.0.2` (may need the
-network; CI_GRAPH_NO_UV=1 disables it), else exit 2 `NOT-RUN (no YAML loader)`. No hand-rolled YAML
+LOADER. PyYAML, else Ruby psych (`ruby -ryaml`), else `uv run --offline --with pyyaml==6.0.2` (uv's cache
+only; CI_GRAPH_NO_UV=1 disables it), else exit 2 `NOT-RUN (no YAML loader)`. No hand-rolled YAML
 subset: one that fails silently would print "clean". YAML 1.1 loaders read the `on:` key as boolean
 true, so it is remapped to "on" (precedents/devops.md § 44). Line numbers come from a text scan,
 because the loaders drop marks.
 
 Usage:
   ci-graph.py [ROOT|FILE…] [--all | --check=pin-priv,deploy-concurrency,deploy-gate,timeout,matrix,cache-keys]
-              [--required [--repo=o/r] [--branch=b] | --contexts=a,b [--merge-queue] | --settings-dir=DIR [--branch=b]]
+              [--required --online [--repo=o/r] [--branch=b] | --contexts=a,b [--merge-queue] | --settings-dir=DIR [--branch=b]]
               [--deploy-ancestors]
               [--job-of=FILE:LINE] [--shell-of=FILE:LINE] [--serial-chains] [--json]
   ci-graph.py [ROOT] --diff-guard=<git-ref> [--allow-job=FILE:JOB …] [--allow-workflow=FILE:KEY …]
   ci-graph.py --diff-guard OLD.yml NEW.yml [--allow-job=FILE:JOB …] [--allow-workflow=FILE:KEY …]
+OFFLINE BY DEFAULT. The script makes no network call unless `--online` (or CI_GRAPH_ONLINE=1) is passed:
+`--required` without it prints `NOT-RUN OFFLINE(…)` and exits 2 — required-ness unknown, never "not required" —
+so a verbatim pre-flight never reaches GitHub. `--online` lets `--required` call `gh api` (read-only GETs) and
+lets the uv loader download PyYAML.
 --settings-dir=DIR reads the same `gh api` responses offline from JSON files (rules-branches-<b>.json,
 required-status-checks.json, environments.json, rulesets.json): the required join as --required would, plus
 ENVIRONMENT and RULESET fact rows. No token, no network; a DIR with no rules file is UNREADABLE (exit 2).
@@ -76,6 +80,13 @@ PYLOAD = ("import json,sys,yaml\nout=[]\nfor f in sys.argv[1:]:\n  try: out.appe
 _LOADER = []
 
 
+_ONLINE = [False]          # set per run() from --online / CI_GRAPH_ONLINE=1; nothing reaches the network otherwise
+
+
+def uv_cmd():
+    return ["uv", "run", "--quiet", "--no-project"] + ([] if _ONLINE[0] else ["--offline"]) + ["--with", "pyyaml==6.0.2", "python3", "-c", PYLOAD]
+
+
 def loader():
     if _LOADER:
         return _LOADER[0]
@@ -106,7 +117,7 @@ def load_many(paths):
                 res[p] = (None, (str(e).splitlines() or [type(e).__name__])[0])
     elif kind in ("ruby-psych", "uv-pyyaml"):
         cmd = (["ruby", "-e", RUBY] if kind == "ruby-psych" else
-               ["uv", "run", "--quiet", "--no-project", "--with", "pyyaml==6.0.2", "python3", "-c", PYLOAD])
+               uv_cmd())
         r = subprocess.run(cmd + list(paths), capture_output=True, text=True, timeout=180)
         if r.returncode != 0:
             for p in paths:
@@ -880,6 +891,7 @@ def fmt(r):
 
 def run(argv, out=sys.stdout):
     opts = {"check": [], "allow_job": set(), "allow_wf": set(), "pos": []}
+    _ONLINE[0] = "--online" in argv or os.environ.get("CI_GRAPH_ONLINE") == "1"
     for a in argv:
         if a == "--all":
             opts["check"] = list(CHECKS)
@@ -964,6 +976,10 @@ def run(argv, out=sys.stdout):
                 ctx, mq, err = settings_dir(root, str(opts["settings_dir"]), opts.get("branch"), wfs, rows)
                 if err:
                     notrun.append("UNREADABLE(%s)" % err)
+            elif not _ONLINE[0]:
+                ctx, mq = None, False
+                notrun.append("OFFLINE(--required reads branch protection with `gh api`, a network call; rerun with --online "
+                              "or CI_GRAPH_ONLINE=1 where that is allowed, or pass --settings-dir=DIR / --contexts=a,b)")
             else:
                 ctx, mq, err = fetch_required(root, opts.get("repo"), opts.get("branch"))
                 if err:
@@ -1457,6 +1473,39 @@ def self_test():
         rc, o = go([sc, "--serial-chains"])
         ch = [(r["jobs"], r["line"]) for r in o["rows"] if r["code"] == "SERIAL-CHAIN"]
         ok(rc == 0 and ch == [("lint>types>unit", 5)], "serial-chains: lint>types>unit at types' needs: line; an artifact hand-off breaks build>e2e>report (got %s)" % ch)
+
+        # offline guard: --required makes no gh call without --online / CI_GRAPH_ONLINE=1 (a verbatim pre-flight is offline)
+        global gh_json
+        calls, real_gh, env0 = [], gh_json, os.environ.pop("CI_GRAPH_ONLINE", None)
+        def fake_gh(args):
+            calls.append(args)
+            return ([{"type": "required_status_checks", "parameters": {"required_status_checks": [{"context": "lint"}]}}]
+                    if "rules/branches" in args[0] else {"default_branch": "main"} if args[0].count("/") == 2 else None), (
+                    None if "protection" not in args[0] else "Branch not protected (HTTP 404)")
+        gh_json = fake_gh
+        try:
+            rc, o = go([fc, "--required", "--repo=o/r"])
+            ok(rc == 2 and not calls and any(n.startswith("OFFLINE(") for n in o["not_run"]) and not any(r["code"].startswith("REQUIRED") for r in o["rows"]),
+               "offline: --required without --online is NOT-RUN OFFLINE, exit 2, no gh call (calls %d, rc %d)" % (len(calls), rc))
+            buf = _Buf()
+            with contextlib.redirect_stderr(io.StringIO()):
+                run([fc, "--required", "--repo=o/r"], out=buf)
+            ok("NOT-RUN OFFLINE(" in buf.s, "offline: the text form prints NOT-RUN OFFLINE(…)")
+            ok("--offline" in uv_cmd(), "offline: the uv loader runs with --offline")
+            rc, o = go([fc, "--required", "--repo=o/r", "--online"])
+            ok(calls and any(r["code"] == "REQUIRED-IF-SKIP" and r["job"] == "lint" for r in o["rows"]) and not any(n.startswith("OFFLINE(") for n in o["not_run"]),
+               "online: --online lets --required read the rules (lint REQUIRED-IF-SKIP)")
+            ok("--offline" not in uv_cmd(), "online: the uv loader may download")
+            n0 = len(calls)
+            os.environ["CI_GRAPH_ONLINE"] = "1"
+            rc, o = go([fc, "--required", "--repo=o/r"])
+            ok(len(calls) > n0 and not any(n.startswith("OFFLINE(") for n in o["not_run"]), "online: CI_GRAPH_ONLINE=1 opts in like --online")
+        finally:
+            gh_json = real_gh
+            os.environ.pop("CI_GRAPH_ONLINE", None)
+            if env0 is not None:
+                os.environ["CI_GRAPH_ONLINE"] = env0
+            _ONLINE[0] = False
 
         bad = repo("bad", {".github/workflows/x.yml": "on: [push\njobs: {\n"})
         rc, o = go([bad, "--all"])

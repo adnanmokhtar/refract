@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.3 — 2026-10-15
+
+**`ci-graph.py --required` is offline by default** (repo-baseline change after a verbatim pre-flight reached GitHub during a read-only audit). `/devops-audit`'s `SETTINGS=1` branch, `@ci-reviewer`, `pipeline-integrity-scan`, `pipeline-cache-scan` and `STACK.md` now pass `--required --online` where the user allowed outbound reads; without it the script prints `NOT-RUN OFFLINE` and exits 2 (required-ness unknown, never "not required").
+
 ## 2.0.2 — 2026-10-14
 
 **`deploy-safety-scan` §1's lock column now reads from the dated migration-runner table (batch-5 integrator, distributed-systems eval IR-3).** Each runner names its behaviour at boot — **waits** (Knex, golang-migrate, EF Core ≥ 9, Flyway, Liquibase; Prisma for 10 s), **fails fast** (Rails: `ConcurrentMigrationError`, a crash-loop), **skips** (Laravel `--isolated`: a held or stale mutex skips the migrations and exits 0) or **none** (MikroORM, TypeORM, Drizzle, Sequelize/umzug, Django, Alembic, Doctrine; goose opt-in) — with its `broker-semantics.md` MG row and `precedents/performance.md` § 77 as the source; the `[K?]` tags those rows settled are gone. Only a **waits** row clears gate 4, behind a session-mode pooler or none; fails-fast and skips stay findings at floor ≥ 2.

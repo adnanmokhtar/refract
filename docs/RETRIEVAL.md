@@ -420,6 +420,18 @@ on the count; drop size+mtime from the fingerprint and case 4 goes red on the ca
    mapper is a REGEX table, so only the shapes that convert exactly (`^pfx(|/.*)$ -> tgt/$1`,
    `^pfx$ -> tgt`) are taken; anything else is skipped rather than approximated.
 
+   **Monorepos (2026-10-15):** every `tsconfig.json` / `jsconfig.json` governs the files under its
+   own directory (the root falls back to `tsconfig.base.json`); a child's `paths` replaces its
+   parent's, as the compiler does. Workspace members (`pnpm-workspace.yaml`, `workspaces`,
+   `lerna.json`) resolve through their `exports` / `main` / `types`, mapped from `dist` back to
+   `src` by that package's own outDir/rootDir. `./x.js` resolves to `x.ts`. Unresolved specifiers
+   are split into external / asset / local, and each edge is labelled value / type / dynamic (an
+   edge is type-only only when every statement behind it is). On a real NestJS + React monorepo
+   with only per-app configs this took the resolver from "0 alias rules" and 21,101 unresolved to
+   8,543 unresolved (8,221 external, 204 assets, 118 local) and 1 → 2,007 edges into `packages/`.
+   The `module-boundaries.sh` hook still reads only the root config, so in such a repo it stays
+   silent on aliased imports (its documented fail-quiet behaviour) rather than checking them.
+
    **vite/webpack/rollup aliases live in JavaScript and are NOT read.** Reading them means
    executing JS, and a regex scrape would be a guess — which in the boundary hook means refusing
    a legitimate write. So those files are DETECTED and NAMED instead: the ranker prints
