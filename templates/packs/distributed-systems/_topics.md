@@ -149,4 +149,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
     OR_grep_evidence: "\"(bullmq|bull|kafkajs|@confluentinc/kafka-javascript|amqplib|sqs-consumer|@aws-sdk/client-sqs|nats|@nats-io/jetstream|@google-cloud/pubsub)\"\\s*:|^\\s*(celery|kombu|dramatiq)\\b|gem ['\"](sidekiq|solid_queue|good_job)['\"]|spring-kafka|spring-rabbit|MassTransit|confluent-kafka-go|segmentio/kafka-go|twmb/franz-go|IBM/sarama|nats\\.go"   # a broker client in any manifest: the consumer and producer semantics are the subject
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (queues, brokers and their client versions) + sample consumers and producers
   fallback: skills/messaging-scan/SKILL.md   # source-as-fallback; stacks.md and scripts/ds-inventory.py ship beside it
+
+- name: dual-write-scan
+  kind: skill
+  triggers:
+    signal_confirmed_any: [background-jobs, event-sourced]
+    OR_grep_evidence: "[Oo]utbox|\"(bullmq|kafkajs|@confluentinc/kafka-javascript|amqplib|@aws-sdk/client-(sqs|sns|eventbridge|kinesis)|nats|@nats-io/jetstream|@google-cloud/pubsub|@nestjs/cqrs)\"\\s*:|^\\s*(celery|kombu)\\b|gem ['\"](sidekiq|solid_queue|good_job)['\"]|spring-kafka|spring-rabbit|spring-modulith-events|MassTransit|debezium|confluent-kafka-go|segmentio/kafka-go|ThreeDotsLabs/watermill"   # a database write that may be published: an outbox store, a broker client, an in-process event bus or CDC
+  extracts_from: _extracted-codebase.md § "Data model" (outbox, inbox and processed-message tables) + § "Cross-cutting concerns" (brokers, ORM) + sample use cases that write then publish
+  fallback: skills/dual-write-scan/SKILL.md   # source-as-fallback
 ```
