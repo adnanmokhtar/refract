@@ -152,12 +152,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     private readonly i18n: I18nService,
     private readonly tracing: TracingService,   // owns the W3C trace context
     private readonly metrics: MetricsService,
+    private readonly adapterHost: HttpAdapterHost,   // sends through whichever adapter main.ts uses
   ) {}
 
   catch(error: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const req = ctx.getRequest<FastifyRequest>();
-    const res = ctx.getResponse<FastifyReply>();
+    const req = ctx.getRequest();
+    const res = ctx.getResponse();   // a Fastify reply or an Express res — never call adapter-only methods on it
+    const send = (status: number, body: unknown) => this.adapterHost.httpAdapter.reply(res, body, status);
     // Trace id comes from the tracing context (continued from an inbound W3C
     // `traceparent`, or generated at the edge) — NEVER verbatim from a client header.
     // A client-supplied id written into every log line is log-forging: an attacker
@@ -174,7 +176,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       this.logger.warn(error.message, { code: error.code, ...error.context, traceId, clientRequestId });
 
-      return res.status(status).send({
+      return send(status, {
         status: 'error',
         code: error.code,
         message,
@@ -183,9 +185,27 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       });
     }
 
+    // Framework exceptions keep THEIR status: the ValidationPipe's BadRequestException (400),
+    // NotFoundException, ThrottlerException (429), the adapter's 413/415. Letting them fall to
+    // the 500 arm below turns every rejected body into a server error and pages on-call.
+    if (error instanceof HttpException) {
+      const status = error.getStatus();
+      // HTTP_STATUS_TO_CODE is a table we own: { 400: 'BAD_REQUEST', 404: 'NOT_FOUND', 413: 'PAYLOAD_TOO_LARGE', 429: 'RATE_LIMITED', … }
+      const code = status >= 500 ? 'INTERNAL_ERROR' : (HTTP_STATUS_TO_CODE[status] ?? 'HTTP_ERROR');
+      if (status >= 500) this.logger.error('HTTP exception', { error, traceId, clientRequestId });
+      else this.logger.warn(error.message, { code, status, traceId, clientRequestId });
+      return send(status, {
+        status: 'error',
+        code,
+        message: this.i18n.translate(CODE_TO_MESSAGE_KEY[code], { lang: req.locale }),
+        data: null,   // field rows come from the ValidationPipe's exceptionFactory → ValidationError (§ Field-level validation errors)
+        meta: { traceId },
+      });
+    }
+
     // Unmapped — programmer error or upstream surprise
     this.logger.error('Unhandled exception', { error, traceId, clientRequestId });
-    return res.status(500).send({
+    return send(500, {
       status: 'error',
       code: 'INTERNAL_ERROR',
       message: this.i18n.translate(CODE_TO_MESSAGE_KEY.INTERNAL_ERROR, { lang: req.locale }),
@@ -213,6 +233,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 }
 ```
 
+**Order matters, and so does the reply API.** `DomainError` → its row; `HttpException` → its own `getStatus()`; only what is left → 500. A `@Catch()` that skips the `HttpException` arm is the catch-all that flattens a 400 into a 500 — measured 2026-10-14 on Nest 12.1.3, both adapters: without the arm a thrown `BadRequestException`, `NotFoundException` and `PayloadTooLargeException` all answered 500; with it, 400 / 404 / 413. `httpAdapter.reply(res, body, status)` is the portable send. On the Fastify adapter there is no `reply.json()` / `.set()` / `.sendStatus()` (Express-only) — an Express-style `res.status(s).json(b)` throws inside the filter and every routed error becomes Nest's fallback 500; `reply.status()` does exist on Fastify (an alias of `.code()`), so it is not itself the defect.
+
 This file is the ONLY place domain errors become HTTP responses. Every controller benefits without writing a single try/catch.
 
 ## Status mapping
@@ -227,6 +249,7 @@ This file is the ONLY place domain errors become HTTP responses. Every controlle
 | `RateLimitedError` | 429 | Caller hit a rate limit. Include `Retry-After` (RFC 9110 §10.2.3 — seconds or HTTP-date), the `RateLimit` / `RateLimit-Policy` quota fields, and — when the body is `application/problem+json` — `type: https://iana.org/assignments/http-problem-types#quota-exceeded`. 429 itself is RFC 6585. The exact field syntax, the draft's status, and the legacy-triple transition rule are owned by `ai-patterns/rate-limiting.md`; so is the limiting MECHANISM (per-tenant buckets, shared store, fail-open/closed, load shedding). The mapper owns only **status + which headers get set**. |
 | `DependencyFailureError` | 503 | Upstream we depend on is down/timing out |
 | Unmapped `DomainError` | 500 | A missing row in *this* table — our gap, not the caller's. Emit `error_unmapped_total` and add the row (Detector 3). |
+| `HttpException` (framework: ValidationPipe 400, `NotFoundException`, throttler 429, adapter 413/415) | its own `getStatus()` | Thrown by the framework, not by domain code — never routed to the 500 arm |
 | Unmapped throwable | 500 | Programmer error, log full context |
 
 ## Field-level validation errors

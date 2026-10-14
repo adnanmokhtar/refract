@@ -321,17 +321,23 @@ Common drifts:
 # 1. Harvest. Cover the three shapes: client-construction options, per-call options, and
 #    server/middleware config. Extend the pattern list from `references/<framework>.md` — this
 #    grep is stack-shaped, and a stack whose primitive is absent here scans clean for the
-#    wrong reason.
+#    wrong reason. Searched over "${ROOTS[@]}" (a guessed `src/ config/` exits 2 on a monorepo
+#    and the cluster comes back empty); X keeps test doubles out of the cluster.
+X=(-g '!**/*.{spec,test}.*' -g '!**/{test,tests,__tests__,__mocks__}/**')
 rg -n --no-heading \
   -e '\btimeout\s*[:=]\s*[0-9_]+' \
   -e '\b(timeoutMs|requestTimeout|connectTimeout|readTimeout|socketTimeout|deadline)\s*[:=]' \
   -e 'AbortSignal\.timeout\(\s*[0-9_]+' \
   -e 'WithTimeout\(\s*[a-z]+,\s*[0-9]+' \
-  src/ config/ | sort -t: -k1,1 > timeouts.txt
+  "${X[@]}" "${ROOTS[@]}" | sort -t: -k1,1 > timeouts.txt
 
 # 2. Cluster by value. A surface with one or two values has a canonical; a surface with nine
-#    has drift. The count is what makes this emittable, not any single row.
-grep -oE '[0-9_]+' timeouts.txt | tr -d '_' | sort -n | uniq -c | sort -rn
+#    has drift. The count is what makes this emittable, not any single row. Strip the
+#    `path:line:` prefix and keep only the number after the timeout key — a bare
+#    `grep -oE '[0-9_]+'` over the rows clusters line numbers.
+sed -E 's/^[^:]+:[0-9]+://' timeouts.txt \
+  | grep -oE '([Tt]imeout[A-Za-z]*|deadline)[[:space:]]*([:=]|\()[[:space:]]*([a-z]+,[[:space:]]*)?[0-9_]+' \
+  | grep -oE '[0-9_]+$' | tr -d '_' | sort -n | uniq -c | sort -rn
 ```
 
 **Unit ambiguity is the footgun, and it is not cosmetic.** `timeout: 30` means 30 **seconds** in some clients and 30 **milliseconds** in others; the same integer in two files can be a 1000× difference. Resolve the unit from each library's own docs before comparing two numbers, and if a value's unit cannot be resolved, it does not enter the cluster — it is reported as `unit unresolved` at its `<file:line>`. Two "different" timeouts that are the same duration are a phantom finding; two identical integers that differ by three orders of magnitude are the real one, and a naive cluster reports exactly backwards on both.
@@ -354,15 +360,22 @@ rg -n --no-heading \
   -e '\b(retries|maxRetries|max_attempts|maxAttempts|retryCount|attempts)\s*[:=]\s*[0-9]+' \
   -e '\b(backoff|retryDelay|retry_backoff|initialInterval)\s*[:=]' \
   -e '\b(retry|Retry|with_retry|@Retryable|retryWhen|p-retry|tenacity|backoff\.on_exception)\b' \
-  src/ config/ > retries.txt
+  "${X[@]}" "${ROOTS[@]}" > retries.txt
 
-# Which call sites have a retry policy at all, against which make outbound calls.
-rg -ln 'http|fetch|axios|requests\.|HttpClient|grpc' "${ROOTS[@]}" | sort > callers.txt
+# Which files make outbound calls: the CLIENT imports and calls, never the word `http` (which
+# matches every HttpException / HttpStatus import). If the project wraps its client in one
+# outbound kernel, add the wrapper's import as one more -e — the retry policy then lives there.
+rg -l \
+  -e "(from|require\()\s*['\"](axios|undici|got|node-fetch|ky|ofetch|@nestjs/axios)['\"]" \
+  -e '\bfetch\(' -e '\bHttpService\b' -e '\bHttpClient\b' \
+  -e '^\s*(import|from)\s+(requests|httpx|aiohttp|urllib3)\b' -e '"net/http"' \
+  -e '@grpc/grpc-js|grpc\.(insecure_channel|Dial)' \
+  "${X[@]}" "${ROOTS[@]}" | sort > callers.txt
 awk -F: '{print $1}' retries.txt | sort -u > has-retry.txt
 comm -23 callers.txt has-retry.txt          # outbound callers with NO retry policy
 ```
 
-**The dangerous finding here is not inconsistency — it is a retry on a non-idempotent write.** A `POST` retried after a timeout may have succeeded upstream; the retry duplicates the side effect, and the caller cannot tell. Before reporting any retry row as merely inconsistent, check the method and the idempotency key: a retry on a `POST` with no `Idempotency-Key` is a correctness defect that outranks every drift row in this file, and it routes to `add-idempotency-key` (verb 7) rather than to `unify-retry-policy`.
+**The dangerous finding here is not inconsistency — it is a retry on a non-idempotent write.** A `POST` retried after a timeout may have succeeded upstream; the retry duplicates the side effect, and the caller cannot tell. Before reporting any retry row as merely inconsistent, check the method and the idempotency key: a retry on a `POST` with no `Idempotency-Key` is a correctness defect that outranks every drift row in this file, and it routes to `add-idempotency-key` (verb 7) rather than to `unify-retry-policy`. **When the distributed-systems pack is installed**, retry *eligibility* is its `retry-deadline-scan` §5 — a retry on a non-idempotent call, a library default that retries any method on a network error (axios-retry's default condition retried one POST 4× after a socket reset, measured in the backend research lab), a provider idempotency key minted per attempt: hand the row there as `→ distributed-systems retry-deadline-scan §5` and keep only the drift here. Without that pack, report it here under verb 7 at its `<file:line>`, marked `owner absent`.
 
 **Retry without jitter is a synchronised herd.** Identical backoff across N callers reconverges them onto the same recovery instant, which is how a recovering dependency gets knocked over a second time. Flag a backoff config with no jitter parameter even when every call site agrees — this is the one row where *consistency itself* is the defect, and a cluster-based detector reports it as clean.
 

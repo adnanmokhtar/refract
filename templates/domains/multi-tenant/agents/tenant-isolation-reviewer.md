@@ -42,7 +42,8 @@ Verify tenant filter present when base is bypassed.
 
 ### Cache keys without tenant prefix
 ```bash
-rg "cache\.(get|set|getOrSet)" src/ -A 1 | grep -v "buildKey\|tenant:"
+# a cache call whose key (this line or the next) is not built by buildKey / tenant-prefixed
+rg -nU --pcre2 'cache\.(?:get|set|getOrSet)(?!(?:[^\n]*\n){0,1}[^\n]*(?:buildKey|tenant:))' src/
 rg "skipTenantPrefix:\s*true" src/
 ```
 `skipTenantPrefix: true` demands a comment justifying "truly global data" (countries / currencies / static enums).

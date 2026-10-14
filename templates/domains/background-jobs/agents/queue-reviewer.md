@@ -30,19 +30,22 @@ Background jobs fail silently more often than HTTP. A bad worker eats memory, bl
 
 ### Producers without job IDs (idempotency surface)
 ```bash
-rg "queue\.add\(|enqueue\(|publish\(" src/ -A 3 | grep -v "jobId:\|deduplication"
+# an enqueue with no jobId / deduplication in its next 3 lines (one window per call)
+rg -nU --pcre2 '(?:queue\.add\(|enqueue\(|publish\()(?!(?:[^\n]*\n){0,3}[^\n]*(?:jobId:|deduplication))' src/
 ```
 Every job a tenant can trigger more than once needs `jobId` derived from a stable input — natural dedup.
 
 ### Workers without explicit retry config
 ```bash
-rg "Worker|@Process|consume" src/ -A 5 | grep -v "attempts:\|maxRetries\|retry"
+# a worker with no retry setting in its next 5 lines
+rg -nU --pcre2 '(?:Worker|@Process|consume)(?!(?:[^\n]*\n){0,5}[^\n]*(?:attempts:|maxRetries|retry))' src/
 ```
 Default retry = infinite on most libs. Cap explicitly.
 
 ### Long jobs (no checkpoint)
 ```bash
-rg "for .+ of .+\) \{" src/workers/ -A 10 | grep -v "saveProgress\|checkpoint"
+# a loop with no progress save in its next 10 lines
+rg -nU --pcre2 'for .+ of .+\) \{(?!(?:[^\n]*\n){0,10}[^\n]*(?:saveProgress|checkpoint))' src/workers/
 ```
 Loops over >1k items without a save = full restart on crash.
 

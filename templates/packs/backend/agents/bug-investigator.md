@@ -94,7 +94,8 @@ rg "SELECT .* FROM" src/modules/ --type ts | grep -v "tenant_id"
 
 **"Unhandled promise in async handler":**
 ```bash
-rg "async (function|\\()" "${ROOTS[@]}" -A 1 | rg -B 1 -v "catch|try"
+# an async function whose brace-balanced body has no try/catch (the unit is the body, not a line)
+rg -nU --pcre2 'async\s+(?:function\b[^(\n]*)?\([^)]*\)[^{;\n]*(?=(?<b>\{(?:(?!\b(?:try|catch)\b)[^{}]|(?&b))*\}))' "${ROOTS[@]}"
 ```
 
 **"Missing timeout on external HTTP":**

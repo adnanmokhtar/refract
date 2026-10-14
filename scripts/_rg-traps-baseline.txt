@@ -1,2 +1,6 @@
 # Prescribed-search traps counted by scripts/lint-rg-traps.sh, per file and kind. May only shrink.
 # Regenerate: bash scripts/lint-rg-traps.sh --record   (after fixing a file, never to admit a new one)
+templates/domains/real-time/agents/realtime-reviewer.md	rg-context-negation	5
+templates/domains/search/agents/search-reviewer.md	rg-context-negation	5
+templates/packs/backend/_examples/bug-investigator.md	rg-context-negation	1
+templates/packs/security/agents/api-security-reviewer.md	rg-context-negation	1

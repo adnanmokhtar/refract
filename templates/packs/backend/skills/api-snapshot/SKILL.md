@@ -65,13 +65,23 @@ Framework-specific:
 
 ### 2. Diff against committed baseline
 
-Use `openapi-diff` or `oasdiff`:
+Use `oasdiff`, pinned (install below):
 ```bash
-oasdiff breaking api-snapshots/openapi.v1.json current.json
-oasdiff changelog api-snapshots/openapi.v1.json current.json
+oasdiff breaking api-snapshots/openapi.v1.json current.json --fail-on ERR   # exit 1 = a breaking change
+oasdiff changelog api-snapshots/openapi.v1.json current.json                # human-readable; never the verdict
 ```
 
-`breaking` exits non-zero if breaking changes detected. `changelog` produces a human-readable diff.
+**`--fail-on ERR` is the gate — NOT-RUN rule.** Without it `oasdiff breaking` prints every breaking change and still **exits 0** (measured 2026-10-14, oasdiff 1.33.0: a removed path, a newly required request field and a removed success status — exit 0 without the flag, 1 with it). So: exit 0 *with* the flag = no ERR-level break; exit 1 = breaking (step 3); any other exit (102 when a spec fails to load, measured), a run without the flag, or an oasdiff that never ran = **`api-snapshot: NOT-RUN (<why>)`** — never reported as clean. `changelog` has no verdict; never read its exit code.
+
+**Install — the Go binary or its Docker image, pinned; never npm** (verified 2026-10-14): the release asset `oasdiff_1.33.0_<os>_<arch>.tar.gz` from `github.com/oasdiff/oasdiff/releases/tag/v1.33.0` (the binary sits at the archive root), `go install github.com/oasdiff/oasdiff@v1.33.0`, or the image `tufin/oasdiff:v1.33.0`. npm has no oasdiff: `@tufin/oasdiff` answers 404 (so `npx @tufin/oasdiff` fails), and the unscoped `oasdiff` package is a `0.0.1-security` placeholder. Pin an exact version (`latest` / `stable` tags move), never below 1.18.1 (CVE-2026-53508, external `$ref` resolution, 1.13.2–1.18.0).
+
+### 2b. Runtime half — Schemathesis (when a running build is available)
+
+The diff compares two *declared* specs; Schemathesis checks the running app against the declared one (status codes, `Location`, response schema, negative data, 405 vs 404, use-after-free). Schemathesis 4.31.0 (MIT):
+```bash
+st run http://localhost:3000/api-json --url http://localhost:3000 --checks all --max-examples 50 --seed 1 --max-time 300 --report junit
+```
+**Links rule.** The stateful checks (`use_after_free`, `ensure_resource_availability`) walk OpenAPI `links`, and only links on the **response object** (`responses."201".links`) count. Measured 2026-10-14: links declared beside `responses` on the operation → `API Links: 0 covered`; the same links moved into the 201 response → 3 covered, and the run additionally caught a missing `Location` and a use-after-free. Print the `API Links: N covered` line; `0 covered` means the stateful phase is NOT-RUN, not clean. `negative_data_rejection` fails on a documented tolerant reader (a framework that strips unknown keys by design) — read before filing.
 
 ### 3. Classify diff
 
@@ -112,9 +122,10 @@ cp current.json api-snapshots/openapi.v1.json
     pnpm build
     pnpm start &
     until curl -sf http://localhost:3000/health; do sleep 1; done
-    curl http://localhost:3000/api-json > /tmp/current.json
-    npx @tufin/oasdiff breaking api-snapshots/openapi.v1.json /tmp/current.json
-    # exit non-zero on breaking
+    curl -sf http://localhost:3000/api-json > /tmp/current.json
+    curl -sfL https://github.com/oasdiff/oasdiff/releases/download/v1.33.0/oasdiff_1.33.0_linux_amd64.tar.gz | tar -xz oasdiff
+    ./oasdiff breaking api-snapshots/openapi.v1.json /tmp/current.json --fail-on ERR
+    # exit 1 = breaking; without --fail-on ERR this step can never fail (NOT-RUN, step 2)
 ```
 
 ## Output
@@ -164,6 +175,7 @@ What to do about it, in order of honesty:
 - **The snapshot directory records the emitted spec version** (`openapi:` field) alongside the baselines; a change to it is reviewed on its own, never bundled with an API change.
 - **Streaming routes are listed as known-undiffed**, with their record/event contract stated in prose, so a green gate is not read as coverage they never had.
 - **A first delivery establishes the baseline; it never reports a clean diff.** No prior document means no diff was performed — say `baseline: established (first delivery — no diff performed)`, and write `api-snapshots/README.md` in the same PR. A green line for a run with one document is a false guarantee, not a pass.
+- **Every `oasdiff breaking` carries `--fail-on ERR`**, from a pinned binary or image; a run without the flag, or through npm, is NOT-RUN.
 - Snapshot files committed to repo.
 - Diff runs on every PR.
 - Breaking changes require ADR.
@@ -200,6 +212,7 @@ bash .claude/scripts/baseline-capture.sh register --id=api-contract-v1 --kind=ap
 
 - Halt on hand-waves: every diff entry must cite the endpoint path, method, and field. "Some endpoints changed" is not a verdict.
 - Halt if the current spec was not generated from a live built artifact — diffing a stale JSON file lies.
+- Halt (NOT-RUN) if `oasdiff breaking` ran without `--fail-on ERR`, exited with anything but 0 or 1, or came from npm — its exit 0 proves nothing.
 - Halt if a breaking change ships without an ADR in `ai/decisions/` referencing it. No exceptions for "tiny renames".
 - Halt if the baseline is updated in a PR that does NOT also contain the approved breaking change — silent baseline bumps mask regressions.
 - Halt if a first delivery establishes `openapi.v1.json` with no `api-snapshots/README.md` beside it, or with a lane in it that no pattern in this pack decided. A published baseline whose envelope branch, error-`code` vocabulary, or pagination spelling was guessed here is worse than an unpublished one: consumers will treat it as authoritative.

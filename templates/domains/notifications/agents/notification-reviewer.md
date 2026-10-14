@@ -37,7 +37,9 @@ Direct provider calls scattered = preference bypass surface. Must route through 
 
 ### Preference checks present
 ```bash
-rg "send\(.*Notification\)" src/ -A 5 | grep -v "preferences\.allows\|isOptedIn\|canReceive"
+# files that send and never check a preference — the guard sits ABOVE the send, so a line filter on
+# `-A 5` can neither see it nor prove its absence; the unit is the file (read each hit's send path)
+rg -l0 "send\(.*Notification\)" src/ | xargs -0r rg --files-without-match "preferences\.allows|isOptedIn|canReceive"
 ```
 Every send path goes through preference middleware OR fails closed.
 
@@ -55,7 +57,8 @@ Every marketing template MUST have unsubscribe; transactional MAY have account-m
 
 ### Rate limit absent
 ```bash
-rg "NotificationService.*\.send\(" src/ -A 3 | grep -v "rateLimit\|throttle\|withinLimit"
+# files that send with no limiter anywhere in them (file unit, as above; a limiter inside the service covers its callers)
+rg -l0 "NotificationService.*\.send\(" src/ | xargs -0r rg --files-without-match "rateLimit|throttle|withinLimit"
 ```
 Per-user / per-channel / per-24h cap mandatory.
 

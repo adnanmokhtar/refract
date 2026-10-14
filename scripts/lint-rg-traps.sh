@@ -32,11 +32,22 @@
 #                       fixed, deliberately small name list: X, EXCL*, SKIP* hold exclusions; CODE, SRC,
 #                       INCL*, GLOBS_IN hold includes; any other unresolved name is ignored. An order
 #                       fault wholly inside one array is reported once, at its definition line.
+#   rg-context-negation an rg/grep printing context (-A/-B/-C<n>, --*context, grep -<n>) piped into a
+#                       later `rg -v` / `grep -v` / --invert-match in the same pipeline. The negation
+#                       drops LINES, not blocks: `rg X -A5 | grep -v Y` still prints X and every other
+#                       line of a block that does contain Y, so its output can never prove "X with no Y
+#                       nearby" — an empty result is impossible on compliant code and a non-empty one
+#                       says nothing. Measured (eval batch 5, 2026-10-14): ENF-1 printed 189 lines from
+#                       24 routes, throttled or not. Block-aware forms: `rg -nU --pcre2 'X(?!(?:[^\n]*\n){0,5}[^\n]*Y)'`
+#                       (no Y in the next 5 lines), an awk window over the file, or --files-without-match
+#                       when the unit is the file. Exempt: a `-v` whose only pattern strips rg's `--`
+#                       group separator; a pipeline broken by xargs/awk/a script (the unit changed).
 #
 # Scope: templates/**/*.md and commands/*.md — fenced lines and inline code spans. A span that only
 # NAMES the trap (`rg -L` with no pattern, in prose warning against it) is a mention, not a search.
-# rg-glob-order reads fenced blocks only (lines joined across `\` and open parens/quotes), plus every
-# templates/**/*.sh file whole.
+# rg-glob-order and rg-context-negation read fenced blocks (lines joined across `\` and open
+# parens/quotes), plus every templates/**/*.sh file whole; rg-context-negation also reads inline
+# spans, where an upstream search with no pattern (`rg -A2 | rg -v x`) is a mention.
 # Existing hits live in scripts/_rg-traps-baseline.txt (file<TAB>kind<TAB>count): a file may not
 # GROW a kind, a NEW file may not carry one, and a fixed file must shrink its row (--record).
 #
@@ -58,7 +69,7 @@ for a in "$@"; do
     --record)      MODE=record ;;
     --list)        MODE=list ;;
     --self-test)   MODE=selftest ;;
-    -h|--help)     sed -n '2,43p' "$SELF"; exit 0 ;;
+    -h|--help)     sed -n '2,55p' "$SELF"; exit 0 ;;
     *) echo "unknown arg: $a" >&2; exit 2 ;;
   esac
 done
@@ -115,6 +126,25 @@ if [ "$MODE" = selftest ]; then
   try "glob-order: bare name, include hits it" 1 $'```\nrg --files -g \'!package-lock.json\' -g \'*.json\' .\n```'
   try "glob-order: anchored include inside excl" 1 $'```\nrg -n PAT -g \'!**/vendor/**\' -g \'lib/vendor/*.go\' .\n```'
   try "glob-order: prose, not fenced"       0 "Never write rg -g '!a/**' -g '*.ts' — includes go first."
+  # rg-context-negation — positives
+  try "ctx-neg: -A n | grep -v"             1 $'```bash\nrg "send\\(" src/ -A 5 | grep -v "allows\\|isOptedIn"\n```'
+  try "ctx-neg: -A6 | rg -v, ROOTS"         1 $'```bash\nrg -n \'@Get\\(\' "${ROOTS[@]}" -A6 | rg -v \'@Throttle\'\n```'
+  try "ctx-neg: \\ continuation"             1 $'```bash\nrg "queue\\.add\\(" src/ -A 3 \\\n  | grep -v "jobId:"\n```'
+  try "ctx-neg: -B on the negation"         1 $'```\nrg "async function" src/ -A 1 | rg -B 1 -v "try"\n```'
+  try "ctx-neg: grep -C, filter between"    1 $'```\ngrep -nC2 foo src/*.ts | sort | grep --invert-match bar\n```'
+  try "ctx-neg: --after-context="           1 $'```\nrg --after-context=4 foo . | rg -v bar\n```'
+  try "ctx-neg: grep -3 numeric context"    1 $'```\ngrep -3 foo src/a.ts | grep -v bar\n```'
+  try "ctx-neg: in an inline span"          1 'Run `rg -A3 foo src/ | grep -v bar` and read the rest.'
+  try "ctx-neg: in a .sh script"            1 $'#!/usr/bin/env bash\nrg -n foo -A2 . | rg -v bar' a.sh
+  # rg-context-negation — negatives
+  try "ctx-neg: positive filter"            0 $'```\nrg -n foo src/ -A3 | rg \'user_?id\'\n```'
+  try "ctx-neg: -v with no context"         0 $'```\nrg -n foo src/ | grep -v bar\n```'
+  try "ctx-neg: strips the -- separator"    0 $'```\nrg -n foo src/ -A3 | rg -v \'^--$\'\n```'
+  try "ctx-neg: -l lists files"             0 $'```\nrg -l -A3 foo src/ | rg -v test\n```'
+  try "ctx-neg: xargs changes the unit"     0 $'```\nrg -A3 foo src/ | xargs -r grep -v bar\n```'
+  try "ctx-neg: separate commands"          0 $'```\nrg -A3 foo src/; grep -v bar notes.txt\n```'
+  try "ctx-neg: multiline lookahead"        0 $'```\nrg -nU --pcre2 \'foo(?!(?:[^\\n]*\\n){0,5}[^\\n]*bar)\' src/\n```'
+  try "ctx-neg: a mention in prose"         0 'The old `rg -A2 | rg -v "signal"` filtered lines, not blocks.'
   echo "lint-rg-traps self-test: $p passed, $f failed"
   [ "$f" -eq 0 ]; exit $?
 fi
@@ -467,6 +497,98 @@ def scan_glob_order(path, text):
             if why: hits.append((n, "rg-glob-order", "rg: " + why))
     return hits
 
+# ---- rg-context-negation ----------------------------------------------------------------------
+CTX_LONG = {"--after-context", "--before-context", "--context"}
+LISTY_LONG = {"--files-with-matches", "--files-without-match", "--count", "--count-matches",
+              "--files", "--quiet"}
+LINE_FILTERS = {"rg", "grep", "egrep", "sort", "uniq", "head", "tail", "cut", "tr", "cat", "sed", "less"}
+SEP_ONLY = re.compile(r"\^?-+\$?")      # `rg -v "^--$"` strips the group separator: cosmetic
+
+def search_args(cmd, args):
+    # -> (prints context, list/count mode, patterns+paths, inverted, patterns)
+    vals = RG_VAL if cmd == "rg" else GREP_VAL
+    ctx = listy = inv = False
+    pos, pats, i = [], [], 0
+    while i < len(args):
+        a = args[i]
+        if a == "--":
+            pos += args[i + 1:]; break
+        if a.startswith("--"):
+            name = a.split("=", 1)[0]
+            if name in CTX_LONG: ctx = True
+            if name in LISTY_LONG: listy = True
+            if name == "--invert-match": inv = True
+            if name == "--regexp":
+                pats.append(a.split("=", 1)[1] if "=" in a else (args[i + 1] if i + 1 < len(args) else ""))
+            if "=" not in a and (name in vals or name in CTX_LONG): i += 1
+        elif a.startswith("-") and len(a) > 1:
+            letters = a[1:]
+            if letters.isdigit():
+                ctx = cmd != "rg"                   # grep -3 == grep -C3
+            else:
+                for j, ch in enumerate(letters):
+                    if ch in "ABC": ctx = True
+                    if ch == "v": inv = True
+                    if ch in "lcq" or (ch == "L" and cmd != "rg"): listy = True
+                    if ("-" + ch) in vals:
+                        val = letters[j + 1:] or (args[i + 1] if i + 1 < len(args) else "")
+                        if not letters[j + 1:]: i += 1
+                        if ch == "e": pats.append(val)
+                        break
+        else:
+            pos.append(a)
+        i += 1
+    if not pats and pos: pats = pos[:1]
+    return ctx, listy, pos + pats, inv, pats
+
+def pipelines(toks):
+    out, cur, cmd = [], [], []
+    for t in toks:
+        if set(t) <= set("|&;()"):
+            if cmd: cur.append(cmd); cmd = []
+            if t in ("|", "|&"): continue
+            if cur: out.append(cur); cur = []
+            continue
+        cmd.append(t)
+    if cmd: cur.append(cmd)
+    if cur: out.append(cur)
+    return out
+
+def ctx_negation(toks):
+    # one hit per pipeline: a context-printing search, then (through per-line filters only) a -v
+    n = 0
+    for pl in pipelines(toks):
+        armed = False
+        for c in pl:
+            k = 0
+            while k < len(c) and (re.fullmatch(r"[A-Za-z_]\w*=.*", c[k]) or c[k] in ("env", "command")): k += 1
+            if k >= len(c): continue
+            name = c[k].rsplit("/", 1)[-1]
+            if name not in LINE_FILTERS: armed = False; continue
+            if name not in ("rg", "grep", "egrep"): continue
+            ctx, listy, pos, inv, pats = search_args(name, c[k + 1:])
+            if armed and inv and not (pats and all(SEP_ONLY.fullmatch(p) for p in pats)):
+                n += 1; break
+            if ctx and not listy and pos: armed = True
+    return n
+
+def scan_ctx_negation(path, text):
+    hits = []
+    for b in code_blocks(path, text):
+        for n, t in logical_lines(b):
+            hits += [(n, "rg-context-negation", "")] * ctx_negation(toks_of(t))
+    if path.endswith(".sh"):
+        return hits
+    fence = False
+    for n, line in enumerate(text.split("\n"), 1):
+        s = line.strip()
+        if s.startswith("```") or s.startswith("~~~"):
+            fence = not fence; continue
+        if fence: continue
+        for sp in re.findall(r"`([^`]+)`", line):
+            hits += [(n, "rg-context-negation", "")] * ctx_negation(toks_of(sp))
+    return hits
+
 found = {}
 detail = []
 for path in sorted(p for p in sys.stdin.read().split("\0") if p):
@@ -476,6 +598,7 @@ for path in sorted(p for p in sys.stdin.read().split("\0") if p):
         continue
     hits = [] if path.endswith(".sh") else [(n, k, "") for n, k in scan(text)]
     hits += scan_glob_order(path, text)
+    hits += scan_ctx_negation(path, text)
     for n, k, why in hits:
         found[(path, k)] = found.get((path, k), 0) + 1
         detail.append(("%s:%d %s" % (path, n, k), why))

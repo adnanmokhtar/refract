@@ -60,8 +60,16 @@ rg -n '@(Patch|Put|Delete|Post)\([^)]*:id' "${ROOTS[@]}"
 - **(ENF-1) Rate limit declared on unauthenticated OR expensive endpoints** (search / export / bulk / LLM / report) — REQUEST if absent. Two separate findings, and only the first is settled: a missing limiter, and a `429` that omits `Retry-After` (RFC 9110 §10.2.3 — the one field here with an RFC behind it). Which quota-header family to require is a moving draft question that `ai/patterns/rate-limiting.md` owns and answers with its publication date — read it there and cite it; never require a header family from memory, and never file the legacy set as a defect while clients still read it. Detector — flag a handler whose route matches `/search|/export|/report|/bulk|/upload` with no throttle declaration:
 
 ```bash
-# Should return 0 — expensive routes with no limiter
-rg -n '@(Get|Post)\([^)]*(/search|/export|/report|/bulk|/upload)' "${ROOTS[@]}" -A6 | rg -v '@Throttle|@RateLimit|RateLimiter|limiter|throttle'
+# Should return 0 — expensive routes with no limiter within 6 lines above or below the route
+# decorator (a block window: `-A6 | rg -v` drops lines, not routes, and never sees an @Throttle
+# stacked above). A class-level @Throttle or a global APP_GUARD throttler also covers a hit — read it.
+rg -l0 '@(Get|Post)\(' "${ROOTS[@]}" \
+  | X='@(Get|Post)\([^)]*[^a-zA-Z](search|exports?|reports?|bulk|uploads?)[^a-zA-Z]' \
+    Y='@Throttle|@RateLimit|RateLimiter|limiter|throttle' xargs -0r awk -v B=6 -v A=6 '
+  function flush(  i, j, ok) { for (i = 1; i <= n; i++) if (L[i] ~ ENVIRON["X"]) { ok = 0
+      for (j = i - B; j <= i + A; j++) if (j >= 1 && j <= n && L[j] ~ ENVIRON["Y"]) ok = 1
+      if (!ok) print f ":" i ":" L[i] } n = 0 }
+  FNR == 1 && NR > 1 { flush() }  { f = FILENAME; L[++n] = $0 }  END { flush() }'
 ```
 
   Ref `ai/patterns/rate-limiting.md` (per-tenant buckets, shared store, fail-open vs fail-closed, 503 admission control).
@@ -198,8 +206,9 @@ rg -n '(counter|histogram|gauge|metric)\(' "${ROOTS[@]}" -A3 | rg 'user_?id|requ
 - **(OBS-4) Readiness / shutdown** — `/readyz` actually PINGS each declared dependency (DB / cache / queue probe), not a bare `return 200`; a readiness flip emits a structured log + a gauge; graceful shutdown logs the in-flight-request count as the server drains.
 
 ```bash
-# A /readyz that returns static 200 without probing deps is a false-green
-rg -n '/readyz|/ready|readiness' "${ROOTS[@]}" -A8 | rg -v 'ping|isHealthy|check\(|SELECT 1|redis|queue|db\.'
+# A /readyz that returns static 200 without probing deps is a false-green: a readiness route with
+# no dependency probe in its next 8 lines (one window per route; Nest writes @Get('ready'), no slash)
+rg -nU --pcre2 '(?:[\x27"/]readyz?[\x27"/]|readiness)(?!(?:[^\n]*\n){0,8}[^\n]*(?:ping|isHealthy|check\(|SELECT 1|redis|queue|db\.))' "${ROOTS[@]}"
 ```
 
 ### Tests

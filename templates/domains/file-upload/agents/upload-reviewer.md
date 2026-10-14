@@ -57,21 +57,22 @@ rg "getSignedUrl\(|presign\(|signatureExpiration" src/ -A 3 \
 
 ### Missing size cap
 ```bash
-rg "createMultipartUpload\(|getSignedUrl\(.*put_object" src/ -A 5 \
-  | grep -v "ContentLength\|MaxFileSize\|max_file_size\|multer.*limits"
+# a call with no size cap in its next 5 lines (one window per call, not a per-line filter)
+rg -nU --pcre2 '(?:createMultipartUpload\(|getSignedUrl\(.*put_object)(?!(?:[^\n]*\n){0,5}[^\n]*(?:ContentLength|MaxFileSize|max_file_size|multer.*limits))' src/
 ```
 No cap = upload bomb. Server limit + S3 condition (`content-length-range`) BOTH required.
 
 ### No virus scan
 ```bash
-rg "uploads.*?completed|onUploadComplete|file.*?processed" src/ -A 10 \
-  | grep -v "clamav\|virustotal\|s3.*?malware\|macie\|guardduty"
+# a completion handler with no scanner call in its next 10 lines
+rg -nU --pcre2 '(?:uploads.*?completed|onUploadComplete|file.*?processed)(?!(?:[^\n]*\n){0,10}[^\n]*(?:clamav|virustotal|s3.*?malware|macie|guardduty))' src/
 ```
 Files served without scan can be malware vector for next downloader.
 
 ### EXIF passthrough
 ```bash
-rg "sharp\(|imagemagick\(" src/ -A 5 | grep -v "withMetadata.*false\|removeMetadata\|strip"
+# an image pipeline with no metadata strip in its next 5 lines
+rg -nU --pcre2 '(?:sharp\(|imagemagick\()(?!(?:[^\n]*\n){0,5}[^\n]*(?:withMetadata.*false|removeMetadata|strip))' src/
 ```
 Photos contain GPS, camera serial, date/time → privacy leak when re-served.
 

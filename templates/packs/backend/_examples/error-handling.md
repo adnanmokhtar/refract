@@ -118,12 +118,17 @@ Notice: NO try/catch on the happy path. Errors bubble. The service is straight-l
 // libs/errors/http-exception-filter.ts
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
-  constructor(private readonly logger: Logger, private readonly i18n: I18nService) {}
+  constructor(
+    private readonly logger: Logger,
+    private readonly i18n: I18nService,
+    private readonly adapterHost: HttpAdapterHost,   // sends through whichever adapter main.ts uses
+  ) {}
 
   catch(error: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
-    const req = ctx.getRequest<FastifyRequest>();
-    const res = ctx.getResponse<FastifyReply>();
+    const req = ctx.getRequest();
+    const res = ctx.getResponse();   // a Fastify reply or an Express res — never call adapter-only methods on it
+    const send = (status: number, body: unknown) => this.adapterHost.httpAdapter.reply(res, body, status);
     const traceId = req.headers['x-request-id'] as string;
 
     if (error instanceof DomainError) {
@@ -132,7 +137,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       this.logger.warn(error.message, { code: error.code, ...error.context, traceId });
 
-      return res.status(status).send({
+      return send(status, {
         status: 'error',
         code: error.code,
         message,
@@ -141,9 +146,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       });
     }
 
+    // Framework exceptions keep THEIR status (ValidationPipe 400, NotFoundException, throttler 429,
+    // adapter 413/415) — letting them fall to the 500 arm turns every rejected body into a 500.
+    if (error instanceof HttpException) {
+      const status = error.getStatus();
+      const code = status >= 500 ? 'INTERNAL_ERROR' : (HTTP_STATUS_TO_CODE[status] ?? 'HTTP_ERROR');   // a table we own
+      this.logger.warn(error.message, { code, status, traceId });
+      return send(status, { status: 'error', code, message: this.i18n.translate(code, { lang: req.locale }), data: null, meta: { traceId } });
+    }
+
     // Unmapped — programmer error or upstream surprise
     this.logger.error('Unhandled exception', { error, traceId });
-    return res.status(500).send({
+    return send(500, {
       status: 'error',
       code: 'INTERNAL_ERROR',
       message: this.i18n.translate('INTERNAL_ERROR', { lang: req.locale }),
@@ -178,6 +192,7 @@ This file is the ONLY place domain errors become HTTP responses. Every controlle
 | `ConflictError` | 409 | Unique violation, optimistic lock conflict, double-confirm |
 | `RateLimitedError` | 429 | Caller hit a rate limit; include `Retry-After` |
 | `DependencyFailureError` | 503 | Upstream we depend on is down/timing out |
+| `HttpException` (framework: ValidationPipe 400, `NotFoundException`, throttler 429, adapter 413/415) | its own `getStatus()` | Never routed to the 500 arm. `httpAdapter.reply()` is the portable send; Fastify's reply has no Express `.json()` / `.set()` |
 | Unmapped throwable | 500 | Programmer error, log full context |
 
 ## Field-level validation errors
