@@ -65,7 +65,7 @@ Read: the broker URL (Redis/SQS: visibility applies; RabbitMQ: `consumer_timeout
 
 ## Go — kafka-go, franz-go, sarama, confluent-kafka-go, Watermill, NATS
 
-F1: `go.mod` lines for `segmentio/kafka-go`, `twmb/franz-go`, `IBM/sarama`, `confluent-kafka-go`, `ThreeDotsLabs/watermill*`, `nats-io/nats.go`. Rows: GL1–GL4, LD1–LD5, NA1–NA4.
+F1: `go.mod` lines for `segmentio/kafka-go`, `twmb/franz-go`, `IBM/sarama`, `confluent-kafka-go`, `ThreeDotsLabs/watermill*`, `nats-io/nats.go`. Rows: GL1–GL5, LD1–LD5, NA1–NA4.
 
 ```bash
 # G1 §1 GO-01 kafka-go ReadMessage with a GroupID (commits at read) and franz-go GreedyAutoCommit — tested; GO-03 sarama MarkMessage first — untested
@@ -78,9 +78,12 @@ rg -n --no-heading -U --pcre2 '\bfunc\s*\(\s*(\w+)\s+(?:jetstream\.Msg|\*nats\.M
 rg -l0 --pcre2 '\.Add(?:NoPublisher|Consumer)?Handler\(' "${GO[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 'middleware\.(?:Retry|PoisonQueue\w*)|PoisonQueue'
 # G4 §6 NATS-05 consumers with no InProgress (compare the handler's run with AckWait 30 s, NA1) — untested in Go; read
 rg -l0 --pcre2 '\.(?:Consume|Messages|Fetch)\(' "${GO[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg -l0 --pcre2 'jetstream|nats\.' | xargs -0 -r rg --files-without-match --pcre2 'InProgress\('
+# G5 §4 GO-04 producers: a kafka-go or sarama message with no Key; a balancer or partitioner that is not murmur2 (GL5 — beside a Java or kafkajs producer on the same topic one key lands on two partitions, LD4); kafka-go writer files with no Balancer (the default is round-robin: the key is ignored) — tested on ds-defects
+rg -n --no-heading -U --pcre2 '\bkafka\.Message\{(?![^}]*\bKey\s*:)|&sarama\.ProducerMessage\{(?![^}]*\bKey\s*:)|&?kafka\.(?:CRC32Balancer|Hash|ReferenceHash|RoundRobin|LeastBytes)\{|\bsarama\.New(?:Random|RoundRobin|Hash|ReferenceHash)Partitioner\b' "${GO[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}"
+rg -l0 --pcre2 '\bkafka\.Writer\{' "${GO[@]}" "${X[@]}" "${ROOTS[@]}" | xargs -0 -r rg --files-without-match --pcre2 '\bBalancer\s*:'
 ```
 
-Read: the `ReaderConfig` (`ReadMessage` without a `GroupID` does not commit); explicit `FetchMessage` + `CommitMessages` commits cumulatively per partition, so out-of-order concurrent completion then commit is §1 (GL1); `errcheck` (golangci-lint) is the tool lane for dropped `Publish`/`WriteMessages`/`Ack` errors (§7). `tx.Commit()` then `Publish` is `dual-write-scan` §1. Decoys: `AckNonePolicy` on a telemetry stream; `Nak()` guarded by `NumDelivered >= N → Term()` (precedent 7); `nc.Subscribe` for request/reply with caller-side retries.
+Read: the `ReaderConfig` (`ReadMessage` without a `GroupID` does not commit); explicit `FetchMessage` + `CommitMessages` commits cumulatively per partition, so out-of-order concurrent completion then commit is §1 (GL1); `errcheck` (golangci-lint) is the tool lane for dropped `Publish`/`WriteMessages`/`Ack` errors (§7). `tx.Commit()` then `Publish` is `dual-write-scan` §1. G5: grep the topic name across every root for its other producers — a non-murmur2 balancer is §4 only when another producer with a different hash writes the same topic (cite both), and a key-less message only when a consumer applies that topic per entity. Decoys: `AckNonePolicy` on a telemetry stream; a key-less write to a metrics topic; `CRC32Balancer` where every producer of the topic is librdkafka-based; `Nak()` guarded by `NumDelivered >= N → Term()` (precedent 7); `nc.Subscribe` for request/reply with caller-side retries.
 
 ## .NET — Confluent.Kafka, MassTransit, Azure Service Bus
 

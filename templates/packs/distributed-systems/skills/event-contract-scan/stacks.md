@@ -31,7 +31,7 @@ rg -l0 --pcre2 '\bJsonSerializer\.Deserialize<|\bJsonConvert\.DeserializeObject<
 rg -n --no-heading --pcre2 '\bAppendToStreamAsync\([^\n]*\bStreamState\.Any\b|\bappend_to_stream\([^\n]*\bcurrent_version\s*=\s*StreamState\.ANY\b|\bappend_to_stream\((?![^\n]*\bcurrent_version\s*=)[^\n]*\)' -g '*.{cs,py}' "${XT[@]}" "${ROOTS[@]}" | "${NC[@]}"
 rg -l0 --pcre2 '\bAggregateStreamAsync<' -g '*.cs' "${XT[@]}" "${ROOTS[@]}" | xargs -0 -r rg -H -n --no-heading --pcre2 '\.Events\.Append\(\s*\w+\s*,\s*(?:new\b|\w+\s*\))' | "${NC[@]}"
 # S9 .NET / JVM apply handlers that do I/O (read: does it run on rehydration?); Marten daemon mode (one async projection process per store, EV3; replicas → performance §20)
-rg -n --no-heading -U -o -r '$1' --pcre2 '^[ \t]*(?:@EventSourcingHandler[^\n]*\n[ \t]*)?(?:(?:public|private|protected|internal)\s+)?(?:void|Task)\s+((?:Apply|When|On)\w*)\s*\([^)]*\)\s*\{(?:(?!\n[ \t]*\}\n)[^\n]*\n){0,12}?[^\n]*(?:\bawait\s|\.Send\w*\(|\.Publish\w*\(|\bHttpClient\b|\.send\(|\.publish\()' -g '*.{cs,java,kt}' "${XT[@]}" "${ROOTS[@]}"
+rg -n --no-heading -U -o -r '$2' --pcre2 '^(?:[ \t]*@EventSourcingHandler[^\n]*\n)?([ \t]*)(?:(?:public|private|protected|internal)\s+)?(?:void|Task)\s+((?:Apply|When|On)\w*)\s*\([^)]*\)\s*\{(?:(?!\1\})[^\n]*\n){0,12}?(?!\1\})[^\n]*(?:\bawait\s|\.Send\w*\(|\.Publish\w*\(|\bHttpClient\b|\.send\(|\.publish\()' -g '*.{cs,java,kt}' "${XT[@]}" "${ROOTS[@]}"
 rg -n --no-heading --pcre2 '\bDaemonMode\.(?:Solo|HotCold)\b|\bAddAsyncDaemon\(' -g '*.cs' "${XT[@]}" "${ROOTS[@]}" | "${NC[@]}"
 ```
 

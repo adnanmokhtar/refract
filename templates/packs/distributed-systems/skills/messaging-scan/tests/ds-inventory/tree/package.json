@@ -1,1 +1,1 @@
-{"dependencies": {"bullmq": "^6.3.4", "@nestjs/bullmq": "^11.0.5", "kafkajs": "2.2.4", "amqplib": "2.2.0", "sqs-consumer": "^15.0.0"}}
+{"dependencies": {"bullmq": "^6.3.4", "@nestjs/bullmq": "^11.0.5", "kafkajs": "2.2.4", "amqplib": "^0.10.9", "sqs-consumer": "^15.0.0"}}

@@ -256,37 +256,29 @@ GOOD:  @IsString({ each: true }) @ArrayMaxSize(100) tags: string[]  ·  groups w
 ## Output
 
 ```
-validation-boundary-scan — lanes: nestjs ^11.2.4 range (apps/api/package.json:45) on fastify, class-validator ^0.15.1 · lockfile absent: version-gated rows Unconfirmed (V357)
-Wiring: APP_PIPE src/app.module.ts:250  I18nValidationPipe { transform: true, whitelist: true }  (forbidNonWhitelisted absent; forbidUnknownValues forced off)
-Tools: dto-types ran (1,365/1,365 params, 0 UNPARSED, strictNullChecks UNREAD) · nestjs-typed NOT-RUN (no typescript-eslint config) · schemathesis NOT-RUN (no spec)
+validation-boundary-scan — lanes: nestjs 11.2.6 on fastify 5.12.3, class-validator 0.15.1, zod 4.5.4 (pnpm-lock.yaml) · Nest 11 not run by the research: its default rows stay Unconfirmed (V340/V341)
+Wiring: APP_PIPE src/app.module.ts:190  I18nValidationPipe { transform: true, whitelist: true }  (forbidNonWhitelisted absent; forbidUnknownValues forced off)
+        @ContractBody / @ContractQuery → ContractPipe src/shared/contract.pipe.ts:16 (zod safeParse; unknown keys stripped; an absent body parses as {}; refusal → the same 400)
+Tools: dto-types ran (1,374/1,374 params, 0 UNPARSED, strictNullChecks on ×1,374; 748 custom-pipe(ContractPipe)) · nestjs-typed NOT-RUN (no typescript-eslint config) · schemathesis NOT-RUN (no running app)
 
-Findings: 0 · Unconfirmed: 4
+Findings: 0 · Unconfirmed: 1
 
-1. src/pricing/pricing.controller.ts:269                                        [report-flagged]  high
-   §1 — @Body() dto: WriteCollectionDto | null; the union emits Object (strictNullChecks UNREAD: base tsconfig absent).
-   The DTO's @ArrayMaxSize(100), nested @ValidateNested and notes type never run. Payload: PUT {"notes": 123, "x": 1} → expect 400.
-   Fix: @Body() dto: WriteCollectionDto (null decided inside the DTO). Settling: V340, or design:paramtypes printed.
-2. src/orders/dto/order-followup.dto.ts:475 (+ :455)                           [report-flagged]  high
-   §2 — @Type(() => OrderRefDto) with no @ValidateNested; the child's @IsUUID orderId never runs (also behind POST delivery/bulk-status).
-   Payload: {"orders":[{"orderId":"x"}]} → expect 400. Fix: add @ValidateNested({ each: true }).
-3. src/products/dto/update-product.dto.ts:18                                   [report-flagged]  high
-   §5 — @IsOptional() name?: string; use case guards `!== undefined` (update-product.use-case.ts:37); {"name": null} → name.trim() → 500.
-   Fix: the project's IsAbsentOr() (settings-tabs.dto.ts:44). Settling: V342.
-4. src/app.module.ts:250 (493 class bodies)                                    Unconfirmed  medium
-   §6 — whitelist without forbidNonWhitelisted: a misspelled optional field is stripped and its default applied. Read: the API's stated policy (B-G17).
+1. src/app.module.ts:190 + src/shared/contract.pipe.ts:16 (748 contract params, 2 class bodies)    Unconfirmed  medium
+   §6 — unknown keys are stripped, never refused (whitelist without forbidNonWhitelisted; zod's default strip): a misspelled optional
+   field is dropped and its default applied. Read: the API's stated policy (B-G17). Settling: V343 — {"typoField": 1} at top level, nested and in array items.
 
-Verification: 19 candidates → 0 findings · 4 unconfirmed · 15 refuted (self-verified; 12 B-D1, 3 B-D10)
+Verification: 26 candidates → 0 findings · 1 unconfirmed · 25 refuted (self-verified; 12 B-D1, 11 B-D10, 2 read to depth)
 
 Class coverage:
-  §1 pipe sees no class        checked (13 → 1 unconfirmed; 12 B-D1)
-  §2 nested                    checked (2 → 2 unconfirmed, inverse direction; 0 without @Type)
-  §3 conversion first          checked (0 implicit conversion, 0 @Type(Boolean); 334 @Type(Number) → 0)
+  §1 pipe sees no class        checked (12 → 0; 12 B-D1: OAuth and MCP protocol endpoints with unknown bodies and Record queries)
+  §2 nested                    checked (0 in either direction; the nested ids are contract schemas)
+  §3 conversion first          checked (0 implicit conversion, 0 @Type(Boolean), 0 @Type(Number))
   §4 coercion                  checked (1 numeric enum, never in @IsEnum → 0; 0 z.coerce; env: → devops deploy-safety-scan §6 (0))
-  §5 optional admits null      checked (1,347 props; 248 on Update DTOs; 1 read to depth → 1 unconfirmed) · Live, unreviewed (50 Update DTO classes)
-  §6 unknown keys              checked (1 wiring row → 1 unconfirmed)
-  §7 named primitives          checked (14 + 45 path strings → 0; 2 Unconfirmed reads) · → security injection-scan §3 (0)
-  §8 other contexts            checked (3 param decorators → 0; 1 gateway, push-only → 0)
-  §9 arrays / groups           checked (41 array-no-max → 0 graded; 0 no-each; 0 groups) · → performance request-path-scan §13 (41)
+  §5 optional admits null      checked (2 props, 0 on Update/Patch DTOs → 0; contract .optional() refuses null)
+  §6 unknown keys              checked (2 wiring rows → 1 unconfirmed)
+  §7 named primitives          checked (11 + 36 path strings → 0; 11 B-D10) · → security injection-scan §3 (0)
+  §8 other contexts            checked (3 param decorators, all principal → 0; 1 gateway, push-only → 0)
+  §9 arrays / groups           checked (VB9 0: 2 class-validator body DTOs left; contract arrays read in their schemas) · → performance request-path-scan §13 (0)
 ```
 
 `[report-with-fix]`: the oracle failed through the real bootstrap on the installed version and the fix is local to the project's pipe, DTO base or local validator. `[report-flagged]`: one link is unproven (no oracle run, `strictNullChecks` or the version `UNREAD`, the column not read); the row names it and the settling request. The coverage block lists **all nine** §s on every run: `checked (k → m)`, `N/A (<reason>)`, `blocked (<grep or tool>)`, `→ <owner> (k)` or `Live, unreviewed (k groups / n hits)`. A missing line is printed by `/backend-audit` as `not run`.

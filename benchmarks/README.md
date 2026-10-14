@@ -230,9 +230,9 @@ rows scored only under their owners — 4 `/db-audit`, 3 `/security-audit`, 4 `/
 bounded nack, an aborting deadline, a Lua compare-and-delete, `PX` before `NX`, a transaction-scoped advisory lock, a
 UUIDv7 floor with a lag and a rescan, TypeScript `Date.now()` in a workflow, the saga pivot, an Avro field with a default,
 a strict outbound DTO, a rebuild-and-swap projection). Its answer key records every detector pre-flight and
-`ds-inventory.py` run on a staged copy with `buf`, `json-schema-diff`, `@asyncapi/cli` and `avsc` installed (103 of 111
-seeds printed, 4 partial, 4 missed by grep shape or the missing workflow base; every printed decoy cleared by one
-precedent or fact; 53 of 58 inventory rows resolved), the owners' pre-flights on the hand-off rows (14 of 16, 1 partial),
+`ds-inventory.py` run on a staged copy with `buf`, `json-schema-diff`, `@asyncapi/cli` and `avsc` installed (110 of 111
+seeds printed, 1 partial, 0 missed after the 2.0.1 grep fixes; every printed decoy cleared by one
+precedent or fact; 59 of 61 inventory rows resolved), the owners' pre-flights on the hand-off rows (14 of 16, 1 partial),
 two measured tool-lane traps, and the eleven integrator requests that measurement found.
 
 ## Why seeded-defect detection is a fair proxy

@@ -471,7 +471,7 @@ class Inv:
         if dflt_key:
             for k, dv in DEFAULTS[dflt_key].items():
                 if k not in res:
-                    res[k] = (dv, "default:%s" % dflt_key) if major else (Unres("default needs the %s version" % lane), "")
+                    res[k] = (dv, "default:%s" % dflt_key) if major is not None else (Unres("default needs the %s version" % lane), "")
         for k, (v, s) in res.items():
             root = k.split(".")[0]
             if k in policy_set or root in policy_set:
@@ -722,6 +722,28 @@ class Inv:
                  POLICY["bullmq.job"], "bullmq.job", {"class": ("%s via %s" % (c.name, entry), "")})
         if not isinstance(qname, str): self.rows[-1]["status"] = "UNRESOLVED (queue name: %s)" % getattr(qname, "why", qname)
 
+    # ---- kafkajs producers reached through a type or a DI token (`@Inject(KAFKA_PRODUCER) private readonly kafka: Producer`)
+    def kafka_typed(self, mod):
+        """Receivers typed as the kafkajs `Producer` in this module → the DI token injecting them (or None)."""
+        m, out = mod.m, {}
+        if not re.search(r"\bimport\s+(?:type\s+)?\{[^}]*\bProducer\b[^}]*\}\s*from\s*['\"](?:kafkajs|@confluentinc/kafka-javascript)['\"]", m):
+            return out
+        for mt in re.finditer(r"(?:@Inject\(\s*(\w+)\s*\)\s*)?(?:(?:private|protected|public|readonly)\s+)*(\w+)\s*[?!]?\s*:\s*Producer\b", m):
+            out[mt.group(2)] = mt.group(1)
+        return out
+
+    def kafka_token_cfg(self, mod, token):
+        """The `kafka.producer({…})` options of the provider factory that `provide:`s this token (imported or local)."""
+        tgt = mod
+        if token in mod.imports:
+            tgt = self.r.module_for(mod, mod.imports[token][0])
+            if tgt is None: return {}
+        pv = re.search(r"\bprovide\s*:\s*%s\b" % re.escape(token), tgt.m)
+        cfg = pv and re.search(r"\.producer\s*\(\s*(\{)", tgt.m[pv.end():pv.end() + 800])
+        if not cfg: return {}
+        a = pv.end() + cfg.start(1); src = "%s:%d via %s" % (tgt.rel, line_of(tgt.m, a), token)
+        return {k: (v, s or src) for k, (v, s) in self.r.obj(tgt, tgt.m[a:close_of(tgt.m, a) + 1], frozenset(), set()).items()}
+
     # ---- kafkajs, amqplib, sqs-consumer (one module each; constants resolved across files)
     def node_other(self):
         for mod in self.r.relevant():
@@ -736,11 +758,15 @@ class Inv:
                 opts["handler"] = ("eachBatch" if "eachBatch" in o else "eachMessage", "")
                 self.row("consumer", "kafkajs", co.get("groupId", (Unres("groupId"), ""))[0] if co else "?", mod, line_of(m, mt.start()),
                          flat(opts), ("autoCommit", "eachBatchAutoResolve", "partitionsConsumedConcurrently", "sessionTimeout"), "kafkajs.consumer")
-            for mt in re.finditer(r"\b\w*[pP]roducer\w*\.send(?:Batch)?\s*\(\s*\{", m):
+            typed = self.kafka_typed(mod)
+            for mt in re.finditer(r"\b(?:this\.)?(\w+)\.send(?:Batch)?\s*\(\s*\{", m):
+                recv = mt.group(1)
+                if recv not in typed and not re.search(r"[pP]roducer", recv): continue
                 b = close_of(m, mt.end() - 1); o = self.r.obj(mod, m[mt.end() - 1:b + 1], frozenset(), set())
                 cfg = re.search(r"\.producer\s*\(\s*(\{)", m)
                 co = self.r.obj(mod, m[cfg.start(1):close_of(m, cfg.start(1)) + 1], frozenset(), set()) if cfg else {}
-                if not cfg and "messages" not in o and "topic" not in o: continue
+                if not cfg and recv in typed and typed[recv]: co = self.kafka_token_cfg(mod, typed[recv])
+                if not cfg and recv not in typed and "messages" not in o and "topic" not in o: continue
                 self.row("producer", "kafkajs", o.get("topic", (Run("?"), ""))[0], mod, line_of(m, mt.start()),
                          flat({k: v for k, v in co.items()}), ("idempotent", "acks", "maxInFlightRequests"), "kafkajs.producer")
             if re.search(r"\bamqp(?:lib|-connection-manager)?\b", m):
@@ -854,7 +880,7 @@ def pair_backoff(inv):
 
 # ------------------------------------------------------------------ self-test -----------------------
 SELF = {
-    "package.json": '{"dependencies": {"bullmq": "^6.3.4", "@nestjs/bullmq": "^11.0.5", "kafkajs": "2.2.4", "amqplib": "2.2.0", "sqs-consumer": "^15.0.0"}}',
+    "package.json": '{"dependencies": {"bullmq": "^6.3.4", "@nestjs/bullmq": "^11.0.5", "kafkajs": "2.2.4", "amqplib": "^0.10.9", "sqs-consumer": "^15.0.0"}}',
     "src/queue/constants.ts": "export enum QueueName { MAIL = 'mail', CHARGE = 'charge' }\nexport const JOB_ATTEMPTS = 3;\n"
                               "export const LIMITER = { max: 50, duration: 1_000 } as const;\n"
                               "export const CONCURRENCY = positiveIntEnv('WORKER_CONCURRENCY', 5);\nexport const BACKOFF = { type: 'custom' } as const;\n",
@@ -889,6 +915,15 @@ SELF = {
                         "const producer = kafka.producer({ idempotent: true });\nawait producer.send({ topic: 'paid', messages: [] });\n",
     "src/amqp/mail.ts": "import amqp from 'amqplib';\nconst ch = await conn.createChannel();\nawait ch.prefetch(10);\n"
                         "await ch.consume('mail', async (msg) => { await send(msg); ch.ack(msg); }, { noAck: false });\n",
+    "src/amqp/labels.ts": "import amqp from 'amqplib';\nconst channel = await conn.createChannel();\n"
+                          "await channel.consume('labels', async (msg) => { await print(msg); channel.ack(msg); });\n",
+    "src/kafka/kafka.module.ts": "import { Kafka, Producer } from 'kafkajs';\nexport const KAFKA_PRODUCER = Symbol('KAFKA_PRODUCER');\n"
+                                 "@Module({ providers: [{\n  provide: KAFKA_PRODUCER,\n  inject: [Kafka],\n"
+                                 "  useFactory: async (kafka: Kafka): Promise<Producer> => {\n    const p = kafka.producer({ idempotent: true, maxInFlightRequests: 5 });\n"
+                                 "    await p.connect();\n    return p;\n  },\n}], exports: [KAFKA_PRODUCER] })\nexport class KafkaModule {}\n",
+    "src/orders/place.ts": "import { Producer } from 'kafkajs';\nimport { KAFKA_PRODUCER } from '../kafka/kafka.module';\n"
+                           "export class PlaceOrder {\n  constructor(@Inject(KAFKA_PRODUCER) private readonly kafka: Producer) {}\n"
+                           "  async run(id: string) {\n    await this.kafka.send({ topic: 'orders.placed', messages: [{ key: id, value: id }] });\n  }\n}\n",
     "src/sqs/orders.ts": "const app = Consumer.create({ queueUrl: QUEUE_URL, batchSize: 10, handleMessage: async (m) => { await go(m); return m; } });\n",
     "worker/tasks.py": "from celery import shared_task\nMAX = 7\n@shared_task(bind=True, acks_late=True, max_retries=MAX, autoretry_for=(Exception,))\ndef charge(self, oid):\n    pass\n",
     "src/queue/mail.processor.spec.ts": "@Processor('ignored') export class Ignored extends WorkerHost {}\n",
@@ -904,6 +939,8 @@ EXPECT = [  # (kind, name, site-suffix, status-prefix, {key: rendered value subs
     ("consumer", "payments", "pay.ts:2", "RESOLVED", {"partitionsConsumedConcurrently": "3", "autoCommit": "true"}),
     ("producer", "paid", "pay.ts:4", "RESOLVED", {"idempotent": "true"}),
     ("consumer", "mail", "mail.ts:4", "RESOLVED", {"prefetch": "10", "noAck": "false"}),
+    ("consumer", "labels", "labels.ts:3", "RESOLVED", {"noAck": "false", "prefetch": "unbounded"}),   # amqplib 0.x: a 0 major is a read version
+    ("producer", "orders.placed", "place.ts:6", "RESOLVED", {"idempotent": "true", "maxInFlightRequests": "5", "acks": "-1"}),   # DI-token producer
     ("consumer", "runtime(QUEUE_URL)", "orders.ts:1", "RESOLVED", {"batchSize": "10", "alwaysAcknowledge": "false"}),
     ("consumer", "charge", "tasks.py:3", "RESOLVED", {"acks_late": "true", "max_retries": "7"}),
 ]

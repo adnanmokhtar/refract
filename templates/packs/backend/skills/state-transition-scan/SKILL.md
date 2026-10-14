@@ -92,9 +92,10 @@ rg -n --no-heading --pcre2 '^\s*[\w.]*[sS]tate[mM]achine\w*\.sendEvent(?:s|Colle
 xargs -0 -r rg -n --no-heading --pcre2 '["\x27]?conditions["\x27]?\s*[=:]|\bunless\s*=|^\s*(?:self\.)?\w+\.(?!save\b|update\b|delete\b|get\b|set\b|add\w*\b|send\b)\w+\s*\(\s*\)\s*$' -g '*.py' < "$SCAN/machines" | "${NC[@]}" | sed 's/^/1e /' | head -40
 # 2 a terminal state re-opened: wildcard sources (2a); AASM transitions with no from: (2b); direct status writes on job, webhook, consumer and admin paths in
 #   files that touch a library-driven aggregate — a write that bypasses the machine's guard (2c, read against the graph's terminal states)
+#   2c's assignment starts a statement (line start, after ; { ) => else then do): `x.state = 'run'` inside SQL text in a template string is a predicate, not a write
 rg -n --no-heading --pcre2 '["\x27]source["\x27]\s*:\s*["\x27]\*["\x27]|\bsource\s*=\s*["\x27]\*["\x27]|\badd_transition\s*\(\s*(?:trigger\s*=\s*)?["\x27]\w+["\x27]\s*,\s*(?:source\s*=\s*)?["\x27]\*["\x27]|\bfrom_\.any\s*\(|\bsource\s*=\s*\[?\s*["\x27]\*["\x27]' "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/2a /'
 rg -n --no-heading --pcre2 '^\s*transitions\s+(?:(?!\bfrom:)[^\n#])*\bto:' -g '*.rb' "${X[@]}" "${ROOTS[@]}" | "${NC[@]}" | sed 's/^/2b /'
-ST='\.(?:status|state)\s*=(?!=)|\bset_?[sS]tatus\s*\(|\bupdate!?\s*\(\s*(?:status|state):|\.update\w*\s*\([^)]*["\x27]?(?:status|state)["\x27]?\s*[:=]|\bUPDATE\s+\w+\s+SET\s+(?:status|state)\b'
+ST='(?:^\s*|[;{)]\s*|=>\s*|\b(?:else|then|do)\s+)(?:this\.|self\.|@)?[\w$]+(?:[!?]?\.[\w$]+|\[[^\]\n]+\])*[!?]?\.(?:status|state)\s*=(?!=)|\bset_?[sS]tatus\s*\(|\bupdate!?\s*\(\s*(?:status|state):|\.update\w*\s*\([^)]*["\x27]?(?:status|state)["\x27]?\s*[:=]|\bUPDATE\s+\w+\s+SET\s+(?:status|state)\b'
 rg --files "${CODE[@]}" "${X[@]}" "${ROOTS[@]}" | rg --pcre2 '(?i)(?:jobs?|workers?|processors?|consumers?|webhooks?|listeners?|subscribers?|handlers?|tasks?|cron|admin)' | tr '\n' '\0' > "$SCAN/paths"
 echo "2c status writes on non-HTTP and admin paths: $(xargs -0 -r rg -c --no-heading --pcre2 "$ST" < "$SCAN/paths" | awk -F: '{s+=$NF} END {print s+0}') in $(xargs -0 -r rg -l --pcre2 "$ST" < "$SCAN/paths" | wc -l | tr -d ' ') files (rows only where the aggregate has a machine in grep 0)"
 xargs -0 -r rg -n --no-heading --pcre2 "$ST" < "$SCAN/paths" | "${NC[@]}" | head -30 | sed 's/^/2c /'
