@@ -437,6 +437,13 @@ Each topic declares:
   fallback: skills/api-consistency-audit/SKILL.md
   cite_evidence: strict
 
+- name: edge-error-scan
+  kind: skill
+  triggers:
+    api_surface_detected: true   # any HTTP edge has an error path; a lane the repo lacks (no ORM, no Go router) reports N/A
+  extracts_from: _extracted-codebase.md § "API surface" (framework, adapter, ORM and their versions) + the global filter / error middleware / exception handler files
+  fallback: skills/edge-error-scan/SKILL.md
+
 - name: validation-boundary-scan
   kind: skill
   triggers:
@@ -444,6 +451,13 @@ Each topic declares:
     OR_grep_evidence: "\"(class-validator|zod|joi|yup|valibot|ajv|fastify)\"\\s*:|^\\s*(pydantic|djangorestframework|fastapi)\\b|spring-boot-starter-validation|gin-gonic/gin|labstack/echo|FluentValidation"   # a request validator or binder in any manifest: whether it runs, and on what, is the subject
   extracts_from: _extracted-codebase.md § "API surface" (the validation pipe or middleware and its options) + sample DTOs
   fallback: skills/validation-boundary-scan/SKILL.md   # source-as-fallback; scripts/dto-types.py ships beside it
+
+- name: http-contract-scan
+  kind: skill
+  triggers:
+    api_surface_detected: true   # any HTTP route has a status, method and media-type contract; lanes the repo lacks (no Express, no Go, no GraphQL) report N/A
+  extracts_from: _extracted-codebase.md § "API surface" (framework, adapter and router versions; the pagination kernel, idempotency store and HTTP-client wrapper) + the committed OpenAPI spec and its CI diff step
+  fallback: skills/http-contract-scan/SKILL.md   # source-as-fallback; reads validation-boundary-scan's scripts/dto-types.py (same pack)
 
 - name: log-tail
   kind: command
