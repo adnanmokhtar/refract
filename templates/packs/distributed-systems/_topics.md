@@ -150,6 +150,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (queues, brokers and their client versions) + sample consumers and producers
   fallback: skills/messaging-scan/SKILL.md   # source-as-fallback; stacks.md and scripts/ds-inventory.py ship beside it
 
+- name: coordination-scan
+  kind: skill
+  triggers:
+    signal_confirmed_any: [background-jobs]
+    OR_grep_evidence: "\"(redlock|redlock-universal|@nestjs/schedule|node-cron|node-schedule|@kubernetes/client-node)\"\\s*:|['\"]NX['\"]|\\bpg_(try_)?advisory_|redisson|shedlock|go-redsync|k8s\\.io/client-go|DistributedLock|celery-redbeat|apscheduler"   # a lock primitive, a leader election or a scheduler library: the lock mechanics and the time decisions are the subject
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (locks, leader keys, schedulers, the process time zone) + sample lock helpers
+  fallback: skills/coordination-scan/SKILL.md   # source-as-fallback; stacks.md ships beside it
+
 - name: dual-write-scan
   kind: skill
   triggers:
@@ -157,4 +165,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
     OR_grep_evidence: "[Oo]utbox|\"(bullmq|kafkajs|@confluentinc/kafka-javascript|amqplib|@aws-sdk/client-(sqs|sns|eventbridge|kinesis)|nats|@nats-io/jetstream|@google-cloud/pubsub|@nestjs/cqrs)\"\\s*:|^\\s*(celery|kombu)\\b|gem ['\"](sidekiq|solid_queue|good_job)['\"]|spring-kafka|spring-rabbit|spring-modulith-events|MassTransit|debezium|confluent-kafka-go|segmentio/kafka-go|ThreeDotsLabs/watermill"   # a database write that may be published: an outbox store, a broker client, an in-process event bus or CDC
   extracts_from: _extracted-codebase.md § "Data model" (outbox, inbox and processed-message tables) + § "Cross-cutting concerns" (brokers, ORM) + sample use cases that write then publish
   fallback: skills/dual-write-scan/SKILL.md   # source-as-fallback
+
+- name: retry-deadline-scan
+  kind: skill
+  triggers:
+    signal_confirmed_any: [background-jobs, event-sourced]
+    OR_grep_evidence: "\"(axios-retry|p-retry|async-retry|exponential-backoff|cockatiel|got|bullmq|@aws-sdk/client-[a-z0-9-]+|@grpc/grpc-js|@temporalio/client)\"\\s*:|^\\s*(tenacity|backoff|stamina|celery|grpcio)\\b|Polly|Microsoft\\.Extensions\\.Http\\.Resilience|resilience4j|spring-retry|spring-kafka|go-retryablehttp|cenkalti/backoff|retry-go|MassTransit|gem ['\"](sidekiq|faraday-retry|retriable)['\"]"   # a retry library, an SDK that retries by itself, or a job system whose attempts are an outer layer
+  extracts_from: _extracted-codebase.md § "Cross-cutting concerns" (outbound clients, retry policies, job options, deadlines) + the shared outbound client or kernel
+  fallback: skills/retry-deadline-scan/SKILL.md   # source-as-fallback; F2 reuses messaging-scan's scripts/ds-inventory.py
 ```
