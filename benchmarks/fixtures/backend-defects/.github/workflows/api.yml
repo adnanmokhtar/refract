@@ -1,0 +1,49 @@
+name: api
+
+on:
+  pull_request:
+    paths: ['apps/api/**', 'openapi/**']
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  spec-diff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+      - run: pnpm install --frozen-lockfile
+      - name: Generate the spec from the code
+        run: pnpm --filter @lumen/api spec:write
+      - name: Install oasdiff
+        run: curl -fsSL https://github.com/oasdiff/oasdiff/releases/download/v1.33.0/oasdiff_1.33.0_linux_amd64.tar.gz | tar -xz -C /usr/local/bin oasdiff
+      - name: Breaking changes against the committed spec
+        run: oasdiff breaking openapi/openapi.yaml openapi/openapi.generated.yaml --format githubactions
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16.4
+        env: { POSTGRES_PASSWORD: canary-placeholder }
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @lumen/api test:e2e
+
+  changelog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: spec-diff
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      - name: Install oasdiff
+        run: curl -fsSL https://github.com/oasdiff/oasdiff/releases/download/v1.33.0/oasdiff_1.33.0_linux_amd64.tar.gz | tar -xz -C /usr/local/bin oasdiff
+      - name: API changelog for the PR description (informational)
+        run: oasdiff changelog openapi/openapi.yaml openapi/openapi.generated.yaml --format markdown >> "$GITHUB_STEP_SUMMARY"

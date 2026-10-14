@@ -1,0 +1,68 @@
+lockfileVersion: '9.0'
+
+importers:
+
+  apps/api:
+    dependencies:
+      '@nestjs/core':
+        specifier: ^11.1.6
+        version: 11.1.6
+      '@nestjs/platform-fastify':
+        specifier: ^11.1.6
+        version: 11.1.6
+      class-validator:
+        specifier: ^0.15.1
+        version: 0.15.1
+
+  apps/admin:
+    dependencies:
+      express:
+        specifier: ^5.1.0
+        version: 5.1.0
+      zod:
+        specifier: ^4.1.5
+        version: 4.1.5
+
+packages:
+
+  '@nestjs/common@11.1.6':
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  '@nestjs/core@11.1.6':
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  '@nestjs/platform-fastify@11.1.6':
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  '@nestjs/schedule@6.1.3':
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  '@nestjs/swagger@11.2.0':
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  '@mikro-orm/core@6.4.16':
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  bullmq@6.3.4:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  class-transformer@0.5.1:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  class-validator@0.15.1:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  cron@4.4.0:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  express@5.1.0:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  fastify@5.4.0:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  xstate@5.20.1:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}
+
+  zod@4.1.5:
+    resolution: {integrity: sha512-fixture-not-a-real-hash}

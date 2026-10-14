@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- st run openapi/openapi.yaml --url http://localhost:3000 --checks all --max-examples 50 --seed 1 --max-time 300 --report junit
+     Schemathesis 4.31.0 report shape — authored fixture data, not captured from a run. Summary line: "API Links: 0 covered" (no links on response objects). -->
+<testsuites name="schemathesis" tests="7" failures="3" errors="0">
+  <testsuite name="schemathesis" tests="7" failures="3">
+    <testcase name="POST /v1/quotes/preview">
+      <failure message="status_code_conformance">Received 201, documented: 200, 400</failure>
+    </testcase>
+    <testcase name="GET /v1/orders/{id}">
+      <failure message="response_schema_conformance">200 body "total": 10.1 is not of type 'string'</failure>
+    </testcase>
+    <testcase name="DELETE /v1/subscriptions/{id}">
+      <failure message="status_code_conformance">Received 204 with an empty body, documented: 200 + Subscription</failure>
+    </testcase>
+    <testcase name="PUT /v1/warehouses/{id}"/>
+    <testcase name="POST /v1/checkout"/>
+    <testcase name="GET /v1/legacy/orders/{ref}"/>
+    <testcase name="stateful">
+      <skipped message="API Links: 0 covered"/>
+    </testcase>
+  </testsuite>
+</testsuites>

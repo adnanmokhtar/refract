@@ -1,0 +1,8 @@
+# V339 rendered-body round trip — authored fixture transcript (the shape a real-bootstrap run prints; not captured from a run)
+seed orders.total_amount = 10.10      GET /v1/orders/<id>              -> "total": 10.1
+seed orders.total_amount = 1000.00    GET /v1/orders/<id>              -> "total": 1000
+seed ledger_entries.psp_transaction_id = 9007199254740993
+                                      GET /v1/ledger/entries/<id>      -> "pspTransactionId": 9007199254740992
+GET /v1/fx/convert?from=AED&to=USD&amount=12.70                        -> "amount": 12
+seed invoices.amount_due = 10.1250    GET /billing/invoices/<id>/      -> "amount_due": 10.12
+GET /v1/invoices/<id>                                                  -> body has no "taxAmount"

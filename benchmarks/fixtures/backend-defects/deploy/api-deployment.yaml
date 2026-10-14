@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lumen-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: lumen-api }
+  template:
+    metadata:
+      labels: { app: lumen-api }
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/lumen/api:2.4.0
+          env:
+            - name: NODE_ENV
+              value: production

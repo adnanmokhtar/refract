@@ -1,0 +1,28 @@
+# V345 failure-class matrix — authored fixture transcript (the shape a real-bootstrap run prints; not captured from a run)
+# apps/api: Test.createTestingModule({ imports: [AppModule] }) + configureApp(app) on FastifyAdapter; app.inject()
+# apps/admin: supertest(app) on the exported Express 5 app
+
+[apps/api]
+01 unknown route        GET  /v1/nope                                  -> 404 application/json {"error":{"code":"NOT_FOUND","message":"Cannot GET /v1/nope","details":[]}}
+02 wrong method         PATCH /v1/quotes/preview                       -> 404 application/json {"error":{"code":"NOT_FOUND",...}}
+03 malformed JSON       POST /v1/orders  body: {"currency":            -> 400 application/json {"error":{"code":"BAD_REQUEST",...}}
+04 wrong content type   POST /v1/orders  text/xml                      -> 415 application/json {"error":{"code":"UNSUPPORTED_MEDIA_TYPE",...}}
+05 validation           POST /v1/orders  {"currency":"AED","lines":[]} -> 400 application/json {"error":{"code":"BAD_REQUEST","message":"lines must contain at least 1 elements",...}}
+06 not-found (domain)   PATCH /v1/products/<random uuid> {}            -> 404 application/json {"error":{"code":"NOT_FOUND",...}}
+06b not-found (ORM)     POST /v1/pricing/rate-cards/apply {"rateCardId":"<random uuid>","orderId":"<uuid>"} -> 500 application/json {"error":{"code":"INTERNAL","message":"Internal error"}}
+07 conflict             POST /v1/carts/<locked cart>/validate          -> 422 application/json {"code":"CART_LOCKED","lockedAt":"2026-10-12T08:00:00.000Z"}
+08 unique violation     POST /v1/invoices (duplicate number)           -> 409 application/json {"error":{"code":"DUPLICATE",...}}
+09 uncaught             POST /v1/transfers (account frozen)            -> 500 application/json {"error":{"code":"INTERNAL","message":"Internal error"}}
+10 thrown non-Error     any partner route, merchant over quota         -> 500 application/json {"error":{"code":"INTERNAL","message":"Internal error"}}
+11 file route too large POST /v1/files/direct (11 MiB)                 -> 500 application/json {"error":{"code":"FILE_ERROR","message":"File operation failed"}}
+12 decline (payments)   POST /v1/payments/captures (PSP declines)      -> 500 application/json {"error":{"code":"INTERNAL","message":"Internal error"}}   log: TypeError: res.status(...).json is not a function
+13 PATCH null           PATCH /v1/products/<id> {"name": null}         -> 500 application/json {"error":{"code":"INTERNAL","message":"Internal error"}}   log: TypeError: Cannot read properties of null (reading 'trim')
+healthy request after   GET /v1/orders/<id>                            -> 200
+
+[apps/admin]
+01 unknown route        GET  /admin/nope                               -> 404 text/html "<pre>Cannot GET /admin/nope</pre>"
+05 validation           GET  /admin/users?includeDisabled=maybe        -> 200 (coerced to true)
+05b validation          POST /admin/coupons {"code":"x"}               -> 500 application/json {"error":{"code":"INTERNAL","message":"Something went wrong"}}   (ZodError)
+06 not-found            POST /admin/invoices/<missing>/void            -> 200 text/html "404"
+06b not-found           GET  /admin/invoices/<missing>                 -> 200 (empty body)
+healthy request after   GET  /admin/health/db                          -> 200

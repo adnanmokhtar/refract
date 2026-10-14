@@ -1,0 +1,7 @@
+# V341 coercion table — authored fixture transcript (the shape a real-bootstrap run prints; not captured from a run)
+GET /v1/reports/sales?includeRefunded=false   -> handler saw includeRefunded === true      (ReportsController @UsePipes enableImplicitConversion)
+GET /v1/reports/sales?year=                   -> handler saw year === 0 -> 400 (@Min(2020))
+GET /v1/customers?active=false                -> handler saw active === true               (@Type(() => Boolean))
+GET /admin/users?includeDisabled=false        -> query saw includeDisabled === true        (z.coerce.boolean)
+PATCH /v1/tickets/<id> {"priority":"Urgent"}  -> 500 (enum KEY accepted by @IsEnum on a numeric enum; int column)
+GET /v1/orders?status=paid&status=open        -> handler saw status === ["paid","open"] (string[] reached the ORM where as $in: 200, both lists merged)

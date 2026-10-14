@@ -1,0 +1,17 @@
+type Product {
+  id: ID!
+  title: String!
+  price: String!
+  currency: String!
+}
+
+type Category {
+  id: ID!
+  name: String!
+  "Products may be unpublished between the category read and the product read."
+  products: [Product!]!
+}
+
+type Query {
+  category(id: ID!): Category
+}

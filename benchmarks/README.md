@@ -14,7 +14,7 @@ This directory is the apparatus for measuring the other half. It does not contai
 
 ## What is measured
 
-Eighteen fixtures, one question each:
+Nineteen fixtures, one question each:
 
 | Fixture | Command | Question |
 |---------|---------|----------|
@@ -35,6 +35,8 @@ Eighteen fixtures, one question each:
 | [`obs-defects`](fixtures/obs-defects) | `/obs-audit --whole-repo` + `/security-audit` · `/quality-audit` · `/perf-audit` (hand-offs) | Does it find the logs that lose their stack, the traces that split at a queue, the labels that explode, the alerts and SLOs that can never fire, and the pipeline that drops data — route the redaction, swallowed-error and liveness rows to their owners — and leave the precedent-backed siblings alone? |
 | [`infra-ops`](fixtures/infra-ops) | `/infra-audit --whole-repo` + `/security-audit` (routed rows) | Does it find the state, pinning, deletion-safety, backup and restore, serverless-timing, rendered-Kubernetes, edge, DNS/TLS and network defects that take a platform down or lose its data with no attacker — route the cache, takeover, RBAC, NetworkPolicy, shared-credential and registry rows to security — and leave the precedent-backed siblings alone? |
 | [`ci-defects`](fixtures/ci-defects) | `/devops-audit --whole-repo` + `/security-audit` · `/test-audit` · `/infra-audit` · `/obs-audit` (hand-offs) | Does it find the masked gates, lost exit codes, skip-satisfied required checks, ungated deploys, stale caches, movable releases, rebuilt-after-scan images, boot-time migrations, unprotected environments, signal-deaf containers, compose drift, never-failing canaries and out-of-band GitOps edits across six CI platforms — route the attacker, test-job, manifest and alert rows to their owners — and leave the precedent-backed siblings alone? |
+| [`backend-defects`](fixtures/backend-defects) | `/backend-audit --whole-repo` + `/security-audit` · `/db-audit` · `/perf-audit` · `/quality-audit` · `/obs-audit` · `/ds-audit` (hand-offs) | Does it find the action POSTs answering 201, the bodies the pipe never sees, the nested DTOs never validated, the booleans coerced before validation, the nulls through `@IsOptional`, the catch-alls that flatten status, the ORM not-found hidden behind a same-named class, the Express filter on Fastify, the decimals and 64-bit ids that change on the wire, the cron that overlaps itself, the spec gate that cannot fail and the illegal transition that still refunds — route the transaction, retry, outbox, cast, minor-unit, upload, timeout and telemetry rows to their owners — and leave the precedent-backed siblings alone? |
+| [`ds-defects`](fixtures/ds-defects) | `/ds-audit --whole-repo --contract-base=…` + `/db-audit` · `/security-audit` · `/perf-audit` · `/infra-audit` · `/obs-audit` · `/backend-audit` (hand-offs) | Does it find the job acked before its effect, the reserve on an id a redelivery changes, the nack that loops on a quorum queue, the batch applied out of order, the PDF render that outlives its lock, the commit-then-publish that bypasses the outbox, the relay that publishes unordered, the inbox in a second store, the cursor that skips a late commit, the retries multiplied across layers, the lease renewed and ignored, the advisory lock behind PgBouncer, the leader that keeps acting, the 02:30 cron in a DST zone, the workflow changed with executions open, the saga that undoes forward, the proto field reused and the projection that counts twice — across six stacks — route the in-transaction enqueue, money, fleet, Lambda, trace-hop and single-process schedule rows to their owners — and leave the precedent-backed siblings alone? |
 | [`routing`](fixtures/routing) | `/do --route-only` | For 100 natural-language asks, does the router pick the right command and the right risk tier — and never put a T3 change in a lower tier? |
 
 Each fixture is a small, self-contained, deliberately broken project. Each ships a
@@ -192,6 +194,47 @@ Every root renders offline. Its answer key records every detector pre-flight run
 every printed decoy cleared by one precedent), the owners' pre-flights on the hand-off rows (25 of 28; the three
 infrastructure rows blocked without `yq`), and the ten integrator requests that measurement found.
 
+`backend-defects` is the backend pack's whole-repo audit, measured on one order and billing platform (`Lumen Orders`):
+a NestJS 11 API on Fastify with MikroORM, BullMQ, `@nestjs/schedule`, xstate and a Mercurius schema, whose validation
+pipe is an `APP_PIPE` subclass beside a project `@ZodBody` decorator; an Express 5 + zod admin console; a Django/DRF
+billing service with Celery, APScheduler and `transitions`; a Go/gin storefront edge with a ServeMux ops port and
+robfig/cron; a committed OpenAPI spec and a drifted generated one; a CI `oasdiff` job; `ai/api-conventions.md` as the
+contract; and `.refract-fixture/runtime/` — authored transcripts of the failure-class matrix, the coercion table, the
+rendered-body round trip and a Schemathesis report with 0 covered links — so the runtime lane is scored offline. It seeds
+109 backend defects across every § of the six detectors `/backend-audit` dispatches (`validation-boundary-scan`,
+`edge-error-scan`, `http-contract-scan`, `wire-format-scan`, `job-lifecycle-scan`, `state-transition-scan`; two or more
+per §, the clock-seam enabler excepted), and 17 hand-off rows scored only under their owners — 3 `/security-audit`, 2
+`/db-audit`, 3 `/perf-audit`, 4 `/quality-audit`, 2 `/obs-audit`, 3 `/ds-audit` — which is why the key carries seven
+`Invocation` lines; with 55 decoys from `precedents/backend.md` and the eval (a bounding RFC 7591 `unknown` body,
+`reply.status()` and `redirect(url, 302)` on Fastify v5, `@Res()` routes that send on every branch, an outbox drain on one
+sort key, the paging kernel, a tolerant webhook reader, a bigint behind a pinned mapper, a read-only cron, `IsAbsentOr()`,
+and the `@ZodBody` decorator, which validates through its own strict pipe). Its answer key records the wiring map and
+every detector pre-flight run on a staged copy (104 of 109 seeds printed, 5 missed by grep shape or the diff-only §;
+every printed decoy cleared by one precedent) and the twelve integrator requests that measurement found.
+
+`ds-defects` is the distributed-systems pack's whole-repo audit, measured on one fulfilment platform (`Acme Fulfilment`)
+in six stacks: a NestJS 11 / Fastify API and worker (MikroORM, BullMQ 6 behind a base processor and a producer wrapper,
+kafkajs, amqplib, sqs-consumer 14, ioredis, redlock, KurrentDB, a project outbox port and relay), Temporal TypeScript
+workflows, a Django + Celery billing service on Redis, a Spring Boot ledger (Spring Kafka, Kafka Streams 4, Resilience4j,
+Redisson, ShedLock, Temporal Java, Eventuate sagas), a Go dispatcher (kafka-go, Temporal Go, client-go leader election,
+go-retryablehttp, NATS JetStream) and a .NET notification service (MassTransit with the EF outbox, the standard
+resilience handler, Polly, Marten, a Durable orchestrator); plus `schemas/` (protobuf, Avro, AsyncAPI 3, JSON Schema) and
+`deploy/` (RabbitMQ 4.3 definitions, the production Kafka hosts, NATS, `redis.conf`, Debezium connectors, Terraform SQS,
+Kubernetes with an HPA, KEDA, a single-replica scheduler, PgBouncer and a DST-zone cluster). The schema, producer and
+workflow base copies sit under `.refract-fixture/contract-base/`, which the `--contract-base=` invocation reads offline.
+It seeds 111 defects across all 52 §s of the six detectors `/ds-audit` dispatches (`messaging-scan`, `dual-write-scan`,
+`retry-deadline-scan`, `coordination-scan`, `workflow-scan`, `event-contract-scan`; two or more per §), and 16 hand-off
+rows scored only under their owners — 4 `/db-audit`, 3 `/security-audit`, 4 `/perf-audit`, 2 `/infra-audit`, 1
+`/obs-audit`, 2 `/backend-audit` — which is why the key carries seven `Invocation` lines; with 46 decoys from
+`precedents/distributed.md` (an awaited handler under auto-commit, the project's outbox port in the same transaction, a
+bounded nack, an aborting deadline, a Lua compare-and-delete, `PX` before `NX`, a transaction-scoped advisory lock, a
+UUIDv7 floor with a lag and a rescan, TypeScript `Date.now()` in a workflow, the saga pivot, an Avro field with a default,
+a strict outbound DTO, a rebuild-and-swap projection). Its answer key records every detector pre-flight and
+`ds-inventory.py` run on a staged copy with `buf`, `json-schema-diff`, `@asyncapi/cli` and `avsc` installed (103 of 111
+seeds printed, 4 partial, 4 missed by grep shape or the missing workflow base; every printed decoy cleared by one
+precedent or fact; 53 of 58 inventory rows resolved), the owners' pre-flights on the hand-off rows (14 of 16, 1 partial),
+two measured tool-lane traps, and the eleven integrator requests that measurement found.
+
 ## Why seeded-defect detection is a fair proxy
 
 The honest alternative — take real codebases, have experts enumerate every real defect,
@@ -238,8 +281,8 @@ Stated plainly, because the gaps are large:
 - **Precision, properly.** See below — the harness cannot tell a hallucinated finding from
   a real unseeded one without a human reading it. The one exception is narrow: a finding
   pinned to a decoy (`vuln-fullstack` has 6, `slow-marketplace` 32, `brittle-suite` 21, `a11y-states` 23,
-  `frontend-correctness` 21, `mobile-defects` 20, `obs-defects` 26, `infra-ops` 34, `ci-defects` 28,
-  `quality-mix` 27) is a false positive by
+  `frontend-correctness` 21, `mobile-defects` 20, `obs-defects` 26, `infra-ops` 34, `ci-defects` 28, `backend-defects` 55,
+  `ds-defects` 46, `quality-mix` 27) is a false positive by
   construction, and is counted as one. A few dozen known-safe sites are a probe, not a
   precision rate.
 - **Any comparison against another framework.** Running the same fixture with the
@@ -307,7 +350,7 @@ answer key somehow lands in the copy. An agent that reads the answer key scores 
 the number is worthless, so keep the run in the staged directory and never point it at
 `benchmarks/fixtures/` directly.
 
-A key whose defects name two or more commands (`slow-marketplace`, `mobile-defects`, `obs-defects`, `infra-ops`, `ci-defects`) is staged once per command —
+A key whose defects name two or more commands (`slow-marketplace`, `mobile-defects`, `obs-defects`, `infra-ops`, `ci-defects`, `backend-defects`, `ds-defects`) is staged once per command —
 `<workdir>/db-audit/slow-marketplace` and `<workdir>/perf-audit/slow-marketplace`, each with
 its own findings file — and each copy gets its own agent session. A block's `command:` may name
 both (`command: /mobile-audit /security-audit`): it then counts in both runs' denominators. Two copies, because the
@@ -356,6 +399,10 @@ the runner printed:
 | `infra-ops`, run 2 | `/security-audit` (the key's `Invocation[/security-audit]:` line) | scored on the 12 `IO-SEC-*` rows and the one decoy that names it; findings on the infrastructure rows are UNMATCHED, never credited |
 | `ci-defects`, run 1 | `/devops-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches all eight devops detectors plus `ci-graph.py` ([devops-audit.md](../templates/packs/devops/commands/devops-audit.md)). No sandbox repository, no token: every A-tier settings read prints `UNREADABLE` unless the run passes the snapshot's contexts (`.refract-fixture/gh-api/`), every R-tier seeded failure prints `not run` with its command, and docker-less runs print the build-check and compose model lanes `blocked`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The 28 `CD-HO-*` rows must appear as routed, and score only in runs 2–5 |
 | `ci-defects`, runs 2–5 | `/security-audit`, `/test-audit --whole-repo`, `/infra-audit --whole-repo`, `/obs-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (20, 3, 3, 2) and on the decoys that name it (`CD-DECOY-20` under `/security-audit`); findings on the devops rows are UNMATCHED, never credited |
+| `backend-defects`, run 1 | `/backend-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run builds the wiring map, then dispatches all six backend detectors ([backend-audit.md](../templates/packs/backend/commands/backend-audit.md)). No running app, no oasdiff, no Schemathesis: the U-tier rows read the authored transcripts under `.refract-fixture/runtime/` or print `Unconfirmed` with the request written out, and HC §10's tool lane prints `NOT-RUN`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The 17 `BD-HO-*` rows must appear as routed, and score only in runs 2–7 |
+| `backend-defects`, runs 2–7 | `/security-audit`, `/db-audit`, `/perf-audit --whole-repo`, `/quality-audit --whole-repo`, `/obs-audit --whole-repo`, `/ds-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (3, 2, 3, 4, 2, 3); findings on the backend rows are UNMATCHED, never credited |
+| `ds-defects`, run 1 | `/ds-audit --whole-repo --contract-base=.refract-fixture/contract-base` (the key's `Invocation:` line) | read-only; a whole-repo run builds the context map and runs `ds-inventory.py` once, then dispatches all six distributed detectors ([ds-audit.md](../templates/packs/distributed-systems/commands/ds-audit.md)); `--contract-base` gives `event-contract-scan` the offline base the single-commit copy lacks. No broker, no docker daemon, no `--live` target: every C-tier oracle stays Unconfirmed with its test written out, the managed Valkey's policy prints `UNREAD`, and the runtime lane prints `NO-DATA`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The 16 `DS-HO-*` rows must appear as routed, and score only in runs 2–7 |
+| `ds-defects`, runs 2–7 | `/db-audit`, `/security-audit`, `/perf-audit`, `/infra-audit --whole-repo`, `/obs-audit --whole-repo`, `/backend-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (4, 3, 4, 2, 1, 2) and on the decoys that name it (`DS-DECOY-46` under `/perf-audit`); findings on the distributed rows are UNMATCHED, never credited |
 | `review-decoys` | `/review-changes` | reviews the working-tree diff the runner staged ([review-changes.md](../templates/packs/code-quality/commands/review-changes.md)); paste every posted finding, Blockers to Nits |
 | `reward-hack` | `/add-feature specs/SPEC-0007-loyalty-points.md` | the spec path is the input; the run builds against the locked contract. Afterwards: `python3 benchmarks/score.py --fixture=reward-hack --tamper=<staged copy>` — and once more on the `--no-lock` copy |
 | `feature-refund`, run 1 | `/do "add a refund button"` | the bare ask is the test: everything the run needs is in the repo. Answer its approval gates as a product owner would, never naming a convention. Afterwards: `python3 benchmarks/score.py --fixture=feature-refund --outcome=<staged copy>` |
@@ -419,7 +466,7 @@ so two defects a few lines apart need two findings for both to count. That is de
 this can be verified.
 
 **Decoys** (only fixtures whose key has ```` ```decoy ```` blocks — today `vuln-fullstack`, `a11y-states`, `frontend-correctness`,
-`mobile-defects`, `obs-defects`, `infra-ops`, `ci-defects`, `slow-marketplace`, `brittle-suite`, `quality-mix`, `review-decoys` and `reward-hack`).
+`mobile-defects`, `obs-defects`, `infra-ops`, `ci-defects`, `backend-defects`, `ds-defects`, `slow-marketplace`, `brittle-suite`, `quality-mix`, `review-decoys` and `reward-hack`).
 A decoy is known-safe code that looks like a seeded defect. A finding is *pinned* to decoy
 Z when it names Z's file, cites a line within the tolerance window of Z's line, and matches
 every one of Z's `match:` patterns. A pinned finding is removed before assignment, so it
