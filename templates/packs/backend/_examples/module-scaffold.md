@@ -1,11 +1,15 @@
 ---
 name: module-scaffold
-description: Generate a complete module following the project's declared architecture — entity, repo, service/use-case, DTOs, controller, tests, DI wiring, migration.
+description: Generate a complete module following the project's declared architecture — entity, repo, service/use-case, DTOs, controller, tests, DI wiring, migration. Use when creating a new feature module from scratch or replacing a prototype with a properly-layered version. Emits structure, not verified behaviour — run `endpoint-test` on each scaffolded route once wired.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
+<!-- generated-from: templates/packs/backend/skills/module-scaffold/SKILL.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the pre-flight block, the detectors, the halts and the coverage block reach a greenfield project
+     intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source
+     changes — do not hand-edit; edit the source and re-copy. -->
 
 # module-scaffold
-
-End-to-end module generator. Mirrors a sibling module exactly so layout, imports, DI tokens, and test conventions stay consistent.
 
 ## Premise
 
@@ -31,11 +35,9 @@ End-to-end module generator. Mirrors a sibling module exactly so layout, imports
 ## Procedure
 
 1. Gather inputs. **Read what the codebase answers; ask only what it cannot.**
-   - Module name (kebab-case).
-   - One-line purpose.
-   - HTTP routes? Webhook receiver? Queue consumer? Scheduled job?
-   - Multi-tenant posture, soft-delete convention, translatable/i18n convention: read these from the sibling and from extraction, **not** from the user — all three are visible in the sibling module, and asking is the "ask the user about layout" failure `/add-module`'s premise forbids. Ask only when no sibling exists.
-   - The route set: whatever `/add-module`'s aggregate-shape ledger admitted, never a default five.
+   - From the caller or the user: module name (kebab-case), one-line purpose, and the route set `/add-module`'s aggregate-shape ledger admitted (never a default five).
+   - From the sibling and extraction, not from the user: multi-tenant posture, soft-delete convention, translatable/i18n convention. All three are visible in the sibling module; asking is the "ask the user about layout" failure `/add-module`'s premise forbids. Ask only when no sibling exists.
+   - From the sibling: whether this project has webhook receivers / queue consumers / scheduled jobs at all — a primitive the project has never used is an escalation, not an input.
 2. Read `ai/patterns/project-structure.md` to confirm the declared layout.
 3. Read a sibling module — note exactly: file names, folder layout, import order, DI token style (Symbol vs string), barrel exports vs direct imports, test file naming.
 4. Consult any framework reference (`.claude/references/<framework>.md`) for idiomatic shape.
@@ -49,42 +51,42 @@ End-to-end module generator. Mirrors a sibling module exactly so layout, imports
 
 ## What gets generated
 
-The exact file tree depends on the project's declared layout (Step 2: read `ai/patterns/project-structure.md`; Step 3: mirror a sibling module). The example below shows ONE plausible layout (Clean / Hexagonal TypeScript). Adapt to the project's actual layout + language — Rails: `app/{models,controllers,services}/`; Django: `<app>/{models,views,serializers,urls}.py`; Go: `internal/<feature>/{handler,service,store}.go`; flat Express: `routes/services/models/`. Mirror the sibling — don't impose this shape on a project that doesn't use it.
+The exact file tree depends on the project's declared layout (Step 2: read `ai/patterns/project-structure.md`; Step 3: mirror a sibling module). The example below shows ONE plausible layout (Clean / Hexagonal — `core/application/infrastructure/adapters` per module). Adapt to the project's actual layout: a Rails project gets `app/{models,controllers,services}/`; a Django project gets `<app>/{models,views,serializers,urls}.py`; a Go project gets `internal/<feature>/{handler,service,store}.go`; a flat Express app gets `routes/<feature>.js + services/<feature>.js + models/<feature>.js`. Mirror the sibling — don't impose this Clean-Architecture shape on a project that doesn't use it.
 
 ```
-# Example layout (Clean/Hexagonal TypeScript — substitute <ext> for the project's language)
+# Example layout (Clean/Hexagonal — use only if the project's sibling modules look like this)
 modules/<name>/
 ├── core/
 │   ├── entities/<name>.<ext>               domain model
 │   ├── errors/<name>-not-found.error.<ext> custom exception
-│   ├── ports/<name>.repository.ts          interface
-│   └── ports/<name>.service.ts             interface (if applicable)
+│   ├── ports/<name>.repository.<ext>       interface
+│   └── ports/<name>.service.<ext>          interface (if applicable)
 ├── application/
 │   └── use-cases/
-│       ├── create-<name>.use-case.ts
-│       ├── get-<name>.use-case.ts
-│       ├── list-<name>.use-case.ts
-│       ├── update-<name>.use-case.ts
-│       └── delete-<name>.use-case.ts
+│       ├── create-<name>.use-case.<ext>
+│       ├── get-<name>.use-case.<ext>
+│       ├── list-<name>.use-case.<ext>
+│       ├── update-<name>.use-case.<ext>
+│       └── delete-<name>.use-case.<ext>
 ├── infrastructure/
 │   └── persistence/
-│       ├── <name>.orm-entity.ts            TypeORM/Prisma entity
-│       ├── <name>.repository.impl.ts       implements port
-│       └── <name>.mapper.ts                ORM <-> domain
+│       ├── <name>.orm-entity.<ext>         ORM entity (whatever ORM the project uses)
+│       ├── <name>.repository.impl.<ext>    implements port
+│       └── <name>.mapper.<ext>             ORM <-> domain
 ├── adapters/
 │   └── http/
-│       ├── <name>.controller.ts
+│       ├── <name>.controller.<ext>
 │       └── dtos/
-│           ├── create-<name>.dto.ts
-│           ├── update-<name>.dto.ts
-│           └── <name>.response.dto.ts
-├── tokens.ts                               DI tokens (Symbol / string / framework-native — match the sibling)
-├── <name>.module.ts                        @Module wiring
-├── <name>.module.spec.ts                   wiring smoke test
+│           ├── create-<name>.dto.<ext>
+│           ├── update-<name>.dto.<ext>
+│           └── <name>.response.dto.<ext>
+├── tokens.<ext>                            DI tokens (Symbol / string / framework-native — match project)
+├── <name>.module.<ext>                     framework module wiring (NestJS @Module / Spring config / Django app / etc.)
+├── <name>.module.spec.<ext>                wiring smoke test
 └── __tests__/
-    ├── create-<name>.use-case.spec.ts      unit
-    ├── <name>.repository.impl.spec.ts      integration
-    └── <name>.controller.e2e-spec.ts       e2e
+    ├── create-<name>.use-case.spec.<ext>   unit
+    ├── <name>.repository.impl.spec.<ext>   integration
+    └── <name>.controller.e2e-spec.<ext>    e2e
 ```
 
 Plus:
@@ -94,10 +96,10 @@ Plus:
 
 ## Generated-file invariants
 
-- Every DTO is validated **in the sibling's validation library** — every input field carries a validator. The library is read from the sibling, not chosen from a shortlist: introducing `zod` into a `class-validator` project is the drift `/add-module`'s sibling-shape halt rejects.
+- Every DTO is validated **in the sibling's validation library** — every input field carries a validator. The library is read from the sibling at step 3, not chosen from a shortlist: introducing `zod` into a `class-validator` project is the drift `/add-module`'s sibling-shape halt rejects.
 - Every query in the repo includes the tenant filter if the project is multi-tenant.
 - Every entity extends the project's soft-delete base class (whatever name it uses — detected from extraction) if soft-delete is in use.
-- DI tokens defined in `tokens.<ext>` **in the sibling's token style** (Symbol / string / framework-native) — never inline at the injection site, and never a style the sibling does not use. "Symbols, never strings" would issue the opposite order to the mirror-the-sibling premise on any project whose siblings use string tokens, and `/add-module`'s sibling-shape halt would then flag this skill's own output as `drifted`.
+- DI tokens defined in `tokens.<ext>` **in the sibling's token style** (Symbol / string / framework-native, as read at step 3) — never inline at the injection site, and never a style the sibling does not use. This invariant used to read "Symbols, never strings", which issued the opposite order to the premise above on any project whose siblings use string tokens — and `/add-module`'s sibling-shape halt then flagged this skill's own output as `drifted`.
 - Migration is reversible — both `up()` and `down()` populated, no `// TODO`.
 - Test files import from the public surface (the module's barrel or controller), not internal paths.
 
@@ -128,6 +130,15 @@ Next steps:
 - Generated mappers must handle null/undefined relations — don't assume eager loading.
 - Migration `down()` that just runs `DROP TABLE` is acceptable; `down()` that's empty or `// not implementable` blocks the scaffold.
 - Business logic is NOT scaffolded — only CRUD plumbing. Schema design for non-trivial tables: defer to a `schema-architect` agent.
+
+## Related
+
+- Used by `@api-architect` — that agent designs the module shape, then drives module-scaffold to generate the layered files against a named sibling.
+- `.claude/skills/endpoint-test/SKILL.md` — verify each scaffolded route end-to-end once the module is wired.
+- `.claude/skills/api-snapshot/SKILL.md` — new endpoints surface as additive diffs; snapshot confirms the generated contract.
+- `ai/patterns/api-contract.md` — the input/output-DTO + envelope shape every generated DTO must follow.
+- `ai/patterns/multi-tenancy.md` — the tenant-filter invariant every generated repository query must include.
+- `.claude/rules/backend-principles.md` — the architecture / layering MUSTs the scaffold mirrors from the chosen sibling.
 
 ## Halt conditions
 

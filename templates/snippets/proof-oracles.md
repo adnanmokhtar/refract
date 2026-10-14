@@ -4553,7 +4553,7 @@ control still succeeds unchanged.
 - pass: the job acts on current data (or a documented snapshot), discards a missing record once with a log line and 0 retries, and both consumer directions succeed (cross-commit replay; drained-by-runbook queues and versioned payloads are the control, B-R7)
 
 #### V352. Schedules — fire times and overlap (`job-lifecycle-scan` §4–§6; once-per-fleet → V40; the DST-day count of a coordinated schedule → V319)
-- a run longer than the period × 1 and × 2 on one process: npm `cron` without `waitForCompletion`, node-cron without `noOverlap`, `@nestjs/schedule` (read the installed version), Laravel without `withoutOverlapping`, Spring `fixedRate` on virtual threads, Quartz without `@DisallowConcurrentExecution`, robfig without `SkipIfStillRunning`; after a restart
+- a run longer than the period × 1 and × 2 on one process: npm `cron` without `waitForCompletion`, node-cron without `noOverlap`, `@nestjs/schedule` `@Cron` without `waitForCompletion: true` (6.1.3 and 12.0.2 build it with `CronJob.from` on `cron` 4.4.0 and pass the option only when set; `@Interval` is a plain `setInterval`, which overlaps an async body; every scheduled method is wrapped in a log-only try/catch, so a throw neither stops the schedule nor surfaces — source read 2026-10-14), Laravel without `withoutOverlapping`, Spring `fixedRate` on virtual threads, Quartz without `@DisallowConcurrentExecution`, robfig without `SkipIfStillRunning`; after a restart
 - downtime across 1 and N fire times on a must-run job (billing, settlement, payout, month-end) with no misfire instruction, grace or coalesce (APScheduler's default grace is 1 s); a schedule with no `timeZone` / `zone=` / `->timezone(` / `spec.timeZone`; an hour field 0–3 in a DST zone; month-end (`L`, the 31st)
 - pass: max concurrency 1 on one process; executions after downtime equal the documented misfire policy; exactly one run per business day at the intended local time (idempotent, read-only, cheap jobs are the control, B-R8)
 
@@ -4588,7 +4588,7 @@ research's V291–V313, V317–V321, V323 and V324 in that order, with V311, V31
 narrowed to the backend-owned classes and V304 absorbing V322's env-loader rows — merged here as
 V328–V357 after § Distributed (the research's draft numbers collide with § Distributed and are
 superseded). Rows the research left [K]/[K?] (Spring Boot 4 and Jackson 3 defaults, the
-`@nestjs/schedule` overlap default, Nest 11 `ValidationPipe` rows, .NET, Rails, Laravel and Rust
+Nest 11 `ValidationPipe` rows (the `@nestjs/schedule` overlap default is settled from its 6.1.3 and 12.0.2 source on `cron` 4.4.0, V352), .NET, Rails, Laravel and Rust
 rows) are settled on the `backend-defects` fixture before a detector asserts them. Paraphrased; no
 text reproduced.
 

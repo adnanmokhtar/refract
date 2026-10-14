@@ -1,6 +1,12 @@
 ---
 description: Trace a request / event / job lifecycle through every layer — controller → service → repo → external calls → response. Produces a visual call chain with file:line pointers, failure modes per step, and observability gaps.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
+<!-- generated-from: templates/packs/backend/commands/trace-flow.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the phases, gates and halts reach a greenfield project
+     intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source
+     changes — do not hand-edit; edit the source and re-copy. -->
 
 # /trace-flow
 
@@ -19,13 +25,25 @@ Diagnostic / read-only command. Produces a call chain + gap report, does not mod
 - Stop at "missing circuit breaker on Meta Send" without checking the other 4 external clients in the repo. **Check siblings; surface the cluster.**
 - Use words like `the service`, `the repo`, `somewhere downstream`. **Every step has a file:line — never a noun without a path.**
 - Map the whole app — ONE flow per invocation. **Cluster discovery is grep, not re-trace.**
-- Promise gaps "will be addressed elsewhere" without naming the follow-up command. **`/fix-bug`, `/add-telemetry`, ADR — pick one per gap.**
+- Promise gaps "will be addressed elsewhere" without naming the follow-up command. **`/fix-bug`, `/add-telemetry`, ADR — pick one per gap.** `/add-telemetry` ships in the **observability pack**; when that pack is not installed the gap routes to an inline instrumentation note against the project's own telemetry primitives, not to a command that does not exist. A redirect must land somewhere.
 - **Emit a latency, p95, throughput, cost or index-effectiveness figure the walk did not obtain.** This command reads source; source does not contain measurements. An invented `p95: ~8ms` in an output this persuasive is believed. **Every number carries its source or is emitted as `unmeasured` — see § Provenance rule.**
 
 **The agent ONLY escalates to the user when:**
 - The flow's entry point cannot be resolved (controller method ambiguous, multiple matches).
 - A sibling-flow grep surfaces ≥3 instances of the same gap — that's project-wide and warrants ADR consideration before piecemeal fixes.
 - Tenant isolation is broken at any hop — halt for `/security-audit`.
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Walk | Output |
+|---|---|---|---|
+| **Trivial** (default) | Single endpoint / event / job, ≤6 hops, no external boundary. | Linear walk, file:line per hop, gap list. | Visual call chain + 1-paragraph summary. **No sibling grep unless a gap surfaces.** |
+| **Standard** | Flow crosses ≥2 modules OR has 1 external boundary OR is multi-tenant. | Walk + per-gap sibling-flow grep. | Visual call chain + summary + cluster table (this gap N times across N flows). |
+| **Heavy** | Webhook / payment / cross-service distributed flow OR onboarding doc deliverable OR ADR substrate. | Full walk + sibling grep + observability completeness check + cross-flow pattern doc draft. | Full report with external-boundary table + cluster findings + Phase 7 follow-ups + suggested ADRs. |
+
+**Default is trivial.** Most invocations are "I'm about to edit this — show me the chain." Heavy is opt-in for documentation deliverables.
 
 ## Cluster halt (mechanical gate, all tiers)
 
@@ -53,23 +71,26 @@ If the sibling grep returns zero matches, say so explicitly: `Cluster size: 1 (s
 
 ## Provenance rule (mechanical gate, all tiers)
 
-**Everything this command emits is either read from source or measured. Nothing is estimated.** Reading a file yields structure — never latency, never cost, never how effective an index is. A number that appears anyway was invented, and it is the most dangerous line in the report precisely because the surrounding `file:line` citations make it look sourced.
+**Everything this command emits is either read from source or measured. Nothing is estimated.** The call chain is derived by reading files, and reading a file yields structure — never latency, never cost, never how effective an index is. A number that appears anyway was invented, and it is the most dangerous line in the report precisely because the surrounding `file:line` citations make it look sourced.
+
+Every quantitative claim carries its origin inline, in one of these forms — or it is not emitted:
 
 | Claim | Admissible source (cite it inline) | Otherwise emit |
 |---|---|---|
-| Latency / p95 / p99 per hop | a metrics query actually run, a trace exemplar, or a timed local run — name which, with the window | `p95: unmeasured` |
+| Latency / p95 / p99 per hop | a metrics query actually run (`histogram_quantile(...)` against the project's Prometheus / APM), or a trace exemplar, or a timed local run — name which, with the window | `p95: unmeasured` |
 | End-to-end flow latency | the same, on the entry-point span | `Latency: unmeasured (no span/metric on this flow — see Gaps)` |
-| Cost per call | the provider's published price × token/request counts read from the code's own budget or a logged usage row — cite both halves | `Cost per call: unmeasured` |
-| Index effectiveness | `EXPLAIN (ANALYZE, BUFFERS)` for that exact query | `index <name> present (plan not verified)` |
-| Timeout / retry / breaker / TTL / page cap | **source is admissible** — these are literals; cite `file:line` | (must be citable — otherwise it is a gap, not an unknown) |
+| Cost per call | the provider's published price × the token/request counts read from the code's own budget or a logged usage row — cite both halves | `Cost per call: unmeasured` |
+| Index effectiveness | `EXPLAIN (ANALYZE, BUFFERS)` output for that exact query | `index <name> present (plan not verified)` |
+| Payload / queue size | a measured message, or a schema-derived bound | `size: unmeasured` |
+| Timeout / retry / breaker / TTL / page cap | **source is admissible** — these are literals in the code; cite `file:line` | (must be citable — otherwise it is a gap, not an unknown) |
 
-`unmeasured` is a first-class, honest output, and it is also a finding: a hot path with no way to measure it is an observability gap routed to `/add-telemetry`, not a blank to be filled with a plausible number.
+`unmeasured` is a first-class, honest output. It is also a finding: a hot path with no way to measure it is an observability gap and belongs in the Gaps list routed to `/add-telemetry`, not a blank to be filled with a plausible number.
 
-**Halt: any figure in the report without an inline source and not marked `unmeasured` invalidates the run.**
+**Halt: any figure in the report without an inline source and not marked `unmeasured` invalidates the run.** Re-emit before handing the report over.
 
 ## Phases applied
 
-1, 2, 3, 6, 7. Phases 4 (Generate) + 5 (Update) are N/A — no code, no docs written; output is a findings report. Phase 6 here = "validate the trace is complete and accurate". Phase 7 = capture any patterns / drift surfaced.
+1, 2, 3, 6, 7. Phases 4 (Generate) + 5 (Update) are N/A — no code, no docs written; output is a findings report. Phase 6 here = "validate the trace is complete and accurate". Phase 7 = capture any patterns / drift surfaced. **Heavy-tier only runs Phase 7 in full; trivial / standard skip Phase 7 unless cluster size ≥2.**
 
 ## When to use / NOT to use
 
@@ -116,14 +137,7 @@ Plan the trace walk:
 
 ## Phase 3 — Retrieve (read the right context)
 
-ALWAYS (the universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+ALWAYS (the universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 FLOW-SPECIFIC:
 - The entry-point file (controller / handler / job).
@@ -138,12 +152,12 @@ For each step, identify:
 - **Inputs** (DTO, domain object, event payload).
 - **Outputs** (typed return).
 - **Side effects** (DB write, cache invalidation, event emission, external call).
-- **tx:** — **which transaction this step belongs to**, and whether it is one. This axis decides correctness on any multi-write flow and is invisible in a chain drawn without it. Record `tx:<name>` (inside a transaction — cite the site that opened it), `tx:none`, or `tx:AMBIGUOUS` (a decorator/context is in scope but the write path leaves it — say so rather than guessing). Two writes with different `tx:` values are **not** atomic, whatever the code looks like; an external call carrying a `tx:` value is holding a DB connection across a network round-trip. Both are findings.
+- **tx:** — **which transaction this step belongs to**, and whether it is one. This is the axis that decides correctness on any multi-write flow and it is invisible in a chain drawn without it. Record one of: `tx:<name>` (inside a named/annotated transaction — cite the site that opened it), `tx:none` (no transaction), or `tx:AMBIGUOUS` (a decorator/context is in scope but the write path leaves it — say so rather than guessing). Two writes with different `tx:` values on the same flow are **not** atomic, whatever the code looks like; an external call carrying a `tx:` value is holding a DB connection across a network round-trip. Both are findings.
 - **Error modes** (what typed errors can be thrown + where caught).
 - **Observability** (logs emitted, metrics incremented, trace span present).
 
 Annotate every crossing of a process / service boundary:
-- DB: which query, indexed how (index name from the schema), and its `tx:` value. **Latency is not readable from source** — leave it `unmeasured` unless a measurement was actually run.
+- DB: which query, indexed how (index name from the schema), and its `tx:` value. **Latency is not readable from source** — leave it `unmeasured` unless a measurement was actually run (§ Provenance rule).
 - Cache: read / write, key shape, TTL (`file:line` of the TTL literal).
 - External API: which provider, timeout, retry, circuit breaker (each a literal at `file:line`), and its `tx:` value.
 - Event publish: pattern, metadata, payload size (measured or `unmeasured`).
@@ -160,7 +174,7 @@ No knowledge files mutated by trace itself. (If the trace surfaces a missing pat
 
 - Every step has a file:line. NEVER "the service" without naming it.
 - **Every step has a `tx:` value** — `tx:<name>`, `tx:none`, or `tx:AMBIGUOUS`. A write step with no `tx:` annotation is an incomplete trace, not a clean one.
-- **Every quantitative claim carries an inline source or reads `unmeasured`.** Scan the drafted report for bare numbers before emitting it; this check exists because the exemplar is what gets copied.
+- **Every quantitative claim carries an inline source or reads `unmeasured`** (§ Provenance rule). Scan the drafted report for bare numbers before emitting it; this check exists because the exemplar is what gets copied.
 - External boundaries annotated with timeout / retry / circuit-breaker status, each cited at `file:line`.
 - Observability gaps called out explicitly per step.
 - Tenant isolation verified end-to-end (no missing filter).
@@ -170,9 +184,9 @@ No knowledge files mutated by trace itself. (If the trace surfaces a missing pat
   - Missing idempotency (retryable operation without key).
   - Missing tenant filter.
   - Missing timeout.
-  - **Split transaction** — two or more writes on this flow with different `tx:` values, or a partial-failure window between them with no compensation. Report both write sites and the state the system is left in when the second one fails.
-  - **External call inside a transaction** — a step whose `tx:` is a named transaction and whose type is `external API`. The DB connection is held across someone else's network call; under load this exhausts the pool before it times out.
-  - **Unmeasurable hot path** — a step emitted `unmeasured` because no metric or span exists. Route to `/add-telemetry`.
+  - **Split transaction** — two or more writes on this flow with different `tx:` values, or a partial-failure window between them with no compensation. On a multi-write flow this is the finding that matters most; report it with both write sites and the state the system is left in when the second one fails (`ai-patterns/transaction-boundary.md`).
+  - **External call inside a transaction** — a step whose `tx:` is a named transaction and whose type is `external API`. The DB connection is held for the duration of someone else's network call; under load this exhausts the pool before it times out.
+  - **Unmeasurable hot path** — a step that had to be emitted `unmeasured` because no metric or span exists. Route to `/add-telemetry`.
 
 ## Phase 7 — Improve (feed the learning loop)
 
@@ -335,3 +349,21 @@ Status: COMPLETE — read-only trace, no files modified.
 - Observability gaps called out explicitly.
 - Use for ONE flow at a time — don't try to map the whole app.
 - Flag any path without error handling / idempotency / tenant filter.
+
+## Related
+
+### Sibling commands — where the boundary falls
+- `/log-tail` — the runtime counterpart. This command reads the path statically and marks steps `unmeasured`; that one supplies the signal that would close them.
+- `/analyze-module` — grades a module's axes; this one follows a single request across whatever modules it touches. Module-shaped question → there; request-shaped question → here.
+- `/fix-bug` — a gap this run names becomes a fix there. Naming the follow-up command per gap is a hard rule of this file.
+
+### Patterns
+- `ai/patterns/api-contract.md` — the declared shape each hop in the traced path is supposed to honour.
+- `ai/patterns/parallel-io.md` — the oracle for a sequential-await step found on a hot path.
+- `ai/patterns/caching-strategy.md` — the oracle for a hop that should have been a cache hit and was not.
+
+The other pack patterns are not read on this axis and are deliberately not listed.
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

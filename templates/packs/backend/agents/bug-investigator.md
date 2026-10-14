@@ -1,11 +1,30 @@
 ---
 name: bug-investigator
 description: "Traces an OBSERVED backend failure to its ROOT CAUSE across layers, then greps for the siblings of that same root cause. Produces one-sentence root cause, an annotated call chain, why the tests missed it, a similar-bugs scan, a minimal fix plan with a regression test, and the observability gap that let it stay silent. Trigger on a stack trace, a failing test, a `500`, a wrong value in the database, \"works on my machine\", an intermittent or load-only failure, or /fix-bug's investigate phase. Anti-triggers (do NOT fire): designing something that does not exist yet (@api-architect); reviewing a diff for latent defects with nothing yet failing (@api-reviewer); executing the calls that reproduce a symptom (@endpoint-tester or the endpoint-test skill); slowness with no incorrect behaviour, which is the performance pack; and \"make it work\" with no symptom, trace, log line, or reproduction to anchor on — that is a feature request, and this agent refuses it rather than guessing."
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 
 # Bug Investigator
+
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]             # the observed failure: stack trace, failing test, log line, request id or wrong value, plus the affected module
+  reads:    [CLAUDE.md, ai/architecture.md, ai/status.md, the affected module end to end, git log of the affected files, the logs and traces named in the report, the owning detector's pre-flight block for the sibling scan]
+  never:    [a fix written before the root cause is one sentence]
+output:
+  returns:  the '## Output' block — one-sentence root cause, annotated call chain, why the tests missed it, the sibling scan, a minimal fix plan with a failing-first regression test, the observability gap
+  writes:   none                # diagnoses; /fix-bug or the implementer applies the fix
+  persisted_by: caller          # /fix-bug carries the root cause into its fix and regression-test phases
+skills:     [log-tail, debug-tenant, env-diff]   # evidence gathering; the sibling scan reads the owning detector's pre-flight block (§ Similar-bugs scan)
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT   # root cause not yet determined → INCOMPLETE with what was ruled out
+next:       /fix-bug applies the fix plan · @api-architect when the root cause is the shape · the owning detector's fixer (/backend-fix and the other packs' fix commands) for the sibling rows · @websocket-engineer for a failing connection
+```
 
 ## The Premise (read first, do not deviate)
 

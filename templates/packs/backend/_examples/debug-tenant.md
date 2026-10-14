@@ -1,7 +1,13 @@
 ---
 name: debug-tenant
-description: Debug tenant isolation issues — a user sees data that doesn't belong to them, or doesn't see data that does. Multi-step playbook that walks the full tenant-resolution chain.
+description: Debug tenant isolation issues — a user sees data that doesn't belong to them, or doesn't see data that does. Use on a suspected cross-tenant leak or a missing-data report; walks the full tenant-resolution chain hop by hop. Not a static scan — it reproduces against a running system via `log-tail` and `endpoint-test`.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
+<!-- generated-from: templates/packs/backend/skills/debug-tenant/SKILL.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the pre-flight block, the detectors, the halts and the coverage block reach a greenfield project
+     intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source
+     changes — do not hand-edit; edit the source and re-copy. -->
 
 # debug-tenant
 
@@ -23,14 +29,14 @@ A "fixed" leak without a regression test that would have caught it is unfinished
 
 ### 0. Identify the isolation mechanism — before anything else
 
-The rest of this playbook branches here. Establish which mechanism this project uses (a project may use more than one — walk each):
+The rest of this playbook branches here. Establish which mechanism this project uses (one grep each; a project may use more than one, in which case walk each):
 
 | Mechanism | How to confirm it | Chain to walk |
 |---|---|---|
-| **Application-level filtering** | a repository base class / query scope injecting `tenant_id`; no `ENABLE ROW LEVEL SECURITY` in migrations | 1 → 2 → 3A → 3C → 4 → 5 |
-| **Postgres RLS** | `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` in migrations; a `SET LOCAL` or `set_config('app.tenant_id', …, true)` in a request hook | 1 → 2 → 3B → 3C → 4 → 5 |
-| **Schema-per-tenant** | a per-request `SET search_path` / schema switch; migrations run per schema | 1 → 2 → 3C → 3D → 4 → 5 |
-| **Database-per-tenant** | connection string / pool selected per tenant at request time | 1 → 2 → 3C → 3D → 4 → 5 |
+| **Application-level filtering** | a repository base class / query scope injecting `tenant_id` (`grep -rn "tenant_id" <repo-base-class>`); no `ENABLE ROW LEVEL SECURITY` in migrations | Step 1 → 2 → 3A → 3C → 4 → 5 |
+| **Postgres RLS** | `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY` in migrations; a `SET LOCAL` or `set_config('app.tenant_id', …, true)` in a request hook | Step 1 → 2 → 3B → 3C → 4 → 5 |
+| **Schema-per-tenant** | a per-request `SET search_path` / schema switch; migrations run per schema | Step 1 → 2 → 3C → 3D → 4 → 5 |
+| **Database-per-tenant** | connection string / pool selected per tenant at request time | Step 1 → 2 → 3C → 3D → 4 → 5 |
 
 **Halt if this step is skipped.** A chain walked for the wrong mechanism produces a confident false positive — and on a tenant-leak incident a confident wrong answer costs more than no answer.
 
@@ -67,39 +73,47 @@ If the SQL lacks the filter — that's the bug. **This verdict is valid ONLY und
 
 ### 3B. Trace query scope — Postgres RLS
 
-The SQL carrying no `tenant_id` predicate is correct here. The leak is in the session state, the role, or the policy — walk all five and record the observed value for each:
+The SQL carrying no `tenant_id` predicate is correct here. The leak is in the session state, the role, or the policy — walk all five, in order, and record the observed value for each:
 
 ```
 1. Was the GUC set in THIS transaction?
-     SELECT current_setting('app.tenant_id', true);        -- inside the same tx
-     NULL → default-deny: policies comparing to NULL match no rows. Symptom is
-     MISSING DATA, not a leak — the hook never ran, or ran on another connection (→ 3C).
-2. SET LOCAL / set_config(..., true) (transaction-scoped) or a bare SET (session-scoped)?
-     A session-scoped SET survives into whatever the pooler hands out next;
-     is_local = true confines it to the current transaction. Only the local form
-     is safe behind a pooler.
+     SELECT current_setting('app.tenant_id', true);        -- run inside the same tx
+     NULL → default-deny: policies comparing to NULL match no rows.
+     Symptom is MISSING DATA, not a leak. Root cause: the request hook
+     never ran, or it ran on a different connection (→ step 3C).
+2. Was it set with SET LOCAL / set_config(..., true) — transaction-scoped —
+   or a bare SET — session-scoped?
+     A session-scoped SET survives into whatever the pooler hands out next.
+     `is_local = true` confines it to the current transaction (Postgres docs,
+     `set_config`); that is the only safe form behind a pooler.
 3. Which ROLE is the query running as?
      SELECT current_user, rolbypassrls FROM pg_roles WHERE rolname = current_user;
-     Superusers and BYPASSRLS roles always bypass RLS; **table owners normally
-     bypass it too** unless the table carries FORCE ROW LEVEL SECURITY. An app
-     connecting as the table owner is the classic silent no-op — RLS "enabled",
-     policies present, nothing enforced. LEAK, and invisible from the SQL.
-4. Is RLS enabled on the table, and is there a policy for THIS command?
-     SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname='<table>';
-     SELECT polname, polcmd, pg_get_expr(polqual, polrelid), pg_get_expr(polwithcheck, polrelid)
-       FROM pg_policy WHERE polrelid='<table>'::regclass;
-     relrowsecurity = false → every row visible. LEAK.
-     RLS on with no policy matching the command → default-deny (missing data), never a leak.
+     Superusers and roles with BYPASSRLS always bypass RLS. **Table owners
+     normally bypass it too** unless the table carries FORCE ROW LEVEL SECURITY
+     (Postgres docs, ddl-rowsecurity). An app connecting as the table owner is
+     the classic silent no-op: RLS is "enabled", policies exist, and nothing is
+     enforced. This is a LEAK, and it is invisible from the SQL.
+4. Is RLS actually enabled on the leaking table, and is there a policy for THIS command?
+     SELECT relname, relrowsecurity, relforcerowsecurity FROM pg_class
+       WHERE relname = '<table>';
+     SELECT polname, polcmd, pg_get_expr(polqual, polrelid)   AS using_expr,
+            pg_get_expr(polwithcheck, polrelid)               AS check_expr
+       FROM pg_policy WHERE polrelid = '<table>'::regclass;
+     relrowsecurity = false → not enabled: every row is visible. LEAK.
+     A SELECT-only policy on a table with no ALL/UPDATE policy → default-deny for
+     the other commands (missing data), never a leak: with RLS on and no matching
+     policy, no rows are visible or modifiable (Postgres docs, ddl-rowsecurity).
 5. Does the write policy allow writing rows INTO another tenant?
-     Omitting WITH CHECK is safe — the USING expression is reused for the check.
-     An explicit permissive WITH CHECK (true) is not: an UPDATE can move a row across tenants.
+     Omitting WITH CHECK is safe — Postgres reuses the USING expression for the
+     check (docs, ddl-rowsecurity). An explicit permissive `WITH CHECK (true)` is
+     not: it lets an UPDATE move a row across tenants. Read check_expr above.
 ```
 
-Cite the observed value for every line. "RLS is on" is not an observation; `relrowsecurity = t, current_user = app_owner, rolbypassrls = f, FORCE = f` is.
+Cite the observed value for every numbered line. "RLS is on" is not an observation; `relrowsecurity = t, current_user = app_owner, rolbypassrls = f, FORCE = f` is.
 
 ### 3C. Trace the connection — the hop that survives code review
 
-**Which connection served this query, and was its session state reset since the previous tenant used it?** This is the tenant leak no amount of reading the repository will find, because the repository is correct.
+**Between "context" and "repo" there is a hop the chain used to omit: which connection served this query, and was its session state reset since the previous tenant used it.** This is the tenant leak that no amount of reading the repository will find, because the repository is correct.
 
 ```
 Pool:            <pool name / DSN>  size=<n>
@@ -109,10 +123,11 @@ Pooler mode:     session | transaction | statement
 Reset on return: does the pooler / driver RESET session state between checkouts?
 ```
 
-- **Connection acquired before the context was set** → the GUC / `search_path` / per-tenant DSN landed on a *different* connection than the one that ran the query. Intermittent: correct under low concurrency, wrong under load.
-- **Session-scoped state behind a transaction-mode pooler** → the backend is handed to another client at commit; `SET` / `LISTEN` / temp tables are the classic silent break under `pool_mode = transaction`. Fix: `SET LOCAL` inside the transaction, or session mode.
-- **Connection returned without a reset**, reused by another tenant carrying the previous tenant's state. The leak that looks like nothing in the diff.
-- **Schema/database-per-tenant** → same failure, different hat. Verify with `SELECT current_schema(), current_database()` on the leaking query's own connection, not a fresh one.
+Failure modes, in the order they actually occur:
+- **Connection acquired before the context was set.** The GUC (or `search_path`, or the per-tenant DSN) was applied to a *different* connection than the one that ran the query. Symptom: intermittent — correct under low concurrency, wrong under load.
+- **Session-scoped state behind a transaction-mode pooler.** In transaction mode the backend is handed to another client at commit; session state set outside a transaction does not travel with the caller. The pack's own `connection-pooling` pattern names `SET` / `LISTEN` / temp tables as the classic silent break under `pool_mode = transaction`. Fix is `SET LOCAL` inside the transaction, or session mode.
+- **Connection returned to the pool without a reset**, then reused by another tenant with the previous tenant's state still on it. This is the leak that looks like nothing in the diff.
+- **Schema-per-tenant / database-per-tenant:** the same failure wearing a different hat — a pooled connection still pointing at the previous tenant's `search_path` or database. Verify with `SELECT current_schema(), current_database()` on the leaking query's own connection, not on a fresh one.
 
 ### 3D. Trace the namespace — schema-per-tenant / database-per-tenant
 
@@ -121,7 +136,7 @@ Resolved tenant:   <id>
 Expected schema / database:  <name>
 Observed on the query's connection:
      SELECT current_schema(), current_database(), current_setting('search_path');
-Migrations applied to this schema?   <yes/no>
+Migrations applied to this schema?   <yes/no — a missing table falls back to a shared one on some search_paths>
 ```
 
 A `search_path` containing a shared/public schema **after** the tenant schema is a silent cross-tenant read whenever the tenant schema lacks the table. Report the full `search_path`, not just the first entry.
@@ -171,6 +186,16 @@ Similar bugs to check:
 - Never paper over with a "temporary fix" — tenant leaks are security incidents.
 - File an incident write-up in `ai/audits/` after root cause is known.
 - Add a regression test that would have caught this BEFORE shipping the fix.
+
+## Related
+
+- `.claude/skills/log-tail/SKILL.md` — the tracing primitive for steps 2–5: filter by correlation id / tenant id to observe the resolved id, SQL, and cache key at each hop.
+- `.claude/skills/endpoint-test/SKILL.md` — reproduces the leak deterministically (case 4, wrong tenant) and confirms the fix; a cross-tenant 200 there is the same finding.
+- Used by `@bug-investigator` — this playbook is the tenant-isolation branch of that agent's root-cause search.
+- `ai/patterns/multi-tenancy.md` — the tenant-resolution + query-scoping contract the application-level chain walks; it also names Postgres RLS with a per-request `SET app.tenant_id` as the stronger belt-and-suspenders, which is the mechanism Step 3B covers.
+- `ai/patterns/connection-pooling.md` (database pack — if installed) — pooler modes and the transaction-mode / session-state break behind Step 3C. Not installed → the four failure modes in 3C are self-contained; walk them from the pool config directly.
+- `ai/patterns/caching-strategy.md` — the tenant-prefixed, versioned cache-key rule whose violation is the step-4 leak.
+- `.claude/rules/backend-principles.md` — the tenant-isolation MUSTs behind "a leak is a security incident".
 
 ## Halt conditions
 

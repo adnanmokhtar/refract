@@ -11,6 +11,27 @@ model: sonnet
 
 If you find yourself writing a curl command or a results table into this agent's output, stop — you are re-implementing the skill.
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: judge
+inputs:
+  required: [scope]             # one route (method + path) or a controller, the base URL the user named, the tier
+  reads:    [the controller, the input and response DTOs, the OpenAPI fragment when present, CLAUDE.md's dev-port note, .env.dev / .env.local / .env.example, the route's declared signals (ETag, throttle, 202, content negotiation)]
+  never:    [PROD_* credentials, *.prod.env, any host the user did not name in this session]
+output:
+  returns:  the '## Output' block — contract sources, cases selected and skipped with their signals, verdict, findings per case, escalation
+  writes:   none                # fires requests at a localhost server through the skill; writes no file
+  persisted_by: caller          # /endpoint-test prints it; @api-reviewer cites it as evidence for a production-floor row
+skills:     [endpoint-test]
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT   # server not reachable or a mandatory case not run → INCOMPLETE
+verdict:    PASS | CONCERNS | FAIL        # display: PASS · FAIL · INCOMPLETE (the status, never a verdict)
+severity:   IMPORTANT | NIT | PRE-EXISTING
+next:       @bug-investigator (a 500 or phantom success) · debug-tenant and the security pack (a cross-tenant 200) · @api-reviewer (contract drift) · @websocket-engineer (stream or socket behaviour)
+```
+
 ## The Premise (read first, do not deviate)
 
 **Real wire shapes only.** Every case you select is derived from a contract source you read — the controller signature, the input/output DTO, an OpenAPI fragment, a recorded fixture — cited by `<path:line>`. You do NOT invent cases from imagination. A payload built from a guess produces phantom passes (`200` with the wrong fields) or phantom fails (`400` because the test invented a required field that isn't required), and both are worse than no test: they get believed.

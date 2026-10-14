@@ -17,18 +17,32 @@ Modes (default --params):
                                Record/...) | union-nullable (X | null / undefined) | union | intersection |
                                primitive | literal | builtin (Date, Buffer) | any-unknown-object |
                                schema-inferred (z.infer<typeof S>, yup.InferType) |
-                               inline-object | untyped | other | UNRESOLVED
+                               inline-object | untyped | other | UNRESOLVED |
+                               custom-pipe(<Pipe>) | custom-pipe(none) (project param decorators, below)
                       metatype what TypeScript emits as design:paramtypes for that type — the value Nest's
                                ValidationPipe reads (it validates a user class; it skips String, Boolean,
                                Number, Array, Object, Buffer, Date). X | null is Object under
                                strictNullChecks and X without it; when the tsconfig chain cannot be read the
                                column says UNREAD — never a guess.
+                      Project param decorators are followed to their declaration (imports, barrels, aliases).
+                      A const/function that calls Nest's Body()/Query()/Param() with a pipe —
+                      `(schema) => (t, k, i) => Body(new ContractPipe(schema))(t, k, i)` — is a wrapper: its
+                      params bucket custom-pipe(<Pipe>), decorator `Name>Body`, pipes `Pipe(<call args>)`;
+                      a wrapper with no pipe buckets by the param's type, as @Body would. A
+                      createParamDecorator whose factory reads `.body` / `.query` / `.params` buckets
+                      custom-pipe(<Pipe>) when the call site passes a pipe, else custom-pipe(none), flagged
+                      (ValidationPipe skips custom decorators unless validateCustomDecorators is set); one
+                      that reads only `.user` is no row. The ledger lists each decorator with its count.
   --decorator-blocks  PROP rows (each decorated class property, decorators read across lines) with flags:
                         validate-nested-no-type, type-no-validate-nested(child=X validators=N),
+                        initialiser(<expr>) (a property default: class-transformer applies it to an omitted
+                        field, so an Update/Patch DTO resets the column — HC5c),
                         optional-admits-null (@IsOptional, type without null), no-each(<IsX>) (@Is*/@Matches/
                         @Length... on an array type without each: true), array-no-max.
                       HANDLER rows (each route method) with flags: post-no-httpcode (no @HttpCode and no
-                        @Res/@Response/@Next param), res / res-passthrough, httpcode=<arg>,
+                        @Res/@Response/@Next param), res / res-passthrough, and beside either
+                        res-status(<arg>) or res-no-status (does the body call <res>.status( / .code( or set
+                        .statusCode — HC1b), httpcode=<arg>,
                         action=<word>@<segment> (whole path segment, or its last -/_ word),
                         returns-nullable, 204-returns(<type>).
   --enums             ENUM rows: numeric | string | mixed (for @IsEnum on numeric enums).
@@ -334,7 +348,7 @@ class Src:
 IMPORT = re.compile(r'\bimport\s+(type\s+)?([\w$*{}\s,]*?)\s*\bfrom\s*([\'"])')
 IMPORT_EQ = re.compile(r'\bimport\s+([A-Za-z_$][\w$]*)\s*=\s*require\s*\(\s*([\'"])')
 EXPORT_LIST = re.compile(r'\bexport\s+(type\s+)?\{([^}]*)\}(?:\s*from\s*([\'"]))?')
-EXPORT_STAR = re.compile(r'\bexport\s*\*\s*(?:as\s+([A-Za-z_$][\w$]*)\s*)?from\s*([\'"])')
+EXPORT_STAR = re.compile(r'\bexport\s*(?:type\s+)?\*\s*(?:as\s+([A-Za-z_$][\w$]*)\s*)?from\s*([\'"])')
 EXPORT_DEF_DECL = re.compile(r'\bexport\s+default\s+(?:abstract\s+)?(class|function|interface)\b\s*\*?\s*([A-Za-z_$][\w$]*)?')
 EXPORT_DEF_ID = re.compile(r'\bexport\s+default\s+([A-Za-z_$][\w$]*)\s*(?:;|$)', re.M)
 DECL = re.compile(r'^([ \t]*)(export[ \t]+)?(?:default[ \t]+)?(?:declare[ \t]+)?(?:abstract[ \t]+)?'
@@ -407,7 +421,7 @@ def parse_module(src):
 
 # ---------------------------------------------------------------- classes, members, params
 class Member:
-    __slots__ = ('kind', 'name', 'line', 'decs', 'opt', 'type', 'mtype', 'params', 'rtype', 'init')
+    __slots__ = ('kind', 'name', 'line', 'decs', 'opt', 'type', 'mtype', 'params', 'rtype', 'init', 'body')
 
 
 class Param:
@@ -497,7 +511,7 @@ def parse_members(src, b0, b1):
                 i = max(i + 1, start + 1); continue
             name, i = mo.group(), mo.end()
         mem = Member(); mem.kind = 'prop'; mem.name = name; mem.line = src.line(i - 1); mem.decs = decs
-        mem.opt, mem.type, mem.mtype, mem.params, mem.rtype, mem.init = False, '', '', [], '', False
+        mem.opt, mem.type, mem.mtype, mem.params, mem.rtype, mem.init, mem.body = False, '', '', [], '', '', None
         i = skip_ws(m, i, b1)
         if i < b1 and m[i] in '?!':
             mem.opt = m[i] == '?'; i = skip_ws(m, i + 1, b1)
@@ -512,13 +526,13 @@ def parse_members(src, b0, b1):
                 mem.rtype = norm(s[k:e]); j = e
             j = skip_ws(m, j, b1)
             if j < b1 and m[j] == '{':
-                j = match(m, j) + 1
+                e = match(m, j); mem.body = (j + 1, e); j = e + 1
             out.append(mem); i = j; continue
         if i < b1 and m[i] == ':':
             k = skip_ws(m, i + 1, b1); e = scan_type(m, k, b1, ';=}', nl_ends=True)
             mem.type, mem.mtype = norm(s[k:e]), norm(m[k:e]); i = e
         if i < b1 and m[i] == '=' and m[i + 1:i + 2] != '>':
-            mem.init = True; i = scan_expr(m, i + 1, b1)
+            e = scan_expr(m, i + 1, b1); mem.init = norm(s[i + 1:e]) or '?'; i = e
         out.append(mem)
         if i <= start:
             i = start + 1
@@ -600,6 +614,7 @@ def strip_jsonc(t):
 class World:
     def __init__(self, roots):
         self.srcs, self.cfg_by_dir, self.cfgs, self.file_cache, self.pkgs = {}, {}, {}, {}, None
+        self.customs, self.wrappers = {}, {}
         self.roots = [os.path.abspath(r) for r in roots]
 
     def src(self, path):
@@ -873,6 +888,55 @@ class World:
         k = kinds.pop() if len(kinds) == 1 else 'mixed'
         return k, ','.join(names)
 
+    # project param decorators that wrap @Body/@Query with a pipe, or read the request in createParamDecorator
+    def custom_param(self, src, name):
+        """-> None (not a request-input decorator) | dict(via, pipe, form, at, name)."""
+        key = (src.path, name)
+        if key not in self.customs:
+            r = self.resolve_name(src, name)
+            self.customs[key] = self._wrapper_info(r[2], r[3]) if r[0] == 'ok' and r[1] == 'value' else None
+        return self.customs[key]
+
+    def _wrapper_info(self, dsrc, dstart):
+        ck = (dsrc.path, dstart)
+        if ck in self.wrappers:
+            return self.wrappers[ck]
+        mod = dsrc.mod()
+        tops = sorted(v[1] for v in mod['decls'].values() if v[4] and v[1] > dstart)
+        end = tops[0] if tops else len(dsrc.m)
+        m, info = dsrc.m, None
+        nest = {loc: imp[1] for loc, imp in mod['imports'].items()
+                if imp[0].startswith('@nestjs/') and imp[1] in PARAM_DECS + ('createParamDecorator',)}
+        nm = re.search(r'([A-Za-z_$][\w$]*)', m[dstart:end][len(re.match(r'\s*(?:export\s+)?(?:const|let|var|function)\s*\*?\s*', m[dstart:end]).group(0)):])
+        calls = [mo for mo in re.finditer(r'(?<![@\w$.])([A-Za-z_$][\w$]*)\s*\(', m[dstart:end])
+                 if nest.get(mo.group(1)) in PARAM_DECS]
+        for mo in calls:
+            a = dstart + mo.end() - 1
+            e = match(m, a)
+            args = m[a + 1:e]
+            rest = re.sub(r'^\s*([\'"`])\s*\1\s*,?', '', args) if re.match(r'\s*[\'"`]', args) else args
+            if not rest.strip():
+                if info is None:
+                    info = {'via': nest[mo.group(1)], 'pipe': None, 'form': 'wrapper'}
+                continue
+            pm = re.search(r'\bnew\s+([A-Za-z_$][\w$.]*)', rest) or re.search(r'\b([A-Za-z_$][\w$]*Pipe)\b', rest)
+            info = {'via': nest[mo.group(1)], 'form': 'wrapper',
+                    'pipe': pm.group(1) if pm else 'expr:' + norm(dsrc.s[a + 1:e])[:40]}
+            break
+        if info is None and any(v == 'createParamDecorator' for v in nest.values()) and \
+                re.search(r'(?<![@\w$.])(%s)\s*\(' % '|'.join(re.escape(k) for k, v in nest.items()
+                                                       if v == 'createParamDecorator'), m[dstart:end]):
+            for prop, via in (('body', 'Body'), ('query', 'Query'), ('params', 'Param')):
+                if re.search(r'\.\s*%s\b' % prop, m[dstart:end]) or \
+                        re.search(r'\[\s*[\'"]%s[\'"]\s*\]' % prop, dsrc.s[dstart:end]):
+                    info = {'via': via, 'pipe': None, 'form': 'createParamDecorator'}
+                    break
+        if info:
+            info['at'] = '%s:%d' % (disp(dsrc.path), dsrc.line(dstart))
+            info['name'] = nm.group(1) if nm else '?'
+        self.wrappers[ck] = info
+        return info
+
     # types
     def classify(self, src, t, strict, depth=0):
         """t is masked type text. -> (bucket, metatype, [resolution strings], bucket_certain)"""
@@ -1039,7 +1103,7 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
     world = World(roots)
     ROOTS_DISPLAY[:] = sorted(((os.path.abspath(r), r) for r in roots), key=lambda x: -len(x[0]))
     files = list_files(roots, include_tests)
-    rows, raw, seen_params, method_level = [], [], set(), set()
+    rows, raw, seen_params, method_level, custom_used = [], [], set(), set(), {}
     cls_index = {}
     for f in files:
         src = world.src(f)
@@ -1071,20 +1135,39 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
                     if 'params' in modes:
                         for p in mem.params:
                             for d in p.decs:
+                                cu = None
                                 if d.name not in PARAM_DECS:
-                                    continue
+                                    cu = world.custom_param(src, d.name) if d.name[:1].isupper() else None
+                                    if not cu:
+                                        continue
+                                    custom_used.setdefault(d.name, cu)
                                 lits = literals(d.args) if d.args else []
                                 named = lits[0] if lits and re.match(r'\s*[\'"`]', d.args or '') else ''
                                 pipes = norm(d.args[d.args.find(',') + 1:]) if named and ',' in (d.args or '') else \
                                     (norm(d.args) if d.args and not named else '')
                                 b, meta, res, certain = world.classify(src, p.mtype, strict)
+                                flag = '' if b == 'class' and not meta.startswith('UNREAD') else b
+                                decname = d.name
+                                if cu:
+                                    decname = '%s>%s' % (d.name, cu['via'])
+                                    pipe = cu['pipe']
+                                    if cu['form'] == 'createParamDecorator' or pipe is None or pipe.startswith('expr:'):
+                                        um = re.search(r'\bnew\s+([A-Za-z_$][\w$.]*)', d.margs or '') or \
+                                            re.search(r'\b([A-Za-z_$][\w$]*Pipe)\b', d.margs or '')
+                                        pipe = um.group(1) if um else pipe
+                                    if pipe:
+                                        b, flag = 'custom-pipe(%s)' % pipe, ''
+                                        pipes = '%s(%s)' % (pipe, norm(d.args or '')[:80]) if pipe == cu['pipe'] else pipes
+                                    elif cu['form'] == 'createParamDecorator':
+                                        b = flag = 'custom-pipe(none)'
+                                    res = res + ['via %s %s@%s' % (cu['form'], cu['name'], cu['at'])]
                                 seen_params.add((f, d.line))
-                                rows.append({'kind': 'PARAM', 'at': '%s:%d' % (disp(f), d.line), 'decorator': d.name,
+                                rows.append({'kind': 'PARAM', 'at': '%s:%d' % (disp(f), d.line), 'decorator': decname,
                                              'name': named, 'param': p.name, 'type': p.type or '-', 'bucket': b,
                                              'metatype': meta, 'resolved': '; '.join(res) or '-', 'pipes': pipes or '-',
                                              'route': ('%s %s' % (verb, ' | '.join(routes) or '/')) if vd else '-',
                                              'handler': '%s.%s' % (c.name, mem.name), 'strict': strict,
-                                             'flags': '' if b == 'class' and not meta.startswith('UNREAD') else b})
+                                             'flags': flag})
                     if vd and 'blocks' in modes:
                         flags = []
                         hc = next((d for d in mem.decs if d.name == 'HttpCode'), None)
@@ -1092,6 +1175,7 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
                         if resd:
                             flags.append('res-passthrough' if all(re.search(r'passthrough\s*:\s*true', d.args or '')
                                                                   for d in resd) else 'res')
+                            flags.append(res_status(src, mem))
                         if hc:
                             flags.append('httpcode=%s' % norm(hc.args or ''))
                         elif verb == 'POST' and not resd:
@@ -1112,6 +1196,13 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
                                      'flags': ' '.join(flags), 'decorators': dec_text(mem.decs)})
                 elif 'blocks' in modes and mem.decs:
                     rows.append(prop_row(world, src, c, mem, strict))
+    if 'params' in modes and custom_used:
+        crx = re.compile(r'@(%s)\s*\(' % '|'.join(re.escape(k) for k in sorted(custom_used)))
+        for f in files:
+            src = world.srcs.get(f)
+            if src is not None and '@' in src.m:
+                for mo in crx.finditer(src.m):
+                    raw.append((f, src.line(mo.start()), mo.group(1)))
     if 'params' in modes:
         for f, ln, dn in raw:
             if (f, ln) not in seen_params and (f, ln) not in method_level:
@@ -1119,6 +1210,11 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
                              'text': norm(world.src(f).s.split('\n')[ln - 1])[:160], 'flags': 'unparsed'})
     ledger = make_ledger(world, files, rows, raw, time.time() - t0)
     ledger['method_level_decorators'] = len(method_level)
+    ledger['custom_param_decorators'] = {
+        k: {'via': v['via'], 'form': v['form'], 'at': v['at'],
+            'pipe': v['pipe'] or ('(at the call site)' if v['form'] == 'createParamDecorator' else 'none (global pipes only)'),
+            'params': sum(1 for r in rows if r['kind'] == 'PARAM' and r['decorator'].startswith(k + '>'))}
+        for k, v in sorted(custom_used.items())}
     return rows, ledger
 
 
@@ -1133,6 +1229,8 @@ def prop_row(world, src, c, mem, strict):
         tm = re.search(r'=>\s*([A-Za-z_$][\w$.]*)', td.margs or '')
         if tm and tm.group(1) not in TRANSFORM_BUILTIN:
             flags.append('type-no-validate-nested(child=%s)' % child_info(world, src, tm.group(1)))
+    if mem.init and any(VALIDATOR.match(n) for n in names):  # a DTO field; an ORM entity's default is no row
+        flags.append('initialiser(%s)' % mem.init[:40].replace(' ', ''))
     if 'IsOptional' in names and not re.search(r'\bnull\b', mem.mtype):
         flags.append('optional-admits-null')
     if is_arr:
@@ -1145,6 +1243,22 @@ def prop_row(world, src, c, mem, strict):
     return {'kind': 'PROP', 'at': '%s:%d' % (disp(src.path), mem.line), 'prop': '%s.%s' % (c.name, mem.name),
             'type': (mem.type or '-') + ('?' if mem.opt else ''), 'flags': ' '.join(flags),
             'decorators': dec_text(mem.decs)}
+
+
+def res_status(src, mem):
+    """HC1b: does a handler holding @Res/@Response set its own status in its body? res-status(<arg>) | res-no-status."""
+    names = [p.name for p in mem.params if any(d.name in ('Res', 'Response') for d in p.decs) and re.fullmatch(r'[\w$]+', p.name)]
+    if not mem.body or not names:
+        return 'res-no-status' if mem.body else 'res-status(UNREAD)'
+    body = src.m[mem.body[0]:mem.body[1]]
+    hits = []
+    for mo in re.finditer(r'\b(?:%s)\s*(?:\.\s*raw\s*)?\.\s*(?:status|code)\s*\(' % '|'.join(map(re.escape, names)), body):
+        a = mem.body[0] + mo.end() - 1
+        hits.append(norm(src.s[a + 1:match(src.m, a)])[:24] or '?')
+    for mo in re.finditer(r'\b(?:%s)\s*(?:\.\s*raw\s*)?\.\s*statusCode\s*=(?!=)' % '|'.join(map(re.escape, names)), body):
+        k = mem.body[0] + mo.end()
+        hits.append(norm(src.s[k:scan_expr(src.m, k, mem.body[1])])[:24] or '?')
+    return 'res-status(%s)' % ','.join(dict.fromkeys(h.replace(' ', '') for h in hits)) if hits else 'res-no-status'
 
 
 def child_info(world, src, name):
@@ -1222,8 +1336,11 @@ def emit(rows, ledger, as_json, flagged):
         w('  tsconfig notes: %d more (--json lists all)\n' % (len(L['tsconfig_notes']) - 5))
     if L['params'] or L['raw_param_hits']:
         w('  params: %d parsed / %d raw @Body|@Query|@Param|@MessageBody|@Payload|@Args hits (%d method-level, e.g. '
-          'GraphQL @Query(() => T); %d UNPARSED) %s\n' % (L['params'], L['raw_param_hits'], L.get('method_level_decorators', 0),
+          'GraphQL @Query(() => T); %d UNPARSED; custom decorators included) %s\n' % (L['params'], L['raw_param_hits'], L.get('method_level_decorators', 0),
                                                          L['unparsed'], json.dumps(L['by_decorator'], sort_keys=True)))
+        for k, v in sorted(L.get('custom_param_decorators', {}).items()):
+            w('  custom param decorator: @%s -> @%s through %s (%s at %s): %d params\n'
+              % (k, v['via'], v['pipe'], v['form'], v['at'], v['params']))
         w('  strictNullChecks per param: %s\n' % json.dumps(L['strictNullChecks'], sort_keys=True))
         w('  buckets: %s\n' % json.dumps(L['by_bucket'], sort_keys=True))
         w('  resolution: %s%% of params bucketed (%d UNRESOLVED); named types %d, every name resolved in %s%% '
@@ -1299,6 +1416,49 @@ FIX = {
         "  @Get('k/:kind')\n  k(@Param('kind') kind: Kind): Promise<{ url: string | null }> { return null as any; }\n"
         "  @Get('z')\n  zz(@Query() zq: z.infer<typeof Q>) {}\n"
         "}\n"),
+    'src/shared/contract.pipe.ts': (
+        "import { Body, createParamDecorator, type ExecutionContext, type PipeTransform, Query } from '@nestjs/common';\n"
+        "export class ContractPipe implements PipeTransform {\n  constructor(readonly schema: unknown) {}\n"
+        "  transform(v: unknown) { return v; }\n}\n"
+        "/** wraps @Body() with the contract pipe; a comment that says Body(new FakePipe()) is not a call */\n"
+        "export const ContractBody =\n  (schema: unknown): ParameterDecorator =>\n  (target, key, index) => {\n"
+        "    Body(new ContractPipe(schema))(target, key, index);\n  };\n"
+        "export const ContractQuery = (schema: unknown): ParameterDecorator => (t, k, i) => {\n"
+        "  Query(new ContractPipe(schema))(t, k, i);\n};\n"
+        "export const PlainBody = () => Body();\n"
+        "export const RawBody = createParamDecorator((_d: unknown, ctx: ExecutionContext) =>\n"
+        "  ctx.switchToHttp().getRequest().body);\n"
+        "export const CurrentUser = createParamDecorator((_d: unknown, ctx: ExecutionContext) =>\n"
+        "  ctx.switchToHttp().getRequest().user);\n"),
+    'src/shared/index.ts': "export * from './contract.pipe';\nexport type * from './wire.js';\n",
+    'src/shared/wire.ts': "export type WireInput = { a: string };\n",
+    'src/dto/update.dto.ts': (
+        "import { IsIn, IsOptional, IsString } from 'class-validator';\n"
+        "export class UpdateThingDto {\n"
+        "  @IsOptional() @IsIn(['a', 'b'])\n  status?: string = 'a';\n"
+        "  @IsOptional() @IsString() @Length(1, 5) title?: string;\n"
+        "  @Property() count: number = 0;\n"
+        "}\n"),
+    'src/contract.controller.ts': (
+        "import { Controller, Get, Post, Res } from '@nestjs/common';\n"
+        "import type { FastifyReply } from 'fastify';\n"
+        "import { ContractBody, ContractQuery, PlainBody, RawBody, CurrentUser, type WireInput } from '@app/shared';\n"
+        "import { CreateDto } from '@app/dto';\n"
+        "import { UpdateThingDto } from './dto/update.dto';\n"
+        "type CreateInput = { a: string };\n"
+        "@Controller('c')\n"
+        "export class ContractController {\n"
+        "  @Post()\n  create(@ContractBody(createSchema) dto: CreateInput, @CurrentUser() user: unknown) {}\n"
+        "  @Get()\n  list(@ContractQuery(listSchema) q: CreateInput, @ContractBody(wireSchema) w: WireInput) {}\n"
+        "  @Post('raw')\n  raw(@RawBody() r: CreateDto, @RawBody(new ParseThingPipe()) r2: CreateDto) {}\n"
+        "  @Post('plain')\n  plain(@PlainBody() p: UpdateThingDto) {}\n"
+        "  @Post('login')\n  login(@Res({ passthrough: true }) res: FastifyReply) {\n"
+        "    res.status(200);\n    return {};\n  }\n"
+        "  @Post('verify')\n  verify(@Res({ passthrough: true }) reply: FastifyReply) {\n"
+        "    const status = 'res.status(500)';\n    return {};\n  }\n"
+        "  @Post('refresh')\n  refresh(@Res({ passthrough: true }) res: FastifyReply) {\n"
+        "    res.raw.statusCode = 202;\n    return {};\n  }\n"
+        "}\n"),
 }
 
 WANT = [  # (kind, at-suffix, field, expected substring)
@@ -1332,6 +1492,21 @@ WANT = [  # (kind, at-suffix, field, expected substring)
     ('PROP', 'create.dto.ts:19', 'flags', 'optional-admits-null'),
     ('ENUM', 'types.ts:4', 'enum', 'numeric'),
     ('ENUM', 'types.ts:5', 'enum', 'string'),
+    # project param decorators: a wrapper around Body()/Query() with a pipe, createParamDecorator over req.body
+    ('PARAM', 'contract.controller.ts:10', 'bucket', 'custom-pipe(ContractPipe)'),
+    ('PARAM', 'contract.controller.ts:10', 'decorator', 'ContractBody>Body'),
+    ('PARAM', 'contract.controller.ts:10', 'pipes', 'ContractPipe(createSchema)'),
+    ('PARAM', 'contract.controller.ts:10', 'resolved', 'via wrapper ContractBody@'),
+    ('PARAM', 'contract.controller.ts:12', 'decorator', 'ContractQuery>Query'),
+    ('PARAM', 'contract.controller.ts:12', 'bucket', 'custom-pipe(ContractPipe)'),
+    ('PARAM', 'contract.controller.ts:14', 'flags', 'custom-pipe(none)'),
+    ('PARAM', 'contract.controller.ts:14', 'bucket', 'custom-pipe(ParseThingPipe)'),
+    ('PARAM', 'contract.controller.ts:16', 'decorator', 'PlainBody>Body'),
+    ('PARAM', 'contract.controller.ts:16', 'bucket', 'class'),
+    ('HANDLER', 'contract.controller.ts:17', 'flags', 'res-status(200)'),
+    ('HANDLER', 'contract.controller.ts:22', 'flags', 'res-no-status'),
+    ('HANDLER', 'contract.controller.ts:27', 'flags', 'res-status(202)'),
+    ('PROP', 'update.dto.ts:4', 'flags', "initialiser('a')"),
 ]
 QUIET = [  # (kind, at-suffix, field, substring that must NOT appear) — the decoys
     ('HANDLER', 'items.controller.ts:20', 'flags', 'action='),            # checkout is not "check"
@@ -1343,6 +1518,10 @@ QUIET = [  # (kind, at-suffix, field, substring that must NOT appear) — the de
     ('PROP', 'create.dto.ts:20', 'flags', 'optional-admits-null'),        # | null declared
     ('PROP', 'create.dto.ts:24', 'flags', 'type-no-validate-nested'),     # @Type(() => Number) is a transform
     ('HANDLER', 'items.controller.ts:43', 'flags', 'returns-nullable'),   # | null nested in an object field
+    ('PARAM', 'contract.controller.ts:10', 'flags', 'custom-pipe'),       # a named pipe validates: not a flag
+    ('HANDLER', 'contract.controller.ts:22', 'flags', 'res-status'),      # 'res.status(500)' is a string
+    ('PROP', 'update.dto.ts:5', 'flags', 'initialiser'),
+    ('PROP', 'update.dto.ts:6', 'flags', 'initialiser'),                  # an ORM default, no validator
 ]
 
 
@@ -1373,7 +1552,17 @@ def self_test():
             ('no row from a comment, string, template or regex',
              not any(r['kind'] == 'PARAM' and (r['param'] in ('fake', 'qq') or 'Fake' in r['type']) for r in rows)),
             ('every raw hit parsed (0 UNPARSED)', ledger['unparsed'] == 0),
-            ('params counted = 19', ledger['params'] == 19),
+            ('params counted = 25', ledger['params'] == 25),
+            ('export type * re-export resolved (TS 5.0)',
+             any(r.get('param') == 'w' and 'type WireInput@' in r['resolved'] for r in rows)),
+            ('createParamDecorator over request.user is not a request-input row',
+             not any(r['kind'] == 'PARAM' and r['param'] == 'user' for r in rows)),
+            ('custom decorators ledgered with their pipe',
+             ledger['custom_param_decorators'].get('ContractBody', {}).get('pipe') == 'ContractPipe'
+             and ledger['custom_param_decorators'].get('RawBody', {}).get('params') == 2
+             and ledger['custom_param_decorators'].get('ContractBody', {}).get('params') == 2),
+            ('a comment naming Body(new FakePipe()) is not the wrapper\'s pipe',
+             not any('FakePipe' in r.get('bucket', '') for r in rows)),
             ('UNRESOLVED module-not-found for @scope/absent-package',
              any('module-not-found:@scope/absent-package' in r.get('resolved', '') for r in rows)),
             ('UNRESOLVED not-declared, never guessed',
@@ -1389,7 +1578,7 @@ def self_test():
              any(r.get('param') == 'zq' and r['bucket'] == 'schema-inferred' for r in rows)),
             ('numeric enum param -> enum/Number',
              any(r.get('param') == 'c' and r['bucket'] == 'enum' and r['metatype'] == 'Number' for r in rows)),
-            ('strictNullChecks read through extends (on)', ledger['strictNullChecks'] == {'on': 19}),
+            ('strictNullChecks read through extends (on)', ledger['strictNullChecks'] == {'on': 25}),
             ('the /* inside a tsconfig string did not eat the alias table', ledger['tsconfig_notes'] == []),
             ('arrow-function property did not swallow the class', any(r['kind'] == 'PROP' and r['prop'] == 'CreateDto.n' for r in rows)),
         ]

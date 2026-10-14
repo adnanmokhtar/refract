@@ -36,6 +36,7 @@ templates/packs/backend/skills/api-consistency-audit/SKILL.md|settings   # a URL
 templates/packs/backend/skills/api-consistency-audit/SKILL.md|shipping-addresses   # a URL route / HTTP path in an example, not a command
 templates/packs/backend/skills/api-consistency-audit/SKILL.md|staff   # a URL route / HTTP path in an example, not a command
 templates/packs/backend/skills/api-consistency-audit/SKILL.md|updates   # a URL route / HTTP path in an example, not a command
+templates/packs/backend/skills/edge-error-scan/SKILL.md|error   # Spring Boot's default error route (BasicErrorController's /error JSON), a URL path in the lane table, not a command
 templates/packs/business/commands/suggest-metrics.md|analytics   # a URL route / HTTP path in an example, not a command
 templates/packs/business/commands/suggest-metrics.md|dashboard   # a URL route / HTTP path in an example, not a command
 templates/packs/business/commands/suggest-metrics.md|stats   # a URL route / HTTP path in an example, not a command

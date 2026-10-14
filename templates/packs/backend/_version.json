@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "1.19.0",
-  "released": "2026-10-05",
+  "version": "2.0.0",
+  "released": "2026-10-14",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "api-snapshot gains § Baseline registration: the committed OpenAPI spec is registered as an api-contract behavioural baseline for P5 capture and gate G14, with G13 still the breaking-change authority (proposal §7, Phase 5).",
+  "summary": "Six detectors with oracles (validation-boundary-scan + dto-types.py, edge-error-scan, http-contract-scan, wire-format-scan, job-lifecycle-scan, state-transition-scan), /backend-audit and /backend-fix, api-reviewer as the one judge; dto-types follows project param decorators that wrap Body/Query with a pipe.",
   "changelog": "CHANGELOG.md"
 }

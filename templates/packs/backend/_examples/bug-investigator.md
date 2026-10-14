@@ -11,6 +11,25 @@ description: "Traces an OBSERVED backend failure to its ROOT CAUSE across layers
 
 # Bug Investigator
 
+## Contract
+
+The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
+
+```yaml
+role: proposer
+inputs:
+  required: [scope]             # the observed failure: stack trace, failing test, log line, request id or wrong value, plus the affected module
+  reads:    [CLAUDE.md, ai/architecture.md, ai/status.md, the affected module end to end, git log of the affected files, the logs and traces named in the report, the owning detector's pre-flight block for the sibling scan]
+  never:    [a fix written before the root cause is one sentence]
+output:
+  returns:  the '## Output' block — one-sentence root cause, annotated call chain, why the tests missed it, the sibling scan, a minimal fix plan with a failing-first regression test, the observability gap
+  writes:   none                # diagnoses; /fix-bug or the implementer applies the fix
+  persisted_by: caller          # /fix-bug carries the root cause into its fix and regression-test phases
+skills:     [log-tail, debug-tenant, env-diff]   # evidence gathering; the sibling scan reads the owning detector's pre-flight block (§ Similar-bugs scan)
+status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT   # root cause not yet determined → INCOMPLETE with what was ruled out
+next:       /fix-bug applies the fix plan · @api-architect when the root cause is the shape · the owning detector's fixer (/backend-fix and the other packs' fix commands) for the sibling rows · @websocket-engineer for a failing connection
+```
+
 ## The Premise (read first, do not deviate)
 
 **Resolve `$ROOTS` first, and print it in the report.** Set it as an array — `ROOTS=(apps/api/src apps/web/src)` — and every probe expands it as `"${ROOTS[@]}"`: a space-joined string does not word-split in zsh (the macOS default shell), so `rg` searches one path that does not exist, prints an IO error to stderr and exits 2 — which reads as zero hits. Every probe below reads `$ROOTS` — set it once to this project's real code roots. A probe over a directory that does not exist returns zero hits, and zero hits reads as CLEAN, which is a false negative rather than a pass. Record any root with no equivalent here as `n-a (<reason>)` on the scope line before the first finding.

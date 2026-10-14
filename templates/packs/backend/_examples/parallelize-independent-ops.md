@@ -1,7 +1,13 @@
 ---
 name: parallelize-independent-ops
 description: Convert a sequential I/O-bound code path into bounded parallel execution using the project's concurrency primitive. Used when an endpoint, batch job, or aggregation does N independent awaits in a loop — the most common backend perf failure. Refuses to parallelize when data dependencies, transactions, or shared keys make it unsafe.
+allowed-tools: [Read, Grep, Glob, Bash]
 ---
+<!-- generated-from: templates/packs/backend/skills/parallelize-independent-ops/SKILL.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the pre-flight block, the detectors, the halts and the coverage block reach a greenfield project
+     intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source
+     changes — do not hand-edit; edit the source and re-copy. -->
 
 # parallelize-independent-ops
 
@@ -11,29 +17,30 @@ Existing project primitives are the truth. Use what `ai/patterns/parallel-io.md`
 
 Refuse to parallelize without naming the sibling code that uses the same primitive (or an ADR that establishes it).
 
+Take a sequential `await`-in-a-loop hot path and turn it into bounded parallel I/O that uses **this project's** primitive (extracted from `.claude/_extracted-codebase.md` + `.claude/_extracted-idioms.md`). Refuses unsafe transformations.
+
 This skill is the operational arm of `.claude/rules/concurrency-discipline.md` + `ai/patterns/parallel-io.md` — the rule says *what's required*, the pattern says *what it looks like in this codebase*, this skill says *how to do the conversion safely*.
 
 ## When to use
 
 - Endpoint p99 is unexplainably slow and a sequential loop is on the call stack.
-- Code review surfaces `for (const x of xs) await f(x)` where `f` is independent.
+- New code review surfaces `for (const x of xs) await f(x)` where `f` is independent.
 - Refactoring a batch job / cron / queue consumer that processes items one at a time.
 - The user says "make this faster" and the bottleneck is wall-clock not CPU.
 
 ## When NOT to use (refuse + explain)
 
-`ai/patterns/parallel-io.md` § When NOT to use owns the refusals that hold regardless of conversion — open transaction, required ordering, a collection too small to repay the ceremony, a job already CPU-pinned. Read them there; a second copy here would drift.
+`ai/patterns/parallel-io.md` § When NOT to apply owns the structural refusals — data dependency, open transaction, an existing batch API, required ordering. Read them there; a second copy here would drift.
 
-These three are this skill's own, because they only bite once you are mid-conversion:
+Two refusals are this skill's own, because they only exist once you are mid-conversion:
 
-- **Iteration N+1 reads a value produced by iteration N.** Sequential is correct as written. Step 2 is the gate that has to prove otherwise, and it proves it about *reads* only.
-- **A batch API already exists** (`findByIds`, `multiGet`, an `IN` clause). One round trip beats N bounded ones; parallelising here optimises the wrong axis and leaves the round-trip count untouched.
-- **Two iterations write the same row or key.** A write collision survives Step 2's read-independence gate, then surfaces as a lost update under load rather than a red test. Convert to atomic SQL, or leave the loop sequential, before parallelising anything else in it.
+- **Two iterations write the same row or key.** Independence of *reads* is what Step 2 proves; a write collision survives that gate and shows up as a lost update under load, not as a failure in test. Convert to atomic SQL (or leave it sequential) before parallelising anything else in the loop.
+- **The collection is empty, or has ≤ 3 elements known at author time, and the loop is not on a hot path.** Bounded-parallel scaffolding costs a reader more than three serial awaits cost the wall clock. Measure first (Step 8); if the "before" run is already under the noise floor, the correct output of this skill is *no change*.
 
 ## Prerequisites
 
 - `.claude/_extracted-codebase.md` exists. If not, run `/setup-project --refresh` first — without extraction we'd guess the project's primitive.
-- `ai/patterns/parallel-io.md` exists with the project's primitive filled in.
+- `ai/patterns/parallel-io.md` exists with the project's primitive filled in (Phase 4.6 anchors it).
 - `.claude/rules/concurrency-discipline.md` exists.
 - Dev server / CI can run; you'll measure before AND after.
 
@@ -41,7 +48,21 @@ These three are this skill's own, because they only bite once you are mid-conver
 
 ### Step 1 — Identify the candidate
 
-Grep for the sequential shape (`for … of` with an `await` in the body; `.forEach(async …)`, which is unbounded parallel and also a finding). Open it and confirm the awaited call is I/O-bound — DB, cache, HTTP, queue, disk — not pure CPU.
+Find the sequential loop. Common shapes per stack:
+
+```bash
+# Node.js / TypeScript
+rg -n 'for \(const \w+ of \w+\) \{[^}]*await ' --multiline -g '*.{ts,js}' .
+rg -n '\.forEach\(\s*async ' -g '*.{ts,js}' . # forEach + async = parallel BUT unbounded — also flag
+# Python
+rg -n 'for \w+ in \w+:\s*$\s*\w+ = await ' --multiline -g '*.py' .
+# Go
+rg -n 'for _, \w+ := range \w+ \{[^}]*\.\w+\(ctx, ' --multiline -g '*.go' .
+```
+
+Open the candidate. Confirm:
+- `await` (or equivalent) is inside a loop or `.map(async …)` chain.
+- The function called is I/O-bound (DB / cache / HTTP / queue / disk) — not pure CPU.
 
 ### Step 2 — Prove independence (the gate)
 
@@ -49,33 +70,146 @@ Before any code change, answer **YES to all** of:
 
 - [ ] Iteration N+1 does **not** read any value produced by iteration N.
 - [ ] No iteration writes a row / key that another iteration reads or writes.
-- [ ] Loop is **not** inside a DB transaction OR the ORM allows concurrent tx-bound queries (rare; default to "no").
+- [ ] Loop is **not** inside a DB transaction OR the ORM uses a connection pool that allows concurrent tx-bound queries (rare; default to "no").
 - [ ] Iteration order does not encode a constraint (idempotency key sequence, append-only log, FIFO requirement).
-- [ ] The downstream system tolerates concurrent calls at the cap you'll choose.
+- [ ] The downstream system tolerates concurrent calls (rate limit OK at the cap you'll choose).
 
 **If any answer is "no" → STOP. Document why parallelism is unsafe + suggest the right alternative** (batch API, atomic SQL, sequential is correct, transaction redesign). Never silently force.
 
 ### Step 3 — Pick the primitive
 
-Read `ai/patterns/parallel-io.md` § "Concurrency primitive in use" and use **that** primitive. If extraction returned empty, use the language canonical, then **propose** standardising it in an ADR under `ai/decisions/` so the next run reuses it rather than re-deciding.
+Read `ai/patterns/parallel-io.md` § "Concurrency primitive in use". Use **that** primitive.
 
-### Step 4 — Pick the cap
+If the project hasn't standardised one (extraction returned empty), pick the language canonical:
+- Node.js → `p-limit` (bounded fan-out) + native `Promise.all` (fixed-N fan-out).
+- Python → `asyncio.Semaphore` + `asyncio.gather`.
+- Go → `errgroup.WithContext` + `g.SetLimit(n)`.
+- Java 21+ → `StructuredTaskScope`.
+- .NET → `Parallel.ForEachAsync` with `MaxDegreeOfParallelism`.
 
-The cap is derived from the resource it consumes, not chosen for comfort: outbound HTTP from the provider's rate limit with headroom (per-provider, never one global cap); DB reads from `pool_size − margin`; DB writes lower than the pool allows, because lock contention arrives before pool exhaustion does; cache reads high; file I/O from FD limits; CPU work at `#cores`. **Default if unsure: `8`** — start conservative and raise after measurement.
+…then **propose** standardising it in an ADR under `ai/decisions/` so the next instance of this skill reuses it.
+
+### Step 4 — Pick the cap (concurrency)
+
+| Workload | Cap |
+|---|---|
+| Outbound HTTP to one provider | `min(5, providerRateLimit/2)` — leave headroom |
+| Outbound HTTP across multiple providers | per-provider cap, not global |
+| DB reads | `≤ pool_size − margin` (extract pool size from config) |
+| DB writes | usually 1–4 even if pool allows more (lock contention) |
+| Cache reads (Redis / Memcached / DynamoDB) | 10–50 — they handle it; check provider |
+| File I/O | 4–16 — OS FD limits + page cache benefits |
+| CPU work in worker pool | `#cores` (not `#cores × 2`) |
+
+**Default if unsure**: `8`. Better to start conservative and raise after measurement.
 
 ### Step 5 — Transform (mechanical)
 
-Replace the loop using the chosen primitive and cap. Keep the diff surgical — every changed line traces to this conversion.
+Replace the loop. Keep the diff surgical (per `.claude/rules/think-simplify-surgical.md` § Surgical changes — every changed line traces to this conversion).
+
+#### Sequential → bounded parallel (Node.js)
+
+```ts
+// Before
+const results: R[] = [];
+for (const item of items) {
+  results.push(await process(item));
+}
+
+// After
+import pLimit from 'p-limit';
+const limit = pLimit(8);
+const results = await Promise.all(items.map(item => limit(() => process(item))));
+```
+
+#### Sequential → bounded parallel (Python)
+
+```python
+# Before
+results = []
+for item in items:
+    results.append(await process(item))
+
+# After
+sem = asyncio.Semaphore(8)
+async def bounded(item):
+    async with sem:
+        return await process(item)
+results = await asyncio.gather(*(bounded(i) for i in items))
+```
+
+#### Sequential → bounded parallel (Go)
+
+```go
+// Before
+for _, id := range ids {
+    if err := process(ctx, id); err != nil { return err }
+}
+
+// After
+g, gctx := errgroup.WithContext(ctx)
+g.SetLimit(8)
+for _, id := range ids {
+    // (pre-Go 1.22 needed `id := id` here; loop vars are per-iteration since 1.22)
+    g.Go(func() error { return process(gctx, id) })
+}
+if err := g.Wait(); err != nil { return err }
+```
 
 ### Step 6 — Add timeouts + cancellation
 
-Every task gets a per-task timeout and the group gets a wall-clock parent budget. Failure-cancel (siblings stop when one fails) and timeout-cancel (a ceiling on the whole group) are **different mechanisms that compose** — neither replaces the other. A bounded fan-out with no timeout is an unbounded wait wearing a cap.
+Per-task timeout < parent request budget. On first failure, cancel siblings.
+
+```ts
+// Node — AbortController propagates to fetch / DB clients that support `signal`
+const ac = new AbortController();
+const limit = pLimit(8);
+try {
+  return await Promise.all(items.map(it =>
+    limit(() => process(it, { signal: ac.signal, timeout: 2000 }))
+  ));
+} catch (e) {
+  ac.abort();
+  throw e;
+}
+```
+
+```python
+# Python — two different mechanisms; do not confuse them.
+# (a) FAILURE-cancel. Bare `gather` raises on the first error but lets the siblings keep running.
+#     A TaskGroup cancels them, which is what "cancel siblings on first failure" means.
+async with asyncio.TaskGroup() as tg:                  # 3.11+
+    tasks = [tg.create_task(bounded(i)) for i in items]
+results = [t.result() for t in tasks]
+
+# Pre-3.11, gather's own flag is the equivalent — the default is the surprising one:
+results = await asyncio.gather(*tasks)                 # first error propagates, siblings run on
+# ...so cancel them explicitly in the handler, or use return_exceptions=True and partition.
+
+# (b) TIMEOUT-cancel. A wall-clock ceiling on the whole group. Composes with (a); replaces neither.
+async with asyncio.timeout(parent_budget):
+    async with asyncio.TaskGroup() as tg:
+        for i in items:
+            tg.create_task(bounded(i))
+```
+
+The Node example above does (a) — `Promise.all` rejects on first error and the `catch` aborts the
+shared signal. The Python `asyncio.timeout` form does (b). Shipping (b) under a heading that promises
+(a) leaves every sibling running to completion after the failure that was supposed to stop them,
+burning the downstream budget on work whose result is already discarded.
 
 ### Step 7 — Decide on partial-failure tolerance
 
-**Fail-fast** (default for endpoints) keeps the reject-on-first-error primitive. **Partial-OK** (batch jobs, dashboards, best-effort reads) switches to the settle-all variant and **partitions** the result into successes and failures, logging failures with a correlation ID and a count. State which path you chose in the PR description.
+Two paths:
+
+- **Fail-fast** (default for endpoints — 1 failure = whole-request fail) → keep `Promise.all` / `gather` / `errgroup` (they all reject on first error).
+- **Partial-OK** (batch jobs, dashboards, "best-effort" reads) → switch to `Promise.allSettled` / `gather(..., return_exceptions=True)` and **partition** the result into successes + failures. Log failures with a correlation ID + count.
+
+**State which path you chose in the PR description.** Reviewers will ask.
 
 ### Step 8 — Measure (before AND after)
+
+Without numbers, this is just refactoring. Capture:
 
 ```
 Before: <N> sequential awaits × <per-call p50 ms> ≈ <wall-clock ms>
@@ -83,17 +217,63 @@ After:  <N> tasks @ concurrency=<C> × <per-call p50 ms> ≈ <wall-clock ms>
 Actual: <measured wall-clock from logs / tracing>
 ```
 
-Run at least 3 times and take p50. If actual ≪ expected, downstream is the bottleneck (rate limit / pool exhaustion) — lower the cap. If actual ≈ before, the loop wasn't the bottleneck — **revert** and keep investigating elsewhere.
+Run the relevant test / endpoint at least 3 times and take p50. If actual ≪ expected, downstream is the bottleneck (rate limit / pool exhaustion) — lower the cap.
+
+If actual ≈ before, the loop wasn't the bottleneck — **revert** and keep investigating elsewhere. Don't ship a refactor that doesn't move the number.
 
 ### Step 9 — Update tests
 
-A test that mocks the per-item call and asserts call count survives the transform — keep it. Add one that asserts the cap is respected.
+- A unit test that mocks `process` and asserts call count survives the transform — keep it.
+- **Assert the cap, not the clock.** The obvious test here is a wall-clock assertion
+  (`expect(Date.now() - t0).toBeLessThan(2000)`) and it is the wrong test: it is the flaky shape this
+  pack's own `/fix-bug` invariant forbids — *"Deterministic — no `sleep`, real clock, or unseeded
+  randomness"* (`templates/snippets/fix-bug-core.md` §1). It passes on
+  your laptop, fails on a loaded CI box, and gets `.skip`'d within a month — at which point the
+  concurrency bound it was protecting has no test at all.
+
+  Assert the **observable property** instead. Peak in-flight count is deterministic, needs no timer,
+  and is the thing that actually breaks (a cap of 8 silently becoming unbounded is invisible to a
+  wall-clock test, because unbounded is *faster*):
+
+  ```ts
+  it('never exceeds the configured concurrency', async () => {
+    let inFlight = 0, peak = 0;
+    const process = jest.fn(async () => {
+      peak = Math.max(peak, ++inFlight);
+      await Promise.resolve();          // yield once; no timers, no sleeps
+      inFlight--;
+    });
+    await service.batch(Array.from({ length: 50 }, (_, i) => i), { process });
+    expect(peak).toBeLessThanOrEqual(8);        // the cap holds
+    expect(peak).toBeGreaterThan(1);            // …and it is actually parallel
+    expect(process).toHaveBeenCalledTimes(50);  // …and nothing was dropped
+  });
+  ```
+
+  The second assertion is the one people leave out, and it is what stops a "passing" test on a change
+  that quietly serialised everything. **The wall-clock number belongs in Step 8's measurement, which
+  a human reads once — not in a test suite that must pass ten thousand times.**
+
+- Add a regression test for the cancellation path: simulate 1 failure, assert siblings are cancelled (no extra calls counted after the failure).
 
 ### Step 10 — Self-review against the rule + pattern
 
-Re-read `concurrency-discipline.md` and `parallel-io.md` and confirm the diff violates neither.
+Apply `.claude/rules/concurrency-discipline.md` § Review checklist:
+
+- [ ] Concurrency cap set (no naked `Promise.all([...largeArray.map(...)])`).
+- [ ] Project's primitive used (not a new dependency).
+- [ ] No parallel work inside a DB transaction.
+- [ ] No parallel writes share a key without atomic SQL / CAS.
+- [ ] Per-task timeout set; cancellation propagates on first error.
+- [ ] Wall-clock measurement attached to PR (before/after).
+- [ ] Partial-failure semantics declared (fail-fast vs allSettled-partition).
+- [ ] Independence proven in code review notes (Step 2 checklist).
+
+If any unchecked → fix before opening PR.
 
 ## Output format
+
+When invoked by another agent (e.g., `<stack>-architect` or `bug-investigator`), return:
 
 ```
 PARALLELIZATION REPORT — <file:line>
@@ -119,16 +299,18 @@ Open follow-ups:     <e.g. "downstream rate-limit hits at cap=8 — provider rev
 |---|---|---|
 | Speedup ≪ expected | Cap exceeds pool/limit; downstream throttling | Lower cap; check `429` / connection-wait logs |
 | Speedup ≈ 0 | Loop wasn't the bottleneck | Revert; profile; the slow call is elsewhere |
-| Intermittent test failures after change | Race on shared state in the per-item call | Make it pure or add a per-item local accumulator |
+| Intermittent test failures after change | Race on shared state in `process` | Make `process` pure or add per-item local accumulator |
 | Connection pool exhausted in prod | Cap > `pool_size − safety_margin` | Lower cap or increase pool (with capacity review) |
-| OOM under load | Unbounded fan-out missed somewhere upstream | Re-grep the file; the cap must be on the **outermost** fan-out |
-| Trace shows tasks running serially anyway | Inside a transaction OR a shared `await` outside the cap | Re-read Step 2 + Step 5 |
+| OOM under load | Unbounded fan-out missed somewhere upstream | Re-grep the file; the cap must be on the **outermost** Promise.all |
+| Trace shows tasks running serially anyway | Inside a transaction OR shared `await` outside the cap | Re-read Step 2 + Step 5 |
 
 ## Related
 
 - `.claude/rules/concurrency-discipline.md` — the MUST/MUST-NOT contract this skill enforces.
 - `ai/patterns/parallel-io.md` — recipes + project's primitive citation.
 - `ai/patterns/data-access.md` — *batch APIs first*; parallelism is the fallback.
+- `.claude/rules/think-simplify-surgical.md` § "Goal-Driven Execution" — the wall-clock measurement gate is the verifiable goal here.
+- `.claude/skills/profile-endpoint/SKILL.md` (performance pack) — use this BEFORE Step 8 to confirm the loop is the real bottleneck.
 
 ## Halt conditions
 

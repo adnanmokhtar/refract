@@ -1,16 +1,26 @@
 ---
 description: Hit a dev endpoint with curl and verify status + response shape via the endpoint-tester agent.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
+<!-- generated-from: templates/packs/backend/commands/endpoint-test.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the phases, gates and halts reach a greenfield project
+     intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source
+     changes — do not hand-edit; edit the source and re-copy. -->
 
 # /endpoint-test [controller|method-path]
 
 Diagnostic / read-only verification that a controller actually works end-to-end. Phases 1, 3, 6 dominate; 4 (Generate) produces only test calls; 5, 7 N/A.
 
-## When to use / NOT to use
-- USE: after editing a controller, DTO, guard, pipe, or adding a new route.
-- USE: when a frontend reports an unexpected response shape and you need ground truth.
-- NOT: when no dev server is running — start it first; this command refuses auto-start (side effects).
-- NOT: against staging or prod hosts. Localhost / explicit dev tunnel only.
+**This command is a router, not a test harness.** The triad has one owner per job and this file states its own:
+
+| Artifact | Owns |
+|---|---|
+| `.claude/skills/endpoint-test/SKILL.md` | The **mechanism** — curl invocations, the five mandatory cases, the conditional cases, the field-by-field diff against the response DTO. |
+| `@endpoint-tester` (agent) | **Case selection and verdict** — which tier applies, which conditional cases are in scope, PASS / FAIL / LEAK. |
+| This command | **Argument resolution, the hand-wave halt, and escalation routing.** |
+
+Anything below that restates a case, a curl flag, or an assertion belongs in the skill, not here. If you find yourself editing this file to change what a call asserts, you are editing the wrong file.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -18,38 +28,37 @@ Diagnostic / read-only verification that a controller actually works end-to-end.
 
 **This command does NOT:** run curl inline (it always delegates), report "the endpoint returns the expected shape" without quoting the body, or accept a run in which a mandatory case was skipped to save time.
 
-## Phase 1 — Understand
-- Resolve target arg:
-  - `<controller-name>` → list all routes from that controller, ask which one.
-  - `METHOD /path` (e.g. `POST /users`) → use directly.
-  - No arg → read recent `git diff` for changed controllers; ask if multiple match.
-- Confirm severity / scope: single endpoint vs full controller sweep.
+## Phase 1 — Understand (argument resolution)
 
-## Phase 2 — Organize
-- Decide call set: golden path / invalid body / no auth / wrong tenant / idempotency replay (5-call canonical flow).
-- Decide who runs the calls: this command always delegates to `endpoint-tester` agent — no inline curl chains in the orchestrator.
+- `<controller-name>` → list every route on that controller, ask which one.
+- `METHOD /path` (e.g. `POST /users`) → use directly.
+- No arg → read the recent `git diff` for changed controllers; ask if more than one matches.
+- Resolve the base URL and dev port from `CLAUDE.md`. If the server is unreachable, **stop and ask the user to start it** — this command refuses to auto-start anything (side effects).
+- **Refuse** any non-localhost target without an explicit dev-tunnel approval recorded this session, and any `PROD_*` credential source.
+
+## Phase 2 — Organize (tier selection)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in — the agent does NOT pre-emptively pick heavy "to be safe."
+
+| Tier | Triggers | Scope handed to the agent |
+|---|---|---|
+| **Trivial** (default) | Single endpoint, known DTO, internal route. | The five mandatory cases (`endpoint-test/SKILL.md` § Procedure, step 6) and nothing else. No conditionals, no follow-up dispatch unless a leak or replay break surfaces. |
+| **Standard** | Controller sweep, or a write path / auth-protected / multi-tenant resource. | Mandatory five per route, plus every conditional case whose signal the contract actually declares. The agent picks them from its signal → case table (`@endpoint-tester` § Case selection) and cites the declaration that put each in scope; this command does not enumerate them. |
+| **Heavy** | Public API surface, webhook, or payment endpoint. | Standard's scope, plus the two agent-owned cases run *unconditionally* instead of signal-gated: content negotiation (`@endpoint-tester` § Content negotiation) and tenant side-effects (§ Tenant side-effects). On a surface the public can reach, a missing declaration is not evidence of correct behaviour. |
+
+Signature tampering and stale-key replay are **not this triad's cases** and must not be handed to `@endpoint-tester` as if they were — nothing in the skill or the agent implements them. They belong to `/simulate-webhook --tamper` in the webhook domain (`domains/webhook/rules/webhook-signature-verification.md` § Enforcement). On a Heavy-tier webhook route, dispatch that command if the domain is installed; if it is not, the report carries `signature cases NOT RUN (webhook domain absent)` — never a claim of coverage.
 
 ## Phase 3 — Retrieve
 
-ALWAYS (universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
-Endpoint-specific:
-- The controller file — route decorators, guards, pipes.
-- Input DTO — required fields, validation rules.
-- Output DTO — expected response shape.
-- The dev port from `CLAUDE.md` (must be reachable; if not, stop and ask user to start the dev script).
+Endpoint-specific: the controller file (route decorators, guards, pipes), the input DTO, the output DTO, and any declaration that puts a conditional case in scope (limiter binding, `ETag` emission, `202` offload, streaming transport).
 
-## Phase 4 — Generate (run the verification)
-- Dispatch `endpoint-tester` with the resolved spec (method, path, headers, minimal valid body, expected response).
-- Agent runs the 5-call canonical flow and prints a results table + curl replay block.
-- No code is written — output is observation only.
+## Phase 4 — Generate (dispatch)
+
+Dispatch `@endpoint-tester` with the resolved spec: method, path, headers, minimal valid body, expected response, tier, and the in-scope conditional cases. The agent runs the skill and returns a results table plus a replayable curl block. No code is written.
+
+If `@endpoint-tester` is not installed in this project, run `.claude/skills/endpoint-test/SKILL.md` directly and apply this command's halt and routing rules to its output — never silently skip the verification.
 
 ## Phase 5 — Update — N/A
 Read-only. No state changes, no knowledge persistence.
@@ -71,16 +80,16 @@ Then route by what came back:
 | Edits not reflected in responses | Stale dev server → restart and re-run. A phantom pass is not a pass. |
 
 ## Phase 7 — Improve — N/A
-Diagnostic. No learning queued — discoveries get filed by the follow-up `/fix-bug` or `/security-audit` if invoked.
+Diagnostic. Discoveries get filed by the follow-up `/fix-bug` or `/security-audit`.
 
 ## Output format
 ```
 ## /endpoint-test — <method> <path> — <PASS | FAIL | LEAK>
 
-Phase 1 (Understand): <route resolved>
-Phase 3 (Retrieved): controller, DTOs, dev port from CLAUDE.md
-Phase 4 (Generated): 5 curl calls dispatched via endpoint-tester
-Phase 6 (Validated): <pass/fail per case + verdict>
+Phase 1 (Understand): <route resolved> | base=<url> (SAFE — localhost)
+Phase 2 (Organize):   tier=<trivial|standard|heavy>; conditional cases in scope: <list or none>
+Phase 4 (Generated):  dispatched via @endpoint-tester
+Phase 6 (Validated):  <per-case result + verdict>
 
 Status: COMPLETE | BLOCKED on <X>
 
@@ -88,9 +97,20 @@ Open follow-ups:
   - <e.g. "tenant leak — invoke /security-audit">
 ```
 
-## Failure modes
-- Targets non-localhost host without explicit dev-tunnel approval → refuse.
-- `PROD_*` credentials in env → refuse; source from `.env.dev` / `.env.example` only.
-- Dev server stale (HMR didn't pick up controller change) → restart server, re-run.
-- Tenant-isolation leak silently passing → agent must flag as CRITICAL even if status is 200.
-- Logs suggest 500 with no body → invoke `/log-tail correlation:<id>` to capture context.
+## Related
+
+### Sibling commands — where the boundary falls
+- `/add-endpoint` — produces the routes this command verifies. Its production-readiness gate is a static claim; this run is the wire evidence for it.
+- `/trace-flow` — the static counterpart. That one reads the call chain without running it; this one runs it without reading it. A disagreement between the two is itself the finding.
+- `/log-tail` — where a `500` with no body goes next: this command observes the status line, that one recovers the context behind it.
+- `/fix-bug` — every FAIL row this run produces routes there; a LEAK row routes to `/security-audit` first and is never downgraded.
+
+### Patterns
+- `ai/patterns/api-contract.md`
+- `ai/patterns/error-handling.md`
+- `ai/patterns/rate-limiting.md`
+- `ai/patterns/conditional-requests.md`
+- `ai/patterns/async-job-offload.md`
+
+### Rules
+- `.claude/rules/backend-principles.md`

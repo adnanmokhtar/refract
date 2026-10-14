@@ -1,6 +1,12 @@
 ---
 description: Tail structured dev logs filtered by level, correlation id, or module.
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
+<!-- generated-from: templates/packs/backend/commands/log-tail.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the phases, gates and halts reach a greenfield project
+     intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source
+     changes — do not hand-edit; edit the source and re-copy. -->
 
 # /log-tail [filter]
 
@@ -23,9 +29,21 @@ Diagnostic / read-only command. Streams JSON logs from the dev server with `jq` 
 
 **The agent ONLY escalates to the user when:**
 - The user names a prod aggregator (Loki / CloudWatch / Datadog) — refuse, dev only.
-- Logs are plaintext with no structure — propose `/add-telemetry` and stop.
+- Logs are plaintext with no structure — propose `/add-telemetry` *(observability pack, when co-installed; otherwise propose adopting the project's logger's structured mode directly)* and stop. A redirect must land somewhere.
 - Correlation field name cannot be auto-detected after probing common keys — ask the user.
 - `.level` is numeric and the logger's scale direction cannot be established — ask, do not guess (see Phase 2).
+
+## Closure verbs (complexity → ceremony)
+
+Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
+
+| Tier | Triggers | Window | Output |
+|---|---|---|---|
+| **Trivial** (default) | One filter, short investigation, single-shot window. | Stream until SIGINT or `head -n 200`. | Line dump + cluster summary at exit (count per error signature, first/last ts). |
+| **Standard** | Multi-filter compound (correlation + tenant + module), or post-incident reconstruction. | Bounded window (e.g., last 30min via `--since`). | Cluster summary + per-cluster representative line + cross-cluster correlation hint. |
+| **Heavy** | Suspected cross-tenant leak OR active production-style incident replay in dev. | Full window with replay capture saved to `ai/dynamic/incident-<iso>.log`. | Cluster report + handoff package for `/fix-bug` (cluster signatures, file:line refs, correlation ids). |
+
+**Default is trivial.** Most invocations are "what just broke" — single filter, short window, surface clusters. Heavy is opt-in for incident reconstruction.
 
 ## Cluster halt (mechanical gate, all tiers)
 
@@ -55,7 +73,7 @@ If the captured window has zero clusters (every line is unique), say so explicit
 
 - Halt on hand-waves: every finding quotes the actual log line + its timestamp + the correlation id used to filter.
 - Halt if a "nothing found" verdict is returned without showing the exact `jq` (or `grep`) filter executed **and** the no-match ladder rung it resolved to.
-- Halt if PII (phone, email, token, card fragment) appears in the report unredacted — sanitize before surfacing.
+- Halt if PII (phone, email, token, card fragment) appears in the report unredacted — sanitize before surfacing; a raw secret in a report is a leak, not a finding.
 - Halt if this command was pointed at production logs — refuse and redirect to the central aggregator.
 
 ## No-match ladder (mechanical gate — runs whenever the filter returns zero rows)
@@ -65,9 +83,9 @@ The cluster halt demands a definite verdict, and the most common real outcome is
 | # | Check | If it fires | Verdict / next move |
 |---|---|---|---|
 | 1 | Does the window contain **any** lines at all (`tail -n 50 <source> \| wc -l`)? | Zero lines | Wrong source, or the process buffers stdout and nothing was ever written to the file. A foreground dev server needs `… \| tee logs/app.log`; a container needs `docker compose logs`, not the file. **Not a code finding — re-run against the right source.** |
-| 2 | Do lines exist but the **predicate** matched none? Re-run the raw tail without the filter. | Lines present, filter empty | The predicate is wrong before the code is. Re-probe the level encoding (Phase 2) and the correlation field name (Phase 3). Fix the filter and re-run before concluding anything. |
-| 3 | Is the **correlation id absent from every line** in the window, including `info` lines? | Absent everywhere | The request never reached the code that logs. Check middleware / guard ordering and where the id is minted: an id generated *after* auth means a rejected request produces no id at all. **Route to `/trace-flow <endpoint>` to find the first hop that should have logged.** |
-| 4 | Is the id **present but the chain stops mid-flow** (entry logged, no exit, no error)? | Truncated chain | Something swallowed it. Name the last hop that logged, then read the next call site's `catch` / `except` / `if err != nil`. **Route to `/fix-bug` with the last-hop `file:line`.** |
+| 2 | Do lines exist but the **predicate** matched none? Re-run the raw tail without the filter. | Lines present, filter empty | The predicate is wrong before the code is. Re-probe the level encoding (Phase 2) and the correlation field name (Phase 3); a numeric-level logger never matches a string-label predicate and vice-versa. Fix the filter and re-run before concluding anything. |
+| 3 | Is the **correlation id absent from every line** in the window, including `info` lines? | Absent everywhere | The request never reached the code that logs. Check middleware / guard ordering and where the id is minted: an id generated *after* auth means a rejected request produces no id at all. Look for the edge-layer record instead (access log, reverse proxy, `4xx` counter). **Route to `/trace-flow <endpoint>` to find the first hop that should have logged.** |
+| 4 | Is the id **present but the chain stops mid-flow** (entry logged, no exit, no error)? | Truncated chain | Something swallowed it. Name the last hop that logged, then read the next call site's `catch` / `except` / `if err != nil` — a bare catch that logs at `debug` or not at all is the usual answer. **Route to `/fix-bug` with the last-hop `file:line`.** |
 
 Rung 3 and rung 4 are findings and get reported as such. Rungs 1 and 2 are operator errors in the tail itself — fix and re-run; reporting them as "nothing in the logs" is the false negative this ladder exists to prevent.
 
@@ -103,22 +121,15 @@ Rung 3 and rung 4 are findings and get reported as such. Rungs 1 and 2 are opera
   |---|---|---|
   | `number` | `select(.level >= 50)` (add `>= 40` to include warn) | Pino's numeric scale — `trace=10, debug=20, info=30, warn=40, error=50, fatal=60`. A string-set predicate matches none of these. |
   | `string` | `select((.level \| ascii_downcase) as $l \| $l == "error" or $l == "fatal" or $l == "warn")` | Label-formatted loggers. Downcase because some JSON handlers emit the label uppercase (`"level":"INFO"`). |
-  | `number`, non-Pino logger | **Establish the scale direction from that logger's own docs before filtering.** On a descending scale `>= 50` selects everything *except* errors. Direction unknown → escalate, do not guess. |
-  | more than one type | Two log sources are interleaved in this file. Separate them before filtering. |
+  | `number`, non-Pino logger | **Establish the scale direction from that logger's own docs before filtering.** Numeric scales are not all ascending; on a descending scale `>= 50` selects everything *except* errors. If the direction cannot be established, escalate — do not guess. |
+  | more than one type | Two log sources are interleaved in this file. Separate them before filtering; a mixed-encoding predicate silently drops one of them. |
   | `null` / field absent | The level lives under another key (`severity`, `levelname`, `lvl`). Probe `keys` on one line before building anything. |
 
 - Build the filter command for the detected source × format × level-encoding combo.
 
 ## Phase 3 — Retrieve
 
-ALWAYS (universal pre-flight):
-- `CLAUDE.md` — stack, conventions, persona, decision boundaries.
-- `.claude/codebase-profile.md` — every detected fact about this project.
-- `ai/conventions.md` — auto-detected naming + style.
-- `ai/business-domain.md` — kind of product + canonical entities.
-- `ai/project-goals.md` — mission + KPIs + anti-goals.
-- `ai/dynamic/feedback-learned.md` — corrections from prior sessions.
-- `ai/status.md` — current phase + in-flight work + recent changes.
+ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
 
 Log-source-specific:
 - `CLAUDE.md` log path / process name / container name.
@@ -127,9 +138,9 @@ Log-source-specific:
 
 ## Phase 4 — Generate (the stream)
 
-**The filter mechanism is OWNED by the `log-tail` skill — this command dispatches it, it does not re-implement it.** Same split as `/add-module` → `module-scaffold`: the command owns the gates (cluster halt, no-match ladder, reporting halts) and the skill owns the `jq` recipes, the source-tail invocations, and the logger-specific gotchas. Two copies of a filter predicate is how a level filter ships that the project's own logger can never match.
+**The filter mechanism is OWNED by the `log-tail` skill — this command dispatches it, it does not re-implement it.** Same split as `/add-module` → `module-scaffold`: the command owns the gates (cluster halt, no-match ladder, reporting halts) and the skill owns the `jq` recipes, the source-tail invocations, and the logger-specific gotchas. Two copies of a filter predicate is exactly how this command shipped a level filter its own skill's documented logger could never match.
 
-Dispatch the `log-tail` skill with the resolved inputs: **source** (file / container / process), **format** (json / plaintext), **level predicate** (from the Phase-2 probe — pass the predicate, not the word "errors"), **correlation / tenant field names** (from Phase 3), and the window bound.
+Dispatch [`templates/packs/backend/skills/log-tail/SKILL.md`](../skills/log-tail/SKILL.md) with the resolved inputs: **source** (file / container / process), **format** (json / plaintext), **level predicate** (from the Phase-2 probe — pass the predicate, not the word "errors"), **correlation / tenant field names** (from Phase 3), and the window bound.
 
 Then:
 - Stream until SIGINT (or the one-shot window completes). On exit, print line count + first/last timestamp.
@@ -164,3 +175,19 @@ Open follow-ups:
 - Correlation field name mismatch → try `correlationId | request_id | traceId`; ask user if all miss.
 - High-volume output overwhelms terminal → pipe through `head -n 200` for one-shot, `less +F` for paged following.
 - Plaintext logs with no structure → propose `/add-telemetry` to switch the project to structured logging.
+
+## Related
+
+### Sibling commands — where the boundary falls
+- `/trace-flow` — the static counterpart: it reads the path a request *would* take; this one reads what the running process actually emitted. Use both when they disagree.
+- `/endpoint-test` — pairs with this command on a `500` with no body: that one reproduces the call, this one recovers the context behind it.
+- `/fix-bug` — where every confirmed signal goes. This command produces evidence and correlation ids, never a fix.
+
+### Patterns
+- `ai/patterns/error-handling.md` — the log/error-code correlation this command reads back out of the stream.
+
+The other pack patterns are not read on this axis and are deliberately not listed.
+
+### Rules
+- `.claude/rules/backend-principles.md`
+- `.claude/rules/concurrency-discipline.md`

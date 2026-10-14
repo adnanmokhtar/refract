@@ -1,12 +1,28 @@
 ---
 name: caching-strategy
-kind: example
+description: "Pattern: Caching Strategy"
+kind: ai-pattern
 pack: backend
 ---
+<!-- generated-from: templates/packs/backend/ai-patterns/caching-strategy.md
+     Literal-copy fallback for /setup-project Phase 4.2-AUTHOR when extraction has no signal: this
+     file carries its source verbatim, so the detector pointers, halts and gates reach a greenfield project
+     intact. Check 8b compares the two bodies line-for-line (COPY-DRIFT). REGENERATE whenever the source
+     changes — do not hand-edit; edit the source and re-copy. -->
 
 # Pattern: Caching Strategy
 
 > **Hard rule:** Every cached resource has ONE documented invalidation strategy (TTL, explicit, version, tag, or write-through+TTL) and a tenant-scoped, versioned key. Cache is acceleration only — never source of truth, never the only writer of any field, never used for auth tokens or correctness-critical state.
+
+**When to apply**
+- A read path has p95 latency dominated by a deterministic compute or DB fetch and the staleness window is acceptable.
+- A hot key triggers thundering-herd traffic on miss (use single-flight + jittered TTL).
+- A multi-tenant read where the same logical query repeats across requests within seconds.
+
+**When NOT to apply**
+- Auth tokens, session content, payment state, stock counts at checkout, real-time metrics — correctness > latency.
+- Entries > 1 MB or unbounded growth — Redis is not a document store.
+- Read paths where you cannot articulate the invalidation rule in one sentence.
 
 **Halt conditions / mandatory cites**
 - Any "add a cache here" proposal MUST cite the read site at `<path:line>` AND the write site(s) that must invalidate.
@@ -67,17 +83,27 @@ cache.getOrSet(key, ttl, async () => {
   return db.get(key);
 })
 ```
-Not every `getOrSet` coalesces: Django's `cache.get_or_set` takes no lock. Primitives that do: `singleflight` (Go), `lru-cache` `fetch()` (Node), Spring `@Cacheable(sync = true)`, Rails `race_condition_ttl`, Laravel `Cache::flexible` / `Cache::lock`. Detection of missing TTL, tenant keys and stampede is the performance pack's `caching-scan` §1–§3, when installed.
+A `getOrSet` / `get_or_set` / `remember` is single-flight only when the library coalesces concurrent misses: Django's `cache.get_or_set` takes no lock, and `IMemoryCache.GetOrCreateAsync` does not coalesce. Primitives that do: `singleflight` (Go), `lru-cache` `fetch()` with a `fetchMethod` (Node), Spring `@Cacheable(sync = true)`, Rails `race_condition_ttl`, Laravel `Cache::flexible` / `Cache::lock`, `dogpile.cache` regions, a `SET k v NX PX` lock across processes. The per-library table is `caching-scan` § Adapt to the codebase (performance pack).
 
 ### Stale-while-revalidate
 Return stale value immediately; refresh asynchronously.
 ```
-if cache.age(key) > ttl and cache.age(key) < ttl + grace:
-  return cache.value(key)        # stale but fine
-  async_refresh(key)
-else if cache.age(key) > ttl + grace:
-  return db.get(key)              # must refresh
+age = cache.age(key)
+
+if age <= ttl:                    # fresh — the common case, and it needs a branch
+  return cache.value(key)
+
+if age < ttl + grace:             # stale but inside the grace window
+  async_refresh(key)              # KICK THE REFRESH FIRST…
+  return cache.value(key)         # …then serve stale. Order is the whole pattern.
+
+return db.get(key)                # past grace — nothing to serve but truth
 ```
+
+Two things in that ordering carry the entire value of the pattern, and both are easy to get backwards:
+
+- **The refresh is dispatched before the return, not after.** Statements after `return` never execute. Written the other way round this is stale-while-*never*-revalidate: it serves stale for the whole grace window and only refreshes once `age > ttl + grace` — which is the synchronous DB hit the pattern exists to avoid, now arriving later and colder.
+- **The `age <= ttl` branch has to exist.** Without it the fresh path falls through with no return value, and the caller gets `undefined` on a cache *hit*.
 
 ### Probabilistic early expiration
 Chance of refreshing grows as TTL approaches. Smooths load.
@@ -100,27 +126,33 @@ tenant:42:products:list:filters:eyJjYXQiOiJqYWNrZXQifQ==:v3
 
 ## What NOT to cache
 
-- Authentication tokens / session content (security).
+- Authentication tokens / session content **as a cache** — see the distinction below.
 - Payment state (correctness).
 - Stock counts at checkout (over-sell).
 - Real-time metrics.
 - Anything > 1 MB per entry (Redis is not a document store).
 
+**Redis-as-store vs Redis-as-cache — the distinction that stops this section contradicting `backend-principles` PERF-6.** PERF-6 requires sessions, rate-limit counters, locks and dedupe sets to live in a *shared store* (Redis / DB) rather than process memory. That is Redis as the **source of truth** for that data: there is no DB row behind it, losing it means the session is gone, and that is the accepted design. This section forbids the other thing: Redis holding a **copy** of data whose truth lives in the DB — a cached auth decision, a cached permission set, a cached token-validity flag. The copy is what goes stale after a revocation, which is why Detector 4 fires on it. Same technology, opposite roles. State which role a given key plays and the two rules stop fighting.
+
 ## TTL defaults by data class
 
-| Data | TTL |
-|---|---|
-| User profile (non-sensitive) | 5 min |
-| Product catalog (reads >> writes) | 1 h |
-| Settings / config | 10 min |
-| Search results | 60 s |
-| Aggregations / analytics | 5 min |
-| i18n translations | 1 h (until deploy) |
-| Static reference data (countries, timezones) | 24 h |
+**These are starting points, not a spec.** Every row is an *order-of-magnitude* guess at a staleness tolerance that is actually a product decision. The "why" column is the load-bearing one: it tells you when the number does not apply, which a bare number never can. Replace any row the moment you can measure the real tolerance.
+
+| Data | Starting TTL | Why that order of magnitude — and what breaks if it is too long |
+|---|---|---|
+| User profile (non-sensitive) | 5 min | The user edits their own profile and expects to see it change. Longer, and they see the old avatar after saving and hit save again. |
+| Product catalog (reads >> writes) | 1 h | Catalogue edits are deliberate, batched, and rare. Longer is usually fine; **shorten it hard for anything price-bearing** — a stale price is a chargeback, not a nit. |
+| Settings / config | 10 min | The window between "operator flips a flag" and "the flag takes effect". Too long turns an incident mitigation into a deploy. |
+| Search results | 60 s | A user re-running the same query within a minute expects the same result set. Longer, and a record they just created looks lost. |
+| Aggregations / analytics | 5 min | Aggregates are already approximations and expensive to compute. Too long and a dashboard contradicts the detail view a user can open beside it. |
+| i18n translations | 1 h (until deploy) | Changes ship with a release; the TTL is a safety net for the cache, not the invalidation mechanism. Bust on deploy. |
+| Static reference data (countries, timezones) | 24 h | Genuinely near-immutable. Failure mode is a legislated timezone change arriving a day late. |
+
+**When you cannot justify a row, that is the finding.** "Cite the table" is compliance theatre if the table is nine unexplained numbers; cite the *reason*, and if none of the reasons match your data class, measure the tolerance instead of borrowing a number.
 
 ## Observability
 
-- **Cache hit rate per namespace.** There is no universal target — the right hit rate depends on key cardinality and the read/write ratio, and a high-cardinality cache can be doing its job at 40%. Derive the threshold instead of adopting one: the hit rate is high enough when `misses/sec × miss cost` fits inside the origin's spare capacity with headroom for a cold start. If a number goes on a dashboard, write the derivation next to it.
+- **Cache hit rate per namespace.** There is no universal target — the right hit rate depends entirely on key cardinality and the read/write ratio, and a high-cardinality cache can be doing its job at 40%. Compute the threshold instead of adopting one: the hit rate is high enough when `misses/sec × miss cost` fits inside the origin's spare capacity with headroom for a cold start. If a number must go on a dashboard, derive it from that inequality and write the derivation next to it.
 - Evictions per minute (high = size too small OR TTL too short).
 - Redis memory usage + fragmentation.
 - Slow-path latency (cache miss + DB fetch + set).
@@ -134,6 +166,29 @@ You've over-indexed on cache if:
 - Downtime of Redis = downtime of app.
 
 Stop. Rearchitect. Cache should be pure acceleration.
+
+## Detectors (cite-or-halt)
+
+Each finding cites `<path:line>` + the matched pattern + the fix. "Caching looks risky" without a cited read/write site is not a finding.
+
+### 1–3. TTL, tenant key, stampede → `caching-scan` (performance pack, when installed)
+
+Detectors 1–3 are owned by the performance pack's `caching-scan`: § 1 entry that never expires (no TTL on mutable data, a store with no memory limit or eviction), § 3 key defects (the tenant, user, role, locale or currency dimension missing from the key builder), § 2 stampede (a hot-key miss with no single-flight, lock or early refresh). It proves each with a deterministic test — size plateau, two-tenant denial, K concurrent misses → one origin call — and routes the cross-tenant read to the security pack. Run it rather than re-deriving the class here; cite its § in the finding.
+
+Without the performance pack, apply the same three checks by hand, each finding citing `<path:line>`:
+
+```
+1  BAD: cache.set(key, value)                       GOOD: cache.set(key, value, ttl), and a store with maxmemory + an eviction policy   → add-ttl
+2  BAD: cache.get(`products:${id}`)                 GOOD: cache.get(`tenant:${tenantId}:products:${id}:v3`), the tenant added in the key builder   → namespace-key
+3  BAD: if (await cache.get(k) == null) await cache.set(k, await load())    (every concurrent miss calls load)
+   GOOD: a primitive that coalesces concurrent misses (§ Single-flight above) — not any getOrSet: Django's get_or_set takes no lock   → add-stampede-protection
+```
+
+### 4. Caching correctness-critical state
+
+A cache read/write holding a **copy** of correctness-critical state whose truth lives elsewhere — a cached auth/permission decision, a cached token-validity flag, payment or stock-at-checkout state, real-time metrics → `do-not-cache`. **Does not fire** on a shared store that is the source of truth for that data (session store, rate-limit counter, distributed lock) — that is `backend-principles` PERF-6 being satisfied, not violated. Cite which of the two roles the key plays; a finding that cannot say is not emittable.
+
+**Closure verbs:** `add-ttl`, `namespace-key`, `add-stampede-protection`, `do-not-cache`.
 
 ## Forbidden
 

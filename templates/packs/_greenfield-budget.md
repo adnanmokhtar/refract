@@ -50,7 +50,6 @@ may not grow.
 
 ```
 ai-engineering           8
-backend                  8
 business                 4
 code-quality             3
 database                 3
