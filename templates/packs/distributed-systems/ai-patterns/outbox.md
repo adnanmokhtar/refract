@@ -37,11 +37,16 @@ Write the event to an **outbox table** in the SAME DB transaction as the busines
 
 Inside one DB transaction: insert the business row AND insert a row into `outbox` (topic, payload, created_at, published_at = null). Both rows commit together or both rollback.
 
-Separately, a worker polls (or uses CDC):
+Separately, a relay polls (or uses CDC). **It never holds a row lock or an open transaction while it talks to the broker** — that is external I/O inside a transaction (database `transaction-scan` § 1's class): the locks and the connection are held for as long as the broker is slow.
 
-1. Select up to N unpublished outbox rows (`WHERE published_at IS NULL`), ordered by `created_at`, locked `FOR UPDATE SKIP LOCKED` so multiple workers don't process the same rows.
-2. For each row: publish to the message bus, then update `published_at = now()`.
-3. Sleep briefly between batches (back off when empty).
+1. **Claim, then commit.** In a short transaction, claim up to N unpublished rows in id order and mark them claimed — `UPDATE outbox SET claimed_at = now(), claimed_by = :relay WHERE id IN (SELECT id FROM outbox WHERE published_at IS NULL AND (claimed_at IS NULL OR claimed_at < now() - :lease) ORDER BY id LIMIT :n FOR UPDATE SKIP LOCKED) RETURNING *` — and commit. The lease lets another relay take over rows whose claimer died.
+2. **Publish outside any transaction**, in id order, awaiting the broker's confirm for each row.
+3. **Mark after the confirm** — `UPDATE outbox SET published_at = now() WHERE id = :id AND claimed_by = :relay`. A crash between publish and mark republishes the row: at-least-once is correct, and consumers dedupe (precedents § 12 in `precedents/distributed.md`).
+4. Sleep briefly between batches (back off when empty).
+
+**Order.** Several relays claiming with `SKIP LOCKED`, or one relay publishing a batch in parallel, reorder events of the same aggregate. When a consumer needs per-aggregate order (a state machine, a balance, last-write semantics), run **one relay per ordering key** (a single leader, or relays partitioned by `hash(aggregate_id)`), publish with the aggregate id as the message key, or carry a per-aggregate sequence the consumer checks. Commutative events do not care.
+
+**Gap-blind cursors.** A relay or consumer that advances `WHERE id > :last` over a sequence that concurrent transactions draw skips a row that commits late below the cursor (transaction A holds id 10 while B commits 11). It is safe with one serial writer or a log-ordered source (CDC); otherwise hold the floor back by a lag longer than the longest transaction and rescan periodically.
 
 ## Schema (stack-agnostic)
 
@@ -60,13 +65,25 @@ Separately, a worker polls (or uses CDC):
 ## Forbidden
 
 - Publishing events outside the DB transaction.
-- Reading outbox without `FOR UPDATE SKIP LOCKED` (causes duplicate publishes when multiple workers).
+- Claiming outbox rows without `SKIP LOCKED` or a claim column (two relays publish the same rows).
+- Holding the claim's row locks or transaction open while publishing.
+- Marking a row published before the broker confirmed it (a crash loses the event).
+- Parallel relays or parallel publishes over events whose consumers need per-aggregate order.
 - Unbounded outbox growth (retention is mandatory).
 - Busy-loop worker without backoff when outbox is empty.
 
+## Detectors
+
+Run by the distributed-systems pack's `dual-write-scan`; this pattern is the contract it checks against.
+
+- **Commit, then publish with no outbox** (or an outbox write outside the business transaction) — `dual-write-scan` § 1 (DW-1). Proof: V300 (kill between commit and publish → the event still arrives once).
+- **The relay** — no order, parallel publish, mark before confirm, locks held across the publish, no pruning — `dual-write-scan` § 3 (DW-4). Proof: V301.
+- **A gap-blind catch-up cursor** — `dual-write-scan` § 6. Proof: V301, gap variant.
+- Publish or enqueue **inside** the transaction is database `transaction-scan` § 1 (V8); a claim without `SKIP LOCKED` is database § 5 — when that pack is installed.
+
 ## Consumer side
 
-Consumers must be IDEMPOTENT — the outbox worker may publish the same event twice if it crashes between bus-publish and DB-update. Consumer dedupes by event id (unique index on `events.id`).
+Consumers must be IDEMPOTENT — the outbox worker may publish the same event twice if it crashes between bus-publish and DB-update. Consumer dedupes by event id: a unique row inserted in the same transaction as its effect (`idempotency.md` § Dedup by event id, within the business write).
 
 ## Related
 

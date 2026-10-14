@@ -44,7 +44,7 @@ All 7.
 The handler has 5 standard parts:
 
 1. **Subscription** — register handler with the project's broker / queue / event-stream platform using the platform's native consumer / poller / subscription API.
-2. **Idempotency check** — was this event already processed? (idempotency key in the project's transactional DB or distributed cache).
+2. **Idempotency reserve** — was this event already processed? A unique reserve on the event's **stable** id, written **in the same store and the same transaction as the effect** (never a distributed cache beside a database effect).
 3. **Validation** — schema check; ignore unknown event versions.
 4. **Effect** — the actual work.
 5. **Ack / DLQ** — on success ack; on failure retry with backoff; on max-retry → DLQ.
@@ -61,9 +61,9 @@ The handler has 5 standard parts:
 The handler function:
 
 1. **Validate** — parse the raw event with the project's schema validator (per the project's stack); reject malformed events. Set span attributes for the event's identifying fields (e.g., `event.orderId`, `event.tenantId`).
-2. **Idempotency** — compute a key (e.g., `handler:onOrderCreated:<orderId>`). Atomically check + reserve the key in the project's idempotency store with a TTL longer than the broker's max-retry window; if already processed, return `skipped`.
-3. **Effect** — perform the side effect (call other services, write to DB, etc.).
-4. **Outcome** — on success, increment success counter, return `processed`. On retryable failure (network blip, 5xx, timeout), record exception, release the idempotency reservation, increment retryable-failure counter, rethrow so the broker re-delivers. On non-retryable failure (validation, business-rule violation), record exception, increment permanent-failure counter, publish to the DLQ, return `dead-lettered`.
+2. **Key** — the event's **stable** id: a business id or a publisher-set message id, never a per-delivery handle. Per broker, `broker-semantics.md` rows ID1–ID9 (the table `messaging-scan` § 2 applies): never a RabbitMQ `deliveryTag`, an SQS `ReceiptHandle` (or the SQS `MessageId` when a DLQ redrive or an SNS fan-out can re-send it), a BullMQ auto id, a Pub/Sub `ackId`, a Sidekiq `jid`. E.g. `onOrderCreated:<eventId>`.
+3. **Reserve + effect, one transaction** — open a transaction in the store the effect writes to; insert the reserve row (`INSERT … ON CONFLICT DO NOTHING`, or the unique-constraint insert whose duplicate-key error is the dedupe); zero rows inserted → commit nothing, ack, return `skipped`. Otherwise write the effect in the same transaction and commit. The reserve rows live at least as long as broker retention + DLQ retention + the replay window. **When the effect is a call out** (a provider, another service) and cannot share the transaction, pass a provider idempotency key derived from the stable id so the far end dedupes, and record the outcome on the reserve row after the call (precedents § 17 in `precedents/distributed.md`).
+4. **Outcome** — on success, the commit happened before the ack; increment the success counter, return `processed`. On a retryable failure (network blip, 5xx, timeout), the transaction **rolls back — reserve and effect together** — record the exception, increment the retryable-failure counter, rethrow so the broker redelivers. Never "release" a reservation after an effect that may have partly applied: that is the second effect's invitation. On a non-retryable failure (validation, business-rule violation), record the exception, increment the permanent-failure counter, route to the DLQ (the broker's reject-without-requeue or `UnrecoverableError`-style primitive), return `dead-lettered`.
 
 Configure the broker / queue / event-stream platform's consumer with: max retries, exponential backoff base, dead-letter topic / queue. Use the platform's native consumer-config primitive.
 
@@ -96,7 +96,15 @@ Before scenarios run, the dedupe reserve MUST be cited at `<path:line>` and be *
   ```
   must resolve to a single atomic statement, and the effect + event-id row must share one transaction.
 
-No atomic reserve cited → HALT. If the reserve is a distributed lock (Redis etc.) rather than a DB constraint, it MUST carry a fencing token (`ai/patterns/idempotency.md`); a lock alone is not exactly-once.
+- BAD — a reserve in another store than the effect (a Redis `SET … NX` beside a SQL write): a crash after the reserve loses the effect (the redelivery reads "done"), and a reserve that expires before a redelivery doubles it (`dual-write-scan` § 4). Detector:
+
+  ```
+  rg -n "['\"]NX['\"]|\bsetnx\b|\bSETNX\b|\bsetIfAbsent\(" <handler>
+  ```
+  a hit beside a database effect is HALT unless the effect itself lives in that store.
+- The key the reserve uses resolves to a stable id (Phase 4 step 2); a delivery handle is HALT.
+
+No atomic reserve in the effect's store and transaction cited → HALT. A distributed lock is never the reserve on its own: without a fencing token checked at the write, a paused holder and a second acquirer both apply (`ai/patterns/idempotency.md`).
 
 ### Required failure-mode scenarios — each runs GREEN, or is marked UNVERIFIED/SKIPPED with the reason (never a faked PASS)
 
@@ -110,6 +118,8 @@ No atomic reserve cited → HALT. If the reserve is a distributed lock (Redis et
 6. **crash-in-the-gap (partition)** — kill the handler in the window between effect-commit and broker-ack (or between bus-publish and outbox-mark for an outbox producer); on redelivery the effect is still counted once. This proves the effect and the reserve are atomic *with respect to the ack*. If fault injection isn't available, mark **UNVERIFIED (no crash/partition harness)** — do not fake it (`chaos-test` skill is the harness for this).
 
 Each row MUST cite the real `<test-file>::<test-name>` it ran and render that test's ACTUAL result.
+
+**Run the class oracles, not a homemade variant.** Scenarios 2, 5 and 6 are the shapes of [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Distributed that `/ds-audit` and `/ds-fix` prove the same class with, so the builder and the auditor share one oracle: scenario 5 is **V292** (the same message twice, sequentially and then behind a barrier, against the real broker in a container → one effect), scenario 6 is **V303** (crash between the reserve and the effect, and between the effect and the ack → one effect after redelivery), and scenario 3 is **V293** (one poison message among good ones → bounded attempts, dead-lettered, the rest processed). A mocked broker (`Queue::fake()`, an in-memory harness, eager Celery) does not satisfy any of them (precedents § 33).
 
 **Exactly-once-effect gate — three outcomes, no fourth.** This gate is **[self-policed]**: no shell script parses this output (there is no `validate-event-handler-artifacts.sh`), so the halt is only as honest as the render — its falsifiability comes from the cited `<test-file>::<test-name>` per row, which a reviewer (or `@resilience-reviewer`) can open and re-run.
 
@@ -134,7 +144,7 @@ Side effect: <what>
 Idempotency: enabled (key: <pattern>)
 Retry policy: <max>, <backoff>
 DLQ: <topic / queue>
-Dedupe reserve: <path:line>  (atomic: unique-constraint INSERT | same-tx event-id)
+Dedupe reserve: <path:line>  (atomic: unique-constraint INSERT | same-tx event-id) · store: <the effect's store> · key: <stable id, broker-semantics ID row>
 
 Files written:
 - handler
@@ -147,8 +157,8 @@ Tested (actual run — each row cites the test + renders its real result):
 - retryable → redelivery → effect once     …::retry_redelivers                     PASS
 - non-retryable → DLQ, attempts bounded    …::poison_exits_loop                    PASS
 - schema-version unknown → skip + alert    …::unknown_version                      PASS
-- concurrent duplicate → exactly one       …::concurrent_dedupe                    PASS | UNVERIFIED (no concurrency harness)
-- crash-in-gap → redelivery, effect once   …::crash_before_ack                     PASS | UNVERIFIED (no partition harness)
+- concurrent duplicate → exactly one (V292) …::concurrent_dedupe                    PASS | UNVERIFIED (no concurrency harness)
+- crash-in-gap → redelivery, effect once (V303) …::crash_before_ack                PASS | UNVERIFIED (no partition harness)
 scenarios_green: <n>/<required>
 
 Verdict: COMPLETE (production-grade) — emitted only when scenarios_green == scenarios_required with every row a cited PASS.
@@ -168,6 +178,8 @@ Verdict: COMPLETE (production-grade) — emitted only when scenarios_green == sc
 ## Failure modes
 
 - Idempotency key wrong (not actually unique per event) → effect skipped.
+- Idempotency key is a delivery handle (`deliveryTag`, `ReceiptHandle`, an auto job id) → every redelivery is a new key → effect doubled.
+- Reserve in a cache beside a database effect, or released after a retryable failure → effect lost or doubled on a crash.
 - Idempotency table never cleaned → unbounded growth.
 - Treated all errors as retryable → poison-message stuck retrying forever.
 - Treated all errors as non-retryable → transient failures lost in DLQ.

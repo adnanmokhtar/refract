@@ -1,189 +1,171 @@
 ---
-description: Audit distributed transactions / sagas / event flows for stuck instances, missing compensations, dropped events, idempotency violations. Reports per-flow with verdict + recovery action.
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+description: "Runtime lane of /ds-audit: stuck sagas, DLQ depth, compensation gaps, unknown event versions on named live sources."
+kind: command
+pack: distributed-systems
+allowed-tools: [Read, Write, Grep, Glob, Bash, Task]
 ---
 
-# /audit-distributed-tx
+# /audit-distributed-tx --live=<source=target,…>
 
-Distributed transactions go wrong silently. Sagas stuck waiting on missing events; events arrive twice and process twice; compensations skipped because of an early-return. This command finds them.
+**Runtime only: stuck instances, DLQ depth, compensation gaps and drift, read from live sources you name. Code defects — ack order, missing reserves, dual writes, retries, locks, workflow determinism, contracts — are `/ds-audit`.** This command is the procedure `/ds-audit --runtime` runs; it keeps its name for existing users. It counts what the running system shows, and it never reads code for a defect class, so a clean run here says nothing about the code.
+
+## Premise
+
+A runtime count is evidence of a defect, not the defect. Two confirmation emails for one order prove a duplicate happened; the cause — a reserve keyed on a delivery handle, a check-then-act dedupe, a redelivery after a stall — is a code row that `/ds-audit` finds and `/ds-fix` closes. This command reads the live state **read-only**, from targets the user named, and hands each count to the agent or detector that explains it.
+
+- **Named targets only.** Every source comes from `--live` (`redis=<url>`, `rabbitmq=<mgmt-url>`, `kafka=<bootstrap>`, `sqs=<profile>@<region>`, `nats=<url>`, `temporal=<address>`, `db=<read-only DSN>`), with credentials from the user's environment. A source not named prints `NO-DATA(<source>)` for every row that needs it.
+- **No default context, no default profile.** The first line of every Bash block that may run a cluster or cloud tool is `SCAN=$(mktemp -d "${TMPDIR:-/tmp}/dtx.XXXXXX"); export KUBECONFIG="$SCAN/empty-kubeconfig"; : > "$KUBECONFIG"` — an empty scratch kubeconfig, so no tool can reach a default context. A cloud CLI runs only with the profile `--live` named (`--profile <profile> --region <region>`), and the run first prints `aws sts get-caller-identity --profile <profile>` so the account is on the record. An unset or unnamed profile halts that source, never falls back.
+- **Read-only.** No send, receive-and-delete, purge, ack, redrive, `XCLAIM`, compensation run or workflow signal. Replaying dead letters is the `dlq-replay` skill, run after the fix ships.
 
 ## Phases applied
 
-1, 2, 3, 4, 6 (skips Update/Improve — read-only audit + recovery proposals).
+1, 2, 3, 4, 6 (skips Update/Improve — read-only count + routing).
 
 ## When to use
 
-- Weekly minimum for high-throughput event-driven systems.
-- After a release touching saga / event handler code.
-- After incidents that touched distributed flow.
-- Pre-incident: when DLQ is growing unexpectedly.
+- After an incident that touched a distributed flow: how many instances, messages and effects it left behind.
+- When a DLQ or a failed set grows unexpectedly.
+- On a schedule for high-throughput event-driven systems, beside a periodic `/ds-audit` of the code.
+- NOT: "is this consumer idempotent", "does this relay lose events", "is this workflow deterministic" → `/ds-audit`.
 
 ## Phase 1 — Understand
 
-- Flows in scope: orders / signups / billing / shipping / etc.
-- Saga implementation: the project's choice (durable workflow engine — Temporal / Cadence / Step Functions / Durable Functions / Inngest / etc., custom orchestrator on the project's DB, or choreography-only).
-- Event broker: the project's message bus / event-stream platform (Kafka / Pulsar / SQS / EventBridge / RabbitMQ / NATS / Cloud Pub/Sub / Redis Streams / etc.).
+- The flows in scope and their declared stuck thresholds (some legitimately wait days on a human).
+- The saga runtime: a durable engine (Temporal, Step Functions, Durable Functions, Inngest, Restate), a custom orchestrator with a saga-state table, or choreography.
+- The broker and each source's `--live` target. A source with no target is `NO-DATA(<source>)` from here on.
 
 ## Phase 2 — Organize
 
-Five concerns audited:
+Five counts:
 
-1. **Stuck sagas / workflows** — stuck > N hours waiting on event / activity.
-2. **DLQ depth** — per-handler dead-letter count + age.
-3. **Compensation correctness** — sagas that failed but compensations weren't run.
-4. **Idempotency violations** — duplicate-side-effect signal.
-5. **Schema-version drift** — events with unknown versions.
+1. **Stuck instances** — running longer than the flow's threshold, grouped by the step they wait on.
+2. **DLQ depth** — per handler or queue: depth, oldest age, trend; for BullMQ the failed set.
+3. **Compensation gaps** — failed instances whose completed steps were not all compensated.
+4. **Duplicate-effect signals** — one business id with two effects (two emails, two refunds, two stock moves).
+5. **Unknown event versions** — events whose version no handler declares.
 
-## Phase 2.5 — Dispatch the specialist for the two concerns that need one
+## Phase 2.5 — Hand each count to its owner
 
-Concerns 2, 3 and 4 are counting exercises this command does itself. Concerns 1 and 5 are judgement calls, and each has an owner:
+A count is routed, never diagnosed here.
 
-- **Stuck workflows (concern 1)** — dispatch `@workflow-orchestrator` on any saga whose stuck instances share a step. Counting stuck instances is not the finding; *why* the step wedges is, and its detector set (non-determinism, wrong retry scope, missing activity timeout, poll-instead-of-signal) separates "legitimately waiting on a human" from "stranded by a deploy". Give it the stuck-instance table; take back a per-workflow verdict (DURABLE / FRAGILE / ORPHAN-RISK).
-- **Schema-version drift (concern 5)** — dispatch `@event-sourcing-architect` whenever unknown event versions appear. Drift counts tell you handlers are skipping events; only the upcaster/versioning decision tells you whether to fix the handler, ship an upcaster, or roll the producer back. Give it the drift table; take back the evolution strategy.
+- **Stuck instances (1)** — dispatch `@workflow-orchestrator` on any flow whose stuck instances share a step, with the stuck-instance table. It separates "waiting on a human" from "stranded by a deploy" and names the `workflow-scan` § to run.
+- **Compensation gaps (3)** and **duplicate effects (4)** — each names the code question for `/ds-audit`: `workflow-scan` § 4–§ 6 for a gap, `messaging-scan` § 2 / `dual-write-scan` § 4 for a duplicate. Money, stock or credit duplicates are security `logic-race-scan` § 4 when that pack is installed.
+- **Unknown event versions (5)** — dispatch `@event-sourcing-architect` with the drift table; it decides upcaster, handler fix or producer rollback, and names `event-contract-scan` § 1 for the contract gate.
 
-Skip either dispatch when its concern returned zero rows — an agent run against an empty table produces a confident report about nothing.
+Skip a dispatch when its count is zero or `NO-DATA` — an agent run against an empty table produces a confident report about nothing.
 
-## Phase 3 — Retrieve
+## Phase 3 — Retrieve (read-only; each command only on a `--live` target)
 
-- **Durable workflow engine** (Temporal / Cadence / Step Functions / Durable Functions / Inngest / etc.): query for workflows in running state > N hours via the engine's API.
-- **Custom orchestrator**: query saga ledger / state table.
-- **Choreography**: harder — need event-flow tracing across services. Use OpenTelemetry trace context.
-- DLQ depth + oldest message age from the project's broker (per the broker's stats / metrics API — e.g., SQS `GetQueueAttributes`, Kafka consumer-group lag, RabbitMQ management API).
-- Application logs / traces for failed-without-compensation patterns.
+```bash
+SCAN=$(mktemp -d "${TMPDIR:-/tmp}/dtx.XXXXXX"); export KUBECONFIG="$SCAN/empty-kubeconfig"; : > "$KUBECONFIG"   # first line, always
+# Kafka — lag, members, churn per group
+kafka-consumer-groups.sh --bootstrap-server "$KAFKA" --describe --group "$GROUP"
+# RabbitMQ — unacked, consumers, DLX and delivery-limit arguments, queue type
+rabbitmqctl list_queues name type messages_unacknowledged consumers arguments
+# SQS — depth, oldest age, redrive policy, retention of the source and of the DLQ
+aws sts get-caller-identity --profile "$PROFILE"
+aws sqs get-queue-attributes --profile "$PROFILE" --region "$REGION" --queue-url "$DLQ_URL" --attribute-names All
+# NATS JetStream — AckPolicy, MaxDeliver, redelivered count
+nats consumer info "$STREAM" "$CONSUMER"
+# Redis Streams — pending entries and their idle time
+redis-cli -u "$REDIS" XPENDING "$STREAM" "$GROUP"
+redis-cli -u "$REDIS" XINFO GROUPS "$STREAM"
+# Temporal — one execution's history (flag form unverified: research catalog 2026-10-14)
+temporal workflow show -w "$WORKFLOW_ID" --output json
+```
 
-Read project's:
-- `ai/patterns/saga-*.md` — declared sagas.
-- `ai/patterns/event-handlers.md` — declared handlers *(project signal)*.
+- **BullMQ:** the failed and waiting counts from a read-only script using `queue.getJobCounts('failed', 'waiting', 'delayed')` against the named Redis, never from the app's own process.
+- **Durable engine stuck list:** the engine's own list or visibility query over running executions older than the threshold. Temporal's list-query form is not verified in the research catalog; name it `[K?]` and print the command run.
+- **Custom orchestrator:** a read-only query over the saga-state table, through the `db=` DSN.
+- **Choreography:** stuck flows are visible only through traces or the saga-state ledger; with neither, the count is `NO-DATA(choreography: no ledger)`.
+- **Declared flows:** `ai/patterns/saga-*.md` and `ai/patterns/event-handlers.md` *(project signal)*.
 
 ## Phase 4 — Generate
 
+The block below is an **EXAMPLE** of the shape. Its placeholders are not data: every value in a real report comes from a command in Phase 3, with its source.
+
 ```
-## Distributed-tx audit — <date>
+## Runtime lane — <date>   sources: kafka=<bootstrap> · sqs=<profile>@<region> · temporal=NO-DATA(temporal)
 
-### Stuck sagas / workflows
+### Stuck instances                                   source: <command run>
+| Flow | Instance | Stuck since | Waiting on | Threshold | → |
+|---|---|---|---|---|---|
+| <flow> | <instance id> | <duration> | <step> | <declared threshold> | @workflow-orchestrator |
 
-| Saga | Instance | Stuck since | Step | Cause |
+### DLQ depth                                         source: <command run>
+| Handler / queue | Depth | Oldest | Trend | → |
 |---|---|---|---|---|
-| place-order | wf-9f2a | 3d | scheduleShipping | Shipping service returned `INTERNAL_ERROR` 14× |
-| place-order | wf-7c1e | 18h | chargePayment | Payment activity never invoked — orchestrator lost progress? |
-| onboard-tenant | wf-3d4b | 2d | sendWelcomeEmail | SES quota exceeded; activity stuck retrying |
+| <name> | <n> | <age> | <growing / stable / new> | /ds-audit messaging-scan §3 |
 
-Total stuck: 14 instances across 4 saga types.
+### Compensation gaps                                 source: <saga-state query>
+| Instance | Failed at | Compensated | Missing | → |
+|---|---|---|---|---|
+| <instance id> | <step> | <steps> | <step> | /ds-audit workflow-scan §4–§6 |
 
-### DLQ depth
-
-| Handler | DLQ depth | Oldest message | Trend |
+### Duplicate-effect signals                          source: <query>
+| Handler | Business id | Effect count | → |
 |---|---|---|---|
-| onOrderCreated | 230 | 6 days | growing |
-| onPaymentSucceeded | 47 | 12 hours | stable |
-| onSubscriptionRenewed | 8 | 2 hours | new alarm |
+| <handler> | <id> | <n> | /ds-audit messaging-scan §2 · dual-write-scan §4 |
 
-**`onOrderCreated` DLQ growing for 6 days unattended** — investigate poison-message class.
-
-### Compensation correctness
-
-Detected sagas that failed mid-flow:
-
-| Saga instance | Failed at step | Compensations run | Missing |
+### Unknown event versions                            source: <query>
+| Topic / type | Version | Count (24 h) | → |
 |---|---|---|---|
-| place-order/wf-2a3b | scheduleShipping | inventory: ✓ payment: ✓ | none |
-| place-order/wf-8c1d | scheduleShipping | inventory: ✗ payment: ✓ | **inventory release missing** — investigate |
-| onboard-tenant/wf-5f9e | createBillingProfile | tenant created: ✗ | **rollback skipped** — orphan tenant |
+| <type> | <version> | <n> | @event-sourcing-architect |
 
-**3 sagas failed without full compensation. 2 require manual recovery.**
-
-### Idempotency violations
-
-Suspicious double-side-effect signals:
-
-| Handler | Event ID | Side effect ran | Notes |
-|---|---|---|---|
-| onOrderCreated | order-94f3a | 2× | 2 confirmation emails sent for one order |
-| onPaymentSucceeded | pay-1bc4e | 2× | Inventory released twice; potential double-stocking |
-
-**Investigate**: idempotency key construction OR broker re-delivery (consumer ack failure).
-
-### Schema-version drift
-
-Events with versions outside known set:
-
-| Event topic | Unknown version | Count last 24h |
-|---|---|---|
-| OrderCreated | v3 | 1,247 |
-| PaymentRequested | v2 | 89 |
-
-Producer for OrderCreated upgraded to v3 yesterday; handlers still expect v1/v2 → events skipped + alarmed.
-
-### Recovery actions
-
-| Action | Severity | Owner | Timeline |
-|---|---|---|---|
-| Manual: release inventory for 2 orders (wf-8c1d, etc.) — retry compensation | HIGH | platform-team | today |
-| Investigate `onOrderCreated` DLQ poison message class | HIGH | notifications-team | today |
-| Update OrderCreated handler to support v3 schema | HIGH | notifications-team | today |
-| Investigate `onPaymentSucceeded` double-delivery (broker config or code bug) | MEDIUM | payments-team | this week |
-| Drain old DLQ entries via `/dlq-replay` after fixes | MEDIUM | platform-team | after above |
-
-### System health
-- Stuck sagas:        14   (target: < 5)
-- DLQ depth (sum):    285  (target: trending zero)
-- Compensation gaps:  3    (target: 0)
-- Idempotency violations: 2 (target: 0)
-- Schema-version drifts: 2  (target: 0)
-
-Verdict: **YELLOW** — stuck sagas + idempotency violations need fix THIS week.
+### DLQ replay
+not run (dlq-replay is a write lane)  |  not run (dlq-replay absent)
 ```
 
 ## Phase 6 — Validate
 
-After recovery actions:
-- Re-run audit; counts drop.
-- Specific sagas show resolved (compensated successfully).
-- DLQ drained where appropriate.
-- Idempotency root cause fixed (verified by replaying historical events without re-effect).
+After the recovery actions and the code fixes `/ds-fix` closed:
+- Re-run this lane on the same targets; each count moves the way the fix predicts, and the report prints both runs.
+- A drained DLQ is checked with `dlq-replay`'s own Verify block (depth before and after, duplicates by business id, out-of-order count), never assumed.
 
 ## Output format
 
 ```
-## /audit-distributed-tx complete
+## /audit-distributed-tx complete (runtime lane)
 
-Stuck sagas: <count>
-DLQ depth: <sum>
-Compensation gaps: <count>
-Idempotency violations: <count>
-Schema drifts: <count>
+Sources: <name=target | NO-DATA(<source>)>, one per line
+Stuck instances: <count | NO-DATA>
+DLQ depth: <sum | NO-DATA>
+Compensation gaps: <count | NO-DATA>
+Duplicate-effect signals: <count | NO-DATA>
+Unknown event versions: <count | NO-DATA>
+DLQ replay: not run (<reason>)
 
-Verdict: GREEN / YELLOW / RED
+Verdict: GREEN / YELLOW / RED / NO-DATA     (runtime only — the code verdict is /ds-audit's)
 
-Report: ai/audits/distributed-tx-<date>.md
-Recovery actions: <count> (P0: <count>, P1: <count>)
+Report: ai/audits/<YYYY-MM-DD>-distributed-runtime.md   (under /ds-audit --runtime: its own block in that report)
 ```
 
 ## Hard rules
 
-- **Stuck-saga threshold documented per saga type.** Some legitimately wait days (manual approval); others should never be > 1 hour.
-- **DLQ replays go through `/dlq-replay`, not direct broker manipulation.** Audit trail.
-- **Pre-flight**: If `.claude/skills/dlq-replay/SKILL.md` is missing, halt and surface — the audit cannot complete without DLQ replay tooling.
-- **Manual compensation runs documented in `ai/runbooks/saga-recovery.md`.**
-- **Idempotency violations open an ADR if root cause is design-level.**
-- **Schema-version drift surfaces as alert, not just audit finding.**
+- **Write is for the report path only** — `ai/audits/<YYYY-MM-DD>-distributed-runtime.md`. Nothing else in the tree, no broker, no engine, no database is written.
+- **A missing `dlq-replay` never halts this command.** DLQ rows print `not run (dlq-replay absent)`; the counts still print.
+- **Stuck thresholds are declared per flow.** Some legitimately wait days (manual approval); others should never pass an hour. No threshold → the flow's rows print `threshold undeclared`, never a verdict.
+- **Every count cites its source** — the `--live` target and the command run. No source, `NO-DATA(<source>)`; never an estimate.
+- **Manual compensation runs are documented in `ai/runbooks/saga-recovery.md`** and are run by a person, not by this command.
+- **A design-level duplicate opens an ADR** after `/ds-audit` names the cause.
 
 ## What to do next — required closing section
 
-Every run MUST end its report with a `## What to do next` block: the findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (correctness holes: non-idempotent consumers, missing compensation, lost updates, no outbox) → **SHOULD FIX** (resilience gaps: retries, DLQ, timeouts) → **OPTIONAL** (hardening) — each step carrying the flow / `<file:line>` + **Fix** (concrete; cite the saga / outbox / idempotency pattern) + **Verify** (the test proving exactly-once / replay-safety), then the closing steps (re-run `/audit-distributed-tx` to confirm it comes back clean, `/learn-from-task`, then ship). A clean run collapses to a single line ("No correctness holes — clear to proceed"). The reader must never assemble the next steps themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+Every run MUST end its report with a `## What to do next` block: the counts re-expressed as ONE ordered, numbered to-do — **MUST FIX** (duplicate effects, compensation gaps) → **SHOULD FIX** (growing DLQs, stuck instances past threshold) → **OPTIONAL** — each step carrying the flow, the count and its source + **Fix** (the `/ds-audit` detector § that finds the cause, then `/ds-fix`) + **Verify** (this lane re-run on the same targets, and the oracle `/ds-fix` names). Then the closing steps: `/ds-audit` on the code, `/ds-fix`, `dlq-replay` after the fix ships, re-run this lane, `/learn-from-task`. A clean run collapses to a single line ("No runtime anomalies on <sources> — code not audited here; run /ds-audit"). Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
 
 ## Failure modes
 
-- Audited but didn't validate that "stuck" sagas ARE actually stuck (some legitimately long-running).
-- Drained DLQ before fixing the bug → events fail again, repopulate DLQ.
-- Manual compensation run for the wrong order ID → incorrect refund.
-- Schema-version drift fixed in handler but producer was rolled back → handler now drops valid events.
+- Reporting a runtime count as a code finding — the count is evidence; the cause is a `/ds-audit` row.
+- Counting "stuck" instances that legitimately wait (manual approval) — the declared threshold decides.
+- Draining a DLQ before the fix ships → the messages fail again and repopulate it.
+- Reading with the default cloud profile or kube context → the wrong account, or a production cluster nobody named.
+- Manual compensation run for the wrong instance id → an incorrect refund.
 
 ## Related
 
-- `add-saga` command — what this audits.
-- `add-event-handler` command — what this audits.
-- `dlq-replay` skill — drain mechanism.
-- `ai/patterns/event-sourcing.md`.
-- `@event-sourcing-architect` agent — dispatched in Phase 2.5 on schema-version drift; owns the upcaster / event-versioning decision.
-- `@workflow-orchestrator` agent — dispatched in Phase 2.5 on stuck workflows; owns the determinism / retry-scope / timeout verdict.
+- `/ds-audit` — the code audit; `--runtime` runs this procedure as its runtime lane.
+- `/ds-fix` — closes the code findings the counts point to.
+- `dlq-replay` skill — the write lane that drains a DLQ once the cause is fixed.
+- `add-saga`, `add-event-handler` commands — build the flows these counts watch.
+- `@workflow-orchestrator` — dispatched on stuck instances that share a step.
+- `@event-sourcing-architect` — dispatched on unknown event versions.

@@ -71,13 +71,15 @@ Choreography: just events on the project's bus (the message bus / queue / event-
 
 ### Orchestration (stack-agnostic, durable workflow engine)
 
-Define a workflow function with the engine's SDK. The workflow:
+Define a workflow function with the engine's SDK. **A step that can fail after its effect** — a timeout after the reservation landed, limited retries exhausted after a charge, a lost response — **is an ambiguous failure**: "failed" does not mean "nothing happened". So the compensation is **registered before the call**, keyed so it is a no-op when the forward effect never landed, and it runs on any failure of that step:
 
-1. Step 1 — `reserveInventory(orderId, lineItems)`. On failure, return `{status: 'failed', step: 'reserveInventory'}`.
-2. Step 2 — `chargePayment(orderId, paymentMethodId)`. On failure, run `releaseInventory` if step 1 succeeded; return failed.
-3. Step 3 — `scheduleShipping(orderId, shippingAddress)`. On failure, run `refundPayment` then `releaseInventory`; return failed.
-4. Step 4 — `sendConfirmation(orderId)` as best-effort (catch + log + don't compensate).
+1. Register `releaseInventory(orderId)`, then call `reserveInventory(orderId, lineItems)`. On any failure — including a timeout after the reservation landed — run the registered compensations in reverse; return `{status: 'failed', step: 'reserveInventory'}`.
+2. Register `refundPayment(orderId)` (keyed by `orderId`; refunding a charge that never landed is a no-op the provider's idempotency key makes safe), then call `chargePayment(orderId, paymentMethodId)` with an idempotency key from `orderId`. On any failure, run the registered compensations in reverse (`refundPayment`, then `releaseInventory`); return failed.
+3. Register `cancelShipment(orderId)`, then call `scheduleShipping(orderId, shippingAddress)`. On any failure, compensate in reverse; return failed.
+4. Step 4 — `sendConfirmation(orderId)` after the last fallible step, as best-effort (catch + log + don't compensate): an irreversible effect goes after the pivot.
 5. Return `{status: 'completed', orderId, paymentId, shippingId}`.
+
+Registering a compensation only after its step returns success leaves the ambiguous failure with nothing to undo — a reservation or a charge that landed and is never released (`workflow-scan` § 5, SG-2). A step that is rejected before any effect (a validation error) may register after; anything that can time out, retry or lose its response registers before. Compensations run in reverse order and rethrow the original error after compensating, so the saga reports failure.
 
 Each step is registered as an activity / task with the engine's per-step timeout + retry policy. The workflow body is deterministic (no direct I/O / clock / random — use the engine's SDK equivalents).
 
@@ -86,6 +88,7 @@ Each step is registered as an activity / task with the engine's per-step timeout
 - **inventory-service** handles `OrderRequested` → calls `reserveInventory`. On success publishes `InventoryReserved`; on failure publishes `InventoryReservationFailed`.
 - **payment-service** handles `InventoryReserved` → calls `chargePayment`. On success publishes `PaymentSucceeded`; on failure publishes `PaymentFailed`.
 - **inventory-service** handles `PaymentFailed` (compensation) → calls `releaseInventory`, publishes `InventoryReleased`.
+- **payment-service** on an ambiguous failure (a timeout after the charge call) publishes nothing until it reads the provider's state by the charge's idempotency key: a charge that landed is `PaymentSucceeded`; one that did not is `PaymentFailed`. It never publishes `PaymentFailed` for a charge that may have landed.
 
 All publishes go through the project's message bus / event-stream platform; consumers are idempotent and dedup by event id.
 
@@ -132,16 +135,21 @@ No atomic reserve on a step or a compensation → HALT.
 3. **exactly-once step effect (crash-in-the-gap)** — kill the worker AFTER a step's effect commits but BEFORE the orchestrator records the step complete; on resume the engine re-runs the activity → the effect is still applied **once** (proves the reserve spans the effect↔record boundary, not just "resumes from last state").
 4. **compensation under redelivery** — a compensation runs, the worker crashes, the engine redelivers it → the compensation applies **once**; state is NOT double-compensated (no double refund / double inventory release).
 5. **timeout at each step** — saga halts + compensates the completed prefix.
-6. **orchestrator/worker partition** — sever the coordinator↔worker link mid-flow: the in-flight step is neither lost nor double-run when the link heals (at-least-once activity + idempotent step ⇒ one effect). Choreography variant: a duplicated/re-ordered bus event does not double-advance the saga.
-7. **observability** — trace shows every step + status; **manual unstick path** documented in `ai/runbooks/saga-recovery.md`.
+6. **ambiguous failure at step k** — the step's effect lands and then the call fails (a timeout after the reservation or the charge, a lost response): the step's own compensation runs **exactly once** along with the completed prefix's, in reverse; and on a clean failure of step k (rejected before any effect) that compensation is a no-op.
+7. **orchestrator/worker partition** — sever the coordinator↔worker link mid-flow: the in-flight step is neither lost nor double-run when the link heals (at-least-once activity + idempotent step ⇒ one effect). Choreography variant: a duplicated/re-ordered bus event does not double-advance the saga.
+8. **observability** — trace shows every step + status; **manual unstick path** documented in `ai/runbooks/saga-recovery.md`.
 
-Each row MUST cite the real `<test-file>::<test-name>` it ran and render that test's ACTUAL result. Scenarios 3/4/6 need fault injection (`chaos-test` skill / the engine's test framework); if that harness is absent, mark the row **UNVERIFIED (no crash/partition harness)** — never a faked PASS.
+Each row MUST cite the real `<test-file>::<test-name>` it ran and render that test's ACTUAL result.
+
+**Run the class oracles, not a homemade variant.** Scenarios 2, 4, 6 and the replayed failure path are **V322** in [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Distributed — the saga step-k failure matrix with its clean **and ambiguous** rows (the mock completes the effect, then times out; the compensation must still run once) — the same oracle `/ds-audit`'s `workflow-scan` § 4–§ 6 and `/ds-fix` use, so the builder and the auditor share one oracle. Scenario 3 is **V303** (crash between the reserve and the effect), and the choreography variant of 7 is **V292** (a duplicated bus event → one advance). On a durable engine, V321's time-skipping environment drives the timeouts. A mocked broker or an in-memory saga harness does not satisfy them (precedents § 33).
+
+Scenarios 3/4/6/7 need fault injection (`chaos-test` skill / the engine's test framework); if that harness is absent, mark the row **UNVERIFIED (no crash/partition harness)** — never a faked PASS.
 
 **Exactly-once-effect gate — three outcomes, no fourth.** This gate is **[self-policed]**: no shell script parses this output (there is no `validate-saga-artifacts.sh`), so the halt is only as honest as the render — its falsifiability is the cited `<test-file>::<test-name>` per row, which a reviewer (or `@resilience-reviewer` / `@workflow-orchestrator`) can open and re-run.
 
 - **GREEN** — `scenarios_green == scenarios_required`, every row a cited real PASS → emit `## /add-saga complete`.
 - **RED** — any row FAIL / unrun / cites no test → HALT, name the row, emit NOTHING but the failing row. An asserted `Tested:` checklist with no `<test-file>::<test-name>` is RED by definition.
-- **INCOMPLETE** — scenarios 3/4/6 UNVERIFIED for lack of a crash/partition harness → do NOT claim production-grade; emit the INCOMPLETE block naming exactly the unverified scenarios and the harness each needs.
+- **INCOMPLETE** — scenarios 3/4/6/7 UNVERIFIED for lack of a crash/partition harness → do NOT claim production-grade; emit the INCOMPLETE block naming exactly the unverified scenarios and the harness each needs.
 
 ## Phase 7 — Improve
 
@@ -175,6 +183,7 @@ Tested (actual run — each row cites the test + renders its real result):
 - exactly-once step effect (crash-in-gap)      …::crash_between_effect_and_record  PASS | UNVERIFIED (no crash harness)
 - compensation under redelivery (no double)    …::compensation_redelivered_once    PASS | UNVERIFIED (no crash harness)
 - timeout at each step → halt + compensate     …::step_timeout                     PASS
+- ambiguous failure at step k → comp once (V322) …::ambiguous_timeout_after_effect PASS | UNVERIFIED (no fault harness)
 - orchestrator/worker partition                …::partition_no_double_run          PASS | UNVERIFIED (no partition harness)
 - observability (trace shows all steps)        …::trace_complete                   PASS
 scenarios_green: <n>/<required>
@@ -186,7 +195,7 @@ Verdict: COMPLETE (production-grade) — emitted only when scenarios_green == sc
 ## Hard rules
 
 - **Every step idempotent.** Same input + same effect on retry.
-- **Every step has compensation OR is documented as fire-and-forget acceptable.**
+- **Every step has compensation OR is documented as fire-and-forget acceptable.** A step that can fail after its effect registers its compensation **before** the call.
 - **Every step has timeout.** No unbounded waits.
 - **Saga state durable across crashes.** Durable workflow engine / state-machine service / explicit event ledger.
 - **User-facing failure surface.** Don't silently retry forever.
@@ -198,6 +207,7 @@ Verdict: COMPLETE (production-grade) — emitted only when scenarios_green == sc
 - Step assumes other service is up; outage cascades into saga starvation.
 - Choreography conflicting events: Service A says "fail," Service B says "succeed" — no central truth.
 - Compensation order wrong (refund before inventory release → customer double-charged briefly).
+- Compensation registered only after its step succeeded → a timeout after the effect leaves a reservation or a charge nobody undoes.
 - Saga stuck waiting on a manual approval that never comes; no escalation.
 - Idempotency key collision across saga instances.
 - Time zone bug in timeout comparison.

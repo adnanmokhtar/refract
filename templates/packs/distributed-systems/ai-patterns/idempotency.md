@@ -71,9 +71,13 @@ Flow:
 1. Receive request with Idempotency-Key.
 2. Lock on key (advisory lock / row-level "select for update" — a **single-source-of-truth** DB lock is safest here). **If using a distributed lock (Redis etc.), it MUST carry a fencing token** — a monotonically increasing number the resource checks and rejects if stale — because a lock holder can be paused (GC/network) past its TTL and a second holder acquire concurrently. Redlock is contested (Kleppmann vs Antirez); for correctness prefer a single-writer DB lock or a fencing-token-checked resource, not a lock alone. See `distributed-lock.md`.
 3. Check idempotency_records:
-   - Found + same hash → return stored response. Done.
-   - Found + different hash → 409 Conflict (client bug: key reused with different body).
+   - Found + same hash, completed → return the stored response. Done.
+   - Found + same hash, still in flight (PENDING) → 409 Conflict (a concurrent duplicate; the client retries later).
+   - Found + different hash → 422 Unprocessable Content (client bug: key reused with a different body).
+   - Key missing on an endpoint that requires one → 400 Bad Request.
    - Not found → continue.
+
+   The status codes are the IETF draft's (`draft-ietf-httpapi-idempotency-key-header-07` § 2.7, published 2025-10-15, an expired Internet-Draft — cite it as a draft, read 2026-10-14). The HTTP contract around them (scope per principal, the stored response) belongs to the project's API; this file is the storage contract it rests on.
 4. Execute the request.
 5. Store result + key + hash + TTL.
 6. Release lock.
@@ -90,12 +94,11 @@ Flow:
 
 Messages may be delivered multiple times (at-least-once delivery).
 
-### Dedup by event id
+### Dedup by event id, within the business write
 
-`processed_events` table with `event_id` PK + `processed_at` timestamp. The handler attempts to insert the event_id first; on duplicate-key error, the event is already processed — return early. Otherwise, do the work.
+`processed_events` table with `event_id` PK (or `(consumer, event_id)`) + `processed_at` timestamp. Insert the event id **in the same DB transaction as the effect**: the insert fails on a duplicate key (the event is already processed — return early), and otherwise the business write runs in that transaction. Both commit or both roll back, then the message is acked.
 
-### Dedup within the business write
-Combine the processing write + event id in one DB transaction: insert the event id (fails if duplicate) and update the business row in the same transaction. Both succeed or both rollback.
+An event-id insert committed on its own, *then* the work, is not a dedupe: a crash between the two leaves the id recorded and the effect never applied, and the redelivery skips it — the effect is lost. Likewise a reserve in another store (a Redis `SET NX` beside a SQL effect) is not atomic with the effect. Key on a **stable** id — a business id or a publisher-set message id, never a per-delivery handle (`deliveryTag`, `ReceiptHandle`, an auto-generated job id); `broker-semantics.md` rows ID1–ID9 name it per broker. Keep the rows at least as long as broker retention + DLQ retention + the replay window.
 
 ## Payment / financial operations
 
@@ -133,6 +136,14 @@ Retries are safe IF the operation is idempotent. Never retry a non-idempotent PO
 - Longer for payments (90 days matches most provider policies).
 - Vacuum old records (a periodic job).
 
+## Detectors
+
+Run by the distributed-systems pack's detectors; this pattern is the contract they check against.
+
+- **No idempotent consumer, or a reserve keyed on an unstable id** — `messaging-scan` § 2 (MQ-2). Proof: V292 (the same message twice, sequentially and behind a barrier → one effect).
+- **A reserve that exists but is not atomic with the effect** — written after it, read-then-written, committed on its own, or in another store — `dual-write-scan` § 4 (DW-5). Proof: V303 (crash between the reserve and the effect → the effect exactly once after redelivery).
+- Idempotency on money, stock and credit endpoints and consumers is security `logic-race-scan` § 4 when that pack is installed; without it the rows above are reported tagged `money effect (owner pack not installed)`.
+
 ## Forbidden
 
 - POST / PATCH endpoints that modify state without an Idempotency-Key option.
@@ -140,4 +151,5 @@ Retries are safe IF the operation is idempotent. Never retry a non-idempotent PO
 - Storing idempotency records forever (unbounded growth).
 - Ignoring the hash check — letting a client reuse a key with a different body silently (hides bugs).
 - Idempotency via "check if it exists, then create" without locking (classic race).
+- An event-id or key reserve committed apart from the effect it guards (lost on a crash between them).
 - Incrementing counters without CAS semantics in distributed systems.

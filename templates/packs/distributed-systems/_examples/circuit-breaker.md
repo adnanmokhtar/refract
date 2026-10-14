@@ -56,11 +56,11 @@ If the dependency's error rate, call volume and recovery time are not extracted,
 class CircuitBreaker {
   private state: 'closed' | 'open' | 'half-open' = 'closed';
   private failures: boolean[] = [];
-  private openedAt: number = 0;
+  private openedAt: number = 0;   // performance.now() — monotonic, never Date.now()
 
   async call<T>(fn: () => Promise<T>, fallback?: () => T): Promise<T> {
     if (this.state === 'open') {
-      if (Date.now() - this.openedAt > this.config.openDuration) {
+      if (performance.now() - this.openedAt > this.config.openDuration) {
         this.state = 'half-open';
       } else {
         if (fallback) return fallback();
@@ -80,6 +80,8 @@ class CircuitBreaker {
   }
 }
 ```
+
+The open window is a **duration**, so it is measured on a monotonic clock (`performance.now()` or `process.hrtime.bigint()` in Node; `System.nanoTime()`, `time.monotonic()`, `Stopwatch`, Go's `time.Since(start)` elsewhere — `broker-semantics.md` TM2). `Date.now()` follows the wall clock: an NTP step backwards keeps the breaker open past its window, a step forward half-opens it early (`coordination-scan` § 7, proven by V316). `recordFailure()` sets `openedAt = performance.now()` when it opens the breaker.
 
 ## Libraries (don't hand-roll if one exists)
 
