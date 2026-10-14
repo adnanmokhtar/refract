@@ -283,13 +283,13 @@ Inventory: 22 acquisitions (21 SET … NX, 1 pg_advisory_xact_lock) · atomic re
 
 Findings: 0 · Unconfirmed: 2 · Hardening: 2
 
-1. apps/api/src/jobs/*-sweep.job.ts ×9 (e.g. account-purge.job.ts:82)                        [report-flagged]   low
-   §1 LK-1 narrow — part A: each cron's fleet lock (SET … PX … NX, token per run). Part B: release is GET → compare → DEL in two
-   round trips (LO1); no await between the compare and the DEL (precedent 21: low). Fix: the project's Lua release (leader-lock.ts:20).
-   Settling test: V310 with a pause injected between the GET and the DEL.
-2. apps/api/src/billing/storage-billing-daily.job.ts:82                                      [report-flagged]   medium
-   §4 LK-4 — a 30-minute fixed TTL around a pass over every tenant, no renewal. A comment claims the postings are idempotent by
-   unique indexes (precedent 34: a pointer). Read: the unique index on the posting ledger; if present → efficiency only (precedent 19).
+1. apps/api/src/shared/scheduling/leader-lock.ts:13                                          Refuted
+   §1 LK-1 — every scheduled lock goes through one helper whose release is an atomic Lua compare-and-delete (and extend a
+   compare-and-pexpire), pinned by a spec; an earlier copy had nine crons doing GET → compare → DEL (precedent 21).
+2. apps/api/src/billing/storage-billing-daily.job.ts:66                                      Refuted
+   §4 4f — a 30-minute fixed TTL, no renewal, around a pass over every tenant. Read: each tenant's posting takes
+   pg_advisory_xact_lock then reads the ledger under it, and a unique index on the posted period backstops a second pass
+   (precedent 19: a lock outliving the work is efficiency only once the effect is idempotent in the store).
 3. apps/api/src/outbox/outbox.relay.ts:116                                                   Hardening
    §4 LK-4 — extend() result dropped in the relay loop; the effect is an advisory websocket push (precedent 19). Owner: dual-write-scan §3.
 4. apps/api/src/outbox/outbox-consumer.ts:160                                                Hardening

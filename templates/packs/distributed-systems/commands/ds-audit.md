@@ -238,7 +238,7 @@ On a re-audit after `/ds-fix`, re-run the owning detector on each first-pass fin
 ## Output format
 ```
 ## /ds-audit — verdict GO-UNVERIFIED (5)   scope=whole repo   Valkey (managed) maxmemory-policy UNREAD · C tier not run (no docker daemon)
-Stack: api nestjs 11 + fastify · @nestjs/bullmq ^11.0.5 · bullmq ^6.3.4 range (no lockfile) · ioredis ^5.4.2 · @nestjs/schedule ^6.1.3 (apps/api/package.json)
+Stack: api nestjs 11.2.6 + fastify 5.12.3 · @nestjs/bullmq 11.0.5 · bullmq 6.3.4 · ioredis 5.11.1 · @nestjs/schedule 6.1.3 (locked: pnpm-lock.yaml)
 Inventory: 7 consumers, 13 producer rows (1 wrapper), 20/20 resolved · processes: api (HPA), worker (KEDA) · TZ unset (UTC)
 Lanes: static ✓ · tools: no-floating-promises blocked (not installed) · workflowcheck N/A (no Go workflows) · live: none (NO-DATA) · runtime: not asked
 Verification: 82 candidates → 0 findings · 8 unconfirmed · 5 hardening · 0 pre-existing · 66 refuted · 1 routed · 2 live, unreviewed
