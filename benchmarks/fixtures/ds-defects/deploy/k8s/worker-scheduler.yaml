@@ -1,0 +1,24 @@
+# The scheduler role: every @Cron and @Interval of apps/worker runs here, in one pod by design
+# (ADR-0019). Recreate, never two pods: a rollout stops the old pod before the new one starts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-scheduler
+  namespace: fulfilment
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: worker-scheduler }
+  template:
+    metadata:
+      labels: { app: worker-scheduler }
+    spec:
+      containers:
+        - name: scheduler
+          image: ghcr.io/acme/fulfilment-worker:2.14.0
+          args: ["node", "dist/main.js", "--role=scheduler"]
+          envFrom:
+            - configMapRef: { name: api-config }
+            - secretRef: { name: api-secrets }

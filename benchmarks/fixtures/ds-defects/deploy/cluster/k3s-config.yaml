@@ -1,0 +1,11 @@
+# k3s server configuration for the three control-plane hosts (fra-cp-1..3). The hosts run in local time
+# (deploy/cluster/hosts.yml: timezone Europe/Berlin), and kube-controller-manager inherits it: a CronJob with no
+# spec.timeZone is scheduled in Europe/Berlin.
+write-kubeconfig-mode: "0640"
+tls-san:
+  - k8s.fra.acme.internal
+cluster-init: true
+disable:
+  - traefik
+kube-controller-manager-arg:
+  - "terminated-pod-gc-threshold=500"

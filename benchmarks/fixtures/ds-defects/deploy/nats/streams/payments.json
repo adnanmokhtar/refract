@@ -1,0 +1,10 @@
+{
+  "name": "PAYMENTS",
+  "subjects": ["payments.cod.>"],
+  "retention": "limits",
+  "storage": "file",
+  "num_replicas": 3,
+  "max_age": 1209600000000000,
+  "discard": "old",
+  "duplicate_window": 120000000000
+}

@@ -1,0 +1,11 @@
+# Service-level budgets reviewed each quarter (owner: ledger team). Values from the Grafana "ledger" board, 2026-09.
+posting-listener:
+  topic: ledger.postings
+  handler_ms:
+    p50: 180
+    p99: 2000
+shipment-cost-listener:
+  topic: shipment.costs
+  handler_ms:
+    p50: 40
+    p99: 220

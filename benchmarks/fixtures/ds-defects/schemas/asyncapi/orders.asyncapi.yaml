@@ -1,0 +1,47 @@
+asyncapi: 3.0.0
+info:
+  title: Order events
+  version: 2.2.0
+  description: Events apps/api publishes about orders. Consumers include apps/worker, analytics and the milestones service.
+channels:
+  ordersPlaced:
+    address: orders.placed
+    messages:
+      orderPlaced:
+        $ref: '#/components/messages/OrderPlaced'
+operations:
+  publishOrderPlaced:
+    action: send
+    channel:
+      $ref: '#/channels/ordersPlaced'
+    messages:
+      - $ref: '#/channels/ordersPlaced/messages/orderPlaced'
+components:
+  messages:
+    OrderPlaced:
+      name: OrderPlaced
+      contentType: application/json
+      payload:
+        type: object
+        required: [type, orderId, merchantId, placedAt, fulfilmentCenterId]
+        properties:
+          type:
+            type: string
+            const: OrderPlaced
+          orderId:
+            type: string
+            format: uuid
+          merchantId:
+            type: string
+          placedAt:
+            type: string
+            format: date-time
+          fulfilmentCenterId:
+            type: string
+          lines:
+            type: array
+            items:
+              type: object
+              properties:
+                sku: { type: string }
+                qty: { type: integer, minimum: 1 }

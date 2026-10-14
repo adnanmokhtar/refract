@@ -1,0 +1,3 @@
+web: gunicorn acme_billing.wsgi --bind 0.0.0.0:8000 --workers 4
+worker: celery -A acme_billing worker --concurrency 8 -Q billing,dunning,ingest
+beat: celery -A acme_billing beat

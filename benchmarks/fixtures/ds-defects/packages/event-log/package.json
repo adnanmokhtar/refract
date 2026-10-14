@@ -1,0 +1,8 @@
+{
+  "name": "@acme/event-log",
+  "version": "0.6.0",
+  "private": true,
+  "main": "dist/index.js",
+  "dependencies": { "@prisma/client": "^6.16.2" },
+  "devDependencies": { "prisma": "^6.16.2", "typescript": "^5.9.2" }
+}

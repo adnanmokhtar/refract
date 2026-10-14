@@ -1,0 +1,7 @@
+{
+  "measured": "2026-09-22",
+  "host": "worker pod, 1 vCPU",
+  "job": "invoices / render-invoice-pdf",
+  "render_ms": { "p50": 2100, "p95": 31800, "p99": 40200, "max": 47900 },
+  "note": "p95 and up are the 300+ line B2B invoices"
+}

@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: ledger
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS}
+    consumer:
+      group-id: ledger-postings
+      enable-auto-commit: false
+      auto-offset-reset: earliest
+      max-poll-records: 500
+      properties:
+        max.poll.interval.ms: 300000
+        isolation.level: read_committed
+    listener:
+      ack-mode: manual_immediate
+      concurrency: 3
+    producer:
+      acks: all
+      retries: 0
+      properties:
+        enable.idempotence: true
+    streams:
+      application-id: ledger-balances
+      properties:
+        replication.factor: 3
+        num.stream.threads: 2
+        commit.interval.ms: 100
+        state.dir: /var/lib/ledger/streams
+        processing.guarantee: exactly_once
+
+ledger:
+  reconcile:
+    # Reconciliation reads every open receivable; the pass is bounded by this timeout (measured 3–5 min).
+    timeout: PT5M
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus

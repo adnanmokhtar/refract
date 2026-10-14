@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cod-payout-export
+  namespace: fulfilment
+spec:
+  schedule: "30 2 * * *"
+  concurrencyPolicy: Allow
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: export
+              image: ghcr.io/acme/fulfilment-api:2.14.0
+              args: ["node", "dist/cli.js", "export-cod-payouts", "--for=yesterday"]
+              envFrom:
+                - configMapRef: { name: api-config }
+                - secretRef: { name: api-secrets }

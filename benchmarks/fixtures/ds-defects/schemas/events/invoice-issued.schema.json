@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.acme.example/events/invoice-issued.json",
+  "title": "invoice.issued",
+  "type": "object",
+  "required": ["invoiceId", "merchantId", "currency", "amount", "issuedAt"],
+  "properties": {
+    "invoiceId": { "type": "string", "format": "uuid" },
+    "merchantId": { "type": "string" },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "amount": { "type": "number", "description": "Invoice total in major units (12.34 means 12.34 in the invoice currency)." },
+    "issuedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

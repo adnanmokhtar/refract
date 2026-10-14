@@ -1,0 +1,22 @@
+# Local development only. Production brokers: deploy/kafka (VMs), deploy/k8s (RabbitMQ, NATS, Redis).
+services:
+  postgres:
+    image: postgres:17.6
+    environment:
+      POSTGRES_PASSWORD: canary-placeholder
+    ports: ["127.0.0.1:5432:5432"]
+  redis:
+    image: redis:8.2
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes: ["./deploy/redis.conf:/usr/local/etc/redis/redis.conf:ro"]
+  rabbitmq:
+    image: rabbitmq:4.3-management
+    volumes: ["./deploy/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro"]
+  nats:
+    image: nats:2.11
+    command: ["-js", "-c", "/etc/nats/nats-server.conf"]
+    volumes: ["./deploy/nats/nats-server.conf:/etc/nats/nats-server.conf:ro"]
+  temporal:
+    image: temporalio/auto-setup:1.28
+  kurrentdb:
+    image: kurrentplatform/kurrentdb:25.1

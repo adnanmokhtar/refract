@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.6</version>
+  </parent>
+  <groupId>com.acme</groupId>
+  <artifactId>ledger</artifactId>
+  <version>4.2.0</version>
+  <properties>
+    <java.version>21</java.version>
+    <spring-kafka.version>4.1.0</spring-kafka.version>
+    <kafka.version>4.1.0</kafka.version>
+  </properties>
+  <dependencies>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
+    <dependency><groupId>org.springframework.kafka</groupId><artifactId>spring-kafka</artifactId></dependency>
+    <dependency><groupId>org.apache.kafka</groupId><artifactId>kafka-streams</artifactId></dependency>
+    <dependency><groupId>org.springframework.amqp</groupId><artifactId>spring-rabbit</artifactId></dependency>
+    <dependency><groupId>io.github.resilience4j</groupId><artifactId>resilience4j-retry</artifactId><version>2.3.0</version></dependency>
+    <dependency><groupId>org.redisson</groupId><artifactId>redisson</artifactId><version>3.51.0</version></dependency>
+    <dependency><groupId>net.javacrumbs.shedlock</groupId><artifactId>shedlock-spring</artifactId><version>6.10.0</version></dependency>
+    <dependency><groupId>net.javacrumbs.shedlock</groupId><artifactId>shedlock-provider-jdbc-template</artifactId><version>6.10.0</version></dependency>
+    <dependency><groupId>io.temporal</groupId><artifactId>temporal-sdk</artifactId><version>1.31.0</version></dependency>
+    <dependency><groupId>io.eventuate.tram.sagas</groupId><artifactId>eventuate-tram-sagas-spring-orchestration-simple-dsl</artifactId><version>0.23.0.RELEASE</version></dependency>
+    <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId></dependency>
+  </dependencies>
+</project>

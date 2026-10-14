@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: fulfilment
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/acme/fulfilment-worker:2.14.0
+          args: ["node", "dist/main.js", "--role=consumers"]
+          envFrom:
+            - configMapRef: { name: api-config }
+            - secretRef: { name: api-secrets }
+          env:
+            - name: WORKER_CONCURRENCY
+              value: "4"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker
+  namespace: fulfilment
+spec:
+  scaleTargetRef: { name: worker }
+  minReplicaCount: 2
+  maxReplicaCount: 2
+  triggers:
+    - type: redis
+      metadata: { address: redis-jobs.fulfilment.svc:6379, listName: "bull:tracking-ingest:wait", listLength: "500" }

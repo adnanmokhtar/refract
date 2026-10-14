@@ -1,0 +1,22 @@
+# Production Kafka: one broker per host on kafka-1, kafka-2 and kafka-3 (KRaft, combined mode).
+# Deployed by scripts/deploy-kafka.sh with KAFKA_NODE_ID set per host. Topics carry orders, shipments,
+# ledger postings and the Debezium change streams.
+services:
+  kafka:
+    image: apache/kafka:4.1.0
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      KAFKA_NODE_ID: ${KAFKA_NODE_ID}
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${HOSTNAME}:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "true"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - /var/lib/kafka:/var/lib/kafka/data

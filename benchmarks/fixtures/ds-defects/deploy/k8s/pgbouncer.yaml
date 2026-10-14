@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgbouncer
+  namespace: fulfilment
+data:
+  pgbouncer.ini: |
+    [databases]
+    fulfilment = host=fulfilment-db.internal port=5432 dbname=fulfilment
+    [pgbouncer]
+    listen_port = 6432
+    pool_mode = transaction
+    max_client_conn = 2000
+    default_pool_size = 40

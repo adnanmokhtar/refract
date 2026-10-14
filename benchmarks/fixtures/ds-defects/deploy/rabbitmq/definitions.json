@@ -1,0 +1,45 @@
+{
+  "rabbit_version": "4.3.0",
+  "vhosts": [{ "name": "fulfilment" }],
+  "exchanges": [
+    { "name": "returns", "vhost": "fulfilment", "type": "topic", "durable": true },
+    { "name": "returns.dlx", "vhost": "fulfilment", "type": "fanout", "durable": true },
+    { "name": "labels", "vhost": "fulfilment", "type": "direct", "durable": true },
+    { "name": "carrier-webhooks", "vhost": "fulfilment", "type": "direct", "durable": true },
+    { "name": "carrier-webhooks.retry", "vhost": "fulfilment", "type": "fanout", "durable": true }
+  ],
+  "queues": [
+    {
+      "name": "returns.inspect",
+      "vhost": "fulfilment",
+      "durable": true,
+      "arguments": { "x-queue-type": "quorum", "x-delivery-limit": 10, "x-dead-letter-exchange": "returns.dlx" }
+    },
+    { "name": "returns.dead", "vhost": "fulfilment", "durable": true, "arguments": { "x-queue-type": "quorum" } },
+    {
+      "name": "label-print",
+      "vhost": "fulfilment",
+      "durable": true,
+      "arguments": { "x-queue-type": "classic", "x-message-ttl": 900000 }
+    },
+    {
+      "name": "carrier-webhooks",
+      "vhost": "fulfilment",
+      "durable": true,
+      "arguments": { "x-queue-type": "quorum", "x-dead-letter-exchange": "carrier-webhooks.retry" }
+    },
+    {
+      "name": "carrier-webhooks.retry",
+      "vhost": "fulfilment",
+      "durable": true,
+      "arguments": { "x-queue-type": "quorum", "x-message-ttl": 30000, "x-dead-letter-exchange": "carrier-webhooks", "x-dead-letter-routing-key": "event" }
+    }
+  ],
+  "bindings": [
+    { "source": "returns", "vhost": "fulfilment", "destination": "returns.inspect", "destination_type": "queue", "routing_key": "return.received" },
+    { "source": "returns.dlx", "vhost": "fulfilment", "destination": "returns.dead", "destination_type": "queue", "routing_key": "" },
+    { "source": "labels", "vhost": "fulfilment", "destination": "label-print", "destination_type": "queue", "routing_key": "print" },
+    { "source": "carrier-webhooks", "vhost": "fulfilment", "destination": "carrier-webhooks", "destination_type": "queue", "routing_key": "event" },
+    { "source": "carrier-webhooks.retry", "vhost": "fulfilment", "destination": "carrier-webhooks.retry", "destination_type": "queue", "routing_key": "" }
+  ]
+}

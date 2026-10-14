@@ -1,0 +1,11 @@
+# Capacity sheet for the tracking-ingest queue (owner: platform). Measured 2026-09 over the peak week.
+queue: tracking-ingest
+arrival_rate_per_s:
+  p50: 18
+  peak: 40
+service_time_ms:
+  p50: 300
+  p99: 900
+consumer:
+  deployment: deploy/k8s/worker-deployment.yaml
+  concurrency_per_pod: 2

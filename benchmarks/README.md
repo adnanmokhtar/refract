@@ -14,7 +14,7 @@ This directory is the apparatus for measuring the other half. It does not contai
 
 ## What is measured
 
-Nineteen fixtures, one question each:
+Twenty fixtures, one question each:
 
 | Fixture | Command | Question |
 |---------|---------|----------|

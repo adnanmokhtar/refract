@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: api-migrate
+  namespace: fulfilment
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: ghcr.io/acme/fulfilment-api:2.14.0
+          args: ["node", "dist/db/migrate-lock.js"]
+          envFrom:
+            - configMapRef: { name: api-config }
+            - secretRef: { name: api-secrets }

@@ -1,0 +1,17 @@
+{
+  "name": "billing-invoices-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "${file:/secrets/billing-db.properties:host}",
+    "database.port": "5432",
+    "database.user": "${file:/secrets/billing-db.properties:user}",
+    "database.password": "${file:/secrets/billing-db.properties:password}",
+    "database.dbname": "billing",
+    "topic.prefix": "dbserver1",
+    "plugin.name": "pgoutput",
+    "slot.name": "invoices_cdc",
+    "table.include.list": "public.billing_invoice",
+    "tombstones.on.delete": "true",
+    "snapshot.mode": "initial"
+  }
+}

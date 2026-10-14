@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "ShipmentDelivered",
+  "namespace": "com.acme.fulfilment.events",
+  "fields": [
+    { "name": "shipmentId", "type": "string" },
+    { "name": "trackingNo", "type": "string" },
+    { "name": "deliveredAt", "type": { "type": "long", "logicalType": "timestamp-millis" } },
+    { "name": "signedBy", "type": ["null", "string"], "default": null }
+  ]
+}

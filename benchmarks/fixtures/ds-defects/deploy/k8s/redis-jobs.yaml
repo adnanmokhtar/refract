@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-jobs
+  namespace: fulfilment
+spec:
+  replicas: 1
+  serviceName: redis-jobs
+  selector:
+    matchLabels: { app: redis-jobs }
+  template:
+    metadata:
+      labels: { app: redis-jobs }
+    spec:
+      containers:
+        - name: redis
+          image: redis:8.2
+          args: ["redis-server", "/etc/redis/redis.conf"]
+          volumeMounts:
+            - { name: config, mountPath: /etc/redis }
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: config
+          configMap: { name: redis-jobs-conf }
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec: { accessModes: [ReadWriteOnce], resources: { requests: { storage: 20Gi } } }

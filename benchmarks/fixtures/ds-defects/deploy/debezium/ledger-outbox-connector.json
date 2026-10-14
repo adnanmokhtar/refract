@@ -1,0 +1,18 @@
+{
+  "name": "ledger-outbox",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "${file:/secrets/ledger-db.properties:host}",
+    "database.port": "5432",
+    "database.user": "${file:/secrets/ledger-db.properties:user}",
+    "database.password": "${file:/secrets/ledger-db.properties:password}",
+    "database.dbname": "ledger",
+    "topic.prefix": "ledger",
+    "plugin.name": "pgoutput",
+    "table.include.list": "public.ledger_outbox",
+    "tombstones.on.delete": "false",
+    "transforms": "outbox",
+    "transforms.outbox.type": "io.debezium.transforms.outbox.EventRouter",
+    "snapshot.mode": "no_data"
+  }
+}

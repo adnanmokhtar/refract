@@ -1,0 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("EVENT_LOG_DATABASE_URL")
+}
+
+/// Event-sourced return requests (the returns portal appends; apps/worker projects). One stream per return.
+model ReturnEvent {
+  id         BigInt   @id @default(autoincrement())
+  streamId   String   @map("stream_id")
+  version    Int
+  type       String
+  data       Json
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  @@index([streamId, version])
+  @@map("return_events")
+}
+
+/// Projection checkpoints for the event log's readers.
+model ReaderCheckpoint {
+  reader   String @id
+  position BigInt
+}

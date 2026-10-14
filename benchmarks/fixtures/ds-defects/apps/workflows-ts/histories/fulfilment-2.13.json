@@ -1,0 +1,21 @@
+{
+  "events": [
+    { "eventId": "1", "eventType": "EVENT_TYPE_WORKFLOW_EXECUTION_STARTED", "workflowExecutionStartedEventAttributes": { "workflowType": { "name": "fulfilmentWorkflow" }, "taskQueue": { "name": "fulfilment" } } },
+    { "eventId": "2", "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED" },
+    { "eventId": "3", "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED" },
+    { "eventId": "4", "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED" },
+    { "eventId": "5", "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED", "activityTaskScheduledEventAttributes": { "activityId": "1", "activityType": { "name": "allocateStock" } } },
+    { "eventId": "6", "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED" },
+    { "eventId": "7", "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED" },
+    { "eventId": "8", "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED" },
+    { "eventId": "9", "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED" },
+    { "eventId": "10", "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED" },
+    { "eventId": "11", "eventType": "EVENT_TYPE_ACTIVITY_TASK_SCHEDULED", "activityTaskScheduledEventAttributes": { "activityId": "2", "activityType": { "name": "createPickList" } } },
+    { "eventId": "12", "eventType": "EVENT_TYPE_ACTIVITY_TASK_STARTED" },
+    { "eventId": "13", "eventType": "EVENT_TYPE_ACTIVITY_TASK_COMPLETED" },
+    { "eventId": "14", "eventType": "EVENT_TYPE_WORKFLOW_TASK_SCHEDULED" },
+    { "eventId": "15", "eventType": "EVENT_TYPE_WORKFLOW_TASK_STARTED" },
+    { "eventId": "16", "eventType": "EVENT_TYPE_WORKFLOW_TASK_COMPLETED" },
+    { "eventId": "17", "eventType": "EVENT_TYPE_TIMER_STARTED", "timerStartedEventAttributes": { "timerId": "1", "startToFireTimeout": "432000s" } }
+  ]
+}

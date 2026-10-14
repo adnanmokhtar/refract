@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: fulfilment
+data:
+  NODE_ENV: production
+  DATABASE_URL: postgres://api@pgbouncer.fulfilment.svc:6432/fulfilment?pgbouncer=true
+  REDIS_URL: redis://redis-jobs.fulfilment.svc:6379
+  NOTIFY_REDIS_URL: rediss://notify-valkey-do-user-1.db.ondigitalocean.com:25061
+  KAFKA_BROKERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+  AMQP_URL: amqp://rabbitmq.fulfilment.svc:5672/fulfilment
+  KURRENTDB_URL: kurrentdb://kurrentdb.fulfilment.svc:2113?tls=false
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability.svc:4318
