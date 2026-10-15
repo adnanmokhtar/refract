@@ -41,6 +41,11 @@ re-measured; no seeded fixture hit was lost. Per-pack detail is in each pack's `
   (0→105 of 105 on a real repo sample); it carries 15 functions AST-identical to
   `rank-source-files.py` (a test fails on drift), stays fail-quiet, and parses the module catalog with
   one `awk` (a 93-row catalog: 7.6 s → 0.6 s per write).
+  It also reads a hand-written catalog whose headings name a source root (`` ## apps/api (`apps/api/src/`) ``)
+  and whose paths are relative to it: a row joins its root only when the path does not exist as
+  written and the joined one does, rules under a rooted heading bind that section, and a name shared
+  by two sections is enforced only where it is unambiguous. `/setup-project` 4.4a and
+  `extract-codebase-overview` now require repo-root-relative paths.
 
 ### Track A batch 5: service contracts and distributed delivery become detectors (2026-10-14)
 

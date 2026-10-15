@@ -114,6 +114,42 @@ hook "monorepo: @org/pkg/deep export bypasses   BLOCK" 2 "$T" "@org/database/int
 hook "monorepo: @org/pkg not in the workspace   allow" 0 "$T" "@nestjs/common"
 PROJECT="$PROJECT_SAVED"; rm -rf "$MONO"
 
+# The same tree with the catalog split per source root and every row written relative to the root
+# its heading names — the shape a real NestJS + React monorepo's catalog had (2026-10-15), under
+# which no written file mapped to any module. The facade stays repo-relative on purpose: a rule's
+# facade is a file path, not a catalog row, and is read as written.
+SECT=$(mktemp -d)
+cp -R "$PROJECT/." "$SECT/"
+cat > "$SECT/ai/modules.md" <<'MDEOF'
+# Modules
+
+## Apps (`apps/`)
+
+| Module | Path | Owns |
+|---|---|---|
+| `master` | `master/src/` | control-plane app |
+| `tenant` | `tenant/src/` | per-tenant app |
+
+## Libraries (`libs/`)
+
+| Module | Path | Owns |
+|---|---|---|
+| `shared` | `shared/src/` | cross-cutting primitives |
+| `database` | `database/src/` | data access |
+
+## Module boundaries (which modules MUST NOT import which)
+
+- `master` MUST NOT import from `tenant` — reason: the control plane must not depend on a tenant runtime
+- `tenant` MAY import from `database` only via `libs/database/src/index.ts`
+MDEOF
+PROJECT_SAVED="$PROJECT"; PROJECT="$SECT"
+hook "sections: 37.5% ../x   master→tenant  BLOCK" 2 "$M" "../../../tenant/src/orders/service"
+hook "sections: 21.8% a/b/c  master→tenant  BLOCK" 2 "$M" "apps/tenant/src/orders/service"
+hook "sections: 14.1% ./x    same module    allow" 0 "$T" "./dto/create.dto"
+hook "sections: facade bare directory       allow" 0 "$T" "../../../../libs/database/src"
+hook "sections: facade bypassed, deep import BLOCK" 2 "$T" "../../../../libs/database/src/interfaces/data-access.interface"
+PROJECT="$PROJECT_SAVED"; rm -rf "$SECT"
+
 # ---- 2. the ranker, on a tree whose depths are not uniform ----
 say ""
 say "=== rank-source-files on a nested layout ==="

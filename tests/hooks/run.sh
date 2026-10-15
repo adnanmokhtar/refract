@@ -459,6 +459,103 @@ PYEOF
 }
 run_boundaries_monorepo
 
+# module-boundaries with a catalog split into sections whose HEADING names a source root and whose
+# rows are written relative to it — `## apps/api (`apps/api/src/`)` over `modules/orders`. That
+# is the shape a real NestJS + React monorepo's catalog had (2026-10-15), and read repo-relative
+# not one written file mapped to a module, so no declared boundary could fire. Each case names
+# the reading it pins; three of them only pass for the RIGHT reason:
+#   04 fails if a row that already carries the root is prefixed again,
+#   09 fails if a row is joined to its root without the joined path existing,
+#   03 fails if a ``` fence's `# comment` line is taken for a heading (the scoped rule leaks).
+seed_boundaries_sections() {
+  local proj="$1" d
+  for d in apps/api/src/modules/orders apps/api/src/modules/wallets apps/api/src/modules/customers \
+           apps/web/src/features/orders apps/web/src/features/customers apps/web/src/features/billing \
+           packages/contracts/src tools/legacy/jobs tools/legacy/reports; do
+    mkdir -p "$proj/$d" || return 1
+    echo 'export const x = 1;' > "$proj/$d/index.ts"
+  done
+  mkdir -p "$proj/ai" "$proj/.claude"
+  printf '{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }\n' \
+    > "$proj/apps/web/tsconfig.json"
+  cat > "$proj/ai/modules.md" <<'FIXEOF'
+# Modules
+
+## apps/api (`apps/api/src/`)
+
+| Module | Path | Responsibility |
+|---|---|---|
+| `orders` | `modules/orders` | section-relative |
+| `wallets` | `modules/wallets/` | section-relative, trailing slash |
+| `customers` | `apps/api/src/modules/customers` | already carries the root |
+| `contracts` | `packages/contracts/src` | repo-relative, outside the root |
+| `ghost` | `modules/ghost` | exists neither way |
+
+```bash
+# ls apps/api/src/modules   <- a comment in a fence, not a heading
+```
+
+### Boundaries inside apps/api
+
+- `orders` MUST NOT import from `contracts` — reason: fixture, scoped to this section
+
+## apps/web (`apps/web/src/`)
+
+| Slice | Path | Responsibility |
+|---|---|---|
+| `orders` | `features/orders` | same name as the api module |
+| `customers` | `features/customers` | same name as the api module |
+| `billing` | `features/billing` | web only |
+
+## Legacy tools
+
+| Module | Path | Responsibility |
+|---|---|---|
+| `jobs` | `jobs` | relative to tools/legacy, but the heading names no root |
+| `reports` | `tools/legacy/reports` | repo-relative |
+
+## Module boundaries (which modules MUST NOT import which)
+
+- `orders` MUST NOT import from `wallets` — reason: fixture
+- `orders` MUST NOT import from `customers` — reason: fixture, both apps carry both names
+- `jobs` MUST NOT import from `reports` — reason: fixture, never reachable (jobs maps to nothing)
+- `reports` MUST NOT import from `contracts` — reason: fixture
+- `reports` MUST NOT import from `orders` — reason: fixture, ambiguous (two `orders`, neither here)
+- `billing` MUST NOT import from `ghost` — reason: fixture
+FIXEOF
+  return 0
+}
+
+run_boundaries_sections() {
+  local hook="$HOOKS/module-boundaries.sh" dir="$CASES/module-boundaries-sections"
+  [ -d "$dir" ] || return 0
+  local proj; proj=$(mktemp -d)
+  seed_boundaries_sections "$proj" || { echo "SKIP  module-boundaries-sections (could not seed)"; return 0; }
+  local f base want got
+  for f in "$dir"/*.json; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f")
+    case "$base" in
+      *block*) want=2 ;;
+      *allow*) want=0 ;;
+      *) echo "SKIP  module-boundaries-sections/$base (no block/allow in name)"; continue ;;
+    esac
+    # 11 resolves `@/` through apps/web/tsconfig.json, which needs python3; without it the hook
+    # is silent by design, and asserting a block there would test the wrong thing.
+    case "$base" in
+      *via-alias*) command -v python3 >/dev/null 2>&1 \
+                     || { echo "SKIP  module-boundaries-sections/$base (needs python3)"; continue; } ;;
+    esac
+    got=0
+    ( cd "$proj" && bash "$hook" < "$f" >/dev/null 2>&1 ) || got=$?
+    if [ "$got" = "$want" ]; then pass=$((pass+1)); else
+      fail=$((fail+1)); echo "FAIL  module-boundaries-sections/$base — expected exit $want, got $got"
+    fi
+  done
+  rm -rf "$proj"
+}
+run_boundaries_sections
+
 # ---- inject-blast-radius: a CONTEXT hook, so exit code proves nothing ------------------------
 # Every assertion here is about the PAYLOAD, not the status. A context hook that exits 0 while
 # emitting nothing looks identical to one that works, which is how inject-path-rules.sh shipped

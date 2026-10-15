@@ -17,10 +17,12 @@ Last updated: <YYYY-MM-DD>
 Add one row when a module is introduced. The five columns answer the questions an agent needs before adding code:
 
 - **Module** — the name humans + commits use
-- **Path** — where files actually live (use the real path, not `<placeholder>`)
+- **Path** — where files actually live (use the real path, not `<placeholder>`), written **from the repository root**: `apps/api/src/modules/orders/`, not `modules/orders/`. `.claude/hooks/module-boundaries.sh` maps every written file to a module through this column; a path it cannot find maps nothing, and no boundary fires.
 - **Owns** — what business / technical concept this module is responsible for
 - **Public surface** — what callers depend on (the contract)
 - **Cross-cuts** — non-functional concerns this module participates in
+
+**Section-relative paths are accepted only when the heading names their root.** A monorepo may split the catalog into one section per app. A row there may be written relative to the app's source root only when the section heading carries that root in backticks — ``## apps/api (`apps/api/src/`)``, the first backticked token in the heading that contains a `/`, holding until the next heading of the same or a higher level. The hook joins such a row to the root only when the joined path exists and the row as written does not, so a row that already starts with the root, or is repo-relative, reads the same either way. Under a heading that names no root nothing is joined: section-relative rows there map to nothing. A boundary line placed under a rooted heading binds that section's modules only; one under `## Module boundaries` binds every module of that name. A name two sections share (`orders` in the API and in the web app) is looked up in the importing file's own section first, and a name that stays ambiguous blocks nothing.
 
 ## Module boundaries (which modules MUST NOT import which)
 

@@ -157,7 +157,7 @@ Detect dependency direction via import graph (sample 5-10 files per layer; check
 Walk **each member's own source dir** — `<member.root>/src/`, `<member.root>/app/`, or whatever that member actually uses. Do NOT walk a fixed `apps/*/src/` / `libs/*/src/` glob as the member source: it misses every sibling-directory member (a plain `server/` + `client/` pair matches neither), which is the same manifest-shaped blindness Step 2 removes. Each subdir at depth 1-2 that contains a controller + service + repo (or analogue) = one module.
 
 For each module, record one row:
-- **member**, name, path, layer (core/feature/infra/lib), purpose (one-line from README or top comment), primary entity, file count.
+- **member**, name, path (relative to the repo root, member root included: `apps/api/src/modules/orders/`, never `modules/orders/` — `ai/modules.md` and the boundary hook read it that way), layer (core/feature/infra/lib), purpose (one-line from README or top comment), primary entity, file count.
 
 Cap at 80 modules in the output (sample more if larger; emit `(+N more)` line).
 

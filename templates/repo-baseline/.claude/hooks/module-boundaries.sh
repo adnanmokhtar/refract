@@ -14,6 +14,9 @@
 #   the boundaries  - `<A>` MUST NOT import from `<B>` — reason: <one line>
 #                   - `<A>` MAY import from `<B>` only via `<facade>`
 #
+# Catalog paths are repo-relative. A row under a heading that names a source root in backticks —
+# `## apps/api (`apps/api/src/`)` — may be written relative to that root; see SECTIONS below.
+#
 # A MUST NOT rule blocks outright. A MAY-only-via rule blocks every path into <B> except the
 # named facade, which is the stricter and more useful reading: the whole point of a port is
 # that it is the ONLY door.
@@ -142,52 +145,112 @@ canon() {
   }'
 }
 
-# ---- the module catalog: `| name | `path/` | …`  →  "name<TAB>normalised-path" ----------------
+TAB=$(printf '\t')
+
+# ---- SECTIONS: headings that name a source root -----------------------------------------------
+# A monorepo catalog is often split per app, and each section writes its paths relative to the
+# root its heading names:
+#
+#   ## apps/api (`apps/api/src/`)
+#   | `products` | `modules/products` | … |
+#
+# Read repo-relative, `modules/products` matched no file in the repo, so on a real NestJS + React
+# monorepo (2026-10-15) no written file mapped to any module and a declared boundary could never
+# fire. The root is the FIRST backticked token in a heading that contains a `/`; it holds until a
+# heading at the same or a higher level that names none. Headings inside a ``` / ~~~ fence are
+# not headings. Prepended to both awk programs below, so the catalog and the rules agree on it.
+AWK_SECTION='
+/^[ \t]*(```|~~~)/ { fence = !fence }
+!fence && /^#+[ \t]/ {
+  lvl = match($0, /[^#]/) - 1; r = ""; s = $0
+  while (match(s, /`[^`]+`/)) {
+    t = substr(s, RSTART + 1, RLENGTH - 2); s = substr(s, RSTART + RLENGTH)
+    if (t ~ /\//) { r = t; break }
+  }
+  sub(/^\.\//, "", r); sub(/\/+$/, "", r)
+  if (r != "") { root = r; rootlvl = lvl } else if (root != "" && lvl <= rootlvl) root = ""
+  next
+}'
+
+# ---- the module catalog: `| name | `path/` | …`  →  "name<TAB>normalised-path<TAB>root" -------
 # ONE awk, not a loop of subshells: the loop forked ~7 processes per row, and a real 93-row catalog
 # cost several seconds on every TS write before a single import was looked at (2026-10-15). The
 # path goes through the same steps as norm() above, in the same order.
-CATALOG=$(grep -E '^\|[^|]+\|[^|]*`[^`]+`' "$MODULES" 2>/dev/null \
-  | grep -v '^| *<name>' \
-  | awk -F'|' '{
+#
+# A row under a rooted section is joined to its root ONLY when that is the one reading the disk
+# supports: the path does not already start with the root, does not exist as written, and does
+# exist under the root. Everything else — a repo-relative path, one that already carries the
+# root, a path that exists both ways, one that exists neither way — is read exactly as before. The
+# loop is shell builtins only (`[ -e ]`, `case`), so it adds no process per row.
+CATALOG=$(awk -F'|' "$AWK_SECTION"'
+    /^\|[^|]+\|[^|]*`[^`]+`/ && !/^\| *<name>/ {
       name = $2; gsub(/[`< >]/, "", name)
       if (!match($3, /`[^`]+`/)) next
       p = substr($3, RSTART + 1, RLENGTH - 2)
+      sub(/^\.\//, "", p)
       if (name == "" || p == "") next
-      sub(/^\.\//, "", p); sub(/^@\//, "", p); sub(/^~\//, "", p); sub(/^#\//, "", p); sub(/^\//, "", p)
+      printf "%s\t%s\t%s\n", name, p, root
+    }' "$MODULES" 2>/dev/null \
+  | while IFS="$TAB" read -r name p root; do
+      if [ -n "$root" ]; then
+        case "$p/" in
+          ("$root"/*) ;;
+          (*) if [ ! -e "$p" ] && [ -e "$root/$p" ]; then p="$root/$p"; fi ;;
+        esac
+      fi
+      printf '%s\t%s\t%s\n' "$name" "$p" "$root"
+    done \
+  | awk -F'\t' '{
+      p = $2
+      sub(/^@\//, "", p); sub(/^~\//, "", p); sub(/^#\//, "", p); sub(/^\//, "", p)
       sub(/^src\//, "", p); sub(/^app\//, "", p); sub(/^lib\//, "", p)
       sub(/\/*$/, "", p)
-      printf "%s\t%s\n", name, p
+      printf "%s\t%s\t%s\n", $1, p, $3
     }')
 [ -z "$CATALOG" ] && exit 0
 
-module_of() {  # normalised path → module name (longest declared path wins)
-  local p="$1" best="" bestlen=0 name mpath
-  while IFS="$(printf '\t')" read -r name mpath; do
+module_of() {  # normalised path → "name<TAB>section-root" (longest declared path wins)
+  local p="$1" best="" broot="" bestlen=0 name mpath root
+  while IFS="$TAB" read -r name mpath root; do
     [ -n "$mpath" ] || continue
     case "$p/" in
-      "$mpath"/*) if [ ${#mpath} -gt $bestlen ]; then best="$name"; bestlen=${#mpath}; fi ;;
+      "$mpath"/*) if [ ${#mpath} -gt $bestlen ]; then best="$name"; broot="$root"; bestlen=${#mpath}; fi ;;
     esac
   done <<CATEOF
 $CATALOG
 CATEOF
-  printf '%s' "$best"
+  printf '%s\t%s' "$best" "$broot"
 }
 
-path_of() {  # module name → normalised path
-  local want="$1" name mpath
-  while IFS="$(printf '\t')" read -r name mpath; do
-    [ "$name" = "$want" ] && { printf '%s' "$mpath"; return 0; }
+# Module name → normalised path. Two apps may both carry an `orders`, so a name is looked up in
+# the rule's own section when the rule sits under a rooted heading, else in the writer's section
+# first (where a catalog with no rooted heading puts every row, so the first row wins as it always
+# did), else anywhere — but only when exactly one row carries it. Ambiguous → no path → no block.
+path_of() {  # name, rule-section, writer-section
+  local want="$1" scope="$2" own="$3" name mpath root first="" n=0
+  while IFS="$TAB" read -r name mpath root; do
+    [ "$name" = "$want" ] || continue
+    [ -z "$scope" ] || [ "$root" = "$scope" ] || continue
+    [ "$root" = "$own" ] && { printf '%s' "$mpath"; return 0; }
+    [ -z "$first" ] && first="$mpath"
+    n=$((n+1))
   done <<CATEOF2
 $CATALOG
 CATEOF2
+  [ "$n" -eq 1 ] && { printf '%s' "$first"; return 0; }
   return 1
 }
 
-SELF=$(module_of "$(norm "$rel_path")")
+hit=$(module_of "$(norm "$rel_path")")
+SELF=${hit%%"$TAB"*}; SELF_ROOT=${hit#*"$TAB"}
 [ -z "$SELF" ] && exit 0
 
-# ---- the declared boundaries ------------------------------------------------------------------
-RULES=$(grep -nE '^[-*] *`[^`]+` *(MUST NOT|MAY) ' "$MODULES" 2>/dev/null | grep -v '<module-A>')
+# ---- the declared boundaries: "line<TAB>section-root<TAB>rule" --------------------------------
+# A rule under a rooted heading binds that section's modules only; a rule anywhere else binds
+# every module of that name.
+RULES=$(awk "$AWK_SECTION"'
+    /^[-*] *`[^`]+` *(MUST NOT|MAY) / && !/<module-A>/ { printf "%d\t%s\t%s\n", NR, root, $0 }
+  ' "$MODULES" 2>/dev/null)
 [ -z "$RULES" ] && exit 0
 # Only a rule whose subject is this module can fire. Without one there is nothing to resolve, and
 # the alias read below — the one python3 start in this hook — is skipped.
@@ -763,18 +826,18 @@ block() {
 # rules × specifiers product cost seconds on a full-file Write with a few rules declared.
 SPEC_TABLE=$(for s in $specs; do r=$(resolve "$s"); [ -n "$r" ] && printf '%s\t%s\n' "$s" "$r"; done)
 [ -z "$SPEC_TABLE" ] && exit 0
-TAB=$(printf '\t')
 
 while IFS= read -r rule; do
   [ -n "$rule" ] || continue
-  ln=${rule%%:*}; body=${rule#*:}
+  ln=${rule%%"$TAB"*}; rest=${rule#*"$TAB"}; scope=${rest%%"$TAB"*}; body=${rest#*"$TAB"}
+  [ -z "$scope" ] || [ "$scope" = "$SELF_ROOT" ] || continue   # a rule for another section
   case "$body" in *"\`$SELF\`"*) ;; *) continue ;; esac   # its subject cannot be this module
   a=$(printf '%s' "$body" | grep -oE '`[^`]+`' | sed -n '1p' | tr -d '`')
   b=$(printf '%s' "$body" | grep -oE '`[^`]+`' | sed -n '2p' | tr -d '`')
   [ -n "$a" ] && [ -n "$b" ] || continue
   [ "$a" = "$SELF" ] || continue
 
-  b_path=$(path_of "$b") || continue
+  b_path=$(path_of "$b" "$scope" "$SELF_ROOT") || continue
   [ -n "$b_path" ] || continue
 
   case "$body" in
