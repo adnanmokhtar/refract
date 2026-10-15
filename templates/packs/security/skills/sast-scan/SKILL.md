@@ -74,10 +74,12 @@ rg -n -i --hidden -g '*.y*ml' -g 'package.json' -g 'pom.xml' -g '*.gradle*' -g '
 
 # 4. Suppression pragmas on security rules — every hit is surfaced (§ 10). 4b inventories every rule an
 #    eslint-disable names in code: a project's own guard (a no-restricted-* selector, a local plugin rule) shows up here.
+#    Only a directive (`//` or `/*` right before it): prose and strings that mention one are not suppressions (22 → 14 rows
+#    on a real monorepo, 2026-10-15; the 8 dropped were config comments and test strings).
 rg -n --hidden --pcre2 -g '!**/node_modules/**' -g '!**/vendor/**' -g '!**/dist/**' -g '!**/build/**' \
   '(nosemgrep|#\s*nosec\b|nolint:[\w,]*gosec|eslint-disable[^\n]*\b(security|no-unsanitized)/|eslint-disable[^\n]*\bno-restricted-(syntax|imports|properties|globals)\b|noqa:[\s\w,]*\bS\d{3}|@SuppressFBWarnings|@psalm-suppress\s+Tainted|@psalm-taint-escape|#pragma warning disable[\s\w,]*\b(CA(2100|3\d{3}|5\d{3})|SCS\d{4})|SuppressMessage\(\s*"Security")' .
 rg -o --no-filename --pcre2 -g '*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,vue,svelte}' -g '!**/node_modules/**' -g '!**/dist/**' \
-  'eslint-disable(?:-next-line|-line)?\s+\K[^*\n]+?(?=\s*(--|\*/|$))' . | tr ',' '\n' | sed 's/^ *//; s/ *$//' | sort | uniq -c | sort -rn
+  '(?://|/\*)\s*eslint-disable(?:-next-line|-line)?\s+\K[^*\n]+?(?=\s*(--|\*/|$))' . | tr ',' '\n' | sed 's/^ *//; s/ *$//' | sort | uniq -c | sort -rn
 
 # 5. Suppression by exclusion — paths, rules and fingerprints the scanners were told to skip.
 rg -n --hidden --pcre2 -g '.semgrepignore' -g '.eslintignore' '^(?!\s*(#|$)).+' .

@@ -88,6 +88,32 @@ hook "facade: /index          (0.0%)  allow" 0 "$T" "../../../../libs/database/s
 hook "facade: /index.ts       (0.0%)  allow" 0 "$T" "../../../../libs/database/src/index.ts"
 hook "facade bypassed, deep import   BLOCK" 2 "$T" "../../../../libs/database/src/interfaces/data-access.interface"
 
+# The same tree laid out the way a pnpm workspace declares it: no root tsconfig.json (only the
+# base the apps extend), each app's aliases in its OWN tsconfig, and libs/database a workspace
+# package whose `exports` name build output. The hook read only <root>/tsconfig.json until
+# 2026-10-15, so every case below that blocks walked through as "external". A copy is made so the
+# committed project — and the ranker assertions further down — stay exactly as measured.
+MONO=$(mktemp -d)
+cp -R "$PROJECT/." "$MONO/"
+printf 'packages:\n  - apps/*\n  - libs/*\n' > "$MONO/pnpm-workspace.yaml"
+echo '{ "compilerOptions": { "strict": true } }' > "$MONO/tsconfig.base.json"
+printf '{ "extends": "../../tsconfig.base.json",\n  "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"], "@tenant/*": ["../tenant/src/*"] } } }\n' \
+  > "$MONO/apps/master/tsconfig.json"
+printf '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }\n' \
+  > "$MONO/apps/tenant/tsconfig.json"
+printf '{ "name": "@org/database", "exports": { ".": { "types": "./dist/index.d.ts" }, "./interfaces/*": { "types": "./dist/interfaces/*.d.ts" } } }\n' \
+  > "$MONO/libs/database/package.json"
+printf '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "outDir": "./dist", "rootDir": "./src" } }\n' \
+  > "$MONO/libs/database/tsconfig.build.json"
+echo 'export * from "./interfaces/data-access.interface";' > "$MONO/libs/database/src/index.ts"
+PROJECT_SAVED="$PROJECT"; PROJECT="$MONO"
+hook "monorepo: per-app @tenant/* master→tenant  BLOCK" 2 "$M" "@tenant/orders/service"
+hook "monorepo: per-app @/x stays in its own app allow" 0 "$T" "@/orders/dto/create.dto"
+hook "monorepo: @org/pkg workspace root = facade allow" 0 "$T" "@org/database"
+hook "monorepo: @org/pkg/deep export bypasses   BLOCK" 2 "$T" "@org/database/interfaces/data-access.interface"
+hook "monorepo: @org/pkg not in the workspace   allow" 0 "$T" "@nestjs/common"
+PROJECT="$PROJECT_SAVED"; rm -rf "$MONO"
+
 # ---- 2. the ranker, on a tree whose depths are not uniform ----
 say ""
 say "=== rank-source-files on a nested layout ==="

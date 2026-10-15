@@ -55,11 +55,14 @@ rg -c -i '(price|amount|total|discount|coupon|voucher|promo|gift_?card|balance|w
 rg -n -i --pcre2 "\b(req|request|ctx\.request|params|body|payload|input|dto|(c|ctx|r)\.(FormValue|PostForm|Query|DefaultQuery|Param|QueryParam|FormParam))\b(?![.\-]>?(user|auth|session|principal)\b)[\w.\[\]\"'?>(:\$-]{0,40}?\b(?:get_?)?($F)\b" "${X[@]}" "${T[@]}" .
 rg -n -i --pcre2 "\{[^}]*\b($F)\b[^}]*\}\s*=\s*(await\s+)?(req|request|ctx\.request|c\.req)\b" "${X[@]}" "${T[@]}" .
 
-# 3. Request schemas that ACCEPT a server-owned field (§1, §2). 3a: -B2 shows the validators above each field.
-#    3b is the reading order when 3a runs to thousands: schema files ranked by how many such fields they take.
+# 3. Request schemas that ACCEPT a server-owned field (§1, §2). 3a: -B2 shows the validators above each field, in
+#    request-shaped files and handlers only (RQ): unanchored, every response and view schema's `status:` / `role:`
+#    printed (13,808 lines on a real monorepo; 1,475 with RQ). 3b ranks ALL schema files, so a request model kept
+#    elsewhere (FastAPI `schemas.py`) still surfaces there; read 3b's top files that RQ left out.
+RQ=(-g '*{[Rr]equest,[Ii]nput,[Bb]ody,[Cc]ommand,[Dd]to,DTO,[Ff]orm,[Pp]ayload,[Pp]arams,[Ss]erializer,[Cc]ontroller,views,routes,[Hh]andler}*' -g '**/{dto,dtos,requests,inputs,forms,serializers,controllers}/**')
 S='\b(class|interface|type|record|struct)\s+\w*(Dto|DTO|Request|Req|Input|Payload|Command|Body|Params|Form|Schema|Serializer)\b|\((BaseModel|Schema|\w*Serializer|\w*Form)\)|extends FormRequest|->validate\(\s*\[|\.permit\(|z\.object\(|Joi\.object\('
 SF="^\s*(?:(?:public|private|protected|readonly|final|val|var|declare|@\w+(?:\([^)]*\))?)\s+)*(?:[\w<>\[\],.?]+\s+)?\\\$?($F)[?!]?\s*[:=;]|[\"']($F)[\"']\s*(=>|:)|permit\([^)]*:($F)\b|json:\"($F)[,\"]"
-rg -l0 --pcre2 "$S" "${X[@]}" "${T[@]}" . | xargs -0 -r rg -n -i --pcre2 -B2 "$SF"
+rg -l0 --pcre2 "$S" "${RQ[@]}" "${X[@]}" "${T[@]}" . | xargs -0 -r rg -n -i --pcre2 -B2 "$SF"
 rg -l0 --pcre2 "$S" "${X[@]}" "${T[@]}" . | xargs -0 -r rg -c -i --pcre2 "$SF" | sort -t: -k2 -nr
 
 # 4. Numbers that go out of range (§2): money stored in a binary float — a type position (column, ORM type,
@@ -72,6 +75,9 @@ rg -n -i --pcre2 '\b(int16|int32|uint16|uint32|smallint|tinyint|(?-i:INTEGER))\b
 Q='quantity|qty|count|units|amount'
 W='returnable|refundable|available|remaining|left|outstanding|max\w*|limit|ceiling|cap'
 rg -n -i --pcre2 "\b(?:Math\.)?min\s*\([^)\n]*\b\w+\.\w*(?:$Q)\w*\b[^)\n]*\b\w*(?:$W)\w*|\b\w+\.\w*(?:$Q)\w*\s*>=?\s*[\w.]*\b\w*(?:$W)\w*|\b\w*(?:$W)\w*\s*<=?\s*\w+\.\w*(?:$Q)\b" "${X[@]}" "${T[@]}" .
+#    4e: an idempotency or ledger key built from a request line's fields — repeated lines share one key, so the ledger
+#    replays the second leg while the document keeps every line (§2, the repeated-line shape at the ledger).
+rg -n --pcre2 "(?i:idempotency_?key|idem_?key|dedupe?_?key|operation_?key)[\"']?\s*[:=]\s*(?:\x60[^\x60\n]*\\$\{\s*|f[\"'][^\"'\n]*\{\s*|[^;\n]*[+,(]\s*)(?:line|item|row|l|receipt|piece|entry|it|ln|li)\.(?:product_?[Ii]d|key|sku_?[Ii]d|variant_?[Ii]d|item_?[Ii]d|id)\b" "${X[@]}" "${T[@]}" .
 
 # 5. State transitions (§3): every write of a literal state, then where any precondition lives.
 #    A file in 5a with no line in 5b is read first; a file in both still needs each write checked.
@@ -181,6 +187,8 @@ For every numeric input on a value path, try `-1`, `0`, `0.5`, `1e9`, `214748364
 
 **A ceiling checked one requested line at a time is bypassed by repeating the line** (grep 4d). `lines: [{ key: K, qty: 2 }, { key: K, qty: 2 }]` against 2 returnable units passes `min(requested, returnable)` or `if (line.qty > cap)` twice and refunds 4 — a till refund, a return credit, a stock reservation, a seat allocation. A lock on the request does not help, because the two lines are in one request. For each 4d hit that iterates the request's own lines, find where the lines are grouped by key. Either sum per key before the check, or refuse duplicates — `@ArrayUnique((l) => l.key)`, `unique_items`, a `Set` of keys. A unit test that sends a repeated key is the regression test.
 
+**The same bug one layer down** (grep 4e). For each 4e hit, find where the lines are summed per key **before** the key is built. A document that stores one row per request line, plus a ledger leg keyed per product, is the repeated-line bug: the second leg's key already exists, the ledger replays it as a no-op, and the document still carries both lines. The source is debited once while the transfer or return records twice the quantity, and a later receipt or refund pays against the document. A `new Map(lines.map((l) => [key(l), l]))` lookup on the other side silently keeps the last duplicate, so a fit check reads a line nobody updated. Measured 2026-10-15 on a real NestJS + React monorepo: 8 hits, 2 true (a warehouse transfer's dispatch and receive legs, which let a member with only the transfer permission create stock), 1 integrity defect, 5 safe because the lines were aggregated first. Grep 4a also matches superseded migrations: before keeping a float-money hit, read the latest migration that touches that column.
+
 ### 3. Workflow step skipping (CWE-841)
 
 ```
@@ -215,7 +223,7 @@ GOOD:  UPDATE wallets SET balance = balance - :amt WHERE user_id = :u AND balanc
 ```
 Grep 8a gives the guard, grep 7 the in-memory read-modify-write (`stock -= 1; save()` — a lost update even without a guard), grep 9 the primitives. Close it with, in order: the atomic conditional update; a row lock held across check and act; an optimistic version guard with retry; and, for an invariant across rows ("at most 5 projects on the free plan" — count then insert), a lock on the parent row or `SERIALIZABLE` with retry. **Wrapping the two statements in a transaction at the default isolation level does not close it.** When the backend pack is installed, its `transaction-boundary` pattern (the isolation table and detector 3) sets the isolation and retry rules; when the database pack is installed, `transaction-isolation` covers locking and write skew. Without them, the order above is the rule. A check-then-act inside a **queue consumer or scheduled job** (a balance debited by a job that can re-run after a stall or run on two workers) arrives, when the distributed-systems pack is installed, from `messaging-scan` §2 / §6 or `coordination-scan` §4 (a lease shorter than the work) with the redelivery, stall or overlap evidence; §5 grades the money side and does not re-derive it.
 
-**The clamped debit** (grep 8c) is the variant to look for when check and act are far apart. The shape is: a pre-flight read of the balance (`canAfford()`), then an expensive side effect (a paid model call, an SMS, a provider charge), then a debit that **clamps at zero** instead of refusing (`max(0, balance - cost)`, `balance + delta < 0 ? -balance : delta`). Every concurrent request passes the read, and every one gets its side effect. Because the debit cannot fail, the overrun is never even recorded. The bound is the number of requests in flight at once — worker concurrency × replicas from grep 11b — not "one unlucky request". Fix: reserve before the side effect (lock, refuse when short, debit, commit; refund on failure), or one conditional `UPDATE … WHERE balance >= :cost`. A debit that clamps is acceptable only where the side effect is free.
+**The clamped debit** (grep 8c) is the variant to look for when check and act are far apart. The shape is: a pre-flight read of the balance (`canAfford()`), then an expensive side effect (a paid model call, an SMS, a provider charge), then a debit that **clamps at zero** instead of refusing (`max(0, balance - cost)`, `balance + delta < 0 ? -balance : delta`). Every concurrent request passes the read, and every one gets its side effect. Because the debit cannot fail, the overrun is never even recorded. The bound is the number of requests in flight at once — worker concurrency × replicas from grep 11b — not "one unlucky request". Fix: reserve before the side effect (lock, refuse when short, debit, commit; refund on failure), or one conditional `UPDATE … WHERE balance >= :cost`. A debit that clamps is acceptable only where the side effect is free. **When the 8c hit is a shared helper** (a wallet module's `applyCredits()`), the race is at each caller, not in the helper: list them (`rg -n '\b<helperName>\(' .`) and read each for a lock taken before the affordability read. Measured on a real monorepo: one clamping helper, 8 callers, 1 vulnerable (it read the balance unlocked before a paid model call), 7 locked first.
 
 ### 6. Single-use enforced by read-then-write (CWE-837, CWE-367)
 
@@ -272,7 +280,7 @@ BAD:   verify(token) → req.user = claims                    // a suspended use
 GOOD:  the principal loader rejects inactive / suspended / deleted on every request, or every state change
        revokes the account's sessions, refresh tokens and API keys
 ```
-Read every file in grep 14a, the zeros first, and check three doors, not only the loader: **login**, **refresh**, and the per-request principal. A loader that empties a paused member's permission set still leaves them signed in. So intersect the deactivated column (§15) with every route that needs **no** permission — own-account, self-scoped, "the session is the subject" — and check whether membership liveness is read there. Emptying the key set closes nothing on a route that never asked for a key. Also:
+Read every file in grep 14a, the zeros first, and check three doors, not only the loader: **login**, **refresh**, and the per-request principal. A 0 on a file that admits nobody (a DTO or guard whose name merely contains "session" or "refresh") is expected — 64 of 77 files on a real monorepo; drop it after one look at what the file does. A loader that empties a paused member's permission set still leaves them signed in. So intersect the deactivated column (§15) with every route that needs **no** permission — own-account, self-scoped, "the session is the subject" — and check whether membership liveness is read there. Emptying the key set closes nothing on a route that never asked for a key. Also:
 - API keys and tokens minted by a deactivated user, still working;
 - a member removed from an organisation who keeps a cached membership;
 - invitations from a paused or removed inviter that still redeem. Pause and remove should revoke them, or accept should re-check the inviter's current grants.

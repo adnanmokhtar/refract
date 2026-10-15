@@ -202,3 +202,70 @@ model PayoutAccount {
 
   @@map("payout_accounts")
 }
+
+model StoreDomain {
+  sellerId       String    @id @map("seller_id") @db.Uuid
+  hostname       String    @unique
+  challenge      String
+  verifiedAt     DateTime? @map("verified_at")
+  lastCheckError String?   @map("last_check_error")
+
+  @@map("store_domains")
+}
+
+model StockTransfer {
+  id              String              @id @default(uuid()) @db.Uuid
+  sellerId        String              @map("seller_id") @db.Uuid
+  fromWarehouseId String              @map("from_warehouse_id") @db.Uuid
+  toWarehouseId   String              @map("to_warehouse_id") @db.Uuid
+  receivedAt      DateTime?           @map("received_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  lines           StockTransferLine[]
+
+  @@index([sellerId, createdAt])
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id         String        @id @default(uuid()) @db.Uuid
+  transferId String        @map("transfer_id") @db.Uuid
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productId  String        @map("product_id") @db.Uuid
+  quantity   Int
+
+  @@index([transferId])
+  @@map("stock_transfer_lines")
+}
+
+model StockReturn {
+  id          String            @id @default(uuid()) @db.Uuid
+  sellerId    String            @map("seller_id") @db.Uuid
+  orderId     String            @map("order_id") @db.Uuid
+  warehouseId String            @map("warehouse_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  lines       StockReturnLine[]
+
+  @@map("stock_returns")
+}
+
+model StockReturnLine {
+  id          String      @id @default(uuid()) @db.Uuid
+  returnId    String      @map("return_id") @db.Uuid
+  stockReturn StockReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  productId   String      @map("product_id") @db.Uuid
+  quantity    Int
+
+  @@map("stock_return_lines")
+}
+
+model StockLedgerEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key")
+  warehouseId    String   @map("warehouse_id") @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  delta          Int
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([warehouseId, productId])
+  @@map("stock_ledger_entries")
+}

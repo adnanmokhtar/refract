@@ -43,6 +43,28 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
      --report-format json --report-path /tmp/leaks-history.json
    # first audit on any repo: run it with no --log-opts (whole history, slow)
    ```
+   **No-write variant, and the lineages `--all` misses.** `gitleaks git` runs git inside the target; under a read-only rule on the gitdir, feed the patch stream to `gitleaks stdin` instead. Two kinds of history sit outside `--all`: reflog-only commits, and the objects of a lineage that was rewritten or re-rooted, which were often pushed before the rewrite. `git fsck --unreachable --no-reflogs` lists those commits, and `--stdin` adds them to the walk. A stdin report has an empty `Commit` and `File`, and its `StartLine` is the line in the stream, so the mapper below turns each hit back into commit, path and added/removed, and marks the ones only an unreachable commit holds:
+   ```bash
+   T="${T:-.}"; SCAN="${SCAN:-$(mktemp -d "${TMPDIR:-/tmp}/secret-scan.XXXXXX")}"   # the repo; reports stay outside it
+   G=(env GIT_OPTIONAL_LOCKS=0 git -C "$T")
+   "${G[@]}" fsck --unreachable --no-reflogs --connectivity-only 2>/dev/null | awk '$2 == "commit" { print $3 }' > "$SCAN/unreachable-commits.txt"
+   "${G[@]}" log --all --reflog --stdin -p --no-color --no-ext-diff --format='commit %H' < "$SCAN/unreachable-commits.txt" > "$SCAN/history.patch"
+   gitleaks stdin --redact --no-banner --report-format json --report-path "$SCAN/leaks-history.json" < "$SCAN/history.patch"
+   python3 -I - "$SCAN/history.patch" "$SCAN/leaks-history.json" "$SCAN/unreachable-commits.txt" <<'PY'
+   import json, sys
+   hits = json.load(open(sys.argv[2])); lost = set(open(sys.argv[3]).read().split()); want = {}
+   for i, h in enumerate(hits): want.setdefault(h["StartLine"], []).append(i)
+   commit = path = None; at = {}
+   for n, line in enumerate(open(sys.argv[1], encoding="utf-8", errors="replace"), 1):
+       if line.startswith("commit ") and len(line.split()) == 2: commit = line.split()[1]
+       elif line.startswith("diff --git "): path = line.rstrip("\n").split(" b/", 1)[-1]
+       for i in want.get(n, ()): at[i] = (commit, path, {"+": "added", "-": "removed"}.get(line[:1], "context"))
+   for i, h in enumerate(hits):
+       c, p, how = at.get(i, ("?", "?", "?"))
+       print(f"{c[:12]} {p} {how} {h['RuleID']} entropy={h.get('Entropy', 0):.2f}" + (" UNREACHABLE" if c in lost else ""))
+   PY
+   ```
+   Stdin hits carry no `File`, so neither `.gitleaksignore` nor a `paths` allow-list applies to them: filter the mapper's path column with the same patterns. An `added` line names the introducing commit. Measured 2026-10-15 on a real NestJS + React monorepo (read-only worktree, gitleaks 8.30.1, 5 minutes): 4,815 unreachable commits from a pre-re-root lineage that `--all` never walked, 13.2 M patch lines, 254 raw hits before any allow-list (196 only in the unreachable lineage, 249 `generic-api-key`, mostly test and audit paths), every one mapped back to a commit and a path.
 4. List what gitleaks cannot judge by content: secret-bearing **files** (a committed `.env.production` whose value is a low-entropy word passes every rule), and secrets **plumbed into an image** (`ARG`/`ENV NPM_TOKEN=${NPM_TOKEN}` has no literal to match, yet bakes the value into the image config and history). `--hidden` is required because these files are dot-files; `.gitignore` still applies, so an ignored local `.env` is not listed:
    ```bash
    N='(^|/)(\.env(\.[\w-]+)*|\.npmrc|\.pypirc|\.netrc|\.htpasswd|\.git-credentials|credentials(\.\w+)?|kubeconfig|id_(rsa|dsa|ecdsa|ed25519)|[\w.-]*\.(pem|key|p12|pfx|jks|keystore|ppk|tfstate|tfvars))$'
@@ -121,6 +143,8 @@ Next: hand BLOCKERS to `/secret-scan` for the rotation playbook + history scrub.
 ## False positives / gotchas
 
 - Test fixtures intentionally use fake-looking keys (`sk_test_...`, `dummy-token-1234`) — allow-list them in `.gitleaksignore`, **with a reason**; an unexplained allow-list entry is how a real leak gets muted.
+- **A `.gitleaksignore` fingerprint is commit-scoped** (`<commit>:<file>:<rule>:<line>`). A `gitleaks dir` run has no commit, and a moved line has a new number, so both re-report every fixture the file meant to mute: on a real monorepo, about 48 lines. Prefer the path-scoped allow-list below.
+- **Your own prefix sweep needs guards.** A bare `EAA` (Meta token) prefix matched base64 PNG bodies in e2e specs 25 times out of 78 on a real tree: require its length and charset. A `postgres://user:pass@` count excludes `localhost`, `127.0.0.1` and `<placeholder>` hosts.
 - **Per-fingerprint `.gitleaksignore` entries do not scale on a mock-heavy tree.** Every new mock file re-fires in CI, and a scanner that is red on every PR teaches people to merge past it. There, allow-list by **path**, scoped to the generic rule only, so that a provider-prefixed key pasted into a mock still fires. Add it to `.gitleaks.toml`; the `[[allowlists]]` table with `targetRules` is gitleaks ≥ 8.25:
   ```toml
   [extend]

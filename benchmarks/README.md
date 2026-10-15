@@ -165,10 +165,11 @@ Terraform 1.16 roots and modules with an OpenTofu root, CDK, Pulumi and CloudFor
 --install` lines (`k8s/`); nginx and Caddy edges with the apps they front (`edge/`); Lambda/SQS/API Gateway with a
 committed plan, SAM and Cloud Run (`serverless/`); Route 53/Cloudflare records, zone files and cert-manager (`dns/`); and
 the backup CronJob, Velero, CNPG, zalando, pgBackRest and restore runbooks (`dr/`). It seeds 126 infrastructure defects —
-the eval's 63 classes, exactly two each — owned by the twelve detectors `/infra-audit` dispatches, plus 12
+the eval's 63 classes, exactly two each — owned by the twelve detectors `/infra-audit` dispatches, plus 14
 security-owned rows (shared cache, dangling DNS, NetworkPolicy width, RBAC wildcards, a shared Valkey credential, a
-mutable registry) that `/security-audit` scores and `/infra-audit` must list as routed; with 34 decoy blocks for the
-eval's 32 decoys (a KEDA floor of 2 under a PDB, `lb_try_duration` without `lb_retry_match`, a 45 s grace that fits the
+mutable registry; 12 that `/infra-audit` must list as routed, and 2 runbook rows — a `--from-literal` secret and one
+Valkey password in two differently named Secrets — that only `/security-audit` scores); with 36 decoy blocks for the
+eval's 32 decoys and the two runbook rows (a KEDA floor of 2 under a PDB, `lb_try_duration` without `lb_retry_match`, a 45 s grace that fits the
 code's drain, a dated drill into a new instance, a CloudFront CNAME, governance mode beside a compliance-locked vault).
 Every Kustomize root renders offline. Its answer key records every detector pre-flight run on a staged copy (123 of 126
 seeds printed, 3 missed by grep defects, 0 decoys surviving the prescribed read) and the nine integrator requests that
@@ -280,8 +281,8 @@ Stated plainly, because the gaps are large:
   one is reported as UNMATCHED, which is neither credit nor penalty.
 - **Precision, properly.** See below — the harness cannot tell a hallucinated finding from
   a real unseeded one without a human reading it. The one exception is narrow: a finding
-  pinned to a decoy (`vuln-fullstack` has 6, `slow-marketplace` 32, `brittle-suite` 21, `a11y-states` 23,
-  `frontend-correctness` 21, `mobile-defects` 20, `obs-defects` 26, `infra-ops` 34, `ci-defects` 28, `backend-defects` 55,
+  pinned to a decoy (`vuln-fullstack` has 10, `slow-marketplace` 32, `brittle-suite` 21, `a11y-states` 23,
+  `frontend-correctness` 21, `mobile-defects` 20, `obs-defects` 26, `infra-ops` 36, `ci-defects` 28, `backend-defects` 55,
   `ds-defects` 46, `quality-mix` 27) is a false positive by
   construction, and is counted as one. A few dozen known-safe sites are a probe, not a
   precision rate.
@@ -396,7 +397,7 @@ the runner printed:
 | `obs-defects`, run 1 | `/obs-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches every observability detector plus `alert-audit`, `slo-audit --no-write` and `synthetic-monitoring` ([obs-audit.md](../templates/packs/observability/commands/obs-audit.md)). No backend, no binaries: promtool, pint, amtool, otelcol, alloy, loki, sloth and pyrra print `blocked` and every live half `NO-DATA(<source>)`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The six `OD-HO-*` rows must appear as routed, and score only in runs 2–4 |
 | `obs-defects`, runs 2–4 | `/security-audit`, `/quality-audit --whole-repo`, `/perf-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (3, 2, 1) and on the decoys that name it; findings on the observability rows are UNMATCHED, never credited |
 | `infra-ops`, run 1 | `/infra-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches all twelve infrastructure detectors after `k8s-render-scan` § 0 ([infra-audit.md](../templates/packs/infrastructure/commands/infra-audit.md)). Lanes: static and render required (kustomize, helm, yq, jq on `PATH`); plan, kind and live absent, so every P-, K- and L-tier oracle prints `blocked`/`NO-DATA` with its command and the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The committed plans under `iac/plans/` and `serverless/terraform/plans/` are the plan-join inputs. The 12 `IO-SEC-*` rows must appear as routed to security |
-| `infra-ops`, run 2 | `/security-audit` (the key's `Invocation[/security-audit]:` line) | scored on the 12 `IO-SEC-*` rows and the one decoy that names it; findings on the infrastructure rows are UNMATCHED, never credited |
+| `infra-ops`, run 2 | `/security-audit` (the key's `Invocation[/security-audit]:` line) | scored on the 14 `IO-SEC-*` rows and the three decoys that name it; findings on the infrastructure rows are UNMATCHED, never credited |
 | `ci-defects`, run 1 | `/devops-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run dispatches all eight devops detectors plus `ci-graph.py` ([devops-audit.md](../templates/packs/devops/commands/devops-audit.md)). No sandbox repository, no token: every A-tier settings read prints `UNREADABLE` unless the run passes the snapshot's contexts (`.refract-fixture/gh-api/`), every R-tier seeded failure prints `not run` with its command, and docker-less runs print the build-check and compose model lanes `blocked`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The 28 `CD-HO-*` rows must appear as routed, and score only in runs 2–5 |
 | `ci-defects`, runs 2–5 | `/security-audit`, `/test-audit --whole-repo`, `/infra-audit --whole-repo`, `/obs-audit --whole-repo` (the key's `Invocation[/<command>]:` lines) | each scored on its own hand-off rows only (20, 3, 3, 2) and on the decoys that name it (`CD-DECOY-20` under `/security-audit`); findings on the devops rows are UNMATCHED, never credited |
 | `backend-defects`, run 1 | `/backend-audit --whole-repo` (the key's `Invocation:` line) | read-only; a whole-repo run builds the wiring map, then dispatches all six backend detectors ([backend-audit.md](../templates/packs/backend/commands/backend-audit.md)). No running app, no oasdiff, no Schemathesis: the U-tier rows read the authored transcripts under `.refract-fixture/runtime/` or print `Unconfirmed` with the request written out, and HC §10's tool lane prints `NOT-RUN`, so the verdict is at best `GO-UNVERIFIED` — expected, not a failure. The 17 `BD-HO-*` rows must appear as routed, and score only in runs 2–7 |
@@ -534,7 +535,7 @@ the pattern after seeing a run miss" is a real hazard: doing it changes every pa
 so re-run every published row when you touch a pattern, or the table stops being
 comparable with itself.
 
-**N is small.** 21 + 14 + 16 + 44 + 55 + 65 + 62 + 23 + 3 + 82 + 66 = 451 seeded items across the eleven
+**N is small.** 21 + 14 + 16 + 48 + 55 + 65 + 62 + 23 + 3 + 82 + 66 = 455 seeded items across the eleven
 detection fixtures (plus `reward-hack`'s 10 tampering checks, which are scored separately). One
 detection is under 1 percentage point of that pooled total and 1.5–7 points on a single row
 (`slow-marketplace`'s two rows have 36 and 19; `brittle-suite` 65, `quality-mix` 62). The Phase-4 fixtures are scored on their own

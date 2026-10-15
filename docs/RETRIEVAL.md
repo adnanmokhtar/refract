@@ -429,8 +429,12 @@ on the count; drop size+mtime from the fingerprint and case 4 goes red on the ca
    edge is type-only only when every statement behind it is). On a real NestJS + React monorepo
    with only per-app configs this took the resolver from "0 alias rules" and 21,101 unresolved to
    8,543 unresolved (8,221 external, 204 assets, 118 local) and 1 → 2,007 edges into `packages/`.
-   The `module-boundaries.sh` hook still reads only the root config, so in such a repo it stays
-   silent on aliased imports (its documented fail-quiet behaviour) rather than checking them.
+   The `module-boundaries.sh` hook applies the same scope rules to the file being written (the
+   nearest config at or above it; workspace exports mapped to an existing source file) and embeds
+   these config functions AST-identical to the script's, which `tests/hooks/run.sh` enforces; it
+   does not port the `baseUrl` / nearest-package `@/` fallbacks, which would change answers it
+   already gives. On the same monorepo it went from 0 to 105 of 105 sampled aliased specifiers
+   resolved.
 
    **vite/webpack/rollup aliases live in JavaScript and are NOT read.** Reading them means
    executing JS, and a regex scrape would be a guess — which in the boundary hook means refusing

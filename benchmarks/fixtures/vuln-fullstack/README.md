@@ -18,8 +18,11 @@ deploy/   nginx edge config + Kubernetes manifests
 - `src/products/`, `src/orders/`, `src/invoices/` — the marketplace itself.
 - `src/media/` — product image upload, bulk ZIP import, thumbnails, downloads.
 - `src/themes/`, `src/marketing/`, `src/pricing/`, `src/settings/` — seller tooling:
-  storefront themes, email templates, promotion rules, store settings.
-- `src/webhooks/` — payment and shipping provider callbacks.
+  storefront themes, email templates, promotion rules, store settings and custom domains.
+- `src/inventory/` — stock transfers between a seller's warehouses, and returns put back on
+  the shelf. Every movement is a row in the stock ledger.
+- `src/webhooks/` — payment and shipping provider callbacks, and the subscription
+  handshakes of providers that confirm their callback URL first.
 
 Routes delegate to services; services own every Prisma call.
 

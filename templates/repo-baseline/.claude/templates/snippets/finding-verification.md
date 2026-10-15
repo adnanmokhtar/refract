@@ -77,6 +77,11 @@ company VPN" · "it is an internal tool".
 - **CIP10.** In a private repo with forking disabled (`gh api repos/O/R --jq '{private,allow_forking}'`), fork-PR classes are rated at insider severity.
 - **CIP11.** A bot check is sound when it tests `github.event.pull_request.user.login` and a same-repo head (`head.repo.full_name == github.repository`). A check on `github.actor` is not sound.
 
+**Network reach (gate 6).** `ssrf-scan` and `iac-scan` cite these as `§ 4 NET<n>` when an egress or ingress policy is offered as the control. Both decided the residual reach of a real deployment's SSRF during an audit, 2026-10-15.
+
+- **NET1.** A NetworkPolicy does not govern a pod's own loopback. `127.0.0.1`, `localhost` and every port the app or a sidecar listens on stay reachable from inside the pod whatever the egress rules say, so an SSRF there still reaches admin, metrics and debug ports.
+- **NET2.** An `ipBlock` that allows `0.0.0.0/0` with an `except:` list of private ranges is only as narrow as the other rules. A second rule that admits the VPC CIDR for the database and cache ports re-opens them. Read every egress rule of the pod before rating the residual reach.
+
 ## 5. Score and bucket
 
 Each candidate gets a confidence from 1 to 10 for **exploitability as described**:

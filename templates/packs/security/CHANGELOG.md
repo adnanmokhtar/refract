@@ -9,6 +9,18 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.0 — 2026-10-15
+
+**Detector fixes from a read-only re-audit of a real NestJS + React monorepo.** Misses first, because they hid real findings; every changed grep was re-measured on that repo and on `benchmarks/fixtures/*`, and new lanes are seeded in `vuln-fullstack` and `infra-ops` with a decoy each.
+
+- `iac-scan`: 1g is multi-line and accepts `kubectl -n <ns> create secret … \` (0→8 commands on the real repo; seed IO-SEC-FLa); 7f joins Secrets by value, so one cache password in differently named Secrets is one group (seed IO-SEC-VKc); 1f falls back kubectl → kustomize → `NOT-RENDERED` with a § 3 note marking 4b/4j/4k/7f `partial (unrendered)`; 4k flushes a rule pending at a file's end under its own file name.
+- `ssrf-scan`: new 2d template-literal URLs with an interpolated host (found two sinks 2b missed; seed VFS-SSRF-03); 2c one line per URL field (182→104); gate 6 notes that a NetworkPolicy does not govern pod loopback and that an `ipBlock` `except:` can be re-opened by a second rule (`finding-verification.md` § 4 NET1–NET2).
+- `data-exposure-scan`: 1c catches error text copied through a helper or `.slice` (2→4 of 4 sinks; seed VFS-DATA-08); 6d lists query credentials declared in config objects (seed VFS-DATA-09); new 4e lane for projection-first code; 10a/13a noise cut.
+- `logic-race-scan`: new 4e idempotency keys built from request-line fields, with the §2 rule "find where lines are summed per key before the key is built" (the root of two real HIGH findings; seed VFS-LOGIC-05); 8c follows a clamp helper to its callers; 3a reads request-shaped files (13,808→1,475 lines).
+- `ci-security-scan` has an explicit offline mode (`ci-graph.py --required` is offline unless `--online`); `deps-audit` an offline mode with a pnpm lockfile-v9 reader; `secret-scan` a no-write history path (`git log … | gitleaks stdin` with a hit→commit mapper) and unreachable pre-rewrite lineages.
+- Noise: xss 9 (35→0), sast 4b, injection 14/7a/2a (+ 13c offline ReDoS heuristic), ssrf 5 (51→25), file-access 8a/4a/6a/15c (15c also caught helper-typed fields it missed).
+- `/security-audit` detector sub-agents write `report.txt`; offline branches are counted as `COVERAGE:` gaps.
+
 ## 2.3.4 — 2026-10-14
 
 **`logic-race-scan` §4/§5 name the distributed-systems owners, and `@api-security-reviewer`'s admin-route probe is block-aware.** With distributed-systems installed, money and credit rows from queue consumers and scheduled jobs arrive from `messaging-scan` §2/§6 or `coordination-scan` §4 with the redelivery, stall or overlap evidence; §4/§5 grade the money side only (distributed-systems eval IR-11). The BFLA probe's `-A3 | rg -v` (a per-line negation that never saw a `@Roles` stacked above the route) is now a 6-above/3-below window per route decorator, measured on scratch good/bad controllers: the bad route only, where the old probe also printed both guarded routes; `lint-rg-traps.sh` rg-context-negation baseline row removed.

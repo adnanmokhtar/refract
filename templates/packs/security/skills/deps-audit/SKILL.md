@@ -24,7 +24,7 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
 - Project's package-manager CLI (`pnpm`, `npm`, `yarn`, `pip`, `cargo`, `composer`, `go`, `bundle`).
 - `osv-scanner` 2.x, or docker for the `ghcr.io/google/osv-scanner` one-shot.
 - `jq` for JSON parsing.
-- Internet access — audit DBs, EPSS and the KEV feed are remote.
+- Internet access — audit DBs, EPSS and the KEV feed are remote. Without it, § Offline mode.
 
 ## Procedure
 
@@ -82,6 +82,40 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
    npm outdated <package>      # current vs wanted vs latest
    pnpm up <package>@<fixed-version> && pnpm test
    ```
+
+## Offline mode (`--offline`)
+
+When the audit may not reach the network (a read-only audit rule, an air-gapped runner, no registry credentials), the advisory lane needs a database already on disk, and everything else still runs. Never call `pnpm audit` / `npm audit` (they query the registry), `pnpm why` (it may touch the store in a read-only target), or the EPSS and KEV `curl`s.
+
+- **Advisories, only from a local DB.** `osv-scanner scan source --offline --lockfile=<path>` reads a database downloaded earlier (`--download-offline-databases` on a networked run; the directory is `$OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY`, else Go's user cache dir) and errors when none is present (google.github.io/osv-scanner offline-mode, read 2026-10-15). trivy needs its vulnerability DB in its cache (`~/Library/Caches/trivy/db/trivy.db` on macOS); a cache holding only `policy/` has no advisories. No DB → the advisory row is **NOT-RUN (offline: no local advisory DB)**, never clean, and every carried id from the last audit is re-checked by version only.
+- **What the offline run still emits:** (a) the resolved versions of the packages that matter — each prior finding's package, the overrides, the HTTP framework, the parsers and sanitizers; (b) each override or resolution against the version it was meant to force (`pnpm.overrides` `>=5.12.1` with 5.12.3 locked is carried, not new); (c) every dependency resolved from a URL or tarball, which the registry audits cannot see; (d) § Supply-chain settings.
+- **pnpm lockfile v9** (`lockfileVersion: '9.0'`): the `packages:` keys carry `name@version(peer…)`, and `importers:` says which workspace declares a dependency directly. The reader below prints both, and the tarball resolutions, without pnpm:
+
+```bash
+python3 -I - pnpm-lock.yaml '^(fastify|dompurify|xlsx|lodash)$' <<'PY'   # second arg: a package-name regex
+import re, sys, collections
+pat = re.compile(sys.argv[2] if len(sys.argv) > 2 else '.')
+sec = imp = dep = None; ver = collections.defaultdict(set); direct = collections.defaultdict(set); url = []
+for line in open(sys.argv[1], encoding='utf-8'):
+    line = line.rstrip('\n')
+    if re.match(r'\S', line): sec = line.rstrip(':'); continue
+    if sec == 'importers':
+        m = re.match(r"^  (\S.*):$", line)
+        if m: imp = m.group(1).strip("'"); continue
+        m = re.match(r"^      '?([^':]+)'?:$", line)
+        if m: dep = m.group(1); continue
+        m = re.match(r"^        version: '?([^'(\s]+)", line)
+        if m and dep and pat.search(dep): direct[dep].add(imp + ' -> ' + m.group(1))
+    elif sec == 'packages':
+        if re.match(r"^  \S.*:$", line):
+            k = line.strip()[:-1].strip("'").split('(')[0]; i = k.find('@', 1)
+            if i > 0 and pat.search(k[:i]): ver[k[:i]].add(k[i + 1:])
+        if re.match(r'^\s+resolution: \{[^}]*tarball:', line): url.append(line.strip())
+for n in sorted(ver): print(f"{n}: {', '.join(sorted(ver[n]))}" + ("   direct in " + '; '.join(sorted(direct[n])) if n in direct else ''))
+for u in url: print('URL/TARBALL', u)
+PY
+```
+Measured 2026-10-15 on a real NestJS + React monorepo's v9 lockfile (1,596 packages): it printed the framework and sanitizer versions the prior findings named, the direct importer of each, and the one CDN tarball dependency (`xlsx`) that the CI `pnpm audit` gate never covers. The advisory lane was NOT-RUN there (no local DB).
 
 ## Reading the output
 

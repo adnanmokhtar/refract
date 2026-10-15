@@ -21,7 +21,7 @@ Eval source: Track A batch 4, item 31 (`eval-batch4-infrastructure.md` § 3.6). 
 | Root | Stack | Holds |
 |---|---|---|
 | `iac/` | Terraform 1.16 (`envs/{prod,staging,shared,analytics,ci-ephemeral}`, `modules/db`), OpenTofu (`tofu/search-index`), CDK TS, Pulumi TS, CloudFormation; a committed offline plan `iac/plans/prod.plan.json` | state, pinning, lifecycle, deletion, the RDS/DynamoDB/S3/Cloud SQL stores, cost, network (VPC, NACLs, peering, VPN) |
-| `k8s/` | Kustomize `base/` + `overlays/{prod,dev,trial-single-node}`, Helm chart `chart/` (values + values-prod), Argo CD Applications, KEDA, raw `platform/` manifests, `ops/runbooks/platform.md` (the `helm upgrade --install` lines) | render, availability, wiring, API versions, platform components |
+| `k8s/` | Kustomize `base/` + `overlays/{prod,dev,trial-single-node}`, Helm chart `chart/` (values + values-prod), Argo CD Applications, KEDA, raw `platform/` manifests, `ops/runbooks/platform.md` (the `helm upgrade --install` lines), `ops/runbooks/secrets.md` (the hand-created Secrets) | render, availability, wiring, API versions, platform components |
 | `edge/` | nginx (`nginx-edge`, `partner-gateway`), Caddy (xcaddy build with redis storage and cache plugins), raw edge manifests, the Fastify api and Node storefront the edge fronts, a local compose sandbox | timeout chain, keep-alive, retries, DNS re-resolution, streaming, silent rejection, access logs |
 | `serverless/` | Terraform Lambda + SQS + API Gateway with a committed offline plan, a SAM template with two handlers, Cloud Run (Terraform) | queue timing, DLQ, partial batch, concurrency, retry storms |
 | `dns/` | Route 53 and Cloudflare records (Terraform), BIND zone files, cert-manager Issuers/Certificates (Kustomize `issuers/`, `base/`, `overlays/{prod,preview}`), a PrometheusRule and a blackbox Probe | CAA, expiry signal, issuer per environment |
@@ -43,11 +43,15 @@ Departures from the eval, stated so a reader can audit them:
 - **Decoy 9** ("no CPU limit, ×3 workloads") is three decoy blocks, one per workload, so a false report on any of them is
   pinned: 34 decoy blocks for the eval's 32 decoys.
 - **TF-08** is seeded in the committed plan (`module.orders_db` identifier rename; EFS encryption), as the eval asks.
+- **Added after the eval (2026-10-15):** `IO-SEC-FLa`, `IO-SEC-VKc`, `IO-DECOY-33` and `IO-DECOY-34`, all in
+  `k8s/ops/runbooks/secrets.md`, so `iac-scan`'s multi-line 1g grep and 7f's value join each have a seeded hit and a
+  decoy. They are security-only rows; the infrastructure run's denominator is unchanged.
 
 Ownership and scoring. Every row names the detector § that owns it. Two runs, two results rows, each staged in its own
 copy. **`/infra-audit --whole-repo`** scores the 126 infrastructure rows and the 12 `IO-SEC-*` rows, which it must list as
 routed to security (E4 and D1 run here only as the documented fallbacks, tagged `security-class`); **`/security-audit`**
-scores only the 12 `IO-SEC-*` rows (their `command:` names both) and the decoys that name it. A finding one run makes
+scores the 14 `IO-SEC-*` rows (12 whose `command:` names both; `IO-SEC-FLa` and `IO-SEC-VKc`, runbook rows no
+infrastructure detector reads, name `/security-audit` alone) and the decoys that name it. A finding one run makes
 about a row its command does not target is UNMATCHED, never credited. Lanes the scorer environment is expected to have:
 static and render (kustomize, helm, yq, jq) required; plan, kind and live absent — every K-, P- and L-tier oracle prints
 `blocked`/`NO-DATA` with its command, so the verdict is at best GO-UNVERIFIED. That is expected, not a failure: score the
@@ -202,8 +206,10 @@ same file for their scoring windows to overlap. If you edit fixture source, re-r
 | IO-SEC-VKb | `edge/k8s/caddy.yaml:34` | high | `/security-audit` `/infra-audit` | security/shared-store-credential |
 | IO-SEC-ECa | `iac/envs/prod/ecr.tf:3` | medium | `/security-audit` `/infra-audit` | security/registry-tag-mutable |
 | IO-SEC-ECb | `k8s/base/checkout.yaml:27` | medium | `/security-audit` `/infra-audit` | security/deploy-by-mutable-tag |
+| IO-SEC-FLa | `k8s/ops/runbooks/secrets.md:12` | medium | `/security-audit` | security/secret-on-command-line |
+| IO-SEC-VKc | `k8s/ops/runbooks/secrets.md:27` | high | `/security-audit` | security/shared-store-credential |
 
-Severity split: 8 critical · 78 high · 48 medium · 4 low. Total 138 seeded defects: 126 infrastructure seeds over the eval's 63 classes (exactly 2 each, two spellings or two stacks), plus 12 security-owned rows scored by both commands. 34 decoy blocks (the eval's 32 decoys; decoy 9, "no CPU limit", is one block per workload).
+Severity split: 8 critical · 79 high · 49 medium · 4 low. Total 140 seeded defects: 126 infrastructure seeds over the eval's 63 classes (exactly 2 each, two spellings or two stacks), plus 14 security-owned rows — 12 scored by both commands, 2 (`IO-SEC-FLa`, `IO-SEC-VKc`, seeded 2026-10-15 for `iac-scan` 1g and 7f's value join) by `/security-audit` only. 36 decoy blocks (the eval's 32 decoys plus IO-DECOY-33/34 for those two lanes; decoy 9, "no CPU limit", is one block per workload).
 
 ### Coverage by detector §
 
@@ -269,7 +275,9 @@ Severity split: 8 critical · 78 high · 48 medium · 4 low. Total 138 seeded de
 | security (routed) | `iac-scan §3 (7f)` | security/shared-store-credential | 2 | IO-SEC-VKa, IO-SEC-VKb |
 | security (routed) | `iac-scan §4 (4j registry variant)` | security/registry-tag-mutable | 1 | IO-SEC-ECa |
 | security (routed) | `iac-scan §3 (4j)` | security/deploy-by-mutable-tag | 1 | IO-SEC-ECb |
-| **decoys (must not be reported)** | — | — | **34** | IO-DECOY-01 … IO-DECOY-32 |
+| security (security-audit only) | `iac-scan §4 (1g)` | security/secret-on-command-line | 1 | IO-SEC-FLa |
+| security (security-audit only) | `iac-scan §3 (7f value join)` | security/shared-store-credential | 1 | IO-SEC-VKc |
+| **decoys (must not be reported)** | — | — | **36** | IO-DECOY-01 … IO-DECOY-34 |
 
 ---
 
@@ -2481,6 +2489,47 @@ match:    tag|digest|mutable|release-2026
 
 Every other image is digest-pinned. Fix: a digest.
 
+## IO-SEC-FLa — The live payment key is pasted into a `--from-literal` on the operator's laptop
+
+```defect
+id:       IO-SEC-FLa
+file:     k8s/ops/runbooks/secrets.md
+line:     12
+severity: medium
+command:  /security-audit
+class:    security/secret-on-command-line
+detector: iac-scan §4 (1g)
+anchor:   --from-literal=PAYMENTS_API_KEY=
+match:    from-literal|shell history|history|command.line|argv|process (list|table)|pasted|typed
+```
+
+The runbook has the operator paste the live payment key and the webhook signing secret as `--from-literal` values in a
+`kubectl -n larder create secret … \` block split over continuation lines. Both values land in the laptop's shell history
+(and in the process table while `kubectl` runs). The old single-line 1g grep needed `create` right after `kubectl` and the
+literal on the same line, so it matched neither. Fix: `--from-file` from a file the operator deletes, `--from-env-file`, or
+External Secrets; never a typed value.
+
+## IO-SEC-VKc — Traefik's rate limiter holds the sessions Valkey `default` password the api uses
+
+```defect
+id:       IO-SEC-VKc
+file:     k8s/ops/runbooks/secrets.md
+line:     27
+severity: high
+command:  /security-audit
+class:    security/shared-store-credential
+detector: iac-scan §3 (7f value join)
+anchor:   --from-literal=REDIS_PASSWORD="${SESSIONS_TOKEN}"
+match:    valkey|redis|shared|same (password|credential|token|user)|credential|default user|traefik
+```
+
+One `SESSIONS_TOKEN` fills two differently named Secrets: the api's `api-sessions` (`SESSIONS_URL`, user `default`) and
+the internet-facing Traefik's `traefik-ratelimit` (`REDIS_PASSWORD`, a password-only key, so the `default` user too). The
+name join stays silent because the names differ; 7f's value join prints `redis user default in 2 Secrets` with both
+lines. Ingress code execution then reads and writes every session and checkout idempotency key. Fix: an ACL user scoped
+to the rate limiter's key prefix in its own Secret (the queue store's per-consumer users in § 3 of the same runbook are
+the shape), or a separate store.
+
 ## Decoys — must NOT be reported
 
 Each decoy is the correct sibling of a seeded defect, in the same platform, built from the eval's decoy list (§ 3.6,
@@ -2488,7 +2537,8 @@ items 1–32 in order: 1–8 from the real-repo shapes, 9–30 from the research
 `precedents/infrastructure.md`. How they score (`score.py`, § DECOYS): a finding that names the decoy's file, cites a line
 within the tolerance window and matches every one of the decoy's `match:` patterns is **pinned** to it, removed before
 defect assignment, and reported as `DECOYS FLAGGED k/N`. Every decoy sits more than 12 lines from any defect in its file
-(`--verify` enforces it). `IO-DECOY-20` also probes `/security-audit` (a CloudFront CNAME is not a takeover). The routing
+(`--verify` enforces it). `IO-DECOY-20` also probes `/security-audit` (a CloudFront CNAME is not a takeover);
+`IO-DECOY-33` and `IO-DECOY-34` probe only `/security-audit` (`iac-scan` 1g and 7f's value join). The routing
 decoys: 31 (a devops-owned compose service) must not be graded by infra; 32 (a liveness on `/health/db`) must print only
 `route → performance request-path-scan §15`.
 
@@ -2528,6 +2578,8 @@ decoys: 31 (a devops-owned compose service) must not be graded by infra; 32 (a l
 | IO-DECOY-30 | `dr/terraform/archive.tf:22` | IO-DR-R4a | the compliance-mode vault lock beside it is the control (precedents § 38) |
 | IO-DECOY-31 | `edge/docker-compose.yml:6` | (devops compose) | a devops-owned local compose: infra must not grade it |
 | IO-DECOY-32 | `k8s/base/loyalty.yaml:31` | (route) | routed to performance request-path-scan §15, never an infra finding |
+| IO-DECOY-33 | `k8s/ops/runbooks/secrets.md:53` | IO-SEC-FLa | `--from-file` from the CSI-mounted secret inside the toolbox pod: no value is typed, nothing enters a history (1g does not print it) |
+| IO-DECOY-34 | `k8s/ops/runbooks/secrets.md:40` | IO-SEC-VKc | two Secrets on one Valkey, but two ACL users (`notifier`, `dispatch`) with different passwords: the value join prints no group |
 
 ```decoy
 id:       IO-DECOY-01
@@ -2869,6 +2921,26 @@ anchor:                 path: /health/db
 match:    liveness|health/db|dependency
 ```
 
+```decoy
+id:       IO-DECOY-33
+file:     k8s/ops/runbooks/secrets.md
+line:     53
+command:  /security-audit
+class:    decoy/IO-SEC-FLa
+anchor:   --from-file=signing.key=/mnt/secrets-store/ledger-signing-key
+match:    from-file|from-literal|shell history|command.line|signing
+```
+
+```decoy
+id:       IO-DECOY-34
+file:     k8s/ops/runbooks/secrets.md
+line:     40
+command:  /security-audit
+class:    decoy/IO-SEC-VKc
+anchor:   rediss://notifier:${NOTIFIER_QUEUE_PASSWORD}
+match:    shared|same (password|credential|user)|one credential|trust zone
+```
+
 ## Detector measurement — the pre-flights run on this fixture
 
 Measured 2026-10-10 with ripgrep 15.2.0, `/bin/bash` 3.2.57 (stdin `/dev/null`), jq 1.7.1, yq 4.54.1, kustomize 5.8.3,
@@ -2929,9 +3001,24 @@ bypass, the Caddy `cache` handler). One unseeded line: 7h's CloudFront `cache_po
 infrastructure fallbacks print E4a (`edge-locs.py` `sec:` row), E4b (edge grep 4), D1a/D1b (dns grep 7) and VKa (dns
 grep 5), each tagged security-class.
 
+Re-measured 2026-10-15 (ripgrep 15.2.0, `/bin/bash` 3.2.57, `iac-scan`'s pre-flight copied verbatim from its `SKILL.md` as of
+that date into a staged copy, `KUBECONFIG` an empty scratch file) after `k8s/ops/runbooks/secrets.md` was added for the
+two new lanes: **14 / 14** security rows print. IO-SEC-FLa: grep 1g's `-U` form prints the
+`kubectl -n larder create secret generic payments-provider \` block whole (lines 11–13). IO-SEC-VKc: 7f's value join
+prints `redis user default in 2 Secrets` with `api-sessions SESSIONS_URL …:25` and `traefik-ratelimit REDIS_PASSWORD
+…:27` (the name join stays silent: the names differ). Decoys: IO-DECOY-33's `--from-file` block is not printed by 1g;
+IO-DECOY-34's two queue Secrets are printed by 1g as `--from-literal` blocks (each value a `${…}` variable from Secrets
+Manager, read and refuted for the history claim) and form no value-join group (users `notifier` and `dispatch`, one
+Secret each). 1g also prints the two VKc blocks. The pre-flight went from 239 to 253 lines; the 14 new lines are all in
+`secrets.md`. The infrastructure pre-flights that read runbooks (`dr-audit`, `iac-state-scan`, `iac-cost-scan`,
+`k8s-availability-scan`, `network-exposure-audit`, `dns-tls-lifecycle-scan`, `k8s-wiring-scan`) print no line from the new
+file, and `render.sh`'s platform inventory reads only `kubectl apply|create` with the verb right after the binary, so
+the `kubectl -n <ns> create secret` lines are not listed.
+
 Self-check of the key: a findings file built from each seed's own title and text scores **138 / 138** under
-`/infra-audit` (**12 / 12** under `/security-audit`) with 0 decoys pinned; a file of one typical false report per decoy
-pins **34 / 34**.
+`/infra-audit` (**14 / 14** under `/security-audit`) with 0 decoys pinned; a file of one typical false report per decoy
+pins **34 / 34** under `/infra-audit` and **3 / 3** under `/security-audit` (IO-DECOY-20, -33, -34) — all 36 blocks.
+Re-run 2026-10-15.
 
 ### Integrator requests (skill gaps this fixture found — the skills are not edited here)
 

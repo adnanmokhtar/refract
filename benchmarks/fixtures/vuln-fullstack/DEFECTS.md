@@ -5,11 +5,14 @@ agent scans. If you stage the fixture by hand, delete this file from the copy fi
 agent that reads it will score 100% and the number will mean nothing.
 
 Fixture shape: `marketly`, a multi-vendor marketplace — NestJS + Prisma/Postgres API, React + Vite storefront, Docker, compose, nginx, Kubernetes, GitHub Actions.
-44 security defects seeded across every class row of `/security-audit`'s class coverage
+48 security defects seeded across every class row of `/security-audit`'s class coverage
 ledger — injection, file access, SSRF / redirect, browser-side, information exposure,
 business logic and access control, authentication, committed secrets, infrastructure and
-CI — plus **6 decoys**: known-safe siblings that look like a seeded defect and must NOT be
-reported. Primary target command: **`/security-audit`**.
+CI — plus **10 decoys**: known-safe siblings that look like a seeded defect and must NOT be
+reported. Primary target command: **`/security-audit`**. Four of the defects and four of the
+decoys (SSRF-03, DATA-08, DATA-09, LOGIC-05; DECOY-07 … DECOY-10) were added 2026-10-15 so
+that four new pre-flight lanes each have a seeded hit and a look-alike: `ssrf-scan` 2d,
+`data-exposure-scan` 1c and 6d, `logic-race-scan` 4e.
 
 What makes the fixture measure more than keyword recall: many defects have a correct
 sibling in the same tree. `products.service.ts` runs a concatenated `$queryRawUnsafe`
@@ -44,6 +47,7 @@ the same file for their scoring windows to overlap. If you edit fixture source, 
 | VFS-FILE-04 | `api/src/media/archive.service.ts:27` | critical | `/security-audit` | file-access/zip-slip |
 | VFS-SSRF-01 | `api/src/media/remote-image.service.ts:11` | high | `/security-audit` | ssrf/ssrf |
 | VFS-SSRF-02 | `api/src/auth/auth.controller.ts:43` | medium | `/security-audit` | ssrf/open-redirect |
+| VFS-SSRF-03 | `api/src/settings/custom-domain.service.ts:29` | high | `/security-audit` | ssrf/host-interpolated-url |
 | VFS-XSS-01 | `web/src/pages/ProductPage.tsx:47` | high | `/security-audit` | client/stored-xss |
 | VFS-XSS-02 | `web/src/components/SellerCard.tsx:26` | medium | `/security-audit` | client/url-scheme-xss |
 | VFS-XSS-03 | `web/src/lib/session.ts:15` | medium | `/security-audit` | client/token-storage |
@@ -57,10 +61,13 @@ the same file for their scoring windows to overlap. If you edit fixture source, 
 | VFS-DATA-05 | `api/src/auth/auth.service.ts:46` | medium | `/security-audit` | exposure/enumeration |
 | VFS-DATA-06 | `api/src/auth/auth.service.ts:59` | high | `/security-audit` | exposure/secret-in-log |
 | VFS-DATA-07 | `api/src/webhooks/webhooks.controller.ts:37` | medium | `/security-audit` | exposure/timing-compare |
+| VFS-DATA-08 | `api/src/settings/custom-domain.service.ts:41` | medium | `/security-audit` | exposure/error-text-persisted |
+| VFS-DATA-09 | `api/src/webhooks/webhook-subscriptions.ts:14` | high | `/security-audit` | exposure/query-credential-unredacted |
 | VFS-LOGIC-01 | `api/src/orders/checkout.service.ts:25` | critical | `/security-audit` | logic/client-trusted-value |
 | VFS-LOGIC-02 | `api/src/orders/coupons.service.ts:14` | high | `/security-audit` | logic/race |
 | VFS-LOGIC-03 | `api/src/invoices/invoices.controller.ts:29` | high | `/security-audit` | access/idor |
 | VFS-LOGIC-04 | `api/src/users/users.service.ts:35` | critical | `/security-audit` | access/mass-assignment |
+| VFS-LOGIC-05 | `api/src/inventory/stock-transfers.service.ts:40` | high | `/security-audit` | logic/idempotency-key-repeated-line |
 | VFS-AUTH-01 | `api/src/auth/jwt-auth.guard.ts:19` | critical | `/security-audit` | auth/jwt-alg-not-pinned |
 | VFS-AUTH-02 | `api/src/auth/admin.guard.ts:15` | critical | `/security-audit` | auth/unverified-token |
 | VFS-SEC-01 | `web/.env.production:3` | high | `/security-audit` | secrets/committed-credential |
@@ -73,7 +80,7 @@ the same file for their scoring windows to overlap. If you edit fixture source, 
 | VFS-IAC-06 | `deploy/nginx/nginx.conf:12` | low | `/security-audit` | infra/version-disclosure |
 | VFS-IAC-07 | `deploy/k8s/api-deployment.yaml:34` | high | `/security-audit` | infra/privileged-container |
 
-Severity split: 13 critical · 20 high · 9 medium · 2 low.
+Severity split: 13 critical · 23 high · 10 medium · 2 low.
 
 ### Coverage by class
 
@@ -84,16 +91,16 @@ miss can be read as "this detector did not fire" rather than as a number.
 |-------|---------------------------|--------|-----|
 | injection | `injection-scan` | 10 | INJ-01 … INJ-10 |
 | file access | `file-access-scan` | 4 | FILE-01 … FILE-04 |
-| SSRF + open redirect | `ssrf-scan` | 2 | SSRF-01, SSRF-02 |
+| SSRF + open redirect | `ssrf-scan` | 3 | SSRF-01, SSRF-02, SSRF-03 |
 | browser-side | `xss-scan` | 6 | XSS-01 … XSS-06 |
-| information exposure | `data-exposure-scan` | 7 | DATA-01 … DATA-07 |
-| business logic | `logic-race-scan` | 2 | LOGIC-01, LOGIC-02 |
+| information exposure | `data-exposure-scan` | 9 | DATA-01 … DATA-09 |
+| business logic | `logic-race-scan` | 3 | LOGIC-01, LOGIC-02, LOGIC-05 |
 | access control (BOLA / BOPLA) | `@api-security-reviewer` | 2 | LOGIC-03, LOGIC-04 |
 | authentication | `@auth-reviewer` | 2 | AUTH-01, AUTH-02 |
 | committed secrets | `secret-scan` | 2 | SEC-01, SEC-02 |
 | container / proxy / orchestration | `iac-scan` | 5 | IAC-01, IAC-02, IAC-05, IAC-06, IAC-07 |
 | CI workflows | `ci-security-scan` (dispatched by `iac-scan` § 5) | 2 | IAC-03, IAC-04 |
-| **decoys (must not be reported)** | — | **6** | DECOY-01 … DECOY-06 |
+| **decoys (must not be reported)** | — | **10** | DECOY-01 … DECOY-10 |
 
 ---
 
@@ -402,6 +409,29 @@ marketplace's own domain — a ready-made phishing hop ("you've been signed out,
 again"). `LoginPage.tsx` restricts its own `next` to same-origin paths; the server does
 not. OWASP A01:2025 · CWE-601.
 
+## VFS-SSRF-03 — Custom-domain verification fetches whatever host the seller saved
+
+```defect
+id:       VFS-SSRF-03
+file:     api/src/settings/custom-domain.service.ts
+line:     29
+severity: high
+command:  /security-audit
+class:    ssrf/host-interpolated-url
+anchor:   const url = `https://${domain.hostname}/.well-known
+match:    ssrf|server.side request|internal (network|host|service|address|ip)|metadata|169\.254|private (ip|range|address|network)|allow.?list|hostname|custom domain|user.{0,25}(host|domain)
+```
+
+`setHostname` stores any string the seller types, and `verify` interpolates it as the HOST
+of a template-literal URL and GETs it with redirects followed and no allow-list or
+resolved-IP check. `10.0.3.7:5432`, `metadata.google.internal` or a host that redirects to
+`http://169.254.169.254/` all get a request from inside the cluster, and the outcome comes
+back through `lastCheckError` (VFS-DATA-08): status code, `ECONNREFUSED`, TLS errors — a
+port scanner with a UI. 2b sees `fetch(url)`; only the host-interpolation grep (2d) points
+at the template. Validate the hostname (public suffix, no port, no IP literal), resolve it
+and reject private ranges, and refuse redirects. `dnsInstructions` in the same file is the
+fixed-host shape (VFS-DECOY-07). OWASP A01:2025 · CWE-918.
+
 ## VFS-XSS-01 — Stored XSS: seller HTML rendered unsanitised
 
 ```defect
@@ -636,6 +666,50 @@ signature is correct. The shipping webhook further down decodes both sides and u
 `timingSafeEqual` — the payments handler, the one that marks orders PAID, does not.
 OWASP A04:2025 · CWE-208.
 
+## VFS-DATA-08 — Raw fetch error text persisted in a field the settings screen shows
+
+```defect
+id:       VFS-DATA-08
+file:     api/src/settings/custom-domain.service.ts
+line:     41
+severity: medium
+command:  /security-audit
+class:    exposure/error-text-persisted
+anchor:   lastCheckError: errorText(e)
+match:    error (message|text|detail)|errortext|lastcheckerror|e\.message|internal (error|detail|address|host)|information (leak|disclos|expos)|leak|expos
+```
+
+The catch-all copies `errorText(e)` — `e.message` for any `Error` — into
+`StoreDomain.lastCheckError`, which `GET /api/settings/domain` returns. The global filter
+never sees this error, so the field is the exit: `connect ECONNREFUSED 10.0.3.7:5432`,
+`getaddrinfo ENOTFOUND redis.marketly.svc.cluster.local`, certificate subjects of internal
+services. The helper sits between `e.message` and the field, which is why grep 1c needs its
+`errorText(e)` alternation. Store a fixed reason code and log the detail — the
+`DNS_PROVIDER_UNAVAILABLE` write in `dnsInstructions` is that shape (VFS-DECOY-08).
+OWASP A10:2025 · CWE-209.
+
+## VFS-DATA-09 — The catalogue-sync verify token is logged whole on every handshake
+
+```defect
+id:       VFS-DATA-09
+file:     api/src/webhooks/webhook-subscriptions.ts
+line:     14
+severity: high
+command:  /security-audit
+class:    exposure/query-credential-unredacted
+anchor:   tokenParam: 'hub.verify_token',
+match:    redact|verify_token|hub\.verify|query (param|string)|\blog(s|ged|ging|ger)?\b
+```
+
+The catalogue-sync provider sends its verify token as `?hub.verify_token=…`, and the same
+token authenticates its later callbacks. The request logger masks only the query names in
+`REDACTED_QUERY_PARAMS` (`token`, `access_token`, `signature`, `sig`), so every handshake
+writes the token in clear to the shared log store. The name is declared in a config object,
+not read through `req.query` or `@Query('…')`, so only 6d's config-object grep lists it; the
+diff against the redact list is the detector. Add the name to the list (or mask every
+query value of `/webhooks/*`). The shipping entry's `tokenParam: 'token'` is covered
+(VFS-DECOY-10). OWASP A09:2025 · CWE-532.
+
 ## VFS-LOGIC-01 — Checkout totals use the client's unit price
 
 ```defect
@@ -708,6 +782,27 @@ properties not declared on `UpdateProfileDto` survive validation, and `updatePro
 passes the whole object to `prisma.user.update`. `PATCH /api/users/me` with
 `{"role":"ADMIN"}` makes any buyer an admin; `email` and `passwordHash` are writable the
 same way. OWASP A01:2025 · CWE-915.
+
+## VFS-LOGIC-05 — Repeated transfer lines share one ledger key: the dispatch debits once, the receipt credits twice
+
+```defect
+id:       VFS-LOGIC-05
+file:     api/src/inventory/stock-transfers.service.ts
+line:     40
+severity: high
+command:  /security-audit
+class:    logic/idempotency-key-repeated-line
+anchor:   transfer:${transfer.id}:out:${line.productId}
+match:    idempoten|duplicate|repeated|same (product|key)|ledger|replay|double|no.?op
+```
+
+`dispatch` stores one transfer line per request line, then posts one ledger debit per line
+keyed `transfer:<id>:out:<productId>`. Two lines for the same product share that key, so
+the ledger's upsert replays the second debit as a no-op while the document keeps both
+lines. `receive` credits per document line (`docLine.id`), so `[{p, 5}, {p, 5}]` debits 5
+at the source and credits 10 at the destination: any seller creates stock from nothing,
+then sells it. Sum lines per product before the document and the keys are built —
+`restock` in the same file does (VFS-DECOY-09). OWASP A06:2025 · CWE-694.
 
 ## VFS-AUTH-01 — JWT verified without pinning the algorithm
 
@@ -925,7 +1020,7 @@ How they score (`score.py`, § DECOYS in its header): a finding that names the d
 cites a line within the tolerance window of the decoy's line, and matches every one of the
 decoy's `match:` patterns is **pinned** to it. A pinned finding is removed before defect
 assignment — it can never be credited as a detection — and is reported as `DECOYS FLAGGED
-k/6`. A finding with no line is never pinned, and a finding a seeded defect could claim at
+k/10`. A finding with no line is never pinned, and a finding a seeded defect could claim at
 EXACT strength is never pinned. Every decoy sits more than 12 lines from any defect in its
 file, which `--verify` enforces, so the two windows never overlap.
 
@@ -937,6 +1032,10 @@ file, which `--verify` enforces, so the two windows never overlap.
 | VFS-DECOY-04 | `api/src/webhooks/webhooks.controller.ts:59` | VFS-DATA-07 | length check + `timingSafeEqual` on decoded digests |
 | VFS-DECOY-05 | `api/src/media/remote-image.service.ts:40` | VFS-SSRF-01 | `https:` only, exact-host allow-list, `redirect: 'error'` |
 | VFS-DECOY-06 | `api/src/media/thumbnail.service.ts:36` | VFS-INJ-04 | `execFile`, fixed binary, argument array, UUID-checked server paths |
+| VFS-DECOY-07 | `api/src/settings/custom-domain.service.ts:57` | VFS-SSRF-03 | the seller's hostname is a query value; the host is the platform's fixed DNS provider, redirects refused |
+| VFS-DECOY-08 | `api/src/settings/custom-domain.service.ts:66` | VFS-DATA-08 | a fixed reason code goes into `lastCheckError`; the error text goes only to the log |
+| VFS-DECOY-09 | `api/src/inventory/stock-transfers.service.ts:80` | VFS-LOGIC-05 | lines are summed per product into a `Map` first: the document and the ledger hold one row per product |
+| VFS-DECOY-10 | `api/src/webhooks/webhook-subscriptions.ts:27` | VFS-DATA-09 | `token` is in `REDACTED_QUERY_PARAMS`: the logged URL carries `[REDACTED]` |
 
 ```decoy
 id:       VFS-DECOY-01
@@ -997,3 +1096,61 @@ class:    decoy/exec-file-array
 anchor:   await runFile('cwebp'
 match:    command injection|os.command|shell|inject|\bexec|remote code|\brce\b
 ```
+
+```decoy
+id:       VFS-DECOY-07
+file:     api/src/settings/custom-domain.service.ts
+line:     57
+command:  /security-audit
+class:    decoy/fixed-host-interpolated-path
+anchor:   records?name=${encodeURIComponent(domain.hostname)}
+match:    ssrf|server.side request|internal (network|host|service|address)|metadata|169\.254|private (ip|range|address)|hostname|user.{0,25}(host|domain)
+```
+
+```decoy
+id:       VFS-DECOY-08
+file:     api/src/settings/custom-domain.service.ts
+line:     66
+command:  /security-audit
+class:    decoy/fixed-reason-code
+anchor:   lastCheckError: 'DNS_PROVIDER_UNAVAILABLE'
+match:    error (message|text|detail)|errortext|lastcheckerror|leak|expos|internal (error|detail)
+```
+
+```decoy
+id:       VFS-DECOY-09
+file:     api/src/inventory/stock-transfers.service.ts
+line:     80
+command:  /security-audit
+class:    decoy/lines-summed-before-key
+anchor:   return:${doc.id}:${line.productId}
+match:    idempoten|duplicate|repeated|same (product|key)|replay|double
+```
+
+```decoy
+id:       VFS-DECOY-10
+file:     api/src/webhooks/webhook-subscriptions.ts
+line:     27
+command:  /security-audit
+class:    decoy/redacted-query-credential
+anchor:   tokenParam: 'token',
+match:    redact|token|query (param|string)|\blog(s|ged|ging|ger)?\b
+```
+
+## Lane measurement — the four 2026-10-15 seeds
+
+Measured 2026-10-15 with ripgrep 15.2.0 and `/bin/bash` 3.2.57 in a staged copy (this key removed, `git init` + one
+commit), each skill's pre-flight block copied verbatim from its `SKILL.md` as of that date, stdin `/dev/null`.
+
+| lane | seed printed | decoy |
+|------|--------------|-------|
+| `ssrf-scan` 2d | VFS-SSRF-03 (`custom-domain.service.ts:29`, the only 2d line) | VFS-DECOY-07 not printed by 2d (fixed host); 2b prints both `fetch(url` calls (31, 59), and the read refutes 59 |
+| `data-exposure-scan` 1c | VFS-DATA-08 (`:41`), plus the `errorText` helper (`:5`) and VFS-DATA-01's `message: err.message` | VFS-DECOY-08 (`:66`) not printed |
+| `data-exposure-scan` 6c/6d | VFS-DATA-09: 6d lists `tokenParam: 'hub.verify_token'`; 6c points at `request-logger.ts:19`, whose `REDACTED_QUERY_PARAMS` lacks it | VFS-DECOY-10: 6d lists `tokenParam: 'token'`; the diff against the list refutes it |
+| `logic-race-scan` 4e | VFS-LOGIC-05 (`stock-transfers.service.ts:40`) | VFS-DECOY-09 (`:80`) printed; the read finds the per-product `Map` sum before the key and refutes it |
+
+Pre-flight totals before → after the four seeds: `ssrf-scan` 11 → 29, `logic-race-scan` 148 → 182, `data-exposure-scan`
+49 → 67, `iac-scan` 37 → 37. The other new lines are context: route, guard and `ForbiddenException` lists, `hostname`
+reads (4a), the ledger's `idempotencyKey` column (grep 6), header names. `xss-scan`, `injection-scan`, `file-access-scan`,
+`sast-scan` and `secret-scan` gain only route and controller lines. Self-check: a findings file built from each seed's
+own title and text scores 48 / 48 with 0 decoys pinned; one typical false report per decoy pins 10 / 10.

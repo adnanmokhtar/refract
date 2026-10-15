@@ -289,6 +289,176 @@ run_boundaries() {
 }
 run_boundaries
 
+# module-boundaries in a MONOREPO. The hook used to read only <root>/tsconfig.json, and a pnpm
+# workspace keeps its aliases elsewhere: `@/*` in apps/web/tsconfig.json, the contracts as a
+# workspace package resolved through `exports`. Measured on a real NestJS + React monorepo
+# (2026-10-15): zero alias rules read, every aliased import unchecked. The scope rules — nearest
+# config at or above the written file, a child's `paths` replacing its parent's, workspace exports
+# mapped dist → src — are rank-source-files.py's, so the last two assertions pin the two together.
+seed_boundaries_monorepo() {
+  local proj="$1"
+  mkdir -p "$proj/ai" "$proj/.claude" "$proj/apps/web/src/billing" "$proj/apps/web/src/orders" \
+           "$proj/apps/admin/src" "$proj/apps/broken/src" "$proj/apps/legacy/src" "$proj/tools" \
+           "$proj/packages/contracts/src/orders" || return 1
+  cat > "$proj/ai/modules.md" <<'FIXEOF'
+# Modules
+
+| Module | Path | Owns | Public surface | Cross-cuts |
+|---|---|---|---|---|
+| web_orders | `apps/web/src/orders/` | order screens | — | — |
+| web_billing | `apps/web/src/billing/` | billing screens | — | — |
+| admin | `apps/admin/src/` | back office | — | — |
+| broken | `apps/broken/src/` | app with an unparseable config | — | — |
+| legacy | `apps/legacy/src/` | a JS app (jsconfig) | — | — |
+| tools | `tools/` | scripts | — | — |
+| contracts | `packages/contracts/src/` | shared wire types | index | — |
+
+## Module boundaries (which modules MUST NOT import which)
+
+- `web_orders` MUST NOT import from `web_billing` — reason: fixture
+- `admin` MUST NOT import from `web_billing` — reason: fixture
+- `broken` MUST NOT import from `web_billing` — reason: fixture
+- `legacy` MUST NOT import from `web_billing` — reason: fixture
+- `tools` MUST NOT import from `web_billing` — reason: fixture
+- `web_billing` MAY import from `contracts` only via `packages/contracts/src/index.ts`
+FIXEOF
+  printf 'packages:\n  - "apps/*"\n  - packages/*   # members\n' > "$proj/pnpm-workspace.yaml"
+  # The root has NO tsconfig.json — only the base every app extends. `@old/*` lives here so that
+  # case 04 (inherited through `extends`) and case 03 (replaced by the child's own `paths`) differ.
+  cat > "$proj/tsconfig.base.json" <<'JSON'
+{
+  /* shared options */
+  "compilerOptions": { "baseUrl": ".", "paths": { "@old/*": ["apps/web/src/*"], }, "strict": true }
+}
+JSON
+  printf '{ "extends": "../../tsconfig.base.json",\n  "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }\n' \
+    > "$proj/apps/web/tsconfig.json"
+  printf '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "strict": true } }\n' \
+    > "$proj/apps/admin/tsconfig.json"
+  printf '{ "compilerOptions": { "paths": { "@/*": ["../web/src/*"] }\n' > "$proj/apps/broken/tsconfig.json"
+  printf '{ "compilerOptions": { "baseUrl": ".", "paths": { "~lib/*": ["../web/src/*"] } } }\n' \
+    > "$proj/apps/legacy/jsconfig.json"
+  local a; for a in web admin broken legacy; do
+    printf '{ "name": "@acme/%s" }\n' "$a" > "$proj/apps/$a/package.json"
+  done
+  cat > "$proj/packages/contracts/package.json" <<'JSON'
+{ "name": "@acme/contracts",
+  "exports": {
+    ".":          { "types": "./dist/index.d.ts", "import": "./dist/esm/index.js" },
+    "./orders":   { "types": "./dist/orders/index.d.ts", "default": "./dist/orders/index.js" },
+    "./internal": null
+  } }
+JSON
+  printf '{ "extends": "../../tsconfig.base.json", "compilerOptions": { "outDir": "./dist", "rootDir": "./src" } }\n' \
+    > "$proj/packages/contracts/tsconfig.build.json"
+  echo 'export * from "./orders/index.js";' > "$proj/packages/contracts/src/index.ts"
+  echo 'export const ORDER = 1;'            > "$proj/packages/contracts/src/orders/index.ts"
+  echo 'export const charge = 1;'           > "$proj/apps/web/src/billing/charge.ts"
+  echo 'export const dto = 1;'              > "$proj/apps/web/src/orders/dto.ts"
+  return 0
+}
+
+run_boundaries_monorepo() {
+  local hook="$HOOKS/module-boundaries.sh" dir="$CASES/module-boundaries-monorepo"
+  [ -d "$dir" ] || return 0
+  local proj; proj=$(mktemp -d)
+  seed_boundaries_monorepo "$proj" || { echo "SKIP  module-boundaries-monorepo (could not seed)"; return 0; }
+  local f base want got
+  for f in "$dir"/*.json; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f")
+    case "$base" in
+      *block*) want=2 ;;
+      *allow*) want=0 ;;
+      *) echo "SKIP  module-boundaries-monorepo/$base (no block/allow in name)"; continue ;;
+    esac
+    got=0
+    ( cd "$proj" && bash "$hook" < "$f" >/dev/null 2>&1 ) || got=$?
+    if [ "$got" = "$want" ]; then pass=$((pass+1)); else
+      fail=$((fail+1)); echo "FAIL  module-boundaries-monorepo/$base — expected exit $want, got $got"
+    fi
+  done
+
+  # No python3 → no alias table → silent. Every tool the hook shells out to is linked into a
+  # PATH that lacks python3, so the per-app crossing of case 01 must now pass unchecked.
+  local bin rc=0 t; bin=$(mktemp -d)
+  for t in jq sed grep awk tr sort head dirname cat; do
+    command -v "$t" >/dev/null 2>&1 && ln -s "$(command -v "$t")" "$bin/$t"
+  done
+  ( cd "$proj" && PATH="$bin" /bin/bash "$hook" < "$dir/01-block-per-app-paths.json" >/dev/null 2>&1 ) || rc=$?
+  if [ "$rc" = 0 ]; then pass=$((pass+1)); else
+    fail=$((fail+1)); echo "FAIL  module-boundaries-monorepo/no-python3 — expected exit 0 (silent), got $rc"
+  fi
+  rm -rf "$bin"
+
+  # SHARED LOGIC. The hook cannot import scripts/rank-source-files.py — an installed project has
+  # no scripts/ — so it embeds the config functions. These two assertions are what keeps the copy
+  # a copy: (1) every embedded function is AST-identical to the script's (docstrings and comments
+  # aside), and (2) on this fixture, every specifier the hook's resolver answers resolves to the
+  # same file under the script's own Resolver.
+  if command -v python3 >/dev/null 2>&1; then
+    local pysrc="$proj/.claude/mb-resolver.py" out
+    sed -n "/^  IFS= read -r -d '' PYSRC <<'PYEOF'\$/,/^PYEOF\$/p" "$hook" | sed '1d;$d' > "$pysrc"
+    out=$(python3 - "$pysrc" "$REPO_ROOT/scripts/rank-source-files.py" <<'PYEOF' 2>&1
+import ast, sys
+SHARED = ("_strip_jsonc_comments _read_jsonc _mnm_rules package_json_aliases _extends_files "
+          "_effective _paths_rules _rel_or_none config_rules apply_aliases workspace_globs "
+          "_out_root_pairs _export_leaves _match_exports workspace_bases").split()
+def funcs(path):
+    out = {}
+    for n in ast.parse(open(path).read()).body:
+        if isinstance(n, ast.FunctionDef):
+            b = n.body
+            if b and isinstance(b[0], ast.Expr) and isinstance(getattr(b[0], "value", None), ast.Constant) \
+                    and isinstance(b[0].value.value, str):
+                n.body = b[1:]
+            out[n.name] = ast.dump(n)
+    return out
+h, r = funcs(sys.argv[1]), funcs(sys.argv[2])
+bad = [n for n in SHARED if n not in h or h[n] != r.get(n)]
+print("drift: " + " ".join(bad) if bad else "ok")
+PYEOF
+)
+    if [ "$out" = ok ]; then pass=$((pass+1)); else
+      fail=$((fail+1)); echo "FAIL  module-boundaries-monorepo/shared-with-rank-source-files — $out"
+    fi
+
+    out=$(cd "$proj" && python3 - "$pysrc" "$REPO_ROOT/scripts/rank-source-files.py" "$dir" <<'PYEOF' 2>&1
+import glob, importlib.util, json, os, re, subprocess, sys
+hook_py, rank_py, cases = sys.argv[1:4]
+spec = importlib.util.spec_from_file_location("rank", rank_py)
+rank = importlib.util.module_from_spec(spec); spec.loader.exec_module(rank)
+root = os.path.abspath(".")
+res = rank.Resolver(root, set(rank.walk(root, True)))
+agree = resolved = 0
+for f in sorted(glob.glob(os.path.join(cases, "*.json"))):
+    ti = json.load(open(f))["tool_input"]
+    s = re.search(r'from "([^"]+)"', ti["new_string"]).group(1)
+    if s.startswith("."):
+        continue
+    env = dict(os.environ, MB_FILE=ti["file_path"], MB_SPECS=s)
+    got = subprocess.run([sys.executable, "-I", hook_py], env=env, capture_output=True, text=True).stdout
+    h = got.split("\t", 1)[1].strip() if got else None
+    r = res.resolve(s, ti["file_path"])
+    if h is None:
+        continue
+    resolved += 1
+    if r and (r == h or re.match(re.escape(h) + r'(/index)?\.[a-z]+$', r)):
+        agree += 1
+    else:
+        print("disagree: %s from %s — hook %s, rank-source-files %s" % (s, ti["file_path"], h, r))
+print("agree %d/%d" % (agree, resolved))
+PYEOF
+)
+    case "$out" in
+      "agree 6/6") pass=$((pass+1)) ;;
+      *) fail=$((fail+1)); echo "FAIL  module-boundaries-monorepo/agrees-with-rank-source-files — $out" ;;
+    esac
+  fi
+  rm -rf "$proj"
+}
+run_boundaries_monorepo
+
 # ---- inject-blast-radius: a CONTEXT hook, so exit code proves nothing ------------------------
 # Every assertion here is about the PAYLOAD, not the status. A context hook that exits 0 while
 # emitting nothing looks identical to one that works, which is how inject-path-rules.sh shipped

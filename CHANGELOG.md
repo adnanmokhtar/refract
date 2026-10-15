@@ -31,6 +31,16 @@ re-measured; no seeded fixture hit was lost. Per-pack detail is in each pack's `
   offline `clones.py` for `duplication-scan`.
 - **devops 2.0.3 / repo-baseline** — `ci-graph.py --required` is offline unless `--online` (or
   `CI_GRAPH_ONLINE=1`) is passed; callers updated.
+- **security 2.4.0** — misses that hid real findings: multi-line `create secret --from-literal`
+  (0→8), one cache password across differently named Secrets, template-literal SSRF hosts, error text
+  copied through helpers, config-object query credentials, idempotency keys built from request-line
+  fields (the root of two real HIGH findings); offline modes for ci, deps and secret history. New
+  lanes seeded in `vuln-fullstack` and `infra-ops` with a decoy each.
+- **repo-baseline `module-boundaries.sh`** — reads the nearest per-app `tsconfig`/`jsconfig` and
+  workspace package exports, so a monorepo's aliased imports are checked instead of passed silently
+  (0→105 of 105 on a real repo sample); it carries 15 functions AST-identical to
+  `rank-source-files.py` (a test fails on drift), stays fail-quiet, and parses the module catalog with
+  one `awk` (a 93-row catalog: 7.6 s → 0.6 s per write).
 
 ### Track A batch 5: service contracts and distributed delivery become detectors (2026-10-14)
 

@@ -42,10 +42,13 @@ rg -n --pcre2 '\b(fetch|axios(\.\w+)?|got|undici|http\.request|https\.request|re
 # 2. Sinks whose URL is request-derived (§1). 2a: the request on the same line — a route handler fetching.
 #    2b: the URL is a URL-shaped variable or a parameter's field (`fetch(rawUrl)`, `fetch(request.url)`) —
 #    a helper or port adapter whose CALLERS carry the taint. 2c: those callers — a call that passes a
-#    non-literal `url:` / `host:` / `baseUrl:` field into a shared client (multi-line, so -U).
+#    non-literal `url:` / `host:` / `baseUrl:` field into a shared client (matched multi-line with -U, printed
+#    as one line per URL field of each file, the right-hand side to trace). 2d: a template-literal URL whose
+#    HOST is interpolated (`url: \`https://${slug}.vendor.shop/…\``) — 2b sees no URL-named variable there.
 rg -n --pcre2 '\b(fetch|axios(\.\w+)?|got|http\.request|requests\.(get|post)|httpx\.|urlopen|http\.Get)\s*\([^)]*\b(req|request|params|query|body|input|payload|dto)\b' "${X[@]}" "${T[@]}" .
 rg -n -i --pcre2 '\b(fetch|axios(\.\w+)?|got|undici\.request|http\.request|https\.request|requests\.(get|post|put|request)|httpx\.\w+|urlopen|http\.Get|file_get_contents)\s*\(\s*(new URL\(\s*)?[\w.]*\b\w*(url|uri|href|host|domain|endpoint|origin|link|webhook|callback|target|address)\w*\b' "${X[@]}" "${T[@]}" .
-rg -n -U --pcre2 '\b\w+\.(?!push\b)\w+\(\s*\{(?:[^{}]|\{[^{}]*\}){0,400}?\b(url|baseUrl|baseURL|endpoint|host|hostname)\s*:\s*(?!["\x27]https?:)(?!["\x27]/)(?=[\w$`])' "${X[@]}" "${T[@]}" .
+rg -l -U --pcre2 '\b\w+\.(?!push\b)\w+\(\s*\{(?:[^{}]|\{[^{}]*\}){0,400}?\b(url|baseUrl|baseURL|endpoint|host|hostname)\s*:\s*(?!["\x27]https?:)(?!["\x27]/)(?=[\w$`])' "${X[@]}" "${T[@]}" . | xargs -r rg -n --pcre2 '\b(url|baseUrl|baseURL|endpoint|host|hostname)\s*:\s*(?!["\x27]https?:)(?!["\x27]/)[\w$`]'
+rg -n --pcre2 '\b(url|uri|baseUrl|baseURL|endpoint|href|target)\s*[:=]\s*\x60(https?:)?//\$\{|\b(fetch|axios(\.\w+)?|got|undici\.request|request)\s*\(\s*\x60(https?:)?//\$\{' "${X[@]}" "${T[@]}" .
 
 # 3. Redirect policy — a hit here means "check how many hops"; NO hit on a client
 #    that follows redirects by default is itself the finding (§4).
@@ -58,10 +61,12 @@ rg -n 'dns\.lookup|dns\.resolve|getaddrinfo|socket\.getaddrinfo|net\.LookupIP' "
 
 # 5. Every redirect sink (§7), whatever feeds its target: a framework redirect, a Location header, a
 #    meta refresh built in a string, and the browser-side assignments. Trace each target back to its source.
-rg -n -i --pcre2 '\b(res|reply|response|ctx|c|w)\.redirect\s*\(|\bredirect(_to|_back)?\s*\(|\b(sendRedirect|HttpResponseRedirect|RedirectResponse|http\.Redirect)\b|\bnew\s+Redirect\w*\(|\.(setHeader|header|set|append)\(\s*["\x27`]location["\x27`]|["\x27`]Location["\x27`]\s*[:,]|http-equiv\s*=\s*\\?["\x27]?refresh|\b(window\.|document\.)?location(\.href)?\s*=(?!=)|\blocation\.(assign|replace)\s*\(|\bwindow\.open\s*\(' "${X[@]}" "${T[@]}" .
+#    The `Location` header literal is case-sensitive and a bare `location =` skips declarations and `.location`
+#    fields: a domain column named `location` and `const location = useLocation()` are not sinks.
+rg -n --pcre2 '(?i:\b(res|reply|response|ctx|c|w)\.redirect\s*\(|\bredirect(_to|_back)?\s*\(|\b(sendRedirect|HttpResponseRedirect|RedirectResponse|http\.Redirect)\b|\bnew\s+Redirect\w*\(|\.(setHeader|header|set|append)\(\s*["\x27`]location["\x27`]|http-equiv\s*=\s*\\?["\x27]?refresh)|["\x27`]Location["\x27`]\s*[:,]|\b(window|document|self|top|parent)\.location(\.href)?\s*=(?!=)|(?<![\w.$])(?<!const )(?<!let )(?<!var )location(\.href)?\s*=(?!=)|\blocation\.(assign|replace)\s*\(|\bwindow\.open\s*\(' "${X[@]}" "${T[@]}" .
 ```
 
-**Measured on a real repo** (a NestJS-on-Fastify monorepo with a hexagonal API, ~11,400 files). Old 2a returned one line: the shared HTTP kernel. The 16 adapters that feed it a tenant URL pass that URL as a field on a port argument, so 2a never sees them. 2b names the kernel, and 2c lists 41 calls, 34 of them into that kernel. The old 5a tied a redirect sink to a request word on the same line. It missed the repo's one open redirector, a `<meta http-equiv="refresh">` built in a domain function, and on the seeded fixture it missed `res.redirect(returnTo || …)`. The sweep returns 55 sinks (15 server-side) and both are on the list. `X` and `T` cut 1a from 97 lines to 40 and 4a from 229 to 127.
+**Measured on a real repo** (a NestJS-on-Fastify monorepo with a hexagonal API, ~11,400 files). Old 2a returned one line: the shared HTTP kernel. The 16 adapters that feed it a tenant URL pass that URL as a field on a port argument, so 2a never sees them. 2b names the kernel, and 2c lists 41 calls, 34 of them into that kernel. The old 5a tied a redirect sink to a request word on the same line. It missed the repo's one open redirector, a `<meta http-equiv="refresh">` built in a domain function, and on the seeded fixture it missed `res.redirect(returnTo || …)`. The sweep returns 55 sinks (15 server-side) and both are on the list. `X` and `T` cut 1a from 97 lines to 40 and 4a from 229 to 127. Re-measured 2026-10-15 on a real NestJS + React monorepo: 2c printed 182 multi-line lines for 54 files, now 104 URL-field lines; 2d (new) prints 11 host-interpolated URLs (9 through a shop-host helper, 2 from a vendor slug builder with no host check — the real sink, which 2b missed and 2c buried); grep 5 went from 51 lines to 25 with no sink lost (26 dropped: `location` columns and fields, `useLocation()`, response-header reads). On the fixtures grep 5 keeps `res.redirect(returnTo || …)` and drops two dict keys.
 
 A finding is grep-hit **plus** a read of the surrounding function. The greps narrow; they do not decide.
 
@@ -102,6 +107,8 @@ Flag a fetch that accepts `file://`, `gopher://`, `dict://`, `ftp://`, `data:` f
 ### 6. Cloud-metadata reachable / IMDSv1
 
 Flag no egress restriction to the metadata IP, and (infra-adjacent) IMDSv1 still enabled on the instance — recommend IMDSv2 (hop-limit 1, token-required) via the infrastructure pack.
+
+**Reach left by an egress NetworkPolicy (gate 6, [`finding-verification.md`](../../../../snippets/finding-verification.md) § 4 NET1–NET2).** Read what the policy leaves, not that it exists. A NetworkPolicy does not govern a pod's own loopback: `127.0.0.1` / `localhost` and every port a sidecar or the app itself listens on stay reachable whatever the egress rules say. An `ipBlock` allowing `0.0.0.0/0` with an `except:` list of private ranges usually re-admits the VPC CIDR for the database and cache ports through a second rule. The residual reach decides the severity: loopback admin or metrics ports, the managed datastores' private hosts, and public 443 stay in scope; rate a host-controlled fetch on what is left.
 
 ### 7. User-controlled redirect target (open redirector)
 
