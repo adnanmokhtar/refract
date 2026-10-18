@@ -54,7 +54,7 @@ Static only, offline. The opt-in cross-checks (`php artisan route:list --json -v
 
 ## Pre-flight
 
-Run as one script (bash 3.2-safe; shell state does not survive between tool calls). `V2` is the V2 root; `V1` is empty in solo mode; `MIG` holds `pair-map.tsv`, `ledger.md` and `v1-inventory/`. `LIVE=1` reads an uncommitted V1 in place (verdict ceiling GO-UNVERIFIED). The script greps from **inside** V2, because rg globs also match the root path you pass (a root under `…/fixtures/` or `…/tests/` reads 0 files); a V1 path that holds such a segment prints `BLOCKED`. Every grep ends in `ck`: exit 2 is a blocked class, never zero hits.
+Run as one script (bash 3.2-safe; shell state does not survive between tool calls). `V2` is the V2 root; `V1` is empty in solo mode; `MIG` holds `pair-map.tsv`, `ledger.md` and `v1-inventory/`. `LIVE=1` reads an uncommitted V1 in place (verdict ceiling GO-UNVERIFIED). The script greps from **inside** V2, because rg globs also match the root path you pass (a root under `…/fixtures/` or `…/tests/` reads 0 files); a V1 path that holds such a segment prints `BLOCKED`. Every grep ends in `ck`: exit 2 is a blocked class, never zero hits. Each V1 grep runs through `v1g` by the V1 stack the script detects: Laravel PHP, Supabase SQL and edge functions (`supabase/`, migrations included, every superseded definition too — read the live one on the lane row), else (a Rails, Django or Spring V1) `N/A (V1 stack <x>)` — never 0 files silently. `pair-inventory exit 1` is candidates, not a failure; `2`/`3`/`4` is BLOCKED, and the ledger's last line prints why.
 
 ```bash
 PI="${PI:-.claude/skills/paired-inventory/scripts/pair-inventory.py}"; V2="${V2:-.}"; V1="${V1:-}"; MIG="${MIG:-$V2/ai/migration}"
@@ -63,36 +63,38 @@ PI=$(abs "$PI"); MIG=$(abs "$MIG"); [ -n "$V1" ] && V1=$(abs "$V1"); cd "$V2" ||
 OUT="$(mktemp -d "${TMPDIR:-/tmp}/surface-parity.XXXXXX")"; export GIT_OPTIONAL_LOCKS=0; mkdir "$OUT/no-v1"; : > "$OUT/stamp"
 ck() { [ "$2" -lt 2 ] || echo "$1 BLOCKED (rg exit $2) — the class is blocked, never 0 hits"; }
 if [ -n "$V1" ]; then SIDE=(--v1="$V1" ${LIVE:+--live-v1}); else SIDE=(--v1-inventory="$MIG/v1-inventory"); echo "solo: V1 greps search an empty dir (blocked, no V1 tree)"; fi
-python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-ROUTES,I-AUTHZ,I-RULES,I-ENUM,I-ERR,I-SCOPE,I-CONF --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; echo "pair-inventory exit $? — read $OUT/ledger.txt before any row"
+python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-ROUTES,I-AUTHZ,I-RULES,I-ENUM,I-ERR,I-SCOPE,I-CONF --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; echo "pair-inventory exit $? — 0 ran clean · 1 candidates (not a failure) · 2/3/4 BLOCKED: read $OUT/ledger.txt (its last line prints the reason) before any row"
 S1=$(ls -d "$OUT"/run/run.*/v1 2>/dev/null | head -1); V1ROOTS=("${S1:-${V1:-$OUT/no-v1}}"); V2ROOTS=(.)
 case "/${V1ROOTS[0]}/" in */fixtures/*|*/test/*|*/tests/*|*/spec/*|*/e2e/*|*/docs/*|*/lang/*|*/vendor/*) echo "BLOCKED: the V1 root path holds an excluded segment, so every V1 grep reads 0 files — copy V1 out or use the snapshot";; esac
 X=(-g '!**/{node_modules,vendor,dist,build,coverage,storage,bootstrap/cache}/**' -g '!**/{test,tests,spec,__tests__,__mocks__,fixtures,e2e}/**'
    -g '!**/*.{spec,test,e2e-spec,test-data,fixture,fixtures,d}.*' -g '!**/{lang,locales,i18n,docs}/**' -g '!**/database/{seeders,factories}/**' -g '!**/*.{md,lock,map,snap}')
+V1STACK=none; [ -f "${V1ROOTS[0]}/composer.json" ] && V1STACK=laravel; [ -d "${V1ROOTS[0]}/supabase/migrations" ] && V1STACK=supabase; echo "V1 stack: $V1STACK (V1 greps read its files: PHP for laravel, SQL + edge functions for supabase, else N/A — never 0 files silently)"
+v1g() { local id="$1" php="$2" sb="$3"; shift 3; case "$V1STACK" in laravel) rg -n --pcre2 "$@" "$php" -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck "$id" $?;; supabase) if [ "$sb" = - ]; then echo "$id N/A (V1 stack supabase: no grep for this shape; the lane rows carry it)"; else rg -n -i --pcre2 "$sb" -g '*.{sql,ts,toml}' -g '!**/{node_modules,tests,__tests__}/**' -g '!**/*.{test,spec}.ts' "${V1ROOTS[0]}/supabase"; ck "$id" $?; fi;; *) echo "$id N/A (V1 stack $V1STACK: this grep reads Laravel PHP or Supabase SQL; a Rails, Django or Spring V1 prints N/A)";; esac; }
 cut -f2,3,4 "$OUT/candidates.tsv" | sort | uniq -c | sort -rn | head -12   # lane · diff · key
 # 0. Wiring that moves verdicts: V2 global prefix, guards, pipes, filters, adapter; V1 global middleware and exception renderers.
 rg -n --pcre2 'setGlobalPrefix\(|useGlobal(?:Guards|Pipes|Filters|Interceptors)\(|\bAPP_(?:GUARD|PIPE|FILTER)\b|@Public\(\)|new (?:Fastify|Express)Adapter\(|querystringParser|ignoreTrailingSlash|["\x27]query parser["\x27]' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SP0a $?
-rg -n --pcre2 'withMiddleware|trimStrings|TrimStrings|ConvertEmptyStringsToNull|->remove\(|->(?:render|renderable)\(\s*function|shouldRenderJsonWhen|protected \$middleware(?:Groups|Aliases)?\b' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SP0b $?
+v1g SP0b 'withMiddleware|trimStrings|TrimStrings|ConvertEmptyStringsToNull|->remove\(|->(?:render|renderable)\(\s*function|shouldRenderJsonWhen|protected \$middleware(?:Groups|Aliases)?\b' 'verify_jwt\s*=\s*false|export\s+(?:async\s+)?function\s+(?:with|require|enforce|ensure|verify)\w*\s*\(|\balter\s+default\s+privileges\b'
 # 1. Counterpart search for each V1-ONLY route: its last static segment anywhere in V2 code, the SPA router and deploy/.
 awk -F'\t' '$3=="V1-ONLY" && $4 ~ /^[A-Z]+ \//{print $4}' "$OUT/candidates.tsv" | sort -u | while read -r M P; do W=$(printf '%s' "$P" | tr '/' '\n' | grep -v '^{' | tail -1); [ -n "$W" ] || W=root; printf '%-44s %s\n' "$M $P" "$(rg -c -F -w -- "$W" -g '!**/node_modules/**' "${V2ROOTS[@]}" 2>/dev/null | head -4 | tr '\n' ' ')"; done
 # 2. Path / query shape: page→offset with no `- 1`; bracket arrays V1 parsed; the paginator V1 used.
 rg -n --pcre2 '(?<!-\s1\)\s\*\s)\bpage\w*\s*\*\s*(?:this\.|query\.|dto\.)?\w*(?:per_?[Pp]age|[Ll]imit|[Ss]ize|[Tt]ake)\b|\bskip\s*:\s*\w*\.?page\s*\*' -g '*.{ts,js,py,go,java,kt,rb}' "${X[@]}" "${V2ROOTS[@]}"; ck SP2a $?
-rg -n --pcre2 '\(array\)\s*\$request->(?:input|query|get)\(|\$request->(?:input|query)\(\s*\x27[^\x27]+\x27\s*,\s*\[\s*\]|->(?:paginate|simplePaginate)\(' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SP2b $?
+v1g SP2b '\(array\)\s*\$request->(?:input|query|get)\(|\$request->(?:input|query)\(\s*\x27[^\x27]+\x27\s*,\s*\[\s*\]|->(?:paginate|simplePaginate)\(' '\.range\(\s*\w+|\.limit\(\s*\w+|\bmax_rows\s*=|\boffset\s+\(?\s*\w+\s*-\s*1\)?\s*\*|\blimit\s+\w+\s+offset\b'
 # 3/4. Authz: guards that pass a handler with no metadata (default-allow); V1 policies whose ability carries an owner/tenant check.
 rg -n -U --pcre2 'if\s*\(\s*!\s*\w*(?:required|[Pp]ermissions?|[Rr]oles?|meta\w*)\w*(?:\?\.length)?\s*\)\s*\{?\s*return\s+true' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SP3a $?
-rg -n --pcre2 'function\s+\w+\(\s*User\s+\$\w+\s*,\s*\w+\s+\$\w+|\$\w+->(?:account_id|tenant_id|team_id|user_id|owner_id)\s*===' -g '**/Policies/**' "${X[@]}" "${V1ROOTS[@]}"; ck SP3b $?
+v1g SP3b 'function\s+\w+\(\s*User\s+\$\w+\s*,\s*\w+\s+\$\w+|\$\w+->(?:account_id|tenant_id|team_id|user_id|owner_id)\s*===' '\bauth\.uid\(\)\s*=\s*\w+|\b\w*(?:owner|user|workspace|tenant|account)_id\s*=\s*auth\.uid\(\)|\bhas_\w*permission\s*\(' -g '**/Policies/**'
 # 5. Tenant scope: raw SQL on a table V1 scoped (I-SCOPE tenant=yes) with no tenant column — an ORM filter never sees raw SQL.
 TT=$(awk -F'\t' '$1=="I-SCOPE" && $3 ~ /tenant=yes/ {sub(/^table:/, "", $2); printf "%s%s", (n++ ? "|" : ""), $2}' "$OUT"/run/v1/I-SCOPE.tsv 2>/dev/null); echo "V1 tenant-scoped tables: ${TT:-none (SP5 grep N/A)}"
 rg -n -U --pcre2 '\.(?:execute|raw|query|\$queryRaw(?:Unsafe)?|\$executeRaw(?:Unsafe)?)\s*(?:<[^>\n]*>)?\(\s*[\x27"`](?![^\x27"`]*\b(?:account|tenant|org(?:anization)?|team|company|workspace)_?id\b)[^\x27"`]*\b(?:from|join|update|into)\s+"?(?:'"${TT:-__none__}"')(?:e?s)?\b' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SP5 $?
 # 6. Vocabulary: numeric enums with implicit values (0-based); V1 backed enums.
 rg -n --pcre2 '\benum\s+\w+\s*\{\s*[A-Z]\w*\s*(?:,\s*[A-Z]\w*\s*)*,?\s*\}' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SP6a $?
-rg -n --pcre2 '^\s*enum\s+\w+\s*:\s*(?:int|string)\b' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SP6b $?
+v1g SP6b '^\s*enum\s+\w+\s*:\s*(?:int|string)\b' '\bcreate\s+type\s+[\w."]+\s+as\s+enum\b|\balter\s+type\s+[\w."]+\s+(?:add|rename)\s+value\b|\bcheck\s*\(\s*\(?\s*\w+\s*\)?(?:::\w+)?\s*(?:in\s*\(|=\s*any\s*\()'
 # 7. Rules: where V2 registers (or only defines) global input normalisation, and per-controller opt-ins.
 rg -n --pcre2 'useGlobalPipes\(|\bAPP_PIPE\b|@UsePipes\(|\b(?:whitelist|forbidNonWhitelisted|transform)\s*:|function\s+\w*(?:[Nn]ormali[sz]|[Tt]rim)\w*\s*\(' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SP7 $?
 # 8. Errors: statuses V2 throws by number, first-error-only validation; V1 renderers, abort codes, error codes.
 rg -n --pcre2 'new\s+\w*(?:Error|Exception)\(\s*[45]\d\d\b|\bissues\.slice\(\s*0\s*,\s*1\s*\)|\.(?:issues|errors)\[0\]|\bstopAtFirstError\b|\bexceptionFactory\b|\berrorHttpStatusCode\b' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SP8a $?
-rg -n --pcre2 '\babort\(\s*[45]\d\d\b|[\x27"]code[\x27"]\s*=>|\bstopOnFirstFailure\b|\bbail\b|response\(\)->json\([^\n]*,\s*[45]\d\d\)' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SP8b $?
+v1g SP8b '\babort\(\s*[45]\d\d\b|[\x27"]code[\x27"]\s*=>|\bstopOnFirstFailure\b|\bbail\b|response\(\)->json\([^\n]*,\s*[45]\d\d\)' '\braise\s+exception\s+\x27[A-Za-z][\w.]*\x27|\berrcode\s*=\s*\x27|\bstatus\s*:\s*[45]\d\d\b'
 # 9. Silent defaults: V1 model $attributes and request-input defaults; V2 entity initialisers and zod / DTO defaults.
-rg -n -U --pcre2 'protected\s+\$attributes\s*=\s*\[[^\]]*\]|\$request->(?:input|query|integer|string)\(\s*\x27\w+\x27\s*,\s*[^)\s]+\)|->default\([^)\n]+\)' -g '*.php' -g '!**/database/migrations/**' "${X[@]}" "${V1ROOTS[@]}"; ck SP9a $?
+v1g SP9a 'protected\s+\$attributes\s*=\s*\[[^\]]*\]|\$request->(?:input|query|integer|string)\(\s*\x27\w+\x27\s*,\s*[^)\s]+\)|->default\([^)\n]+\)' '\balter\s+column\s+\w+\s+set\s+default\b|\b\w+\s*\?\?\s*(?:\x27[^\x27]*\x27|-?\d+|true|false)\b' -U -g '!**/database/migrations/**'
 rg -n --pcre2 '^\s*\w+[!?]?\s*:\s*[\w.<>| ]+=\s*(?:[\x27"][^\x27"]*[\x27"]|-?\d+(?:\.\d+)?|true|false)\s*;|\.default\(\s*[^)\n]+\)|\bdefault\s*:\s*(?:[\x27"][^\x27"]*[\x27"]|-?\d+)' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SP9b $?
 for R in "$V1" .; do [ -n "$R" ] && find "$R" -newer "$OUT/stamp" -type f -not -path '*/node_modules/*' | head -3; done; echo "write check done (empty = nothing written)"
 ```
@@ -101,7 +103,9 @@ for R in "$V1" .; do [ -n "$R" ] && find "$R" -newer "$OUT/stamp" -type f -not -
 
 ## Measured
 
-Measured 2026-10-18 on this repo's fixtures only.
+Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase → Nest port (read-only).
+
+- **A real Supabase → Nest port** (2026-10-19, V1 read in place, V2 read-only, an audit's 466-row route map). Before: every V1 grep read `*.php` and printed nothing (793 lines, all V2-side); I-ROUTES/AUTHZ/RULES halted. After: `V1 stack: supabase`, SP0b 117 · SP2b 310 · SP3b 1,308 (policy predicates) · SP6b 157 · SP8b 969 (RAISE sites) · SP9a 172 (after narrowing from 2,710 to `alter column … set default` and edge `??` defaults); the route lanes route-join the 466 mapped routes. On `port-pair` every line is unchanged (`V1 stack: laravel`).
 
 - **`port-pair`, paired** (`--live-v1`: V1 is uncommitted there; `change/` overlaid as the port PR). Engine (the build whose candidate rows carry a `lane` column): 0 rg exit-2, 0 unparsed, write check 0, built-in calibration 0 rows. Candidates: I-ROUTES 44 / 34 rows → 9 V1-ONLY, 1 V2-ONLY; I-AUTHZ 9 / 1 / 9 CHANGED; I-RULES 2 / 0 / 12; I-ENUM 6 CHANGED; I-ERR 1 V1-ONLY; I-SCOPE 3 CHANGED; I-CONF 2 CHANGED. Grep lines: SP0a 12 · SP0b 14 · SP2a 1 · SP2b 7 · SP3a 4 · SP3b 8 · SP5 1 · SP6a 1 · SP6b 4 · SP7 4 · SP8a 2 · SP8b 2 · SP9a 14 · SP9b 22. All 18 SP seeds sit on a lane row or a grep line (table in § Output); the restored twins (wallet credit-limit, the invoice account filter, the low-stock raw query, the invoice status set, the update-body `po_number` rule) print no row.
 - **`port-pair`, solo** (V2 + a V1 inventory re-recorded at the pin, then faulted: `I-ENUM` with a foreign `sha`, `I-SCHED` with an old extractor hash). The same rows, every one tagged `solo`; the three enum rows carry `stale-v1-inventory`; the engine exits 4 for the blocked lane. The fixture's own `v1-inventory/` still carries a placeholder extractor hash, so every lane read from it is `blocked (extractor changed since record)` until it is re-recorded.

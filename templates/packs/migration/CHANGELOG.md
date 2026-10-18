@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-19
+
+**Supabase V1 lane and real-run fold-back.** A read-only `/compare-v1` of a real Supabase → Nest port (1,662 SQL migrations, 182 edge functions on the V1 side) drove these changes; every one was re-measured on that pair and on `port-pair` (calibration still 0 on all 11 lanes, the same 34 seeded candidates).
+
+- **`lanes_supabase.py`** (new): replays the SQL migrations (tables, enums incl. `ADD VALUE`, RLS policies per command and role, SECURITY DEFINER RPCs and their EXECUTE grants, triggers, `cron.schedule` incl. `format()` and `alter_job`), reads edge functions per branch (an in-code `getUser`/`getClaims` is authentication; `verify_jwt` is not), and flags V1 jobs whose target is gone or ambiguous. Built-in Supabase → Nest calibration pair. Precedents § 39–49.
+- **Engine:** explicit pair-map rows join routes even when the prefix-sanity check would halt (`checked · route-join`; the unaddressed rest is Live, unreviewed); two V1 keys mapped to one V2 key are merged and ledgered, never overwritten; glob renames carry captures into `unique:`/`fk:` keys; the ledger prints the exit reason.
+- **V2 extraction (`lanes_node`):** permission constants resolve through object members, `Object.freeze`, spreads and workspace packages (routes with resolved abilities ~36 → 1,204 of 1,310); Postgres RLS created in MikroORM migrations counts as tenant scope (false I-SCOPE rows 182 → 16); side effects follow outbox events to their consumers, activity/audit recorders and mirrors (4 → 175 rows); jobs key on `Class.method`; coded errors read from message catalogues; enums from the snapshot's `enumItems`, `@Enum` spreads and imported `z.enum` constants (paired 6 → 78).
+- **Money lane:** a rounding call counts only on a line that names money, the area is keyed by its money word, and rows cite the rounding line.
+- **Detectors:** the V1 greps of surface/semantics/side-effect/parity-proof run per V1 stack (they read only PHP and printed 0 lines on a Supabase V1); `cutover-routing-scan` no longer reads V2's own SPA `nginx.conf` as a strangler façade; `data-cutover-orchestrate` noise cut (data-path files 287 → 136, DC8b handling sites 182 → 16).
+
 ## 2.0.0 — 2026-10-18
 
 **The migration pack became a detector pack (Track A batch 6).** Before this release it was a well-guarded port process with no runnable check: one `rg` mention, no coverage block, no refute step, and the only code comparison counted primitives (a V2 count under 70 % of V1's), so a guard moved from one route to another passed.

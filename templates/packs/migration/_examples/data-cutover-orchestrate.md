@@ -82,13 +82,17 @@ PI=$(abs "$PI"); MIG=$(abs "$MIG"); RB="${RB:-$(dirname "$MIG")/runbooks}"; [ -n
 OUT="$(mktemp -d "${TMPDIR:-/tmp}/data-cutover.XXXXXX")"; export GIT_OPTIONAL_LOCKS=0; mkdir "$OUT/none"; : > "$OUT/stamp"
 ck() { [ "$2" -lt 2 ] || echo "$1 BLOCKED (rg exit $2) — the class is blocked, never 0 hits"; }
 if [ -n "$V1" ]; then SIDE=(--v1="$V1" ${LIVE:+--live-v1}); else SIDE=(--v1-inventory="$MIG/v1-inventory"); fi
-python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-SCOPE,I-SCHEMA,I-CONF --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; echo "pair-inventory exit $? — read $OUT/ledger.txt before any row"
+python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-SCOPE,I-SCHEMA,I-CONF --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; echo "pair-inventory exit $? — 0 ran clean · 1 candidates (not a failure) · 2/3/4 BLOCKED: read $OUT/ledger.txt (its last line prints the reason) before any row"
 awk -F'\t' '$1=="CANDIDATE" && $2=="I-SCOPE" && $5=="soft_delete"' "$OUT/candidates.tsv"            # §7 rows: V1 soft-deletes, V2 does not
 V1TZ=$(awk -F'\t' '$2=="timezone"{sub(/.*value=/, "", $3); print $3; exit}' "$OUT"/run/v1/I-CONF.tsv 2>/dev/null); echo "V1 timezone (I-CONF): ${V1TZ:-unread}"   # §6 compares every loader session zone with it
 # The data path: backfill, sync, reconcile, loader, flag and plan files. scripts/, deploy/ and migrations/ are IN scope here.
 X=(-g '!**/{node_modules,vendor,dist,build,coverage,.git}/**' -g '!**/{test,tests,spec,__tests__,__mocks__,fixtures,e2e}/**' -g '!**/*.{spec,test,e2e-spec,test-data,fixture,d}.*')
-rg -l -i --pcre2 'backfill|reconcil|\bcutover\b|dual[-_ ]?write|\bread_from\b|\bwrites?_owner\b|\bpgloader\b|LOAD DATABASE|data-validation\s+validate|pt-table-checksum|debezium|\bcheckpoint' -g '*.{ts,js,mjs,py,rb,go,java,kt,php,sql,sh,yaml,yml,json,load,toml,conf}' "${X[@]}" . > "$OUT/dp0.txt"; ck DP $?
-rg --files -g '**/{backfill,backfills,reconcile,reconciliation,cutover,sync,etl,cdc,pgloader,dms}/**' -g '**/*{backfill,reconcil,cutover}*' "${X[@]}" . >> "$OUT/dp0.txt"; sort -u "$OUT/dp0.txt" > "$OUT/dp.txt"; rg --files -g '*checkpoint*.json' "${X[@]}" . > "$OUT/cp.txt"
+# Loader shapes anywhere; the words backfill / reconcile / cutover / checkpoint only in script, deploy and ops trees (an app
+# use case named `reconcileAll`, a seed script and a schema snapshot are not the data path). Snapshots and seeds are out.
+DX=(-g '!**/*snapshot*.json' -g '!**/.snapshot*' -g '!**/{seed,seeds,seeders}/**' -g '!**/seed*.{ts,js,py,sql}')
+rg -l -i --pcre2 'dual[-_ ]?write|\bread_from\b|\bwrites?_owner\b|\bpgloader\b|LOAD DATABASE|data-validation\s+validate|pt-table-checksum|debezium' -g '*.{ts,js,mjs,py,rb,go,java,kt,php,sql,sh,yaml,yml,json,load,toml,conf}' "${X[@]}" "${DX[@]}" . > "$OUT/dp0.txt"; ck DP $?
+rg -l -i --pcre2 'backfill|reconcil|\bcutover\b|\bcheckpoint' -g '**/{scripts,bin,deploy,ops,tools,etl,cdc,migration,migrations}/**/*.{ts,js,mjs,py,rb,go,sql,sh,yaml,yml,load,toml,conf}' "${X[@]}" "${DX[@]}" . >> "$OUT/dp0.txt"; ck DPw $?
+rg --files -g '**/{backfill,backfills,reconcile,reconciliation,cutover,sync,etl,cdc,pgloader,dms}/**' -g '**/*{backfill,reconcil,cutover}*' "${X[@]}" "${DX[@]}" . >> "$OUT/dp0.txt"; sort -u "$OUT/dp0.txt" > "$OUT/dp.txt"; rg --files -g '*checkpoint*.json' "${X[@]}" . > "$OUT/cp.txt"
 DPROOTS=(); while IFS= read -r f; do DPROOTS+=("$f"); done < "$OUT/dp.txt"; [ ${#DPROOTS[@]} -gt 0 ] || DPROOTS=("$OUT/none"); echo "data-path files: $(wc -l < "$OUT/dp.txt")"
 RBS=("$OUT/none"); [ -d "$RB" ] && RBS=("$RB"); [ -d docs/runbooks ] && RBS+=(docs/runbooks)
 # 1. Not resumable / not idempotent / not throttled: a null checkpoint or zero pause; a plain INSERT; a full-table fetch.
@@ -112,7 +116,8 @@ rg -n -H --pcre2 'unique\([^\n]*whereNull\(\s*[\x27"]deleted_at|->unique\(\)->wh
 rg -l --pcre2 'SoftDeletable|@Filter\([^)]*deleted|@DeleteDateColumn|\bparanoid\b' -g '*.{ts,js}' "${X[@]}" . | while read -r f; do rg -n -H --pcre2 '@Unique\((?![^\n]*(?:deleted|where))|@Index\([^)\n]*unique:\s*true(?![^\n]*where)' "$f" | sed 's/^/DC7c /'; done
 # 9. Explicit ids loaded with no sequence reset in the same file; a loader that turns its reset off.
 rg -n -H -i --pcre2 'reset\s+no\s+sequences' "${DPROOTS[@]}"; ck DC9a $?
-rg -l --pcre2 '^\s*id\s*:\s*row\.id\b|INSERT\s+INTO\s+\w+\s*\(\s*id\b' "${DPROOTS[@]}" | while read -r f; do rg -q --pcre2 'resetSequence|setval\(|RESTART\s+WITH|reset\s+sequences' "$f" && continue; N=$(rg -n --pcre2 '\.(?:insert|upsert|exec)\(|INSERT\s+INTO' "$f" | tail -1 | cut -d: -f1); L=$(awk -v s="${N:-0}" 'NR>s && /^[[:space:]]*\}\)?;?[[:space:]]*$/ {f=1; next} f && NF {print NR; exit}' "$f"); echo "DC9b $f:${L:-$N}: explicit ids loaded (last write at :$N), no sequence reset in this file — it belongs after the load"; done
+rg -l --pcre2 '^\s*id\s*:\s*row\.id\b|INSERT\s+INTO\s+\w+\s*\(\s*id\b' "${DPROOTS[@]}" | while read -r f; do case "$f" in *queries*|*-wire.*|*.mapper.*|*/web/*|*/frontend/*) continue;; esac; rg -q --pcre2 'INSERT\s+INTO|\.(?:insert|upsert|insertMany|nativeInsert)\(|\bCOPY\s+\w+' "$f" || continue   # a read projection (`id: row.id` in a mapper) loads nothing
+  rg -q --pcre2 'resetSequence|setval\(|RESTART\s+WITH|reset\s+sequences' "$f" && continue; N=$(rg -n --pcre2 '\.(?:insert|upsert|exec)\(|INSERT\s+INTO' "$f" | tail -1 | cut -d: -f1); L=$(awk -v s="${N:-0}" 'NR>s && /^[[:space:]]*\}\)?;?[[:space:]]*$/ {f=1; next} f && NF {print NR; exit}' "$f"); echo "DC9b $f:${L:-$N}: explicit ids loaded (last write at :$N), no sequence reset in this file — it belongs after the load"; done
 # 10. Flips: write-owner flags set with a bare set (no fence); ungated read flags are read in the flag table below.
 rg -n -H --pcre2 '\.(?:set|update|enable|put)\(\s*[\x27"][\w.:-]*(?:write|writes|writer|owner|primary)\w*[\x27"]' "${DPROOTS[@]}"; ck DC10 $?
 cat > "$OUT/dc.py" <<'PY'
@@ -126,9 +131,16 @@ def rows(side, lane):
 v1, v2 = rows('v1', 'I-SCHEMA'), rows('v2', 'I-SCHEMA')
 sd = {k.split(':', 1)[1] for k, f in rows('v2', 'I-SCOPE').items() if 'soft_delete=yes' in f[2]}
 names = lambda t: {t, t + 's', t + 'es', re.sub(r'y$', 'ies', t)}
-def sites(table, words):
-    return ['%s:%d %s' % (f, i, l.strip()[:60]) for f in dp if any(re.search(r'\b%s\b' % n, txt(f)) for n in names(table))
-            for i, l in enumerate(txt(f).splitlines(), 1) if re.search(words, l, re.I) and not re.match(r'\s*(?:import|from|require|#|//)\b', l)]
+def sites(table, words):   # a handling line names the table within 5 lines of it, not merely somewhere in the file
+    out = []
+    for f in dp:
+        if f.endswith('.json'): continue
+        ls = txt(f).splitlines()
+        for i, l in enumerate(ls, 1):
+            if re.search(words, l, re.I) and not re.match(r'\s*(?:import|from|require|#|//|\*)', l) and \
+               any(re.search(r'\b%s\b' % n, '\n'.join(ls[max(0, i - 6):i + 5])) for n in names(table)):
+                out.append('%s:%d %s' % (f, i, l.strip()[:60]))
+    return out
 orph = ['%s:%d' % (f, i) for f in dp for i, l in enumerate(txt(f).splitlines(), 1) if re.search(r'[Oo]rphan\w*\(|LEFT\s+JOIN\b.*\bIS\s+NULL', l)]
 for k in sorted(set(v2) - set(v1)):                                   # 7/8: constraints V2 enforces that V1 never did
     m = re.match(r'(fk|unique):(\w+)\(([^)]*)\)', k)
@@ -192,7 +204,9 @@ The labelled lines (`DC8a`, `DC10`, …) are the joins the script computed; plai
 
 ## Measured
 
-Measured 2026-10-18 on this repo's fixtures only.
+Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase → Nest port (read-only).
+
+- **A real Supabase → Nest port** (2026-10-19). Before: 287 data-path files (any file naming `reconcile`, `backfill` or `checkpoint`: app use cases, a seed script, the schema snapshot), 182 of 184 `DC8b` rows citing a "handling" line that never named the table, and 7 `DC9b` rows on read projections (`id: row.id` in query mappers). After: loader shapes anywhere, the weak words only in script / deploy / ops trees, snapshots and seeds out → 136 files; a handling line must name the table within 5 lines → 16 of 184; `DC9b` needs a write in the file → 0. `port-pair` unchanged (32 data-path files, was 34; every DC line identical).
 
 - **`port-pair`, paired** (V1 read in place with `LIVE=1`; the fixture root committed in a scratch copy, `change/` overlaid). Engine: 0 rg exit-2, 0 unparsed, write check 0, calibration 0 rows. It found 26 data-path files, then 34 once path names were added: `preflight.ts` mentions no data-path word and was missed by content alone. Grep lines: DC1a 1 · DC1b 3 · DC2 3 · DC3a 5 · DC3b 2 · DC4 2 · DC5 2 · DC6 5 · DC7v1 1 · DC9a 1 · DC10 1. Joins: DC6b 1 · DC7b 1 · DC7c 1 · DC8a 1 · DC8b 2 · DC9b 1 · DC10 5 flags (1 MISSING) · DC11a 2 runbooks · DC11b 1 · DC12 2 · DC3c none. Every one of the 24 DC seeds sits on a printed line or within two lines of one (DM-7a: the I-SCOPE row cites the class line, the seed its decorator). The decoys stay quiet as findings: the append-only ledger load, the declared CDC lag, the tickets soft-delete filter with its ADR, the gated orders read flag and the orders runbook. The first measurement also printed two unseeded lines (the invoices backfill upsert with no version guard beside the invoice sync, DC2; three loaded tables no reconcile named, DC3c); the fixture's clean pair was fixed instead (guarded upserts, reconcile checks added), so DC2 now prints the two seeds plus `stock` (no concurrent writer, refuted at read) and DC3c prints none. On the clean pair DC2 prints `stock` only. Report each one or refute it with a reason.
 - **`port-pair`, solo** (V2 + `ai/` only, the inventory re-recorded at the pin). The same joins appear. The order soft-delete row is tagged `solo` (DM-7 is a guarantee class: Finding). The V1 timezone comes from the recorded I-CONF row, and DC7v1 reads nothing (no V1 tree).

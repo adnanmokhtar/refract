@@ -69,22 +69,25 @@ Run as one script (bash 3.2-safe):
 Test trees **are** in scope here. Every grep ends in `ck`: exit 2 is a blocked class, never zero hits.
 
 ```bash
-V2="${V2:-.}"; V1="${V1:-}"; MIG="${MIG:-$V2/ai/migration}"; TI="${TI:-.claude/scripts/test-integrity.py}"; EVID="${EVID:-}"
+V2="${V2:-.}"; V1="${V1:-}"; MIG="${MIG:-$V2/ai/migration}"; TI="${TI:-$V2/.claude/scripts/test-integrity.py}"; EVID="${EVID:-}"
 abs() { (cd "$(dirname "$1")" 2>/dev/null && printf '%s/%s\n' "$(pwd)" "$(basename "$1")") || printf '%s\n' "$1"; }
 MIG=$(abs "$MIG"); TI=$(abs "$TI"); [ -n "$V1" ] && V1=$(abs "$V1"); [ -n "$EVID" ] && EVID=$(abs "$EVID"); [ -n "$GATES_TSV" ] && GATES_TSV=$(abs "$GATES_TSV"); cd "$V2" || exit 2
 OUT="$(mktemp -d "${TMPDIR:-/tmp}/parity-proof.XXXXXX")"; export GIT_OPTIONAL_LOCKS=0; mkdir "$OUT/none"; : > "$OUT/stamp"
 ck() { [ "$2" -lt 2 ] || echo "$1 BLOCKED (rg exit $2) — the class is blocked, never 0 hits"; }
 TOP=$(git rev-parse --show-toplevel 2>/dev/null); BASE="${BASE:-$(git merge-base HEAD origin/HEAD 2>/dev/null || git merge-base HEAD origin/main 2>/dev/null || git merge-base HEAD main 2>/dev/null)}"
-echo "git: ${TOP:-none} · base: ${BASE:-none (PF1 blocked: pass BASE=<ref>)} · V1: ${V1:-none (solo)} · evidence: ${EVID:-none}"
+[ -n "$BASE" ] && [ "$(git rev-parse "$BASE" 2>/dev/null)" = "$(git rev-parse HEAD 2>/dev/null)" ] && BASEHEAD=1   # the merge-base of a checkout of main is HEAD
+echo "git: ${TOP:-none} · base: ${BASE:-none (PF1 blocked: pass BASE=<ref>)}${BASEHEAD:+ (= HEAD)} · V1: ${V1:-none (solo)} · evidence: ${EVID:-none} · TI: $TI"
 # Test trees ARE the subject here: no test/spec exclusion; dependencies and build output only.
 X=(-g '!**/{node_modules,vendor,dist,build,coverage,.git}/**')
 # 0. The V1-pinned set: test-map.tsv rows, files that drive V1 (describeV1, V1_REPO_PATH, "V1-pinned"), goldens recorded from V1.
 rg -l --pcre2 '\bdescribeV1\b|\bV1_REPO_PATH\b|\bHAS_V1\b|V1-pinned|"recorded_from"\s*:' -g '*.{ts,tsx,js,mjs,py,rb,php,go,java,kt,json}' "${X[@]}" . > "$OUT/pinned.txt"; ck PF0 $?
-[ -f "$MIG/test-map.tsv" ] && awk -F'\t' 'NR>1 && $3 != "-" {sub(/::.*/, "", $3); print $3}' "$MIG/test-map.tsv" | while read -r p; do [ -n "$TOP" ] && [ -f "$TOP/$p" ] && (cd "$TOP" && printf '%s\n' "$p"); done > "$OUT/mapped.txt"
+: > "$OUT/mapped.txt"; [ -f "$MIG/test-map.tsv" ] && awk -F'\t' 'NR>1 && $3 != "-" {sub(/::.*/, "", $3); print $3}' "$MIG/test-map.tsv" | while read -r p; do [ -n "$TOP" ] && [ -f "$TOP/$p" ] && (cd "$TOP" && printf '%s\n' "$p"); done > "$OUT/mapped.txt"
 echo "V1-pinned files: $(wc -l < "$OUT/pinned.txt") by marker, $(wc -l < "$OUT/mapped.txt" 2>/dev/null || echo 0) by test-map.tsv"
 # 1. The port diff against the pinned set: test-integrity.py rows, every changed line, build-config skips, coverage evidence.
 PRE=$(git rev-parse --show-prefix 2>/dev/null); { sed "s#^\./#$PRE#" "$OUT/pinned.txt"; cat "$OUT/mapped.txt" 2>/dev/null; } | sort -u > "$OUT/pinned.rel"
 if [ -z "$TOP" ] || [ -z "$BASE" ]; then echo "PF1 blocked (no git base: pass BASE=<ref>)"
+elif [ -n "$BASEHEAD" ]; then echo "PF1 N/A (BASE = HEAD: no port diff to read — pass BASE=<the port PR's base>)"
+elif [ ! -f "$TI" ]; then echo "PF1 blocked (test-integrity.py not found at $TI: pass TI=<path>)"
 elif [ ! -s "$OUT/pinned.rel" ]; then echo "PF1 N/A (no V1-pinned test or golden found)"
 else
   python3 -I "$TI" --base="$BASE" --repo="$TOP" > "$OUT/ti.txt"; echo "test-integrity exit $? (0 none · 1 rows · 2 error); rows on the V1-pinned set:"
@@ -97,7 +100,12 @@ for E in "$EVID" coverage; do [ -d "$E" ] && rg -n -H -i --pcre2 'line coverage|
 rg --files -g '**/corpus/**/*.json' -g '*.corpus.json' "${X[@]}" . > "$OUT/corpus.txt"; ck PF2 $?
 # 3. Recorded V1 bugs: contracts whose Known V1 bugs say none; V1 quirk shapes on those features; V2 shapes that "fix" them.
 if [ -d "$MIG" ]; then rg -n -H -A2 --pcre2 '^#+\s*Known V1 bugs' -g '*.md' "$MIG"; ck PF3a $?; else echo "PF3 N/A (no $MIG: no contracts to read)"; fi
-rg -n -H --pcre2 'array_filter\((?![^;\n]*array_values)|[\x27"]like[\x27"]\s*,\s*[\x27"]%[\x27"]\s*\.\s*\$|\bjson_encode\(\s*\$\w+\s*\)(?![^;\n]*JSON_)|==\s*(?:null|0|[\x27"]{2})\b' -g '*.php' -g '!**/{vendor,tests,database,lang}/**' "${V1:-$OUT/none}"; ck PF3b $?
+P3V1=none; [ -n "$V1" ] && { [ -f "$V1/composer.json" ] && P3V1=laravel; [ -d "$V1/supabase/migrations" ] && P3V1=supabase; }   # V1 quirk shapes by V1 stack, never 0 files silently
+case "$P3V1" in
+  laravel) rg -n -H --pcre2 'array_filter\((?![^;\n]*array_values)|[\x27"]like[\x27"]\s*,\s*[\x27"]%[\x27"]\s*\.\s*\$|\bjson_encode\(\s*\$\w+\s*\)(?![^;\n]*JSON_)|==\s*(?:null|0|[\x27"]{2})\b' -g '*.php' -g '!**/{vendor,tests,database,lang,docs}/**' "$V1"; ck PF3b $?;;
+  supabase) rg -n -H -i --pcre2 '\bi?like\s+\x27%\x27\s*\|\||\.i?like\(\s*[\x27"][\w.]+[\x27"]\s*,\s*`%\$\{|\bnullif\(\s*\w+\s*,\s*\x27\x27\s*\)|\bjsonb?_strip_nulls\(' -g '*.{sql,ts}' -g '!**/{node_modules,tests,docs}/**' "$V1/supabase"; ck PF3b $?;;
+  *) echo "PF3b N/A (V1 stack $P3V1: reads Laravel PHP or Supabase SQL and edge functions; a Rails, Django or Spring V1 prints N/A)";;
+esac
 rg -n -H --pcre2 '\bescape_?[Ll]ike\b|replace\(\s*/\[[^\]]*%[^\]]*\]/' -g '*.{ts,js}' -g '!**/{node_modules,test,tests,__tests__}/**' .; ck PF3c $?
 # 4. V1-gated suites (testing suite-execution-scan §2c gated-suites.tsv when that pack ran; else the built-in helper grep).
 if [ -n "$GATES_TSV" ] && [ -f "$GATES_TSV" ]; then awk -F'\t' '$1=="v1"' "$GATES_TSV" > "$OUT/gates.tsv"; echo "gates from $GATES_TSV: $(wc -l < "$OUT/gates.tsv") v1 rows"
@@ -197,7 +205,9 @@ for R in "$V1" .; do [ -n "$R" ] && find "$R" -newer "$OUT/stamp" -type f -not -
 
 ## Measured
 
-Measured 2026-10-18 on this repo's fixtures only.
+Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase → Nest port (read-only).
+
+- **A real Supabase → Nest port** (2026-10-19, V2 checked out at its main branch). Before: `BASE` resolved to HEAD and PF1 ran test-integrity over an empty diff, `mapped.txt` was never created (a `wc` error), the default `TI` resolved against the caller's directory, and PF3b read `*.php` (0 lines). After: `PF1 N/A (BASE = HEAD …)`, `TI` defaults under `$V2`, PF3b reads the Supabase SQL and edge functions (222 lines), docs excluded. `port-pair` unchanged.
 
 - **`port-pair`, paired.** The fixture root was committed in a scratch git repository and `change/` laid over it as the uncommitted port PR (`BASE=HEAD`, `EVID=.refract-fixture/runtime`).
   - The V1-pinned set is 7 files by marker and 3 by `test-map.tsv`.

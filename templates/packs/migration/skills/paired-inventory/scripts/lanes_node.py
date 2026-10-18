@@ -212,13 +212,300 @@ def split_top(m, a, b, close):
     return out
 
 
-def ctor_types(c):
+def providers(ix):
+    """DI token -> the class a module binds to it (`{ provide: TOKENS.X, useClass: Y }`, `useFactory: (…) => new Y(…)`)."""
+    if 'providers' not in ix:
+        out = {}
+        for f in ix['files'].values():
+            for pm in re.finditer(r'\bprovide\s*:\s*([\w.]+)\s*,', f.m):
+                nxt = f.m.find('provide', pm.end())
+                seg = f.m[pm.end():min(nxt if nxt > 0 else len(f.m), pm.end() + 600)]
+                um = re.search(r'\buse(?:Class|Existing)\s*:\s*(\w+)|\buseFactory\s*:[\s\S]*?\bnew\s+([A-Z]\w*)\s*\(', seg)
+                if um:
+                    out.setdefault(pm.group(1), um.group(1) or um.group(2))
+        ix['providers'] = out
+    return ix['providers']
+
+
+def ctor_types(c, ix=None):
+    """constructor parameter -> its class: the declared type, or the class a DI token binds (`@Inject(TOKENS.X)`)."""
     f, out = c['f'], {}
     ct = c['methods'].get('constructor')
     if ct:
-        for pm in re.finditer(r'(?:private|protected|public)\s+(?:readonly\s+)?(\w+)\s*[?!]?\s*:\s*(\w+)', f.m[ct[3]:ct[4]]):
-            out[pm.group(1)] = pm.group(2)
+        pv = providers(ix) if ix else {}
+        for pm in re.finditer(r'(?:@Inject\(\s*([\w.]+)\s*\)\s*)?(?:private|protected|public)\s+(?:readonly\s+)?(\w+)\s*[?!]?\s*:\s*(\w+)', f.m[ct[3]:ct[4]]):
+            out[pm.group(2)] = pv.get(pm.group(1)) or pm.group(3)
     return out
+
+
+# ---------------------------------------------------------------- constants (IR-3)
+# `@RequireAnyPermission(...RESCUE_LEVELS.view)`, `@Enum({ items: [...STAGES] })`, `z.enum(ORDER_STATUSES)`,
+# `{ ...AUTH_MESSAGES.TAKEN }`: a value read through top-level consts — object members, `Object.freeze`, arrays and
+# spreads, `as const` / `satisfies`, imports (relative, or a workspace package outside the root) — never guessed.
+DECL_RE = re.compile(r'(?m)^(?:export\s+)?(?:declare\s+)?const\s+(\w+)\s*(?::(?:[^=;]|=>)*?)?=(?![=>])\s*')
+TAIL_RE = re.compile(r'\s+(?:as\s+const|as\s+[\w.<>\[\], |]+|satisfies\s+[\w.<>\[\], |()]+)\s*$')
+
+
+class Txt(object):
+    """A piece of decorator text, masked, read in the context of the file it came from (for imports)."""
+    def __init__(self, h, text, rel):
+        self.t, self.rel = text, rel
+        self.m, self.sp = h.mask_text(text, 'c')
+
+
+class Consts(object):
+    def __init__(self, ix, h, root):
+        self.ix, self.h, self.root, self.defs, self.imps, self.extra, self.local = ix, h, root, {}, {}, {}, {}
+        for f in ix['files'].values():
+            self.scan(f)
+
+    def scan_local(self, f):
+        """A file outside the index (a migration): its consts and class fields (`this.<name>`), visible to it alone."""
+        loc = self.local.setdefault(f.rel, {})
+        for fm in re.finditer(r'(?m)^[ \t]+(?:(?:private|protected|public|static|readonly)\s+)*(\w+)\s*(?::[^=;\n]+)?=(?![=>])\s*', f.m):
+            e = f.m.find(';', fm.end())
+            k = fm.end()
+            while k < len(f.m) and f.m[k] not in ';\n':
+                k = self.h.close(f.m, k) + 1 if f.m[k] in '([{' else k + 1
+            loc.setdefault('this.' + fm.group(1), (f, fm.end(), k))
+        for dm in DECL_RE.finditer(f.m):
+            k = dm.end()
+            while k < len(f.m) and f.m[k] != ';' and not (f.m[k] == '\n' and re.match(r'\n(?:export|const|class|import)\b', f.m[k:k + 10])):
+                k = self.h.close(f.m, k) + 1 if f.m[k] in '([{' else k + 1
+            loc.setdefault(dm.group(1), (f, dm.end(), k))
+        self.imps.setdefault(f.rel, {})
+
+    def scan(self, f):
+        for dm in DECL_RE.finditer(f.m):
+            if f.m[dm.start():dm.start() + 5] in ('expor', 'const', 'decla'):   # not inside a comment or string
+                a = dm.end()
+                k = a
+                while k < len(f.m):
+                    c = f.m[k]
+                    if c in '([{':
+                        k = self.h.close(f.m, k) + 1
+                        continue
+                    if c == ';' or (c == '\n' and re.match(r'\n[ \t]*(?:export|const|let|function|import|type|interface|class|@)\b', f.m[k:k + 14])):
+                        break
+                    k += 1
+                self.defs.setdefault(dm.group(1), []).append((f, a, k))
+        imps = {}
+        for im in re.finditer(r'\bimport\s*(?:type\s*)?\{([^}]*)\}\s*from\s*([\'"])([^\'"]+)\2', f.t):
+            for part in im.group(1).split(','):
+                pm = re.match(r'\s*(?:type\s+)?(\w+)(?:\s+as\s+(\w+))?\s*$', part)
+                if pm:
+                    imps[pm.group(2) or pm.group(1)] = (im.group(3), pm.group(1))
+        for im in re.finditer(r'\bexport\s*(?:\*|\{([^}]*)\})\s*from\s*([\'"])([^\'"]+)\2', f.t):
+            imps.setdefault('*', []).append(im.group(3)) if not im.group(1) else None
+            for part in (im.group(1) or '').split(','):
+                pm = re.match(r'\s*(\w+)(?:\s+as\s+(\w+))?\s*$', part)
+                if pm:
+                    imps[pm.group(2) or pm.group(1)] = (im.group(3), pm.group(1))
+        self.imps[f.rel] = imps
+
+    def target(self, rel, spec):
+        """The file an import names: relative to the importer, or a workspace package by its name."""
+        if spec.startswith('.'):
+            base = os.path.normpath(os.path.join(os.path.dirname(rel), spec))
+            base = re.sub(r'\.(?:m?js|jsx)$', '', base)   # ESM imports name the emitted `.js`
+            for c in (base, base + '.ts', base + '.tsx', os.path.join(base, 'index.ts')):
+                if c in self.ix['files'] or c in self.extra:
+                    return [c]
+                if c.startswith('..') and os.path.isfile(os.path.join(self.root, c)):
+                    return [self.load(c)]
+            return []
+        return self.package(spec)
+
+    def load(self, rel):
+        if rel not in self.extra and rel not in self.ix['files']:
+            f = F(self.h, rel)
+            self.extra[rel] = f
+            self.scan(f)
+        return rel
+
+    def package(self, spec):
+        """A bare specifier a workspace package answers (pnpm-workspace.yaml / package.json workspaces, up to 3 levels
+        above the root): its .ts sources, read-only. A package inside the root is already indexed."""
+        if 'pkgs' not in self.__dict__:
+            self.pkgs = {}
+            d = os.path.abspath(self.root)
+            for _ in range(4):
+                globs = []
+                pw = os.path.join(d, 'pnpm-workspace.yaml')
+                if os.path.isfile(pw):
+                    globs = re.findall(r'(?m)^\s*-\s*[\'"]?([\w./*\-]+)', open(pw, encoding='utf-8', errors='replace').read())
+                pj = os.path.join(d, 'package.json')
+                if not globs and os.path.isfile(pj):
+                    wm = re.search(r'"workspaces"\s*:\s*(?:\{[^}]*"packages"\s*:\s*)?\[([^\]]*)\]', open(pj, encoding='utf-8', errors='replace').read())
+                    globs = re.findall(r'"([^"]+)"', wm.group(1)) if wm else []
+                for g in globs:
+                    base = g.rstrip('/*').rstrip('/')
+                    full = os.path.join(d, base)
+                    for sub in ([full] if not g.endswith('*') else [os.path.join(full, x) for x in sorted(os.listdir(full))] if os.path.isdir(full) else []):
+                        pk = os.path.join(sub, 'package.json')
+                        if os.path.isfile(pk):
+                            nm = re.search(r'"name"\s*:\s*"([^"]+)"', open(pk, encoding='utf-8', errors='replace').read())
+                            if nm:
+                                self.pkgs[nm.group(1)] = sub
+                if globs:
+                    break
+                d = os.path.dirname(d)
+        name = '/'.join(spec.split('/')[:2]) if spec.startswith('@') else spec.split('/')[0]
+        sub = self.pkgs.get(name)
+        if not sub:
+            return []
+        rels = []
+        rr = os.path.abspath(self.root)
+        for dp, dn, fn in os.walk(os.path.join(sub, 'src') if os.path.isdir(os.path.join(sub, 'src')) else sub):
+            dn[:] = [x for x in dn if x not in ('node_modules', 'dist', 'build', 'test', 'tests', '__tests__')]
+            for x in fn:
+                if x.endswith('.ts') and not re.search(r'\.(?:spec|test|d)\.ts$', x):
+                    rel = os.path.relpath(os.path.join(dp, x), rr)
+                    rels.append(rel if rel in self.ix['files'] else self.load(rel))
+        return rels
+
+    def find(self, name, rel, depth=0):
+        """(file, a, b) of the const `name` as seen from file `rel`: same file, its import, else the only definition."""
+        if name in self.local.get(rel, {}):
+            return self.local[rel][name]
+        defs = self.defs.get(name, [])
+        same = [d for d in defs if d[0].rel == rel]
+        if same:
+            return same[0]
+        imp = self.imps.get(rel, {}).get(name)
+        if imp and depth < 4:
+            for t in self.target(rel, imp[0]):
+                hit = self.find(imp[1], t, depth + 1)
+                if hit:
+                    return hit
+        if depth and depth < 4:   # a barrel: `export * from './x'`
+            for spec in self.imps.get(rel, {}).get('*', []):
+                for t in self.target(rel, spec):
+                    hit = self.find(name, t, depth + 1)
+                    if hit:
+                        return hit
+        defs = self.defs.get(name, [])
+        return defs[0] if len(defs) == 1 and depth == 0 else None
+
+    def obj(self, f, a, b, d=0):
+        """{key: (file, a, b)} of an object literal span (through Object.freeze / defineMessages / spreads)."""
+        a, b = trim(f.m, a, b)
+        om = re.match(r'(?:Object\.freeze|\w*[dD]efine\w*)\s*\(', f.m[a:b])
+        if om:
+            p = a + om.end() - 1
+            parts = split_top(f.m, p + 1, self.h.close(f.m, p), self.h.close)
+            return self.obj(f, parts[-1][0], parts[-1][1], d + 1) if parts else {}
+        if f.m[a:a + 1] != '{' or d > 6:
+            return {}
+        out = {}
+        for pa, pb in split_top(f.m, a + 1, self.h.close(f.m, a), self.h.close):
+            seg = f.m[pa:pb]
+            km = re.match(r'\s*([\'"]?)(\w+)\1\s*:', seg)
+            sm = re.match(r'\s*\.\.\.\s*([\w.]+)', f.t[pa:pb])
+            if km:
+                out[km.group(2)] = (f, pa + km.end(), pb)
+            elif sm:
+                path = sm.group(1).split('.')
+                hit = self.span(path, f.rel, d + 1)
+                if hit:
+                    out.update(self.obj(*hit, d=d + 1))
+            elif re.match(r'\s*(\w+)\s*$', seg):
+                nm = seg.strip()
+                hit = self.find(nm, f.rel)
+                if hit:
+                    out[nm] = hit
+        return out
+
+    def span(self, path, rel, d=0):
+        hit = self.find(path[0], rel)
+        for k in path[1:]:
+            if not hit:
+                return None
+            hit = self.obj(*hit, d=d + 1).get(k)
+        return hit
+
+    def values(self, f, a, b, d=0):
+        """(literal values, fully resolved) of the expression [a, b) in f."""
+        if d > 10:
+            return [], False
+        m = f.m
+        a, b = trim(m, a, b)
+        tm = TAIL_RE.search(m[a:b])
+        while tm:
+            b = a + tm.start()
+            tm = TAIL_RE.search(m[a:b])
+        seg = m[a:b]
+        if not seg:
+            return [], False
+        fm = re.match(r'Object\.freeze\s*\(', seg)
+        if fm:
+            p = a + fm.end() - 1
+            return self.values(f, p + 1, self.h.close(m, p), d + 1)
+        if seg[0] in '\'"`':
+            if b - a >= 2 and m[b - 1] == seg[0] and m[a + 1:b - 1].strip() == '' and not (seg[0] == '`' and '${' in f.t[a:b]):
+                return [f.t[a + 1:b - 1]], True
+            return [], False
+        if seg[0] == '[':
+            e = self.h.close(m, a)
+            out, ok = [], True
+            for pa, pb in split_top(m, a + 1, e, self.h.close):
+                x = m[pa:pb]
+                if not x.strip():
+                    continue
+                off = pa + len(x) - len(x.lstrip())
+                if m.startswith('...', off):
+                    off += 3
+                v, k = self.values(f, off, pb, d + 1)
+                out += v
+                ok = ok and k
+            return out, ok
+        rv = re.search(r'\.\s*(?:reverse|slice|concat|sort)\(\s*\)\s*$', m[a:b])   # order-only calls keep the set
+        if rv and m[a] == '[':
+            return self.values(f, a, a + rv.start(), d + 1)
+        pm = re.match(r'([A-Za-z_$][\w$]*)((?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*$', f.t[a:b])
+        if pm:
+            path = [pm.group(1)] + re.findall(r'\.\s*([\w$]+)', pm.group(2))
+            if path[0] == 'this' and len(path) == 2:
+                path = ['this.' + path[1]]
+            if len(path) == 2 and path[0] in self.ix['enums']:
+                v = enum_member(self.ix, '.'.join(path))
+                return ([v], True) if v is not None else ([], False)
+            hit = self.span(path, f.rel, d)
+            if hit:
+                return self.values(*hit, d=d + 1)
+            if len(path) == 1 and path[0] in self.ix['enums']:
+                return list(self.ix['enums'][path[0]][0]), True
+        return [], False
+
+    def args(self, h, text, rel):
+        """(values, unresolved count) of every top-level argument of a decorator's argument text."""
+        t = Txt(h, text, rel)
+        out, bad = [], 0
+        for pa, pb in split_top(t.m, 0, len(t.m), h.close):
+            x = t.m[pa:pb]
+            if not x.strip():
+                continue
+            off = pa + len(x) - len(x.lstrip())
+            if t.m.startswith('...', off):
+                off += 3
+            v, ok = self.values(t, off, pb)
+            out += v
+            bad += 0 if ok else 1
+        return out, bad
+
+
+def trim(m, a, b):
+    while a < b and m[a] in ' \t\r\n':
+        a += 1
+    while b > a and m[b - 1] in ' \t\r\n,;':
+        b -= 1
+    return a, b
+
+
+def consts(root, h, ctx):
+    if 'consts' not in ctx:
+        ctx['consts'] = Consts(index(root, h, ctx), h, root)
+    return ctx['consts']
 
 
 def queue_kind(name):
@@ -227,26 +514,70 @@ def queue_kind(name):
             'webhook' if 'webhook' in n else 'audit' if 'audit' in n else 'job')
 
 
-def kinds(ix, c, a, b, hop=1):
+# A write of one of these entities is the effect itself, whatever the call is named (V1's trigger insert, mirrored).
+ENT_KINDS = [(k, re.compile(r'\b(?:new\s+|\.\s*(?:create|insert|insertMany|persist|upsert|nativeInsert)\w*\(\s*)\w*' + w + r'\w*\b'))
+             for k, w in (('notify', 'Notification'), ('activity', r'(?:Activit|History)'), ('audit', 'Audit'), ('event', 'Outbox'))]
+
+
+def impls(ix):
+    """type name -> the classes that implement or extend it (a port's adapters)."""
+    if 'impls' not in ix:
+        out = {}
+        for c in ix['classes'].values():
+            for t in re.findall(r'\b([A-Z]\w*)', c['impl']) + ([c['parent']] if c['parent'] else []):
+                out.setdefault(t, []).append(c)
+        ix['impls'] = out
+    return ix['impls']
+
+
+def modfns(ix):
+    if 'modfns' not in ix:
+        out = {}
+        for c in ix['classes'].values():
+            if c['name'] == '<module>':
+                for n in c['methods']:
+                    out.setdefault(n, []).append(c)
+        ix['modfns'] = out
+    return ix['modfns']
+
+
+def kinds(ix, c, a, b, hop=1, seen=None):
+    """Effect kinds of the code [a, b) of class c: call shapes and entity writes, then `hop` more levels through
+    `this.<dep>.<m>()` (the dependency's class, or every adapter of a port type), `this.<m>()` and module functions."""
+    seen = set() if seen is None else seen
+    if (id(c), a) in seen:
+        return set()
+    seen.add((id(c), a))
     seg, ks = c['f'].m[a:b], set()
-    types = ctor_types(c)
+    types = ctor_types(c, ix)
     for k, rx in KINDS:
         if re.search(rx, seg):
             ks.add(k)
-    for qm in re.finditer(r'\b(?:this\.)?(\w+)\.add(?:Bulk)?\(\s*([\'"])?', seg):
+    for k, rx in ENT_KINDS:
+        if rx.search(seg):
+            ks.add(k)
+    for qm in re.finditer(r'\b(?:this\.)?(\w+)(?:\(\s*\))?\.add(?:Bulk)?\(\s*([\'"])?', seg):
         if types.get(qm.group(1)) == 'Queue' or re.search(r'(?i)queue', qm.group(1)):
             lt = re.match(r'[\'"]([^\'"]*)', c['f'].t[a + qm.end() - 1:a + qm.end() + 80]) if qm.group(2) else None
             ks.add(queue_kind(qm.group(1) + ' ' + (lt.group(1) if lt else '')))
     if hop:
         for cm in re.finditer(r'\bthis\.(\w+)\.(\w+)\s*\(', seg):
-            tc = ix['classes'].get(types.get(cm.group(1), ''))
-            if tc and cm.group(2) in tc['methods']:
-                mb = tc['methods'][cm.group(2)]
-                ks |= kinds(ix, tc, mb[0], mb[1], 0)
+            t = types.get(cm.group(1), '')
+            ad = impls(ix).get(t, [])
+            for tc in ([ix['classes'][t]] if t in ix['classes'] else []) + (ad if len(ad) <= 3 else []):   # a port's adapters, not a generic interface's
+                if cm.group(2) in tc['methods']:
+                    mb = tc['methods'][cm.group(2)]
+                    ks |= kinds(ix, tc, mb[0], mb[1], hop - 1, seen)
         for cm in re.finditer(r'\bthis\.(\w+)\s*\(', seg):
             if cm.group(1) in c['methods']:
                 mb = c['methods'][cm.group(1)]
-                ks |= kinds(ix, c, mb[0], mb[1], 0)
+                ks |= kinds(ix, c, mb[0], mb[1], hop - 1, seen)
+        mf = modfns(ix)
+        for name in set(re.findall(r'(?<![.\w])([a-z]\w*)\s*\(', seg)):
+            hits = mf.get(name, [])
+            if len(hits) == 1:   # a module function by a unique name (`recordCaseMove(this.em, …)`)
+                mb = hits[0]['methods'][name]
+                ks |= kinds(ix, hits[0], mb[0], mb[1], hop - 1, seen)
     return ks
 
 
@@ -539,7 +870,7 @@ def meta_decorators(root, h, ctx):
             label = '%s %s %s' % (name, key, consts.get(key, ''))
             cat = next((c for c, rx in CAT if rx.search(label)), 'other')
             gm = re.search(r'\bUseGuards\(([^)]*)\)', seg)
-            out[name] = (cat, re.findall(r'\b([A-Z]\w*)\b', gm.group(1)) if gm else [])
+            out[name] = (cat, re.findall(r'\b([A-Z]\w*)\b', gm.group(1)) if gm else [], key)
     ctx['meta'] = out
     return out
 
@@ -561,35 +892,65 @@ def classify_guard(name):
     return 'auth' if AUTHISH.search(name) else 'extra'
 
 
+def gated_guards(root, h, ctx):
+    """guard class -> the metadata keys it reads through the Reflector. A global (APP_GUARD) guard that only acts on
+    routes carrying its metadata — `@RequireAccountKind` for AccountKindGuard — guards just those routes."""
+    if 'gated' not in ctx:
+        ix, out = index(root, h, ctx), {}
+        for c in ix['classes'].values():
+            if c['name'].endswith('Guard'):
+                ks = re.findall(r'\breflector\s*\.\s*\w+\s*(?:<[^>()]*>)?\s*\(\s*(\w+)', c['f'].m[c['a']:c['b']])
+                if ks:
+                    out[c['name']] = set(ks)
+        ctx['gated'] = out
+    return ctx['gated']
+
+
 def lane_authz(root, h, ctx):
-    ix, meta = index(root, h, ctx), meta_decorators(root, h, ctx)
-    rows = []
+    ix, meta, C, gated = index(root, h, ctx), meta_decorators(root, h, ctx), consts(root, h, ctx), gated_guards(root, h, ctx)
+    rows, unres = [], 0
     for r in routes(root, h, ctx):
-        guards = [g for g, _ in r['app']['guards']]
-        public, roles, abil, declared = False, set(), set(), set()
-        decs = dec_calls(h, ' '.join(t for _, t in r['cdecs']) + ' ' + r['mdecs'])
+        public, roles, abil, declared, keys, bad = False, set(), set(), set(), set(), 0
+        mdecs, c = r['mdecs'], r['cls']
+        if c and r['meth'] in c['methods']:   # the source text: dto-types shortens long decorator strings
+            ns = c['methods'][r['meth']][2]
+            mm = re.search(r'(?:\b(?:public|private|protected|static|async|readonly|override)\s+)+$', c['f'].m[max(0, ns - 80):ns])
+            ds = decs_before(c['f'].m, ns - (len(mm.group(0)) if mm else 0), h.close)
+            if ds:
+                mdecs = ' '.join(c['f'].t[a:e] for a, e, _ in ds)
+        decs = dec_calls(h, ' '.join(t for _, t in r['cdecs']) + ' ' + mdecs)
+        guards = []
         for n, args, lt in decs:
             if n == 'UseGuards':
                 guards += re.findall(r'\b([A-Z]\w*(?:\(\s*[\'"][^\'"]*[\'"]\s*\))?)', args)
             elif n in meta or n == 'SetMetadata' or any(rx.search(n) for _, rx in CAT):
                 if n not in meta and n != 'SetMetadata':   # @Permissions('x') with no definition in the tree
                     declared.add(n)
-                cat, mg = meta.get(n, (next((c for c, rx in CAT if rx.search(lt[0] if n == 'SetMetadata' and lt else n)), 'other'), []))
+                cat, mg, key = meta.get(n, (next((c for c, rx in CAT if rx.search(lt[0] if n == 'SetMetadata' and lt else n)), 'other'), [], n))
+                keys.add(key)
                 guards += mg
-                vals = lt[1:] if n == 'SetMetadata' else lt
-                vals += [v for v in (enum_member(ix, x) for x in re.findall(r'\b\w+\.\w+\b', args)) if v]
+                if n == 'SetMetadata':
+                    vals = lt[1:]
+                else:   # IR-3: literals, constants, object members, spreads, imported workspace constants
+                    vals, b = C.args(h, args, r['f'].rel)
+                    bad += b if cat in ('roles', 'abilities') else 0
                 if cat == 'public':
                     public = True
                 elif cat == 'roles':
                     roles |= set(v.lower() for v in vals)
                 elif cat == 'abilities':
                     abil |= set(h.ability(v) for v in vals)
+        glob = [g for g, _ in r['app']['guards'] if classify_guard(g) != 'extra' or g not in gated or gated[g] & keys]
+        guards = glob + guards
         kinds_ = [classify_guard(g) for g in guards]
         authn = 'required' if 'auth' in kinds_ and not public else 'none'
-        rows.append(h.row(r['key'], {'authn': authn, 'abilities': ','.join(sorted(abil)), 'roles': ','.join(sorted(roles)),
+        unres += 1 if bad else 0
+        rows.append(h.row(r['key'], {'authn': authn, 'abilities': '?' if bad else ','.join(sorted(abil)), 'roles': '?' if bad and not roles else ','.join(sorted(roles)),
                                      'extra_guard': 'yes' if 'extra' in kinds_ else 'no', 'mw': ','.join(guards),
                                      'src': ('declared-by-decorator(%s)' % ','.join(sorted(declared))) if declared else 'metadata-def'},
                           r['f'].rel, r['f'].t, r['i']))
+    if unres:
+        h.notes.append('nest I-AUTHZ: %d route(s) with a permission argument no constant resolves: abilities=? (unread, never diffed)' % unres)
     return rows
 
 
@@ -895,8 +1256,9 @@ def any_enum(ix, h, ctx, name):
     return cache[name]
 
 
-def zenum_values(f, h, a):
-    """Literals of z.enum(<args at a>): inline, or a `const X = [...] as const` it names (same file)."""
+def zenum_values(f, h, a, C=None):
+    """Literals of z.enum(<args at a>): inline, a `const X = [...] as const` it names (same file), or — through the
+    resolver — an imported constant, a spread or an object member."""
     b = h.close(f.m, a)
     lt = f.lits(a, b)
     if lt:
@@ -906,6 +1268,9 @@ def zenum_values(f, h, a):
     if cm:
         ca = cm.end() - 1
         return f.lits(ca, h.close(f.m, ca))
+    if C is not None:
+        v, ok = C.values(f, a + 1, b)
+        return v if ok else []
     return []
 
 
@@ -914,6 +1279,7 @@ def lane_enum(root, h, ctx):
     rows = []
     for name, (vals, names, f, i) in ix['enums'].items():
         rows.append(h.row('type:' + h.ident(name, ENUM_STRIP), {'values': ','.join(sorted(set(vals))), 'names': name}, f.rel, f.t, i))
+    C = consts(root, h, ctx)
     for f in ix['files'].values():
         for um in re.finditer(r'\b(?:export\s+)?type\s+(\w+)\s*=\s*((?:\s*\|?\s*[\'"][^\'"\n]*[\'"])+)\s*;', f.t):
             lt = re.findall(r'[\'"]([^\'"\n]*)[\'"]', um.group(2))
@@ -921,7 +1287,7 @@ def lane_enum(root, h, ctx):
                 rows.append(h.row('type:' + h.ident(um.group(1), ENUM_STRIP), {'values': ','.join(sorted(set(lt))), 'names': um.group(1)}, f.rel, f.t, um.start()))
         for zm in re.finditer(r'\bconst\s+(\w+)\s*=\s*z\s*\.\s*enum\s*\(', f.m):
             a = zm.end() - 1
-            rows.append(h.row('type:' + h.ident(zm.group(1), ENUM_STRIP), {'values': ','.join(sorted(set(zenum_values(f, h, a)))), 'names': zm.group(1)}, f.rel, f.t, zm.start()))
+            rows.append(h.row('type:' + h.ident(zm.group(1), ENUM_STRIP), {'values': ','.join(sorted(set(zenum_values(f, h, a, C)))), 'names': zm.group(1)}, f.rel, f.t, zm.start()))
     for c in ix['classes'].values():
         tbl = entity_table(c)
         if not tbl:
@@ -938,9 +1304,55 @@ def lane_enum(root, h, ctx):
                 continue
             ref = re.search(r'(?:=>\s*|enum\s*:\s*|items\s*:\s*(?:\(\)\s*=>\s*)?)(\w+)', txt)
             vals = (ref and any_enum(ix, h, ctx, ref.group(1))) or f.lits(a, e)
+            im = re.search(r'\bitems\s*:\s*(?:\(\)\s*=>\s*)?(\[|\w+)', txt)
+            if im and (not vals or im.group(1) == '['):   # (b) `items: [...STAGES]`, `items: () => IMPORTED`
+                ia = a + im.start(1)
+                ib = h.close(f.m, ia) + 1 if im.group(1) == '[' else a + im.end(1)
+                v, ok = C.values(f, ia, ib)
+                vals = v if ok else ('?' if not vals else vals)
             fn = re.search(r"fieldName\s*:\s*['\"](\w+)", f.t[a:e])
             rows.append(h.row('col:%s.%s' % (h.table(tbl), fn.group(1) if fn else snake(pm.group(1))),
-                              {'values': ','.join(sorted(set(vals))), 'names': ref.group(1) if ref else 'inline'}, f.rel, f.t, a))
+                              {'values': '?' if vals == '?' else ','.join(sorted(set(vals))), 'names': ref.group(1) if ref else 'inline'}, f.rel, f.t, a))
+    rows += snapshot_enums(h)
+    return rows
+
+
+def snapshots(h):
+    """MikroORM schema snapshots (`.snapshot-<name>.json`, hidden files rg does not list) beside the migrations."""
+    out = []
+    for d in sorted(set(os.path.dirname(r) for r in h.files(['**/migrations/*.ts', '**/migrations/*.js'], keep=('migrations',)))):
+        try:
+            out += [os.path.join(d, x) for x in sorted(os.listdir(os.path.join(h.root, d))) if re.match(r'\.snapshot.*\.json$', x)]
+        except OSError:
+            pass
+    return out
+
+
+def snapshot_enums(h):
+    """(a) `col:<table>.<column>` from the snapshot: `enumItems`, and single-column value CHECKs
+    (`status IN ('a','b')`, `status = ANY (ARRAY['a'::text, ...])`) — the stored vocabulary V1's CHECK rows compare to."""
+    rows = []
+    for rel in snapshots(h):
+        try:
+            d = json.loads(h.read(rel))
+        except ValueError:
+            h.notes.append('nest I-ENUM: %s unreadable (not JSON)' % rel)
+            continue
+        t = h.read(rel)
+        for tb in d.get('tables', []):
+            tn = h.table(tb.get('name', ''))
+            for cn, c in (tb.get('columns') or {}).items():
+                if c.get('enumItems'):
+                    i = t.find('"%s"' % cn, t.find('"name": "%s"' % tb.get('name')))
+                    rows.append(h.row('col:%s.%s' % (tn, cn), {'values': ','.join(sorted(set(str(x) for x in c['enumItems']))), 'names': 'snapshot'}, rel, t, max(i, 0)))
+            for ch in tb.get('checks') or []:
+                ex = ch.get('expression') or ''
+                cm = re.match(r'^\(*\s*\(?"?(\w+)"?\)?(?:::\w+)?\s*(?:in\s*\(|=\s*any\s*\(\s*\(?array\s*\[)(.*)$', ex, re.I | re.S)
+                if cm and not re.search(r'(?i)\b(?:and|or)\b', ex) and cm.group(1) == (ch.get('columnName') or cm.group(1)):
+                    vals = re.findall(r"'([^']*)'", cm.group(2))
+                    if vals:
+                        i = t.find('"%s"' % ch.get('name', ''))
+                        rows.append(h.row('col:%s.%s' % (tn, cm.group(1)), {'values': ','.join(sorted(set(vals))), 'names': 'check:%s' % ch.get('name', '')}, rel, t, max(i, 0)))
     return rows
 
 
@@ -1037,6 +1449,46 @@ def lane_err(root, h, ctx):
             if st and code:
                 k = 'code:' + code.group(1)
                 found[k], src[k] = st, (f, nm.start())
+    # IR-8: framework-free domain errors (`new ConflictError({ ...AUTH_MESSAGES.PHONE_TAKEN })`): the status the
+    # exception filter maps the class (or its parent) to, the code from the spread catalogue entry or a `code:`
+    dom = {}
+    for f in ix['files'].values():
+        for dm in re.finditer(r'\binstanceof\s+(\w+)\s*\)?[^;]{0,40}?\{[^{}]{0,300}?\bstatus\s*:\s*HttpStatus\.(\w+)', f.m):
+            dom.setdefault(dm.group(1), HTTP_STATUS.get(dm.group(2)))
+        for dm in re.finditer(r'\[\s*(\w+)\s*,\s*HttpStatus\.(\w+)\s*\]', f.m):
+            dom.setdefault(dm.group(1), HTTP_STATUS.get(dm.group(2)))
+
+    def dstatus(name, d=0):
+        if name in dom and dom[name]:
+            return dom[name]
+        c = ix['classes'].get(name)
+        return dstatus(c['parent'], d + 1) if c and c['parent'] and d < 5 else None
+    if dom:
+        C, n_unres = consts(root, h, ctx), 0
+        for f in ix['files'].values():
+            for nm in re.finditer(r'\bnew\s+(\w+(?:Error|Exception))\s*\(', f.m):
+                st = dstatus(nm.group(1))
+                if not st:
+                    continue
+                a = nm.end() - 1
+                args = f.t[a + 1:h.close(f.m, a)]
+                codes = re.findall(r"\bcode\s*:\s*['\"]([\w.\-]+)['\"]", args)
+                for sp in re.findall(r'\.\.\.\s*([A-Z]\w*)\.(\w+)', args):
+                    hit = C.find(sp[0], f.rel)
+                    dm = hit and re.match(r'\s*\w*[dD]efine\w*\(\s*[\'"](\w+)[\'"]', hit[0].t[hit[1]:hit[2]])
+                    if dm:
+                        codes.append('%s_%s' % (dm.group(1), sp[1]))
+                        continue
+                    ent = C.span(list(sp) + ['code'], f.rel)
+                    v = C.values(*ent)[0] if ent else []
+                    codes += v
+                    n_unres += 0 if v else 1
+                for code in codes:
+                    k = 'code:' + code
+                    found.setdefault(k, st)
+                    src.setdefault(k, (f, nm.start()))
+        if n_unres:
+            h.notes.append('nest I-ERR: %d domain-error catalogue spread(s) with no readable code' % n_unres)
     rows = []
     for k, st in sorted(found.items()):
         f, i = src.get(k, (None, 0))
@@ -1045,15 +1497,55 @@ def lane_err(root, h, ctx):
 
 
 # ---------------------------------------------------------------- side effects
+NOUN_STOP = set('activity activities mirror audit log logs story port mikro orm entity entities service use case consumer processor '
+                'infrastructure repository repo subscriber recorder writer notification notifications history domain application '
+                'interface module shared common event events outbox relay job jobs handler listener command commands query adapter '
+                'record records trail feed'.split())
+
+
+def file_noun(h, rel):
+    for w in h.words(os.path.splitext(os.path.basename(rel))[0]):
+        if w not in NOUN_STOP and len(w) > 1:
+            return h.table(w)
+    return None
+
+
+def ev_key(h, name, entity=None):
+    """`order.status_changed` -> `order.updated`; `product.created` -> `product.created`: the (entity, verb) of an
+    event, action or method name, in V1's trigger vocabulary (created / updated / deleted)."""
+    ws = h.words(name)
+    if not ws:
+        return None
+    ent = entity or h.table(ws[0])
+    rest = ws[1:] if not entity else ws
+    verb = ('created' if any(re.match(r'creat|add|insert|place|regist|open|submit|issu|new', w) for w in rest) else
+            'deleted' if any(re.match(r'delet|remov|purg|destroy', w) for w in rest) else 'updated')
+    return '%s.%s' % (ent, verb)
+
+
 def lane_side(root, h, ctx):
     ix = index(root, h, ctx)
+    C = consts(root, h, ctx)
     eff = {}
 
     def put(key, ks, f, i):
-        if ks:
+        if ks and key:
             e = eff.setdefault(key, [set(), f, i])
             e[0] |= ks
     tables = dict((c['name'], entity_table(c)) for c in ix['classes'].values() if entity_table(c))
+    # consumers: the event types a consumer / processor / listener class reads, and what it does with them
+    interested = {}
+    for c in ix['classes'].values():
+        f = c['f']
+        if c['name'] == '<module>' or not (re.search(r'(?:Consumer|Processor|Listener|Handler|Relay|Reaction)$', c['name'])
+                                         or any(d[2] in ('Processor', 'EventsHandler') for d in c['decs'])):
+            continue
+        ck = kinds(ix, c, c['a'], c['b'], 1)
+        mod = ix['classes'].get('<module>:' + f.rel)
+        for n, mb in (mod['methods'].items() if mod else ()):
+            ck |= kinds(ix, mod, mb[0], mb[1], 1)
+        for lit in set(x for x in f.lits(0, len(f.t)) if re.match(r'^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$', x)):
+            interested.setdefault(lit, set()).update(ck)
     for c in ix['classes'].values():
         f = c['f']
         if re.search(r'\bEventSubscriber\b|\bEntitySubscriberInterface\b', c['impl']):
@@ -1063,24 +1555,50 @@ def lane_side(root, h, ctx):
                     mb = c['methods'][gm]
                     ents = re.findall(r'\b([A-Z]\w*)\b', f.m[mb[0]:mb[1]])
             ents = ents or [re.sub(r'.*<\s*(\w+)\s*>.*', r'\1', c['impl'])] if '<' in c['impl'] else ents or ['*']
-            for meth, (a, b, s, _, _) in c['methods'].items():
+            whole = kinds(ix, c, c['a'], c['b'], 1)   # a subscriber buffers in afterCreate and acts on commit
+            for meth, (a, b, s_, _, _) in c['methods'].items():
                 if meth in HOOKS:
                     for e in ents:
-                        put('%s.%s' % (h.table(tables.get(e, e)) if e != '*' else '*', HOOKS[meth]), kinds(ix, c, a, b), f, s)
+                        put('%s.%s' % (h.table(tables.get(e, e)) if e != '*' else '*', HOOKS[meth]), kinds(ix, c, a, b) | whole, f, s_)
         tbl = tables.get(c['name'])
-        for meth, (a, b, s, _, _) in c['methods'].items():
-            pre = f.m[max(0, s - 300):s]
+        for meth, (a, b, s_, _, _) in c['methods'].items():
+            pre = f.m[max(0, s_ - 300):s_]
             for dn in re.findall(r'@(\w+)\(', pre[pre.rfind('}') + 1 if '}' in pre else 0:]):
                 if dn in HOOKS and tbl:
-                    put('%s.%s' % (h.table(tbl), HOOKS[dn]), kinds(ix, c, a, b), f, s)
-            om = re.search(r"@OnEvent\(\s*['\"]([^'\"]+)['\"][^)]*\)\s*(?:@\w+\([^)]*\)\s*)*(?:public\s+|private\s+|async\s+)*$", f.t[max(0, s - 300):s])
+                    put('%s.%s' % (h.table(tbl), HOOKS[dn]), kinds(ix, c, a, b), f, s_)
+            om = re.search(r"@OnEvent\(\s*['\"]([^'\"]+)['\"][^)]*\)\s*(?:@\w+\([^)]*\)\s*)*(?:public\s+|private\s+|async\s+)*$", f.t[max(0, s_ - 300):s_])
             if om:
-                put('event:' + h.ident(om.group(1), ('event',)), kinds(ix, c, a, b) or {'listener'}, f, s)
+                put('event:' + h.ident(om.group(1), ('event',)), kinds(ix, c, a, b) or {'listener'}, f, s_)
+            seg = f.m[a:b]
+            # outbox emits: keyed by the event's (entity, verb), carrying what its consumers do
+            for em in re.finditer(r'(?i)\b\w*outbox\w*\s*\.\s*(?:emit|publish|add|enqueue|record|write|push)\w*\s*\(', seg):
+                pa = a + em.end() - 1
+                parts = split_top(f.m, pa + 1, h.close(f.m, pa), h.close)
+                vals, ok = C.values(f, *parts[0]) if parts else ([], False)
+                for v in (vals if ok else []):
+                    put(ev_key(h, v), {'event'} | interested.get(v, set()), f, pa)
+            # activity / audit records: keyed by the action (and the entity when the call names one)
+            for am in re.finditer(r'(?i)\b\w*(activit|audit)\w*\s*\.\s*(?:record|log|create|write|append)\w*\s*\(', seg):
+                pa = a + am.end() - 1
+                body = f.t[pa:h.close(f.m, pa)]
+                act = re.search(r"\baction\s*:\s*['\"]([\w.:\-]+)['\"]", body) or re.match(r"\(\s*['\"]([\w.:\-]+)['\"]", body)
+                ent = re.search(r"\b(?:entityType|entity|subjectType|resourceType|targetType)\s*:\s*['\"](\w+)['\"]", body)
+                if act and not re.search(r'\bEventSubscriber\b', c['impl']):   # a subscriber is keyed by its entity above
+                    ent = h.table(ent.group(1)) if ent else None if len(h.words(act.group(1))) > 1 else file_noun(h, f.rel)
+                    if ent or len(h.words(act.group(1))) > 1:
+                        put(ev_key(h, act.group(1), ent), {am.group(1).lower().replace('activit', 'activity')}, f, pa)
+            # entity writes of an activity / notification / audit / outbox row (mirrors, recorders): the file's entity
+            wk = set(k for k, rx in ENT_KINDS if rx.search(seg))
+            if wk and c['name'] == '<module>' or (wk and not re.search(r'(?:Consumer|Processor|Listener|Relay)$', c['name'])):
+                lits = [x for x in f.lits(a, b) if re.match(r'^[a-z]+(?:[_.][a-z]+)+$', x)]
+                noun = file_noun(h, f.rel)
+                for x in (lits[:3] or [meth]):
+                    put(ev_key(h, x, noun) if noun else None, wk, f, s_)
     for r in routes(root, h, ctx):
         c = r['cls']
         if c and r['meth'] in c['methods']:
             mb = c['methods'][r['meth']]
-            put(r['key'], kinds(ix, c, mb[0], mb[1]), r['f'], r['i'])
+            put(r['key'], kinds(ix, c, mb[0], mb[1], 2), r['f'], r['i'])
     for table, event, kind, rel, i in h.db_objects()['effects']:   # an AFTER trigger that writes the audit row
         put('%s.%s' % (h.table(table), event), {kind}, F(h, rel), i)
     return [h.row(k, {'kinds': ','.join(sorted(v[0]))}, v[1].rel, v[1].t, v[2]) for k, v in sorted(eff.items())]
@@ -1105,6 +1623,9 @@ def cron_expr(name):
             'EVERY_1ST_DAY_OF_MONTH_AT_NOON': '0 12 1 * *', 'EVERY_QUARTER': '0 0 1 */3 *', 'EVERY_YEAR': '0 0 1 1 *'}.get(n, '?')
 
 
+SCHED_ROLE = ('runner', 'consumer', 'processor', 'scheduler', 'service', 'cron', 'tick', 'worker')
+
+
 def lane_sched(root, h, ctx):
     ix = index(root, h, ctx)
     rows = []
@@ -1119,12 +1640,18 @@ def lane_sched(root, h, ctx):
             lit = re.match(r"\s*['\"]([^'\"]+)['\"]", args)
             ce = re.search(r'CronExpression\.(\w+)', args)
             expr = lit.group(1) if (lit and cm.group(1) == 'Cron') else cron_expr(ce.group(1)) if ce else '?'
+            sm = re.match(r'^\s*(\d+)\s+(\S+\s+\S+\s+\S+\s+\S+\s+\S+)\s*$', expr)
+            if sm:   # a fixed second offset in Nest's 6-field cron is minute granularity, as pg_cron's 5 fields
+                expr = sm.group(2)
             nm = re.search(r"\bname\s*:\s*['\"]([^'\"]+)", args) or (lit if cm.group(1) == 'Interval' and lit else None)
             tz = re.search(r"timeZone\s*:\s*['\"]([^'\"]+)", args)
             body = f.m[a:b]
             ov = 'yes' if re.search(r'waitForCompletion\s*:\s*true', args) or re.search(r'(?i)\b\w*(?:lock|mutex|redlock)\w*\.(?:acquire|lock|using|run)\w*\(|advisory', body) else 'no'
-            rows.append(h.row('job:' + h.tokkey(nm.group(1) if nm else meth, h.SCHED_DROP),
-                              {'cron': h.cron(expr) if expr != '?' else '?', 'tz': tz.group(1) if tz else '', 'overlap': ov,
+            # IR-7: an unnamed job is keyed by Class.method — the bare method (`prune`) pools unrelated classes
+            key = nm.group(1) if nm else '%s %s' % (c['name'], meth)
+            rows.append(h.row('job:' + h.tokkey(key, h.SCHED_DROP + SCHED_ROLE),
+                              {'cron': h.cron(expr) if expr != '?' else '?', 'tz': tz.group(1) if tz else '',
+                               'tz_src': 'decorator' if tz else 'process', 'overlap': ov,
                                'target': '%s.%s' % (c['name'], meth)}, f.rel, f.t, s))
     for f in ix['files'].values():
         for qm in re.finditer(r"\.(?:add|upsertJobScheduler)\(\s*['\"]([^'\"]+)['\"]", f.t):
@@ -1161,8 +1688,77 @@ def k8s_cronjobs(h):
 
 
 # ---------------------------------------------------------------- scopes, money, config
+def rls_tables(root, h, ctx):
+    """IR-5: Postgres RLS a V2's own migrations declare (MikroORM `addSql`, or `.sql`), replayed in file order over
+    `up()` only: enable / FORCE / disable, and `create policy … using (<expr>)` / `drop policy`. A template table name
+    (`${table}`) is read from its `for (const table of [...])` loop, a const array, or a `table = '…'` class field;
+    anything else is counted unresolved. {table: {'enabled', 'forced', 'policies': {name: expr}, 'at': (rel, i)}}"""
+    if 'rls' in ctx:
+        return ctx['rls']
+    C, out, unres = consts(root, h, ctx), {}, [0]
+    files = sorted(h.files(['**/migrations/**/*.ts', '**/migrations/**/*.sql', '**/migrations/*.ts', '**/migrations/*.sql'],
+                           pattern=r'(?i)row level security|create\s+policy', keep=('migrations',)), key=os.path.basename)
+
+    def sql(rel, text, i):
+        q = r'"?(\w+)"?(?:\."?(\w+)"?)?'
+        for m in re.finditer(r'(?is)\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?' + q + r'\s+(enable|disable|force|no\s+force)\s+row\s+level\s+security', text):
+            T = out.setdefault(m.group(2) or m.group(1), {'enabled': False, 'forced': False, 'policies': {}, 'at': (rel, i)})
+            act = re.sub(r'\s+', ' ', m.group(3).lower())
+            if act in ('enable', 'disable'):
+                T['enabled'] = act == 'enable'
+            else:
+                T['forced'] = act == 'force'
+            T['at'] = (rel, i)
+        for m in re.finditer(r'(?is)\bcreate\s+policy\s+"?([^"\s]+)"?\s+on\s+' + q + r'(.*?)(?:;|$)', text):
+            T = out.setdefault(m.group(3) or m.group(2), {'enabled': False, 'forced': False, 'policies': {}, 'at': (rel, i)})
+            um = re.search(r'(?is)\busing\s*\((.*)\)', m.group(4))
+            T['policies'][m.group(1)] = um.group(1) if um else m.group(4)
+        for m in re.finditer(r'(?is)\bdrop\s+policy\s+(?:if\s+exists\s+)?"?([^"\s]+)"?\s+on\s+' + q, text):
+            out.get(m.group(3) or m.group(2), {'policies': {}})['policies'].pop(m.group(1), None)
+
+    for rel in files:
+        if rel.endswith('.sql'):
+            sql(rel, h.read(rel), 0)
+            continue
+        f = F(h, rel)
+        um = re.search(r'\b(?:async\s+)?up\s*\([^)]*\)\s*(?::\s*[\w<>\s]+)?\{', f.m)
+        if not um:
+            continue
+        ua, ub = um.end() - 1, h.close(f.m, um.end() - 1)
+        C.scan_local(f)
+        loops = []
+        for lm in re.finditer(r'\bfor\s*(\()\s*const\s+(\w+)\s+of\s+', f.m[ua:ub]):
+            pa = ua + lm.start(1)
+            pe = h.close(f.m, pa)
+            vals, ok = C.values(f, ua + lm.end(), pe)
+            bo = f.m.find('{', pe)
+            if bo > 0:
+                loops.append((lm.group(2), vals if ok else None, bo, h.close(f.m, bo)))
+        for sa, se in f.sp:
+            if not (ua < sa < ub) or not re.search(r'(?i)row level security|policy', f.t[sa:se]):
+                continue
+            txt = f.t[sa + 1:se - 1]
+            var = re.findall(r'\$\{\s*([\w.]+)\s*\}', txt)
+            if not var:
+                sql(rel, txt, sa)
+                continue
+            v = var[0]
+            lp = next((l for l in loops if l[0] == v and l[2] < sa < l[3]), None)
+            names = lp[1] if lp else (C.values(f, *C.local[rel][v][1:])[0] or None) if v in C.local.get(rel, {}) else None
+            if not names:
+                unres[0] += 1
+                continue
+            for n in names:
+                sql(rel, re.sub(r'\$\{\s*%s\s*\}' % re.escape(v), n, txt), sa)
+    if unres[0]:
+        h.notes.append('nest I-SCOPE: %d RLS statement(s) in migrations with a computed table name (not read)' % unres[0])
+    ctx['rls'] = out
+    return out
+
+
 def lane_scope(root, h, ctx):
     ix = index(root, h, ctx)
+    C, rls = consts(root, h, ctx), rls_tables(root, h, ctx)
     glob, alias = [], {}
     for f in ix['files'].values():   # export const AccountScoped = () => Filter({ name: 'account', ..., default: true })
         for am in re.finditer(r'\bconst\s+(\w+)\s*=\s*\([^)]*\)\s*=>\s*Filter\s*\(', f.m):
@@ -1194,16 +1790,28 @@ def lane_scope(root, h, ctx):
                 txt = alias.get(d[2]) or k['f'].t[d[0]:d[1]]
                 if (d[2] == 'Filter' or d[2] in alias) and re.search(r'default\s*:\s*true', txt):
                     nm = re.search(r"name\s*:\s*['\"](\w+)", txt)
-                    names.append(nm.group(1) if nm else 'filter')
+                    cm = re.search(r'\bname\s*:\s*([\w.]+)', txt)
+                    cv = C.args(h, cm.group(1), k['f'].rel)[0] if cm and not nm else []
+                    cond = re.search(r'\bcond\s*:[^{]*\{([^}]*)\}', txt)   # `cond: (a) => ({ tenantId: a.tenantId })`
+                    names.append(nm.group(1) if nm else cv[0] if cv else
+                                 'cond:' + ','.join(re.findall(r'(\w+)\s*:', cond.group(1))) if cond else 'filter')
                 if re.match(r'SoftDelet', d[2]):
                     soft = True
             if re.search(r'@DeleteDateColumn\b', k['f'].m[k['a']:k['b']]):
                 soft = True
         names += [n for n, ents in glob if '*' in ents or c['name'] in ents]
         soft = soft or any(re.search(r'(?i)soft|deleted|trash', n) for n in names)
+        T = rls.pop(tbl, None)
+        if T and T['enabled'] and any(TENANT.search(e) for e in T['policies'].values()):
+            # FORCE matters: an app that connects as the table owner bypasses a policy that is not forced
+            names.append('rls:tenant' if T['forced'] else 'rls:tenant-not-forced')
         rows.append(h.row('table:' + h.table(tbl), {'soft_delete': 'yes' if soft else 'no',
-                                                    'tenant': 'yes' if any(TENANT.search(n) for n in names) else 'no',
+                                                    'tenant': 'yes' if any(TENANT.search(n) and n != 'rls:tenant-not-forced' for n in names) else 'no',
                                                     'scopes': ','.join(sorted(set(names)))}, c['f'].rel, c['f'].t, c['start']))
+    for tn, T in sorted(rls.items()):   # a policy-protected table no entity class maps
+        if T['enabled'] and T['forced'] and any(TENANT.search(e) for e in T['policies'].values()):
+            rel, i = T['at']
+            rows.append(h.row('table:' + h.table(tn), {'soft_delete': '?', 'tenant': 'yes', 'scopes': 'rls:tenant'}, rel, h.read(rel), i))
     return rows
 
 
@@ -1211,6 +1819,26 @@ ROUND = [(r'\bMath\.round\(', 'half-up'), (r'\bMath\.floor\(', 'floor'), (r'\bMa
          (r'ROUND_HALF_UP\b', 'half-away'), (r'ROUND_HALF_EVEN\b', 'half-even'), (r'ROUND_DOWN\b', 'trunc'),
          (r'ROUND_HALF_CEIL\b', 'half-up'), (r'ROUND_FLOOR\b', 'floor'), (r'ROUND_CEIL\b', 'ceil'),
          (r'\bIntl\.NumberFormat\b', 'half-away')]
+
+
+MONEY_OPND = re.compile(r'(?i)pric|amount|cost|fee|charg|discount|tax|vat|cent|money|balance|subtotal|commission|payout|refund|'
+                        r'wallet|revenue|profit|margin|salary|fx\b|exchange|currenc|total(?!_?(?:pages?|count|items|rows|records))')
+
+
+def money_modes(t, m, a, b, fname, rules):
+    """(modes, first site) of the rounding calls in [a, b): a floor / ceil / trunc counts only when its line names
+    money (pagination, batching and quantity rounding do not), a round / toFixed when its line or the function does."""
+    modes, first = set(), None
+    fn_money = MONEY_OPND.search(fname or '') is not None
+    for rx, md in rules:
+        for y in re.finditer(rx, m[a:b]):
+            i = a + y.start()
+            ls, le = t.rfind('\n', 0, i) + 1, t.find('\n', i)
+            line = t[ls:le if le >= 0 else len(t)]
+            if MONEY_OPND.search(line) or (fn_money and md not in ('floor', 'ceil', 'trunc')):
+                modes.add(md)
+                first = i if first is None else min(first, i)
+    return modes, first
 
 
 def ui_app(h, rel, ctx):
@@ -1221,6 +1849,28 @@ def ui_app(h, rel, ctx):
         t = h.read(os.path.join(root, 'package.json')) if h.exists(os.path.join(root, 'package.json')) else ''
         cache[root] = '"@nestjs/core"' not in t and re.search(r'"(?:react|vue|svelte|next|@angular/core)"\s*:', t) is not None
     return cache[root]
+
+
+AREA_TECH = set('mikro port adapter orm infrastructure create get read send process preview load loaded list find fetch handle '
+                'compute calc calculate build make run execute apply update upsert sync import export query queries command '
+                'my do new'.split())
+
+
+def money_area(h, cls, rel, meth):
+    """(f) The area of a money path: the class/file noun, unless it is a technical or verb word (`MikroXPort`,
+    `CreateOrder.execute`, `ReadOrderApi`) — then the first money word of the method, class and file."""
+    a = h.area(cls, rel, meth)
+    if a[5:] not in AREA_TECH:
+        return a
+    for src in (meth, cls, os.path.splitext(os.path.basename(rel))[0]):
+        for w in h.words(src):
+            if w not in AREA_TECH and MONEY_OPND.match(w):
+                return 'area:' + h.table(w)
+    for src in (cls, os.path.splitext(os.path.basename(rel))[0], meth):
+        for w in h.words(src):
+            if w not in AREA_TECH and w not in h.ROLE_WORDS and len(w) > 1:
+                return 'area:' + h.table(w)
+    return a
 
 
 def lane_money(root, h, ctx):
@@ -1235,12 +1885,10 @@ def lane_money(root, h, ctx):
         dec = re.search(r'''from\s+['"](?:decimal\.js|big\.js|bignumber\.js)['"]''', f.t)
         types = ctor_types(c) if c['name'] != '<module>' else {}
         for meth, (a, b, s, _, _) in c['methods'].items():
-            seg = f.t[a:b]
-            modes = set(m for rx, m in ROUND if re.search(rx, seg))
-            if re.search(r'\.toFixed\(', seg):
-                modes.add('half-away' if dec else 'float-tofixed')
-            if dec and re.search(r'\.(?:toDecimalPlaces|toDP|round)\((?![^)]*ROUND_)', seg):
-                modes.add('half-away')
+            rules = ROUND + [(r'\.toFixed\(', 'half-away' if dec else 'float-tofixed')] + \
+                ([(r'\.(?:toDecimalPlaces|toDP|round)\((?![^)]*ROUND_)', 'half-away')] if dec else [])
+            modes, first = money_modes(f.t, f.m, a, b, '%s %s %s' % (f.rel, c['name'], meth), rules)
+            s = first if first is not None else s
             calls = set()
             for cm in re.finditer(r'\bthis\.(\w+)\.(\w+)\s*\(', f.m[a:b]):
                 if cm.group(1) in types:
@@ -1268,7 +1916,7 @@ def lane_money(root, h, ctx):
         if ui_app(h, f.rel, ctx):
             ui_n += 1
             continue
-        rows.append(h.row(h.area(c['name'], f.rel, meth), {'modes': ','.join(sorted(modes)), 'where': '%s.%s' % (c['name'], meth)},
+        rows.append(h.row(money_area(h, c['name'], f.rel, meth), {'modes': ','.join(sorted(modes)), 'where': '%s.%s' % (c['name'], meth)},
                           f.rel, f.t, s))
     if ui_n:
         h.notes.append('I-MONEY: %d rounding site(s) in browser-app files left out (display rounding)' % ui_n)
@@ -1356,3 +2004,133 @@ def lane_schema(root, h, ctx):
 LANES = {'nest': {'I-SCHEMA': lane_schema, 'I-ROUTES': lane_routes, 'I-AUTHZ': lane_authz, 'I-RULES': lane_rules, 'I-ENUM': lane_enum,
                   'I-ERR': lane_err, 'I-SIDE': lane_side, 'I-SCHED': lane_sched, 'I-SCOPE': lane_scope,
                   'I-MONEY': lane_money, 'I-CONF': lane_conf}}
+
+
+# ---------------------------------------------------------------- self-test (the fold-back cases of a real port)
+_ST = {
+    'package.json': '{"dependencies": {"@nestjs/core": "11.1.6", "@mikro-orm/core": "6.4.0"}}\n',
+    'src/app.module.ts': (
+        "import { Module } from '@nestjs/common';\nimport { APP_GUARD } from '@nestjs/core';\n"
+        "@Module({ providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }, { provide: APP_GUARD, useClass: AccountKindGuard }] })\n"
+        "export class AppModule {}\n"),
+    'src/auth/jwt-auth.guard.ts': "export class JwtAuthGuard extends AuthGuard('jwt') {}\n",
+    'src/auth/account-kind.guard.ts': (
+        "export class AccountKindGuard implements CanActivate {\n  constructor(private readonly reflector: Reflector) {}\n"
+        "  canActivate(ctx: ExecutionContext) {\n    const kinds = this.reflector.getAllAndOverride<string[]>(ACCOUNT_KIND_KEY, [ctx.getHandler()]);\n"
+        "    return !kinds || kinds.includes('seller');\n  }\n}\n"),
+    'src/auth/decorators.ts': (
+        "import { SetMetadata } from '@nestjs/common';\n\nexport const PERMISSIONS_KEY = 'permissions';\n"
+        "export const RequirePermission = (...keys: string[]) => SetMetadata(PERMISSIONS_KEY, keys);\n\n"
+        "export const ANY_PERMISSIONS_KEY = 'anyPermissions';\n"
+        "export const RequireAnyPermission = (...keys: string[]) =>\n  SetMetadata(ANY_PERMISSIONS_KEY, keys);\n\n"
+        "export const ACCOUNT_KIND_KEY = 'accountKind';\n"
+        "export const RequireAccountKind = (...k: string[]) => SetMetadata(ACCOUNT_KIND_KEY, k);\n"),
+    'src/orders/order.permissions.ts': (
+        "export const ORDER_PERMISSIONS = Object.freeze({\n  view: 'can_view_orders',\n  edit: 'can_edit_orders',\n});\n\n"
+        "export const RESCUE = {\n  view: ['can_view_followup', 'can_rescue_orders'],\n} as const;\n"),
+    'src/orders/openers.ts': (
+        "import { RESCUE } from './order.permissions.js';\n\n"
+        "export const OPENERS = ['can_view_orders', ...RESCUE.view] as const satisfies readonly string[];\n"),
+    'src/orders/orders.controller.ts': (
+        "import { Controller, Get, Post } from '@nestjs/common';\n"
+        "import { RequireAnyPermission, RequirePermission } from '../auth/decorators';\n"
+        "import { ORDER_PERMISSIONS } from './order.permissions';\nimport { OPENERS } from './openers';\n\n"
+        "@Controller('orders')\nexport class OrdersController {\n  constructor(private readonly place: PlaceOrder) {}\n\n"
+        "  @Get()\n  @RequirePermission(ORDER_PERMISSIONS.view)\n  list() {\n    return [];\n  }\n\n"
+        "  @Get('open')\n  @RequireAnyPermission(...OPENERS)\n  open() {\n    return [];\n  }\n\n"
+        "  @Post()\n  @RequirePermission(ORDER_PERMISSIONS.edit)\n  create() {\n    return this.place.execute();\n  }\n}\n"),
+    'src/orders/place-order.use-case.ts': (
+        "export class PlaceOrder {\n  constructor(private readonly outbox: OutboxPort) {}\n\n"
+        "  async execute() {\n    await this.outbox.emit(ORDER_EVENTS.CREATED, { id: 1 });\n    return 1;\n  }\n}\n\n"
+        "export const ORDER_EVENTS = { CREATED: 'order.created' } as const;\n"),
+    'src/orders/order-notification.consumer.ts': (
+        "export const INTERESTED: readonly string[] = ['order.created'];\n\n"
+        "export class OrderNotificationConsumer {\n  constructor(private readonly em: EntityManager) {}\n\n"
+        "  async handle(event: { type: string }) {\n    this.em.create(MerchantNotificationEntity, { type: event.type });\n  }\n}\n"),
+    'src/jobs/audit-retention.job.ts': (
+        "export class AuditRetentionJob {\n  @Cron('0 0 3 * * *')\n  async prune() {\n    return;\n  }\n}\n"),
+    'src/jobs/outbox-retention.job.ts': (
+        "export class OutboxRetentionJob {\n  @Cron('0 5 * * *')\n  async prune() {\n    return;\n  }\n}\n"),
+    'src/shared/errors.ts': (
+        "export class DomainError extends Error {}\nexport class ConflictError extends DomainError {\n"
+        "  constructor(text: ErrorText = {}) {\n    super(text.message ?? 'conflict');\n  }\n}\n\n"
+        "export function defineMessages(prefix: string, catalog: object) {\n  return catalog;\n}\n"),
+    'src/shared/all-exceptions.filter.ts': (
+        "@Catch()\nexport class AllExceptionsFilter {\n  catch(exception: unknown) {\n"
+        "    if (exception instanceof ConflictError) {\n      return { status: HttpStatus.CONFLICT };\n    }\n    return { status: 500 };\n  }\n}\n"),
+    'src/orders/order.messages.ts': "export const ORDER_MESSAGES = defineMessages('ORDER', {\n  LOCKED: { message: 'locked' },\n});\n",
+    'src/orders/lock-order.ts': (
+        "import { ORDER_MESSAGES } from './order.messages';\n\n"
+        "export function lockOrder() {\n  throw new ConflictError({ ...ORDER_MESSAGES.LOCKED });\n}\n"),
+    'src/database/tenant.constants.ts': "export const TENANT_FILTER = 'tenant';\n",
+    'src/orders/order.entity.ts': (
+        "import { Entity, Enum, Filter, PrimaryKey } from '@mikro-orm/core';\nimport { TENANT_FILTER } from '../database/tenant.constants';\n"
+        "import { STAGES } from './stages';\n\n"
+        "@Entity({ tableName: 'orders' })\n@Filter({ name: TENANT_FILTER, cond: (a: { tenantId: string }) => ({ tenantId: a.tenantId }), default: true })\n"
+        "export class OrderEntity {\n  @PrimaryKey()\n  id!: string;\n\n  @Enum({ items: [...STAGES] })\n  stage!: string;\n}\n"),
+    'src/orders/stages.ts': "export const STAGES = ['draft', 'done'] as const;\n",
+    'src/invoices/invoice.entity.ts': (
+        "import { Entity, PrimaryKey } from '@mikro-orm/core';\n\n@Entity({ tableName: 'invoices' })\n"
+        "export class InvoiceEntity {\n  @PrimaryKey()\n  id!: string;\n}\n"),
+    'src/migrations/Migration20240101000000.ts': (
+        "import { Migration } from '@mikro-orm/migrations';\n\nexport class Migration20240101000000 extends Migration {\n"
+        "  private readonly scoped = ['invoices'];\n\n  override async up(): Promise<void> {\n"
+        "    for (const table of [...this.scoped].reverse()) {\n"
+        "      this.addSql(`alter table \"${table}\" enable row level security;`);\n"
+        "      this.addSql(`alter table \"${table}\" force row level security;`);\n"
+        "      this.addSql(`create policy \"${table}_tenant_isolation\" on \"${table}\" using (public.app_tenant_visible(tenant_id));`);\n"
+        "    }\n  }\n\n  override async down(): Promise<void> {\n"
+        "    this.addSql(`alter table \"invoices\" disable row level security;`);\n  }\n}\n"),
+    'src/migrations/.snapshot-app.json': (
+        '{"tables": [{"name": "returns", "columns": {"decision": {"name": "decision", "enumItems": ["accepted", "disputed"]}},'
+        ' "checks": [{"name": "returns_kind_check", "columnName": "kind", "expression": "kind IN (\'a\', \'b\')"}]}]}\n'),
+    'packages/contracts/src/vocab.ts': "export const SOURCES = ['team_members', 'orders'] as const;\n",
+    'src/reports/source.schema.ts': (
+        "import { z } from 'zod';\nimport { SOURCES } from '../../packages/contracts/src/vocab.js';\n\n"
+        "export const reportSourceSchema = z.enum(SOURCES);\n"),
+}
+
+
+def self_test(H, tmp):
+    root = os.path.join(tmp, 'nest-foldback')
+    for rel, body in _ST.items():
+        p = os.path.join(root, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, 'w', encoding='utf-8') as f:
+            f.write(body)
+    out = []
+
+    def rows(fn):
+        h, ctx = H(root, 'v2'), {'stack': 'nest'}
+        try:
+            return dict((r['key'], r['attrs']) for r in fn(root, h, ctx))
+        except H.Blocked as e:
+            return {'blocked': {'why': str(e)}}
+    az = rows(lane_authz)
+    out.append(('nest IR-3: object member, Object.freeze, spread of an imported `as const` array (.js import) resolve %s'
+                % dict((k, v.get('abilities')) for k, v in az.items()),
+                az.get('GET /orders', {}).get('abilities') == 'can.view.orders'
+                and az.get('GET /orders/open', {}).get('abilities') == 'can.rescue.orders,can.view.followup,can.view.orders', str(az)[:300]))
+    out.append(('nest: a metadata-gated global guard does not guard a route without its metadata',
+                az.get('GET /orders', {}).get('extra_guard') == 'no', str(az.get('GET /orders'))))
+    sc = rows(lane_scope)
+    out.append(('nest IR-5: filter name from a constant; forced RLS policy from a migration loop over a class field -> tenant %s'
+                % dict((k, v.get('tenant')) for k, v in sc.items()),
+                sc.get('table:order', {}).get('tenant') == 'yes' and sc.get('table:invoice', {}).get('tenant') == 'yes', str(sc)))
+    se = rows(lane_side)
+    out.append(('nest IR-6: outbox emit keyed by its event, carrying its consumer\'s notification -> %s' % se.get('order.created'),
+                se.get('order.created', {}).get('kinds') == 'event,notify', str(se)[:300]))
+    sh = rows(lane_sched)
+    out.append(('nest IR-7: unnamed jobs keyed by Class.method; a fixed second offset dropped %s' % sorted(sh),
+                'job:audit.prune.retention' in sh and 'job:outbox.prune.retention' in sh
+                and sh['job:audit.prune.retention'].get('cron') == '0 3 * * *', str(sh)))
+    er = rows(lane_err)
+    out.append(('nest IR-8: `new ConflictError({ ...ORDER_MESSAGES.LOCKED })` -> code:ORDER_LOCKED %s' % er.get('code:ORDER_LOCKED'),
+                er.get('code:ORDER_LOCKED', {}).get('status') == '409', str(sorted(er))))
+    en = rows(lane_enum)
+    out.append(('nest (a)(b): @Enum items spread, z.enum(imported), snapshot enumItems and value CHECK %s'
+                % dict((k, v.get('values')) for k, v in en.items() if k.startswith(('col:', 'type:reportsource'))),
+                en.get('col:order.stage', {}).get('values') == 'done,draft' and en.get('col:return.decision', {}).get('values') == 'accepted,disputed'
+                and en.get('col:return.kind', {}).get('values') == 'a,b' and en.get('type:reportsource', {}).get('values') == 'orders,team_members',
+                str(en)[:400]))
+    return out

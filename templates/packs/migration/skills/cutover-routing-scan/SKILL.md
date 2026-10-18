@@ -65,7 +65,7 @@ PI=$(abs "$PI"); MIG=$(abs "$MIG"); [ -n "$V1" ] && V1=$(abs "$V1"); cd "$V2" ||
 OUT="$(mktemp -d "${TMPDIR:-/tmp}/cutover-routing.XXXXXX")"; export GIT_OPTIONAL_LOCKS=0; mkdir "$OUT/none"; : > "$OUT/stamp"
 ck() { [ "$2" -lt 2 ] || echo "$1 BLOCKED (rg exit $2) — the class is blocked, never 0 hits"; }
 if [ -n "$V1" ]; then SIDE=(--v1="$V1" ${LIVE:+--live-v1}); else SIDE=(--v1-inventory="$MIG/v1-inventory"); fi
-python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-ROUTES --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; echo "pair-inventory exit $? (I-ROUTES: the V1 paths each façade rule must cover)"
+python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-ROUTES --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; RX=$?; echo "pair-inventory exit $RX (I-ROUTES: the V1 paths each façade rule must cover; 1 = candidates, 2/3/4 = BLOCKED, the ledger's last line says why)"; grep -q '^  I-ROUTES .*blocked' "$OUT/ledger.txt" && echo "CR1 N/A (I-ROUTES blocked: the V1 paths a façade must cover are unread — fix the join first)"
 V1ROOTS=("${V1:-$OUT/none}")
 X=(-g '!**/{node_modules,vendor,dist,build,coverage,.git}/**' -g '!**/{test,tests,spec,__tests__,__mocks__,fixtures,e2e}/**' -g '!**/*.{spec,test,e2e-spec,test-data,fixture,d}.*' -g '!**/*.md')
 # 0. The routing surface: façade, mesh, ingress and framework rewrite files; the shadow environments; V1 runtime manifests.
@@ -95,6 +95,8 @@ quiet = []
 for p in lines('facade.txt'):                                   # 1. nginx: every location, its match type and the side per method
     s = rd(p)
     if not re.search(r'^\s*location\s', s, re.M): continue
+    if not re.search(r'^\s*proxy_pass\s', s, re.M) or not re.search(r'v1|legacy|old|portal|supabase', ' '.join(re.findall(r'(?:upstream|proxy_pass)\s+\S+', s)), re.I):
+        print('CR1 N/A %s: serves an app (try_files / local routes, no V1 upstream) — not a strangler façade' % p); continue
     ups = {n: side(n + b) for n, b in re.findall(r'upstream\s+(\w+)\s*\{([^}]*)\}', s)}
     maps = {}
     for var, body in re.findall(r'map\s+\$request_method\s+\$(\w+)\s*\{([^}]*)\}', s):
@@ -165,7 +167,9 @@ for R in "$V1" .; do [ -n "$R" ] && find "$R" -newer "$OUT/stamp" -type f -not -
 
 ## Measured
 
-Measured 2026-10-18 on this repo's fixtures only.
+Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase → Nest port (read-only).
+
+- **A real Supabase → Nest port** (2026-10-19). Before: the V2 SPA's `nginx.conf` (`try_files … /index.html`, no proxy to a V1) was read as the façade and its 4 locations printed as rules naming no ledger feature. After: `CR1 N/A …: serves an app … not a strangler façade`; a file is a façade only with a `proxy_pass` and a V1 / legacy upstream, and an I-ROUTES lane that is blocked prints `CR1 N/A (I-ROUTES blocked …)`. `port-pair` unchanged.
 
 - **`port-pair`, paired** (V1 read in place with `LIVE=1`, run both in a scratch copy and in place: same output, write check 0). The engine read 44 V1 routes. Façade files: 3; shadow and mirror files: 3; V1 runtime manifests: 7. Joins:
   - CR1: 3 ledger-feature rules, 2 with a warning, plus 4 rules naming no ledger feature;

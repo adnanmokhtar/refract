@@ -21,6 +21,9 @@ block, a refute step and a failing-first oracle. Per-pack detail is in each pack
   parity-proof with V1-pinned test integrity). `/compare-v1` is the audit, `@parity-auditor` the
   judge, `/find-and-fix --from-audit` the fix loop. Fixture `port-pair` (Laravel 11 → Nest; 92
   two-anchor seeds, 36 decoys; the clean pair calibrates to 0 on every lane) + `port-pair-solo`.
+- **migration 2.0.1** — a Supabase V1 lane and the fold-back from a read-only run of a real
+  Supabase → Nest port: route-join over explicit pair-map rows, V2 permissions / RLS / side effects /
+  jobs / errors / enums resolved, money lane keyed on money operands.
 - **align 2.0.0** — a convention oracle (enforced / written / generated / contested; a majority
   only proposes), four new detectors, `align-detect` as the AL-01…34 dispatcher, an EQ/VC/FN proof
   ladder in `align-sweep-gate.py`, `/align-scan` as the read-only audit, a 17-check gate. Fixture

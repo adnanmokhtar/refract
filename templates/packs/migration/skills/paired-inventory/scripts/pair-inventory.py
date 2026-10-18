@@ -5,6 +5,7 @@ A migration class is a difference ("V1 does X here, V2 does Y"). Every static la
 roots into the same normalised schema, then set-diffed into CANDIDATE rows (never findings: the
 refute-before-report protocol decides each one). The lane modules beside this file hold the extractors:
 lanes_laravel.py (V1 Laravel), lanes_node.py (NestJS via the backend pack's dto-types.py, zod, MikroORM),
+lanes_supabase.py (V1 Supabase: SQL migrations replayed, RLS, PostgREST RPC, pg_cron, Deno edge functions),
 lanes_ruby.py, lanes_python.py, lanes_java.py, lanes_js.py, lanes_go.py (Rails, Django + FastAPI, Spring, Express/Fastify, Go — tagged
 `partial`; shared readers in lanes_common.py).
 
@@ -26,8 +27,8 @@ Modes:
   record   writes <out>/<lane>.tsv (header: sha, root, stack, extractor hash, normaliser, rows). Never into V1.
   calibrate  a known-parity pair must diff to 0 rows per lane; a lane with k > 0 prints
            `blocked (lane <x> asymmetric: k rows on the calibration pair)`. Paired mode runs the built-in
-           Laravel->Nest pair (and --calibration-pair) first and blocks every lane that fails it; a stack pair
-           with no calibration pair is tagged `uncalibrated`.
+           Laravel->Nest and Supabase->Nest pairs (and --calibration-pair) first and blocks every lane that fails
+           one; a stack pair with no calibration pair is tagged `uncalibrated`.
 Pair map (<v2>/ai/migration/pair-map.tsv by default; read-only): `lane<TAB>v1-key<TAB>v2-key<TAB>reason`.
   v2-key `-` = intentionally gone; `prefix:/api<TAB>prefix:/v1` rewrites V1 route prefixes in every lane;
   `value:a.b<TAB>value:a:b` maps an attribute vocabulary. A row with no reason is ignored and printed.
@@ -46,7 +47,7 @@ import argparse, hashlib, importlib.util, json, os, re, shutil, subprocess, sys,
 sys.dont_write_bytecode = True          # importing the lane modules must not drop __pycache__ into a repo
 HERE = os.path.dirname(os.path.abspath(__file__))
 FORMAT, NORMALISER = '1', '1'
-MODULES = ('lanes_laravel', 'lanes_node', 'lanes_ruby', 'lanes_python', 'lanes_java', 'lanes_js', 'lanes_go')
+MODULES = ('lanes_laravel', 'lanes_node', 'lanes_ruby', 'lanes_python', 'lanes_java', 'lanes_js', 'lanes_go', 'lanes_supabase')
 LANES = ['I-ROUTES', 'I-AUTHZ', 'I-RULES', 'I-ENUM', 'I-ERR', 'I-SIDE', 'I-SCHED', 'I-SCOPE', 'I-SCHEMA',
          'I-MONEY', 'I-CONF']
 COMPARE = {'I-ROUTES': ('opt', 'constraint'), 'I-AUTHZ': ('authn', 'abilities', 'roles', 'extra_guard'),
@@ -525,6 +526,11 @@ def load_modules():
         if b'lanes_common.py' in body and os.path.isfile(common):   # a shared-helper edit re-stales every record
             with open(common, 'rb') as f:
                 hs.update(f.read())
+        for dep in getattr(mod, 'DEPENDS', ()):   # a sibling lane module this one loads (lanes_supabase reads zod through lanes_node)
+            dp = os.path.join(HERE, dep)
+            if os.path.isfile(dp):
+                with open(dp, 'rb') as f:
+                    hs.update(f.read())
         mod.HASH = hs.hexdigest()[:16]
         mods[name] = mod
     return mods
@@ -625,16 +631,26 @@ def read_pair_map(path):
     return rules, ignored
 
 
-def apply_map(lane, rows, rules):
+def apply_map(lane, rows, rules, info=None):
     """Rewrite V1 keys/values so they speak V2's vocabulary. Returns (rows, removed {key: reason}).
     An I-ROUTES rename or removal also applies to every row keyed by that route (I-AUTHZ, I-RULES `<route> <field>`,
-    I-SIDE handler rows); `*` rows apply to every lane."""
+    I-SIDE handler rows); `*` rows apply to every lane. A glob rename (`col:*.user_id ⇥ col:*.tenant_id`) carries
+    each `*` capture into the V2 pattern, and a `col:` rename also renames that column inside the table's
+    `unique:`/`fk:` keys. `info` (a dict) receives `renamed` (the keys an explicit map row produced) and `collided`
+    {key: [v1 keys]}: two V1 keys mapped onto one key are merged, never overwritten — a differing attribute
+    becomes the comma set of both values, so the diff still shows it (IR-2)."""
     out, gone = {}, {}
+    info = {} if info is None else info
+    renamed, collided, origin = info.setdefault('renamed', set()), info.setdefault('collided', {}), {}
     pre = [(r['v1'][7:].rstrip('/'), r['v2'][7:].rstrip('/')) for r in rules if r['v1'].startswith('prefix:')]
     keys = dict((r['v1'], r) for r in rules if r['lane'] in (lane, '*') and r['v1'] != '-' and '*' not in r['v1']
                 and not r['v1'].startswith(('prefix:', 'value:')))
     rkeys = dict((r['v1'], r) for r in rules if r['lane'] == 'I-ROUTES' and ROUTE_RE.match(r['v1']))
     vals = [(r['v1'][6:], r['v2'][6:]) for r in rules if r['lane'] in (lane, '*') and r['v1'].startswith('value:')]
+    globs = [r for r in rules if r['lane'] in (lane, '*') and '*' in r['v1'] and r['v2'] != '-' and not r['attr']
+             and r['v2'].count('*') == r['v1'].count('*') and not r['reason'].startswith('moved-to')]
+    colren = [r for r in globs + list(keys.values()) if r['v1'].startswith('col:') and r['v2'].startswith('col:')
+              and not r['attr'] and r['v1'].count('*') == r['v2'].count('*')]
     for k, row in rows.items():
         nk = k
         m = ROUTE_RE.match(k)
@@ -653,11 +669,29 @@ def apply_map(lane, rows, rules):
                     continue
                 if ROUTE_RE.match(r['v2']):
                     nk = r['v2'] + m.group(3)
+                    renamed.add(nk)
         if nk in keys:
             if keys[nk]['v2'] == '-' or keys[nk]['reason'].startswith('moved-to'):
                 gone[k] = keys[nk]['reason']
                 continue
             nk = keys[nk]['v2']
+            renamed.add(nk)
+        else:
+            gr = next((r for r in globs if kmatch(r['v1'], nk)), None)
+            cm = re.match(r'(unique|fk):([^(]+)\((.*)\)$', nk)
+            if gr:
+                nk = glob_sub(gr['v1'], gr['v2'], nk)
+                renamed.add(nk)
+            elif cm and colren:
+                cols = []
+                for c in cm.group(3).split(','):
+                    ck = 'col:%s.%s' % (cm.group(2), c)
+                    cr = next((r for r in colren if kmatch(r['v1'], ck)), None)
+                    cols.append(glob_sub(cr['v1'], cr['v2'], ck).split('.', 1)[-1] if cr else c)
+                nk2 = '%s:%s(%s)' % (cm.group(1), cm.group(2), ','.join(sorted(cols) if cm.group(1) == 'unique' else cols))
+                if nk2 != nk:
+                    nk = nk2
+                    renamed.add(nk)
         g = next((r for r in rules if r['lane'] in (lane, '*') and '*' in r['v1'] and r['v2'] == '-' and kmatch(r['v1'], nk)), None)
         if g:
             gone[k] = g['reason']
@@ -668,8 +702,29 @@ def apply_map(lane, rows, rules):
                 parts = av.split(',')
                 parts = [dict(vals).get(x, x) for x in parts]
                 row['attrs'][ak] = setv(parts) if ',' in av or len(parts) > 1 else parts[0]
+        if nk in out:   # IR-2: two V1 keys landed on one key — merged and ledgered, never overwritten
+            a = out[nk] = dict(out[nk], attrs=dict(out[nk]['attrs']))
+            for ak, av in row['attrs'].items():
+                bv = a['attrs'].get(ak)
+                if bv is None or bv == '?':
+                    a['attrs'][ak] = av
+                elif av != '?' and av != bv:
+                    a['attrs'][ak] = setv(bv.split(',') + av.split(','))
+            a['at'] += '' if row['at'] in a['at'] else ' +' + row['at']
+            collided.setdefault(nk, [origin[nk]]).append(k)
+            continue
+        origin[nk] = k
         out[nk] = row
     return out, gone
+
+
+def glob_sub(pat, rep, key):
+    """`col:*.user_id` -> `col:*.tenant_id` turns `col:orders.user_id` into `col:orders.tenant_id` (captures in order)."""
+    m = re.match('^' + '(.*)'.join(re.escape(x) for x in pat.split('*')) + '$', key)
+    if not m:
+        return key
+    parts = rep.split('*')
+    return parts[0] + ''.join(g + q for g, q in zip(m.groups(), parts[1:]))
 
 
 def kmatch(pat, key):
@@ -958,7 +1013,7 @@ def finish(lanes, e1, e2, rules, s1, s2, l1, l2, led, show_all):
     led.setdefault('sides', []).extend([l1, l2])
     led['stacks_v1'] = ['%s (%s)' % (s, ev) for s, _, ev in s1]
     led['stacks_v2'] = ['%s (%s)' % (s, ev) for s, _, ev in s2]
-    route_halt = None
+    route_halt, joined = None, set()
     for lane in lanes:
         a, b = e1[lane], e2[lane]
         st = a['status'] or b['status']
@@ -966,25 +1021,88 @@ def finish(lanes, e1, e2, rules, s1, s2, l1, l2, led, show_all):
             out[lane] = dict(status='N/A (no %s surface on either side)' % lane, cands=[], n1=0, n2=0, gone={},
                              partial=a['partial'] or b['partial'], rows1={}, rows2={})
             continue
-        r1, gone = apply_map(lane, a['rows'], rules)
+        info = {}
+        r1, gone = apply_map(lane, a['rows'], rules, info)
+        if lane == 'I-SCHED':   # a job with no zone runs in its process/app zone: each side's I-CONF timezone, when read
+            r1 = dict(r1)
+            b = dict(b, rows=dict(b['rows']))
+            for rows, conf in ((r1, e1.get('I-CONF')), (b['rows'], e2.get('I-CONF'))):
+                tz = ((conf or {}).get('rows', {}).get('timezone') or {}).get('attrs', {}).get('value', '')
+                for k, r in list(rows.items()):
+                    if tz and r['attrs'].get('tz', None) == '':
+                        rows[k] = dict(r, attrs=dict(r['attrs'], tz=tz, tz_src='process (I-CONF timezone)'))
         cands = [] if st else diff(lane, r1, b['rows'], show_all)
         if lane == 'I-SCHEMA':
             cands = collapse_tables(cands, b['rows'])
+            led.setdefault('hints', []).extend(rename_hints(cands))
         cands = acknowledge(lane, cands, rules, gone)
+        for c in cands:   # IR-2: a merged collision is a reviewable fact on the row, and in the ledger
+            if c['key'] in info['collided']:
+                c['tags'].append('collided(%s)' % ' + '.join(info['collided'][c['key']]))
         if lane == 'I-ROUTES' and not st:
-            o1 = [c['key'] for c in cands if c['diff'] == 'V1-ONLY']
-            o2 = [c['key'] for c in cands if c['diff'] == 'V2-ONLY']
-            if len(r1) >= 4 and len(b['rows']) >= 4 and len(o1) * 2 > len(r1) and len(o2) * 2 > len(b['rows']):
+            # IR-1: prefix sanity is judged over the keys no explicit pair-map row addresses. Keys a rename row
+            # addresses join by that row (a route-join); only the unaddressed remainder can hold the halt.
+            acked = set(c2['key'] for c2 in diff(lane, r1, b['rows']) if c2['diff'] == 'V2-ONLY') - set(c['key'] for c in cands if c['diff'] == 'V2-ONLY')
+            joined = set(k for k in info['renamed'] if ROUTE_RE.match(k))
+            u1 = [k for k in r1 if k not in joined]
+            u2 = [k for k in b['rows'] if k not in joined and k not in acked]
+            o1 = [c['key'] for c in cands if c['diff'] == 'V1-ONLY' and c['key'] not in joined]
+            o2 = [c['key'] for c in cands if c['diff'] == 'V2-ONLY' and c['key'] not in joined]
+            if len(u1) >= 4 and len(u2) >= 4 and len(o1) * 2 > len(u1) and len(o2) * 2 > len(u2):
                 pairs = suffix_pairs(o1, o2)
-                route_halt = (len(o1), len(r1), len(o2), len(b['rows']), pairs, prefix_hint(pairs))
-                st = 'blocked (prefix sanity: %d/%d V1 keys V1-ONLY and %d/%d V2 keys V2-ONLY — the normaliser, not the port; add a pair-map prefix row)' % route_halt[:4]
-                cands = []
+                route_halt = (len(o1), len(u1), len(o2), len(u2), pairs, prefix_hint(pairs), len(joined))
+                if joined:
+                    st = ('checked · route-join (%d V1 keys joined by pair-map rows; prefix sanity still fails over the rest: '
+                          '%d/%d unaddressed V1 keys V1-ONLY and %d/%d V2 keys V2-ONLY — not diffed, Live, unreviewed)'
+                          % ((len(joined),) + route_halt[:4]))
+                    cands = [c for c in cands if c['key'] in joined]
+                else:
+                    st = 'blocked (prefix sanity: %d/%d V1 keys V1-ONLY and %d/%d V2 keys V2-ONLY — the normaliser, not the port; add a pair-map prefix row)' % route_halt[:4]
+                    cands = []
+        if lane == 'I-SIDE' and route_halt and joined and not st:   # route-keyed effects of unaddressed routes cannot pair
+            keep = [c for c in cands if not route_of(c['key']) or route_of(c['key']) in joined]
+            if len(keep) < len(cands):
+                st = 'checked · route-join (%d route-keyed rows of unaddressed routes not diffed)' % (len(cands) - len(keep))
+            cands = keep
         if lane in ROUTE_KEYED and lane != 'I-ROUTES' and route_halt and not st:
-            st, cands = 'blocked (route keys failed the I-ROUTES prefix sanity halt)', []
+            if joined:
+                cands = [c for c in cands if route_of(c['key']) in joined]
+                st = 'checked · route-join (rows of the %d pair-map-joined routes; the unaddressed routes are not diffed)' % len(joined)
+            else:
+                st, cands = 'blocked (route keys failed the I-ROUTES prefix sanity halt)', []
         out[lane] = dict(status=st, cands=cands, n1=len(a['rows']), n2=len(b['rows']), gone=gone,
-                         partial=a['partial'] or b['partial'], rows1=a['rows'], rows2=b['rows'])
+                         partial=a['partial'] or b['partial'], rows1=a['rows'], rows2=b['rows'], collided=info['collided'])
     led['route_halt'] = route_halt
     return out
+
+
+def route_of(key):
+    m = ROUTE_RE.match(key)
+    return '%s %s' % (m.group(1), m.group(2)) if m else None
+
+
+def rename_hints(cands):
+    """IR-10: a V1-ONLY and a V2-ONLY `unique:`/`fk:` key on one table that differ in exactly one column suggest a
+    column rename (`col:<t>.user_id ⇥ col:<t>.tenant_id`); the same pair on 3+ tables suggests one glob row. The
+    engine never applies a suggestion — only a pair-map row with a reason does."""
+    o1, o2, cnt = {}, {}, {}
+    for c in cands:
+        m = re.match(r'(unique|fk):([^(]+)\((.*)\)$', c['key'])
+        if m and c['diff'] in ('V1-ONLY', 'V2-ONLY'):
+            (o1 if c['diff'] == 'V1-ONLY' else o2).setdefault((m.group(1), m.group(2)), []).append(set(m.group(3).split(',')))
+    for k, sets1 in o1.items():
+        for s1 in sets1:
+            for s2 in o2.get(k, []):
+                x, y = s1 - s2, s2 - s1
+                if len(s1) == len(s2) and len(x) == 1 and len(y) == 1:
+                    cnt.setdefault((list(x)[0], list(y)[0]), set()).add(k[1])
+    out = []
+    for (x, y), ts in sorted(cnt.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        if len(ts) >= 3:
+            out.append('I-SCHEMA\tcol:*.%s\tcol:*.%s\t<ADR-NNN or reason>   (one column differs on %d tables: %s)' % (x, y, len(ts), ','.join(sorted(ts)[:4])))
+        else:
+            out += ['I-SCHEMA\tcol:%s.%s\tcol:%s.%s\t<ADR-NNN or reason>' % (t, x, t, y) for t in sorted(ts)]
+    return out[:15]
 
 
 def calibrate(mods, v1, v2, a, lanes, rules, led):
@@ -994,9 +1112,10 @@ def calibrate(mods, v1, v2, a, lanes, rules, led):
     return dict((l, (len(r['cands']), r['cands'], r['status'])) for l, r in res.items())
 
 
-def builtin_pair(dst):
+def builtin_pair(dst, cal=None):
+    cal = cal or CALIBRATION
     for side in ('v1', 'v2'):
-        for rel, body in CALIBRATION[side].items():
+        for rel, body in cal[side].items():
             p = os.path.join(dst, side, rel)
             os.makedirs(os.path.dirname(p), exist_ok=True)
             with open(p, 'w', encoding='utf-8') as f:
@@ -1017,9 +1136,14 @@ def print_ledger(led, res, w=None):
         w('  %-9s %7s %7s %7d %7d %7d  %s\n' % (lane, r['n1'], r['n2'], k('V1-ONLY'), k('V2-ONLY'), k('CHANGED'), st))
         for g, why in sorted(r['gone'].items()):
             w('      pair-map: %s -> %s\n' % (g, why if why.startswith(('acknowledged', 'accepted')) else 'mapped away (%s)' % why))
+        for k, srcs in sorted((r.get('collided') or {}).items()):
+            w('      pair-map collision: %s <- %s (merged; differing attributes kept as the set of both)\n' % (k, ' + '.join(srcs)))
+    for x in led.get('hints', []):
+        w('  suggested pair-map row (column rename; add only with a reason): %s\n' % x)
     rh = led.get('route_halt')
     if rh:
-        w('  prefix sanity halt — nearest pairs by path suffix (shared segments, V1 key -> V2 key):\n')
+        w('  prefix sanity halt%s — nearest pairs by path suffix (shared segments, V1 key -> V2 key):\n'
+          % (' over the %d/%d unaddressed keys (route-join on the %d mapped ones)' % (rh[1], rh[3], rh[6]) if len(rh) > 6 and rh[6] else ''))
         for n, a, b in rh[4]:
             w('      %d  %s  ->  %s\n' % (n, a, b))
         if rh[5]:
@@ -1051,8 +1175,8 @@ def emit(res, out_dir, show):
         for c in r['cands']:
             if c['diff'] != 'MATCH':
                 n += 1
-            lines.append('\t'.join(['CANDIDATE' if c['diff'] != 'MATCH' else 'MATCH', lane] + [tsv(c['diff']), tsv(c['key']), tsv(c['attr']), tsv(c['v1'])[:200],
-                                    tsv(c['v2'])[:200], tsv(c['v1_at']), tsv(c['v2_at']), ','.join(c['tags']) or '-', tsv(c['excerpt'])]))
+            lines.append('\t'.join(['CANDIDATE' if c['diff'] != 'MATCH' else 'MATCH', lane] + [tsv(c['diff']), tsv(c['key']), tsv(c['attr']), tsv(c['v1']),
+                                    tsv(c['v2']), tsv(c['v1_at']), tsv(c['v2_at']), ','.join(c['tags']) or '-', tsv(c['excerpt'])]))
     body = '\n'.join(lines) + '\n'
     if out_dir:
         with open(os.path.join(out_dir, 'candidates.tsv'), 'w', encoding='utf-8') as f:
@@ -1203,6 +1327,9 @@ def run(mods, a):
     if 'laravel' in s1 and 'nest' in s2 and not a.no_builtin_calibration:
         b1, b2 = builtin_pair(os.path.join(run_dir, 'calibration'))
         pairs.append(('built-in laravel->nest', b1, b2))
+    if 'supabase' in s1 and 'nest' in s2 and not a.no_builtin_calibration:
+        b1, b2 = builtin_pair(os.path.join(run_dir, 'calibration-supabase'), CALIBRATION_SUPABASE)
+        pairs.append(('built-in supabase->nest', b1, b2))
     if a.calibration_pair:
         c1, _, c2 = a.calibration_pair.partition(',')
         if not (os.path.isdir(c1) and os.path.isdir(c2)):
@@ -1248,15 +1375,17 @@ def close_run(led, res, stamp, roots, out, run_dir, write_sides):
     newer = newer_than(stamp, [r for r in roots if not (r + os.sep).startswith(run_dir + os.sep)])
     led['tail'].append('write check: %d files newer than the run start under %s%s' % (
         len(newer), ', '.join(roots) or '-', (' — ' + ', '.join(newer[:5])) if newer else ''))
+    blocked = [l for l, r in res.items() if (r['status'] or '').startswith('blocked') and (led.get('explicit') or 'blocked (gap' not in r['status'])]
+    rc = 4 if (newer or LOAD_ERRORS or blocked) else 1 if n else 0
+    led['tail'].append('exit %d: %s' % (rc, (   # the reason, so a caller never reads an exit code without it
+        'write check hit' if newer else 'a lane module failed to load' if LOAD_ERRORS else
+        'blocked lane(s) %s — read the ledger before any row; every route-keyed or blocked lane is BLOCKED, not 0 rows'
+        % ','.join(blocked) if blocked else
+        '%d candidate row(s) — candidates, not a failure: each needs the refute pass' % n if n else 'ran, no candidates')))
     print_ledger(led, res)
     with open(os.path.join(out, 'ledger.txt'), 'w', encoding='utf-8') as f:
         print_ledger(led, res, f.write)
-    if newer or LOAD_ERRORS:
-        return 4
-    if any((r['status'] or '').startswith('blocked') and (led.get('explicit') or 'blocked (gap' not in r['status'])
-           for r in res.values()):
-        return 4
-    return 1 if n else 0
+    return rc
 
 
 # ---------------------------------------------------------------- built-in calibration pair (Laravel 11 -> Nest 11)
@@ -1442,6 +1571,219 @@ CALIBRATION = {'v1': {
 }}
 
 
+# ---------------------------------------------------------------- built-in calibration pair (Supabase -> Nest 11)
+# The same rules over a Supabase V1 (SQL migrations replayed, RLS, PostgREST RPC, pg_cron, one edge function) and a
+# Nest V2 that serves the same surface. Parity-clean by construction: every lane must diff to 0 rows.
+_SB_MIG = """create type public.order_status as enum ('pending', 'paid');
+alter type public.order_status add value 'cancelled';
+
+create table public.invoices (
+  id bigserial primary key,
+  user_id uuid not null,
+  kind text not null default 'standard' check (kind in ('standard', 'credit'))
+);
+
+create table public.orders (
+  id bigserial primary key,
+  workspace_id uuid not null,
+  number varchar(20) not null,
+  status public.order_status not null default 'pending',
+  total numeric(12,2) not null,
+  invoice_id bigint references public.invoices (id) on delete set null,
+  deleted_at timestamptz
+);
+alter table public.orders add constraint orders_number_unique unique (number);
+
+create table public.audit_logs (
+  id bigserial primary key,
+  entity text not null,
+  entity_id bigint not null
+);
+
+alter table public.orders enable row level security;
+alter table public.invoices enable row level security;
+alter table public.audit_logs enable row level security;
+
+create or replace function public.has_workspace_permission(_ws uuid, _perm text) returns boolean
+language sql stable security definer as $$ select auth.uid() is not null and _perm is not null and _ws is not null $$;
+revoke execute on function public.has_workspace_permission(uuid, text) from public, anon, authenticated;
+
+create policy "orders read" on public.orders for select to authenticated
+  using (deleted_at is null and public.has_workspace_permission(workspace_id, 'orders.view'));
+create policy "invoices read" on public.invoices for select to authenticated using (auth.uid() = user_id);
+
+create or replace function public.order_total(p_price numeric, p_qty integer) returns numeric
+language plpgsql stable as $$
+begin
+  if p_price is null then
+    raise exception 'price_required' using errcode = '22023';
+  end if;
+  if p_qty is null or p_qty < 1 then
+    raise exception 'qty_too_small';
+  end if;
+  return round(p_price * p_qty, 2);
+end;
+$$;
+revoke execute on function public.order_total(numeric, integer) from public, anon;
+grant execute on function public.order_total(numeric, integer) to authenticated;
+
+create or replace function public.log_order_created() returns trigger language plpgsql security definer as $$
+begin
+  insert into public.audit_logs (entity, entity_id) values ('order', new.id);
+  return new;
+end;
+$$;
+create trigger orders_audit after insert on public.orders for each row execute function public.log_order_created();
+
+create or replace function public.generate_invoices() returns void language sql as $$ select 1 $$;
+revoke execute on function public.generate_invoices() from public, anon, authenticated;
+select cron.schedule('invoices-generate', '0 2 * * *', $$select public.generate_invoices()$$);
+
+alter database postgres set timezone to 'Asia/Riyadh';
+"""
+_SB_ZOD = """export const CreateOrder = z.object({
+  customer_email: z.string().email().max(255),
+  note: z.string().max(500).nullish(),
+  status: z.enum(['pending', 'paid', 'cancelled']),
+});
+"""
+CALIBRATION_SUPABASE = {'v1': {
+    'supabase/config.toml': 'project_id = "calibration"\n\n[api]\nmax_rows = 1000\n\n[functions.create-order]\nverify_jwt = true\n',
+    'supabase/migrations/20240101000000_init.sql': _SB_MIG,
+    'supabase/functions/_shared/enforce-permission.ts': (
+        "import { createClient } from 'npm:@supabase/supabase-js@2';\n\n"
+        "export async function enforcePermission(req: Request, permKey: string): Promise<Response | null> {\n"
+        "  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {\n"
+        "    global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },\n  });\n"
+        "  const { error } = await supabase.rpc('enforce_permission', { _perm: permKey });\n"
+        "  return error ? new Response(null, { status: 403 }) : null;\n}\n"),
+    'supabase/functions/create-order/index.ts': (
+        "import { createClient } from 'npm:@supabase/supabase-js@2';\nimport { z } from 'npm:zod@3';\n"
+        "import { enforcePermission } from '../_shared/enforce-permission.ts';\n\n" + _SB_ZOD + "\n"
+        "function json(body: unknown, status: number) {\n"
+        "  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });\n}\n\n"
+        "Deno.serve(async (req) => {\n  if (req.method === 'OPTIONS') return new Response('ok');\n"
+        "  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {\n"
+        "    global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },\n  });\n"
+        "  const { data: { user } } = await supabase.auth.getUser();\n"
+        "  if (!user) return json({ message: 'Unauthorized' }, 401);\n"
+        "  const denied = await enforcePermission(req, 'orders.create');\n  if (denied) return denied;\n"
+        "  const parsed = CreateOrder.safeParse(await req.json());\n"
+        "  if (!parsed.success) return json({ message: 'invalid' }, 400);\n"
+        "  const { data: existing } = await supabase.from('orders').select('id').eq('number', 'x').maybeSingle();\n"
+        "  if (existing) return json({ error: 'order_locked' }, 409);\n"
+        "  await fetch('https://api.resend.com/emails', { method: 'POST', body: JSON.stringify({ to: parsed.data.customer_email }) });\n"
+        "  return json({ ok: true }, 201);\n});\n"),
+}, 'v2': {
+    'package.json': '{"dependencies": {"@nestjs/core": "11.1.6", "@nestjs/common": "11.1.6", "@mikro-orm/core": "6.4.0", "decimal.js": "10.4.3", "zod": "3.23.8"}}\n',
+    'Dockerfile': 'FROM node:22-alpine\nENV TZ=Asia/Riyadh\n',
+    'src/main.ts': (
+        "import { NestFactory } from '@nestjs/core';\nimport { AppModule } from './app.module';\n\n"
+        "async function bootstrap() {\n  const app = await NestFactory.create(AppModule);\n  await app.listen(3000);\n}\nbootstrap();\n"),
+    'src/app.module.ts': (
+        "import { Module } from '@nestjs/common';\nimport { APP_GUARD } from '@nestjs/core';\n"
+        "import { JwtAuthGuard } from './auth/jwt-auth.guard';\n\n"
+        "@Module({ providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }] })\nexport class AppModule {}\n"),
+    'src/auth/decorators.ts': (
+        "import { SetMetadata } from '@nestjs/common';\n\nexport const PERMISSIONS_KEY = 'permissions';\n"
+        "export const Permissions = (...p: string[]) => SetMetadata(PERMISSIONS_KEY, p);\n"),
+    'src/auth/jwt-auth.guard.ts': (
+        "import { Injectable } from '@nestjs/common';\nimport { AuthGuard } from '@nestjs/passport';\n\n"
+        "@Injectable()\nexport class JwtAuthGuard extends AuthGuard('jwt') {}\n"),
+    'src/common/zod-validation.pipe.ts': (
+        "import { BadRequestException, PipeTransform } from '@nestjs/common';\nimport { ZodSchema } from 'zod';\n\n"
+        "export class ZodValidationPipe implements PipeTransform {\n  constructor(private readonly schema: ZodSchema) {}\n\n"
+        "  transform(value: unknown) {\n    const r = this.schema.safeParse(value);\n    if (!r.success) {\n"
+        "      throw new BadRequestException('invalid');\n    }\n    return r.data;\n  }\n}\n"),
+    'src/common/pagination.ts': 'export const DEFAULT_PAGE_SIZE = 1000;\n',
+    'src/orders/create-order.schema.ts': "import { z } from 'zod';\n\n" + _SB_ZOD + "export type CreateOrderInput = z.infer<typeof CreateOrder>;\n",
+    'src/orders/create-order.controller.ts': (
+        "import { Body, Controller, Post } from '@nestjs/common';\nimport { Permissions } from '../auth/decorators';\n"
+        "import { ZodValidationPipe } from '../common/zod-validation.pipe';\nimport { CreateOrder, CreateOrderInput } from './create-order.schema';\n"
+        "import { OrdersService } from './orders.service';\n\n"
+        "@Controller('functions/v1/create-order')\nexport class CreateOrderController {\n"
+        "  constructor(private readonly orders: OrdersService) {}\n\n"
+        "  @Post()\n  @Permissions('orders.create')\n  create(@Body(new ZodValidationPipe(CreateOrder)) body: CreateOrderInput) {\n"
+        "    return this.orders.place(body);\n  }\n}\n"),
+    'src/rest/order-total.dto.ts': (
+        "import { IsInt, IsNumber, Min } from 'class-validator';\n\nexport class OrderTotalDto {\n"
+        "  @IsNumber()\n  p_price!: number;\n\n  @IsInt()\n  @Min(1)\n  p_qty!: number;\n}\n"),
+    'src/rest/rest.controller.ts': (
+        "import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';\nimport { Permissions } from '../auth/decorators';\n"
+        "import { OrderTotalDto } from './order-total.dto';\n\n"
+        "@Controller('rest/v1')\nexport class RestController {\n"
+        "  @Get('orders')\n  @Permissions('orders.view')\n  listOrders() {\n    return [];\n  }\n\n"
+        "  @Get('invoices')\n  listInvoices() {\n    return [];\n  }\n\n"
+        "  @Post('rpc/order_total')\n  orderTotal(@Body() dto: OrderTotalDto) {\n"
+        "    if (dto.p_price == null) {\n      throw new BadRequestException({ code: 'price_required' });\n    }\n"
+        "    if (dto.p_qty < 1) {\n      throw new BadRequestException({ code: 'qty_too_small' });\n    }\n    return dto;\n  }\n}\n"),
+    'src/orders/orders.service.ts': (
+        "import { ConflictException, Injectable } from '@nestjs/common';\nimport Decimal from 'decimal.js';\n\n@Injectable()\n"
+        "export class OrdersService {\n  constructor(private readonly mailer: MailerService) {}\n\n"
+        "  async place(dto: { customer_email: string }) {\n    if (dto.customer_email === 'locked') {\n"
+        "      throw new ConflictException({ code: 'order_locked' });\n    }\n"
+        "    await this.mailer.send({ template: 'order-placed' });\n    return dto;\n  }\n\n"
+        "  lineTotal(price: number, qty: number): number {\n"
+        "    return new Decimal(price).times(qty).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();\n  }\n}\n"),
+    'src/orders/order-status.enum.ts': "export enum OrderStatus {\n  Pending = 'pending',\n  Paid = 'paid',\n  Cancelled = 'cancelled',\n}\n",
+    'src/orders/order.entity.ts': (
+        "import { Entity, Enum, Filter, PrimaryKey, Property } from '@mikro-orm/core';\nimport { OrderStatus } from './order-status.enum';\n\n"
+        "@Entity({ tableName: 'orders' })\n@Filter({ name: 'softDelete', cond: { deletedAt: null }, default: true })\n"
+        "@Filter({ name: 'workspace', cond: (args) => ({ workspaceId: args.workspaceId }), default: true })\n"
+        "export class Order {\n  @PrimaryKey()\n  id!: number;\n\n  @Enum(() => OrderStatus)\n  status!: OrderStatus;\n\n"
+        "  @Property({ nullable: true })\n  deletedAt?: Date;\n}\n"),
+    'src/invoices/invoice.entity.ts': (
+        "import { Entity, Enum, Filter, PrimaryKey } from '@mikro-orm/core';\n\n@Entity({ tableName: 'invoices' })\n"
+        "@Filter({ name: 'account', cond: (args) => ({ userId: args.userId }), default: true })\n"
+        "export class Invoice {\n  @PrimaryKey()\n  id!: number;\n\n  @Enum({ items: ['standard', 'credit'] })\n  kind!: string;\n}\n"),
+    'src/audit/audit-log.entity.ts': (
+        "import { Entity, PrimaryKey } from '@mikro-orm/core';\n\n@Entity({ tableName: 'audit_logs' })\n"
+        "export class AuditLog {\n  @PrimaryKey()\n  id!: number;\n}\n"),
+    'src/orders/order.subscriber.ts': (
+        "import { EventArgs, EventSubscriber } from '@mikro-orm/core';\nimport { Order } from './order.entity';\n\n"
+        "export class OrderSubscriber implements EventSubscriber<Order> {\n  getSubscribedEntities() {\n    return [Order];\n  }\n\n"
+        "  async afterCreate(args: EventArgs<Order>) {\n    await this.audit.log('order.created', args.entity.id);\n  }\n}\n"),
+    'src/invoices/invoices.scheduler.ts': (
+        "import { Injectable } from '@nestjs/common';\nimport { Cron } from '@nestjs/schedule';\n\n@Injectable()\n"
+        "export class InvoicesScheduler {\n  @Cron('0 2 * * *', { name: 'invoices-generate', timeZone: 'UTC', waitForCompletion: true })\n"
+        "  async generateInvoices() {\n    return;\n  }\n}\n"),
+    'src/migrations/Migration20240101000000.ts': (
+        "import { Migration } from '@mikro-orm/migrations';\n\nexport class Migration20240101000000 extends Migration {\n"
+        "  async up(): Promise<void> {\n"
+        "    this.addSql('create table \"invoices\" (\"id\" bigserial primary key, \"user_id\" uuid not null, \"kind\" text not null);');\n"
+        "    this.addSql('create table \"orders\" (\"id\" bigserial primary key, \"workspace_id\" uuid not null, \"number\" varchar(20) not null, \"status\" text not null, \"total\" numeric(12,2) not null, \"invoice_id\" bigint null, \"deleted_at\" timestamptz null);');\n"
+        "    this.addSql('alter table \"orders\" add constraint \"orders_number_unique\" unique (\"number\");');\n"
+        "    this.addSql('alter table \"orders\" add constraint \"orders_invoice_id_foreign\" foreign key (\"invoice_id\") references \"invoices\" (\"id\") on delete set null;');\n"
+        "    this.addSql('create table \"audit_logs\" (\"id\" bigserial primary key, \"entity\" text not null, \"entity_id\" bigint not null);');\n"
+        "  }\n}\n"),
+}}
+
+SEEDS_SUPABASE = [  # (lane, side, file, old, new, expected diff, expected attr) — single-site edits of the clean Supabase pair
+    ('I-ROUTES', 'v2', 'src/rest/rest.controller.ts', "@Post('rpc/order_total')", "@Post('rpc/order_totals')", 'V1-ONLY', '-'),
+    ('I-AUTHZ', 'v2', 'src/rest/rest.controller.ts', "  @Get('orders')\n  @Permissions('orders.view')\n", "  @Get('orders')\n", 'CHANGED', 'abilities'),
+    ('I-AUTHZ', 'v1', 'supabase/migrations/20240101000000_init.sql', "revoke execute on function public.order_total(numeric, integer) from public, anon;\n", '', 'CHANGED', 'authn'),
+    ('I-RULES', 'v2', 'src/orders/create-order.schema.ts', '.max(255)', '.max(500)', 'CHANGED', 'max'),
+    ('I-RULES', 'v1', 'supabase/migrations/20240101000000_init.sql', 'if p_qty is null or p_qty < 1 then', 'if p_qty is null or p_qty < 0 then', 'CHANGED', 'min'),
+    ('I-ENUM', 'v2', 'src/orders/order-status.enum.ts', "  Cancelled = 'cancelled',\n", '', 'CHANGED', 'values'),
+    ('I-ENUM', 'v1', 'supabase/migrations/20240101000000_init.sql', "alter type public.order_status add value 'cancelled';\n", '', 'CHANGED', 'values'),
+    ('I-ERR', 'v2', 'src/orders/orders.service.ts', "new ConflictException({ code: 'order_locked' })", "new BadRequestException({ code: 'order_locked' })", 'CHANGED', 'status'),
+    ('I-ERR', 'v1', 'supabase/migrations/20240101000000_init.sql', "'price_required' using errcode = '22023'", "'price_required' using errcode = 'PT422'", 'CHANGED', 'status'),
+    ('I-SIDE', 'v2', 'src/orders/orders.service.ts', "    await this.mailer.send({ template: 'order-placed' });\n", '', 'V1-ONLY', '-'),
+    ('I-SIDE', 'v2', 'src/orders/order.subscriber.ts', "    await this.audit.log('order.created', args.entity.id);\n", '', 'V1-ONLY', '-'),
+    ('I-SCHED', 'v2', 'src/invoices/invoices.scheduler.ts', "'0 2 * * *'", "'0 3 * * *'", 'CHANGED', 'cron'),
+    ('I-SCHED', 'v1', 'supabase/migrations/20240101000000_init.sql', "alter database postgres", "select cron.unschedule('invoices-generate');\nalter database postgres", 'V2-ONLY', '-'),
+    ('I-SCOPE', 'v2', 'src/orders/order.entity.ts', "@Filter({ name: 'workspace', cond: (args) => ({ workspaceId: args.workspaceId }), default: true })\n", '', 'CHANGED', 'tenant'),
+    ('I-SCOPE', 'v1', 'supabase/migrations/20240101000000_init.sql', "using (deleted_at is null and public.has", "using (public.has", 'CHANGED', 'soft_delete'),
+    ('I-SCHEMA', 'v2', 'src/migrations/Migration20240101000000.ts', '"total" numeric(12,2) not null', '"total" numeric(12,2) null', 'CHANGED', 'null'),
+    ('I-SCHEMA', 'v1', 'supabase/migrations/20240101000000_init.sql', "alter database postgres", "alter table public.orders drop constraint orders_number_unique;\nalter database postgres", 'V2-ONLY', '-'),
+    ('I-MONEY', 'v2', 'src/orders/orders.service.ts', 'new Decimal(price).times(qty).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber()',
+     'Math.round(price * qty * 100) / 100', 'CHANGED', 'modes'),
+    ('I-CONF', 'v2', 'Dockerfile', 'ENV TZ=Asia/Riyadh', 'ENV TZ=UTC', 'CHANGED', 'value'),
+    ('I-ROUTES', 'v1', 'supabase/migrations/20240101000000_init.sql', 'to authenticated using (auth.uid() = user_id)',
+     'to authenticated using (false)', 'V2-ONLY', '-'),
+]
+
+
 # ---------------------------------------------------------------- self-test
 SEEDS = [  # (lane, file, old, new, expected diff, expected attr) — each a single-site edit of the clean V2
     ('I-ROUTES', 'src/invoices/invoices.controller.ts', "  @Get(':invoice')", "  @Get(':invoice/x')", 'V1-ONLY', '-'),
@@ -1519,6 +1861,33 @@ def self_test():
             hit = [c for c in cands if c['diff'] == want and c['attr'] == attr]
             check('seed %s %s %s -> %d candidate(s)' % (lane, want, attr, k), bool(hit) and not st,
                   '; '.join('%s %s %s' % (c['diff'], c['key'], c['attr']) for c in cands[:4]) or st)
+        # the built-in Supabase -> Nest pair: 0 rows on every lane, then single-site seeds on either side
+        sv1, sv2 = builtin_pair(os.path.join(tmp, 'pair-supabase'), CALIBRATION_SUPABASE)
+        cal = quiet(calibrate, mods, sv1, sv2, args, LANES, [], {})
+        for lane in LANES:
+            k, cands, st = cal[lane]
+            check('supabase->nest calibration %s -> %s' % (lane, st or '0 rows'), k == 0 and not st,
+                  '; '.join('%s %s %s %s|%s' % (c['diff'], c['key'], c['attr'], c['v1'], c['v2']) for c in cands[:4]))
+        e1s, _ = quiet(extract, mods, sv1, 'v1', detect(mods, sv1, []), LANES)
+        counts = dict((l, len(e1s[l]['rows'])) for l in LANES)
+        check('supabase v1 lanes non-empty %s' % counts, all(counts[l] for l in LANES))
+        for i, (lane, side, rel, old, new, want, attr) in enumerate(SEEDS_SUPABASE):
+            d = os.path.join(tmp, 'seed-supabase', str(i))
+            shutil.copytree(sv1, os.path.join(d, 'v1'))
+            shutil.copytree(sv2, os.path.join(d, 'v2'))
+            p = os.path.join(d, side, rel)
+            with open(p, encoding='utf-8') as f:
+                body = f.read()
+            if old not in body:
+                check('supabase seed %s %s %s' % (lane, side, attr), False, 'seed text not found in %s' % rel)
+                continue
+            with open(p, 'w', encoding='utf-8') as f:
+                f.write(body.replace(old, new, 1))
+            r = quiet(calibrate, mods, os.path.join(d, 'v1'), os.path.join(d, 'v2'), args, [lane], [], {})
+            k, cands, st = r[lane]
+            hit = [c for c in cands if c['diff'] == want and c['attr'] == attr]
+            check('supabase seed %s (%s edit) %s %s -> %d candidate(s)' % (lane, side, want, attr, k), bool(hit) and not st,
+                  '; '.join('%s %s %s' % (c['diff'], c['key'], c['attr']) for c in cands[:4]) or st)
         # prefix sanity: a V2 that mounts everything under another prefix halts I-ROUTES, a prefix row fixes it
         pv2 = os.path.join(tmp, 'prefix-v2')
         shutil.copytree(v2, pv2)
@@ -1555,6 +1924,33 @@ def self_test():
         check('IR-1: V2-only ack + ADR-backed attr row close %s rows; an attr row without an ADR is ignored'
               % sum(r0[l][0] for l in r0), sum(r0[l][0] for l in r0) >= 4 and all(r1[l][0] == 0 for l in r1) and len(ign) == 1,
               str(dict((l, r1[l][0]) for l in r1)))
+        # IR-1: explicit rename rows address keys -> route-join on them; the unaddressed remainder keeps the halt
+        jr = [{'lane': 'I-ROUTES', 'v1': 'GET /api/orders', 'v2': 'GET /v2/invoices', 'reason': 'ADR-010', 'attr': ''},
+              {'lane': 'I-ROUTES', 'v1': 'GET /api/invoices', 'v2': 'GET /v2/nothing', 'reason': 'ADR-011', 'attr': ''}]
+        r0 = quiet(calibrate, mods, v1, pv2, args, ['I-ROUTES', 'I-AUTHZ'], [], {})
+        r1 = quiet(calibrate, mods, v1, pv2, args, ['I-ROUTES', 'I-AUTHZ'], jr, {})
+        ok = ((r0['I-ROUTES'][2] or '').startswith('blocked') and (r1['I-ROUTES'][2] or '').startswith('checked · route-join')
+              and [(c['diff'], c['key']) for c in r1['I-ROUTES'][1]] == [('V1-ONLY', 'GET /v2/nothing')]
+              and any(c['key'] == 'GET /v2/invoices' and c['attr'] == 'abilities' for c in r1['I-AUTHZ'][1])
+              and all(route_of(c['key']) in ('GET /v2/invoices', 'GET /v2/nothing') for c in r1['I-AUTHZ'][1]))
+        check('IR-1: rename rows join their routes past the prefix halt (before: %s)' % (r0['I-ROUTES'][2] or '')[:40], ok,
+              '%s | %s | %s' % (r1['I-ROUTES'][2], r1['I-ROUTES'][1][:3], [(c['key'], c['attr']) for c in r1['I-AUTHZ'][1]]))
+        # IR-2: two V1 keys renamed onto one V2 key are merged and tagged, never overwritten
+        cr = [{'lane': 'I-ROUTES', 'v1': 'GET /api/orders', 'v2': 'GET /api/invoices', 'reason': 'ADR-012', 'attr': ''}]
+        rc2 = quiet(calibrate, mods, v1, v2, args, ['I-AUTHZ'], cr, {})
+        hit = [c for c in rc2['I-AUTHZ'][1] if c['key'] == 'GET /api/invoices' and any(t.startswith('collided(') for t in c['tags'])]
+        check('IR-2: a map collision is merged (abilities %s) and tagged collided' % (hit[0]['v1'] if hit else '-'),
+              bool(hit) and 'orders.view' in hit[0]['v1'], str(rc2['I-AUTHZ'][1][:3]))
+        # IR-10: a glob column rename carries its capture and renames the column inside unique/fk keys; hints suggest it
+        rows = {'col:order.user_id': {'key': 'col:order.user_id', 'attrs': {'null': 'no'}, 'at': 'a:1', 'excerpt': ''},
+                'unique:order(number,user_id)': {'key': 'unique:order(number,user_id)', 'attrs': {}, 'at': 'a:2', 'excerpt': ''},
+                'fk:order(user_id)': {'key': 'fk:order(user_id)', 'attrs': {'ref': 'user'}, 'at': 'a:3', 'excerpt': ''}}
+        mr, _ = apply_map('I-SCHEMA', rows, [{'lane': 'I-SCHEMA', 'v1': 'col:*.user_id', 'v2': 'col:*.tenant_id', 'reason': 'ADR-013', 'attr': ''}])
+        hints = rename_hints([{'diff': 'V1-ONLY', 'key': 'unique:%s(user_id,x)' % t} for t in 'abc'] +
+                             [{'diff': 'V2-ONLY', 'key': 'unique:%s(tenant_id,x)' % t} for t in 'abc'])
+        check('IR-10: glob column rename -> %s; hint %s' % (sorted(mr), hints[:1]),
+              sorted(mr) == ['col:order.tenant_id', 'fk:order(tenant_id)', 'unique:order(number,tenant_id)']
+              and hints and hints[0].startswith('I-SCHEMA\tcol:*.user_id\tcol:*.tenant_id'))
         # rg exit 2 is BLOCKED, never zero files
         try:
             H(v1, 'v1').files(['*.php'], pattern='x(')
@@ -1581,6 +1977,7 @@ def self_test():
             with open(os.path.join(outp, 'ledger.txt')) as f:
                 lt = f.read()
             check('write check prints 0 newer files', 'write check: 0 files' in lt, lt[-300:])
+            check('the ledger prints the exit reason', 'exit 0: ran, no candidates' in lt, lt[-300:])
             rec = os.path.join(tmp, 'v1-inventory')
             rc = quiet(main, ['--record-v1', '--v1=' + gv1, '--pin=' + sha, '--out=' + rec])
             check('record writes one TSV per lane (exit %s)' % rc, len([x for x in os.listdir(rec) if x.endswith('.tsv')]) >= 10)

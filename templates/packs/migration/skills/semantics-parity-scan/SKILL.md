@@ -75,7 +75,7 @@ Static only: the greps list call sites and the lanes key the money areas. The pr
 
 ## Pre-flight
 
-Run as one script (bash 3.2-safe). Inputs and the inside-V2 rule are those of `surface-parity-scan` § Pre-flight: `V2`, `V1` (empty = solo), `MIG`, `LIVE=1` for an uncommitted V1. Every grep ends in `ck`: exit 2 is a blocked class.
+Run as one script (bash 3.2-safe). Inputs and the inside-V2 rule are those of `surface-parity-scan` § Pre-flight: `V2`, `V1` (empty = solo), `MIG`, `LIVE=1` for an uncommitted V1. Every grep ends in `ck`: exit 2 is a blocked class. V1 greps run through `v1g` by V1 stack (`surface-parity-scan` § Pre-flight): a Supabase V1 is read in its SQL (migrations included) and edge functions, a Rails, Django or Spring V1 prints N/A.
 
 ```bash
 PI="${PI:-.claude/skills/paired-inventory/scripts/pair-inventory.py}"; V2="${V2:-.}"; V1="${V1:-}"; MIG="${MIG:-$V2/ai/migration}"
@@ -84,37 +84,39 @@ PI=$(abs "$PI"); MIG=$(abs "$MIG"); [ -n "$V1" ] && V1=$(abs "$V1"); cd "$V2" ||
 OUT="$(mktemp -d "${TMPDIR:-/tmp}/semantics-parity.XXXXXX")"; export GIT_OPTIONAL_LOCKS=0; mkdir "$OUT/no-v1"; : > "$OUT/stamp"
 ck() { [ "$2" -lt 2 ] || echo "$1 BLOCKED (rg exit $2) — the class is blocked, never 0 hits"; }
 if [ -n "$V1" ]; then SIDE=(--v1="$V1" ${LIVE:+--live-v1}); else SIDE=(--v1-inventory="$MIG/v1-inventory"); echo "solo: V1 greps search an empty dir (blocked, no V1 tree)"; fi
-python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-MONEY,I-CONF,I-RULES --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; echo "pair-inventory exit $? — read $OUT/ledger.txt before any row"
+python3 -I "$PI" "${SIDE[@]}" --v2=. --lanes=I-MONEY,I-CONF,I-RULES --pair-map="$MIG/pair-map.tsv" --ledger="$MIG/ledger.md" --out="$OUT/run" > "$OUT/candidates.tsv" 2> "$OUT/ledger.txt"; echo "pair-inventory exit $? — 0 ran clean · 1 candidates (not a failure) · 2/3/4 BLOCKED: read $OUT/ledger.txt (its last line prints the reason) before any row"
 S1=$(ls -d "$OUT"/run/run.*/v1 2>/dev/null | head -1); V1ROOTS=("${S1:-${V1:-$OUT/no-v1}}"); V2ROOTS=(.)
 case "/${V1ROOTS[0]}/" in */fixtures/*|*/test/*|*/tests/*|*/spec/*|*/e2e/*|*/docs/*|*/lang/*|*/vendor/*) echo "BLOCKED: the V1 root path holds an excluded segment, so every V1 grep reads 0 files — copy V1 out or use the snapshot";; esac
 X=(-g '!**/{node_modules,vendor,dist,build,coverage,storage,bootstrap/cache,migrations}/**' -g '!**/{test,tests,spec,__tests__,__mocks__,fixtures,e2e}/**'
    -g '!**/*.{spec,test,e2e-spec,test-data,fixture,fixtures,d,stories}.*' -g '!**/{lang,locales,i18n,docs}/**' -g '!**/database/{seeders,factories}/**' -g '!**/*.{md,lock,map,snap,json}')
+V1STACK=none; [ -f "${V1ROOTS[0]}/composer.json" ] && V1STACK=laravel; [ -d "${V1ROOTS[0]}/supabase/migrations" ] && V1STACK=supabase; echo "V1 stack: $V1STACK (V1 greps read its files: PHP for laravel, SQL + edge functions for supabase, else N/A — never 0 files silently)"
+v1g() { local id="$1" php="$2" sb="$3"; shift 3; case "$V1STACK" in laravel) rg -n --pcre2 "$@" "$php" -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck "$id" $?;; supabase) if [ "$sb" = - ]; then echo "$id N/A (V1 stack supabase: no grep for this shape; the lane rows carry it)"; else rg -n -i --pcre2 "$sb" -g '*.{sql,ts,toml}' -g '!**/{node_modules,tests,__tests__}/**' -g '!**/*.{test,spec}.ts' "${V1ROOTS[0]}/supabase"; ck "$id" $?; fi;; *) echo "$id N/A (V1 stack $V1STACK: this grep reads Laravel PHP or Supabase SQL; a Rails, Django or Spring V1 prints N/A)";; esac; }
 awk -F'\t' '$1=="CANDIDATE" && ($4 ~ /^area:|^(timezone|locale|currency|per_page)$/ || $5 ~ /^(max|clamp_max)$/)' "$OUT/candidates.tsv" | cut -f2-9
 # 0. Engines, runtimes, libraries and process zones on both sides (gates 3 and 7 for every class below).
 rg -n --pcre2 '^\s*DB_CONNECTION=|"php"\s*:\s*"[^"]+"|"(?:pg|mysql2|@mikro-orm/(?:postgresql|mysql)|decimal\.js|big\.js|dayjs|luxon|date-fns-tz|i18next)"\s*:|^\s*(?:ENV\s+)?TZ[=\s]|\b(?:APP_TIMEZONE|TZ)\b\s*(?::|=)' -g '*.{json,yaml,yml,example,php}' -g 'Dockerfile*' -g '!**/{node_modules,vendor}/**' -g '!**/*lock*' "${V1ROOTS[@]}" "${V2ROOTS[@]}"; ck SM0 $?
 # 1. Rounding calls: V2 (JS/TS, Python) and V1 (PHP). A cents shape `Math.round(x * 100) / 100` is the negative-half pair.
 rg -n --pcre2 'Math\.round\(|\.toFixed\(|\btoDecimalPlaces\(|\bROUND_(?:HALF_\w+|UP|DOWN|CEIL|FLOOR)\b|\bRoundingMode\.\w+|\bquantize\(|(?<![\w.])round\(' -g '*.{ts,tsx,js,py}' "${X[@]}" "${V2ROOTS[@]}"; ck SM1a $?
-rg -n --pcre2 '(?<![\w>:$])round\(|\bnumber_format\(|\bbc(?:add|sub|mul|div|mod|pow)\(|\bPHP_ROUND_\w+|RoundingMode::\w+' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM1b $?
+v1g SM1b '(?<![\w>:$])round\(|\bnumber_format\(|\bbc(?:add|sub|mul|div|mod|pow)\(|\bPHP_ROUND_\w+|RoundingMode::\w+' '\bround\s*\(|\btrunc\s*\(|::\s*numeric\s*\(\s*\d+\s*,\s*\d+|\.toFixed\(|Math\.round\('
 # 2. Order and allocation: V2 rounds an aggregate or splits by a count; V1 rounds per line and sums, or allocates a remainder.
 rg -n --pcre2 '[Rr]ound\w*\(\s*[\w.]*(?:[Ss]ub)?[Tt]otal\w*\s*[*/]|[Rr]ound\w*\([^()\n]*/\s*[\w.]*(?:count|length|parts|n)\b|\.toFixed\([^()\n]*\)\s*\*\s*\w*(?:count|length)\b' -g '*.{ts,tsx,js,py}' "${X[@]}" "${V2ROOTS[@]}"; ck SM2a $?
-rg -n --pcre2 '\+=\s*round\(|\bfunction\s+allocate\w*\(|\$remainder\b' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM2b $?
+v1g SM2b '\+=\s*round\(|\bfunction\s+allocate\w*\(|\$remainder\b' '\bround\s*\(\s*[\w.]+\s*\*\s*[\w.]+|\bround\s*\([^;]*\)\s*\*\s*\w+|\bsum\s*\(\s*round\s*\('
 # 4. Integer division: V2 floor / round / ceil of a quotient, `| 0`, Python `//`; V1 intdiv, (int) casts, fmod.
 rg -n --pcre2 'Math\.(?:floor|round|ceil)\(\s*[^()\n]*?[\w)]\s*/\s*[\w(]|\bparseInt\([^()\n]*/|[\w)]\s*/\s*[\w.]+\s*\|\s*0\b|\w\s*//\s*\w' -g '*.{ts,tsx,js,py}' "${X[@]}" "${V2ROOTS[@]}"; ck SM4a $?
-rg -n --pcre2 '\bintdiv\(|\(int\)\s*\(\s*\$[\w>-]+\s*/|\bfmod\(|\bfloor\(\s*\$[\w>-]+\s*/' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM4b $?
+v1g SM4b '\bintdiv\(|\(int\)\s*\(\s*\$[\w>-]+\s*/|\bfmod\(|\bfloor\(\s*\$[\w>-]+\s*/' '\bdiv\s*\(|::\s*(?:int|integer|bigint)\s*/\s*\w+|\w+\s*/\s*\w+\s*\)?\s*::\s*(?:int|integer|bigint)\b|Math\.(?:floor|trunc)\(\s*[\w.]+\s*/'
 # 5. Strings and look-alikes: byte vs character lengths, code-unit slicing, split limits, indexOf truthiness.
 rg -n -U --pcre2 'Buffer\.byteLength\(|\.substring\(\s*0\s*,|\.substr\(|\.split\([^()\n]*,\s*\d+\s*\)|(\w+)\s*=\s*[^;\n]*\.(?:indexOf|findIndex|search)\([^\n]*\n(?:[^\n]*\n){0,6}?[^\n]*(?:\(\s*!\s*\1\s*[)&|]|\1\s*==\s*(?:false|null)\b)' -g '*.{ts,tsx,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SM5a $?
-rg -n --pcre2 '\bmb_(?:substr|strlen|str_split|strtolower|strtoupper|strimwidth)\(|(?<!mb_)\b(?:substr|strlen|strtolower|strtoupper|ucfirst)\(|\bexplode\([^()\n]*,[^()\n]*,\s*-?\d+\s*\)|\barray_search\(|\bstrpos\(' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM5b $?
+v1g SM5b '\bmb_(?:substr|strlen|str_split|strtolower|strtoupper|strimwidth)\(|(?<!mb_)\b(?:substr|strlen|strtolower|strtoupper|ucfirst)\(|\bexplode\([^()\n]*,[^()\n]*,\s*-?\d+\s*\)|\barray_search\(|\bstrpos\(' '\bsplit_part\s*\(|\b(?:left|right|substr|substring)\s*\(|\.(?:slice|substring|substr)\(|\binitcap\s*\('
 # 6. Ordering: V2 paged reads with no orderBy, and findOne ordered by one non-id key (ties); V1 single-key orderBy and latest().
 rg -n -U --pcre2 '\.(?:find|findAndCount|findAll|findMany)\(\s*\w+\s*,(?:(?!\borderBy\b)[^;])*?\b(?:limit|offset|take|skip)\b(?:(?!\borderBy\b)[^;])*?\)\s*;|\.(?:findOne\w*|findFirst\w*)\(\s*\w+\s*,[^;]*?\borderBy\s*:\s*\{\s*(?!id\b|uuid\b)\w+\s*:\s*[\w.\x27"]+\s*,?\s*\}' -g '*.{ts,js}' "${X[@]}" "${V2ROOTS[@]}"; ck SM6a $?
-rg -n --pcre2 '(?:->orderBy(?:Desc)?\(\s*\x27\w+\x27\s*\)\s*(?:->(?:first|get|paginate|simplePaginate|take|limit)\(|$)|->(?:latest|oldest)\(\))' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM6b $?
+v1g SM6b '(?:->orderBy(?:Desc)?\(\s*\x27\w+\x27\s*\)\s*(?:->(?:first|get|paginate|simplePaginate|take|limit)\(|$)|->(?:latest|oldest)\(\))' '\border\s+by\s+[\w.]+(?:\s+(?:asc|desc))?\s*(?:limit\b|\)|;)'
 # 7. Null / empty / missing: V2 branches to `undefined` or spreads a key in only when set; V1 forces lists and nulls.
 rg -n --pcre2 '\?\s*[^:;\n]+:\s*undefined\b|\.\.\.\(\s*[^()\n]*?&&\s*\{|\bjson:"\w+,omitempty"|\bexclude_(?:none|unset)\s*=\s*True' -g '*.{ts,tsx,js,go,py}' "${X[@]}" "${V2ROOTS[@]}"; ck SM7a $?
-rg -n --pcre2 '(?:->values\(\))|=>\s*\$this->\w+\?->|\bjson_encode\(|\barray_filter\((?![^\n]*array_values)|JSON_(?:PRESERVE_ZERO_FRACTION|FORCE_OBJECT)' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM7b $?
+v1g SM7b '(?:->values\(\))|=>\s*\$this->\w+\?->|\bjson_encode\(|\barray_filter\((?![^\n]*array_values)|JSON_(?:PRESERVE_ZERO_FRACTION|FORCE_OBJECT)' '\bjsonb?_strip_nulls\s*\(|\bnullif\s*\(\s*[\w.]+\s*,\s*\x27\x27\s*\)|\bcoalesce\s*\(\s*[\w.]+\s*,\s*\x27\x27\s*\)'
 # 8. Time zones: V2 parses dates with no zone; V1 parses in the app zone (Carbon). The config pair is the I-CONF row above.
 rg -n --pcre2 '\bdayjs\(\s*[\w.]+\s*\)(?!\s*\.tz)|\bmoment\(\s*[\w.]+\s*\)(?!\s*\.tz)|\bnew Date\(\s*\w*(?:Raw|Str|String|query|body|params|input|from|to)\w*\s*\)|\bDate\.parse\(|\bdatetime\.(?:now|fromisoformat|strptime)\((?![^)\n]*tz)' -g '*.{ts,tsx,js,py}' "${X[@]}" "${V2ROOTS[@]}"; ck SM8a $?
-rg -n --pcre2 'Carbon::(?:parse|createFromFormat)\(|\bstrtotime\(|->(?:timezone|setTimezone)\(|\bdate_default_timezone_set\(|->(?:startOfDay|endOfDay|addMonths?|subMonths?)\(' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM8b $?
+v1g SM8b 'Carbon::(?:parse|createFromFormat)\(|\bstrtotime\(|->(?:timezone|setTimezone)\(|\bdate_default_timezone_set\(|->(?:startOfDay|endOfDay|addMonths?|subMonths?)\(' '\bat\s+time\s+zone\b|\bdate_trunc\s*\(|::\s*date\b|\bcurrent_date\b|\btimezone\s*\('
 # 3 / 9 / 10 — routed: the V1 inventory each owner needs (decimal casts, plural calls, implicit transactions and locks).
-rg -n --pcre2 '\x27decimal:\d+\x27|\btrans_choice\(|@choice\(|\bDB::transaction\(|->(?:lockForUpdate|sharedLock)\(\)' -g '*.php' "${X[@]}" "${V1ROOTS[@]}"; ck SM-routed $?
+v1g SM-routed '\x27decimal:\d+\x27|\btrans_choice\(|@choice\(|\bDB::transaction\(|->(?:lockForUpdate|sharedLock)\(\)' '::\s*numeric\s*\(|\bfor\s+update\b|\bpg_advisory\w*lock\b|\bisolation\s+level\b'
 for R in "$V1" .; do [ -n "$R" ] && find "$R" -newer "$OUT/stamp" -type f -not -path '*/node_modules/*' | head -3; done; echo "write check done (empty = nothing written)"
 ```
 
@@ -122,7 +124,9 @@ Pair the V2 lines with the V1 lines by path: the I-MONEY `area:` key, a `// Port
 
 ## Measured
 
-Measured 2026-10-18 on this repo's fixtures only.
+Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase → Nest port (read-only).
+
+- **A real Supabase → Nest port** (2026-10-19). Before: every SM V1 grep read `*.php` (0 V1 lines). After: SM1b 484 · SM2b 273 · SM4b 2 · SM5b 504 · SM6b 525 · SM7b 1,252 (narrowed from 12,940: only `coalesce(x, '')`, `nullif(x, '')`, `json_strip_nulls`) · SM8b 369 · SM-routed 376. The I-MONEY lane pairs 5 V1 areas (was 1) once pagination rounding is dropped (precedent § 49). `port-pair` unchanged.
 
 - **`port-pair`, paired** (`--live-v1`; the port PR in `change/` overlaid). Engine rows (the build whose candidate rows carry a `lane` column): I-MONEY 5 / 6 rows → 1 V2-ONLY, 4 CHANGED — the PR's `credit-note.ts` pairs by name with V1 `PricingService` as `area:pricing half-away → half-away,half-up`, and `area:order` carries the `float-tofixed` line net; I-CONF `timezone` Asia/Riyadh → UTC and `per_page` 25 → 20. Grep lines: SM0 9 · SM1a 9 · SM1b 12 · SM2a 2 · SM2b 4 · SM4a 2 · SM4b 3 · SM5a 6 · SM5b 8 · SM6a 7 (3 sites) · SM6b 8 · SM7a 2 · SM7b 8 · SM8a 1 · SM8b 6 · routed 16. Each of the 16 migration-owned SM seeds sits on a grep line or a lane row, the **negative-half credit-note seed** on SM1a (`Math.round(Number(net) * ratio * -1 * 100) / 100`) paired with SM1b `round((float) $net * $ratio * -1, 2)`; the three routed seeds sit on the routed line (casts, `lockForUpdate`) or their owner's input (`lang/ar`). Decoys on a line, refuted on reading: half-even by ADR (SM1a), decimal.js `ROUND_HALF_UP` (SM1a), the tag suggester whose contract says the order is unspecified (SM6a). The display-only `Intl.NumberFormat` decoy is on no line.
 - **Noise fix.** SM6a first also listed every single-key `orderBy`: 14 lines on `slow-marketplace`. Restricted to paged reads with no `orderBy` and `findOne` ordered by one non-id key, it prints 1 there and keeps both seeds.
