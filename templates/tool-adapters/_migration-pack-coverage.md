@@ -82,7 +82,7 @@ Every adapter setup that includes `--include=migration` MUST also propagate thes
 |--------|------|
 | `validate-migration-artifacts.sh` | Primary gate; hooks use `--hook-mode`. |
 | `migration-doctor.sh` | Multi-repo workspace health walk; **non-zero exit** on validator failures, cross-repo dependency violations, or stale audits (do not rely on stdout alone). |
-| `migration-reachability.sh` | Template + `--lint` for `ai/migration/reachability/<feature>.md` (cron / queue / route / admin / deploy / runbook axes). |
+| `migration-reachability.sh` | Halt 11's six axes (app source / downstream tests / cron-scheduler / route-API registration / infra-deploy / production telemetry) for `ai/migration/reachability/<feature>.md`: the template, `--compute` (rg caller counts per axis, read-only; rg exit 2 → BLOCKED) and `--lint` (re-computes when the doc names its `symbols:`). |
 | `migration-detect-existing.sh` | Pre-port collision scoring; reads `v2_root` from `ai/migration/_v2-anchors.md` (not hard-coded `src/`). |
 | `migrate-parallel.sh` | Headless ledger dispatch; parses rows with `## <feature-id>` headings and fenced YAML accepting **`state:`** or **`status:`**. |
 | `parallel-fan-out.sh` | Parallel worker wrapper; **flocks** `ai/migration/ledger.md` by default — set `LEDGER_LOCK=""` only when serializing writes elsewhere. |

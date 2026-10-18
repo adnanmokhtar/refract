@@ -1,0 +1,47 @@
+# pair-inventory 1 · lane=I-ROUTES · side=v1 · sha=61cb5c927438bcbf4b971b17938abe99c70b70f8 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=44
+# lane	key	attrs	at	excerpt
+I-ROUTES	ANY /api/{*}	constraint=;fallback=yes;handler=fallback;opt=0	routes/api.php:69	Route::fallback(fn () => response()->json(['message' => 'Not Found.'], 404));
+I-ROUTES	GET /	constraint=;handler=view;opt=0	routes/web.php:8	Route::view('/', 'portal.dashboard')->name('portal.home');
+I-ROUTES	GET /api/admin/users	constraint=;handler=AdminUserController@index;opt=0	routes/api.php:63	Route::get('/users', [AdminUserController::class, 'index']);
+I-ROUTES	GET /api/admin/users/{}	constraint=;handler=AdminUserController@show;opt=0	routes/api.php:64	Route::get('/users/{user}', [AdminUserController::class, 'show']);
+I-ROUTES	GET /api/invoices	constraint=;handler=InvoiceController@index;opt=0	routes/api.php:31	Route::get('/', 'index')->middleware('can:invoices.view');
+I-ROUTES	GET /api/invoices/{}	constraint=;handler=InvoiceController@show;opt=0	routes/api.php:32	Route::get('/{invoice}', 'show');
+I-ROUTES	GET /api/invoices/{}/pdf	constraint=;handler=InvoiceController@pdf;opt=0	routes/api.php:33	Route::get('/{invoice}/pdf', 'pdf');
+I-ROUTES	GET /api/me	constraint=;handler=MeController@show;opt=0	routes/api.php:17	Route::get('/me', [MeController::class, 'show']);
+I-ROUTES	GET /api/orders	constraint=;handler=OrderController@index;opt=0	routes/api.php:21	Route::get('/', 'index')->middleware('can:orders.view');
+I-ROUTES	GET /api/orders/export	constraint=;handler=OrderController@export;opt=0	routes/api.php:23	Route::get('/export', 'export')->middleware('can:orders.view');
+I-ROUTES	GET /api/orders/{}	constraint=;handler=OrderController@show;opt=0	routes/api.php:24	Route::get('/{order}', 'show')->middleware('can:view,order');
+I-ROUTES	GET /api/reports/legacy-aging	constraint=;handler=ReportController@legacyAging;opt=0	routes/api.php:60	Route::get('/reports/legacy-aging', [ReportController::class, 'legacyAging'])->middleware('can:reports.view');
+I-ROUTES	GET /api/reports/sales	constraint=;handler=ReportController@sales;opt=0	routes/api.php:58	Route::get('/reports/sales', [ReportController::class, 'sales'])->middleware('can:reports.view');
+I-ROUTES	GET /api/reports/sla	constraint=;handler=ReportController@sla;opt=0	routes/api.php:59	Route::get('/reports/sla', [ReportController::class, 'sla'])->middleware('can:reports.view');
+I-ROUTES	GET /api/stock	constraint=;handler=StockController@index;opt=0	routes/api.php:46	Route::get('/', 'index');
+I-ROUTES	GET /api/stock/low-stock	constraint=;handler=StockController@lowStock;opt=0	routes/api.php:47	Route::get('/low-stock', 'lowStock');
+I-ROUTES	GET /api/stock/{}	constraint=;handler=StockController@show;opt=0	routes/api.php:49	Route::get('/{sku}', 'show');
+I-ROUTES	GET /api/tickets	constraint=;handler=TicketController@index;opt=0	routes/api.php:53	Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);
+I-ROUTES	GET /api/tickets/{}	constraint=;handler=TicketController@show;opt=0	routes/api.php:53	Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);
+I-ROUTES	GET /api/wallets/{}	constraint=;handler=WalletController@show;opt=0	routes/api.php:38	Route::get('/{wallet}', 'show')->middleware('permission:wallets.view');
+I-ROUTES	GET /api/wallets/{}/statement	constraint=;handler=WalletController@statement;opt=0	routes/api.php:39	Route::get('/{wallet}/statement', 'statement')->middleware('permission:wallets.view');
+I-ROUTES	GET /exports/{}	constraint=;handler=ExportDownloadController@show;opt=0	routes/web.php:17	Route::get('/exports/{file}', [ExportDownloadController::class, 'show'])
+I-ROUTES	GET /orders	constraint=;handler=PortalController@orders;opt=0	routes/web.php:9	Route::get('/orders', [PortalController::class, 'orders'])->name('portal.orders');
+I-ROUTES	GET /orders/new	constraint=;handler=PortalController@createOrder;opt=0	routes/web.php:10	Route::get('/orders/new', [PortalController::class, 'createOrder'])->name('portal.orders.create');
+I-ROUTES	GET /tickets/{}	constraint=;handler=PortalController@ticket;opt=0	routes/web.php:13	Route::get('/tickets/{ticket}', [PortalController::class, 'ticket'])->name('portal.tickets.show');
+I-ROUTES	GET /wallet	constraint=;handler=PortalController@wallet;opt=0	routes/web.php:11	Route::get('/wallet', [PortalController::class, 'wallet'])->name('portal.wallet');
+I-ROUTES	GET /wallet/statements	constraint=;handler=PortalController@statements;opt=0	routes/web.php:12	Route::get('/wallet/statements', [PortalController::class, 'statements'])->name('portal.wallet.statements');
+I-ROUTES	PATCH /api/account	constraint=;handler=MeController@updateAccount;opt=0	routes/api.php:18	Route::patch('/account', [MeController::class, 'updateAccount']);
+I-ROUTES	PATCH /api/orders/{}	constraint=;handler=OrderController@update;opt=0	routes/api.php:25	Route::patch('/{order}', 'update')->middleware('can:update,order');
+I-ROUTES	PATCH /api/tickets/{}	constraint=;handler=TicketController@update;opt=0	routes/api.php:54	Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->middleware('role:agent|admin');
+I-ROUTES	POST /api/auth/token	constraint=;handler=AuthController@token;opt=0	routes/api.php:14	Route::post('/auth/token', [AuthController::class, 'token']);
+I-ROUTES	POST /api/invoices/{}/issue	constraint=;handler=InvoiceController@issue;opt=0	routes/api.php:34	Route::post('/{invoice}/issue', 'issue')->middleware('can:invoices.issue');
+I-ROUTES	POST /api/orders	constraint=;handler=OrderController@store;opt=0	routes/api.php:22	Route::post('/', 'store')->middleware('can:orders.create');
+I-ROUTES	POST /api/orders/{}/cancel	constraint=;handler=OrderController@cancel;opt=0	routes/api.php:26	Route::post('/{order}/cancel', 'cancel')->middleware('can:update,order');
+I-ROUTES	POST /api/orders/{}/duplicate	constraint=;handler=OrderController@duplicate;opt=0	routes/api.php:27	Route::post('/{order}/duplicate', 'duplicate')->middleware('can:orders.create');
+I-ROUTES	POST /api/stock/import	constraint=;handler=StockController@import;opt=0	routes/api.php:48	Route::post('/import', 'import')->middleware('permission:stock.import');
+I-ROUTES	POST /api/stock/{}/reserve	constraint=;handler=StockController@reserve;opt=0	routes/api.php:50	Route::post('/{sku}/reserve', 'reserve')->middleware('permission:stock.reserve');
+I-ROUTES	POST /api/tickets	constraint=;handler=TicketController@store;opt=0	routes/api.php:53	Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);
+I-ROUTES	POST /api/tickets/next	constraint=;handler=TicketController@next;opt=0	routes/api.php:56	Route::post('/tickets/next', [TicketController::class, 'next'])->middleware('role:agent|admin');
+I-ROUTES	POST /api/tickets/{}/reopen	constraint=;handler=TicketController@reopen;opt=0	routes/api.php:55	Route::post('/tickets/{ticket}/reopen', [TicketController::class, 'reopen']);
+I-ROUTES	POST /api/wallets/{}/adjust	constraint=;handler=WalletController@adjust;opt=0	routes/api.php:40	Route::post('/{wallet}/adjust', 'adjust')->middleware('permission:wallets.adjust');
+I-ROUTES	POST /api/wallets/{}/credit-limit	constraint=;handler=WalletController@creditLimit;opt=0	routes/api.php:41	Route::post('/{wallet}/credit-limit', 'creditLimit')->middleware('permission:wallets.adjust');
+I-ROUTES	POST /api/wallets/{}/installments	constraint=;handler=WalletController@installments;opt=0	routes/api.php:42	Route::post('/{wallet}/installments', 'installments')->middleware('permission:wallets.view');
+I-ROUTES	PUT /api/admin/users/{}/roles	constraint=;handler=AdminUserController@syncRoles;opt=0	routes/api.php:65	Route::put('/users/{user}/roles', [AdminUserController::class, 'syncRoles']);

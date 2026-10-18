@@ -1,0 +1,11 @@
+# pair-inventory 1 · lane=I-ENUM · side=v1 · sha=74e3de7b0c6fd8fdcb54d9b77935a6658ddb0950 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=8
+# lane	key	attrs	at	excerpt
+I-ENUM	col:invoice.status	names=InvoiceStatus;values=draft,issued,paid,void	app/Models/Invoice.php:20	'status' => InvoiceStatus::class,
+I-ENUM	col:order.status	names=OrderStatus;values=cancelled,draft,packed,placed,refunded,shipped	app/Models/Order.php:30	'status' => OrderStatus::class,
+I-ENUM	col:ticket.priority	names=TicketPriority;values=1,2,3,4	app/Models/Ticket.php:31	'priority' => TicketPriority::class,
+I-ENUM	col:ticket.status	names=TicketStatus;values=closed,open,pending,solved	app/Models/Ticket.php:30	'status' => TicketStatus::class,
+I-ENUM	type:invoicestatus	names=InvoiceStatus;values=draft,issued,paid,void	app/Enums/InvoiceStatus.php:5	enum InvoiceStatus: string
+I-ENUM	type:orderstatus	names=OrderStatus;values=cancelled,draft,packed,placed,refunded,shipped	app/Enums/OrderStatus.php:5	enum OrderStatus: string
+I-ENUM	type:ticketpriority	names=TicketPriority;values=1,2,3,4	app/Enums/TicketPriority.php:6	enum TicketPriority: int
+I-ENUM	type:ticketstatus	names=TicketStatus;values=closed,open,pending,solved	app/Enums/TicketStatus.php:5	enum TicketStatus: string

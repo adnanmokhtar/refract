@@ -4,7 +4,7 @@ Cross-cuts the tool-adapter registry. Documents how each tool surfaces the align
 
 The align pack is **non-negotiable** in the same sense the migration pack is — its discipline rule (`align-discipline.md`) is the contract every tool's setup must preserve. Adapters with low capability (Rules-only) translate the rule fully; adapters with full capability (R+A+S+C+H) get the full pack.
 
-> **Why this file exists**: align is migration discipline turned inward. The same Trusted-Summary / Hand-waved-Enumeration / Reinvented-Wrapper / Silent-Catch failure modes that hit V1→V2 ports also hit single-codebase quality sweeps. The discipline rule (`align-discipline.md`) is self-sufficient precisely so rule-only tools (Aider, Codex, Gemini) get the full quality-gate floor without depending on agent / skill / command dispatch.
+> **Why this file exists**: align is migration discipline turned inward — **declared-convention enforcement**: it finds live sites that break a convention the project already declares (a lint rule at `error`, a human-written line in `ai/conventions.md`, an ADR, the glossary, the token set, a named wrapper), proves each against its oracle line, and closes the align-owned rows with EQ / VC / FN proof. The same Trusted-Summary / Hand-waved-Enumeration / Reinvented-Wrapper failure modes that hit V1→V2 ports also hit single-codebase sweeps, plus two of its own: the Invented Convention (a row citing no oracle) and the Majority Vote (a split enforced as a rule). The discipline rule (`align-discipline.md`) is self-sufficient precisely so rule-only tools (Aider, Codex, Gemini) get the enforcement floor without depending on agent / skill / command dispatch.
 
 ## Capability mapping per tool
 
@@ -23,17 +23,17 @@ The align pack is **non-negotiable** in the same sense the migration pack is —
 | Kimi | rule + skills (dual-surface: `.kimi/skills/<name>/SKILL.md` + `.kimi/subagents/<name>.yaml`); no per-project hooks — the hooks engine is user-level `~/.kimi/config.toml` | partial — a regular skill is "contextual guidance", so the rule must self-suffice unless the optional Flow Skill upgrade is taken |
 | Qwen | rule + skills + commands + agents + hooks (`.qwen/settings.json` `hooks` block, project-level) | n/a — the fullest non-Claude surface in the matrix |
 
-**Conclusion**: every tool MUST receive a faithful translation of `align-discipline.md` (the self-sufficient rule). The 11 named finding categories, 21-verb closure vocabulary, 11 per-finding audit halts, 14-check phase-exit gate, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate) are all inlined in the rule precisely so rule-only tools have the full surface.
+**Conclusion**: every tool MUST receive a faithful translation of `align-discipline.md` (the self-sufficient rule): the oracle and its tiers (T1 / T2 / T2g / contested), what align owns, closes for an owner (EQ rows) and routes, the AL-01…AL-34 class names and the legacy map, the 21-verb closure vocabulary, the EQ / VC / FN proof classes, 11 per-finding audit halts, the 17-check phase-exit gate in outline, and the anti-pattern pointer. The full class ledger (detector, owner, closer per AL id) lives in the `align-detect` skill and the proof ladder in `find-and-align`; a tool without skills must ship those two `SKILL.md` files as reference text, because the rule points at them instead of restating them.
 
-> **11 classes vs 12 detectors — reconciliation.** Per `templates/packs/align/_version.json` (1.6.0 "Count consistency"): there are **11 universal named classes** (5 structural + 6 functional) in `align-discipline.md`, but **12 universal detectors** in the scan/validator surface — the extra detector is the `dependencies` (vuln-deps) sub-class plus the stack-specific file-convention detector counted separately. So "11 classes" and "12 detectors" are both correct and refer to different counts; this doc uses "12 detectors" wherever it means the scan-evidence surface and "11 classes" wherever it means the named taxonomy.
+> **Class count.** There are **34 classes, AL-01…AL-34** (`align-detect` § The class ledger), each with one owner. Align's own detectors (`convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan`) own AL-01–04, 11, 13–19, 22, 29–32; `align-sweep-gate.py` owns AL-33/34 on fix runs; the rest are owner classes (ui-ux, code-quality, backend, frontend) dispatched when their pack is installed. The old "11 universal classes / 12 detectors" count is retired: security, performance, data, error handling, dead code, SOLID and complexity are no longer align classes, and old ledgers carrying those names are read through the legacy map (routed, never closed).
 
-**Agents (added 1.9.0 — this section previously read "the align pack ships no agents").** Align ships **four**, and they are *auditors, not detectors*. Detection stays delegated to the `detect-drift` skill, which dispatches existing agents from `code-quality/`, `security/`, `performance/`, `frontend/`, `ui-ux/`, `mobile/`. What the four own is the **verdict** surface, split by when in a finding's life the audit happens:
+**Agents (added 1.9.0 — this section previously read "the align pack ships no agents").** Align ships **four**, and they are *auditors, not detectors*. Detection is the five detector skills plus the owner packs' detectors, dispatched by `align-detect`. What the four own is the **verdict** surface, split by when in a row's life the audit happens:
 
 | Agent | Window | Owns | Dispatched by |
 |---|---|---|---|
-| `align-evidence-auditor` | pre-fix (scan output) | audit halts #1–#4, #11 + out-of-domain routing | `/align-scan` Phase 6, `/align-recheck` TRIAGE, `/align-replan --include-drifted` |
+| `align-evidence-auditor` | pre-fix (scan output) | audit halts #1–#4, #11, the AL-01 quote check + out-of-domain routing | `/align-scan` Phase 6, `/align-recheck` TRIAGE, `/align-replan --include-drifted` |
 | `align-idiom-auditor` | per-fix (one diff) | audit halts #6, #9, #10 + the enforce-existing-vs-introduce-new boundary | `find-and-align` DECIDE + VERIFY (so: `/align-phase`, `/align-fast`, `/align-recheck`) |
-| `align-gate-auditor` | post-phase (one phase) | the 14-check matrix; PASS / REFUSE | `/align-gate`, `/align-fast` auto-gate, `/align-final` |
+| `align-gate-auditor` | post-phase (one phase) | the 17-check matrix; PASS / REFUSE | `/align-gate`, `/align-fast` auto-gate, `/align-final` |
 | `align-ledger-auditor` | cross-phase (all state) | ledger ↔ git ↔ halts ↔ plan reconciliation + SLA | `/align-status`, `/align-final`, `/align-replan` |
 
 **What this changes for adapters: nothing structural, but do not translate them away.** The four agents are the rule's halts given an owner and a dispatch address — they add no discipline the self-sufficient rule did not already carry, which is why rule-only tools (Aider / Codex / Gemini) still reach the same enforcement floor by following the inlined procedure. A tool WITH agent support that drops them regresses to the pre-1.9.0 shape: each command re-deriving the same audit inline, with no guarantee two commands run it the same way. Tools with agent support MUST surface all four; tools without MUST keep the inlined halts they already carry. Neither may claim the audits ran when they did not.
@@ -67,7 +67,7 @@ Adapter responsibility:
 1. Every tool that exposes commands MUST surface `/align` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.qwen/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
 2. The "no phases / halts / ADRs in user-facing output" contract MUST be preserved — adapters MUST NOT downgrade the simple command into the verbose phased flow.
 3. Progress file location (`ai/align/progress.md`) MUST be honoured so multi-day runs survive across sessions.
-4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area; agent reads project profile, scans source via universal detectors, fixes drift in parallel, brief end-of-run summary."
+4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area; agent builds the oracle map, runs the align detectors' pre-flights on it, drops rows whose oracle quote does not resolve, fixes the align-owned rows through the proof ladder, routes the rest, brief end-of-run summary."
 
 ## Verification flow — `--re-audit`
 
@@ -77,90 +77,92 @@ Adapter responsibility: this flag MUST be exposed in tool-native command surface
 
 ## Validator script — `validate-align-artifacts.sh` (v1.5+)
 
-Now ships at `scripts/validate-align-artifacts.sh`. Enforces the `[SCRIPT]`-tagged checks **mechanically** (see the tagged 14-check matrix below): evidence-resolves, no-handwaves, closure-verb-vocab, no-new-symbols (idiom-named exemption), structural-net-lines-non-positive, scope-boundary, security-tier-minimum, security-assertion, perf-baseline, idiom-citation, oracle-unmodified, scope-code-smells — plus the run-level scan-report-evidence, progress/ledger-reconciliation, and actionable-next-steps checks.
+Ships at `scripts/validate-align-artifacts.sh`. Enforces the `[SCRIPT]`-tagged row checks **mechanically** (see the tagged 17-check matrix below): evidence-resolves, no-handwaves, al-class (AL ids + the legacy map), oracle-cited, closure-verb-vocab, no-new-symbols, structural-net-lines-non-positive, scope-boundary (file level, every commit of the row), proof-class, vc-approval, owner-routed, side-state fields, idiom-citation, oracle-unmodified, scope-code-smells — plus, for legacy rows only, security-tier-minimum, security-assertion and perf-baseline — and the run-level scan-report-evidence (every AL class has a status line), progress/ledger-reconciliation, and actionable-next-steps checks. A check it cannot run prints `NOT RUN`, which `--strict` counts as a failure.
 
-The `[AGENT]`-tagged checks (test-coverage, frontend-regression, re-detect-to-zero, fingerprint-still-present, ledger-completeness, mechanical-at-HEAD, per-tier-artifact-set) stay agent-side — they require running detectors / the test suite / a11y / bundle tooling, which a deterministic validator cannot do. The validator's own header (`§ Genuinely agent-side`) admits this; rule-only tools MUST NOT assume the script covers them.
+The `[SWEEP]`-tagged checks run in `find-and-align`'s `scripts/align-sweep-gate.py` (stdlib Python, `python3 -I`, writes only under `$TMPDIR`): line-level scope, re-detect zero, one way per pattern, test lock, emitted names, value round-trip (with the ui-ux pack's `token-map.py`), non-vacuous, ratchet shrink-only, coverage. The `[AGENT]`-tagged checks (ledger completeness, mechanical + boot at HEAD, the zero computed-style evidence, per-tier artifacts) stay agent-side — rule-only tools MUST NOT assume a script covers them.
 
-Adapter responsibility: install the script as a hook integration per tool (see Validator script — universal callable section).
+Adapter responsibility: install the script as a hook integration per tool (see Validator script — universal callable section), and ship `align-sweep-gate.py` with the `find-and-align` skill (or, for skill-less tools, beside the validator).
 
 ## Reviewer-approval mechanism (v1.5+)
 
 Heavy-tier rows pause for reviewer approval. Ledger field: `reviewer_approval: <name>@<iso>`. Status `pending-review` between fix and signoff. Default reviewer from `CODEOWNERS` or `ai/align/_anchors.md`. 7-day timeout; no auto-fail.
 
-Adapter responsibility: surface pending-review halts to the user. Tools with native PR review surfaces MAY auto-populate `reviewer_approval` on merge.
+A **VC row** (a visible change: a nearest-token snap, a wrapper with different defaults) is a separate gate: `approval: <name>@<iso>` written by a human after reading the visual diff, never by an agent and never in the fix commit; the row waits at `pending-approval` until then.
 
-## Mid-port tier promotion — `/align-promote-tier` (v1.5+)
+Adapter responsibility: surface `pending-review` and `pending-approval` rows to the user. Tools with native PR review surfaces MAY auto-populate `reviewer_approval` on merge; nothing may auto-populate `approval:`.
 
-`/align-promote-tier <id> <new-tier> [--reason="<text>"]`. Demotion of security rows is forbidden.
+## Mid-sweep tier promotion — `/align-promote-tier` (v1.5+)
+
+`/align-promote-tier <id> <new-tier> [--reason="<text>"]`. Demotion below heavy of an AL-15 gate row (or a VC row on a shared component) is forbidden; procedure in `ai/patterns/align-guardrails.md § Mid-sweep tier promotion`.
 
 Adapter responsibility: surface in command surface.
 
 ## Idiom-drift propagation (v1.5+)
 
-`/align-scan` compares oracle file hashes against prior scan; surfaces "Idiom drift detected" with affected ledger rows. `/align-replan --include-drifted` re-phases.
+`/align-scan` compares the hashes of the oracle files rows cite against the prior scan; lists the rows whose `oracle:` or `idiom_cited` points into a changed file (re-verified, never auto-flipped). `/align-replan --include-drifted` re-phases.
 
 Adapter responsibility: include the drift section in the scan command's output template translation.
 
 ## Plan-independent ad-hoc spot-check — `/align-recheck`
 
-`/align-recheck <description-or-path>` is the user's bypass-the-ceremony tool (v1.4.0). **NO plan / phase / ledger required.** Accepts natural-language descriptions OR paths. Semantic resolution via codebase-profile + idioms (same intent-interpretation model as `/add-feature`). Scans source FRESH via the 12 universal detectors directly — no cache lookup, no ledger-row dependency.
+`/align-recheck <description-or-path>` is the user's bypass-the-ceremony tool (v1.4.0). **NO plan / phase / ledger required.** Accepts natural-language descriptions OR paths. Semantic resolution via codebase-profile + idioms (same intent-interpretation model as `/add-feature`). Scans source FRESH via `align-detect` scoped to the area (the four align detectors + every installed owner detector, the AL-01 quote check, refute-before-report) — no cache lookup, no ledger-row dependency.
 
 Adapter responsibility:
 1. Every tool that exposes commands MUST surface `/align-recheck` in its native command surface (`.cursor/commands/`, `.opencode/commands/`, `.qwen/commands/`, `.github/prompts/`, `.clinerules/workflows/`, `.windsurf/workflows/`, `.continue/prompts/`).
 2. The semantic resolution flow (read codebase-profile + idioms → understand intent → confirm-or-run) MUST be preserved. Adapters MUST NOT downgrade to keyword tokenization.
 3. The plan-independence MUST be preserved. Adapters MUST NOT add a "ledger required" pre-flight check that wasn't in the source rule.
-4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area you want re-checked; the agent reads the project profile, scans source via the universal detectors, fixes drift, optionally records into ledger if one exists."
+4. For rule-only tools (Aider / Codex / Gemini), document as a manual procedure: "describe the area you want re-checked; the agent builds the oracle map, runs the align detectors' pre-flights over the area, fixes the align-owned rows through the proof ladder, routes the rest, optionally records into ledger if one exists."
 
 ## Required artifacts per project
 
 Every adapter setup that includes `--include=align` MUST also propagate these elements:
 
-1. **`_extracted-idioms.md` precondition** — align halts on empty oracle. Adapters that auto-load align MUST verify `_extracted-idioms.md` is non-empty (or surface the `/setup-project --refine` prompt).
+1. **A declared convention** — the oracle. The inventory falls back `_extracted-idioms.md` → `codebase-profile.md` → `ai/conventions.md`; a missing file is a reduction with a printed line, never a halt. With no declaration at all, every align class prints `N/A (no declared convention)`. Adapters surface the `/setup-project --refine` prompt in that case; they MUST NOT block the install on an empty `_extracted-idioms.md`.
 
-2. **`PROJECT_KIND` anchor** — populated in `_extracted-codebase.md § Gold standards`. Switches stack-conditional detector dispatch (frontend / backend / data / mobile). The validator + skills read this so the detector set is project-shape-agnostic.
+2. **`PROJECT_KIND` anchor** — populated in `_extracted-codebase.md § Gold standards`. Decides which owner detectors `align-detect` can dispatch (ui-ux / frontend / backend); the align detectors run on every stack.
 
-3. **`ai/align/` directory** — created by `/align-scan` on first run; contains `ledger.md`, `scan-report.md`, `findings.md`, `plan.md`, `halts/`, `runs/`, `gate-history.md`, `rollback-history.md`, `park-history.md`, `impact/` (heavy-tier), `final-report-<date>.md`.
+3. **`ai/align/` directory and the audit report** — `/align-scan` writes `ai/audits/<date>-align.md` and the same report as `ai/align/scan-report.md` (what `/align-plan` and the validator read), plus ledger rows at `detected`. Later commands add `plan.md`, `halts/`, `runs/`, `gate-history.md`, `rollback-history.md`, `park-history.md`, `impact/` (heavy-tier), `final-report-<date>.md`, `_deferred.md`.
 
-4. **Validator script** `scripts/validate-align-artifacts.sh` — runs the 14 phase-exit checks. Universal callable from any tool's hook / CI / pre-commit.
+4. **Validator script** `scripts/validate-align-artifacts.sh` and **sweep gate** `align-sweep-gate.py` — together they run the script-enforced checks of the 17-check phase-exit matrix. Universal callable from any tool's hook / CI / pre-commit.
 
-5. **Per-class detector tools** — installed per `_extracted-codebase.md § Gold standards` (e.g., `jscpd` for duplicates, `ts-unused-exports` for dead code, `axe-core` for a11y, `semgrep` for security). Adapters surface install commands when tools are missing.
+5. **Detector scripts and tools** — `oracle-map.py` (convention-oracle), `name-check.py` (naming-layout-scan), `align-sweep-gate.py` (find-and-align): stdlib Python, run with `python3 -I`, never write the scanned tree. Project lint tools (ESLint, stylelint, ls-lint, dependency-cruiser, Ruff) are used when installed; a missing tool is `blocked (<tool>)` with a fallback grep, never a halt. Never `npx -y`.
 
 ## Per-tool translation expectations
 
 ### Claude Code (`.claude/`)
 - Full pack as-is.
 - `align-discipline.md` → `.claude/rules/align-discipline.md`
-- `detect-drift.md`, `find-and-align.md` → `.claude/skills/`
+- Skills `align-detect`, `convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan`, `find-and-align` (each with its `scripts/`) → `.claude/skills/<name>/`
 - All 13 commands → `.claude/commands/`
 - `validate-align-artifacts.sh` → `~/.claude/scripts/` (user installs once globally)
 - Hooks: `.claude/settings.json` PostToolUse hook on edits to `ai/align/**` runs the validator.
 
 ### OpenCode (`AGENTS.md` + `.opencode/`)
 - Rule's contents inlined into `AGENTS.md` "Codebase alignment" section + linked from `.opencode/`.
-- Skills → `.opencode/skills/detect-drift/SKILL.md`, `.opencode/skills/find-and-align/SKILL.md`.
+- Skills → `.opencode/skills/<name>/SKILL.md` for all six align skills (`align-detect`, `convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan`, `find-and-align`), each with its `scripts/`.
 - Commands → `.opencode/commands/align-scan.md`, `.opencode/commands/align-fast.md`, etc.
 
 ### Cursor (`.cursor/`)
 - Rule → `.cursor/rules/align-discipline.mdc` (with frontmatter `globs: ai/align/**`)
-- Skills → `.cursor/skills/detect-drift/SKILL.md`, `.cursor/skills/find-and-align/SKILL.md`
+- Skills → `.cursor/skills/<name>/SKILL.md` for all six align skills, each with its `scripts/`
 - Commands → `.cursor/commands/align-scan.md`, `.cursor/commands/align-fast.md`, etc.
 - Hooks → `.cursor/hooks.json` triggering `validate-align-artifacts.sh` on file edits in `ai/align/`
 
 ### Copilot (`.github/`)
 - Rule → `.github/instructions/align-discipline.instructions.md`
-- Skills → `.github/skills/detect-drift/SKILL.md`, `.github/skills/find-and-align/SKILL.md`
+- Skills → `.github/skills/<name>/SKILL.md` for all six align skills, each with its `scripts/`
 - Commands → `.github/prompts/align-scan.prompt.md`, `.github/prompts/align-fast.prompt.md`, etc.
-- Or `chatmodes/` for sub-agent-style chat modes for `/align-phase` (which dispatches per-finding sub-tasks).
+- Or `chatmodes/` for sub-agent-style chat modes for `/align-phase` (which dispatches per-row sub-tasks).
 
 ### Continue (`.continue/`)
 - Rule → `.continue/rules/align-discipline.md`
-- Skills → expressed as prompts in `.continue/prompts/detect-drift.md`, `.continue/prompts/find-and-align.md` (Continue treats skills as prompt templates)
+- Skills → expressed as prompts in `.continue/prompts/<name>.md` for all six align skills (Continue treats skills as prompt templates); their scripts ship beside the validator
 - Commands → `.continue/prompts/align-scan.md`, `.continue/prompts/align-fast.md`, etc.
 
 ### Cline (`.clinerules/`)
 - Rule → `.clinerules/align-discipline.md`
 - Commands → `.clinerules/workflows/align-scan.md`, `.clinerules/workflows/align-fast.md`, etc.
-- **Skills NOT supported natively.** The skill content (detect-drift's procedure, find-and-align's 5-step loop) is inlined into the rule. The self-sufficient rule already does this — the "Tool-agnostic procedure" section covers scan / find-and-align / gate end-to-end.
+- **Skills NOT supported natively.** The rule carries the contract (oracle, classes, verbs, proof classes, halts); the detectors' pre-flights and `find-and-align`'s proof ladder are procedure the rule points at. Ship the six `SKILL.md` files and their `scripts/` as reference documents (e.g. `.clinerules/align/`) so the rule's pointers resolve.
 
 ### Windsurf (`.windsurf/`)
 - Rule → `.windsurf/rules/align-discipline.md`
@@ -183,7 +185,7 @@ Every adapter setup that includes `--include=align` MUST also propagate these el
 
 ### Qwen Code (`QWEN.md` + `.qwen/`)
 - Rule → `.claude/rules/align-discipline.md` content mirrored into `QWEN.md` § `## Codebase alignment`.
-- Skills → `.qwen/skills/detect-drift/SKILL.md`, `.qwen/skills/find-and-align/SKILL.md`.
+- Skills → `.qwen/skills/<name>/SKILL.md` for all six align skills, each with its `scripts/`.
 - Commands → `.qwen/commands/align-scan.md`, `.qwen/commands/align-fast.md`, etc. (one file per align command).
 - Hooks → `.qwen/settings.json` `hooks.PostToolUse` triggering `validate-align-artifacts.sh` on edits to `ai/align/**`.
 
@@ -203,26 +205,29 @@ Every adapter setup that includes `--include=align` MUST also propagate these el
 
 The script returns non-zero on any failure; tool integrations should treat that as a blocking error.
 
-The 14-check phase-exit matrix — **tagged by enforcement surface**. `[SCRIPT]` = deterministic, enforced by `validate-align-artifacts.sh`. `[AGENT]` = needs runtime tooling (re-runs detectors / the test suite / a11y / bundle), so it is **agent-side only** — a rule-only tool MUST run it by hand; the script cannot. Do NOT translate this matrix as if it were fully mechanical:
+The 17-check phase-exit matrix (`/align-gate`) — **tagged by enforcement surface**. `[SCRIPT]` = `validate-align-artifacts.sh`. `[SWEEP]` = `align-sweep-gate.py`. `[AGENT]` = needs runtime tooling or judgment, so it is **agent-side only** — a rule-only tool MUST run it by hand. Do NOT translate this matrix as if it were fully mechanical:
 
-1. `[AGENT]` Ledger completeness — every phase row in `{fixed, archived-pre-existing, parked}`.
-2. `[AGENT]` Gap-count parity — `gaps_closed == len(evidence)` for every fixed row (re-detect-to-zero / fingerprint-still-present run the detectors live).
+1. `[AGENT]` Ledger completeness — no `detected` / `planned` / `in-progress` / `halted` row in the phase; `routed`, `pending-approval`, `pending-ratification`, `parked` listed by name; `pending-review` blocks.
+2. `[SCRIPT]` Gap-count parity — `gaps_closed == len(evidence)` for every fixed row.
 3. `[SCRIPT]` Net-lines on structural rows ≤ 0 — `check_net_lines_structural`.
-4. `[SCRIPT]` No new symbols (with idioms-named exemption) — `check_no_new_symbols`.
-5. `[SCRIPT]` No scope creep — every commit's files ⊂ row.scope — `check_scope_boundary`.
-6. `[AGENT]` Mechanical (lint + typecheck + tests) at HEAD.
-7. `[AGENT]` Coverage non-decreasing.
-8. `[AGENT]` Frontend regressions (a11y, visual, bundle-size) for `frontend-*`.
-9. `[SCRIPT]` Oracle unmodified (`_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`) — `check_oracle_unmodified`.
-10. `[AGENT]` Per-tier artifact set complete.
-11. `[SCRIPT]` Functional adds cite idiom — `check_added_lines_cite_idioms`.
-12. `[SCRIPT]` Security assertion present — for every security row — `check_security_assertion_present`.
-13. `[SCRIPT]` Perf baseline present — for every perf row — `check_perf_baseline_present`.
-14. `[SCRIPT]` Security tier minimum — no security row at trivial; critical at heavy — `check_security_tier_minimum`.
+4. `[SCRIPT]` + `[AGENT]` No new symbols — `check_no_new_symbols` + `@align-idiom-auditor`.
+5. `[SWEEP]` + `[SCRIPT]` Line-level scope (V392, AL-34) — sweep gate `scope`; `check_scope_boundary` over every row commit.
+6. `[SWEEP]` Re-detect zero (V391) — `redetect` runs each row's `detector_cmd`.
+7. `[SWEEP]` One way per pattern (V393, AL-33) — `consistency`.
+8. `[SWEEP]` Tests locked (V408) — `lock-paths`, `lock-count`.
+9. `[SWEEP]` Emitted names exist (V398) — `names`.
+10. `[SWEEP]` Value round-trip (V397) — `roundtrip` (needs the ui-ux pack's `token-map.py`; `NOT RUN` with EQ token rows present refuses).
+11. `[SWEEP]` Non-vacuous (V399) — `vacuous`.
+12. `[SWEEP]` Ratchet shrink-only (V395, AL-30) — `ratchet`.
+13. `[SCRIPT]` + `[AGENT]` Proof class and approval (V394/V396, V407) — `check_proof_class`, `check_vc_approval`; the zero-diff evidence is read by the agent.
+14. `[AGENT]` Mechanical pass + boot at HEAD.
+15. `[SWEEP]` + `[AGENT]` Coverage within tolerance.
+16. `[SCRIPT]` + `[AGENT]` Per-tier artifacts + idiom citation — `check_added_lines_cite_idioms`; tier fields read by the agent.
+17. `[SCRIPT]` Oracle cited and unmodified; owner rows routed — `check_oracle_cited`, `check_oracle_unmodified`, `check_owner_routed`.
 
-Plus run-level `[SCRIPT]` checks not in the original 14: scan-report evidence (FAILs when the ledger claims findings-closed but no scan-report exists), progress/ledger reconciliation (`ai/align/ledger.md` is the single source of truth — `progress.md` may not mark a module done while non-terminal ledger rows remain in its scope), scope-code-smells, and actionable-next-steps.
+Plus run-level `[SCRIPT]` checks: scan-report evidence (every AL class has a status line in `ai/align/scan-report.md`), progress/ledger reconciliation (`ai/align/ledger.md` is the single source of truth — `progress.md` may not mark a module done while non-terminal ledger rows remain in its scope), scope-code-smells, and actionable-next-steps.
 
-> **Reconcile gate "live" vs validator "[PLANNED]".** `align-gate.md` historically tagged `validate-align-artifacts.sh` as `[PLANNED — v1.1]` and ran the checks inline (agent-side). As of validator v1.5+ the script **ships and is live** for the `[SCRIPT]`-tagged checks above; the `[AGENT]`-tagged checks remain agent-side (the gate still runs those inline). Treat the script as the live floor for mechanical checks and the agent as the enforcer for runtime checks — not "all 14 are mechanical."
+> **The old 14-check matrix** graded security and performance fixes made inside align (security assertion, perf baseline, security tier). Those rows are now routed to `/security-fix`, `/perf-fix` and `/db-fix`, which carry their own failing-first proofs; check 17 refuses a phase that closed one here. The validator keeps the three legacy checks for old ledgers only.
 
 ## Companion scripts — install the **full** bundle
 
@@ -240,11 +245,11 @@ Mirrors the optimize / polish coverage docs: the validator alone is not the full
 
 When an adapter ships the align pack:
 
-1. **MUST translate the rule** (`align-discipline.md`) faithfully — including the inlined 11 named finding categories (= 12 detectors counting the dependencies sub-class + stack-specific; see reconciliation note above), 21-verb closure vocabulary, 11 per-finding audit halts, 14 phase-exit checks, anti-pattern catalogue, and tool-agnostic procedures (scan / find-and-align / gate). Do NOT abridge.
-2. **MUST translate or document skills** (`detect-drift`, `find-and-align`) to the tool's native format if supported. If not supported, document in the rule's "Tool-agnostic procedure" that the procedural detail is inlined.
-3. **MUST install or document `validate-align-artifacts.sh`** as a pre-commit / CI / hook integration.
+1. **MUST translate the rule** (`align-discipline.md`) faithfully — the oracle and its tiers, Scope (owns / closes for an owner / routes), the AL class names and legacy map, the 21-verb closure vocabulary, the EQ / VC / FN proof classes, 11 per-finding audit halts, the 17-check gate outline, and the anti-pattern pointer. Do NOT abridge.
+2. **MUST translate or ship skills** (`align-detect`, `convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan`, `find-and-align`, each with its `scripts/`) in the tool's native format if supported; if not, ship them as reference documents the rule's pointers resolve to.
+3. **MUST install or document `validate-align-artifacts.sh` and `align-sweep-gate.py`** as a pre-commit / CI / hook integration.
 4. **MUST translate all 13 commands** (`align-scan`, `align-plan`, `align-phase`, `align-gate`, `align-fast`, `align-recheck`, `align-status`, `align-final`, `align-rollback`, `align-park`, `align-unpark`, `align-promote-tier`, `align-replan`) — or for rule-only tools, document them as procedural recipes in the rule.
-5. **MUST verify `_extracted-idioms.md` precondition** — align halts on empty oracle. Adapter setup surfaces a recommendation to run `/setup-project --refine` first if the oracle is missing.
+5. **MUST NOT block on an empty `_extracted-idioms.md`** — the inventory falls back to `codebase-profile.md` → `ai/conventions.md`, and a project with no declaration prints every align class `N/A (no declared convention)`. Adapter setup surfaces `/setup-project --refine` as a recommendation in that case.
 6. **MUST NOT silently drop the align pack on tools with limited capability.** A rule-only tool gets the rule (which is sufficient — the self-sufficient rule has the full surface inlined).
 
 ## Failure mode protections
@@ -252,39 +257,35 @@ When an adapter ships the align pack:
 The same anti-patterns that hit migration ports also hit alignment sweeps. The validator script pattern-recognises:
 
 - **Trusted Summary** — `check_evidence_resolves` validates every row's `evidence` is a real `<path:line>` containing the claimed fingerprint.
+- **Invented Convention** — `check_oracle_cited` fails a row whose `oracle:` quote does not resolve in the cited file or whose rule id is not declared.
 - **Hand-waved Finding** — `check_no_handwaves` greps for hand-wave tokens (`etc.`, `...`, `several`, `multiple`, `~N`).
 - **Net-Positive Cleanup** — `check_net_lines_structural` measures structural-row diffs.
 - **Reinvented Idiom in Functional Verb** — `check_added_lines_cite_idioms` enforces idiom citation for functional adds.
-- **Silent Coverage Drop** — `check_test_coverage_nondecreasing`.
-- **Bare Security Fix** — `check_security_assertion_present` fails if a security row's commit lacks a co-committed assertion test.
-- **Hopeful Perf Fix** — `check_perf_baseline_present` fails if a perf row lacks baseline + assertion.
-- **Tier Demotion** — `check_security_tier_minimum` fails if a security row is set to trivial.
-- **Oracle Drift** — `check_oracle_unmodified` fails on any modification of the gold-standard files.
-- **Scope creep** — `check_scope_boundary` fails if touched files are outside any row's `scope`.
+- **Self-Signed Visual** — `check_vc_approval` fails a VC row with no human `approval:`, or one written in the fix commit.
+- **Absorbed Owner Row** — `check_owner_routed` fails a security, performance, database or code-quality row closed here instead of routed (legacy rows: `check_security_assertion_present`, `check_perf_baseline_present`, `check_security_tier_minimum`).
+- **Oracle Drift** — `check_oracle_unmodified` fails on any modification of an oracle file in the align range.
+- **Scope creep** — `check_scope_boundary` (file level) and the sweep gate's `scope` (line level).
+- **Two-Way Swap, Snapshot Re-record, Vacuous Clean, Silent Coverage Drop** — `align-sweep-gate.py` `consistency`, `lock-paths` / `lock-count`, `vacuous`, and the coverage half of `lock-count`.
 
 This means: a Cursor user, a Copilot user, an Aider user, and a Claude Code user all get the same enforcement floor when they run the validator. The discipline is universal; the tool surface is per-adapter convenience.
 
 ## Composition with other packs
 
-Align dispatches detectors from other packs at scan time:
+`align-detect` dispatches owner detectors at scan time, each "when the <pack> pack is installed"; without the pack, its classes print `N/A (owner pack <x> not installed)` and nothing is graded in its place:
 
-| Detector | Source pack | Used by class |
-|---|---|---|
-| `dead-code-finder` agent | `code-quality/agents/` | dead-code |
-| `refactorer` agent | `code-quality/agents/` | over-abstraction, SOLID |
-| `code-reviewer` agent | `code-quality/agents/` | clean-code |
-| `performance-optimizer` agent | `performance/agents/` | performance |
-| `security-auditor` agent | `security/agents/` | security |
-| `deps-audit` skill | `security/skills/` | security (vuln-deps subclass) |
-| `accessibility-auditor` agent | `frontend/agents/` | a11y (frontend stacks) |
-| `i18n-auditor` agent | `frontend/agents/` | i18n (frontend stacks) |
-| `ui-state-scan` skill | `ui-ux/skills/` | UI state coverage (frontend stacks; ui-ux pack, when installed) |
-| `design-token-audit` skill | `ui-ux/skills/` | design-token drift (frontend stacks) |
-| `motion-audit` skill | `ui-ux/skills/` | motion drift (frontend stacks) |
+| Detector | Source pack | AL classes | Closer |
+|---|---|---|---|
+| `design-token-audit` skill (+ `token-map.py`) | `ui-ux/skills/` | AL-05–10, AL-12 | align for EQ rows; else VC with approval or `/polish` |
+| `architectural-diagnosis` §1–§2 | `code-quality/skills/` (always installed) | AL-20, AL-21 | align for a re-route through a named public surface; rework → `/optimize` |
+| `duplication-scan` | `code-quality/skills/` | AL-13 diverged | `/quality-fix` |
+| `i18n-scan` §1–§2 | `frontend/skills/` | AL-26, AL-27 | align for an EQ key; else `/frontend-fix` |
+| `a11y-code-scan` | `frontend/skills/` | AL-28 | align in the AL-15 form; else `/frontend-fix` |
+| `edge-error-scan` §6–§7 | `backend/skills/` | AL-23 | `/backend-fix` (declared contract); else `/polish` |
+| `api-consistency-audit` | `backend/skills/` | AL-24, AL-25 | `/polish` |
 
-`performance-optimizer` lives in the **performance** pack. Through 1.8.2 four align files cited it at `code-quality/agents/performance-optimizer.md`, which has never existed — a dangling dispatch, repointed in 1.9.0. Adapters that resolved that path and found nothing were correct to; the destination changed, not the intent. Where the performance pack is not loaded, the perf detector falls back to the project's profiler / query log and the row still requires a baseline in `notes`.
+Security, performance, database, error handling, dead code, SOLID and complexity are **not align classes**. Align prints one owner line for each (`owner: security → /security-audit`, `owner: code-quality → /quality-audit`, `owner: performance → /perf-audit`, `owner: database → /db-audit`) and routes any such row to the owner's fix command. Where the performance or database pack is not loaded, align may apply an idiom the oracle already names only with a baseline measured by a failing-first test.
 
-When `/setup-project --include=align` runs, it auto-includes the source packs above (code-quality + security baseline; frontend + ui-ux for `frontend-*` projects).
+`/setup-project --include=align` does not auto-include the owner packs; code-quality and security are always installed, and ui-ux / frontend / backend follow the project's own selection.
 
 ## Selection rules
 
@@ -292,7 +293,7 @@ When `/setup-project --include=align` runs, it auto-includes the source packs ab
 
 Auto-detection signals that surface a recommendation (but don't auto-include):
 - An existing `ai/align/ledger.md` (prior alignment effort exists).
-- `_extracted-idioms.md` populated AND no recent `/align-scan` run (eligible for first sweep).
+- A declared convention (a lint config with rules at `error`, a human-written `ai/conventions.md`, ADRs) AND no recent `/align-scan` run (eligible for first sweep).
 - A scheduled cron job pointing to `/align-scan` (recurring sweep).
 
 When a signal is detected, `/setup-project` surfaces: "Detected potential alignment workflow. Add `--include=align`? [y/N]".

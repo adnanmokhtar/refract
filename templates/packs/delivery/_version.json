@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "delivery",
-  "version": "1.2.0",
-  "released": "2026-10-10",
+  "version": "1.2.1",
+  "released": "2026-10-18",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "P3 dispatches @ux-designer when ui-ux is installed and lints the state matrix in design mode; lanes carry the matrix without it, route WCAG and states to @ux-reviewer, gate a11y on THR-A11Y.axe_gate and G12, and point audits at /frontend-audit and /mobile-audit.",
+  "summary": "Reference sweep: renamed skills (secret-scan-method, threat-model-method, log-tail-method, endpoint-test-method).",
   "changelog": "CHANGELOG.md"
 }

@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.4 — 2026-10-18
+
+- References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).
+
 ## 2.0.3 — 2026-10-15
 
 **`ci-graph.py --required` is offline by default** (repo-baseline change after a verbatim pre-flight reached GitHub during a read-only audit). `/devops-audit`'s `SETTINGS=1` branch, `@ci-reviewer`, `pipeline-integrity-scan`, `pipeline-cache-scan` and `STACK.md` now pass `--required --online` where the user allowed outbound reads; without it the script prints `NOT-RUN OFFLINE` and exits 2 (required-ness unknown, never "not required").

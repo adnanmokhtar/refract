@@ -1,0 +1,11 @@
+--- a/apps/web/src/features/refunds/RefundForm.tsx
++++ b/apps/web/src/features/refunds/RefundForm.tsx
+@@ -35,7 +35,7 @@
+         {t('refunds.amount')}
+         <input type="number" value={amount} max={maxMinor} onChange={(e) => setAmount(Number(e.target.value))} />
+       </label>
+-      {hasError ? <p style={{ color: '#d92d20' }}>{t('refunds.failed')}</p> : null}
++      {hasError ? <p style={{ color: 'var(--color-dangerous)' }}>{t('refunds.failed')}</p> : null}
+       <Can action="orders.refund">
+         <Button type="submit">{t('refunds.submit')}</Button>
+       </Can>

@@ -1,0 +1,25 @@
+{
+  "name": "acme-orders",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "lint": "eslint apps/web",
+    "lint:css": "stylelint \"apps/**/*.css\"",
+    "lint:files": "ls-lint",
+    "deps": "depcruise apps packages --config .dependency-cruiser.cjs --ignore-known",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.5.0",
+    "@ls-lint/ls-lint": "^2.3.2",
+    "dependency-cruiser": "^18.6.0",
+    "eslint": "^10.13.0",
+    "eslint-plugin-boundaries": "^7.2.0",
+    "eslint-plugin-check-file": "^3.3.2",
+    "eslint-plugin-vue": "^10.4.0",
+    "stylelint": "^17.16.0",
+    "stylelint-declaration-strict-value": "^1.10.11",
+    "typescript": "^7.0.0",
+    "typescript-eslint": "^8.46.0"
+  }
+}

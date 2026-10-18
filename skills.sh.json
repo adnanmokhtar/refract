@@ -28,9 +28,9 @@
         "logic-race-scan",
         "mobile-security-scan",
         "sast-scan",
-        "secret-scan",
+        "secret-scan-method",
         "ssrf-scan",
-        "threat-model",
+        "threat-model-method",
         "xss-scan"
       ]
     },
@@ -92,7 +92,7 @@
       "title": "Codebase Alignment",
       "description": "Stack-conditional drift detection against a gold-standard inventory, and the per-finding DETECT-DECIDE-FIX-VERIFY loop that closes it.",
       "skills": [
-        "detect-drift",
+        "align-detect",
         "find-and-align"
       ]
     },
@@ -103,9 +103,9 @@
         "api-consistency-audit",
         "api-snapshot",
         "debug-tenant",
-        "endpoint-test",
+        "endpoint-test-method",
         "env-diff",
-        "log-tail",
+        "log-tail-method",
         "module-scaffold",
         "parallelize-independent-ops"
       ]

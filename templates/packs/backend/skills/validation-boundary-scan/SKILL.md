@@ -34,6 +34,7 @@ One class, one owner. A neighbour that sees the same `file:line` lists it as cor
 - **Unbounded arrays as a size or CPU problem** → performance `request-path-scan` §13 (inbound limits) and §11; §9 here owns "one and many behave alike, over-max rejected".
 - **Config validated at boot, lazy config reads** → devops `deploy-safety-scan` §6. §4 here owns the parse itself (`"false"` truthy, `parseInt("10s")`).
 - Same pack: **defaults applied on PATCH** (an initialiser on an Update DTO, BV-14) → `http-contract-scan` §5; **a validator exception answered 500** (BV-16) → `edge-error-scan` §6; **output not validated or reshaped** (BV-15) → `wire-format-scan` §3; **consistency of 400 vs 422 across routes** → `api-consistency-audit` #2.
+- **Cross-pack modes of `dto-types.py`** (this skill's script, never copied): `--routes` adds `mounted` (the full path after the global prefix and its `exclude`, URI version and `RouterModule`), `version` and `class_decorators` to HANDLER rows, and a `values` column (`member=value`) to `--enums` rows. The migration pack's `paired-inventory` calls both for its Nest I-ROUTES, I-AUTHZ, I-RULES and I-ENUM lanes, when the migration pack is installed. No § here reads those columns; without the migration pack the flags are simply unused.
 
 ## Adapt to the codebase — the lanes
 
@@ -310,7 +311,7 @@ Shapes this skill must not report: `PartialType(Dto)` bodies (a class); `@IsObje
 ## Related
 
 - `/backend-audit` dispatches this skill and folds its coverage block into its validation ledger rows; `/backend-fix` closes findings failing-first through the real bootstrap and re-runs this detector.
-- `http-contract-scan`, `edge-error-scan`, `wire-format-scan` and `api-consistency-audit` (this pack) are the neighbours named in § Boundaries; `endpoint-test` (this pack) drives the V340–V344 requests against a running app; `@api-reviewer` judges these rows.
+- `http-contract-scan`, `edge-error-scan`, `wire-format-scan` and `api-consistency-audit` (this pack) are the neighbours named in § Boundaries; `endpoint-test-method` (this pack) drives the V340–V344 requests against a running app; `@api-reviewer` judges these rows.
 - security `injection-scan` §3/§12 and `logic-race-scan` §1/§2, code-quality `type-safety-scan` §1, performance `request-path-scan` §11/§13 and devops `deploy-safety-scan` §6, when those packs are installed.
 
 ## Sources

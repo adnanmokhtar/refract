@@ -133,9 +133,9 @@ Log-source-specific:
 
 ## Phase 4 — Generate (the stream)
 
-**The filter mechanism is OWNED by the `log-tail` skill — this command dispatches it, it does not re-implement it.** Same split as `/add-module` → `module-scaffold`: the command owns the gates (cluster halt, no-match ladder, reporting halts) and the skill owns the `jq` recipes, the source-tail invocations, and the logger-specific gotchas. Two copies of a filter predicate is exactly how this command shipped a level filter its own skill's documented logger could never match.
+**The filter mechanism is OWNED by the `log-tail-method` skill — this command dispatches it, it does not re-implement it.** Same split as `/add-module` → `module-scaffold`: the command owns the gates (cluster halt, no-match ladder, reporting halts) and the skill owns the `jq` recipes, the source-tail invocations, and the logger-specific gotchas. Two copies of a filter predicate is exactly how this command shipped a level filter its own skill's documented logger could never match.
 
-Dispatch [`templates/packs/backend/skills/log-tail/SKILL.md`](../skills/log-tail/SKILL.md) with the resolved inputs: **source** (file / container / process), **format** (json / plaintext), **level predicate** (from the Phase-2 probe — pass the predicate, not the word "errors"), **correlation / tenant field names** (from Phase 3), and the window bound.
+Dispatch [`templates/packs/backend/skills/log-tail-method/SKILL.md`](../skills/log-tail-method/SKILL.md) with the resolved inputs: **source** (file / container / process), **format** (json / plaintext), **level predicate** (from the Phase-2 probe — pass the predicate, not the word "errors"), **correlation / tenant field names** (from Phase 3), and the window bound.
 
 Then:
 - Stream until SIGINT (or the one-shot window completes). On exit, print line count + first/last timestamp.

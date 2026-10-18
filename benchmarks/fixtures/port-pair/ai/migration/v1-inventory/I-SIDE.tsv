@@ -1,0 +1,11 @@
+# pair-inventory 1 · lane=I-SIDE · side=v1 · sha=61cb5c927438bcbf4b971b17938abe99c70b70f8 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=8
+# lane	key	attrs	at	excerpt
+I-SIDE	POST /api/invoices/{}/issue	kinds=job	routes/api.php:34	Route::post('/{invoice}/issue', 'issue')->middleware('can:invoices.issue');
+I-SIDE	invoice.updated	kinds=audit	app/Observers/InvoiceObserver.php:10	public function updated(Invoice $invoice): void
+I-SIDE	order.created	kinds=mail	app/Observers/OrderObserver.php:13	public function created(Order $order): void
+I-SIDE	order.updated	kinds=mail	app/Observers/OrderObserver.php:18	public function updated(Order $order): void
+I-SIDE	ticket.created	kinds=notify	app/Observers/TicketObserver.php:12	public function created(Ticket $ticket): void
+I-SIDE	wallet.created	kinds=activity	app/Models/Wallet.php:13	class Wallet extends Model
+I-SIDE	wallet.deleted	kinds=activity	app/Models/Wallet.php:13	class Wallet extends Model
+I-SIDE	wallet.updated	kinds=activity	app/Models/Wallet.php:13	class Wallet extends Model

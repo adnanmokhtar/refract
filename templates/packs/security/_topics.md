@@ -86,9 +86,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: _examples/security-audit.md
 
 - name: secret-scan
+  kind: command
+  triggers: { always: true }
+  fallback: commands/secret-scan.md   # the remediation session; its detection primitive is the secret-scan-method skill below
+
+- name: secret-scan-method
   kind: skill
   triggers: { always: true }
-  fallback: _examples/secret-scan.md
+  fallback: _examples/secret-scan-method.md   # renamed from secret-scan 2026-10-18: a skill and a command sharing a name resolve to the skill (Claude Code skills docs), which hid the /secret-scan session
 
 - name: ssrf-scan
   kind: skill
@@ -102,9 +107,14 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   fallback: _examples/deps-audit.md
 
 - name: threat-model
+  kind: command
+  triggers: { always: true }
+  fallback: commands/threat-model.md   # the session; its primitive is the threat-model-method skill below
+
+- name: threat-model-method
   kind: skill
   triggers: { always: true }
-  fallback: _examples/threat-model.md
+  fallback: _examples/threat-model-method.md   # renamed from threat-model 2026-10-18: a skill and a command sharing a name resolve to the skill (Claude Code skills docs), which hid the /threat-model session
 
 - name: dependency-vuln-check
   kind: command

@@ -302,9 +302,9 @@ Patterns consulted: auth-flow, zero-trust, tenant-isolation
 
 ### Skills
 - `ssrf-scan` — the API7 executor: user-URL → outbound fetch, resolved-IP + per-redirect re-validation, metadata-IP and deny-list-bypass encodings. Cite its output rather than restating its checks.
-- `secret-scan` — confirm no API keys / third-party client secrets / signing keys are committed.
+- `secret-scan-method` — confirm no API keys / third-party client secrets / signing keys are committed.
 - `deps-audit` — catch CVEs in the API framework, GraphQL server, HTTP client, and serialization libraries.
-- `threat-model` — STRIDE the API surface and enumerate the sensitive business flows (API6) before the review when the surface is new.
+- `threat-model-method` — STRIDE the API surface and enumerate the sensitive business flows (API6) before the review when the surface is new.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

@@ -1,0 +1,32 @@
+--- a/apps/web/src/features/orders/components/OrderStatusBadge.tsx
++++ b/apps/web/src/features/orders/components/OrderStatusBadge.tsx
+@@ -10,7 +10,7 @@
+ 
+ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
+   return (
+-    <span className={styles.badge} style={{ color: status === 'failed' ? '#d92d20' : 'var(--color-text-muted)' }}>
++    <span className={styles.badge} style={{ color: status === 'failed' ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+       {t(labelKey(status))}
+     </span>
+   );
+--- a/apps/web/src/features/orders/components/__snapshots__/OrderStatusBadge.test.tsx.snap
++++ b/apps/web/src/features/orders/components/__snapshots__/OrderStatusBadge.test.tsx.snap
+@@ -3,7 +3,7 @@
+ exports[`OrderStatusBadge > matches the snapshot 1`] = `
+ <span
+   class="badge"
+-  style="color: rgb(217, 45, 32);"
++  style="color: var(--color-danger);"
+ >
+   Failed
+ </span>
+--- a/apps/web/src/features/orders/components/OrderStatusBadge.test.tsx
++++ b/apps/web/src/features/orders/components/OrderStatusBadge.test.tsx
+@@ -10,7 +10,6 @@
+ 
+   it('marks a failed order in the danger colour', () => {
+     render(<OrderStatusBadge status="failed" />);
+-    expect(screen.getByText('Failed').style.color).toBe('rgb(217, 45, 32)');
+   });
+ 
+   it('matches the snapshot', () => {

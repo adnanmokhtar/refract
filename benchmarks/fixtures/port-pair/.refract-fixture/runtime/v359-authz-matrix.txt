@@ -1,0 +1,12 @@
+# V359 — permission matrix, V1 vs V2 (seeded roles: admin, manager, agent, clerk; two accounts)
+ROLE      ACCOUNT  METHOD  PATH                                V1    V2
+clerk     own      POST    /api/wallets/3/adjust               403   201
+clerk     own      POST    /api/wallets/3/credit-limit         403   403
+manager   own      PUT     /api/admin/users/14/roles           403   200
+manager   own      GET     /api/admin/users/14                 403   403
+clerk     own      GET     /api/orders/export                  200   403
+agent     own      PATCH   /api/tickets/41                     200   403
+agent     other    GET     /api/tickets?page=1                 200*  200*   * V1 lists own-account tickets only; V2 lists both accounts' tickets
+manager   other    GET     /api/stock/NRW-100                  404   200
+manager   own      GET     /api/me                             200   200
+anonymous -        GET     /api/me                             401   401

@@ -1,0 +1,13 @@
+{
+  "ignore": [
+    "$..request_id",
+    "$..total",
+    "$..updated_at"
+  ],
+  "compare": {
+    "orders": "status+body",
+    "invoices": "status+body",
+    "wallets": "status+body",
+    "tickets": "status"
+  }
+}

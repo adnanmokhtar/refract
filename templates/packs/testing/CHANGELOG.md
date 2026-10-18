@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.0 — 2026-10-18
+
+- **`suite-execution-scan` 2c-TSV** writes `gated-suites.tsv` (`GATES_TSV`): kind (v1, env, capability), file:line, helper, condition, env vars read, `ci_sets` per CI job (`yes|partial|no|unknown` plus `file#job=vars`, GitHub/CircleCI/GitLab) and the specs that use it. It follows the whole constant chain (`HAS_V1 = Boolean(process.env.V1_REPO_PATH)`, imports included). The migration pack's `parity-proof-scan` reads it.
+
 ## 2.2.0 — 2026-10-15
 
 **Detector fixes from a read-only audit of a real NestJS + React monorepo.**

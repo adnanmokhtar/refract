@@ -226,7 +226,7 @@ The flag is FOR non-trivial, decomposable, verifiable work. Use judgment.
 - Run typecheck (`<detected-typecheck-cmd>`).
 - Run tests for affected modules (`<detected-test-cmd>`).
 - For UI: visual diff via `visual-check` skill.
-- For API: hit endpoint via `endpoint-test` skill, verify response shape.
+- For API: hit endpoint via `endpoint-test-method` skill, verify response shape.
 - For DB: `EXPLAIN ANALYZE` affected queries, confirm indexes used.
 - Self-audit: do the generated files cross-reference correctly? Any contradictions with `ai/conventions.md`?
 

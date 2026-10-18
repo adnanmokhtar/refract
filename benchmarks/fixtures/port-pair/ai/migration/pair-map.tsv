@@ -1,0 +1,26 @@
+lane	v1-key	v2-key	reason
+I-ROUTES	GET /api/stock/low-stock	GET /api/stock/alerts	ADR-0004
+I-ROUTES	GET /api/reports/legacy-aging	-	ADR-0009
+I-ROUTES	GET /exports/{}	-	moved-to-gateway (ADR-0005: nginx auth_request /internal/authz/export)
+I-ROUTES	ANY /api/{*}	-	ADR-0017 (NotFoundFilter catch-all)
+I-ROUTES	GET /	-	ADR-0017
+I-ROUTES	GET /orders	-	ADR-0017
+I-ROUTES	GET /orders/new	-	ADR-0017
+I-ROUTES	GET /wallet	-	ADR-0017
+I-ROUTES	GET /wallet/statements	-	ADR-0017
+I-ROUTES	GET /tickets/{}	-	ADR-0017
+I-AUTHZ	value:view.order	value:orders.view	rename (OrderPolicy@view = account scope + orders.view; the scope is the AccountScoped filter)
+I-AUTHZ	value:update.order	value:orders.update	rename (OrderPolicy@update = account scope + orders.update)
+I-AUTHZ	value:view.invoice	value:invoices.view	rename (InvoicePolicy@view = account scope + invoices.view)
+I-AUTHZ	value:issue.invoice	value:invoices.issue	rename (InvoicePolicy@issue = account scope + invoices.issue)
+I-SCHEMA	col:ticket.deleted_at	-	ADR-0010
+I-ROUTES	-	GET /api/internal/authz/export	ADR-0005 (the façade's auth_request target; V2-only by design)
+I-SCHEMA	-	col:*.legacy_id	ADR-0007 (V1 ids kept in legacy_id; DM-5 id mapping)
+I-SCHEMA	-	unique:*(legacy_id)	ADR-0007 (one V2 row per V1 id)
+I-SCHEMA	-	fk:order_line(order_id)	V2 adds the FK V1 never had; backfill preflight checks orphans before the load (scripts/backfill/preflight.ts)
+I-SCHEMA	-	unique:stock_item(account_id,sku)	V2 adds the unique key; stock backfill fails on duplicates (scripts/backfill/stock.backfill.ts failOnDuplicates)
+I-SCHEMA	-	unique:user(email)	V2 adds the unique key; users backfill decides duplicate e-mails before the load
+I-ENUM	*ticket*status	*ticket*status	ADR-0008 (V2 adds merged)	values=closed,merged,open,pending,solved
+I-RULES	PATCH /api/tickets/{} status	PATCH /api/tickets/{} status	ADR-0008 (V2 adds merged)	in=closed,merged,open,pending,solved
+I-SCOPE	table:ticket	table:ticket	ADR-0010 (soft-deleted tickets are not migrated)	soft_delete=no
+I-MONEY	area:report	area:report	ADR-0012 (half-even on the reported average only)	modes=half-away,half-even

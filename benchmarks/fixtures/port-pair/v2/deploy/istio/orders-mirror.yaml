@@ -1,0 +1,22 @@
+# Shadow traffic for orders during the V2-shadow stage: V1 answers, V2 receives a copy.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: orders-shadow
+  namespace: norrow
+spec:
+  hosts:
+    - v1-portal.norrow.internal
+  http:
+    - match:
+        - uri: { prefix: /api/orders }
+      route:
+        - destination:
+            host: v1-portal.norrow.internal
+      mirror:
+        host: v2-api-shadow.norrow.internal
+      mirrorPercentage:
+        value: 10.0
+    - route:
+        - destination:
+            host: v1-portal.norrow.internal

@@ -221,7 +221,7 @@ Every run ends with `## What to do next`: the remaining work as ONE ordered, num
 - `/security-fix`, `/db-fix`, `/perf-fix`, `/quality-fix`, `/obs-fix`, `/ds-fix`, `/devops-fix` (when installed): the routed classes.
 
 ### Detector skills (re-run for RE-DETECT)
-`validation-boundary-scan` (`scripts/dto-types.py`) · `edge-error-scan` · `http-contract-scan` · `wire-format-scan` · `job-lifecycle-scan` · `state-transition-scan` · `api-snapshot` (the committed baseline) · `endpoint-test` (runtime requests under `--live`).
+`validation-boundary-scan` (`scripts/dto-types.py`) · `edge-error-scan` · `http-contract-scan` · `wire-format-scan` · `job-lifecycle-scan` · `state-transition-scan` · `api-snapshot` (the committed baseline) · `endpoint-test-method` (runtime requests under `--live`).
 
 ### Agents
 `@api-reviewer` (this pack; judges a proposed fix and its benign control) · `@verifier` (repo-baseline, mode `refute`) · `@workflow-integrity` (business pack, when installed; signs a change to which transitions are legal).

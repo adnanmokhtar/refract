@@ -61,7 +61,7 @@ next:       /devops-fix (detector findings) · /rollback-deploy (an S1 gap) · t
 - Detect the CI platform and the deploy target (serverless, VM, Kubernetes, PaaS) from the discovered files, never from a directory name.
 - Record the installed owners:
   - infrastructure: `.claude/skills/k8s-render-scan/`, `.claude/skills/k8s-availability-scan/`;
-  - security: `.claude/skills/iac-scan/`, `.claude/skills/secret-scan/`;
+  - security: `.claude/skills/iac-scan/`, `.claude/skills/secret-scan-method/`;
   - performance: `.claude/skills/request-path-scan/`;
   - observability: `.claude/skills/metric-hygiene-scan/`;
   - database: `.claude/skills/migration-safety/`;
@@ -108,7 +108,7 @@ bash .claude/skills/k8s-render-scan/scripts/render.sh . --out="$SCAN" --kube-ver
 | Pipeline gates, masking, required checks, CI caches | `pipeline-integrity-scan`, `pipeline-cache-scan` → `@ci-reviewer` | Nothing graded |
 | Probes, resources/QoS, PDB, rollout shape, `revisionHistoryLimit`, `preStop`, grace and the `THR-SHUTDOWN-GRACE` arithmetic | infrastructure `k8s-availability-scan` §1–§7 (when installed) | Cited in S2/S3; nothing graded |
 | A liveness handler that checks a shared dependency · readiness that always answers 200 | performance `request-path-scan` §15 · observability `metric-hygiene-scan` §7 (HC-01) | Cited in S2 |
-| Mutable image tag as an attack, final stage as root, secrets in manifests, compose exposure | security `iac-scan` §1–§3, `secret-scan` (when installed) | Cited in S4/S5. A mutable tag is credited to security 4j and corroborated by `release-integrity-scan` §7 |
+| Mutable image tag as an attack, final stage as root, secrets in manifests, compose exposure | security `iac-scan` §1–§3, `secret-scan-method` (when installed) | Cited in S4/S5. A mutable tag is credited to security 4j and corroborated by `release-integrity-scan` §7 |
 | Migration statement safety | database `migration-safety` (when installed) | `deploy-safety-scan` §1 reads its verdict |
 | Admission enforcement of signatures | infrastructure `admission-policy` | Nothing graded |
 
@@ -199,7 +199,7 @@ Practice rollback in staging regularly. If no one has rolled back in 3 months, d
 | **S1 Rollback RESOLVED + EXERCISED** | a resolved prior-healthy revision id, a passing reversibility gate, and a rehearsed flip confirmed GREEN — not "redeploy the previous SHA" in prose | `/rollback-deploy --dry-run` resolves a real revision and names the source that establishes it was HEALTHY. That source is the deploy ledger, a `monitor-deploy` GREEN record or the platform deployment status; revision *history* carries no health. The dry-run returns PASS on R1–R3. Then the drill: flip → `monitor-deploy` GREEN → rolled forward | `helm history` / `kubectl rollout history` give the target **id**; its health is looked up separately. `release-integrity-scan` §7 shows the N-1 digest is still retained (V226) |
 | **S2 Health + readiness EXERCISED** | `monitor-deploy` polled live AND the platform enforces a readiness gate on the next rollout | the poll line (`200×N/N`, `k/k READY`) and no K-READINESS-MISSING or K-PROBE-STARTUP row for the served container | infrastructure `k8s-availability-scan` §2. A liveness handler that checks a dependency → performance `request-path-scan` §15. Readiness that always answers 200 → observability `metric-hygiene-scan` §7 (HC-01). Compose → `compose-scan` §2. A Dockerfile HEALTHCHECK counts only where compose, Swarm or ECS reads it (`container-build-scan` §6; on a k8s-only image it is a nit, precedents § 29) |
 | **S3 Resource requests** | every served container has CPU and memory requests and a memory limit where nothing defaults it. **No CPU limit is required.** | no K-RES-MISSING or K-QUOTA-SHAPE row for the judged env | infrastructure `k8s-availability-scan` §1, whose precedent 1 says a missing CPU limit is not a defect. Compose `deploy.resources`, PaaS memory and timeout settings are read by hand, `[self-policed]` |
-| **S4 No plaintext secrets** | secrets by reference (`secretKeyRef`, `valueFrom`, a manager, sealed-secret, SOPS), never an inline literal | no row for the judged env's render or the compose file prod loads | security `iac-scan` §3 (a secret-named env with a literal `value:`, a committed `kind: Secret`), §2 (compose literal or default passwords), `secret-scan` for values |
+| **S4 No plaintext secrets** | secrets by reference (`secretKeyRef`, `valueFrom`, a manager, sealed-secret, SOPS), never an inline literal | no row for the judged env's render or the compose file prod loads | security `iac-scan` §3 (a secret-named env with a literal `value:`, a committed `kind: Secret`), §2 (compose literal or default passwords), `secret-scan-method` for values |
 | **S5 Reproducible, addressable build** | the deployed reference is a digest; what deploys is what was scanned and tested; the install is frozen | no 4j row on the render, and no `release-integrity-scan` §4 row | security `iac-scan` §3 grep 4j (mutable tag; credited there). `release-integrity-scan` §4 covers digest continuity (V223). `container-build-scan` §4 covers the lockfile enforced in the build, and §7 the base pin |
 
 ### Fallback — an owner pack is absent
@@ -384,7 +384,7 @@ Verdict: INCOMPLETE — NOT production-grade. Unmet: S1, S2, S3, S5.
 - `progressive-delivery` — this agent picks canary or blue-green as a **strategy**; that skill checks that the canary's analysis can fail and that the flags are safe.
 
 ### Cross-pack boundary
-- **infrastructure** owns the render (`k8s-render-scan`), probes, resources, rollout shape and shutdown timing (`k8s-availability-scan`). **security** owns mutable tags as an attack, root, secrets and compose exposure (`iac-scan`, `secret-scan`). **performance** owns liveness handlers. **observability** owns readiness that lies. **database** owns migration statements.
+- **infrastructure** owns the render (`k8s-render-scan`), probes, resources, rollout shape and shutdown timing (`k8s-availability-scan`). **security** owns mutable tags as an attack, root, secrets and compose exposure (`iac-scan`, `secret-scan-method`). **performance** owns liveness handlers. **observability** owns readiness that lies. **database** owns migration statements.
 
 ### Patterns
 - `ai/patterns/cicd-pipeline.md`

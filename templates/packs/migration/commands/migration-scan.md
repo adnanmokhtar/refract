@@ -1,5 +1,5 @@
 ---
-description: Deep V1↔V2 comparison. Reads BOTH codebases, understands structures, maps every V1 feature to its V2 location (existing or planned), identifies gaps, builds a fresh ledger. Run before /migration-plan. Pairs with --plan flag for plan-only mode.
+description: "Deep V1↔V2 inventory at a pinned V1 snapshot: maps every V1 feature to its V2 location or <unmapped>, keyed lane diffs, six-axis dead-code check, fresh ledger. --record-v1-inventory records V1 for solo audits."
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
@@ -9,7 +9,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 ## The Premise (read this first)
 
-**Read before writing. Cite real V1 paths, never invented.** The scan reads BOTH codebases — actual V1 source, actual V2 source — and writes a ledger row per real V1 feature. No paraphrasing, no "V1 probably has an orders module," no inferred entries from memory. Every ledger row's `v1_path` is a real file at the pinned commit; every `v2_path` is either an existing V2 file or `<unmapped>` (never a fabricated planned path). If V1 source is unreadable for a module, halt and surface — do NOT silently drop features.
+**Read before writing. Cite real V1 paths, never invented.** The scan reads BOTH codebases — actual V1 source, actual V2 source — and writes a ledger row per real V1 feature. No paraphrasing, no "V1 probably has an orders module," no inferred entries from memory. Every ledger row's `v1_path` is a real file at the pinned commit, read from a `git archive` snapshot of that commit (never the live V1 checkout); every `v2_path` is either an existing V2 file or `<unmapped>` (never a fabricated planned path — a planned home goes in `notes:`, not in `v2_path`). If V1 source is unreadable for a module, halt and surface — do NOT silently drop features.
 
 The deep-comparison entry point. Run this FIRST in a V2 repo that needs to absorb V1.
 
@@ -51,9 +51,26 @@ Optional flags:
 - `--include-dead` — opt-out of the dead-code halt. Forces queueing of features that the 6-axis reachability check flagged as dead (zero callers across app source / tests / cron / route registration / infra / production telemetry). REQUIRES paired `--caller-evidence=<path:line>` for each forced row, OR a `caller_evidence:` field in each row's prior ledger note. Use sparingly — defeats the no-zombie-port rule. Logged in `ai/migration/_history.md` for audit trail.
 - `--external-consumer=<feature-list>` — mark specific features as having external consumers (e.g., a public API consumed by a sibling repo, a library exported for downstream use). External-consumer features bypass axis 1 (V1 internal callers) but still require ≥ 1 axis to show alive. Comma-separated list of feature IDs.
 - `--in-development=<feature-list>` — mark features as "in development, not yet wired up" — these look identical to dead code but ARE going to ship. Bypasses the dead-code halt for these specific IDs. Comma-separated.
+- `--pin=<sha|ref>` — the V1 commit to read. Default: the existing ledger's `v1_commit_pinned`; on a first scan, `git -C <v1-root> rev-parse HEAD`, written to every row. The pin is printed in the scan report header.
+- `--record-v1-inventory` — after the scan, record the V1 lane inventory at the pin into `ai/migration/v1-inventory/<lane>.tsv` (§ Record mode below). It is the only `/migration-scan` output read by audits that have no V1 tree (`/compare-v1` solo mode). Without the flag, nothing is written there.
 - `--workspace` — produce a workspace-level ledger that aggregates per-repo ledgers in a multi-repo migration. Detects sibling repos via workspace-baseline's `PROJECTS.md` or `SIBLINGS.md`. (M12)
 
 ## Phase 2 — Organize (decompose the work)
+
+### V1 is read at the pin, from a write-free snapshot
+
+The scan never reads the live V1 checkout: a branch that moves mid-scan, or an uncommitted edit, makes the ledger describe a V1 that never existed at any commit. One script, before any scan (bash 3.2-safe):
+
+```bash
+export GIT_OPTIONAL_LOCKS=0; RUN="$(mktemp -d "${TMPDIR:-/tmp}/migration-scan.XXXXXX")"; : > "$RUN/stamp"; mkdir "$RUN/v1"
+PIN="${PIN:-$(awk '/v1_commit_pinned:/{print $2; exit}' ai/migration/ledger.md 2>/dev/null)}"; PIN="${PIN:-$(git -C "<v1-root>" rev-parse HEAD)}"
+git -C "<v1-root>" archive "$PIN" | tar -x -C "$RUN/v1"; echo "V1 snapshot: $PIN → $RUN/v1 ($(find "$RUN/v1" -type f | wc -l | tr -d ' ') files)"
+# a V1 inside a subdirectory of its repo: archive "$PIN:<subdir>" (run from the repo top level)
+PI=.claude/skills/paired-inventory/scripts/pair-inventory.py
+python3 -I "$PI" --v1="<v1-root>" --pin="$PIN" --v2="<v2-root>" --pair-map=ai/migration/pair-map.tsv --out="$RUN/pi" > "$RUN/candidates.tsv" 2> "$RUN/pi-ledger.txt"; echo "pair-inventory exit $?"
+```
+
+Every scan below reads V1 from `$RUN/v1`. Every `v1_path` cites a file in it, and the ledger's `v1_commit_pinned` is `$PIN`. `pair-inventory exit 4` is a blocked lane or a write: read `$RUN/pi-ledger.txt` before using any lane count. The run ends with `find "<v1-root>" "<v2-root>" -newer "$RUN/stamp" -type f -not -path '*/.git/*' -not -path '*/node_modules/*'`. Before Phase 5 writes anything, it must print nothing.
 
 Four parallel scans (Explore subagents, capped per `--max-subagents`). **Scans 1–3 walk the FULL navigation tree** — not just top-level routes. Halt #13 in `migration-discipline.md` (Module/page audit missing navigation inventory) depends on this depth.
 
@@ -73,6 +90,8 @@ Mechanical procedure (run BEFORE writing scan-report):
 5. Emit a count assertion in scan-report: `dir_walk_total: N; mapped_to_rows: M; umbrella_excluded: K; dead_excluded: L; N == M + K + L`.
 
 The scan-report § "V1 structure (detected)" section MUST end with this count assertion. If `M + K + L != N`, halt with the unmapped paths listed.
+
+**Backend inventory from the lanes.** The dir-walk proves every directory is accounted for. The **features inside** a backend module come from the `paired-inventory` V1 lane files, not from reading: `$RUN/pi/v1/I-ROUTES.tsv` (one row per method + path, its handler and `file:line`), `I-SCHED.tsv` (every schedule entry), `I-SIDE.tsv` (observers, listeners, jobs) and `I-SCHEMA.tsv` (tables, views, triggers). Group the rows by handler class or route prefix; each group is a candidate ledger row with its `v1_path` taken from the rows' `file:line`. The V2 lane files give the existing `v2_path`. A V1 route group with no V2 key is `v2_path: <unmapped>`. A lane that printed `blocked` (for example `dto-types NOT-RUN` without the backend pack) is read by hand for that module, and the scan report says which.
 
 **Why this matters**: an observed drift class (May 2026) had several V1 directories silently dropped from the ledger because the scan filtered on `.module.ts` (or equivalent module-marker file) presence, and the missed directories had alternative entry-point shapes — HTML/static policies, listener registration via decorator, listener-only sub-clusters under a sibling module, helper-service folders without their own framework module. Pure dir-walk + per-dir source-file presence test catches this; module-marker filtering doesn't.
 
@@ -102,7 +121,7 @@ The scan-report § "V1 structure (detected)" section MUST end with this count as
    - Axis 5: infra / deploy config references (Dockerfile, k8s, terraform, CI workflows).
    - Axis 6: production telemetry (if observability link exists in `_extracted-codebase.md`): zero invocations / zero log lines for ≥ 90 days.
    - **Axis 7 (frontend-specific, added 2026-05-03): navigation reachability** — the component/file is rendered by a reachable tab array, route, or interaction state. A component file that exists in the views folder but is only referenced by unreachable conditional branches (e.g., `selectedItem == 2` when the tab array max is 1) is **navigation-dead** and treated the same as a dead feature. This prevents the Zombie Tab Component anti-pattern.
-   A feature is dead iff **all applicable axes** report zero (or axes 1–5 if telemetry is unavailable; axis 7 for frontend components). Flag dead features for halt unless `--include-dead` / `--external-consumer` / `--in-development` covers the feature.
+   **Six axes for every feature, plus a seventh for frontend components only.** Axes 1–6 are halt 11's. Axis 7 is not a seventh halt-11 axis: it applies to a frontend component on top of the six. A feature is dead iff all six report zero, with axis 6 `n/a (unwired)` when there is no telemetry, **and**, for a frontend component, axis 7 also reports unreachable. Compute axes 1–5 with `~/.claude/scripts/migration-reachability.sh --compute <feature> --symbol=<name>… --v1-root="$RUN/v1"` (read-only; rg exit 2 → BLOCKED, never zero). Flag dead features for halt unless `--include-dead` / `--external-consumer` / `--in-development` covers the feature.
 
 ## Phase 3 — Retrieve (read the right context)
 
@@ -145,10 +164,10 @@ Deep report with:
 | ... | | | |
 
 ## Feature inventory
-| ID | Feature | V1 path | V2 path (existing or planned) | V2 status | Parity test | Notes |
+| ID | Feature | V1 path | V2 path (existing, or `<unmapped>`) | V2 status | Parity test | Notes |
 |---|---|---|---|---|---|---|
-| F001 | auth-login | <v1/path> | <v2/path or planned> | unverified | missing | |
-| F002 | order-create | <v1/path> | <v2/path or planned> | unverified | missing | |
+| F001 | auth-login | <v1/path> | <v2/path> | unverified | missing | |
+| F002 | order-create | <v1/path> | `<unmapped>` | unverified | missing | planned home: <v2 module> (needs a decision) |
 | ... | | | | | | |
 
 Total features: <N>
@@ -192,10 +211,10 @@ Flat YAML-ish ledger, one row per feature. Schema from `ai/patterns/migration-le
   feature: auth-login
   domain: auth
   v1_path: <v1/path>
-  v2_path: <v2/path>
+  v2_path: <v2/path>             # an existing V2 file, or <unmapped>; never a planned path
   status: unverified              # never trust prior 'done'
   parity_test: missing
-  v1_commit_pinned:
+  v1_commit_pinned: <sha>         # the snapshot this scan read
   reachability:                   # 6-axis dead-code check (added 2026-05-02)
     app_source_callers: <N>       # axis 1
     test_references: <N>          # axis 2
@@ -233,16 +252,32 @@ Flat YAML-ish ledger, one row per feature. Schema from `ai/patterns/migration-le
 
 One-line summary: scan complete, N features, M gaps, phases 1..K.
 
+### Record mode — `--record-v1-inventory`
+
+Writes the V1 lane inventory the audits read when no V1 tree is present. This is the **only** write into `ai/migration/v1-inventory/`, and nothing is ever written into V1:
+
+```bash
+python3 -I "$PI" --record-v1 --v1="<v1-root>" --pin="$PIN" --out=ai/migration/v1-inventory 2> "$RUN/record.txt"; echo "record exit $?"
+head -2 ai/migration/v1-inventory/I-ROUTES.tsv        # sha=<PIN> · extractor=<module>@sha256:<hash> · rows=<n>
+# round trip: a solo run against the record must read every lane (no `blocked (no V1 tree…)`, no stale sha)
+python3 -I "$PI" --v2="<v2-root>" --v1-inventory=ai/migration/v1-inventory --ledger=ai/migration/ledger.md --pair-map=ai/migration/pair-map.tsv --out="$RUN/solo" > /dev/null 2> "$RUN/solo-ledger.txt"; echo "solo exit $?"
+grep -E 'blocked|stale-v1-inventory' "$RUN/solo-ledger.txt" || echo "record → solo round trip: every lane fresh at $PIN"
+```
+
+Each file carries its `sha` (= the ledger pin) and the lane module's extractor hash. A later solo audit marks a lane `stale-v1-inventory` when the pin moves, and `blocked (extractor changed since record; re-record)` when the lane module changes. Re-run `--record-v1-inventory` after either. A `blocked` lane in `record.txt` is reported and not recorded as empty. The record's `root=` is printed as given, so record with the anchors' `v1_root` spelling.
+
 ## Phase 5 — Update (persist changes to the knowledge base)
 
 - `ai/migration/scan-report.md` — managed-block markers; re-runnable.
 - `ai/migration/ledger.md` — managed-block; existing user-added notes preserved by ID.
+- `ai/migration/v1-inventory/<lane>.tsv` — only with `--record-v1-inventory`, overwritten as a set.
 - `ai/index.md` — append-once entry pointing to the new ledger + scan report.
 
 ## Phase 6 — Validate (verify correctness)
 
 - Every V1 entry has a row in the ledger (no V1 feature dropped).
-- Every row has a `v2_path` set (existing OR planned — never blank).
+- Every row has a `v2_path` set: an existing V2 file, or `<unmapped>`. Never blank, and never a path that does not exist (a planned home goes in `notes:`).
+- Every row's `v1_commit_pinned` equals the snapshot's `$PIN`, and the closing `find -newer` printed nothing for either tree.
 - Every row has `status: unverified` (the contract — trust nothing).
 - Cross-reference: every `feature` ID is unique and stable across re-runs.
 
@@ -297,13 +332,15 @@ Every ledger row MUST trace to a readable V1 source file. Forbidden: writing a r
 ## Hard rules
 
 - **Trust nothing** — every status reset to `unverified`. Even `done` rows from prior runs flip back. The user explicitly opted into this contract.
+- **V1 at the pin.** Every V1 read comes from the `git archive` snapshot of `$PIN`. No V1 file is ever opened in the live checkout, and nothing is written under V1.
 - **No silent ports** — this command DOES NOT write any code. It only inventories + maps. Porting happens in `/migration-phase`.
-- **No drops** — every V1 feature must appear in the ledger. If a feature has no clear V2 home, the row exists with `v2_path: <unmapped>` and `notes: requires architectural decision`.
+- **No drops** — every V1 feature must appear in the ledger. If a feature has no clear V2 home, the row exists with `v2_path: <unmapped>` and `notes: requires architectural decision`. A planned V2 path is a note, never a `v2_path`.
 - **V2 is the new structure** — when mapping, the V2 path follows V2's conventions (App Router, new framework, new module boundaries), not V1's. The migration is not a lift-and-shift.
 
 ## Related
 
 - `/migration-plan` — next command in the phased workflow.
+- `paired-inventory` (skill) — the lane engine the backend inventory and `--record-v1-inventory` run; `/compare-v1` reads the record in solo mode.
 - `/migration-status` — light read of the ledger after this command writes it.
 - `ai/patterns/migration-ledger.md` — schema for the ledger this command writes.
 - `ai/patterns/v1-patterns-crossref.md` — V1↔V2 mapping table this command consumes if present.

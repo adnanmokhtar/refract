@@ -13,7 +13,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 Decisions-first batch. After `/migration-phase <N> --audit-only`, this command reads every per-feature audit + the phase summary, identifies decision points (P0 cutover blockers + cross-cutting items that recur across features), and **drafts** one ADR per decision in `ai/decisions/`. The user reviews + edits + signs off in one focus session, then `/migration-phase <N> --chain` runs the ports unattended against the pre-approved decisions.
 
-The point: making the same RBAC decision N times across N features in N separate `/port-feature` runs is the dominant supervision cost. Batching the decisions cuts that cost — and matches `migration-discipline.md`'s rule "Document every intentional behaviour break" by doing it once, upfront, with full phase context.
+The point: making the same RBAC decision N times across N features in N separate `/port-feature` runs is the dominant supervision cost. Batching the decisions cuts that cost — and matches `migration-discipline.md § Must` ("When an ADR IS warranted", plus "ADRs for V1↔V2 divergence require `user_decision_quote:`") by doing it once, upfront, with full phase context. Batching changes when the user decides, not whether: every drafted ADR still needs the user's verbatim choice before it closes a divergence.
 
 ## Pre-requisites
 
@@ -207,5 +207,5 @@ For every V2-deviates-from-V1 finding in the audits, the command MUST present th
 - `/migration-phase <N> --audit-only` — runs before this command; produces the audits this command reads.
 - `/migration-phase <N> --chain` — runs after this command; executes ports unattended against the accepted ADRs.
 - `/port-feature <id> --unattended` — per-feature loop that reads ADRs as pre-approved decisions.
-- `.claude/rules/migration-discipline.md` § "Document every intentional behaviour break" — the rule this command operationalises.
+- `.claude/rules/migration-discipline.md § Must` — "When an ADR IS warranted" and "ADRs for V1↔V2 divergence require `user_decision_quote:`", the rules this command operationalises.
 - `ai/patterns/migration-ledger.md` — `intentional_break: ADR-NNN` field on ledger rows points back at these ADRs.

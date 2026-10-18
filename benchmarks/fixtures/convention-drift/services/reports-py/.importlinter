@@ -1,0 +1,12 @@
+[importlinter]
+root_package = app
+
+[importlinter:contract:no-raw-http]
+name = Only app.http_client talks HTTP
+type = forbidden
+source_modules =
+    app.reports
+    app.export
+forbidden_modules =
+    requests
+    urllib3

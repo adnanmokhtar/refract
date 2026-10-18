@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 1.5.2 — 2026-10-18
+
+- References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).
+
 ## 1.5.1 — 2026-10-10
 
 **`llm-gateway-audit` found no provider SDK import, ever.** Its provider search lived in a table cell as `rg -n "anthropic\|openai\|…"`; the cell needs `\|`, and ripgrep reads that escape as a literal pipe, so the pattern matched nothing. The search is now a fenced `rg` below the table, with an explicit root (`lint-rg-traps` baseline entry removed).

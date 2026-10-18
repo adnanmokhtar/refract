@@ -1,0 +1,6 @@
+# pair-inventory 1 · lane=I-CONF · side=v1 · sha=61cb5c927438bcbf4b971b17938abe99c70b70f8 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=3
+# lane	key	attrs	at	excerpt
+I-CONF	locale	src=config/app.php;value=ar	config/app.php:13	'locale' => 'ar',
+I-CONF	per_page	src=per_page request default / paginate() ($perPage, else Eloquent 15);value=25	app/Http/Controllers/InvoiceController.php:18	$invoices = Invoice::query()->latest('issued_at')->paginate(min((int) $request->input('per_page', 25), 100));
+I-CONF	timezone	src=config/app.php + .env.example;value=Asia/Riyadh	config/app.php:11	'timezone' => env('APP_TIMEZONE', 'Asia/Riyadh'),

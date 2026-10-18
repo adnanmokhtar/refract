@@ -91,7 +91,7 @@ Each when its pack is installed; without it the candidate runs here and is tagge
 - **Security** — security-rule suppressions and analyzer packs (`sast-scan`), business check-then-act races and client-supplied numbers (`logic-race-scan`), secrets in errors and fail-open authorization (`data-exposure-scan`, `@security-auditor`), request validation and over-posting (`@api-security-reviewer`).
 - **Database** — partial writes with no transaction (`transaction-scan`), unreleased connections (`connection-config-scan`), money and timestamp column types (`schema-integrity-scan`).
 - **Performance** — handles whose cost is exhaustion under load (`memory-growth-scan`). **Distributed-systems** — timeouts, retries, breakers (`@resilience-reviewer`).
-- **Align** — a copy of an idiom the project already names (`/align`); every instance of one surface type (`/unify-surfaces`).
+- **Align** — a copy of an idiom the project already names (`/align`); every instance of one surface type (`/unify-surfaces`); file, directory and identifier names against a naming rule the project declares (M17 → `naming-layout-scan` § 1–§ 2, AL-16/AL-17); a suppression of a convention rule (`convention-ratchet-scan` § 1, AL-29). No code-quality detector implements M17, so without the align pack naming is `N/A`, never graded here.
 
 ## Phase 3 — Retrieve
 
@@ -155,6 +155,7 @@ One row per class family, sourced from each owner's coverage block. **The list i
 | Dead code (5) | unused files and exports · unused dependencies (→ `@dependency-auditor`) · unreachable · dead flags · commented-out and orphaned | `dead-code-scan` § 1–§ 5 |
 | Duplication (3) | divergent copies · one rule implemented twice · clones a change added | `duplication-scan` § 1–§ 3 |
 | Architecture (9) | layer violation · cyclic dependency · bottleneck · god module · anemic module · wrong-level responsibility · cross-cutting duplication · missing abstraction · hotspot | `architectural-diagnosis` § 1–§ 9 |
+| Naming (M17) | file or directory name · identifier name, against a declared naming rule | align `naming-layout-scan` § 1–§ 2 (AL-16, AL-17), when the align pack is installed: its coverage block folded in as-is, Findings routed to `/align`. Without it → `N/A (owner align not installed)` |
 | Analyzer lanes | per present stack: ran / `partial` / `NO LANE`, and CI level | Phase 2 stream |
 | Tests | the latest `/test-audit` verdict | testing pack, when installed |
 

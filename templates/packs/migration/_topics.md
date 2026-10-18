@@ -164,13 +164,43 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   sections: [purpose, when_to_use, prerequisites, procedure, output_format, failure_modes, related]
   fallback: _examples/perf-uplift-survey.md
 
+# Detector skills (the security-2.0 shape): no _examples/ stub ships — fall back to the live source, so a
+# regenerated stub can never drift from the detector it mirrors. A port with no V1 tree runs solo from the
+# recorded v1-inventory/; a lane with neither prints `blocked`, never N/A.
+- name: paired-inventory
+  kind: skill
+  triggers: { always: true }   # paired inventory, V1/V2 lane diff, record V1 inventory, calibration pair
+  fallback: skills/paired-inventory/SKILL.md
+
+- name: surface-parity-scan
+  kind: skill
+  triggers: { always: true }   # V1 route dropped, guard widened or narrowed, tenant scope lost, enum / rule / error / default drift
+  fallback: skills/surface-parity-scan/SKILL.md
+
+- name: semantics-parity-scan
+  kind: skill
+  triggers: { always: true }   # rounding mode or order, integer division, string look-alikes, list order, null vs missing, time zones
+  fallback: skills/semantics-parity-scan/SKILL.md
+
+- name: side-effect-parity-scan
+  kind: skill
+  triggers: { always: true }   # observer or trait effect lost, dual-run duplicate, hidden consumer, cron not ported, trigger or FK action lost
+  fallback: skills/side-effect-parity-scan/SKILL.md
+
 - name: data-cutover-orchestrate
   kind: skill
-  triggers:
-    always: true
-  extracts_from: _extracted-codebase.md § "Migration" (V1 store + V2 store engines/schemas) + _extracted-idioms.md § "Data access" + ai/migration/mapping/<feature>.md (V1→V2 field mapping) + DB pool / CDC config
-  sections: [purpose, when_to_use, prerequisites, procedure, output_format, failure_modes, related]
-  fallback: _examples/data-cutover-orchestrate.md
+  triggers: { always: true }   # backfill resume / overwrite, reconcile masks, load casts, id mapping, soft delete, sequences, fenced flip, reverse path
+  fallback: skills/data-cutover-orchestrate/SKILL.md   # rewritten as a detector; the _examples/ copy predates it
+
+- name: cutover-routing-scan
+  kind: skill
+  triggers: { always: true }   # façade route or method on the wrong half, session or CSRF not shared, write mirrored to a shadow, V1 cold before soak
+  fallback: skills/cutover-routing-scan/SKILL.md
+
+- name: parity-proof-scan
+  kind: skill
+  triggers: { always: true }   # V1-pinned test skipped or golden re-recorded, corpus misses V1 branches, V1 bug unrecorded, gated suite NOT-RUN, comparator blind spot
+  fallback: skills/parity-proof-scan/SKILL.md
 
 # ============ COMMANDS (.claude/commands/<name>.md) ============
 
@@ -316,11 +346,12 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
 - name: compare-v1
   kind: command
   triggers:
-    always: true
-  extracts_from: V1 root + V2 root from `.claude/_extracted-codebase.md § Migration`
-  sections: [understand, organize, retrieve, generate, output_format, hard_rules]
+    always: true                   # the pack's read-only V1↔V2 parity AUDIT: "is the port safe to cut over", "does V2 still do what V1 did"
+  extracts_from: V1 root + V2 root from `.claude/_extracted-codebase.md § Migration` + ai/migration/ledger.md (v1_commit_pinned) + ai/migration/_v2-anchors.md (roots:) + ai/migration/pair-map.tsv + ai/migration/v1-inventory/ (solo mode)
+  sections: [premise, intent_gate, standard_inputs, engine_and_six_detectors, cross_pack_owners, wiring_map, verify_candidates, class_coverage_ledger, production_bar, verdict, update, validate, output_format, next_steps, failure_modes, related]
   mirror_existing: true
   fallback: commands/compare-v1.md
+  note: the audit, not a diff viewer. Paired (`--v1 --v2`, V1 read from a `git archive` of the pin), paired live (`--live-v1`), solo (`--v1-inventory`, never GO) or one feature. Runs paired-inventory plus the six parity detectors, refutes every row through @parity-auditor, prints the 48-row class ledger and a NO-GO / GO-UNVERIFIED / GO verdict, writes only the report, and ends with `/find-and-fix --from-audit=<report>`. Flags `--mig` (where ai/migration lives in a side-by-side layout) and `--runs` (recorded oracle runs, cited as `recorded`) are the project's to fill from extraction.
 
 - name: migration-promote-tier
   kind: command
@@ -345,9 +376,10 @@ When extraction has no migration signal (greenfield CREATE OR ENHANCE without V1
   triggers:
     always: true
   extracts_from: _extracted-codebase.md + _extracted-idioms.md + ai/migration/ledger.md
-  sections: [premise, the_loop_5_steps, closure_verb_procedures, project_anchors, preflight, optional_flags, mechanical_halt, hard_rules, failure_modes, related]
+  sections: [premise, the_loop_5_steps, closure_verb_procedures, project_anchors, preflight, optional_flags, from_audit, mechanical_halt, hard_rules, failure_modes, related]
   mirror_existing: true
   fallback: commands/find-and-fix.md
+  note: "`--from-audit=<report> [finding-id …]` closes a /compare-v1 report instead of detecting from scratch: each finding gets a failing-first test against V1 as oracle (its V-number, paired; solo only for guarantee classes), the fix, then the owning detector § re-run as RE-DETECT. Triggers: \"fix what the audit found\", a compare-v1 report path or a finding id. Rows another pack owns (MG-AZ-1/3, MG-MN-3, MG-I18N-1, MG-TX-1, PP-5) go to that pack's fix command, never closed here."
 
 # --- Suite B: per-feature (legacy) ---
 

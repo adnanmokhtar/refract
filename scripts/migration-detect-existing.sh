@@ -5,8 +5,8 @@
 # feature is already implemented. The migration ledger is supposed to track
 # this, but it drifts; trust the filesystem.
 #
-# Returns one of three confidence levels (printed to stdout, structured
-# report written to <target>/.claude/_migration-detect-<feature>.md):
+# Returns one of three confidence levels (printed to stdout; the structured report goes to
+# ${TMPDIR:-/tmp}/migration-detect-<feature>.XXXXXX.md, its path on stderr — never into V2):
 #
 #   none      — nothing in V2 matches; safe to port.
 #   partial   — some matches found; manual review required before write.
@@ -20,13 +20,18 @@
 #   migration-detect-existing.sh <v2-target> <feature-slug> [--quiet]
 #                                [--stdout | --report=<path>]
 #
-#   --no-write      READ-ONLY mode. Compute the verdict and write NOTHING under
-#                   <v2-target> — not the report, not `.claude/`. This script runs BEFORE
-#                   /port-feature writes anything; until now the pre-write safety check
-#                   was itself a write. There is deliberately NO `--stdout` here: stdout
-#                   carries the verdict token (`none`/`partial`/`full`) that callers read
-#                   with $(...), so the report may never be put on it.
-#   --report=<path> Write the report to <path> instead. Must use `=`.
+#   (default)       READ-ONLY on <v2-target>: the report is written under ${TMPDIR:-/tmp} and
+#                   kept; its path is printed on stderr. The default used to be
+#                   <v2-target>/.claude/_migration-detect-<feature>.md, so the pre-write safety
+#                   check was itself a write into the repo it probed, and /migration-phase's
+#                   pre-flight (which omits --no-write) dirtied V2 on every run.
+#   --no-write      Also discard the report — verdict only, nothing written anywhere.
+#                   There is deliberately NO `--stdout` here: stdout carries the verdict
+#                   token (`none`/`partial`/`full`) that callers read with $(...), so the
+#                   report may never be put on it.
+#   --report=<path> Write the report to <path> instead (an explicit choice; may be in V2).
+#                   Must use `=`.
+#   --write-in-target  The old default: <v2-target>/.claude/_migration-detect-<feature>.md.
 #
 # Exit codes:
 #   0 — clean (regardless of confidence; check stdout for none/partial/full)
@@ -37,8 +42,8 @@ set -euo pipefail
 export LC_ALL=C
 
 if [[ $# -lt 2 ]]; then
-  echo "Usage: $0 <v2-target> <feature-slug> [--quiet] [--no-write|--report=<path>]" >&2
-  echo "       --no-write = read-only: verdict only, nothing written under <v2-target>." >&2
+  echo "Usage: $0 <v2-target> <feature-slug> [--quiet] [--no-write|--report=<path>|--write-in-target]" >&2
+  echo "       default = nothing written under <v2-target>; the report goes under \${TMPDIR:-/tmp}." >&2
   exit 1
 fi
 
@@ -46,11 +51,13 @@ TARGET="$1"; shift
 FEATURE="$1"; shift
 QUIET=0
 SINK_NOWRITE=0
+SINK_IN_TARGET=0
 REPORT_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --quiet) QUIET=1; shift ;;
     --no-write) SINK_NOWRITE=1; shift ;;
+    --write-in-target) SINK_IN_TARGET=1; shift ;;
     --stdout) echo "ERR: --stdout is not available here: stdout carries the verdict token that callers read with \$(...). Use --no-write, or --report=<path>." >&2; exit 2 ;;
     --report=*) REPORT_OVERRIDE="${1#*=}"; shift ;;
     # The catch-all below SWALLOWS unknown args, so `--report /tmp/x` would be dropped
@@ -80,19 +87,26 @@ fi
 [[ -d "$V2_SCAN_ROOT" ]] || V2_SCAN_ROOT="$TARGET/src"
 
 # ── Report sink ────────────────────────────────────────────────────────────────
-# The default sink is a file INSIDE the V2 target, so the "have we already got this
-# feature?" probe modified the very repo it was probing.
-REPORT="$TARGET/.claude/_migration-detect-$FEATURE.md"
+# The old default sink was a file INSIDE the V2 target, so the "have we already got this
+# feature?" probe modified the very repo it was probing. Now nothing lands in the target
+# unless the caller names it (--report=<path in V2> or --write-in-target).
 REPORT_TMP=""
 if [[ $SINK_NOWRITE -eq 1 ]]; then
   REPORT_TMP=$(mktemp "${TMPDIR:-/tmp}/migration-detect.XXXXXX")
   trap '[ -n "${REPORT_TMP:-}" ] && rm -f "$REPORT_TMP"; :' EXIT
   REPORT="$REPORT_TMP"
-  REPORT_LABEL="(discarded — nothing written under $TARGET)"
-else
-  [[ -n "$REPORT_OVERRIDE" ]] && REPORT="$REPORT_OVERRIDE"
+  REPORT_LABEL="(discarded — nothing written)"
+elif [[ -n "$REPORT_OVERRIDE" ]]; then
+  REPORT="$REPORT_OVERRIDE"
   mkdir -p "$(dirname "$REPORT")"
   REPORT_LABEL="$REPORT"
+elif [[ $SINK_IN_TARGET -eq 1 ]]; then
+  REPORT="$TARGET/.claude/_migration-detect-$FEATURE.md"
+  mkdir -p "$(dirname "$REPORT")"
+  REPORT_LABEL="$REPORT"
+else
+  REPORT=$(mktemp "${TMPDIR:-/tmp}/migration-detect-$FEATURE.XXXXXX") || { echo "ERR: mktemp failed under ${TMPDIR:-/tmp}" >&2; exit 1; }
+  REPORT_LABEL="$REPORT (nothing written under $TARGET)"
 fi
 
 # Variants: PascalCase, camelCase, kebab-case from the slug

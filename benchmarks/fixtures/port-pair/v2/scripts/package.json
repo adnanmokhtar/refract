@@ -1,0 +1,14 @@
+{
+  "name": "@norrow/scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "backfill": "tsx backfill/run.ts",
+    "sync": "tsx sync/run.ts"
+  },
+  "dependencies": {
+    "mysql2": "3.11.5",
+    "pg": "8.13.1",
+    "tsx": "4.19.2"
+  }
+}

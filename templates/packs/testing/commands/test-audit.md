@@ -85,7 +85,7 @@ Run in three waves, each skill once. Wave 1 decides what the rest can trust: a t
 
 ### Cross-pack owners
 - **Security** (when the security pack is installed): the hole behind a `coverage-gap` § 2 row — a route that answers another tenant, a guard that does not hold — goes to `@auth-reviewer` / `@tenant-isolation-reviewer`. This audit reports the missing negative test. **Without the security pack**, the row is reported here tagged `security-class (owner pack not installed)` with the seeded-violation result, never dropped.
-- **Backend** (when installed): `endpoint-test` proves a `coverage-gap` § 5 route against a running server; cite it. Without it the row's oracle is the route-level test this audit names.
+- **Backend** (when installed): `endpoint-test-method` proves a `coverage-gap` § 5 route against a running server; cite it. Without it the row's oracle is the route-level test this audit names.
 - **Devops** (when installed): CI design beyond "does the job run the tests and fail on red" → `@ci-reviewer`. Without it, that part is out of this audit's scope and says so.
 - **Database** (when installed): a `test-double-scan` § 4 row whose real-engine run shows a missing constraint becomes a data finding for `/db-audit`; without it, the parity run is the proof here.
 

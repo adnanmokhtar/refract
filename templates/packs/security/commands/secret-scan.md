@@ -73,7 +73,7 @@ Three scanners run in parallel:
 
 ## Phase 3 — Retrieve
 
-**Run the `secret-scan` skill for detection.** It owns the scanner invocations (including the post-v8.19.0 `gitleaks git` / `dir` / `stdin` verbs that replaced the deprecated `detect`/`protect`), the provider-prefix table, and § Reading the output — the exit-code trap, the finding fields, and the confirmation-vs-suspicion split. This command does not restate any of it. It starts from the skill's classified findings and adds what the skill cannot: rotation, scrub, coordination, and the report of record.
+**Run the `secret-scan-method` skill for detection.** It owns the scanner invocations (including the post-v8.19.0 `gitleaks git` / `dir` / `stdin` verbs that replaced the deprecated `detect`/`protect`), the provider-prefix table, and § Reading the output — the exit-code trap, the finding fields, and the confirmation-vs-suspicion split. This command does not restate any of it. It starts from the skill's classified findings and adds what the skill cannot: rotation, scrub, coordination, and the report of record.
 
 Engines the skill drives: **gitleaks** (pattern + entropy, configurable), **trufflehog** (deeper entropy heuristics, verified-only mode), **detect-secrets** (baseline file for whitelisting), plus **GitHub Advanced Security** where the repo has it.
 
@@ -180,7 +180,7 @@ Report: ai/audits/secret-scan-<date>.md
 
 ## Related
 
-- `secret-scan` **skill** — the detection primitive this command orchestrates: scanner invocation, the provider-prefix table, finding-field triage. Deliberate split, near-zero overlap — the skill answers *what leaked and is it real*, this command answers *how it gets closed*. Run the skill for a scan; run this when something has to be rotated.
+- `secret-scan-method` **skill** — the detection primitive this command orchestrates: scanner invocation, the provider-prefix table, finding-field triage. Deliberate split, near-zero overlap — the skill answers *what leaked and is it real*, this command answers *how it gets closed*. Run the skill for a scan; run this when something has to be rotated.
 - `@security-auditor` — runs the broader audit; this command is one dimension of it.
 - `@auth-reviewer` — overlap on credential handling (a leaked signing secret is also a session-integrity finding).
 - `.claude/rules/security-principles.md` — the secret-management + never-log-secrets rules this command enforces.

@@ -1,0 +1,17 @@
+ls:
+  apps/web/src:
+    .dir: kebab-case
+    .ts: camelCase | kebab-case
+    .tsx: PascalCase
+    .module.css: PascalCase
+  apps/admin/src:
+    .dir: kebab-case
+    .ts: kebab-case
+    .vue: kebab-case
+  services/reports-py/app:
+    .py: snake_case
+
+ignore:
+  - node_modules
+  - apps/web/src/routes
+  - apps/web/src/routeTree.gen.ts

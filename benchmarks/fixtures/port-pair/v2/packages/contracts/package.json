@@ -1,0 +1,9 @@
+{
+  "name": "@norrow/contracts",
+  "version": "2.3.0",
+  "private": true,
+  "main": "src/index.ts",
+  "dependencies": {
+    "zod": "3.24.1"
+  }
+}

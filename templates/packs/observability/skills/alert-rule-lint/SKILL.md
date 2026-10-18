@@ -31,7 +31,7 @@ A candidate is a finding when all four hold (gates 1–7 of the protocol, read f
 
 - **Fire history, flapping, dead-by-behaviour, owner recency** → `alert-audit` (this pack), L-tier with `NO-DATA(<source>)`. This skill never estimates a fire count.
 - **Burn-rate arithmetic, SLO specs, regenerate-and-diff** → `slo-rule-scan` §2 (`burn-check.py`, `THR-OBS-BURN`). Here a multiwindow burn rule is recognised only so §1 does not demand a `for` on it (precedents § 2) and §4 still grounds its selectors.
-- **Notification secrets inline** (Slack webhook, PagerDuty key) → security `secret-scan` when the security pack is installed; without it the row is tagged `secret (owner pack not installed)`, listed, never graded (precedents P2).
+- **Notification secrets inline** (Slack webhook, PagerDuty key) → security `secret-scan-method` when the security pack is installed; without it the row is tagged `secret (owner pack not installed)`, listed, never graded (precedents P2).
 - **PrometheusRule / ServiceMonitor schema validity** (kubeconform with local CRD schemas) → infrastructure `k8s-api-version-scan` §2 when that pack is installed; without it the schema is unchecked and says so. This skill owns the PromQL content and whether the rule is *selected* (AL-22).
 - **A CI job that runs promtool or pint but is neutered** (`continue-on-error`, `|| true`, path filters) → devops when that pack is installed; `/obs-audit` corroborates with its RULES GATE row.
 - **Canary-analysis selectors** (Argo `AnalysisTemplate`) are devops's; they may cite `rule-inventory.py --check=selectors` for grounding.
@@ -358,4 +358,4 @@ The verifier reads `precedents/observability.md` § 1–17 (alerts and routing),
 - `@observability-reviewer` (this pack) — judges these rows in refute mode; `/obs-audit` dispatches, `/obs-fix` closes.
 - `/alert-design`, `/add-telemetry` (this pack) — write rules; their alert gate is promtool plus these rows.
 - `metric-hygiene-scan`, `telemetry-config-scan` (this pack) — the registrations the inventory reads, and dashboards.
-- `secret-scan` (security pack, when installed), `k8s-api-version-scan` §2 (infrastructure pack, when installed), devops CI gates (when installed) — § Boundaries.
+- `secret-scan-method` (security pack, when installed), `k8s-api-version-scan` §2 (infrastructure pack, when installed), devops CI gates (when installed) — § Boundaries.

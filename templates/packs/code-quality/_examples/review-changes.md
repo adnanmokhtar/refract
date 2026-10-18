@@ -199,7 +199,7 @@ The same detectors `/quality-audit` runs on a whole repo, each dispatched once w
 
 None fires → no row. A fired detector that did not run is `UNREVIEWED(<detector>)`, which ends the sweep INCOMPLETE like any missing reviewer. For a whole-repo question ("is the codebase hiding errors?") the answer is `/quality-audit`, not this command.
 - `doc-drift-scan` — does the change need doc updates? `ai/status.md`? `ai/modules.md`? `ai/conventions.md`?
-- `secret-scan` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
+- `secret-scan-method` (on **every** changed file, not just `auth`) — hardcoded API keys / tokens / passwords / private keys / connection strings, and accidentally-staged `.env` / credential files. A real secret in the diff is a **BLOCK** (data integrity / security), independent of which category the file is in. If the skill isn't installed, run the inline check: high-entropy strings + known key prefixes (`AKIA`, `sk-`, `ghp_`, `-----BEGIN * PRIVATE KEY-----`, etc.) over the added lines.
 - `coverage-gap` (on changed lines) — added business logic with no covering test is a finding **even when no test file was touched** (otherwise `test-reviewer` never dispatches and the gap is invisible). Severity: request by default, blocker on a security / data-integrity / write-path change.
 
 **Missing-agent contract (applies to every dispatch table above):** if a named reviewer is not installed in this project, that axis is **not reviewed** — do not grade it yourself. Record `UNREVIEWED(<axis>) — <reviewer> not installed (<pack> pack)` in the consolidation note and end the sweep **INCOMPLETE**. A skipped axis is the worst failure mode for a comprehensive sweep: it reads as "clean" when it was never checked.
@@ -359,7 +359,7 @@ Then: re-run `/review-changes` to confirm it comes back clean, and open the PR.
 - Don't propose changes outside the PR's declared intent.
 - Don't skip signal-based reviewers — tenant leaks slip through when tenant-isolation-reviewer is skipped because "it's a small change".
 - Never silently skip an axis — an uninstalled reviewer is reported `UNREVIEWED(<axis>)` (the sweep is INCOMPLETE), not dropped and not self-graded.
-- Run `secret-scan` on every changed file regardless of category — a committed credential is a BLOCK.
+- Run `secret-scan-method` on every changed file regardless of category — a committed credential is a BLOCK.
 - **Never assert suite state from the diff.** `Suite: GREEN` requires a runner exit code recorded in this run; anything else is `UNVERIFIED` and caps the verdict.
 - A diff that adds a dependency (not a version bump) gets a dependency review — flag it, don't wave it through.
 - Block on: security, data integrity, tenant isolation, correctness, committed secrets. Request on: perf, DX, maintainability, unreviewed new dependency. Nit on: style, i18n, minor docs.

@@ -1,0 +1,5 @@
+{
+  "recorded_from": "v1/tests/Feature/InvoiceTotalsTest.php::test_tax_is_rounded_per_line_then_summed",
+  "subtotal": "87.30",
+  "tax": "13.08"
+}

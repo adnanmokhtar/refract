@@ -1,0 +1,14 @@
+# V358 — V1 route inventory and request corpus replayed against V2 (V1 at the ledger pin, V2 HEAD)
+# base_v1=http://127.0.0.1:8000  base_v2=http://127.0.0.1:3000  user=manager@acct-7  date=2026-10-16
+METHOD  PATH                                   V1    V2    NOTE
+GET     /api/orders?page=1&per_page=25         200   200   body differs: V2 data = V1 page 2 (ids 26-50)
+GET     /api/orders?status[]=placed            200   200   body differs: V2 returns every status (filter ignored)
+GET     /api/orders                            200   200   meta.per_page 25 vs 20
+POST    /api/orders/7/duplicate                201   404
+GET     /api/invoices/12/pdf                   200   404
+PATCH   /api/orders/9  (status=placed)         409   400   V1 {"code":"order_not_editable"}; V2 no code
+POST    /api/orders  (4 invalid fields)        422   422   V1 errors has 4 keys; V2 errors has 1
+GET     /api/stock/low-stock                   200   404   pair-map → /api/stock/alerts (ADR-0004): 200
+GET     /api/reports/legacy-aging              200   404   deprecated (ADR-0009)
+POST    /api/auth/token  (missing device_name) 422   400   ADR-0006
+GET     /api/nope                              404   404   fallback ↔ NotFoundFilter

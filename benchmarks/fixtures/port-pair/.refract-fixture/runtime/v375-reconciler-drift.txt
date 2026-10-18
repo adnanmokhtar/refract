@@ -1,0 +1,9 @@
+# V375 — seeded drift rows, and whether scripts/reconcile/validate.sh reported them
+TABLE        SEEDED DRIFT                                  REPORTED
+users        email 'Sara@Example.com' vs 'sara@example.com' no   (-cim: UPPER() on both sides)
+users        name 'Omar ' (trailing space)                  no   (row hash RTRIMs)
+invoices     total_amount 410.25 vs 410.26                  no   (count only)
+invoices     issued_at shifted +3 h                         no   (count only)
+orders       total_amount 99.95 vs 99.96                    yes  (sum + row comparison)
+orders       status 'canceled' vs 'cancelled'               yes
+stock_items  quantity_reserved 12 vs 13                     yes  (sum)

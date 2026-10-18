@@ -1,0 +1,10 @@
+# V371 — side-effect journal per request (Mailpit + queue tap + activity_log/invoice_audit row deltas)
+REQUEST                                            V1 EFFECTS                                   V2 EFFECTS
+PATCH order 9 status shipped                       mail:order-shipped ×1                        —
+POST /api/wallets/3/adjust                         activity_log(wallets) ×1                     —
+POST /api/invoices/12/issue (rolled back by fault) mail job: none (afterCommit)                 queue:invoice-issued ×1 (job ran, invoice not found)
+V1 order 31 placed during dual-run (synced to V2)  mail:order-placed ×1                         mail:order-placed ×1  (customer got 2)
+V1 ticket 77 opened during dual-run (synced)       sms:ticket-opened ×1                         —  (replicated write skipped)
+PATCH invoice 12 (V2)                              invoice_audit ×1 (observer)                  invoice_audit ×1 (trigger invoices_audit_trg)
+cron 00:15 wallets:expire-credits                  wallet_transactions(promo-expired) ×6        — (no schedule)
+cron */5 release stale reservations                stock_items.quantity_reserved −14            — (no schedule)

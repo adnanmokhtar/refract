@@ -47,7 +47,7 @@ A candidate is a finding when all four hold:
 - **Diff-time weakening** — a lowered coverage floor, an exclusion pragma or ignore glob added in the change, a removed CI coverage step — belongs to `.claude/scripts/test-integrity.py` when the repo-baseline is installed: run it first on a diff and consume its JSON, never re-grep it. Without it, those rows read `N/A (owner: test-integrity, repo-baseline not installed)`. The whole-repo state of coverage config that hides source is `suite-execution-scan` § 5.
 - **Executed but unchecked** (covered lines whose assertions are weak) → `assertion-strength-scan`, measured by `mutation-probe`.
 - **The authorization hole itself** (a route with no guard, a query with no tenant predicate) → the security pack's `@auth-reviewer` and `@tenant-isolation-reviewer`, when the security pack is installed. This skill reports the *missing negative test* (QG-3); without that pack the row carries `security-class (owner pack not installed)`.
-- **Writing the contract test** → `contract-test` (this pack). **Proving an endpoint against a running server** → backend `endpoint-test`, when the backend pack is installed.
+- **Writing the contract test** → `contract-test` (this pack). **Proving an endpoint against a running server** → backend `endpoint-test-method`, when the backend pack is installed.
 
 ## Adapt to the codebase — the coverage lane table
 
@@ -410,5 +410,5 @@ The verifier reads [`precedents/testing.md`](../../../../snippets/precedents/tes
 - `contract-test` (this pack) — closes §6. `property-invariants` (this pack) — the input-space axis.
 - `.claude/scripts/test-integrity.py` (repo-baseline) — diff-time coverage-floor and exclusion weakening.
 - `@test-engineer` writes the missing test; `@test-reviewer` gates on it; `/add-test` and `/test-fix` close findings.
-- Security pack, when installed: `@auth-reviewer`, `@tenant-isolation-reviewer` own the hole behind a §2 row. Backend pack, when installed: `endpoint-test` proves a §5 route against a running server.
+- Security pack, when installed: `@auth-reviewer`, `@tenant-isolation-reviewer` own the hole behind a §2 row. Backend pack, when installed: `endpoint-test-method` proves a §5 route against a running server.
 - `rules/testing-principles.md` and the engineering baseline: QG-1, QG-2, QG-3, QG-4, QG-9.

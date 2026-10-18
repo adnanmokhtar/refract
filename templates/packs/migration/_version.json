@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "1.13.0",
-  "released": "2026-10-05",
+  "version": "2.0.0",
+  "released": "2026-10-18",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "parity-test-generate's golden master is registered as a characterization baseline (--no-capture, tolerance mirrored to JSON) so G14 guards later V2 edits; /migrate and /port-feature register it and characterize first on an in-place port (proposal §7, Phase 5).",
+  "summary": "Paired-inventory engine (11 lanes, V1 vs V2 set diff, calibration, solo/record modes) and six parity detectors; /compare-v1 is the audit, @parity-auditor the judge, /find-and-fix --from-audit the fix loop.",
   "changelog": "CHANGELOG.md"
 }

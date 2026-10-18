@@ -249,7 +249,7 @@ Every run MUST end with a `## What to do next` block — the remaining work re-e
 - [`templates/snippets/exploit-payloads.md`](../../../snippets/exploit-payloads.md) — the per-class payload list + oracle the reproduction test and post-patch validation use; "a fix passes the whole class, not the one payload".
 
 ### Detector skills (re-run for RE-DETECT; same pack)
-- `injection-scan` · `file-access-scan` · `xss-scan` · `data-exposure-scan` · `logic-race-scan` · `ssrf-scan` · `iac-scan` · `sast-scan` · `secret-scan` — each raised a finding; the one named in a finding is the one RE-DETECT re-runs on the patched line.
+- `injection-scan` · `file-access-scan` · `xss-scan` · `data-exposure-scan` · `logic-race-scan` · `ssrf-scan` · `iac-scan` · `sast-scan` · `secret-scan-method` — each raised a finding; the one named in a finding is the one RE-DETECT re-runs on the patched line.
 
 ### Agents (dispatched when co-installed, for the review pass on a risky fix)
 - `@security-auditor`, `@auth-reviewer`, `@tenant-isolation-reviewer`, `@api-security-reviewer` — when the security pack's agents are installed, dispatch the matching one to review a shared-primitive or auth-adjacent fix. Absent them, the axis is **not reviewed**: report `UNREVIEWED(<axis>) — <agent> not installed (security pack agents)` and the fix closes INCOMPLETE — the agent that wrote the fix never reviews it, and never skips the axis silently.

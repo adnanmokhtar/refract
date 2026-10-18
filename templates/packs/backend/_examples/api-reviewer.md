@@ -70,7 +70,7 @@ Mechanical. Each stops the review or kills the finding.
 - **Record the installed detectors, owners and the refuter** — this decides § Axis ownership's column 2:
 
 ```bash
-for p in .claude/skills/{validation-boundary-scan,edge-error-scan,http-contract-scan,wire-format-scan,job-lifecycle-scan,state-transition-scan,api-snapshot,endpoint-test} \
+for p in .claude/skills/{validation-boundary-scan,edge-error-scan,http-contract-scan,wire-format-scan,job-lifecycle-scan,state-transition-scan,api-snapshot,endpoint-test-method} \
          .claude/skills/{injection-scan,logic-race-scan,data-exposure-scan,ssrf-scan,file-access-scan,transaction-scan,n-plus-one-scan,request-path-scan,error-handling-scan,correctness-smell-scan,type-safety-scan,metric-hygiene-scan,log-signal-scan,messaging-scan,retry-deadline-scan} \
          .claude/agents/{verifier,api-security-reviewer,auth-reviewer,tenant-isolation-reviewer,schema-reviewer,observability-reviewer,resilience-reviewer,workflow-integrity}.md; do
   [ -e "$p" ] && echo "installed: $p" || echo "absent: $p"; done
@@ -184,7 +184,7 @@ One verdict per row. `MET` requires a cited **Evidence** cell — the detector �
 | mass-assignment (SEC-01) · token-validation (SEC-03) · tenant-isolation · ssrf (SEC-02) · rate-limit (ENF-1) | → security (rows of § Axis ownership) | routed / n-a | <the owner's row, or `<class> (owner pack security not installed)`> |
 | readiness (OBS-4) | → observability `metric-hygiene-scan` §7; performance `request-path-scan` §15 | routed / n-a | <the owner's row> |
 
-**No-faked-pass rule (halt condition).** A floor row with no citable evidence is `UNMET`, never `MET`. When the evidence needs a harness that is absent (no scratch database for the real bootstrap, no dev server for `endpoint-test`, the owner pack not installed), the row is `SKIPPED` and the body says `unverified: <the request or run a reader must execute>`. A routed floor row with its owner absent is `SKIPPED (owner pack <x> not installed)`, never graded here. `SKIPPED` on a floor row means the endpoint is not certified; `/add-endpoint` reports INCOMPLETE.
+**No-faked-pass rule (halt condition).** A floor row with no citable evidence is `UNMET`, never `MET`. When the evidence needs a harness that is absent (no scratch database for the real bootstrap, no dev server for `endpoint-test-method`, the owner pack not installed), the row is `SKIPPED` and the body says `unverified: <the request or run a reader must execute>`. A routed floor row with its owner absent is `SKIPPED (owner pack <x> not installed)`, never graded here. `SKIPPED` on a floor row means the endpoint is not certified; `/add-endpoint` reports INCOMPLETE.
 
 ## Hard rules
 
@@ -204,11 +204,11 @@ One verdict per row. `MET` requires a cited **Evidence** cell — the detector �
 ### Sibling agents in backend pack
 - `@api-architect` chose the shape before the code existed; a finding that amounts to "the whole shape is wrong" is an escalation to it.
 - `@bug-investigator` explains a failure already observed; this agent predicts latent ones in a diff.
-- `@endpoint-tester` fires the requests (the `endpoint-test` skill); its results are evidence in the verdict table.
+- `@endpoint-tester` fires the requests (the `endpoint-test-method` skill); its results are evidence in the verdict table.
 - `@websocket-engineer` owns everything that outlives one request (ENF-4 is the seam).
 
 ### Skills
-- The six detectors above · `api-snapshot` (the committed baseline; its diff gates only with `--fail-on ERR`) · `api-consistency-audit` (consistency across siblings; a route that is both wrong and inconsistent is one detector finding) · `endpoint-test`.
+- The six detectors above · `api-snapshot` (the committed baseline; its diff gates only with `--fail-on ERR`) · `api-consistency-audit` (consistency across siblings; a route that is both wrong and inconsistent is one detector finding) · `endpoint-test-method`.
 
 ### Shared contracts
 [`refute-before-report.md`](../../../snippets/refute-before-report.md) · [`precedents/backend.md`](../../../snippets/precedents/backend.md) · [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Backend

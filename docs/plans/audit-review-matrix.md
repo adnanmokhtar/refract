@@ -211,7 +211,7 @@ Sample rows:
 
 | Cell | Existing material |
 |---|---|
-| Security × Files | `ssrf-scan`, `file-upload/rules/upload-safety.md`, `media-processing` rules (magic-byte, EXIF, codec), `secret-scan` |
+| Security × Files | `ssrf-scan`, `file-upload/rules/upload-safety.md`, `media-processing` rules (magic-byte, EXIF, codec), `secret-scan-method` |
 | Security × Queues | `background-jobs/rules/job-design.md`, `queue-reviewer`, `deps-audit` |
 | Security × Integrations | `webhook/rules/webhook-signature-verification.md`, `integrations` rules, `ssrf-scan` |
 | AuthZ × Background Jobs | *(empty — real gap)* |

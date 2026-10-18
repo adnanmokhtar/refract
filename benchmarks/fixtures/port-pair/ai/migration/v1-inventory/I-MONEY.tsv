@@ -1,0 +1,8 @@
+# pair-inventory 1 · lane=I-MONEY · side=v1 · sha=61cb5c927438bcbf4b971b17938abe99c70b70f8 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=5
+# lane	key	attrs	at	excerpt
+I-MONEY	area:invoice	modes=half-away;where=InvoiceController::issue	app/Http/Controllers/InvoiceController.php:37	public function issue(Invoice $invoice)
+I-MONEY	area:order	modes=half-away;where=OrderController::store	app/Http/Controllers/OrderController.php:35 +app/Http/Controllers/OrderController.php:75	public function store(StoreOrderRequest $request)
+I-MONEY	area:pricing	modes=half-away;where=PricingService::creditFor	app/Services/PricingService.php:19	public function creditFor(string $net, float $ratio): string
+I-MONEY	area:report	modes=half-away;where=ReportController::sales	app/Http/Controllers/ReportController.php:13	public function sales(Request $request)
+I-MONEY	area:wallet	modes=half-away,trunc;where=WalletController::installments	app/Http/Controllers/WalletController.php:44	public function installments(Request $request, Wallet $wallet)

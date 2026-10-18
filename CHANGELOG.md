@@ -6,6 +6,33 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Track A batch 6: migration and align become detector packs (2026-10-18)
+
+Before this batch the migration pack compared V1 and V2 by counting primitives (a guard moved
+from one route to another passed) and its validator could not read the ledger the pack documents;
+the align pack had no detector of its own, ran other packs' security/perf greps, and auto-accepted
+token visual diffs. Each class now has one owning skill with a runnable pre-flight, a coverage
+block, a refute step and a failing-first oracle. Per-pack detail is in each pack's `CHANGELOG.md`.
+
+- **migration 2.0.0** — `paired-inventory` (`pair-inventory.py`: the same 11-lane extraction on
+  both trees, set diff, calibration on a clean pair, paired/solo/record modes, never writes into a
+  tree) and six detectors (surface, semantics, side-effect parity; data-cutover-orchestrate
+  rewritten with fenced write flip, reverse path and point of no return; cutover-routing;
+  parity-proof with V1-pinned test integrity). `/compare-v1` is the audit, `@parity-auditor` the
+  judge, `/find-and-fix --from-audit` the fix loop. Fixture `port-pair` (Laravel 11 → Nest; 92
+  two-anchor seeds, 36 decoys; the clean pair calibrates to 0 on every lane) + `port-pair-solo`.
+- **align 2.0.0** — a convention oracle (enforced / written / generated / contested; a majority
+  only proposes), four new detectors, `align-detect` as the AL-01…34 dispatcher, an EQ/VC/FN proof
+  ladder in `align-sweep-gate.py`, `/align-scan` as the read-only audit, a 17-check gate. Fixture
+  `convention-drift` (47 seeds, 24 decoys, 14 fix-runs gated in CI).
+- **Cross-pack:** backend 2.1.0 `dto-types.py --routes/--enums`; database 2.3.0 `schema-map.py`
+  laravel lane; frontend 2.2.0 `catalog-parity.py --v1`; testing 2.3.0 `gated-suites.tsv` per CI
+  job; ui-ux 1.33.0 `token-map.py`.
+- **Hidden commands fixed.** A skill and a command with the same name resolve to the skill
+  (Claude Code docs, 2026-10-18), so `/threat-model`, `/secret-scan`, `/log-tail`, `/endpoint-test`
+  and learning's `/detect-drift` were unreachable. The skills are renamed (`*-method`,
+  `align-detect`) and `validate-pack-consistency.sh` now fails any command/skill name collision.
+
 ### Real-repo detector fixes for batches 1–3 (2026-10-15)
 
 Batch 1–3 packs were run read-only against a real NestJS + React monorepo. The runs found

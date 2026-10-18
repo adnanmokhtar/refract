@@ -1,4 +1,4 @@
 ---
 essentials:
-  skills: [foo]
+  ai-patterns: [foo]
 ---

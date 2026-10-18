@@ -1,0 +1,9 @@
+# V363 — money functions, V1 (PHP 8.3 round) vs V2, 10 000 generated cases + the fixed ones below
+FUNCTION                 INPUT                          V1        V2        MATCH
+creditFor                ('2.25', 0.5)                  -1.13     -1.12     no
+creditFor                ('0.05', 0.5)                  -0.03     -0.02     no
+lineNet                  (1.005, 1, null)               1.01      1.00      no   (toFixed on a binary float)
+lineNet                  (2.675, 1, null)               2.68      2.67      no
+invoiceTotals.tax        5 lines, rate 0.15             13.08     13.09     no   (per-total, not per-line)
+installments             (100.00, 3)                    33.34+33.33+33.33  33.33×3 = 99.99  no
+roundHalfAway            (-2.5, 0)                      -3        -3        yes

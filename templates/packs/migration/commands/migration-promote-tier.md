@@ -81,7 +81,7 @@ Validates:
 
 For backfill (promotion):
 - **trivial → standard**: read V1 source for the feature; agent extracts a 3-section contract (Inputs / Outputs / Known V1 bugs) + a short plan.
-- **standard → heavy**: full 8-artifact set per `migration-discipline.md § Heavy-tier artifact spec` — contract (9 sections), plan, parity tests (≥30 fixtures + tolerance.yaml + golden snapshots), perf-decisions, rollback runbook, audit, mapping, ledger row update.
+- **standard → heavy**: full 8-artifact set per `ai/patterns/migration-guardrails.md § Heavy-tier artifact spec (the historical floor)` — contract (9 sections), plan, parity tests (≥30 fixtures + tolerance.yaml + golden snapshots), perf-decisions, rollback runbook, audit, mapping, ledger row update.
 
 ## Phase 4 — Generate (produce the output)
 
@@ -188,4 +188,4 @@ To override (rare): re-run audit, document why P0 was a false positive, and re-a
 - `/migration-rollback <N>` — undoes a phase if tier change cascades.
 
 ### Rules
-- `.claude/rules/migration-discipline.md § Mid-port tier promotion` — the procedure this command implements.
+- `ai/patterns/migration-guardrails.md § Mid-port tier promotion` — the procedure this command implements (the rule delegates it there).

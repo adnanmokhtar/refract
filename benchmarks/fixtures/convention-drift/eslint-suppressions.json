@@ -1,0 +1,7 @@
+{
+  "apps/web/src/features/reviews/reviews-api.ts": {
+    "no-restricted-imports": {
+      "count": 3
+    }
+  }
+}

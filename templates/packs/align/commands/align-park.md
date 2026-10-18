@@ -27,7 +27,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 - A halted row that's a quick fix away (just re-run the verb).
 - A "false positive" finding (re-detect already returns 0 hits) — use `archived-pre-existing` instead.
 - A finding the team has decided NOT to fix at all. That is not a park — it is the terminal `archived-deprecated` state, which requires an ADR and is set by hand (there is no command for it, deliberately: a won't-fix on a scanned finding is a human decision with a written reason).
-- **A `class: security` row with `severity: critical`.** See § Mechanical halt.
+- **A HIGH row** (an AL-15 permission, tenant or auth gate, or a wrapper bypass that drops one) without a signed override. See § Mechanical halt.
+- **An owner-class row** (a legacy `class: security`, `performance` or code-quality row). It is not parked here: it is re-written `status: routed` to its owner's fix command (`/security-fix` for security), per `ai/patterns/align-ledger.md § Legacy class names`.
 
 ## Args
 
@@ -35,8 +36,8 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 /align-park <id> [reason]                      # the normal form; prompts for a reason if omitted
     --blocker=<idiom-missing|cross-repo|reviewer|scope|cadence|other>
     --unpark-after=<date|event>                # when to revisit; aged by /align-status --stalled
-    --no-confirm                               # scripted contexts; does NOT waive a critical override
-    --override-critical="<reason>"             # the ONLY way to park a critical security row
+    --no-confirm                               # scripted contexts; does NOT waive a HIGH override
+    --override-high="<reason>"                 # the ONLY way to park a HIGH row (a permission, tenant or auth gate)
 ```
 
 ## Pre-requisites
@@ -47,17 +48,18 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 If pre-requisites missing → halt + report.
 
-## Mechanical halt — refuse to park a critical security row silently
+## Mechanical halt — refuse to park a HIGH row silently
 
-**Park is the one transition that removes a row from every escalation the pack has.** After a park: `/align-gate` stops blocking on it, the halt file moves to `halts/parked/` (so the "same halt reason on ≥ 3 rows → systemic" detector loses it), and `@align-ledger-auditor`'s 24-hour `class: security` escalation keys on `status: halted` — which the row no longer is. Nothing else in the pack re-surfaces it except `/align-final`'s `PARTIAL`.
+**Park is the one transition that removes a row from every escalation the pack has.** After a park: `/align-gate` stops blocking on it, the halt file moves to `halts/parked/` (so the "same halt reason on ≥ 3 rows → systemic" detector loses it), and `@align-ledger-auditor`'s 24-hour escalation for a HIGH row keys on `status: halted` — which the row no longer is. Nothing else in the pack re-surfaces it except `/align-final`'s `PARTIAL`.
 
 So:
 
-1. **`class: security` + `severity: critical` → REFUSE** unless the invocation carries `--override-critical="<reason>"`, and the override text is written into `parked_reason` verbatim and appended to `ai/align/_history.md` as `CRITICAL-PARK`. `--no-confirm` does NOT satisfy this; an override is never implicit.
-2. **`class: security` at any other severity → park is allowed, and the SLA clock does not stop.** The row is written with `parked_sla_from: <the row's original halted_at or detected_at>`, so the escalation ages from when the problem was found, not from when it was parked.
-3. **A park that would leave zero unparked rows in the phase → surface it.** A phase that advances because every row in it was parked has not been aligned; say so before confirming.
+1. **A HIGH row → REFUSE** unless the invocation carries `--override-high="<reason>"`. Align's severities stop at High, and High is reserved for a permission, tenant or auth gate (an AL-15 gate drop, an AL-11 bypass of an auth or tenant wrapper, an AL-29 suppression of the rule that guards one). The override text is written into `parked_reason` verbatim and appended to `ai/align/_history.md` as `HIGH-PARK`. `--no-confirm` does NOT satisfy this; an override is never implicit.
+2. **An overridden HIGH park does not stop the SLA clock.** The row is written with `parked_sla_from: <the row's original halted_at or detected_at>`, so `@align-ledger-auditor` ages the escalation from when the problem was found, not from when it was parked.
+3. **A legacy owner-class row → REFUSE the park.** A `class: security` (or `performance`, `silent-catch`, …) row in an old ledger is routed to its owner's fix command, never parked or closed in align.
+4. **A park that would leave zero unparked rows in the phase → surface it.** A phase that advances because every row in it was parked has not been aligned; say so before confirming.
 
-Refusing to park is always available. Parking a critical injection vector because the primitive to fix it does not exist yet is a legitimate decision — but it is a decision someone signs.
+Refusing to park is always available. Parking a dropped permission gate because the gate component the oracle names does not exist yet is a legitimate decision — but it is a decision someone signs.
 
 ## Phase 1 — Understand (the ask)
 
@@ -75,14 +77,14 @@ Optional flags:
 Steps:
 1. Read the ledger row.
 2. Validate state transition (detected | planned | in-progress | halted → parked). **Capture the row's current `status` and `phase` in this step — they are what step 4 persists and what `/align-unpark` restores.**
-3. If `class: security` — apply § Mechanical halt (critical requires `--override-critical`; any severity carries its SLA origin forward).
+3. If the row is HIGH, or carries a legacy owner class, apply § Mechanical halt (HIGH requires `--override-high` and carries its SLA origin forward; an owner-class row is routed, not parked).
 4. Demand confirmation from user (display the row + reason; require explicit y/N).
 5. Update the ledger row:
    - `status: parked`
    - **`prior_status: <the status read in step 2>`** — never a guess, never `detected` by default
    - **`prior_phase: <the phase read in step 2>`**
    - `parked_at: <iso>`, `parked_reason: <reason>`, `parked_blocker: <category>`, `parked_unpark_after: <date|event>`
-   - `parked_sla_from: <the row's halted_at, else detected_at>` for `class: security` rows
+   - `parked_sla_from: <the row's halted_at, else detected_at>` for HIGH rows
 6. Move the row's halt file (if any) to `ai/align/halts/parked/<YYYY-MM-DD>-<id>.md`.
 7. Remove the row from the active phase's "must-be-done" set (it stays in `phase: <N>` for ledger traceability but `/align-gate` no longer blocks on it).
 
@@ -100,20 +102,22 @@ Pre-execution display:
 ```
 Park finding A047
 
-Class:         security/sql-injection
-Severity:      critical
+Class:         AL-15 (permission gate drop)
+Severity:      high
 Tier:          heavy
-Phase:         3 (security critical)
+Phase:         3 (gates and permission wrappers)
 Status:        halted (since 2026-04-19, 2 days)
 
 Halt reason (from ai/align/halts/A047.md):
-  parameterize verb halted; the project's parameterized-query primitive
-  named in _extracted-idioms.md (src/db/query.ts:14) does not exist.
-  The codebase uses raw template literals for SQL throughout.
+  add-gate verb halted; the oracle (ai/conventions.md:39) names
+  <Can action="…"> from @acme/ui, but no `orders.refund` ability is
+  declared in packages/ui/src/can/permissions.ts.
 
 Park reason:
-  "Idiom missing — needs /setup-project --refine to add a parameterized
-  query primitive. Defer to phase 4 after refine."
+  "Idiom missing — the refund ability must be declared first
+  (/setup-project --refine). Defer to phase 4 after refine."
+
+Override:  --override-high="<who decided, and until when>"   (A047 is HIGH)
 
 Blocker category: idiom-missing
 Unpark after: refine completes (target: 2026-04-25)
@@ -129,20 +133,20 @@ Effects:
 Confirm? [y/N]
 ```
 
-Note what this display would produce **without** an override, because A047 is `severity: critical`:
+Note what this display would produce **without** an override, because A047 is HIGH:
 
 ```
-REFUSED: A047 is class=security severity=critical.
+REFUSED: A047 is HIGH (AL-15 permission gate).
 
 Parking it removes it from every escalation this pack has:
   - /align-gate 3 stops blocking on it
-  - the 24h security-halt SLA keys on status=halted; it will no longer be halted
+  - the 24h HIGH-row escalation keys on status=halted; it will no longer be halted
   - its halt file leaves halts/, so the "same reason on >= 3 rows" detector loses it
 
-The blocker is real (no parameterized-query primitive in _extracted-idioms.md).
+The blocker is real (no orders.refund ability is declared).
 Three ways forward:
-  /setup-project --refine          add the primitive, then re-run the verb   ← preferred
-  /align-park A047 --override-critical="<who decided, and until when>"
+  /setup-project --refine          declare the ability, then re-run the verb   ← preferred
+  /align-park A047 --override-high="<who decided, and until when>"
   leave it halted                  the 24h clock keeps running, which is the point
 ```
 
@@ -178,7 +182,7 @@ NO source modification. NO commit.
 - Row's status is now `parked`.
 - Park fields populated (`parked_at`, `parked_reason`, `parked_blocker`, `parked_unpark_after`).
 - **Revival fields populated and non-empty: `prior_status` ∈ {detected, planned, in-progress, halted} and `prior_phase` is an integer.** If either is absent, the park is INCOMPLETE — revert the row and halt. This is the check that makes the park reversible; it is not optional and it is not a warning.
-- For `class: security`: `parked_sla_from` present; for `severity: critical`: the `--override-critical` reason is in `parked_reason` and a `CRITICAL-PARK` line is in `_history.md`.
+- For a HIGH row: `parked_sla_from` present, the `--override-high` reason in `parked_reason`, and a `HIGH-PARK` line in `_history.md`.
 - Halt file moved (if existed).
 - `/align-gate` for the row's phase no longer blocks on this row.
 
@@ -200,14 +204,15 @@ Pre-execution display + post-execution summary (above).
 - **State validation.** Cannot park `fixed` / `verified` / already-`parked` / `archived-*` rows.
 - **Confirmation mandatory** (except `--no-confirm`). Silent park is forbidden — explicit deferral.
 - **A park without `prior_status` + `prior_phase` is not a park.** It is an undocumented deletion wearing a reversible label. Write both or refuse.
-- **A critical security row is never parked implicitly.** `--no-confirm` does not carry an override; `--override-critical="<reason>"` is the only path and it leaves a `CRITICAL-PARK` line in `_history.md`.
+- **A HIGH row is never parked implicitly.** `--no-confirm` does not carry an override; `--override-high="<reason>"` is the only path and it leaves a `HIGH-PARK` line in `_history.md`.
+- **An owner-class row is never parked here.** It is routed to its owner's fix command.
 
 ## Failure modes
 
 - **Row not found** — halt; check the id with `/align-status`.
 - **Row not in parkable state** — halt; surface current state + valid transitions.
 - **Reason missing and `--no-confirm` set** — refuse; reason is mandatory.
-- **Critical security row without `--override-critical`** — refuse; name the severity and the fact that parking removes it from the 24-hour escalation. Offer `/align-promote-tier` or `/setup-project --refine` (when the blocker is a missing primitive) as the alternatives.
+- **HIGH row without `--override-high`** — refuse; name the severity and the fact that parking removes it from the 24-hour escalation. Offer `/align-promote-tier` or `/setup-project --refine` (when the blocker is a missing primitive) as the alternatives.
 - **`prior_status` could not be read** (row malformed, status field absent) — refuse and mutate nothing. A row you cannot describe is a row you cannot defer.
 - **Phase already gated PASS** — surface warning ("park-after-gate is unusual; the gate already passed for this phase"); confirm explicitly.
 - **Every remaining row in the phase is parked** — surface it before confirming. The phase will advance and the gate will pass, and neither fact means the phase was aligned.

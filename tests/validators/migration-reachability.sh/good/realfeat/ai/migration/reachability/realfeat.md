@@ -1,9 +1,9 @@
 # Reachability — realfeat
 | Axis | Reachable from V1? | Evidence (path:line or job name) |
 |------|--------------------|------|
-| Cron / scheduled job | no | 0 hits in config/cron/ |
-| Queue consumer | no | 0 subscribers in events/ |
-| HTTP route / RPC | yes | api/routes.py:142 |
-| Admin tool / internal | n/a | no admin surface |
-| Deploy hook / migration runner | no | not in deploy/ |
-| Runbook / on-call doc | n/a | no runbook references it |
+| App source (production callers) | yes | api/routes.py:142 |
+| Downstream tests | no | 0 hits in tests/ |
+| Cron / scheduler | no | 0 hits in config/cron/ |
+| Route / API registration | yes | api/routes.py:142 |
+| Infra / deploy config | no | not in deploy/ |
+| Production telemetry | n/a | unwired: no access-log export for this service |

@@ -428,6 +428,12 @@ Each topic declares:
   sections: [understand, organize, retrieve, generate, validate]
   fallback: _examples/endpoint-test.md
 
+- name: endpoint-test-method
+  kind: skill
+  triggers:
+    api_surface_detected: true
+  fallback: skills/endpoint-test-method/SKILL.md   # renamed from endpoint-test 2026-10-18: a skill and a command sharing a name resolve to the skill (Claude Code skills docs), which hid the /endpoint-test command
+
 - name: api-consistency-audit
   kind: skill
   triggers:
@@ -536,6 +542,12 @@ Each topic declares:
   extracts_from: _extracted-codebase.md (logger lib + log file paths)
   sections: [understand, retrieve]
   fallback: _examples/log-tail.md
+
+- name: log-tail-method
+  kind: skill
+  triggers:
+    logger_lib_detected: true
+  fallback: skills/log-tail-method/SKILL.md   # renamed from log-tail 2026-10-18: a skill and a command sharing a name resolve to the skill (Claude Code skills docs), which hid the /log-tail command
 
 - name: trace-flow
   kind: command

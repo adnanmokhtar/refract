@@ -1,59 +1,65 @@
 ---
 name: align-discipline
-description: Align Rule — codebase alignment discipline (drift from gold standard, refactor scope creep, trusted-summary failure)
+description: Align Rule — enforce the project's DECLARED conventions (oracle-cited rows, EQ/VC/FN proof, owner routing, scope creep, trusted-summary failure)
 kind: rule
 pack: align
 severity: must
 applies-to: align-track, every-alignment-sweep
 ---
 
-# Align Rule: codebase alignment discipline
+# Align Rule: declared-convention enforcement
 
 > **Project-specific values** (codebase root, gold-standard inventory, test runner, PROJECT_KIND, architecture / conventions / findings-ledger paths) are auto-injected into the `project-specific` block at the bottom of this file by `scripts/apply-anchors.sh`, sourced from `.claude/_extracted-codebase.md § Gold standards` + `_extracted-idioms.md`. Edit the extraction sources and re-run `/setup-project --refresh` — never edit the injected values here.
 
-This rule governs every codebase-alignment sweep. It exists because codebases rot three ways, and audits cite these names: **drift from the gold standard** (clean conventions accrete one-off helpers, custom wrappers, silent catches and copy-pasted logic until "the codebase" and "the conventions" describe two different repos) · **scope creep during refactor** (a "small cleanup" becomes a redesign + perf project + refactor in one unreviewable PR) · **trusted summary** (an executor delegates "is this duplicated / dead / drift?" to a search agent, the agent says "looks fine", and the executor echoes that into the report unverified).
+This rule governs every alignment sweep. It exists because codebases drift three ways, and audits cite these names: **drift from the declared convention** (the lint config, the conventions doc, an ADR, the token set and the named wrappers say one thing, and live sites do another) · **scope creep during a sweep** (a "small cleanup" reorders imports, re-records a snapshot or resolves one pattern two ways in one unreviewable PR) · **trusted summary** (an executor asks "is this drift?", a search agent says "looks fine", and the report echoes it unverified).
 
-This rule is the universal contract — enforceable by any AI tool. Full-capability tools compose it by dispatch (`/align-scan` → `/align-plan` → `/align-phase` → `/align-gate` → `/align-final`, with `/align-fast` as the one-shot equivalent); rule-only tools follow this file directly. Of the adapters this repo ships, **only Aider is rule-only** (`tool-adapters/_registry.md:23` — closed slash set, no user-extensible primitive at any layer); Codex (`.agents/skills/`), Gemini (`.gemini/commands/*.toml`), Cline (`.cline/skills/`) and Windsurf (`.windsurf/workflows/`) each have an executable command primitive and take the dispatch path — `_registry.md § Command translation` verifies all four against vendor docs and lists "Gemini has no executable primitive" among its doc-verified FALSE claims. **Enforcement floor**: this rule plus the two patterns that install with the pack — `ai/patterns/align-ledger.md` (row schema + ten-state machine) and `ai/patterns/align-guardrails.md` (the eight guards, six supporting mechanisms and their thresholds, the anti-bloat merge gates, the enforcement matrix, the named anti-patterns). **`references/` is not a delivery path**: `templates/phases/phase-4.2-apply.md` § 4.3 copies `references/<name>.md` only when `<name>` equals a **detected framework name**, so no installed project has ever received `align-discipline-{procedures,catalogue}.md`. Nothing enforceable — no halt, no threshold, no vocabulary — is stored there.
+This rule is the universal contract — enforceable by any AI tool. Full-capability tools compose it by dispatch (`/align-scan` → `/align-plan` → `/align-phase` → `/align-gate` → `/align-final`, with `/align-fast` as the one-shot phase runner and `/align --from-audit` as the simple surface); rule-only tools follow this file directly. Of the adapters this repo ships, **only Aider is rule-only** (`tool-adapters/_registry.md:23`); Codex, Gemini, Cline and Windsurf each have an executable command primitive and take the dispatch path. **Enforcement floor**: this rule plus the two patterns that install with the pack — `ai/patterns/align-ledger.md` (row schema, fourteen-state machine) and `ai/patterns/align-guardrails.md` (the eight guards, six supporting mechanisms, merge gates, enforcement matrix, named anti-patterns). **`references/` is not a delivery path**: `phase-4.2-apply.md` § 4.3 copies `references/<name>.md` only for a detected framework name, so nothing enforceable is stored there.
 
 ## Scope
 
-Align is the codebase's quality gate. It covers every finding class that affects correctness, security, performance, structure or maintainability — not just structural drift. The classes themselves are enumerated once, in § Finding categories below; do not restate them here.
+**Align enforces conventions the project already declares.** A declaration is the **oracle**: a rule at `error` in the resolved lint config of a package CI lints (T1), a line a human wrote in `ai/conventions.md`, an ADR, CONTRIBUTING, the design-system docs or `ai/glossary.md` (T2), the token set, a named wrapper or helper. Every row cites it — `oracle:` with the quote or rule id, and `oracle_tier:` — and a row whose quote cannot be found is AL-01 and is dropped.
 
-**What align does NOT cover** — route elsewhere:
-- A behaviour-changing bug (incorrect output, crash, wrong state) → `fix-bug` / dedicated tests.
-- A new feature → feature-flow.
-- A V1→V2 port across parallel codebases → `/migration-*`.
-- A reorganisation that changes module boundaries, or adopting a new framework → `/refactor` + ADR.
-- A perf change that requires breaking the contract (changing pagination behaviour, adding a required parameter, removing a field) → `/refactor` + ADR + caller-migration plan.
-- A security finding that requires changing an interface contract (adding a required auth header where none was required) → `/refactor` + ADR. Align handles the closure *inside* the existing contract.
-- Introducing finish the project does not have yet — a token, a state, a wrapper that does not exist → `/polish`. Align snaps to what exists; creating it is new finish.
-- Release / deployment / infra → out of scope.
+Two things look like oracles and are not:
+- **A majority.** Most files sharing a shape that nothing declares is a split (AL-02): a proposal for a human to ratify, never a finding, whatever the share.
+- **A generated line** (T2g): text `/setup-project` wrote inside `refine-enriched` markers, or a `codebase-profile.md` / `_extracted-*` fact. Its sites wait at `pending-ratification` behind one confirmation per rule. A contested category (`[CONTESTED: …]`, `## Unsettled conventions`) is AL-02 even when a generated line names a side.
 
-A finding's class drives four things: which **detector** surfaces it · which **closure verb** fixes it · which **net-lines rule** applies (structural ≤ 0 hard; functional small-+ budget that must cite idioms) · which **tier promoter** triggers (security ALWAYS ≥ standard; critical-security ALWAYS heavy).
+**What align owns** (the 34 classes AL-01…AL-34, one owner each, are tabled once in the `align-detect` skill): oracle-level checks (AL-01–04), wrappers and imports (AL-11, 13, 14, 15, 22), names and layout (AL-16–19), suppressions and ratchets (AL-29–32), and the sweep itself (AL-33 one pattern resolved two ways, AL-34 an out-of-scope edit).
+
+**What align closes for another owner — EQ rows only.** Tokens (AL-05–10, 12) are ui-ux's, layers (AL-20/21) code-quality's, i18n and a11y (AL-26–28) frontend's. Align closes an owner's row only when its oracle is T1/T2 and the swap is exact (EQ, § Proof classes).
+
+**What align routes and never closes** — the row moves to `routed (<command>)`:
+- Security → `/security-fix` (always installed). Performance and data → `/perf-fix`, `/db-fix` when installed; without them, align may apply an idiom the oracle already names only with a baseline **measured** by a failing-first test.
+- Error handling, dead code, a diverged copy, SOLID, complexity → `/quality-fix`.
+- New copy, catalog defects → `/frontend-fix`. An envelope or error shape against a **declared** API contract → `/backend-fix`; API uniformity with no declared contract → `/polish`.
+- A token, state or wrapper that does not exist yet → `/polish`; a wrapper gap (the raw call does something the wrapper does not expose) → `/unify-surfaces`; layer rework → `/optimize`; a rename of a wire, DB, env or generated name → `/refactor` + ADR; a V1→V2 port → `/migration-*`; a behaviour bug → `/fix-bug`.
+
+A row's class drives four things: which **detector** found it · which **closure verb** fixes it · which **proof class** proves it · which **tier promoter** applies.
 
 ## Relationship to migration discipline
 
-Align is the migration discipline turned inward — same tiering, same audit rigor, same closure-verb model, but the oracle is the project's OWN gold-standard inventory (`_extracted-idioms.md`) instead of V1. There is no second codebase, so align has no parity test, no shadow/canary and no cutover; it substitutes the net-lines rule.
+Align is the migration discipline turned inward — same tiering, same audit rigor, same closure-verb model, but the oracle is the project's own declared conventions instead of V1. There is no second codebase, so align has no parity test, no shadow/canary and no cutover; it substitutes the proof classes and the sweep gates.
 
 ## Required artifacts per finding — tiered floor
 
-Every finding-fix produces an artifact set scaled to its actual risk. Tier is set on the ledger row at scan time and propagates through the fix.
+Tier is set on the ledger row at scan time and propagates through the fix.
 
-### Tier classification (set by scan; trivial-by-default for structural; ≥ standard for security)
+### Tier classification
 
 | Tier | Triggers (any one promotes) | Required artifacts |
 |---|---|---|
-| **trivial** (DEFAULT for structural classes) | No promoter triggers AND class is NOT security | Ledger row + code edit |
-| **standard** | 3–10 files touched OR cross-module symbol rename OR newly-introduced shared helper consumed by 3+ sites OR class is security (any severity) OR class is performance on a hot path OR class is SOLID violation in a shared module | + 1-paragraph rationale in the row's `notes` |
-| **heavy** | Any of: cross-package boundary change OR public API surface change OR removes a symbol used outside the module being aligned OR touches >10 files OR touches an auth / data / billing / migration path OR class is critical-security (auth bypass / SQL injection on production endpoint / secret-in-committed-code / RCE vector) OR perf change ships an index migration | + impact analysis (file+line of every consumer) + reviewer-approved before merge |
+| **trivial** (DEFAULT) | No promoter triggers | Ledger row + code edit + the proof its class needs |
+| **standard** | 3–10 files touched OR cross-module symbol rename OR an exported or public name OR a T1 rule newly enforced across a package | + 1-paragraph rationale in the row's `notes` |
+| **heavy** | Any of: cross-package boundary change OR public API surface change OR removes a symbol used outside the module OR touches >10 files OR touches an auth / permission / tenant wrapper (AL-15 gates) OR a VC row on a shared component | + impact analysis (file+line of every consumer) + reviewer-approved before merge |
 
-**Rules**:
-- **Default tier is trivial for structural classes** (dead-code, dups, reinvented-wrapper, over-abstraction, drift), unless a standard / heavy promoter above fires.
-- **Security findings are NEVER trivial** — always ≥ standard; critical security ALWAYS heavy; downgrading a security row is forbidden. This floor is absolute and is repeated nowhere else in this rule.
-- **Performance** starts at standard for hot-path code (entry endpoints / request handlers / loop-bound), trivial for cold paths (test setup / one-time scripts / debug builds). **SOLID** starts at standard in shared modules, trivial in private internals. **Clean-code** is typically trivial unless the rename touches a public API name.
-- Tier is **set by scan**, written to the row's `tier:` + `tier_reason:`; the scan MUST state the tier in 1 sentence per row citing trigger absence/presence.
-- Heavy requires a scan-flagged trigger OR explicit user opt-in via `/align-phase <N> --heavy`. Users may **upgrade** anytime; **downgrade needs a 1-line justification** in `notes`.
-- `/align-gate <N>` validates the artifact set **for the row's tier**, not the heavy floor universally. Over-production is allowed but never rewarded.
+Rules: tier is **set by scan** (`tier:` + `tier_reason:`, one sentence citing the trigger); heavy needs a scan-flagged trigger or `/align-phase <N> --heavy`; users may **upgrade** anytime, a **downgrade needs a 1-line justification** in `notes`; `/align-gate <N>` validates the artifact set for the row's tier.
+
+## Proof classes — EQ, VC, FN
+
+Every row carries one `proof_class`, set at DECIDE (`find-and-align` Step 3) and re-derived by the sweep gate:
+
+- **EQ — exact equivalence.** The literal's value equals the token's in every shipped theme, within one property family, with exactly one semantic candidate; or the wrapper's defaults reproduce the raw call's props; or the literal equals an existing catalog value whose key resolves in every locale; or a rename touches no wire name. Proven by a **zero** computed-style or compiled-CSS diff (V394 / V396). Without a harness: `[report-with-fix] (static EQ)` with the runtime probe written out.
+- **VC — visible change.** A snap to the nearest token, a value matching another property family, a wrapper with different defaults. Proven only by a visual diff at `maxDiffPixels: 0` **and** `approval: <name>@<iso>` written by a human (V407). Never auto-accepted, never under `--safe-only`, never with an allowance; an agent never fills `approval:`.
+- **FN — functional.** A verb that adds an idiom the oracle declares (`add-gate` with the declared `<Can>`). Proven by a behaviour test as the role that must not see it (V401), failing first.
 
 ## Anti-bloat rules
 
@@ -63,91 +69,79 @@ Merge gates: code edits are the deliverable · per-axis enumeration wherever a g
 
 Eight execution-time guards keep the discipline survivable on real codebases — **scope cap · batch ceiling · skip-list honoring · mechanical-red short-circuit · oracle-absence fallback · dirty-tree behaviour · flaky-test quarantine · large-file sampling**. Definitions, thresholds and the output line each one must emit: **`ai/patterns/align-guardrails.md § The eight realism guards`**. Commands apply them silently; audits cite a guard **by name** when one fires.
 
-Two properties make them safe: a guard reduces what was *examined* and says so — it never converts an examined failure into a pass (mechanical-red and dirty-tree halt outright); and **a guard that fires without a line in the output makes a reduced sweep indistinguishable from a clean codebase**, which is the Trusted Summary with a mechanical cause instead of a lazy one. Six supporting mechanisms decide whether an examined result *counts*, who signs it off, and what happens when the oracle moves — rather than bounding what is examined. Commands and agents cite them by name: **coverage tolerance** (±0.5% default; a drop beyond it is a halt), **parallel race serialization**, **baseline-capture fallback**, **reviewer approval**, **mid-sweep tier promotion**, **idiom-drift propagation** — all six with thresholds in `ai/patterns/align-guardrails.md § Supporting mechanisms`, which installs unconditionally.
+A guard reduces what was *examined* and says so — it never converts an examined failure into a pass (mechanical-red and dirty-tree halt outright, `/align-fast` included); and **a guard that fires without a line in the output makes a reduced sweep indistinguishable from a clean codebase**. Six supporting mechanisms decide whether an examined result *counts*: **coverage tolerance** (±0.5% default), **parallel race serialization** (disjoint scopes per wave, one committer), **baseline-capture fallback**, **reviewer approval**, **mid-sweep tier promotion**, **idiom-drift propagation** — thresholds in `ai/patterns/align-guardrails.md § Supporting mechanisms`.
 
-## Finding categories — universal taxonomy
+## Finding classes
 
-Eleven universal classes: **5 structural** (entropy-reducing; `net-lines ≤ 0` is a hard rule) and **6 functional** (correctness-improving; added lines allowed on a small budget and must cite an idiom). A twelfth class value, `stack-specific`, carries the per-stack findings the stack packs define. Per-stack packs extend the taxonomy; these are the universal floor every project gets.
+The AL ids are the vocabulary; `align-detect` holds the class ledger (class, detector, owner, closer) and the **legacy map** that reads old ledgers: `reinvented-wrapper` / `raw-library-component` → AL-11, `drift` → the AL id of the rule it cites, `design-token-drift` → AL-05, `i18n-key-drift` → AL-26, `permission-gate-drop` / `default-true-prop` → AL-15, `a11y-violation` → AL-28. The legacy classes `silent-catch`, `unhandled-io`, `dead-code`, `duplicated-logic`, `over-abstraction`, `solid-violation`, `clean-code`, `performance` and `security` are owner classes: routed, never closed here. Two boundaries are decided here, because each is decided wrongly often enough to have produced findings:
 
-| Group | Classes |
-|---|---|
-| **Structural** (net-lines ≤ 0 hard) | `dead-code` · `duplicated-logic` · `reinvented-wrapper` · `over-abstraction` · `drift` |
-| **Functional** (small + budget, cite an idiom) | `solid-violation` · `clean-code` · `performance` · `security` · `unhandled-io` · `silent-catch` |
-| **Stack-conditional** | `stack-specific` — frontend (a11y, design tokens, i18n, motion, lifecycle, default-true wrapper props, permission-gate drop) · backend (tenant gate, transaction boundary) · data (column projection, idempotency) · mobile (native bridge) |
-
-**Detector fingerprint, default closure verb, tier suggestion and severity rubric per class are defined once — in `detect-drift`, Detectors 1–11.** That skill is the executable form and ships with the pack; this rule does not restate it. Three boundaries are decided here, because each is decided wrongly often enough to have produced findings:
-
-- **`silent-catch` vs `unhandled-io` — both functional.** In `silent-catch` an error path exists and swallows it; in `unhandled-io` there is none — no catch, checked error return, needed timeout or surfaced failure (the canonical AI-code defect). Both fixes change what the caller sees. `unhandled-io` routes through the project's wrapped I/O primitive (none for that medium → halt, `/setup-project --refine`; never a per-site try/catch). `silent-catch` is proved failing-first by fault injection, never pinned (a characterization test pins the bug); Detector 4 hands it to `error-handling-scan` and `/quality-fix`. Halt #7 accepts either change once `notes` documents it.
-- **`drift` requires a written convention.** A deviation is `drift` only when the convention is documented in `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md`. A codebase where half the modules do X and half do Y, with the oracle naming neither, has **no `drift` row available** — that is a bimodal convention, and the route is `/setup-project --refine` (adopt one into the oracle) or `/polish` (introduce one). Picking a winner by majority vote is introducing a convention, not enforcing one.
-- **`security` sub-classes carry a `severity`**, and severity — not class — sets the heavy floor. `sql-injection`, `secret-in-code`, `unsafe-deserialize` and anything `severity: critical` are heavy; the rest are standard.
+- **Drift requires a declared convention.** Half the modules doing X and half doing Y, with no oracle naming either, is AL-02: the BIMODAL report, `proposed canonical — ratify?` or `undetermined — ask`, and **0 ledger rows**. Picking a winner by majority vote is introducing a convention, not enforcing one.
+- **A stale document loses to a consistent, current codebase** (AL-04). When nearly every site and the newest files follow the other shape, the row is "doc stale", routed to a doc update; the code is not rewritten.
 
 ## Per-finding audit — 11 hard halts
 
-The DETECT step runs against a finding row + its evidence. The audit HALTS (refuses to advance the row) on any of these 11 conditions:
+The audit HALTS (refuses to advance the row) on any of these:
 
-1. **No evidence** — finding row's `evidence` field empty OR `<path:line>` doesn't resolve OR cited line doesn't actually contain the fingerprint the row claims. Validator: `check_evidence_resolves`.
-2. **Hand-waved enumeration** — the row uses `etc.`, `...`, `&...`, `and so on`, `several places`, `a few sites`, `N+ duplicates`, `multiple call sites`, `multiple endpoints` in any field. Each instance gets its own row OR one row with an explicit `<path:line>` per instance in `evidence`. Validator: `check_no_handwaves`.
-3. **Wrong category** — the class doesn't match the detector signal (a row classed `dead-code` whose evidence shows an active import; a row classed `security` whose evidence shows no risk vector). Re-classify or remove.
-4. **Closure verb outside vocabulary** — the verb is not in the closed set of 21. **Structural (5):** `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`. **Functional (16):** `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename`. Anything else is a refactor / redesign / new feature; route elsewhere. Validator: `check_closure_verb_in_vocab`.
-5. **Net-positive line count on structural class** — the diff adds more than it removes AND the class is structural. Halt; revert; redo. Functional classes are exempt (see #6). Validator: `check_net_lines_structural`.
-6. **Functional fix doesn't cite idiom** — the fix adds lines, the class is functional, and the added lines reference no idiom in `_extracted-idioms.md` (gate wrapper, validator helper, cache primitive, safe deserializer). Either the idiom is missing (route to `/setup-project --refine`) or the fixer is inventing. Validator: `check_added_lines_cite_idioms`.
-7. **Behaviour change (where preservation is required)** — touched files have tests and the tests fail, coverage drops, or an unexpected snapshot diff appears. Halt; revert. **Security fixes MAY change behaviour intentionally** (adding an auth gate denies previously-allowed unauth access); such a change is documented in `notes` and its test fixtures are updated in the SAME commit. This halt fires only on the unintentional or undocumented case.
-8. **Scope creep** — the diff touches files outside the row's `scope` field (the list named at scan time). Halt; the fix violates one-finding-per-commit. Validator: `check_scope_boundary`.
-9. **New abstraction introduced** — the diff introduces a symbol (function / class / type / interface / file) NOT named in `_extracted-idioms.md`. Either it belongs in the inventory (`/setup-project --refine`) or the fixer is inventing. Validator: `check_no_new_symbols`, which exempts symbols listed in idioms.
-10. **Reinvented wrapper without justification** — a `replace-with-shared` fix introduces a NEW shared helper rather than using the one named in `_extracted-idioms.md`. Either the inventory is incomplete or the shared equivalent was mis-identified.
-11. **Security finding without standard-tier rationale** — a security-class row set to trivial tier OR with empty `notes`. Promote to standard with rationale, or re-classify if the row was wrongly tagged. Validator: `check_security_tier_minimum`.
+1. **No evidence** — `evidence` empty, a `<path:line>` that doesn't resolve, or a line without the fingerprint. Validator: `check_evidence_resolves`.
+2. **Hand-waved enumeration** — `etc.`, `...`, `and so on`, `several places`, `N+ duplicates`, `multiple call sites` in any field. Each instance gets an explicit `<path:line>`. Validator: `check_no_handwaves`.
+3. **No oracle, or an oracle that does not resolve** — the row's `oracle:` is absent, its quote is not in the cited file, or its rule id is not declared (AL-01). Drop the row. Validator: `check_oracle_cited`.
+4. **Closure verb outside vocabulary** — the verb is not in the closed set of 21. **Structural (5):** `remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`. **Functional (16):** `add-gate`, `parameterize`, `escape`, `move-to-secrets`, `add-validator`, `parallelize`, `batch`, `project-columns`, `add-index`, `cache-with-explicit-ttl`, `extract-to-shared`, `split-extract`, `inline-magic-to-named-const`, `inline-filter-to-query`, `bump-dep`, `rename`. The security, perf and validation verbs serve only the owner carve-out (§ Scope). Validator: `check_closure_verb_in_vocab`.
+5. **Net-positive line count on a structural row** — halt; revert; redo. Validator: `check_net_lines_structural`.
+6. **Functional fix doesn't cite idiom** — the added lines call no idiom the oracle names. Route to `/setup-project --refine` or stop inventing. Validator: `check_added_lines_cite_idioms`.
+7. **Tests touched or behaviour changed** — an align commit edits a test, spec, snapshot, fixture, the class's lint config or a baseline file; or tests fail, test or assertion count drops, coverage drops beyond tolerance. Tests are **read-only** in an align commit, with no exception: a change that "needs" a snapshot update was not EQ. Sweep gate: `lock-paths`, `lock-count` (V408).
+8. **Scope creep** — a file outside the row's `scope`, or inside it a removed line that is neither an evidence line nor the verb's footprint (AL-34). Validator `check_scope_boundary` (every row commit); sweep gate `scope` (line level, V392).
+9. **New abstraction introduced** — a symbol (function / class / type / file) the oracle does not name. Validator: `check_no_new_symbols`.
+10. **Reinvented wrapper without justification** — a `replace-with-shared` fix introduces a NEW shared helper rather than the named one, or a raw call needs a capability the wrapper lacks (that is `/unify-surfaces`).
+11. **Unproven or wrongly closed** — a fixed row with no `proof_class`; a VC row without a human `approval:`; an EQ row with a non-zero diff; one before-value resolved to two after-values in the run (AL-33); an owner-class row (security, performance, database, code-quality) closed here instead of routed. Validator `check_proof_class`, `check_vc_approval`, `check_owner_routed`; sweep gate `consistency` (V393).
 
-**Output of any halt**: a structured remediation note — specific finding row + specific action — written to `ai/align/halts/<row-id>.md`. NO advance until each halt is cleared.
+**Output of any halt**: a structured remediation note — the row and the action — written to `ai/align/halts/<row-id>.md`. NO advance until each halt is cleared.
 
 ## Per-stack extensions and tool-agnostic procedure
 
-The universal classes are necessary but not sufficient per stack — frontend / backend / mobile / data packs add their own detectors, fingerprints and closure-verb vocabularies, routed by `PROJECT_KIND`. Each stack pack's own rules carry its detector table; this rule stays stack-agnostic and concrete component / hook / library names belong there. The canonical detect → decide → fix → verify → record loop is dispatched as skills `detect-drift` / `find-and-align`; rule-only tools read the same loop verbatim from those two `SKILL.md` files, which install with the pack and which every adapter translates — not from `references/`, which does not install.
+Stack lanes (each language's linter, style checker, file-name checker and import-boundary tool, with their version gates) live in the detector skills; this rule stays stack-agnostic. The canonical loop is dispatched as skills `align-detect` (the class ledger and dispatcher over `convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan` and the owners' detectors) and `find-and-align` (the proof ladder L0–L13, with `align-sweep-gate.py`); rule-only tools read the same loop from those `SKILL.md` files, which install with the pack.
 
 ## Must
 
-- **Inventory the gold standard before scanning.** `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md` are the oracle. If `_extracted-idioms.md` is empty, halt and run `/setup-project --refine`. Without an oracle, "alignment" is just opinion.
-- **Read source before flagging.** Every finding cites `<path:line>` evidence that resolves. A row you did not open is a row you cannot pass; if the count is large, say how many you actually read and mark the remainder `UNAUDITED` — never `PASS`. Trusted Summary is the #1 way sweeps miss real drift, missing auth gates and N+1 patterns.
-- **Default to trivial tier for structural classes.** Most are a 1-line `remove` or 1-symbol `dedupe`; promoting without a trigger is over-ceremony. The security floor in § Tier classification is the one exception and it is absolute.
-- **One finding per atomic commit.** Bundling hides which fix caused which downstream effect and makes rollback all-or-nothing. The phase PR contains N commits = N findings. A security commit MAY change behaviour intentionally; its test update ships in the same commit and nothing else does.
-- **Net-lines rule by class group** — structural rows: ≤ 0 per row, per phase (entropy-reducing). Functional rows: small + budget, and every added block cites a `<path:line>` idiom in `_extracted-idioms.md`. Validator: `check_added_lines_cite_idioms`.
-- **Closure-verb vocabulary is the combined list of 21** — 5 structural + 16 functional, enumerated in halt #4. If the fix doesn't fit one, it isn't alignment; route elsewhere.
-- **No new abstractions.** Even functional verbs like `add-validator` / `cache-with-explicit-ttl` use the project's existing helper named in `_extracted-idioms.md`. `extract-to-shared` and `split-extract` move code to PRE-NAMED idioms. If the project lacks the abstraction the fix needs, halt and route to `/setup-project --refine` to add it to idioms first, THEN align. Enforced by halts #9 and #10.
-- **Test before declaring fixed** — lint + typecheck + scoped tests + re-detect, all four green. One red is a halt, and if mechanical produced red the row was mis-classified. For security rows: + the security assertion. For perf rows: + the perf assertion. For frontend UI/UX rows: + a11y / visual / bundle-size. Skipping any is a Trusted-Summary failure waiting to surface.
-- **Update the ledger on every state transition**, per `ai/patterns/align-ledger.md`: `detected → planned → in-progress → fixed → verified`, with side states `halted`, `parked`, `pending-review`, `archived-pre-existing`, `archived-deprecated`. The ledger is the source of truth — code grep is not.
-- **Heavy-tier rows require reviewer approval before merge.** A symbol used outside the module has consumers; a critical-security row has user-facing risk. A human reads the impact analysis; their name + timestamp goes in the row's `reviewer_approval`.
-- **Gap-count parity** (`gaps_in == gaps_closed`) — every evidence line surfaced at DETECT is closed at VERIFY. A row that closes 7 of 8 is `status: halted`, not `status: fixed`.
-- **Security and perf changes ship with assertions.** A gate without a test asserting it gates; a `parallelize` without a perf assertion or observability annotation — these are halts. The fix isn't done until the regression-prevention test exists: for a gate, a test that unauth is denied; for a validator, that malformed input is rejected; for an escape, that a known-XSS payload is neutralised; for an `add-index`, an `EXPLAIN ANALYZE` capture; for a cache, a cache-hit assertion.
-- **Say what you did not run.** A detector class skipped, a check that could not execute, a file read only in part — each appears as an explicit line naming the guard that caused it. A check that vanished from a report is a refusal, not a pass.
+- **Build the oracle before scanning** (`convention-oracle` § 0). The inventory falls back `_extracted-idioms.md` → `codebase-profile.md` → `ai/conventions.md`; a missing file is a reduction with a printed line, never a halt. With no declaration at all, every align class prints `N/A (no declared convention)`.
+- **Read source before flagging.** A row you did not open is a row you cannot pass; if the count is large, say how many you read and mark the rest `Live, unreviewed` — never `checked`.
+- **Refute before reporting.** Every candidate passes `refute-before-report.md` § 10 (conventions column) in a verifier that did not raise it; gate 6 is the oracle line quoted + the site.
+- **One finding per atomic commit**, subject `align/<phase-N>/<id>: …`; one committer when rows run in parallel.
+- **Prove by class** — EQ by a zero diff, VC by a named approval, FN by a behaviour test (§ Proof classes). Deterministic gates run before any reviewer; a judge can move PASS to `pending-review`, never FAIL to PASS.
+- **One way per pattern** — one before-value maps to one after-value across the whole run, unless the token map splits it by role.
+- **Update the ledger on every state transition**, per `ai/patterns/align-ledger.md`.
+- **Heavy-tier rows require reviewer approval before merge** (`reviewer_approval: <name>@<iso>`).
+- **Gap-count parity** (`gaps_in == gaps_closed`); a row that closes 7 of 8 is `halted`.
+- **Say what you did not run.** A tool absent, a rule that matched 0 files (V399), an `rg` exit 2 — each is `blocked` or `NOT RUN` with its reason, never zero.
 
 ## Must not
 
-- **Bundle findings in a commit.** "Cleanup: dead imports + dedupe utility + silent catch fixes + auth gate" guarantees an impossible review and an all-or-nothing rollback.
-- **Skip the ledger.** A merged PR that closes findings without updating `ai/align/ledger.md` is incomplete. `/align-gate` halts on ledger drift.
-- **Treat "no test exists for this" as "no behaviour exists".** A dead-code candidate with no test might still be a runtime hot path (cron, queue consumer, integration with no unit test). Read git log and grep for callers in adjacent repos before removing.
-- **Hand-wave enumeration.** `~8 dead exports` / `several silent catches` / `multiple missing auth gates` — these are vibes, not findings. Enforced as halt #2.
-- **Modify the oracle in the alignment PR.** `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md` changes ship via `/setup-project --refine`, not via a finding fix. Mixing them lets the PR redefine the oracle to "match" what the fix did, which defeats the audit. Validator: `check_oracle_unmodified`.
-- **Promote or demote tier silently.** A tier is set at scan; promoting later requires a 1-line justification in `notes`. Silent promotion is how heavy work hides as trivial; demoting a security row below standard is forbidden outright.
-- **Bump a vulnerable dependency without running the test suite.** A `bump-dep` that breaks tests is a feature change in disguise; route to a separate dependency-migration ticket.
-- **Carry V1 patterns into align findings.** If the project is also running a V1→V2 migration, alignment fixes use V2's gold standard, never V1's old shape. The migration rule's "Structure → V2 wins" applies inside align too.
-- **Combine intentional behaviour change with unrelated alignment in one commit.** A security gate that changes behaviour ships in its own commit; mixing it with a refactor or feature hides the security change.
-- **Park a finding as a way of closing it.** Park is deferral with a reason, a blocker category, a revisit date, and the prior state to return to — `/align-park` captures `prior_status` + `prior_phase` or the row can never be revived. A parked `class: security` row keeps its escalation clock; see `ai/patterns/align-guardrails.md § Named anti-patterns → The Silent Park`.
+- **Enforce a majority or a generated line.** Both are proposals until a human writes them down (§ Scope).
+- **Bundle findings in a commit**, or let two sub-agents commit concurrently on one index.
+- **Skip the ledger.** `/align-gate` halts on ledger drift.
+- **Edit a test, snapshot or baseline to make a swap pass** (halt #7).
+- **Hand-wave enumeration** (halt #2).
+- **Modify the oracle in the alignment PR.** `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md` / lint configs change via `/setup-project --refine` or an ADR. Validator: `check_oracle_unmodified`.
+- **Close another pack's class.** Security, perf, data and quality rows are routed with their audit id.
+- **Promote or demote tier silently.**
+- **Carry V1 patterns into align findings** during a migration — V2's declared conventions win.
+- **Park a finding as a way of closing it.** Park captures `prior_status` + `prior_phase` (`ai/patterns/align-guardrails.md § Named anti-patterns → The Silent Park`).
 
 ## Should
 
-Lowest-risk class first · batch by class not by file · re-run detectors after each phase · prefer extending shared primitives over new ones · cite occurrence counts in every finding. Each is a default, not a halt; deviate with a one-line reason in the row's `notes`.
+Lowest-risk class first · batch by class not by file · rule first where expressible (a lint or structural-search rule with BAD/GOOD tests, run from a scratch folder) · ratchet what is not fixed (a shrink-only baseline) · cite occurrence counts in every finding. Each is a default; deviate with a one-line reason in `notes`.
 
 ## Enforcement
 
-`scripts/validate-align-artifacts.sh` script-enforces 11 of the 14 phase-exit checks. Ledger completeness, coverage tolerance and frontend regressions are **agent-side** and are labelled `(agent-side)` in every gate report so nobody reads them as machine-verified. Named anti-pattern → the check that catches it, gate behaviour, and the SLA clocks (`in-progress` > 7d stalled; a halted `class: security` row > 24h escalated): `ai/patterns/align-guardrails.md § Named anti-patterns` and `§ Enforcement — gate behaviour, SLA clocks, anti-pattern → check`.
+`/align-gate <N>` runs a 17-check matrix. `scripts/validate-align-artifacts.sh` carries the ledger and commit checks (evidence, hand-waves, verbs, net lines, new symbols, file-level scope on every row commit, oracle cited and unmodified, proof class, VC approval, owner routing, idiom citation) and the run-level scan evidence (all 34 AL rows). `find-and-align`'s `align-sweep-gate.py` carries the run checks (line-level scope, re-detect zero, one way per pattern, test lock, emitted names, value round-trip, ratchet, non-vacuous). Ledger completeness, the mechanical run and boot, and the zero-diff evidence are **agent-side** and labelled `(agent-side)`. Anti-pattern → check, gate behaviour, SLA clocks: `ai/patterns/align-guardrails.md § Enforcement`.
 
 ## Anti-patterns (named)
 
-The names are load-bearing vocabulary — audits cite them, `/align-status` groups by them, `/align-final` counts them. The catalogue, with a fingerprint and the catching check for each: **`ai/patterns/align-guardrails.md § Named anti-patterns`**.
+The names are load-bearing vocabulary — audits cite them, `/align-status` groups by them, `/align-final` counts them. The catalogue: **`ai/patterns/align-guardrails.md § Named anti-patterns`**.
 
 ## Load on demand
 
-**Align's own agents** — `.claude/agents/align-{evidence,idiom,gate,ledger}-auditor.md`. Four audit windows over a finding's life: scan output, one diff, one phase, all state. They own the halts this rule defines; detection stays with the packs that own each discipline (`code-quality`, `security`, `performance`, `frontend`, `ui-ux`, `mobile`).
+**Align's own agents** — `.claude/agents/align-{evidence,idiom,gate,ledger}-auditor.md`. Four audit windows over a finding's life: scan output, one diff, one phase, all state.
 
-**Installed with the pack, always reachable** — `ai/patterns/align-ledger.md` (row schema, ten-state machine, required fields per state) · `ai/patterns/align-guardrails.md` (the eight guards, the six supporting mechanisms and their thresholds, the anti-bloat merge gates, the enforcement matrix, the named anti-patterns) · skills `detect-drift` (the 11 detectors) and `find-and-align` (the fix loop). Oracle: `_extracted-idioms.md`.
+**Installed with the pack, always reachable** — `ai/patterns/align-ledger.md` · `ai/patterns/align-guardrails.md` · skills `align-detect`, `convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan`, `find-and-align` · snippets `precedents/align.md` and `proof-oracles.md § Align` (V389–V408).
 
-**Companion reference files — pack-side only, NOT installed.** `references/align-discipline-procedures.md` (worked scan / fix-loop / closure-verb / gate procedures, review checklist, relationship to migration discipline) and `references/align-discipline-catalogue.md` (worked examples per finding class, per-stack extensions, Should — full guidance, per-tool dispatch tables) live in the pack for authors and for any adapter bundle that chooses to carry them. Phase 4.2 copies `references/<name>.md` only for a **detected framework name** (`phase-4.2-apply.md` § 4.3), so a project does not receive them and nothing above depends on them. Every halt, threshold, vocabulary item and enforcement mapping this rule names lives in this file, in `ai/patterns/align-{ledger,guardrails}.md`, or in the `detect-drift` / `find-and-align` skills — all of which install.
+**Companion reference files — pack-side only, NOT installed.** `references/align-discipline-procedures.md` and `references/align-discipline-catalogue.md` live in the pack for authors and adapter bundles; nothing above depends on them.

@@ -578,7 +578,7 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | Command                | Purpose                                                                          |
 |------------------------|----------------------------------------------------------------------------------|
 | `/design-review`       | Read-only audit: cite-or-halt findings on UX, design-system, a11y, and **composite-surface completeness** (a data-table / dashboard graded against the built-in table-stakes catalog — toolbar/search/filter/bulk/export/sticky-header, metric-tile+widget hierarchy — via `ui-design-sweep § normalize-surface`, scale-gated). |
-| `/enhance-ui <description>` | **Single-area enhancement (DRY-aware)**. Phase 1.5 picks scope tier: **token** / **wrapper-variant** / **wrapper-extract** / **leaf-local** so the same button is not styled twice on two pages. Cleanup includes `duplicated-surface-styles` for `frontend-*`. Intent-gates "redesign / rethink / re-theme / new visual language" → `/redesign`·`/art-direct` (it preserves structure + language, never introduces a new one). Flags: `--scope`, `--auto-extract`, `--dry-detect`. Then `design-iterate` (`$SCOPE_TIER`, consumer-route screenshots) → re-enforce; unrendered consumers report `SKIPPED`, run ends with a `Not validated / Risks / Revert` footer. |
+| `/enhance-ui <description>` | **Single-area enhancement (DRY-aware)**. Phase 1.5 picks scope tier: **token** / **wrapper-variant** / **wrapper-extract** / **leaf-local** so the same button is not styled twice on two pages. Cleanup is `/align-recheck` on the target (an exact-token literal AL-05, a raw primitive or native element where the wrapper exists AL-11/AL-12, a dropped wrapper prop or gate AL-15/AL-28); the same styles repeated across leaves with no wrapper yet is the `wrapper-extract` tier, not an align class. Intent-gates "redesign / rethink / re-theme / new visual language" → `/redesign`·`/art-direct` (it preserves structure + language, never introduces a new one). Flags: `--scope`, `--auto-extract`, `--dry-detect`. Then `design-iterate` (`$SCOPE_TIER`, consumer-route screenshots) → re-enforce; unrendered consumers report `SKIPPED`, run ends with a `Not validated / Risks / Revert` footer. |
 | `/design-first <scope>` | **The design-first front door** (v1.28+) — one command for "I want a design to look at", for anyone who does not already hold the twelve-command ui-ux map. Writes **nothing**: not code, not artboards, not tokens. Its whole substance is one question and one test, which look alike and are opposite in kind. The **question** (`$SOURCE` — does this surface stay inside our design system, or leave it) is a *permission* only the product owner holds; it is always asked, and inferring it for an in-repo surface HALTs. The **test** (is the fault this page's composition or the app's visual language) is a *diagnosis* earned from a render and a token source; it is always run and never asked. Six routing rows, every one ending on a canvas: composition → `/redesign --canvas`, language → `/art-direct --canvas`, no code yet → `design-canvas`, an external reference → `/clone-design`, "show me what's out there" → `design-system-catalog.md`, invent it → `/art-direct --reimagine --canvas`. Deliberately **not** named `/design` — Claude Code ships its own bundled `design` skill. Flags: `--source=`, `--no-canvas`, `--plan`. |
 | `/redesign <description-or-path>` | **From-scratch page/flow rework** (v1.3+) — rethinks layout + IA + UX (NOT a restyle), rebuilds inside the app's existing design system (same tokens / components / spacing-type scale / locale + RTL). **Method-driven for design quality**: an 11-lens best-practice rubric (IA / hierarchy / rhythm / cognitive-load / states / consistency / a11y-by-design / mobile-first / locale-RTL / motion / micro-copy) that the run **diagnoses** the current page against, **designs** the proposal to satisfy, **self-critiques** before the gate, and **scores** the rendered result against (must measurably beat the diagnosis). **Mandatory approval gate**: presents a structured proposal (diagnosis → screen's job → direction → layout/IA → component map → state inventory → responsive → a11y/RTL → parity map → risks; driven by `ux-reviewer`) and writes no code until the user approves. Composes `design-system-architect` (extraction + conformance), `ui-design-sweep` closure verbs, optional post-approval `design-iterate` variants. Renders the rebuilt surface (Playwright) to earn its RTL / a11y / responsive checkmarks. Sibling to `/enhance-ui` + `/polish` (which preserve structure); routes "new visual identity" → `/art-direct` (upstream). Flags: `--direction`, `--yes` (unattended variant step — does NOT skip the approval gate), `--max-refine=<n>`, `--plan`. Frontend / mobile only. **Canvas gate (v1.27+)**: `--canvas` draws the Phase-4 proposal as artboards (via `design-canvas`) so the gate is answered against a picture of the states rather than prose; `--from-canvas=<path>` takes an already-approved canvas as the spec and skips re-deriving the layout — its Phase 4.5 still checks provenance (an `independent` canvas is refused, not adapted), scope match, and encodability against the system as it stands now, and still owes the diagnosis and parity map a picture cannot state. |
 | `/art-direct <scope>` | **Set + INVENT the visual direction** (v1.5+) — the one command UPSTREAM of `/redesign`: it DECIDES and invents the visual language (concept, original layouts/shapes/type/colour/motion, signature moments) from the product's GOALS, instead of enforcing or refining the existing one. Driven by the `creative-director` agent. **Two modes**: `--evolve` (default — push the existing language further, on-brand) / `--reimagine` (greenfield from goals; existing system is input, not constraint). Diagnoses the current design with a cited point-of-view (15-label redline vocabulary), generates **three mechanically-distinct directions** (logo-swap + color-ramp-swap + ≥2-structural-axes divergence checks), renders candidates (`design-iterate`) + scores them on an 11-lens Direction rubric, then **ONE approval gate** — and on approval it **BUILDS** the chosen direction, auto-running `design-system-architect` (codify tokens) → `/redesign` (rebuild pages) → `/polish` (finish), bounded by `<scope>`. `--yes` skips the gate (design → build, no stop); `--plan` stops at the design (no build). Originality is the ceiling; the usability floor (computed-AA / 320px / RTL / reduced-motion / perf) is delegated to `ux-reviewer` and never re-audited. Flags: `--evolve`, `--reimagine`, `--yes`, `--direction`, `--surfaces=<n>`, `--render`/`--no-render`, `--plan`. Frontend / mobile only. **Canvas gate (v1.27+)**: `--canvas` shows the three directions as low-fi artboards instead of three paragraphs — deliberately wireframe, because structure is what is being chosen and a hi-fi render invites picking on paint, the one axis the divergence check excludes. |
@@ -588,7 +588,7 @@ Installed by the repo-baseline regardless of track — the universal per-project
 | `/ui-audit [<scope>]` | **The design team in one command** (v1.30+) — the visual sibling of `/audit`, and the pack's only fully autonomous run. Scans every route from a **real browser**, cross-axis ranks every finding by `user-impact × blast-radius × fix-cost`, **decides the design direction itself**, then executes four tiers to completion: **V0** foundation (tokens + shared wrappers — one fix, every consumer), **V1** correctness of experience (contrast, focus, tap targets, empty/loading/error states), **V2** composition (`/redesign` per surface that failed the language-or-composition test), **V3** finish (hierarchy, type scale, rhythm, density, iconography, motion). It adds no detector of its own — it drives `/ui-crawl`, `/ui-sweep`'s 8 detectors, `creative-director`'s 11-lens Direction rubric and `ui-design-sweep`'s closed 19 verbs. **The autonomy is the feature**: every gate its siblings hold for a human is resolved by a named mechanism (the variant pick becomes the rubric; the `/redesign` approval becomes one revertable commit per surface; the `$SOURCE` question is always `system`). **Five HALTs, and only five** — a blocked render, no token source, a dirty tree or red CI, a fix that re-detects after being applied, or `--reimagine` on a multi-theme app. Never scores a route it did not render and never reports a fix it did not re-render. Writes `ai/ui-audit/{plan,progress}.md` plus a before/after HTML report. Flags: `--plan`, `--scope=`, `--tier=`, `--first-run`, `--re-scan`, `--reimagine`, `--max-parallel=`. Frontend / mobile only. |
 | `/ui-sweep [<phase>]`  | **Project-wide UI/UX specialist sweep**. Goes beyond align — runs 8 UI/UX-specific deep detectors (visual hierarchy, component utilization %, token coverage %, cross-surface consistency, ui-state coverage, responsive matrix, design-language coherence, visual baseline + drift). Phases by user flow (auth / checkout / dashboard / etc.), not by class. Outputs an HTML visual report with screenshots + metrics. Auth-gated routes require an authenticated session; a blocked login-wall render is marked BLOCKED (never scored). Flags: `--plan` (read-only fix plan, stop before FIX), `--baseline-only`, `--first-run`, `--with-iterate`, `--report-only`, `--allow-dirty`. Frontend stacks only. |
 | `/ui-crawl [<scope>]`  | **Automated cross-route UI crawler** (v1.2+). Playwright + axe-core. Logs in once, visits every route in the project's route manifest, screenshots at 3 breakpoints + dark mode + RTL, walks in-page tabs, opens dialogs and dropdowns, captures console/network errors, runs axe-core per route, writes a ranked findings JSON + MD. Detect-only — pair with `/ui-crawl-fix` for auto-fix. Flags: `<scope>` (modules), `--smoke`, `--filter=`, `--full-matrix`, `--skip-interactions`, `--refresh-inventory`, `--workers=N`, `--no-dark` / `--no-rtl`. Frontend stacks only. |
-| `/ui-crawl-fix [<class>]` | **Wrapper-level auto-fixer for `/ui-crawl` findings** (v1.2+). Patches at shared wrappers (`FormField`, `CrudActions`, `TableActions`, `BaseModal`, etc.) so one fix cascades through hundreds of call sites. Closes `color-contrast` (token swap), `button-name` (aria-label injection), `label` (for/id wiring), `v-html`-without-sanitize, raw library components, hardcoded translations, `target=_blank` without `rel=noopener`, empty silent catches. Skips human-judgment bugs. Re-runs `/ui-crawl` in verify mode for gap-count parity (diffing a pre-fix snapshot, and a before/after visual diff for pixel-changing classes — `VERIFIED`/`SKIPPED`, never asserted). Clean-tree precondition; i18n-key-resolves-in-every-locale gate. Inherits closure-verb discipline from `align-discipline.md` (align pack). Flags: `<class>`, `--dry-run`, `--plan`, `--safe-only`, `--verify`, `--no-commit`, `--module=`. Frontend stacks only. |
+| `/ui-crawl-fix [<class>]` | **Wrapper-level auto-fixer for `/ui-crawl` findings** (v1.2+). Patches at shared wrappers (`FormField`, `CrudActions`, `TableActions`, `BaseModal`, etc.) so one fix cascades through hundreds of call sites. Closes `button-name` (the accessible name from an existing i18n key), `label` (for/id wiring), `v-html`-without-sanitize, raw library components, hardcoded translations, `target=_blank` without `rel=noopener` (through the declared link wrapper; none declared → `/security-fix`), empty silent catches. Token-rooted `color-contrast` is a token-value edit — routed to `/polish lift-contrast` (visual diff + a named human approval), never fixed here. Skips human-judgment bugs. Re-runs `/ui-crawl` in verify mode for gap-count parity (diffing a pre-fix snapshot, and a before/after visual diff for pixel-changing classes — `VERIFIED`/`SKIPPED`, never asserted). Clean-tree precondition; i18n-key-resolves-in-every-locale gate. Inherits closure-verb discipline from `align-discipline.md` (align pack). Flags: `<class>`, `--dry-run`, `--plan`, `--safe-only`, `--verify`, `--no-commit`, `--module=`. Frontend stacks only. |
 
 **UI-UX skills:**
 - `design-canvas` (v1.27+) — draft a surface / flow / feature as **artboards on one pan/zoom canvas**, **before any product code exists** — a link you send to a client, designer or founder and get "yes, but move that" back, instead of prose they have to picture. The visual form of `/redesign`'s and `/art-direct`'s approval gate, and the only entry point that works on a surface with **no code yet**. Writes solely under `ai/design/canvas/` — never a component, token file or route. Asks one question and refuses to infer it: **`system`** (lift your resolved token + component literals and match exactly) vs **`independent`** (free of the repo — landing pages, greenfield). Draws the **states** (empty / loading / error / overflow), not the happy path alone. Ships a self-contained `canvas.html` that opens in any browser; in Claude Code it also upgrades to the bundled WYSIWYG canvas when present.
@@ -667,7 +667,7 @@ Installed by the repo-baseline regardless of track — the universal per-project
 
 | Command           | Purpose                                                                            |
 |-------------------|------------------------------------------------------------------------------------|
-| `/review-changes` | Multi-axis review (correctness, conventions, perf, security) on diff vs base. Universal secret-scan (every file) + coverage-gap (untested new logic) + added-dependency review; uninstalled reviewers run inline, never skipped. |
+| `/review-changes` | Multi-axis review (correctness, conventions, perf, security) on diff vs base. Universal secret-scan-method (every file) + coverage-gap (untested new logic) + added-dependency review; uninstalled reviewers run inline, never skipped. |
 | `/simplify`       | Surfaces simplification candidates (over-abstraction, dead code, redundancy).      |
 | `/quality-audit` | Read-only code-quality audit: every correctness and maintainability detector on a whole repo, by signal on a diff; analyzer lanes first; each candidate refuted before it counts; a fixed class ledger and a GO / GO-UNVERIFIED / NO-GO verdict. /quality-fix closes the findings. |
 | `/quality-fix` | Close the findings a /quality-audit report lists, in two lanes: correctness proved failing-first with a concrete input and fixed at the root; maintainability behaviour-preserving under a metric ratchet. Re-detects, sweeps siblings, self-checks its own diff. Stops on contract, data or dependency changes. |
@@ -784,7 +784,7 @@ These ship with their respective packs when the track is selected/detected.
 |---|---|
 | `/find-module` | Locate a module, feature, or concept across the codebase quickly. |
 | `/migration-review` | Review a DB migration for safety, lock impact, reversibility, deploy order. |
-| `/compare-v1` | Compare a feature / module / endpoint between V1 and V2 (read-only parity report). |
+| `/compare-v1` | **The migration audit.** Read-only V1↔V2 parity audit for a feature or `--whole-repo`: `paired-inventory` lanes plus six parity detectors (surface, semantics, side effects, data cutover, cutover routing, parity proof), every row refuted by `@parity-auditor`, a 48-class ledger and a NO-GO / GO-UNVERIFIED / GO verdict. Paired (`--v1 --v2`, V1 read from a `git archive` of the pin), `--live-v1`, or solo from a recorded `--v1-inventory` (never GO). `--mig`, `--runs`, `--classes`, `--out`. Writes only the report; closed by `/find-and-fix --from-audit`. |
 | `/security-fix` | Close the findings a /security-audit report lists — one finding at a time, an exploit test that fails first, a root-cause fix, the same detector re-run on the patched line, then a re-audit. |
 | `/security-live-scan` | Non-destructive external scan of hosts you own — TLS, security headers, exposed files and admin panels, CORS, open ports, rate limits — against the running frontend and API, scoped to an allow-list you confirm first. |
 | `/perf-fix` | Close the findings a /perf-audit report lists, one at a time — re-verify, a failing-first run-invariant oracle across the class, a root-cause fix, guardrails re-measured inside the noise band, the owning detector re-run, a sibling sweep. Never claims a speedup without a measured before/after; stops and asks before changing caching semantics, the data model or infrastructure. |
@@ -803,7 +803,7 @@ The migration pack ships **two suites** of commands. Use the suite that fits.
 
 | Command                  | Purpose                                                                          |
 |--------------------------|----------------------------------------------------------------------------------|
-| `/migration-scan`        | Deep V1↔V2 comparison. Reads BOTH codebases. Builds `ai/migration/ledger.md` with every row `unverified` (trust nothing). Outputs `scan-report.md` with structural deltas. `--since=<commit>` for incremental on large repos. `--workspace` for cross-repo aggregation. |
+| `/migration-scan`        | Deep V1↔V2 comparison. Reads BOTH codebases. Builds `ai/migration/ledger.md` with every row `unverified` (trust nothing). Outputs `scan-report.md` with structural deltas. `--since=<commit>` for incremental on large repos. `--workspace` for cross-repo aggregation. `--record-v1-inventory` records the V1 lane inventory at the pin into `ai/migration/v1-inventory/<lane>.tsv` (the only writer of it), so later `/compare-v1` runs can audit solo; re-record when the pin or a lane extractor changes. |
 | `/migration-plan`        | Reads scan + ledger. Produces `ai/migration/plan.md` — phased plan grouped by domain + dependency. Foundation first. **Honors V2's new structure (no lift-and-shift).** |
 | `/migration-phase <N>`   | Executes phase N: AUDIT → GAP-FIND → PORT (V2 conventions) → VERIFY (parity test) → UPDATE ledger. Stops at phase boundary. Modes: default (interactive port-by-port), `--audit-only` (triage; pairs with `/draft-phase-adrs`), `--chain` (unattended port-loop after ADRs accepted). `--feature=<id>` for retry. |
 | `/draft-phase-adrs <N>`  | **NEW (M21)** — Decisions-first batch. Reads `phase-<N>.md` audits, drafts one ADR per P0 + cross-cutting decision in `ai/decisions/`. User flips `Status: proposed → accepted` once; `--chain` then runs ports unattended against pre-approved ADRs. Cuts the "same RBAC decision 4 times across 4 features" supervision cost. |
@@ -818,7 +818,7 @@ The migration pack ships **two suites** of commands. Use the suite that fits.
 | `/migration-replan`              | Regenerate `plan.md` from current ledger. Preserves `done` rows in their original phase numbers; re-phases everything else. Use after rollbacks, after V1 changes, or when day-1 plan ages out. |
 | `/migration-park <feature-id>`   | Set a hairy feature aside without blocking the phase gate. Writes `parked/<id>.md` with full context. Reversible via `/migration-unpark`. |
 | `/migration-unpark <feature-id>` | Reverse a park. Restores `prior_status` + `prior_phase`. Archives `parked/<id>.md` to `parked/_resolved/`. |
-| `/migration-deprecate <feature-id>` | Mark a V1 feature as **never** going to V2. Requires an Accepted ADR. Permanent — no undeprecate. Tenant-impact captured. V1 sunset date documented. |
+| `/migration-deprecate <feature-id>` | Mark a V1 feature as **never** going to V2. Requires an Accepted ADR. Permanent — no undeprecate. Tenant-impact captured. V1 sunset date documented. Reachability is computed, not typed: `migration-reachability.sh --compute` counts six axes on the pinned V1 snapshot (`--symbol=` per V1 identifier); any live axis halts, a blocked axis halts, and the doc must pass `--lint`. |
 | `/migration-workspace-status`    | Cross-repo aggregator (workspace-level). Reads each sibling repo's ledger, reports per-repo summary + cross-repo blockers + phase synchronization. Read-only. |
 
 Workflow (interactive — fully supervised):
@@ -856,6 +856,7 @@ Properties:
 | Command              | Purpose                                                                          |
 |----------------------|----------------------------------------------------------------------------------|
 | `/port-feature <n>`  | Port one feature V1 → V2: extract V1 contract → architect V2 → parity tests → impl → audit. Use for one-off ports outside the phased flow. |
+| `/find-and-fix <id> \| --from-audit=<report> [finding-id …]` | Default per-row port loop (detect, decide, fix, re-detect, verify, record). `--from-audit=<report>` closes a `/compare-v1` report instead: per finding a failing-first test against V1 as oracle, a fix in V2's own primitive, `paired-inventory` and the owning detector § re-run until quiet, a sibling sweep; rows another pack owns (MG-AZ-1/3, MG-MN-3, MG-I18N-1, MG-TX-1, PP-5) are routed, never closed here. |
 | `/migration-status`  | Read `ai/migration/ledger.md`, report done / in-flight / not-started + per-phase. Lighter than `/migration-gate` (no enforcement). |
 | `/migration-sync [<scope>]` | **Incremental V1→V2 sync — the live-V1 companion to `/migrate`.** Pulls `v1_root` from its remote (halts on a dirty V1, detached HEAD, failed fetch, or a local ahead of the remote), lists the commits past the watermark in `ai/migration/sync-state.md`, classifies each (`behaviour` / `refactor-only` / `dead-v1` / `mechanical` / `needs: full-port`), writes an analysis of what each change *means* (rules, validations, DTOs, endpoints, schema, API-vs-Web), extends `ai/migration/mapping/<feature>.md` BEFORE editing, then dispatches `/find-and-fix` / `/port-feature`. `changes_in == changes_closed` over three buckets only; the final audit re-reads the raw V1 diff; the watermark advances by contiguous prefix and never past an unresolved commit. |
 | `/migration-recheck <description-or-path> \| --phase=<N>` | **Plan-independent V1↔V2 spot-check + fix.** NO plan / phase / ledger required (except `--phase=<N>` mode). Accepts natural-language descriptions, paths, OR `--phase=<N>` to loop a whole phase WITHOUT rollback (done rows audited fresh, status preserved unless drift surfaces). Scans V1 + V2 source FRESH for the area, audits parity, fixes drift in V2 to match V1; updates ledger best-effort. Pass `--register-ledger` to track. The non-rollback alternative to `/migration-rollback <N>` + `/migration-fast <N>`. |
@@ -864,35 +865,36 @@ Properties:
 
 ### Align track (when `--include=align` — opt-in only)
 
-The align pack is the **codebase quality gate** — a comprehensive sweep against the gold-standard inventory. Detects + fixes drift, dead code, duplicates, reinvented wrappers, silent catches, unhandled I/O (happy-path-only call sites), over-abstraction, SOLID violations, clean-code violations, performance issues, and security weaknesses. Stack-agnostic; frontend stacks dispatch UI/UX detectors (a11y, design tokens, i18n, motion) automatically.
+The align pack is **declared-convention enforcement**: it finds live sites that break a convention the project already declares — a lint rule at `error`, a human-written line in `ai/conventions.md`, an ADR, the glossary, the token set, a named wrapper — proves each against the line that declares it, and closes the align-owned rows with EQ / VC / FN proof. 34 classes, AL-01…AL-34, one owner each (`align-detect` § The class ledger). Its own detectors are `convention-oracle` (AL-01–04: invented, split, unenforced, stale doc), `wrapper-adoption-scan` (AL-11, 13, 14, 15, 22), `naming-layout-scan` (AL-16–19) and `convention-ratchet-scan` (AL-29–32); tokens, layers, API contracts, i18n and a11y are dispatched to ui-ux, code-quality, backend and frontend when those packs are installed. Security, performance, data, error handling, dead code, SOLID and complexity are not align classes: they print owner lines and route to `/security-fix`, `/perf-fix`, `/db-fix`, `/quality-fix`.
 
-**Precondition**: `_extracted-idioms.md` must be populated. If not, run `/setup-project --refine` first.
+**Precondition**: a declared convention. The inventory falls back `_extracted-idioms.md` → `codebase-profile.md` → `ai/conventions.md`; with none, every align class prints `N/A (no declared convention)` — run `/setup-project --refine`. Never a halt.
 
 #### Phased flow (manual — interactive checkpoints)
 
 | Command                | Purpose                                                                          |
 |------------------------|----------------------------------------------------------------------------------|
-| `/align-scan`          | Deep scan. Runs 11 universal detectors (5 structural + 6 functional), plus stack-conditional detectors for the `stack-specific` class. Builds `ai/align/ledger.md` (every row `detected`), `scan-report.md`, `findings.md`. Frontend stacks auto-dispatch UI/UX detectors. Security findings always ≥ standard tier; critical security always heavy. |
-| `/align-plan`          | Reads scan + ledger. Produces `ai/align/plan.md` — phased plan grouped by class + domain + tier. Mechanical first; security front-loaded; UI/UX grouped by domain. Cap: 12 findings/phase. |
-| `/align-phase <N>`     | Executes phase N. Per-finding loop: DETECT (re-verify fingerprint) → DECIDE (closure verb in 21-verb vocabulary) → FIX (mechanical edit; touch only `scope`) → VERIFY (lint + typecheck + tests + re-detect + class-specific assertions) → RECORD (one commit per finding). |
-| `/align-gate <N>`      | Phase exit gate. 14-check matrix (ledger completeness, gap-count parity, net-lines on structural, no-new-symbols-except-idioms, no scope creep, mechanical, coverage non-decreasing, frontend regressions, oracle unmodified, per-tier artifacts, idiom citation, security assertion, perf baseline, security tier minimum). Read-only; refuses on any check fail. |
-| `/align-final`         | Full sweep across all phases. Re-runs the audit; surfaces regressions; produces `final-report-<date>.md` with recommendations (cadence, hooks, idiom gaps). |
+| `/align-scan`          | The read-only audit. Builds the oracle map (`oracle-map.py`: T1 / T2 / T2g / contested), dispatches the four align detectors and every installed owner detector, drops rows whose oracle quote does not resolve (AL-01), refutes every candidate, prints all 34 AL rows and an ALIGNED / ALIGNED-UNVERIFIED / DRIFT verdict. Writes `ai/audits/<date>-align.md` and the same report as `ai/align/scan-report.md`, plus ledger rows at `detected`. Flags: `--changed <base>`, `--scope=`, `--with-owners`, `--first-run`. |
+| `/align-plan`          | Reads the ledger + report. Produces `ai/align/plan.md` — phases by AL class, domain, tier and dependency; regressions (AL-30) first, gates (AL-15) in their own phase, UI swaps by domain, enforcement (AL-03, AL-31) last. Routed and pending rows stay out. Cap: 12 rows/phase. |
+| `/align-phase <N>`     | Executes phase N row by row through `find-and-align`: ROUTE (owner rows → their fix command) → DETECT (re-run `detector_cmd`) → DECIDE (EQ / VC / FN) → FIX (rule first; only the matched expression) → VERIFY (the proof ladder L0–L13) → RECORD (one commit per row). |
+| `/align-gate <N>`      | Phase exit gate. 17-check matrix: ledger completeness, gap parity, net lines on structural rows, no new symbols, line-level scope, re-detect zero, one way per pattern, tests locked, emitted names, value round-trip, non-vacuous, ratchet shrink-only, proof class + VC approval, mechanical + boot, coverage tolerance, per-tier artifacts + idiom citation, oracle cited and unmodified + owner rows routed. Read-only; refuses on any fail or any `NOT RUN` on rows a check applies to. |
+| `/align-final`         | Cross-phase sweep. Re-runs the gate's checks over the whole range (one way per pattern across all phases), re-detects every verified row at HEAD, reports routed / pending / parked rows; produces `final-report-<date>.md` with recommendations (T1 rules to add, ratchet baselines, ratification lines, cadence). |
 
 #### Fast flow (per-phase one-shot — mirrors `/migration-fast`)
 
 | Command            | Purpose                                                                          |
 |--------------------|----------------------------------------------------------------------------------|
-| `/align-fast <N>`  | One-shot for phase N: runs the per-finding loop in parallel waves + `/align-gate <N>`. Same discipline; no human-watch pauses. Auto-routes per tier (trivial → loop; standard → loop + rationale; heavy → loop + reviewer pause). Pre-requisites: `/align-scan` and `/align-plan` must have run already. **`--re-audit`**: re-detect every row including `verified` ones; catches false-verified or drifted rows and re-fixes them in the same run. |
+| `/align-fast <N>`  | One-shot for phase N: `find-and-align` per row in disjoint-scope waves with a single committer, the sweep gate after every wave, then `/align-gate <N>`. Same discipline; no human-watch pauses. Heavy rows wait at `pending-review`; VC rows at `pending-approval`. Halts on a dirty tree or red CI. Pre-requisites: `/align-scan` and `/align-plan`. **`--re-audit`**: re-detect every row including `verified` ones. |
 
 #### Sidecar commands
 
 | Command                  | Purpose                                                                          |
 |--------------------------|----------------------------------------------------------------------------------|
-| `/align-status`          | Read-only progress reader. Per-phase summary, class breakdown, halted / parked / stalled rows. Run via `/schedule align-status weekly` for ongoing monitoring. |
+| `/align-status`          | Read-only progress reader. Per-phase summary, AL class and owner breakdown, halted / parked / pending / stalled rows. Run via `/schedule align-status weekly` for ongoing monitoring. |
 | `/align-rollback <N>`    | Undo phase N. Reverts commits via `git revert` (preserves audit trail), restores ledger rows to `detected`, archives halt files. Mandatory user confirmation; cascade warning if later phases depend on phase N. |
-| `/align-park <id> [reason]` | Defer a hairy finding. Sets `status: parked` with rationale plus `prior_status` / `prior_phase` / `parked_sla_from`; excludes from phase gate. Reversible via `/align-unpark`. **Refuses a `class: security` row at critical severity** unless `--override-critical` is passed and recorded — parking one otherwise silences the 24h escalation clock, which keys on `halted`. |
-| `/align-replan`          | Regenerate the phased plan from current ledger state. Run when plan ages out (codebase changed, parked rows piled up, prior phases revealed sequencing wrong, `/setup-project --refine` updated idioms). Preserves verified rows; re-phases the rest. Mirrors `/migration-replan`. |
-| `/align-recheck <description-or-path>` | **Plan-independent quality spot-check + fix.** NO plan / phase / ledger required. Accepts natural-language descriptions OR paths. Scans source FRESH for the area via the 11 universal detectors (+ stack-conditional UI/UX); fixes drift; updates ledger best-effort. Pass `--register-ledger` to track findings going forward. Works whether or not alignment was ever set up. |
+| `/align-park <id> [reason]` | Defer a hairy row. Sets `status: parked` with rationale plus `prior_status` / `prior_phase` / `parked_sla_from`; excludes from phase gate. Reversible via `/align-unpark`. Refuses to park a HIGH row (a permission, tenant or auth gate) silently (`--override-high` is recorded) — parking otherwise silences the 24h escalation clock, which keys on `halted`. A legacy owner-class row is routed, never parked. |
+| `/align-replan`          | Regenerate the phased plan from current ledger state. Run when plan ages out (codebase changed, parked rows piled up, prior phases revealed sequencing wrong, an oracle file changed). Preserves verified rows; re-phases the rest. Mirrors `/migration-replan`. |
+| `/align-recheck <description-or-path>` | **Plan-independent spot-check + fix.** NO plan / phase / ledger required. Accepts natural-language descriptions OR paths. Runs `align-detect` FRESH over the area (the four align detectors + installed owner detectors, the AL-01 quote check, refute-before-report), fixes the align-owned rows through the proof ladder, prints owner lines for the rest; updates the ledger best-effort. Pass `--register-ledger` to track rows going forward. |
+| `/align-promote-tier <id> <new-tier>` | Change a row's tier mid-fix, backfilling the new tier's artifacts. Demotion needs `--reason`; an AL-15 gate row never falls below heavy. |
 
 Workflow (manual — fully supervised):
 ```
@@ -906,7 +908,7 @@ Workflow (manual — fully supervised):
 /align-final
 ```
 
-Workflow (fast — recommended for routine mechanical phases):
+Workflow (fast — recommended for routine phases):
 ```
 /align-scan
 /align-plan
@@ -920,23 +922,21 @@ Mixed (manual for heavy phases, fast for routine):
 ```
 /align-scan
 /align-plan
-/align-fast 1                          # mechanical: dead code (fast)
-/align-fast 2                          # mechanical: silent catches (fast)
-/align-phase 3                         # security critical (manual; supervise per row)
-/align-gate 3
-/align-fast 4                          # mechanical: reinvented wrappers (fast)
+/align-fast 1                          # AL-30 / AL-29: regressions and suppressions (fast)
+/align-phase 2                         # AL-15: declared permission gates (heavy; supervise per row)
+/align-gate 2
+/align-fast 3                          # AL-11 / AL-14 / AL-22: imports through the declared wrapper (fast)
 ... etc
 /align-final
 ```
 
 Properties:
-- **Comprehensive sweep** — covers structural drift + SOLID + clean code + performance + security + stack-specific UI/UX.
-- **Stack-agnostic** — same pack, different detector dispatch via `PROJECT_KIND` (frontend / backend / data / mobile).
-- **Closure-verb vocabulary is closed** — 21 verbs (5 structural + 16 functional; see `align-discipline.md`). No new abstractions; functional adds must cite idioms from `_extracted-idioms.md`.
-- **Net-lines rule split by class group** — structural rows ≤ 0 hard; functional rows small + budgeted (with idiom citation).
-- **Security findings always ≥ standard tier** — critical security ALWAYS heavy.
-- **One finding = one commit** — bundling hides regressions and conflates intentional behaviour change with mechanical fixes.
-- **Re-detect after every fix** — gap-count parity (`gaps_in == gaps_closed`) is mandatory.
+- **Declared, never counted** — every row quotes its oracle; a majority with no declaration is a split for a human to ratify (AL-02, 0 rows); a generated line waits at `pending-ratification`.
+- **Proof by class** — EQ by a zero computed-style / compiled-CSS diff, VC only with a named human `approval:`, FN by a behaviour test that fails first. Deterministic sweep-gate steps run before any reviewer.
+- **Route, do not absorb** — owner rows go to the owner's fix command with the audit id; align closes an owner's row only when its oracle is T1/T2 and the swap is exact.
+- **Closure-verb vocabulary is closed** — 21 verbs (5 structural + 16 functional; see `align-discipline.md`). No new abstractions; functional adds must cite a declared idiom.
+- **Tests are read-only** in an align commit; one before-value maps to one after-value across the run.
+- **One row = one commit**; re-detect after every fix; gap-count parity (`gaps_in == gaps_closed`) is mandatory.
 
 ### The 7 simple commands (start here)
 
@@ -999,7 +999,7 @@ Flags: `--all`, `--max-class=`, `--security`, `--runtime`, `--ecosystem=`, `--or
 
 Full contract: [`commands/align.md`](../commands/align.md).
 
-One-command convention-alignment sweep. Deep multi-agent: internally runs scan + fix in parallel waves for convention drift, reinvented wrappers, silent catches + unhandled I/O, design-token drift, a11y, i18n, and layering violations. No phases / terminology surfaced; brief output (findings closed, commits, diff stats, test status). Optional scope arg. The simple-surface alternative to `/align-scan + /align-fast`; for a single narrow area use `/align-recheck`.
+One-command convention-alignment sweep. Deep multi-agent: runs the `/align-scan` audit (the oracle map, every align and installed owner detector, each candidate refuted) and then closes its `## What to do next` through `find-and-align`'s proof ladder — raw imports past a declared wrapper, deep imports, missing required props and gates, file and identifier names, suppressions and ratchets, plus the owner packs' exact-equivalence rows (an existing token, an existing catalog key). Security, performance, error handling and dead code are routed to their owners' fix commands. No phases / terminology surfaced; brief output (findings closed, commits, diff stats, test status). Optional scope arg. The simple-surface alternative to `/align-scan + /align-fast`; for a single narrow area use `/align-recheck`.
 
 ```
 /align                         # whole project convention drift
@@ -1512,9 +1512,9 @@ Confirms every feature complete across all phases. Optional `--re-audit` re-runs
 - **V2 is the new structure.** Cite V2 patterns/helpers when porting; never lift-and-shift.
 - **Foundation first.** Auth / tenant / shared infra always go in phase 1.
 
-### Codebase alignment — the comprehensive quality sweep
+### Codebase alignment — enforce the conventions you already declare
 
-For an existing codebase that's accumulated drift / dead code / dups / silent catches / SOLID violations / clean-code rot / perf issues / security gaps. Use the align pack — single-codebase quality gate (no V1/V2 split). Same parallel-dispatch + atomic-fix discipline as migration; turned inward.
+For an existing codebase whose live code has drifted from its own declared conventions: raw imports past the shared wrapper, deep imports, a missing permission gate on a destructive action, files and identifiers that break the naming rule, reasonless suppressions, a growing lint baseline, a migration the ADR declared and nobody finished. Use the align pack — single-codebase (no V1/V2 split), the same atomic-fix discipline as migration, turned inward. It is **not** a security, performance or dead-code sweep: those classes belong to their packs (`/security-audit`, `/perf-audit`, `/db-audit`, `/quality-audit`), and align prints one owner line for each.
 
 **Step 1 — Confirm preconditions.**
 
@@ -1528,13 +1528,13 @@ In Claude Code:
 /setup-project-health
 ```
 
-The align pack requires `_extracted-idioms.md` (the gold-standard inventory) to be populated. If not, run `/setup-project --refine` first — without an oracle, "alignment" is just opinion.
+Align needs something declared to enforce: a lint rule at `error`, a human-written line in `ai/conventions.md` / `ai/architecture.md` / `ai/modules.md`, an ADR, a glossary, a token set or a named wrapper. The inventory falls back `_extracted-idioms.md` → `codebase-profile.md` → `ai/conventions.md`. With nothing declared, every align class prints `N/A (no declared convention)`:
 
 ```
-/setup-project --refine                  # only if _extracted-idioms.md is empty/missing
+/setup-project --refine                  # writes the declarations down; a human ratifies generated lines
 ```
 
-Mechanical CI (lint / typecheck / build / tests) MUST be green at HEAD. Existing red drowns alignment findings. Use `/check-health` (from `code-quality` pack) to verify.
+Mechanical CI (lint / typecheck / build / tests) MUST be green at HEAD before a fix phase. Use `/check-health` (from `code-quality` pack) to verify. The audit itself is read-only and runs on any tree.
 
 **Step 2 — Install the align pack.**
 
@@ -1543,45 +1543,42 @@ Mechanical CI (lint / typecheck / build / tests) MUST be green at HEAD. Existing
 ```
 
 What happens:
-- Phase 2 confirms `_extracted-idioms.md` is non-empty + identifies `PROJECT_KIND` (frontend-* / backend-* / data-* / mobile-*).
-- Phase 4.2 ships the align pack: rule (`align-discipline.md`), 2 skills (`detect-drift`, `find-and-align`), 13 commands (`/align-scan`, `/align-plan`, `/align-phase`, `/align-gate`, `/align-final`, `/align-status`, `/align-fast`, `/align-recheck`, `/align-replan`, `/align-rollback`, `/align-park`, `/align-unpark`, `/align-promote-tier`), validator script.
-- Phase 4.6 anchors every align artifact to your codebase root + test runner + lint commands + (frontend) a11y / visual / bundle-size tools.
-- Per-stack detectors auto-include from sibling packs (`code-quality`, `security`, plus `frontend` + `ui-ux` for `frontend-*`).
+- Phase 4.2 ships the align pack: rule (`align-discipline.md`), 6 skills (`align-detect`, `convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan`, `find-and-align`, with their scripts `oracle-map.py`, `name-check.py`, `align-sweep-gate.py`), 13 commands (`/align-scan`, `/align-plan`, `/align-phase`, `/align-gate`, `/align-final`, `/align-status`, `/align-fast`, `/align-recheck`, `/align-replan`, `/align-rollback`, `/align-park`, `/align-unpark`, `/align-promote-tier`), 4 auditor agents, 2 patterns, validator script.
+- Phase 4.6 anchors every align artifact to your codebase root + test runner + lint commands + (frontend) the computed-style / visual harness.
+- Owner detectors run when their packs are installed: ui-ux `design-token-audit` (tokens), frontend `i18n-scan` / `a11y-code-scan`, backend `edge-error-scan` / `api-consistency-audit`, code-quality `architectural-diagnosis` (always installed).
 
-**Step 3 — Deep scan (build the findings ledger).**
+**Step 3 — The audit.**
 
 For an UNTOUCHED codebase that's never been aligned, use `--first-run`:
 
 ```
-/align-scan --first-run                  # excludes heavy + clean-code; caps at 20/class
+/align-scan --first-run                  # caps each class at 20 rows; the rest print Live, unreviewed
 ```
 
-This typically yields 80–150 findings (vs 200–800+ without the flag) — a manageable phase 1. Clean-code + heavy-tier rows defer to follow-up sweeps after the team has built workflow confidence. For incremental validation on a single module before a full sweep:
+For incremental validation on a single module before a full sweep:
 
 ```
 /align-scan --scope=src/auth/ --first-run    # validate the workflow on one module first
 ```
 
-For routine cadence sweeps (after the first run), use the full scan:
+For routine cadence sweeps, the full audit, or a branch diff:
 
 ```
 /align-scan
+/align-scan --changed origin/main        # keep a branch from adding drift
 ```
 
-Reads the codebase against `_extracted-idioms.md` + `ai/conventions.md` + `ai/architecture.md`. Runs 11 universal detectors in parallel waves:
-- **Structural** (6): dead-code, duplicated-logic, reinvented-wrapper, silent-catch, over-abstraction, drift.
-- **Functional** (5): SOLID violation, clean-code, performance, security (security includes deps-audit as a sub-class), unhandled-io (happy-path-only I/O — call sites with no error path / timeout / failure surfacing; the absent-error-path sibling of silent-catch).
-- **Stack-conditional**: a11y / design tokens / i18n / motion / lifecycle / default-true wrappers / permission gates for `frontend-*`; tenant-gate / N+1 / transaction-boundary for `backend-*`; etc.
+What it does: builds the oracle map (`oracle-map.py`: rules at `error` per package and whether CI lints them, human-written lines, ADRs, the glossary, wrappers, exports, baselines; generated lines tagged T2g; contested rows), dispatches the four align detectors and every installed owner detector, drops every candidate whose oracle quote does not resolve (AL-01), refutes the rest in a separate verifier (`refute-before-report.md` § 10, after `precedents/align.md`), and prints all 34 AL rows — `checked`, `N/A`, `blocked`, `NOT RUN`, `Live, unreviewed`, `Live, ratcheted` or `routed` — with the verdict ALIGNED / ALIGNED-UNVERIFIED (n) / DRIFT. A split nobody declared prints a BIMODAL block (`proposed canonical — ratify?` or `undetermined — ask`) and writes 0 rows.
 
-Outputs `ai/align/ledger.md` (every row `detected`, with `<path:line>` evidence), `scan-report.md`, `findings.md`. Security findings always ≥ standard tier; critical security (SQL injection, secret-in-code, RCE vectors) ALWAYS heavy.
+Outputs `ai/audits/<date>-align.md` and the same report as `ai/align/scan-report.md` (with a `## What to do next` list: MUST / SHOULD / OPTIONAL, each with its closer command), plus ledger rows at `detected` with `al_class`, `oracle` + `oracle_tier`, `owner`, `evidence`, `proof_class` and `detector_cmd`. Nothing else is written.
 
-**Step 4 — Generate phased plan.**
+**Step 4 — Generate phased plan** (or skip the phases: `/align --from-audit ai/audits/<date>-align.md`).
 
 ```
 /align-plan
 ```
 
-Reads scan + ledger. Produces `ai/align/plan.md` — phases grouped by class + domain + tier. Cap: 12 findings/phase. Mechanical-first; security front-loaded (phase 2 typically); UI/UX grouped by page/domain (e.g., "auth pages a11y + tokens + i18n").
+Reads the ledger + report. Produces `ai/align/plan.md` — phases by AL class, domain, tier and dependency; regressions first, declared gates in their own phase, UI swaps grouped by page, enforcement last. Routed, pending-approval and pending-ratification rows are listed as Not phased. Cap: 12 rows/phase.
 
 **Step 5a — Run a phase (manual flow).**
 
@@ -1589,20 +1586,21 @@ Reads scan + ledger. Produces `ai/align/plan.md` — phases grouped by class + d
 /align-phase 1
 ```
 
-For every finding in phase 1, the per-finding loop:
-1. **DETECT** — re-verify the fingerprint at evidence lines is still present.
-2. **DECIDE** — confirm closure verb is in the 21-verb vocabulary; confirm fix is appropriate to row's class.
-3. **FIX** — apply the verb-specific edit. Touch only files in `scope`. Net-lines ≤ 0 for structural rows; small + budget for functional rows (added lines must cite the row's `idiom_cited`).
-4. **VERIFY** — lint + typecheck + scoped tests + re-detect (universal); plus class-specific assertions (security gates / perf baselines / frontend regressions).
-5. **RECORD** — update ledger; one commit per finding.
+For every row in phase 1, `find-and-align`:
+1. **ROUTE** — a row another pack owns moves to `routed (<fix command>)` with no commit; a generated oracle to `pending-ratification`.
+2. **DETECT** — re-run the row's `detector_cmd`; aged out → `archived-pre-existing`; a rule matching 0 files halts (never "clean").
+3. **DECIDE** — EQ (exact: the token's value in every theme, the wrapper's defaults, an existing catalog value), VC (visible: waits for a human `approval:`), or FN (a declared gate, proven by a test that fails first).
+4. **FIX** — rule first where expressible; only the matched expression and the verb's footprint; tests, snapshots, lint configs and baselines read-only.
+5. **VERIFY** — the ladder L0–L13 (`align-sweep-gate.py` plus lint / types / build / tests and the zero style diff or the approved visual diff).
+6. **RECORD** — update ledger; one commit per row.
 
-**Step 5b — OR run the fast flow (recommended for routine mechanical phases).**
+**Step 5b — OR run the fast flow (recommended for routine phases).**
 
 ```
-/align-fast 1                           # one-shot phase 1: per-finding loop in parallel + auto-gate
+/align-fast 1                           # one-shot phase 1: disjoint-scope waves, sweep gate per wave, auto-gate
 ```
 
-Same discipline; parallel waves; no human-watch pauses. Heavy-tier rows pause for reviewer approval; trivial/standard continue. Mirrors `/migration-fast` exactly — runs ONE phase, requires `/align-scan` + `/align-plan` to have run already.
+Same discipline; one committer; no human-watch pauses. Heavy rows wait at `pending-review`, VC rows at `pending-approval`. Mirrors `/migration-fast` — runs ONE phase, requires `/align-scan` + `/align-plan` to have run already.
 
 **Step 6 — Phase exit gate.**
 
@@ -1610,23 +1608,26 @@ Same discipline; parallel waves; no human-watch pauses. Heavy-tier rows pause fo
 /align-gate 1
 ```
 
-Read-only. Runs the 14-check matrix:
-1. Ledger completeness.
+Read-only. Runs the 17-check matrix:
+1. Ledger completeness (no open row; routed / pending / parked named).
 2. Gap-count parity (`gaps_closed == len(evidence)`).
 3. Net-lines on structural rows ≤ 0.
-4. No new symbols (with idioms-named exemption).
-5. No scope creep.
-6. Mechanical (lint + typecheck + tests) green.
-7. Coverage non-decreasing.
-8. Frontend regressions (a11y / visual / bundle-size) green for `frontend-*`.
-9. Oracle (`_extracted-idioms.md` etc.) unmodified.
-10. Per-tier artifacts complete.
-11. Functional adds cite idiom.
-12. Security assertion present (every security row has a co-committed assertion test).
-13. Perf baseline + assertion present.
-14. Security tier minimum (no security at trivial; critical at heavy).
+4. No new symbols the oracle does not name.
+5. Line-level scope — every removed line an evidence line or the verb's footprint (AL-34).
+6. Re-detect zero at evidence lines.
+7. One way per pattern — one before-value, one after-value (AL-33).
+8. Tests locked — no test / snapshot / lint-config / baseline / oracle file; counts not down.
+9. Emitted names exist (no `var(--color-dangerous)`).
+10. Value round-trip per theme (`token-map.py`, ui-ux pack).
+11. Non-vacuous — every rule matched ≥ 1 file.
+12. Ratchet shrink-only (AL-30).
+13. Proof class + VC approval.
+14. Mechanical + boot green at HEAD.
+15. Coverage within tolerance (default 0.5 pp).
+16. Per-tier artifacts + idiom citation.
+17. Oracle cited and unmodified; owner rows routed, never closed here.
 
-Refuses on ANY check fail. Don't start phase 2 until this returns PASS (or use `/align-fast` which auto-gates).
+Refuses on ANY check fail, and on any `NOT RUN` for rows a check applies to. Don't start phase 2 until this returns PASS (or use `/align-fast` which auto-gates).
 
 **Step 7 — Repeat for each phase.**
 
@@ -1645,24 +1646,23 @@ Refuses on ANY check fail. Don't start phase 2 until this returns PASS (or use `
 /align-final
 ```
 
-Confirms every finding closed across all phases. Optionally `--re-scan` to surface drift since the original scan. Produces `ai/align/final-report-<date>.md` with:
-- Aggregate impact (lines removed, security findings closed, perf uplifts, dead code removed).
-- Outstanding parked findings (revisit per `/align-unpark`).
-- Recommendations for next cadence (typically `/schedule align-scan +4w`).
-- ADR-worthy hooks / lint-rules / pre-commit additions where alignment is rotting back.
+Confirms every row verified, routed or accounted for across all phases, and re-runs the gate's checks over the whole range. Optionally `--re-scan` to surface drift since the original audit. Produces `ai/align/final-report-<date>.md` with:
+- Aggregate impact by AL class and proof class; rows routed to owners.
+- Outstanding parked, pending-approval and pending-ratification rows.
+- Recommendations: T1 rules to add with shrink-only baselines (AL-03), ratification lines, the next cadence (`/align-scan --changed` per PR, a full audit every few weeks).
 
 #### Hard rules for align (from `align-discipline.md`)
 
-- **One finding = one commit.** Bundling hides regressions.
-- **Closure-verb vocabulary is closed (21 verbs).** No new abstractions; functional verbs (add-gate, parameterize, etc.) USE existing idioms from `_extracted-idioms.md` — never invent.
-- **Net-lines ≤ 0 for structural rows.** Alignment is entropy-reducing.
-- **Functional adds must cite idioms.** Every block of added lines references `<path:line>` in `_extracted-idioms.md` (gate / validator / cache primitive / etc.).
-- **Security findings always ≥ standard tier.** Critical security ALWAYS heavy; never trivial.
-- **Security and perf rows ship with assertions / baselines.** Bare gate / hopeful parallelize = halt.
-- **Re-detect after every fix.** Gap-count parity (`gaps_in == gaps_closed`) mandatory.
-- **Coverage non-decreasing.** A removed branch was either dead (coverage same) or load-bearing (coverage drops; halt).
-- **Oracle stays read-only.** `_extracted-idioms.md` / `ai/conventions.md` / `ai/architecture.md` changes ship via `/setup-project --refine`, not align fixes.
-- **Heavy-tier rows reviewed before merge.** Reviewer name + timestamp in row's `notes`.
+- **Every row quotes its oracle.** A row whose quote does not resolve is dropped (AL-01); a majority is not an oracle (AL-02).
+- **One row = one commit.** Bundling hides regressions.
+- **Closure-verb vocabulary is closed (21 verbs).** No new abstractions; functional verbs (`add-gate`, `rename`, …) USE declared idioms — never invent.
+- **Net-lines ≤ 0 for structural rows.** Functional adds cite the declared idiom.
+- **EQ is a zero diff; VC needs a human approval; FN needs a failing-first test.** An agent never fills `approval:`.
+- **Tests, snapshots, lint configs and baselines are read-only** in an align commit.
+- **Route, do not absorb.** Security, performance, data and quality rows go to their owners' fix commands.
+- **Re-detect after every fix.** Gap-count parity (`gaps_in == gaps_closed`) mandatory; a rule that matched 0 files is `NOT RUN`, not clean.
+- **Oracle stays read-only.** Conventions, ADRs and lint configs change via `/setup-project --refine` or an ADR, not in an align fix.
+- **Heavy-tier rows reviewed before merge** (`reviewer_approval: <name>@<iso>`).
 
 ### Plan-only mode (any command)
 

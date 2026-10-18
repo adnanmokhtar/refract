@@ -1,0 +1,4 @@
+# AL-34: hit line fixed, imports reordered, labelKey() rewritten
+scope FAIL
+consistency PASS
+verdict FAIL

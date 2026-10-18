@@ -62,7 +62,7 @@ Every command/agent/skill invocation appends one line to `.claude/_telemetry.jso
 ```jsonl
 {"ts":"2026-04-25T14:30:00Z","kind":"command","name":"/add-module","tool":"claude-code","duration_ms":45000,"success":true}
 {"ts":"2026-04-25T14:32:10Z","kind":"agent","name":"nestjs-architect","invoked_by":"/add-module","duration_ms":12000,"success":true}
-{"ts":"2026-04-25T14:33:00Z","kind":"skill","name":"endpoint-test","invoked_by":"manual","duration_ms":3000,"success":true}
+{"ts":"2026-04-25T14:33:00Z","kind":"skill","name":"endpoint-test-method","invoked_by":"manual","duration_ms":3000,"success":true}
 ```
 
 Format: append-only JSONL. Pruned to last 90 days at session start. NEVER sent off-machine — entirely local telemetry.

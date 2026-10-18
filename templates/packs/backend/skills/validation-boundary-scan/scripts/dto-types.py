@@ -8,7 +8,7 @@ without `@HttpCode`" are properties of a decorator BLOCK that spans lines. A lin
 and `-A<n> | rg -v` answers both wrong. Comments and string literals are masked before any match, so a
 JSDoc line that mentions `@Body()` is never a row.
 
-Usage:  python3 -I dto-types.py [--params] [--decorator-blocks] [--enums] [--flagged] [--json]
+Usage:  python3 -I dto-types.py [--params] [--decorator-blocks] [--enums] [--routes] [--flagged] [--json]
             [--include-tests] [--action-words=a,b,...] <dir|file> ...
         python3 -I dto-types.py --self-test
 Modes (default --params):
@@ -46,6 +46,16 @@ Modes (default --params):
                         action=<word>@<segment> (whole path segment, or its last -/_ word),
                         returns-nullable, 204-returns(<type>).
   --enums             ENUM rows: numeric | string | mixed (for @IsEnum on numeric enums).
+  --routes            Where Nest mounts each handler (the migration pack's paired route lane reads this). HANDLER
+                      rows (no PROP rows unless --decorator-blocks) gain three columns: mounted (every full path:
+                      URI version segment, RouterModule path, controller and method paths, then the app's
+                      setGlobalPrefix unless an `exclude` entry matches the unversioned path and the method),
+                      version (uri|header|media_type|custom:<v,...>, `-` when enableVersioning is absent) and
+                      class_decorators (the controller's own decorators: class-level @UseGuards, @Roles, ...).
+                      A prefix or versioning call applies to the files under the nearest package.json directory
+                      that holds it (never above the scan root): scan the bootstrap with the controllers.
+                      ENUM rows (implied) gain values: member=value (numeric members auto-increment).
+                      Rules follow @nestjs/core RoutePathFactory (master, read 2026-10-18).
   --flagged           only rows that carry a flag (PARAM: metatype is not a user class).
 Output: TSV (one `# KIND\tcolumns` header per kind) or --json; file:line on every row.
 Stderr: the ledger — files, tsconfigs (extends unread, strictNullChecks), raw-grep vs parsed param counts
@@ -1098,6 +1108,215 @@ def dec_text(decs):
     return ' '.join('@%s%s' % (d.name, '' if d.args is None else '(%s)' % (norm(d.args)[:80])) for d in decs)
 
 
+# ---------------------------------------------------------------- --routes: where Nest actually mounts a handler
+# Order and rules follow @nestjs/core RoutePathFactory.create (master, read 2026-10-18): URI version segment,
+# then the RouterModule path, the controller path, the method path; the global prefix last, unless an `exclude`
+# entry matches the path WITHOUT its version segment (and the method, when the entry names one). The version is
+# the method's @Version, else the controller's, else enableVersioning's defaultVersion; VERSION_NEUTRAL adds
+# no segment; the URI prefix is 'v' unless `prefix` says otherwise (`false` = none). Older majors are [K?].
+PREFIX_CALL = re.compile(r'\.\s*setGlobalPrefix\s*\(')
+VERSIONING_CALL = re.compile(r'\.\s*enableVersioning\s*\(')
+ROUTER_CALL = re.compile(r'\bRouterModule\s*\.\s*(register|forRoutes)\s*\(')
+IDENT_ONLY = re.compile(r'[A-Za-z_$][\w$]*')
+
+
+def top_spans(m, a, b):
+    out, d, cur = [], 0, a
+    for k in range(a, b):
+        ch = m[k]
+        if ch in '([{':
+            d += 1
+        elif ch in ')]}':
+            d -= 1
+        elif ch == ',' and d == 0:
+            out.append((cur, k)); cur = k + 1
+    out.append((cur, b))
+    return [(i, j) for i, j in out if m[i:j].strip()]
+
+
+def lit(s):
+    mo = re.fullmatch(r'\s*([\'"`])((?:\\.|(?!\1).)*)\1\s*', s or '', re.S)
+    return mo.group(2) if mo else None
+
+
+def obj_fields(s, m):
+    """Top-level `key: value` pairs of the first object literal in s (m = its masked twin, same length)."""
+    b = m.find('{')
+    if b < 0:
+        return {}
+    e, out = match(m, b), {}
+    for i, j in top_spans(m, b + 1, e):
+        mo = re.match(r'\s*([A-Za-z_$][\w$]*|[\'"][^\'"\n]*[\'"])\s*:', m[i:j])
+        if mo:
+            key = s[i:i + mo.end()].strip()[:-1].strip().strip('\'"')
+            out[key] = (s[i + mo.end():j], m[i + mo.end():j])
+        elif IDENT_ONLY.fullmatch(m[i:j].strip()):
+            out[m[i:j].strip()] = (m[i:j], m[i:j])
+    return out
+
+
+def array_items(s, m):
+    b = m.find('[')
+    if b < 0 or m[:b].strip():
+        return []
+    return [(s[i:j], m[i:j]) for i, j in top_spans(m, b + 1, match(m, b))]
+
+
+def versions_of(s, m):
+    t = m.strip()
+    if t.startswith('['):
+        return [v for es, em in array_items(s, m) for v in versions_of(es, em)]
+    if re.search(r'\bVERSION_NEUTRAL\b', t):
+        return ['NEUTRAL']
+    v = lit(s) if t[:1] in '\'"`' else None
+    if v is not None:
+        return [v]
+    if re.fullmatch(r'\d+', t):
+        return [t]
+    return ['UNREAD(%s)' % norm(s)[:40]]
+
+
+def excl_match(pattern, path):
+    p = pattern.strip().strip('/')
+    p = re.sub(r'\{\*\w*\}|\(\.\*\)|\*\w*', 'QQSTARQQ', p)
+    p = re.sub(r':\w+\??', 'QQPARAMQQ', p)
+    rx = re.escape(p).replace('QQSTARQQ', '.*').replace('QQPARAMQQ', '[^/]+')
+    return re.fullmatch(rx + '/?', path.strip('/')) is not None
+
+
+def app_root(f, roots):
+    """The nearest directory holding a package.json, never above the scan root that contains f."""
+    top = next((r for r in sorted(roots, key=len, reverse=True) if f == r or f.startswith(r + os.sep)), None)
+    if top is None or os.path.isfile(top):
+        return os.path.dirname(f) if top is None else os.path.dirname(top)
+    d = os.path.dirname(f)
+    while d.startswith(top) and len(d) >= len(top):
+        if os.path.isfile(os.path.join(d, 'package.json')) or d == top:
+            return d
+        d = os.path.dirname(d)
+    return top
+
+
+def mount_table(world, files, roots):
+    """-> {'apps': {root: cfg}, 'module_paths': {Module: [(path, at)]}, 'ctrl_modules': {Ctrl: [Module]}, 'notes': [...]}"""
+    absr = [os.path.abspath(r) for r in roots]
+    apps, mod_paths, ctrl_mods, notes = {}, {}, {}, []
+    for f in files:
+        src = world.src(f)
+        m = src.m
+        if 'setGlobalPrefix' in m or 'enableVersioning' in m:
+            root = app_root(f, absr)
+            cfg = apps.setdefault(root, {'prefix': None, 'prefix_at': [], 'exclude': [], 'versioning': None,
+                                         'versioning_at': None, 'notes': []})
+            for mo in PREFIX_CALL.finditer(m):
+                k = mo.end() - 1; e = match(m, k); s_, m_ = src.s[k + 1:e], m[k + 1:e]
+                sp = top_spans(m_, 0, len(m_))
+                if not sp:
+                    continue
+                at = '%s:%d' % (disp(f), src.line(mo.start()))
+                v = lit(s_[sp[0][0]:sp[0][1]])
+                v = v.strip('/') if v is not None else 'UNREAD(%s)' % norm(s_[sp[0][0]:sp[0][1]])[:40]
+                if cfg['prefix'] is not None and cfg['prefix'] != v:
+                    cfg['notes'].append('two global prefixes in one app (%s, %s) — mounted shows AMBIGUOUS' % (cfg['prefix'], v))
+                    v = 'AMBIGUOUS'
+                cfg['prefix'] = v; cfg['prefix_at'].append(at)
+                if len(sp) > 1:
+                    opts = obj_fields(s_[sp[1][0]:sp[1][1]], m_[sp[1][0]:sp[1][1]])
+                    if 'exclude' in opts:
+                        for es, em in array_items(*opts['exclude']):
+                            if em.strip().startswith('{'):
+                                o = obj_fields(es, em)
+                                p = lit(o['path'][0]) if 'path' in o else None
+                                mm = re.search(r'RequestMethod\s*\.\s*([A-Z]+)', o['method'][1]) if 'method' in o else None
+                                meth = mm.group(1) if mm else 'ALL'
+                            else:
+                                p, meth = lit(es), 'ALL'
+                            if p is None:
+                                cfg['notes'].append('exclude entry not a literal: %s' % norm(es)[:60])
+                            else:
+                                cfg['exclude'].append((p, meth))
+            for mo in VERSIONING_CALL.finditer(m):
+                k = mo.end() - 1; e = match(m, k); s_, m_ = src.s[k + 1:e], m[k + 1:e]
+                o = obj_fields(s_, m_)
+                tm = re.search(r'VersioningType\s*\.\s*([A-Z_]+)', o['type'][1]) if 'type' in o else None
+                ver = {'type': tm.group(1) if tm else ('URI' if not m_.strip() else 'UNREAD'), 'prefix': 'v',
+                       'default': None}
+                if 'prefix' in o:
+                    pv = o['prefix'][1].strip()
+                    ver['prefix'] = '' if pv == 'false' else (lit(o['prefix'][0]) if lit(o['prefix'][0]) is not None
+                                                             else 'UNREAD')
+                if 'defaultVersion' in o:
+                    ver['default'] = versions_of(*o['defaultVersion'])
+                cfg['versioning'] = ver; cfg['versioning_at'] = '%s:%d' % (disp(f), src.line(mo.start()))
+        if 'RouterModule' in m:
+            for mo in ROUTER_CALL.finditer(m):
+                k = mo.end() - 1; e = match(m, k); s_, m_ = src.s[k + 1:e], m[k + 1:e]
+                at = '%s:%d' % (disp(f), src.line(mo.start()))
+                if IDENT_ONLY.fullmatch(m_.strip()):
+                    dm = re.search(r'\b(?:const|let|var)\s+%s\b[^=;]*=\s*\[' % re.escape(m_.strip()), m)
+                    if not dm:
+                        notes.append('RouterModule.%s(%s) at %s: routes not declared in this file — UNREAD'
+                                     % (mo.group(1), m_.strip(), at)); continue
+                    b = dm.end() - 1; e2 = match(m, b); s_, m_ = src.s[b:e2 + 1], m[b:e2 + 1]
+                _router_walk(s_, m_, '', mod_paths, at)
+        if '@' in m and 'Module' in m:
+            for c in src.classes():
+                d = next((x for x in c.decs if x.name == 'Module' and x.args), None)
+                if d is None:
+                    continue
+                o = obj_fields(d.args, d.margs)
+                if 'controllers' in o:
+                    for es, em in array_items(*o['controllers']):
+                        if IDENT_ONLY.fullmatch(em.strip()):
+                            ctrl_mods.setdefault(em.strip(), []).append(c.name)
+    return {'apps': apps, 'module_paths': mod_paths, 'ctrl_modules': ctrl_mods, 'notes': notes}
+
+
+def _router_walk(s, m, parent, out, at):
+    for es, em in array_items(s, m):
+        t = em.strip()
+        if t.startswith('{'):
+            o = obj_fields(es, em)
+            p = lit(o['path'][0]) if 'path' in o else ''
+            full = join_route(parent, p if p is not None else 'UNREAD(%s)' % norm(o['path'][0])[:30])
+            if 'module' in o and IDENT_ONLY.fullmatch(o['module'][1].strip()):
+                out.setdefault(o['module'][1].strip(), []).append((full, at))
+            if 'children' in o:
+                _router_walk(o['children'][0], o['children'][1], full, out, at)
+        elif IDENT_ONLY.fullmatch(t):
+            out.setdefault(t, []).append((parent, at))
+
+
+def mount(table, f, ctrl, cls_ver, meth_ver, verb, rel_routes):
+    """-> (mounted paths, version column) for one handler."""
+    fa = os.path.abspath(f)
+    cfg = None
+    for root in sorted(table['apps'], key=len, reverse=True):
+        if fa.startswith(root + os.sep):
+            cfg = table['apps'][root]; break
+    mpaths = [p for mod in table['ctrl_modules'].get(ctrl, []) for p, _ in table['module_paths'].get(mod, [])] or ['']
+    ver = cfg['versioning'] if cfg else None
+    versions, vcol = [None], '-'
+    if ver:
+        vs = meth_ver or cls_ver or ver['default']
+        if vs:
+            vcol = '%s:%s' % (ver['type'].lower(), ','.join(vs))
+            if ver['type'] == 'URI':
+                versions = [None if v == 'NEUTRAL' else v for v in vs]
+    out = []
+    for v in versions:
+        vseg = '%s%s' % (ver['prefix'], v) if v is not None else ''
+        for mp in mpaths:
+            for r in rel_routes:
+                unversioned = join_route(mp, r)
+                path = join_route(vseg, unversioned)
+                pre = cfg['prefix'] if cfg else None
+                if pre and not any(excl_match(p, unversioned) and meth in ('ALL', verb) for p, meth in cfg['exclude']):
+                    path = join_route(pre, path)
+                out.append('/' + path)
+    return out, vcol
+
+
 def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
     t0 = time.time()
     world = World(roots)
@@ -1105,6 +1324,7 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
     files = list_files(roots, include_tests)
     rows, raw, seen_params, method_level, custom_used = [], [], set(), set(), {}
     cls_index = {}
+    table = mount_table(world, files, roots) if 'routes' in modes else None
     for f in files:
         src = world.src(f)
         for mo in RAW_PARAM.finditer(src.m):
@@ -1112,12 +1332,15 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
         if '@' not in src.m and 'enum' not in src.m:
             continue
         strict = world.strict(f)
-        if 'enums' in modes:
+        if 'enums' in modes or 'routes' in modes:
             for name, dcl in src.mod()['decls'].items():
                 if dcl[0] == 'enum':
                     k, names = world.enum_kind(src, dcl[2])
-                    rows.append({'kind': 'ENUM', 'at': '%s:%d' % (disp(f), src.line(dcl[1])), 'name': name,
-                                 'enum': k, 'members': names[:120], 'flags': '' if k == 'string' else k})
+                    row = {'kind': 'ENUM', 'at': '%s:%d' % (disp(f), src.line(dcl[1])), 'name': name,
+                           'enum': k, 'members': names[:120], 'flags': '' if k == 'string' else k}
+                    if 'routes' in modes:
+                        row['values'] = enum_values(src, dcl[2])
+                    rows.append(row)
         if '@' not in src.m:
             continue
         for c in src.classes():
@@ -1168,7 +1391,7 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
                                              'route': ('%s %s' % (verb, ' | '.join(routes) or '/')) if vd else '-',
                                              'handler': '%s.%s' % (c.name, mem.name), 'strict': strict,
                                              'flags': flag})
-                    if vd and 'blocks' in modes:
+                    if vd and ('blocks' in modes or 'routes' in modes):
                         flags = []
                         hc = next((d for d in mem.decs if d.name == 'HttpCode'), None)
                         resd = [d for p in mem.params for d in p.decs if d.name in ('Res', 'Response', 'Next')]
@@ -1190,10 +1413,21 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
                         if hc and re.search(r'\b(204|NO_CONTENT)\b', hc.args or '') and mem.rtype and \
                                 not re.fullmatch(r'(Promise\s*<\s*)?void(\s*>)?', mem.rtype):
                             flags.append('204-returns(%s)' % mem.rtype)
-                        rows.append({'kind': 'HANDLER', 'at': '%s:%d' % (disp(f), vd.line),
-                                     'handler': '%s.%s' % (c.name, mem.name), 'verb': verb,
-                                     'route': ' | '.join(routes) or '/', 'returns': mem.rtype or '-',
-                                     'flags': ' '.join(flags), 'decorators': dec_text(mem.decs)})
+                        hrow = {'kind': 'HANDLER', 'at': '%s:%d' % (disp(f), vd.line),
+                                'handler': '%s.%s' % (c.name, mem.name), 'verb': verb,
+                                'route': ' | '.join(routes) or '/', 'returns': mem.rtype or '-',
+                                'flags': ' '.join(flags), 'decorators': dec_text(mem.decs)}
+                        if table is not None:
+                            cv = None
+                            if ctrl is not None and ctrl.args and ctrl.margs.strip()[:1] == '{':
+                                co = obj_fields(ctrl.args, ctrl.margs)
+                                cv = versions_of(*co['version']) if 'version' in co else None
+                            mvd = next((d for d in mem.decs if d.name == 'Version' and d.args), None)
+                            mv = versions_of(mvd.args, mvd.margs) if mvd else None
+                            mounted, vcol = mount(table, f, c.name, cv, mv, verb, routes or [''])
+                            hrow.update({'mounted': ' | '.join(mounted), 'version': vcol,
+                                         'class_decorators': dec_text(c.decs)})
+                        rows.append(hrow)
                 elif 'blocks' in modes and mem.decs:
                     rows.append(prop_row(world, src, c, mem, strict))
     if 'params' in modes and custom_used:
@@ -1209,6 +1443,21 @@ def scan(roots, modes, include_tests=False, words=ACTION_WORDS):
                 rows.append({'kind': 'UNPARSED', 'at': '%s:%d' % (disp(f), ln), 'decorator': dn,
                              'text': norm(world.src(f).s.split('\n')[ln - 1])[:160], 'flags': 'unparsed'})
     ledger = make_ledger(world, files, rows, raw, time.time() - t0)
+    if table is not None:
+        hs = [r for r in rows if r['kind'] == 'HANDLER']
+        ledger['mount'] = {
+            'apps': [{'root': disp(k), 'prefix': v['prefix'], 'prefix_at': v['prefix_at'],
+                      'exclude': ['%s%s' % (p, '' if m_ == 'ALL' else ' ' + m_) for p, m_ in v['exclude']],
+                      'versioning': v['versioning'], 'versioning_at': v['versioning_at'], 'notes': v['notes']}
+                     for k, v in sorted(table['apps'].items())],
+            'router_module_paths': {k: sorted({p for p, _ in v}) for k, v in sorted(table['module_paths'].items())},
+            'controllers_in_modules': len(table['ctrl_modules']),
+            'handlers': len(hs),
+            'handlers_prefixed': sum(1 for r in hs if any(
+                a['prefix'] and a['prefix'] != 'AMBIGUOUS' and x.startswith('/' + a['prefix'].strip('/') + '/')
+                or x == '/' + (a['prefix'] or '').strip('/') for a in [
+                    {'prefix': v['prefix']} for v in table['apps'].values()] for x in r['mounted'].split(' | '))),
+            'notes': table['notes']}
     ledger['method_level_decorators'] = len(method_level)
     ledger['custom_param_decorators'] = {
         k: {'via': v['via'], 'form': v['form'], 'at': v['at'],
@@ -1306,6 +1555,30 @@ def make_ledger(world, files, rows, raw, secs):
             'unresolved_reasons': reasons, 'seconds': round(secs, 2)}
 
 
+def enum_values(src, dend):
+    """member=value per member, read from the source text (the masked twin hides string values)."""
+    m = src.m
+    b = m.find('{', dend)
+    if b < 0:
+        return ''
+    out, nxt = [], 0
+    for i, j in top_spans(m, b + 1, match(m, b)):
+        nm, eq, _ = m[i:j].partition('=')
+        name = src.s[i:i + len(nm)].strip().strip('\'"')
+        if not eq:
+            out.append('%s=%s' % (name, nxt if nxt is not None else 'UNREAD')); nxt = nxt + 1 if nxt is not None else None
+            continue
+        raw = src.s[i + len(nm) + 1:j].strip()
+        sv = lit(raw)
+        if sv is not None:
+            out.append('%s=%s' % (name, sv)); nxt = None
+        elif re.fullmatch(r'-?\d+', raw):
+            out.append('%s=%s' % (name, raw)); nxt = int(raw) + 1
+        else:
+            out.append('%s=expr(%s)' % (name, norm(raw)[:30])); nxt = None
+    return ','.join(out)[:400]
+
+
 COLS = {'PARAM': ['at', 'decorator', 'name', 'param', 'type', 'bucket', 'metatype', 'resolved', 'pipes', 'route', 'handler'],
         'PROP': ['at', 'prop', 'type', 'flags', 'decorators'],
         'HANDLER': ['at', 'handler', 'verb', 'route', 'returns', 'flags', 'decorators'],
@@ -1313,7 +1586,10 @@ COLS = {'PARAM': ['at', 'decorator', 'name', 'param', 'type', 'bucket', 'metatyp
         'UNPARSED': ['at', 'decorator', 'text']}
 
 
-def emit(rows, ledger, as_json, flagged):
+ROUTE_COLS = {'HANDLER': ['mounted', 'version', 'class_decorators'], 'ENUM': ['values']}
+
+
+def emit(rows, ledger, as_json, flagged, routes=False):
     if flagged:
         rows = [r for r in rows if r.get('flags')]
     if as_json:
@@ -1322,9 +1598,10 @@ def emit(rows, ledger, as_json, flagged):
         for kind in ('PARAM', 'HANDLER', 'PROP', 'ENUM', 'UNPARSED'):
             ks = [r for r in rows if r['kind'] == kind]
             if ks:
-                print('# %s\t%s' % (kind, '\t'.join(COLS[kind])))
+                cols = COLS[kind] + (ROUTE_COLS.get(kind, []) if routes else [])
+                print('# %s\t%s' % (kind, '\t'.join(cols)))
                 for r in ks:
-                    print('\t'.join([kind] + [str(r.get(c, '')) if r.get(c, '') != '' else '-' for c in COLS[kind]]))
+                    print('\t'.join([kind] + [str(r.get(c, '')) if r.get(c, '') != '' else '-' for c in cols]))
     L = ledger
     w = sys.stderr.write
     w('dto-types: %d files, %d modules read, %.2fs\n' % (L['files'], L['modules_loaded'], L['seconds']))
@@ -1348,6 +1625,24 @@ def emit(rows, ledger, as_json, flagged):
                                               L['named_resolution_rate'], L['named_unresolved']))
         if L['unresolved_reasons']:
             w('  unresolved reasons: %s\n' % json.dumps(L['unresolved_reasons'], sort_keys=True))
+    if 'mount' in L:
+        M = L['mount']
+        if not M['apps']:
+            w('  mount: no setGlobalPrefix / enableVersioning call in the scanned files — routes are mounted as written '
+              '(scan the bootstrap too, or the prefix is UNREAD)\n')
+        for a in M['apps']:
+            w('  mount: app %s prefix=%s%s exclude=%s versioning=%s%s\n' % (
+                a['root'], a['prefix'], ' (%s)' % ', '.join(a['prefix_at']) if a['prefix_at'] else '',
+                json.dumps(a['exclude']), json.dumps(a['versioning'], sort_keys=True),
+                ' (%s)' % a['versioning_at'] if a['versioning_at'] else ''))
+            for n in a['notes']:
+                w('  mount note: %s\n' % n)
+        if M['router_module_paths']:
+            w('  mount: RouterModule paths %s; %d controllers listed in @Module\n'
+              % (json.dumps(M['router_module_paths'], sort_keys=True), M['controllers_in_modules']))
+        for n in M['notes']:
+            w('  mount note: %s\n' % n)
+        w('  mount: %d handlers, %d under a global prefix\n' % (M['handlers'], M['handlers_prefixed']))
 
 
 # ---------------------------------------------------------------- self-test
@@ -1459,7 +1754,57 @@ FIX = {
         "  @Post('refresh')\n  refresh(@Res({ passthrough: true }) res: FastifyReply) {\n"
         "    res.raw.statusCode = 202;\n    return {};\n  }\n"
         "}\n"),
+    # --routes: the bootstrap, RouterModule, versioning and a second app with its own prefix
+    'src/main.ts': (
+        "import { NestFactory } from '@nestjs/core';\n"
+        "import { RequestMethod, VersioningType } from '@nestjs/common';\n"
+        "const doc = \"app.setGlobalPrefix('nope')\";\n"
+        "// app.setGlobalPrefix('commented');\n"
+        "async function boot() {\n  const app = await NestFactory.create(AppModule);\n"
+        "  app.setGlobalPrefix('api', {\n    exclude: ['health', { path: 'status/:id', method: RequestMethod.GET },"
+        " 'hooks/{*splat}'],\n  });\n"
+        "  app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });\n}\n"),
+    'src/app.routes.ts': (
+        "import { Module } from '@nestjs/common';\nimport { RouterModule, Routes } from '@nestjs/core';\n"
+        "const routes: Routes = [\n  { path: 'admin', module: AdminModule, children: [\n"
+        "    { path: 'reports', module: ReportsModule },\n    AuditModule,\n  ] },\n];\n"
+        "@Module({ imports: [RouterModule.register(routes)], controllers: [HealthController, StatusController, HooksController] })\n"
+        "export class AppModule {}\n"
+        "@Module({ controllers: [AdminUsersController] })\nexport class AdminModule {}\n"
+        "@Module({ controllers: [ReportsController] })\nexport class ReportsModule {}\n"
+        "@Module({ controllers: [AuditController] })\nexport class AuditModule {}\n"),
+    'src/routes.controller.ts': (
+        "import { Controller, Get, Post, UseGuards, Version, VERSION_NEUTRAL } from '@nestjs/common';\n"
+        "@Controller('health')\nexport class HealthController {\n  @Get()\n  h() {}\n}\n"
+        "@Controller('status')\nexport class StatusController {\n  @Get(':id')\n  g() {}\n  @Post(':id')\n  p() {}\n}\n"
+        "@Controller('hooks')\nexport class HooksController {\n  @Post('psp')\n  psp() {}\n}\n"
+        "@UseGuards(AdminGuard)\n@Roles('admin')\n@Controller({ path: 'users', version: ['1', '2'] })\n"
+        "export class AdminUsersController {\n  @Get()\n  list() {}\n"
+        "  @Version(VERSION_NEUTRAL)\n  @Get('ping')\n  ping() {}\n}\n"
+        "@Controller('daily')\nexport class ReportsController {\n  @Get()\n  d() {}\n}\n"
+        "@Controller('audit')\nexport class AuditController {\n  @Version('3')\n  @Get()\n  a() {}\n}\n"),
+    'apps/admin/package.json': '{ "name": "admin" }\n',
+    'apps/admin/src/main.ts': "export async function boot(app: any) {\n  app.setGlobalPrefix('/backoffice/');\n}\n",
+    'apps/admin/src/x.controller.ts': (
+        "import { Controller, Get } from '@nestjs/common';\n"
+        "@Controller('x')\nexport class XController {\n  @Get()\n  x() {}\n}\n"),
 }
+
+ROUTE_WANT = [  # --routes: (handler, field, expected exact value)
+    ('HealthController.h', 'mounted', '/v1/health'),                  # excluded from the prefix, still versioned
+    ('StatusController.g', 'mounted', '/v1/status/:id'),              # exclude names GET + a :param pattern
+    ('StatusController.p', 'mounted', '/api/v1/status/:id'),          # POST is not the excluded method
+    ('HooksController.psp', 'mounted', '/v1/hooks/psp'),              # {*splat} wildcard exclude
+    ('AdminUsersController.list', 'mounted', '/api/v1/admin/users | /api/v2/admin/users'),
+    ('AdminUsersController.list', 'version', 'uri:1,2'),
+    ('AdminUsersController.ping', 'mounted', '/api/admin/users/ping'),  # VERSION_NEUTRAL: no segment
+    ('ReportsController.d', 'mounted', '/api/v1/admin/reports/daily'),  # RouterModule child path
+    ('AuditController.a', 'mounted', '/api/v3/admin/audit'),          # bare child module inherits the parent path
+    ('XController.x', 'mounted', '/backoffice/x'),                    # its own app: own prefix, no versioning
+    ('XController.x', 'version', '-'),
+    ('ItemsController.create', 'mounted', '/api/v1/items'),
+    ('ItemsController.verify', 'route', 'items/otp/verify'),          # the relative route column is unchanged
+]
 
 WANT = [  # (kind, at-suffix, field, expected substring)
     ('PARAM', 'items.controller.ts:17', 'bucket', 'class'),
@@ -1582,6 +1927,33 @@ def self_test():
             ('the /* inside a tsconfig string did not eat the alias table', ledger['tsconfig_notes'] == []),
             ('arrow-function property did not swallow the class', any(r['kind'] == 'PROP' and r['prop'] == 'CreateDto.n' for r in rows)),
         ]
+        rrows, rledger = scan([d], {'routes'})
+        for h, field, want in ROUTE_WANT:
+            total += 1
+            got = [r.get(field, '') for r in rrows if r['kind'] == 'HANDLER' and r['handler'] == h]
+            ok = want in got
+            bad += not ok
+            print('  %s --routes %s %s == %r%s' % ('ok  ' if ok else 'FAIL', h, field, want, '' if ok else ' (got %r)' % got))
+        def hrow(h):
+            return next((r for r in rrows if r['kind'] == 'HANDLER' and r['handler'] == h), {})
+        apps = {a['root'].replace(os.sep, '/').rsplit('/', 2)[-2:][-1]: a for a in rledger['mount']['apps']}
+        checks += [
+            ('--routes: class-level @UseGuards / @Roles on the HANDLER row',
+             '@UseGuards(AdminGuard)' in hrow('AdminUsersController.list').get('class_decorators', '')
+             and "@Roles('admin')" in hrow('AdminUsersController.list').get('class_decorators', '')),
+            ('--routes: a prefix in a comment or a string is not read (one prefix, not AMBIGUOUS)',
+             any(a['prefix'] == 'api' for a in rledger['mount']['apps'])
+             and not any(a['prefix'] in ('nope', 'commented', 'AMBIGUOUS') for a in rledger['mount']['apps'])),
+            ('--routes: two apps, each with its own prefix', sorted(a['prefix'] for a in rledger['mount']['apps']) == ['api', 'backoffice']),
+            ('--routes: no PROP rows without --decorator-blocks', not any(r['kind'] == 'PROP' for r in rrows)),
+            ('--routes: ENUM member=value, numeric auto-increment',
+             any(r['kind'] == 'ENUM' and r.get('values') == 'Red=0,Green=1' for r in rrows)),
+            ('--routes: ENUM member=value, string values read from the source text',
+             any(r['kind'] == 'ENUM' and r.get('values') == 'A=a,B=b' for r in rrows)),
+            ('--routes: RouterModule paths ledgered',
+             rledger['mount']['router_module_paths'].get('ReportsModule') == ['admin/reports']
+             and rledger['mount']['router_module_paths'].get('AuditModule') == ['admin']),
+        ]
         for name, ok in checks:
             total += 1; bad += not ok
             print('  %s %s' % ('ok  ' if ok else 'FAIL', name))
@@ -1602,6 +1974,8 @@ def main(argv):
             modes.add('blocks')
         elif a == '--enums':
             modes.add('enums')
+        elif a == '--routes':
+            modes.add('routes')
         elif a == '--json':
             as_json = True
         elif a == '--flagged':
@@ -1617,7 +1991,7 @@ def main(argv):
     if not roots or not all(os.path.exists(r) for r in roots):
         sys.stderr.write(__doc__[__doc__.index('Usage:'):__doc__.index('Modes')]); return 2
     rows, ledger = scan(roots, modes or {'params'}, tests, words)
-    emit(rows, ledger, as_json, flagged)
+    emit(rows, ledger, as_json, flagged, 'routes' in modes)
     return 0
 
 

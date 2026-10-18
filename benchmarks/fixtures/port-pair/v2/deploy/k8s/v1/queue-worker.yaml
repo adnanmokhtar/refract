@@ -1,0 +1,19 @@
+# V1 queue workers (php artisan queue:work). V1 still owns invoice issuing, wallet adjustments
+# and every V1-side mail until the write flips in deploy/cutover/plan.yaml.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: v1-queue-worker
+  namespace: norrow
+spec:
+  replicas: 0
+  selector:
+    matchLabels: { app: v1-queue-worker }
+  template:
+    metadata:
+      labels: { app: v1-queue-worker }
+    spec:
+      containers:
+        - name: worker
+          image: registry.norrow.example/v1-portal:2024.11.3
+          command: ["php", "artisan", "queue:work", "redis", "--queue=default,mail", "--max-time=3600"]

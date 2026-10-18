@@ -14,6 +14,10 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.2.0 — 2026-10-18
+
+- **`catalog-parity.py --v1=<laravel-root>`**: reads `lang/` and `resources/lang/` (`<locale>/**/*.php` arrays, `<locale>.json`); findings `v1-plural-forms` (a V1 pipe plural whose V2 key lacks a CLDR category — Arabic needs all six), `v1-plural-lost`, `v1-placeholder` (`:name` vs `{{name}}`); candidates `v1-plural-range`, `v1-pipe-text`, `v1-unmapped`.
+
 ## 2.1.0 — 2026-10-15
 
 **Detector fixes from a read-only audit of a real NestJS + React monorepo.** Each request was reproduced on that repo and on every `benchmarks/fixtures/*`, fixed, and re-measured; no seeded fixture hit was lost.

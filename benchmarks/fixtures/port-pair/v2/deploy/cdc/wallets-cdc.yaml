@@ -1,0 +1,16 @@
+# V1 → V2 change stream for wallets during the canary window (Debezium MySQL source, Postgres
+# JDBC sink). The lag is declared and the reconcile threshold is set to match it.
+connector: v1-wallets-cdc
+source:
+  table.include.list: norrow.wallets
+  snapshot.mode: no_data
+sink:
+  insert.mode: upsert
+  primary.key.fields: legacy_id
+declared_lag:
+  p99_seconds: 30
+reconcile:
+  # Rows touched in the last 30 s are excluded from the balance comparison and re-checked on
+  # the next run; anything older must match exactly.
+  exclude_updated_within_seconds: 30
+  threshold_mismatches: 0

@@ -1,0 +1,8 @@
+# Release plan for the orders cutover. Each step names the release that ships it and the step it
+# waits for. The point of no return is the step after which V1 can no longer take traffic back.
+release_train:
+  - { step: orders-read-flip, release: "2.3.0", after: reconcile-orders-green }
+  - { step: orders-writes-flip, release: "2.4.0", after: orders-read-soak-7d }
+  - { step: drop-v1-order-tables, release: "2.4.0", after: orders-writes-flip }
+  - { step: tickets-read-flip, release: "2.4.0", after: reconcile-tickets-green }
+  - { step: wallets-read-flip, release: "2.5.0", after: reconcile-wallets-green }

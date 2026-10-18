@@ -35,7 +35,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/infr
 - **Removed APIs, schema and CRD validity, admission rejection** → `k8s-api-version-scan` (this pack). § 0's canaries are shared with it.
 - **Unpinned charts and platform components** (PIN-HELM: `helm upgrade --install` with no `--version`, Argo `targetRevision: HEAD`) → `iac-state-scan` § 3 (this pack). § 0's `inventory-platform.tsv` is its input.
 - **Live drift and reconciliation** (what Argo or Flux has actually applied) → devops `gitops-audit` when the devops pack is installed; without it, list the rows as `N/A (owner pack devops not installed)`. This skill owns the static spec only.
-- **Privilege** (RBAC breadth, ingress snippets, mutable image tags, secrets in values files) → security `iac-scan` § 3 and `secret-scan` when the security pack is installed. Without it, tag the row `security-class (owner pack not installed)`, list it and do not grade it.
+- **Privilege** (RBAC breadth, ingress snippets, mutable image tags, secrets in values files) → security `iac-scan` § 3 and `secret-scan-method` when the security pack is installed. Without it, tag the row `security-class (owner pack not installed)`, list it and do not grade it.
 - **PromQL content of a PrometheusRule** → observability `alert-rule-lint` when that pack is installed; without it the rule's content is not judged here, and the row reads `N/A (owner pack observability not installed)`.
 
 ## Version gate (gate 3), read from files

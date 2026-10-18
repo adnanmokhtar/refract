@@ -1,6 +1,6 @@
 ---
 name: extract-v1-contract
-description: Read a V1 feature deeply (entry point + every conditional + every dependency call + every error path + git log + tests + bug-tracker references) and produce a structured contract document that V2 must satisfy for parity. The contract is the spec — V2 is re-derived from it, never copy-pasted from V1.
+description: "Extract a V1 feature's behaviour contract — inputs, outputs, effects, rules, invariants, known bugs — every claim a pinned v1 file:line plus excerpt, prefilled from paired-inventory lane rows."
 kind: skill
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
@@ -17,7 +17,8 @@ Find V1's real behaviour, no hand-waves. Every claim in the contract is a citati
 ## Halt conditions
 
 - Halt on any contract claim missing `<v1-path:line>` + one-line source excerpt.
-- Halt on a contract written against an unpinned V1 (no `v1_commit_pinned` in the ledger row).
+- Halt on a contract written against an unpinned V1 (no `v1_commit_pinned` in the ledger row), or read from the live V1 checkout instead of the pinned snapshot.
+- Halt on a claim copied from a lane row without opening its `file:line` in the snapshot. The row is a lead; the excerpt must still match.
 - Halt on tier expansion (Standard → Heavy) without an explicit user-recorded justification on the ledger row.
 - Halt on "feature too small to need a contract" — small features per tier rules; no contract per tier rules; never silent-skip.
 
@@ -53,6 +54,36 @@ Refuse to expand a contract beyond its tier without an explicit user request to 
 - Read access to: V1 source, V1's tests, git log, bug tracker (or its equivalent — issue list, PRs, internal docs), production telemetry (latency / error / log samples) for the feature if available.
 
 ## Procedure
+
+### 0. Read V1 at the pin, and prefill from the lane rows
+
+**V1 is read from a snapshot of the pinned SHA, never from the live checkout** (D27). A V1 branch that moves during extraction makes every `v1-path:line` in the contract point at a line that is no longer the one cited.
+
+```bash
+PIN="<v1_commit_pinned from the ledger row>"; RUN="$(mktemp -d "${TMPDIR:-/tmp}/v1-contract.XXXXXX")"; : > "$RUN/stamp"
+export GIT_OPTIONAL_LOCKS=0; mkdir "$RUN/v1"
+git -C "<v1-root>" archive "$PIN" | tar -x -C "$RUN/v1"                       # write-free; read every V1 file from "$RUN/v1" (a V1 in a subdirectory of its repo: archive "$PIN:<subdir>")
+PI=.claude/skills/paired-inventory/scripts/pair-inventory.py
+python3 -I "$PI" --v1="<v1-root>" --pin="$PIN" --v2=. --pair-map=ai/migration/pair-map.tsv --out="$RUN/pi" > "$RUN/candidates.tsv" 2> "$RUN/ledger.txt"; echo "pair-inventory exit $?"
+# the feature's V1 rows: every lane file, filtered to the files and route keys of this feature
+cat "$RUN"/pi/v1/*.tsv 2>/dev/null | awk -F'\t' -v pat="<feature's V1 paths or route prefix, as a regex>" '$1 !~ /^#/ && ($4 ~ pat || $2 ~ pat)' > "$RUN/feature-rows.tsv"; wc -l < "$RUN/feature-rows.tsv"
+find "<v1-root>" -newer "$RUN/stamp" -type f -not -path '*/.git/*' | head -3               # must print nothing
+```
+
+Without a V1 tree (solo mode), the rows come from `ai/migration/v1-inventory/<lane>.tsv`, checked fresh first (`paired-inventory` § Modes: `sha` = the pin, extractor hash = the installed module). The contract can be prefilled from those rows, but every claim the procedure below would read in V1 code is marked `UNREAD (no V1 tree)`. It is never paraphrased from the row.
+
+Every lane row is `lane · key · attrs · file:line · excerpt`. It **seeds** a contract line, already cited:
+
+| Lane | Contract section it seeds |
+|---|---|
+| I-ROUTES, I-RULES (incl. `GLOBAL trim_strings` / `empty_to_null`), I-CONF | § Inputs (method + path, every field rule, defaults for omitted fields) |
+| I-ERR | § Outputs — one error path per status / `code` row |
+| I-AUTHZ, I-SCOPE | § Inputs (who may call) and § Invariants (tenant and owner scope, soft delete) |
+| I-SIDE, I-SCHED | § Side effects (the emitter multiset per entity verb; the schedule with its zone and overlap rule) |
+| I-ENUM, I-SCHEMA | § Outputs (value sets) and § Invariants (unique, FK, NOT NULL, derived columns, views) |
+| I-MONEY | § Business rules (the rounding mode and its order on each money path) |
+
+A prefilled line is a **lead, not a claim**. Open the cited `file:line` in the snapshot, confirm the excerpt, then write the observable consequence the procedure below establishes. A row whose excerpt no longer matches is a stale record: re-record it, do not cite it. The rows are only what the lanes can see. Steps 1–8 still read the entry point down, because conditionals, error paths that throw no mapped exception, and consumer assumptions have no lane. The prefill is what the reader must not miss, not the whole contract. A lane that printed `blocked` in `ledger.txt` seeds nothing, and its sections are read by hand.
 
 ### 1. Identify the entry point + boundary
 
@@ -231,13 +262,9 @@ A second reviewer reads V1 alongside the contract. Their job: find anything the 
 - A test fixture that hides the only callsite that exercises a rare branch.
 - An old hotfix branch with no comment and no test that now reads as "obviously dead".
 
-### 11. Pin V1 + register in ledger
+### 11. Register the pin in the ledger
 
-```bash
-git -C <v1-root> rev-parse HEAD > /dev/null   # ensures V1's branch is checked out
-PIN=$(git -C <v1-root> rev-parse HEAD)
-# update ai/migration/ledger.md row for this feature: state=In-progress, v1_commit_pinned=<sha>, contract=ai/migration/contracts/<feature>.md
-```
+The pin is chosen **before** step 0, not after the read: the ledger row's `v1_commit_pinned`, or, for a first extraction, `git -C <v1-root> rev-parse HEAD` recorded on the row first. Every citation in the contract resolves against that SHA's snapshot. Update `ai/migration/ledger.md` for this feature: `state: In-progress`, `v1_commit_pinned: <sha>`, `contract: ai/migration/contracts/<feature>.md`. When a later V1 commit changes a cited file, the contract is re-extracted at the new pin; it is never patched line by line against the live tree.
 
 After this point, V1 must NOT be modified for this feature. V1 is the parity oracle.
 
@@ -309,3 +336,4 @@ Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/pos
 - `perf-uplift-survey.md` — consumes the **Performance characteristics** + **Side effects** sections.
 - `migration-architect.md` (agent) — uses this contract to plan V2.
 - `parity-auditor.md` (agent) — verifies the contract is complete before cutover.
+- `paired-inventory` (skill) — the lane rows step 0 prefills from; `/migration-scan --record-v1-inventory` records them for solo runs.

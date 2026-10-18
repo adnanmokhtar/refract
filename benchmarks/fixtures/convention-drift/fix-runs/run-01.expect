@@ -1,0 +1,8 @@
+# AL-33: #d92d20 -> var(--color-danger) in OrderStatusBadge, var(--color-error) (admin theme name) in RefundForm
+oracle PASS
+scope PASS
+redetect PASS
+consistency FAIL
+names PASS
+roundtrip PASS
+verdict FAIL

@@ -313,7 +313,7 @@ Dispatch `/add-telemetry` if gaps *(observability pack, when co-installed)*. **A
 - `pnpm lint` on the new files.
 - `pnpm test` on the new tests.
 - Run `coverage-gap` skill — all new branches covered?
-- `endpoint-test` skill against dev server — success, invalid-body (at the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one) and 401 scenarios run through.
+- `endpoint-test-method` skill against dev server — success, invalid-body (at the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one) and 401 scenarios run through.
 - `api-snapshot` skill — is this a breaking change? If yes and no ADR → fail. If the snapshot flags a **removal / breaking change** to an existing surface, the superseded route MUST emit `Deprecation` (RFC 9745) + `Sunset` (RFC 8594, HTTP-date) headers for the announced overlap window before it disappears — failing to announce the retirement is itself a fail. (ENF-2)
 
 ### Run the backend detectors on what this command generated
@@ -352,7 +352,7 @@ Fill this ledger (one row per floor item) before writing the Output block:
 
 | # | Production floor | MET requires (evidence — a claim is not evidence) | Wired to |
 |---|---|---|---|
-| 1 | **Input validated at the edge** | every input DTO field has a validator AND the invalid-body e2e test passes (named), asserting the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one (`ai-patterns/error-handling.md` § Status mapping) — AND a `{"<optional field>": null}` request answers 400 or the documented clear, never 500; both through the real bootstrap | api-reviewer `edge-validation`; `validation-boundary-scan` §1/§5 (V340, V342); `endpoint-test` skill (invalid-body case) |
+| 1 | **Input validated at the edge** | every input DTO field has a validator AND the invalid-body e2e test passes (named), asserting the project's declared validation-failure status — `422` for a well-formed body that fails semantics, `400` only for an unparseable one (`ai-patterns/error-handling.md` § Status mapping) — AND a `{"<optional field>": null}` request answers 400 or the documented clear, never 500; both through the real bootstrap | api-reviewer `edge-validation`; `validation-boundary-scan` §1/§5 (V340, V342); `endpoint-test-method` skill (invalid-body case) |
 | 2 | **Standard error envelope** | error paths return the project envelope / Problem Details (RFC 9457) at a cited `<path:line>`, including the framework's own validation and not-found answers; no stack trace / PII leaked | api-reviewer `error-envelope` + error-contract; `edge-error-scan` §6 (V345) |
 | 3 | **Correct transaction boundary** | a multi-write use-case is wrapped in ONE transaction at the service layer (cite the tx site); no external call held inside the tx — OR `n-a` (single write), reason stated | api-reviewer `txn-boundary` (TXN). `[self-policed]` — no grep proves two writes are one unit |
 | 4 | **Idempotency on unsafe methods where the convention requires** | `Idempotency-Key` accepted + stored + a replay e2e test proves the second call returns the first result — OR `n-a`, reason stated (naturally idempotent PUT / not retry-sensitive) | api-reviewer `idempotency`; signal table row |
@@ -362,7 +362,7 @@ Fill this ledger (one row per floor item) before writing the Output block:
 
 **Baseline rows beyond the floor.** Every row the standards gate fired that this floor does not already cover — `DATA-1`/`DATA-2` when the endpoint creates or updates a row keyed by a natural key, `RES-3`/`RES-4` for an outbound call, `PERF-7` for a cache, `RES-1` for a public or expensive route — is appended to this ledger as row 8 onward, with the same evidence rule and the same effect on the verdict.
 
-**Coverage regeneration (evidence #1, #5, #6 are runtime — not readable from source alone).** Where the evidence is a test that must be *run* (invalid-body, 403 denial, page-cap clamp), the gate requires the test **executed green in this run** (from `pnpm test` / `endpoint-test`), not merely authored. If the harness is absent (no dev server, `n-plus-one-scan` not installed), mark that row `SKIPPED — unverified: <exact command a reviewer must run>` and the verdict is INCOMPLETE, not PRODUCTION-READY.
+**Coverage regeneration (evidence #1, #5, #6 are runtime — not readable from source alone).** Where the evidence is a test that must be *run* (invalid-body, 403 denial, page-cap clamp), the gate requires the test **executed green in this run** (from `pnpm test` / `endpoint-test-method`), not merely authored. If the harness is absent (no dev server, `n-plus-one-scan` not installed), mark that row `SKIPPED — unverified: <exact command a reviewer must run>` and the verdict is INCOMPLETE, not PRODUCTION-READY.
 
 **Verdict:**
 - **PRODUCTION-READY** — every floor row is MET (with evidence) or n-a (with reason). Only then may the Output say the endpoint is shippable.
@@ -385,7 +385,7 @@ Phase 2 (Organize): api-architect designed; <N> tests planned.
 Phase 3 (Retrieved): 7 universals + module files + 1 sibling controller + signal patterns.
 Phase 4 (Generated): DTO, use-case, controller method, tests (<N>), telemetry.
 Phase 5 (Updated): ai/status.md, ai/dynamic/changelog.md (+ openapi.json if public).
-Phase 6 (Validated): lint, tests, endpoint-test (200/422/401), api-snapshot, reviewers.
+Phase 6 (Validated): lint, tests, endpoint-test-method (200/422/401), api-snapshot, reviewers.
 Phase 7 (Improved): /learn-from-task queued.
 
 Files:
@@ -441,7 +441,7 @@ Unmet floor items:
                                    non-owner. Next: add e2e asserting owner-B gets 403 on
                                    PATCH of owner-A's resource, then re-run the gate.
   7. log+metric+trace    SKIPPED — unverified: no metrics scrape in this env.
-                                   Next: run `endpoint-test` against dev + confirm the
+                                   Next: run `endpoint-test-method` against dev + confirm the
                                    duration histogram series appears.
 
 Met: 1,2,3,4,5.   Shippable only after 6 & 7 close.

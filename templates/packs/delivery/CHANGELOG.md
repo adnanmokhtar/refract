@@ -6,6 +6,10 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.2.1 — 2026-10-18
+
+- References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).
+
 ## 1.2.0 — 2026-10-10
 
 **P3 has a writer, and the state matrix has a gate.**

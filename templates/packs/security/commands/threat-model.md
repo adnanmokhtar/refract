@@ -33,7 +33,7 @@ Gather:
 
 ## Phase 2 — Organize (STRIDE per data-flow leg)
 
-**The STRIDE letters and their halt conditions live in the `threat-model` skill — apply it, do not restate it.** This command's job starts where the letters end: the skill classifies one boundary; this command decides *which boundaries there are* and makes the result durable.
+**The STRIDE letters and their halt conditions live in the `threat-model-method` skill — apply it, do not restate it.** This command's job starts where the letters end: the skill classifies one boundary; this command decides *which boundaries there are* and makes the result durable.
 
 Per data-flow leg, in this order:
 
@@ -156,7 +156,7 @@ This threat model invalidates if:
 
 ## Phase 6 — Validate
 
-**Cite-or-halt per threat row: apply the `threat-model` skill's `## Halt conditions` as written there.** They are not restated here on purpose — a second copy drifts, and the three checks (component-path citation, persona-grounded rating, mitigation as `<path:line>`-or-ticket) are the skill's contract, not this command's. Open the skill and run them against every row of the table Phase 4 produced.
+**Cite-or-halt per threat row: apply the `threat-model-method` skill's `## Halt conditions` as written there.** They are not restated here on purpose — a second copy drifts, and the three checks (component-path citation, persona-grounded rating, mitigation as `<path:line>`-or-ticket) are the skill's contract, not this command's. Open the skill and run them against every row of the table Phase 4 produced.
 
 This command adds one halt the skill cannot make, because it is a property of the whole document rather than of a row:
 
@@ -212,7 +212,7 @@ Every run MUST end its report with a `## What to do next` block: the threats re-
 
 ## Related
 
-- `threat-model` **skill** — the primitive this command applies: the six STRIDE letters, the LINDDUN privacy pass, and the three cite-or-halt conditions Phase 6 enforces. Agents dispatch the skill directly; this command is the session that makes its output durable (actor table, ADRs, residual risk, re-audit triggers).
+- `threat-model-method` **skill** — the primitive this command applies: the six STRIDE letters, the LINDDUN privacy pass, and the three cite-or-halt conditions Phase 6 enforces. Agents dispatch the skill directly; this command is the session that makes its output durable (actor table, ADRs, residual risk, re-audit triggers).
 - `@security-auditor` — the enforcement agent, dispatched by the follow-up `/security-audit` (not by this command); its recorded verdict is what verifies the mitigations this model plans.
 - `@auth-reviewer` — overlap on auth-specific threats.
 - `/secret-scan` — finds the leaked-credential class this model assumes away.

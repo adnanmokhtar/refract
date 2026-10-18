@@ -1,0 +1,14 @@
+{
+  "feature": "orders.pricing",
+  "v1_entry": "app/Services/PricingService.php::lineNet",
+  "cases": [
+    { "unit_price": 10.03, "quantity": 1, "discount_rate": null },
+    { "unit_price": 47.18, "quantity": 3, "discount_rate": null },
+    { "unit_price": 19.99, "quantity": 12, "discount_rate": 0.1 },
+    { "unit_price": 0.35, "quantity": 7, "discount_rate": 0.05 },
+    { "unit_price": 1250, "quantity": 2, "discount_rate": 0.5 },
+    { "unit_price": 3.33, "quantity": 3, "discount_rate": 0.15 },
+    { "unit_price": 99.95, "quantity": 100, "discount_rate": null },
+    { "unit_price": 0.01, "quantity": 1, "discount_rate": null }
+  ]
+}

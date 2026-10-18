@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.4 — 2026-10-18
+
+- References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).
+
 ## 2.0.3 — 2026-10-10
 
 **Routes to infrastructure name the detector section, not `@k8s-reviewer`.** `metric-hygiene-scan` (probe manifests → `k8s-availability-scan` §2, the grace period §7), `synthetic-monitoring` and its twin (liveness probes → §2), `telemetry-config-scan` and `slo-rule-scan` (proxy access-log format, request id and edge request metrics → `edge-reliability-scan` §15), `@observability-reviewer` and its twin (collector RBAC → `k8s-wiring-scan` §6, PrometheusRule / ServiceMonitor schema → `k8s-api-version-scan` §2).

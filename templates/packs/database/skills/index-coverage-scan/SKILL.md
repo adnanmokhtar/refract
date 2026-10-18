@@ -49,6 +49,8 @@ Read the engine, its version and the ORM version from the files (grep 0 in § "P
 | **EF Core** | `HasIndex`, `[Index]` | **Yes**: "By convention, an index is created in each property … used as a foreign key" (EF Core docs, read 2026-10-02) | `dotnet ef migrations script` |
 | **MongoDB** | `createIndex`, schema `index: true` | No FKs. §1 is `N/A` | `db.c.getIndexes()` |
 
+**Laravel without a booted app.** `schema-map.py` (H0) has a `laravel` lane: with no `.snapshot-*.json` and `.php` migrations that call `Schema::`, it replays every Blueprint `up()` in filename order (onto `database/schema/*-schema.sql` when `schema:dump` left one) and prints the same DDL the other lanes print, so §1–§4 read a Laravel schema with no PHP installed. `--lane=laravel` forces it on a checkout that also holds a snapshot (the V1 side of a port). The migration pack's `paired-inventory` reads V1's I-SCHEMA lane through it, when the migration pack is installed; without that pack the lane serves this skill alone.
+
 An auto-created index is still checked against §3 and §4. A dump settles any "does this ORM add one?" question for the installed version in one command. Run it before reporting a §1 row that rests on an ORM default.
 
 **Engine-version facts that change a verdict:**

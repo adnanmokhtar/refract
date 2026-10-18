@@ -1,6 +1,6 @@
 ---
 name: bug-investigator
-description: "Traces an OBSERVED backend failure to its ROOT CAUSE across layers, then greps for the siblings of that same root cause. Produces one-sentence root cause, an annotated call chain, why the tests missed it, a similar-bugs scan, a minimal fix plan with a regression test, and the observability gap that let it stay silent. Trigger on a stack trace, a failing test, a `500`, a wrong value in the database, \"works on my machine\", an intermittent or load-only failure, or /fix-bug's investigate phase. Anti-triggers (do NOT fire): designing something that does not exist yet (@api-architect); reviewing a diff for latent defects with nothing yet failing (@api-reviewer); executing the calls that reproduce a symptom (@endpoint-tester or the endpoint-test skill); slowness with no incorrect behaviour, which is the performance pack; and \"make it work\" with no symptom, trace, log line, or reproduction to anchor on — that is a feature request, and this agent refuses it rather than guessing."
+description: "Traces an OBSERVED backend failure to its ROOT CAUSE across layers, then greps for the siblings of that same root cause. Produces one-sentence root cause, an annotated call chain, why the tests missed it, a similar-bugs scan, a minimal fix plan with a regression test, and the observability gap that let it stay silent. Trigger on a stack trace, a failing test, a `500`, a wrong value in the database, \"works on my machine\", an intermittent or load-only failure, or /fix-bug's investigate phase. Anti-triggers (do NOT fire): designing something that does not exist yet (@api-architect); reviewing a diff for latent defects with nothing yet failing (@api-reviewer); executing the calls that reproduce a symptom (@endpoint-tester or the endpoint-test-method skill); slowness with no incorrect behaviour, which is the performance pack; and \"make it work\" with no symptom, trace, log line, or reproduction to anchor on — that is a feature request, and this agent refuses it rather than guessing."
 ---
 
 <!-- generated-from: templates/packs/backend/agents/bug-investigator.md
@@ -25,7 +25,7 @@ output:
   returns:  the '## Output' block — one-sentence root cause, annotated call chain, why the tests missed it, the sibling scan, a minimal fix plan with a failing-first regression test, the observability gap
   writes:   none                # diagnoses; /fix-bug or the implementer applies the fix
   persisted_by: caller          # /fix-bug carries the root cause into its fix and regression-test phases
-skills:     [log-tail, debug-tenant, env-diff]   # evidence gathering; the sibling scan reads the owning detector's pre-flight block (§ Similar-bugs scan)
+skills:     [log-tail-method, debug-tenant, env-diff]   # evidence gathering; the sibling scan reads the owning detector's pre-flight block (§ Similar-bugs scan)
 status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT   # root cause not yet determined → INCOMPLETE with what was ruled out
 next:       /fix-bug applies the fix plan · @api-architect when the root cause is the shape · the owning detector's fixer (/backend-fix and the other packs' fix commands) for the sibling rows · @websocket-engineer for a failing connection
 ```
@@ -55,8 +55,8 @@ The investigation that says "it's likely a race condition" without a stack trace
 ## Evidence gathering
 
 ### Logs
-- `log-tail correlation:<id>` if correlation id available.
-- `log-tail error` + timestamp otherwise.
+- `log-tail-method correlation:<id>` if correlation id available.
+- `log-tail-method error` + timestamp otherwise.
 - Read FULL log flow — entry through failure.
 - Look for: silent swallows, error logged but 200 returned, parallel-log races.
 
@@ -223,10 +223,10 @@ Upstream timeouts were silently swallowed. No alert, no dashboard signal.
 - `@websocket-engineer` — owns failures of long-lived connections (reconnect storms, missed replays, slow-consumer memory growth). Hand over once the failing unit is a connection rather than a request.
 
 ### Skills
-- `log-tail` — pulls the correlation-scoped / error log flow that anchors the root cause (see Evidence gathering).
+- `log-tail-method` — pulls the correlation-scoped / error log flow that anchors the root cause (see Evidence gathering).
 - `debug-tenant` — inspects tenant-scoped state for the missing-tenant-filter / cross-tenant bug category.
 - `env-diff` — the config-drift branch of the "works on my machine" search: missing / orphan / unvalidated env keys, keys only, never values.
-- `endpoint-test` — reproduces the failing request against the running route to confirm the symptom before and after the fix.
+- `endpoint-test-method` — reproduces the failing request against the running route to confirm the symptom before and after the fix.
 
 ### Patterns
 - `ai/patterns/caching-strategy.md` — cache-inconsistency (stale-after-write) category.

@@ -1,5 +1,5 @@
 ---
-description: Forces a phased alignment plan from the scan output. Groups findings into phases by class + domain + tier + dependency. Caps each phase at 12 findings. Honors gold-standard inventory (no lift-and-shift, no oracle modification). Stack-agnostic.
+description: Forces a phased alignment plan from the align ledger. Groups plannable rows by AL class, domain, tier and dependency, ≤ 12 per phase; routed and pending rows stay out. Never invents a row or edits the oracle.
 kind: command
 pack: align
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
@@ -23,68 +23,61 @@ If pre-requisites missing → halt + tell user to run `/align-scan` first.
 ## Phase 1 — Understand (the ask)
 
 Inputs:
-- `ai/align/ledger.md` — finding inventory.
-- `ai/align/scan-report.md` — recommended phasing + structural context.
-- `ai/architecture.md` — declared module boundaries (constraints).
-- `ai/conventions.md` — naming + structure rules.
-- `_extracted-idioms.md` — gold-standard inventory.
-- ADRs in `ai/decisions/` — past decisions that constrain the order.
+- `ai/align/ledger.md` — the rows (`- id: A<NNN>` form, with `al_class`, `oracle` + `oracle_tier`, `owner`, `proof_class`, `tier`, `status`).
+- `ai/align/scan-report.md` — the class ledger, the BIMODAL block and the ratification list of the last `/align-scan`; `ai/audits/<date>-align.md` is the same report and its `## What to do next` order (MUST → SHOULD → OPTIONAL) is the order this plan honours.
+- `ai/architecture.md`, `ai/modules.md` — declared module boundaries (constraints on dependency order).
+- `ai/conventions.md`, ADRs (`docs/adr`, `ai/decisions`) — the oracle lines rows cite; a frozen package (an ADR with a date not yet passed) is never phased (precedents/align § 16).
+- `_extracted-idioms.md` → `codebase-profile.md` — the named wrappers and helpers (the inventory fallback order).
+
+**Which rows are plannable.** Only `status: detected` rows whose closer is align (the `align-detect` class ledger's Closer column). These stay out of every phase and keep their status, listed by name in the plan's `## Not phased` section:
+- `routed` — the owner's fix command closes it (`routed:` names the command and the audit id);
+- `pending-ratification` — a T2g oracle; one ratification line per rule, never a fix;
+- `pending-approval` — a VC row without a human `approval:`; it enters a phase only once a human fills it;
+- `refuted`, `parked`, `archived-*` — terminal or deferred;
+- AL-02 (a split: 0 rows by construction) and AL-04 (a stale doc: an advisory for a human doc update, never a code change).
 
 Optional flags:
-- `--phases=<N>` — target number of phases (default: auto from scan recommendation, capped by `--max-features-per-phase`).
+- `--phases=<N>` — target number of phases (default: auto from the row count, capped by `--max-findings-per-phase`).
 - `--max-findings-per-phase=<N>` — cap per phase (default: 12). Larger phases hide regressions and slow review.
-- `--strategy=<class|domain|mixed>` — phasing strategy (default: `mixed` — class-first for mechanical phases, domain-first for UI/UX phases).
-- `--exclude-class=<list>` — skip a finding class (e.g., `--exclude-class=over-abstraction`); excluded rows stay `status: detected` and are picked up in a later run.
+- `--strategy=<class|domain|mixed>` — phasing strategy (default: `mixed` — class-first for import, ratchet and name rows; domain-first for UI rows).
+- `--exclude-class=<list>` — skip AL classes (e.g. `--exclude-class=AL-16,AL-17`); excluded rows stay `status: detected` and are picked up in a later run. A legacy class name is read through `align-detect` § The legacy class map.
 - `--exclude-tier=<list>` — skip tiers (e.g., `--exclude-tier=heavy`).
 
 ## Phase 2 — Organize (decompose the work)
 
 Decomposition strategy, in priority order:
 
-1. **Mechanical first.** Classes that touch isolated files with no inter-finding dependency: `dead-code`, `silent-catch`. These are the safest first phases — the diff is local, the risk is low, and the team builds confidence in the alignment workflow before tackling cross-cutting concerns.
-2. **Within-class grouping for trivial-tier rows.** Trivial findings of the same class belong together — a 12-finding `dead-code` phase reads cleanly in PR review (one closure verb, one rationale, one diff shape).
-3. **Domain grouping for UI/UX rows.** Frontend UI/UX findings (`a11y-violation`, `design-token-drift`, `i18n-key-drift`, `raw-library-component`, `missing-ui-state`, `motion-drift`) are best grouped by **page or feature domain** (e.g., "auth pages", "checkout flow", "dashboard widgets") rather than by sub-class — a single page's a11y + token + i18n fixes touch the same files and review together. Mixing these classes within a domain phase is preferred over splitting them across phases.
-4. **Honor dependency graph.** A finding that introduces / repairs a shared helper goes BEFORE findings that swap local copies for it. A finding that removes a wrapper goes AFTER findings that remove its callers.
-5. **Cap phase size.** Phases over `--max-findings-per-phase` get split.
-6. **Foundation patterns first.** If a `drift` finding affects a widely-used convention (e.g., "all data access bypasses the repository pattern"), the convention's enforcement goes in an early phase — fixing one consumer at a time without aligning the convention is whack-a-mole.
-7. **Heavy tier last** (within their class group). Heavy rows benefit from per-row supervision; bundling them with trivial rows in the same phase complicates the gate.
+1. **Regressions first.** AL-30 rows (a baseline that grew, a severity loosened) are MUST rows and force DRIFT on their own; closing the sites the grown entries hide is usually trivial, and nothing else can be measured against a baseline that is still growing (the baseline file itself is never edited in an align commit: `/align-gate` checks 8 and 12). They go in phase 1 with the trivial AL-29 rows (a reasonless suppression whose fix is the convention swap itself).
+2. **Mechanical EQ rows next.** Classes whose fix is a local swap with a zero-diff proof: AL-14 deep imports, AL-11 raw imports where the wrapper's defaults reproduce the call, AL-22 a banned library with a declared replacement. One closure verb (`replace-with-shared`), one diff shape, one review.
+3. **Domain grouping for UI rows.** The owner rows align closes — AL-05 / AL-07 / AL-12 EQ token and element swaps (ui-ux), AL-26 EQ keys and AL-28 in the AL-15 form (frontend) — group by **page or feature domain** ("auth pages", "checkout flow"), not by class: one page's token, key and prop swaps touch the same files and review together. Every such row is EQ; a nearest-token snap is AL-06 and VC, and is plannable only with its approval.
+4. **Honour the dependency graph.** A row that re-routes callers through a wrapper goes before a row that removes the wrapper's raw twin; a `dedupe` (AL-13) goes after the rows that move the copy's callers; a rename (AL-16/17/18) goes after every row whose evidence sits in the file it renames.
+5. **Cap phase size.** Phases over `--max-findings-per-phase` get split. **One way per pattern:** rows that share a V393 group key (rule, normalised before-value) stay in one phase, so `/align-gate` check 7 sees every after-value at once.
+6. **Gates as their own phase.** AL-15 rows that add a declared permission, tenant or auth gate are FN rows proven by a behaviour test and are heavy tier: they get an early phase of their own (HIGH rows are MUST), never bundled with trivial swaps.
+7. **Enforcement last.** AL-03 (turn a T2 rule into a T1 rule at `error` with a shrink-only baseline generated **after** the fixes) and AL-31 (package config drift, heavy) close the sweep: enabling the rule before the sites are fixed only grows the baseline. AL-32 (a declared migration half done) is ratcheted, then shrunk per phase.
 
-### Phasing template by stack (typical example, NOT a rule)
+### Phasing template (typical example, NOT a rule)
 
-These templates are **starting points**, not requirements. Real projects have different priorities — a project mid-incident may front-load security; a project with a regulatory deadline may front-load tenant-isolation; a project with a design-system migration may front-load a11y + design-token drift. The planner adapts based on actual finding counts + the user's `--strategy` flag + ADR-recorded priorities. Skip phases with 0 findings; merge phases with similar themes; re-order to match the team's priorities.
+A starting point; the planner adapts to the actual row counts, the `--strategy` flag and ADR-recorded priorities. Skip phases with 0 rows; merge phases with similar themes.
 
-For `PROJECT_KIND in {frontend-*}`, a typical phase order is:
+| Phase | Theme | AL classes | Tier mix | Proof |
+|---|---|---|---|---|
+| 1 | Regressions and suppressions | AL-30, AL-29 | trivial | ratchet shrink-only (V395), reason resolves (V406) |
+| 2 | Gates and required props | AL-15 (and AL-28 in the AL-15 form) | standard + heavy | FN render test as the role (V401) |
+| 3 | Imports through the declared wrapper | AL-11, AL-14, AL-22 | trivial + standard | import count to zero (V400), boundary whole-repo (V404) |
+| 4 | UI swaps, one domain per phase | AL-05, AL-07, AL-12 EQ; AL-26 EQ key | trivial | zero computed-style diff (V394) or `(static EQ)` |
+| 5 | Helper copies | AL-13 | standard | dedupe differential (V403) |
+| 6 | Names and layout | AL-16, AL-17, AL-18, AL-19 | standard | serialised names unchanged (V402) |
+| 7 | Declared migration | AL-32 | standard | ratchet shrink-only (V395) |
+| 8 | Enforcement | AL-03, AL-31 | heavy | rule at error count (V390), non-vacuous (V399) |
 
-| Phase | Theme | Classes | Tier mix |
-|---|---|---|---|
-| 1 | Mechanical cleanup | dead-code | trivial-only |
-| 2 | Mechanical cleanup | silent-catch | trivial-only |
-| 3 | Auth domain UI/UX | a11y + design-tokens + i18n + raw-library-component (auth pages only) | trivial + standard |
-| 4 | Core flow UI/UX | a11y + design-tokens + i18n (dashboard / list pages) | trivial + standard |
-| 5 | Data-fetch states | missing-ui-state (any page that fetches data; found by `ui-state-scan` when the ui-ux pack is installed — without it the class is NOT RUN and this phase is omitted) | trivial + standard |
-| 6 | Reinvented wrappers | reinvented-wrapper (cross-domain) | standard |
-| 7 | Lifecycle / permission gates | lifecycle-hook-wrong + permission-gate-drop + default-true-prop | standard + heavy |
-| 8 | Drift cleanup | drift (cross-cutting conventions) | standard + heavy |
-| 9 | Over-abstraction | over-abstraction | standard |
-
-For `PROJECT_KIND in {backend-*}`:
-
-| Phase | Theme | Classes | Tier mix |
-|---|---|---|---|
-| 1 | Mechanical cleanup | dead-code + silent-catch | trivial |
-| 2 | Tenant gates | tenant-gate-missing (auth / data layer) | standard + heavy |
-| 3 | Query alignment | n-plus-one + raw-sql-where-repo-exists | standard |
-| 4 | Transaction boundaries | transaction-boundary | standard + heavy |
-| 5 | Reinvented wrappers + dedupes | reinvented-wrapper + duplicated-logic | standard |
-| 6 | Drift + over-abstraction | drift + over-abstraction | standard + heavy |
-
-These templates are starting points; the planner adapts based on actual finding counts. A phase with 0 findings is dropped; a phase with > 12 findings is split.
+On a backend-only project phases 4 and 2's a11y half drop out; on a project with no ui-ux or frontend pack, phase 4 has no rows (those classes are `N/A (owner pack … not installed)` in the scan). A phase with 0 rows is dropped; a phase with > 12 is split.
 
 ## Phase 3 — Retrieve (read the right context)
 
-For each finding's domain assignment:
-- Read 1-2 source files in the finding's `scope` to understand which domain they belong to (auth / orders / dashboard / shared).
-- Cross-reference `ai/architecture.md` if it documents domain boundaries explicitly.
+For each row's domain assignment:
+- Read 1-2 source files in the row's `scope` to understand which domain they belong to (auth / orders / dashboard / shared).
+- Cross-reference `ai/architecture.md` / `ai/modules.md` if they document domain boundaries explicitly.
+- Re-read the row's `oracle:` quote in its file; a quote that no longer resolves makes the row AL-01 — halt and re-scan rather than phase it.
 
 This is moderate work; fan out via Explore subagents capped per `--max-subagents`.
 
@@ -96,62 +89,68 @@ Write `ai/align/plan.md`:
 # Alignment plan
 
 Generated: <YYYY-MM-DD>
-Scan source: ai/align/scan-report.md (rev <commit>)
+Audit source: ai/audits/<date>-align.md (= ai/align/scan-report.md, rev <commit>), verdict <ALIGNED-UNVERIFIED (n) | DRIFT>
 Ledger source: ai/align/ledger.md (revision pinned)
 PROJECT_KIND: <kind>
 
 ## Strategy
 
 Phasing strategy: <class|domain|mixed>
-Cap per phase: <N> findings
-Total findings: <N>
+Cap per phase: <N> rows
+Plannable rows: <N> (of <M> in the ledger)
 Total phases: <K>
 
-## Gold-standard summary (non-negotiable target)
+## The oracle this plan enforces (non-negotiable target)
 
-> The alignment closes drift toward the gold-standard inventory — never away from it. Cite specifics so each phase knows what "follow the convention" means.
+> The alignment closes drift toward what the project declares — never toward a majority, never toward a generated line. Cite specifics so each phase knows what "follow the convention" means.
 
-- Shared wrappers (top 5 referenced by findings): <list with paths from _extracted-idioms.md>
-- Conventions enforced this run: <list from ai/conventions.md>
-- Architecture boundaries respected: <list from ai/architecture.md>
+- Oracle tiers (from the scan): T1 <n> · T2 <n> · T2g <n> (unratified) · contested <n>
+- Wrappers and helpers the rows route through: <name → path, from wrappers.tsv / _extracted-idioms.md>
+- Oracle lines cited by this plan's rows: <path:line "quote"> per rule
+- Architecture boundaries respected: <list from ai/architecture.md / ai/modules.md>
 
 ## Phase 1 — <theme>
 **Goal**: <one-line objective>
-**Class focus**: <single class name OR "mechanical cleanup">
+**AL classes**: <AL ids>
 **Tier mix**: <T trivial / S standard / H heavy>
+**Proof classes**: <EQ n / FN n / VC n (each with approval)>
 **Estimated effort**: <hours/days>
 
-### Findings in this phase
-| ID | Class | Tier | Files | Closure verb | Evidence count |
-|---|---|---|---|---|---|
-| A001 | dead-code | trivial | 1 | remove | 1 |
-| A002 | dead-code | trivial | 1 | remove | 1 |
-| ... | | | | | |
+### Rows in this phase
+| ID | AL class | Owner | Tier | Files | Closure verb | Proof class | Evidence count |
+|---|---|---|---|---|---|---|---|
+| A001 | AL-30 | align | trivial | 1 | replace-with-shared | EQ | 1 |
+| A002 | AL-29 | align | trivial | 1 | replace-with-shared | EQ | 1 |
 
-### Phase exit criteria (per /align-gate)
-- Every finding: `status=fixed` in ledger.
-- Every finding: re-detect returns 0 hits at the cited evidence lines.
-- Cumulative diff: net-lines ≤ 0.
-- Lint + typecheck + scoped tests green.
-- Coverage ≥ pre-phase baseline.
-- No new symbol introduced.
-- For frontend phases: visual regression / a11y regression / bundle-size all green.
+### Phase exit criteria (the /align-gate 17-check matrix)
+- Every row `status=fixed` (check 1); `gaps_closed == len(evidence)` (2).
+- Re-detect zero at every evidence line (6); every removed line an evidence line or verb footprint (5).
+- One after-value per before-value across the phase (7); every emitted token, import and export declared (9).
+- No test, snapshot, fixture, lint-config, baseline or oracle file in a row commit; test and assertion counts not down (8); coverage within tolerance (15).
+- EQ rows: zero computed-style or compiled-CSS diff, or `(static EQ)` with the probe; VC rows: a named human approval (13).
+- Structural rows net-lines ≤ 0 (3); no new symbol the oracle does not name (4).
+- Lint + typecheck + build + tests + boot green at HEAD (14).
 
 ## Phase 2 — <theme>
 (same shape)
 
-...
-
 ## Phase K — <theme>
 (same shape)
 
-## Total: <N> findings across <K> phases
+## Not phased
+| ID | AL class | Status | Why | Next |
+|---|---|---|---|---|
+| A031 | AL-06 | pending-approval | nearest-token snap (VC) | a human fills `approval:`, then `/align-replan` |
+| A040 | AL-23 | routed | declared API contract | `/backend-fix ai/audits/<date>-align.md#F-07` |
+| — | AL-02 | — | split, no declared winner | ratify in `/setup-project --refine` |
+
+## Total: <N> rows across <K> phases
 ## Estimated wall-clock (sequential): <X> days
 ## Estimated wall-clock (via /align-fast, parallel where independent): <Y> days
 ```
 
 Update `ai/align/ledger.md`:
-- Each row's `phase: <N>` field is filled in.
+- Each phased row's `phase: <N>` field is filled in and its `status` moves `detected → planned`.
 - Rows assigned to no phase (excluded via `--exclude-*`) keep `phase: <unassigned>` and `status: detected`.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
@@ -162,21 +161,22 @@ Update `ai/align/ledger.md`:
 
 ## Phase 6 — Validate (verify correctness)
 
-- Every ledger row that's eligible (not excluded by flags) has `phase: <N>` set.
-- No phase exceeds `--max-findings-per-phase`.
+- Every plannable row (not excluded by flags) has `phase: <N>` set; no `routed`, `pending-*`, `refuted`, `parked` or `archived-*` row has one.
+- No phase exceeds `--max-findings-per-phase`; rows sharing a V393 group key sit in one phase.
 - Phase 1 contains only trivial-tier rows OR is explicitly justified (heavy-tier in phase 1 is a yellow flag — usually means over-promotion at scan time).
-- Within each phase, dependency order is correct (helper-introduce before consumer-swap; remove-callers before remove-wrapper).
+- Within each phase, dependency order is correct (re-route callers before removing a raw twin; move a copy's callers before `dedupe`; renames after the rows whose evidence sits in the renamed file).
 - Heavy-tier rows have a single-finding-per-phase rule applied OR a justification in the phase notes (heavy rows benefit from supervision).
-- Phase exit criteria are measurable (gap-count parity, re-detect, test-suite — not vague language).
-- Frontend phases that touch UI rendering name the visual regression baseline + a11y baseline they'll validate against.
+- Every row has a `proof_class`; a VC row in a phase already carries `approval: <name>@<iso>` written by a human.
+- Phase exit criteria are the 17 gate checks (not vague language).
+- A phase with EQ UI rows names its proof harness: the computed-style dump (L10a), the compiled-CSS diff, or `(static EQ)` with the probe written out.
 
 If any check fails → halt + report.
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- If a phase has 1 finding, surface "consider merging with phase N±1" — single-finding phases waste gate ceremony.
-- If a class has > 50 findings across multiple phases, surface "consider authoring a lint rule / pre-commit hook" — the convention isn't enforced; alignment will rot back without it. Queue ADR.
-- If a finding's `shared_equivalent` resolves to a file not in `_extracted-idioms.md`'s named inventory, surface "oracle drift; run `/setup-project --refine` to update".
+- If a phase has 1 row, surface "consider merging with phase N±1" — single-row phases waste gate ceremony.
+- If a class has > 50 rows across multiple phases and no AL-03 row exists for it, surface "the convention has no T1 rule at error" — alignment will rot back without one. Queue the rule (a `no-restricted-imports` path, an ls-lint key) and a shrink-only baseline as the enforcement phase.
+- If a row's `shared_equivalent` resolves to a file no oracle row names (not in `wrappers.tsv`, not in `_extracted-idioms.md`), surface "oracle drift; run `/setup-project --refine` to update".
 - If the dependency graph surfaced a circular dependency between findings → halt; the underlying convention is contradictory; ADR before fixing.
 
 ## Output to user
@@ -186,12 +186,14 @@ Alignment plan written:
   ai/align/plan.md
 
 Phases:                      <K>
-Total findings:              <N>
+Plannable rows:              <N>
   Trivial:                   <T>
   Standard:                  <S>
   Heavy:                     <H>
-Largest phase:               <Y> findings (phase <P>)
-Excluded by flags:           <X> findings (status=detected, no phase)
+  EQ / FN / VC (approved):   <E> / <F> / <V>
+Largest phase:               <Y> rows (phase <P>)
+Excluded by flags:           <X> rows (status=detected, no phase)
+Not phased:                  <R> routed · <A> pending-approval · <G> pending-ratification · <D> AL-04 doc advisories
 
 Next: /align-phase 1       (executes phase 1, manual flow)
    OR: /align-fast 1       (one-shot phase 1 + auto-gate, parallel waves)
@@ -208,8 +210,9 @@ If a plan-time discovery surfaces a missing finding → halt; the user runs `/al
 - **No phase ships findings that aren't in the ledger.** The ledger is the source of truth; the plan reads from it, never invents findings.
 - **Every phase has measurable exit criteria.** Not "phase complete when most things look better."
 - **Cap at 12 findings per phase.** Larger phases hide regressions in PR review and slow the gate.
-- **Mechanical first.** Phase 1 is dead-code OR silent-catch (or both, if combined trivial count ≤ 12). Refuses a plan that puts heavy / cross-cutting work in phase 1.
-- **Domain coherence for UI/UX.** Frontend UI/UX phases group by page/domain, not by sub-class. A "auth a11y" phase reviews better than a "all-pages a11y" phase.
+- **Regressions and mechanical rows first.** Phase 1 holds trivial rows only — AL-30 / AL-29 first, then EQ import swaps. Refuses a plan that puts heavy / cross-cutting work in phase 1.
+- **Only align-closed rows are phased.** A row whose closer is another command (`routed`), whose oracle is generated (`pending-ratification`) or whose visible change has no human approval (`pending-approval`) is listed under `## Not phased`, never in a phase.
+- **Domain coherence for UI rows.** EQ token, element and key swaps group by page/domain, not by class. An "auth pages" phase reviews better than an "all-pages tokens" phase.
 - **Heavy-tier rows isolated** — at most 3 heavy-tier rows per phase, ideally 1.
 - **No partial findings in a phase.** A finding is either fully in this phase (all evidence sites closed) or not. Half-fixed findings rot.
 
@@ -218,8 +221,9 @@ If a plan-time discovery surfaces a missing finding → halt; the user runs `/al
 - **Empty ledger** — no `detected` rows. Halt; nothing to plan.
 - **All rows excluded by flags** — every row matched `--exclude-*`. Halt; user-error or scan turned up nothing planner-actionable.
 - **Phase 1 has heavy rows** — surface yellow flag; user confirms or re-runs with `--exclude-tier=heavy` for an initial mechanical-only sweep.
-- **Circular finding dependencies** — finding X needs finding Y closed first, finding Y needs finding X. Halt; convention is contradictory.
-- **Visual regression baseline missing** (frontend) — UI/UX phases reference a baseline that doesn't exist. Halt; route to "run baseline command first".
+- **Circular row dependencies** — row X needs row Y closed first, row Y needs row X. Halt; the convention is contradictory; ADR before fixing.
+- **Every row is routed or pending** — nothing is align's to close. Not a failure: the plan is the `## Not phased` table, and the next steps are the owners' fix commands and the ratification lines.
+- **No proof harness for EQ UI rows** — no browser and no CSS build. The rows stay plannable as `(static EQ)` with the probe written out; say so in the phase notes, never claim a zero diff that was not measured.
 
 ## Related
 

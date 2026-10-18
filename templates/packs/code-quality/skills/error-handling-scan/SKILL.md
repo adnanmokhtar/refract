@@ -479,7 +479,7 @@ this skill meets most:
 
 - `/quality-audit` dispatches this skill and folds its coverage block into the class ledger; `/quality-fix` closes the findings failing-first, re-runs this detector on the patched line, and sweeps siblings with the [`fix-bug-core.md`](../../../../snippets/fix-bug-core.md) ledger.
 - `concerns/error-handling.md` (C4) is the method: the four outcomes and the closure verbs (`surface-to-caller`, `bound-the-retry`, `compensate-partial`, `declare-degrade-mode`, `fail-the-exit-code`, `render-error-state`).
-- Align's `detect-drift` detectors 4 (`silent-catch`) and 11 (`unhandled-io`), and `/audit`'s Unhandled-I/O pass, dispatch here when the code-quality pack is installed (it is universal).
+- Align no longer detects error handling: `align-detect` prints `owner: code-quality → /quality-audit` for the legacy `silent-catch` and `unhandled-io` classes and routes such ledger rows to `/quality-fix`. `/audit`'s Unhandled-I/O pass dispatches here (the code-quality pack is universal).
 - `type-safety-scan` (this pack) owns the cast that turns an unparsed error body into a typed value; `@error-detective` (this pack) clusters the runtime errors this skill's findings stop hiding.
 - `@resilience-reviewer` (distributed-systems), `transaction-scan` and `connection-config-scan` (database), `memory-growth-scan` (performance), `data-exposure-scan` (security), `log-signal-scan` and `metric-hygiene-scan` (observability): the neighbouring classes in § Boundaries.
 

@@ -254,7 +254,7 @@ Verify:
 - All tests pass locally.
 
 Run skills:
-- `endpoint-test` against dev server for each new endpoint.
+- `endpoint-test-method` against dev server for each new endpoint.
 - `coverage-gap` — are changed lines tested?
 - `n-plus-one-scan` on new list endpoints (database pack, when installed).
 

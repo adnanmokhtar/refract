@@ -1,0 +1,10 @@
+{
+  "loading": "جارٍ التحميل…",
+  "reopen": "إعادة فتح",
+  "open_count_zero": "لا توجد تذاكر مفتوحة",
+  "open_count_one": "تذكرة مفتوحة واحدة",
+  "open_count_two": "تذكرتان مفتوحتان",
+  "open_count_few": "{{count}} تذاكر مفتوحة",
+  "open_count_many": "{{count}} تذكرة مفتوحة",
+  "open_count_other": "{{count}} تذكرة مفتوحة"
+}

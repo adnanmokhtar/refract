@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.3.0 — 2026-10-18
+
+- **`schema-map.py --lane=laravel`** (self-test 39/39): reads Blueprint `Schema::create/table/drop/rename`, every `$table->` type and modifier, `foreignId()->constrained()` (inferred targets counted), on-delete/update helpers, softDeletes, timestamps, morphs, `DB::statement` SQL and a `schema:dump`; enums become a CHECK like the snapshot lane. Chosen automatically when there is no snapshot and the `.php` migrations call `Schema::`.
+
 ## 2.2.0 — 2026-10-15
 
 **`schema-map.py` and ~60 detector fixes from a read-only audit of a real NestJS + React monorepo.**

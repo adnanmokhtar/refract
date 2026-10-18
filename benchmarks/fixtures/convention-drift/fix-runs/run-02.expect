@@ -1,0 +1,6 @@
+# AL-33: padding 8px -> var(--space-2) in OrderCard.module.css, var(--gap-sm) in Cart.module.css
+scope PASS
+redetect PASS
+consistency FAIL
+roundtrip PASS
+verdict FAIL

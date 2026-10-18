@@ -23,7 +23,7 @@ output:
   returns:  the '## Output' block (GO/NO-GO + verified findings)
   writes:   none
   persisted_by: caller          # hook:persist-review.sh once the run directory exists
-skills:     [iac-scan, xss-scan, data-exposure-scan, injection-scan, logic-race-scan, threat-model, sast-scan, secret-scan, ssrf-scan]
+skills:     [iac-scan, xss-scan, data-exposure-scan, injection-scan, logic-race-scan, threat-model-method, sast-scan, secret-scan-method, ssrf-scan]
 status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
 verdict:    PASS | CONCERNS | FAIL        # display: GO→PASS · GO-UNVERIFIED→CONCERNS · NO-GO→FAIL
 severity:   IMPORTANT | NIT | PRE-EXISTING
@@ -254,7 +254,7 @@ Tools used:
 ### Skills
 - `ssrf-scan` — the A01 SSRF depth pass. This checklist's SSRF row is the detector; that skill is the executor.
 - `deps-audit` — the A03 executor: lockfile-resolved CVEs triaged by EPSS + CISA KEV.
-- `secret-scan` — the secrets sweep including git history; a `GO` without it is a halt condition.
+- `secret-scan-method` — the secrets sweep including git history; a `GO` without it is a halt condition.
 - `injection-scan` — the A05 / A08 executor for every interpreter sink.
 - `file-access-scan` — upload side and every read sink (A01 path traversal).
 - `xss-scan` — browser sinks, CSP, framing, CSRF, client-bundle exposure.
@@ -262,7 +262,7 @@ Tools used:
 - `logic-race-scan` — A06 business logic, races, per-role authorization matrix.
 - `sast-scan` — the stack's static analyzers, run and triaged.
 - `iac-scan` — container, orchestration, cloud, CI and reverse-proxy config.
-- `threat-model` — STRIDE a new component at design time, before this audit has code to read.
+- `threat-model-method` — STRIDE a new component at design time, before this audit has code to read.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

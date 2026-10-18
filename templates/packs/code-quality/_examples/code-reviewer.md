@@ -109,7 +109,7 @@ A floor, not the pass. Each class has an owner in the security pack; when it is 
 - Every input DTO has validation → `@api-security-reviewer`; the type-safety side (a cast with no validator) is `type-safety-scan` § 1 (this pack).
 - Raw SQL parameterized → `injection-scan`.
 - Tenant filter present (multi-tenant repos) → `@tenant-isolation-reviewer`.
-- No secrets in code / logs → `secret-scan`, `data-exposure-scan`.
+- No secrets in code / logs → `secret-scan-method`, `data-exposure-scan`.
 - User-supplied URLs not fetched server-side without SSRF protection → `ssrf-scan`.
 - File uploads type-checked + size-capped → `file-access-scan` § 1–§ 2.
 

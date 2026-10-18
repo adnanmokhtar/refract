@@ -1,0 +1,2 @@
+pair-inventory 1 · mode=paired · v1=v1 @ commit 111111111111 (git archive 1111111111111111111111111111111111111111: -> run/v1: 1 files) · v2=src (live, read-only) · out=run
+  I-AUTHZ  2  2  0  0  1  checked · uncalibrated

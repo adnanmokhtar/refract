@@ -1,0 +1,9 @@
+{
+  "feature": "orders.http",
+  "cases": [
+    { "method": "GET", "path": "/api/orders?page=1&per_page=25" },
+    { "method": "GET", "path": "/api/orders/1" },
+    { "method": "PATCH", "path": "/api/orders/1", "body": { "po_number": "PO-1188" } },
+    { "method": "POST", "path": "/api/orders/2/cancel" }
+  ]
+}

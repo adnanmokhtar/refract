@@ -1,0 +1,93 @@
+{
+  "common": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "close": "إغلاق",
+    "delete": "حذف",
+    "loading": "جارٍ التحميل"
+  },
+  "orders": {
+    "title": "الطلبات",
+    "status": {
+      "pending": "قيد الانتظار",
+      "paid": "مدفوع",
+      "failed": "فشل",
+      "refunded": "مسترد"
+    },
+    "actions": {
+      "cancel": "إلغاء الطلب",
+      "delete": "حذف الطلب",
+      "refund": "استرداد",
+      "open": "فتح"
+    },
+    "notes": {
+      "label": "ملاحظة داخلية"
+    },
+    "filters": {
+      "all": "كل الطلبات",
+      "apply": "تطبيق عوامل التصفية"
+    },
+    "errors": {
+      "cancelFailed": "تعذّر إلغاء الطلب",
+      "deleteFailed": "تعذّر حذف الطلب",
+      "loadFailed": "تعذّر تحميل الطلبات",
+      "noteFailed": "تعذّر حفظ الملاحظة"
+    }
+  },
+  "customers": {
+    "title": "العملاء"
+  },
+  "clients": {
+    "title": "العملاء"
+  },
+  "refunds": {
+    "submit": "طلب استرداد",
+    "failed": "فشل طلب الاسترداد",
+    "amount": "المبلغ"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "language": "اللغة",
+    "saveFailed": "تعذّر حفظ الإعدادات",
+    "languages": {
+      "en": "English",
+      "ar": "العربية"
+    }
+  },
+  "cart": {
+    "deleteItem": "إزالة العنصر",
+    "checkoutFailed": "فشل الدفع",
+    "updateFailed": "تعذّر تحديث السلة",
+    "total": "المجموع"
+  },
+  "audit": {
+    "title": "سجل التدقيق",
+    "loadFailed": "تعذّر تحميل سجل التدقيق",
+    "columns": {
+      "at": "متى",
+      "actor": "من",
+      "action": "ماذا"
+    }
+  },
+  "reports": {
+    "title": "التقارير",
+    "loadFailed": "تعذّر تحميل التقارير"
+  },
+  "history": {
+    "title": "سجل الطلبات",
+    "loadFailed": "تعذّر تحميل طلباتك"
+  },
+  "checkout": {
+    "apply": "تطبيق القسيمة",
+    "coupon": "رمز القسيمة",
+    "pay": "ادفع الآن",
+    "failed": "فشل الدفع"
+  },
+  "search": {
+    "label": "بحث"
+  },
+  "catalog": {
+    "categories": "الفئات",
+    "more": "مزيد من عوامل التصفية"
+  }
+}

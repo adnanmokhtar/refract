@@ -18,7 +18,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ## When to use
 
 - A finding parked via `/align-park` is now unblocked (the missing idiom was adopted, the reviewer is available, the verb was corrected).
-- Any parked `class: security` row whose SLA has aged past its threshold — `/align-status --blockers` surfaces these; parking does not stop a security clock.
+- Any parked HIGH row (permission, tenant or auth gate) whose SLA has aged past its threshold — `/align-status --blockers` surfaces these; parking does not stop its clock.
 - NOT for findings that are `archived-pre-existing` (false positive) or `archived-deprecated` (won't-fix, ADR recorded) — those are terminal, not parked.
 
 ## Args
@@ -48,7 +48,7 @@ If any missing/malformed → halt + report; mutate nothing.
 ## Output (brief)
 
 - id · `parked → <prior_status>` · restored phase · days parked · archive path.
-- For `class: security` rows: the SLA age carried forward from `parked_sla_from`, not from `unparked_at`.
+- For HIGH rows: the SLA age carried forward from `parked_sla_from`, not from `unparked_at`.
 
 ## Mechanical halt — no reconstruction, no partial restore
 

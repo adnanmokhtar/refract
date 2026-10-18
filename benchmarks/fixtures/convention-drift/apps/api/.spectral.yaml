@@ -1,0 +1,10 @@
+extends: ["spectral:oas"]
+rules:
+  operation-operationId: error
+  acme-problem-json:
+    description: Error responses are application/problem+json (ADR-0004).
+    severity: error
+    given: "$.paths[*][*].responses[?(@property >= 400)]"
+    then:
+      field: content.application/problem+json
+      function: truthy

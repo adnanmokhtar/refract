@@ -1,0 +1,8 @@
+{
+  "feature": "tickets.http",
+  "cases": [
+    { "method": "GET", "path": "/api/tickets?page=1" },
+    { "method": "GET", "path": "/api/tickets/41" },
+    { "method": "POST", "path": "/api/tickets/41/reopen" }
+  ]
+}

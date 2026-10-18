@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`OrderStatusBadge > matches the snapshot 1`] = `
+<span
+  class="badge"
+  style="color: rgb(217, 45, 32);"
+>
+  Failed
+</span>
+`;

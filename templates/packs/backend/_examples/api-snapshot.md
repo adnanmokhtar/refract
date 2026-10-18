@@ -1,6 +1,6 @@
 ---
 name: api-snapshot
-description: Snapshot the API's OpenAPI spec and diff it against the last committed snapshot, blocking merge on breaking changes that carry no ADR. Run on any controller or DTO change. Proves the *declared* contract held — `endpoint-test` is the runtime counterpart that proves the running route still matches its DTO.
+description: Snapshot the API's OpenAPI spec and diff it against the last committed snapshot, blocking merge on breaking changes that carry no ADR. Run on any controller or DTO change. Proves the *declared* contract held — `endpoint-test-method` is the runtime counterpart that proves the running route still matches its DTO.
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 <!-- generated-from: templates/packs/backend/skills/api-snapshot/SKILL.md
@@ -205,7 +205,7 @@ bash .claude/scripts/baseline-capture.sh register --id=api-contract-v1 --kind=ap
 
 ## Related
 
-- `.claude/skills/endpoint-test/SKILL.md` — runtime counterpart: api-snapshot proves the *declared* OpenAPI contract didn't break; endpoint-test proves the *running* route still matches its DTO. Run both on a controller/DTO change.
+- `.claude/skills/endpoint-test-method/SKILL.md` — runtime counterpart: api-snapshot proves the *declared* OpenAPI contract didn't break; endpoint-test-method proves the *running* route still matches its DTO. Run both on a controller/DTO change.
 - `.claude/skills/api-consistency-audit/SKILL.md` — sibling scanner for envelope / error-shape uniformity across endpoints; api-snapshot guards the diff, api-consistency-audit guards the shape.
 - Consumed by `@api-reviewer` — a breaking snapshot diff with no governing ADR escalates that agent's verdict to **BLOCK** (not REQUEST).
 - `ai/patterns/api-contract.md` — the evolution table (safe vs breaking) this skill classifies each diff against.

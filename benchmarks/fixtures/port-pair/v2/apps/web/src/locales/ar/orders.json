@@ -1,0 +1,16 @@
+{
+  "title": "الطلبات",
+  "new": "طلب جديد",
+  "place": "إرسال الطلب",
+  "placing": "جارٍ الإرسال…",
+  "next_page": "الصفحة التالية",
+  "invoices_title": "الفواتير",
+  "items_one": "عنصر واحد",
+  "items_other": "{{count}} عنصرًا",
+  "status_draft": "مسودة",
+  "status_placed": "مُرسل",
+  "status_packed": "مُعبأ",
+  "status_shipped": "تم الشحن",
+  "status_cancelled": "ملغى",
+  "status_refunded": "مُسترد"
+}

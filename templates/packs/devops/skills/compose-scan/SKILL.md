@@ -37,7 +37,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/devo
 
 ## Boundaries
 
-- **Security owns exposure and secrets, when the security pack is installed** — `iac-scan` §2: published ports without `127.0.0.1` on a database, cache or admin UI, `privileged`, `docker.sock`, host namespaces, `cap_add`, literal or default passwords; `iac-scan` §7 and `secret-scan`: secret values in `environment:`, `.env` or `env_file`. Pre-flight R lists those lines and never posts them. Devops owns whether the stack **starts, stays up and keeps its data**. One line carrying both claims (an override that publishes `9229` on every interface) is one finding per `<file:line>`, credited to the more severe owner; the other corroborates. Without the security pack, R rows print `security-class (owner pack not installed)` at this skill's severity.
+- **Security owns exposure and secrets, when the security pack is installed** — `iac-scan` §2: published ports without `127.0.0.1` on a database, cache or admin UI, `privileged`, `docker.sock`, host namespaces, `cap_add`, literal or default passwords; `iac-scan` §7 and `secret-scan-method`: secret values in `environment:`, `.env` or `env_file`. Pre-flight R lists those lines and never posts them. Devops owns whether the stack **starts, stays up and keeps its data**. One line carrying both claims (an override that publishes `9229` on every interface) is one finding per `<file:line>`, credited to the more severe owner; the other corroborates. Without the security pack, R rows print `security-class (owner pack not installed)` at this skill's severity.
 - **Images** (PID 1, a Dockerfile `HEALTHCHECK`, the shipped user) → `container-build-scan` (this pack). §2 here judges the compose `healthcheck:`; §7 reads `init: true` only to join `container-build-scan` §2's PID 1 row.
 - **Migration topology** (`--scale app=3` running one migration N times) → `deploy-safety-scan` §1 (V227); the app's drain number → `deploy-safety-scan` §5. §7 compares `stop_grace_period` against that number.
 - **Kubernetes** manifests generated from compose (kompose) are read rendered by infrastructure; Swarm `docker stack deploy` is a lane below, not a separate skill.
@@ -354,7 +354,7 @@ Rationalizations to reject:
 - `/devops-audit` dispatches this skill on a compose-file signal and folds its coverage block into the compose rows; `/devops-fix` closes them with V231, V238 and V241. `/dockerize` runs it on the compose file it writes.
 - `@deployment-engineer` judges these rows.
 - `container-build-scan` (images), `deploy-safety-scan` §1 and §5 (migration topology, drain) in this pack own the neighbouring classes.
-- `iac-scan` §2 and §7 and `secret-scan` (security; exposure, privilege, secret values), when that pack is installed.
+- `iac-scan` §2 and §7 and `secret-scan-method` (security; exposure, privilege, secret values), when that pack is installed.
 
 ## Sources
 

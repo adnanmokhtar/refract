@@ -107,7 +107,78 @@ rg -n --pcre2 "$TC"'[^\n]*\s(?:-t|--testNamePattern|--grep|-g|-k|-run|--filter|-
 #    xfail and the strict switch (2d).
 rg -n --pcre2 '^\s*(?:it|test|describe|context|suite|specify)\.(?:skip|todo|fixme)\s*\(|^\s*(?:xit|xdescribe|xtest|xcontext|xspecify)\s*\(|@pytest\.mark\.(?:skip|xfail)\b|\bpytest\.(?:skip|xfail)\(|@unittest\.skip|\bself\.skipTest\(|^\s*pytestmark\s*=.*\bskip|\bt\.Skip(?:f|Now)?\(|@(?:Disabled\w*|Ignore)\b|\[(?:Fact|Theory)\([^\]]*\bSkip\s*=|\[Ignore\b|#\[ignore\b|->markTest(?:Skipped|Incomplete)\(' "${T[@]}" "${V[@]}" . | "${NC[@]}"
 rg -n --pcre2 '^\s*(?:xit|xdescribe|xcontext|xspecify|skip|pending)\b' -g '**/*_spec.rb' "${V[@]}" . | "${NC[@]}"
-rg -n -U --pcre2 '\b(?:describe|it|test|suite)\.(?:skipIf|runIf)\s*\(|\?\s*(?:describe|it|test)(?:\.\w+)?\s*:\s*(?:describe|it|test)\.skip\b|\?\s*(?:describe|it|test)\.skip\s*:\s*(?:describe|it|test)\b|@pytest\.mark\.skipif\([^)]*\b(?:environ|getenv)\b|os\.(?:Getenv|LookupEnv)\([^)\n]*\)[^\n]*\n?[^\n]*t\.Skip|^//go:build\s+[^\n]*\b(?:integration|e2e|slow|manual)\b|@(?:EnabledIf|DisabledIf)EnvironmentVariable|\bassume(?:True|That)\([^)\n]*getenv' "${T[@]}" -g '**/{test,tests,__tests__,e2e}/**/*.{js,ts,mjs,cjs,mts,cts}' "${V[@]}" . | "${NC[@]}"
+rg -n -U --pcre2 '\b(?:describe|it|test|suite)\.(?:skipIf|runIf)\s*\(|\?\s*(?:describe|it|test)(?:\.\w+)?\s*:\s*(?:describe|it|test)\.skip\b|\?\s*(?:describe|it|test)\.skip\s*:\s*(?:describe|it|test)\b|@pytest\.mark\.skipif\([^)]*\b(?:environ|getenv)\b|os\.(?:Getenv|LookupEnv)\([^)\n]*\)[^\n]*\n?[^\n]*t\.Skip|^//go:build\s+[^\n]*\b(?:integration|e2e|slow|manual)\b|@(?:EnabledIf|DisabledIf)EnvironmentVariable|\bassume(?:True|That)\([^)\n]*getenv|\bprocess\.env\.V1_REPO_PATH\b|\bHAS_V1\b' "${T[@]}" -g '**/{test,tests,__tests__,e2e}/**/*.{js,ts,mjs,cjs,mts,cts}' "${V[@]}" . | "${NC[@]}"
+# 2c-TSV. The gate table other packs read (the migration pack's parity-proof-scan: a parity suite gated on V1 presence is
+#    NOT-RUN unless CI provides the variable). One row per gate: kind (v1 | env | capability), file:line, the helper (or
+#    `inline`), the condition, its env vars (every constant hop followed, imports too), ci_sets per CI job (yes | partial | no
+#    | unknown over the `*` jobs — name or commands name the files' directory — then `<file>#<job>[*]=<vars|->`), the specs
+#    that use the helper. GATES_TSV=<path> picks the file (default $TMP/gated-suites.tsv); the path is printed.
+cat > "$TMP/gates.py" <<'PY'
+import glob, os, re, subprocess, sys
+G = ['-g', '**/*.{test,spec,e2e-spec,int-spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}', '-g', '**/{test,tests,__tests__,e2e,spec}/**/*.{js,ts,mjs,cjs,mts,cts,py}',
+     '-g', '**/{test_*,*_test,conftest}.py', '-g', '!**/node_modules/**', '-g', '!**/dist/**', '-g', '!**/.venv/**']
+rd = lambda p: open(p, errors='replace').read()
+files = subprocess.run(['rg', '--files'] + G + ['.'], capture_output=True, text=True).stdout.split()
+src = {f: re.sub(r'(?m)^[ \t]*(?://|#(?!\[)|\*|/\*).*$', lambda m: ' ' * len(m.group(0)), rd(f)) for f in files}   # comment lines blanked
+CONST = re.compile(r'(?:const|let|var)\s+(\w+)\s*(?::[^=\n]+)?=\s*([^;\n]+)')
+GCONST = dict(kv for s in src.values() for kv in CONST.findall(s))      # an imported HAS_V1 resolves through its own file
+def jobs(p):   # [(job id, env-visible text, name + commands)]; workflow-level env / variables reach every job; `services:` env does not
+    t = re.sub(r'(?m)^[ \t]*#.*$', '', rd(p)); b = os.path.basename(p); m = re.search(r'(?m)^jobs:[ \t]*$', t)
+    if m and not b.startswith('.gitlab'):                                # GitHub Actions, CircleCI
+        top = ''.join(re.findall(r'(?m)^(?:env|environment):[ \t]*\n((?:[ \t]+\S.*\n?)*)', t)); body = re.split(r'\n(?=\S)', t[m.end():])[0]
+        ind = re.search(r'(?m)^([ \t]+)[\w.-]+:[ \t]*$', body); parts = re.split(r'(?m)^%s([\w.-]+):[ \t]*$' % (ind.group(1) if ind else '  '), body)
+        return [('%s#%s' % (b, n), top + re.sub(r'(?m)^([ \t]*)services:[ \t]*\n(?:\1[ \t]+.*\n?)*', '', x), n + ' ' + x) for n, x in zip(parts[1::2], parts[2::2])]
+    if b.startswith('.gitlab'):
+        d = dict(zip(*[iter(re.split(r'(?m)^([^\s#][^:\n]*):[ \t]*$', t)[1:])] * 2)); top = d.get('variables', '')
+        ext = lambda x: x + ''.join(d.get(e, '') for e in re.findall(r'extends:\s*\[?\s*([.\w-]+)', x))
+        return [('%s#%s' % (b, n), top + ext(x), n + ' ' + ext(x)) for n, x in d.items() if not n.startswith('.') and n not in
+                ('variables', 'stages', 'default', 'include', 'workflow', 'image', 'services', 'before_script', 'after_script', 'cache')]
+    return [(b, t, t)]
+JOBS = [j for g in ('.github/workflows/*.y*ml', '**/.gitlab-ci*.yml', '**/Jenkinsfile*', '.circleci/*.yml', '**/azure-pipelines*.yml',
+        '**/bitbucket-pipelines.yml', '.buildkite/**/*.y*ml') for p in glob.glob(g, recursive=True) for j in jobs(p)]
+GENERIC = {'', '.', 'src', 'test', 'tests', '__tests__', 'spec', 'specs', 'e2e', 'apps', 'app', 'packages', 'libs', 'lib', 'support', 'helpers',
+           'utils', 'api', 'web', 'server', 'client', 'v1', 'v2'}
+def ci_sets(env, paths):   # per job: does it set a gate variable, and does it run these files (`*`: its name or commands name their directory)
+    if not env or not JOBS: return 'NO-CI-FILE' if env else 'n/a'
+    segs = {x for p in paths for x in os.path.dirname(p).split('/') if x.lower() not in GENERIC}
+    per = [(n, [e for e in env if re.search(r'(?m)^\s*-?\s*%s\s*[:=]|\b%s=' % (e, e), et)], any(re.search(r'(?<![\w-])%s(?![\w-])' % re.escape(x), run) for x in segs))
+           for n, et, run in JOBS]
+    pool = [j for j in per if j[2]] or per; k = sum(bool(j[1]) for j in pool)
+    v = ('yes' if k == len(pool) else 'partial' if k else 'no') if pool is not per or len(per) == 1 else ('unknown' if k else 'no')
+    return v + ' ' + ' '.join('%s%s=%s' % (n, '*' if r else '', ','.join(s) or '-') for n, s, r in per[:8]) + (' +%d' % (len(per) - 8) if len(per) > 8 else '')
+HELPER = re.compile(r'(?:export\s+)?(?:const|let|var)\s+(\w+)\s*(?::[^=\n]+)?=\s*\(?\s*([^?;\n]+?)\s*\)?\s*\?\s*((?:describe|it|test)(?:\.\w+)?)\s*:\s*((?:describe|it|test)(?:\.\w+)?)\b')
+INLINE = re.compile(r'\(\s*([^?;\n()]+(?:\([^()\n]*\))?)\s*\?\s*(describe|it|test)(?:\.skip)?\s*:\s*(?:describe|it|test)(?:\.skip)?\s*\)\s*\(|\b(?:describe|it|test|suite)\.(skipIf|runIf)\s*\(([^\n]*?)\)\s*\(')
+PYSKIP = re.compile(r'(?:^|\n)\s*(?:(\w+)\s*=\s*)?@?pytest\.mark\.skipif\(([^\n]*)\)')
+ENV = re.compile(r'process\.env(?:\.(\w+)|\[\s*[\'"](\w+)[\'"]\s*\])|import\.meta\.env\.(\w+)|os\.(?:environ\.get|getenv|environ\[)\s*\(?\s*[\'"](\w+)[\'"]')
+rows = []
+for f in files:
+    s = src[f]; consts = dict(re.findall(r'(?m)^(\w+)\s*=\s*([^\n]+)', s) if f.endswith('.py') else []); consts.update(CONST.findall(s))
+    def gate(expr):   # follow the constant chain to the env read: HAS_V1 -> Boolean(V1_REPO_PATH) -> process.env.V1_REPO_PATH
+        text, todo, seen = [expr], [(n, 0) for n in re.findall(r'\b[A-Za-z_]\w*\b', expr)], set()
+        while todo and len(seen) < 50:
+            n, far = todo.pop()   # far: reached through an imported constant, so read in the defining file's scope
+            if n in seen: continue
+            seen.add(n); v = consts.get(n) if not far else None
+            v = v or (GCONST.get(n, '') if far or re.search(r'\bimport\b[^;]*\b%s\b' % n, s) else ''); far = far or n not in consts
+            if v: text.append(v); todo += [(x, far) for x in re.findall(r'\b[A-Za-z_]\w*\b', v)]
+        return sorted({x for t in ENV.findall(' '.join(text)) for x in t if x})
+    hits = [(m.start(), m.group(1), m.group(2)) for m in HELPER.finditer(s) if '.skip' in m.group(3) + m.group(4)]
+    hits += [(m.start(), 'inline', m.group(1) or m.group(4)) for m in INLINE.finditer(s)]
+    hits += [(m.start(), m.group(1) or 'inline', m.group(2)) for m in PYSKIP.finditer(s)]
+    for pos, helper, expr in hits:
+        env = gate(expr)
+        v1 = re.search(r'V1', ' '.join(env + [expr, helper]))
+        users = [u for u in files if helper != 'inline' and len(re.findall(r'\b%s\b' % re.escape(helper), src[u])) > (u == f)]
+        rows.append(('v1' if v1 else 'env' if env else 'capability', '%s:%d' % (f, s.count('\n', 0, pos) + 1), helper, ' '.join(expr.split())[:80],
+                     ','.join(env) or '-', ci_sets(env, [f] + users), str(len(users)), ','.join(users[:5]) or '-'))
+out = os.environ.get('GATES_TSV') or os.path.join(sys.argv[1], 'gated-suites.tsv')
+with open(out, 'w') as fh:
+    fh.write('# suite-gates 2\tkind\tat\thelper\tcondition\tenv\tci_sets\tusers\tuser_files\n')
+    fh.writelines('\t'.join(r) + '\n' for r in rows)
+for r in rows: print('GATE ' + '  '.join(r[:7]))
+print('gated-suites TSV: %s (%d gates: %d v1, %d env, %d capability)' % (out, len(rows), *(sum(r[0] == k for r in rows) for k in ('v1', 'env', 'capability'))))
+PY
+python3 "$TMP/gates.py" "$TMP"
 rg -n --pcre2 '@pytest\.mark\.xfail\b(?![^\n]*strict\s*=\s*True)|xfail_strict\s*=' -g '**/*.py' -g '**/{pytest.ini,pyproject.toml,setup.cfg,tox.ini}' "${V[@]}" . | "${NC[@]}"
 
 # 3. §3 never collected, never run: test-looking files no Jest / Vitest / Playwright config claims (3a); test scripts no
@@ -244,7 +315,7 @@ Playwright config: the script runs in about 2 s. 1a–1c: 0 — and no focus gua
 the Playwright config sets no `forbidOnly`, the lint config enables no focused-test rule). 2a: 4,
 all in Playwright flow files (`test.skip(!id, …)` and a `test.fixme` queue — read). 2c: 2
 capability gates (`runIf(existsSync(dist))` after a CI build step; `runIf(browser available)`).
-3a: 0 unclaimed files across the six configs. Re-measured 2026-10-15 on the same repo: 3a had regressed to 1,734 false `UNCLAIMED` (it read Vitest's `coverage.include`, did not expand `{ts,tsx}`, and missed a Playwright `testMatch: VISUAL ? SPEC : /.*\.flow\.ts$/`); it now strips coverage / typecheck blocks and comments, expands braces and extglobs, and takes every regex branch and named constant of a `testMatch` — 2 left, both non-test modules named `*-flow.ts` / `*.flow.ts` under `src/` (§ 32). 2c 2 → 9: seven helper-built gates (`const describeBuilt = built ? describe : describe.skip`, `(suiteSelected('money') ? describe : describe.skip)(`, and a `describeV1` exported from a `test/unit/_v1-reference.ts` helper that seven specs import). 4d prints `NOT-RUN OFFLINE(…)`: the pre-flight no longer calls GitHub. 3b: the Playwright flow suite (6 files), the Storybook
+3a: 0 unclaimed files across the six configs. Re-measured 2026-10-15 on the same repo: 3a had regressed to 1,734 false `UNCLAIMED` (it read Vitest's `coverage.include`, did not expand `{ts,tsx}`, and missed a Playwright `testMatch: VISUAL ? SPEC : /.*\.flow\.ts$/`); it now strips coverage / typecheck blocks and comments, expands braces and extglobs, and takes every regex branch and named constant of a `testMatch` — 2 left, both non-test modules named `*-flow.ts` / `*.flow.ts` under `src/` (§ 32). 2c 2 → 9: seven helper-built gates (`const describeBuilt = built ? describe : describe.skip`, `(suiteSelected('money') ? describe : describe.skip)(`, and a `describeV1` exported from a `test/unit/_v1-reference.ts` helper that seven specs import), which is why 2c also names `process.env.V1_REPO_PATH` and `HAS_V1`, the V1-port shape. 2c-TSV (2026-10-18): 0 gates on every fixture but `brittle-suite` (2: an env gate on `LEDGER_DATABASE_URL` that no CI job sets, used by 1 spec, and a platform `skipif`); on a scratch port shape (`HAS_V1 = Boolean(process.env.V1_REPO_PATH)` behind a `describeV1` helper two specs import, and a pytest `skipif(not os.environ.get("V1_ROOT"))` marker) both rows print kind `v1`, `ci_sets no`, and a commented gate prints nothing. 4d prints `NOT-RUN OFFLINE(…)`: the pre-flight no longer calls GitHub. 3b: the Playwright flow suite (6 files), the Storybook
 story-test project and the fuzz suites (money and stock among them) are invoked by no CI file — the
 fuzz suites only from a local release script — the run's real § 3 candidates; the root aliases
 resolve to in-CI jobs. 3d: 0 (no Maven module). 4a: 1 (`continue-on-error` on an
@@ -301,7 +372,7 @@ BAD:   it.skip('settles a split payment', …)              // no reason, no tic
 GOOD:  it.skip('… — #812, owner @payments, remove by 2026-12-01', …) · a CI job that sets the variable
        @pytest.mark.xfail(strict=True, reason="#812") and xfail_strict = true
 ```
-**Read the code:** Is there an owner and a date or ticket on the line or the line above (QG-7)? For a gated suite (2c), which CI job runs the file and does its `env:` set the variable, build the artefact, install the browser, or pass the build tag? Is the skip runtime-conditional on a previous step's result (a cascade inside one flow)? **Finding when** a skip has no owner and expiry, or its gate is false in every CI job that runs the file. **Proof:** static fact plus the job's env; for a gate, the file absent from the CI run's executed list (V61).
+**Read the code:** Is there an owner and a date or ticket on the line or the line above (QG-7)? For a gated suite (2c, one row per gate in `gated-suites.tsv`; `ci_sets` is per CI job, its `*` a directory-name hint — read the job; `unknown` means some job sets the variable but none is known to run the file), which CI job runs the file and does its `env:` set the variable, build the artefact, install the browser, or pass the build tag? Is the skip runtime-conditional on a previous step's result (a cascade inside one flow)? **Finding when** a skip has no owner and expiry, or its gate is false in every CI job that runs the file. **Proof:** static fact plus the job's env; for a gate, the file absent from the CI run's executed list (V61).
 
 ### 3. Never collected, or a suite no CI job runs
 
@@ -422,6 +493,7 @@ job with an end date (§ 28); scoped, gated retries and Playwright's scaffold de
 - `assertion-strength-scan` (this pack) — whether the collected tests can fail; § 4's `--forceExit` verdict reads its § 3.
 - `coverage-gap` (this pack) — changed lines with no executing test; this skill's § 5 decides whether the report it reads can be trusted.
 - `.claude/scripts/test-integrity.py` (repo-baseline) — diff-time skips, focus, floors and CI steps; `standards-check.py` — the QG-7 and QG-13 per-change checks; `agents/verifier.md` — the independent verifier.
+- `parity-proof-scan` (migration pack, when installed) reads 2c's `gated-suites.tsv`: every parity claim resting on a `v1` row no CI job satisfies is NOT-RUN. Without that pack the TSV is only this skill's § 2 worklist.
 - `/run-tests` — runs the suite and reports NOT-RUN honestly; `/flaky-test-hunt` — root-causes what § 6's retries were hiding.
 - `@ci-reviewer` (devops pack, when installed) — CI design beyond whether tests run and fail.
 - [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Testing — the oracles, the anti-cheat rule and V61–V65; `rules/testing-principles.md` — the floor these classes enforce.

@@ -61,7 +61,7 @@ company VPN" · "it is an internal tool".
 - A race condition needs a concrete interleaving with a concrete gain (double redeem, negative balance). "Could race" is not a finding.
 - Denial of service, rate limits and resource exhaustion are **hardening**, unless they gate an authentication or verification step (OTP, login, reset), where the missing limit is a brute-force finding.
 - Shell scripts and CI steps that never see untrusted input are not command injection.
-- Test files, fixtures and documentation are out of scope, except for a secret committed in them, which is `secret-scan`'s.
+- Test files, fixtures and documentation are out of scope, except for a secret committed in them, which is `secret-scan-method`'s.
 
 **CI pipelines.** `ci-security-scan` and `iac-scan` § 5 cite these as `§ 4 CIP<n>` (CIP, not C: `ci-platform-semantics.md` owns C1–C11 for concurrency, environments, timeouts, schedules and caches). Each applies only when its condition is shown at a `file:line` or by a `gh api` line. The dated ones follow a platform change, so re-read the platform's changelog when a row is older than its docs. Sources: the GitHub changelog and the `actions/checkout` releases, read 2026-10-10 (paraphrased).
 

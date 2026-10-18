@@ -1,0 +1,9 @@
+{
+  "name": "@acme/legacy-reports",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "dependencies": {
+    "styled-components": "^6.1.19"
+  }
+}

@@ -216,7 +216,7 @@ Knowledge base updates:
 Run in order:
 - `pnpm lint` scoped to generated files.
 - `pnpm test` scoped to `__tests__/` of this module.
-- `pnpm dev` + `endpoint-test` skill for each generated route.
+- `pnpm dev` + `endpoint-test-method` skill for each generated route.
 - `schema-diff` skill — entity matches DB after migration.
 - Self-audit: do the generated files cross-reference correctly? Any contradictions with `ai/conventions.md`?
 - Heavy-tier rows additionally dispatch signal-aware reviewers: `security-auditor` (auth/secrets), `tenant-isolation-reviewer` (multi-tenant), `prompt-reviewer` (AI), `payment-reviewer` (payment). If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review; report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis. HALT on any BLOCKER.
@@ -255,7 +255,7 @@ Phase 2 (Organize): 4 architects dispatched in parallel; design confirmed.
 Phase 3 (Retrieved): 7 universals + sibling module + 5 patterns.
 Phase 4 (Generated): <N> files across core/application/infrastructure/adapters + tests + locales.
 Phase 5 (Updated): ai/modules.md (+1), ai/status.md (Recent Changes), app.module.ts wired.
-Phase 6 (Validated): lint, tests, endpoint-test (<N> routes), schema-diff clean, production-readiness ledger per route.
+Phase 6 (Validated): lint, tests, endpoint-test-method (<N> routes), schema-diff clean, production-readiness ledger per route.
 Phase 7 (Improved): /learn-from-task queued.
 
 Files created: <N>
@@ -268,7 +268,7 @@ Files created: <N>
   migration <NNNN>-create-<name>-table.sql
 
 Agents dispatched: api-architect, schema-architect, telemetry-architect, test-engineer
-Skills run: endpoint-test, schema-diff
+Skills run: endpoint-test-method, schema-diff
 
 Aggregate: <Root>  —  invariants: <list>
 Routes admitted by the aggregate-shape ledger (all require auth):

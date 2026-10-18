@@ -263,7 +263,7 @@ Per subcommand, see Examples above.
 - `/migration-scan` — surfaces features that may need cross-repo work.
 - `/find-and-fix <id>` — re-runs a row when its blocker clears (called by `drain`).
 - `/migration-park <id>` — alternative when blocker is too vague to register as a task.
-- `/migration-status --blockers` — includes cross-repo blockers in the report.
+- `/migration-status` — its report always includes cross-repo blockers (it takes no `--blockers` flag).
 
 ### Patterns
 - `ai/patterns/migration-ledger.md` — ledger schema (includes `cross_repo_task` field).

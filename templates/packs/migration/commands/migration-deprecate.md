@@ -41,9 +41,22 @@ Inputs:
 - `--reason=<text>` — required. One paragraph: why this is being killed.
 - `--tenant-impact=<low|medium|high>` — required for multi-tenant projects.
 
+- `--symbol=<name>` (repeatable) — the V1 identifiers the feature exposes (controller, job, command, route name). Required unless `ai/migration/reachability/<feature-id>.md` already names its `symbols:`.
+
 ## Phase 2 — Organize (decompose the work)
 
 1. Verify ADR exists in `ai/decisions/`.
+1a. **Compute reachability (halt 11), read-only.** A deprecation that the code contradicts is the Zombie Port in reverse: a live V1 route, job or caller dropped on an ADR's word. Run the six-axis count against the pinned V1 snapshot, never the live checkout, then lint the doc:
+    ```bash
+    PIN=$(awk '/^- id: <feature-id>$/{f=1} f&&/v1_commit_pinned:/{print $2; exit}' ai/migration/ledger.md)
+    [ -n "$PIN" ] || { echo "HALT: the row has no v1_commit_pinned — pin V1 before deciding it is dead"; exit 2; }
+    SNAP="$(mktemp -d "${TMPDIR:-/tmp}/deprecate.XXXXXX")"; : > "$SNAP/stamp"
+    GIT_OPTIONAL_LOCKS=0 git -C "<v1-root>" archive "$PIN" | tar -x -C "$SNAP"       # write-free; a moving checkout cannot change the count
+    ~/.claude/scripts/migration-reachability.sh --compute <feature-id> --symbol=<name> [--symbol=<name>…] \
+      --v1-root="$SNAP" [--infra-root=<v2-deploy-dir>] [--telemetry=<access-log or APM export>] > "$SNAP/reachability.md"; echo "compute exit $?"
+    find "<v1-root>" -newer "$SNAP/stamp" -type f -not -path '*/.git/*' | head -3                    # must print nothing
+    ```
+    Exit 4 is a BLOCKED axis (rg exit 2, or no rg): halt, nothing is written. Any axis `yes` → the feature is live: halt and print the caller lines. The ADR must name each caller and its replacement, or the feature is ported, not deprecated. All axes `no` / `n/a` → write the output to `ai/migration/reachability/<feature-id>.md` (in Phase 5, with the other writes), then run `~/.claude/scripts/migration-reachability.sh --lint <feature-id>`. The lint re-computes every `no` from the doc's `symbols:` line and fails when the code contradicts it. Telemetry `n/a` must carry its reason (`unwired`). No `--telemetry` export means `n/a`, never `no`.
 2. Update ledger row to `status: deprecated`.
 3. Capture deprecation context in `ai/migration/deprecated/<feature-id>.md`.
 4. Append history entry.
@@ -119,12 +132,14 @@ ai/decisions/0042-deprecate-order-archive.md
 ## Phase 5 — Update (persist changes to the knowledge base)
 
 - Ledger row (managed-block update).
+- `ai/migration/reachability/<id>.md` (the `--compute` output from step 1a, linted clean).
 - `ai/migration/deprecated/<id>.md` (new file; immutable).
 - `_history.md` appended.
 - (Optional) cross-references in dependent features' ledger rows: add `note: depends_on F042 which is deprecated` so they get reviewed.
 
 ## Phase 6 — Validate (verify correctness)
 
+- `migration-reachability.sh --lint <id>` exits 0: six axes filled, every `no` re-computed from the doc's `symbols:` against the pinned snapshot.
 - ADR exists at the cited path.
 - ADR's `Status` is `Accepted` (not `Proposed` or `Rejected`).
 - Tenant-impact field is set (in multi-tenant projects).
@@ -166,11 +181,12 @@ The feature is now excluded from /migration-plan and won't block /migration-fina
 
 ## Mechanical halt — refuse to mutate without confirmed ADR
 
-Before any ledger write, verify: (1) `--adr=<NNNN>` flag present, (2) ADR file exists at `ai/decisions/<NNNN>-*.md`, (3) ADR's `Status:` is exactly `Accepted` (not `Proposed`, not `Rejected`, not `Superseded`), (4) `--reason` flag present and ≥1 sentence, (5) `--tenant-impact` set on multi-tenant projects, (6) no active feature has `composes: [<this-id>]`. If ANY check fails — halt; print which check failed; write nothing. Atomic: the ledger row, the `deprecated/<id>.md` file, and the history entry are written together or not at all.
+Before any ledger write, verify: (0) `migration-reachability.sh --compute` ran on the pinned snapshot with exit 0 and no axis `yes` (exit 4 BLOCKED or a live axis → halt, write nothing), (1) `--adr=<NNNN>` flag present, (2) ADR file exists at `ai/decisions/<NNNN>-*.md`, (3) ADR's `Status:` is exactly `Accepted` (not `Proposed`, not `Rejected`, not `Superseded`), (4) `--reason` flag present and ≥1 sentence, (5) `--tenant-impact` set on multi-tenant projects, (6) no active feature has `composes: [<this-id>]`. If ANY check fails — halt; print which check failed; write nothing. Atomic: the ledger row, the `reachability/<id>.md` and `deprecated/<id>.md` files, and the history entry are written together or not at all.
 
 ## Hard rules
 
 - **ADR mandatory.** No deprecation without an Accepted ADR. Period.
+- **Reachability computed, not typed.** The six axes come from `migration-reachability.sh --compute` on the pinned V1 snapshot and pass `--lint`. An ADR that says "no users" does not outvote a caller the grep finds.
 - **Reason mandatory.** Non-trivial; at least 1 sentence.
 - **Tenant impact captured** in multi-tenant projects.
 - **Deprecation is forever.** No `/migration-undeprecate` command. If you change your mind, create a NEW feature in the ledger and port it; do not unbury.

@@ -18,6 +18,10 @@ Headings carry the `released` date recorded for that version. A few early versio
 described in the `summary` narrative and never had a dated `changelog` block — those headings have
 no date, which is the honest state of the record rather than an omission.
 
+## 1.5.2 — 2026-10-18
+
+- `/detect-drift` Phase 4 runs align's `convention-oracle` when align is installed and maps AL-02/03/04 onto its four outcomes. align's own skill was renamed `align-detect`, which had been hiding this command.
+
 ## 1.5.1 — 2026-10-15
 
 **`extract-codebase-overview` Step 4 states the module path's base.** A module's path is relative to the repo root with the member root included (`apps/api/src/modules/orders/`, not `modules/orders/`). In a monorepo a member-relative path was a plausible output, and `ai/modules.md` plus the `module-boundaries.sh` hook read paths from the root, so no written file mapped to a module.

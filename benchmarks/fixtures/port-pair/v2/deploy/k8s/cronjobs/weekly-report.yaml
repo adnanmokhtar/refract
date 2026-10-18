@@ -1,0 +1,20 @@
+# V1: Schedule::job(new SendWeeklyReport)->weeklyOn(0, '07:00')->timezone('Asia/Riyadh').
+# In V2 the weekly report is a Kubernetes CronJob instead of an in-process @Cron.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: weekly-sales-report
+  namespace: norrow
+spec:
+  schedule: "0 7 * * 0"
+  timeZone: "Asia/Riyadh"
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: report
+              image: registry.norrow.example/v2-api:2.3.0
+              command: ["node", "dist/cli.js", "reports:email-weekly"]

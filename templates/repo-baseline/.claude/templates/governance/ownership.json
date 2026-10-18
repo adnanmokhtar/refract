@@ -45,12 +45,13 @@
       "target": "code-reviewer"
     },
     "convention-drift": {
-      "detector": "learning/agents/convention-drift-detector",
-      "owner": "/align",
-      "fixer": "/align",
-      "fallback": "ai/dynamic/drift-log.md entry (think-simplify-surgical.md § 3)",
+      "detector": "align/skills/convention-oracle §1–§4 (oracle-map.py) · learning/agents/convention-drift-detector (read-only; learning /detect-drift dispatches convention-oracle when align is installed)",
+      "owner": "align/skills/convention-oracle (graded by align/agents/align-evidence-auditor)",
+      "fixer": "by remedy: drop the invented row (AL-01) · the human ratifies a winner, then /setup-project --refine (AL-02) · ratchet enablement (AL-03) · doc update by a human (AL-04)",
+      "fallback": "ai/dynamic/drift-log.md entry (think-simplify-surgical.md § 3) when align is not installed",
       "pack": "align",
-      "target": "code-reviewer reports; /align fixes"
+      "target": "code-reviewer reports; /align fixes",
+      "note": "AL-01 invented convention, AL-02 split with no declared winner, AL-03 declared but unenforced, AL-04 doc-code contradiction. Every align detector reads the oracle map this row owns"
     },
     "licence": {
       "detector": "security/skills/deps-audit",
@@ -69,7 +70,7 @@
       "target": "data-reviewer"
     },
     "secrets": {
-      "detector": "security/skills/secret-scan · hook:secret-scan.sh",
+      "detector": "security/skills/secret-scan-method · hook:secret-scan.sh",
       "owner": "security/agents/security-auditor",
       "fixer": "rotate first, then /security-fix",
       "fallback": "hook:secret-scan.sh (always installed)",
@@ -684,6 +685,105 @@
       "pack": "backend",
       "target": "code-reviewer (api lens)",
       "note": "in-transaction enqueue → database transaction-scan §1; consumer idempotency, retry eligibility, poison/DLQ → distributed-systems messaging-scan; coordinated schedules across replicas → distributed-systems coordination-scan §11; once-per-fleet → performance request-path-scan §20"
+    },
+    "parity-surface": {
+      "detector": "migration/skills/surface-parity-scan §1–§9 (paired-inventory lanes I-ROUTES, I-AUTHZ, I-RULES, I-ENUM, I-ERR, I-SCOPE, I-CONF)",
+      "owner": "migration/agents/parity-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/find-and-fix --from-audit=<report> (failing-first against V1 as oracle)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /compare-v1 does not run the judge",
+      "pack": "migration",
+      "target": "parity-auditor",
+      "note": "MG-RT-1, MG-RT-2, MG-AZ-2, MG-VO-1, MG-VA-1, MG-ER-1, MG-SD-1. §3 permission widening (MG-AZ-1) is graded by security/agents/api-security-reviewer and §5 lost tenant scope (MG-AZ-3) by the tenant-leak row's owner, when the security pack is installed; without it the row is tagged security-class (owner pack security not installed). Status, pagination and router traps in one codebase → api-contract; the V1≠V2 delta for the same route key is here"
+    },
+    "parity-semantics": {
+      "detector": "migration/skills/semantics-parity-scan §1, §2, §4–§8 (I-MONEY, I-CONF lanes + look-alike call-site pairs)",
+      "owner": "migration/agents/parity-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/find-and-fix --from-audit=<report> (failing-first against V1 as oracle)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /compare-v1 does not run the judge",
+      "pack": "migration",
+      "target": "parity-auditor",
+      "note": "MG-MN-1, MG-MN-2, MG-NUM-1, MG-STR-1, PP-4, MG-ORD-1, MG-NULL-1, MG-TZ-1. Routed, never graded here: §3 decimal precision and 64-bit ids (MG-MN-3) → backend wire-format; §9 catalog and plural drift (MG-I18N-1) → i18n-completeness (catalog-parity.py --v1); §10 transaction and isolation drift (MG-TX-1) → database transaction-scan"
+    },
+    "parity-side-effects": {
+      "detector": "migration/skills/side-effect-parity-scan §1–§5 (I-SIDE, I-SCHED, I-SCHEMA lanes)",
+      "owner": "migration/agents/parity-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/find-and-fix --from-audit=<report> (failing-first against V1 as oracle)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /compare-v1 does not run the judge",
+      "pack": "migration",
+      "target": "parity-auditor",
+      "note": "MG-SE-1, MG-SE-2, MG-HC-1, MG-JB-1, DM-10. Dual-write and CDC mechanics → dual-write; the same effect duplicated in shadow → cutover-routing §3 (one finding, deduped by file:line)"
+    },
+    "data-cutover": {
+      "detector": "migration/skills/data-cutover-orchestrate §1–§12 (read-only; its runbook draft is copied into ai/runbooks/ by /port-feature or /migration-phase)",
+      "owner": "migration/agents/parity-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/find-and-fix --from-audit=<report> (failing-first against V1 as oracle)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /compare-v1 does not run the judge",
+      "pack": "migration",
+      "target": "parity-auditor",
+      "note": "DM-1–DM-9, DM-11–DM-13 (cross-store backfill, reconcile, flip). A single-store schema change or batched in-table backfill → migration-safety; outbox and CDC mechanics → dual-write; a lost soft-delete scope on reads is parity-surface §5, on the backfill §7 here"
+    },
+    "cutover-routing": {
+      "detector": "migration/skills/cutover-routing-scan §1–§4",
+      "owner": "migration/agents/parity-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/find-and-fix --from-audit=<report> (failing-first against V1 as oracle)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /compare-v1 does not run the judge",
+      "pack": "migration",
+      "target": "parity-auditor",
+      "note": "CO-1, CO-2, CO-3, CO-5 (façade routing, shared session, shadow isolation, one-step reversal). Progressive-delivery mechanics in one codebase → progressive-delivery; edge config correctness → edge-reliability"
+    },
+    "parity-proof": {
+      "detector": "migration/skills/parity-proof-scan §1–§3, §5",
+      "owner": "migration/agents/parity-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/find-and-fix --from-audit=<report> (failing-first against V1 as oracle)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /compare-v1 does not run the judge",
+      "pack": "migration",
+      "target": "parity-auditor",
+      "note": "PP-1, PP-2, PP-3, CO-4. §4 a V1-gated parity suite skipped in CI (PP-5) is testing suite-execution-scan §2c (gated-suites.tsv), when the testing pack is installed; oracle strength in one codebase → test-oracle-strength (§2 here keeps only the V1 branch floor)"
+    },
+    "ui-parity": {
+      "detector": "migration/agents/parity-auditor Section 0 (navigation inventory) and halt 12 (state enumeration), on ledger rows whose v1_path is a UI file",
+      "owner": "migration/agents/parity-auditor",
+      "fixer": "/find-and-fix --from-audit=<report> (failing-first against V1 as oracle)",
+      "fallback": "Unconfirmed in /compare-v1's class ledger when the judge is not run",
+      "pack": "migration",
+      "target": "parity-auditor",
+      "note": "MG-UI-1 (navigation leaf dropped), MG-UI-2 (state drift). Missing states in one codebase → ui-states"
+    },
+    "wrapper-adoption": {
+      "detector": "align/skills/wrapper-adoption-scan §1–§5",
+      "owner": "align/agents/align-evidence-auditor (refutes every row before a fix, under /align-scan); standalone: refute-before-report.md § 10, rows tagged self-verified",
+      "fixer": "/align (find-and-align; align-sweep-gate.py blocks the run)",
+      "fallback": "the detector's own rows, Unconfirmed until refuted",
+      "pack": "align",
+      "target": "code-reviewer reports; /align fixes",
+      "note": "AL-11 raw primitive where a wrapper exists, AL-13 hand-rolled copy of a named helper (code-quality duplication-scan hands it here; divergent copies stay /quality-fix), AL-14 deep import past a package's exports, AL-15 wrapper without its required prop or gate, AL-22 forbidden or non-allowlisted library. Module-layer edges (AL-20/21) → code-quality architectural-diagnosis; native element over a DS component (AL-12) → design-tokens; a wrapper gap → /unify-surfaces"
+    },
+    "naming-layout": {
+      "detector": "align/skills/naming-layout-scan §1–§4 (name-check.py)",
+      "owner": "align/agents/align-evidence-auditor (refutes every row before a fix, under /align-scan); standalone: refute-before-report.md § 10, rows tagged self-verified",
+      "fixer": "/align (find-and-align; align-sweep-gate.py blocks the run); rename via git mv or LSP, wire names never",
+      "fallback": "the detector's own rows, Unconfirmed until refuted",
+      "pack": "align",
+      "target": "code-reviewer reports; /align fixes",
+      "note": "AL-16 file or directory name, AL-17 identifier name (CQ-M17: no code-quality detector implements it), AL-18 synonym drift against a glossary, AL-19 placement and module skeleton"
+    },
+    "convention-ratchet": {
+      "detector": "align/skills/convention-ratchet-scan §1–§4",
+      "owner": "align/agents/align-evidence-auditor (refutes every row before a fix, under /align-scan); standalone: refute-before-report.md § 10, rows tagged self-verified",
+      "fixer": "/align (find-and-align; align-sweep-gate.py blocks the run); per-package config drift is a heavy-tier config edit",
+      "fallback": "the detector's own rows, Unconfirmed until refuted",
+      "pack": "align",
+      "target": "code-reviewer reports; /align fixes",
+      "note": "AL-29 suppression dodging a declared convention (code-quality suppression-scan keeps correctness rules, security sast-scan §10 security rules), AL-30 ratchet regression, AL-31 per-package config drift, AL-32 half-finished declared same-version migration (V1→V2 ports → migration; version bumps → /upgrade-dep)"
+    },
+    "align-sweep-integrity": {
+      "detector": "align/skills/find-and-align/scripts/align-sweep-gate.py (V-01, V-02, V-06)",
+      "owner": "align/agents/align-gate-auditor (phase verdict)",
+      "fixer": "blocks the run or the row; the sweep is redone, never waived",
+      "fallback": "validate-align-artifacts.sh file-level scope check",
+      "pack": "align",
+      "target": "code-reviewer",
+      "note": "AL-33 inconsistent resolution inside one sweep, AL-34 out-of-scope edit in an align commit"
     }
   }
 }

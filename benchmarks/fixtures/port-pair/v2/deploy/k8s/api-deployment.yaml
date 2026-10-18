@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: v2-api
+  namespace: norrow
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: v2-api }
+  template:
+    metadata:
+      labels: { app: v2-api }
+    spec:
+      containers:
+        - name: api
+          image: registry.norrow.example/v2-api:2.3.0
+          env:
+            - { name: SCHEDULER_ENABLED, value: "false" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: v2-scheduler
+  namespace: norrow
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: v2-scheduler }
+  template:
+    metadata:
+      labels: { app: v2-scheduler }
+    spec:
+      containers:
+        - name: scheduler
+          image: registry.norrow.example/v2-api:2.3.0
+          env:
+            - { name: APP_TIMEZONE, value: "Asia/Riyadh" }
+            - { name: SCHEDULER_ENABLED, value: "true" }

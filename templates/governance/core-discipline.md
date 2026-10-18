@@ -19,7 +19,7 @@ purpose: Single pointer for clean-code + SOLID discipline — every operational 
 
 1. **Phase 3 — Retrieve:** add a bullet **MUST read** `templates/governance/core-discipline.md` (this file) before writing code or closing alignment findings.
 2. **Do not** restate SOLID acronym definitions or copy closure-verb tables — cite paths above.
-3. **Orchestrator commands** (`/optimize`, `/align`, `/polish`, …) already dispatch `detect-drift` / align detectors — still link this file so the implementing agent loads the same vocabulary.
+3. **Orchestrator commands** (`/optimize`, `/align`, `/polish`, …) already dispatch `align-detect` / align detectors — still link this file so the implementing agent loads the same vocabulary.
 
 ## Related snippets
 

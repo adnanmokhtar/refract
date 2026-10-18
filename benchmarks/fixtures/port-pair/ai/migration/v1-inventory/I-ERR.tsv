@@ -1,0 +1,8 @@
+# pair-inventory 1 · lane=I-ERR · side=v1 · sha=61cb5c927438bcbf4b971b17938abe99c70b70f8 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=5
+# lane	key	attrs	at	excerpt
+I-ERR	code:order_not_editable	envelope=-;src=custom;status=409	bootstrap/app.php:28	$exceptions->render(function (OrderNotEditableException $e) {
+I-ERR	forbidden	envelope=-;src=framework default;status=403	-	-
+I-ERR	not_found	envelope=-;src=framework default;status=404	-	-
+I-ERR	unauthenticated	envelope=-;src=framework default;status=401	-	-
+I-ERR	validation	envelope=errors-map;src=framework default;status=422	-	-

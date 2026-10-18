@@ -42,7 +42,7 @@ Route mechanically — name the grep signal on the changed surface, dispatch the
   - Infra (container build files, K8s manifests, IaC modules) → container/runtime hardening cross-check.
 
 - **Skills — detectors, not reviewers; they produce cited findings that feed Phase 4.** Phase 4's buckets promise secret, dependency and SSRF coverage; without these, nothing executes that promise and the promise is itself a `COVERAGE:` gap.
-  - `secret-scan` — config / env / IaC / CI / client-bundle diffs, and always on a whole-repo run. Findings are BLOCKERS by default.
+  - `secret-scan-method` — config / env / IaC / CI / client-bundle diffs, and always on a whole-repo run. Findings are BLOCKERS by default.
   - `deps-audit` — manifest or lockfile diffs; supplies advisory ids + reachability.
   - `ssrf-scan` — new outbound fetch / webhook / URL-import sink, or a redirect target read from input.
   - `injection-scan` — query, raw-SQL, shell spawn, eval, template render, XML/YAML/serialized parse, deep merge of request JSON, regex from input.
@@ -176,7 +176,7 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 ## Related
 
 **Reviewers** (Phase 2, by signal): `@security-auditor` (always) · `@auth-reviewer` · `@tenant-isolation-reviewer` · `@api-security-reviewer` · `@data-privacy-reviewer` · `@llm-security-reviewer`.
-**Skills** (Phase 2, the executors behind Phase 4's buckets): `secret-scan` · `deps-audit` · `ssrf-scan` · `injection-scan` · `file-access-scan` · `xss-scan` · `data-exposure-scan` · `logic-race-scan` · `sast-scan` · `iac-scan`.
+**Skills** (Phase 2, the executors behind Phase 4's buckets): `secret-scan-method` · `deps-audit` · `ssrf-scan` · `injection-scan` · `file-access-scan` · `xss-scan` · `data-exposure-scan` · `logic-race-scan` · `sast-scan` · `iac-scan`.
 
 **Commands**: `/security-fix` closes this report's findings; `/security-live-scan` covers the runtime edge of hosts you own.
 **Patterns**: `ai/patterns/auth-flow.md` · `ai/patterns/tenant-isolation.md` · `ai/patterns/zero-trust.md`.

@@ -1,0 +1,21 @@
+--- a/apps/web/src/features/orders/components/OrderCard.module.css
++++ b/apps/web/src/features/orders/components/OrderCard.module.css
+@@ -1,7 +1,7 @@
+ .card {
+   display: grid;
+   gap: var(--space-2);
+-  padding: 8px;
++  padding: var(--space-2);
+   border-radius: var(--radius-md);
+   background: var(--color-surface);
+ }
+--- a/apps/web/src/features/cart/Cart.module.css
++++ b/apps/web/src/features/cart/Cart.module.css
+@@ -1,6 +1,6 @@
+ .summary {
+   display: flex;
+   justify-content: space-between;
+-  padding: 8px;
++  padding: var(--gap-sm);
+   border-top: 1px solid var(--color-border);
+ }

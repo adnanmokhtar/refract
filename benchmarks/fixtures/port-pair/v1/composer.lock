@@ -1,0 +1,44 @@
+{
+    "_readme": [
+        "This file locks the dependencies of your project to a known state",
+        "Trimmed fixture copy: only the packages whose defaults the port depends on are kept."
+    ],
+    "content-hash": "4f1c0b7e2a9d63e85c1f0a2b7d9e6c31",
+    "packages": [
+        {
+            "name": "laravel/framework",
+            "version": "v11.31.0",
+            "type": "library"
+        },
+        {
+            "name": "laravel/sanctum",
+            "version": "v4.0.3",
+            "type": "library"
+        },
+        {
+            "name": "spatie/laravel-permission",
+            "version": "6.10.1",
+            "type": "library"
+        },
+        {
+            "name": "spatie/laravel-activitylog",
+            "version": "4.9.1",
+            "type": "library"
+        },
+        {
+            "name": "barryvdh/laravel-dompdf",
+            "version": "v3.0.0",
+            "type": "library"
+        }
+    ],
+    "packages-dev": [
+        {
+            "name": "phpunit/phpunit",
+            "version": "11.4.3",
+            "type": "library"
+        }
+    ],
+    "platform": {
+        "php": "^8.3"
+    }
+}

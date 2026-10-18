@@ -1,0 +1,17 @@
+{
+  "title": "Orders",
+  "new": "New order",
+  "place": "Place order",
+  "placing": "Placing…",
+  "next_page": "Next page",
+  "invoices_title": "Invoices",
+  "items_zero": "No items",
+  "items_one": "One item",
+  "items_other": "{{count}} items",
+  "status_draft": "Draft",
+  "status_placed": "Placed",
+  "status_packed": "Ready to ship",
+  "status_shipped": "Shipped",
+  "status_cancelled": "Cancelled",
+  "status_refunded": "Refunded"
+}

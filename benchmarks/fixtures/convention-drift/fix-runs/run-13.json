@@ -1,0 +1,9 @@
+{
+  "judge": [
+    {
+      "id": "A106",
+      "verdict": "pending-review",
+      "reason": "is createFocusTrap part of the public API?"
+    }
+  ]
+}

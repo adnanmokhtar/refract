@@ -31,6 +31,7 @@ Inputs:
 Optional flags:
 - `--phases=<N>` — target number of phases (default: auto from scan recommendation).
 - `--max-features-per-phase=<N>` — cap per phase (default: 12).
+- `--max-parallel=<N>` — cap the Explore subagents Phase 3 fans out to (default: 4, as `/migration-fast`).
 
 ## Phase 2 — Organize (decompose the work)
 
@@ -49,7 +50,7 @@ For each feature in the ledger:
 - Read existing V2 file (if any) — understand current state + structure.
 - Cross-reference `ai/patterns/v1-patterns-crossref.md` if it exists — known V1↔V2 mappings.
 
-This is heavy work; fan out via Explore subagents capped per `--max-subagents`.
+This is heavy work; fan out via Explore subagents capped per `--max-parallel`.
 
 ## Phase 4 — Generate (produce the output)
 
@@ -159,7 +160,7 @@ Ledger source: ai/migration/ledger.md (revision pinned)
 - **Foundation phase 1 includes core primitives** — error-envelope base class, tenant context primitive, cache primitive, audit/soft-delete base, concurrency primitive, locale primitive (per `_extracted-idioms.md § Detected base classes`). A foundation phase that doesn't ship these makes auth/security audits in Phase 1 un-verifiable.
 - **Heavy-tier promoter rollup is present + complete** — every row matching a heavy trigger (auth, payment, order, cart, subscription, financial-transaction, saved-card, security primitives, s2s, cron-write-path, multi-tenant blast radius) appears in the rollup with reason cited. Missing rows = audit halt at execution time.
 - **Cross-cutting audit dimensions section is present** before Phase 1.
-- **`## Actionable next steps` section is present at the end** per `templates/snippets/actionable-next-steps.md` — paste-ready commands routing each gap / heavy-tier row to its receiving command (`/migration-fast N --audit-only`, `/migration-promote-tier`, `/migration-park`, etc.).
+- **`## Actionable next steps` section is present at the end** per `templates/snippets/actionable-next-steps.md` — paste-ready commands routing each gap / heavy-tier row to its receiving command (`/migration-phase N --audit-only` — `/migration-fast` refuses `--audit-only` — `/migration-promote-tier`, `/migration-park`, etc.).
 - No phase exceeds `--max-features-per-phase`.
 - Phase exit criteria are measurable (status + parity-test, not vague language).
 - ADR-references resolve (every cited ADR exists in `ai/decisions/`).

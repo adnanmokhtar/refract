@@ -43,6 +43,14 @@ Both count as detected; the split is reported so a reader can see how many detec
 were also line-accurate. `--strict-line` promotes the tolerance to a hard requirement,
 which is the harsher reading of the same run.
 
+TWO-ANCHOR SEEDS (paired keys: port-pair). A block may also carry `v1_file:` / `v1_line:`,
+the V1 line the seed differs from. A migration finding that leads with that V1 line
+(`v1/routes/api.php:27 … no V2 handler`) names the same defect as one that leads with the
+V2 line, so F also matches D when it names D's `v1_file` and carries a line within
+`--tolerance` of `v1_line`, with every `match:` pattern hitting as above. The V1 anchor is
+always EXACT or nothing: a V1 file holds many seeds (one route file, one migration), so a
+line-less or far-off citation of it claims none of them.
+
 Assignment is one-to-one and greedy: EXACT pairs first, then TEXT, ties broken by line
 distance. Each finding is credited to at most one defect and each defect is claimed by at
 most one finding — so two co-located defects need two findings to both count.
@@ -160,7 +168,8 @@ def find_path(text):
 
 
 class Defect:
-    __slots__ = ("id", "file", "line", "severity", "command", "commands", "cls", "anchor", "patterns", "raw")
+    __slots__ = ("id", "file", "line", "severity", "command", "commands", "cls", "anchor", "patterns", "raw",
+                 "v1_file", "v1_line")
 
     def __init__(self, fields, raw):
         self.id = fields.get("id", "")
@@ -172,6 +181,9 @@ class Defect:
         self.commands = [c for c in re.split(r"[\s,]+", self.command) if c]
         self.cls = fields.get("class", "")
         self.anchor = fields.get("anchor", "")
+        # Paired keys (port-pair): the V1 line the seed differs from — a second place a finding may cite.
+        self.v1_file = fields.get("v1_file", "")
+        self.v1_line = int(fields["v1_line"]) if fields.get("v1_line", "").isdigit() else 0
         self.patterns = []
         for pat in fields.get("_match", []):
             try:
@@ -418,8 +430,10 @@ NO_LINE = 10_000  # sorts every line-less match behind every line-bearing one
 
 def pair_strength(defect, finding, tolerance, strict_line=False):
     """(EXACT|TEXT, line_distance) or None when the pair cannot match."""
-    if not finding.basename or not same_file(finding.file, defect.file):
+    if not finding.basename:
         return None
+    if not same_file(finding.file, defect.file):
+        return v1_pair_strength(defect, finding, tolerance)
 
     if defect.patterns:
         if not all(p.search(finding.text) for p in defect.patterns):
@@ -437,6 +451,19 @@ def pair_strength(defect, finding, tolerance, strict_line=False):
     if strict_line:
         return None
     return (TEXT, distance if distance is not None else NO_LINE)
+
+
+def v1_pair_strength(defect, finding, tolerance):
+    """A paired seed's second anchor: F names D's `v1_file` within the line window, text required.
+    EXACT or None — never TEXT, because one V1 file carries many seeds."""
+    if not defect.v1_file or not defect.v1_line or finding.line is None:
+        return None
+    if not same_file(finding.file, defect.v1_file):
+        return None
+    if defect.patterns and not all(p.search(finding.text) for p in defect.patterns):
+        return None
+    distance = abs(finding.line - defect.v1_line)
+    return (EXACT, distance) if distance <= tolerance else None
 
 
 def assign(defects, findings, tolerance, strict_line=False):

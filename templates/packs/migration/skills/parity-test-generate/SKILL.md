@@ -20,6 +20,8 @@ The contract is the truth. Mirror; never invent. Every input in the corpus trace
 - Halt on tolerance.yaml fields not declared in the contract's Outputs (tolerance coverage check D2).
 - Halt on parity runs whose `v1_commit` doesn't match the ledger's `v1_commit_pinned` (D4).
 - Halt on snapshot updates without a reviewer note + ledger entry (D7); never run blanket `--update-snapshots` to make red green.
+- Halt on a comparator that has not passed calibration (step 4b): a control-vs-control run that is not clean, or a seeded mismatch it does not report, means "0 mismatches" proves nothing.
+- Halt on a heavy-tier corpus whose V1 branch coverage is below the declared floor (step 2b) — the input COUNT is not the floor.
 
 This skill is the procedural arm of `migration-discipline.md` + `parity-testing.md` + `feature-port.md` Phase 4.
 
@@ -119,7 +121,18 @@ Aim for ≥2 recipes per non-trivial feature so a gap in one is caught by anothe
 - **Standard tier**: ≥10 inputs covering happy + error + at least one edge case per documented contract output path. No record-replay required.
 - **Trivial tier**: skip parity tests entirely — the project's standard CI suite is sufficient. Do NOT generate a corpus, tolerance.yaml, or golden snapshots.
 
-If a feature's tier isn't set in the ledger, default to heavy. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+If a feature's tier isn't set in the ledger, default to **trivial** — the same default as `extract-v1-contract`, the validator (`validate_feature`) and the rule; an audit promotes it. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
+
+### 2b. Measure what the corpus reaches in V1 (heavy tier; standard when the row has a money or write path)
+
+Thirty files can all walk the same happy path. The file-count floor above stays, and beside it the corpus must reach V1's branches (oracle V387, `proof-oracles.md` § Migration):
+
+1. Run V1 at the pinned SHA under its own coverage tool (Xdebug or PCOV for PHP, coverage.py, SimpleCov, JaCoCo, c8/istanbul, `go test -cover`) while replaying the corpus.
+2. Record branch coverage of the feature's V1 files (the contract's cited paths) in `<parity-test-root>/<feature>/v1-coverage.json`, with the V1 SHA.
+3. Declare the floor in the ledger row (`v1_branch_floor:`; 80% of the feature's V1 branches unless the audit argues another number). Below it, list every unreached V1 branch as `file:line` and add an input that reaches it, or record why it is unreachable (dead on the six halt-11 axes).
+4. When the testing pack is installed, its `mutation-probe` run on **V1** answers the next question: does the parity assertion fail when V1's behaviour changes? Without it, say the oracle strength is unmeasured.
+
+No V1 coverage run (no bootable V1, no tool) → the floor is `UNVERIFIED`, never met.
 
 ### 3. Capture V1 outputs (golden snapshots)
 
@@ -169,6 +182,20 @@ ignore:
 
 Generate this from the contract's **Outputs** section. Each field listed in the contract gets a tolerance — `exact` if it's a stable contract value, `structural` if it's volatile-but-shape-pinned, `ignore` if the contract explicitly excludes it.
 
+**These five keys are the only taxonomy** — `exact` · `structural` · `numeric_tolerance` · `order_insensitive` · `ignore`. They are what `check_tolerance_coverage` reads, what `tolerance.json` mirrors, and what `behavior-diff.py` applies. Older prose names other kinds (`timestamp-insensitive`, `dom-equivalent`, `allowed-divergence`); each is one of the five plus a path list (a timestamp is `structural`; a DOM comparison is the frontend recipe's comparator, not a tolerance key; an allowed divergence is an ADR, not a key).
+
+**`structural` never hides presence.** A `structural` field must still be present when V1's is present, absent when V1's is absent, and `null` when V1's is `null`; `[]` and `{}` are different values. A comparator that passes `null` against a missing key is itself a defect (CO-4, presence precedent in `precedents/migration.md`).
+
+### 4b. Calibrate the comparator before trusting it
+
+A comparator that reports "0 mismatches" has proved nothing until it has shown it can see one (oracle V385):
+
+- **Control vs control.** Capture V1 twice on the same corpus (fresh seed, same clock mock) and diff V1 against V1 with the tolerance file. Every difference is noise the capture failed to pin: fix the capture. Only fields that differ between two V1 runs may sit under `structural` or `ignore` (the calibration precedent; Scientist's control-vs-control and Diffy's primary-vs-secondary are the same rule).
+- **Seeded mismatch per key.** For each tolerance key in use, mutate one golden output (a changed `exact` value, a dropped `structural` key, a `numeric_tolerance` value just past the bound, a reordered `exact` list) and confirm the comparator FAILS. A key whose seeded mismatch passes is wider than declared.
+- **Errors compared, not just status.** Both sides raising counts as a match only when the error class, status and `code` are equal; a status-only compare is a blind spot.
+
+Record both runs beside the suite (`calibration.json`: V1 SHA, keys seeded, result). When the repo has `.claude/scripts/behavior-diff.py` (the repo-baseline gate scripts), it is the comparator for both checks — the same five-key engine G14 runs.
+
 **Tier-aware tolerance scope**:
 - **Heavy tier**: every output field across every code path in the 9-section contract gets a tolerance entry. `check_tolerance_coverage` halts on any uncovered field.
 - **Standard tier**: every output field declared in the standard-tier 3-section contract (Inputs/Outputs/Known V1 bugs) gets a tolerance entry. The contract has fewer fields by design; coverage is still mandatory for the fields it declares.
@@ -209,6 +236,15 @@ property("V1 ≡ V2 totals (within $0.01) — invariant: total = sum(lines) + ta
 
 Generators (`validOrderGen` here) must reflect prod input distributions — calibrate against the replay corpus's input shapes (sizes, value ranges, locale variations).
 
+### 6b. Side effects and permissions are compared too (write paths and guarded routes)
+
+An output-only suite passes a V2 that returns the right JSON and never sends the email. Two recipes cover what the response cannot show:
+
+- **Side-effect journal (V371).** For each write route in the contract's Side effects section, run V1 and V2 on the same input with every outbound channel captured: outbound mail (Mailpit or the framework's mail fake), outbound HTTP (WireMock or MockServer journal), queue messages (a test consumer on the topic) and row deltas on audit / activity tables. Diff the two **multisets** of (channel, target, kind). Variants: create, update, delete, restore, bulk, queued vs sync. In shadow mode the candidate must emit zero external effects.
+- **Permission matrix (V359).** For each guarded route, replay (role × route × resource owner) on V1 and V2: anonymous, each role, owner vs non-owner, another tenant, suspended user, API token vs session, HEAD and OPTIONS. Each cell compares the status class. V2 allowing a cell V1 denies is widening (a blocker; security owns it when that pack is installed); denying a cell V1 allows is narrowing.
+
+Both need a runnable V1. Without one, the row's parity claim for side effects or permissions is `NOT-RUN`, never PASS.
+
 ### 7. Build the record-replay harness (when applicable)
 
 ```text
@@ -245,6 +281,7 @@ Output the comparator code + a Grafana / Datadog dashboard JSON snippet that vis
 ### 9. CI integration
 
 - Golden-master + property-based tests run on every CI push (fast).
+- A parity suite gated on V1 being present (`HAS_V1 ? describe : describe.skip`, a `V1_REPO_PATH` check) runs only in a CI job that sets the variable. Confirm one does and that its log shows more than 0 such tests executed; otherwise every claim resting on it is `NOT-RUN`.
 - Record-replay tests run nightly OR on `[parity]` PR label (slower; full corpus).
 - Dashboard alerts on shadow / dual-write mismatch rate > threshold (≥0.1% sustained for 1h is "wake up an engineer").
 
@@ -336,11 +373,13 @@ bash .claude/scripts/baseline-capture.sh register --id=parity-orders --kind=char
 - The command is step 3's capture script pointed at **this** checkout's entry point (V2), writing one output per input name. `--harness` carries the corpus and the script into the base-sha worktree.
 - **`--no-capture` is mandatory.** A capture would replace V1's golden snapshots with V2's own output and erase the oracle (D7).
 - **Tolerance as JSON.** The gate scripts are standard-library only and never parse YAML. `tolerance.yaml` stays this skill's file (D2 checks it), and registration mirrors it to `tolerance.json` with the same five keys. Re-mirror it whenever step 10 changes the YAML.
+- **Run the comparator.** After registration, `python3 .claude/scripts/behavior-diff.py --gate=G14 --entries=parity-orders` runs the comparison now (exit 0 PASS, 1 FAIL, 3 UNVERIFIED — an entry that could not run is never a pass). Use it for step 4b's calibration and as the parity run whose result and V1 SHA go into the ledger's `parity_runs`.
 - **Gate G14**: `characterization` is a quick kind. It re-runs at Stop when in scope and in full in CI. A case that differs on purpose is declared by an acceptance criterion, `changes_baseline: ["parity-orders/<case>"]`. A rewritten `__golden__/` file with no criterion naming it fails `test-integrity.py` (`undeclared-baseline-rewrite`), on top of D7's reviewer and ledger note.
 
 ## Related
 
-- `parity-testing.md` — recipe details + tolerance taxonomy.
+- `parity-testing.md` — recipe details; its tolerance section maps onto the five keys above.
+- `proof-oracles.md` § Migration — V359 (permission matrix), V371 (side-effect journal), V385 (comparator calibration), V386 (V1-pinned tests unmodified), V387 (V1 branch floor).
 - `extract-v1-contract.md` — produces the contract this skill consumes.
 - `migration-discipline.md` — the rule mandating these tests before cutover.
 - `parity-auditor.md` (agent) — verifies the suite covers the contract before cutover.

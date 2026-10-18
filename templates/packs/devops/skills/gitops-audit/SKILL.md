@@ -34,7 +34,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/devo
 ## Boundaries
 
 - **Controller spec** — `selfHeal` over a workload an HPA or KEDA scales (K-GITOPS-REPLICAS), `prune` over stateful kinds (K-GITOPS-PRUNE), sync waves (K-GITOPS-WAVES), `ignoreDifferences` over all of `/spec` (K-GITOPS-IGNORE-WIDE) → infrastructure `k8s-render-scan` §4 when the infrastructure pack is installed. Without it, the pre-flight's `spec ->` rows are listed `infra-class (owner pack infrastructure not installed)` and never graded here. **The `allowEmpty` polarity**, for whoever judges those rows: `automated.allowEmpty` defaults to `false`, and that default *is* the guard — an Application whose render is empty is refused instead of pruning everything it owns. The finding is an explicit `allowEmpty: true` on a pruning prod Application, never "allowEmpty is missing". `PruneLast=true` prunes after the rest is healthy; `FailOnSharedResource` and the propagation policy do not constrain pruning.
-- **A committed `kind: Secret`** (base64 is not encryption) → security `iac-scan` §3 and `secret-scan` when the security pack is installed; an `ExternalSecret`, a `SealedSecret` or a SOPS-encrypted file is the correct pattern. Without the pack, the row is tagged `security-class (owner pack not installed)`.
+- **A committed `kind: Secret`** (base64 is not encryption) → security `iac-scan` §3 and `secret-scan-method` when the security pack is installed; an `ExternalSecret`, a `SealedSecret` or a SOPS-encrypted file is the correct pattern. Without the pack, the row is tagged `security-class (owner pack not installed)`.
 - **A deploy that is not GitOps** (a script or CI job that applies to a namespace no controller manages): concurrency, environment, rollout wait → `deploy-safety-scan` §2–§4. **The CI pipeline up to publish** → `pipeline-integrity-scan`, `release-integrity-scan`.
 - **Unpinned controller or chart versions** (Argo `targetRevision: HEAD`, PIN-HELM) → infrastructure `iac-state-scan` §3. **Admission policy** that would reject what the controller syncs → infrastructure `admission-policy`.
 
@@ -101,7 +101,7 @@ awk '$3 == "Application" || $3 == "ApplicationSet" { if ($7 != "selfHeal=true") 
 rg -n --pcre2 -g '*.{yml,yaml,json}' "${X[@]}" '\bargocd_app_info\b|\bsync_status\b|\bOutOfSync\b|\btrigger\.on-(sync-status-unknown|sync-failed|out-of-sync)|\bgotk_(reconcile_condition|resource_info)\b|^\s*apiVersion:\s*notification\.toolkit\.fluxcd\.io/' . | "${NC[@]}" | rg -v --pcre2 'kind:\s*Application\b' || echo 'OutOfSync alerting: none found in the repo (read the alerting repo or the controller install before a NO-ALERT row)'
 echo '# routed: controller spec (infrastructure k8s-render-scan §4) and committed Secrets (security)'
 awk '$0 ~ /allowEmpty=true/ || $0 ~ /prune=true/ { print "spec -> infrastructure k8s-render-scan §4: " $0 }' "$SCAN/cd-targets.txt"
-rg -l --pcre2 -g '*.{yml,yaml}' "${X[@]}" '^\s*kind:\s*Secret\s*$' . | while IFS= read -r f; do rg -q --pcre2 '^\s*sops:|kind:\s*(SealedSecret|ExternalSecret)\b' "$f" || echo "secret -> security iac-scan §3 / secret-scan: $f"; done
+rg -l --pcre2 -g '*.{yml,yaml}' "${X[@]}" '^\s*kind:\s*Secret\s*$' . | while IFS= read -r f; do rg -q --pcre2 '^\s*sops:|kind:\s*(SealedSecret|ExternalSecret)\b' "$f" || echo "secret -> security iac-scan §3 / secret-scan-method: $f"; done
 echo '# 2 live drift (L tier, read-only, only on a controller context the user names; never the default kube context):'
 echo '#   argocd app list -o wide · argocd app diff <app> · flux get kustomizations -A · flux diff kustomization <name> --path <dir>'
 ```
@@ -227,7 +227,7 @@ Rationalizations to reject: "it was an emergency" (commit the hotfix, or it vani
 
 - `/devops-audit` dispatches this skill on an Argo or Flux object or an imperative line in a script; `/devops-fix` closes §1 rows with a commit and the controller diff.
 - `@deployment-engineer` judges these rows; `deploy-safety-scan` owns imperative deploys outside GitOps; `@ci-reviewer` and `/add-ci` own the pipeline up to publish.
-- Infrastructure `k8s-render-scan` §4 (controller spec), `iac-state-scan` §3 (unpinned controllers), `admission-policy`; security `iac-scan` §3 and `secret-scan` — each when its pack is installed.
+- Infrastructure `k8s-render-scan` §4 (controller spec), `iac-state-scan` §3 (unpinned controllers), `admission-policy`; security `iac-scan` §3 and `secret-scan-method` — each when its pack is installed.
 
 ## Sources
 

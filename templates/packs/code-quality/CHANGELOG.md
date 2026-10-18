@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.1 — 2026-10-18
+
+- `/quality-audit` gains a ledger row: naming (M17) → align `naming-layout-scan` §1–§2 (N/A without align); convention-rule suppressions go to align `convention-ratchet-scan` §1. `error-handling-scan` no longer expects align to dispatch it.
+
 ## 2.1.0 — 2026-10-15
 
 **Graph fixes and detector fixes from a read-only audit of a real NestJS + React monorepo.**

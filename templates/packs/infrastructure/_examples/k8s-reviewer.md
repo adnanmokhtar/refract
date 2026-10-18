@@ -117,7 +117,7 @@ Read this before writing a single finding. Column 3 is all this agent may put in
 | Config propagation, Service/route wiring, NetworkPolicy DNS and dependency paths, namespaces, Jobs, RBAC wiring | `k8s-wiring-scan` § 1–§ 6 → **this agent judges** | Graded rows |
 | Removed APIs, schema and CRDs, admission rejection, support status, K-INGRESS-RETIRED | `k8s-api-version-scan` § 1–§ 4 → **this agent judges** | Graded rows |
 | Unpinned charts (PIN-HELM), IaC state, deletion safety, DR, edge proxy behaviour, cost candidates | infrastructure `iac-state-scan` § 3, `iac-lifecycle-scan`, `dr-audit`, `edge-reliability-scan`, `iac-cost-scan` → `@infra-reviewer` | Nothing graded; the shared site is cited once |
-| `securityContext`, privileged and host namespaces, capabilities, RBAC privilege breadth, default-SA use, token automount on a non-API workload, NetworkPolicy default-deny and width (ipBlock, egress-all), secrets in git or values, mutable image tags, weak PSA level, ingress snippets | security `iac-scan` § 3 (4j tags, 4k NetworkPolicy width), `secret-scan` (when installed) | Nothing graded. Without security: `security-class (owner pack not installed)`, listed |
+| `securityContext`, privileged and host namespaces, capabilities, RBAC privilege breadth, default-SA use, token automount on a non-API workload, NetworkPolicy default-deny and width (ipBlock, egress-all), secrets in git or values, mutable image tags, weak PSA level, ingress snippets | security `iac-scan` § 3 (4j tags, 4k NetworkPolicy width), `secret-scan-method` (when installed) | Nothing graded. Without security: `security-class (owner pack not installed)`, listed |
 | Shutdown code chain (SIGTERM handling, PID 1, the drain constant), live GitOps drift, deploy-job ordering | devops `deploy-safety-scan` § 5, `container-build-scan` § 2, `gitops-audit` (when installed) | Nothing graded; the drain number is read as an input to `THR-SHUTDOWN-GRACE` |
 | Probe handler truth (a readiness that always answers 200), PromQL content, collector RBAC blast radius | observability `metric-hygiene-scan` § 7, `alert-rule-lint` (when installed) | Nothing graded |
 | Liveness on a shared dependency; capacity headroom | performance `request-path-scan` § 15; `@capacity-planner` (when installed) | A `route:` row only |
@@ -142,7 +142,7 @@ Read this before writing a single finding. Column 3 is all this agent may put in
 |---|---|---|---|
 | 1 | Identity and privilege: dedicated ServiceAccount, no wildcard or `cluster-admin` RBAC, automount off unless the workload calls the API, no `privileged` / host namespaces / `hostPath` | security `iac-scan` § 3 (breadth) + `k8s-wiring-scan` § 6 (the SA and bindings resolve) | security reports 0 rows on this render and § 6 has 0 findings |
 | 2 | Resources and floor: a CPU request, a memory request and a memory limit on every container, init and sidecars included (no CPU-limit requirement, precedents § 1); a served prod workload's floor ≥ 2 with a PDB that is `maxUnavailable: 1` or `minAvailable` below the floor, and no PDB on one replica (`THR-K8S-PROD-FLOOR`); readiness on served containers; `THR-SHUTDOWN-GRACE` holds | `k8s-availability-scan` § 1–§ 4, § 7 | 0 findings in those §§ on the prod render |
-| 3 | Secrets via a manager; no `kind: Secret` with `data:` or a secret value in values files | security `secret-scan`, `iac-scan` § 3 | security reports 0 rows |
+| 3 | Secrets via a manager; no `kind: Secret` with `data:` or a secret value in values files | security `secret-scan-method`, `iac-scan` § 3 | security reports 0 rows |
 | 4 | NetworkPolicy: (a) default-deny and minimal allows; (b) DNS egress on UDP **and** TCP 53 and every configured dependency reachable | (a) security `iac-scan` 4k · (b) `k8s-wiring-scan` § 3 | (a) security reports 0 rows · (b) 0 findings |
 | 5 | Reproducible and bounded: images pinned by digest or version tag; charts pinned (PIN-HELM, `iac-state-scan` § 3); every `apiVersion` served at the target minor and schema-valid; every HPA and `ScaledObject` has a written max (`THR-SCALE-CEILING`) | `k8s-api-version-scan` § 1–§ 2, `k8s-availability-scan` § 4, `iac-state-scan` § 3; tag mutability is security 4j | 0 findings, the ledger shows every object read, both canaries correct |
 
@@ -200,7 +200,7 @@ Graded here:
   - Live cluster (k8s-audit):       <its rows | NO-DATA(<context>) | not run>
 
 Routed (not graded here):
-  - Privilege, NetworkPolicy width, secrets, mutable tags → security iac-scan §3 / secret-scan: <sites | security-class (owner pack not installed)>
+  - Privilege, NetworkPolicy width, secrets, mutable tags → security iac-scan §3 / secret-scan-method: <sites | security-class (owner pack not installed)>
   - Shutdown code chain, live GitOps drift → devops · probe handler truth → observability · deep liveness → performance §15: <…>
   - PIN-HELM, edge behaviour, cost → @infra-reviewer: <…>
 

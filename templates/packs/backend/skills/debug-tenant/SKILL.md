@@ -1,6 +1,6 @@
 ---
 name: debug-tenant
-description: Debug tenant isolation issues — a user sees data that doesn't belong to them, or doesn't see data that does. Use on a suspected cross-tenant leak or a missing-data report; walks the full tenant-resolution chain hop by hop. Not a static scan — it reproduces against a running system via `log-tail` and `endpoint-test`.
+description: Debug tenant isolation issues — a user sees data that doesn't belong to them, or doesn't see data that does. Use on a suspected cross-tenant leak or a missing-data report; walks the full tenant-resolution chain hop by hop. Not a static scan — it reproduces against a running system via `log-tail-method` and `endpoint-test-method`.
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -184,8 +184,8 @@ Similar bugs to check:
 
 ## Related
 
-- `.claude/skills/log-tail/SKILL.md` — the tracing primitive for steps 2–5: filter by correlation id / tenant id to observe the resolved id, SQL, and cache key at each hop.
-- `.claude/skills/endpoint-test/SKILL.md` — reproduces the leak deterministically (case 4, wrong tenant) and confirms the fix; a cross-tenant 200 there is the same finding.
+- `.claude/skills/log-tail-method/SKILL.md` — the tracing primitive for steps 2–5: filter by correlation id / tenant id to observe the resolved id, SQL, and cache key at each hop.
+- `.claude/skills/endpoint-test-method/SKILL.md` — reproduces the leak deterministically (case 4, wrong tenant) and confirms the fix; a cross-tenant 200 there is the same finding.
 - Used by `@bug-investigator` — this playbook is the tenant-isolation branch of that agent's root-cause search.
 - `ai/patterns/multi-tenancy.md` — the tenant-resolution + query-scoping contract the application-level chain walks; it also names Postgres RLS with a per-request `SET app.tenant_id` as the stronger belt-and-suspenders, which is the mechanism Step 3B covers.
 - `ai/patterns/connection-pooling.md` (database pack — if installed) — pooler modes and the transaction-mode / session-state break behind Step 3C. Not installed → the four failure modes in 3C are self-contained; walk them from the pool config directly.

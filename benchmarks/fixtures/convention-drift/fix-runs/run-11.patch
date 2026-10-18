@@ -1,0 +1,22 @@
+--- a/apps/web/src/features/orders/components/OrderStatusBadge.tsx
++++ b/apps/web/src/features/orders/components/OrderStatusBadge.tsx
+@@ -10,7 +10,7 @@
+ 
+ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
+   return (
+-    <span className={styles.badge} style={{ color: status === 'failed' ? '#d92d20' : 'var(--color-text-muted)' }}>
++    <span className={styles.badge} style={{ color: status === 'failed' ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+       {t(labelKey(status))}
+     </span>
+   );
+--- a/eslint-suppressions.json
++++ b/eslint-suppressions.json
+@@ -1,7 +1,7 @@
+ {
+   "apps/web/src/features/reviews/reviews-api.ts": {
+     "no-restricted-imports": {
+-      "count": 3
++      "count": 4
+     }
+   }
+ }

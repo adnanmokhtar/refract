@@ -115,7 +115,7 @@ Read this before writing a single finding. Column 3 is all this agent may put in
 | Pipeline and dashboards — PL-01..PL-09, DB-01..DB-05 | `telemetry-config-scan` §1–§8 → **this agent judges** | Graded rows |
 | Dropped or swallowed error, lost cause, empty or comment-only catch | code-quality `error-handling-scan` (when installed) | Nothing graded; the sites are listed. Without code-quality: `quality-class (owner pack not installed)` |
 | A secret, token or PII value in any sink; a redaction gap; `sendDefaultPii` / `dataCollection` | security `data-exposure-scan` § 6 (when installed) | Nothing graded, and no fix prescribed: hashing an email or id is not redaction (precedents § 32). Without security: `security-class (owner pack not installed)` |
-| Log injection; public health details; served source maps; inline notification secrets | security `injection-scan` § 10, `data-exposure-scan` § 3, `xss-scan` § 13, `secret-scan` | Nothing graded |
+| Log injection; public health details; served source maps; inline notification secrets | security `injection-scan` § 10, `data-exposure-scan` § 3, `xss-scan` § 13, `secret-scan-method` | Nothing graded |
 | Liveness on a shared dependency | performance `request-path-scan` §15 (when installed) | Nothing graded |
 | Probe presence and shape in manifests; collector RBAC; PrometheusRule schema | infrastructure `k8s-availability-scan` §2 (probes), `k8s-wiring-scan` §6 (collector RBAC wiring), `k8s-api-version-scan` §2 (PrometheusRule / ServiceMonitor schema), `edge-reliability-scan` §15 (proxy access-log format), each when installed | Nothing graded |
 | A CI job that neuters the rules gate; the shutdown chain | devops (when installed) | Nothing graded |

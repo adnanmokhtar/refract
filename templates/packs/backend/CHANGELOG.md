@@ -9,6 +9,11 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-10-18
+
+- **`dto-types.py --routes` / `--enums`** (self-test 95/95): HANDLER rows carry the mounted path (URI version → RouterModule path → controller/method path → `setGlobalPrefix` unless `exclude` matches), the version and class-level decorators; ENUM rows carry `member=value`. Rules follow Nest's `RoutePathFactory`. The migration pack's I-ROUTES/I-AUTHZ/I-ENUM lanes call it.
+- **`log-tail` → `log-tail-method`, `endpoint-test` → `endpoint-test-method`** (skills). A same-named skill hid the `/log-tail` and `/endpoint-test` commands; the commands keep their names.
+
 ## 2.0.1 — 2026-10-14
 
 **`_topics.md` covers every shipped artifact.** The `caching` pattern topic is renamed `caching-strategy`, the filename every consumer reads (`ai/patterns/caching-strategy.md`); AUTHOR mode wrote `ai/patterns/caching.md`, which nothing dispatched by. `api-snapshot`, `debug-tenant`, `env-diff`, `module-scaffold` and `parallelize-independent-ops` get entries with `triggers: { always: true }` (they shipped unconditionally before, and a narrower trigger would have removed them from projects that have them) and their `_examples` copies as fallbacks. `validate-pack-consistency.sh` backend warnings: 6 → 0.

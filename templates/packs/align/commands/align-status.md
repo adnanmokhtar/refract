@@ -15,7 +15,7 @@ allowed-tools: [Read, Grep, Glob, Bash, Task]
 
 **Discipline pointer:** [`templates/governance/core-discipline.md`](../../../governance/core-discipline.md) — finding-class vocabulary including `solid-violation` (single source of truth).
 
-**Read-only progress reader.** This command does NOT modify the ledger, source, or any artifact. It reports the current state of the alignment effort across all phases — per-finding status, per-phase progress, stalled rows, halted rows, security findings awaiting fixes, perf findings without baselines. Use it to surface drift, surface blockers, surface readiness for the next phase.
+**Read-only progress reader.** This command does NOT modify the ledger, source, or any artifact. It reports the current state of the alignment effort across all phases — per-finding status, per-phase progress, stalled rows, halted rows, HIGH rows (permission, tenant or auth gates) awaiting fixes, owner rows routed out, perf or data carve-out rows without a measured baseline. Use it to surface drift, surface blockers, surface readiness for the next phase.
 
 ## When to use
 
@@ -46,18 +46,18 @@ Inputs:
 
 Optional flags:
 - `--phase=<N>` — report only for phase N (default: all phases).
-- `--class=<list>` — filter by finding class (e.g., `--class=security` for security-only report).
-- `--stalled` — show only rows older than the SLA. Defaults: any `in-progress` row > 7d · any `halted` row > 24h · any `halted` security row > 12h · **any `parked` row past its `parked_unpark_after`** · **any `parked` row > 90d** · **any `parked` security row whose age from `parked_sla_from` exceeds 24h** · **any `parked` row missing `prior_status` / `prior_phase`** (unrevivable — no command can restore it).
+- `--class=<list>` — filter by AL class (e.g., `--class=AL-15,AL-11` for the gate and wrapper rows). A legacy class name in an old ledger is read through `ai/patterns/align-ledger.md § Legacy class names`.
+- `--stalled` — show only rows older than the SLA. Defaults: any `in-progress` row > 7d · any `halted` HIGH row (an AL-15 permission, tenant or auth gate) > 24h · **any `parked` row past its `parked_unpark_after`** · **any `parked` row > 90d** · **any `parked` HIGH row whose age from `parked_sla_from` exceeds 24h** · **any `parked` row missing `prior_status` / `prior_phase`** (unrevivable — no command can restore it).
 - `--blockers` — show only halted rows + parked rows, each with its age and its blocker category.
 
-**Parked rows are aged, not just counted.** A parked row is the only kind that leaves every other escalation in the pack: the gate stops blocking on it, its halt file moves out of `halts/`, and any SLA keyed on `halted` stops firing. If this command reports parked rows as a bare number, a critical security finding parked six months ago looks exactly like a dead import parked yesterday. Age a parked security row from `parked_sla_from`, never from `parked_at` — otherwise parking silently resets the clock. See `ai/patterns/align-guardrails.md § Named anti-patterns → The Silent Park`.
+**Parked rows are aged, not just counted.** A parked row is the only kind that leaves every other escalation in the pack: the gate stops blocking on it, its halt file moves out of `halts/`, and any SLA keyed on `halted` stops firing. If this command reports parked rows as a bare number, a dropped permission gate parked six months ago looks exactly like a misnamed file parked yesterday. Age a parked HIGH row from `parked_sla_from`, never from `parked_at` — otherwise parking silently resets the clock. See `ai/patterns/align-guardrails.md § Named anti-patterns → The Silent Park`.
 - `--summary` — single-line per phase (compact view).
 - `--json` — emit machine-readable output for downstream tooling.
 
 ## Phase 2 — Organize (decompose the work)
 
 Read ledger + halts + gate-history; aggregate by phase; surface in priority order:
-1. Critical security halted (any).
+1. HIGH rows halted or parked (any age): a permission, tenant or auth gate.
 2. Halted rows > 24h.
 3. Halted rows < 24h.
 4. Stalled `in-progress` rows.
@@ -88,54 +88,46 @@ Total findings: <N> (across <K> phases)
 Critical / blocked
 ────────────────────────────────────────
   <none>   — OR —
-  ! A047 (security/sql-injection, heavy, halted 18h)
-       Reason: parameterize verb halted; idiom not found in _extracted-idioms.md.
-       Remediation: run /setup-project --refine to add the parameterized-query primitive.
-  ! A082 (performance/n-plus-one, standard, halted 6h)
+  ! A047 (AL-15 permission gate, HIGH, heavy, halted 18h)
+       Reason: add-gate verb halted; the oracle names <Can>, but no orders.refund ability is declared.
+       Remediation: run /setup-project --refine to declare the ability; parking needs --override-high.
+  ! A082 (AL-11 raw primitive, standard, halted 6h)
        Reason: re-detect failed; the fix introduced a NEW abstraction.
-       Remediation: re-classify as /refactor; OR run /align-park A082 with rationale.
+       Remediation: re-run the verb as replace-with-shared; OR run /align-park A082 with rationale.
 
 ────────────────────────────────────────
 Phase progress
 ────────────────────────────────────────
-  Phase 1 (mechanical cleanup)        [done]    12/12 fixed, gate PASS
-  Phase 2 (security critical)         [done]    4/4 fixed, gate PASS
-  Phase 3 (security standard)         [active]  6/10 fixed, 2 halted, 2 in-progress
-  Phase 4 (mechanical / silent-catch) [pending] 0/8
-  Phase 5 (auth UI/UX)                [pending] 0/15
+  Phase 1 (oracle and ratchets)       [done]    5/5 fixed, gate PASS
+  Phase 2 (raw imports, AL-11/22)     [done]    4/4 fixed, gate PASS
+  Phase 3 (gates and props, AL-15)    [active]  6/10 fixed, 2 halted, 2 in-progress
+  Phase 4 (naming, AL-16/17)          [pending] 0/8
+  Phase 5 (token snaps, EQ rows)      [pending] 0/15
   ...
 
 ────────────────────────────────────────
 Class breakdown (cumulative across all phases)
 ────────────────────────────────────────
-  Structural:
-    dead-code              fixed: <F>/<N>
-    duplicated-logic       fixed: <F>/<N>
-    reinvented-wrapper     fixed: <F>/<N>
-    silent-catch           fixed: <F>/<N>
-    over-abstraction       fixed: <F>/<N>
-    drift                  fixed: <F>/<N>
-  Functional:
-    solid-violation        fixed: <F>/<N>
-    clean-code             fixed: <F>/<N>
-    performance            fixed: <F>/<N>
-    security               fixed: <F>/<N>  (critical: <Cf>/<Cn>, high: <Hf>/<Hn>)
-  Frontend (PROJECT_KIND=frontend-*):
-    a11y-violation         fixed: <F>/<N>
-    design-token-drift     fixed: <F>/<N>
-    i18n-key-drift         fixed: <F>/<N>
+  Align (AL ids; one line per class with rows):
+    AL-11 raw primitive    fixed: <F>/<N>
+    AL-15 prop / gate      fixed: <F>/<N>  (HIGH: <Hf>/<Hn>)
+    AL-16 file names       fixed: <F>/<N>
+    AL-29 suppressions     fixed: <F>/<N>
     ...
+  Reports (0 ledger rows): AL-02 splits <s> · AL-04 doc stale <d> · pending-ratification <t>
+  Routed to owners (graded there, never closed here):
+    ui-ux <u> · frontend <f> · code-quality <q> · backend <b> · security <x>
 
 ────────────────────────────────────────
 Stalled rows (in-progress > 7d)
 ────────────────────────────────────────
   <none>   — OR —
-  A032 (drift, standard, in-progress 9d)
+  A032 (AL-16 file name, standard, in-progress 9d)
         Last touched: 2026-04-22
-        Phase 5 (auth UI/UX)
-  A056 (clean-code, trivial, in-progress 12d)
+        Phase 4 (naming, AL-16/17)
+  A056 (AL-29 suppression, trivial, in-progress 12d)
         Last touched: 2026-04-19
-        Phase 8 (clean-code)
+        Phase 1 (oracle and ratchets)
 
 ────────────────────────────────────────
 Aggregate
@@ -188,7 +180,7 @@ The report itself (above). No summary line.
 
 - **Read-only.** This command writes nothing (except optionally to `status-history.md`).
 - **No interpretation beyond stalled / halted thresholds.** The command reports facts; the user decides what to do.
-- **No filtering by user input modifies the actual ledger.** `--class=security` filters the view; the ledger is unchanged.
+- **No filtering by user input modifies the actual ledger.** `--class=AL-15` filters the view; the ledger is unchanged.
 
 ## Failure modes
 

@@ -1,0 +1,60 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r lint
+      - run: pnpm -r test
+
+  contract:
+    # Contract suite: the zod schemas in packages/contracts against V1's recorded responses.
+    runs-on: ubuntu-24.04
+    env:
+      V1_REPO_PATH: ${{ github.workspace }}/v1-snapshot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: norrow/portal-v1
+          ref: ${{ vars.V1_PIN }}
+          path: v1-snapshot
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @norrow/api test:contract
+
+  parity:
+    # V1-pinned parity suites (apps/api/test/parity): V2 against the V1 checkout at the ledger pin.
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: norrow_test
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: norrow/portal-v1
+          ref: ${{ vars.V1_PIN }}
+          path: v1-snapshot
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+      - run: composer install --no-interaction --working-dir=v1-snapshot
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @norrow/api test:parity

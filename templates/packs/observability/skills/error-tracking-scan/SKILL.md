@@ -51,7 +51,7 @@ A candidate is a finding when all four hold. These are the protocol's gates as `
 ## Boundaries
 
 - **Publicly served source maps** go to security `xss-scan` § 13 when the security pack is installed (precedents P2). A build that emits `.map` files into its public output with no `filesToDeleteAfterUpload` (or a server rule denying `*.map`) is that skill's row. This skill owns only "the tracker cannot symbolicate". `sourcemap: 'hidden'` plus delete-after-upload satisfies both.
-- **The tracker DSN in client code is not a secret.** Sentry's DSN page (fetched 2026-10-10) says DSNs only allow submitting new events and give no read access. A browser SDK cannot send events without one. Do not report it, and do not route it to `secret-scan`. Event spam through a public DSN is mitigated by inbound filters and rotation, not by hiding the key. A Sentry **auth token** (`SENTRY_AUTH_TOKEN`, `sntrys_…`) in source *is* a secret and goes to security `secret-scan`.
+- **The tracker DSN in client code is not a secret.** Sentry's DSN page (fetched 2026-10-10) says DSNs only allow submitting new events and give no read access. A browser SDK cannot send events without one. Do not report it, and do not route it to `secret-scan-method`. Event spam through a public DSN is mitigated by inbound filters and rotation, not by hiding the key. A Sentry **auth token** (`SENTRY_AUTH_TOKEN`, `sntrys_…`) in source *is* a secret and goes to security `secret-scan-method`.
 - **What an event may carry** (`sendDefaultPii`, `dataCollection`, `include_local_variables`, a `beforeSend` scrubber) goes to security `data-exposure-scan` § 6 when the security pack is installed. JS SDK 10 deprecated `sendDefaultPii` for `dataCollection`, so grep R covers both spellings (precedents § 47). Without the security pack, R rows are tagged `security-class (owner pack not installed)`, listed and never graded.
 - **A dropped or swallowed error** (an empty catch, a success-shaped return) goes to code-quality `error-handling-scan` when that pack is installed. §2 here starts only when nothing catches it at all, and §4 only when the boundary maps it to a 5xx.
 - **The error log's fidelity** (stack lost, wrong level) belongs to `log-signal-scan` §2 and §4. A boundary that logs without the stack is that skill's row, not §4's.
@@ -319,7 +319,7 @@ The verifier reads [`precedents/observability.md`](../../../../snippets/preceden
 
 - `/obs-audit` dispatches this skill and folds its block into the Error tracking ledger row. `/obs-fix` closes findings with the failing-first transport test, the fix at the init or base filter, a re-run of this detector, and the sibling search.
 - `log-signal-scan` (error-log fidelity, levels) and `trace-propagation-scan` (§5 flush, §9 tracker sampling) are this pack's neighbours. `@observability-reviewer` judges these rows.
-- `data-exposure-scan` § 6, `xss-scan` § 13 and `secret-scan` (security, when installed), `error-handling-scan` (code-quality, when installed): § Boundaries. Native symbol upload has no owner detector yet (§ Boundaries).
+- `data-exposure-scan` § 6, `xss-scan` § 13 and `secret-scan-method` (security, when installed), `error-handling-scan` (code-quality, when installed): § Boundaries. Native symbol upload has no owner detector yet (§ Boundaries).
 
 ## Sources
 

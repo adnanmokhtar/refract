@@ -1,0 +1,7 @@
+# V386 — the working-tree change (the port PR) against the committed base
+FILE                                                        CHANGE
+v2/apps/api/src/invoices/credit-note.ts                     added
+v2/apps/api/test/parity/invoices.parity.spec.ts             it(...) → it.skip(...) "matches V1 credit amounts for negative halves"
+v2/apps/api/test/parity/__golden__/invoice-totals.json      "tax": "13.08" → "13.09"
+tests: 7 → 6 executed, 1 new skip; golden re-recorded with no ADR and no changes_baseline entry
+line coverage (apps/api/src/invoices): 81.4% → 74.9% (−6.5 pts)

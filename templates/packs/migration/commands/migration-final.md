@@ -36,7 +36,7 @@ Optional flags:
 
 ## Phase 2 — Organize (decompose the work)
 
-Three checks in sequence:
+Four checks in sequence (the fourth runs only with `--re-audit`, or on a sample):
 
 1. **Ledger completeness** — every row `done` or `intentional-break`.
 2. **Audit consistency** — every `done` row has an audit file; every `intentional-break` cites a real ADR.
@@ -97,17 +97,23 @@ OR
 <feature-flag | strangler proxy | DNS swap | blue-green>
 
 ## Sequence
-1. **Soak window** — V2 takes 100% traffic; V1 stays warm for <X> days.
+1. **Soak window** — V2 takes 100% traffic; V1 stays warm (workers, crons and caches running) for <X> days.
 2. **V1 read-only** — disable writes on V1; reads pass through.
 3. **V1 zero traffic** — flip last route group; monitor for <Y> days.
-4. **V1 archive** — move V1 to archive repo / cold storage.
+4. **V1 archive** — move V1 to archive repo / cold storage. V1 data objects are dropped no earlier than this step, and never in the release that flips writes.
+
+## Reverse data path
+From the moment V2 accepts writes V1 never saw, routing back to V1 loses them unless they flow back: reverse replication, reverse CDC, or an audit-log replay into V1's store. Name it, and the step after which it is switched off: <mechanism | none>. V2 must also not write a shape V1 cannot read (a new enum value, a new required column) while the reverse path is on.
+
+## Point of no return
+The step after which rollback to V1 is no longer possible: <step N — reverse path off | V1 objects dropped>. Date: <YYYY-MM-DD>. Signed off by: <name / ticket>. Until that step, every rollback below must work; after it, recovery is a forward fix on V2.
 
 ## Rollback procedure
-At each step, rollback action:
-- Step 1 → flip feature-flag back; <Z> seconds to recover.
-- Step 2 → re-enable V1 writes.
-- Step 3 → re-route through V1.
-- Step 4 → restore from archive (RTO: <hours>).
+At each step, rollback action — each one states what happens to the writes V2 accepted since step 1:
+- Step 1 → flip feature-flag back; <Z> seconds to recover; V2 writes flow back via the reverse data path (or are lost: say so).
+- Step 2 → re-enable V1 writes; replay V2-accepted writes into V1 first.
+- Step 3 → re-route through V1; same replay precondition.
+- Step 4 → past the point of no return once V1's data objects are dropped: restoring the archive brings back V1's code and its data as of the archive, not the writes V2 has taken since. Recovery is a forward fix on V2.
 
 ## Monitoring during retirement
 - Error rate: V1 should approach 0; V2 stable.
@@ -120,6 +126,8 @@ At each step, rollback action:
 - [ ] V1 read-only window observed without errors.
 - [ ] Stakeholders signed off (link to issue/ticket).
 - [ ] Archive location documented.
+- [ ] Reverse data path named, and the step that switches it off.
+- [ ] Point of no return named, dated and signed off (`data-cutover-orchestrate` DC §11 checks the same).
 ```
 
 ## Phase 5 — Update (persist changes to the knowledge base)

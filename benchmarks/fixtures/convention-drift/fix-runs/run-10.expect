@@ -1,0 +1,5 @@
+# AL-34 (P-19): the 13px row "closed" with whitespace only
+diffkind FAIL
+scope FAIL
+redetect FAIL
+verdict FAIL

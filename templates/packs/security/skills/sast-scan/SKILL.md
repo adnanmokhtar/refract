@@ -10,7 +10,7 @@ allowed-tools: [Read, Grep, Glob, Bash, Write]
 
 ## Premise
 
-The class detectors in this pack (`injection-scan`, `xss-scan` and their siblings) are grep-and-read taint traces, and `secret-scan` / `deps-audit` run tools for their own narrow classes. This skill **runs the general-purpose static analyzers** — semgrep plus the stack's own security linter — so its output has two halves, and a run that delivers only one has not finished:
+The class detectors in this pack (`injection-scan`, `xss-scan` and their siblings) are grep-and-read taint traces, and `secret-scan-method` / `deps-audit` run tools for their own narrow classes. This skill **runs the general-purpose static analyzers** — semgrep plus the stack's own security linter — so its output has two halves, and a run that delivers only one has not finished:
 
 1. **A tool ledger.** Every analyzer the stack calls for gets one row: **RAN** (version, exit code, files scanned, raw hit count, output path), **SKIPPED** (with the reason — `n/a` only when pre-flight grep 1 proves the lane's language is absent; `errored` / `declined` otherwise), or **NOT-INSTALLED** (with the exact one-shot or install command printed). A tool that did not run is a coverage gap, never a pass: `/security-audit` § Phase 2 — Organize turns every non-`n/a` SKIPPED or NOT-INSTALLED row into a `COVERAGE:` gap, and a coverage gap forces `GO-UNVERIFIED`.
 2. **A triage of every hit.** Each one ends as a **confirmed finding** — `<file:line>` + the tainted source or failing condition + the fix + severity + the detector skill that owns the class — or a **false positive with a cited reason**. "semgrep flagged it" is not a finding, and "semgrep found nothing" is not a clean bill: on this skill's own test sample `pickle.loads(request.data)` passed `p/python` + `p/flask` while bandit B301 caught it.
@@ -18,7 +18,7 @@ The class detectors in this pack (`injection-scan`, `xss-scan` and their sibling
 Ground rules:
 - **Nothing installed globally without asking.** Prefer the project's own pinned tool, then a one-shot (`uvx` / `pipx run` / `npx` / `go run` / `docker run`). A global install (`brew`, `pipx install`, `gem install`) is printed as the NOT-INSTALLED command, not run.
 - **Output goes to a scratch dir outside the repo** (`$SCAN`, created at the top of § Scans for). Never write scanner config into the repo — no `.semgrep.yml`, no ESLint config, no `psalm.xml`, no `composer require`. The only repo write this run feeds is the summary `/security-audit` writes in its Phase 5.
-- **Not this skill's lanes:** committed secrets are `secret-scan`'s (§ 9 dispatches it — gitleaks is not re-run here); lockfile CVEs are `deps-audit`'s; Dockerfile / manifest / Terraform / CI-workflow rules are `iac-scan`'s.
+- **Not this skill's lanes:** committed secrets are `secret-scan-method`'s (§ 9 dispatches it — gitleaks is not re-run here); lockfile CVEs are `deps-audit`'s; Dockerfile / manifest / Terraform / CI-workflow rules are `iac-scan`'s.
 
 ## Adapt to the codebase
 
@@ -242,9 +242,9 @@ BAD:   Roslyn — 0 security warnings           // incremental build, nothing re
 GOOD:  dotnet NetAnalyzers (AnalysisModeSecurity=All)  RAN  --no-incremental  5 warnings (CA2100 ×2, CA3001, CA5350, CA5359)
 ```
 
-### 9. Secrets — dispatched to `secret-scan`
+### 9. Secrets — dispatched to `secret-scan-method`
 
-gitleaks is `secret-scan`'s lane and is not re-run here: dispatch that skill (its § Procedure steps 1 and 3, tree + history), or — inside a `/security-audit` run that already ran it — consume its result. semgrep `p/secrets` hits are handed to it for classification and deduplicated by `<file:line>`. The ledger row is `gitleaks — delegated → secret-scan: RAN there` or, if it did not run, `blocked`.
+gitleaks is `secret-scan-method`'s lane and is not re-run here: dispatch that skill (its § Procedure steps 1 and 3, tree + history), or — inside a `/security-audit` run that already ran it — consume its result. semgrep `p/secrets` hits are handed to it for classification and deduplicated by `<file:line>`. The ledger row is `gitleaks — delegated → secret-scan-method: RAN there` or, if it did not run, `blocked`.
 
 ### 10. Suppressions and exclusions — what the tools were told not to say
 
@@ -259,7 +259,7 @@ GOOD:  // eslint-disable-next-line security/detect-object-injection -- key is fr
 1. **Read the enclosing function.** Name the source (request field, header, file content, queue message, model output) and the sink, and confirm nothing upstream parameterizes, validates or encodes it. The scanner's severity is an input, never the verdict.
 2. **Confirmed** → `<file:line>` + source + fix + severity (`critical` / `high` / `medium` / `low`) + OWASP 2025 id + CWE (from the rule metadata: semgrep `extra.metadata.cwe`, bandit `issue_cwe.id`, gosec `cwe.id` (null on gosec's newer G7xx taint rules — take the CWE from the rule's class), FindSecBugs `<BugPattern>` / SARIF taxonomy) + the owning detector from the table below.
 3. **False positive** → cite the reason: constant or server-derived input (`<file:line>` of its origin), sanitizer or allow-list at `<file:line>`, dead code, or framework auto-encoding on this exact path. "Looks fine" is not a reason.
-4. **Test and fixture paths** (`test/`, `tests/`, `__tests__/`, `*_test.go`, `*.spec.*`, `*.test.*`, `fixtures/`, `testdata/`) → `note (test code)`, not a finding. Two exceptions: a `p/secrets` hit (a live key in a test is still a leak — hand it to `secret-scan`), and a test helper that production code imports. **Operator and agent tooling** (`scripts/`, `tools/`, `bin/`, `.claude/`, `.opencode/`, `ai/`) → `note (tooling)` once no image, deployed job or route runs it — cite the `rg` over Dockerfiles, deploy manifests and `package.json` that shows it; a CI-run script is still read for argv or env taken from the event.
+4. **Test and fixture paths** (`test/`, `tests/`, `__tests__/`, `*_test.go`, `*.spec.*`, `*.test.*`, `fixtures/`, `testdata/`) → `note (test code)`, not a finding. Two exceptions: a `p/secrets` hit (a live key in a test is still a leak — hand it to `secret-scan-method`), and a test helper that production code imports. **Operator and agent tooling** (`scripts/`, `tools/`, `bin/`, `.claude/`, `.opencode/`, `ai/`) → `note (tooling)` once no image, deployed job or route runs it — cite the `rg` over Dockerfiles, deploy manifests and `package.json` that shows it; a CI-run script is still read for argv or env taken from the event.
 5. **One finding per sink.** Two tools on the same `<file:line>` are one row carrying both rule ids. When a detector skill also traced that sink, the finding belongs to the detector and this skill's hit is listed under it as corroboration (`/security-audit` § Phase 2 — Organize, "Dedupe by `<file:line>`").
 6. **Monorepo scale — classify, then read what can be a finding.** "Every hit triaged" does not mean every hit read one by one: measured on a real NestJS-on-Fastify monorepo (9.2k linted files), `eslint-plugin-security` returned 3,616 hits, 2,256 of them `detect-object-injection`. The sanctioned path: split by path class (rule 4), then split production `detect-object-injection` hits by the token after the flagged node — a **write** (`obj[k] = v`) or **call** (`obj[k](…)`) is read in full; a **read** is one class closed with one reason ("no write or call — an inherited key yields `undefined` or a function, which fails closed or throws") after a spot-read of every lookup that decides authorization or picks a handler. Every other production rule is read per hit. There it left 269 rows to read — 189 writes, 2 calls, 78 hits of other rules — out of 1,322 production hits.
 ```bash
@@ -287,7 +287,7 @@ EOF
 | XSS, raw-HTML sinks, CSRF — CWE-79, 352; `no-unsanitized/*` | `xss-scan` |
 | Debug mode, stack traces, information exposure, secrets in logs — CWE-200, 209, 532; bandit B201 | `data-exposure-scan` |
 | SSRF, open redirect — CWE-918, 601 | `ssrf-scan` |
-| Hard-coded credential — CWE-798; `p/secrets` | `secret-scan` |
+| Hard-coded credential — CWE-798; `p/secrets` | `secret-scan-method` |
 | TOCTOU / race — CWE-362, 367 | `logic-race-scan` |
 | Weak hash or cipher, TLS verification off, weak random, unverified JWT signature — CWE-327, 328, 295, 338, 347; bandit B324 / B501; gosec G401 / G402 / G404 | **filed here** — no detector skill owns A04:2025 |
 | Timing-unsafe compare of a secret, token or signature — CWE-208; `security/detect-possible-timing-attacks` | `data-exposure-scan` § 13 |
@@ -311,7 +311,7 @@ Tool ledger (= class coverage)
   ### 7  psalm --taint-analysis       NOT-INSTALLED  blocked (no vendor/bin/psalm, no psalm.xml) —
                                                      composer require --dev vimeo/psalm && vendor/bin/psalm --init   (edits composer.json; declined)
   ### 8  Roslyn security              SKIPPED        N/A (no *.csproj)
-  ### 9  gitleaks                     delegated      → secret-scan: RAN there, result consumed
+  ### 9  gitleaks                     delegated      → secret-scan-method: RAN there, result consumed
   ### 10 suppressions                 checked (5 pragmas + 1 .semgrepignore line → 1 hides a confirmed sink)
   COVERAGE: 1 gap (psalm) — the audit verdict cannot be a clean GO.
 
@@ -367,12 +367,12 @@ Measured on this skill's own vulnerable sample on 2026-10-01 (semgrep 1.178.0, b
 - Halt on any hit left untriaged. Every hit ends as a finding or as a false positive with a cited reason. "Scanner noise" in bulk is not a triage; a path class or a syntax class closed with one checked reason (§ Triage rules 4 and 6) is, and the ledger counts each class.
 - Halt on a finding without `<file:line>` + source + fix + severity + owner. Do not report a scanner line as a finding before reading the enclosing function.
 - Do not install anything globally, add a dependency, or write scanner config into the repo without asking. Do not write scan output inside the repo.
-- Do not re-run gitleaks or a dependency audit here — dispatch `secret-scan` / `deps-audit`.
+- Do not re-run gitleaks or a dependency audit here — dispatch `secret-scan-method` / `deps-audit`.
 
 ## Related
 
 - `/security-audit` — dispatches this skill in § Phase 2 — Organize, turns its blocked rows into `COVERAGE:` gaps, and rates its suppression list in § Phase 6 — Validate. Its § Class coverage ledger has no row for this skill: the ledger above is this skill's coverage, and each confirmed finding lands in its owner's row.
 - `injection-scan`, `file-access-scan`, `xss-scan`, `data-exposure-scan`, `ssrf-scan`, `logic-race-scan` — the owners in the triage table. Their greps and this skill's analyzers are two nets over the same sinks; findings dedupe by `<file:line>`.
-- `secret-scan` — owns gitleaks / trufflehog and every secret hit (§ 9). `deps-audit` — owns lockfile CVEs. `iac-scan` — owns IaC and CI rulesets.
+- `secret-scan-method` — owns gitleaks / trufflehog and every secret hit (§ 9). `deps-audit` — owns lockfile CVEs. `iac-scan` — owns IaC and CI rulesets.
 - `@security-auditor` — its Output names semgrep and the per-language security linters as its static tools; this skill is where they actually run.
 - `rules/security-principles.md` — the MUSTs the confirmed findings are measured against.

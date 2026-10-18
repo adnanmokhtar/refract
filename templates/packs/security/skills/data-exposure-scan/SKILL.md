@@ -15,7 +15,7 @@ Most breaches start with reconnaissance the app gave away. A stack trace names t
 **Every finding cites the sink at `<file:line>`, what leaks and to whom (the failing condition), and the fix.** "Errors might leak" without the handler line and the field that reaches the client is not a finding. A grep hit is never a finding by itself: read the enclosing function, its middleware chain and the config that governs it in production.
 
 **Ownership, so nothing is reported twice:**
-- **Committed secrets** belong to `secret-scan`. This skill finds a secret only where the *running app* emits it: into a log, a response or a served file.
+- **Committed secrets** belong to `secret-scan-method`. This skill finds a secret only where the *running app* emits it: into a log, a response or a served file.
 - **The PII lifecycle and its regulation** (lawful basis, erasure, cross-border transfer) belong to `@data-privacy-reviewer`. This skill reports the leaking sink. That agent grades the personal-data consequence.
 - **BOPLA design** (the DTO architecture, mass assignment) belongs to `@api-security-reviewer` API3. § 4 here is the grep sweep that feeds it.
 - **Log injection** (CWE-117, forged log lines) is `injection-scan`'s. **Client-bundle source maps and secrets**, plus tokens kept in web storage, are `xss-scan`'s. **Path traversal** on read and download is `file-access-scan`'s. **Proxy banners, edge cache rules and dashboards exposed by infrastructure** are `iac-scan`'s. The **content of the edge access log** (what Caddy, nginx, an ingress or a load balancer writes per request) is this skill's § 6: it carries every URL and header secret the app itself redacts.
@@ -330,7 +330,7 @@ GOOD:  serve only a dedicated build-output directory; dotfiles ignored; backups 
        the image copies build output, not the checkout
 ```
 
-Grep 10a lists committed files and grep 10b the mounts. A `.env` or dump found here is **also** a `secret-scan` finding. Rotation and the history scrub are that skill's, and this skill reports the reachability. Source maps that the bundler emits into the production build are `xss-scan`'s. Upload storage inside the web root is `file-access-scan`'s. **Severity:** critical for `.git/`, `.env`, dumps or keys. High for server source served through a root mount. Medium for committed source maps. Low for `.DS_Store`.
+Grep 10a lists committed files and grep 10b the mounts. A `.env` or dump found here is **also** a `secret-scan-method` finding. Rotation and the history scrub are that skill's, and this skill reports the reachability. Source maps that the bundler emits into the production build are `xss-scan`'s. Upload storage inside the web root is `file-access-scan`'s. **Severity:** critical for `.git/`, `.env`, dumps or keys. High for server source served through a root mount. Medium for committed source maps. Low for `.DS_Store`.
 
 ### 11. GraphQL schema disclosure — A02 · CWE-200
 
@@ -445,7 +445,7 @@ Class coverage
 - `@api-security-reviewer`: API3 BOPLA design (§ 4), API2 keys in URLs (§ 7), API5 admin-function authorization (§ 3), and its GraphQL checklist (§ 11).
 - `@data-privacy-reviewer`: the PII consequence of § 4, § 6 and § 7 (lawful basis, erasure reach, regulation).
 - `@auth-reviewer`: § Account enumeration inside the auth ceremony. § 5 here sweeps the rest.
-- `secret-scan`: committed secrets, rotation and the history scrub. A `.env` or dump found by § 10 goes there too.
+- `secret-scan-method`: committed secrets, rotation and the history scrub. A `.env` or dump found by § 10 goes there too.
 - `xss-scan`: client-bundle source maps and secrets, tokens in web storage. `file-access-scan`: path traversal and uploads in the web root. `injection-scan`: log injection. `iac-scan`: proxy banners, edge cache rules, infra dashboards and the Dockerfile copy behind grep 10c. `sast-scan`: overlapping analyzer hits, deduped by `<file:line>`.
 - Backend pack, when installed: `backend/ai-patterns/error-handling.md` § Detectors (cite-or-halt) holds the single-mapper contract § 1's fix lands in, and `backend/ai-patterns/caching-strategy.md` holds cache-key design (§ 9). Without the backend pack, the BAD/GOOD pairs above are the contract.
 - Observability pack, when installed: `observability/ai-patterns/structured-logging.md` § Redaction holds the logger redaction contract § 6's fix lands in. Without it, § 6's GOOD line is the floor.

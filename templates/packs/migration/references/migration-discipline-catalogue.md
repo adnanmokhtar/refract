@@ -104,7 +104,7 @@ for a **detected framework name** (`templates/phases/phase-4.2-apply.md:210-213`
 - `.claude/skills/parity-test-generate/SKILL.md` — parity-test-generation procedure (inlined above).
 - `.claude/skills/perf-uplift-survey/SKILL.md` — perf-uplift-survey procedure (inlined above).
 - `.claude/agents/migration-architect.md` — strategic per-feature planner.
-- `.claude/agents/parity-auditor.md` — pre-cutover audit (Stage A halts inlined as the 10-halt checklist above).
+- `.claude/agents/parity-auditor.md` — pre-cutover audit; its Stage A resolves the rule's 13 hard halts (`migration-discipline.md § Per-feature audit — 13 hard halts`).
 - `.claude/commands/find-and-fix.md` — DEFAULT per-feature loop (detect → decide → fix → verify → record).
 - `.claude/commands/port-feature.md` — heavy-tier orchestrator (`--heavy` flag for full ceremony).
 - `.claude/commands/migration-phase.md` — phase orchestrator (chains via find-and-fix per row by default).
@@ -113,7 +113,7 @@ for a **detected framework name** (`templates/phases/phase-4.2-apply.md:210-213`
 ### Patterns (read by all tools as ai/ knowledge)
 
 - `ai/patterns/feature-port.md` — per-feature lifecycle (six phases per ledger row).
-- `ai/patterns/parity-testing.md` — test technique catalogue + tolerance taxonomy.
+- `ai/patterns/parity-testing.md` — test technique catalogue + the five-key tolerance taxonomy (`exact` / `structural` / `numeric_tolerance` / `order_insensitive` / `ignore`).
 - `ai/patterns/migration-ledger.md` — state-machine + record format.
 
 ### Cross-pack references
@@ -126,7 +126,8 @@ for a **detected framework name** (`templates/phases/phase-4.2-apply.md:210-213`
 
 ### Validator script (universal, runs from any tool)
 
-- `scripts/validate-migration-artifacts.sh` — validates contract sections, citation resolution, corpus size, tolerance coverage, plan presence, perf-decisions completeness, runbook presence. Runnable from CI / pre-commit / any tool's hook system. Tool-agnostic.
+- `scripts/validate-migration-artifacts.sh` — validates contract sections, citation resolution, corpus size, tolerance coverage, plan presence, perf-decisions completeness, runbook presence, gap parity, tier-scoped ledger fields, and — when `pair-inventory.py` lane TSVs exist for both sides — keyed V1↔V2 set diffs. Runnable from CI / pre-commit / any tool's hook system. Tool-agnostic.
+- `scripts/migration-reachability.sh` — halt 11's six axes: `--compute` counts callers per axis, `--lint` checks the reachability doc.
 
 ### For rule-only tools (Aider, Codex, Gemini, partial: Cline, Windsurf)
 

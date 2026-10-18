@@ -17,6 +17,9 @@ Every project running the migration pack declares an `ai/migration/_v2-anchors.m
 project_kind: frontend-vue3 | frontend-react | frontend-svelte | frontend-nuxt | backend-nest | backend-laravel
               | backend-python | data-warehouse | data-pipeline | mobile-flutter | mobile-react-native
               | mobile-native | api-other | mixed
+roots:                              # optional — one kind per V2 root, for a monorepo (see § Per-root kinds)
+  - { path: apps/api, kind: backend-nest }
+  - { path: apps/web, kind: frontend-react }
 v1_root: <path>                     # absolute or repo-relative; e.g. ../<frontend-v1>/
 v1_remote: origin                   # optional (default: origin) — the remote /migration-sync pulls V1 from
 v1_branch: main                     # optional (default: upstream of v1_root's checked-out branch) — /migration-sync
@@ -34,6 +37,37 @@ runbooks_dir: ai/runbooks
 ---
 
 # Project anchors — <project name>
+
+## Per-root kinds (`roots:`)
+
+`project_kind` is one value per repo. A monorepo that holds a NestJS API and a React app under one
+V2 root needs two primitive families, and one key cannot say that. `roots:` gives each V2 root its
+own kind:
+
+```yaml
+roots:
+  - { path: apps/api, kind: backend-nest }
+  - { path: apps/web, kind: frontend-react }
+  - { path: packages/contracts, kind: backend-nest }
+```
+
+How `validate-migration-artifacts.sh` reads it (`load_project_anchors`, `kind_for_path`, `family_for_file`):
+- One entry per line, in exactly the `- { path: <dir>, kind: <kind> }` form. Paths are repo-relative; a
+  trailing `/` is optional.
+- A file takes the kind of the **longest** root path that prefixes it. A file under no root (V1 files
+  usually) takes `project_kind`.
+- A root's kind is one family: `frontend-*`, `backend-*`, `data-*` or `mobile-*`.
+  `validate_project_kind_strict` fails an entry whose kind is `mixed`, `api-other` or anything else.
+  A directory that holds no primitives the validator counts (nginx, k8s and flag files) needs no
+  `roots:` entry.
+- Without `roots:`, `project_kind: mixed` picks the family per file from its extension (`.vue`, `.tsx`,
+  `.blade.php` → frontend; `.php`, `.py`, `.go`, a Nest `*.controller.ts` / `*.service.ts`, or a `.ts`
+  file that imports `@nestjs/`, express, fastify or an ORM → backend). Before that, `mixed` counted
+  frontend primitives only, so a NestJS + React monorepo got no backend counts.
+- The keyed comparison that replaces these counts is the `paired-inventory` engine
+  (`skills/paired-inventory`). The validator reads its lane TSVs with `--pair-inventory=<run dir>` and
+  `ai/migration/v1-inventory/`. `roots:` only decides which **count** family a file gets where no lane
+  covers it.
 
 ## Gold-standard files (per feature shape)
 
@@ -95,11 +129,13 @@ runbooks_dir: ai/runbooks
 > need a schema change — only a correct family prefix.
 >
 > **Pick the prefix that matches the primitives you want counted, not the one that reads best.**
-> `api-other` is accepted by the validator but matches no family branch: it falls through to the
+> `api-other` is accepted as `project_kind` but matches no family branch: it falls through to the
 > `*)` default, which counts **frontend** primitives (two-way form bindings, component tags,
 > click handlers). An API-only migration declared `api-other` is therefore inventoried against primitives
 > it does not have, and the tier promoter that fires when a primitive's V2 count is under 70% of
 > V1's fires on that noise. Declare `backend-other` instead — it takes the `backend-*` branch.
+> `mixed` decides per file (by its `roots:` entry, else by extension); `api-other` is never valid
+> as a `roots:` kind.
 
 route_cache_layout: <path to the project's route-cache / cache-shell layout file>
 route_cache_exclude_pattern: <regex matching the cache-exclude declaration>

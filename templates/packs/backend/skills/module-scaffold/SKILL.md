@@ -1,6 +1,6 @@
 ---
 name: module-scaffold
-description: Generate a complete module following the project's declared architecture — entity, repo, service/use-case, DTOs, controller, tests, DI wiring, migration. Use when creating a new feature module from scratch or replacing a prototype with a properly-layered version. Emits structure, not verified behaviour — run `endpoint-test` on each scaffolded route once wired.
+description: Generate a complete module following the project's declared architecture — entity, repo, service/use-case, DTOs, controller, tests, DI wiring, migration. Use when creating a new feature module from scratch or replacing a prototype with a properly-layered version. Emits structure, not verified behaviour — run `endpoint-test-method` on each scaffolded route once wired.
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -129,7 +129,7 @@ Next steps:
 ## Related
 
 - Used by `@api-architect` — that agent designs the module shape, then drives module-scaffold to generate the layered files against a named sibling.
-- `.claude/skills/endpoint-test/SKILL.md` — verify each scaffolded route end-to-end once the module is wired.
+- `.claude/skills/endpoint-test-method/SKILL.md` — verify each scaffolded route end-to-end once the module is wired.
 - `.claude/skills/api-snapshot/SKILL.md` — new endpoints surface as additive diffs; snapshot confirms the generated contract.
 - `ai/patterns/api-contract.md` — the input/output-DTO + envelope shape every generated DTO must follow.
 - `ai/patterns/multi-tenancy.md` — the tenant-filter invariant every generated repository query must include.

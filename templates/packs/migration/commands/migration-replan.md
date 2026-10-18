@@ -155,7 +155,7 @@ Next: /migration-phase <K+1>   (continue with the new plan from the next un-pass
 
 ## Mechanical halt — refuse to renumber passed phases or invent rows
 
-Before writing the new plan: (1) every `done` row keeps its original phase number — verify by diffing old plan vs new plan for `phase_passed_at` rows; if any moved, halt. (2) Every re-phased row traces to a current ledger entry — no invented rows. (3) `--reason` is mandatory and lands in `_history.md`; refuse the run without it. (4) If the prior plan archive at `_plan-archive/` cannot be written (path missing, permissions), halt — replan does not proceed without preserving the audit trail.
+Before writing the new plan: (1) every ledger row with `phase_passed_at` set (written by `/migration-gate` on PASS — the ledger, not the plan, carries it) keeps its original phase number — compare those rows' phase in the archived plan and the new one; if any moved, halt. (2) Every re-phased row traces to a current ledger entry — no invented rows. (3) `--reason` is mandatory and lands in `_history.md`; refuse the run without it. (4) If the prior plan archive at `_plan-archive/` cannot be written (path missing, permissions), halt — replan does not proceed without preserving the audit trail.
 
 ## Hard rules
 
@@ -164,7 +164,7 @@ Before writing the new plan: (1) every `done` row keeps its original phase numbe
 - **Original plan archived, never deleted.** `_plan-archive/` is the audit trail of how the plan evolved.
 - **No silent renumbering.** If `done` rows are kept in phase N but new active rows want to be in phase N too, that's allowed — phases CAN have a mix of done + active rows.
 - **Deprecated rows excluded.** `status: deprecated` features don't appear in any phase.
-- **Parked rows wait.** `status: parked` features are excluded from the new plan unless `--unpark-all` is passed.
+- **Parked rows wait.** `status: parked` features are excluded from the new plan; unpark each one first with `/migration-unpark <id>` (this command has no bulk-unpark flag).
 
 ## Related
 

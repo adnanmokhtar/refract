@@ -1,0 +1,40 @@
+{
+  "candidates": [
+    {
+      "id": "C1",
+      "site": "apps/web/src/hooks/use-order-filters.ts:7",
+      "oracle": "ai/conventions.md \"Hooks return objects, never tuples\"",
+      "claim": "hook returns a tuple-incompatible shape"
+    },
+    {
+      "id": "C2",
+      "site": "apps/web/src/features/orders/components/OrderCard.module.css:4",
+      "oracle": "eslint:no-hardcoded-colors",
+      "claim": "literal spacing in a CSS module"
+    },
+    {
+      "id": "C3",
+      "site": "apps/web/src/features/orders/components/CancelOrderDialog.tsx:1",
+      "oracle": "ai/conventions.md \"Feature code never imports `@radix-ui/*`.\"",
+      "claim": "raw Radix import"
+    },
+    {
+      "id": "C4",
+      "site": "apps/web/src/features/orders/api.ts:1",
+      "oracle": "eslint:no-restricted-imports",
+      "claim": "raw ky import"
+    },
+    {
+      "id": "C5",
+      "site": "apps/web/src/features/settings/SettingsPage.tsx:4",
+      "oracle": "ai/conventions.md \"Components use named exports; a component module never has a default export.\"",
+      "claim": "default export"
+    },
+    {
+      "id": "C6",
+      "site": "apps/web/src/hooks/use-cart-total.ts",
+      "oracle": "ai/conventions.md \"Hook files are camelCase and start with `use`\"",
+      "claim": "kebab-case hook file"
+    }
+  ]
+}

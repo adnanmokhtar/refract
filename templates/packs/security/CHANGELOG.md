@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.1 — 2026-10-18
+
+**Two commands were hidden.** Claude Code resolves a skill and a command with the same name to the skill (docs, 2026-10-18), so `/threat-model` and `/secret-scan` ran the read-only primitives instead of their sessions. The skills are now `threat-model-method` and `secret-scan-method` (agents preload them by the new names); the commands keep their names. A new check in `validate-pack-consistency.sh` fails any command/skill name collision.
+
 ## 2.4.0 — 2026-10-15
 
 **Detector fixes from a read-only re-audit of a real NestJS + React monorepo.** Misses first, because they hid real findings; every changed grep was re-measured on that repo and on `benchmarks/fixtures/*`, and new lanes are seeded in `vuln-fullstack` and `infra-ops` with a decoy each.

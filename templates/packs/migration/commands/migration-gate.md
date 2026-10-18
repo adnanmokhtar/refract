@@ -1,5 +1,5 @@
 ---
-description: Phase exit gate. Reads ledger + audits, confirms every feature in phase N is status=done with parity-test=passing. Refuses success on any failure. Read-only — never writes (except a one-line history entry).
+description: Phase exit gate. Reads ledger + audits, confirms every feature in phase N is status=done with parity-test=passing. Refuses success on any failure. Writes only on PASS — a history line + phase_passed_at.
 kind: command
 pack: migration
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
@@ -9,7 +9,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 ## Phases applied
 
-**1, 2, 3, 6** — Audit / review per `templates/canonical-command-template.md` § Phase selection. Phase 4 (Generate) N/A — the gate produces a verdict, not code. Phase 5 (Update) N/A except the single append-only `_history.md` line the verdict writes; nothing else is persisted. Phase 7 (Improve) N/A — a REFUSE routes the user to the command that fixes the gap; the gate itself learns nothing.
+**1, 2, 3, 6** — Audit / review per `templates/canonical-command-template.md` § Phase selection. Phase 4 (Generate) N/A — the gate produces a verdict, not code. Phase 5 (Update) runs on PASS only: one append-only `_history.md` line and the per-row `phase_passed_at` stamp in the ledger (§ Phase 5); a REFUSE writes nothing. Phase 7 (Improve) N/A — a REFUSE routes the user to the command that fixes the gap; the gate itself learns nothing.
 
 ## The Premise (read this first)
 
@@ -34,7 +34,7 @@ Inputs:
 
 **Tier-gated artifact verification**: for each feature in phase N, validate the artifact set required by the row's `tier:` field, NOT the heavy floor universally. See `migration-discipline.md` § Required artifacts per feature — tiered floor.
 
-- **Heavy tier**: the full 13-check matrix below — contract (9 sections) + plan + ≥30 corpus + tolerance + perf-decisions + runbook + audit + ledger row + ADR (if intentional break).
+- **Heavy tier**: the full 14-check matrix below — contract (9 sections) + plan + ≥30 corpus + tolerance + perf-decisions + runbook + audit + ledger row + ADR (if intentional break).
 - **Standard tier**: audit + 3-section contract (Inputs / Outputs / Known V1 bugs) + short plan + ≥10-fixture parity test + tolerance covering the 3-section contract's outputs + ledger row. Skip perf-decisions doc + runbook (folded into plan).
 - **Trivial tier**: audit + ledger row + (optional) the actual code edit. Skip contract / plan / parity tests / perf-decisions / runbook.
 
@@ -42,7 +42,7 @@ Without a tier on the row, default to **trivial** (matches `migration-discipline
 
 Refusal language MUST name the tier in any error: "feature F0XX (tier: standard) missing required artifact: 3-section contract" — never refuse a trivial feature for missing a perf-decisions doc.
 
-For each feature listed in phase N, run the **tier-scoped artifact verification** (full 13-check matrix below applies to heavy; standard + trivial subsets per the floor above):
+For each feature listed in phase N, run the **tier-scoped artifact verification** (full 14-check matrix below applies to heavy; standard + trivial subsets per the floor above):
 
 ### Ledger-level checks (5)
 1. status = `done` OR `intentional-break` (with `ADR-NNNN` populated). **`status: halted` is BLOCKED** — a halted row is an incomplete port, not an advance-eligible one. Fix the halt, park the row (`/migration-park`), or accept an ADR before the phase can exit.
@@ -52,17 +52,17 @@ For each feature listed in phase N, run the **tier-scoped artifact verification*
 5. cited ADR exists in `ai/decisions/` (when status = intentional-break)
 
 ### Artifact-existence checks (5)
-5. `ai/migration/contracts/<feature>.md` exists
-6. `ai/migration/plans/<feature>.md` exists
-7. `<parity-test-root>/<feature>/` exists with `tolerance.yaml` and ≥30 corpus inputs (or record-replay setup file)
-8. `ai/migration/perf-decisions/<feature>.md` exists
-9. `ai/runbooks/migration-rollback-<feature>.md` exists AND `ai/migration/audits/<feature>.md` exists
+6. `ai/migration/contracts/<feature>.md` exists
+7. `ai/migration/plans/<feature>.md` exists
+8. `<parity-test-root>/<feature>/` exists with `tolerance.yaml` and ≥30 corpus inputs (or record-replay setup file)
+9. `ai/migration/perf-decisions/<feature>.md` exists
+10. `ai/runbooks/migration-rollback-<feature>.md` exists AND `ai/migration/audits/<feature>.md` exists
 
 ### Content-quality checks (4)
-10. Contract has all 9 sections populated; every `<path:line>` citation resolves (validator script runs this check)
-11. tolerance.yaml covers every output field declared in the contract; every applied perf-decision has a measurement
-12. Audit file enumerates per-axis comparison without `&...` / "etc." / "..." / `N+ filters` / `and so on` / `deferred to port-phase parity` / `by audit-by-inspection` hand-waves; for frontend features, the Frontend axes section is populated (form fields enumerated, UI affordances enumerated, templated query params enumerated)
-13. **Audit provenance**: every audit MUST declare `auditor_agent_id: <Agent run ID>` (or `auditor_agent_id: rule-only-mode/<tool>/<UTC>` for rule-only tools) in YAML frontmatter. This proves the audit was produced by a `parity-auditor` agent dispatch (per `migration-phase.md § 4b`) and not echoed by an inline executor reading prior summaries (the F039 / Phase-6 trigger). Validator's `check_audit_provenance` enforces this.
+11. Contract has all 9 sections populated; every `<path:line>` citation resolves (validator script runs this check)
+12. tolerance.yaml covers every output field declared in the contract; every applied perf-decision has a measurement
+13. Audit file enumerates per-axis comparison without `&...` / "etc." / "..." / `N+ filters` / `and so on` / `deferred to port-phase parity` / `by audit-by-inspection` hand-waves; for frontend features, the Frontend axes section is populated (form fields enumerated, UI affordances enumerated, templated query params enumerated)
+14. **Audit provenance**: every audit MUST declare `auditor_agent_id: <Agent run ID>` (or `auditor_agent_id: rule-only-mode/<tool>/<UTC>` for rule-only tools) in YAML frontmatter. This proves the audit was produced by a `parity-auditor` agent dispatch (per `migration-phase.md § 4b`) and not echoed by an inline executor reading prior summaries (the F039 / Phase-6 trigger). Validator's `check_audit_provenance` enforces this.
 
 A feature failing any check is **BLOCKED**. The phase REFUSES until every blocked feature is resolved (re-port, ADR, deprecate, park, or restart `/migration-phase <N> --feature=<id>`).
 

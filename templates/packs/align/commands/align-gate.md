@@ -1,5 +1,5 @@
 ---
-description: Phase exit gate. Reads ai/align/ledger.md + ai/align/plan.md, validates every row in phase N is status=fixed (or archived/parked), runs the 14-check matrix (gap-count parity, net-lines ≤ 0, no new symbols, no scope creep, test/coverage/lint/typecheck green, frontend regressions green, idiom citation, security assertion + tier, perf baseline). Read-only — never writes (except a one-line history entry).
+description: "Phase exit gate for align: 17 checks over phase N — ledger state, line-level scope, re-detect zero, one way per pattern, test lock, emitted names, ratchet, VC approval, mechanical green. Read-only except one history line."
 kind: command
 pack: align
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
@@ -28,83 +28,45 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 - On a phase with uncommitted changes. Commit or stash first.
 - During an active alignment run (gate is end-of-phase only).
 
-## The 14-check matrix
+## The 17-check matrix
 
-**Dispatch `@align-gate-auditor`.** It owns this matrix, composes the PASS/REFUSE verdict, and is the artifact that keeps two invocations of the gate from running the checks two different ways. It in turn dispatches `@align-idiom-auditor` per functional row for checks 4, 9 and 11 rather than re-deriving those judgments at phase scope. Where agent dispatch is unavailable, run the matrix inline — it is identical, and `align-discipline.md` is self-sufficient for rule-only tools.
+**Dispatch `@align-gate-auditor`.** It owns this matrix, composes the PASS/REFUSE verdict, and is the artifact that keeps two invocations of the gate from running the checks two different ways. It dispatches `@align-idiom-auditor` per functional row for checks 4, 16 and 17 (its oracle half) rather than re-deriving those judgments at phase scope. Where agent dispatch is unavailable, run the matrix inline — it is identical, and `align-discipline.md` is self-sufficient for rule-only tools.
 
-The gate runs these 14 checks in order. The first failure surfaces; subsequent checks may run for additional context but the gate's verdict is REFUSE.
+The gate runs all 17 checks; the first failure sets the verdict to REFUSE and the rest still run, so one gate cycle shows every blocker. Two scripts carry most of it, run once each over the phase:
 
-### Check 1 — Ledger completeness
+```bash
+V=$(command -v validate-align-artifacts.sh || echo scripts/validate-align-artifacts.sh)
+G=$(find .claude/skills -path '*/find-and-align/scripts/align-sweep-gate.py' 2>/dev/null | head -1)
+TM=$(find .claude/skills -name token-map.py -path '*design-token-audit*' 2>/dev/null | head -1)
+RUN=$(mktemp -d "${TMPDIR:-/tmp}/align-gate.XXXXXX"); export GIT_OPTIONAL_LOCKS=0
+bash "$V" --phase="$N" --phase-base="$BASE" --strict > "$RUN/validate.txt" 2>&1; echo "validator exit $?"
+TMPDIR="$RUN" python3 -I "$G" ladder --all --repo=. --base="$BASE" --ledger=ai/align/ledger.md ${TM:+--tokens="$TM"} \
+  --json > "$RUN/ladder.json"; echo "sweep gate exit $? (0 PASS · 1 FAIL · 4 NOT RUN or pending-review)"
+```
 
-Every row in `ai/align/ledger.md` with `phase: <N>` has `status ∈ {fixed, archived-pre-existing, parked}`. Any `detected` / `in-progress` / `halted` row is a refusal.
+| # | Check | Source | Refusal condition |
+|---|---|---|---|
+| 1 | Ledger completeness | agent: every `phase: <N>` row's `status` | any `detected`, `planned`, `in-progress` or `halted` row. `routed`, `pending-approval`, `pending-ratification` and `parked` are listed by name and do not block; `pending-review` blocks (check 16) |
+| 2 | Gap-count parity | ledger | a `fixed` row with `gaps_closed ≠ len(evidence)` |
+| 3 | Net-lines ≤ 0 on structural rows | validator `check_net_lines_structural` | added > removed across a structural row's commits |
+| 4 | No new symbols | validator `check_no_new_symbols` + `@align-idiom-auditor` | a new public symbol no oracle names |
+| 5 | **Line-level scope** (V392, AL-34) | sweep gate `scope`; validator `check_scope_boundary` over **every** commit of the row | a removed line that is neither an evidence line nor the verb's footprint; an evidence line left unchanged; a file outside `scope` |
+| 6 | **Re-detect zero** (V391, V-00) | sweep gate `redetect` (the row's `detector_cmd`) | a hit at an evidence line, or a new hit in a touched file |
+| 7 | **One way per pattern** (V393, AL-33) | sweep gate `consistency` across the phase | one normalised before-value resolved to two after-values, unless they split by role |
+| 8 | **Tests locked** (V408, V-06) | sweep gate `lock-paths` + `lock-count` | a test, spec, snapshot, fixture, lint-config, baseline or oracle file in a row commit; test or assertion count at HEAD below base; coverage down more than the tolerance (check 15) |
+| 9 | **Emitted names exist** (V398, V-08) | sweep gate `names` | a token, import path or export the diff introduced that the declared set does not hold |
+| 10 | **Value round-trip** (V397, V-07) | sweep gate `roundtrip` (`token-map.py`, ui-ux pack) | an EQ token row whose new token does not equal the old literal in every theme and the same property family. `NOT RUN` with EQ token rows present (no ui-ux pack) refuses: those rows cannot be EQ |
+| 11 | **Non-vacuous** (V399, V-09) | sweep gate `vacuous` | a rule a row relies on matched 0 files, or its canary was not flagged |
+| 12 | **Ratchet shrink-only** (V395, V-04) | sweep gate `ratchet` | a baseline file grew, a suppression was added, a lint severity loosened (AL-30) |
+| 13 | **Proof class and approval** (V394/V396, V407) | validator `check_proof_class`, `check_vc_approval`; agent reads the L10 evidence | a fixed row with no `proof_class`; a VC row without `approval: <name>@<iso>`, or with an approval written in the fix commit; an EQ row with neither a zero-diff record nor the `(static EQ)` flag and its probe |
+| 14 | Mechanical pass + boot | agent: project lint, `tsc --noEmit --incremental false`, build, tests, `smoke-verify` at HEAD | any non-zero exit; a boot that fails |
+| 15 | Coverage within tolerance | sweep gate `lock-count` (coverage from the run JSON or `coverage-summary.json`) + agent | a drop beyond the project tolerance (default 0.5 pp, `ai/conventions.md § Coverage`); a drop > 5 pp is a hard fail |
+| 16 | Per-tier artifacts + idiom citation | validator `check_added_lines_cite_idioms` + agent | standard row without a 20–200-char rationale; heavy row without `impact_analysis_path` and `reviewer_approval`; a functional add with no resolving `idiom_cited` |
+| 17 | **Oracle cited, unmodified; owner rows routed** | validator `check_oracle_cited`, `check_oracle_unmodified`, `check_owner_routed` | a row whose `oracle:` is absent or whose quote no longer resolves; an oracle file in the phase diff; a security, performance, database or code-quality row closed (`fixed`/`verified`) in align instead of `routed` (the measured-baseline perf carve-out excepted) |
 
-### Check 2 — Gap-count parity
+A sweep-gate step that prints `NOT RUN` for rows it applies to is a **refusal** for that check, never a pass: the gate cannot certify what it did not run. A step structurally inapplicable to the phase (no token rows for check 10, no baseline file for check 12) prints `SKIP — <reason>`.
 
-For every `fixed` row, `gaps_closed == len(evidence)`. A row that closed 7 of 8 evidence sites is a refusal.
-
-### Check 3 — Net-lines on structural rows ≤ 0
-
-Run `git diff --shortstat <phase-base>..HEAD` filtered to commits whose row-id maps to a structural-class row. Lines-added must be ≤ lines-removed for the structural subset. Any net-positive structural diff is a refusal. Functional rows (security, perf, SOLID, clean-code) are exempt; their net-lines are governed by check 11 (idiom citation) instead.
-
-### Check 4 — No new symbols (idioms-named exemption)
-
-Run `git diff --diff-filter=A <phase-base>..HEAD -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.py' '*.go' '*.rb'` (extension list per PROJECT_KIND); grep for new exports / public functions / public classes. For each new symbol, confirm it's named in `_extracted-idioms.md` (the idiom inventory). New symbols NOT named in idioms are a refusal — that's a Reinvented Wrapper / Reinvented Idiom.
-
-### Check 5 — No scope creep
-
-For every commit in the phase, parse the row-id from the commit message; cross-reference the ledger row's `scope` field; confirm `git show --name-only <commit>` only touched files in `scope`. Any out-of-scope file is a refusal.
-
-### Check 6 — Mechanical pass (lint + typecheck + tests)
-
-Run the project's lint / typecheck / test commands at HEAD. Any error is a refusal.
-
-### Check 7 — Coverage non-decreasing (within tolerance)
-
-Run scoped coverage at `<phase-base>` and at HEAD; coverage % at HEAD must be ≥ coverage % at base **minus the tolerance threshold** (default 0.5%; configurable per project in `ai/conventions.md § Coverage`). A drop within tolerance is sample fluctuation, not a real regression — passes. A drop beyond tolerance is a refusal. See `ai/patterns/align-guardrails.md § Supporting mechanisms § Coverage tolerance`.
-
-(Security rows may shift coverage due to intentional behaviour change; the absolute % must still satisfy the tolerance rule. If a security row caused the drop, the test suite update should have offset it — investigate which test was deleted/skipped and re-add or update it.)
-
-### Check 8 — Frontend regressions (frontend stacks only)
-
-For `PROJECT_KIND in {frontend-*}`:
-- a11y test suite at HEAD must be ≥ baseline (no score drop).
-- Visual regression diffs reviewed and accepted (or zero diffs).
-- Bundle-size at HEAD ≤ baseline + 1%.
-
-Any regression is a refusal.
-
-### Check 9 — Oracle unmodified
-
-Run `git diff <phase-base>..HEAD -- '_extracted-idioms.md' 'ai/conventions.md' 'ai/architecture.md'`. Any non-empty diff is a refusal.
-
-### Check 10 — Per-tier artifact set complete
-
-For each fixed row:
-- **trivial**: ledger row + commit (validated by checks 1, 5).
-- **standard**: + `notes` field has 1-paragraph rationale (≤ 200 chars, > 20 chars).
-- **heavy**: + `impact_analysis_path: ai/align/impact/<id>.md` resolves AND the file has ≥ 1 reviewer-approval timestamp in `notes`.
-
-Missing artifacts at the row's tier = refusal.
-
-### Check 11 — Idiom citation for functional adds
-
-For each fixed row whose `class` is functional (solid-violation, clean-code, performance, security) AND the row's diff added lines: confirm the row's `idiom_cited` field resolves AND the cited idiom file appears in the diff's import lines (or the added block calls the named symbol from the idiom). Missing or unresolved citation = refusal. Validator: `check_added_lines_cite_idioms`.
-
-### Check 12 — Security assertion present
-
-For each `class=security` row in the phase, scan the row's commit for a co-committed test file change that asserts the security closure (gate denies, validator rejects, escape neutralises, parameterised query executes). Missing assertion = refusal. Validator: `check_security_assertion_present`.
-
-### Check 13 — Perf baseline + assertion present
-
-For each `class=performance` row in the phase, confirm:
-- The row's `notes` field contains a baseline (latency / queries / HTTP / wall-clock) — captured pre-fix.
-- The commit added a perf assertion (test asserting query count / wall-clock / cache hit) OR an observability annotation referencing the dashboard that will validate the fix.
-
-Missing baseline OR missing assertion = refusal. Validator: `check_perf_baseline_present`.
-
-### Check 14 — Security tier minimum
-
-For each `class=security` row in the phase, confirm `tier ∈ {standard, heavy}` (never `trivial`). For each row with `subclass ∈ {sql-injection, secret-in-code, unsafe-deserialize}` OR `severity == critical`, confirm `tier == heavy`. Tier violations = refusal.
+**What the matrix no longer holds.** The old checks 12 (security assertion), 13 (perf baseline) and 14 (security tier) graded security and perf fixes made inside align. Those rows are now routed to `/security-fix`, `/perf-fix` and `/db-fix`, which carry their own failing-first proofs, so check 17 refuses a phase that closed one here. The visual "diffs reviewed and accepted" line of the old check 8 is replaced by check 13: a visual change passes only with a named human approval.
 
 ## Pre-flight checks
 
@@ -112,7 +74,7 @@ For each `class=security` row in the phase, confirm `tier ∈ {standard, heavy}`
 2. `ai/align/ledger.md` exists and has rows with `phase: <N>`.
 3. Phase N's first commit exists (`git rev-list --grep='align/<N>/' HEAD --max-count=1` returns ≥ 1).
 4. No uncommitted changes (`git status --porcelain` empty).
-5. `scripts/validate-align-artifacts.sh` is present and executable.
+5. `scripts/validate-align-artifacts.sh` and `find-and-align`'s `align-sweep-gate.py` are present.
 
 If any pre-flight fails → halt + report.
 
@@ -129,26 +91,26 @@ No optional flags — this is a strict gate.
 
 ## Phase 2 — Organize (decompose the work)
 
-Run the 14 checks in parallel where independent. Grouping:
-- **Read-only on git/ledger** (parallel): 1, 2, 5, 9, 10, 11, 12, 13, 14.
-- **Diff-driven** (sequential): 3, 4 (need diff stat first).
-- **Heavy I/O** (background): 6 (lint+tc+tests), 7 (coverage), 8 (frontend regressions if `PROJECT_KIND in frontend-*`).
+Run the 17 checks in parallel where independent. Grouping:
+- **Ledger and validator** (parallel): 1, 2, 3, 4, 13, 16, 17.
+- **Sweep gate, one `ladder --all` run**: 5–12.
+- **Heavy I/O** (background): 14 (lint + types + build + tests + boot), 15 (coverage).
 
 Aggregate outputs into a verdict.
 
 ## Phase 3 — Retrieve (read the right context)
 
 - `align-discipline.md` — the rule the checks enforce.
-- `_extracted-codebase.md` — PROJECT_KIND for stack-conditional check 8.
+- `_extracted-codebase.md` — PROJECT_KIND, which picks check 14's lint, type, build and boot commands for the stack.
 - `scripts/validate-align-artifacts.sh` — the validator script that operationalises the checks.
 
 ## Phase 4 — Generate (produce the output)
 
 Verdict has three states:
 
-- **PASS** — all 14 checks green. Write 1-line history entry to `ai/align/gate-history.md`. Phase advances.
+- **PASS** — all 17 checks green (or `SKIP` with a structural reason). Write 1-line history entry to `ai/align/gate-history.md`. Phase advances.
 - **REFUSE** — any check failed. Surface failure + remediation. Phase stays in-progress.
-- **REFUSE-HARD** — multiple critical checks failed (1, 2, 6, 7, 9 simultaneously). Indicates the phase was rushed or mis-scoped; recommends `/align-rollback`.
+- **REFUSE-HARD** — several critical checks failed at once (any two of 5, 6, 7, 8, 14). Indicates the phase was rushed or mis-scoped; recommends `/align-rollback`.
 
 ## Phase 5 — Update (persist changes to the knowledge base)
 
@@ -162,7 +124,7 @@ On REFUSE: NO writes. The gate is read-only when refusing.
 ## Phase 6 — Validate (verify correctness)
 
 The gate's own correctness:
-- All 14 checks defined have an explicit pass / fail / skip outcome.
+- All 17 checks have an explicit pass / fail / skip outcome; every `NOT RUN` on an applicable row is a fail.
 - Skip outcomes (e.g., "frontend regression skipped because stack is backend") are documented in the verdict.
 - The verdict is REFUSE on any explicit fail.
 - The verdict is REFUSE-HARD on multiple critical fails.
@@ -173,8 +135,8 @@ The gate's own correctness:
 - If check 3 (net-lines ≤ 0) fails 2+ phases in a row, surface "closure-verb discipline drift" — the team is reaching for new abstractions; queue ADR.
 - If check 4 (no new symbols) fails, surface the specific new symbols added — these belong in `_extracted-idioms.md` if intentional (route to `/setup-project --refine`).
 - If check 5 (scope creep) fails, the scan's `scope` fields were too narrow OR the porter expanded scope mid-fix; queue review of scan-time scoping.
-- If check 7 (coverage drop) fails, the dead-code class is mis-tuned — branches the project's tests don't cover are surfacing as `dead-code` findings; queue ADR for "coverage-required for dead-code-flag".
-- If check 8 (frontend regressions) fails frequently, the visual regression baseline is unstable; queue baseline-refresh policy.
+- If check 7 (one way per pattern) fails, the token map is not context-keyed for that value; the decision belongs to a human, recorded in the oracle.
+- If check 13 fails on VC rows repeatedly, the scan is classifying nearest-token snaps as EQ; check the `token-map.py` lookups (precedents/align § 7, § 27).
 
 ## Output to user
 
@@ -186,20 +148,23 @@ Findings: <N> total (<F> fixed, <A> archived, <P> parked, <H> halted)
 Commit range: <base>..<HEAD>
 
 Checks:
-  1. Ledger completeness          PASS  (<N> rows accounted for)
+  1. Ledger completeness          PASS  (<F> fixed · <R> routed · <V> pending-approval · <G> pending-ratification · 0 open)
   2. Gap-count parity             PASS  (every row: gaps_closed == len(evidence))
   3. Net-lines on structural ≤ 0  PASS  (structural diff: +<X> / -<Y> = -<Z>)
-  4. No new symbols (idiom-only)  PASS  (0 new exports detected; or N new exports all named in _extracted-idioms.md)
-  5. No scope creep               PASS  (every commit's files ⊂ row.scope)
-  6. Mechanical (lint+tc+tests)   PASS  (lint: 0 errs, tc: 0 errs, tests: <T>/<T>)
-  7. Coverage non-decreasing      PASS  (<base>% → <head>%, +<delta>%)
-  8. Frontend regressions         PASS  (a11y: <baseline>→<head>, visual: <N> diffs accepted, bundle: +<%>)
-  9. Oracle unmodified            PASS  (no diff in _extracted-idioms.md / ai/conventions.md / ai/architecture.md)
- 10. Per-tier artifacts           PASS  (trivial: <T>, standard: <S> with rationale, heavy: <H> with impact + approval)
- 11. Functional adds cite idiom   PASS  (<F> functional rows; all cite resolving idioms)
- 12. Security assertions present  PASS  (<S> security rows; all have co-committed assertions)
- 13. Perf baseline + assertion    PASS  (<P> perf rows; all have baseline + assertion)
- 14. Security tier minimum        PASS  (no security row at trivial; all critical at heavy)
+  4. No new symbols               PASS  (0 new exports)
+  5. Line-level scope             PASS  (<H> hunks; every removed line an evidence line or footprint)
+  6. Re-detect zero               PASS  (<F> rows: 0 at evidence lines, 0 new in touched files)
+  7. One way per pattern          PASS  (<K> before-keys, 1 after each)
+  8. Tests locked                 PASS  (no test/snapshot/config file; tests 412 → 412, assertions 1,030 → 1,030)
+  9. Emitted names                PASS  (<T> tokens, <I> imports declared)
+ 10. Value round-trip             PASS  (<E> EQ token rows, light + dark)
+ 11. Non-vacuous                  PASS  (every rule matched ≥ 1 file)
+ 12. Ratchet shrink-only          SKIP  (no baseline file in the repo)
+ 13. Proof class + approval       PASS  (EQ <E> zero-diff · FN <F> behaviour tests · VC 1 approved ana@2026-10-18)
+ 14. Mechanical + boot            PASS  (lint 0 · tc 0 · tests 412 · boot pass)
+ 15. Coverage                     PASS  (81.4% → 81.2%, tolerance 0.5 pp)
+ 16. Per-tier + idiom citation    PASS  (trivial <T> · standard <S> with rationale · heavy 0)
+ 17. Oracle + owner routing       PASS  (every quote resolves · oracle files untouched · 3 owner rows routed, 0 closed here)
 
 Verdict: PASS  →  phase <N> advances; <F> rows flipped to status=verified.
 History: ai/align/gate-history.md (line <K>)
@@ -220,10 +185,10 @@ Findings: <N> total (<F> fixed, <A> archived, <P> parked, <H> halted)
 Commit range: <base>..<HEAD>
 
 Checks:
-  1. Ledger completeness          PASS
+  1. Ledger completeness          FAIL  ← row A012: status=halted
   2. Gap-count parity             FAIL  ← row A007: gaps_closed=2, len(evidence)=3
-                                          row A012: gaps_closed=0, len(evidence)=1 (status=halted)
-  3. Net-lines ≤ 0                PASS  (+12 / -45 = -33)
+  7. One way per pattern          FAIL  ← '#d92d20' → var(--color-danger) (A021) and var(--color-error) (A024)
+ 13. Proof class + approval       FAIL  ← A031 proof_class VC, approval empty
   ...
 
 Verdict: REFUSE  →  phase <N> stays in-progress.
@@ -232,6 +197,8 @@ Remediation:
   Row A007: re-run /align-phase <N> --start-from=A007 to close the remaining evidence site
             (the fix closed src/.../<leaf>:42 but missed src/.../<leaf>:67 — re-detect confirms)
   Row A012: halted (see ai/align/halts/A012.md). Resolve manually OR /align-park A012 <reason>.
+  Rows A021/A024: pick the token the oracle's role column names; revert the other row and re-run it.
+  Row A031: a human approves the visual diff (approval: <name>@<iso>) or the row goes to /polish.
 
 Re-run /align-gate <N> after resolving.
 ```
@@ -240,7 +207,8 @@ Re-run /align-gate <N> after resolving.
 
 The gate REFUSES on any check failure. It does NOT:
 - Soften a fail to a warning.
-- Skip a check because "the tool is unavailable" — that's a halt; the tool must be available or the gate REFUSES.
+- Skip a check because "the tool is unavailable" — that's a refusal; a sweep-gate step that is `NOT RUN` on applicable rows refuses its check.
+- Accept a visual diff without a named human approval in the ledger.
 - Pass a phase with `halted` rows in the ledger — halt rows must be resolved (fixed, parked, or rolled back) before the gate can pass.
 - Modify the ledger / source / oracle to "make the check pass" — gate is read-only when refusing.
 
@@ -248,15 +216,15 @@ The gate REFUSES on any check failure. It does NOT:
 
 - **Read-only on REFUSE.** Zero writes when any check fails.
 - **One history line on PASS.** No multi-line summaries; the verdict + commit-range are the record.
-- **All 14 checks run.** Skip-with-justification is allowed (e.g., frontend regression skipped on backend stack); silent skip is a refusal.
+- **All 17 checks run.** Skip-with-justification is allowed only when the check is structurally inapplicable (no token rows, no baseline file); silent skip is a refusal.
 - **Halted rows block the gate.** Resolve via `/align-park` (defer with reason) or fix manually before re-running.
-- **No partial passes.** Either all 14 checks green → PASS, or any check red → REFUSE.
+- **No partial passes.** Either all 17 checks green → PASS, or any check red → REFUSE.
 
 ## Failure modes
 
 - **Test suite times out** — gate doesn't soften; treat as fail. Configure the project's test-by-touched-files pattern OR allow longer timeout.
-- **Visual regression service unavailable** — gate doesn't soften; treat as fail. Re-run when service is back.
-- **Reviewer hasn't approved heavy row** — check 10 fails; gate REFUSES until approval lands in ledger row's `notes`.
+- **No visual-diff harness** — EQ rows carry `(static EQ)` with their probe and pass check 13 only with that flag; VC rows cannot pass without a diff and an approval.
+- **Reviewer hasn't approved heavy row** — check 16 fails; gate REFUSES until approval lands in ledger row's `notes`.
 - **Phase contains rows from prior runs (resumed)** — base commit is the resumed-from commit, not the original phase start; the validator uses `phase_base` from the ledger if present.
 - **`gate-history.md` missing** — created on first PASS; not an error.
 
@@ -270,12 +238,14 @@ The gate REFUSES on any check failure. It does NOT:
 - `/align-final` — final cross-phase sweep; this gate is the per-phase equivalent.
 
 ### Agents
-- `.claude/agents/align-gate-auditor.md` — owns the 14-check matrix and the PASS/REFUSE verdict; read-only on REFUSE, one history line on PASS.
-- `.claude/agents/align-idiom-auditor.md` — supplies the per-row verdicts behind checks 4 (no new symbols), 9 (oracle unmodified) and 11 (idiom citation).
+- `.claude/agents/align-gate-auditor.md` — owns the 17-check matrix and the PASS/REFUSE verdict; read-only on REFUSE, one history line on PASS.
+- `.claude/agents/align-idiom-auditor.md` — supplies the per-row verdicts behind checks 4 (no new symbols), 16 (idiom citation) and 17 (oracle unmodified).
 - `.claude/agents/align-ledger-auditor.md` — check 1 (ledger completeness) is the phase-scoped slice of its cross-phase reconciliation; dispatch it when check 1 fails and you need to know whether the drift is local to this phase.
 
-### Validator
-- `scripts/validate-align-artifacts.sh` — ships and defines **11 of the 14** checks: `check_evidence_resolves`, `check_no_handwaves`, `check_closure_verb_in_vocab`, `check_no_new_symbols`, `check_net_lines_structural`, `check_scope_boundary`, `check_security_tier_minimum`, `check_perf_baseline_present`, `check_security_assertion_present`, `check_added_lines_cite_idioms`, `check_oracle_unmodified`. Checks 1 (ledger completeness), 7 (coverage tolerance) and 8 (frontend regressions) have **no script implementation** — they are agent-side, run by `@align-gate-auditor`, and labelled as such in its report. `align-discipline.md` is self-sufficient so rule-only tools reach the same enforcement floor by following the inlined procedure.
+### Validator and sweep gate
+- `scripts/validate-align-artifacts.sh` — checks 2, 3, 4, 5 (file level, every row commit), 13, 16 (idiom citation), 17, plus the run-level scan evidence, progress reconciliation and actionable-next-steps checks.
+- `find-and-align`'s `scripts/align-sweep-gate.py` — checks 5 (line level), 6, 7, 8, 9, 10, 11, 12 and the coverage half of 15.
+- **Agent-side, no script:** 1 (ledger completeness), 14 (mechanical + boot), the zero-diff evidence in 13, and the tier artifacts in 16. `@align-gate-auditor` labels them `(agent-side)`.
 
 ### Rules
 - `.claude/rules/align-discipline.md` — the discipline this gate enforces.

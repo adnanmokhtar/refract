@@ -1,7 +1,7 @@
 # Proof oracles — the failing-first proof for each detector class
 
 Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
-`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix`, `/infra-fix`, `/ds-fix` and `/backend-fix` (reproduce failing-first, then validate the fix), and by every
+`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix`, `/infra-fix`, `/ds-fix`, `/backend-fix` and `/find-and-fix --from-audit` (reproduce failing-first, then validate the fix), and by every
 detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
 Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
 and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
@@ -22,6 +22,8 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## Infrastructure` | V244–V289 | — (new section) |
 | `## Distributed` | V291–V327 | — (new section; V290 is DevOps) |
 | `## Backend` | V328–V357 | — (new section) |
+| `## Migration` | V358–V388 | — (new section; V388 is PP-5, V1-gated suites) |
+| `## Align` | V389–V408 | — (new section; proof classes EQ / VC / FN) |
 
 ## Scope of use (read first)
 
@@ -3722,7 +3724,7 @@ pricing page; finops prices the candidates when installed. Log retention (V260) 
 
 #### V244. State lock, hygiene and plan discipline — parallel plan + test (`iac-state-scan` §1, §2, §4–§6)
 - backend `s3` with `dynamodb_table` only (deprecated), no `use_lockfile = true`, no `encrypt`; local state or no backend in a team repo (CODEOWNERS, a CI apply job); a committed `*.tfstate*`; Terragrunt `remote_state {}`; Pulumi `backend.url` / `PULUMI_BACKEND_URL`; Tofu `encryption {}` absent where policy needs it
-- TF-11: a secret-shaped `variable` without `sensitive = true`, outputs referencing it, `random_password` / `tls_private_key` outputs; a write-only `*_wo` argument or ephemeral resource available at the locked provider version and unused (TF-02 values → security `secret-scan`)
+- TF-11: a secret-shaped `variable` without `sensitive = true`, outputs referencing it, `random_password` / `tls_private_key` outputs; a write-only `*_wo` argument or ephemeral resource available at the locked provider version and unused (TF-02 values → security `secret-scan-method`)
 - TF-09 no scheduled `plan -refresh-only -detailed-exitcode`; TF-14 `-target=` / `-exclude=` outside a break-glass runbook; an apply of a fresh plan instead of the saved file; CFN `detect-stack-drift` never run
 - TF-12 `terraform.workspace ==` branching on prod; one backend key for every environment; prod and non-prod sharing credentials; TF-15 `default_tags` absent (plan `tags_all == {}`); TF-16 no `*.tftest.hcl`, `precondition` or `check` (low)
 - pass: one of two parallel `plan -lock-timeout=0s` fails on the lock; the state bucket is versioned; `terraform test` is clean of "Output refers to sensitive values"; a scheduled drift job exits 0 or 2, never unread
@@ -4300,7 +4302,7 @@ is V227 and V40; upload caps, repeated-key caps and money idempotency are securi
 
 **Scope of use.** A scratch database in a container and `${TMPDIR}` only — never the user's
 production database, queue or API. A runtime variant runs against `localhost` or a base URL the
-user named in `--live` as non-production, with the `endpoint-test` safety invariants (no writes to
+user named in `--live` as non-production, with the `endpoint-test-method` safety invariants (no writes to
 shared data without a scratch tenant, no load). Six rules hold for every variant below:
 
 - **The real bootstrap, never a hand-built one.** The app comes from the project's factory: its
@@ -4591,6 +4593,489 @@ superseded). Rows the research left [K]/[K?] (Spring Boot 4 and Jackson 3 defaul
 Nest 11 `ValidationPipe` rows (the `@nestjs/schedule` overlap default is settled from its 6.1.3 and 12.0.2 source on `cron` 4.4.0, V352), .NET, Rails, Laravel and Rust
 rows) are settled on the `backend-defects` fixture before a detector asserts them. Paraphrased; no
 text reproduced.
+
+## Migration
+
+A migration claim says that V2, the port meant to keep V1's behaviour, answers the same input with a
+different status, body, guard decision, stored value, side effect, schedule or row than V1 does: a
+route V1 serves 404s, a guard V1 enforced is gone, an empty string V1 nulled is stored, a negative
+half rounds the other way, an observer's email is never sent, a backfill overwrites a newer row, a
+parity suite never ran. Reading both trees does not settle these. The difference lives in defaults,
+global wiring and data the reader does not see, and "it is the same code in TypeScript" is the
+claim, not the proof. The oracle runs **V1 as the oracle**: the same input through both, then a
+comparison under a declared normaliser. It runs failing first on the **pre-fix V2**. Every oracle
+names a **family**:
+- **D**: differential replay, the same request or call on V1 and V2.
+- **J**: a side-effect journal, the multiset of outbound effects per request.
+- **M**: a permission matrix of (role × route × owner/tenant) cells.
+- **R**: a reconciler that must report seeded drift.
+- **P**: a property test with V1 as the model.
+- **S**: a static fact with both ends cited, the V1 line and the V2 line.
+
+Settled questions are in [`precedents/migration.md`](precedents/migration.md).
+
+Users:
+- the detectors `surface-parity-scan` (SP), `semantics-parity-scan` (SM), `side-effect-parity-scan` (SE), `data-cutover-orchestrate` (DC), `cutover-routing-scan` (CR) and `parity-proof-scan` (PF), over `paired-inventory`'s lanes (migration pack);
+- `/compare-v1`, which runs them, judged by `@parity-auditor` in refute mode with `@verifier` mode `refute` on every BLOCKER and HIGH it keeps;
+- `/find-and-fix --from-audit`, which writes each finding's failing-first test from its V-number;
+- `parity-test-generate`, which builds the corpus V358 and V387 grade.
+
+**Owned elsewhere.** These classes keep their own sections:
+- decimal digits, scale and ids above 2^53 on the wire → § Backend V339 (V363 routes the V1 cast lane there);
+- null and default handling in one codebase → V342; the coercion table → V341;
+- transaction and isolation in one codebase → § Data V5, V7 (V370 routes the V1 transaction inventory);
+- i18n rendering in one codebase → § Accessibility and UI states (i18n) (V369 routes the V1 catalog rows);
+- a skipped or never-collected suite → § Testing V61–V62 (V388 is the V1-gated case);
+- dual-write mechanics → § Distributed;
+- authz widening and tenant leaks → security, proven with [`exploit-payloads.md`](exploit-payloads.md) (V359's matrix supplies the cells).
+
+**Scope of use.** Scratch databases in containers and `${TMPDIR}` only. Never the production
+primary, never a live V1 that sends real mail, never a shadow that reaches real downstreams. Eight
+rules hold for every variant below:
+
+- **V1 is the pinned snapshot, never a moving checkout.** Extract V1 with `GIT_OPTIONAL_LOCKS=0 git -C "$V1" archive "$PIN" | tar -x -C "$RUN/v1"` at the ledger's `v1_commit_pinned`, and boot it there. Print `find -newer <stamp>` on both audited roots at the end; it must be empty.
+- **Both sides on their real bootstrap.** V2 is built from its own factory and module (§ Backend, real-bootstrap harness). V1 runs from the snapshot with its own vendor tree, kernel and middleware; a Laravel V1 is booted with `php artisan serve` or exercised by a Laravel HTTP test on the snapshot copy [K?: whether booting writes `bootstrap/cache/*` is unmeasured; it only ever touches the copy]. A V1 that cannot boot makes every D/J/M/P row `Unconfirmed (V1 not bootable: <reason>)`, never PASS.
+- **Same data on both sides.** Seed both from one fixture set, or restore one anonymised snapshot into two containers. Compare rows and effects on **business keys**, never surrogate ids.
+- **Normalise, then declare what the normaliser hides.** Run the comparator, `behavior-diff.py`, with its five tolerance keys (`exact`, `structural`, `numeric_tolerance`, `order_insensitive`, `ignore`), one key per path. An `ignore` entry is legal only for a path that differs between **two V1 runs** (calibration, `precedents/migration.md` § 10). `structural` never hides presence (§ 8), and status-only comparison is not a comparison (V385).
+- **Calibrate before reading V1-vs-V2.** Run V1 against V1 first: one run must show 0 mismatches after normalisation, or the noise floor is unknown and the comparison is `blocked (no control-vs-control run)`. The static lanes have their own calibration pair (`precedents/migration.md` § 22).
+- **Effects are counted where they land:** a Mailpit message, a WireMock journal entry, a queue message, an audit row, a search-index call. Log lines and handler invocations do not count.
+- **Fail first on the pre-fix V2, pass after, keep the control.** The variant fails before the fix and passes after, and the benign control (a route both sides agree on, an ADR-declared break with its `changes_baseline`) stays as it was.
+- **Paired vs solo.** In paired mode the oracle compares V1 to V2. In solo mode (no V1 tree, a recorded inventory) only guarantee classes are provable, by a V2-only invariant plus the recorded V1 line. Every other row is `Unconfirmed-solo` with "re-run with `--v1=<path>`" (`precedents/migration.md` § 21). A tool or suite that did not run is `NOT-RUN`, never PASS.
+
+### Oracle taxonomy (migration)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Differential replay** | D | the V1 corpus (route list, error paths, omitted optionals, boundary values) through V1 and V2 gives equal status class, `code`, field keys and body under the declared tolerance | V358, V361, V362, V366, V367, V376, V377, V378, V380, V383, V384 |
+| **Permission matrix** | M | for every (role × route × owner/tenant) cell, V2's decision ⊆ V1's (widening) and V1's ⊆ V2's (narrowing), status class equal | V359 |
+| **Property with V1 as model** | P | `normalise(V2(x)) == normalise(V1(x))` over generated inputs at the class's boundaries; shrinking hands back a minimal diverging input | V360, V363, V364, V365, V368 |
+| **Side-effect journal** | J | the multiset of (kind, target, normalised payload) per request is equal; in shadow mode the candidate emits 0 external effects | V371 |
+| **Seeded-drift reconciler** | R | the reconciler reports every seeded drift; a masked class is `Unconfirmed` | V374, V375, V379, V385 |
+| **Fault and flip drill** | D | kill, restart and flip under write load, then lost = 0, duplicated = 0; rollback after N V2 writes serves them on V1 | V370, V374, V381, V382 |
+| **Inventory equality** | S | the V1 inventory (consumers, schedules) maps 1:1 to V2 or to an ADR row | V372, V373 |
+| **Integrity gate** | D, S | the V1-pinned tests and goldens run unmodified, coverage holds, V1 branches are reached, the V1-gated suites executed k > 0 | V386, V387, V388 |
+| **Catalog render** | D | each key × locale × count renders the same form on both sides | V369 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V358 | Route-list replay | every live V1 route × method answers on V2 with the same status class; shapes, defaults and omitted optionals agree | D | `surface-parity-scan` §1, §2, §9; `parity-proof-scan` §3 |
+| V359 | Permission matrix | V2 ⊆ V1 per cell (widening → security), V1 ⊆ V2 (narrowing); the cross-tenant cell is refused on both | M | `surface-parity-scan` §3–§5 |
+| V360 | Enum round trip | every V1 value survives parse → store → serialise on V2; every V2 value is read by V1's consumers | P, D | `surface-parity-scan` §6 |
+| V361 | Boundary corpus | accept/reject **and** the stored value agree per field, including the global trim and empty→null | D | `surface-parity-scan` §7 |
+| V362 | Error corpus | status, `code` and field keys agree on every contract error path (message text tolerated) | D | `surface-parity-scan` §8; `parity-proof-scan` §3 |
+| V363 | Money property | V2(x) == V1(x) exactly at .5 ties, negatives, many-line sums and allocation remainders | P | `semantics-parity-scan` §1–§3 |
+| V364 | Integer property | division and modulo agree on negative operands and at the overflow bounds | P | `semantics-parity-scan` §4 |
+| V365 | String property | length, case, slicing and regex agree on multibyte, combining, emoji, Turkish İ/ı and RTL input | P | `semantics-parity-scan` §5 |
+| V366 | Order-sensitive list diff | the full order agrees on data with ties, mixed case and nulls, and pagination neither duplicates nor skips | D | `semantics-parity-scan` §6 |
+| V367 | Presence diff | `[]`, `{}`, `null`, absent, `"0"`, `false` and `0` render the same per field | D | `semantics-parity-scan` §7 |
+| V368 | Clock property | instants and dates agree across DST, month end, Feb 29 and server `TZ` ≠ UTC | P | `semantics-parity-scan` §8 |
+| V369 | Plural render | each key × locale × count {0,1,2,3,11,100} renders the same form | D | `semantics-parity-scan` §9 → frontend `i18n-scan` |
+| V370 | Crash and race probe | a crash mid-write and two concurrent writers leave the same state on both sides | D | `semantics-parity-scan` §10 → database `transaction-scan` |
+| V371 | Effect journal | the (entity, verb) effect multiset is equal; shadow emits 0 | J | `side-effect-parity-scan` §1, §2, §5; `cutover-routing-scan` §3 |
+| V372 | Consumer inventory | every non-app DB user, view, export and report maps to a V2 contract or a dated retirement | S | `side-effect-parity-scan` §3 |
+| V373 | Schedule equality | each V1 cron and consumer has a V2 entry with the same expression, zone and overlap rule, plus one dry run | S, D | `side-effect-parity-scan` §4 |
+| V374 | Backfill kill-resume | kill at 50% then resume: no duplicates, no gaps, no newer row overwritten | R | `data-cutover-orchestrate` §1–§2 |
+| V375 | Seeded drift | the reconciler reports every seeded drift class | R | `data-cutover-orchestrate` §3, §6 |
+| V376 | Two-path equality | one row through the backfill and the dual-write path is structurally equal, also after a mid-window mapping change | D | `data-cutover-orchestrate` §4, §12 |
+| V377 | Old-id resolution | every V1 id form resolves through V2 | D | `data-cutover-orchestrate` §5 |
+| V378 | Soft-delete probe | lists, counts, unique checks and exports exclude soft-deleted rows as V1 did | D | `data-cutover-orchestrate` §7 |
+| V379 | Pre-load anomalies | orphans per FK and duplicates per natural key are counted and each class has a decision | R | `data-cutover-orchestrate` §8 |
+| V380 | First insert after load | the first V2 insert per table succeeds | D | `data-cutover-orchestrate` §9 |
+| V381 | Flip under load | a write flip under write load: lost = 0, duplicated = 0 | D | `data-cutover-orchestrate` §10 |
+| V382 | Rollback rehearsal | after N V2 writes, V1 serves them after the flip back, in one step | D | `data-cutover-orchestrate` §11; `cutover-routing-scan` §4 |
+| V383 | Façade route probe | every ledger route, per method, reaches the declared side | D | `cutover-routing-scan` §1 |
+| V384 | Session crossing | a session from either side is valid on the other; CSRF and logout hold | D | `cutover-routing-scan` §2 |
+| V385 | Comparator self-check | one seeded mismatch per tolerance key is reported; both-raise with different errors is a mismatch | R | `parity-proof-scan` §5 |
+| V386 | V1-pinned integrity | the V1-pinned tests and goldens run unmodified, with no new skips and a coverage drop ≤ 5 points | D, S | `parity-proof-scan` §1 |
+| V387 | V1 branch floor | V1 branch coverage under the parity corpus ≥ the declared floor; unreached branches listed | D | `parity-proof-scan` §2 |
+| V388 | V1-gated suites ran | in the CI run that backs the claim, the V1-gated suites executed k > 0 tests, with the variable set by the job | D, S | `parity-proof-scan` §4 → testing `suite-execution-scan` §2c |
+
+Static-fact classes with no V of their own: a lane that failed calibration (`blocked`, never a
+row), a stale or re-hashed recorded inventory (`precedents/migration.md` § 24) and a `pair-map` row
+without a reason (`precedents/migration.md` § 26). Each is a precondition the coverage block prints, not a finding.
+
+### Harnesses (migration)
+
+- **Differential replay** (V358, V361, V362, V366, V367):
+  - Generate the corpus from the lanes: every live V1 route key from `paired-inventory`, each V1 FormRequest rule's boundaries, each error path in the contract.
+  - Send it to both bases with the same seeded data, recording status, headers and body.
+  - Compare with `behavior-diff.py` and a tolerance file whose every `ignore` path came from the V1-vs-V1 run.
+  - Record replay (GoReplay's middleware, Keploy record and replay with downstream mocks) is optional; it is never the only proof of a write route. GoReplay OSS has been frozen since 1.3.3 (2021-10-06); Keploy 3.6.141 (2026-10-18) mocks downstreams, which also isolates effects.
+  - oasdiff compares declared specs only; a lenient server passes it.
+- **Permission matrix** (V359):
+  - Take the cells from the I-AUTHZ lane: each role (anonymous, owner, non-owner, other tenant, suspended, API token, session), × each route of the feature, × HEAD and OPTIONS.
+  - Generate one test per cell and run it on both sides.
+  - The V1 ability table can come from spatie's `permission:show` (8.3.0), which reads the database, so run it on the restored copy. Without one, the matrix stays static.
+- **Property with V1 as the model** (V360, V363–V365, V368):
+  - fast-check 4.10.2: `fc.assert(fc.property(gen, async x => expect(norm(await v2(x))).toEqual(norm(await v1(x)))))`, with V1 called over HTTP or as a subprocess (`php -r`) of the snapshot.
+  - Hypothesis 6.170.1: `@given(...)`; for stateful flows, `RuleBasedStateMachine` with V1 as the model.
+  - Generators must hit the class boundaries in the variant list. Default strategies rarely reach `-2.5`, `0.285` or `İ`.
+  - A property that never fails on the pre-fix V2 proves nothing.
+- **Side-effect journal** (V371):
+  - Point both sides' SMTP at Mailpit (v1.31.6; REST under `/api/v1/`) and their outbound HTTP at WireMock (3.13.2; `GET /__admin/requests`, `/__admin/requests/unmatched`).
+  - Tap the queue: a recording consumer on a Testcontainers broker, or a snapshot of the outbox table.
+  - Diff the audit and activity tables on business keys, `EXCEPT` both directions.
+  - Normalise ids and times with identity-preserving tokens: the same input gives the same token.
+  - A Laravel V1 inside its own test suite can capture with `Mail::fake()` / `Http::fake()` [K?: unmeasured here].
+- **Seeded-drift reconciler** (V374, V375, V379, V385):
+  - Copy a sample into scratch V1 and V2 stores.
+  - Seed one row per drift class: a trailing space, case, sub-second, the last float digit, `''`/NULL, a zero date, `tinyint` 2, a NUL byte, double-encoded UTF-8.
+  - Run the project's reconciler exactly as configured. Each class it does not report is a mask (`precedents/migration.md` § 15).
+  - Tools: DVT 8.10.0 `data-validation validate row … --hash '*'` (RTRIM inside the hash; use `--comparison-fields` for exact values); pt-table-checksum for MySQL → MySQL only; Vitess VDiff; reladiff 0.6.0 (the archived `data-diff`, 2024-05-17, is not recommended).
+- **Fault and flip drill** (V370, V374, V381, V382): run the backfill against a scratch copy, kill it at 50%, and resume. Run the flip under a write generator, then roll back after N V2 writes that include a new enum value and a new required field. Assert the counts on both stores.
+- **Integrity gate** (V386–V388):
+  - `test-integrity.py` on the port diff: `new-skip` and `undeclared-baseline-rewrite` rows fail it.
+  - Run the V1-pinned test and golden set from the snapshot against V2.
+  - Line coverage comes from the project's tool on both sides (FreshBrew used JaCoCo 0.8.9 for Java).
+  - V1 branch coverage under the parity corpus comes from the V1 language's coverage driver. A PHP driver has not been measured here [K?].
+  - Mutation testing on V1 (testing `mutation-probe` when installed: Stryker, PIT, mutmut) grades the corpus.
+  - The CI log, as JUnit XML or the runner's summary, counts the executed V1-gated tests. A summary from the agent is not a log (`precedents/migration.md` § 20).
+
+### Class variants (migration)
+
+A fix passes the class only when every variant the pair has passes the oracle and the benign
+control still agrees.
+
+#### V358. Route, shape and silent-default parity — route-list replay (`surface-parity-scan` §1, §2, §9)
+- every live V1 route × method, resource routes expanded per action; `Route::fallback` and catch-alls; HTML-form method spoofing (`_method=PUT`); HEAD and OPTIONS derived from GET
+- trailing slash on and off; array query in both syntaxes (`a[]=1&a[]=2` and `a=1&a=2`); mixed-case paths; a lost param constraint (`whereNumber`); `page` 0, 1 and last+1; every optional param and body field omitted (page size, sort, currency, locale, boolean and ORM attribute defaults)
+- pass: no V1 route 404s on V2; the status class, the default page size and sort and the omitted-field values agree, or each difference is an ADR row with `changes_baseline` (a dead V1 route with an ADR is the control, `precedents/migration.md` § 2)
+
+#### V359. Guard parity — permission matrix (`surface-parity-scan` §3–§5; widening and tenant scope → security)
+- each role including anonymous; owner vs non-owner; another tenant; a suspended user; API token vs session; HEAD and OPTIONS; class-level and global guards (`APP_GUARD` with `@Public()`); FormRequest `authorize()`; policies; global scopes and soft-delete scopes on read paths
+- pass: V2 ⊆ V1 on every cell (no widening), V1 ⊆ V2 or an ADR (no undeclared narrowing), and the cross-tenant cell is refused on both sides (a guard moved to the gateway, read and cited, is the control)
+
+#### V360. Vocabulary parity — enum round trip (`surface-parity-scan` §6)
+- every V1 value through parse → store → serialise on V2, on the **wire**, **stored** and **label** forms separately; an unknown value from V1 consumers; integer-mapped Rails enums; ordinal JPA enums; MySQL `ENUM` `''` (the invalid-value index); `dto-types.py --routes` ENUM `member=value` against the V1 `case X = 'x'`
+- pass: every V1 value round-trips unchanged, every V2-only value is tolerated by V1's consumers, and a label-only change is low (a V2-only value with tolerant consumers is the control)
+
+#### V361. Rule parity — boundary corpus (`surface-parity-scan` §7; coercion in one codebase → V341)
+- empty, whitespace-only, leading and trailing spaces (V1's global `TrimStrings`), `""` vs `null` (V1's `ConvertEmptyStringsToNull`), max ±1 in bytes **and** characters, multibyte, `null`, wrong type, an unknown key (`whitelist` / `forbidNonWhitelisted` vs `$request->validated()`), a duplicate under a unique rule including a soft-deleted row, `sometimes` vs `required`, date formats
+- pass: accept/reject agrees **and** the stored value agrees per field; a global V1 pipe missing in V2 is one finding with N fields (`precedents/migration.md` § 27, § 29)
+
+#### V362. Error parity — error corpus (`surface-parity-scan` §8; `parity-proof-scan` §3; envelope correctness → backend V345)
+- every contract error path: validation (422 vs 400, all errors vs first, `errors.<field>` vs `message[]`), not-found (404 vs 200 `null`), conflict, auth (401 vs 403), throttling, a V1 bug that V2 "fixed"
+- pass: status, `code` and field keys agree (message text tolerated), or the difference is an ADR plus `changes_baseline` and a "Known V1 bugs" row (`precedents/migration.md` § 3, § 31)
+
+#### V363. Money parity — money property (`semantics-parity-scan` §1–§3; precision on the wire → V339)
+- x.5 at each scale, positive and negative (PHP `round(-2.5)` −3 vs JS `Math.round(-2.5)` −2); `0.285` under PHP 8.4 vs earlier; `1.005` through `toFixed`; per-line vs per-total tax on many-line carts; allocation remainders (100.00 three ways); 1e15 + cents; ids above 2^53; MySQL DECIMAL vs DOUBLE and Postgres `round(numeric)` vs `round(double)` when the arithmetic moved into SQL
+- pass: V2(x) == V1(x) exactly on every stored, charged or reported amount, and parts sum to the total (display-only rounding is the control, `precedents/migration.md` § 11, § 33)
+
+#### V364. Integer parity — integer property (`semantics-parity-scan` §4)
+- negative dividend and divisor; zero; Python `//` and `%` (floor) vs JS, Java and Go (truncate); PHP `intdiv` vs `/` (float); overflow bounds where V1 promoted to big integers
+- pass: quotient and remainder agree on every sign combination, and overflow fails the same way
+
+#### V365. String parity — string property (`semantics-parity-scan` §5)
+- ASCII, Latin-1, combining marks (NFC vs NFD), emoji (surrogate pairs at a length limit), Turkish İ/ı, RTL, Arabic-Indic digits in numeric fields; `strlen` (bytes) vs `.length` (UTF-16 units); `strtolower` vs `toLowerCase`; regex flavour (`\d` Unicode vs ASCII, `$` before a trailing newline, lookbehind under RE2); `array_search` 0 vs `false`; `substr` with negative arguments; `explode` with a limit
+- pass: length checks, case folds, slices, splits and matches agree on every input (an ASCII-only field by validated contract is the control)
+
+#### V366. Order parity — order-sensitive list diff (`semantics-parity-scan` §6)
+- data with ties on the sort key; mixed case under MySQL `_ci` vs Postgres deterministic collations; nulls first vs last; pagination across ties; a V1 query with no `ORDER BY` that relied on InnoDB PK order; `->first()` without an order
+- pass: the full order agrees wherever a consumer depends on it, and pagination returns every row once (an order the contract declares unspecified with no consumer is the control, `precedents/migration.md` § 7)
+
+#### V367. Presence parity — presence diff (`semantics-parity-scan` §7)
+- an empty list, an empty map (`json_encode([])` gives `[]`), a non-sequential array after `unset`, a null relation, an absent optional, `"0"`, `false`, `0`, `12.0` vs `12`
+- pass: each field renders with the same presence and shape on both sides, or every consumer is proven presence-tolerant
+
+#### V368. Time parity — clock property (`semantics-parity-scan` §8; time binding in one codebase → V347)
+- DST forward and back; end of month (`addMonth` on the 31st); Feb 29; server `TZ` ≠ UTC on either side; a non-UTC user zone; ISO week 53; `Carbon::parse` / `strtotime` leniency vs `new Date` / Day.js strict parsing; JS months 0-indexed
+- pass: the same instant and the same calendar date on both sides at every point (UTC end to end on both is the control)
+
+#### V369. Catalog parity — plural render (`semantics-parity-scan` §9 → frontend `i18n-scan`; `catalog-parity.py --v1` supplies the rows)
+- each key × locale × count {0, 1, 2, 3, 11, 100}; Laravel pipe forms and `{0}` / `[1,19]` / `[20,*]` ranges vs CLDR categories (Arabic: zero one two few many other); `:name` vs `{{name}}`; a missing key (Laravel returns the key); the fallback locale; RTL
+- pass: every count renders the form V1 rendered, or the form CLDR requires where V1 was wrong (an ADR row); placeholders match
+
+#### V370. Transaction parity — crash and race probe (`semantics-parity-scan` §10 → database `transaction-scan`)
+- a crash mid-write on a path V1 wrapped in a base-service `DB::transaction`; two concurrent writers on one row; a `lockForUpdate` dropped in the port; MySQL REPEATABLE READ → Postgres READ COMMITTED on a read-modify-write
+- pass: no partial write and no lost update on V2 where V1 had none
+
+#### V371. Effect parity — effect journal (`side-effect-parity-scan` §1, §2, §5; `cutover-routing-scan` §3)
+- create, update, delete and restore per entity; bulk paths; queued vs sync; effects declared by observers, `$dispatchesEvents`, `booted()` closures, traits (`LogsActivity`, `Searchable`, `Notifiable`) and DB triggers, procedures, generated columns and cascades; shadow and dual-run modes
+- pass: the (entity, verb) effect multiset is equal; in shadow mode the candidate emits **zero** external effects; no effect fires before commit where V1 waited for it (an effect moved to a V2 subscriber in another module, read and cited, is the control)
+
+#### V372. Hidden consumers — consumer inventory (`side-effect-parity-scan` §3)
+- every non-app DB user and grant; views; scheduled exports; report SQL; BI extracts; partner file drops; queries in other repositories against V1 table names; reads seen in `pg_stat_statements` or the general log over a window
+- pass: each consumer maps to a V2 contract or a compatibility view, or has a dated retirement with its owner's sign-off
+
+#### V373. Schedule parity — schedule equality (`side-effect-parity-scan` §4)
+- each V1 `schedule:list` entry and queue consumer; cron expression, time zone, overlap guard (`withoutOverlapping`), one-server rule (`onOneServer`); a job moved to a k8s `CronJob`; BullMQ `repeat`; `@Cron` / `@Interval`
+- pass: a V2 entry with the same expression, zone and overlap rule for every V1 entry, plus one dry run each on a snapshot
+
+#### V374. Backfill safety — backfill kill-resume (`data-cutover-orchestrate` §1–§2)
+- kill at 50% then resume; a double run; a live update between the snapshot and the backfill; a tail range that stalls; throttling under load
+- pass: no duplicates, no gaps, no newer row overwritten (a version or `updated_at` guard on the upsert), and the run resumes from its checkpoint
+
+#### V375. Reconciler strength — seeded drift (`data-cutover-orchestrate` §3, §6)
+- a trailing space, case, sub-second, the last float digit, `''` vs NULL, a zero date, `tinyint(1)` holding 2, a NUL byte, double-encoded UTF-8, `_ci` duplicates, pgloader's default casts
+- pass: the reconciler as configured reports every seeded row; each class it misses is listed as masked and Unconfirmed
+
+#### V376. Mapper agreement — two-path equality (`data-cutover-orchestrate` §4, §12)
+- one row through the backfill mapper and through the dual-write mapper; a mapping change after the checkpoint started
+- pass: both rows are structurally equal, and a mid-window mapping change triggers a re-backfill of the affected ranges
+
+#### V377. Old-id resolution (`data-cutover-orchestrate` §5)
+- an old integer id in a URL, an API call, a webhook payload, an email link and payment-provider metadata, after an int → UUID change
+- pass: every old form resolves (a unique `legacy_id` and a redirect or lookup)
+
+#### V378. Soft-delete semantics — soft-delete probe (`data-cutover-orchestrate` §7)
+- soft-deleted rows present in a list, a count, a unique check (V1's partial unique index) and an export; restore
+- pass: V2 excludes them exactly where V1 did (soft-deleted rows filtered at backfill with a reason is the control)
+
+#### V379. Load anomalies — pre-load anomaly counts (`data-cutover-orchestrate` §8)
+- orphans per FK (`LEFT JOIN … WHERE parent.id IS NULL`); duplicates per natural key (`GROUP BY … HAVING count(*) > 1`, also under `lower()`)
+- pass: each class is counted before load and has a recorded decision; nothing is dropped silently by `ON CONFLICT DO NOTHING`
+
+#### V380. Sequence reset — first insert after load (`data-cutover-orchestrate` §9)
+- every table loaded with explicit ids
+- pass: the first V2 insert per table succeeds (`setval` / `RESTART` ran; pgloader resets by default, a hand-written COPY does not)
+
+#### V381. Fenced flip — flip under load (`data-cutover-orchestrate` §10)
+- the read flip gated on checkpoint-complete **and** reconcile-green; the write flip under write load with version-token fencing or a pool pause plus revoke
+- pass: lost = 0 and duplicated = 0 across the flip
+
+#### V382. Reversibility — rollback rehearsal (`data-cutover-orchestrate` §11; `cutover-routing-scan` §4)
+- roll back after N V2 writes, including a new enum value and a new required column; V1 workers, caches and crons kept warm until the soak ends; the flag reversible in one step; the point of no return named and signed
+- pass: V1 serves the V2-written rows after one flag change, and no V1 object is dropped in the release that flips writes
+
+#### V383. Façade routing — façade route probe (`cutover-routing-scan` §1)
+- each ledger route on the declared side; per method; prefix vs exact match; a sub-path under a migrated prefix that V2 does not serve
+- pass: every probe lands on the declared side
+
+#### V384. Session crossing (`cutover-routing-scan` §2)
+- a V1 session used on V2 and the reverse; the cookie name, domain, path and `SameSite`; the session serialisation format; JWT keys and claims; the CSRF token source; logout on one side
+- pass: identity carries across both halves on every route both serve during the window (`precedents/migration.md` § 19)
+
+#### V385. Comparator blind spots — comparator self-check (`parity-proof-scan` §5)
+- one seeded mismatch per tolerance key in the tolerance file; both sides raising different errors; a status-only comparison; a presence change under `structural`; an `ignore` wider than the V1-vs-V1 noise; a loosening committed without an ADR
+- pass: `behavior-diff.py` reports every seed, and both-raise with different errors is a mismatch
+
+#### V386. Tests kept — V1-pinned integrity (`parity-proof-scan` §1)
+- the port diff against the V1-pinned set: edited tests, added `skip` / `xit` / `@Disabled` / `pytest.mark.skip` / `t.Skip`, re-recorded goldens (`-u`, `--update-snapshots`, `UPDATE_GOLDEN`), build-config excludes (a Surefire exclusion, a conditional skip on the runtime), removed assertions
+- pass: the V1-pinned set runs unmodified against V2, `test-integrity.py` reports no `new-skip` or `undeclared-baseline-rewrite`, and line coverage drops ≤ 5 points (a test moved 1:1 with a mapping is the control)
+
+#### V387. Corpus reach — V1 branch floor (`parity-proof-scan` §2)
+- V1 branch coverage under the parity corpus; the unreached branches; surviving V1 mutants under the corpus
+- pass: coverage meets the declared floor, every unreached branch is listed with a witness input or a reason, and an input count alone (halt 2's floor of 30) is never the floor
+
+#### V388. Parity suites ran — V1-gated execution (`parity-proof-scan` §4 → testing `suite-execution-scan` §2c)
+- each `v1` row of `gated-suites.tsv` (`HAS_V1 ? describe : describe.skip`, `process.env.V1_REPO_PATH`, `skipif(not os.environ…V1…)`); the CI job that runs the file and its `env:`; a second job that sets the variable for another suite (the decoy)
+- pass: the CI run backing the parity claim executed k > 0 tests from every gated suite the claim rests on, with the variable set by that job; otherwise each dependent claim is `NOT-RUN` and the verdict is at most GO-UNVERIFIED (`precedents/migration.md` § 25)
+
+### Sources (migration)
+
+The migration research catalog (2026-10-18) gives § 5's oracle families and V358–V387. Its notes A
+(parity-proof tooling and LLM-port evidence) give the tool rows: GitHub Scientist 1.6.5, Diffy (CC
+BY-NC-ND 4.0, design reference only), GoReplay 1.3.3, Keploy 3.6.141, Mailpit 1.31.6, WireMock 3.13.2,
+fast-check 4.10.2, Hypothesis 6.170.1 and oasdiff. They also give FreshBrew (arXiv 2510.04852;
+JaCoCo 0.8.9, the 5-point gate) and MigrationBench (arXiv 2505.09569 v3). Its notes B (data
+cutover, drift classes and upgrade tooling) give DVT 8.10.0, pt-table-checksum, AWS DMS validation,
+Vitess VDiff, reladiff 0.6.0, pgloader's casts, the PHP, JS, MySQL and Postgres rounding and
+ordering facts, the Laravel 12.x request, validation and localization docs, and NestJS validation.
+The batch-6 migration eval (2026-10-18) § 4.3–§ 4.8 maps each V to its detector §. It adds V388
+(PP-5: V1-gated suites, from the testing pack's measured `describeV1 = HAS_V1 ? describe :
+describe.skip` shape) and appends the section after § Backend with no V reused. Rows tagged [K?] are
+settled on the `port-pair` fixture before a detector asserts them. Paraphrased; no text reproduced.
+
+## Align
+
+An align claim says a live site does not follow a convention the project **declares**: a literal
+where a token of the same value exists, a raw import where a wrapper exists, a name against a
+declared case rule, a file outside the declared skeleton, a reasonless suppression of a convention
+rule, a baseline that grew. An align fix says the rewrite applied that convention and changed
+nothing else. Reading settles neither. The quoted rule may exist nowhere (AL-01). A token "match"
+may belong to another property family. One pattern may be resolved two ways across files. An
+over-edit, a snapshot update or a weakened assertion may ride inside the commit. So the oracles
+here are deterministic, and they run cheapest first, the `find-and-align` ladder L0–L13. An LLM
+judge is advisory: it can move a PASS to `pending-review`, never a FAIL to PASS. Every fix row
+carries a **proof class**:
+- **EQ**, exact equivalence: the value round-trips per theme within one property family, with exactly one semantic candidate; or the wrapper's defaults reproduce the raw call's props; or the literal equals an existing catalog value. Proven by a zero diff (V394 or V396).
+- **VC**, visible change: a snap to the nearest token, or a wrapper with different defaults. Proven only by an approved visual diff (V407).
+- **FN**, a functional verb that adds an owned idiom (`add-gate` with the declared `<Can>`). Proven by a behaviour test (V401).
+
+Settled questions are in [`precedents/align.md`](precedents/align.md).
+
+Users:
+- the detectors `convention-oracle` (AL-01–04, `oracle-map.py`), `wrapper-adoption-scan` (AL-11, 13, 14, 15, 22), `naming-layout-scan` (AL-16–19, `name-check.py`) and `convention-ratchet-scan` (AL-29–32) (align pack), dispatched by `align-detect`;
+- `/align-scan`, the read-only audit, which runs every candidate through `refute-before-report.md` § 10;
+- `find-and-align` under `/align`, `/align-phase` and `/align-fast`, which runs the ladder per row, with `align-sweep-gate.py` (AL-33, AL-34) for the run-level gates.
+
+**Owned elsewhere.** These classes keep their own sections, and align closes only their EQ rows:
+- token drift and a re-implemented DS component → § Accessibility and UI states V141 (token conformance) and V142 (behavioural diff); V394, V396 and V397 prove align's swap of an EQ row;
+- hard-coded copy and catalog defects → V132 and V133 (frontend `i18n-scan`); V405 is the EQ-key closure only;
+- a suppression hiding a correctness diagnostic → § Code quality V84; a copy that diverged from the named helper → V85 (`/quality-fix`);
+- layering and cycles → code-quality `architectural-diagnosis`, re-proved after an align re-route by V404;
+- envelope, casing and pagination → § Backend (`edge-error-scan`, `api-consistency-audit`).
+
+**Scope of use.** Scratch copies, the run folder (`$RUN`) and `${TMPDIR}` only. Eight rules hold for every variant below:
+
+- **Never write into the audited repo.** Run project-local binaries only (`node_modules/.bin/eslint`, `ls-lint`, `sg`, `stylelint`, `depcruise`, `ruff`, `lint-imports`, `spectral`). Never `npx -y`, which fetches from the network and fills a `$HOME` cache. Run ESLint and stylelint without `--cache`, Ruff with `--no-cache`, and `tsc --noEmit --incremental false` (the default cache locations of Ruff and of incremental `tsc` are [K?] and are settled at build). Playwright writes to `--output=$RUN/pw`. Git reads use `GIT_OPTIONAL_LOCKS=0` from the first call. Print `find -newer <stamp>` on the audited root at the end; it must be empty.
+- **Offline by default.** A missing binary prints the class `blocked (<tool> not installed)` and falls back to the static greps. `--online` opts in, and installs go only into `$RUN/tools`. Before any CLI, set the telemetry opt-outs: `DO_NOT_TRACK=1 CI=true` plus each tool's own variable (the Nx, Turbo, Storybook and Next names are [K?] until checked against each tool's docs). Never Omlet or Chromatic: their data leaves the machine.
+- **Versions from lockfiles.** On ESLint ≥ 10 only flat config counts. On a TypeScript-7-only repo (no `@typescript/typescript6` alias), typed rules and ts-morph are `NOT RUN`, never zero. After an eslint-plugin-boundaries v7 or unicorn v65 bump, a count jump is a rebaseline (`precedents/align.md` § 3).
+- **Rule first where expressible.** Write or extend a `no-restricted-imports` / `no-restricted-syntax` rule, or an ast-grep rule with `fix`. Give it BAD and GOOD tests (`RuleTester`, or `sg test`, which reports **Noisy** and **Missing**). Run it from the run folder on a 5–10% sample, read every diff, then sweep. The rule is committed only when the row's closure is "enable the rule".
+- **Tests are read-only.** An align commit edits no test, snapshot, fixture or class lint config (V408). Agents tamper with the oracle when they can: in ImpossibleBench (arXiv 2510.20270), "modify the tests" was over 79% of one model's cheating, and read-only tests closed that path.
+- **Same host for every before/after.** Playwright screenshot names carry the browser and OS, and its docs say to compare only in the environment that made the baseline. Fonts must be ready and transitions off.
+- **Exclusions are root-relative.** X-lists match `-g` globs relative to each root, and scripts test `relpath`. An `rg` exit code 2 makes the class `blocked (rg exit 2)`. Generated pattern lists go through `-f` files of ≤ 300 alternations each (`precedents/align.md` § 20).
+- **Licences.** Semgrep registry rules, Trail of Bits rules, Moderne-licensed OpenRewrite modules and the GPL-3.0 golangci-lint and depguard may be run by the user; none is vendored. Generate our own rules. Optic, Lost Pixel, `@storybook/test-runner`, i18next-parser and betterer are never proposed as new installs.
+
+### Oracle taxonomy (align)
+
+| Oracle | Kind | Asserts | V |
+|---|---|---|---|
+| **Quote and config resolution** | static | the cited oracle exists (a quote found by `rg -F`, a rule id at `error` in the resolved config) and the cited reason resolves | V389, V390, V406 |
+| **Sweep gate** | diff | over `git diff -U0 <base>` and the ledger, `align-sweep-gate.py` re-detects, scopes, groups and checks names, rules and tests | V391, V392, V393, V398, V399, V408 |
+| **Value equivalence** | value | the swapped value is identical before and after, per theme | V394, V396, V397 |
+| **Whole-repo tool run** | tool | the class tool at `error` over the whole repo, not the touched files only | V395, V400, V402, V404 |
+| **Behaviour test** | test | the site behaves as before, or as the idiom requires | V401, V403, V405 |
+| **Recorded approval** | human | a visible change has a visual diff and a named approver | V407 |
+
+| V | Oracle | Asserts | Ladder | Detector § |
+|---|---|---|---|---|
+| V389 | Oracle quote resolves | the quote is found in the cited file, or the rule id is at `error` in the resolved config of the site | L0 | `convention-oracle` §1 (AL-01, on every row) |
+| V390 | Rule at error count | the T2 rule, run at `error` from a scratch config over its declared scope, counts the violations; CI lints that scope | — | `convention-oracle` §3 (AL-03); `convention-ratchet-scan` §3 (AL-31) |
+| V391 | Re-detect zero | the ledger's `detector_cmd` returns 0 at ledger sites and 0 new sites in touched files | L5 | every align detector (V-00) |
+| V392 | Hunk scope | every changed line is a ledger hit line ± the verb footprint; every hit line changed; no whitespace-only or AST-unchanged file | L3, L4 | `align-sweep-gate.py scope`, `diffkind` (AL-34) |
+| V393 | One way per pattern | each normalised before-value maps to one after-value across the run | L6 | `align-sweep-gate.py consistency` (AL-33) |
+| V394 | Computed-style zero diff | `getComputedStyle` of the changed elements is equal base vs head per route × theme | L10a | EQ token and wrapper rows (V-03a) |
+| V395 | Ratchet shrink-only | per (file, rule) counts at head ≤ base for every baseline file; no rule downgraded | L11 | `convention-ratchet-scan` §2, §4 (AL-30, AL-32) |
+| V396 | Compiled-CSS zero diff | base and head built and minified by one tool, `var()` resolved per theme, equal | L10a | EQ token rows without a browser harness |
+| V397 | Value round-trip | the new token resolves to the old literal byte-for-byte after normalisation, per theme and family | L8 | EQ token rows (V-07, via ui-ux `token-map.py`) |
+| V398 | Emitted names | every token, import path, export and prop the diff introduced exists in the declared set | L7 | `align-sweep-gate.py names` (V-08) |
+| V399 | Non-vacuous | each class rule matched N > 0 files in scope, or a canary in a scratch copy turned it red | L13 | `align-sweep-gate.py vacuous` (V-09) |
+| V400 | Import count to zero | the raw or banned import count outside the wrapper and its exempt files is 0 | L5, L9 | `wrapper-adoption-scan` §1, §5 (AL-11, AL-22) |
+| V401 | Wrapper render / gate test | the site renders through the wrapper with the required prop; the gated action is absent for a role without the ability | L9 | `wrapper-adoption-scan` §4 (AL-15; AL-28 as an AL-15 form) |
+| V402 | Rename with serialised names unchanged | the rename resolves every reference; types and build pass; no wire, DB, env or generated name changed | L9 | `naming-layout-scan` §1–§3 (AL-16, 17, 18) |
+| V403 | Dedupe differential | the copy and the named helper agree on the copy's call-site inputs; after deletion nothing is orphaned | L9 | `wrapper-adoption-scan` §2 (AL-13) |
+| V404 | Boundary whole-repo | the import resolves through the public entry; the repo's boundary tool is green on every module | L9 | `wrapper-adoption-scan` §3 (AL-14); `naming-layout-scan` §4 (AL-19); AL-20/21 re-routes |
+| V405 | i18n EQ-key render | the replaced literal renders the same source-locale text, and the key resolves in every locale and under the pseudo-locale | L9 | AL-26 EQ-key rows (owner frontend `i18n-scan` §1) |
+| V406 | Suppression reason resolves | the ADR or ticket id in the reason resolves; with the disable removed the rule fires, or the disable is stale | — | `convention-ratchet-scan` §1 (AL-29) |
+| V407 | Visible-change approval | a visual diff per route × theme against a baseline from the pre-rewrite commit, with `approval: <name>@<iso>` in the ledger | L10b | VC rows (AL-06 snaps, wrappers with other defaults) |
+| V408 | Test-count and coverage floor | no test, snapshot, fixture or class lint config in the diff; test-method count and coverage at head ≥ base | L3, L12 | `align-sweep-gate.py lock` (V-06, AL-34) |
+
+Classes with no V of their own: AL-02 (a split) and AL-04 (a stale doc) are reports. They produce
+`proposed canonical`, `undetermined` or `doc stale` lines and 0 ledger rows, so there is nothing to
+prove failing first. A T2g rule is a precondition the coverage block prints: one ratification probe
+per rule (`precedents/align.md` § 28).
+
+### Harnesses (align)
+
+- **Quote and config** (V389, V390, V406):
+  - `rg -n -F -- "<quote>" <oracle file>` must return ≥ 1. A quote with no hit drops the row and counts it as `AL-01: k dropped`.
+  - For a config oracle, run the project's own ESLint as `eslint --print-config <one file per package>`, compared with `oracle-map.py`'s static parse; a mismatch prints `static≠resolved`. How `--print-config` behaves on an ignored file is [K?].
+  - V390 runs the rule at `error` from a scratch flat config under `$RUN`. An ESLint 10 config outside the repo resolving the repo's plugins by bare name is [K?]; the build settles it (for example with `createRequire(<repo>/package.json)`).
+- **Sweep gate** (V391–V393, V398, V399, V408): `align-sweep-gate.py <scope|consistency|lock|diffkind|names|roundtrip|redetect|vacuous>` reads the ledger (the indented `- id:` form), `git diff -U0 <base>` and the run folder. It prints a TSV verdict per row and per run, exits 1 on any FAIL, and writes nothing outside `$RUN`.
+  - `diffkind` rejects whitespace-only files (`git diff -w --ignore-blank-lines` empty) and AST-unchanged files (`difft --exit-code` when installed; its exit codes on 0.71 are [K?]; else a token-stream compare).
+  - `names` uses `token-map.py --names`, package `exports` and the wrapper's prop types. For CSS, `stylelint-value-no-unknown-custom-properties` with `importFrom` the token file is the deterministic check when installed.
+  - `vacuous` reads `matched N files` lines, or plants a canary in `mktemp -d` under `$TMPDIR`. dependency-cruiser and eslint-plugin-boundaries pass silently on patterns that match nothing.
+- **Value equivalence** (V394, V396, V397):
+  - V397 is static: `token-map.py --lookup <value> --family <f>` per theme, when the ui-ux pack is installed. Colour normalisation covers hex 3/4/6/8, `rgb()`, `hsl()`, named colours and `oklch()`. The oklch → sRGB precision is [K?]. raystack's migration (PR #757, 2026-04-30) accepted a value only at CIEDE2000 ΔE < 0.5 **and** a byte-identical 8-bit sRGB round trip. Without ui-ux, token rows are `N/A (owner pack ui-ux not installed)`.
+  - V394: Playwright `page.evaluate` dumps the changed properties per route × theme, base vs head, on one host, after `document.fonts.ready`, with transitions off and colours canvas-normalised. `design-token-audit`'s `offToken` helper already normalises.
+  - V396 is the no-browser path. With neither harness, V397 passing gives `[report-with-fix] (static EQ)`, and the runtime check stays Unconfirmed with its probe.
+- **Visible change** (V407): Playwright `toHaveScreenshot` with `maxDiffPixels: 0`; the default `threshold` of 0.2 hides a 1-px snap. Take the baseline on the pre-rewrite commit and keep the diff images in `$RUN`. Never auto-approved, never under `--safe-only`.
+- **Whole-repo tools** (V395, V400, V402, V404):
+  - V395 ratchets: ESLint bulk suppressions (core since 9.24.0, 2025-04-04; `error` rules only; per file per rule; unpruned entries fail the run unless `--pass-on-unpruned-suppressions`), `eslint.seatbelt.tsv`, the dependency-cruiser known-violations file (`--baseline-mode shrink-only` on 18.6.0 is [K?]), the ArchUnit store, `package_todo.yml`, `.importlinter` `ignore_imports`, and the PHPStan, Psalm and detekt baselines. Where no history exists, the comparison base is a `--base-dir` copy.
+  - V400 and V404 use `rank-source-files.py`'s per-app alias and workspace-`exports` resolution. They are not re-derived.
+  - V402: `tsc --noEmit`, plus `oasdiff breaking base.yaml head.yaml` or a schema snapshot when an API sits near the rename.
+- **Behaviour** (V401, V403, V405): a render test of the site, with the role that must not see a gated action. A differential test of copy vs helper on the copy's call-site inputs, then knip (or `dead-code-scan`) for orphans. A pseudo-locale render (`xx-XA`) of the route, with the key checked in every catalog by `catalog-parity.py`.
+
+### Class variants (align)
+
+A fix passes the class only when every variant the class takes in scope passes the oracle, and the
+benign control (a decoy the precedents exempt) is untouched.
+
+#### V389. Invented convention — oracle quote resolves (`convention-oracle` §1, AL-01)
+- a row citing a doc line that does not exist; a quote paraphrased instead of copied; a rule id at `warn` cited as enforced; a quote found only inside `refine-enriched` markers (T2g, not T2); a rule from another package's config
+- pass: every kept row's quote is found verbatim in its cited file, or its rule id is at `error` for that file; every other row is dropped and counted (a config-only rule with no prose is the control, `precedents/align.md` § 2)
+
+#### V390. Declared but unenforced — rule at error count (`convention-oracle` §3, AL-03; `convention-ratchet-scan` §3, AL-31)
+- the rule absent, `off`, or at `warn`; a package missing from every CI lint job (read with `rg --hidden`); a package config that does not spread the shared config; `extend-ignore` of a banned-api code; a stale `.eslintrc*` beside a flat config on ESLint ≥ 10
+- pass: the rule is at `error` over the declared scope and CI lints it; the scratch count at `error` is recorded (a semantic rule no tool can express is the control: it is marked agent-checked, not unenforced)
+
+#### V391. Partial sweep — re-detect zero (V-00, every detector)
+- every carrier the class takes: AL-05 values in a ternary, `??` or `||` branch, in `cn()` / `clsx()` / `cva()` arguments and in template literals (the `web-dashboard` hex sat in a ternary and a `prop: '#hex'` match missed it); AL-11 named, default, namespace, aliased, re-export, dynamic `import()` and `require()`; AL-29 line, next-line, block and file-level disables
+- pass: the exact `detector_cmd` returns 0 at ledger sites and 0 new sites in the touched files
+
+#### V392. Out-of-scope edit — hunk scope (AL-34)
+- churn in an untouched function; reordered imports; a formatting pass; a comment rewritten; a second hunk next to the hit line; an unchanged ledger hit line
+- pass: every `-` line is a ledger hit ± the verb footprint (`replace-with-shared`: one import line; `rename`: the declaration plus the references the language server reported), every hit line changed, and no file is whitespace-only or AST-unchanged
+
+#### V393. Inconsistent resolution — one way per pattern (AL-33)
+- one literal to two tokens across files (`#d92d20` → `--color-danger` and `--color-error`); one value to two tokens of one family (`8px` → `--space-2` and `--gap-sm`); one raw prop to two wrapper props
+- pass: each before-key has one after-value across the run, unless `token-map.py` declares the map context-keyed, and then only by role (text, background, border, graphic, shadow, padding, margin, gap)
+
+#### V394. Exact swap — computed-style zero diff (EQ token and wrapper rows)
+- every shipped theme (light, dark, high-contrast); hover, focus and disabled states of the changed element; a shorthand holding the value (`border`, `box-shadow`, gradient stops); logical properties
+- pass: each changed property's computed value is equal, base vs head, per route × theme
+
+#### V395. Ratchet regression — shrink-only (`convention-ratchet-scan` §2, §4; AL-30, AL-32)
+- a count per (file, rule) that rose; a new known-violation entry; an `ignore_imports` line added; a rule downgraded in a static-parse diff; old-shape sites in files added after the migration ADR's date (counted double)
+- pass: every count at head ≤ base and no rule loosened (a rebaseline in the same commit as a boundaries v7 or unicorn v65 bump, with an ADR line, is the control)
+
+#### V396. Exact swap without a browser — compiled-CSS zero diff
+- CSS modules, global CSS, Tailwind 4 `@theme` output, and CSS-in-JS extracted at build
+- pass: minified base and head CSS are equal after per-theme `var()` resolution (a token whose value differs is AL-06, not a pass)
+
+#### V397. Token value — round-trip (EQ token rows)
+- hex 3/4/6/8, `rgb()` / `rgba()`, `hsl()`, `oklch()`, named colours; px vs rem; a token aliased through `{alias}` in DTCG; a value defined only under `[data-theme=dark]`
+- pass: every pair round-trips in every theme and family; a cross-family or nearest-only pair is reclassified AL-06 (`precedents/align.md` § 27)
+
+#### V398. Hallucinated name — emitted names
+- a token that is not in the token source (`var(--color-dangerous)`); an import subpath not in `exports`; a prop the wrapper's types do not declare; a hook name not exported
+- pass: every name the diff introduced exists in the declared set
+
+#### V399. Vacuous rule — non-vacuous
+- a boundaries element pattern that matches 0 files (`src/featurez/*`); an `.ls-lint.yml` directory key that loosens its subtree; a stylelint `ignoreFiles` glob that covers the scope
+- pass: the rule matched N > 0 files, or the canary turned it red; otherwise the class is `NOT RUN`, not clean
+
+#### V400. Raw or banned import — import count to zero (`wrapper-adoption-scan` §1, §5; AL-11, AL-22)
+- each import form in V391; Vue `app.component(` global registration; Python `from x import y`, `import x` and the Ruff `TID251` lane; Go import blocks; .NET `using`
+- pass: the count outside the wrapper, its stories, tests and adapters, and the integration layer is 0 (`precedents/align.md` § 8, § 12)
+
+#### V401. Required or forbidden prop — render and gate test (`wrapper-adoption-scan` §4; AL-15)
+- the prop omitted; the prop passed through `{...props}` (read the spread source); the Vue kebab form; a destructive action outside the declared `<Can>` gate
+- pass: the render test shows the wrapper with the required prop, and the role without the ability does not see the action (High when a gate dropped)
+
+#### V402. Naming — rename with serialised names unchanged (`naming-layout-scan` §1–§3; AL-16–18)
+- a file and a directory (`git mv`, case-only renames on a case-insensitive file system); an exported symbol; a hook; a boolean prop; a route string and an i18n **key** against the glossary
+- pass: references resolve, types and build pass, and no wire, DB, env or generated name changed (`precedents/align.md` § 15); framework-mandated names untouched (§ 13)
+
+#### V403. Hand-rolled copy — dedupe differential (`wrapper-adoption-scan` §2; AL-13)
+- the same name; a renamed copy; a copy with a gap; an inline lambda copy; a test-utils copy
+- pass: copy and helper agree on the copy's call-site inputs, then the copy is deleted and nothing is orphaned; a disagreement reclassifies to code-quality (V85)
+
+#### V404. Boundary — whole-repo run (`wrapper-adoption-scan` §3; `naming-layout-scan` §4; AL-14, AL-19, AL-20/21 re-routes)
+- a deep path past `exports` (`@scope/pkg/src/internal/…`); a relative `../../packages/x/src/…`; a per-app tsconfig alias; a barrel re-export chain; a module catalog written with paths relative to its section heading in `ai/modules.md`
+- pass: the import resolves through the public entry, and the repo's boundary tool is green on every module
+
+#### V405. i18n literal — EQ-key render (AL-26 EQ rows)
+- JSX text; `placeholder`, `title`, `aria-label` and `alt`; a constant-prefix template key; a namespace other than the one the convention names
+- pass: the source-locale render is the same text, the key resolves in every shipped catalog, and nothing un-transformed shows under the pseudo-locale (new copy is the owner's, `precedents/align.md` § 31)
+
+#### V406. Suppression — reason resolves (`convention-ratchet-scan` §1; AL-29)
+- a line, next-line, block and file-level disable of a convention rule; `# noqa: TID251`; `// nolint`; `ast-grep-ignore`; the same reason on more than 5 disables of one rule
+- pass: the ADR or ticket id resolves, or the disable is removed and the site fixed; a reasonless or boilerplate cluster stays a row (`precedents/align.md` § 3, § 26)
+
+#### V407. Visible change — recorded approval (VC rows)
+- a snap to the nearest token; a wrapper whose defaults differ from the raw call's props; every route × theme that renders the site
+- pass: the visual diff exists from a pre-rewrite baseline, and the ledger row carries `approval: <name>@<iso>`; without it the row stops at `pending-approval`
+
+#### V408. Oracle tampering — test-count and coverage floor (V-06, AL-34)
+- a snapshot updated in the align commit; a weakened or removed assertion; an added skip; a lint config change for the class's rule; a test file excluded from collection
+- pass: no such path is in the diff; test-method count and coverage at head ≥ base, and a coverage drop above 5 points is a hard fail (FreshBrew, arXiv 2510.04852)
+
+### Sources (align)
+
+The align research catalog (2026-10-18) gives the 34 classes, § 5's run-level gates V-00…V-09 and
+the per-class variants. Its tool notes give: ESLint 10.13.0 and 10.0.0's removal of eslintrc
+(2026-02-06); TypeScript 7.0 (2026-07-08) with no programmatic API; ESLint bulk suppressions
+(9.24.0, 2025-04-04); ast-grep 0.51.0 (`sg test` Noisy / Missing); dependency-cruiser 18.6.0;
+eslint-plugin-boundaries 7.2.0; unicorn 78.0.0; `stylelint-value-no-unknown-custom-properties`
+6.1.1; Playwright 1.64.1 (default threshold 0.2; compare on one environment); difftastic 0.71.0;
+oasdiff 1.33.0; knip 6.41.0; and the licence notes. Its evidence notes give raystack/apsara PR #757
+(2026-04-30), FreshBrew (arXiv 2510.04852), ImpossibleBench (arXiv 2510.20270) and the Spotify,
+Google and Airbnb sweep practices. The batch-6 align eval (2026-10-18) § 3.2–§ 3.4 gives the
+EQ/VC/FN split, the L0–L13 ladder and the tool-lane rules, and § 4.11 assigns V389–V408 after
+§ Migration with no V reused. Rows tagged [K?] are settled on the `convention-drift` fixture before
+a detector asserts them. Paraphrased; no text reproduced.
 
 ---
 

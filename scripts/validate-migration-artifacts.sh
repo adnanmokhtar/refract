@@ -23,7 +23,11 @@
 #   11. Section 0 navigation inventory evidence (frontend-* / mixed) — check_section_0_evidence
 #   12. 6-axis reachability doc — check_migration_reachability_axes
 #   13. Cutover JSON evidence when status is V2-shadow | V2-canary | V2-only
-#   14. tolerance.yaml git drift vs ADR citation; PR scope vs v2_path (warnings)
+#   14. tolerance.* change vs ADR citation — uncommitted AND committed since --base (a
+#       loosening-shaped change with no ADR fails: halt 3); PR scope vs v2_path (warning)
+#   15. Paired inventory (check_inventory_primitives_match): when pair-inventory lane TSVs exist
+#       for both sides, V1 keys of the audited files are set-diffed against V2's whole tree; the
+#       per-file primitive COUNTS stay the fallback for every lane without both sides
 #
 # Usage:
 #   validate-migration-artifacts.sh --phase=<N>           # validate every feature in phase N
@@ -31,6 +35,11 @@
 #   validate-migration-artifacts.sh --all                 # validate every feature in ledger
 #   validate-migration-artifacts.sh --strict              # treat warnings as errors
 #   validate-migration-artifacts.sh --quiet               # only print failures
+#   validate-migration-artifacts.sh --pair-inventory=<dir> # a pair-inventory.py run folder (both
+#                                                         #   sides' lane TSVs); env PAIR_INVENTORY_DIR
+#   validate-migration-artifacts.sh --base=<ref>          # range start for committed tolerance
+#                                                         #   changes (default: merge-base with
+#                                                         #   origin/HEAD, main or master)
 #
 # Exit codes:
 #   0  — all checks pass
@@ -40,6 +49,22 @@
 #
 # Project anchor: reads paths from ai/migration/ledger.md (managed-block fields)
 # and ai/migration/plan.md. Falls back to defaults below.
+#
+# Per-root project kind (_v2-anchors.md frontmatter, optional): a monorepo declares one kind per
+# root, and every file takes the kind of its longest matching root —
+#   roots:
+#     - { path: apps/api/, kind: backend-nest }
+#     - { path: apps/web/, kind: frontend-react }
+# Without `roots:`, `project_kind: mixed` picks the primitive family per file from its extension
+# (it used to count frontend primitives only, so a NestJS + React monorepo got no backend counts).
+#
+# Paired-inventory TSV (the migration pack's skills/paired-inventory engine, pair-inventory.py):
+#   # pair-inventory 1 · lane=I-AUTHZ · side=v1 · sha=<40-hex> · root=<root> · stack=<stack>
+#   # extractor=lanes_laravel.py@sha256:<16 hex>[+lanes_node.py@sha256:<16 hex>] · normaliser=<v> · generated=<date> · rows=<n>
+#   <lane>\t<key>\t<attrs: k=v;k=v, or ->\t<file:line>\t<excerpt>
+# Read from ai/migration/v1-inventory/*.tsv (recorded V1) and, recursively, the --pair-inventory
+# run folder (its v1/ and v2/ lane files; candidates.tsv carries no side= and is skipped). Side
+# and lane come from the header, never the file name.
 
 set -euo pipefail
 export LC_ALL=C
@@ -58,6 +83,14 @@ PARITY_TEST_ROOT_DEFAULT="tests/parity"
 PARITY_RUNS_DIR="ai/migration/parity-runs"
 MIN_CORPUS=30
 PROJECT_KIND="frontend-vue3"      # frontend-vue3 | frontend-react | backend-nest | api-other
+# Per-root kinds from the anchors' `roots:` list (parallel arrays; bash 3.2 has no assoc arrays).
+declare -a ROOT_PATHS=()
+declare -a ROOT_KINDS=()
+# Paired inventory inputs (see check_inventory_primitives_match / pair_inventory_setdiff).
+PAIR_INVENTORY_DIR="${PAIR_INVENTORY_DIR:-}"
+V1_INVENTORY_DIR="ai/migration/v1-inventory"
+PAIR_MAP_PATH="ai/migration/pair-map.tsv"
+BASE_REF=""
 V2_ROOT="src/"
 V1_ROOT=""
 ANCHORS_FILE="ai/migration/_v2-anchors.md"
@@ -78,21 +111,23 @@ QUIET=0
 
 # ── Args ────────────────────────────────────────────────────────────────────
 # ── --self-test ───────────────────────────────────────────────────────────────
-# A GOOD fixture that must pass and a BAD one that must fail, both under $repo_root/tmp/.
+# A GOOD fixture that must pass and a BAD one that must fail, both in a scratch directory under
+# ${TMPDIR:-/tmp}. It used to create them under <repo>/tmp/ — a gate that wrote into the tree it
+# was run from (removed afterwards, but a killed run left it behind, and a read-only checkout
+# could not run the self-test at all). Nothing is written under the repository now.
 #
 # Writing this one found the ledger-row extractor bug: it matched `^id: <id>$` while the
 # documented row is `  - id: F001` with indented fields, so the row was DISCOVERED and then
 # read as having no fields at all. See the note at check_ledger_row.
 run_migration_self_test() {
-  local td repo_root rc me
+  local td rc me
   # Symlink-resolved: ~/.claude/scripts/<name> links into this repo (see CONTRIBUTING
   # § "Scripts run from two places"). Gate: lint-setup-contracts.sh Rule 10.
   _ss="${BASH_SOURCE[0]}"
   while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
-  repo_root="$(cd -P "$(dirname "$_ss")/.." && pwd)"
   me="$(cd -P "$(dirname "$_ss")" && pwd)/$(basename "$_ss")"; unset _ss _sd
-  mkdir -p "$repo_root/tmp"
-  td=$(mktemp -d "$repo_root/tmp/migration-selftest.XXXXXX")
+  td=$(mktemp -d "${TMPDIR:-/tmp}/migration-selftest.XXXXXX") || { echo "self-test: mktemp failed" >&2; exit 3; }
+  trap 'rm -rf "$td"' EXIT
   mkdir -p "$td/ai/migration/contracts" "$td/src"
   printf 'export function reportOrders() { return 1 }\n' > "$td/src/legacy.ts"
   # Indented list form, exactly as migration-ledger.md specifies it.
@@ -119,8 +154,8 @@ FIX
   fi
 
   # Advance the state without adding what that state requires. `in-progress` demands
-  # contract, plan and v1_commit_pinned — a row claiming progress it cannot evidence is
-  # precisely what the per-state field table exists to refuse.
+  # v1_commit_pinned at every tier (contract and plan too above trivial) — a row claiming
+  # progress it cannot evidence is precisely what the per-state field table exists to refuse.
   sed 's/state: V1-only/state: in-progress/' "$td/ai/migration/ledger.md" > "$td/bad.md"
   mv "$td/bad.md" "$td/ai/migration/ledger.md"
   rc=0
@@ -143,6 +178,8 @@ while [[ $# -gt 0 ]]; do
     --all)       SCAN_ALL=1; shift ;;
     --strict)    STRICT=1; shift ;;
     --quiet)     QUIET=1; shift ;;
+    --pair-inventory=*) PAIR_INVENTORY_DIR="${1#--pair-inventory=}"; shift ;;
+    --base=*)    BASE_REF="${1#--base=}"; shift ;;
     --self-test) run_migration_self_test ;;
     -h|--help)
       grep -E '^#' "$0" | sed 's/^# //; s/^#//'
@@ -150,7 +187,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     *)
       echo "Unknown argument: $1" >&2
-      echo "Usage: $0 [--phase=N | --feature=ID | --all] [--strict] [--quiet]" >&2
+      echo "Usage: $0 [--phase=N | --feature=ID | --all] [--strict] [--quiet] [--pair-inventory=<dir>] [--base=<ref>]" >&2
       exit 2
       ;;
   esac
@@ -203,55 +240,108 @@ log_section() {
 # ── Parse the ledger to discover features in scope ──────────────────────────
 # Ledger format (per migration-ledger.md): indented YAML-list rows, each row a
 # `- id: F<NNN>` item with indented `feature: <slug>`, `phase: <N>`, `status: <state>` etc.
+# find-and-fix.md § 5 RECORD writes the same list with the slug as the id (`- id: <feature>`,
+# `status:` instead of `state:`, no `feature:` key). Both forms are one row shape here.
 #
-# Feature output format (one per line): "<id>|<feature-slug>|<phase>|<status>|<parity_test>"
+# ledger_row_block <id> — THE one reader of a row's body. Every check that reads a ledger field
+# calls it; none re-parses the file. It used to be re-implemented at 15 sites, 11 of which matched
+# only `^id: <id>$` and read unindented keys, so on the documented `  - id: F001` form
+# check_gap_count_parity false-FAILed ("missing gaps_in") and check_v2_structure, composable
+# reuse, service shape, cross-module import, lifecycle and api-sample checks skipped silently
+# ("v2_path not declared") on rows that declared it two lines below the id.
+#
+# Output: `id: <id>` then the row's lines with the row's own field level moved to column 1, so
+# `^v2_path:` greps work; deeper lines keep their relative indent, so a nested `parity_runs:`
+# list stays nested (`  - id: 2026-…` / `    result: green`). The block ends at a fence, at
+# the next id line at or above the row's indent, or at a dedent out of the row — a nested
+# `parity_runs[].id` is not a row boundary, and a later row's fields cannot satisfy this one.
+ledger_row_block() {
+  local id="$1"
+  [[ -z "$id" || ! -f "$LEDGER_PATH" ]] && return 0
+  awk -v id="$id" '
+    function ind(s) { match(s, /^[ \t]*/); return RLENGTH }
+    function idval(s,  v) {
+      v = s; sub(/^[ \t]*(-[ \t]+)?id:[ \t]*/, "", v); sub(/[ \t]+(#.*)?$/, "", v)
+      gsub(/["\047]/, "", v); return v
+    }
+    !in_block {
+      if ($0 ~ /^[ \t]*(-[ \t]+)?id:[ \t]*[^ \t]/ && idval($0) == id) {
+        in_block = 1; row = ind($0); fi = -1; print "id: " id
+      }
+      next
+    }
+    /^[ \t]*$/ { print ""; next }
+    {
+      line = $0; fence = index(line, "```")
+      if (fence == 1 || line ~ /^[ \t]*```/) exit
+      i = ind(line)
+      if (line ~ /^[ \t]*(-[ \t]+)?id:/ && i <= row) exit
+      if (fi < 0) fi = i
+      if (fi > row && i <= row) exit
+      if (fence > 0) line = substr(line, 1, fence - 1)
+      strip = (i < fi ? i : fi)
+      print substr(line, strip + 1)
+      if (fence > 0) exit
+    }
+  ' "$LEDGER_PATH" 2>/dev/null
+}
+
+# Feature output format (one per line): "<id>|<feature-slug>|<phase>|<status>|<parity_test>|<tier>"
 discover_features() {
-  # Parse ledger respecting yaml-row boundaries. A row starts at an (optionally `- `-prefixed,
-  # optionally indented) `id: FNNN[a-z]?` line, ends at the closing ``` fence (or the next id:
-  # line). Only accept field-setters while in_block=1 — prevents cross-block leakage where
-  # superseded blocks contribute `feature:` lines to a previous block. Field values are taken
-  # from $2 (indented `key: value` → $1=key:, $2=value); the id is sub()-stripped so a leading
-  # "- " and any indentation are ignored.
+  # A row starts at an id line: `id: FNNN[a-z]?` anywhere (optionally `- `-prefixed and
+  # indented — the long-standing form), or `- id: <slug>` inside a fenced block that is not
+  # nested deeper than the current row (find-and-fix's form; the depth rule keeps a
+  # `parity_runs:` entry's `- id: 2026-…` from being read as a row). It ends at the closing
+  # fence (also when inline-terminated: "...notes.```") or at the next row. Fields are read only
+  # at the row's own field level, so a nested `status:` cannot overwrite the row's. A row with
+  # no `feature:` key takes its id as the slug.
   awk '
-    /^[[:space:]]*(- )?id: F[0-9]+[a-z]?[[:space:]]*$/ {
+    function ind(s) { match(s, /^[ \t]*/); return RLENGTH }
+    function flush() {
       if (id != "") {
+        if (feature == "") feature = id
         print id "|" feature "|" phase "|" status "|" parity_test "|" tier
       }
-      id = $0
-      sub(/^[[:space:]]*(- )?id:[[:space:]]*/, "", id)
-      sub(/[[:space:]]+$/, "", id)
-      feature=""; phase=""; status=""; parity_test=""; tier=""
-      in_block = 1
-      next
+      id = ""; feature = ""; phase = ""; status = ""; parity_test = ""; tier = ""; in_block = 0
     }
+    function val(s,  v) { v = s; sub(/^[ \t]*[a-z_]+:[ \t]*/, "", v); sub(/[ \t]+#.*$/, "", v); sub(/[ \t]+$/, "", v); split(v, a, /[ \t]+/); return a[1] }
     /```/ {
-      # Match closing ``` whether on its own line OR appended to text (e.g. "...notes.```").
-      # The yaml-block fence may be inline-terminated.
-      if (in_block) {
-        print id "|" feature "|" phase "|" status "|" parity_test "|" tier
-        id=""; feature=""; phase=""; status=""; parity_test=""; tier=""
-        in_block = 0
-      }
+      if (in_block) flush()
+      in_fence = !in_fence
       next
     }
-    in_block && /^[[:space:]]*feature: / { feature=$2; next }
-    in_block && /^[[:space:]]*phase: /   { phase=$2;   next }
-    in_block && /^[[:space:]]*status: /  { status=$2;  next }
-    in_block && /^[[:space:]]*state: /   { if (status == "") status=$2; next }
-    in_block && /^[[:space:]]*tier: /    { tier=$2;    next }
-    in_block && /^[[:space:]]*parity_test: / { parity_test=$2; next }
-    END {
-      if (id != "") {
-        print id "|" feature "|" phase "|" status "|" parity_test "|" tier
+    /^[ \t]*(-[ \t]+)?id:[ \t]*[^ \t]/ {
+      v = $0; sub(/^[ \t]*(-[ \t]+)?id:[ \t]*/, "", v); sub(/[ \t]+(#.*)?$/, "", v); gsub(/["\047]/, "", v)
+      i = ind($0)
+      f_shaped = (v ~ /^F[0-9]+[a-z]?$/)
+      nested = (in_block && i > row)
+      if (f_shaped || (!nested && in_fence && $0 ~ /^[ \t]*-[ \t]+id:/)) {
+        if (!nested || f_shaped) {
+          flush(); id = v; row = i; fi = -1; in_block = 1; next
+        }
       }
     }
+    in_block && /^[ \t]*[a-z_]+:/ {
+      i = ind($0)
+      if (fi < 0) fi = i
+      if (i != fi) next
+      if ($0 ~ /^[ \t]*feature:/)     { feature = val($0); next }
+      if ($0 ~ /^[ \t]*phase:/)       { phase = val($0); next }
+      if ($0 ~ /^[ \t]*status:/)      { status = val($0); next }
+      if ($0 ~ /^[ \t]*state:/)       { if (status == "") status = val($0); next }
+      if ($0 ~ /^[ \t]*tier:/)        { tier = val($0); next }
+      if ($0 ~ /^[ \t]*parity_test:/) { parity_test = val($0); next }
+    }
+    END { flush() }
   ' "$LEDGER_PATH"
 }
 
-# Filter discovered features per --phase / --feature / --all
+# Filter discovered features per --phase / --feature / --all. --feature= matches the row id OR
+# its slug: find-and-fix.md and migrate.md call `--feature=<feature>` with the slug, and an
+# id-only match answered "No features matched" for every F-numbered ledger.
 filter_features() {
   if [[ -n "$FEATURE" ]]; then
-    grep "^${FEATURE}|" || true
+    awk -F'|' -v f="$FEATURE" '$1 == f || $2 == f' || true
   elif [[ -n "$PHASE" ]]; then
     awk -F'|' -v p="$PHASE" '$3 == p' || true
   else
@@ -278,11 +368,7 @@ resolve_artifact_path() {
   # than having their own file.
   if [[ -n "$id" ]]; then
     local parent
-    parent=$(awk -v id="$id" '
-      $0 ~ ("^[[:space:]]*(- )?id: " id "$") { in_block=1; next }
-      in_block && /^[[:space:]]*parent:[[:space:]]/ { sub(/^[[:space:]]*parent:[[:space:]]*/, "", $0); print $0; exit }
-      in_block && /^[[:space:]]*(- )?id:|^```/ { exit }
-    ' "$LEDGER_PATH" 2>/dev/null | tr -d ' \r')
+    parent=$(ledger_row_block "$id" | grep -m1 '^parent:' | sed 's/^parent:[[:space:]]*//' | tr -d ' \r')
     if [[ -n "$parent" ]]; then
       # Try parent's <id>-*.md (any feature slug under the parent id)
       local parent_file
@@ -625,11 +711,7 @@ check_parity_run_v1_commit() {
   # Cross-check ledger's v1_commit_pinned against parity_runs[].v1_commit (latest entry).
   local feature="$1"; local id="${2:-}"
   local ledger_block
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^[[:space:]]*(- )?id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   local pinned latest_run_commit
   pinned=$(echo "$ledger_block" | grep -m1 -E '^[[:space:]]*v1_commit_pinned:' | sed 's/.*v1_commit_pinned:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
   latest_run_commit=$(echo "$ledger_block" | grep -m1 '    v1_commit:' | sed 's/.*v1_commit:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
@@ -689,11 +771,7 @@ check_parity_run_report() {
 
   # Pull the ledger row block + the pinned commit.
   local ledger_block pinned
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^[[:space:]]*(- )?id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   pinned=$(echo "$ledger_block" | grep -m1 -E '^[[:space:]]*v1_commit_pinned:' | sed 's/.*v1_commit_pinned:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
   if [[ -z "$pinned" || "$pinned" == "null" ]]; then
     log_fail "parity-run report unverifiable for $feature: status=$status claims parity_test=passing but ledger has no v1_commit_pinned to check the recorded run against. Pin V1 first. See migration-discipline.md § halt #3 / D4."
@@ -1267,6 +1345,57 @@ check_per_axis_enumeration() {
 #
 # Args: $1=file_path  $2=project_kind
 # Stdout: lines of "<primitive>=<count>". Empty / 0 if file doesn't exist.
+# kind_for_path <file> — the project kind that governs one file: the kind of its longest
+# matching `roots:` entry, else PROJECT_KIND. V1 files usually sit outside every V2 root and so
+# take PROJECT_KIND (with `mixed`, the extension decides — see family_for_file).
+kind_for_path() {
+  local f="${1#./}" kind="" best=0 i p
+  for (( i = 0; i < ${#ROOT_PATHS[@]}; i++ )); do
+    p="${ROOT_PATHS[$i]#./}"
+    case "$f" in
+      "$p"*) if [[ ${#p} -gt $best ]]; then best=${#p}; kind="${ROOT_KINDS[$i]}"; fi ;;
+    esac
+  done
+  echo "${kind:-$PROJECT_KIND}"
+}
+
+# family_by_extension <file> — the primitive family a `mixed` project counts for one file.
+# .ts/.js is the ambiguous case: server-shaped file names or server imports read as backend,
+# everything else as frontend.
+family_by_extension() {
+  local f="$1"
+  case "$f" in
+    *.blade.php|*.vue|*.svelte|*.astro|*.tsx|*.jsx|*.html|*.htm|*.erb|*.haml|*.twig) echo frontend ;;
+    *.php|*.py|*.rb|*.go|*.java|*.kt|*.cs|*.ex|*.exs|*.rs|*.scala|*.prisma|*.sql) echo backend ;;
+    *.dart|*.swift|*.m|*.mm) echo mobile ;;
+    *.controller.ts|*.service.ts|*.module.ts|*.entity.ts|*.dto.ts|*.resolver.ts|*.guard.ts|*.repository.ts|*.gateway.ts|*.processor.ts|*.subscriber.ts|*.filter.ts|*.pipe.ts|*.middleware.ts) echo backend ;;
+    *.ts|*.js|*.mjs|*.cjs|*.mts|*.cts)
+      if grep -qE "from[[:space:]]+['\"]@nestjs/|require\(['\"](express|fastify|koa)['\"]\)|from[[:space:]]+['\"](express|fastify|koa|@mikro-orm/[a-z-]+|typeorm|@prisma/client)['\"]" "$f" 2>/dev/null; then
+        echo backend
+      else
+        echo frontend
+      fi
+      ;;
+    *) echo frontend ;;
+  esac
+}
+
+# family_for_file <file> [pk] — frontend | backend | data | mobile. An explicit pk other than
+# PROJECT_KIND (a caller asking for one family) wins over the roots; `mixed` defers to the
+# extension. `api-other` keeps its documented fall-through to frontend (_v2-anchors-schema.md).
+family_for_file() {
+  local f="$1" pk="${2:-}" kind
+  if [[ -n "$pk" && "$pk" != "$PROJECT_KIND" ]]; then kind="$pk"; else kind=$(kind_for_path "$f"); fi
+  case "$kind" in
+    frontend-*) echo frontend ;;
+    backend-*)  echo backend ;;
+    data-*)     echo data ;;
+    mobile-*)   echo mobile ;;
+    mixed)      family_by_extension "$f" ;;
+    *)          echo frontend ;;
+  esac
+}
+
 extract_inventory_primitives() {
   local file="$1"
   local pk="$2"
@@ -1274,15 +1403,12 @@ extract_inventory_primitives() {
     return 0
   fi
 
-  # Determine the stack family from PROJECT_KIND. Within a family, regex
-  # patterns are mostly portable (Vue / React / Svelte / Angular all share
-  # similar primitive concepts for the frontend family).
+  # Determine the stack family for THIS file (D15): its `roots:` kind, else PROJECT_KIND, and
+  # under `mixed` its extension. Within a family, regex patterns are mostly portable (Vue /
+  # React / Svelte / Angular share similar primitive concepts for the frontend family).
   local family=""
   case "$pk" in
-    frontend-*|mixed) family="frontend" ;;
-    backend-*)  family="backend"  ;;
-    data-*)     family="data"     ;;
-    mobile-*)   family="mobile"   ;;
+    frontend-*|backend-*|data-*|mobile-*|mixed|api-other) family=$(family_for_file "$file" "$pk") ;;
     *)
       echo "extract_inventory_primitives: ERROR unknown project_kind='$pk' (run passes validate_project_kind_strict first)" >&2
       family="frontend"
@@ -1772,6 +1898,200 @@ ADD[[:space:]]+(UNIQUE[[:space:]]+)?INDEX\b|\
   esac
 }
 
+# ── Paired inventory: keyed set diff (D21) ────────────────────────────────────
+# The primitive comparator below counts regex hits per cited file. Counts are substitution-
+# blind — V2 loses the guard on route A and gains one on route B, the counts tie, the row
+# passes — and per-leaf: a guard moved out of the cited file looks lost, one moved in hides a
+# loss. When the migration pack's paired-inventory engine (skills/paired-inventory/scripts/
+# pair-inventory.py) has produced lane TSVs for BOTH sides, the lane is compared as keyed sets
+# instead: every V1 key whose row sits in a file the audit cites must exist somewhere in V2's
+# whole-tree rows (directly or through an ai/migration/pair-map.tsv row that carries a reason),
+# and none of the lane's compared attrs that V1 sets may be EMPTY on V2 (a guarded V1 route
+# whose V2 row has no abilities, roles or authn). A value that merely differs is the engine's
+# CHANGED row for the detectors to judge; this gate only refuses what was emptied. A missing
+# key is a CANDIDATE the audit must account for — by naming the key or citing the V1 row's
+# file:line — never a finding by itself (refute-before-report).
+#
+# Freshness preconditions, each printed when it blocks a lane (the lane then falls back to the
+# counts): the V1 header's sha must match the row's v1_commit_pinned; both sides must name the
+# same normaliser; an installed lane module whose sha256 differs from the header's extractor
+# hash means the record is older than the extractor. A V1 run-folder extraction wins over the
+# recorded ai/migration/v1-inventory/ one for the same lane.
+lane_primitives() {
+  case "$1" in
+    I-ROUTES) echo "route_handler route_def" ;;
+    I-AUTHZ)  echo "auth_guard permission_gate" ;;
+    I-RULES)  echo "validator" ;;
+    I-ERR)    echo "exception_throw" ;;
+    I-SIDE)   echo "event_emit" ;;
+    I-SCHEMA) echo "unique_guard constraint foreign_key index_def table_def column_def" ;;
+    *)        echo "" ;;
+  esac
+}
+
+installed_lane_hashes() {  # → "lanes_x.py=<sha256>;…" for the lane modules installed beside the engine
+  local d f h out="" here _ss _sd
+  # Symlink-resolved, like the self-test: through ~/.claude/scripts/ the unresolved dirname is
+  # ~/.claude/scripts, not the checkout whose templates/ hold the lane modules.
+  _ss="${BASH_SOURCE[0]}"
+  while [ -L "$_ss" ]; do _sd="$(cd -P "$(dirname "$_ss")" && pwd)"; _ss="$(readlink "$_ss")"; case "$_ss" in /*) ;; *) _ss="$_sd/$_ss" ;; esac; done
+  here="$(cd -P "$(dirname "$_ss")" 2>/dev/null && pwd)"
+  for d in "$here" "$here/../templates/packs/migration/skills/paired-inventory/scripts" \
+           "$here/../templates/packs/migration/scripts" ".claude/skills/paired-inventory/scripts" \
+           "${HOME:-/nonexistent}/.claude/skills/paired-inventory/scripts"; do
+    [[ -d "$d" ]] || continue
+    for f in "$d"/lanes_*.py; do
+      [[ -f "$f" ]] || continue
+      h=$( { shasum -a 256 "$f" 2>/dev/null || sha256sum "$f" 2>/dev/null; } | awk '{print $1; exit}')
+      [[ -n "$h" ]] && out="${out}$(basename "$f")=${h};"
+    done
+  done
+  echo "$out"
+}
+
+# pair_inventory_setdiff <audit_file> <cited V1 files, newline-separated> <ledger id>
+# Prints one record per lane, fields separated by \037:
+#   <lane> checked <v1 keys in scope> <unaccounted count> <unaccounted list>
+#   <lane> blocked <reason>      <lane> one-sided      <lane> pairmap-no-reason <v1 key>
+pair_inventory_setdiff() {
+  local audit="$1" cited="$2" id="$3"
+  local -a files=()
+  local f nrun=0 pin pm hashes
+  if [[ -n "$PAIR_INVENTORY_DIR" && -d "$PAIR_INVENTORY_DIR" ]]; then
+    while IFS= read -r f; do [[ -n "$f" ]] && files+=("$f"); done \
+      < <(find "$PAIR_INVENTORY_DIR" -type f -name '*.tsv' 2>/dev/null | LC_ALL=C sort)
+    nrun=${#files[@]}
+  fi
+  if [[ -d "$V1_INVENTORY_DIR" ]]; then
+    while IFS= read -r f; do [[ -n "$f" ]] && files+=("$f"); done \
+      < <(find "$V1_INVENTORY_DIR" -maxdepth 1 -type f -name '*.tsv' 2>/dev/null | LC_ALL=C sort)
+  fi
+  [[ ${#files[@]} -eq 0 ]] && return 0
+  pin=$(ledger_row_block "$id" | grep -m1 '^v1_commit_pinned:' | sed 's/^v1_commit_pinned:[[:space:]]*//' | tr -d '"'"'"' ' | awk '{print $1}')
+  pm="$PAIR_MAP_PATH"; [[ -f "$pm" ]] || pm=/dev/null
+  hashes=$(installed_lane_hashes)
+  # A paired run writes its lane files with `sha=-` and records the snapshot it read in its run
+  # ledger ("git archive <sha>"); a --live-v1 run records none, and its V1 rows stay unpinned.
+  local runsha=""
+  if [[ -n "$PAIR_INVENTORY_DIR" && -f "$PAIR_INVENTORY_DIR/ledger.txt" ]]; then
+    runsha=$(grep -m1 -oE 'git archive [0-9a-fA-F]{7,40}' "$PAIR_INVENTORY_DIR/ledger.txt" 2>/dev/null | awk '{print $3}' || true)
+  fi
+  # The attrs each lane compares — mirrors COMPARE in pair-inventory.py.
+  local cmp="I-ROUTES=opt,constraint;I-AUTHZ=authn,abilities,roles,extra_guard;I-RULES=presence,nullable,type,format,max,min,in,regex,on;I-ENUM=values;I-ERR=status;I-SIDE=kinds;I-SCHED=cron,tz,overlap;I-SCOPE=soft_delete,tenant;I-SCHEMA=def;I-MONEY=modes;I-CONF=value"
+  awk -F'\t' -v cited="$cited" -v pin="$pin" -v nrun="$nrun" -v hashes="$hashes" -v pmf="$pm" -v audf="$audit" -v cmp="$cmp" -v runsha="$runsha" '
+    function trim(x) { gsub(/^[ \t]+|[ \t]+$/, "", x); return x }
+    function grab(line, k, cls,   r) { r = ""; if (match(line, k "=" cls)) r = substr(line, RSTART + length(k) + 1, RLENGTH - length(k) - 1); return r }
+    function ends(a, b) { return length(a) >= length(b) && substr(a, length(a) - length(b) + 1) == b }
+    function in_scope(loc,   p, i) {
+      p = loc; sub(/:[0-9]+(-[0-9]+)?$/, "", p); sub(/^\.\//, "", p)
+      if (p == "") return 0
+      for (i = 1; i <= nc; i++) if (C[i] != "" && (C[i] == p || ends(C[i], "/" p) || ends(p, "/" C[i]))) return 1
+      return 0
+    }
+    function attrval(a, k,   n, i, P, kv) {   # value of k in "k=v;k=v" ("" when absent; %3B/%3D decoded)
+      n = split(a, P, ";")
+      for (i = 1; i <= n; i++) { if (index(P[i], k "=") == 1) { kv = substr(P[i], length(k) + 2); gsub(/%3B/, ";", kv); gsub(/%3D/, "=", kv); gsub(/%25/, "%", kv); return kv } }
+      return ""
+    }
+    function rekey(l, key,   i, m, p) {   # pair-map prefix rows, on route-keyed lanes
+      if (l != "I-ROUTES" && l != "I-AUTHZ" && l != "I-RULES") return key
+      if (!match(key, /^[A-Z]+ \//)) return key
+      m = substr(key, 1, RLENGTH - 1); p = substr(key, RLENGTH)
+      for (i = 1; i <= npf; i++) if (PF1[i] != "" && index(p, PF1[i]) == 1) { p = PF2[i] substr(p, length(PF1[i]) + 1); sub(/^\/\//, "/", p); break }
+      return m p
+    }
+    function blank(v) { return (v == "" || v == "-" || v == "none" || v == "no") }
+    function lost(l, a1, a2,   n, i, K, x, y, out, any1, any2) {   # compared attrs V1 sets and V2 leaves empty
+      out = ""
+      if (l == "I-AUTHZ") {   # one group: a route that keeps ANY guard (authn, ability, role, guard class) is not "emptied"
+        n = split("authn,abilities,roles,extra_guard,mw", K, ","); any1 = ""; any2 = 0
+        for (i = 1; i <= n; i++) {
+          x = attrval(a1, K[i]); y = attrval(a2, K[i])
+          if (K[i] != "mw" && !blank(x) && x != "?") any1 = any1 (any1 == "" ? "" : ",") K[i] "=" x
+          if (!blank(y)) any2 = 1
+        }
+        return (any1 != "" && !any2) ? any1 : ""
+      }
+      n = split(CMP[l], K, ",")
+      for (i = 1; i <= n; i++) {
+        x = attrval(a1, K[i]); y = attrval(a2, K[i])
+        if (!blank(x) && x != "?" && y != "?" && blank(y)) out = out (out == "" ? "" : ",") K[i] "=" x
+      }
+      return out
+    }
+    function pre(a, b) { return (index(a, b) == 1 || index(b, a) == 1) }
+    BEGIN {
+      nc = split(cited, C, "\n"); for (i = 1; i <= nc; i++) { C[i] = trim(C[i]); sub(/^\.\//, "", C[i]) }
+      nh = split(hashes, H, ";"); for (i = 1; i <= nh; i++) if (split(H[i], kv, "=") == 2) INST[kv[1]] = kv[2]
+      nl = split(cmp, LC, ";"); for (i = 1; i <= nl; i++) if (split(LC[i], kv, "=") == 2) CMP[kv[1]] = kv[2]
+      fno = 0; SEP = "\037"
+    }
+    FILENAME == pmf { if ($0 ~ /^#/ || NF < 3) next
+                      if (trim($4) == "") { print trim($1) SEP "pairmap-no-reason" SEP trim($2); next }
+                      if (trim($2) ~ /^prefix:/) { npf++; PF1[npf] = substr(trim($2), 8); PF2[npf] = substr(trim($3), 8); next }
+                      PM[trim($1) SUBSEP trim($2)] = trim($3); next }
+    FILENAME == audf { AUD = AUD "\n" $0; next }
+    FNR == 1 { fno++; lane = ""; side = ""; sha = ""; norm = ""; ext = ""; src = (fno <= nrun) ? "run" : "rec"; if (src == "run") sha = runsha }
+    /^#/ {
+      t = grab($0, "lane", "[A-Za-z0-9_-]+");             if (t != "") lane = t
+      t = grab($0, "side", "v[12]");                      if (t != "") side = t
+      t = grab($0, "sha", "[0-9a-fA-F]+");                if (t != "") sha = t
+      t = grab($0, "normaliser", "[A-Za-z0-9_.:@+-]+");   if (t != "") norm = t
+      t = grab($0, "extractor", "[A-Za-z0-9_.:@/+-]+");   if (t != "") ext = t
+      next
+    }
+    side == "" || NF < 2 { next }
+    {
+      l = trim($1); if (l == "") l = lane; key = trim($2); if (key == "" || l == "") next
+      if (side == "v2") { V2[l SUBSEP key] = $3; V2L[l] = 1; N2[l] = norm; E2[l] = ext; next }
+      if (!in_scope($4)) next
+      if (src == "run") { R1[l SUBSEP key] = $3; R1loc[l SUBSEP key] = trim($4); RUNL[l] = 1; RSHA[l] = sha; RNRM[l] = norm; REXT[l] = ext }
+      else              { K1[l SUBSEP key] = $3; K1loc[l SUBSEP key] = trim($4); KL[l] = 1; KS[l] = sha; KN[l] = norm; KE[l] = ext }
+    }
+    function blocked_ext(e,   n, i, M, name, h) {   # e = "lanes_a.py@sha256:<16 hex>+lanes_b.py@sha256:<…>"
+      n = split(e, M, "+")
+      for (i = 1; i <= n; i++) {
+        if (index(M[i], "@sha256:") == 0) continue
+        name = substr(M[i], 1, index(M[i], "@") - 1); h = substr(M[i], index(M[i], "@sha256:") + 8)
+        sub(/.*\//, "", name)
+        if ((name in INST) && !pre(tolower(INST[name]), tolower(h))) return "extractor " name " changed since this inventory was extracted; re-record"
+      }
+      return ""
+    }
+    END {
+      for (k in R1) { split(k, parts, SUBSEP); LANES[parts[1]] = 1 }
+      for (k in K1) { split(k, parts, SUBSEP); LANES[parts[1]] = 1 }
+      for (l in LANES) {
+        use_run = (l in RUNL)
+        sha1 = use_run ? RSHA[l] : KS[l]; n1 = use_run ? RNRM[l] : KN[l]; e1 = use_run ? REXT[l] : KE[l]
+        if (!(l in V2L)) { print l SEP "one-sided"; continue }
+        if (pin == "")  { print l SEP "blocked" SEP "the ledger row has no v1_commit_pinned to check the V1 inventory sha against"; continue }
+        if (sha1 == "") { print l SEP "blocked" SEP "the V1 inventory header carries no sha"; continue }
+        if (!pre(tolower(sha1), tolower(pin))) { print l SEP "blocked" SEP "stale-v1-inventory (" sha1 " vs pin " pin ")"; continue }
+        if (n1 != "" && N2[l] != "" && n1 != N2[l]) { print l SEP "blocked" SEP "asymmetric: normaliser " n1 " (V1) vs " N2[l] " (V2)"; continue }
+        why = blocked_ext(e1); if (why == "") why = blocked_ext(E2[l])
+        if (why != "") { print l SEP "blocked" SEP why; continue }
+        n = 0; bad = 0; list = ""
+        if (use_run) { for (k in R1) { split(k, parts, SUBSEP); if (parts[1] == l) { SEL[k] = R1[k]; SELloc[k] = R1loc[k] } } }
+        else         { for (k in K1) { split(k, parts, SUBSEP); if (parts[1] == l) { SEL[k] = K1[k]; SELloc[k] = K1loc[k] } } }
+        for (k in SEL) {
+          split(k, parts, SUBSEP); key = parts[2]; n++
+          k2 = ((l SUBSEP key) in PM) ? PM[l SUBSEP key] : rekey(l, key)
+          if (k2 == "-") continue   # pair-map: intentionally gone, with a reason
+          a1 = SEL[k]; loc = SELloc[k]; kind = ""
+          if (!((l SUBSEP k2) in V2)) kind = "V1-ONLY"
+          else { a2 = V2[l SUBSEP k2]; x = lost(l, a1, a2); if (x != "") kind = "emptied on V2: " x }
+          if (kind == "") continue
+          if (index(AUD, key) > 0 || index(AUD, loc) > 0) continue
+          bad++; list = list (list == "" ? "" : " ; ") key " [" kind "] @" loc
+        }
+        delete SEL; delete SELloc
+        print l SEP "checked" SEP n SEP bad SEP list
+      }
+    }
+  ' "$pm" "$audit" "${files[@]}" || printf '%s\037blocked\037the pair-inventory TSV reader failed (awk exit %s)\n' "*" "$?"
+}
+
 # Map a primitive class to its expected audit axis section name. Used by
 # check_inventory_primitives_match to find evidence of the gap being enumerated.
 # Stdout: regex-friendly axis-section title, or empty when no mapping.
@@ -1821,12 +2141,6 @@ check_inventory_primitives_match() {
   file=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
   [[ -z "$file" ]] && return 0  # check_audit will have already failed
 
-  # Bypass: explicit backend-only UI audit scope (match Section 0 / per-axis enumeration)
-  if grep -qE '^audit_scope:[[:space:]]*backend-only' "$file" 2>/dev/null; then
-    log_pass "primitive-match: $feature (skipped — audit_scope: backend-only)"
-    return 0
-  fi
-
   # Extract V1 + V2 leaf paths from header block (mirroring check_per_axis_enumeration)
   local header_block all_v1_files all_v2_files
   header_block=$(awk 'NR<=25; NR>25 { exit }' "$file" 2>/dev/null)
@@ -1840,6 +2154,36 @@ check_inventory_primitives_match() {
     capture && /^>?[[:space:]]*(ADR|v1_commit|Tier|Verdict|##)/ { capture=0 }
     capture { print }
   ' | grep -oE '[A-Za-z0-9_./-]+\.(vue|tsx?|jsx?|svelte|html|py|rb|go|java|kt|sql|ts|js|php|prisma|cs|exs?|dart|swift|rs|scala)' | sort -u)
+
+  # ── Paired inventory first (D21): lanes with both sides extracted are compared as keyed
+  # sets, and their primitives leave the count comparison below. Runs before every early
+  # return — solo mode has no V1 tree, so neither cited V1 file resolves on disk.
+  local pi_violations=0 pi_consumed=" " pi_lanes="" pi_lane pi_state pi_a pi_b pi_c
+  while IFS=$'\037' read -r pi_lane pi_state pi_a pi_b pi_c; do
+    [[ -z "$pi_lane" ]] && continue
+    case "$pi_state" in
+      checked)
+        pi_consumed="${pi_consumed}$(lane_primitives "$pi_lane") "
+        pi_lanes="${pi_lanes}${pi_lane} "
+        if [[ "${pi_b:-0}" =~ ^[0-9]+$ && "${pi_b:-0}" -gt 0 ]]; then
+          log_fail "pair-inventory: lane $pi_lane — $pi_b of $pi_a V1 key(s) in the files $file cites have no V2 counterpart, or lost their guard/rule attrs, and the audit does not account for them: $pi_c. Each is a candidate: search V2 middleware, global guards, base classes, the gateway, triggers and sibling services; then fix V2, add an ai/migration/pair-map.tsv row with a reason (ADR / rename / moved-to-gateway), or name the key in the audit."
+          pi_violations=$((pi_violations + 1))
+        else
+          log_pass "pair-inventory: lane $pi_lane — $pi_a V1 key(s) in the audited files all have a V2 counterpart or an audit account ($feature)"
+        fi
+        ;;
+      blocked)   log_warn "pair-inventory: lane $pi_lane blocked ($pi_a) — the per-file counts stay the comparator for this lane ($feature)" ;;
+      one-sided) [[ $QUIET -eq 0 ]] && echo "  ▸ pair-inventory: lane $pi_lane has V1 rows but no V2 extraction — counts stay the comparator ($feature)" ;;
+      pairmap-no-reason) log_warn "pair-map.tsv row for lane $pi_lane key '$pi_a' has no reason — ignored (a rename needs ADR-NNN | rename | moved-to-gateway)" ;;
+    esac
+  done <<< "$(pair_inventory_setdiff "$file" "$all_v1_files" "$id")"
+
+  # Bypass: explicit backend-only UI audit scope (match Section 0 / per-axis enumeration)
+  if grep -qE '^audit_scope:[[:space:]]*backend-only' "$file" 2>/dev/null; then
+    log_pass "primitive-match: $feature (counts skipped — audit_scope: backend-only)"
+    [[ $pi_violations -gt 0 ]] && return 1
+    return 0
+  fi
 
   # Resolve representative files. Pick the largest candidate by LOC on each
   # side (inline-ports often cite a tab-shell + the actual leaf; the leaf is
@@ -1904,6 +2248,19 @@ check_inventory_primitives_match() {
 
   # If neither side resolved to a real file, this isn't a leaf-level audit — skip
   if [[ -z "$v1_full" && -z "$v2_full" ]]; then
+    [[ $pi_violations -gt 0 ]] && return 1
+    return 0
+  fi
+
+  # Counts only compare within one primitive family (D15). A V1 Blade view against a V2 NestJS
+  # service, or a frontend file against a backend one in a mixed monorepo, compare nothing — the
+  # V2 side would read 0 for every V1 primitive and every row would fail on noise.
+  local fam1="" fam2=""
+  [[ -n "$v1_full" ]] && fam1=$(family_for_file "$v1_full")
+  [[ -n "$v2_full" ]] && fam2=$(family_for_file "$v2_full")
+  if [[ -n "$fam1" && -n "$fam2" && "$fam1" != "$fam2" ]]; then
+    log_warn "primitive-match: counts N/A for $feature — V1 $v1_full counts as $fam1, V2 $v2_full as $fam2 (declare roots: in _v2-anchors.md, or run pair-inventory.py for keyed lanes)"
+    [[ $pi_violations -gt 0 ]] && return 1
     return 0
   fi
 
@@ -1926,7 +2283,7 @@ check_inventory_primitives_match() {
   local v1_prims v2_prims
   v1_prims=$(extract_inventory_primitives "$v1_full" "$pk")
   v2_prims=$(extract_inventory_primitives "$v2_full" "$pk")
-  if [[ "$pk" == backend-* ]]; then
+  if [[ "$fam1" == backend || "$fam2" == backend ]] && [[ "$pi_consumed" != *" unique_guard "* ]]; then
     local v1_ug v2_ug
     v1_ug=$(sum_guarantee_across_files "$all_v1_files" "$V1_ROOT" "$pk" unique_guard)
     v2_ug=$(sum_guarantee_across_files "$all_v2_files" "$V2_ROOT" "$pk" unique_guard)
@@ -1951,6 +2308,8 @@ check_inventory_primitives_match() {
     case "$primitive" in
       v_model|form_state_field|form_state_field_children) continue ;;
     esac
+    # A lane the paired inventory compared as keyed sets is not re-judged by its count.
+    case "$pi_consumed" in *" $primitive "*) continue ;; esac
 
     v2_count=$(echo "$v2_prims" | awk -F= -v k="$primitive" '$1 == k { print $2; exit }')
     [[ -z "$v2_count" ]] && v2_count=0
@@ -2020,7 +2379,7 @@ check_inventory_primitives_match() {
     fi
   done <<< "$v1_prims"
 
-  if [[ $violations -gt 0 ]]; then
+  if [[ $violations -gt 0 || $pi_violations -gt 0 ]]; then
     return 1
   fi
 
@@ -2028,7 +2387,7 @@ check_inventory_primitives_match() {
   local v1_summary v2_summary
   v1_summary=$(echo "$v1_prims" | tr '\n' ' ')
   v2_summary=$(echo "$v2_prims" | tr '\n' ' ')
-  log_pass "primitive-match: $feature (project_kind=$pk; V1: $v1_summary; V2: $v2_summary)"
+  log_pass "primitive-match: $feature (project_kind=$pk; family=${fam2:-$fam1}; keyed lanes: ${pi_lanes:-none}; V1: $v1_summary; V2: $v2_summary)"
   return 0
 }
 
@@ -2142,11 +2501,7 @@ check_audit_freshness() {
   fi
   # Read v2_path from ledger
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   # If v2_path contains a glob (`*` / `?`), expand to the parent dir for `git log`
@@ -2334,11 +2689,7 @@ check_porter_vs_auditor() {
   local auditor_id porter_id
   auditor_id=$(grep -m1 -E '^auditor_agent_id:' "$audit_file" | sed 's/^auditor_agent_id:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
   local ledger_block
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   porter_id=$(echo "$ledger_block" | grep -m1 '^porter_agent_id:' | sed 's/^porter_agent_id:[[:space:]]*//' | tr -d '"' | tr -d "'" | awk '{print $1}')
   if [[ -z "$porter_id" ]]; then
     # Soft warn until ledger field is widely populated
@@ -2362,11 +2713,7 @@ check_v2_structure() {
   # globs the directory. Skips if v2_path is missing/null.
   local feature="$1"; local id="${2:-}"
   local ledger_block
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   local v2_path
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//')
   if [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]]; then
@@ -2402,8 +2749,16 @@ check_v2_structure() {
   # PROJECT_KIND is set by load_project_anchors() from ai/migration/_v2-anchors.md.
   #
   # Pattern format: "regex|severity|message"
+  #
+  # With a `roots:` list in the anchors, each file takes the set of its own root's kind (D15).
+  # The backend reference set is TypeScript-shaped (`@Injectable()`, ES `from '…'` imports): it
+  # applies to TS backends only. backend-laravel / backend-python / api-other used to receive it
+  # and could only ever match `console.log` (D22) — they now get no built-in set and the check
+  # says N/A instead of "clean".
   local fingerprints=()
-  case "$PROJECT_KIND" in
+  _v2_builtin_fingerprints() {
+  fingerprints=()
+  case "$1" in
     frontend-vue3|frontend-react|frontend-svelte|frontend-nuxt)
       fingerprints+=(
         # Raw PrimeVue / framework components in pages — V2 has wrappers
@@ -2467,7 +2822,7 @@ check_v2_structure() {
     ':deep\([^)]+\.p-button\)|warn|:deep(.foo.p-button) is a descendant selector and cannot match the Button host. Use plain <button>, or :deep(.p-button-label) for inner spans only.'
       )
       ;;
-    backend-nest|backend-laravel|backend-python|api-other)
+    backend-nest*|backend-node*|backend-express*|backend-fastify*|backend-ts*)
       fingerprints+=(
         # B7 — Backend hexagonal: @Injectable() in domain/ — domain must be framework-free
         "@Injectable\\(\\)|fail|@Injectable() in a domain/ file — domain layer must be framework-agnostic. Move to application/ or infrastructure/."
@@ -2484,10 +2839,13 @@ check_v2_structure() {
       )
       ;;
     *)
-      # Unknown project kind — no fingerprints; rely on universal checks.
+      # No built-in reference set for this kind (non-TS backends, data, mobile, mixed without
+      # roots): N/A, never "clean". Declare forbidden_patterns: in _v2-anchors.md to check it.
       :
       ;;
   esac
+  }
+  _v2_builtin_fingerprints "$PROJECT_KIND"
 
   # #13 — portability: if the project declared its OWN fingerprints in _v2-anchors.md, use those
   # (the hardcoded case-block above is the built-in REFERENCE set, kept as the fallback).
@@ -2498,8 +2856,12 @@ check_v2_structure() {
     echo "  v2-structure: using ${#fingerprints[@]} built-in reference fingerprints (PROJECT_KIND=$PROJECT_KIND) — declare a forbidden_patterns: list in _v2-anchors.md for project-specific detection (#13)"
   fi
 
-  local file_failures=0 file_warnings=0
+  local file_failures=0 file_warnings=0 files_with_set=0
   for file in "${scan_targets[@]}"; do
+    if [[ ${#PROJECT_FINGERPRINTS[@]} -eq 0 && ${#ROOT_PATHS[@]} -gt 0 ]]; then
+      _v2_builtin_fingerprints "$(kind_for_path "$file")"
+    fi
+    [[ ${#fingerprints[@]} -gt 0 ]] && files_with_set=$((files_with_set + 1))
     # Allowlist: the canonical HTTP client + tokenProvider are EXEMPT from the
     # `axios.create` and `Authorization: Bearer` fingerprints — they are the
     # source-of-truth implementations those fingerprints point developers AWAY from
@@ -2529,7 +2891,7 @@ check_v2_structure() {
         is_canonical_consumer=1
         ;;
     esac
-    for fp in "${fingerprints[@]}"; do
+    for fp in ${fingerprints[@]+"${fingerprints[@]}"}; do
       IFS='|' read -r pattern severity message <<< "$fp"
       # Skip placeholder fingerprints handled by dedicated awk passes below
       if [[ "$pattern" == __SKIP__* ]]; then continue; fi
@@ -2616,7 +2978,9 @@ check_v2_structure() {
         ;;
     esac
   done
-  if [[ $file_failures -eq 0 ]] && [[ $file_warnings -eq 0 ]]; then
+  if [[ $files_with_set -eq 0 ]]; then
+    [[ $QUIET -eq 0 ]] && echo "  ▸ V2 structure: N/A for $feature — no fingerprint set for project_kind=$PROJECT_KIND (declare forbidden_patterns: in _v2-anchors.md)"
+  elif [[ $file_failures -eq 0 ]] && [[ $file_warnings -eq 0 ]]; then
     log_pass "V2 structure clean: $feature (${#scan_targets[@]} file(s) scanned)"
   fi
   if [[ $file_failures -gt 0 ]]; then
@@ -2631,11 +2995,7 @@ check_composable_reuse() {
   # without an `import.*useCrud` line.
   local feature="$1"; local id="${2:-}"
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   # Find pages/*.vue files
@@ -2663,11 +3023,7 @@ check_service_shape() {
   # for the SAME url group, but no `new BaseCrudService` instantiation, signals a hand-rolled CRUD service.
   local feature="$1"; local id="${2:-}"
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   # Find module's services/index.ts
@@ -2706,11 +3062,7 @@ check_cross_module_import() {
   # B5 — Cross-module import: src/modules/A/* imports from src/modules/B/*.
   local feature="$1"; local id="${2:-}"
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   # Determine THIS module name from v2_path
@@ -2740,11 +3092,7 @@ check_i18n_locale_parity() {
   # Scoped to module's locales/ directory (per-module, not global).
   local feature="$1"; local id="${2:-}"
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   local this_module
@@ -2775,11 +3123,7 @@ check_lifecycle_keepalive() {
   # Skip pages on the noCache exclude list.
   local feature="$1"; local id="${2:-}"
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   # Skip the whole check if the project hasn't anchored a KeepAlive layout
@@ -2872,11 +3216,7 @@ check_api_response_sample() {
   # touches an API call). Skipped for pure-UI ports (page-only changes, no service edits).
   local feature="$1"; local id="${2:-}"
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   # Heuristic: only require API sample if the port touches a service file.
@@ -2941,11 +3281,7 @@ check_gap_count_parity() {
   # was advanced without RE-DETECT running at all.
   local feature="$1"; local id="${2:-}"
   local ledger_block
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^id: " id "$") { in_block=1 }
-    in_block { print }
-    in_block && /^```/ { exit }
-  ' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   local gaps_in gaps_closed
   gaps_in=$(echo "$ledger_block" | grep -m1 '^gaps_in:' | sed 's/^gaps_in:[[:space:]]*//' | tr -d ' "')
   gaps_closed=$(echo "$ledger_block" | grep -m1 '^gaps_closed:' | sed 's/^gaps_closed:[[:space:]]*//' | tr -d ' "')
@@ -2979,7 +3315,10 @@ check_gap_count_parity() {
   return 0
 }
 
-# Six-axis dead-V1 reachability (cron / queue / route / admin / deploy / runbook) — discipline § zombie port.
+# Six-axis dead-V1 reachability — halt 11's axes: app source / downstream tests / cron-scheduler /
+# route-API registration / infra-deploy config / production telemetry (discipline § zombie port).
+# The full check (axis names + re-computing every "no" from the doc's `symbols:`) is
+# `scripts/migration-reachability.sh --lint`; this gate reads only that every row is decided.
 check_migration_reachability_axes() {
   local feature="$1"; local id="${2:-}"
   local rf=""
@@ -3026,7 +3365,7 @@ check_cutover_evidence_for_status() {
   case "${status// /}" in
     V2-shadow|V2-canary|V2-only)
       local dir="ai/migration/cutover-evidence"
-      [[ ! -d "$dir" ]] && mkdir -p "$dir" 2>/dev/null || true
+      # Read-only: this used to `mkdir -p` the directory, a gate writing into the tree it checks.
       local found=""
       found=$(find "$dir" -maxdepth 1 \( -name "${id}-${feature}.json" -o -name "${feature}.json" -o -name "${id}-${feature}-*.json" \) -print -quit 2>/dev/null || true)
       if [[ -n "$found" ]]; then
@@ -3041,21 +3380,50 @@ check_cutover_evidence_for_status() {
 }
 
 check_tolerance_loosening_adr_evidence() {
+  # Halt 3 (migration-discipline.md): tolerance loosened in the port PR = separate PR + ADR.
+  # D17: this read only `git diff HEAD` — uncommitted edits. A loosening committed on the port
+  # branch was invisible, and even a visible one only warned. Now the range is
+  # <base>..HEAD plus the working tree, over every tolerance.* file of the feature (yaml / yml /
+  # json), and a LOOSENING-shaped change (an added ignore / structural / order- or
+  # timestamp-insensitive key, or a numeric tolerance) with no ADR cited in the audit FAILS.
+  # Any other change with no ADR stays a warning (tightening needs no ADR).
   local feature="$1"; local id="${2:-}"
   local audit
   audit=$(resolve_artifact_path "$AUDITS_DIR" "$feature" "$id")
   [[ -z "$audit" || ! -f "$audit" ]] && return 0
-  local tol=""
-  tol=$(find . -path "*/parity/${feature}/tolerance.yaml" -print -quit 2>/dev/null)
-  [[ -z "$tol" ]] && tol=$(find . -path "*/parity/${id}-${feature}/tolerance.yaml" -print -quit 2>/dev/null)
-  [[ -z "$tol" || ! -f "$tol" ]] && return 0
   git rev-parse --git-dir >/dev/null 2>&1 || return 0
-  git diff --quiet HEAD -- "$tol" 2>/dev/null && return 0
-  if grep -qiE 'ADR-[0-9]{3,4}|tolerance.*ADR|loosen.*ADR|Tightening tolerance|tolerance.*reviewer' "$audit"; then
-    log_pass "tolerance.yaml differs from HEAD — audit cites ADR / tolerance discipline: $audit"
+  local -a tols=()
+  local t
+  while IFS= read -r t; do [[ -n "$t" ]] && tols+=("$t"); done < <(
+    find . \( -path "*/parity/${feature}/tolerance.*" -o -path "*/parity/${id}-${feature}/tolerance.*" \) \
+      -type f \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) -not -path '*/node_modules/*' 2>/dev/null | sort -u)
+  [[ ${#tols[@]} -eq 0 ]] && return 0
+  local base="$BASE_REF" cand
+  if [[ -z "$base" ]]; then
+    for cand in origin/HEAD origin/main main origin/master master; do
+      base=$(git merge-base HEAD "$cand" 2>/dev/null) && [[ -n "$base" ]] && break
+      base=""
+    done
+  fi
+  local diff=""
+  diff=$(git diff HEAD -- "${tols[@]}" 2>/dev/null)
+  if [[ -n "$base" ]]; then
+    diff="${diff}"$'\n'"$(git log -p --format='commit %H' "${base}..HEAD" -- "${tols[@]}" 2>/dev/null)"
+  fi
+  if ! echo "$diff" | grep -qE '^[+-][^+-]'; then
     return 0
   fi
-  log_warn "tolerance.yaml differs from git HEAD but audit may not document ADR sign-off for loosening — $audit"
+  local range_note="working tree"
+  [[ -n "$base" ]] && range_note="${base:0:12}..HEAD + working tree"
+  if grep -qiE 'ADR-[0-9]{3,4}|tolerance.*ADR|loosen.*ADR|Tightening tolerance|tolerance.*reviewer' "$audit"; then
+    log_pass "tolerance.* changed ($range_note) — audit cites ADR / tolerance discipline: $audit"
+    return 0
+  fi
+  if echo "$diff" | grep -qiE '^\+[^+].*\b(ignore|ignored|structural|order_insensitive|order-insensitive|timestamp_insensitive|timestamp-insensitive|numeric_tolerance|abs_tol|rel_tol|tolerance)\b'; then
+    log_fail "tolerance.* LOOSENED for $feature ($range_note) with no ADR cited in $audit — halt 3: loosening ships as its own PR with an ADR, never inside the port. Revert the loosening or cite the ADR."
+    return 1
+  fi
+  log_warn "tolerance.* changed for $feature ($range_note) and $audit cites no ADR — confirm the change only tightens"
   [[ $STRICT -eq 1 ]] && { log_fail "[strict] tolerance change requires ADR citation in audit per parity-auditor § Tolerance decisions"; return 1; }
   return 0
 }
@@ -3064,7 +3432,7 @@ check_port_diff_scope_warning() {
   local feature="$1"; local id="$2"
   git rev-parse --git-dir >/dev/null 2>&1 || return 0
   local ledger_block v2_path
-  ledger_block=$(awk -v id="$id" '$0 ~ ("^id: " id "$") { in_block=1 } in_block { print } in_block && /^```/ { exit }' "$LEDGER_PATH" 2>/dev/null)
+  ledger_block=$(ledger_row_block "$id")
   v2_path=$(echo "$ledger_block" | grep -m1 '^v2_path:' | sed 's/^v2_path:[[:space:]]*//' | awk '{print $1}')
   [[ -z "$v2_path" ]] || [[ "$v2_path" == "null" ]] && return 0
   local changed
@@ -3089,7 +3457,7 @@ check_port_diff_scope_warning() {
 }
 
 check_ledger_row() {
-  local id="$1"; local feature="$2"; local status="$3"
+  local id="$1"; local feature="$2"; local status="$3"; local tier="${4:-trivial}"
   # Check that minimum required fields exist in the ledger row for this id
   local ledger_block
   # 🔴 THE ROW IS A YAML LIST ITEM, SO PARSE ONE.
@@ -3106,26 +3474,29 @@ check_ledger_row() {
   # `id:` are both accepted now, fields are normalised to column 1 for the `^field:` greps
   # below, and the block ends at the fence OR at the next row — so a later row's fields
   # cannot satisfy this one's requirements. Found by writing this file's first --self-test.
-  ledger_block=$(awk -v id="$id" '
-    $0 ~ ("^[[:space:]]*-?[[:space:]]*id:[[:space:]]*" id "[[:space:]]*$") {
-      in_block=1; line=$0; sub(/^[[:space:]]*-?[[:space:]]*/, "", line); print line; next
-    }
-    in_block {
-      if ($0 ~ /^[[:space:]]*```/) exit
-      if ($0 ~ /^[[:space:]]*-[[:space:]]*id:/) exit
-      line=$0; sub(/^[[:space:]]*/, "", line); print line
-    }
-  ' "$LEDGER_PATH")
+  # The parsing now lives in ledger_row_block, which every field-reading check shares.
+  ledger_block=$(ledger_row_block "$id")
+  # find-and-fix's form keys the row by its slug and writes no `feature:` line — the id IS the
+  # feature. Requiring the key there failed every row that form produced.
+  if ! echo "$ledger_block" | grep -qE '^feature:' && ! [[ "$id" =~ ^F[0-9]+[a-z]?$ ]]; then
+    ledger_block=$(printf '%s\nfeature: %s\n' "$ledger_block" "$id")
+  fi
+  # Tier-scoped, like the artifact checks in validate_feature: a trivial row is "audit + code
+  # edit + ledger note" (migration-discipline.md § Required artifacts per feature), so it never
+  # carries contract / plan / parity_tests — demanding them failed every trivial `done` row
+  # find-and-fix.md § 5 records. The V1 pin is required at every tier past V1-only.
   local required_for_state=()
   case "$status" in
     "V1-only"|"unverified")
       required_for_state=(feature)
       ;;
     "in-progress"|"In-progress")
-      required_for_state=(feature contract plan v1_commit_pinned)
+      if [[ "$tier" == "trivial" ]]; then required_for_state=(feature v1_commit_pinned)
+      else required_for_state=(feature contract plan v1_commit_pinned); fi
       ;;
     "V2-shadow"|"done"|"divergent")
-      required_for_state=(feature contract plan v1_commit_pinned parity_tests)
+      if [[ "$tier" == "trivial" ]]; then required_for_state=(feature v1_commit_pinned)
+      else required_for_state=(feature contract plan v1_commit_pinned parity_tests); fi
       ;;
     "pending-review")
       # Heavy-tier rows pause here; reviewer_approval must be present AND non-empty (checked below).
@@ -3161,6 +3532,9 @@ check_ledger_row() {
   # Parity-assertion presence: a done-class row must have a recorded parity-run artifact backing it.
   # Existence check only here (content/commit match is enforced by check_parity_run_report). Accept
   # either an inline `parity_runs:` block in the row OR a file under ai/migration/parity-runs/.
+  # Trivial tier writes no parity suite, so it has no run to record; a trivial row that still
+  # CLAIMS parity_test: passing is held to a recorded run by check_parity_run_report.
+  [[ "$tier" == "trivial" ]] && return 0
   case "$status" in
     "V2-shadow"|"done"|"divergent")
       local has_run=0
@@ -3187,7 +3561,7 @@ validate_feature() {
   [[ -z "$tier" ]] && tier="trivial"
   log_section "Feature $id ($feature) — phase $phase, status=$status, tier=$tier"
   # 0. Check the ledger row first
-  check_ledger_row "$id" "$feature" "$status" || true
+  check_ledger_row "$id" "$feature" "$status" "$tier" || true
   # If status is parked / deprecated / unverified / V1-only — skip the rest (artifacts not yet required)
   case "$status" in
     parked|deprecated|unverified|V1-only)
@@ -3272,18 +3646,18 @@ load_project_anchors() {
   fm=$(awk '/^---[[:space:]]*$/{n++; next} n==1{print} n>=2{exit}' "$ANCHORS_FILE")
   [[ -z "$fm" ]] && return 0
   local pk v1r v2r ptr ledger contracts plans audits perf runbooks ka_layout ka_var
-  pk=$(echo "$fm" | grep -m1 '^project_kind:' | sed 's/^project_kind:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  v1r=$(echo "$fm" | grep -m1 '^v1_root:' | sed 's/^v1_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  v2r=$(echo "$fm" | grep -m1 '^v2_root:' | sed 's/^v2_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  ptr=$(echo "$fm" | grep -m1 '^parity_test_root:' | sed 's/^parity_test_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  ledger=$(echo "$fm" | grep -m1 '^ledger_path:' | sed 's/^ledger_path:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  contracts=$(echo "$fm" | grep -m1 '^contracts_dir:' | sed 's/^contracts_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  plans=$(echo "$fm" | grep -m1 '^plans_dir:' | sed 's/^plans_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  audits=$(echo "$fm" | grep -m1 '^audits_dir:' | sed 's/^audits_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  perf=$(echo "$fm" | grep -m1 '^perf_dir:' | sed 's/^perf_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  runbooks=$(echo "$fm" | grep -m1 '^runbooks_dir:' | sed 's/^runbooks_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  ka_layout=$(echo "$fm" | grep -m1 '^keepalive_layout:' | sed 's/^keepalive_layout:[[:space:]]*//' | tr -d '"' | tr -d "'")
-  ka_var=$(echo "$fm" | grep -m1 '^keepalive_exclude_var:' | sed 's/^keepalive_exclude_var:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  pk=$(echo "$fm" | { grep -m1 '^project_kind:' || true; } | sed 's/^project_kind:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  v1r=$(echo "$fm" | { grep -m1 '^v1_root:' || true; } | sed 's/^v1_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  v2r=$(echo "$fm" | { grep -m1 '^v2_root:' || true; } | sed 's/^v2_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  ptr=$(echo "$fm" | { grep -m1 '^parity_test_root:' || true; } | sed 's/^parity_test_root:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  ledger=$(echo "$fm" | { grep -m1 '^ledger_path:' || true; } | sed 's/^ledger_path:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  contracts=$(echo "$fm" | { grep -m1 '^contracts_dir:' || true; } | sed 's/^contracts_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  plans=$(echo "$fm" | { grep -m1 '^plans_dir:' || true; } | sed 's/^plans_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  audits=$(echo "$fm" | { grep -m1 '^audits_dir:' || true; } | sed 's/^audits_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  perf=$(echo "$fm" | { grep -m1 '^perf_dir:' || true; } | sed 's/^perf_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  runbooks=$(echo "$fm" | { grep -m1 '^runbooks_dir:' || true; } | sed 's/^runbooks_dir:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  ka_layout=$(echo "$fm" | { grep -m1 '^keepalive_layout:' || true; } | sed 's/^keepalive_layout:[[:space:]]*//' | tr -d '"' | tr -d "'")
+  ka_var=$(echo "$fm" | { grep -m1 '^keepalive_exclude_var:' || true; } | sed 's/^keepalive_exclude_var:[[:space:]]*//' | tr -d '"' | tr -d "'")
   # Apply (override defaults only if the field was set)
   [[ -n "$pk" ]]       && PROJECT_KIND="$pk"
   [[ -n "$v1r" ]]      && V1_ROOT="$v1r"
@@ -3315,8 +3689,19 @@ load_project_anchors() {
     PROJECT_FINGERPRINTS+=("${rx}|${sev}|${msg:-V1 transposition fingerprint}")
   done < "$ANCHORS_FILE"
 
+  # Per-root kinds (D15): `roots:` entries in the frontmatter, `- { path: <dir>, kind: <kind> }`.
+  ROOT_PATHS=(); ROOT_KINDS=()
+  while IFS= read -r ln; do
+    echo "$ln" | grep -qE '^[[:space:]]*-[[:space:]]*\{.*path:.*kind:' || continue
+    local rp rk
+    rp=$(echo "$ln" | sed -nE 's/.*path:[[:space:]]*["'"'"']?([^,"'"'"' }]+).*/\1/p')
+    rk=$(echo "$ln" | sed -nE 's/.*kind:[[:space:]]*["'"'"']?([A-Za-z0-9_-]+).*/\1/p')
+    [[ -z "$rp" || -z "$rk" ]] && continue
+    ROOT_PATHS+=("${rp%/}/"); ROOT_KINDS+=("$rk")
+  done <<< "$fm"
+
   if [[ $QUIET -eq 0 ]]; then
-    echo "  anchors: $ANCHORS_FILE (project_kind=$PROJECT_KIND, v2_root=$V2_ROOT, fingerprints=${#PROJECT_FINGERPRINTS[@]})"
+    echo "  anchors: $ANCHORS_FILE (project_kind=$PROJECT_KIND, v2_root=$V2_ROOT, roots=${#ROOT_PATHS[@]}, fingerprints=${#PROJECT_FINGERPRINTS[@]})"
   fi
 }
 
@@ -3330,14 +3715,20 @@ validate_project_kind_strict() {
     return 1
   }
   case "$pk" in
-    frontend-*|backend-*|data-*|mobile-*|mixed|api-other)
-      return 0
-      ;;
+    frontend-*|backend-*|data-*|mobile-*|mixed|api-other) ;;
     *)
       log_fail "Unknown project_kind '$pk' in _v2-anchors.md — use frontend-*, backend-*, data-*, mobile-*, mixed, or api-other."
       return 1
       ;;
   esac
+  local i
+  for (( i = 0; i < ${#ROOT_KINDS[@]}; i++ )); do
+    case "${ROOT_KINDS[$i]}" in
+      frontend-*|backend-*|data-*|mobile-*) ;;
+      *) log_fail "roots: entry '${ROOT_PATHS[$i]}' has kind '${ROOT_KINDS[$i]}' — a root takes one family kind (frontend-*, backend-*, data-*, mobile-*), never mixed."; return 1 ;;
+    esac
+  done
+  return 0
 }
 
 check_actionable_next_steps() {
@@ -3452,8 +3843,10 @@ main() {
   # Match the canonical INDENTED YAML-list row marker (optional leading whitespace + "- "),
   # then strip the prefix so only the F-id is compared.
   local dupe_ids
-  dupe_ids=$(grep -oE '^[[:space:]]*(- )?id: F[0-9]+[a-z]?$' "$LEDGER_PATH" 2>/dev/null \
-    | sed -E 's/^[[:space:]]*(- )?id: //' | sort | uniq -d)
+  # `|| true`: under pipefail a ledger with no F-numbered id (find-and-fix's slug form) made grep
+  # exit 1 and the whole validator exit 1 here, silently, before checking a single row.
+  dupe_ids=$(grep -oE '^[[:space:]]*(- )?id: [^[:space:]#]+$' "$LEDGER_PATH" 2>/dev/null \
+    | sed -E 's/^[[:space:]]*(- )?id: //' | grep -E '^F[0-9]+[a-z]?$' | sort | uniq -d || true)
   if [[ -n "$dupe_ids" ]]; then
     echo "FATAL: duplicate ledger IDs detected (data-integrity issue):" >&2
     echo "$dupe_ids" | sed 's/^/  /' >&2

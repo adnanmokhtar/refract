@@ -14,6 +14,20 @@ each release inside the `_version.json` `summary` string, and every release appe
 one JSON line. Each telling is preserved below under the version it describes, verbatim and
 unabridged.
 
+## 2.0.0 — 2026-10-18
+
+**The align pack became a detector pack (Track A batch 6).** Before this release it was a guarded fix process with no detector of its own (0 `rg` calls, 0 coverage blocks), it ran security/perf/SQLi greps it did not own, and it auto-accepted token visual diffs.
+
+- **The oracle.** `convention-oracle` + `scripts/oracle-map.py` tag every rule enforced (T1), written (T2), generated (T2g, needs one ratification) or contested, from ESLint 10 flat config, boundaries v6/v7, tsconfig, ls-lint, Ruff, ADRs and `ai/conventions.md` `[CONTESTED]`/Unsettled rows, with versions from the lockfile. A majority never makes a finding: ≥ 30 sites at ≥ 0.75 share only proposes "canonical — ratify?". Every finding quotes its oracle line (AL-01).
+- **Detectors:** `wrapper-adoption-scan` (AL-11/13/14/15/22), `naming-layout-scan` + `scripts/name-check.py` (AL-16…19; framework-mandated names exempt), `convention-ratchet-scan` (AL-29…32: suppressions, baselines that grew, dead configs, migrations under way), `align-detect` (the AL-01…34 ledger and dispatcher; owner classes go to their packs "when installed").
+- **The proof ladder.** `find-and-align` + `scripts/align-sweep-gate.py` (L0–L13): re-detect to zero, changed lines match the hits, one way per pattern, tests locked, names exist, token round-trip, non-vacuous, ratchet; a judge cannot turn a fail into a pass. EQ (an exact-value token swap: zero computed-style difference per theme) is separated from VC (a nearest-token snap: an approved visual diff).
+- **`/align-scan` is the read-only audit** (verdict ALIGNED / ALIGNED-UNVERIFIED / DRIFT); `/align-gate` is a 17-check matrix; the ledger gains AL fields and the routed / pending-approval / pending-ratification / refuted states; `validate-align-artifacts.sh` requires scan evidence for every class; `align-parallel.sh` parsed a heading shape the ledger never used (0 rows) and now parses `- id:` rows and isolates per worktree or a serial commit queue.
+- **`detect-drift` → `align-detect`.** Claude Code resolves a skill and a command with the same name to the skill (docs, 2026-10-18), so align's skill hid learning's `/detect-drift`.
+- **Fixture `convention-drift`** (React, Vue/Tailwind 4, Nest/Fastify, FastAPI; 47 align seeds, 15 routed, 24 decoys, 14 fix-runs scored by `tests/align-sweep-gate/run.sh`). Every in-tree seed is hit by its detector's pre-flight.
+- Precedents `precedents/align.md` § 1–31; proof oracles V389–V408.
+
+**Real-repo fold-back (same day).** A read-only `/align-scan` of a real NestJS + React monorepo found 21 engine and detector defects; all are fixed and re-measured there: `oracle-map.py` crashed on a non-string rule message (now resolves consts, prints unresolved names as `static!=resolved`, and exits 2 with a traceback on any internal error), read CI as "no lint" because `turbo run lint` was never expanded (T1-noci 31 → 0; `turbo`/`pnpm -r`/`nx run-many`/`lerna` now expand per package), read a local plugin's rule map as config, ignored `importNames`/`importNamePattern` and `!` negations (2,740 + 21 false AL-22 rows → 0), missed project ratchets (`*-baseline.json`, in-test `CEILING` constants, `'a -> b': N` maps — AL-30 now finds the six coupling-ceiling rises the audit had found by hand), skipped CI-linted test trees, and read a squashed history as dated (now `history-blind`). AL-30 prints `NOT RUN` when the base equals HEAD. Pre-flights refuse to run under zsh. Precedents § 32–36.
+
 ## Pack description
 
 Carried in the `_version.json` `summary` field through v1.8.2:

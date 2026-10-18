@@ -34,7 +34,7 @@ A candidate is a finding when all four hold:
 
 ## Boundaries
 
-- **Secret values in state, plan or outputs** (TF-02) → security `secret-scan` / `iac-scan` § 4 when the security pack is installed. § 2 here only corroborates the **mechanism** (unmarked `sensitive`, no ephemeral/write-only argument, no state encryption). Without the pack: tagged `security-class (owner pack not installed)`, listed, not graded. **Who can read the state bucket** is security's.
+- **Secret values in state, plan or outputs** (TF-02) → security `secret-scan-method` / `iac-scan` § 4 when the security pack is installed. § 2 here only corroborates the **mechanism** (unmarked `sensitive`, no ephemeral/write-only argument, no state encryption). Without the pack: tagged `security-class (owner pack not installed)`, listed, not graded. **Who can read the state bucket** is security's.
 - **Mutable image tags and registry tag mutability** → security 4j. **A chart's version that is removed or retired at the target minor** → `k8s-api-version-scan` § 4; it reads the pin this § 3 finds and never grades its absence.
 - **Identity churn, lifecycle, deletion safety** → `iac-lifecycle-scan` (this pack); it ships `scripts/blocks.awk`, which § 0 and § 2 here call.
 - **Live drift of a GitOps controller** → devops `gitops-audit` when the devops pack is installed, else `N/A (owner pack devops not installed)`. § 4 owns IaC plan discipline only. **The CI job's own shape** (permissions, OIDC trust) → security `ci-security-scan`; deploy-job topology → devops `deploy-safety-scan`.

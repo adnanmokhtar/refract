@@ -35,7 +35,7 @@ A candidate is a finding when all four hold (the seven gates as `precedents/devo
 - **Selector grounding** is observability's technique: `alert-rule-lint` §4 and its `scripts/rule-inventory.py --check=selectors`, when the observability pack is installed (pre-flight 5g runs it on every Prometheus query of §5). Without it, every query row prints `[report-flagged] selector not grounded (owner pack observability not installed)` and §5 never claims a series exists. The PromQL itself (windows, `rate` on a gauge) is not judged here.
 - **The Rollout's pod template** (replicas, PDB, probes, resources) → infrastructure `k8s-availability-scan` (it reads the Argo Rollout template), **the GitOps spec** → infrastructure `k8s-render-scan` §4, each when installed; without it, `N/A (owner pack infrastructure not installed)`.
 - **A contract migration shipped under a canary** (old and new pods share one schema) → database `migration-safety` §4 when installed, and `deploy-safety-scan` §1d.
-- **Config that is not a flag** (a URL, a key) declared per environment → `deploy-safety-scan` §6. **A server image built per environment** → `release-integrity-scan` §4. **A flag SDK key committed in a file** → security `secret-scan` when installed.
+- **Config that is not a flag** (a URL, a key) declared per environment → `deploy-safety-scan` §6. **A server image built per environment** → `release-integrity-scan` §4. **A flag SDK key committed in a file** → security `secret-scan-method` when installed.
 
 ## Adapt to the codebase — the lanes
 
@@ -410,7 +410,7 @@ Rationalizations to reject:
 
 - `/devops-audit` dispatches this skill on a flag config, Rollout or AnalysisTemplate and folds its coverage block into the delivery rows; `/devops-fix` closes them with V232 and V233. `/rollback-deploy` asks whether a kill switch exists before it moves an artifact.
 - `@deployment-engineer` judges these rows and picks the strategy; `monitor-deploy` watches one rollout; `deploy-safety-scan`, `release-integrity-scan` and `gitops-audit` (this pack) own the neighbouring classes.
-- Observability `alert-rule-lint` §4 (the grounding script), infrastructure `k8s-availability-scan` and `k8s-render-scan` §4, database `migration-safety` §4, security `secret-scan` — each when its pack is installed.
+- Observability `alert-rule-lint` §4 (the grounding script), infrastructure `k8s-availability-scan` and `k8s-render-scan` §4, database `migration-safety` §4, security `secret-scan-method` — each when its pack is installed.
 
 ## Sources
 

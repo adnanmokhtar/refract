@@ -1,0 +1,13 @@
+/* stylelint-disable scale-unlimited/declaration-strict-value */
+.checkout {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+
+.apply {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: #1a73e9;
+  color: var(--color-surface);
+}

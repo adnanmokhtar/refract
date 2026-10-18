@@ -1,0 +1,4 @@
+# V-08: #d92d20 -> var(--color-dangerous), declared nowhere
+names FAIL
+roundtrip FAIL
+verdict FAIL

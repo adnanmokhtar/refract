@@ -240,6 +240,8 @@ This cuts each dispatch from ~40-90K input tokens to ~10-15K. For a 4-agent Phas
 
 Coordination: 4a runs first. After 4a is green, 4b + 4c + 4d run in parallel using the shared context blob (heavy + standard tiers).
 
+**Data cutover runbook (a feature whose stored rows move across stores).** Run the `data-cutover-orchestrate` skill on the feature. It is read-only: it writes its runbook draft (source of truth, checkpoint, reconcile query and result, gate status, reverse path, point of no return) to its run folder as `cutover-<feature>.md` and never into the tree. Copy that draft to `ai/runbooks/cutover-<feature>.md` as this command's own write — a `BLOCK cutover` draft is copied too, so the block is on record — and cite the path in the ledger row's `notes`. Never author the runbook from memory when the skill's draft exists; with no draft (the skill did not run), the runbook step stays open.
+
 After parallel completes, sequentially:
 
 | Sub-step | Output |

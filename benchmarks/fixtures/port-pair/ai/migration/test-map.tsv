@@ -1,0 +1,5 @@
+feature	v1-test	v2-test	mapping
+wallets-adjust	v1/tests/Feature/WalletAdjustTest.php::test_adjustment_posts_a_transaction_and_logs_activity	v2/apps/api/test/parity/wallets.parity.spec.ts::posts a transaction and logs activity like V1	moved 1:1 (same request, status and body; harness only)
+invoice-totals	v1/tests/Feature/InvoiceTotalsTest.php::test_tax_is_rounded_per_line_then_summed	v2/apps/api/test/parity/invoices.parity.spec.ts::matches the V1 golden for the five-line reference invoice	golden recorded from V1 (__golden__/invoice-totals.json)
+invoice-credits	v1/tests/Feature/InvoiceTotalsTest.php::test_credit_lines_round_half_away_from_zero	v2/apps/api/test/parity/invoices.parity.spec.ts::matches V1 credit amounts for negative halves	1:1 against the V1 checkout
+order-validation	v1/tests/Feature/StoreOrderValidationTest.php::test_every_invalid_field_is_reported_at_once	-	not ported yet (ledger F001 notes)

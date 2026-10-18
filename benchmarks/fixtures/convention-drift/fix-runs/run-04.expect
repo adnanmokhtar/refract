@@ -1,0 +1,5 @@
+# AL-34 (V-06): swap + snapshot update + the colour assertion removed
+lock-paths FAIL
+scope FAIL
+lock-count FAIL
+verdict FAIL

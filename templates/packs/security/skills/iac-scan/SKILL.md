@@ -26,7 +26,7 @@ Like `sast-scan`, it has two halves:
 
 **Every finding cites `<file:line>`** (for a manifest, `<file:line>` plus the field path, e.g. `spec.template.spec.containers[0].securityContext.privileged`) **+ the failing condition + what it exposes to whom + the fix + severity**. A scanner rule id alone is not a finding.
 
-**Out of scope, on purpose:** checks that are operations, not security — `HEALTHCHECK`, probes, resource requests/limits, replicas, PDBs, log retention, bucket versioning, Multi-AZ. Scanners emit them in bulk; triage marks them `ops — out of scope` and moves on. The **value** of a leaked secret is `secret-scan`'s (rotation first); this skill owns the fact that the secret is **in a deployable file**. Image CVEs, SBOM and signing are the devops pack's `release-security` skill's — § 1 dispatches it when that pack is installed. What the running edge actually serves is `/security-live-scan`'s.
+**Out of scope, on purpose:** checks that are operations, not security — `HEALTHCHECK`, probes, resource requests/limits, replicas, PDBs, log retention, bucket versioning, Multi-AZ. Scanners emit them in bulk; triage marks them `ops — out of scope` and moves on. The **value** of a leaked secret is `secret-scan-method`'s (rotation first); this skill owns the fact that the secret is **in a deployable file**. Image CVEs, SBOM and signing are the devops pack's `release-security` skill's — § 1 dispatches it when that pack is installed. What the running edge actually serves is `/security-live-scan`'s.
 
 ## Adapt to the codebase
 
@@ -270,7 +270,7 @@ GOOD:  FROM node:22.11-slim@sha256:<digest>
 ```
 **Unpinned build-time module fetches** are the same class as `curl | sh`, and no scanner flags them. Examples: `xcaddy build --with <module>` with no `@version`, `go install …@latest`, and `npm i -g <pkg>` with no version. Each compiles whatever upstream published last into the shipped binary. That matters most for an edge proxy, which sees every request in plaintext and holds the DNS and storage credentials. The Go checksum database guarantees everyone gets the same bytes, not that the bytes are benign. Fix: `--with <module>@vX.Y.Z`, or a vendored `go.mod`/`go.sum` built with `GOFLAGS=-mod=readonly`. **Before rating a root final stage high**, read the base image's own user (`docker image inspect -f '{{.Config.User}}' <base>`, or the vendor's docs). `nginx-unprivileged` runs as 101. Also read the pod's `runAsUser` / `runAsNonRoot`, since either one mitigates it.
 
-Severity: secret file or secret build-arg in a pushed image **critical** (hand the value to `secret-scan`); root final stage **high** (mitigated by the base's `USER` or the pod's securityContext → hardening); `curl | sh`, `bash <(curl …)` / `ADD` URL **high**; unpinned build-time module into an internet-facing binary **medium**; floating base **medium**. A02 / A08:2025 · CWE-250, 522, 538, 494, 829.
+Severity: secret file or secret build-arg in a pushed image **critical** (hand the value to `secret-scan-method`); root final stage **high** (mitigated by the base's `USER` or the pod's securityContext → hardening); `curl | sh`, `bash <(curl …)` / `ADD` URL **high**; unpinned build-time module into an internet-facing binary **medium**; floating base **medium**. A02 / A08:2025 · CWE-250, 522, 538, 494, 829.
 
 When the devops pack is installed, also dispatch its `container-build-scan` skill (stage chain, PID 1, lockfile, HEALTHCHECK, `--check`/hadolint lane, `docker history`) and `release-security` (image CVEs, SBOM, signature). Without it, this detector reports the Dockerfile only, and the ledger says `built image: not scanned`.
 
@@ -379,7 +379,7 @@ Flag: a real `.env` tracked by git (it is in every clone and every fork); an `.e
 BAD:   git ls-files → .env                           .env.example: DATABASE_URL=postgres://app:realpass@prod-db.internal/app
 GOOD:  .env in .gitignore and .dockerignore          .env.example: DATABASE_URL=postgres://user:<password>@localhost:5432/app
 ```
-Severity: tracked `.env` with live values **critical** — `secret-scan` owns the value and the rotation; an example file with real values **high**; image-carried `.env` **critical** (`release-security` for the published image when the devops pack is installed). A `.env` reachable over HTTP is `data-exposure-scan`'s exposed-file finding — dispatch it. A02:2025 · CWE-538, 312.
+Severity: tracked `.env` with live values **critical** — `secret-scan-method` owns the value and the rotation; an example file with real values **high**; image-carried `.env` **critical** (`release-security` for the published image when the devops pack is installed). A `.env` reachable over HTTP is `data-exposure-scan`'s exposed-file finding — dispatch it. A02:2025 · CWE-538, 312.
 
 ### Triage of scanner hits
 
@@ -422,7 +422,7 @@ Findings: 6
    grep 2 · A02:2025 · CWE-250      Fix: `USER app` after the last FROM (create the user in that stage).
 
 5. k8s/deployment.yaml:53  kind: Secret data.key     high      [report-with-fix]
-   committed Secret; base64 only. Value → secret-scan (rotate first).   A02:2025 · CWE-312
+   committed Secret; base64 only. Value → secret-scan-method (rotate first).   A02:2025 · CWE-312
    Fix: External Secrets / Sealed Secrets; remove from git history after rotation.
 
 6. infra/main.tf:51  aws_instance.web                high      [report-flagged]
@@ -477,12 +477,12 @@ Measured on the sample described in § Premise:
 - Halt on a ledger that omits a surface grep 1 found, or that marks a scanner RAN without its file count. A scanner that read zero files did not run.
 - Do not report a scanner rule id as a finding before reading the block. Do not file ops-only checks as security findings.
 - Do not run any tool that writes into the repo (`gixy --fix`, `checkov --download-external-modules` into the tree, `helm dependency update`) without asking. Do not install globally without asking. Do not write scan output inside the repo.
-- Do not rotate, scrub or print a secret value — hand it to `secret-scan`.
+- Do not rotate, scrub or print a secret value — hand it to `secret-scan-method`.
 
 ## Related
 
 - `/security-audit` — dispatches this skill in § Phase 2 — Organize; its § Class coverage ledger takes this skill's coverage block as the "Container, orchestration, cloud IAM, CI, reverse-proxy config" row, and § Phase 6 — Validate rates the suppression list.
-- `sast-scan` — owns semgrep on application code; this skill runs the IaC rulesets. `secret-scan` — owns every secret value and its rotation. `ssrf-scan` — § 6 there is the code half of the IMDSv1 finding. `data-exposure-scan` — an `.env` or backup reachable over HTTP.
+- `sast-scan` — owns semgrep on application code; this skill runs the IaC rulesets. `secret-scan-method` — owns every secret value and its rotation. `ssrf-scan` — § 6 there is the code half of the IMDSv1 finding. `data-exposure-scan` — an `.env` or backup reachable over HTTP.
 - `/security-live-scan` — what the running edge actually serves (TLS handshake, headers, exposed paths); this skill reads the config that should produce it.
 - `ci-security-scan` (same pack) — every CI attacker-path class on six platforms (§ 5). devops pack, when installed — `container-build-scan` and `release-security` (§ 1, § 7); `@ci-reviewer` judges delivery-integrity rows through `ci-security-scan`'s boundary.
 - infrastructure pack, when installed — `@k8s-reviewer` and `admission-policy` (§ 3); `/audit-iam`, `tf-plan-review` and `network-exposure-audit` (§ 4, § 6).

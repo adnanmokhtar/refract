@@ -1,6 +1,6 @@
 ---
 name: find-and-align
-description: Per-finding fix loop for codebase alignment. DETECT → DECIDE → FIX → VERIFY → RECORD. One commit per finding. Net-lines ≤ 0 for structural rows; small + budget for functional rows (added lines must cite idioms). Stack-agnostic. Used by /align-phase, /align-fast.
+description: "Align's per-row fix as a proof ladder: route non-align rows, classify EQ/VC/FN, cheap diff gates, re-detect to zero, zero style diff or an approval."
 kind: skill
 pack: align
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
@@ -8,269 +8,219 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 # Skill: find-and-align
 
-## Purpose
+## Premise
 
-Drive a single finding through the 5-step fix loop: DETECT → DECIDE → FIX → VERIFY → RECORD. Behaviour-preserving for structural rows; behaviour-changing-but-tested for security / perf rows.
+**An align row is closed when the convention it cites now holds at every evidence line, nothing else in the commit changed, and the proof that fits its class says the behaviour is the same, or a named human approved the visible change.** A green build is not that proof. In the Patchwork study (arXiv 2607.08981, 2026-07), 97% of cross-file coherence failures in model-written code passed the type checker and 100% passed the tests. An alignment sweep is a cross-cutting task: one literal swapped to two different tokens in two files, an import reordered in an untouched function, a snapshot re-recorded so the swap "passes". Each hunk looks fine alone.
 
-This skill is the **fix** half of alignment. The detect half is `detect-drift`.
+So this skill is a **ladder of deterministic gates run in cost order, before any reviewer reads the diff**. The first failure stops it. The gates are implemented once, in `scripts/align-sweep-gate.py` (this skill's folder). An LLM judge is advisory only: it can move a PASS to `pending-review`, never a FAIL to PASS (the script prints `judge-override-refused`).
+
+Below, a spaced `§ n` is [`precedents/align.md`](../../../../snippets/precedents/align.md) § n, and V-numbers are [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Align.
+
+This skill is the fix half of alignment. The detect half is `align-detect`, which dispatches the detectors whose rows arrive here.
 
 ## When to use
 
-- Dispatched by `/align-phase` per row.
-- Dispatched by `/align-fast` per row (in parallel waves).
+- Dispatched per row by `/align-phase` (serial) and `/align-fast` (waves), and by `/align --from-audit` for each row of an audit's `## What to do next`.
+- Dispatched with `--dry-run` to run DETECT and DECIDE only.
 
-## Inputs (precise contract)
+## Inputs
 
 | Input | Source | Required |
 |---|---|---|
-| `row` (single ledger row) | `ai/align/ledger.md` | YES |
-| `shared_context_blob` (≤ 5K tokens; idioms summary + conventions summary + architecture summary) | Built by orchestrator; passed by reference | YES |
-| `PROJECT_KIND` | `_extracted-codebase.md § Gold standards` | YES |
-| Test runner / lint / typecheck commands | `_extracted-idioms.md` / `ai/stack.md` | YES |
-| Coverage tolerance (default 0.5%) | `ai/conventions.md § Coverage` | NO (defaults applied) |
-| Per-class detector tool | Project anchors | YES (for re-detect at VERIFY) |
+| The row | `ai/align/ledger.md`, `- id: A<NNN>` form: `al_class`, `oracle` (+ `oracle_tier`), `owner`, `evidence` (base line numbers), `scope`, `closure_verb`, `shared_equivalent` / `idiom_cited`, `proof_class`, `detector_cmd` (or `detector_re`), `detector_scope`, `canary`, `approval`, `tier`, `status` | yes |
+| `$RUN` | the run folder (`mktemp -d` under `$TMPDIR`); nothing is written elsewhere except the fix itself and the ledger row | yes |
+| Base ref | the commit before the row's first edit | yes |
+| The oracle map | `convention-oracle` § 0 (`oracle-map.py --out=$RUN/oracle`) | yes, for L0 |
+| `token-map.py` | the ui-ux `design-token-audit` skill's script, when the ui-ux pack is installed | token rows only; without it L8 is `NOT RUN (blocked: token-map.py absent)` and the row stays VC |
+| Lint, type, build and test commands | `_extracted-idioms.md`, then `ai/stack.md`, then the manifests | yes for L9 |
 
-Row schema (the input the orchestrator passes per dispatch):
+## Step 1 — ROUTE: is this row align's to close?
 
-```yaml
-id: A047                                    # stable id from scan
-class: security                             # one of the 11 universal named classes, or `stack-specific`
-subclass: missing-auth-gate                 # optional sub-classification
-severity: high                              # security only: low | medium | high | critical
-scope: [src/routes/admin/export.ts]         # files the fix may touch (others = halt)
-evidence: [src/routes/admin/export.ts:12]   # at least 1 <path:line>
-closure_verb: add-gate                      # one of 21 verbs
-idiom_cited: src/auth/gates.ts:7            # required for functional verbs that add lines
-tier: standard                              # trivial | standard | heavy
-status: detected | in-progress | halted     # entry states; loop transitions to fixed/halted/archived
-notes: ""                                   # per-tier rationale
-```
+Most of what a scan sees is owned elsewhere. Before any edit, the row goes to its owner's fix command when one of these holds. It moves to `routed (<command>)` with the audit id, and gets no commit here.
 
-## Outputs (precise contract)
+| The row is | Closed by |
+|---|---|
+| a security class (injection, XSS, secret, auth gate, tenant filter, validation) | `/security-fix`. The security pack is always installed, so align never closes it |
+| a performance or query class (N+1, missing index, cache, sequential await) | `/perf-fix` or `/db-fix` when that pack is installed. Without it, the carve-out below |
+| error handling (silent catch, unhandled I/O), dead code, a diverged copy (AL-13 diverged), SOLID or complexity | `/quality-fix` (code-quality is always installed) |
+| new copy (AL-26 with no catalog value), catalog defects (AL-27), an a11y convention on a native element (AL-28) | `/frontend-fix` when the frontend pack is installed |
+| an envelope or error shape against a **declared** contract (AL-23) | `/backend-fix`; no contract declared → `/polish` |
+| casing or pagination uniformity (AL-24, AL-25), a token or state that does not exist yet | `/polish` |
+| a wrapper gap: the raw primitive does something the wrapper does not expose (precedents § 9) | `/unify-surfaces` |
+| a layer rework beyond a re-route through a named public surface (AL-20/21) | `/optimize` |
+| a rename of a wire, DB, env or generated name (§ 15) | `/refactor` with an ADR |
+| an oracle tagged T2g (generated) | `pending-ratification`: one probe per rule ("confirm `ai/conventions.md:<n>`"), never an edit (§ 28) |
+| an idiom the fix needs that no oracle names | halt `missing-idiom` → `/setup-project --refine` |
 
-A row-update for the ledger (one of three terminal states):
+**The carve-out** (eval O-3, proposed). A performance or database row whose fix applies an idiom the oracle already names (a declared batch loader, a declared cache wrapper) stays here only when the owning pack is absent. Its baseline must be **measured** by a failing-first test (a query-count scaling test, [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Query-count scaling), never a number in `notes`.
 
-```yaml
-# Outcome A: fixed
-id: A047
-status: fixed
-fixed_at: <iso-timestamp>
-commit: <git-sha>
-gaps_closed: <N>                            # MUST equal len(evidence)
-notes: "<rationale per tier — security rows MUST cite threat + test added>"
-# (security only): test_added_path: <path:line>
-# (perf only): baseline + delta in notes
-```
+## Step 2 — DETECT: re-verify the row
 
-```yaml
-# Outcome B: halted
-id: A047
-status: halted
-halted_at: <iso-timestamp>
-halt_reason: <one of: missing-idiom | shared-equivalent-missing | re-detect-failed | scope-creep |
-              new-symbol | net-positive-structural | functional-no-citation | test-failure |
-              coverage-drop | mis-classified | a11y-regression | visual-regression |
-              bundle-regression | reviewer-pending | cross-repo>
-halt_path: ai/align/halts/A047.md           # file with full remediation
-```
+1. Re-run the row's `detector_cmd` (or `detector_re`) on the current tree, scoped to its evidence files.
+   - Every evidence line still matches → continue.
+   - A line moved within the file → update the evidence and continue.
+   - **0 hits, and the detector ran and matched files** (V399) → `archived-pre-existing` (aged out), with no commit. A detector that matched 0 files proves nothing: halt `re-detect-vacuous`.
+   - A row the verifier refuted is not "aged out": it keeps its refuted bucket. `archived-pre-existing` means someone else fixed it.
+2. Run the oracle check (L0 below) now, before any edit. A quote that no longer resolves halts `oracle-gone`: the convention changed under the row.
 
-```yaml
-# Outcome C: archived (fingerprint absent)
-id: A047
-status: archived-pre-existing
-archived_at: <iso-timestamp>
-archived_reason: "fingerprint absent at re-detect" | "scope file deleted"
-```
+## Step 3 — DECIDE: classify the proof
 
-Plus side effects:
-- One git commit per fixed row (subject: `align/<phase-N>/<id>: <description>`).
-- On halt: `ai/align/halts/<id>.md` with structured remediation note.
-- Heavy-tier row: pause for reviewer approval before flipping `fixed`; reviewer name + timestamp recorded in `notes`.
+Every row gets one `proof_class` (batch-6 eval § 3.2; `align-sweep-gate.py` re-derives it at L8):
 
-## The 5-step loop
-
-### Step 1: DETECT — re-verify fingerprint
-
-1. Re-read each `<path:line>` in the row's `evidence`. Confirm the fingerprint pattern still matches at that line.
-2. Possible outcomes:
-   - **Fingerprint present** at all evidence lines → proceed to step 2.
-   - **Fingerprint gone** (another PR fixed it) → return `archived-pre-existing` outcome with note "fingerprint absent at re-detect".
-   - **Fingerprint moved** (file refactored; same fingerprint at different line) → update `evidence` to new line; proceed.
-   - **Evidence file deleted** → return `archived-pre-existing` with note "scope file deleted".
-
-3. Halt conditions:
-   - Row's `class` is functional AND `idiom_cited` doesn't resolve → halt with reason "missing idiom"; route to `/setup-project --refine`.
-   - Row's `closure_verb` is `replace-with-shared` AND `shared_equivalent` doesn't resolve → halt with reason "missing shared equivalent". (`replace-with-shared` is a closure verb, never a `class` value — the class enum in `detect-drift` § Outputs does not contain it, so a check written against `class` here can never fire and the missing-equivalent gate silently passes.)
-   - Row's tier was promoted between scan and execution (e.g., evidence count grew) without justification in `notes` → halt; demand 1-line `notes` then resume.
-
-### Step 2: DECIDE — confirm closure verb is mechanical-or-tested
-
-1. Confirm closure verb ∈ vocabulary (21 verbs across structural + functional groups).
-2. Confirm fix is appropriate to row's class:
-   - Structural classes (dead-code, dups, reinvented, silent-catch, over-abstraction, drift) use structural verbs (`remove`, `inline`, `dedupe`, `rename-comment-out`, `replace-with-shared`); behaviour MUST be preserved.
-   - Functional classes (SOLID, clean-code, performance, security) use functional verbs; behaviour may change intentionally for security / perf — the change is documented + tested in the same commit.
-3. For `replace-with-shared`: re-confirm `shared_equivalent` exists in `_extracted-idioms.md` (not just in the codebase — the inventory must name it).
-4. For `inline`: re-grep call sites; if 2+ found, the row was mis-classified; halt and route to `/refactor`.
-5. For `remove` on exported symbol: re-grep inbound imports; if any found, the row was mis-classified; halt.
-6. For functional verbs that add lines: confirm `idiom_cited` resolves AND covers the planned added lines.
-7. **Dispatch `@align-idiom-auditor`.** Steps 3, 5 and 6 above are its checks; the agent is the artifact that owns them, so the same judgment is applied whether this loop runs under `/align-phase`, `/align-fast`, or `/align-recheck`. A `HALT — idiom inventory gap` here stops the row before any edit exists — the cheapest place in the loop to catch an invention. Where agent dispatch is unavailable, run 1–6 inline; they are `align-discipline.md` audit halts #6, #9 and #10.
-
-### Step 3: FIX — apply the closure-verb edit
-
-Apply the verb-specific procedure. The closed 21-verb vocabulary and the net-lines rule are in `ai/patterns/align-guardrails.md § Anti-bloat merge gates`; the per-verb summary below is the contract and is complete.
-
-#### Structural verbs (net-lines ≤ 0 per row)
-
-```
-remove                  → delete cited lines / export
-inline                  → substitute wrapper body inline; delete wrapper
-dedupe                  → replace non-canonical copies with canonical from idioms
-rename-comment-out      → delete cited comment line(s)
-replace-with-shared     → replace local fingerprint with named shared_equivalent
-```
-
-#### Functional verbs (small + budget; cite idiom)
-
-```
-add-gate                → wrap with project's auth gate; add gate-deny test
-parameterize            → convert string concat SQL to parameterized
-escape                  → wrap user output with project's escape helper
-move-to-secrets         → replace inline secret with config/env reference
-add-validator           → wrap input handler with project's validator; add reject test
-parallelize             → replace sequential await with Promise.all/gather
-batch                   → replace per-item query with batch query
-project-columns         → replace SELECT * with explicit column list
-add-index               → add reversible migration; capture EXPLAIN ANALYZE
-cache-with-explicit-ttl → wrap lookup with project's caching primitive
-extract-to-shared       → move duplicated block to PRE-NAMED idiom
-split-extract           → split multi-responsibility class into PRE-NAMED responsibilities
-inline-magic-to-named-const → replace magic with named const
-inline-filter-to-query  → push in-app filter to database WHERE
-bump-dep                → update version per security advisory; run lockfile + tests
-rename                  → apply project's naming convention
-```
-
-Constraints:
-- Touch only files in `scope`. If the fix needs to touch a file not in `scope`, halt; the row was mis-scoped.
-- For structural rows: cumulative diff ≤ 0 (with first `replace-with-shared` import exemption).
-- For functional rows: every added line block cites `idiom_cited` (the cited idiom file appears in the diff's import lines OR the added block calls the named symbol).
-- No new symbol introduced UNLESS the symbol is named in `_extracted-idioms.md`.
-
-### Step 4: VERIFY — universal + class-specific assertions
-
-**Universal (every row):**
-1. Lint + typecheck on touched files. Any error = halt + revert.
-2. Scoped tests (`<test-runner> <touched-files>`). Any failure = halt + revert.
-3. Re-detect at evidence lines (re-run the detector that surfaced this row, scoped to row's `scope`). Detector MUST return 0 hits at cited evidence lines. Any remaining hit = the fix didn't close the fingerprint; halt + revert.
-4. Coverage (scoped). Coverage % MUST NOT drop. Security rows: coverage may shift; absolute % must not drop.
-
-5. **Dispatch `@align-idiom-auditor` a second time**, now against the actual diff. DECIDE checked the plan; this checks what landed — no new public symbol unnamed in the oracle, every added functional block genuinely calling the cited idiom (a citation in `notes` with no matching import or call is a paper citation and HALTs), and no oracle file touched in this commit. A HALT here means revert, not amend.
-
-**Class-specific:**
-
-*Security rows* (5):
-- Touched test files include an assertion exercising the security closure (gate denies, validator rejects, escape neutralises, parameterised query executes, secret literal is gone).
-- Re-grep for the original fingerprint (e.g., the inline secret literal) confirms it's removed.
-
-*Performance rows* (6):
-- Touched test files include a perf assertion (query count, wall-clock, cache hit) OR `notes` references an observability dashboard annotation.
-- Baseline captured pre-fix is in `notes`; post-fix delta is documented.
-- For `add-index`: `EXPLAIN ANALYZE` output is in `notes`; query plan uses the new index.
-
-*Frontend UI/UX rows (PROJECT_KIND=frontend-*):*
-- a11y: scoped a11y check on touched routes — score MUST NOT drop.
-- Visual: scoped snapshot diff — diffs reviewed and accepted (or auto-accepted for design-token swaps with allowance configured).
-- Bundle-size: delta ≤ +1% per row.
-
-*Functional rows that add lines:*
-- Each added line block cites `idiom_cited` (validator: `check_added_lines_cite_idioms`).
-
-### Step 5: RECORD — update ledger + commit
-
-1. Update ledger row:
-   - `status: fixed`
-   - `fixed_at: <iso-timestamp>`
-   - `commit: <git sha>` (one finding = one commit)
-   - `gaps_closed: <N>` (= number of evidence lines actually closed; must equal `len(evidence)`)
-   - `notes`:
-     - Trivial structural: `""` (closure verb + evidence is sufficient).
-     - Standard: 1-paragraph rationale (≤ 200 chars).
-     - Heavy: full rationale + `impact_analysis_path: ai/align/impact/<id>.md`.
-     - Security: rationale cites the threat addressed + the test added (mandatory).
-     - Perf: rationale cites the baseline + delta (mandatory).
-
-2. Commit format:
-   - Subject: `align/<phase-N>/<row-id>: <one-line description>`
-   - Body cites evidence + closure verb + (security only) test added + (perf only) baseline.
-
-3. Halt rows: write `ai/align/halts/<id>.md` with:
-   - The specific failure (which step failed).
-   - The remediation (re-run the verb / re-classify / `/setup-project --refine` / `/align-park`).
-   - DO NOT advance the row.
-
-## Halt conditions (consolidated)
-
-| Step | Halt | Remediation |
+| Swap | **EQ** — mechanical | Otherwise |
 |---|---|---|
-| DETECT | Fingerprint not present at evidence lines | Mark `archived-pre-existing` |
-| DETECT | `idiom_cited` doesn't resolve | Route to `/setup-project --refine` |
-| DETECT | `shared_equivalent` doesn't resolve | Route to `/setup-project --refine` |
-| DECIDE | Closure verb not in vocabulary | Re-classify; route to `/refactor` |
-| DECIDE | Inline target has > 1 consumer | Re-classify; route to `/refactor` |
-| DECIDE | Remove target has inbound imports | Re-classify; row was mis-scoped |
-| FIX | Diff touches files outside `scope` | Halt; row mis-scoped at scan |
-| FIX | New symbol introduced (not in idioms) | Halt; route to `/setup-project --refine` OR re-classify |
-| FIX | Structural row net-positive | Halt; revert; verb applied wrong |
-| FIX | Functional row added lines without idiom citation | Halt; route to `/setup-project --refine` |
-| VERIFY | Lint / typecheck error | Halt + revert |
-| VERIFY | Test failure | Halt + revert |
-| VERIFY | Re-detect still finds fingerprint | Halt + revert; verb didn't close |
-| VERIFY | Coverage drop (non-security) | Halt + revert; "dead" code wasn't dead |
-| VERIFY | Security row missing assertion | Halt; add assertion in same commit |
-| VERIFY | Perf row missing baseline / assertion | Halt; capture baseline + assert |
-| VERIFY | Frontend a11y / visual / bundle regression | Halt + revert; or accept diff |
-| RECORD | `gaps_closed != len(evidence)` | Halt; row not done |
+| literal → token | the literal's normalised value equals the token's resolved value **in every shipped theme**, within **one property family**, with **exactly one** semantic candidate: `token-map.py <root> --lookup=<value> --prop=<css prop> --site=<evidence file>` prints `EXACT … eq=yes` (without `--site` the lookup reads every package's tokens) | `NEAREST`, `xfam=` (another family) or several candidates → **AL-06, VC** (precedents § 7, § 27) |
+| raw primitive → wrapper | the wrapper's defaults reproduce the raw call's props or options: a prop-diff table read from the wrapper's types, every row equal; the import resolves to the same module | **VC**, or a wrapper gap → `/unify-surfaces` |
+| literal → `t('key')` | the literal equals an existing catalog value under the namespace the convention names, and the key resolves in every shipped locale (§ 31) | new copy → `/frontend-fix` |
+| `rename` | not exported, or every consumer is in the repo; no wire, DB, env or generated name | contract change → `/refactor` + ADR |
+| a functional verb that adds a declared idiom (`add-gate` with the declared `<Can>`) | **FN** — proven by a behaviour test (V401) | — |
+
+Measured 2026-10-18 on `benchmarks/fixtures/web-dashboard`:
+- `#d92d20` (`orderstable.tsx:42`) looks up `EXACT --color-danger eq=yes` → EQ.
+- `padding: '13px'` (`:39`) looks up `NEAREST --space-3=12px (1px)` with `xfam=--font-size-sm` → AL-06, VC. The answer key only asks `/align` to report it. Snapping it changes pixels, so it never closes without an approval.
+
+Measured 2026-10-18 on a staged copy of `benchmarks/fixtures/convention-drift`:
+- `align-sweep-gate.py --self-test --fix-runs=<fixture>/fix-runs` matches 14 of 14 seeded runs against their `.expect` (FAIL: run-01–04, 06, 08–12; PASS: run-05; PASS-flagged: run-06b with its approval; NOT RUN: run-07, the rule matching 0 files; pending-review: run-13), then the synthetic suite `29/29 OK`.
+- The four EQ seeds look up `EXACT … eq=yes` only with `--site`: `#d92d20` at `OrderStatusBadge.tsx` / `RefundForm.tsx` → `--color-danger`, `8px` in both CSS modules → `--space-2`. Without `--site`, admin's `--color-error` and `--gap-sm` hold the same values, each lookup has two candidates, and it prints eq=no. `13px` (`OrderTotals.tsx:8`) stays NEAREST with `xfam=--font-size-sm` → VC; `#1a73e9` NEAREST at 0.15 ΔE → VC.
+
+Then dispatch **`@align-idiom-auditor`** against the plan: no new symbol unnamed in the oracle, every added functional block cites an idiom that resolves, no oracle file in the scope. A `HALT — idiom inventory gap` stops the row before any edit exists.
+
+## Step 4 — FIX: apply the verb, rule first
+
+- **Rule first where expressible** (eval § 3.3 L2). Write or extend an ESLint `no-restricted-imports` / `no-restricted-syntax` rule, or an ast-grep rule with `fix`. Give it BAD and GOOD cases (`RuleTester`; `sg test`, where Noisy and Missing must both be 0). Run it **from `$RUN`** on a 5–10% sample, read every diff, tune it, then sweep. Commit the rule only when the row's closure is "enable the rule". An ast-grep rewrite does not add the import: that is a second rule or the verb's import footprint.
+- **Change only the matched expression.** The verb's footprint is the whole allowance:
+  - `replace-with-shared`: the hit expression, plus one import added and one removed (a wrapper specifier merged into an import the file already has is that one added import);
+  - `rename`: the declaration plus the references the language server reported;
+  - `dedupe`: the copy deleted, plus one import.
+  
+  An explicit preservation instruction cut excess edits by about a third and *raised* the pass rate in "When Models Edit Too Much" (arXiv 2609.04061). The formatter owns formatting (§ 19).
+- **The closed verb set.** The 21 verbs of `align-discipline.md` are the only closures. Structural verbs keep net lines ≤ 0 (the first `replace-with-shared` import is exempt). A functional verb's added block calls the idiom it cites. No new symbol that the oracle does not name.
+- **Tests are read-only.** An align commit edits no test, snapshot, fixture, lint config for the class, or baseline file (V408). This replaces the old rule that let a security row update its test fixtures in the same commit: security rows are now `/security-fix`'s, with its own failing-first proof. In ImpossibleBench (arXiv 2510.20270), "modify the tests" was over 79% of one model's cheating; read-only tests close that path.
+- Touch only files in `scope`. One row, one commit.
+
+## Step 5 — VERIFY: the ladder
+
+Run `align-sweep-gate.py` over the row's commit, then the steps the script does not cover. Stop at the first FAIL. `NOT RUN` never stops the ladder and never counts as PASS.
+
+```bash
+G=$(find .claude/skills -path '*/find-and-align/scripts/align-sweep-gate.py' 2>/dev/null | head -1)   # this skill's script
+TM=$(find .claude/skills -name token-map.py -path '*design-token-audit*' 2>/dev/null | head -1)
+GIT_OPTIONAL_LOCKS=0 TMPDIR="$RUN" python3 -I "$G" ladder --repo=. --base="$BASE" --ledger=ai/align/ledger.md \
+  --oracle="$RUN/oracle" ${TM:+--tokens="$TM"} --run-json="$RUN/run.json" --json > "$RUN/ladder-$ID.json"; echo "exit $?"
+# exit 0 PASS / PASS-flagged · 1 FAIL · 2 usage · 4 NOT RUN (no FAIL) or pending-review. The head tree is a copy under
+# $TMPDIR (git archive), so the gate never writes the repo. `--all` runs every step instead of stopping at the first FAIL.
+```
+
+| Step | Check | Run by | FAIL when | V |
+|---|---|---|---|---|
+| L0 | the row's oracle resolves in base: the quote is found in the file, or the rule id is declared | script `oracle` | quote absent → AL-01, the row is dropped | V389 |
+| L1 | the proof class: a VC row has `approval: <name>@<iso>` | script `approval` | VC with no approval → stop at `pending-approval` | V407 |
+| L2 | rule first, with BAD/GOOD tests | this skill (Step 4) | `sg test` Noisy or Missing ≠ 0 | — |
+| L3 | no whitespace-only, comment-only or token-identical file; no test, snapshot, fixture, lint-config, baseline or oracle file in the diff | script `diffkind`, `lock-paths` | any | V392, V408 |
+| L4 | every removed line is an evidence line or verb footprint; every evidence line changed; no file outside `scope` | script `scope` | an out-of-scope hunk (AL-34), or an unchanged hit | V392 |
+| L5 | the row's `detector_cmd` on the head copy: 0 at evidence lines, no new hit in touched files | script `redetect` | any | V391 |
+| L6 | one way per pattern: hunks grouped by normalised before → after across the run | script `consistency` | a before-key with two afters (AL-33), unless they split by role (text vs border colour, padding vs gap) | V393 |
+| L7 | every token, import path and export the diff introduced exists | script `names` | a hallucinated name (`var(--color-dangerous)`) | V398 |
+| L8 | each literal → token pair round-trips per theme and family | script `roundtrip` (token-map.py) | an EQ row that does not round-trip → reclassify AL-06 | V397 |
+| L9 | the class rule at error, lint, types, build, scoped tests | this skill | red | V402, V404 for rename / move |
+| L10a | **EQ: zero computed-style diff per theme**, or zero compiled-CSS diff | this skill | any value change | V394, V396 |
+| L10b | **VC: visual diff** per route × theme, approved | this skill | unapproved | V407 |
+| L11 | baselines only shrink; no suppression added; no severity loosened | script `ratchet` | growth (AL-30) | V395 |
+| L12 | test cases and assertions at head ≥ base; coverage not down (a drop > 5 pp is a hard fail); full suite + `smoke-verify` | script `lock-count` + this skill | red | V408 |
+| L13 | each rule's scope matched ≥ 1 file, and the canary is flagged | script `vacuous` | 0 files → the class is `NOT RUN`, not clean | V399 |
+| judge | an optional reviewer sees the diff, the oracle quote and the scope | `--judge` | can flip PASS → `pending-review`, never FAIL → PASS | — |
+
+**L9 commands.** `tsc --noEmit --incremental false` (an incremental project would otherwise write `.tsbuildinfo`). ESLint and stylelint run with no `--cache`, Ruff with `--no-cache`. A TypeScript-7-only repo runs `tsc` 7 for types and prints typed lint `NOT RUN (TS 7, no programmatic API)`.
+
+**L10a — EQ: zero computed-style diff per theme** (V394). Playwright `page.evaluate` dumps `getComputedStyle` for the changed elements' properties on every route that renders them, per shipped theme (light, dark, high-contrast), base build vs head build, on the **same host**. Playwright's screenshot names carry browser and OS, and its docs say to compare only where the baseline was made. Wait for `document.fonts.ready`, turn transitions off, and normalise colours through a canvas (`design-token-audit`'s `offToken` helper does this). Every value must be equal; one changed value makes the row VC. **Without a browser:** a zero compiled-CSS diff (V396): build base and head, minify both with one tool, resolve `var()` per theme, `diff`. **Without either harness:** L8 passing gives `[report-with-fix] (static EQ)`, and the runtime check stays Unconfirmed with its probe written out.
+
+**L10b — VC: visual diff with a recorded approval** (V407). `toHaveScreenshot` with `maxDiffPixels: 0`, because Playwright's default `threshold` of 0.2 hides a 1-px snap. The baseline comes from the pre-rewrite commit, and the diff images stay in `$RUN/pw`. The ledger row carries `approval: <name>@<iso>`. **A visual diff is never auto-accepted**: not for a token swap, not with an allowance configured, never under `--safe-only`. An agent never fills `approval:`.
+
+**Proof by verb** (eval § 3.3):
+
+| Verb | Proof |
+|---|---|
+| `replace-with-shared` (token) | L8 + L10a |
+| `replace-with-shared` (wrapper) | the prop-diff table + a render test of the site; L10a when the defaults reproduce the props, else L10b |
+| `rename` | a language-server or ts-morph rename (ts-morph needs the TS 6 API through `@typescript/typescript6`, else `NOT RUN`); no serialised-name change (`oasdiff breaking` or a schema snapshot when an API is near); V402 |
+| `dedupe` | a differential test of copy vs canonical on the copy's call-site inputs, then delete; knip or `dead-code-scan` shows no orphan; V403 |
+| move / re-route | the whole-repo boundary tool is green on every module; V404 |
+| `add-gate` (FN) | a render test as the role that must not see the action: it fails first, then passes; V401 |
+| ratchet enablement | the class rule at error with a baseline generated **after** the fixes; L11 |
+
+**Second idiom audit.** Dispatch `@align-idiom-auditor` against the diff that landed. A paper citation (an idiom named in `notes` with no matching import or call), a new public symbol, or an oracle file in the commit is a HALT: revert, do not amend.
+
+## Step 6 — RECORD
+
+- **fixed**: `status: fixed`, `fixed_at`, `commit` (one row, one commit, subject `align/<phase-N>/<id>: <description>`), `gaps_closed` = `len(evidence)`, `proof_class`, `proof:` (the V-numbers that passed and the ladder file `$RUN/ladder-<id>.json`), `approval:` for VC. A heavy-tier row pauses at `pending-review` for a named reviewer.
+- **routed**: `status: routed`, `routed: <command> <audit id>`, no commit.
+- **pending-approval** (VC, no approval) and **pending-ratification** (T2g oracle): no commit; the probe is written into the row.
+- **halted**: `halt_reason` and `ai/align/halts/<id>.md` with the failing step, its ladder line and the destination.
+- **archived-pre-existing**: aged out only (Step 2), never for a false positive, with no commit.
+
+`routed`, `pending-approval` and `pending-ratification` are side states of the ledger's state machine, with the fields each one requires (`ai/patterns/align-ledger.md` § Record format, "Required fields per state").
+
+## Halt conditions
+
+| Step | Halt | Destination |
+|---|---|---|
+| ROUTE | an idiom no oracle names | `/setup-project --refine` |
+| ROUTE | a wrapper gap | `/unify-surfaces` |
+| DETECT | the detector matched 0 files | `re-detect-vacuous`: fix the detector command, not the row |
+| DETECT | the oracle quote no longer resolves | `oracle-gone`: re-scan |
+| DECIDE | the verb is not in the closed set, an `inline` target has more than one consumer, a `remove` target has importers | re-classify; `/refactor` |
+| FIX | a file outside `scope`; a new unnamed symbol; a structural row with net lines > 0; a functional block without its idiom | revert; re-scope or `/setup-project --refine` |
+| VERIFY | any ladder FAIL | revert; the ladder line goes into the halt file |
+| VERIFY | an EQ row with a computed-style difference | reclassify VC; stop at `pending-approval` |
+| RECORD | `gaps_closed ≠ len(evidence)` | `halted`: the row is not done |
+
+Do not mark a row fixed until the ladder file shows every applicable step PASS or PASS-flagged. A step that is `NOT RUN` is listed with its reason, and it makes the row `[report-with-fix] (static EQ)` or Unconfirmed, never verified. A HIGH row's confirmation follows [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10, through a verifier other than the run that found it.
 
 ## Hard rules
 
-- **One finding = one commit.** No bundling.
-- **Closure verbs are the closed vocabulary of 21** (5 structural + 16 functional)**.** No invention.
-- **No new abstractions.** Use idioms; if the idiom is missing, route to `/setup-project --refine`.
-- **Net-lines ≤ 0 for structural; small + cite-idiom for functional.**
-- **Re-detect after fix.** Re-running the detector is mandatory; the gap-count parity rule (`gaps_in == gaps_closed`) enforces this.
-- **Tests must pass; coverage must not drop.**
-- **Security and perf rows ship with assertions / baselines, in the same commit.**
+- **Deterministic gates before any judge.** The judge cannot rescue a FAIL.
+- **EQ is proven by a zero difference, VC by a named approval.** Nothing else closes a visible change.
+- **Tests, snapshots, fixtures, the class's lint config and baselines are read-only** in an align commit.
+- **One way per pattern.** One before-value maps to one after-value across the whole run, unless the token map is context-keyed by role.
+- **No invention.** Tokens, imports, exports and props in the diff exist in the declared set (L7). Idioms come from the oracle.
+- **Route, do not absorb.** A security, performance, database, quality, frontend or backend row goes to its owner's fix command.
 
 ## Failure modes
 
-This is the loop every fix runs through, so its failures are the pack's failures. Each one below has a wrong-but-tempting response and the correct one.
+- **The swap "needed" a snapshot update.** Then it was not exact: the row is VC (V394, V408), and the snapshot edit is AL-34. Revert, reclassify, request approval.
+- **Two files took two tokens for one hex.** L6 fails the run, not the row: pick the one the token map's role column names, and re-run both rows.
+- **The nearest token is "close enough".** That is AL-06 by definition (§ 7). It needs an approval or `/polish`, never an EQ commit.
+- **The fingerprint aged out.** `archived-pre-existing` with no commit. Marking it `fixed` with no commit is the stale-ledger lie `@align-ledger-auditor` catches later.
+- **7 of 8 evidence sites closed.** `halted`. Splitting the eighth into a follow-up loses the link between the evidence and the fix.
+- **A flaky test at L9.** One retry, then quarantine that test for this row only and say so. A flaky test does not make the suite green.
+- **No reviewer for a heavy row.** `pending-review`. Do not self-approve and do not demote the tier.
 
-- **The fingerprint aged out at DETECT** — another PR fixed it first. Tempting: mark `fixed` and move on. Correct: `archived-pre-existing`, with **no commit** on the row. A row marked `fixed` with no commit is `The Stale Ledger`, and `@align-ledger-auditor` reconciliation 3 will surface it as a lie later, at a point where nobody remembers why.
-- **The verb doesn't fit once you see the code** — the row says `dedupe` but the two blocks differ meaningfully. Tempting: pick a nearby verb and proceed. Correct: halt with wrong-category (audit halt #3) and let the row be re-classed. A verb chosen to make the row closable is how a `security` row acquires a structural verb and then fails net-lines for adding the lines it had to add.
-- **The idiom the fix needs does not exist** — no gate wrapper, no validator, no cache primitive in the oracle. Tempting: write a small one inline, "just for this row". Correct: halt → `/setup-project --refine`. This is audit halts #9 and #10, and it is `The Reinvented Idiom in Functional Verb`. Inventing here is invisible in a diff review because the new helper looks like exactly the kind of code the fix should contain.
-- **Net-lines came out positive on a structural row** — usually the local copy was not deleted after importing the shared one, or an explanatory comment was added. Correct: delete the leftover, don't argue the count. `The Net-Positive Cleanup` is nearly always a missed deletion rather than a genuine need for lines.
-- **A test fails at VERIFY and passes on re-run** — one retry, then quarantine that test for this row only and say so in `notes`. A flaky test does not make the suite green, and quarantining for the whole phase converts one flaky test into an unmonitored phase.
-- **Scoped tests pass but nothing covers the changed line** — passing tests over uncovered code is not evidence. Report coverage of the touched lines, not of the suite; for security and perf rows the assertion is the deliverable, so its absence is a halt, not a note.
-- **`gaps_closed < gaps_in`** — the fix closed 7 of 8 evidence sites. Tempting: mark `fixed` and open a follow-up row. Correct: `status: halted`. Splitting a partially-closed row loses the link between the evidence and the fix, and the 8th site is exactly the one that gets forgotten.
-- **The diff touched a file outside `scope`** — even one line, even a lockfile. Halt (audit halt #8). Widening `scope` after the fact to make the check pass is the ledger equivalent of editing the oracle.
-- **The row is heavy and no reviewer is available** — pause at RECORD as `pending-review`. Do not self-approve, and do not demote the tier to avoid the wait; `/align-promote-tier` refuses that demotion for security rows and it is the wrong move for all of them.
-- **The fix is correct but blocked indefinitely** — park it via `/align-park`, which will capture `prior_status` + `prior_phase` so the row can come back. A critical security row cannot be parked without an explicit recorded override, and that refusal is the intended outcome, not an obstacle.
+## Output
 
-## Notes
-
-- This skill is **per-row**. Multi-row orchestration is the orchestrator's responsibility.
-- This skill is **idempotent on halts**. Re-running on a halted row will re-attempt; if the underlying issue isn't resolved, it halts again.
-- This skill respects `--dry-run` (DETECT only; no edits).
-- For heavy-tier rows: this skill pauses at the RECORD step pending reviewer approval (or surfaces "needs approval" notification).
+```
+find-and-align A047 — AL-05 replace-with-shared · proof_class EQ · oracle ai/conventions.md:31 (T2)
+  L0  oracle       PASS   quote found (ai/conventions.md:31)
+  L1  approval     PASS   EQ — no approval needed
+  L3  diffkind     PASS   1 file, value change
+  L3  lock-paths   PASS   no test / snapshot / lint-config / oracle file
+  L4  scope        PASS   1 removed line = evidence orderstable.tsx:42; footprint 0
+  L5  redetect     PASS   '#d92d20' 1 → 0 in touched files
+  L6  consistency  PASS   '#d92d20' → var(--color-danger) (1 key, 1 after)
+  L7  names        PASS   --color-danger declared (src/styles/tokens.css:9)
+  L8  roundtrip    PASS   light #d92d20 = #d92d20
+  L9  lint/types   PASS   tsc --noEmit --incremental false; scoped tests 14/14
+  L10a computed    PASS   /orders × light: color rgb(217, 45, 32) = rgb(217, 45, 32)
+  L11 ratchet      PASS   no baseline file changed
+  L12 lock-count   PASS   tests 212 → 212, assertions 538 → 538
+  L13 vacuous      PASS   detector_scope matched 1 file
+verdict PASS — fixed in align/2/A047 (a1b2c3d)
+```
 
 ## Related
 
-### Agents
-- `@align-idiom-auditor` — dispatched at DECIDE (step 2) and VERIFY (step 4); owns the invention boundary this loop is most likely to breach.
-
-### Commands and siblings
-- `/align-phase` — primary dispatcher.
-- `/align-fast` — also dispatches (per row in parallel waves).
-- `detect-drift` skill — the detector half (sibling).
-- `align-discipline.md` — the rule this skill enforces.
-- `align-ledger.md` — the schema this skill updates.
+- `align-detect` (this pack): the class ledger and dispatcher that produces the rows. `convention-oracle` (§ 0 oracle map, the L0 quote check), `wrapper-adoption-scan`, `naming-layout-scan` and `convention-ratchet-scan` own the align classes.
+- `scripts/align-sweep-gate.py` (this skill): the ladder. Its `--self-test` and `--fix-runs=<dir>` replay seeded fix runs with expected verdicts.
+- ui-ux `design-token-audit` and its `token-map.py` (when installed): the token classifier behind L8 and the EQ/VC split.
+- `@align-idiom-auditor` (DECIDE and VERIFY), `@align-gate-auditor` (the phase verdict), `@align-ledger-auditor` (ledger ↔ git).
+- [`precedents/align.md`](../../../../snippets/precedents/align.md), [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Align (V389–V408), [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 10.
+- `/security-fix`, `/perf-fix`, `/db-fix`, `/quality-fix`, `/frontend-fix`, `/backend-fix`, `/polish`, `/unify-surfaces`, `/optimize`, `/refactor`: the owners a row is routed to.

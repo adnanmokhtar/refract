@@ -49,18 +49,17 @@ Parity tests prove V2 produces equivalent observable behaviour to V1 for the sam
 
 ## Tolerance taxonomy
 
-Parity does not always mean byte-for-byte. Pick the tolerance per assertion:
+Parity does not always mean byte-for-byte. There are **five tolerance keys and no others** — the ones `tolerance.yaml` holds (§ Tolerance file convention), `check_tolerance_coverage` reads, and `behavior-diff.py` applies. Pick one per output field:
 
-| Tolerance | When | Example |
+| Key | When | Example |
 |---|---|---|
-| **Exact** | Stable structured output | Order ID returned in response; status codes; enum values |
-| **Structural** | Same shape, value-irrelevant fields tolerated | Timestamps in response can differ by millisecond; auto-incremented IDs differ; opaque tokens differ |
-| **Numeric tolerance** | Floating-point math | `expect(v2.total).toBeCloseTo(v1.total, 2)` — within $0.01 |
-| **Order-insensitive** | List output where order isn't contractual | `expect(v2.users.sort()).toEqual(v1.users.sort())` |
-| **Timestamp-insensitive** | Anywhere V1 + V2 stamp current time | Strip / normalise `created_at` / `updated_at` before compare |
-| **ID-insensitive** | Auto-generated IDs that aren't a stable contract | Replace IDs with positional placeholders before compare |
-| **Subset** | V2 returns more fields than V1 (additive change) | `expect(v2).toMatchObject(v1)` — V2 may have extra keys, must contain all V1 keys |
-| **Superset** | V2 returns fewer fields than V1 (column projection win) | Document in contract that the dropped columns are unconsumed; assert V2 contains exactly the documented columns |
+| **`exact`** | Stable structured output | Order ID returned in response; status codes; error `code`; enum values |
+| **`structural`** | Same shape, value irrelevant — the key must be **present exactly when V1's is**, and `null` exactly when V1's is | Timestamps that differ by milliseconds; auto-incremented IDs; opaque tokens |
+| **`numeric_tolerance`** | Floating-point math, with the bound per path | `$.total: 0.01` — within one cent |
+| **`order_insensitive`** | A list whose order no consumer depends on | `$.tags` compared as a multiset |
+| **`ignore`** | The contract explicitly excludes the field, and two V1 runs differ on it | `$.debug`, `$.x_request_id` |
+
+Older names map onto these — never add them as keys: *timestamp-insensitive* and *ID-insensitive* are `structural` on those paths; *subset* (V2 adds fields) is the comparator reading only V1's keys, and *superset* (V2 drops fields) is an `ignore` row whose contract line says the field is unconsumed; *dom-equivalent* is the frontend recipe's comparator, not a key. A field may go under `structural` or `ignore` only when a control-vs-control run (V1 against V1) shows it differs, and the comparator must report one seeded mismatch per key in use before its "0 mismatches" counts — `parity-test-generate` step 4b.
 
 The tolerance for each assertion is a **decision** that goes in the contract. Future changes to tolerance need a contract revision, not a quiet test edit.
 
@@ -82,7 +81,7 @@ testGroup("feature parity (golden master)") {
       input  = readJson("<parity-test-root>/<feature>/inputs/" + file)
       golden = readJson("<parity-test-root>/<feature>/__golden__/" + file)
       v2     = handleFeature(input)
-      assertEqual(stripVolatile(v2), stripVolatile(golden))   // tolerance: timestamp-insensitive, ID-insensitive
+      assertEqual(stripVolatile(v2), stripVolatile(golden))   // tolerance: `structural` on the timestamp and generated-id paths
     }
 }
 ```
@@ -214,7 +213,7 @@ Parity tests assert the **contract**, which means:
 - **Internal helper outputs**: V2 can refactor freely if external behaviour holds.
 - **Log strings meant for humans**: V2's log line phrasing can change if no system parses it. The structured fields stay.
 - **Internal IDs / cursors / opaque tokens**: as long as they're stable for the caller across the test, the value can differ V1 vs V2.
-- **Stack traces / debug info**: explicitly tolerance: `string-shape-only` or omitted.
+- **Stack traces / debug info**: `ignore` (with the contract line that excludes them) or omitted from the capture.
 - **Implementation-specific details**: V1's choice of HTTP library; V1's connection pool size; V1's specific SQL phrasing if the result set is identical.
 
 ## Tolerance file convention

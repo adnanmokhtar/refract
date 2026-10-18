@@ -16,7 +16,7 @@ Diagnostic / read-only verification that a controller actually works end-to-end.
 
 | Artifact | Owns |
 |---|---|
-| `.claude/skills/endpoint-test/SKILL.md` | The **mechanism** — curl invocations, the five mandatory cases, the conditional cases, the field-by-field diff against the response DTO. |
+| `.claude/skills/endpoint-test-method/SKILL.md` | The **mechanism** — curl invocations, the five mandatory cases, the conditional cases, the field-by-field diff against the response DTO. |
 | `@endpoint-tester` (agent) | **Case selection and verdict** — which tier applies, which conditional cases are in scope, PASS / FAIL / LEAK. |
 | This command | **Argument resolution, the hand-wave halt, and escalation routing.** |
 
@@ -42,7 +42,7 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in — the agent d
 
 | Tier | Triggers | Scope handed to the agent |
 |---|---|---|
-| **Trivial** (default) | Single endpoint, known DTO, internal route. | The five mandatory cases (`endpoint-test/SKILL.md` § Procedure, step 6) and nothing else. No conditionals, no follow-up dispatch unless a leak or replay break surfaces. |
+| **Trivial** (default) | Single endpoint, known DTO, internal route. | The five mandatory cases (`endpoint-test-method/SKILL.md` § Procedure, step 6) and nothing else. No conditionals, no follow-up dispatch unless a leak or replay break surfaces. |
 | **Standard** | Controller sweep, or a write path / auth-protected / multi-tenant resource. | Mandatory five per route, plus every conditional case whose signal the contract actually declares. The agent picks them from its signal → case table (`@endpoint-tester` § Case selection) and cites the declaration that put each in scope; this command does not enumerate them. |
 | **Heavy** | Public API surface, webhook, or payment endpoint. | Standard's scope, plus the two agent-owned cases run *unconditionally* instead of signal-gated: content negotiation (`@endpoint-tester` § Content negotiation) and tenant side-effects (§ Tenant side-effects). On a surface the public can reach, a missing declaration is not evidence of correct behaviour. |
 
@@ -58,7 +58,7 @@ Endpoint-specific: the controller file (route decorators, guards, pipes), the in
 
 Dispatch `@endpoint-tester` with the resolved spec: method, path, headers, minimal valid body, expected response, tier, and the in-scope conditional cases. The agent runs the skill and returns a results table plus a replayable curl block. No code is written.
 
-If `@endpoint-tester` is not installed in this project, run `.claude/skills/endpoint-test/SKILL.md` directly and apply this command's halt and routing rules to its output — never silently skip the verification.
+If `@endpoint-tester` is not installed in this project, run `.claude/skills/endpoint-test-method/SKILL.md` directly and apply this command's halt and routing rules to its output — never silently skip the verification.
 
 ## Phase 5 — Update — N/A
 Read-only. No state changes, no knowledge persistence.

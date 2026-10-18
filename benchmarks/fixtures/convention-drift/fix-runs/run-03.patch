@@ -1,0 +1,22 @@
+--- a/apps/web/src/features/orders/components/OrderStatusBadge.tsx
++++ b/apps/web/src/features/orders/components/OrderStatusBadge.tsx
+@@ -1,16 +1,16 @@
++import type { OrderStatus } from '../types';
+ import { t } from '@acme/i18n';
+-import type { OrderStatus } from '../types';
+ import styles from './OrderStatusBadge.module.css';
+ 
+ type OrderStatusBadgeProps = { status: OrderStatus };
+ 
+ function labelKey(status: OrderStatus): string {
+-  return `orders.status.${status}`;
++  return 'orders.status.' + status;
+ }
+ 
+ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
+   return (
+-    <span className={styles.badge} style={{ color: status === 'failed' ? '#d92d20' : 'var(--color-text-muted)' }}>
++    <span className={styles.badge} style={{ color: status === 'failed' ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+       {t(labelKey(status))}
+     </span>
+   );

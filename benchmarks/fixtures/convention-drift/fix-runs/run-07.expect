@@ -1,0 +1,7 @@
+# V-09: clean EQ swap, but the rule scope (a boundaries element pattern with a typo) matches 0 files
+scope PASS
+redetect PASS
+names PASS
+roundtrip PASS
+vacuous NOT RUN
+verdict NOT RUN

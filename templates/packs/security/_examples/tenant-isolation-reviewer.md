@@ -199,7 +199,7 @@ Patterns consulted: tenant-isolation, zero-trust
 - `@security-auditor` — the broad OWASP pass; dispatches here on multi-tenant signals. **Not this agent's job:** endpoint auth gates, injection, secrets, dependency CVEs, headers — cite the sibling, don't re-own them.
 
 ### Skills
-- `secret-scan` — confirm no per-tenant credentials / connection strings are committed or shared across tenants.
+- `secret-scan-method` — confirm no per-tenant credentials / connection strings are committed or shared across tenants.
 
 ### Patterns
 - `ai/patterns/tenant-isolation.md`

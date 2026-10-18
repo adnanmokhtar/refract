@@ -14,6 +14,15 @@ where it came from.
 
 Lanes:
   mikro-orm-snapshot  a `.snapshot-*.json` beside the migrations: snapshot + replay of the later files.
+  laravel             no snapshot, and `.php` migrations that call `Schema::` (Laravel Blueprint): each up()
+                      replayed in filename order onto `database/schema/*-schema.sql` when `schema:dump` left one —
+                      Schema::create/table/drop/dropIfExists/rename, every `$table->` column type with nullable,
+                      default, unique, index, primary, unsigned, change(); foreignId()->constrained() (the
+                      target inferred by plural when unnamed, counted), foreign()->references()->on(), the
+                      on-delete/on-update helpers; enum/set as varchar(255) + the same `<t>_<c>_check` CHECK the
+                      snapshot lane emits; decimal(p,s) as numeric(p,s) (Laravel's default 8,2); softDeletes,
+                      timestamps, morphs, drops and renames; DB::statement('<sql>') through the DDL reader.
+                      Comments and down() are dropped; `-- @src` cites each statement's line.
   ddl                 no snapshot: every migration file's up() body (down()/downgrade dropped), with
                       `${…}` names resolved from same-file string constants and loops unrolled.
 Horizon (snapshot lane): `git` = migrations added after the last commit that touched the snapshot;
@@ -21,11 +30,13 @@ Horizon (snapshot lane): `git` = migrations added after the last commit that tou
   created). The replay starts after the EARLIER of the two: replaying a file the snapshot already
   holds is harmless, skipping one that it lacks is not.
 
-Usage:  schema-map.py <repo-root> [--emit=sql|summary] [--snapshot=<path>] [--lane=ddl] [--entities]
+Usage:  schema-map.py <repo-root> [--emit=sql|summary] [--snapshot=<path>] [--lane=ddl|laravel] [--entities]
         schema-map.py --self-test
   --emit=sql      (default) the DDL on stdout; header lines are `-- schema-map …` comments.
   --emit=summary  the lane, the horizon, the replay list and the unresolved `${…}` count only.
   --lane=ddl      ignore a snapshot (cross-check the replay against the full migration history).
+  --lane=laravel  force the Blueprint lane (a repo with both a snapshot and PHP migrations: the V1 side
+                  of a port read from the same checkout).
   --entities      schema-diff's static mode: MikroORM entity decorators vs the replayed schema.
                   Rows: MISSING-TABLE / MISSING-COLUMN / NULLABLE / GHOST-COLUMN / GHOST-TABLE /
                   MISSING-INDEX, each with its file:line. A candidate list, never a verdict.
@@ -393,6 +404,317 @@ def emit(M):
     return '\n'.join(out) + '\n'
 
 
+# ------------------------------------------------------------------ the laravel lane (Blueprint migrations)
+LV_CALL = re.compile(r'\bSchema::(?:connection\s*\([^()]*\)\s*->\s*)?(create|table|drop|dropIfExists|rename)\s*\(')
+LV_DB = re.compile(r'\bDB::(?:connection\s*\([^()]*\)\s*->\s*)?(statement|unprepared)\s*\(')
+
+
+def php_mask(t):
+    """(clean, masked): comments become spaces in both (same length, newlines kept); string interiors also
+    become spaces in `masked`, so brackets and `;` inside a default('a;b') never split a statement."""
+    c, m, i, n = list(t), list(t), 0, len(t)
+    def blank(buf, a, b):
+        for k in range(a, b):
+            if buf[k] != '\n': buf[k] = ' '
+    while i < n:
+        ch = t[i]
+        if ch in '\'"':
+            j = i + 1
+            while j < n and t[j] != ch: j += 2 if t[j] == '\\' else 1
+            blank(m, i + 1, min(j, n)); i = j + 1; continue
+        if t.startswith('//', i) or (ch == '#' and not t.startswith('#[', i)):
+            j = t.find('\n', i); j = n if j < 0 else j; blank(c, i, j); blank(m, i, j); i = j; continue
+        if t.startswith('/*', i):
+            j = t.find('*/', i + 2); j = n if j < 0 else j + 2; blank(c, i, j); blank(m, i, j); i = j; continue
+        i += 1
+    return ''.join(c), ''.join(m)
+
+
+def php_args(clean, masked, a, b):
+    """Top-level argument spans of the call whose parens are masked[a] .. masked[b] -> clean texts."""
+    out, d, cur = [], 0, a + 1
+    for k in range(a + 1, b):
+        ch = masked[k]
+        if ch in '([{': d += 1
+        elif ch in ')]}': d -= 1
+        elif ch == ',' and d == 0: out.append(clean[cur:k]); cur = k + 1
+    out.append(clean[cur:b])
+    return [x.strip() for x in out if x.strip()]
+
+
+def php_val(s):
+    """A PHP literal -> str / list / None (null); anything else -> ('expr', text)."""
+    s = (s or '').strip()
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in '\'"': return s[1:-1].replace("\\'", "'")
+    if re.fullmatch(r'-?\d+(?:\.\d+)?', s) or s.lower() in ('true', 'false'): return s.lower()
+    if s.lower() == 'null': return None
+    am = re.fullmatch(r'(?is)(?:array\s*\((.*)\)|\[(.*)\])', s)
+    if am:
+        inner = am.group(1) if am.group(1) is not None else am.group(2)
+        _, mk = php_mask(inner)
+        parts, d, cur = [], 0, 0
+        for k, ch in enumerate(mk):
+            if ch in '([{': d += 1
+            elif ch in ')]}': d -= 1
+            elif ch == ',' and d == 0: parts.append(inner[cur:k]); cur = k + 1
+        parts.append(inner[cur:])
+        return [php_val(x) for x in parts if x.strip()]
+    rm = re.fullmatch(r'(?is)(?:DB::)?raw\s*\(\s*([\'"])(.*)\1\s*\)|DB::raw\s*\(\s*([\'"])(.*)\3\s*\)', s)
+    if rm: return ('raw', rm.group(2) if rm.group(2) is not None else rm.group(4))
+    return ('expr', ' '.join(s.split())[:60])
+
+
+def plural(w):
+    if re.search(r'[^aeiou]y$', w): return w[:-1] + 'ies'
+    if re.search(r'(s|x|z|ch|sh)$', w): return w + 'es'
+    return w + 's'
+
+
+def lv_name(t, cols, kind):
+    return re.sub(r'[-.]', '_', ('%s_%s_%s' % (t, '_'.join(cols), kind)).lower())
+
+
+def lv_cols(v):
+    v = php_val(v) if isinstance(v, str) else v
+    return [x.lower() for x in (v if isinstance(v, list) else [v]) if isinstance(x, str)]
+
+
+# column methods -> (type builder over the args after the name, implicit modifiers)
+def _len(a, k, dflt): return a[k] if len(a) > k and re.fullmatch(r'\d+', a[k] or '') else dflt
+LV_TYPES = {
+    'id': lambda a: 'bigint unsigned', 'bigIncrements': lambda a: 'bigint unsigned', 'increments': lambda a: 'integer unsigned',
+    'mediumIncrements': lambda a: 'mediumint unsigned', 'smallIncrements': lambda a: 'smallint unsigned', 'tinyIncrements': lambda a: 'tinyint unsigned',
+    'foreignId': lambda a: 'bigint unsigned', 'foreignUuid': lambda a: 'uuid', 'foreignUlid': lambda a: 'char(26)',
+    'bigInteger': lambda a: 'bigint', 'integer': lambda a: 'integer', 'mediumInteger': lambda a: 'mediumint',
+    'smallInteger': lambda a: 'smallint', 'tinyInteger': lambda a: 'tinyint',
+    'unsignedBigInteger': lambda a: 'bigint unsigned', 'unsignedInteger': lambda a: 'integer unsigned',
+    'unsignedMediumInteger': lambda a: 'mediumint unsigned', 'unsignedSmallInteger': lambda a: 'smallint unsigned',
+    'unsignedTinyInteger': lambda a: 'tinyint unsigned', 'boolean': lambda a: 'boolean',
+    'string': lambda a: 'varchar(%s)' % _len(a, 0, '255'), 'char': lambda a: 'char(%s)' % _len(a, 0, '255'),
+    'text': lambda a: 'text', 'tinyText': lambda a: 'tinytext', 'mediumText': lambda a: 'mediumtext', 'longText': lambda a: 'longtext',
+    'decimal': lambda a: 'numeric(%s,%s)' % (_len(a, 0, '8'), _len(a, 1, '2')),
+    'unsignedDecimal': lambda a: 'numeric(%s,%s) unsigned' % (_len(a, 0, '8'), _len(a, 1, '2')),
+    'float': lambda a: 'float(%s)' % _len(a, 0, '53'), 'double': lambda a: 'double precision',
+    'date': lambda a: 'date', 'time': lambda a: 'time without time zone', 'timeTz': lambda a: 'time with time zone',
+    'dateTime': lambda a: 'timestamp without time zone', 'dateTimeTz': lambda a: 'timestamp with time zone',
+    'timestamp': lambda a: 'timestamp without time zone', 'timestampTz': lambda a: 'timestamp with time zone',
+    'year': lambda a: 'year', 'json': lambda a: 'json', 'jsonb': lambda a: 'jsonb', 'uuid': lambda a: 'uuid',
+    'ulid': lambda a: 'char(26)', 'binary': lambda a: 'binary', 'ipAddress': lambda a: 'varchar(45)',
+    'macAddress': lambda a: 'varchar(17)', 'enum': lambda a: 'varchar(255)', 'set': lambda a: 'varchar(255)',
+}
+LV_PK = {'id', 'bigIncrements', 'increments', 'mediumIncrements', 'smallIncrements', 'tinyIncrements'}
+LV_FK_ON = {'cascadeOnDelete': ('del', 'cascade'), 'restrictOnDelete': ('del', 'restrict'), 'nullOnDelete': ('del', 'set null'),
+            'noActionOnDelete': ('del', 'no action'), 'cascadeOnUpdate': ('upd', 'cascade'), 'restrictOnUpdate': ('upd', 'restrict'),
+            'nullOnUpdate': ('upd', 'set null'), 'noActionOnUpdate': ('upd', 'no action')}
+
+
+def lv_chain(clean, masked, i, end):
+    """`$table->a(..)->b(..)` starting at the `->` after the variable -> ([(method, [args])], end offset)."""
+    out = []
+    while True:
+        mm = re.compile(r'\s*->\s*(\w+)\s*\(').match(masked, i, end)
+        if not mm: return out, i
+        o = mm.end() - 1; e = bal(masked, o)
+        out.append((mm.group(1), php_args(clean, masked, o, e))); i = e + 1
+
+
+def lv_default(v):
+    if v is None: return 'null'
+    if isinstance(v, tuple): return v[1] if v[0] == 'raw' else 'UNREAD(%s)' % v[1]
+    if isinstance(v, list): return 'UNREAD(array)'
+    return v if re.fullmatch(r'-?\d+(?:\.\d+)?|true|false', v) else "'%s'" % v.replace("'", "''")
+
+
+def lv_apply(M, t, chain, a, create, notes):
+    """One `$table->…` statement against table t."""
+    T = tab(M, t)
+    name, args = chain[0]
+    mods = {k: v for k, v in chain[1:]}
+    col = php_val(args[0]) if args else ('id' if name == 'id' else None)
+    col = col.lower() if isinstance(col, str) else col
+    def fk(cols, ref, refcols, n, ch):
+        f = {'cols': cols, 'ref': ref, 'refcols': refcols, 'del': '', 'upd': '', 'at': a}
+        for k, v in ch:
+            if k in LV_FK_ON: f[LV_FK_ON[k][0]] = LV_FK_ON[k][1]
+            elif k in ('onDelete', 'onUpdate') and v:
+                f['del' if k == 'onDelete' else 'upd'] = str(php_val(v[0])).lower()
+            elif k == 'references' and v: f['refcols'] = lv_cols(v[0])
+            elif k == 'on' and v: f['ref'] = str(php_val(v[0])).lower()
+        T['fks'][n] = f
+    if name in LV_TYPES and isinstance(col, str):
+        if 'change' in mods and col in T['cols']:
+            d = T['cols'][col]
+        else:
+            d = T['cols'][col] = {'type': '', 'nullable': False, 'default': None, 'at': a}
+        d['type'] = LV_TYPES[name](args[1:]) if name != 'id' else 'bigint unsigned'
+        if 'unsigned' in mods and 'unsigned' not in d['type']: d['type'] += ' unsigned'
+        d['nullable'] = 'nullable' in mods and mods['nullable'] != ['false']   # change() restates every modifier (Laravel 11+)
+        d['default'] = lv_default(php_val(mods['default'][0]) if mods['default'] else None) if 'default' in mods else None
+        if 'useCurrent' in mods: d['default'] = 'CURRENT_TIMESTAMP'
+        for g in ('storedAs', 'virtualAs'):
+            if g in mods: d['default'] = 'generated(%s)' % (' '.join((mods[g] or [''])[0].split())[:60]); notes['generated'] += 1
+        d['at'] = a
+        if name in ('enum', 'set'):
+            vals = php_val(args[1]) if len(args) > 1 else []
+            expr = ', '.join("'%s'" % str(x).replace("'", "''") for x in vals) if isinstance(vals, list) else 'UNREAD(%s)' % vals[1]
+            T['chk']['%s_%s_check' % (t, col)] = {'expr': '"%s" in (%s)' % (col, expr), 'at': a}
+        if name in LV_PK or 'primary' in mods:
+            T['idx']['%s_pkey' % t] = {'cols': [col], 'unique': True, 'primary': True, 'constraint': True, 'expr': None, 'at': a}
+        if 'unique' in mods:
+            n = str(php_val(mods['unique'][0])).lower() if mods['unique'] else lv_name(t, [col], 'unique')
+            T['idx'][n] = {'cols': [col], 'unique': True, 'primary': False, 'constraint': True, 'expr': None, 'at': a}
+        if 'index' in mods:
+            n = str(php_val(mods['index'][0])).lower() if mods['index'] else lv_name(t, [col], 'index')
+            T['idx'][n] = {'cols': [col], 'unique': False, 'primary': False, 'constraint': False, 'expr': None, 'at': a}
+        if 'constrained' in mods:
+            ca = mods['constrained']
+            ref = str(php_val(ca[0])).lower() if ca and php_val(ca[0]) is not None else plural(re.sub(r'_id$', '', col))
+            rc = [str(php_val(ca[1])).lower()] if len(ca) > 1 else ['id']
+            if not ca: notes['inferred_ref'] += 1
+            fk([col], ref, rc, lv_name(t, [col], 'foreign'), chain[1:])
+        return True
+    if name in ('timestamps', 'nullableTimestamps', 'timestampsTz'):
+        ty = 'timestamp with time zone' if name == 'timestampsTz' else 'timestamp without time zone'
+        for c in ('created_at', 'updated_at'): T['cols'][c] = {'type': ty, 'nullable': True, 'default': None, 'at': a}
+        return True
+    if name in ('softDeletes', 'softDeletesTz', 'softDeletesDatetime'):
+        c = col if isinstance(col, str) else 'deleted_at'
+        T['cols'][c] = {'type': 'timestamp with time zone' if name == 'softDeletesTz' else 'timestamp without time zone',
+                        'nullable': True, 'default': None, 'at': a}
+        return True
+    if name == 'rememberToken':
+        T['cols']['remember_token'] = {'type': 'varchar(100)', 'nullable': True, 'default': None, 'at': a}; return True
+    if name in ('morphs', 'nullableMorphs', 'uuidMorphs', 'nullableUuidMorphs', 'ulidMorphs') and isinstance(col, str):
+        nul = name.startswith('nullable')
+        T['cols'][col + '_type'] = {'type': 'varchar(255)', 'nullable': nul, 'default': None, 'at': a}
+        T['cols'][col + '_id'] = {'type': 'uuid' if 'Uuid' in name else 'char(26)' if 'ulid' in name else 'bigint unsigned', 'nullable': nul, 'default': None, 'at': a}
+        T['idx'][lv_name(t, [col + '_type', col + '_id'], 'index')] = {'cols': [col + '_type', col + '_id'], 'unique': False, 'primary': False, 'constraint': False, 'expr': None, 'at': a}
+        return True
+    if name in ('primary', 'unique', 'index', 'fullText', 'spatialIndex') and args:
+        cols = lv_cols(args[0]); kind = {'fullText': 'fulltext', 'spatialIndex': 'spatialindex'}.get(name, name)
+        n = str(php_val(args[1])).lower() if len(args) > 1 and isinstance(php_val(args[1]), str) else ('%s_pkey' % t if name == 'primary' else lv_name(t, cols, kind))
+        T['idx'][n] = {'cols': cols, 'unique': name in ('primary', 'unique'), 'primary': name == 'primary', 'constraint': name in ('primary', 'unique'),
+                       'expr': None, 'method': name.lower() if name in ('fullText', 'spatialIndex') else '', 'at': a}
+        return True
+    if name == 'foreign' and args:
+        cols = lv_cols(args[0])
+        n = str(php_val(args[1])).lower() if len(args) > 1 and isinstance(php_val(args[1]), str) else lv_name(t, cols, 'foreign')
+        fk(cols, '', ['id'], n, chain[1:]); return True
+    if name == 'dropColumn' and args:
+        for c in [x for v in args for x in lv_cols(v)]: T['cols'].pop(c, None)
+        return True
+    if name == 'renameColumn' and len(args) > 1:
+        o, nw = str(php_val(args[0])).lower(), str(php_val(args[1])).lower()
+        if o in T['cols']: T['cols'][nw] = T['cols'].pop(o)
+        return True
+    if name in ('dropUnique', 'dropIndex', 'dropPrimary', 'dropForeign', 'dropFullText') :
+        v = php_val(args[0]) if args else None
+        kind = {'dropUnique': 'unique', 'dropIndex': 'index', 'dropForeign': 'foreign', 'dropFullText': 'fulltext'}.get(name)
+        n = v.lower() if isinstance(v, str) else ('%s_pkey' % t if name == 'dropPrimary' else lv_name(t, lv_cols(v), kind) if isinstance(v, list) else None)
+        if n:
+            for key in ('idx', 'fks', 'chk'): T[key].pop(n, None)
+        return True
+    if name == 'renameIndex' and len(args) > 1:
+        o, nw = str(php_val(args[0])).lower(), str(php_val(args[1])).lower()
+        if o in T['idx']: T['idx'][nw] = T['idx'].pop(o)
+        return True
+    if name in ('dropSoftDeletes', 'dropSoftDeletesTz'): T['cols'].pop(col if isinstance(col, str) else 'deleted_at', None); return True
+    if name in ('dropTimestamps', 'dropTimestampsTz'):
+        for c in ('created_at', 'updated_at'): T['cols'].pop(c, None)
+        return True
+    if name in ('dropMorphs',) and isinstance(col, str):
+        for c in (col + '_type', col + '_id'): T['cols'].pop(c, None)
+        return True
+    if name in ('engine', 'charset', 'collation', 'comment', 'temporary'): return True
+    return False
+
+
+def lv_file(M, path, rel, counts, notes):
+    raw = open(path, encoding='utf-8', errors='replace').read()
+    clean, masked = php_mask(raw)
+    dn = DOWN.search(masked)
+    stop = dn.start() if dn else len(masked)
+    line = lambda pos: raw.count('\n', 0, pos) + 1
+    for mo in sorted(list(LV_CALL.finditer(masked, 0, stop)) + list(LV_DB.finditer(masked, 0, stop)), key=lambda x: x.start()):
+        o = mo.end() - 1; e = bal(masked, o); args = php_args(clean, masked, o, e); a = '%s:%d' % (rel, line(mo.start()))
+        kind = mo.group(1)
+        if kind in ('statement', 'unprepared'):
+            sql = php_val(args[0]) if args else None
+            if isinstance(sql, str): apply(M, sql, rel, line(mo.start()), counts)
+            else: counts['unparsed'] += 1
+            continue
+        t = php_val(args[0]) if args else None
+        if not isinstance(t, str): counts['unparsed'] += 1; notes['unread_table'] += 1; continue
+        t = t.lower()
+        if kind in ('drop', 'dropIfExists'): M.pop(t, None); counts['applied'] += 1; continue
+        if kind == 'rename':
+            nw = php_val(args[1]) if len(args) > 1 else None
+            if isinstance(nw, str) and t in M: M[nw.lower()] = M.pop(t)
+            counts['applied'] += 1; continue
+        if kind == 'create':
+            M[t] = {'cols': {}, 'idx': {}, 'fks': {}, 'chk': {}, 'at': a}
+        pv = re.search(r'(?:function|fn)\s*\(\s*(?:\??[\w\\]+\s+)?\$(\w+)', masked[o:e])
+        var = pv.group(1) if pv else 'table'
+        k = o
+        for sm in re.compile(r'\$%s\b(?=\s*->)' % var).finditer(masked, o, e):
+            if sm.start() < k: continue
+            ch, k = lv_chain(clean, masked, sm.end(), e)
+            if not ch: continue
+            sa = '%s:%d' % (rel, line(sm.start()))
+            if lv_apply(M, t, ch, sa, kind == 'create', notes): counts['applied'] += 1
+            else: counts['unparsed'] += 1; notes['unknown'].add(ch[0][0])
+
+
+def lv_migrations(root):
+    out = []
+    for p in walk(root):
+        r = os.path.relpath(p, root)
+        if p.endswith('.php') and MIGDIR.search(os.path.dirname(r)):
+            try: t = open(p, encoding='utf-8', errors='replace').read()
+            except OSError: continue
+            if 'Schema::' in t: out.append(p)
+    return sorted(out, key=os.path.basename)
+
+
+def lv_dump(root):
+    """`php artisan schema:dump` output: database/schema/<connection>-schema.sql, the history before the oldest migration."""
+    d = os.path.join(root, 'database', 'schema')
+    return sorted(os.path.join(d, f) for f in os.listdir(d) if f.endswith('-schema.sql')) if os.path.isdir(d) else []
+
+
+def lv_dump_text(sql):
+    """MySQL dump index lines inside CREATE TABLE as statements apply() reads."""
+    out = []
+    for m in re.finditer(r'(?is)create\s+table\s+`?(\w+)`?\s*\(', sql):
+        body = sql[m.end() - 1:bal(sql, m.end() - 1)]
+        for km in re.finditer(r'(?im)^\s*(unique\s+)?key\s+`?(\w+)`?\s*\(([^)]*(?:\([^)]*\)[^)]*)*)\)', body):
+            cols = re.sub(r'\(\d+\)', '', km.group(3))
+            out.append('create %sindex "%s" on "%s" (%s);' % ('unique ' if km.group(1) else '', km.group(2), m.group(1), cols))
+    return re.sub(r'(?im)^\s*(?:unique\s+)?key\s+`?\w+`?\s*\(.*$', '', sql) + '\n' + '\n'.join(out)
+
+
+def run_laravel(root, rel):
+    M, counts = {}, {'applied': 0, 'unparsed': 0}
+    notes = {'inferred_ref': 0, 'generated': 0, 'unread_table': 0, 'unknown': set()}
+    dumps = lv_dump(root)
+    for p in dumps:
+        apply(M, lv_dump_text(open(p, encoding='utf-8', errors='replace').read()), rel(p), 1, counts)
+    migs = lv_migrations(root)
+    for p in migs: lv_file(M, p, rel(p), counts, notes)
+    hdr = ['covers %s' % rel(p) for p in dumps + migs] + [
+        'lane=laravel: %d Blueprint migration file(s)%s; tables=%d columns=%d fks=%d indexes=%d checks=%d' % (
+            len(migs), ' after schema dump %s' % ', '.join(rel(p) for p in dumps) if dumps else '', len(M),
+            sum(len(T['cols']) for T in M.values()), sum(len(T['fks']) for T in M.values()),
+            sum(len(T['idx']) for T in M.values()), sum(len(T['chk']) for T in M.values())),
+        'laravel: %d statement(s) applied, %d not understood%s; %d constrained() target(s) inferred by plural (read them); '
+        '%d generated column(s); %d table name(s) not a literal' % (
+            counts['applied'], counts['unparsed'], ' (%s)' % ', '.join(sorted(notes['unknown']))[:200] if notes['unknown'] else '',
+            notes['inferred_ref'], notes['generated'], notes['unread_table']),
+        'laravel: types are the Blueprint method mapped to SQL (decimal -> numeric(p,s), enum -> varchar(255) + CHECK, '
+        'dateTime -> timestamp without time zone); the engine-specific type is the driver\'s — read config/database.php']
+    return M, hdr
+
+
 # ------------------------------------------------------------------ repo walking
 def git(root, *args):
     try:
@@ -422,7 +744,7 @@ def migrations_in(root, d):
 
 def run(root, mode, snap=None, lane=None):
     root = os.path.abspath(root); rel = lambda p: os.path.relpath(p, root)
-    if lane == 'ddl': snap = None
+    if lane in ('ddl', 'laravel'): snap = None
     elif not snap:
         cands = [p for p in walk(root) if re.match(r'\.snapshot-.*\.json$', os.path.basename(p))]
         snap = cands[0] if cands else None
@@ -465,6 +787,10 @@ def run(root, mode, snap=None, lane=None):
                'horizon content: %s (the last migration creating an object the snapshot holds)' % name(hz_c),
                'replay: %d of %d migration file(s), from the earlier horizon: %s' % (len(replay), len(migs), ' '.join(os.path.basename(p) for p in replay) or '-'),
                'replayed: %d statement(s) applied, %d not understood (read those files); %d unresolved ${...} name(s) in replayed files' % (counts['applied'], counts['unparsed'], unres)]
+        body = emit(M)
+    elif lane == 'laravel' or (lane is None and lv_migrations(root)):
+        M, hdr = run_laravel(root, rel)
+        if lane is None: hdr[-3] = hdr[-3].replace('lane=laravel:', 'lane=laravel (no .snapshot-*.json; Blueprint migrations found):', 1)
         body = emit(M)
     else:
         parts, covers, n = [], [], 0
@@ -582,6 +908,38 @@ SNAP = {'namespaces': ['public'], 'name': 'app', 'nativeEnums': {}, 'tables': [
     {'columns': {'id': {'name': 'id', 'type': 'int4', 'nullable': False, 'default': None}}, 'name': 'legacy', 'schema': 'public',
      'indexes': [], 'checks': [], 'foreignKeys': {}, 'nativeEnums': {}, 'comment': None}]}
 
+LV = {
+    'database/migrations/2024_01_01_000000_create_users_table.php':
+        "<?php\nuse Illuminate\\Database\\Migrations\\Migration;\nuse Illuminate\\Database\\Schema\\Blueprint;\n"
+        "use Illuminate\\Support\\Facades\\Schema;\n\nreturn new class extends Migration\n{\n    public function up(): void\n    {\n"
+        "        Schema::create('users', function (Blueprint $table) {\n            $table->id();\n"
+        "            $table->string('email')->unique();\n            $table->string('name', 120)->nullable();\n"
+        "            $table->rememberToken();\n            $table->timestamps();\n            $table->softDeletes();\n        });\n"
+        "        // Schema::create('ghost', function (Blueprint $table) { $table->id(); });\n    }\n\n"
+        "    public function down(): void\n    {\n        Schema::dropIfExists('users');\n    }\n};\n",
+    'database/migrations/2024_01_02_000000_create_orders_table.php':
+        "<?php\nreturn new class extends Migration {\n    public function up(): void {\n"
+        "        Schema::create('orders', function (Blueprint $t) {\n            $t->id();\n"
+        "            $t->foreignId('user_id')->constrained()->cascadeOnDelete();\n"
+        "            $t->foreignId('tenant_id')->constrained('tenants');\n"
+        "            $t->decimal('total', 12, 2)->default(0);\n            $t->decimal('tax');\n"
+        "            $t->enum('status', ['new', 'paid'])->default('new');\n"
+        "            $t->string('note')->nullable();\n            $t->string('url')->default('http://x.test/a;b)');  # a ; ) and // in a string\n"
+        "            $t->unique(['tenant_id', 'user_id']);\n            $t->index('status', 'orders_status_ix');\n"
+        "            $t->timestamps();\n            $t->softDeletes();\n        });\n"
+        "        Schema::create('payments', fn (Blueprint $table) => $table->uuid('id')->primary());\n"
+        "    }\n    public function down(): void { Schema::drop('orders'); }\n};\n",
+    'database/migrations/2024_02_01_000000_alter_orders.php':
+        "<?php\nreturn new class extends Migration {\n    public function up(): void {\n"
+        "        Schema::table('orders', function (Blueprint $table) {\n"
+        "            $table->string('note', 500)->change();\n            $table->dropColumn('tax');\n"
+        "            $table->renameColumn('total', 'grand_total');\n            $table->dropUnique(['tenant_id', 'user_id']);\n"
+        "            $table->foreignId('coupon_id')->nullable()->constrained('coupons', 'code')->nullOnDelete();\n"
+        "            $table->foreign('user_id', 'orders_owner_fk')->references('id')->on('users')->onDelete('restrict');\n"
+        "        });\n        Schema::dropIfExists('payments');\n"
+        "        DB::statement('create index orders_note_idx on orders (note)');\n    }\n};\n",
+}
+
 
 def self_test():
     fails, n = [], [0]
@@ -638,6 +996,39 @@ def self_test():
     ok('NULLABLE\torders\temail' in eo, 'entities: nullability drift not reported')
     ok('GHOST-COLUMN\torders\ttotal' in eo and 'GHOST-TABLE\torder_items' in eo, 'entities: ghost rows missing')
     ok('GHOST-COLUMN\torders\tstatus' not in eo and 'MISSING-TABLE' not in eo, 'entities: a const tableName or a commented property misread:\n' + eo)
+    # 5. laravel lane: Blueprint migrations in their own repo
+    d2 = tempfile.mkdtemp(prefix='schema-map-lv-')
+    for r, txt in LV.items():
+        p = os.path.join(d2, r); os.makedirs(os.path.dirname(p), exist_ok=True); open(p, 'w').write(txt)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf): L = run(d2, 'sql')
+    lo = buf.getvalue()
+    import shutil; shutil.rmtree(d2, ignore_errors=True)
+    ok('lane=laravel (no .snapshot-*.json; Blueprint migrations found): 3 Blueprint' in lo, 'laravel: lane not chosen:\n' + lo[:400])
+    ok(set(L) == {'users', 'orders'}, 'laravel: tables %r (a commented Schema::create, a dropIfExists or a down() leaked)' % sorted(L))
+    U, O = L.get('users', {'cols': {}, 'idx': {}}), L.get('orders', {'cols': {}, 'idx': {}, 'fks': {}, 'chk': {}})
+    ok(U['idx'].get('users_email_unique', {}).get('constraint') and U['idx'].get('users_pkey', {}).get('primary'), 'laravel: ->unique() / id() pk %r' % U['idx'])
+    ok(U['cols'].get('deleted_at', {}).get('nullable') is True and U['cols'].get('email', {}).get('nullable') is False
+       and U['cols'].get('name', {}).get('type') == 'varchar(120)', 'laravel: softDeletes / nullable / string(len) %r' % U['cols'])
+    ok(O['fks'].get('orders_user_id_foreign', {}).get('ref') == 'users' and O['fks']['orders_user_id_foreign'].get('del') == 'cascade',
+       'laravel: foreignId()->constrained()->cascadeOnDelete() %r' % O['fks'])
+    ok(O['fks'].get('orders_tenant_id_foreign', {}).get('ref') == 'tenants', 'laravel: constrained(table)')
+    ok(O['fks'].get('orders_coupon_id_foreign', {}).get('refcols') == ['code'] and O['fks']['orders_coupon_id_foreign']['del'] == 'set null'
+       and O['cols'].get('coupon_id', {}).get('nullable') is True, 'laravel: constrained(table, column)->nullOnDelete() %r' % O['fks'].get('orders_coupon_id_foreign'))
+    ok(O['fks'].get('orders_owner_fk', {}).get('del') == 'restrict' and O['fks']['orders_owner_fk']['ref'] == 'users', 'laravel: foreign()->references()->on()->onDelete()')
+    ok(O['cols'].get('grand_total', {}).get('type') == 'numeric(12,2)' and O['cols']['grand_total']['default'] == '0' and 'total' not in O['cols'],
+       'laravel: decimal(p,s) + renameColumn %r' % O['cols'].get('grand_total'))
+    ok('tax' not in O['cols'], 'laravel: dropColumn')
+    ok(O['chk'].get('orders_status_check', {}).get('expr') == '"status" in (\'new\', \'paid\')' and O['cols']['status']['default'] == "'new'",
+       'laravel: enum -> CHECK %r' % O['chk'])
+    ok(O['cols'].get('note', {}).get('type') == 'varchar(500)' and O['cols']['note']['nullable'] is False,
+       'laravel: change() restates modifiers (nullable dropped) %r' % O['cols'].get('note'))
+    ok(O['cols'].get('url', {}).get('default') == "'http://x.test/a;b)'", 'laravel: a ; ) or // inside a string split the statement %r' % O['cols'].get('url'))
+    ok('orders_tenant_id_user_id_unique' not in O['idx'] and O['idx'].get('orders_status_ix', {}).get('cols') == ['status'], 'laravel: dropUnique / named index %r' % O['idx'])
+    ok('orders_note_idx' in O['idx'], 'laravel: DB::statement DDL not applied')
+    ok('alter table "orders" add constraint "orders_user_id_foreign" foreign key ("user_id") references "users" ("id") on delete cascade;' in lo
+       and 'alter table "orders" add constraint "orders_status_check" check ("status" in (\'new\', \'paid\'));' in lo
+       and '-- @src database/migrations/2024_01_02_000000_create_orders_table.php:6\n' in lo, 'laravel: DDL output or @src line\n' + lo[-900:])
     print('schema-map --self-test: %s (%d/%d checks)' % ('OK' if not fails else 'FAIL', n[0] - len(fails), n[0]))
     for f in fails: print('  FAIL ' + f)
     return 0 if not fails else 3

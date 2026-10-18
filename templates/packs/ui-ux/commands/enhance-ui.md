@@ -1,5 +1,5 @@
 ---
-description: Orchestrator for UI/UX enhancement. Takes a natural-language description ("the sidebar", "the dashboard header") OR explicit path. Runs scope-tier detection (DRY — token / wrapper / extract / leaf) so the same affordance is not styled twice on multiple pages; then cleanup → design-iterate → verify. Composes /align-recheck (including duplicated-surface-styles when frontend) + design-iterate (passes $SCOPE_TIER) + /align-recheck again.
+description: Orchestrator for UI/UX enhancement. Takes a natural-language description ("the sidebar", "the dashboard header") OR explicit path. Runs scope-tier detection (DRY — token / wrapper / extract / leaf) so the same affordance is not styled twice on multiple pages; then cleanup → design-iterate → verify. Composes /align-recheck + design-iterate (passes $SCOPE_TIER) + /align-recheck again.
 kind: command
 pack: ui-ux
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
@@ -16,11 +16,11 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 **You describe what you want enhanced; this command runs the cleanup → iterate → verify loop.** Cleanup ensures the surface uses the design system correctly BEFORE you iterate on visuals (no point polishing on top of hardcoded colors). **Before iterate, it decides a scope tier** so you do not paste the same scoped styles on two leaf pages for one shared button — that fragments the design system and violates DRY. Iterate generates 3 style variants at the **correct layer** (token, shared wrapper, or single leaf). Verify catches anything the iteration drifted.
 
 This is the orchestrator for visual / UX enhancement work. It composes:
-1. **`/align-recheck`** — fixes structural drift (`design-token-drift`, `a11y-violation`, `reinvented-wrapper`, `raw-library-component`, `missing-ui-state`, `motion-drift`, `responsive-drift`, and for `frontend-*` also **`duplicated-surface-styles`**).
+1. **`/align-recheck`** — fixes declared-convention drift on the target: a token literal with an exact existing token (AL-05), a raw primitive or native element where the wrapper or DS component exists (AL-11, AL-12), a dropped wrapper prop or gate (AL-15, AL-28). Missing UI states and motion drift are ui-ux's own (`ui-state-scan`, `motion-audit`); the same styles duplicated across leaves with no wrapper yet is the `wrapper-extract` tier below, not an align class.
 2. **`design-iterate` skill** — generates 3 style variants (polished / bolder / minimal); receives **`$SCOPE_TIER`** and **`$CONSUMER_ROUTES`** (when tier is `token` or `wrapper-variant`); user picks; skill applies.
 3. **`/align-recheck`** again — re-enforces conventions on the picked variant.
 
-**`/align-recheck` ships in the align pack, which is opt-in.** When it is installed, steps 1 and 3 run it as written. Without it, steps 1 and 3 dispatch `ui-design-sweep` (this pack) on the same target with the verbs those classes map to (1–2 tokens, 3 wrappers, 9–11 states, 12/13/16/18 a11y, 15 motion); `responsive-drift` and `duplicated-surface-styles` have no verb and are reported `SKIPPED (align pack not installed)`. The summary line names which path ran.
+**`/align-recheck` ships in the align pack, which is opt-in.** When it is installed, steps 1 and 3 run it as written. Without it, steps 1 and 3 dispatch `ui-design-sweep` (this pack) on the same target with the verbs those classes map to (1–2 tokens, 3 wrappers, 9–11 states, 12/13/16/18 a11y, 15 motion); `responsive-drift` has no verb and is reported `SKIPPED (align pack not installed)`. The summary line names which path ran.
 
 Examples:
 - `/enhance-ui the sidebar`
@@ -132,9 +132,9 @@ Enhancement here means **better within the existing system** (legend contrast �
 0. TIER           — Phase 1.5 complete; $SCOPE_TIER + $CONSUMER_ROUTES frozen for this run
 1. RESOLVE        — (already done) description → UI file(s)
 2. CLEANUP        — /align-recheck <iterate-target> --class=<classes>
-                    Always include for frontend-*: duplicated-surface-styles, design-token-drift,
-                    a11y-violation, reinvented-wrapper, raw-library-component, missing-ui-state,
-                    motion-drift, responsive-drift
+                    Always include for frontend-*: AL-05 (token = value), AL-11 (raw primitive),
+                    AL-12 (native element), AL-15 (wrapper prop / gate), AL-28 (a11y prop); then
+                    ui-state-scan and motion-audit (this pack) for missing states and motion
                     If target has a chart/data-viz or data table: its config object + wrapper are
                     in-scope (see "Charts / data-viz + data tables" note) — chart series/axis/grid
                     colours count as design-token-drift even though they live in the chart config,
@@ -142,7 +142,8 @@ Enhancement here means **better within the existing system** (legend contrast �
                     Tier-specific:
                     - token          → cleanup targets tokens file; replace-with-shared for drift on tokens
                     - wrapper-variant→ cleanup targets wrapper component path
-                    - wrapper-extract→ cleanup runs on leaf files to surface duplicated-surface-styles;
+                    - wrapper-extract→ cleanup runs on leaf files; the duplicated leaf styles are the
+                                       extraction's input (/unify-surfaces), not align rows;
                                        HALT iterate unless --auto-extract resolved extraction
                     - leaf-local     → cleanup on resolved leaf only
 3. ITERATE        — design-iterate with $TARGET = tier iterate target, $SCOPE_TIER, $DIRECTION,
@@ -184,7 +185,7 @@ Surfaces updated by 1 change: 3 routes (DRY — single wrapper edit)
 Resolved:                  src/shared/components/AppSidebar.vue
 
 Step 1 — Cleanup:          5 findings fixed
-  duplicated-surface-styles:   1 (sidebar padding duplicated on Dashboard + Settings — folded into wrapper)
+  wrapper-variant fold:        1 (sidebar padding duplicated on Dashboard + Settings — moved into the wrapper by this tier)
   design-token-drift:        3 (hardcoded #3b82f6 → $primary; padding 12px → $space-md ×2)
   a11y-violation:            1 (focus state missing on collapse button)
   raw-library-component:     1 (a raw library button — PrimeVue / MUI / Vuetify, whichever
@@ -261,7 +262,7 @@ Revert:                    git reset --hard <pre-run HEAD>   (or git revert the 
 ## Related
 
 ### Sibling commands
-- `/align-recheck` (align pack, when installed) — the cleanup primitive this command dispatches (include `--class=duplicated-surface-styles` for frontend). Without it, `ui-design-sweep` runs the cleanup (§ The Premise).
+- `/align-recheck` (align pack, when installed) — the cleanup primitive this command dispatches (with `--class=AL-05,AL-11,AL-12,AL-15,AL-28` for frontend). Without it, `ui-design-sweep` runs the cleanup (§ The Premise).
 - `/design-review` — read-only audit (use BEFORE enhance-ui to see what needs cleaning).
 - `/redesign` — when the surface needs its **layout / IA / flow rethought** (not preserved). `/enhance-ui` preserves structure and rebuilds nothing; `/redesign` throws the layout away and rebuilds it inside the same design system. The intent gate above routes here for that ask.
 - `/art-direct` — when the ask is a **new visual language / direction** (not finishing within the current one). It is upstream of `/enhance-ui` — it decides the language, then `/redesign` + `/polish` (and `/enhance-ui`) work within it.
@@ -273,4 +274,4 @@ Revert:                    git reset --hard <pre-run HEAD>   (or git revert the 
 - `bundle-analyze` *(frontend pack)* — optional bundle-size delta on re-enforce; only when the `frontend` pack is installed. Absent → the bundle-size line prints `SKIPPED (no bundle-analyze)`, never a fabricated delta.
 
 ### Rules
-- `.claude/rules/align-discipline.md` — the discipline the cleanup steps enforce (`duplicated-surface-styles` subclass).
+- `.claude/rules/align-discipline.md` — the discipline the cleanup steps enforce (declared conventions only; AL classes).

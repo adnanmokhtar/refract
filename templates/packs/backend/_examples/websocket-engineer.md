@@ -201,7 +201,7 @@ Fix:
 - `@bug-investigator` — takes a real observed failure (reconnect storm, missed messages, memory climb) and finds its root cause. You design the protocol; it explains why the deployed one misbehaves.
 
 ### Skills
-- none — this agent designs real-time transport/lifecycle directly and invokes no pack skill. (The `endpoint-test` primitive targets request/response routes, not long-lived sockets.)
+- none — this agent designs real-time transport/lifecycle directly and invokes no pack skill. (The `endpoint-test-method` primitive targets request/response routes, not long-lived sockets.)
 
 ### Patterns
 - `ai/patterns/api-contract.md` — message-envelope conventions the WS/SSE events must mirror.

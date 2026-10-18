@@ -1,0 +1,20 @@
+[
+  {
+    "type": "dependency",
+    "from": "apps/web/src/features/reports/ReportsPage.tsx",
+    "to": "packages/legacy-reports/src/index.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-legacy-reports-in-new-code"
+    }
+  },
+  {
+    "type": "dependency",
+    "from": "apps/web/src/features/OrderHistory/OrderHistoryPage.tsx",
+    "to": "packages/legacy-reports/src/index.ts",
+    "rule": {
+      "severity": "error",
+      "name": "no-legacy-reports-in-new-code"
+    }
+  }
+]

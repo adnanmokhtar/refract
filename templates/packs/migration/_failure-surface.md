@@ -1,7 +1,7 @@
 # Migration toolchain failure surface
 
 > Catalog of every failure mode the V1→V2 migration toolchain can produce.
-> Generated: 2026-04-29
+> Generated: 2026-04-29 · coverage refreshed 2026-10-18 (§ Coverage refresh below; the per-mode "Current coverage" lines that had gone stale are updated in place)
 > Scope: `templates/packs/migration/` (Refract repo) + `validate-migration-artifacts.sh` + Phase-6/7/9 incident audits.
 > Method: read every command, agent, skill, rule, the validator script, and the per-phase incident audits line by line. Anti-pattern catalog cross-referenced against `migration-discipline.md § Anti-patterns (named)`.
 >
@@ -21,19 +21,72 @@
 
 ## Summary
 
-- **Total failure modes catalogued: 38**
-- **Currently HALT-able (validator / agent gate fails the row): 11**
-- **Currently warned (`log_warn` / advisory / soft check): 6**
-- **Uncovered (no automated check OR check is procedural-only): 21**
+- **Failure modes catalogued: 56** (A1–A10, B1–B10, C1–C10, D1–D9, E1–E5, F1–F7, G1–G5; the "38" this line used to carry predates categories E–G).
+- **HALT-able today (a validator or agent gate fails the row): 21.**
+- **Partial today (`log_warn`, a heuristic, a count, or a check that runs only under an anchor): 17.**
+- **Spec-only or reviewer-only: 8. No check at all: 10.** Each of these 18 names the detector § that now covers it or says "out of scope" in the table below.
 
-| Severity | Covered (HALT) | Warned | Uncovered |
-|---|---|---|---|
-| P0 silent break | 6 | 2 | 5 |
-| P1 missing affordance / regression | 4 | 2 | 8 |
-| P2 cosmetic / UX | 1 | 1 | 5 |
-| P3 advisory | 0 | 1 | 3 |
+The 2026-04 summary said the toolchain was weakest on **post-merge drift**, **service-layer parity** and **cross-stack contract sync**. The first is now checked (`check_audit_freshness`). The second is where it is still weakest: every runnable comparison of V1 against V2 code is a per-file regex COUNT, except the keyed lanes `check_inventory_primitives_match` reads when `pair-inventory.py` has extracted both sides. The six parity detectors below (shipped, run together by `/compare-v1`) are the paired, keyed answer.
 
-The toolchain has hardened heavily on **audit-time lying** (Category A) and **port-shape transposition** (Category B). It is weakest on **post-merge drift** (audit decay), **service-layer parity** (the audit only reads UI), and **cross-stack contract sync** (frontend assumes API shape, never asserts it).
+## Coverage refresh — 2026-10-18
+
+Detector § ids are the shipped migration-pack skills, each § a `### N.` heading in its `SKILL.md` unless marked routed; all six run by `/compare-v1` and closed by `/find-and-fix --from-audit`: **SP** `surface-parity-scan` §1–§9 · **SM** `semantics-parity-scan` §1, §2, §4–§8 (§3, §9, §10 are routed lines to backend, frontend and database) · **SE** `side-effect-parity-scan` §1–§5 · **DC** `data-cutover-orchestrate` §1–§12 · **CR** `cutover-routing-scan` §1–§4 · **PF** `parity-proof-scan` §1–§5. "Process gate" means the mode is about the audit artifact, not about code, and stays with the validator and `parity-auditor`. "Out of scope" names the owner when one exists.
+
+| Mode | Today | Detector § (shipped) |
+|---|---|---|
+| A1 Trusted Summary | ✅ `check_audit_provenance` | process gate (`parity-auditor` judges detector rows) |
+| A2 Hand-waved enumeration | ✅ `check_audit` hand-wave bank | process gate |
+| A3 Inline-executor verdict | ✅ `check_audit_provenance` placeholders | process gate |
+| A4 Stale audit | ✅ `check_audit_freshness` (7-day SLA vs the v2_path commit) | — |
+| A5 Porter = auditor | ⚠️ `check_porter_vs_auditor` (fails on a collision; silent when `porter_agent_id` is absent) | process gate |
+| A6 Tolerance loosened | ✅ `check_tolerance_loosening_adr_evidence` — committed since the base and uncommitted; a loosening with no ADR fails | PF §5 (CO-4, V385) |
+| A7 Parity-clean with no tests | ✅ `check_parity_corpus` + `check_parity_run_report` | PF §1, PF §4 (a skipped V1-gated suite is NOT-RUN) |
+| A8 Citation spoofing | ⚠️ `check_contract_citations` (path and line exist; content unchecked) | paired-inventory rows carry `file:line` + excerpt for the contract prefill; content alignment otherwise out of scope |
+| A9 Intentional break without ADR | ✅ `check_intentional_break_adr` | PF §3 (PP-3) |
+| A10 PASS with caveats | ✅ `check_audit_body_consistency` | — |
+| B1 Transposition Trap | ✅ `check_v2_structure` (frontend and TS-backend sets; N/A for other kinds) | out of scope (V2 structure, not parity) |
+| B2 Composable reuse miss | ⚠️ `check_composable_reuse` (Vue heuristic, warn) | out of scope (V2 structure) |
+| B3 Service shape miss | ⚠️ `check_service_shape` (heuristic, warn) | out of scope (V2 structure) |
+| B4 Layering violation | ✅ layering fingerprints in `check_v2_structure` | out of scope → architecture / code-quality |
+| B5 Cross-module import | ⚠️ `check_cross_module_import` (warn) | out of scope (V2 structure) |
+| B6 i18n key missing | ⚠️ `check_i18n_locale_parity` (V2 locales only, warn) | SM §9 → frontend `i18n-scan` (MG-I18N-1) |
+| B7 Hexagonal boundary | ⚠️ TS-backend fingerprints only | out of scope → architecture |
+| B8 Transaction script | ❌ | out of scope → architecture; the transaction half is SM §10 → database |
+| B9 Response-mapper drift | ⚠️ keyed I-RULES / I-ROUTES lanes when both sides were extracted | SP §6–§9; envelope correctness → backend |
+| B10 Per-route auth mismatch | ⚠️ keyed I-AUTHZ lane in `check_inventory_primitives_match` (both sides extracted); `auth_guard` counts otherwise | SP §3, §4, §5 (security owns widening and tenant scope when installed) |
+| C1 Missing UI affordance | ✅ `check_section_0_evidence`, `check_per_axis_enumeration` | MG-UI-1 (parity-auditor, unchanged) |
+| C2 Permission-gate divergence | ✅ `check_permission_gate_divergence` (frontend axes table) | SP §3, §4 for server routes |
+| C3 Templated query param drop | ✅ hand-wave regex; enumeration soft | SP §2 (MG-RT-2, V358) |
+| C4 Side-effect drop | ⚠️ `event_emit` count — blind to observers and traits | SE §1 (MG-SE-1, V371); DB triggers SE §5 |
+| C5 Empty-state drop | ⚠️ corpus + tolerance (`structural` never hides presence) | SM §7 (MG-NULL-1, V367) |
+| C6 Lifecycle mismatch | ⚠️ `check_lifecycle_keepalive` (Vue KeepAlive, anchor-gated, warn) | MG-UI-2 (halt 12); frontend `ui-state-scan` single-codebase |
+| C7 Loading / error state drop | ❌ | MG-UI-2 (halt 12 state enumeration) |
+| C8 RTL break | ⚠️ spec-only | out of scope → frontend |
+| C9 Visual divergence | ❌ | out of scope → frontend visual regression |
+| C10 Locale semantic shift | ❌ | SM §8 (time zone, V368); SM §9 → frontend i18n (V369) |
+| D1 Corpus all-happy-path | ⚠️ `check_corpus_distribution` (buckets, warn) | PF §2 (V387 — V1 branch floor, not a file count) |
+| D2 Tolerance coverage | ⚠️ `check_tolerance_coverage` (warn) | PF §5 |
+| D3 Loosened with a red test | as A6 | PF §5 |
+| D4 Pin ≠ run commit | ✅ `check_parity_run_v1_commit` + `check_parity_run_report` | PF §1 |
+| D5 Mocked V1 dependency | ❌ | PF §5 in part (journal against real fakes, V371); otherwise reviewer |
+| D6 Generators off prod shape | ❌ | PF §2 (V387 lists unreached V1 branches) |
+| D7 Snapshot drift | ⚠️ repo-baseline `test-integrity.py` `undeclared-baseline-rewrite` when installed | PF §1 (PP-1, V386) |
+| D8 KeepAlive mount missing | ❌ | out of scope (frontend test config; `parity-test-generate` route-cache-aware mount) |
+| D9 Auto-import mismatch | ❌ | out of scope (frontend test config; `parity-test-generate` auto-import requirement) |
+| E1 a11y attribute dropped | ⚠️ spec-only | out of scope → frontend a11y |
+| E2–E5 Token storage, manual auth header, `axios.create`, `console.log` | ✅ `check_v2_structure` fingerprints | out of scope (V2 structure) |
+| F1 Ledger drift | ✅ `check_ledger_row` (tier-scoped fields) | process gate |
+| F2 Scope creep | ⚠️ `check_port_diff_scope_warning` (warn) | process gate |
+| F3 V1 modified in port PR | ⚠️ halt 6, reviewer | PF §1 for V1-pinned tests; V1 source edits stay with the reviewer |
+| F4 Cutover without rollback | ✅ `check_runbook` (heavy tier) | DC §11 (reverse path, point of no return), CR §4 |
+| F5 Eternal Shadow | ⚠️ `migration-status` age flag | out of scope (status report) |
+| F6 V1 Deletion Sprint | ⚠️ spec-only | CR §4 (V1 cold before soak end), DC §11 |
+| F7 Architecture in flux | ⚠️ spec-only | out of scope |
+| G1 API contract change breaks frontends | ⚠️ spec-only | SP §1–§9 run per consumer; workspace sync out of scope |
+| G2 Workspace orchestrator stale | ❌ | out of scope (workspace) |
+| G3 Sibling drift | ⚠️ spec-only | out of scope (workspace) |
+| G4 Shared component not in siblings | ❌ | out of scope (workspace) |
+| G5 Cross-stack ledger desync | ⚠️ spec-only | out of scope (`migration-doctor.sh` dependency resolution) |
 
 ---
 
@@ -66,7 +119,7 @@ The audit is the gate. If the audit is wrong, every downstream check is wrong. T
 - **What**: Audit was written N days ago against V2 commit X. Since then V2 evolved; tolerance.yaml or implementation diverged; the gate still consumes the stale audit verdict. The Eternal Shadow's audit-side cousin.
 - **Stack**: Both.
 - **Where it bit us**: Projected — not yet observed. F033's "ai/status.md is stale" is a sibling drift; same shape.
-- **Current coverage**: ⚠️ Partial — `migration-final.md --re-audit` re-runs the validator; `parity-auditor.md § Pitfalls "Auditing too late"` warns. No automated check that audit's `audit_date` ≤ N days vs current `git log -1 --format=%ai <v2_path>`.
+- **Current coverage**: ✅ HALT — `check_audit_freshness`: `audit_date` older than the last commit on the row's `v2_path` by more than 7 days fails the row.
 - **Severity if uncovered**: P1.
 - **Suggested mechanism**: `validate-migration-artifacts.sh § check_audit_freshness` — if `audit_date` is older than `git log -1 <v2_path>`, log_fail "audit predates V2 changes; re-audit required". 7-day SLA.
 
@@ -74,7 +127,7 @@ The audit is the gate. If the audit is wrong, every downstream check is wrong. T
 - **What**: Same agent run / same person produces both the port and the audit. The auditor's bias matches the porter's blind spots — same omissions in both.
 - **Stack**: Both.
 - **Where it bit us**: Projected — `parity-auditor.md § Pitfalls "Auditor + author conflict of interest"` warns but isn't enforced.
-- **Current coverage**: ❌ UNCOVERED.
+- **Current coverage**: ⚠️ Partial — `check_porter_vs_auditor` fails when the ledger's `porter_agent_id` equals the audit's `auditor_agent_id`; silent while `porter_agent_id` is unset.
 - **Severity**: P1.
 - **Suggested mechanism**: Audit frontmatter requires `auditor_agent_id` ≠ `porter_agent_id` (add `porter_agent_id` to ledger row). Validator halts on equality.
 
@@ -82,7 +135,7 @@ The audit is the gate. If the audit is wrong, every downstream check is wrong. T
 - **What**: Parity test fails, executor edits `tolerance.yaml` to make it pass (adds field to `ignore`, raises `numeric_tolerance`).
 - **Stack**: Both.
 - **Where it bit us**: Projected — `parity-auditor.md § Pitfalls "Loosening tolerance during audit"` and `parity-test-generate.md § Failure modes "Tolerance creep"` warn but no mechanical check.
-- **Current coverage**: ⚠️ Soft — `migration-discipline.md § Per-feature audit halt #3` says "tolerance loosened in same PR = halt; loosening = separate PR + ADR". Detection is reviewer-only.
+- **Current coverage**: ✅ HALT — `check_tolerance_loosening_adr_evidence` reads tolerance.* changes in `<base>..HEAD` and the working tree; a loosening-shaped change (an added `ignore` / `structural` / numeric tolerance) with no ADR in the audit fails. (It read only uncommitted edits, and only warned, until 2026-10.)
 - **Severity**: P0.
 - **Suggested mechanism**: `validate-migration-artifacts.sh § check_tolerance_diff` — if PR diff includes `tolerance.yaml` changes, refuse unless ADR cited in PR body. Pre-commit hook flag.
 
@@ -106,7 +159,7 @@ The audit is the gate. If the audit is wrong, every downstream check is wrong. T
 - **What**: Audit decides V2's divergence is "intentional", lists no ADR, no caller-migration plan, no deprecation timeline. It's a contract break dressed as a port.
 - **Stack**: Both.
 - **Where it bit us**: F033 G2 (V2 added `orders.print` permission gate V1 didn't have) — flagged P2 in re-look but the original Phase-6 audit didn't flag it as a contract break at all.
-- **Current coverage**: ⚠️ Soft — `migration-gate.md § check 4` requires "cited ADR exists when status = intentional-break"; `check_audit` doesn't enforce that classification = "intentional-break" implies ADR ID present.
+- **Current coverage**: ✅ HALT — `check_intentional_break_adr`: an "intentional-break" classification needs an `ADR-NNN` that resolves.
 - **Severity**: P0.
 - **Suggested mechanism**: Validator parses the "Classification" line; if it contains "intentional-break", require a populated ADR-NNNN reference that resolves under `ai/decisions/`.
 
@@ -114,7 +167,7 @@ The audit is the gate. If the audit is wrong, every downstream check is wrong. T
 - **What**: Audit produces "Result: PASS" but the body lists open P0/P1 gaps. Reviewer reads only the header.
 - **Stack**: Both.
 - **Where it bit us**: F033 relook (`Result: PASS (with P2 gap on summary card fields, P3 gaps on delete affordance and filterWithSeller param)`) — the header says PASS but the body declares G1 P1 (delete affordance missing).
-- **Current coverage**: ❌ UNCOVERED. `migration-gate.md § Hard rules` says "no partial passes" but the audit-author can author a misleading header.
+- **Current coverage**: ✅ HALT — `check_audit_body_consistency`: a PASS / parity-clean verdict over a body that lists open P0 / P1 / HALT / missing gaps fails.
 - **Severity**: P1.
 - **Suggested mechanism**: Validator parses the audit body for any line matching `^(- |\| ).*\b(P0|P1|HALT|missing|regression)\b` after the "Result:" header. If found AND header says PASS, log_fail "audit header contradicts body". Force the auditor to either downgrade the header or close the gap.
 
@@ -135,7 +188,7 @@ The port is "done" but V2's code violates V2's own conventions. The audit may pa
 - **What**: V2 page hand-rolls list/pagination/filter state instead of using shared composables. Becomes untestable, drifts from sibling pages.
 - **Stack**: Frontend.
 - **Where it bit us**: Projected — not directly observed in Phase 6. F032 OrderEditDialog initial port had ad-hoc form state instead of `useForm`; second pass aligned.
-- **Current coverage**: ❌ UNCOVERED. `port-feature.md § Phase 3` mandates reading the gold-standard composables, but no validator check.
+- **Current coverage**: ⚠️ Warn — `check_composable_reuse` (Vue `*Page.vue` list-state heuristic).
 - **Severity**: P1.
 - **Suggested mechanism**: `check_v2_structure` extension — for any V2 page in `src/modules/<m>/pages/*.vue`, grep for `reactive\(\{[\s\S]{0,500}items:\s*\[\]` (open-coded list state) WITHOUT a corresponding `useCrud(` import. log_warn ("did you mean useCrud?").
 
@@ -143,7 +196,7 @@ The port is "done" but V2's code violates V2's own conventions. The audit may pa
 - **What**: V2 `services/index.ts` defines hand-written `apiClient.get/.post/.put/.delete` instead of `new BaseCrudService<T, CreateDto, UpdateDto>(urls)`. Loses the auto-detect-FormData, getMinimal, deleteMany, toggleStatus, export methods.
 - **Stack**: Frontend.
 - **Where it bit us**: Projected — not in Phase 6, but is a known anti-pattern in `.claude/rules/services.md`.
-- **Current coverage**: ❌ UNCOVERED.
+- **Current coverage**: ⚠️ Warn — `check_service_shape` (hand-rolled CRUD service heuristic).
 - **Severity**: P2 (works, but misses convention).
 - **Suggested mechanism**: validator scans `src/modules/<m>/services/index.ts`; if file declares any HTTP method directly without an accompanying `BaseCrudService` instance for the same URL group, log_warn.
 
@@ -159,7 +212,7 @@ The port is "done" but V2's code violates V2's own conventions. The audit may pa
 - **What**: `src/modules/orders/pages/X.vue` imports from `src/modules/inventory/...`. Violates `.claude/rules/clean-architecture.md § Cross-Module Rules`.
 - **Stack**: Frontend.
 - **Where it bit us**: Projected.
-- **Current coverage**: ❌ UNCOVERED by validator (relies on ESLint).
+- **Current coverage**: ⚠️ Warn — `check_cross_module_import`.
 - **Severity**: P2.
 - **Suggested mechanism**: `check_v2_structure` add `from '@/modules/(?!\$THIS_MODULE)` regex (project-anchored).
 
@@ -167,7 +220,7 @@ The port is "done" but V2's code violates V2's own conventions. The audit may pa
 - **What**: V2 adds key to `en.ts` but not `ar.ts`, or two modules define the same key path.
 - **Stack**: Frontend.
 - **Where it bit us**: F032 OrderEditDialog — initial port added en keys before ar keys; caught in same commit. The i18n key `Orders.editOrder` already existed in `ar.ts:74` un-referenced (pre-existing dead key, F032 audit noted).
-- **Current coverage**: ⚠️ Partial — `/i18n-audit` skill exists but is not wired into `check_v2_structure`.
+- **Current coverage**: ⚠️ Warn — `check_i18n_locale_parity` compares V2's own locale files; V1 `lang/` keys are not read (→ SM §9, frontend `i18n-scan`).
 - **Severity**: P1 (Arabic users see bare `Orders.editOrder` keys in UI).
 - **Suggested mechanism**: validator runs i18n-audit module; if any new key in `en.ts` lacks the same path in `ar.ts`, log_fail.
 
@@ -199,7 +252,7 @@ The port is "done" but V2's code violates V2's own conventions. The audit may pa
 - **What**: V2 controller's `@Permissions('orders.update')` doesn't match V1's middleware permission check. Sub-roles whose RBAC differs are silently granted/denied.
 - **Stack**: Backend (and surfaces in frontend's permission gates).
 - **Where it bit us**: F033 G2 (V2 added `orders.print` + `orders.track` gates V1 lacked) — frontend side. Same risk on the API.
-- **Current coverage**: ⚠️ Documented in frontend audit axes ("Per-button permission gates"); not enforced for backend routes.
+- **Current coverage**: ⚠️ Partial — keyed I-AUTHZ set diff in `check_inventory_primitives_match` when `pair-inventory.py` extracted both sides (a guard moved from route A to route B now fails); otherwise the substitution-blind `auth_guard` count.
 - **Severity**: P0.
 - **Suggested mechanism**: contract's "Auth + permissions" axis (already in spec) must enumerate every route's `@Permissions()` decorator on V1 vs V2; halt on mismatch unless ADR-cited.
 
@@ -221,7 +274,7 @@ The contract was written; the implementation matches the contract; but the contr
 - **What**: V1 shows a button to all users; V2 hides it behind a permission. Sub-roles regress; or V1 gated and V2 ungated → privilege escalation.
 - **Stack**: Frontend + Backend.
 - **Where it bit us**: F033 G2 (V2 added Track + Print gates), F030 G6 (assign-orders gated in V2 ungated in V1).
-- **Current coverage**: ⚠️ Spec-only — `frontend/rules/migration-frontend.md § Frontend audit axes` lists "Per-button permission gates"; auditor agent must enumerate. No mechanical check.
+- **Current coverage**: ✅ HALT (frontend table) — `check_permission_gate_divergence` fails a "match" verdict whose cells show V1 ungated and V2 gated, or the reverse. Server routes → SP §3, §4.
 - **Severity**: P0 (security regression in either direction).
 - **Suggested mechanism**: `check_audit` parses Frontend-axes table; if "Per-button permission gates" row says "match" but V1 cell = "none" and V2 cell ≠ "none" (or vice versa), log_fail "verdict contradicts cells".
 
@@ -251,7 +304,7 @@ The contract was written; the implementation matches the contract; but the contr
 - **What**: V1 uses a mount-only lifecycle hook on a non-cached page; V2 page is cached / kept-alive but uses only the mount-only hook — data goes stale on tab return / tenant switch. *(Concrete hook pair varies by stack — see the project's frontend pack rule § Lifecycle for the project's mount-only hook vs its mount-AND-reactivate hook pair.)*
 - **Stack**: Frontend.
 - **Where it bit us**: Documented in `<frontend-v2>/CLAUDE.md` (KeepAlive section); F032 audit verified V2 uses `onActivated` correctly. Risk recurs every port.
-- **Current coverage**: ⚠️ Spec-only — frontend axes list "Reactive lifecycle". No mechanical check.
+- **Current coverage**: ⚠️ Warn — `check_lifecycle_keepalive` (Vue KeepAlive; runs only with `keepalive_layout` anchored).
 - **Severity**: P0 (tenant-leak risk on tab return after account switch).
 - **Suggested mechanism**: `check_v2_structure` — for any `.vue` file under `src/modules/*/pages/` that's NOT in the `noCache` exclude list, grep for `onMounted\(` without a paired `onActivated\(` → log_fail.
 
@@ -294,7 +347,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 - **What**: 30 inputs all hit the success branch; no 4xx/5xx/empty/oversize/Unicode inputs.
 - **Stack**: Both.
 - **Where it bit us**: Projected. Phase-6 corpus = 38 inputs but distribution unknown; relook found gaps the corpus didn't cover.
-- **Current coverage**: ⚠️ Soft — `migration-discipline.md § halt #2` says "no entry exists per documented happy path / error path / business rule / edge case"; validator counts entries but doesn't classify them.
+- **Current coverage**: ⚠️ Warn (fail under `--strict`) — `check_corpus_distribution` classifies inputs into happy / error / edge / rule buckets. The 30-input floor still counts files, not V1 branches (→ PF §2, V387).
 - **Severity**: P0.
 - **Suggested mechanism**: corpus filenames follow convention (`001-happy-*.json`, `010-error-*.json`, `020-edge-*.json`, `030-rule-*.json`) — validator counts each prefix; halt if any prefix < 1.
 
@@ -302,7 +355,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 - **What**: Contract Outputs section lists 14 fields; tolerance.yaml lists 11. The 3 unspecified fields default to "exact" or, worse, are silently ignored.
 - **Stack**: Both.
 - **Where it bit us**: Projected.
-- **Current coverage**: ⚠️ Soft — `migration-discipline.md § halt #2` mentions; validator does NOT cross-parse contract Outputs against tolerance.yaml keys.
+- **Current coverage**: ⚠️ Warn — `check_tolerance_coverage` cross-parses the contract Outputs against tolerance.yaml keys.
 - **Severity**: P1.
 - **Suggested mechanism**: `check_tolerance_coverage` — parse contract `## 2. Outputs`, extract field names, intersect with tolerance.yaml keys; halt on missing.
 
@@ -313,7 +366,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 - **What**: Ledger says `v1_commit_pinned: abc`; CI ran tests against V1 HEAD = `def`. Oracle drifted; test passed on a different V1.
 - **Stack**: Both.
 - **Where it bit us**: Projected. `migration-discipline.md § halt #7` requires equality.
-- **Current coverage**: ⚠️ Soft — `check_ledger_row` requires `v1_commit_pinned` exists; doesn't compare to test-run metadata.
+- **Current coverage**: ✅ HALT — `check_parity_run_v1_commit` (heavy tier) and `check_parity_run_report` compare the recorded run's `v1_commit` with `v1_commit_pinned`.
 - **Severity**: P0.
 - **Suggested mechanism**: parity test runner emits `parity-runs/<feature>-<runid>.md` with the V1 commit it cloned; validator cross-checks against ledger.
 
@@ -335,7 +388,7 @@ The corpus exists but doesn't cover what V1 actually does in production.
 - **What**: Engineer "fixes CI" by updating golden snapshots; oracle is now wrong.
 - **Stack**: Both.
 - **Where it bit us**: Projected.
-- **Current coverage**: ❌ UNCOVERED.
+- **Current coverage**: ⚠️ Partial — when the repo-baseline gate scripts are installed, `test-integrity.py` fails an undeclared golden rewrite (`undeclared-baseline-rewrite`); nothing in this pack checks it (→ PF §1, V386).
 - **Severity**: P0.
 - **Suggested mechanism**: pre-commit hook / CI check — if `__golden__/` files change in a PR, require ADR cite or auditor signoff.
 
@@ -489,7 +542,7 @@ These are unique to multi-repo migrations where the V1 API + V1 frontends + V2 p
 
 ---
 
-## Recommended priority order for Steps 2-4
+## Recommended priority order for Steps 2-4 (2026-04 — items 1–4 have shipped; see § Coverage refresh)
 
 The five highest-leverage uncovered failure modes — measured by (incident frequency × silent-break severity × cheapness-to-fix):
 
@@ -501,7 +554,9 @@ The five highest-leverage uncovered failure modes — measured by (incident freq
 
 Honourable mentions: **A8 (citation spoofing)** + **A9 (intentional-break without ADR)** are both P0 + cheap; **C6 (lifecycle mismatch)** has a one-regex fix.
 
-## Top surprise
+## Top surprise (2026-04 — since fixed)
+
+> Fixed: `check_audit_body_consistency` (A10) now fails this shape. The 2026-10 equivalent is service-layer parity — see § Coverage refresh.
 
 **The validator's `check_audit` provenance + hand-wave checks are HALT-able, but `check_audit` does NOT cross-check the audit's CLASSIFICATION against its body content.** An audit can declare "Result: PASS / Classification: parity-clean" while the body lists a P1 missing affordance (F033's actual shape) — and the validator passes because:
 - frontmatter has provenance ✓

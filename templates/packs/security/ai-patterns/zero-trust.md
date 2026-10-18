@@ -24,7 +24,7 @@ pack: security
 - Cite the secrets-manager binding as `<path:line>` (Vault policy file, IAM role, K8s SA); env-var secrets committed to the repo are forbidden.
 - Cite the tenant-scoping enforcement point as `<path:line>` (repository base class, or the engine's row-policy DDL where the engine has one). **Engine-conditional:** where the engine ships no row-policy feature, the *absence* of a DB layer is graded as an accepted limit with compensating controls, never as an unfixable finding — see `tenant-isolation.md § The below-app layer`. What IS a halt: app-layer scoping applied per-query instead of by construction, so a single forgotten call leaks.
 - Cite the audit-log emitter for privileged actions as `<path:line>`; a privileged action with no audit row is a halt.
-- Hand-wave grep ban — never claim "no long-lived keys" without citing the rotation policy file or the secret-scan CI rule.
+- Hand-wave grep ban — never claim "no long-lived keys" without citing the rotation policy file or the secret-scan-method CI rule.
 
 ## The one claim
 

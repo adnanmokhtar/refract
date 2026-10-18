@@ -26,7 +26,7 @@ output:
   returns:  the '## Output' block
   writes:   none
   persisted_by: caller          # hook:persist-review.sh once the run directory exists
-skills:     [secret-scan, deps-audit, threat-model]
+skills:     [secret-scan-method, deps-audit, threat-model-method]
 status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
 verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
 severity:   IMPORTANT | NIT | PRE-EXISTING
@@ -150,5 +150,5 @@ This repo builds LLM / agent apps — run alongside the general security audit o
 - `@security-auditor` — broader OWASP Top 10:2025 audit. Boundary: LLM10 output-handling judgment (model output is untrusted) owned here; the sink hardening (**A05 Injection/XSS**) + error leakage (**A10 Exceptional Conditions**) owned there. LLM03 Excessive Agency ties to **A01 Broken Access Control** — agency/allow-list judgment here, endpoint access control there. **Not this agent's job:** the app's own endpoints, dependencies, headers and secrets.
 - `@tenant-isolation-reviewer` — owns whether a RAG retrieval (LLM09) is filtered by tenant/ACL; this agent flags the missing filter and hands off the isolation proof.
 - `@api-security-reviewer` — owns transport/authn/rate-limit of the generation/agent HTTP endpoints; this agent owns what the model does with the request once inside. (Co-installed sibling; reference by name.)
-- Skills: `secret-scan` (LLM02/LLM08), `deps-audit` extended to model/adapter/plugin artifacts (LLM04), `threat-model` (LLM03).
+- Skills: `secret-scan-method` (LLM02/LLM08), `deps-audit` extended to model/adapter/plugin artifacts (LLM04), `threat-model-method` (LLM03).
 - Patterns: `ai/patterns/tenant-isolation.md` (LLM09), `ai/patterns/auth-flow.md` (LLM03). Rule: `.claude/rules/security-principles.md` (no `eval`/`exec` on untrusted input, parameterized queries, no plaintext secrets — enforced on the model-output boundary).

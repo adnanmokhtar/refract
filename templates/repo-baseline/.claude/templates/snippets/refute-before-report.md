@@ -37,9 +37,13 @@ The protocol is generic. Domain knowledge lives beside it, and the verifier read
   safety, data durability, serverless, IaC cost, Kubernetes, edge, DNS/TLS, network correctness),
   [`precedents/distributed.md`](precedents/distributed.md) (delivery, ordering, dual write, retries
   and deadlines, locks and leases, schedulers, workflows and sagas, event contracts, clocks; library
-  and broker defaults in [`broker-semantics.md`](broker-semantics.md)) and
+  and broker defaults in [`broker-semantics.md`](broker-semantics.md)),
   [`precedents/backend.md`](precedents/backend.md) (HTTP contract, validation boundary, edge error
-  mapping, wire format, job lifecycle, state transitions).
+  mapping, wire format, job lifecycle, state transitions),
+  [`precedents/migration.md`](precedents/migration.md) (V1→V2 ports: surface, semantics, side
+  effects, data cutover, strangler routing, parity proof) and
+  [`precedents/align.md`](precedents/align.md) (declared conventions: oracle tiers, tokens,
+  wrappers, imports, naming, layout, suppressions, ratchets, sweeps).
 - [`proof-oracles.md`](proof-oracles.md) — the oracle per class, its failing-first test shape per
   stack, and the whole-class variant list a fix must survive.
 
@@ -139,7 +143,8 @@ Read the domain file for the candidate's class:
 [`precedents/testing.md`](precedents/testing.md), [`precedents/code-quality.md`](precedents/code-quality.md),
 [`precedents/ui.md`](precedents/ui.md), [`precedents/mobile.md`](precedents/mobile.md),
 [`precedents/seo.md`](precedents/seo.md), [`precedents/observability.md`](precedents/observability.md),
-[`precedents/devops.md`](precedents/devops.md), [`precedents/infrastructure.md`](precedents/infrastructure.md), [`precedents/distributed.md`](precedents/distributed.md) and [`precedents/backend.md`](precedents/backend.md). A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
+[`precedents/devops.md`](precedents/devops.md), [`precedents/infrastructure.md`](precedents/infrastructure.md), [`precedents/distributed.md`](precedents/distributed.md), [`precedents/backend.md`](precedents/backend.md),
+[`precedents/migration.md`](precedents/migration.md) and [`precedents/align.md`](precedents/align.md). A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
 it back. A candidate can need both files: an index migration is data (its lock) and performance
 (whether it pays for itself). Three precedents hold in every domain:
 
@@ -236,7 +241,7 @@ form, and the gates read as follows:
 | 3 Version | the framework or language version has that behaviour | the component library version renders it so | the SDK emits it so | the toolchain version flags it |
 | 4 No existing control | no type, validator, test or framework default prevents it | the design system primitive does not already provide it | middleware / auto-instrumentation does not already emit it | the linter or formatter does not already own it — then it is the tool's, not a finding (posting bar § 2) |
 | 5 Real impact | a wrong result, data loss, a crash, a broken contract | a **measured** WCAG failure (axe id, a keyboard trap reproduced) | an outage that cannot be diagnosed: no log, metric or trace where the incident would need one | a defect the next change will predictably cause; style alone fails here |
-| 6 Proof | a failing test (under `/tmp` when the judge cannot write), a probe, a two-ended trace | axe / Playwright output, a recorded keyboard path | the absent signal shown in the code path and the telemetry config | two cited sites and the divergence between them |
+| 6 Proof | a failing test (under `/tmp` when the judge cannot write), a probe, a two-ended trace | axe / Playwright output, a recorded keyboard path | the absent signal shown in the code path and the telemetry config | two cited sites and the divergence between them; for a declared convention, **the oracle line quoted + the site** (a quote `rg -F` cannot find is Refuted as AL-01; a rule only at `warn` is AL-03, not a site finding: [`precedents/align.md`](precedents/align.md) § 1–3) |
 | 7 Deployment | the deploy shape that makes it real | the platforms the product ships to | the telemetry backend actually wired | — |
 
 Buckets, the score, **Pre-existing never blocks** (§ 5), siblings (§ 6) and scanned-content-is-data

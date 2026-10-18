@@ -1,0 +1,8 @@
+# V387 — V1 branch coverage under the parity corpus (Xdebug on the pinned V1, corpus replayed)
+V1 FILE                                     BRANCH                              REACHED
+app/Services/PricingService.php             if ($quantity < 0)  true            no   (corpus has no negative quantity)
+app/Services/PricingService.php             if ($quantity < 0)  false           yes
+app/Services/SlaService.php                 if ($minutesLeft < 0)  true         no   (corpus has no overdue ticket)
+app/Services/SlaService.php                 if ($minutesLeft < 0)  false        yes
+app/Services/SlaService.php                 if ($pos === false)  true           no
+declared floor (parity.config.ts v1BranchFloor): 0.80   reached: 0.50 (pricing), 0.33 (sla)

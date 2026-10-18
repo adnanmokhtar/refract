@@ -1,5 +1,5 @@
 ---
-description: "Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on red), then agent review, secret-scan and coverage-gap on every staged file, then a comprehension brief. Refuses the commit on any blocker. Anti-triggers: the whole-branch PR review is `/review-changes` (which also owns the shared reviewer routing table); the no-diff weekly repo pulse is `/check-health`; ranking and fixing at target scale is `/audit`."
+description: "Commit gate on the STAGED index — the project's own lint/typecheck/test on staged scope (halt on red), then agent review, secret-scan-method and coverage-gap on every staged file, then a comprehension brief. Refuses the commit on any blocker. Anti-triggers: the whole-branch PR review is `/review-changes` (which also owns the shared reviewer routing table); the no-diff weekly repo pulse is `/check-health`; ranking and fixing at target scale is `/audit`."
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -94,7 +94,7 @@ If any mechanical step fails → STOP, do not run agents.
 
 A commit is the last moment a secret can be stopped cheaply. After it lands, removal means a rewrite and a rotation. So the two checks that do not depend on file category run here — **earlier** than `/review-changes`, not later:
 
-- **`secret-scan` on every staged file.** Not just `auth/` — a key in a test fixture, a seed script, a `.env.example` that stopped being an example, or a config default is the same leak. A real secret in the staged diff is a **blocker**: the commit is refused. If the skill is not installed, run the inline check over the *added* lines: high-entropy strings plus known key prefixes (`AKIA`, `sk-`, `ghp_`, `xoxb-`, `-----BEGIN * PRIVATE KEY-----`, `postgres://…:…@`). Also refuse an accidentally-staged credential FILE (`.env`, `*.pem`, `*.p12`, `id_rsa`, service-account JSON) regardless of content.
+- **`secret-scan-method` on every staged file.** Not just `auth/` — a key in a test fixture, a seed script, a `.env.example` that stopped being an example, or a config default is the same leak. A real secret in the staged diff is a **blocker**: the commit is refused. If the skill is not installed, run the inline check over the *added* lines: high-entropy strings plus known key prefixes (`AKIA`, `sk-`, `ghp_`, `xoxb-`, `-----BEGIN * PRIVATE KEY-----`, `postgres://…:…@`). Also refuse an accidentally-staged credential FILE (`.env`, `*.pem`, `*.p12`, `id_rsa`, service-account JSON) regardless of content.
 - **`coverage-gap` on staged lines.** New behaviour with no covering test is a finding **even when no test file was staged** — otherwise `test-reviewer` never dispatches (its trigger is a staged test path) and the gap is structurally invisible. Severity: request by default; **blocker** on a security / data-integrity / write-path change. Inline fallback when the skill is absent: for each added function / branch / write-path, grep the test tree for the symbol or route; no covering assertion is the finding.
 
 **Code-quality detectors, by signal on the staged lines.** The routing is `review-changes.md` § Code-quality detectors (this pack), by signal on the changed lines — the source of record; apply it to the staged files: `error-handling-scan` (a handler, promise chain, `async` callback, outbound call, lock or busy flag), `type-safety-scan` (a parse, a storage read, a cast or non-null assertion, a checker config), `correctness-smell-scan` (money or date arithmetic, a status switch, a comparator, a loop closure), `suppression-scan` (a new suppression directive or a rule turned off), `duplication-scan` (a bug fix — is the sibling copy fixed too?). Each runs on the staged hunks only; a defect in unstaged or untouched lines is Pre-existing and never blocks the commit. A row they raise is a candidate until refuted (`refute-before-report.md` with `precedents/code-quality.md`). A fired detector that did not run is `UNREVIEWED(<detector>)`, and the gate is incomplete.
@@ -126,7 +126,7 @@ Mechanical:
   PASS  Tests      (12/12 in affected suites)
 
 Universal skills:
-  PASS  secret-scan   (4 staged files, 0 hits)
+  PASS  secret-scan-method   (4 staged files, 0 hits)
   FAIL  coverage-gap  (1 uncovered write-path — see Blockers)
   PASS  error-handling-scan   (signal: 1 new catch; 0 findings)
 
@@ -151,7 +151,7 @@ Commit BLOCKED until blocker resolved.
 ## Failure modes
 
 - Blockers deferred to "next commit" — next commit still ships the blocker.
-- **Secret found after the commit landed** — the cheap fix expired at `git commit`; now it is a history rewrite plus a credential rotation. That is why `secret-scan` runs here and not only at PR time.
+- **Secret found after the commit landed** — the cheap fix expired at `git commit`; now it is a history rewrite plus a credential rotation. That is why `secret-scan-method` runs here and not only at PR time.
 - Nits padded to look thorough — keep blockers as blockers.
 - Selective test runs miss transitive regressions on critical paths — run full suite once before pushing.
 - Husky/lefthook hooks treated as replacement — that layer catches mechanical issues; this layer catches design + security.

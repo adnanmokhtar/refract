@@ -228,9 +228,9 @@ Patterns consulted: auth-flow, zero-trust
 - `@llm-security-reviewer` — a tool acting beyond the principal's authority is its call; the principal's identity is this agent's.
 
 ### Skills
-- `secret-scan` — confirm no signing keys / OAuth client secrets / API keys are committed.
+- `secret-scan-method` — confirm no signing keys / OAuth client secrets / API keys are committed.
 - `deps-audit` — catch CVEs in the auth libraries (JWT, OAuth client, password-hash, WebAuthn).
-- `threat-model` — STRIDE the auth surface before the review when the flow is new.
+- `threat-model-method` — STRIDE the auth surface before the review when the flow is new.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

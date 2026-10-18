@@ -305,7 +305,7 @@ Shapes this skill must not report: amounts already in integer minor units; a `nu
 ## Related
 
 - `/backend-audit` dispatches this skill and folds its coverage block into its wire ledger rows; `/backend-fix` closes findings failing-first through the real bootstrap and re-runs this detector.
-- `http-contract-scan`, `validation-boundary-scan`, `job-lifecycle-scan` (this pack) are the neighbours named in § Boundaries; `endpoint-test` (this pack) drives the V339 and V347 requests against a running app; `@api-reviewer` judges these rows.
+- `http-contract-scan`, `validation-boundary-scan`, `job-lifecycle-scan` (this pack) are the neighbours named in § Boundaries; `endpoint-test-method` (this pack) drives the V339 and V347 requests against a running app; `@api-reviewer` judges these rows.
 - code-quality `correctness-smell-scan` §4/§6, database `schema-integrity-scan` §4/§5/§7, security `data-exposure-scan` §4 and distributed-systems `event-contract-scan` / `messaging-scan`, when those packs are installed.
 
 ## Sources

@@ -264,7 +264,7 @@ Patterns consulted: tenant-isolation, zero-trust
 - `@security-auditor` — runs the broad OWASP pass and dispatches here on multi-tenant signals. Its tenant rows are a surface check; this agent is the depth. **Not this agent's job:** endpoint auth gates, injection, secrets, dependency CVEs, headers — do not re-own them, cite the sibling.
 
 ### Skills
-- `secret-scan` — confirm no per-tenant credentials / connection strings are committed or shared across tenants.
+- `secret-scan-method` — confirm no per-tenant credentials / connection strings are committed or shared across tenants.
 
 ### Patterns
 - `ai/patterns/tenant-isolation.md`

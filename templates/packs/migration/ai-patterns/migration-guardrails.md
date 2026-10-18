@@ -80,6 +80,8 @@ A V1 feature is "dead" — and therefore must NOT be ported — if **all six** o
 5. **Infra / deploy config** — grep across V1's Dockerfile, k8s manifests, terraform, CI workflows, deploy scripts for the feature's binary names / endpoint URLs / cron commands. Zero matches → axis 5 dead.
 6. **Production telemetry** — if observability is wired (APM dashboard, log volume, request count): zero invocations / zero log lines for ≥ 90 days → axis 6 dead. If observability is NOT wired, this axis is **N/A** (skip — but axes 1–5 must all show dead).
 
+Compute the five greppable axes with `scripts/migration-reachability.sh --compute <feature> --symbol=<name>… --v1-root=<dir>` (rg, word-bounded fixed strings, tests and docs excluded per axis; rg exit 2 prints BLOCKED, never "0 callers"; telemetry is N/A unless `--telemetry=<export>` is given), and paste its table into `ai/migration/reachability/<feature>.md`; `--lint` re-runs the count for every `no` when the doc names its `symbols:`.
+
 **All 6 axes dead** → feature is dead → halt #11 fires. Mark `status: deprecated` with `deprecation_reason: dead-v1-no-callers` and `dead_evidence: 6-axis check passed at v1_commit_pinned: <sha>`.
 
 **At least one axis alive** → feature is not dead → port it normally.
@@ -185,7 +187,7 @@ When `_extracted-idioms.md` / `ai/architecture.md` / `ai/conventions.md` is modi
 
 **`/migration-replan --include-drifted`**: re-phases rows whose plan references changed conventions. `done` rows flip to `unverified` ONLY if the change materially affects their port (architectural rename, primitive replaced); cosmetic changes leave `done` rows alone.
 
-**Validator**: `check_oracle_drift` (planned) compares oracle hashes pre- and post-port; halts the gate if any row's audit cites a now-stale oracle reference.
+**Validator**: no check compares oracle hashes yet (a `check_oracle_drift` was planned and never written). The nearest gate is `check_v1_path_drift_acknowledged`, which fails a row whose own audit says it compared the wrong V1 source; a stale convention reference is caught only by the re-scan above.
 
 
 
@@ -250,12 +252,12 @@ When `_extracted-idioms.md` / `ai/architecture.md` / `ai/conventions.md` is modi
 - **`parity-auditor` agent** is invoked in PR review; its checklist hard-fails on missing parity tests, missing contract, scope-creep evidence (V1 modifications in a port PR).
 - **Phase 4.6 STUDY-DECIDE-ACT** anchors the rule and this file to the project's actual V1/V2 paths, ledger location, and cutover mechanism. A rule that talks about generic feature flags while the project uses its own framework-native settings + routing primitive is a leak — the project-specific block is mandatory.
 - **Validator script** `scripts/validate-migration-artifacts.sh` operationalizes the enforcement of the anti-patterns in § Named anti-patterns above — each anti-pattern maps to a specific check function that halts the gate when its fingerprint matches:
-    - "The Zombie Port" → `check_no_dead_v1_ported` (planned). Re-runs the 6-axis reachability check against the port PR's V1 entry point at the pinned commit; if all 6 axes return zero callers, the gate REFUSES the port. Override allowed via `--include-dead` flag on the originating scan + `caller_evidence: <path:line>` field in the ledger row.
+    - "The Zombie Port" → `check_migration_reachability_axes` reads `ai/migration/reachability/<feature>.md` and warns (fails under `--strict`) when a row is undecided; `scripts/migration-reachability.sh --lint` fails a doc that lacks one of halt 11's six axes or says `no` where its re-count finds callers, and `--compute` produces the counts. Nothing yet refuses the port on its own when all six are dead — the audit's halt 11 does. Override allowed via `--include-dead` flag on the originating scan + `caller_evidence: <path:line>` field in the ledger row.
     - "The Hand-waved Query Param" → `check_audit` hand-wave grep (rejects `etc.`, `...`, `&...`, `N+ items`, `and so on`, `deferred to port-phase`).
-    - "The Permission-gate Drop" → `check_v2_structure § per-button-permission-gate` (per-stack fingerprint set).
+    - "The Permission-gate Drop" → `check_permission_gate_divergence` (fails a "match" verdict over a frontend per-button gate table whose cells differ) and `check_inventory_primitives_match` — the keyed I-AUTHZ lane when `pair-inventory.py` extracted both sides, else the `auth_guard` / `permission_gate` counts, which never soften on a trivial row.
     - "The Reinvented Wrapper" → `check_v2_mapping_doc` halts on missing/empty `ai/migration/mapping/<feature>.md` + `check_v2_structure` flags the most common reinvention fingerprints.
-    - "The Wrong Lifecycle Hook on Nested Child" → `check_v2_structure § lifecycle-hooks` (stack-conditional via `PROJECT_KIND`; per-stack pack rules name the concrete hook pairs).
-    - "The Misplaced i18n / Locale Key" → planned-validator `check_i18n_locale_parity` in the same script (catches keys that don't resolve in the project's locale tree).
+    - "The Wrong Lifecycle Hook on Nested Child" → `check_v2_structure`'s nested-child pass (Vue: `onActivated` without `onMounted` outside `pages/`) and `check_lifecycle_keepalive` (cached pages, when `keepalive_layout` is anchored); per-stack pack rules name the concrete hook pairs.
+    - "The Misplaced i18n / Locale Key" → `check_i18n_locale_parity` (warns when a key in the module's `en` locale file is missing from another declared locale; V2-side only — V1 catalog keys are not read).
     - "The Consumer Compensation" → audit-time review-checklist row "No frontend/consumer workaround for backend/provider gaps"; `parity-auditor` flags it during PR review.
 
 

@@ -46,7 +46,7 @@ The broad `security-auditor` pass is the OWASP-Top-10 net; the specialist review
   - If diff touches infra (container build files, K8s manifests, IaC modules) → container/runtime hardening cross-check.
 
 - **Skills — run these in the same pass. They are detectors, not reviewers: no persona, no verdict, just a cited finding set that feeds Phase 4.** Phase 4's buckets promise secret, dependency and SSRF coverage; without these three nothing in this run executes that promise, and the promise itself becomes a `COVERAGE:` gap.
-  - **`secret-scan`** — on any diff touching config, env files, IaC, CI definitions, or client bundles; and always on a whole-repo run. Its findings are BLOCKERS by default (a committed credential is not a "request").
+  - **`secret-scan-method`** — on any diff touching config, env files, IaC, CI definitions, or client bundles; and always on a whole-repo run. Its findings are BLOCKERS by default (a committed credential is not a "request").
   - **`deps-audit`** — on any diff touching a dependency manifest or lockfile. Feeds the vulnerable-components dimension with advisory ids and reachability, which no reviewer above derives.
   - **`ssrf-scan`** — on any diff adding an outbound fetch/webhook/URL-import sink, or a redirect target read from input (signal: the skill's pre-flight greps 1, 2 and 5). This is the depth behind `security-auditor`'s single A01 bullet.
   - **`injection-scan`** — on any diff touching a query, a raw-SQL / ORM escape hatch, a shell or process spawn, `eval`-family code, a template render, an XML / YAML / serialized-object parse, a deep merge of request JSON, or a regex built from input. The depth behind A05 (minus XSS) and A08 deserialization.
@@ -61,7 +61,7 @@ The broad `security-auditor` pass is the OWASP-Top-10 net; the specialist review
   - A skill that was triggered and not run is the same defect as a reviewer that was dispatched and not run: it forces at least `GO-UNVERIFIED`.
   - **Dedupe by `<file:line>`.** Several skills can reach the same sink (a `sast-scan` hit on an `exec` that `injection-scan` also traced). One finding per sink, credited to the skill that traced the taint path; the other is listed under it as corroboration.
   - **Detector sub-agents write plain text.** When a skill or a verifier runs as a sub-agent (`Task`), it writes its raw grep output (`grep-<id>.txt`) and its report as `report.txt` to a scratch directory outside the repo, and hands back a short summary; the lead reads the file. Some harnesses refuse a sub-agent's `.md` write, and a report that never landed reads like a clean detector.
-  - **No-network and read-only runs** use each skill's own branch and print what it could not run: `deps-audit` § Offline mode (advisories NOT-RUN without a local DB), `ci-security-scan`'s no-network mode (settings `blocked`), `secret-scan`'s no-write history variant (`gitleaks stdin` plus the line mapper, unreachable lineages included), `injection-scan` 13c's heuristic when recheck cannot install, and `iac-scan` 1f's `NOT-RENDERED` rows. Each lane named there is a `COVERAGE:` gap, never a pass.
+  - **No-network and read-only runs** use each skill's own branch and print what it could not run: `deps-audit` § Offline mode (advisories NOT-RUN without a local DB), `ci-security-scan`'s no-network mode (settings `blocked`), `secret-scan-method`'s no-write history variant (`gitleaks stdin` plus the line mapper, unreachable lineages included), `injection-scan` 13c's heuristic when recheck cannot install, and `iac-scan` 1f's `NOT-RENDERED` rows. Each lane named there is a `COVERAGE:` gap, never a pass.
   - **Run each skill once.** `security-auditor` also names these three as the executors behind its own A0x rows; this Phase-2 dispatch is what guarantees they run on the diff's signal even when no auditor row fires. If the auditor already ran one, consume that result — do not re-scan.
 
 ## Phase 3 — Retrieve
@@ -143,7 +143,7 @@ Alongside the unit-level coverage ledger, print one row per **vulnerability clas
 | Error / stack leakage, debug + docs endpoints, over-returning responses, enumeration, secrets/PII in logs, timing compares, exposed files | `data-exposure-scan` |
 | Client-trusted values, workflow skipping, idempotency, races, per-role authorization matrix | `logic-race-scan` |
 | SSRF, open redirect | `ssrf-scan` |
-| Committed secrets | `secret-scan` |
+| Committed secrets | `secret-scan-method` |
 | Mobile client: device storage, cleartext / trust, exported components, deep links, WebView bridges, release flags + device logs, secrets and crypto shipped in the app, pinning posture | `mobile-security-scan` |
 | Vulnerable dependencies | `deps-audit` |
 | Container, orchestration, cloud IAM, reverse-proxy config | `iac-scan` |
@@ -227,7 +227,7 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `@llm-security-reviewer` — prompt / tool-call / RAG / model-output-sink surface (prompt injection, output handling, excessive agency).
 
 ### Skills (run by signal in Phase 2 — the executors behind Phase 4's buckets)
-- `secret-scan` — committed credentials in tree + history; findings are BLOCKERS.
+- `secret-scan-method` — committed credentials in tree + history; findings are BLOCKERS.
 - `deps-audit` — advisory ids, fixed versions, reachability for the vulnerable-components dimension.
 - `ssrf-scan` — outbound-fetch and redirect sinks fed from user input; the depth behind the A01 bullet.
 - `injection-scan` — every interpreter sink: SQL/NoSQL, shell, eval, templates, XML, deserialization, prototype pollution, ReDoS, CSV formula injection.

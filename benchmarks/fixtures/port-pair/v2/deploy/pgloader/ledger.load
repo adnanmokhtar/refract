@@ -1,0 +1,14 @@
+-- Bulk load of the append-only ledger table up to the cutover high-water mark.
+LOAD DATABASE
+     FROM mysql://loader@v1-replica.norrow.internal/norrow
+     INTO postgresql://loader@v2-db.norrow.internal/norrow
+
+ WITH include no drop, create no tables, data only, reset no sequences,
+      workers = 4, concurrency = 1, batch rows = 5000
+
+  SET PostgreSQL PARAMETERS timezone to 'UTC'
+
+ CAST type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+      type bigint to bigint drop typemod
+
+ INCLUDING ONLY TABLE NAMES MATCHING 'wallet_transactions';

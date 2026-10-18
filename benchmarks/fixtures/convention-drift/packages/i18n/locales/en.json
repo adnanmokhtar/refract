@@ -1,0 +1,93 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "loading": "Loading"
+  },
+  "orders": {
+    "title": "Orders",
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "failed": "Failed",
+      "refunded": "Refunded"
+    },
+    "actions": {
+      "cancel": "Cancel order",
+      "delete": "Delete order",
+      "refund": "Refund",
+      "open": "Open"
+    },
+    "notes": {
+      "label": "Internal note"
+    },
+    "filters": {
+      "all": "All orders",
+      "apply": "Apply filters"
+    },
+    "errors": {
+      "cancelFailed": "Could not cancel the order",
+      "deleteFailed": "Could not delete the order",
+      "loadFailed": "Could not load orders",
+      "noteFailed": "Could not save the note"
+    }
+  },
+  "customers": {
+    "title": "Customers"
+  },
+  "clients": {
+    "title": "Clients"
+  },
+  "refunds": {
+    "submit": "Request refund",
+    "failed": "Refund request failed",
+    "amount": "Amount"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "saveFailed": "Could not save settings",
+    "languages": {
+      "en": "English",
+      "ar": "العربية"
+    }
+  },
+  "cart": {
+    "deleteItem": "Remove item",
+    "checkoutFailed": "Checkout failed",
+    "updateFailed": "Could not update the cart",
+    "total": "Total"
+  },
+  "audit": {
+    "title": "Audit log",
+    "loadFailed": "Could not load the audit log",
+    "columns": {
+      "at": "When",
+      "actor": "Who",
+      "action": "What"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "loadFailed": "Could not load reports"
+  },
+  "history": {
+    "title": "Order history",
+    "loadFailed": "Could not load your orders"
+  },
+  "checkout": {
+    "apply": "Apply coupon",
+    "coupon": "Coupon code",
+    "pay": "Pay now",
+    "failed": "Payment failed"
+  },
+  "search": {
+    "label": "Search"
+  },
+  "catalog": {
+    "categories": "Categories",
+    "more": "More filters"
+  }
+}

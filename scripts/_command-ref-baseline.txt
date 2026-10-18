@@ -62,7 +62,6 @@ templates/packs/infrastructure/skills/network-exposure-audit/SKILL.md|metrics   
 templates/packs/learning/skills/compute-anchor-density/SKILL.md|health   # a URL route / HTTP path in an example, not a command
 templates/packs/migration/agents/migration-architect.md|orders   # a URL route / HTTP path in an example, not a command
 templates/packs/migration/commands/migration-deprecate.md|migration-undeprecate   # deliberate "there is no /migration-undeprecate" — deprecation is permanent
-templates/packs/migration/skills/data-cutover-orchestrate/SKILL.md|cursor   # a URL route / HTTP path in an example, not a command
 templates/packs/observability/agents/telemetry-architect.md|dup   # a URL route / HTTP path in an example, not a command
 templates/packs/observability/commands/add-metrics.md|metrics   # a URL route / HTTP path in an example, not a command
 templates/packs/observability/commands/add-telemetry.md|metrics   # a URL route / HTTP path in an example, not a command
@@ -98,7 +97,7 @@ templates/packs/security/skills/data-exposure-scan/SKILL.md|health   # a URL rou
 templates/packs/security/skills/data-exposure-scan/SKILL.md|metrics   # a URL route / HTTP path in an example, not a command
 templates/packs/security/skills/iac-scan/SKILL.md|account   # a URL route / HTTP path in an example, not a command
 templates/packs/security/skills/sast-scan/SKILL.md|code   # a URL route / HTTP path in an example, not a command
-templates/packs/security/skills/threat-model/SKILL.md|orders   # a URL route / HTTP path in an example, not a command
+templates/packs/security/skills/threat-model-method/SKILL.md|orders   # a URL route / HTTP path in an example, not a command
 templates/packs/ui-ux/commands/add-theme-variant.md|perf-check   # deliberate "there is no /perf-check command in this repo" — the history of a removed name
 templates/packs/ui-ux/commands/art-direct.md|login   # a URL route / HTTP path in an example, not a command
 templates/packs/ui-ux/commands/design-first.md|design   # deliberate: names Claude Code's bundled `design` skill this command is NOT called

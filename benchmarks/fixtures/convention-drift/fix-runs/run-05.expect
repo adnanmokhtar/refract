@@ -1,0 +1,14 @@
+# control PASS: EQ swap on the hit line; deep import re-routed through the package entry
+oracle PASS
+approval PASS
+diffkind PASS
+lock-paths PASS
+scope PASS
+redetect PASS
+consistency PASS
+names PASS
+roundtrip PASS
+ratchet PASS
+lock-count PASS
+vacuous PASS
+verdict PASS

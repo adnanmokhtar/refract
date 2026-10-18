@@ -145,7 +145,7 @@ Silent risk: 2 keys degrade a feature without failing the health check.
 ## Related
 
 - `.claude/skills/module-scaffold/SKILL.md` — a scaffolded module that adds config keys is a common source of the drift env-diff catches; run env-diff after scaffolding.
-- `.claude/skills/endpoint-test/SKILL.md` — a route that 500s on boot is often a MISSING required key; env-diff isolates config drift before blaming the handler.
+- `.claude/skills/endpoint-test-method/SKILL.md` — a route that 500s on boot is often a MISSING required key; env-diff isolates config drift before blaming the handler.
 - **Dispatched by `/fix-bug` and `@bug-investigator`** — both route the "works on my machine / works in one
   environment but not another" signal here *before* the handler is read, because config drift presents as a code
   bug and is not one (`/fix-bug` Phase 3; the agent's Evidence gathering § Config drift). Those two are the only

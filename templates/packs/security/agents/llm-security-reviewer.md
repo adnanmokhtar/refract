@@ -33,7 +33,7 @@ output:
   returns:  the '## Output' block
   writes:   none
   persisted_by: caller          # hook:persist-review.sh once the run directory exists
-skills:     [secret-scan, deps-audit, threat-model]
+skills:     [secret-scan-method, deps-audit, threat-model-method]
 status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
 verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
 severity:   IMPORTANT | NIT | PRE-EXISTING
@@ -342,9 +342,9 @@ This repo builds LLM / agent applications, so this reviewer is frequently applic
 - `@api-security-reviewer` — when the LLM app exposes generation/agent HTTP endpoints, that agent owns the transport/authn/rate-limit review of those endpoints; this agent owns what the model does with the request once inside. (Co-installed sibling; reference by name — don't duplicate its checks.)
 
 ### Skills
-- `secret-scan` — confirm no keys / secrets are committed or embedded in prompts / system prompts (LLM02, LLM08).
+- `secret-scan-method` — confirm no keys / secrets are committed or embedded in prompts / system prompts (LLM02, LLM08).
 - `deps-audit` — extend its scope to model / adapter / plugin artifacts (LLM04 Supply Chain).
-- `threat-model` — STRIDE the agent + tool surface before the review when the flow is new (LLM03).
+- `threat-model-method` — STRIDE the agent + tool surface before the review when the flow is new (LLM03).
 
 ### Patterns
 - `ai/patterns/tenant-isolation.md` — the retrieval-isolation proof for LLM09.

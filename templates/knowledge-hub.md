@@ -53,10 +53,10 @@ Docs + process: `doc-writer`, `api-documenter`, `business-analyst`, `business-au
 ### Skills (26+ materialized)
 
 Universal: `dead-code-scan`, `doc-drift-scan`, `adr`, `onboard`.
-Backend: `endpoint-test`, `log-tail`, `env-diff`, `debug-tenant`, `module-scaffold`, `api-snapshot`.
+Backend: `endpoint-test-method`, `log-tail-method`, `env-diff`, `debug-tenant`, `module-scaffold`, `api-snapshot`.
 Database: `schema-diff`, `migration-rehearsal`, `migration-safety`, `n-plus-one-scan`, `query-shape-scan`, `index-coverage-scan`, `schema-integrity-scan`, `transaction-scan`, `connection-config-scan`.
 Testing: `coverage-gap`, `contract-test`.
-Security: `secret-scan`, `deps-audit`, `threat-model`.
+Security: `secret-scan-method`, `deps-audit`, `threat-model-method`.
 Performance: `profile-endpoint`.
 Observability: `alert-audit`.
 Frontend: `visual-check`, `ssr-audit`, `lighthouse-ci`, `bundle-analyze`, `a11y-audit`, `i18n-audit`.

@@ -939,9 +939,10 @@ fi
 #     on what abridgement means; this gate enforces that vote instead of overruling it.
 #
 #     SOURCE RESOLUTION IS NOT check 8a's. 8a walks `commands agents skills rules ai-patterns
-#     references` and takes the first basename hit, which mis-pairs 3 examples: frontend/i18n
-#     (kind: pattern -> ai-patterns/i18n.md, not rules/i18n.md), security/secret-scan and
-#     security/threat-model (kind: skill -> skills/<n>/SKILL.md, not commands/<n>.md). Diffing
+#     references` and takes the first basename hit, which mis-pairs frontend/i18n (kind: pattern
+#     -> ai-patterns/i18n.md, not rules/i18n.md). It also mis-paired two skill examples whose skill
+#     shared its name with a command (kind: skill -> skills/<n>/SKILL.md, not commands/<n>.md) until
+#     those skills were renamed `<n>-method` on 2026-10-18; check 9 now refuses such a pair. Diffing
 #     against the wrong artifact is how a content gate manufactures false positives, so 8b
 #     resolves through the `_topics.md` entry whose `fallback:` names the example, and falls back
 #     to the 8a walk only for the 8 examples no topic declares.
@@ -1725,6 +1726,35 @@ PYFI
   rm -f "$fb_out" "$fb_err"
 else
   warn_msg "fallback integrity (check 8b) skipped — python3 not found"
+fi
+
+# 9. COMMAND / SKILL NAME COLLISION (FAIL) — repo-wide. A command and a skill that share a name both
+#    install as `/<name>`, and Claude Code resolves the pair to the skill: its skills page's precedence
+#    table (fetched 2026-10-18) reads "A skill and a file in `.claude/commands/` | The skill", so the
+#    command file never runs. threat-model, secret-scan, log-tail and endpoint-test each shipped that
+#    way, hiding the session command behind its primitive; each skill was renamed `<name>-method`.
+#    Scope: every command (templates/packs/*/commands, templates/domains/*/commands, the repo-baseline's
+#    .claude/commands, commands/) against every skill (templates/packs/*/skills/<n>/SKILL.md or <n>.md, the
+#    repo-baseline's .claude/skills, skills/), across packs: an install merges them into one .claude/.
+#    Fix: rename the SKILL (users type the command name) and sweep its references.
+collide_out="$(python3 - <<'PYCOLL' 2>&1
+import glob, os
+cmds, skills = {}, {}
+for p in glob.glob('templates/packs/*/commands/*.md') + glob.glob('templates/domains/*/commands/*.md') + glob.glob('templates/repo-baseline/.claude/commands/*.md') + glob.glob('commands/*.md'):
+    cmds.setdefault(os.path.basename(p)[:-3], []).append(p)
+for p in glob.glob('templates/packs/*/skills/*/SKILL.md') + glob.glob('templates/repo-baseline/.claude/skills/*/SKILL.md') + glob.glob('skills/*/SKILL.md'):
+    skills.setdefault(os.path.basename(os.path.dirname(p)), []).append(p)
+for p in glob.glob('templates/packs/*/skills/*.md'):
+    skills.setdefault(os.path.basename(p)[:-3], []).append(p)
+for n in sorted(set(cmds) & set(skills)):
+    print('%s: command %s and skill %s share the name, so the skill shadows /%s - rename the skill (e.g. %s-method)'
+          % (n, ', '.join(sorted(cmds[n])), ', '.join(sorted(skills[n])), n, n))
+PYCOLL
+)" || collide_out="python3 failed: $collide_out"
+if [[ -n "$collide_out" ]]; then
+  while IFS= read -r l; do err "name collision (check 9) — $l"; done <<< "$collide_out"
+else
+  ok "command / skill names: no command shares its name with a skill"
 fi
 
 echo ""

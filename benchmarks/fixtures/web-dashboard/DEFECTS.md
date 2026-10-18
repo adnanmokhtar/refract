@@ -5,8 +5,8 @@ agent scans. If you stage the fixture by hand, delete this file from the copy fi
 
 Fixture shape: a React + TypeScript operations dashboard whose conventions are written
 down in `ai/conventions.md` and followed by most of the tree. 14 drift items seeded across
-layering, design tokens, i18n, a11y, error handling, permissions, and naming. Primary
-target command: **`/align`**.
+layering, design tokens, i18n, a11y, error handling, permissions, and naming, with 7 decoys.
+Primary target command: **`/align`**.
 
 What makes this fixture fair rather than arbitrary: **every seeded item has a
 gold-standard sibling in the same repo.** `useCustomers.ts` is the correct data hook next
@@ -15,26 +15,32 @@ next to `orderstable.tsx`; `ui/Modal.tsx` is the shared dialog next to the hand-
 in `OrderDetailPanel.tsx`. `/align` enforces *existing* conventions, so a fixture with no
 established convention would be measuring the wrong thing.
 
+`bucket:` is each row's disposition under the batch-6 align class map (`eval-batch6-align.md` § 2): `report-with-fix`
+(align closes it with the named proof), `report-flagged` (a human, a visible change or a missing hook decides; never
+auto-fixed), or `routed` (the owning pack's audit grades it, and align prints the owner line). The rows keep `command: /align`
+so earlier results stay comparable; the routed ones score under their owner in the align-owned successor fixture,
+`convention-drift`. The seven decoys at the end are known-correct siblings: reporting one is a false positive.
+
 Line numbers are exact and re-checked by `benchmarks/run.sh --verify`.
 
 ## Summary
 
-| id | file:line | severity | command | class |
-|----|-----------|----------|---------|-------|
-| WEB-LAYER-01 | `src/components/orders/orderstable.tsx:2` | high | `/align` | layer-violation |
-| WEB-IO-02 | `src/components/orders/orderstable.tsx:16` | high | `/align` | unhandled-io |
-| WEB-I18N-01 | `src/components/orders/orderstable.tsx:22` | medium | `/align` | i18n-drift |
-| WEB-I18N-02 | `src/components/orders/orderstable.tsx:8` | low | `/align` | i18n-drift |
-| WEB-TOKEN-02 | `src/components/orders/orderstable.tsx:39` | low | `/align` | design-token-drift |
-| WEB-TOKEN-01 | `src/components/orders/orderstable.tsx:42` | medium | `/align` | design-token-drift |
-| WEB-A11Y-01 | `src/components/orders/orderstable.tsx:50` | medium | `/align` | a11y |
-| WEB-PERM-01 | `src/components/orders/orderstable.tsx:53` | high | `/align` | permission-gate-drop |
-| WEB-NAME-01 | `src/components/orders/orderstable.tsx:11` | low | `/align` | naming-convention |
-| WEB-IMPORT-01 | `src/components/orders/OrderDetailPanel.tsx:16` | high | `/align` | forbidden-import |
-| WEB-IO-01 | `src/components/orders/OrderDetailPanel.tsx:18` | high | `/align` | unhandled-io |
-| WEB-WRAP-01 | `src/components/orders/OrderDetailPanel.tsx:30` | medium | `/align` | reinvented-wrapper |
-| WEB-CATCH-01 | `src/hooks/useOrders.ts:24` | high | `/align` | silent-catch |
-| WEB-A11Y-02 | `src/components/customers/CustomerCard.tsx:18` | medium | `/align` | a11y |
+| id | file:line | severity | command | class | bucket |
+|----|-----------|----------|---------|-------|--------|
+| WEB-LAYER-01 | `src/components/orders/orderstable.tsx:2` | high | `/align` | layer-violation | routed |
+| WEB-IO-02 | `src/components/orders/orderstable.tsx:16` | high | `/align` | unhandled-io | routed |
+| WEB-I18N-01 | `src/components/orders/orderstable.tsx:22` | medium | `/align` | i18n-drift | report-with-fix |
+| WEB-I18N-02 | `src/components/orders/orderstable.tsx:8` | low | `/align` | i18n-drift | routed |
+| WEB-TOKEN-02 | `src/components/orders/orderstable.tsx:39` | low | `/align` | design-token-drift | report-flagged |
+| WEB-TOKEN-01 | `src/components/orders/orderstable.tsx:42` | medium | `/align` | design-token-drift | report-with-fix |
+| WEB-A11Y-01 | `src/components/orders/orderstable.tsx:50` | medium | `/align` | a11y | routed |
+| WEB-PERM-01 | `src/components/orders/orderstable.tsx:53` | high | `/align` | permission-gate-drop | report-with-fix |
+| WEB-NAME-01 | `src/components/orders/orderstable.tsx:11` | low | `/align` | naming-convention | report-with-fix |
+| WEB-IMPORT-01 | `src/components/orders/OrderDetailPanel.tsx:16` | high | `/align` | forbidden-import | report-flagged |
+| WEB-IO-01 | `src/components/orders/OrderDetailPanel.tsx:18` | high | `/align` | unhandled-io | routed |
+| WEB-WRAP-01 | `src/components/orders/OrderDetailPanel.tsx:30` | medium | `/align` | reinvented-wrapper | report-flagged |
+| WEB-CATCH-01 | `src/hooks/useOrders.ts:24` | high | `/align` | silent-catch | routed |
+| WEB-A11Y-02 | `src/components/customers/CustomerCard.tsx:18` | medium | `/align` | a11y | routed |
 
 Severity split: 0 critical · 6 high · 5 medium · 3 low.
 
@@ -49,6 +55,7 @@ line:     2
 severity: high
 command:  /align
 class:    layer-violation
+bucket:   routed — AL-20, owner code-quality architectural-diagnosis §1; no hook exposes the refund call, so there is no mechanical re-route for align to close
 anchor:   import { del } from '../../lib/api-client';
 match:    layer|layering|api.?client|direct.{0,20}(import|call|access)|bypass|should (use|go through).{0,20}hook|data access|architectur.{0,20}(violat|boundar)
 ```
@@ -66,6 +73,7 @@ line:     16
 severity: high
 command:  /align
 class:    unhandled-io
+bucket:   routed — code-quality error-handling-scan; not an align class
 anchor:   await del(`/orders/${order.id}/charge`);
 match:    unhandled|no (error|failure) (path|handling|state)|happy.?path|(missing|without).{0,15}(catch|try|error)|unhandled (promise )?rejection|reject.{0,20}(unhandled|silent)|user (sees|gets) no
 ```
@@ -83,6 +91,7 @@ line:     22
 severity: medium
 command:  /align
 class:    i18n-drift
+bucket:   report-with-fix — AL-26 EQ key: `orders.empty` equals the literal (P-31); owner frontend i18n-scan §1, closer align (V405)
 anchor:   >No orders match this filter</p>
 match:    i18n|internationali|localis|localiz|hard.?cod.{0,25}(string|text|copy|label)|literal (string|copy|text)|\bt\(\)|translation
 ```
@@ -100,6 +109,7 @@ line:     8
 severity: low
 command:  /align
 class:    i18n-drift
+bucket:   routed — AL-26 new copy: no catalog value equals it; frontend i18n-scan §1 → /frontend-fix
 anchor:   return `£${(cents / 100).toFixed(2)}`;
 match:    currenc|locale|hard.?cod.{0,20}(symbol|£|currency)|Intl\.NumberFormat|formatMoney|money format
 ```
@@ -117,6 +127,7 @@ line:     39
 severity: low
 command:  /align
 class:    design-token-drift
+bucket:   report-flagged — AL-06: 13px equals only `--font-size-sm`, a cross-family match (P-27); snapping to a space token is a visible change, never auto-fixed (V407)
 anchor:   padding: '13px'
 match:    (design )?token|hard.?cod.{0,20}(px|pixel|spacing|padding|value)|magic (number|value)|spacing scale|--space|literal.{0,15}(px|pixel)
 ```
@@ -133,6 +144,7 @@ line:     42
 severity: medium
 command:  /align
 class:    design-token-drift
+bucket:   report-with-fix — AL-05 EQ: `#d92d20` = `--color-danger`, one candidate; owner ui-ux design-token-audit, closer align (V397)
 anchor:   '#d92d20'
 match:    (design )?token|hard.?cod.{0,20}(colou?r|hex|value)|hex|literal colou?r|--color|var\(--
 ```
@@ -150,6 +162,7 @@ line:     50
 severity: medium
 command:  /align
 class:    a11y
+bucket:   routed — AL-28, frontend a11y-code-scan: a native button, so there is no wrapper prop for align to set
 anchor:   <button type="button" onClick={() => refund(order)} disabled={busyId === order.id}>
 match:    a11y|accessib|aria.?label|accessible name|screen.?reader|icon.?only|no (label|name)
 ```
@@ -167,6 +180,7 @@ line:     53
 severity: high
 command:  /align
 class:    permission-gate-drop
+bucket:   report-with-fix — AL-15 FN: `add-gate` with `<Can action="orders.refund">` (V401)
 anchor:   <Button variant="danger" onClick={() => refund(order)}>
 match:    permission|authoriz|\bCan\b|gate|ungated|role|entitle|can.?perform|destructive.{0,25}(action|button)
 ```
@@ -184,6 +198,7 @@ line:     11
 severity: low
 command:  /align
 class:    naming-convention
+bucket:   report-with-fix — AL-16 `rename`: `orderstable.tsx` → `OrdersTable.tsx` (V402)
 anchor:   export function OrdersTable({ orders, onChanged }
 match:    (file|module).{0,20}nam|naming convention|PascalCase|camelCase|kebab|rename|case.{0,15}(mismatch|convention)|filename
 ```
@@ -201,6 +216,7 @@ line:     16
 severity: high
 command:  /align
 class:    forbidden-import
+bucket:   report-flagged — AL-11: the convention routes data through a hook that does not exist yet, and the client adds auth and a base URL, so the fix is not a swap
 anchor:   fetch(`/api/orders/${orderId}`)
 match:    raw fetch|direct.{0,15}fetch|fetch.{0,25}(directly|outside|in (the )?component)|api.?client|http client|bypass|forbidden import|should (use|go through)
 ```
@@ -219,6 +235,7 @@ line:     18
 severity: high
 command:  /align
 class:    unhandled-io
+bucket:   routed — code-quality error-handling-scan; not an align class
 anchor:   .then((json) => setDetail(json));
 match:    (no|missing|without).{0,20}(catch|error (state|handling|path))|happy.?path|unhandled|error state|three states|loading.{0,15}(and|,).{0,15}error|infinite.{0,15}(loading|spinner)
 ```
@@ -237,6 +254,7 @@ line:     30
 severity: medium
 command:  /align
 class:    reinvented-wrapper
+bucket:   report-flagged — AL-12, owner ui-ux design-token-audit §6: `Modal` adds role, focus and Escape handling, a behavioural and visible change, not EQ
 anchor:   background: 'rgba(16, 24, 40, 0.6)',
 match:    reinvent|re.?implement|duplicat|shared (component|primitive|wrapper)|existing.{0,20}(Modal|component|primitive)|\bModal\b|dialog|roll(ed)? (its )?own|custom.{0,20}(modal|dialog|overlay)
 ```
@@ -255,6 +273,7 @@ line:     24
 severity: high
 command:  /align
 class:    silent-catch
+bucket:   routed — code-quality error-handling-scan; not an align class
 anchor:   .catch(() => {
 match:    silent(ly)? (catch|swallow|ignor)|swallow|empty catch|discard.{0,15}error|error.{0,25}(never|not) (set|surfaced|shown|propagat)|catch.{0,25}(ignores|drops)|dead (state|variable)
 ```
@@ -273,6 +292,7 @@ line:     18
 severity: medium
 command:  /align
 class:    a11y
+bucket:   routed — AL-28, frontend a11y-code-scan: `customers.avatarAlt` exists; /frontend-fix
 anchor:   src={customer.avatarUrl}
 match:    a11y|accessib|\balt\b|alt (text|attribute)|screen.?reader|image.{0,20}(descript|label)
 ```
@@ -280,3 +300,93 @@ match:    a11y|accessib|\balt\b|alt (text|attribute)|screen.?reader|image.{0,20}
 The `<img>` has no `alt`. The decorative placeholder in the same ternary is correctly
 marked `aria-hidden="true"`, and the catalogue already carries `customers.avatarAlt` for
 exactly this element — so both halves of the fix already exist in the repo.
+
+## Decoys — must NOT be reported
+
+Each is a known-correct sibling of a seed above. The eval also asked for a decorative `alt=""` image; the tree has none (its
+decorative placeholder is the `aria-hidden` div in `CustomerCard.tsx`, 7 lines from WEB-A11Y-02, inside its scoring window), so
+the two gated / labelled siblings in `OrdersToolbar.tsx` stand in for it.
+
+```decoy
+id:       WEB-DECOY-01
+file:     src/styles/tokens.css
+line:     9
+command:  /align
+class:    decoy/design-token-drift (P-04)
+anchor:   --color-danger: #d92d20;
+match:    #d92d20|hard.?cod|hex|literal
+```
+
+The token definition itself: the source of `--color-danger`, not a literal that should use it.
+
+```decoy
+id:       WEB-DECOY-02
+file:     src/styles/tokens.css
+line:     26
+command:  /align
+class:    decoy/design-token-drift (P-04, P-27)
+anchor:   --font-size-sm: 13px;
+match:    13px|font-size-sm|hard.?cod|px
+```
+
+The definition WEB-TOKEN-02 matches across families. It is a font-size token; nothing about it is drift.
+
+```decoy
+id:       WEB-DECOY-03
+file:     src/components/ui/Button.tsx
+line:     25
+command:  /align
+class:    decoy/design-token-drift (P-05)
+anchor:   border: '1px solid var(--color-border)',
+match:    1px|hairline|border|hard.?cod|px
+```
+
+A 1px hairline: the token set has no border-width family, so `1px` is a value tokens do not cover by design.
+
+```decoy
+id:       WEB-DECOY-04
+file:     src/components/ui/Modal.tsx
+line:     37
+command:  /align
+class:    decoy/reinvented-wrapper (P-08)
+anchor:   background: 'rgba(16, 24, 40, 0.6)',
+match:    rgba|overlay|reinvent|hard.?cod|Modal
+```
+
+The shared `Modal` itself. Its overlay literal is the wrapper's own implementation; WEB-WRAP-01 is the copy of it, not this.
+
+```decoy
+id:       WEB-DECOY-05
+file:     src/hooks/useCustomers.ts
+line:     26
+command:  /align
+class:    decoy/silent-catch (correct sibling)
+anchor:   if (!cancelled) setError(err as Error);
+match:    swallow|silent|catch|setError
+```
+
+The reference data hook surfaces the error; WEB-CATCH-01 is its drifted twin.
+
+```decoy
+id:       WEB-DECOY-06
+file:     src/components/orders/OrdersToolbar.tsx
+line:     37
+command:  /align
+class:    decoy/a11y (correct sibling)
+anchor:   <button type="button" aria-label={t('common.retry')} onClick={() => onQueryChange('')}>
+match:    aria-label|accessible name|icon.?only|a11y
+```
+
+An icon-only button with its accessible name: the correct sibling of WEB-A11Y-01.
+
+```decoy
+id:       WEB-DECOY-07
+file:     src/components/orders/OrdersToolbar.tsx
+line:     40
+command:  /align
+class:    decoy/permission-gate-drop (correct sibling)
+anchor:   <Can action="orders.export">
+match:    \bCan\b|permission|gate|ungated
+```
+
+The gated action WEB-PERM-01 should look like.

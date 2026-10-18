@@ -1,0 +1,7 @@
+{
+  "loading": "Loading…",
+  "reopen": "Reopen",
+  "open_count_zero": "No open tickets",
+  "open_count_one": "One open ticket",
+  "open_count_other": "{{count}} open tickets"
+}

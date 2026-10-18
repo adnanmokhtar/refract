@@ -1,0 +1,12 @@
+{
+  "feature": "tickets.sla",
+  "v1_entry": "app/Services/SlaService.php::summary",
+  "cases": [
+    { "minutes_left": 0 },
+    { "minutes_left": 59 },
+    { "minutes_left": 60 },
+    { "minutes_left": 61 },
+    { "minutes_left": 480 },
+    { "minutes_left": 1440 }
+  ]
+}

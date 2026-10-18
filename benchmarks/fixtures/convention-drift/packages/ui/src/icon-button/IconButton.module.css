@@ -1,0 +1,4 @@
+.iconButton {
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+}

@@ -1,0 +1,3 @@
+# Last CI run on main, jobs `contract` and `parity` (.github/workflows/ci.yml)
+contract  ✓  test/contract  14 passed  (V1_REPO_PATH=/home/runner/work/norrow-v2/norrow-v2/v1-snapshot)
+parity    ✓  test/parity    0 passed, 0 failed, 7 skipped  (describeV1: HAS_V1=false — V1_REPO_PATH unset)

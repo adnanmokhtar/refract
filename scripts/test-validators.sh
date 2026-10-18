@@ -94,6 +94,24 @@ for sdir in "$TESTS_DIR"/*/; do
   done
 done
 
+# Engines whose contract is a fixture tree plus recorded expectations rather than a good/bad case
+# pair. Each runner exits 0 only when every expectation holds (and proves it can fail); a missing
+# runner is a FAIL, not a skip, so renaming one cannot turn this section into a silent pass.
+RUNNERS=(tests/align-sweep-gate/run.sh)
+for runner in "${RUNNERS[@]}"; do
+  if [ ! -f "$REPO_ROOT/$runner" ]; then
+    echo "  FAIL  $runner  — runner missing"
+    fail=$((fail + 1))
+  elif out="$(bash "$REPO_ROOT/$runner" --quiet 2>&1)"; then
+    [ $QUIET -eq 0 ] && echo "  ok    $runner  ($(printf '%s\n' "$out" | tail -1))"
+    pass=$((pass + 1))
+  else
+    echo "  FAIL  $runner"
+    printf '%s\n' "$out" | sed 's/^/        /' | tail -20
+    fail=$((fail + 1))
+  fi
+done
+
 echo ""
 # A fixture directory whose backing script was renamed WARNs and is skipped WITHOUT touching
 # `fail`, and a run that matched zero fixtures still printed a pass line and exited 0. A harness

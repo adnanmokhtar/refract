@@ -1,0 +1,35 @@
+# Runtime cutover flags (read by the façade's Lua hook and by both apps). A flag flips only when
+# every entry in `requires` reports green on the cutover dashboard.
+flags:
+  orders.read_from:
+    value: v2
+    allowed: [v1, v2]
+    requires:
+      - backfill.orders.checkpoint_complete
+      - reconcile.orders.green
+
+  orders.writes_owner:
+    value: v1
+    allowed: [v1, v2]
+    requires:
+      - orders.read_from=v2 for 7d
+      - fence.orders.ready
+
+  tickets.read_from:
+    value: v2
+    allowed: [v1, v2]
+    requires:
+      - backfill.tickets.checkpoint_complete
+      - reconcile.tickets.green
+
+  invoices.read_from:
+    value: v2
+    allowed: [v1, v2]
+    requires: []
+
+  wallets.read_from:
+    value: v1
+    allowed: [v1, v2]
+    requires:
+      - backfill.wallets.checkpoint_complete
+      - reconcile.wallets.green

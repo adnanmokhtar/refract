@@ -43,8 +43,9 @@ A ranked table: `| finding | path:line | severity | fix |`.
 - `bar.md` — the sibling surface.
 
 <!--
-This fallback is an abridgement of `skills/foo/SKILL.md`. A same-named `commands/foo.md`
-also exists in this pack and is what check 8a's dir-precedence walk reaches first; against
+This fallback is an abridgement of `ai-patterns/foo.md`. A same-named `rules/foo.md`
+also exists in this pack and is what check 8a's dir-precedence walk reaches first (the shipped
+case is frontend/i18n; a same-named command and skill is check 9's refusal now); against
 THAT file this body loses `hard rules` and `output format` and the fixture goes red. It stays
 green only because 8b resolves through the `_topics.md` entry whose `fallback:` names it.
 -->

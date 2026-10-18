@@ -1,0 +1,47 @@
+# pair-inventory 1 · lane=I-AUTHZ · side=v1 · sha=61cb5c927438bcbf4b971b17938abe99c70b70f8 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=44
+# lane	key	attrs	at	excerpt
+I-AUTHZ	ANY /api/{*}	abilities=;authn=none;extra_guard=no;mw=api;roles=	routes/api.php:69	Route::fallback(fn () => response()->json(['message' => 'Not Found.'], 404));
+I-AUTHZ	GET /	abilities=;authn=required;extra_guard=no;mw=web,web,auth;roles=	routes/web.php:8	Route::view('/', 'portal.dashboard')->name('portal.home');
+I-AUTHZ	GET /api/admin/users	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum,role:admin;roles=admin	routes/api.php:63	Route::get('/users', [AdminUserController::class, 'index']);
+I-AUTHZ	GET /api/admin/users/{}	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum,role:admin;roles=admin	routes/api.php:64	Route::get('/users/{user}', [AdminUserController::class, 'show']);
+I-AUTHZ	GET /api/invoices	abilities=invoices.view;authn=required;extra_guard=no;mw=api,auth:sanctum,can:invoices.view;roles=	routes/api.php:31	Route::get('/', 'index')->middleware('can:invoices.view');
+I-AUTHZ	GET /api/invoices/{}	abilities=view.invoice;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:32	Route::get('/{invoice}', 'show');
+I-AUTHZ	GET /api/invoices/{}/pdf	abilities=view.invoice;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:33	Route::get('/{invoice}/pdf', 'pdf');
+I-AUTHZ	GET /api/me	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:17	Route::get('/me', [MeController::class, 'show']);
+I-AUTHZ	GET /api/orders	abilities=orders.view;authn=required;extra_guard=no;mw=api,auth:sanctum,can:orders.view;roles=	routes/api.php:21	Route::get('/', 'index')->middleware('can:orders.view');
+I-AUTHZ	GET /api/orders/export	abilities=orders.view;authn=required;extra_guard=no;mw=api,auth:sanctum,can:orders.view;roles=	routes/api.php:23	Route::get('/export', 'export')->middleware('can:orders.view');
+I-AUTHZ	GET /api/orders/{}	abilities=view.order;authn=required;extra_guard=no;mw=api,auth:sanctum,can:view,order;roles=	routes/api.php:24	Route::get('/{order}', 'show')->middleware('can:view,order');
+I-AUTHZ	GET /api/reports/legacy-aging	abilities=reports.view;authn=required;extra_guard=no;mw=api,auth:sanctum,can:reports.view;roles=	routes/api.php:60	Route::get('/reports/legacy-aging', [ReportController::class, 'legacyAging'])->middleware('can:reports.view');
+I-AUTHZ	GET /api/reports/sales	abilities=reports.view;authn=required;extra_guard=no;mw=api,auth:sanctum,can:reports.view;roles=	routes/api.php:58	Route::get('/reports/sales', [ReportController::class, 'sales'])->middleware('can:reports.view');
+I-AUTHZ	GET /api/reports/sla	abilities=reports.view;authn=required;extra_guard=no;mw=api,auth:sanctum,can:reports.view;roles=	routes/api.php:59	Route::get('/reports/sla', [ReportController::class, 'sla'])->middleware('can:reports.view');
+I-AUTHZ	GET /api/stock	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:46	Route::get('/', 'index');
+I-AUTHZ	GET /api/stock/low-stock	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:47	Route::get('/low-stock', 'lowStock');
+I-AUTHZ	GET /api/stock/{}	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:49	Route::get('/{sku}', 'show');
+I-AUTHZ	GET /api/tickets	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:53	Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);
+I-AUTHZ	GET /api/tickets/{}	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:53	Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);
+I-AUTHZ	GET /api/wallets/{}	abilities=wallets.view;authn=required;extra_guard=no;mw=api,auth:sanctum,permission:wallets.view;roles=	routes/api.php:38	Route::get('/{wallet}', 'show')->middleware('permission:wallets.view');
+I-AUTHZ	GET /api/wallets/{}/statement	abilities=wallets.view;authn=required;extra_guard=no;mw=api,auth:sanctum,permission:wallets.view;roles=	routes/api.php:39	Route::get('/{wallet}/statement', 'statement')->middleware('permission:wallets.view');
+I-AUTHZ	GET /exports/{}	abilities=;authn=required;extra_guard=yes;mw=web,auth,signed;roles=	routes/web.php:17	Route::get('/exports/{file}', [ExportDownloadController::class, 'show'])
+I-AUTHZ	GET /orders	abilities=;authn=required;extra_guard=no;mw=web,web,auth;roles=	routes/web.php:9	Route::get('/orders', [PortalController::class, 'orders'])->name('portal.orders');
+I-AUTHZ	GET /orders/new	abilities=;authn=required;extra_guard=no;mw=web,web,auth;roles=	routes/web.php:10	Route::get('/orders/new', [PortalController::class, 'createOrder'])->name('portal.orders.create');
+I-AUTHZ	GET /tickets/{}	abilities=;authn=required;extra_guard=no;mw=web,web,auth;roles=	routes/web.php:13	Route::get('/tickets/{ticket}', [PortalController::class, 'ticket'])->name('portal.tickets.show');
+I-AUTHZ	GET /wallet	abilities=;authn=required;extra_guard=no;mw=web,web,auth;roles=	routes/web.php:11	Route::get('/wallet', [PortalController::class, 'wallet'])->name('portal.wallet');
+I-AUTHZ	GET /wallet/statements	abilities=;authn=required;extra_guard=no;mw=web,web,auth;roles=	routes/web.php:12	Route::get('/wallet/statements', [PortalController::class, 'statements'])->name('portal.wallet.statements');
+I-AUTHZ	PATCH /api/account	abilities=account.update;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:18	Route::patch('/account', [MeController::class, 'updateAccount']);
+I-AUTHZ	PATCH /api/orders/{}	abilities=update.order;authn=required;extra_guard=no;mw=api,auth:sanctum,can:update,order;roles=	routes/api.php:25	Route::patch('/{order}', 'update')->middleware('can:update,order');
+I-AUTHZ	PATCH /api/tickets/{}	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum,role:agent|admin;roles=admin,agent	routes/api.php:54	Route::patch('/tickets/{ticket}', [TicketController::class, 'update'])->middleware('role:agent|admin');
+I-AUTHZ	POST /api/auth/token	abilities=;authn=none;extra_guard=no;mw=api;roles=	routes/api.php:14	Route::post('/auth/token', [AuthController::class, 'token']);
+I-AUTHZ	POST /api/invoices/{}/issue	abilities=invoices.issue,issue.invoice;authn=required;extra_guard=no;mw=api,auth:sanctum,can:invoices.issue;roles=	routes/api.php:34	Route::post('/{invoice}/issue', 'issue')->middleware('can:invoices.issue');
+I-AUTHZ	POST /api/orders	abilities=orders.create;authn=required;extra_guard=no;mw=api,auth:sanctum,can:orders.create;roles=	routes/api.php:22	Route::post('/', 'store')->middleware('can:orders.create');
+I-AUTHZ	POST /api/orders/{}/cancel	abilities=update.order;authn=required;extra_guard=no;mw=api,auth:sanctum,can:update,order;roles=	routes/api.php:26	Route::post('/{order}/cancel', 'cancel')->middleware('can:update,order');
+I-AUTHZ	POST /api/orders/{}/duplicate	abilities=orders.create,view.order;authn=required;extra_guard=no;mw=api,auth:sanctum,can:orders.create;roles=	routes/api.php:27	Route::post('/{order}/duplicate', 'duplicate')->middleware('can:orders.create');
+I-AUTHZ	POST /api/stock/import	abilities=stock.import;authn=required;extra_guard=no;mw=api,auth:sanctum,permission:stock.import;roles=	routes/api.php:48	Route::post('/import', 'import')->middleware('permission:stock.import');
+I-AUTHZ	POST /api/stock/{}/reserve	abilities=stock.reserve;authn=required;extra_guard=no;mw=api,auth:sanctum,permission:stock.reserve;roles=	routes/api.php:50	Route::post('/{sku}/reserve', 'reserve')->middleware('permission:stock.reserve');
+I-AUTHZ	POST /api/tickets	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:53	Route::apiResource('tickets', TicketController::class)->only(['index', 'store', 'show']);
+I-AUTHZ	POST /api/tickets/next	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum,role:agent|admin;roles=admin,agent	routes/api.php:56	Route::post('/tickets/next', [TicketController::class, 'next'])->middleware('role:agent|admin');
+I-AUTHZ	POST /api/tickets/{}/reopen	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum;roles=	routes/api.php:55	Route::post('/tickets/{ticket}/reopen', [TicketController::class, 'reopen']);
+I-AUTHZ	POST /api/wallets/{}/adjust	abilities=wallets.adjust;authn=required;extra_guard=no;mw=api,auth:sanctum,permission:wallets.adjust;roles=	routes/api.php:40	Route::post('/{wallet}/adjust', 'adjust')->middleware('permission:wallets.adjust');
+I-AUTHZ	POST /api/wallets/{}/credit-limit	abilities=wallets.adjust;authn=required;extra_guard=no;mw=api,auth:sanctum,permission:wallets.adjust;roles=	routes/api.php:41	Route::post('/{wallet}/credit-limit', 'creditLimit')->middleware('permission:wallets.adjust');
+I-AUTHZ	POST /api/wallets/{}/installments	abilities=wallets.view;authn=required;extra_guard=no;mw=api,auth:sanctum,permission:wallets.view;roles=	routes/api.php:42	Route::post('/{wallet}/installments', 'installments')->middleware('permission:wallets.view');
+I-AUTHZ	PUT /api/admin/users/{}/roles	abilities=;authn=required;extra_guard=no;mw=api,auth:sanctum,role:admin;roles=admin	routes/api.php:65	Route::put('/users/{user}/roles', [AdminUserController::class, 'syncRoles']);

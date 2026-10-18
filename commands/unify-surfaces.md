@@ -355,7 +355,7 @@ For finer control, the existing detailed commands still exist:
 - `/enhance-ui <area>` — pack-level single-area iteration loop with style-variant picking. Use after unification to refine a specific canonical wrapper visually.
 - `/ui-sweep` — UI/UX whole-project specialist (HTML report, coverage metrics). Use to measure cross-surface consistency BEFORE running `/unify-surfaces`, and AFTER to verify the metric improved.
 - `/ui-crawl` + `/ui-crawl-fix` — Playwright cross-route crawler + wrapper-level auto-fixer. Use after unification to mass-fix mechanical findings (contrast / button-name / label-for) on the now-unified wrappers.
-- `/align` — convention drift sweep across all classes. Sibling but different: `/align` closes any `duplicated-surface-styles`; `/unify-surfaces` is type-typed and does the wrapper-extraction half explicitly.
+- `/align` — declared-convention sweep (AL-01…AL-34). Sibling but different: `/align` swaps a raw primitive for a wrapper that already exists (AL-11) or a native element for an existing DS component (AL-12), wrapper untouched; it has no class for duplicated surface styles and no verb that extracts or extends a wrapper. When the raw instance needs something the wrapper lacks, `/align` routes the row here (a wrapper gap). `/unify-surfaces` is type-typed and does the wrapper-extraction half explicitly.
 - `/design-review` — read-only design audit. Use before `/unify-surfaces` to surface the ad-hoc surfaces that need unification.
 
 `/unify-surfaces` is the simple-surface entry for "make the same surface look the same everywhere". Power users drop down to detailed commands for fine control or post-unification polish.

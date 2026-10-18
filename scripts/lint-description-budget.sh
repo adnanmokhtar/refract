@@ -308,7 +308,7 @@ def install_set(packs):
     pn = set(n for n, _ in proj)
     order = [(n, f) for n, f in ents if n not in pn] + sorted(proj) + sorted(skl)
     # One listing entry per NAME: the platform de-duplicates by name, so a command and a skill
-    # that share one (threat-model ships as both) are listed once — the first one loaded.
+    # that share one are listed once — the first one loaded (the platform runs the skill; see align-detect § Notes).
     uniq, seen = [], set()
     for n, f in order:
         if n in seen: continue

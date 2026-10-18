@@ -1,0 +1,23 @@
+# Shadow traffic for ticket reads only; writes are never mirrored.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: tickets-shadow
+  namespace: norrow
+spec:
+  hosts:
+    - v1-portal.norrow.internal
+  http:
+    - match:
+        - uri: { prefix: /api/tickets }
+          method: { exact: GET }
+      route:
+        - destination:
+            host: v1-portal.norrow.internal
+      mirror:
+        host: v2-api-shadow.norrow.internal
+      mirrorPercentage:
+        value: 25.0
+    - route:
+        - destination:
+            host: v1-portal.norrow.internal

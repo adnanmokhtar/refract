@@ -3,7 +3,7 @@
 locale catalog in a repo, plus the locale-count gate. Stdlib only. Reads files; never writes.
 
 Usage:  catalog-parity.py [<repo>] [--locales=ar,en] [--base=en] [--used=<root>,<root>…]
-                          [--max=40] [--json]
+                          [--max=40] [--json] [--v1=<laravel-root>]
         catalog-parity.py --self-test
 Exit:   0  no finding (or the lane is gated off)   1  at least one finding   2  usage or read error
 
@@ -33,6 +33,17 @@ FINDINGS (exit 1):
   untranslated     an empty value, a fuzzy/empty msgstr, an XLIFF target that is missing or not final,
                    an xcstrings localization that is missing or not `translated`
   used-undefined   (--used) a literal key in code that no catalog defines under any namespace
+CROSS-TREE (--v1=<root>: a Laravel V1 being ported; reads <root>/lang/ and <root>/resources/lang/ —
+  <locale>/**/*.php `return [...]` arrays as `<file>.<dotted key>`, and <locale>.json as flat keys; never
+  writes there). A V1 key is matched to a V2 key of the same name, or of the same name under the V2 file's
+  stem (lang/ar/orders.php `orders.paid` ↔ locales/ar/orders.json `paid`), in the same locale.
+  v1-plural-forms  (finding) a V1 pipe plural (`a|b`, `{0} a|[1,19] b|[20,*] c`) whose V2 key lacks a CLDR
+                   category the locale needs — Arabic needs zero one two few many other
+  v1-plural-lost   (finding) a V1 plural (ranges, `:count`, or 3+ forms) whose V2 key has one form only
+  v1-placeholder   (finding) the V1 `:name` set differs from the V2 {{name}} / {name} set (case-folded)
+  v1-plural-range  (candidate) V1 selects by number range, which CLDR categories cannot express
+  v1-pipe-text     (candidate) a 2-part `a|b` with no :count — a plural or a literal pipe
+  v1-unmapped      (candidate) V1 keys with no V2 key of that name, per locale: renamed or dropped
 CANDIDATES (printed, never exit 1 — each needs a read):
   same-as-base     a value identical to the base locale's (brand names and units are legitimate)
   dynamic-prefix   (--used) t(`status.${x}`) / t('status.' + x), and `${KEY}.jt.${x}` where KEY is a string
@@ -435,6 +446,144 @@ def required_forms(locales):
     return out, src
 
 
+# ── cross-tree: a Laravel V1's lang/ catalog against this repo's catalogs ──────────────────────
+LV_PH = re.compile(r"(?<![\w:/]):([A-Za-z_][A-Za-z0-9_]*)")      # :name, :Name, :NAME (Laravel replaces all three)
+LV_RANGE = re.compile(r"^\s*(\{\s*-?\d+\s*\}|\[\s*(?:-?\d+|\*)\s*,\s*(?:-?\d+|\*)\s*\])")
+
+
+def php_lang_array(text):
+    """`return [ 'k' => 'v', 'n' => [ … ] ];` (or array( … )) -> flat {dotted key: str}; anything that is not a
+    string literal (a concatenation of literals is joined) is skipped and counted. Comments are dropped."""
+    toks, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c in "'\"":
+            j, buf = i + 1, []
+            while j < n and text[j] != c:
+                if text[j] == "\\" and j + 1 < n:
+                    nx = text[j + 1]
+                    buf.append(nx if (c == "'" and nx in "'\\") or (c == '"' and nx in '"\\$') else
+                               ({"n": "\n", "t": "\t"}.get(nx, "\\" + nx) if c == '"' else "\\" + nx))
+                    j += 2; continue
+                buf.append(text[j]); j += 1
+            toks.append(("S", "".join(buf))); i = j + 1; continue
+        if text.startswith("//", i) or c == "#":
+            j = text.find("\n", i); i = n if j < 0 else j; continue
+        if text.startswith("/*", i):
+            j = text.find("*/", i + 2); i = n if j < 0 else j + 2; continue
+        if text.startswith("=>", i):
+            toks.append(("=>", "")); i += 2; continue
+        m = re.compile(r"(?i)array\s*\(").match(text, i)
+        if m:
+            toks.append(("[", "")); i = m.end(); continue
+        if c in "[(":
+            toks.append(("[" if c == "[" else "(", "")); i += 1; continue
+        if c in "])":
+            toks.append(("]" if c == "]" else ")", "")); i += 1; continue
+        if c in ",.;":
+            toks.append((c, "")); i += 1; continue
+        m = re.compile(r"[\w$\\:>-]+").match(text, i)
+        if m and m.end() > i:
+            toks.append(("W", m.group(0))); i = m.end(); continue
+        i += 1
+    start = next((k for k, tk in enumerate(toks) if tk == ("W", "return")), None)
+    out, skipped = {}, [0]
+    if start is None or start + 1 >= len(toks) or toks[start + 1][0] != "[":
+        return out, 1
+
+    def value(k):
+        if toks[k][0] == "S":
+            s = toks[k][1]; k += 1
+            while k + 1 < len(toks) and toks[k][0] == "." and toks[k + 1][0] == "S":
+                s += toks[k + 1][1]; k += 2
+            if k < len(toks) and toks[k][0] not in (",", "]", ")"):
+                return None, skip(k)
+            return s, k
+        if toks[k][0] == "[":
+            return array(k)
+        return None, skip(k)
+
+    def skip(k):
+        d = 0
+        while k < len(toks):
+            if toks[k][0] in "[(": d += 1
+            elif toks[k][0] in "])":
+                if d == 0: return k
+                d -= 1
+            elif toks[k][0] == "," and d == 0: return k
+            k += 1
+        return k
+
+    def array(k):
+        node, k, idx = {}, k + 1, 0
+        while k < len(toks) and toks[k][0] not in ("]", ")"):
+            if toks[k][0] == ",":
+                k += 1; continue
+            key = None
+            if toks[k][0] in ("S", "W") and k + 1 < len(toks) and toks[k + 1][0] == "=>":
+                key = toks[k][1]; k += 2
+            v, k = value(k)
+            if v is None:
+                skipped[0] += 1
+            node[key if key is not None else str(idx)] = v
+            if key is None: idx += 1
+        return node, k + 1
+
+    tree, _ = array(start + 1)
+    def walk(o, pre):
+        for kk, vv in o.items():
+            key = f"{pre}.{kk}" if pre else str(kk)
+            if isinstance(vv, dict): walk(vv, key)
+            elif isinstance(vv, str): out[key] = vv
+    walk(tree, "")
+    return out, skipped[0]
+
+
+def v1_catalogs(v1):
+    """Laravel lang roots (lang/ since 9.x, resources/lang/ before): {locale: {key: value}}, files, notes."""
+    per, files, notes = {}, [], []
+    for base in ("lang", os.path.join("resources", "lang")):
+        root = os.path.join(v1, base)
+        if not os.path.isdir(root):
+            continue
+        for name in sorted(os.listdir(root)):
+            p = os.path.join(root, name)
+            m = re.fullmatch(r"([a-z]{2,3})(?:[-_]([A-Za-z]{2}|[A-Z][a-z]{3}))?(\.json)?", name)
+            if name == "vendor":
+                notes.append(f"{base}/vendor skipped (package overrides use `package::file.key`)"); continue
+            if not m:
+                continue
+            loc = norm(m.group(1), m.group(2).upper() if m.group(2) and len(m.group(2)) == 2 else m.group(2))
+            if m.group(3) and os.path.isfile(p):
+                try:
+                    data = json.loads(read_text(p))
+                except ValueError as e:
+                    notes.append(f"v1 read-error {base}/{name}: {e}"); continue
+                per.setdefault(loc, {}).update({str(k): ("" if v is None else str(v)) for k, v in data.items()
+                                                if isinstance(v, (str, int, float)) or v is None})
+                files.append(os.path.join(base, name))
+            elif os.path.isdir(p):
+                for dp, dns, fns in os.walk(p):
+                    dns.sort()
+                    for fn in sorted(f for f in fns if f.endswith(".php")):
+                        fp = os.path.join(dp, fn)
+                        ns = os.path.relpath(fp, p)[:-4].replace(os.sep, "/")
+                        vals, sk = php_lang_array(read_text(fp))
+                        if sk:
+                            notes.append(f"v1 {os.path.relpath(fp, v1)}: {sk} value(s) not a string literal, skipped")
+                        per.setdefault(loc, {}).update({f"{ns}.{k}": v for k, v in vals.items()})
+                        files.append(os.path.relpath(fp, v1))
+    return per, files, notes
+
+
+def lv_plural(v):
+    """Laravel pluralisation of one value: (parts, has_range) for `a|b`, `{0} a|[1,19] b|[20,*] c`; None if no pipe."""
+    parts = re.split(r"(?<!\\)\|", v or "")
+    if len(parts) < 2 or not all(p.strip() for p in parts):
+        return None
+    return parts, any(LV_RANGE.match(p) for p in parts)
+
+
 # ── the run ─────────────────────────────────────────────────────────────────────────────────────
 def discover(repo, extra):
     found = []
@@ -526,7 +675,7 @@ def used_keys(repo, roots):
 
 
 def main(argv):
-    args = {"repo": ".", "locales": None, "base": None, "used": None, "max": 40, "json": False}
+    args = {"repo": ".", "locales": None, "base": None, "used": None, "max": 40, "json": False, "v1": None}
     for a in argv:
         if a == "--self-test":
             return self_test()
@@ -601,7 +750,11 @@ def main(argv):
     base = args["base"] or ("en" if "en" in all_locales else (all_locales[0] if all_locales else None))
 
     findings, cands = [], []
-    req, plural_src = required_forms(all_locales)
+    v1_per, v1_files, v1_notes = v1_catalogs(os.path.abspath(args["v1"])) if args["v1"] else ({}, [], [])
+    if args["v1"] and not os.path.isdir(args["v1"]):
+        die(f"--v1 is not a directory: {args['v1']}")
+    req, plural_src = required_forms(sorted(set(all_locales) | set(v1_per)))
+    v2_index = {}
     blocked_plural = sorted(l for l in all_locales if l not in req)
     for (kind, sid), per in sorted(sets.items(), key=lambda x: x[0][1]):
         fam = FAMILY[kind]
@@ -639,6 +792,15 @@ def main(argv):
                 else:
                     fk[k] = v
             folded[loc] = (rel, fk, ff)
+        if args["v1"]:
+            stem_ = re.sub(r"[._-]?\{L\}[._-]?", "", os.path.splitext(os.path.basename(sid))[0])
+            for loc in locs:
+                for k, v in folded[loc][1].items():
+                    pf = set(folded[loc][2].get(k, set()))
+                    for _n, opts in placeholders(v, kind)[1].items():
+                        pf |= opts
+                    for kk in ({k, f"{stem_}.{k}"} if stem_ else {k}):
+                        v2_index.setdefault(loc, {}).setdefault(kk, (sid, v, pf))
         if len(locs) < 2:
             continue
         src_loc = srclang.get((kind, sid)) or ("_src" if "_src" in folded else ("_default" if "_default" in folded else base))
@@ -689,6 +851,53 @@ def main(argv):
                     same.append(k)
             if same:
                 cands.append(("same-as-base", sid, loc, f"{len(same)} value(s) identical to {src_loc} (first: {', '.join(same[:3])})"))
+
+    v1_out = []
+    if args["v1"]:
+        matched, unmapped = 0, {}
+        for loc in sorted(v1_per):
+            idx = v2_index.get(loc) or v2_index.get(loc.split("-")[0]) or {}
+            lang = loc if loc in req else loc.split("-")[0]
+            for k, v in sorted(v1_per[loc].items()):
+                sid1 = "v1:" + k.split(".", 1)[0] if "." in k and not k.endswith(".") else "v1:json"
+                hit = idx.get(k)
+                pl = lv_plural(v)
+                if pl and pl[1]:
+                    cands.append(("v1-plural-range", sid1, loc, f"{k}: V1 picks a form by number range "
+                                  f"({' | '.join(LV_RANGE.match(p).group(1) for p in pl[0] if LV_RANGE.match(p))}); "
+                                  "CLDR categories cannot express a range — read the V2 key at counts 0,1,2,3,11,100 (V369)"))
+                if hit is None:
+                    unmapped.setdefault(loc, []).append(k); continue
+                matched += 1
+                v2sid, v2val, v2forms = hit
+                ph1 = {x.lower() for x in LV_PH.findall(v or "")}
+                ph2 = {re.sub(r"^\{\{|\}\}$|^\{|\}$|^%\{|^%\(|\)$", "", x).strip().lower()
+                       for x in placeholders(v2val, "json")[0] if x.startswith(("{", "%{", "%("))}
+                if ph1 != ph2 and not (pl and ph1 - {"count"} == ph2 - {"count"}):
+                    findings.append(("v1-placeholder", sid1, loc, f"{k}: V1 {' '.join(':' + x for x in sorted(ph1)) or '—'}"
+                                     f" · V2 {' '.join(sorted(ph2)) or '—'} ({v2sid})"))
+                if pl:
+                    if v2forms:
+                        gap = (req.get(lang, set()) - v2forms - ({"zero"} if "=0" in v2forms else set()))
+                        if gap:
+                            findings.append(("v1-plural-forms", sid1, loc, f"{k}: V1 has {len(pl[0])} Laravel form(s); "
+                                             f"V2 {v2sid} has {','.join(sorted(v2forms))}; {lang} needs "
+                                             f"{','.join(sorted(req[lang]))}"))
+                    elif pl[1] or "count" in ph1 or len(pl[0]) >= 3:
+                        findings.append(("v1-plural-lost", sid1, loc, f"{k}: V1 is a {len(pl[0])}-form "
+                                         f"{'range ' if pl[1] else ''}plural; V2 {v2sid} has one form (no _one/_other "
+                                         "suffix, no ICU plural)"))
+                    else:
+                        cands.append(("v1-pipe-text", sid1, loc, f"{k}: a `|` in a 2-part value with no :count — "
+                                      "a plural or a literal pipe? read how V1 calls it (trans_choice vs __)"))
+        for loc, ks in sorted(unmapped.items()):
+            cands.append(("v1-unmapped", "v1", loc, f"{len(ks)} V1 key(s) with no V2 key of the same name "
+                          f"(first: {', '.join(ks[:5])}) — renamed (pair-map row) or dropped?"))
+        v1_out = [f"v1 cross-tree: {len(v1_files)} V1 lang file(s), "
+                  f"{sum(len(x) for x in v1_per.values())} key(s) in {', '.join(sorted(v1_per)) or 'no locale'}; "
+                  f"{matched} matched a V2 key by name or file-namespaced name"] + v1_notes
+        if not v1_files:
+            v1_out.append("v1 cross-tree: blocked (no lang/ or resources/lang/ under --v1)")
 
     used_out = []
     if args["used"] is not None and all_locales:
@@ -771,7 +980,7 @@ def main(argv):
                           "sets": len(sets), "plural_rules": plural_src, "plural_blocked": blocked_plural,
                           "findings": [dict(zip(("class", "set", "locale", "detail"), f)) for f in findings],
                           "candidates": [dict(zip(("class", "set", "locale", "detail"), c)) for c in cands],
-                          "errors": errors, "notes": sorted(notes)}, ensure_ascii=False, indent=1))
+                          "errors": errors, "notes": sorted(notes) + v1_out}, ensure_ascii=False, indent=1))
     else:
         kinds = {}
         for _, kind, _, _ in files:
@@ -780,7 +989,7 @@ def main(argv):
         print(f"LOCALES: {', '.join(all_locales) or 'none'} · RTL: {', '.join(rtl) or 'none'} · base: {base or '—'}")
         print(f"GATE: {gate}")
         print(f"plural rules: {plural_src}" + (f" · plural-check: blocked for {', '.join(blocked_plural)}" if blocked_plural else ""))
-        for n in sorted(notes) + used_out:
+        for n in sorted(notes) + used_out + v1_out:
             print(f"note: {n}")
         for e in errors:
             print(f"read-error: {e}")
@@ -838,6 +1047,41 @@ def self_test():
     import shutil; shutil.rmtree(d, ignore_errors=True)
     for e in sorted(expect):
         print(("  ok   " if e in got else "  FAIL ") + " ".join(e))
+    # cross-tree: a Laravel V1 lang/ against a V2 i18next tree
+    v1, v2 = tempfile.mkdtemp(prefix="catalog-parity-v1-"), tempfile.mkdtemp(prefix="catalog-parity-v2-")
+    def w2(root, rel, text):
+        p = os.path.join(root, rel); os.makedirs(os.path.dirname(p), exist_ok=True); open(p, "w", encoding="utf-8").write(text)
+    php = ("<?php\n// a comment: 'ghost' => 'x',\nreturn [\n    'welcome' => 'Welcome, :name',\n"
+           "    'apples' => '{0} No apples|[1,19] Some apples|[20,*] Many apples',\n    'items' => ':count item|:count items',\n"
+           "    'title' => 'Home | Site',\n    'nested' => ['deep' => 'Deep :thing'],\n    'time' => 'Opens at 10:30',\n"
+           "    'gone' => 'Gone',\n    'joined' => 'Hello ' . 'there',\n    'dyn' => __('x'),\n];\n")
+    w2(v1, "lang/en/messages.php", php)
+    w2(v1, "lang/ar/messages.php", php.replace("':count item|:count items'", "':count عنصر|:count عناصر'").replace("'Welcome, :name'", "'أهلا :Name'"))
+    w2(v1, "lang/en.json", json.dumps({"Save": "Save"})); w2(v1, "lang/ar.json", json.dumps({"Save": "احفظ"}))
+    v2en = {"welcome": "Welcome, {{name}}", "items_one": "{{count}} item", "items_other": "{{count}} items", "apples": "Apples",
+            "title": "Home | Site", "nested": {"deep": "Deep {{other}}"}, "time": "Opens at 10:30", "joined": "Hello there", "Save": "Save"}
+    w2(v2, "src/locales/en/messages.json", json.dumps(v2en))
+    w2(v2, "src/locales/ar/messages.json", json.dumps(dict(v2en, welcome="أهلا {{name}}")))
+    out2 = subprocess.run([sys.executable, __file__, v2, "--v1=" + v1, "--json"], capture_output=True, text=True)
+    r2 = json.loads(out2.stdout)
+    shutil.rmtree(v1, ignore_errors=True); shutil.rmtree(v2, ignore_errors=True)
+    f2 = {(f["class"], f["locale"], f["detail"].split(":")[0]) for f in r2["findings"]}
+    c2 = {(c["class"], c["locale"], c["detail"].split(":")[0]) for c in r2["candidates"]}
+    unm = " ".join(c["detail"] for c in r2["candidates"] if c["class"] == "v1-unmapped")
+    want2 = [("v1-plural-forms ar messages.items (ar needs six CLDR forms)", ("v1-plural-forms", "ar", "messages.items") in f2),
+             ("no v1-plural-forms for en messages.items (one,other suffice)", ("v1-plural-forms", "en", "messages.items") not in f2),
+             ("v1-plural-lost en messages.apples (range plural, one V2 form)", ("v1-plural-lost", "en", "messages.apples") in f2),
+             ("v1-plural-range candidate messages.apples", ("v1-plural-range", "en", "messages.apples") in c2),
+             ("v1-pipe-text candidate, not a finding: messages.title", ("v1-pipe-text", "en", "messages.title") in c2
+              and not any(x[2] == "messages.title" for x in f2)),
+             ("v1-placeholder messages.nested.deep (:thing vs {{other}})", ("v1-placeholder", "en", "messages.nested.deep") in f2),
+             (":Name matches {{name}}; 10:30 is not a placeholder", not any(x[0] == "v1-placeholder" and x[2] in ("messages.welcome", "messages.time") for x in f2)),
+             ("v1-unmapped lists messages.gone; JSON key Save and a concatenation matched", "messages.gone" in unm and "Save" not in unm and "messages.joined" not in unm),
+             ("a commented PHP entry and a non-literal value are not keys", "ghost" not in unm and "messages.dyn" not in unm),
+             ("exit 1 on cross-tree findings", out2.returncode == 1)]
+    for name, v in want2:
+        print(("  ok   " if v else "  FAIL ") + name)
+    ok = ok and all(v for _, v in want2)
     print("catalog-parity --self-test " + ("OK" if ok else "FAIL"))
     return 0 if ok else 1
 

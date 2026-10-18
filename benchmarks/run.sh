@@ -15,9 +15,19 @@
 #
 # A key can also declare, on its `Stage with:` line:
 #   --diff      the fixture holds base/ and change/: base/ is committed, change/ is laid over it as
-#               the uncommitted change (new files `git add -N`), so a diff review sees one diff
+#               the uncommitted change (new files `git add -N`), so a diff review sees one diff. A
+#               fixture with change/ and no base/ (port-pair) commits its own root, minus change/, as
+#               the base
 #   --baseline  install Refract's repo-baseline guard layer (.claude/ hooks, scripts, schemas,
 #               agents, settings.json, gates.json, templates/) into the staged copy
+#   --only=<a,b> stage only these top-level paths of the fixture tree (port-pair-solo: v2,ai); the
+#               CLI flag of the same name overrides the key's
+# A key with no tree of its own declares `Stage from: <fixture>`: it is staged from, and its anchors are
+# verified against, that fixture's tree (port-pair-solo reads port-pair). A paired key (port-pair) may
+# declare `Pin: v1=<git tree hash of v1/>`, re-checked by --verify, and give each ```defect block a
+# second anchor (`v1_file:` / `v1_line:` / `v1_anchor:`, verified like the first) and a `clean:`
+# replacement (`\n` = newline, `(delete line)`; `clean_add:` copies a file from clean-overlay/, which is
+# never staged): --verify derives that parity-clean twin in a scratch copy, --clean-pair writes it out.
 # and `Lock: <run-id>` (lock-acceptance.sh runs on the shipped contract, the lock is committed) and
 # `Invocation: <exact command>` (what to type, when the bare command name is not enough). The plain
 # `Invocation:` line is the key's PRIMARY command's (its most frequent `command:`); a two-command key
@@ -36,6 +46,7 @@
 # scored against its own command's defects — two results rows. The command is read from the
 # findings file's header, or given as `-- --command=<cmd>`.
 #   run.sh --verify [--fixture=<name>]     # re-check every anchor line (fixture drift gate)
+#   run.sh --fixture=<name> --clean-pair   # write a paired key's parity-clean twin (calibration pair)
 #
 # Flags:
 #   --fixture=<name>   fixture under benchmarks/fixtures/
@@ -47,6 +58,8 @@
 #                      `Stage with: --git` turns it on for that fixture.
 #   --no-lock          (fixtures with a `Lock:` line) the CONTROL run: stage without the acceptance
 #                      lock and with .claude/.no-test-lock, so the same task runs unguarded
+#   --only=<a,b>       stage only these top-level paths (overrides the key's `Stage with: --only=`)
+#   --clean-pair       (a key with `clean:` lines) write its parity-clean twin under --workdir and exit
 #   --list             list fixtures and exit
 #   --verify           verify anchors and exit
 #   --keep             print the staging dir and skip the cleanup hint
@@ -74,9 +87,11 @@ DO_VERIFY=0
 DO_GIT=0
 NO_LOCK=0
 KEEP=0
+ONLY=""
+DO_CLEAN=0
 PASSTHROUGH=()
 
-usage() { sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,73p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 die() { printf 'run.sh: %s\n' "$*" >&2; exit 1; }
 
@@ -90,6 +105,8 @@ while [[ $# -gt 0 ]]; do
     --git)       DO_GIT=1; shift ;;
     --no-lock)   NO_LOCK=1; shift ;;
     --keep)      KEEP=1; shift ;;
+    --only=*)    ONLY="${1#*=}"; shift ;;
+    --clean-pair) DO_CLEAN=1; shift ;;
     -h|--help)   usage; exit 0 ;;
     --)          shift; PASSTHROUGH=("$@"); break ;;
     *)           printf 'run.sh: unknown arg: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
@@ -127,6 +144,17 @@ fixture_command_count() { fixture_commands "$1" | wc -l | tr -d ' '; }
 fixture_wants_git() { grep -qE '^Stage with:.*--git' "$FIXTURES_DIR/$1/DEFECTS.md"; }
 
 fixture_wants_diff()     { grep -qE '^Stage with:.*--diff' "$FIXTURES_DIR/$1/DEFECTS.md"; }
+# `Stage from: <fixture>`: the key has no tree of its own and is staged from (and verified against) that fixture's.
+fixture_source() {
+  local src
+  src="$(sed -n 's/^Stage from:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1 | awk '{print $1}')"
+  echo "${src:-$1}"
+}
+fixture_tree() { echo "$FIXTURES_DIR/$(fixture_source "$1")"; }
+# `--only=<a,b>` on the key's `Stage with:` line, as space-separated top-level paths.
+fixture_only() {
+  sed -n 's/^Stage with:.*--only=\([^[:space:]]*\).*/\1/p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1 | tr ',' ' '
+}
 fixture_wants_baseline() { grep -qE '^Stage with:.*--baseline' "$FIXTURES_DIR/$1/DEFECTS.md"; }
 fixture_lock_run()       { sed -n 's/^Lock:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1; }
 # The key's invocation for one command ($2): its `Invocation[/<command>]:` line, else the plain
@@ -153,7 +181,7 @@ fixture_count() {
 }
 
 # Never staged, besides DEFECTS.md: an outcome fixture's hidden acceptance, reference and seeded-wrong code.
-HIDDEN_DIRS="holdout solution wrong"
+HIDDEN_DIRS="holdout solution wrong clean-overlay"
 
 # Known-safe look-alikes a correct run must NOT report (score.py § DECOYS). Most fixtures have none.
 fixture_decoys() {
@@ -231,20 +259,187 @@ fi
 
 # --- --verify --------------------------------------------------------------
 
+# The paired-key checks score.py does not make, in one stdlib-only Python pass over a key:
+#   verify <key> <tree>        every ```defect block's second anchor (v1_file / v1_line / v1_anchor) occurs once,
+#                              at its line; a `Pin: v1=<hash>` still equals the git tree hash of <tree>/v1; and the
+#                              parity-clean twin derives (below) in a scratch copy, every `clean:` applying once
+#   clean <key> <tree> <dest>  write the twin to <dest>: the tree minus the answer key, change/ and hidden dirs, then
+#                              change/ laid over it, then every `clean:` replacement, then each `clean_add:` file
+#                              from clean-overlay/
+# Exit 0 = ok, 1 = drift (each problem printed), 2 = usage.
+pair_tool() {
+  python3 - "$@" <<'PY'
+import os, re, shutil, subprocess, sys, tempfile
+
+mode, key, tree = sys.argv[1], sys.argv[2], sys.argv[3]
+dest = sys.argv[4] if len(sys.argv) > 4 else None
+text = open(key, encoding="utf-8").read()
+name = os.path.basename(os.path.dirname(key))
+HIDDEN = {"DEFECTS.md", "change", "clean-overlay", "holdout", "solution", "wrong"}
+
+def fields(block):
+    f, adds = {}, []
+    for line in block.splitlines():
+        if ":" not in line:
+            continue
+        k, _, v = line.partition(":")
+        k, v = k.strip().lower(), v.strip()
+        if k == "clean_add":
+            adds.append(v)
+        elif k != "match":
+            f[k] = v
+    f["clean_add"] = adds
+    return f
+
+seeds = [fields(b) for b in re.findall(r"^```defect[ \t]*\n(.*?)^```", text, re.S | re.M)]
+problems = []
+
+def derive(out):
+    """The parity-clean twin; returns the number of replacements applied."""
+    os.makedirs(out, exist_ok=True)
+    for entry in os.listdir(tree):
+        if entry in HIDDEN:
+            continue
+        src = os.path.join(tree, entry)
+        (shutil.copytree if os.path.isdir(src) else shutil.copy2)(src, os.path.join(out, entry))
+    change = os.path.join(tree, "change")
+    if os.path.isdir(change):
+        shutil.copytree(change, out, dirs_exist_ok=True)
+    applied = 0
+    for s in seeds:
+        if "clean" not in s:
+            continue
+        rel = s["file"][len("change/"):] if s["file"].startswith("change/") else s["file"]
+        path = os.path.join(out, rel)
+        if not os.path.isfile(path):
+            problems.append(f"  CLEAN {s.get('id')}: {rel} does not exist in the twin")
+            continue
+        body = open(path, encoding="utf-8").read()
+        n = body.count(s["anchor"])
+        if n != 1:
+            problems.append(f"  CLEAN {s.get('id')}: anchor occurs {n}x in {rel} once earlier replacements are applied")
+            continue
+        if s["clean"] == "(delete line)":
+            lines = body.split("\n")
+            body = "\n".join(l for l in lines if s["anchor"] not in l)
+        else:
+            body = body.replace(s["anchor"], s["clean"].replace("\\n", "\n"), 1)
+        open(path, "w", encoding="utf-8").write(body)
+        applied += 1
+        for add in s["clean_add"]:
+            src = os.path.join(tree, "clean-overlay", add)
+            if not os.path.isfile(src):
+                problems.append(f"  CLEAN {s.get('id')}: clean-overlay/{add} missing")
+                continue
+            os.makedirs(os.path.dirname(os.path.join(out, add)), exist_ok=True)
+            shutil.copy2(src, os.path.join(out, add))
+    return applied
+
+if mode == "clean":
+    n = derive(dest)
+    print("\n".join(problems) if problems else f"{name}: clean pair written to {dest} ({n} replacements)")
+    sys.exit(1 if problems else 0)
+if mode != "verify":
+    sys.exit(2)
+
+second = [s for s in seeds if s.get("v1_anchor")]
+for s in second:
+    path = os.path.join(tree, s.get("v1_file", ""))
+    if not os.path.isfile(path):
+        problems.append(f"  DRIFT {s.get('id')}: second anchor file {s.get('v1_file')} does not exist")
+        continue
+    hits = [i + 1 for i, t in enumerate(open(path, encoding="utf-8").read().splitlines()) if s["v1_anchor"] in t]
+    want = int(s["v1_line"]) if s.get("v1_line", "").isdigit() else 0
+    if not hits:
+        problems.append(f"  DRIFT {s.get('id')}: second anchor not found in {s.get('v1_file')}")
+    elif len(hits) > 1:
+        problems.append(f"  DRIFT {s.get('id')}: second anchor is ambiguous in {s.get('v1_file')} (lines {hits})")
+    elif hits[0] != want:
+        problems.append(f"  DRIFT {s.get('id')}: second anchor recorded at {want}, found at {hits[0]}")
+missing = [s.get("id") for s in seeds if s.get("v1_anchor") is None] if second else []
+if second and missing:
+    problems.append(f"  DRIFT: a paired key needs a second anchor on every seed; missing on {', '.join(missing)}")
+
+pin = re.search(r"^Pin:\s*v1=([0-9a-f]{40})", text, re.M)
+pin_note = ""
+if pin:
+    if shutil.which("git") is None:
+        pin_note = ", pin SKIP (no git)"
+    else:
+        tmp = tempfile.mkdtemp(prefix="bench-pin.")
+        try:
+            shutil.copytree(os.path.join(tree, "v1"), os.path.join(tmp, "v1"))
+            g = ["git", "-C", os.path.join(tmp, "v1"), "-c", "core.autocrlf=false"]
+            subprocess.run(["git", "init", "-q", os.path.join(tmp, "v1")], check=True)
+            subprocess.run(g + ["add", "-A"], check=True)
+            got = subprocess.run(g + ["write-tree"], check=True, capture_output=True, text=True).stdout.strip()
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        if got != pin.group(1):
+            problems.append(f"  DRIFT Pin: v1/ hashes to {got}, the key pins {pin.group(1)} — re-record the V1 inventory and the pin")
+        pin_note = ", v1/ hashes to the pin"
+
+cleans = [s for s in seeds if "clean" in s]
+clean_note = ""
+if cleans:
+    tmp = tempfile.mkdtemp(prefix="bench-clean.")
+    try:
+        n = derive(os.path.join(tmp, "twin"))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    clean_note = f", clean pair derives ({n}/{len(cleans)} replacements)"
+
+if problems:
+    print("\n".join(problems))
+    print(f"\n{name}: {len(problems)} paired-key problems — fix DEFECTS.md or the fixture.")
+    sys.exit(1)
+if second or pin or cleans:
+    print(f"{name}: {len(second)}/{len(second)} second anchors resolve{clean_note}{pin_note}.")
+PY
+}
+
+# One key's full verification: score.py's anchors (against the key's own tree, or its `Stage from:` tree) plus
+# pair_tool's second-anchor, pin and clean-pair checks.
+verify_key() {
+  local name="$1" src rc=0
+  src="$(fixture_source "$name")"
+  if [[ "$src" == "$name" ]]; then
+    python3 "$SCORER" --fixture="$name" --verify || rc=1
+  else
+    printf '%s (tree: %s) — ' "$name" "$src"
+    python3 "$SCORER" --fixture="$src" --defects="$FIXTURES_DIR/$name/DEFECTS.md" --verify || rc=1
+  fi
+  if grep -qE '^(v1_anchor|clean):|^Pin:' "$FIXTURES_DIR/$name/DEFECTS.md"; then
+    pair_tool verify "$FIXTURES_DIR/$name/DEFECTS.md" "$(fixture_tree "$name")" || rc=1
+  fi
+  return "$rc"
+}
+
 if [[ "$DO_VERIFY" -eq 1 ]]; then
   rc=0
   if [[ -n "$FIXTURE" ]]; then
     require_fixture
-    python3 "$SCORER" --fixture="$FIXTURE" --verify || rc=1
+    verify_key "$FIXTURE" || rc=1
   else
     while IFS= read -r name; do
-      python3 "$SCORER" --fixture="$name" --verify || rc=1
+      verify_key "$name" || rc=1
     done < <(fixture_names)
   fi
   exit "$rc"
 fi
 
 require_fixture
+
+# --- clean-pair mode -------------------------------------------------------
+
+if [[ "$DO_CLEAN" -eq 1 ]]; then
+  grep -qE '^clean:' "$FIXTURES_DIR/$FIXTURE/DEFECTS.md" \
+    || die "$FIXTURE declares no clean: lines — --clean-pair applies to paired keys (port-pair)"
+  [[ -n "$WORKDIR" ]] || WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/refract-bench.XXXXXX")"
+  rm -rf "$WORKDIR/$FIXTURE-clean"
+  pair_tool clean "$FIXTURES_DIR/$FIXTURE/DEFECTS.md" "$(fixture_tree "$FIXTURE")" "$WORKDIR/$FIXTURE-clean" || exit 1
+  exit 0
+fi
 
 # --- scoring mode ----------------------------------------------------------
 
@@ -310,15 +505,31 @@ stage_one() {
 
   # Copy everything EXCEPT the answer key. An agent that reads DEFECTS.md scores 100% and
   # the number means nothing, so this exclusion is the single most load-bearing line here.
-  # A --diff fixture stages base/ now and lays change/ over it after the base commit below.
-  if fixture_wants_diff "$FIXTURE"; then
-    ( cd "$FIXTURES_DIR/$FIXTURE/base" && tar -cf - . ) | ( cd "$target" && tar -xf - )
+  # A --diff fixture stages base/ now and lays change/ over it after the base commit below; one
+  # with no base/ stages its own root minus change/. A `Stage from:` key copies another
+  # fixture's tree, and `--only=` keeps only the named top-level paths of it.
+  local tree only
+  tree="$(fixture_tree "$FIXTURE")"
+  only="${ONLY:+$(echo "$ONLY" | tr ',' ' ')}"
+  [[ -n "$only" ]] || only="$(fixture_only "$FIXTURE")"
+  if fixture_wants_diff "$FIXTURE" && [[ -d "$tree/base" ]]; then
+    ( cd "$tree/base" && tar -cf - . ) | ( cd "$target" && tar -xf - )
   else
-    local hidden_args=() h
+    local hidden_args=() h p paths=(.)
     for h in $HIDDEN_DIRS; do
-      [[ -d "$FIXTURES_DIR/$FIXTURE/$h" ]] && hidden_args+=(--exclude="./$h")
+      [[ -d "$tree/$h" ]] && hidden_args+=(--exclude="./$h")
     done
-    ( cd "$FIXTURES_DIR/$FIXTURE" && tar --exclude='DEFECTS.md' ${hidden_args+"${hidden_args[@]}"} -cf - . ) | ( cd "$target" && tar -xf - )
+    if fixture_wants_diff "$FIXTURE"; then
+      hidden_args+=(--exclude="./change")
+    fi
+    if [[ -n "$only" ]]; then
+      paths=()
+      for p in $only; do
+        [[ -e "$tree/$p" ]] || die "--only=$p: no such path in $tree"
+        paths+=("$p")
+      done
+    fi
+    ( cd "$tree" && tar --exclude='DEFECTS.md' ${hidden_args+"${hidden_args[@]}"} -cf - "${paths[@]}" ) | ( cd "$target" && tar -xf - )
   fi
   if fixture_wants_baseline "$FIXTURE"; then
     mkdir -p "$target/.claude"
@@ -334,10 +545,16 @@ stage_one() {
   fi
   local hd
   for hd in $HIDDEN_DIRS; do
-    if [[ -d "$FIXTURES_DIR/$FIXTURE/$hd" && -e "$target/$hd" ]]; then
+    if [[ -d "$tree/$hd" && -e "$target/$hd" ]]; then
       die "INTERNAL: hidden $hd/ leaked into the staged copy at $target — refusing to continue"
     fi
   done
+  if [[ -n "$(find "$target" -name DEFECTS.md -print | head -1)" ]]; then
+    die "INTERNAL: an answer key leaked into the staged copy at $target — refusing to continue"
+  fi
+  if fixture_wants_diff "$FIXTURE" && [[ ! -d "$tree/base" && -e "$target/change" ]]; then
+    die "INTERNAL: change/ leaked into the committed base at $target — refusing to continue"
+  fi
   if [[ -n "$(find "$target" -name '*.holdout.test.js' -print | head -1)" ]]; then
     die "INTERNAL: a holdout test leaked into the staged copy at $target — refusing to continue"
   fi
@@ -355,7 +572,7 @@ stage_one() {
       git -C "$target" -c user.email=bench@localhost -c user.name=bench commit -qm "lock acceptance contract $lock_run" || true
     fi
     if fixture_wants_diff "$FIXTURE"; then
-      ( cd "$FIXTURES_DIR/$FIXTURE/change" && tar -cf - . ) | ( cd "$target" && tar -xf - )
+      ( cd "$tree/change" && tar -cf - . ) | ( cd "$target" && tar -xf - )
       git -C "$target" add -N .
     fi
   fi

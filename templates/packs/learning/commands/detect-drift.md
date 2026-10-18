@@ -36,6 +36,8 @@ ALWAYS:
 
 ## Phase 4 — Generate (the categorized report)
 
+**When the align pack is installed** (`.claude/skills/convention-oracle/SKILL.md` exists), run `convention-oracle` first: its § 0 builds the oracle map with each rule's tier (`oracle-map.py`: T1 at `error`, T2 human-written, T2g generated, contested), § 2 the splits, § 3 the declared-but-unenforced rules, § 4 the stale docs. Hand that map to `convention-drift-detector` instead of letting it re-read the rules from prose, and map its classes onto this report's four outcomes: AL-02 (a split, or a contested category) → `ambiguous`; AL-04 (most sites and the newest files follow the other shape) → `rule-vs-reality`; AL-03 (a written rule no lint rule enforces) → `rule-vs-reality` with "enforce it" as the resolution; a site breaking a T1/T2 rule → `code-vs-rule`. A generated (T2g) line never produces `code-vs-rule`: it is `ambiguous` until a human ratifies it. This command stays read-only either way; closing `code-vs-rule` rows is `/align`'s. **Without the align pack**, invoke the agent as below — the four outcomes and the contested-set rule are the same.
+
 Invoke `convention-drift-detector` agent against the codebase.
 
 Per finding:

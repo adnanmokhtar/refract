@@ -1,0 +1,10 @@
+--- a/apps/web/src/features/cart/Cart.module.css
++++ b/apps/web/src/features/cart/Cart.module.css
+@@ -1,6 +1,6 @@
+ .summary {
+   display: flex;
+   justify-content: space-between;
+-  padding: 8px;
++  padding: var(--space-2);
+   border-top: 1px solid var(--color-border);
+ }

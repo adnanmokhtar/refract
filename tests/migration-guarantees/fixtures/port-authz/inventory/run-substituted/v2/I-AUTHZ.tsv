@@ -1,0 +1,5 @@
+# pair-inventory 1 · lane=I-AUTHZ · side=v2 · sha=- · root=- · stack=-
+# extractor=- · normaliser=1 · generated=2026-10-18T13:05:06Z · rows=2
+# lane	key	attrs	at	excerpt
+I-AUTHZ	DELETE /api/orders/{}	abilities=;authn=none;extra_guard=no;mw=;roles=	src/orders/orders.controller.ts:7	@Delete(':order')
+I-AUTHZ	GET /api/orders	abilities=;authn=none;extra_guard=no;mw=PermissionsGuard;roles=	src/orders/orders.controller.ts:3	@Get()

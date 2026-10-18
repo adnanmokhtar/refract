@@ -365,7 +365,7 @@ Shapes this skill must not report: `reply.raw.setHeader` (the Node response); a 
 ## Related
 
 - `/backend-audit` dispatches this skill and folds its coverage block into its edge-error ledger rows; `/backend-fix` closes findings failing-first through the real bootstrap and re-runs this detector.
-- `validation-boundary-scan`, `http-contract-scan` and `api-consistency-audit` (this pack) are the neighbours named in § Boundaries; `endpoint-test` (this pack) drives the matrix requests against a running app; `@api-reviewer` judges these rows.
+- `validation-boundary-scan`, `http-contract-scan` and `api-consistency-audit` (this pack) are the neighbours named in § Boundaries; `endpoint-test-method` (this pack) drives the matrix requests against a running app; `@api-reviewer` judges these rows.
 - security `data-exposure-scan` §1/§2/§5 and `file-access-scan` §2, code-quality `error-handling-scan` §1–§4/§6, observability `error-tracking-scan` §4 and `log-signal-scan` §1/§2, distributed-systems `retry-deadline-scan`, when those packs are installed.
 
 ## Sources

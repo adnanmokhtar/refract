@@ -126,6 +126,25 @@ Per feature:
 
 **Composition (mechanism, not policy)**: this command MUST dispatch the `parity-auditor` agent for the audit step and MUST dispatch `migration-architect` (where available) for the port step. The audit step is NEVER run inline by the executor. Inline audit was the F039 + F030 + F032 trigger — a fast executor reading prior summary docs and echoing "parity-clean" without line-by-line V1 source review. This section converts that "should dispatch" policy into a binding mechanism.
 
+### 4-0. SNAPSHOT (once per run, before the first write)
+
+`/migration-rollback <N>` restores from `.claude/backups/migration-phase-<N>-<ts>/`, and nothing else creates that directory — so this step does, before any ledger, audit or code write of the run, in every mode (`--audit-only` writes audits too):
+
+```bash
+SNAP=".claude/backups/migration-phase-<N>-$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$SNAP"
+git status --porcelain -- <v2-root> ai/migration > "$SNAP/v2-dirty.txt"      # must be empty, else halt: a dirty tree cannot be rolled back to
+git rev-parse HEAD > "$SNAP/v2-head.txt"                                     # code is restored from git at this sha
+cp ai/migration/ledger.md "$SNAP/ledger.md"
+[ -f ai/migration/_history.md ] && cp ai/migration/_history.md "$SNAP/_history.md"
+for d in audits perf-decisions contracts plans mapping; do [ -d "ai/migration/$d" ] && cp -R "ai/migration/$d" "$SNAP/$d"; done
+printf 'phase: %s
+features: %s
+' "<N>" "<ids in this run>" > "$SNAP/manifest.txt"
+```
+
+The backup directory is never deleted by any command (rollback keeps it too). A run that halts before its first write leaves an empty-of-change snapshot; that is harmless.
+
 For each feature in the phase, in plan order:
 
 ### 4a. PRE-FLIGHT (per feature)
@@ -133,7 +152,7 @@ For each feature in the phase, in plan order:
 Halt before invoking the audit step if any:
 1. No ledger row exists for this feature.
 2. Feature's dependencies (per ledger) are not `V2-only` OR `--depend-on-v1` override is undocumented.
-3. `~/.claude/scripts/migration-detect-existing.sh "<v2-root>" "<feature-slug>"` returns `full` without `--overwrite-v2`.
+3. `~/.claude/scripts/migration-detect-existing.sh "<v2-root>" "<feature-slug>"` returns `full` without `--overwrite-v2`. (Read-only on V2: the report goes under `${TMPDIR}` and its path prints on stderr; this pre-flight used to write `<v2-root>/.claude/_migration-detect-<feature>.md` on every run.)
 4. V1 branch is not at HEAD of a clean working tree.
 
 ### 4b. AUDIT (mandatory agent dispatch — applies in BOTH normal AND `--audit-only` modes)
@@ -173,6 +192,8 @@ After the audit's classification, the action depends on the verdict:
 Implementation MUST follow V2 patterns (cite by `<path:line>` in the plan). Do NOT lift V1 implementation verbatim.
 
 Add parity tests alongside the implementation: `<parity-test-root>/<feature>/parity.spec.<ext>` + ≥30 corpus inputs in `inputs/` + `tolerance.yaml`. Wire the test in CI if not already.
+
+**Data cutover runbook (a feature whose stored rows move across stores).** Run the `data-cutover-orchestrate` skill on the feature. It is read-only: it writes its runbook draft (source of truth, checkpoint, reconcile query and result, gate status, reverse path, point of no return) to its run folder as `cutover-<feature>.md` and never into the tree. Copy that draft to `ai/runbooks/cutover-<feature>.md` as this command's own write — a `BLOCK cutover` draft is copied too, so the block is on record — and cite the path in the ledger row's `notes`. Never author the runbook from memory when the skill's draft exists; with no draft (the skill did not run), the runbook step stays open.
 
 ### 4d. AUDIT FILE STRUCTURE (validator-enforced)
 
@@ -296,6 +317,7 @@ After every feature in the phase has either advanced to `done`/`intentional-brea
 - `ai/migration/audits/<feature-id>.md` — one per audited feature; append-only.
 - `ai/migration/perf-decisions/<feature-id>.md` — if perf was discussed, decisions captured (applied / deferred / rejected + measurements).
 - `ai/dynamic/changelog.md` — append entry: "Phase <N> ported <X>/<Y> features".
+- `.claude/backups/migration-phase-<N>-<ts>/` — the pre-run snapshot of step 4-0 (the input `/migration-rollback <N>` restores from; never deleted).
 
 ## Phase 6 — Validate (verify correctness)
 
@@ -305,7 +327,7 @@ After processing every feature in the phase, run the validator script:
 ~/.claude/scripts/validate-migration-artifacts.sh --phase=<N>
 ```
 
-The validator checks every feature in phase N and exits non-zero on any failure. Specifically:
+The validator checks every feature in phase N, scoped to each row's tier (the heavy floor is listed; standard and trivial check their subsets per `migration-discipline.md` § Required artifacts per feature — tiered floor), and exits non-zero on any failure. These are artifact checks; the 13 hard halts of `migration-discipline.md` are what the parity-auditor's audit resolves, and the items marked *(executor)* below are not checked by the script — the executor checks them:
 
 - **Per-feature artifacts complete**:
   - `ai/migration/contracts/<feature>.md` exists with all 9 sections populated
@@ -318,10 +340,10 @@ The validator checks every feature in phase N and exits non-zero on any failure.
   - `ai/runbooks/migration-rollback-<feature>.md` exists and names mechanism + per-stage rollback steps
   - `ai/migration/audits/<feature>.md` exists with all required sections (classification, per-axis comparison, hard-halt findings, tenant-isolation gate, decision)
 - **Per-feature ledger row**: required fields populated per `migration-ledger.md` § Required fields per state
-- **Phase summary**: `ai/migration/audits/phase-<N>.md` exists (aggregates per-feature verdicts; first-class artifact `/migration-gate <N>` consumes)
-- **No V1 modifications**: PR diff under `<v1-root>/` is empty (or covered by additive cutover-mechanism wiring exception with `migration-discipline.md` rationale)
-- **Ledger row updates pass schema validation** (per `migration-ledger.md`)
-- **Every parity test runs in CI** (or user explicitly waived in a documented exception)
+- **Gap parity**: `gaps_in == gaps_closed` on every row (`check_gap_count_parity`)
+- *(executor)* **Phase summary**: `ai/migration/audits/phase-<N>.md` exists (aggregates per-feature verdicts; first-class artifact `/migration-gate <N>` consumes)
+- *(executor)* **No V1 modifications**: PR diff under `<v1-root>/` is empty (or covered by additive cutover-mechanism wiring exception with `migration-discipline.md` rationale) — halt 6
+- *(executor)* **Every parity test runs in CI** (or user explicitly waived in a documented exception); a V1-gated suite that skips when V1 is absent counts as NOT-RUN, not as passing
 
 If the validator exits non-zero → halt; surface findings per feature; do NOT mark the phase done. If the validator is unavailable in the current tool environment, the executor MUST manually verify each item above against `migration-discipline.md` § "Per-feature audit — 13 hard halts" before declaring Phase 6 done.
 

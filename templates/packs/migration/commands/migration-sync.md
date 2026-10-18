@@ -100,11 +100,11 @@ deferred:                              # commits deliberately NOT absorbed; they
 Delta computation:
 
 ```bash
-git -C <v1-root> log --first-parent --no-merges --reverse \
+git -C <v1-root> log --first-parent -m --reverse --name-status --format='commit %H %s' \
     <last_synced_v1_commit>..<v1_head> -- <paths-if-scoped>
 ```
 
-The `--first-parent` walk keeps the mainline; merge commits are expanded to their file changes, not treated as atomic units. Commits already listed under `deferred:` are skipped with their recorded reason re-printed (never silently).
+The `--first-parent` walk keeps the mainline, so a PR merged with a merge commit appears once, as that merge, and `-m` lists its diff against the mainline parent — the whole PR's change. This used to read `--first-parent --no-merges`, which drops exactly those merges: on a V1 that merges PRs with merge commits the delta held only direct pushes and squash merges, and every merged PR's files were silently missing (measured 2026-10-18, git 2.50.1: a scratch history with one direct commit and one `--no-ff` PR merge listed `direct` only under the old flags, and `direct` plus both PR files under these). For step 3, read a merge's own commits with `git -C <v1-root> log <merge>^1..<merge>^2`. Commits already listed under `deferred:` are skipped with their recorded reason re-printed (never silently).
 
 **Bootstrap — no `sync-state.md` yet:**
 
@@ -198,7 +198,7 @@ Then the per-axis checklist, over the delta only:
 - every dependency the analysis flagged reviewed, with a one-line verdict each;
 - every important scenario/edge case from the V1 diff represented in V2 or in a parity test.
 
-For UI-leaf pairs, the per-axis enumeration tables with `<v1-path:line>` / `<v2-path:line>` citations are mandatory regardless of verdict — a bare "clean" is a Trusted-Summary failure, and `validate-migration-artifacts.sh --feature <feature>` reports it when the agent runs the validator (agent-side discipline; nothing halts the run automatically).
+For UI-leaf pairs, the per-axis enumeration tables with `<v1-path:line>` / `<v2-path:line>` citations are mandatory regardless of verdict — a bare "clean" is a Trusted-Summary failure, and `validate-migration-artifacts.sh --feature=<feature>` reports it (the `=` form; the space form exits 2 as an unknown argument) when the agent runs the validator (agent-side discipline; nothing halts the run automatically).
 
 ## Step 7 — Test
 

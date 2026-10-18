@@ -1,0 +1,5 @@
+# pair-inventory 1 · lane=I-AUTHZ · side=v1 · sha=1111111111111111111111111111111111111111 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:0000000000000000 · normaliser=1 · generated=2026-10-18T13:05:06Z · rows=2
+# lane	key	attrs	at	excerpt
+I-AUTHZ	DELETE /api/orders/{}	abilities=orders.delete;authn=none;extra_guard=no;mw=api,can:orders.delete;roles=	routes/api.php:4	Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->middleware('can:orders.delete');
+I-AUTHZ	GET /api/orders	abilities=;authn=none;extra_guard=no;mw=api;roles=	routes/api.php:3	Route::get('/orders', [OrderController::class, 'index']);

@@ -29,7 +29,7 @@ output:
   returns:  the '## Output' block (GO/NO-GO + verified findings)
   writes:   none
   persisted_by: caller          # hook:persist-review.sh once the run directory exists
-skills:     [iac-scan, xss-scan, data-exposure-scan, injection-scan, logic-race-scan, threat-model, sast-scan, secret-scan, ssrf-scan]
+skills:     [iac-scan, xss-scan, data-exposure-scan, injection-scan, logic-race-scan, threat-model-method, sast-scan, secret-scan-method, ssrf-scan]
 status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
 verdict:    PASS | CONCERNS | FAIL        # display: GO→PASS · GO-UNVERIFIED→CONCERNS · NO-GO→FAIL
 severity:   IMPORTANT | NIT | PRE-EXISTING
@@ -255,7 +255,7 @@ Triaged (N) — known, accepted:
   - CVE-xxx in dep Y — dev-only, deferred per ticket SEC-42.
 
 Tools used:
-  - Static: the `sast-scan` skill's RAN / SKIPPED ledger (semgrep + the stack's security linter), gitleaks / trufflehog / detect-secrets via `secret-scan`
+  - Static: the `sast-scan` skill's RAN / SKIPPED ledger (semgrep + the stack's security linter), gitleaks / trufflehog / detect-secrets via `secret-scan-method`
   - Dynamic: endpoint prober + manual HTTP probes
   - Dep: package-manager-native auditor (npm audit / pip-audit / bundler-audit / cargo audit / composer audit / govulncheck) + cross-language scanner (trivy fs / Snyk / OSV-Scanner) + container image scan
 ```
@@ -282,8 +282,8 @@ Tools used:
 ### Skills
 - `ssrf-scan` — the A01 SSRF depth pass (user-URL → outbound fetch, resolved-IP + redirect re-validation, metadata-IP and encoding bypasses). This auditor's A01 SSRF row is the detector; that skill is the executor.
 - `deps-audit` — the A03 executor: lockfile-resolved CVEs triaged by EPSS + CISA KEV, not CVSS alone. An A03 finding without a resolved `<CVE-id>` from it is not shippable.
-- `secret-scan` — the secrets sweep, including git history. A `GO` emitted without it is a halt condition above.
-- `threat-model` — STRIDE a new component at design time, before this audit has code to read.
+- `secret-scan-method` — the secrets sweep, including git history. A `GO` emitted without it is a halt condition above.
+- `threat-model-method` — STRIDE a new component at design time, before this audit has code to read.
 
 ### Patterns
 - `ai/patterns/auth-flow.md`

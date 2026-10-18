@@ -1,0 +1,20 @@
+--- a/apps/web/src/features/orders/components/OrderStatusBadge.tsx
++++ b/apps/web/src/features/orders/components/OrderStatusBadge.tsx
+@@ -10,7 +10,7 @@
+ 
+ export function OrderStatusBadge({ status }: OrderStatusBadgeProps) {
+   return (
+-    <span className={styles.badge} style={{ color: status === 'failed' ? '#d92d20' : 'var(--color-text-muted)' }}>
++    <span className={styles.badge} style={{ color: status === 'failed' ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+       {t(labelKey(status))}
+     </span>
+   );
+--- a/apps/web/src/features/orders/components/OrderDrawer.tsx
++++ b/apps/web/src/features/orders/components/OrderDrawer.tsx
+@@ -1,5 +1,5 @@
+ import { useEffect, useRef } from 'react';
+-import { createFocusTrap } from '@acme/ui/src/internal/focus-trap';
++import { createFocusTrap } from '@acme/ui';
+ import { useOrder } from '../useOrders';
+ import { OrderActions } from './OrderActions';
+ import { OrderNotes } from './OrderNotes';

@@ -429,7 +429,7 @@ Class coverage
 - `@api-security-reviewer` — API1 BOLA and API3 mass assignment (hand-offs from §1, §13, §15); API4 / API6 caps and anti-automation (adjacent to §9).
 - `@tenant-isolation-reviewer` — the other-tenant column's failures; tenant id from client input (its probe C).
 - `@auth-reviewer` — login brute force, session and token revocation, reset-token storage, step-up enforcement (adjacent to §9, §11, §14).
-- `threat-model` — enumerate the business flows and their invariants before a new feature ships; its output is this skill's invariant list.
+- `threat-model-method` — enumerate the business flows and their invariants before a new feature ships; its output is this skill's invariant list.
 - `backend/ai-patterns/transaction-boundary.md`, `backend/ai-patterns/rate-limiting.md`, `backend/ai-patterns/request-validation.md`, `backend/ai-patterns/webhook-flow.md` — the contracts behind §2, §4, §5, §8 and §9 when the backend pack is installed. Without it, the lane table and the GOOD blocks here are the whole contract.
 - `distributed-systems/ai-patterns/idempotency.md` — the idempotency storage contract for §4 when the distributed-systems pack is installed; without it, §4's GOOD block.
 - `database` `transaction-scan` (database pack, when installed) — the transaction side of §5: lock order (§3), retry on serialization failure (§4) and write skew (§7) there, with `database/ai-patterns/transaction-isolation.md` as the method. Without the database pack, §5's ordered fixes.

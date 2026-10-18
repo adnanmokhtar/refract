@@ -127,7 +127,7 @@ Also read **all** `.claude/rules/` applicable to this bug.
 CONTEXT-GATHERING SKILLS:
 
 **If correlation id / timestamp**:
-- `log-tail correlation:<id>` OR `log-tail error` + filter by time.
+- `/log-tail correlation:<id>` OR `/log-tail error` + filter by time.
 - Read logs end-to-end before theorizing.
 
 **If HTTP endpoint**:
@@ -265,7 +265,7 @@ Mandatory:
 - Standards gate closed — every fired row MET or n-a, else INCOMPLETE ✓
 
 Run skills:
-- `endpoint-test` if endpoint logic changed.
+- `endpoint-test-method` if endpoint logic changed.
 - `coverage-gap` — all branches of the fix tested?
 - `schema-diff` if DB involved.
 - `n-plus-one-scan` if perf bug (database pack, when installed).

@@ -1,0 +1,306 @@
+{
+  "namespaces": ["public"],
+  "name": "public",
+  "tables": [
+    {
+      "name": "accounts",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "billing_email": {"name": "billing_email", "type": "varchar(120)", "primary": false, "nullable": false, "mappedType": "string"},
+        "company_name": {"name": "company_name", "type": "varchar(60)", "primary": false, "nullable": false, "mappedType": "string"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "vat_number": {"name": "vat_number", "type": "varchar(15)", "primary": false, "nullable": true, "mappedType": "string"}
+      },
+      "indexes": [
+      ],
+      "foreignKeys": {
+      }
+    },
+    {
+      "name": "invoices",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "account_id": {"name": "account_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "billing_email": {"name": "billing_email", "type": "varchar(120)", "primary": false, "nullable": false, "mappedType": "string"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "issued_at": {"name": "issued_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "number": {"name": "number", "type": "varchar(20)", "primary": false, "nullable": true, "mappedType": "string"},
+        "order_id": {"name": "order_id", "type": "bigint", "primary": false, "nullable": true, "mappedType": "bigint"},
+        "status": {"name": "status", "type": "varchar(10)", "primary": false, "nullable": false, "mappedType": "string"},
+        "subtotal_amount": {"name": "subtotal_amount", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "tax_amount": {"name": "tax_amount", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "tax_rate": {"name": "tax_rate", "type": "numeric(6,4)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "total_amount": {"name": "total_amount", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+        {"keyName": "invoices_account_id_number_unique", "columnNames": ["account_id", "number"], "unique": true}
+      ],
+      "foreignKeys": {
+        "invoices_account_id_foreign": {"constraintName": "invoices_account_id_foreign", "columnNames": ["account_id"], "referencedTableName": "public.accounts", "referencedColumnNames": ["id"], "updateRule": "cascade"},
+        "invoices_order_id_foreign": {"constraintName": "invoices_order_id_foreign", "columnNames": ["order_id"], "referencedTableName": "public.orders", "referencedColumnNames": ["id"], "updateRule": "cascade"}
+      }
+    },
+    {
+      "name": "invoice_audit",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "changed_at": {"name": "changed_at", "type": "timestamptz", "primary": false, "nullable": false, "mappedType": "datetime"},
+        "changed_by": {"name": "changed_by", "type": "bigint", "primary": false, "nullable": true, "mappedType": "bigint"},
+        "changes": {"name": "changes", "type": "jsonb", "primary": false, "nullable": false, "mappedType": "json"},
+        "invoice_id": {"name": "invoice_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"}
+      },
+      "indexes": [
+      ],
+      "foreignKeys": {
+      }
+    },
+    {
+      "name": "invoice_lines",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "invoice_id": {"name": "invoice_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "net_amount": {"name": "net_amount", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "quantity": {"name": "quantity", "type": "integer", "primary": false, "nullable": false, "mappedType": "integer"},
+        "sku": {"name": "sku", "type": "varchar(40)", "primary": false, "nullable": false, "mappedType": "string"},
+        "tax_category": {"name": "tax_category", "type": "smallint", "primary": false, "nullable": false, "mappedType": "smallint"},
+        "unit_price": {"name": "unit_price", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"}
+      },
+      "indexes": [
+      ],
+      "foreignKeys": {
+        "invoice_lines_invoice_id_foreign": {"constraintName": "invoice_lines_invoice_id_foreign", "columnNames": ["invoice_id"], "referencedTableName": "public.invoices", "referencedColumnNames": ["id"], "updateRule": "cascade", "deleteRule": "cascade"}
+      }
+    },
+    {
+      "name": "invoice_sequences",
+      "schema": "public",
+      "columns": {
+        "last_value": {"name": "last_value", "type": "integer", "primary": false, "nullable": false, "mappedType": "integer"},
+        "year": {"name": "year", "type": "smallint", "primary": false, "nullable": false, "mappedType": "smallint"}
+      },
+      "indexes": [
+      ],
+      "foreignKeys": {
+      }
+    },
+    {
+      "name": "orders",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "account_id": {"name": "account_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "channel": {"name": "channel", "type": "varchar(20)", "primary": false, "nullable": false, "mappedType": "string"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "currency": {"name": "currency", "type": "varchar(3)", "primary": false, "nullable": false, "mappedType": "string"},
+        "customer_email": {"name": "customer_email", "type": "varchar(255)", "primary": false, "nullable": false, "mappedType": "string"},
+        "deleted_at": {"name": "deleted_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "legacy_id": {"name": "legacy_id", "type": "int", "primary": false, "nullable": true, "mappedType": "string"},
+        "line_count": {"name": "line_count", "type": "integer", "primary": false, "nullable": false, "mappedType": "integer"},
+        "notes": {"name": "notes", "type": "text", "primary": false, "nullable": true, "mappedType": "text"},
+        "number": {"name": "number", "type": "varchar(20)", "primary": false, "nullable": false, "mappedType": "string"},
+        "po_number": {"name": "po_number", "type": "varchar(30)", "primary": false, "nullable": true, "mappedType": "string"},
+        "shipped_at": {"name": "shipped_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "status": {"name": "status", "type": "varchar(20)", "primary": false, "nullable": false, "mappedType": "string"},
+        "total_amount": {"name": "total_amount", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+        {"keyName": "orders_number_unique", "columnNames": ["number"], "unique": true},
+        {"keyName": "orders_legacy_id_unique", "columnNames": ["legacy_id"], "unique": true}
+      ],
+      "foreignKeys": {
+        "orders_account_id_foreign": {"constraintName": "orders_account_id_foreign", "columnNames": ["account_id"], "referencedTableName": "public.accounts", "referencedColumnNames": ["id"], "updateRule": "cascade"}
+      }
+    },
+    {
+      "name": "order_lines",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "discount_rate": {"name": "discount_rate", "type": "numeric(5,4)", "primary": false, "nullable": true, "mappedType": "decimal"},
+        "legacy_id": {"name": "legacy_id", "type": "int", "primary": false, "nullable": true, "mappedType": "string"},
+        "net_amount": {"name": "net_amount", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "order_id": {"name": "order_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "quantity": {"name": "quantity", "type": "integer", "primary": false, "nullable": false, "mappedType": "integer"},
+        "sku": {"name": "sku", "type": "varchar(40)", "primary": false, "nullable": false, "mappedType": "string"},
+        "unit_price": {"name": "unit_price", "type": "numeric(12,2)", "primary": false, "nullable": false, "mappedType": "decimal"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+        {"keyName": "order_lines_legacy_id_unique", "columnNames": ["legacy_id"], "unique": true}
+      ],
+      "foreignKeys": {
+        "order_lines_order_id_foreign": {"constraintName": "order_lines_order_id_foreign", "columnNames": ["order_id"], "referencedTableName": "public.orders", "referencedColumnNames": ["id"], "updateRule": "cascade", "deleteRule": "cascade"}
+      }
+    },
+    {
+      "name": "stock_items",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "account_id": {"name": "account_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "deleted_at": {"name": "deleted_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "description": {"name": "description", "type": "varchar(200)", "primary": false, "nullable": false, "mappedType": "string"},
+        "legacy_id": {"name": "legacy_id", "type": "int", "primary": false, "nullable": true, "mappedType": "string"},
+        "pack_size": {"name": "pack_size", "type": "integer", "primary": false, "nullable": false, "mappedType": "integer"},
+        "quantity_available": {"name": "quantity_available", "type": "integer", "primary": false, "nullable": false, "mappedType": "integer"},
+        "quantity_reserved": {"name": "quantity_reserved", "type": "integer", "primary": false, "nullable": false, "mappedType": "integer"},
+        "reorder_level": {"name": "reorder_level", "type": "smallint", "primary": false, "nullable": false, "mappedType": "smallint"},
+        "sku": {"name": "sku", "type": "varchar(40)", "primary": false, "nullable": false, "mappedType": "string"},
+        "unit": {"name": "unit", "type": "varchar(8)", "primary": false, "nullable": false, "mappedType": "string"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+        {"keyName": "stock_items_legacy_id_unique", "columnNames": ["legacy_id"], "unique": true},
+        {"keyName": "stock_items_account_id_sku_unique", "columnNames": ["account_id", "sku"], "unique": true}
+      ],
+      "foreignKeys": {
+        "stock_items_account_id_foreign": {"constraintName": "stock_items_account_id_foreign", "columnNames": ["account_id"], "referencedTableName": "public.accounts", "referencedColumnNames": ["id"], "updateRule": "cascade"}
+      }
+    },
+    {
+      "name": "tags",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "is_system": {"name": "is_system", "type": "boolean", "primary": false, "nullable": false, "mappedType": "boolean"},
+        "name": {"name": "name", "type": "varchar(40)", "primary": false, "nullable": false, "mappedType": "string"}
+      },
+      "indexes": [
+        {"keyName": "tags_name_unique", "columnNames": ["name"], "unique": true}
+      ],
+      "foreignKeys": {
+      }
+    },
+    {
+      "name": "tag_ticket",
+      "schema": "public",
+      "columns": {
+        "tag_id": {"name": "tag_id", "type": "bigint", "primary": true, "nullable": false, "mappedType": "bigint"},
+        "ticket_id": {"name": "ticket_id", "type": "bigint", "primary": true, "nullable": false, "mappedType": "bigint"}
+      },
+      "indexes": [
+      ],
+      "foreignKeys": {
+        "tag_ticket_tag_id_foreign": {"constraintName": "tag_ticket_tag_id_foreign", "columnNames": ["tag_id"], "referencedTableName": "public.tags", "referencedColumnNames": ["id"], "updateRule": "cascade", "deleteRule": "cascade"},
+        "tag_ticket_ticket_id_foreign": {"constraintName": "tag_ticket_ticket_id_foreign", "columnNames": ["ticket_id"], "referencedTableName": "public.tickets", "referencedColumnNames": ["id"], "updateRule": "cascade", "deleteRule": "cascade"}
+      }
+    },
+    {
+      "name": "tickets",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "uuid", "primary": true, "nullable": false, "mappedType": "uuid"},
+        "account_id": {"name": "account_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "assignee_id": {"name": "assignee_id", "type": "bigint", "primary": false, "nullable": true, "mappedType": "bigint"},
+        "body": {"name": "body", "type": "text", "primary": false, "nullable": false, "mappedType": "text"},
+        "closed_at": {"name": "closed_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "due_at": {"name": "due_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "legacy_id": {"name": "legacy_id", "type": "int", "primary": false, "nullable": true, "mappedType": "string"},
+        "opened_by": {"name": "opened_by", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "order_id": {"name": "order_id", "type": "bigint", "primary": false, "nullable": true, "mappedType": "bigint"},
+        "priority": {"name": "priority", "type": "smallint", "primary": false, "nullable": false, "mappedType": "smallint"},
+        "status": {"name": "status", "type": "varchar(10)", "primary": false, "nullable": false, "mappedType": "string"},
+        "subject": {"name": "subject", "type": "varchar(150)", "primary": false, "nullable": false, "mappedType": "string"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+        {"keyName": "tickets_legacy_id_unique", "columnNames": ["legacy_id"], "unique": true}
+      ],
+      "foreignKeys": {
+        "tickets_account_id_foreign": {"constraintName": "tickets_account_id_foreign", "columnNames": ["account_id"], "referencedTableName": "public.accounts", "referencedColumnNames": ["id"], "updateRule": "cascade"}
+      }
+    },
+    {
+      "name": "ticket_messages",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "author_id": {"name": "author_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "body": {"name": "body", "type": "text", "primary": false, "nullable": false, "mappedType": "text"},
+        "channel": {"name": "channel", "type": "smallint", "primary": false, "nullable": false, "mappedType": "smallint"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "ticket_id": {"name": "ticket_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+      ],
+      "foreignKeys": {
+        "ticket_messages_ticket_id_foreign": {"constraintName": "ticket_messages_ticket_id_foreign", "columnNames": ["ticket_id"], "referencedTableName": "public.tickets", "referencedColumnNames": ["id"], "updateRule": "cascade", "deleteRule": "no action"}
+      }
+    },
+    {
+      "name": "users",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "account_id": {"name": "account_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "email": {"name": "email", "type": "varchar(255)", "primary": false, "nullable": false, "mappedType": "string"},
+        "legacy_id": {"name": "legacy_id", "type": "int", "primary": false, "nullable": true, "mappedType": "string"},
+        "locale": {"name": "locale", "type": "varchar(5)", "primary": false, "nullable": false, "mappedType": "string"},
+        "name": {"name": "name", "type": "varchar(255)", "primary": false, "nullable": false, "mappedType": "string"},
+        "password": {"name": "password", "type": "varchar(255)", "primary": false, "nullable": false, "mappedType": "string"},
+        "remember_token": {"name": "remember_token", "type": "varchar(100)", "primary": false, "nullable": true, "mappedType": "string"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+        {"keyName": "users_legacy_id_unique", "columnNames": ["legacy_id"], "unique": true},
+        {"keyName": "users_email_unique", "columnNames": ["email"], "unique": true}
+      ],
+      "foreignKeys": {
+        "users_account_id_foreign": {"constraintName": "users_account_id_foreign", "columnNames": ["account_id"], "referencedTableName": "public.accounts", "referencedColumnNames": ["id"], "updateRule": "cascade"}
+      }
+    },
+    {
+      "name": "wallets",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "account_id": {"name": "account_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "balance_minor": {"name": "balance_minor", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "credit_limit_minor": {"name": "credit_limit_minor", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "currency": {"name": "currency", "type": "varchar(3)", "primary": false, "nullable": false, "mappedType": "string"},
+        "legacy_id": {"name": "legacy_id", "type": "int", "primary": false, "nullable": true, "mappedType": "string"},
+        "promo_balance_minor": {"name": "promo_balance_minor", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "promo_granted_at": {"name": "promo_granted_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "updated_at": {"name": "updated_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"}
+      },
+      "indexes": [
+        {"keyName": "wallets_account_id_unique", "columnNames": ["account_id"], "unique": true},
+        {"keyName": "wallets_legacy_id_unique", "columnNames": ["legacy_id"], "unique": true}
+      ],
+      "foreignKeys": {
+        "wallets_account_id_foreign": {"constraintName": "wallets_account_id_foreign", "columnNames": ["account_id"], "referencedTableName": "public.accounts", "referencedColumnNames": ["id"], "updateRule": "cascade"}
+      }
+    },
+    {
+      "name": "wallet_transactions",
+      "schema": "public",
+      "columns": {
+        "id": {"name": "id", "type": "serial", "primary": true, "nullable": false, "mappedType": "integer"},
+        "amount_minor": {"name": "amount_minor", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"},
+        "created_at": {"name": "created_at", "type": "timestamptz", "primary": false, "nullable": true, "mappedType": "datetime"},
+        "posted_at": {"name": "posted_at", "type": "timestamptz", "primary": false, "nullable": false, "mappedType": "datetime"},
+        "posted_by": {"name": "posted_by", "type": "bigint", "primary": false, "nullable": true, "mappedType": "bigint"},
+        "reason": {"name": "reason", "type": "varchar(120)", "primary": false, "nullable": false, "mappedType": "string"},
+        "wallet_id": {"name": "wallet_id", "type": "bigint", "primary": false, "nullable": false, "mappedType": "bigint"}
+      },
+      "indexes": [
+      ],
+      "foreignKeys": {
+        "wallet_transactions_wallet_id_foreign": {"constraintName": "wallet_transactions_wallet_id_foreign", "columnNames": ["wallet_id"], "referencedTableName": "public.wallets", "referencedColumnNames": ["id"], "updateRule": "cascade"}
+      }
+    }
+  ]
+}

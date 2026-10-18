@@ -1,0 +1,19 @@
+# V1 scheduler: runs `php artisan schedule:run` every minute (routes/console.php).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: v1-schedule-run
+  namespace: norrow
+spec:
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  suspend: true
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: schedule
+              image: registry.norrow.example/v1-portal:2024.11.3
+              command: ["php", "artisan", "schedule:run"]

@@ -1,0 +1,4 @@
+# V-03b: the same snap, declared VC with a recorded approval
+approval PASS-flagged
+roundtrip PASS-flagged
+verdict PASS-flagged

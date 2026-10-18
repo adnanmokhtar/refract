@@ -14,6 +14,12 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.33.0 — 2026-10-18
+
+- **`design-token-audit` + `scripts/token-map.py`** (new, `--self-test` 42/42): token tables per theme from CSS custom properties, Tailwind 4 `@theme`, style-dictionary/DTCG and TS token objects, scoped per package; a literal is EXACT only with the same value AND the same property family (a `13px` padding equal to a font-size token is a cross-family match, `xfam=`). §8b flags a primitive-tier token used where a semantic token aliases it (AL-08).
+- **`ui-crawl-fix`**: contrast rooted in a token's value is routed to `/polish lift-contrast` and never edited here; `contrast` left `--safe-only`.
+- `token-map.py`: border, outline and text-decoration lengths are a `width` family (they had matched icon-size tokens or been read as colours on a real repo).
+
 ## 1.32.0 — 2026-10-15
 
 **Detector fixes from a read-only audit of a real NestJS + React monorepo.**

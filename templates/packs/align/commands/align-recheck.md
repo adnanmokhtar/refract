@@ -1,5 +1,5 @@
 ---
-description: "Independent codebase-quality spot-check + fix. Accepts a natural-language description (\"the sidebar\", \"the orders module\") OR explicit paths. Scans source FRESH for the described area against the gold-standard inventory, detects drift (dead code / dups / reinvented wrappers / silent catches / a11y / design tokens / i18n / security / perf), fixes it. NO plan dependency, NO phase concept, NO required ledger row. Bypasses the full alignment ceremony — just: find the area, scan, fix. Mirrors /migration-recheck."
+description: "Area-scoped align audit + fix: resolve \"the sidebar\" or a path, run align-detect fresh there, close declared-convention rows through find-and-align, route owner rows to their fix commands. No plan or ledger needed."
 kind: command
 pack: align
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
@@ -19,9 +19,9 @@ What it does NOT do:
 
 What it DOES:
 - ✅ Resolve your description to actual source paths (semantic understanding via codebase-profile + idioms).
-- ✅ Run a **fresh detection sweep** for the area: dispatches the 11 universal detectors (dead-code, dups, reinvented-wrapper, silent-catch, over-abstraction, drift, SOLID, clean-code, performance, security, unhandled-io) + stack-conditional UI/UX detectors for `frontend-*` (a11y, design-tokens, i18n, motion, lifecycle, default-true-prop, permission-gate-drop).
-- ✅ Apply closure-verb fixes (21-verb vocabulary; structural net-lines ≤ 0; functional cite-idiom).
-- ✅ Verify (lint + typecheck + scoped tests + re-detect + class-specific assertions).
+- ✅ Run a **fresh detection sweep** for the area: `align-detect` scoped to the resolved paths — the four align detectors (`convention-oracle`, `wrapper-adoption-scan`, `naming-layout-scan`, `convention-ratchet-scan`) and every installed owner detector (ui-ux `design-token-audit`, frontend `i18n-scan` / `a11y-code-scan`, code-quality `architectural-diagnosis`, backend `edge-error-scan` / `api-consistency-audit`). Every candidate is refuted (`refute-before-report.md` § 10) before it counts.
+- ✅ Close the align-owned rows through `find-and-align` (the proof ladder: EQ by a zero diff, VC only with a human approval, FN by a behaviour test).
+- ✅ Print an **owner line** for every row another pack closes — security, performance, data, error handling, dead code, SOLID, API contracts, new copy — with the owner's fix command. Recheck never closes them.
 - ✅ Commit (one commit per finding).
 - ✅ **Best-effort ledger update**: if the alignment ledger exists, update it; if not, leave it alone (or pass `--register-ledger` to create new entries).
 
@@ -41,17 +41,18 @@ Use this when:
 - The full alignment plan is paused / abandoned but you still want a sweep on one area.
 
 This is the **focused-area** companion to `/align-fast <N> --re-audit` (which is phase-scoped). Use `/align-recheck` when:
-- You suspect drift (dead code, reinvented wrappers, silent catches, perf issues, security gaps) in a specific module / page / route after a feature merge.
+- You suspect convention drift (a raw library import past the wrapper, a token literal, a misnamed file, a dropped permission gate) in a specific module / page / route after a feature merge.
 - You want to re-verify a code area independent of how it was phased originally.
 - A code review surfaces concerns about a specific surface and you want a fresh quality sweep there.
 - The module wasn't in the alignment plan (yet) but you need to re-check it now.
 
 **What it does** (per matched finding):
-1. Re-detect: re-run the detector against current source.
-2. Decide: confirm closure verb is in vocabulary; verify behaviour-preserving for structural rows; verify idiom-citation for functional rows.
-3. Fix: apply closure-verb edit (mechanical for structural; small + budgeted for functional).
-4. Verify: lint + typecheck + scoped tests + re-detect + class-specific assertions.
-5. Record: update ledger row.
+1. Route: an owner row gets its owner line and no edit; a T2g oracle waits for ratification.
+2. Re-detect: re-run the row's `detector_cmd` against current source; the oracle quote still resolves (L0).
+3. Decide: the proof class (EQ / VC / FN) and a closure verb from the closed set.
+4. Fix: only the matched expression and the verb's footprint; tests and snapshots read-only.
+5. Verify: the ladder (`align-sweep-gate.py ladder`, L0–L13).
+6. Record: update the ledger row, when a ledger exists.
 
 Same discipline as `/align-phase` (the per-finding loop), just multi-finding + path-scoped.
 
@@ -59,7 +60,7 @@ Same discipline as `/align-phase` (the per-finding loop), just multi-finding + p
 
 - "Re-check the orders module" — `/align-recheck the orders module` OR `/align-recheck <modules-root>/orders/`
 - "Re-check the sidebar" — `/align-recheck the sidebar`
-- "Re-check the page-builder for security/quality issues" — `/align-recheck the page builder`
+- "Re-check the page-builder against our conventions" — `/align-recheck the page builder` (security or quality issues there are `/security-audit` and `/quality-audit`)
 - "Re-check store + products" — `/align-recheck the store and products modules`
 - After a feature merge that touched many files, to verify nothing broke alignment.
 
@@ -100,7 +101,7 @@ Configurable via `--no-confirm` / `--always-confirm` / `--max-matches=<N>`.
 ## Pre-requisites (intentionally minimal)
 
 **Hard requirements**:
-- `_extracted-idioms.md` (or `codebase-profile.md`) populated — the oracle.
+- A declared convention for the area — the oracle map (`convention-oracle` § 0) has a T1 or T2 row; the inventory comes from `_extracted-idioms.md` → `codebase-profile.md` → `ai/conventions.md`.
 - Mechanical CI green at HEAD (lint / typecheck / build / tests).
 - Working tree clean, unless `--allow-dirty`.
 
@@ -110,7 +111,7 @@ Configurable via `--no-confirm` / `--always-confirm` / `--max-matches=<N>`.
 - ❌ `ai/align/plan.md` does NOT need to exist.
 - ❌ The area does NOT need to be in any phase.
 
-If a ledger / plan exists, the command USES it (best-effort row updates). If not, the command still works — it scans source directly via the universal detectors.
+If a ledger / plan exists, the command USES it (best-effort row updates). If not, the command still works — it scans source directly through `align-detect`.
 
 ## Phase 1 — Understand (the ask)
 
@@ -128,10 +129,10 @@ Optional flags:
 
 **Ledger flags** (best-effort, not required):
 - `--register-ledger` — if no matching ledger rows exist, create new entries for the findings detected in the recheck. Default: leave the ledger alone (recheck stays "off the books"). Use this when you want the area's findings tracked going forward.
-- `--ledger-only` — restrict the scan to existing ledger rows whose scope is inside the resolved area (legacy behavior). Use when the area has already been scanned and you want the strict prior behavior. Without this flag, the command scans source directly via the universal detectors.
+- `--ledger-only` — restrict the scan to existing ledger rows whose scope is inside the resolved area (legacy behavior). Use when the area has already been scanned and you want the strict prior behavior. Without this flag, the command scans source directly through `align-detect`.
 
 **Detection flags**:
-- `--class=<list>` — limit to specific classes (e.g., `--class=security,reinvented-wrapper,a11y-violation,duplicated-surface-styles`).
+- `--class=<list>` — limit to AL classes (e.g., `--class=AL-05,AL-11,AL-15,AL-28`). Legacy names map through `align-detect` § The legacy class map; a name that maps to no AL class (or to an owner class such as `security`) is refused with its owner named, never silently dropped.
 
 **Run-control flags**:
 - `--max-parallel=<N>` — cap parallel finding dispatch (default: 5 trivial; 3 standard; 1 heavy).
@@ -145,15 +146,15 @@ Optional flags:
 1. PRE-FLIGHT      — verify oracle + clean tree (ledger / plan NOT required)
 2. RESOLVE         — for each input arg: classify as path or description; resolve descriptions to source paths via semantic understanding
 3. CONFIRM         — if resolution was ambiguous, surface candidates and confirm
-4. SCAN-FRESH      — for the resolved area: dispatch the 11 universal detectors (+ stack-conditional UI/UX detectors for frontend-*) directly against current source. NO cache lookup, NO ledger-row lookup as input.
-5. TRIAGE          — split detected findings into trivial / standard / heavy; dispatch `@align-evidence-auditor` over the fresh rows (evidence resolves + explicit enumeration + class matches signal + verb reachable without invention + tier floor). Rows it REJECTs do not reach FIX; out-of-domain rows leave with their destination named.
-6. FIX             — apply closure-verb edits per finding (one commit per finding; net-lines ≤ 0 structural / cite-idiom functional)
-7. VERIFY          — lint + typecheck + scoped tests + re-detect + class-specific assertions (security / perf / a11y / bundle-size)
+4. SCAN-FRESH      — for the resolved area: `align-detect --scope=<paths>` against current source (align detectors + installed owner detectors), the AL-01 quote check, then refute-before-report § 10 for every candidate. NO cache lookup, NO ledger-row lookup as input.
+5. TRIAGE          — owner rows → owner lines (no edit); T2g rows → one ratification line per rule; the rest split trivial / standard / heavy; dispatch `@align-evidence-auditor` over the fresh rows. Rows it REJECTs do not reach FIX; out-of-domain rows leave with their destination named.
+6. FIX             — find-and-align per align-owned row (one commit per row; only the matched expression; tests read-only)
+7. VERIFY          — the ladder: align-sweep-gate.py ladder (oracle, approval, diffkind, lock-paths, scope, redetect, consistency, names, roundtrip, ratchet, lock-count, vacuous) + L9 lint/types/tests + L10a zero diff (EQ) or L10b approved visual diff (VC)
 8. RECORD-LEDGER   — best-effort: if a ledger exists, update matching rows. If not, leave alone (or create new entries if --register-ledger)
 9. SUMMARY         — end-of-run report
 ```
 
-Heavy-tier findings still get the supervised loop (reviewer pause). Critical security still auto-promotes to heavy. The discipline floor doesn't change — only the input source (your description vs. ledger rows).
+Heavy-tier findings still get the supervised loop (reviewer pause). The discipline floor doesn't change — only the input source (your description vs. ledger rows).
 
 Key difference vs `/align-fast` / `/align-phase`:
 - Fast/phase: reads ledger → finds rows in phase N → re-detects each.
@@ -171,67 +172,64 @@ For each matched finding:
 
 ## Phase 4 — Generate (produce the output)
 
-### Per-class → pack-skill routing (the FIX dispatch)
+### Owner lines (what recheck reports and does not close)
 
-The 21-verb vocabulary above is the closure-verb floor for structural / functional drift. For findings whose class is owned by a specialist pack skill, the FIX step (Phase 2 step 6) routes the finding to that skill — the skill owns the verb taxonomy, procedure, and verify for its class; `/align-recheck` keeps the per-finding loop (DETECT → DECIDE → FIX → VERIFY → RECORD) around it.
+`align-detect` § The class ledger is the routing table; recheck never re-decides it. For each row whose closer is not align, print one owner line with the site, the class, the owner's detector and the owner's fix command, and make no edit:
 
-| Finding class | Dispatched skill | Pack |
-|---|---|---|
-| refactoring (extract-method / inline / rename / move / dedup — behaviour-preserving structure) | `refactoring-sweep` | code-quality |
-| UI/UX axes (tokens / hierarchy / rhythm / states / contrast / focus / motion / tap-target / cta / affordance / surface / type-scale) | `ui-design-sweep` | ui-ux |
-| api (envelope / error-contract / pagination / naming-case / idempotency / log-metric-trace naming / openapi coverage) | `api-consistency-audit` | backend |
-| schema (column-naming / type / index-naming / audit-field / soft-delete / timestamp drift) | `schema-consistency-audit` | database |
+| The row is | Owner line |
+|---|---|
+| a security class (injection, XSS, secret, auth gate, tenant filter) | `owner: security → /security-fix` (always installed) |
+| performance or data (N+1, missing index, cache, sequential await) | `owner: performance → /perf-fix` · `owner: database → /db-fix`; `(not installed)` when absent — then the one carve-out in `find-and-align` Step 1 applies (an idiom the oracle names, with a **measured** failing-first baseline) |
+| silent catch, unhandled I/O, dead code, a diverged copy, SOLID, complexity | `owner: code-quality → /quality-fix` |
+| an envelope or error shape against a **declared** contract (AL-23) | `owner: backend → /backend-fix`; no contract declared → `/polish` |
+| casing or pagination uniformity (AL-24, AL-25), schema naming | `owner: backend / database → /polish` (the introduce-finish command; recheck has no verb for it) |
+| new copy, catalog defects (AL-26 non-EQ, AL-27), an a11y fix with no wrapper prop | `owner: frontend → /frontend-fix` |
+| a token literal with no exact token, a token or state that does not exist yet | `/polish` (AL-06 may also close as VC with a human approval) |
+| a wrapper gap (P-09) | `/unify-surfaces` |
 
-Class-to-skill routing fires only when the resolved area's `PROJECT_KIND` makes the skill applicable (UI/UX skills on `frontend-*` / `mobile-*`; api/schema on `backend-*` / `data-*`). Findings outside these four classes stay on the universal 21-verb closure path. The dispatched skill's own pre-flight (idioms / conventions present) and verify (visual baseline / a11y / migration reversibility) apply.
+Owner rows whose closer **is** align — an EQ token row from `design-token-audit`, an EQ catalog-key row from `i18n-scan`, a re-route through a public surface the oracle names — go through `find-and-align` like any align row. Without the owner pack installed, its classes print `N/A (owner pack <x> not installed)`.
 
 Per-finding output streams to `ai/align/runs/<YYYY-MM-DD-HHMMSS>-recheck.log`. End-of-run summary surfaces to user.
 
 ```
 Align recheck — paths: <modules-root>/orders/, <modules-root>/store/
 
-Pre-flight:                    PASS
-(--rescan-fresh):              ran; 3 new findings added to ledger
-Findings matched:              28
-  By path:
-    <modules-root>/orders/:       16
-    <modules-root>/store/:        12
+Pre-flight:                    PASS (clean tree, CI green, oracle: T1 3 · T2 14 · T2g 4)
+Candidates:                    31 → AL-01 dropped 2 → verified: 9 findings · 3 unconfirmed · 4 hardening · 13 refuted
   By class:
-    reinvented-wrapper:        9
-    silent-catch:              5
-    dead-code:                 4
-    drift:                     6
-    security:                  2
-    performance:               2
+    AL-11 raw primitive:       4
+    AL-05 token = value:       2   (routed from design-token-audit, EQ → align closer)
+    AL-15 gate:                1
+    AL-16 file name:           2
 
-Triage (after re-detect):
-  Clean (no drift):            21
-  Drifted:                     6
-  Halted (need user action):   1
+Fixes applied:
+  A058 (AL-11)   fixed  EQ  raw ky import → @acme/http apiClient (V400; defaults reproduce the options)
+  A061 (AL-05)   fixed  EQ  '#d92d20' → var(--color-danger); zero computed-style diff light + dark (V394)
+  A066 (AL-15)   fixed  FN  delete action wrapped in <Can action="orders.delete">; render test as viewer (V401)
+  A071 (AL-16)   fixed  EQ  orderRow.tsx → OrderRow.tsx (git mv; tsc --noEmit --incremental false green; V402)
 
-Re-fixes applied:
-  A042 (silent-catch)          fixed (-3 lines)
-  A058 (reinvented-wrapper)    fixed (-12 lines, swapped local Button for AppButton)
-  A071 (dead-code)             fixed (-8 lines)
-  A089 (drift)                 fixed (replaced raw axios.create with apiClient)
-  A105 (security)              fixed (added requireAdmin gate; +4 lines, idiom-cited)
-  A112 (performance)           fixed (replaced sequential await with batch query)
+Pending:
+  A069 (AL-06)   pending-approval     13px → --space-3 changes pixels; diff images in ai/align/runs/…/A069
+  —              pending-ratification ai/conventions.md:41 "Store files end in .store.ts" (generated) — confirm it
+
+Owner lines (no edit here):
+  src/orders/report.ts:88        security · string-built SQL      → /security-fix (A067 routed; it used to halt on a missing idiom)
+  src/orders/list.service.ts:44  database · query per element     → /db-fix (A112 routed; never closed here without a measured baseline)
+  src/store/cart.ts:12           code-quality · empty catch        → /quality-fix (error-handling-scan)
 
 Halts:
-  A067 (security/sql-injection) reason: idiom missing (no parameterized-query primitive)
-                                see: ai/align/halts/A067.md
+  A073 (AL-11)   wrapper gap: the raw dialog uses `modal={false}`, which @acme/ui Dialog does not expose → /unify-surfaces
 
+Sweep gates:                   consistency PASS · scope PASS · lock-paths PASS · names PASS · ratchet PASS
 Total impact:
-  Net diff (structural):       +0 / -23 = -23 lines
-  Net diff (functional):       +6 / -2  = +4 lines (cited idioms)
-  Test suite:                  PASS
-  Coverage:                    +0.2% (no drop)
-  a11y (frontend):             PASS (no regression)
-  Bundle-size:                 -0.4% (smaller)
+  Net diff (structural):       +2 / -14 = -12 lines
+  Test suite:                  PASS (count 212 → 212)
   Wall-clock:                  3m 48s
 
 Next:
-  Resolve A067 halt (run /setup-project --refine to add parameterized-query idiom).
-  Re-run /align-recheck <modules-root>/orders/ to drain A067.
+  Approve A069 or send it to /polish; confirm ai/conventions.md:41 (/setup-project --refine).
+  /unify-surfaces dialog for A073 · /security-fix, /db-fix, /quality-fix for the owner lines.
+  Re-run /align-recheck <modules-root>/orders/ to confirm.
 ```
 
 ## Phase 5 — Update (persist changes to the knowledge base)
@@ -266,7 +264,8 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 ## Hard rules
 
 - **No phase concept.** This command is path-scoped, not phase-scoped. Ledger phase fields are ignored.
-- **Same discipline as /align-phase.** Per-finding: DETECT → DECIDE → FIX → VERIFY → RECORD. One commit per finding. Closure verbs from the 21-verb vocabulary only. Net-lines ≤ 0 for structural rows; functional rows cite idioms.
+- **Same discipline as /align-phase.** Per-finding: ROUTE → DETECT → DECIDE → FIX → VERIFY → RECORD (`find-and-align`). One commit per finding. Closure verbs from the 21-verb vocabulary only. Net-lines ≤ 0 for structural rows. Tests and snapshots read-only.
+- **Owner rows are lines, not fixes.** Security, performance, data, error handling, API contracts and new copy are closed by their owners' fix commands.
 - **Tier defaults preserved.** Trivial / standard / heavy auto-routes per finding.
 - **Halts are aggregated, not blocking.** A halted finding surfaces in the summary; other findings continue.
 - **No silent abstractions.** Functional fixes USE existing idioms; missing idioms halt the row, route to `/setup-project --refine`.
@@ -277,7 +276,7 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 - **No findings match the path** — halt; surface "no ledger rows have scope or evidence inside <given paths>". Suggest `/align-recheck <path> --rescan-fresh` to surface new findings.
 - **A matched finding's evidence file is deleted** — mark `archived-pre-existing`; skip.
 - **Idiom missing** for a functional row — halt that row; surface in summary; rest continues. User runs `/setup-project --refine` to add the idiom, then re-runs recheck.
-- **Many findings halt with same root cause** — surface as a cluster ("8 findings halted with reason: idiom missing for parameterized-query") so user fixes upstream once.
+- **Many findings halt with same root cause** — surface as a cluster ("8 findings halted: wrapper gap, `@acme/ui` Dialog has no `modal` prop") so the user fixes upstream once.
 
 ## Examples
 
@@ -315,7 +314,7 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 /align-recheck the page builder --rescan-fresh
 
 # Class-filtered
-/align-recheck the order pages --class=security
+/align-recheck the order pages --class=AL-11,AL-15
 
 # Always show resolution table
 /align-recheck the sidebar --always-confirm
@@ -333,11 +332,10 @@ Glob patterns are expanded before matching. Multiple `<path>` args are OR'd. Pat
 - `.claude/agents/align-evidence-auditor.md` — dispatched at TRIAGE over the SCAN-FRESH rows. Path-scoped rechecks skip `/align-plan` entirely, so this is the only evidence audit a recheck gets.
 - `.claude/agents/align-idiom-auditor.md` — dispatched per row at DECIDE and VERIFY inside the FIX loop, exactly as in `/align-phase`.
 
-### Skills (per-class FIX dispatch — see Phase 4 routing table)
-- `code-quality/skills/refactoring-sweep/SKILL.md` — refactoring-class findings.
-- `ui-ux/skills/ui-design-sweep/SKILL.md` — UI/UX-axis findings (frontend/mobile).
-- `backend/skills/api-consistency-audit/SKILL.md` — api-class findings (backend).
-- `database/skills/schema-consistency-audit/SKILL.md` — schema-class findings (data).
+### Skills
+- `.claude/skills/align-detect/SKILL.md` — the scoped detection sweep and the class ledger (owner, closer).
+- `.claude/skills/find-and-align/SKILL.md` — the per-row proof ladder.
+- Owner detectors, when their packs are installed: ui-ux `design-token-audit`, frontend `i18n-scan` and `a11y-code-scan`, code-quality `architectural-diagnosis`, backend `edge-error-scan` and `api-consistency-audit`. Their findings close through their own fix commands except the EQ rows `align-detect` marks as align's.
 
 ### Cross-pack
 - `migration/commands/migration-recheck.md` — sibling pattern in migration; this command mirrors it for align.

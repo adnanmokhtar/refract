@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+/* The admin theme is closed: only these colours exist as utilities. */
+@theme {
+  --color-*: initial;
+  --color-primary: #2563eb;
+  --color-error: #d92d20;
+  --color-surface: #ffffff;
+  --color-ink: #101828;
+  --color-muted: #667085;
+  --spacing: 4px;
+  --gap-sm: 8px;
+}

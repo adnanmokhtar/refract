@@ -1,0 +1,15 @@
+# pair-inventory 1 · lane=I-SCOPE · side=v1 · sha=61cb5c927438bcbf4b971b17938abe99c70b70f8 · root=v1 · stack=laravel
+# extractor=lanes_laravel.py@sha256:759ee3ae2adafb91 · normaliser=1 · generated=2026-10-18T14:15:31Z · rows=12
+# lane	key	attrs	at	excerpt
+I-SCOPE	table:account	scopes=;soft_delete=no;tenant=no	app/Models/Account.php:8	class Account extends Model
+I-SCOPE	table:invoice	scopes=AccountScope;soft_delete=no;tenant=yes	app/Models/Invoice.php:15	class Invoice extends Model
+I-SCOPE	table:invoice_line	scopes=;soft_delete=no;tenant=no	app/Models/InvoiceLine.php:7	class InvoiceLine extends Model
+I-SCOPE	table:order	scopes=AccountScope;soft_delete=yes;tenant=yes	app/Models/Order.php:17	class Order extends Model
+I-SCOPE	table:order_line	scopes=;soft_delete=no;tenant=no	app/Models/OrderLine.php:7	class OrderLine extends Model
+I-SCOPE	table:stock_item	scopes=account;soft_delete=yes;tenant=yes	app/Models/StockItem.php:9	class StockItem extends Model
+I-SCOPE	table:tag	scopes=;soft_delete=no;tenant=no	app/Models/Tag.php:7	class Tag extends Model
+I-SCOPE	table:ticket	scopes=AccountScope;soft_delete=yes;tenant=yes	app/Models/Ticket.php:18	class Ticket extends Model
+I-SCOPE	table:ticket_message	scopes=;soft_delete=no;tenant=no	app/Models/TicketMessage.php:7	class TicketMessage extends Model
+I-SCOPE	table:user	scopes=;soft_delete=no;tenant=no	app/Models/User.php:11	class User extends Authenticatable
+I-SCOPE	table:wallet	scopes=AccountScope;soft_delete=no;tenant=yes	app/Models/Wallet.php:13	class Wallet extends Model
+I-SCOPE	table:wallet_transaction	scopes=;soft_delete=no;tenant=no	app/Models/WalletTransaction.php:8	class WalletTransaction extends Model

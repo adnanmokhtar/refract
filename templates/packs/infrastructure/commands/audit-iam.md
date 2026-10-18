@@ -243,5 +243,5 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `cost-audit` — sometimes overlap (costly resources can be removed when their roles are).
 - `provision-tier` — uses IAM scoping principles in new resources.
 - `@security-auditor` — broader; this command is the IAM dimension.
-- `secret-scan` — different concern; related (long-lived keys are ugly secrets).
+- `secret-scan-method` — different concern; related (long-lived keys are ugly secrets).
 - `.claude/rules/security-principles.md` — A01 (Broken Access Control), A07 (Auth Failures).

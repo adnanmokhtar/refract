@@ -1,0 +1,16 @@
+-- One-shot load of the invoice detail tables for the invoices read flip. Invoice ids are kept
+-- (scripts/backfill/invoices.backfill.ts), so invoice_id needs no remapping.
+LOAD DATABASE
+     FROM mysql://loader@v1-replica.norrow.internal/norrow
+     INTO postgresql://loader@v2-db.norrow.internal/norrow
+
+ WITH include no drop, create no tables, data only, reset sequences,
+      workers = 4, concurrency = 1, batch rows = 5000
+
+  SET PostgreSQL PARAMETERS timezone to 'Asia/Riyadh'
+
+ CAST type tinyint to boolean using tinyint-to-boolean,
+      type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+      type decimal to numeric keep typemod
+
+ INCLUDING ONLY TABLE NAMES MATCHING 'invoice_lines', 'invoice_audit';
