@@ -8,6 +8,7 @@
 # an oracle that expresses the EARS clause; a regression PASS cites its RED record; a kept finding
 # carries proof), stamps the signer from THIS input — never from the model — plus the authors and the
 # scope fingerprint, and writes ai/runs/<run_id>/verdict.json (refute mode: verdict-refute.json).
+# Refute mode also appends each refuted candidate to ai/dynamic/review-dismissals.jsonl (spec § 5.8).
 #   exit 2  malformed or unsupported output — stderr goes back to the verifier, which redoes it
 #   exit 0  persisted, or not the verifier's stop
 # Engine: .claude/scripts/refract_records.py persist-verdict. Contract: templates/snippets/delegation-brief.md.

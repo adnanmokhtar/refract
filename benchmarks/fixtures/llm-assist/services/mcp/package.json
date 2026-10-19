@@ -1,0 +1,24 @@
+{
+  "name": "@quilldesk/mcp",
+  "version": "1.6.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node dist/server.js",
+    "start:kb": "node dist/kb-server/main.js",
+    "bridge": "node dist/inspector-bridge.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.18.1",
+    "express": "5.1.0",
+    "jsonwebtoken": "9.0.2",
+    "open": "10.2.0",
+    "pg": "8.16.3",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.3",
+    "typescript": "5.9.2"
+  }
+}

@@ -1,0 +1,4 @@
+# series                                         10:25   10:32   10:45   11:00   11:10
+orders_zero_vat_ratio{region="eu"}                 0.000   0.97    0.98    0.98    0.000
+pricing_cpu_utilisation                            0.31    0.44    0.45    0.44    0.31
+openfeature_provider_ready{provider="flagd"}       1       0       0       0       1

@@ -82,4 +82,4 @@ Top recommendation:
 - `.claude/rules/media-processing-discipline.md` — the hard-rule list this command enforces (async sandbox, magic-byte validation, bomb guard, codec hardening, metadata strip, signed delivery).
 - `ai/patterns/media-pipeline.md` — the validated-input + sandboxed-transcode + bomb-guard + hardening + metadata-strip + signed-delivery code shapes.
 - `.claude/rules/upload-safety.md` — the boundary: upload handles AV scan + size cap + storage handoff before this pipeline runs.
-- `<agents-path>/media-processing-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/media-processing-review.md` — review gate that consumes these findings.

@@ -368,6 +368,61 @@ elif [[ $FRONTEND -eq 1 ]]; then
   add performance
 fi
 
+# ---------- AI engineering ----------
+# A product that calls an LLM. There was no rule at all until 2026-10-19, so the pack was never
+# selected. MEASURED on a real NestJS monorepo with an 18-tool assistant and credit-metered order
+# extraction: it calls an OpenAI-compatible gateway over raw HTTP and declares no provider SDK, so
+# a dependency-only rule still misses it — the wire lane below is what sees it. The lanes match
+# detect-signals.sh `llm_usage_detected` and the ai-engineering pack's llm-sites.py, every one
+# word-bounded (`cohere` inside "coherence" is not a provider). `/v1/messages` alone is an SMS API;
+# a bare `max_tokens` is a token bucket; tests and fixtures never count.
+AI_EV=""
+if has_dep openai || has_dep '@anthropic-ai/sdk' || has_dep ai || has_dep_prefix '@ai-sdk/' \
+   || has_dep langchain || has_dep_prefix '@langchain/' || has_dep llamaindex \
+   || has_dep '@google/genai' || has_dep '@google/generative-ai' || has_dep '@mistralai/mistralai' \
+   || has_dep cohere-ai || has_dep ollama || has_dep '@modelcontextprotocol/sdk' || has_dep '@openai/agents' \
+   || has_dep '@aws-sdk/client-bedrock-runtime'; then
+  AI_EV="LLM SDK / framework / MCP SDK dependency"
+fi
+_ai_py='^[[:space:]]*"?(openai|anthropic|langchain[a-z_-]*|langgraph|llama-index[a-z_-]*|llama_index|google-genai|google-generativeai|mistralai|cohere|ollama|litellm|mcp|openai-agents)[[:space:]]*([=<>~!;,"[]|$)'
+if [[ -z "$AI_EV" ]]; then
+  while IFS= read -r _m; do
+    [[ -n "$_m" ]] || continue
+    if grep -v '^[[:space:]]*#' "$_m" 2>/dev/null | grep -qE "$_ai_py"; then AI_EV="LLM SDK in ${_m#"$TARGET"/}"; break; fi
+  done < <(find -L "$TARGET" -maxdepth 4 \( -name node_modules -o -name .git -o -name .venv -o -name vendor \) -prune -o -type f \( -name pyproject.toml -o -name 'requirements*.txt' \) -print 2>/dev/null | head -50)
+fi
+if [[ -z "$AI_EV" && -f "$TARGET/go.mod" ]] && grep -qE 'github\.com/(openai/openai-go|sashabaranov/go-openai|anthropics/anthropic-sdk-go|tmc/langchaingo)|google\.golang\.org/genai' "$TARGET/go.mod" 2>/dev/null; then
+  AI_EV="LLM SDK in go.mod"
+fi
+_ai_grep() {  # $1 = ERE; source files under the target, tests and fixtures excluded; prints matching files
+  grep -rlE --include='*.ts' --include='*.tsx' --include='*.mts' --include='*.js' --include='*.jsx' --include='*.mjs' \
+    --include='*.py' --include='*.go' --include='*.rb' --include='*.java' --include='*.kt' --include='*.cs' --include='*.php' \
+    --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build --exclude-dir=vendor --exclude-dir=.venv \
+    --exclude-dir=test --exclude-dir=tests --exclude-dir=__tests__ --exclude-dir=spec --exclude-dir=e2e --exclude-dir=fixtures \
+    --exclude-dir=__fixtures__ --exclude-dir=mocks --exclude-dir=__mocks__ --exclude-dir=testdata --exclude-dir=.claude --exclude-dir=ai \
+    --exclude='*.spec.*' --exclude='*.test.*' --exclude='test_*.py' --exclude='*_test.go' -- "$1" "$TARGET" 2>/dev/null || true
+}
+if [[ -z "$AI_EV" ]]; then
+  _f="$(_ai_grep '/chat/completions|/v1/responses|:(stream)?generateContent' | head -1)"
+  [[ -n "$_f" ]] && AI_EV="LLM endpoint in ${_f#"$TARGET"/} (no SDK)"
+fi
+if [[ -z "$AI_EV" ]]; then
+  while IFS= read -r _f; do
+    [[ -n "$_f" ]] || continue
+    if grep -qE '/v1/messages' "$_f" 2>/dev/null && grep -qE 'max_tokens|anthropic-version' "$_f" 2>/dev/null; then
+      AI_EV="Messages API wire shape in ${_f#"$TARGET"/}"; break
+    fi
+    if grep -qE "role['\"]?[[:space:]]*:[[:space:]]*['\"](system|developer|tool|assistant)['\"][[:space:]]*[,}]" "$_f" 2>/dev/null; then
+      AI_EV="LLM wire shape in ${_f#"$TARGET"/} (body key + role literal, no SDK)"; break
+    fi
+  done < <(_ai_grep "(max_tokens|max_completion_tokens|tool_choice|response_format|stream_options)['\"]?[[:space:]]*[:=]|/v1/messages" | head -200)
+fi
+if [[ -n "$AI_EV" ]]; then
+  trace "$AI_EV → ai-engineering"
+  add ai-engineering
+fi
+unset _ai_py _m _f
+
 # ---------- Security ----------
 SEC=0
 if has_dep_prefix '@auth/' || has_dep next-auth || has_dep passport \
@@ -470,6 +525,26 @@ if compgen -G "$TARGET/*.tf" >/dev/null 2>&1 \
    || [[ -f "$TARGET/infracost.yml" || -f "$TARGET/.infracost.yml" ]]; then
   trace "infrastructure-as-code → finops (spend is provisioned here)"
   add finops
+else
+  # A paid API with no IaC (finops IR-7, 2026-10-19): an LLM gateway, an SMS provider or a geocoder
+  # is spend nobody provisioned in Terraform. The lanes match detect-signals.sh `paid_api_detected`:
+  # a per-call paid SDK (a payment SDK is per transaction and does not count), the ai-engineering
+  # evidence above, a provider host literal, or a base-URL name that carries a billed category.
+  PAID_EV=""
+  if has_dep twilio || has_dep '@sendgrid/mail' || has_dep postmark || has_dep mailgun.js \
+     || has_dep_prefix '@vonage/' || has_dep messagebird || has_dep_prefix '@googlemaps/' || has_dep_prefix '@mapbox/'; then
+    PAID_EV="per-call paid SDK dependency"
+  elif [[ -n "$AI_EV" ]]; then
+    PAID_EV="LLM usage ($AI_EV)"
+  else
+    _f="$(_ai_grep '(^|[^A-Za-z0-9.-])(api\.openai\.com|api\.anthropic\.com|openrouter\.ai|api\.twilio\.com|api\.sendgrid\.com|api\.mailgun\.net|api\.postmarkapp\.com|maps\.googleapis\.com|api\.mapbox\.com|rest\.nexmo\.com|api\.vonage\.com)([^A-Za-z0-9.-]|$)|(^|[^A-Za-z0-9_])[A-Z0-9_]*(LLM|OPENAI|ANTHROPIC|GEMINI|MISTRAL|OPENROUTER|COHERE|MODEL_GATEWAY|AI_GATEWAY|SMS|TWILIO|VONAGE|NEXMO|SENDGRID|MAILGUN|POSTMARK|WHATSAPP|GEOCOD(E|ER|ING)|GOOGLE_MAPS|MAPBOX)_[A-Z0-9_]*(BASE_URL|API_URL|API_BASE|GATEWAY_URL|ENDPOINT_URL|API_HOST)([^A-Za-z0-9_]|$)' | head -1)"
+    [[ -n "$_f" ]] && PAID_EV="paid provider host / billed-category base URL in ${_f#"$TARGET"/}"
+  fi
+  if [[ -n "$PAID_EV" ]]; then
+    trace "$PAID_EV → finops (paid API, no IaC)"
+    add finops
+  fi
+  unset PAID_EV _f
 fi
 
 # ---------- Product ----------

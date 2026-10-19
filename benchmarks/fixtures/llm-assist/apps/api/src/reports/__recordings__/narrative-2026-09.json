@@ -1,0 +1,17 @@
+{
+  "id": "chatcmpl-recorded-0001",
+  "object": "chat.completion",
+  "model": "gpt-5.6-terra",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "refusal": null,
+        "content": "September closed with 412 tickets solved of 430 opened. E-mail stayed the busiest channel, and the median first response fell from 41 to 33 minutes."
+      }
+    }
+  ],
+  "usage": { "prompt_tokens": 164, "completion_tokens": 38, "total_tokens": 202 }
+}

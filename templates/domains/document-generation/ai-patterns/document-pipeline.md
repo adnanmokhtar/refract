@@ -350,5 +350,5 @@ A signed URL any user can mint for any account id → balance leak. Scope the UR
 - `<rules-path>/i18n` — locale / timezone / currency / RTL inside documents, pinned into the determinism stamp.
 - `<rules-path>/audit-log-integrity.md` — document generation + download is an audited event; what to record.
 - `<commands-path>/audit-document-pipeline.md` — cite-or-halt diagnostic of a specific document pipeline.
-- `<agents-path>/document-generation-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/document-generation-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-document-rendering-stack.md` — ADR pinning the renderer + sandbox model + determinism/retention contract.

@@ -95,10 +95,10 @@ RateLimit-Remaining did not decrease across requests -> counter is not shared / 
 - Report the OBSERVED status sequence + ACTUAL headers. Never report an assumed or "should be" result.
 - A missing 429, a missing `Retry-After`, or a non-decreasing `RateLimit-Remaining` is a FAIL — surface it, don't soften it.
 - Use a dev/staging identity (test API key / test user), never a real customer's key.
-- Pair with `<agents-path>/rate-limit-reviewer.md` for the static review; this command is the behavioural proof.
+- Pair with `.claude/lenses/rate-limiting-review.md` for the static review; this command is the behavioural proof.
 
 ## Cross-references
 
 - `<rules-path>/rate-limit-discipline.md` — the response-contract + atomicity hard rules this probe verifies.
 - `<patterns-path>/rate-limiter.md` — the limiter shape + header emission the probe asserts against.
-- `<agents-path>/rate-limit-reviewer.md` — static review gate (this command is its behavioural counterpart).
+- `.claude/lenses/rate-limiting-review.md` — static review gate (this command is its behavioural counterpart).

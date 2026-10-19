@@ -87,7 +87,7 @@ A media-pipeline bug is a melted worker fleet, a server reading `file:///etc/pas
 ## Enforcement
 
 - `<commands-path>/audit-media-pipeline.md` (slash: `/audit-media-pipeline`) — traces a specific pipeline end-to-end: where the codec is invoked at `<path:line>`, sync vs async, magic-byte vs trusted-extension validation, resource/dimension/duration/output caps, decompression-bomb guard, codec hardening (`policy.xml` / `-protocol_whitelist`), EXIF/GPS stripping, signed-vs-public delivery, and tenant scoping — cite-or-halt, never an assumed config.
-- `<agents-path>/media-processing-reviewer.md` — review gate hard-failing on sync transcode, missing resource limits, content-type trust, unhardened ImageMagick/ffmpeg, retained EXIF/GPS, raw SVG, unbounded fan-out, and public/non-tenant-scoped delivery.
+- `.claude/lenses/media-processing-review.md` — review gate hard-failing on sync transcode, missing resource limits, content-type trust, unhardened ImageMagick/ffmpeg, retained EXIF/GPS, raw SVG, unbounded fan-out, and public/non-tenant-scoped delivery.
 - CI MUST assert the transcode worker is configured with `--network none` (or equivalent) + a memory cap + non-root; reject a transcode path that runs in the API process.
 - CI MUST reject `ffmpeg` invocations on untrusted input that omit `-protocol_whitelist`, and assert an ImageMagick `policy.xml` exists with risky coders disabled.
 - CI lint MUST flag a codec call (`sharp(`, `convert`, `ffmpeg -i`) whose format gate reads `mimetype`/extension rather than a magic-byte sniff (AST heuristic; flag for review).
@@ -101,6 +101,6 @@ A media-pipeline bug is a melted worker fleet, a server reading `file:///etc/pas
 - `<patterns-path>/report-generation.md` — signed short-lived URL + private-bucket + async-job spine shared with this pack.
 - `<rules-path>/job-design.md` + `<patterns-path>/queue-producer-consumer.md` — transcode is a queued, idempotent, resumable job; idempotency key + DLQ + observability.
 - `<rules-path>/rate-limit-enforcement.md` — per-tenant/user transcode-enqueue rate limits.
-- `<agents-path>/media-processing-reviewer.md` — review gate.
+- `.claude/lenses/media-processing-review.md` — review gate.
 - `<commands-path>/audit-media-pipeline.md` — pipeline-audit tool.
 - `<adr-path>/<NNN>-media-sandbox.md` — ADR pinning the codec, the sandbox mechanism (container / gVisor / Firecracker), the format allowlist, and the variant set.

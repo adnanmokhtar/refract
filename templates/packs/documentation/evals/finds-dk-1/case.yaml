@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/doc-drift · defect DOC-DK1-a (docs/runbooks/restore-db.md:15) · decoy DOC-DECOY-19 (line 34)
+# resources/: byte copies of docs/runbooks/restore-db.md Makefile (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-dk-1
+context:
+  add_dirs: [resources]

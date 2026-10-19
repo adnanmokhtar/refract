@@ -59,7 +59,7 @@ A shared base stage used by N services is **one finding with N call sites** (pre
 |---|---|---|
 | BuildKit checks | `docker build --check -f <file> <ctx>` (buildx ≥ 0.15); `# check=error=true` in a scratch copy for a gate | An unresolvable base → `ERROR: … failed to resolve source metadata`, no warnings printed, exit 1 like a violation: NOT-RUN [V]. A local-only base resolves on the `docker` driver [V]. The rules are the `# syntax=` frontend's: on one file, `docker/dockerfile:1.6`–`1.8` ran 2 rules and missed `SecretsUsedInArgOrEnv`, `1.10` and the bundled frontend ran 3 [V]. Print the frontend |
 | hadolint | `hadolint/hadolint:v2.15.1@sha256:32dac941…` (digest read 2026-10-10), `-f json --failure-threshold warning`, stdin | `DL1000` = that file was not scanned: `EXPOSE ip:port:port`; a heredoc terminator followed directly by an instruction (a blank line after `EOF` parses) [V]. Default threshold `info` fails on DL3066 alone. `THR-SCANNER-FLOOR` |
-| checkov | `uvx checkov@3.3.26 --framework dockerfile` (`CKV2_DOCKER_*` only) | `CKV_DOCKER_4` flags `ADD --checksum`; not installed → NOT-INSTALLED with the command |
+| checkov | `checkov --framework dockerfile` when installed (to enable: `pipx install checkov==3.3.26`) (`CKV2_DOCKER_*` only) | `CKV_DOCKER_4` flags `ADD --checksum`; not installed → NOT-INSTALLED with the command |
 | Built image (B) | `docker image inspect`, `container-structure-test` 1.22.1 (`--platform` set), `dive` 0.13.1, `diffoci` 0.1.8, `crane config` | cst defaults to amd64; trivy image-config with 0 targets exits 0; Docker Desktop not sharing `/private/tmp` → use stdin or the socket |
 
 Every B-tier run uses a scratch tag (`cbs-<n>:probe`), never pushes, and removes what it built. No daemon → `blocked (no docker)` with the command written out.
@@ -210,7 +210,8 @@ HL="hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd
 if docker info >/dev/null 2>&1; then while IFS= read -r f; do docker build --check -f "$f" "$(dirname "$f")" > "$SCAN/check.out" 2>&1; rc=$?
     if rg -q 'Check complete' "$SCAN/check.out"; then echo "$f: check rc=$rc $(rg -o 'WARNING: \w+' -r '$0' "$SCAN/check.out" | sed 's/WARNING: //' | sort | uniq -c | awk '{printf "%s%s ", $2, ($1 > 1 ? "x" $1 : "")}')"
     else echo "$f: check NOT-RUN $(rg -m1 -o 'ERROR: .{0,100}' "$SCAN/check.out")"; fi
-    docker run --rm -i "$HL" hadolint -f json --failure-threshold warning - < "$f" > "$SCAN/hl.json"; rc=$?
+    docker image inspect "$HL" >/dev/null 2>&1 || { echo "$f: hadolint NOT-RUN (image not local — to enable: docker pull $HL)"; continue; }
+    docker run --pull=never --rm -i "$HL" hadolint -f json --failure-threshold warning - < "$f" > "$SCAN/hl.json"; rc=$?
     if rg -q '"DL1000"' "$SCAN/hl.json"; then echo "$f: hadolint NOT-RUN (parse error at line $(rg -o '"line":(\d+)' -r '$1' "$SCAN/hl.json" | head -1))"
     else echo "$f: hadolint rc=$rc $(rg -o '"code":"(DL\d+|SC\d+)","column":\d+,"file":"[^"]*","level":"(error|warning)"' -r '$1' "$SCAN/hl.json" | sort -u | tr '\n' ' ')"; fi
   done < "$SCAN/df.txt"; else echo '9: blocked (no docker daemon): docker build --check -f <file> <ctx>; docker run --rm -i <HL> hadolint -f json --failure-threshold warning - < <file>'; fi
@@ -276,7 +277,7 @@ GOOD:  FROM base AS runtime  where base ends USER 10001  (inherited) · ARG APP_
 
 ```
 BAD:   CMD node dist/main.js  on node:22-bookworm-slim     (sh -c stays PID 1: docker stop 10.2 s → 137)
-       CMD ["pnpm", "start"] · CMD ["sh", "-c", "node migrate.js && node server.js"] · ENTRYPOINT ["./docker-entrypoint.sh"] with no exec
+       CMD ["pnpm", "start"] · CMD ["sh", "-c", "node migrate.js && node server.js"] · ENTRYPOINT ["./entrypoint.sh"] with no exec
 GOOD:  ENTRYPOINT ["tini", "--"] + CMD ["node", "dist/main.js"] · an entrypoint whose every exit path is exec "$@"
 ```
 **Read the code:** Which `PID1-*` row, on which base family (precedents § 35: alpine's ash tail-execs one command)? For `PID1-SCRIPT`, does 2b say `NO-EXEC`, and does every branch end in `exec`? For `PID1-INHERITED`, what are the base's Entrypoint/Cmd? Is `STOPSIGNAL SIGQUIT` the server's graceful signal (precedents § 36)? Does the orchestrator add an init (`docker run --init`, compose `init: true`)? Is there a handler behind the exec (`deploy-safety-scan` §5)?
@@ -401,7 +402,7 @@ Tools: --check 20/21 ran (1 NOT-RUN: base unresolved) · hadolint 19/21 parsed (
    scratch build, docker stop 10.2 s, exit 137. Fix: `CMD ["node", "dist/main.js"]` behind `ENTRYPOINT ["tini", "--"]`.
 
 2. services/api/Dockerfile:13                                             [report-with-fix]   medium
-   §6 CT-D09 — HEALTHCHECK calls curl; the base ships neither curl nor wget, and compose.yaml:17 gates edge on
+   §6 CT-D09 — HEALTHCHECK calls curl; the base ships neither curl nor wget, and docker-compose.yml:17 gates edge on
    `service_healthy`. Proof: V238 status `unhealthy` after 120 s. Fix: the `node -e "fetch(…)"` check (GOOD shape).
 
 3. services/worker/worker.Dockerfile:4                                    [report-flagged]    medium

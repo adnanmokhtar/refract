@@ -284,5 +284,5 @@ Acknowledging a write that only hit the cache, or failing the request when Redis
 - `<rules-path>/audit-log-integrity.md` — flush/invalidation of sensitive cached data is an audited operational event.
 - `<patterns-path>/report-generation.md` — cached aggregates carry a freshness label + event-driven invalidation; never serve a stale aggregate as if live.
 - `<commands-path>/probe-cache.md` — inspect a specific cache usage (key scope, TTL, invalidation, stampede protection).
-- `<agents-path>/caching-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/caching-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-cache-topology.md` — ADR pinning the cache backend, key/scope convention, invalidation strategy, and the fail-open contract.

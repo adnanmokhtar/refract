@@ -87,7 +87,7 @@ An import bug is a silently corrupted dataset, another tenant's records overwrit
 ## Enforcement
 
 - `<commands-path>/dry-run-import.md` (slash: `/dry-run-import`) — validates an import file/endpoint WITHOUT committing: detected schema vs. spec, per-row errors with row numbers, idempotency-key collisions, tenant-scope of the upsert (or MISSING = cross-tenant write), the streaming/size check, and formula-injection exposure — cite-or-halt, never an assumed parse.
-- `<agents-path>/import-reviewer.md` — review gate hard-failing on load-whole-file, sync import, non-idempotent re-import, missing tenant scope on the upsert, all-or-nothing validation, blind insert, formula injection, unbounded input, and trusted-envelope mapping.
+- `.claude/lenses/import-review.md` — review gate hard-failing on load-whole-file, sync import, non-idempotent re-import, missing tenant scope on the upsert, all-or-nothing validation, blind insert, formula injection, unbounded input, and trusted-envelope mapping.
 - CI lint MUST reject `readFile(` / `fs.readFileSync(` feeding a CSV/XLSX parser in import code paths (heuristic; flag for review) — imports stream.
 - CI lint MUST reject an upsert / `ON CONFLICT` in an import path whose conflict target does not include `tenant_id` (AST heuristic; flag for review).
 - CI lint MUST reject a bare `INSERT` (no `ON CONFLICT` / upsert) in an import writer — imports are idempotent.
@@ -101,5 +101,5 @@ An import bug is a silently corrupted dataset, another tenant's records overwrit
 - `<rules-path>/file-upload-safety.md` — the import file arrives via upload (AV scan, content-type, size) before it is parsed.
 - `<rules-path>/rate-limit-enforcement.md` — per-tenant/user import rate limits so one tenant cannot exhaust the workers.
 - `<commands-path>/dry-run-import.md` — pre-commit validation tool.
-- `<agents-path>/import-reviewer.md` — review gate.
+- `.claude/lenses/import-review.md` — review gate.
 - `<adr-path>/<NNN>-import-conflict-strategy.md` — ADR pinning the business-key choice, per-column merge rules, and the partial-failure policy per import type.

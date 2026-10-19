@@ -62,15 +62,15 @@ The **required** set is the seven above, and the conditional set the seven after
 ## State matrix
 
 Surfaces:
-- `orders-list` — src/features/orders/OrdersPage.tsx, src/features/orders/OrdersTable.tsx
-- `refund-dialog` — src/features/refunds/RefundDialog.tsx
+- `orders-list` — src/features/orders/OrdersPage.tsx, src/features/orders/OrderGrid.tsx
+- `refund-dialog` — src/features/refunds/RefundModal.tsx
 
 | Surface | State | Source | Expected (message · action · focus) | Proof |
 |---|---|---|---|---|
 | orders-list | loading | AC-001 | 10 skeleton rows, aria-busy · — · — | src/features/orders/OrdersPage.stories.tsx#Loading |
 | orders-list | error | AC-004 | "Couldn't load orders" · Retry · focus stays on the table | e2e/orders/states.spec.ts::error shows retry |
 | orders-list | offline | n-a | n-a — back-office surface on the office network; the client has no offline mode | — |
-| refund-dialog | pending-submit | AC-006 | "Refunding…" · button disabled · inputs kept on 500 | src/features/refunds/RefundDialog.test.tsx::one refund per double click |
+| refund-dialog | pending-submit | AC-006 | "Refunding…" · button disabled · inputs kept on 500 | src/features/refunds/RefundModal.test.tsx::one refund per double click |
 ```
 
 The block above is an excerpt. A real matrix carries a row for every required state of every surface; the lint fails the excerpt with eleven `state-missing` findings.

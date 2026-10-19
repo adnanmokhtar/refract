@@ -1,0 +1,27 @@
+name: larkmoor
+version: '1.4.0'
+config-version: 2
+require-dbt-version: ">=1.9.0"
+profile: larkmoor
+
+model-paths: ["models"]
+snapshot-paths: ["snapshots"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+
+models:
+  larkmoor:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+      finance:
+        +on_schema_change: fail
+      core:
+        +on_schema_change: fail
+
+snapshots:
+  larkmoor:
+    +target_schema: snapshots

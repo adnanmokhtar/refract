@@ -59,6 +59,7 @@ This skill owns the classic bug patterns in code. It routes what another skill o
 - **Cache staleness and invalidation** in a client → frontend `client-data-scan` §4, judged by `@data-flow-auditor`, when the frontend pack is installed. **UI request races across renders** (a response from an earlier render or input painted over a later one, no cancellation) → `client-data-scan` §3, and **route-param races** (navigation 1's response painted on navigation 2) → `routing-scan` §8, when installed. §3 keeps the stale closure inside one effect; without the frontend pack it also keeps the out-of-order response.
 - **`console.log` left in server code** → `standards-check.py` OBS-5. **A debug endpoint** → security `data-exposure-scan`. §7 owns only breakpoints and dump-and-die calls.
 - **Time-dependent tests** → testing `flake-source-scan`, when installed; §6 owns the production clock.
+- **An algorithm's contract** — sortedness, stability and key-uniqueness preconditions, the distribution of random draws, and geodesy (planar distance, axis order, wrap-around) → algorithms `algorithm-contract-scan`, when installed; the comparator expression itself stays §4 here. Without the algorithms pack, report the contract half here tagged `algorithms-class (owner pack not installed)`.
 
 ## Adapt to the codebase — the analyzer lanes
 
@@ -77,7 +78,7 @@ catalog's, verified 2026-10-05.
 | **PHP** — PHPStan 2.2 (+ strict-rules; larastan on Laravel) | `method.resultUnused`, `function.resultUnused` | strict-rules `equal.notAllowed` | — | — | `match.unhandled` | — | — |
 | **Rust** — clippy | rustc `unused_must_use` | `eq_op`, `float_cmp`, `nonminimal_bool` | `await_holding_lock` | `cast_possible_truncation`, `cast_sign_loss` | `wildcard_enum_match_arm` | `string_slice` | `dbg_macro` |
 
-Lane commands: `npx eslint . --max-warnings=0 -f json`; `uvx ruff check --select B,DTZ,PL,RUF,E711,F632,T100 --output-format json .`; `golangci-lint run ./...`; `./gradlew spotbugsMain`; `dotnet build -warnaserror`; `bundle exec rubocop --only Lint --format json`; `vendor/bin/phpstan analyse -l 9 src`; `cargo clippy --all-targets -- -D warnings`. Three traps, each a precedent: typescript-eslint `recommended` runs no type-aware rule (`precedents/code-quality.md § 76`); golangci's `exhaustive.default-signifies-exhaustive: true` counts any `default` as exhaustive (§ 77); detekt without type resolution skips most potential-bug rules (§ 81). `eslint-plugin-sonarjs` 4.2.2 and `eslint-plugin-unicorn` 77 add rules for §1, §2 and §4 — run them where the project installs them; sonarjs ships under the Sonar Source-Available License, so cite its rule ids and never vendor its docs (§ 83). CodeQL's `<lang>-code-quality.qls` suites (CLI 2.27.1) cover JS/TS, Python, Go, Java, C# and C++; running the CLI on private code needs GitHub Advanced Security, so the lane is optional and never assumed.
+Lane commands (installed tools only — an absent one prints `NOT-RUN (<tool> not installed — to enable: <install command>)` and its grep runs): `npx --no eslint . --max-warnings=0 -f json`; `ruff check --select B,DTZ,PL,RUF,E711,F632,T100 --output-format json .`; `golangci-lint run ./...`; `./gradlew spotbugsMain`; `dotnet build -warnaserror`; `bundle exec rubocop --only Lint --format json`; `vendor/bin/phpstan analyse -l 9 src`; `cargo clippy --all-targets -- -D warnings`. Three traps, each a precedent: typescript-eslint `recommended` runs no type-aware rule (`precedents/code-quality.md § 76`); golangci's `exhaustive.default-signifies-exhaustive: true` counts any `default` as exhaustive (§ 77); detekt without type resolution skips most potential-bug rules (§ 81). `eslint-plugin-sonarjs` 4.2.2 and `eslint-plugin-unicorn` 77 add rules for §1, §2 and §4 — run them where the project installs them; sonarjs ships under the Sonar Source-Available License, so cite its rule ids and never vendor its docs (§ 83). CodeQL's `<lang>-code-quality.qls` suites (CLI 2.27.1) cover JS/TS, Python, Go, Java, C# and C++; running the CLI on private code needs GitHub Advanced Security, so the lane is optional and never assumed.
 
 ## Pre-flight greps
 
@@ -188,15 +189,13 @@ the hops to an entry point. Three blind spots are structural:
 - **Names carry 4b, 6e and 5a.** The money, text and status greps key on identifiers. A float amount
   called `v` is missed; follow the value from the parse or the column, not the name.
 
-**Measured** (2026-10-05). Fixtures: `review-decoys` — 2e → `change/src/lib/retry.ts:5`
-(`(res.status = 429)`, its seeded assignment in a condition) and `change/src/orders/refunds.ts:19`
-(the overwritten accumulator), 4e → `change/src/orders/list.ts:18` (1-based page × page size), 3d →
-`change/web/src/useRefund.ts:12` (the stale empty-deps effect), 4b → `refunds.ts:10` (the
-`parseFloat` amount), each its seeded line; its decoys — `Number.parseInt(…, 10)` and the
-`while ((m = re.exec(s)) !== null)` idiom — stay out. `slow-marketplace` 4b → `Math.round(product.price * 100)`
-in `checkout.service.ts:51` and `:68` and the web cart, 4c → `reports/refunds/importers.py:39`
-`float(row["amount"])` (the code side of its float-money columns, which database owns);
-`vuln-fullstack` 4b → `feed-import.service.ts:37`. `node-api`, `reward-hack`, `half-built-crm` and
+**Measured** (2026-10-05). Fixtures: on `review-decoys`, 2e lands on its seeded assignment in a
+condition and on its overwritten accumulator, 4e on its 1-based page × page size, 3d on its stale
+empty-deps effect and 4b on its `parseFloat` amount, each on the seeded line; its decoys —
+`Number.parseInt(…, 10)` and the `while ((m = re.exec(s)) !== null)` idiom — stay out. On
+`slow-marketplace`, 4b lands on two `Math.round(price * 100)` lines in the checkout service and the
+web cart, and 4c on a `float(row["amount"])` importer (the code side of its float-money columns,
+which database owns); on `vuln-fullstack`, 4b lands on one import parser. `node-api`, `reward-hack`, `half-built-crm` and
 `web-dashboard` produce no §1, §2, §5 or §7 hit. On a real NestJS-on-Fastify + MikroORM + React
 monorepo (about 14,200 tracked files; the script runs in about 3 s): 0b no rule of this set
 configured and no type-aware rules; 0c no date or decimal library (raw `Date`, integer minor
@@ -319,7 +318,11 @@ GOOD:  integer minor units end to end, or a decimal type with an explicit roundi
 ```
 **Read the code:** What is the representation — minor-unit integers, a decimal type, or binary
 floats? Where is the rounding mode and the rounding point (per line or per total) stated, and how
-many minor units does each currency have (JPY 0, KWD 3)? What is the widest realistic value (ms
+many minor units does each currency have (JPY 0, KWD 3)? When the business pack is installed, read
+the declared money policy from its `pricing-rule-scan` §1 row (`money-policy.md`: mode, point and
+exponent per amount kind) and grade against it; a policy row `UNDECLARED` makes the money row here
+`[report-flagged]` with the missing declaration named, since which mode is right is a business rule.
+Without the business pack, the stated mode in code or docs is the only oracle. What is the widest realistic value (ms
 timestamps, ids above 2^53, files above 2 GiB) against the declared type? What does the parse do with
 `""`, `" 1 "`, `"1e3"`, `"08"`, `"12abc"`, `"١٢"`? Is the page index 0- or 1-based on both sides?
 Can the list be empty? For a 4b `parseFloat(form value)`: is the float handed **straight** to a
@@ -410,7 +413,7 @@ Context: node >= 22 · no date or decimal library · TZ not pinned in the image
 
 Findings: 2 · Unconfirmed: 1
 
-1. src/billing/invoice-lines.ts:58                                       [report-with-fix]   critical
+1. src/billing/statement-rows.ts:58                                      [report-with-fix]   critical
    §4 float money — `unitPriceCents: Math.round(r.unitPrice * 100)`; unitPrice arrives as a JS number
    from the numeric column. Input: unitPrice "1.005" → 100 cents; the invoice spec (docs/billing.md)
    says half-up to 101. Proof: test/billing/unit-price.vectors.spec.ts (fails). Fix: read the column

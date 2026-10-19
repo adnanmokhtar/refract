@@ -1,6 +1,8 @@
 ---
 name: threat-model-method
 description: Systematic threat modeling via STRIDE — identify threats per component before attackers do. Run at design time, not after incident. This skill is the dispatchable primitive (agents invoke it); `/threat-model` is the session that turns its output into a durable artifact with ADRs, residual risk and re-audit triggers.
+kind: skill
+pack: security
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 

@@ -1,0 +1,7 @@
+2026-10-18T23:41:30Z INFO  [deploy] web rev 77 rollout complete
+2026-10-18T23:59:58Z INFO  [billing] posted invoice inv-55120 to ledger in 38ms
+2026-10-19T00:00:03Z ERROR [billing] ledger post failed: remote error: tls: bad certificate (ledger.internal:8443)
+2026-10-19T00:00:03Z ERROR [ledger] TLS handshake error from 10.4.7.19:51842: x509: certificate has expired or is not yet valid: current time 2026-10-19T00:00:03Z is after 2026-10-19T00:00:00Z
+2026-10-19T00:00:04Z ERROR [billing] ledger post failed: remote error: tls: bad certificate (ledger.internal:8443)
+2026-10-19T00:01:15Z WARN  [web] checkout confirmation waiting on billing (timeout 10s)
+2026-10-19T00:02:41Z ERROR [ledger] TLS handshake error from 10.4.7.22:40110: x509: certificate has expired or is not yet valid: current time 2026-10-19T00:02:41Z is after 2026-10-19T00:00:00Z

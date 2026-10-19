@@ -71,7 +71,8 @@ DEFAULT_ROLES = {
                   "ai/decisions/**", "ai/runtime/perf-budgets.md"],
     "test-engineer": ["ai/runs/*/test-plan.md", "ai/runs/*/acceptance.json", ".claude/holdouts/**"] + TEST_GLOBS,
     "ux-designer": ["ai/runs/*/ux.md", "ai/design/**"],
-    "doc-writer": ["docs/**", "CHANGELOG*", "README*", "ai/**", "!ai/runs/**"],
+    "doc-writer": ["docs/**", "CHANGELOG*", "README*", "CONTRIBUTING*", "mkdocs.yml", "mkdocs.yaml",
+                   "docusaurus.config.*", "sidebars.*", "SUMMARY.md", "ai/**", "!ai/runs/**"],
     "platform-engineer": [".github/**", ".gitlab-ci.yml", "infra/**", "terraform/**", "k8s/**", "helm/**",
                           "Dockerfile*", "docker-compose*", "ai/runtime/**", "ai/runs/*/release.md"],
 }

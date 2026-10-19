@@ -153,9 +153,9 @@ Every lane row that rests on a framework default also carries V357: the oracle r
 ### 1. The pipe sees no class
 
 ```
-BAD:   @Body() dto: WriteCollectionDto | null        // TS emits Object for a union under strictNullChecks: nothing validates, whitelist strips nothing
+BAD:   @Body() dto: UpsertPriceListDto | null        // TS emits Object for a union under strictNullChecks: nothing validates, whitelist strips nothing
        @Body() input: CreateOrderInput  (interface) · @Body() items: OrderDto[] · @Body() p: Partial<OrderDto> · @Query() q: Record<string, string>
-GOOD:  @Body() dto: WriteCollectionDto               // a class; nullability decided by the DTO, not the param
+GOOD:  @Body() dto: UpsertPriceListDto               // a class; nullability decided by the DTO, not the param
        @Body(new ParseArrayPipe({ items: OrderDto })) items: OrderDto[]   ·   @Body() dto: UpdateOrderDto  (PartialType(OrderDto) is a class)
 ```
 **Read the code:** what does the VB1 row's metatype column say — `Object`, `Array`, `UNREAD(strictNullChecks)`? For a union, is `strictNullChecks` on in the chain the app compiles with (with it off, `X | null` emits `X` and validates)? Is the body a deliberate protocol endpoint (RFC 7591/6749 OAuth, JSON-RPC) with a hand parser that bounds **every** field (B-D1, cite the parser)? An inline-object type (`{ email: string }`) is the same class. A `custom-pipe(<Pipe>)` row is **not** a §1 row (B-D16): a project decorator such as `@ContractBody(schema)` hands the body to its own pipe (a zod or schema pipe), and the global pipe's skip does not matter — read that pipe **once**, as a wiring row beside grep 0 (P5): what it parses with, its unknown-key policy (§6), what it does with `null` and an absent body (§5), and whether its refusal reaches the project's error envelope (`edge-error-scan` §6). **Finding when** a client-reachable body or query reaches the domain with no validation of a field the DTO meant to check. **Proof:** V340 — a wrong-typed required field and an unknown key through the real bootstrap → 400; or tier S, `Reflect.getMetadata('design:paramtypes', Controller.prototype, '<handler>')` printing `Object`.
@@ -164,9 +164,9 @@ GOOD:  @Body() dto: WriteCollectionDto               // a class; nullability dec
 
 ```
 BAD:   @ValidateNested() address: AddressDto;                       // no @Type: children never checked
-       @Type(() => OrderRefDto) orders!: OrderRefDto[];            // no @ValidateNested: the child's @IsUUID never runs
+       @Type(() => OrderKeyDto) orders!: OrderKeyDto[];            // no @ValidateNested: the child's @IsUUID never runs
        private List<LineDto> lines;   (Spring, no @Valid)
-GOOD:  @ValidateNested({ each: true }) @Type(() => OrderRefDto) orders!: OrderRefDto[];   ·   private List<@Valid LineDto> lines;
+GOOD:  @ValidateNested({ each: true }) @Type(() => OrderKeyDto) orders!: OrderKeyDto[];   ·   private List<@Valid LineDto> lines;
 ```
 **Read the code:** `type-no-validate-nested(child=X validators=N)` names the child and how many validators it carries — N = 0 means nothing is lost. Does the parent reach a route through a re-export (`export { A as B }`)? Free-form `@IsObject()` metadata is a decoy. **Finding when** the child carries validators and a route accepts the parent. **Proof:** V340 — `{"orders":[{"orderId":"x"}]}` → 400 naming `orders.0.orderId`.
 

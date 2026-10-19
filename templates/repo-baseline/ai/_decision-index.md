@@ -35,7 +35,7 @@ Last updated: <YYYY-MM-DD by knowledge-curator>
 
 ## How this is maintained
 
-- **Auto-regenerated** by `knowledge-curator` on every `/audit-knowledge`, after every `/promote-decision`, and on `post-commit-learn` if `ai/decisions/` changed.
+- **Auto-regenerated** by `knowledge-curator` (mode `regenerate`) under `/refresh-knowledge`, after every `/promote-decision`, and on `post-commit-learn` if the ADR home changed. `/audit-knowledge` is read-only: it reports a stale index (KN-13), it never rewrites it.
 - **Source of truth**: the full ADR files in `ai/decisions/`. This is a derived index.
 - **Don't hand-edit.** Edit the source ADRs.
 
@@ -44,4 +44,4 @@ Last updated: <YYYY-MM-DD by knowledge-curator>
 - `ai/decisions/` — full ADR files (load on demand for context).
 - `ai/dynamic/decisions-pending.md` — informal decisions awaiting graduation.
 - `/promote-decision` — graduates pending → formal ADR.
-- `/audit-knowledge` — regenerates this index.
+- `/refresh-knowledge` — regenerates this index; `/audit-knowledge` reports whether it is stale (read-only).

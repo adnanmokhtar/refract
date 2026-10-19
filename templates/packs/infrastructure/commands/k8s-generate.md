@@ -165,7 +165,7 @@ Production-readiness scorecard:
 VERDICT: PRODUCTION-GRADE
 
 # On any gap:
-#   1 identity + privilege    UNMET (deployment.yaml:21 serviceAccountName absent → binds `default`)
+#   1 identity + privilege    UNMET (deployment.yaml: serviceAccountName absent → binds `default`)
 # VERDICT: NOT-PRODUCTION-GRADE — unmet: 1 · blockers: 1. Not declared done.
 ```
 

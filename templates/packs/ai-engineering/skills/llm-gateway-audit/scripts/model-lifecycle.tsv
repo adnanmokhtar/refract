@@ -1,0 +1,129 @@
+# model-lifecycle.tsv — dated model and platform lifecycle rows read by llm-sites.py --models.
+# Columns: provider, id, match (exact|prefix|regex|api), status (deprecated|retired|platform), date (shutdown or retirement, YYYY-MM-DD; blank = not announced; UNVERIFIED = no primary date), replacement, source, checked_on, note.
+# A row whose date is on or before the run date prints RETIRED; after it, DEPRECATED with the days left. A table whose newest checked_on is more than 90 days old prints STALE and llm-sites.py --strict exits 1.
+# Refresh from the three sources below before each release; never edit a date from memory. Ids only, no vendor text.
+provider	id	match	status	date	replacement	source	checked_on	note
+anthropic	claude-1.	prefix	retired	2024-11-06	claude-haiku-4-5-20251001	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	claude-1.0 to 1.3
+anthropic	claude-instant-1.	prefix	retired	2024-11-06	claude-haiku-4-5-20251001	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-2.0	exact	retired	2025-07-21	claude-opus-4-8	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-2.1	exact	retired	2025-07-21	claude-opus-4-8	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-sonnet-20240229	exact	retired	2025-07-21	claude-sonnet-5-5	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-5-sonnet-20240620	exact	retired	2025-10-28	claude-sonnet-5-5	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-5-sonnet-20241022	exact	retired	2025-10-28	claude-sonnet-5-5	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-opus-20240229	exact	retired	2026-01-05	claude-opus-4-8	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-7-sonnet-20250219	exact	retired	2026-02-19	claude-sonnet-5-5	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-5-haiku-20241022	exact	retired	2026-02-19	claude-haiku-4-5-20251001	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-haiku-20240307	exact	retired	2026-04-20	claude-haiku-4-5-20251001	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-3-	prefix	retired	2026-04-20		https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	every claude-3 family id is retired on the Claude API; -latest aliases of the 3.x line resolve to retired families
+anthropic	claude-sonnet-4-20250514	exact	retired	2026-06-15	claude-sonnet-5-5	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-opus-4-20250514	exact	retired	2026-06-15	claude-opus-4-8	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-opus-4-1-20250805	exact	retired	2026-08-05	claude-opus-4-8	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	
+anthropic	claude-sonnet-4-5-20250929	exact	deprecated	2026-11-30	claude-sonnet-5-5	https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	deprecated 2026-09-30
+anthropic	claude-mythos-preview	exact	deprecated			https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	deprecated 2026-06-09; retirement date to be announced
+bedrock	anthropic.	prefix	platform			https://docs.aws.amazon.com/bedrock/latest/userguide/model-lifecycle.html	2026-10-19	Bedrock sets its own Active/Legacy/EOL dates on the model card; read it
+vertex	@[0-9]{8}$	regex	platform			https://platform.claude.com/docs/en/about-claude/model-deprecations	2026-10-19	Vertex ids (model@date) follow Google Cloud's own schedule; read the Vertex model table
+openai	gpt-4-32k	prefix	retired	2025-06-06	gpt-4o	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4.5-preview	prefix	retired	2025-07-14	gpt-4.1	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o1-preview	prefix	retired	2025-07-28	o3	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-3.5-turbo-instruct	prefix	retired	2025-09-28		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-3.5-turbo-1106	exact	retired	2025-09-28		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	babbage-002	exact	retired	2025-09-28		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	davinci-002	exact	retired	2025-09-28		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	text-moderation-	prefix	retired	2025-10-27	omni-moderation	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o1-mini	prefix	retired	2025-10-27	o4-mini	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	codex-mini-latest	exact	retired	2026-02-12	gpt-5-codex-mini	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	chatgpt-4o-latest	exact	retired	2026-02-17	gpt-5.1-chat-latest	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4-0314	exact	retired	2026-03-26		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4-0125-preview	exact	retired	2026-03-26		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4-turbo-preview	prefix	retired	2026-03-26		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-realtime-preview	prefix	retired	2026-05-07	gpt-realtime-1.5	https://developers.openai.com/api/docs/deprecations	2026-10-19	the 2024-10-01 snapshot retired 2025-10-10
+openai	gpt-4o-audio-preview	prefix	retired	2026-05-07	gpt-audio-1.5	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-mini-realtime-preview	prefix	retired	2026-05-07	gpt-realtime-mini	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-mini-audio-preview	prefix	retired	2026-05-07	gpt-audio-mini	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	dall-e-2	exact	retired	2026-05-12	gpt-image-2	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	dall-e-3	exact	retired	2026-05-12	gpt-image-2	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	computer-use-preview	prefix	retired	2026-07-23		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-search-preview	prefix	retired	2026-07-23		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-mini-search-preview	prefix	retired	2026-07-23		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5-chat-latest	exact	retired	2026-07-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5-codex	exact	retired	2026-07-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5.1-chat-latest	exact	retired	2026-07-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5.1-codex	prefix	retired	2026-07-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	includes -max and -mini
+openai	gpt-5.2-codex	exact	retired	2026-07-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o3-deep-research	prefix	retired	2026-07-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o4-mini-deep-research	prefix	retired	2026-07-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5.2-chat-latest	exact	retired	2026-08-10	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5.3-chat-latest	exact	retired	2026-08-10	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	sora-2	prefix	retired	2026-09-24		https://developers.openai.com/api/docs/deprecations	2026-10-19	Videos API retired with it
+openai	gpt-5.4-cyber	exact	retired	2026-10-01		https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-3.5-turbo	exact	deprecated	2026-10-23	gpt-5.6-terra	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-3.5-turbo-0125	exact	deprecated	2026-10-23	gpt-5.6-terra	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4-0613	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4-1106-preview	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4-turbo	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4-turbo-2024-04-09	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4.1-nano	prefix	deprecated	2026-10-23	gpt-5.6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-2024-05-13	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-image-1	exact	deprecated	2026-10-23	gpt-image-2.5-sunburst	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o1	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o1-2024-12-17	exact	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o1-pro	prefix	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o3-mini	prefix	deprecated	2026-10-23	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o4-mini	exact	deprecated	2026-10-23	gpt-5.6-terra	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o4-mini-2025-04-16	exact	deprecated	2026-10-23	gpt-5.6-terra	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-image-1-mini	exact	deprecated	2026-12-01	gpt-image-2.5-sunburst	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-image-1.5	exact	deprecated	2026-12-01	gpt-image-2.5-sunburst	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	chatgpt-image-latest	exact	deprecated	2026-12-01	gpt-image-2.5-sunburst	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5-2025-08-07	exact	deprecated	2026-12-11	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5-mini-2025-08-07	exact	deprecated	2026-12-11	gpt-5.6-terra	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5-nano-2025-08-07	exact	deprecated	2026-12-11	gpt-5.6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5-pro-2025-10-06	exact	deprecated	2026-12-11	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o3-2025-04-16	exact	deprecated	2026-12-11	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	o3-pro-2025-06-10	exact	deprecated	2026-12-11	gpt-5.6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	tts-1	prefix	deprecated	2027-01-06	gpt-realtime-2.1-mini	https://developers.openai.com/api/docs/deprecations	2026-10-19	includes tts-1-hd
+openai	gpt-4o-2024-08-06	exact	deprecated	2027-01-14	gpt-6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-2024-11-20	exact	deprecated	2027-01-14	gpt-6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4o-mini-2024-07-18	exact	deprecated	2027-01-14	gpt-6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4.1-2025-04-14	exact	deprecated	2027-01-14	gpt-6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-4.1-mini-2025-04-14	exact	deprecated	2027-01-14	gpt-6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	whisper-1	exact	deprecated	2027-02-26	gpt-transcribe	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5.1	exact	deprecated	2027-04-01	gpt-6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5.3-codex	exact	deprecated	2027-04-01	gpt-6-sol	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai	gpt-5.4-nano	exact	deprecated	2027-04-01	gpt-6-luna	https://developers.openai.com/api/docs/deprecations	2026-10-19	
+openai-platform	client\.evals\.|\.evals\.runs\b|\boaieval\b	api	deprecated	2026-11-30	promptfoo	https://developers.openai.com/api/docs/deprecations	2026-10-19	Evals platform: existing evals read-only from 2026-10-31
+openai-platform	\bpmpt_[A-Za-z0-9]+|v1/prompts\b	api	deprecated	2026-11-30	prompt text in application code	https://developers.openai.com/api/docs/deprecations	2026-10-19	v1/prompts and reusable prompt objects
+openai-platform	beta\.assistants\.|beta\.threads\.|/v1/assistants\b	api	retired	2026-08-26	Responses and Conversations APIs	https://developers.openai.com/api/docs/deprecations	2026-10-19	Assistants API
+google	gemini-1.0-	prefix	retired	UNVERIFIED		https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	no 1.0 or 1.5 rows remain on the page; treat as retired and read the provider model list
+google	gemini-1.5-	prefix	retired	UNVERIFIED		https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	no 1.0 or 1.5 rows remain on the page; treat as retired and read the provider model list
+google	gemini-pro	exact	retired	UNVERIFIED		https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	1.0-era alias; absent from the page
+google	gemini-2.5-pro-preview-	prefix	retired	2025-12-02	gemini-3.1-pro-preview	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-flash-preview-05-20	exact	retired	2025-11-18	gemini-3.6-flash	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-flash-preview-09-25	exact	retired	2026-02-17	gemini-3.6-flash	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-flash-lite-preview-09-2025	exact	retired	2026-03-31	gemini-3.1-flash-lite	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.0-flash-lite-preview	prefix	retired	2025-12-09	gemini-2.5-flash-lite	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.0-flash-live-001	exact	retired	2025-12-09	gemini-3.8-live	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.0-flash-preview-image-generation	exact	retired	2025-11-14	gemini-nano-banana-2.1	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.0-flash	prefix	retired	2026-06-01	gemini-3.6-flash	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	gemini-2.0-flash(-001), -lite(-001)
+google	gemini-3-pro-preview	exact	retired	2026-03-09	gemini-3.1-pro-preview	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-3.1-flash-lite-preview	exact	retired	2026-05-25	gemini-3.1-flash-lite	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-flash-image-preview	exact	retired	2026-01-15	gemini-nano-banana-2.1	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-computer-use-preview-10-2025	exact	retired	2026-07-28	gemini-3.8-flash	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-live-2.5-flash-preview	exact	retired	2025-12-09	gemini-3.8-live	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-3.1-flash-live-preview	exact	deprecated	2026-11-17	gemini-3.8-live	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-flash-preview-tts	exact	deprecated	2026-11-17	gemini-3.8-flash-tts	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-pro-preview-tts	exact	deprecated	2026-11-17	gemini-3.8-flash-tts	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-2.5-flash-image	exact	deprecated	2027-03-15	gemini-3.1-flash-lite-image	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-3.1-flash-lite	exact	deprecated	2027-05-07	gemini-3.5-flash-lite	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	earliest possible shutdown
+google	text-embedding-004	exact	retired	2026-01-14	gemini-embedding-2	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	embedding-001	exact	retired	2025-10-30	gemini-embedding-2	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	embedding-gecko-001	exact	retired	2025-10-30	gemini-embedding-2	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	date unlabeled on the page
+google	gemini-embedding-exp	prefix	retired	2025-10-30	gemini-embedding-2	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	date unlabeled on the page
+google	embedding-2-preview	exact	retired	2026-08-10	gemini-embedding-2	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	gemini-embedding-001	exact	deprecated	2028-05-14	gemini-embedding-2	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	earliest possible shutdown
+google	imagen-3.0-generate-002	exact	retired	2025-11-10	imagen-4.0-generate-001	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	imagen-4.0-	prefix	deprecated	2026-08-17	gemini-nano-banana-2.1	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	preview-06-06 snapshots retired 2026-02-17
+google	veo-2.0-generate-001	exact	retired	2026-06-30	veo-3.1-generate-preview	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	veo-3.0-	prefix	retired	2026-06-30	veo-3.1-generate-preview	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+google	veo-3.1-	prefix	deprecated	2026-10-22	gemini-omni-1.1-flash	https://ai.google.dev/gemini-api/docs/deprecations	2026-10-19	
+azure	azure-deployment	api	platform			https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-retirements	2026-10-19	deployment names are not model ids; read versionUpgradeOption in IaC (MV-5); retired = HTTP 410

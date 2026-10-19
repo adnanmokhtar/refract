@@ -317,5 +317,5 @@ Sending `{ condition: 'HIV' }` / financial detail / religion to a general analyt
 - `<rules-path>/rate-limit.md` — per-source sampling + rate caps on high-volume events.
 - `<patterns-path>/queue-producer-consumer.md` — outbox + at-least-once + dedup for delivering trust-critical events server-side.
 - `<commands-path>/audit-tracking-plan.md` — inventory emit call-sites vs. the declared plan.
-- `<agents-path>/analytics-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/analytics-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-analytics-pipeline.md` — ADR pinning the vendor(s), client-vs-server split, consent model, and tracking-plan source of truth.

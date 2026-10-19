@@ -1,0 +1,9 @@
+import * as Sentry from '@sentry/nextjs';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.VERCEL_ENV ?? 'development',
+  tracesSampleRate: 0.2,
+  sendDefaultPii: true,
+  integrations: [Sentry.vercelAIIntegration()],
+});

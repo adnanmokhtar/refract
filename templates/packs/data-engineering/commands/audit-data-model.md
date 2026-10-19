@@ -1,8 +1,8 @@
 ---
-description: Audit the warehouse's analytical model — declared grain, fact/dimension separation, key and SCD correctness, conformed dimensions, join cardinality, and layering violations. Read-only; produces a per-model verdict ledger with a probe result behind every uniqueness claim.
+description: "Audit the analytical model: probed grain, joins, SCD, conformance. Writes only its report."
 kind: command
 pack: data-engineering
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+allowed-tools: [Read, Write, Grep, Glob, Bash, Task]
 ---
 
 # /audit-data-model [<scope>] [--layer mart|intermediate|staging]
@@ -13,12 +13,14 @@ Audit the models a business already trusts. Warehouse defects do not announce th
 
 - USE: before a mart is exposed to a dashboard or an external consumer; after a reported number turned out to be wrong; when two dashboards disagree; on a quarterly cadence for money-bearing models; when inheriting a warehouse.
 - NOT: to audit whether the data arriving is correct — that is `/audit-data-quality`.
-- NOT: to audit the loading code's idempotency and checkpointing — that is `/audit-pipeline` (data-pipeline signal).
+- NOT: to audit the loading code's idempotency, data tests, rollups, exports or analytical PII — that is `/audit-data-quality` (its `incremental-load-scan`, `data-test-scan`, `derived-data-scan`, `extract-scan` and `pii-copy-scan` rows). The data-pipeline overlay's `/audit-pipeline` corroborates when installed.
 - NOT: to audit OLTP schema — that is `/db-audit` in the database pack.
 
 ## Phases applied
 
-1-3 + 6 (audit shape — no Generate, no Update; the output is findings).
+1-3 + 6 (audit shape — no Generate; the only write is the report file in `ai/audits/`).
+
+**Write scope.** `Write` is granted for one file: `ai/audits/data-model-audit-<date>.md`. No model, test, YAML, config or fixture is created or edited; `Edit` is not granted. Probes run on scratch targets outside the repo (`grain-probe`'s offline duckdb lane), so `git status --porcelain` shows only the report file at the end.
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -64,10 +66,10 @@ Additionally:
 
 Dispatch, in order:
 
-- **`grain-probe`** on every model in scope. Its output is the uniqueness column of the ledger; no other source is accepted.
-- **`@warehouse-modeler`** on the models that failed a probe or whose structure pass raised a question. It issues the design verdict.
-- **`lineage-trace`** on every model with a finding, to size the blast radius: which dashboards, exports, and downstream models consume the wrong number today.
+- **`grain-probe`** on every model in scope (GR §1–§4). Its offline lane builds the project into duckdb from committed seeds in `$OUT`; a warehouse probe runs only after a dry run under the bound the user states (its § Cost guard). Its output is the uniqueness column of the ledger; no other source is accepted.
+- **`lineage-trace`** on every model with a finding (its `NODE=` trace), to size the blast radius: which dashboards, exports and downstream models consume the wrong number today. A trace printed `PARTIAL` is carried into the finding as such.
 - **`contract-diff`** where a finding is caused by an upstream shape change rather than a modelling choice — it classifies whether the change was breaking and when it landed.
+- **`@warehouse-modeler` in refute mode** on every GR, SC and LN row the skills raise, then `@verifier` mode `refute` on every BLOCKER and HIGH it keeps ([`refute-before-report.md`](../../../snippets/refute-before-report.md) with [`precedents/data-engineering.md`](../../../snippets/precedents/data-engineering.md)). It issues the design verdict on the models that failed a probe; it writes nothing.
 
 Cardinality probes are run, not reasoned: for each fact→dimension join, count fact rows before and after the join. An increase is fan-out; a decrease is silent row loss. Both are findings, and the row counts go in the finding.
 
@@ -134,6 +136,6 @@ Write the report to `ai/audits/data-model-audit-<date>.md`.
 - `@warehouse-modeler` — issues the design verdicts this command collects.
 - `@analytics-engineer` — owns the layering violations found in the structure pass.
 - `@data-quality-auditor` — the standing-test counterpart; this audit's findings become its assertions.
-- `grain-probe`, `lineage-trace`, `contract-diff` — the executors.
+- `grain-probe`, `lineage-trace`, `contract-diff` — the executors; `/audit-data-quality` runs the other seven detectors; `/data-fix` closes the findings failing-first.
 - `ai/patterns/dimensional-model.md`, `ai/patterns/semantic-layer.md`.
 - `.claude/rules/data-engineering-principles.md`.

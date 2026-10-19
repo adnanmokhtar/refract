@@ -1,0 +1,13 @@
+commit d81a4b2 (release 1.2.0)
+    Order list filter by status
+
+diff --git a/db/migrate/20260714083000_add_status_index_to_orders.rb b/db/migrate/20260714083000_add_status_index_to_orders.rb
+new file mode 100644
+--- /dev/null
++++ b/db/migrate/20260714083000_add_status_index_to_orders.rb
+@@ -0,0 +1,5 @@
++class AddStatusIndexToOrders < ActiveRecord::Migration[7.1]
++  def change
++    add_index :orders, :status
++  end
++end

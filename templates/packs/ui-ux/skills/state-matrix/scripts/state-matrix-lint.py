@@ -15,7 +15,7 @@ WHERE THE MATRIX IS. An explicit <matrix.md>, else in --run: ux.md (writer @ux-d
 heading; it ends at the next `## ` heading. Format (templates/packs/ui-ux/skills/state-matrix/SKILL.md):
 
   Surfaces:
-  - `orders-list` — src/orders/OrdersPage.tsx, src/orders/OrdersTable.tsx
+  - `orders-list` — src/orders/OrdersPage.tsx, src/orders/OrderGrid.tsx
   | Surface | State | Source | Expected | Proof |
   |---|---|---|---|---|
   | orders-list | loading | AC-002 | 10 skeleton rows, aria-busy | src/orders/OrdersPage.stories.tsx#Loading |
@@ -395,7 +395,7 @@ def self_test():
         w("ai/runs/r5/run.json", json.dumps({"tier": "T3", "lanes": ["backend"]}))
         expect("backend-only run", [], "N-A", run="ai/runs/r5")
         expect("touched surface outside the matrix", ["surface-unlisted"], "FAIL", run="ai/runs/r1",
-               opts={"touched": "src/orders/OrdersPage.tsx,src/billing/InvoicesPage.tsx,src/i18n/en.json"})
+               opts={"touched": "src/orders/OrdersPage.tsx,src/billing/SubscriptionView.tsx,src/i18n/en.json"})
         expect("no run, copy-only change", [], "N-A", opts={"touched": "src/i18n/en.json,README.md"})
         expect("a backend list-page.ts is not a surface", [], "N-A", opts={"touched": "api/src/shared/list-page.ts"})
         w("ai/design/state-matrix/dup.md", good.replace("| orders-list | stale |", "| orders-list | empty |")
@@ -410,7 +410,7 @@ def self_test():
         if [a["kind"] for a in lint(td, matrix="ai/design/state-matrix/odd.md")["advisories"]] != ["proof-unanchored"]:
             fails.append("a file-only proof is not flagged proof-unanchored")
         expect("a touched dialog is a surface", ["surface-unlisted"], "FAIL", run="ai/runs/r1",
-               opts={"touched": "src/orders/OrdersPage.tsx,src/orders/RefundDialog.tsx"})
+               opts={"touched": "src/orders/OrdersPage.tsx,src/orders/RefundModal.tsx"})
         cases += 1
         rr = lint_repo(td)
         if rr["verdict"] != "FAIL" or sorted({x["kind"] for x in rr["findings"]}) != sorted(

@@ -1,0 +1,3 @@
+Extract a purchase order from the customer e-mail as JSON matching the order_draft schema.
+
+{{email}}

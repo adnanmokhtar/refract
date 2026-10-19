@@ -1,0 +1,7 @@
+2026-04-08T19:06:10Z INFO  [orders] POST /orders cart=c-551 started
+2026-04-08T19:06:15Z WARN  [envoy] upstream request timeout after 5000ms, retrying (1/2) POST /orders
+2026-04-08T19:06:15Z INFO  [orders] POST /orders cart=c-551 started
+2026-04-08T19:06:17Z INFO  [orders] order o-88120 created cart=c-551 (payment 6.9s)
+2026-04-08T19:06:21Z INFO  [orders] order o-88121 created cart=c-551 (payment 5.8s)
+2026-04-08T19:07:02Z ERROR [db] duplicate key value violates unique constraint "order_events_pkey" (event o-88121/created)
+2026-04-08T19:22:40Z WARN  [envoy] upstream request timeout after 5000ms, retrying (2/2) POST /orders

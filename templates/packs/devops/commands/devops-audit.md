@@ -278,11 +278,11 @@ Graph: ci-graph.py exit 1 (ruby psych) · deploys=yes: deploy-prod, deploy-stagi
 Tools: actionlint 1.7.12 ran · hadolint v2.15.1 3/3 parsed · docker build --check 2/3 (1 NOT-RUN: base unresolved) · compose config blocked (plugin absent)
 Verification: 58 candidates → 2 findings · 5 unconfirmed · 7 hardening · 0 pre-existing · 31 refuted · 13 routed
 IMPORTANT (2):
-  .github/workflows/deploy.yml:8   deploy-safety-scan §2 DP-2 · DEPLOY-CANCEL scope=workflow covers deploy-prod (C1)   BLOCKER   V228 graph (T)
+  .github/workflows/cd.yml:8       deploy-safety-scan §2 DP-2 · DEPLOY-CANCEL scope=workflow covers deploy-prod (C1)   BLOCKER   V228 graph (T)
   apps/api/src/main.ts:14          deploy-safety-scan §1 DP-1 · boot migrate × prod floor 3 × lockless runner          HIGH      V227 written out
 Class ledger: Masking checked (14 → 0) · Required-check join UNREADABLE (gh api …/rules: settings lane not opened) · Shipped = tested checked (2 producers → 1 unconfirmed) ·
               Build-check lane blocked (docker build --check NOT-RUN: base unresolved, 1 file) · CI security routed (ci-security-scan: 0 rows) · …
-Production bar: RED STAYS RED UNVERIFIED (no sandbox) · ONE DEPLOY AT A TIME gap (deploy.yml:8) · PROTECTED PROD UNREADABLE
+Production bar: RED STAYS RED UNVERIFIED (no sandbox) · ONE DEPLOY AT A TIME gap (cd.yml:8) · PROTECTED PROD UNREADABLE
 NO-GO — 1 blocker; settings lane UNREADABLE · sandbox lane not run
 ```
 

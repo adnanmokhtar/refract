@@ -9,6 +9,8 @@ One module, imported by gate-check.py and run by four hooks and lock-acceptance.
                     from git, write ai/runs/<run_id>/verdict.json (or verdict-refute.json).
   persist-review    SubagentStop (any other agent): the same for a review lens's candidate findings
                     → ai/runs/<run_id>/reviews/<agent>-<lens>.json, with the posting bar enforced.
+                    A refute-mode verdict also lands each REFUTED candidate in the review-dismissals
+                    sink (ai/dynamic/review-dismissals.jsonl, append-only; review-dismissals.py reads it).
   guard             PreToolUse (test-lock.sh): deny edits to locked acceptance files and tests and to
                     hook-owned records; ask the human before a lock is reopened; keep the edit ledger.
   lock | reopen | check | status   lock-acceptance.sh's engine (.claude/locks/<run_id>.json).
@@ -422,7 +424,145 @@ def verdict_rules(repo, rec):
     return errs
 
 
+# ── review-dismissals sink (spec § 5.8 calibration; review-dismissals.py is its CLI) ─────────────
+DISMISSALS = os.path.join("ai", "dynamic", "review-dismissals.jsonl")
+DISMISS_REASONS = ("refuted", "accepted-risk", "false-positive")
+
+
+def fingerprint(repo, kind, path, line):
+    """Stable across runs while the flagged line is unchanged: class + path + the trimmed text of the
+    line (whitespace collapsed); the line number only when the file cannot be read."""
+    text = None
+    try:
+        with open(os.path.join(repo, path or ""), encoding="utf-8", errors="replace") as fh:
+            for i, l in enumerate(fh, 1):
+                if i == int(line or 0):
+                    text = " ".join(l.split())
+                    break
+    except (OSError, ValueError, TypeError):
+        pass
+    key = "%s\0%s\0%s" % (kind or "", path or "", text if text is not None else "line:%s" % line)
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
+def review_finding(repo, run_id, ref):
+    """`<reviews file>#F-n` (relative to the repo or to ai/runs/<run_id>/) -> (review record, finding)."""
+    if not ref or "#" not in ref:
+        return None, None
+    path, fid = ref.rsplit("#", 1)
+    for cand in (os.path.join(repo, path), os.path.join(repo, "ai", "runs", run_id, path)):
+        if os.path.isfile(cand):
+            try:
+                rec = json.load(open(cand, encoding="utf-8"))
+            except ValueError:
+                return None, None
+            for f in rec.get("findings", []):
+                if f.get("id") == fid:
+                    return rec, f
+            return rec, None
+    return None, None
+
+
+def dismissal(repo, run_id, source, finding, reason, by, note, recorded_by, gate=None, lens=None):
+    kind = finding.get("kind") or "unclassified/unclassified"
+    return {"schema": "refract/dismissal/v1", "date": now()[:10], "ts": now(), "run_id": run_id,
+            "source": source, "lens": lens or kind.split("/", 1)[0], "class": kind,
+            "detector": finding.get("detector"), "severity": finding.get("severity"),
+            "file": finding.get("file"), "line": finding.get("line"),
+            "fingerprint": fingerprint(repo, kind, finding.get("file"), finding.get("line")),
+            "reason": reason, "gate": gate, "note": note, "by": by, "recorded_by": recorded_by}
+
+
+def read_dismissals(repo):
+    p = os.path.join(repo, DISMISSALS)
+    out = []
+    if os.path.isfile(p):
+        for l in open(p, encoding="utf-8", errors="replace"):
+            try:
+                d = json.loads(l)
+            except ValueError:
+                continue
+            if isinstance(d, dict) and d.get("schema") == "refract/dismissal/v1":
+                out.append(d)
+    return out
+
+
+def append_dismissals(repo, recs):
+    """Append-only; a (run, fingerprint, reason) already in the sink is not written twice. -> count"""
+    seen = {(d.get("run_id"), d.get("fingerprint"), d.get("reason")) for d in read_dismissals(repo)}
+    new = []
+    for r in recs:
+        k = (r["run_id"], r["fingerprint"], r["reason"])
+        if k not in seen:
+            seen.add(k)
+            new.append(r)
+    if new:
+        p = os.path.join(repo, DISMISSALS)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "a", encoding="utf-8") as fh:
+            for r in new:
+                fh.write(json.dumps(r, ensure_ascii=False, sort_keys=True) + "\n")
+    return len(new)
+
+
+def refuted_dismissals(repo, verdict):
+    """Every refuted candidate of a refute-mode verdict as a dismissal record (reason `refuted`)."""
+    recs = []
+    for f in verdict.get("findings", []):
+        if f.get("bucket") != "refuted":
+            continue
+        rev, rf = review_finding(repo, verdict["run_id"], f.get("id"))
+        src = rf or {"file": f.get("file"), "line": f.get("line"), "severity": f.get("severity")}
+        recs.append(dismissal(repo, verdict["run_id"], f.get("id"), src, "refuted",
+                              (verdict.get("signer") or {}).get("agent_type") or "verifier", f.get("reason"),
+                              "persist-verdict.sh", gate=f.get("gate"), lens=(rev or {}).get("lens")))
+    return recs
+
+
 # ── persist (SubagentStop) ─────────────────────────────────────────────────────────────────────
+HYPOTHESES = "refract/hypotheses/v1"
+
+
+def persist_hypotheses(hook, repo):
+    """An investigator instance's hypothesis record (/investigate-incident) -> MERGED by id into
+    ai/runs/<run_id>/reviews/hypotheses.json. A supported hypothesis must cite supporting evidence and
+    the line its cause lives on; a refuted one must cite contradicting evidence."""
+    rec, err = extract_json(output_text(hook, HYPOTHESES), HYPOTHESES)
+    if err:
+        return reject([err])
+    claimed = [k for k in STAMPED if k in rec]
+    if claimed:
+        return reject(["remove %s — the hook stamps who signed, who authored and what was judged" % ", ".join(claimed)])
+    errs = validate(rec, load_schema("hypotheses", repo))
+    if errs:
+        return reject(errs)
+    for h in rec["hypotheses"]:
+        if h["verdict"] == "supported" and (not h["supporting"] or "root_cause" not in h):
+            errs.append("%s is `supported` with no supporting evidence or no root_cause {file, line, claim}" % h["id"])
+        if h["verdict"] == "refuted" and not h["contradicting"]:
+            errs.append("%s is `refuted` with no contradicting evidence" % h["id"])
+    if errs:
+        return reject(errs)
+    run_dir = os.path.join(repo, "ai", "runs", rec["run_id"])
+    if not os.path.isdir(run_dir):
+        return reject(["run %s has no ai/runs/%s/ — use the run_id your brief named" % (rec["run_id"], rec["run_id"])])
+    out = os.path.join(run_dir, "reviews", "hypotheses.json")
+    merged = {}
+    if os.path.isfile(out):
+        try:
+            prev = json.load(open(out, encoding="utf-8"))
+        except ValueError:
+            prev = {}
+        if prev.get("incident") == rec["incident"]:
+            merged = dict((h.get("id"), h) for h in prev.get("hypotheses", []))
+    rec = stamp(repo, rec, hook, "persist-review.sh")
+    for h in rec["hypotheses"]:
+        merged[h["id"]] = h
+    rec["hypotheses"] = [merged[k] for k in sorted(merged, key=lambda i: int(i.split("-")[1]))]
+    write_json(out, rec)
+    return 0
+
+
 def reject(lines):
     print("Not persisted — fix and end again with the corrected JSON:", file=sys.stderr)
     for l in lines[:12]:
@@ -448,6 +588,8 @@ def persist(kind, hook, repo):
         return 0
     if not is_verdict and (not agent or agent in judges):
         return 0
+    if not is_verdict and HYPOTHESES in output_text(hook, HYPOTHESES):
+        return persist_hypotheses(hook, repo)
     marker = "refract/verdict/v1" if is_verdict else "refract/findings/v1"
     text = output_text(hook, marker)
     if marker not in text:
@@ -482,6 +624,11 @@ def persist(kind, hook, repo):
                            "cannot be signed by it" % agent])
         name = "verdict.json" if rec["mode"] == "acceptance" else "verdict-refute.json"
         write_json(os.path.join(run_dir, name), rec)
+        if rec["mode"] == "refute":
+            try:
+                append_dismissals(repo, refuted_dismissals(repo, rec))
+            except (OSError, ValueError) as e:                       # the verdict stands; the sink is advisory
+                print("persist-verdict: review-dismissals sink not written: %s" % e, file=sys.stderr)
         return 0
     # review: the posting bar (templates/snippets/posting-bar.md)
     safe_agent = re.sub(r"[^a-z0-9-]", "-", agent.lower())
@@ -646,7 +793,8 @@ def cmd_check(repo, run_id):
 
 
 # ── guard (test-lock.sh) ───────────────────────────────────────────────────────────────────────
-HOOK_OWNED = re.compile(r"^(\.claude/locks/|\.claude/evidence/|ai/runs/[^/]+/verdict[^/]*\.json$|ai/runs/[^/]+/reviews/)")
+HOOK_OWNED = re.compile(r"^(\.claude/locks/|\.claude/evidence/|ai/runs/[^/]+/verdict[^/]*\.json$|ai/runs/[^/]+/reviews/"
+                        r"|ai/dynamic/review-dismissals\.jsonl$)")
 WRITE_SHAPE = re.compile(
     r"(^|[^0-9&<>])>{1,2}\s*[^\s&>]|\btee\b|\bsed\s+(-[a-zA-Z]*i|--in-place)|\bperl\s+-[a-zA-Z]*i|\b(rm|mv|cp|truncate|dd|install|ln|touch|chmod)\s"
     r"|\bgit\s+(checkout|restore|rm|mv|stash|apply|reset|clean|am|cherry-pick)\b|\bpatch\b|\b(python3?|node|ruby|perl|php|deno|bun)\s+-[ce]\b")
@@ -676,10 +824,22 @@ def guard(hook, repo):
                 "tests can change. Approve only if you agree the contract itself is wrong (a SPEC_CONFLICT), not "
                 "because the code fails it."}}))
             return 0
+        if re.search(r"review-dismissals\.py\b.*\bdismiss\b", cmd):
+            if hook.get("permission_mode") in ("bypassPermissions", "dontAsk"):
+                return deny("Blocked by test-lock: dismissing a review finding as accepted-risk or false-positive "
+                            "is a human's call, and this session runs with permission prompts off. List the finding "
+                            "and why; the owner runs `.claude/scripts/review-dismissals.py dismiss …` in a terminal.")
+            print(json.dumps({"hookSpecificOutput": {
+                "hookEventName": "PreToolUse", "permissionDecision": "ask",
+                "permissionDecisionReason": "test-lock: this DISMISSES a review finding (accepted-risk / "
+                "false-positive) into ai/dynamic/review-dismissals.jsonl, which later demotes the detector that "
+                "raised it. Approve only if you, not the builder, judge the finding wrong or the risk accepted."}}))
+            return 0
         protected = [p for l in locks if l.get("state") == "locked" for p in locked_paths(l)]
         hits = [p for p in protected if p in cmd or (os.path.basename(p) in cmd and "/" not in os.path.basename(p)
                                                       and len(os.path.basename(p)) > 6)]
-        owned = re.search(r"\.claude/locks/|\.claude/evidence/(edits|test-runs)\.jsonl|ai/runs/[^ ]+/(verdict[^ ]*\.json|reviews/)", cmd)
+        owned = re.search(r"\.claude/locks/|\.claude/evidence/(edits|test-runs)\.jsonl|ai/runs/[^ ]+/(verdict[^ ]*\.json|reviews/)"
+                          r"|ai/dynamic/review-dismissals\.jsonl", cmd)
         if (hits or owned) and WRITE_SHAPE.search(cmd):
             what = ", ".join(hits[:4]) if hits else owned.group(0)
             return deny("Blocked by test-lock: this command can write %s, which is %s. Locked acceptance tests and "

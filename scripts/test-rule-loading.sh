@@ -444,6 +444,13 @@ say "§ 5  pack + domain rules carry a sound source paths: (or are on the always
 ALLOW=" align-discipline.md business-completeness.md doc-principles.md engineering-principles.md finops-principles.md product-principles.md security-principles.md "
 eval "$(awk '/^glob_to_re\(\) \{$/{f=1} f{print} f&&/^\}$/{exit}' "$HOOK_SRC4")"
 SAMPLES="src/index.ts app/models/user.rb api/main.py cmd/server/main.go lib/main.dart src/App.vue src/main/java/App.java"
+# Rules whose class lives in DATA files, not in an application stack: the pack installs only on a
+# warehouse / orchestrator signal (detect-tracks: dbt_project.yml, dags/, airflow, dagster, …), and its
+# hard rules (grain, assertions, one metric definition, shadow backfills) bind models, DAGs and
+# exports — loading them on every `src/index.ts` would spend the budget on the wrong files. They are
+# held to the same guard over DATA samples instead: a default that matches none of them is dead.
+DATA_SCOPED=" data-engineering-principles.md "
+DATA_SAMPLES="models/marts/fct_orders.sql dags/daily_load.py analytics/models/staging/stg_orders.sql src/exports/orders-export.ts notebooks/cohort.ipynb"
 _sha8() { if command -v shasum >/dev/null 2>&1; then shasum; else sha1sum; fi | cut -c1-8; }
 n5=0; unscoped=""; allow_scoped=""; shape=""; hash_bad=""; dead=""
 for f in "$REPO_ROOT"/templates/packs/*/rules/*.md "$REPO_ROOT"/templates/domains/*/rules/*.md; do
@@ -459,7 +466,8 @@ for f in "$REPO_ROOT"/templates/packs/*/rules/*.md "$REPO_ROOT"/templates/domain
   [ "$ng" -ge 1 ] && [ "$ng" = "$nl" ] || shape="$shape $b($ng/$nl)"
   want=$(awk '/^---[[:space:]]*$/{d++; if(d==2)exit; next} d==1&&/^paths-origin: pack-default-/{sub(/^paths-origin: pack-default-/,""); print; exit}' "$f")
   [ -n "$want" ] && [ "$want" = "$(rule_globs "$f" | _sha8)" ] || hash_bad="$hash_bad $b"
-  for s in $SAMPLES; do
+  smp="$SAMPLES"; case "$DATA_SCOPED" in *" $b "*) smp="$DATA_SAMPLES" ;; esac
+  for s in $smp; do
     hit=0
     while IFS= read -r g; do
       [ -z "$g" ] && continue
@@ -476,7 +484,7 @@ if [ -z "$shape" ]; then ok "§5 every source paths: is a block list the hook re
 else bad "§5 a source paths: the hook cannot read in full (globs read/list lines)" "$shape"; fi
 if [ -z "$hash_bad" ]; then ok "§5 every source default carries a pack-default marker whose hash matches its globs"
 else bad "§5 marker missing or stale — recompute: rule_globs <file> | shasum | cut -c1-8" "$hash_bad"; fi
-if [ -z "$dead" ]; then ok "§5 every source default matches a source file of every stack (ts rb py go dart vue java)"
+if [ -z "$dead" ]; then ok "§5 every source default matches a source file of every stack (ts rb py go dart vue java; data-scoped rules: every data sample)"
 else bad "§5 a source default matches no file of some stack — it would load NEVER there" "$dead"; fi
 
 # ── § 5b  the install-time scopers replace a pack default, and nothing else ──────────────

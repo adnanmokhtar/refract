@@ -1,0 +1,4 @@
+# series                                         23:30   23:50   00:00   00:05   00:15
+billing_ledger_error_ratio                         0.000   0.000   1.000   1.000   1.000
+web_http_5xx_ratio                                 0.0003  0.0003  0.0004  0.0021  0.0024
+ledger_tls_handshake_failures_per_min              0       0       214     230     228

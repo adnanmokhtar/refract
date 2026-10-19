@@ -21,6 +21,12 @@
 #                     legitimately append one ledger line; they are named in ADVISORY_WRITE_OK
 #                     below with the reason, so the exception is reviewable rather than silent.
 #
+#   5. DISPATCH     — a command whose body dispatches, invokes or spawns a named agent must hold
+#                     `Task`, and one that offers `--fix` must hold Write or Edit. Without them the
+#                     dispatch silently runs inline in the caller (or not at all) and `--fix` cannot
+#                     write: /audit-knowledge shipped both ways (learning eval D3, IR-9, 2026-10-19),
+#                     and ten other commands named `dispatch \`<agent>\`` with no Task when this rule landed.
+#
 # Usage:   lint-tool-scoping.sh [--repo-root=<dir>] [--quiet]
 # Exit:    1 if any rule is violated; 0 otherwise.
 
@@ -131,6 +137,32 @@ while IFS= read -r f; do
   if [ -z "$val" ]; then fail "$f: no \`allowed-tools:\`"; continue; fi
   check_vocabulary "$f" "$val" "allowed-tools:"
 done <<< "$(find . -path ./.git -prune -o -path '*/commands/*.md' -type f -print 2>/dev/null | grep -v '/tests/')"
+
+# ── Rule 5: dispatch needs Task, --fix needs a writing tool ────────────────
+r5="$(python3 - <<'PYR5' 2>&1
+import glob, os, re
+agents = set(os.path.basename(p)[:-3] for p in glob.glob('templates/**/agents/*.md', recursive=True) + glob.glob('agents/*.md'))
+agents.discard('README')
+names = '|'.join(sorted(map(re.escape, agents), key=len, reverse=True)) or 'x^'
+disp = re.compile(r'\b(dispatch(?:es|ed|ing)?|invoke[sd]?|spawn(?:s|ed)?)\b[^.\n|]{0,50}?(?:`@?|@)(' + names + r')\b', re.I)
+files = sorted(set(f for f in glob.glob('**/commands/*.md', recursive=True) if '/tests/' not in f and '/worktrees/' not in f)
+               | set(glob.glob('templates/*-baseline/.claude/commands/*.md')))
+for f in files:
+    s = open(f, encoding='utf-8').read()
+    m = re.match(r'---\n(.*?)\n---', s, re.S)
+    fm, body = (m.group(1), s[m.end():]) if m else ('', s)
+    at = re.search(r'^allowed-tools:\s*(.*)$', fm, re.M)
+    tools = at.group(1) if at else ''
+    if not tools:
+        continue                                   # rule 1 already reports it
+    h = disp.search(body)
+    if h and not re.search(r'\b(Task|Agent)\b', tools):
+        print('%s: dispatches an agent (%r) but allowed-tools has no Task' % (f, h.group(0)[:60]))
+    if re.search(r'`--fix\b', body) and not re.search(r'\b(Write|Edit|MultiEdit)\b', tools):
+        print('%s: offers --fix but allowed-tools has no Write or Edit' % f)
+PYR5
+)"
+if [ -n "$r5" ]; then while IFS= read -r l; do fail "$l"; done <<< "$r5"; fi
 
 if [ "$ERRORS" -eq 0 ]; then
   green "✓ tool scoping: $AGENTS agents, $SKILLS skills, $CMDS commands all declare a scoped tool set"

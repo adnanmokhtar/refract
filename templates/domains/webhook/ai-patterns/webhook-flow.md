@@ -195,7 +195,7 @@ The shape varies wildly. Resist the urge to read deep nested fields directly in 
 
 - `<rules-path>/webhook-signature-verification.md` — the universal hard-rule list (raw body, constant-time, dedupe, secret hygiene).
 - `<commands-path>/simulate-webhook.md` — local replay tool for fixtures + tampered-signature tests.
-- `<agents-path>/webhook-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/webhook-review.md` — review gate enforcing this pattern.
 - `<patterns-path>/payment-integration.md § Webhook handler` — payment-specific instance of this pattern (Stripe), including reconciliation cron.
 - `<patterns-path>/queue-producer-consumer.md` — async-shape worker semantics (idempotency, DLQ, observability) when you move processing off the hot path.
 - `<adr-path>/<NNN>-webhook-secret-rotation.md` — secret-rotation policy (when authored).

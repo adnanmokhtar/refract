@@ -1,6 +1,8 @@
 ---
 name: commitment-coverage
-description: Analyse committed-spend and reserved-capacity posture — coverage (what share of eligible usage is discounted), utilisation (what share of what was bought is used), expiry exposure, and a buy/hold/let-lapse recommendation with break-even arithmetic. Run before a commitment purchase or renewal, quarterly, and after any material capacity change. Owns the RATE half of spend — `unit-cost-probe` owns the per-unit number and `egress-trace` owns transfer, neither of which commitments affect.
+description: "Commitment coverage, utilisation, expiry exposure and break-even from a billing export (the rate half)."
+kind: skill
+pack: finops
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -12,7 +14,26 @@ Commitments are the one cost lever that changes the bill without changing the ar
 
 Every figure comes from the provider's own coverage and utilisation reporting plus the cost/usage export. No modelled assumptions about future usage without labelling them.
 
+## The bill lane — `bill-lane.py commitments`
+
+The inventory and its expiry calendar are read with the pack's stdlib script (`.claude/skills/unit-cost-probe/scripts/bill-lane.py`, shipped with `unit-cost-probe`; `--self-test` first): `columns <export>` names the cost column, then `commitments <export> --period YYYY-MM` prints coverage per currency (commitment-covered usage cost ÷ eligible usage cost) and, per FOCUS `CommitmentDiscountId`, the used and unused cost and the utilisation from `CommitmentDiscountStatus`; `--expiry <inventory> --as-of <date> --within-days 90` joins the end dates (exports rarely carry them) and flags what expires inside the window. The floor (step 4) still needs hourly usage over a seasonal cycle — the script reads cost rows, not hours. Commitments are bought in a billing console, never in Terraform: this skill never runs because an IaC root exists, only on an export or an inventory the user supplies.
+
+### The ledger line (UE-3)
+
+Every run, including one that halts, ends with one line an audit ledger can print unchanged:
+
+```
+UE-3 commitment-coverage · checked (<n> commitments, coverage <%>, utilisation <%>, <k> expiring ≤ 90 d)
+UE-3 commitment-coverage · NOT-RUN (no billing export | no commitment inventory)
+UE-3 commitment-coverage · blocked (<the halt below>)
+UE-3 commitment-coverage · N/A (flat-rate capacity | provider offers no commitment for this usage)
+```
+
+A recommendation is a bet, not a finding; an expiring commitment with no owned notification is a guardrail gap that `/cost-guardrails` installs (class 6). Numbers here are reconciled by V589's arithmetic ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § FinOps) and read against [`precedents/finops.md`](../../../../snippets/precedents/finops.md) § 4 (commitments already paid change the sign of a downsizing) before any `/cost-review` row cites them.
+
 ## Halt conditions
+
+Each halt prints its ledger line (above) and stops.
 
 - **Baseline usage undetermined** — a commitment is a bet on a floor. Without at least a full seasonal cycle of usage history, the floor is a guess; say so rather than recommending a term.
 - **Planned architectural change undisclosed** — a migration, a re-platform, or a major shape change inside the commitment term invalidates the arithmetic. Ask before recommending.

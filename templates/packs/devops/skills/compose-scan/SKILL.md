@@ -89,8 +89,8 @@ echo '# 0c override files (each auto-merges into a DEFAULT invocation run in its
 rg -N --pcre2 '(^|/)(docker-)?compose\.override\.ya?ml$' "$SCAN/cf.txt"
 echo '# 0d compose engine: plugin, else the CLI image over the daemon, else static only'
 DCI="docker:29.5.2-cli@sha256:9ba8e32bfc35a2c7ae2feb1e3241b2778ae21dee80f4dcd31d04e1cfdea86ea2"
-if docker compose version >/dev/null 2>&1; then DC="docker compose"; elif docker info >/dev/null 2>&1; then DC="docker run --rm -v ${PWD}:${PWD}:ro -w ${PWD} $DCI docker compose"
-else DC=""; echo 'model lane: blocked (no compose plugin, no daemon): static greps only, every row [report-flagged]'; fi
+if docker compose version >/dev/null 2>&1; then DC="docker compose"; elif docker image inspect "$DCI" >/dev/null 2>&1; then DC="docker run --pull=never --rm -v ${PWD}:${PWD}:ro -w ${PWD} $DCI docker compose"
+else DC=""; echo "model lane: NOT-RUN (no compose plugin, and the CLI image is not local — to enable: docker pull $DCI): static greps only, every row [report-flagged]"; fi
 [ -n "$DC" ] && echo "model lane: $($DC version --short 2>&1 | head -1) via ${DC%% compose*}"
 cat > "$SCAN/model.jq" <<'JQ'
 def oneshot($n; $v): ($n + " " + ([$v.command // [] | if type == "array" then .[] else . end] | join(" "))) | test("migrat|seed|(^|[^a-z])init([^a-z]|$)|setup|bootstrap|alembic|flyway|liquibase"; "i");
@@ -288,17 +288,17 @@ The oracles are in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) �
 ```
 compose-scan — 6 compose files, 6 sets (3 host-loaded) · model: Compose v5.1.4 via docker:29.5.2-cli · security: installed
 
-1. compose.override.yaml:4                                          [report-with-fix]   high
-   §4 CT-C04 — scripts/deploy-host.sh:3 runs `docker compose up -d` (DEFAULT) in /srv/shop, so the override merges:
+1. docker-compose.override.yml:4                                    [report-with-fix]   high
+   §4 CT-C04 — scripts/remote-deploy.sh:3 runs `docker compose up -d` (DEFAULT) in /srv/shop, so the override merges:
    api publishes 9229, runs `node --inspect`, and ./src is bind-mounted over /app/src. Proof: config --services
-   on the DEFAULT set lists mailhog; on `-f compose.yaml -f compose.prod.yaml` it does not (T). Fix: deploy with
+   on the DEFAULT set lists mailhog; on `-f docker-compose.yml -f docker-compose.prod.yml` it does not (T). Fix: deploy with
    the explicit -f set; rename the override compose.dev.yaml. The 0.0.0.0:9229 exposure → security iac-scan §2.
 
-2. compose.prod.yaml:6                                              [report-with-fix]   high
+2. docker-compose.prod.yml:6                                          [report-with-fix]   high
    §6 CT-C06 — `volumes: !reset []` drops pgdata from db in the host set: Postgres runs on an anonymous volume.
    Proof: write, down, up → `relation "keep" does not exist` (R, scratch project). Fix: drop the !reset.
 
-3. compose.yaml:25                                                  [report-flagged]    medium
+3. docker-compose.yml:25                                              [report-flagged]    medium
    §1 CT-C01 — worker starts on `migrate` with service_started. Unproven link: whether the worker retries.
    Settling test: V241 cold start with a slow migration; worker log shows no schema error.
 

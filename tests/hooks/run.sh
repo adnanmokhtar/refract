@@ -49,6 +49,93 @@ run_dir pre-edit-guard
 run_dir secret-scan
 run_dir test-lane
 
+# guard-irreversible (H3) has THREE outcomes, so an exit code alone cannot tell ask from allow:
+#   "*-ask-*"   exit 0 AND stdout carries permissionDecision "ask" (the human approves)
+#   "*-allow-*" exit 0 AND stdout is empty (no decision: plan / diff / dry-run / read-only / local)
+#   "*-block-*" exit 2 (prompts off — bypassPermissions / dontAsk — or inside a subagent)
+# Malformed payloads are cases too: the command is recovered from the raw text, never assumed safe.
+# DATABASE_URL and REFRACT_IRREVERSIBLE are cleared so the machine's own environment cannot decide a
+# case; three programmatic assertions then prove each of them, and the opt-out flag, on purpose.
+run_irreversible() {
+  local hook="$HOOKS/guard-irreversible.sh" dir="$CASES/guard-irreversible" f base got out ok w
+  [ -d "$dir" ] || return 0
+  for f in "$dir"/*.json; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f"); w=$(mktemp -d); got=0
+    out=$(cd "$w" && env -u DATABASE_URL -u REFRACT_IRREVERSIBLE bash "$hook" < "$f" 2>/dev/null) || got=$?
+    ok=0
+    case "$base" in
+      *-ask-*)   [ "$got" = 0 ] && printf '%s' "$out" | grep -q '"permissionDecision": *"ask"' && ok=1 ;;
+      *-allow-*) [ "$got" = 0 ] && [ -z "$out" ] && ok=1 ;;
+      *-block-*) [ "$got" = 2 ] && ok=1 ;;
+      *) echo "SKIP  guard-irreversible/$base (no ask/allow/block in name)"; rm -rf "$w"; continue ;;
+    esac
+    if [ "$ok" = 1 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  guard-irreversible/$base — exit $got, stdout '${out:0:120}'"; fi
+    rm -rf "$w"
+  done
+  local p='{"tool_name":"Bash","tool_input":{"command":"npx prisma migrate deploy"}}'
+  w=$(mktemp -d)
+  # a non-local $DATABASE_URL in the hook's environment makes a bare migrate a shared-database step
+  out=$(cd "$w" && printf '%s' "$p" | env -u REFRACT_IRREVERSIBLE DATABASE_URL='postgres://app:x@db.prod.example.com/app' bash "$hook" 2>/dev/null)
+  if printf '%s' "$out" | grep -q '"permissionDecision": *"ask"'; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  guard-irreversible: non-local DATABASE_URL did not ask"; fi
+  # REFRACT_IRREVERSIBLE=deny refuses outright (CI, unattended runs)
+  got=0; (cd "$w" && printf '%s' '{"tool_input":{"command":"helm rollback web 41"}}' | env -u DATABASE_URL REFRACT_IRREVERSIBLE=deny bash "$hook" >/dev/null 2>&1) || got=$?
+  if [ "$got" = 2 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  guard-irreversible: REFRACT_IRREVERSIBLE=deny exited $got, not 2"; fi
+  # the opt-out flag silences it
+  mkdir -p "$w/.claude" && : > "$w/.claude/.no-guard-irreversible"
+  out=$(cd "$w" && printf '%s' '{"tool_input":{"command":"terraform apply"}}' | env -u DATABASE_URL -u REFRACT_IRREVERSIBLE bash "$hook" 2>/dev/null); got=$?
+  if [ "$got" = 0 ] && [ -z "$out" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  guard-irreversible: .no-guard-irreversible did not opt out"; fi
+  rm -rf "$w"
+}
+run_irreversible
+
+# ---- incident hypotheses: persist-review.sh merges investigator records (/investigate-incident) ----
+# Each read-only investigator instance ends with one refract/hypotheses/v1 object for ONE hypothesis;
+# the SubagentStop hook validates it and merges it by id into ai/runs/<run>/reviews/hypotheses.json,
+# which no tool may write (test-lock.sh). Asserted: three instances make a three-hypothesis file; a
+# "supported" hypothesis with no evidence and a "refuted" one with no contradicting evidence are
+# rejected (exit 2) and change nothing; a tool Write to the file is denied; the schema is installed
+# byte-identical to the published one.
+run_hypotheses() {
+  command -v python3 >/dev/null 2>&1 || { echo "SKIP  hypotheses (needs python3)"; return 0; }
+  local B="$REPO_ROOT/templates/repo-baseline/.claude" work p rc RID="20261019-incident-checkout-5xx-9a1c" out
+  work=$(mktemp -d); p="$work/proj"; mkdir -p "$p/.claude" "$p/ai/runs/$RID"
+  cp -R "$B/scripts" "$B/hooks" "$B/schemas" "$p/.claude/"
+  ( cd "$p" && git init -q && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base )
+  hy_ok() { if [ "$1" = "$2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  hypotheses/$3 — expected $2, got $1"; fi; }
+  sub() {  # $1 = hypothesis JSON object → a SubagentStop payload from an investigator instance
+    python3 - "$RID" "$1" <<'PY'
+import json, sys
+rid, h = sys.argv[1], json.loads(sys.argv[2])
+rec = {"schema": "refract/hypotheses/v1", "run_id": rid, "incident": "checkout-5xx 2026-10-19T09:12Z", "hypotheses": [h]}
+print(json.dumps({"hook_event_name": "SubagentStop", "agent_type": "incident-responder",
+                  "last_assistant_message": "H done.\n```json\n" + json.dumps(rec) + "\n```"}))
+PY
+  }
+  persist() { ( cd "$p" && sub "$1" | bash .claude/hooks/persist-review.sh >/dev/null 2>"$work/err" ); }
+  ev='{"source":"logs/app.log:41","observation":"pool exhausted 40 ms after the deploy finished"}'
+  rc=0; persist '{"id":"H-1","hypothesis":"The 1.4.0 deploy halved the DB pool size","category":"config","root_cause":{"file":"config/db.yml","line":7,"claim":"When traffic exceeds 20 concurrent requests, pool: 5 at config/db.yml:7 queues requests past the 2 s timeout instead of serving them"},"supporting":['"$ev"'],"contradicting":[],"verdict":"supported"}' || rc=$?
+  hy_ok "$rc" 0 "supported-with-evidence-persists"
+  rc=0; persist '{"id":"H-2","hypothesis":"The payment provider was degraded during the window","category":"external","supporting":[],"contradicting":[{"source":"metrics/provider.json:3","observation":"provider p99 flat at 180 ms across the incident"}],"verdict":"refuted"}' || rc=$?
+  hy_ok "$rc" 0 "refuted-with-contradicting-evidence-persists"
+  rc=0; persist '{"id":"H-3","hypothesis":"A traffic spike from a marketing e-mail saturated the service","category":"capacity","supporting":[],"contradicting":[],"verdict":"inconclusive","next_probe":"request rate by referrer for 09:00-09:30"}' || rc=$?
+  hy_ok "$rc" 0 "inconclusive-persists"
+  out=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(len(d["hypotheses"]), ",".join(h["id"] for h in d["hypotheses"]), d["signer"]["stamped_by"])' "$p/ai/runs/$RID/reviews/hypotheses.json" 2>/dev/null)
+  hy_ok "$out" "3 H-1,H-2,H-3 persist-review.sh" "three-instances-merge-into-one-file"
+  rc=0; persist '{"id":"H-4","hypothesis":"A cache stampede after the deploy flushed keys","supporting":[],"contradicting":[],"verdict":"supported"}' || rc=$?
+  hy_ok "$rc" 2 "supported-without-evidence-is-rejected"
+  rc=0; persist '{"id":"H-5","hypothesis":"Disk on the DB host filled during the window","supporting":[],"contradicting":[],"verdict":"refuted"}' || rc=$?
+  hy_ok "$rc" 2 "refuted-without-contradicting-evidence-is-rejected"
+  out=$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["hypotheses"]))' "$p/ai/runs/$RID/reviews/hypotheses.json" 2>/dev/null)
+  hy_ok "$out" 3 "a-rejected-record-changes-nothing"
+  rc=0; ( cd "$p" && printf '%s' '{"tool_name":"Write","tool_input":{"file_path":"ai/runs/'"$RID"'/reviews/hypotheses.json","content":"{}"}}' | bash .claude/hooks/test-lock.sh >/dev/null 2>&1 ) || rc=$?
+  hy_ok "$rc" 2 "tool-write-of-hypotheses-is-denied"
+  rc=0; cmp -s "$REPO_ROOT/templates/schemas/refract/hypotheses.schema.json" "$B/schemas/hypotheses.schema.json" || rc=1
+  hy_ok "$rc" 0 "installed-hypotheses-schema-matches-published"
+  rm -rf "$work"
+}
+run_hypotheses
+
 # inject-path-rules is context-only (always exit 0); assert on stdout instead of
 # exit code. It must run from a dir that actually holds .claude/rules/, so we run
 # it inside the repo-baseline. "*nomatch*" ⇒ empty output; "*match*" ⇒ injects the
@@ -1338,6 +1425,61 @@ run_ci_graph() {
   if [ "$rc" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  ci-graph/self-test — exit $rc"; printf '%s\n' "$out" | sed -n '1,8p'; fi
 }
 run_ci_graph
+
+# ---- review-dismissals sink (spec § 5.8): a refuted candidate lands in the sink from persist-verdict;
+# a human dismissal asks the human (denied with prompts off); the sink is hook-owned for Edit/Write;
+# malformed hook input is a no-op; the proposal script's own self-test runs.
+run_dismissals() {
+  command -v python3 >/dev/null 2>&1 || { echo "SKIP  review-dismissals (needs python3)"; return 0; }
+  local B="$REPO_ROOT/templates/repo-baseline/.claude" work p rc out RID="20261019-orders-list-a1b2" S="ai/dynamic/review-dismissals.jsonl"
+  work=$(mktemp -d); p="$work/proj"
+  rd_ok() { if [ "$1" = "$2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  review-dismissals/$3 — expected $2, got $1"; fi; }
+  hook() { local h="$1"; shift; ( cd "$p" && printf '%s' "$1" | bash ".claude/hooks/$h" >/dev/null 2>"$work/err" ); }
+  ss() { python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"SubagentStop","agent_type":sys.argv[1],"agent_id":"a1","last_assistant_message":sys.argv[2]}))' "$1" "$2"; }
+  mkdir -p "$p/.claude" "$p/src" "$p/ai/runs/$RID"
+  cp -R "$B/scripts" "$B/hooks" "$B/schemas" "$p/.claude/"
+  printf 'const rows = await db.order.findMany();\nfor (const r of rows) { await db.item.find(r.id); }\n' > "$p/src/orders.ts"
+  ( cd "$p" && git init -q && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base )
+  REV='{"schema":"refract/findings/v1","run_id":"'"$RID"'","lens":"performance","findings":[{"id":"F-1","severity":"IMPORTANT",
+        "kind":"performance/n-plus-one","detector":"database/n-plus-one-scan§2","file":"src/orders.ts","line":2,
+        "claim":"When the list loads, src/orders.ts:2 issues one query per row instead of one batched query"}]}'
+  rc=0; hook persist-review.sh "$(ss perf-reviewer "$REV")" || rc=$?
+  rd_ok "$rc" 0 "review-with-detector-section-is-persisted"
+  REF='{"schema":"refract/verdict/v1","run_id":"'"$RID"'","mode":"refute","verdict":"PASS","summary":"0 kept, 1 refuted",
+        "findings":[{"id":"reviews/perf-reviewer-performance.json#F-1","bucket":"refuted","severity":"IMPORTANT","file":"src/orders.ts","line":2,
+        "claim":"When the list loads, src/orders.ts:2 issues one query per row","proof":null,"gate":"§3 reachability","reason":"rows is a constant 3-row list"}]}'
+  rc=0; hook persist-verdict.sh "$(ss verifier "$REF")" || rc=$?
+  out=$(python3 -c 'import json,sys; d=[json.loads(l) for l in open(sys.argv[1])]; print(len(d), d[0]["reason"], d[0]["class"], d[0]["detector"], d[0]["by"], d[0]["gate"])' "$p/$S" 2>/dev/null)
+  rd_ok "$rc/$out" "0/1 refuted performance/n-plus-one database/n-plus-one-scan§2 verifier §3 reachability" "refuted-candidate-lands-in-the-sink"
+  hook persist-verdict.sh "$(ss verifier "$REF")"
+  rd_ok "$(wc -l < "$p/$S" | tr -d ' ')" 1 "re-persisted-verdict-does-not-duplicate"
+  # guard: the sink is written only by the hook and the script.
+  rc=0; hook test-lock.sh '{"tool_name":"Write","tool_input":{"file_path":"'"$S"'","content":"{}"}}' || rc=$?
+  rd_ok "$rc" 2 "tool-write-to-the-sink-is-blocked"
+  rc=0; hook test-lock.sh '{"tool_name":"Bash","tool_input":{"command":"echo {} >> '"$S"'"}}' || rc=$?
+  rd_ok "$rc" 2 "shell-append-to-the-sink-is-blocked"
+  rc=0; hook test-lock.sh '{"tool_name":"Bash","tool_input":{"command":"cat '"$S"'"}}' || rc=$?
+  rd_ok "$rc" 0 "reading-the-sink-is-allowed"
+  out=$( cd "$p" && printf '%s' '{"tool_name":"Bash","permission_mode":"default","tool_input":{"command":"python3 .claude/scripts/review-dismissals.py dismiss '"$RID"' reviews/perf-reviewer-performance.json#F-1 --reason=false-positive --by=me --note=constant-size"}}' | bash .claude/hooks/test-lock.sh 2>/dev/null )
+  rd_ok "$(printf '%s' "$out" | grep -c '"permissionDecision": "ask"')" 1 "human-dismissal-asks-the-human"
+  rc=0; hook test-lock.sh '{"tool_name":"Bash","permission_mode":"bypassPermissions","tool_input":{"command":"python3 .claude/scripts/review-dismissals.py dismiss '"$RID"' x#F-1 --reason=false-positive"}}' || rc=$?
+  rd_ok "$rc" 2 "human-dismissal-with-prompts-off-is-blocked"
+  rc=0; hook test-lock.sh 'not json {' || rc=$?
+  rd_ok "$rc" 0 "malformed-guard-input-is-a-no-op"
+  rc=0; hook persist-verdict.sh 'not json {' || rc=$?
+  rd_ok "$rc/$(wc -l < "$p/$S" | tr -d ' ')" "0/1" "malformed-subagentstop-input-writes-nothing"
+  rc=0; ( cd "$p" && python3 .claude/scripts/review-dismissals.py dismiss "$RID" reviews/perf-reviewer-performance.json#F-1 --reason=false-positive --by=owner --note="constant-size 3-row list" >/dev/null 2>&1 ) || rc=$?
+  rd_ok "$rc/$(wc -l < "$p/$S" | tr -d ' ')" "0/2" "human-dismissal-recorded-by-the-script"
+  rc=0; out=$(python3 "$B/scripts/review-dismissals.py" --self-test 2>&1) || rc=$?
+  rd_ok "$rc" 0 "proposal-script-self-test"
+  rm -rf "$work"
+}
+run_dismissals
+
+# Installer same-name / different-content hard fail (Phase 6 PLAN §6): two fake packs shipping
+# agents/x.md with different bytes in one run must exit 4 and copy nothing of the second.
+if bash "$REPO_ROOT/scripts/test-install-claim.sh" >/dev/null 2>&1; then pass=$((pass+1))
+else fail=$((fail+1)); echo "FAIL  install-claim — bash scripts/test-install-claim.sh"; fi
 
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"

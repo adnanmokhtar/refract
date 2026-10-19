@@ -1,7 +1,7 @@
 # Proof oracles — the failing-first proof for each detector class
 
 Used by [`refute-before-report.md`](refute-before-report.md) gate 6, by `/db-fix`, `/perf-fix`, `/test-fix`,
-`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix`, `/infra-fix`, `/ds-fix`, `/backend-fix` and `/find-and-fix --from-audit` (reproduce failing-first, then validate the fix), and by every
+`/quality-fix`, `/frontend-fix`, `/mobile-fix`, `/obs-fix`, `/devops-fix`, `/infra-fix`, `/ds-fix`, `/backend-fix`, `/product-fix`, `/doc-refresh --from-audit`, `/refresh-knowledge --from-audit` and `/find-and-fix --from-audit`, `/data-fix`, `/design-algorithm --from-audit`, `/cost-guardrails --from-audit` (reproduce failing-first, then validate the fix), and by every
 detector whose PROOF line names an oracle. Security's counterpart is [`exploit-payloads.md`](exploit-payloads.md).
 Each class has one **oracle** — a deterministic, no-human pass/fail signal — a failing-first test shape per stack,
 and a **whole-class variant list** the fix must survive. Sections are per domain; later domains append their own
@@ -24,6 +24,14 @@ and continue the V-numbers after the last one in the file, never renumbering:
 | `## Backend` | V328–V357 | — (new section) |
 | `## Migration` | V358–V388 | — (new section; V388 is PP-5, V1-gated suites) |
 | `## Align` | V389–V408 | — (new section; proof classes EQ / VC / FN) |
+| `## Product` | V409–V429 | — (new section; proof families S / T / U / L) |
+| `## Documentation` | V430–V449 | — (new section; proof families S / T / X / M) |
+| `## Business` | V450–V489 | — (new section; proof families S / P / G / D / T / R / L; V485–V489 reserved) |
+| `## Learning` | V490–V509 | — (new section; proof tiers S / T / U) |
+| `## AI engineering` | V510–V539 | — (new section; proof families S / T / U / L; V510–V525 are the security pack's LLM trust rows) |
+| `## Data engineering` | V540–V569 | — (new section; proof families R / L / C / M / T / S / D) |
+| `## FinOps` | V570–V589 | — (new section; proof families P / L / S / E / R / T) |
+| `## Algorithms` | V590–V609 | — (new section; proof families O / A / P / D / R / S) |
 
 ## Scope of use (read first)
 
@@ -1465,7 +1473,7 @@ git worktree remove "$W"
 
 Swap the counting command for the class: `npx type-coverage --at-least <base %> --strict --detail`,
 `lizard -C 10 -w <files>`, `npx depcruise src --output-type json`,
-`npx jscpd@5 --baseline-from-ref "$BASE" --fail-on-new-clones src`. Then prove nothing was gamed:
+`jscpd --baseline-from-ref "$BASE" --fail-on-new-clones src` (installed tools only). Then prove nothing was gamed:
 `git diff "$BASE"...HEAD -U0 | rg '^\+' | rg -n '<suppression or escape regex>'` prints nothing, and
 `git diff "$BASE"...HEAD -- eslint.config.* tsconfig*.json pyproject.toml .golangci.yml` loosens no
 threshold, adds no ignore path and turns off no strict flag. Baseline files (`eslint-suppressions.json`,
@@ -5076,6 +5084,2142 @@ Google and Airbnb sweep practices. The batch-6 align eval (2026-10-18) § 3.2–
 EQ/VC/FN split, the L0–L13 ladder and the tool-lane rules, and § 4.11 assigns V389–V408 after
 § Migration with no V reused. Rows tagged [K?] are settled on the `convention-drift` fixture before
 a detector asserts them. Paraphrased; no text reproduced.
+
+## Product
+
+A product claim says a shipped feature is half-built, unjudgeable or inconsistent with what was
+promised: a client call to a route nobody serves, a link to a page that does not exist, fake rows on
+a reachable route, a control that does nothing, an analytics event that is missing from its plan or
+fires before its outcome, a plan limit that the pricing copy and the gate state differently, a
+launch with no typed success definition or no live metric, an acceptance criterion no test names.
+Reading one side settles none of these. Each class is a **join** of two inventories (served routes
+× references, plan × call sites, catalog × gates × pricing copy, rule × evidence, criterion ids ×
+tests), and the oracle runs the join or the behaviour, failing first. Every oracle names a
+**family**:
+- **S**: a static fact with both ends cited, the reference line and the counterpart line (or "none
+  after the written search").
+- **T**: a tool exit recorded in this run: `surface-map.py`, `event-inventory.py --plan`,
+  `readiness-score.py --rule`, `ears-lint.py`, `trace-matrix.py`, a Gherkin dry run, `tsc` over a
+  typed route, event or key union.
+- **U**: a unit or integration test that fails first: a route-parity test, a render test, a
+  fake-sink analytics test, a catalog-driven gate matrix.
+- **L**: a live probe: a request returns 404, a browser visit lands on the not-found boundary, an
+  analytics query returns rows, NO-DATA or STALE.
+
+Settled questions are in [`precedents/product.md`](precedents/product.md). This section is
+self-contained: its V-numbers (V409–V429) are cited by the product detectors and by `/product-fix`
+only, and no V outside this range is reused for a product class.
+
+Users:
+- the detectors `feature-surface-scan` (FS §1–§5, `surface-map.py`), `tracking-plan-scan`
+  (AN §1–§7, `event-inventory.py`), `entitlement-consistency-scan` (EN §1–§6), `launch-readiness`
+  (LR and the scorecard SC, `rules.json` + `readiness-score.py`) and `acceptance-criteria-check`
+  (TR §1–§4) (product pack);
+- `/audit-requirements --repo`, which runs them, with `@verifier` mode `refute` on every BLOCKER and
+  HIGH it keeps;
+- `/product-fix`, which writes each finding's failing-first test from its V-number.
+
+**Owned elsewhere.** These classes keep their own sections; product cites them as scorecard
+evidence and never re-proves them:
+- stale, dead and unsafe-default flags and kill switches → § DevOps (`progressive-delivery`);
+- error, empty, loading and permission states → § Accessibility and UI states (`ui-state-scan`);
+- hard-coded copy, missing keys and catalog parity → § Accessibility and UI states (i18n, V132, V133);
+- SLO definitions, burn alerts, alert runbook links and readiness truthfulness → § Observability;
+- spec ↔ implementation drift of a generated API client → § Backend (`http-contract-scan` §10);
+- PII in event properties, tracking before consent, server-side entitlement enforcement and
+  limit-counter races → security, proven with [`exploit-payloads.md`](exploit-payloads.md);
+- money, rounding, tax and proration → the business pack's own oracles.
+
+**Scope of use.** Scratch copies, `${TMPDIR}` and the run folder only. Seven rules hold for every
+variant below:
+
+- **Never write into the audited repo** outside the fix's own test and source files. Scripts write
+  under `--out` (default `${TMPDIR}`) and refuse an `--out` inside the repo. Print `find -newer
+  <stamp>` on the audited root at the end of an audit; it must be empty.
+- **The project's own control is the first oracle.** A two-sided route-parity test, typed routes
+  (Next `typedRoutes`, React Router typegen), an OpenAPI-generated client under `tsc`, a codegen
+  tracking plan (Ampli, Avo) or a typed event union, a gate key typed as the catalog union. Run it
+  before writing a new one; when it already covers the class, the class prints `controlled
+  (<control>)` and the fix extends the control instead of adding a second one
+  (`precedents/product.md` § 7).
+- **Offline, installed binaries only, telemetry off.** Never `npx -y` or a global install. Set
+  `DO_NOT_TRACK=1 CI=true NEXT_TELEMETRY_DISABLED=1` before any CLI. A vendor CLI that needs a login
+  or an API key (Ampli, Avo, Segment, Stripe) is `NOT-RUN (auth)`; `ampli status` never runs with
+  `-u` in an audit (it uploads status).
+- **Dry runs are parsed, never trusted by exit code.** `cucumber-js --dry-run` exits 0 with undefined
+  steps (13.3.0 docs, 2026-10-05): parse `usage-json`. `behave --dry-run -f steps.missing` lists
+  undefined steps in its output.
+- **Dynamic names are unresolved, never mismatches.** An event name, route or gate key built at run
+  time prints `unresolved (k sites)`; no variant below is proven against it.
+- **A rule that did not run is NOT-RUN, a rule outside the repo is UNVERIFIED.** No PASS from a
+  file's existence for load-test results, restore drills, on-call or rollback drills
+  (`precedents/product.md` § 23).
+- **Fail first, pass after, keep the control.** Every variant fails on the pre-fix code for the
+  stated reason, passes after, and the benign control (a decoy the precedents exempt: a webhook route,
+  an intent event, a grandfathered plan) is unchanged.
+
+### Oracle taxonomy (product)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Inventory join** | S, T, U | every reference resolves to a counterpart after normalisation (params, global prefix, version, base URL), and every counterpart has a reference or a reason | V409, V410, V413, V419, V427 |
+| **Absence render** | U, L | the shipped surface renders no placeholder copy, no fixture rows and no no-op control | V411, V412 |
+| **Fake sink** | U | the analytics sink receives exactly the specified events, at the outcome, once per specified trigger | V415, V416 |
+| **Compile-time union** | T | a name, key or route outside the declared union fails `tsc` / the codegen check | V414, V417 |
+| **Two-ended fact** | S, U | two sources of one plan fact hold one value; a plan added to the catalog changes access only through the catalog | V418, V420, V421 |
+| **Typed record** | T | `readiness-score.py` reads the field typed (future date, named person, number with unit, no placeholder) and the cited evidence exists | V422, V423, V424, V425, V426 |
+| **Spec trace** | T | criterion ids, Gherkin steps and EARS shapes resolve mechanically | V427, V428, V429 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V409 | Route-parity join | every client call (method, normalised path) has a served route after prefix resolution; every served route has a caller or a reasons-file line | S, U, L | `feature-surface-scan` §1, §2 (PR-FS-1, PR-FS-2) |
+| V410 | Page-route table | every link, form action, redirect and `navigate()` target resolves to a page route or a server-handled path | S, U, L | `feature-surface-scan` §3 (PR-FS-3) |
+| V411 | Placeholder absence | the reachable route renders data from the store and no placeholder copy, 501 or fixture row | U, L | `feature-surface-scan` §4 (PR-FS-4) |
+| V412 | Interaction effect | each control's activation produces an observable effect (request, navigation, state change) | U, L | `feature-surface-scan` §5 (PR-FS-5) |
+| V413 | Plan diff | `event-inventory.py --plan=<plan>` exits 0: no unplanned event, no planned event unfired, no required property missing | T | `tracking-plan-scan` §1, §2, §4 (PR-AN-1, PR-AN-2, PR-AN-4) |
+| V414 | Name cluster | after case, separator and tense normalisation each cluster holds one spelling, or the plan declares the variants distinct | T | `tracking-plan-scan` §3 (PR-AN-3) |
+| V415 | Outcome firing | with a fake sink, a failed write emits 0 outcome events and a confirmed write emits exactly 1 | U | `tracking-plan-scan` §5 (PR-AN-5) |
+| V416 | Firing count | with a fake sink, one trigger emits the specified count under StrictMode, re-render, re-open and client + server legs | U | `tracking-plan-scan` §6 (PR-AN-6) |
+| V417 | Typed event channel | the tracking entry point accepts only the declared names and property types; a misspelt name fails `tsc` or the codegen check | T | `tracking-plan-scan` §7, §4 literal types (PR-AN-7) |
+| V418 | Two-ended plan fact | for every plan × feature, the pricing copy, the billing config and the entitlement source hold one value | S, U | `entitlement-consistency-scan` §1 (PR-EN-1) |
+| V419 | Catalog-driven gate matrix | for every plan × catalog key, the server gate and the UI gate return the catalog's decision, and every gate key is a catalog key | U | `entitlement-consistency-scan` §2, §4, §5 (PR-EN-2, PR-EN-4, PR-EN-5) |
+| V420 | Plan-name independence | adding a plan to the catalog with an entitlement grants it through the catalog; no feature check names a plan | U | `entitlement-consistency-scan` §3 (PR-EN-3) |
+| V421 | Billing wiring | runtime source resolves prices by `lookup_key` or per-mode config; the entitlement sync pages past the summary's 10 items and revokes | S, U, L | `entitlement-consistency-scan` §6 (PR-EN-6) |
+| V422 | Typed success fields | `readiness-score.py --rule=PRR-LR-1` (and PRR-LR-5, PRR-LR-6) exits 0: metric, counter-metric, baseline with a date, threshold, named owner, future review date, decided fatal assumptions | T | `launch-readiness` (PR-LR-1, PR-LR-5, PR-LR-6) |
+| V423 | Metric live | the metric's events are fired (AN §2 quiet for them) and, where a query lane exists, the query returns rows inside the freshness window: NO-DATA and STALE are FAIL | T, L | `launch-readiness` PRR-AN-2 (PR-LR-2) |
+| V424 | Rollback record | the success file holds a rollback record (environment, ISO time, result) and lists every irreversible emission, or `none` | T | `launch-readiness` PRR-RB-1 (PR-LR-4) |
+| V425 | Scorecard level | `readiness-score.py` exits 0 at the target level: every rule at or below it PASS or N/A with a reason, every ledger row citing an existing, fresh report | T | `launch-readiness` (PR-SC-1) |
+| V426 | Owner coverage | a CODEOWNERS or catalog owner entry covers every path of the feature, and is not bot-only | T | `launch-readiness` PRR-OWN-1 (PR-SC-2) |
+| V427 | Id-anchored trace | every criterion id appears in a test that asserts it; every id a test cites exists in a spec | T, U | `acceptance-criteria-check` §1, §2 (PR-TR-1, PR-TR-2) |
+| V428 | Gherkin glue | the dry-run usage output lists 0 undefined and 0 ambiguous steps and 0 unused step definitions outside tagged-out features | T | `acceptance-criteria-check` §3 (PR-TR-3) |
+| V429 | EARS shape | `ears-lint.py <requirements.md>` exits 0 for run-ledger specs; a prose spec passes the four manual tests (falsifiable, observable, bounded, singular) | T | `acceptance-criteria-check` §4 (PR-TR-4) |
+
+### Harnesses (product)
+
+- **Route and page joins** (V409, V410): when the project has a route-parity test, extend it; else
+  generate one from `surface-map.py`'s two tables (served routes; references) under the project's
+  test runner, asserting each reference resolves and each uncalled route is in a reasons file
+  (`<method> <path> — <reason>`). The live tier sends each unserved call to a running non-production
+  build and expects 404 or 405 before the fix. Page targets: a route-table test over the router
+  config (React Router objects or JSX, file routes) or a Playwright visit that must not land on the
+  not-found boundary.
+- **Absence render and interaction** (V411, V412): a render test of the reachable route with the
+  store or API stubbed at its client edge, asserting the fixture rows and the placeholder copy are
+  absent and the data comes from the stub; a catalog value is checked in every shipped locale. An
+  interaction test (Testing Library `user-event`, Playwright) clicks each control and asserts one
+  observable effect.
+- **Plan diff and names** (V413, V414): `python3 -I event-inventory.py --plan=<plan>` (tracking-plan-scan
+  pack script) writes the inventory and the diff under `${TMPDIR}`; exit 2 is the failing state.
+  Where a codegen plan is installed, its offline status check is the stronger oracle (Ampli `ampli
+  status` without `-u`; `avo status` after `avo pull`) and is `NOT-RUN (auth)` without credentials.
+- **Fake sink** (V415, V416): replace the analytics client at its module edge with a recorder; drive
+  the real component or handler; assert the recorded events per trigger. Variants run the failure
+  path (the write rejects), StrictMode double effects, a re-render, a dialog opened twice, and both
+  the client and the server leg with and without a shared `event_id`.
+- **Compile-time unions** (V417, and the T tier of V409/V410/V419): type the event name, the route
+  and the gate key as the declared union; a scratch file with one wrong literal must fail `tsc
+  --noEmit --incremental false`.
+- **Catalog matrix** (V418–V420): one parametrised test over the catalog's plans × keys, calling the
+  real server gate (guard, policy, middleware) and the UI gate with a user on each plan; the pricing
+  source and the billing config are loaded from their files and compared per plan × feature. EN §6
+  live checks (Stripe CLI trigger with more than 10 features) need a test key and are `NOT-RUN
+  (auth)` without one.
+- **Typed records** (V422–V426): `python3 -I readiness-score.py --repo=<repo> --feature=<slug>
+  [--evidence=<tsv>] --rule=<id>`; exit 2 is the failing state, 0 the closed one. Its `--self-test`
+  covers every LR/SC variant below. The script evaluates `file` and `doc-field` rules itself and
+  accepts `ledger`, `tool` and `runtime` results only from the evidence TSV written in this run.
+- **Spec trace** (V427–V429): the id join is `rg -o` over the spec roots and the test globs
+  (acceptance-criteria-check pre-flight); inside a delivery run, `python3 -I
+  .claude/scripts/trace-matrix.py <run_id>` instead. Gherkin: `npx --no-install cucumber-js
+  --dry-run --format usage-json:${TMPDIR}/usage.json`, `behave --dry-run -f steps.usage` and `-f
+  steps.missing`. EARS: `python3 -I .claude/scripts/ears-lint.py <requirements.md>`.
+
+### Class variants (product)
+
+A fix passes the class only when every variant the class takes in the stacks present passes the
+oracle, and the benign control is untouched.
+
+#### V409. Unserved call / uncalled route — route-parity join (`feature-surface-scan` §1, §2)
+- a literal path; a template path with params (`/orders/${id}`); a wrapper call without a leading slash (`http.get('stores')`); a method mismatch (served for GET, called with POST); a global prefix or version missing on one side; a trailing slash; a tRPC procedure renamed; the permissions or entitlement fetch whose failure path fails open; for the reverse half, a route under a controller prefix, a nested router mount, Rails `resources` expansion and a Django `include()` prefix
+- pass: every call resolves and every uncalled route is called or listed with a reason (a webhook route and a documented public route are the control, `precedents/product.md` § 1)
+
+#### V410. Link to a missing page — page-route table (`feature-surface-scan` §3)
+- `<Link to>`; `href`; `navigate()`; `router.push`; `redirect()`; `<form action>`; a route-constant map; a dynamic segment (`/orders/:id`)
+- pass: every target resolves to a page route or a server-handled path (`/logout`, a download: `precedents/product.md` § 8)
+
+#### V411. Shipped placeholder — absence render (`feature-surface-scan` §4)
+- a catalog value; inline JSX text; template text; 501 / NotImplemented on a mounted route; mock rows in a handler, a hook and a service; a mock module import (`@faker-js/faker`, an ungated `msw` `worker.start()`, `__mocks__/`); `USE_MOCKS=true`
+- pass: none renders or returns on the reachable route in a production build (a demo build that the production bundle excludes is the control, `precedents/product.md` § 5)
+
+#### V412. Dead affordance — interaction effect (`feature-surface-scan` §5)
+- `onClick={() => {}}`; `onSubmit={() => undefined}`; `href="#"` with no handler; a literal `disabled`; Flutter `onPressed: null` as a constant; Vue `@click=""`
+- pass: each control produces one observable effect (a no-op submit beside a confirming footer button is the control, `precedents/product.md` § 3)
+
+#### V413. Plan drift — plan diff (`tracking-plan-scan` §1, §2, §4)
+- an SDK call; a wrapper call; a generated-function call; a direct SDK call bypassing codegen; a server-side SDK call; a plan filtered by source; a missing required key; an extra key; a nested object key; a `/define-success` metric event
+- pass: `event-inventory.py --plan` exits 0 (auto-tracked page views are the control, `precedents/product.md` § 10)
+
+#### V414. Name drift — name cluster (`tracking-plan-scan` §3)
+- case (`SignUp` vs `signup`); separator (`signup_completed` vs `Signup Completed`); tense (`Complete` vs `Completed`)
+- pass: one spelling per cluster (two declared-distinct events are the control, `precedents/product.md` § 12)
+
+#### V415. Fires before the outcome — fake sink (`tracking-plan-scan` §5)
+- `onClick`; before the `await` of the write; in both `then` and `catch`; a `useEffect` on submit state; server-side before commit; a revenue conversion with `value` sent to an ad platform on checkout creation
+- pass: a failed write emits 0 outcome events, a confirmed one exactly 1 (a `…Started` event on click is the control, `precedents/product.md` § 14)
+
+#### V416. Duplicate firing — fake sink count (`tracking-plan-scan` §6)
+- effect dependencies on an unstable callback; an impression in the render body; a StrictMode double effect; client and server legs without a shared event id
+- pass: the specified count per trigger (once per open, repeated across two opens, is the control, `precedents/product.md` § 15)
+
+#### V417. Untyped channel — compile-time union (`tracking-plan-scan` §7)
+- a wrapper typed `name: string`; properties typed `Record<string, unknown>`; a direct SDK call beside the typed wrapper
+- pass: a misspelt name and a wrong property type each fail `tsc` or the codegen check
+
+#### V418. One plan fact, two values — two-ended fact (`entitlement-consistency-scan` §1)
+- a limit (seats, projects); a price; an included feature; "unlimited" vs a cap; per-locale pricing copy
+- pass: one value per plan × feature across every source (a grandfathered plan and a documented fair-use cap are the control, `precedents/product.md` § 20)
+
+#### V419. Gate key outside the catalog, or entitlement with no gate — catalog matrix (`entitlement-consistency-scan` §2, §4, §5)
+- a typo failing open; a typo failing closed; a key from another key family under split guards; a catalog key with no gate; a gate only in the UI; a gate on one of the two routes serving the feature
+- pass: every cell returns the catalog's decision on the server and in the UI (split guards admitting each other's keys are the control, `precedents/product.md` § 18)
+
+#### V420. Plan name in a feature check — plan-name independence (`entitlement-consistency-scan` §3)
+- `===`; `in [...]`; `switch (plan)`; Python, Ruby, Go and Dart forms; an enum member (`Plan.pro`)
+- pass: a plan added to the catalog gets access through the catalog alone (a literal inside the central plan map, a migration or a seed is the control, `precedents/product.md` § 19)
+
+#### V421. Billing wiring — per-mode resolution and sync (`entitlement-consistency-scan` §6)
+- a `price_…` / `prod_…` literal in checkout code; a summary-webhook handler with no paging; a sync with no revoke path
+- pass: ids resolve per mode, and the sync handles more than 10 entitlements and a removal (ids in seeds and tests are the control, `precedents/product.md` § 21)
+
+#### V422. Success definition incomplete — typed success fields (`launch-readiness` PRR-LR-1, PRR-LR-5, PRR-LR-6)
+- a field missing; a field holding the template placeholder; a review date in the past; an owner named as a group or a team handle; a baseline with no date; a threshold with no number; a fatal × high assumption past expiry with no decision
+- pass: `readiness-score.py --rule=<id>` exits 0 for each rule (a rule N/A with a stated reason is the control, `precedents/product.md` § 24)
+
+#### V423. Metric not live — static and runtime (`launch-readiness` PRR-AN-2)
+- the metric's event never fired; the counter-metric's event never fired; the query returns NO-DATA; the newest row is older than the freshness window (STALE); no query access (UNVERIFIED, never PASS)
+- pass: AN §2 quiet for the metric events, and a recorded query run (timestamp, row count) where a query lane exists
+
+#### V424. Rollback unexercised — rollback record (`launch-readiness` PRR-RB-1)
+- no record; a record with no environment, time or result; a template record; emissions not listed
+- pass: the record is typed and the emissions are listed or `none` (the drill itself stays external, `precedents/product.md` § 23)
+
+#### V425. Scorecard below target — scorecard level (`launch-readiness`, PR-SC-1)
+- a FAIL at the target level; an UNVERIFIED rule counted as PASS; a ledger row citing a missing or stale report; a tool row with no exit code; a rule removed from the table; N/A with no reason; a beta graded against gold
+- pass: every rule at or below the stage's target is PASS or N/A with a reason, and the verdict is READY (`precedents/product.md` § 25, § 28, § 29)
+
+#### V426. Ownerless feature — owner coverage (`launch-readiness` PRR-OWN-1, PR-SC-2)
+- no CODEOWNERS; a CODEOWNERS under `.github/` or `.gitlab/` (dot-directories a shell `**` does not enter); a pattern that misses one of the feature's paths; a `*` rule naming a bot only; `catalog-info.yaml` with no `spec.owner`
+- pass: every feature path is covered by a human or team owner
+
+#### V427. Untested or stale criterion — id-anchored trace (`acceptance-criteria-check` §1, §2)
+- an id in a test title; an id in a tag (`@AC-12`, Playwright `tag`); an id in a comment only; an id prefix from an external tracker; a spec id format the project defines (`FR-012`, `REQ-7`)
+- pass: every criterion id is in a test that asserts it, and every id a test cites exists in a spec (a tracker-prefixed id resolved by prefix is the control, `precedents/product.md` § 35)
+
+#### V428. Gherkin glue — dry-run usage (`acceptance-criteria-check` §3)
+- an undefined step; an unused step definition; an ambiguous step; a step used only under a tagged-out feature
+- pass: the parsed usage output lists 0 undefined, 0 ambiguous and 0 unused outside tagged-out features (`precedents/product.md` § 32)
+
+#### V429. Unverifiable criterion — EARS shape (`acceptance-criteria-check` §4)
+- no EARS keyword; a vague word in the SHALL clause; a story with no IF-THEN criterion; a compound criterion; a numeric bound with no unit, percentile, measurement point or load condition
+- pass: `ears-lint.py` exits 0 on a run-ledger spec; every prose criterion names its refuting observation (a bounded adjective is the control, `precedents/product.md` § 33)
+
+### Sources (product)
+
+The product research catalog (2026-10-19) `precedents/product.md` § 1–5 gives the classes, tools, techniques, precedents and
+the per-class variants above; its notes give the cucumber-js 13.3.0 dry-run behaviour (2026-10-05),
+behave 1.3.3 formatters (2025-09-04), Ampli 1.36.6 and Avo 3.7.0 CLI behaviour and telemetry, Stripe's
+entitlement summary limit of 10 (docs read 2026-10-19), Next `typedRoutes` (docs 2026-08-25), React
+Router typegen (v8.4.0) and openapi-typescript 7.13.0. The batch-7 product eval (2026-10-19) `precedents/product.md` § 3–4
+gives the joins, the scorecard schema and the 21 v1 rules; the integrator assigned V409–V429.
+Paraphrased; no text reproduced.
+
+## Documentation
+
+A documentation claim says a human doc does not tell the reader the truth, or cannot be followed: it
+names a path, symbol, script, flag, env var, endpoint or k8s resource the repo no longer has; it
+states a version, default, package manager or method the code contradicts; a link or anchor goes
+nowhere; a sample does not compile or prints something else; a setup step fails in a clean
+container; the ADR graph, the changelog grammar, a translation or the site nav has rotted; or the
+docs gate that should catch all this cannot fail. Reading one side settles none of these. Each class
+is a **two-ended fact** (the doc line and the oracle line) or an **execution** (the project's own
+toolchain in a scratch copy), and every fix is closed by the same resolution failing before and
+passing after, then by the whole class re-scanned for that root cause at zero. Every oracle names a
+**family**:
+- **S**: a static fact with both ends cited, re-resolved by `doc-claims.py --recheck=<id>` (the
+  candidate still exists) and `--claim=<value>` (every doc naming that value).
+- **T**: a tool exit recorded in this run, read through the tool's own exit map
+  ([`precedents/documentation.md`](precedents/documentation.md) § 32): lychee, markdownlint-cli2,
+  rumdl, `kacl-cli`, oasdiff, Redocly or Spectral, TypeDoc, pydoclint, `mkdocs build --strict`,
+  `sphinx-build -W`.
+- **X**: an execution in a scratch copy: a clean container for the setup, the project's compiler or
+  doctest runner for a fence.
+- **M**: a mutation proof: a defect planted in a `$TMPDIR` copy turns the gate red.
+
+Settled questions are in [`precedents/documentation.md`](precedents/documentation.md). This section
+is self-contained: its V-numbers (V430–V449) are cited by the documentation detectors and by
+`/doc-refresh` only, and no V outside this range is reused for a documentation class.
+
+Users:
+- the detectors `doc-drift-scan` (§1–§14, docs against code and config; engine
+  `doc-drift-scan/scripts/doc-claims.py`), `doc-structure-scan` (§1–§14, docs against docs) and
+  `doc-sample-scan` (§1–§5, samples and spec examples), plus `quickstart-verify` (DS-1),
+  `docstring-coverage` (DD-1/2/3) and `diagram-sync` (DF-3) (documentation pack);
+- `/doc-refresh`, which runs them and closes their findings failing first, editing docs only unless
+  the doc is the contract (`precedents/documentation.md` § 16).
+
+**Owned elsewhere.** These classes keep their own sections; documentation cites them as
+corroboration and never re-proves them:
+- the committed spec against code or runtime → § Backend (`http-contract-scan` §10);
+- `.env.example` against the env schema → § Backend (`env-diff`);
+- the changelog version against the released version → § DevOps (`release-integrity-scan` RL-2);
+- an alert with no `runbook_url` → § Observability (`alert-rule-lint`);
+- accepted ADRs and convention docs against code → § Align (`convention-oracle` AL-03/04);
+- dead references inside agent-facing knowledge (`ai/`, `CLAUDE.md`, `AGENTS.md`) → the learning
+  pack's own section.
+
+**Scope of use.** Scratch copies, `${TMPDIR}` and the run folder only. Seven rules hold for every
+variant below:
+
+- **Never write into the audited repo.** `doc-claims.py` refuses an `--out` or `--fences` inside the
+  repo (exit 2). Execution lanes run in `git archive HEAD | tar -x -C "$TMPDIR/…"` or a detached
+  worktree under `$TMPDIR`, with `GIT_OPTIONAL_LOCKS=0`. Print `find -newer <stamp>` on the audited
+  root at the end; it must be empty.
+- **Offline, pinned, telemetry off.** Installed binaries only (`node_modules/.bin`, the project's
+  venv), never `npx -y` or a global install. Set `CI=true DO_NOT_TRACK=1` plus
+  `REDOCLY_TELEMETRY=off`, `NEXT_TELEMETRY_DISABLED=1` and the other opt-outs before any CLI. The
+  AsyncAPI CLI reports usage unless `CI=true`; Runme's telemetry is unverified, so it is not a lane.
+  External links (DL-3) run only under `--network`.
+- **Exit codes are mapped per tool** (`precedents/documentation.md` § 32). lychee exits 2 on broken
+  links and 1 on its own error, the reverse of markdownlint-cli2, rumdl, Vale and Schemathesis;
+  `kacl-cli verify` exits with the error count. A gate that cannot fail (`remark` without `--frail`,
+  `oasdiff breaking` without `--fail-on ERR`, `openapi-diff` without `--fail-on-incompatible`,
+  TypeDoc without `treatValidationWarningsAsErrors`, Docusaurus `onBrokenAnchors: warn`) proves
+  nothing until V432 turns it red.
+- **NOT-RUN is never PASS.** pytest exit 5 (nothing collected), `--doctest-glob='*.md'` over fences
+  with no `>>>` (0 tests), a Spectral run with no ruleset, a container lane with no daemon: the
+  variant is `blocked`, never green.
+- **Both ends after the fix.** A fix that edits the doc re-resolves the new claim (it must resolve);
+  a fix that restores the code re-runs the recheck (the candidate must be gone). Whichever end
+  moved, `doc-claims.py --claim=<value>` must print no row in any doc, translations included.
+- **Generated docs are fixed at the source** (`precedents/documentation.md` § 17): the commit
+  message, the generator config or the annotation changes, and the regenerated output is diffed;
+  the generated file is never hand-edited.
+- **Fail first, pass after, keep the control.** Every variant fails on the pre-fix tree for the
+  stated reason, passes after, and the decoy the precedents exempt (a dated record, a gitignored
+  path, an outdated-banner translation, a third-party flag) is unchanged.
+
+### Oracle taxonomy (documentation)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Claim resolution** | S | the doc's claim resolves to the oracle's value after the resolution ladder (root, doc dir, package roots, unique suffix, gitignore, rename) | V430, V433, V434, V435, V436, V438, V439, V446, V447, V449 |
+| **Link checker** | T | lychee `--offline --include-fragments` (or the renderer's strict build) exits 0 | V430, V431 |
+| **Execution** | X | the project's toolchain runs the step or the fence in a scratch copy and exits 0 with the stated output | V437, V441, V442 |
+| **Spec and docstring tools** | T | Redocly or Spectral example rules, TypeDoc / pydoclint / rustdoc rules exit 0 | V440, V444 |
+| **Structural diff** | S | the embedded snippet, the translation's code and links, the ADR graph and the changelog grammar match their source | V443, V445, V447, V448 |
+| **Mutation** | M | a planted defect in a scratch copy turns the gate red | V432 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V430 | Link and anchor resolution | every relative link resolves to a file, and every fragment to a heading slug of the renderer in use; every link into the docs from code, alerts or config resolves | S, T | `doc-structure-scan` §1, §2, §5 (DL-1, DL-2, DK-3) |
+| V431 | External link | the URL answers 2xx twice, with a token for GitHub; 403, 429 and 999 are not dead | T | `doc-structure-scan` §3 (DL-3) |
+| V432 | Gate mutation | a planted broken link and a planted broken anchor (or a broken example) in a scratch copy make the docs gate exit non-zero on the PR path | M | `doc-structure-scan` §4 (DL-4); `doc-sample-scan` §4 (DC-4) |
+| V433 | Path and symbol resolution | the path resolves under the ladder, or the symbol is defined in the source | S | `doc-drift-scan` §1, §2 (DR-1, DR-2) |
+| V434 | Task and flag resolution | the script, make or just target, task or tox env exists where the doc runs it; the flag is declared by the CLI's parser | S | `doc-drift-scan` §3, §4, §13 (DR-3, DR-4, DK-1) |
+| V435 | Deprecation marker | the symbol or operation the doc presents as current carries no deprecation marker, or the doc says it is deprecated | S | `doc-drift-scan` §5 (DR-5) |
+| V436 | Version and tool pins | the stated runtime or service version is admitted by a pin; the stated package manager is the one the lockfile and `packageManager` name | S | `doc-drift-scan` §6, §7 (DS-2, DS-3) |
+| V437 | Clean-container setup | the setup section, run step by step in a fresh container pinned to the repo's versions, reaches its smoke check | X | `quickstart-verify` (DS-1) |
+| V438 | Env claim | the documented variable is read by the app; a required variable is documented; the documented default and values equal the schema's | S | `doc-drift-scan` §8, §9, §10 (DE-1, DE-2, DE-3) |
+| V439 | Prose endpoint | method and path resolve against the committed spec or the router after prefix normalisation | S | `doc-drift-scan` §11 (DA-1) |
+| V440 | Spec example validation | every `example` and `examples` value validates against its schema, and none is a placeholder | T, S | `doc-sample-scan` §5 (DA-2) |
+| V441 | Fence compile | every candidate fence compiles or imports through the project's compiler and config | X | `doc-sample-scan` §1 (DC-1) |
+| V442 | Doctest output | every `>>>`, `// Output:` or doctest block prints what the doc states | X | `doc-sample-scan` §2 (DC-2) |
+| V443 | Embedded snippet sync | the committed snippet equals its source region, and the region still exists | S | `doc-sample-scan` §3 (DC-3) |
+| V444 | Docstring rule and ratchet | the docstring tool rule exits 0 over the public surface and the coverage does not decline | T | `docstring-coverage` (DD-1, DD-2, DD-3) |
+| V445 | Release notes | every breaking commit since the last tag appears in the section that covers it; the changelog parses under its grammar | S, T | `doc-drift-scan` §12 (DH-1); `doc-structure-scan` §9 (DH-2) |
+| V446 | Runbook resource | every k8s, compose, alert or queue name a runbook acts on is declared in the repo's manifests | S | `doc-drift-scan` §14 (DK-2) |
+| V447 | ADR graph | every supersession is reciprocal and its target exists; every status is in the vocabulary and agrees with the index; every number is unique | S | `doc-structure-scan` §6, §7, §8 (DX-1, DX-2, DX-3) |
+| V448 | Translation parity and freshness | every declared locale has the page; the translation's code, commands and links equal the source's; its freshness marker is current | S | `doc-structure-scan` §10, §11, §12 (DI-1, DI-2, DI-3) |
+| V449 | Hygiene, nav and diagram | no placeholder in published prose; every nav entry resolves and every page is reachable; every diagram box names a live module | S | `doc-structure-scan` §13, §14 (DF-1, DF-2); `diagram-sync` (DF-3) |
+
+### Harnesses (documentation)
+
+- **Recheck** (every S variant): `python3 -I .claude/skills/doc-drift-scan/scripts/doc-claims.py
+  <repo> --recheck=<row-id>` exits 1 while the candidate exists and 0 once it is gone (2 when a lane
+  is blocked); `--claim=<value>` lists every doc still naming the value; `--class=<id>` re-runs one
+  class. The engine's `--self-test` covers each lane's seed and decoy.
+- **Link checker** (V430, V431): `lychee --offline --include-fragments --no-progress --format json
+  './**/*.md'` (exit 2 = broken links, 1 = lychee failed); with a site renderer, its strict build in
+  a scratch copy (`mkdocs build --strict` with `validation.links.anchors: warn`, `sphinx-build -W
+  --keep-going -b dummy`, `docusaurus build` with `onBrokenAnchors: 'throw'`). V431 runs online with
+  `GITHUB_TOKEN`, `--accept 200..=299,403,429` and a second run; `--cache` only from a scratch copy,
+  because lychee writes `.lycheecache` into the working directory.
+- **Mutation** (V432): copy the docs and the gate config to `$TMPDIR`, plant one link to a missing
+  file and one link to a missing anchor (for DC-4: one example that does not compile), run the gate
+  command CI runs, assert a non-zero exit with the gate's own exit map, delete the copy.
+- **Container** (V437): `quickstart-verify`'s lane: the image from the repo's pins (`.nvmrc`,
+  `engines`, `.python-version`, `go.mod`, `devcontainer.json`), package registries only for install
+  steps, `--network none` after, `.env` from `.env.example` only, a time budget per step;
+  `blocked (no container runtime)` when no daemon runs.
+- **Fence lanes** (V441, V442): `doc-claims.py <repo> --fences=$TMPDIR/fences` writes each fence and
+  `fences.tsv` (kind `candidate`, `doctest`, `fragment`, `excerpt`, `shell`, …). TS: a scratch
+  `tsconfig` that `extends` the package's own, `tsc --noEmit --incremental false`. Python: `python3
+  -I -m py_compile`, then the import in the project venv. Doctest: `python -m pytest
+  --doctest-glob='*.md' -p no:cacheprovider` in a scratch copy (exit 5 = NOT-RUN). Rust: `cargo test
+  --doc`. Go: `go vet` and `go test -run Example`.
+- **Spec tools** (V440): `REDOCLY_TELEMETRY=off redocly lint` with `no-invalid-media-type-examples`
+  and `no-invalid-schema-examples`, or Spectral with `oas3-valid-media-example` and
+  `oas3-valid-schema-example` from an explicit ruleset; the engine's `specex` lane validates JSON
+  specs without either tool.
+- **Release notes** (V445): `git log --format='%h %s%n%b' <last-tag>..HEAD` filtered to `!:` and
+  `BREAKING CHANGE:`, each matched in the section that covers it; `kacl-cli verify --json` (exit =
+  error count) or the engine's `changelog` lane; for a spec, `oasdiff breaking --fail-on ERR
+  <tag>:openapi.json HEAD:openapi.json`.
+
+### Class variants (documentation)
+
+A fix passes the class only when every variant the class takes in the docs present passes the
+oracle, and the decoy the precedents exempt is untouched.
+
+#### V430. Link and anchor resolution (`doc-structure-scan` §1, §2, §5)
+- the same target linked from every doc; reference-style definitions; images; HTML `href` / `src`; the translated copies; site-root links (`/docs/x`) under the renderer's root; duplicate headings (`-1` on GitHub, `_1` on MkDocs); headings with code, emoji or punctuation; non-Latin headings; custom ids (`{#id}`); inbound links from code strings, alert `runbook_url` and package `homepage`
+- pass: lychee offline with fragments exits 0, and `doc-claims.py --class=DL-1,DL-2,DK-3` prints no row for the target (a `#L42` line anchor and a gitignored output are the control, `precedents/documentation.md` § 4, § 10)
+
+#### V431. External link (`doc-structure-scan` §3)
+- 404; 410; DNS failure; a redirect chain to a 404; a GitHub URL behind rate limits
+- pass: two runs with a token answer 2xx or an accepted code (403 behind an auth wall, 429 and 999 are the control, § 15)
+
+#### V432. Gate mutation (`doc-structure-scan` §4; `doc-sample-scan` §4)
+- a broken relative link; a broken anchor; a broken nav entry; a broken example fence; the gate on the PR workflow, not only on `main`; a matrix job that skips docs
+- pass: each planted defect exits non-zero through the gate's own exit map (lychee 2, markdownlint-cli2 1, `remark --frail` 1, `mkdocs build --strict` non-zero); the unplanted copy exits 0
+
+#### V433. Path and symbol resolution (`doc-drift-scan` §1, §2)
+- every doc naming the old path or symbol, translations included; a directory and a file form; a package-root-relative form; a `file:line` suffix; the renamed path's new name in every doc; a code comment that cites the doc
+- pass: `doc-claims.py --claim=<value>` prints no row (a dated record and a per-module layout name are the control, § 1, § 3)
+
+#### V434. Task and flag resolution (`doc-drift-scan` §3, §4, §13)
+- `pnpm x`; `pnpm run x`; `pnpm -F pkg x`; `npm run x`; `yarn x`; `bun run x`; `turbo run x`; `make x`; `make -C dir x`; `just x`; `task x`; `poe x`; `tox -e x`; a script run after `cd pkg`; `--flag` and `--flag=value`; `--no-flag`; the env-var equivalent; a CI file that calls the same script
+- pass: each form resolves in the manifest or parser the doc runs it against (a third-party CLI flag and a package-local script run from its directory are the control, § 19, § 31)
+
+#### V435. Deprecation marker (`doc-drift-scan` §5)
+- JSDoc `@deprecated`; `#[deprecated]`; Go `// Deprecated:`; Java `@Deprecated`; Python `warnings.deprecated` / `DeprecationWarning`; OpenAPI `deprecated: true`
+- pass: no doc presents the marked symbol as current (a migration guide naming the old API on purpose is the control)
+
+#### V436. Version and tool pins (`doc-drift-scan` §6, §7)
+- README, CONTRIBUTING, docs/setup and translations; `.nvmrc`, `engines`, `.tool-versions`, `.python-version`, `requires-python`, `go.mod`, `rust-toolchain`, Dockerfile `FROM`, compose `image:`, the CI matrix, `packageManager`; `npm install` / `npm ci` / `yarn` against `pnpm-lock.yaml`; `pip install -r` against `uv.lock` or `poetry.lock`
+- pass: every stated version is admitted by a pin and every install or run command uses the pinned tool (installing the published package with `npm install <name>` is the control)
+
+#### V437. Clean-container setup (`quickstart-verify`)
+- the full sequence to the smoke check; both platform branches when the doc has them; the pinned runtime; a fresh volume
+- pass: every step exits 0 within its budget and the smoke check answers (a step needing a real key is `PREREQUISITE (secret)`, § 21)
+
+#### V438. Env claim (`doc-drift-scan` §8, §9, §10)
+- every env table; `.env.example` comments; deploy READMEs; translations; required **and** default **and** enum values; a pydantic `env_prefix`; a k6 `__ENV` read
+- pass: every documented variable is read, every required one is documented, and every stated default and value set equals the schema's (a platform- or SDK-read variable is the control, § 8)
+
+#### V439. Prose endpoint (`doc-drift-scan` §11)
+- method + path + global prefix and version; `{id}` and `:id`; a `curl` to the app's own port; an `http` fence; a table row; every doc naming the old path
+- pass: each resolves in the spec or the router (an infra route excluded from the spec and a curl to a third-party port are the control, § 7, § 19)
+
+#### V440. Spec example validation (`doc-sample-scan` §5)
+- request and response examples; `components.examples`; `examples` maps; nested objects; enum values; required keys
+- pass: the example rules exit 0 and no example is a placeholder (`"string"`, `0`, `"example"`) (an `externalValue` example is the control)
+
+#### V441. Fence compile (`doc-sample-scan` §1)
+- every fence of the same API across docs; the README the registry renders; docstring examples; a removed export; an old arity
+- pass: every candidate fence compiles in the scratch config (an excerpt with `// ...` is the control, § 14)
+
+#### V442. Doctest output (`doc-sample-scan` §2)
+- `>>>` blocks in Markdown and docstrings; Go `// Output:`; rustdoc; Elixir `iex>`
+- pass: the stated output equals the printed one under the project's runner (non-deterministic output patched or marked is the control)
+
+#### V443. Embedded snippet sync (`doc-sample-scan` §3)
+- embedme `// path#L10-L20`; `file=` imports; `--8<--` snippets; `!!raw-loader`; Sphinx `literalinclude` with `:lines:`
+- pass: the committed snippet equals its source region and every embedded path and range exists
+
+#### V444. Docstring rule and ratchet (`docstring-coverage`)
+- the whole public surface of the package (`exports`, `__all__`, `pub`); `@param` names and order; returns; `@throws` against real throws; intra-doc links
+- pass: the tool rule exits 0 and coverage ≥ the recorded baseline (an unpublished app's internal symbol is advisory, § 23)
+
+#### V445. Release notes (`doc-drift-scan` §12; `doc-structure-scan` §9)
+- each `!:` and `BREAKING CHANGE:` commit since the last tag, in every changelog that covers it (root and per-package); a removed CLI flag; a removed export; `oasdiff breaking` between tags; version order; duplicate versions; ISO dates; compare links; `[Unreleased]` first
+- pass: every breaking item appears in its section and the changelog parses (an unreleased commit under a generator is the control, § 17; an omission is retro-fixable, § 25)
+
+#### V446. Runbook resource (`doc-drift-scan` §14)
+- `kubectl -n <ns> <verb> <kind>/<name>`; a CronJob; a compose service; an alert name; a queue name; a resource a KEDA ScaledObject derives (`keda-hpa-<name>`)
+- pass: every name resolves in the manifests (a third-party chart's Service and a Secret created out of band are the control, § 19)
+
+#### V447. ADR graph (`doc-structure-scan` §6, §7, §8)
+- both ends of every supersession; the index table; the status vocabulary from the project's template; duplicate numbers; title number ≠ file number; a date mistaken for an id
+- pass: the graph is reciprocal, every status is in the vocabulary and agrees with the index, every number is unique (a partial supersession is the control, § 30)
+
+#### V448. Translation parity and freshness (`doc-structure-scan` §10, §11, §12)
+- every declared locale (Docusaurus `i18n.locales`, mkdocs-static-i18n languages, `docs/<lc>/`, `README.<lc>.md`); fenced commands; inline commands; link targets; the source-commit marker
+- pass: every page exists per declared locale, code and links equal the source's, and the marker is current (a page with an outdated banner under a declared lag policy is the control, § 11)
+
+#### V449. Hygiene, nav and diagram (`doc-structure-scan` §13, §14; `diagram-sync`)
+- `TBD`, `TODO`, `FIXME`, `lorem ipsum`, `<insert …>` in prose; MkDocs `nav` and `not_in_nav`; Docusaurus `sidebars.*`; mdBook `SUMMARY.md`; Sphinx toctree; a diagram box naming a deleted module
+- pass: no placeholder outside fences, every nav entry resolves, every page is in the nav or linked, every diagram box resolves (a placeholder in a config fence is the control, § 6)
+
+### Sources (documentation)
+
+The documentation research catalog (2026-10-19) `precedents/documentation.md` § 1–5 gives the
+classes, tools, techniques, precedents and the per-class variants above; its notes give the tool
+versions and exit codes as fetched on 2026-10-19 (lychee 0.24.2, markdownlint-cli2 0.23.3, rumdl
+0.3.0, remark-validate-links 13, MkDocs 1.6, Docusaurus 3.10.2, Sphinx 9.1, oasdiff 1.34.0,
+openapi-diff 2.1.7, Spectral 6.17.0, Redocly CLI 2.64.1 telemetry, AsyncAPI CLI 6.2.1 telemetry,
+python-kacl 0.7.7, TypeDoc 0.28.20, pytest 9 doctest behaviour, pydoclint 0.11.1, and the archived
+Optic, Dredd and darglint). The batch-7 documentation eval (2026-10-19) gives the engine design,
+the scope rules and the severity matrix; the integrator assigned V430–V449. Paraphrased; no text
+reproduced.
+
+---
+
+## Business
+
+A business claim says the code breaks **a rule the business or an authority set**, not a shape: two
+paths round one charged amount differently, a discount stack depends on the request's order, a refund
+returns more than the paid share, a billing period drifts at month end, a tax rate is read at render
+time, an issued invoice can be edited, an unbalanced posting can commit, an account deletion erases
+invoices inside their retention period, a dashboard sums each order once per line, a "day" depends on
+which query computed it, an entity can enter a state it never leaves, a user can subscribe and never
+cancel. Reading the code rarely settles one: the rule has to be read first (the money policy, the tax
+policy, the ledger inventory, the metric definition, the lifecycle graph, the route pairs), and the
+oracle runs the real path against it, failing first. Every oracle names a **family**:
+- **S**: a static fact with both ends cited — the policy row and the call that breaks it, the writer
+  and the reader of a unit, the posting function and the absent constraint, the forward route and the
+  inverse "none after the written search".
+- **P**: a property battery in the project's own runner (fast-check, Hypothesis, jqwik, rapid) —
+  conservation, a bound, idempotence, permutation, tiling, a model-based state machine.
+- **G**: a golden file written before the fix — a golden ledger, a golden invoice per jurisdiction, a
+  golden report day, a golden provider export — compared to the minor unit, never with a tolerance.
+- **D**: a database probe on a scratch database or inside a rolled-back transaction — a direct-SQL
+  write that bypasses the code, a replay, a reconciliation query.
+- **T**: a tool exit recorded in this run — the authority's validator, `status-graph.py`, the
+  route-pair diff.
+- **R**: a provider replay — a test clock, duplicated and reordered webhook deliveries, the provider's
+  test mode or sandbox.
+- **L**: a live walk through a non-production environment (`/audit-business --live`).
+
+Settled questions are in [`precedents/business.md`](precedents/business.md). This section is
+self-contained: its V-numbers (V450–V489) are cited by the business detectors, the three business
+judges and `/business-fix` only, and no V outside this range is reused for a business class.
+
+Users:
+- the detectors `pricing-rule-scan` (MP §1–§3, PR §4–§9, BL §10–§13), `tax-invoice-scan` (TX §1–§6,
+  IV §7–§11), `ledger-scan` (LG §1–§7, FR §8–§10, DM §11–§12), `report-scan` (RP §1–§7, BT §8–§9),
+  `lifecycle-scan` (LC §1–§6, `status-graph.py`) and `check-business-coverage` (CY §1–§6) (business
+  pack);
+- the judges `@domain-model-auditor`, `@workflow-integrity` and `@business-auditor`, and
+  `/audit-business`, which runs them all, with `@verifier` mode `refute` on every BLOCKER and HIGH it
+  keeps;
+- `/business-fix`, which writes each finding's failing-first test from its V-number.
+
+**Owned elsewhere.** These classes keep their own sections; business reads them as corroboration and
+never re-proves them:
+- float money in code, the rounding *call*, allocation that does not re-sum, overflow, calendar
+  arithmetic and DST → § Code quality (`correctness-smell-scan` §4 / §6), which reads this section's
+  V450 policy row for the mode and the point;
+- Decimal on the wire, output rounding, FSM library semantics, a cron's zone → § Backend;
+- float columns, CASCADE into records of fact, PII mechanics, gapless numbering, lost updates → the
+  data sections (`schema-integrity-scan`, `transaction-scan`);
+- client-chosen prices, check-then-act on balances and coupons, money-route idempotency, late provider
+  events re-opening a settled record → security, proven with [`exploit-payloads.md`](exploit-payloads.md);
+- consumer dedupe, outbox and saga compensation → § Distributed; analytics events against a tracking
+  plan → § Product.
+
+**Scope of use.** Scratch copies, `${TMPDIR}` and the run folder only. Eight rules hold for every
+variant below:
+
+- **Read the rule before the code.** Every variant starts from the policy row it tests (money policy,
+  tax policy, ledger inventory, metric register, graph, route pairs) and its source. A rule with no
+  source is `UNDECLARED`: the variant is written for the decision the owner makes, never for a guess
+  (`/business-fix` STOPs).
+- **Never write into the audited repo** outside the fix's own test and source files. Registers and
+  scripts write under the run folder; `status-graph.py` refuses an `--out` inside a scanned root.
+- **The real path, the real engine.** Drive the checkout, refund, invoice builder, posting function,
+  report query or webhook handler against a database of the project's engine. A trigger, a `numeric`,
+  a zone or a deferred constraint does not exist in a mocked repository or in SQLite standing in for
+  Postgres.
+- **Database probes are isolated.** Direct-SQL writes run on a scratch database or inside `BEGIN; …
+  ROLLBACK;`; a probe that cannot be isolated is `NOT-RUN`. Never a shared or production database.
+- **Exact money, no tolerance.** Assertions compare minor units exactly. `toBeCloseTo`, `approx`,
+  `assertAlmostEqual` or `abs(a - b) < 0.01` on money is the defect the oracle exists to catch.
+- **Golden files are written before the fix** and never regenerated in the change that fixes the
+  code they judge.
+- **Authorities and providers through their own tools, offline or in test mode.** The authority's
+  validator vendored by the project (KoSIT, Peppol Schematron, the ZATCA SDK) runs offline; an
+  authority's preprod or a provider's test mode needs credentials the run does not invent
+  (`NOT-RUN (auth)`); live keys are never used. Telemetry off before any CLI (`CI=true`,
+  `DO_NOT_TRACK=1`).
+- **Fail first, pass after, keep the control.** Every variant fails on the pre-fix code for the
+  stated reason, passes after, and the benign control a precedent names (a declared half-up mode, a
+  draft invoice edit, a `reconciled_at` update, a pre-aggregated CTE, a declared reversal edge, an
+  irrevocable action) is unchanged.
+
+### Oracle taxonomy (business)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Policy corpus** | P, S | every path that computes an amount agrees with the declared rule on the inputs where rules differ (ties, exponents 0/2/3, month ends, rate-change dates) | V450, V451, V452, V456, V458 |
+| **Property battery** | P | a bound, a conservation or an independence holds over generated inputs (permutation of coupons, partial refunds, period tiling, eligibility after every mutation) | V453, V455, V456, V461, V477 |
+| **Golden file** | G | the real path reproduces the golden ledger, invoice, report or export to the minor unit | V454, V457, V459, V467, V469, V470, V472, V473 |
+| **Database probe** | D | the database refuses the violating write, or the replay posts once, whoever the writer | V460, V463, V464, V465, V466, V468, V481 |
+| **Authority validator** | T | the authority's tool accepts the generated document (exit 0) | V462, V480 |
+| **Graph diff** | T, P | the extracted lifecycle graph has no unreachable live state, no trap, no undeclared edge on a money entity; a model-based run keeps a cross-aggregate invariant | V474, V475, V482 |
+| **Replay** | R | duplicated, reordered or late provider events and a test clock leave the same final state and money | V455, V476 |
+| **Zone and calendar table** | P, G | a rule's "day" and "business day" are the same in every query and region | V471, V479 |
+| **Cycle pair** | T, L | each forward action has its inverse, resend, status and exit, reachable by the forward's role | V478, V483, V484 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V450 | Tie corpus | `0.005, 1.005, 2.675, 0.125, -2.5` at exponents 0, 2 and 3 through every path that rounds the amount kind (API, worker, renderer, report) — all agree with the declared mode and point | P, S | `pricing-rule-scan` §1 (BIZ-MP-1) |
+| V451 | Unit round trip | each unit written through the real writer reads back equal through every reader (services, raw SQL, the export, the PSP call) | P, S | `pricing-rule-scan` §2 (BIZ-MP-2) |
+| V452 | Pinned rate | convert at t1, change the rate, re-read at t2: the booked amount is unchanged; A→B→A never gains | P | `pricing-rule-scan` §3 (BIZ-MP-3) |
+| V453 | Composition and eligibility | permuting the same coupons does not change the total under an order-independent policy; `0 ≤ total ≤ undiscounted`; the threshold holds after every cart mutation; a fixed amount is never applied across currencies; the window holds at 23:59 and 00:01 business-zone time and at placement | P | `pricing-rule-scan` §4, §6, §7, §8 (BIZ-PR-1, PR-3, PR-4, PR-5) |
+| V454 | Snapshot after a catalog change | place an order, change the catalog price, refund and re-render: amounts unchanged | G | `pricing-rule-scan` §5 (BIZ-PR-2) |
+| V455 | Proration and usage window | a provider test clock across a plan change, or the formula golden at period day 1, 15 and the last day; a metering golden with a late event and one at 23:59 business-zone time | R, G | `pricing-rule-scan` §10, §13 (BIZ-BL-1, BL-4) |
+| V456 | Anchor sequence and tiling | from a day-31 anchor over 13 months across a leap February, every period starts on the clamped anchor day; generated periods tile the timeline (half-open, no gap, no overlap) | P | `pricing-rule-scan` §11, §12 (BIZ-BL-2, BL-3) |
+| V457 | Golden invoices | per jurisdiction (domestic, exempt, reverse-charge), the real builder reproduces the golden document's lines, category totals and document totals; re-rendering after a settings and clock change is identical | G | `tax-invoice-scan` §4, §5, §11 (BIZ-TX-4, TX-5, IV-5) |
+| V458 | Rate change at the tax point | a golden invoice dated the day before and the day after a rate change keeps its own rate after re-render | G, P | `tax-invoice-scan` §1 (BIZ-TX-1) |
+| V459 | Base matrix | discount × shipping × inclusive / exclusive × exempt through the real tax function equals the golden matrix | G | `tax-invoice-scan` §2, §3 (BIZ-TX-2, TX-3) |
+| V460 | Issued immutability | an edit of an issued document's financial content through each writer (service, admin, bulk, raw SQL) is rejected; the only path is a credit note; a draft stays editable | D | `tax-invoice-scan` §7 (BIZ-IV-1) |
+| V461 | Credit-note bound | a credit note carries its original's id; crediting 60 % twice is rejected on the second | P, D | `tax-invoice-scan` §8 (BIZ-IV-2) |
+| V462 | Validator exit | a document generated by the real builder passes the authority's validator offline (exit 0), including a foreign-currency document's national-currency tax | T | `tax-invoice-scan` §4, §6, §9, §10 (BIZ-TX-4, TX-6, IV-3) |
+| V463 | Balanced posting | the balance property per (entry, currency) over generated postings; a direct-SQL unbalanced insert is rejected at COMMIT; per-currency sums are zero after an FX scenario | P, D | `ledger-scan` §1, §5 (BIZ-LG-1, LG-5) |
+| V464 | Append-only | with a trigger or a revoked UPDATE / DELETE on the line table, the suite stays green; a correction scenario's golden diff adds rows only | D, G | `ledger-scan` §2 (BIZ-LG-2) |
+| V465 | Idempotent posting | the same cause delivered N times, sequentially and concurrently, posts one entry set | D, R | `ledger-scan` §3 (BIZ-LG-3) |
+| V466 | Cache equals the fold | for generated sequences, the cached balance equals Σ entries per account and currency; a crash between the two writes is found by the sweep | P, D | `ledger-scan` §4 (BIZ-LG-4) |
+| V467 | Provider reconciliation | a golden provider export for a day matches the ledger row for row; clearing nets to zero | G | `ledger-scan` §6 (BIZ-LG-6); `report-scan` §6 when the books are the provider's |
+| V468 | Records survive deletion | deleting a seeded user and a seeded tenant keeps orders, invoices and ledger rows (pseudonymised); seeded aged rows per record kind survive the purge until their cited period; erasing a subject removes PII from mutable tables and keeps the invoice snapshot | D | `ledger-scan` §8, §9, §10 (BIZ-FR-1, FR-2, FR-3) |
+| V469 | Golden report dataset | two child rows per parent, an odd count, a zero-denominator group and unequal group sizes: the real query returns the hand totals and rates | G | `report-scan` §1, §5 (BIZ-RP-1, RP-5) |
+| V470 | One figure, stable history | every site that computes a named metric returns the same figure on the golden day; a closed period's figure does not move when a row's status changes later; the figure equals the books' total for the day | G | `report-scan` §2, §6, §7 (BIZ-RP-2, RP-6, RP-7) |
+| V471 | Business day | rows at 23:30 and 00:30 local time and on a DST change date land on the business day in every bucket, cutoff and daily limit | P, G | `report-scan` §8 (BIZ-BT-1) |
+| V472 | Currency sums | a golden set with two currencies returns per-currency totals, or a converted total equal to the hand conversion at the stored rates | G | `report-scan` §4 (BIZ-RP-4) |
+| V473 | Exclusions | a golden day with one cancelled, refunded, test, sandbox and soft-deleted row each: the figure does not move | G | `report-scan` §3 (BIZ-RP-3) |
+| V474 | Graph diff | `status-graph.py` before and after: declared states minus reachable states is the documented legacy list; every non-terminal state reaches a terminal one; declared and built edges agree on money entities | T, P | `lifecycle-scan` §1, §2, §3 (BIZ-LC-1, LC-2, LC-3) |
+| V475 | Model-based cross-aggregate | a model-based run (`fc.commands`, `RuleBasedStateMachine`) over the real handlers keeps the pair invariant after every step, including a crash between the two writes | P | `lifecycle-scan` §4 (BIZ-LC-4) |
+| V476 | Provider replay | a recorded event sequence, duplicated and shuffled, through the real handler: the same final state, every intermediate edge in the graph | R | `lifecycle-scan` §5 (BIZ-LC-5) |
+| V477 | Conservation | charge → partial refunds → full refund → dispute won / lost: Σ refunds ≤ captured, every account nets as expected to the minor unit, a re-fired reversal moves nothing | P, D | `pricing-rule-scan` §9 (BIZ-PR-6); `ledger-scan` §7 (BIZ-LG-7) |
+| V478 | Cycle pair | the route-pair diff for the resource, then forward → inverse end to end restores the state; resend after non-delivery; a status surface reaches the job's end; a recovery action completes after an expired token or a declined card | T, L | `check-business-coverage` §1, §2, §3, §6 (BIZ-CY-1, CY-2, CY-3, CY-6) |
+| V479 | Business-day table | a decision table per region across a weekend and a public holiday yields the declared due date, settlement day or SLA end | P, G | `report-scan` §9 (BIZ-BT-2) |
+| V480 | Chain continuity | over N issues from one issuer: one chain, no reused previous hash or UUID, a contiguous counter, the previous value read from the persisted last document; a retry does not regenerate it | P, T | `tax-invoice-scan` §10 (BIZ-IV-4) |
+| V481 | Invariant per writer | the violating write through every writer (service, bulk update, raw SQL, second service, admin) is rejected; an account meant to go negative is the control | D | `ledger-scan` §11, §12 (BIZ-DM-1, DM-2) |
+| V482 | Transition history | each transition through its real entry point writes exactly one history row (actor, from, to, at) in the same transaction; a rolled-back transition writes none | D | `lifecycle-scan` §6 (BIZ-LC-6) |
+| V483 | One-click unsubscribe | a raw message captured from the real marketing sender carries `List-Unsubscribe` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click`; a POST to the URL without a session unsubscribes | T, L | `check-business-coverage` §4 (BIZ-CY-4) |
+| V484 | Export and erasure | as the user: an export returns a machine-readable file with the user's data; a deletion request ends with login refused, PII gone from mutable tables and records of fact kept | L, D | `check-business-coverage` §5 (BIZ-CY-5) |
+
+V485–V489 are reserved for business classes added later.
+
+### Harnesses (business)
+
+- **Policy corpus and properties** (V450–V453, V456, V458, V461, V463, V466, V475, V477): the
+  property library already in the lockfile (fast-check 4.10.2 `fc.property` / `fc.commands`,
+  Hypothesis 6.170.1 `@given` / `RuleBasedStateMachine`, jqwik, rapid 1.3.0); never added without
+  asking (jqwik ≥ 1.10 mentions an "Anti-AI Usage Clause" — read it before generating jqwik code).
+  The tie corpus and the exponent list are fixed inputs, not generated ones. Money generators produce
+  integer minor units with the currency's exponent from ISO 4217 (0 for JPY / KRW, 3 for KWD / BHD /
+  OMR).
+- **Golden files** (V454, V457–V459, V464, V467, V469–V473, V479): JSON, CSV or XML under the test
+  directory, written from the rule (the policy row, the authority's worked example, a hand
+  computation), committed with the failing test, compared exactly. A golden report day seeds the
+  edge rows each variant names; a golden ledger lists `(entry, account, currency, amount)` tuples per
+  scenario.
+- **Database probes** (V460, V463–V466, V468, V481, V482): a testcontainer or the CI database service
+  of the project's engine, migrated to head; each probe in a transaction rolled back after the
+  assertion, or a throwaway schema. A deferred constraint is proven by a `COMMIT` that fails, not by
+  the insert.
+- **Authority validators** (V462, V480): the validator the project vendors — KoSIT validator 1.6.3
+  with the XRechnung configuration 3.0.2 (`java -jar validator-<v>-standalone.jar -s scenarios.xml -r
+  <repo> -o <out> <invoice.xml>`, non-zero exit on reject; read `--help`), Peppol BIS 3.0.21
+  Schematron through Saxon-HE, the ZATCA SDK (flags `[K?]`, proprietary terms: `NOT-RUN` unless
+  vendored), an authority preprod (`NOT-RUN (auth)` offline). Output under `${TMPDIR}`.
+- **Graph** (V474, V482): `python3 -I -B .claude/skills/lifecycle-scan/scripts/status-graph.py
+  <roots> --out=<run folder>/graph [--declared=<flows file>]` before and after the fix; the diff of
+  `edges.tsv` and the report's LC lines is the oracle. Its `--self-test` covers the TS, Python, Ruby
+  and SQL lanes and every exit.
+- **Replays and clocks** (V455, V465, V476): recorded webhook payloads replayed through the real
+  handler duplicated and shuffled; `stripe events resend` and Stripe test clocks only in a test-mode
+  sandbox with the project's test key (`NOT-RUN (auth)` without one; never a live key).
+- **Cycle pairs and walks** (V478, V483, V484): the route inventory from product's `surface-map.py`
+  or backend's `dto-types.py --routes` when installed, paired by `check-business-coverage` 0b; end to
+  end through the project's own runner (Playwright, Cypress, a request suite) against a
+  non-production URL, output under `${TMPDIR}`; a raw-message capture through the mail library's test
+  transport.
+
+### Class variants (business)
+
+A fix passes the class only when every variant the class takes in the stacks present passes the
+oracle, and the benign control is untouched.
+
+#### V450. Money policy — tie corpus (`pricing-rule-scan` §1)
+- every rounding call and library global (`Decimal.set`, `Big.RM`, `getcontext().rounding`, `Money.rounding_mode`); every service that rounds the amount kind (API, worker, invoice renderer, report, CSV / XLSX export, the web client); a money-library upgrade across a default change (Ruby `money` 6 → 7, 2026-07-31)
+- pass: every path agrees with the declared mode and point on the corpus (one module with a declared half-up or half-away mode is the control, `precedents/business.md` § 2)
+
+#### V451. Unit drift — round trip (`pricing-rule-scan` §2)
+- every writer and reader of a unit-bearing column; percent vs basis points vs fraction; major vs minor at a PSP boundary; a column whose unit depends on a type column; a hard-coded exponent for a 0- or 3-digit currency
+- pass: each unit reads back equal through every reader (integer minor units with the exponent from the currency table are the control, § 6)
+
+#### V452. FX — pinned rate (`pricing-rule-scan` §3)
+- every conversion site; a stored converted amount with its rate, time and source; a report that totals converted values; a refund of a converted charge
+- pass: amounts unchanged after a rate change; A→B→A never gains (a documented single-currency product is the control, § 6)
+
+#### V453. Composition, eligibility, promotion currency, validity window (`pricing-rule-scan` §4, §6–§8)
+- cart add / update / merge, quote, checkout, place-order revalidation, order edit, re-order, auto-applied promotions, referral codes, gift-card and loyalty burn, guest checkout, old API versions; expiry from a date-only input; the window checked at apply and at commit
+- pass: the properties hold after every mutation and at both clock edges (a documented sequential policy with golden tests is the control)
+
+#### V454. Snapshot — catalog change (`pricing-rule-scan` §5)
+- refund, credit note, invoice re-render, recalculation, re-order, partial return of a bundle
+- pass: historical documents unchanged (analytics that intend current prices are the control, § 19)
+
+#### V455. Proration and usage window (`pricing-rule-scan` §10, §13)
+- upgrade, downgrade, quantity change, trial end, pause / resume, anchor change, renewal; metered usage at period close, late events, a period in another zone
+- pass: the test clock or the formula golden agrees at day 1, mid-period and the last day; late events land per the declared rule (proration delegated to the platform is the control, § 9)
+
+#### V456. Anchor and periods (`pricing-rule-scan` §11, §12)
+- `setMonth`, `AddDate(0, 1, 0)`, `replace(month=)`, adding months from the previous period's end; inclusive end-of-month bounds; `<=` on both ends of a filter
+- pass: the anchor sequence clamps from the anchor and periods tile the timeline (date-fns `addMonths(anchor, n)`, `java.time`, Stripe `billing_cycle_anchor_config` are the control, § 9)
+
+#### V457. Golden invoices (`tax-invoice-scan` §4, §5, §11)
+- cart, checkout, invoice, credit note, PDF, e-invoice builder, refund, report — tax is often computed in four places; domestic, exempt and reverse-charge buyers; a re-render after a settings change
+- pass: every path reproduces the golden document (per-line rounding the national rule allows and the policy declares is the control, § 3)
+
+#### V458. Rate change (`tax-invoice-scan` §1)
+- a rate table edited in place; a rate resolved at render; the rate not stored on the line; the admin edit path of the rate table
+- pass: each document keeps its tax-point rate (a single-jurisdiction dated config with the rate on each line is the control, § 7)
+
+#### V459. Base matrix (`tax-invoice-scan` §2, §3)
+- discount before / after tax; shipping in / out of the base; inclusive applied twice; back-out as `price × rate`; the inclusive flag missing on one path
+- pass: the matrix equals the golden (a tax engine called with the address and the tax code is the control, § 8)
+
+#### V460. Issued immutability (`tax-invoice-scan` §7)
+- service update, admin panel, bulk update, raw SQL, a delete route, a PDF regeneration that rewrites amounts
+- pass: every financial edit of an issued document is rejected (a draft edit and a `sent_at` / `pdf_url` update are the control, § 15)
+
+#### V461. Credit-note bound (`tax-invoice-scan` §8)
+- a credit note without its original's id; two concurrent credits; a return receipt; a partial credit after a partial refund
+- pass: Σ credits ≤ original, enforced in the credit's transaction
+
+#### V462. Validator exit (`tax-invoice-scan` §4, §6, §9, §10)
+- each standard the builders emit; a foreign-currency document; a zero-rated line with its exemption reason; a credit note; the first and the N-th document of a chain
+- pass: the authority's validator exits 0 on each (`NOT-RUN` offline for a preprod-only authority, never PASS)
+
+#### V463. Balanced posting (`ledger-scan` §1, §5)
+- the posting function; admin adjustments; backfills; imports with historical dates; FX legs; fees; payouts; disputes; a raw insert from a second service
+- pass: per (entry, currency) Σ debits = Σ credits, and the direct-SQL unbalanced insert fails at COMMIT (a deferred balance trigger or a ledger engine is the control, § 10)
+
+#### V464. Append-only (`ledger-scan` §2)
+- update or delete of amount, account, currency, direction or posting date; soft delete on entries; `updated_at` on entries
+- pass: the suite is green with UPDATE / DELETE refused (an update of `memo`, `reconciled_at`, `exported_at` is the control, § 11)
+
+#### V465. Idempotent posting (`ledger-scan` §3)
+- a webhook redelivered; a consumer retried; a cron re-run; two workers on one cause; a key generated at retry time
+- pass: one entry set per cause (a unique source key with `ON CONFLICT DO NOTHING` is the control, § 12)
+
+#### V466. Cache equals the fold (`ledger-scan` §4)
+- every cache writer, including another service; a crash between the ledger insert and the cache write
+- pass: cache = Σ entries; the sweep reports an injected drift (a cache written in the posting transaction with a sweep is the control, § 13)
+
+#### V467. Provider reconciliation (`ledger-scan` §6)
+- payments, refunds, fees, payouts, disputes, carrier cash-on-delivery; a missing and a duplicated provider row
+- pass: every provider row matched; clearing nets to zero (reconciliation in a documented external tool is the control)
+
+#### V468. Records of fact (`ledger-scan` §8, §9, §10)
+- delete-account, tenant offboarding (`DROP SCHEMA` per tenant), purge crons, the anonymiser, backups and exports
+- pass: records kept for their cited period, PII gone from mutable tables, invoice snapshots intact (unissued drafts deleted is the control, § 15, § 17)
+
+#### V469. Golden report dataset (`report-scan` §1, §5)
+- every dashboard and report query, ORM aggregate, export, scheduled report, dbt model; integer division; `NULL` sums; average of averages
+- pass: hand totals and rates reproduced (a pre-aggregated CTE, `distinct on` or a primary-key join is the control, § 18)
+
+#### V470. One figure, stable history, books (`report-scan` §2, §6, §7)
+- every site that names the metric (dashboard, export, email digest, admin report); a status change after the period closes; the books for the day
+- pass: one figure everywhere, closed periods stable, equal to the books (two differently named metrics, and a snapshot metric that says so, are the control, § 19)
+
+#### V471. Business day (`report-scan` §8)
+- report buckets, cutoffs, daily limits, coupon expiry, billing day, payout day; a tenant off UTC; a DST date
+- pass: each row lands on its business day everywhere (a documented UTC day for a single-zone business is the control, § 20)
+
+#### V472. Currency sums (`report-scan` §4)
+- revenue, payouts, balances, commissions, refunds; a converted total
+- pass: per-currency totals or a correct conversion (single currency, documented, is the control, § 6)
+
+#### V473. Exclusions (`report-scan` §3)
+- cancelled, refunded, test, sandbox (`livemode = false`), soft-deleted, internal accounts
+- pass: the figure ignores what its definition excludes (a definition that includes them on purpose is the control)
+
+#### V474. Graph diff (`lifecycle-scan` §1, §2, §3)
+- services, controllers, jobs, webhooks, admin panels, seeds, raw SQL, bulk updates, a provider sync; a state missing from the transition table; a declared lifecycle document
+- pass: no unreachable live state, no trap, declared and built edges agree on money entities (a declared reversal table and a locked legacy state are the control, § 29, § 30)
+
+#### V475. Cross-aggregate (`lifecycle-scan` §4)
+- order and payment; shipment and order; subscription and invoice; return and refund; a crash or a retry between the two writes
+- pass: the pair invariant holds after every step ("refund without return" as a written policy is the control, § 27)
+
+#### V476. Provider replay (`lifecycle-scan` §5)
+- duplicated, reordered and late events; a subscribed type with no handler; a provider-status map applied without the graph
+- pass: the same final state, every edge in the graph (an explicit ignore list and a re-fetch before deciding are the control, § 22)
+
+#### V477. Conservation (`pricing-rule-scan` §9, `ledger-scan` §7)
+- line and order refunds; partial returns of a bundle; store-credit and wallet refunds; voids; chargebacks won and lost; partial capture; a re-fired reversal
+- pass: net zero to the minor unit; Σ refunds ≤ captured (the provider bounding its own refunds is the control, § 26)
+
+#### V478. Cycle pair (`check-business-coverage` §1, §2, §3, §6)
+- every resource with a create, subscribe, invite, connect, share or start route; every send; every user-started job; every token kind; account and tenant lifecycle
+- pass: the inverse, resend, status and recovery exist for the forward's role (irrevocable actions, admin inverses for admin forwards and command POSTs are the control, § 23, § 40, § 41)
+
+#### V479. Business-day table (`report-scan` §9)
+- SLA, settlement T+n, due dates, payout day; a Friday–Saturday weekend; a public holiday; a year boundary
+- pass: the table matches per region (a maintained calendar is the control, § 37)
+
+#### V480. Chain continuity (`tax-invoice-scan` §10)
+- issue, retry, resubmission, parallel issuers, the first document of a device or certificate
+- pass: one chain, no reuse, contiguous counter (an authority without chaining is the control — cite its spec)
+
+#### V481. Invariant per writer (`ledger-scan` §11, §12)
+- services, bulk updates (`update_all`, `QuerySet.update`, `updateMany`), raw SQL, imports, admin panels, a second service
+- pass: every writer rejected at the boundary (a clearing, liquidity or provider-receivable account going negative is the control, § 14)
+
+#### V482. Transition history (`lifecycle-scan` §6)
+- every setter, webhook and admin repair on order, payment, subscription, invoice, role and consent machines
+- pass: one history row per transition, in its transaction (a low-stakes toggle is the control, § 31)
+
+#### V483. One-click unsubscribe (`check-business-coverage` §4)
+- every marketing sender, campaign, newsletter and digest; the one-click endpoint without a session
+- pass: both headers present and the POST unsubscribes (an ESP that injects the headers, read from a captured message, is the control, § 38)
+
+#### V484. Export and erasure (`check-business-coverage` §5)
+- the account page, the settings page, an API-only path, an asynchronous request with an SLA
+- pass: export and deletion complete as the user, records of fact kept (mobile in-app deletion is mobile G7's, § 42)
+
+### Sources (business)
+
+The business research catalog (2026-10-19) § 1–5 and its two notes (money, tax, compliance and
+reporting; ledger, state, pricing, time and proofs) give the classes, the tools and their versions
+(fast-check 4.10.2, Hypothesis 6.170.1, rapid 1.3.0, KoSIT validator 1.6.3 with XRechnung
+configuration 3.0.2, Peppol BIS 3.0.21, dbt-utils 1.4.1, Stripe test clocks), the precedents and the
+per-class variants above; Ruby `money` 7.0's default-rounding change is from its UPGRADING notes
+(2026-07-31). The batch-7 business eval (2026-10-19) gives the detectors and the oracle list; the
+integrator assigned V450–V489 (eval V409–V438 remapped). Paraphrased; no text reproduced.
+
+---
+
+## Learning
+
+A learning claim says the AI knowledge layer tells an agent something this repository no longer
+makes true. The layer is `CLAUDE.md` and its `@import` closure, `AGENTS.md`, `ai/**`,
+`.claude/codebase-profile.md`, the extraction oracle, `.claude/rules/**` and the live anchor block
+of every installed agent, command, skill and pack pattern. The claim fails when:
+- a path, symbol, command, pattern or ADR id it names resolves to nothing;
+- an engine, driver, id scheme or framework major contradicts the lockfile;
+- a count, an index or an anchor was derived from a source that has since changed;
+- a cited line no longer says what the claim says;
+- a memory entry's evidence moved, or a consumer cannot read the format the sink declares;
+- an ADR's supersede link runs one way, or its chosen option is absent;
+- the file never loads, or loads past its budget.
+
+Reading one side settles none of these. Every oracle names a **tier**
+([`precedents/learning.md`](precedents/learning.md) § The claim, restated):
+- **S**: two-ended static. The knowledge `file:line` quoted, and the truth beside it: a
+  `git ls-files` miss with the commit that renamed or deleted the target, the lockfile line, the
+  cited line at HEAD, the ADR's status line, the loader's rule.
+- **T**: an engine exit. The owning engine re-run on that site (`--only=<file>:<line>`) prints the
+  row before the edit and nothing after it.
+- **U**: regenerate twice. A derived file (anchor blocks, the decision index, the cheatsheet, the
+  digest) is regenerated from its source twice; the second run is byte-identical (`cmp`, never
+  mtime) and the engine is quiet.
+
+Settled questions are in [`precedents/learning.md`](precedents/learning.md). This section is
+self-contained: its V-numbers (V490–V509) are cited by the learning detectors, `/audit-knowledge` and
+`/refresh-knowledge --from-audit` only, and no V outside this range is reused for a learning class.
+
+Users:
+- the detectors `knowledge-ref-scan` (§1–§6, engine `knowledge-refs.py` with the shared reader
+  `kn_common.py`), `knowledge-fact-scan` (§1–§7, `knowledge-facts.py`), `memory-hygiene-scan`
+  (§1–§9, `sink-audit.py`), `decision-record-scan` (§0–§4, `adr-index.py`) and `context-load-scan`
+  (§1–§5, `load-budget.py`) (learning pack);
+- `/audit-knowledge`, which runs all five read-only, with `@knowledge-curator` as judge and
+  `@verifier` mode `refute` on every HIGH it keeps;
+- `/refresh-knowledge --from-audit`, which closes each row failing first with the engine re-run as
+  the probe.
+
+**Owned elsewhere.** These classes keep their own sections or checks; learning reads them as
+corroboration and never re-proves them:
+- a convention claim the code majority contradicts (KN-10) → § Align (`convention-oracle`
+  AL-03/04);
+- human docs (README, `docs/**`, runbooks written for people, diagrams) → § Documentation
+  (`doc-drift-scan` V433). An ADR supersede pair in a human-docs ADR home is also V447
+  (`doc-structure-scan` §6); the same pair is one finding, deduped by `file:line`, and V504 and
+  V447 assert the same two links;
+- a secret in a context or memory file (KN-34) → security `secret-scan-method`; hidden Unicode or
+  injection-shaped content (KN-35) → security `sast-scan` (trojan-source lane), proven with
+  [`exploit-payloads.md`](exploit-payloads.md);
+- unmarked claims, a sampled oracle, a stale approval stamp and a missing ADR for a dependency
+  (KN-16, 17, 18, 30) → `/setup-project-health` checks 11, 7, 9 and 2 and `audit-setup.sh` C2v,
+  whose own pass lines are the record.
+
+**Scope of use.** Scratch copies, `${TMPDIR}` and the run folder only. Seven rules hold for every
+variant below:
+
+- **Never write into the audited repo outside the fix.** The engines read, run read-only git with
+  `GIT_OPTIONAL_LOCKS=0` and write nothing under the scanned root. A regenerate-twice run happens
+  first in `git archive HEAD | tar -x -C "$TMPDIR/…"`; only the second, byte-identical output is
+  applied. Print `find -newer <stamp>` on the audited root at the end of an audit; it must be
+  empty.
+- **Source wins, and the source is named.** The lockfile, `git ls-files`, the cited line at HEAD,
+  the ADR file and the loader's documented rule decide. A claim is never "fixed" by editing the
+  source to match it. The one exception is a decision: an Accepted ADR whose chosen option is
+  absent from the code is put to the user (a superseding ADR, or the code change), never rewritten
+  to bless the code.
+- **Content, never mtime** ([`precedents/learning.md`](precedents/learning.md) § 13). Freshness is
+  the recomputed projection of the source, or the commits since a declared derivation sha. A write
+  that changes nothing still moves the mtime.
+- **One root cause, one fix** (§ 17). N anchor copies of one stale bullet are regenerated from the
+  generator (`apply-anchors.sh`) and counted as one finding with N sites. A derived file is never
+  hand-edited.
+- **Records are kept.** A memory entry is marked `RESOLVED → <sha>` or `SUPERSEDED` with a reason,
+  never deleted. A pending decision promoted to an ADR is marked `PROMOTED → ADR-NNNN`. An ADR is
+  superseded or amended, never deleted.
+- **NOT-RUN is never PASS.** Engine exit 2, a census with no git (`census=find`, so RENAMED and
+  DELETED cannot be told apart), a fact key with no lockfile (`UNREAD`), and a sink the engine could
+  not parse: each variant is `blocked`, never green.
+- **Fail first, pass after, keep the decoys.** Every variant fires on the pre-fix tree for the
+  stated reason and is quiet after. A row that is quiet before the edit is `not reproduced`, and no
+  edit is made. The precedent decoys (history files, abbreviations, history-marked facts, imported
+  `AGENTS.md`, HTML-comment lines) stay quiet.
+
+### Oracle taxonomy (learning)
+
+| Oracle | Tier | Asserts | V |
+|---|---|---|---|
+| **Re-resolve** | S, T | the reference resolves under the ladder (exact, relative, alias, workspace package, unique suffix), or the line is gone | V490, V491, V492, V505 |
+| **Typed-fact diff** | S, T | the claim's engine, driver, id scheme, framework or runtime major and package manager equal what the lockfile and manifests resolve | V494, V495, V498, V506 |
+| **Regenerate twice** | U | the derived file regenerated from its source twice is byte-identical, and the engine is quiet | V493, V496 |
+| **Citation window** | S | the cited `path:line` exists and its ±3-line window carries the claim's typed facts | V497 |
+| **Entry re-check** | S, T | each open sink entry re-resolves, or carries a terminal state with a reason; pairs are judged with both quotes | V499, V500, V501 |
+| **Enforcement** | T | a checkable lesson or promoted rule has a lint rule, hook, test or eval case that fails on a violating sample | V502 |
+| **Consumer contract** | T | each consumer's pattern matches at least half the entries of the sink it reads | V503 |
+| **ADR graph** | S | supersede links run both ways; superseded ids are not cited as current; the home is the one every consumer reads | V504, V505, V506 |
+| **Loader truth** | T | what the host loads (effective lines, import closure, always-on rules, MEMORY.md head) is under its sourced budget; `AGENTS.md` loads where it is meant to | V507, V508 |
+| **Oracle age** | S | the extraction oracle's census sha equals HEAD, or no commit since touches a cited path | V509 |
+
+| V | Oracle | Asserts | Tier | Detector § |
+|---|---|---|---|---|
+| V490 | Re-resolve a path or xref | the path or pattern or ADR id resolves; a framework-only path is gone from the installed artifact | S, T | `knowledge-ref-scan` §1, §4, §5 (KN-01, KN-04, KN-05) |
+| V491 | Symbol with successor | the RENAMED symbol is repointed to the successor `git log -S` names, or the DELETED symbol's line is gone | S, T | `knowledge-ref-scan` §2 (KN-02) |
+| V492 | Command resolves and runs | the package script, make or just target, slash command, skill or agent resolves in a command set, and the documented invocation exits 0 in a scratch copy (or is a dry run the tool supports) | S, T | `knowledge-ref-scan` §3 (KN-03) |
+| V493 | Marker and generator repair | one live `project-specific` pair per file after the generator re-runs, no framework path in the header, and a second run changes no byte | U | `knowledge-ref-scan` §5, §6 (KN-05, KN-15) |
+| V494 | Typed fact | the typed-fact diff for the site is empty against the lockfile; across loaded files one value remains per key | S, T | `knowledge-fact-scan` §1, §4 (KN-07, KN-11) |
+| V495 | Count recomputed | the count or range of the named set equals the tree's | S, T | `knowledge-fact-scan` §2 (KN-08) |
+| V496 | Derived file regenerated | the index, cheatsheet, digest or anchor set regenerated from its source twice is byte-identical; N copies close with one regeneration | U | `knowledge-fact-scan` §5, §7 (KN-13, KN-12) |
+| V497 | Citation window | the cited line exists and its ±3 window carries the claim's typed facts | S | `knowledge-fact-scan` §6 (KN-14) |
+| V498 | Module map | every member directory with ≥ 5 tracked files is named in the map, and no listed module is gone | S, T | `knowledge-fact-scan` §3 (KN-09) |
+| V499 | Sink entry re-resolves | the open entry's citations resolve (path tracked, line ≤ EOF, symbol within ±3), or the entry carries a terminal state and a reason | S, T | `memory-hygiene-scan` §1 (KN-20) |
+| V500 | Duplicate merged, contradiction resolved | one entry remains with both citations; a contradiction is resolved by a newer explicit statement or a superseded mark, both quotes on record | S | `memory-hygiene-scan` §2, §3 (KN-21, KN-22) |
+| V501 | Provenance and lifecycle | every open entry has a date, a source and a citation (or "user, <date>"); no entry sits past its promotion threshold without a state and a reason; a universal lesson has ≥ 2 cases or a safety reason | S, T | `memory-hygiene-scan` §4, §5, §6 (KN-23, KN-24, KN-25) |
+| V502 | Lesson becomes enforcement | the checkable lesson's lint rule, hook or test fails on a violating snippet and passes on the fixed one; a promoted rule has an eval case whose MUST fails on a violating answer | T | `memory-hygiene-scan` §7, §9 (KN-26, KN-36); `/eval --coverage` |
+| V503 | Consumer reads the format | each consumer contract matches ≥ 0.5 of the sink's entries, or the consumer reads the sink's declared `## Format per entry` | T | `memory-hygiene-scan` §8 (KN-27) |
+| V504 | ADR reciprocity | the superseding ADR names what it supersedes and the superseded one names its successor; a partial supersede is `Amended by` | S | `decision-record-scan` §1, §2 (KN-28) |
+| V505 | ADR home and citations | every consumer reads and writes the detected home; a superseded or retired id cited as current is repointed to its successor | S, T | `decision-record-scan` §0, §3 (KN-29, KN-28) |
+| V506 | Chosen option present | the Accepted ADR's chosen package is in a manifest or the lockfile; a rejected option is never checked | S | `decision-record-scan` §4 (KN-28) |
+| V507 | Load budget | effective `CLAUDE.md` lines, the import closure, always-on rule tokens, MEMORY.md head and per-tool limits are under their sourced budgets, re-measured after the change | T | `context-load-scan` §1 (KN-31) |
+| V508 | `AGENTS.md` loads | `CLAUDE.md` imports `@AGENTS.md`, or one is a symlink to the other; `/memory` lists the file in a session | S, T | `context-load-scan` §2 (KN-32) |
+| V509 | Oracle at HEAD | the extraction oracle exists and its census sha equals HEAD after the refresh, with its approval stamp carried over unchanged | S | `context-load-scan` §4 (KN-19) |
+
+KN-33 (vague rule text) has no V of its own: it is advisory and never a finding.
+
+### Harnesses (learning)
+
+- **Re-run one site** (every S and T variant):
+  `python3 -I .claude/skills/<skill>/scripts/<engine>.py . --only=<file>:<line>`. It exits 1 with
+  the row while the site fails, 0 once it is quiet, 2 when a lane is blocked. The engines are
+  `knowledge-refs.py`, `knowledge-facts.py`, `sink-audit.py` and `adr-index.py`. `load-budget.py`
+  re-measures the whole repo with `--classes=<n>`. Every engine's `--self-test` covers each class's
+  seed and decoy. `--expand` lists every site of a grouped row, and that list is the whole-class
+  check after a fix.
+- **Regenerate twice** (V493, V496): regenerate in a scratch copy, then run the generator again and
+  `cmp` the two outputs. Anchors: `bash ~/.claude/scripts/apply-anchors.sh "$COPY" --apply`. It
+  re-anchors the five profile facets when `codebase-profile.md` changed, rewrites the legacy header
+  and reports a corrupt marker set without touching it. Index, cheatsheet and digest:
+  `@knowledge-curator` § 8. A second run that changes a byte is a non-idempotent generator: the
+  variant fails.
+- **Lockfile truth** (V494, V495, V506): the ledger's `truth` lines from `knowledge-facts.py`, read
+  from the lockfile on disk (pnpm 9, npm 7+, yarn, poetry, uv, go.mod, Gemfile.lock,
+  composer.lock). No lockfile → `UNREAD`, never consistent.
+- **Reconcile on write** (V500, V501): `sink-audit.py . --entry=<sink>:<line>` checks a new entry
+  against every other entry (duplicate, contradiction) and its own provenance before
+  `/learn-from-task` appends it.
+- **Eval coverage** (V502): `sink-audit.py . --eval-coverage` prints cases, guards, units and the
+  unguarded list as JSON; `/eval --coverage` grades from it.
+- **ADR table** (V504, V505): `adr-index.py . --list` prints id, file, status, superseded-by and
+  supersedes, before and after the fix.
+- **Loader** (V507, V508): `load-budget.py .` with the budgets it prints (CLAUDE.md 200 effective
+  lines and 4 import hops, from the memory docs; rule tokens 12,000 from `audit-setup.sh` C2u;
+  MEMORY.md 200 lines or 25,600 bytes, only with `--memory-dir`). In a live session, `/memory`
+  lists what loaded.
+
+### Class variants (learning)
+
+A fix passes the class only when every variant the class takes in the layer present passes the
+oracle, and the decoy the precedents exempt is untouched.
+
+#### V490. Re-resolve a path or cross-reference (`knowledge-ref-scan` §1, §4, §5)
+- the change: `git mv` rename, directory move, delete, case-only rename (fails on macOS through `test -e`, so resolve through `git ls-files`)
+- the reference: a markdown link, an inline backtick, a fence token, a reference-style definition, an HTML `href`, an `@import`
+- the path: relative `../`, root-relative, bare `x/`, an alias `@/lib/x` (live and dead), `path#anchor`, `path:12`, `path:12-20`
+- the xref: `ai/patterns/x.md` cited but never installed; `ADR-0042` in a live anchor (a row) and in a pack-generic body (no row); `scripts/apply-anchors.sh` in an installed artifact where the project has no such file (a row) and where it has one (no row)
+- pass: `--only` quiet on every site `--expand` listed; an abbreviation that resolves by unique suffix, a gitignored output, a placeholder and a history file stay quiet (precedents § 1, § 3, § 4, § 6)
+
+#### V491. Symbol with successor (`knowledge-ref-scan` §2)
+- a deleted function; a renamed function (the successor is named); a function moved to another file (no row); `Class.method`; a symbol that survives only in a comment (a row, § 12)
+- pass: the repointed name resolves in tracked non-doc source, or the line is gone (an external symbol never in history is the control, § 5)
+
+#### V492. Command resolves and runs (`knowledge-ref-scan` §3)
+- a package script renamed; a script present in one workspace manifest and not another; a slash command uninstalled; a skill renamed
+- pass: the command resolves in the project, global or plugin set and the invocation runs in a scratch copy (a global command, a `/api` route segment and `pnpm install` are the controls, § 23, § 33)
+
+#### V493. Marker and generator repair (`knowledge-ref-scan` §5, §6)
+- a doubled start marker; a start without an end; an end without a start; six live blocks in one file; the generator's framework path in every anchor header
+- pass: after `apply-anchors.sh --apply` one live pair per file and no framework path in the header; a second run prints no REPAIR, RELEV, REANCHOR or HEADER row and `cmp` finds no byte changed (a marker inside a fenced example is the control)
+
+#### V494. Typed fact (`knowledge-fact-scan` §1, §4)
+- the lockfile resolves `@mikro-orm/postgresql` and an anchor says MySQL (a row); a `uuidv7` dependency and "ULID PKs" (a row); "React 18" with 19 locked (a row); Node 20 in `CLAUDE.md` and 22 in `AGENTS.md` (a row)
+- pass: `--only` quiet on every site and one value per key across loaded files (`engines.node >=18` with "Node 22", a multi-engine capability line in a generic body, a disabled `mysql` MCP stub, env-named ports and "was MySQL, now Postgres" are the controls, § 9, § 10, § 14)
+
+#### V495. Count recomputed (`knowledge-fact-scan` §2)
+- "every file 0001–0033 has a row" with 0001–0040 on disk; "12 modules" with 14 member directories; a stale artifact-count table
+- pass: the count equals the tree's ("about 30 modules", "as of <date>" and a count whose set is not named are the controls, § 28)
+
+#### V496. Derived file regenerated (`knowledge-fact-scan` §5, §7)
+- an ADR added and the index not regenerated; a convention changed and the cheatsheet not regenerated; the profile corrected and the anchors not regenerated (177 copies, one finding); a digest naming a removed phase
+- pass: the regenerate-twice harness, then the engine quiet on every site (an mtime bump with no content change is the control, § 13)
+
+#### V497. Citation window (`knowledge-fact-scan` §6)
+- the cited line deleted; the cited line rewritten to a different fact; the cited file shortened past the line
+- pass: the window carries the claim (a 2-line shift with the same text is the control; an aggregate claim stays Unconfirmed, § 27)
+
+#### V498. Module map (`knowledge-fact-scan` §3)
+- a deleted module still listed; a module with ≥ 5 tracked files unlisted
+- pass: the map names every such directory (a summary row `features/*` and a directory under 5 files are the controls)
+
+#### V499. Sink entry re-resolves (`memory-hygiene-scan` §1)
+- an entry citing a deleted path; an entry citing line 205 of a 120-line file; a learning citing a removed rule
+- pass: the entry re-resolves, or carries `RESOLVED → <sha>` or `SUPERSEDED` with a reason (a RESOLVED entry citing a deleted path and a preference entry are the controls, § 19)
+
+#### V500. Duplicate merged, contradiction resolved (`memory-hygiene-scan` §2, §3)
+- the same correction recorded twice; the same failure twice; two learnings with opposite rules on one subject; a feedback entry contradicting `CLAUDE.md`
+- pass: one entry with both citations; the contradiction resolved by the newer explicit statement and the other marked, both quotes in the run ledger (an index line plus its topic file and a superseded pair are the controls, § 18, § 14)
+
+#### V501. Provenance and lifecycle (`memory-hygiene-scan` §4, §5, §6)
+- an undated entry; an entry with no `Where` or `Source`; a READY pattern past its threshold, unpromoted; a `Repeated: 3` feedback unpromoted; "never use transactions" from one incident
+- pass: date, source and citation present; the entry promoted or its state recorded with a reason; the universal lesson narrowed or given a second case (a "user, <date>" entry and a one-incident safety lesson are the controls, § 19, § 20)
+
+#### V502. Lesson becomes enforcement (`memory-hygiene-scan` §7, §9; `/eval --coverage`)
+- "never import axios directly" with no lint rule; "run migrations with lock_timeout" with no check; a promoted rule with no eval case; a case with no MUST assertion
+- pass: the new lint rule, hook or test fails on a violating snippet before it is wired and passes on the fixed one; the eval case's MUST fails on a violating answer (a judgment rule and a convention routed to align are the controls)
+
+#### V503. Consumer reads the format (`memory-hygiene-scan` §8)
+- the drift log redefined and `session-start.sh` greps `^Severity:`; learned patterns written without `Status:`; the curator's `status OPEN` against a sink with no Status field
+- pass: the ratio is ≥ 0.5, or the consumer reads the declared `## Format per entry` (a sink declaring its own format, read correctly, is the control, § 24)
+
+#### V504. ADR reciprocity (`decision-record-scan` §1, §2)
+- a supersede with no back link; a Superseded status naming no successor; a status that is not a lifecycle word
+- pass: both links present and `--list` shows the pair (a partial supersede marked `Amended by` and a correct reciprocal pair are the controls, § 29)
+
+#### V505. ADR home and citations (`decision-record-scan` §0, §3)
+- ADRs in `docs/decisions` while `/promote-decision` writes and health check 2 reads `ai/decisions`; a superseded ADR cited as current in `CLAUDE.md`
+- pass: every consumer reads the home `adr-index.py --list` resolves; the citation repointed (a history-marked citation and a dated file name are the controls, § 14, § 30)
+
+#### V506. Chosen option present (`decision-record-scan` §4)
+- an Accepted "Express" ADR with only Fastify in manifests; a chosen package removed in an upgrade
+- pass: the chosen package is present, or the user has written a superseding ADR (a rejected option in "Considered options" is the control, § 2)
+
+#### V507. Load budget (`context-load-scan` §1)
+- `CLAUDE.md` at 205 effective lines; always-on rules over the token budget; a `globs:`-only rule counted as path-scoped; MEMORY.md at 26 KB; a Copilot file past 4,000 characters
+- pass: re-measured under every budget after the move (a 260-line `CLAUDE.md` whose 80 lines are an HTML block comment and `paths:`-scoped rules are the controls, § 21, § 22)
+
+#### V508. `AGENTS.md` loads (`context-load-scan` §2)
+- `AGENTS.md` beside `CLAUDE.md` with no import and no symlink
+- pass: `@AGENTS.md` in `CLAUDE.md`, or a symlink; the row stays Unconfirmed when the user setting may load it (a symlinked pair is the control, § 16)
+
+#### V509. Oracle at HEAD (`context-load-scan` §4)
+- the census sha behind HEAD with commits touching cited paths; the oracle absent in a member that has a profile
+- pass: after `/refresh-knowledge` the census sha equals HEAD and the approval stamp is byte-identical to before (a repo with no commit since the census is the control)
+
+### Sources (learning)
+
+The learning research catalog (2026-10-19) § 1, § 4 and § 5 give the classes KN-01…KN-36, the
+precedents and the per-class variants above. Its notes cite DOCER (Tan, Wagner, Treude, EMSE 2024),
+ReCite (ASE 2026), dos Santos (SCAM 2026), the Claude Code memory docs (fetched 2026-10-19: 200-line
+guidance, 4-hop imports, MEMORY.md 200 lines or 25 KB, `AGENTS.md` selection), the GitHub Copilot
+code review docs (fetched 2026-10-19: 4,000 characters), MADR 4.0.0 and Nygard (2011). The batch-7
+learning eval (2026-10-19) gives the detectors, the engines and the oracle list; the integrator
+assigned V490–V509. Paraphrased; no text reproduced.
+
+---
+
+## AI engineering
+
+An AI engineering claim says the code **around** a model call breaks under a condition the provider
+documents: a truncated, refused or malformed answer is stored as complete, a loop never stops, a
+retry stack outlives the caller's deadline, a failed turn is charged, a model id is past its
+retirement date, a parameter is a 400 on the model the call reaches, a prompt change merges with no
+eval, a filtered retrieval loses its recall, an injected instruction reaches a tool. None of these
+is proved by asking the model. Every oracle here asserts the **deterministic shell** around the
+model, and every oracle names a **family**:
+- **S**: a two-ended static fact — the inventory row and the line that lacks the control, the index
+  definition and the ingest write, the eval job and the line that masks its exit.
+- **T**: a tool exit recorded in this run — `llm-sites.py` (`--models --strict`, `--evals`), a
+  promptfoo exit code (100 = test failures), a built-bundle grep.
+- **U**: a scripted-model test, written before the fix and failing on the current code. The provider
+  transport is replaced by a stub that returns a scripted completion, tool call, stop reason, error,
+  delay or stream (V510), and the test asserts the gate, the counter, the ledger, the abort or the
+  stored record.
+- **L**: a live eval or red-team run against a non-production key and model, pinned and with
+  telemetry off, only on the user's word.
+
+Settled questions are in [`precedents/ai-engineering.md`](precedents/ai-engineering.md). This
+section is self-contained: its V-numbers (V510–V539) are cited by the ai-engineering detectors, the
+security pack's LLM trust-boundary detectors and judges, and the fix commands that close them; no V
+outside this range is reused for an AI class. OWASP ids are labelled OWASP LLM Top 10 2026 v1.0
+(2026-08-03).
+
+Users:
+- the detectors `llm-gateway-audit` (§1 seam, §B1–B5 budgets, §L1–L2 loops, §M1–M2 metering),
+  `prompt-audit` (§S1–S5 structured output, §V1–V3 model lifecycle and parameters, §P prompts),
+  `eval-run` (§C1–C8 coverage lane, run lane), `retrieval-eval` (§1–§5) and `vector-index-audit`
+  (§1–§5) (ai-engineering pack), all reading `llm-sites.py`'s inventory first;
+- the security pack's LLM trust-boundary detectors (`llm-trust-scan` §1 prompt roles, §2 tools and
+  agency, §3 output, §4 secrets and data, §5 tracing content, §6 retrieval and caches;
+  `mcp-server-scan` §1–§7), judged by `@llm-security-reviewer`, when the security pack ships them;
+- `@ai-feature-reviewer` (refute mode) and `/ai-audit`, with `@verifier` mode `refute` on every
+  BLOCKER and HIGH it keeps; `/add-ai-feature`, which writes each engineering finding's
+  failing-first test from its V-number; `/security-fix` for V510–V525.
+
+**Owned elsewhere.** These classes keep their own sections; AI reads them as corroboration and never
+re-proves them:
+- model output reaching SQL, a shell, `eval`, HTML, a path or a URL → the sink owners' payloads in
+  [`exploit-payloads.md`](exploit-payloads.md) (the trust detectors supply the completion source);
+- a check-then-debit race on AI credits, a double charge on redelivery, a missing generation rate
+  limit (CO-1, CO-12, CO-9) → `exploit-payloads.md` § 19 and the `logic-race-scan` oracles;
+- prompt and completion text in application logs (LG-1) is asserted by V519 but owned by security
+  `data-exposure-scan` §6; batch LLM work on a request path and `retry-after` loops → § Performance
+  and § Distributed; spend, budgets and anomaly alerts → the finops section.
+
+**Scope of use.** Scratch copies, `${TMPDIR}` and the run folder only. Seven rules hold for every
+variant below:
+
+- **Stub the transport, never the code under test.** The scripted model replaces the provider client
+  or the HTTP call at its edge (an injected transport, `nock` / `msw` / `respx`, a fake client
+  passed to the seam); the seam, the loop, the meter, the parser and the gate run for real.
+- **Never ask the model whether the code is right.** A live model's answer is not an oracle; a
+  classifier or guardrail library is not a gate (`precedents/ai-engineering.md` § 29).
+- **Dated facts only.** A model id, a retirement date, a parameter rule, an SDK default or a
+  framework loop cap comes from `model-lifecycle.tsv` (with its `checked_on`), the lockfile, or a
+  provider page fetched and dated in the run. A STALE table makes V532 `blocked`.
+- **Read-only on the audited repo.** `llm-sites.py` refuses an `--out` inside a scanned root; eval
+  tools write under `$RUN/eval/` with `HOME` pointed into it.
+- **Telemetry off, pinned, the user's word.** promptfoo `PROMPTFOO_DISABLE_TELEMETRY=1
+  PROMPTFOO_DISABLE_UPDATE=1 PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1`, DeepEval
+  `DEEPEVAL_TELEMETRY_OPT_OUT=1 DEEPEVAL_DISABLE_DOTENV=1`, Ragas `RAGAS_DO_NOT_TRACK=true`, plus
+  `CI=true DO_NOT_TRACK=1`; the project's installed binary or the lockfile's version; a
+  non-production key and model. Snyk Agent Scan sends tool descriptions to its vendor and can launch
+  configured MCP servers: never without consent. Family L is `NOT-RUN` unless the user names it.
+- **Money and state are asserted exactly.** A ledger row count, a balance in minor units, a stored
+  status: never "roughly once".
+- **Fail first, pass after, keep the control.** Every variant fails on the pre-fix code for the
+  stated reason, passes after, and the benign control a precedent names (a fenced tool result, a
+  turn-keyed debit, an aggregate deadline, a one-step `generateText`, a namespace per tenant, a
+  migration-seeded read-only knowledge base) is unchanged.
+
+### Oracle taxonomy (AI engineering)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Scripted-model harness** | U | the shell around a stubbed model refuses, stops, counts, aborts, settles or rejects as the policy says | V510 (base), V511–V516, V526–V531, V534, V535 |
+| **Two-tenant / two-user canary** | U, S | a value seeded for tenant A never reaches tenant B through a tool, a query, a cache or an MCP handler | V512, V520 |
+| **Capture assertion** | U | the prompt builder, the log sink, the span exporter or the built bundle holds no secret, no unminimised personal data, no content attribute | V517, V518, V519 |
+| **Protocol request** | U | the MCP server answers a hostile audience, origin, URL scheme, scope or session as the spec requires | V521–V525 |
+| **Inventory tool exit** | T | `llm-sites.py --models --strict` exits 0; every id resolves; the table is not stale | V532 |
+| **Recorded request** | U, L | the request built for each configured model id carries only the parameters that model accepts | V533 |
+| **Eval gate** | T, L | a prompt edit on a branch runs the eval in CI and a planted failing case turns the job red | V536, V537 |
+| **Static join** | S | the version reaches log, cache key and usage row; no provider import outside the seam | V538 |
+| **Retrieval run** | U, L | filtered and unfiltered recall at the target; a deleted document absent; a re-index after a model change | V539 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V510 | Scripted-model harness (base) | the transport stub returns a scripted completion, tool call, stop reason, error, delay or stream; the code under test is unchanged; the assertion is on the deterministic shell | U | every U row |
+| V511 | Injection corpus | indirect instructions in a retrieved document, a tool result, an email, a file name and a memory write: the tool spy records zero calls to the protected tool and a planted canary never leaves | U, L | `llm-trust-scan` §1, §2, §6 (PI-*, AG-5, RG-5); `eval-run` §C8 (EV-8) |
+| V512 | Two-tenant canary | a tool, a vector query or an MCP handler called by tenant B with tenant A's id in the model's arguments returns nothing of A's; the query parameter equals the session's | U, S | `llm-trust-scan` §2, §4, §6 (AG-1, AG-2, SD-3, RG-1…3); `mcp-server-scan` §6 (MC-6) |
+| V513 | Approval cannot be forged | an approval token minted in turn N is refused in turn N, for another tool, other arguments or another actor; the catalogue in a read-only mode holds no write tool | U | `llm-trust-scan` §2 (AG-3, AG-6, AG-7) |
+| V514 | Tool-argument fuzz | `file://`, a metadata IP, `../`, `; id` and an over-long value in each tool argument are rejected by the server-side schema before the sink | U | `llm-trust-scan` §2 (AG-4) |
+| V515 | Render and request spy | rendering a model answer with a markdown image, a link and a Mermaid block issues no network request; images render as links | U | `llm-trust-scan` §3 (OH-2) |
+| V516 | Re-derived field | a model-chosen price, quantity, status or role is recomputed or re-checked server-side; a scripted over-posted value never persists | U | `llm-trust-scan` §3 (OH-6) |
+| V517 | Prompt-builder snapshot | the assembled prompt for a seeded user holds no secret, connection string or internal URL, and only the fields the transfer register lists | U | `llm-trust-scan` §4 (SD-2, SD-4) |
+| V518 | Bundle grep | the built client bundle (web, mobile, desktop) holds no provider key prefix and no server-only env name | T, S | `llm-trust-scan` §4 (SD-1) |
+| V519 | Capture exporter | an in-memory span exporter and a captured log sink hold no prompt, completion or tool-argument content under the production config | U | `llm-trust-scan` §5 (LG-2…4); `data-exposure-scan` §6 (LG-1) |
+| V520 | Semantic-cache paraphrase | a paraphrase of tenant A's cached question asked by tenant B misses the cache | U | `llm-trust-scan` §6 (RG-4) |
+| V521 | Audience | a token minted for another resource is refused 401; the server never forwards the caller's token upstream | U | `mcp-server-scan` §1 (MC-1) |
+| V522 | Origin and bind | a request with a hostile `Origin` is refused 403; a local server binds 127.0.0.1 | U | `mcp-server-scan` §2 (MC-2) |
+| V523 | URL scheme | a `javascript:`, `file:` or shell-metacharacter authorisation URL is refused before anything opens it | U | `mcp-server-scan` §3 (MC-3) |
+| V524 | Tool-list pin | CI fails when the hash of the tool names, descriptions and schemas changes without a reviewed update; hidden Unicode in a description fails it | T | `mcp-server-scan` §4 (MC-4) |
+| V525 | Scope and session | a tool outside the token's scope answers the scope challenge; a replayed or guessed session id is refused | U | `mcp-server-scan` §5, §7 (MC-5, MC-7) |
+| V526 | Loop cap and context trim | an always-tool-call stub stops at the configured cap with a recorded terminal reason; a conversation of twice the window takes the trim path, never a 400 or a silent truncation | U | `llm-gateway-audit` §L1, §B2 (CO-5, CO-6) |
+| V527 | Upstream-call counter | under a permanent 500 and a permanent timeout, upstream calls per logical request and the wall time stay within the stated budget, counting SDK, app and queue layers | U | `llm-gateway-audit` §B1 (CO-7, TF-1) |
+| V528 | Metering timeline | provider error, timeout, abort, refusal and truncation each leave the ledger the stated policy names; a recorded usage fixture with cache and reasoning tokens bills the provider's total; an unknown model id raises; two identical requests read the prompt cache | U | `llm-gateway-audit` §M1, §M2, §B5 (CO-2…4, CO-10, CO-11) |
+| V529 | One side effect | a tool that succeeds and then has its step fail and re-run produces one email, order or charge | U | `llm-gateway-audit` §L2 (CO-8) |
+| V530 | Deadline and disconnect | a stub that sleeps past the caller's deadline is aborted upstream; a client disconnect after one chunk closes the upstream stream | U | `llm-gateway-audit` §B1, §B4 (TF-1, TF-4) |
+| V531 | Fallback and mid-stream error | a 529 on the primary uses the fallback, logs it and passes the same schema, while a 400 is not retried elsewhere; an SSE error after two deltas marks the record failed | U | `llm-gateway-audit` §B3, §B4 (TF-3, TF-5) |
+| V532 | Model ids resolve | every model id in code, `.env*`, IaC, eval configs and fallback lists resolves against the dated table or the provider's model list; boot fails on a bad env id; `llm-sites.py --models --strict` exits 0 | T, U | `prompt-audit` §V1, §V2 (MV-1…3, MV-5); `eval-run` §C7 (EV-7) |
+| V533 | Parameter contract | the request recorded for each configured model id carries only the parameters that model accepts (sampling, `thinking`, prefill, forced `tool_choice`, `max_tokens` vs `max_completion_tokens`, a large non-streaming `max_tokens`) | U, L | `prompt-audit` §V3 (MV-4, TF-2, PM-3) |
+| V534 | Output handling | truncated, refused, incomplete, malformed and over-posted fixtures through the real consumer: handled, never persisted, executed or charged as complete; validation retries bounded | U | `prompt-audit` §S1–§S4 (SO-1…5) |
+| V535 | Strict schema | the request carries `strict: true` (or the provider's equivalent) and a schema-violating stub answer is rejected | U | `prompt-audit` §S5 (SO-6) |
+| V536 | Eval gate fires | a prompt edit on a branch triggers the eval job; a planted failing case turns it red through the tool's own exit map (promptfoo 100) | T, L | `eval-run` §C1, §C2, §C3, §C6 (EV-1…3, EV-6); `prompt-audit` §V1 aliases (MV-2) |
+| V537 | Judge and leakage | pairwise judge cases run in both orders with the same verdict; judge agreement on a human-labelled calibration set is stated; dataset × prompt overlap is 0 | T, L | `eval-run` §C4, §C5 (EV-4, EV-5) |
+| V538 | Attribution and seam | the prompt version reaches the log line, the cache key and the usage row; no provider import or wire call exists outside the seam | S, U | `prompt-audit` §P (PM-1, PM-2); `llm-gateway-audit` §1 (CS-1) |
+| V539 | Retrieval and index | recall@k with the filter applied is within tolerance of unfiltered and at the target; a deleted document is absent; an empty retrieval takes the no-source path; a model change re-indexes | U, L | `retrieval-eval` §1–§5, `vector-index-audit` §1–§5 (RG-6…10) |
+
+### Harnesses (AI engineering)
+
+- **Inventory** (every row): `python3 -I -B .claude/skills/llm-gateway-audit/scripts/llm-sites.py .
+  --out="$RUN/inv" --models --evals` (exit 0 ran, 2 blocked, 4 `--strict` gate); `--self-test` covers
+  each lane's seed and decoy. The fix's re-check is the same command on the patched tree: the
+  candidate row's column changes (a timeout, a stop-reason read, a model id) or disappears.
+- **Scripted model** (V510 and every U row), per stack:
+  - TS / Node: inject the transport the seam takes, or intercept the HTTP call (`nock`, `msw`,
+    `undici` `MockAgent`); for the AI SDK, `MockLanguageModelV2` / the version's mock model from
+    `ai/test` (read the lockfile's major); Vitest or Jest fake timers for deadlines.
+  - Python: a fake client passed to the seam, or `respx` / `pytest-httpx` at the HTTP edge;
+    LangChain `FakeListChatModel` / `GenericFakeChatModel` for chains and graphs.
+  - Go: an `httptest.Server` behind `option.WithBaseURL`; `context.WithTimeout` for deadlines.
+  - Streams: the stub writes SSE frames (`data: …`) with a scripted error event or stalls between
+    frames; the test closes the client side to model a disconnect.
+- **Counters and ledgers** (V527, V528, V529): count stub invocations per logical request; read the
+  ledger and balance rows from the project's real persistence on a scratch database.
+- **Capture** (V517, V519): an in-memory span exporter (OpenTelemetry `InMemorySpanExporter`) and the
+  logger's test transport; assert on attribute keys and message text.
+- **Protocol** (V521–V525): the MCP server started in-process, called over its transport with a
+  crafted token, `Origin`, URL or session; the OAuth rows read `@auth-reviewer`'s corroboration.
+- **Models** (V532, V533): `llm-sites.py --models --strict --today=<release date>`; a recorded request
+  per configured id through the real request builder, compared with the parameter contract the run
+  read from the provider page (dated).
+- **Evals** (V536, V537): the project's harness in a scratch branch with a planted failing case; the
+  CI job run locally where the platform allows (`act` for GitHub Actions is NOT-RUN unless named).
+- **Retrieval** (V539): the project's retriever over the labelled set, filter on and off, on a
+  non-production index.
+
+### Class variants (AI engineering)
+
+A fix passes the class only when every variant the code presents passes the oracle, and the control
+the precedents exempt is unchanged.
+
+#### V510. Scripted-model harness (base)
+- a completion; a tool call; each stop reason (`stop`, `length`, `max_tokens`, `tool_use`, `refusal`, `content_filter`, `incomplete`); a 4xx, a 429, a 5xx, a 529, a timeout; a stream with a mid-stream error; a stream stalled between frames
+- pass: the test fails on the pre-fix code for the stated reason and passes after, with no change to the code under test other than the fix
+
+#### V511. Injection corpus (`llm-trust-scan` §1, §2, §6; `eval-run` §C8)
+- every untrusted origin: a retrieved document, a tool result, an email body, a PR or issue body, a file name and OCR text, a CSV cell, a marketplace title, a tool error that echoes input, a memory write, an agent-to-agent handoff, hidden Unicode tag characters
+- pass: the protected tool's spy records zero calls and the canary appears in no egress (HTTP, email, rendered link) (a fenced, labelled tool result with write tools withdrawn is the control, `precedents/ai-engineering.md` § 2, § 3)
+
+#### V512. Two-tenant canary (`llm-trust-scan` §2, §4, §6; `mcp-server-scan` §6)
+- every tool, every resource handler, every vector query and every cache read; ids in the model's arguments; filter values from the request body
+- pass: tenant B never receives A's canary and the query parameter equals the session's (a namespace derived from the session is the control, § 19)
+
+#### V513. Approval cannot be forged (`llm-trust-scan` §2)
+- same turn; another tool; changed arguments; another actor; a replayed token; a tool added by MCP or a plugin; a read-only mode
+- pass: each is refused and the catalogue is narrowed in code (a token bound to tool, argument hash, actor and an earlier turn is the control, § 3)
+
+#### V514. Tool-argument fuzz (`llm-trust-scan` §2)
+- URL, path, SQL fragment, shell metacharacter, over-long string, extra property
+- pass: the server-side schema rejects each before the sink (the sink's own payloads stay with its owner)
+
+#### V515. Render and request spy (`llm-trust-scan` §3)
+- every renderer of model text: chat bubble, email, Slack post, PDF or export, Mermaid, SVG, link unfurl
+- pass: no request leaves during render (an image rendered as a link is the control, § 8)
+
+#### V516. Re-derived field (`llm-trust-scan` §3)
+- price, discount, quantity, status, role, owner id in a parsed answer
+- pass: the persisted value is the server's (a typed draft the user confirms is the control, § 9)
+
+#### V517. Prompt-builder snapshot (`llm-trust-scan` §4)
+- every prompt builder; every personal-data field the user record carries; env interpolation
+- pass: no secret and only the register's fields (a transfer-register entry is the control, § 16)
+
+#### V518. Bundle grep (`llm-trust-scan` §4)
+- web, mobile and desktop bundles; `.env` files a mobile build ships; `NEXT_PUBLIC_` / `VITE_` / `EXPO_PUBLIC_` names
+- pass: no key prefix and no provider key name in any shipped artifact (a bring-your-own-key local tool is the control, § 17)
+
+#### V519. Capture exporter (`llm-trust-scan` §5; `data-exposure-scan` §6)
+- app logs, spans (OTel GenAI capture flags), error trackers (`sendDefaultPii`), AI SDK telemetry `recordInputs` / `recordOutputs`, tracing SaaS masking
+- pass: no content attribute under the production config (an error line that never carries upstream text is the control, § 10)
+
+#### V520. Semantic-cache paraphrase (`llm-trust-scan` §6)
+- exact cache, semantic cache, response cache; tenant and permission in the key
+- pass: B's paraphrase misses A's entry
+
+#### V521. Audience (`mcp-server-scan` §1)
+- a JWT with another `aud`; an opaque token from another resource; a passthrough of the caller's token upstream
+- pass: 401 and no upstream call carries the caller's token (authorisation and resource server as one app with DB-stored tokens is the control, § 11)
+
+#### V522. Origin and bind (`mcp-server-scan` §2)
+- a hostile `Origin`; a DNS-rebinding host; the bind address in every start script and container
+- pass: 403 and 127.0.0.1 for a local server
+
+#### V523. URL scheme (`mcp-server-scan` §3)
+- `javascript:`, `file:`, `data:`, a URL with shell metacharacters, a metadata IP in discovery
+- pass: refused before any open or fetch
+
+#### V524. Tool-list pin (`mcp-server-scan` §4)
+- names, descriptions, schemas; hidden Unicode; an unpinned `npx -y pkg@latest` server in a committed client config
+- pass: CI fails on an unreviewed change
+
+#### V525. Scope and session (`mcp-server-scan` §5, §7)
+- each tool against each scope; a replayed, guessed or cross-user session id
+- pass: the scope challenge and the refusal (a read-only catalogue with one scope is the control, § 12)
+
+#### V526. Loop cap and context trim (`llm-gateway-audit` §L1, §B2)
+- every loop entry point: agent, sub-agent, handoff, background job; caps on model turns, tool calls and wall clock; framework defaults by lockfile version
+- pass: the run stops at the cap with a terminal reason; the overlong conversation is trimmed (a one-step `generateText` is the control, § 24)
+
+#### V527. Upstream-call counter (`llm-gateway-audit` §B1)
+- SDK retries, app retries, framework middleware, queue attempts, all counted together, per entry point
+- pass: calls and wall time within the budget (retries on idempotent cheap calls are the control, § 23)
+
+#### V528. Metering timeline (`llm-gateway-audit` §M1, §M2, §B5)
+- success, provider error, timeout, abort, client disconnect, mid-stream error, refusal, truncation, schema failure, process shutdown; every billed feature in the product under one policy; streaming usage with and without the usage flag; cumulative deltas; cache and reasoning tokens; an unknown model id
+- pass: each outcome leaves the ledger the policy states, the provider total is billed, the unknown id raises (a turn-keyed debit with a unique index is the control for double charge, § 14)
+
+#### V529. One side effect (`llm-gateway-audit` §L2)
+- framework tool retry; agent re-plan; queue redelivery; an approval-gated tool
+- pass: one effect, keyed by the tool-call id
+
+#### V530. Deadline and disconnect (`llm-gateway-audit` §B1, §B4)
+- every streaming route (SSE and WebSocket); route `maxDuration`; proxy read timeout; worker job budget
+- pass: the upstream call is aborted (an aggregate request deadline that aborts outbound calls is the control, § 10)
+
+#### V531. Fallback and mid-stream error (`llm-gateway-audit` §B3, §B4)
+- 529, 429, 5xx on the primary; a 400; an SSE `error` after HTTP 200
+- pass: fallback used, logged and schema-valid; the 400 surfaces; the record is failed
+
+#### V532. Model ids resolve (`prompt-audit` §V1, §V2; `eval-run` §C7)
+- code, `.env.example`, IaC (Azure `versionUpgradeOption`, Bedrock ids), YAML configs, eval configs, fallback lists, price tables; aliases; the env value unset and garbage; Evals platform and `v1/prompts` calls
+- pass: `llm-sites.py --models --strict` exits 0 and boot fails on a bad id (a retired id in a changelog, migration or 404 test is the control, § 28)
+
+#### V533. Parameter contract (`prompt-audit` §V3)
+- each configured model id (literal, env default, deployed value); sampling, `thinking`, prefill, forced `tool_choice`, `max_tokens` vs `max_completion_tokens`, `budget_tokens`, a large non-streaming `max_tokens`
+- pass: the recorded request matches the dated contract for that id (no temperature on a model that rejects it is the control, § 27)
+
+#### V534. Output handling (`prompt-audit` §S1–§S4)
+- every consumer of model output (parser, tool executor, persister, biller) for every provider's truncation signal; phrasing drift for a scraped field; an always-invalid answer
+- pass: handled, never persisted or charged as complete; retries bounded (field-by-field coercion into a confirmed draft is the control, § 9)
+
+#### V535. Strict schema (`prompt-audit` §S5)
+- every tool and response schema the code relies on
+- pass: `strict` sent and a violating answer rejected
+
+#### V536. Eval gate fires (`eval-run` §C1, §C2, §C3, §C6; `prompt-audit` §V1)
+- the prompt, model and retrieval paths in the CI filter; `|| true`; `continue-on-error`; threshold 0; exit 100 mapped to 0; the merge requirement
+- pass: the planted failing case turns the job red (recorded cassettes replayed are the control for EV-3, § 26)
+
+#### V537. Judge and leakage (`eval-run` §C4, §C5)
+- judge family vs generator family; order swap; calibration set; judge id pinned; dataset strings in few-shot examples
+- pass: verdict stable under swap, agreement stated, overlap 0
+
+#### V538. Attribution and seam (`prompt-audit` §P; `llm-gateway-audit` §1)
+- log line, cache key, usage row, eval run; every provider import and wire call
+- pass: the version is present in all four; no call outside the seam (a one-off script that still carries a budget is the control)
+
+#### V539. Retrieval and index (`retrieval-eval` §1–§5; `vector-index-audit` §1–§5)
+- filtered and unfiltered recall at k; an unanswerable question; a deleted and a revoked document; an embedding-model change; a metric or dimension change
+- pass: recall at target with the filter applied, deleted and revoked content absent, the no-source path taken, the index rebuilt (a namespace per tenant and a migration-seeded read-only knowledge base are the controls, § 19, § 20)
+
+### Sources (AI engineering)
+
+The AI engineering research catalog (2026-10-19) § 1–5 and its two notes (injection, agency, output,
+MCP and data; cost, reliability, pinning and evals) give the classes, the techniques (the
+scripted-model harness, the wire-shape inventory, the metering timeline, the dated lifecycle join),
+the precedents and the per-class variants above. Provider facts were read 2026-10-19: Anthropic
+model deprecations, API errors, streaming, stop reasons and prompt caching; OpenAI deprecations,
+structured outputs and the SDK READMEs; Gemini API deprecations; AI SDK loop control; LangGraph and
+LangChain middleware; promptfoo telemetry and CI docs; the MCP specification 2025-11-25. OWASP ids
+per OWASP LLM Top 10 2026 v1.0 (2026-08-03). The batch-8 ai-engineering eval (2026-10-19) gives the
+detectors and the oracle list; the integrator assigned V510–V539. Paraphrased; no text reproduced.
+
+## Data engineering
+
+A data-engineering claim says a **derived copy** stops matching its source under a source row that
+production delivers: a tie on the watermark, a row two days late, an update after the window, a hard
+delete, a retry, a backfill of a range already loaded, a write during an export, a day with 23 hours,
+a subject who asks for erasure — or that a data test cannot go red on the row it names. None of these
+is proved by reading the SQL. Every oracle here runs the real model, loader, job or query on a
+**scratch target** (duckdb built from committed seeds, a throwaway Postgres or MySQL container, a
+rolled-back transaction) or cites a fact at both ends, and every oracle names a **family**:
+- **R**: replay — the same batch, range, task or rollup pass run twice (or killed and rerun); the
+  target's `count(*)` and a row checksum do not move.
+- **L**: late and edge data — a tie row, a late row, an update after the window, a delete, an empty
+  batch, a DST or local-midnight row inserted into the source between two runs.
+- **C**: concurrency during a read — rows inserted, updated or deleted while a paged extract, a
+  multi-table dump or a materialized-view refresh runs.
+- **M**: mutation of a data test — a violating row planted in a scratch copy of the model's output;
+  the test must go red.
+- **T**: a build or tool exit recorded in this run — `dbt build` / `dbt parse` on a duckdb profile,
+  `datacontract breaking`, `DagBag().import_errors`, `ruff --select AIR`, a CI job run on a branch.
+- **S**: a two-ended static fact — the effective config value and its source plus the source's
+  behaviour; the trigger's column list and the derived row's source columns; the erasure list and the
+  derived table.
+- **D**: dry-run bytes — `bq query --dry_run` or `EXPLAIN` before and after the predicate fix; never
+  a measured warehouse query without the user's word.
+
+Settled questions are in [`precedents/data-engineering.md`](precedents/data-engineering.md). This
+section is self-contained: its V-numbers (V540–V569) are cited by the data-engineering detectors, its
+judges and `/data-fix`; no V outside this range is reused for a data-engineering class.
+
+Users:
+- the detectors `incremental-load-scan` (IN §1–§10, with `scripts/model-graph.py`),
+  `orchestration-scan` (OR §1–§9), `data-test-scan` (DQ §1–§8), `derived-data-scan` (MV §1–§6,
+  TB §7–§10), `extract-scan` (EX §1–§4), `pii-copy-scan` (PC §1–§6), `contract-diff` (SC §1–§6),
+  `lineage-trace` (LN §1–§4), `warehouse-scan-audit` (CO §1–§5) and `grain-probe` (GR §1–§4);
+- `@data-quality-auditor`, `@dag-reviewer` and `@warehouse-modeler` in refute
+  mode, and `/audit-data-quality`, with `@verifier` mode `refute` on every BLOCKER and HIGH it keeps;
+  `/data-fix`, which writes each finding's failing-first test from its V-number; `/backfill-plan`
+  (V540, V550 on the shadow target) and `/add-data-model` (V553 on the new model).
+
+**Owned elsewhere.** These keep their own sections and are corroboration here: a reported number,
+its definition and zone policy → § Business; deep-OFFSET cost and a paged API's sort key → § Data
+(V3, V4); consumer dedup, outbox and gap-blind cursors → § Distributed; an application scheduler's
+overlap and misfire → § Backend; PII storage and erasure in OLTP tables → § Data (V23); budgets and
+guardrails → finops.
+
+**Scope of use.** Scratch targets, `${TMPDIR}` and the run folder only. Six rules hold for every
+variant below:
+
+- **Never a shared or production target.** dbt runs with `--profiles-dir "$OUT"` and a duckdb profile
+  written there (`path: ':memory:'` or `$OUT/scratch.duckdb`), `DO_NOT_TRACK=1`,
+  `DBT_SEND_ANONYMOUS_USAGE_STATS=False`, `DBT_ENGINE_SEND_ANONYMOUS_USAGE_STATS=false`, duckdb
+  `SET autoinstall_known_extensions=false`; Airflow with `AIRFLOW_HOME="$OUT/airflow"`,
+  `AIRFLOW__CORE__LOAD_EXAMPLES=False`; containers named and removed by the run. A target the user
+  names is used only after they say it is not production.
+- **The real model, loader or query.** The test runs the project's own SQL, task callable, job or
+  mapper; a hand-copied query that "does the same" is not the oracle.
+- **Seed the edge, not the happy path.** A tie at the watermark's precision, a late row, an update
+  after the window, a delete, a NULL key, an empty batch, a DST day: each is a row in the seed.
+- **Counts and checksums, exactly.** `count(*)`, `count(distinct key)`, a row checksum
+  (`md5(string_agg(... order by key))` or `bit_xor(hash(...))`), an id set compared with a snapshot —
+  never "roughly the same".
+- **Warehouse bytes need a dry run first.** A probe on a per-byte warehouse states its dry-run bytes
+  and runs only below the bound the user gave; above it the row is `NOT-RUN (bound)`.
+- **Fail first, pass after, keep the control.** Every variant fails on the pre-fix code for the
+  stated reason, passes after, and the benign control a precedent names (an append-only event table, a
+  whole-day replacement, keyset paging inside a snapshot, a closed-period snapshot labelled as such)
+  is unchanged.
+
+### Oracle taxonomy (Data engineering)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Replay twice** | R | the same batch, range, task or rollup pass twice leaves the target's count and checksum unchanged; every other partition untouched | V540, V546, V547, V550 |
+| **Edge-row insert** | L | a tie, late, updated, deleted or empty-batch row between two runs lands as the declared policy says | V541, V542, V543, V545, V548, V555, V556 |
+| **Shuffle** | R | the same input in ten seeded orders yields one output checksum | V544 |
+| **Interval replay** | T, L | a task run for a past interval reads that interval only; the rendered interval is non-zero; the DagBag imports | V549, V551 |
+| **DST corpus** | L | the real bucket SQL on Berlin, New York and Riyadh boundary rows assigns each row to the declared local day | V552 |
+| **Test mutation** | M | a planted violating row turns the data test red; CI turns red on it | V553, V554 |
+| **Contract build** | T | dropping or renaming a contracted column fails `dbt build` / `datacontract breaking`; a migration fails every reader of the column | V557, V558 |
+| **Graph equality** | S | the model graph's edges equal the relation mentions in each model | V559 |
+| **Concurrent read** | C | writes during a paged extract, a dump or a refresh leave no duplicate, no skip, no FK hole, no blocked reader | V560, V561, V563 |
+| **Round trip** | L | an exported value read back equals the source value exactly | V562 |
+| **Recompute equality** | R | a derived table equals a recompute from source over a golden history | V564 |
+| **Erase and scan** | L, S | an erased subject's values are absent from every derived table, snapshot and stored export | V565 |
+| **Classification join** | S | every PII column in an analytical copy carries a classification; a low-privilege role reads masked values | V566, V567 |
+| **Dry-run bytes** | D | bytes before and after the predicate fix | V568 |
+| **Offline grain probe** | R, T | rows, distinct keys, NULL keys and Type 2 range integrity on the duckdb build | V569 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V540 | Replay twice | the same batch (or retry) run twice: target `count(*)` and checksum unchanged; a NULL-key row yields no duplicate | R | `incremental-load-scan` §2, §7, §10 (IN-2, IN-7, IN-10); `orchestration-scan` §5 (OR-5) |
+| V541 | Late row | a row older than the watermark, inside the declared lookback, is present after the next run; one outside it is documented as missed | L | `incremental-load-scan` §1, §3, §9 (IN-1, IN-3, IN-9) |
+| V542 | Tie row | a row carrying the watermark's exact timestamp, committed after the run, is present after the next | L | `incremental-load-scan` §1 (IN-1) |
+| V543 | Delete reaches the target | a source delete (or a CDC delete + tombstone) is absent or flagged (`dbt_valid_to` set) after the next run; a connector restart mid-snapshot leaves no duplicate key | L | `incremental-load-scan` §4, §10 (IN-4, IN-10) |
+| V544 | Shuffle | ten seeded input orders give one dedup output checksum; a composite key with a separator-less concatenation collides on a crafted pair | R | `incremental-load-scan` §5 (IN-5); `grain-probe` §4 (GR-4) |
+| V545 | Added column | a column added to the source is carried, or the run fails, per the declared `on_schema_change` | L | `incremental-load-scan` §6 (IN-6) |
+| V546 | Partition scope | write two partitions, overwrite one: the other's checksum is unchanged; no reader sees an empty table | R | `incremental-load-scan` §7 (IN-7) |
+| V547 | Rollup replay | the rollup job run twice, and killed mid-batch then rerun: the rollup equals a recompute from source | R | `derived-data-scan` §1 (MV-1) |
+| V548 | Change after the window | a refund or status change dated D+3 for a row of day D: rollup(D) is restated, or the snapshot is labelled point-in-time where it is read | L | `derived-data-scan` §2 (MV-2) |
+| V549 | Interval replay | the task run for a past interval reads only that interval (output independent of the wall clock); the rendered `data_interval_end > data_interval_start`; `DagBag(include_examples=False).import_errors == {}` on the locked Airflow | T, L | `orchestration-scan` §1, §2, §7, §8 (OR-1, OR-2, OR-7, OR-8); `incremental-load-scan` §8 (IN-8) |
+| V550 | Overlap and range backfill | two overlapping runs, or one range backfill twice, on one partition: no duplicate, every partition written once | R | `orchestration-scan` §3, §9 (OR-3, OR-9); `incremental-load-scan` §8 (IN-8) |
+| V551 | Upstream gate | an upstream task failed: the publish does not run; a sensor whose upstream never arrives times out and alerts | T | `orchestration-scan` §4, §6 (OR-4, OR-6) |
+| V552 | DST and midnight corpus | the real bucket SQL in a scratch DB with session zone UTC: Berlin 2026-03-29 / 2026-10-25, New York 2026-03-08 / 2026-11-01, a Riyadh control, a row at local midnight, 2026-06-01T22:30Z (→ Berlin and Riyadh 2026-06-02, New York 2026-06-01); each row in one local day; 23/25 hourly buckets on DST days | L | `derived-data-scan` §7–§10 (TB-1…TB-4); `contract-diff` §6 (SC-6) |
+| V553 | Test mutation | a planted duplicate, NULL key, orphan FK or out-of-set enum in a scratch copy of the model turns the test red (exit ≠ 0) | M | `data-test-scan` §1, §2, §5, §8 (DQ-1, DQ-2, DQ-5, DQ-8); `orchestration-scan` §9 (OR-9 checks); `contract-diff` §5 (SC-5) |
+| V554 | CI executes the tests | on a branch, a failing test makes the CI command exit non-zero and the job red | T | `data-test-scan` §3 (DQ-3) |
+| V555 | Freshness fires | a source `loaded_at` older than the SLA makes `dbt source freshness` error, not warn | L | `data-test-scan` §4 (DQ-4) |
+| V556 | Empty batch fails | an empty source batch makes the run or the row-count check fail | L | `data-test-scan` §7 (DQ-7) |
+| V557 | Contract build | dropping, renaming or narrowing a contracted column fails `dbt build` (contract preflight) or `datacontract breaking` exits 1; a `SELECT *` model fails the contract on an upstream additive change | T | `contract-diff` §1, §2, §3 (SC-1, SC-2, SC-3) |
+| V558 | Migration vs readers | the migration applied to a scratch DB: every extract, dbt source, CDC include list and export mapper naming the column fails before the fix and passes after | T | `contract-diff` §4 (SC-4) |
+| V559 | Graph equality | the graph's edges per model equal the relation mentions in its compiled SQL (no hard-coded edge left; sqlglot `exp.Table` walk or `dbt ls`) | S | `lineage-trace` §1, §2 (LN-1, LN-2) |
+| V560 | Paged extract under writes | rows inserted and deleted between pages: the exported id set equals a snapshot taken at the start, with no duplicate | C | `extract-scan` §1 (EX-1) |
+| V561 | Dump under writes | concurrent parent/child inserts during the dump: the restore into a scratch DB with FKs on succeeds | C | `extract-scan` §2 (EX-2) |
+| V562 | Export round trip | instants keep their offset, decimals stay exact (`0.1 + 0.2`-style values, 17 digits), ids and phones keep leading zeros and every digit; a failed run publishes no file and a capped run says so | L | `extract-scan` §3, §4 (EX-3, EX-4) |
+| V563 | Refresh under reads | a reader during `REFRESH MATERIALIZED VIEW CONCURRENTLY` is not blocked; the refresh succeeds (a unique index on plain columns exists) | C | `derived-data-scan` §5 (MV-5) |
+| V564 | Recompute equality | derived vs a recompute from source over a golden history (including late changes, deletes and a tenant-zone day): zero diff, or the reconciliation marks the day stale and fails | R | `derived-data-scan` §3, §4, §6 (MV-3, MV-4, MV-6); `data-test-scan` §6 (DQ-6) |
+| V565 | Erase and scan | erase a seeded subject: no derived table, refreshed view, snapshot, stored export or landing table holds its values | L, S | `pii-copy-scan` §2, §5 (PC-2, PC-5) |
+| V566 | Classification join | every PII column in an analytical model, rollup, snapshot or export mapper carries a classification; a low-privilege role reads masked values | S | `pii-copy-scan` §1, §6 (PC-1, PC-6) |
+| V567 | Lower-env scan | 10k common emails hashed with the repo's function find zero join hits in a shared copy; a lower-environment sample holds no production identifier | S, L | `pii-copy-scan` §3, §4 (PC-3, PC-4) |
+| V568 | Dry-run bytes | `bq query --dry_run` / `EXPLAIN` bytes before and after the predicate, `incremental_predicates` or materialization fix; `require_partition_filter=true` makes an unfiltered reader fail | D | `warehouse-scan-audit` §1–§4 (CO-1…CO-4) |
+| V569 | Offline grain probe | on the duckdb build: rows, distinct key, NULL key; per join key the right side's duplicates; Type 2 overlaps, gaps and current rows per natural key — on the warehouse only after a dry-run bound | R, T | `grain-probe` §1–§3 (GR-1…GR-3) |
+
+### Harnesses (Data engineering)
+
+- **The graph** (every dbt row): `python3 -I -B .claude/skills/incremental-load-scan/scripts/model-graph.py
+  <root> --out="$RUN/graph" --configs --tests --edges` (exit 0 built, 2 blocked, 4 no dbt project);
+  `--self-test` covers the parser. The fix's re-check is the same command on the patched tree: the
+  candidate row disappears or its effective value's source changes.
+- **Offline dbt** (V540–V547, V553, V555–V557, V569): `dbt-duckdb` with a profile in `$OUT`, the
+  committed seeds (`dbt seed`), then `dbt build --target scratch`; incremental replays run the model
+  twice with `--vars` naming the batch; mutations insert into a copy (`create table x as select *
+  from {{ ref }}`, then the planted row) and run `dbt test -s <model>`; unit tests override
+  `is_incremental` and mock `this`. Without dbt installed, the compiled SQL from `target/` or the
+  model SQL with `ref()` replaced runs in `python3 -c 'import duckdb'`; without duckdb the row is
+  `NOT-RUN`.
+- **Containers** (V547, V548, V552, V558, V560, V561, V563–V565): a throwaway Postgres or MySQL
+  (`--rm`, a name the run owns, a port on 127.0.0.1), the project's migrations applied, the job or
+  query under test run from its module; MySQL TB-3 runs once before and once after
+  `mysql_tzinfo_to_sql`. State in the report that a container was started and that it was removed.
+- **Airflow** (V549–V551): `AIRFLOW_HOME="$OUT/airflow"`; `DagBag` in pytest; `task.execute(context)`
+  with a constructed context for a past interval; `airflow dags test <id> <date>` only where the
+  metadata DB is the run's own SQLite.
+- **Exports and dumps** (V560–V562): the runner against the container with a writer goroutine/thread
+  inserting and deleting between pages; the file parsed back with the project's own reader; ids
+  compared as sets.
+- **Dry run** (V568): `bq query --use_legacy_sql=false --dry_run` with the user's project, or
+  `EXPLAIN` on Snowflake/Postgres; with no credentials the row is `NOT-RUN (no dry-run access)` and
+  the static fact stands as `[report-flagged]`.
+
+### Class variants (Data engineering)
+
+A fix passes the class only when every variant the code presents passes the oracle, and the control
+the precedents exempt is unchanged.
+
+#### V540. Replay twice (`incremental-load-scan` §2, §7, §10; `orchestration-scan` §5)
+- the same batch twice; the same range backfilled twice; killed between the delete and the insert, then rerun; an Airflow `task.execute(context)` twice for one interval; a NULL in each key column
+- pass: count and checksum unchanged, no NULL-key duplicate (an append-only event table deduplicated downstream is the control, `precedents/data-engineering.md` § 1)
+
+#### V541. Late row (`incremental-load-scan` §1, §3, §9)
+- inside the lookback; outside it (documented as missed); a DST fall-back local 01:30 row; a row whose load stamp is newer than its event stamp; the empty target bootstrapping once
+- pass: present after the next run (a `>` with a lookback and a merge is the control, § 2)
+
+#### V542. Tie row (`incremental-load-scan` §1)
+- two rows sharing the watermark's value across a run boundary; second-precision clocks; a batch insert
+- pass: both loaded once
+
+#### V543. Delete reaches the target (`incremental-load-scan` §4, §10)
+- hard delete; delete then re-insert of the same key; a CDC delete with and without tombstone; a PK-less table under the default replica identity; a connector restart mid-snapshot; an unchanged TOASTed column
+- pass: absent or flagged, no duplicate, the TOASTed value kept (a source that never deletes is the control, § 16)
+
+#### V544. Shuffle (`incremental-load-scan` §5; `grain-probe` §4)
+- ten seeded orders; tied order keys with different payloads; a composite key `'ab'||'1'` vs `'a'||'b1'`
+- pass: one checksum; no collision (full-row duplicates are the control, § 15)
+
+#### V545. Added column (`incremental-load-scan` §6)
+- an added column; a removed column; a type widening
+- pass: carried or failed per the declared policy, never silently dropped
+
+#### V546. Partition scope (`incremental-load-scan` §7)
+- static overwrite with `partitionBy`; `insert_overwrite` with and without `partitions`; truncate-and-reload under a reader
+- pass: untouched partitions keep their checksum; no empty read (Delta `replaceWhere` is the control, § 28)
+
+#### V547. Rollup replay (`derived-data-scan` §1)
+- the job twice; killed mid-batch and rerun; two workers at once; a consumer redelivery
+- pass: rollup = recompute (a whole-day replacement or a guarded increment is the control, § 20, § 22)
+
+#### V548. Change after the window (`derived-data-scan` §2)
+- a refund at D+3; a status change at D+10; an edit to an amount; a delete
+- pass: rollup(D) restated, or the snapshot labelled point-in-time where read (a closed-period snapshot is the control, § 38)
+
+#### V549. Interval replay (`orchestration-scan` §1, §2, §7, §8; `incremental-load-scan` §8)
+- a past interval; two reserializations of the DAG (same hash); AF3 DagBag import; a cron schedule rendering `data_interval_*`
+- pass: output independent of the wall clock; interval non-zero; imports clean (a `datetime.now()` in a log line is the control, § 13)
+
+#### V550. Overlap and range backfill (`orchestration-scan` §3, §9; `incremental-load-scan` §8)
+- two runs at once on one partition; a range backfill twice; Dagster single-run backfill over three partitions
+- pass: no duplicate, every partition written once
+
+#### V551. Upstream gate (`orchestration-scan` §4, §6)
+- the load fails; the sensor's upstream never lands; the sensor's poke holds a slot
+- pass: publish skipped; the sensor times out and alerts (a cleanup task with `all_done` is the control)
+
+#### V552. DST and midnight corpus (`derived-data-scan` §7–§10; `contract-diff` §6)
+- naive and aware columns; one and two `AT TIME ZONE`; `BETWEEN` vs half-open windows; MySQL `CONVERT_TZ` before and after zone tables; numeric offsets on a DST zone; Kolkata and Kathmandu half-hour zones
+- pass: every row in exactly one declared local day; 23/25 hours on DST days (the double conversion on a UTC-holding naive column is the control, § 27)
+
+#### V553. Test mutation (`data-test-scan` §1, §2, §5, §8)
+- a duplicate key; a NULL key; an orphan FK; an out-of-set enum; a row outside the `where:` slice; an empty table; a warn-level key test
+- pass: red with exit ≠ 0 (an advisory warn test is the control, § 3)
+
+#### V554. CI executes the tests (`data-test-scan` §3)
+- `dbt run` only; a selector excluding tests or sources; `|| true`; `continue-on-error`; a GX checkpoint never called
+- pass: the job is red on the planted failure
+
+#### V555. Freshness fires (`data-test-scan` §4)
+- `warn_after` only; no `loaded_at_field`; an inherited config
+- pass: error, not warn (`freshness: null` on a static seed is the control)
+
+#### V556. Empty batch fails (`data-test-scan` §7)
+- empty source; empty partition; a loader that ignores affected rows
+- pass: the run or check fails
+
+#### V557. Contract build (`contract-diff` §1–§3)
+- drop; rename; type narrow; nullability tighten; an additive upstream column under `SELECT *`
+- pass: the build or `datacontract breaking` fails before the fix; versioned after (a pre-release model is the control)
+
+#### V558. Migration vs readers (`contract-diff` §4)
+- every reader kind: dbt `sources:`, CDC include list, export mapper, raw SQL in app code
+- pass: zero references to the old name after the fix (sqlglot walk)
+
+#### V559. Graph equality (`lineage-trace` §1, §2)
+- raw `schema.table` in `from`/`join`; a macro-resolved relation; a CTE name
+- pass: edges = mentions (a CTE and `{{ this }}` are the controls, § 24)
+
+#### V560. Paged extract under writes (`extract-scan` §1)
+- inserts at the head (newest-first); deletes behind the cursor; ties on the sort column
+- pass: id set = snapshot, no duplicate (keyset on `(created_at, id)` compared in SQL is the control, § 30)
+
+#### V561. Dump under writes (`extract-scan` §2)
+- parent then child inserted after the parent table was dumped; deletes during the dump
+- pass: restore with FKs on succeeds (a quiescent source is the control)
+
+#### V562. Export round trip (`extract-scan` §3, §4)
+- an instant near midnight in a non-UTC zone; `0.1 + 0.2`; a 17-digit id; a leading-zero phone; a failure mid-file; a row count above the cap
+- pass: exact values, no partial file published, the cap refuses (§ 39)
+
+#### V563. Refresh under reads (`derived-data-scan` §5)
+- plain refresh on a request path; `CONCURRENTLY` without a qualifying unique index; `now()` in the definition
+- pass: no blocked reader, the refresh succeeds (an off-hours refresh of a small view is the control, § 25)
+
+#### V564. Recompute equality (`derived-data-scan` §3, §4, §6; `data-test-scan` §6)
+- late change; delete; a column the trigger does not cover; `TRUNCATE` or a bulk path; a tenant-zone day read from UTC-day facts
+- pass: zero diff, or the reconcile marks stale and fails (a full recompute is the control, § 22)
+
+#### V565. Erase and scan (`pii-copy-scan` §2, §5)
+- rollups with identifiers; dbt snapshots (SCD2 history); refreshed materialized views; stored export files; landing tables
+- pass: no value of the subject remains (backups beyond use are the control, § 32)
+
+#### V566. Classification join (`pii-copy-scan` §1, §6)
+- dbt `meta`, `policy_tags`, Snowflake tags, masking policies; `persist_docs`; a policy whose return type differs from the column
+- pass: every PII column classified; the low-privilege role reads masked values
+
+#### V567. Lower-env scan (`pii-copy-scan` §3, §4)
+- unsalted `sha256(email)`; `md5(lower(email))`; a restore of a production dump into staging
+- pass: zero dictionary hits; no production identifier in the sample (a keyed HMAC is the control, § 31)
+
+#### V568. Dry-run bytes (`warehouse-scan-audit` §1–§4)
+- a function-wrapped partition column; a merge with no target bound; a `table` fact rebuilt daily; a view chain read three times
+- pass: bytes drop by the predicate's share; `require_partition_filter` makes the unfiltered reader fail (a small table is the control, § 35)
+
+#### V569. Offline grain probe (`grain-probe` §1–§3)
+- the declared key; each join key's right side; NULL keys; Type 2 overlaps, gaps and current rows
+- pass: zero duplicates, zero NULL keys, zero overlaps and gaps (a calendar spine cross join is the control)
+
+### Sources (Data engineering)
+
+The data-engineering research catalog (2026-10-19) § 1–5 and its two notes (pipelines, increments,
+quality and contracts; in-app analytics, PII, time buckets, cost) give the classes, the techniques
+(effective-config reading, replay-twice in duckdb, tie and late rows as fixtures, test mutation, the
+DST corpus, erase-then-scan, dry-run first), the precedents and the per-class variants above. Tool
+facts were read 2026-10-19: dbt docs (incremental models and strategies, microbatch, snapshots,
+constraints, data tests and `where`, freshness, parse, usage stats), dbt-duckdb 1.11.0 and DuckDB
+1.5.6, Airflow "Upgrading to Airflow 3" (3.3.2), Spark 4.2.0 configuration, Debezium 3.7 Postgres
+connector and 3.2.0.Final notes, PostgreSQL 18 `REFRESH MATERIALIZED VIEW` and date/time functions,
+MySQL 8.4 date/time functions, BigQuery dry run, datacontract-cli 1.2.7, sqlglot 30.23.0. The batch-8
+data-engineering eval (2026-10-19) § 5.11 gives the oracle list and the range V540–V569. Paraphrased;
+no text reproduced.
+
+---
+
+## Algorithms
+
+An algorithms claim says a **procedure** breaks its own contract on input production delivers: the
+work grows faster than the budget as a collection grows, the recursion goes as deep as the input or
+around a cycle, a loop stops making progress, a search runs on unsorted data, a tie reorders, a key
+collapses two records, a draw is not uniform, a distance is measured in degrees, a sum loses its
+digits, a sketch's false positive decides a charge. None of these is proved by reading the code or by
+asking a model for its complexity class. Every oracle here runs the real function on generated or
+adversarial input, or cites a fact at both ends, and every oracle names a **family**:
+- **O**: operation count — a counting spy on the inner lookup, comparator, copy, constructor or
+  self-call, at N and 4N (or n, n+5, n+10); deterministic, no clock. V35's time ratio is the
+  fallback when nothing can be counted.
+- **A**: adversarial input — a depth bomb, a cycle, a stalled page, tied keys, a cap + 1 input.
+- **P**: property or differential — the fast path against a brute-force oracle (linear scan, full
+  sort, the stdlib primitive) on generated inputs including empty, one, duplicates, unsorted and
+  extremes; seed pinned, shrinking on.
+- **D**: distribution — permutation or bucket frequencies under a chi-square with a fixed seed, and
+  an RNG stub at the ends of its range.
+- **R**: reference vectors — known geodesic distances, an asymmetric point round-tripped, a
+  high-precision reference (`math.fsum`, `Decimal`, `mpmath`, `BigInt`) for numeric code.
+- **S**: a two-ended static fact — the cap and its source, or its absence at every entry point; the
+  precondition and the path that breaks it; the library's axis order and the caller's; a build flag
+  and the code it compiles.
+
+Settled questions are in [`precedents/algorithms.md`](precedents/algorithms.md). This section is
+self-contained: its V-numbers (V590–V609) are cited by the algorithms detectors, their judge and
+`/design-algorithm --from-audit`; no V outside this range is reused for an algorithms class.
+
+Users:
+- the detectors `complexity-scan` (CX §1–§6, RC §7–§10, with `scripts/algo-sites.py`),
+  `algorithm-contract-scan` (OC §1–§4, RD §5–§7, GE §8–§10) and `numeric-stability-scan` (NS §1–§5,
+  SL §6–§7) in the algorithms pack;
+- `@algorithm-designer` in refute mode and `/analyze-complexity`, with `@verifier` mode `refute` on
+  every BLOCKER and HIGH it keeps; `/design-algorithm --from-audit`, which writes each finding's
+  failing-first test from its V-number and runs the detector's grep over the whole class afterwards.
+
+**Owned elsewhere.** These keep their own sections and are corroboration here: a comparator, parse,
+float `==` or date expression wrong for one input → § Code quality (V83); a query per element →
+§ Data (V1); ReDoS → security's `exploit-payloads.md`; a predictable token or prize → security
+(CWE-338); a per-call regex or validator build → § Performance (V31); wall-clock speed-ups and their
+noise band → § Performance (V35, the evidence block below); generated property tests for pure
+functions → § Testing.
+
+**Scope of use.** Scratch copies, `${TMPDIR}` and the run folder only. Six rules hold for every
+variant below:
+
+- **Count, do not time.** A counter in the comparator, the inner lookup, the copy or the self-call
+  decides; wall-clock time is the fallback (V35's median-of-5 and factor rule), never a single run.
+- **The real function, the real cap.** The test calls the project's own function through its module,
+  with the cap read from the configuration or schema the code reads, so the test proves the wiring.
+- **The project's harness first.** Its property library (fast-check, Hypothesis, jqwik, proptest,
+  rapid, FsCheck/CsCheck) or its own shrinking fuzzer (`precedents/algorithms.md` § 27); a new
+  dependency only when the repo has none, and then pinned.
+- **Seed pinned, shrinking on.** A property or distribution test prints its seed and replays it; a
+  failure is reported with its shrunk input.
+- **Measure stack depth, never quote it.** Frames per stack depend on the runtime, its flags and the
+  frame size (Node 23.8 at its default 864 KB: about 9,155 frames for a no-argument function and
+  6,866 with three arguments, measured 2026-10-19; Python's default limit is 1,000). The depth bomb
+  settles it on the project's runtime.
+- **Fail first, pass after, keep the control.** Every variant fails on the pre-fix code for the
+  stated reason, passes after, and the control a precedent names (a capped side, a memoised call, a
+  root-down walk, a unique keyset cursor, a Leaflet `[lat, lng]` call) is unchanged.
+
+### Oracle taxonomy (Algorithms)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Operation count at N and 4N** | O | the inner work grows linearly (or as the budget allows) after the fix, as the product before | V590, V591, V592, V593, V597 |
+| **Cap + 1** | A | generation stops at the downstream cap, or the input above it is refused | V594 |
+| **Depth bomb** | A | input 10^4–10^5 deep gets a typed refusal or an iterative success, the process survives | V595 |
+| **Cycle injection** | A | a self-loop, a 2-cycle and a cycle off the root end within K steps | V596 |
+| **Stalled progress** | A | a stalled page, tied keys or a float step: the loop ends and reads each row once | V598 |
+| **Differential** | P | the fast path equals the brute-force or stdlib result on generated inputs | V599, V602 |
+| **Tie order** | P | equal keys keep input order, or one total order across shuffles | V600 |
+| **No collapse** | P, S | distinct elements stay distinct under the key or comparator, or the uniqueness constraint is cited | V601 |
+| **Chi-square, fixed seed** | D | permutations or buckets are uniform; the range ends are reachable | V603, V604 |
+| **Geodesic vectors** | R | distances, axis order and wrap-around match references | V605, V606, V607 |
+| **High-precision reference** | R | the numeric result is within the stated relative tolerance of an exact reference | V608 |
+| **Static flag / measured sketch error** | S, D | no IEEE-voiding flag; a sketch's measured error is within its stated bound and positives are confirmed | V609 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V590 | Lookup count | a counter on the inner lookup or compare at N and 4N: N×M before, N+M after (16× vs 4× from N to 4N on both sides) | O | `complexity-scan` §1, §5 (CX-1, CX-5) |
+| V591 | Copy count | elements copied (a counter, or bytes allocated) at N and 4N: ~16× before, ~4× after; V35 as fallback | O | `complexity-scan` §2 (CX-2) |
+| V592 | Per-operation cost | operations per element flat across container sizes 1e3 → 1e5 (≤ 2×) after; ≥ 50× before | O | `complexity-scan` §3 (CX-3) |
+| V593 | Invariant spy | the invariant work (sort, clone, parse, `Set` build, `RegExp`) runs once per call, not once per iteration | O | `complexity-scan` §4 (CX-4) |
+| V594 | Cap + 1 | an input that would generate cap + 1 elements is refused, or generation stops at the downstream cap; generated count ≤ cap | A | `complexity-scan` §6 (CX-6) |
+| V595 | Depth bomb | nesting 10^4, 10^5 and the parser's maximum: a typed refusal (400 / validation error) or an iterative success; no `RangeError`, `RecursionError`, `StackOverflowError` or fatal stack overflow; the process is alive | A | `complexity-scan` §7 (RC-1) |
+| V596 | Cycle injection | a self-loop, a 2-cycle and a cycle off the root: the walk ends within K steps with a cycle error or a visited skip; a recursive CTE with `CYCLE` or a depth bound ends | A | `complexity-scan` §8 (RC-2) |
+| V597 | Self-call count | calls at n, n+5, n+10 grow about linearly after the memo; × ~11 per +5 before (fib-shaped) | O | `complexity-scan` §9 (RC-3) |
+| V598 | Stalled progress | an iteration counter with a stalled page, tied cursor keys or a float step: ends in ≤ K iterations, every row read exactly once | A | `complexity-scan` §10 (RC-4) |
+| V599 | Differential search | the fast path (binary search, `bisect`, `groupby`, a merge) equals a linear scan or a full sort on generated inputs that include unsorted, reverse-sorted, duplicate and collation-sensitive keys | P | `algorithm-contract-scan` §1 (OC-1) |
+| V600 | Tie order | records with equal keys keep their input order (stable), or the tie-break yields one total order across 100 shuffles of the input | P | `algorithm-contract-scan` §2 (OC-2) |
+| V601 | No collapse | distinct elements with an equal key or comparator: container size equals the distinct count, or the build refuses duplicates; or the unique constraint in the same scope is cited (S) | P, S | `algorithm-contract-scan` §3 (OC-3) |
+| V602 | Differential primitive | the hand-rolled search, sort, heap, LRU or geometry predicate equals the stdlib or library primitive on 10k generated inputs including empty, one, duplicates and extremes | P | `algorithm-contract-scan` §4 (OC-4) |
+| V603 | Permutation frequency | n = 4, 240k shuffles with a fixed seed: the chi-square over the 24 permutations is below the p = 0.001 critical value for 23 degrees of freedom (49.73) | D | `algorithm-contract-scan` §5 (RD-1) |
+| V604 | Range and bucket coverage | an RNG stub at 0 and 1 − 2^-53 reaches exactly the specified min and max; a bucket chi-square; negative and `MIN_VALUE` hashes land in [0, n); adding a bucket moves ≤ 1/(n+1) of sticky keys when assignment must stick; Python `hash()` buckets are equal across two processes with different `PYTHONHASHSEED` | D | `algorithm-contract-scan` §6, §7 (RD-2, RD-3) |
+| V605 | Geodesic vectors | 1° of longitude at the equator (≈ 111.3 km), 1° of longitude at 60° N (≈ half of it) and a long-haul pair, each within the design tolerance (0.5 % by default) of a haversine or geographiclib reference; a SQL distance returned in metres | R | `algorithm-contract-scan` §8 (GE-1) |
+| V606 | Axis round trip | the asymmetric point (−33.87, 151.21) crosses every boundary (API, DB, GeoJSON, map) unchanged; a swapped latitude fails `|lat| ≤ 90` at the boundary | R | `algorithm-contract-scan` §9 (GE-2) |
+| V607 | Wrap-around | a radius or bbox search centred at lon 179.9 finds a point at −179.9; a polar bbox; bearings normalised to [0, 360) and longitudes to [−180, 180) | R | `algorithm-contract-scan` §10 (GE-3) |
+| V608 | High-precision reference | on adversarial data (1e16, 1, −1e16; a mean of 1e9 with a spread of 1; probabilities of 1e-300; a Hilbert matrix) the result is within the stated relative tolerance of `math.fsum`, `Decimal`, `mpmath` or `BigInt`; `cond` is computed before a solve is trusted; an iterative method stops at its max-iteration bound | R | `numeric-stability-scan` §1–§4 (NS-1…NS-4) |
+| V609 | Flag and sketch error | the build or JIT flag is absent from every build that ships (S); a sketch's false-positive or relative error measured at its stated n with a fixed seed is ≤ its stated bound, and a spy proves the exact check runs on every positive that decides money, a send or a quota | S, D | `numeric-stability-scan` §5, §6, §7 (NS-5, SL-1, SL-2) |
+
+### Harnesses (Algorithms)
+
+- **The candidate table** (CX and RC rows): `python3 -I -B .claude/skills/complexity-scan/scripts/algo-sites.py
+  --repo=. --roots=<roots> --tsv` (exit 0 scanned, 1 usage, 2 blocked) prints each site with its
+  caps and `n_max × m_max`; `--recursion` adds the self-call and loop-progress rows; `--self-test`
+  covers the scanner. The fix's re-check is the same command on the patched tree: the row disappears,
+  or its hint becomes `set`, `const-small` or `below-budget` with the new cap cited.
+- **Operation counters** (V590–V593, V597): wrap the inner primitive for the test only — a `Proxy`
+  or a subclass whose `includes`/`indexOf`/`find`/`has` increments a counter (JS), a list subclass
+  with `__contains__`/`index` counting (Python), a comparator that counts, a spy on `sort` or on the
+  constructor (`vi.spyOn`, `jest.spyOn`, `unittest.mock.patch(wraps=…)`), a memo-wrapped self-call
+  counter. Assert the ratio at N and 4N (`≤ 5×` linear, `≥ 12×` quadratic), never an absolute count.
+- **Depth and cycle builders** (V595, V596): a string builder for JSON (`'['.repeat(d) + ']'.repeat(d)`),
+  Hypothesis `st.recursive`, fast-check `fc.letrec`; a cycle built by assigning a parent pointer
+  after construction; for SQL, a scratch database with the migration applied and a cycle inserted.
+  Run the bomb in a child process (`node --stack-size` at the default, `subprocess` with
+  `sys.getrecursionlimit()` unchanged) so a fatal overflow fails the test instead of the runner.
+- **Property and differential** (V599–V602): the project's library or fuzzer; generated inputs
+  include the empty input, one element, all-equal keys, sorted, reverse-sorted and collation-sensitive
+  strings (`'a' < 'B'` under code-point order, `'B' < 'a'`… under a locale), and the cap's maximum.
+- **Distribution** (V603, V604): a seeded PRNG injected where the code draws (`Math.random` stubbed
+  through an injected `rng`, `random.Random(seed)`, `new Random(seed)`), counts per cell, and the
+  chi-square against the critical value stated in the test; an RNG stub returning 0 and
+  `1 - 2 ** -53` for the range ends.
+- **Geodesy** (V605–V607): the reference from geographiclib or turf in the test, or haversine on the
+  WGS-84 mean radius 6,371,008.8 m stated as the reference; PostGIS vectors in a scratch container
+  with the project's migrations (a container is started only on the user's word, and the report says
+  it was removed).
+- **Numeric** (V608): `math.fsum`, `fractions.Fraction`, `decimal` with a raised context precision,
+  `mpmath` when installed, `BigInt` scaled integers in JS; `numpy.linalg.cond` before a solve.
+- **Flags and sketches** (V609): `rg` over every build file the release uses (CMake, `setup.py`,
+  `pyproject.toml`, `.csproj`, `numba.jit` decorators) for the flag; a sketch filled with its stated n
+  distinct seeded keys and queried with n non-members to measure the false-positive rate.
+
+### Class variants (Algorithms)
+
+A fix passes the class only when every variant the code presents passes the oracle, and the control
+the precedents exempt is unchanged.
+
+#### V590. Lookup count (`complexity-scan` §1, §5)
+- `.includes` / `.indexOf(x) !== -1` / `.find` / `.findIndex` / `.some` / `.filter(…).length` / `.filter(…)[0]` inside a loop or a per-element callback; `[...set].includes`, `Array.from(set).includes`, `Object.values(o).includes`; lodash `_.includes` / `_.find` / `_.differenceWith` / `_.intersectionWith` / `_.uniqWith`; Python `x in list`, `.index`, `.count`, `any(y == x for y in L)`, `x in d.values()`; Java/Kotlin `contains` / `indexOf` / `anyMatch`; C# `Contains` / `Any` / `FirstOrDefault` on `List<>`; Go `slices.Contains` / `Index`; Ruby `include?` / `find`; PHP `in_array` / `array_search`; Rust `.contains` / `.iter().any`; a `filter` inside a `map` over a second collection (a group-by by scan); two nested loops joining on keys
+- pass: the lookup count grows ~4× from N to 4N with both sides scaled; a side capped at ≤ 50 is the control (`precedents/algorithms.md` § 29)
+
+#### V591. Copy count (`complexity-scan` §2)
+- `{...acc}` / `[...acc, x]` in `reduce`; `acc = [...acc, x]` in a loop; **`acc.concat(x)`** (the non-fix neither lint rule flags); `Object.assign({}, acc, …)`; Python `acc + [x]`, `{**acc}`, `sum(lists, [])`, tuple `+=`; Ruby `acc + [x]`, non-bang `merge` in `inject`; Kotlin `fold` with `+`; C# `Concat().ToList()`; string `+=` / prepend in Java, C#, Go and on a Python attribute
+- pass: copies grow ~4× from N to 4N; an append-only JS string (V8 ropes) and a local CPython `str +=` are the controls (§ 4, § 5)
+
+#### V592. Per-operation cost (`complexity-scan` §3)
+- `shift` / `unshift` / `splice(0, …)` / `splice(i, 1)` in a loop; Python `pop(0)`, `insert(0, …)`, `del L[0]`, `list.remove(x)`; Java `remove(0)` / `add(0, …)` on `ArrayList`; C# `RemoveAt(0)` / `Insert(0, …)`; Go `append([]T{x}, s...)`
+- pass: cost per element flat from 1e3 to 1e5 elements (a deque, a ring buffer, a head index); a FIFO capped by `maxWaiting` is the control (§ 8)
+
+#### V593. Invariant spy (`complexity-scan` §4)
+- `sort` / `sorted` / `toSorted` / `Collections.sort` / `OrderBy` of an outer collection inside the loop; `sort()[0]` for a min; `JSON.parse(JSON.stringify(x))` / `structuredClone` / `deepcopy` of an outer value; `new Set(arr)` / `Object.keys(o)` / `Array.from(set)` rebuilt per iteration or in a loop condition; `new RegExp(str)` / `Pattern.compile` / `regexp.MustCompile` / `Regex::new` / `DateTimeFormatter.ofPattern` / `new SimpleDateFormat` / `Intl.*Format` per iteration
+- pass: the spy counts one call per invocation; a CPython `re.compile` and a JS regex literal are the controls (§ 9)
+
+#### V594. Cap + 1 (`complexity-scan` §6)
+- Cartesian products (nested generators, `itertools.product`, `flatMap` chains), power sets, permutations, all pairs; generation that is filtered after it completes
+- pass: the generator stops at the downstream cap + 1 and the caller refuses, or the input that would exceed it is refused at the boundary; the downstream limit and the generator's cap are the same constant
+
+#### V595. Depth bomb (`complexity-scan` §7)
+- direct and mutual recursion; recursion through callbacks (`children.map(render)`); recursive generators (`yield*`); revivers and `toJSON`; `deepcopy` / `structuredClone` of a user-depth object; a recursive validator, serializer, sanitizer or comment-thread renderer
+- pass: a typed refusal at the boundary that accepts the input, or an explicit stack that survives 10^5 levels; parsed JSON under a body limit with a global error filter is the control (§ 12)
+
+#### V596. Cycle injection (`complexity-scan` §8)
+- every walker over `parent` / `children` / `edges` / `refs` / `cause` / `next`; an editable parent pointer (a category tree, an org chart, a referral chain); an imported graph; a recursive CTE with no `CYCLE` clause (PostgreSQL ≥ 14), path array or depth column
+- pass: termination within K steps with a cycle error or a skip; a root-down walk of a parent map is the control (§ 14)
+
+#### V597. Self-call count (`complexity-scan` §9)
+- every recursive function with ≥ 2 self-calls on overlapping subproblems; backtracking without pruning on a user-sized n; a memo keyed on part of the argument tuple
+- pass: calls grow about linearly in n after the memo; a memo keyed on the full argument tuple is the control (§ 16)
+
+#### V598. Stalled progress (`complexity-scan` §10)
+- `for (;;)`, `while (true)`, `do … while (changed)` and cursor loops; a cursor on a non-unique column (`created_at`) or compared with `>=`; an exit that waits for an empty page; a float step compared with `!=`; a worklist that re-enqueues without a visited set; a fixpoint with no monotone measure
+- pass: ≤ K iterations with every row read exactly once under tied keys and a concurrent insert; a unique cursor with strict `>` and a short-page exit is the control (§ 15); a process-lifetime loop is out of scope (§ 32)
+
+#### V599. Differential search (`algorithm-contract-scan` §1)
+- `binarySearch` / `bisect` / `sort.Search` / `slices.BinarySearch` / `_.sortedIndex` / `itertools.groupby` / a hand merge of two cursors / adjacent dedupe; data sorted by a different key, direction or collation (database collation vs code-point compare) on any path that reaches it
+- pass: equal to the linear scan on unsorted, reverse-sorted and duplicate inputs, or a sort by the same key added on every path; a constant table asserted sorted is the control (§ 34)
+
+#### V600. Tie order (`algorithm-contract-scan` §2)
+- Go `sort.Slice` / `sort.Sort` / `slices.SortFunc`; C# `List.Sort` / `Array.Sort`; Rust `sort_unstable*`; C++ `std::sort`; PHP < 8.0 `usort`; a multi-pass sort, a "first wins" after a sort, in-memory paging of a sorted list
+- pass: `sort.SliceStable` / `slices.SortStableFunc` / `OrderBy().ThenBy()` / `sort_by` / `std::stable_sort`, or an explicit total tie-break; unique keys and a stable runtime are the controls (§ 18, § 19)
+
+#### V601. No collapse (`algorithm-contract-scan` §3)
+- `new Map(rows.map(r => [r.k, r]))`, `Object.fromEntries`, `keyBy`, `Collectors.toMap` (which throws on duplicates unless given a merge function), dict comprehensions keyed by a field; `TreeSet` / `TreeMap` / `SortedSet` / `SortedDictionary` / `std::set` with a comparator that ties distinct elements (`BigDecimal` 2.0 vs 2.00 under `compareTo`, case-insensitive names)
+- pass: size equals the distinct count, or duplicates are grouped or refused; a unique constraint in the same tenant scope is the static control (§ 20)
+
+#### V602. Differential primitive (`algorithm-contract-scan` §4)
+- hand-rolled binary search (`lo <= hi`, the midpoint, the shrink step), quicksort or merge sort, a heap's index arithmetic, an LRU's eviction order, a point-in-polygon ray cast on vertices and edges
+- pass: equal to the stdlib or library primitive on 10k generated inputs, or replaced by it
+
+#### V603. Permutation frequency (`algorithm-contract-scan` §5)
+- `sort(() => Math.random() - 0.5)` and its variants; a swap loop drawing `j` from `[0, n)` on every step (n^n outcomes); `j < i` (Sattolo: no fixed points); `ORDER BY random()` used as a shuffle (its cost is performance's)
+- pass: a vetted Fisher–Yates (`lodash.shuffle`, `random.shuffle`, `Collections.shuffle`, `rand.Shuffle`) or a loop drawing `j` from `[0, i]`; demo or seed data is the control (§ 22)
+
+#### V604. Range and bucket coverage (`algorithm-contract-scan` §6, §7)
+- `Math.floor(Math.random() * (max - min)) + min` (excludes `max`); `Math.round(Math.random() * n)` (half-weights the ends); `rand() % n`, `bytes[0] % n` (modulo bias); `(int)(r.nextDouble() * n)`; `random.randint` vs `randrange` bounds; cumulative-weight `<` vs `<=`, zero or unnormalised weights; an RNG constructed per call; `hashCode() % n`, `Math.abs(hashCode()) % n` (`MIN_VALUE` stays negative); Python `hash(x) % n` (salted per process); `% n` assignment that must stick when n changes
+- pass: both range ends reachable and buckets uniform; `crypto.randomInt`, an unsigned murmur/xxhash/SHA-256 and `Math.floorMod` are the controls (§ 23); rendezvous or consistent hashing when n changes
+
+#### V605. Geodesic vectors (`algorithm-contract-scan` §8)
+- Euclid (`Math.sqrt` / `hypot` / `** 2`) on latitude and longitude; degrees passed to `sin` / `cos`; mixed earth-radius units (6371 km vs 6378137 m vs 3958.8 mi); PostGIS `ST_Distance` / `ST_DWithin` / `ST_Buffer` on `geometry(…, 4326)` (degrees); a bounding box used as a radius
+- pass: every vector within the tolerance and distances in metres; `::geography`, `ST_DistanceSphere` or a projected metric SRID are the controls (§ 25)
+
+#### V606. Axis round trip (`algorithm-contract-scan` §9)
+- `ST_MakePoint(lat, lng)` / `ST_Point(lat, …)`; GeoJSON `coordinates: [lat, lng]`; Mongo `2dsphere` points; Mapbox calls fed `[lat, lng]`; a mapper between a lat-first API (Google, Leaflet) and a lon-first store
+- pass: the asymmetric point unchanged through every hop; a boundary validator rejects `|lat| > 90`; a Leaflet `[lat, lng]` call is the control (§ 24)
+
+#### V607. Wrap-around (`algorithm-contract-scan` §10)
+- `lng BETWEEN min AND max` / `lng >= minLng && lng <= maxLng` with east < west; longitude arithmetic without normalisation; bearings outside [0, 360); polar boxes
+- pass: the ±180 search finds both sides; the box is split at the antimeridian; a service area that cannot cross ±180° is the control (§ 35)
+
+#### V608. High-precision reference (`numeric-stability-scan` §1–§4)
+- naive `+=` over many or mixed-magnitude floats, float32 accumulators; Σx² − (Σx)²/n variance, `1 − cos x`, the textbook quadratic, `exp(x) − 1`, `log(1 + x)`; products of probabilities, softmax without the max shift, factorial ratios; an explicit inverse, normal equations, a solve with no `cond`, an iterative method with only an absolute tolerance or no max-iteration
+- pass: within the stated relative tolerance of the reference; `math.fsum`, pairwise `np.sum`, Welford, `expm1` / `log1p`, `logsumexp`, `lstsq` / QR / SVD are the fixes; `np.sum` and `statistics` are the controls (§ 36)
+
+#### V609. Flag and sketch error (`numeric-stability-scan` §5, §6, §7)
+- `-ffast-math`, `-Ofast`, `-funsafe-math-optimizations`, `numba.jit(fastmath=True)`, `/fp:fast`, `<FloatingPointModel>Fast`; a Bloom filter, HyperLogLog, Count-Min or t-digest with no stated n / p / precision / ε / δ; one that decides a charge, a send, a quota or a bill
+- pass: no flag on a build that ships numeric code; the measured error at the stated n is within the stated bound; every positive that decides money, a send or a quota is confirmed against the source of truth (a negative pre-filter is the control, § 39)
+
+### Sources (Algorithms)
+
+The algorithms research catalog (2026-10-19) § 1–§ 5 and its two notes (complexity, recursion,
+regex cost, property-based testing; numeric stability, ordering, equality, time, randomness,
+geodesy) give the classes, the techniques (operation-count failing-first tests, cap resolution
+before reading, depth bombs, cycle injection, progress variables, differential tests against a
+brute-force oracle, chi-square with a fixed seed, reference vectors, high-precision references), the
+precedents and the per-class variants above. Tool and runtime facts were read 2026-10-19: Node 23.8
+stack depth (measured locally), Python's recursion limit, MDN `Array.prototype.sort` (stable since
+ES2019), Go `sort.Slice`, .NET `List.Sort`, the Rust 1.81 release notes (sort panics on a non-total
+order), RFC 7946 §3.1.1 and §5.2, PostGIS `ST_Distance`, lodash 4.17.21 `_.difference`, Sentry issue
+#7910 (`concat` as a non-fix), fast-check 4.10.2, Hypothesis 6.170.1. The batch-8 algorithms eval
+(2026-10-19) § 5.10 gives the oracle list and the range V590–V609. Paraphrased; no text reproduced.
+
+## FinOps
+
+A finops claim says one of two things, and the two are never merged: **a guardrail is absent or a knob
+is set wastefully** — no budget anyone hears, no allocation key, no aggregate cap on a paid API, a poll
+that bills whether or not there is work, a prefix that never expires, bytes that leave by the origin
+door, a money figure with no source — or **money was spent**, which only a billing export can show.
+The first is proved from files with a failing-first assertion; the second is proved by reconciliation
+arithmetic on the user's export. No oracle here prints a `$` from memory, a runbook or an estimator: a
+proof asserts a **quantity, a shape or a sum**, and money stays `candidate-pricing`'s. Every oracle runs
+offline — a plan or render on a scratch copy, a stub provider, an emulator, a scratch database, a lint,
+`bill-lane.py` — and names a **family**:
+- **P**: plan or render assertion — an offline `plan.json` (`terraform init -backend=false`, fake
+  credentials, `plan -refresh=false`, `show -json`), a `terraform test` / `tofu test` run with
+  `command = plan`, or the rendered manifests of every env (kustomize or `helm template` with an empty
+  `KUBECONFIG`), walked with `jq`, Conftest or Kyverno.
+- **L**: lint over text that acts as configuration — CI workflows, runbook create lines (continuation
+  lines joined), Alertmanager config, Markdown money figures.
+- **S**: stub or fake — a stub paid provider that counts calls and returns the provider's cap error, fake
+  timers, a mocked queue client, a metrics registry scraped after N calls.
+- **E**: emulator or scratch read-back — MinIO or LocalStack lifecycle configuration read back, a scratch
+  database seeded on both sides of a cutoff, a temp directory written past its cap.
+- **R**: reconciliation — `bill-lane.py` on the user's FOCUS export (or the fixture's synthetic sample):
+  the parts sum to the total to the minor unit, per currency.
+- **T**: two-ended documentary fact — for a control that exists only in a provider console (DigitalOcean
+  Spend Alerts, a provider-side API spend cap): the runbook or ADR line naming the control, its value and
+  its read-back command. A **T** proof alone never makes a Finding: it is Hardening ("console-only",
+  recorded) or Unconfirmed with the console probe named (`precedents/finops.md` § 10, § 15).
+
+Settled questions are in [`precedents/finops.md`](precedents/finops.md). This section is
+self-contained: its V-numbers (V570–V589) are cited by the finops detectors, their judge and
+`/cost-guardrails --from-audit`; no V outside this range is reused for a finops class.
+
+Users:
+- the detectors `guardrail-scan` (BG §1–§7), `allocation-scan` (TG §1–§4), `spend-path-scan` (PS §1–§3,
+  FQ §4–§6), `storage-growth-scan` (ST §1–§4), `egress-trace` (EG §1–§4; §5 is the flow-log lane, proved
+  by arithmetic) and `candidate-pricing` (PX §4; §0–§3 price other packs' rows), with
+  `unit-cost-probe/scripts/bill-lane.py` for the bill lanes (UE-1…4);
+- `@cost-reviewer` in refute mode and `/cost-review`, with `@verifier` mode `refute` on every BLOCKER
+  and HIGH it keeps; `/cost-guardrails --from-audit`, which writes each finding's failing-first proof from
+  its V-number and re-runs the owning detector; `/cost-guardrails` (install lane), whose ledger marks a
+  guardrail ARMED only on an offline proof from this section; `/audit-cost-attribution` and `/cost-model`
+  (V589's reconciliation).
+
+**Owned elsewhere.** These keep their own sections and are corroboration here (finops prices their rows,
+never re-proves them): NAT, cross-AZ, cloud log retention, volume class, idle addresses, IaC bucket
+lifecycle, scale ceilings and engine extended support → § Infrastructure (infrastructure `iac-cost-scan`,
+whose § 12 budget absence is the fallback when the finops pack is absent); metric cardinality, Loki stream
+labels and retention, sampling and log volume → § Observability; cache headers and a paid call per item →
+§ Performance; per-call LLM output caps, loops, prompt caching and metering correctness → § AI engineering;
+per-user limits on paid actions → security `exploit-payloads.md`; retry caps and layer multiplication →
+§ Distributed; an append-only table's retention job correctness (batching, locks) → § Data; PII retention
+→ § Data (V23) and security; warehouse bytes scanned → § Data engineering (V568).
+
+**Scope of use.** Scratch copies, `${TMPDIR}` and the run folder only. Six rules hold for every variant
+below:
+
+- **No cloud credentials, no live account.** Unset `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`,
+  `GOOGLE_APPLICATION_CREDENTIALS`, `AZURE_*`, `DIGITALOCEAN_ACCESS_TOKEN`; every Kubernetes, Helm or
+  kustomize command runs with `KUBECONFIG` pointing at an empty scratch file; Terraform plans with fake
+  credentials and `-refresh=false`. A live firing ("send a test alert", "create an over-quota resource in
+  staging") is an extra `observed` stamp the user may add, never the proof.
+- **The project's own configuration, read by the test.** The budget limit, the cap, the schedule, the
+  replica count, the prefix table and the required tag keys come from the files the system reads (the
+  policy file, the env schema, the render), so the test proves the wiring and survives a re-tune.
+- **Quantities, never prices.** A proof asserts counts, shapes, keys, bytes and sums. A `$` appears only
+  in V589's reconciliation of the user's own export.
+- **Telemetry off.** `CHECKOV_*` with `--skip-download`; Trivy with `--disable-telemetry
+  --skip-version-check`; LocalStack with `DISABLE_EVENTS=1`; Infracost never required (key or login and
+  network; list price — `precedents/finops.md` § 25, § 26).
+- **Containers are the run's own.** MinIO, LocalStack or a scratch Postgres start with `--rm`, a name the
+  run owns and a port on 127.0.0.1; the report says that a container was started and that it was removed.
+- **Fail first, pass after, keep the control.** Every variant fails on the pre-fix configuration for the
+  stated reason, passes after, and the control a precedent names (an org-level budget cited, a prod floor
+  bought for availability, a long-poll receive, an operator rule with its read-back, a presigned private
+  download) is unchanged.
+
+### Oracle taxonomy (FinOps)
+
+| Oracle | Family | Asserts | V |
+|---|---|---|---|
+| **Budget plan assertion** | P, T | ≥ 1 budget per billing scope with a FORECASTED rule below 100 % and a live recipient | V570 |
+| **Anomaly plan assertion** | P | a per-dimension monitor and a subscription with a relative threshold | V571 |
+| **Estimate-step lint** | L, T | the estimate step runs on every IaC path the workflow applies | V572 |
+| **Non-prod policy test** | P | a quota or TTL is present in every non-prod render and an over-quota or TTL-less manifest is rejected | V573 |
+| **Suppression expiry** | L | every silence, mute or suppression carries an end | V574 |
+| **Tag walk** | P | every taggable resource's merged tags carry the policy's keys with allowed values and one spelling | V575 |
+| **Label walk** | P | every pod template and namespace in every env render carries the policy's labels | V576 |
+| **Runbook create lint** | L | every resource-creating CLI line carries the tag, label or project flag | V577 |
+| **Cap stub** | S | at the cap, zero provider calls and one alert event | V578 |
+| **Unit counter scrape** | S | N calls show N on the counter, with tenant and feature dimensions | V579 |
+| **Provider cap read-back** | T, S | the provider limit is named with its value and read-back; the cap error is not retried | V580 |
+| **Fake-timer call budget** | S | billed calls per simulated hour × prod replicas ≤ the declared budget | V581 |
+| **Long-poll assertion** | S, E | every receive waits ≥ 1 s; an empty queue costs a bounded number of receives | V582 |
+| **Lifecycle read-back** | E, P | the rule covering the app's prefix, read back from an emulator or the plan; or a delete path that keeps the boundary | V583 |
+| **Abort-rule assertion** | P, E | every multipart target bucket aborts incomplete uploads | V584 |
+| **Retention boundary** | E | the job deletes older rows, keeps younger ones, and is registered | V585 |
+| **Disk cap** | E, P | writing past the cap rotates or is refused; `sizeLimit` and rotation in config | V586 |
+| **CDN host and redirect** | S | public URLs carry the CDN host; the download route redirects to a signed URL and streams no body | V587 |
+| **Region and host parity** | P, L | every client region and endpoint equals the deploy region or an internal name, across env files and renders | V588 |
+| **Provenance and reconciliation** | L, R | every money figure has a source or date; the bill's parts sum to its total to the minor unit | V589 |
+
+| V | Oracle | Asserts | Family | Detector § |
+|---|---|---|---|---|
+| V570 | Budget plan assertion | per billing scope (each account, project or subscription root): ≥ 1 `aws_budgets_budget` / `google_billing_budget` / `azurerm_consumption_budget_*` in the plan, ≥ 1 FORECASTED (or `FORECASTED_SPEND`) rule below 100 % beside the ACTUAL one, and every notification resolving to an address or to a topic with a subscription; on DigitalOcean the runbook line naming the Spend Alert, its threshold and its read-back (`T`) | P, T | `guardrail-scan` §1–§3 (BG-1, BG-2, BG-3) |
+| V571 | Anomaly plan assertion | an `aws_ce_anomaly_monitor` of type DIMENSIONAL over SERVICE (or a CUSTOM monitor per cost category) and an `aws_ce_anomaly_subscription` whose `threshold_expression` is relative (`ANOMALY_TOTAL_IMPACT_PERCENTAGE`) or sized below the smallest service's spend; `N/A (no anomaly API)` on a provider without one | P | `guardrail-scan` §4 (BG-4) |
+| V572 | Estimate-step lint | every workflow job that runs `terraform`/`tofu`/`pulumi`/`cdk` plan or apply on a path has an estimate step on the same paths and trigger; where the user already holds a key, a throwaway change adding a priced resource shows a non-zero delta (list price, labelled); without a key, documentary (`T`) | L, T | `guardrail-scan` §5 (BG-5) |
+| V573 | Non-prod policy test | `kyverno test` / `conftest test` / `kubeconform` plus a quota-present assertion over every non-prod render: a `ResourceQuota` and `LimitRange` per namespace, preview stacks tagged with a TTL and a destroy job, a non-prod floor covered by an off-hours schedule; an over-quota or TTL-less manifest is rejected | P | `guardrail-scan` §6 (BG-6) |
+| V574 | Suppression expiry | every silence (`endsAt`), snooze, mute and cost-alert suppression in code ends within the team's maximum window; no cost or budget rule is commented out; an inhibit rule matches on equal labels | L | `guardrail-scan` §7 (BG-7) |
+| V575 | Tag walk | every taggable resource in the plan (module-created ones included) carries the policy's required keys in `tags_all` / `effective_labels` / `tags`, values inside the allowed sets, and no key spelled two ways | P | `allocation-scan` §1, §2 (TG-1, TG-2) |
+| V576 | Label walk | every pod template (`spec.template.metadata.labels`, a CronJob's job template) and every namespace in every env render carries the policy's label keys | P | `allocation-scan` §3 (TG-3) |
+| V577 | Runbook create lint | every `doctl … create`, `gcloud … create`, `az … create`, `hcloud … create`, `aws … create-*` line in runbooks and scripts (continuations joined) carries `--tag-names` / `--tags` / `--labels` / `--project-id` | L | `allocation-scan` §4 (TG-4) |
+| V578 | Cap stub | the org or month budget read set at its cap through the project's own budget store: the next request through every entry point (route, job, consumer) makes **zero** calls to the stub provider and emits one alert event; below the cap the call goes through | S | `spend-path-scan` §1 (PS-1) |
+| V579 | Unit counter scrape | N calls to the stub (successes and the failures the provider bills) leave the counter at N, labelled with dependency, tenant and feature, read from the registry scrape or the captured log | S | `spend-path-scan` §2 (PS-2) |
+| V580 | Provider cap read-back | the runbook or ADR names the provider's spend limit, its value and the read-back step (`T`); a stub answering the provider's cap error (Anthropic 429 `enforced_spend_limit_reached`, OpenAI `project_spend_limit_exceeded`) receives exactly one call and no retry, and the error surfaces as an alert | T, S | `spend-path-scan` §3 (PS-3) |
+| V581 | Fake-timer call budget | with fake timers, one simulated hour (and one day) of the scheduler × the prod replica count from the render makes ≤ the declared number of calls to the billed fake; with the webhook configured, the poll makes none; a busy loop around the billed call is bounded by its delay | S | `spend-path-scan` §4, §6 (FQ-1, FQ-3) |
+| V582 | Long-poll assertion | a mocked queue client records `WaitTimeSeconds ≥ 1` on every receive; Terraform `receive_wait_time_seconds ≥ 1` in the plan; an empty LocalStack queue costs ≤ 60 ÷ wait receives per consumer per minute | S, E | `spend-path-scan` §5 (FQ-2) |
+| V583 | Lifecycle read-back | the bucket's lifecycle configuration read back from MinIO or LocalStack (`get-bucket-lifecycle-configuration`), or the plan's `lifecycle_rule`, has an Expiration rule whose prefix covers the app's area; or the app's delete path removes an object older than the window and keeps a younger one | E, P | `storage-growth-scan` §1 (ST-1) |
+| V584 | Abort-rule assertion | every bucket a multipart path writes to carries `AbortIncompleteMultipartUpload` (`abort_incomplete_multipart_upload_days`) for that prefix, in the plan or read back | P, E | `storage-growth-scan` §2 (ST-2) |
+| V585 | Retention boundary | a scratch database of the project's engine with rows on both sides of the cutoff: the job deletes the older ones, keeps the younger ones, in bounded batches; the schedule is registered in the module that boots | E | `storage-growth-scan` §3 (ST-3) |
+| V586 | Disk cap | a test writes past the logger's or temp writer's cap and asserts rotation or refusal; `emptyDir.sizeLimit` and the rotation settings asserted in the render | E, P | `storage-growth-scan` §4 (ST-4) |
+| V587 | CDN host and redirect | the project's URL builder returns the CDN host for every public area; the download route answers a redirect (302/303/307) to a signed URL with a short expiry and streams no body; authorisation still runs before the redirect | S | `egress-trace` §1, §2 (EG-1, EG-2) |
+| V588 | Region and host parity | every SDK client region, bucket, database and cache endpoint in every deployed env file and render equals the deploy region; every service-to-service base URL is a cluster or VPC name | P, L | `egress-trace` §3, §4 (EG-3, EG-4) |
+| V589 | Provenance and reconciliation | every `$…/period` figure in docs, ADRs and runbooks has a source or an as-of date in its paragraph or table row; `bill-lane.py attribution` reconciles tagged + mis-tagged + untagged + untaggable = total, and every allocation branches + unallocated = bill, to the minor unit per currency | L, R | `candidate-pricing` §4 (PX-1); bill lanes UE-1…4 |
+
+### Harnesses (FinOps)
+
+- **The plan** (V570, V571, V575, V583, V584, V582's IaC half): reuse the offline `plan.json` that
+  infrastructure `iac-cost-scan` left under `$SCAN` when that pack ran; otherwise `terraform init
+  -backend=false`, fake credentials, `terraform plan -refresh=false -out="$OUT/p"`, `terraform show -json`.
+  `guardrail-scan`'s `guard.jq` and `allocation-scan`'s `tags.jq` are the assertions: the fix's re-check is
+  the same `jq` on the patched plan, and the row disappears. A repo with Terraform 1.6+ keeps the proof as
+  a `.tftest.hcl` with `command = plan` and `assert` blocks over the same values.
+- **The render** (V573, V576, V586, V588): `k8s-render-scan` § 0's `render-<env>.json` when the
+  infrastructure pack ran; else `kustomize build` / `helm template` per env with `KUBECONFIG` empty,
+  converted to JSON and walked with `labels.jq` or a Conftest/Kyverno policy kept in the repo.
+- **Stubs and fake timers** (V578–V582, V587): the project's own HTTP client or SDK wrapper pointed at a
+  local stub (`nock`, `msw`, `respx`, `responses`, an `httptest.Server`, WireMock) that counts calls and can
+  answer the provider's cap error; Jest/Vitest `useFakeTimers`, `freezegun`/`time-machine`, Go's injected
+  clock; the replica count read from the prod render, never typed in.
+- **Emulators** (V582–V585): MinIO (`mc ilm rule ls`) or LocalStack (`awslocal s3api
+  get-bucket-lifecycle-configuration`, `awslocal sqs receive-message`) for the object store and queue; a
+  scratch database of the project's engine with its migrations applied for the retention job. DigitalOcean
+  Spaces' lifecycle supports Expiration and AbortIncompleteMultipartUpload and nothing else (provider docs,
+  verified 2026-07-13 per the research pass): a transition rule is not a fix there.
+- **Lints** (V572, V574, V577, V589): the owning detector's own grep, narrowed to the class, is the
+  failing-first test; it is committed as a CI step (`rg` over the workflow, runbook or Markdown paths,
+  exit non-zero on a hit) so the guardrail cannot silently return.
+- **Bill lanes** (V589, UE-1…4): `python3 -I -B .claude/skills/unit-cost-probe/scripts/bill-lane.py
+  <subcommand> <export.csv>` — `columns` first (the cost column read: `EffectiveCost` by default, never a
+  silent fall-back), then `attribution`, `split` (rate / usage / mix between two periods) or `commitments`;
+  `--self-test` covers the arithmetic. Exit 2 on an unreadable file. It never writes beside the input.
+
+### Class variants (FinOps)
+
+A fix passes the class only when every variant the configuration presents passes the oracle, and the
+control the precedents exempt is unchanged.
+
+#### V570. Budget plan assertion (`guardrail-scan` §1–§3)
+- every billing scope (each account, project, subscription root and each runbook-created account); a budget created by a module (walk `module_calls`); both rule types (FORECASTED below 100 %, ACTUAL at 100 %); every notification's recipient — an e-mail list, a topic with an `aws_sns_topic_subscription`, a GCP channel, `disable_default_iam_recipients = true` with no channel; a shared no-reply alias
+- pass: every scope bounded and heard; an org-level budget cited by account id (`precedents/finops.md` § 9) and a DigitalOcean runbook line with its read-back (§ 10, Hardening "console-only") are the controls
+
+#### V571. Anomaly plan assertion (`guardrail-scan` §4)
+- no monitor; one monitor over the account total; a DIMENSIONAL monitor over another dimension; a subscription with an absolute threshold above every service's spend; a subscription with no subscriber
+- pass: a per-service (or per-category) monitor with a relative threshold and a live subscriber; a provider with no anomaly API prints `N/A`, never a pass
+
+#### V572. Estimate-step lint (`guardrail-scan` §5)
+- a workflow applying IaC with no estimate step; an estimate step on other paths or triggers than the apply; a step marked `continue-on-error` that nobody reads; a monorepo with several IaC roots and one step
+- pass: the step runs on every applied root and trigger; a DigitalOcean, Helm or Pulumi repo prints `N/A (no supported estimator)` (§ 26)
+
+#### V573. Non-prod policy test (`guardrail-scan` §6)
+- a staging or preview namespace with no `ResourceQuota` or `LimitRange`; a preview root with no TTL tag and no destroy job; a non-prod node pool, Cloud Run service or ScaledObject with min > 0 and no off-hours schedule; an over-quota pod; a TTL-less preview manifest
+- pass: rejected by the policy test; a prod floor bought for availability (§ 5) and a local `kind` or compose env (§ 12) are the controls
+
+#### V574. Suppression expiry (`guardrail-scan` §7)
+- `amtool silence add --duration=8760h` (or an `--end` months out, or a silence re-added on a schedule — the CLI default is 1h); a silence object whose `endsAt` is past the team's maximum window; a cost or budget alert rule commented out; a snooze with no end; an anomaly subscription threshold no service can reach
+- pass: every suppression ends within the team's maximum window; an inhibit rule that encodes topology on equal labels is the control (§ 11)
+
+#### V575. Tag walk (`allocation-scan` §1, §2)
+- a resource with per-resource tags only; a provider with no `default_tags`; a module-created resource; a key spelled `Team` and `team`; a value `production` where the policy allows `prod`; a GCP resource with `labels` missing a key
+- pass: every taggable resource carries the keys and allowed values; untaggable types (§ 14) are counted as such, never as untagged
+
+#### V576. Label walk (`allocation-scan` §3)
+- labels on the Deployment's metadata but not its pod template; a CronJob whose job template lacks them; a namespace with only Pod Security labels; one env overlay that drops a label transformer; a kustomize `labels` transformer without `includeTemplates: true`
+- pass: every pod template and namespace in every env carries the keys; a single-product cluster is Hardening until a second owner shares it (§ 13)
+
+#### V577. Runbook create lint (`allocation-scan` §4)
+- a single-line create; a create split over `\` continuations; a create inside a shell script; a create in a Markdown table row (prose, dropped); a `--project-id` without `--tag-names` where the policy needs the tag
+- pass: every create line carries the flag the policy names; which axis the DigitalOcean invoice groups by (tag or project) is read from the policy, never assumed
+
+#### V578. Cap stub (`spend-path-scan` §1)
+- every paid dependency (LLM, SMS, WhatsApp/Graph, maps, e-mail, geocoding); every entry point that reaches it (route, job, consumer, cron); the cap read before the call, not after; a call made through a second client that bypasses the wrapper; a retry path after the cap
+- pass: zero provider calls at the cap from every entry point and one alert event; per-tenant credit metering alone fails (§ 16); a provider-side hard cap read back clears to Hardening (§ 15)
+
+#### V579. Unit counter scrape (`spend-path-scan` §2)
+- a successful call; a provider-billed failure (a 4xx the provider charges, a partial stream); a call from a background job with no request context; a second client instance
+- pass: the counter equals N with dependency, tenant and feature labels; a provider dashboard exported and cited is the control
+
+#### V580. Provider cap read-back (`spend-path-scan` §3)
+- the cap error at the first call, mid-stream and in a batch job; the generic retry wrapper around the client; a workspace or user limit answering a different status than the org cap
+- pass: the limit, its value and its read-back are written down (`T`, never more than Hardening from files); the cap error is surfaced once and never retried
+
+#### V581. Fake-timer call budget (`spend-path-scan` §4, §6)
+- every scheduler style in the stack (`@Cron`/`@Interval`, `setInterval`, `node-cron`, BullMQ `every` / `upsertJobScheduler`, Celery beat, APScheduler, `@Scheduled(fixedRate)`, `robfig/cron`, a CronJob `schedule`, a KEDA `pollingInterval` on a billed scaler) × the prod replica count × calls per run; a `while (true)` / `for {}` around a billed call with no delay; the webhook configured and not configured
+- pass: ≤ the declared budget; a schedule against a flat-rate store prints contention (§ 1); an outbox relay or lease renewal (§ 17) and a blocking long-poll inside the loop (§ 18) are the controls
+
+#### V582. Long-poll assertion (`spend-path-scan` §5)
+- a receive with no `WaitTimeSeconds`; with 0; a queue whose Terraform `receive_wait_time_seconds` is absent (default 0) while the client omits it; boto3, AWS SDK v3, Go and Java clients; `sqs-consumer` options
+- pass: every receive waits ≥ 1 s; a busy queue with a documented sub-second latency need is the control
+
+#### V583. Lifecycle read-back (`storage-growth-scan` §1)
+- every area or prefix the store wrapper exposes (exports, temp uploads, generated reports, thumbnails); a rule scoped to another prefix; a rule set by an operator and written down with its read-back (Hardening, § 19); a delete path that runs only on success
+- pass: the app's prefix expires or is deleted with the boundary kept; a prefix that is the product's record is a business rule — asked, never expired by the fix (§ 20); personal data routes the retention half to security
+
+#### V584. Abort-rule assertion (`storage-growth-scan` §2)
+- `@aws-sdk/lib-storage` `Upload`; `CreateMultipartUploadCommand`; boto3 `upload_file` above its multipart threshold; a bucket in another root; a prefix-scoped abort rule that misses the multipart prefix
+- pass: every multipart target aborts incomplete uploads; R2 and MinIO differences read from the provider's dated page before reporting
+
+#### V585. Retention boundary (`storage-growth-scan` §3)
+- every append-only table with an insert path (events, delivery logs, outbox, idempotency keys, webhook deliveries); a job defined but never registered; a job that deletes without a bound; partitions created and never dropped; a TTL index on the wrong field
+- pass: older rows removed, younger kept, the schedule registered; ledgers, invoices and audit trails kept by law are the control (§ 21); the job's locks and batching are § Data's
+
+#### V586. Disk cap (`storage-growth-scan` §4)
+- a file logger with no rotation; a per-request temp file never removed; a writer `emptyDir` with no `sizeLimit`; a PVC a job appends to
+- pass: rotation or refusal past the cap; an `emptyDir` on a pod that restarts often is the control
+
+#### V587. CDN host and redirect (`egress-trace` §1, §2)
+- every public URL builder (media, avatars, attachments rendered in pages and e-mails); a presigned GET handed to browsers for public media; a download route piping `GetObjectCommand` to the reply, `StreamableFile`, `res.pipe`, `sendFile`; a range request
+- pass: public areas on the CDN host; downloads redirect to a short-lived signed URL after authorisation; private, low-volume presigned downloads are the control (§ 22)
+
+#### V588. Region and host parity (`egress-trace` §3, §4)
+- every deployed env file and render; SDK client `region` literals; bucket, database and cache endpoints; a service calling its sibling through the public hostname; a public origin used to build links (control, § 23); a commented `.env.example` or DR replica region (control, § 24)
+- pass: one region per hot path and internal names service to service
+
+#### V589. Provenance and reconciliation (`candidate-pricing` §4; bill lanes)
+- every Markdown file with a money figure, `ai/runbooks` and ADRs included; a figure in a table row whose caption carries the date (read by hand); a figure quoted from a bill line with its period (sourced); an export with two currencies; a partial period; mis-tagged rows; untaggable lines
+- pass: every figure dated or sourced; the four attribution categories sum to the total and the allocation branches plus unallocated sum to the bill, per currency, to the minor unit; a figure's **value** is never corrected from memory — it gets a date and a re-read
+
+### Sources (FinOps)
+
+The finops research catalog (2026-10-19) § 1–§ 5 and its two notes (tools, IaC, Kubernetes,
+DigitalOcean, budget APIs and FOCUS; code and config cost classes, LLM spend, agents, precedents) give the
+classes, the techniques (plan-JSON and render walks, runbook-as-IaC lints, schedule × replicas × billing
+model, per-prefix object accounting, flat-rate detection first, reconciliation as the oracle when no test
+can run), the precedents and the per-class variants above. Provider facts as dated there: the Terraform
+AWS provider docs for `aws_budgets_budget` and `aws_ce_anomaly_*` (read 2026-10-19); DigitalOcean Spend
+Alerts control-panel only (GA 2026-08-05) and Spaces lifecycle limits (verified 2026-07-13); Amazon SQS
+short and long polling; Anthropic and OpenAI spend-limit error codes (read 2026-10-19); Infracost v2.17.0
+(2026-09-30) and v0.10.46 (2026-09-25) login, network and provider coverage; Trivy telemetry since v0.63.
+The batch-8 finops eval (2026-10-19) § 3.5 gives the oracle list and the range V570–V589. Paraphrased; no
+text reproduced.
 
 ---
 

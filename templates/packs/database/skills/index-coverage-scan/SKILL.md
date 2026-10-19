@@ -36,7 +36,7 @@ Read the engine, its version and the ORM version from the files (grep 0 in § "P
 | **Postgres** (raw `REFERENCES`) | migrations / `*.sql` | **No.** The docs call one "often a good idea"; nothing creates it | `pg_dump --schema-only` of a migrated scratch DB |
 | **MySQL / MariaDB (InnoDB)** | migrations | **Yes.** It creates one leading with the FK columns, and may drop it later when a composite leading with them appears (`ai/patterns/indexing-strategy.md` § "Foreign keys — the engines differ, and the advice inverts"). §1 is `N/A` | `mysqldump --no-data` |
 | **SQLite** | migrations | No. FKs are enforced only where `PRAGMA foreign_keys=ON` | `sqlite3 db .schema` |
-| **MikroORM** (NestJS, Fastify, Express) | `@Index()` / `@Unique()` on the entity, `addSql()` in TS migrations | **Postgres: no.** Read in `@mikro-orm/postgresql` 6.6.16 source on 2026-10-02: `indexForeignKeys()` returns `false`, so `@ManyToOne` gets no index. Other SQL drivers inherit `true`. 7.x is current: dump to confirm | `npx mikro-orm schema:create --dump` |
+| **MikroORM** (NestJS, Fastify, Express) | `@Index()` / `@Unique()` on the entity, `addSql()` in TS migrations | **Postgres: no.** Read in `@mikro-orm/postgresql` 6.6.16 source on 2026-10-02: `indexForeignKeys()` returns `false`, so `@ManyToOne` gets no index. Other SQL drivers inherit `true`. 7.x is current: dump to confirm | `npx --no mikro-orm schema:create --dump` |
 | **TypeORM** | `@Index()`, `queryRunner.query()` | Postgres: no (`@ManyToOne` / `@JoinColumn`) | `typeorm schema:log -d <data-source>` against an empty scratch DB (it prints the diff against the live database, so only an empty one yields the full DDL) |
 | **Prisma** | `@@index`, `@@unique`, `@id`, `@unique` | Postgres: no. With `relationMode = "prisma"`, "no indexes are created" (Prisma docs, read 2026-10-02) | `prisma migrate diff --from-empty --to-schema <schema.prisma> --script` with the project's pinned `prisma` binary, not an unpinned `npx prisma` (6.x: `--to-schema-datamodel`) |
 | **Drizzle / Knex / Sequelize** | `index()` in the table builder / `.index()` / `indexes:` | Postgres: no | `drizzle-kit generate`; read the migration SQL |
@@ -366,9 +366,9 @@ index-coverage-scan — lanes: postgres 16 (docker-compose.yml:9), mikro-orm 6.6
 
 Findings: 3   (Verification: 9 candidates → 3 findings · 3 unconfirmed · 2 hardening · 0 pre-existing · 1 refuted)
 
-1. src/db/queries.js:19 · orders                                   [report-with-fix]  high
+1. src/data/order-reads.js:19 · orders                              [report-with-fix]  high
    §2 SELECT * FROM orders WHERE customer_id = $1 ORDER BY created_at DESC — only orders_tenant_idx (tenant_id)
-   exists (src/db/schema.sql:31). GET /admin/customers/:id/orders (src/routes/admin.js:26); orders grows per
+   exists (migrations/0004_orders.sql:31). GET /admin/customers/:id/orders (src/http/customers.js:26); orders grows per
    tenant. Measured: EXPLAIN (ANALYZE) on a generate_series seed at the row estimate → Seq Scan, Rows Removed
    by Filter ≫ rows. Fix: (customer_id, created_at DESC) after the worth-it verdict → /add-migration
    (CONCURRENTLY). DB-12 · DATA-5 · CWE-1067

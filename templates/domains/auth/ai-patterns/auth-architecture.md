@@ -339,7 +339,7 @@ Reset link works repeatedly or after the password already changed. Single-use, e
 
 - `<rules-path>/auth-discipline.md` — the hard-rule list (AuthN/AuthZ split, hashing, sessions, tokens, MFA, OAuth, rate-limit, IDOR, lifecycle).
 - `<commands-path>/audit-access-control.md` — IDOR / authorization-coverage audit (endpoint × actor × ownership-check at `<path:line>`).
-- `<agents-path>/auth-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/auth-review.md` — review gate enforcing this pattern.
 - `<rules-path>/webhook-signature-verification.md` — constant-time compare + secret hygiene (shared discipline).
 - `<patterns-path>/payment-integration.md` — server-as-source-of-truth analogue (never trust client amount ↔ never trust client role / scope).
 - `<adr-path>/<NNN>-auth-session-strategy.md` — ADR pinning session-vs-JWT, token TTLs, MFA policy, identity provider.

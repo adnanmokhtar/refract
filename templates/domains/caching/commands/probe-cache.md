@@ -78,4 +78,4 @@ Top recommendation:
 
 - `.claude/rules/caching-discipline.md` — the hard-rule list this command enforces (scoped key, bounded TTL + jitter, invalidate-on-write, stampede protection, no cached authz, fail-open).
 - `ai/patterns/cache-aside.md` — the scoped key builder + singleflight/lock read-through + invalidation shapes this probe checks against.
-- `<agents-path>/caching-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/caching-review.md` — review gate that consumes these findings.

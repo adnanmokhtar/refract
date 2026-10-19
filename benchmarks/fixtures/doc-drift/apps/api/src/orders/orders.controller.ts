@@ -1,0 +1,39 @@
+import { Body, Controller, Get, Header, Param, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+
+import { CreateOrderDto } from './dto/create-order.dto';
+import { ListOrdersQuery } from './dto/list-orders.query';
+import { OrdersService } from './orders.service';
+
+@ApiTags('orders')
+@Controller('orders')
+export class OrdersController {
+  constructor(private readonly ordersService: OrdersService) {}
+
+  @Get()
+  list(@Query() query: ListOrdersQuery) {
+    return this.ordersService.list(query.cursor, query.limit);
+  }
+
+  @Post()
+  create(@Body() body: CreateOrderDto) {
+    return this.ordersService.create(body);
+  }
+
+  @Get('export')
+  @ApiOperation({ deprecated: true, summary: 'Use GET /v1/reports/monthly?format=csv' })
+  @Header('Content-Type', 'text/csv')
+  exportCsv() {
+    return this.ordersService.exportCsv();
+  }
+
+  @Get(':id')
+  get(@Param('id') id: string) {
+    return this.ordersService.get(id);
+  }
+
+  @Post(':id/cancel')
+  cancel(@Param('id') id: string) {
+    return this.ordersService.cancel(id);
+  }
+}

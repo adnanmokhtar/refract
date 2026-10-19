@@ -1,0 +1,5 @@
+# Dates
+
+- Dates cross the API as strings.
+- Dates are serialised as epoch milliseconds.
+- The web app formats dates in the user locale.

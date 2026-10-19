@@ -1,6 +1,8 @@
 ---
 name: secret-scan-method
 description: Scan the repo including git history for leaked secrets — API keys, tokens, private keys, credentials. Run before any first push to a public remote, immediately after a committed-`.env` event, in CI on every PR, and as a quarterly full-history sweep. This skill is the detection primitive; `/secret-scan` is the remediation session that owns rotation playbooks, the history scrub and the persisted report.
+kind: skill
+pack: security
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -21,7 +23,7 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
 
 ## Prerequisites
 
-- One of: `gitleaks` (preferred), `trufflehog`, `detect-secrets` (`brew install gitleaks` / `pip install detect-secrets`).
+- One of: `gitleaks` (preferred), `trufflehog`, `detect-secrets`, already installed — the audit never installs one; none present → NOT-INSTALLED, to enable: `brew install gitleaks` / `pipx install detect-secrets`.
 - Optional: a committed `.gitleaksignore` allow-list for known false positives.
 - A second engine is a cross-check, not a requirement. A single-engine run is complete when every hit is either prefix-classified (§ What to look for) or read and classified by hand. Say which engine ran, and record a missing second engine on the report's scope line.
 
@@ -73,6 +75,14 @@ Find real leaks, no hand-waves. Every finding cites the commit SHA + `<path:line
    rg -n --pcre2 '^\s*(ARG|ENV)\s+\w*(TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIALS?|AUTH)\w*' -g '*Dockerfile*' -g '*.dockerfile' -g '*Containerfile*' -g '!**/node_modules/**' .
    ```
    Read each listed file: a value is a finding, while a `${VAR}` reference or a template is not. An `ARG` consumed by `RUN --mount=type=secret` is the safe form; an `ENV` of it in the final stage is the leak.
+
+   **AI context files** (the learning pack's KN-34 handover): a secret in a file an agent loads every session is pasted into every model context and transcript, so it is critical even when the repo is private. A tree scan misses a gitignored `CLAUDE.local.md`, so scan the list by path:
+   ```bash
+   i=0; rg --files --hidden --no-ignore -g '**/{CLAUDE,CLAUDE.local,AGENTS,GEMINI}.md' -g '**/.cursor/rules/**' -g '**/.cursorrules' \
+     -g '**/.github/copilot-instructions.md' -g '**/.github/instructions/**' -g '**/ai/**/*.md' -g '**/.claude/**/*.md' -g '!**/node_modules/**' . |
+   while IFS= read -r f; do i=$((i + 1)); gitleaks dir "$f" --redact --no-banner --report-format json --report-path "$SCAN/ctx-$i.json" >/dev/null 2>&1; done
+   ```
+   The host memory directory (`~/.claude/projects/<encoded>/memory/`) is outside the repo: scan it only when the user passes it (learning decision O-3). Measured 2026-10-19 on `benchmarks/fixtures/stale-knowledge` (gitleaks 8.30.1): 45 context files, 1 hit, the seeded `generic-api-key` at `ai/runbooks/local-dev.md:8`.
 5. Cross-check entropy on suspect files with a second engine. In trufflehog v3 the path is positional, `--directory` is deprecated, and `--results=verified` replaces the hidden `--only-verified`:
    ```bash
    trufflehog filesystem . --results=verified --json | jq '.'

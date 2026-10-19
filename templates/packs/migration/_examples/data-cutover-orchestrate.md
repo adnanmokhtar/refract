@@ -271,8 +271,8 @@ GOOD:  … --count '*' --sum subtotal_amount,tax_amount,total_amount --min total
 ### 4. Backfill transform differs from the live transform (DM-4)
 
 ```
-BAD:   const doc = { ...mapInvoice(row), issued_at: row.issued_at };      (the sync overrides the mapper's zone conversion)
-GOOD:  const doc = mapInvoice(row);
+BAD:   const doc = { ...invoiceToDoc(row), issued_at: row.issued_at };    (the sync overrides the mapper's zone conversion)
+GOOD:  const doc = invoiceToDoc(row);
 ```
 **Read the code.** Do the backfill and the sync, CDC sink or dual write call the **same** mapper? If one spreads the mapper and overrides a field, what does the override lose: a zone conversion, lower-casing, an enum map? Two mappers with one name (DC4b) are two transforms. **Finding when** one source row yields two different V2 rows depending on the path. **Proof:** V376, the same row through both paths compared structurally.
 
@@ -280,7 +280,7 @@ GOOD:  const doc = mapInvoice(row);
 
 ```
 BAD:   id: randomUUID(),                    (no legacy_id: every e-mailed /tickets/123 link 404s)
-       number: formatInvoiceNumber(row.id, row.issued_at)    (the legal number printed on issued invoices changes)
+       number: buildInvoiceNo(row.id, row.issued_at)         (the legal number printed on issued invoices changes)
 GOOD:  id: randomUUID(), legacy_id: row.id,   ·   number: row.number
 ```
 **Read the code.** Where do V1 ids and business numbers leave the system: V1 routes with `{ticket}` (read the V1 route file), e-mails, PDFs, a payment provider, partner files? Does V2 resolve the old form (a unique `legacy_id` and a lookup; an ADR that keeps old links)? Is a business number regenerated from the row id rather than copied? **Finding when** an id or number a client already holds no longer resolves, or changes. **Proof:** V377, every old id form through V2.
@@ -307,10 +307,10 @@ GOOD:  @scoped.SoftDeletable() on Order   ·   a partial unique index … where 
 
 ```
 BAD:   preflight checks orphans on invoice_lines, ticket_messages, wallet_transactions — not order_lines, the one V1 left without an FK
-       const rows = checks.dedupeBy(batch, r => r.email.toLowerCase());      (the second account's user silently disappears)
-GOOD:  assertNoOrphans(source, 'order_lines', 'order_id', 'orders')   ·   failOnDuplicates(batch, …, 'users.email')
+       const rows = checks.uniqBy(batch, r => r.email.toLowerCase());        (the second account's user silently disappears)
+GOOD:  requireNoOrphans(source, 'order_lines', 'order_id', 'orders')   ·   failOnDuplicates(batch, …, 'users.email')
 ```
-**Read the code.** Which constraints does V2 add that V1 never enforced (`DC8a`, `DC8b` from the two schema rows)? For each one, is there a counted pre-load check with a decision per class: repair, map, drop with a record? Or does the load drop rows silently (`dedupeBy`, `ON CONFLICT DO NOTHING` on a natural key, `INSERT IGNORE`, an `INSERT … SELECT` that inserts nothing for an orphan)? `DO NOTHING` on the row's own V1 id is idempotence, not a drop. **Finding when** V1 rows that violate the new constraint are lost or rejected with no count and no decision. **Proof:** V379, orphans per FK and duplicates per natural key (also under `lower()`), counted before the load.
+**Read the code.** Which constraints does V2 add that V1 never enforced (`DC8a`, `DC8b` from the two schema rows)? For each one, is there a counted pre-load check with a decision per class: repair, map, drop with a record? Or does the load drop rows silently (`uniqBy`, `ON CONFLICT DO NOTHING` on a natural key, `INSERT IGNORE`, an `INSERT … SELECT` that inserts nothing for an orphan)? `DO NOTHING` on the row's own V1 id is idempotence, not a drop. **Finding when** V1 rows that violate the new constraint are lost or rejected with no count and no decision. **Proof:** V379, orphans per FK and duplicates per natural key (also under `lower()`), counted before the load.
 
 ### 9. Sequence or identity not reset (DM-9)
 
@@ -354,16 +354,16 @@ Readiness: orders BLOCK (§12 re-backfill, §10 write fence) · invoices BLOCK (
            wallets BLOCK (§11 no reverse path, §2 guard) · tickets BLOCK (§1, §5) · stock BLOCK (§12)
 Findings: 24 (4 shown) · Unconfirmed: 1
 
-1. v2/deploy/flags/cutover.yaml:28                                 [report-with-fix]  blocker
+1. v2/deploy/flags/read-switch.yaml:28                             [report-with-fix]  blocker
    §10 invoices.read_from = v2 with requires: [] — no checkpoint, no reconcile; the only invoices check is count-only
-   (scripts/reconcile/validate.sh:14). V1 still owns invoice writes (v1/routes/api.php:30). Proof: V381.
+   (scripts/reconcile/compare-counts.sh:14). V1 still owns invoice writes (v1/routes/api.php:30). Proof: V381.
    Fix: requires backfill.invoices.checkpoint_complete + reconcile.invoices.green.
-2. v2/scripts/backfill/wallets.backfill.ts:20                       [report-with-fix]  blocker
+2. v2/scripts/backfill/wallet-balances.ts:20                        [report-with-fix]  blocker
    §2 ON CONFLICT … DO UPDATE SET balance_minor … with no WHERE guard; CDC applies V1 balances during the run
-   (deploy/cdc/wallets-cdc.yaml:5). Money. Proof: V374 live update between read and write. Fix: WHERE wallets.updated_at < EXCLUDED.updated_at.
+   (deploy/cdc/wallet-stream.yaml:5). Money. Proof: V374 live update between read and write. Fix: WHERE wallets.updated_at < EXCLUDED.updated_at.
 3. ai/runbooks/cutover-wallets.md:10                                [report-with-fix]  blocker
    §11 rollback = flip back; no reverse path, no point of no return; the orders runbook has both (cutover-orders.md:12,16).
-4. v2/deploy/pgloader/ledger.load:9                                 [report-flagged]   high
+4. v2/deploy/pgloader/journal.load:9                                [report-flagged]   high
    §6 session zone UTC; V1 writes naive Asia/Riyadh (v1/config/app.php:11). Unproven link: no seeded-drift run.
    Settling probe: V375 with one posted_at row on a scratch copy.
 

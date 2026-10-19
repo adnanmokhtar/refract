@@ -92,7 +92,7 @@ A public-API bug is not a 500 a user retries — it is a silent, simultaneous br
 ## Enforcement
 
 - `<commands-path>/audit-api-contract.md` (slash: `/audit-api-contract`) — enumerates public endpoints at `<path:line>` and audits versioning, breaking-change/deprecation handling, key scope/hashing/rotation, pagination + unbounded lists, error-envelope consistency, internal-field/PII overexposure, idempotency on POST, per-key rate limit, and OpenAPI coverage/drift — cite-or-halt, never an assumed contract.
-- `<agents-path>/public-api-reviewer.md` — review gate hard-failing on model-to-wire overexposure, breaking changes without a version + deprecation window, plaintext/unscoped/non-revocable keys, unbounded lists, envelope drift, missing idempotency, missing per-key rate limit, OpenAPI drift, unauthorized PII, and unvalidated bodies.
+- `.claude/lenses/public-api-review.md` — review gate hard-failing on model-to-wire overexposure, breaking changes without a version + deprecation window, plaintext/unscoped/non-revocable keys, unbounded lists, envelope drift, missing idempotency, missing per-key rate limit, OpenAPI drift, unauthorized PII, and unvalidated bodies.
 - CI MUST run a contract diff (e.g. `oasdiff`) of the OpenAPI spec against the previous spec and FAIL on a breaking change not accompanied by a version bump.
 - CI MUST assert spec ↔ surface coverage: every registered public route is in the spec, and every spec path resolves to a route (no drift, no undocumented endpoint).
 - CI lint MUST reject a public response built by serializing an ORM entity directly (AST heuristic: `res.json(<repo-result>)` / `return <entity>` from a public controller) — public responses go through a DTO mapper.

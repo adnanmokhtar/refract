@@ -78,7 +78,7 @@ Read before deciding the context the owners need once: the route table, the clie
 
 ## Proof — existence by bytes, cost by statistics
 
-1. **Bytes per route (run-invariant).** Build for production twice on the same commit; the bytes must match exactly, and base and head on the same lockfile give an exact delta with no noise band. The commands — the Vite manifest walk (entry closure, then what each lazy route adds), Next.js 16.1+ `npx next experimental-analyze --output`, `size-limit --json` for any bundler — are [`proof-oracles.md`](../../../snippets/proof-oracles.md) § "Bytes per route". Label: `measured (brotli, <tool@version>, <sha>)`; raw or "stat" sizes are not the number users pay.
+1. **Bytes per route (run-invariant).** Build for production twice on the same commit; the bytes must match exactly, and base and head on the same lockfile give an exact delta with no noise band. The commands — the Vite manifest walk (entry closure, then what each lazy route adds), Next.js 16.1+ `npx --no next experimental-analyze --output`, `size-limit --json` for any bundler — are [`proof-oracles.md`](../../../snippets/proof-oracles.md) § "Bytes per route". Label: `measured (brotli, <tool@version>, <sha>)`; raw or "stat" sizes are not the number users pay.
 2. **Lab (cost, noisy).** Through `lighthouse-ci` on the production build (`vite preview` / `next start`, never a dev server): `numberOfRuns: 5`, median-run, mobile and desktop, Lighthouse 12 audit ids (LHCI 0.15.1 bundles Lighthouse 12.6.1) — [`proof-oracles.md`](../../../snippets/proof-oracles.md) § "Lighthouse median". Measure the band first (three re-runs of the unchanged build, each a 5-run median); a delta inside it is `NO-CHANGE`. One Lighthouse run (±5–10 points) is not evidence (`precedents/performance.md` § 51). Trace insights localise a defect and confirm the fix (§ "Trace insight"); they never measure cost.
 3. **Field (cost, truth).** `web-vitals-field`: p75 per route over the CrUX window of 28 days, so a field "after" needs 28 days of post-deploy traffic. **INP is field-only**; lab INP and TBT are proxies. **Soft navigations:** Chrome 151 (New in Chrome 151, 2026-07-28) shipped the `soft-navigation` and `interaction-contentful-paint` entry types, and `web-vitals` reports per-route vitals with `reportSoftNavs: true` in Chromium 151+ only. CrUX has published no timeframe for including them (web.dev, *How SPA architectures affect Core Web Vitals*, updated 2026-08-11). So route-change vitals come from the project's own RUM, Chromium-only — not a cross-browser guarantee; elsewhere, mark route boundaries with `performance.mark` around the router's start and end events.
 
@@ -102,7 +102,7 @@ Lab: lighthouse-ci 5-run median, mobile; band ±4 pts (3 re-runs)   Field: RUM p
 1. src/app/layout.tsx:3  B1 initial bytes  [report-with-fix]  Medium (1.4× budget)
    `import { LineChart } from 'recharts'` in the shared layout: entry 233.1 KB br vs budget 170 (measured).
    Proof: bytes per route; moving it behind the /reports route chunk → entry 171.4 KB br (measured, same build).
-   Siblings: 2 more shared-layout imports of chart modules (src/app/Sidebar.tsx:12, src/app/Header.tsx:40).
+   Siblings: 2 more shared-layout imports of chart modules (src/app/NavRail.tsx:12, src/app/Header.tsx:40).
 2. src/lib/analytics.ts:41  I3 third-party  [report-flagged]  Medium — Unconfirmed
    Tag manager injected on load before consent; main-thread share unknown. Probe: LHCI `third-party-summary` on /.
 (findings 3–4 omitted)

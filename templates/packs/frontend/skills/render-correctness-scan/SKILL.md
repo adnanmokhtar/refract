@@ -50,7 +50,7 @@ Lint lane, React (the other lanes take the same shape with their ids): run the *
 
 ```bash
 # ROOTS as computed by the first line of § Pre-flight greps — run in the same shell, after it.
-npx eslint -f json --rule '{"react-hooks/purity":"error","react-hooks/refs":"error","react-hooks/immutability":"error","react-hooks/set-state-in-render":"error","react-hooks/set-state-in-effect":"error","react-hooks/static-components":"error","react-hooks/globals":"error","react-hooks/use-memo":"error","react-hooks/preserve-manual-memoization":"error","react-hooks/error-boundaries":"error","react-hooks/no-deriving-state-in-effects":"error","react-hooks/unsupported-syntax":"warn","react-hooks/incompatible-library":"warn"}' "${ROOTS[@]}" > "${TMPDIR:-/tmp}/rc-lint.json"
+npx --no eslint -f json --rule '{"react-hooks/purity":"error","react-hooks/refs":"error","react-hooks/immutability":"error","react-hooks/set-state-in-render":"error","react-hooks/set-state-in-effect":"error","react-hooks/static-components":"error","react-hooks/globals":"error","react-hooks/use-memo":"error","react-hooks/preserve-manual-memoization":"error","react-hooks/error-boundaries":"error","react-hooks/no-deriving-state-in-effects":"error","react-hooks/unsupported-syntax":"warn","react-hooks/incompatible-library":"warn"}' "${ROOTS[@]}" > "${TMPDIR:-/tmp}/rc-lint.json"
 jq -r '.[] | .filePath as $f | .messages[] | select((.ruleId // "") | test("^react-hooks/|^@eslint-react/web-api/|^react/(jsx-key|no-array-index-key)$")) | "\($f):\(.line) \(.ruleId)"' "${TMPDIR:-/tmp}/rc-lint.json" | sort | uniq -c | sort -rn | head -40
 ```
 
@@ -212,7 +212,7 @@ The oracle per class, failing first and green after the fix ([`proof-oracles.md`
 
 1. **Render count** (§1) — § "Render count" in the frontend section; StrictMode off, or halve the count.
 2. **Mount/unmount balance** (§2) and **reorder identity** (§3) — § "Mount/unmount balance, reorder identity, request order"; variants V108 and V109.
-3. **Heap leak (memlab)** (§2 across routes) — § "Heap leak (memlab)", variant V53: a scenario with `url`, `action` and `back`, then `npx memlab analyze unbound-object` or `detached-DOM` for the retainer trace.
+3. **Heap leak (memlab)** (§2 across routes) — § "Heap leak (memlab)", variant V53: a scenario with `url`, `action` and `back`, then `npx --no memlab analyze unbound-object` or `detached-DOM` for the retainer trace.
 4. **Heap slope with a plateau check** (§2 across routes, Chromium) — § Accessibility and UI states, *Heap slope*, variant V113: on the **production** build, 3 warm-up then 20 measured A → B → A cycles with GC before each CDP sample. Finding when the heap slope exceeds max(64 KB, 0.5 % of the first sample) per cycle with R² ≥ 0.8 and nodes or listeners non-decreasing; a second-half slope under 10 % of the first is a cache warming up, Refuted.
 5. **Console warning** (§1 loops, §5) — § Accessibility and UI states, *Console warning*, variant V119 (§5; the §1 update loops have no variant of their own): `vi.spyOn(console, 'error')` or `page.on('console')`, failing on the framework's message.
 6. **View update** (§4) — § Accessibility and UI states, *View update*, variant V118: change the state through the real action and assert the rendered text changes (Angular `fakeAsync` + one `detectChanges()`, Vue `nextTick()`, Svelte 5 `flushSync()`).

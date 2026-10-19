@@ -279,18 +279,18 @@ GOOD:  UTC for the process and the schedule · an explicit timeZone at a time ou
 
 ```
 coordination-scan coverage — scope=whole repo  stacks=ioredis ^5.4.2, @nestjs/schedule ^6.1.3, uuidv7 ^1.2.1 (apps/api/package.json) · Redis: Valkey (managed) UNREAD
-Inventory: 22 acquisitions (21 SET … NX, 1 pg_advisory_xact_lock) · atomic release helper: apps/api/src/outbox/leader-lock.ts:20 · TZ: unset (UTC)
+Inventory: 22 acquisitions (21 SET … NX, 1 pg_advisory_xact_lock) · atomic release helper: apps/api/src/outbox/lease.ts:20 · TZ: unset (UTC)
 
 Findings: 0 · Unconfirmed: 2 · Hardening: 2
 
-1. apps/api/src/shared/scheduling/leader-lock.ts:13                                          Refuted
+1. apps/api/src/shared/scheduling/lease.ts:13                                                Refuted
    §1 LK-1 — every scheduled lock goes through one helper whose release is an atomic Lua compare-and-delete (and extend a
    compare-and-pexpire), pinned by a spec; an earlier copy had nine crons doing GET → compare → DEL (precedent 21).
 2. apps/api/src/billing/storage-billing-daily.job.ts:66                                      Refuted
    §4 4f — a 30-minute fixed TTL, no renewal, around a pass over every tenant. Read: each tenant's posting takes
    pg_advisory_xact_lock then reads the ledger under it, and a unique index on the posted period backstops a second pass
    (precedent 19: a lock outliving the work is efficiency only once the effect is idempotent in the store).
-3. apps/api/src/outbox/outbox.relay.ts:116                                                   Hardening
+3. apps/api/src/outbox/relay.worker.ts:116                                                   Hardening
    §4 LK-4 — extend() result dropped in the relay loop; the effect is an advisory websocket push (precedent 19). Owner: dual-write-scan §3.
 4. apps/api/src/outbox/outbox-consumer.ts:160                                                Hardening
    §8 CK-2 — a UUIDv7 floor at now − 30 s on the consumer host against ids minted on every writer: skew > 30 s delays an event to the

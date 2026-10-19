@@ -5,5 +5,10 @@
   "released": "2026-06-11",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "Initial baseline.",
+  "reviewer": "schema-reviewer",
+  "reviewer_pack": "database",
+  "fallback": "code-reviewer",
+  "role": "data-reviewer",
+  "lens": "lenses/data-pipeline-review.md"
 }

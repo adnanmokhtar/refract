@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "aws --region eu-west-1 ecs update-service --cluster prod --service api --force-new-deployment"}}

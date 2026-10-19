@@ -112,11 +112,14 @@
     },
     {
       "title": "Business Logic",
-      "description": "Funnel completion, cross-feature business-cycle coverage, and pricing/billing/tax correctness.",
+      "description": "Money rules, tax documents, ledgers, reports, lifecycle graphs and cross-feature business-cycle coverage.",
       "skills": [
-        "audit-funnel-completion",
         "check-business-coverage",
-        "pricing-tax-audit"
+        "ledger-scan",
+        "lifecycle-scan",
+        "pricing-rule-scan",
+        "report-scan",
+        "tax-invoice-scan"
       ]
     },
     {

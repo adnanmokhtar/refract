@@ -122,7 +122,7 @@ def decs_before(m, s, close):
     for dm in re.finditer(r'@([\w.]+)\s*(\()?', m[lo:s]):
         a = lo + dm.start()
         e = close(m, lo + dm.end() - 1) + 1 if dm.group(2) else lo + dm.end()
-        cands.append((a, e, dm.group(1).split('.')[-1]))   # @scoped.AccountScoped() -> AccountScoped
+        cands.append((a, e, dm.group(1).split('.')[-1]))   # @scoped.OwnerScoped() -> OwnerScoped
     out, cur = [], s
     for a, e, name in reversed(cands):
         if e > cur:
@@ -1760,7 +1760,7 @@ def lane_scope(root, h, ctx):
     ix = index(root, h, ctx)
     C, rls = consts(root, h, ctx), rls_tables(root, h, ctx)
     glob, alias = [], {}
-    for f in ix['files'].values():   # export const AccountScoped = () => Filter({ name: 'account', ..., default: true })
+    for f in ix['files'].values():   # export const OwnerScoped = () => Filter({ name: 'account', ..., default: true })
         for am in re.finditer(r'\bconst\s+(\w+)\s*=\s*\([^)]*\)\s*=>\s*Filter\s*\(', f.m):
             a = am.end() - 1
             alias[am.group(1)] = '@Filter' + f.t[a:h.close(f.m, a) + 1]
@@ -1874,7 +1874,7 @@ def money_area(h, cls, rel, meth):
 
 
 def lane_money(root, h, ctx):
-    """Rounding on money paths, keyed by area. Modes flow up the call graph (a caller of `roundHalfAway(x, 2)` or
+    """Rounding on money paths, keyed by area. Modes flow up the call graph (a caller of `roundMoney(x, 2)` or
     `this.placement.place()` inherits their modes), and a row is emitted only for the outermost money function:
     one called by another function is a helper, so V1's controller and V2's controller pair on the call target,
     whatever the helpers are named. Browser-app files are display rounding (precedent § 11), counted and left out."""
@@ -2013,7 +2013,7 @@ _ST = {
         "import { Module } from '@nestjs/common';\nimport { APP_GUARD } from '@nestjs/core';\n"
         "@Module({ providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }, { provide: APP_GUARD, useClass: AccountKindGuard }] })\n"
         "export class AppModule {}\n"),
-    'src/auth/jwt-auth.guard.ts': "export class JwtAuthGuard extends AuthGuard('jwt') {}\n",
+    'src/auth/jwt.guard.ts': "export class JwtAuthGuard extends AuthGuard('jwt') {}\n",
     'src/auth/account-kind.guard.ts': (
         "export class AccountKindGuard implements CanActivate {\n  constructor(private readonly reflector: Reflector) {}\n"
         "  canActivate(ctx: ExecutionContext) {\n    const kinds = this.reflector.getAllAndOverride<string[]>(ACCOUNT_KIND_KEY, [ctx.getHandler()]);\n"
@@ -2039,7 +2039,7 @@ _ST = {
         "  @Get()\n  @RequirePermission(ORDER_PERMISSIONS.view)\n  list() {\n    return [];\n  }\n\n"
         "  @Get('open')\n  @RequireAnyPermission(...OPENERS)\n  open() {\n    return [];\n  }\n\n"
         "  @Post()\n  @RequirePermission(ORDER_PERMISSIONS.edit)\n  create() {\n    return this.place.execute();\n  }\n}\n"),
-    'src/orders/place-order.use-case.ts': (
+    'src/orders/submit-order.use-case.ts': (
         "export class PlaceOrder {\n  constructor(private readonly outbox: OutboxPort) {}\n\n"
         "  async execute() {\n    await this.outbox.emit(ORDER_EVENTS.CREATED, { id: 1 });\n    return 1;\n  }\n}\n\n"
         "export const ORDER_EVENTS = { CREATED: 'order.created' } as const;\n"),
@@ -2047,7 +2047,7 @@ _ST = {
         "export const INTERESTED: readonly string[] = ['order.created'];\n\n"
         "export class OrderNotificationConsumer {\n  constructor(private readonly em: EntityManager) {}\n\n"
         "  async handle(event: { type: string }) {\n    this.em.create(MerchantNotificationEntity, { type: event.type });\n  }\n}\n"),
-    'src/jobs/audit-retention.job.ts': (
+    'src/jobs/audit-prune.job.ts': (
         "export class AuditRetentionJob {\n  @Cron('0 0 3 * * *')\n  async prune() {\n    return;\n  }\n}\n"),
     'src/jobs/outbox-retention.job.ts': (
         "export class OutboxRetentionJob {\n  @Cron('0 5 * * *')\n  async prune() {\n    return;\n  }\n}\n"),
@@ -2055,7 +2055,7 @@ _ST = {
         "export class DomainError extends Error {}\nexport class ConflictError extends DomainError {\n"
         "  constructor(text: ErrorText = {}) {\n    super(text.message ?? 'conflict');\n  }\n}\n\n"
         "export function defineMessages(prefix: string, catalog: object) {\n  return catalog;\n}\n"),
-    'src/shared/all-exceptions.filter.ts': (
+    'src/shared/global-errors.filter.ts': (
         "@Catch()\nexport class AllExceptionsFilter {\n  catch(exception: unknown) {\n"
         "    if (exception instanceof ConflictError) {\n      return { status: HttpStatus.CONFLICT };\n    }\n    return { status: 500 };\n  }\n}\n"),
     'src/orders/order.messages.ts': "export const ORDER_MESSAGES = defineMessages('ORDER', {\n  LOCKED: { message: 'locked' },\n});\n",

@@ -1,0 +1,15 @@
+# dev runs the offline proofs in duckdb; prod is the BigQuery project
+larkmoor:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('DUCKDB_PATH', 'larkmoor.duckdb') }}"
+      threads: 1
+    prod:
+      type: bigquery
+      method: oauth
+      project: larkmoor-analytics
+      dataset: analytics
+      location: EU
+      threads: 8

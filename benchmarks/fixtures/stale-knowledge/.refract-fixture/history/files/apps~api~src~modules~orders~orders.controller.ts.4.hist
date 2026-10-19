@@ -1,0 +1,97 @@
+import { Body, Controller, Get, Header, Param, Post, Query } from '@nestjs/common';
+import { CreateOrderInput, ListOrdersQuery } from '@orderly/contracts';
+import { ResponseMapper } from '../../shared/http/response.mapper';
+import { PlaceOrderUseCase } from './application/place-order.use-case';
+import { OrdersService } from './orders.service';
+
+@Controller('orders')
+export class OrdersController {
+  constructor(
+    private readonly orders: OrdersService,
+    private readonly placeOrder: PlaceOrderUseCase,
+    private readonly mapper: ResponseMapper,
+  ) {}
+
+  @Post()
+  async create(@Body() input: CreateOrderInput) {
+    return this.mapper.toResponse(await this.placeOrder.execute(input));
+  }
+
+  @Get('exports/1.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch1(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/2.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch2(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/3.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch3(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/4.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch4(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/5.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch5(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/6.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch6(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/7.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch7(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/8.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch8(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/9.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch9(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return page.items.map((o) => [o.id, o.status, String(o.totalMinor)].join(',')).join('\n');
+  }
+
+  @Get('exports/10.csv')
+  @Header('content-type', 'text/csv')
+  async exportBatch10(@Query() query: ListOrdersQuery) {
+
+  @Get()
+  async list(@Query() query: ListOrdersQuery) {
+    const page = await this.orders.list(query);
+    return { items: page.items.map((o) => this.mapper.toResponse(o)), next: page.next };
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.mapper.toResponse(await this.orders.get(id));
+  }
+}

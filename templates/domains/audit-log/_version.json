@@ -5,5 +5,9 @@
   "released": "2026-06-10",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "Initial baseline.",
+  "reviewer": "security-auditor",
+  "reviewer_pack": "security",
+  "role": "security-reviewer",
+  "lens": "lenses/audit-log-review.md"
 }

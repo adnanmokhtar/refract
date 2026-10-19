@@ -69,7 +69,7 @@ Decisions waiting to be made. Cross-link `ai/dynamic/decisions-pending.md`.
 | ADR is merged | Add link in `Recent Changes`; if it changed status quo, note in `Overview` |
 | Major dependency upgrade | `Recent Changes` block + tech-debt entry if migration is in flight |
 | Phase / sprint transition | Update `Overview § Phase` + `Up next` |
-| Incident postmortem | Note in `Recent Changes` + cross-link `ai/failures/<NNNN>.md` |
+| Incident postmortem | Note in `Recent Changes` + cross-link its `### <date> — <slug>` entry in `ai/failures/_index.md` |
 
 `/setup-project --refresh` regenerates the `Updated:` line and the file's structural anchors but PRESERVES every existing `### <Change title>` block (append-only; never rewrite history).
 

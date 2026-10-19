@@ -1,0 +1,15 @@
+# Dispatch-graph ratchet — scripts/lint-dispatch-graph.sh (Track B Phase 6, PLAN.md §5.2)
+#
+# One ceiling per check. D1 (dangling), D2 (retired agent still named) and D5 (lens wiring) are 0 and
+# stay 0: a change that retires or renames an agent updates every reference in the same change. D3
+# (unguarded cross-pack @agent) and D4 (a dispatch line naming no artifact) were set at what the tree
+# measured when the lint landed (2026-10-19, p6-b1: D3 103 → 102 and D4 192 → 192 after the domain
+# lenses landed and Step 1 was reverted) and may only fall — lower a line with `--record` when they do; raising one is a
+# decision argued in the diff.
+#
+# FORMAT  <check> <ceiling>
+D1 0
+D2 0
+D3 102
+D4 192
+D5 0

@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/vuln-fullstack · defect VFS-FILE-01 (api/src/media/downloads.controller.ts:39) · decoy VFS-DECOY-02 (line 56)
+# resources/: byte copies of api/src/media/downloads.controller.ts (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-path-traversal
+context:
+  add_dirs: [resources]

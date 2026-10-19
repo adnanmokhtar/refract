@@ -119,7 +119,7 @@ A large diff is almost always one root cause.
 1. **Prefix sanity first.** More than half the V1 keys V1-ONLY *and* half the V2 keys V2-ONLY is the normaliser, not the port: add the `prefix:` row the ledger suggests, or re-run with the `--routes` build of `dto-types.py` (precedents § 23). Nothing is triaged before that.
 2. **Group by wiring row.** `cut -f2,3,4,5 "$OUT/candidates.tsv" | sort | uniq -c` (lane · diff · key · attr), then by V1 controller or route group, then by attr. One V1 global middleware or group missing in V2 is **one finding with N sites** (precedents § 27): `GLOBAL trim_strings on yes→no` covers every string field; a `role:admin` group covers every route in it; a vocabulary rename (`view.order` ↔ `orders:view`) is one `pair-map` question, not N rows.
 3. **Read in this order:** I-AUTHZ and I-SCOPE (guarantee classes), the `GLOBAL` rule rows, enum stored values, then write routes in I-ROUTES, then I-ERR, I-CONF and the rest.
-4. **Close a group with one checked reason** (`6 V1-ONLY web.php pages: each path is in apps/web/src/routes.tsx — UI class, parity-auditor Section 0`). Write routes, guards and tenant rows are never bulk-closed by name.
+4. **Close a group with one checked reason** (`6 V1-ONLY web.php pages: each path is in apps/web/src/app-routes.tsx — UI class, parity-auditor Section 0`). Write routes, guards and tenant rows are never bulk-closed by name.
 5. **Ledger the rest** as `Live, unreviewed (k groups / n rows)` with the command that continues it; never `checked`.
 
 ## Scans for
@@ -178,9 +178,9 @@ GOOD:  V2  @Permissions('orders:view')  ·  @Roles('agent', 'admin')  ·  or an 
 ### 5. Tenant or owner scope lost (MG-AZ-3)
 
 ```
-BAD:   V1  #[ScopedBy([AccountScope::class])] class Ticket          V2  @Entity tickets with no @AccountScoped filter
+BAD:   V1  #[ScopedBy([AccountScope::class])] class Ticket          V2  @Entity tickets with no @OwnerScoped filter
        V1  StockItem booted() addGlobalScope('account', …)          V2  execute('select … from stock_items where sku = ?')   (raw SQL: no filter applies)
-GOOD:  V2  @scoped.AccountScoped() on the entity  ·  where account_id = ? and sku = ?  on every raw statement
+GOOD:  V2  @scoped.OwnerScoped() on the entity  ·  where account_id = ? and sku = ?  on every raw statement
 ```
 **Read both ends.** Which V1 tables carry a tenant or owner scope (the I-SCOPE rows, SP3b policy bodies)? On V2, which read paths reach that table — the ORM (does the filter default on, and is it enabled for this request?), a base repository, **raw SQL** (SP5 lists the statements with no tenant column), a report or export job (where V1 also bypassed it with `withoutGlobalScopes()` on purpose)? **Finding when** a V2 path returns or changes another tenant's row. **Proof:** V359 — the cross-tenant cell: V1 404, V2 200. Owner: security, when installed.
 
@@ -228,13 +228,13 @@ surface-parity-scan — paired · laravel 11.31.0 → nest 11.0.6 (fastify) · c
 
 Findings: 3 · Unconfirmed: 1 · routed → security: 2
 
-1. v2/apps/api/src/wallets/wallets.controller.ts:25                [report-with-fix]  blocker → security
-   §3 widening — POST /api/wallets/{}/adjust: V1 permission:wallets.adjust (v1/routes/api.php:40); V2 handler has no
+1. v2/apps/api/src/credits/credits.controller.ts:31                [report-with-fix]  blocker → security
+   §3 widening — POST /api/credits/{}/adjust: V1 permission:credits.adjust (v1/routes/api.php:40); V2 handler has no
    @Permissions and PermissionsGuard returns true without metadata (common/permissions.guard.ts:11). No gateway rule.
-   Proof: V359 clerk 403 → 201. Fix: @Permissions('wallets:adjust').
-2. v2/apps/api/src/configure-app.ts:5                              [report-with-fix]  high
+   Proof: V359 clerk 403 → 201. Fix: @Permissions('credits:adjust').
+2. v2/apps/api/src/app-setup.ts:7                                  [report-with-fix]  high
    §7 GLOBAL trim_strings / empty_to_null yes→no — v1/bootstrap/app.php:20; registerInputNormalization() (common/
-   http-setup.ts:13) is never called; tickets opt in (the control). One finding, every string field outside tickets.
+   boot-pipes.ts:13) is never called; tickets opt in (the control). One finding, every string field outside tickets.
    Proof: V361 "  PO-1 " stored untrimmed, "" stored for a nullable. Fix: call it in configureApp.
 3. v2/apps/api/src/orders/orders.controller.ts:45                  [report-flagged]   high
    §1 POST /api/orders/{}/duplicate dropped — v1/routes/api.php:27; OrdersService.duplicate exists, no handler.

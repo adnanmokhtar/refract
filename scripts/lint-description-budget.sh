@@ -106,6 +106,7 @@ QUIET  = os.environ["QUIET"] == "1"
 PRINT  = os.environ["PRINT"] == "1"
 TARGET = os.environ["TARGET"]
 G, P, S = (int(os.environ[k]) for k in ("G", "P", "S"))
+AGENT_DESC_MAX = int(os.environ.get("AGENT_DESC_MAX", "300"))
 
 def out(m):
     if not QUIET: print(m)
@@ -266,6 +267,14 @@ for f in ALL:
         fail("%s: description is %d chars, over the %d single-artifact budget"
              % (os.path.relpath(f, ROOT), n, S))
 
+# AGENT — every agent description ≤ AGENT_DESC_MAX (proposal §8.6: ≤300 chars, trigger first). An
+# agent's description is listed on every session that installs it, and routing reads only its head.
+for f in files("templates/**/agents/*.md", "templates/repo-baseline/.claude/agents/*.md"):
+    n = len(scalar(description(f)))
+    if n > AGENT_DESC_MAX:
+        fail("%s: agent description is %d chars, over the %d agent cap (trigger first; the rest "
+             "belongs in the body)" % (os.path.relpath(f, ROOT), n, AGENT_DESC_MAX))
+
 # GLOBAL
 gtot = sum(len(description(f)) for f in files("commands/*.md"))
 if gtot > G:
@@ -284,6 +293,22 @@ for pack, n in per.most_common():
 frontdoor_check()
 
 # INSTALL SET — derive each fixture install the way /setup-project does, then simulate.
+def agent_listing(packs):
+    """The agents listing an install carries (PLAN.md §0.1): repo-baseline agents (Phase 4.1), then
+    each pack's agents in apply order, first claim wins (phase-4.2-apply.md; a same-name different
+    file is a COLLISION there, so it can only be a no-op here). Cost per agent, as
+    check-rule-budget.sh --target counts it: len(name) + 2 + len(description) + 1 chars."""
+    seen, chars = {}, 0
+    srcs = sorted(glob.glob(os.path.join(ROOT, "templates/repo-baseline/.claude/agents/*.md")))
+    for p in packs:
+        srcs += sorted(glob.glob(os.path.join(ROOT, "templates/packs", p, "agents", "*.md")))
+    for f in srcs:
+        n = os.path.basename(f)[:-3]
+        if n in seen: continue
+        seen[n] = f
+        chars += len(scalar(field(f, "name")) or n) + 2 + len(scalar(description(f))) + 1
+    return len(seen), chars
+
 def install_set(packs):
     ents, cmd_files, skills = [], {}, set()
     for f in files("commands/*.md"):                                  # globals (user scope)
@@ -321,17 +346,25 @@ try:
         line = line.split("#", 1)[0].strip()
         if not line: continue
         parts = [x.strip() for x in line.split("|")]
-        if len(parts) != 4:
-            fail("%s: malformed row `%s` — want <install>|<packs>|<max visible>|<max truncated>"
+        if len(parts) not in (4, 5):
+            fail("%s: malformed row `%s` — want <install>|<packs>|<max visible>|<max truncated>[|<max agent chars>]"
                  % (os.path.basename(os.environ["INSTALL_FILE"]), line)); continue
-        rows.append((parts[0], [x for x in parts[1].split(",") if x], int(parts[2]), int(parts[3])))
+        pk = [x for x in parts[1].split(",") if x]
+        # delivery is always-on and applied FIRST (detect-tracks.sh; phase-4.2-apply.md § Track order).
+        if "delivery" not in pk: pk = ["delivery"] + pk
+        rows.append((parts[0], pk, int(parts[2]), int(parts[3]),
+                     int(parts[4]) if len(parts) == 5 and parts[4] else None))
 except OSError:
     fail("scripts/_install-set-baseline.txt is unreadable — the install-set ratchet has no installs")
 
 sim_lines = []
-for name, packs, cap_vis, cap_tr in rows:
+for name, packs, cap_vis, cap_tr, cap_ag in rows:
     missing = [p for p in packs if not os.path.isdir(os.path.join(ROOT, "templates/packs", p))]
     ents, g_names = install_set([p for p in packs if p not in missing])
+    n_ag, ag_chars = agent_listing([p for p in packs if p not in missing])
+    if cap_ag is not None and ag_chars > cap_ag:
+        fail("install `%s`: the agents listing is %d chars (%d agents, ~%d tok), over its ratchet %d"
+             % (name, ag_chars, n_ag, ag_chars // 4, cap_ag))
     res, nraw, nnod, nb = three_ways(ents)
     lv = res["levels"]
     if lv[0] > cap_vis:
@@ -343,6 +376,8 @@ for name, packs, cap_vis, cap_tr in rows:
     gl = three_ways([e for e in ents if e[0] in g_names])[0]["levels"]
     sim_lines.append("  install %-18s %3d entries (%d D, %d A, %d B)  globals-only %d chars"
                      % (name, nraw, nraw - nnod, nnod - nb, nb, gl[0]))
+    sim_lines.append("    agents  %3d listed, %5d chars (~%d tok)%s"
+                     % (n_ag, ag_chars, ag_chars // 4, "" if cap_ag is None else "  ratchet %d" % cap_ag))
     for k in ("raw", "D-only", "levels"):
         v, dmd, tr = res[k]
         sim_lines.append("    %-7s visible %5d / demand %6d  %s target %d  truncated %3d: %s"

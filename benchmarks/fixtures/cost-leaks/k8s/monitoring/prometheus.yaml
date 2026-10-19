@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: Prometheus
+metadata:
+  name: quaywise
+  labels:
+    app.kubernetes.io/name: prometheus
+    team: platform
+spec:
+  replicas: 1
+  retention: 15d
+  retentionSize: 18GB
+  scrapeInterval: 30s
+  serviceMonitorSelector:
+    matchLabels:
+      release: quaywise
+  ruleSelector:
+    matchLabels:
+      release: quaywise
+  alerting:
+    alertmanagers:
+      - name: alertmanager-operated
+        port: web
+  storage:
+    volumeClaimTemplate:
+      spec:
+        storageClassName: gp3
+        resources:
+          requests:
+            storage: 20Gi

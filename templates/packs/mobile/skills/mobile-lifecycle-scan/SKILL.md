@@ -324,7 +324,7 @@ Findings: 2 · Unconfirmed: 1
    confirms foregroundServiceType="dataSync". Started from BootReceiver (Services.kt:39), which Android 15 forbids.
    Fix: override onTimeout(startId, fgsType) { stopSelf() }; move the boot path to WorkManager.
 
-3. flutter_app/lib/main.dart:6                                                  [report-flagged]    high
+3. flutter_app/lib/push/background.dart:6                                          [report-flagged]    high
    §6 background handler not invocable in release — anonymous closure passed to onBackgroundMessage.
    Unproven link: no release build on a device. Settling run: release build, data-only high-priority send while terminated.
    Fix: a top-level function annotated @pragma('vm:entry-point').

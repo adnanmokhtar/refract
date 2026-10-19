@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quill-rag
+  labels: { app: quill-rag }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: quill-rag }
+  template:
+    metadata:
+      labels: { app: quill-rag }
+    spec:
+      containers:
+        - name: rag
+          image: registry.quilldesk.example/rag:2.8.0
+          ports: [{ containerPort: 8000 }]
+          env:
+            - { name: ANSWER_MODEL, value: "claude-sonnet-5-5" }
+            - { name: EXTRACT_MODEL, value: "claude-sonnet-5-5" }
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://otel-collector.observability:4318" }
+            - { name: OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT, value: "true" }
+            - { name: LANGSMITH_TRACING, value: "true" }
+            - { name: LANGSMITH_PROJECT, value: "quill-rag-prod" }
+          envFrom:
+            - secretRef: { name: quill-rag }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: quill-rag
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+spec:
+  rules:
+    - host: rag.quilldesk.example
+      http:
+        paths:
+          - { path: /, pathType: Prefix, backend: { service: { name: quill-rag, port: { number: 8000 } } } }

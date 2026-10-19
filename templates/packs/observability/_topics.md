@@ -208,6 +208,27 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { always: true }
   fallback: commands/obs-fix.md   # the source IS the fallback, as for db-fix, frontend-fix and mobile-fix; a skeleton would drop the oracle-tier order, the silencing grep, the who-gets-paged STOP line and the security canary re-run
 
+- name: add-slo
+  kind: command
+  triggers: { always: true }   # defining the first SLO is the job on a repo that has none (slo-audit's bootstrap)
+  extracts_from: _extracted-codebase.md § Observability (metrics client, rule surfaces, SLO specs and generator) + ai/runtime/slos.md
+  sections: [premise, when_to_use, inputs, understand, lane, retrieve, generate, update, validate, output, halts, related]
+  fallback: commands/add-slo.md   # the source IS the fallback; slo-audit stays the single writer of ai/runtime/slos.md
+
+- name: investigate-incident
+  kind: command
+  triggers: { always: true }
+  extracts_from: _extracted-codebase.md § Observability (log, metric and trace sources) + ai/runtime/deploys.md + ai/runbooks/
+  sections: [premise, when_to_use, inputs, understand, hypotheses, fan_out, adjudicate, update, validate, output, halts, hard_rules, related]
+  fallback: commands/investigate-incident.md   # the source IS the fallback; >=3 hypotheses and the hook-persisted reviews/hypotheses.json are the contract
+
+- name: postmortem
+  kind: command
+  triggers: { always: true }
+  extracts_from: ai/runs/<run>/incident.md + reviews/hypotheses.json + ai/runtime/deploys.md + ai/runtime/slos.md
+  sections: [premise, when_to_use, inputs, facts, document, proofs, action_items, seeded_defect, update, validate, output, hard_rules, related]
+  fallback: commands/postmortem.md   # the source IS the fallback; owner + date + red proof per action item and one seeded defect are the contract
+
 - name: telemetry-config-scan
   kind: skill
   triggers:

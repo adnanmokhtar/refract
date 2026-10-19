@@ -329,5 +329,5 @@ A job that dies at row 3M and restarts from row 0 either never finishes or doubl
 - `<patterns-path>/queue-producer-consumer.md` — async job + worker semantics (idempotency, resumability, DLQ) for report jobs and scheduled reports.
 - `<patterns-path>/payment-integration.md § Money` — integer-minor-unit money type for monetary columns.
 - `<commands-path>/profile-report-query.md` — profile a specific report query (plan, row count, replica targeting, tenant predicate).
-- `<agents-path>/reporting-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/reporting-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-reporting-read-store.md` — ADR pinning the read replica / analytics store + the snapshot/freshness contract.

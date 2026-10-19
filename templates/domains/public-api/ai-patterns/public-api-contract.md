@@ -341,5 +341,5 @@ Jumping to `/v2` for an additive optional field forces a pointless migration on 
 - `<rules-path>/webhook.md` — the outbound-events twin: signed, versioned, retried delivery; the same deprecation/versioning discipline applies to event payloads.
 - reporting — for large list/export endpoints, reuse the keyset-pagination + async-job + streaming contract instead of paging a synchronous request.
 - `<commands-path>/audit-api-contract.md` — enumerate + audit the live public surface against this pattern.
-- `<agents-path>/public-api-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/public-api-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-public-api-versioning.md` — ADR pinning the versioning scheme, deprecation window, and breaking-change policy.

@@ -1,6 +1,6 @@
 ---
 description: Profile and optimize one query (SQL string or endpoint that owns it).
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /optimize-query <endpoint|sql>

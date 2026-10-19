@@ -214,7 +214,7 @@ Journeys: 6 critical (route list + read) · probes: 5 in repo · vendor inventor
 
 1. api/src/auth/auth.controller.ts:5  POST auth/password/reset             [report-flagged]    medium
    §1 — no probe target drives the reset journey. Settling: the vendor's synthetics test list.
-2. deploy/prometheus/prometheus.yml:9  job login-probe → /health           [report-with-fix]   high
+2. deploy/monitoring/scrape-config.yml:9  job login-probe → /health           [report-with-fix]   high
    §2 — the only login probe reaches a health route. Fix: a probe that posts to /auth/login on a test account; keep /health.
 3. deploy/prometheus/rules/synthetic.yml:4  LoginProbeFailing              [report-with-fix]   high
    §5 — ANDed with a 5xx rate: silent while internals are green. Proof: promtool fire test got [] (exit 1). Fix: drop the white-box clause.

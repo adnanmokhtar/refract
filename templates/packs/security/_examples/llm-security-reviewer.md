@@ -108,7 +108,7 @@ real system prompt in a privileged system message.
 src/agent/executor.py:40   while not done: ...            // no max_iterations, no cost cap
   → for i in range(MAX_ITERS): if spent>=BUDGET: raise; model.invoke(..., max_tokens=MAX_TOKENS)
 
-src/rag/retriever.py:9   vectorstore.similarity_search(query, k=8)   // no tenant/ACL filter
+src/rag/context_fetch.py:9   vectorstore.similarity_search(query, k=8)   // no tenant/ACL filter
   → filter={"tenant_id": ctx.tenant_id, "acl": {"$in": ctx.roles}}   (see @tenant-isolation-reviewer)
 ```
 

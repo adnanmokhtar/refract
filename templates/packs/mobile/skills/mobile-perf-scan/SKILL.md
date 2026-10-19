@@ -267,7 +267,7 @@ Roots: 6    Device: emulator-5554 (API 35, release build); no iOS simulator → 
 
 Findings: 3 · Unconfirmed: 1
 
-1. rn-app/src/perf/OrdersScreen.tsx:21                                         [report-with-fix]   high
+1. rn-app/src/screens/OrderListScreen.tsx:21                                    [report-with-fix]   high
    §1 orders (useQuery, paginated) rendered in a ScrollView with .map. Proof: Reassure measureRenders with 200 orders —
    render duration past THR-PERF-REGRESSION against the FlashList variant (10 runs a side; the delta and its interval are
    in .reassure/output.md). Fix (virtualize-list): FlashList, keyExtractor, no per-item key.

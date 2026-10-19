@@ -76,12 +76,12 @@ Every row gets one `proof_class` (batch-6 eval § 3.2; `align-sweep-gate.py` re-
 | a functional verb that adds a declared idiom (`add-gate` with the declared `<Can>`) | **FN** — proven by a behaviour test (V401) | — |
 
 Measured 2026-10-18 on `benchmarks/fixtures/web-dashboard`:
-- `#d92d20` (`orderstable.tsx:42`) looks up `EXACT --color-danger eq=yes` → EQ.
+- `#d92d20` (`invoicelist.tsx:42`) looks up `EXACT --color-danger eq=yes` → EQ.
 - `padding: '13px'` (`:39`) looks up `NEAREST --space-3=12px (1px)` with `xfam=--font-size-sm` → AL-06, VC. The answer key only asks `/align` to report it. Snapping it changes pixels, so it never closes without an approval.
 
 Measured 2026-10-18 on a staged copy of `benchmarks/fixtures/convention-drift`:
 - `align-sweep-gate.py --self-test --fix-runs=<fixture>/fix-runs` matches 14 of 14 seeded runs against their `.expect` (FAIL: run-01–04, 06, 08–12; PASS: run-05; PASS-flagged: run-06b with its approval; NOT RUN: run-07, the rule matching 0 files; pending-review: run-13), then the synthetic suite `29/29 OK`.
-- The four EQ seeds look up `EXACT … eq=yes` only with `--site`: `#d92d20` at `OrderStatusBadge.tsx` / `RefundForm.tsx` → `--color-danger`, `8px` in both CSS modules → `--space-2`. Without `--site`, admin's `--color-error` and `--gap-sm` hold the same values, each lookup has two candidates, and it prints eq=no. `13px` (`OrderTotals.tsx:8`) stays NEAREST with `xfam=--font-size-sm` → VC; `#1a73e9` NEAREST at 0.15 ΔE → VC.
+- The four EQ seeds look up `EXACT … eq=yes` only with `--site`: `#d92d20` at two component files → `--color-danger`, `8px` in both CSS modules → `--space-2`. Without `--site`, admin's `--color-error` and `--gap-sm` hold the same values, each lookup has two candidates, and it prints eq=no. `13px` (one component's font size) stays NEAREST with `xfam=--font-size-sm` → VC; `#1a73e9` NEAREST at 0.15 ΔE → VC.
 
 Then dispatch **`@align-idiom-auditor`** against the plan: no new symbol unnamed in the oracle, every added functional block cites an idiom that resolves, no oracle file in the scope. A `HALT — idiom inventory gap` stops the row before any edit exists.
 
@@ -203,7 +203,7 @@ find-and-align A047 — AL-05 replace-with-shared · proof_class EQ · oracle ai
   L1  approval     PASS   EQ — no approval needed
   L3  diffkind     PASS   1 file, value change
   L3  lock-paths   PASS   no test / snapshot / lint-config / oracle file
-  L4  scope        PASS   1 removed line = evidence orderstable.tsx:42; footprint 0
+  L4  scope        PASS   1 removed line = evidence invoicelist.tsx:42; footprint 0
   L5  redetect     PASS   '#d92d20' 1 → 0 in touched files
   L6  consistency  PASS   '#d92d20' → var(--color-danger) (1 key, 1 after)
   L7  names        PASS   --color-danger declared (src/styles/tokens.css:9)

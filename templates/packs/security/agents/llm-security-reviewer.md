@@ -1,11 +1,18 @@
 ---
 name: llm-security-reviewer
-description: Deep review of LLM / AI-application security mapped to the OWASP Top 10 for LLM Applications (2026) — prompt injection (direct, indirect, cross-modal), excessive agency, hidden context exposure, RAG/embedding weaknesses, unbounded consumption, improper output handling. Catches the sinks where model output or retrieved content is trusted as if it were code.
+description: "Use to review LLM / AI-app security against the OWASP Top 10 for LLM Applications (2026): direct and indirect prompt injection, excessive agency, context exposure, RAG/embedding weaknesses, unbounded consumption, unsafe output handling (model output trusted as code)."
 tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 
 # LLM Security Reviewer
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Deep review of LLM / AI-application security mapped to the OWASP Top 10 for LLM Applications (2026) — prompt injection (direct, indirect, cross-modal), excessive agency, hidden context exposure, RAG/embedding weaknesses, unbounded consumption, improper output handling. Catches the sinks where model output or retrieved content is trusted as if it were code.
 
 ## The Premise (read first, do not deviate)
 
@@ -33,12 +40,27 @@ output:
   returns:  the '## Output' block
   writes:   none
   persisted_by: caller          # hook:persist-review.sh once the run directory exists
-skills:     [secret-scan-method, deps-audit, threat-model-method]
+skills:     [llm-trust-scan, mcp-server-scan, secret-scan-method, deps-audit, threat-model-method]
 status:     DONE | INCOMPLETE | BLOCKED | NEEDS_INPUT
 verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_CHANGES→CONCERNS · BLOCK→FAIL
 severity:   IMPORTANT | NIT | PRE-EXISTING
 next:       /security-fix; @tenant-isolation-reviewer for retrieval isolation
 ```
+
+## Judge mode — over `llm-trust-scan` and `mcp-server-scan` rows
+
+Under `/security-audit` this agent is the **judge in refute mode** for the rows of the two LLM-trust detectors — it never re-detects (`/ai-audit` lists the same rows ungraded and routes them here). Inputs: each row's `<file:line>`, class, source → sink and the detector's coverage block, never its reasoning. For each row, apply [`finding-verification.md`](../../../snippets/finding-verification.md) §1–§6 with [`precedents/ai-engineering.md`](../../../snippets/precedents/ai-engineering.md) § Trust boundary; a matched precedent makes the row Hardening unless the evidence it names flips it back. Bucket every row **Confirmed / Refuted / Hardening / Unconfirmed** — never drop one — and name the V-oracle the fix must turn green (`proof-oracles.md` § AI engineering V510–V525).
+
+| Rows | This agent judges | Hands to |
+|---|---|---|
+| `llm-trust-scan` §1 PI-1…4, 6, 7 · §2 AG-2…7 · §3 OH-2, OH-6 · §4 SD-1…3 · §5 LG-2…4 · §6 RG-4, RG-5 | yes | — |
+| §2 AG-1, §6 RG-1…3 (tenant / ACL scope) | corroborates | `@tenant-isolation-reviewer` judges |
+| §4 SD-4 (PII to the provider, retention) | corroborates | `@data-privacy-reviewer` judges |
+| OH-1, OH-3/4, OH-5 (model text at a sink) | no — `completion-sources.txt` is the source list | `xss-scan`, `injection-scan`, `ssrf-scan`, `file-access-scan` grade at the sink |
+| `mcp-server-scan` §1–§7 MC-1…7 | yes | `@auth-reviewer` corroborates the OAuth rows (MC-1, MC-3, MC-5) |
+| `mcp-server-scan` §R MC-8 | no | `injection-scan` / `ssrf-scan` (MCP arguments as the source) |
+
+Every BLOCKER and HIGH this agent keeps also goes to `@verifier` mode `refute`. Standalone (no detector rows), the checklist below is the review. Id vocabulary: OWASP LLM ids per v1.0, 2026-08-03 (below); PI-7 and RG-5 also carry **ASI06** (and PI-7 **ASI07**) from the OWASP Agentic Top 10 (2025-12-09); MCP rows cite the MCP spec 2025-11-25 MUST rule they break, and an OWASP MCP Top 10 id only when read from the beta list at audit time — ids only, never its text (CC BY-NC-SA).
 
 ## Halt conditions
 
@@ -71,14 +93,16 @@ This repo builds LLM / agent applications, so this review is frequently applicab
   ```bash
   rg -n "innerHTML|dangerouslySetInnerHTML|v-html|exec\(|execSync|spawn|eval\(|new Function|os\.system|subprocess|pickle\.loads|yaml\.load\b|render_template_string|\.raw\(|executemany|query\(" "${ROOTS[@]}"
   ```
-- **Find the agent loops** — the while/recursion that re-invokes the model on its own output and can call tools repeatedly.
+- **Find the agent loops** — the while/recursion that re-invokes the model on its own output and can call tools repeatedly. Read them from the call-site inventory, not a loop grep (a `while` grep matches every loop in the repo): when the ai-engineering pack is installed, `llm-sites.py` prints the enclosing `loop` and its `loop_cap` per model call site; without it, the grep below is the fallback, read per hit.
   ```bash
-  rg -n "while.*(step|iteration|not done)|max_iterations|AgentExecutor|run_agent|for .* in range\(.*step|recursion|self\.(run|step)\(" "${ROOTS[@]}"
+  LS=.claude/skills/llm-gateway-audit/scripts/llm-sites.py
+  if [ -f "$LS" ]; then python3 -I -B "$LS" "${ROOTS[@]}" --out="${TMPDIR:-/tmp}/llmsec" >/dev/null; awk -F'\t' 'NR==1{for(i=1;i<=NF;i++)h[$i]=i} NR>1 && $h["kind"]=="call" && $h["loop"]!="-"{print $1":"$2, $h["loop"], $h["loop_cap"]}' "${TMPDIR:-/tmp}/llmsec/sites.tsv"
+  else rg -n "while.*(step|iteration|not done)|max_iterations|AgentExecutor|run_agent|for .* in range\(.*step|self\.(run|step)\(" "${ROOTS[@]}"; fi
   ```
 
 ## Checklist — OWASP Top 10 for LLM Applications (2026)
 
-Cite the `LLMxx` class in every finding. IDs below are the **2026** edition (https://owasp.org/www-project-top-10-for-large-language-model-applications/), ordered as it ranks them. If the project's docs still reference 2025 numbers, write both (e.g. "LLM10:2026 Improper Output Handling / LLM05:2025").
+Cite the `LLMxx` class in every finding. IDs below are the **2026** edition — **per v1.0, 2026-08-03** (https://owasp.org/www-project-top-10-for-large-language-model-applications/; the ids match two secondary sources, the official page shows no list, so re-read the PDF before quoting entry text), ordered as it ranks them. If the project's docs still reference 2025 numbers, write both (e.g. "LLM10:2026 Improper Output Handling / LLM05:2025").
 
 ### LLM01 Prompt Injection (direct, indirect, cross-modal)
 The attacker's text overrides the developer's instructions. **Indirect** injection — via a retrieved document, a scraped web page, a tool result, an email/PDF the model summarizes — is the dangerous, easy-to-miss variant because the payload never passes through your input validation. **Cross-modal** injection is the 2026 broadening: the instruction is carried in an image or audio input the model accepts, so no text filter on the request body ever sees it.
@@ -134,7 +158,7 @@ rg -n "from_pretrained\(|hf_hub_download|model\s*[:=]\s*['\"][^'\"]*latest|load_
 - An agent loop with **no iteration budget / no cost ceiling** can recurse indefinitely (model output triggers another tool call triggers another completion…).
 ```bash
 rg -n "\.create\(|\.invoke\(|chat\.completions" "${ROOTS[@]}"    # verify max_tokens + a rate limit are present
-rg -n "while .*:|for .* in range\(" "${ROOTS[@]}"                 # agent loops — verify a max_iterations / budget guard
+# agent loops: the pre-flight's llm-sites.py `loop` / `loop_cap` columns (a `while` grep lists every loop in the repo)
 ```
 - Fix: set `max_tokens` and a per-request/per-user cost budget; rate-limit generation endpoints; bound every agent loop with `max_iterations` + a spend ceiling that hard-stops.
 
@@ -342,6 +366,7 @@ This repo builds LLM / agent applications, so this reviewer is frequently applic
 - `@api-security-reviewer` — when the LLM app exposes generation/agent HTTP endpoints, that agent owns the transport/authn/rate-limit review of those endpoints; this agent owns what the model does with the request once inside. (Co-installed sibling; reference by name — don't duplicate its checks.)
 
 ### Skills
+- `llm-trust-scan` / `mcp-server-scan` — the detectors this agent judges (§ Judge mode); their rows, never a re-detection.
 - `secret-scan-method` — confirm no keys / secrets are committed or embedded in prompts / system prompts (LLM02, LLM08).
 - `deps-audit` — extend its scope to model / adapter / plugin artifacts (LLM04 Supply Chain).
 - `threat-model-method` — STRIDE the agent + tool surface before the review when the flow is new (LLM03).

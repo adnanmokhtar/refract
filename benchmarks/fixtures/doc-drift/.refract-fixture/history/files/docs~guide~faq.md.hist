@@ -1,0 +1,9 @@
+# FAQ
+
+## Which currencies are supported?
+
+EUR, GBP, USD, SAR and AED with two decimal places, JPY with none and KWD with three.
+
+## Can an invoice number change?
+
+No. A correction is a credit note with its own number in the same sequence.

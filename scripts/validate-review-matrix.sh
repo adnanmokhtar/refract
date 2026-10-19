@@ -70,6 +70,7 @@ while IFS=$'\t' read -r sfc art; do
       fi ;;
     *)
       if [ ! -f "$REPO_ROOT/templates/domains/$sfc/rules/$art.md" ] \
+         && [ ! -f "$REPO_ROOT/templates/domains/$sfc/lenses/$art.md" ] \
          && [ ! -f "$REPO_ROOT/templates/domains/$sfc/agents/$art.md" ]; then
         fail "named artifact does not resolve: $sfc/$art"; missing=1
       fi ;;
@@ -84,8 +85,8 @@ say "reverse — no artifact orphaned"
 # read. It deliberately does NOT cover cross-cutting packs (security, performance, testing, …):
 # those are axis-major, dispatched in wave B, and belong to no cell by design — demanding a cell
 # for them would force exactly the over-counting §4 refuses.
-find "$REPO_ROOT/templates/domains" \( -path '*/rules/*.md' -o -path '*/agents/*.md' \) 2>/dev/null \
-  | sed -e "s#^$REPO_ROOT/templates/domains/##" -e 's#/rules/#\'$'\t''#' -e 's#/agents/#\'$'\t''#' -e 's#\.md$##' \
+find "$REPO_ROOT/templates/domains" \( -path '*/rules/*.md' -o -path '*/agents/*.md' -o -path '*/lenses/*.md' \) 2>/dev/null \
+  | sed -e "s#^$REPO_ROOT/templates/domains/##" -e 's#/rules/#\'$'\t''#' -e 's#/agents/#\'$'\t''#' -e 's#/lenses/#\'$'\t''#' -e 's#\.md$##' \
   | sort -u > "$TMP/disk.tsv"
 orphan=0
 while IFS=$'\t' read -r dom art; do

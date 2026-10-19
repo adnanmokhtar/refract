@@ -15,12 +15,12 @@ Two independent signals per cell. **Neither is trustworthy alone**, which is why
 | Signal | Source | Precision | Recall |
 |---|---|---|---|
 | `curated` | the domain's row in `_registry.md` **What it ships** | high | **low** — alone it scored Observability 0/35 while 32 of 35 domain rule files discuss metrics/traces/alerts |
-| `fulltext` | the domain's `rules/` + `agents/` bodies, ≥ 3 matches | **low** | high — alone it scored 312/420 filled, noise (an early `log` pattern also matched `login`, `logic`) |
+| `fulltext` | the domain's `rules/` + `lenses/` bodies, ≥ 3 matches | **low** | high — alone it scored 312/420 filled, noise (an early `log` pattern also matched `login`, `logic`) |
 
 | State | Meaning | Count |
 |---|---|---|
-| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 361 / 468 (77%) |
-| ○ `proposed` | one signal only — **a review queue, not coverage**. A human must read it. | 0 / 468 (0%) |
+| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | 360 / 468 (76%) |
+| ○ `proposed` | one signal only — **a review queue, not coverage**. A human must read it. | 1 / 468 (0%) |
 | · `empty` | neither signal. No evidence of any material. **This is the deliverable.** | 101 / 468 (21%) |
 | – `n/a` | a `templates/concerns/` rule names this surface as having no meaningful fingerprint, **with a reason** | 6 / 468 (1%) |
 
@@ -81,7 +81,7 @@ subscriptions           ·   ●   ●   ·   ●   ●   ·   ●   ●   ●  
 webhook                 ●   ●   ●   ●   ●   ·   ●   ·   ●   ●   ●   ●
 workflow                ·   ·   ●   ●   ●   ●   ·   ●   ●   ·   ·   ●
 _database               ·   ●   ●   ●   ·   ●   ●   ·   ●   ●   ●   ●
-_deployment             ●   ●   ●   ●   ●   ●   ●   ●   ●   ·   ●   ●
+_deployment             ●   ●   ●   ●   ●   ●   ○   ●   ●   ·   ●   ●
 _routes                 ●   ●   ●   ●   ●   ●   ●   ●   ●   ●   ·   ●
 _screens                ●   ●   ●   ●   ·   ●   ●   ●   ●   ●   ●   ●
 ---------------------------------------------------------------------
@@ -123,13 +123,15 @@ could not tell a fingerprint from a passing mention, and reading found these.
 
 ### The `proposed` queue
 
-**Empty — every cell has been read.** `proposed` meant *one text signal fired and nobody
-looked*. All 242 were opened and judged in
-[`_review-decisions.md`](_review-decisions.md): 142 held up, 100 did not and moved to the
-empty column above.
+**1 cells.** One signal fired, no human has read them. Ranked by concern
+severity × queue length, so a reader can start where a single session buys the most:
 
-> A cell can only return to this state if a **new** surface or concern is added. The
-> triage proxies do not get a second vote on a cell a human has read.
+| Concern | Queued | Severity | Read first |
+|---|---|---|---|
+| **C7  Compliance** | 1 | 4 | `_deployment` |
+
+> Resolving one is a read: open the surface's material, decide whether it genuinely
+> addresses the concern, and record the verdict in `_review-decisions.md`.
 
 ---
 
@@ -146,9 +148,9 @@ the full-text signal. Same thresholds, same three states.
 
 | Structural surface | Packs read | Artifacts | Concerns backed by ≥2 |
 |---|---|---|---|
-| `_database` | `database`, `migration` | 22 | 6 / 12 |
-| `_deployment` | `infrastructure`, `devops` | 34 | 4 / 12 |
-| `_routes` | `backend` | 16 | 7 / 12 |
+| `_database` | `database`, `migration` | 28 | 6 / 12 |
+| `_deployment` | `infrastructure`, `devops` | 35 | 3 / 12 |
+| `_routes` | `backend` | 22 | 7 / 12 |
 | `_screens` | `frontend`, `mobile`, `ui-ux` | 63 | 9 / 12 |
 
 **Evidence strength is not symmetric with the domain half, and the grid does not pretend
@@ -167,49 +169,49 @@ here means **≥ 2 artifacts are individually about that concern**; one lone art
 
 ## 5. Artifacts behind the grid
 
-205 artifacts across 39 surfaces — domain files for the 35 signal surfaces,
+218 artifacts across 39 surfaces — domain files for the 35 signal surfaces,
 pack files (written `pack:name`) for the 4 structural ones. Every path is asserted to exist by
 `validate-review-matrix.sh`, in both directions — a renamed file breaks the build, and an
 artifact in no cell is reported.
 
 ```
-ab-testing            ab-testing-reviewer, ab-testing-discipline
-admin                 admin-reviewer, admin-backoffice-discipline
-ai                    prompt-reviewer, ai-cost-discipline
-analytics             analytics-reviewer, analytics-tracking-discipline
-audit-log             audit-log-reviewer, audit-log-discipline
-auth                  auth-reviewer, auth-discipline
-background-jobs       queue-reviewer, job-design
-caching               caching-reviewer, caching-discipline
-compliance            compliance-reviewer, data-retention
-data-pipeline         data-pipeline-reviewer, data-pipeline-discipline
-document-generation   document-generation-reviewer, document-generation-discipline
-event-sourced         event-store-reviewer, event-sourcing-discipline
-feature-flags         flag-reviewer, flag-discipline
-file-upload           upload-reviewer, upload-safety
-forms                 forms-reviewer, forms-discipline
-i18n                  i18n-reviewer, i18n-localization-discipline
-import                import-reviewer, import-ingest-discipline
-integrations          integrations-reviewer, integrations-sync-discipline
-ledger                ledger-reviewer, ledger-integrity-discipline
-media-processing      media-processing-reviewer, media-processing-discipline
-moderation            moderation-reviewer, moderation-discipline
-multi-tenant          tenant-isolation-reviewer, multi-tenancy
-notifications         notification-reviewer, notification-discipline
-payment               payment-reviewer, payment-idempotency
-public-api            public-api-reviewer, public-api-discipline
-rate-limiting         rate-limit-reviewer, rate-limit-discipline
-real-time             realtime-reviewer, realtime-discipline
-reporting             reporting-reviewer, reporting-export-discipline
-scheduling            scheduling-reviewer, scheduling-discipline
-search                search-reviewer, search-discipline
-settings              settings-reviewer, settings-config-discipline
-streaming-delivery    streaming-delivery-reviewer, streaming-delivery-discipline
-subscriptions         subscription-reviewer, subscription-billing-discipline
-webhook               webhook-reviewer, webhook-signature-verification
-workflow              workflow-reviewer, workflow-discipline
-_database             database:database-optimizer, database:query-optimizer, database:schema-architect, database:schema-reviewer, database:database-principles, database:connection-config-scan, database:index-coverage-scan, database:migration-rehearsal, database:migration-safety, database:n-plus-one-scan, database:query-shape-scan, database:schema-consistency-audit, database:schema-diff, database:schema-integrity-scan, database:transaction-scan, migration:migration-architect, migration:parity-auditor, migration:migration-discipline, migration:data-cutover-orchestrate, migration:extract-v1-contract, migration:parity-test-generate, migration:perf-uplift-survey
-_deployment           infrastructure:infra-architect, infrastructure:infra-reviewer, infrastructure:k8s-reviewer, infrastructure:kubernetes-architect, infrastructure:infra-principles, infrastructure:admission-policy, infrastructure:dns-tls-lifecycle-scan, infrastructure:dr-audit, infrastructure:edge-reliability-scan, infrastructure:iac-cost-scan, infrastructure:iac-lifecycle-scan, infrastructure:iac-state-scan, infrastructure:k8s-api-version-scan, infrastructure:k8s-audit, infrastructure:k8s-availability-scan, infrastructure:k8s-render-scan, infrastructure:k8s-wiring-scan, infrastructure:network-exposure-audit, infrastructure:serverless-reliability-scan, infrastructure:tf-plan-review, devops:ci-reviewer, devops:deployment-engineer, devops:devops-architect, devops:devops-principles, devops:compose-scan, devops:container-build-scan, devops:deploy-safety-scan, devops:gitops-audit, devops:monitor-deploy, devops:pipeline-cache-scan, devops:pipeline-integrity-scan, devops:progressive-delivery, devops:release-integrity-scan, devops:release-security
-_routes               backend:api-architect, backend:api-reviewer, backend:bug-investigator, backend:endpoint-tester, backend:websocket-engineer, backend:backend-principles, backend:concurrency-discipline, backend:migration-backend, backend:api-consistency-audit, backend:api-snapshot, backend:debug-tenant, backend:endpoint-test, backend:env-diff, backend:log-tail, backend:module-scaffold, backend:parallelize-independent-ops
+ab-testing            ab-testing-review, ab-testing-discipline
+admin                 admin-review, admin-backoffice-discipline
+ai                    ai-review, ai-cost-discipline
+analytics             analytics-review, analytics-tracking-discipline
+audit-log             audit-log-review, audit-log-discipline
+auth                  auth-review, auth-discipline
+background-jobs       background-jobs-review, job-design
+caching               caching-review, caching-discipline
+compliance            compliance-review, data-retention
+data-pipeline         data-pipeline-review, data-pipeline-discipline
+document-generation   document-generation-review, document-generation-discipline
+event-sourced         event-sourced-review, event-sourcing-discipline
+feature-flags         feature-flags-review, flag-discipline
+file-upload           file-upload-review, upload-safety
+forms                 forms-review, forms-discipline
+i18n                  i18n-review, i18n-localization-discipline
+import                import-review, import-ingest-discipline
+integrations          integrations-review, integrations-sync-discipline
+ledger                ledger-review, ledger-integrity-discipline
+media-processing      media-processing-review, media-processing-discipline
+moderation            moderation-review, moderation-discipline
+multi-tenant          multi-tenant-review, multi-tenancy
+notifications         notifications-review, notification-discipline
+payment               payment-review, payment-idempotency
+public-api            public-api-review, public-api-discipline
+rate-limiting         rate-limiting-review, rate-limit-discipline
+real-time             real-time-review, realtime-discipline
+reporting             reporting-review, reporting-export-discipline
+scheduling            scheduling-review, scheduling-discipline
+search                search-review, search-discipline
+settings              settings-review, settings-config-discipline
+streaming-delivery    streaming-delivery-review, streaming-delivery-discipline
+subscriptions         subscriptions-review, subscription-billing-discipline
+webhook               webhook-review, webhook-signature-verification
+workflow              workflow-review, workflow-discipline
+_database             database:database-optimizer, database:query-optimizer, database:schema-architect, database:schema-reviewer, database:database-principles, database:connection-config-scan, database:index-coverage-scan, database:migration-rehearsal, database:migration-safety, database:n-plus-one-scan, database:query-shape-scan, database:schema-consistency-audit, database:schema-diff, database:schema-integrity-scan, database:transaction-scan, migration:migration-architect, migration:parity-auditor, migration:migration-discipline, migration:cutover-routing-scan, migration:data-cutover-orchestrate, migration:extract-v1-contract, migration:paired-inventory, migration:parity-proof-scan, migration:parity-test-generate, migration:perf-uplift-survey, migration:semantics-parity-scan, migration:side-effect-parity-scan, migration:surface-parity-scan
+_deployment           infrastructure:infra-architect, infrastructure:infra-reviewer, infrastructure:k8s-reviewer, infrastructure:kubernetes-architect, infrastructure:infra-principles, infrastructure:admission-policy, infrastructure:dns-tls-lifecycle-scan, infrastructure:dr-audit, infrastructure:edge-reliability-scan, infrastructure:iac-cost-scan, infrastructure:iac-lifecycle-scan, infrastructure:iac-state-scan, infrastructure:k8s-api-version-scan, infrastructure:k8s-audit, infrastructure:k8s-availability-scan, infrastructure:k8s-render-scan, infrastructure:k8s-wiring-scan, infrastructure:network-exposure-audit, infrastructure:serverless-reliability-scan, infrastructure:tf-plan-review, devops:ci-reviewer, devops:deployment-engineer, devops:devops-architect, devops:platform-engineer, devops:devops-principles, devops:compose-scan, devops:container-build-scan, devops:deploy-safety-scan, devops:gitops-audit, devops:monitor-deploy, devops:pipeline-cache-scan, devops:pipeline-integrity-scan, devops:progressive-delivery, devops:release-integrity-scan, devops:release-security
+_routes               backend:api-architect, backend:api-reviewer, backend:bug-investigator, backend:endpoint-tester, backend:websocket-engineer, backend:backend-principles, backend:concurrency-discipline, backend:migration-backend, backend:api-consistency-audit, backend:api-snapshot, backend:debug-tenant, backend:edge-error-scan, backend:endpoint-test-method, backend:env-diff, backend:http-contract-scan, backend:job-lifecycle-scan, backend:log-tail-method, backend:module-scaffold, backend:parallelize-independent-ops, backend:state-transition-scan, backend:validation-boundary-scan, backend:wire-format-scan
 _screens              frontend:accessibility-auditor, frontend:api-contract-sentry, frontend:data-flow-auditor, frontend:i18n-auditor, frontend:technical-seo, frontend:ui-architect, frontend:ui-reviewer, frontend:frontend-principles, frontend:i18n, frontend:migration-frontend, frontend:a11y-code-scan, frontend:a11y-scan, frontend:bundle-analyze, frontend:client-data-scan, frontend:component-playground, frontend:critical-path-scan, frontend:dev-server-start, frontend:font-optimization, frontend:i18n-scan, frontend:image-optimization, frontend:lcp-audit, frontend:lighthouse-ci, frontend:navigation-speed, frontend:render-correctness-scan, frontend:routing-scan, frontend:seo-audit, frontend:ssr-audit, frontend:streaming-ssr, frontend:verify-with-playwright, frontend:visual-check, mobile:app-store-reviewer, mobile:device-performance-auditor, mobile:mobile-architect, mobile:offline-sync-auditor, mobile:mobile-principles, mobile:render-discipline, mobile:app-size-scan, mobile:device-harness, mobile:mobile-a11y-scan, mobile:mobile-lifecycle-scan, mobile:mobile-perf-scan, mobile:native-bridge-audit, mobile:offline-sync-scan, mobile:platform-conventions-audit, mobile:store-compliance-scan, ui-ux:creative-director, ui-ux:design-system-architect, ui-ux:design-system-guardian, ui-ux:theme-specialist, ui-ux:ui-designer, ui-ux:ux-designer, ui-ux:ux-reviewer, ui-ux:ui-principles, ui-ux:a11y-quick-check, ui-ux:chart-encoding-audit, ui-ux:design-canvas, ui-ux:design-iterate, ui-ux:design-score, ui-ux:design-token-audit, ui-ux:motion-audit, ui-ux:state-matrix, ui-ux:ui-design-sweep, ui-ux:ui-state-scan
 ```

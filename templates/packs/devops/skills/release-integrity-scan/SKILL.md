@@ -64,7 +64,7 @@ Discover every release unit (pre-flight 0a–0d); never assume `.github/`, `rele
 | Graph | `python3 "$G" . --deploy-ancestors` (`ci-graph.py`, repo baseline; fallback `$HOME/.claude/templates/repo-baseline/.claude/scripts/ci-graph.py`) | Exit 2 = NOT-RUN, never clean (precedents § 41, § 44). **`publishes=` misses `docker/build-push-action` with `outputs: …push=true` and no `push:` input** [V 2026-10-10]: 0c prints those as `publish=outputs` / `PUSH-VIA-OUTPUTS` |
 | Settings | `gh api repos/{o}/{r}/rulesets --jq '.[]\|select(.target=="tag")\|{id,name,enforcement}'`, then `gh api repos/{o}/{r}/rulesets/<id> --jq '{rules:[.rules[].type],bypass:.bypass_actors}'`; `gh api repos/{o}/{r}/releases/latest --jq '{tag_name,immutable}'`. Offline: `rulesets.json` in a snapshot dir → `ci-graph.py --settings-dir=<dir>` prints `RULESET` rows, and `RULESET target=tag name=NONE` when no tag ruleset exists (0b passes `$SETTINGS_DIR`) | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6). The tag-rule `type` values and the immutable-release field are [K?] (research unknown 4): settle on the first real read and quote it |
 | Registry | `crane digest <ref>`, `crane manifest <repo>@<digest>`, `docker buildx imagetools inspect <ref>` | Registry unreachable or no credential → `blocked (registry)`, with the command written out (precedents § 41). Reads only: this skill never pushes, tags or deletes |
-| Release dry runs | `npx semantic-release --dry-run --no-ci`, `npx changeset status --verbose`, `goreleaser check`, release-please `release-pr --dry-run` [K flags] | A dry run that needs a token it does not have prints an error, not a version: `blocked` |
+| Release dry runs | `npx --no semantic-release --dry-run --no-ci`, `npx --no changeset status --verbose`, `goreleaser check`, release-please `release-pr --dry-run` [K flags] | A dry run that needs a token it does not have prints an error, not a version: `blocked` |
 | Executor | `release-security` (this pack) in audit mode, given the digest, the expected identity and the floors | Its rows come back `NOT-RUN` when a tool is below `THR-SCANNER-FLOOR` or missing; §5 is then `blocked`, never `checked` |
 | Floors | `cosign version`, `trivy --version`, `syft version`, the CI pins (5b) | `THR-SCANNER-FLOOR`: cosign ≥ 3.1.3 (GHSA-fx35-mq7g-6g98, a verification bypass via a public key in a legacy bundle, fixed 2026-08-06 [R]); trivy pinned by version **and** digest (the 2026-03-19 compromise moved 76 of 77 `trivy-action` tags [R]); zizmor ≥ 1.28; actionlint ≥ 1.7.12 |
 
@@ -280,9 +280,9 @@ GOOD:  build once with push: true (or push-by-digest) → record steps.build.out
 BAD:   cosign verify --certificate-identity-regexp '.*' … api:prod          (any workflow, any repo; and a tag)
        gh attestation verify oci://…:prod --owner acme                     (any repo in the org built it)
        cosign attach sbom …   ·   cosign-release: 'v2.4.1'   ·   aquasec/trivy:0.67.2 (no digest)   ·   --provenance=false
-GOOD:  cosign verify --certificate-identity 'https://github.com/O/R/.github/workflows/release.yml@refs/heads/main' \
+GOOD:  cosign verify --certificate-identity 'https://github.com/O/R/.github/workflows/publish.yml@refs/heads/main' \
          --certificate-oidc-issuer https://token.actions.githubusercontent.com <repo>@<digest>
-       gh attestation verify oci://<repo>@<digest> --repo O/R --signer-workflow O/R/.github/workflows/release.yml \
+       gh attestation verify oci://<repo>@<digest> --repo O/R --signer-workflow O/R/.github/workflows/publish.yml \
          --source-ref refs/heads/main --deny-self-hosted-runners
 ```
 **Read the code:**
@@ -346,12 +346,12 @@ Findings: 19 · Unconfirmed: 8 (three rows shown)
    and `load: true` carries no attestations. Proof: V223 written out (scanned image ID ≠ pushed digest). Fix: one
    build-push step with `push: true`, `id: build`; scan `ghcr.io/acme/api@${{ steps.build.outputs.digest }}`; deploy that digest.
 
-2. .github/workflows/deploy.yml:21                                        [report-with-fix]   high
+2. .github/workflows/cd.yml:21                                            [report-with-fix]   high
    §5 CT-R05 — `cosign verify --certificate-identity-regexp '.*'` on `api:prod` (a tag): any workflow in any repo passes.
    Proof: V224 negative test written out. Fix: `--certificate-identity 'https://github.com/acme/shop/.github/workflows/build.yml@refs/heads/main'`
-   + the issuer, by digest (deploy.yml:27 already has the right shape for web).
+   + the issuer, by digest (cd.yml:27 already has the right shape for web).
 
-3. .github/workflows/ghcr-cleanup.yml:15                                  [report-flagged]    high
+3. .github/workflows/registry-prune.yml:15                                 [report-flagged]    high
    §7 DP-9 — keeps 1 version of api; the N-1 digest the rollback needs is deleted on the next run.
    Unproven link: the registry's version list (UNREADABLE). Settling test: V226 `crane manifest ghcr.io/acme/api@<N-1>`.
 

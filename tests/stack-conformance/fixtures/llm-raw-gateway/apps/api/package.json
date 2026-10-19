@@ -1,0 +1,1 @@
+{ "name": "@gw/api", "dependencies": { "@nestjs/core": "^11.1.0", "@nestjs/common": "^11.1.0" } }

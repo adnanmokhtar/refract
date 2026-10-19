@@ -1,5 +1,6 @@
 # Results
 
+<!-- history:banner:begin -->
 > ## NO RUN HAS BEEN RECORDED YET.
 >
 > The table below is empty. Every cell in it is empty. Nothing in this repository — no
@@ -8,6 +9,7 @@
 >
 > This file exists so that when a number does appear here, it arrives with the model, the
 > version, the date and the raw findings attached. A number without those is not a result.
+<!-- history:banner:end -->
 
 The harness was built and self-tested; the commands were not run. Running them requires an
 interactive agent session, which the harness deliberately does not simulate. See
@@ -36,9 +38,15 @@ straight.
 
 ## Detection results
 
-| date | fixture | command | model | model version | detected | rate | severity-wtd | unmatched | notes |
-|------|---------|---------|-------|---------------|----------|------|--------------|-----------|-------|
-| — | — | — | — | — | — | — | — | — | *no run recorded* |
+<!-- history:detection:begin -->
+| date | fixture | command | model | model version | sha | runs | detected | recall | severity-wtd | decoy precision | unmatched | notes |
+|------|---------|---------|-------|---------------|-----|------|----------|--------|--------------|-----------------|-----------|-------|
+| — | — | — | — | — | — | — | — | — | — | — | — | *no run recorded* |
+<!-- history:detection:end -->
+
+Generated from [`results/history.jsonl`](results/history.jsonl) by `python3 benchmarks/history.py render`
+(row schema `refract/bench-run/v1`: the docstring of [`history.py`](history.py)). `recall` = detected /
+seeded; `decoy precision` = decoys left unflagged / decoys, on fixtures that declare decoys.
 
 Seeded totals, for the denominators above: `node-api` 21 (20 seeded + 1 found later, NAPI-DATA-01) · `web-dashboard` 14 ·
 `half-built-crm` 16.
@@ -73,10 +81,34 @@ false-positive count** and must not be published as one — see
      --date=<YYYY-MM-DD> --row
    ```
 
-5. Paste the printed row into the table above.
+5. Append the run to the time series and regenerate the tables (never edit a table by hand):
+
+   ```bash
+   python3 benchmarks/score.py --fixture=node-api --findings=<findings file> \
+     --model="<exact model id>" --model-version="<build>" --date=<YYYY-MM-DD> --json > <run>.json
+   python3 benchmarks/history.py append --from-score-json=<run>.json --findings=<findings file> [--runs=N]
+   ```
+
+   The row records the Refract commit (`git rev-parse HEAD`, `+dirty` when the tree had changes).
+   `python3 benchmarks/history.py render --check` fails when this file and the series disagree.
 
 6. **Keep the raw findings file** and link it from the notes column. A row whose evidence
    was deleted cannot be audited and should be treated as an anecdote.
+
+---
+
+## Plugin eval results
+
+Each pack's `evals/` suite under `claude plugin eval` — with the pack loaded and without it, 3 runs per
+case, pinned models (`.github/workflows/refract-evals.yml`; `bash scripts/run-pack-evals.sh`). `Δ` is
+the with-pack score minus the no-pack score; a pack ships only with Δ > 0 (spec § 8.8). Partial runs
+(cost ceiling hit, paid graders skipped) are refused by `history.py append-eval`.
+
+<!-- history:eval:begin -->
+| date | pack | model | judge | sha | cases passed | score | Δ vs no-plugin | cost | notes |
+|------|------|-------|-------|-----|--------------|-------|-----------------|------|-------|
+| — | — | — | — | — | — | — | — | — | *no eval run recorded* |
+<!-- history:eval:end -->
 
 ### Rules for this table
 

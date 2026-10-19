@@ -1,6 +1,6 @@
 ---
 name: changelog-generate
-description: Generate a categorized changelog / release notes from commit + PR history (conventional-commits · semver). Groups feat/fix/breaking for humans, surfaces breaking changes with migration notes, and derives the semver bump from the change types — never hand-written from memory or a raw git-log dump.
+description: "Generate release notes from commit / PR history: breaking first with migration notes, computed semver bump; handles a repo with no tags."
 kind: skill
 pack: documentation
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
@@ -24,7 +24,14 @@ Cite-or-halt. Every changelog line traces to a commit SHA or a PR number; every 
 
 ## Procedure
 
-1. **Determine the range.** From the previous release tag (`git describe --tags --abbrev=0`) to `HEAD`, or an explicit range. Record it in the header so the notes are reproducible.
+1. **Determine the range — and never let a missing tag read as an empty one.** `git describe --tags --abbrev=0` exits 128 in a repo with no tags, and a script that swallows that error generates notes for nothing. Resolve the base in this order and print which one was used:
+   ```bash
+   export GIT_OPTIONAL_LOCKS=0
+   BASE=$(git describe --tags --abbrev=0 2>/dev/null); RANGE="$BASE..HEAD"; WHY="last tag $BASE"
+   [ -z "$BASE" ] && { RANGE="HEAD"; WHY="no tags: the whole history from root $(git rev-list --max-parents=0 HEAD | tail -1 | cut -c1-7) (first release)"; }
+   echo "range: $RANGE ($WHY) · $(git rev-list --count $RANGE) commits"; git rev-parse --is-shallow-repository
+   ```
+   With no tags but a generator that has already released (a `.release-please-manifest.json` version, a changeset release commit), the whole history over-counts: ask for the last release commit and pass it as the explicit range, rather than guessing one from a version string (a version is not a git ref). A shallow clone (`true` above) truncates the range: fetch full history first (`fetch-depth: 0` in CI), or the notes are incomplete. In a monorepo with per-package tags (`pkg@1.2.3`), resolve the base per package (`git describe --tags --abbrev=0 --match '<pkg>@*'`). An explicit range from the caller wins over all of these.
 2. **Parse each commit / PR into a typed change.** Extract the conventional-commit type and scope from the subject (`feat(orders): …`, `fix: …`, `perf:`, `refactor:`, `docs:`, `chore:`), the `!` breaking marker (`feat!:`), and the `BREAKING CHANGE:` body footer. Where PR labels are the convention instead of commit types, read the labels (`type: feat`, `breaking`).
 3. **Flag the convention gap.** Any commit with no parseable type and no classifying label is `UNCLASSIFIED` — list it separately. A pile of unclassified commits means the release notes are incomplete; that's a finding to surface, not a set to silently omit.
 4. **Group by category, breaking-first.** Order sections: **⚠ Breaking Changes** → Features → Fixes → Performance → other (Refactor/Docs/Deps), each entry one human-readable line + its PR/issue link. Drop pure `chore`/`ci`/`test` noise from the user-facing view (keep it only in a verbose mode).
@@ -32,6 +39,8 @@ Cite-or-halt. Every changelog line traces to a commit SHA or a PR number; every 
 6. **Derive the semver bump — don't ask, compute.** `major` if any breaking change; else `minor` if any `feat`; else `patch`. Cross-check against the version the release *actually* proposes: if a `feat` is shipping as a patch, or a breaking change as a minor, flag `BUMP-MISMATCH`.
 7. **Emit in Keep a Changelog format** — dated `## [x.y.z] - YYYY-MM-DD` heading, grouped `###` sections, an `## [Unreleased]` at the top for in-flight work, and link references at the bottom.
 8. **Detect drift from a hand-maintained changelog.** If a `CHANGELOG.md` exists and was edited by hand, diff its latest section against generated history — entries in history but not the file are `MISSING`; entries in the file with no matching commit are `PHANTOM`.
+
+**Detection is not this skill's job.** A breaking change already shipped without a note is `doc-drift-scan` §12 (DH-1), and a changelog whose grammar is broken (order, duplicates, dates, compare links, `[Unreleased]`) is `doc-structure-scan` §9 (DH-2); `/doc-refresh --audit` runs both. The changelog version against the released version is devops `release-integrity-scan` RL-2 (when the devops pack is installed). Step 8 below stays as this generator's **self-check** before it writes: it compares what it is about to emit with the hand-maintained file and lists MISSING and PHANTOM, it does not audit history. A changelog a generator owns (release-please, changesets, git-cliff, semantic-release) is regenerated, never hand-edited ([precedents § 17](../../../../snippets/precedents/documentation.md)).
 
 ## Adapt to the codebase
 

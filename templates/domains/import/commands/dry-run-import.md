@@ -90,4 +90,4 @@ Top recommendation:
 
 - `.claude/rules/import-ingest-discipline.md` — the hard-rule list this command enforces (streaming, tenant-scoped upsert, per-row validation, idempotency, caps, formula-neutralization).
 - `ai/patterns/bulk-import.md` — the streaming parse + per-row validator + tenant-scoped batched upsert shape.
-- `<agents-path>/import-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/import-review.md` — review gate that consumes these findings.

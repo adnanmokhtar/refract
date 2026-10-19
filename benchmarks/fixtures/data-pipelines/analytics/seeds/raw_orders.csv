@@ -1,0 +1,4 @@
+order_id,customer_id,status,total_cents,currency,legacy_status,updated_at,_loaded_at
+1001,7,paid,4200,EUR,P,2026-03-28 22:10:00,2026-03-28 22:15:00
+1002,8,refunded,1999,EUR,R,2026-03-29 00:30:00,2026-03-29 00:35:00
+1003,7,paid,5000,EUR,P,2026-03-29 00:30:00,2026-03-29 01:00:00

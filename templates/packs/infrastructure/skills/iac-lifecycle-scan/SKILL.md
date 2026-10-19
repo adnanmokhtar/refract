@@ -250,7 +250,7 @@ Rows: 40 grep + 15 plan → 9 findings (13 sites) · 1 unconfirmed · 1 refuted 
    Proof: V249 terraform test asserting deletion_protection == true and skip_final_snapshot == false — 2 failed before, 0 after.
    Fix: deletion_protection = true; skip_final_snapshot = false + final_snapshot_identifier; lifecycle { prevent_destroy = true }.
 
-2. prod/network.tf:4 · aws_eip.nat · env prod · static                             [report-flagged]    medium
+2. prod/vpc.tf:4     · aws_eip.nat · env prod · static                             [report-flagged]    medium
    §1 TF-05 — count = length(var.azs): removing an AZ re-creates every later EIP (new public IPs).
    Unproven link: whether the AZ list is ever edited. Settling run: V246 churn plan with azs minus its first item.
 

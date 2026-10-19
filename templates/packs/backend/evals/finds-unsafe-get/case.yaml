@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/backend-defects · defect BD-HC-4a (apps/api/src/orders/order-actions.controller.ts:11) · decoy BD-DECOY-24 (line 28)
+# resources/: byte copies of apps/api/src/orders/order-actions.controller.ts (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-unsafe-get
+context:
+  add_dirs: [resources]

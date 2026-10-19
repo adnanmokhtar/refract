@@ -74,7 +74,8 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "unify" / "consistent" / "harmonize" + **ambiguous** (could mean drift vs perf vs arch vs surface-type) | Ask one question: surface-type unification (tables / forms / headers / tabs / filters / buttons / validation across the project) → `/unify-surfaces`; convention drift / inconsistent patterns → `/align`; architecture / SOLID / clean code → `/optimize`; production-readiness / scale → `/audit` |
 | "iterate" / "try variants" / "few options" + visual | invoke `design-iterate` skill |
 | "playground" / "test in isolation" + component | invoke `component-playground` skill |
-| "deploy" / "ship to staging" / "release" + an **environment** noun | `/deploy-stage` — **level D: print it for the user, never dispatch** (§ Level D) |
+| "deploy" / "ship to staging" + a **staging / preview** environment noun | `/deploy-stage` — **level D: print it for the user, never dispatch** (§ Level D) |
+| "release to production" / "roll out to prod" / "canary it" / "ramp the flag" + a **production** noun | `/release` (devops pack) — **level D: print it for the user, never dispatch** (§ Level D) |
 | "rollback" / "revert deployment" | `/rollback-deploy` — **level D: print it for the user, never dispatch** (§ Level D) |
 | "provision a new environment / tier" / "stand up staging / prod / DR infra" | `/provision-tier <tier>` (infrastructure pack) — **level D: print it for the user, never dispatch** (§ Level D) |
 | "scan the live site / running API / deployed URL" (black-box, hosts you own) | `/security-live-scan` (security pack) — **level D: print it for the user, never dispatch** (§ Level D) |
@@ -142,7 +143,7 @@ The file absent means no name has a variant — dispatch the bare name.
 
 These commands carry `disable-model-invocation: true`. `/do` routes to them exactly as to any other row — then **prints the command and stops**. It never dispatches one, never runs its scripts on the user's behalf, and never "starts the safe part" of it (H3 — deploy, rollback, provisioning, migration state changes, cross-CLI dispatch and the setup layer are typed by a human):
 
-`/deploy-stage` · `/rollback-deploy` · `/provision-tier` · `/security-live-scan` · `/migrate` · `/migration-fast` · `/migration-phase` · `/migration-sync` · `/migration-rollback` · `/migration-park` · `/migration-unpark` · `/migration-deprecate` · `/migration-promote-tier` · `/delegate` · `/setup-project` · `/setup-project-adapters`
+`/deploy-stage` · `/release` · `/rollback-deploy` · `/provision-tier` · `/security-live-scan` · `/migrate` · `/migration-fast` · `/migration-phase` · `/migration-sync` · `/migration-rollback` · `/migration-park` · `/migration-unpark` · `/migration-deprecate` · `/migration-promote-tier` · `/delegate` · `/setup-project` · `/setup-project-adapters`
 
 For *"deploy this branch to staging"* the whole output is: `Routed to: /deploy-stage (level D — irreversible; you type it, /do does not run it). Type: /deploy-stage` — then stop.
 

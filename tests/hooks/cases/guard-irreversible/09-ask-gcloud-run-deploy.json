@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "gcloud run deploy api --image=gcr.io/acme/api@sha256:abc --region=us-central1"}}

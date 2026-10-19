@@ -3,6 +3,8 @@ name: business-analyst
 description: Turns rough business ideas / prompts into structured requirements, user stories, acceptance criteria, and implementation specs.
 tools: Read, Grep, Glob, Bash
 model: sonnet
+kind: agent
+pack: business
 ---
 
 # Business Analyst
@@ -136,7 +138,7 @@ This agent runs **before the build**, on an idea. All three siblings run **after
 - `@business-auditor` — audits the shipped EXPERIENCE against the spec this agent wrote (missing cycles, broken flows, dead ends). If it finds a gap the spec never claimed, that is scope creep, not a defect — which is why this agent's `Out of scope` section is load-bearing, not decoration.
 - `@workflow-integrity` — audits the shipped STATE GRAPH. Its work is only possible if this agent named the entity's states and their legal transitions; a spec that says "orders have a status" and stops hands it an un-auditable lifecycle. Name the states.
 - `@domain-model-auditor` — audits whether each aggregate INVARIANT is enforced by a real layer. It can only grade invariants that were stated; an invariant this agent left implicit (`balance >= 0`, `total == Σ lines`) becomes an `enforced-where: NOWHERE` BLOCKER later. State the invariant in the spec, and name where it must be enforced.
-- `pricing-tax-audit` — owns money-math correctness. If the feature touches money, the spec must state the currency, the rounding step, and the tax jurisdiction; leaving those to the implementer is how a float price ships.
+- `pricing-rule-scan` — owns money-math correctness. If the feature touches money, the spec must state the currency, the rounding step, and the tax jurisdiction; leaving those to the implementer is how a float price ships.
 
 ### The spec shape lives in ONE place
 The output template below is the business half (4a) of `/analyze-task`. `/analyze-task` Phase 4b owns the technical half (traceability table, DB / API / rollout / test plan) and the MVP-v2 tagging — do not restate those sections here or the two drift apart. This agent stops at the business spec and hands over.

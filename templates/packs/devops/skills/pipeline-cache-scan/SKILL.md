@@ -276,7 +276,7 @@ Class coverage:
   §2  docker layer cache       checked (5 lines → 2 unconfirmed; scoped mode=max image refuted)
   §3  superseded / affected    checked (2 PR workflows without concurrency → hardening; 3 shallow affected → 1 unconfirmed)
   §4  speed                    checked (1 SERIAL-CHAIN + 1 STAGE-LADDER → 2 unconfirmed); timing UNREADABLE (gh not authenticated)
-  R   routed                   triage.yml:10 (pull_request_target cache), release.yml:14 (tag workflow restores) → security ci-security-scan §5
+  R   routed                   triage.yml:10 (pull_request_target cache), publish.yml:14 (tag workflow restores) → security ci-security-scan §5
 ```
 
 `[report-with-fix]`: what the cache holds, the key's missing dimension, the consuming step and the oracle are in hand, and the fix is local to the job. `[report-flagged]`: one link is unproven — the arch collision `[K?]`, a key built in a script, a composite action not read, no sandbox run. The row names the link and the settling test.

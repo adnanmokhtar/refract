@@ -1,0 +1,4 @@
+creation_time,job_id,total_bytes_processed,total_bytes_billed,query
+2026-10-01T01:04:11Z,job_a1,4398046511104,4398046511104,"/* {""app"": ""dbt"", ""node_id"": ""model.larkmoor.fct_ad_impressions""} */ merge into analytics.fct_ad_impressions"
+2026-10-01T01:09:40Z,job_a2,1099511627776,1099511627776,"/* {""app"": ""dbt"", ""node_id"": ""model.larkmoor.rpt_ad_performance""} */ create or replace table analytics.rpt_ad_performance"
+2026-10-01T01:10:02Z,job_a3,10737418240,10737418240,"/* {""app"": ""dbt"", ""node_id"": ""model.larkmoor.dim_customers""} */ create or replace table analytics.dim_customers"

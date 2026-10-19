@@ -19,7 +19,7 @@ inputs:
   required: [scope]             # a live page (the alert, its labels, the start time), or a runbook path to author for /alert-design or /add-telemetry
   reads:    [the firing alert's rule and its alert-rule-lint row, ai/runbooks/, ai/runtime/slos.md, ai/patterns/slo.md, the deploy history, dashboards and the logs and traces they link]
 output:
-  returns:  the '## Output' incident block (live), or the runbook it wrote
+  returns:  the '## Output' incident block (live), the runbook it wrote, or — in hypothesis mode (/investigate-incident) — one refract/hypotheses/v1 object
   writes:   [ai/runbooks/**]    # runbook bodies; postmortems are @sre-engineer's
   persisted_by: this agent
 skills:     []
@@ -197,6 +197,25 @@ Escalate if: stuck > 30 min, impact expanding, data integrity at risk.
 3. Monitor origin traffic drops.
 4. Post: permanent rate limit + abuse detection.
 
+## Hypothesis mode (dispatched by `/investigate-incident`)
+
+The brief names ONE hypothesis (`H-<n>`, a category, the mechanism and its prediction), the run id,
+the paths to read and `mode: refute`. In this mode the agent is an investigator, not a responder:
+
+- **Read-only.** Repository, git history, the deploy ledger, the incident bundle, and a telemetry
+  query endpoint only when the brief names one. No `kubectl`, `helm`, cloud CLI or database client,
+  read-only or not (`guard-irreversible.sh` denies an irreversible step from any subagent; the rest
+  is this brief). No file is written: the hook persists the record.
+- **Refute first.** Look for the evidence that would make the hypothesis false — wrong onset time,
+  wrong scope, a signal that stayed flat, a change that landed after the symptom — before collecting
+  evidence for it. A symptom that is a *consequence* of another mechanism is named as such.
+- **End with one JSON object** (schema `refract/hypotheses/v1`, `.claude/schemas/hypotheses.schema.json`)
+  carrying exactly the briefed hypothesis: `supporting[]` and `contradicting[]` items each a
+  checkable `source` plus its `observation`; `verdict` `supported` (with `root_cause {file, line,
+  claim}`), `refuted` (with contradicting evidence) or `inconclusive` (with the read-only
+  `next_probe`). `persist-review.sh` validates it and merges it into
+  `ai/runs/<run>/reviews/hypotheses.json`; a malformed record comes back on stderr to fix.
+
 ## Authoring a runbook (the non-incident job this agent is dispatched for)
 
 `/alert-design` Phase 5 and `/add-telemetry` Phase 4 create runbook *files* and dispatch this agent
@@ -279,6 +298,8 @@ live timeline it is built from and does not duplicate the template.
 - `/alert-design` Phase 5 — writes the runbook body for every alert it generates. That command's `ORPHAN` status fires on a runbook file with no first action, so this agent sits on its closure gate.
 - `/add-telemetry` Phase 4 — same, for the runbook stubs it generates alongside new alerts.
 - A live page — the pager fires, this agent runs the loop.
+- `/investigate-incident` Phase 3 — one instance per hypothesis, in hypothesis mode (read-only, refute first).
+- `/add-slo` Phase 4 — the runbook body for the SLO's generated burn alerts.
 
 ### Sibling agents in observability pack
 - `@observability-reviewer` — reviews the telemetry change; this agent consumes what it approves during a page.

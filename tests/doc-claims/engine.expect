@@ -1,0 +1,63 @@
+# doc-claims on the history-staged doc-drift copy (run.sh Stage with: --git --history), candidates only.
+# class<TAB>status<TAB>doc<TAB>line<TAB>claim  (a leading commit SHA in a DH-1 claim is written <sha>)
+DA-1	MISS	docs/api.md	38	GET /reports/daily
+DA-1	MISS	docs/api.md	33	POST /orders/{id}/void
+DA-2	CHECK	apps/api/openapi.json	0	#/paths//orders/get/parameters/0 example
+DA-2	WRONG	apps/api/openapi.json	0	#/paths//orders/{id}/get/responses/200/content/application/json example
+DC-3	WRONG	docs/api.md	44	apps/api/src/billing/retry.ts#L5-L12
+DC-3	MISS	docs/guide/webhooks.md	15	examples/verify-signature.ts
+DE-1	MISS	docs/config.md	19	SEARCH_INDEX_URL
+DE-1	MISS	docs/guide/webhooks.md	8	WEBHOOK_SIGNING_KEY
+DE-2	MISS	apps/api/src/config/env.schema.ts	9	FX_RATES_API_KEY
+DE-2	MISS	apps/api/src/config/env.schema.ts	8	PAYMENTS_WEBHOOK_SECRET
+DE-3	WRONG	docs/config.md	15	LOG_FORMAT values json|json|text
+DE-3	WRONG	docs/config.md	14	RETRY_LIMIT default 5
+DF-1	MISS	docs/guide/billing.md	18	TBD
+DF-1	MISS	docs/operations.md	21	<insert the on-call schedule link>
+DF-2	MISS	docs/guide/legacy-sso.md	0	docs/guide/legacy-sso.md
+DF-2	MISS	mkdocs.yml	33	billing/overview.md
+DH-1	MISS	CHANGELOG.md	17	<sha> drop the page param
+DH-1	MISS	CHANGELOG.md	6	<sha> drop the --legacy-import flag
+DH-2	WRONG	CHANGELOG.md	55	1.1.0 03/02/2026
+DH-2	WRONG	CHANGELOG.md	49	1.3.0
+DI-1	MISS	docs/guide/reports.md	0	ar -> docs/guide/ar/reports.md
+DI-1	MISS	docs/guide/webhooks.md	0	ar -> docs/guide/ar/webhooks.md
+DI-2	CHECK	docs/guide/ar/billing.md	0	docs/guide/billing.md
+DI-2	CHECK	docs/guide/ar/sdk.md	0	docs/guide/sdk.md
+DI-3	WRONG	docs/guide/ar/index.md	6	getting-started.md
+DI-3	WRONG	docs/guide/ar/setup.md	17	pnpm dev:all
+DK-1	MISS	docs/runbooks/api-unavailable.md	17	scripts/failover.mjs --region
+DK-1	MISS	docs/runbooks/restore-db.md	15	make restore-db
+DK-2	MISS	docs/runbooks/api-latency.md	3	alert ApiHighLatency
+DK-2	MISS	docs/runbooks/reports.md	8	CronJob/reports-nightly
+DK-3	MISS	apps/api/src/common/errors.ts	5	docs/troubleshooting.md#tls-handshake-failed
+DK-3	MISS	deploy/alerts/rules.yml	11	docs/runbooks/api-down.md
+DL-1	MISS	CONTRIBUTING.md	31	docs/commit-style.md
+DL-1	MISS	README.md	37	docs/deploy.md
+DL-1	MISS	docs/guide/ar/index.md	6	getting-started.md
+DL-2	MISS	README.md	21	docs/guide/setup.md#install-steps
+DL-2	MISS	docs/runbooks/restore-db.md	20	../operations.md#restoring-a-backup
+DL-4	MISS	.github/workflows/docs.yml	23	lychee-action fail: false
+DL-4	MISS	.github/workflows/docs.yml	18	mkdocs build
+DL-4	MISS	mkdocs.yml	0	strict
+DR-1	MISS	README.md	32	apps/api/src/config/app.config.ts
+DR-1	MISS	packages/sdk/README.md	33	packages/sdk/src/retry-policy.ts
+DR-2	MISS	apps/api/README.md	38	ordersService.cancelAll()
+DR-2	MISS	docs/architecture.md	19	ReportsDigestProcessor
+DR-3	MISS	CONTRIBUTING.md	14	make seed-db
+DR-3	MISS	README.md	18	pnpm dev:all
+DR-3	MISS	docs/guide/ar/setup.md	17	pnpm dev:all
+DR-4	MISS	apps/api/README.md	30	tallyhook --legacy-import
+DR-4	MISS	docs/guide/reports.md	11	scripts/backfill-totals.mjs --since
+DR-5	WRONG	docs/api.md	24	GET /orders/export
+DR-5	WRONG	packages/sdk/README.md	29	client.orders.getOrders()
+DS-2	WRONG	CONTRIBUTING.md	8	Python 3.10 or later
+DS-2	WRONG	README.md	8	Node 20+
+DS-3	WRONG	CONTRIBUTING.md	11	npm install
+DS-3	WRONG	apps/api/README.md	21	yarn start:dev
+DX-1	MISS	docs/adr/0005-cursor-pagination.md	1	0005 supersedes 0009
+DX-1	MISS	docs/adr/0006-redis-rate-limit.md	1	0006 supersedes 0003
+DX-2	WRONG	docs/adr/0007-money-as-integers.md	1	0007 status "Parked"
+DX-2	WRONG	docs/adr/README.md	11	0004 Proposed
+DX-3	WRONG	docs/adr/0008-sdk-codegen.md	1	0008
+DX-3	WRONG	docs/adr/0010-tenant-scoped-keys.md	1	0010 title 11

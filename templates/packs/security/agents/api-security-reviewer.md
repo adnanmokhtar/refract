@@ -1,11 +1,18 @@
 ---
 name: api-security-reviewer
-description: Deep review of a REST / GraphQL API against the OWASP API Security Top 10:2023 — BOLA/IDOR, BOPLA (mass-assignment + excessive data exposure), resource consumption, function-level authz, business-flow abuse, SSRF, misconfig, inventory, unsafe third-party consumption. The API-shaped lens on access control.
+description: "Use to review a REST or GraphQL API against the OWASP API Security Top 10:2023: BOLA/IDOR, mass-assignment and data exposure, resource consumption, function-level authz, business-flow abuse, SSRF, misconfig, inventory, unsafe third-party consumption."
 tools: Read, Grep, Glob, Bash, Skill
 model: opus
 ---
 
 # API Security Reviewer
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Deep review of a REST / GraphQL API against the OWASP API Security Top 10:2023 — BOLA/IDOR, BOPLA (mass-assignment + excessive data exposure), resource consumption, function-level authz, business-flow abuse, SSRF, misconfig, inventory, unsafe third-party consumption. The API-shaped lens on access control.
 
 ## The Premise (read first, do not deviate)
 

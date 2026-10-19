@@ -27,7 +27,7 @@ So this skill **detects and counts; it never prices.** Each candidate carries th
 | 9 | Metric resolution and detailed monitoring | COST-09 | candidate |
 | 10 | DynamoDB capacity mode | COST-10 | candidate |
 | 11 | Load balancers | COST-11 | candidate |
-| 12 | Budget and anomaly monitors | COST-12 | candidate (absence) |
+| 12 | Budget and anomaly monitors | COST-12 | candidate (absence); the **fallback** — finops `guardrail-scan` § 1 owns it when that pack is installed |
 | 13 | Engine end of life → paid extended support | COST-13 | candidate |
 
 Log retention (§ 3) and scale ceilings (§ 8) have class oracles because their failure is a behaviour: storage that never stops growing, and a bill or a downstream with no upper bound. Every other row is a **candidate** whose proof is the plan value plus the quantity expression ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § Infrastructure, *Cost candidates (no V of their own)*). Verification follows [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/infrastructure.md`](../../../../snippets/precedents/infrastructure.md) § 16–29 and § 51–62; the oracles are **V260** and **V261**.
@@ -50,7 +50,7 @@ Every row this skill prints has exactly this shape, and nothing else carries a n
 
 | Installed | Who prices the candidates | What this skill does |
 |---|---|---|
-| finops pack | `@cost-reviewer` on a diff, `@finops-analyst` on the bill; finops `egress-trace` attributes the bytes behind § 1 and § 2 | Emits the rows above; never re-ranks them by price |
+| finops pack | finops `candidate-pricing` is the pricing step (flat-rate gate, then a bill line or a pricing page fetched in the run, else `unpriced`); `@cost-reviewer` judges the rows in refute mode, `@finops-analyst` runs the bill lanes; finops `egress-trace` attributes the bytes behind § 1 and § 2 | Emits the rows above; never re-ranks them by price. § 12 defers to finops `guardrail-scan` § 1–§ 4 |
 | no finops pack | `/cost-audit` (this pack), the live bill-driven sweep | Emits the rows; `/cost-audit` prices them from the per-resource billing export under its halts #5–#7 and never re-detects an IaC class. It keeps what only the live inventory finds: orphans no IaC declares, idle resources, commitment coverage |
 | neither run | — | The row stays `unpriced candidate`. Never a saving, never a `$` |
 
@@ -120,6 +120,11 @@ lacks 'aws_dynamodb_table' 'billing_mode *= *"PAY_PER_REQUEST"'
 rg -n --pcre2 "${IAC[@]}" '^\s*resource\s+"(aws_lb|aws_alb|aws_elb|google_compute_forwarding_rule|azurerm_lb|digitalocean_loadbalancer)"|^\s*type:\s*LoadBalancer\b|^\s*Type:\s*["\x27]?AWS::ElasticLoadBalancingV2::LoadBalancer' "${ROOTS[@]}"
 rg -n --pcre2 "${IAC[@]}" '^\s*resource\s+"(aws_budgets_budget|aws_ce_anomaly_(monitor|subscription)|google_billing_budget|azurerm_consumption_budget_\w+)"|^\s*Type:\s*["\x27]?AWS::(Budgets::Budget|CE::AnomalyMonitor)' "${ROOTS[@]}"
 rg -n --pcre2 "${IAC[@]}" '^\s*(engine_version|EngineVersion|database_version|engine_lifecycle_support|EngineLifecycleSupport)\s*[=:]' "${ROOTS[@]}"
+# DO. DigitalOcean shapes a provider default decides (§ 5, § 6, § 8): the DOKS HA control plane, managed-database storage
+#     autoscale (no ceiling attribute), and the cluster's associated load balancers and volumes on destroy.
+rg -n --pcre2 "${TF[@]}" '^\s*resource\s+"digitalocean_(kubernetes_cluster|database_cluster)"|^\s*(ha|storage_autoscale\w*|destroy_all_associated_resources)\s*=' "${ROOTS[@]}"
+lacks 'digitalocean_kubernetes_cluster' 'ha *= *(true|false)'
+lacks 'digitalocean_kubernetes_cluster' 'destroy_all_associated_resources *= *true'
 ```
 
 **The joins.** On an offline plan (`proof-oracles.md` § Infrastructure, *Offline Terraform*), `cost.jq` turns the greps into quantity rows, walking module calls; on a render (`k8s-render-scan` § 0's `render-<env>.json`), `ceiling.jq` writes `max × requests` for every HPA and ScaledObject:
@@ -206,10 +211,10 @@ Variants per V260: explicit log groups, Lambda auto-created groups, API Gateway 
 `gp2` set, or `aws_ebs_volume` with no `type` (gp2 by default), RDS `storage_type` defaulting to gp2, io1/io2 IOPS with no measured need. **Read the code:** Does the workload need gp2 burst behaviour or the provisioned IOPS (a benchmark, an ADR)? **Row:** `<GB> × GB-month (… · <class> · <region>)` and, for io1/io2, `<IOPS> × IOPS-month`; the class change is priced by the pricing step.
 
 ### 5. Idle public IPv4 and detached volumes — COST-05
-An `aws_eip` with no instance, ENI, association or NAT allocation; an `aws_ebs_volume` with no attachment. **Read the code:** Is the address held for allow-listing (documented)? **Row:** `1 × public-IPv4-hours × 730 h`. NAT EIPs are attached by `allocation_id`: never a row (kics reports them, research A § 1).
+An `aws_eip` with no instance, ENI, association or NAT allocation; an `aws_ebs_volume` with no attachment. **Read the code:** Is the address held for allow-listing (documented)? **Row:** `1 × public-IPv4-hours × 730 h`. NAT EIPs are attached by `allocation_id`: never a row (kics reports them, research A § 1). **DigitalOcean:** a `digitalocean_kubernetes_cluster` without `destroy_all_associated_resources = true` (the provider default is false) leaves its load balancers and volumes billing after the cluster is destroyed; grep DO counts the clusters lacking it. **Row:** `<LBs + volumes the cluster's Services and PVCs create> × hours after destroy` — a candidate; the live remainder is `/cost-audit`'s.
 
 ### 6. Instance classes — COST-06
-`*.24xlarge`, previous generations (`m5`, `db.r5`). **Never more than a candidate** (precedents § 22): a static size proves nothing without a recommender id, a p95 over a stated window and a bill line, which `/cost-audit` owns. **Row:** `<count> × <class> × 730 h`.
+`*.24xlarge`, previous generations (`m5`, `db.r5`). **Never more than a candidate** (precedents § 22): a static size proves nothing without a recommender id, a p95 over a stated window and a bill line, which `/cost-audit` owns. **Row:** `<count> × <class> × 730 h`. **DigitalOcean:** a `digitalocean_kubernetes_cluster` with no explicit `ha` takes the provider default, which its documentation gives as true "for 1.36.0 and later" and as irreversible once enabled (provider docs read 2026-09-14 by the finops research pass; whether "1.36.0" is the Kubernetes or the provider version is unverified — read the locked provider's docs before reporting). On a non-prod cluster that is an always-on control-plane premium nobody chose. **Row:** `1 × HA control plane × 730 h (price key: digitalocean · DOKS · HA control plane · <region>)`, Unconfirmed until the version question is read.
 
 ### 7. Object lifecycle — COST-07
 A bucket with versioning and no `noncurrent_version_expiration`, no `abort_incomplete_multipart_upload`, no transition on data that ages. `dr-audit` § 7 owns whether the bucket must be versioned; this row is the growth. Object-locked versions cannot expire. **Row:** `noncurrent GB × GB-month`, the GB from Storage Lens or the bill.
@@ -220,7 +225,7 @@ BAD:   aws_autoscaling_group max_size = 1000 · Cloud Run with no max_instance_c
        HPA maxReplicas 50 × 2 CPU requested against a namespace quota of 20 CPU
 GOOD:  every autoscaler has a written max (THR-SCALE-CEILING), and max × unit is on the page beside the quota or node-pool ceiling
 ```
-Variants per V261: ASG, ECS service autoscaling, Lambda reserved + mapping maximum concurrency, Cloud Run, DynamoDB autoscaling and static PROVISIONED, Aurora Serverless v2 `max_capacity`, Azure `app_scale_limit`, HPA and KEDA × requests vs the quota. **Read the code:** Is the ceiling load-tested and documented? Does a node-pool or cluster-autoscaler max bound the real spend below the HPA max (then the HPA max is a capacity question for `@capacity-planner`, distributed-systems pack, when installed)? Does the scaler face a finite downstream (then `serverless-reliability-scan` § 5 or database pool arithmetic owns the finding)? **Finding when** a deployed autoscaler has no ceiling, or its ceiling × unit exceeds the quota it must fit. **Proof:** V261 — the `max × unit` expression with both values cited; `ceiling.jq` rows for Kubernetes. A capacity increase is the user's decision.
+Variants per V261: ASG, ECS service autoscaling, Lambda reserved + mapping maximum concurrency, Cloud Run, DynamoDB autoscaling and static PROVISIONED, Aurora Serverless v2 `max_capacity`, Azure `app_scale_limit`, HPA and KEDA × requests vs the quota. **Read the code:** Is the ceiling load-tested and documented? Does a node-pool or cluster-autoscaler max bound the real spend below the HPA max (then the HPA max is a capacity question for `@capacity-planner`, distributed-systems pack, when installed)? Does the scaler face a finite downstream (then `serverless-reliability-scan` § 5 or database pool arithmetic owns the finding)? **DigitalOcean:** `digitalocean_database_cluster` storage autoscale (`storage_autoscale*`) grows the disk with no ceiling attribute in the resource (research pass, 2026-10-19), and storage does not shrink in place — the ceiling is a runbook or alert decision; the row is `storage GB × GB-month, no max`. **Finding when** a deployed autoscaler has no ceiling, or its ceiling × unit exceeds the quota it must fit. **Proof:** V261 — the `max × unit` expression with both values cited; `ceiling.jq` rows for Kubernetes. A capacity increase is the user's decision.
 
 ### 9. Metric resolution and detailed monitoring — COST-09
 `period = 10|30` alarms, `monitoring = true` on every instance, high-resolution custom metrics. **Read the code:** Does an SLO alarm need the resolution? Cardinality is observability's. **Row:** `<metrics or instances> × <unit>`.
@@ -232,7 +237,7 @@ Variants per V261: ASG, ECS service autoscaling, Lambda reserved + mapping maxim
 One balancer per service or per environment; a balancer with no targets. A `LoadBalancer` Service for the ingress controller is intended (precedents § 15). **Row:** `<n> × LB-hours × 730 h`; "no traffic in 30 days" is a live fact for `/cost-audit`.
 
 ### 12. Budget and anomaly monitors — COST-12
-No `aws_budgets_budget`, `aws_ce_anomaly_monitor`, `google_billing_budget` or Azure budget in any root. **Read the code:** Is an org-level budget managed in another repo or account (cite it)? **Row:** absence, with the roots read.
+No `aws_budgets_budget`, `aws_ce_anomaly_monitor`, `google_billing_budget` or Azure budget in any root. **When the finops pack is installed, this § is not graded here:** budgets and anomaly monitors are finops `guardrail-scan` § 1–§ 4 (BG-1…4, with the forecast-rule and live-recipient joins this row does not make); the two dedupe by root, and this row cites `guardrail-scan` § 1. **Without the finops pack, this § is the fallback** and runs as written. **Read the code:** Is an org-level budget managed in another repo or account (cite it)? On a DigitalOcean-only repo, budgets cannot be code (Spend Alerts are control-panel only, finops precedents § 10): the row is Unconfirmed with the console probe named. **Row:** absence, with the roots read.
 
 ### 13. Engine end of life — COST-13
 An engine major past its provider's standard support, with `engine_lifecycle_support` unset (the provider default enrols it in paid extended support). `dr-audit` § 5 owns the upgrade posture. **Row:** `<instances> × <vCPU or ACU> × extended-support-hours`, the support date from a dated provider calendar, else Unconfirmed.
@@ -243,7 +248,7 @@ An engine major past its provider's standard support, with `engine_lifecycle_sup
 |---|---|---|---|
 | `cost.jq`, `ceiling.jq` (above) | `jq -r -f "$SCAN/cost.jq" plan.json` · `jq -r -f "$SCAN/ceiling.jq" render-prod.json` | offline plan (module calls walked) · the render | unknown-after values print as symbols, never as numbers |
 | `blocks.awk` (`iac-lifecycle-scan/scripts/`) | the `lacks` calls above | HCL blocks, comments stripped | no output can mean no block of that type: count the blocks first |
-| checkov | HCL **and** `--framework terraform_plan` | both inputs | CKV_AWS_66 (retention) passes on plan; CKV_AWS_338 wants ≥ 365 d (a policy); state which input each RAN row read (precedents § 52) |
+| checkov | HCL **and** `--framework terraform_plan` | both inputs | CKV_AWS_66 (retention) passes on plan; CKV_AWS_338 wants ≥ 365 d (a policy); state which input each RAN row read (precedents § 52). **Cost-raising rules are policy rows, never cost findings**: CKV_AWS_338 (≥ 1 year retention), CKV_DIO_1 (Spaces versioning), and Polaris `deploymentMissingReplicas` / PDB-vs-HPA checks push spend up — list them for their owners; the pricing step prices the delta only when asked (finops precedents § 29) |
 | infracost (optional) | classic `infracost breakdown --path "$SCAN/plan.json" --format json` on the offline plan | its `monthlyQuantity` and `unit` per cost component, to cross-check this skill's quantities | **needs an API key** (`INFRACOST_API_KEY`; the v2 CLI needs `infracost auth login`): no key → **NOT-RUN**, never a reason to ask for one. Usage-based components (NAT GB, requests) are 0 without a usage file. Its `$` is a list-price estimate, not a bill line: never printed in this report. Never run with cloud credentials |
 | `/cost-audit` (this pack) | the live sweep, after the user confirms the account | the bill and the live inventory | owns idle, orphan and commitment rows; consumes these candidates |
 
@@ -269,7 +274,7 @@ Rows: 10 → 2 findings (§3, §8) · 7 candidates · 1 unconfirmed (§12 org-le
    retention_in_days unset → 0, never expires. stored GB × GB-month (aws · CloudWatch Logs · storage · eu-west-1), growing monthly.
    Fix: retention_in_days = <the number the log's use requires>. Direction: shortening lowers the GB-month; nothing here says by how much.
 
-2. prod/network.tf:20  aws_autoscaling_group.web                                 [report-with-fix]   high     §8 COST-08 (V261)
+2. prod/vpc.tf:20      aws_autoscaling_group.web                                 [report-with-fix]   high     §8 COST-08 (V261)
    max_size 1000 × <lt-123 instance type> × 730 h at the ceiling; no load test or ADR names it. Fix: the tested ceiling.
 
 Candidates (unpriced → /cost-audit): §1 3 × NAT-hours × 730 h, 0 gateway endpoints · §4 2000 GB gp2 × GB-month ·

@@ -68,7 +68,7 @@ A GitLab template, `extends:` base, reusable workflow or composite action is **o
 |---|---|---|
 | Graph | `python3 "$G" . --all`; `--contexts=<a,b> [--merge-queue]` or `--settings-dir=<dir>` (offline, from saved `gh api` responses; 0b passes `$SETTINGS_DIR` when the caller sets it) or `--required --online [--repo=o/r --branch=b]` (`gh` + token; without `--online` it prints `NOT-RUN OFFLINE` and exits 2); `--deploy-ancestors`; `--job-of=F:L`, `--shell-of=F:L` | No YAML loader → exit 2; GitHub only; a job that pushes through `docker/build-push-action` `outputs: …push=true` with no `push:` input is not counted as a publish (read it) |
 | Settings | `gh api repos/{o}/{r}/rules/branches/{b}` **and** legacy `…/branches/{b}/protection/required_status_checks`; `…/actions/workflows`; GitLab `glab api projects/:id` | 403/404 = `UNREADABLE(gh api …: 403)`, never "absent" (precedents § 6); rulesets in evaluate mode are not returned `[K]` |
-| GHA lint | `actionlint -format '{{json .}}'` 1.7.12, or `docker run --rm -i rhysd/actionlint:1.7.12 - < <file>` per file `[K]` | exit 3 = no project (a bind-mount trap) → NOT-RUN; it checks that `needs:` exists, not that it is sufficient |
+| GHA lint | `actionlint -format '{{json .}}'` 1.7.12, or, when the image is local, `docker run --pull=never --rm -i rhysd/actionlint:1.7.12 - < <file>` per file `[K]` (neither present → NOT-RUN; to enable: `docker pull rhysd/actionlint:1.7.12`) | exit 3 = no project (a bind-mount trap) → NOT-RUN; it checks that `needs:` exists, not that it is sufficient |
 | Shell probe | the four lines of V210 (below) | none: runs with no CI access |
 | Expansion | `circleci config process`, `glab ci lint --dry-run --ref <b>` | needs the CLI or a token → `blocked (<cli> absent)`; then the raw file is grepped and the row says so |
 
@@ -298,7 +298,7 @@ Required set: --contexts=all-green (rules snapshot .refract/rules.json) · merge
 
 Findings: 2 · Unconfirmed: 4
 
-1. .github/workflows/deploy.yml:26                                         [report-with-fix]   critical
+1. .github/workflows/cd.yml:26                                             [report-with-fix]   critical
    §4 PC-4 — deploy-prod `needs: test` with `if: always()` (DEPLOY-ALWAYS): a failed test still deploys prod
    (R2). Proof: seeded `exit 1` in test on sandbox branch → deploy-prod ran, digest moved (V212, fails).
    Fix: drop `if: always()` from deploy-prod; keep `always()` only on the notify job (precedents § 8).

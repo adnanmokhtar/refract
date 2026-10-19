@@ -12,7 +12,8 @@
 #   * reopening is ASKED, never auto-approved: the hook returns permissionDecision "ask" so the human
 #     sees the prompt even in auto mode; with prompts off (bypassPermissions / dontAsk) it is denied.
 #   * hook-owned records — .claude/locks/, .claude/evidence/, ai/runs/*/verdict*.json,
-#     ai/runs/*/reviews/ — are never written through a tool.
+#     ai/runs/*/reviews/, ai/dynamic/review-dismissals.jsonl — are never written through a tool.
+#   * a human dismissal (`review-dismissals.py dismiss`) is ASKED like a reopen, denied with prompts off.
 #   * a Bash command that names a locked file or a record AND has a write shape (redirect, tee,
 #     sed -i, cp/mv/rm, git checkout/restore, an inline interpreter) is denied. Best effort: the
 #     authoritative check is gate-check.py G0, which re-hashes every locked file at Stop and in CI.
@@ -26,13 +27,13 @@ case "$payload" in
   *'"tool_name":"Bash"'*|*'"tool_name": "Bash"'*)
     # Fast path: no lock, no record path, no reopen in the command → nothing to guard.
     if ! ls .claude/locks/*.json >/dev/null 2>&1; then
-      case "$payload" in *lock-acceptance*|*refract_records*|*ai/runs/*|*.claude/evidence*|*.claude/locks*) ;; *) exit 0 ;; esac
+      case "$payload" in *lock-acceptance*|*refract_records*|*ai/runs/*|*.claude/evidence*|*.claude/locks*|*review-dismissals*) ;; *) exit 0 ;; esac
     fi ;;
 esac
 if ! command -v python3 >/dev/null 2>&1 || [ ! -f .claude/scripts/refract_records.py ]; then
   # Degraded: still refuse a tool write to a hook-owned record; locks cannot be read without python3.
   case "$payload" in
-    *'"file_path"'*'.claude/locks/'*|*'"file_path"'*'.claude/evidence/'*|*'"file_path"'*'/verdict'*'.json"'*)
+    *'"file_path"'*'.claude/locks/'*|*'"file_path"'*'.claude/evidence/'*|*'"file_path"'*'/verdict'*'.json"'*|*'"file_path"'*'review-dismissals.jsonl"'*)
       echo "Blocked by test-lock: hook-owned record (python3 or refract_records.py is missing, so locks are not checked)." >&2
       exit 2 ;;
   esac

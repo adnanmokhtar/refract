@@ -295,7 +295,7 @@ Findings: 3 · Unconfirmed: 1
    §5 AL-12 — rate(…{job="api"}[30s]) with api scraped every 30s on Prometheus 3: the sustained-503 test gets [] (exactly 1× is empty).
    Proof: promtool test rules (3.15.0) — fails unfixed, passes with [1m]. Fix: [1m] (≥ 2×, THR-OBS-RATE-WINDOW).
 
-2. deploy/alertmanager/alertmanager.yml:2  root → dev-null                 [report-with-fix]   high
+2. deploy/alertmanager/routes.yml:2        root → dev-null                 [report-with-fix]   high
    §8 AM-01 — pyrra's ErrorBudgetBurn emits severity=critical and severity=warning; the routes match only page/ticket, so both resolve to dev-null.
    Proof: amtool config routes test --verify.receivers=pager severity=critical → exit 1. Fix: route on the generator's vocabulary (or set pyrra's severities), re-run the matrix.
 

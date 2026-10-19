@@ -1,0 +1,31 @@
+# Partner API routes, imported by shop.caddy (snippet `partner_api`).
+(partner_api) {
+	handle /v1/catalog/* {
+		reverse_proxy catalog.larder.svc.cluster.local:80 catalog-replica.larder.svc.cluster.local:80 {
+			lb_policy round_robin
+			lb_try_duration 5s
+			lb_try_interval 250ms
+		}
+	}
+
+	handle /v1/quotes/* {
+		reverse_proxy pricing.larder.svc.cluster.local:80
+	}
+
+	handle /v1/orders/* {
+		reverse_proxy checkout.larder.svc.cluster.local:80 checkout-canary.larder.svc.cluster.local:80 {
+			lb_policy first
+			lb_try_duration 10s
+			lb_retry_match {
+				method POST
+			}
+		}
+	}
+
+	handle /v1/account/* {
+		cache {
+			ttl 60s
+		}
+		reverse_proxy api.larder.svc.cluster.local:80
+	}
+}

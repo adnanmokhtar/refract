@@ -12,3 +12,4 @@ resume
 schedule
 clear
 model
+memory

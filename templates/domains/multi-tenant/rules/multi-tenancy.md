@@ -78,7 +78,7 @@ See `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` and `<patterns-path>/
 - `<commands-path>/tenant-leak-audit.md` (slash: `/tenant-leak-audit`) — greps repo methods, raw SQL, and ORM queries for missing `tenant_id`; greps `req.body.tenantId` / `req.query.tenantId` / `req.headers['x-tenant-id']`; flags cross-tenant joins, missing isolation tests, single-column indexes on filter columns.
 - CI MUST run isolation tests for every tenant-scoped repo; missing `it('filters by tenant_id')` test on a tenant-scoped repo fails the build.
 - Migration review MUST reject any new tenant-scoped table without `tenant_id <type> NOT NULL REFERENCES tenants(id)` + composite index.
-- `<agents-path>/tenant-isolation-reviewer.md` — review gate; hard-fails PRs that introduce a leak surface without a corresponding isolation test.
+- `.claude/lenses/multi-tenant-review.md` — review gate; hard-fails PRs that introduce a leak surface without a corresponding isolation test.
 - TODO: `scripts/validate-tenant-isolation.sh` to AST-walk repo files and assert every method that touches a tenant-scoped table either accepts `tenantId` or pulls from `<tenant-context>`.
 
 ## Cross-references
@@ -86,5 +86,5 @@ See `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` and `<patterns-path>/
 - `<patterns-path>/multi-tenancy.md` — request-scoped context + resolution chain (the "where").
 - `<patterns-path>/tenant-isolation.md` — repo-layer enforcement (the "how").
 - `<commands-path>/tenant-leak-audit.md` — scanner.
-- `<agents-path>/tenant-isolation-reviewer.md` — review gate.
+- `.claude/lenses/multi-tenant-review.md` — review gate.
 - `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` — ADR pinning the deployment shape.

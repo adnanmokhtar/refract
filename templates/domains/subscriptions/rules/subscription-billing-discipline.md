@@ -94,7 +94,7 @@ A subscription bug is a recurring bug: it bills the same customer wrong every cy
 ## Enforcement
 
 - `<commands-path>/simulate-renewal.md` (slash: `/simulate-renewal` and `/simulate-renewal --fail`) — replays a renewal cycle and a failed-renewal/dunning cycle against the LOCAL dev server from sanitised fixtures; cite-or-halt on fixture path + response status + DB-state delta + resulting entitlement state. Verifies idempotent renewal, dunning/grace, and that entitlements track state.
-- `<agents-path>/subscription-reviewer.md` — review gate hard-failing on client-trusted entitlements, float proration, missing dunning/grace, non-idempotent renewals, local↔provider drift, trial abuse holes, refund/credit not reflected in invoices, and revenue double-count.
+- `.claude/lenses/subscriptions-review.md` — review gate hard-failing on client-trusted entitlements, float proration, missing dunning/grace, non-idempotent renewals, local↔provider drift, trial abuse holes, refund/credit not reflected in invoices, and revenue double-count.
 - CI lint MUST reject `subscriptions` status writes outside the transition module (AST: `UPDATE ... status` / `.status =` on the subscription entity outside the allowed state-machine file).
 - CI lint MUST reject `subscriptions.*\.create(` / `invoiceItems.create(` / renewal-charge calls without a passed idempotency key (mirrors payment's lint).
 - CI lint MUST reject float arithmetic (`* `, `/ `) on fields named like money/proration/credit/tax outside the `Money` module.
@@ -109,5 +109,5 @@ A subscription bug is a recurring bug: it bills the same customer wrong every cy
 - `<patterns-path>/payment-integration.md` — `PaymentGateway`, Money type, webhook handler shape the renewal charge reuses.
 - `<patterns-path>/webhook-flow.md` — generic verify → dedupe → process inbound shape the transition handler follows.
 - `<commands-path>/simulate-renewal.md` — local renewal + dunning fixture-replay tool.
-- `<agents-path>/subscription-reviewer.md` — review gate.
+- `.claude/lenses/subscriptions-review.md` — review gate.
 - `<adr-path>/<NNN>-subscription-provider-choice.md` — ADR pinning the chosen billing provider + proration/dunning policy.

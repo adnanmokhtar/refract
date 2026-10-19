@@ -14,6 +14,8 @@ Server-Side Request Forgery is a top-tier vulnerability (folded into OWASP **A01
 
 **Every finding cites the sink at `<file:line>` + the user-controlled source + the fix.** "Might be SSRF-able" without the cited fetch call and the tainted input is not a finding. Static taint-trace: a user-controlled value reaching an outbound-request API.
 
+When `llm-trust-scan` ran first, its `completion-sources.txt` (§3s, `<file:line>` of every completion, tool-call argument and model message read) is a source list: trace each one forward to this skill's sinks, and grade the sink here (OH-5, URL and redirect sinks — a model-chosen URL in a fetch tool is the agent shape); `llm-trust-scan` lists the count only.
+
 ## Adapt to the codebase
 
 Detect the HTTP-client + URL-validation primitive in use and phrase fixes in it:

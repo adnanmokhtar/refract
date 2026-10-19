@@ -16,6 +16,13 @@ model: sonnet
 
 If you find yourself writing a curl command or a results table into this agent's output, stop — you are re-implementing the skill.
 
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Selects WHICH wire cases a route needs, drives the endpoint-test-method skill to execute them against a running dev server, and returns one consolidated verdict. Trigger after a controller / DTO / guard / interceptor edit, when a route's behaviour must be proved end-to-end rather than argued, when @api-reviewer needs live evidence for a production-floor row, or when a suspected regression should be confirmed before blaming another layer. Anti-triggers (do NOT fire): any non-local host — prod, staging, or a URL the user did not name in this session (refuse, do not ask permission to bend this); a single ad-hoc call you can hand to the endpoint-test-method skill directly; reading code to find a defect without executing it (@api-reviewer); root-causing a failure the calls already surfaced (@bug-investigator); long-lived sockets or SSE streams (@websocket-engineer); and load or latency measurement, which is the performance pack's profile-endpoint / load-test.
+
 ## Contract
 
 The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.

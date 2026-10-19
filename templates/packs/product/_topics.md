@@ -3,14 +3,9 @@
 Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 ```yaml
-- name: requirements-reviewer
-  kind: agent
-  triggers: { always: true }
-  extracts_from: _extracted-codebase.md § Modules (the surfaces requirements land on) + ai/business-domain.md (the vocabulary requirements must use)
-  sections: [persona, halt_conditions, review_dimensions, coverage_grid, traceability, criteria_ledger, output_format]
-  mirror_existing: true
-  fallback: _examples/requirements-reviewer.md
-  cite_evidence: strict
+# requirements-reviewer — single owner: the delivery pack (templates/packs/delivery/agents/requirements-reviewer.md,
+# topic in delivery/_topics.md). delivery is always-on and applied first, so its agent always claims the name;
+# product dispatches @requirements-reviewer from /audit-requirements --spec and ships no copy of its own.
 
 - name: product-strategist
   kind: agent
@@ -90,10 +85,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 - name: audit-requirements
   kind: command
   triggers: { always: true }
-  extracts_from: ai/business-domain.md (vocabulary) + ai/conventions.md (how criteria are written here)
-  sections: [understand, organize, retrieve, validate]
-  dispatches: requirements-reviewer
-  fallback: commands/audit-requirements.md
+  extracts_from: ai/business-domain.md (vocabulary) + ai/conventions.md (how criteria are written here) + _extracted-codebase.md § Modules (the surfaces --repo joins) + ai/product/ (success files, tracking plan)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  dispatches: requirements-reviewer   # owned by the delivery pack (always installed); --spec lane only
+  fallback: commands/audit-requirements.md   # the source IS the fallback: two lanes, the class ledger and the verdict are the contract
+
+- name: product-fix
+  kind: command
+  triggers: { always: true }
+  fallback: commands/product-fix.md   # the source IS the fallback, as for db-fix
 
 - name: synthesize-research
   kind: command
@@ -119,7 +119,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: acceptance-criteria-check
   kind: skill
-  triggers: { always: true }
+  triggers: { always: true }   # the shape lane needs only a spec; the trace lane prints N/A (no criterion ids) where none exist
   fallback: skills/acceptance-criteria-check/SKILL.md
 
 - name: evidence-trace
@@ -134,6 +134,21 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: launch-readiness
   kind: skill
-  triggers: { signal_confirmed_any: [feature-flags, analytics] }
-  fallback: skills/launch-readiness/SKILL.md
+  triggers: { always: true }   # the repo scorecard runs on any repo; feature scope needs ai/product/success/<slug>.md
+  fallback: skills/launch-readiness/SKILL.md   # ships rules.json + scripts/readiness-score.py beside it
+
+- name: feature-surface-scan
+  kind: skill
+  triggers: { always: true }   # an absent surface (no client, no routes) reports each class N/A
+  fallback: skills/feature-surface-scan/SKILL.md
+
+- name: tracking-plan-scan
+  kind: skill
+  triggers: { always: true }   # no analytics calls → N/A; calls with no plan → one Hardening inventory row
+  fallback: skills/tracking-plan-scan/SKILL.md
+
+- name: entitlement-consistency-scan
+  kind: skill
+  triggers: { always: true }   # no plans or catalog → each class N/A
+  fallback: skills/entitlement-consistency-scan/SKILL.md
 ```

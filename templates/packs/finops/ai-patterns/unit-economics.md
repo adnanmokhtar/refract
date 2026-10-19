@@ -86,10 +86,12 @@ Each has a different owner. Rate is procurement, usage is engineering or product
 
 ## Detectors
 
-- A cost-per-unit figure quoted with no denominator definition.
-- A model whose branches sum to less than the bill, with the difference unmentioned.
+Read from the user's export by `unit-cost-probe` (UE-2) and `/cost-model`, both through `bill-lane.py`; without an export they print `NOT-RUN (no billing export)`. Figures quoted in docs are linted by `candidate-pricing` §4 (PX-1).
+
+- A cost-per-unit figure quoted with no denominator definition — `unit-cost-probe` halts on it (`NOT-RUN (denominator undefined)`).
+- A model whose branches sum to less than the bill, with the difference unmentioned — V589's reconciliation (`bill-lane.py`, to the minor unit per currency).
 - A branch carrying a number with no label.
-- A per-unit cost that moved with no usage change — check tagging coverage before believing it.
+- A per-unit cost that moved with no usage change — check tagging coverage before believing it (`bill-lane.py split` separates rate, usage and mix; `/audit-cost-attribution` gives the coverage).
 - A model built once and never refreshed, comparing this year's architecture to last year's assumptions.
 - A cost model with no revenue side.
 - An average per-tenant cost with no segmentation on a system with a long usage tail.

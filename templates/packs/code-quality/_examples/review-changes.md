@@ -38,7 +38,7 @@ If any of those are missing, the agent drops the finding rather than emitting a 
 - **Classify the diff first** — which areas changed? Wrong classification = wrong reviewers.
 - **Universal reviewers ALWAYS**.
 - **Specialist reviewers BASED on area touched**.
-- **Domain reviewers BASED on project signals** (from `CLAUDE.md`).
+- **Domain lenses BASED on project signals** (applied domains in `.claude/_domain-coverage-report.md`; each goes to its mapped reviewer with `lens: .claude/lenses/<d>-review.md`).
 - **Patterns consulted**, not just principles.
 - **No axis silently skipped** — a reviewer that isn't installed is reported `UNREVIEWED(<axis>)` and the sweep ends INCOMPLETE, never dropped and never self-graded.
 - **Secrets scanned on every changed file** — not just `auth`-category files; a leaked key in a test fixture or config is still a blocker.
@@ -169,7 +169,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | iac | `infra-reviewer` (infrastructure pack) — the judge: refutes the detector rows and ranks what survives | `iac-state-scan` (backend and locking, pinning, plan discipline, environment isolation) and `iac-lifecycle-scan` (identity churn, lifecycle misuse, stateful replacement, deletion safety) (infrastructure pack, when installed). Without the pack the axis is `UNREVIEWED(iac)` |
 | api-contract | — | `api-snapshot` (breaking-change detection) |
 | tests | `test-reviewer` | — |
-| ai-code | `prompt-reviewer` | — |
+| ai-code | `security-auditor` + lens `ai-review` | — |
 | webhook | `resilience-reviewer` (idempotency + signature check) | — |
 | events | `resilience-reviewer` | — |
 | telemetry | `observability-reviewer` | — |
@@ -180,8 +180,17 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | Signal | Reviewer |
 |---|---|
 | Multi-tenant | `tenant-isolation-reviewer` (any DB-touching change) |
-| AI | `prompt-reviewer` (if AI code touched) |
-| Payment | payment-specific reviewer if available |
+| AI | `security-auditor` + lens `ai-review` (if AI code touched; domain `ai` installed) |
+| Any applied technical domain | its domain lens — below |
+
+**Domain lenses (Phase 6).** For each domain marked applied (✅) in `.claude/_domain-coverage-report.md` whose
+surface the diff touches, dispatch that domain's reviewer — `reviewer` in `~/.claude/templates/domains/<d>/_version.json`,
+or its `fallback` when the reviewer's pack is not installed; installed, the same mapping is the reviewer's generated
+`## Lenses` block — with `lens: .claude/lenses/<d>-review.md` in its brief (payment, ledger, subscriptions, workflow,
+settings, forms → `code-reviewer`; auth, admin, webhook, … → `security-auditor`; background-jobs, integrations,
+real-time, … → `operability-reviewer`; caching, search → `performance-reviewer`). One dispatch per reviewer carries
+all its lenses. A reviewer that cannot open a lens returns `BLOCKED(lens missing)`; the domain is then
+`UNREVIEWED(<d>)`, never silently skipped.
 
 #### Universal skill checks
 - `dead-code-scan` (on changed files) — find what the change orphaned or made unreachable.
@@ -324,7 +333,7 @@ Phase 6 (Validated): <N> reviewers ran in parallel; <N> skills run.
 
 ### Agents dispatched
 code-reviewer, api-reviewer, schema-reviewer, tenant-isolation-reviewer, test-reviewer,
-observability-reviewer, prompt-reviewer, security-auditor
+observability-reviewer, security-auditor (+ lens ai-review)
 
 ### Skills run
 a11y-scan (3 routes), n-plus-one-scan (database pack), doc-drift-scan, api-snapshot

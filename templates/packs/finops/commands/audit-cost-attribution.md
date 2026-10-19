@@ -1,11 +1,11 @@
 ---
-description: Audit whether spend can be attributed to an owner — tag and label coverage by resource and by dollar, the allocation rules for shared cost, the showback map, and the unallocated bucket. Reports the percentage of spend nobody owns, which bounds every per-unit number derived from it.
+description: "Who owns the spend: allocation keys in code and coverage by dollar from an export."
 kind: command
 pack: finops
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
-# /audit-cost-attribution [--period <billing-period>]
+# /audit-cost-attribution [--period <billing-period>] [--export=<FOCUS or CUR path>]
 
 Measure how much of the bill has an owner. Unattributed spend is not merely unmeasured — it is structurally unreducible, because no team sees it, no team is asked about it, and no team can act on it. This audit reports the number by dollar, not by resource count, and names the rules that would fix it.
 
@@ -27,6 +27,8 @@ Measure how much of the bill has an owner. Unattributed spend is not merely unme
 **A tag that exists is not a tag that is correct.** Sample and verify: resources tagged with a decommissioned team, a misspelled product name, or a value not in the allowed set are counted as untagged for the purposes of this audit, and listed separately as *mis*-tagged, which is a different fix.
 
 **Shared cost is allocated by a declared rule or it is unallocated.** There is no third state. A shared cluster divided by "roughly usage" with no written basis is unallocated spend with a story attached.
+
+**Two halves, and the static one always runs.** Whether the code that creates resources stamps the policy's keys is readable from files with no billing access: the offline plan's merged tags, every env render's pod templates and namespaces, and every runbook create line — that is `allocation-scan` §1–§4 (TG-1…4, V575–V577), dispatched here. What share of the **bill** has an owner needs the export, read only through `bill-lane.py attribution`. Without `--export` the dollar half prints `NOT-RUN (no billing export)`, the static half still reports, and the gate below cannot say COMPLETE — the headline is a dollar figure or it is missing, never a resource count standing in for one.
 
 **Closure verb (default): report-and-propose.** Measure coverage, list the gaps, and propose the enforcement change. Do not retag resources as a side effect of an audit.
 
@@ -59,8 +61,8 @@ Four passes:
 Additionally:
 - `ai/patterns/spend-allocation.md`, `ai/patterns/unit-economics.md`.
 - `.claude/rules/finops-principles.md`.
-- The cost and usage export at row level with the tag/label columns.
-- The infrastructure definitions — untagged resources created from code are an enforcement gap, not a hygiene gap, and the fix is in the module defaults.
+- **The static half — dispatch `allocation-scan`** (this pack) with the policy from Phase 1: § 1–§ 2 walk the offline plan's `tags_all` / `effective_labels` / `tags` (module defaults included — the HCL alone hides them), § 3 every env render's pod templates and namespaces, § 4 every runbook and script create line. Untagged resources created from code are an enforcement gap, not a hygiene gap, and the fix is in the module defaults. Its coverage block is copied into the report: `checked (k taggable → m missing)` per §, or `blocked (no allocation policy)`.
+- **The dollar half — the export at row level with the tag/label columns**, the user's file passed as `--export=<path>` (never pulled from a billing API or CLI), read with `.claude/skills/unit-cost-probe/scripts/bill-lane.py`: `columns <export>` first (the cost column read: `EffectiveCost` by default), then `attribution <export> --required-keys <keys> --allowed <key>=<v1|v2> --untaggable <list>` — the four categories per currency, per service, with the reconciliation. FOCUS carries tags in its `Tags` column; CUR 2.0 and GCP need `--profile` and a column read before any figure is trusted (`precedents/finops.md` § 30).
 
 ## Phase 5 — Update
 
@@ -69,9 +71,9 @@ Additionally:
 
 ## Phase 6 — Validate
 
-- **Reconcile**: tagged + mis-tagged + untagged + untaggable = total spend. If it does not, a category is being double-counted.
+- **Reconcile**: tagged + mis-tagged + untagged + untaggable = total spend, per currency, to the minor unit — `bill-lane.py attribution` prints the check (V589 in [`proof-oracles.md`](../../../snippets/proof-oracles.md) § FinOps). If it does not, a category is being double-counted.
 - **Sample-verify tag correctness**: take a sample across the highest-spend tagged resources and confirm the owner value resolves to a real, current team.
-- **Test the enforcement proposal** in a dry run: create a resource through the shared module without the required tags and confirm it is rejected. An enforcement mechanism that has never been observed rejecting anything is unverified.
+- **Test the enforcement proposal offline**: the V575 tag walk on a plan that adds a resource through the shared module without the required tags must fail, and pass once the module default supplies them; V576 on a render that drops a label; V577 on a runbook line without the flag. Never by creating a resource in an account. An enforcement mechanism that has never been observed rejecting anything is unverified.
 - Dispatch **`@finops-analyst`** for the numeric review.
 
 ### Attribution ledger — REQUIRED OUTPUT ARTIFACT
@@ -102,7 +104,8 @@ Shared-cost pool: $<x> (<%> of total) — basis: <declared basis> — computed f
 
 Showback: <n> owners · cadence <x> · owners who acted on the last report: <n>
 
-Enforcement proposal: <the module/default change>   dry-run result: <rejected | not tested>
+Static coverage (allocation-scan): §1 <k of n taggable resources carry every key> · §2 <drift pairs> · §3 <pod templates / namespaces missing labels> · §4 <create lines with no flag>
+Enforcement proposal: <the module/default change>   offline proof: <V575/V576/V577 fail→green | not tested>
 
 Status: <see gate below>
 ```
@@ -110,7 +113,7 @@ Status: <see gate below>
 ### Closure gate — COMPLETE only when the ledger reconciles and every category has a fix class
 
 - **`Status: COMPLETE`** — the four categories sum to total spend, the untaggable portion has a written allocation rule, the shared-cost basis is declared and computed from a named metric (or explicitly labelled ASSERTED), and the enforcement proposal has a dry-run result.
-- **`Status: INCOMPLETE — unmet: <list>`** — the ledger does not reconcile, a category has no fix class, the shared basis is asserted with no metric and not labelled, or the enforcement proposal was never dry-run.
+- **`Status: INCOMPLETE — unmet: <list>`** — no export (the dollar half `NOT-RUN`), the ledger does not reconcile, a category has no fix class, the shared basis is asserted with no metric and not labelled, or the enforcement proposal was never dry-run.
 
 This gate is **[self-policed]** on the Status line; the reconciliation arithmetic and the dry-run result are both reproducible.
 
@@ -135,7 +138,9 @@ This gate is **[self-policed]** on the Status line; the reconciliation arithmeti
 
 - `@finops-analyst` — performs the grouping and the reconciliation.
 - `@cost-architect` — account and tagging structure decisions for new systems.
+- `allocation-scan` — the static half (TG-1…4), also dispatched by `/cost-review`; `bill-lane.py attribution` (`unit-cost-probe/scripts/`) — the dollar half.
 - `@cost-reviewer` — catches untagged resources at diff time, which is where the fix is cheapest.
+- `/cost-guardrails --from-audit` — closes TG findings with the failing-first walks; never retags existing resources without the user's word.
 - `/cost-model` — run after this; it inherits the attributed share as its error bar.
 - `ai/patterns/spend-allocation.md`, `ai/patterns/unit-economics.md`.
 - `.claude/rules/finops-principles.md`.

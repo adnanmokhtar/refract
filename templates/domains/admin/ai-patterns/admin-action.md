@@ -360,5 +360,5 @@ A support list view rendering raw SSN / card / password hash inline. Mask by def
 - `<rules-path>/multi-tenancy.md` — admin is the one place cross-tenant action is allowed; make it an explicit, audited capability.
 - `<rules-path>/reporting-export-discipline.md` — admin data views/exports inherit the PII column allowlist + redaction + access-audit discipline.
 - `<commands-path>/audit-admin-surface.md` — enumerate + audit every admin action.
-- `<agents-path>/admin-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/admin-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-admin-capability-model.md` — ADR pinning the capability taxonomy, impersonation policy, dual-control thresholds, and isolation model.

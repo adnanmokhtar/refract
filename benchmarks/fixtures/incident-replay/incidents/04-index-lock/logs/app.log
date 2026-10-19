@@ -1,0 +1,9 @@
+2026-07-14T08:31:04Z INFO  [deploy] db:migrate 20260714083000 AddStatusIndexToOrders started
+2026-07-14T08:31:20Z ERROR [orders] POST /orders 500 PG::QueryCanceled: ERROR: canceling statement due to statement timeout (INSERT INTO "orders")
+2026-07-14T08:31:34Z ERROR [orders] PATCH /orders/91 500 PG::QueryCanceled: ERROR: canceling statement due to statement timeout (UPDATE "orders")
+2026-07-14T08:32:02Z WARN  [ar] could not obtain a connection from the pool within 5.000 seconds; all pooled connections were in use
+2026-07-14T08:32:40Z INFO  [orders] GET /orders?status=paid 200 140ms
+2026-07-14T08:35:12Z ERROR [orders] POST /orders 500 PG::QueryCanceled: ERROR: canceling statement due to statement timeout (INSERT INTO "orders")
+2026-07-14T08:38:55Z WARN  [ar] could not obtain a connection from the pool within 5.000 seconds; all pooled connections were in use
+2026-07-14T08:42:31Z INFO  [deploy] db:migrate 20260714083000 AddStatusIndexToOrders finished in 687.4s
+2026-07-14T08:42:40Z INFO  [orders] POST /orders 201 95ms

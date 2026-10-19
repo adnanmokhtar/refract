@@ -11,8 +11,9 @@ FSM-library transition semantics. The oracles that prove them are in
 (EE §1–§8), `wire-format-scan` (WF §1–§8), `job-lifecycle-scan` (JL §1–§7) and
 `state-transition-scan` (ST §1–§2) (backend pack), run by `/backend-audit` and closed by
 `/backend-fix`. `@api-reviewer` judges every detector row in refute mode; every BLOCKER and HIGH it
-keeps goes once to `@verifier` mode `refute`. `business/agents/workflow-integrity` supplies the
-state graph ST reads.
+keeps goes once to `@verifier` mode `refute`. The state graph ST reads comes from business
+`lifecycle-scan` (`status-graph.py`'s `edges.tsv`, judged by `business/agents/workflow-integrity`) when
+the business pack is installed.
 
 **Owned elsewhere.** A neighbour that sees the same site lists it as corroboration, deduped by
 `file:line`; without the owner's pack the row is tagged `<class> (owner pack <x> not installed)`

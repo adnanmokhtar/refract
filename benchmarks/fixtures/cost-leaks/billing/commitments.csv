@@ -1,0 +1,3 @@
+id,type,scope,end_date,owner
+arn:aws:savingsplans::111111111111:savingsplan/sp-0a1b2c3d,Compute Savings Plan (3-year no upfront),EKS general node pool,2026-11-30,platform
+arn:aws:rds:eu-central-1:111111111111:ri:qw-orders-ri,RDS reserved instances (2 x db.r6g.large),orders database and the retired reporting replica,2027-03-31,dispatch

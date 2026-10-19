@@ -104,7 +104,28 @@ A task with a single correct answer — extraction, classification, routing, str
   - GOOD: a versioned prompt + an eval-diff on the PR.
   - → `version-and-eval-prompt`
 
-**Closure verbs:** `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `remove-sampling-params`, `version-and-eval-prompt`.
+- **The stop reason or a refusal is never read before the answer is used** (`prompt-audit` §S3) →
+  - BAD: `save(res.choices[0].message.content)` with no read of `finish_reason`; a `length` stop is stored as a complete answer.
+  - GOOD: branch on `finish_reason` / `stop_reason` / `status: "incomplete"` / `refusal` before parsing, persisting or charging; a truncated or refused answer fails closed.
+  - → `add-stop-reason-check`
+- **Output validated nowhere at the consumer, or repaired in an unbounded loop** (`prompt-audit` §S2, §S4) →
+  - BAD: `JSON.parse(text)` passed downstream; `while not valid: call()`.
+  - GOOD: `safeParse` / `model_validate` at the consumer, at most N repairs with the error fed back, then fail closed. (`add-output-schema` is the schema in the request; this is the check where the answer is used.)
+  - → `validate-output-schema`
+- **A model id past its retirement date, due within the release window, or a moving alias in production** (`prompt-audit` §V1, read against the dated `model-lifecycle.tsv`) →
+  - BAD: `model: 'gpt-4-turbo'` in code, `.env.example` or an eval config after the provider's shutdown date; `-latest` on a production path with no regression eval.
+  - GOOD: a dated, live id from the table, the same id in every config that names it, and a scheduled eval before any move.
+  - → `pin-model-id`
+- **A model id read from the environment with no allowlist or boot check** (`prompt-audit` §V2) →
+  - BAD: `model: process.env.CHAT_MODEL!` — an unset or mistyped value fails on the first request, or silently prices at zero.
+  - GOOD: the id validated at boot against an allowlist (or the dated table), the app refusing to start on a bad value.
+  - → `validate-model-config`
+- **A parameter the configured model rejects** (`prompt-audit` §V3) →
+  - BAD: forced `tool_choice` or non-default sampling on a model generation that returns 400 for it; assistant prefill on a model that dropped it; a large non-streaming `max_tokens` the SDK refuses before sending.
+  - GOOD: the request built from a per-model capability map read from the provider's dated reference, proved by a recorded request per configured id.
+  - → `fix-model-params`
+
+**Closure verbs:** `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `remove-sampling-params`, `version-and-eval-prompt`, `add-stop-reason-check`, `validate-output-schema`, `pin-model-id`, `validate-model-config`, `fix-model-params`.
 
 ## Related
 

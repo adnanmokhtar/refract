@@ -49,12 +49,12 @@ the loss is real for every project that receives one of these files, so the expo
 may not grow.
 
 ```
-ai-engineering           8
-business                 4
+ai-engineering           5
+business                 2
 code-quality             3
 database                 3
 devops                   2
-documentation            2
+documentation            1
 frontend                 11
 observability            1
 performance              1

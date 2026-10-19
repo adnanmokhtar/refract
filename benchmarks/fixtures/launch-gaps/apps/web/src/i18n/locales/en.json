@@ -1,0 +1,43 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "orders": "Orders",
+    "stores": "Stores",
+    "reports": "Reports",
+    "retention": "Retention",
+    "inbox": "Inbox",
+    "loyalty": "Loyalty",
+    "giftCards": "Gift cards",
+    "imports": "Import",
+    "assistant": "Assistant",
+    "referrals": "Refer a shop",
+    "team": "Team",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Today at a glance",
+    "topProducts": "Top products this week",
+    "viewAll": "View all products",
+    "forecast": "Demand forecast: coming soon",
+    "insights": "This week"
+  },
+  "onboarding": {
+    "welcome": {
+      "title": "Welcome to Shelfwise",
+      "cta": "Connect your first store"
+    }
+  },
+  "reports": {
+    "title": "Reports",
+    "export": "Export CSV",
+    "schedule": "Email this report weekly"
+  },
+  "loyalty": {
+    "title": "Loyalty points",
+    "enable": "Turn on loyalty points"
+  },
+  "billing": {
+    "upgrade": "Upgrade",
+    "compare": "Compare plans"
+  }
+}

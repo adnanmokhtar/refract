@@ -556,7 +556,7 @@ build_block() {
 <!-- project-specific:start -->
 ## Project-specific (auto-generated, regenerate with \`/setup-project --refine\`)
 
-> Auto-populated by \`scripts/apply-anchors.sh\` from \`.claude/codebase-profile.md\` + \`.claude/_codebase-scan.md\`$([[ -n "$BASE_CLASSES" ]] && echo " + \`.claude/_extracted-idioms.md\`"). Round-one floor — \`/setup-project --refine\` deepens shallow blocks based on \`compute-anchor-density\` scoring.
+${ANCHOR_HEADER}
 >
 > - **Architecture** (\`.claude/codebase-profile.md:${arch_ln:-1}\`): ${ARCH_LINE:-<not declared in codebase-profile.md>}
 > - **Naming** (\`.claude/codebase-profile.md:${naming_ln:-1}\`): ${NAMING_LINE:-<not declared in codebase-profile.md>}
@@ -572,6 +572,96 @@ ${relevance}
 BLOCK
 }
 
+
+# --- The header line, and the facet lines, as THIS run would write them -----------------
+#
+# The header used to read "Auto-populated by `scripts/apply-anchors.sh` from
+# `.claude/codebase-profile.md` + `.claude/_codebase-scan.md`". Both backticked paths exist only
+# in the Refract checkout and during setup: in an installed project an agent reading the anchor is
+# told to open two files that are not there. MEASURED on a real NestJS monorepo, the learning
+# pack's knowledge-ref-scan §5 (KN-05, framework path in an installed artifact) grouped 341
+# anchor headers on exactly this line. The header now names the command, not the script, and
+# cites only the profile, which an install keeps. merge-decide.py matches `^>\s*Auto-populated by`,
+# so the prefix stays. `${BASE_CLASSES:+…}`, not `$([[ … ]] && echo …)`: under `set -e` an assignment
+# whose command substitution exits 1 (no idioms) ends the whole run silently.
+ANCHOR_HEADER="> Auto-populated by Refract's anchor generator (\`/setup-project\`) from \`.claude/codebase-profile.md\`${BASE_CLASSES:+ + \`.claude/_extracted-idioms.md\`}. Round-one floor — \`/setup-project --refine\` deepens shallow blocks based on \`compute-anchor-density\` scoring."
+
+# The five facet lines build_block() writes, from the profile as it is NOW. Empty when the facet
+# did not resolve: an unresolved facet never overwrites a line that says something.
+facet_expected() {
+  local val="$2" ln="$3"
+  [[ -n "$val" ]] || return 0
+  printf '> - **%s** (`.claude/codebase-profile.md:%s`): %s' "$1" "${ln:-1}" "$val"
+}
+FACET_ARCH=$(facet_expected "Architecture" "$ARCH_LINE" "$arch_ln")
+FACET_NAMING=$(facet_expected "Naming" "$NAMING_LINE" "$naming_ln")
+FACET_TESTING=$(facet_expected "Testing" "$TESTING_LINE" "$testing_ln")
+FACET_DATA=$(facet_expected "Data access" "$DATA_LINE" "$data_ln")
+FACET_ERR=$(facet_expected "Error handling" "$ERR_LINE" "$err_ln")
+
+# --- Marker corruption: never write into a file whose marker set is not one clean pair ------
+#
+# Counted at column 0 OUTSIDE fences, the same reading has_live_anchor() uses. A second live
+# start (nested or sequential), a start with no end, or an end with no start means the next
+# rewrite cannot know which block is the generator's: an inject would add a second pair, and a
+# repair would edit whichever block awk met first. MEASURED on a real monorepo: one skill with
+# six live blocks (five holding a literal `...content...`) and one agent with a nested start;
+# both were "already anchored" here, so every run left them as they were and the knowledge
+# audit (KN-15) flagged them forever. Report and skip; a human decides which block is real.
+# Prints a reason (corrupt) or nothing (one clean pair, or no live marker at all).
+# Fixture: scripts/test-anchor-citations.sh § 14.
+marker_corruption() {
+  awk '
+    /^[[:space:]]*```/ { fence = !fence; next }
+    fence { next }
+    /^<!-- project-specific:start -->[[:space:]]*$/ { s++; if (open) nested = 1; open = 1; next }
+    /^<!-- project-specific:end -->[[:space:]]*$/ { e++; if (!open) orphan = 1; open = 0; next }
+    END {
+      if (s == 0 && e == 0) exit
+      if (s > 1 || e > 1 || nested || orphan || open)
+        printf "%d live start, %d live end%s%s%s", s, e, nested ? ", nested start" : "", orphan ? ", end before start" : "", open ? ", start never closed" : ""
+    }
+  ' "$1" 2>/dev/null
+}
+
+# Rewrite generator-owned lines inside the ONE live block: the legacy header (mode header) or
+# the five profile facet lines (mode facets). Hand-written lines are never matched: a facet line
+# is recognised only by the exact prefix build_block() writes, `> - **<Facet>** (`.claude/
+# codebase-profile.md:<n>`): `, and the header only by the legacy script path. Output goes to
+# stdout; the caller compares it with the file (cmp) and moves it into place atomically.
+rewrite_block_lines() {
+  MODE="$2" HDR="$ANCHOR_HEADER" F_A="$FACET_ARCH" F_N="$FACET_NAMING" F_T="$FACET_TESTING" \
+  F_D="$FACET_DATA" F_E="$FACET_ERR" awk '
+    BEGIN { m["Architecture"] = ENVIRON["F_A"]; m["Naming"] = ENVIRON["F_N"]; m["Testing"] = ENVIRON["F_T"]
+            m["Data access"] = ENVIRON["F_D"]; m["Error handling"] = ENVIRON["F_E"] }
+    /^[[:space:]]*```/ { fence = !fence; print; next }
+    !fence && /^<!-- project-specific:start -->[[:space:]]*$/ { inb = 1; print; next }
+    !fence && /^<!-- project-specific:end -->[[:space:]]*$/ { inb = 0; print; next }
+    inb && !fence && ENVIRON["MODE"] == "header" && /^>[[:space:]]*Auto-populated by `scripts\/apply-anchors\.sh`/ { print ENVIRON["HDR"]; next }
+    inb && !fence && ENVIRON["MODE"] == "facets" && /^> - \*\*(Architecture|Naming|Testing|Data access|Error handling)\*\* \(`\.claude\/codebase-profile\.md:[0-9]+`\): / {
+      k = $0; sub(/^> - \*\*/, "", k); sub(/\*\*.*$/, "", k)
+      if (m[k] != "" && m[k] != $0) { print m[k]; next }
+    }
+    { print }
+  ' "$1"
+}
+
+# 0 = the block would change under rewrite_block_lines <mode>. Writes nothing.
+block_lines_stale() {
+  local out
+  out=$(mktemp "${TMPDIR:-/tmp}/anchor-chk.XXXXXX")
+  rewrite_block_lines "$1" "$2" > "$out"
+  if cmp -s "$out" "$1"; then rm -f "$out"; return 1; fi
+  rm -f "$out"; return 0
+}
+
+# Apply rewrite_block_lines in place: a temp file beside the target, then an atomic rename.
+apply_block_lines() {
+  local f="$1" tmp
+  tmp=$(mktemp "${f}.anchor-lines.XXXXXX")
+  rewrite_block_lines "$f" "$2" > "$tmp" && { _m=$(stat -c '%a' "$f" 2>/dev/null || stat -f '%Lp' "$f" 2>/dev/null || echo 644); chmod "$_m" "$tmp"; mv "$tmp" "$f"; }
+  rm -f "$tmp"
+}
 
 # --- Stale-anchor repair (migration for content this script already shipped) --------
 #
@@ -851,6 +941,9 @@ injected=0
 already=0
 repaired=0
 relev=0
+reanchored=0
+headers=0
+corrupted=0
 orphans=0
 processed=0
 
@@ -880,6 +973,14 @@ for kind in commands agents skills rules ai-patterns; do
     # `<name>/SKILL.md` target matches the pack's `<name>.md` identity key)
     if [[ " $pack_bases " != *" $(artifact_identity "$base") "* ]]; then
       orphans=$((orphans + 1))
+      continue
+    fi
+
+    # A marker set that is not one clean pair is never written to (marker_corruption above).
+    corrupt=$(marker_corruption "$f")
+    if [[ -n "$corrupt" ]]; then
+      echo "  MARKER-CORRUPT $kind/$base  ($corrupt; left for a human, no write)"
+      corrupted=$((corrupted + 1))
       continue
     fi
 
@@ -953,6 +1054,32 @@ for kind in commands agents skills rules ai-patterns; do
         relev=$((relev + 1))
         touched_this_file=1
       fi
+      # The re-anchor (learning KN-13 / KN-14, and KN-05 for the header). A facet line is a
+      # projection of one profile section; when the profile is corrected, every anchor that
+      # projected the old text is stale, and "already anchored" used to mean "never looked at
+      # again". MEASURED on a real NestJS monorepo: the profile and the lockfile said Postgres and
+      # UUIDv7 while 177 installed anchors still said "MikroORM (MySQL)" and "ULID PKs", citing the
+      # very profile line that had been corrected. Only the generator-owned lines change: the
+      # legacy header and the five facet lines; any hand-written line in the block is untouched.
+      # Fixture: scripts/test-anchor-citations.sh § 12, § 13.
+      for mode in header facets; do
+        block_lines_stale "$f" "$mode" || continue
+        if [[ "$APPLY" -eq 1 ]]; then
+          mkdir -p "$backup_dir"
+          rel="${f#$TARGET/}"
+          bak="$backup_dir/$rel"
+          mkdir -p "$(dirname "$bak")"
+          [[ -f "$bak" ]] || cp "$f" "$bak"
+          apply_block_lines "$f" "$mode"
+          if [[ "$mode" == header ]]; then echo "  HEADER  $rel  (framework-path header rewritten)"
+          else echo "  REANCHOR $rel  (profile facet line(s) re-derived from codebase-profile.md)"; fi
+        else
+          if [[ "$mode" == header ]]; then echo "  would-HEADER $kind/$base  (header names framework paths)"
+          else echo "  would-REANCHOR $kind/$base  (a facet line no longer matches codebase-profile.md)"; fi
+        fi
+        if [[ "$mode" == header ]]; then headers=$((headers + 1)); else reanchored=$((reanchored + 1)); fi
+        touched_this_file=1
+      done
       [[ "$touched_this_file" -eq 0 ]] && already=$((already + 1))
       continue
     fi
@@ -986,6 +1113,9 @@ echo "Injected (or would-inject):    $injected"
 echo "Already anchored (skipped):    $already"
 echo "Stale citations repaired:      $repaired"
 echo "Relevance lines retro-fitted:  $relev"
+echo "Profile facets re-anchored:    $reanchored"
+echo "Legacy headers rewritten:      $headers"
+echo "Marker-corrupt (left alone):   $corrupted"
 echo "Orphans (project-only):        $orphans"
 echo "Profile facts resolved:        $facts_resolved/5"
 if [[ -n "$facts_missing" ]]; then

@@ -150,7 +150,7 @@ Reading layout (`offsetWidth`, `getBoundingClientRect`) right after writing to t
 ### Output, coverage and scale
 
 ```
-src/pages/SearchPage.tsx:48  INP §1 long handler  [report-with-fix]  High
+src/pages/ProductSearch.tsx:48  INP §1 long handler  [report-with-fix]  High
   onChange sets the query and the render filters 4,200 rows on every keystroke; no transition.
   Proof: field p75 INP 340 ms · interactionTarget input#q · processingDuration 280 ms (web-vitals-field, 28 days).
   Fix: keep setQuery urgent; startTransition(() => setResults(filter(all, q))) or useDeferredValue(q).

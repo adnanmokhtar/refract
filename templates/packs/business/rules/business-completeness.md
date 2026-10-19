@@ -19,10 +19,10 @@ severity: must
 - **Every error path has a recovery.** "Something went wrong — try again" with a retry button beats a dead-end. "Card declined — try a different card" beats a generic error.
 - **Every business metric is wired.** Funnel events at every step. Drop-off detection requires tracking, not "we'll add it later."
 - **Every cross-actor flow ends.** Admin approves → user receives notification → user takes action → status updates → other actors notified. Don't leave the chain dangling at any link.
-- **Every entity lifecycle is a guarded state graph** — every state reachable, ≥1 terminal state, every transition checking its current-state precondition before it writes (never a blind overwrite), illegal edges impossible rather than uncommon. *Status / state / phase column present → run `@workflow-integrity`*, which reconstructs the graph and proves each edge.
+- **Every entity lifecycle is a guarded state graph** — every state reachable, ≥1 terminal state, every transition checking its current state before it writes, illegal edges impossible. *Status column present → `lifecycle-scan`, judged by `@workflow-integrity`.*
 - **Every empty state is opinionated.** "No orders yet — start by adding products to your catalog [CTA]" beats a blank screen.
-- **Every aggregate invariant names the layer that enforces it** — a DB `CHECK`/`UNIQUE`, a model guard / value-object constructor, or a service assertion; never caller discipline. An invariant recited in docs and enforced by no code (`enforced-where: NOWHERE`) on money / inventory / balance is a BLOCKER, not a nit. *ORM models / migrations present → run `@domain-model-auditor`*, which builds the enforcement register and grades each row.
-- **Money is an integer minor-unit or a decimal type — never a float**, and every amount carries its currency. *Billing / checkout / tax surface present → run `pricing-tax-audit`*, which owns the money-MATH (rounding step + mode, jurisdiction, tax base, mixed-currency, idempotent charges, proration).
+- **Every aggregate invariant names the layer that enforces it** — a DB `CHECK`/`UNIQUE`, a model guard or a service assertion; never caller discipline. An invariant enforced nowhere on money / inventory / balance is a BLOCKER. *ORM models present → `@domain-model-auditor` builds the enforcement register.*
+- **Money is an integer minor-unit or a decimal type — never a float**, and every amount carries its currency. This pack owns the money RULE (`pricing-rule-scan`, `tax-invoice-scan`, `ledger-scan`, `report-scan`); the arithmetic, the column type, the wire value and a race on a balance belong to code-quality, database, backend and security when installed (`governance/ownership.json`).
 
 ## Must not
 
@@ -50,19 +50,21 @@ When reviewing a feature for completeness:
 - [ ] Every cross-actor flow has a defined endpoint.
 - [ ] Lifecycle graph reachable + terminal + every transition guarded — `@workflow-integrity` run, verdict cited.
 - [ ] Every invariant names its enforcement layer, none NOWHERE on money / inventory / balance — `@domain-model-auditor` run, register cited.
-- [ ] (Money surface) `pricing-tax-audit` run, verdict cited — `UNVERIFIED (N unproven)` is a legitimate verdict; a bare `clean` with no property register is not.
+- [ ] (Money, tax, ledger, report surface) the matching detectors run, each coverage block cited — a bare "clean" is not a result.
+- [ ] (Status column) `lifecycle-scan` graph cited (`status-graph.py` exit 0), no trap or unguarded illegal edge on a money entity open.
+- [ ] (User-facing forward actions) `check-business-coverage` pairs cited: every forward action has its inverse, resend, status and exit, or a documented exemption.
 - [ ] Funnel events fire at each step (analytics).
 - [ ] Audit log captures sensitive operations (role change, data export, account delete).
 - [ ] Permissions denied path is documented per role.
 
 ## Enforcement
 
-- `/audit-business <feature>` — one feature, deep: dispatches `@business-auditor` (experience), `@workflow-integrity` (state graph) and `@domain-model-auditor` (invariants). Its verdict must carry each agent's, or say which was not run.
-- `check-business-coverage` (skill) — the whole product's cycles in one sweep, written to `ai/audits/business-coverage-<date>.md`.
+- `/audit-business` — the whole repo (six detectors, class ledger, every row refuted, a verdict) or one feature (the three judges plus the detector rows on its files).
+- `/business-fix` — closes findings failing first; stops for the business decisions (rounding, tax point, business zone, metric, retention).
 - Half-cycles that shipped, and what they cost, are catalogued in `ai-patterns/missing-counterparts.md § What half-cycles actually cost` — read it before arguing an exemption.
 
 ## Cross-references
 
 - `ai/business-flows.md` — the declared flows this rule audits against.
-- The three auditors are orthogonal, not redundant: `@business-auditor` = experience, `@workflow-integrity` = state graph, `@domain-model-auditor` = aggregate invariants, `pricing-tax-audit` = money math. Each artifact states its own boundary; none substitutes for another.
+- The three judges are orthogonal: `@business-auditor` cycles and the walk, `@workflow-integrity` the graph, `@domain-model-auditor` money and invariants. Detectors find; judges refute.
 - `code-quality/rules/quality-principles.md` — the code-level counterpart to this business-level rule.

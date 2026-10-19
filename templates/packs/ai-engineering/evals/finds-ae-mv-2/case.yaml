@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/llm-assist · defect LA-MV2-b (services/rag/app/llm/lc_models.py:4)
+# resources/: byte copies of services/rag/app/llm/lc_models.py services/rag/app/answers/prompts.py (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-ae-mv-2
+context:
+  add_dirs: [resources]

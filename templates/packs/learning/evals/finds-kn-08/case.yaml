@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/stale-knowledge · defect SK-KN08-a (ai/_decision-index.md:4) · decoy SK-DECOY-09 (line 22)
+# resources/: byte copies of ai/_decision-index.md docs/decisions (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-kn-08
+context:
+  add_dirs: [resources]

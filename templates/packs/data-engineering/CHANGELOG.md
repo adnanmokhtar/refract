@@ -6,6 +6,16 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 2.0.0 — 2026-10-19
+
+**The data-engineering pack became a detector pack (Track A batch 8).** It owns the derived data — how it is loaded, refreshed, tested, contracted, traced, extracted and copied; business owns the number, database the table, distributed-systems the message.
+
+- **Graph.** `incremental-load-scan/scripts/model-graph.py` reads a dbt project without dbt (projects, configs with their source, refs, sources, tests, exposures, unit tests, adapters, the dbt version; `--class`, `--self-test`). Integration: versioned models (`<name>_v<N>`) now inherit the base entry's tests, access and contract and take their own `versions:` config, and an exposure pinned with `v=` marks only that version — removing a DQ-1 false positive on `data-pipelines` (`dim_customers_v1`) and the exposure-parent SC-1 on versions nobody reads (92 self-tests).
+- **Detectors.** New: `incremental-load-scan` (IN §1–§10; grep 2c now spans multi-line `to_sql(`), `orchestration-scan` (OR §1–§9), `data-test-scan` (DQ §1–§8), `derived-data-scan` (MV §1–§6, TB §7–§10), `extract-scan` (EX §1–§4), `pii-copy-scan` (PC §1–§6). Rewritten: `contract-diff` (SC §1–§6), `lineage-trace` (LN §1–§4), `warehouse-scan-audit` (CO §1–§5), `grain-probe` (GR §1–§4).
+- **Commands.** `/audit-data-quality` is the read-only whole-repo audit; `/data-fix` (new) closes findings failing first; `/audit-data-model`, `/backfill-plan` (loader gate = `incremental-load-scan` §2/§7/§8) and `/add-data-model` edited; three judges in refute mode (IN rows judged by `@warehouse-modeler`).
+- **Cross-pack:** database `query-shape-scan`, business `report-scan`, distributed-systems `dual-write-scan` and backend `job-lifecycle-scan` carry boundary lines; the `data-pipeline` and `reporting` overlays corroborate instead of detecting. The rule is held by `test-rule-loading.sh` to data samples (its globs bind models, DAGs and exports, not every `src/index.ts`).
+- **Fixture `data-pipelines`** (132 seeds over 66 classes, 37 decoys). Precedents `precedents/data-engineering.md` §1–45; proof oracles V540–V569; 10 `ownership.json` rows. Warehouse lanes are fixture-measured only (no real dbt repo was available).
+
 ## 1.1.0 — 2026-08-23
 
 Fallback-integrity release. The pack's content was sound; two-thirds of it could not reach a

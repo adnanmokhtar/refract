@@ -1,0 +1,16 @@
+[project]
+name = "quaywise-worker"
+version = "0.31.2"
+requires-python = ">=3.12"
+dependencies = [
+  "APScheduler==3.11.0",
+  "boto3==1.40.49",
+  "SQLAlchemy==2.0.44",
+  "psycopg[binary]==3.2.10",
+  "redis==6.4.0",
+  "requests==2.32.5",
+  "prometheus-client==0.23.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.4.2", "moto[sqs,s3]==5.1.14"]

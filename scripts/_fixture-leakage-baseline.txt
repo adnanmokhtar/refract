@@ -1,0 +1,45 @@
+# Fixture-specific names still in shipped text, per file, counted by scripts/lint-fixture-leakage.py.
+# May only shrink. Regenerate after genericizing a file (never to admit a new one):
+#   python3 scripts/lint-fixture-leakage.py --record
+templates/business-domains/restaurant-pos/glossary.md	1
+templates/domains/admin/lenses/admin-review.md	1
+templates/domains/analytics/lenses/analytics-review.md	1
+templates/domains/audit-log/ai-patterns/audit-trail.md	1
+templates/domains/compliance/commands/compliance-audit.md	1
+templates/domains/compliance/lenses/compliance-review.md	1
+templates/domains/document-generation/commands/audit-document-pipeline.md	2
+templates/domains/event-sourced/lenses/event-sourced-review.md	2
+templates/domains/feature-flags/lenses/feature-flags-review.md	1
+templates/domains/forms/lenses/forms-review.md	2
+templates/domains/import/lenses/import-review.md	1
+templates/domains/media-processing/commands/audit-media-pipeline.md	1
+templates/domains/media-processing/lenses/media-processing-review.md	1
+templates/domains/public-api/commands/audit-api-contract.md	2
+templates/domains/public-api/lenses/public-api-review.md	2
+templates/domains/real-time/ai-patterns/websocket-fanout.md	1
+templates/domains/reporting/ai-patterns/report-generation.md	1
+templates/domains/search/ai-patterns/search-indexing-strategy.md	1
+templates/domains/settings/lenses/settings-review.md	1
+templates/domains/subscriptions/lenses/subscriptions-review.md	1
+templates/packs/algorithms/agents/algorithm-designer.md	4
+templates/packs/align/references/align-discipline-catalogue.md	7
+templates/packs/backend/_examples/api-reviewer.md	2
+templates/packs/backend/agents/api-reviewer.md	2
+templates/packs/business/_examples/business-auditor.md	1
+templates/packs/business/agents/business-auditor.md	1
+templates/packs/devops/_examples/ci-reviewer.md	1
+templates/packs/devops/_examples/deployment-engineer.md	4
+templates/packs/devops/agents/ci-reviewer.md	1
+templates/packs/devops/agents/deployment-engineer.md	4
+templates/packs/frontend/_examples/api-contract-sentry.md	2
+templates/packs/frontend/_examples/data-flow-auditor.md	2
+templates/packs/frontend/agents/api-contract-sentry.md	2
+templates/packs/frontend/agents/data-flow-auditor.md	2
+templates/packs/infrastructure/_examples/infra-reviewer.md	1
+templates/packs/infrastructure/agents/infra-reviewer.md	1
+templates/packs/migration/_examples/parity-auditor.md	2
+templates/packs/migration/agents/parity-auditor.md	2
+templates/packs/mobile/references/jetpack-compose.md	1
+templates/packs/mobile/skills/app-size-scan/SKILL.md	2
+templates/packs/security/agents/llm-security-reviewer.md	1
+templates/repo-baseline/.claude/scripts/ci-graph.py	3

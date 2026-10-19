@@ -73,6 +73,13 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   sections: [premise, when_to_use, args, what_happens, platform_mapping, halts, hard_rules, output, cross_references]
   fallback: commands/rollback-deploy.md   # no _examples/ stub — fall back to the live source
 
+- name: release
+  kind: command
+  triggers: { deploy_target_detected: true }
+  extracts_from: _extracted-codebase.md § Deploy (production deploy mechanism, progressive-delivery objects — Argo Rollouts, Flagger, mesh weights, cloud traffic splits — flag provider) + the deploy ledger + ai/runs/<run>/verdict.json
+  sections: [premise, when_to_use, when_not_to_use, args, release_gate, strategy, step_analysis, plan_and_execute, update, result, hard_rules, failure_modes, related]
+  fallback: commands/release.md   # level D (disable-model-invocation); the source IS the fallback — the G-R1..G-R7 gate and one-H3-per-step are the contract
+
 - name: devops-audit
   kind: command
   triggers: { ci_or_dockerfile_detected: true }   # any CI file (six platforms), Dockerfile/Containerfile, compose file, render root, release config or GitOps object
@@ -144,4 +151,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { container_target_likely: true }   # a root compose file, Dockerfile or k8s tree (detect-signals); the skill itself discovers every *compose*.y(a)ml and each invocation that loads it
   extracts_from: _extracted-codebase.md § Deploy (compose files, the invocations that load them, profiles, host env)
   fallback: skills/compose-scan/SKILL.md   # source-as-fallback; no compose file → every § prints N/A (no compose file)
+
+- name: platform-engineer
+  kind: agent
+  triggers: { ci_config_detected: true }
+  extracts_from: _extracted-codebase.md § Deploy (CI files, images, IaC roots) + ai/runtime/
+  sections: [premise, contract, lanes, output]
+  fallback: agents/platform-engineer.md   # Phase 6 roster writer; absorbs nothing until its merges are earned
 ```

@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "az deployment group what-if --resource-group prod --template-file main.bicep"}}

@@ -1,6 +1,6 @@
 ---
 description: Scaffold a new backend module end-to-end following the project's declared architecture. Generates entity + ports + use-cases + repo + controller + DTOs + migration + DI wiring + tests + docs.
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /add-module
@@ -219,7 +219,7 @@ Run in order:
 - `pnpm dev` + `endpoint-test-method` skill for each generated route.
 - `schema-diff` skill — entity matches DB after migration.
 - Self-audit: do the generated files cross-reference correctly? Any contradictions with `ai/conventions.md`?
-- Heavy-tier rows additionally dispatch signal-aware reviewers: `security-auditor` (auth/secrets), `tenant-isolation-reviewer` (multi-tenant), `prompt-reviewer` (AI), `payment-reviewer` (payment). If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review; report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis. HALT on any BLOCKER.
+- Heavy-tier rows additionally dispatch signal-aware reviewers: `security-auditor` (auth/secrets), `tenant-isolation-reviewer` (multi-tenant), `security-auditor` + lens `ai-review` (AI), `code-reviewer` + lens `payment-review` (payment). If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review; report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis. HALT on any BLOCKER.
 
 If any check fails: HALT, report the failure, do not paper over.
 

@@ -321,7 +321,7 @@ Findings: 0 · Unconfirmed: 3
    §7 MQ-7 — part A: the shared enqueue wrapper. Part B: `Promise.race` answers 503 at 3 s while an `add` already in ioredis's
    offline queue runs when Redis returns; a caller that retries the 503 without a dedupe key enqueues twice. Settling test:
    V297 stall-then-recover — pause Redis, enqueue, resume, count jobs.
-2. apps/api/src/queue/labels.producer.ts:34 · apps/worker/src/jobs/labels.processor.ts:29          [report-flagged]   medium
+2. apps/api/src/queue/shipping-label.producer.ts:34 · apps/worker/src/jobs/shipping-label.processor.ts:29[report-flagged]   medium
    §3 MQ-3 — jobs carry backoff { type: 'custom' } at attempts 3 (base.producer.ts:205, queue.constants.ts:64) and the worker
    sets no backoffStrategy. Settling test: V293 with one failing job — does attempt 2 run?
 3. deploy (no maxmemory-policy) · apps/api/src/redis/connection.ts:26 (comment claims noeviction)  Unconfirmed

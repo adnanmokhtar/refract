@@ -193,6 +193,7 @@ Kimi-specific addendum: a "Skills available" section pointing at `.kimi/skills/`
 | Claude hook | Kimi event | Native? |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + secret-scan | `PreToolUse` (exit `2` blocks, stderr → LLM correction) | ✓ native |
+| `guard-irreversible.sh` | `PreToolUse` (exit `2` blocks, stderr → LLM correction) — the H3 gate: an irreversible remote step (IaC apply/destroy, kubectl/helm mutations, cloud CLI create/delete/update, production deploys, migrations against a non-local database, release-tag pushes) waits for a human; plan/diff/dry-run/read-only and local steps pass | ✓ native (deny, no ask) |
 | `test-lane.sh` | `PreToolUse` — exit `2` on a full-suite or e2e command (`npm test`, `pytest`, `go test ./...`); stderr carries the `test-lane.sh run '<cmd>'` re-run line as the LLM correction. Light runs pass; the lane is per machine, shared with every other tool's suites | ✓ native |
 | `module-boundaries.sh` | `PreToolUse` (matcher `Edit\|Write\|MultiEdit`) — exit `2`; stderr carries the declared boundary + the offending specifier, which Kimi feeds back as an LLM correction | ✓ native |
 | `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write\|MultiEdit`) | ✓ native |

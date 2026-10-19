@@ -52,6 +52,8 @@ Anything touching a list, search, import, export, report, or background job need
 
 ## Detectors
 
+These are the smells a reader spots by eye. The runnable checks are `acceptance-criteria-check` (product pack): §4 runs the four tests and the EARS lint on every criterion, §1–§3 trace each criterion to a test (untested, stale trace, Gherkin glue), and `/audit-requirements --spec` runs both and refutes the rows before they count. A smell below that the skill also prints is that skill's finding, not a second one.
+
 - Criteria written after the implementation, restating what was built.
 - A criterion verifiable only by asking its author.
 - "Just" — almost always hiding a rule about which one.

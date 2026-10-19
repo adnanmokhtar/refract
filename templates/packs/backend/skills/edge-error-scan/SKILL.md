@@ -310,16 +310,16 @@ The failure-class matrix of `proof-oracles.md` § Backend is the oracle for §1 
 
 ```
 edge-error-scan — lanes: nestjs 11.2.6 on fastify 5.12.3, mikro-orm 6.6.16 (pnpm-lock.yaml; express 5.2.1 locked only as an optional peer)
-Wiring: APP_FILTER src/app.module.ts:198 AllExceptionsFilter (@Catch(), getStatus() kept) · @UseFilters v1 door (documented shape, B-D6) · Fastify scope setErrorHandler src/configure-app.ts:179
+Wiring: APP_FILTER src/app.module.ts:198 AllExceptionsFilter (@Catch(), getStatus() kept) · @UseFilters v1 door (documented shape, B-D6) · Fastify scope setErrorHandler src/bootstrap.ts:179
 Tools: failure-class matrix NOT-RUN (no scratch database in this run) · captured logs NOT-RUN · semgrep N/A (no Go)
 
 Findings: 0 · Unconfirmed: 4 (2 listed)
 
-1. src/shared/all-exceptions.filter.ts:167 (+ 12 findOneOrFail sites in 11 files)          [report-flagged]  high
+1. src/shared/catch-all.filter.ts:167 (+ 12 findOneOrFail sites in 11 files)                [report-flagged]  high
    §2 — the arm `instanceof NotFoundError` tests the domain class imported from ./errors, not @mikro-orm/core; no findOneOrFailHandler.
    3 sites take an optional body id on an upsert POST: POST /delivery/carrier-rates {"id":"<random uuid>"} → expect 404, gets 500.
    Fix: an arm for @mikro-orm/core's NotFoundError (aliased import), or findOneOrFailHandler throwing the domain class. Settling: V330.
-2. src/shared/all-exceptions.filter.ts (no arm)                                              [report-flagged]  medium
+2. src/shared/catch-all.filter.ts (no arm)                                                    [report-flagged]  medium
    §2 — NotNullConstraintViolationException named by no mapper → 500 on a missed check or a race (unique, FK, CHECK, optimistic lock mapped).
    Fix: map it to the 400 the contract gives. Settling: V330 NOT NULL row.
 

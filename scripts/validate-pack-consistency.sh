@@ -1057,7 +1057,7 @@ BOUNDARY = re.compile(r'(?im)^(?:'
 # CLOSING VERDICT — the block that decides whether the run may call itself done. Two spellings,
 # and the OR is load-bearing: the corpus expresses it EITHER as a gate heading OR as a
 # multi-valued verdict token, and abridgement freely drops one while keeping the other. Requiring
-# the heading alone false-positives on business/pricing-tax-audit (keeps the token, drops the
+# the heading alone false-positives on business/pricing-tax-audit, since renamed pricing-rule-scan (keeps the token, drops the
 # `### Verdict rule` heading); requiring the token alone false-positives on ai-engineering/ai-audit
 # and testing/add-test (token lives ON an H2 line) and frontend/technical-seo (token inside the
 # Output fence). The `[^.\n]{0,60}?` window kills the one prose false positive in the corpus,
@@ -1083,7 +1083,7 @@ GATEH = re.compile(r'(?im)^(#{2,4})\s+(?![^\n]*not a verdict)(.{0,60}?\b(?:'
                    r'approve gate|regression gate|eval gate|ci gate|review gate|advance gate|'
                    r'shadow gate|static gates|sla gate)\b)[^\n]*$')
 # `verdict rule:` / `verdict criterion:` are the corpus's other spelling of the token line
-# (infrastructure/dr-audit:118, business/pricing-tax-audit). Without the qualifier group the
+# (infrastructure/dr-audit:118, business/pricing-tax-audit before its rename to pricing-rule-scan). Without the qualifier group the
 # fallback that KEPT the rule and dropped only the heading reads as a total loss.
 VTOK = re.compile(r'(?im)^(?:[#>\-*\s]|\*\*)*[^.\n]{0,60}?\b'
                   r'(?:ship|review|terminal|final|halt|production-grade)?\s*'
@@ -1755,6 +1755,61 @@ if [[ -n "$collide_out" ]]; then
   while IFS= read -r l; do err "name collision (check 9) — $l"; done <<< "$collide_out"
 else
   ok "command / skill names: no command shares its name with a skill"
+fi
+
+# 10. SKILL FRONTMATTER kind / pack (FAIL) — every templates/packs/<p>/skills/<n>/SKILL.md declares
+#     `kind: skill` and `pack: <p>` in its frontmatter. The installer, the topic sentinels and the
+#     cross-pack dispatch lines read them; a skill without them installed silently with no owner pack
+#     (documentation's doc-drift-scan shipped that way and every other check here passed — batch-7
+#     documentation eval IR-3). 17 older skills were backfilled when the check landed (2026-10-19).
+fm_out="$(python3 - <<'PYFM' 2>&1
+import glob, re
+for p in sorted(glob.glob('templates/packs/*/skills/*/SKILL.md')):
+    pack = p.split('/')[2]
+    s = open(p, encoding='utf-8').read()
+    m = re.match(r'---\n(.*?)\n---', s, re.S)
+    fm = m.group(1) if m else ''
+    miss = [k for k, rx in (('kind: skill', r'^kind:\s*skill\s*$'), ('pack: ' + pack, r'^pack:\s*' + re.escape(pack) + r'\s*$'))
+            if not re.search(rx, fm, re.M)]
+    if miss:
+        print('%s: frontmatter lacks %s' % (p, ' and '.join(miss)))
+PYFM
+)" || fm_out="python3 failed: $fm_out"
+if [[ -n "$fm_out" ]]; then
+  while IFS= read -r l; do err "skill frontmatter (check 10) — $l"; done <<< "$fm_out"
+else
+  ok "skill frontmatter: every pack skill declares kind: skill and its pack"
+fi
+
+# 11. SAME-NAME TWINS (FAIL) — Track B Phase 6, PLAN.md §6.4. No two agents, skills or lenses across
+#     templates/packs, templates/domains and templates/repo-baseline share a name with DIFFERENT
+#     content. The installer copies them into one flat `.claude/<kind>/` directory, so a twin is
+#     resolved by install ORDER — measured 2026-10-19: four agent twins (auth-reviewer,
+#     tenant-isolation-reviewer, test-engineer, knowledge-curator), each silently dropped on install.
+#     p6-b1 resolved all four (scripts/_agent-merge-map.json), so the ratchet is 0. Identical bytes
+#     are not a twin (a deliberate copy). Commands are exempt: a same-name command is a declared
+#     `<name>.<track>.md` variant (docs/CHEATSHEET.md). scripts/install-claim.sh enforces the same
+#     rule at install time (exit 4).
+twin_out="$(python3 - <<'PYTWIN' 2>&1
+import glob, os, hashlib, collections
+seen = collections.defaultdict(list)
+for kind, pats in (("agent", ["templates/packs/*/agents/*.md", "templates/domains/*/agents/*.md",
+                              "templates/repo-baseline/.claude/agents/*.md"]),
+                   ("lens", ["templates/packs/*/lenses/*.md", "templates/domains/*/lenses/*.md"]),
+                   ("skill", ["templates/packs/*/skills/*/SKILL.md", "templates/repo-baseline/.claude/skills/*/SKILL.md"])):
+    for pat in pats:
+        for p in glob.glob(pat):
+            name = os.path.basename(os.path.dirname(p)) if kind == "skill" else os.path.basename(p)[:-3]
+            seen[(kind, name)].append((p, hashlib.sha256(open(p, "rb").read()).hexdigest()))
+for (kind, name), ps in sorted(seen.items()):
+    if len(set(h for _, h in ps)) > 1:
+        print("%s '%s' ships with different content in: %s" % (kind, name, ", ".join(p for p, _ in ps)))
+PYTWIN
+)" || twin_out="python3 failed: $twin_out"
+if [[ -n "$twin_out" ]]; then
+  while IFS= read -r l; do err "same-name twin (check 11) — $l — rename or merge; record it in scripts/_agent-merge-map.json"; done <<< "$twin_out"
+else
+  ok "same-name twins: no agent, lens or skill name ships with two different contents"
 fi
 
 echo ""

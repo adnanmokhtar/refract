@@ -1,0 +1,12 @@
+# Shelfwise code owners. The last matching pattern wins.
+apps/web/                       @dana-reyes @marco-bellini
+apps/api/src/auth/              @lena-okafor
+apps/api/src/orders/            @lena-okafor
+apps/api/src/stores/            @lena-okafor
+apps/api/src/reports/           @tomas-varga
+apps/api/src/entitlements/      @lena-okafor
+apps/api/src/team/              @marco-bellini
+apps/api/src/referrals/         @shelfwise-ci-bot
+packages/contracts/             @lena-okafor @dana-reyes
+config/                         @lena-okafor
+ai/product/                     @priya-natarajan

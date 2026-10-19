@@ -1,0 +1,18 @@
+[project]
+name = "kestrelway-analytics"
+version = "0.22.0"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy>=2.1,<2.3",
+  "pandas>=2.2,<2.3",
+  "numba>=0.60,<0.61",
+  "redis>=5.2,<6",
+  "pyprobables>=0.6,<0.7",
+  "psycopg[binary]>=3.2,<3.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

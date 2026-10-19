@@ -1,0 +1,11 @@
+{
+  "name": "@orderly/contracts",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  }
+}

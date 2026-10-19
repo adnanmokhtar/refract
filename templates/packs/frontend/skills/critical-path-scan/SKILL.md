@@ -194,7 +194,7 @@ Findings: 0 · Unconfirmed: 3
    Fix: render a fixed-height placeholder while the query is pending, or move the notice to a toast.
 2. src/entities/delivery-rate/DeliveryRateBanner.tsx:20 (mounted by 2 portal shells)   [report-flagged]   medium
    §3 same class, one group — the warning band renders into the sticky stack when its counts arrive.
-3. src/features/tracking/model/TrackingProvider.tsx:95                       [report-flagged]   medium
+3. src/features/tracking/model/AnalyticsProvider.tsx:95                      [report-flagged]   medium
    §2 tag manager and pixel injected from effects once the settings request resolves, async. Unproven: main-thread
    cost. Settling run: ablation of googletagmanager.com / connect.facebook.net, 5-run medians, mobile.
    Fix: inject on requestIdleCallback or after consent; consider @next/third-parties-style deferral.

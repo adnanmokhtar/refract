@@ -324,5 +324,5 @@ A reconciliation job that writes the difference into an entry to "balance the bo
 - `<patterns-path>/queue-producer-consumer.md` — async worker semantics for posting jobs (idempotency, resumability, DLQ).
 - `<patterns-path>/report-generation.md` — financial reports READ the ledger at a consistent as-of instant; they must not re-`SUM` mutable state mid-posting.
 - `<commands-path>/audit-ledger.md` — cite-or-halt diagnostic for a specific posting/wallet path.
-- `<agents-path>/ledger-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/ledger-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-ledger-model.md` — ADR pinning the account model, balance-derivation strategy, debit isolation level, and reconciliation source of truth.

@@ -9,7 +9,7 @@ This pack's agents, commands, skills, and patterns assume:
 - **A usage metric per business unit** (requests, tenants, orders, jobs, tokens) countable over the same period as the bill.
 - **Infrastructure defined as code**, so tag enforcement and pre-merge cost estimation have somewhere to attach.
 
-Where any of these is absent, the affected artifact halts explicitly rather than degrading silently: `unit-cost-probe` refuses without a defined denominator, `egress-trace` refuses without flow telemetry, `spend-anomaly-triage` refuses without daily granularity, and `@finops-analyst` refuses without a row-level export.
+Where any of these is absent, the affected artifact says so explicitly rather than degrading silently: `unit-cost-probe` refuses without a defined denominator, `spend-anomaly-triage` refuses without daily granularity, `@finops-analyst` refuses without a row-level export, and `egress-trace` runs its four config classes and prints its flow-log lane as `NOT-RUN (no flow logs)`. The five static detectors (`guardrail-scan`, `allocation-scan`, `spend-path-scan`, `storage-growth-scan`, `egress-trace` § 1–§ 4) need only the repository; `candidate-pricing` needs a bill line or a pricing page fetched in the run for every `$` and otherwise prints `unpriced`.
 
 ## Provider-neutral vocabulary used in this pack
 
@@ -32,7 +32,7 @@ Because the vocabulary is neutral, every price in this pack's outputs must carry
 
 The table above is neutral by necessity, and neutrality has a cost: every artifact here says "the cost and usage export" without being able to name a column. There is now a published schema that closes that gap, and where a project's export conforms to it, this pack's rules stop being abstractions and become column lookups.
 
-**FOCUS** (FinOps Open Cost and Usage Specification, <https://focus.finops.org>) normalises billing datasets across cloud, SaaS, AI, and data-centre vendors. Checked 2026-08: the specification's current release is **1.4**, and 17 vendors publish FOCUS-conformant exports — AWS, Microsoft Azure, Google Cloud, IBM Cloud, Oracle, Alibaba, Tencent, Huawei, OVHcloud, Cloudflare, Snowflake, Databricks, MongoDB, and Vercel among them. Version and vendor list both move; re-check the site rather than quoting this paragraph.
+**FOCUS** (FinOps Open Cost and Usage Specification, <https://focus.finops.org>) normalises billing datasets across cloud, SaaS, AI, and data-centre vendors. Versions, as read: **1.2** ratified 2025-05-29; **1.3** ratified 2025-12-05 (contract-commitment dataset, split cost allocation, recency and completeness; FinOps Foundation announcement); **1.4** is the publication version on the specification site and the `v1.4` release marked Latest on the `FOCUS_Spec` GitHub repository, listed after the 1.3 tag (both read 2026-10-19; the release page shows no ratification note). The 2026-08 line here said 1.4 without a source; it now has one. The 2026-08 vendor list (17 vendors, AWS, Azure and Google Cloud among them) was not re-read in that pass; whether DigitalOcean's invoice CSV or Billing Insights export is FOCUS-conformant is unverified (research, 2026-10-19), so `bill-lane.py --map` maps its headers explicitly. Version and vendor list both move; re-check the site rather than quoting this paragraph. `bill-lane.py` matches column names after normalisation (`ResourceId` = `ResourceID`) and prints which header it read, so a version's spelling change is visible, not silent.
 
 Where a FOCUS export exists, four of this pack's hard rules resolve to named columns instead of prose:
 

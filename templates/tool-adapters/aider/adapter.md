@@ -233,6 +233,7 @@ test-cmd: "pnpm test"           # PostToolUse-equiv — needs --auto-test
 
 **Translation of the repo's hooks:**
 - `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` → **native** `lint-cmd` / `test-cmd` (the only truly native mapping) + IDE save-lint.
+- `guard-irreversible.sh` (PreToolUse — shell) → **not replicable in-loop** (no tool events). The H3 gate: an irreversible remote step (IaC apply/destroy, kubectl/helm mutations, cloud CLI create/delete/update, production deploys, migrations against a non-local database, release-tag pushes) waits for a human; plan/diff/dry-run/read-only and local steps pass. Keep it by convention: an always-on rule that the agent prints such a command for the human to run instead of running it, plus a `pre-push` git hook that refuses a tag push without an interactive confirmation.
 - `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` → **no PreToolUse equivalent.** Soft-block edits with `.aiderignore` (stops Aider editing `.env*`, migrations, lockfiles) **and** enforce at commit via `.husky/pre-commit` (git hook — fires because `--no-verify` is off):
   ```
   .env*

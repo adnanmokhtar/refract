@@ -57,6 +57,6 @@ CORS on manifest + segments + key endpoint                    [finding if missin
 A matrix (manifest / range / key-authz / key-source / decrypt-containment / scheme / CORS → status + `<path:line>`), the BLOCKER list with concrete fixes + verification steps, then the single highest-leverage fix.
 
 ## Cross-references
-- `<agents-path>/streaming-delivery-reviewer.md` — the review gate this audit feeds.
+- `.claude/lenses/streaming-delivery-review.md` — the review gate this audit feeds.
 - `<rules-path>/streaming-delivery-discipline.md` — the must/must-not.
 - `<patterns-path>/encrypted-segment-delivery.md` + `<patterns-path>/adaptive-streaming-delivery.md` — the target shapes.

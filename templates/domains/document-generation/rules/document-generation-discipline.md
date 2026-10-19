@@ -85,7 +85,7 @@ A document bug is a forged-looking invoice, a leaked contract, an SSRF into your
 ## Enforcement
 
 - `<commands-path>/audit-document-pipeline.md` (slash: `/audit-document-pipeline`) — cite-or-halt diagnostic of a specific document pipeline: where the renderer is invoked at `<path:line>`, sync vs. async, renderer network/file access (SSRF/LFI), template injection surface, resource/page/timeout caps, determinism + version stamp, tenant scope + signed-vs-public delivery, idempotency — never an assumed flow.
-- `<agents-path>/document-generation-reviewer.md` — review gate hard-failing on sync render, SSRF/LFI via the renderer, template injection, missing caps, cross-tenant/public document delivery, non-deterministic legal output, missing idempotency, and unprotected PII.
+- `.claude/lenses/document-generation-review.md` — review gate hard-failing on sync render, SSRF/LFI via the renderer, template injection, missing caps, cross-tenant/public document delivery, non-deterministic legal output, missing idempotency, and unprotected PII.
 - CI MUST reject `Handlebars.compile(` / `new Function(` / `eval(` / `nunjucks.renderString(` over a non-constant (AST heuristic; flag for review) in document templating code.
 - CI MUST assert the renderer is launched with network disabled (`--disable-network` / egress-denied container) and `file://` blocked — a renderer config without these fails the check.
 - CI MUST reject document storage keys with no tenant segment and document delivery from a public bucket base (heuristic; flag for review).

@@ -1,0 +1,18 @@
+# SDK
+
+The TypeScript client wraps the HTTP API: authentication, retries for idempotent requests and
+typed responses.
+
+## A first call
+
+```ts
+import { createClient } from '@tallyhook/sdk';
+
+const client = createClient({ apiKey: process.env.TALLYHOOK_API_KEY ?? '' });
+// ...
+const first = await client.orders.list({ limit: 50 });
+```
+
+Each page carries `nextCursor`; pass it back as `cursor` to read the next page.
+
+Back to the [home page](index.md).

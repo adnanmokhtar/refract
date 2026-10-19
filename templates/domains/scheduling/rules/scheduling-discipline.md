@@ -89,7 +89,7 @@ A scheduling bug is a meeting that fires an hour off, a series that drifts after
 ## Enforcement
 
 - `<commands-path>/audit-scheduling.md` (slash: `/audit-scheduling`) — locates the booking/availability code at `<path:line>` and reports, cite-or-halt: timezone storage (UTC+IANA vs bare local), recurrence (RRULE vs naive add), double-booking protection (transactional constraint vs read-then-write), DST handling, recurrence bounds, and idempotency — never an assumed shape.
-- `<agents-path>/scheduling-reviewer.md` — review gate hard-failing on bare-local-timestamp storage, naive recurrence, read-then-write double-booking, missing overlap detection, DST-boundary bugs, unbounded expansion, past/out-of-availability bookings, non-idempotent slot creation, and user-tz/resource-tz confusion.
+- `.claude/lenses/scheduling-review.md` — review gate hard-failing on bare-local-timestamp storage, naive recurrence, read-then-write double-booking, missing overlap detection, DST-boundary bugs, unbounded expansion, past/out-of-availability bookings, non-idempotent slot creation, and user-tz/resource-tz confusion.
 - CI lint MUST flag `addDays(`/`addMonths(`/`addWeeks(` inside a file tagged as recurrence/scheduling (heuristic for naive expansion; flag for review).
 - CI lint MUST flag a booking-confirm path with no surrounding transaction or no exclusion/unique constraint reference (AST heuristic; flag for review).
 - CI MUST assert the bookings table declares an exclusion (`EXCLUDE USING gist`) or unique constraint over `(resource_id, time-range)` in the migration set.

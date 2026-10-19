@@ -91,13 +91,13 @@ Project-specific overrides live in `<retention-config-path>` (e.g. `ai/complianc
 - `<commands-path>/compliance-audit.md` (slash: `/compliance-audit` / `/retention-audit`) — verifies every PII-bearing table is matched by a retention rule + a daily purge job; verifies exporter + deleter wired for every PII entity; runs the coverage test.
 - Purge job MUST log structured counts (rows purged per class) — alert on zero counts where activity exists (job is broken, not idle).
 - GDPR export + delete endpoints MUST ship with integration tests; CI fails if missing.
-- `<agents-path>/compliance-reviewer.md` — review gate hard-failing on missing inventory entries, missing retention classes, PII-in-logs, PII-in-analytics.
+- `.claude/lenses/compliance-review.md` — review gate hard-failing on missing inventory entries, missing retention classes, PII-in-logs, PII-in-analytics.
 - TODO: `scripts/validate-retention-coverage.sh` to cross-reference DB schema (`*_pii` annotations / known PII columns) against `<retention-config-path>` and fail on uncovered tables.
 
 ## Cross-references
 
 - `<patterns-path>/gdpr-export-delete.md` — exporter / deleter / inventory architecture (the "how"); coverage test details; sub-processor notification.
 - `<commands-path>/compliance-audit.md` — audit scanner.
-- `<agents-path>/compliance-reviewer.md` — review gate.
+- `.claude/lenses/compliance-review.md` — review gate.
 - `<rules-path>/payment-idempotency.md` — financial-record retention is non-negotiable for chargeback windows.
 - `<adr-path>/<NNN>-data-retention-policy.md` — ADR pinning per-class retention with jurisdictional citations.

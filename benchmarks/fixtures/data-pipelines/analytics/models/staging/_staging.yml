@@ -1,0 +1,77 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: One row per order.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+  - name: stg_customers
+    description: One row per customer.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+  - name: stg_events
+    description: One row per tracked event.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+  - name: stg_payments
+    description: One row per payment.
+    columns:
+      - name: payment_id
+        data_tests: [unique, not_null]
+  - name: stg_refunds
+    description: One row per refund.
+    columns:
+      - name: refund_id
+        data_tests: [unique, not_null]
+  - name: stg_order_lines
+    description: One row per order line.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, line_no]
+  - name: stg_sessions
+    description: One row per session.
+    columns:
+      - name: session_id
+        data_tests: [unique, not_null]
+  - name: stg_page_views
+    description: One row per page view.
+    columns:
+      - name: view_id
+        data_tests: [unique, not_null]
+  - name: stg_products
+    description: One row per product.
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+  - name: stg_stores
+    description: One row per store.
+    columns:
+      - name: store_id
+        data_tests: [unique, not_null]
+  - name: stg_promotions
+    description: One row per promotion.
+    columns:
+      - name: promotion_id
+        data_tests: [unique, not_null]
+  - name: stg_ad_impressions
+    description: One row per ad impression.
+    columns:
+      - name: impression_id
+        data_tests: [unique, not_null]
+  - name: stg_ad_spend
+    description: One row per campaign per day.
+    config:
+      event_time: spend_date
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [campaign_id, spend_date]
+  - name: stg_countries
+    description: One row per country code.
+    columns:
+      - name: code
+        data_tests: [unique, not_null]

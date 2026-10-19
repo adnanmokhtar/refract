@@ -45,7 +45,8 @@ Real signals only. Every percentile, RPS number and "% of time in" comes from a 
 ```bash
 URL='http://localhost:3000/api/orders?limit=50'; RATE=200
 # autocannon 8.0.0: -R fixes the overall rate (coordinated-omission correction on by default); headers are K=V
-npx autocannon -c 64 -d 60 -R "$RATE" -l -j --renderStatusCodes -H "authorization=Bearer $TOKEN" "$URL" > prof/load.json
+npx --no autocannon --version >/dev/null 2>&1 || echo "NOT-RUN (autocannon not installed — to enable: npm i -D autocannon@8)"
+npx --no autocannon -c 64 -d 60 -R "$RATE" -l -j --renderStatusCodes -H "authorization=Bearer $TOKEN" "$URL" > prof/load.json
 # oha 1.16.0: the correction only works together with -q
 oha -z 60s -c 64 -q "$RATE" --latency-correction --no-tui --output-format json -H "Authorization: Bearer $TOKEN" "$URL" > prof/load.json
 # k6 2.x: constant-arrival-rate; thresholds exit non-zero. AGPL-3.0 — run it as a tool, never vendor it into the project

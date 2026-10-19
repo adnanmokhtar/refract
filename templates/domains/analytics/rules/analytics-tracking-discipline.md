@@ -86,7 +86,7 @@ Analytics is product instrumentation, NOT the audit log. Security-relevant event
 ## Enforcement
 
 - `<commands-path>/audit-tracking-plan.md` (slash: `/audit-tracking-plan`) — inventories every `track()`/`capture()` call-site at `<path:line>`, matches each against the declared tracking plan (untyped/ad-hoc/undeclared = drift), and flags PII in properties, missing consent-gating, client-sourced identity, missing idempotency, and blocking calls — cite-or-halt, never an assumed event set.
-- `<agents-path>/analytics-reviewer.md` — review gate hard-failing on ad-hoc untyped events, track-before-consent, PII in properties, client-trusted identity, missing dedup on revenue events, blocking dispatch, special-category leaks, and analytics-as-audit-log.
+- `.claude/lenses/analytics-review.md` — review gate hard-failing on ad-hoc untyped events, track-before-consent, PII in properties, client-trusted identity, missing dedup on revenue events, blocking dispatch, special-category leaks, and analytics-as-audit-log.
 - CI lint MUST reject a raw vendor-SDK import (`@segment/*`, `amplitude-js`, `mixpanel-browser`, `posthog-js`) outside the `<Analytics>` facade module — feature code calls the facade only.
 - CI lint MUST reject a `track()` call whose event name is a non-literal or not present in the tracking-plan registry (AST heuristic; flag for review).
 - CI lint MUST flag `await` directly on an `analytics.track(...)` / `.capture(...)` call (blocking dispatch on the critical path).

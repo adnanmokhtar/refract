@@ -30,8 +30,9 @@ The shape this agent takes and returns — `.claude/templates/snippets/contract-
 ```yaml
 role: judge
 inputs:
-  required: [scope]             # the diff under review — never the builder's narrative
-  reads:    [the diff and the files it touches, .claude/rules/, ai/conventions.md, sibling files]
+  required: [scope]             # the diff under review — never the builder's narrative; or what the brief's lens names as input
+  reads:    [the diff and the files it touches, .claude/rules/, ai/conventions.md, sibling files,
+             .claude/lenses/<x>.md (the lens the brief names — § Lens mode), .claude/lenses/<d>-review.md (when domain <d> is installed)]
   never:    [the builder's summary, PR text, commit messages]
 output:
   returns:  the '## Output format' block (verdict + cited findings + Verification)
@@ -43,6 +44,21 @@ verdict:    PASS | CONCERNS | FAIL        # display: APPROVE→PASS · REQUEST_C
 severity:   IMPORTANT | NIT | PRE-EXISTING
 next:       @refactorer (structural moves); /quality-fix (correctness findings); /review-changes aggregates
 ```
+
+## Lens mode (when the brief names `lens: .claude/lenses/<x>.md`)
+
+Phase 6 folded specialist reviewers into **lenses** — knowledge files this agent reads by path (the
+generated `## Lenses` block below lists every one mapped here). A dispatcher that names a lens is asking
+for that lens's pass, not a generic review:
+
+1. Open the lens first. A lens path you cannot open → return `BLOCKED(lens missing: <path>)`; never
+   grade that axis from memory and never fall back to a silent generic pass.
+2. The lens's own Input, checks, verdict vocabulary and Output format **replace** § Diagnose, the
+   checklist and § Output format below when they differ — e.g. a lens that audits ledger rows rather than
+   a diff returns per-row PASS / REJECT. Everything else here still binds: cite `<path:line>`, no
+   hand-waves, `writes: none`.
+3. A domain lens (`<d>-review.md`) is additive: run your own review of the scope, then walk the lens's
+   checklist on the same scope and report its findings tagged with the domain.
 
 ## Pre-flight (read before you start)
 
@@ -223,6 +239,30 @@ Hardcoded "Add to cart" in template. Add to locales/en.json + locales/<other-loc
 - Don't request changes that conflict with an ADR or existing rule unless the rule should be amended.
 - Review what exists, not what you'd prefer.
 - When in doubt about a blocker vs request, BLOCK on: security, data integrity, tenant isolation, correctness.
+
+## Lenses
+
+<!-- BEGIN GENERATED lenses (scripts/gen-boundaries.py; do not edit by hand) -->
+Read the lens the brief names (`lens: .claude/lenses/<x>.md`) before grading; a domain lens adds its
+checklist to yours, a pack lens may replace your input and output (its own text says so). A lens path
+you cannot open returns `BLOCKED(lens missing)` — never a silent pass.
+
+| Lens (installed path) | Source | Read when |
+|---|---|---|
+| `.claude/lenses/ab-testing-review.md` | domain ab-testing | domain `ab-testing` is installed |
+| `.claude/lenses/analytics-review.md` | domain analytics | domain `analytics` is installed |
+| `.claude/lenses/feature-flags-review.md` | domain feature-flags | domain `feature-flags` is installed |
+| `.claude/lenses/forms-review.md` | domain forms | domain `forms` is installed |
+| `.claude/lenses/ledger-review.md` | domain ledger | domain `ledger` is installed |
+| `.claude/lenses/payment-review.md` | domain payment | domain `payment` is installed |
+| `.claude/lenses/settings-review.md` | domain settings | domain `settings` is installed |
+| `.claude/lenses/subscriptions-review.md` | domain subscriptions | domain `subscriptions` is installed |
+| `.claude/lenses/workflow-review.md` | domain workflow | domain `workflow` is installed |
+| `.claude/lenses/data-pipeline-review.md` | domain data-pipeline — fallback | domain `data-pipeline` is installed and the database pack is NOT installed |
+| `.claude/lenses/i18n-review.md` | domain i18n — fallback | domain `i18n` is installed and the ui-ux pack is NOT installed |
+| `.claude/lenses/import-review.md` | domain import — fallback | domain `import` is installed and the database pack is NOT installed |
+| `.claude/lenses/reporting-review.md` | domain reporting — fallback | domain `reporting` is installed and the database pack is NOT installed |
+<!-- END GENERATED lenses -->
 
 ## Related
 

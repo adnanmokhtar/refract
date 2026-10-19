@@ -55,9 +55,9 @@ ARTIFACT_DIRS = ("agents", "commands", "skills", "rules", "ai-patterns", "refere
 # FAIL under --check. `pattern` vs `ai-pattern` vs `reference-pair` are all live today
 # (real vocabulary drift, surfaced as a WARN below — not invented by this script).
 TOPIC_KINDS = {"agent", "command", "skill", "rule", "pattern", "ai-pattern",
-               "reference", "reference-pair"}
+               "reference", "reference-pair", "lens"}   # lens: Phase 6 — knowledge a roster agent reads by path
 # The vocabulary the majority uses; the rest are reported as drift by --check.
-TOPIC_KIND_PREFERRED = {"agent", "command", "skill", "rule", "pattern", "reference"}
+TOPIC_KIND_PREFERRED = {"agent", "command", "skill", "rule", "pattern", "reference", "lens"}
 
 # Hand-maintained catalog files — already row-shaped by design, consumed by multiple phases.
 REGISTRY_FILES = [

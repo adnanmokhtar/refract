@@ -90,5 +90,5 @@ Top recommendation:
 
 - `.claude/rules/scheduling-discipline.md` — the hard-rule list this command enforces (UTC+IANA, RRULE, transactional exclusion constraint, bounded recurrence, DST, idempotency).
 - `ai/patterns/scheduling-availability.md` — the UTC+IANA storage, RRULE expansion, transactional booking, and DST-resolution code shapes.
-- `<agents-path>/scheduling-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/scheduling-review.md` — review gate that consumes these findings.
 - `<rules-path>/reporting` — shares the org/entity-timezone day-boundary discipline; cross-check the day-window math here too.

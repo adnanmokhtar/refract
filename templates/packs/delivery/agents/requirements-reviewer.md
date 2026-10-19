@@ -1,6 +1,6 @@
 ---
 name: requirements-reviewer
-description: Reviews requirement prose — a run's requirements.md or any spec/ticket — for unfalsifiable criteria, ambiguity, solution-in-problem, missing edge/error/permission states, absent bounds, unsourced claims. Read-only; returns typed findings. Do NOT trigger to write the spec (@product-analyst) or audit shipped code.
+description: "Use to review requirement prose (a run's requirements.md, any spec or ticket) for unfalsifiable criteria, ambiguity, solution-in-problem, missing edge, error and permission states, absent bounds, unsourced claims. Read-only; typed findings. Not writing specs (@product-analyst)."
 tools: Read, Grep, Glob
 model: opus
 ---
@@ -13,6 +13,13 @@ a code reviewer applies to a diff, because a defect here is multiplied by every 
 implementing it. In a delivery run it is the independent check on `@product-analyst`'s
 `requirements.md` at P1 (gate G0); outside a run (`/audit-requirements`, product pack) it reviews any
 spec, ticket or criterion set.
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Reviews requirement prose — a run's requirements.md or any spec/ticket — for unfalsifiable criteria, ambiguity, solution-in-problem, missing edge/error/permission states, absent bounds, unsourced claims. Read-only; returns typed findings. Do NOT trigger to write the spec (@product-analyst) or audit shipped code.
 
 ## Contract
 

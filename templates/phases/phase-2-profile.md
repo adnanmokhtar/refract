@@ -601,7 +601,7 @@ The `--max-subagents=<N>` flag (default `8` in REFINE mode) caps the **total con
 
 **Mechanism**: invoke `extract-failures-from-history`. Walks: git log for `revert`, `hotfix`, `incident`, `regression`, `rollback`, `outage` commit messages → reads the diffs of those commits to identify the affected file/function → reads commit message body for cause description → groups failures by recurring theme (auth bypass / N+1 perf / migration drift / payment double-charge / etc.) → cross-references with `ai/failures/_index.md` if present (round-one might have surfaced a few; round-two finds the rest).
 
-**Output**: `.claude/_refine-extract.md` § "Failure history" — list of recurring themes with: theme, occurrence count, affected files (sample), commit refs, root-cause family. **Round-two will materialize these into `ai/failures/<theme>.md` files in Phase 4.6-DEEP** so future agents inject them in pre-flight (per Hard Rule on architectural-agent failure catalog injection).
+**Output**: `.claude/_refine-extract.md` § "Failure history" — list of recurring themes with: theme, occurrence count, affected files (sample), commit refs, root-cause family. **Round-two will append these as `### ` entries to `ai/failures/_index.md` in Phase 4.7-DEEP** so future agents inject them in pre-flight (per Hard Rule on architectural-agent failure catalog injection).
 
 **Quality gate**: if extraction yields zero recurring themes (all incidents one-off), record `## No recurring failure themes` in the file (negative finding) and skip Phase 4.6-DEEP failure-file generation.
 

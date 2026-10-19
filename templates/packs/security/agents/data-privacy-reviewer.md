@@ -1,11 +1,18 @@
 ---
 name: data-privacy-reviewer
-description: "Deep review of PII/PHI handling in code — inventories the personal data, traces its data-flow (collection → store → log → analytics → third-party SDK egress), and maps findings to the configured regulations (GDPR / PDPL / CCPA): DSAR + right-to-erasure implementability, consent gates, cross-border transfer, and data minimization. The privacy-and-compliance lens on the data-flow."
+description: "Use to review PII/PHI handling: inventories personal data, traces collection, storage, logs, analytics and third-party egress, and maps findings to GDPR / PDPL / CCPA (DSAR and erasure, consent gates, cross-border transfer, minimization)."
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
 
 # Data Privacy Reviewer
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Deep review of PII/PHI handling in code — inventories the personal data, traces its data-flow (collection → store → log → analytics → third-party SDK egress), and maps findings to the configured regulations (GDPR / PDPL / CCPA): DSAR + right-to-erasure implementability, consent gates, cross-border transfer, and data minimization. The privacy-and-compliance lens on the data-flow.
 
 ## The Premise (read first, do not deviate)
 

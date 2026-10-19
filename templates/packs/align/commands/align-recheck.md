@@ -206,7 +206,7 @@ Fixes applied:
   A058 (AL-11)   fixed  EQ  raw ky import → @acme/http apiClient (V400; defaults reproduce the options)
   A061 (AL-05)   fixed  EQ  '#d92d20' → var(--color-danger); zero computed-style diff light + dark (V394)
   A066 (AL-15)   fixed  FN  delete action wrapped in <Can action="orders.delete">; render test as viewer (V401)
-  A071 (AL-16)   fixed  EQ  orderRow.tsx → OrderRow.tsx (git mv; tsc --noEmit --incremental false green; V402)
+  A071 (AL-16)   fixed  EQ  statusPill.tsx → StatusPill.tsx (git mv; tsc --noEmit --incremental false green; V402)
 
 Pending:
   A069 (AL-06)   pending-approval     13px → --space-3 changes pixels; diff images in ai/align/runs/…/A069

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quaywise-config
+data:
+  NODE_ENV: development
+  AWS_REGION: fra1
+  S3_ENDPOINT: https://fra1.digitaloceanspaces.com
+  PUBLIC_MEDIA_BASE_URL: https://qw-dev-media.fra1.cdn.digitaloceanspaces.com
+  EXPORTS_BUCKET: qw-dev-media
+  IMPORTS_BUCKET: qw-dev-media
+  MEDIA_BUCKET: qw-dev-media
+  REPORTS_BUCKET: qw-dev-media
+  LLM_GATEWAY_URL: https://llm-gateway-sandbox.models.example
+  CARRIER_API_BASE_URL: https://sandbox.parcelnet.example
+  RATES_API_BASE_URL: https://sandbox-rates.parcelnet.example
+  GEOCODER_API_URL: https://sandbox.mapgrid.example
+  ADDRESS_API_BASE_URL: https://sandbox.addressly.example
+  LOG_LEVEL: debug

@@ -1,0 +1,24 @@
+{
+  "name": "@tallyhook/sdk",
+  "version": "2.3.0",
+  "description": "TypeScript client for the Tallyhook invoicing API",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist", "README.md"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "docs": "typedoc"
+  },
+  "devDependencies": {
+    "typedoc": "0.28.13",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}

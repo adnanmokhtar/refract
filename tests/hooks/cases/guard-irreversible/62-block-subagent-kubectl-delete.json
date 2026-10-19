@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "kubectl delete pod api-7f9 -n prod"}, "agent_type": "incident-responder"}

@@ -197,6 +197,85 @@ assert "§2d empty" "$MB0" container_target_likely no
 C="$TD/compose-none"; mkdir -p "$C"; printf '{}\n' > "$C/package.json"; printf 'composer: true\n' > "$C/composer.yaml"
 assert "§2d composer.yaml" "$(mb "$C")" container_target_likely no
 
+# ── § 2e  llm_usage_detected: SDK, raw-HTTP gateway, nested Python service — and the decoys ─
+# The defect this pins: nothing produced llm_usage_detected, so the ai-engineering pack and
+# @llm-security-reviewer never fired. MEASURED on a real monorepo that calls an OpenAI-compatible
+# gateway over raw HTTP: no provider SDK anywhere, so only the wire lane sees it. The decoys are
+# the shapes that made the old substring greps lie: an SMS API on /v1/messages, Twilio's
+# messages.create, `cohere` inside "coherence", a role type union, a token bucket's max_tokens,
+# and an OpenAI call that lives only in a test.
+say "§ 2e  llm_usage_detected: SDK, raw-HTTP gateway, nested Python service; SMS / Twilio / coherence decoys"
+L="$TD/llm-sdk"; mkdir -p "$L/src"
+printf '{ "name":"sdk","dependencies":{"openai":"^5.0.0","express":"^5"} }\n' > "$L/package.json"
+printf "import OpenAI from 'openai';\nexport const client = new OpenAI();\n" > "$L/src/llm.ts"
+assert "§2e sdk" "$(mb "$L")" llm_usage_detected yes
+L="$TD/llm-wire"; mkdir -p "$L/apps/api/src/llm"
+printf '{ "name":"gw","private":true,"workspaces":["apps/*"] }\n' > "$L/package.json"
+printf '{ "name":"@gw/api","dependencies":{"@nestjs/core":"^11"} }\n' > "$L/apps/api/package.json"
+cat > "$L/apps/api/src/llm/gateway.port.ts" <<'J'
+export async function complete(base: string, model: string, text: string) {
+  const res = await fetch(`${base}/v1/chat`, { method: 'POST', body: JSON.stringify({
+    model, max_tokens: 1024, messages: [{ role: 'system', content: 'Extract the order' }, { role: 'user', content: text }],
+  }) });
+  return res.json();
+}
+J
+assert "§2e raw-http gateway" "$(mb "$L")" llm_usage_detected yes
+L="$TD/llm-py"; mkdir -p "$L/services/rag/app"
+printf '[project]\nname = "rag"\ndependencies = [\n  "fastapi>=0.115",\n  "anthropic>=0.40",\n]\n' > "$L/services/rag/pyproject.toml"
+printf 'def answer(q):\n    return q\n' > "$L/services/rag/app/answer.py"
+assert "§2e nested python service" "$(mb "$L")" llm_usage_detected yes
+L="$TD/llm-decoys"; mkdir -p "$L/src/notify" "$L/src/core" "$L/src/users" "$L/src/limits" "$L/src/__tests__"
+printf '{ "name":"decoys","dependencies":{"twilio":"^5","express":"^5"} }\n' > "$L/package.json"
+printf "export const send = (to: string, from: string, text: string) =>\n  fetch('https://sms.example.com/v1/messages', { method: 'POST', body: JSON.stringify({ to, from, text }) });\n" > "$L/src/notify/sms.ts"
+printf "import twilio from 'twilio';\nconst client = twilio();\nexport const sms = (to: string, body: string) => client.messages.create({ body, to, from: '+15550000' });\n" > "$L/src/notify/twilio.ts"
+printf '// cohere: the coherence score of a cluster, not a provider\nexport const coherenceScore = (x: number) => x * 2;\n' > "$L/src/core/coherence.ts"
+printf "export type Role = 'system' | 'user' | 'assistant';\nexport const SYSTEM_ROLE = { role: 'system' as Role, label: 'System user' };\n" > "$L/src/users/roles.ts"
+printf 'export class TokenBucket { max_tokens = 10; refill() { return this.max_tokens; } }\n' > "$L/src/limits/bucket.ts"
+printf "import OpenAI from 'openai';\nnew OpenAI().chat.completions.create({ model: 'gpt-4o', messages: [] });\n" > "$L/src/__tests__/gateway.spec.ts"
+assert "§2e decoys only" "$(mb "$L")" llm_usage_detected no
+assert "§2a vue spa"      "$MBV" llm_usage_detected no
+assert "§2b nestjs api"   "$MBN" llm_usage_detected no
+
+# ── § 2f  paid_api_detected: SDK, base-URL-only gateway — and the decoys ─────────────────
+# finops IR-7: the pack was gated on IaC only, so a repo whose spend is an SMS provider or an LLM
+# gateway reached by a configured URL never got spend-path-scan. Decoys: a payment SDK (billed per
+# transaction), the app's own API_BASE_URL, and a provider host that lives only in a test.
+say "§ 2f  paid_api_detected: per-call SDK, billed-category base URL; payment SDK / own-URL / test-only decoys"
+P="$TD/paid-sdk"; mkdir -p "$P/src"
+printf '{ "name":"notify","dependencies":{"twilio":"^5","express":"^5"} }\n' > "$P/package.json"
+printf "export const x = 1;\n" > "$P/src/index.ts"
+assert "§2f sms sdk" "$(mb "$P")" paid_api_detected yes
+P="$TD/paid-url"; mkdir -p "$P/apps/api/src/geo"
+printf '{ "name":"m","private":true,"workspaces":["apps/*"] }\n' > "$P/package.json"
+printf '{ "name":"@m/api","dependencies":{"@nestjs/core":"^11"} }\n' > "$P/apps/api/package.json"
+printf "export const geocode = (q: string) => fetch(\`\${process.env.GEOCODER_BASE_URL}/search?q=\${q}\`);\n" > "$P/apps/api/src/geo/geocoder.ts"
+assert "§2f base-url-only geocoder" "$(mb "$P")" paid_api_detected yes
+P="$TD/paid-decoys"; mkdir -p "$P/src/pay" "$P/src/__tests__"
+printf '{ "name":"shop","dependencies":{"stripe":"^17","express":"^5"} }\n' > "$P/package.json"
+printf "import Stripe from 'stripe';\nexport const api = process.env.API_BASE_URL;\nexport const s = new Stripe('k');\n" > "$P/src/pay/stripe.ts"
+printf "const host = 'https://api.openai.com/v1';\n" > "$P/src/__tests__/gateway.spec.ts"
+assert "§2f decoys only" "$(mb "$P")" paid_api_detected no
+assert "§2a vue spa"      "$MBV" paid_api_detected no
+assert "§2e llm sdk (an LLM is billed per token)" "$(mb "$TD/llm-sdk")" paid_api_detected yes
+
+# ── § 2g  numeric_or_geo_lib_detected: anchored libraries — never the word gate ─────────────
+# algorithms O-4: a suggestion signal for the opt-in pack. The old word gate over source matched
+# about 30 % of a CRUD repo; the decoys are exactly those words (mean, distance, score, matrix,
+# sketch) plus a map-rendering library, which is not geodesy.
+say "§ 2g  numeric_or_geo_lib_detected: python numeric service, PostGIS migration; word and map-render decoys"
+G="$TD/num-py"; mkdir -p "$G/services/analytics"
+printf '[project]\nname = "a"\ndependencies = [\n  "numpy>=2.1",\n]\n' > "$G/services/analytics/pyproject.toml"
+assert "§2g nested numpy" "$(mb "$G")" numeric_or_geo_lib_detected yes
+G="$TD/num-gis"; mkdir -p "$G/db/migrations"; printf '{}\n' > "$G/package.json"
+printf 'CREATE EXTENSION IF NOT EXISTS postgis;\nALTER TABLE stores ADD COLUMN loc geometry(Point, 4326);\n' > "$G/db/migrations/0002_geo.sql"
+assert "§2g postgis migration" "$(mb "$G")" numeric_or_geo_lib_detected yes
+G="$TD/num-decoys"; mkdir -p "$G/src"
+printf '{ "name":"crm","dependencies":{"leaflet":"^1.9","react":"^19"} }\n' > "$G/package.json"
+printf "export const meanScore = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;\nexport const distance = 3; // sketch of the matrix layout\n" > "$G/src/score.ts"
+assert "§2g decoys only" "$(mb "$G")" numeric_or_geo_lib_detected no
+assert "§2b nestjs api"   "$MBN" numeric_or_geo_lib_detected no
+
 # ── § 3  --stdout writes NOTHING under the target ────────────────────────────────────────
 say "§ 3  --stdout is read-only against the target"
 R="$TD/readonly"; mkdir -p "$R"; printf '{}\n' > "$R/package.json"

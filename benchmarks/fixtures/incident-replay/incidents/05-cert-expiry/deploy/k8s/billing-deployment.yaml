@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing
+spec:
+  replicas: 4
+  template:
+    spec:
+      containers:
+        - name: billing
+          image: ghcr.io/acme/billing@sha256:19c0
+          env:
+            - name: LEDGER_URL
+              value: https://ledger.internal:8443
+          volumeMounts:
+            - name: ledger-client-cert
+              mountPath: /etc/ledger-tls
+              readOnly: true
+      volumes:
+        - name: ledger-client-cert
+          secret:
+            # issued by hand from the internal CA on 2025-10-19, 365-day validity; no Certificate resource renews it
+            secretName: ledger-client-tls-2025

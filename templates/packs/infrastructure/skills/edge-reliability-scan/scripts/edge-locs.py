@@ -9,7 +9,7 @@ the research fixture). This walks the block tree and reads the value each locati
 
 Usage:  python3 -I edge-locs.py [--nginx-version=1.27.4] <file|dir> ...    (dirs: *.conf, *.nginx,
             *.conf.template, nginx*.conf*; k8s-render-scan's $SCAN/embedded/src/*.conf map back to
-            their source: embedded/src/deploy__k8s__ingress.yaml.conf:107 is deploy/k8s/ingress.yaml:107)
+            their source: embedded/src/deploy__k8s__edge.yaml.conf:107 is deploy/k8s/edge.yaml:107)
         python3 -I edge-locs.py --self-test
 Prints: one TSV row per inventory line or candidate:  §  CLASS  source:line  location  detail
         HOP rows are the § 1 hop-table input, not candidates. A `sec:` class is security-owned

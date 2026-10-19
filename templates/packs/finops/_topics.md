@@ -7,7 +7,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
   extracts_from: _extracted-codebase.md § Infrastructure (provider, managed services, regions/zones) + § Modules (component topology)
-  sections: [persona, halt_conditions, pricing_dimensions_in_this_stack, driver_tree, option_comparison, budget_and_guardrail, output_format]
+  sections: [persona, premise, pre_flight, method, red_flags, example_findings, output, hard_rules]
   mirror_existing: true
   fallback: _examples/cost-architect.md
   cite_evidence: strict
@@ -16,7 +16,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { always: true }
   extracts_from: _extracted-codebase.md § Infrastructure + § Modules (hot paths) + § Cross-cutting concerns (logging, retention, retries)
-  sections: [persona, halt_conditions, mechanism_checklist, magnitude_rules, findings_ledger, output_format]
+  sections: [persona, premise, pre_flight, refute_questions, mechanism_checklist, red_flags, output, hard_rules]
   mirror_existing: true
   fallback: _examples/cost-reviewer.md
   cite_evidence: strict
@@ -25,7 +25,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: agent
   triggers: { dockerfile_or_k8s_or_terraform_detected: true }
   extracts_from: _extracted-codebase.md § Infrastructure (account/project structure, tagging) + ai/finops/unit-economics.md if present
-  sections: [persona, halt_conditions, normalisation, grouping_axes, unit_costs, delta_classification, output_format]
+  sections: [persona, premise, pre_flight, bill_lane, method, red_flags, output, hard_rules]
   mirror_existing: true
   fallback: _examples/finops-analyst.md
 
@@ -108,13 +108,49 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: commitment-coverage
   kind: skill
-  triggers: { terraform_detected: true }
+  triggers: { dockerfile_or_k8s_or_terraform_detected: true }   # commitments are bought in a billing console, not in Terraform (D-18); the skill reads the export
   fallback: skills/commitment-coverage/SKILL.md
 
 - name: egress-trace
   kind: skill
-  triggers: { dockerfile_or_k8s_or_terraform_detected: true }
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "\\b(GetObjectCommand|getSignedUrl|generate_presigned_url|StreamableFile)\\b|digitaloceanspaces\\.com|amazonaws\\.com|storage\\.googleapis\\.com|\\b\\w*(PUBLIC|CDN|ASSET)_(BASE_)?URL\\b"   # the static lane needs only object storage or a public URL builder
   fallback: skills/egress-trace/SKILL.md
+
+- name: guardrail-scan
+  kind: skill
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "\\b(doctl|gcloud|az|hcloud)\\s+\\S+(\\s+\\S+)?\\s+create\\b|AWSTemplateFormatVersion|Pulumi\\.yaml"   # a billing scope exists: IaC, a runbook-created account, CFN or Pulumi
+  fallback: skills/guardrail-scan/SKILL.md
+
+- name: allocation-scan
+  kind: skill
+  triggers:
+    dockerfile_or_k8s_or_terraform_detected: true
+    OR_grep_evidence: "\\b(doctl|gcloud|az|hcloud)\\s+\\S+(\\s+\\S+)?\\s+create\\b|^\\s*default_tags\\s*\\{"   # resources are created somewhere the policy can tag
+  fallback: skills/allocation-scan/SKILL.md
+
+- name: spend-path-scan
+  kind: skill
+  triggers:
+    paid_api_detected: true   # a per-call SDK, LLM usage, a provider host or a billed-category base URL (detect-signals.sh, finops IR-7)
+    OR_grep_evidence: "\\b[A-Z][A-Z0-9]*(_[A-Z0-9]+)*_(BASE_URL|API_URL|GATEWAY_URL|API_BASE)\\b"   # a paid API reached by a neutrally named URL has no SDK, host or category word (real-repo lesson); § 0 drops the app's own URLs on read
+  fallback: skills/spend-path-scan/SKILL.md
+
+- name: storage-growth-scan
+  kind: skill
+  triggers:
+    orm_detected: true
+    OR_grep_evidence: "\\b(PutObjectCommand|put_object|upload_file|putObject|fPutObject|uploadData)\\b|\\bnew\\s+Upload\\s*\\(|emptyDir:"   # tables that grow, or objects the app writes
+  fallback: skills/storage-growth-scan/SKILL.md
+
+- name: candidate-pricing
+  kind: skill
+  triggers:
+    always: true   # every cost row any installed pack emits is priced or left `unpriced` here; PX-1 reads any repo's docs
+  fallback: skills/candidate-pricing/SKILL.md
 
 - name: spend-anomaly-triage
   kind: skill

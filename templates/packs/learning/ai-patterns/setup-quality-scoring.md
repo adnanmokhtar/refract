@@ -103,13 +103,13 @@ Each axis scores 0–25. Total = 0–100.
 
 **Why it is a positive test and not a blocklist.** It used to start at 25 and deduct 5 per phrase from a list of nine strings — so prose that avoided those exact nine scored a perfect 25, and this became the one axis a generator could max out by writing more confident prose. That inverted the whole rubric's purpose. Under the positive test, confident prose with no referent scores 0. Placeholder deductions (`<TODO>`, `<entity>`, un-filled auto-comments) survive on top, because those are un-filled output rather than a judgement about writing.
 
-**Thresholds**: `grounded_directives / total_directives` → 25 / 18 / 13 / 8 / 0 across the bands in [`compute-anchor-density § Step 5`](../skills/compute-anchor-density/SKILL.md). A block with zero directives scores 0 — it instructs nobody.
+**Thresholds**: `grounded_directives / total_directives` → 25 / 18 / 13 / 8 / 0 across the bands in `compute-anchor-density § Step 5` (`.claude/skills/compute-anchor-density/SKILL.md`). A block with zero directives scores 0 — it instructs nobody.
 
 ## Plateau detection — classification, verdicts, and where the arithmetic lives
 
 The band boundaries (MISSING / SHALLOW 1-69 / ANCHORED 70-84 / DEEP 85-100), the three-way plateau
 verdict with its exact conditions, and the per-WEAK-phase remediation map are **defined once**, in
-[`compute-anchor-density`](../skills/compute-anchor-density/SKILL.md) §§ Step 6-7. That skill is what
+`compute-anchor-density` (`.claude/skills/compute-anchor-density/SKILL.md`) §§ Step 6-7. That skill is what
 computes them; this document is what explains them. They are not restated here on purpose — a
 threshold written in two files is a threshold that will be changed in one.
 

@@ -91,4 +91,4 @@ Top recommendation:
 
 - `.claude/rules/i18n-localization-discipline.md` — the hard-rule list this command enforces (catalog keys, ICU, allowlist, fallback, edge formatting, RTL, escaping).
 - `ai/patterns/message-catalog.md` — the keyed-catalog + ICU + negotiation + edge-formatter shapes the findings point toward.
-- `<agents-path>/i18n-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/i18n-review.md` — review gate that consumes these findings.

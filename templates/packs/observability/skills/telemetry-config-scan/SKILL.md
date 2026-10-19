@@ -33,7 +33,7 @@ A candidate is a finding when all four hold (the protocol's gates as `precedents
 - **Proxy / ingress access-log format, request-id minting and upstream timing fields** → infrastructure `edge-reliability-scan` §15 (E6, E21), when that pack is installed; without it the hit is listed `edge access-log (owner pack infrastructure not installed)`, never graded here. This skill consumes the request id at the app; `log-signal-scan` (this pack) owns its correlation.
 - **Collector and agent RBAC**: privilege breadth (cluster-wide `secrets`, wildcards) → security `iac-scan` § 3; missing or dangling wiring → infrastructure `k8s-wiring-scan` §6, each when installed. §7 reports only the telemetry blast radius as corroboration.
 - **PrometheusRule / ServiceMonitor / PodMonitor schema** (kubeconform) → the infrastructure pack, when installed. §7 owns whether a monitor is *selected*.
-- **Log, metric and trace retention cost in money** → finops (`@cost-reviewer`), when installed. §6 owns retention that does not do what the config says, and carries the bytes-per-day arithmetic.
+- **Log, metric and trace retention cost in money** → finops `candidate-pricing` §0 (judged by `@cost-reviewer`), when installed. §6 owns retention that does not do what the config says, and carries the bytes-per-day arithmetic.
 - **Metric label cardinality and DogStatsD tags (PL-08)** → `metric-hygiene-scan` §1. **SDK samplers and sampling before span metrics** → `trace-propagation-scan` §9–§10. **Loki / Mimir ruler rules** and **Grafana-managed alerts** → `alert-rule-lint` (this pack). **Prometheus retention vs an SLO window** → `slo-rule-scan` §6. **Probe filters in dashboard selectors** → `metric-hygiene-scan` §8.
 
 ## Adapt to the codebase — the pipeline lanes
@@ -301,11 +301,11 @@ Findings: 4 shown (+1 low: dashboards/api-red.json, §8) · Unconfirmed: 1
    §2 PL-02 — retry_on_failure and sending_queue disabled on the only vendor exporter; the logs pipeline has no memory_limiter.
    Fix: retries + queue on (storage: file_storage/…), memory_limiter first in logs. Staged 503 sink: written out, not run.
 
-3. promtail/promtail.yaml:22  label trace_id                        [report-flagged]    high
+3. logging/promtail-config.yaml:22  label trace_id                        [report-flagged]    high
    §4 PL-04 — trace_id promoted to a stream label: one stream per request. Unproven link: live stream count — NO-DATA(loki).
    Fix: stage.structured_metadata for trace_id, labels: level only; and §5 — Promtail is EOL (docker-compose.yml:20) → Alloy.
 
-4. loki/loki.yaml:24  retention_period 744h                        [report-with-fix]   medium
+4. logging/loki-config.yaml:24  retention_period 744h                        [report-with-fix]   medium
    §6 PL-06 — compactor.retention_enabled: false (:28): the period is never enforced. -verify-config exit 0 as is;
    the fix needs delete_request_store too (exit 1 without it).
 

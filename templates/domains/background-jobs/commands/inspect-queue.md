@@ -104,7 +104,7 @@ Queue: exports
   depth:           1847     ALERT — > 1000 sustained
   active:          4/4      ALERT — at concurrency for 12 min, no completions
   oldest_age:      820s     ALERT
-  → likely cause: a single 2hr job blocking workers (HOL). See /queue-reviewer rules on tenant-fairness.
+  → likely cause: a single 2hr job blocking workers (HOL). See the background-jobs review lens rules on tenant-fairness.
 
 Queue: webhooks
   depth:           0        OK

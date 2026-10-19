@@ -81,4 +81,4 @@ Coverage: <N> admin actions enumerated, <M> with complete guards, <K> with findi
 - `<rules-path>/audit-log-discipline.md` — the tamper-evident audit-write contract each action is checked against.
 - `<rules-path>/auth-discipline.md` — capability model, step-up reauth, MFA, admin session/origin separation.
 - `<rules-path>/multi-tenancy.md` — explicit-and-audited cross-tenant reach vs a dropped predicate.
-- `<agents-path>/admin-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/admin-review.md` — review gate that consumes these findings.

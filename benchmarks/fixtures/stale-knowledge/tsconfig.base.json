@@ -1,0 +1,15 @@
+{
+  /* Shared compiler options. The "@/*" alias below resolves the web app's own sources. */
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@orderly/contracts": ["packages/contracts/src/index.ts"],
+      "@/*": ["apps/web/src/*"]
+    }
+  }
+}

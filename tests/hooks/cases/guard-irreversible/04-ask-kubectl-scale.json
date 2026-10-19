@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "kubectl -n prod scale deploy/api --replicas=0"}}

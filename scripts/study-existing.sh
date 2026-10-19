@@ -615,12 +615,14 @@ decide() {
     pack_section=""
     pack_actionable=0
 
-    for kind in commands agents skills rules ai-patterns; do
+    for kind in commands agents lenses skills rules ai-patterns; do
       kind_dir="$pack_dir/$kind"
       [[ -d "$kind_dir" ]] || continue
 
       tgt_dir="$(target_dir_for_kind "$kind")"
-      [[ -d "$tgt_dir" ]] || continue
+      # lenses (Phase 6) are new to every project installed before them: a missing
+      # .claude/lenses/ means every pack lens is an ADD, not "nothing to compare".
+      [[ -d "$tgt_dir" ]] || [[ "$kind" == "lenses" ]] || continue
 
       kind_rows=""
       while IFS= read -r src; do
@@ -737,7 +739,7 @@ decide() {
 
   # Project-only orphans — reported ONCE per file across all scanned packs.
   printf '## Project-only files (target has them; no scanned pack does)\n'
-  for kind in commands agents skills rules ai-patterns; do
+  for kind in commands agents lenses skills rules ai-patterns; do
     tgt_dir="$(target_dir_for_kind "$kind")"
     [[ -d "$tgt_dir" ]] || continue
     orphan_rows=""

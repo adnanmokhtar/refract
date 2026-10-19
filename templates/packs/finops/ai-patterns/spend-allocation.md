@@ -99,12 +99,14 @@ Chargeback additionally needs two things showback does not: a **dispute path** (
 
 ## Detectors
 
-- A coverage figure reported as a resource percentage with no dollar figure.
+The static half is `allocation-scan` §1–§4 (TG-1…4, V575–V577); the dollar half is `/audit-cost-attribution` with `bill-lane.py attribution` (UE-1, V589).
+
+- A coverage figure reported as a resource percentage with no dollar figure — `/audit-cost-attribution` cannot print COMPLETE without the dollar headline.
 - Untagged spend concentrated in a small number of large resources.
-- Untagged resources created from infrastructure code (an enforcement gap, not a hygiene gap).
-- Tag values not in the allowed set, or resolving to teams that no longer exist.
+- Untagged resources created from infrastructure code (an enforcement gap, not a hygiene gap) — `allocation-scan` §1 on the plan's merged tags; runbook-created ones §4.
+- Tag values not in the allowed set, or resolving to teams that no longer exist — `allocation-scan` §2 (the set comes from the policy, never invented); pod-template labels §3.
 - A shared pool with no written basis, or a basis with no computed metric and no `ASSERTED` label.
-- The untaggable bucket treated as a rounding error when it is a tenth of the bill.
+- The untaggable bucket treated as a rounding error when it is a tenth of the bill — `bill-lane.py attribution --untaggable` (`precedents/finops.md` § 14).
 - A showback report with no recorded action for two consecutive cycles.
 - A chargeback programme running on a shared-cost basis labelled `ASSERTED`, or with no dispute path and no restatement rule.
 

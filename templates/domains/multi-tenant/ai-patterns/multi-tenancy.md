@@ -117,5 +117,5 @@ it('does not return tenant B rows to tenant A', async () => {
 - `<rules-path>/multi-tenancy.md` — hard rules + review checklist + enforcement.
 - `<patterns-path>/tenant-isolation.md` — sibling pattern: row-level enforcement at the repository layer (the "how" for shared-DB).
 - `<commands-path>/tenant-leak-audit.md` — grep-based scanner for the leak surfaces named here.
-- `<agents-path>/tenant-isolation-reviewer.md` — review gate that hard-fails on missing leak tests + client-supplied tenant ids.
+- `.claude/lenses/multi-tenant-review.md` — review gate that hard-fails on missing leak tests + client-supplied tenant ids.
 - `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` — ADR pinning the deployment shape (shared DB / row-level vs schema-per-tenant vs DB-per-tenant).

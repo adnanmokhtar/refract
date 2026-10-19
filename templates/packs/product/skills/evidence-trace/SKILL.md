@@ -1,6 +1,8 @@
 ---
 name: evidence-trace
-description: Trace every requirement back to its evidence — a research finding, a support-ticket volume, a metric, or a named commitment — and report the unsourced set by name. Run before estimation, when a backlog needs pruning, when "who asked for this" has no answer, and after a research synthesis to check that requirements still match what the material said. Tests whether a requirement SHOULD exist — `acceptance-criteria-check` tests whether it CAN be verified.
+description: "Trace each requirement to its evidence (research, tickets, metric, commitment); names the UNSOURCED and MISLINKED set."
+kind: skill
+pack: product
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 

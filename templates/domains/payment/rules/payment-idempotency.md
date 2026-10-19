@@ -80,7 +80,7 @@ Every payment-affecting request is idempotent. Double-charges are user-visible, 
 ## Enforcement
 
 - `<commands-path>/replay-charge.md` (slash: `/replay-charge`) — replays sanitised provider webhook fixtures locally to verify dedupe + signature + idempotency-key paths end-to-end.
-- `<agents-path>/payment-reviewer.md` — review gate hard-failing on missing `Idempotency-Key` extraction, missing provider key forwarding, missing webhook dedupe, float arithmetic, client-trusted amounts.
+- `.claude/lenses/payment-review.md` — review gate hard-failing on missing `Idempotency-Key` extraction, missing provider key forwarding, missing webhook dedupe, float arithmetic, client-trusted amounts.
 - CI lint MUST reject any DTO / DB-column field name matching `card_number` / `cvv` / `pan` / `cvc` / `track[12]_data`.
 - CI lint MUST reject `messages.create(` / `paymentIntents.create(` / equivalent without a passed `idempotencyKey`.
 - Nightly reconciliation job MUST run; missing run for > 36h pages on-call.
@@ -92,5 +92,5 @@ Every payment-affecting request is idempotent. Double-charges are user-visible, 
 - `<rules-path>/webhook-signature-verification.md` — universal webhook signature rule (raw body, constant-time compare, dedupe).
 - `<patterns-path>/webhook-flow.md` — generic verify → dedupe → process inbound shape.
 - `<commands-path>/replay-charge.md` — fixture-replay tool.
-- `<agents-path>/payment-reviewer.md` — review gate.
+- `.claude/lenses/payment-review.md` — review gate.
 - `<adr-path>/<NNN>-payment-provider-choice.md` — ADR pinning the chosen provider + scope of escape hatches.

@@ -1,6 +1,6 @@
 ---
 name: migration-architect
-description: Plans a per-feature V1→V2 port — V2 module shape, parity strategy, slicing decisions, dependency ordering, perf-uplift candidates, cutover plan, rollback path. Operates underneath legacy-modernizer's strategic plan; consumes the contract from extract-v1-contract; produces the plan that port-feature executes.
+description: "Use to plan one feature's V1-to-V2 port: V2 module shape, parity strategy, slicing, dependency order, perf-uplift candidates, cutover and rollback. Sits under legacy-modernizer's strategy, consumes extract-v1-contract, produces the plan port-feature executes."
 tools: Read, Grep, Glob
 model: opus
 kind: agent
@@ -19,6 +19,13 @@ This agent is **strategic per-feature**, distinct from:
 - `legacy-modernizer` — strategic *across* the whole migration (which features, what order at the highest level, what timeline).
 - `refactorer` — tactical, behavior-preserving in-version refactors (no V2 involved).
 - `parity-auditor` — pre-cutover audit, not planning.
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Plans a per-feature V1→V2 port — V2 module shape, parity strategy, slicing decisions, dependency ordering, perf-uplift candidates, cutover plan, rollback path. Operates underneath legacy-modernizer's strategic plan; consumes the contract from extract-v1-contract; produces the plan that port-feature executes.
 
 ## When to invoke
 

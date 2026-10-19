@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**223 commands** — core 16 · 24 packs (161) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**230 commands** — core 16 · 24 packs (168) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -15,12 +15,12 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
 - [Pack — backend](#pack--backend) — 11
-- [Pack — business](#pack--business) — 5
+- [Pack — business](#pack--business) — 6
 - [Pack — code-quality](#pack--code-quality) — 8
-- [Pack — data-engineering](#pack--data-engineering) — 4
+- [Pack — data-engineering](#pack--data-engineering) — 5
 - [Pack — database](#pack--database) — 5
 - [Pack — delivery](#pack--delivery) — 1
-- [Pack — devops](#pack--devops) — 6
+- [Pack — devops](#pack--devops) — 7
 - [Pack — distributed-systems](#pack--distributed-systems) — 6
 - [Pack — documentation](#pack--documentation) — 3
 - [Pack — finops](#pack--finops) — 4
@@ -29,9 +29,9 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — learning](#pack--learning) — 8
 - [Pack — migration](#pack--migration) — 21
 - [Pack — mobile](#pack--mobile) — 6
-- [Pack — observability](#pack--observability) — 6
+- [Pack — observability](#pack--observability) — 9
 - [Pack — performance](#pack--performance) — 4
-- [Pack — product](#pack--product) — 5
+- [Pack — product](#pack--product) — 6
 - [Pack — security](#pack--security) — 6
 - [Pack — testing](#pack--testing) — 6
 - [Pack — ui-ux](#pack--ui-ux) — 12
@@ -63,16 +63,16 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-ai-feature` | Build an LLM feature end-to-end — prompt/gateway wiring + structured output + retrieval (if RAG) +… | — | `/add-ai-feature` |
+| `/add-ai-feature` | Build an LLM feature end-to-end — prompt/gateway wiring + structured output + retrieval (if RAG) +… | `--from-audit=<ai/audits/<date>`, `--all` | `/add-ai-feature [<feature>] \| --from-audit=<ai/audits/<date>-ai.md> [finding-id ... \| --all]` |
 | `/add-eval-set` | Retrofit a regression-gating eval harness onto an existing LLM feature that has none — pick the… | `--plan` | `/add-eval-set <feature> [--plan]` |
-| `/ai-audit` | Read-only audit of an existing LLM/AI surface across six axes — eval coverage, prompt quality… | `--plan-only` | `/ai-audit [<scope>] [--plan-only]` |
+| `/ai-audit` | Read-only AI/LLM audit: call-site inventory, every ai detector, trust rows routed to security… | `--plan-only` | `/ai-audit [base-branch] [--plan-only]` |
 
 ## Pack — algorithms
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/analyze-complexity` | Analyze existing code for algorithmic complexity — derive time + space big-O per hot path (worst /… | `--plan`, `--fix`, `--hot=<spec>`, `--include-cold`, `--space` | `/analyze-complexity src/feed/ranker.ts` |
-| `/design-algorithm` | Design an algorithm for a problem (or redesign an existing function) — model it, derive the… | `--plan`, `--scale=<spec>`, `--budget=<class>`, `--candidates=<n>`, `--no-tests` | `/design-algorithm "dedup 5M event ids preserving first-seen order"` |
+| `/analyze-complexity` | Read-only algorithms audit: three detectors on the whole repo (--diff: last commit), refuted rows… | `--diff`, `--classes=<list>`, `--include-cli`, `--plan-only` | `/analyze-complexity [<path>] [--diff[=<base>]] [--classes=<list>] [--include-cli] [--plan-only]` |
+| `/design-algorithm` | Design an algorithm to the scale's budget, prove it, ship it with property tests. | `--from-audit=<ai/audits/<date>`, `--all`, `--plan`, `--scale=<spec>`, `--budget=<class>`, `--candidates=<n>`, `--no-tests` | `/design-algorithm "dedup 5M event ids preserving first-seen order"` |
 
 ## Pack — align
 
@@ -113,10 +113,11 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/analyze-task` | Turn a rough business idea into structured requirements, user stories, and an implementation spec. | `--resume`, `--decisions` | `/analyze-task "<idea>"` |
-| `/audit-business` | Audit a feature from the user perspective — missing cycles, broken flows, gap closures. | — | `/audit-business <feature>` |
+| `/audit-business` | Read-only business audit: six detectors, class ledger, refuted findings, verdict. | `--whole-repo`, `--classes=<MP,PR,BL,TX,IV,LG,FR,DM,RP,BT,LC,CY>`, `--live=<url>` | `/audit-business [<feature>] [--whole-repo] [--classes=<MP,PR,BL,TX,IV,LG,FR,DM,RP,BT,LC,CY>] [--live=<url>]` |
+| `/business-fix` | Close /audit-business findings failing-first; stops on rounding, tax, business-zone and retention… | `--all` | `/business-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context, acceptance criteria, scope… | — | `/expand-task "<brief>"` |
 | `/suggest-features` | Analyze the whole product against what a business in its domain should have, and WRITE a file of… | — | `/suggest-features` |
-| `/suggest-metrics` | Recommend the business metrics/KPIs a project's dashboard SHOULD show for its domain — detect the… | — | `/suggest-metrics [<scope>]` |
+| `/suggest-metrics` | Recommend the decision-driving KPIs a dashboard should show, cited and prioritized; --funnel=<flow>… | `--funnel=<flow>` | `/suggest-metrics [<scope>] [--funnel=<flow>]` |
 
 ## Pack — code-quality
 
@@ -136,9 +137,10 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-data-model` | Author a new warehouse model (staging / intermediate / fact / dimension) in the project's own… | `--layer`, `--grain` | `/add-data-model <model-name> [--layer staging\|intermediate\|mart] [--grain "<one sentence>"]` |
-| `/audit-data-model` | Audit the warehouse's analytical model — declared grain, fact/dimension separation, key and SCD… | `--layer` | `/audit-data-model [<scope>] [--layer mart\|intermediate\|staging]` |
-| `/audit-data-quality` | Audit and close data-trust gaps — per-model assertion coverage across structural, temporal… | `--write-tests` | `/audit-data-quality [<scope>] [--write-tests]` |
+| `/audit-data-model` | Audit the analytical model: probed grain, joins, SCD, conformance. | `--layer` | `/audit-data-model [<scope>] [--layer mart\|intermediate\|staging]` |
+| `/audit-data-quality` | Read-only data audit: ten detectors, class ledger, refuted findings, verdict. | `--whole-repo`, `--classes` | `/audit-data-quality [base-branch] [--whole-repo] [--classes=IN,OR,…]` |
 | `/backfill-plan` | Plan a safe backfill or reprocess of a warehouse model — bounded scope, shadow target, cost and… | `--from`, `--to`, `--reason` | `/backfill-plan <model> [--from <date>] [--to <date>] [--reason "<why>"]` |
+| `/data-fix` | Close data audit findings failing-first; re-scan the class. | `--all`, `--write-tests` | `/data-fix [report-path \| finding-id ... \| --all] [--write-tests]` |
 
 ## Pack — database
 
@@ -165,6 +167,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. | `--whole-repo`, `--classes=<family,…>`, `--contexts=<a,b>`, `--settings`, `--settings-dir=<dir>`, `--sandbox=<owner/repo>` | `/devops-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--contexts=<a,b>] [--settings \| --settings-dir=<dir>] [--sandbox=<owner/repo>]` |
 | `/devops-fix` | Close /devops-audit findings failing-first, diff-guarded. | `--all`, `--sandbox=<owner/repo>` | `/devops-fix [audit-report-path \| finding-id ... \| --all] [--sandbox=<owner/repo>]` |
 | `/dockerize` | Generate a production-ready Dockerfile, .dockerignore, and optional compose for local dev. | — | `/dockerize` |
+| `/release` | Production progressive release (canary, blue-green, flag ramp) of a READY run, plan by default, H3… | `--run=<run-id>`, `--strategy`, `--steps`, `--hold`, `--execute`, `--resume`, `--out` | `/release --strategy=canary\|blue-green\|flag-ramp\|rolling` |
 | `/rollback-deploy` | Roll back the current environment to a previous known-good deploy. | `--to=<version>`, `--env`, `--dry-run`, `--force` | `/rollback-deploy --env=staging` |
 
 ## Pack — distributed-systems
@@ -182,18 +185,18 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-adr` | Write a new ADR in ai/decisions/ with proper numbering and Recent Changes log. | — | `/add-adr [title]` |
-| `/add-runbook` | Author an operational runbook (incident response, deploy, rollback, on-call playbook). | `--type=<incident\|deploy\|rollback\|migration\|cutover\|on-call>`, `--related-adr=<NNN>`, `--related-feature=<id>` | `/add-runbook <name> [<description>]` |
-| `/doc-refresh` | Comprehensive post-work documentation refresh. | — | `/doc-refresh` |
+| `/add-adr` | Write a new ADR where the project keeps them (docs/adr, docs/decisions, ai/decisions…): sibling… | `--lanes`, `--class` | `/add-adr [title]` |
+| `/add-runbook` | Author an operational runbook (incident, deploy, rollback, on-call) beside the project's runbooks… | `--type=<incident\|deploy\|rollback\|migration\|cutover\|on-call>`, `--related-adr=<NNN>`, `--related-feature=<id>`, `--docs=<RUNBOOK_DIR>`, `--lanes` | `/add-runbook <name> [<description>]` |
+| `/doc-refresh` | Docs refresh after a change (default), a read-only docs audit with a class ledger and verdict… | `--audit`, `--whole-repo`, `--from-audit=<report>`, `--classes=<family,…>`, `--network`, `--no-exec` | `/doc-refresh [base] [--audit] [--whole-repo] [--from-audit=<report>] [--classes=<family,…>] [--network] [--no-exec]` |
 
 ## Pack — finops
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/audit-cost-attribution` | Audit whether spend can be attributed to an owner — tag and label coverage by resource and by… | `--period` | `/audit-cost-attribution [--period <billing-period>]` |
-| `/cost-guardrails` | Install the preventive cost layer — budgets with owners, anomaly detection with a declared… | `--scope` | `/cost-guardrails [--scope <account\|project\|service>]` |
-| `/cost-model` | Build or refresh the unit-economics model — the driver tree from a business unit down to billed… | `--refresh` | `/cost-model [<unit>] [--refresh]` |
-| `/cost-review` | Review a change for cost regressions before it merges — always-on resources, per-row paid calls… | `--since` | `/cost-review [<scope>] [--since <ref>]` |
+| `/audit-cost-attribution` | Who owns the spend: allocation keys in code and coverage by dollar from an export. | `--period`, `--export=<FOCUS or CUR path>`, `--required-keys`, `--allowed`, `--untaggable`, `--profile` | `/audit-cost-attribution [--period <billing-period>] [--export=<FOCUS or CUR path>]` |
+| `/cost-guardrails` | Fix cost findings failing-first (--from-audit) or install guardrails proven offline. | `--from-audit`, `--all`, `--scope` | `/cost-guardrails [--from-audit <report> \| finding-id ... \| --all] [--scope <account\|project\|service\|env>]` |
+| `/cost-model` | Unit economics from a billing export: driver tree, cost per unit, declared expectation. | `--refresh`, `--export=<FOCUS or CUR path>`, `--self-test`, `--by`, `--period`, `--required-keys`, `--base`, `--cur`, `--profile` | `/cost-model [<unit>] [--refresh] [--export=<FOCUS or CUR path>]` |
+| `/cost-review` | Read-only cost audit: finops detectors, pricing step, coverage ledger, verdict. | `--whole-repo`, `--classes=<BG,TG,PS,FQ,ST,EG,PX,UE>`, `--export=<path>`, `--flow-logs=<path>`, `--self-test` | `/cost-review [base-branch] [--whole-repo] [--classes=<BG,TG,PS,FQ,ST,EG,PX,UE>] [--export=<path>] [--flow-logs=<path>]` |
 
 ## Pack — frontend
 
@@ -225,14 +228,14 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/audit-knowledge` | Curator health audit of the ai/ knowledge layer. | `--fix` | `/audit-knowledge --fix` |
-| `/detect-drift` | Compares current code against documented conventions in ai/conventions.md + .claude/rules/. | — | `/detect-drift` |
-| `/eval` | Score the project's accumulated AI knowledge against saved eval cases — the measurement half of the… | `--seed`, `--case`, `--coverage` | `/eval` |
-| `/learn-from-task` | After a task finishes, capture decisions made / patterns followed / patterns introduced / user… | — | `/learn-from-task` |
-| `/promote-decision` | Graduate an entry from ai/dynamic/decisions-pending.md into a formal, sequentially-numbered ADR… | — | `/promote-decision <id>` |
-| `/promote-pattern` | Graduates an emerging pattern from ai/dynamic/learned-patterns.md to a formal ai/patterns/<name>.md… | — | `/promote-pattern <name>` |
-| `/recall` | Search this project's existing ai/ memory — the dynamic sinks, the don't-retry failure catalog… | `--kind`, `--owner`, `--since`, `--limit`, `--format`, `--catalog` | `/recall "cart cache key tenant"` |
-| `/refresh-knowledge` | Re-runs the canonical extraction engine (extract-codebase-overview -> _extracted-codebase.md… | `--dry-run` | `/refresh-knowledge` |
+| `/audit-knowledge` | Read-only audit of the AI knowledge layer: five detectors, class ledger, refute, verdict. | `--whole-repo`, `--classes=<family,…>`, `--memory-dir=<dir>` | `/audit-knowledge [base-branch] [--whole-repo] [--classes=<family,…>] [--memory-dir=<dir>]` |
+| `/detect-drift` | Code vs documented conventions: dispatches align's oracle when installed; logs divergences to… | — | `/detect-drift` |
+| `/eval` | Score the AI knowledge against saved eval cases; --coverage counts guarded units with… | `--seed`, `--case`, `--coverage` | `/eval` |
+| `/learn-from-task` | Capture a finished task's decisions, patterns, corrections and failures into the sinks, with… | — | `/learn-from-task` |
+| `/promote-decision` | Graduate a VALIDATED entry in decisions-pending.md into a numbered ADR in the project's detected… | — | `/promote-decision <id>` |
+| `/promote-pattern` | Graduate a READY entry in learned-patterns.md into a formal ai/patterns/<name>.md (curator draft… | — | `/promote-pattern <name>` |
+| `/recall` | Search this project's ai/ memory (sinks, failures, ADRs, patterns, archives) with BM25; returns… | `--kind`, `--owner`, `--since`, `--limit`, `--format`, `--catalog` | `/recall "cart cache key tenant"` |
+| `/refresh-knowledge` | Re-derive the oracle and profile from source, or close /audit-knowledge findings failing first… | `--dry-run`, `--from-audit=<report>`, `--all` | `/refresh-knowledge [--dry-run] [--from-audit=<report> \| <finding-id> … \| --all]` |
 
 ## Pack — migration
 
@@ -276,11 +279,14 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-metrics` | Add metrics (counters / gauges / histograms) to a service. | — | `/add-metrics` |
+| `/add-slo` | Define one SLO as code: registry row, OpenSLO/Sloth spec, recording rules, multiwindow burn alerts… | `--sli`, `--period`, `--spec=<spec>`, `--registry`, `--format` | `/add-slo <service> "<journey>"` |
 | `/add-telemetry` | Wire structured logs, metrics, and traces into a feature; create alert + runbook stubs. | — | `/add-telemetry <feature>` |
 | `/add-tracing` | Add distributed tracing to a service / endpoint / job. | — | `/add-tracing` |
 | `/alert-design` | Design alerts for a service. | `--registry`, `--slo` | `/alert-design` |
+| `/investigate-incident` | Read-only incident RCA: three or more competing hypotheses, evidence for and against each… | `--since=<ISO>`, `--until=<ISO>`, `--bundle=<dir>`, `--run=<run-id>`, `--telemetry=<url>`, `--hypotheses` | `/investigate-incident --hypotheses=N` |
 | `/obs-audit` | Read-only observability audit: logs, traces, metrics, errors, alerts, SLOs, pipeline; class ledger… | `--whole-repo`, `--classes=<family,…>`, `--live=<source=url,…>` | `/obs-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<source=url,…>]` |
 | `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. | `--all`, `--live=<source=url,…>` | `/obs-fix [audit-report-path \| finding-id ... \| --all] [--live=<source=url,…>]` |
+| `/postmortem` | Blameless postmortem: timeline, contributing factors, owned action items each proved by a red test… | `--run=<run-id>`, `--revert=<sha>`, `--incident=<id>`, `--notes=<path>` | `/postmortem --run=<run-id>` |
 
 ## Pack — performance
 
@@ -295,9 +301,10 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/audit-requirements` | Audit a spec, ticket, or set of acceptance criteria for the defects that survive into code… | — | `/audit-requirements [<spec \| ticket \| path>]` |
+| `/audit-requirements` | Product audit: --spec reviews requirement prose; --repo finds half-built features, tracking-plan… | `--spec`, `--repo`, `--classes`, `--feature=<slug>`, `--live=<url>` | `/audit-requirements [--spec <spec \| ticket \| path>] \| [--repo [--classes=fs,an,en,lr,tr] [--feature=<slug>] [--live=<url>]]` |
 | `/define-success` | Define what success and damage look like before a change ships — the success metric with a baseline… | — | `/define-success [<change or feature>]` |
 | `/frame-problem` | Produce the problem brief before anyone designs a solution — who has it, what evidence says so… | — | `/frame-problem [<problem or feature request>]` |
+| `/product-fix` | Close /audit-requirements --repo findings: failing test first per class, root-cause fix, owning… | `--all` | `/product-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/synthesize-research` | Turn raw research material — interview notes, support tickets, session recordings, sales notes… | — | `/synthesize-research [<corpus or path>]` |
 | `/to-questionnaire` | Turn the decisions you cannot make alone into a questionnaire for the person who can — each… | — | `/to-questionnaire [<decision, or path to a brief / interview ledger>]` |
 

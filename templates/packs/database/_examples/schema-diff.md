@@ -49,10 +49,10 @@ Find real drift, cite `<table>.<column>` and the file/line in the entity definit
    ```
 2. Generate the ORM's expected schema:
    ```bash
-   # Prisma
-   npx prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-schema-datasource "$DATABASE_URL" --script
-   # TypeORM
-   npx typeorm schema:log -d ./database/data-source.ts
+   # Prisma — the project's own CLI; absent → NOT-RUN (prisma not installed — to enable: npm i -D prisma)
+   npx --no prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-schema-datasource "$DATABASE_URL" --script
+   # TypeORM — absent → NOT-RUN (typeorm not installed — to enable: npm i typeorm)
+   npx --no typeorm schema:log -d ./database/data-source.ts
    # Alembic / SQLAlchemy
    alembic revision --autogenerate -m "drift-check" --sql > /tmp/diff.sql && rm -f migrations/versions/*drift-check*
    ```
@@ -97,7 +97,7 @@ Run: <the project's own generate command, from the detected tool — see below>
 
 | Tool | Generate |
 |---|---|
-| Prisma | `npx prisma migrate dev --name <slug>` |
+| Prisma | `npx --no prisma migrate dev --name <slug>` |
 | TypeORM | `pnpm migration:generate -- src/migrations/<Name>` |
 | Alembic | `alembic revision --autogenerate -m "<slug>"` |
 | Django | `python manage.py makemigrations` |
@@ -123,7 +123,7 @@ The procedure above compares the ORM with a **live** database. A behavioural bas
 ```bash
 bash .claude/scripts/baseline-capture.sh register --id=schema-main --kind=schema \
   --engine=database/schema-diff --scope='prisma/**,src/**/*.entity.*,migrations/**' \
-  --command='npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > "$REFRACT_BASELINE_OUT/schema.sql"' \
+  --command='npx --no prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > "$REFRACT_BASELINE_OUT/schema.sql"' \
   --artifact=db/schema.snapshot.sql --compare=file --cadence=pr
 ```
 

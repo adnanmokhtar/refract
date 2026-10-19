@@ -1,6 +1,8 @@
 ---
 description: Turn a rough business idea into structured requirements, user stories, and an implementation spec.
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+kind: command
+pack: business
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /analyze-task "<idea>"

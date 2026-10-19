@@ -1,8 +1,8 @@
 ---
 track: product
-purpose: Decide what to build and why — evidence-labelled problem framing, falsifiable requirements, honest research synthesis, and launches that can be judged.
+purpose: Decide what to build and why, and check that what shipped is finished and judgeable — evidence-labelled framing, falsifiable requirements, honest synthesis, half-built-feature, tracking-plan and entitlement detectors, and a launch-readiness scorecard.
 essentials:
-  agents: [requirements-reviewer, product-strategist]
+  agents: [product-strategist]
   commands: [audit-requirements, frame-problem]
   skills: [acceptance-criteria-check]
   rules: [product-principles]
@@ -14,9 +14,9 @@ essentials:
 Files listed above are the minimal subset copied when `/setup-project --minimal` is used. Standard mode copies the entire pack; minimal mode copies only essentials.
 
 Rationale per category (one line each):
-- agents: `requirements-reviewer` pays for itself on any project that writes tickets, because a requirement defect is multiplied by every hour spent implementing it; `product-strategist` is the upstream half, and without it the reviewer has no brief to check metric linkage against. `user-research-synthesizer` requires raw research material to exist — it refuses to run without it, so shipping it into a project that has none would be shipping a halt — and `scope-arbiter` requires a declared success metric plus a capacity constraint; both are kept out of minimal.
-- commands: `/audit-requirements` (the gate on prose that is already being written) and `/frame-problem` (the brief that gate checks against). `/synthesize-research` presumes a corpus, `/define-success` presumes a measurable metric surface, and `/to-questionnaire` presumes both a blocked artifact and a named person outside the session who can unblock it — all three ship in standard mode.
-- skills: `acceptance-criteria-check` is the only skill whose input is the spec itself and nothing else — `evidence-trace` needs reachable evidence sources, `assumption-ledger` needs a stated objective to rank impact against, and `launch-readiness` needs live metric queries and a rollback path. Minimal mode can assume none of those.
+- agents: `product-strategist` is the upstream half of every requirement review: without it `@requirements-reviewer` has no brief to check metric linkage against. `@requirements-reviewer` itself is owned by the `delivery` pack (always-on, applied first, and essential there), so this pack ships no copy: `/audit-requirements --spec` dispatches delivery's agent. `user-research-synthesizer` requires raw research material to exist — it refuses to run without it, so shipping it into a project that has none would be shipping a halt — and `scope-arbiter` requires a declared success metric plus a capacity constraint; both are kept out of minimal.
+- commands: `/audit-requirements` (its `--spec` lane is the gate on prose that is already being written) and `/frame-problem` (the brief that gate checks against). `/synthesize-research` presumes a corpus, `/define-success` presumes a measurable metric surface, `/to-questionnaire` presumes both a blocked artifact and a named person outside the session who can unblock it, and `/product-fix` presumes an `/audit-requirements --repo` report — all four ship in standard mode.
+- skills: `acceptance-criteria-check` is the only skill whose input is the spec itself and nothing else (its trace lane prints `N/A (no criterion ids)` where tests carry none). `evidence-trace` needs reachable evidence sources and `assumption-ledger` a stated objective to rank impact against. The detectors stay out of minimal by decision (`feature-surface-scan`, `tracking-plan-scan`, `entitlement-consistency-scan`): they presume a running product with routes, analytics calls and plans, and a fresh project has none. `launch-readiness` reads a success file (`/define-success`), an assumptions ledger and the owners' same-day ledgers, none of which a minimal install produces. On a minimal install `/audit-requirements --repo` prints those ledger rows `not run (skill not installed)`, which forces `GO-UNVERIFIED`; it never reports them clean.
 - rules: `product-principles` is the single rules file in the pack.
 - ai-patterns: `acceptance-criteria` (falsifiability, the eight-cell coverage grid, non-functional bounds) and `problem-framing` (mechanism-free statement, labelled evidence, do-nothing baseline, metric pair) back the two essential agents directly. `research-synthesis` is gated on a corpus existing and `opportunity-sizing` on a countable population, both of which ship in standard mode.
 
@@ -25,7 +25,8 @@ Rationale per category (one line each):
 - Making the problem explicit and refutable before it attracts commitment.
 - Reviewing requirement prose with the severity a code review applies to a diff.
 - Extracting findings from research at the strength the material actually supports.
-- Ensuring a launch can be judged, and judged against a threshold set before the result was known.
+- Ensuring a launch can be judged, and judged against a threshold set before the result was known: `launch-readiness` types the success definition and grades 21 cumulative bronze / silver / gold rules (`rules.json`, `readiness-score.py`).
+- Finding what shipped half-built: client calls nobody serves, links to no page, placeholders and mock rows, dead controls (`feature-surface-scan`); analytics that drift from the tracking plan or fire before the outcome (`tracking-plan-scan`); plan facts that pricing copy and gates state differently (`entitlement-consistency-scan`); criteria no test names (`acceptance-criteria-check`). `/audit-requirements --repo` runs them; `/product-fix` closes the findings test-first.
 
 ## What this pack is NOT for
 

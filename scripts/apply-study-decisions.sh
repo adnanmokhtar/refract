@@ -557,9 +557,9 @@ with open(f, encoding="utf-8") as fh:
 # `](../../performance/ai-patterns/x.md)` / `](../../frontend/skills/y.md)` — the `<pack>/`
 # segment exists only under templates/packs/; a project has no pack namespace, so it is dropped
 # rather than resolved. A segment is a pack name exactly when it is not itself a kind name.
-KINDS_RE = "ai-patterns|skills|agents|commands|rules"
+KINDS_RE = "ai-patterns|skills|agents|commands|rules|lenses"
 _dest = {"ai-patterns": os.path.join(target, "ai", "patterns")}
-for _k in ("skills", "agents", "commands", "rules"):
+for _k in ("skills", "agents", "commands", "rules", "lenses"):
     _dest[_k] = os.path.join(target, ".claude", _k)
 _rel = lambda kind: os.path.relpath(_dest[kind], os.path.dirname(os.path.abspath(f)))
 
@@ -750,7 +750,7 @@ sweep_deployed_links() {
     rewrite_ai_pattern_links "$f"
     rewrite_skill_refs_to_installed_shape "$f" >/dev/null
   done < <(find "$TARGET/.claude/commands" "$TARGET/.claude/agents" "$TARGET/.claude/skills" \
-                "$TARGET/.claude/rules" -type f -name '*.md' 2>/dev/null \
+                "$TARGET/.claude/rules" "$TARGET/.claude/lenses" -type f -name '*.md' 2>/dev/null \
            | grep -v '/backups/' || true)
 }
 
@@ -768,7 +768,7 @@ if [[ "$REWRITE_LINKS" -eq 1 ]]; then
     esac
     [[ "$(cksum < "$f")" != "$before" ]] && { n_rw=$((n_rw + 1)); echo "  link-rewrite ${f#$TARGET/}"; }
   done < <(find "$TARGET/.claude/commands" "$TARGET/.claude/agents" "$TARGET/.claude/rules" "$TARGET/.claude/skills" \
-                -type f -name '*.md' 2>/dev/null | grep -v '/backups/' || true)
+                "$TARGET/.claude/lenses" -type f -name '*.md' 2>/dev/null | grep -v '/backups/' || true)
   echo "rewrite-links: $n_rw file(s) retargeted to their deployed locations"
   exit 0
 fi
@@ -1106,6 +1106,7 @@ target_dir_for_kind() {
     agents)      echo "$TARGET/.claude/agents" ;;
     skills)      echo "$TARGET/.claude/skills" ;;
     rules)       echo "$TARGET/.claude/rules" ;;
+    lenses)      echo "$TARGET/.claude/lenses" ;;   # Phase 6: the knowledge a roster agent reads by path
     ai-patterns) echo "$TARGET/ai/patterns" ;;
     *)           echo "$TARGET/.claude/$1" ;;
   esac
@@ -1225,6 +1226,30 @@ for action in "${actions[@]:-}"; do
     twin_idle+=("$pf_pack/$pf_kind/$pf_base ($pf_decision)|${SHAPE_PATH#$TARGET/}|${SHAPE_OTHER#$TARGET/}")
   fi
 done
+# Phase 6 (PLAN.md §6 rule 5) — PACK-VS-PACK same-name collision. Two packs of THIS run each carry
+# an ADD row for the same agent or lens name with different bytes: whichever row the loop reached
+# first would win and the other would be SHAPE-SKIPped as "stale", in silence — the install-order
+# defect scripts/install-claim.sh closes on the CREATE path. Same rule here, before any write.
+# (The legacy-flat SHAPE-SKIP above is a different case and stays.)
+pvp_seen="$(mktemp "${TMPDIR:-/tmp}/asd-pvp.XXXXXX")"; pvp_hits=0
+for action in "${actions[@]:-}"; do
+  [[ -z "$action" ]] && continue
+  IFS='|' read -r pf_decision pf_pack pf_kind pf_base pf_rest <<<"$action"
+  [[ "$pf_decision" == "ADD" ]] || continue
+  [[ "$pf_kind" == "agents" || "$pf_kind" == "lenses" ]] || continue
+  pf_src="$PACKS_ROOT/$pf_pack/$pf_kind/$pf_base"; [[ -f "$pf_src" ]] || continue
+  pf_prev="$(awk -F'|' -v k="$pf_kind" -v b="$pf_base" '$1==k && $2==b { print $3 "|" $4; exit }' "$pvp_seen")"
+  if [[ -z "$pf_prev" ]]; then printf '%s|%s|%s|%s\n' "$pf_kind" "$pf_base" "$pf_pack" "$pf_src" >> "$pvp_seen"; continue; fi
+  if ! cmp -s "${pf_prev#*|}" "$pf_src"; then
+    echo "  COLLISION ${pf_kind%s} '${pf_base%.md}': ${pf_prev%%|*} and $pf_pack ship different content — fix the templates (rename or merge); see scripts/_agent-merge-map.json"
+    pvp_hits=$((pvp_hits + 1))
+  fi
+done
+rm -f "$pvp_seen"
+if [[ "$pvp_hits" -gt 0 ]]; then
+  echo "HALT: $pvp_hits pack-vs-pack same-name collision(s). NOTHING HAS BEEN WRITTEN."
+  exit 4
+fi
 if [[ ${#twin_blocking[@]} -gt 0 ]]; then
   echo "HALT: a skill-shape conflict blocks ${#twin_blocking[@]} row(s) this run would write."
   for t in "${twin_blocking[@]}"; do
@@ -1323,7 +1348,7 @@ for action in "${actions[@]:-}"; do
         # the per-skill subdir must exist too or the cp fails with ENOENT.
         mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
-        if [[ "$kind" == "commands" || "$kind" == "agents" || "$kind" == "rules" ]]; then
+        if [[ "$kind" == "commands" || "$kind" == "agents" || "$kind" == "rules" || "$kind" == "lenses" ]]; then
           rewrite_deployed_command_links "$tgt"
         elif [[ "$kind" == "skills" ]]; then
           # Depth-aware: $tgt is the shape this project carries (folder or legacy flat).
@@ -1417,7 +1442,7 @@ for action in "${actions[@]:-}"; do
 
         mkdir -p "$(dirname "$tgt")"
         cp "$pack_src" "$tgt"
-        if [[ "$kind" == "commands" || "$kind" == "agents" || "$kind" == "rules" ]]; then
+        if [[ "$kind" == "commands" || "$kind" == "agents" || "$kind" == "rules" || "$kind" == "lenses" ]]; then
           rewrite_deployed_command_links "$tgt"
         elif [[ "$kind" == "skills" ]]; then
           rewrite_deployed_skill_links "$tgt"

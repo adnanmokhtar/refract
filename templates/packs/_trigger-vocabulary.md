@@ -111,6 +111,18 @@ Valid signal names (must match `~/.claude/templates/domains/<name>/`):
 - `ci_or_dockerfile_detected` — convenience union.
 - `container_target_likely` — a Dockerfile, a Kubernetes or Helm manifest, any compose file (`compose.yaml`, the legacy `docker-compose.y*ml`, override and per-environment files, nested up to four levels), or a platform deploy file (`Procfile`, `fly.toml`, `render.yaml`, `app.yaml`, `vercel.json`). A deploy mention in a README does not count: nearly every README has one.
 
+## AI / LLM
+
+- `llm_usage_detected` — the product calls a large language model. Any of three lanes, the same ones `llm-sites.py` (ai-engineering) inventories, every one word-bounded so `cohere` inside "coherence" never fires it: (1) a provider SDK, an LLM framework or the MCP SDK declared in a manifest (`openai`, `@anthropic-ai/sdk` / `anthropic`, `ai` / `@ai-sdk/*`, `langchain` / `@langchain/*` / `langgraph`, `llamaindex` / `llama-index`, `@google/genai`, `mistralai`, `cohere-ai`, `ollama`, `litellm`, `@modelcontextprotocol/sdk` / `mcp`, `@openai/agents`, the Bedrock runtime client); (2) a provider import in source; (3) a source file with an LLM wire shape and no SDK at all — an endpoint path (`/chat/completions`, `/v1/responses`, `:generateContent`; `/v1/messages` only beside `max_tokens` or `anthropic-version`, so an SMS client is not a match) or an LLM-only body key (`max_tokens`, `max_completion_tokens`, `tool_choice`, `response_format`, `stream_options`) beside a `role: 'system' | 'developer' | 'tool' | 'assistant'` literal. Tests, fixtures and mocks are excluded. Loads the `ai-engineering` pack (`detect-tracks.sh` applies the same lanes) and gates `llm-trust-scan` and `@llm-security-reviewer`.
+
+## Spend
+
+- `paid_api_detected` — the product calls a dependency billed per call, message, token or lookup. Any of four lanes, the same inventory finops `spend-path-scan` § 0 builds: (1) a per-call paid SDK as a manifest dependency (LLM providers, `twilio`, `@sendgrid/mail`, `postmark`, `mailgun.js`, `@vonage/*`, `messagebird`, `@googlemaps/*`, `@mapbox/*`; a payment SDK is per transaction and does not count); (2) `llm_usage_detected`; (3) a provider API host literal in source or config (`api.openai.com`, `api.twilio.com`, `maps.googleapis.com`, …); (4) a configured base-URL name carrying a billed category (`SMS_API_URL`, `GEOCODER_BASE_URL`, `LLM_GATEWAY_URL`) — a bare `*_BASE_URL` does not count. Tests and fixtures are excluded. Loads the `finops` pack on a repo with no infrastructure-as-code (`detect-tracks.sh` applies the same lanes) and gates `spend-path-scan`.
+
+## Algorithms
+
+- `numeric_or_geo_lib_detected` — a numeric, geo or probabilistic-structure library declared in a manifest (`numpy`, `scipy`, `pandas`, `polars`, `statsmodels`, `scikit-learn`, `torch`, `mathjs`, `simple-statistics`, `@turf/*`, `geolib`, `proj4`, `h3-js`, `shapely`, `pyproj`, `geopandas`, gonum, JTS, `commons-math3`, …), PostGIS or a spatial column in SQL / Prisma, or a sketch command in source (`BF.RESERVE`, `PFADD`, `CMS.INITBYDIM`). Anchored on dependency keys and commands, never a word list over source (the old word gate matched about 30 % of a CRUD repo). Map rendering libraries do not count. A **suggestion only**: the setup preflight prints `--include=algorithms`; the pack is never auto-selected.
+
 ## VCS / external
 
 - `vcs_detected` — `.git/` exists.

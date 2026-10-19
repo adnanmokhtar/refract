@@ -104,7 +104,7 @@ Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase
 
 - **A real Supabase → Nest port** (2026-10-19). Before: SE1a/SE1b/SE2c/SE4a read `*.php` (0 V1 lines) and the I-SIDE lane had 4 V2 rows. After: SE1a 472 · SE1b 85 · SE2c 10 · SE4a 43; I-SIDE V2 rows 175, I-SCHED V2 rows 60; the 4 dead V1 jobs print `dead in V1` instead of a lookup. `port-pair`: the same lines, minus two `// Ported from …` comment hits in the V1-target lookup.
 
-- **`port-pair`, paired** (`--live-v1`). Engine (the build whose candidate rows carry a `lane` column): I-SIDE V1-ONLY `order.updated` (mail) and `wallet.updated` (activity); I-SCHED V1-ONLY `wallets:expire-credits` and `ReleaseStaleReservations`; I-SCHEMA V1-ONLY `derived:order.line_count how=trigger` and `view:finance_invoice_totals`, and `fk:ticket_message(ticket_id) on_delete cascade → no action` CHANGED (the snapshot, not the entity decorator, is what V2's database has). Grep lines: SE1a 5 · SE1b 6 · SE1c 11 · SE1d 3 (every balance and credit-limit write) · SE1e 3 subscribers · SE2a-sync 4 · SE2a 2 · SE2b 1 · SE2c 1 · SE3a 8 · SE3b 5 · SE4a 9 · SE4b 9 · SE5a 6 · SE5b 18 (every snapshot FK rule, the `no action` one among them); the job-target lines point at `WalletsService.expireAllPromos` and `StockReservationService.releaseStale` (ported, never scheduled). **The observer-only seed** (shipped e-mail) and **the trait-only seed** (wallet balance audit) are both V1-ONLY I-SIDE rows with SE1a lines (`#[ObservedBy]`, `use LogsActivity`) and no `afterUpdate` in SE1c for those entities; SE1e prints the two subscribers' `return [Order]` / `return [Wallet]` lines the findings cite, and SE1d lists the three V2 writes the missing hook leaves unaudited. The decoys (ticket SMS moved to a notifications-module subscriber with a replication guard, the invoice audit row from a V2 trigger, the weekly report CronJob, the nightly invoice `@Cron`) each match their V1 row on reading.
+- **`port-pair`, paired** (`--live-v1`). Engine (the build whose candidate rows carry a `lane` column): I-SIDE V1-ONLY `order.updated` (mail) and `wallet.updated` (activity); I-SCHED V1-ONLY `wallets:expire-credits` and `ReleaseStaleReservations`; I-SCHEMA V1-ONLY `derived:order.line_count how=trigger` and `view:finance_invoice_totals`, and `fk:ticket_message(ticket_id) on_delete cascade → no action` CHANGED (the snapshot, not the entity decorator, is what V2's database has). Grep lines: SE1a 5 · SE1b 6 · SE1c 11 · SE1d 3 (every balance and credit-limit write) · SE1e 3 subscribers · SE2a-sync 4 · SE2a 2 · SE2b 1 · SE2c 1 · SE3a 8 · SE3b 5 · SE4a 9 · SE4b 9 · SE5a 6 · SE5b 18 (every snapshot FK rule, the `no action` one among them); the job-target lines point at the two ported service methods (ported, never scheduled). **The observer-only seed** (shipped e-mail) and **the trait-only seed** (wallet balance audit) are both V1-ONLY I-SIDE rows with SE1a lines (`#[ObservedBy]`, `use LogsActivity`) and no `afterUpdate` in SE1c for those entities; SE1e prints the two subscribers' `return [Order]` / `return [Wallet]` lines the findings cite, and SE1d lists the three V2 writes the missing hook leaves unaudited. The decoys (ticket SMS moved to a notifications-module subscriber with a replication guard, the invoice audit row from a V2 trigger, the weekly report CronJob, the nightly invoice `@Cron`) each match their V1 row on reading.
 - **Solo** (re-recorded inventory with `I-SCHED` faulted): I-SIDE rows as above tagged `solo`; I-SCHED `blocked (extractor changed since record; re-record)`, so §4 prints `blocked`; the V1 greps read an empty directory, so triggers and views (not in any recorded lane) are Unconfirmed-solo; the recorded `fk:ticket_message(ticket_id) on_delete=cascade` row against SE5b is the one SE guarantee row that can become a Finding.
 - **V2-only fixtures** (no V1): `ds-defects` SE1c 19 · SE2a-sync 8 · SE4b 41 (an event-heavy fixture: these are the inventory, not noise); `backend-defects` SE1c 5 · SE4b 12; `slow-marketplace` SE1c 4 · SE3b 2 · SE5b 2; `obs-defects`, `quality-mix` ≤ 2.
 
@@ -158,7 +158,7 @@ GOOD:  V2  the view and its grant in a migration  ·  V1's header kept (or a dat
 
 ```
 BAD:   V1  Schedule::command('wallets:expire-credits')->dailyAt('00:15')->timezone('Asia/Riyadh')->onOneServer();
-       V2  WalletsService.expireAllPromos() ported and injected into Schedules — no @Cron, repeat or CronJob calls it
+       V2  PromoCreditService.expireAll() ported and injected into Schedules — no @Cron, repeat or CronJob calls it
 GOOD:  V2  @Cron('0 15 0 * * *', { name: 'wallets-expire-credits', timeZone: 'Asia/Riyadh' })   (single-runner as V1's onOneServer)
 ```
 **Read both ends.** For each V1 entry: expression, zone, overlap guard (`withoutOverlapping`), one-server rule. For each V2 candidate: `@Cron` (on a single-replica scheduler?), BullMQ repeat, a k8s `CronJob` (zone set? `concurrencyPolicy`?). The job-target lines show a ported method nothing schedules. A cron moved to a CronJob with the same zone and an ADR is the control; a stricter overlap guard on V2 is Hardening. **Finding when** a V1 entry has no V2 entry, or runs at another expression or zone. **Proof:** V373 — schedule equality plus one dry run on a snapshot.
@@ -179,11 +179,11 @@ side-effect-parity-scan — paired · laravel 11.31.0 → nest 11.0.6 + mikro-or
 
 Findings: 2 · Unconfirmed: 5
 
-1. v2/apps/api/src/orders/order.subscriber.ts:15                  [report-flagged]   high
-   §1 order.updated mail dropped — V1 OrderObserver::updated (v1/app/Observers/OrderObserver.php:21), attached by
+1. v2/apps/api/src/orders/order-events.subscriber.ts:15           [report-flagged]   high
+   §1 order.updated mail dropped — V1 OrderMailObserver::updated (v1/app/Observers/OrderMailObserver.php:21), attached by
    #[ObservedBy] (Order.php:16). V2: no afterUpdate in any subscriber; no 'order-shipped' enqueue anywhere.
    Unproven link: no journal run. Settling probe: V371 update path, status → shipped, Mailpit shows 1 on V1, 0 on V2.
-2. v2/apps/api/src/migrations/.snapshot-norrow.json:238          [report-with-fix]  high
+2. v2/apps/api/src/migrations/.snapshot-api.json:212             [report-with-fix]  high
    §5 FK action lost — V1 ticket_messages.ticket_id cascadeOnDelete (…_create_tickets_tables.php:29); the V2 schema
    says "no action" although the entity decorator says cascade (no migration carries it). Proof: V371 delete of a
    ticket with messages: V1 deletes both, V2 fails on the FK.

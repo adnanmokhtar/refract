@@ -109,5 +109,5 @@ it('filters by tenant_id — does not return other tenants rows', async () => {
 - `<rules-path>/multi-tenancy.md` — hard rules + review checklist + enforcement.
 - `<patterns-path>/multi-tenancy.md` — sibling pattern: request-scoped tenant context + resolution chain (the "where the tenantId comes from").
 - `<commands-path>/tenant-leak-audit.md` — grep + AST scanner for missing filters, client-supplied tenant ids, missing leak tests.
-- `<agents-path>/tenant-isolation-reviewer.md` — review gate hard-failing on missing tests + raw-SQL leaks.
+- `.claude/lenses/multi-tenant-review.md` — review gate hard-failing on missing tests + raw-SQL leaks.
 - `<adr-path>/<NNN>-multi-tenant-shared-db-row-level.md` — ADR pinning shared-DB row-level isolation as the deployment shape.

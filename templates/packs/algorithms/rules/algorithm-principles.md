@@ -3,10 +3,8 @@ paths:
   - "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,vue,svelte,astro}"
   - "**/*.{py,pyi,rb,php,go,rs,java,kt,kts,scala,groovy,cs,fs,vb,swift,m,mm,dart}"
   - "**/*.{ex,exs,erl,hrl,clj,cljs,cljc,hs,ml,elm,lua,pl,pm,r,R,jl,zig,nim,cr,c,h,cc,cpp,cxx,hpp}"
-  - "**/*.{sql,prisma,graphql,gql,proto}"
-  - "**/*.{html,htm,css,scss,sass,less,styl,pcss}"
-  - "**/*.{erb,haml,slim,hbs,handlebars,ejs,njk,liquid,twig,cshtml,razor,jinja,jinja2,j2,mustache,pug,mjml,tex}"
-paths-origin: pack-default-407ed4eb
+  - "**/*.sql"
+paths-origin: pack-default-07e1983f
 name: algorithm-principles
 description: Algorithm Principles
 kind: rule
@@ -40,9 +38,9 @@ applies-to: algorithms-track, every-algorithm-design-or-analysis-task
 
 - Prefer an in-place / single-pass streaming approach when the input is large and a copy would blow the space budget.
 - When a sub-linear or `O(1)`-memory bound is the target (streaming, `n ≥ 1e8`, unbounded cardinality), reach for a probabilistic / sketch structure (Bloom / HyperLogLog / Count-Min / reservoir) and state the accuracy trade-off — see `sublinear-structures.md`.
-- Numerical / floating-point code states its precision + stability regime: compare with a **tolerance**, never float `==`; accumulate cancellation-safely (Kahan / pairwise / Welford), not a naive running sum; guard near-zero divides and acknowledge the problem's **condition number** where it can be large. **Money / tax / currency uses an exact decimal type**, never float — and hands off to the business pricing-tax rules. See `numerical-methods.md` (signal-gated on numeric/scientific code).
+- Numerical / floating-point code states its precision + stability regime: accumulate cancellation-safely (Kahan / pairwise / Welford), not a naive running sum; work in log-space where products underflow; acknowledge the problem's **condition number** where it can be large. See `numerical-methods.md` (gated on numeric libraries and anchored numeric calls). Float `==`, divide-by-zero and **money as float** are not this rule's: code-quality `correctness-smell-scan` §2 / §4 own the expression, database `schema-integrity-scan` §4 the money column, business `pricing-rule-scan` the money policy (each when its pack is installed).
 - Property-test a designed algorithm against a brute-force oracle over random inputs, not just fixed cases.
 
 ## Enforcement
 
-Convention + review — this pack ships no CI gate. `/analyze-complexity` derives + cites complexity on demand, `/design-algorithm` designs to the budget, `complexity-derivation` is the shared engine both run on, and `@algorithm-designer` owns the design + correctness verdict. A PR claiming a speedup with no derivation or correctness argument fails review. Lane boundary: a *measured* constant-factor / N+1 / index / I/O finding is `performance-optimizer`'s, not this pack's — asymptotic-vs-constant-factor is the line, not "loops".
+Convention + review, backed by three detectors — this pack ships no CI gate. `complexity-scan` (super-linear work on data-sized input, recursion depth and cycles, loop progress; caps resolved by `scripts/algo-sites.py`), `algorithm-contract-scan` (sortedness, stability and key-uniqueness preconditions, random distribution, geodesy) and `numeric-stability-scan` (accumulated float error and sketches, gated) find the violations; `/analyze-complexity` runs them as a read-only audit, `/design-algorithm` designs to the budget and closes audit rows failing-first, `complexity-derivation` is the shared derivation engine, and `@algorithm-designer` owns the design + correctness verdict. A PR claiming a speedup with no derivation or correctness argument fails review. Lane boundary: a *measured* constant-factor / N+1 / index / I/O finding is `performance-optimizer`'s, not this pack's — asymptotic-vs-constant-factor is the line, not "loops".

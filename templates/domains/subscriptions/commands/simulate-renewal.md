@@ -99,4 +99,4 @@ Or slash: `/simulate-renewal` and `/simulate-renewal --fail`.
 - `<commands-path>/simulate-webhook.md` — generic webhook fixture replay + tampered-signature test.
 - `<rules-path>/subscription-billing-discipline.md` — the rules this command verifies (idempotent renewal, dunning/grace, derived entitlements, MRR-once).
 - `<patterns-path>/subscription-lifecycle.md` — the state machine + renewal + dunning + entitlement code shapes under test.
-- `<agents-path>/subscription-reviewer.md` — review gate that requires this command's evidence on renewal/dunning PRs.
+- `.claude/lenses/subscriptions-review.md` — review gate that requires this command's evidence on renewal/dunning PRs.

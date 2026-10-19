@@ -237,6 +237,7 @@ If the project has no agents flagged for chatmode translation, the adapter write
 
 **Translation of the repo's hooks** (copy `.claude/hooks/*.sh` into `.github/hooks/` and reference from the JSON):
 
+- `guard-irreversible.sh` → **`preToolUse`** returning `deny` with the reason — the H3 gate: an irreversible remote step (IaC apply/destroy, kubectl/helm mutations, cloud CLI create/delete/update, production deploys, migrations against a non-local database, release-tag pushes) waits for a human; plan/diff/dry-run/read-only and local steps pass. The Claude Code hook ASKS; a tool with no ask outcome denies, and the human runs the command.
 - `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan` → **`preToolUse`** returning `deny` for destructive shell / protected-path writes / secret reads. This is now a real enforced gate, not the advisory instruction it used to be.
 - `test-lane.sh` → **`preToolUse`** returning `deny` for a full-suite or e2e shell command (`npm test`, `pytest`, `go test ./...`), with the script's `test-lane.sh run '<cmd>'` re-run line as the reason; one named test file, type-check and lint pass. The lane is per machine, so a local Copilot CLI suite and a Claude one take turns.
 - `module-boundaries.sh` → **`preToolUse`** returning `deny` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`. The Cloud Agent reads `.github/hooks/*.json` too, so the boundary holds for background agents, not only the CLI.

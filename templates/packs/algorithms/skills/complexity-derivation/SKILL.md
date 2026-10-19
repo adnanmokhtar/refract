@@ -1,6 +1,6 @@
 ---
 name: complexity-derivation
-description: Mechanically derive the time + space complexity of code or a designed algorithm — loop-nesting products, divide-and-conquer recurrences (recursion tree / Master theorem), amortized analysis (aggregate / accounting), expected-vs-worst for randomized + hashed structures, and space (peak allocation + recursion depth + hidden copies). Produces a cited big-O with the construct each bound came from. Stack-agnostic.
+description: Derive the time and space complexity of code or a design — loops, recurrences, amortized, expected vs worst; cited.
 kind: skill
 pack: algorithms
 allowed-tools: [Read, Grep, Glob, Bash]
@@ -16,7 +16,7 @@ It does NOT measure runtime — that is the profiler's job (`performance-optimiz
 
 ## When to run
 
-- Inside `/analyze-complexity` (derive each hot path's complexity) and `/design-algorithm` (derive the budget + each candidate's class).
+- Inside `/analyze-complexity` (derive each hot path's complexity) and `/design-algorithm` (derive the budget + each candidate's class), and in the read steps of `complexity-scan` (the bound a row's `n_max × m_max` arithmetic states) and `/design-algorithm --from-audit` (the class before and after a fix). It derives; it never detects — the detectors are `complexity-scan`, `algorithm-contract-scan` and `numeric-stability-scan`.
 - Standalone when a `<path:line>` or a snippet needs a defensible big-O for a review or an ADR.
 - NOT for constant-factor questions ("is this 2× faster?") — that needs measurement, not derivation.
 
@@ -65,4 +65,5 @@ A bound with no `← from:` citation is not a valid output of this skill.
 ## Related
 - agent [`algorithm-designer`](../../agents/algorithm-designer.md) — the consumer; turns derivations into designs + ranked findings.
 - commands `/design-algorithm`, `/analyze-complexity` — both run this skill.
+- skill `complexity-scan` — cites this skill's derivation for each kept row; its operation-count oracle (V590–V598) is what proves the class.
 - rule [`algorithm-principles`](../../rules/algorithm-principles.md) — the budget the derived class is measured against.

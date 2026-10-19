@@ -1,5 +1,7 @@
 ---
-description: Score the project's accumulated AI knowledge against saved eval cases — the measurement half of the learning loop. Proves promoted rules/conventions/patterns actually make the AI produce correct work, and catches regressions when knowledge rots. Sibling to `/learn-from-task` (which captures) — `/eval` grades.
+description: "Score the AI knowledge against saved eval cases; --coverage counts guarded units with sink-audit.py, not by hand."
+kind: command
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
@@ -39,12 +41,20 @@ No architectural moves, no code edits to product source, no promotion — promot
 
 - **default** — RUN every case in `ai/evals/cases/`, write a scorecard run, feed failures to `ai/dynamic/learnings.md`.
 - **`--case <slug>`** — RUN one case only (fast iterate on a single scenario).
-- **`--coverage`** — read-only. Report coverage % + the five detectors below. No runs, no writes.
+- **`--coverage`** — read-only. Report coverage % + the five detectors below. No runs, no writes. The numbers come from the engine, not from the model's count:
+
+  ```bash
+  KS="${KS:-.claude/skills}"; [ -f "$KS/memory-hygiene-scan/scripts/sink-audit.py" ] || KS="$HOME/.claude/templates/packs/learning/skills"
+  python3 -I "$KS/memory-hygiene-scan/scripts/sink-audit.py" . --eval-coverage > "${TMPDIR:-/tmp}/eval-coverage.json"; echo "exit $?"
+  # {"cases": n, "case_files": [...], "guards": [...], "units": n, "guarded": n, "unguarded": [...]}
+  ```
+
+  The engine parses every case's `guards:` frontmatter and counts the units: `.claude/rules/*.md` and `ai/patterns/*.md` that the **project** owns. A pack-installed rule or pattern (frontmatter `pack:`) is generic and is not a unit. It does not read managed `ai/conventions.md` entries or answer keys: count those by hand, print them on their own line labelled `by hand`, and apply TOOTHLESS (detector 4) to the engine's guarded list before computing the percentage. Exit 2 or no engine → coverage is `NOT-RUN`, never a number.
 - **`--seed [rules|conventions|failures]`** — SEED case stubs for unguarded knowledge of the given kind (default: all). Writes stubs to `cases/`; does not run them.
 
 ## Detectors (the specialist lenses — run in every mode except `--case`)
 
-1. **UNGUARDED** — a promoted knowledge unit with no case citing it in `guards:`. Sources swept: every `.claude/rules/*.md`, every managed entry in `ai/conventions.md`, every `ai/patterns/<name>.md`. Coverage = guarded units ÷ total units.
+1. **UNGUARDED** — a promoted knowledge unit with no case citing it in `guards:`. Sources swept: every project `.claude/rules/*.md` and `ai/patterns/<name>.md` (the engine's `unguarded` list), plus every managed entry in `ai/conventions.md` (by hand, labelled). Coverage = guarded units ÷ total units, from the engine's JSON. `memory-hygiene-scan` §9 prints the same count in `/audit-knowledge` (KN-36); this command grades it.
 2. **REGRESS** — a case that got worse since the previous `_scorecard.md` run. Two triggers, not one:
    - **verdict regression** — PASS in the prior run, FAIL now. A promoted rule stopped protecting.
    - **score regression** — FAIL in both runs, but `score` fell (7/8 → 2/8). Verdict-only detection is blind here: both runs are FAIL, so the flip never happens, and a case collapsing from one missed assertion to six looks *identical to no change at all*. The scorecard already records the fraction that proves it; the detector simply was not reading it. This is the common shape — a case that has never passed is exactly the case nobody watches.
@@ -114,7 +124,7 @@ Then, for every FAIL/REGRESS, append a raw observation to `ai/dynamic/learnings.
 ## Phase 6 — Validate (assert a real recorded outcome — anti-theater)
 
 - `ai/evals/_scorecard.md` gained exactly one new dated run block, with a row per RUN case (not a summary claim — actual rows).
-- `pass + fail == cases run`; coverage % = guarded ÷ total promoted units, recomputed this run (not copied).
+- `pass + fail == cases run`; coverage % = guarded ÷ total promoted units from this run's `--eval-coverage` JSON (paste its `units` and `guarded` beside the percentage; a number with no JSON behind it is not a coverage figure).
 - Every REGRESS/ FAIL produced a matching `learnings.md` entry (count them — a scorecard FAIL with no sink entry is a broken loop).
 - No case file was modified by a default/`--case` run (diff `cases/` — must be clean unless `--seed`).
 
@@ -123,7 +133,7 @@ Then, for every FAIL/REGRESS, append a raw observation to `ai/dynamic/learnings.
 Same honesty contract as `/learn-from-task`: **there is no auto-invoking hook and no cron in the shipped baseline.** After a run:
 - REGRESS rows are the action list — a promoted rule stopped working; fix the rule or the code, then re-`/eval`.
 - UNGUARDED units are the backlog — `/eval --seed` turns them into case stubs to fill in.
-- The `learnings.md` entries this run wrote are drained by the normal path (`/audit-knowledge` → `knowledge-curator`).
+- The `learnings.md` entries this run wrote are reported by `/audit-knowledge` (read-only) and promoted by `knowledge-curator` through `/promote-pattern` or `/promote-decision`.
 
 If you want it automatic, wire `/eval` into a `Stop` hook (run after a task) or into CI on push yourself — the baseline does not do this for you. Recommended order: run it manually until you trust the scores, THEN add the hook. (See the "auto vs manual" note in `ai/evals/README.md`.)
 
@@ -183,7 +193,7 @@ Status: COMPLETE (2 regressions — knowledge base degraded since run 4)
 
 ### Sibling commands in learning pack
 - `/learn-from-task` — the capture half; `/eval` is the grade half (this command).
-- `/audit-knowledge` — drains the sinks `/eval` feeds (dispatches `knowledge-curator`).
+- `/audit-knowledge` — reads the sinks `/eval` feeds and reports what is ready (read-only; promotion is `/promote-pattern` / `/promote-decision`).
 - `/promote-pattern` / `/promote-decision` — graduate a READY entry; seed an eval case after promoting.
 - `/refresh-knowledge` — long-term knowledge refresh; re-run `/eval` after to catch what changed.
 

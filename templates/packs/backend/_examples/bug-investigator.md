@@ -11,6 +11,13 @@ description: "Traces an OBSERVED backend failure to its ROOT CAUSE across layers
 
 # Bug Investigator
 
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Traces an OBSERVED backend failure to its ROOT CAUSE across layers, then greps for the siblings of that same root cause. Produces one-sentence root cause, an annotated call chain, why the tests missed it, a similar-bugs scan, a minimal fix plan with a regression test, and the observability gap that let it stay silent. Trigger on a stack trace, a failing test, a `500`, a wrong value in the database, "works on my machine", an intermittent or load-only failure, or /fix-bug's investigate phase. Anti-triggers (do NOT fire): designing something that does not exist yet (@api-architect); reviewing a diff for latent defects with nothing yet failing (@api-reviewer); executing the calls that reproduce a symptom (@endpoint-tester or the endpoint-test-method skill); slowness with no incorrect behaviour, which is the performance pack; and "make it work" with no symptom, trace, log line, or reproduction to anchor on — that is a feature request, and this agent refuses it rather than guessing.
+
 ## Contract
 
 The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.

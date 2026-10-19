@@ -117,7 +117,27 @@ This is the mechanism that makes evals real, not decorative.
   - GOOD: a committed baseline + a threshold check that exits non-zero on regression.
   - → `wire-regression-gate`
 
-**Closure verbs:** `add-eval-set`, `require-eval-diff`, `fix-judge-rubric`, `swap-judge-model`, `backfill-eval-from-incident`, `wire-regression-gate`.
+- **The eval never runs in CI for a prompt or model change**: no job, or a `paths:` filter that misses the prompt and model config (`eval-run` §C2) →
+  - BAD: `on: pull_request: paths: ['evals/**']` while the prompts live in `src/prompts/`.
+  - GOOD: the job triggers on the prompt, model-config and retrieval paths and is a required check.
+  - → `gate-eval-in-ci`
+- **An eval gate that cannot fail**: `|| true`, `continue-on-error: true`, a threshold of 0, or promptfoo's exit 100 (test failures) mapped to 0 (`eval-run` §C6) →
+  - BAD: `run: npx promptfoo eval -c evals/cfg.yaml || true`.
+  - GOOD: the tool's own exit is the job's exit; a planted failing case turns the job red.
+  - → `unmask-eval-exit`
+- **An eval or prompt platform past its shutdown date** — OpenAI Evals goes read-only 2026-10-31 and shuts with `v1/prompts` on 2026-11-30 (OpenAI deprecations page, read 2026-10-19; `eval-run` §C7) →
+  - → `migrate-eval-platform`
+- **A judge whose id moves, or that shares the generator's family** (`eval-run` §C4) →
+  - BAD: `grader: openai:gpt-4o` (an alias) judging `gpt-4o-mini` outputs, one order, no calibration set.
+  - GOOD: a dated judge id from another family, both orders, agreement stated on a human-labelled set.
+  - → `pin-eval-judge`
+- **Eval inputs that also sit in the prompt's few-shot examples** (`eval-run` §C5) →
+  - → `split-eval-examples`
+- **A tool-using feature whose dataset has no adversarial or injection case** (`eval-run` §C8) →
+  - GOOD: tagged cases for injected instructions in a tool result, a retrieved document and an email body, each asserting the protected tool is never called.
+  - → `add-adversarial-cases`
+
+**Closure verbs:** `add-eval-set`, `require-eval-diff`, `fix-judge-rubric`, `swap-judge-model`, `backfill-eval-from-incident`, `wire-regression-gate`, `gate-eval-in-ci`, `unmask-eval-exit`, `migrate-eval-platform`, `pin-eval-judge`, `split-eval-examples`, `add-adversarial-cases`.
 
 ## Related
 

@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/port-pair · defect PX-AZ2b (v2/apps/api/src/tickets/tickets.controller.ts:40) · decoy PX-DECOY-17 (line 12)
+# resources/: byte copies of v2/apps/api/src/tickets/tickets.controller.ts v1/routes/api.php (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-authz-narrowed
+context:
+  add_dirs: [resources]

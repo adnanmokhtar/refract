@@ -1,6 +1,8 @@
 ---
 name: compute-anchor-density
 description: Score the anchor-density of a generated artifact (rule / agent / skill / command / ai-file) on four axes (name density, path density, signal density, specificity) for a total 0-100. Used by /setup-project Phase 5.5 in REFINE mode to identify which artifacts are shallow (< 70) and need round-two re-anchoring, AND to detect plateau (Δ ≤ 2 between runs = "no further refinement available").
+kind: skill
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -8,7 +10,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 ## Purpose
 
-REFINE rewrites only artifacts whose round-one anchor is shallow. To decide which is "shallow," we need a deterministic score, not a vibe check. This skill is the score. It's also the plateau detector — when 2nd / 3rd `--refine` runs produce Δ ≤ 2 points across the artifact set, REFINE exits with "plateau reached."
+REFINE rewrites only artifacts whose round-one anchor is shallow. To decide which is "shallow," we need a rubric score applied the same way every run, not a vibe check. This skill is the rubric. **It ships no scorer script:** the model applies the four axes below, so the score is reproducible only as far as each axis cites its evidence (the counted lines, the cited `file:line`s). Label every score `model-scored`, print the per-axis evidence beside it, and treat a Δ under the plateau threshold between two runs on an unchanged tree as noise, never as a signal. It's also the plateau detector — when 2nd / 3rd `--refine` runs produce Δ ≤ 2 points across the artifact set, REFINE exits with "plateau reached."
 
 ## Premise
 

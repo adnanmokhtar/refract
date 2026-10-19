@@ -80,7 +80,7 @@ The pack ecosystem ships ~70 commands (`/add-feature`, `/fix-bug`, `/add-endpoin
 - Decisions: `ai/decisions/<NNNN>-<slug>.md` (ADRs, append-only)
 - Patterns: `ai/patterns/<name>.md`
 - Runbooks: `ai/runbooks/<name>.md`
-- Failures (don't-retry catalog): `ai/_baseline/failures/<NNNN>-<slug>.md`
+- Failures (don't-retry catalog): `ai/failures/_index.md` (one `### ` entry per failure; never a per-entry file)
 - Dynamic learning notes: `ai/dynamic/learnings.md` (append, agent-managed)
 - Knowledge digests: `ai/_session-digest.md`, `ai/_decision-index.md`, `ai/_convention-cheatsheet.md`
 

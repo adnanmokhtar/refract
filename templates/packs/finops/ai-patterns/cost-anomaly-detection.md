@@ -86,14 +86,16 @@ Every triage of a real anomaly ends by either validating the detector or improvi
 
 ## Detectors (for the detection itself)
 
+The configuration half is `guardrail-scan` §1–§4 and §7 (BG-1…4, BG-7; V570, V571, V574); the triage half is `spend-anomaly-triage` (UE-4, `bill-lane.py split`) on the user's export.
+
 - A budget with no unit expectation behind it.
-- Detection on the total only.
+- Detection on the total only — `guardrail-scan` §4 (BG-4, V571).
 - A threshold with no recorded derivation.
 - A detector with no seasonality on spend that obviously has a weekly shape.
 - No rate-of-change detector anywhere.
-- A detector routed to a shared inbox.
-- A suppression with no expiry, or one older than the event it was created for.
-- A detector never observed firing, live or by replay.
+- A detector routed to a shared inbox — `guardrail-scan` §3 (BG-3, V570).
+- A suppression with no expiry, or one older than the event it was created for — `guardrail-scan` §7 (BG-7, V574).
+- A detector with no proof that it can fire — `/cost-guardrails` counts it ARMED only on an offline proof (V570–V574); a live or replayed firing is an extra stamp.
 - An anomaly triage that closed with no detector change.
 
 ## Related

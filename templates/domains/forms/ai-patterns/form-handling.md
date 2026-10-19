@@ -300,5 +300,5 @@ A client schema and a separately hand-kept server schema drift; a rule tightened
 - `<rules-path>/auth` — CSRF/session token issuance + verification + the auth context privileged fields are set from.
 - `<patterns-path>/report-generation.md § edge formatting/escaping` — integer-minor-unit money + locale/timezone edge parsing + output-escaping discipline reused for form values.
 - `<commands-path>/audit-form-handling.md` — per-handler diagnostic.
-- `<agents-path>/forms-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/forms-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-form-validation-strategy.md` — ADR pinning the shared-schema library, the CSRF strategy, and the idempotency mechanism.

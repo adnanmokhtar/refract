@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: quaywise-config
+data:
+  NODE_ENV: production
+  AWS_REGION: eu-central-1
+  PUBLIC_MEDIA_BASE_URL: https://qw-prod-media.s3.eu-central-1.amazonaws.com
+  EXPORTS_BUCKET: qw-prod-exports
+  IMPORTS_BUCKET: qw-prod-imports
+  MEDIA_BUCKET: qw-prod-media
+  REPORTS_BUCKET: qw-prod-reports
+  LABEL_ARCHIVE_BUCKET: qw-label-archive
+  LABEL_QUEUE_URL: https://sqs.eu-central-1.amazonaws.com/111111111111/qw-label-requests
+  STATUS_QUEUE_URL: https://sqs.eu-central-1.amazonaws.com/111111111111/qw-status-events
+  CARRIER_EVENTS_QUEUE_URL: https://sqs.eu-central-1.amazonaws.com/111111111111/qw-carrier-events
+  LLM_GATEWAY_URL: https://llm-gateway.models.example
+  LLM_MODEL: qw-assist-large
+  CARRIER_API_BASE_URL: https://api.parcelnet.example
+  RATES_API_BASE_URL: https://rates.parcelnet.example
+  GEOCODER_API_URL: https://geo.mapgrid.example
+  ADDRESS_API_BASE_URL: https://verify.addressly.example
+  SMS_MONTHLY_CAP: "40000"
+  CARRIER_MONTHLY_CALL_CAP: "3000000"
+  GEOCODER_MONTHLY_CAP: "250000"
+  RATES_MONTHLY_CALL_CAP: "2000000"
+  LOG_LEVEL: info
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.monitoring.svc.cluster.local:4318
+  # Static assets and the tracking widget (CloudFront in front of qw-prod-assets).
+  ASSETS_CDN_BASE_URL: https://d3k9qw7example.cloudfront.net
+  # Absolute links in e-mails and SMS; no service calls this origin.
+  PUBLIC_ORIGIN: https://track.quaywise.example

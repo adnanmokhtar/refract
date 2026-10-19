@@ -1,0 +1,28 @@
+{
+  "name": "@fernhollow/api",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "test": "vitest run",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@mikro-orm/core": "6.5.7",
+    "@mikro-orm/nestjs": "6.1.1",
+    "@mikro-orm/postgresql": "6.5.7",
+    "@nestjs/common": "11.1.6",
+    "@nestjs/core": "11.1.6",
+    "@nestjs/platform-fastify": "11.1.6",
+    "@nestjs/schedule": "6.0.1",
+    "date-fns": "4.1.0",
+    "decimal.js": "10.6.0",
+    "nodemailer": "7.0.6",
+    "stripe": "18.5.0",
+    "xmlbuilder2": "3.1.1",
+    "xstate": "5.21.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "11.0.10",
+    "vitest": "3.2.4"
+  }
+}

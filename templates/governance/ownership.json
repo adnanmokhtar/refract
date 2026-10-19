@@ -42,7 +42,8 @@
       "fixer": "/backend-fix",
       "fallback": "code-quality/agents/code-reviewer",
       "pack": "business",
-      "target": "code-reviewer"
+      "target": "code-reviewer",
+      "note": "the graph comes from business lifecycle-scan (status-graph.py edges.tsv) when the business pack is installed; graph-level defects (dead, trap, declared ≠ implemented) are lifecycle-graph"
     },
     "convention-drift": {
       "detector": "align/skills/convention-oracle §1–§4 (oracle-map.py) · learning/agents/convention-drift-detector (read-only; learning /detect-drift dispatches convention-oracle when align is installed)",
@@ -495,7 +496,7 @@
       "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md); without it a Task refuter",
       "pack": "infrastructure",
       "target": "operability-reviewer (infrastructure lens)",
-      "note": "candidates carry quantity × unit (price key), never a $ without a bill line or a dated pricing page; fallback for pricing: infrastructure /cost-audit, which consumes the candidates and never re-detects an IaC class; THR-SCALE-CEILING"
+      "note": "candidates carry quantity × unit (price key), never a $ without a bill line or a dated pricing page; fallback for pricing: infrastructure /cost-audit, which consumes the candidates and never re-detects an IaC class; THR-SCALE-CEILING · budget and anomaly monitors (COST-12) → finops guardrail-scan §1 when finops is installed; iac-cost-scan §12 is the fallback; pricing → finops candidate-pricing §0"
     },
     "k8s-render": {
       "detector": "infrastructure/skills/k8s-render-scan §0–§5",
@@ -784,6 +785,600 @@
       "pack": "align",
       "target": "code-reviewer",
       "note": "AL-33 inconsistent resolution inside one sweep, AL-34 out-of-scope edit in an align commit"
+    },
+    "knowledge-references": {
+      "detector": "learning/skills/knowledge-ref-scan §1–§6 (knowledge-refs.py, shared reader kn_common.py)",
+      "owner": "learning/agents/knowledge-curator (mode judge, writes nothing) under /audit-knowledge; every kept HIGH refuted by repo-baseline verifier",
+      "fixer": "/refresh-knowledge --from-audit (repoint, delete the line, or regenerate the anchors with apply-anchors.sh)",
+      "fallback": "the detector's own rows, self-verified under refute-before-report.md § 10 (learning is always installed)",
+      "pack": "learning",
+      "target": "knowledge-curator",
+      "note": "KN-01 dead path, KN-02 dead symbol, KN-03 dead command, KN-04 dead pattern or ADR id, KN-05 framework path in an installed artifact, KN-15 marker corruption — in agent-facing knowledge (ai/, CLAUDE.md, AGENTS.md, .claude/). Human docs (README, docs/**, runbooks for people) are documentation doc-drift-scan, which may call this engine with --corpus (owner decision O-1)"
+    },
+    "knowledge-facts": {
+      "detector": "learning/skills/knowledge-fact-scan §1–§7 (knowledge-facts.py)",
+      "owner": "learning/agents/knowledge-curator (mode judge) under /audit-knowledge",
+      "fixer": "/refresh-knowledge --from-audit (source wins: the lockfile value at the source, then one regeneration for N copies)",
+      "fallback": "the detector's own rows, self-verified",
+      "pack": "learning",
+      "target": "knowledge-curator",
+      "note": "KN-07 fact vs lockfile, KN-08 counts, KN-09 module map, KN-11 one key two values, KN-12 one fact in N copies (one finding, N sites), KN-13 derived file vs source, KN-14 citation window. Convention claims (KN-10) are align convention-oracle AL-04"
+    },
+    "memory-hygiene": {
+      "detector": "learning/skills/memory-hygiene-scan §1–§9 (sink-audit.py)",
+      "owner": "learning/agents/knowledge-curator (mode judge); judge-only pairs (§2, §3, §6) need a second reader",
+      "fixer": "/refresh-knowledge --from-audit (mark RESOLVED or SUPERSEDED, merge, promote via /promote-pattern or /promote-decision; never delete); /learn-from-task reconciles on write (--entry)",
+      "fallback": "the detector's own rows, self-verified",
+      "pack": "learning",
+      "target": "knowledge-curator",
+      "note": "KN-20 stale entry, KN-21 duplicate, KN-22 contradiction, KN-23 provenance, KN-24 stuck lifecycle, KN-25 n=1 lesson (advisory), KN-26 lesson not enforced (conventions → align AL-03), KN-27 consumer cannot read the declared format, KN-36 eval guard count (/eval --coverage grades)"
+    },
+    "decision-records": {
+      "detector": "learning/skills/decision-record-scan §0–§4 (adr-index.py)",
+      "owner": "learning/agents/knowledge-curator (mode judge) under /audit-knowledge",
+      "fixer": "/refresh-knowledge --from-audit (reciprocal link, repointed citation); a chosen option absent from the code is the user's superseding ADR",
+      "fallback": "the detector's own rows, self-verified",
+      "pack": "learning",
+      "target": "knowledge-curator",
+      "note": "KN-28 ADR status, reciprocity, superseded cited as current, chosen option absent; KN-29 ADR home (every consumer — /promote-decision, /setup-project-health check 2, the curator — reads adr-index.py --list). ADR authoring format is documentation /add-adr; a missing ADR for a dependency (KN-30) is /setup-project-health check 2"
+    },
+    "context-load": {
+      "detector": "learning/skills/context-load-scan §1–§5 (load-budget.py)",
+      "owner": "learning/agents/knowledge-curator (mode judge) under /audit-knowledge; setup-time budgets stay with /setup-project-health check 4 and audit-setup.sh C2u/C2x",
+      "fixer": "/refresh-knowledge --from-audit (move detail on demand, scope a rule with paths:, import @AGENTS.md); KN-19 → /refresh-knowledge default mode",
+      "fallback": "the detector's own rows, self-verified",
+      "pack": "learning",
+      "target": "knowledge-curator",
+      "note": "KN-19 oracle age, KN-31 loader-truth budget, KN-32 AGENTS.md not loaded by Claude Code, KN-33 vague text (advisory, never a finding). KN-34 secrets and KN-35 hidden Unicode in context files are security secret-scan-method (AI-context-file step) / sast-scan (pre-flight 6); §5 hands over the file list"
+    },
+    "feature-surface": {
+      "detector": "product/skills/feature-surface-scan §1–§5 (scripts/surface-map.py)",
+      "owner": "product /audit-requirements --repo; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/product-fix (failing-first against the class V-oracle in proof-oracles.md § Product V409–V429)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-requirements --repo does not run",
+      "pack": "product",
+      "target": "requirements-reviewer (product lens)",
+      "note": "FS-1 unserved call, FS-2 uncalled route, FS-3 link to a missing page, FS-4 shipped placeholder, FS-5 dead affordance — the SHIPPED half. Unbuilt capability is /roadmap (its detectors 1/2/6 consume §1/§3/§4 rows); a page nothing mounts is code-quality dead-code-scan; unknown-URL handling is frontend routing-scan §1/§4; UI states are ui-ux ui-state-scan; the attack surface of an uncalled route is security"
+    },
+    "analytics-tracking": {
+      "detector": "product/skills/tracking-plan-scan §1–§7 (scripts/event-inventory.py)",
+      "owner": "product /audit-requirements --repo; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/product-fix (failing-first against the class V-oracle in proof-oracles.md § Product V409–V429)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-requirements --repo does not run",
+      "pack": "product",
+      "target": "growth-reviewer",
+      "note": "AN-1 unplanned event or no plan, AN-2 planned never fired, AN-3 name drift, AN-4 property drift, AN-5 outcome fired before the outcome, AN-6 duplicate firing, AN-7 untyped channel. PII in event properties and tracking before consent (AN-8) are security data-exposure-scan / @data-privacy-reviewer; one flow's funnel is business /suggest-metrics --funnel (consumes AN rows); exposure events are devops progressive-delivery; observability metrics are not product analytics"
+    },
+    "entitlement-consistency": {
+      "detector": "product/skills/entitlement-consistency-scan §1–§6",
+      "owner": "product /audit-requirements --repo; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/product-fix (failing-first against the class V-oracle in proof-oracles.md § Product V409–V429)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-requirements --repo does not run",
+      "pack": "product",
+      "target": "requirements-reviewer (product lens)",
+      "note": "EN-1 one plan fact two values, EN-2 gate key outside the catalog, EN-3 plan name in a feature check, EN-4 entitlement no gate enforces, EN-5 UI shows what the server refuses, EN-6 billing wiring. Price computation, tax and proration are business-money-rules / business-tax-documents; a client-only gate and racing limit counters (EN-7) are security; flag lifecycle is devops progressive-delivery"
+    },
+    "launch-readiness": {
+      "detector": "product/skills/launch-readiness §1–§9 (rules.json 21 rules, scripts/readiness-score.py)",
+      "owner": "product /audit-requirements --repo (readiness lens; global /audit dispatches it when the product pack is installed)",
+      "fixer": "/product-fix (failing-first against the class V-oracle in proof-oracles.md § Product V409–V429)",
+      "fallback": "the skill's own scorecard; every consumed owner row prints NOT-INSTALLED(<pack>) and counts as unverified",
+      "pack": "product",
+      "target": "requirements-reviewer (launch lens)",
+      "note": "LR and the scorecard SC: owner metadata, typed success definition, metric live, rollback record, pre-committed decision rule, fatal assumptions decided. It composes and never re-greps: kill switch and analysis gate are devops progressive-delivery §4/§5, UI states ui-ux, open BLOCKER/HIGH security, alert runbooks / readiness / SLOs observability, catalog parity frontend i18n-scan, release note documentation changelog-generate, restore infrastructure dr-audit"
+    },
+    "spec-trace": {
+      "detector": "product/skills/acceptance-criteria-check §1–§4 (EARS lane + spec-trace lane)",
+      "owner": "product /audit-requirements --spec and --repo; requirement prose is delivery @requirements-reviewer (single owner; product dispatches it); @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/product-fix (failing-first against the class V-oracle in proof-oracles.md § Product V409–V429)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-requirements --repo does not run",
+      "pack": "product",
+      "target": "verifier",
+      "note": "TR-1 untested criterion, TR-2 stale trace, TR-3 Gherkin glue (undefined or unused step), TR-4 unverifiable criterion. Inside a delivery run the AC→task→test matrix is repo-baseline trace-matrix.py owned by @verifier — this skill calls it, never re-derives it; test strength is the testing pack suite-execution-scan"
+    },
+    "business-money-rules": {
+      "detector": "business/skills/pricing-rule-scan §1–§13 (MP §1–§3, PR §4–§9, BL §10–§13)",
+      "owner": "business/agents/domain-model-auditor (judge, refute mode) under /audit-business; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/business-fix (failing-first against the class V-oracle in proof-oracles.md § Business V450–V489)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-business does not run the judge (business is a universal track, so the pack is normally installed)",
+      "pack": "business",
+      "target": "architecture-reviewer",
+      "note": "The RULE a price, discount, promotion, refund share or billing period follows (money policy register money-policy.md). Arithmetic on money in code is code-quality correctness-smell-scan §4, which reads this skill's §1 policy row; a value changed on the wire is backend; a price the client chose is security injection/logic; plan/entitlement consistency is product entitlement-consistency"
+    },
+    "business-tax-documents": {
+      "detector": "business/skills/tax-invoice-scan §1–§11 (TX §1–§6, IV §7–§11)",
+      "owner": "business/agents/domain-model-auditor (judge, refute mode) under /audit-business; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/business-fix (failing-first against the class V-oracle in proof-oracles.md § Business V450–V489)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-business does not run the judge (business is a universal track, so the pack is normally installed)",
+      "pack": "business",
+      "target": "architecture-reviewer",
+      "note": "Tax computation (rate dating, base, inclusive flag, rounding level, jurisdiction, currency) and the issued-document lifecycle (immutability, credit-note link, e-invoice validation, chain fields, render-time dates). A gapless number is database schema-integrity-scan §11, which reads this skill's jurisdiction fact (tax-policy.md); PDF/template rendering is the document-generation overlay. Authority facts are Unconfirmed until read from the authority's own document"
+    },
+    "business-ledger": {
+      "detector": "business/skills/ledger-scan §1–§7, §11–§12 (LG, DM)",
+      "owner": "business/agents/domain-model-auditor (judge, refute mode) under /audit-business; §7 reversal edges also feed @workflow-integrity's $-conserve register; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/business-fix (failing-first against the class V-oracle in proof-oracles.md § Business V450–V489)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-business does not run the judge (business is a universal track, so the pack is normally installed)",
+      "pack": "business",
+      "target": "architecture-reviewer",
+      "note": "LG-1 unbalanced posting, LG-2 mutable ledger, LG-3 posting not idempotent, LG-4 balance cache as a second truth, LG-5 currencies mixed, LG-6 no reconciliation, LG-7 reversal edges do not conserve; DM-1/2 invariant enforced nowhere or on one path. The race on a balance is security logic-race-scan / database §8; consumer dedupe is distributed-systems; FK CASCADE is database §2"
+    },
+    "financial-records": {
+      "detector": "business/skills/ledger-scan §8–§10 (FR)",
+      "owner": "business/agents/domain-model-auditor (judge, refute mode) under /audit-business; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/business-fix (failing-first against the class V-oracle in proof-oracles.md § Business V450–V489)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-business does not run the judge (business is a universal track, so the pack is normally installed)",
+      "pack": "business",
+      "target": "architecture-reviewer",
+      "note": "FR-1 records of fact erased by a deletion flow, FR-2 retention period (national periods are Unconfirmed without the authority's source), FR-3 PII inside immutable records. PII column mechanics are database schema-integrity-scan §10; erasure-request handling is security"
+    },
+    "business-reporting": {
+      "detector": "business/skills/report-scan §1–§9 (RP §1–§7, BT §8–§9)",
+      "owner": "business/agents/domain-model-auditor (judge, refute mode) under /audit-business; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/business-fix (failing-first against the class V-oracle in proof-oracles.md § Business V450–V489)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-business does not run the judge (business is a universal track, so the pack is normally installed)",
+      "pack": "business",
+      "target": "architecture-reviewer",
+      "note": "Whether a reported number is the business's number (metric register metrics.md + the business zone): fan-out double counting, one metric two ways, exclusions, SUM across currencies, ratio math, never reconciled with the books, recognised at the wrong event; BT business zone and business-day calendar. Report performance is performance; tenant scope is security; calendar arithmetic in code is code-quality correctness-smell-scan §6"
+    },
+    "lifecycle-graph": {
+      "detector": "business/skills/lifecycle-scan §1–§6 (scripts/status-graph.py)",
+      "owner": "business/agents/workflow-integrity (judge, refute mode) under /audit-business; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/business-fix (failing-first against the class V-oracle in proof-oracles.md § Business V450–V489)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-business does not run the judge (business is a universal track, so the pack is normally installed)",
+      "pack": "business",
+      "target": "code-reviewer",
+      "note": "LC-1 unreachable state, LC-2 trap or no terminal state, LC-3 declared ≠ implemented graph, LC-4 cross-aggregate disagreement, LC-5 provider status mapping incomplete or not monotone, LC-6 no transition history. Library semantics are workflow-transitions (backend state-transition-scan, which reads this skill's edges.tsv when installed); an unconditional write is database §8; step skipping and late provider events are security"
+    },
+    "business-cycles": {
+      "detector": "business/skills/check-business-coverage §1–§6",
+      "owner": "business/agents/business-auditor (judge; the walk lane with --live) under /audit-business; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/business-fix (failing-first against the class V-oracle in proof-oracles.md § Business V450–V489)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-business does not run the judge (business is a universal track, so the pack is normally installed)",
+      "pack": "business",
+      "target": "requirements-reviewer (business lens)",
+      "note": "CY-1 forward action without an inverse, CY-2 inverse with no UI entry, CY-3 send without resend / async without status, CY-4 marketing mail without one-click unsubscribe, CY-5 web account deletion or export missing, CY-6 error path with no recovery. The mobile store gate is mobile G7; the experience of a flow is @business-auditor's walk"
+    },
+    "doc-links": {
+      "detector": "documentation/skills/doc-structure-scan §1–§4 (DL)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DL-1 relative link to a missing file, DL-2 anchor missing, DL-3 external URL dead (opt-in --network), DL-4 the docs gate cannot fail. Links inside agent-facing knowledge (ai/, CLAUDE.md, AGENTS.md, .claude/) are learning knowledge-references"
+    },
+    "doc-references": {
+      "detector": "documentation/skills/doc-drift-scan §1–§5 (DR, engine scripts/doc-claims.py)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DR-1 dead path, DR-2 dead symbol, DR-3 dead script or target, DR-4 dead flag, DR-5 deprecated API presented as current — in human docs (README, docs/**, runbooks for people). Agent-facing knowledge is learning knowledge-references (owner decision O-1); accepted ADRs and convention docs against code are align convention-oracle AL-03/04"
+    },
+    "doc-setup": {
+      "detector": "documentation/skills/quickstart-verify §1–§4 (DS-1, safe container lane) · documentation/skills/doc-drift-scan §6–§7 (DS-2, DS-3)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DS-1 the setup sequence fails in a clean environment (blocked, never guessed, when no container daemon runs), DS-2 version claim against the pins, DS-3 package manager or tool mismatch"
+    },
+    "doc-env": {
+      "detector": "documentation/skills/doc-drift-scan §8–§10 (DE)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DE-1 documented env var nothing reads, DE-2 required env var undocumented in setup docs, DE-3 documented default or values wrong. .env.example ↔ .env ↔ env schema is backend env-diff (cited as corroboration)"
+    },
+    "doc-api-prose": {
+      "detector": "documentation/skills/doc-drift-scan §11 (DA-1)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DA-1 a prose endpoint reference the router does not serve (backend dto-types.py --routes is the router oracle when installed). The committed spec against generated or runtime is backend http-contract-scan §10; api-documenter authors specs only"
+    },
+    "doc-samples": {
+      "detector": "documentation/skills/doc-sample-scan §1–§5 (DC, DA-2)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DC-1 fence does not compile or import, DC-2 stated output wrong, DC-3 embedded snippet diverged, DC-4 harness exists but CI never runs it, DA-2 spec example invalid against its own schema or a placeholder"
+    },
+    "doc-api-reference": {
+      "detector": "documentation/skills/docstring-coverage §1–§3 (DD)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DD-1 public export undocumented (ratchet), DD-2 doc comment contradicts the signature, DD-3 cross-reference unresolved. Logic hidden in comments-as-code stays code-quality correctness-smell-scan"
+    },
+    "doc-release-notes": {
+      "detector": "documentation/skills/doc-drift-scan §12 (DH-1) · documentation/skills/doc-structure-scan §9 (DH-2) · documentation/skills/changelog-generate (writer)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DH-1 breaking change shipped with no release note (the breaking set ⊆ the notes), DH-2 changelog structure. The changelog version against the released version is devops release-integrity-scan RL-2"
+    },
+    "doc-runbooks": {
+      "detector": "documentation/skills/doc-drift-scan §13–§14 (DK-1, DK-2) · documentation/skills/doc-structure-scan §5 (DK-3)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DK-1 runbook command names a removed script/target/flag, DK-2 runbook names a removed in-repo resource, DK-3 a link into the docs from code, an alert or an error message resolves to nothing. An alert with no runbook_url is observability alert-rule-lint; runbook author shape is /add-runbook"
+    },
+    "doc-adr": {
+      "detector": "documentation/skills/doc-structure-scan §6–§8 (DX)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DX-1 supersession one-way or target missing, DX-2 status vocabulary and index, DX-3 duplicate or colliding number — ADR metadata only. The ADR lifecycle in the AI layer and the ADR home are learning decision-records (adr-index.py); an accepted ADR against code is align convention-oracle; ADR authoring is /add-adr"
+    },
+    "doc-i18n": {
+      "detector": "documentation/skills/doc-structure-scan §10–§12 (DI)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DI-1 translated page missing for a declared locale, DI-2 translation stale, DI-3 translation diverges (commands, code, links). UI string catalogs are frontend i18n-scan"
+    },
+    "doc-hygiene": {
+      "detector": "documentation/skills/doc-structure-scan §13–§14 (DF-1, DF-2) · documentation/skills/diagram-sync (DF-3)",
+      "owner": "documentation /doc-refresh --audit; @verifier (repo-baseline) mode refute on every BLOCKER and HIGH it keeps",
+      "fixer": "/doc-refresh --from-audit (docs only, failing first: the recheck fails, the doc is edited, the recheck and the whole class pass; a doc that IS the contract is never edited to bless the code — STOP and route)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /doc-refresh --audit does not run",
+      "pack": "documentation",
+      "target": "doc-writer",
+      "note": "DF-1 placeholder / TBD / lorem in published docs, DF-2 orphan page or nav entry to nothing, DF-3 a diagram names a deleted module (the graph half needs code-quality build-graph.py; UNVERIFIED without it). TODO/FIXME debt in code is code-quality debt-ledger; ai/ setup artifacts are /setup-project-health"
+    },
+    "data-loads": {
+      "detector": "data-engineering/skills/incremental-load-scan §1–§10 (+ scripts/model-graph.py)",
+      "owner": "data-engineering/agents/warehouse-modeler (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "warehouse-modeler",
+      "note": "IN-1…IN-10. Message and CDC consumers in app code → dual-write / messaging; an app scheduler's overlap → job-lifecycle; the retry around a load is data-orchestration §5 (the two rows cite each other)"
+    },
+    "data-orchestration": {
+      "detector": "data-engineering/skills/orchestration-scan §1–§9",
+      "owner": "data-engineering/agents/dag-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "dag-reviewer",
+      "note": "OR-1…OR-9, data-orchestrator definitions only (Airflow, Dagster, Prefect). Application schedulers → backend job-lifecycle-scan; durable workflows → distributed-systems"
+    },
+    "data-tests": {
+      "detector": "data-engineering/skills/data-test-scan §1–§8",
+      "owner": "data-engineering/agents/data-quality-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "data-quality-auditor",
+      "note": "DQ-1…DQ-8: whether a data test can fail and does run. Application tests → testing; books reconciliation → business report-scan §6"
+    },
+    "derived-data": {
+      "detector": "data-engineering/skills/derived-data-scan §1–§10",
+      "owner": "data-engineering/agents/data-quality-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "data-quality-auditor",
+      "note": "MV-1…MV-6, TB-1…TB-4: rollups, materialized views, trigger-kept tables and bucket SQL vs the declared zone. Which zone → business report-scan §8; consumer dedup → messaging"
+    },
+    "data-extracts": {
+      "detector": "data-engineering/skills/extract-scan §1–§4",
+      "owner": "data-engineering/agents/data-quality-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "data-quality-auditor",
+      "note": "EX-1…EX-4: an export or dump as a faithful, consistent copy. Deep-OFFSET cost → database query-shape-scan §2; formula injection → security; export memory → performance"
+    },
+    "analytical-pii": {
+      "detector": "data-engineering/skills/pii-copy-scan §1–§6",
+      "owner": "data-engineering/agents/data-quality-auditor (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "data-quality-auditor",
+      "note": "PC-1…PC-6: personal data in analytical and exported copies. OLTP storage and erasure → database schema-integrity-scan §10; PII in logs and who may export → security"
+    },
+    "table-contracts": {
+      "detector": "data-engineering/skills/contract-diff §1–§6",
+      "owner": "data-engineering/agents/warehouse-modeler (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "warehouse-modeler",
+      "note": "SC-1…SC-6: tables other people read. Event schemas → distributed-systems event-contract-scan; the app's own N-1 → database migration-safety §4"
+    },
+    "data-lineage": {
+      "detector": "data-engineering/skills/lineage-trace §1–§4 (reads scripts/model-graph.py)",
+      "owner": "data-engineering/agents/warehouse-modeler (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "warehouse-modeler",
+      "note": "LN-1…LN-4 and the trace other skills ask for. A metric defined twice → business report-scan §2"
+    },
+    "warehouse-sql-cost": {
+      "detector": "data-engineering/skills/warehouse-scan-audit §1–§5 (static lane offline; dry runs only on the user's word)",
+      "owner": "data-engineering/agents/warehouse-modeler (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "warehouse-modeler",
+      "note": "CO-1…CO-5: the SQL that drives scan cost. Budgets, maximum_bytes_billed policy, auto-suspend → finops"
+    },
+    "model-grain": {
+      "detector": "data-engineering/skills/grain-probe §1–§4 (offline duckdb first; cost guard before any warehouse probe)",
+      "owner": "data-engineering/agents/warehouse-modeler (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/data-fix (failing-first against the class V-oracle on a scratch target)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /audit-data-quality does not run the judge",
+      "pack": "data-engineering",
+      "target": "warehouse-modeler",
+      "note": "GR-1…GR-4. A report's SUM over a fan-out → business report-scan §1"
+    },
+    "llm-trust-boundary": {
+      "detector": "security/skills/llm-trust-scan §1 (reads sites.tsv / completion-sources.txt from ai-engineering llm-sites.py when installed)",
+      "owner": "security/agents/llm-security-reviewer (judge, refute mode ; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/security-fix (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V525)",
+      "fallback": "security/agents/security-auditor (judge, refute mode) when the owner agent is not installed; the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /security-audit does not run a judge",
+      "pack": "security",
+      "target": "security-reviewer (llm lens)",
+      "note": "PI-1…PI-4, PI-6, PI-7: third-party text placed where the model reads it as the user or the system. PI-5 (the app's own instructions inside tool results) stays ai-engineering prompt-audit §P. Precedents: precedents/ai-engineering.md § Trust boundary"
+    },
+    "llm-agency": {
+      "detector": "security/skills/llm-trust-scan §2",
+      "owner": "security/agents/llm-security-reviewer (judge, refute mode ; @verifier mode refute on every BLOCKER and HIGH it keeps) · security/agents/tenant-isolation-reviewer for AG-1",
+      "fixer": "/security-fix (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V525)",
+      "fallback": "security/agents/security-auditor (judge, refute mode) when the owner agent is not installed; the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /security-audit does not run a judge",
+      "pack": "security",
+      "target": "security-reviewer (llm lens)",
+      "note": "AG-1…AG-7: tool id arguments, catalogue width, forgeable approvals, tool-argument sinks, the lethal trifecta. Loop caps and re-run side effects are ai-engineering llm-call-budget (llm-gateway-audit §L)"
+    },
+    "llm-output-exfil": {
+      "detector": "security/skills/llm-trust-scan §3 (OH-2, OH-6; the source lane for OH-1/3/4/5)",
+      "owner": "security/agents/llm-security-reviewer (judge, refute mode ; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/security-fix (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V525)",
+      "fallback": "security/agents/security-auditor (judge, refute mode) when the owner agent is not installed; the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /security-audit does not run a judge",
+      "pack": "security",
+      "target": "security-reviewer (llm lens)",
+      "note": "model output at an HTML sink → xss-scan; SQL/shell/eval → injection-scan; path/URL/redirect → ssrf-scan / file-access-scan — each reads completion-sources.txt as a taint source when present. This row owns markdown-image exfil (OH-2) and model-chosen fields trusted server-side (OH-6)"
+    },
+    "llm-provider-data": {
+      "detector": "security/skills/llm-trust-scan §4",
+      "owner": "security/agents/llm-security-reviewer (judge, refute mode ; @verifier mode refute on every BLOCKER and HIGH it keeps) · security/agents/data-privacy-reviewer for SD-4",
+      "fixer": "/security-fix (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V525)",
+      "fallback": "security/agents/security-auditor (judge, refute mode) when the owner agent is not installed; the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /security-audit does not run a judge",
+      "pack": "security",
+      "target": "security-reviewer (llm lens)",
+      "note": "SD-1…SD-4: provider keys in a client bundle, secrets in the prompt, authorisation delegated to the prompt, PII sent to the provider. A committed key → secret-scan-method; the redaction policy → observability"
+    },
+    "llm-tracing-content": {
+      "detector": "security/skills/data-exposure-scan §6 AI lane (LG-1, application logs) · security/skills/llm-trust-scan §5 (LG-2…LG-4, tracing content capture)",
+      "owner": "security/agents/llm-security-reviewer (judge, refute mode ; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/security-fix (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V525)",
+      "fallback": "security/agents/security-auditor (judge, refute mode) when the owner agent is not installed; the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /security-audit does not run a judge",
+      "pack": "security",
+      "target": "security-reviewer (llm lens)",
+      "note": "prompt and completion text in app logs is data-exposure-scan §6 (llm-gateway-audit's old §7 is removed and routes here); span attributes and exporter capture flags are llm-trust-scan §5"
+    },
+    "rag-tenancy": {
+      "detector": "security/skills/llm-trust-scan §6",
+      "owner": "security/agents/tenant-isolation-reviewer (RG-1…RG-3) · security/agents/llm-security-reviewer (RG-4 semantic cache, RG-5 poisoning) (judge, refute mode ; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/security-fix (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V525)",
+      "fallback": "security/agents/security-auditor (judge, refute mode) when the owner agent is not installed; the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /security-audit does not run a judge",
+      "pack": "security",
+      "target": "security-reviewer (tenant lens)",
+      "note": "retrieval scoped by tenant / ACL, semantic-cache keys and corpus poisoning. Retrieval quality (RG-6…RG-10) is ai-engineering retrieval-quality / vector-index; vector-index-audit and retrieval-eval route RG-1…RG-5 here with a count"
+    },
+    "mcp-server": {
+      "detector": "security/skills/mcp-server-scan §1–§7 (§R routes MC-8 sinks to injection-scan / ssrf-scan)",
+      "owner": "security/agents/llm-security-reviewer (judge, refute mode ; @verifier mode refute on every BLOCKER and HIGH it keeps); security/agents/auth-reviewer corroborates the OAuth rows (MC-1, MC-3, MC-5)",
+      "fixer": "/security-fix (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V525)",
+      "fallback": "security/agents/security-auditor (judge, refute mode) when the owner agent is not installed; the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /security-audit does not run a judge",
+      "pack": "security",
+      "target": "security-reviewer (llm lens)",
+      "note": "MC-1 audience and passthrough, MC-2 Origin and bind, MC-3 client URL opening, MC-4 tool poisoning and unpinned servers, MC-5 scopes, MC-6 tenancy inside the server, MC-7 sessions. Agent steps in CI stay ci-security-scan"
+    },
+    "llm-call-budget": {
+      "detector": "ai-engineering/skills/llm-gateway-audit §1, §B1–§B5, §L1–§L2 (reads scripts/llm-sites.py sites.tsv)",
+      "owner": "ai-engineering/agents/ai-feature-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/add-ai-feature --from-audit (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V539)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /ai-audit does not run the judge",
+      "pack": "ai-engineering",
+      "target": "ai-feature-reviewer",
+      "note": "CS-1 seam bypass, TF-1/3/4/5 budgets, fallback, disconnect, mid-stream; CO-5…CO-8, CO-10 loops, caps, retries, prompt cache. Retry stacking also corroborated by distributed-systems retry-deadline-scan and performance request-path-scan §12 (deduped by file:line); batch work on the request path (TF-6) → performance / distributed-systems"
+    },
+    "llm-metering": {
+      "detector": "ai-engineering/skills/llm-gateway-audit §M1–§M2 (§R routes the meter shape)",
+      "owner": "ai-engineering/agents/ai-feature-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/add-ai-feature --from-audit (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V539)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /ai-audit does not run the judge",
+      "pack": "ai-engineering",
+      "target": "ai-feature-reviewer",
+      "note": "CO-2…CO-4, CO-11: the charge settles on the wrong event, usage read from the wrong source, an unknown model price. The credit race, rate / budget limits and double charge (CO-1, CO-9, CO-12) → security logic-race-scan §5/§9/§4; aggregate spend, budgets and anomalies → finops (paid-spend, finops-guardrails)"
+    },
+    "llm-model-lifecycle": {
+      "detector": "ai-engineering/skills/prompt-audit §V1–§V3 (reads llm-gateway-audit/scripts/model-lifecycle.tsv, dated checked_on)",
+      "owner": "ai-engineering/agents/ai-feature-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/add-ai-feature --from-audit (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V539)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /ai-audit does not run the judge",
+      "pack": "ai-engineering",
+      "target": "ai-feature-reviewer",
+      "note": "MV-1…MV-5 retired or aliased ids, model id from env, per-model parameters, platform lifecycle in IaC; TF-2 Anthropic long non-streaming; EV-7 sunsetting platform. setup-project installs model-lifecycle.tsv and --refresh warns when checked_on is older than 90 days"
+    },
+    "llm-structured-output": {
+      "detector": "ai-engineering/skills/prompt-audit §S1–§S5, §P",
+      "owner": "ai-engineering/agents/ai-feature-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/add-ai-feature --from-audit (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V539)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /ai-audit does not run the judge",
+      "pack": "ai-engineering",
+      "target": "ai-feature-reviewer",
+      "note": "SO-1…SO-6 free-text parsing, unvalidated JSON, stop reasons and refusals, validation retries, strictness; PM-1…PM-3 prompt versions and placement; PI-5 own instructions in tool results"
+    },
+    "llm-eval-coverage": {
+      "detector": "ai-engineering/skills/eval-run §C1–§C8 (coverage lane) + run lane",
+      "owner": "ai-engineering/agents/ai-feature-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/add-eval-set (EV-1, EV-2, EV-6, EV-8) · /add-ai-feature --from-audit (the rest)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /ai-audit does not run the judge",
+      "pack": "ai-engineering",
+      "target": "ai-feature-reviewer",
+      "note": "EV-1 no eval set is MEDIUM plus an UNVERIFIED production bar (verdict GO-UNVERIFIED); NO-GO only when an eval exists and its gate is masked (EV-6). Flaky LLM-output tests (EV-3) are owned here; testing flake-* corroborates"
+    },
+    "retrieval-quality": {
+      "detector": "ai-engineering/skills/retrieval-eval §1–§5",
+      "owner": "ai-engineering/agents/ai-feature-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/add-ai-feature --from-audit (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V539)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /ai-audit does not run the judge",
+      "pack": "ai-engineering",
+      "target": "ai-feature-reviewer",
+      "note": "RG-9/RG-10 retrieval eval and the no-context guard. Tenant and ACL scope of retrieval → security rag-tenancy"
+    },
+    "vector-index": {
+      "detector": "ai-engineering/skills/vector-index-audit §1–§5",
+      "owner": "ai-engineering/agents/ai-feature-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/add-ai-feature --from-audit (failing-first against the class V-oracle in proof-oracles.md § AI engineering V510–V539)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /ai-audit does not run the judge",
+      "pack": "ai-engineering",
+      "target": "ai-feature-reviewer",
+      "note": "RG-6…RG-8 exact scan at scale, defaulted parameters, metric / normalisation / dimension / model mismatch, filtered recall, refresh and deletes. The spatial or relational index of the store → database"
+    },
+    "finops-guardrails": {
+      "detector": "finops/skills/guardrail-scan §1–§7",
+      "owner": "finops/agents/cost-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/cost-guardrails --from-audit (failing-first against the class V-oracle in proof-oracles.md § FinOps V570–V589)",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md) when /cost-review does not run the judge",
+      "pack": "finops",
+      "target": "cost-reviewer",
+      "note": "BG-1…BG-7 budget absent per billing scope, actual-only thresholds, no live recipient, anomaly detection absent, no pre-merge estimate, non-production with no hard bound, suppression with no expiry. Budget absence (COST-12) is owned here when finops is installed; infrastructure iac-cost-scan §12 is the fallback without it. Warehouse budgets, maximum_bytes_billed and auto-suspend are this row; the SQL is data-engineering warehouse-sql-cost"
+    },
+    "cost-allocation": {
+      "detector": "finops/skills/allocation-scan §1–§4",
+      "owner": "finops/agents/cost-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/cost-guardrails --from-audit (failing-first against the class V-oracle in proof-oracles.md § FinOps V570–V589)",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md) when /cost-review does not run the judge",
+      "pack": "finops",
+      "target": "cost-reviewer",
+      "note": "TG-1…TG-4 allocation keys on IaC, pod templates and runbook-created resources. infrastructure iac-state-scan §6 TF-15 keeps 'no tags at all on a deployed root → unownable orphans' and cites §1; dedupe by file:line"
+    },
+    "paid-spend": {
+      "detector": "finops/skills/spend-path-scan §1–§3 (reads ai-engineering llm-sites.py sites.tsv for model sites when installed)",
+      "owner": "finops/agents/cost-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/cost-guardrails --from-audit (failing-first against the class V-oracle in proof-oracles.md § FinOps V570–V589)",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md) when /cost-review does not run the judge",
+      "pack": "finops",
+      "target": "cost-reviewer",
+      "note": "PS-1…PS-3 aggregate cap, billed-unit counter, provider limit. Per-call caps and metering correctness → ai-engineering llm-call-budget / llm-metering; per-user limits → security logic-race-scan §9"
+    },
+    "schedule-frequency": {
+      "detector": "finops/skills/spend-path-scan §4–§6",
+      "owner": "finops/agents/cost-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/cost-guardrails --from-audit (failing-first against the class V-oracle in proof-oracles.md § FinOps V570–V589)",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md) when /cost-review does not run the judge",
+      "pack": "finops",
+      "target": "cost-reviewer",
+      "note": "FQ-1…FQ-3 schedule × replicas × billed call, queue short polling, busy loop on a billed call. The app scheduler's overlap is backend job-lifecycle-scan §4; once-per-fleet is performance request-path-scan §20 — separate classes, the same site may carry both"
+    },
+    "storage-growth": {
+      "detector": "finops/skills/storage-growth-scan §1–§4",
+      "owner": "finops/agents/cost-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/cost-guardrails --from-audit (failing-first against the class V-oracle in proof-oracles.md § FinOps V570–V589)",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md) when /cost-review does not run the judge",
+      "pack": "finops",
+      "target": "cost-reviewer",
+      "note": "ST-1…ST-4 object prefix with no end, multipart with no abort rule, append-only table with no retention, local growth with no cap. IaC bucket rules and versioning → infrastructure dr-audit §7 / COST-07; PII retention → security; cache TTL → performance caching-scan §1"
+    },
+    "egress-path": {
+      "detector": "finops/skills/egress-trace §1–§4 (static) · §5 flow-log lane (on --flow-logs only)",
+      "owner": "finops/agents/cost-reviewer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/cost-guardrails --from-audit (failing-first against the class V-oracle in proof-oracles.md § FinOps V570–V589)",
+      "fallback": "the detector's own report, verified by the verifier in refute mode (verifier.md) when /cost-review does not run the judge",
+      "pack": "finops",
+      "target": "cost-reviewer",
+      "note": "EG-1…EG-4 public objects from the origin, object bytes through the app, cross-region paths, service-to-service through a public hostname. NAT and cross-AZ in IaC → infrastructure COST-01/02; response headers → performance §6"
+    },
+    "cost-pricing": {
+      "detector": "finops/skills/candidate-pricing §0–§4 (+ unit-cost-probe/scripts/bill-lane.py for the bill lanes)",
+      "owner": "finops/agents/cost-reviewer (diff) · finops/agents/finops-analyst (bill lanes) (judge, refute mode)",
+      "fixer": "/cost-guardrails --from-audit (failing-first against the class V-oracle in proof-oracles.md § FinOps V570–V589)",
+      "fallback": "infrastructure /cost-audit prices iac-cost-scan candidates when finops is not installed; otherwise the detector's own report, verified by the verifier",
+      "pack": "finops",
+      "target": "cost-reviewer",
+      "note": "§0–§3 the pricing step for every other pack's cost candidate (quantity × unit, never re-detected; a $ only with a bill line or a dated pricing page); §4 PX-1 undated money in the repo's docs. Observability 'priced by finops' rows name candidate-pricing §0"
+    },
+    "asymptotic-complexity": {
+      "detector": "algorithms/skills/complexity-scan §1–§6 (+ scripts/algo-sites.py)",
+      "owner": "algorithms/agents/algorithm-designer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/design-algorithm --from-audit (failing-first against the class V-oracle in proof-oracles.md § Algorithms V590–V609)",
+      "fallback": "performance/skills/request-path-scan §11 runs 11a/11b and grades when the algorithms pack is not installed; with it installed §11 prints → complexity-scan §1–§5 and does not grade",
+      "pack": "algorithms",
+      "target": "algorithm-designer",
+      "note": "CX-1…CX-6 super-linear work on data-sized input. Per-call construction → performance request-path-scan §8; allocation churn and per-request copies of a large constant → performance memory-growth-scan §8; N+1 → database n-plus-one-scan; ReDoS → security injection-scan §13"
+    },
+    "recursion-termination": {
+      "detector": "algorithms/skills/complexity-scan §7–§10 (algo-sites.py --recursion)",
+      "owner": "algorithms/agents/algorithm-designer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/design-algorithm --from-audit (failing-first against the class V-oracle in proof-oracles.md § Algorithms V590–V609)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /analyze-complexity does not run the judge",
+      "pack": "algorithms",
+      "target": "algorithm-designer",
+      "note": "RC-1…RC-4 recursion depth set by input, traversal that can meet a cycle, exponential recursion without a memo, loop progress not guaranteed"
+    },
+    "algorithm-preconditions": {
+      "detector": "algorithms/skills/algorithm-contract-scan §1–§4",
+      "owner": "algorithms/agents/algorithm-designer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/design-algorithm --from-audit (failing-first against the class V-oracle in proof-oracles.md § Algorithms V590–V609)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /analyze-complexity does not run the judge",
+      "pack": "algorithms",
+      "target": "algorithm-designer",
+      "note": "OC-1…OC-4 sorted-input, stability, key collapse, hand-rolled primitive. Comparator expressions → code-quality correctness-smell-scan §4; DB sort keys → database query-shape-scan"
+    },
+    "random-distribution": {
+      "detector": "algorithms/skills/algorithm-contract-scan §5–§7",
+      "owner": "algorithms/agents/algorithm-designer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/design-algorithm --from-audit (failing-first against the class V-oracle in proof-oracles.md § Algorithms V590–V609)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /analyze-complexity does not run the judge",
+      "pack": "algorithms",
+      "target": "algorithm-designer",
+      "note": "RD-1…RD-3 biased shuffle, range / bias / weight errors, bucketing by a signed, salted or n-dependent hash. A predictable secret or prize (CWE-338) → security sast-scan"
+    },
+    "geodesy": {
+      "detector": "algorithms/skills/algorithm-contract-scan §8–§10",
+      "owner": "algorithms/agents/algorithm-designer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/design-algorithm --from-audit (failing-first against the class V-oracle in proof-oracles.md § Algorithms V590–V609)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /analyze-complexity does not run the judge",
+      "pack": "algorithms",
+      "target": "algorithm-designer",
+      "note": "GE-1…GE-3 planar or unit-wrong distance, axis order swapped at a boundary, wrap-around. The spatial index → database"
+    },
+    "numeric-stability": {
+      "detector": "algorithms/skills/numeric-stability-scan §1–§7 (gated on numeric code)",
+      "owner": "algorithms/agents/algorithm-designer (judge, refute mode; @verifier mode refute on every BLOCKER and HIGH it keeps)",
+      "fixer": "/design-algorithm --from-audit (failing-first against the class V-oracle in proof-oracles.md § Algorithms V590–V609)",
+      "fallback": "the detector's own rows, tagged self-verified and Unconfirmed until refuted, when /analyze-complexity does not run the judge",
+      "pack": "algorithms",
+      "target": "algorithm-designer",
+      "note": "NS-1…NS-5 accumulation, cancellation, overflow, conditioning, IEEE-voiding flags; SL-1/SL-2 sketches with no stated error or used as an exact authority. Money → code-quality correctness-smell-scan §4 / database §4 / business pricing-rule-scan; float == → code-quality §2; an exact set that grows forever → performance memory-growth-scan §1"
     }
   }
 }

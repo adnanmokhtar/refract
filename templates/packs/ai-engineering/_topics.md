@@ -13,7 +13,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: rag-architect
   kind: agent
-  triggers: { grep_evidence: "embedding|vector|pgvector|pinecone|weaviate|qdrant|retriev|rerank|chunk" }
+  triggers: { grep_evidence: "\\b(?:pgvector|pinecone|weaviate|qdrant|chromadb|milvus|lancedb|faiss|PGVector|VectorStoreIndex|as_retriever|similarity_search|embeddings\\.create|embedMany|embed_documents|rerank\\w*)\\b|vector_(?:l2|ip|cosine)_ops|USING (?:hnsw|ivfflat)" }   # word-bounded (2026-10-19: the old substring form matched 75 files of a repo with no vector store; this one 0)
   extracts_from: _extracted-codebase.md § "AI/LLM integration" (corpus + chunker + embedding model + vector store + retriever)
   sections: [persona, preflight_reading, corpus_and_chunking, embedding_and_index_target, retrieval_and_hybrid, reranking_and_assembly, tenant_boundary, retrieval_eval_plan, output_format, failure_modes]
   fallback: _examples/rag-architect.md
@@ -21,7 +21,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: agent-loop-architect
   kind: agent
-  triggers: { grep_evidence: "tool.call|function.call|agent|tools=|tool_use|react loop|planner" }
+  triggers: { grep_evidence: "\\b(?:tool_calls|tool_choice|toolChoice|tool_use|function_call|bind_tools|create_react_agent|create_agent|AgentExecutor|ToolLoopAgent|StateGraph|stopWhen)\\b|@tool\\b|Runner\\.run" }   # word-bounded tool-loop shapes (642 files → 11, all real tool code, on a 13k-file monorepo)
   extracts_from: _extracted-codebase.md § "AI/LLM integration" (tools + agent loop)
   sections: [persona, autonomy_ladder_decision, tool_contract_design, loop_budget_design, human_in_loop_tiers, context_management, audit_mode, output_format, failure_modes]
   fallback: _examples/agent-loop-architect.md
@@ -44,12 +44,12 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: retrieval-eval
   kind: skill
-  triggers: { grep_evidence: "embedding|vector|pgvector|pinecone|weaviate|qdrant|retriev|rerank|chunk" }
+  triggers: { grep_evidence: "\\b(?:pgvector|pinecone|weaviate|qdrant|chromadb|milvus|lancedb|faiss|PGVector|VectorStoreIndex|as_retriever|similarity_search|embeddings\\.create|embedMany|embed_documents|rerank\\w*)\\b|vector_(?:l2|ip|cosine)_ops|USING (?:hnsw|ivfflat)" }   # word-bounded (2026-10-19: the old substring form matched 75 files of a repo with no vector store; this one 0)
   fallback: _examples/retrieval-eval.md
 
 - name: vector-index-audit
   kind: skill
-  triggers: { grep_evidence: "hnsw|ivf|ivfflat|ef_search|nprobe|nlist|faiss|pgvector|pinecone|weaviate|qdrant|milvus|ann.?index" }
+  triggers: { grep_evidence: "\\b(?:hnsw|ivfflat|ef_search|ef_construction|hnsw_ef|nprobe|faiss|pgvector|pinecone|weaviate|qdrant|milvus|knn_vector|dense_vector)\\b|vector_(?:l2|ip|cosine)_ops" }   # word-bounded: `nList` / `nProbe` / "annotation" no longer fire (136 files → 0 on a repo with no vector store)
   fallback: _examples/vector-index-audit.md
 
 - name: add-ai-feature
@@ -83,7 +83,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: rag-pipeline
   kind: pattern
-  triggers: { grep_evidence: "embedding|vector|pgvector|pinecone|weaviate|qdrant|retriev|rerank|chunk" }
+  triggers: { grep_evidence: "\\b(?:pgvector|pinecone|weaviate|qdrant|chromadb|milvus|lancedb|faiss|PGVector|VectorStoreIndex|as_retriever|similarity_search|embeddings\\.create|embedMany|embed_documents|rerank\\w*)\\b|vector_(?:l2|ip|cosine)_ops|USING (?:hnsw|ivfflat)" }   # word-bounded (2026-10-19: the old substring form matched 75 files of a repo with no vector store; this one 0)
   extracts_from: _extracted-codebase.md § "AI/LLM integration" (embedding model + vector store + retrieval)
   sections: [ingestion_chunking, embedding, retrieval, reranking, context_assembly, detectors]
   mirror_existing: true
@@ -91,7 +91,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: vector-store-ops
   kind: pattern
-  triggers: { grep_evidence: "hnsw|ivf|ivfflat|ef_search|nprobe|nlist|faiss|pgvector|pinecone|weaviate|qdrant|milvus|ann.?index" }
+  triggers: { grep_evidence: "\\b(?:hnsw|ivfflat|ef_search|ef_construction|hnsw_ef|nprobe|faiss|pgvector|pinecone|weaviate|qdrant|milvus|knn_vector|dense_vector)\\b|vector_(?:l2|ip|cosine)_ops" }   # word-bounded: `nList` / `nProbe` / "annotation" no longer fire (136 files → 0 on a repo with no vector store)
   extracts_from: _extracted-codebase.md § "AI/LLM integration" (vector store + index type + ANN params + refresh path)
   sections: [exact_vs_ann, index_families, tradeoff_target, metadata_filtering, hybrid_search, build_refresh, detectors]
   mirror_existing: true
@@ -115,7 +115,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: agent-design
   kind: pattern
-  triggers: { grep_evidence: "tool.call|function.call|agent|tools=|tool_use|react loop|planner" }
+  triggers: { grep_evidence: "\\b(?:tool_calls|tool_choice|toolChoice|tool_use|function_call|bind_tools|create_react_agent|create_agent|AgentExecutor|ToolLoopAgent|StateGraph|stopWhen)\\b|@tool\\b|Runner\\.run" }   # word-bounded tool-loop shapes (642 files → 11, all real tool code, on a 13k-file monorepo)
   extracts_from: _extracted-codebase.md § "AI/LLM integration" (tools + agent loop)
   sections: [when_agent_vs_workflow, tool_design, loop_and_budgets, human_in_loop, detectors]
   mirror_existing: true

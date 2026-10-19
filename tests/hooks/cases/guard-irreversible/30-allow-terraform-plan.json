@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "terraform -chdir=infra plan -out=tf.plan"}}

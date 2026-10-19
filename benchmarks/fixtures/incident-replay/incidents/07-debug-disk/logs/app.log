@@ -1,0 +1,6 @@
+2026-05-12T12:31:05Z INFO  [deploy] search rev 18 rollout complete
+2026-05-12T12:31:06Z DEBUG [ranking] query="red shoes" candidates=2400 features=[bm25, ctr_7d, price_band, ...] (4.1 KB)
+2026-05-12T13:08:44Z WARN  [k8s] Evicted pod search-5c7-x2: Pod ephemeral local storage usage exceeds the total limit of containers 2Gi.
+2026-05-12T13:09:02Z WARN  [k8s] Evicted pod search-5c7-q8: Pod ephemeral local storage usage exceeds the total limit of containers 2Gi.
+2026-05-12T13:21:30Z ERROR [ingress] upstream search-api: no healthy endpoints (503)
+2026-05-12T13:47:51Z WARN  [k8s] Evicted pod search-5c7-m1: Pod ephemeral local storage usage exceeds the total limit of containers 2Gi.

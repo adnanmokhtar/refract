@@ -1,0 +1,3 @@
+payment_id,method,amount_cents
+p1,card,4200
+p2,bank_transfer,1999

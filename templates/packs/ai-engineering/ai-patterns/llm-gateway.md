@@ -75,11 +75,15 @@ pack: ai-engineering
 - A model call with no timeout or no `max_output_tokens` cap → `add-call-budget`.
 - A single-provider production path with no fallback model/provider on outage → `add-fallback` (or document accepted risk).
 - Repeated identical large context with no exact/prompt caching → `add-prompt-cache`.
-- A semantic cache with no tenant/permission scoping in the key → `scope-semantic-cache` (data-leak risk).
-- A model call not logging tokens + cost + latency + model id (trace-linked) → `add-cost-logging`.
-- Prompt/response logged without PII/secret redaction → `add-log-redaction`.
+- A semantic cache with no tenant/permission scoping in the key → `scope-semantic-cache` (data-leak risk; graded by security `llm-trust-scan` §6 when the security pack is installed).
+- A model call with no logging of tokens + cost + latency + model id (trace-linked) → `add-cost-logging`.
+- Prompt/response logged without PII/secret redaction → `add-log-redaction` (graded by security `data-exposure-scan` §6 when the security pack is installed; the verb is the fix shape).
+- Timeout × retry layers (SDK default retries, an app retry, queue attempts) beyond the caller's deadline, or more than one layer retrying a generating call (`llm-gateway-audit` §B1) → `bound-retries`.
+- A streaming call that keeps generating after the client disconnects, or a mid-stream error stored as success (`llm-gateway-audit` §B4) → `forward-abort-signal`.
+- A charge that settles on the wrong event: debited before the call with no refund on failure, or charged on a refused or truncated answer (`llm-gateway-audit` §M1) → `settle-on-outcome`.
+- Billed usage lost on a stream, summed from cumulative deltas, estimated by a tokenizer, or priced at zero for an unknown model id (`llm-gateway-audit` §M2) → `read-provider-usage`.
 
-**Closure verbs:** `route-through-gateway`, `add-call-budget`, `add-fallback`, `add-prompt-cache`, `scope-semantic-cache`, `add-cost-logging`, `add-log-redaction`.
+**Closure verbs:** `route-through-gateway`, `add-call-budget`, `add-fallback`, `add-prompt-cache`, `scope-semantic-cache`, `add-cost-logging`, `add-log-redaction`, `bound-retries`, `forward-abort-signal`, `settle-on-outcome`, `read-provider-usage`.
 
 ## Related
 

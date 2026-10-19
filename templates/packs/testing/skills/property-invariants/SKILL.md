@@ -37,7 +37,7 @@ Detect the stack, then use its idiomatic property framework. Do not introduce a 
 |---|---|---|
 | JS / TS | fast-check | `fc.assert(fc.property(gen, pred))`; built-in shrinking; seed via `fc.configureGlobal` / printed on failure |
 | Python | Hypothesis | `@given(strategies)`; automatic shrinking; `@seed`/`--hypothesis-seed` to reproduce; `@example` to pin regressions |
-| Java / Kotlin | jqwik | `@Property` + `@ForAll`; `@Provide` for custom arbitraries; deterministic `@Seed` |
+| Java / Kotlin | jqwik | `@Property` + `@ForAll`; `@Provide` for custom arbitraries; deterministic `@Seed`. jqwik ≥ 1.10 is reported to carry an "Anti-AI Usage Clause" (business research, 2026-10-19; its text UNVERIFIED): read the installed version's licence and README before generating jqwik code, and stop and ask if it restricts AI-written tests |
 | Scala / JVM | ScalaCheck | `forAll`; `Gen`/`Arbitrary`; integrates via ScalaTest/specs2 |
 | Haskell | QuickCheck / Hedgehog | `Arbitrary`/`Gen`; Hedgehog has integrated shrinking without separate `Shrink` |
 | Rust | proptest / quickcheck | proptest = strategy-based + persisted failure corpus; quickcheck = `Arbitrary` trait |

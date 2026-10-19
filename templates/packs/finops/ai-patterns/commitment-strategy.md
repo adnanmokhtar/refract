@@ -83,14 +83,16 @@ Auto-renewal without re-running the analysis renews last year's shape.
 
 ## Detectors
 
+None of these is readable from code: commitments are bought in a billing console. Each is checked from the user's export by `commitment-coverage` (UE-3, `bill-lane.py commitments`), which prints `NOT-RUN (no billing export)` without one.
+
 - Coverage reported without utilisation, or vice versa.
 - A commitment purchased at or above average usage.
 - A commitment whose utilisation has been below its threshold for a full period — money already spent for nothing, reported in currency and not just a percentage.
-- An expiry inside 90 days with no owner and no computed bill impact.
+- An expiry inside 90 days with no owner and no computed bill impact — `bill-lane.py commitments --expiry <inventory> --within-days 90`; the owned notification is `/cost-guardrails` class 6.
 - A long term purchased for a workload with a shorter roadmap.
-- Unamortised upfront purchases in a cost report, producing phantom anomalies.
+- Unamortised upfront purchases in a cost report, producing phantom anomalies — `bill-lane.py columns` names the cost column read (`EffectiveCost` is amortised; `BilledCost` is not).
 - A commitment scoped so narrowly it strands after a routine instance-family change.
-- A "saving" computed against list price rather than against on-demand.
+- A "saving" computed against list price rather than against on-demand — `candidate-pricing` §2 and `precedents/finops.md` § 25.
 
 ## Related
 

@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/frontend-correctness · defect FC-RT-04a (apps/shop/app/[locale]/(shop)/c/[...slug]/page.tsx:9) · decoy FC-DECOY-19 (line 23)
+# resources/: byte copies of apps/shop/app/[locale]/(shop)/c/[...slug]/page.tsx (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-soft-404
+context:
+  add_dirs: [resources]

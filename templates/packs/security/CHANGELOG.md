@@ -9,6 +9,15 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.5.0 — 2026-10-19
+
+**Two detectors for the LLM trust boundary (Track A batch 8, ai-engineering eval O-1/O-2).**
+
+- **`llm-trust-scan`** (new): prompt roles (PI), tools and agency (AG), output exfiltration and model-chosen fields (OH-2/6), provider keys and data (SD), tracing of content (LG-2…4), retrieval and cache tenancy (RG-1…5); V510–V520. Its §3s writes `completion-sources.txt`, which `xss-scan`, `injection-scan`, `ssrf-scan` and `file-access-scan` now read as a source list for model output (OH-1/3/4/5).
+- **`mcp-server-scan`** (new): audience and passthrough, `Origin` and bind, URL opening, tool poisoning and pinning, scopes, tenancy, sessions (MC-1…7); V521–V525.
+- **`data-exposure-scan` §6 AI lane** (grep 6i): log calls inside the files that call a model (LG-1); 1 seed, 0 noise over 32 fixtures.
+- **`@llm-security-reviewer`** gains a judge-mode contract over both detectors (who judges, corroborates or grades at the sink), the OWASP LLM ids labelled "per v1.0, 2026-08-03", ASI06/ASI07 where the research maps them, and an agent-loop probe read from `llm-sites.py` instead of a repo-wide `while` grep. `/security-audit` dispatches both; `/security-fix` learns V510–V525; `finding-verification.md` §4 points at `precedents/ai-engineering.md` § Trust boundary. Seven `ownership.json` rows.
+
 ## 2.4.1 — 2026-10-18
 
 **Two commands were hidden.** Claude Code resolves a skill and a command with the same name to the skill (docs, 2026-10-18), so `/threat-model` and `/secret-scan` ran the read-only primitives instead of their sessions. The skills are now `threat-model-method` and `secret-scan-method` (agents preload them by the new names); the commands keep their names. A new check in `validate-pack-consistency.sh` fails any command/skill name collision.

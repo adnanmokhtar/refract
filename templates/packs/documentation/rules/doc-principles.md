@@ -9,14 +9,14 @@ applies-to: documentation-track, every-code-writing-task-in-documentation
 
 # Documentation Principles
 
-> **Hard rule.** Docs MUST describe what IS in the codebase right now. When code changes, docs change in the SAME PR — no follow-up tickets. Architectural decisions live in `ai/decisions/<NNNN>-*.md` ADRs, status timestamps stay current, and aspirational claims (features that don't exist yet) are forbidden in any non-ADR doc.
+> **Hard rule.** Docs MUST describe what IS in the codebase right now. When code changes, docs change in the SAME PR — no follow-up tickets. Decisions live in ADRs, status timestamps stay current, and aspirational claims (features that don't exist yet) are forbidden outside an ADR.
 
 Prevents the failure mode that's worse than missing docs: stale docs that actively mislead.
 
 ## Must
 
 - Docs describe what IS in the codebase now; a code change and its doc change ship in the SAME PR.
-- Architectural decisions go in `ai/decisions/<NNNN>-<slug>.md` as ADRs (Context / Decision / Consequences) — not in `README.md`, not in inline comments.
+- Architectural decisions go in the project's ADR folder (`/add-adr` finds it) as ADRs (Context / Decision / Consequences) — not in `README.md`, not in inline comments.
 - Every README opens with: 1) what this is, 2) how to run it, 3) how to test it. Anything below those three is bonus.
 - Non-obvious claims cite code: file path + line range, migration ID, or commit SHA. "The service caches users" with a link beats the assertion alone.
 - `ai/status.md` carries an `Updated:` line in `YYYY-MM-DD` and a `## Recent Changes` section. SessionStart hooks parse these — don't break the format.
@@ -56,10 +56,11 @@ Each is a doc whose truth is checkable by running something. Reading it is not t
 | Architecture diagram | diffing it against the real module/import graph — a box naming a deleted module misleads with the authority of a picture | `diagram-sync` |
 | Public-API docstrings | measuring coverage on the PUBLIC surface against the project's OWN linter convention; a re-spelt signature is a zero-information gap that green-lights the count | `docstring-coverage` |
 | Release notes | deriving them from categorized commit/PR history, breaking-first with before → after, semver bump COMPUTED from the change types | `changelog-generate` (an unclassifiable commit is a reportable gap, not a silent drop) |
+| Every other claim (paths, scripts, flags, env, endpoints, links, ADRs, samples) | resolving it against its oracle | `/doc-refresh --audit` |
 
 ## The two formats this rule owns
 
-The ADR and runbook skeletons are NOT duplicated here: `ai/patterns/adr-template.md` owns the ADR format (with a worked example), `/add-runbook` owns the runbook template. Two homes for one skeleton is how they drift apart. These two are machine-parsed contracts, so they live here:
+The ADR and runbook skeletons live in `ai/patterns/adr-template.md` and `/add-runbook`, not here: two homes for one skeleton drift apart. These two are machine-parsed contracts, so they live here:
 
 - **`ai/modules.md`** — `| Module | Path | Purpose |`, one row per module, added in the same PR as the module. Use the layout Phase 2 detected in THIS codebase; don't invent one.
 - **`ai/status.md`** — first line `Updated: YYYY-MM-DD`, and a `## Recent Changes` heading with newest first. SessionStart hooks parse exactly those two; other sections are free-form.
@@ -74,21 +75,21 @@ The ADR and runbook skeletons are NOT duplicated here: `ai/patterns/adr-template
 
 ## Enforcement
 
-- `markdownlint` in pre-commit: heading levels, trailing whitespace, link syntax.
-- `lychee` / `markdown-link-check` in CI for broken links.
-- CI grep for `TBD` / `TODO(no-owner)` patterns in `ai/` fails the build.
-- CI parses `ai/status.md` `Updated:` and warns when older than 30 days on changed branches (the same threshold `doc-writer`, `/doc-refresh` and `doc-drift-scan` use — one number, one meaning).
-- Code review checklist enforces "feature PR → docs PR" coupling.
+A gate counts only after it has failed once on a planted defect (the DL-4 mutation proof):
+
+- `doc-claims.py . --check` (`doc-drift-scan`'s engine) in CI on pull requests: exit 1 on a MISS or WRONG claim.
+- The repo's own link, lint, site, sample and breaking-change gates, each in its failing setting: `doc-structure-scan` §4 lists them and flags one that cannot fail.
+- `ai/status.md` `Updated:` older than 30 days on a changed branch warns (one threshold everywhere); `/doc-refresh` (default mode) is the pre-PR check.
 
 ## When rules conflict with a task
 
 - Shipping a feature and docs are wrong → fix docs in the SAME PR. Don't file a follow-up.
 - Doc is fully stale and no one will re-validate → delete it in the PR; reference deletion in the commit.
-- Draft / aspirational doc in `README.md` → move to `ai/decisions/` as a Proposed ADR.
+- Draft / aspirational doc in `README.md` → move it to the ADR folder as a Proposed ADR (`/add-adr`).
 - Two docs disagree → code is the source of truth; rewrite the loser in the same PR.
 
 ## References
 
-- Michael Nygard, "Documenting Architecture Decisions" — cognitect.com/blog/2011/11/15/documenting-architecture-decisions (the original ADR essay).
-- Diátaxis — diataxis.fr (tutorial / how-to / reference / explanation: the four modes, and why mixing two in one page is the defect).
+- Michael Nygard, "Documenting Architecture Decisions" — cognitect.com/blog/2011/11/15/documenting-architecture-decisions.
+- Diátaxis — diataxis.fr (four modes; mixing two in one page is the defect).
 - Keep a Changelog — keepachangelog.com (the release-notes format `changelog-generate` emits).

@@ -1,6 +1,8 @@
 ---
 name: extract-codebase-overview
 description: Master orchestrator for deep codebase analysis in /setup-project Phase 2. Walks the project's architecture, modules, base classes, data model, API surface, naming conventions, and dependency graph — outputs `.claude/_extracted-codebase.md`, the substrate every Phase 4 generator reads to author project-specific (not generic) content. Invokes sub-skills (extract-base-class-idiom, extract-business-context) and consolidates results.
+kind: skill
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -167,8 +169,10 @@ Cap at 80 modules in the output (sample more if larger; emit `(+N more)` line).
 
 For every TypeScript/Python/Java/etc. class with subclasses, count extenders:
 ```bash
-# TS example
-grep -rln "extends <BaseName>" --include="*.ts" .
+# TS example — through the same census Step 2.5 took (git ls-files), never a raw tree walk:
+# `grep -r … .` walks node_modules, dist and test trees and counts vendored extenders.
+git ls-files -z -- '*.ts' ':!:**/node_modules/**' ':!:**/dist/**' ':!:*.spec.ts' ':!:*.test.ts' \
+  | xargs -0 grep -lw -- "extends <BaseName>" 2>/dev/null | wc -l
 ```
 
 Capture every base class with **≥3 extenders**. For each:

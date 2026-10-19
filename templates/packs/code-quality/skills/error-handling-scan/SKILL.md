@@ -77,14 +77,14 @@ tool's, and the grep below is the fallback for the code it cannot see
 | **PHP** — PHPStan 2.2 | `catch.neverThrown`; greps | — | grep 6a (`getMessage()` only) | — | — |
 | **Rust** — clippy | `let_underscore_must_use`, `unused_result_ok`, `map_err_ignore` | `let_underscore_future` | — | `await_holding_lock` | — |
 
-Lane commands (research catalog, 2026-10-05): `uvx ruff check --select S110,S112,E722,BLE001,B904,B012,TRY,RUF006,ASYNC,PLW0133,PLW1510,SIM115 --output-format json .` ·
+Lane commands (research catalog, 2026-10-05; installed tools only — an absent one prints `NOT-RUN (<tool> not installed — to enable: <install command>)` and its grep runs): `ruff check --select S110,S112,E722,BLE001,B904,B012,TRY,RUF006,ASYNC,PLW0133,PLW1510,SIM115 --output-format json .` ·
 `golangci-lint run --new-from-merge-base=origin/main ./...` with those linters enabled ·
-`npx pyright --outputjson` · `./gradlew compileJava` (Error Prone runs inside the compiler) or `spotbugsMain` · `dotnet build -warnaserror` (C# / .NET).
+`npx --no pyright --outputjson` · `./gradlew compileJava` (Error Prone runs inside the compiler) or `spotbugsMain` · `dotnet build -warnaserror` (C# / .NET).
 For TypeScript, typescript-eslint's plain `recommended` has **no** type-aware rule
 (`precedents/code-quality.md § 76`); when the project is not type-aware, run a scratch flat config
 beside `eslint.config.*` that spreads the project's exported array and adds
 `languageOptions: { parserOptions: { projectService: true } }` plus the four async rules at
-`error`, run `npx eslint -c <scratch> --format json <roots>`, keep those `ruleId`s, delete the
+`error`, run `npx --no eslint -c <scratch> --format json <roots>`, keep those `ruleId`s, delete the
 scratch file and check `git status --porcelain`. An error from that run is `blocked`, never a quiet
 lane.
 
@@ -164,7 +164,7 @@ rg -l0 --pcre2 "$B" "${X[@]}" . | xargs -0 -r rg -l0 --files-without-match --pcr
 A finding is a grep hit **plus** a read of the handler and the code it guards **plus** the hops to
 an entry point and up to whoever handles the failure. Three blind spots are structural:
 
-- **A floating promise has no syntax.** `notifyCustomer(id)` with no `await` looks like any other
+- **A floating promise has no syntax.** `emailReceipt(id)` with no `await` looks like any other
   call; only the type checker knows it returns a promise. Greps 4a–4c find the syntactic shapes;
   the type-aware lane (`no-floating-promises`) is the detector for the rest. Without that lane,
   read every call in a changed `async` function whose callee is declared `async`, and print
@@ -175,17 +175,14 @@ an entry point and up to whoever handles the failure. Three blind spots are stru
   `onError` helper that returns a neutral value is one finding with N call sites. Grep the helper's
   name once you see it, and treat its callers as one group.
 
-**Measured** (2026-10-05). Fixtures: `node-api` 1a/1b → `routes/webhooks.js:19` (its seeded
-swallow) and 3c → `services/payments.js:8` (its seeded unchecked I/O, exact line);
-`web-dashboard` 2a → `hooks/useOrders.ts:24` (its seeded swallow) and 3c/4c →
-`components/orders/OrderDetailPanel.tsx:16`, the chain whose seeded line is :18;
-`review-decoys` 1b → `change/src/orders/refunds.ts:28` (its seeded dropped error), 3c and 4c →
-`change/web/src/useRefund.ts:9`, and 7b → `useRefund.ts:15`, a pending flag left `true` when the
-`fetch` rejects (not in the answer key; a real §7 candidate). Its seeded unawaited
-`notifyCustomer(…)` is found by **no** grep — only the type-aware lane sees it. Decoys stay
-Hardening on read: `vuln-fullstack` `web/src/lib/api.ts:25` (an error body parsed tolerantly,
-§ 15), `components/SellerCard.tsx:11` (URL parse-or-default, § 16), `slow-marketplace`
-`feed-import.service.ts:46` (rejection handled by `then`'s second argument, § 22). On a real
+**Measured** (2026-10-05). Fixtures: on `node-api`, 1a/1b land on its seeded swallow and 3c on
+its seeded unchecked I/O, each on the exact line; on `web-dashboard`, 2a lands on its seeded
+swallow and 3c/4c on the start of the seeded chain, two lines above the anchor; on
+`review-decoys`, 1b lands on its seeded dropped error, 3c/4c on a data hook, and 7b on a pending
+flag left `true` when the `fetch` rejects (not in the answer key; a real §7 candidate). Its seeded
+unawaited side-effect call is found by **no** grep — only the type-aware lane sees it. Decoys stay
+Hardening on read: an error body parsed tolerantly (§ 15), a URL parse-or-default (§ 16), and a
+rejection handled by `then`'s second argument (§ 22). On a real
 NestJS-on-Fastify + MikroORM + React monorepo (about 14,200 tracked files; the script runs in about
 2 s): 0a 14, 0b 3 (`preserve-caught-error` at error; `recommended`, not type-checked, so no async
 rule configured); 1a 349, of which 289 sit in probe and audit scripts and the 60 in shipped code are
@@ -304,10 +301,10 @@ plausible JSON body (or the fake returns the error); before the fix the code pro
 ### 4. An async failure nobody observes
 
 ```
-BAD:   notifyCustomer(order.id, refund.id);                       // not awaited, not caught: a crash on Node ≥ 15
+BAD:   emailReceipt(order.id, payment.id);                        // not awaited, not caught: a crash on Node ≥ 15
        items.forEach(async (i) => { await ledger.post(i); });     // the response is sent before any post finishes
        asyncio.create_task(send_receipt(order))                   # no reference kept: the task can be collected mid-run
-GOOD:  await notifyCustomer(…) · void notifyCustomer(…).catch((e) => logger.warn({ e }, 'notify.failed'))
+GOOD:  await emailReceipt(…) · void emailReceipt(…).catch((e) => logger.warn({ e }, 'notify.failed'))
        await Promise.all(items.map((i) => ledger.post(i))) · tasks.add(t); t.add_done_callback(tasks.discard)
 ```
 **Read the code:** Who awaits this work, and who sees its error? Does the response, the job's
@@ -408,12 +405,12 @@ Findings: 3 · Unconfirmed: 1
    Reached by POST /webhooks/payments. Proof: test/webhooks/payments.fault.e2e-spec.ts — repo.save
    rejects → expected 503, got 200 (fails). Fix: log with the event id and answer 503. CWE-1069
 
-2. web/src/features/invoices/useInvoices.ts:31                   [report-with-fix]   medium
-   §2 success-shaped — .catch(() => setData([])): an API outage renders "No invoices". Proof:
+2. web/src/features/statements/useStatements.ts:31               [report-with-fix]   medium
+   §2 success-shaped — .catch(() => setData([])): an API outage renders "No statements". Proof:
    msw answers 500 → the empty state renders, the error state does not (fails). Fix: setError(e)
    and render the existing <ErrorState>. CWE-392
 
-3. src/billing/provider.client.ts:14                            [report-with-fix]   high
+3. src/payments/psp-client.ts:14                             [report-with-fix]   high
    §3 unchecked status — createCharge() parses res.json() with no res.ok check; a 402 body is
    returned as a charge. Proof: stub answers 402 {"id":"ch_x"} → the order is marked paid (fails).
    Fix: throw PaymentDeclined(res.status) before parsing, as refund() at :40 already does. CWE-252

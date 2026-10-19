@@ -78,7 +78,7 @@ Every inbound webhook MUST be signature-verified against the RAW body using a co
 ## Enforcement
 
 - `<commands-path>/simulate-webhook.md` (slash: `/simulate-webhook` and `/simulate-webhook --tamper`) — replays fixtures with valid + tampered signatures; asserts 401 on tamper, 200 + side-effect on valid, 200 + no-new-side-effect on duplicate.
-- `<agents-path>/webhook-reviewer.md` — review gate; greps every webhook handler for raw-body access, constant-time compare, dedupe-by-event-id UNIQUE index, and the 200-on-internal-error policy.
+- `.claude/lenses/webhook-review.md` — review gate; greps every webhook handler for raw-body access, constant-time compare, dedupe-by-event-id UNIQUE index, and the 200-on-internal-error policy.
 - CI lint MUST reject `req.body.tenantId` / `req.body.userId` / `req.body.customer_id` reads in webhook handlers that occur BEFORE the signature-verification call site (AST dominance check).
 - CI lint MUST reject `===` / `==` against a variable named like a signature in webhook code paths (heuristic; flag for review).
 - Test fixture per provider MUST include a tampered-signature case asserting 401 — missing test fails CI.
@@ -89,6 +89,6 @@ Every inbound webhook MUST be signature-verified against the RAW body using a co
 - `<patterns-path>/webhook-flow.md` — generic verify → dedupe → process pattern with response-policy table and code shape.
 - `<patterns-path>/payment-integration.md § Webhook handler` — payment-specific instance (Stripe), including reconciliation cron.
 - `<commands-path>/simulate-webhook.md` — fixture replay + tampered-signature tool.
-- `<agents-path>/webhook-reviewer.md` — review gate.
+- `.claude/lenses/webhook-review.md` — review gate.
 - `<rules-path>/payment-idempotency.md` — payment-specific idempotency rules building on this.
 - `<adr-path>/<NNN>-webhook-secret-rotation.md` — secret rotation policy.

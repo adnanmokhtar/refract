@@ -63,7 +63,7 @@ fallback for what it cannot see. Print the lanes you ran in the output header.
 
 | Lane | §1 unchecked cast | §2 non-null assertion | §3 strictness | §4 escape type on the surface | Ratchet |
 |---|---|---|---|---|---|
-| **TypeScript** — tsc 5.x, typescript-eslint 8.71 | `consistent-type-assertions`, `no-unsafe-assignment` / `-member-access` / `-return` / `-argument` (type-aware) | `no-non-null-assertion`, `no-unnecessary-condition` (type-aware) | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` | `no-explicit-any` | `npx type-coverage --at-least <base %> --strict --detail --ignore-catch` (2.30.3) |
+| **TypeScript** — tsc 5.x, typescript-eslint 8.71 | `consistent-type-assertions`, `no-unsafe-assignment` / `-member-access` / `-return` / `-argument` (type-aware) | `no-non-null-assertion`, `no-unnecessary-condition` (type-aware) | `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` | `no-explicit-any` | `npx --no type-coverage --at-least <base %> --strict --detail --ignore-catch` (2.30.3) |
 | **Python** — mypy 2.4.0, pyright 1.1.414, Ruff 0.16.10 | `cast()` by reading; pyright strict `reportUnknown*` | pyright `reportOptionalMemberAccess` / `Subscript` / `Call`; mypy `union-attr` | `mypy --strict`; pyright `typeCheckingMode: "strict"` | Ruff `ANN401` | mypy `warn_unused_ignores` |
 | **Go** — golangci-lint v2.14 | `forcetypeassert` | nilaway (module plugin; candidate generator only) | — | by reading | — |
 | **JVM** — javac, Error Prone 2.50 + NullAway 0.14.2, detekt 1.23 | `-Xlint:unchecked,rawtypes -Werror`; detekt `UnsafeCast` | NullAway; detekt `UnsafeCallOnNullableType` | NullAway's annotated packages | raw types via `-Xlint:rawtypes` | — |
@@ -73,7 +73,7 @@ fallback for what it cannot see. Print the lanes you ran in the output header.
 | **Ruby** — Sorbet | `T.cast`, `T.unsafe` by reading | `T.must` by reading | `# typed:` sigil per file | `T.untyped` in `sig` | — |
 
 Versions are from the code-quality research catalog (2026-10-05). The checker's own run is the best
-§2 and §3 lane: `npx tsc --noEmit -p <tsconfig>`, `mypy --strict <pkg>`, `npx pyright --outputjson`,
+§2 and §3 lane: `npx --no tsc --noEmit -p <tsconfig>`, `mypy --strict <pkg>`, `npx --no pyright --outputjson`,
 `dotnet build -warnaserror` (C# / .NET), `vendor/bin/phpstan analyse -l max <src>`. A lane that errors is
 `blocked`, never a quiet lane.
 

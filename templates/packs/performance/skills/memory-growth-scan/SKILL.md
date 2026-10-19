@@ -185,11 +185,11 @@ Severity assumes a long-running production process and a key that grows with tra
 ### 1. Unbounded process-lifetime container
 
 ```
-BAD:   const snapshots = new Map<string, ProductSnapshot>();                 // module scope
+BAD:   const snapshots = new Map<string, PriceSnapshot>();                 // module scope
        export function snapshot(id) { snapshots.set(id, load(id)); … }        // a key per product viewed, never deleted
        @lru_cache(maxsize=None) def price_for(sku, currency, customer_id): …  # one entry per customer, forever
        private final Map<String, Quote> quotes = new ConcurrentHashMap<>();  // on a singleton @Service
-GOOD:  const snapshots = new LRUCache<string, ProductSnapshot>({ max: 5_000, ttl: 60_000 });
+GOOD:  const snapshots = new LRUCache<string, PriceSnapshot>({ max: 5_000, ttl: 60_000 });
        @lru_cache(maxsize=1024) on a function of bounded arguments · Caffeine.newBuilder().maximumSize(10_000)
 ```
 **Read the code:** What is the key, and how many distinct values does production produce per hour (users, ids, URLs, IPs: unbounded; currencies, feature flags, compiled templates per file: bounded)? Is there a removal on every path that ends the entry's life (logout, close, completion, failure), or a sweeper elsewhere? Does `removes>0` in grep 1 really bound it, or only on the happy path? Is the "cache" a source of truth or derived data (a store holding sessions is §4 here for growth and `request-path-scan` §16 for replicas)? Is a memoiser applied to a method (it retains `self`, Ruff `B019`)? **Finding when** the key set grows with traffic and nothing bounds it. **Proof:** the structural count: drive the entry point with N distinct keys (N = 1,000 then 10,000) and assert `size ≤ max` after the fix; it grows linearly before. Without a test hook, the heap-growth shape in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § "Heap growth".
@@ -273,7 +273,7 @@ BAD:   const copy = JSON.parse(JSON.stringify(catalog));      // the whole catal
 GOOD:  clone only what is mutated, or freeze the shared value · ids.map((x) => x.id)
        build the index once and rebuild on change (an event, a version check), not per request
 ```
-Client, agent and regex construction per call are `request-path-scan`'s (this pack). **Read the code:** Is the path hot (a profile, call rate from APM)? How large is the copied value? Is the work invariant across requests? Python `re.compile` per call is cached by the module and is not this class (`precedents/performance.md` § 28). **Finding when** a hot path allocates in proportion to a large or growing value on every call and a profile or the allocation count shows it. **Proof:** allocations per operation (Go `testing.AllocsPerRun`, JMH `-prof gc`, BenchmarkDotNet `[MemoryDiagnoser]`; in Node, heap used per 1,000 calls after `global.gc()`) fall after the fix; the time ratio at N vs 10N returns to about 10× for accumulate-by-copy (V35).
+Client, agent and regex construction per call are `request-path-scan`'s (this pack). The quadratic **time** of accumulate-by-copy (`[...acc, x]`, `string +=` in a loop) is algorithms `complexity-scan` §2 when that pack is installed (it grades the row; this § lists it with `→ complexity-scan §2`); this § keeps per-request copies of a large constant and the allocation count. Without the algorithms pack, both halves grade here. **Read the code:** Is the path hot (a profile, call rate from APM)? How large is the copied value? Is the work invariant across requests? Python `re.compile` per call is cached by the module and is not this class (`precedents/performance.md` § 28). **Finding when** a hot path allocates in proportion to a large or growing value on every call and a profile or the allocation count shows it. **Proof:** allocations per operation (Go `testing.AllocsPerRun`, JMH `-prof gc`, BenchmarkDotNet `[MemoryDiagnoser]`; in Node, heap used per 1,000 calls after `global.gc()`) fall after the fix; the time ratio at N vs 10N returns to about 10× for accumulate-by-copy (V35).
 
 ### 9. Memory limits that do not fit
 
@@ -290,7 +290,7 @@ Facts the arithmetic needs: the JVM's container support is on by default and its
 
 ```
 memory-growth-scan — lanes: node 22 (package.json engines), nestjs 11 on fastify, mikro-orm 6.6; go, jvm, python absent
-Context: 2 long-running processes (api, worker; 1 per container) · limit 1 GiB, heap cap 700 MiB (deploy/k8s/deployment.yaml:58)
+Context: 2 long-running processes (api, worker; 1 per container) · limit 1 GiB, heap cap 700 MiB (deploy/k8s/api-deployment.yaml:58)
 
 Findings: 2 · Unconfirmed: 1
 
@@ -299,7 +299,7 @@ Findings: 2 · Unconfirmed: 1
    disconnect. Proof: test/realtime/price-feed.listeners.e2e-spec.ts — 200 connect/disconnect cycles, listenerCount
    200 (fails; baseline 1). Fix: keep the handler reference and remove it in handleDisconnect(); CWE-401
 
-2. src/media/remote-image.service.ts:12                        [report-with-fix]   medium
+2. src/catalog/image-import.service.ts:12                      [report-with-fix]   medium
    §5 body never consumed — `if (!res.ok) throw` before reading or cancelling the body of a pooled undici request;
    reached from the product editor's "add image from URL". Proof: 50 failing fetches against a local stub, then
    connections opened = 50 (fails; pool size 10). Fix: `await res.body?.cancel()` before the throw.

@@ -60,4 +60,4 @@ No silent ignores. Every exemption references an ADR.
 
 - `ai/patterns/tenant-isolation.md`
 - `.claude/rules/multi-tenancy.md`
-- `agents/tenant-isolation-reviewer.md`
+- `lenses/multi-tenant-review.md`

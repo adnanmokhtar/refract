@@ -296,7 +296,7 @@ GOOD:  Deprecation: @1767225600  ·  Sunset: <HTTP-date ≥ Deprecation>  ·  Li
 
 ```
 BAD:   oasdiff breaking base.json rev.json            // exit 0 on a breaking change: the gate cannot fail
-       npx @tufin/oasdiff …  ·  links declared beside responses (0 stateful links)  ·  @ApiPropertyOptional() @ArrayMinSize(1) ids   // spec optional, server 400
+       @tufin/oasdiff from npm (404: no such package)  ·  links declared beside responses (0 stateful links)  ·  @ApiPropertyOptional() @ArrayMinSize(1) ids   // spec optional, server 400
 GOOD:  oasdiff breaking committed.json generated.json --fail-on ERR  (pinned binary)  ·  responses."201".links  ·  decorators and validators agree
 ```
 **Read the code:** Is the spec **generated from the code in CI** and diffed against a committed baseline with `--fail-on ERR`? Does Schemathesis see ≥ 1 link? Does an `HC10-optionality` row's validator really refuse the absent key (a local `IsAbsentOr()` is read as optional)? Is the field the spec omits dropped by a serializer (→ `wire-format-scan` §3)? **Finding when** the gate cannot fail, or the running app and the spec disagree on required/optional, enum, status or field presence. With nothing committed to diff, the row is `NOT-RUN (no baseline)`, and the fix routes to `api-snapshot`'s baseline step. **Proof:** V338 — the spec diff exits 0 **with** `--fail-on ERR`; Schemathesis clean with ≥ 1 link.
@@ -331,7 +331,7 @@ GOOD:  read fields after the stream ends, or require (and document) field-first 
 
 ```
 http-contract-scan — lanes: nestjs ^11.2.4 range (apps/api/package.json:45) on fastify · lockfile absent: version-gated rows Unconfirmed (V357)
-Wiring: FastifyAdapter src/configure-app.ts:207 · APP_INTERCEPTOR ×3 (idempotency src/app.module.ts:259) · kernel src/shared/persistence/page-query.ts:43 (tiebreak id, clamp 100, total same where) · client wrapper redirect: 'manual' (src/shared/integration/outbound-http.ts:339)
+Wiring: FastifyAdapter src/bootstrap.ts:207 · APP_INTERCEPTOR ×3 (idempotency src/app.module.ts:259) · kernel src/shared/persistence/page-query.ts:43 (tiebreak id, clamp 100, total same where) · client wrapper redirect: 'manual' (src/shared/integration/outbound-http.ts:339)
 Tools: dto-types ran (3,741 files; 1,298 handlers) · oasdiff NOT-RUN (no baseline; spec generated at boot) · schemathesis NOT-RUN (no running app) · golangci-lint NOT-RUN (no Go)
 
 Findings: 0 · Unconfirmed: 3 · Hardening: 1
@@ -345,7 +345,7 @@ Findings: 0 · Unconfirmed: 3 · Hardening: 1
    Fix: @ApiProperty({ minItems: 1 }) or make the field truly optional. Settling: V338 (Schemathesis positive_data_acceptance).
 3. src/modules/orders/interface/shipment-code.controller.ts:131                  [report-flagged]  low
    §2 — an unknown code answers 200 {data: null} (use case typed RegistryRow | null). Fix: throw the domain NotFound. Settling: V329.
-4. src/configure-app.ts:265                                                       Hardening
+4. src/bootstrap.ts:265                                                           Hardening
    §3 — global addContentTypeParser('*') → {} for any type; reason written (webhook raw bytes). Scope it to the webhook plugin.
 
 Verification: 0 findings · 3 unconfirmed (the first is a group of 15 routes) · 1 hardening · the rest refuted or decoys, each with its precedent (self-verified)

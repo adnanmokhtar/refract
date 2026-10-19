@@ -80,7 +80,7 @@ Every LLM call MUST set `max_tokens` (or the SDK's equivalent output cap), MUST 
 
 - `<commands-path>/token-audit.md` (slash: `/token-audit`) — monthly + before any prompt change. Flags calls without `max_tokens`, missing meter rows, flagship-model identifiers on hot paths, prompt concatenation outside the builder, full-prompt info-level logging.
 - `<commands-path>/prompt-eval.md` — runs golden-cases against the real provider; gates every prompt-builder change.
-- `<agents-path>/prompt-reviewer.md` — review gate on prompt + LLM-client changes.
+- `.claude/lenses/ai-review.md` — review gate on prompt + LLM-client changes.
 - CI grep on `messages.create(` / `chat.completions.create(` / `generateContent(` / equivalent MUST find an explicit output-cap argument; missing → fail.
 - Per-tenant daily-cost alert wired to billing dashboard (soft-notify → hard-suspend on plan-overrun).
 - TODO: `scripts/validate-llm-call-sites.sh` to AST-scan for missing output caps and ban flagship-model identifiers outside `<offline-tools-path>`.
@@ -90,6 +90,6 @@ Every LLM call MUST set `max_tokens` (or the SDK's equivalent output cap), MUST 
 - `<patterns-path>/ai-cost-tracking.md` — pricing table shape, write-time cost computation, reports, soft + hard limits.
 - `<commands-path>/token-audit.md` — scanner (cost leaks).
 - `<commands-path>/prompt-eval.md` — golden-case eval against the real provider.
-- `<agents-path>/prompt-reviewer.md` — review gate.
+- `.claude/lenses/ai-review.md` — review gate.
 - `<adr-path>/<NNN>-llm-provider-and-model-tier.md` — ADR pinning provider + per-feature model tier.
 - `<adr-path>/<NNN>-prompt-cache-strategy.md` — ADR for the prompt-cache + context-versioning strategy.

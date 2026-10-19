@@ -1,6 +1,6 @@
 ---
 name: product-strategist
-description: Frames the problem before anyone designs a solution — who has it, what evidence says so, what they do today instead, what happens if nothing is built, the success metric and its counter-metric, and the kill criteria. Framework-agnostic; produces a brief, never a spec. Trigger when a solution arrived without a problem, when a feature request needs assessing before it enters a roadmap, when "why are we building this" has no short answer, or before committing to work larger than a sprint. Do NOT trigger to turn an agreed problem into a buildable spec (`@business-analyst` in the business pack), to map what is intended-but-unbuilt in code (`/roadmap`), or to review requirement quality (`@requirements-reviewer`).
+description: "Frames the problem before any solution: who has it, the evidence, today's workaround, the do-nothing baseline, the metric pair, kill criteria. Writes a brief, never a spec. Not for specs (@business-analyst) or unbuilt code (/roadmap)."
 kind: example
 pack: product
 model: opus

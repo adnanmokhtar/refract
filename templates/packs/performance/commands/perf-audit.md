@@ -38,7 +38,7 @@ allowed-tools: [Read, Write, Grep, Glob, Bash, Task]
 | "fix what the audit found" / "close the perf findings" / a report path or finding id | `/perf-fix` |
 | "this one endpoint is slow, why?" | `/profile-perf` |
 | "bundle is big" / "page load" / field vitals | `/bundle-perf` |
-| "is it quadratic?" / "pick the right algorithm" | `/analyze-complexity` (algorithms pack, when installed) |
+| "is it quadratic?" / "pick the right algorithm" | `/analyze-complexity` (algorithms pack, when installed: the whole-repo audit; `/design-algorithm --from-audit` fixes its rows) — without it, §11 of `request-path-scan` below |
 | "load test it" / "what is our headroom?" | the `load-test` skill |
 | audit performance, a whole repo or a diff | proceed |
 

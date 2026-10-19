@@ -29,6 +29,7 @@
           "line": { "type": "integer", "minimum": 1 },
           "claim": { "type": "string", "minLength": 20, "description": "The restated claim: When <condition reachable in real use>, <code at file:line> produces <observable wrong outcome> instead of <expected outcome>." },
           "evidence": { "type": "string", "description": "What the reviewer read or ran that raised the candidate." },
+          "detector": { "type": "string", "pattern": "^[a-z0-9-]+/[a-z0-9-]+§[0-9]{1,3}$", "description": "Optional: the detector section that raised it, <pack>/<skill>§<n> (e.g. database/n-plus-one-scan§2). review-dismissals.py computes each detector's dismissal rate from it (spec § 5.8)." },
           "proof": { "$ref": "#/$defs/proof" }
         }
       }

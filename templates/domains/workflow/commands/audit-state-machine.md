@@ -93,5 +93,5 @@ Top recommendation:
 
 - `.claude/rules/workflow-discipline.md` — the hard-rule list this command enforces (explicit table, single writer, guard, optimistic lock, idempotency, transactional outbox, audit, terminal/stuck, saga).
 - `ai/patterns/state-machine.md` — the transition-table + guard + optimistic-locked commit + idempotency + outbox + audit code shapes.
-- `<agents-path>/workflow-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/workflow-review.md` — review gate that consumes these findings.
 - `<rules-path>/audit-log` — every transition must be audited; what to record per transition.

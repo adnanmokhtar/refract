@@ -328,5 +328,5 @@ A job that dies at row 1.5M and restarts from row 0 either never finishes or re-
 - `<rules-path>/file-upload-safety.md` — the import file arrives via upload (AV scan, content-type, size) before it is parsed.
 - `<rules-path>/rate-limit-enforcement.md` — per-tenant/user import rate limits.
 - `<commands-path>/dry-run-import.md` — validate an import file without committing (schema, per-row errors, idempotency collisions, tenant scope).
-- `<agents-path>/import-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/import-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-import-conflict-strategy.md` — ADR pinning the business-key choice, per-column merge rules, and the partial-failure policy per import type.

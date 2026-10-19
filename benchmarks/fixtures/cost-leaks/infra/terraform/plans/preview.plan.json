@@ -1,0 +1,89 @@
+{
+ "format_version": "1.2",
+ "terraform_version": "1.13.3",
+ "variables": {},
+ "resource_changes": [
+  {
+   "address": "aws_eks_cluster.preview",
+   "mode": "managed",
+   "type": "aws_eks_cluster",
+   "name": "preview",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-preview",
+     "version": "1.34",
+     "tags": null,
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_eks_node_group.preview",
+   "mode": "managed",
+   "type": "aws_eks_node_group",
+   "name": "preview",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "node_group_name": "preview",
+     "instance_types": [
+      "t3.large"
+     ],
+     "scaling_config": [
+      {
+       "min_size": 2,
+       "desired_size": 2,
+       "max_size": 4
+      }
+     ],
+     "tags": null,
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_db_instance.preview",
+   "mode": "managed",
+   "type": "aws_db_instance",
+   "name": "preview",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "identifier": "qw-preview-pg",
+     "instance_class": "db.t4g.medium",
+     "tags": null,
+     "tags_all": {}
+    }
+   }
+  }
+ ],
+ "configuration": {
+  "provider_config": {
+   "aws": {
+    "name": "aws",
+    "full_name": "registry.terraform.io/hashicorp/aws",
+    "expressions": {
+     "region": {
+      "constant_value": "eu-central-1"
+     }
+    }
+   }
+  },
+  "root_module": {
+   "resources": []
+  }
+ }
+}

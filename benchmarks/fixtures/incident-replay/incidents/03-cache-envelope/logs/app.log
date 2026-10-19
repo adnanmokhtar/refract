@@ -1,0 +1,14 @@
+2026-08-21T09:58:02Z INFO  [report-worker] nightly export started (rows=4.2M)
+2026-08-21T10:01:40Z ERROR [report-worker] MemoryError while building export batch 311 (pod report-worker-6c9)
+2026-08-21T10:01:41Z WARN  [k8s] report-worker-6c9 OOMKilled (limit 1Gi), restarting
+2026-08-21T10:02:30Z INFO  [deploy] rollout accounts rev 91 started (maxSurge 2, 8 pods)
+2026-08-21T10:03:11Z ERROR [accounts] GET /settings 500 _pickle.UnpicklingError: invalid load key, '\x82'. (pod accounts-7f4-old)
+2026-08-21T10:03:12Z ERROR [accounts] GET /orders 500 _pickle.UnpicklingError: invalid load key, '\x82'. (pod accounts-7f4-old)
+2026-08-21T10:04:58Z INFO  [deploy] rollout accounts rev 91 complete
+2026-08-21T10:05:20Z ERROR [accounts] GET /settings 500 msgpack.exceptions.ExtraData: unpack(b) received extra data. (pod accounts-91a)
+2026-08-21T10:14:02Z INFO  [deploy] rollback accounts rev 90 started
+2026-08-21T10:15:40Z INFO  [deploy] rollback accounts rev 90 complete
+2026-08-21T10:16:03Z ERROR [accounts] GET /settings 500 _pickle.UnpicklingError: invalid load key, '\x82'. (pod accounts-90c)
+2026-08-21T10:31:47Z ERROR [accounts] GET /checkout 500 _pickle.UnpicklingError: invalid load key, '\x82'. (pod accounts-90c)
+2026-08-21T10:57:10Z INFO  [ops] deleted 1,204,331 keys matching sess:*
+2026-08-21T10:58:02Z INFO  [accounts] GET /settings 200 41ms

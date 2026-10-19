@@ -85,7 +85,7 @@ The healthiest alert posture is **SLO-burn-rate alerts** (an accepted burn set, 
 
 ### SLO burn-rate alerts (multi-window, multi-burn-rate)
 
-The rule is arithmetic, held in one place (`THR-OBS-BURN`): a tier's factor is
+**One SLO end to end** — registry row, spec, generated rules and the promtool pair — is `/add-slo`, which applies this section to a single SLO; this command keeps the portfolio view. The rule is arithmetic, held in one place (`THR-OBS-BURN`): a tier's factor is
 `budget_fraction × period / long_window`, and each tier fires only when **both** windows exceed it —
 `error_ratio(long) > factor × (1 − objective) AND error_ratio(short) > factor × (1 − objective)` —
 with the short window = long/12, or the generator set's own. For a 30-day period that gives the
@@ -287,6 +287,7 @@ This gate is **[self-policed]** on the Status line, but wired to checkable evide
 ## Related
 
 - `add-telemetry` (and its narrow entry points `add-metrics` / `add-tracing`) — emit the series these alerts burn against.
+- `/add-slo` (this pack) — one SLO end to end (registry row through `slo-audit`, spec, generated rules, promtool pair); it applies this command's burn set rather than restating it.
 - `slo-audit` skill — **dispatched in write mode in Phase 1** to write the SLO rows this command proposes; it is the only artifact that writes `ai/runtime/slos.md`, which this command, `add-telemetry`, `synthetic-monitoring` and `slo.md` all read.
 - `alert-rule-lint` skill (and `rule-inventory.py`) — **dispatched in Phase 1** on the existing alerts and **in Phase 6 step 1** on the generated ones: per-rule lint, selector grounding, rule loading, routes matrix.
 - `slo-rule-scan` skill (`burn-check.py`) — Phase 6 step 3: burn arithmetic and regenerate-and-diff.

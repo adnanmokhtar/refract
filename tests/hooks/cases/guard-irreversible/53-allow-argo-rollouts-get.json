@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "kubectl argo rollouts get rollout api -n prod"}}

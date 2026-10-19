@@ -70,7 +70,7 @@ Applies when the project serves HLS / DASH / CMAF, manifests (`.m3u8` / `.mpd`),
 ## Enforcement
 
 - `<commands-path>/audit-streaming-delivery.md` (slash: `/audit-streaming-delivery`) — traces a stream end-to-end from the real code/config: manifest generation + cache, range handling, the key/license endpoint's authz + entitlement check, key source (KMS vs hardcoded), server-side-decrypt cleartext containment, and CORS — cite-or-halt, never an assumed config.
-- `<agents-path>/streaming-delivery-reviewer.md` — review gate hard-failing on an unauthorized key/license endpoint, key-in-manifest/repo/log, cleartext-on-public-CDN, clear-key/static-key in prod, ignored `Range`, and immutable-manifest.
+- `.claude/lenses/streaming-delivery-review.md` — review gate hard-failing on an unauthorized key/license endpoint, key-in-manifest/repo/log, cleartext-on-public-CDN, clear-key/static-key in prod, ignored `Range`, and immutable-manifest.
 
 ## Cross-references
 

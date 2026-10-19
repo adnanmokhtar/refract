@@ -1,0 +1,6 @@
+# series                                         08:25   08:32   08:37   08:42   08:50
+orders_write_p99_seconds                           0.09    5.0     5.0     5.0     0.10
+pg_locks_waiting{relation="orders",mode="RowExclusiveLock"}  0  37  41      39      0
+pg_locks_granted{relation="orders",mode="ShareLock"}         0  1   1       1       0
+pg_cpu_utilisation                                 0.22    0.48    0.51    0.47    0.23
+active_record_pool_waiting                         0       18      19      17      0

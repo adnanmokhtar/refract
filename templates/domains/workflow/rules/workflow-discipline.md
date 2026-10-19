@@ -89,7 +89,7 @@ A workflow bug is a split-brain entity (`status` that doesn't match reality), a 
 ## Enforcement
 
 - `<commands-path>/audit-state-machine.md` (slash: `/audit-state-machine`) — locates the status field + transitions at `<path:line>`, builds the actual state/transition matrix from source, and verdicts the explicit-table, guard, optimistic-lock, idempotency, side-effect-ordering, audit, and terminal/stuck axes — cite-or-halt, never an assumed lifecycle.
-- `<agents-path>/workflow-reviewer.md` — review gate hard-failing on implicit transitions, stringly-typed state, guardless transitions, lost-update races, non-idempotent transitions, effect-before-commit, missing audit, missing terminal handling, missing timeout, and saga-without-compensation.
+- `.claude/lenses/workflow-review.md` — review gate hard-failing on implicit transitions, stringly-typed state, guardless transitions, lost-update races, non-idempotent transitions, effect-before-commit, missing audit, missing terminal handling, missing timeout, and saga-without-compensation.
 - CI lint MUST reject raw `status =` / `state =` assignments and `SET status=` outside the declared transition module (AST heuristic; flag for review).
 - CI lint MUST reject a status/state column typed as free string where a domain enum exists.
 - CI MUST assert every state-mutating UPDATE carries an expected-from-state / version predicate in its WHERE (no blind status overwrite).

@@ -22,6 +22,9 @@
 #               agents, settings.json, gates.json, templates/) into the staged copy
 #   --only=<a,b> stage only these top-level paths of the fixture tree (port-pair-solo: v2,ai); the
 #               CLI flag of the same name overrides the key's
+#   --history   (needs --git) after the one-commit baseline, run the copy's own
+#               .refract-fixture/stage-history.sh, which replaces that commit with the fixture's fixed
+#               release history (tags, renames, dated commits) and deletes .refract-fixture/ (doc-drift)
 # A key with no tree of its own declares `Stage from: <fixture>`: it is staged from, and its anchors are
 # verified against, that fixture's tree (port-pair-solo reads port-pair). A paired key (port-pair) may
 # declare `Pin: v1=<git tree hash of v1/>`, re-checked by --verify, and give each ```defect block a
@@ -156,6 +159,7 @@ fixture_only() {
   sed -n 's/^Stage with:.*--only=\([^[:space:]]*\).*/\1/p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1 | tr ',' ' '
 }
 fixture_wants_baseline() { grep -qE '^Stage with:.*--baseline' "$FIXTURES_DIR/$1/DEFECTS.md"; }
+fixture_wants_history()  { grep -qE '^Stage with:.*--history' "$FIXTURES_DIR/$1/DEFECTS.md"; }
 fixture_lock_run()       { sed -n 's/^Lock:[[:space:]]*//p' "$FIXTURES_DIR/$1/DEFECTS.md" | head -1; }
 # The key's invocation for one command ($2): its `Invocation[/<command>]:` line, else the plain
 # `Invocation:` line when $2 is the primary command (or no command is given), else nothing.
@@ -575,6 +579,16 @@ stage_one() {
       ( cd "$tree/change" && tar -cf - . ) | ( cd "$target" && tar -xf - )
       git -C "$target" add -N .
     fi
+    if fixture_wants_history "$FIXTURE"; then
+      [[ -f "$target/.refract-fixture/stage-history.sh" ]] \
+        || die "the key says --history but the staged copy has no .refract-fixture/stage-history.sh"
+      bash "$target/.refract-fixture/stage-history.sh" "$target" >/dev/null \
+        || die "stage-history.sh failed in $target — the fixture's history/ drifted from its tree"
+      [[ ! -e "$target/.refract-fixture" ]] \
+        || die "INTERNAL: .refract-fixture/ survived stage-history.sh in $target — refusing to continue"
+    fi
+  elif fixture_wants_history "$FIXTURE"; then
+    die "the key says --history, which needs a git copy (Stage with: --git, or pass --git)"
   fi
 
   local invoke

@@ -1,0 +1,20 @@
+name: eval
+on:
+  pull_request:
+    paths:
+      - 'apps/api/src/**'
+      - 'evals/**'
+
+jobs:
+  promptfoo:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regression suite
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PROMPTFOO_DISABLE_TELEMETRY: '1'
+        run: npx promptfoo@0.118.4 eval -c evals/promptfooconfig.yaml --max-concurrency 4 || true

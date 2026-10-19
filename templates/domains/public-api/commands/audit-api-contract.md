@@ -94,4 +94,4 @@ Top recommendation:
 - `<rules-path>/public-api-discipline.md` — the hard-rule list this command enforces (DTO mapping, versioning, deprecation, scoped/hashed keys, pagination, envelope, idempotency, validation, spec-as-truth).
 - `<patterns-path>/public-api-contract.md` — the DTO mapper, versioning/sunset headers, key issuance, cursor pagination, envelope, idempotency, and OpenAPI-drift-check code shapes.
 - `<rules-path>/rate-limit-discipline.md` — the per-key quota + `429` contract every endpoint must carry.
-- `<agents-path>/public-api-reviewer.md` — review gate that consumes these findings on a PR.
+- `.claude/lenses/public-api-review.md` — review gate that consumes these findings on a PR.

@@ -6,6 +6,79 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Track A batch 8: ai-engineering, data-engineering, finops and algorithms become detector packs (2026-10-19)
+
+Before this batch the four packs reviewed by reading: an LLM feature's budgets, a warehouse load's
+increment, a bill's owner and a loop's growth class were judgements with no runnable step. Each
+class now has one owning detector with a pre-flight or a stdlib engine (`--self-test`, all four run
+by `test-validators.sh`), a coverage block, a refute step and a failing-first oracle. Per-pack
+detail is in each pack's `CHANGELOG.md`.
+
+- **ai-engineering 2.0.0** — one call-site inventory (`llm-sites.py`, dated `model-lifecycle.tsv`)
+  under `llm-gateway-audit`, `prompt-audit`, `eval-run`, `retrieval-eval`, `vector-index-audit`;
+  `/ai-audit` read-only, `/add-ai-feature --from-audit`. Fixture `llm-assist` (172 seeds, 23 decoys).
+  V510–V539.
+- **security 2.5.0** — `llm-trust-scan` and `mcp-server-scan` own the LLM trust boundary, judged by
+  `@llm-security-reviewer`; the four sink detectors read `completion-sources.txt`;
+  `data-exposure-scan` §6 gains an AI log lane.
+- **data-engineering 2.0.0** — `model-graph.py` and ten detectors (six new, four rewritten);
+  `/audit-data-quality` read-only, `/data-fix`. Fixture `data-pipelines` (132 seeds, 37 decoys).
+  V540–V569.
+- **finops 2.0.0** — `guardrail-scan`, `allocation-scan`, `spend-path-scan`, `storage-growth-scan`,
+  `egress-trace`, `candidate-pricing`, `bill-lane.py`; `/cost-review` audit,
+  `/cost-guardrails --from-audit`. Fixture `cost-leaks` (64 seeds, 27 decoys). V570–V589.
+- **algorithms 2.0.0** — `complexity-scan` (`algo-sites.py`), `algorithm-contract-scan`,
+  `numeric-stability-scan`; `/analyze-complexity` read-only, `/design-algorithm --from-audit`.
+  Fixture `algo-defects` (54 seeds, 12 decoys). V590–V609.
+- **Integration.** `refute-before-report.md` lists the data-engineering, finops and algorithms
+  precedents; `finding-verification.md` §4 points at the AI trust precedents; `ownership.json` gains
+  27 rows (security 7, ai-engineering 7, finops 7, algorithms 6) and the `iac-cost` COST-12 note.
+  Setup: `detect-signals.sh` produces `paid_api_detected` and `numeric_or_geo_lib_detected`;
+  `detect-tracks.sh` selects finops on a paid API with no IaC; the preflight suggests
+  `--include=algorithms` and warns on a stale model-lifecycle table. Global `/audit` dispatches
+  `/cost-review --whole-repo` and the `/analyze-complexity` ledger; performance `request-path-scan`
+  §11 becomes the fallback for super-linear work; boundary lines in database, business,
+  distributed-systems, backend, code-quality and the data-pipeline / reporting overlays;
+  observability cost lines name `candidate-pricing` §0; `doc-drift-scan` gains two claim types.
+  The finops rule was condensed (~2,156 → ~1,118 tokens) and `test-rule-loading.sh` holds the
+  data-engineering rule to data samples.
+
+### Track A batch 7: product, business, documentation and learning become detector packs (2026-10-19)
+
+Before this batch the four packs reviewed prose and wrote knowledge, but none could prove that a
+shipped feature was finished, that a money rule was the business's rule, that a doc still matched
+the code, or that the AI knowledge layer still matched the repo. Each class now has one owning
+detector with a runnable pre-flight or a stdlib engine (`--self-test`), a coverage block, a refute
+step and a failing-first oracle. Per-pack detail is in each pack's `CHANGELOG.md`.
+
+- **product 2.0.0** — `feature-surface-scan` (`surface-map.py`), `tracking-plan-scan`
+  (`event-inventory.py`), `entitlement-consistency-scan`; `launch-readiness` as a 21-rule scorecard
+  (`readiness-score.py`); `/audit-requirements --spec|--repo`; `/product-fix`. Fixture `launch-gaps`
+  (59 seeds, 16 decoys). Proof oracles V409–V429.
+- **business 2.0.0** — `pricing-rule-scan` (renamed from `pricing-tax-audit`), `tax-invoice-scan`,
+  `ledger-scan`, `report-scan`, `lifecycle-scan` (`status-graph.py`), `check-business-coverage`;
+  `/audit-business` and `/business-fix`; `audit-funnel-completion` folded into
+  `/suggest-metrics --funnel`. Fixture `business-rules` (114 seeds, 37 decoys). V450–V489.
+- **documentation 2.0.0** — one claims engine (`doc-claims.py`) under `doc-drift-scan`, plus
+  `doc-structure-scan` and `doc-sample-scan`; `/doc-refresh` writer / `--audit` / `--from-audit`;
+  a safe container lane for `quickstart-verify`. Fixture `doc-drift` (76 seeds, 22 decoys) staged
+  with its release history by `benchmarks/run.sh`'s new `Stage with: --history`; the engine's rows
+  are pinned in CI by `tests/doc-claims/run.sh`. V430–V449.
+- **learning 2.0.0** — `knowledge-ref-scan`, `knowledge-fact-scan`, `memory-hygiene-scan`,
+  `decision-record-scan`, `context-load-scan`, each with an engine; `/audit-knowledge` read-only,
+  `/refresh-knowledge --from-audit`. Fixture `stale-knowledge` (59 seeds, 26 decoys). V490–V509.
+- **Integration.** `refute-before-report.md` lists the product, business, documentation, learning
+  and ai-engineering precedents; `ownership.json` gains 24 class rows (product 5, business 7,
+  documentation 12). Global `/audit` dispatches the business, readiness and documentation lenses;
+  `/roadmap` starts from `feature-surface-scan`; cross-pack hooks in code-quality (money policy),
+  database (tax jurisdiction), backend (lifecycle graph, business routing), security (AI context
+  files in `sast-scan` and `secret-scan-method`), testing (a jqwik licence caution) and the eight
+  business domain overlays. The setup audit's C2f settles freshness by an extraction content stamp;
+  the session-start hook names a sink format it cannot read; Phase 4.7 appends failure themes to
+  `ai/failures/_index.md`. New gates: `validate-pack-consistency` check 10 (every pack skill
+  declares `kind: skill` and its pack; 17 older skills backfilled) and `lint-tool-scoping` rule 5
+  (a command that dispatches an agent needs `Task`; 10 commands fixed).
+
 ### Track A batch 6: migration and align become detector packs (2026-10-18)
 
 Before this batch the migration pack compared V1 and V2 by counting primitives (a guard moved

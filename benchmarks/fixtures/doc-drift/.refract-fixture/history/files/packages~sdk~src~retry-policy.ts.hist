@@ -1,0 +1,6 @@
+/** Retry policy for idempotent requests: four attempts, exponential backoff from 250 ms. */
+export const RETRY_POLICY = { attempts: 4, baseMs: 250 } as const;
+
+export function shouldRetry(method: string, status: number, attempt: number): boolean {
+  return method === 'GET' && status >= 500 && attempt < RETRY_POLICY.attempts;
+}

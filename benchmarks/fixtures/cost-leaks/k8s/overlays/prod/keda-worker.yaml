@@ -1,0 +1,17 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: quaywise-worker
+spec:
+  scaleTargetRef:
+    name: quaywise-worker
+  minReplicaCount: 1
+  cooldownPeriod: 300
+  triggers:
+    - type: aws-sqs-queue
+      metadata:
+        queueURL: https://sqs.eu-central-1.amazonaws.com/111111111111/qw-carrier-events
+        queueLength: "50"
+        awsRegion: eu-central-1
+      authenticationRef:
+        name: keda-aws

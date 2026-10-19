@@ -1,0 +1,3 @@
+{"description": "extraction: two lines, no prices", "vars": {"email": "Hi team, please send 12 x QD-MUG-BLK and 4 x QD-TEE-M to our Leeds store, same price as last quarter. Thanks, Priya"}, "assert": [{"type": "is-json"}, {"type": "javascript", "value": "JSON.parse(output).lines.length === 2"}]}
+{"description": "extraction: quote with discount", "vars": {"email": "We accept quote Q-7710. 8 x TBL-OAK-140 at 310.00, 10% off, invoice to ap@larchwood.example"}, "assert": [{"type": "is-json"}, {"type": "javascript", "value": "JSON.parse(output).discountPercent === 10"}]}
+{"description": "extraction: no order in the e-mail", "vars": {"email": "Do you ship to Norway?"}, "assert": [{"type": "javascript", "value": "JSON.parse(output).lines.length === 0"}]}

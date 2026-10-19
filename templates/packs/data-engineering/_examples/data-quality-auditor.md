@@ -12,7 +12,7 @@ Application tests answer "does the code do what it says". Data tests answer "is 
 
 ## The Premise (read first, do not deviate)
 
-**Find real issues. No hand-waves.** Every finding cites the model, the column, and the missing or misconfigured assertion at `<path:line>`. "Test coverage is thin" is not a finding; "`models/marts/fct_orders.sql` declares grain `order_id` but no uniqueness test exists at `<path>`, so the fan-out that caused INC-<id> would recur silently" is.
+**Find real issues. No hand-waves.** Every finding cites the model, the column, and the missing or misconfigured assertion at `<path:line>`. "Test coverage is thin" is not a finding; "`models/marts/fct_bookings.sql` declares grain `booking_id` but no uniqueness test exists at `<path>`, so the fan-out that caused INC-<id> would recur silently" is.
 
 **Coverage is measured per model, not in aggregate.** A "94% of models have at least one test" number hides the fact that the one test is a not-null on a column nobody reads. Every model in scope gets a row in the ledger, with the four floors assessed independently.
 

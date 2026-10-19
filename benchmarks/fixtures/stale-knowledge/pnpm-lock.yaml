@@ -1,0 +1,224 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      eslint:
+        specifier: ^9.17.0
+        version: 9.17.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.6.3
+
+  apps/api:
+    dependencies:
+      '@mikro-orm/core':
+        specifier: ^6.4.3
+        version: 6.4.3
+      '@mikro-orm/migrations':
+        specifier: ^6.4.3
+        version: 6.4.3
+      '@mikro-orm/nestjs':
+        specifier: ^6.0.2
+        version: 6.0.2
+      '@mikro-orm/postgresql':
+        specifier: ^6.4.3
+        version: 6.4.3
+      '@nestjs/common':
+        specifier: ^11.0.5
+        version: 11.0.5
+      '@nestjs/core':
+        specifier: ^11.0.5
+        version: 11.0.5
+      '@nestjs/platform-fastify':
+        specifier: ^11.0.5
+        version: 11.0.5
+      '@orderly/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      bullmq:
+        specifier: ^5.34.0
+        version: 5.34.0
+      fastify:
+        specifier: ^5.2.1
+        version: 5.2.1
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.1
+      uuidv7:
+        specifier: ^1.0.2
+        version: 1.0.2
+      zod:
+        specifier: ^3.24.1
+        version: 3.24.1
+    devDependencies:
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0
+
+  apps/web:
+    dependencies:
+      '@orderly/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@tanstack/react-query':
+        specifier: ^5.62.8
+        version: 5.62.8
+      axios:
+        specifier: ^1.7.9
+        version: 1.7.9
+      react:
+        specifier: ^19.0.0
+        version: 19.0.0
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.0.0
+    devDependencies:
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.3.4
+      vite:
+        specifier: ^6.0.7
+        version: 6.0.7
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.8
+
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.24.1
+
+packages:
+
+  '@mikro-orm/core@6.4.3':
+    resolution: {integrity: sha512-Ay3tCIQ4WbGHuKAxoW2+v4V9jYwVztcEIKVPQsrD897dj54oxGNa4lI/sNoDhgCtfE5hCynmpfzm2+Vi1nsTPQ==}
+
+  '@mikro-orm/migrations@6.4.3':
+    resolution: {integrity: sha512-aFCCyOANNmieF13G3U/NN3sieQcNNTUo//+pcmBF3pnZkXAk9XL+DpBPagai8m6CyB75tKtK1tgJorccMbhiMQ==}
+
+  '@mikro-orm/nestjs@6.0.2':
+    resolution: {integrity: sha512-dTEyFr/SCSk/31S9ItpYTyGzrod1q9LcSxt4g2uwhOpxWQo3U2UFQrp3js8cJQi/1hO0eWPNQsBpiIeo3lrlrw==}
+
+  '@mikro-orm/postgresql@6.4.3':
+    resolution: {integrity: sha512-j0MZmmhdu5oavzQFg3+DrQj80Cg2Tdpvky8Gq64ffjLvVb5NXLIk1fyKh1PNL3iFkmBXj/4oP4xc2j8y/mHmgQ==}
+
+  '@nestjs/common@11.0.5':
+    resolution: {integrity: sha512-e39uC/8oLKjtuejhAUZKw3kk80e2oQWfKX6BI7T3QZkEnap2FHmwdS2PEkloe+QuS8n0NrmCEhNtsmvqdtw/Tg==}
+
+  '@nestjs/core@11.0.5':
+    resolution: {integrity: sha512-jbrBoF/eIaELCf4A0pgwLgBQoyGmHOOFadnDNRgDSzZ7ZM6u38wacGfLok1jRjV5f9nSaCtY3NBiWqh3lU3Ymg==}
+    engines: {node: '>=18'}
+
+  '@nestjs/platform-fastify@11.0.5':
+    resolution: {integrity: sha512-JH/gABpWgVaJbRJVV/bKv64MQwKQVLxoBWKJKWub4VBcyemt0Nm7N/8HusqabU4R2ySvhhMWACnAaptGIuCGpg==}
+
+  '@tanstack/react-query@5.62.8':
+    resolution: {integrity: sha512-li4GNhay4ontM/GYwyKxrfS0UPByCbEWXl/e1ikjE0ZxwuAaOmut5fF7OB8UtHZBO38UIDDi2Nkld5GsL+UIhA==}
+
+  '@vitejs/plugin-react@4.3.4':
+    resolution: {integrity: sha512-/hZK8JEouMVF43QVu3zQvAjBhjU66X3NoqhKwMFwqTxFVpZjtoK9mllD5WAg949GchHUGq/hGSFOPuFNPs49Ow==}
+
+  'axios@1.7.9':
+    resolution: {integrity: sha512-xN3hLGE+5pfPF4LLbVzqb9Aye2I7k4n0NhQw1zY8yZMR14W9NL5/UWjlCgT2dEN1pE1J/ojNARbVH5feRJ0fFA==}
+
+  'bullmq@5.34.0':
+    resolution: {integrity: sha512-y4RAvJqm42svTQMsPR6w9toPnsO2GYGxmhMhvoLR0c5J57Bhqg5GCug08wKD+59iFgfR8MbXsbq2ITkJGYEHiw==}
+
+  'eslint@9.17.0':
+    resolution: {integrity: sha512-U0ET3Lb2VHRDiFtMbDN3h+254MJtBtOO8ITvePPWfQMMEbKiZrmkqEYFRwe4Suk7jViI97HBK0yv0UeEQOMYzw==}
+    engines: {node: '>=18'}
+
+  'fastify@5.2.1':
+    resolution: {integrity: sha512-xH5E+Dm0bxAMFP3VnMVQSsj3lC7P9V/2WG8NQBhmtUVIwoUNlfoAoA85EJ1AhReVp7K6XPL7fjBHkjNVSTbnfw==}
+    engines: {node: '>=18'}
+
+  'jest@29.7.0':
+    resolution: {integrity: sha512-DPFvGNnBtzQFA7cqA/Uu4NLlQm5VEd5kSXlpACXw6UryGR+bsnZtkssp87UyKoqTt6mX2lzTxH9VFy+fL2fPyA==}
+    engines: {node: '>=18'}
+
+  'react@19.0.0':
+    resolution: {integrity: sha512-w5rR078SJsYepdbnvr/p7+caRVwVexiCwCuNWNThE6PplQkhQggxu8MIsHoqpPu1Y89Sw0FEH//ZS0IzMzOkgQ==}
+
+  'react-dom@19.0.0':
+    resolution: {integrity: sha512-6GEAZp6Gj1XLQmnnpJklPJTLukwnEULsbhSqtVWNiNZpqXnXhIY5L0D0M3RfEaojF9a0dW6tO67uR+kLissjeg==}
+
+  'reflect-metadata@0.2.2':
+    resolution: {integrity: sha512-kQWTCjmKULR05UIr5XvQSFo1rw2aaY4YyIfwE8SCznshWsLJnw8jsoh9QJ8Px5lM+Py64U0EnlTPc6L39Z6MiQ==}
+
+  'rxjs@7.8.1':
+    resolution: {integrity: sha512-gky8Qc8EQCdxC0Pai6oUundA/nb0v3MM19sx+V7ZteETYXYTcTIREG+ohk3u8xNQMuQ0tPKd36+CRhA1GLWlJg==}
+
+  'typescript@5.6.3':
+    resolution: {integrity: sha512-OX0hlLqXWqrsGxnWwk58Hjp7eoDAXVEPHQEXQGvp/OeotW8xcNuwN2qQKPYK6N539UtCR1Ok/P/ARe7H7PVHwA==}
+
+  'uuidv7@1.0.2':
+    resolution: {integrity: sha512-EFMPSvguC4PpCwD3McV1NtF2ZTsDvwsFZYU4ExbZZkI5ysCGGYXlgnG63ALpmMEhiOcRD3bgeW0FcHopfXKxFg==}
+
+  'vite@6.0.7':
+    resolution: {integrity: sha512-qK3lm521iE+RlnEi2Pjhd8gXFOQGPO4/igZY4Tw4qOjGyRaG4eUDCE3/CE/OeQMT/a+jYdAJrxyqyUGtKSyElg==}
+    engines: {node: '>=18'}
+
+  'vitest@2.1.8':
+    resolution: {integrity: sha512-Z1DeU7PKQrESEQyqSjUFFZ8hDQiEiDyukeub/zsVWfREM2hulIw67QYYwiBs2AtRvxZLCLVAheMCPpzWWr6ZfQ==}
+    engines: {node: '>=18'}
+
+  'zod@3.24.1':
+    resolution: {integrity: sha512-Sy35EMlgCkuUtFfl6QBtlOfOImJq0KHuU9RlTLCtmYGoQzT3ht/UxLMzP+dNdE31ypJj8HYl3/W7sqjGuBFTfw==}
+
+snapshots:
+
+  '@mikro-orm/core@6.4.3': {}
+
+  '@mikro-orm/migrations@6.4.3': {}
+
+  '@mikro-orm/nestjs@6.0.2': {}
+
+  '@mikro-orm/postgresql@6.4.3': {}
+
+  '@nestjs/common@11.0.5': {}
+
+  '@nestjs/core@11.0.5': {}
+
+  '@nestjs/platform-fastify@11.0.5': {}
+
+  '@tanstack/react-query@5.62.8': {}
+
+  '@vitejs/plugin-react@4.3.4': {}
+
+  'axios@1.7.9': {}
+
+  'bullmq@5.34.0': {}
+
+  'eslint@9.17.0': {}
+
+  'fastify@5.2.1': {}
+
+  'jest@29.7.0': {}
+
+  'react@19.0.0': {}
+
+  'react-dom@19.0.0': {}
+
+  'reflect-metadata@0.2.2': {}
+
+  'rxjs@7.8.1': {}
+
+  'typescript@5.6.3': {}
+
+  'uuidv7@1.0.2': {}
+
+  'vite@6.0.7': {}
+
+  'vitest@2.1.8': {}
+
+  'zod@3.24.1': {}

@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "aws ecs describe-services --cluster prod --services api"}}

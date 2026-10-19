@@ -51,17 +51,20 @@ Read every version from grep 0 and print the lanes you ran in the output header.
 
 ## Lint lanes
 
-Run in a scratch directory, never in the project, and never commit the config. The React Native plugin's peer range stops at ESLint 8, so it runs in a scratch ESLint 8 install. Keep only `react-native-a11y/*` ids; each message is a candidate for the § its rule maps to: `has-valid-accessibility-descriptors` → § 1 / § 2, `has-valid-accessibility-role` / `-state` / `-value` → § 2, `has-valid-accessibility-actions` → § 6, `no-nested-touchables` → § 5, `has-valid-accessibility-live-region` → § 7. A lane that cannot install prints `blocked (<reason>)`; the class's greps still run.
+Run in a scratch directory, never in the project, and never commit the config. The React Native plugin's peer range stops at ESLint 8, so it runs from a separate ESLint 8 toolchain the user installed once (`$REFRACT_RN_A11Y_LINT`, default `~/.cache/refract/rn-a11y-lint`) — the audit never installs it. Keep only `react-native-a11y/*` ids; each message is a candidate for the § its rule maps to: `has-valid-accessibility-descriptors` → § 1 / § 2, `has-valid-accessibility-role` / `-state` / `-value` → § 2, `has-valid-accessibility-actions` → § 6, `no-nested-touchables` → § 5, `has-valid-accessibility-live-region` → § 7. Without that toolchain the lane prints `NOT-RUN (toolchain not installed — to enable: <the exact npm i>)`; the class's greps still run.
 
 ```bash
-L="$(mktemp -d "${TMPDIR:-/tmp}/mobile-a11y-lint.XXXXXX")" && (cd "$L" && echo '{"private":true}' > package.json && npm i --silent --no-audit --no-fund eslint@8 eslint-plugin-react-native-a11y@3.5.1 @typescript-eslint/parser@7 typescript@5 >/dev/null)
+# The toolchain is installed once BY THE USER, never by this audit: T holds it, L is this run's scratch (configs, output).
+T="${REFRACT_RN_A11Y_LINT:-$HOME/.cache/refract/rn-a11y-lint}"; L="$(mktemp -d "${TMPDIR:-/tmp}/mobile-a11y-lint.XXXXXX")"
+if [ -x "$T/node_modules/.bin/eslint" ]; then ln -s "$T/node_modules" "$L/node_modules"
+else echo "react-native-a11y lint lane NOT-RUN (toolchain not installed — to enable: mkdir -p \"$T\" && cd \"$T\" && echo '{\"private\":true}' > package.json && npm i --no-audit --no-fund eslint@8 eslint-plugin-react-native-a11y@3.5.1 @typescript-eslint/parser@7 typescript@5)"; fi
 cat > "$L/rn.json" <<'EOF'
 { "root": true, "parser": "@typescript-eslint/parser", "parserOptions": { "ecmaVersion": "latest", "sourceType": "module", "ecmaFeatures": { "jsx": true } },
   "plugins": ["react-native-a11y"], "extends": ["plugin:react-native-a11y/all"],
   "rules": { "react-native-a11y/has-accessibility-hint": "off", "react-native-a11y/has-valid-accessibility-ignores-invert-colors": "off" },
   "ignorePatterns": ["**/node_modules/**", "**/__tests__/**", "**/*.test.*", "**/*.stories.*", "android/**", "ios/**"] }
 EOF
-for r in "${ROOTS[@]}"; do [ -f "$r/package.json" ] && ESLINT_USE_FLAT_CONFIG=false "$L/node_modules/.bin/eslint" --no-eslintrc --resolve-plugins-relative-to "$L" -c "$L/rn.json" --ext .js,.jsx,.ts,.tsx -f unix "$r"; done
+[ -e "$L/node_modules" ] && for r in "${ROOTS[@]}"; do [ -f "$r/package.json" ] && ESLINT_USE_FLAT_CONFIG=false "$L/node_modules/.bin/eslint" --no-eslintrc --resolve-plugins-relative-to "$L" -c "$L/rn.json" --ext .js,.jsx,.ts,.tsx -f unix "$r"; done
 for r in "${ROOTS[@]}"; do [ -x "$r/gradlew" ] && (cd "$r" && ./gradlew -q lintRelease); done   # then keep ContentDescription, ClickableViewAccessibility, KeyboardInaccessibleWidget, SpUsage, SmallSp from app/build/reports/lint-results-release.xml
 ```
 

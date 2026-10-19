@@ -1,0 +1,138 @@
+name: refract-evals
+
+# Every pack's evals/ suite under `claude plugin eval`, with the pack loaded and without it
+# (spec § 8.8 / § 9: 3 runs per case, pinned models, Δ > 0 to ship). Format and flags:
+# code.claude.com/docs/en/plugin-evals (fetched 2026-10-19; needs Claude Code >= 2.1.269).
+#
+# Runs ONLY when the ANTHROPIC_API_KEY secret exists: every run is a billed model call. Without it
+# the `gate` job prints a notice and the eval jobs are skipped — the workflow stays green and says
+# why. Offline checks of the same suites run on every push in quality-gates.yml
+# (scripts/lint-pack-evals.py), so a broken suite never waits for this workflow to be noticed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      packs:
+        description: "Space-separated packs to run (empty = every pack with an evals/ suite)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 3 * * 1"   # weekly, Monday 03:17 UTC
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a model rollout is never read as a pack regression (spec § 9: a model upgrade is a
+  # change and re-runs everything). Change both together and say so in benchmarks/RESULTS.md.
+  EVAL_MODEL: claude-sonnet-5-5
+  EVAL_JUDGE_MODEL: claude-haiku-5-5
+  EVAL_RUNS: "3"
+  EVAL_MAX_COST_USD: "5"    # per pack; a hit ends that pack's run as partial (exit 2), never as a pass
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      has_key: ${{ steps.key.outputs.has_key }}
+      packs: ${{ steps.packs.outputs.packs }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: key
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          echo "has_key=$HAS_KEY" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_KEY" != "true" ]; then
+            echo "::notice title=refract-evals skipped::No ANTHROPIC_API_KEY secret in this repository — the evals were not run (NOT-RUN, not passed)."
+          fi
+      - id: packs
+        env:
+          WANT: ${{ github.event.inputs.packs }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          want = os.environ.get("WANT", "").split()
+          have = sorted(p for p in os.listdir("templates/packs") if os.path.isdir(os.path.join("templates/packs", p, "evals")))
+          print("packs=" + json.dumps([p for p in have if not want or p in want]))
+          PY
+      - name: Suites load (offline)
+        run: python3 scripts/lint-pack-evals.py
+
+  evals:
+    needs: gate
+    if: needs.gate.outputs.has_key == 'true' && needs.gate.outputs.packs != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        pack: ${{ fromJSON(needs.gate.outputs.packs) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code && claude --version
+      - name: Run the ${{ matrix.pack }} suite (with and without the pack)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DISABLE_TELEMETRY: "1"
+        run: |
+          bash scripts/run-pack-evals.sh --pack="${{ matrix.pack }}" --model="$EVAL_MODEL" \
+            --judge-model="$EVAL_JUDGE_MODEL" --runs="$EVAL_RUNS" --max-cost-usd="$EVAL_MAX_COST_USD" \
+            --out="$RUNNER_TEMP/evals"
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-${{ matrix.pack }}
+          path: |
+            ${{ runner.temp }}/evals/${{ matrix.pack }}.json
+            ${{ runner.temp }}/evals/${{ matrix.pack }}.log
+            ${{ runner.temp }}/evals/${{ matrix.pack }}/
+          if-no-files-found: warn
+
+  record:
+    # Appends each complete result to benchmarks/results/history.jsonl and re-renders RESULTS.md,
+    # then proposes the change as a pull request: the time series lands through review, never by
+    # a direct push. Partial results (cost ceiling, skipped paid graders) are refused by history.py.
+    needs: [gate, evals]
+    if: always() && needs.gate.outputs.has_key == 'true' && needs.evals.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/evals
+          pattern: eval-*
+      - name: Append to the time series
+        run: |
+          n=0
+          for f in "$RUNNER_TEMP"/evals/eval-*/*.json; do
+            [ -f "$f" ] || continue
+            p=$(basename "$f" .json)
+            if python3 benchmarks/history.py append-eval --from-eval-json="$f" --pack="$p" \
+                 --model="$EVAL_MODEL" --judge-model="$EVAL_JUDGE_MODEL"; then n=$((n+1)); fi
+          done
+          echo "appended=$n" >> "$GITHUB_ENV"
+          python3 benchmarks/history.py render --check || true
+      - name: Open a pull request with the new rows
+        if: env.appended != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          b="refract-evals/results-${GITHUB_RUN_ID}"
+          git config user.name "refract-evals"
+          git config user.email "refract-evals@users.noreply.github.com"
+          git checkout -b "$b"
+          git add benchmarks/results/history.jsonl benchmarks/RESULTS.md
+          git commit -m "chore(benchmarks): record refract-evals run ${GITHUB_RUN_ID} (${EVAL_MODEL})"
+          git push origin "$b"
+          gh pr create --title "Record refract-evals run ${GITHUB_RUN_ID}" \
+            --body "Plugin-eval rows from run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} (model ${EVAL_MODEL}, judge ${EVAL_JUDGE_MODEL}). Generated by benchmarks/history.py append-eval."

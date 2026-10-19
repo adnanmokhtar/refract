@@ -1,0 +1,16 @@
+2026-10-19T06:10:41Z WARN  [ar] Slow query (1388.2ms): SELECT "orders".* FROM "orders" WHERE "orders"."tenant_id" = $1 ORDER BY created_at DESC LIMIT 50
+2026-10-19T07:40:12Z WARN  [ar] Slow query (1412.9ms): SELECT "orders".* FROM "orders" WHERE "orders"."tenant_id" = $1 ORDER BY created_at DESC LIMIT 50
+2026-10-19T09:08:55Z INFO  [puma] Worker 0 (PID 41) booted in 3.1s, phase: 0
+2026-10-19T09:10:02Z INFO  [deploy] rollout checkout rev 58 started (image sha256:c49f...)
+2026-10-19T09:10:58Z INFO  [deploy] rollout checkout rev 58 complete (6/6 ready)
+2026-10-19T09:11:30Z INFO  [orders] POST /orders 201 182ms tenant=t-118
+2026-10-19T09:12:04Z ERROR [orders] POST /orders 500 2003ms ActiveRecord::ConnectionTimeoutError: could not obtain a connection from the pool within 2.000 seconds (waited 2.001 seconds); all pooled connections were in use
+2026-10-19T09:12:04Z ERROR [orders] POST /orders 500 2002ms ActiveRecord::ConnectionTimeoutError: could not obtain a connection from the pool within 2.000 seconds (waited 2.000 seconds); all pooled connections were in use
+2026-10-19T09:12:31Z WARN  [payments] provider capture 200 in 412ms order=o-99102
+2026-10-19T09:13:07Z WARN  [ar] Slow query (1397.4ms): SELECT "orders".* FROM "orders" WHERE "orders"."tenant_id" = $1 ORDER BY created_at DESC LIMIT 50
+2026-10-19T09:13:22Z ERROR [orders] POST /orders 500 2004ms ActiveRecord::ConnectionTimeoutError: could not obtain a connection from the pool within 2.000 seconds (waited 2.003 seconds); all pooled connections were in use
+2026-10-19T09:14:40Z ERROR [orders] GET /orders 500 2001ms ActiveRecord::ConnectionTimeoutError: could not obtain a connection from the pool within 2.000 seconds (waited 2.001 seconds); all pooled connections were in use
+2026-10-19T09:20:15Z ERROR [orders] POST /orders 500 2002ms ActiveRecord::ConnectionTimeoutError: could not obtain a connection from the pool within 2.000 seconds (waited 2.000 seconds); all pooled connections were in use
+2026-10-19T09:38:51Z INFO  [deploy] rollback checkout rev 57 started
+2026-10-19T09:40:44Z INFO  [deploy] rollback checkout rev 57 complete (6/6 ready)
+2026-10-19T09:41:03Z INFO  [orders] POST /orders 201 171ms tenant=t-204

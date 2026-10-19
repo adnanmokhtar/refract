@@ -23,7 +23,8 @@ The shape this agent takes and returns — `.claude/templates/snippets/contract-
 role: judge
 inputs:
   required: [scope]             # the diff, paths or module under review — never the builder's narrative
-  reads:    [the changed surface, .claude/rules/security-principles.md, .claude/templates/snippets/finding-verification.md]
+  reads:    [the changed surface, .claude/rules/security-principles.md, .claude/templates/snippets/finding-verification.md,
+             .claude/lenses/<d>-review.md (when domain <d> is installed — the ## Lenses block lists them)]
   never:    [the builder's summary, PR text, commit messages]
 output:
   returns:  the '## Output' block (GO/NO-GO + verified findings)
@@ -269,6 +270,30 @@ Tools used:
 - Distinguish "hypothetical" from "confirmed exploitable" — blockers must be reproducible.
 - A clean `GO` requires all three production dimensions clear AND 0 UNVERIFIED GO-critical controls; otherwise emit `GO-UNVERIFIED (N)` and name each unproven control. A `GO-UNVERIFIED` is not a GO.
 - Symmetry: an asserted mitigation ("looks protected") is as forbidden as an asserted finding ("looks dangerous") — prove it (probe / test / traced enforcement) or mark it UNVERIFIED.
+
+## Lenses
+
+<!-- BEGIN GENERATED lenses (scripts/gen-boundaries.py; do not edit by hand) -->
+Read the lens the brief names (`lens: .claude/lenses/<x>.md`) before grading; a domain lens adds its
+checklist to yours, a pack lens may replace your input and output (its own text says so). A lens path
+you cannot open returns `BLOCKED(lens missing)` — never a silent pass.
+
+| Lens (installed path) | Source | Read when |
+|---|---|---|
+| `.claude/lenses/admin-review.md` | domain admin | domain `admin` is installed |
+| `.claude/lenses/ai-review.md` | domain ai | domain `ai` is installed |
+| `.claude/lenses/audit-log-review.md` | domain audit-log | domain `audit-log` is installed |
+| `.claude/lenses/auth-review.md` | domain auth | domain `auth` is installed |
+| `.claude/lenses/compliance-review.md` | domain compliance | domain `compliance` is installed |
+| `.claude/lenses/document-generation-review.md` | domain document-generation | domain `document-generation` is installed |
+| `.claude/lenses/file-upload-review.md` | domain file-upload | domain `file-upload` is installed |
+| `.claude/lenses/media-processing-review.md` | domain media-processing | domain `media-processing` is installed |
+| `.claude/lenses/moderation-review.md` | domain moderation | domain `moderation` is installed |
+| `.claude/lenses/multi-tenant-review.md` | domain multi-tenant | domain `multi-tenant` is installed |
+| `.claude/lenses/public-api-review.md` | domain public-api | domain `public-api` is installed |
+| `.claude/lenses/rate-limiting-review.md` | domain rate-limiting | domain `rate-limiting` is installed |
+| `.claude/lenses/webhook-review.md` | domain webhook | domain `webhook` is installed |
+<!-- END GENERATED lenses -->
 
 ## Related
 

@@ -192,7 +192,7 @@ GOOD:  a root (or Terragrunt unit) per environment, its own backend key and its 
 BAD:   provider "aws" {} with no default_tags · no *.tftest.hcl, precondition or check for a prod invariant
 GOOD:  default_tags { tags = { owner, service, env } } · a tftest asserting deletion protection and retention (iac-lifecycle-scan § 7)
 ```
-**Finding when** a deployed root has no ownership tags (orphans become unownable) or no encoded invariant for a prod store. **Proof:** V244 — plan `tags_all == {}` on a taggable type; a `terraform test` run exists in CI.
+**Finding when** a deployed root has no ownership tags (orphans become unownable) or no encoded invariant for a prod store. **Proof:** V244 — plan `tags_all == {}` on a taggable type; a `terraform test` run exists in CI. **Allocation keys are not this §'s question when the finops pack is installed:** whether every taggable resource carries the keys the allocation policy requires, with allowed values and one spelling, is finops `allocation-scan` § 1–§ 2 (TG-1/TG-2, V575). This § keeps only the "no tags at all on a deployed root → unownable orphans" half; the two dedupe by `<file:line>` and this row cites `allocation-scan` § 1. Without the finops pack, this § reports the absence as written and lists allocation keys as `N/A (owner pack finops not installed)`.
 
 ## Tool lane
 

@@ -87,7 +87,7 @@ An i18n bug is a screen of raw keys, a sentence that is grammatical nonsense in 
 ## Enforcement
 
 - `<commands-path>/scan-i18n-coverage.md` (slash: `/scan-i18n-coverage`) — cite-or-halt diagnostic that scans for hardcoded strings, missing/orphan keys per locale (coverage matrix), concatenated sentences, `n === 1` plurals, and locale-blind date/number/currency formatting — at `<path:line>`, never an assumed catalog.
-- `<agents-path>/i18n-reviewer.md` — review gate hard-failing on hardcoded user-facing strings, concatenated/interpolated sentences, naive pluralization, missing-fallback / silent-missing-key, locale-blind formatting, unhandled RTL, untrusted-locale routing, and translation-as-HTML XSS.
+- `.claude/lenses/i18n-review.md` — review gate hard-failing on hardcoded user-facing strings, concatenated/interpolated sentences, naive pluralization, missing-fallback / silent-missing-key, locale-blind formatting, unhandled RTL, untrusted-locale routing, and translation-as-HTML XSS.
 - CI lint MUST reject JSX/template literals containing user-facing text not wrapped in `t()` / `<Trans>` (heuristic; allowlist machine strings).
 - CI MUST diff every locale catalog against the canonical source locale and fail on a missing key (or an unaccepted fallback).
 - CI lint MUST reject `n === 1`/`length === 1` ternaries selecting a label, and string `+`/template concatenation of `t()` results (AST heuristic; flag for review).
@@ -101,5 +101,5 @@ An i18n bug is a screen of raw keys, a sentence that is grammatical nonsense in 
 - `<patterns-path>/payment-integration.md § Money` — integer-minor-unit money type that the currency formatters render.
 - `<rules-path>/content-escaping.md` — user-generated-content escaping; translations are the same untrusted-input class.
 - `<commands-path>/scan-i18n-coverage.md` — coverage / hardcoded-string diagnostic.
-- `<agents-path>/i18n-reviewer.md` — review gate.
+- `.claude/lenses/i18n-review.md` — review gate.
 - `<adr-path>/<NNN>-i18n-locale-strategy.md` — ADR pinning the supported-locale allowlist, fallback chain, missing-key policy, and ICU library choice.

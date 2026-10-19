@@ -167,6 +167,16 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers: { mobile_framework_detected: true }   # /security-audit also runs it on every whole-repo run; no mobile root → one N/A line
   fallback: skills/mobile-security-scan/SKILL.md
 
+- name: llm-trust-scan
+  kind: skill
+  triggers: { llm_usage_detected: true }   # /security-audit also runs it on every whole-repo run; no model call → one N/A line
+  fallback: skills/llm-trust-scan/SKILL.md
+
+- name: mcp-server-scan
+  kind: skill
+  triggers: { grep_evidence: "@modelcontextprotocol/sdk|from mcp|FastMCP|tools/call|mcpServers" }   # servers, clients and committed client configs (.mcp.json carries mcpServers)
+  fallback: skills/mcp-server-scan/SKILL.md
+
 - name: security-fix
   kind: command
   triggers: { always: true }

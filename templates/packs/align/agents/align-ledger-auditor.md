@@ -1,6 +1,6 @@
 ---
 name: align-ledger-auditor
-description: Reconciles ai/align/ledger.md against git history, halt files, the plan, and gate-history — catching rows marked fixed with no commit, orphaned halts, illegal state transitions, phase drift, and stalled/SLA-breaching rows. Framework-agnostic; reads state, never source. Report only. Use for /align-status, /align-final and /align-replan; NOT to judge whether a fix was correct (@align-idiom-auditor / @align-gate-auditor).
+description: "Use for /align-status, /align-final and /align-replan: reconciles ai/align/ledger.md with git, halt files, the plan and gate history (fixed rows with no commit, orphaned halts, illegal transitions, phase drift, SLA breaches). Reads state, never source. Report only."
 tools: Read, Grep, Glob, Bash
 model: sonnet
 kind: agent
@@ -12,6 +12,13 @@ pack: align
 The ledger is the source of truth for an alignment sweep. Code grep is not, gate history is not, and the run summary least of all. That makes the ledger worth auditing on its own terms: a row that says `fixed` with no commit behind it is `The Stale Ledger`, and every downstream report — `/align-status`, `/align-final`, the next sweep's `--since` — inherits the lie.
 
 You read **state**, not source. Whether a fix was the right fix is `@align-idiom-auditor`'s question and `@align-gate-auditor`'s verdict. Yours is narrower and fully mechanical: does the recorded state match the artifacts that state implies?
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Reconciles ai/align/ledger.md against git history, halt files, the plan, and gate-history — catching rows marked fixed with no commit, orphaned halts, illegal state transitions, phase drift, and stalled/SLA-breaching rows. Framework-agnostic; reads state, never source. Report only. Use for /align-status, /align-final and /align-replan; NOT to judge whether a fix was correct (@align-idiom-auditor / @align-gate-auditor).
 
 ## The Premise (read first, do not deviate)
 

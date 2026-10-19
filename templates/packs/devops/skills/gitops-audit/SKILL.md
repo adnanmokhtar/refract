@@ -140,9 +140,9 @@ How to read it:
 ### 1. Out-of-band mutation
 
 ```
-BAD:   scripts/hotfix.sh   kubectl scale deploy/api -n shop-prod --replicas=6     (Application api-prod owns shop-prod, selfHeal: false)
-       deploy.yml          kubectl set image deployment/web … -n shop-web          (selfHeal: true — reverted on the next reconcile)
-       deploy.yml          argocd app set api-prod --parameter image.tag=…          (an override that lives in the Application, not git)
+BAD:   scripts/scale-up.sh kubectl scale deploy/api -n shop-prod --replicas=6     (Application api-prod owns shop-prod, selfHeal: false)
+       cd.yml              kubectl set image deployment/web … -n shop-web          (selfHeal: true — reverted on the next reconcile)
+       cd.yml              argocd app set api-prod --parameter image.tag=…          (an override that lives in the Application, not git)
        pause-workers.sh    flux suspend kustomization workers                       (no resume anywhere)
 GOOD:  commit the change (an image bump, a replica patch) and let the controller sync it · `argocd app sync` with no --local/--revision
 ```
@@ -180,12 +180,12 @@ gitops-audit — lanes: argo-cd (2 Applications), flux (1 Kustomization) · cont
 
 Findings: 2 · Unconfirmed: 4
 
-1. scripts/hotfix.sh:4                                                    [report-with-fix]   high
+1. scripts/scale-up.sh:4                                                  [report-with-fix]   high
    §1 — `kubectl scale deploy/api -n shop-prod --replicas=6`; Application api-prod (deploy/argocd/app-api.yaml:2)
    owns shop-prod with selfHeal: false, so git stops describing prod. Proof: static trace (S). Fix: a replica
    patch in deploy/k8s/overlays/prod committed and synced; delete the script line.
 
-2. .github/workflows/deploy.yml:11                                        [report-flagged]    high
+2. .github/workflows/cd.yml:11                                            [report-flagged]    high
    §1 — `kubectl set image … -n shop-web` while web-prod has selfHeal: true: the controller reverts every CI
    deploy. Unproven link: no scratch controller. Settling test: verb + `argocd app diff web-prod` on kind.
 

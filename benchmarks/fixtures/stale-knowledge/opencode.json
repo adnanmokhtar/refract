@@ -1,0 +1,6 @@
+{
+  "instructions": ["AGENTS.md"],
+  "mcp": {
+    "mysql": { "type": "local", "command": ["mcp-server-mysql"], "enabled": false }
+  }
+}

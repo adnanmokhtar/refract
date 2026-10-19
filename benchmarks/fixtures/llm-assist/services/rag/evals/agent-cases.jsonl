@@ -1,0 +1,4 @@
+{"id": "agent-001", "feature": "graph resolver", "ticket": "I was charged for a cancelled order 2291, please refund", "expect_tools": ["read_customer_history"], "must_include": ["refund"]}
+{"id": "agent-002", "feature": "graph resolver", "ticket": "Your courier left my parcel in the rain, everything is wet", "expect_tools": ["read_customer_history"], "must_include": ["sorry"]}
+{"id": "agent-003", "feature": "graph resolver", "ticket": "Please forward my complaint to your CRM team", "expect_tools": ["post_to_integration"], "must_include": ["forwarded"]}
+{"id": "agent-004", "feature": "graph resolver", "ticket": "Delete my old duplicate ticket about the lamp", "expect_tools": ["delete_ticket"], "must_include": ["deleted"]}

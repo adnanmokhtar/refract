@@ -236,7 +236,7 @@ Roots: 6 · Platforms read: rn-app android (no ios/), expo-app none (CNG), flutt
    §3 the catch logs and returns: authenticate()'s promise never settles; the unlock button spins forever.
    Proof: native test forces prompt() to throw; the promise neither resolves nor rejects in 5 s (fails). Fix: promise.reject("E_AUTH", …).
 
-3. flutter_app/lib/native/scanner_channel.dart:7 ↔ flutter_app/ios/Runner/ScannerChannel.swift:8      [report-flagged]    high
+3. flutter_app/lib/native/camera_channel.dart:7 ↔ flutter_app/ios/Runner/CameraChannel.swift:8      [report-flagged]    high
    §2/§3 'torch' is invoked and the iOS handler answers only start/stop, with no notImplemented fallback: the future never completes.
    Unproven link: no iOS simulator on the host. Settling run: integration_test invoking every method on an iOS simulator.
 

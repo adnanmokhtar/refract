@@ -1,0 +1,12 @@
+commit ab19f00 (web release 5.12.0, deployed 2026-10-18T23:41Z)
+    Storefront: new brand colours
+
+diff --git a/web/src/styles/theme.css b/web/src/styles/theme.css
+--- a/web/src/styles/theme.css
++++ b/web/src/styles/theme.css
+@@ -3,6 +3,6 @@
+ :root {
+-  --brand-primary: #1a73e8;
++  --brand-primary: #0b57d0;
+   --brand-surface: #ffffff;
+ }

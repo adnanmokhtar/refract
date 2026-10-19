@@ -1,6 +1,8 @@
 ---
 name: log-tail-method
 description: Tail structured logs from the dev server, filtered by correlation id, level, or module. Use when a request failed and you need what the server actually recorded — a 500 with no body, a trace to follow end-to-end, an error whose stack never reached the client. Reads what was already logged; it cannot recover a field the code never emitted, does not tail production, and is not a metrics or APM query.
+kind: skill
+pack: backend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -89,7 +91,7 @@ Stream structured JSON logs (Pino / Winston / zerolog / structlog) with `jq` fil
 ```
 [2026-04-24T09:14:02.123Z] ERROR  OrdersService  req=a1b2c3  tenant=t_42  failed to create order: validation error
 [2026-04-24T09:14:02.124Z] ERROR  ExceptionFilter req=a1b2c3 tenant=t_42 ValidationError: items[0].sku must not be empty
-   at CreateOrderDto.validate (src/orders/dto/create-order.dto.ts:34)
+   at CreateOrderDto.validate (src/orders/dto/new-order.dto.ts:34)
    at OrdersController.create (src/orders/controllers/orders.controller.ts:58)
 [2026-04-24T09:14:02.125Z] INFO   HttpLogger     req=a1b2c3 tenant=t_42 POST /orders 400 2ms
 ```

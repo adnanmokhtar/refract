@@ -1,0 +1,15 @@
+2026-09-03T14:01:58Z INFO  [capture] 200 captured p-77120 in 210ms
+2026-09-03T14:02:10Z WARN  [capture] upstream 503 from card-provider /captures (attempt 1)
+2026-09-03T14:02:10Z WARN  [capture] upstream 503 from card-provider /captures (attempt 2)
+2026-09-03T14:02:10Z WARN  [capture] upstream 503 from card-provider /captures (attempt 3)
+2026-09-03T14:02:11Z WARN  [capture] upstream 503 from card-provider /captures (attempt 9)
+2026-09-03T14:02:11Z ERROR [capture] capture failed p-77131: ProviderError 503 Service Unavailable
+2026-09-03T14:02:52Z INFO  [provider-status] card-provider status page: "Degraded performance — resolved 14:02:50 UTC"
+2026-09-03T14:03:05Z WARN  [capture] upstream 429 from card-provider /captures (attempt 1) retry-after=30
+2026-09-03T14:03:05Z WARN  [capture] upstream 429 from card-provider /captures (attempt 2) retry-after=30
+2026-09-03T14:03:05Z WARN  [capture] upstream 429 from card-provider /captures (attempt 9) retry-after=30
+2026-09-03T14:03:05Z ERROR [capture] capture failed p-77190: ProviderError 429 Too Many Requests
+2026-09-03T14:10:40Z ERROR [capture] capture failed p-78302: ProviderError 429 Too Many Requests
+2026-09-03T14:21:13Z ERROR [capture] capture failed p-79954: ProviderError 429 Too Many Requests
+2026-09-03T14:27:30Z INFO  [gateway] shed 50 % of /captures traffic (manual)
+2026-09-03T14:28:41Z INFO  [capture] 200 captured p-80711 in 230ms

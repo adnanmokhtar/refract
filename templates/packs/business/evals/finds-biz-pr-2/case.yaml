@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/business-rules · defect BR-PR2-a (apps/api/src/refunds/refund-calculator.ts:5)
+# resources/: byte copies of apps/api/src/refunds/refund-calculator.ts apps/api/src/orders/order-line.entity.ts (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-biz-pr-2
+context:
+  add_dirs: [resources]

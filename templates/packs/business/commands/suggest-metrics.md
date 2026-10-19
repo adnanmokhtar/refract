@@ -1,11 +1,11 @@
 ---
-description: Recommend the business metrics/KPIs a project's dashboard SHOULD show for its domain — detect the domain, inventory the metrics already displayed, diff against the domain's decision-metric set, and recommend the missing high-value ones (grouped, prioritized, each with the decision it drives + the formula + the data source it comes from). Answers "I want to add stats but don't know which." Recommends; does not build the tiles.
+description: "Recommend the decision-driving KPIs a dashboard should show, cited and prioritized; --funnel=<flow> audits one funnel's drop-off."
 kind: command
 pack: business
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /suggest-metrics [<scope>]
+# /suggest-metrics [<scope>] [--funnel=<flow>]
 
 ## The Premise (read this first, internalize, do not deviate)
 
@@ -25,8 +25,19 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 **NOT for:**
 - Building a metric tile / chart → `/add-feature` (frontend) after this recommends it.
 - Writing the aggregation query → backend pack.
-- Auditing a single flow's drop-off + instrumentation → `audit-funnel-completion` skill (this command is broader — the whole dashboard's KPI coverage, not one funnel).
+- One flow's drop-off and instrumentation → this command's `--funnel=<flow>` mode (§ Funnel mode), not the dashboard sweep.
 - Auditing whether a *feature* is complete (forward/inverse/recovery) → `/audit-business`.
+
+## Funnel mode — `--funnel=<flow>` (one flow, one fix)
+
+`/suggest-metrics --funnel=checkout` audits ONE flow end to end and recommends ONE fix. It replaces the former `audit-funnel-completion` skill and keeps its two rules: numbers come from the analytics tool, and a lift is never forecast.
+
+1. **Define the funnel.** One flow with a clear start and end (signup: landing → form → verify → first action; checkout: cart → address → payment → review → confirmed). For each step, name the event that fires when a user completes it, at its emit site `<file:line>`. A step with no event is the first finding: instrumentation before analysis. When the product pack is installed, read `tracking-plan-scan`'s AN rows for these events (missing, misnamed, firing before the outcome) instead of re-deriving them.
+2. **Read the data.** Per-step users, step conversion and time-to-step for a stated 30-day window, from the project's analytics tool (Mixpanel, Amplitude, PostHog, GA4) through a query the user runs or authorises. No data access → the run stops at the funnel definition and the instrumentation list; it never estimates a drop-off.
+3. **Walk the unhappy paths** of each step: the API call fails, the input is wrong, the user is denied (card declined, rate limited, permission missing), backgrounds the app or closes the tab. Recovery paths are `check-business-coverage` §6's rows when that run exists.
+4. **Recommend ONE fix** — the step with the largest drop and a named, investigated cause. Its opportunity is reported in exactly one of three forms: **observed** (the change already ran here or on a sibling flow: the experiment, date and cohort), **bounded** (the arithmetic ceiling from the captured funnel, with its numbers: "step 5 loses 2,300 users / 30 d; at 96 % onward conversion the ceiling is +2,208 activations"), or **unquantified** (the step, the cause and the measurement that would settle it, with no number). A point forecast with no derivation ("34 % → 55 %") is never printed.
+
+**Halt:** the flow shipped less than 14 days ago (premature signal); the per-step data was not captured; funnel drop-off confused with churn (different metric, different window); more than one fix proposed. **Output:** `ai/audits/funnel-<flow>-<date>.md` — the funnel definition table (step, event, emit site), the 30-day conversion table, the drop-off analysis with the causes investigated, the ONE fix with its opportunity in one of the three forms, the instrumentation gaps, and the compliance and recovery checks seen on the way.
 
 ## Phase 1 — Understand (detect the domain + the personas)
 
@@ -132,8 +143,8 @@ Never leave a recommendation as prose without its build command.
 - `/analyze-task` — turns a rough ask into a spec; use after this to build a recommended metric.
 
 ### Skills
-- `audit-funnel-completion` — one flow's drop-off + instrumentation; this command is the whole-dashboard complement.
-- `check-business-coverage` — cross-feature forward/inverse/recovery audit.
+- `check-business-coverage` — cross-feature forward / inverse / recovery audit (its §6 recovery rows feed `--funnel`).
+- product `tracking-plan-scan` (when installed) — the AN rows `--funnel` reads for each step's event.
 
 ### Rules
 - `.claude/rules/business-completeness.md` — "a feature is done when forward + inverse + recovery + **metrics** all wired"; this command is the metrics arm of that rule.

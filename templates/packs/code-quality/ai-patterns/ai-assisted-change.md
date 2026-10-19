@@ -26,7 +26,7 @@ So the tests, the boundary linter and the pre-commit gate in this pack are not t
 
 ## The comprehension gate
 
-**If you can't explain the code, it isn't yours — and it doesn't merge.** This is mechanical rather than advisory: every non-trivial change carries a 5-field **change brief** (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit or PR body, generated and validated by the [`change-brief`](../skills/change-brief/SKILL.md) skill, which `/pre-commit` and `/review-changes` dispatch.
+**If you can't explain the code, it isn't yours — and it doesn't merge.** This is mechanical rather than advisory: every non-trivial change carries a 5-field **change brief** (What / Why this shape / Edge cases / Blast radius / Verified by) in the commit or PR body, generated and validated by the `change-brief` (`.claude/skills/change-brief/SKILL.md`) skill, which `/pre-commit` and `/review-changes` dispatch.
 
 The gate works because of an asymmetry: writing the brief takes about two minutes when you understand the change, and is impossible when you don't. It cannot be satisfied by re-reading the diff. A brief that paraphrases the diff, cites nothing, or says "should work" fails the skill's own validation.
 
@@ -63,6 +63,6 @@ When you correct an agent's output, that correction is durable knowledge and it 
 ## Related
 
 - `.claude/rules/engineering-principles.md` — the always-loaded MUST this pattern explains.
-- [`change-brief`](../skills/change-brief/SKILL.md) — the mechanical surface for the comprehension gate.
-- [`smoke-verify`](../skills/smoke-verify/SKILL.md) · [`test-shield`](../skills/test-shield/SKILL.md) — the "did it actually run / does it still boot" half.
+- `change-brief` (`.claude/skills/change-brief/SKILL.md`) — the mechanical surface for the comprehension gate.
+- `smoke-verify` (`.claude/skills/smoke-verify/SKILL.md`) · `test-shield` (`.claude/skills/test-shield/SKILL.md`) — the "did it actually run / does it still boot" half.
 - `ai/conventions.md` · `ai/dynamic/corrections.md` — the two files that make the conventions problem and the correction loop tractable.

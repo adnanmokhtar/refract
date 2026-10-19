@@ -1,0 +1,6 @@
+{
+  "name": "@shelfwise/config",
+  "version": "0.0.0",
+  "private": true,
+  "main": "billing.ts"
+}

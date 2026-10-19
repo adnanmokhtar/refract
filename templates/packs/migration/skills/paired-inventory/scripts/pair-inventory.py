@@ -122,7 +122,7 @@ class H(object):
 
     @classmethod
     def area(cls, name, rel, fn=''):
-        """I-MONEY key: the domain noun of a money path — `InvoiceService` -> invoice, `invoice-totals.ts` -> invoice,
+        """I-MONEY key: the domain noun of a money path — `InvoiceService` -> invoice, `invoice-math.ts` -> invoice,
         `Money.php` -> money. Tried in order: the class name, the file's basename, its folder, the function name;
         role words (service, controller, helper, handler, job, ...) and one-letter words are skipped."""
         srcs = [name if name and not name.startswith('<') else '', os.path.splitext(os.path.basename(rel))[0],
@@ -1405,64 +1405,64 @@ CALIBRATION = {'v1': {
         "        $exceptions->render(function (OrderLockedException $e) {\n            return response()->json(['message' => 'locked'], 409);\n        });\n"
         "    })->create();\n"),
     'routes/api.php': (
-        "<?php\nuse Illuminate\\Support\\Facades\\Route;\nuse App\\Http\\Controllers\\OrderController;\n"
-        "use App\\Http\\Controllers\\InvoiceController;\n\n"
+        "<?php\nuse Illuminate\\Support\\Facades\\Route;\nuse App\\Http\\Controllers\\OrderApiController;\n"
+        "use App\\Http\\Controllers\\InvoiceApiController;\n\n"
         "Route::middleware('auth:sanctum')->group(function () {\n"
-        "    Route::get('/orders', [OrderController::class, 'index'])->middleware('can:orders.view');\n"
-        "    Route::post('/orders', [OrderController::class, 'store'])->middleware('can:orders.create');\n"
-        "    Route::get('/orders/{order}', [OrderController::class, 'show'])->whereNumber('order')->middleware('can:orders.view');\n"
+        "    Route::get('/orders', [OrderApiController::class, 'index'])->middleware('can:orders.view');\n"
+        "    Route::post('/orders', [OrderApiController::class, 'store'])->middleware('can:orders.create');\n"
+        "    Route::get('/orders/{order}', [OrderApiController::class, 'show'])->whereNumber('order')->middleware('can:orders.view');\n"
         "    Route::prefix('admin')->middleware(['admin', 'role:admin'])->group(function () {\n"
-        "        Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->whereNumber('order');\n"
+        "        Route::delete('/orders/{order}', [OrderApiController::class, 'destroy'])->whereNumber('order');\n"
         "    });\n"
-        "    Route::apiResource('invoices', InvoiceController::class)->only(['index', 'show']);\n"
+        "    Route::apiResource('invoices', InvoiceApiController::class)->only(['index', 'show']);\n"
         "});\n"),
     'routes/web.php': "<?php\nuse Illuminate\\Support\\Facades\\Route;\nRoute::get('/health', fn () => ['ok' => true]);\n",
     'routes/console.php': (
         "<?php\nuse Illuminate\\Support\\Facades\\Schedule;\n"
         "Schedule::command('invoices:generate')->dailyAt('02:00')->timezone('Asia/Riyadh')->withoutOverlapping();\n"),
-    'app/Http/Controllers/OrderController.php': (
-        "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Http\\Requests\\StoreOrderRequest;\nuse App\\Models\\Order;\n"
+    'app/Http/Controllers/OrderApiController.php': (
+        "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Http\\Requests\\PlaceOrderRequest;\nuse App\\Models\\Order;\n"
         "use App\\Services\\OrderService;\nuse Illuminate\\Support\\Facades\\Mail;\n\n"
-        "class OrderController extends Controller\n{\n"
+        "class OrderApiController extends Controller\n{\n"
         "    public function __construct(private OrderService $orders) {}\n"
         "    public function index() { return Order::query()->paginate(); }\n"
-        "    public function store(StoreOrderRequest $request)\n    {\n"
+        "    public function store(PlaceOrderRequest $request)\n    {\n"
         "        $order = $this->orders->place($request->validated());\n"
         "        Mail::to($request->user())->send(new \\App\\Mail\\OrderPlaced($order));\n"
         "        return $order;\n    }\n"
         "    public function show(Order $order) { return $order; }\n"
         "    public function destroy(Order $order) { $order->delete(); return response()->noContent(); }\n}\n"),
-    'app/Http/Controllers/InvoiceController.php': (
+    'app/Http/Controllers/InvoiceApiController.php': (
         "<?php\nnamespace App\\Http\\Controllers;\nuse App\\Models\\Invoice;\n"
-        "class InvoiceController extends Controller\n{\n"
+        "class InvoiceApiController extends Controller\n{\n"
         "    public function index() { return Invoice::all(); }\n    public function show(Invoice $invoice) { return $invoice; }\n}\n"),
-    'app/Http/Requests/StoreOrderRequest.php': (
-        "<?php\nnamespace App\\Http\\Requests;\nuse App\\Enums\\OrderStatus;\nuse Illuminate\\Foundation\\Http\\FormRequest;\n"
+    'app/Http/Requests/PlaceOrderRequest.php': (
+        "<?php\nnamespace App\\Http\\Requests;\nuse App\\Enums\\OrderState;\nuse Illuminate\\Foundation\\Http\\FormRequest;\n"
         "use Illuminate\\Validation\\Rule;\n\n"
-        "class StoreOrderRequest extends FormRequest\n{\n    public function authorize(): bool { return true; }\n"
+        "class PlaceOrderRequest extends FormRequest\n{\n    public function authorize(): bool { return true; }\n"
         "    public function rules(): array\n    {\n        return [\n"
         "            'customer_email' => 'required|email|max:255',\n"
         "            'note' => ['nullable', 'string', 'max:500'],\n"
-        "            'status' => ['required', Rule::enum(OrderStatus::class)],\n"
+        "            'status' => ['required', Rule::enum(OrderState::class)],\n"
         "            'lines' => ['required', 'array', 'min:1'],\n"
         "            'lines.*.qty' => ['required', 'integer', 'min:1'],\n        ];\n    }\n}\n"),
-    'app/Enums/OrderStatus.php': (
-        "<?php\nnamespace App\\Enums;\n\nenum OrderStatus: string\n{\n    case Pending = 'pending';\n"
+    'app/Enums/OrderState.php': (
+        "<?php\nnamespace App\\Enums;\n\nenum OrderState: string\n{\n    case Pending = 'pending';\n"
         "    case Paid = 'paid';\n    case Cancelled = 'cancelled';\n}\n"),
     'app/Models/Order.php': (
-        "<?php\nnamespace App\\Models;\nuse App\\Enums\\OrderStatus;\nuse App\\Models\\Scopes\\TenantScope;\n"
-        "use App\\Observers\\OrderObserver;\nuse Illuminate\\Database\\Eloquent\\Attributes\\ObservedBy;\n"
+        "<?php\nnamespace App\\Models;\nuse App\\Enums\\OrderState;\nuse App\\Models\\Scopes\\TenantScope;\n"
+        "use App\\Observers\\OrderSyncObserver;\nuse Illuminate\\Database\\Eloquent\\Attributes\\ObservedBy;\n"
         "use Illuminate\\Database\\Eloquent\\Attributes\\ScopedBy;\nuse Illuminate\\Database\\Eloquent\\Model;\n"
         "use Illuminate\\Database\\Eloquent\\SoftDeletes;\n\n"
-        "#[ObservedBy([OrderObserver::class])]\n#[ScopedBy([TenantScope::class])]\n"
+        "#[ObservedBy([OrderSyncObserver::class])]\n#[ScopedBy([TenantScope::class])]\n"
         "class Order extends Model\n{\n    use SoftDeletes;\n\n"
-        "    protected $casts = ['status' => OrderStatus::class, 'total' => 'decimal:2'];\n}\n"),
+        "    protected $casts = ['status' => OrderState::class, 'total' => 'decimal:2'];\n}\n"),
     'app/Models/Invoice.php': (
         "<?php\nnamespace App\\Models;\nuse Illuminate\\Database\\Eloquent\\Model;\n\n"
         "class Invoice extends Model\n{\n    protected $table = 'invoices';\n}\n"),
-    'app/Observers/OrderObserver.php': (
+    'app/Observers/OrderSyncObserver.php': (
         "<?php\nnamespace App\\Observers;\nuse App\\Models\\Order;\nuse App\\Jobs\\SyncOrderToErp;\n\n"
-        "class OrderObserver\n{\n    public function created(Order $order): void\n    {\n"
+        "class OrderSyncObserver\n{\n    public function created(Order $order): void\n    {\n"
         "        SyncOrderToErp::dispatch($order->id);\n        $this->audit->log('order.created', $order->id);\n    }\n}\n"),
     'app/Jobs/SyncOrderToErp.php': "<?php\nnamespace App\\Jobs;\nclass SyncOrderToErp implements \\Illuminate\\Contracts\\Queue\\ShouldQueue {}\n",
     'app/Exceptions/OrderLockedException.php': "<?php\nnamespace App\\Exceptions;\nclass OrderLockedException extends \\RuntimeException {}\n",
@@ -1480,7 +1480,7 @@ CALIBRATION = {'v1': {
     'package.json': '{"dependencies": {"@nestjs/core": "11.1.6", "@nestjs/common": "11.1.6", "@mikro-orm/core": "6.4.0", "decimal.js": "10.4.3"}}\n',
     'Dockerfile': 'FROM node:22-alpine\nENV TZ=Asia/Riyadh\n',
     '.env.example': 'DEFAULT_LOCALE=en\n',
-    'src/common/page-query.dto.ts': (
+    'src/common/list-query.dto.ts': (
         "import { IsInt, IsOptional, Max } from 'class-validator';\n\nexport class PageQueryDto {\n"
         "  @IsOptional()\n  @IsInt()\n  @Max(100)\n  perPage = 15;\n}\n"),
     'src/main.ts': (
@@ -1492,7 +1492,7 @@ CALIBRATION = {'v1': {
         "  await app.listen(3000);\n}\nbootstrap();\n"),
     'src/app.module.ts': (
         "import { Module } from '@nestjs/common';\nimport { APP_GUARD } from '@nestjs/core';\n"
-        "import { JwtAuthGuard } from './auth/jwt-auth.guard';\n\n"
+        "import { JwtAuthGuard } from './auth/jwt.guard';\n\n"
         "@Module({ providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }] })\nexport class AppModule {}\n"),
     'src/auth/decorators.ts': (
         "import { SetMetadata } from '@nestjs/common';\n\nexport const IS_PUBLIC_KEY = 'isPublic';\n"
@@ -1505,14 +1505,14 @@ CALIBRATION = {'v1': {
     'src/orders/orders.controller.ts': (
         "import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, UseGuards } from '@nestjs/common';\n"
         "import { Permissions, Roles } from '../auth/decorators';\nimport { AdminGuard } from '../auth/admin.guard';\n"
-        "import { CreateOrderDto } from './dto/create-order.dto';\nimport { OrdersService } from './orders.service';\n\n"
+        "import { CreateOrderDto } from './dto/new-order.dto';\nimport { OrdersService } from './orders.service';\n\n"
         "@Controller('orders')\nexport class OrdersController {\n  constructor(private readonly orders: OrdersService) {}\n\n"
         "  @Get()\n  @Permissions('orders.view')\n  list(@Query('page') page = '1') {\n    return this.orders.list(Math.max(Number(page), 1));\n  }\n\n"
         "  @Post()\n  @Permissions('orders.create')\n  create(@Body() dto: CreateOrderDto) {\n    return this.orders.place(dto);\n  }\n\n"
         "  @Get(':id')\n  @Permissions('orders.view')\n  find(@Param('id', ParseIntPipe) id: number) {\n    return this.orders.find(id);\n  }\n}\n\n"
         "@Controller('admin/orders')\n@UseGuards(AdminGuard)\n@Roles('admin')\nexport class AdminOrdersController {\n"
         "  @Delete(':id')\n  remove(@Param('id', ParseIntPipe) id: number) {\n    return id;\n  }\n}\n"),
-    'src/auth/jwt-auth.guard.ts': (
+    'src/auth/jwt.guard.ts': (
         "import { Injectable } from '@nestjs/common';\nimport { AuthGuard } from '@nestjs/passport';\n\n"
         "@Injectable()\nexport class JwtAuthGuard extends AuthGuard('jwt') {}\n"),
     'src/auth/admin.guard.ts': (
@@ -1526,21 +1526,21 @@ CALIBRATION = {'v1': {
         "  list(page = 1) {\n    return [page];\n  }\n  find(id: number) {\n    return id;\n  }\n"
         "  lineTotal(price: number, qty: number): number {\n"
         "    return new Decimal(price).times(qty).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();\n  }\n}\n"),
-    'src/orders/dto/create-order.dto.ts': (
+    'src/orders/dto/new-order.dto.ts': (
         "import { IsEmail, MaxLength, IsOptional, IsString, IsEnum, IsArray, ArrayMinSize, ValidateNested, IsInt, Min } from 'class-validator';\n"
-        "import { Type } from 'class-transformer';\nimport { OrderStatus } from '../order-status.enum';\n\n"
+        "import { Type } from 'class-transformer';\nimport { OrderState } from '../order-status.enum';\n\n"
         "export class LineDto {\n  @IsInt()\n  @Min(1)\n  qty!: number;\n}\n\n"
         "export class CreateOrderDto {\n  @IsEmail()\n  @MaxLength(255)\n  customer_email!: string;\n\n"
         "  @IsOptional()\n  @IsString()\n  @MaxLength(500)\n  note?: string | null;\n\n"
-        "  @IsEnum(OrderStatus)\n  status!: OrderStatus;\n\n"
+        "  @IsEnum(OrderState)\n  status!: OrderState;\n\n"
         "  @IsArray()\n  @ArrayMinSize(1)\n  @ValidateNested({ each: true })\n  @Type(() => LineDto)\n  lines!: LineDto[];\n}\n"),
     'src/orders/order-status.enum.ts': (
-        "export enum OrderStatus {\n  Pending = 'pending',\n  Paid = 'paid',\n  Cancelled = 'cancelled',\n}\n"),
+        "export enum OrderState {\n  Pending = 'pending',\n  Paid = 'paid',\n  Cancelled = 'cancelled',\n}\n"),
     'src/orders/order.entity.ts': (
-        "import { Entity, Enum, Filter, PrimaryKey, Property } from '@mikro-orm/core';\nimport { OrderStatus } from './order-status.enum';\n\n"
+        "import { Entity, Enum, Filter, PrimaryKey, Property } from '@mikro-orm/core';\nimport { OrderState } from './order-status.enum';\n\n"
         "@Entity({ tableName: 'orders' })\n@Filter({ name: 'softDelete', cond: { deletedAt: null }, default: true })\n"
         "@Filter({ name: 'tenant', cond: (args) => ({ tenantId: args.tenantId }), default: true })\n"
-        "export class Order {\n  @PrimaryKey()\n  id!: number;\n\n  @Enum(() => OrderStatus)\n  status!: OrderStatus;\n\n"
+        "export class Order {\n  @PrimaryKey()\n  id!: number;\n\n  @Enum(() => OrderState)\n  status!: OrderState;\n\n"
         "  @Property({ nullable: true })\n  deletedAt?: Date;\n}\n"),
     'src/orders/order.subscriber.ts': (
         "import { EventArgs, EventSubscriber } from '@mikro-orm/core';\nimport { Order } from './order.entity';\n\n"
@@ -1682,15 +1682,15 @@ CALIBRATION_SUPABASE = {'v1': {
         "async function bootstrap() {\n  const app = await NestFactory.create(AppModule);\n  await app.listen(3000);\n}\nbootstrap();\n"),
     'src/app.module.ts': (
         "import { Module } from '@nestjs/common';\nimport { APP_GUARD } from '@nestjs/core';\n"
-        "import { JwtAuthGuard } from './auth/jwt-auth.guard';\n\n"
+        "import { JwtAuthGuard } from './auth/jwt.guard';\n\n"
         "@Module({ providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }] })\nexport class AppModule {}\n"),
     'src/auth/decorators.ts': (
         "import { SetMetadata } from '@nestjs/common';\n\nexport const PERMISSIONS_KEY = 'permissions';\n"
         "export const Permissions = (...p: string[]) => SetMetadata(PERMISSIONS_KEY, p);\n"),
-    'src/auth/jwt-auth.guard.ts': (
+    'src/auth/jwt.guard.ts': (
         "import { Injectable } from '@nestjs/common';\nimport { AuthGuard } from '@nestjs/passport';\n\n"
         "@Injectable()\nexport class JwtAuthGuard extends AuthGuard('jwt') {}\n"),
-    'src/common/zod-validation.pipe.ts': (
+    'src/common/zod-parse.pipe.ts': (
         "import { BadRequestException, PipeTransform } from '@nestjs/common';\nimport { ZodSchema } from 'zod';\n\n"
         "export class ZodValidationPipe implements PipeTransform {\n  constructor(private readonly schema: ZodSchema) {}\n\n"
         "  transform(value: unknown) {\n    const r = this.schema.safeParse(value);\n    if (!r.success) {\n"
@@ -1699,7 +1699,7 @@ CALIBRATION_SUPABASE = {'v1': {
     'src/orders/create-order.schema.ts': "import { z } from 'zod';\n\n" + _SB_ZOD + "export type CreateOrderInput = z.infer<typeof CreateOrder>;\n",
     'src/orders/create-order.controller.ts': (
         "import { Body, Controller, Post } from '@nestjs/common';\nimport { Permissions } from '../auth/decorators';\n"
-        "import { ZodValidationPipe } from '../common/zod-validation.pipe';\nimport { CreateOrder, CreateOrderInput } from './create-order.schema';\n"
+        "import { ZodValidationPipe } from '../common/zod-parse.pipe';\nimport { CreateOrder, CreateOrderInput } from './create-order.schema';\n"
         "import { OrdersService } from './orders.service';\n\n"
         "@Controller('functions/v1/create-order')\nexport class CreateOrderController {\n"
         "  constructor(private readonly orders: OrdersService) {}\n\n"
@@ -1736,7 +1736,7 @@ CALIBRATION_SUPABASE = {'v1': {
         "import { Entity, Enum, Filter, PrimaryKey } from '@mikro-orm/core';\n\n@Entity({ tableName: 'invoices' })\n"
         "@Filter({ name: 'account', cond: (args) => ({ userId: args.userId }), default: true })\n"
         "export class Invoice {\n  @PrimaryKey()\n  id!: number;\n\n  @Enum({ items: ['standard', 'credit'] })\n  kind!: string;\n}\n"),
-    'src/audit/audit-log.entity.ts': (
+    'src/audit/audit-entry.entity.ts': (
         "import { Entity, PrimaryKey } from '@mikro-orm/core';\n\n@Entity({ tableName: 'audit_logs' })\n"
         "export class AuditLog {\n  @PrimaryKey()\n  id!: number;\n}\n"),
     'src/orders/order.subscriber.ts': (
@@ -1793,7 +1793,7 @@ SEEDS = [  # (lane, file, old, new, expected diff, expected attr) — each a sin
     ('I-AUTHZ', 'src/orders/orders.controller.ts', "@UseGuards(AdminGuard)\n", '', 'CHANGED', 'extra_guard'),
     ('I-AUTHZ', 'src/orders/orders.controller.ts', "  @Get()\n  @Permissions('orders.view')\n  list",
      "  @Get()\n  @Public()\n  @Permissions('orders.view')\n  list", 'CHANGED', 'authn'),
-    ('I-RULES', 'src/orders/dto/create-order.dto.ts', '@MaxLength(255)', '@MaxLength(500)', 'CHANGED', 'max'),
+    ('I-RULES', 'src/orders/dto/new-order.dto.ts', '@MaxLength(255)', '@MaxLength(500)', 'CHANGED', 'max'),
     ('I-RULES', 'src/main.ts', 'new TrimStringsPipe(), ', '', 'CHANGED', 'on'),
     ('I-ENUM', 'src/orders/order-status.enum.ts', "  Cancelled = 'cancelled',\n", '', 'CHANGED', 'values'),
     ('I-ERR', 'src/main.ts', ', errorHttpStatusCode: 422', '', 'CHANGED', 'status'),

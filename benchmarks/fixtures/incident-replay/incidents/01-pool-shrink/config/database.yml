@@ -1,0 +1,13 @@
+# Postgres connection settings, one pool per Puma process.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: <%= ENV["DB_HOST"] %>
+  database: checkout
+  pool: 5
+  checkout_timeout: 2
+  variables:
+    statement_timeout: 5000
+
+production:
+  <<: *default

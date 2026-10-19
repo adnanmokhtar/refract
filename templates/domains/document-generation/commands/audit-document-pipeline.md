@@ -97,4 +97,4 @@ Top recommendation:
 - `.claude/rules/document-generation-discipline.md` — the hard-rule list this command enforces (async, sandbox, autoescape, caps, determinism, tenant scope, signed delivery, idempotency).
 - `ai/patterns/document-pipeline.md` — the async render job + sandboxed renderer + autoescaped bind + caps + determinism stamp + signed delivery + idempotency shapes.
 - `<rules-path>/reporting` — the shared async-job + signed short-lived private-bucket delivery spine.
-- `<agents-path>/document-generation-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/document-generation-review.md` — review gate that consumes these findings.

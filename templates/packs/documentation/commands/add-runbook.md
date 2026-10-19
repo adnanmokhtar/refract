@@ -1,5 +1,5 @@
 ---
-description: "Author an operational runbook (incident response, deploy, rollback, on-call playbook). Detects existing runbooks for shape consistency. Captures: trigger, prerequisites, steps with verify-after-each, rollback procedure, on-call assignment, related ADRs. Lands at ai/runbooks/<name>.md. Read-write but conservative."
+description: "Author an operational runbook (incident, deploy, rollback, on-call) beside the project's runbooks: verify-after-each step, rollback, drill status."
 kind: command
 pack: documentation
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
@@ -10,6 +10,18 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ## The Premise (read this first)
 
 **Runbooks are the difference between "manageable incident" and "all-hands fire drill at 2am".** A good runbook lets the next on-call person resolve an issue without paging the original author. This command authors a runbook with the structure proven across many projects.
+
+## Locate the runbook set (mandatory, before Phase 1)
+
+Runbooks live where the project already keeps them: `docs/runbooks/`, `runbooks/`, `ops/runbooks/`, `deploy/<svc>/README.md`, a root `RUNBOOK.md`, or a Refract install's `ai/runbooks/`. `<RUNBOOK_DIR>` below is what this step found, never an assumed path; `<ADR_DIR>` and `<ADR_INDEX>` come from `/add-adr`'s locate step.
+
+```bash
+export GIT_OPTIONAL_LOCKS=0
+rg --files -g '**/{runbooks,runbook,playbooks,ops}/**/*.{md,mdx}' -g '**/RUNBOOK*.md' -g '!**/node_modules/**' -g '!**/{test,tests,fixtures}/**' . | sed 's|/[^/]*$||' | sort | uniq -c | sort -rn | head -5
+rg -l --pcre2 '(?im)^#{1,3}\s*(rollback|mitigation|escalation)\b' -g '*.md' -g '!**/node_modules/**' -g '!ai/audits/**' . | head -10    # runbooks named otherwise, found by content
+```
+
+The folder holding the most runbooks wins; two competing folders → ask which is canonical. No runbook anywhere → ask where it should land (offer `docs/runbooks/` for a repo with `docs/`), and say this is the first runbook.
 
 ## When to use
 
@@ -52,18 +64,18 @@ listed its own `1. UNDERSTAND … 5. WRITE` pipeline, which read as a competing 
 | House phase | What it does here |
 |---|---|
 | Phase 1 Understand | gather trigger / prerequisites / owner / frequency (above) |
-| **Phase 2 Organize** | read 1-2 existing runbooks in `ai/runbooks/` and lock their shape — section list, ordering, front-matter fields. A new runbook is a sibling, not a new template. Decide the `--type=` and therefore which sections apply. |
-| Phase 3 Retrieve | siblings, related ADRs, `ai/_decision-index.md` |
+| **Phase 2 Organize** | read 1-2 existing runbooks in `<RUNBOOK_DIR>/` and lock their shape — section list, ordering, front-matter fields. A new runbook is a sibling, not a new template. Decide the `--type=` and therefore which sections apply. |
+| Phase 3 Retrieve | siblings, related ADRs, `<ADR_INDEX>` |
 | Phase 4 Generate | author the runbook from the template below |
-| Phase 5 Update | land `ai/runbooks/<name>.md`; append the ADR link to the index |
+| Phase 5 Update | land `<RUNBOOK_DIR>/<name>.md`; append the ADR link to the index |
 | Phase 6 Validate | verify-after-each present, rollback present, prerequisites concrete, links resolve, commands resolve, drill status marked |
 | Phase 7 Improve | template/automation/drill-cadence signals |
 
 ## Phase 3 — Retrieve
 
-- `ai/runbooks/` — read existing runbooks for shape consistency.
-- `ai/decisions/<NNN>-*.md` — link relevant ADRs.
-- `ai/_decision-index.md` — quick-find for related decisions.
+- `<RUNBOOK_DIR>/` — read existing runbooks for shape consistency.
+- `<ADR_DIR>/<NNN>-*.md` — link relevant ADRs.
+- `<ADR_INDEX>` — quick-find for related decisions.
 
 ## Phase 4 — Generate (template)
 
@@ -152,15 +164,15 @@ If steps fail mid-way OR the change makes things worse:
 
 ## Phase 5 — Update
 
-- `ai/runbooks/<name>.md` — the runbook file (the `ai/runbooks/` directory is the runbook catalog; there is no separate `ai/index.md` in the baseline, so do not write one).
-- `ai/_decision-index.md` — append entry if linked to ADR.
+- `<RUNBOOK_DIR>/<name>.md` — the runbook file (the `<RUNBOOK_DIR>/` directory is the runbook catalog; there is no separate `ai/index.md` in the baseline, so do not write one).
+- `<ADR_INDEX>` — append entry if linked to ADR.
 
 ## Phase 6 — Validate
 
 - Every step has a "Verify after:" line — no step is just an action without a check.
 - Rollback procedure exists (mandatory; no runbook ships without one).
 - Prerequisites are concrete (no "appropriate access" — name the actual role / credential).
-- **Linked ADRs / features resolve to real files.** For every `<NNN>` in the `## Related` ADRs line and every `--related-feature` / ledger-row link, check the path actually exists — `ls ai/decisions/<NNN>-*.md` (or grep `ai/_decision-index.md` for the row) resolves to a file, and the feature id is present in the migration ledger. A link that resolves to nothing is a dangling reference: halt and flag it (remove the link or fix the id) — do not ship a runbook that points at an ADR that isn't there.
+- **Linked ADRs / features resolve to real files.** For every `<NNN>` in the `## Related` ADRs line and every `--related-feature` / ledger-row link, check the path actually exists — `ls <ADR_DIR>/<NNN>-*.md` (or grep `<ADR_INDEX>` for the row) resolves to a file, and the feature id is present in the migration ledger. A link that resolves to nothing is a dangling reference: halt and flag it (remove the link or fix the id) — do not ship a runbook that points at an ADR that isn't there.
 - **Drill status is marked, not assumed.** If the procedure was actually executed (in staging or for real) at creation, set `Last drill: <today>`. If it was NOT drilled, the front-matter MUST read `Last drill: not-yet-run` (and the runbook is flagged for first-execution review) — an undrilled runbook is honestly labelled `not-yet-run`, never silently accepted as done.
 
 ### Command-resolution gate — regenerate → diff → cite, runbook flavour
@@ -169,6 +181,7 @@ A runbook step is a *claim* that a command exists and does the stated thing; an 
 
 - **Script/target refs** — for each `npm|pnpm|bun run <x>` / `make <t>` / `just <t>` / `<repo-script>.sh` in a step, confirm it resolves (`jq -e '.scripts["<x>"]' package.json`, the `Makefile`/`Justfile` target list, or `test -e` the script). An unresolved one is `BROKEN` — cite `<step:line>` + the negative check and halt; a step nobody can run is not a runbook.
 - **Path/role/dashboard refs** — paths named in steps or Prerequisites that should exist in-repo (`test -e`), and named roles/dashboards resolve to a real identifier, not a placeholder.
+- **With the documentation pack's engine installed**, run the same resolution mechanically on the new file: `python3 -I .claude/skills/doc-drift-scan/scripts/doc-claims.py . --docs=<RUNBOOK_DIR>/<name>.md --lanes=paths,scripts,flags,resources` — exit 0 is clean, exit 1 lists each DK-1 (command, path, flag) and DK-2 (a kubectl kind/name, namespace, compose service, alert or queue the in-repo manifests do not declare) row with its line; exit 2 is blocked, never clean.
 - Bare operational commands against live infra (`kubectl`, cloud CLIs) are **not** resolvable from the repo — mark them `UNVERIFIED (live-infra)`, the runbook flavour of a documented prerequisite, never a fabricated pass.
 
 ### Terminal verdict — DRILLED-PRODUCTION-GRADE vs AUTHORED-UNPROVEN

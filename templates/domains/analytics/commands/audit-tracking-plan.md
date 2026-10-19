@@ -84,4 +84,4 @@ Top findings:
 
 - `.claude/rules/analytics-tracking-discipline.md` — the hard-rule list this command enforces (typed plan, consent gate, PII allowlist, server identity, idempotency, non-blocking dispatch).
 - `ai/patterns/event-tracking.md` — the typed plan + consent gate + allowlist + server identity + dedup key + buffered sink shapes.
-- `<agents-path>/analytics-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/analytics-review.md` — review gate that consumes these findings.

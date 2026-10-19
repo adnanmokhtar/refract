@@ -16,7 +16,7 @@ The class detectors in this pack (`injection-scan`, `xss-scan` and their sibling
 2. **A triage of every hit.** Each one ends as a **confirmed finding** — `<file:line>` + the tainted source or failing condition + the fix + severity + the detector skill that owns the class — or a **false positive with a cited reason**. "semgrep flagged it" is not a finding, and "semgrep found nothing" is not a clean bill: on this skill's own test sample `pickle.loads(request.data)` passed `p/python` + `p/flask` while bandit B301 caught it.
 
 Ground rules:
-- **Nothing installed globally without asking.** Prefer the project's own pinned tool, then a one-shot (`uvx` / `pipx run` / `npx` / `go run` / `docker run`). A global install (`brew`, `pipx install`, `gem install`) is printed as the NOT-INSTALLED command, not run.
+- **The audit installs and downloads nothing.** Use the project's own pinned tool, a binary already on PATH, or a scanner image that is already local (`docker run --pull=never`). No one-shot downloader (`uvx`, `pipx run`, `npx -y`, `go run …@latest`, a `docker run` that pulls). An absent tool's row is NOT-INSTALLED with the exact install command (`brew`, `pipx install`, `gem install`, `docker pull`) printed for the user, not run.
 - **Output goes to a scratch dir outside the repo** (`$SCAN`, created at the top of § Scans for). Never write scanner config into the repo — no `.semgrep.yml`, no ESLint config, no `psalm.xml`, no `composer require`. The only repo write this run feeds is the summary `/security-audit` writes in its Phase 5.
 - **Not this skill's lanes:** committed secrets are `secret-scan-method`'s (§ 9 dispatches it — gitleaks is not re-run here); lockfile CVEs are `deps-audit`'s; Dockerfile / manifest / Terraform / CI-workflow rules are `iac-scan`'s.
 
@@ -86,6 +86,14 @@ rg -n --hidden --pcre2 -g '.semgrepignore' -g '.eslintignore' '^(?!\s*(#|$)).+' 
 rg -n --hidden --pcre2 -g '.bandit' -g 'bandit.y*ml' -g 'pyproject.toml' -g 'brakeman.ignore' -g '.editorconfig' \
   -g 'eslint.config.*' -g '.golangci.y*ml' -g '!**/node_modules/**' \
   '\b(exclude_dirs|skips)\b|"fingerprint"|dotnet_diagnostic\.(CA(2100|3\d{3}|5\d{3})|SCS\d{4})\.severity\s*=\s*(none|silent|suggestion)|^\s*ignores\s*:|exclude-rules|excludes:\s*\[?\s*G\d{3}' .
+
+# 6. Hidden Unicode in AI context files — the files an agent loads as instructions (the learning pack's KN-35
+#    handover; its context-load-scan §5 prints the list). Overrides, isolates, zero-widths and tag characters only:
+#    LRM / RLM (U+200E/F) inside Arabic or Hebrew prose are legitimate and never matched (precedents/learning.md P-26).
+#    --no-ignore: a gitignored CLAUDE.local.md is still loaded every session.
+rg -n --hidden --no-ignore --pcre2 -g '**/{CLAUDE,CLAUDE.local,AGENTS,GEMINI}.md' -g '**/.cursor/rules/**' -g '**/.cursorrules' -g '**/.github/copilot-instructions.md' \
+  -g '**/.github/instructions/**' -g '**/ai/**/*.md' -g '**/.claude/**/*.md' -g '!**/node_modules/**' \
+  '[\x{202A}-\x{202E}\x{2066}-\x{2069}\x{200B}-\x{200D}\x{2060}\x{FEFF}\x{E0000}-\x{E007F}]' .
 ```
 
 The greps choose lanes and list pragmas; they find no vulnerabilities. A row in the findings list is a tool hit **plus** a read of the enclosing function (§ Triage).
@@ -110,7 +118,7 @@ semgrep scan --metrics=off "${CONFIGS[@]}" "${EXCL[@]}" \
 semgrep scan --metrics=off --disable-nosem "${CONFIGS[@]}" "${EXCL[@]}" --json-output="$SCAN/semgrep-nosem.json" > /dev/null
 ```
 
-Not installed → `uvx semgrep scan …` or `pipx run semgrep scan …` (Python ≥ 3.10), or `docker run --rm -v "$PWD:/src:ro" -w /src semgrep/semgrep semgrep scan … --json > "$SCAN/semgrep.json"` (stdout, so nothing is written through the mount). Install for later: `brew install semgrep` / `pipx install semgrep`.
+Not installed → the `semgrep/semgrep` image, only when it is already local: `docker run --pull=never --rm -v "$PWD:/src:ro" -w /src semgrep/semgrep semgrep scan … --json > "$SCAN/semgrep.json"` (stdout, so nothing is written through the mount). Neither → NOT-INSTALLED; install for later: `brew install semgrep` / `pipx install semgrep` (Python ≥ 3.10).
 
 Read it before believing it — the exit code says almost nothing:
 ```bash
@@ -128,12 +136,13 @@ GOOD:  semgrep 1.178.0  RAN  exit 0  214 files  7 rulesets  14 hits (+2 behind n
 
 ### 2. JS / TS — eslint-plugin-security + eslint-plugin-no-unsanitized
 
-If grep 3 shows the project's ESLint config already loads both plugins, run it as-is: `npx eslint -f json -o "$SCAN/eslint.json" .`. That needs the project's `node_modules`; without them (a fresh worktree, an install you were not cleared to run) the row is `project eslint — SKIPPED (no node_modules; install declined)`, and the project's own security rules — a tenant guard written as a `no-restricted-syntax` selector or a local plugin — are then covered only by § 10's inventory of their disables. Either way, read the config's `plugins: { <name>: … }` entries and every `no-restricted-*` whose `message` names a security property (tenant, raw SQL, `innerHTML`, secrets): those are SAST rules the project wrote itself. Otherwise run a one-shot from the scratch dir — installed under `$SCAN`, never in the repo or globally:
+If grep 3 shows the project's ESLint config already loads both plugins, run it as-is: `npx --no eslint -f json -o "$SCAN/eslint.json" .`. That needs the project's `node_modules`; without them (a fresh worktree, an install you were not cleared to run) the row is `project eslint — SKIPPED (no node_modules; install declined)`, and the project's own security rules — a tenant guard written as a `no-restricted-syntax` selector or a local plugin — are then covered only by § 10's inventory of their disables. Either way, read the config's `plugins: { <name>: … }` entries and every `no-restricted-*` whose `message` names a security property (tenant, raw SQL, `innerHTML`, secrets): those are SAST rules the project wrote itself. Otherwise run the two plugins from a toolchain the user installed once (`$REFRACT_SAST_LINT`, default `~/.cache/refract/sast-lint`), with the config in `$SCAN` — the audit never installs it; absent, the row is NOT-INSTALLED with the exact command:
 
 ```bash
-T="$SCAN/eslint"; npm i --silent --no-audit --no-fund --prefix "$T" \
-  eslint@9 eslint-plugin-security eslint-plugin-no-unsanitized typescript-eslint typescript
-cat > "$T/eslint.security.mjs" <<'EOF'
+T="${REFRACT_SAST_LINT:-$HOME/.cache/refract/sast-lint}"; E="$SCAN/eslint"; mkdir -p "$E"
+if [ -x "$T/node_modules/.bin/eslint" ]; then ln -s "$T/node_modules" "$E/node_modules"
+else echo "eslint-security NOT-INSTALLED (to enable: mkdir -p \"$T\" && cd \"$T\" && echo '{\"private\":true}' > package.json && npm i --no-audit --no-fund eslint@9 eslint-plugin-security eslint-plugin-no-unsanitized typescript-eslint typescript)"; fi
+cat > "$E/eslint.security.mjs" <<'EOF'
 import security from 'eslint-plugin-security';
 import nounsanitized from 'eslint-plugin-no-unsanitized';
 import tseslint from 'typescript-eslint';
@@ -145,7 +154,7 @@ export default [
   nounsanitized.configs.recommended,
 ];
 EOF
-"$T/node_modules/.bin/eslint" --no-config-lookup -c "$T/eslint.security.mjs" --report-unused-disable-directives-severity off \
+[ -e "$E/node_modules" ] && "$E/node_modules/.bin/eslint" --no-config-lookup -c "$E/eslint.security.mjs" --report-unused-disable-directives-severity off \
   -f json -o "$SCAN/eslint.json" .; echo "exit=$?"
 ```
 
@@ -169,9 +178,9 @@ GOOD:  eslint security  RAN  exit 1  312/312 files  9 hits  2 suppressed (no jus
 EXCL_PY=./node_modules,./vendor,./.venv,./venv,./build,./dist,./tests
 bandit -r . -x "$EXCL_PY" -f json -o "$SCAN/bandit.json" -q; echo "exit=$?"
 bandit -r . -x "$EXCL_PY" -f json -o "$SCAN/bandit-nosec.json" -q --ignore-nosec      # what `# nosec` hides
-# ruff projects (grep 3): uvx ruff check --select S --output-format json --exit-zero . > "$SCAN/ruff-s.json"   (+ a pass with --ignore-noqa)
+# ruff projects (grep 3), ruff installed: ruff check --select S --output-format json --exit-zero . > "$SCAN/ruff-s.json"   (+ a pass with --ignore-noqa)
 ```
-Not installed → `uvx bandit …` / `pipx run bandit …`; install for later `pipx install bandit`. Read `jq -r '.results[] | "\(.filename):\(.line_number) \(.test_id) \(.issue_severity)"'`; `jq '.metrics._totals.skipped_tests'` counts hits a `# nosec` silenced.
+Not installed → NOT-INSTALLED; install for later `pipx install bandit` (never a `uvx` / `pipx run` one-shot). Read `jq -r '.results[] | "\(.filename):\(.line_number) \(.test_id) \(.issue_severity)"'`; `jq '.metrics._totals.skipped_tests'` counts hits a `# nosec` silenced.
 ```
 BAD:   bandit — exit 1, failed               // exit 1 means "issues found", not a crash
 GOOD:  bandit 1.9.4  RAN  exit 1  4 hits (+1 behind # nosec)
@@ -182,7 +191,7 @@ GOOD:  bandit 1.9.4  RAN  exit 1  4 hits (+1 behind # nosec)
 ```bash
 gosec -fmt=json -out="$SCAN/gosec.json" -exclude-dir=vendor -exclude-dir=testdata -show-ignored ./...; echo "exit=$?"
 ```
-Not installed → `go run github.com/securego/gosec/v2/cmd/gosec@latest <same flags>`, or `docker run --rm -v "$PWD:/src:ro" -w /src securego/gosec -fmt=json -exclude-dir=vendor -exclude-dir=testdata -show-ignored ./... > "$SCAN/gosec.json"`; install for later `brew install gosec`. Read `jq '.Stats'` — `files` must be > 0 and `nosec` is the suppression count; `jq '.Issues[] | select(.nosec)'` lists the hits `#nosec` hid; every entry under `"Golang errors"` is a package that did not type-check and was **not** scanned.
+Not installed → the `securego/gosec` image, only when it is already local: `docker run --pull=never --rm -v "$PWD:/src:ro" -w /src securego/gosec -fmt=json -exclude-dir=vendor -exclude-dir=testdata -show-ignored ./... > "$SCAN/gosec.json"`. Neither → NOT-INSTALLED; install for later `brew install gosec`. Read `jq '.Stats'` — `files` must be > 0 and `nosec` is the suppression count; `jq '.Issues[] | select(.nosec)'` lists the hits `#nosec` hid; every entry under `"Golang errors"` is a package that did not type-check and was **not** scanned.
 ```
 BAD:   gosec — clean                          // run with -quiet: on zero issues it prints nothing, so the JSON file is empty
 GOOD:  gosec  RAN  exit 1  38 files  6 hits  1 #nosec  0 Golang errors
@@ -210,7 +219,7 @@ GOOD:  SpotBugs 4.9.3 + FindSecBugs 1.14.0  RAN  412 classes  3 hits (SQL_INJECT
 ```bash
 brakeman -q --no-pager -f json -o "$SCAN/brakeman.json" --show-ignored .; echo "exit=$?"
 ```
-Not installed → `docker run --rm -v "$PWD:/code:ro" presidentbeef/brakeman -q --no-pager -f json --show-ignored > "$SCAN/brakeman.json"` (the image's working dir is `/code`); `bundle exec brakeman` when it is in the Gemfile; install for later `gem install --user-install brakeman`. Brakeman exits non-zero when it reports warnings (`--[no-]exit-on-warn`, default on). It is Rails-only: a Ruby repo with no Rails app is `SKIPPED n/a` here and covered by semgrep `p/ruby`.
+Not installed → `bundle exec brakeman` when it is in the Gemfile, or the image when it is already local: `docker run --pull=never --rm -v "$PWD:/code:ro" presidentbeef/brakeman -q --no-pager -f json --show-ignored > "$SCAN/brakeman.json"` (the image's working dir is `/code`). Neither → NOT-INSTALLED; install for later `gem install --user-install brakeman`. Brakeman exits non-zero when it reports warnings (`--[no-]exit-on-warn`, default on). It is Rails-only: a Ruby repo with no Rails app is `SKIPPED n/a` here and covered by semgrep `p/ruby`.
 ```
 BAD:   brakeman — 0 warnings                  // config/brakeman.ignore silenced 4 fingerprints; --show-ignored was not passed
 GOOD:  brakeman 8.1.0  RAN  2 warnings  4 ignored (listed under § 10)
@@ -292,6 +301,7 @@ EOF
 | Weak hash or cipher, TLS verification off, weak random, unverified JWT signature — CWE-327, 328, 295, 338, 347; bandit B324 / B501; gosec G401 / G402 / G404 | **filed here** — no detector skill owns A04:2025 |
 | Timing-unsafe compare of a secret, token or signature — CWE-208; `security/detect-possible-timing-attacks` | `data-exposure-scan` § 13 |
 | Trojan-source / bidi control characters — CWE-1007, 451; `security/detect-bidi-characters` | **filed here** — a finding only where the character reorders how code or a comment reads; inside display text (RTL strings, a bidi-strip regex) it is a cited false positive |
+| Hidden Unicode in an AI context file (pre-flight 6: `CLAUDE*.md`, `AGENTS.md`, `.cursor/rules`, Copilot instructions, `ai/**`, `.claude/**`) — CWE-1007; learning KN-35 | **filed here** — the reader is a model that obeys what a human reviewer cannot see, so an override, isolate, zero-width or tag character there is a finding (critical in a file loaded every session) wherever it sits, unless it is an LRM / RLM inside RTL prose (P-26). Measured 2026-10-19 over every tree under `benchmarks/fixtures`: 1 hit, the seeded U+202E/U+202C pair in `stale-knowledge/.claude/rules/commits.md:9`; its U+200F decoy in Arabic text is not matched |
 | Package-manager supply-chain settings — CWE-829, 1104; semgrep `package_managers.*` on `.npmrc`, `pnpm-workspace.yaml`, `.yarnrc.yml`, `dependabot.yml` | `deps-audit` § Supply-chain settings |
 | A rule that fired on a Dockerfile, manifest, Terraform file or workflow | `iac-scan` |
 

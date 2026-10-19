@@ -1,5 +1,7 @@
 ---
 description: Turn a one-line task into a full implementer-ready prompt with context, acceptance criteria, scope, and next-step command.
+kind: command
+pack: business
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 

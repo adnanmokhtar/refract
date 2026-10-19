@@ -251,7 +251,7 @@ Then the review lenses (their candidates go through refute-before-report before 
 
 ## Phase 5 — Update
 
-- `ai/failures/<NNNN>-<slug>.md` — append-only failure entry. Captures: what we tried, why it failed (if previous attempts), root cause, what we did, don't-retry conditions.
+- `ai/failures/_index.md` — one appended `### <YYYY-MM-DD> — <slug>` entry (the ONE append-only failure catalog; never a per-entry file). Captures: what we tried, why it failed (if previous attempts), root cause, what we did, don't-retry conditions.
 - `ai/dynamic/changelog.md` — entry for the bug fix.
 - `ai/patterns/<name>.md` — IF a new pattern was extracted to prevent recurrence (rare; usually the existing convention covered it).
 - `ai/decisions/<NNNN>-*.md` — IF the fix required an architectural choice.

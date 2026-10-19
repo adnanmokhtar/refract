@@ -17,9 +17,9 @@ templates/domains/compliance/rules/data-retention.md|retention-audit   # DANGLIN
 templates/domains/event-sourced/rules/event-sourcing-discipline.md|event-store-audit   # DANGLING — domain RULE file (rule owners): the event-sourced command is /replay-projection
 templates/domains/file-upload/rules/upload-safety.md|upload-audit   # DANGLING — domain RULE file (rule owners): the file-upload command is /upload-test
 templates/domains/notifications/rules/notification-discipline.md|notification-audit   # DANGLING — domain RULE file (rule owners): the notifications command is /test-notification
-templates/domains/rate-limiting/agents/rate-limit-reviewer.md|export   # a URL route / HTTP path in an example, not a command
-templates/domains/rate-limiting/agents/rate-limit-reviewer.md|report   # a URL route / HTTP path in an example, not a command
-templates/domains/rate-limiting/agents/rate-limit-reviewer.md|search   # a URL route / HTTP path in an example, not a command
+templates/domains/rate-limiting/lenses/rate-limiting-review.md|export   # a URL route / HTTP path in an example, not a command
+templates/domains/rate-limiting/lenses/rate-limiting-review.md|report   # a URL route / HTTP path in an example, not a command
+templates/domains/rate-limiting/lenses/rate-limiting-review.md|search   # a URL route / HTTP path in an example, not a command
 templates/domains/rate-limiting/ai-patterns/rate-limiter.md|export   # a URL route / HTTP path in an example, not a command
 templates/domains/rate-limiting/rules/rate-limit-discipline.md|export   # a URL route / HTTP path in an example, not a command
 templates/domains/real-time/rules/realtime-discipline.md|realtime-audit   # DANGLING — domain RULE file (rule owners): the real-time command is /test-realtime
@@ -114,3 +114,26 @@ templates/repo-baseline/.claude/templates/snippets/proof-oracles.md|readyz   # a
 templates/repo-baseline/.claude/templates/snippets/proof-oracles.md|spec   # a JSON pointer (Argo ignoreDifferences over /spec), not a command
 templates/repo-baseline/.claude/templates/snippets/refute-before-report.md|tmp   # a filesystem path (/tmp), not a command
 templates/repo-baseline/ai/runtime/context.md|api   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|account   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|cancel   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|close   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|confirm   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|extract   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|invites   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|recalculate   # a URL route / HTTP path in an example, not a command
+templates/packs/business/skills/check-business-coverage/SKILL.md|void   # a URL route / HTTP path in an example, not a command
+templates/packs/documentation/skills/doc-drift-scan/SKILL.md|metrics   # a URL route / HTTP path in an example, not a command
+templates/packs/documentation/skills/doc-drift-scan/SKILL.md|rules   # a URL route suffix in the engine's measured note, not a command
+templates/packs/learning/skills/knowledge-ref-scan/SKILL.md|db-migration   # a deliberate example of a dead command reference (KN-03 output), not a command
+templates/packs/learning/skills/knowledge-ref-scan/SKILL.md|orders   # a URL route / HTTP path in an example, not a command
+templates/packs/product/commands/product-fix.md|api   # a URL route / HTTP path in an example, not a command
+templates/packs/product/skills/feature-surface-scan/SKILL.md|api   # a URL route / HTTP path in an example, not a command
+templates/packs/product/skills/feature-surface-scan/SKILL.md|contacts   # a URL route / HTTP path in an example, not a command
+templates/packs/product/skills/feature-surface-scan/SKILL.md|deals   # a URL route / HTTP path in an example, not a command
+templates/packs/product/skills/feature-surface-scan/SKILL.md|tasks   # a URL route / HTTP path in an example, not a command
+templates/repo-baseline/.claude/templates/snippets/precedents/documentation.md|metrics   # a URL route / HTTP path in an example, not a command
+templates/repo-baseline/.claude/templates/snippets/precedents/learning.md|api   # a URL route / HTTP path in an example, not a command
+templates/repo-baseline/.claude/templates/snippets/precedents/learning.md|orders   # a URL route / HTTP path in an example, not a command
+templates/repo-baseline/.claude/templates/snippets/precedents/product.md|logout   # a URL route / HTTP path in an example, not a command
+templates/repo-baseline/.claude/templates/snippets/proof-oracles.md|api   # a URL route / HTTP path in an example, not a command
+templates/repo-baseline/.claude/templates/snippets/proof-oracles.md|logout   # a URL route / HTTP path in an example, not a command

@@ -60,7 +60,7 @@ Determinism makes the eval gate meaningful — a scorer over a flapping output c
 - **Sampling params wrong for extraction/classification** — inverts on provider state → EXPOSED, BAD `temperature: 0.7` → `set-deterministic-params`; REMOVED, BAD `temperature: 0` on a model that rejects it (a 400 every request, not a harmless no-op) → `remove-sampling-params`
 - **Un-versioned prompt edited in place, no eval** → `version-and-eval-prompt`
 
-**Closure verbs:** `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `remove-sampling-params`, `version-and-eval-prompt`.
+**Closure verbs:** `use-structured-output`, `split-system-user`, `add-output-schema`, `set-deterministic-params`, `remove-sampling-params`, `version-and-eval-prompt`, `add-stop-reason-check`, `validate-output-schema`, `pin-model-id`, `validate-model-config`, `fix-model-params`.
 
 ## Related
 

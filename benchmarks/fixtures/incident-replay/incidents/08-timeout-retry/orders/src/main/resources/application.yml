@@ -1,0 +1,7 @@
+payments:
+  provider:
+    connect-timeout: 2s
+    read-timeout: 15s
+orders:
+  idempotency:
+    enabled: false   # TODO(@sam 2026-05-01): enable after the client sends Idempotency-Key

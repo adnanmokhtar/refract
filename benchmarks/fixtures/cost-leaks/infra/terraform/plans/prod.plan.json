@@ -1,0 +1,660 @@
+{
+ "format_version": "1.2",
+ "terraform_version": "1.13.3",
+ "variables": {
+  "region": {
+   "value": "eu-central-1"
+  }
+ },
+ "resource_changes": [
+  {
+   "address": "aws_eks_cluster.main",
+   "mode": "managed",
+   "type": "aws_eks_cluster",
+   "name": "main",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-prod",
+     "version": "1.34",
+     "tags": {
+      "team": "platform"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "platform"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_eks_node_group.general",
+   "mode": "managed",
+   "type": "aws_eks_node_group",
+   "name": "general",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "node_group_name": "general",
+     "instance_types": [
+      "m6i.xlarge"
+     ],
+     "scaling_config": [
+      {
+       "min_size": 3,
+       "desired_size": 3,
+       "max_size": 8
+      }
+     ],
+     "tags": {
+      "team": "platform"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "platform"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_db_instance.orders",
+   "mode": "managed",
+   "type": "aws_db_instance",
+   "name": "orders",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "identifier": "qw-orders",
+     "instance_class": "db.r6g.large",
+     "multi_az": true,
+     "tags": {
+      "team": "dispatch"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "dispatch"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_db_instance.orders_dr_replica",
+   "mode": "managed",
+   "type": "aws_db_instance",
+   "name": "orders_dr_replica",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "identifier": "qw-orders-dr",
+     "instance_class": "db.r6g.large",
+     "tags": {
+      "team": "dispatch",
+      "role": "dr-standby"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "dispatch",
+      "role": "dr-standby"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_budgets_budget.prod_monthly",
+   "mode": "managed",
+   "type": "aws_budgets_budget",
+   "name": "prod_monthly",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-prod-monthly",
+     "budget_type": "COST",
+     "limit_amount": "18000",
+     "limit_unit": "USD",
+     "time_unit": "MONTHLY",
+     "notification": [
+      {
+       "comparison_operator": "GREATER_THAN",
+       "threshold": 100,
+       "threshold_type": "PERCENTAGE",
+       "notification_type": "ACTUAL",
+       "subscriber_email_addresses": [],
+       "subscriber_sns_topic_arns": null
+      }
+     ],
+     "tags": {
+      "team": "platform"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "platform"
+     }
+    },
+    "after_unknown": {
+     "id": true,
+     "arn": true,
+     "notification": [
+      {
+       "subscriber_sns_topic_arns": true
+      }
+     ],
+     "tags": {},
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_sns_topic.billing_alerts",
+   "mode": "managed",
+   "type": "aws_sns_topic",
+   "name": "billing_alerts",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-billing-alerts",
+     "tags": {
+      "team": "platform"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "platform"
+     }
+    },
+    "after_unknown": {
+     "id": true,
+     "arn": true,
+     "tags": {},
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_ce_anomaly_monitor.account_total",
+   "mode": "managed",
+   "type": "aws_ce_anomaly_monitor",
+   "name": "account_total",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-prod-account",
+     "monitor_type": "CUSTOM",
+     "monitor_dimension": null,
+     "monitor_specification": "{\"Dimensions\":{\"Key\":\"LINKED_ACCOUNT\",\"MatchOptions\":null,\"Values\":[\"111111111111\"]}}",
+     "tags": {
+      "team": "platform"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "platform"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_ce_anomaly_subscription.account_total",
+   "mode": "managed",
+   "type": "aws_ce_anomaly_subscription",
+   "name": "account_total",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-prod-anomalies",
+     "frequency": "DAILY",
+     "subscriber": [
+      {
+       "type": "SNS",
+       "address": null
+      }
+     ],
+     "threshold_expression": [
+      {
+       "dimension": [
+        {
+         "key": "ANOMALY_TOTAL_IMPACT_ABSOLUTE",
+         "match_options": [
+          "GREATER_THAN_OR_EQUAL"
+         ],
+         "values": [
+          "2500"
+         ]
+        }
+       ]
+      }
+     ],
+     "tags": {
+      "team": "platform"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "platform"
+     }
+    },
+    "after_unknown": {
+     "id": true,
+     "arn": true,
+     "subscriber": [
+      {
+       "address": true
+      }
+     ],
+     "tags": {},
+     "tags_all": {}
+    }
+   }
+  },
+  {
+   "address": "aws_s3_bucket.exports",
+   "mode": "managed",
+   "type": "aws_s3_bucket",
+   "name": "exports",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "bucket": "qw-prod-exports",
+     "tags": {
+      "team": "growth"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "growth"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_s3_bucket_lifecycle_configuration.exports",
+   "mode": "managed",
+   "type": "aws_s3_bucket_lifecycle_configuration",
+   "name": "exports",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "rule": [
+      {
+       "id": "expire-tmp-uploads",
+       "status": "Enabled",
+       "filter": [
+        {
+         "prefix": "tmp-uploads/"
+        }
+       ],
+       "expiration": [
+        {
+         "days": 2
+        }
+       ],
+       "abort_incomplete_multipart_upload": []
+      }
+     ]
+    }
+   }
+  },
+  {
+   "address": "aws_s3_bucket.imports",
+   "mode": "managed",
+   "type": "aws_s3_bucket",
+   "name": "imports",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "bucket": "qw-prod-imports",
+     "tags": {
+      "team": "dispatch"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "dispatch"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_s3_bucket.media",
+   "mode": "managed",
+   "type": "aws_s3_bucket",
+   "name": "media",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "bucket": "qw-prod-media",
+     "tags": {
+      "Team": "growth"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "Team": "growth"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_s3_bucket_lifecycle_configuration.media",
+   "mode": "managed",
+   "type": "aws_s3_bucket_lifecycle_configuration",
+   "name": "media",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "rule": [
+      {
+       "id": "abort-stale-multipart",
+       "status": "Enabled",
+       "filter": [
+        {}
+       ],
+       "abort_incomplete_multipart_upload": [
+        {
+         "days_after_initiation": 7
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "address": "aws_s3_bucket.brand",
+   "mode": "managed",
+   "type": "aws_s3_bucket",
+   "name": "brand",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "bucket": "qw-prod-brand",
+     "tags": {
+      "team": "growth"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "growth"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_s3_bucket.reports",
+   "mode": "managed",
+   "type": "aws_s3_bucket",
+   "name": "reports",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "bucket": "qw-prod-reports",
+     "tags": {
+      "team": "dispatch"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "dispatch"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_sqs_queue.label_requests",
+   "mode": "managed",
+   "type": "aws_sqs_queue",
+   "name": "label_requests",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-label-requests",
+     "receive_wait_time_seconds": 0,
+     "tags": {
+      "team": "dispatch"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "dispatch"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_sqs_queue.carrier_events",
+   "mode": "managed",
+   "type": "aws_sqs_queue",
+   "name": "carrier_events",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-carrier-events",
+     "receive_wait_time_seconds": 0,
+     "tags": {
+      "team": "dispatch"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "dispatch"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_sqs_queue.status_events",
+   "mode": "managed",
+   "type": "aws_sqs_queue",
+   "name": "status_events",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "qw-status-events",
+     "receive_wait_time_seconds": 20,
+     "tags": {
+      "team": "dispatch"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "dispatch"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_route53_zone.public",
+   "mode": "managed",
+   "type": "aws_route53_zone",
+   "name": "public",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "quaywise.example",
+     "tags": {
+      "team": "platform"
+     },
+     "tags_all": {
+      "env": "prod",
+      "managed-by": "terraform",
+      "team": "platform"
+     }
+    }
+   }
+  },
+  {
+   "address": "aws_route53_record.api",
+   "mode": "managed",
+   "type": "aws_route53_record",
+   "name": "api",
+   "provider_name": "registry.terraform.io/hashicorp/aws",
+   "change": {
+    "actions": [
+     "create"
+    ],
+    "before": null,
+    "after": {
+     "name": "api.quaywise.example",
+     "type": "CNAME",
+     "ttl": 300
+    }
+   }
+  }
+ ],
+ "configuration": {
+  "provider_config": {
+   "aws": {
+    "name": "aws",
+    "full_name": "registry.terraform.io/hashicorp/aws",
+    "expressions": {
+     "region": {
+      "constant_value": "eu-central-1"
+     }
+    }
+   }
+  },
+  "root_module": {
+   "resources": [
+    {
+     "address": "aws_budgets_budget.prod_monthly",
+     "mode": "managed",
+     "type": "aws_budgets_budget",
+     "name": "prod_monthly",
+     "provider_config_key": "aws",
+     "expressions": {
+      "name": {
+       "constant_value": "qw-prod-monthly"
+      },
+      "notification": [
+       {
+        "notification_type": {
+         "constant_value": "ACTUAL"
+        },
+        "threshold": {
+         "constant_value": 100
+        },
+        "subscriber_sns_topic_arns": {
+         "references": [
+          "aws_sns_topic.billing_alerts.arn",
+          "aws_sns_topic.billing_alerts"
+         ]
+        }
+       }
+      ]
+     }
+    },
+    {
+     "address": "aws_sns_topic.billing_alerts",
+     "mode": "managed",
+     "type": "aws_sns_topic",
+     "name": "billing_alerts",
+     "provider_config_key": "aws",
+     "expressions": {
+      "name": {
+       "constant_value": "qw-billing-alerts"
+      }
+     }
+    },
+    {
+     "address": "aws_ce_anomaly_subscription.account_total",
+     "mode": "managed",
+     "type": "aws_ce_anomaly_subscription",
+     "name": "account_total",
+     "provider_config_key": "aws",
+     "expressions": {
+      "subscriber": [
+       {
+        "address": {
+         "references": [
+          "aws_sns_topic.billing_alerts.arn",
+          "aws_sns_topic.billing_alerts"
+         ]
+        }
+       }
+      ]
+     }
+    }
+   ]
+  }
+ }
+}

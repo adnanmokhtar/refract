@@ -75,7 +75,7 @@ BOTTOM (raw, high-churn)
 - `/promote-pattern <name>` — invokes `knowledge-curator` to promote an entry from `dynamic/learned-patterns.md` to a formal `ai/patterns/<name>.md` with full structure (context, problem, solution, example, trade-offs, common mistakes).
 - `/learn-from-task` — at end of a task, capture: what was decided, what convention was followed/violated, what new pattern emerged, what user correction was applied. Appends to relevant `dynamic/` files.
 - `/promote-decision <id>` — graduate an entry from `dynamic/decisions-pending.md` to a formal ADR with sequential number.
-- `/audit-knowledge` — runs `knowledge-curator` to find: stale `dynamic/` entries (>30d, no progress), unfollowed conventions, unreferenced patterns, dead ADRs.
+- `/audit-knowledge` — read-only audit of the knowledge layer (five detectors: dead references, wrong facts, stale derived files, memory-sink hygiene, ADR records, context load) with a class ledger and a verdict; `/refresh-knowledge --from-audit` closes its findings.
 - `/recall <query>` — **retrieval, not capture.** Searches the `ai/` tree this phase writes and returns ranked `path:line` pointers. It adds no sink and no store; the corpus is the pyramid above. This is what makes the budgets below affordable: with the archives indexed, "archive" stops meaning "gone".
 
 ### Phase 6 agents (added to `.claude/agents/`)

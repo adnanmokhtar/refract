@@ -1,0 +1,5 @@
+commit 2c55a90 (pricing release 4.1.0, deployed 2026-06-29)
+    Wire the new pricing engine behind a flag (off everywhere)
+
+diff --git a/src/pricing/engine-select.ts b/src/pricing/engine-select.ts
+new file mode 100644

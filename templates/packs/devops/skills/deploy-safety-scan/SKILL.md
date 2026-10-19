@@ -260,7 +260,7 @@ Severity follows the environment the unit reaches: prod first, never the job's n
 BAD:   main.ts  await app.get(MikroORM).getMigrator().up()   × render replicas: 3 / HPA minReplicas: 3   (lockless runner: a backfill runs 3×)
        initContainers: [{ command: [alembic, upgrade, head] }]       (once per pod, per restart, per scale-up)
        "helm.sh/hook": pre-upgrade  with no hook-delete-policy        (the next upgrade fails: the Job already exists)
-       deploy_prod: kubectl apply …  then  npx mikro-orm migration:up  (new pods meet the old schema)
+       deploy_prod: kubectl apply …  then  pnpm exec mikro-orm migration:up  (new pods meet the old schema)
        helm upgrade --atomic  in the release that ships a DROP COLUMN   (auto-rollback lands old code on the new schema)
 GOOD:  one migration Job applied alone, waited on, then the rollout · a platform release phase · a runner lock + one leader
 ```
@@ -365,12 +365,12 @@ Findings: 3 · Unconfirmed: 3
    MikroORM 6.6.16 takes no lock. Proof: 3 concurrent boots (V227) → a DML migration applied 3×. Fix: drop
    the boot call; run one migration Job applied alone and waited on before `kubectl apply -k` (the GOOD shape).
 
-2. .github/workflows/deploy.yml:8                                          [report-with-fix]   high
+2. .github/workflows/cd.yml:8                                              [report-with-fix]   high
    §2 DP-2 — DEPLOY-CANCEL scope=workflow covers deploy-staging (env staging): a newer push cancels a running
    apply (C1). Proof: graph row (T, V228). Fix: move concurrency to the job, `group: deploy-staging`,
    `cancel-in-progress: false`; keep the PR workflow's cancel (precedents § 15).
 
-3. .github/workflows/hotfix.yml:22                                         [report-flagged]    critical
+3. .github/workflows/emergency.yml:22                                        [report-flagged]    critical
    §3 DP-3 — `helm upgrade --install api … --namespace prod` in job ship with no `environment:` (UNIT env=no).
    Unproven link: environments UNREADABLE(gh api …: no token). Settling test: V229 settings read + a feature-branch dispatch.
 

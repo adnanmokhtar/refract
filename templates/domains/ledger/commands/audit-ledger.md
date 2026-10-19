@@ -85,4 +85,4 @@ Top recommendation:
 - `.claude/rules/ledger-integrity-discipline.md` — the hard-rule list this command enforces (append-only, balanced + atomic, integer money, idempotent, locked overspend, scope, reconciliation).
 - `ai/patterns/double-entry-ledger.md` — the immutable journal + balanced atomic posting + locked overspend + reconciliation code shapes.
 - `<patterns-path>/payment-integration.md § Money` — the integer-minor-unit money type amounts must use.
-- `<agents-path>/ledger-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/ledger-review.md` — review gate that consumes these findings.

@@ -314,7 +314,7 @@ Findings: 4 · Unconfirmed: 3 · Hardening: 0
    §2 SLO-03 — threshold 14.4 × 0.01 on a 99.9 % / 30d objective (registry row payments): fires at 10× the intended burn.
    Proof: burn-check.py; promtool fast-burn test silent at 14.4 × 0.001 (fails). Fix: (14.4 * (1 - 0.999)) on both windows.
 
-2. slo/generated/api.yml:161  ApiAvailability [6h/30m]                    [report-with-fix]   medium
+2. slo/generated/checkout.yml:161  ApiAvailability [6h/30m]                    [report-with-fix]   medium
    §2 SLO-03 drift — committed tier reads 5×; `sloth generate -i slo/sloth/api.yml` writes 6× (diff: 2 lines).
    Fix: regenerate from the spec (no hand edit); add the generate + diff step to CI.
 

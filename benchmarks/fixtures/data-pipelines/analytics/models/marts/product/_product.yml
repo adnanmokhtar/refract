@@ -1,0 +1,84 @@
+version: 2
+
+models:
+  - name: fct_events
+    description: One row per tracked event.
+    columns:
+      - name: event_id
+        data_tests:
+          - not_null
+          - unique:
+              config:
+                severity: warn
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+  - name: fct_clicks
+    description: One row per click event.
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+  - name: fct_sessions
+    description: One row per session, keyed by its first event.
+    columns:
+      - name: session_id
+        data_tests: [unique, not_null]
+      - name: entry_event
+        data_tests:
+          - accepted_values:
+              arguments: {values: ['view', 'click', 'search']}
+              config:
+                where: "started_at >= current_date"
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+  - name: sessions_daily
+    description: One row per session day.
+    columns:
+      - name: session_day
+        data_tests: [unique, not_null]
+  - name: fct_page_views
+    description: One row per page view (append-only events).
+    columns:
+      - name: view_id
+        data_tests: [unique, not_null]
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+  - name: fct_page_views_batched
+    description: One row per page view, built in daily batches.
+    columns:
+      - name: view_id
+        data_tests: [unique, not_null]
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+  - name: fct_ad_spend
+    description: One row per campaign per day.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [campaign_id, spend_date]
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+  - name: fct_ad_impressions
+    description: One row per ad impression (billions of rows; partitioned by day).
+    columns:
+      - name: impression_id
+        data_tests: [unique, not_null]
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+  - name: rpt_ad_performance
+    description: One row per campaign over the last seven days.
+    columns:
+      - name: campaign_id
+        data_tests: [unique, not_null]
+  - name: rpt_daily_kpis
+    description: One row per country.
+    columns:
+      - name: country
+        data_tests: [unique, not_null]

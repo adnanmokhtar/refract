@@ -46,6 +46,9 @@ pack: finops
 
 ## Enforcement
 
-- A pre-merge infrastructure cost estimate runs in CI and posts the delta on the pull request, so the author sees the number before the resource exists.
-- Required allocation tags are enforced by the shared infrastructure module's variable contract — an untagged resource cannot be created, rather than being reported later.
-- Every guardrail is proved to fire — live or by replay against a historical spike — before it counts as coverage. This proof is enforced by the `/cost-guardrails` closure gate, which is agent-side; no external validator checks it.
+- Budgets, anomaly monitors, non-prod bounds and suppressions: `guardrail-scan` §1–§7 (V570–V574); `/cost-guardrails` counts a guardrail only on an offline proof.
+- A pre-merge cost estimate is not assumed to exist: `guardrail-scan` §5 reports its absence; Infracost needs a key or login and network and prices no DigitalOcean, Helm or Pulumi resource.
+- Allocation tags at creation: `allocation-scan` §1–§4 (V575–V577); the dollar share is `/audit-cost-attribution` with `bill-lane.py attribution`.
+- Paid dependencies and frequency: `spend-path-scan` (V578–V582). Storage growth: `storage-growth-scan` (V583–V586). Egress: `egress-trace` (V587–V588).
+- Dated, sourced prices: `candidate-pricing` §2 and the PX-1 lint §4 (V589).
+- These checks are agent-side, under `@cost-reviewer` in refute mode; no CI validator runs them unless a team adds the lints and plan assertions as CI steps.

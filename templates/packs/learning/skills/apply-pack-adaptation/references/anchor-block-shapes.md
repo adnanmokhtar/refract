@@ -41,8 +41,8 @@ The block is bracketed by HTML markers. **Every Phase 4.6 anchor MUST emit these
 
 **Cross-references**:
 - ai/patterns/<related>.md (NN lines)
-- ai/decisions/<NNN>-<slug>.md
-- ai/failures/<NNNN>-<slug>.md (if relevant)
+- <ADR home>/<NNNN>-<slug>.md (the home `adr-index.py --list` detects; not always `ai/decisions/`)
+- ai/failures/_index.md § <entry heading> (if relevant — one catalog, never a per-failure file)
 <!-- project-specific:end -->
 
 ---
@@ -84,13 +84,13 @@ The block is REWRITTEN in place between the markers. The structure layers round-
 - ...
 
 **Failure themes to avoid** (ANCHOR-DEEP — from `_refine-extract.md` § "Failure history"; only when STRONG):
-- `<theme>`: <occurrence count> incidents; root-cause family: `<family>`; representative commits: `<sha1>`, `<sha2>` — see `ai/failures/<theme>.md`.
+- `<theme>`: <occurrence count> incidents; root-cause family: `<family>`; representative commits: `<sha1>`, `<sha2>` — see its entry in `ai/failures/_index.md`.
 - ...
 
 **Cross-references**:
 - ai/patterns/<related>.md
-- ai/decisions/<NNN>-<slug>.md
-- ai/failures/<theme>.md (if a failure-history section is present above)
+- <ADR home>/<NNNN>-<slug>.md
+- ai/failures/_index.md § <theme entry> (if a failure-history section is present above)
 <!-- project-specific:end -->
 ```
 

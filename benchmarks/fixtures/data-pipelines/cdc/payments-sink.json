@@ -1,0 +1,10 @@
+{
+  "name": "payments-jdbc-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "topics": "shop.public.payments",
+    "connection.url": "${file:/secrets/warehouse.properties:url}",
+    "insert.mode": "insert",
+    "auto.create": "false"
+  }
+}

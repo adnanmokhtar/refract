@@ -37,6 +37,7 @@ One class, one owner. A neighbour that sees the same `file:line` lists it as cor
 - **Money, stock and credit effects** → security `logic-race-scan` § 4–§ 5, when the security pack is installed: §4 hands those rows over with the two-store mechanism as evidence. Without it they are reported here, tagged `money effect (owner pack not installed)`.
 - **A relay's leader lease** whose `extend()` result is dropped is §3's; everywhere else → `coordination-scan` § 4 (this pack). **A cursor floor minted on several hosts' clocks** is §6's; `coordination-scan` § 8 corroborates on the clock half.
 - **Producer fire-and-forget and missing confirms** → `messaging-scan` § 7. **Event schema changes, event-store appends without an expected version and a projection checkpoint outside the projection's transaction** → `event-contract-scan` § 1, § 6 and § 8 (this pack).
+- **Batch ELT watermarks over OLTP tables** (a nightly or incremental load that copies rows by `updated_at`) → data-engineering `incremental-load-scan` §1, when installed. §6 here keeps the gap-blind catch-up cursor of an event, outbox or CDC relay.
 - **Model callbacks with side effects** (backend BS-04): inside the transaction → database § 1; after the commit with nothing durable → §1 here.
 - **Outbox lag and backlog at runtime** → `/audit-distributed-tx` (the runtime lane).
 
@@ -263,7 +264,7 @@ GOOD:  one serial writer (an advisory-locked appender), a log-ordered source (De
 ```
 dual-write-scan coverage — scope=whole repo  stacks=@mikro-orm/core ^6.6 range (apps/api/package.json:39), bullmq ^6.3 range, ioredis ^5.4
 Outbox writer: OutboxService implements OutboxPort (apps/api/src/outbox/outbox.service.ts:28) — joins the caller's tx.run (read once)
-Relays: 1 (apps/api/src/outbox/outbox.relay.ts, one leader) · processes: api (HPA 2–10), worker (KEDA)
+Relays: 1 (apps/api/src/outbox/relay.worker.ts, one leader) · processes: api (HPA 2–10), worker (KEDA)
 
 Findings: 0 · Unconfirmed: 1 · Hardening: 3
 
@@ -271,8 +272,8 @@ Findings: 0 · Unconfirmed: 1 · Hardening: 3
    §6 ES-4 — part A: a watermark kept between collections. Part B: `createdAt > since` over ledger rows stamped before
    commit by concurrent writers; a row committed after a collection with a later mark is never collected. Money →
    security logic-race-scan §5 corroborates. Settling test: V301 gap variant — hold a ledger insert open across a collection.
-2. apps/api/src/outbox/outbox.relay.ts:205    Hardening   §3 un-awaited Socket.IO emit, then marked: advisory push (precedent 19)
-3. apps/api/src/outbox/outbox.relay.ts:116    Hardening   §3 the leader lease's extend() result dropped; advisory relay (precedent 19)
+2. apps/api/src/outbox/relay.worker.ts:205    Hardening   §3 un-awaited Socket.IO emit, then marked: advisory push (precedent 19)
+3. apps/api/src/outbox/relay.worker.ts:116    Hardening   §3 the leader lease's extend() result dropped; advisory relay (precedent 19)
 4. apps/api/src/outbox/outbox-consumer.ts:218 Hardening   §6 UUIDv7 floor with a 30 s lag and two rescans (precedent 13; skew → coordination-scan §8)
 
 Verification: 45 candidates → 0 findings · 1 unconfirmed · 3 hardening · 38 refuted · 1 routed · 2 live, unreviewed (self-verified)

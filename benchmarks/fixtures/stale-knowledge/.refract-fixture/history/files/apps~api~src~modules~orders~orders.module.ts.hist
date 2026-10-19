@@ -1,0 +1,16 @@
+import { Module } from '@nestjs/common';
+import { MikroOrmModule } from '@mikro-orm/nestjs';
+import { ResponseMapper } from '../../shared/http/response.mapper';
+import { CreateOrderUseCase } from './application/create-order.use-case';
+import { Order } from './order.entity';
+import { OrdersController } from './orders.controller';
+import { OrdersService } from './orders.service';
+import { PricingService } from './order-pricing.service';
+
+@Module({
+  imports: [MikroOrmModule.forFeature([Order])],
+  controllers: [OrdersController],
+  providers: [OrdersService, PricingService, CreateOrderUseCase, ResponseMapper],
+  exports: [OrdersService],
+})
+export class OrdersModule {}

@@ -772,8 +772,8 @@ def self_test():
                              '<!-- refine-enriched:start -->\n- Store files end in `.store.ts`.\n<!-- refine-enriched:end -->\n',
         'ai/modules.md': '# Modules\n\n## `src/`\n\n| module | path |\n|---|---|\n| orders | `features/orders/` |\n| ghosts | `features/ghosts/` |\n',
         '.ls-lint.yml': 'ls:\n  src/features:\n    .dir: kebab-case\n',
-        'src/components/OrdersToolbar.tsx': 'export function OrdersToolbar() { return null }\n',
-        'src/components/orderstable.tsx': "import x from 'y'\n\nexport function OrdersTable() {\n  const loading = true;\n  const isOpen = false;\n  return null }\n",
+        'src/components/ShipmentsToolbar.tsx': 'export function ShipmentsToolbar() { return null }\n',
+        'src/components/invoicelist.tsx': "import x from 'y'\n\nexport function InvoiceList() {\n  const loading = true;\n  const isOpen = false;\n  return null }\n",
         'src/components/Row.tsx': 'export const Rows = () => null\n',
         'src/hooks/useOrders.ts': 'export function useOrders() {}\n',
         'src/hooks/fetch-orders.ts': 'export function useFetch() {}\n',
@@ -783,13 +783,13 @@ def self_test():
         'src/features/OrderHistory/index.ts': 'export {}\n',
         'src/features/refunds/api.ts': 'export {}\n',
         'src/features/refunds/__tests__/api.test.ts': 'test("x", () => {})\n',
-        'src/stores/cart-store.ts': 'export {}\n',
+        'src/stores/basket-store.ts': 'export {}\n',
         'app/[locale]/(shop)/page.tsx': 'export default function Page() {}\n',
         'src/components/app/layout.tsx': 'export default function L() {}\n',
         'api/orders/orders.module.ts': 'export class OrdersModule {}\n',
-        'api/orders/dto/create-order.dto.ts': "export class CreateOrderDto {\n  @Expose({ name: 'created_at' })\n  created_at: string;\n}\n",
+        'api/orders/dto/create-shipment.dto.ts': "export class CreateShipmentDto {\n  @Expose({ name: 'created_at' })\n  created_at: string;\n}\n",
         'svc/app/migrations/0003_auto_20240101.py': 'x = 1\n',
-        'svc/app/export.py': 'def GetReport():\n    pass\n\nclass report_row:\n    pass\n',
+        'svc/app/summary.py': 'def BuildDigest():\n    pass\n\nclass digest_row:\n    pass\n',
         'svc/pyproject.toml': '[tool.ruff.lint]\nselect = ["N"]\n',
     }
     for f, c in W.items():
@@ -812,24 +812,24 @@ def self_test():
         def has(site, verdict='candidate', expected=None):
             return any(r['verdict'] == verdict and (expected is None or expected in str(r['expected'])) for r in S.get(site, []))
         check('oracle built from sibling oracle-map.py', 'built in memory' in how)
-        check('orderstable.tsx not PascalCase', has('src/components/orderstable.tsx', expected='pascal'))
-        check('orderstable export mismatch cites the export line', any(r['site'] == 'src/components/orderstable.tsx:3' for r in rows))
+        check('invoicelist.tsx not PascalCase', has('src/components/invoicelist.tsx', expected='pascal'))
+        check('invoicelist export mismatch cites the export line', any(r['site'] == 'src/components/invoicelist.tsx:3' for r in rows))
         check('Row.tsx exports Rows -> export mismatch', has('src/components/Row.tsx', expected='stem == export'))
-        check('OrdersToolbar clean', not has('src/components/OrdersToolbar.tsx'))
+        check('ShipmentsToolbar clean', not has('src/components/ShipmentsToolbar.tsx'))
         check('hook without use prefix (fetch-orders.ts)', has('src/hooks/fetch-orders.ts', expected='prefix use'))
         check('useOrders clean', not has('src/hooks/useOrders.ts'))
         check('lib camel file vs kebab', has('src/lib/i18nHelpers.ts', expected='kebab'))
         check('lib kebab clean', not has('src/lib/api-client.ts'))
         check('ls-lint dir rule OrderHistory', has('src/features/OrderHistory/', expected='kebab'))
-        check('generated store rule -> unconfirmed', has('src/stores/cart-store.ts', verdict='unconfirmed'))
+        check('generated store rule -> unconfirmed', has('src/stores/basket-store.ts', verdict='unconfirmed'))
         check('Next route files exempt', not has('app/[locale]/(shop)/page.tsx') and not has('src/components/app/layout.tsx'))
         check('Nest role file exempt from pascal rule (kebab stem)', has('api/orders/orders.module.ts', verdict='exempt'))
-        check('dto with kebab stem exempt', has('api/orders/dto/create-order.dto.ts', verdict='exempt'))
+        check('dto with kebab stem exempt', has('api/orders/dto/create-shipment.dto.ts', verdict='exempt'))
         check('Django migration exempt', not has('svc/app/migrations/0003_auto_20240101.py'))
-        check('ruff N: def GetReport', any(r['site'] == 'svc/app/export.py:1' and r['class'] == 'AL-17' for r in rows))
-        check('ruff N: class report_row', any(r['site'] == 'svc/app/export.py:4' and r['class'] == 'AL-17' for r in rows))
-        check('boolean prefix: loading flagged, isOpen clean', any(r['site'] == 'src/components/orderstable.tsx:4' for r in rows)
-              and not any(r['site'] == 'src/components/orderstable.tsx:5' for r in rows))
+        check('ruff N: def BuildDigest', any(r['site'] == 'svc/app/summary.py:1' and r['class'] == 'AL-17' for r in rows))
+        check('ruff N: class digest_row', any(r['site'] == 'svc/app/summary.py:4' and r['class'] == 'AL-17' for r in rows))
+        check('boolean prefix: loading flagged, isOpen clean', any(r['site'] == 'src/components/invoicelist.tsx:4' for r in rows)
+              and not any(r['site'] == 'src/components/invoicelist.tsx:5' for r in rows))
         check('wire name (@Expose) not an AL-17 row', not any(r['site'].startswith('api/orders/dto/') and r['class'] == 'AL-17' for r in rows))
         check('co-location: __tests__ flagged', has('src/features/refunds/__tests__/api.test.ts'))
         check('barrel missing for refunds', has('src/features/refunds/'))
@@ -851,7 +851,7 @@ def self_test():
         check('every rule matched files (no vacuous rule in the fixture)', not [r for r in vac if r.note != 'doc-boolean'])
         cen = census(files)
         check('census emits hook-file-case', any(c == 'hook-file-case' for c, _, _ in cen))
-        check('case_of', case_of('OrdersTable') == 'pascal' and case_of('orders') == 'flat' and case_of('use-orders') == 'kebab'
+        check('case_of', case_of('InvoiceList') == 'pascal' and case_of('orders') == 'flat' and case_of('use-orders') == 'kebab'
               and case_of('useOrders') == 'camel' and case_of('get_report') == 'snake')
         check('stem_of strips role suffix', stem_of('orders.controller.ts') == 'orders' and stem_of('Button.stories.tsx') == 'Button')
         # Regressions measured on benchmarks/fixtures/convention-drift (2026-10-18): 74 rows, 11 true, before these fixes.
@@ -877,7 +877,7 @@ def self_test():
         d1, _ = doc_rules([{'quote': 'Component files under `src/` are PascalCase.', 'tag': 'written', 'source': 'c.md:4'}], 0)
         d2, _ = config_rules([{'tool': 'ls-lint', 'rule': 'src .tsx', 'options': 'PascalCase', 'tag': 'enforced', 'source': '.ls-lint.yml:5'}], 1)
         both = d1 + d2
-        dd = settle(check_files(root, ['src/orderRow.tsx', 'src/A.tsx', 'src/B.tsx', 'src/C.tsx', 'src/D.tsx'], both), both)
+        dd = settle(check_files(root, ['src/itemRow.tsx', 'src/A.tsx', 'src/B.tsx', 'src/C.tsx', 'src/D.tsx'], both), both)
         check('one site broken under two rules is one row', len(dd) == 1 and 'also N2' in dd[0]['note'])
         import subprocess
         me = os.path.abspath(__file__)
@@ -895,7 +895,7 @@ def self_test():
             if pr.stdin:
                 pr.stdin.close()
         rp = subprocess.run([sys.executable, '-I', me, root, '--files=-', '--rule=src/components/*.tsx=pascal'],
-                            input=b'src/components/orderstable.tsx\nsrc/components/OrdersToolbar.tsx\n', stdout=subprocess.PIPE,
+                            input=b'src/components/invoicelist.tsx\nsrc/components/ShipmentsToolbar.tsx\n', stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, timeout=60)
         err = rp.stderr.decode()
         check('--files=- reads exactly the piped list', 'name-check: 2 files' in err)

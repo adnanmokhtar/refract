@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "postgres-local": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--network=host", "mcp/postgres:0.6.2", "postgresql://dev@localhost:5432/quilldesk"]
+    },
+    "web-fetch": {
+      "command": "npx",
+      "args": ["-y", "mcp-fetch-anything@latest"]
+    }
+  }
+}

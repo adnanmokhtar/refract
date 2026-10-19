@@ -1,0 +1,6 @@
+2026-03-17T10:55:00Z INFO  [campaign] spring-sale e-mail sent to 1.9M recipients (links carry utm_* and a per-recipient rid)
+2026-03-17T11:02:13Z WARN  [images] sharp: VipsJpeg: Premature end of JPEG file (upload u-7781)
+2026-03-17T12:31:40Z WARN  [k8s] storefront-8d4-a1 OOMKilled (limit 1.5Gi), restart 1
+2026-03-17T12:33:05Z WARN  [images] sharp: VipsJpeg: Premature end of JPEG file (upload u-7802)
+2026-03-17T14:02:11Z WARN  [k8s] storefront-8d4-a1 OOMKilled (limit 1.5Gi), restart 2
+2026-03-17T14:02:12Z INFO  [ssr] GET /p/linen-shirt?utm_source=email&utm_campaign=spring&rid=8f21c0 200 (cache miss)

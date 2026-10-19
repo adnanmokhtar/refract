@@ -1,5 +1,5 @@
 ---
-description: Search this project's existing ai/ memory — the dynamic sinks, the don't-retry failure catalog, ADRs, patterns, runbooks, conventions, and the archives — with the same stdlib BM25 that indexes the pack corpus. Returns ranked POINTERS (path:line), never a paraphrase. Read-only; stores nothing, adds no sink.
+description: "Search this project's ai/ memory (sinks, failures, ADRs, patterns, archives) with BM25; returns path:line pointers. Read-only."
 kind: command
 pack: learning
 allowed-tools: [Read, Grep, Glob, Bash]
@@ -17,7 +17,7 @@ This command adds **retrieval and nothing else**. No new sink, no new file forma
 - USE: when a correction feels familiar — `/recall "raw query in service"` finds the `feedback-learned.md` entry rather than earning the same correction twice.
 - USE: to reach an archive. The curator archives interaction-log entries past 90 days and prunes the changelog past 200 lines; `ai/audits/**` is indexed, so archived stops meaning gone.
 - NOT: to answer the question. Every result is an address. Read the cited `path:line` before acting on it.
-- NOT: to search the framework's own pack corpus — that is `scripts/pack-search.py` with its default `--catalog=pack`.
+- NOT: to search the framework's own pack corpus — that is `~/.claude/scripts/pack-search.py` with its default `--catalog=pack`.
 - NOT: on a project that has never run `/learn-from-task`. An empty index says so plainly; it does not fall back to another corpus and it does not invent a row.
 
 ## Args
@@ -57,7 +57,7 @@ python3 ~/.claude/scripts/pack-search.py "$QUERY" \
   --catalog=memory --repo-root="$PWD" --limit="${LIMIT:-8}"
 ```
 
-`--catalog=memory` selects `scripts/gen-memory-catalog.py` as the row producer; everything else — tokenizer, BM25 (`k1=1.5`, `b=0.75`), field weights, synonym expansion, filters, the hard cap, the pointer footer — is the same code that serves `pack-search.py`'s default corpus. There is no second index and no second ranking model to keep in step.
+`--catalog=memory` selects `~/.claude/scripts/gen-memory-catalog.py` as the row producer; everything else — tokenizer, BM25 (`k1=1.5`, `b=0.75`), field weights, synonym expansion, filters, the hard cap, the pointer footer — is the same code that serves `pack-search.py`'s default corpus. There is no second index and no second ranking model to keep in step.
 
 **Monorepo**: `--repo-root=<package-dir>` roots the search at that package's `ai/`. The workspace baseline ships a workspace-level `ai/`, so a workspace query is `--repo-root=<workspace-root>`.
 
@@ -118,4 +118,4 @@ Context-only, never blocks, always exits 0, deduped per row per session, and a s
 - `/learn-from-task` — the producer. Without it this index is empty.
 - `/audit-knowledge` · `/promote-pattern` · `/promote-decision` — what to do with what you find.
 - `templates/snippets/learning-sink.md` — the canonical sink set this indexes (unchanged by this command).
-- `docs/RETRIEVAL.md § Project memory` — the corpus table, the cache contract, and the measured numbers.
+- `docs/RETRIEVAL.md § Project memory` in the Refract repository (not installed into projects) — the corpus table, the cache contract, and the measured numbers.

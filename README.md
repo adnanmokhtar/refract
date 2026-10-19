@@ -167,7 +167,7 @@ path or a plain-English description of the area you mean.
 | `/setup-project-adapters` | Re-sync tool adapters for the current repository. |
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
 
-Another 161 commands ship inside the packs and install per-project when their pack is selected.
+Another 168 commands ship inside the packs and install per-project when their pack is selected.
 
 **Every command supports `--plan`**, which is where this gets economical: plan on a strong model,
 execute on a cheap one.
@@ -212,12 +212,12 @@ re-verify rather than silently shipping a broken translation.
 | | |
 |---|---|
 | **24 packs** | Role-based knowledge tracks, not framework tracks |
-| **98 agents** | Specialised reviewers and architects |
-| **205 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **177 commands** | 16 global + 161 pack-level |
+| **99 agents** | Specialised reviewers and architects |
+| **234 skills** | Reusable procedures, as `<name>/SKILL.md` |
+| **184 commands** | 16 global + 168 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
-| **140 scripts** | Validators, linters, sync, search and audit tooling |
+| **148 scripts** | Validators, linters, sync, search and audit tooling |
 | **4 overlays** | GDPR · HIPAA · PCI-DSS · SOC 2 |
 
 ### The guards that install with it
@@ -293,7 +293,7 @@ The knowledge base is far larger than any context window, so Refract ships a lex
 ```bash
 $ python3 scripts/pack-search.py "multi-tenant data isolation leak"
 
-35.03  agent    multi-tenant  templates/domains/multi-tenant/agents/tenant-isolation-reviewer.md
+35.03  agent    multi-tenant  templates/domains/multi-tenant/lenses/multi-tenant-review.md
 33.66  command  multi-tenant  templates/domains/multi-tenant/commands/tenant-leak-audit.md
 30.80  rule     multi-tenant  templates/domains/multi-tenant/rules/multi-tenancy.md:72
 ```

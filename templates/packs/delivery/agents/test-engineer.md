@@ -20,7 +20,8 @@ role: writer
 inputs:
   required: [scope]                                  # run mode: run_id; otherwise the change / file to test
   reads:    [ai/runs/{run_id}/requirements.md, ai/runs/{run_id}/design.md § Interfaces, ai/runs/{run_id}/ux.md,
-             ai/runs/{run_id}/quality-attributes.md, sibling tests, ai/patterns/test-strategy.md, ai/patterns/test-doubles.md]
+             ai/runs/{run_id}/quality-attributes.md, sibling tests, ai/patterns/test-strategy.md, ai/patterns/test-doubles.md,
+             .claude/lenses/test-craft.md (standalone mode)]
   never:    [ai/runs/{run_id}/ledger.md, ai/runs/{run_id}/plan.md task internals, the implementation (run mode, before P7)]
 output:
   returns:  "DONE <paths> | SPEC_CONFLICT <AC — requirement — evidence> | NEEDS_INPUT <question> | BLOCKED <why>"
@@ -78,7 +79,11 @@ network, random, `sleep`) in test code.
 At P7 the orchestrator may dispatch you again for E2E flows and property tests the plan named —
 written against the built code's public surface, outside the locked set.
 
-## Standalone mode — the craft (from `testing/test-engineer`)
+## Standalone mode — the craft (`.claude/lenses/test-craft.md`, testing pack)
+
+Open `.claude/lenses/test-craft.md` before writing a test outside a run (it is the full craft — pyramid,
+what to test, AAA shape, doubles, determinism, async, fixtures, e2e, coverage, speed). The testing pack
+is always installed; if the lens cannot be opened, say `lens missing: test-craft` and use the summary below.
 
 - **Pyramid by proof, not ratio.** Put each behaviour at the lowest layer that can prove it; add a
   layer only for what the one below cannot reach (real wiring, a real transaction, a real browser).
@@ -111,10 +116,22 @@ otherwise).
 - Never edit a locked test or contract unless the lock is reopened for `test-engineer`.
 - No `sleep`, no `.only`, no `.skip` without a tracked reason, no real external calls.
 
+## Lenses
+
+<!-- BEGIN GENERATED lenses (scripts/gen-boundaries.py; do not edit by hand) -->
+Read the lens the brief names (`lens: .claude/lenses/<x>.md`) before grading; a domain lens adds its
+checklist to yours, a pack lens may replace your input and output (its own text says so). A lens path
+you cannot open returns `BLOCKED(lens missing)` — never a silent pass.
+
+| Lens (installed path) | Source | Read when |
+|---|---|---|
+| `.claude/lenses/test-craft.md` | testing pack (Phase 6 merge, `scripts/_agent-merge-map.json`) | always (the testing pack is always on) |
+<!-- END GENERATED lenses -->
+
 ## Related
 
 - `@test-reviewer` (testing pack) audits the strength of these tests at P7 — never the same run.
 - `@verifier` grades the locked contract at HEAD; `lock-acceptance.sh` freezes it at H2.
-- Merged from `testing/test-engineer`, `testing/tdd-orchestrator` (red-first order) and
-  `backend/endpoint-tester` (proposal §3.5). Delivery installs first, so this file is the installed
-  `test-engineer`; the testing pack's copy stays in the repo until the Phase-6 parity check.
+- Merged from the testing pack's former test-engineer agent (its craft now lives in
+  `testing/lenses/test-craft.md`, which this agent reads — Phase 6 removed the same-name twin),
+  `testing/tdd-orchestrator` (red-first order) and `backend/endpoint-tester` (proposal §3.5).

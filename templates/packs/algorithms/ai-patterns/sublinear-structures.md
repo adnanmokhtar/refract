@@ -33,40 +33,42 @@ Related: t-digest / GK for streaming **quantiles** (p50/p99 over a stream in bou
 - **HyperLogLog**: `b` register bits → `2^b` registers → standard error ≈ `1.04/√(2^b)` (e.g. `b=14` → 16 KB → ~0.8%).
 - **Count-Min**: width `w = ⌈e/ε⌉`, depth `d = ⌈ln(1/δ)⌉` → error `≤ ε·N` with prob `1−δ`.
 
-## Detectors (cite-or-halt)
+## Detectors — `numeric-stability-scan` §6–§7
 
-Each finding cites `<file:line>` + the matched pattern + the fix.
+The runnable detectors (the sketch greps, the decision-word read, the coverage block, the halts) live in `skills/numeric-stability-scan/SKILL.md`; proof V609 in `proof-oracles.md` § Algorithms.
 
-### 1. Exact structure that won't fit the scale
+### 1. Probabilistic structure with no stated error / no sizing → §6 (SL-1)
 
 ```
-BAD:   const seen = new Set();  for (const x of billionRowStream) seen.add(x)   // OOM
-GOOD:  a Bloom filter (membership) or HyperLogLog (if you only need the count)
+BAD:   new BloomFilter(1000, 4)            // which n, which false-positive rate?
+GOOD:  BF.RESERVE key 0.001 1000000         // p and n stated; the resulting error documented where the number is read
 ```
-Flag an exact `Set`/`Map`/array accumulating over a stream or `n ≥ 1e8` where only membership/cardinality/frequency is needed.
+Flag a Bloom / HLL / Count-Min / t-digest with no cited `n` / `p` / precision / `ε` / `δ` — it is unfalsifiable. Fix: state the parameters + the resulting error.
 
-### 2. Probabilistic structure used with no stated error / no sizing
+### 2. Approximate structure as the authority for an exact decision → §7 (SL-2)
 
-Flag a Bloom/HLL/Count-Min with no cited `n`/`p`/`ε`/`δ` — it's unfalsifiable. Fix: state the parameters + the resulting error.
+```
+BAD:   if (await bloom.has(paymentId)) return; await charge(paymentId)   // a false positive skips a real charge
+GOOD:  the sketch as a negative pre-filter; every positive confirmed against the source of truth
+```
+Flag a sketch whose positive alone decides a charge, a send, a quota or a bill. Fix: use the sketch as a fast negative filter, confirm positives exactly; use an exact counter for anything billed or enforced.
 
-### 3. Wrong error mode for the use case
+## Routed — owned elsewhere
 
-Flag a Bloom filter where a false positive is unsafe with no backing exact check (e.g. "have we already charged this card?" — a false positive skips a real charge). Fix: use the sketch as a fast negative filter, confirm positives against the source of truth.
-
-### 4. A sketch where the exact answer is cheap
-
-Flag a probabilistic structure at small `n` (the exact `Set`/counter fits easily) — the approximation buys nothing and adds an error. Fix: use the exact structure.
+- **An exact set, map or array that grows over a stream or for the process lifetime** (the old detector 1) → performance `memory-growth-scan` §1, when the performance pack is installed; replacing it with a sketch is one of its fixes, chosen here (§ When to use).
+- **A sketch at a small `n` where the exact structure fits** (the old detector 4) is a design question this pattern answers (§ When to use), not a finding: the approximation buys nothing and adds an error — raise it in review, not as a detector row.
 
 ## Closure verbs
 
-- `report-with-fix` — matched at `<file:line>` + the concrete structure + its sizing.
+- `report-with-fix` — matched at `<file:line>` + the concrete structure + its sizing, or the exact check added behind the sketch.
 - `report-flagged` — the fix is a design call (accept approximate answers here? add a backing exact check?) → surface for ADR.
-- `dismiss` — carve-out applies (exact answer genuinely required; `n` small) → documented.
+- `dismiss` — a precedent applies (`precedents/algorithms.md` § 39 negative pre-filter, § 40 an approximate count labelled approximate) → documented.
 
 ## Related
 
 - `algorithm-principles.md` — the "streaming → sub-linear" budget this pattern satisfies.
 - `complexity-derivation.md` — deriving the `O(1)`-space / per-op bounds these give.
 - `numerical-methods.md` — the sibling signal-gated pattern: *deterministic* float precision / stability / conditioning. This one trades bounded space for a stated *approximation* error; that one governs the rounding error of exact-arithmetic-intended float math.
+- `skills/numeric-stability-scan` §6–§7 — the detectors.
 - `@algorithm-designer` — picks the structure during DESIGN when the budget is sub-linear.
 - `performance` / `database` packs — when the real fix is an index or a materialized count, not a sketch.

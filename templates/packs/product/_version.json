@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "product",
-  "version": "1.2.0",
-  "released": "2026-08-26",
+  "version": "2.0.0",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "New `/to-questionnaire` closes the pack's open end. Every upstream artifact here terminates in unknowns it cannot resolve — `/frame-problem` labels them `assumption`, `assumption-ledger` ranks the `fatal x high` rows, and the interview loop marks what the user in the session cannot answer as `DEFERRED(<owner>)` — and nothing carried that residue to the owner it named. A grep of the entire command surface for a question-packaging capability returned exactly one hit, the word used as a pejorative inside `/add-endpoint`. So a blocked brief kept its open questions indefinitely, indistinguishable to any later reader from an unknown nobody had examined. The command writes `ai/product/questions/<date>-<slug>.md` and writes pointers back into the blocked artifact, so out-for-answer stops reading as untouched. Three halts match the three ways a questionnaire actually fails: a recipient named as a group is answered by no one, more than ten questions get skimmed, and a question the repository already answers must never be sent — Phase 3's dropped count is the proof it was checked. Every question carries a default that fires at the deadline, and a fired default is appended to `ai/product/assumptions.md`, because it is an assumption the project now carries and it needs an expiry like any other. Not essential-tier: it presumes both a blocked artifact and a named person outside the session.",
+  "summary": "Detectors, a scorecard and a failing-first fix (Track A batch 7).",
   "changelog": "CHANGELOG.md"
 }

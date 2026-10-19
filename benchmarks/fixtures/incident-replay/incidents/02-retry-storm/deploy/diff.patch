@@ -1,0 +1,12 @@
+commit 1f22c3e (release 3.8.0, deployed 2026-09-02)
+    Make captures resilient to provider hiccups
+
+diff --git a/src/payments/provider.client.ts b/src/payments/provider.client.ts
+--- a/src/payments/provider.client.ts
++++ b/src/payments/provider.client.ts
+@@ -14,7 +14,7 @@ export class ProviderClient {
+   async capture(paymentId: string, amountMinor: number): Promise<CaptureResult> {
+     const body = JSON.stringify({ payment_id: paymentId, amount: amountMinor });
+-    return this.http.post(`${this.base}/captures`, body, { timeoutMs: 3000 });
++    return fetchWithRetry(() => this.http.post(`${this.base}/captures`, body, { timeoutMs: 3000 }), { retries: 8, backoffMs: 0 });
+   }

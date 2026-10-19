@@ -48,7 +48,7 @@ A candidate is a finding when all four hold. These are the protocol's gates as `
 - **A swallowed error inside a span** → code-quality `error-handling-scan`, when that pack is installed. §4 owns only the missing `recordException`/status on a failure that *is* raised.
 - **The shutdown chain** (SIGTERM handler, drain, `terminationGracePeriodSeconds`) → devops (code chain) and infrastructure (manifest), when those packs are installed. §5 owns only the telemetry flush inside that chain (V196). Without them, §5 still reports a missing flush and names the chain as unowned.
 - **Trace coverage as a resilience target** ("every endpoint has spans") → the distributed-systems pack, when installed. This skill owns the mechanics that make spans join.
-- **Sampling cost in money** → finops prices the volume when installed; §9 carries the span-count arithmetic.
+- **Sampling cost in money** → finops `candidate-pricing` §0 prices the volume when installed; §9 carries the span-count arithmetic.
 
 ## Adapt to the codebase — the tracer lanes
 
@@ -344,7 +344,7 @@ GOOD:  url.full · http.request.method · http.response.status_code · deploymen
 
 ```
 BAD:   new TraceIdRatioBasedSampler(0.1) · sdktrace.TraceIDRatioBased(0.1) · Sampler.traceIdRatioBased(0.2) · OTEL_TRACES_SAMPLER=traceidratio
-       web/src/sentry.prod.ts tracesSampleRate: 1.0 · sentry_sdk.init(…, traces_sample_rate=1.0) loaded by production
+       web/src/instrument.ts tracesSampleRate: 1.0 · sentry_sdk.init(…, traces_sample_rate=1.0) loaded by production
 GOOD:  new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(0.1) }) · sdktrace.ParentBased(sdktrace.TraceIDRatioBased(0.1)) · parentbased_traceidratio
        a tracesSampler by route · rate 1.0 only in a dev file, or on a low-RPS service with a stated budget (precedents § 33)
 ```
@@ -352,7 +352,7 @@ GOOD:  new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(0.1) }) · sd
 - Is the ratio wrapped? A multi-line `ParentBasedSampler({ root: … })` is the decoy grep 9a still prints.
 - Is the file the production process loads (gate 7)? A dev manifest or `settings_dev.py` is noise.
 - Which Datadog tracer reads `DD_TRACE_SAMPLE_RATE` (precedents § 48)?
-- For SA-03: the request rate × 1.0 × spans per request, priced by finops when installed.
+- For SA-03: the request rate × 1.0 × spans per request, priced by finops `candidate-pricing` §0 when installed.
 
 **Finding when** a production service's resolved sampler is a bare ratio, or samples everything with no stated budget. **Proof (V197):** a config-load test prints the resolved sampler's description, which must contain `ParentBased`. For SA-03, the span-count arithmetic.
 

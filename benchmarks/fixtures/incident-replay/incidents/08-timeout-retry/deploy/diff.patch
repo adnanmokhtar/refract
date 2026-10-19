@@ -1,0 +1,11 @@
+commit 77ac9e2 (gateway config, deployed 2026-04-01)
+    Edge: retry transient failures on every route
+
+diff --git a/gateway/routes.yaml b/gateway/routes.yaml
+--- a/gateway/routes.yaml
++++ b/gateway/routes.yaml
+@@ -9,4 +9,7 @@ routes:
+     timeout: 5s
++    retry_policy:
++      retry_on: 5xx,reset,connect-failure,gateway-error
++      num_retries: 2

@@ -1225,7 +1225,7 @@ fi
 # observed when a REFRESH only updates 5 ai/patterns/ files instead of the full
 # knowledge layer. CREATE mode is exempt (greenfield: nothing to compare against).
 if [[ "$MODE" != "create" ]]; then
-  echo "C2f: ai/ knowledge layer freshness vs pack source"
+  echo "C2f: ai/ knowledge layer freshness vs this repo's extraction (content stamp, else mtime)"
 
   # Most recent mtime across pack sources we depend on (the Refract repo).
   # Resolve the templates dir via the symlink at ~/.claude/templates (or use
@@ -1309,9 +1309,12 @@ if [[ "$MODE" != "create" ]]; then
     [[ $m -gt $extract_newest ]] && extract_newest=$m
   done
 
-  if [[ $pack_newest -eq 0 ]]; then
-    warn_msg "pack source root not found at $PACKS_ROOT — skipping knowledge-freshness check"
-  else
+  # The pack-mtime comparison no longer gates or warns (learning eval IR-2, 2026-10-19): the pack is
+  # not an input to any file below, and on a real repo it produced 11 warnings that each said so
+  # itself. A missing pack root therefore no longer skips the check either — the extraction
+  # substrate and the file's own stamp are the oracle.
+  [[ $pack_newest -eq 0 ]] && warn_msg "pack source root not found at $PACKS_ROOT (not needed: the extraction is the oracle)"
+  if true; then
     # Files that REFRESH/REFINE must regenerate (relative to target)
     KNOWLEDGE_FILES=(
       "ai/_session-digest.md"
@@ -1371,25 +1374,33 @@ if [[ "$MODE" != "create" ]]; then
         fi
       fi
 
-      # Extraction first — this is the one that FAILS.
+      # CONTENT before mtime (the derivation-point check). A knowledge file that records the
+      # extraction it was derived from — `extract@<8 hex>` on its Updated line, the same
+      # fingerprint _refresh-decisions.md stamps — is settled by recomputing that fingerprint:
+      # equal means current whatever the mtimes say (a write that changes nothing still moves an
+      # mtime, and a copy or checkout resets it), different means the substrate's CONTENT moved.
+      # Only a file with no stamp falls back to the mtime comparison below.
+      _stamp=$(grep -oE 'extract@[0-9a-f]{8}' "$f" 2>/dev/null | tail -1 | cut -d@ -f2 || true)
+      if [[ -n "$_stamp" ]] && declare -F extraction_fingerprint >/dev/null; then
+        _now=$(extraction_fingerprint "$TARGET")
+        if [[ -n "$_now" && "$_now" == "$_stamp" ]]; then
+          ok "knowledge derived from the current extraction: $rel (extract@$_stamp)"
+          continue
+        elif [[ -n "$_now" ]]; then
+          err "STALE_KNOWLEDGE: $rel was derived from extract@$_stamp; the extraction's content is now extract@$_now — Phase 4.4/4.7 must re-derive it"
+          stale_count=$((stale_count + 1))
+          continue
+        fi
+      fi
+
+      # No stamp: the extraction's mtime is the fallback oracle — this is the one that FAILS.
       if [[ $extract_newest -gt 0 && $file_mtime -lt $extract_newest ]]; then
         err "STALE_KNOWLEDGE: $rel ($(_iso "$file_mtime")) older than this repo's extraction ($(_iso "$extract_newest")) — Phase 4.4/4.7 did not re-derive it from the current profile"
         stale_count=$((stale_count + 1))
         continue
       fi
-      if [[ $file_mtime -lt $pack_newest ]]; then
-        # Format both timestamps for the message
-        pack_iso=$(_iso "$pack_newest")
-        file_iso=$(_iso "$file_mtime")
-        if [[ "$MODE" == "refresh" || "$MODE" == "refine" ]]; then
-          warn_msg "STALE_KNOWLEDGE(pack): $rel ($file_iso) older than newest pack source ($pack_iso). The pack is not an input to this file — check whether the framework change actually alters what it should say before regenerating"
-        else
-          warn_msg "STALE_KNOWLEDGE: $rel ($file_iso) older than newest pack source ($pack_iso) — consider /setup-project --refresh"
-        fi
-        stale_count=$((stale_count + 1))
-      fi
     done
-    [[ $stale_count -eq 0 ]] && ok "ai/ knowledge layer up-to-date vs pack source"
+    [[ $stale_count -eq 0 ]] && ok "ai/ knowledge layer up-to-date vs this repo's extraction"
   fi
   echo ""
 fi

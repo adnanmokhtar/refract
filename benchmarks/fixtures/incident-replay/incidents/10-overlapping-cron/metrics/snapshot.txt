@@ -1,0 +1,4 @@
+# series                                         05:50   06:05   06:15   06:30   07:40
+renewals_job_duration_seconds (last run)           590     826     834     828     0
+renewals_jobs_running                              0       2       2       2       0
+renewals_double_charge_total                       0       410     760     1020    1140

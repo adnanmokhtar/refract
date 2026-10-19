@@ -67,6 +67,10 @@
           },
           {
             "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/guard-irreversible.sh"
+          },
+          {
+            "type": "command",
             "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && .claude/hooks/test-lane.sh"
           },
           {

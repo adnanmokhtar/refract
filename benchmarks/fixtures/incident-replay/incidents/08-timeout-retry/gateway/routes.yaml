@@ -1,0 +1,11 @@
+# Edge routes (Envoy). Timeouts are per attempt.
+routes:
+  - match: { prefix: /catalog }
+    cluster: catalog
+    timeout: 2s
+  - match: { prefix: /orders, methods: [POST] }
+    cluster: orders
+    timeout: 5s
+    retry_policy:
+      retry_on: 5xx,reset,connect-failure,gateway-error
+      num_retries: 2

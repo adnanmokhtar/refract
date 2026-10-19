@@ -139,6 +139,10 @@ Write the rubric file, pin the judge model id + prompt + exposed sampling params
 - A **committed baseline file** — per-metric scores from the first measured run, with the dataset version, the prompt version, and the model id beside them. A regression is then a visible diff and an intentional baseline change is a reviewed PR.
 - The **CI step**: run the set, compare each gated metric to its threshold, **exit non-zero below it**. A job that prints a score and exits 0 is enforcement theatre and is not done.
 - Confirm the step is **present in the pipeline file** by reading it back — assert the config, never the remote build's runtime outcome. This command cannot prove a remote build fails; it can prove the step exists and that `eval-run` measured the numbers.
+- **The step's exit is the tool's own exit, and nothing masks it.** No `|| true`, no `continue-on-error: true`, no threshold of 0, no wrapper that maps an exit back to 0. promptfoo exits **100** when tests fail (1 is an error), so a wrapper that fails only on 1 prints green on every regression; `PROMPTFOO_PASS_RATE_THRESHOLD` defaults to 100 (promptfoo CI/CD and command-line docs, read 2026-10-19). Prove it once: a planted failing case on a scratch branch turns the job red (V536, `eval-run` §C6).
+- **Telemetry off and the version pinned in CI.** promptfoo sends usage telemetry by default: set `PROMPTFOO_DISABLE_TELEMETRY=1` and `PROMPTFOO_DISABLE_UPDATE=1` on the step (plus `PROMPTFOO_DISABLE_REDTEAM_REMOTE_GENERATION=1` for a `redteam` job); DeepEval `DEEPEVAL_TELEMETRY_OPT_OUT=1` and `DEEPEVAL_DISABLE_DOTENV=1`; Ragas `RAGAS_DO_NOT_TRACK=true`. Run the lockfile's version (`node_modules/.bin/promptfoo`, or `npx promptfoo@<pinned>`), never a bare `npx promptfoo`.
+- **The job triggers on what the eval measures.** Its `paths:` filter (or the platform's equivalent) includes the prompt modules, the model config, `.env.example` model keys and the retrieval code, not only `evals/**` (`eval-run` §C2).
+- **No sunsetting platform.** Do not wire the gate or store prompts on a platform past its shutdown: OpenAI Evals goes read-only 2026-10-31 and shuts, with `v1/prompts`, on 2026-11-30 (OpenAI deprecations page, read 2026-10-19). `llm-sites.py --evals` lists such calls (`eval-run` §C7); migrate them (`migrate-eval-platform`) before building on them.
 
 ## Phase 5 — Evaluate (MANDATORY — the first measured run)
 
@@ -147,7 +151,7 @@ Write the rubric file, pin the judge model id + prompt + exposed sampling params
 3. **Read the per-case output**, not just the aggregate. A metric at threshold with every adversarial case failing is a set that measures the easy half.
 4. **Commit the baseline** only from a run that cleared the bar, and only from the main branch — ratcheting a baseline down from a feature branch is silent masking.
 
-HALT conditions for this phase: `eval-run` reports a gated metric below its declared bar; the judge is unpinned; cases overlap the prompt's few-shot examples; the set has no adversarial cases; the CI step is absent from the pipeline file.
+HALT conditions for this phase: `eval-run` reports a gated metric below its declared bar; the judge is unpinned; cases overlap the prompt's few-shot examples; the set has no adversarial cases; the CI step is absent from the pipeline file, masks its exit (`|| true`, `continue-on-error`, exit 100 mapped to 0), runs the tool unpinned or with telemetry on, or sits on a sunsetting platform.
 
 ## Phase 6 — Update (persist to the knowledge base)
 
@@ -227,6 +231,7 @@ Next:
 
 - **The threshold is declared before the first run, never fitted to it.** A bar chosen after seeing the score measures nothing.
 - **A CI job that prints a score and exits 0 is enforcement theatre and is not done.** The build fails below baseline, or there is no gate.
+- **The gate's exit is never masked, and the tool runs pinned with telemetry off.** `|| true`, `continue-on-error`, a 0 threshold or promptfoo's exit 100 mapped to 0 is a gate that cannot fail (EV-6); an unpinned `npx promptfoo` with telemetry on is a supply-chain and data-egress row of its own.
 - **Never evaluate on the few-shot / training examples baked into the prompt.** That measures memorization and produces a silent false PASS.
 - **Never let a model judge its own generations.** Self-preference is systematic. A different — ideally stronger — judge, pinned with its model id, its prompt, and whatever sampling params the provider exposes.
 - **A set with no adversarial cases is not done.** Injection attempts, contradictory context, out-of-scope questions, and the cases whose correct answer is a refusal are where the gate earns its keep.

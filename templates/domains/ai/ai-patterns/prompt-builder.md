@@ -38,7 +38,7 @@ Layer order in the final prompt is fixed: system → context → strategy → us
 ## Why
 
 - **Injection containment** — the user layer is structurally last and framed as data; rules live in layers the user cannot reach.
-- **Reviewability** — `prompt-reviewer` checks "builder still uses the declared layer structure" mechanically; ad-hoc concatenation makes that check impossible.
+- **Reviewability** — `security-auditor` + lens `ai-review` checks "builder still uses the declared layer structure" mechanically; ad-hoc concatenation makes that check impossible.
 - **Cost control** — the context layer is the only dynamic-size layer; budgeting one serializer caps the whole prompt (pairs with `ai-cost-tracking.md`).
 - **Evolvability** — dialect/tone changes touch one constants file and one `/prompt-eval` run, not N call sites.
 
@@ -57,7 +57,7 @@ buildPrompt({ task: 'product-qa', tenantCtx, userMessage })
 
 ## Related
 
-- `agents/prompt-reviewer.md` — enforces this structure on every prompt-touching diff.
+- `lenses/ai-review.md` — enforces this structure on every prompt-touching diff.
 - `ai-patterns/ai-cost-tracking.md` — per-call token + cost accounting.
 - `rules/ai-cost-discipline.md` — model choice + budget rules.
 - `commands/prompt-eval.md` — golden-scenario regression run required when layers 1 or 3 change.

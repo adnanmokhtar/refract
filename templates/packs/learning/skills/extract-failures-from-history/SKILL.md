@@ -1,6 +1,8 @@
 ---
 name: extract-failures-from-history
-description: Round-two extraction of recurring failure themes from git log + postmortem docs (if accessible). Walks `git log` for revert/hotfix/incident/regression/rollback messages, reads the diffs, groups by theme, and produces a list of failure families with affected files + commit refs + root-cause family. Used by /setup-project Phase 2.12 in REFINE mode to materialize `ai/failures/<theme>.md` files that future agents inject in pre-flight (per the architectural-agent failure-catalog Hard Rule).
+description: "Round-two: recurring failure themes from git log (revert, hotfix, incident, rollback), written as `### ` entries in ai/failures/_index.md — never per-theme files."
+kind: skill
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -10,7 +12,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 A failure that happened once is a story. A failure family that happened 4 times across 18 months is an architectural lesson. Round-two reads the project's actual history and finds the lessons.
 
-The output drives `ai/failures/<theme>.md` generation in Phase 4.7-DEEP, which architectural agents must inject in pre-flight (per Hard Rule). Without this step, agents propose ideas that already failed in this codebase.
+The output drives the theme entries Phase 4.7-DEEP appends to `ai/failures/_index.md` — the ONE append-only don't-retry catalog, which architectural agents must inject in pre-flight (per Hard Rule). **Never a per-theme file**: `ai/failures/<theme>.md` is forbidden by `/learn-from-task` step 6, `knowledge-curator` § 4b and [`learning-sink.md`](../../../../snippets/learning-sink.md); a second file is a catalog no consumer reads. Each theme is one `### <YYYY-MM-DD> — <theme>` entry in the index, in the shape its `## Format per entry` declares. Without this step, agents propose ideas that already failed in this codebase.
 
 ## Premise
 
@@ -103,7 +105,7 @@ If round-one wrote any failures (e.g. via `business-auditor` running before REFI
 
 ### Step 6 — Filter to recurring themes
 
-Apply `min_theme_occurrences` (default 2). A theme with 1 instance is a story; ≥ 2 is a recurring lesson. Single-occurrence findings go into `## one-off failures` (not promoted to `ai/failures/<theme>.md`).
+Apply `min_theme_occurrences` (default 2). A theme with 1 instance is a story; ≥ 2 is a recurring lesson. Single-occurrence findings go into `## one-off failures` (not promoted to a theme entry in `ai/failures/_index.md`).
 
 ### Step 7 — Read postmortem docs (opt-in only)
 
@@ -135,7 +137,7 @@ recurring_themes:
       - <file/path/sample.py>     # top 3 by frequency across the N commits
     commits:
       - { sha: <hash>, subject: <subject>, date: <YYYY-MM-DD> }
-      # ≤ 5 representative commits; full list goes in ai/failures/<theme>.md if STRONG
+      # ≤ 5 representative commits; the full list goes in the theme's entry in ai/failures/_index.md if STRONG
     root_cause_family: |
       <2-3 sentence narrative — what kind of mistake recurs.
        e.g. "Permissions checked at controller layer but bypassed when service layer
@@ -148,14 +150,14 @@ recurring_themes:
 
 one_off_failures:
   - { theme: <name>, sha: <hash>, subject: <subject>, date: <YYYY-MM-DD> }
-  # short list — recorded for completeness, not promoted to ai/failures/<theme>.md
+  # short list — recorded for completeness, not promoted to a theme entry
 ```
 
 ## Quality gate
 
 - **STRONG**: ≥ 2 recurring themes (each with ≥ 2 occurrences) extracted, ≥ 1 with prevention-checklist of ≥ 3 bullets.
-- **MEDIUM**: 1 recurring theme found. Consumed, not discarded: Phase 4.7-DEEP writes the one `ai/failures/<theme>.md`, and `compute-anchor-density § Step 4` counts `failure-theme` for a block that cites it (STRONG **or** MEDIUM counts; only WEAK is excluded). One theme with diffs read and SHAs cited is real signal — the tier exists to say "thin, not absent", which is a different fact from both neighbours.
-- **WEAK**: 0 recurring themes (codebase too young, history too clean, or the team lands all hotfixes outside main). Output `## No recurring failure themes` finding. Phase 4.7-DEEP will NOT generate `ai/failures/<theme>.md` files in this case.
+- **MEDIUM**: 1 recurring theme found. Consumed, not discarded: Phase 4.7-DEEP appends the one theme entry to `ai/failures/_index.md`, and `compute-anchor-density § Step 4` counts `failure-theme` for a block that cites it (STRONG **or** MEDIUM counts; only WEAK is excluded). One theme with diffs read and SHAs cited is real signal — the tier exists to say "thin, not absent", which is a different fact from both neighbours.
+- **WEAK**: 0 recurring themes (codebase too young, history too clean, or the team lands all hotfixes outside main). Output `## No recurring failure themes` finding. Phase 4.7-DEEP appends no theme entry in this case.
 
 ## Privacy / safety
 
@@ -165,7 +167,7 @@ one_off_failures:
   - Replace customer names with `<customer>`.
   - Replace dollar amounts with `<significant-amount>`.
   - Strip individual names from blame contexts (group context — "the team / engineer who ..." — is fine).
-- **Public repo check**: if the project's git remote is a public host (github.com/<user>/<repo> with public visibility), warn the user before writing `ai/failures/<theme>.md` files, since the file will be committed and visible. The user can choose to gitignore `ai/failures/` or proceed.
+- **Public repo check**: if the project's git remote is a public host (github.com/<user>/<repo> with public visibility), warn the user before appending theme entries to `ai/failures/_index.md`, since the file is committed and visible. The user can choose to gitignore `ai/failures/` or proceed.
 
 ## Anti-patterns
 

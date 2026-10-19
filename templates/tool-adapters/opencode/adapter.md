@@ -238,6 +238,7 @@ OpenCode surfaces this in its skills picker. Supporting scripts run via OpenCode
 | Claude Code hook | OpenCode native event | Wiring |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` | **`tool.execute.before`** | `throw` inside the handler to block the tool call (e.g. destructive bash, protected-path edit, secret leak); can also mutate args to rewrite |
+| `guard-irreversible.sh` | **`tool.execute.before`** | the H3 gate: an irreversible remote step (IaC apply/destroy, kubectl/helm mutations, cloud CLI create/delete/update, production deploys, migrations against a non-local database, release-tag pushes) waits for a human; plan/diff/dry-run/read-only and local steps pass; `throw` with the reason (no ask outcome) |
 | `test-lane.sh` | **`tool.execute.before`** | `throw` on a bash call that is a full-suite or e2e run (`npm test`, `pytest`, `go test ./...`), carrying the script's `test-lane.sh run '<cmd>'` re-run line; light runs (one test file, type-check, lint) pass. The lane is per machine, so OpenCode's suites take turns with every other tool's |
 | `module-boundaries.sh` | **`tool.execute.before`** | `throw` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`; the plugin must pass the edit **body** through to the script — it inspects the pending content, not the file on disk |
 | `post-edit-check.sh` + `format-on-save.sh` + `auto-test.sh` | **`tool.execute.after`** (or **`file.edited`** for format-on-save) | run lint/format/test after an edit tool completes |

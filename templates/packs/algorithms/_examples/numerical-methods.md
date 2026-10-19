@@ -6,51 +6,40 @@ pack: algorithms
 
 # Pattern: Numerical methods (precision, stability, conditioning)
 
-> **Hard rule.** Numerical code MUST state the precision/stability regime it assumes. Floating-point comparisons use a **tolerance**, never `==`. Accumulation over many terms uses a **cancellation-safe** formula (Kahan / pairwise / Welford), not a naive running sum. Division near zero is **guarded**, and the problem's **condition number** is acknowledged when it can be large. A float `==`, a naive sum of many terms, or an unguarded divide by a near-zero value is a **numerical bug**, not a style nit — it produces wrong answers that look plausible.
+> **Hard rule.** Numerical code MUST state the precision/stability regime it assumes. Accumulation over many terms uses a **cancellation-safe** formula (Kahan / pairwise / Welford), not a naive running sum; products that can underflow and exponentials that can overflow work in **log-space**; the problem's **condition number** is acknowledged when it can be large, and a solve never goes through an explicit inverse. A naive sum of many terms, a sum-of-squares variance or an unconditioned solve in shipped numeric code is a **numerical bug**, not a style nit.
 
-## Gate — only when numeric/scientific signals are present
+## Gate — only numeric code (printed, never assumed)
 
-Signal-gated (like `sublinear-structures`). Apply only when the code does float / linear-algebra / scientific work:
-
-```
-numpy|scipy|blas|lapack|matrix|linalg|\bfloat\b|float64|float32|double|Decimal|BigDecimal|
-mean|variance|stddev|covariance|dot product|norm|eigen|solve|integrate|simulation|Monte Carlo
-```
-
-No numeric signal → skip. Pure-integer, string, and business CRUD are out of scope (money is the exception — see below — and routes to the business pack).
+Apply only when a manifest names a numeric library (`numpy`, `scipy`, `pandas`, `polars`, `statsmodels`, `scikit-learn`, `torch`, `jax`, `numba`, `mpmath`, `mathjs`, `simple-statistics`, `ml-matrix`, `@tensorflow/tfjs`, `gonum`, Commons Math, `ndarray`, `nalgebra`, `statrs`, Math.NET) **or** source calls an anchored numeric function (`np.linalg`, `np.var`/`std`/`exp`/`prod`, `pvariance`, `stdev`, `logsumexp`, `softmax(`, `lstsq`, `variance(x)`). `numeric-stability-scan` grep G prints both counts. The old bare-word gate (`mean|norm|solve|float|double|Decimal…`) matched 30 % of a CRUD monorepo with no numeric code. Gate 0 → this pattern does not apply. Money is out of scope (§ Routed).
 
 ## The regimes
 
 | Concern | Naive (wrong) | Stable (right) |
 |---|---|---|
-| Equality | `a == b` on floats | `abs(a-b) <= eps` / rel / ULP; `math.isclose`, `np.isclose` |
 | Summation | `for x: total += x` over many terms | Kahan / pairwise; `math.fsum`, `np.sum` |
 | Variance | two-pass `Σx² − (Σx)²/n` (cancellation) | Welford's online algorithm |
-| Near-zero divide | `a / b`, `b → 0` | guard `if abs(b) < eps` or reformulate |
-| Over/underflow | product of many probabilities | work in log-space (`logsumexp`) |
-| Exact decimal | money/tax as `float` | a decimal type (below) |
+| Small arguments | `exp(x) − 1`, `log(1 + x)`, `1 − cos x` | `expm1`, `log1p`, `2·sin²(x/2)` |
+| Over/underflow | product of many probabilities, `exp` unshifted | log-space (`logsumexp`, max-shifted softmax) |
+| Linear solves | `inv(XᵀX) @ Xᵀy` | `lstsq` / QR / SVD, `cond` checked |
+| Iteration | `while err > tol` | a max-iteration bound + relative tolerance |
 
-Catastrophic cancellation (subtracting near-equal large numbers) and ill-conditioning (a high condition number means *no* algorithm recovers accuracy the input lacks) are the two failure engines. Check `cond(A)` before trusting a solve; prefer a decomposition (LU/QR/SVD) over an explicit inverse.
+Catastrophic cancellation (subtracting near-equal large numbers) and ill-conditioning (a high condition number means *no* algorithm recovers accuracy the input lacks) are the two failure engines. Tolerance choice in scientific code (absolute vs relative vs ULP) is a read question, never a float-`==` finding.
 
-## Money → decimal (hand off to business)
+## Detectors — `numeric-stability-scan`
 
-Use an exact decimal type (`decimal.Decimal`, `BigDecimal`, integer minor units) for money / tax / currency / billing — float tolerance does not save you (`0.1 + 0.2` is the wrong price). This crosses into the **business** pack (`pricing-tax-audit` owns the rounding policy). Do NOT use decimals for scientific math — floats with the discipline above are correct there.
+§1 naive accumulation · §2 cancellation · §3 overflow / log-space · §4 conditioning and unbounded iteration · §5 `-ffast-math`-class flags. Proof V608 / V609 (`proof-oracles.md` § Algorithms).
 
-## Detectors (cite-or-halt)
+## Routed — owned elsewhere
 
-1. Float `==` / `!=` → tolerance / `isclose`.
-2. Naive `+=` sum of many/mixed-magnitude floats → `fsum` / pairwise / Kahan.
-3. Division by a derived denominator with no near-zero guard → guard or reformulate.
-4. Variance/std via `Σx² − (Σx)²/n` → Welford or the library.
-5. Money as float → decimal type; **hand off to business `pricing-tax-audit`**.
+- Float `==` / NaN → code-quality `correctness-smell-scan` §2; division by zero and integer overflow → §4.
+- Money as float → code-quality `correctness-smell-scan` §4 (arithmetic), database `schema-integrity-scan` §4 (column), business `pricing-rule-scan` (policy) — each when its pack is installed.
 
 ## Closure verbs
 
-`report-with-fix` · `report-flagged` (design call → ADR) · `dismiss` (carve-out documented) · `handoff-pricing-tax` (money → business pack).
+`report-with-fix` · `report-flagged` (design call → ADR) · `dismiss` (precedent cited) · `route-code-quality` (float equality, division by zero, money arithmetic → `correctness-smell-scan` §2 / §4).
 
 ## Related
 
 - `algorithm-principles.md` — the correctness/precision budget this makes concrete.
 - `sublinear-structures.md` — the sibling gated pattern (approximation with *stated error*).
-- `@algorithm-designer` — picks stable formulations during DESIGN when numeric signals are present.
-- cross-pack `business` / `pricing-tax-audit` — owns money/tax exactness; detector 5 hands off here.
+- `@algorithm-designer` — picks stable formulations during DESIGN when the gate is open.

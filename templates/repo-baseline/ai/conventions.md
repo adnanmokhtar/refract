@@ -182,7 +182,7 @@ These come from the formatter config (`.prettierrc`, `pyproject.toml`, `.editorc
 2. Decide whether to formalize: open `ai/dynamic/decisions-pending.md`.
 3. If formalized: write the rule here AND update `ai/_convention-cheatsheet.md` (top 20).
 4. If contradicting an existing rule: write an ADR at `ai/decisions/<NNNN>-<slug>.md` AND update both files.
-5. Run `/audit-knowledge` (or wait for `knowledge-curator`) to regenerate the cheatsheet + session digest from the new rule.
+5. Run `/refresh-knowledge` (its `knowledge-curator` mode `regenerate`) to regenerate the cheatsheet + session digest from the new rule; `/audit-knowledge` then confirms nothing is stale.
 
 ## Anti-leak (the failure mode this scaffold prevents)
 

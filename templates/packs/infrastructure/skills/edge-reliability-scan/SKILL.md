@@ -282,7 +282,7 @@ GOOD:  the edge mints or forwards one id ($request_id → proxy_set_header X-Req
 | `scripts/edge-locs.py` (this skill) | `python3 -I "$ES/edge-locs.py" --nginx-version=<tag> . "$SCAN/embedded/src"` · `--self-test` (26/26) | nginx files and embedded nginx; effective values with inheritance | absolute `include` paths are `NOT-READ` until mapped to the repo copy the Dockerfile `COPY`s; Caddyfiles are skipped, never parsed as nginx |
 | `scripts/edge-harness.py` (this skill) | `serve --port=P --mode=<ok, slow:S, bad, reset, sse:N:GAP> [--idle=S]` · `hits` · `idle` · `sse` · `--self-test` (5/5) | the H-tier oracles V282–V287 | 127.0.0.1 only, behind the project's own proxy image or config; stop every process it started |
 | nginx 1.27.4 | `nginx -t -p "$SCAN" -c "$SCAN/nginx.conf"` on a copy | syntax, includes, literal upstream hosts | passes variable targets, retries, cache and buffering (precedent 40) |
-| gixy-ng 0.2.55 | `uvx --from gixy-ng gixy -f json nginx.conf` on a copy | 36 checks | never `--fix`; TLS checks fire on plain listeners (precedent 34); absolute includes skipped |
+| gixy-ng 0.2.55 | `gixy -f json nginx.conf` on a copy, when installed (to enable: `pipx install gixy-ng==0.2.55`) | 36 checks | never `--fix`; TLS checks fire on plain listeners (precedent 34); absolute includes skipped |
 | caddy 2.11.7 | `docker run --rm -v "$SCAN:/w" <project edge image> caddy adapt --config /w/Caddyfile` then `jq` | Caddy JSON: `reverse_proxy` `load_balancing`, `transport`, `flush_interval`, server `protocols`, `logging` | stock caddy on an xcaddy config is NOT-RUN (precedent 49); a plugin-stripped copy reads the rest as Unconfirmed |
 | traefik 3.7.14 | boot `--configFile` against an empty provider in a scratch dir; grep `ERR`, `field not found` | static + dynamic files | no validate command; a dynamic typo exits 0 |
 | haproxy / envoy | `haproxy -c -f haproxy.cfg` · `envoy --mode validate -c envoy.yaml` | — | NOT-INSTALLED here; the row prints the one-shot `docker run` |
@@ -305,8 +305,8 @@ Illustrative: finding 1 is the research fixture's measured shape; finding 2 and 
 
 ```
 edge-reliability-scan — nginx 1.27.4 (Dockerfile:1) · caddy 2.11.6 (xcaddy, 3 plugins) · ingress-nginx chart UNPINNED · 2 envs
-Hop table /api (prod): Cloudflare ≈100 s [K?] → LB tcp (PROXY) → Caddy none → ingress-nginx read 3600 s (ingress.yaml:28)
-                       → Fastify requestTimeout 100 s, app deadline 90 s (configure-app.ts:83) — shortest hop: the app's own deadline
+Hop table /api (prod): Cloudflare ≈100 s [K?] → LB tcp (PROXY) → Caddy none → ingress-nginx read 3600 s (api-ingress.yaml:28)
+                       → Fastify requestTimeout 100 s, app deadline 90 s (main.ts:83) — shortest hop: the app's own deadline
 Rows: 41 (18 hop · 23 candidate) → 2 findings · 2 unconfirmed · 3 hardening · 9 refuted · 2 routed
 
 1. deploy/nginx/nginx.conf:37                                     [report-with-fix]   high
@@ -314,11 +314,11 @@ Rows: 41 (18 hop · 23 candidate) → 2 findings · 2 unconfirmed · 3 hardening
    The handler enforces no idempotency key (orders.controller.ts:88). Proof: V284 hit counter — 4 POSTs → 6 executions.
    Fix: drop non_idempotent (precedent 35: the default never re-sends a sent POST); add the key for client retries.
 
-2. deploy/k8s/caddy.yaml:190                                       [report-flagged]    medium
+2. deploy/k8s/proxy.yaml:190                                       [report-flagged]    medium
    §2 E2 — Caddy pools to ingress-nginx for up to 2 min; the controller closes idle client sockets at 75 s.
    Unproven link: whether the transport replays the request on a socket the server closed. Settling run: V283 idle at 74 s / 76 s.
 
-Routed: §15 sec:E5-LOG-CONTENT deploy/k8s/caddy.yaml:205 → security data-exposure-scan §6 · §4 none
+Routed: §15 sec:E5-LOG-CONTENT deploy/k8s/proxy.yaml:205 → security data-exposure-scan §6 · §4 none
 Class coverage:
   §1 checked (5 hops) · §2 checked (2 rows → 1 unconfirmed) · §3 checked (1 → 1) · §4 fallback (0 rows)
   §5 checked (1 row → refuted, precedent 32) · §6 checked (socket.io: ingress-nginx buffering off, read 3600 s) · §7 checked

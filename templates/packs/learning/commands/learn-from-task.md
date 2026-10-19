@@ -1,5 +1,7 @@
 ---
-description: After a task finishes, capture decisions made / patterns followed / patterns introduced / user corrections into the learning files. Run before `/clear` or end of session.
+description: "Capture a finished task's decisions, patterns, corrections and failures into the sinks, with provenance."
+kind: command
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -66,6 +68,28 @@ ALWAYS:
 
 This command produces knowledge entries, not code.
 
+## Entry contract — provenance, reconcile on write, delta edits (every sink below)
+
+An entry nobody can re-check later is the one that rots silently: `memory-hygiene-scan` §1 re-resolves each open entry's evidence and §4 flags entries with none (KN-20, KN-23). So every entry this command writes carries:
+- **a dated heading** — `### <YYYY-MM-DD> — <label>`, in the shape the sink's own `## Format per entry` block declares (a project may redefine it; the declared format wins over the template, precedents § 24);
+- **a source** — `Source: <task name>` (or `/eval <run>`, or the commit), so a reader can find the work it came from;
+- **at least one citation** — a tracked `path:line` (or `path` for a whole file) the observation is about. A preference or decision with no code anchor cites `user, <YYYY-MM-DD>` instead (precedents § 19): it is never stale by code, and it is never invented.
+
+**Reconcile on write** (Mem0-style: compare before adding). After appending an entry, run the engine on that one entry:
+
+```bash
+KS="${KS:-.claude/skills}"; [ -f "$KS/memory-hygiene-scan/scripts/sink-audit.py" ] || KS="$HOME/.claude/templates/packs/learning/skills"
+python3 -I "$KS/memory-hygiene-scan/scripts/sink-audit.py" . --entry=<sink>:<heading line> --classes=2,3,4
+echo "exit $? (0 reconciled · 1 rows to resolve · 2 blocked)"
+```
+
+- a §2 **duplicate** row → delete the line you just appended and increment the existing entry's `Seen:` / `Repeated:` / occurrence list instead, adding your citation to it;
+- a §3 **contradiction** pair → keep the new entry, quote both in the output, and mark the older one only when the user's newest explicit statement settles it (`SUPERSEDED → <date>`); otherwise list the pair under "Needs a decision";
+- a §4 **provenance** row → add the missing date, source or citation before finishing;
+- exit 2 (no engine, unreadable sink) → say so in the output; never print "reconciled".
+
+**Delta edits only.** Append a block or increment a counter with `Edit`; never rewrite a sink file whole (a whole-file rewrite loses detail other sessions wrote, the ACE "context collapse" finding). Never delete another entry: the curator's invariant is archive, don't delete.
+
 ## Phase 5 — Update (persist changes to the knowledge base)
 
 1. Append entry to `ai/dynamic/interaction-log.md` using the format:
@@ -110,12 +134,16 @@ This command produces knowledge entries, not code.
 
 8. Append a one-line summary to `ai/dynamic/changelog.md`.
 
+9. **Confirm-list** — the only path from a lesson to a rule, sensor or precedent ([`learning-sink.md` § Confirm-list and the promotion audit line](../../../snippets/learning-sink.md)). Gather: the run's `ai/runs/<run>/ledger.md` § Diary when the task was a delivery run; the entries this task pushed past their sink threshold; and, when `.claude/scripts/review-dismissals.py` is installed, the `- [ ]` lines that `python3 .claude/scripts/review-dismissals.py propose --write` leaves in `ai/dynamic/calibration-proposals.md`. Show ONE numbered list (candidate · target: a sensor (hook, lint, test) when a script can check it, else a rule `.claude/rules/<x>.md`, a precedent, or `/promote-pattern` / `/promote-decision` · evidence) and ask once. Write only what the human keeps, and append one audit line per kept item to `ai/dynamic/promotions.md`. Nothing kept → write nothing and print `confirm-list: <n> candidates, 0 kept`.
+
 ## Phase 6 — Validate (verify correctness)
 
 - New `interaction-log.md` entry has Type, Status, Files touched, all sections (even if empty placeholders).
 - learned-patterns.md occurrence increments are correct (didn't double-count).
 - feedback-learned.md `Repeated` counter is correctly incremented (not reset).
 - changelog.md entry is a single line.
+- Every entry written this run has a dated heading, a `Source:` and a citation (or `user, <date>`), and its `--entry` reconcile exited 0 or its rows are resolved in the output.
+- Every kept confirm-list item has exactly one `ai/dynamic/promotions.md` line (who, when, source, evidence, what), and no unconfirmed candidate was promoted.
 
 ## Phase 7 — Improve (this command IS the loop closer)
 
@@ -123,7 +151,7 @@ After this runs, the sinks are surfaced for manual dispatch (the loop is NOT aut
 - Next session's `session-start.sh` PRINTS the open follow-ups + the learning queue + READY patterns so a human notices them.
 - The next session's agents read `feedback-learned.md` and don't repeat the corrected mistake.
 - `pattern-emergence-watcher`, when invoked, sees the new entry and starts counting occurrences.
-- `knowledge-curator`, when invoked (manually or via `/audit-knowledge` / `/promote-pattern` / `/promote-decision`), graduates anything that meets promotion criteria.
+- `/audit-knowledge` (read-only) reports what is ready: a READY pattern or VALIDATED decision past its threshold is a `memory-hygiene-scan` §5 row carrying its `/promote-pattern` or `/promote-decision` command; `knowledge-curator` graduates it there.
 - `/refresh-knowledge` catches the long-term changes the per-task entries don't, when you run it after a major refactor / quarterly.
 
 This command writes the sinks; promotion is a human-dispatched follow-up.
@@ -134,7 +162,7 @@ There is **no auto-invoking post-task hook and no cron** in the shipped baseline
 
 - `/learn-from-task` — this command (synchronous, scoped to the just-finished task).
 - `/promote-pattern <name>` / `/promote-decision <id>` — graduate a single READY entry.
-- `/audit-knowledge` — sweep all sinks via `knowledge-curator` and report what's ready.
+- `/audit-knowledge` — sweep all sinks read-only with the five detectors and report what's ready, stale or unreadable.
 
 If you want it automated, wire `/audit-knowledge` into `/schedule` yourself — the baseline does not do this for you.
 
@@ -154,7 +182,9 @@ Phase 5 (Updated):
   - failures/_index.md (+1: TypeORM decorator in V2 setup — don't retry)
   - drift-log.md (+1: direct stdout call in <billing service file>)
   - changelog.md (+1 line)
-Phase 6 (Validated): all entries shape-conformant.
+Reconcile (sink-audit --entry): 6 entries → 5 clean · 1 duplicate (merged into learned-patterns.md:41, Seen 2 → 3)
+Confirm-list: 3 candidates → 1 kept (sensor: lint for direct stdout calls ← drift-log.md:12) · audit line → promotions.md
+Phase 6 (Validated): all entries shape-conformant; each has date, Source and a citation.
 Phase 7 (Improved): sinks written; session-start will PRINT follow-ups + queue for manual dispatch (no auto-run).
 
 Decisions queued for ADR consideration:
@@ -197,6 +227,3 @@ Status: COMPLETE
 - `/detect-drift` — sibling command in learning pack
 - `/promote-pattern` — sibling command in learning pack
 - `/refresh-knowledge` — sibling command in learning pack
-
-### Patterns
-- `ai/patterns/setup-quality-scoring.md`

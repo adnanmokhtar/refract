@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "1.5.2",
-  "released": "2026-10-18",
+  "version": "2.0.0",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "/detect-drift dispatches align's convention-oracle when align is installed.",
+  "summary": "Five knowledge-layer detectors, a read-only audit and a failing-first refresh (Track A batch 7).",
   "changelog": "CHANGELOG.md"
 }

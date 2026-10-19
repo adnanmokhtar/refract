@@ -85,7 +85,7 @@ A ledger bug is not a failed request — it is money invented, money destroyed, 
 ## Enforcement
 
 - `<commands-path>/audit-ledger.md` (slash: `/audit-ledger`) — cite-or-halt diagnostic that locates the posting code at `<path:line>` and proves immutability, the balance invariant, integer money, idempotency, balance-read consistency / overspend race, reconciliation, and tenant/account scope from the real source — never an assumed posting.
-- `<agents-path>/ledger-reviewer.md` — review gate hard-failing on mutable/deletable entries, unbalanced or non-atomic postings, float money, non-idempotent postings, racy/unlocked overspend reads, missing reconciliation, missing tenant/account scope, and unrecorded currency conversion.
+- `.claude/lenses/ledger-review.md` — review gate hard-failing on mutable/deletable entries, unbalanced or non-atomic postings, float money, non-idempotent postings, racy/unlocked overspend reads, missing reconciliation, missing tenant/account scope, and unrecorded currency conversion.
 - CI lint MUST reject `UPDATE` / `DELETE` against ledger entry / posting / leg tables (heuristic on table names; flag for review).
 - CI lint MUST reject float/`number` arithmetic or `toFixed` on money-typed columns in posting code (AST heuristic; require the `Money` type).
 - CI MUST assert a UNIQUE constraint on `(tenant_id, idempotency_key)` for the postings table exists in the schema.

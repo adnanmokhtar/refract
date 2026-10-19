@@ -83,4 +83,4 @@ Top recommendation:
 - `<rules-path>/audit-log.md` — settings changes are an audited event.
 - `<rules-path>/feature-flags.md` — the flags-vs-settings boundary (don't audit a rollout gate as durable config, or churn a durable preference as a flag).
 - `<rules-path>/auth.md` — server-side authorization for security-sensitive setting writes.
-- `<agents-path>/settings-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/settings-review.md` — review gate that consumes these findings.

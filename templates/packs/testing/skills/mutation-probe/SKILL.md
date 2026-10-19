@@ -53,7 +53,7 @@ sample this pass; **Docs** = read from the tool's current documentation or `--he
 
 | Stack | Tool (version) | Diff-scoped run | Survivor in the report | Trap | Check |
 |---|---|---|---|---|---|
-| JS / TS | StrykerJS `@stryker-mutator/core` 10.0.0 (Node ≥ 22) + a runner plugin | `npx stryker run --mutate "<file:start-end,…>" --reporters clear-text,json` (`--checkers typescript` with the TS checker) | `reports/mutation/mutation.json` → `status: "Survived"` | **No `--since`** — `stryker run --since` exits `error: unknown option '--since'`; `--incremental` diffs against its own last report (`reports/stryker-incremental.json`), not git. Never `npx stryker` without the local install: it fetches the abandoned `stryker` 0.x package | Run |
+| JS / TS | StrykerJS `@stryker-mutator/core` 10.0.0 (Node ≥ 22) + a runner plugin | `npx --no stryker run --mutate "<file:start-end,…>" --reporters clear-text,json` (`--checkers typescript` with the TS checker) | `reports/mutation/mutation.json` → `status: "Survived"` | **No `--since`** — `stryker run --since` exits `error: unknown option '--since'`; `--incremental` diffs against its own last report (`reports/stryker-incremental.json`), not git. Never a bare `npx stryker` without the local install: it fetches the abandoned `stryker` 0.x package (`npx --no` refuses instead) | Run |
 | .NET | Stryker.NET 5.0.0 | `dotnet stryker --since:<committish> -r json -r html` | the JSON report under `StrykerOutput/` → `Survived` | `--since` is file-granular, default target `master`; `-m "File.cs{10..100}"` is a **character** span, not lines | Docs |
 | Python | mutmut 3.8.0 | `[tool.mutmut] source_paths = ["src/pkg"]`, then `mutmut run "<mutant-name globs>"` (grep 3) | `mutmut results` → `survived`; `mutmut show <name>` | **`--paths-to-mutate` is gone** (`Error: No such option`); mutates only inside functions; POSIX only; `mutate_only_covered_lines` also skips `# pragma: no cover` lines | Run |
 | Python | cosmic-ray 8.7.0 | `cosmic-ray init cr.toml s.sqlite && cr-filter-git --config cr.toml s.sqlite && cosmic-ray exec cr.toml s.sqlite && cr-report s.sqlite` | `cr-report` | the git filter's branch defaults to `master` — set it in `cr.toml` | Docs + `--help` |
@@ -125,7 +125,8 @@ package directory instead of `--diff`, cargo-mutants `--file <path>` instead of 
 
 ```bash
 # StrykerJS — hunk ranges as --mutate (a range entry cannot be mixed with a glob in the same entry)
-npx stryker run --mutate "$(awk -F: '$1 ~ /\.(c|m)?[jt]sx?$/' "$W/ranges" | paste -sd, -)" --reporters clear-text,json
+npx --no stryker --version >/dev/null 2>&1 || echo "NOT-RUN (StrykerJS not installed — to enable: npm i -D @stryker-mutator/core @stryker-mutator/vitest-runner)"
+npx --no stryker run --mutate "$(awk -F: '$1 ~ /\.(c|m)?[jt]sx?$/' "$W/ranges" | paste -sd, -)" --reporters clear-text,json
 jq -r '.files|to_entries[]|.key as $f|.value.mutants[]|select(.status=="Survived" or .status=="NoCoverage")|"\(.status) \($f):\(.location.start.line) \(.mutatorName) -> \(.replacement)"' reports/mutation/mutation.json
 # mutmut 3 — changed lines → mutant-name globs: functions `mod.x_fn__mutmut_*`, methods `mod.xǁClassǁfn__mutmut_*`
 mutmut run $(python3 -c '
@@ -186,7 +187,7 @@ One operator per branch, one line at a time, restore proven. The file must be cl
 (otherwise seed in `git worktree add "$W/seed" HEAD`):
 
 ```bash
-f=src/pricing.ts; L=42; T='npx vitest run src/pricing.spec.ts'      # T = the tests that execute line L (coverage-gap, per-test coverage)
+f=src/pricing.ts; L=42; T='npx --no vitest run src/pricing.spec.ts'      # T = the tests that execute line L (coverage-gap, per-test coverage)
 git diff --quiet -- "$f" || echo "uncommitted edits in $f: seed in a scratch worktree instead"
 cp "$f" "$W/seed.orig"; sed -i.bak "${L}s/ > / >= /" "$f" && rm -f "$f.bak"
 git diff --numstat -- "$f"                                          # must read `1 1 <f>` — exactly one line mutated
@@ -222,7 +223,7 @@ One row per killed survivor, the `mutant kill` instance of the evidence block in
 
 ```text
 mutant-kill  src/pricing.ts:42  EqualityOperator `total > threshold` → `total >= threshold`
-  lane:      StrykerJS 10.0.0 + vitest-runner · npx stryker run --mutate src/pricing.ts:42-42 --reporters clear-text,json
+  lane:      StrykerJS 10.0.0 + vitest-runner · npx --no stryker run --mutate src/pricing.ts:42-42 --reporters clear-text,json
   before:    Survived — ran: pricing.spec.ts › "discounts above the threshold"
   after:     Killed by pricing.spec.ts › "no discount at exactly the threshold"
   siblings:  4/4 non-equivalent killed on :42 (ConditionalExpression true/false, EqualityOperator <, ==); equivalent 0

@@ -84,7 +84,7 @@ An admin bug is not a 500 — it is staff with un-attributable god access silent
 ## Enforcement
 
 - `<commands-path>/audit-admin-surface.md` (slash: `/audit-admin-surface`) — enumerates every admin endpoint/action at `<path:line>` and checks authorization granularity, audit coverage, impersonation safety, destructive-action guards, cross-tenant reach, mass-action blast-radius, and PII exposure — cite-or-halt, never an assumed map.
-- `<agents-path>/admin-reviewer.md` — review gate hard-failing on `is_admin` gates, unaudited admin mutations, unsafe impersonation, unguarded destructive actions, uncapped bulk actions, silent cross-tenant reach, shared/MFA-less admin access, and unmasked PII firehoses.
+- `.claude/lenses/admin-review.md` — review gate hard-failing on `is_admin` gates, unaudited admin mutations, unsafe impersonation, unguarded destructive actions, uncapped bulk actions, silent cross-tenant reach, shared/MFA-less admin access, and unmasked PII firehoses.
 - CI lint MUST reject `is_admin` / `role === 'admin'` used as an authorization gate in admin handlers (heuristic; require a capability check instead).
 - CI lint MUST reject an admin mutation handler that does not call the `withAdminAction` wrapper / audit write (AST heuristic; flag for review).
 - CI lint MUST reject admin queries that omit a tenant predicate without an explicit cross-tenant capability annotation.
@@ -98,5 +98,5 @@ An admin bug is not a 500 — it is staff with un-attributable god access silent
 - `<rules-path>/multi-tenancy.md` — admin is the one place cross-tenant action is allowed; make it an explicit, audited capability rather than a dropped predicate.
 - `<rules-path>/reporting-export-discipline.md` — admin data views/exports inherit the PII column allowlist + redaction + access-audit discipline.
 - `<commands-path>/audit-admin-surface.md` — admin-surface diagnostic.
-- `<agents-path>/admin-reviewer.md` — review gate.
+- `.claude/lenses/admin-review.md` — review gate.
 - `<adr-path>/<NNN>-admin-capability-model.md` — ADR pinning the capability taxonomy, impersonation policy, dual-control thresholds, and admin isolation model.

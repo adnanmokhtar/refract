@@ -1,0 +1,8 @@
+version: 2
+
+exposures:
+  - name: revenue_reporting
+    type: application
+    owner: {name: Finance Data, email: finance-data@larkmoor.example}
+    depends_on:
+      - ref('revenue_by_order')

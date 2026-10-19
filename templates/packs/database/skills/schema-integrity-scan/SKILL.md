@@ -270,7 +270,7 @@ Earlier measurement (2026-10-02) on the same repo with 294 migrations. H mapped 
 - Grep 8: 2 `package.json` scripts that run `schema:update` / `schema:fresh` with `--run`, one guarded by a dev-database check. Grep 9: 6 lines, including the project's own lint rule that bans the raw escape (a control under gate 4).
 
 On the fixtures:
-- `node-api`: §1 lists `orders.tenant_id`, `orders.customer_id` and `order_items.order_id` (`src/db/schema.sql:35`, the anchor of `NAPI-ARCH-02`).
+- `node-api`: §1 lists `orders.tenant_id`, `orders.customer_id` and `order_items.order_id` (the anchor of `NAPI-ARCH-02`).
 - `vuln-fullstack`: 12 scalar `_id` fields with no `@relation`, and 10 `DateTime` fields that are `timestamp(3)` on its Postgres provider.
 - `half-built-crm`: SQLite, so §7 stays quiet on `INTEGER PRIMARY KEY` (a 64-bit rowid). It reports 3 FKs with no `ON DELETE` and 2 enum-like text columns.
 
@@ -397,7 +397,7 @@ Candidates: H's `§10` inventory (email, phone, name, address, birth date, natio
 BAD:   invoice_number bigint DEFAULT nextval('invoice_seq')      -- a rolled-back issue leaves a gap; tax rules may forbid gaps
 GOOD:  UPDATE invoice_counters SET next = next + 1 WHERE series = $1 RETURNING next   -- in the issuing transaction, row-locked
 ```
-Candidates: H's `§11` rows and grep 11. Sequence gaps are normal (`precedents/data.md` § 23). It is a finding only where consecutive numbering is required: name the rule or jurisdiction the project serves, or mark the row `[report-flagged]` with that as the unproven link. **Proof:** on a non-production copy, issue a number inside a transaction, roll it back, then issue the next one. The gap appears before the fix. Then run two concurrent issues: no duplicate, no gap.
+Candidates: H's `§11` rows and grep 11. Sequence gaps are normal (`precedents/data.md` § 23). It is a finding only where consecutive numbering is required: name the rule or jurisdiction the project serves, or mark the row `[report-flagged]` with that as the unproven link. When the business pack is installed, the jurisdiction fact comes from `tax-invoice-scan`'s tax policy (`tax-policy.md`: jurisdictions and the document rules each sets) — cite its row; a policy with no jurisdiction or no source keeps the row `[report-flagged]`. The issued-document lifecycle itself (immutability, credit notes, chain fields) is `tax-invoice-scan` §7–§11's. **Proof:** on a non-production copy, issue a number inside a transaction, roll it back, then issue the next one. The gap appears before the fix. Then run two concurrent issues: no duplicate, no gap.
 
 ## Output
 

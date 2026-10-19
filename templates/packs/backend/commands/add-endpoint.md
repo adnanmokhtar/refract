@@ -136,7 +136,7 @@ Follow the module's existing shape.
 
 ```
 adapters/http/dtos/
-├── <verb>-<resource>.dto.ts           # input (e.g., create-order.dto.ts)
+├── <verb>-<resource>.dto.ts           # input (e.g., create-shipment.dto.ts)
 └── <resource>-response.dto.ts         # output if not shared (often reuse existing)
 ```
 
@@ -329,8 +329,8 @@ Dispatch:
 - `test-reviewer` — coverage + determinism + mocks.
 - `security-auditor` — if auth / crypto / secrets / sensitive data.
 - `tenant-isolation-reviewer` — if multi-tenant.
-- `prompt-reviewer` — if AI code touched.
-- `payment-reviewer` — if payment code touched.
+- `security-auditor` + lens `ai-review` — if AI code touched.
+- `code-reviewer` + lens `payment-review` — if payment code touched.
 - `@websocket-engineer` — if the endpoint streams (SSE / chunked / NDJSON / LLM token stream): verify backpressure, heartbeat, resume, idle + total timeout, and disconnect-aborts-upstream. (ENF-4)
 
 If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.

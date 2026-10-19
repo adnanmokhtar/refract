@@ -272,11 +272,11 @@ Lanes: 11 calibrated (built-in laravel→nest, 0 rows) · prefix sanity ok · wr
 Detectors: SP ran · SM ran · SE ran · DC ran · CR ran · PF ran   Owners: security ✗ · backend ✓ · database ✓ · frontend ✓ · testing ✗ · verifier ✓
 Verification: 214 candidates → 31 findings · 22 unconfirmed · 0 unconfirmed-solo · 9 hardening · 0 pre-existing · 148 refuted · 4 routed
 BLOCKER (2):
-  v2/apps/api/src/wallets/wallets.controller.ts:25   SP §3 MG-AZ-1 · POST /api/wallets/{}/adjust: V1 permission:wallets.adjust (v1/routes/api.php:40), V2 no @Permissions under a default-allow guard
-    proof: V359 clerk 403 → 201 (recorded: runtime/v359-authz-matrix.txt)   security-class (owner pack security not installed)
-  v2/deploy/istio/orders-mirror.yaml:12              CR §3 CO-3 · POST /api/orders mirrored to a V2 wired to the real mailer
+  v2/apps/api/src/credits/credits.controller.ts:31   SP §3 MG-AZ-1 · POST /api/credits/{}/adjust: V1 permission:credits.adjust (v1/routes/api.php:40), V2 no @Permissions under a default-allow guard
+    proof: V359 clerk 403 → 201 (recorded: runtime/role-route-matrix.txt)   security-class (owner pack security not installed)
+  v2/deploy/istio/api-mirror.yaml:9                  CR §3 CO-3 · POST /api/orders mirrored to a V2 wired to the real mailer
 HIGH (1):
-  v2/apps/api/src/configure-app.ts:5                 SP §7 MG-VA-1 · V1 global TrimStrings + ConvertEmptyStringsToNull (v1/bootstrap/app.php:20); V2 never calls registerInputNormalization()
+  v2/apps/api/src/app-setup.ts:7                     SP §7 MG-VA-1 · V1 global TrimStrings + ConvertEmptyStringsToNull (v1/bootstrap/app.php:20); V2 never calls registerInputNormalization()
 UNCONFIRMED at HIGH (1): v2/apps/api/src/orders/orders.controller.ts:45  SP §1 MG-RT-1 POST /api/orders/{}/duplicate — settle: V358 replay of the V1 route list
 Class ledger: MG-RT-1 checked (10 → 2) · MG-AZ-1 N/A (owner pack security not installed; 2 tagged) · … · PP-5 → testing (1) · MG-UI-1 checked (Section 0: 2)
 Production bar: NO GUARD LOST ✗ · NO EFFECT LOST UNVERIFIED (journal recorded for 3 of 7 write routes) · PARITY WAS RUN ✗ (parity job: 0 passed, 7 skipped) · CUTOVER REVERSIBLE ✗

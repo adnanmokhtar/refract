@@ -3,12 +3,13 @@
 Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 ```yaml
-- name: test-engineer
-  kind: agent
+# Phase 6: was this pack's test-engineer agent (a same-name twin of delivery's); read by delivery's test-engineer
+- name: test-craft
+  kind: lens
   triggers: { test_framework_detected: true }
   extracts_from: _extracted-codebase.md § Tests + § Modules + _extracted-idioms.md (base classes — to know what's mockable)
-  sections: [persona, framework_in_use, test_layout, mock_strategy, factory_strategy, project_examples, output_format]
-  fallback: _examples/test-engineer.md
+  sections: [premise, test_pyramid, what_to_test, test_shape, test_doubles, determinism, async, fixtures, e2e, coverage, speed, output]
+  fallback: lenses/test-craft.md
   cite_evidence: strict
 
 - name: test-reviewer

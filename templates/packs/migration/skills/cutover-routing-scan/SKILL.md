@@ -242,15 +242,15 @@ GOOD:  V1 workers and scheduler kept at capacity until every job they run has a 
 ## Output
 
 ```
-cutover-routing-scan — paired · façade nginx (deploy/nginx/facade.conf) · mesh istio · ledger 10 features (1 V2-only, 2 V2-canary, 2 V2-shadow)
+cutover-routing-scan — paired · façade nginx (deploy/nginx/front-proxy.conf) · mesh istio · ledger 10 features (1 V2-only, 2 V2-canary, 2 V2-shadow)
 
 Findings: 8 · Unconfirmed: 0
 
-1. v2/deploy/istio/orders-mirror.yaml:12                            [report-with-fix]  blocker
+1. v2/deploy/istio/api-mirror.yaml:9                                [report-with-fix]  blocker
    §3 the orders mirror matches a URI prefix with no method: 10% of POST/PATCH replayed on v2-api-shadow, whose env
-   mails through the production relay (deploy/shadow/v2-shadow.env:7). V1 mails on create (OrderObserver.php:13).
+   mails through the production relay (deploy/shadow/shadow-api.env:4). V1 mails on create (OrderMailObserver.php:13).
    Proof: V371 shadow on, candidate effects 1 ≠ 0. Fix: method: { exact: GET }.
-2. v2/deploy/nginx/facade.conf:38                                   [report-with-fix]  high
+2. v2/deploy/nginx/front-proxy.conf:41                              [report-with-fix]  high
    §1 tickets are V2-only (ledger F003) but `location = /api/tickets` matches the bare path only: 4 V1 sub-paths
    (GET /api/tickets/{}, PATCH, /reopen, /next) fall through to location /api/ → V1. Proof: V383. Fix: prefix location.
 

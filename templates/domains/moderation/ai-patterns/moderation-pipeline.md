@@ -405,5 +405,5 @@ Showing the shadowed author "0 views" while others see real counts reveals the s
 - `<rules-path>/media-processing` — image/video decode + hashing handoff the scanner consumes.
 - `<rules-path>/compliance` — CSAM mandatory-reporting jurisdiction, evidence retention, and legal-hold contract.
 - `<commands-path>/audit-moderation.md` — diagnostic that traces ingest → scan → queue → action → appeal.
-- `<agents-path>/moderation-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/moderation-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-moderation-policy.md` — ADR pinning policy thresholds, classifier/hash providers, queue SLA, and the mandatory-reporting + retention contract.

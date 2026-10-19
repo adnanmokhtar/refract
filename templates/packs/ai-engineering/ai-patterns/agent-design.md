@@ -79,13 +79,14 @@ Bound EVERY axis; a single uncapped axis is the failure mode.
 
 - An agent loop (`while` / recursive tool-use loop) whose task decomposes into a fixed, knowable step sequence → cite the sequence → `downgrade-to-workflow`.
 - A tool definition with write/delete/spend/send/execute scope and no confirmation-or-policy gate at the call site → `add-tool-gate` + cross-ref `@llm-security-reviewer` LLM03:2026.
-- An agent loop with no `max_steps` / no token cap / no timeout / no cost ceiling → `add-loop-budget`.
+- An agent loop with no `max_steps` / no token cap / no timeout / no cost ceiling, or one resting on a framework default the lockfile makes large (`llm-gateway-audit` §L1) → `add-loop-budget`.
 - Context assembled by unconditionally appending every step's observation with no compaction/threshold → `add-context-compaction`.
 - A tool that `throw`s (or lets an exception propagate) instead of returning a structured error the model can read → `make-tool-error-recoverable`.
 - A tool input consumed without schema validation (model arguments trusted raw) → `validate-tool-args`.
 - An irreversible/high-value action (delete/payment/external-send/prod-write) executed with no human/policy approval step → `add-human-gate`.
+- A tool that pays, sends or writes and can run twice for one decision (a framework tool retry, a re-plan after a failed step, a queue redelivery) with no key derived from the tool-call id (`llm-gateway-audit` §L2) → `dedupe-tool-effect`.
 
-**Closure verbs:** `downgrade-to-workflow`, `add-tool-gate`, `add-loop-budget`, `add-context-compaction`, `make-tool-error-recoverable`, `validate-tool-args`, `add-human-gate`.
+**Closure verbs:** `downgrade-to-workflow`, `add-tool-gate`, `add-loop-budget`, `add-context-compaction`, `make-tool-error-recoverable`, `validate-tool-args`, `add-human-gate`, `dedupe-tool-effect`.
 
 ## Related
 

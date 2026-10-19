@@ -1,5 +1,7 @@
 ---
 description: Cloud cost audit. Identifies unutilized / over-provisioned / forgotten resources. Reports per-cost-class with quick-win + medium-effort + structural recommendations.
+kind: command
+pack: infrastructure
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
@@ -105,7 +107,7 @@ Read project's:
 
 **IaC candidates come from `iac-cost-scan`** (this pack), never re-detected here. It reads the IaC and the runbook create lines and emits one row per cost class with the quantity arithmetic and a price key (`quantity × unit (price key) = per-hour or per-month expression`), but never a `$`. This command prices those rows from the bill line, or from a dated pricing page under halt #5, and adds what only the live account shows: orphans by inventory diff, idle by recommender, commitments by utilisation. A class `iac-cost-scan` owns (log retention, scale ceilings, always-on NAT/EIP/volumes, autoscaler maxima) is cited by its row, not found twice.
 
-**Pricing hand-off.** When the finops pack is installed, `@finops-analyst` prices the bill-driven rows and `@cost-reviewer` prices `iac-cost-scan` candidates on a diff; this command passes them the rows (resource id or `<file:line>`, quantity, price key) and reports their figures with the bill line they cite. Without finops, this command prices them itself under halts #5–#7. Either way a `$` appears only beside a bill line or a dated pricing page.
+**Pricing hand-off.** When the finops pack is installed, its `candidate-pricing` skill is the pricing step: this command passes it the rows (resource id or `<file:line>`, quantity, price key) and it applies the flat-rate gate, then prices each row from the bill line (`bill-lane.py` on the export) or a pricing page fetched in the run, else `unpriced`; `@finops-analyst` runs the bill lanes and `@cost-reviewer` judges the rows in refute mode. This command reports their figures with the bill line or page they cite. Without finops, this command prices them itself under halts #5–#7. Either way a `$` appears only beside a bill line or a dated pricing page.
 
 ## Phase 4 — Generate
 
@@ -252,4 +254,4 @@ Every run MUST end its report with a `## What to do next` block: the findings re
 - `@infra-architect` agent — for structural cost recommendations (re-architecting a workload, not a line-item right-size).
 - `tf-plan-review` skill — verify cost implications of next IaC change (a `forget` keeps billing).
 - `iac-cost-scan` skill (this pack) — the IaC cost candidates and their quantity arithmetic this command prices.
-- finops `@finops-analyst` / `@cost-reviewer` *(finops pack, when installed)* — own the `$` on the bill and on a diff; without the pack, this command prices under its halts.
+- finops `candidate-pricing` · `@finops-analyst` · `@cost-reviewer` *(finops pack, when installed)* — the pricing step, the bill lanes and the judge; without the pack, this command prices under its halts.

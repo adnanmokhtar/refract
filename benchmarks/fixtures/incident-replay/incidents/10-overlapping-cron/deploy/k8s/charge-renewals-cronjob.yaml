@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: charge-renewals
+spec:
+  schedule: "*/10 6-7 * * *"
+  concurrencyPolicy: Allow
+  startingDeadlineSeconds: 120
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: renewals
+              image: ghcr.io/acme/billing-jobs@sha256:4e8a
+              args: ["python", "-m", "jobs.renewals"]

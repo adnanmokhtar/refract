@@ -144,6 +144,7 @@ Supporting files (referenced from SKILL.md via standard Markdown links):
 | Claude hook | Qwen event | Native? |
 |---|---|---|
 | `guard-destructive.sh` + `pre-edit-guard.sh` + secret-scan | `PreToolUse` — exit `2` + `decision:"deny"` (or `hookSpecificOutput.permissionDecision:"deny"`) blocks the tool | ✓ native |
+| `guard-irreversible.sh` | `PreToolUse` — `hookSpecificOutput.permissionDecision:"ask"` where honoured, else exit `2` — the H3 gate: an irreversible remote step (IaC apply/destroy, kubectl/helm mutations, cloud CLI create/delete/update, production deploys, migrations against a non-local database, release-tag pushes) waits for a human; plan/diff/dry-run/read-only and local steps pass | ✓ native |
 | `test-lane.sh` | `PreToolUse` — exit `2` + `decision:"deny"` on a full-suite or e2e command (`npm test`, `pytest`, `go test ./...`), `reason` = the script's `test-lane.sh run '<cmd>'` re-run line; light runs pass. The lane is per machine, shared with every other tool's suites | ✓ native |
 | `module-boundaries.sh` | `PreToolUse` (matcher `Edit\|Write\|MultiEdit`) — `decision:"deny"` on an import that crosses a boundary declared in `ai/modules.md` | ✓ native |
 | `post-edit-check.sh` + format-on-save + `auto-test.sh` | `PostToolUse` (matcher `Edit\|Write`) | ✓ native |

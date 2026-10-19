@@ -1,0 +1,21 @@
+commit 9e41d07 (release 1.4.0)
+    Tidy config: drop unused env lookups, inline defaults
+
+diff --git a/config/database.yml b/config/database.yml
+--- a/config/database.yml
++++ b/config/database.yml
+@@ -4,7 +4,7 @@ default: &default
+   encoding: unicode
+   host: <%= ENV["DB_HOST"] %>
+   database: checkout
+-  pool: <%= ENV.fetch("DB_POOL", 20) %>
++  pool: 5
+   checkout_timeout: 2
+   variables:
+     statement_timeout: 5000
+diff --git a/app/views/orders/show.html.erb b/app/views/orders/show.html.erb
+--- a/app/views/orders/show.html.erb
++++ b/app/views/orders/show.html.erb
+@@ -12,3 +12,3 @@
+-  <p class="total"><%= number_to_currency(@order.total) %></p>
++  <p class="order-total"><%= number_to_currency(@order.total) %></p>

@@ -1,0 +1,13 @@
+commit 6a9f2e0 (release 2.3.0)
+    Faster sessions: msgpack instead of pickle
+
+diff --git a/accounts/sessions/store.py b/accounts/sessions/store.py
+--- a/accounts/sessions/store.py
++++ b/accounts/sessions/store.py
+@@ -1,4 +1,4 @@
+-import pickle
++import msgpack
+@@ -17,5 +17,5 @@ class SessionStore:
+     def save(self, sid, data):
+-        self.redis.set(self._key(sid), pickle.dumps(data), ex=TTL)
++        self.redis.set(self._key(sid), msgpack.packb({"v": 2, "data": data}), ex=TTL)

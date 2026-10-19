@@ -1,0 +1,20 @@
+import { Command } from 'commander';
+
+export function buildCli(): Command {
+  const program = new Command('tallyhook').description('Tallyhook operator CLI');
+
+  program
+    .command('import')
+    .description('Import orders from a CSV export')
+    .argument('<file>', 'CSV file with one order line per row')
+    .option('--dry-run', 'validate every row without writing')
+    .option('--batch-size <n>', 'rows per transaction', '500');
+
+  program
+    .command('export')
+    .description('Export orders')
+    .option('--format <format>', 'csv or json', 'csv')
+    .option('--from <date>', 'first day to include (YYYY-MM-DD)');
+
+  return program;
+}

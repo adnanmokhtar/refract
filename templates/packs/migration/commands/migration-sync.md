@@ -2,7 +2,7 @@
 description: "Incremental V1→V2 sync. One command, full cycle: pull V1 from its remote → list the commits V2 hasn't absorbed → analyse what each change MEANS (business rules, validations, endpoints, DTOs, schema, API vs Web) → map V1-change→V2-implementation → port through V2's architecture (never copy/paste) → verify every hunk was accounted for → test → final independent audit → advance the sync watermark. Answers 'what landed in V1 since last time, and is all of it in V2 now'. `/migrate` ports the whole codebase once; this keeps V2 caught up commit-by-commit afterwards."
 kind: command
 pack: migration
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 disable-model-invocation: true
 ---
 

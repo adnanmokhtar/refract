@@ -1,10 +1,10 @@
 ---
 track: business
-purpose: Translate business ideas into actionable specs, audit shipped features for completeness (forward + inverse + recovery), and surface conversion drop-off.
+purpose: Translate business ideas into actionable specs, audit the business rules the code must obey (money, tax, ledger, reports, lifecycles, cycles), and close what the audit finds.
 essentials:
   agents: [business-analyst, business-auditor, workflow-integrity, domain-model-auditor]
-  commands: [analyze-task, expand-task, audit-business, suggest-metrics, suggest-features]
-  skills: [audit-funnel-completion, check-business-coverage]
+  commands: [analyze-task, expand-task, audit-business, business-fix, suggest-metrics, suggest-features]
+  skills: [check-business-coverage]
   rules: [business-completeness]
   ai-patterns: [missing-counterparts]
 ---
@@ -14,18 +14,19 @@ essentials:
 Files listed above are the minimal subset copied when `/setup-project --minimal` is used. Standard mode copies the entire pack; minimal mode copies only essentials.
 
 Rationale per category:
-- **agents**: `business-analyst` writes specs from rough ideas; `business-auditor` walks shipped features for completeness gaps; `workflow-integrity` reconstructs an entity's lifecycle state graph and proves every transition is legal + guarded (the state-graph complement to `business-auditor`'s cycle audit); `domain-model-auditor` reconstructs the aggregates + their invariant-enforcement register and proves each invariant is enforced by a real layer, not left NOWHERE (the structural complement — three orthogonal auditors: experience, state-graph, aggregate-structure). `pricing-tax-audit` (skill) is signal-gated on billing surfaces and kept out of minimal.
-- **commands**: `/analyze-task`, `/expand-task` (turning ideas into specs); `/audit-business` (run business-auditor agent); `/suggest-metrics` (recommend the decision-driving KPIs a domain's dashboard should show — the metrics arm of `business-completeness`). `/suggest-features` (analyze the whole product vs its domain checklist and WRITE buildable capability recommendations — the feature arm; feeds `/analyze-task` -> `/add-feature`).
-- **skills**: `audit-funnel-completion` (single-flow drop-off audit), `check-business-coverage` (cross-feature forward/inverse/recovery audit).
-- **rules**: `business-completeness` (the foundational rule: a feature is "done" when forward + inverse + recovery + metrics all wired).
-- **ai-patterns**: `missing-counterparts` (the canonical forward/inverse table — every Create needs Delete, every Send needs Resend).
+- **agents**: `business-analyst` writes specs from rough ideas. The three judges refute and grade the detectors' rows: `@domain-model-auditor` (money, tax, ledger, report rows and the invariant-enforcement register), `@workflow-integrity` (the lifecycle graph, the transition matrix, `$-conserve`), `@business-auditor` (the cycle register, and the walk with `--live`).
+- **commands**: `/analyze-task`, `/expand-task` (ideas into specs); `/audit-business` (the whole-repo business audit over six detectors with a class ledger and a verdict, or one feature's three axes); `/business-fix` (closes the audit's findings failing-first and stops on business decisions); `/suggest-metrics` (the decision-driving KPIs a dashboard should show; `--funnel=<flow>` for one funnel's drop-off); `/suggest-features` (capability recommendations against the domain checklist).
+- **skills**: `check-business-coverage` (forward / inverse / resend / unsubscribe / erasure / dead-end pairs from the route inventory) is minimal — every product has cycles. The five rule detectors — `pricing-rule-scan`, `tax-invoice-scan`, `ledger-scan`, `report-scan`, `lifecycle-scan` (`status-graph.py`) — are **signal-gated and stay out of `--minimal`**: a project with no money, tax, ledger, report or status surface does not receive them, and `/audit-business` prints their families `N/A (detector not installed)` there.
+- **rules**: `business-completeness` (a feature is "done" when forward + inverse + recovery + metrics are wired; the business pack owns the money rule, the arithmetic is code-quality's).
+- **ai-patterns**: `missing-counterparts` (the canonical forward / inverse / completion / recovery tables).
 
 ## What this pack is for
 
 - Auditing whether a feature is *complete* in the business sense (not just code-complete).
 - Translating fuzzy product asks into structured specs.
 - Finding the half-cycles that ship under deadline pressure (signup-without-delete, subscribe-without-cancel).
-- Funnel drop-off triage.
+- Auditing the business rules other packs' detectors read as their oracle: the money policy, the tax policy, the ledger invariants, the metric definitions, the lifecycle graph.
+- Funnel drop-off triage (`/suggest-metrics --funnel`).
 
 ## What this pack is NOT for
 

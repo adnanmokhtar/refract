@@ -1,0 +1,18 @@
+import { Injectable } from '@nestjs/common';
+import { CreateOrderInput } from '@orderly/contracts';
+import { Order } from '../order.entity';
+import { OrdersService } from '../orders.service';
+import { PricingService } from '../pricing.service';
+
+@Injectable()
+export class PlaceOrderUseCase {
+  constructor(private readonly orders: OrdersService, private readonly pricing: PricingService) {}
+
+  async execute(input: CreateOrderInput): Promise<Order> {
+    const order = new Order();
+    order.tenantId = input.tenantId;
+    order.totalMinor = this.pricing.total(input.lines.map((l) => ({ unit: l.unit, quantity: l.quantity })), input.currency).minor;
+    order.status = 'placed';
+    return this.orders.save(order);
+  }
+}

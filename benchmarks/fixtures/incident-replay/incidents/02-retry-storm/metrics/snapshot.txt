@@ -1,0 +1,6 @@
+# series                                         13:55   14:02   14:05   14:15   14:30
+payments_capture_error_ratio                       0.001   0.41    0.63    0.61    0.002
+provider_requests_per_second                       38      310     342     338     36
+provider_responses_total{code="503"} (per min)     0       2210    0       0       0
+provider_responses_total{code="429"} (per min)     0       0       19400   19100   0
+card_provider_status_degraded (vendor feed)        0       1       0       0       0

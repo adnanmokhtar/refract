@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-quaywise
+type: Opaque
+stringData:
+  alertmanager.yaml: |
+    route:
+      receiver: platform-oncall
+      group_by: [alertname, namespace]
+      routes:
+        - matchers: ['category="cost"']
+          receiver: finops-channel
+    receivers:
+      - name: platform-oncall
+        pagerduty_configs:
+          - routing_key_file: /etc/alertmanager/secrets/pagerduty-key
+      - name: finops-channel
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/slack-finops-url
+            channel: "#finops"
+    inhibit_rules:
+      - source_matchers: ['severity="critical"']
+        target_matchers: ['severity="warning"']
+        equal: [alertname, namespace]

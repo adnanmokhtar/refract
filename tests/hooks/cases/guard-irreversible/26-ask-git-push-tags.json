@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "git push --follow-tags origin release/1.4"}}

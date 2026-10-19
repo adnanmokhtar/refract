@@ -65,7 +65,7 @@ rg -n -U --pcre2 '(?m)^(?![^{\n]*:not\(:focus-visible\))[^{}\n]*\{[^{}]*\boutlin
 rg -n --pcre2 '^(?!.*\b(?:focus-visible|focus|focus-within):(?:ring|outline-(?!none\b)|shadow|border|underline|bg-)).*(?<![.\w-])(?:focus:)?outline-none\b(?!-)' "${PATHS[@]}" | "${NC[@]}"
 ```
 
-**Measured** (2026-10-05): on `benchmarks/fixtures/review-decoys` (`change/web`) the fallback returns exactly the three seeded rows (RD-A11Y-01 clickable `div` close, RD-A11Y-02 `<img>` with no alt, RD-A11Y-03 placeholder-only input); on `web-dashboard` it returns the seeded glyph-only refund button (WEB-A11Y-01, `orderstable.tsx:50`) plus three candidates — a backdrop `div` with `onClick` (`ui § 16` decides), an avatar `<img>` with no alt and a search input labelled only by its placeholder.
+**Measured** (2026-10-05): on `benchmarks/fixtures/review-decoys` (`change/web`) the fallback returns exactly the three seeded rows (RD-A11Y-01 clickable `div` close, RD-A11Y-02 `<img>` with no alt, RD-A11Y-03 placeholder-only input); on `web-dashboard` it returns the seeded glyph-only refund button (WEB-A11Y-01) plus three candidates — a backdrop `div` with `onClick` (`ui § 16` decides), an avatar `<img>` with no alt and a search input labelled only by its placeholder.
 
 Each hit is a candidate, judged with `a11y-code-scan`'s "read the code" questions for that § and `precedents/ui.md` § 11–34 (headless primitives own role and keyboard, `ui § 12`; a shared field wrapper owns label wiring, `ui § 14`; a visible ring replaces the outline, `ui § 18`).
 

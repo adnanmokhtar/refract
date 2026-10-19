@@ -36,6 +36,7 @@ orchestrator's own reasoning lives in one file no judge ever reads.
 | `acceptance.json` | `@test-engineer` (main session at T1) — until locked | P5 | schema | `lock-acceptance.sh`, `trace-matrix.py` |
 | `plan.md` | orchestrator | P5 | ≤200 | `trace-matrix.py --phase=plan`, `@plan-critic` |
 | `reviews/<agent>-<lens>.json` | `persist-review.sh` (hook) | P2–P11 | schema | `gate-check.py` G7 |
+| `reviews/hypotheses.json` | `persist-review.sh` (hook), merged per investigator instance | P14 (`/investigate-incident`) | schema | `.claude/schemas/hypotheses.schema.json`, `/investigate-incident` closure gate |
 | `verdict.json` · `verdict-refute.json` | `persist-verdict.sh` (hook) | P12 | schema | `gate-check.py` G1, G15 |
 | `release.md` | platform-engineer *(devops pack)*, else orchestrator | P11 (T3) | ≤80 | operability lens |
 | `ledger.md` | orchestrator | every phase | ≤200 (roll older diary into `ledger-archive.md`) | nobody — **never** given to a judge |

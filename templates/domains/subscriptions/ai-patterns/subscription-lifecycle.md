@@ -433,5 +433,5 @@ A scheduled downgrade is stored but no period-boundary handler applies it. The c
 - `<patterns-path>/webhook-flow.md` — the verify → dedupe → process inbound shape every transition handler follows.
 - `<rules-path>/webhook-signature-verification.md` — universal webhook signature rule.
 - `<commands-path>/simulate-renewal.md` — local renewal + dunning fixture-replay tool.
-- `<agents-path>/subscription-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/subscriptions-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-subscription-provider-choice.md` — ADR pinning the chosen billing provider + proration/dunning policy.

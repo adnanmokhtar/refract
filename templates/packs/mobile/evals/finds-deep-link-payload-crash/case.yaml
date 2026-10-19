@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/mobile-defects · defect MD-ML-05a (driver/lib/router.dart:23) · decoy MD-DECOY-16 (line 40)
+# resources/: byte copies of driver/lib/router.dart (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-deep-link-payload-crash
+context:
+  add_dirs: [resources]

@@ -1,11 +1,11 @@
 ---
-description: Build or refresh the unit-economics model — the driver tree from a business unit down to billed dimensions, the measured cost per unit, and the declared expectation that every guardrail and anomaly detector is measured against.
+description: "Unit economics from a billing export: driver tree, cost per unit, declared expectation."
 kind: command
 pack: finops
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
-# /cost-model [<unit>] [--refresh]
+# /cost-model [<unit>] [--refresh] [--export=<FOCUS or CUR path>]
 
 Establish what one unit of the business costs to serve, decomposed into the branches that produce it. Without this, cost work is a series of unrelated optimisations; with it, every change has a denominator and every guardrail has a baseline.
 
@@ -64,7 +64,7 @@ Each branch names its billed dimension explicitly — requests, vCPU-seconds, GB
 Additionally:
 - `ai/patterns/unit-economics.md`, `ai/patterns/spend-allocation.md`, `ai/patterns/commitment-strategy.md`.
 - `.claude/rules/finops-principles.md`.
-- The cost and usage export for the chosen periods, at row-level granularity.
+- The cost and usage export for the chosen periods, at row-level granularity — the user's file, passed as `--export=<path>`; the agent never pulls it from a billing API or CLI. It is read only through the pack's stdlib script `.claude/skills/unit-cost-probe/scripts/bill-lane.py` (`--self-test` first): `columns <export>` prints the cost column it will read (`EffectiveCost` — amortised, discounted — by default; an absent column exits 2, never a silent fall-back to list price), `summary <export> --by service|sku|tag:<key> --period YYYY-MM` gives each branch's cost and the period's completeness, `attribution <export> --required-keys <policy keys>` the unallocated share, `split <export> --base <prior> --cur <period>` the rate / usage / mix change. CUR 2.0 and GCP exports take `--profile cur2|gcp` (column maps unverified against a real export: read the `columns` output before trusting a figure, `precedents/finops.md` § 30). **No export → halt**: the model cannot be built from memory; print `NOT-RUN (no billing export)` and the list of what the export must contain.
 - The usage metrics that supply each branch's numerator and the unit's denominator.
 - Any existing `ai/finops/unit-economics.md` — a refresh compares against it rather than replacing it silently.
 
@@ -72,7 +72,7 @@ Additionally:
 
 Dispatch `@finops-analyst` to populate the tree from the export, then:
 
-1. Fill each branch with: usage per unit, unit price with its as-of date, and the resulting cost per unit.
+1. Fill each branch with: usage per unit, unit price and its source, and the resulting cost per unit. The unit price is the bill line's cost ÷ `PricingQuantity` for that SKU and period, or a pricing page fetched in this run (URL, region, date, labelled list price) — never a rate from memory or a runbook (`candidate-pricing` § 2, `precedents/finops.md` § 8).
 2. Label each branch `measured`, `ALLOCATED (basis: <named proxy>)`, or `NOT DERIVABLE — <instrumentation that would provide it>`.
 3. Compute the total and the share per branch, so the top branches are obvious.
 4. Compare against the prior model if one exists; classify each change as rate, usage, or mix.
@@ -89,7 +89,7 @@ Write `ai/finops/unit-economics.md`:
 
 ## Phase 6 — Validate
 
-- **Reconcile the tree against the bill.** The sum of all attributed branches plus unallocated must equal the period's total spend. A tree that does not reconcile is wrong somewhere; find it rather than rounding.
+- **Reconcile the tree against the bill.** The sum of all attributed branches plus unallocated must equal the period's total spend, to the minor unit and per currency — the V589 reconciliation in [`proof-oracles.md`](../../../snippets/proof-oracles.md) § FinOps, computed by `bill-lane.py`, never by hand-summing a console view. A tree that does not reconcile is wrong somewhere; find it rather than rounding.
 - **Sanity-check the denominator** against a second source where one exists (billing system count versus product analytics count). A material disagreement is a finding in its own right.
 - **Re-run one branch** with `unit-cost-probe` independently and confirm it matches.
 - Dispatch `@finops-analyst` for the numeric review and `@cost-architect` for whether the tree's shape reflects the architecture.
@@ -168,7 +168,7 @@ This gate is **[self-policed]** on the Status line, but every input is checkable
 - `@finops-analyst` — populates the tree from the export.
 - `@cost-architect` — uses the model as the baseline for the next design.
 - `@cost-reviewer` — measures diff-level regressions against the declared expectation.
-- `unit-cost-probe`, `commitment-coverage`, `egress-trace` — the executors.
+- `unit-cost-probe` (and its `scripts/bill-lane.py`), `commitment-coverage`, `egress-trace` — the executors; `candidate-pricing` — the price-source rule every unit price follows.
 - `/audit-cost-attribution` — run first; this model inherits its unallocated percentage.
 - `/cost-guardrails` — consumes the declared expectation and threshold.
 - `ai/patterns/unit-economics.md`, `ai/patterns/spend-allocation.md`.

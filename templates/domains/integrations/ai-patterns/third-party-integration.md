@@ -399,5 +399,5 @@ A dropped webhook during a deploy means a record never syncs and no one notices.
 - `<rules-path>/audit-log` — credential lifecycle (connect / refresh / reauth / revoke) is an audited event.
 - `<patterns-path>/report-generation.md` — the async-job + signed-delivery spine reused for bulk vendor import/export.
 - `<commands-path>/audit-integration.md` — per-integration cite-or-halt diagnostic.
-- `<agents-path>/integrations-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/integrations-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-integration-credential-store.md` — ADR pinning the credential store + the refresh + reconciliation contract per vendor.

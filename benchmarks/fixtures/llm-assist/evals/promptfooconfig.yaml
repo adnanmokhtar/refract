@@ -1,0 +1,27 @@
+description: Quill Desk regression suite (assistant, order extraction, help widget, monthly narrative, edge routes)
+
+prompts:
+  - id: file://prompt-templates/assistant.txt
+    label: assistant
+  - id: file://prompt-templates/extraction.txt
+    label: extraction
+
+providers:
+  - id: openai:chat:gpt-5.6-sol
+    label: current
+  - id: openai:chat:gpt-4-turbo-preview
+    label: baseline
+
+defaultTest:
+  options:
+    provider: openai:chat:gpt-5.6-sol
+  assert:
+    - type: llm-rubric
+      value: The answer is correct for the case, polite, and invents no order data.
+
+tests:
+  - file://datasets/assistant.jsonl
+  - file://datasets/extraction.jsonl
+  - file://datasets/help-widget.jsonl
+  - file://datasets/narrative.jsonl
+  - file://datasets/edge-routes.jsonl

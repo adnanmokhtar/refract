@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "security",
-  "version": "2.4.1",
-  "released": "2026-10-18",
+  "version": "2.5.0",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Skills that shadowed same-named commands are renamed: threat-model-method, secret-scan-method; /threat-model and /secret-scan run again.",
+  "summary": "llm-trust-scan and mcp-server-scan own the LLM trust boundary; @llm-security-reviewer judges them (Track A batch 8).",
   "changelog": "CHANGELOG.md"
 }

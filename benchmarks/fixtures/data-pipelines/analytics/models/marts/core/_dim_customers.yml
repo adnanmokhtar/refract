@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: One row per customer.
+    latest_version: 2
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: email
+      - name: full_name
+      - name: phone_number
+      - name: country
+    versions:
+      - v: 1
+      - v: 2
+        columns:
+          - include: all
+            exclude: [phone_number]

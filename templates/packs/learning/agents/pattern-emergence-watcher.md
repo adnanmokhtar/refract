@@ -3,6 +3,8 @@ name: pattern-emergence-watcher
 description: Spots code shapes that repeat 3+ times and proposes them as candidate patterns to ai/dynamic/learned-patterns.md before the 4th occurrence diverges.
 tools: Read, Write, Grep, Glob, Bash
 model: sonnet
+kind: agent
+pack: learning
 ---
 
 # Pattern Emergence Watcher
@@ -148,6 +150,3 @@ Decision needed when count reaches threshold: PROMOTE (formalize) | EXPAND (exte
 ### Sibling agents in learning pack
 - `@convention-drift-detector` — sibling agent in learning pack
 - `@knowledge-curator` — sibling agent in learning pack
-
-### Patterns
-- `ai/patterns/setup-quality-scoring.md`

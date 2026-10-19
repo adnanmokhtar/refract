@@ -41,9 +41,27 @@ The protocol is generic. Domain knowledge lives beside it, and the verifier read
   [`precedents/backend.md`](precedents/backend.md) (HTTP contract, validation boundary, edge error
   mapping, wire format, job lifecycle, state transitions),
   [`precedents/migration.md`](precedents/migration.md) (V1→V2 ports: surface, semantics, side
-  effects, data cutover, strangler routing, parity proof) and
+  effects, data cutover, strangler routing, parity proof),
   [`precedents/align.md`](precedents/align.md) (declared conventions: oracle tiers, tokens,
-  wrappers, imports, naming, layout, suppressions, ratchets, sweeps).
+  wrappers, imports, naming, layout, suppressions, ratchets, sweeps),
+  [`precedents/product.md`](precedents/product.md) (feature surface, tracking plan, plans and
+  entitlements, launch readiness, requirement traceability),
+  [`precedents/business.md`](precedents/business.md) (money rules, tax and issued documents, ledger
+  and records, reports and business time, lifecycle graph, business cycles),
+  [`precedents/documentation.md`](precedents/documentation.md) (links, references, setup, env, API
+  prose, samples, release notes, runbooks, ADRs, translations, hygiene),
+  [`precedents/learning.md`](precedents/learning.md) (the AI knowledge layer: references, facts,
+  derived copies, memory sinks, ADRs, context loading),
+  [`precedents/ai-engineering.md`](precedents/ai-engineering.md) (LLM call sites, budgets and loops,
+  metering, model lifecycle, structured output, evals, retrieval and index, the LLM trust boundary),
+  [`precedents/data-engineering.md`](precedents/data-engineering.md) (loads and increments,
+  orchestrators, data tests, table contracts, lineage, derived data and time buckets, extracts,
+  analytical copies of personal data, warehouse SQL cost, grain),
+  [`precedents/finops.md`](precedents/finops.md) (budgets and bounds, allocation, paid-API spend,
+  schedule frequency, storage growth, egress paths, price provenance, bill lanes) and
+  [`precedents/algorithms.md`](precedents/algorithms.md) (complexity on data-sized input, recursion
+  and termination, ordering and keying preconditions, randomness distribution, geodesy,
+  floating-point stability, sketches).
 - [`proof-oracles.md`](proof-oracles.md) — the oracle per class, its failing-first test shape per
   stack, and the whole-class variant list a fix must survive.
 
@@ -144,7 +162,11 @@ Read the domain file for the candidate's class:
 [`precedents/ui.md`](precedents/ui.md), [`precedents/mobile.md`](precedents/mobile.md),
 [`precedents/seo.md`](precedents/seo.md), [`precedents/observability.md`](precedents/observability.md),
 [`precedents/devops.md`](precedents/devops.md), [`precedents/infrastructure.md`](precedents/infrastructure.md), [`precedents/distributed.md`](precedents/distributed.md), [`precedents/backend.md`](precedents/backend.md),
-[`precedents/migration.md`](precedents/migration.md) and [`precedents/align.md`](precedents/align.md). A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
+[`precedents/migration.md`](precedents/migration.md), [`precedents/align.md`](precedents/align.md),
+[`precedents/product.md`](precedents/product.md), [`precedents/business.md`](precedents/business.md),
+[`precedents/documentation.md`](precedents/documentation.md), [`precedents/learning.md`](precedents/learning.md),
+[`precedents/ai-engineering.md`](precedents/ai-engineering.md), [`precedents/data-engineering.md`](precedents/data-engineering.md),
+[`precedents/finops.md`](precedents/finops.md) and [`precedents/algorithms.md`](precedents/algorithms.md). A candidate that matches a precedent is **Hardening**, unless the evidence the precedent names flips
 it back. A candidate can need both files: an index migration is data (its lock) and performance
 (whether it pays for itself). Three precedents hold in every domain:
 

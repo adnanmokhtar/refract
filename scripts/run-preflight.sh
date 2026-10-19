@@ -363,6 +363,12 @@ fi
 if [[ -x "$SCRIPTS/detect-signals.sh" ]]; then
   echo "[0.4/5] detect-signals.sh (every *_detected trigger, written to .claude/_detected-signals.md)"
   "$SCRIPTS/detect-signals.sh" "$TARGET" 2>&1 | tail -3
+  # The algorithms pack is opt-in and never auto-selected; the anchored numeric / geo / sketch signal
+  # only SUGGESTS it (algorithms eval O-4). Nothing is installed from this line.
+  if grep -qx 'numeric_or_geo_lib_detected=yes' "$TARGET/.claude/_detected-signals.md" 2>/dev/null \
+     && ! printf '%s\n' "${PACKS[@]:-}" | grep -qx algorithms; then
+    echo "  SUGGEST --include=algorithms — numeric / geo / sketch code detected ($(grep -F '`numeric_or_geo_lib_detected`' "$TARGET/.claude/_detected-signals.md" | cut -d'|' -f4 | sed 's/^ *//; s/ *$//'))"
+  fi
   echo ""
 else
   # LOUD, NOT SILENT. `[[ -x ]] || skip` is precisely the shape that cost a whole delivery
@@ -375,6 +381,39 @@ else
   echo "       then re-run the preflight. (STEP -2 above reports the full list.)"
   echo ""
 fi
+
+# STEP 0.45: the dated model-lifecycle table (ai-engineering IR-9). It ships inside
+# .claude/skills/llm-gateway-audit/scripts/ — the Phase-4.2 skill-folder copy installs it beside
+# llm-sites.py — but that copy SKIPS a skill that is already installed, so on --refresh a newer
+# table in the pack never arrives by itself. prompt-audit §V1 treats a table whose newest
+# checked_on is more than 90 days old as STALE and blocks the class, so the age is said here, at
+# setup time, not discovered mid-audit. Read-only: nothing is copied from this step.
+_mlt="$TARGET/.claude/skills/llm-gateway-audit/scripts/model-lifecycle.tsv"
+if [[ -f "$_mlt" ]] && command -v python3 >/dev/null 2>&1; then
+  _mlt_age="$(python3 -I -c '
+import sys, datetime, re
+newest = None
+for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
+    c = line.rstrip("\n").split("\t")
+    if line.startswith("#") or len(c) < 8 or not re.match(r"^\d{4}-\d{2}-\d{2}$", c[7]): continue
+    d = datetime.date.fromisoformat(c[7]); newest = d if newest is None or d > newest else newest
+print("%s %s" % (newest, (datetime.date.today() - newest).days) if newest else "none -1")
+' "$_mlt" 2>/dev/null)"
+  _mlt_date="${_mlt_age%% *}"; _mlt_days="${_mlt_age##* }"
+  if [[ "$_mlt_date" == "none" || -z "$_mlt_days" || "$_mlt_days" -gt 90 ]]; then
+    echo "[0.45/5] model-lifecycle.tsv — STALE (newest checked_on ${_mlt_date:-none}, ${_mlt_days:-?} days)"
+    echo "  WARN prompt-audit §V1 reports the model-lifecycle class as blocked until the table is refreshed."
+    _mlt_src="$HOME/.claude/templates/packs/ai-engineering/skills/llm-gateway-audit/scripts/model-lifecycle.tsv"
+    if [[ -f "$_mlt_src" ]] && ! cmp -s "$_mlt_src" "$_mlt"; then
+      echo "       The pack ships a different table: compare, then copy it over the installed one:"
+      echo "         diff \"$_mlt_src\" \"$_mlt\""
+    else
+      echo "       Refresh the rows from the provider deprecation pages named in the table's source column."
+    fi
+    echo ""
+  fi
+fi
+unset _mlt _mlt_age _mlt_date _mlt_days _mlt_src
 
 # STEP 0.5 (M29): MCP server recommendations driven by the same signals.
 # Emits the report AND merges recommended servers into <target>/.mcp.json.

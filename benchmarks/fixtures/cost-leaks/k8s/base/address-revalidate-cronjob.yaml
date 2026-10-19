@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: address-revalidate
+  labels:
+    app.kubernetes.io/name: address-revalidate
+    team: dispatch
+spec:
+  # Re-checks the delivery address of every shipment that has not been picked up yet.
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: address-revalidate
+            team: dispatch
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: revalidate
+              image: registry.quaywise.example/quaywise-worker:0.31.2
+              command: ["python", "-m", "worker.revalidate_addresses"]
+              envFrom:
+                - configMapRef:
+                    name: quaywise-config
+                - secretRef:
+                    name: quaywise-secrets
+              securityContext:
+                readOnlyRootFilesystem: true
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi

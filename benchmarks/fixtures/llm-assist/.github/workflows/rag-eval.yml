@@ -1,0 +1,23 @@
+name: rag-eval
+on:
+  pull_request:
+    paths:
+      - 'services/rag/app/retrieval/**'
+      - 'services/rag/evals/**'
+
+jobs:
+  pytest-eval:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: services/rag
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync
+      - name: Scored evals
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANSWER_MODEL: claude-sonnet-5-5
+        run: uv run pytest -m eval evals

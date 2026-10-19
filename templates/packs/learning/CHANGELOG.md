@@ -18,6 +18,15 @@ Headings carry the `released` date recorded for that version. A few early versio
 described in the `summary` narrative and never had a dated `changelog` block — those headings have
 no date, which is the honest state of the record rather than an omission.
 
+## 2.0.0 — 2026-10-19
+
+**The learning pack became a detector pack (Track A batch 7).** It wrote the AI knowledge layer and graded it by model judgement; nothing could tell an agent that `CLAUDE.md` names a path that no longer exists, a fact the lockfile contradicts, a stale derived file, a memory sink its consumer cannot read, or an ADR index out of step with the files.
+
+- **Detectors** (each with a stdlib engine and `--self-test`): `knowledge-ref-scan` + `knowledge-refs.py` / `kn_common.py` (KN-01–05, 15; case-exact path resolution), `knowledge-fact-scan` + `knowledge-facts.py` (KN-07–09, 11–14; port keys, paragraph-copy hashes), `memory-hygiene-scan` + `sink-audit.py` (KN-20–27, 36; declared sink formats incl. bold fields), `decision-record-scan` + `adr-index.py` (KN-28–29; the ADR home is detected, never assumed), `context-load-scan` + `load-budget.py` (KN-19, 31–33; KN-34/35 handed to security).
+- **`/audit-knowledge`** is read-only (KN class ledger, refute, verdict); **`/refresh-knowledge --from-audit`** closes findings failing first; `/promote-decision`, `/learn-from-task`, `/eval`, `/detect-drift`, `/promote-pattern` and `/recall` rewritten; `knowledge-curator` gains modes and its baseline twin is regenerated. Learning owns dead references in agent-facing knowledge; documentation owns human docs (owner decision O-1).
+- **Cross-pack and baseline:** `apply-anchors.sh` re-anchors on profile changes and no longer writes framework paths into installed headers; the session-start hook reads each sink's declared shape and says `format not recognised` instead of a silent 0; the setup audit's C2f settles freshness by an extraction content stamp (`extract@<8 hex>`) and no longer warns on pack mtimes; Phase 4.7 appends failure themes to `ai/failures/_index.md`; security `sast-scan` and `secret-scan-method` scan AI context files.
+- **Fixture `stale-knowledge`** (59 seeds over 27 classes, 7 routed, 26 decoys; 58 of 59 printed by the engines). Precedents `precedents/learning.md` § 1–33; proof oracles V490–V509.
+
 ## 1.5.2 — 2026-10-18
 
 - `/detect-drift` Phase 4 runs align's `convention-oracle` when align is installed and maps AL-02/03/04 onto its four outcomes. align's own skill was renamed `align-detect`, which had been hiding this command.

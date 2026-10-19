@@ -1,0 +1,42 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  apps/api:
+    dependencies:
+      '@mikro-orm/core':
+        specifier: 6.5.7
+        version: 6.5.7
+      date-fns:
+        specifier: 4.1.0
+        version: 4.1.0
+      decimal.js:
+        specifier: 10.6.0
+        version: 10.6.0
+      stripe:
+        specifier: 18.5.0
+        version: 18.5.0
+      xstate:
+        specifier: 5.21.0
+        version: 5.21.0
+
+packages:
+
+  '@mikro-orm/core@6.5.7':
+    resolution: {integrity: sha512-fernhollowfixturefernhollowfixture==}
+
+  date-fns@4.1.0:
+    resolution: {integrity: sha512-fernhollowfixturefernhollowfixture==}
+
+  decimal.js@10.6.0:
+    resolution: {integrity: sha512-fernhollowfixturefernhollowfixture==}
+
+  stripe@18.5.0:
+    resolution: {integrity: sha512-fernhollowfixturefernhollowfixture==}
+
+  xstate@5.21.0:
+    resolution: {integrity: sha512-fernhollowfixturefernhollowfixture==}

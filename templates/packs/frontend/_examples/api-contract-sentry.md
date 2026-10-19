@@ -23,6 +23,13 @@ Two modes, and the mode is decided by whether a **prior baseline exists**, never
 
 Running Change mode against a brand-new resource returns clean and means nothing. Say which mode ran, in the first line of the report.
 
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Answers exactly one question — the backend contract changed, what in THIS frontend breaks? Enumerates every affected service, generated type, composable / hook, store, and page with `<path:line>`. Trigger on "the API added/removed/renamed a field", "OpenAPI spec bumped, what is the blast radius", "we are consuming v2 of this endpoint", or before a release that follows a backend deploy. Anti-triggers (do NOT fire): a general frontend review is `@ui-reviewer`; an observed runtime defect (stale data, wrong tenant, N+1) is `@data-flow-auditor`; DESIGNING the new client shape is `@ui-architect`; changing the API itself is the backend pack; and the workspace-wide API → N-frontends fan-out is `/sync-contract`, not this agent. Also fires on the FIRST delivery of a resource ("the backend just shipped saved-payment-methods, wire the admin UI"): there is no prior shape to diff, so it adopts the published baseline and reports the contract read instead of a blast radius. It emits an impact report, never a pass/fail verdict.
+
 ## Contract
 
 The shape this agent takes and returns — `.claude/templates/snippets/contract-block.md`.
@@ -236,8 +243,8 @@ Backend OpenAPI diff summary:
 Affected files: 14
 
 Services (2):
-  src/services/products.service.ts:24 — mapper references `.price`
-  src/services/products.service.ts:38 — export type field
+  src/services/catalog-api.ts:24 — mapper references `.price`
+  src/services/catalog-api.ts:38 — export type field
 
 Stores (1):
   src/stores/products.store.ts:42 — filter `p.price > min`

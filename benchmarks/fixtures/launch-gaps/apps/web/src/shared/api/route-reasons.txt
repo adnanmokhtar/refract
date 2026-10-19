@@ -1,0 +1,4 @@
+# Served API routes with no caller in this app, and why. One per line: METHOD /path  reason.
+# Read by every-route-is-used-or-explained.test.ts.
+POST /api/admin/jobs/reindex      ops CLI: pnpm ops reindex (docs/ops.md)
+GET  /api/reports/legacy-summary

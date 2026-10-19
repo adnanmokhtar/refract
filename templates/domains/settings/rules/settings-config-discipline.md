@@ -87,7 +87,7 @@ A settings bug is a silent one: the wrong tenant's config is served, a flag is r
 ## Enforcement
 
 - `<commands-path>/audit-settings.md` (slash: `/audit-settings`) — cite-or-halt diagnostic that locates the settings store + the precedence resolver at `<path:line>`, classifies the precedence model (or flags AMBIGUOUS), and verifies typing, validation, secret encryption, cache scope + invalidation, change audit, write authorization, and defaults/migration — never an assumed model.
-- `<agents-path>/settings-reviewer.md` — review gate hard-failing on no-precedence-model, untyped/unvalidated settings, plaintext secrets, unscoped/non-invalidated caching, client-writable security settings, missing default/migration on a new key, per-request DB reads, missing audit, and stringly-typed flags.
+- `.claude/lenses/settings-review.md` — review gate hard-failing on no-precedence-model, untyped/unvalidated settings, plaintext secrets, unscoped/non-invalidated caching, client-writable security settings, missing default/migration on a new key, per-request DB reads, missing audit, and stringly-typed flags.
 - CI lint MUST reject a settings read that goes to a raw column / `JSON.parse` of an untyped blob instead of the registry accessor (AST heuristic; flag for review).
 - CI lint MUST reject a cache key in the settings module that does not include a tenant id token (heuristic; flag for review).
 - CI MUST assert that every key in the registry declares a `default` and a `schema` (registry self-validation test).

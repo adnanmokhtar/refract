@@ -66,7 +66,7 @@ Log model id, prompt version, in/out tokens, cost, latency, finish reason, cache
 - Call not logging tokens+cost+latency+model (trace-linked) → `add-cost-logging`.
 - Prompt/response logged without redaction → `add-log-redaction`.
 
-**Closure verbs:** `route-through-gateway`, `add-call-budget`, `add-fallback`, `add-prompt-cache`, `scope-semantic-cache`, `add-cost-logging`, `add-log-redaction`.
+**Closure verbs:** `route-through-gateway`, `add-call-budget`, `add-fallback`, `add-prompt-cache`, `scope-semantic-cache`, `add-cost-logging`, `add-log-redaction`, `bound-retries`, `forward-abort-signal`, `settle-on-outcome`, `read-provider-usage`.
 
 ## Related
 

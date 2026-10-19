@@ -1,0 +1,6 @@
+import { Money } from './money';
+
+export function formatMinorUnits(amount: Money, locale = 'en'): string {
+  const major = Number(amount.minor) / 100;
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: amount.currency }).format(major);
+}

@@ -7,6 +7,9 @@
 # style finding where a formatter is configured; every claim restated), stamps signer / authors /
 # scope / round from the hook input and git, and writes ai/runs/<run_id>/reviews/<agent>-<lens>.json.
 # An agent whose output carries no refract/findings/v1 object is not a typed reviewer: nothing happens.
+# An investigator instance (/investigate-incident) ends with a refract/hypotheses/v1 object instead: it is
+# validated (a supported hypothesis cites evidence and a root-cause line, a refuted one cites contradicting
+# evidence), stamped and MERGED by hypothesis id into ai/runs/<run_id>/reviews/hypotheses.json.
 #   exit 2  malformed output or a posting-bar breach — stderr goes back to the reviewer
 #   exit 0  persisted, or nothing to persist
 # Engine: .claude/scripts/refract_records.py persist-review.

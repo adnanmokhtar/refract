@@ -6,6 +6,16 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 2.0.0 — 2026-10-19
+
+**The finops pack became a detector pack (Track A batch 8).** It owns spend, guardrails, allocation, paid-API frequency, storage growth, egress and the pricing step every other pack's cost candidate passes through.
+
+- **Detectors.** `guardrail-scan` (BG §1–§7), `allocation-scan` (TG §1–§4, DigitalOcean lane), `spend-path-scan` (PS §1–§3, FQ §4–§6; reads ai-engineering `sites.tsv` by header name), `storage-growth-scan` (ST §1–§4), `egress-trace` rewritten (EG §1–§4 + §5 flow-log lane), `candidate-pricing` (§0–§3 the pricing step, §4 PX-1 undated money); `unit-cost-probe/scripts/bill-lane.py` (FOCUS / CUR exports, attribution, reconciliation; 30 self-tests).
+- **Commands.** `/cost-review` is the audit (diff default, `--whole-repo`, `--export`, `--flow-logs`); `/cost-guardrails --from-audit` closes findings failing first; `/cost-model` and `/audit-cost-attribution` read the bill lane; three agents in refute / bill-lane roles (topic section lists now match their headings).
+- **Rule condensed** to its core (`check-rule-budget`: ~2,156 → ~1,118 tokens; the enforcement list points at the detectors instead of restating them).
+- **Selection.** `detect-signals.sh` `paid_api_detected` (a per-call paid SDK, LLM usage, a provider host, a billed-category base URL) gates `spend-path-scan`, and `detect-tracks.sh` selects the pack on a paid API with no IaC. `/audit`'s cost axis dispatches `/cost-review --whole-repo`; infrastructure `iac-cost-scan` §12 (COST-12) is the fallback without finops; observability's cost lines name `candidate-pricing` §0.
+- **Fixture `cost-leaks`** (52 static seeds over 26 classes + 8 bill rows + 4 routed, 27 decoys; 52/52 printed after finops C). Precedents `precedents/finops.md` §1–35; proof oracles V570–V589; 7 `ownership.json` rows.
+
 ## 1.1.0 — 2026-08-23
 
 **Two-thirds of this pack did not reach a greenfield project, and the one thing it could not say was

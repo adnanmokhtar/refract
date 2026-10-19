@@ -102,7 +102,7 @@ You cannot fix what you don't isolate — measure retrieval and generation separ
   - BAD: all retrieved chunks concatenated and passed in; the SDK truncates whatever doesn't fit.
   - GOOD: an explicit token-budget fit that drops lowest-ranked chunks deliberately.
   - → `add-context-budget`
-- **No "no-context" guard** →
+- **No "no-context" guard** (`retrieval-eval` §5) →
   - BAD: empty/weak retrieval → model answers anyway from memory.
   - GOOD: a relevance threshold → "I don't know / no source found" path when nothing qualifies.
   - → `add-no-context-guard`

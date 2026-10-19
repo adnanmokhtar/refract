@@ -361,5 +361,5 @@ Re-processing the same source on every retry/webhook duplicates renditions and w
 - `<rules-path>/job-design.md` + `<patterns-path>/queue-producer-consumer.md` — transcode as a queued, idempotent, resumable job (idempotency key, DLQ, observability).
 - `<rules-path>/rate-limit-enforcement.md` — per-tenant/user transcode-enqueue rate limits.
 - `<commands-path>/audit-media-pipeline.md` — audit a specific pipeline (codec site, sync/async, validation, caps, hardening, metadata, delivery, tenant scope).
-- `<agents-path>/media-processing-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/media-processing-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-media-sandbox.md` — ADR pinning the codec, sandbox mechanism, format allowlist, and variant set.

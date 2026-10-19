@@ -1,0 +1,26 @@
+{
+  "name": "tallyhook",
+  "private": true,
+  "packageManager": "pnpm@10.18.3",
+  "engines": {
+    "node": ">=22.12",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @tallyhook/api start:dev",
+    "dev:api": "pnpm --filter @tallyhook/api start:dev",
+    "dev:worker": "pnpm --filter @tallyhook/api start:worker",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "db:migrate": "pnpm --filter @tallyhook/api db:migrate",
+    "db:seed": "pnpm --filter @tallyhook/api db:seed",
+    "docs:embed": "embedme README.md docs/api.md"
+  },
+  "devDependencies": {
+    "embedme": "1.22.1",
+    "eslint": "9.36.0",
+    "typescript": "5.9.3"
+  }
+}

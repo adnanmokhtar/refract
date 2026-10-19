@@ -59,19 +59,29 @@ ai/_session-digest.md             age <= 7 days  → ok
                                   age <= 30 days → warn
                                   age >  30 days → fail
 ai/_convention-cheatsheet.md      same thresholds
-ai/_decision-index.md             rebuilds on every ADR; mismatch with ADR count → fail
+ai/_decision-index.md             rebuilds on every ADR; mismatch with the ADR count in the detected home (check 2) → fail
 ```
 
 ### 2. ADR coverage
 
+**Detect the ADR home first; never assume `ai/decisions/`.** Projects keep ADRs in `docs/decisions/`, `docs/adr/`, `doc/adr/`, `adr/`, `architecture/decisions/` or `ai/decisions/`. A count taken in `ai/decisions/` on a repo whose 40 ADRs live in `docs/decisions/` reports "0 ADRs" and flags every architectural decision as undocumented (learning KN-29, measured on a real monorepo). The learning pack (always installed) ships the detector; read-only:
+
+```bash
+AI="${AI:-.claude/skills/decision-record-scan/scripts/adr-index.py}"; [ -f "$AI" ] || AI="$HOME/.claude/templates/packs/learning/skills/decision-record-scan/scripts/adr-index.py"
+python3 -I "$AI" . --list 2>/dev/null | awk -F'\t' 'NR>1 { d = $2; sub(/\/[^\/]*$/, "", d); h = d; n++; c[$3]++ } END { printf "ADR home: %s · %d ADRs ·", (n ? h : "none"), n; for (k in c) printf " %s %d", k, c[k]; print "" }'
+echo "adr-index exit ${PIPESTATUS[0]}   # the engine reads only; nothing is written, not even a temp file"
 ```
-ADR count                                     → reported
+
+No engine, or exit 2 → this check is `n/a (adr-index not available)`, never "0 ADRs". No home → `n/a (no ADR directory)`. A second directory holding ADR files beside the home is `warn` (a competing ledger; `/audit-knowledge` reports the consumers that read it).
+
+```
+ADR count (in the detected home)              → reported
 ADRs created in last 90 days                  → reported
 ADRs referenced in CLAUDE.md / conventions    → reported as ratio
 Decisions made in commit messages WITHOUT ADR → flag (possible undocumented decision)
 ```
 
-Heuristic for "decision made without ADR": commit messages matching `(decided|switching to|moving away from|chose|adopted)` against files in `src/` over the last 30 days, where no ADR was added in the same window. Surface as `warn`, not `fail` — the user decides if it warrants an ADR.
+Heuristic for "decision made without ADR": commit messages matching `(decided|switching to|moving away from|chose|adopted)` against files in `src/` over the last 30 days, where no ADR was added to the detected home in the same window. Surface as `warn`, not `fail` — the user decides if it warrants an ADR.
 
 ### 3. Convention drift
 

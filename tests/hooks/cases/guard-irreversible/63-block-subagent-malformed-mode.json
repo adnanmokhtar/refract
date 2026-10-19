@@ -1,0 +1,1 @@
+{"tool_name":"Bash","agent_type":"investigator","tool_input":{"command":"helm rollback web 41"

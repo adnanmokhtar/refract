@@ -179,6 +179,7 @@ trigger_words: ["scaffold module", "new module", "module-scaffold"]
 ```
 
 **Translation of the repo's hooks:**
+- `guard-irreversible.sh` → **native** `pre_run_command`; `exit 2` to deny (Cascade has no ask outcome) — the H3 gate: an irreversible remote step (IaC apply/destroy, kubectl/helm mutations, cloud CLI create/delete/update, production deploys, migrations against a non-local database, release-tag pushes) waits for a human; plan/diff/dry-run/read-only and local steps pass.
 - `guard-destructive.sh` + `pre-edit-guard.sh` + `secret-scan.sh` → **native** `pre_write_code` (block `.env*`/migration edits) + `pre_run_command` (block destructive shell); `exit 2` to deny.
 - `test-lane.sh` → **native** `pre_run_command` — `exit 2` on a full-suite or e2e command (`npm test`, `pytest`, `go test ./...`), stderr carrying the script's `test-lane.sh run '<cmd>'` re-run line; one named test file, type-check and lint pass. The lane is per machine, so Cascade's suites take turns with every other tool's.
 - `module-boundaries.sh` → **native** `pre_write_code` — `exit 2` when the incoming edit adds an import that crosses a boundary declared in `ai/modules.md`; stderr carries the rule + the offending specifier. Cascade's stdin `tool_info` must supply the pending content, or the shim has nothing to inspect.

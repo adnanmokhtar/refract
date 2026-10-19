@@ -50,7 +50,7 @@ Names from older notes — `wait_for_selector`, `screenshot`, `eval_js`, `set_vi
 ## When NOT to run
 
 - Pure logic / utility / store changes with no rendered surface.
-- Pre-written e2e test work — use `npx playwright test` (file-based) for that; this skill is for live ad-hoc verification.
+- Pre-written e2e test work — use `npx --no playwright test` (file-based) for that; this skill is for live ad-hoc verification.
 - Performance benchmarking — use `lighthouse-ci` skill instead.
 
 ## Prerequisites

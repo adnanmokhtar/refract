@@ -1,0 +1,14 @@
+{
+  "name": "shelfwise",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "cucumber": "cucumber-js"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "12.2.0",
+    "typescript": "5.9.3"
+  }
+}

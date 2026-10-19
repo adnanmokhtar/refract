@@ -249,5 +249,5 @@ A new `en` key absent from `de` ships `checkout.total` literally (or crashes) fo
 - `<patterns-path>/payment-integration.md § Money` — integer-minor-unit money type the currency formatters render.
 - `<rules-path>/content-escaping.md` — user-generated-content escaping; translations are the same untrusted-input class.
 - `<commands-path>/scan-i18n-coverage.md` — coverage / hardcoded-string diagnostic that finds violations of this pattern.
-- `<agents-path>/i18n-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/i18n-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-i18n-locale-strategy.md` — ADR pinning the supported-locale allowlist, fallback chain, missing-key policy, and ICU library choice.

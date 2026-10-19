@@ -27,7 +27,8 @@ The shape this agent takes and returns — `.claude/templates/snippets/contract-
 role: judge
 inputs:
   required: [scope]             # the diff, paths or module under review — never the builder's narrative
-  reads:    [entities, migrations, repositories and queries in scope; .claude/rules/database-principles.md]
+  reads:    [entities, migrations, repositories and queries in scope; .claude/rules/database-principles.md;
+             .claude/lenses/<d>-review.md (when domain <d> is installed — the ## Lenses block lists them)]
   never:    [the builder's summary, PR text, commit messages]
 output:
   returns:  the '## Output' block (owns the migration APPROVE gate)
@@ -213,7 +214,7 @@ Verify: query-count scaling test (n-plus-one-scan § Proof) — the list at 2 an
 
 ### REQUEST — missing pagination (query-shape-scan §1)
 ```
-src/modules/products/products.service.ts:32
+src/modules/catalog/catalog.service.ts:32
 
   async findAll() { return repo.find(); }
 
@@ -295,6 +296,20 @@ Patterns consulted: indexing-strategy, migrations, multi-tenancy
 - Name the operation class before the row count. A safety verdict derived from size alone is not a verdict.
 - Never prescribe `pt-online-schema-change` / `gh-ost` for an operation InnoDB performs in place. Naming which `COPY`-class case (or lag/pausability need) applies is part of the recommendation.
 - Every migration verified against migration-rehearsal in staging before prod — the report artifact is the evidence for D1+D2, not the reviewer's intuition.
+
+## Lenses
+
+<!-- BEGIN GENERATED lenses (scripts/gen-boundaries.py; do not edit by hand) -->
+Read the lens the brief names (`lens: .claude/lenses/<x>.md`) before grading; a domain lens adds its
+checklist to yours, a pack lens may replace your input and output (its own text says so). A lens path
+you cannot open returns `BLOCKED(lens missing)` — never a silent pass.
+
+| Lens (installed path) | Source | Read when |
+|---|---|---|
+| `.claude/lenses/data-pipeline-review.md` | domain data-pipeline | domain `data-pipeline` is installed (needs the database pack) |
+| `.claude/lenses/import-review.md` | domain import | domain `import` is installed (needs the database pack) |
+| `.claude/lenses/reporting-review.md` | domain reporting | domain `reporting` is installed (needs the database pack) |
+<!-- END GENERATED lenses -->
 
 ## Related
 

@@ -1,0 +1,8 @@
+2026-06-30T10:30:58Z INFO  [pricing] quote t-3301 engine=legacy tax=1900
+2026-06-30T10:31:02Z WARN  [openfeature] flagd provider error: connect ECONNREFUSED 10.6.0.14:8013 — serving defaults
+2026-06-30T10:31:03Z INFO  [pricing] quote t-3301 engine=next tax=0
+2026-06-30T10:31:04Z INFO  [pricing] quote t-4410 engine=next tax=0
+2026-06-30T10:35:40Z WARN  [k8s] flagd-7d9 CrashLoopBackOff (OOMKilled, limit 64Mi)
+2026-06-30T10:52:12Z INFO  [pricing] quote t-1876 engine=next tax=0
+2026-06-30T11:04:20Z INFO  [openfeature] flagd provider ready
+2026-06-30T11:04:21Z INFO  [pricing] quote t-3301 engine=legacy tax=1900

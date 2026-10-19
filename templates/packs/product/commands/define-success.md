@@ -77,7 +77,28 @@ Additionally:
 
 ## Phase 5 — Update
 
-- Write `ai/product/success/<slug>.md` with all five components.
+- Write `ai/product/success/<slug>.md` with all five components, and close it with the `## Readiness fields` section that `launch-readiness` types field by field (`readiness-score.py`; a field holding a template placeholder is FAIL, not missing-but-fine):
+
+  ```
+  ## Readiness fields
+  stage: <experiment | beta | ga>                  # sets the launch gate's target level
+  paths: <globs where the feature lives>           # e.g. apps/web/src/checkout/**, apps/api/src/checkout/**
+  metric: <name, window>                           # e.g. checkout completion rate, 7-day
+  metric_event: <event name as the code sends it>  # e.g. CheckoutCompleted
+  counter_metric: <name, window>
+  counter_event: <event name>
+  baseline: <value> (<YYYY-MM-DD>..<YYYY-MM-DD>)   # re-run in this session
+  threshold: <the rollback threshold, with its number>
+  owner: <the named person who decides>
+  review_date: <YYYY-MM-DD, after today>
+  decision_rule: <keep if … by <date>; roll back if …>
+  rollback_record: <environment> <ISO time> <result>    # filled when the rollback is exercised, before enable
+  emissions: <notifications, webhooks, exports the change sends — or none>
+  query: <the saved query or SQL that returns the metric>   # optional: the runtime lane
+  ```
+
+  Leave a field the session cannot fill as its placeholder: the gate then fails on it by name. Never write a value nobody measured or decided.
+- Hand `metric_event` and `counter_event` to `tracking-plan-scan` (its §2 reads `ai/product/success/*.md`): an event the code never fires is an AN §2 finding, and the launch gate's PRR-AN-2 fails until it fires.
 - Hand every instrumentation gap to `/add-telemetry` (observability pack) or `/suggest-metrics` (business pack) as appropriate, with the metric definition attached.
 - Record the review date so the decision actually gets made. An unreviewed decision rule is the same as no decision rule.
 
@@ -100,7 +121,9 @@ guardrail | support tickets / 1k    | 4.2 ± 0.8           | must stay < 6      
 ## Phase 7 — Hand the ledger to the gate that checks it is live
 
 This command's output is a *definition*; nothing here proves it will still be true on launch day. That
-proof is `launch-readiness`, and it is the step most often skipped because nothing schedules it.
+proof is `launch-readiness --feature=<slug>`: `readiness-score.py` types the fields above (rules PRR-LR-1,
+PRR-LR-5, PRR-RB-1), reads tracking-plan-scan's AN §2 row and the metric query's result for PRR-AN-2, and
+grades the feature against its stage's level. It is the step most often skipped because nothing schedules it.
 
 - **Dispatch `launch-readiness` before the change is enabled for real users** — by deploy, by flag, or
   by a rollout percentage increase past the point where rollback stops being cheap. Not now: it verifies

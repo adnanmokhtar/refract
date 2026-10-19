@@ -2,7 +2,7 @@
 description: Review UI changes for UX, design system compliance, and accessibility in parallel.
 kind: command
 pack: ui-ux
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /design-review [path|screenshot]

@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: dim_products_scd
+    description: One row per product per version (Type 2).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [product_id, valid_from]
+  - name: dim_store_history
+    description: One row per store per version (Type 2).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [store_id, valid_from]
+  - name: rpt_customer_export
+    description: One row per customer, for the partner file.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+  - name: promo_exposure
+    description: One row per order per promotion it qualified for.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, promotion_id]
+  - name: dim_calendar
+    description: One row per store per day.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [store_id, day]

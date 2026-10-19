@@ -43,7 +43,12 @@ Each file's tier is shown in brackets. Tier-3 files carry a `Read by:` / `Load t
 - **Every DERIVED knowledge file MUST record the commit it was derived from**, not only a date:
   `Updated: <YYYY-MM-DD> — derived against branch \`<branch>\`, HEAD \`<sha>\`.` This applies to
   `architecture.md`, `conventions.md`, `business-domain.md`, `_session-digest.md`,
-  `_convention-cheatsheet.md` and `_decision-index.md`.
+  `_convention-cheatsheet.md` and `_decision-index.md`. When the setup scripts are available, end
+  the line with `extract@<8 hex>` — the extraction fingerprint of `.claude/codebase-profile.md`,
+  `_extracted-*.md` and the analysis half of `_codebase-scan.md` (Refract's
+  `_extraction-fingerprint.sh`). The setup audit then settles freshness by recomputing that
+  fingerprint (equal: current; different: re-derive) instead of comparing mtimes, which a write
+  that changes nothing still moves.
 
   A date cannot be checked; a SHA can. Without one, nobody — not the next agent, not the next
   reader, not the freshness audit — can answer "is this still true?", and the only honest

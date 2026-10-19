@@ -89,20 +89,22 @@ Agent-verified, in this order — each produces evidence pasted into the ledger:
 4. **Row-count sanity** — compare against the source's expected count at the same grain, with the delta explained.
 5. **`lineage-trace`** — confirms the new model appears downstream of exactly the upstreams intended, and that nothing unexpected already depends on a name it shadows.
 6. If incremental: **run it twice** on the same window. The second run must not change row count or measure totals. A model that fails this is not incremental, it is append.
+7. **`data-test-scan`** on the new model and its YAML (its §1, §2, §4, §5, §7, §8 rows for this model; `scripts/model-graph.py --tests` resolves each test's effective severity from `dbt_project.yml`). Every row it raises on the new model is fixed before the ledger says READY — a grain test at `warn`, a `relationships` on a nullable key, an `accepted_values` that misses a `CASE` member, no row-count check on a consumed model. Then prove one assertion can fail: plant a violating row in a scratch copy (duckdb profile in `$OUT`) and watch the grain test go red (V553), or record why it could not run.
+8. If incremental, **`incremental-load-scan`** on the new model: its §1, §2, §5 and §6 rows for this model are fixed or refuted before READY.
 
 ### Model ledger — REQUIRED OUTPUT ARTIFACT (the run is not done until this table exists)
 
 One row per model authored:
 
 ```
-Model            | Layer | Grain (declared)             | grain-probe | Assertions run (pass/fail) | Re-run stable | Status
-stg_orders       | stg   | one row per source order     | unique      | 4/4 pass                   | n-a (view)    | READY
-fct_order_lines  | mart  | one row per order line       | unique      | 6/6 pass                   | yes           | READY
+Model            | Layer | Grain (declared)             | grain-probe | Assertions run (pass/fail) | data-test-scan | Re-run stable | Status
+stg_orders       | stg   | one row per source order     | unique      | 4/4 pass                   | quiet; V553 red | n-a (view)    | READY
+fct_order_lines  | mart  | one row per order line       | unique      | 6/6 pass                   | quiet; V553 red | yes           | READY
 ```
 
 Per-row `Status`:
-- **READY** — grain proven unique, every assertion executed and passed, referential check clean, incremental re-run stable (or not applicable), lineage confirmed.
-- **UNPROVEN** — an assertion did not execute, or `grain-probe` was not run. Not shippable; name what is missing.
+- **READY** — grain proven unique, every assertion executed and passed, `data-test-scan` quiet on the model (and one assertion shown red on a planted row), referential check clean, incremental re-run stable (or not applicable), lineage confirmed.
+- **UNPROVEN** — an assertion did not execute, `grain-probe` or `data-test-scan` was not run, or no assertion was shown able to fail. Not shippable; name what is missing.
 - **FAILED** — grain not unique, an assertion failed, or the second incremental run changed totals. Halt.
 
 ## Phase 7 — Improve
@@ -158,6 +160,6 @@ This gate is **[self-policed]** on the Status line but wired to checkable eviden
 - `@warehouse-modeler` — decides grain, keys, and SCD before this command runs.
 - `@analytics-engineer` — owns the layering and materialization conventions this command mirrors.
 - `@data-quality-auditor` — audits whether the assertions written here are sufficient.
-- `grain-probe`, `lineage-trace`, `contract-diff` — the executors in Phase 6.
+- `grain-probe`, `data-test-scan`, `incremental-load-scan`, `lineage-trace`, `contract-diff` — the executors in Phase 6.
 - `ai/patterns/transformation-layers.md`, `ai/patterns/dimensional-model.md`, `ai/patterns/data-quality-tests.md`.
 - `.claude/rules/data-engineering-principles.md`.

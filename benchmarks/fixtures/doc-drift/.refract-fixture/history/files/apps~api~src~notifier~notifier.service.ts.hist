@@ -1,0 +1,9 @@
+import { Injectable } from '@nestjs/common';
+
+/** Sends the merchant an email when a webhook endpoint keeps failing. */
+@Injectable()
+export class NotifierService {
+  async endpointFailing(endpointId: string): Promise<void> {
+    void endpointId;
+  }
+}

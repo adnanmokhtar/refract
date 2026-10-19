@@ -97,7 +97,7 @@ An integration bug is a leaked credential, a cross-tenant breach, a duplicate-wr
 ## Enforcement
 
 - `<commands-path>/audit-integration.md` (slash: `/audit-integration`) — per-integration cite-or-halt diagnostic of token storage (encrypted? refreshed? per-tenant?), retry/backoff on `429`/`5xx`, circuit breaker, sync-write idempotency, reconciliation/drift, inbound validation, secrets-in-logs, and blocking-on-vendor on the request path — real code at `<path:line>` or HALT, never an assumed connector shape.
-- `<agents-path>/integrations-reviewer.md` — review gate hard-failing on plaintext/unrefreshed/mis-scoped tokens, bare vendor fetches, missing retry/backoff/`Retry-After`, missing circuit breaker, non-idempotent sync writes, no reconciliation, unvalidated/unverified inbound payloads, secrets in logs, and synchronous vendor calls on the request path.
+- `.claude/lenses/integrations-review.md` — review gate hard-failing on plaintext/unrefreshed/mis-scoped tokens, bare vendor fetches, missing retry/backoff/`Retry-After`, missing circuit breaker, non-idempotent sync writes, no reconciliation, unvalidated/unverified inbound payloads, secrets in logs, and synchronous vendor calls on the request path.
 - CI lint MUST reject a direct `fetch(`/SDK call to a known vendor host outside the `<VendorClient>` wrapper (heuristic; flag for review).
 - CI lint MUST reject a token/key column whose type is plaintext (not the project's encrypted/ciphertext type) in any connection/credential model (AST/schema heuristic; flag for review).
 - CI lint MUST reject a sync write that `INSERT`s vendor data without an `ON CONFLICT` / upsert on the external-id unique key (heuristic; flag for review).

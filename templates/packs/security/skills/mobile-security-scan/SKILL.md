@@ -320,7 +320,7 @@ mobile-security-scan — lanes: react-native (rn-app, source manifest), android 
 
 Findings: 3
 
-1. flutter_app/lib/sec/api_client.dart:4                               [report-with-fix]  critical
+1. flutter_app/lib/net/http_client.dart:4                              [report-with-fix]  critical
    §2 trust-all — badCertificateCallback returns true for every certificate; buildClient() is the app's only
    HTTP client and is not behind kDebugMode. Attacker: a network attacker with no trusted CA. Fix: delete the
    callback; trust the staging CA through a debug-only SecurityContext. Proof D: § Mobile M6 (no CA installed,
@@ -332,14 +332,14 @@ Findings: 3
    session. Fix: android:exported="false" (nothing outside the app sends it). Proof D: § Mobile M1 — a
    broadcast to the debug build carries a canary, run-as reads it back. MASVS-PLATFORM · MASWE-0032 · CWE-926
 
-3. rn-app/src/sec/magicLink.ts:5                                       [report-flagged]  high
+3. rn-app/src/auth/signInLink.ts:5                                     [report-flagged]  high
    §4 credential on a custom scheme — acmeshop://login?token=… signs the user in; any app can register
    acmeshop://. Unproven link: whether sign-in emails use the custom scheme (the mail template is not in this
    repo). Fix: send sign-in links on a verified https App Link / universal link; one-time, short-lived token.
    MASVS-PLATFORM · MASWE-0029 · CWE-939
 
 Hardening: rn-app/src/sec/session.ts:8 refresh token in AsyncStorage (app-private, L2 — § 1, precedent § 42) ·
-  rn-app/src/sec/oauth.ts:4 OAuth on a custom scheme with PKCE on (§ 4) · android-native network_security_config.xml:14
+  rn-app/src/sec/oauth.ts:4 OAuth on a custom scheme with PKCE on (§ 4) · android-native res/xml/network_config.xml:14
   pin set expired 2025-06-30, so pinning is absent (§ 8, L1)
 Refuted: android-native/app/src/main/java/com/acme/notes/perf/Leaks.kt:32 (3e: receiver for a protected system broadcast)
 

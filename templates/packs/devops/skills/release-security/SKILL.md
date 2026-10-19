@@ -96,7 +96,7 @@ CVE scan: FAIL — 1 CRITICAL, 2 HIGH (fixes available; --ignore-unfixed)
 SBOM:     attached, not attested (cosign attach) — replace with cosign attest / actions/attest
 Sign:     index signed; 1 of 2 platform manifests unsigned (no --recursive)
 Verify+:  pass  (identity …/release.yml@refs/heads/main, issuer token.actions.githubusercontent.com)
-Verify-:  REJECTED  (a scratch image signed by …/pr-preview.yml in the sandbox) — the verify pins its signer
+Verify-:  REJECTED  (a scratch image signed by …/preview-build.yml in the sandbox) — the verify pins its signer
 Digest:   built = scanned = pushed; deployed: NOT-RUN (no cluster access)
 
 Verdict: BLOCK — fix the CRITICAL and sign every platform before release.

@@ -53,10 +53,13 @@ Read each framework and lint plugin **with its version** from the lockfile, and 
 
 ## Lint lanes
 
-Run in a scratch directory, never in the project, and never commit the config. Keep only the a11y rule ids. Offline or sandboxed, where `npm i` cannot run, the fallback lane is the project's own installed lint (`npx --no-install eslint` from the root, when `node_modules` exists): print which preset and which rules it holds at error, and mark the strict-only rules `blocked (no install)`. Each message is a candidate for the § its rule maps to (§ Scans for). A lint lane that cannot install prints `blocked (<reason>)` for its rule column. The class's greps still run.
+Run in a scratch directory, never in the project, and never commit the config. Keep only the a11y rule ids. The audit never installs: the lanes run from a toolchain the user installed once (`$REFRACT_A11Y_LINT`, default `~/.cache/refract/a11y-lint`), and without it they print `NOT-RUN (toolchain not installed — to enable: <the exact npm i>)`. Then the fallback lane is the project's own installed lint (`npx --no-install eslint` from the root, when `node_modules` exists): print which preset and which rules it holds at error, and mark the strict-only rules `blocked (no install)`. Each message is a candidate for the § its rule maps to (§ Scans for). A lint lane that did not run prints `NOT-RUN` or `blocked (<reason>)` for its rule column. The class's greps still run.
 
 ```bash
-L="$(mktemp -d "${TMPDIR:-/tmp}/a11y-lint.XXXXXX")" && (cd "$L" && echo '{"private":true}' > package.json && npm i --silent --no-audit --no-fund eslint@9 eslint-plugin-jsx-a11y@6.10.2 eslint-plugin-vuejs-accessibility@2.6.0 typescript-eslint @angular-eslint/eslint-plugin-template@22.5.0 @angular-eslint/template-parser@22.5.0 html-validate@11.16.2 >/dev/null)
+# The toolchain is installed once BY THE USER, never by this audit: T holds it, L is this run's scratch (configs, output).
+T="${REFRACT_A11Y_LINT:-$HOME/.cache/refract/a11y-lint}"; L="$(mktemp -d "${TMPDIR:-/tmp}/a11y-lint.XXXXXX")"
+if [ -x "$T/node_modules/.bin/eslint" ]; then ln -s "$T/node_modules" "$L/node_modules"
+else echo "a11y lint lanes NOT-RUN (toolchain not installed — to enable: mkdir -p \"$T\" && cd \"$T\" && echo '{\"private\":true}' > package.json && npm i --no-audit --no-fund eslint@9 eslint-plugin-jsx-a11y@6.10.2 eslint-plugin-vuejs-accessibility@2.6.0 typescript-eslint @angular-eslint/eslint-plugin-template@22.5.0 @angular-eslint/template-parser@22.5.0 html-validate@11.16.2)"; fi
 cat > "$L/react.mjs" <<'EOF'
 import jsxA11y from 'eslint-plugin-jsx-a11y'; import tseslint from 'typescript-eslint';
 export default [{ ignores: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.next/**', '**/*.{test,spec,stories}.*', '**/{test,tests,__tests__,e2e}/**'] },
@@ -80,12 +83,12 @@ export default [{ ignores: ['**/node_modules/**', '**/dist/**', '**/.angular/**'
   rules: Object.fromEntries(R.map((r) => ['@angular-eslint/template/' + r, 'error'])) }];
 EOF
 # Run from the repo root (with -c, ESLint 9 resolves file globs against the cwd). One lane per stack present.
-"$L/node_modules/.bin/eslint" --no-config-lookup -c "$L/react.mjs" -f json "${ROOTS[@]}" > "$L/react.json"
-"$L/node_modules/.bin/eslint" --no-config-lookup -c "$L/vue.mjs" -f json "${ROOTS[@]}" > "$L/vue.json"
-"$L/node_modules/.bin/eslint" --no-config-lookup -c "$L/ng.mjs" -f json "${ROOTS[@]}" > "$L/ng.json"
-for f in "$L"/{react,vue,ng}.json; do node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1]));const c={};for(const f of r)for(const m of f.messages){c[m.ruleId]=(c[m.ruleId]||0)+1;console.log(f.filePath+":"+m.line+"  "+m.ruleId)}console.error(JSON.stringify(c))' "$f"; done
+[ -e "$L/node_modules" ] && "$L/node_modules/.bin/eslint" --no-config-lookup -c "$L/react.mjs" -f json "${ROOTS[@]}" > "$L/react.json"
+[ -e "$L/node_modules" ] && "$L/node_modules/.bin/eslint" --no-config-lookup -c "$L/vue.mjs" -f json "${ROOTS[@]}" > "$L/vue.json"
+[ -e "$L/node_modules" ] && "$L/node_modules/.bin/eslint" --no-config-lookup -c "$L/ng.mjs" -f json "${ROOTS[@]}" > "$L/ng.json"
+for f in "$L"/{react,vue,ng}.json; do [ -s "$f" ] && node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1]));const c={};for(const f of r)for(const m of f.messages){c[m.ruleId]=(c[m.ruleId]||0)+1;console.log(f.filePath+":"+m.line+"  "+m.ruleId)}console.error(JSON.stringify(c))' "$f"; done
 for r in "${ROOTS[@]}"; do (cd "$r" && npx --no-install svelte-check --output machine --threshold warning 2>&1 | grep -o '"[^"]*" [0-9]*:[0-9]* .*svelte.dev/e/a11y_[a-z_]*'); done   # Svelte: the project's own svelte
-"$L/node_modules/.bin/html-validate" --preset a11y --formatter json 'dist/**/*.html'   # plain HTML / SSG output, after a production build
+[ -e "$L/node_modules" ] && "$L/node_modules/.bin/html-validate" --preset a11y --formatter json 'dist/**/*.html'   # plain HTML / SSG output, after a production build
 ```
 
 **Measured** (2026-10-05, a read-only React 19 + Vite + Radix + Tailwind 4 application, 1,049 `.tsx` files linted in 6 s): the strict preset returned 182 messages in 105 files. `prefer-tag-over-role` (77, all `role="status"` → `<output>`-style advice) and `no-autofocus` (27) are why the config turns both off. The rest are candidates, not findings. A sample of `control-has-associated-label` and `no-static-element-interactions` showed `htmlFor`-labelled range inputs, `stopPropagation`-only wrappers and buttons whose name is an expression — all refuted on read. On the research fixtures (`pos`/`neg`, one file per stack) the Vue and Angular lanes flagged every seeded click, tabindex and label defect, with 0 decoy hits. Neither saw the icon-only buttons; grep 2a did.

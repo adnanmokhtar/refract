@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: tallyhook
+      POSTGRES_DB: tallyhook
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+  api:
+    build: ./apps/api
+    env_file: ./apps/api/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+      - redis

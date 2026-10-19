@@ -1,0 +1,16 @@
+# step	date	tag	subject
+0	2026-07-06T09:00:00Z	-	chore: import the Orderly monorepo
+1	2026-07-08T10:00:00Z	-	docs(ai): derive the cheatsheet, digest and glossary index; record the extraction census
+2	2026-07-20T10:00:00Z	-	refactor(orders): rename order-pricing.service.ts to pricing.service.ts
+3	2026-07-27T10:00:00Z	-	refactor(web): rename ApiClient.ts to apiClient.ts
+4	2026-08-03T10:00:00Z	-	refactor(orders): CreateOrderUseCase becomes PlaceOrderUseCase
+5	2026-08-10T10:00:00Z	-	refactor(api): fold money formatting into Money.format
+6	2026-08-17T10:00:00Z	-	chore(api): remove the coupons module
+7	2026-08-24T10:00:00Z	-	chore(api): rename the db:migrate script to migration:up
+8	2026-08-31T10:00:00Z	-	docs: deploys run from CI; drop the deploy runbook
+9	2026-09-07T10:00:00Z	-	fix(knowledge): the profile says Postgres 16 and UUIDv7
+10	2026-09-14T10:00:00Z	-	docs(conventions): money writes run in one transaction
+11	2026-09-21T10:00:00Z	-	refactor(api): slim the orders controller; tenant filter exposes currentTenant()
+12	2026-09-28T10:00:00Z	-	chore(claude): drop the legacy dates rule; rename the demo seed skill
+13	2026-10-05T10:00:00Z	-	feat(api): refunds module
+final	2026-10-12T10:00:00Z	-	chore: sync the working tree

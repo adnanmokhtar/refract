@@ -90,7 +90,7 @@ An experiment bug is silently wrong results — a ship/kill decision made on con
 ## Enforcement
 
 - `<commands-path>/audit-experiment.md` (slash: `/audit-experiment`) — locates the assignment at `<path:line>` and verifies deterministic/stable bucketing, exposure logging (present? fires only on actual exposure? deduped?), server-vs-client identity, mutual exclusion, SRM/peeking, kill-switch, and consent/PII — cite-or-halt, never an assumed assignment shape.
-- `<agents-path>/ab-testing-reviewer.md` — review gate hard-failing on per-request/random assignment, non-deterministic or client-trusted bucketing, missing/misfired/duplicated exposure logging, no mutual exclusion, peeking / no fixed sample size, undetected SRM, missing kill-switch, PII in events, and consent not respected.
+- `.claude/lenses/ab-testing-review.md` — review gate hard-failing on per-request/random assignment, non-deterministic or client-trusted bucketing, missing/misfired/duplicated exposure logging, no mutual exclusion, peeking / no fixed sample size, undetected SRM, missing kill-switch, PII in events, and consent not respected.
 - CI lint MUST reject `Math.random()` / time-seeded randomness inside any assignment/bucketing module (heuristic; flag for review).
 - CI lint MUST reject reading the variant or the bucketing unit from request input (`req.body`/`req.query`/`req.headers`) in assignment code (AST heuristic; flag for review).
 - CI MUST assert every declared experiment spec carries a target sample size / horizon and a mutual-exclusion layer before it can be enabled.

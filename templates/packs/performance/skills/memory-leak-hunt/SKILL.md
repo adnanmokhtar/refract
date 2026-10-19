@@ -1,6 +1,8 @@
 ---
 name: memory-leak-hunt
 description: Hunt a memory leak by heap-diffing over time and attributing the growing allocation. Use when a process's heap/RSS grows monotonically under steady load — never bump the memory limit to hide it.
+kind: skill
+pack: performance
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -89,7 +91,7 @@ Snapshots (heap comparison A@5min vs B@25min vs C@40min):
 
 Retaining path (dominator chain):
   GC root → sessionCache (module-level Map) → Session → socket → payload buffers
-  Insert site: session-store.ts:41  cache.set(id, session)   — no delete, no TTL, no max size
+  Insert site: session-cache.ts:41  cache.set(id, session)   — no delete, no TTL, no max size
 
 Root cause: sessionCache grows one entry per job, never evicted.
 

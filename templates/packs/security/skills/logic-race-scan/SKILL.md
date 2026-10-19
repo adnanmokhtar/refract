@@ -361,7 +361,7 @@ Findings: 4
    Invariant: only a paid order ships. `update(id, { status: 'shipped' })` with no state precondition.
    Fix: UPDATE … SET status = 'shipped' WHERE id = :id AND status = 'paid'; 0 rows → 409.
 
-4. src/auth/otp.controller.ts:15                           [report-flagged]    high
+4. src/auth/verify-code.controller.ts:15                        [report-flagged]    high
    Invariant: a 6-digit code survives guessing. Limiter (src/middleware/limiter.ts:3) uses the default
    memory store; 3 replicas (k8s/deploy.yaml:4) × cluster mode → per-process counters, no per-challenge cap.
    Fix: shared store + lock the challenge after 5 attempts. Flagged: needs the shared store provisioned.

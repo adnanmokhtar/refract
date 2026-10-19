@@ -94,6 +94,13 @@ jobs:
       - name: Benchmark fixtures verify (anchors, holdout oracle strength, routing floor)
         run: BENCH_STRICT_FLOOR=1 bash benchmarks/run.sh --verify
 
+      # The measure half of Phase 7, offline: every pack's evals/ suite loads under the documented
+      # `claude plugin eval` case format and its fixture copies still match benchmarks/fixtures/
+      # (refract-evals.yml runs them live when the API key exists); RESULTS.md's tables are the
+      # render of benchmarks/results/history.jsonl, and both scripts' self-tests pass.
+      - name: Pack eval suites load (offline) and the results time series renders
+        run: python3 scripts/lint-pack-evals.py --self-test && python3 scripts/lint-pack-evals.py && python3 benchmarks/history.py --self-test && python3 benchmarks/history.py render --check
+
       # Every gate above compares this repo to itself. On 2026-08-31 three defects shipped through
       # all of them green, and none was a logic error in the usual sense — each was code that was
       # correct about an input that does not occur. The clearest: module-boundaries.sh compared a
@@ -286,6 +293,16 @@ jobs:
       # is ratcheted, not forced to zero.
       - name: Agent contracts (Contract block agrees with the tool list)
         run: bash scripts/lint-agent-contract.sh && bash scripts/lint-agent-contract.sh --self-test --quiet
+
+      # Track B Phase 6. Every @agent / lens path in the framework's prose lands on something that
+      # ships; a retired agent (scripts/_agent-merge-map.json, status merged) is named nowhere; every
+      # lens has exactly one primary reader. D1/D2/D5 are 0; D3/D4 ratchet down
+      # (scripts/_dispatch-graph-baseline.txt). gen-boundaries keeps each reader's generated
+      # `## Lenses` block in step with the merge map and the domains' _version.json.
+      - name: Dispatch graph (no dangling or retired agent refs; every lens has a reader)
+        run: bash scripts/lint-dispatch-graph.sh && bash scripts/lint-dispatch-graph.sh --self-test
+      - name: Generated Lenses / Boundary blocks are current
+        run: python3 scripts/gen-boundaries.py --check
 
       # A skill's `description` is paid every session; its BODY is paid only when the skill
       # fires. So this is not a session-tax gate — it is the line past which one file stops

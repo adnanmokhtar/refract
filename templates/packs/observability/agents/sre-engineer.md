@@ -148,7 +148,7 @@ NOT page-worthy (surface on dashboards, ticket next morning):
 
 ## Postmortems
 
-Written to `ai/reliability/postmortems/<YYYY-MM-DD>-<slug>.md` from the live timeline `@incident-responder` hands over; the error-budget policy (what happens at exhaustion, who signs) lives in `ai/reliability/error-budget-policy.md`, which `slo-rule-scan` §6 reads.
+Written to `ai/reliability/postmortems/<YYYY-MM-DD>-<slug>.md` from the live timeline `@incident-responder` hands over (`/postmortem` dispatches this agent and enforces the action-item contract: a named owner, a future date and a red-today proof — a failing-first test or a seeded defect — per item); the error-budget policy (what happens at exhaustion, who signs) lives in `ai/reliability/error-budget-policy.md`, which `slo-rule-scan` §6 reads.
 
 ### Blameless
 - Focus on systems, not individuals.

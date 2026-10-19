@@ -5,5 +5,9 @@
   "released": "2026-06-11",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline."
+  "summary": "Initial baseline.",
+  "reviewer": "code-reviewer",
+  "reviewer_pack": "code-quality",
+  "role": "growth-reviewer",
+  "lens": "lenses/ab-testing-review.md"
 }

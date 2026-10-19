@@ -40,7 +40,7 @@ Default to the lightest tier that fits. Heavy ceremony is opt-in, not default.
 |---|---|---|---|
 | **Trivial** (default) | Single small module (<500 LOC, <8 files), routine pre-flight before a small extension. | 1-page report + ledger row in `ai/audits/`. **No drift-log update unless drift found.** | `api-reviewer` + `test-reviewer` + `dead-code-finder` (3 dispatches) |
 | **Standard** | Mid-size module (500-2000 LOC) OR module owns DB tables OR multi-tenant. | Full report + drift-log entry per finding category. | + `schema-reviewer` + `performance-optimizer` + `security-auditor` (6 dispatches) |
-| **Heavy** | Large module (>2000 LOC) OR sensitive surface (auth / payment / cross-tenant) OR untouched 90+ days OR known-flaky. | ADR queue for systemic findings + cross-module pattern check. | All 6 + signal-driven (`tenant-isolation-reviewer`, `prompt-reviewer`, etc.) |
+| **Heavy** | Large module (>2000 LOC) OR sensitive surface (auth / payment / cross-tenant) OR untouched 90+ days OR known-flaky. | ADR queue for systemic findings + cross-module pattern check. | All 6 + signal-driven (`tenant-isolation-reviewer`, `security-auditor` + lens `ai-review`, etc.) |
 
 **Default is trivial.** Most pre-flights are 3-reviewer scans on a small module. The audit promotes itself to standard/heavy if first-pass findings reveal scope; agent does NOT pre-emptively pick heavy "to be thorough."
 

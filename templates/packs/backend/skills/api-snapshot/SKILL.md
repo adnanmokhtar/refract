@@ -1,6 +1,8 @@
 ---
 name: api-snapshot
 description: Snapshot the API's OpenAPI spec and diff it against the last committed snapshot, blocking merge on breaking changes that carry no ADR. Run on any controller or DTO change. Proves the *declared* contract held — `endpoint-test-method` is the runtime counterpart that proves the running route still matches its DTO.
+kind: skill
+pack: backend
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 

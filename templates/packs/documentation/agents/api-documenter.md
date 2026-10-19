@@ -1,6 +1,6 @@
 ---
 name: api-documenter
-description: Generates + maintains API documentation — OpenAPI 3.1, SDK clients, developer portals. Catches spec drift. API-first development enabler.
+description: Generates + maintains API documentation — OpenAPI 3.1, SDK clients, developer portals. Authors the spec; spec-vs-code drift is detected by the backend pack. API-first development enabler.
 tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 model: sonnet
 ---
@@ -27,7 +27,7 @@ Docs that lie are worse than missing. This agent keeps OpenAPI + code in sync, g
 - Adding/changing an API endpoint.
 - Onboarding external consumers (need SDK + portal).
 - Legacy API with no OpenAPI spec (retrofit).
-- Periodic drift check (spec vs actual behavior).
+- Regenerating the spec after a route or DTO change (the drift *detection* is backend `http-contract-scan` §10, when the backend pack is installed).
 
 ## Pre-flight
 
@@ -68,14 +68,14 @@ Pipeline: spec → generator → language SDKs → publish to registry (npm, PyP
 2. Diff the regenerated output against the committed SDK (`git diff --no-index <committed-sdk-dir> /tmp/sdk-check`).
 3. If the diff is non-empty, the committed SDK has drifted from the spec — **cite the drifted `<file:line>` (regenerated shape vs committed shape) and halt**; a hand-edited or stale SDK ships wrong types to consumers. An empty diff is the only pass. "The SDK looks fine" without running the regenerate/diff is not a verification.
 
-## Drift detection
+## Drift detection (owned by the backend pack; this agent authors)
 
-Every PR that touches controllers / routes should:
-1. Regenerate `openapi.json` from code annotations.
-2. Compare to committed baseline.
-3. Flag breaking changes (see `ai/patterns/api-versioning.md`).
+**Detecting** that the committed spec no longer matches the code or the runtime is backend `http-contract-scan` §10 (with `api-snapshot`), when the backend pack is installed; this agent does not grade it. Prose docs naming an endpoint the spec does not serve are `doc-drift-scan` §11, and spec examples that break their own schema are `doc-sample-scan` §5 (this pack, both run by `/doc-refresh --audit`). Without the backend pack, spec-vs-code drift is out of scope for documentation and the audit lists it `→ backend http-contract-scan §10 (owner pack backend not installed)`.
 
-Use the `api-snapshot` skill (backend pack — if installed) plus a spec-diff tool such as `oasdiff`. If neither is present, regenerate into a scratch file and `git diff --no-index` it against the committed spec; the step is mandatory, the tooling is not.
+When this agent changes the spec, every PR that touches controllers / routes still:
+1. Regenerates `openapi.json` from code annotations, into a scratch file first.
+2. Diffs it against the committed baseline (`git diff --no-index`).
+3. Runs the breaking check with a gate that can fail: `oasdiff breaking --fail-on ERR <base> <head>`. Without `--fail-on ERR`, `oasdiff breaking` exits 0 on a breaking diff and the step proves nothing (`precedents/documentation.md` § 32). Each breaking item needs a version bump or a deprecation per `ai/patterns/api-versioning.md` when that file exists, and a release note (`doc-drift-scan` §12 checks the notes).
 
 ## Developer portal
 

@@ -77,6 +77,15 @@ t_nuxt=$(tracks_of "$FIX/nuxt-storefront")
 assert_contains "nuxt: frontend"          "frontend" "$t_nuxt"
 assert_contains "nuxt: ui-ux"             "ui-ux"    "$t_nuxt"
 
+# There was no ai-engineering rule at all: a product calling an LLM never got the pack. The raw-HTTP
+# gateway shape (no provider SDK anywhere) is the one a dependency-only rule misses; the SMS fixture
+# holds the decoys the old substring greps fired on (/v1/messages, Twilio messages.create, "coherence").
+assert_contains "llm sdk app: ai-engineering"                       "ai-engineering" "$(tracks_of "$FIX/llm-sdk-app")"
+assert_contains "raw-http llm gateway, no SDK: ai-engineering"      "ai-engineering" "$(tracks_of "$FIX/llm-raw-gateway")"
+assert_absent   "sms /v1/messages + twilio + coherence: no ai-engineering" "ai-engineering" "$(tracks_of "$FIX/sms-notify")"
+assert_absent   "express with no model call: no ai-engineering"     "ai-engineering" "$t_be"
+assert_absent   "turbo monorepo with no model call: no ai-engineering" "ai-engineering" "$t_turbo"
+
 # ---------------------------------------------------------------- scanner
 echo ""
 echo "[scan] does the census see the language the project is written in?"

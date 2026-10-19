@@ -24,9 +24,9 @@ pack: business
 - Cite the UI entry point for the inverse as `<path:line>` (route, settings page, button); inverse-via-API-only is a halt for user-facing features.
 - Cite the audit-log emission for the inverse as `<path:line>`; silent inverse is a halt.
 - Cite the notification/event emitter for affected actors as `<path:line>` (e.g. member-removed → notify member); silent removal is a halt.
-- Hand-wave grep ban — never claim "every forward has an inverse" without citing the cross-feature audit output (`@business-auditor` run path or coverage report).
+- Hand-wave grep ban — never claim "every forward has an inverse" without citing `check-business-coverage`'s coverage block or `@business-auditor`'s cycle register.
 
-> **Project-specific block** — Phase 4.6 fills this from `.claude/_extracted-codebase.md § Business cycles`.
+> **Project-specific block** — filled only by an extraction run (`/setup-project` Phase 4.6, from `.claude/_extracted-codebase.md § Business cycles`). On a greenfield install it stays a placeholder: read the live list from `check-business-coverage`'s route pairs (`pairs.txt`) instead of trusting this block.
 >
 > - **Cycles audited so far**: `<list>`
 > - **Half-cycles flagged**: `<list>`
@@ -100,7 +100,7 @@ The pattern in all six: the forward action worked, the metric looked fine, and t
 
 ## Project-specific anchors
 
-(Phase 4.6 fills this with the project's actual list of forward / inverse pairs from `business-flows.md`. Format example below.)
+(Filled only by an extraction run — `/setup-project` Phase 4.6, from `business-flows.md`; on greenfield it ships as this example. The current pairs come from `check-business-coverage` §1–§5, which builds them from the routes.)
 
 ```
 | Forward | Inverse | Status | Path |
@@ -121,15 +121,12 @@ The pattern in all six: the forward action worked, the metric looked fine, and t
 
 ## Detection
 
-Use `@business-auditor` agent or `check-business-coverage.md` skill to walk every forward action and verify the inverse exists.
-
-Quick heuristic: search the codebase for verbs implying forward actions (create / send / enable / add / submit / start) and confirm a corresponding inverse exists.
+`check-business-coverage` (this pack) detects the classes this pattern names, from the code: §1 a forward action with no inverse (the route inventory paired by resource), §2 an inverse with no UI entry point, §3 send without resend and async work without a status, §4 marketing mail without one-click unsubscribe, §5 web account deletion or data export missing, §6 dead-end error paths. `@business-auditor` judges its rows and walks the flows when `/audit-business --live=<url>` is given; without a walk, every experience row is `NOT WALKED`.
 
 ## Cross-references
 
 - `business-completeness.md` rule — the principle.
-- `@business-auditor` — agent that finds these.
-- `check-business-coverage.md` skill — cross-feature audit.
-- `audit-funnel-completion.md` skill — per-flow audit.
+- `check-business-coverage` skill — the detector (§1–§6); `@business-auditor` — its judge and the walk.
+- `/suggest-metrics --funnel=<flow>` — one flow's drop-off and instrumentation.
 - `@workflow-integrity` — the state-graph counterpart to this pattern. This pattern audits **cycle-pair existence** (does the paired inverse/completion/recovery verb exist); workflow-integrity audits the **state graph between an entity's states** (are the transitions legal, guarded, terminal, reachable). They meet but do not overlap — run both.
 - `@domain-model-auditor` — the aggregate-structure counterpart. This pattern audits whether the paired verb *exists* (create↔delete); domain-model-auditor audits whether the entity behind it is a real aggregate that *owns its invariants* (or an anemic bag whose rules leaked to a service, with invariants enforced nowhere). Cycle-pair existence is orthogonal to invariant enforcement — run both on a rich-domain feature.

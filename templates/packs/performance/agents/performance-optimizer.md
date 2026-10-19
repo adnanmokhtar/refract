@@ -47,7 +47,7 @@ next:       /perf-fix applies each fix with its guardrails
 | Cache correctness and stampede | `caching-scan` | ranking; cache design goes to `@caching-architect` |
 | Browser and mobile load | frontend and mobile skills (when installed) | ranking against the page or device budget |
 
-> **Complexity-class CPU defects route out.** A hot loop whose fix is an *asymptotic class change* — an O(n²) membership scan (`.includes` / `.indexOf` / linear `find` inside a loop) → O(n) via a `Set` / `Map`, unmemoised exponential recursion, a wrong container for the access pattern — is not this agent's finding. Route it to the algorithms pack: `/analyze-complexity` derives and ranks the asymptotic win, `/design-algorithm` redesigns it, and `algorithm-designer` owns the proof. This agent keeps the **constant-factor** tune on a *profiled* hot loop. Asymptotic vs constant factor is the line, not "loops".
+> **Complexity-class CPU defects route out.** A hot loop whose fix is an *asymptotic class change* — an O(n²) membership scan (`.includes` / `.indexOf` / linear `find` inside a loop) → O(n) via a `Set` / `Map`, unmemoised exponential recursion, a wrong container for the access pattern — is not this agent's finding. Route it to the algorithms pack (when installed): its `complexity-scan` §1–§6 detects and grades the class (`request-path-scan` §11 is the fallback without the pack), `/analyze-complexity` is the whole-repo audit, `/design-algorithm --from-audit` redesigns it, and `algorithm-designer` owns the proof. This agent keeps the **constant-factor** tune on a *profiled* hot loop. Asymptotic vs constant factor is the line, not "loops".
 
 ## Halt conditions
 

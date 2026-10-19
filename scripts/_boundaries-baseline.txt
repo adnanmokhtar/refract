@@ -1,0 +1,13 @@
+# Boundary ratchet — scripts/gen-boundaries.py --check (Track B Phase 6, PLAN.md §5.1)
+#
+# boundary-missing  agents (packs + repo-baseline) that do not carry a generated `## Boundary` block yet.
+#                   Set at today's count (2026-10-19, p6-b1: none carry one). May only fall; the roster
+#                   agents reach 0 by the end of Phase 6.
+# target-missing    distinct ownership.json `target` names that resolve to no agent file (a planned
+#                   rename in scripts/_agent-merge-map.json resolves to its old name). Measured 3 before
+#                   p6-b1 (growth-reviewer, operability-reviewer, performance-reviewer); the two delivery
+#                   shells close two (now 1: growth-reviewer). May only fall.
+#
+# FORMAT  <metric> <ceiling>   # reason
+boundary-missing 97
+target-missing 1

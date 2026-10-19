@@ -1,0 +1,10 @@
+version: 2
+
+models:
+  - name: payouts
+    description: One row per payout to a merchant.
+    columns:
+      - name: payout_id
+        data_tests: [unique, not_null]
+      - name: iban
+        policy_tags: ['projects/larkmoor-analytics/locations/eu/taxonomies/41/policyTags/7']

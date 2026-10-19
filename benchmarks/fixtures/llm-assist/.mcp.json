@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "quilldesk": {
+      "type": "http",
+      "url": "https://mcp.quilldesk.example/mcp"
+    },
+    "kb-search": {
+      "command": "npx",
+      "args": ["-y", "@quilldesk/kb-mcp@latest"]
+    }
+  }
+}

@@ -16,6 +16,8 @@ Everything an attacker does **through the victim's browser**: run script in the 
 
 **Taint, here:** anything an attacker can write that a browser later renders — request params reflected by the server; **API fields another user wrote** (comments, names, bios, filenames, CMS content, a partner API's data, model output); the URL (`location.*`, router params); `document.referrer`; `window.name`; `postMessage` data; web storage (any earlier XSS could have written it). Developer-authored constants are not taint.
 
+When `llm-trust-scan` ran first, its `completion-sources.txt` (§3s, `<file:line>` of every completion, tool-call argument and model message read) is a source list: trace each one forward to this skill's sinks, and grade the sink here (OH-1, HTML and Markdown sinks); `llm-trust-scan` lists the count only.
+
 ## Adapt to the codebase
 
 Most repos have two lanes — the client framework, and whatever renders HTML on the server. Detect both and phrase each fix in the lane's own primitive.

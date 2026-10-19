@@ -1,11 +1,15 @@
 ---
 name: convention-drift-detector
-description: Compares current code against documented conventions in ai/conventions.md + .claude/rules/ + ai/patterns/. Categorizes each finding so the right resolution path is clear.
+description: "No-align fallback for /detect-drift: naming rules, stale conventions and the contested set; routes the rest."
 tools: Read, Grep, Glob, Bash
 model: sonnet
+kind: agent
+pack: learning
 ---
 
 # Convention Drift Detector
+
+> **Scope: the fallback.** When the align pack is installed, `/detect-drift` runs align `convention-oracle` (AL-01–AL-04, with `oracle-map.py` tiers) and hands its map here only for the four-outcome mapping; this agent then re-derives nothing. Without align, this agent runs the two passes that are convention questions — naming (Pass 1) and rule staleness (Pass 5) — plus the contested set. Layer direction, anti-patterns and pattern violations are graded by the packs that own them (§ Routed), never here.
 
 ## The Premise (read first, do not deviate)
 
@@ -62,32 +66,14 @@ For each rule:
 - Example: convention says "controllers end in `.controller.ts`"; find files with `Controller` class but different suffix.
 - Example: convention says "DI tokens use `Symbol()`"; find `string` token instances in modules created after the convention shift.
 
-### Pass 2 — Layer + dependency direction
+### Routed — not this agent's grade (each when its pack is installed)
 
-Documented: `core → application → infrastructure → adapters` (or whatever layers).
+These used to be Passes 2–4. Each class has a runnable owner; grading it here by prose produced a second, weaker copy of their findings with no refute step.
+- **Layer and dependency direction**, base-class non-extension → code-quality `architectural-diagnosis` (`build-graph.py`, `rank-source-files.py`) and align `convention-oracle` for a declared boundary rule (dependency-cruiser, import-linter).
+- **Anti-patterns**: unstructured prints → observability `log-signal-scan`; untyped escape hatches → code-quality `type-safety-scan`; swallowed errors → code-quality `error-handling-scan`; hard-coded tokens → align `convention-oracle` (frontend-ui-ux tokens); a query with no tenant filter → security (`@tenant-isolation-reviewer`).
+- **Pattern violations** (a webhook without signature verification, an AI call without cost tracking, a repository bypassing the data-access base) → security, ai-engineering and database detectors, by the pattern's subject.
 
-- Detect imports that violate direction (core importing from infrastructure).
-- Detect modules that bypass the layered structure.
-- Detect base-class non-extension (e.g., new repository that doesn't extend `DataAccess`).
-
-### Pass 3 — Anti-pattern occurrences
-
-Documented in `ai/runtime/domain-anti-patterns.md` + `.claude/rules/`.
-
-- Direct stdout / unstructured print calls (the language's `console.log` / `print` / `fmt.Println` / `puts` / equivalent) count vs the documented "use the project's structured logger" rule.
-- Untyped escape hatches (e.g., TypeScript `any`, Python `Any`, Go `interface{}`, Java raw types, C# `dynamic`) vs the project's "no untyped escape hatch" rule.
-- Swallowed errors (empty `catch` / `rescue` / `except` blocks) vs the project's "errors typed + bubbled" rule.
-- Hardcoded values where conventions specify tokens (colors, spacing, env vars, magic numbers).
-- Cross-tenant query without tenant filter.
-
-### Pass 4 — Pattern violations
-
-Documented in `ai/patterns/`.
-
-- New module that doesn't follow `project-structure.md` layout.
-- Repository that bypasses `data-access.md` pattern (raw `dataSource.getRepository` instead of base class methods).
-- Webhook handler missing signature verification.
-- AI call without cost-tracking / token-audit pattern.
+Without the owner pack, list each hit once as `<class> (owner pack <x> not installed)` with its `file:line`, ungraded, and never as `code-vs-rule`.
 
 ### Pass 5 — Convention staleness (rule-vs-reality)
 
@@ -173,6 +159,7 @@ Structured for `/detect-drift` consumption — already documented in that comman
 - `pattern-emergence-watcher` finds REPETITION (might want to formalize) → patterns.
 - This agent finds DIVERGENCE (might want to fix) → drift-log.
 - Both feed `knowledge-curator` for promotion.
+- `/audit-knowledge` owns everything about the knowledge layer that is not a convention (dead references, wrong facts, derived copies, sinks, ADRs, load); its `knowledge-fact-scan` §2 also catches a stale count like "147 extenders" in a loaded file.
 
 ## See also
 
@@ -186,6 +173,3 @@ Structured for `/detect-drift` consumption — already documented in that comman
 ### Sibling agents in learning pack
 - `@knowledge-curator` — sibling agent in learning pack
 - `@pattern-emergence-watcher` — sibling agent in learning pack
-
-### Patterns
-- `ai/patterns/setup-quality-scoring.md`

@@ -14,7 +14,7 @@ A container that runs as root, a database port published on every interface, a C
 
 Like `sast-scan`, it has two halves:
 
-1. **A tool ledger** — each IaC scanner that applies is **RAN** (version, exit code, files read, hits, output path), **SKIPPED** (`n/a` only when grep 1 proves the file type is absent), or **NOT-INSTALLED** (exact one-shot / install command). A scanner that did not run is a `COVERAGE:` gap for `/security-audit`, never a pass.
+1. **A tool ledger** — each IaC scanner that applies is **RAN** (version, exit code, files read, hits, output path), **SKIPPED** (`n/a` only when grep 1 proves the file type is absent), or **NOT-INSTALLED** (the exact install command, printed for the user — the audit never installs, downloads or pulls a scanner). A scanner that did not run is a `COVERAGE:` gap for `/security-audit`, never a pass.
 2. **The detectors below, run as greps plus a read, whatever the scanners said.** The scanners are not a superset of them. On this skill's own vulnerable sample (2026-10-01: checkov 3.3.21, trivy 0.74.0, hadolint 2.15.1, kube-linter 0.8.3, zizmor 1.30.1, gixy-ng 0.2.55, semgrep 1.178.0), every item here passed every scanner that read its file:
    - a multi-stage Dockerfile whose `USER` is set only in the builder stage (hadolint, checkov, trivy);
    - `COPY .env` into the image;
@@ -30,16 +30,16 @@ Like `sast-scan`, it has two halves:
 
 ## Adapt to the codebase
 
-| Surface | Scanner lane (one-shot first) | Install for later | Suppression to inventory |
+| Surface | Scanner lane (installed tools and already-local images only) | Install for later | Suppression to inventory |
 |---|---|---|---|
-| **Dockerfile** | `docker run --rm -i "hadolint/hadolint:v2.15.1@$HADOLINT_DIGEST" hadolint -f json --failure-threshold warning - < <file>`; `trivy config`; `checkov --framework dockerfile` | `brew install hadolint trivy` · `pipx install checkov` | `# hadolint ignore=DL####` · `.hadolint.yaml` · `#checkov:skip=` · `#trivy:ignore:` |
+| **Dockerfile** | `docker run --pull=never --rm -i "hadolint/hadolint:v2.15.1@$HADOLINT_DIGEST" hadolint -f json --failure-threshold warning - < <file>`; `trivy config`; `checkov --framework dockerfile` | `brew install hadolint trivy` (or `docker pull` the pinned image) · `pipx install checkov` | `# hadolint ignore=DL####` · `.hadolint.yaml` · `#checkov:skip=` · `#trivy:ignore:` |
 | **Compose** | semgrep `p/docker-compose` — matches only files with a top-level `version:` key; checkov and trivy do not read compose. **Greps are the primary lane.** | — | `# nosemgrep` |
 | **Kubernetes** (raw, Helm, Kustomize) | render first: `helm template <chart> -f <values> > "$SCAN/rendered.yaml"` / `kubectl kustomize <dir> > …`; then `trivy config`, `checkov`, `kube-linter lint --add-all-built-in`; `kubescape scan <path> --format json --output … --keep-local` as an alternative | `brew install kube-linter kubescape helm` | `ignore-check.kube-linter.io/<check>` · `checkov.io/skip<N>` annotations · `#trivy:ignore:` |
 | **Terraform / CloudFormation** | `checkov -d`; `trivy config` (tfsec's successor) | as above | `#checkov:skip=` · `#trivy:ignore:` / legacy `#tfsec:ignore:` · `.trivyignore` |
 | **Pulumi** | no scanner reads Pulumi programs; grep 5c on the program, then `pulumi preview --json` read as a plan | — | — |
-| **GitHub Actions** (and the other five CI platforms) | `ci-security-scan` owns the lane and its ledger (zizmor ≥ 1.28, poutine, octoscan, actionlint); this skill runs `uvx zizmor@1.30.1 --offline --persona=auditor --format json .github/workflows` for its own row; semgrep `p/github-actions` | `brew install zizmor actionlint` | `# zizmor: ignore[<audit>]` · `zizmor.yml` · `.github/actionlint.yaml` |
+| **GitHub Actions** (and the other five CI platforms) | `ci-security-scan` owns the lane and its ledger (zizmor ≥ 1.28, poutine, octoscan, actionlint); this skill runs `zizmor --offline --persona=auditor --format json .github/workflows` (installed, ≥ 1.28) for its own row; semgrep `p/github-actions` | `brew install zizmor actionlint` | `# zizmor: ignore[<audit>]` · `zizmor.yml` · `.github/actionlint.yaml` |
 | **GitLab CI** | `checkov --framework gitlab_ci` — zero failures on the sample that held `eval "$CI_COMMIT_MESSAGE"`; **greps are the primary lane** | — | — |
-| **nginx** | `uvx --from gixy-ng gixy -f json <conf>` (maintained fork of yandex/gixy); semgrep `p/nginx` | `pipx install gixy-ng` | `--skips` in the project's own invocation |
+| **nginx** | `gixy -f json <conf>` (gixy-ng, the maintained fork of yandex/gixy); semgrep `p/nginx` | `pipx install gixy-ng` | `--skips` in the project's own invocation |
 | **Caddy, Apache, Traefik** | no maintained static scanner — **greps are the primary lane** | — | — |
 | **`.env` files** | `git ls-files` + grep 8 | — | `.gitignore` · `.dockerignore` |
 
@@ -231,25 +231,24 @@ Then the scanners. All output goes to the pre-flight's `$SCAN`, never into the r
 checkov -d . --skip-path node_modules --skip-path vendor -o json -o sarif --output-file-path "$SCAN/checkov" --quiet --compact
 trivy config --skip-dirs node_modules --skip-dirs vendor --format json --output "$SCAN/trivy-config.json" .
 for f in $(rg --files . -g 'Dockerfile*' -g '*.dockerfile' -g '!**/node_modules/**'); do
-  docker run --rm -i "hadolint/hadolint:v2.15.1@$HADOLINT_DIGEST" hadolint -f json --failure-threshold warning - < "$f" > "$SCAN/hadolint-$(echo "$f" | tr '/' '_').json"; done
-uvx zizmor@1.30.1 --offline --persona=auditor --format json .github/workflows > "$SCAN/zizmor.json" 2> "$SCAN/zizmor.err"; echo "zizmor exit $? (3 = no inputs → NOT-RUN)"
+  docker run --pull=never --rm -i "hadolint/hadolint:v2.15.1@$HADOLINT_DIGEST" hadolint -f json --failure-threshold warning - < "$f" > "$SCAN/hadolint-$(echo "$f" | tr '/' '_').json"; done
+zizmor --offline --persona=auditor --format json .github/workflows > "$SCAN/zizmor.json" 2> "$SCAN/zizmor.err"; echo "zizmor exit $? (3 = no inputs → NOT-RUN)"
 actionlint -format '{{json .}}' > "$SCAN/actionlint.json"
 MANIFESTS=("$SCAN"/rendered-*.yaml)   # 1f's output; with nothing to render, the manifest dir
 NGINX_CONF=nginx.conf           # each nginx config the repo ships — a copy in $SCAN with absolute `include`s rewritten to repo paths
 kube-linter lint --add-all-built-in --exclude schema-validation --format json "${MANIFESTS[@]}" > "$SCAN/kube-linter.json"
-uvx --from gixy-ng gixy -f json "$NGINX_CONF" > "$SCAN/gixy.json"
+gixy -f json "$NGINX_CONF" > "$SCAN/gixy.json"
 semgrep scan --metrics=off --config p/dockerfile --config p/docker-compose --config p/kubernetes --config p/terraform \
   --config p/github-actions --config p/nginx --exclude node_modules --exclude vendor --json-output="$SCAN/semgrep-iac.json" > /dev/null
 ```
 
-One-shots when a tool is absent — feed containers through **stdin, not a bind mount** (§ False positives):
-- checkov: `uvx checkov …` / `pipx run checkov …`.
-- trivy: `tar -cf - --exclude node_modules --exclude .git . | docker run --rm -i --entrypoint sh "aquasec/trivy:0.75.0@$TRIVY_DIGEST" -c 'mkdir /src && tar -xf - -C /src && trivy config --quiet --format json /src' > "$SCAN/trivy-config.json"`.
-- kube-linter: `docker run --rm -i stackrox/kube-linter lint --add-all-built-in --exclude schema-validation --format json - < <file>`. The image has no shell; stdin works.
-- actionlint: `docker run --rm -i "rhysd/actionlint:1.7.12@$ACTIONLINT_DIGEST" -format '{{json .}}' - < <workflow>`, one file per run.
+Each command above runs only when its binary is installed; absent → the ledger row reads `NOT-INSTALLED` with the "Install for later" command, and the greps still run. **The audit never downloads a scanner** (no `uvx`, `pipx run`, `npx -y`, or `docker pull`). A scanner image that is **already local** (`docker image inspect <image>` succeeds) may stand in for an absent binary, with `--pull=never`, fed through **stdin, not a bind mount** (§ False positives):
+- trivy: `tar -cf - --exclude node_modules --exclude .git . | docker run --pull=never --rm -i --entrypoint sh "aquasec/trivy:0.75.0@$TRIVY_DIGEST" -c 'mkdir /src && tar -xf - -C /src && trivy config --quiet --format json /src' > "$SCAN/trivy-config.json"`.
+- kube-linter: `docker run --pull=never --rm -i stackrox/kube-linter lint --add-all-built-in --exclude schema-validation --format json - < <file>`. The image has no shell; stdin works.
+- actionlint: `docker run --pull=never --rm -i "rhysd/actionlint:1.7.12@$ACTIONLINT_DIGEST" -format '{{json .}}' - < <workflow>`, one file per run.
 
 Scanners are supply chain too: the 2026-03 trivy-action compromise force-moved 76 of 77 tags. Every image above runs by version **and** digest, never `:latest`. Record each `*_DIGEST` once (`crane digest <image>:<version>`) in the ledger. A different digest under the same version is a stop, not an update. zizmor below 1.28 is refused (1.27.0 logged GitHub credentials, GHSA-f42p-wjw5-97qh).
-- semgrep: `uvx semgrep …`.
+- semgrep, checkov, zizmor, gixy-ng: no local stand-in; NOT-INSTALLED (`pipx install semgrep` / `pipx install checkov` / `brew install zizmor` / `pipx install gixy-ng`).
 
 Read each output's file or target count before calling the row RAN. **A scanner that scanned 0 files is NOT-RUN, whatever its exit code.**
 
@@ -397,7 +396,7 @@ Tool ledger
   zizmor 1.30.1         RAN            exit 14 · --persona=auditor · 2 workflows parsed of 2 · 15 hits → 6 merged
   kube-linter 0.8.3     RAN            --add-all-built-in · rendered chart · 27 hits → 8 merged
   gixy-ng 0.2.55        RAN            1 nginx config · 6 hits → 5 merged
-  actionlint            NOT-INSTALLED  blocked — brew install actionlint  (or the pinned rhysd/actionlint:1.7.12 one-shot on stdin)
+  actionlint            NOT-INSTALLED  blocked — brew install actionlint  (or docker pull the pinned rhysd/actionlint:1.7.12 image; it then runs locally on stdin)
 
 Findings: 6
 
@@ -421,7 +420,7 @@ Findings: 6
    hadolint, checkov and trivy all passed it.
    grep 2 · A02:2025 · CWE-250      Fix: `USER app` after the last FROM (create the user in that stage).
 
-5. k8s/deployment.yaml:53  kind: Secret data.key     high      [report-with-fix]
+5. k8s/api.yaml:53         kind: Secret data.key     high      [report-with-fix]
    committed Secret; base64 only. Value → secret-scan-method (rotate first).   A02:2025 · CWE-312
    Fix: External Secrets / Sealed Secrets; remove from git history after rotation.
 

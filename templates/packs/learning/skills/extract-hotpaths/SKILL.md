@@ -1,6 +1,8 @@
 ---
 name: extract-hotpaths
 description: Round-two identification of likely-hot endpoints / queries / jobs (heuristics — high coverage, high churn, high fan-in, monitoring mentions). For each, score N+1 risk, index coverage, cache layer, and propose a 1-line uplift. Used by /setup-project Phase 2.11 in REFINE mode to upgrade query-optimizer / parallelize-independent-ops / caching artifacts from generic prose to "here are 6 endpoints that should fix N+1 today."
+kind: skill
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -23,6 +25,10 @@ Round-two surfaces these so the `query-optimizer.md` rule's `## Project-specific
 - Grep for cache-decorator + cache-aside + materialized-view use before scoring `cache_layer: no`.
 - Empty extraction is honest — a path scored "looks healthy" is a valid finding the user benefits from knowing.
 - Fabrication — flagging an N+1 you didn't read, recommending an index that already exists, asserting a cache layer is absent without checking, recommending caching for a mutating endpoint without flagging correctness — produces uplifts that waste engineering time or break the system.
+
+## Owners — this skill scores context, the detectors grade defects
+
+N+1, index coverage and caching are graded classes with runnable owners. **When the database pack is installed**, Step 2 reads `n-plus-one-scan` rows and Step 3 reads `index-coverage-scan` and `query-shape-scan` rows for each picked path, cites them, and does not re-derive them; **when the performance pack is installed**, Step 4 reads `caching-scan` and `request-path-scan`. Without the owner pack, the score here is a reading of the handler, labelled `Unconfirmed (owner pack <x> not installed)` in the output, never a finding: `/db-audit` or `/perf-audit` decides it. This skill's own output is the hot-path list and its uplift prose for the REFINE anchors.
 
 ## Mechanical halt
 

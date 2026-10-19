@@ -1,0 +1,10 @@
+commit 3e0b6c1 (search release 2.6.1 — config only)
+    Turn up logging to chase the ranking bug
+
+diff --git a/deploy/helm/search/values.prod.yaml b/deploy/helm/search/values.prod.yaml
+--- a/deploy/helm/search/values.prod.yaml
++++ b/deploy/helm/search/values.prod.yaml
+@@ -8,3 +8,3 @@ env:
+-  LOG_LEVEL: info
++  LOG_LEVEL: debug
+   LOG_FILE: /var/log/search/app.log

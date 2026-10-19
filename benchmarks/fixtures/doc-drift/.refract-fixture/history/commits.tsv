@@ -1,0 +1,15 @@
+# step	date	tag	subject
+0	2026-05-04T10:00:00Z	v1.4.0	chore(release): 1.4.0
+1	2026-05-11T09:30:00Z	-	feat(api)!: drop the page param
+2	2026-05-25T16:00:00Z	v1.5.0	chore(release): 1.5.0
+3	2026-06-08T10:00:00Z	-	refactor(config): rename app.config.ts to config.loader.ts
+4	2026-06-15T11:00:00Z	-	docs: move the deployment guide to docs/operations.md
+5	2026-06-22T14:00:00Z	-	refactor(sdk): fold the retry policy into the HTTP client
+6	2026-06-29T09:00:00Z	-	refactor(api): rename the ledger module to accounting, remove the notifier
+7	2026-07-03T09:00:00Z	-	chore: remove the examples folder
+8	2026-07-06T10:00:00Z	-	docs(guide): rename getting-started to setup
+9	2026-07-13T10:00:00Z	-	docs(ar): fix typos on the Arabic home page
+10	2026-07-20T15:00:00Z	-	feat(cli)!: drop the --legacy-import flag
+11	2026-08-03T10:00:00Z	-	docs(guide): expand the billing, SDK and FAQ pages
+12	2026-08-10T10:00:00Z	-	chore(runbooks): rename api-down to api-unavailable
+final	2026-09-14T10:00:00Z	-	chore: sync the working tree

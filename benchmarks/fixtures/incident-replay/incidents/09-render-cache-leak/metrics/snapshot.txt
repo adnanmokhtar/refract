@@ -1,0 +1,5 @@
+# series                                         10:30   11:30   12:30   13:30   14:30
+nodejs_heap_used_bytes (max pod)                   0.41e9  0.88e9  1.42e9  0.92e9  1.40e9
+ssr_cache_entries (max pod)                        3100    210000  396000  214000  401000
+ssr_cache_hit_ratio                                0.81    0.07    0.06    0.07    0.06
+image_resize_errors_per_hour                       2       3       2       3       2

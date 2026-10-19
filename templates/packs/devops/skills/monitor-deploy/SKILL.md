@@ -1,6 +1,8 @@
 ---
 name: monitor-deploy
 description: Watch a just-shipped deploy until it proves healthy (or rolls back). Polls health/readiness, error rate, and latency against a baseline for an observation window; on threshold breach it surfaces evidence and triggers /rollback-deploy. The executor behind /deploy-stage's --watch / --no-monitor and the recovery confirmation in /rollback-deploy.
+kind: skill
+pack: devops
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 

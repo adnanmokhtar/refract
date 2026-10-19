@@ -41,6 +41,20 @@ project's extraction, so each `fallback:` names the shipped source and it is del
   sections: [premise, contract, mode_design, mode_conformance, output, hard_rules]
   fallback: agents/architecture-reviewer.md
 
+- name: performance-reviewer
+  kind: agent
+  triggers: { always: true }
+  extracts_from: the lens files its brief names (.claude/lenses/<x>.md)
+  sections: [premise, contract, output, lenses]
+  fallback: agents/performance-reviewer.md   # Phase 6 roster shell; reads lenses, dispatches no detector yet
+
+- name: operability-reviewer
+  kind: agent
+  triggers: { always: true }
+  extracts_from: the lens files its brief names (.claude/lenses/<x>.md)
+  sections: [premise, contract, output, lenses]
+  fallback: agents/operability-reviewer.md   # Phase 6 roster shell; reads lenses, dispatches no detector yet
+
 - name: test-engineer
   kind: agent
   triggers: { always: true }

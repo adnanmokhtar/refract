@@ -99,7 +99,7 @@ A broken auth check is never just a bug — it is account takeover, a tenant dat
 ## Enforcement
 
 - `<commands-path>/audit-access-control.md` (slash: `/audit-access-control`) — IDOR / authorization-coverage audit: enumerates every endpoint × who-can-call-it × the ownership-check call site at `<path:line>`; halts on any endpoint lacking a cited scope check.
-- `<agents-path>/auth-reviewer.md` — review gate hard-failing on plaintext/weak hashing, JWT in localStorage, missing CSRF, IDOR / missing ownership checks, no rate-limit on login, user-enumeration errors, long-lived non-rotating tokens, missing logout/revocation, and client-side authorization.
+- `.claude/lenses/auth-review.md` — review gate hard-failing on plaintext/weak hashing, JWT in localStorage, missing CSRF, IDOR / missing ownership checks, no rate-limit on login, user-enumeration errors, long-lived non-rotating tokens, missing logout/revocation, and client-side authorization.
 - CI lint MUST reject password fields hashed with `md5` / `sha1` / `sha256` / `crypto.createHash(` in the auth path.
 - CI lint MUST reject `localStorage.setItem(`/`sessionStorage.setItem(` with an argument named like `token` / `jwt` / `accessToken` / `refreshToken`.
 - CI lint MUST reject JWT verify calls that pass `algorithms` containing `none`, or that omit an `algorithms` allowlist.
@@ -112,5 +112,5 @@ A broken auth check is never just a bug — it is account takeover, a tenant dat
 - `<rules-path>/webhook-signature-verification.md` — constant-time compare + secret hygiene (shared discipline for any inbound secret).
 - `<patterns-path>/payment-integration.md` — server-computed-trust analogue (never trust client amount ↔ never trust client role/scope).
 - `<commands-path>/audit-access-control.md` — IDOR / authorization-coverage audit tool.
-- `<agents-path>/auth-reviewer.md` — review gate.
+- `.claude/lenses/auth-review.md` — review gate.
 - `<adr-path>/<NNN>-auth-session-strategy.md` — ADR pinning session-store-vs-JWT choice, token TTLs, MFA policy, and the identity provider.

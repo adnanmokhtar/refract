@@ -315,5 +315,5 @@ An org's retention window goes 365 → 7 with no record of who or when → unrec
 - `<rules-path>/feature-flags.md` — the flags-vs-settings boundary (flags = rollout/targeting; settings = durable config).
 - `<rules-path>/auth.md` — server-side authorization for security-sensitive setting writes.
 - `<commands-path>/audit-settings.md` — cite-or-halt diagnostic for the settings store, resolver, validation, secrets, cache, authz, and audit.
-- `<agents-path>/settings-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/settings-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-settings-precedence.md` — ADR pinning the precedence order, scope model, and secret-storage mechanism.

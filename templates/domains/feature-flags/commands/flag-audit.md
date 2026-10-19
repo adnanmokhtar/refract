@@ -99,4 +99,4 @@ Cost estimate (provider plan):
 
 - `ai/patterns/feature-flag.md` — lifecycle + SDK choice + code shape.
 - `.claude/rules/flag-discipline.md` — naming + ownership + rollout cadence.
-- `.claude/agents/flag-reviewer.md` — review gate for flag PRs.
+- `.claude/lenses/feature-flags-review.md` — review gate for flag PRs.

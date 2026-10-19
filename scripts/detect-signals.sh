@@ -434,6 +434,142 @@ if [ -f "$TARGET/.claude/_extracted-codebase.md" ]; then
 fi
 sig "business_domain_detected=$BD" "$BD_NOTE"
 
+# ===== AI / LLM ==========================================================================
+# llm_usage_detected — declared by the ai-engineering and security `_topics.md` (12 topics) and
+# produced by nothing until 2026-10-19, so the pack was never selected and `@llm-security-reviewer`
+# never fired. MEASURED on a real NestJS monorepo that calls an OpenAI-compatible gateway over raw
+# HTTP: no provider SDK anywhere, so a manifest-only test answers `no` for a product with an
+# 18-tool assistant. The three lanes are the ones llm-sites.py (ai-engineering) inventories, every
+# one word-bounded: a provider-name substring matches `cohere` inside "coherence" (107 hits there).
+#   1. manifests — package names as dependency keys / requirement lines, never prose;
+#   2. a provider import in source;
+#   3. the wire shape with no SDK: an LLM endpoint path, or an LLM-only body key BESIDE a role
+#      literal. `/v1/messages` alone is an SMS API (two fixtures have one), so it counts only next
+#      to `max_tokens` or `anthropic-version`; a bare `max_tokens = 10` is a token bucket.
+LLM_EV=""
+_llm_pkg='"(openai|@anthropic-ai/sdk|ai|@ai-sdk/[a-z0-9-]+|langchain|@langchain/[a-z0-9-]+|llamaindex|@google/genai|@google/generative-ai|@mistralai/mistralai|cohere-ai|ollama|@modelcontextprotocol/sdk|@openai/agents|@aws-sdk/client-bedrock-runtime)"[[:space:]]*:'
+_llm_py='^[[:space:]]*"?(openai|anthropic|langchain[a-z_-]*|langgraph|llama-index[a-z_-]*|llama_index|google-genai|google-generativeai|mistralai|cohere|ollama|litellm|mcp|openai-agents)[[:space:]]*([=<>~!;,"[]|$)'
+_llm_go='github\.com/(openai/openai-go|sashabaranov/go-openai|anthropics/anthropic-sdk-go|tmc/langchaingo)|google\.golang\.org/genai'
+if mg "$_llm_pkg|$_llm_py|$_llm_go"; then LLM_EV="provider SDK / LLM framework / MCP SDK in a manifest"; fi
+# Python services nest their manifests below services/ or apps/ deeper than MANIFEST_FILES reaches.
+if [ -z "$LLM_EV" ]; then
+  while IFS= read -r _f; do
+    [ -n "$_f" ] && grep -hv '^[[:space:]]*#' "$_f" 2>/dev/null | grep -qE "$_llm_py" && { LLM_EV="provider SDK in ${_f#./}"; break; }
+  done <<LLM_EOF
+$(find -L . -maxdepth 4 \( $PRUNE \) -prune -o -type f \( -name pyproject.toml -o -name 'requirements*.txt' \) -print 2>/dev/null | head -50)
+LLM_EOF
+fi
+_llm_roots=""
+for _d in src app apps lib libs packages server services client web api backend pages components; do [ -d "$_d" ] && _llm_roots="$_llm_roots $_d"; done
+_llm_grep() {  # $1 = mode (-l | -q), $2 = ERE; source files only, tests and fixtures excluded
+  # shellcheck disable=SC2086
+  grep -rE $1 --include='*.ts' --include='*.tsx' --include='*.mts' --include='*.js' --include='*.jsx' --include='*.mjs' \
+    --include='*.py' --include='*.go' --include='*.rb' --include='*.java' --include='*.kt' --include='*.cs' --include='*.php' \
+    --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build --exclude-dir=vendor --exclude-dir=.venv \
+    --exclude-dir=test --exclude-dir=tests --exclude-dir=__tests__ --exclude-dir=spec --exclude-dir=e2e --exclude-dir=fixtures \
+    --exclude-dir=__fixtures__ --exclude-dir=mocks --exclude-dir=__mocks__ --exclude-dir=testdata \
+    --exclude='*.spec.*' --exclude='*.test.*' --exclude='test_*.py' --exclude='*_test.go' -- "$2" $_llm_roots 2>/dev/null
+}
+if [ -z "$LLM_EV" ] && [ -n "$_llm_roots" ]; then
+  _f="$(_llm_grep -l "(from[[:space:]]+|require\\([[:space:]]*|import\\([[:space:]]*)['\"](openai|@anthropic-ai/sdk|ai|@ai-sdk/[a-z0-9-]+|@langchain/[a-z0-9-]+|@google/genai|@modelcontextprotocol/sdk[a-z0-9/._-]*)['\"]|^[[:space:]]*(from|import)[[:space:]]+(openai|anthropic|langchain[a-z_]*|langgraph|llama_index|litellm|mcp)([[:space:]]|\\.|$)" | head -1)"
+  [ -n "$_f" ] && LLM_EV="provider import in ${_f#./}"
+fi
+if [ -z "$LLM_EV" ] && [ -n "$_llm_roots" ]; then
+  _f="$(_llm_grep -l '/chat/completions|/v1/responses|:(stream)?generateContent' | head -1)"
+  [ -n "$_f" ] && LLM_EV="LLM endpoint in ${_f#./} (no SDK)"
+fi
+if [ -z "$LLM_EV" ] && [ -n "$_llm_roots" ]; then
+  while IFS= read -r _f; do
+    [ -n "$_f" ] || continue
+    if grep -qE '/v1/messages' "$_f" 2>/dev/null; then
+      grep -qE "max_tokens|anthropic-version" "$_f" 2>/dev/null && { LLM_EV="Messages API wire shape in ${_f#./}"; break; }
+    fi
+    grep -qE "role['\"]?[[:space:]]*:[[:space:]]*['\"](system|developer|tool|assistant)['\"][[:space:]]*[,}]" "$_f" 2>/dev/null \
+      && { LLM_EV="LLM wire shape in ${_f#./} (body key + role literal, no SDK)"; break; }
+  done <<LLM_EOF
+$(_llm_grep -l "(max_tokens|max_completion_tokens|tool_choice|response_format|stream_options)['\"]?[[:space:]]*[:=]|/v1/messages" | head -200)
+LLM_EOF
+fi
+sig "llm_usage_detected=$( [ -n "$LLM_EV" ] && echo yes || echo no )" "$LLM_EV"
+unset _llm_pkg _llm_py _llm_go _llm_roots _d _f
+
+# ===== Paid APIs (finops) ================================================================
+# paid_api_detected — the product calls a dependency billed per call, message, token or lookup.
+# finops IR-7 (batch 8, 2026-10-19): the finops pack was gated on infrastructure-as-code only, so a
+# repo whose spend is an LLM gateway, an SMS provider or a geocoder — and has no Terraform — never
+# got `spend-path-scan`. MEASURED on a read-only real monorepo (spend-path-scan § Measured): 0 paid SDK
+# imports, and 6 third-party services reached only by configured `*_BASE_URL` names, the model
+# gateway among them.
+# Four lanes, the same inventory `spend-path-scan` § 0 builds, every one anchored:
+#   1. a per-call paid SDK as a manifest dependency key / requirement line (a payment SDK is billed
+#      per transaction, not per call — `spend-path-scan` lists it but raises no PS row, so it is out);
+#   2. llm_usage_detected above (a model is billed per token whatever the transport);
+#   3. a provider API host literal in source or config;
+#   4. a configured base-URL name that names a billed category (`SMS_API_URL`, `GEOCODER_BASE_URL`).
+#      A bare `*_BASE_URL` is the app's own API in most repos (14 of 28 fixtures carry one), so the
+#      name must carry the category word.
+PAID_EV=""
+_paid_pkg='"(openai|@anthropic-ai/sdk|@google/genai|@google/generative-ai|@mistralai/mistralai|cohere-ai|twilio|@sendgrid/mail|@sendgrid/client|@mailchimp/[a-z0-9-]+|postmark|mailgun\.js|@vonage/[a-z0-9-]+|messagebird|@googlemaps/[a-z0-9-]+|@mapbox/[a-z0-9-]+)"[[:space:]]*:'
+_paid_py='^[[:space:]]*"?(openai|anthropic|mistralai|cohere|twilio|sendgrid|postmarker|vonage|googlemaps|mailchimp-transactional)[[:space:]]*([=<>~!;,"[]|$)'
+_paid_go='github\.com/(sashabaranov/go-openai|openai/openai-go|anthropics/anthropic-sdk-go|twilio/twilio-go|sendgrid/sendgrid-go)'
+if mg "$_paid_pkg|$_paid_py|$_paid_go"; then PAID_EV="per-call paid SDK in a manifest"; fi
+if [ -z "$PAID_EV" ] && [ -n "$LLM_EV" ]; then PAID_EV="llm_usage_detected ($LLM_EV)"; fi
+_paid_roots=""
+for _d in src app apps lib libs packages server services client web api backend config deploy; do [ -d "$_d" ] && _paid_roots="$_paid_roots $_d"; done
+_paid_grep() {  # $1 = ERE; source and config files (root .env examples too), tests and fixtures excluded; prints the first file
+  # shellcheck disable=SC2086
+  grep -rlE --include='*.ts' --include='*.tsx' --include='*.mts' --include='*.js' --include='*.mjs' --include='*.cjs' \
+    --include='*.py' --include='*.go' --include='*.rb' --include='*.java' --include='*.kt' --include='*.cs' --include='*.php' \
+    --include='*.yaml' --include='*.yml' --include='*.toml' --include='*.env' --include='.env*' --include='*.env.*' \
+    --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build --exclude-dir=vendor --exclude-dir=.venv \
+    --exclude-dir=test --exclude-dir=tests --exclude-dir=__tests__ --exclude-dir=spec --exclude-dir=e2e --exclude-dir=fixtures \
+    --exclude-dir=__fixtures__ --exclude-dir=mocks --exclude-dir=__mocks__ --exclude-dir=testdata --exclude-dir=.claude \
+    --exclude='*.spec.*' --exclude='*.test.*' --exclude='test_*.py' --exclude='*_test.go' -- "$1" $_paid_roots .env.example .env.sample 2>/dev/null | head -1
+}
+_paid_host='(^|[^A-Za-z0-9.-])(api\.openai\.com|api\.anthropic\.com|openrouter\.ai|generativelanguage\.googleapis\.com|api\.mistral\.ai|api\.cohere\.(ai|com)|api\.twilio\.com|api\.sendgrid\.com|api\.mailgun\.net|api\.postmarkapp\.com|maps\.googleapis\.com|api\.mapbox\.com|rest\.nexmo\.com|api\.vonage\.com)([^A-Za-z0-9.-]|$)'
+_paid_env='(^|[^A-Za-z0-9_])[A-Z0-9_]*(LLM|OPENAI|ANTHROPIC|GEMINI|MISTRAL|OPENROUTER|COHERE|MODEL_GATEWAY|AI_GATEWAY|SMS|TWILIO|VONAGE|NEXMO|SENDGRID|MAILGUN|POSTMARK|WHATSAPP|GEOCOD(E|ER|ING)|GOOGLE_MAPS|MAPBOX)_[A-Z0-9_]*(BASE_URL|API_URL|API_BASE|GATEWAY_URL|ENDPOINT_URL|API_HOST)([^A-Za-z0-9_]|$)'
+if [ -z "$PAID_EV" ]; then _f="$(_paid_grep "$_paid_host")"; [ -n "$_f" ] && PAID_EV="paid provider host in ${_f#./}"; fi
+if [ -z "$PAID_EV" ]; then _f="$(_paid_grep "$_paid_env")"; [ -n "$_f" ] && PAID_EV="billed-category base URL in ${_f#./} (no SDK)"; fi
+sig "paid_api_detected=$( [ -n "$PAID_EV" ] && echo yes || echo no )" "$PAID_EV"
+unset _paid_pkg _paid_py _paid_go _paid_roots _paid_host _paid_env _d _f
+
+# ===== Algorithms (setup suggestion) =====================================================
+# numeric_or_geo_lib_detected — the algorithms pack is opt-in (`--include=algorithms`) and had no
+# signal at all, so setup never suggested it (algorithms eval O-4, 2026-10-19). The old numeric
+# gate was a WORD regex over source and matched 3,574 files — about 30 % — of a CRUD monorepo with
+# no numeric code; this one is anchored: a numeric, geo or sketch
+# library as a manifest dependency (numeric-stability-scan grep G1, algorithm-contract-scan grep 0b),
+# PostGIS or a spatial column in SQL, or a probabilistic-structure command in source. Map RENDERING
+# libraries (leaflet, mapbox-gl) do not count: a map on a page is not geodesy. A suggestion only —
+# run-preflight prints it, nothing installs the pack.
+ALGO_EV=""
+_algo_js='"(mathjs|simple-statistics|ml-matrix|@tensorflow/tfjs[a-z0-9-]*|ndarray|@turf/[a-z0-9-]+|geolib|geographiclib[a-z0-9-]*|proj4|h3-js|kdbush|geokdbush|bloom-filters|hyperloglog[a-z0-9-]*)"[[:space:]]*:'
+_algo_py='^[[:space:]]*"?(numpy|scipy|pandas|polars|statsmodels|scikit-learn|torch|jax|jaxlib|numba|mpmath|shapely|geopy|pyproj|geographiclib|geopandas|h3|pyprobables|datasketch)[[:space:]]*([=<>~!;,"[]|$)'
+_algo_other='gonum\.org/v1/gonum|github\.com/(golang/geo|paulmach/orb|twpayne/go-geom)|(^|[^A-Za-z0-9-])commons-math3?([^A-Za-z0-9-]|$)|org\.locationtech\.jts|MathNet\.Numerics|NetTopologySuite|^[[:space:]]*(ndarray|nalgebra|statrs|geo)[[:space:]]*='
+if mg "$_algo_js|$_algo_py|$_algo_other"; then ALGO_EV="numeric / geo / sketch library in a manifest"; fi
+if [ -z "$ALGO_EV" ]; then  # Python analytics services nest below MANIFEST_FILES' reach (the llm lane's reason)
+  while IFS= read -r _f; do
+    [ -n "$_f" ] && grep -hv '^[[:space:]]*#' "$_f" 2>/dev/null | grep -qE "$_algo_py" && { ALGO_EV="numeric / geo library in ${_f#./}"; break; }
+  done <<ALGO_EOF
+$(find -L . -maxdepth 4 \( $PRUNE \) -prune -o -type f \( -name pyproject.toml -o -name 'requirements*.txt' \) -print 2>/dev/null | head -50)
+ALGO_EOF
+fi
+if [ -z "$ALGO_EV" ]; then
+  _f="$(grep -rliE --include='*.sql' --include='*.prisma' --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build --exclude-dir=vendor \
+        -- 'create[[:space:]]+extension[^;]*postgis|(^|[^a-z_])geography[[:space:]]*\(|(^|[^a-z_])geometry[[:space:]]*\([[:space:]]*[a-z]+[[:space:]]*,[[:space:]]*[0-9]+' . 2>/dev/null | head -1)"
+  [ -n "$_f" ] && ALGO_EV="PostGIS / spatial column in ${_f#./}"
+fi
+if [ -z "$ALGO_EV" ]; then
+  for _d in $SRC_ROOTS services; do
+    [ -d "$_d" ] || continue
+    _f="$(grep -rlE --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build \
+          -- '(^|[^A-Za-z0-9_])(BF\.(RESERVE|ADD|EXISTS)|PFADD|PFCOUNT|pfadd|pfcount|CMS\.INITBYDIM)([^A-Za-z0-9_]|$)' "$_d" 2>/dev/null | head -1)"
+    [ -n "$_f" ] && { ALGO_EV="probabilistic-structure command in ${_f#./}"; break; }
+  done
+fi
+sig "numeric_or_geo_lib_detected=$( [ -n "$ALGO_EV" ] && echo yes || echo no )" "$ALGO_EV"
+unset _algo_js _algo_py _algo_other _d _f
+
 # ---- emit ------------------------------------------------------------------------------
 emit() {
   printf '# Detected signals\n\n'

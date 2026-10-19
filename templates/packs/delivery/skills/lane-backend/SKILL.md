@@ -142,7 +142,7 @@ Five signals do not merely add a pattern to the reading list — they decide the
 **Payment.** First decide *which payment shape*, because the two shapes have opposite constraints and the wrong axis is the common failure:
 
 - **Card-on-file / save-a-payment-method (no money moves).** Idempotency is not the axis here — PCI scope is.
-  - **Never persist a PAN, CVV, or track data.** Any of the three moves the whole server from PCI SAQ-A to SAQ-D; `templates/domains/payment/agents/payment-reviewer.md:14` makes PAN-on-our-servers a BLOCKER with no exceptions, and its worked example prices the mistake as "full PCI audit, $50k+/year, quarterly scans, dedicated network segment" (`:117`). The card is tokenized by the provider's hosted field in the client; the server never sees it.
+  - **Never persist a PAN, CVV, or track data.** Any of the three moves the whole server from PCI SAQ-A to SAQ-D; `templates/domains/payment/lenses/payment-review.md:17` makes PAN-on-our-servers a BLOCKER with no exceptions, and its worked example prices the mistake as "full PCI audit, $50k+/year, quarterly scans, dedicated network segment" (`:131`). The card is tokenized by the provider's hosted field in the client; the server never sees it.
   - **Persist exactly the token envelope:** `{provider_customer_id, provider_pm_id, brand, last4, exp_month, exp_year}`. Anything beyond that set needs a written reason; a `card_number` / `cvv` / `expiry_raw` column is a HALT, not a review comment.
   - **If the card will ever be charged off-session, store the mandate / consent reference the provider returns at setup time.** Retrofitting it means re-collecting consent from every already-saved card, because the original setup that would have captured it is gone.
   - **Scope the provider customer object per tenant-user, not per user.** One platform-level customer holding cards across tenants is a cross-tenant leak with a payment provider on the other end of it.
@@ -293,8 +293,8 @@ Update via `doc-writer`:
 | Signal | Agent |
 |---|---|
 | Multi-tenant | `tenant-isolation-reviewer` |
-| AI | `prompt-reviewer` |
-| Payment | `payment-reviewer` |
+| AI | `security-auditor` + lens `ai-review` |
+| Payment | `code-reviewer` + lens `payment-review` |
 
 **Missing-agent contract (applies to every dispatch table in this skill):** if a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Record `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` in the consolidation note and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.
 

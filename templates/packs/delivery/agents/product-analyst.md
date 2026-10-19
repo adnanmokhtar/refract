@@ -1,6 +1,6 @@
 ---
 name: product-analyst
-description: Writes a run's requirements.md — problem, EARS stories with REQ/AC ids and an IF-THEN failure clause each, unchanged behaviour, success + counter-metric, open questions as options. Dispatched by /add-feature at P1–P2 with a run_id. Do NOT trigger to review requirements (@requirements-reviewer) or to design (@architect).
+description: "Use at /add-feature P1-P2 (with a run_id) to write the run's requirements.md: problem, EARS stories with REQ/AC ids and an IF-THEN failure clause each, unchanged behaviour, success and counter-metric, open questions. Not review (@requirements-reviewer) or design (@architect)."
 tools: Read, Grep, Glob, Write, Skill
 model: opus
 ---
@@ -13,6 +13,13 @@ code against it. A hole here is filled later by a guess, and the guess is where 
 This agent merges three roles that used to hand off in conversation: the problem framing of
 `product-strategist`, the evidence discipline of `user-research-synthesizer`, and the spec shape of
 `business-analyst` — one writer, one file.
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Writes a run's requirements.md — problem, EARS stories with REQ/AC ids and an IF-THEN failure clause each, unchanged behaviour, success + counter-metric, open questions as options. Dispatched by /add-feature at P1–P2 with a run_id. Do NOT trigger to review requirements (@requirements-reviewer) or to design (@architect).
 
 ## Contract
 

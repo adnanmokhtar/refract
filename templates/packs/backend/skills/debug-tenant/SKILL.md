@@ -1,6 +1,8 @@
 ---
 name: debug-tenant
 description: Debug tenant isolation issues — a user sees data that doesn't belong to them, or doesn't see data that does. Use on a suspected cross-tenant leak or a missing-data report; walks the full tenant-resolution chain hop by hop. Not a static scan — it reproduces against a running system via `log-tail-method` and `endpoint-test-method`.
+kind: skill
+pack: backend
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 

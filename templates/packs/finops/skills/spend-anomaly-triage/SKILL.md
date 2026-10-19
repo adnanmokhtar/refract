@@ -1,6 +1,8 @@
 ---
 name: spend-anomaly-triage
-description: Triage a cost spike or creep to its cause — separating rate, usage, and mix changes, then correlating the usage half against deploys, flag flips, traffic, backfills, and incidents to produce a ranked suspect ledger with a confirm/refute test for each. Run when a detector fires, when a bill moves unexpectedly, or when a slow creep has doubled a line over a quarter. Explains WHY spend moved — `unit-cost-probe` gives the number, `commitment-coverage` explains the rate half, `egress-trace` explains transfer.
+description: "Spend spike or creep to its cause: rate, usage and mix split, then a suspect ledger with a confirm test each."
+kind: skill
+pack: finops
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -12,7 +14,25 @@ A cost spike has a cause, and the cause is almost always something a human did o
 
 Every suspect carries a **confirm/refute test**: something cheap that would settle it. A suspect list with no tests is a list of theories.
 
+## The bill lane — `bill-lane.py split`
+
+The three-way split is computed, not estimated, with the pack's stdlib script (`.claude/skills/unit-cost-probe/scripts/bill-lane.py`, shipped with `unit-cost-probe`; `--self-test` first): `columns <export>` names the cost column, then `split <export> --base YYYY-MM --cur YYYY-MM --by sku|service` prints the rate, usage and mix parts per SKU or service and checks that they sum to the delta exactly (in `Decimal`, per currency). `summary <export> --by sku --period YYYY-MM` localises; a partial period is flagged, never compared as a whole one. The suspect correlation (deploys, flags, runs) stays this skill's reading.
+
+### The ledger line (UE-4)
+
+Every run, including one that halts, ends with one line an audit ledger can print unchanged:
+
+```
+UE-4 spend-anomaly-triage · checked (Δ <amount> <currency> = rate <…> + usage <…> + mix <…>; cause CONFIRMED | CORRELATED, UNCONFIRMED | UNKNOWN)
+UE-4 spend-anomaly-triage · NOT-RUN (no billing export | no daily granularity)
+UE-4 spend-anomaly-triage · blocked (<the halt below>)
+```
+
+A cause is a finding only after its confirm test ran; a correlated suspect is `Unconfirmed` with that test named, per [`refute-before-report.md`](../../../../snippets/refute-before-report.md) and [`precedents/finops.md`](../../../../snippets/precedents/finops.md) (§ 4, § 7). The split's arithmetic is V589's reconciliation ([`proof-oracles.md`](../../../../snippets/proof-oracles.md) § FinOps).
+
 ## Halt conditions
+
+Each halt prints its ledger line (above) and stops.
 
 - **Daily granularity unavailable.** Monthly figures cannot be correlated with a deploy. Get daily (ideally hourly) cost data or say the anomaly is not triageable at this granularity.
 - **Change log unavailable** — no deploy history, no flag-change history. Say so; the correlation half of the method is unavailable and the output is a mechanism hypothesis at best.

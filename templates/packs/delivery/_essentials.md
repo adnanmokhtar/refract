@@ -2,7 +2,7 @@
 track: delivery
 purpose: Deliver a feature as a run — risk tier before code, typed artifacts in ai/runs/<run-id>/, a locked acceptance contract, one writer at a time, independent verdict.
 essentials:
-  agents: [product-analyst, requirements-reviewer, architect, architecture-reviewer, test-engineer, plan-critic, implementer]
+  agents: [product-analyst, requirements-reviewer, architect, architecture-reviewer, test-engineer, plan-critic, implementer, performance-reviewer, operability-reviewer]
   commands: [add-feature]
   skills: [lane-backend, lane-frontend, lane-mobile]
   rules: []

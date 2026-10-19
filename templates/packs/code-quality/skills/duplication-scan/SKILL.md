@@ -83,13 +83,13 @@ minimum token count beats jscpd's default of 50.
 
 | Lane | Command | Clone types | Traps |
 |---|---|---|---|
-| **jscpd 5.4.0** (MIT; any of 224 formats; the cross-stack default) | `npx -y jscpd@5 --max-gap-lines 3 --ignore "<globs>" --fail-on-empty -r json -o <dir> .`; diff lane `--baseline-from-ref <base> --fail-on-new-clones`; type-2 `--ignore-identifiers --ignore-literals`; JS/TS AST near-miss `--similarity 0.85` | exact; `similar` (gap or AST); `renamed` | see the five traps below |
+| **jscpd 5.4.0** (MIT; any of 224 formats; the cross-stack default; installed only — `node_modules/.bin` or PATH, never a download) | `jscpd --max-gap-lines 3 --ignore "<globs>" --fail-on-empty -r json -o <dir> .`; diff lane `--baseline-from-ref <base> --fail-on-new-clones`; type-2 `--ignore-identifiers --ignore-literals`; JS/TS AST near-miss `--similarity 0.85` | exact; `similar` (gap or AST); `renamed` | see the five traps below |
 | **PMD CPD 7.28.0** (JVM, C#, Go, Python, Ruby, PHP, Swift…) | `pmd cpd --minimum-tokens 100 --dir src --language java --format xml` (`--ignore-identifiers`, `--ignore-literals`) | exact, renamed | the PMD 7 CLI is `pmd cpd`; PMD 6's `run.sh` is gone |
 | **Go** | `dupl -t 100 ./...`; golangci-lint `dupl` (threshold 150) | AST | `if err != nil` boilerplate: raise the threshold, never report it |
 | **Python** | pylint 4.1.2: `pylint --disable=all --enable=duplicate-code --min-similarity-lines=6 <pkg>` (R0801) | exact | Ruff has no R0801 |
 | **Ruby** | flay 2.14.4: `flay --mass 32 app lib` | AST, near-miss | — |
 | **PHP** | jscpd or PMD CPD | — | phpcpd is archived |
-| **Offline fallback** (`scripts/clones.py`, this skill; no download) | `CLONES=fallback` in step 1, or automatic when jscpd fails; `--self-test` | exact; `similar` (gap ≤ 3 lines) | type-1 only (no renamed copies); boilerplate windows shared by > 40 places are skipped and counted |
+| **Offline fallback** (`scripts/clones.py`, this skill; no download) | `CLONES=fallback` in step 1, or automatic when jscpd is not installed or fails; `--self-test` | exact; `similar` (gap ≤ 3 lines) | type-1 only (no renamed copies); boilerplate windows shared by > 40 places are skipped and counted |
 | **Type-4 (semantic)** | jscpd `--semantic` (experimental; downloads a 548 MB model, or calls an embeddings API you name) | semantic | a candidate generator for §2 only, never a required lane |
 
 The jscpd traps, measured on 5.4.0 on 2026-10-05:
@@ -129,10 +129,13 @@ rg --files -g '{.jscpd.json,.jscpd.yml,cpd.xml}' -g '!**/node_modules/**' . ; rg
 # 1. Every clone pair, exact and near-miss (--max-gap-lines 3 merges copies that differ by up to 3 lines: kind "similar").
 #    --fail-on-empty makes a mis-globbed scan exit 1 instead of printing a clean report. Never add -a: with absolute paths
 #    jscpd 5.4 matches --ignore against the whole path, and a checkout under any folder named fixtures/ or build/ scans 0 files.
-#    Offline or read-only (no download allowed), or jscpd failed: CLONES=fallback runs the shipped token-window finder, which
-#    writes the same report shape (type-1 only: renamed copies are not found). It is a lane, so its line is printed.
+#    jscpd runs only when already installed (the project's node_modules/.bin, then PATH) — an audit never downloads it.
+#    Not installed, CLONES=fallback, or jscpd failed: the shipped token-window finder writes the same report shape
+#    (type-1 only: renamed copies are not found). It is a lane, so its line is printed.
 CL=.claude/skills/duplication-scan/scripts/clones.py; [ -f "$CL" ] || CL="$HOME/.claude/skills/duplication-scan/scripts/clones.py"; mkdir -p "$D/all"
-{ [ "${CLONES:-}" != fallback ] && npx -y jscpd@5 --max-gap-lines 3 --ignore "$IGN" --fail-on-empty -r json -o "$D/all" --no-colors . > "$D/all.log" 2>&1; } \
+JSCPD="$( { [ -x node_modules/.bin/jscpd ] && echo node_modules/.bin/jscpd; } || command -v jscpd || true)"
+[ -n "$JSCPD" ] || { echo "§1 jscpd NOT-RUN (jscpd not installed — to enable: npm i -D jscpd@5)"; CLONES="${CLONES:-not installed}"; }
+{ [ -z "${CLONES:-}" ] && "$JSCPD" --max-gap-lines 3 --ignore "$IGN" --fail-on-empty -r json -o "$D/all" --no-colors . > "$D/all.log" 2>&1; } \
   || { echo "§1 jscpd ${CLONES:-blocked — $(tail -1 "$D/all.log" 2>/dev/null)} → clones.py"; rg --files -t ts -t js -t py -t go -t java -t kotlin -t cs -t php -t ruby "${X[@]}" . > "$D/files.txt"
        [ -f "$CL" ] && python3 -B "$CL" . "$D/files.txt" "$D/all/jscpd-report.json" || echo "§1 blocked — jscpd unavailable and clones.py absent"; }
 # 1b. Divergence: a near-miss pair where one copy took a fix commit the other never got. The commit counts when its subject
@@ -179,8 +182,9 @@ rg --files -t ts -t js -t py -t go -t java -t kotlin -t cs -t php -t ruby "${X[@
   if (!((g,area) in s)) { s[g,area]=1; c[g]++; at[g]=at[g]" "$0 } } END { for (g in c) if (c[g]>1) print c[g], g, at[g] }' | sort -rn
 # 3. Diff lane: clones the change added (absent from the merge-base tree), and how many of their ends the diff touched.
 #    Exit 1 from --fail-on-new-clones is the signal; "analyzed no files" in the log is a blocked scan.
-if [ -n "$BASE" ]; then
-  npx -y jscpd@5 --ignore "$IGN" --baseline-from-ref "$BASE" --fail-on-new-clones --fail-on-empty -r json -o "$D/new" --no-colors . > "$D/new.log" 2>&1
+if [ -n "$BASE" ] && [ -z "$JSCPD" ]; then echo "§3 diff lane NOT-RUN (jscpd not installed — to enable: npm i -D jscpd@5)"
+elif [ -n "$BASE" ]; then
+  "$JSCPD" --ignore "$IGN" --baseline-from-ref "$BASE" --fail-on-new-clones --fail-on-empty -r json -o "$D/new" --no-colors . > "$D/new.log" 2>&1
   rg -q 'analyzed no files' "$D/new.log" && echo "§3 blocked — $(tail -1 "$D/new.log")"
   git diff --name-only --diff-filter=AMR "$BASE"...HEAD > "$D/changed.txt"
   [ -f "$D/new/jscpd-report.json" ] && python3 - "$D/new/jscpd-report.json" "$D/changed.txt" <<'PY'

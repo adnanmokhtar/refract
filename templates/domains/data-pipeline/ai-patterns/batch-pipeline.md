@@ -350,6 +350,6 @@ A prod dump restored to staging carries real emails/SSNs → a lower-env breach 
 - `<rules-path>/audit-log` — per-run provenance so a wrong number traces to the run that produced it.
 - `<rules-path>/reporting-export-discipline.md` — the downstream read side (replica routing, tenant scope, streaming) consuming the tables this pipeline loads.
 - `<commands-path>/audit-pipeline.md` — audit a specific pipeline (idempotency, checkpoint, incremental, contract, DLQ, backfill, memory, PII).
-- `<agents-path>/data-pipeline-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/data-pipeline-review.md` — review gate enforcing this pattern.
 - Boundary: `mlops` owns the MODEL lifecycle (training data, feature store, deploy/rollback); `workflow-orchestration` (Temporal) owns durable long-lived business processes. This pack owns DATA movement — ETL/batch/backfill/CDC/warehouse loads.
 - `<adr-path>/<NNN>-pipeline-load-strategy.md` — ADR pinning load strategy (upsert vs. partition-replace), watermark source, lateness window, and backfill/rollback contract.

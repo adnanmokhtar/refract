@@ -56,8 +56,8 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: doc-refresh
   kind: command
-  triggers: { always: true }
-  fallback: _examples/doc-refresh.md
+  triggers: { always: true }   # three modes: the post-change refresh (default), --audit (read-only ledger + verdict), --from-audit (failing-first docs fix)
+  fallback: commands/doc-refresh.md   # source-as-fallback: the class ledger, the refute step and the STOP list are the command
 
 - name: add-adr
   kind: command
@@ -71,13 +71,30 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
 
 - name: doc-drift-scan
   kind: skill
-  triggers: { always: true }
-  fallback: _examples/doc-drift-scan.md
+  triggers: { always: true }   # human docs vs code and config: dead paths, symbols, scripts, flags, env, endpoints, pins, breaking notes, runbook commands and resources
+  fallback: skills/doc-drift-scan/SKILL.md
+
+- name: doc-structure-scan
+  kind: skill
+  # Docs against docs. Gated on a doc set with structure to rot: cross-doc links, an ADR directory, a changelog,
+  # a docs-site config, translated pages, or alert rules that link runbooks.
+  triggers:
+    grep_evidence: "\\]\\([^)#]+\\.mdx?(#[^)]*)?\\)|(^|/)(adr|adrs|decisions)/[0-9]{3,4}-|mkdocs\\.ya?ml|docusaurus\\.config|book\\.toml|SUMMARY\\.md|^## \\[?[0-9]+\\.[0-9]+\\.[0-9]+|runbook_url|docs/[a-z]{2}(-[a-z]{2})?/"
+    OR_codebase_section: "the repo commits human docs that link to each other, an ADR directory, a CHANGELOG, a docs-site config (MkDocs, Docusaurus, Sphinx, mdBook), translated docs, or alert rules with runbook_url"
+  fallback: skills/doc-structure-scan/SKILL.md
+
+- name: doc-sample-scan
+  kind: skill
+  # Samples that must run. Gated on fences in a compiled language, doctest prompts, embeds, a doc harness or a committed spec.
+  triggers:
+    grep_evidence: "```(ts|tsx|typescript|js|javascript|py|python|go|rust|java|kotlin|elixir)\\b|^\\s*>>> |--doctest-glob|pytest-examples|typescript-docs-verifier|embedme|literalinclude|--8<--|\"openapi\"\\s*:|^openapi:"
+    OR_codebase_section: "the docs carry code fences in a compiled language, doctest prompts, embedded snippets or a doc-sample harness, or the repo commits an OpenAPI spec with examples"
+  fallback: skills/doc-sample-scan/SKILL.md
 
 - name: quickstart-verify
   kind: skill
-  triggers: { always: true }
-  fallback: _examples/quickstart-verify.md
+  triggers: { always: true }   # DS-1: every repo with a README has a setup section to run; the safe container lane, else the static pre-pass
+  fallback: skills/quickstart-verify/SKILL.md   # source-as-fallback: the safe-lane invariants must reach every install
 
 - name: diagram-sync
   kind: skill
@@ -87,15 +104,15 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   triggers:
     grep_evidence: "```mermaid|C4Context|C4Container|C4Component|@startuml|structurizr|\\.puml\\b|\\.dot\\b|flowchart (LR|TD|TB)|graph (LR|TD|TB)"
     OR_codebase_section: "the repo commits an architecture diagram (mermaid / C4 / PlantUML / Graphviz) in its docs, OR code-quality's architectural-diagnosis is installed and emits ai/optimize/_dep-graph.json"
-  fallback: _examples/diagram-sync.md
+  fallback: skills/diagram-sync/SKILL.md   # source-as-fallback
 
 - name: docstring-coverage
   kind: skill
-  triggers: { always: true }
-  fallback: _examples/docstring-coverage.md
+  triggers: { always: true }   # DD-1/2/3; an app with no public package prints N/A (no public package) and advisory rows only (precedents § 23)
+  fallback: skills/docstring-coverage/SKILL.md   # source-as-fallback
 
 - name: changelog-generate
   kind: skill
-  triggers: { always: true }
-  fallback: _examples/changelog-generate.md
+  triggers: { always: true }   # release-time generator; DH-1 / DH-2 detection is doc-drift-scan §12 and doc-structure-scan §9
+  fallback: skills/changelog-generate/SKILL.md   # source-as-fallback
 ```

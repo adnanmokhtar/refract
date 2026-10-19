@@ -120,6 +120,6 @@ All derivable from `messages` alone — no separate table needed until aggregati
 - `<rules-path>/ai-cost-discipline.md` — hard rules + review checklist + enforcement (this pattern's "must / must not / should").
 - `<commands-path>/token-audit.md` — scanner that finds calls without output caps, missing meter rows, flagship-model usage on hot paths, full-prompt info-level logs.
 - `<commands-path>/prompt-eval.md` — golden-case eval against the real provider; gates prompt-builder changes for quality + cost regressions.
-- `<agents-path>/prompt-reviewer.md` — review gate on prompt-builder / LLM-client diffs.
+- `.claude/lenses/ai-review.md` — review gate on prompt-builder / LLM-client diffs.
 - `<adr-path>/<NNN>-llm-provider-and-model-tier.md` — ADR pinning provider + per-feature model tier.
 - `<adr-path>/<NNN>-prompt-cache-strategy.md` — ADR for prompt-cache + context-versioning.

@@ -88,10 +88,12 @@ module.exports = { forbidden: [{ name: 'no-circular', severity: 'error', from: {
 JS
 RK="$HOME/.claude/scripts/rank-source-files.py"; HERE=$PWD
 n=0; for c in $(rg --files -g 'tsconfig.json' -g '!**/node_modules/**' .); do r=$(dirname "$c"); [ -d "$r/src" ] || continue; n=$((n+1)); echo "$r" > "$D/dc.$n.root"
+  B=""; for b in "$HERE/$r/node_modules/.bin/depcruise" "$HERE/node_modules/.bin/depcruise" "$(command -v depcruise)"; do [ -x "$b" ] && { B="$b"; break; }; done   # installed only — an audit never downloads
+  [ -n "$B" ] || { echo "graph NOT-RUN in $r (dependency-cruiser not installed — to enable: npm i -D dependency-cruiser@18) → build-graph.py lane"; continue; }
   if [ -n "${RO:-}" ] && [ -f "$RK" ]; then   # read-only target (trap 6): cwd and tsconfig in $D, never in the checkout
     python3 "$RK" . --ts-wrapper "$r" > "$D/tsc.$n.json" && python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1]))' "$D" > "$D/dc.$n.root"
-    (cd "$D" && npx -y -p dependency-cruiser@18 -p typescript@5 depcruise "$HERE/$r/src" --config "$D/dc.cjs" --ts-config "$D/tsc.$n.json" --metrics --output-type json)
-  else (cd "$r" && npx -y -p dependency-cruiser@18 -p typescript@5 depcruise src --config "$D/dc.cjs" --ts-config tsconfig.json --metrics --output-type json); fi > "$D/dc.$n.json" 2> "$D/dc.$n.err" \
+    (cd "$D" && "$B" "$HERE/$r/src" --config "$D/dc.cjs" --ts-config "$D/tsc.$n.json" --metrics --output-type json)
+  else (cd "$r" && "$B" src --config "$D/dc.cjs" --ts-config tsconfig.json --metrics --output-type json); fi > "$D/dc.$n.json" 2> "$D/dc.$n.err" \
     || { echo "graph blocked in $r — $(rg -m1 -i 'error|node version' "$D/dc.$n.err")"; rm -f "$D/dc.$n.json"; }; done
 # Python, Vue/Svelte, Dart (and TS/JS when the lane above is blocked): the Refract graph, value edges only (type-only and import()-only erased per statement, trap 5). --no-cache: writes nothing into the repo (trap 6).
 [ -f "$HOME/.claude/scripts/build-graph.py" ] && python3 "$HOME/.claude/scripts/build-graph.py" --corpus=project --repo=. --no-cache --json > "$D/graph.json" 2> "$D/graph.err"
@@ -146,7 +148,7 @@ for p in glob.glob(D+'/dc.*.json'):
         if x['rule']['name']=='no-circular': cy.append({os.path.normpath(os.path.join(r,y if isinstance(y,str) else y['name'])) for y in [x['from']]+x['cycle']})
 grp=[]
 for c in cy: hit=[g for g in grp if g&c]; grp=[g for g in grp if not g&c]+[set().union(c,*hit)]
-BL=[open(r).read().strip() for r in glob.glob(D+'/dc.*.root') if not os.path.exists(r[:-4]+'json')]   # a root whose dependency-cruiser run failed
+BL=[open(r).read().strip() for r in glob.glob(D+'/dc.*.root') if not os.path.exists(r[:-4]+'json')]   # a root whose dependency-cruiser run failed or was not installed
 FB={e for e in FB if e in E}; adj=C.defaultdict(list); [adj[a].append(b) for a,b in FB]; ix={}; low={}; st=[]; on=set(); scc=[]; k=0
 for v0 in list(adj):   # iterative Tarjan over the fallback graph: SCCs are cycle CANDIDATES (no type-only flag, trap 5)
     if v0 in ix: continue
@@ -167,7 +169,7 @@ for v0 in list(adj):   # iterative Tarjan over the fallback graph: SCCs are cycl
                 x=st.pop(); on.discard(x); c.add(x)
                 if x==v: break
             if len(c)>1: scc.append(c)
-if BL: print(f'§2 blocked (dependency-cruiser failed in {", ".join(BL)} — see the "graph blocked" line above; never "0 cycles" there)')
+if BL: print(f'§2 blocked (dependency-cruiser did not run in {", ".join(BL)} — see the "graph blocked" or "graph NOT-RUN" line above; never "0 cycles" there)')
 if glob.glob(D+'/dc.*.json'): print(f'§2 runtime cycles {len(grp)} (dependency-cruiser, {len(cy)} reported paths, value edges only)'); [print(f'   {len(g)} files / {len({M[x] for x in g if x in M})} modules:',' '.join(sorted(g)[:4])) for g in sorted(grp,key=len,reverse=True)[:5]]
 elif not FB and not BL: print('§2 blocked (no lane computed cycles: no dependency-cruiser run, no Refract graph; Go package cycles do not compile)')
 if FB: print(f'§2 value cycles from the Refract graph {len(scc)} (type-only and import()-only erased per statement; resolved edges only — read each, trap 5)'); [print(f'   {len(c)} files:',' '.join(sorted(c)[:4])) for c in sorted(scc,key=len,reverse=True)[:5]]

@@ -234,7 +234,7 @@ Verification: 73 candidates → 4 findings · 6 unconfirmed · 14 hardening · 0
 BLOCKER (1):
   driver/src/auth/logout.ts:18             mobile-lifecycle-scan §6 · push token kept at logout   proof: Push matrix (D) — account B received A's order push
 HIGH (1):
-  ops/app/src/main/java/com/acme/ops/NoteScreen.kt:41   mobile-lifecycle-scan §1 · draft in remember, not rememberSaveable   proof: Process-death restore (D) — draft gone after am kill
+  ops/app/src/main/java/com/acme/ops/DraftEditor.kt:41  mobile-lifecycle-scan §1 · draft in remember, not rememberSaveable   proof: Process-death restore (D) — draft gone after am kill
 RELEASE BLOCKER (1):
   driver/app.json:21                       store-compliance-scan · camera used, NSCameraUsageDescription absent — release blocker + lifecycle §3 crash   proof: Store probe (A)
 UNCONFIRMED (6): ios rows — settle: Process-death restore on an iOS simulator (background, Xcode Stop, relaunch) · …

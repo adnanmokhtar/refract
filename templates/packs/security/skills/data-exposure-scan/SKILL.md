@@ -127,6 +127,12 @@ rg -n --pcre2 '^\s*(access_log|log_format)\b|^\s*log\s*\{|^\s*format\s+(json|con
 #     `queueName: 'email'` stay out; a bare `name` key is not listed (measured: 9 of 9 were metric, job or error names).
 rg -n -U --pcre2 '\b(console|logger|log|logging|Log|slog)\s*\.\s*(log|info|debug|warn|warning|error|verbose|trace|Info|Debug|Warn|Error)\s*\([^;]{0,240}?(?:(?<!\$)[{,(]\s*["\x27]?(?:first_?[Nn]ame|last_?[Nn]ame|full_?[Nn]ame|customer_?[Nn]ame|phone|phone_?[Nn]umber|mobile|address|street|post_?code|zip_?code|e_?mail|dob|date_?of_?birth|birth_?date)["\x27]?\s*[:=,}]|\b(?:phone|mobile|address|e_?mail|dob)=(?:\$\{|%|\{)|\$\{\s*(?:phone|mobile|address|e_?mail|dob)\s*\}|\.(?:e_?mail|phone(?:_?[Nn]umber)?|mobile|dob|date_?of_?birth|(?:first|last|full|customer)_?[Nn]ame|customer_?(?:[Pp]hone|[Ee]mail)|(?:delivery|billing|shipping|home)_?[Aa]ddress)\b(?!\s*\())' "${X[@]}" .
 
+# 6i. AI lane (LG-1, routed here by ai-engineering llm-gateway-audit §R and security llm-trust-scan): log calls inside the
+#     files that call a model. The prompt input and the completion rarely carry a telling name (`notes`, `text`), so the
+#     lane is the FILE, not the variable. LLM_FILES = llm-trust-scan's `llm-files.txt` when it ran; else the inline list.
+LLMF="${LLM_FILES:-$(mktemp "${TMPDIR:-/tmp}/de-llm.XXXXXX")}"
+[ -s "$LLMF" ] || rg -l --pcre2 '/chat/completions\b|/v1/responses\b|:generateContent\b|\b(?:max_completion_tokens|tool_choice|toolChoice|response_format|stream_options)\b\s*["\x27]?\s*[:=]|(?:\bfrom\s+|\brequire\(\s*|\bimport\(\s*)["\x27](?:openai|@anthropic-ai/sdk|ai|@ai-sdk/[\w-]+|@langchain/[\w-]+|@google/genai|@openai/agents)["\x27]|^\s*(?:from|import)\s+(?:openai|anthropic|langchain\w*|litellm)\b|\brole\s*:\s*["\x27](?:system|developer)["\x27]|\b\w*(?:complete|chat|generate|invoke)\w*\(\s*(?:system|messages|prompt)\s*=|\bmessages\s*[:=]\s*\[\s*\{\s*["\x27]?role["\x27]?\s*[:=]' -g '*.{ts,tsx,mts,js,jsx,mjs,py,go,rb,java,kt,cs,php}' "${X[@]}" . > "$LLMF"
+[ -s "$LLMF" ] && tr '\n' '\0' < "$LLMF" | xargs -0 rg -n --pcre2 '\b(console|logger|log|logging|Log|slog|this\.logger)\s*\.\s*(log|info|debug|warn|warning|error|verbose|trace|Info|Debug|Warn|Error)\s*\(' || echo "6i: 0 LLM files"
 # 7. Credentials in URLs, and the Referrer-Policy that decides how far they travel (§7).
 rg -n -i --pcre2 '[?&](access_?token|id_?token|refresh_?token|token|api_?key|apikey|secret|password|passwd|pwd|session_?id|sid|otp|ssn)=' "${X[@]}" .
 rg -n --pcre2 '(req\.query|request\.(args|GET|query_params)|params\[|@RequestParam|c\.Query\(|\$_GET\[|URL\.Query\(\)\.Get\()[^\n]*(token|api_?key|apiKey|secret|password|session|otp)|@Query\(\s*["\x27]\w*(token|key|secret|sig|signature|password|otp)|@Param\(\s*["\x27]\w*(secret|token)' "${X[@]}" .
@@ -275,6 +281,8 @@ Three sinks sit outside the request log:
 - **Traces** (grep 6f). Span attributes, exception events and `status.message` carry the same driver error text and URLs as the log line. A URL scrub in `onStart` does not reach events or a status set later. The scrub belongs in a wrapping exporter, over `exception.message`, `exception.stacktrace` and `status.message` too.
 - **The edge access log** (grep 6g). The reverse proxy logs before the app runs. Caddy's JSON access log carries `request.uri` with its query and every `request.headers` entry, redacting only `Cookie`, `Set-Cookie`, `Authorization` and `Proxy-Authorization` by default. nginx's `$request` and ingress-nginx log the full query. Every secret the app redacts must be filtered at the edge too (Caddy `format filter`, an nginx `log_format` without `$request` / `$args`), or that route must not be logged. Read the collector config (Alloy, Promtail, Fluent Bit, Vector) for which namespaces ship, who can query them, and the retention. `[report-flagged]` until a query of the log store shows the value.
 
+**The AI lane** (grep 6i; LG-1, the class ai-engineering routes here). In a file that calls a model, read every log call for whether an argument holds the prompt input (the user's text, retrieved documents, tool results) or the completion. Content is the finding — whoever can read the log can read every conversation, including other tenants'; a length, a hash, token counts, a model id or a finish reason are not content. A whole-body request logger (6b) that covers the AI routes is the same finding. Tracing content capture (span attributes, exporter capture flags) is `llm-trust-scan` §5, not this lane. Measured 2026-10-19: 1 hit on `benchmarks/fixtures/llm-assist` (its seeded answer log), 0 on the other 31 fixtures. **Severity:** medium; high when the text carries credentials or another tenant's data.
+
 **Severity:** high for credentials, tokens, session cookies, signed-link `sig`, or card number / CVV. Medium for PII.
 
 ### 7. Credentials and tokens in URLs — A07 · CWE-598
@@ -384,12 +392,12 @@ Findings: 4
    Runtime fact to confirm: management.server.port is unset in the prod profile (/security-live-scan probe).
    Fix: exposure.include: health,info; management.server.port on an internal listener.
 
-3. src/middleware/request-log.js:17                     [report-with-fix]  high · A09 · CWE-532
+3. src/http/access-logger.js:17                         [report-with-fix]  high · A09 · CWE-532
    Request logger writes body: req.body on every request. Login and reset bodies carry passwords and OTPs.
    No redaction primitive in the repo (grep 6c empty).
    Fix: drop the body; log route + status + actor id; add pino redact paths for any field kept.
 
-4. src/routes/webhooks.js:33                            [report-with-fix]  high · A08 · CWE-208
+4. src/http/psp-callback.js:33                          [report-with-fix]  high · A08 · CWE-208
    req.headers['x-signature'] === expected. Short-circuit compare on the HMAC.
    Fix: crypto.timingSafeEqual(Buffer.from(sig, 'hex'), Buffer.from(expected, 'hex')) after a length check.
 

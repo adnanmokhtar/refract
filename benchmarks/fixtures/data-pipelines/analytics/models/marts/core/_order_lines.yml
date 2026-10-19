@@ -1,0 +1,31 @@
+version: 2
+
+models:
+  - name: order_lines
+    description: One row per order line.
+    config:
+      contract: {enforced: true}
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, line_no]
+    columns:
+      - name: order_line_key
+        data_type: string
+      - name: order_id
+        data_type: int64
+        constraints: [{type: not_null}]
+      - name: line_no
+        data_type: int64
+      - name: product_id
+        data_type: int64
+        constraints: [{type: foreign_key, to: "ref('stg_products')", to_columns: [product_id]}]
+      - name: customer_id
+        data_type: int64
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_customers'), field: customer_id}
+      - name: quantity
+        data_type: int64
+      - name: unit_price_cents
+        data_type: int64

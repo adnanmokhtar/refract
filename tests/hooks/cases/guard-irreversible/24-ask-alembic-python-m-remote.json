@@ -1,0 +1,1 @@
+{"tool_name": "Bash", "tool_input": {"command": "python -m alembic -x url=postgresql://u:p@rds.amazonaws.com/app upgrade head"}}

@@ -1,0 +1,5 @@
+# series                                         09:55   10:03   10:10   10:20   11:00
+accounts_http_5xx_ratio                            0.0002  0.031   0.044   0.052   0.0003
+redis_used_memory_bytes                            2.1e9   2.1e9   2.2e9   2.2e9   0.4e9
+report_worker_memory_bytes                         0.98e9  1.07e9  0.31e9  0.33e9  0.30e9
+accounts_pod_restarts_total                        0       0       0       0       0

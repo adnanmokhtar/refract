@@ -323,8 +323,8 @@ metric and tracing primitives (`references/<framework>.md`) and record the instr
 | Signal | Agent |
 |---|---|
 | Multi-tenant (any DB change) | `tenant-isolation-reviewer` |
-| AI code touched | `prompt-reviewer` |
-| Payment code touched | `payment-reviewer` |
+| AI code touched | `security-auditor` + lens `ai-review` |
+| Payment code touched | `code-reviewer` + lens `payment-review` |
 
 If a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself; the builder judging its own change is not a review. Report `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)` and end the run **INCOMPLETE**, naming the install that closes it (`/setup-project --include=<pack>`). Never silently skip the axis, and never claim a reviewer that did not run.
 

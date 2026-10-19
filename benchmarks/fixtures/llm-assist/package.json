@@ -1,0 +1,13 @@
+{
+  "name": "quilldesk",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "eval": "promptfoo eval -c evals/promptfooconfig.yaml"
+  },
+  "devDependencies": {
+    "promptfoo": "0.118.4"
+  }
+}

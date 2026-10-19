@@ -12,7 +12,7 @@ THE TWO SIGNALS, and why neither is used alone:
   curated  — the domain's row in _registry.md "What it ships". Deliberate, high precision,
              LOW RECALL. Used alone it reported Observability as 0/35 while 32 of 35 domain
              rule files in fact discuss metrics/traces/alerts.
-  fulltext — the domain's rules/ + agents/ bodies, >=3 matches. High recall, LOW PRECISION.
+  fulltext — the domain's rules/ + lenses/ (formerly agents/) bodies, >=3 matches. High recall, LOW PRECISION.
              Used alone it reported 312/420 cells filled, which is noise: an early pattern for
              "log" also matched "login" and "logic".
 
@@ -137,7 +137,10 @@ def pack_evidence(packs):
                         glob.glob(f"templates/packs/{pk}/rules/*.md")):
             body = open(f, encoding="utf-8", errors="replace").read()
             d = re.search(r"^description:\s*(.+)$", body, re.M)
-            per.append(((d.group(1) if d else "").lower(), body.lower()))
+            # Phase 6 capped agent descriptions at 300 chars and moved the full routing text into the
+            # body's "When to dispatch — the full routing note" quote; it is still the curated text.
+            note = re.search(r"^## When to dispatch — the full routing note\n.*?^> (.+)$", body, re.M | re.S)
+            per.append((((d.group(1) if d else "") + " " + (note.group(1) if note else "")).lower(), body.lower()))
             name = (f.split("/skills/")[1].split("/")[0] if "/skills/" in f
                     else os.path.basename(f)[:-3])
             arts.append(f"{pk}:{name}")
@@ -168,7 +171,8 @@ def build():
     grid, arts, backing = {}, {}, {}
     for dom in sorted(ships):
         files = sorted(glob.glob(f"templates/domains/{dom}/rules/*.md") +
-                       glob.glob(f"templates/domains/{dom}/agents/*.md"))
+                       glob.glob(f"templates/domains/{dom}/agents/*.md") +
+                       glob.glob(f"templates/domains/{dom}/lenses/*.md"))   # Phase 6: the reviewer agent became a lens
         arts[dom] = [f for f in files]
         full = "\n".join(open(f, encoding="utf-8", errors="replace").read() for f in files).lower()
         cur = ships[dom].lower()
@@ -239,7 +243,7 @@ def main():
     w("| Signal | Source | Precision | Recall |")
     w("|---|---|---|---|")
     w("| `curated` | the domain's row in `_registry.md` **What it ships** | high | **low** — alone it scored Observability 0/35 while 32 of 35 domain rule files discuss metrics/traces/alerts |")
-    w("| `fulltext` | the domain's `rules/` + `agents/` bodies, ≥ 3 matches | **low** | high — alone it scored 312/420 filled, noise (an early `log` pattern also matched `login`, `logic`) |\n")
+    w("| `fulltext` | the domain's `rules/` + `lenses/` bodies, ≥ 3 matches | **low** | high — alone it scored 312/420 filled, noise (an early `log` pattern also matched `login`, `logic`) |\n")
     w("| State | Meaning | Count |")
     w("|---|---|---|")
     w(f"| ● `confirmed` | both signals agree — material is shipped **and** described for this pair | {tally['confirmed']} / {total} ({tally['confirmed']*100//total}%) |")

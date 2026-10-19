@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/slow-marketplace · defect SM-TX-03 (api/src/stores/store-settings.service.ts:19) · decoy SM-DECOY-14 (line 33)
+# resources/: byte copies of api/src/stores/store-settings.service.ts (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-lost-update
+context:
+  add_dirs: [resources]

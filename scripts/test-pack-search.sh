@@ -350,6 +350,29 @@ else
   sed 's/^/    /' "$WORK/selfcheck.txt" | tail -20
 fi
 
+# ───────────────── 10. the memory catalog (--catalog=memory) ─────────────────
+# /recall searches a PROJECT's ai/ tree through the same engine. Two shapes pin it: an empty project
+# says so (never an empty result that reads as "nothing relevant"), and one dated sink entry is found
+# and ranked first, cited by path:line. The project is a scratch tree; nothing is written here.
+info ""
+info "10. Memory catalog"
+MEM="$WORK/memory-project"
+mkdir -p "$MEM/empty" "$MEM/one/ai/dynamic"
+OUT_EMPTY=$($SEARCH "cache invalidation" --catalog=memory --repo-root="$MEM/empty" 2>&1); RC_EMPTY=$?
+if [ "$RC_EMPTY" -eq 0 ] && grep -q 'no memory captured yet' <<<"$OUT_EMPTY"; then
+  pass "empty ai/ tree → the 'no memory captured yet' message (exit 0)"
+else
+  fail "empty memory corpus did not say so (exit $RC_EMPTY)"
+  printf '%s\n' "$OUT_EMPTY" | head -4 | sed 's/^/      /'
+fi
+printf '# Learnings\n\n### 2026-10-01 — cache invalidation on tenant switch\nSource: task 42\nThe product cache must drop on tenant switch; see `src/cache.ts:12`.\n\n### 2026-09-01 — retry storms\nBackoff must jitter.\n' > "$MEM/one/ai/dynamic/learnings.md"
+TOP=$($SEARCH "cache invalidation" --catalog=memory --repo-root="$MEM/one" --format=paths 2>&1 | head -1)
+if [ "$TOP" = "ai/dynamic/learnings.md:3" ]; then
+  pass "one dated entry → ranked first as ai/dynamic/learnings.md:3"
+else
+  fail "the dated memory entry was not ranked first (got: $TOP)"
+fi
+
 echo ""
 echo "================================================================"
 if [ "$ERRORS" -eq 0 ]; then

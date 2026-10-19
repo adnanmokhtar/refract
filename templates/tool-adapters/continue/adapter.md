@@ -224,6 +224,7 @@ Path: `.continue/prompts/skill-<name>.md`.
 
 **Translation of the repo's hooks** — each Claude hook falls back to the nearest non-hook mechanism:
 
+- `guard-irreversible.sh` → **not replicable in-loop** — Continue will not stop a shell command. The H3 gate: an irreversible remote step (IaC apply/destroy, kubectl/helm mutations, cloud CLI create/delete/update, production deploys, migrations against a non-local database, release-tag pushes) waits for a human; plan/diff/dry-run/read-only and local steps pass. State it as an always-apply `.continue/rules/` rule (print the command for the human, never run it) and keep a `pre-push` git hook for release tags.
 - `guard-destructive.sh` → **git hooks** (Husky `pre-commit` / `pre-push`) — the only enforceable layer; Continue itself will not block a destructive shell command. Also state the prohibition as an always-apply `.continue/rules/` rule so the model is discouraged in-loop.
 - `test-lane.sh` → **not enforceable in-loop** — Continue cannot block a full-suite command. The `run` mode is plain shell and still works: state in an always-apply `.continue/rules/` rule that full-suite and e2e runs (`npm test`, `pytest`, `go test ./...`) go through `.claude/hooks/test-lane.sh run '<cmd>'`, which queues them in the same machine-wide lane every other tool uses. Advisory, like the rest of this section.
 - `pre-edit-guard.sh` + `secret-scan` → **`.continueignore`** (same syntax as `.gitignore`) keeps sensitive paths out of Continue's context/edit surface — **REQUIRED by the Phase 4.8.0 contract**, not optional:

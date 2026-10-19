@@ -92,7 +92,7 @@ A report bug is silently wrong numbers, a melted primary database, or a cross-te
 ## Enforcement
 
 - `<commands-path>/profile-report-query.md` (slash: `/profile-report-query`) — profiles a specific report query end-to-end: the SQL, EXPLAIN/EXPLAIN ANALYZE plan, estimated/actual row count, replica targeting, and the tenant-scope predicate at `<path:line>` — cite-or-halt, never an assumed plan.
-- `<agents-path>/reporting-reviewer.md` — review gate hard-failing on sync heavy reports, load-all-in-memory, OFFSET deep pagination, primary-DB reporting, missing tenant/permission scope, unbounded ranges, un-redacted PII exports, and public/non-expiring URLs.
+- `.claude/lenses/reporting-review.md` — review gate hard-failing on sync heavy reports, load-all-in-memory, OFFSET deep pagination, primary-DB reporting, missing tenant/permission scope, unbounded ranges, un-redacted PII exports, and public/non-expiring URLs.
 - CI lint MUST reject `OFFSET` in any query file tagged as a report/analytics query (heuristic; flag for review).
 - CI lint MUST reject `SELECT *` in report query builders — exports require an explicit column allowlist.
 - CI lint MUST reject report query builders that read a tenant/org id from request input rather than the auth context (AST heuristic; flag for review).
@@ -107,5 +107,5 @@ A report bug is silently wrong numbers, a melted primary database, or a cross-te
 - `<patterns-path>/queue-producer-consumer.md` — async job semantics (idempotency, resumability, DLQ, observability) for report jobs + scheduled reports.
 - `<patterns-path>/payment-integration.md § Money` — integer-minor-unit money type for monetary columns in reports.
 - `<commands-path>/profile-report-query.md` — query-profiling tool.
-- `<agents-path>/reporting-reviewer.md` — review gate.
+- `.claude/lenses/reporting-review.md` — review gate.
 - `<adr-path>/<NNN>-reporting-read-store.md` — ADR pinning the read replica / analytics store choice + the snapshot/freshness contract.

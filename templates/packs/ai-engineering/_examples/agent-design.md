@@ -63,7 +63,7 @@ Don't append every observation forever (blows the window, re-pays for history ea
 - Tool args consumed unvalidated → `validate-tool-args`.
 - Irreversible/high-value action with no approval step → `add-human-gate`.
 
-**Closure verbs:** `downgrade-to-workflow`, `add-tool-gate`, `add-loop-budget`, `add-context-compaction`, `make-tool-error-recoverable`, `validate-tool-args`, `add-human-gate`.
+**Closure verbs:** `downgrade-to-workflow`, `add-tool-gate`, `add-loop-budget`, `add-context-compaction`, `make-tool-error-recoverable`, `validate-tool-args`, `add-human-gate`, `dedupe-tool-effect`.
 
 ## Related
 

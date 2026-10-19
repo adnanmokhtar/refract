@@ -90,7 +90,7 @@ A caching bug is a silent cross-tenant leak, a melted origin under a thundering 
 ## Enforcement
 
 - `<commands-path>/probe-cache.md` (slash: `/probe-cache`) — inspects a specific cache usage from real source: the key construction at `<path:line>`, what scope is baked into the key (tenant/permission/version — or MISSING = cross-tenant leak), the TTL (bounded? jittered? or none), the invalidation path on write, the stampede protection, and whether authz/PII is cached — cite-or-halt, never an assumed key shape.
-- `<agents-path>/caching-reviewer.md` — review gate hard-failing on unscoped shared keys, missing invalidation, absent/unbounded TTL, missing stampede protection, cached authz decisions, secrets/PII in a shared cache, negative-cache poisoning, and cache-as-source-of-truth.
+- `.claude/lenses/caching-review.md` — review gate hard-failing on unscoped shared keys, missing invalidation, absent/unbounded TTL, missing stampede protection, cached authz decisions, secrets/PII in a shared cache, negative-cache poisoning, and cache-as-source-of-truth.
 - CI lint MUST reject raw `redis.get` / `redis.set` (or the project's client) called with a string-concatenated key outside the cache facade — keys must go through the builder (AST heuristic; flag for review).
 - CI lint MUST reject `set`/`setex` calls on the cache client with no TTL argument for cacheable data.
 - CI lint SHOULD flag any cache key builder for scoped entities that does not reference a tenant + permission scope parameter.
@@ -104,5 +104,5 @@ A caching bug is a silent cross-tenant leak, a melted origin under a thundering 
 - `<rules-path>/audit-log-integrity.md` — invalidation/flush of sensitive cached data is an audited operational event.
 - `<patterns-path>/report-generation.md` — cached aggregates carry a freshness label + event-driven invalidation; never serve a stale aggregate as if live.
 - `<commands-path>/probe-cache.md` — per-usage cache diagnostic.
-- `<agents-path>/caching-reviewer.md` — review gate.
+- `.claude/lenses/caching-review.md` — review gate.
 - `<adr-path>/<NNN>-cache-topology.md` — ADR pinning the cache backend, scope/key convention, invalidation strategy (event-driven vs. TTL), and the fail-open contract.

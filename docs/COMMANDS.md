@@ -794,6 +794,12 @@ These ship with their respective packs when the track is selected/detected.
 | `/infra-fix` | Close /infra-audit findings, failing-first at each oracle tier, with a full re-scan. |
 | `/ds-audit` | Read-only distributed-systems audit: queues, outbox, retries, locks, workflows, contracts; verdict. |
 | `/ds-fix` | Close /ds-audit findings failing-first on a throwaway broker, across the class. |
+| `/product-fix` | Close /audit-requirements --repo findings: failing test first per class, root-cause fix, owning detector re-run; asks before changing what a plan grants. |
+| `/business-fix` | Close /audit-business findings failing-first; stops on rounding, tax, business-zone and retention decisions. |
+| `/data-fix` | Close data audit findings failing-first; re-scan the class. |
+| `/add-slo` | Define one SLO as code: registry row, OpenSLO/Sloth spec, recording rules, multiwindow burn alerts, promtool test. |
+| `/investigate-incident` | Read-only incident RCA: three or more competing hypotheses, evidence for and against each, reviews/hypotheses.json. |
+| `/postmortem` | Blameless postmortem: timeline, contributing factors, owned action items each proved by a red test or a seeded defect. |
 
 ### Migration track (when `--include=migration` or auto-detected)
 
@@ -1287,6 +1293,7 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 | `/add-ci`              | Add CI workflow. |
 | `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. |
 | `/devops-fix` | Close /devops-audit findings failing-first, diff-guarded. |
+| `/release` | Production progressive release (canary, blue-green, flag ramp) of a READY run, plan by default, H3 per step. |
 
 ### Documentation track
 

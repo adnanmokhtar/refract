@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: rpt_customer_contacts
+    description: One row per customer; contact details for the support desk.
+    config:
+      meta: {contains_pii: true, owner: support-data}
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: email
+        meta: {contains_pii: true}
+      - name: full_name
+        meta: {contains_pii: true}

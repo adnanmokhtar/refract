@@ -1,11 +1,15 @@
 ---
-description: Compares current code against documented conventions in ai/conventions.md + .claude/rules/. Categorizes divergences. Appends findings to ai/dynamic/drift-log.md.
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+description: "Code vs documented conventions: dispatches align's oracle when installed; logs divergences to drift-log.md."
+kind: command
+pack: learning
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task, Skill]
 ---
 
 # /detect-drift
 
 Find where current code DIVERGES from the conventions you've documented. Three outcomes per finding: fix code, update convention, or write ADR for intentional exception.
+
+**A narrow alias, conventions only.** Convention claims against the code majority (KN-10) are owned by align `convention-oracle` (AL-01–AL-04) when the align pack is installed; this command dispatches it (the `Skill` tool) and maps its classes onto the four outcomes below. Without align it dispatches `@convention-drift-detector` (the `Task` tool), which grades rule staleness and the contested set only and routes anti-patterns, layer and type rows to their owners. Everything else wrong with the knowledge layer — dead references, wrong facts, stale anchors and indexes, sink hygiene, ADR lifecycle, load — is `/audit-knowledge`.
 
 ## Phases applied
 
@@ -60,7 +64,7 @@ Group by resolution path:
 ## Phase 5 — Update (the knowledge layer)
 
 This is where the command's value lands. Persist:
-- `ai/dynamic/drift-log.md` — append every finding with status `OPEN` and recommended resolution. Use the standard finding template.
+- `ai/dynamic/drift-log.md` — append every finding with status `OPEN`, its `file:line`, the rule it cites and the recommended resolution, in the shape the sink's own `## Format per entry` declares (a project may redefine it; the declared format is what its consumers must read, precedents § 24), else the template.
 - `ai/status.md` — prepend Recent Changes ("Drift detected: 3 high-severity items pending fix") if any high-severity.
 - `ai/dynamic/changelog.md` — one-line summary entry.
 - For `rule-vs-reality` findings: do NOT auto-update conventions; surface so user can run `/refresh-knowledge` or edit manually.
@@ -78,7 +82,7 @@ This is where the command's value lands. Persist:
 
 - If same drift class recurs across runs (e.g. direct stdout / print calls instead of the project's structured logger), queue lint rule promotion to `ai/dynamic/feedback-learned.md` — drift detection is a stopgap; CI lint is the fix.
 - If `rule-vs-reality` rate > 30%, conventions are stale — queue `/refresh-knowledge` invocation.
-- Archive RESOLVED entries from drift-log monthly via `/audit-knowledge` to `ai/audits/drift-resolved-YYYY-MM.md`.
+- Archive RESOLVED entries from drift-log monthly via `@knowledge-curator` mode `archive` to `ai/audits/drift-resolved-YYYY-MM.md`.
 
 ## Output
 
@@ -116,13 +120,13 @@ Append all findings to `ai/dynamic/drift-log.md`? [y/n]
 
 ## What to do next — required closing section
 
-Every run MUST end its report with a `## What to do next` block: the drift findings re-expressed as ONE ordered, numbered to-do — **DO NOW** (high-severity `code-vs-rule` FIX CODE + stale conventions to promote/refresh) → **REVIEW** (medium-severity drifted conventions + `ambiguous` / `rule-vs-rule` items needing a human call) → **OPTIONAL** (low-severity variation, codify-or-accept) — each step carrying `<file:line>` + **Fix** (concrete) + **Verify** on every DO-NOW step. Where a sibling command does the work better, the step IS the paste-ready command — `/promote-pattern <name>` for a convention that should become a rule, `/refresh-knowledge` for `rule-vs-reality` staleness, `/audit-knowledge` to archive resolved entries — composing with the drift-log writes from Phase 5. Close with: re-run `/detect-drift` to confirm the drift is cleared, `/learn-from-task`, then ship. A clean run collapses to a single line ("No drift — code matches documented conventions"). This supersedes the bare `Suggested actions` block as the actionable closer. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+Every run MUST end its report with a `## What to do next` block: the drift findings re-expressed as ONE ordered, numbered to-do — **DO NOW** (high-severity `code-vs-rule` FIX CODE + stale conventions to promote/refresh) → **REVIEW** (medium-severity drifted conventions + `ambiguous` / `rule-vs-rule` items needing a human call) → **OPTIONAL** (low-severity variation, codify-or-accept) — each step carrying `<file:line>` + **Fix** (concrete) + **Verify** on every DO-NOW step. Where a sibling command does the work better, the step IS the paste-ready command — `/promote-pattern <name>` for a convention that should become a rule, `/refresh-knowledge` for `rule-vs-reality` staleness, `/audit-knowledge` for the rest of the knowledge layer — composing with the drift-log writes from Phase 5. Close with: re-run `/detect-drift` to confirm the drift is cleared, `/learn-from-task`, then ship. A clean run collapses to a single line ("No drift — code matches documented conventions"). This supersedes the bare `Suggested actions` block as the actionable closer. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
 
 ## Failure modes
 
 - Pattern false-positive (generated code looks like violation) — add path to `.claude/drift-ignore.txt`.
 - Rule too vague to detect against — agent flags as `ambiguous`; sharpen the rule then re-run.
-- Drift log getting too long — `/audit-knowledge` archives RESOLVED monthly.
+- Drift log getting too long — `@knowledge-curator` mode `archive` moves RESOLVED entries out monthly.
 - Running without baseline (`ai/conventions.md` missing) — refuse; run `/refresh-knowledge` first.
 - High `rule-vs-reality` rate ignored — conventions decay silently; treat as a maintenance signal.
 
@@ -147,6 +151,3 @@ Three widths, and picking the wrong one is the usual way a stale project stays s
 - `/learn-from-task` — sibling command in learning pack
 - `/promote-pattern` — sibling command in learning pack
 - `/refresh-knowledge` — sibling command in learning pack
-
-### Patterns
-- `ai/patterns/setup-quality-scoring.md`

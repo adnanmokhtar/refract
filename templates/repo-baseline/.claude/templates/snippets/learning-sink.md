@@ -1,6 +1,6 @@
 ---
 purpose: The ONE canonical learning sink set — the 9 append-only raw sinks `/learn-from-task` writes and `knowledge-curator` promotes from. Every consumer links here instead of restating the table, so the producer and the promoter can never silently diverge on WHERE an observation lands or WHAT it graduates to.
-imported-by: templates/packs/learning/commands/learn-from-task.md (the command; pack-scoped, there is no root commands/learn-from-task.md — verify-global-scope keeps pack commands out of the global surface) + templates/packs/learning/agents/knowledge-curator.md (canonical curator) + templates/repo-baseline/.claude/agents/knowledge-curator.md (installed curator).
+imported-by: templates/packs/learning/commands/learn-from-task.md (the command; pack-scoped, there is no root commands/learn-from-task.md — verify-global-scope keeps pack commands out of the global surface) + templates/packs/learning/agents/knowledge-curator.md (the curator — one copy since Phase 6; installed by the always-on learning pack).
 ---
 
 # Canonical learning sink set (shared, single source of truth)
@@ -16,7 +16,7 @@ threshold. The two writers never diverge on WHERE things go because they share t
 | `ai/dynamic/learnings.md`         | raw observations + corrections-as-notes | `ai/conventions.md` (managed section) at 3 sightings + ≥2 cited examples |
 | `ai/dynamic/learned-patterns.md`  | recurring code shapes                    | `ai/patterns/<name>.md` at status `READY` (≥3 files, ≥2 weeks) |
 | `ai/dynamic/feedback-learned.md`  | user corrections taken                   | `.claude/rules/<rule>.md` at `Repeated >= 2` |
-| `ai/dynamic/decisions-pending.md` | informal decisions awaiting validation   | `ai/decisions/<NNNN>-<slug>.md` (ADR) at `VALIDATED` (≥2 weeks, ≥1 implementation) |
+| `ai/dynamic/decisions-pending.md` | informal decisions awaiting validation   | `<ADR home>/<NNNN>-<slug>.md` at `VALIDATED` (≥2 weeks, ≥1 implementation); the home is the one `adr-index.py --list` detects, `ai/decisions/` only when the project has none |
 | `ai/dynamic/drift-log.md`         | code-vs-convention divergence            | mark `RESOLVED` / propose convention update |
 | `ai/failures/_index.md`           | approaches that did NOT work             | stays (append-only don't-retry catalog — never delete) |
 | `ai/dynamic/interaction-log.md`   | per-task summary (the spine)             | archive entries >90 days |
@@ -49,6 +49,41 @@ or it does not. The `<file:line>` citation is what separates a real term from a 
 picks it up on the normal promotion path. `/eval` never writes any other sink and never promotes;
 its own recorded outcome is `ai/evals/_scorecard.md` (append-only run history), which is NOT part
 of this sink set — it is the regression record, not a promotion source.
+
+## Additional writers: review dismissals (calibration half of the loop)
+
+`ai/dynamic/review-dismissals.jsonl` holds every dismissed review finding: refuted by the verifier
+(`persist-verdict.sh` writes it as the refute verdict lands) or dismissed by a human as `accepted-risk` /
+`false-positive` (`.claude/scripts/review-dismissals.py dismiss`, which `test-lock.sh` asks you to
+approve). Like `_scorecard.md` it is NOT in the sink set above: machine-written JSONL (record format in
+the script's docstring), never hand-edited, and nothing is promoted from it directly.
+`review-dismissals.py propose --write` derives `ai/dynamic/calibration-proposals.md` (precedent
+candidates, detector-demotion candidates), and those reach the formal layer only through the
+confirm-list below.
+
+## Confirm-list and the promotion audit line
+
+Every promotion (a pattern, an ADR, a convention, a glossary term, a rule, a sensor, a precedent) passes
+one human confirmation and leaves one audit line. Candidates come from three places: the run's diary
+(`ai/runs/<run>/ledger.md` § Diary: Deviations, Tradeoffs, Open), the sinks above at their thresholds,
+and `calibration-proposals.md`. `/learn-from-task` shows them as a **confirm-list**, one numbered line
+each (candidate · proposed target · evidence); the human keeps, edits or drops each, and only kept
+items are written.
+
+A **rule** is prose an agent reads (`.claude/rules/<rule>.md`); a **sensor** is a check that runs (a
+hook, a lint script, a test). A lesson whose subject a script can check (`memory-hygiene-scan` §7,
+KN-26) is proposed as a sensor first; prose is the fallback, not the default.
+
+Each kept item appends ONE line to `ai/dynamic/promotions.md` (append-only and never pruned, unlike
+`changelog.md`, whose 200-line prune would lose the trail):
+
+```
+- <YYYY-MM-DD> · by <who confirmed> · <rule|sensor|precedent|pattern|adr|convention|glossary> <target path> ← <source: <sink>:<line> | ai/runs/<run>/ledger.md#Diary | calibration-proposals.md:<line>> · evidence: <file:line>[, …] · confirmed: "<the human's words>"
+```
+
+Who (`by`: the human's name, `git config user.name` when unstated), when (the date), from which
+evidence (source and evidence), what (kind and target). A promotion without its line is half-done:
+the promote commands' Validate phase greps for it.
 
 ## Reading the sinks back
 

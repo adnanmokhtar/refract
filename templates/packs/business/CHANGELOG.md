@@ -14,6 +14,15 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.0.0 — 2026-10-19
+
+**The business pack became a detector pack (Track A batch 7).** Other packs detect the shapes — a float, a missing CHECK, a race, a swallowed FSM event. None could decide which rule the code must obey. This pack now owns the rule and ships it as registers (money policy, tax policy, metric definitions, the reconstructed lifecycle graph, the invariant register) that the shape owners read as their oracle.
+
+- **Detectors.** `pricing-rule-scan` (renamed from `pricing-tax-audit`; MP §1–§3, PR §4–§9, BL §10–§13), `tax-invoice-scan` (TX §1–§6, IV §7–§11; CI-validator lane reads `.github/workflows` with `--hidden`), `ledger-scan` (LG §1–§7, FR §8–§10, DM §11–§12; Django `CreateModel` lane), `report-scan` (RP §1–§7, BT §8–§9), `lifecycle-scan` + `scripts/status-graph.py` (LC §1–§6: enums, CHECKs, FSM libraries and status writes into one graph; machine-scoped declared edges, computed enum keys, django-fsm source lists, map-driven writes; 42 self-tests) and `check-business-coverage` rewritten (CY §1–§6).
+- **`/audit-business`** is the whole-repo audit (class ledger, three judges, `@verifier` on every kept BLOCKER/HIGH, verdict); **`/business-fix`** (new) closes findings failing first. `audit-funnel-completion` is folded into `/suggest-metrics --funnel`.
+- **Cross-pack:** code-quality `correctness-smell-scan` §4 reads the money policy; database `schema-integrity-scan` §11 reads the tax policy's jurisdiction; backend `state-transition-scan` reads the lifecycle graph and `/backend-audit` routes business-rule rows; global `/audit` gains the business row; the eight domain overlays corroborate the detectors instead of detecting.
+- **Fixture `business-rules`** (NestJS 11 + Django 5 commerce platform; 114 business seeds over 57 classes, 12 routed, 37 decoys). Precedents `precedents/business.md` § 1–46; proof oracles V450–V489.
+
 ## 1.7.0 — 2026-08-23
 
 FIXED (the gate that never reached greenfield)

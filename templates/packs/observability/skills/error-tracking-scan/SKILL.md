@@ -242,7 +242,7 @@ Processes: api (compose:2), worker (compose:12), py-svc (compose:8), go worker, 
 
 Findings: 2 · Unconfirmed: 3 · Hardening: 1
 
-1. api/src/filters/all-exceptions.filter.ts:6                        [report-with-fix]   medium
+1. api/src/filters/catch-all.filter.ts:6                             [report-with-fix]   medium
    §4 ET-04 — @Catch() maps every non-HttpException to 500 and sends a body; no capture, no log.
    Proof: test/obs/tracker.e2e-spec.ts — GET /boom → 500, 0 transport events (fails). Fix: capture + logger.error({ err }) on status ≥ 500.
 

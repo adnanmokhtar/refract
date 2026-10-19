@@ -66,7 +66,7 @@ Actions:    attributed=OK  reason=OK  audited-before-effect @ moderation-action.
 Appeal:     present @ appeal.service.ts:25  different-actor=OK                                  [or: NONE — BLOCKER]
 Reporter PII: target-view @ report.target-view.ts:9  reporterId=ABSENT                          [or: REPORTER REACHABLE — BLOCKER]
 Report limit: per-reporter=OK  (reporter,target)-dedup=OK  weighted-auto-action=OK              [or: COUNT AUTO-REMOVES — BLOCKER]
-Moderator:    scoped @ admin.guard.ts:12  per-individual=OK                                      [or: OVER-PRIVILEGED — finding]
+Moderator:    scoped @ moderator.guard.ts:12  per-individual=OK                                      [or: OVER-PRIVILEGED — finding]
 Scanner-on-error: fail-CLOSED @ scanner.ts:51                                                    [or: FAIL-OPEN — finding]
 
 Verdict: OK | NEEDS-SCAN-COVERAGE | NEEDS-ILLEGAL-PATH | NEEDS-ACCOUNTABILITY | BLOCKER(unscanned-served)
@@ -92,4 +92,4 @@ Top recommendation:
 - `<rules-path>/admin` — moderator capability is scoped admin; per-individual attribution.
 - `<rules-path>/rate-limit` — per-reporter / per-target report limiting + brigading resistance.
 - `<rules-path>/compliance` — the mandatory-reporting jurisdiction + evidence-retention contract.
-- `<agents-path>/moderation-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/moderation-review.md` — review gate that consumes these findings.

@@ -1,6 +1,8 @@
 ---
 name: apply-pack-adaptation
 description: Per-file STUDY → DECIDE → ACT for pack-added files in /setup-project Phase 4.6 (round one — CREATE / ENHANCE / REFRESH), Phase 4.6-DEEP / 4.7-DEEP (round two — REFINE), and Phase 4.8-DEEP (round-two adapter sync). Reads each file plus the project's extracted codebase + business + idioms context (round one) AND `.claude/_refine-extract.md` (round two), decides CHANGE-anchor / CHANGE-anchor-with-warn / LEAVE-with-redirect / LEAVE-delete (round one) OR ANCHOR-DEEP / LEAVE-DEEP / LEAVE-DEEP-IDEMPOTENT / NEW-FILE (round two) OR RE-TRANSLATED / INDEX-REFRESHED / SKIPPED-NO-CHANGES / NO-OP-ADAPTER (adapter sync), applies the decision with marker-bracketed in-place edits + hash-check rollback, and writes a decision log Phase 5.3 audits. Frees /setup-project's main context for orchestration.
+kind: skill
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -97,7 +99,7 @@ For each file, EXACTLY ONE decision is recorded. The set of available decisions 
 | Decision | When | Action |
 |---|---|---|
 | **CHANGE-anchor** | Topic IS load-bearing in this project; pack body is broadly correct. | Prepend a `## Project-specific (<project-name>)` block citing real paths, base classes, idioms, ADRs, failures. Body stays unchanged. |
-| **CHANGE-anchor-with-warn** | Topic IS load-bearing; pack body CONFLICTS with the project (e.g., pack says "use X"; project's `ai/failures/<NNNN>` says "we tried X, broke"). | Anchor MUST include a `**Conflicts with generic body**:` sub-block calling out the specific conflict + the project's resolution. Body stays. |
+| **CHANGE-anchor-with-warn** | Topic IS load-bearing; pack body CONFLICTS with the project (e.g., pack says "use X"; an entry in the project's `ai/failures/_index.md` says "we tried X, broke"). | Anchor MUST include a `**Conflicts with generic body**:` sub-block calling out the specific conflict + the project's resolution. Body stays. |
 | **LEAVE-with-redirect** | Topic IS load-bearing BUT project has a richer project-authored equivalent (e.g., project has `ai/patterns/data-access.md` 130 lines + `.claude/rules/database.md` — pack's `database-principles.md` is supplementary). | Prepend a 3-5 line note: `> This project's primary guidance is <project-file> (NN lines). The generic content below is supplementary background only.` Body stays. |
 | **LEAVE-delete** | Topic is NOT applicable to this project (e.g., `gitops-principles.md` in a non-GitOps project, `kubernetes-rules.md` in a serverless-only project). Should rarely happen — Phase 4.2 should have filtered these. | Delete the file. Record reason in decision log. |
 
@@ -110,7 +112,7 @@ In REFINE the artifacts already exist and already carry a round-one anchor. We a
 | **ANCHOR-DEEP** | Artifact's anchor-density score < 70 AND `_refine-extract.md` has STRONG signal relevant to the artifact's topic (entities / flows / hot paths / emergent conventions / failure themes). | REWRITE the existing block delimited by `<!-- project-specific:start -->` ... `<!-- project-specific:end -->` markers. Keep the round-one summary as the first 5 lines; append concrete deep-extraction citations (entities with invariants, flow `file:line`, hot-path N+1 sites, missing indexes, recurring failure themes). |
 | **LEAVE-DEEP** | Artifact's score < 70 BUT `_refine-extract.md` adds no new signal for this topic (e.g., a `code-quality.md` rule has no entities/flows to cite — the score is intrinsically capped). | Leave block untouched. Record reason `no-deep-signal-applies` in decision log. Score-low + no-signal is a legitimate stable state, not a failure. |
 | **LEAVE-DEEP-IDEMPOTENT** | Prior REFINE run already deep-anchored this artifact AND `_refine-extract.md` content unchanged since then (compared via hash of relevant `_refine-extract.md` sections recorded in `_phase-4-6-decisions.md`). | Leave block untouched. Record `idempotent` reason. This is the converging case — what makes 2nd / 3rd `--refine` runs reach "plateau reached." |
-| **NEW-FILE** | Deep extraction surfaced a genuine artifact need round one didn't catch. Concrete examples: Phase 2.12 found a recurring `auth-bypass` failure theme → write `ai/failures/auth-bypass.md`. Phase 2.11 found 6 hot paths with N+1 risk → ensure `.claude/skills/query-optimizer.md` exists (gap-fill + deep-anchor in one step). | Create the new file with the appropriate template + a project-specific block populated from `_refine-extract.md`. Mark `gen-by: refine-deep` in the new file's frontmatter. |
+| **NEW-FILE** | Deep extraction surfaced a genuine artifact need round one didn't catch. Concrete example: Phase 2.11 found 6 hot paths with N+1 risk → ensure `.claude/skills/query-optimizer.md` exists (gap-fill + deep-anchor in one step). A recurring failure theme (Phase 2.12) is never a NEW-FILE: it is one `### ` entry appended to `ai/failures/_index.md`, the single catalog. | Create the new file with the appropriate template + a project-specific block populated from `_refine-extract.md`. Mark `gen-by: refine-deep` in the new file's frontmatter. |
 | **CHANGE-anchor-with-warn** | Same shape as round one. Rare in REFINE — round-one already established the floor — but possible when `_refine-extract.md` § "Failure history" reveals a new conflict with a pack body recommendation. | Same action as round one; recorded under the REFINE decision-log section. |
 
 In REFINE mode, `LEAVE-with-redirect` and `LEAVE-delete` are NOT available decisions — those were round-one calls and stay as-is.
@@ -209,7 +211,7 @@ Used when deep extraction surfaces a new artifact need:
 1. Pick the closest template from `~/.claude/templates/packs/<track>/<kind>/<canonical-name>.md`. If none exists, synthesize from a sibling template + the deep-extraction substrate.
 2. Write the new file with the marker-bracketed `## Project-specific` block populated by ANCHOR-DEEP rules.
 3. Mark frontmatter with `gen-by: refine-deep` and `created-on: <YYYY-MM-DD>` so subsequent runs know it originated in REFINE.
-4. Append a `NEW-FILE` row to the decision log noting the source signal (e.g. "Phase 2.12 recurring `auth-bypass` theme → `ai/failures/auth-bypass.md`").
+4. Append a `NEW-FILE` row to the decision log noting the source signal (e.g. "Phase 2.11 six N+1-risk hot paths → `.claude/skills/query-optimizer/SKILL.md`").
 
 If extraction has no signal for the topic (`[EXTRACTION-WEAK: <base>]` flag from Phase 2.5):
 - Produce a thinner anchor (5-10 lines) citing whatever facts ARE known: stack from `codebase-profile.md`, path conventions, file-naming pattern, framework defaults.
@@ -393,7 +395,7 @@ The skill writes:
    | `.claude/rules/database.md` | ANCHOR-DEEP | 42 → 88 (+46) | domain-entity, hot-path, n+1-citation, missing-index | entities:`abc1234…`, hotpaths:`def5678…` | 7 entities + 4 hot paths cited |
    | `.claude/rules/code-quality.md` | LEAVE-DEEP | 65 → 65 (0) | — | — | no-deep-signal-applies (rule is about prose discipline, not entities/flows) |
    | `.claude/agents/backend-architect.md` | ANCHOR-DEEP | 38 → 79 (+41) | layer-or-boundary, flow | architecture:`9abcdef0…`, flows:`12345678…` | 3 lifecycles + 5 boundaries cited |
-   | `ai/failures/auth-bypass.md` | NEW-FILE | n/a → 82 | failure-theme | failures:`fedcba98…` | Phase 2.12 surfaced `auth-bypass` as recurring (4 incidents over 18 months) |
+   | `.claude/skills/query-optimizer/SKILL.md` | NEW-FILE | n/a → 82 | hot-path | hotpaths:`fedcba98…` | Phase 2.11 surfaced 6 hot paths with N+1 risk and no owning skill |
    | `.claude/skills/parallelize-independent-ops/SKILL.md` | LEAVE-DEEP-IDEMPOTENT | 84 → 84 | (cached) | (matches prior run) | hashes match prior REFINE; no new signal |
    | `.claude/rules/security.md` | ROLLBACK-MARKER-DRIFT | 62 → 62 | — | — | post-write hash mismatch — file restored, REFINE skipped this artifact |
 
@@ -423,7 +425,7 @@ The skill writes:
    - `.claude/rules/database.md` (ANCHOR-DEEP)
    - `.claude/commands/db-migration.md` (NEW-FILE)
    - `ai/architecture.md` (markered-rewrite)
-   - `ai/failures/auth-bypass.md` (NEW-FILE)
+   - `.claude/skills/query-optimizer/SKILL.md` (NEW-FILE)
    index_refresh = true (NEW-FILE present)
 
    Selected adapters: cursor, opencode, aider, claude-code

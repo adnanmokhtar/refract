@@ -1,4 +1,4 @@
 # Roster-wide agent-contract debt counted by scripts/lint-agent-contract.sh. May only shrink.
-missing-contract 71
-skill-no-tool 7
+missing-contract 61
+skill-no-tool 6
 model-missing 36

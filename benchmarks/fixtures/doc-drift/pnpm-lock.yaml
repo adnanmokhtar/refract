@@ -1,0 +1,61 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    devDependencies:
+      embedme:
+        specifier: 1.22.1
+        version: 1.22.1
+      eslint:
+        specifier: 9.36.0
+        version: 9.36.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  apps/api:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: 3.890.0
+        version: 3.890.0
+      '@nestjs/bullmq':
+        specifier: 11.0.3
+        version: 11.0.3
+      '@nestjs/common':
+        specifier: 11.1.6
+        version: 11.1.6
+      '@nestjs/core':
+        specifier: 11.1.6
+        version: 11.1.6
+      '@nestjs/platform-fastify':
+        specifier: 11.1.6
+        version: 11.1.6
+      '@nestjs/swagger':
+        specifier: 11.2.0
+        version: 11.2.0
+      bullmq:
+        specifier: 5.58.5
+        version: 5.58.5
+      commander:
+        specifier: 14.0.1
+        version: 14.0.1
+      zod:
+        specifier: 4.1.11
+        version: 4.1.11
+
+  packages/sdk:
+    devDependencies:
+      typedoc:
+        specifier: 0.28.13
+        version: 0.28.13
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 3.2.4
+        version: 3.2.4

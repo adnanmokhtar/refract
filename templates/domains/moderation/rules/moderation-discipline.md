@@ -91,7 +91,7 @@ A moderation bug is illegal or abusive content served to users, an unaccountable
 ## Enforcement
 
 - `<commands-path>/audit-moderation.md` (slash: `/audit-moderation`) — traces where UGC enters at `<path:line>`, asserts scan coverage (pre/post-publish + edit re-scan), illegal-content handling (hash-match + mandatory report + evidence preservation), action audit/attribution, appeal path, reporter-PII shielding, report rate-limit, and moderator over-privilege — cite-or-halt, never an assumed pipeline.
-- `<agents-path>/moderation-reviewer.md` — review gate hard-failing on unscanned UGC, classifier-only scanning, silent-deleted illegal content, unattributed/un-audited actions, missing appeal path, reporter-PII exposure, report brigading, edit scan-bypass, fail-open scanners, and shadow-ban leaks.
+- `.claude/lenses/moderation-review.md` — review gate hard-failing on unscanned UGC, classifier-only scanning, silent-deleted illegal content, unattributed/un-audited actions, missing appeal path, reporter-PII exposure, report brigading, edit scan-bypass, fail-open scanners, and shadow-ban leaks.
 - CI lint MUST flag any UGC create/update path (post/comment/upload/message) that reaches a feed/search/notify surface without passing the moderation pipeline (AST heuristic; flag for review).
 - CI lint MUST flag a `delete` on flagged-illegal content that is not on the isolated preserve+report path.
 - CI MUST assert moderation-action handlers write an audit entry (actor + reason + evidenceRef) — fail the build on an action handler with no audit call.
@@ -107,5 +107,5 @@ A moderation bug is illegal or abusive content served to users, an unaccountable
 - `<rules-path>/media-processing` — image/video decode + thumbnail + hashing handoff that the scan consumes.
 - `<rules-path>/compliance` — the legal/reporting regime (CSAM mandatory reporting, evidence preservation, retention, jurisdiction).
 - `<commands-path>/audit-moderation.md` — diagnostic command.
-- `<agents-path>/moderation-reviewer.md` — review gate.
+- `.claude/lenses/moderation-review.md` — review gate.
 - `<adr-path>/<NNN>-moderation-policy.md` — ADR pinning the policy thresholds, classifier/hash providers, queue SLA, and the mandatory-reporting jurisdiction + retention contract.

@@ -1,0 +1,554 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Tallyhook API",
+    "version": "1.5.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.example.com/v1"
+    }
+  ],
+  "paths": {
+    "/orders": {
+      "get": {
+        "operationId": "listOrders",
+        "summary": "List orders, newest first",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "example": 20
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of orders",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderPage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createOrder",
+        "summary": "Create an order",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrder"
+              },
+              "example": {
+                "customerId": "cus_31ad",
+                "currency": "EUR",
+                "lines": [
+                  {
+                    "sku": "TSHIRT-M",
+                    "quantity": 2,
+                    "unitPriceMinor": 1250
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                },
+                "example": {
+                  "id": "ord_31x9",
+                  "status": "placed",
+                  "totalMinor": 2500,
+                  "currency": "EUR"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "operationId": "getOrder",
+        "summary": "Fetch one order",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ord_8f2k"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                },
+                "example": {
+                  "id": "ord_8f2k",
+                  "status": "void",
+                  "totalMinor": 1250,
+                  "currency": "EUR"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such order"
+          }
+        }
+      }
+    },
+    "/orders/{id}/cancel": {
+      "post": {
+        "operationId": "cancelOrder",
+        "summary": "Cancel an unpaid order",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ord_8f2k"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cancelled order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                },
+                "example": {
+                  "id": "ord_8f2k",
+                  "status": "cancelled",
+                  "totalMinor": 1250,
+                  "currency": "EUR"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already cancelled, or paid"
+          }
+        }
+      }
+    },
+    "/orders/export": {
+      "get": {
+        "operationId": "exportOrders",
+        "summary": "Export every order as CSV",
+        "deprecated": true,
+        "responses": {
+          "200": {
+            "description": "CSV",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "operationId": "getInvoice",
+        "summary": "Fetch an invoice",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "inv_2026_0042"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invoice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                },
+                "example": {
+                  "id": "inv_2026_0042",
+                  "orderId": "ord_8f2k",
+                  "number": "TH-2026-0042",
+                  "totalMinor": 1250,
+                  "currency": "EUR"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invoices/{id}/pdf": {
+      "get": {
+        "operationId": "getInvoicePdf",
+        "summary": "Download the invoice PDF",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "inv_2026_0042"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reports/monthly": {
+      "get": {
+        "operationId": "monthlyReport",
+        "summary": "Monthly totals per currency",
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-09"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "json",
+                "csv"
+              ]
+            },
+            "example": "csv"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Totals",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonthlyReport"
+                },
+                "example": {
+                  "month": "2026-09",
+                  "totals": [
+                    {
+                      "currency": "EUR",
+                      "totalMinor": 1873400
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/endpoints": {
+      "get": {
+        "operationId": "listWebhookEndpoints",
+        "summary": "List webhook endpoints",
+        "responses": {
+          "200": {
+            "description": "Endpoints",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WebhookEndpoint"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createWebhookEndpoint",
+        "summary": "Register a webhook endpoint",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookEndpointInput"
+              },
+              "example": {
+                "url": "https://hooks.example.com/tallyhook",
+                "events": [
+                  "order.paid",
+                  "invoice.issued"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The endpoint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WebhookEndpoint"
+                },
+                "example": {
+                  "id": "whe_7k2m",
+                  "url": "https://hooks.example.com/tallyhook",
+                  "events": [
+                    "order.paid",
+                    "invoice.issued"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Order": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "totalMinor",
+          "currency"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "placed",
+              "paid",
+              "cancelled"
+            ]
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      },
+      "OrderPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Order"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "CreateOrder": {
+        "type": "object",
+        "required": [
+          "customerId",
+          "currency",
+          "lines"
+        ],
+        "properties": {
+          "customerId": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "sku",
+                "quantity",
+                "unitPriceMinor"
+              ],
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                },
+                "unitPriceMinor": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Invoice": {
+        "type": "object",
+        "required": [
+          "id",
+          "orderId",
+          "number",
+          "totalMinor",
+          "currency"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "number": {
+            "type": "string"
+          },
+          "totalMinor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      },
+      "MonthlyReport": {
+        "type": "object",
+        "required": [
+          "month",
+          "totals"
+        ],
+        "properties": {
+          "month": {
+            "type": "string"
+          },
+          "totals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "currency": {
+                  "type": "string"
+                },
+                "totalMinor": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "WebhookEndpoint": {
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "events"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "WebhookEndpointInput": {
+        "type": "object",
+        "required": [
+          "url",
+          "events"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,11 +1,18 @@
 ---
 name: ui-architect
-description: "DESIGNS a frontend feature before the code exists — file list, component API, state location, service signatures, rendering + streaming boundary, i18n keys, perf budget, and the four async states. Framework-agnostic (Angular / React / Vue / Nuxt / Next / Svelte); mirrors the repo's existing shape or halts. Trigger on \"design the X page\", \"what files does this feature need\", \"plan the state for Y\", or the design step of /add-feature, /add-page, /add-crud-page. Anti-triggers (do NOT fire): it designs, it does not build or review — a diff that already exists is `@ui-reviewer`; the deep WCAG grade is `@accessibility-auditor`; a cache / tenant / N+1 trace through shipped code is `@data-flow-auditor`; and the visual language, tokens, theming and creative direction belong to the ui-ux pack and are never invented here."
+description: "Use to design a frontend feature before code ('design the X page', the design step of /add-feature, /add-page, /add-crud-page): files, component API, state, services, rendering boundary, i18n keys, budgets, the four async states. Designs only; a diff is @ui-reviewer."
 tools: Read, Grep, Glob, Skill
 model: opus
 ---
 
 # UI Architect
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> DESIGNS a frontend feature before the code exists — file list, component API, state location, service signatures, rendering + streaming boundary, i18n keys, perf budget, and the four async states. Framework-agnostic (Angular / React / Vue / Nuxt / Next / Svelte); mirrors the repo's existing shape or halts. Trigger on "design the X page", "what files does this feature need", "plan the state for Y", or the design step of /add-feature, /add-page, /add-crud-page. Anti-triggers (do NOT fire): it designs, it does not build or review — a diff that already exists is `@ui-reviewer`; the deep WCAG grade is `@accessibility-auditor`; a cache / tenant / N+1 trace through shipped code is `@data-flow-auditor`; and the visual language, tokens, theming and creative direction belong to the ui-ux pack and are never invented here.
 
 ## Contract
 

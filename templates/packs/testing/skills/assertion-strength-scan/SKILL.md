@@ -197,7 +197,7 @@ tags 612 `§16 status-4xx` (bulk-close), 35 `§16 2xx-paired`, 61 `§16 2xx-unpa
 candidates; the other 17 catch-with-`expect` sites are cleared by a guard in their own case (a
 `throw new Error('should have refused')` after the call, or a `.toThrow` on the same call above the
 `try`). Until 2.0.1 the guard was read per file, so a sibling case's `.toThrow` hid a site —
-`brittle-suite`'s `refund-window.spec.ts`, now listed. Re-measured 2026-10-15 on the same repo: 3b 4 → 0 —
+`brittle-suite`'s seeded refund-window spec, now listed. Re-measured 2026-10-15 on the same repo: 3b 4 → 0 —
 all four were helpers whose `throw new` sits after the catch or whose catch returns the code the caller
 asserts, and the window then stopped at the catch; it now spans the enclosing case or helper (`refund-window` still listed). 3c: 5 (`.then(r => expect(…))` inside awaited chains — read). 3d: 149 lines (loops over
 fixed vocabularies; read for a length assertion). 4a: 0. 4b: 21 (teardown and navigation `.catch(() => undefined)` — read for an assertion in the chain).

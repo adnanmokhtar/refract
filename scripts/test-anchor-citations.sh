@@ -21,6 +21,9 @@
 #   § 3  the monorepo layout that looked fine must STILL look fine (no-regression).
 #   § 4  a citation that genuinely does not resolve must still be repaired — the fix must not
 #        buy safety by turning the repair off.
+#   § 12 a profile correction re-anchors the five facet lines (and nothing else); a 2nd run is a no-op.
+#   § 13 the anchor header names no framework-only path; a legacy header is migrated in place.
+#   § 14 a corrupt marker set (nested, duplicate, unpaired) is reported and never written to.
 #
 # Everything runs under mktemp -d. Nothing is written outside it.
 #
@@ -520,7 +523,8 @@ t = open(src, encoding="utf-8").read().split("\n")
 blk = ["<!-- project-specific:start -->",
        "## Project-specific (auto-generated)",
        "",
-       "> - **Architecture** (`.claude/codebase-profile.md:3`): Feature modules.",
+       "> - **Architecture** (`.claude/codebase-profile.md:3`): Feature-module architecture.",
+       "> Hand-written: keep widgets free of fetch calls.",
        "> Cite-able sources: `package.json`, top-level: `src/`, `src/components/`.",
        "",
        "<!-- project-specific:end -->",
@@ -551,7 +555,9 @@ else
   bad "§9 the run reports the retro-fit" "$(printf '%s' "$out9" | grep -E 'Relevance|Already' | tr '\n' ' ')"
 fi
 # the pre-existing anchor content must survive untouched
-if grep -q 'Architecture.*Feature modules' "$P9"/.claude/agents/*.md; then
+# The facet line agrees with the profile (§ 12 covers one that does not), so neither it nor the
+# hand-written line may change.
+if grep -q 'Architecture.*Feature-module architecture' "$P9"/.claude/agents/*.md && grep -q '^> Hand-written: keep widgets' "$P9"/.claude/agents/*.md; then
   ok "§9 the existing anchor body survived the upgrade"
 else
   bad "§9 the existing anchor body survived the upgrade" "the retro-fit rewrote the block"
@@ -563,6 +569,114 @@ if printf '%s' "$out9b" | grep -qE '^Relevance lines retro-fitted:[[:space:]]*0'
   ok "§9 re-running adds nothing (one relevance line per artifact)"
 else
   bad "§9 re-running adds nothing" "$dup9 relevance line(s) across $n9 artifact(s)"
+fi
+
+# ── § 12  the profile changes: every anchor's facet line is re-derived, nothing else moves ──
+# MEASURED on a real NestJS monorepo: the profile and the lockfile said Postgres and UUIDv7 while
+# 177 installed anchors still said "MikroORM (MySQL)" and "ULID PKs", citing the corrected profile
+# line. "Already anchored" meant "never looked at again" (learning KN-13 / KN-14).
+say "§ 12  a profile correction re-anchors the facet lines; hand-written lines and a 2nd run stay"
+P12="$TD/reanchor"
+mkdir -p "$P12/src/app"; printf 'x\n' > "$P12/src/app/a.ts"; printf '{"name":"re"}\n' > "$P12/package.json"
+seed_setup "$P12" .claude .claude/commands src src/app
+seed_artifact "$P12" add-page
+bash "$ANCHORS" "$P12" --apply >/dev/null 2>&1
+# hand-written depth a human added inside the block
+awk '/^<!-- project-specific:end -->/ { print "> Hand-written: orders never import billing internals." } { print }' \
+  "$P12/.claude/commands/add-page.md" > "$TD/p12.tmp" && mv "$TD/p12.tmp" "$P12/.claude/commands/add-page.md"
+# the profile is corrected: one facet changes
+sed 's/^One shared client\.$/MikroORM on Postgres 16, UUIDv7 keys./' "$P12/.claude/codebase-profile.md" > "$TD/p12p" && mv "$TD/p12p" "$P12/.claude/codebase-profile.md"
+out12=$(bash "$ANCHORS" "$P12" --apply 2>&1)
+if grep -q '^> - \*\*Data access\*\* (`.claude/codebase-profile.md:[0-9]*`): MikroORM on Postgres 16, UUIDv7 keys\.$' "$P12/.claude/commands/add-page.md"; then
+  ok "§12 the Data access facet now says what the profile says"
+else
+  bad "§12 the Data access facet now says what the profile says" "$(grep 'Data access' "$P12/.claude/commands/add-page.md")"
+fi
+if printf '%s' "$out12" | grep -qE '^Profile facets re-anchored:[[:space:]]*1$' && printf '%s' "$out12" | grep -q 'REANCHOR'; then
+  ok "§12 the run reports the re-anchor"
+else
+  bad "§12 the run reports the re-anchor" "$(printf '%s' "$out12" | grep -E 'REANCHOR|re-anchored' | tr '\n' ' ')"
+fi
+if grep -q '^> Hand-written: orders never import billing internals\.$' "$P12/.claude/commands/add-page.md" && \
+   grep -q '^> - \*\*Architecture\*\* (`.claude/codebase-profile.md:3`): Feature-module architecture\.$' "$P12/.claude/commands/add-page.md"; then
+  ok "§12 the hand-written line and the unchanged facets survived"
+else
+  bad "§12 the hand-written line and the unchanged facets survived"
+fi
+h12a=$(shasum < "$P12/.claude/commands/add-page.md")
+out12b=$(bash "$ANCHORS" "$P12" --apply 2>&1)
+h12b=$(shasum < "$P12/.claude/commands/add-page.md")
+if [ "$h12a" = "$h12b" ] && printf '%s' "$out12b" | grep -qE '^Profile facets re-anchored:[[:space:]]*0$'; then
+  ok "§12 a second run changes no byte (regenerate twice)"
+else
+  bad "§12 a second run changes no byte" "$(printf '%s' "$out12b" | grep -E 're-anchored' | tr '\n' ' ')"
+fi
+# an unresolved facet never overwrites a line that says something
+printf '# Codebase profile\n\n## Architecture\nFeature-module architecture.\n' > "$P12/.claude/codebase-profile.md"
+bash "$ANCHORS" "$P12" --apply >/dev/null 2>&1
+if grep -q 'Data access.*MikroORM on Postgres 16' "$P12/.claude/commands/add-page.md"; then
+  ok "§12 a facet the profile no longer declares is left alone"
+else
+  bad "§12 a facet the profile no longer declares is left alone" "$(grep 'Data access' "$P12/.claude/commands/add-page.md")"
+fi
+
+# ── § 13  the header names no framework path; a legacy header is rewritten in place ──────────
+# The legacy header told every installed agent to read `scripts/apply-anchors.sh` and
+# `.claude/_codebase-scan.md`, two paths an install does not have (learning KN-05: 341 anchor
+# headers on a real monorepo).
+say "§ 13  no framework path in the anchor header; a legacy header is migrated"
+if grep -q 'scripts/apply-anchors\.sh\|_codebase-scan\.md' "$P1/.claude/commands/add-page.md"; then
+  bad "§13 a fresh anchor names no framework path" "$(grep -m1 'Auto-populated' "$P1/.claude/commands/add-page.md")"
+else
+  ok "§13 a fresh anchor names no framework path"
+fi
+P13="$TD/legacy-header"
+mkdir -p "$P13/src/app"; printf 'x\n' > "$P13/src/app/a.ts"; printf '{"name":"lh"}\n' > "$P13/package.json"
+seed_setup "$P13" .claude .claude/commands src src/app
+seed_artifact "$P13" add-page
+bash "$ANCHORS" "$P13" --apply >/dev/null 2>&1
+sed 's|^> Auto-populated by .*$|> Auto-populated by `scripts/apply-anchors.sh` from `.claude/codebase-profile.md` + `.claude/_codebase-scan.md`. Round-one floor.|' \
+  "$P13/.claude/commands/add-page.md" > "$TD/p13" && mv "$TD/p13" "$P13/.claude/commands/add-page.md"
+out13=$(bash "$ANCHORS" "$P13" --apply 2>&1)
+if ! grep -q 'scripts/apply-anchors\.sh' "$P13/.claude/commands/add-page.md" && printf '%s' "$out13" | grep -qE '^Legacy headers rewritten:[[:space:]]*1$'; then
+  ok "§13 the legacy header was rewritten and reported"
+else
+  bad "§13 the legacy header was rewritten and reported" "$(grep -m1 'Auto-populated' "$P13/.claude/commands/add-page.md")"
+fi
+# a header shown inside a fenced example is documentation, never rewritten
+printf '\n```markdown\n> Auto-populated by `scripts/apply-anchors.sh` from x.\n```\n' >> "$P13/.claude/commands/add-page.md"
+bash "$ANCHORS" "$P13" --apply >/dev/null 2>&1
+if grep -q '^> Auto-populated by `scripts/apply-anchors.sh` from x\.$' "$P13/.claude/commands/add-page.md"; then
+  ok "§13 a fenced example header is left alone"
+else
+  bad "§13 a fenced example header is left alone"
+fi
+
+# ── § 14  a corrupt marker set is reported and never written to ──────────────────────────────
+# Measured: six live blocks in one skill and a nested start in one agent, both "already
+# anchored" and never repaired (learning KN-15). An inject or a repair would edit whichever
+# block awk met first.
+say "§ 14  nested, duplicate or unpaired markers: MARKER-CORRUPT, byte-identical file"
+P14="$TD/corrupt"
+mkdir -p "$P14/src/app"; printf 'x\n' > "$P14/src/app/a.ts"; printf '{"name":"mc"}\n' > "$P14/package.json"
+seed_setup "$P14" .claude .claude/commands src src/app
+for n in add-page review-changes fix-bug; do seed_artifact "$P14" "$n"; done
+printf '\n<!-- project-specific:start -->\nA\n<!-- project-specific:start -->\nB\n<!-- project-specific:end -->\n' >> "$P14/.claude/commands/add-page.md"
+printf '\n<!-- project-specific:start -->\nonly a start\n' >> "$P14/.claude/commands/review-changes.md"
+printf '\n<!-- project-specific:end -->\n' >> "$P14/.claude/commands/fix-bug.md"
+h14a=$(cat "$P14"/.claude/commands/*.md | shasum)
+out14=$(bash "$ANCHORS" "$P14" --apply 2>&1)
+h14b=$(cat "$P14"/.claude/commands/*.md | shasum)
+n14=$(printf '%s\n' "$out14" | grep -c 'MARKER-CORRUPT')
+if [ "$n14" -eq 3 ] && [ "$h14a" = "$h14b" ]; then
+  ok "§14 three corrupt files reported, none written ($n14 MARKER-CORRUPT)"
+else
+  bad "§14 three corrupt files reported, none written" "$n14 reported; bytes $([ "$h14a" = "$h14b" ] && echo unchanged || echo CHANGED)"
+fi
+if printf '%s' "$out14" | grep -qE '^Marker-corrupt \(left alone\):[[:space:]]*3$'; then
+  ok "§14 the summary counts them"
+else
+  bad "§14 the summary counts them" "$(printf '%s' "$out14" | grep -i 'corrupt' | tail -1)"
 fi
 
 # ── § 5  every cited directory must resolve on disk, in every fixture above ──────────────

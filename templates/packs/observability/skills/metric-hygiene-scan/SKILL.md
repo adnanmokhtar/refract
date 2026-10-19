@@ -41,7 +41,7 @@ A candidate is a finding when all four hold. These are the protocol's gates as `
 - **Loki label maps and collector-side cardinality** → `telemetry-config-scan` §4. **Dashboard lint** → `telemetry-config-scan` §8. Grep 8c reads dashboard selectors only for probe filters.
 - **A sensitive value as a label** (an email, a token): the cardinality half stays here (precedents § 19); the value policy is security `data-exposure-scan` § 6, when the security pack is installed. **Public health details** (`show-details: always`) → `data-exposure-scan` § 3.
 - **Readiness during the shutdown drain** → devops (the code chain), when the devops pack is installed.
-- **Series cost in money** → finops prices it when installed; every §1 row carries the series arithmetic.
+- **Series cost in money** → finops `candidate-pricing` §0 prices it when installed; every §1 row carries the series arithmetic (its quantity × unit).
 
 ## Adapt to the codebase — the metric lanes
 
@@ -318,7 +318,7 @@ Consumers: deploy/prometheus/rules/api.yml, deploy/grafana/api.json
 
 Findings: 2 · Unconfirmed: 2
 
-1. api/src/metrics/http-metrics.hook.ts:12                       [report-with-fix]   high
+1. api/src/metrics/request-metrics.ts:12                         [report-with-fix]   high
    §1 MT-01 — `httpDuration.labels(request.method, request.url, …)` labels by the raw Fastify URL on every route.
    Proof: registry test, 100 GET /orders/<uuid> → 100 new series of http_request_duration_seconds (fails;
    THR-OBS-CARDINALITY investigate at 100). Fix: request.routeOptions.url ?? 'unmatched' (precedents § 29).

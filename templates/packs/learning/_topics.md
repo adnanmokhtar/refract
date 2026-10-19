@@ -156,6 +156,35 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   # Ships static (like learn-from-task) — not project-customized. Its cases ARE the per-project
   # part, and those live in ai/evals/cases/ (baseline scaffold), authored via /eval --seed.
   fallback: commands/eval.md
+
+# Detector skills (batch 7): each ships a stdlib engine under scripts/ (knowledge-ref-scan/scripts/kn_common.py
+# is the shared reader the other four import). No _examples/ twin — the source IS the shipped file, for the
+# reason this file's note gives. learning is always installed, so every trigger is `always`; a repo with no
+# knowledge layer prints N/A per class.
+- name: knowledge-ref-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/knowledge-ref-scan/SKILL.md
+
+- name: knowledge-fact-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/knowledge-fact-scan/SKILL.md
+
+- name: memory-hygiene-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/memory-hygiene-scan/SKILL.md
+
+- name: decision-record-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/decision-record-scan/SKILL.md
+
+- name: context-load-scan
+  kind: skill
+  triggers: { always: true }
+  fallback: skills/context-load-scan/SKILL.md
 ```
 
 ## Fallback policy — this pack ships SOURCE-as-fallback, with no `_examples/` twin

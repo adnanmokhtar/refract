@@ -1,0 +1,16 @@
+commit c0d9f12 (billing-jobs 1.9.0)
+    Renewals: extract the charge loop into a function
+
+diff --git a/jobs/renewals.py b/jobs/renewals.py
+--- a/jobs/renewals.py
++++ b/jobs/renewals.py
+@@ -10,9 +10,12 @@
+-    for sub in due:
+-        charge(sub)
+-        sub.mark_renewed()
++    for sub in due:
++        _renew(sub)
++
++def _renew(sub):
++    charge(sub)
++    sub.mark_renewed()

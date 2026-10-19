@@ -249,7 +249,7 @@ A large proof surface is almost always one harness, one config and one CI job.
 
 ```
 BAD:   - it('matches V1 credit amounts for negative halves', …)  + it.skip('matches V1 credit amounts …', …)      (in the port PR)
-       __golden__/invoice-totals.json  "tax": "13.08" → "13.09"   (recorded_from: v1/tests/Feature/InvoiceTotalsTest.php)
+       __golden__/invoice-sums.json    "tax": "13.08" → "13.09"   (recorded_from: v1/tests/Feature/InvoiceSumsTest.php)
 GOOD:  the case unchanged and the rounding fixed   ·   a separate earlier PR with an ADR and changes_baseline, if V1 was wrong
 ```
 **Read the code.** Is the file in the pinned set (a `test-map.tsv` row, `describeV1`, `recorded_from`, an ADR such as "V1-pinned tests are immutable")? Did this diff introduce the skip, the edit or the new golden value, or did an earlier PR with an ADR and `changes_baseline` do it first? Was the golden re-recorded to V2's output (compare the new value with the V1 test's assertion)? Did a config change exclude the file? Does the coverage evidence show a drop above 5 points, or fewer executed tests (MigrationBench r4: the executed count must not fall)? A test moved 1:1 with a mapping row is the control. **Finding when** the port PR weakens the evidence it is judged by. **Proof:** V386, the pinned set from the base run unmodified against the PR's V2, with no new skips and a coverage drop of at most 5 points.
@@ -295,13 +295,13 @@ parity-proof-scan — paired · base 185b7e5..worktree · V1 pinned 61cb5c9 · g
 Parity claims: NOT-RUN — 4 specs under apps/api/test/parity (describeV1) never execute in CI job `parity`
 Findings: 8 (3 shown) · routed → testing: 1
 
-1. change: v2/apps/api/test/parity/invoices.parity.spec.ts:26        [report-with-fix]  critical
+1. change: v2/apps/api/test/parity/credit-notes.parity.spec.ts:26    [report-with-fix]  critical
    §1 the port PR turns the V1-pinned case "matches V1 credit amounts for negative halves" into it.skip
    (test-map.tsv invoice-credits; ADR-0003). Evidence: 7 → 6 executed. Proof: V386. Fix: revert the skip, fix creditFor.
 2. v2/.github/workflows/ci.yml:60                                    [report-with-fix]  high → testing
    §4 PP-5 NOT-RUN: job parity (ci.yml:38) runs test:parity → apps/api/test/parity, gated by describeV1
    (test/parity/support/v1.ts:8), and never sets V1_REPO_PATH. Evidence: 0 passed, 7 skipped. Proof: V388.
-3. v2/apps/api/test/parity/tolerance.json:4                          [report-with-fix]  high
+3. v2/apps/api/test/parity/ignore-paths.json:4                       [report-with-fix]  high
    §5 ignore $..total hides every money field in orders, invoices and wallets bodies; no V1-vs-V1 run exists.
    Proof: V385 seeded total mismatch not reported. Fix: remove the key.
 

@@ -197,7 +197,7 @@ Detectors: RAN 4 of 4 align · OWNERS RAN 3 of 5 (backend, database not installe
 AL-01: 14 candidates → 2 dropped (quote not found)
 Verification: 19 candidates → 5 findings · 4 unconfirmed · 3 hardening · 0 pre-existing · 7 refuted
 HIGH (1):
-  src/components/orders/OrderActions.tsx:31   AL-15 · wrapper-adoption-scan §4 · <Button variant="danger"> outside <Can action="orders.delete">
+  src/components/orders/OrderMenu.tsx:27      AL-15 · wrapper-adoption-scan §4 · <Button variant="danger"> outside <Can action="orders.delete">
     oracle: ai/conventions.md:27 "Destructive actions render inside <Can>." (T2)   proof FN — V401   closer /align
 MEDIUM (2): src/features/orders/api.ts:3  AL-11 · `import ky from 'ky'` — oracle eslint.config.mjs no-restricted-imports (T1) · EQ · V400 …
 UNCONFIRMED (4): ratify ai/conventions.md:41 "Store files end in `.store.ts`." — unlocks 9 sites · …

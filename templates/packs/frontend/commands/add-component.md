@@ -101,7 +101,7 @@ Before declaring success, compare the new component against ≥2 sibling files i
 - Lifecycle divergent from sibling — `onMounted` where siblings use `onActivated` (KeepAlive), or class-component where siblings are `<script setup>` / function components.
 - Locale keys present in `en.ts` but missing from `ar.ts` (or any other declared locale) — silent break in the alt locale.
 - Default-true wrapper props left implicit — a wrapper exposing `:show-header="true"` by default must be passed `:show-header="false"` explicitly when the affordance is hidden; same for `:can-close`, `:show-footer`.
-- New file placed outside the folder's existing path convention (e.g., `src/components/cards/OrderCard.vue` when siblings live at `src/components/orders/Card.vue`).
+- New file placed outside the folder's existing path convention (e.g., `src/components/cards/OrderTile.vue` when siblings live at `src/components/orders/Card.vue`).
 - New styling system introduced (CSS Modules in a Tailwind repo; styled-components where siblings use scoped CSS).
 - Above-the-fold / hero / heavy-media component whose LCP-relevant image omits the framework priority hint that siblings set (the `lcp-audit` skill owns the detectors) — missing `fetchpriority`/`priority`/eager-hero parity.
 - High-frequency or expensive interaction handler (typing, filtering a large list, drag) that runs unbounded per-interaction work — must stay under the INP budget per the `inp-responsiveness` pattern *(performance pack, when co-installed)*; absent that pack, grade it inline (yield / transition / debounce the handler) and record `inp: graded inline (performance pack absent)`.

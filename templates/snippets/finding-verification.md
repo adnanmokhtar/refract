@@ -82,6 +82,8 @@ company VPN" · "it is an internal tool".
 - **NET1.** A NetworkPolicy does not govern a pod's own loopback. `127.0.0.1`, `localhost` and every port the app or a sidecar listens on stay reachable from inside the pod whatever the egress rules say, so an SSRF there still reaches admin, metrics and debug ports.
 - **NET2.** An `ipBlock` that allows `0.0.0.0/0` with an `except:` list of private ranges is only as narrow as the other rules. A second rule that admits the VPC CIDR for the database and cache ports re-opens them. Read every egress rule of the pod before rating the residual reach.
 
+**LLM trust boundary.** `llm-trust-scan` and `mcp-server-scan` candidates (PI, AG, OH, SD, LG, RG, MC) are settled by [`precedents/ai-engineering.md`](precedents/ai-engineering.md) § Trust boundary as well as this list. A precedent there makes the candidate Hardening unless the evidence it names flips it back; the gates above still decide reachability and impact.
+
 ## 5. Score and bucket
 
 Each candidate gets a confidence from 1 to 10 for **exploitability as described**:

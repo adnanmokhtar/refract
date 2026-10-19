@@ -1,0 +1,74 @@
+0	old	apps/api/package.json	
+0	old	apps/api/src/app.module.ts	
+0	old	apps/api/src/modules/orders/orders.module.ts	
+0	old	apps/api/src/modules/orders/orders.controller.ts	
+0	old	apps/api/src/shared/tenancy/tenant.filter.ts	
+0	old	apps/api/src/shared/money/money.ts	
+0	old	apps/api/src/modules/invoices/invoices.service.ts	
+0	old	apps/web/src/features/orders/useOrders.ts	
+0	old	.claude/codebase-profile.md	
+0	old	ai/conventions.md	
+0	only	apps/api/src/modules/coupons/coupons.module.ts	
+0	only	apps/api/src/modules/coupons/coupons.service.ts	
+0	only	apps/api/src/shared/money/format-minor-units.ts	
+0	only	apps/api/src/modules/orders/application/create-order.use-case.ts	
+0	only	docs/runbooks/deploy.md	
+0	only	.claude/rules/legacy-dates.md	
+0	from-final	apps/api/src/modules/orders/order-pricing.service.ts	apps/api/src/modules/orders/pricing.service.ts
+0	from-final	apps/web/src/lib/ApiClient.ts	apps/web/src/lib/apiClient.ts
+0	from-final	.claude/skills/seed-demo-data/SKILL.md	.claude/skills/demo-data-seed/SKILL.md
+0	absent	apps/api/src/modules/orders/application/place-order.use-case.ts	
+0	absent	apps/api/src/modules/refunds/dto/create-refund.dto.ts	
+0	absent	apps/api/src/modules/refunds/refund.entity.ts	
+0	absent	apps/api/src/modules/refunds/refunds.controller.ts	
+0	absent	apps/api/src/modules/refunds/refunds.module.ts	
+0	absent	apps/api/src/modules/refunds/refunds.service.spec.ts	
+0	absent	apps/api/src/modules/refunds/refunds.service.ts	
+0	absent	ai/_convention-cheatsheet.md	
+0	absent	ai/_session-digest.md	
+0	absent	ai/_glossary-index.md	
+0	absent	.claude/_extracted-codebase.md	
+0	absent	ai/audits/2026-08-20-knowledge.md	
+0	absent	ai/dynamic/drift-log.md	
+0	absent	ai/dynamic/feedback-learned.md	
+0	absent	ai/dynamic/learned-patterns.md	
+0	absent	ai/dynamic/learnings.md	
+0	absent	ai/evals/cases/api-modules.md	
+0	absent	ai/evals/cases/entities-ids.md	
+0	absent	ai/evals/cases/repositories.md	
+0	absent	ai/evals/cases/web-components.md	
+0	absent	ai/failures/_index.md	
+1	final	ai/_convention-cheatsheet.md	
+1	final	ai/_session-digest.md	
+1	final	ai/_glossary-index.md	
+1	final	.claude/_extracted-codebase.md	
+2	mv	apps/api/src/modules/orders/order-pricing.service.ts	apps/api/src/modules/orders/pricing.service.ts
+2	put	apps/api/src/modules/orders/orders.module.ts	apps~api~src~modules~orders~orders.module.ts.2
+2	put	apps/api/src/modules/orders/application/create-order.use-case.ts	apps~api~src~modules~orders~application~create-order.use-case.ts.2
+3	mv	apps/web/src/lib/ApiClient.ts	apps/web/src/lib/apiClient.ts
+3	final	apps/web/src/features/orders/useOrders.ts	
+4	mv	apps/api/src/modules/orders/application/create-order.use-case.ts	apps/api/src/modules/orders/application/place-order.use-case.ts
+4	final	apps/api/src/modules/orders/application/place-order.use-case.ts	
+4	final	apps/api/src/modules/orders/orders.module.ts	
+4	put	apps/api/src/modules/orders/orders.controller.ts	apps~api~src~modules~orders~orders.controller.ts.4
+5	rm	apps/api/src/shared/money/format-minor-units.ts	
+5	final	apps/api/src/shared/money/money.ts	
+5	final	apps/api/src/modules/invoices/invoices.service.ts	
+6	rm	apps/api/src/modules/coupons/coupons.module.ts	
+6	rm	apps/api/src/modules/coupons/coupons.service.ts	
+6	put	apps/api/src/app.module.ts	apps~api~src~app.module.ts.6
+7	final	apps/api/package.json	
+8	rm	docs/runbooks/deploy.md	
+9	final	.claude/codebase-profile.md	
+10	final	ai/conventions.md	
+11	final	apps/api/src/modules/orders/orders.controller.ts	
+11	final	apps/api/src/shared/tenancy/tenant.filter.ts	
+12	rm	.claude/rules/legacy-dates.md	
+12	mv	.claude/skills/seed-demo-data/SKILL.md	.claude/skills/demo-data-seed/SKILL.md
+13	final	apps/api/src/modules/refunds/dto/create-refund.dto.ts	
+13	final	apps/api/src/modules/refunds/refund.entity.ts	
+13	final	apps/api/src/modules/refunds/refunds.controller.ts	
+13	final	apps/api/src/modules/refunds/refunds.module.ts	
+13	final	apps/api/src/modules/refunds/refunds.service.spec.ts	
+13	final	apps/api/src/modules/refunds/refunds.service.ts	
+13	final	apps/api/src/app.module.ts	

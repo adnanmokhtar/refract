@@ -1,0 +1,7 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "api-reference",
+  "readme": "README.md",
+  "excludePrivate": true,
+  "treatValidationWarningsAsErrors": true
+}

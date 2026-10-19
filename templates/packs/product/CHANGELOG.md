@@ -6,6 +6,15 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 2.0.0 — 2026-10-19
+
+**The product pack became a detector pack (Track A batch 7).** Before this release it reviewed requirement prose and planned launches, but nothing in it could tell whether a shipped feature was finished, whether the analytics matched the tracking plan, or whether the plans the pricing page sells are the plans the gates enforce.
+
+- **Detectors.** `feature-surface-scan` + `scripts/surface-map.py` (FS §1–§5: a call nobody serves, a route nobody calls, a link to no page, a shipped placeholder, a dead affordance — a join of served routes, client calls, pages and links, not a grep; Nest, Express, FastAPI, Django/DRF with per-method ViewSet expansion, Next/react-router lanes; `--routes-from` for other stacks), `tracking-plan-scan` + `scripts/event-inventory.py` (AN §1–§7: unplanned and never-fired events, name and property drift, an outcome fired before the outcome, duplicates, an untyped channel; SDK, wrapper and object lanes incl. `properties: {…}`), `entitlement-consistency-scan` (EN §1–§6: one plan fact two values, gate keys outside the catalog, plan names in feature checks, entitlements no gate enforces, UI showing what the server refuses, billing wiring).
+- **Launch readiness is a scorecard.** `launch-readiness` rewritten over `rules.json` (21 rules) and `scripts/readiness-score.py` (deterministic levels; `UNVERIFIED` never passes); `--repo` scores the repo and every feature with a success file. `acceptance-criteria-check` rewritten (EARS lane + spec-trace lane TR §1–§4; run-ledger story headings are not criteria; the EARS linter falls back to the installed repo baseline).
+- **`/audit-requirements`** keeps its name (owner decision O-2) with `--spec` and `--repo` lanes, a class ledger, a refute step and a verdict; **`/product-fix`** (new) closes findings failing first. `requirements-reviewer` has one owner, the delivery pack (the product copy is deleted). Global `/audit` dispatches the readiness lens and `/roadmap` detectors 1/2/6 start from `feature-surface-scan` when the pack is installed.
+- **Fixture `launch-gaps`** (pnpm monorepo, NestJS 11 / Fastify + React 19; 59 product seeds over 27 classes, 3 routed, 16 decoys). Precedents `precedents/product.md` § 1–38; proof oracles V409–V429. Pack description 6,020 → 2,897 characters.
+
 ## 1.2.0 — 2026-08-26
 
 **The pack could interrogate the person in the room, and had nothing for the one who is not.**

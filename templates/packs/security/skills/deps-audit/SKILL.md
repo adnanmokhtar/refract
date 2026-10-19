@@ -1,6 +1,8 @@
 ---
 name: deps-audit
 description: Run the ecosystem's dependency audit (npm / pip / cargo / composer / go) and triage the findings, separating blockers from noise. Run before every release, after a fresh install, when a new advisory lands, and weekly in CI. Scans the manifest and lockfile — `release-security` is what scans the built container image's OS layer.
+kind: skill
+pack: security
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -32,9 +34,10 @@ Find real issues, no hand-waves. Every finding cites the advisory id (CVE / GHSA
    ```bash
    # Cross-ecosystem (osv-scanner 2.x; the 1.x form `osv-scanner --lockfile=<path>` is still accepted by 2.6):
    osv-scanner scan source --lockfile=<path> --format json > /tmp/osv.json     # or: osv-scanner scan source -r .
-   # Not installed → docker. Pipe the lockfile in: a bind mount from a path Docker Desktop does not share comes up
+   # Not installed → the image, only when it is already local (an audit never pulls it); neither → print
+   # NOT-RUN (osv-scanner not installed — to enable: brew install osv-scanner, or docker pull ghcr.io/google/osv-scanner). Pipe the lockfile in: a bind mount from a path Docker Desktop does not share comes up
    # empty and osv exits 127 "could not determine extractor". The image's binary is /osv-scanner, not on PATH.
-   docker run --rm -i --entrypoint sh ghcr.io/google/osv-scanner -c \
+   docker run --pull=never --rm -i --entrypoint sh ghcr.io/google/osv-scanner -c \
      'mkdir /w && cat > /w/pnpm-lock.yaml && /osv-scanner scan source --lockfile=/w/pnpm-lock.yaml --format json' \
      < pnpm-lock.yaml > /tmp/osv.json            # name the file as the lockfile type, or prefix it: --lockfile=pnpm-lock.yaml:/w/lock
    # Node — NOTE the schema differs by tool/version:

@@ -320,5 +320,5 @@ The "winner" is a hand-run `GROUP BY variant` with no tenant scope / no as-of / 
 - `<rules-path>/compliance` — consent classes; a non-consented user is not enrolled and emits no events.
 - `reporting` — the experiment readout is a trust-critical number: tenant-scoped, reproducible, as-of-labeled, computed on the read store.
 - `<commands-path>/audit-experiment.md` — diagnose a specific experiment's assignment + exposure + analysis contract.
-- `<agents-path>/ab-testing-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/ab-testing-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-experimentation-platform.md` — ADR pinning the platform, the analysis methodology, and the SRM/kill-switch contract.

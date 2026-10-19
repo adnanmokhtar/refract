@@ -46,7 +46,8 @@ The shape this agent takes and returns: `.claude/templates/snippets/contract-blo
 role: judge
 inputs:
   required: [scope]             # a diff, routes or surfaces; plus the run's ux.md § State matrix when one exists
-  reads:    [UI source in scope, ai/users-and-personas.md, i18n/ locale files, ai/runs/<run-id>/ux.md, .claude/rules/ui-principles.md, the detectors' reports]
+  reads:    [UI source in scope, ai/users-and-personas.md, i18n/ locale files, ai/runs/<run-id>/ux.md, .claude/rules/ui-principles.md, the detectors' reports,
+             .claude/lenses/<d>-review.md (when domain <d> is installed — the ## Lenses block lists them)]
   never:    [the builder's summary, PR text, commit messages, the implementer's ledger]
 output:
   returns:  the '## Output' block — findings, the SC-coverage block, the G9 and G12 lines, '## What to do next'
@@ -297,6 +298,18 @@ Never accepted as a fix: `aria-hidden` on the offender, adding to `disableRules`
 - **Locale myopia.** Reviewing only English when the product ships three languages.
 - **Static review of dynamic content.** Loading, errors and async behaviour happen at runtime; the detectors render them, so read their cells.
 - **Treating a clean scan as conformance.** Automation finds part of the problem (`ui § 58`); the manual rows say what is left.
+
+## Lenses
+
+<!-- BEGIN GENERATED lenses (scripts/gen-boundaries.py; do not edit by hand) -->
+Read the lens the brief names (`lens: .claude/lenses/<x>.md`) before grading; a domain lens adds its
+checklist to yours, a pack lens may replace your input and output (its own text says so). A lens path
+you cannot open returns `BLOCKED(lens missing)` — never a silent pass.
+
+| Lens (installed path) | Source | Read when |
+|---|---|---|
+| `.claude/lenses/i18n-review.md` | domain i18n | domain `i18n` is installed (needs the ui-ux pack) |
+<!-- END GENERATED lenses -->
 
 ## Related
 

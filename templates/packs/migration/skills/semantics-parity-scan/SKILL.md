@@ -128,14 +128,14 @@ Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase
 
 - **A real Supabase → Nest port** (2026-10-19). Before: every SM V1 grep read `*.php` (0 V1 lines). After: SM1b 484 · SM2b 273 · SM4b 2 · SM5b 504 · SM6b 525 · SM7b 1,252 (narrowed from 12,940: only `coalesce(x, '')`, `nullif(x, '')`, `json_strip_nulls`) · SM8b 369 · SM-routed 376. The I-MONEY lane pairs 5 V1 areas (was 1) once pagination rounding is dropped (precedent § 49). `port-pair` unchanged.
 
-- **`port-pair`, paired** (`--live-v1`; the port PR in `change/` overlaid). Engine rows (the build whose candidate rows carry a `lane` column): I-MONEY 5 / 6 rows → 1 V2-ONLY, 4 CHANGED — the PR's `credit-note.ts` pairs by name with V1 `PricingService` as `area:pricing half-away → half-away,half-up`, and `area:order` carries the `float-tofixed` line net; I-CONF `timezone` Asia/Riyadh → UTC and `per_page` 25 → 20. Grep lines: SM0 9 · SM1a 9 · SM1b 12 · SM2a 2 · SM2b 4 · SM4a 2 · SM4b 3 · SM5a 6 · SM5b 8 · SM6a 7 (3 sites) · SM6b 8 · SM7a 2 · SM7b 8 · SM8a 1 · SM8b 6 · routed 16. Each of the 16 migration-owned SM seeds sits on a grep line or a lane row, the **negative-half credit-note seed** on SM1a (`Math.round(Number(net) * ratio * -1 * 100) / 100`) paired with SM1b `round((float) $net * $ratio * -1, 2)`; the three routed seeds sit on the routed line (casts, `lockForUpdate`) or their owner's input (`lang/ar`). Decoys on a line, refuted on reading: half-even by ADR (SM1a), decimal.js `ROUND_HALF_UP` (SM1a), the tag suggester whose contract says the order is unspecified (SM6a). The display-only `Intl.NumberFormat` decoy is on no line.
+- **`port-pair`, paired** (`--live-v1`; the port PR in `change/` overlaid). Engine rows (the build whose candidate rows carry a `lane` column): I-MONEY 5 / 6 rows → 1 V2-ONLY, 4 CHANGED — the PR's credit-note module pairs by name with the V1 pricing service as `area:pricing half-away → half-away,half-up`, and `area:order` carries the `float-tofixed` line net; I-CONF `timezone` Asia/Riyadh → UTC and `per_page` 25 → 20. Grep lines: SM0 9 · SM1a 9 · SM1b 12 · SM2a 2 · SM2b 4 · SM4a 2 · SM4b 3 · SM5a 6 · SM5b 8 · SM6a 7 (3 sites) · SM6b 8 · SM7a 2 · SM7b 8 · SM8a 1 · SM8b 6 · routed 16. Each of the 16 migration-owned SM seeds sits on a grep line or a lane row, the **negative-half credit-note seed** on SM1a (`Math.round(Number(net) * ratio * -1 * 100) / 100`) paired with SM1b `round((float) $net * $ratio * -1, 2)`; the three routed seeds sit on the routed line (casts, `lockForUpdate`) or their owner's input (`lang/ar`). Decoys on a line, refuted on reading: half-even by ADR (SM1a), decimal.js `ROUND_HALF_UP` (SM1a), the tag suggester whose contract says the order is unspecified (SM6a). The display-only `Intl.NumberFormat` decoy is on no line.
 - **Noise fix.** SM6a first also listed every single-key `orderBy`: 14 lines on `slow-marketplace`. Restricted to paged reads with no `orderBy` and `findOne` ordered by one non-id key, it prints 1 there and keeps both seeds.
 - **V2-only fixtures** (no V1): `slow-marketplace` SM1a 7 · SM7a 3 · SM8a 4; `quality-mix` SM1a 7 · SM4a 3; `backend-defects` SM1a 4; others ≤ 3 per grep.
 - **Solo** (re-recorded inventory): the V1 greps read an empty directory; every SM row stays `Unconfirmed-solo` with the recorded I-MONEY / I-CONF line as the only V1 evidence.
 
 ## The 3,000-row path
 
-1. **Key by area first.** `cut -f4 "$OUT/candidates.tsv" | sort | uniq -c` on the `area:` rows (I-MONEY pairs on the outermost money method). One shared V2 helper that differs from V1 (a `roundHalfAway` written as `Math.round`) is **one finding with N call sites**; a V2 helper that matches V1 (decimal.js with an explicit mode) clears every call that goes through it.
+1. **Key by area first.** `cut -f4 "$OUT/candidates.tsv" | sort | uniq -c` on the `area:` rows (I-MONEY pairs on the outermost money method). One shared V2 helper that differs from V1 (a `roundMoney` written as `Math.round`) is **one finding with N call sites**; a V2 helper that matches V1 (decimal.js with an explicit mode) clears every call that goes through it.
 2. **Read money paths first** (stored, charged, reported), then integer division on stock and SLA paths, then strings on validated or sent fields, then list order on paged and "first" reads, then presence on typed consumers, then dates on report boundaries.
 3. **Close a group with one checked reason** (`22 Math.round calls in apps/web: display only, inputs are V1-rounded strings`). Money paths are never bulk-closed by name.
 4. **Ledger the rest** as `Live, unreviewed (k groups / n lines)`, never `checked`.
@@ -160,14 +160,14 @@ Measured 2026-10-18 on this repo's fixtures, and 2026-10-19 on one real Supabase
 ```
 BAD:   V1  $refund = round((float) $net * $ratio * -1, 2);           V2  Math.round(Number(net) * ratio * -1 * 100) / 100
        V1  round((float) $unitPrice * $quantity * (1 - $discount), 2) V2  Number((unitPrice * quantity * (1 - discount)).toFixed(2))
-GOOD:  V2  money.roundHalfAway(x, 2)   (decimal.js toDecimalPlaces(2, ROUND_HALF_UP): ties away from zero, as PHP)
+GOOD:  V2  money.roundMoney(x, 2)      (decimal.js toDecimalPlaces(2, ROUND_HALF_UP): ties away from zero, as PHP)
 ```
 **Read both ends.** Which PHP version (pre-rounding before 8.4)? Can the value be negative (credits, refunds, returns, discounts) or land on a half cent? Does a shared V2 helper already match V1, so the finding is the call that bypasses it? Is the result stored, charged or summed into a report? **Finding when** some reachable input rounds differently on a stored, charged or reported amount. **Proof:** V363 — property with V1 as the model at x.5 ties, negatives and `1.005`.
 
 ### 2. Rounding order and allocation (MG-MN-2)
 
 ```
-BAD:   V1  foreach (lines) { $tax += round($net * $rate, 2); }          V2  roundHalfAway(subtotal * taxRate, 2)
+BAD:   V1  foreach (lines) { $tax += round($net * $rate, 2); }          V2  roundMoney(subtotal * taxRate, 2)
        V1  Money::allocate($total, $count)  (remainder cents first)    V2  Array.from({ length: n }, () => round(total / n, 2))
 GOOD:  V2  per-line tax then sum  ·  money.allocateCents(total, n)
 ```
@@ -235,12 +235,12 @@ semantics-parity-scan — paired · php ^8.3 → node (decimal.js 10.4.3, dayjs 
 
 Findings: 1 · Unconfirmed: 3 · routed: backend 1 · frontend 1 · database 1
 
-1. v2/apps/api/src/invoices/credit-note.ts:5                      [report-with-fix]  high
+1. v2/apps/api/src/invoices/credit-memo.ts:5                      [report-with-fix]  high
    §1 rounding mode — Math.round(Number(net) * ratio * -1 * 100) / 100 vs V1 round((float) $net * $ratio * -1, 2)
-   (v1/app/Services/PricingService.php:21). Credit notes are stored and refunded. Proof: V363 net 1.125, ratio 1:
-   V1 −1.13, V2 −1.12 (fails). Fix: money.roundHalfAway(…, 2), the helper the other money paths use.
-2. v2/apps/api/src/tickets/sla.ts:21                              [report-flagged]   medium
-   §5 look-alike — `if (!pos)` after indexOf vs V1 `$pos === false` (SlaService.php:27): tier1 (index 0) reads as
+   (v1/app/Services/RefundCalculator.php:21). Credit notes are stored and refunded. Proof: V363 net 1.125, ratio 1:
+   V1 −1.13, V2 −1.12 (fails). Fix: money.roundMoney(…, 2), the helper the other money paths use.
+2. v2/apps/api/src/tickets/escalation.ts:21                       [report-flagged]   medium
+   §5 look-alike — `if (!pos)` after indexOf vs V1 `$pos === false` (EscalationService.php:27): tier1 (index 0) reads as
    unknown. Unproven link: no property run. Settling test: V365 nextTier('tier1') → 'tier2' on both.
 
 Verification: 19 candidates → 1 finding · 13 unconfirmed · 2 hardening · 0 pre-existing · 3 refuted

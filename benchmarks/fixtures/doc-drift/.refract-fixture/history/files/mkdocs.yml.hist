@@ -1,0 +1,40 @@
+site_name: Tallyhook
+site_url: https://docs.example.com/
+repo_url: https://git.example.com/tallyhook/tallyhook
+docs_dir: docs/guide
+
+theme:
+  name: material
+
+plugins:
+  - search
+  - i18n:
+      fallback_to_default: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+        - locale: ar
+          name: العربية
+
+markdown_extensions:
+  - admonition
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: false
+
+validation:
+  links:
+    anchors: warn
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Billing: billing/overview.md
+  - SDK: sdk.md
+  - Webhooks: webhooks.md
+  - Reports: reports.md
+  - FAQ: faq.md
+
+not_in_nav: |
+  /ar/

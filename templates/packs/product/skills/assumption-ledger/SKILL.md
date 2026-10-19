@@ -1,6 +1,8 @@
 ---
 name: assumption-ledger
-description: Extract the implicit assumptions from a brief, spec, or plan, rank them by impact × uncertainty, and attach the cheapest test that would move each one. Run after framing a problem, when a plan depends on beliefs nobody has stated, before committing to work larger than a sprint, and when a project keeps being extended without a decision. Makes the BETS visible and testable — `evidence-trace` finds which requirements have no source, and this skill turns those into ranked, testable claims.
+description: "Rank a plan's hidden assumptions by impact × uncertainty, each with its cheapest test, an expiry and a decision."
+kind: skill
+pack: product
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -71,9 +73,11 @@ For each row, the cheapest thing that would meaningfully move the uncertainty �
 
 State the test, its cost, and **what result would change the decision**. A test whose outcome would not alter anything is not worth running, and saying so out loud saves more time than the test would have.
 
-### 5. Set expiry
+### 5. Set expiry and record the decision
 
-Each row gets a date by which it must be tested or accepted. An assumption carried past its expiry without a decision has quietly become a fact, which is exactly the failure this ledger exists to prevent.
+Each row gets a date (`YYYY-MM-DD`) by which it must be tested or accepted. An assumption carried past its expiry without a decision has quietly become a fact, which is exactly the failure this ledger exists to prevent.
+
+The `Decision` column holds `open`, `tested: <result> (<date>)` or `accepted: <named person>`; nothing else counts as decided. The `Feature` column holds the success-file slug the row belongs to (empty or `*` for every feature). `launch-readiness` reads these columns by header name (rule PRR-LR-6): at a feature's launch every `fatal × high` row for that feature must be decided, and at repo scope every one past its expiry.
 
 ### 6. Report
 
@@ -82,8 +86,8 @@ Each row gets a date by which it must be tested or accepted. An assumption carri
 
 Objective the impact is measured against: <success metric or goal>
 
-| # | Assumption (falsifiable) | Category | Impact | Uncertainty | Rank | Cheapest test | Cost | Would change | Expiry | Owner |
-|---|--------------------------|----------|--------|-------------|------|---------------|------|--------------|--------|-------|
+| # | Assumption (falsifiable) | Category | Impact | Uncertainty | Rank | Cheapest test | Cost | Would change | Expiry | Owner | Decision | Feature |
+|---|--------------------------|----------|--------|-------------|------|---------------|------|--------------|--------|-------|----------|---------|
 
 Top rows (fatal × high): <n> — these block commitment
 Tests runnable this week: <n>
@@ -136,4 +140,16 @@ Recommendation: <test before committing | commit and monitor | do not commit>
 
 ## Verify (postconditions)
 
-Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). **Preconditions are not verification** — this skill guards its entry and must also check its exit. Every entry under `## Failure modes` that this skill's own write could cause becomes a check here, observed rather than assumed, reported when it passes as well as when it fails, and `NOT RUN` with a reason where no signal is available. A failure mode the skill documented and never checked is a risk it accepted on the caller's behalf without saying so.
+Contract: [`templates/snippets/postcondition-check.md`](../../../../snippets/postcondition-check.md). This skill writes `ai/product/assumptions.md`; each check below is observed after the write, reported when it passes as well as when it fails, and `NOT RUN (<reason>)` where no signal is available. They are the gotchas above that this skill's own write can cause.
+
+| # | Postcondition | How it is observed |
+|---|---|---|
+| P1 | The ledger was appended, not rewritten: every row present before the run is still present, unexpired rows carried forward | row count and `#` ids before vs after (`git diff --stat ai/product/assumptions.md`, or the file read before the write) |
+| P2 | Every new row is falsifiable: a threshold or a countable outcome, no "users value …" | each `Assumption` cell holds a number, a percentage or a named observable; a row without one is listed |
+| P3 | Every new row has `Impact` ∈ fatal / major / minor, `Uncertainty` ∈ high / medium / low, an ISO `Expiry` after today, a named `Owner` and a `Decision` (`open` is a value) | the columns read back by header name, the same way `readiness-score.py` reads them |
+| P4 | The ledger is a plan, not a document: at most about ten rows per brief, the `fatal × high` rows first | count per brief; ranks in order |
+| P5 | Every test names what result would change the decision | the `Would change` cell is non-empty and not a restatement of the test |
+| P6 | Rows past expiry from earlier ledgers are listed by name in the report | the expired-and-open set computed from the file equals the report's list |
+| P7 | No dependency is recorded as an assumption ("the vendor's API supports this" is a task) | `Category: dependency` rows are each checked: a one-afternoon check is moved to the task list |
+
+`python3 -I .claude/skills/launch-readiness/scripts/readiness-score.py --repo=. --scope=repo --rule=PRR-LR-6` (when this pack's `launch-readiness` is installed) is the mechanical read of P3 and P6: it exits 2 while a `fatal × high` row is past its expiry and undecided.

@@ -53,9 +53,9 @@ depends on which job runs which config. Print the lanes in the output header.
 
 | Stack | Collected-list oracle (§ 3) | Focus / skip guard (§ 1–2) | Masking switches to look for (§ 4) | Retry and its flaky gate (§ 6) |
 |---|---|---|---|---|
-| **Jest** 30 | `npx jest --listTests --config <cfg>` | no runtime guard: eslint-plugin-jest `no-focused-tests` (error), `no-disabled-tests` (warn) with `--max-warnings 0` | `--passWithNoTests`, `--forceExit` (an un-awaited failing assertion passes under it) | `jest.retryTimes(n)` — no flaky gate |
-| **Vitest** | `npx vitest list --filesOnly` | `allowOnly` (read the version's default and the CI env); @vitest/eslint-plugin `no-focused-tests` | `--passWithNoTests` | `retry`, `--retry` — no flaky gate |
-| **Playwright** 1.63 | `npx playwright test --list` | `forbidOnly: !!process.env.CI` | — | `retries` + `--fail-on-flaky-tests` |
+| **Jest** 30 | `npx --no jest --listTests --config <cfg>` | no runtime guard: eslint-plugin-jest `no-focused-tests` (error), `no-disabled-tests` (warn) with `--max-warnings 0` | `--passWithNoTests`, `--forceExit` (an un-awaited failing assertion passes under it) | `jest.retryTimes(n)` — no flaky gate |
+| **Vitest** | `npx --no vitest list --filesOnly` | `allowOnly` (read the version's default and the CI env); @vitest/eslint-plugin `no-focused-tests` | `--passWithNoTests` | `retry`, `--retry` — no flaky gate |
+| **Playwright** 1.63 | `npx --no playwright test --list` | `forbidOnly: !!process.env.CI` | — | `retries` + `--fail-on-flaky-tests` |
 | **Mocha** | `mocha --dry-run` | `--forbid-only --forbid-pending` | — | `this.retries(n)` |
 | **pytest** 9 | `pytest --collect-only -q`; `-W error::pytest.PytestCollectionWarning` | `-o xfail_strict=true` | `-p no:warnings`, `PYTHONOPTIMIZE` | `--reruns`, `@pytest.mark.flaky` — no flaky gate |
 | **Go** | `go test -list '.*' ./...` (and with each build tag) | — | `-run` hard-coded | `gotestsum --rerun-fails` |
@@ -327,7 +327,7 @@ declared (the QG-9 pre-existing line). 6a–6c: 0; an unscoped `retries` grep re
 settings in shipped code, which is why grep 6 reads only runner config, test files and CI. On
 `benchmarks/fixtures/*` (no CI file in any of them) 3b prints `NO-CI-FILE` and its 9 test scripts as
 `NOT-IN-CI` — true, nothing runs them in CI — and every other grep returns 0. On `brittle-suite`
-(2.0.1) 3d prints `NO-FAILSAFE …/PayoutRepositoryIT.java:12` — its pom declares Surefire only, an
+(2.0.1) 3d prints `NO-FAILSAFE …/LedgerRepositoryIT.java:12` — its pom declares Surefire only, an
 absence no line grep can cite.
 
 ## The 3,000-hit path
@@ -380,7 +380,7 @@ GOOD:  it.skip('… — #812, owner @payments, remove by 2026-12-01', …) · a 
 BAD:   src/billing/refund.test.ts under a config whose testRegex is '\.spec\.ts$'
        test/integration/*.spec.ts outside roots ['<rootDir>/src', '<rootDir>/test/unit']
        func Testrefund(t *testing.T) · class TestOrders: def __init__ · import org.junit.Test under Jupiter without vintage
-       PayoutRepositoryIT.java in a module whose pom declares maven-surefire-plugin only — Surefire never runs *IT
+       LedgerRepositoryIT.java in a module whose pom declares maven-surefire-plugin only — Surefire never runs *IT
        "test:flows": "playwright test" — and no workflow runs it
 GOOD:  the file renamed into the pattern or the pattern widened; a CI job (or a scheduled workflow with an owner) that runs the suite
 ```

@@ -1,0 +1,27 @@
+{
+  "currency": "USD",
+  "billing": "monthly",
+  "plans": [
+    {
+      "key": "starter",
+      "name": "Starter",
+      "price": "$19/mo",
+      "features": ["1 store", "Up to 2 seats", "Inventory and orders"]
+    },
+    {
+      "key": "growth",
+      "name": "Growth",
+      "price": "$49/mo",
+      "features": ["3 stores", "Up to 10 seats", "Reports", "WhatsApp inbox, loyalty points and gift cards included"]
+    },
+    {
+      "key": "scale",
+      "name": "Scale",
+      "price": "$129/mo",
+      "features": ["Unlimited stores", "Up to 25 seats", "Advanced reports", "AI assistant", "API access", "Bulk import"]
+    }
+  ],
+  "faq": [
+    { "q": "Can I change plans later?", "a": "Yes. Upgrades apply immediately and are prorated." }
+  ]
+}

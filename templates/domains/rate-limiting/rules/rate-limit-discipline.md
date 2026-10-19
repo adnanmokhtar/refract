@@ -87,7 +87,7 @@ Rate limiting is a correctness + availability + abuse control, not a nicety. A m
 ## Enforcement
 
 - `<commands-path>/probe-limits.md` (slash: `/probe-limits`) — fires a controlled burst at a target endpoint (LOCAL / STAGING ONLY) and reports the observed status sequence + the actual `Retry-After` / `RateLimit-*` headers, proving the limit triggers and the contract is correct. Cite-or-halt: refuses prod, never reports an assumed result.
-- `<agents-path>/rate-limit-reviewer.md` — review gate hard-failing on in-memory counters in multi-instance services, missing limits on auth / expensive endpoints, missing `429`/`Retry-After`/`RateLimit-*`, accidental fail-open on critical paths, global-instead-of-per-identity limiting, untrusted-header IP keys, check-then-set races, and unbounded expensive endpoints.
+- `.claude/lenses/rate-limiting-review.md` — review gate hard-failing on in-memory counters in multi-instance services, missing limits on auth / expensive endpoints, missing `429`/`Retry-After`/`RateLimit-*`, accidental fail-open on critical paths, global-instead-of-per-identity limiting, untrusted-header IP keys, check-then-set races, and unbounded expensive endpoints.
 - CI lint MUST flag module-level mutable counters (`new Map()` / `{}` / array used as a hit counter) in files that also import the HTTP router, in any service whose deploy manifest declares `replicas > 1`.
 - CI lint MUST flag any auth-sensitive route handler (`login`, `reset-password`, `signup`, `verify-otp`, `forgot`) that has no rate-limit decorator / middleware in its chain.
 - CI lint MUST flag reads of `x-forwarded-for` / `forwarded` / `x-real-ip` that are not routed through the project's trusted-proxy IP resolver.
@@ -98,6 +98,6 @@ Rate limiting is a correctness + availability + abuse control, not a nicety. A m
 - `<patterns-path>/rate-limiter.md` — algorithm trade-offs, the `RateLimiter` interface, token-bucket Lua script, atomic fixed/sliding-window scripts, tiered-quota + cost-weight shapes, fail-open/closed policy table, header emission, trusted-proxy IP resolution.
 - `<rules-path>/payment-idempotency.md` — idempotent retries with backoff after a 429 on money-moving paths (reuse the original key).
 - `<patterns-path>/webhook-flow.md` — inbound retry-heavy traffic; relate the provider's own retry/backoff to your throttle responses.
-- `<agents-path>/rate-limit-reviewer.md` — review gate.
+- `.claude/lenses/rate-limiting-review.md` — review gate.
 - `<commands-path>/probe-limits.md` — limit-probe tool.
 - `<adr-path>/<NNN>-rate-limit-policy.md` — ADR pinning the algorithm choice, the identity dimensions, the tier limits, and the per-endpoint fail-open/closed decisions.

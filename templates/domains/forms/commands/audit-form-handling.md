@@ -89,4 +89,4 @@ Top recommendation:
 - `ai/patterns/form-handling.md` — the shared-schema + CSRF + idempotent-submit + allowlist-bind + per-field-error code shapes.
 - `<rules-path>/file-upload` — where file fields must delegate.
 - `<rules-path>/rate-limit` — per-IP/identifier limits + bot gate for public forms.
-- `<agents-path>/forms-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/forms-review.md` — review gate that consumes these findings.

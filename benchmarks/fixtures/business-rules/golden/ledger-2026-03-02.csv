@@ -1,0 +1,7 @@
+entry_id,source_type,source_id,account_code,currency,debit_minor,credit_minor
+e-0001,payment,pay_8812,stripe_clearing,EUR,4990,0
+e-0001,payment,pay_8812,merchant_payable,EUR,0,4990
+e-0002,payment,pay_8813,stripe_clearing,EUR,12500,0
+e-0002,payment,pay_8813,merchant_payable,EUR,0,12500
+e-0003,refund,re_1201,merchant_payable,EUR,2495,0
+e-0003,refund,re_1201,stripe_clearing,EUR,0,2495

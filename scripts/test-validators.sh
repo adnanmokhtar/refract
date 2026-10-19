@@ -97,7 +97,7 @@ done
 # Engines whose contract is a fixture tree plus recorded expectations rather than a good/bad case
 # pair. Each runner exits 0 only when every expectation holds (and proves it can fail); a missing
 # runner is a FAIL, not a skip, so renaming one cannot turn this section into a silent pass.
-RUNNERS=(tests/align-sweep-gate/run.sh)
+RUNNERS=(tests/align-sweep-gate/run.sh tests/doc-claims/run.sh)
 for runner in "${RUNNERS[@]}"; do
   if [ ! -f "$REPO_ROOT/$runner" ]; then
     echo "  FAIL  $runner  — runner missing"
@@ -107,6 +107,48 @@ for runner in "${RUNNERS[@]}"; do
     pass=$((pass + 1))
   else
     echo "  FAIL  $runner"
+    printf '%s\n' "$out" | sed 's/^/        /' | tail -20
+    fail=$((fail + 1))
+  fi
+done
+
+# Pack scripts whose contract is their own --self-test (a seeded tree + expectations, exit 0 only when
+# every check holds). Batch 8 (2026-10-19): algorithms IR-6 asked for algo-sites.py; the other three
+# batch-8 inventories ride along — each runs in about a second. A missing script is a FAIL.
+# Each entry is "<skill dir>:<script>" — a pack skill's own scripts/ sidecar, not a framework script
+# (lint-setup-contracts R13 reads a literal `scripts/<name>.py` here as a sibling of this file).
+SELF_TESTS=(templates/packs/algorithms/skills/complexity-scan:algo-sites.py
+            templates/packs/ai-engineering/skills/llm-gateway-audit:llm-sites.py
+            templates/packs/data-engineering/skills/incremental-load-scan:model-graph.py
+            templates/packs/finops/skills/unit-cost-probe:bill-lane.py)
+for ent in "${SELF_TESTS[@]}"; do
+  st="${ent%%:*}/scripts/${ent#*:}"
+  if [ ! -f "$REPO_ROOT/$st" ]; then
+    echo "  FAIL  $st  — script missing"
+    fail=$((fail + 1))
+  elif out="$(python3 -I -B "$REPO_ROOT/$st" --self-test 2>&1)"; then
+    [ $QUIET -eq 0 ] && echo "  ok    $st --self-test  ($(printf '%s\n' "$out" | tail -1))"
+    pass=$((pass + 1))
+  else
+    echo "  FAIL  $st --self-test"
+    printf '%s\n' "$out" | sed 's/^/        /' | tail -20
+    fail=$((fail + 1))
+  fi
+done
+
+# Repo lints that guard what an audit may DO and what a skill may KNOW (2026-10-19, Phase-6 bench defects):
+# an audit pre-flight never installs or downloads a tool, and shipped text never names a benchmark
+# fixture's seeded files or functions. Each runs its fail-first --self-test, then the repo check.
+LINT_GATES=("bash scripts/lint-no-install-in-preflight.sh --self-test"
+            "bash scripts/lint-no-install-in-preflight.sh --quiet"
+            "python3 -I scripts/lint-fixture-leakage.py --self-test"
+            "python3 -I scripts/lint-fixture-leakage.py --quiet")
+for lg in "${LINT_GATES[@]}"; do
+  if out="$(cd "$REPO_ROOT" && bash -c "$lg" 2>&1)"; then
+    [ $QUIET -eq 0 ] && echo "  ok    $lg  ($(printf '%s\n' "$out" | tail -1))"
+    pass=$((pass + 1))
+  else
+    echo "  FAIL  $lg"
     printf '%s\n' "$out" | sed 's/^/        /' | tail -20
     fail=$((fail + 1))
   fi

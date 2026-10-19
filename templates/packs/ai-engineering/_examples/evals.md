@@ -66,7 +66,7 @@ CI runs the full set on every prompt/model/retrieval change; the build **FAILS b
 - **Eval set that never grows from incidents** → `backfill-eval-from-incident`
 - **CI "eval" that always exits 0** (no baseline gate) → `wire-regression-gate`
 
-**Closure verbs:** `add-eval-set`, `require-eval-diff`, `fix-judge-rubric`, `swap-judge-model`, `backfill-eval-from-incident`, `wire-regression-gate`.
+**Closure verbs:** `add-eval-set`, `require-eval-diff`, `fix-judge-rubric`, `swap-judge-model`, `backfill-eval-from-incident`, `wire-regression-gate`, `gate-eval-in-ci`, `unmask-eval-exit`, `migrate-eval-platform`, `pin-eval-judge`, `split-eval-examples`, `add-adversarial-cases`.
 
 ## Related
 

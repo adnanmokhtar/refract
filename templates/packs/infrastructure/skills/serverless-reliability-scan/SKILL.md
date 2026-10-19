@@ -250,7 +250,7 @@ GOOD:  concurrency set to what the runtime handles; long work moved to jobs or D
 | `serverless.jq` (above) | `jq -r -f "$SCAN/serverless.jq" plan.json` | configuration references + planned values | redrive is computed (unknown in the plan): it reads the configuration |
 | `blocks.awk` / `cfnlacks` | greps 3–5 | HCL blocks / CFN resources, comments stripped | no output can mean no block of that type: count the blocks first |
 | terraform / tofu (offline) | `terraform test` with `mock_provider` + `command = plan` (V255 assert); `plan -refresh=false` | a copy, fake credentials, no backend | Tofu needs valid-looking ARNs in `mock_resource`; NOT-INSTALLED → the row is `checked (static)` |
-| cfn-lint | `uvx cfn-lint --include-checks I --format json template.yaml` | CFN, SAM, `cdk.out/*.template.json` | E3505 checks visibility ≥ **1×** only; I-rules off by default |
+| cfn-lint | `cfn-lint --include-checks I --format json template.yaml` when installed (to enable: `pipx install cfn-lint`) | CFN, SAM, `cdk.out/*.template.json` | E3505 checks visibility ≥ **1×** only; I-rules off by default |
 | checkov | `checkov -d . --framework terraform -o json` **and** `checkov -f plan.json --framework terraform_plan` | HCL and plan | CKV_AWS_115 (concurrency) passes on plan (-1 filled in, precedents § 52); CKV_AWS_116 fires on SQS-polled functions (§ 19) |
 
 **Stacks real repos use:**

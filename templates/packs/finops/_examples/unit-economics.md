@@ -51,8 +51,10 @@ Split every move three ways before explaining it: **rate** (same usage, differen
 
 ## Detectors
 
+Read from the user's export by `unit-cost-probe` (UE-2) and `/cost-model` through `bill-lane.py`; `NOT-RUN (no billing export)` without one.
+
 - A cost-per-unit figure quoted with no denominator definition.
-- Branches that sum to less than the bill, unmentioned.
+- Branches that sum to less than the bill, unmentioned — V589's reconciliation (`bill-lane.py`).
 - A branch carrying an unlabelled number.
 - A unit cost that moved with no usage change — check tagging first.
 - A model with no revenue side.

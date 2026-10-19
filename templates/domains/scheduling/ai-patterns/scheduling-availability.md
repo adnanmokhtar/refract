@@ -290,5 +290,5 @@ Slots generated in the customer's zone but stored as the business's (or vice ver
 - `<rules-path>/background-jobs` — reminder + recurrence-materialization jobs run with per-occurrence idempotency; a redelivered reminder fires once.
 - `<rules-path>/notifications` — appointment reminders / confirmations / reschedule notices sent through the notifications layer, keyed per occurrence.
 - `<commands-path>/audit-scheduling.md` — diagnostic that locates the booking/availability code and reports timezone storage, recurrence, double-booking protection, DST, bounds, and idempotency.
-- `<agents-path>/scheduling-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/scheduling-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-scheduling-timezone-model.md` — ADR pinning the UTC+IANA model, the floating-vs-zoned policy, the DST skipped/duplicated-hour resolution, and the exclusion-constraint choice.

@@ -31,6 +31,8 @@ This is a READ-ONLY audit. Do NOT run the pipeline, do NOT trigger a backfill, d
 10. **Check post-load assertions** — are data-quality invariants asserted before promotion (row-count delta, null checks, key uniqueness, freshness, referential integrity)? None = finding.
 11. **Report** — sink verdict, checkpoint verdict, incremental verdict, contract/DLQ verdict, backfill verdict, memory verdict, plus the top fix.
 
+**When the data-engineering pack is installed**, the checks below that restate IN-1/2/3/7/8, OR-5, DQ-7, PC-4 and EX-3 are its detectors' (`incremental-load-scan`, `orchestration-scan`, `data-test-scan`, `pii-copy-scan`, `extract-scan`): run `/audit-data-quality` and cite its ledger rows here; this command corroborates and never grades them twice. Without the pack, the checks run as written.
+
 ## Flow
 
 ```text
@@ -91,4 +93,4 @@ Top fix:
 - `<rules-path>/background-jobs` — orchestration / retries / run-level DLQ the pipeline runs under.
 - `<rules-path>/compliance` — PII masking for lower-env extracts.
 - `<rules-path>/audit-log` — per-run provenance.
-- `<agents-path>/data-pipeline-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/data-pipeline-review.md` — review gate that consumes these findings.

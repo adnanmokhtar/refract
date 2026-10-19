@@ -1,0 +1,14 @@
+version: 2
+
+models:
+  - name: rpt_newsletter_audience
+    description: One row per customer subscribed to the newsletter.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+  - name: rpt_ad_audience
+    description: One row per customer per campaign.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [audience_key]

@@ -122,7 +122,7 @@ A finding is a grep hit **plus** a read of the test **plus** the double followed
 2. **Group.** One group = (the double's target type or module, the helper that builds it). 2a's 346 lines on the measured repo are about 60 groups by target type.
 3. **Rank by risk surface.** Doubles of money, auth, tenant, webhook and write-path collaborators first; within those, the ones no integration or e2e test exercises for real.
 4. **Read the top 30 groups fully.**
-5. **Prefer the bulk oracle.** For 2a, run the conformance codemod in a scratch worktree and let the compiler read every double at once: `rg -l --pcre2 '\}\s*\)?\s*as unknown as \w' "${TJ[@]}" "${X[@]}" . | xargs perl -0pi -e 's/\}(\s*\)?)\s*as unknown as ([\w.]+(?:<[^>\n]*>)?)/}$1 satisfies Partial<$2> as unknown as $2/g'`, then `npx tsc --noEmit -p <the tsconfig that includes the tests>`. Each error on a rewritten line is a drifted double: measured with TypeScript 7.0.2 on 2026-10-05, a drifted return or parameter type reports TS2322 and a method name the interface no longer has reports TS2561, while the same literal behind a plain `as unknown as` cast reports nothing. Discard the worktree. For Python, the same move is `create_autospec(<Real>, instance=True)` in place of `MagicMock()` and one run of the suite.
+5. **Prefer the bulk oracle.** For 2a, run the conformance codemod in a scratch worktree and let the compiler read every double at once: `rg -l --pcre2 '\}\s*\)?\s*as unknown as \w' "${TJ[@]}" "${X[@]}" . | xargs perl -0pi -e 's/\}(\s*\)?)\s*as unknown as ([\w.]+(?:<[^>\n]*>)?)/}$1 satisfies Partial<$2> as unknown as $2/g'`, then `npx --no tsc --noEmit -p <the tsconfig that includes the tests>`. Each error on a rewritten line is a drifted double: measured with TypeScript 7.0.2 on 2026-10-05, a drifted return or parameter type reports TS2322 and a method name the interface no longer has reports TS2561, while the same literal behind a plain `as unknown as` cast reports nothing. Discard the worktree. For Python, the same move is `create_autospec(<Real>, instance=True)` in place of `MagicMock()` and one run of the suite.
 6. **Ledger the rest.** `Live, unreviewed (k groups / n hits)` with the continuing command; never `checked`.
 
 ## Scans for
@@ -177,7 +177,7 @@ GOOD:  a port the project owns (OrderReader, EmailGateway) doubled in unit tests
 ```
 BAD:   DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}   # production is Postgres
        spring.datasource.url=jdbc:h2:mem:test;MODE=PostgreSQL · newDb() (pg-mem) · UseInMemoryDatabase()
-       overrideProvider(OrderRepository).useValue({ … }) in orders.e2e-spec.ts
+       overrideProvider(OrderRepository).useValue({ … }) in checkout.e2e-spec.ts
        @DataJpaTest: repo.save(order); assertThat(repo.findAll()).hasSize(1)   // no flush: the unique violation never fires
 GOOD:  Testcontainers pinned to the production major · PGlite for single-connection SQL semantics
        flush() / saveAndFlush() before asserting · django_capture_on_commit_callbacks(execute=True) · TransactionTestCase
@@ -213,7 +213,7 @@ Context: clearMocks only · production engine postgres 17 (compose) · e2e on @t
 
 Findings: 1 · Unconfirmed: 2
 
-1. test/unit/refund.service.spec.ts:31                                [report-with-fix]  high
+1. test/unit/refund-policy.spec.ts:31                                 [report-with-fix]  high
    §2 drifted double — { findById } as unknown as OrderRepository; the interface method is findOne(id, opts)
    since a1b2c3d. Proof: conformance codemod → TS2561 at :31; break the SUT's lookup → test still green.
    Fix: build the double from a typed helper (satisfies Partial<OrderRepository>); assert on the refund row. V70

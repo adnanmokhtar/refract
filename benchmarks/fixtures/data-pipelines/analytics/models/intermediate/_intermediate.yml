@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: int_customer_ltv
+    description: Customer lifetime value net of refunds, used by the marketing marts.
+    columns:
+      - name: customer_id
+  - name: int_orders_enriched
+    description: Orders with enrichment columns (one row per order).
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+  - name: int_kpi_joined
+    description: One row per order with its customer's country.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+  - name: int_kpi_base
+    description: One row per country.
+    columns:
+      - name: country
+        data_tests: [unique, not_null]

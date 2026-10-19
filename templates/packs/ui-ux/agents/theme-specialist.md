@@ -1,6 +1,6 @@
 ---
 name: theme-specialist
-description: Multi-theme owner — (1) BUILDS a new theme variant as a purely additive slot (owns the Additive / Architecture / Parity / Perf gates behind /add-theme-variant), and (2) AUDITS existing themes for silent divergence, proposes syncs, documents intentional gaps. For multi-tenant / multi-brand / multi-market SaaS UIs.
+description: "Use for multi-theme UIs (multi-tenant, multi-brand, multi-market): builds a new theme variant as an additive slot (the gates behind /add-theme-variant) and audits existing themes for silent divergence, proposing syncs and documenting intentional gaps."
 model: sonnet
 tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 ---
@@ -16,6 +16,13 @@ Both jobs obey the same law: **the shared LOGIC layer is one truth; only the pre
 - **Model A — token-only:** ONE shared component tree; a theme is token/style files; parity is measured **token-by-token**; a per-theme *component* fork is an anti-pattern.
 - **Model B — per-theme components:** each theme owns its own component set (`themes/<name>/components/…`) over the shared logic; parity is measured **component-by-component**; per-theme components are the ARCHITECTURE, not a fork.
 Detect from disk (do theme dirs hold *style files* or *components*?). The builder ADDS a slot (its tokens, and — in Model B — its own component set) without touching the shared logic layer or any existing theme; the auditor finds where an existing slot drifted from the default (token drift in A, component/token drift in B). Pick the job from the caller: `/add-theme-variant` (or "add a theme") → BUILDER; "did we update the X theme too?" / parity review → AUDITOR.
+
+## When to dispatch — the full routing note
+
+Moved here from the frontmatter `description` in Phase 6, when agent descriptions were capped at 300
+characters (they are listed on every session; this body is read only when the agent runs):
+
+> Multi-theme owner — (1) BUILDS a new theme variant as a purely additive slot (owns the Additive / Architecture / Parity / Perf gates behind /add-theme-variant), and (2) AUDITS existing themes for silent divergence, proposes syncs, documents intentional gaps. For multi-tenant / multi-brand / multi-market SaaS UIs.
 
 ## The Premise (read first, do not deviate)
 

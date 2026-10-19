@@ -171,8 +171,8 @@ One row per site, in the ledger's `- id:` form (the caller assigns `A<NNN>`):
   oracle: 'ai/conventions.md:19 "`src/lib/api-client.ts` is the only module permitted to construct an HTTP request."'
   oracle_tier: T2
   owner: align                              # or code-quality | ui-ux | frontend | backend | security | performance | database
-  evidence: [src/components/orders/OrderDetailPanel.tsx:16]
-  scope: [src/components/orders/OrderDetailPanel.tsx]
+  evidence: [src/components/billing/InvoiceDrawer.tsx:16]
+  scope: [src/components/billing/InvoiceDrawer.tsx]
   closure_verb: replace-with-shared
   shared_equivalent: src/lib/api-client.ts
   proof_class: EQ                           # EQ | VC | FN — find-and-align L1 re-derives it

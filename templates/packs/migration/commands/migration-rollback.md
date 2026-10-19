@@ -138,7 +138,7 @@ The user is prompted for a one-line reason (logged in `_history.md`). Cannot be 
 
 ## Phase 7 — Improve (feed the learning loop)
 
-- Append failure-catalog entry: `ai/failures/<NNNN>-phase-<N>-rollback.md` with the user-supplied reason + observable behavior that triggered rollback.
+- Append a failure-catalog entry to `ai/failures/_index.md` (`### <YYYY-MM-DD> — phase-<N>-rollback`) with the user-supplied reason + observable behavior that triggered rollback.
 - The next `/migration-replan` will read this failure entry and avoid the same approach.
 
 ## Output to user

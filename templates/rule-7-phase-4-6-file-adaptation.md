@@ -47,7 +47,7 @@ For each pack-added file, the LLM MUST:
    | Decision | When | Action |
    |---|---|---|
    | **CHANGE (anchor + inject)** | Pack file is generic but topic IS load-bearing in this project (e.g., `database-principles.md` for a multi-tenant project with custom repository base). | Prepend `## Project-specific (<project-name>)` block citing real paths, base classes, project idioms, ADRs, failures. Body stays. |
-   | **CHANGE (anchor + warn)** | Pack file's generic guidance CONFLICTS with project (e.g., pack says "use `<framework-idiom>`" but project has `ai/failures/<NNNN>` saying NEVER use it). | Anchor block must explicitly OVERRIDE the conflicting body section. Add "**Conflicts with generic body**:" sub-block calling out the specific conflict + the project's resolution. |
+   | **CHANGE (anchor + warn)** | Pack file's generic guidance CONFLICTS with project (e.g., pack says "use `<framework-idiom>`" but project has an `ai/failures/_index.md` entry saying NEVER use it). | Anchor block must explicitly OVERRIDE the conflicting body section. Add "**Conflicts with generic body**:" sub-block calling out the specific conflict + the project's resolution. |
    | **LEAVE** | Pack file is for a concern not present in this project (e.g., `gitops-principles.md` in a non-GitOps project) OR the project already has a richer project-authored equivalent (e.g., project has `ai/patterns/data-access.md` 130+ lines + `.claude/rules/database.md`, so `database-principles.md` from pack is purely supplementary). | Either delete the pack file OR add a 3-5 line note at top: "This project's primary guidance is `<project-file>`. The generic pack content below is supplementary background only." |
 
 4. **ACT on the decision** — write the file. Then move to the next.

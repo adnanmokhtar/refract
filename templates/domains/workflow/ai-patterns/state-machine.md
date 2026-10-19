@@ -332,6 +332,6 @@ Orders enter `awaiting_payment` and nothing ever expires them; the table fills w
 - `<rules-path>/background-jobs` — the outbox relay (after-commit dispatch) and the scheduled sweep that fires timeout / escalation transitions on stuck states.
 - `<patterns-path>/event-sourced` — event-driven lifecycle where state is a fold over an append-only event log and transitions ARE events; the audit trail is the event stream.
 - `<commands-path>/audit-state-machine.md` — locate the status field + transitions and verdict the table / guard / lock / idempotency / side-effect-ordering / audit / terminal axes.
-- `<agents-path>/workflow-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/workflow-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-workflow-state-model.md` — ADR pinning the state model, concurrency strategy, and saga/compensation approach.
 - **Boundary**: this is the APP-LEVEL domain state machine inside your service — distinct from the cataloged `workflow-orchestration` domain (Temporal / Cadence / Step Functions durable-execution infra), which owns cross-service workflow durability rather than a single entity's lifecycle.

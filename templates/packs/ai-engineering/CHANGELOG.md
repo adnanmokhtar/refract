@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-19
+
+**The ai-engineering pack became a detector pack (Track A batch 8).** Every detector reads one call-site inventory instead of a provider-name grep that missed raw-HTTP gateways and matched `cohere` inside "coherence".
+
+- **Inventory.** `llm-gateway-audit/scripts/llm-sites.py` (sdk / framework / wire / config lanes; per site: provider, model source, output cap, timeout and retries with SDK defaults as numbers, stream, tools, tool_choice, stop/refusal/usage reads, enclosing loop and cap, seam; `--models` against the dated `model-lifecycle.tsv`, `--evals`, `--strict`, `--self-test`). `sites.tsv` columns are append-only by contract; a `tenant` column (finops `spend-path-scan` §0 reads it) was added at integration.
+- **Detectors.** `llm-gateway-audit` rewritten (§1 seam, §B1–§B5 budgets, §L1–§L2 loops, §M1–§M2 metering), `prompt-audit` rewritten (§S structured output, §V model lifecycle and parameters, §P prompts), `eval-run` rewritten (coverage lane §C1–§C8 + run lane), `retrieval-eval` and `vector-index-audit` edited. Each carries a Measured paragraph on the seeded fixture.
+- **Trust classes moved to security** (`llm-trust-scan`, `mcp-server-scan`, security 2.5.0); this pack routes them with counts and never grades them. `/ai-audit` rewritten as the read-only audit (EV-1 with no eval set is GO-UNVERIFIED, not NO-GO); `/add-ai-feature --from-audit` is the fixer; `/add-eval-set` gains telemetry opt-outs, the exit-100 gate and the sunset guard; `@ai-feature-reviewer` judges in refute mode; 18 closure verbs in the patterns.
+- **Setup.** `detect-signals.sh` `llm_usage_detected` and a `detect-tracks.sh` rule select the pack (SMS `/v1/messages`, Twilio and "coherence" decoys pinned in `test-detect-signals.sh`); the preflight warns when the installed `model-lifecycle.tsv` is more than 90 days old.
+- **Fixture `llm-assist`** (172 seeds — 93 ai-engineering, 78 security, 1 performance — 23 decoys). Precedents `precedents/ai-engineering.md` §1–30; proof oracles V510–V539; 14 `ownership.json` rows (7 security, 7 ai-engineering).
+
 ## 1.5.2 — 2026-10-18
 
 - References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).

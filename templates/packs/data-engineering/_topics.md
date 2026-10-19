@@ -135,4 +135,59 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { signal_confirmed_any: [data-pipeline, reporting] }
   fallback: skills/warehouse-scan-audit/SKILL.md   # source-as-fallback — was `stub-from-sections` with no `sections:` list, i.e. an empty file on greenfield.
+
+- name: incremental-load-scan
+  kind: skill
+  triggers:
+    grep_evidence: "(?i)(is_incremental\\(\\)|materialized\\s*=\\s*['\"]incremental|\\{%-?\\s*snapshot\\b|partitionOverwriteMode|\\.write\\.mode\\(|io\\.debezium|to_sql\\(|merge\\s+into)"
+    OR_codebase_section: "the project loads data incrementally or in batches: dbt incrementals or snapshots, Spark writes, SQL/Python loaders with a watermark, CDC landing (signal-gated)"
+  extracts_from: _extracted-codebase.md § Data layer (incremental models, loaders, connectors) + § Modules (scheduled writers)
+  fallback: skills/incremental-load-scan/SKILL.md   # source-as-fallback
+
+- name: orchestration-scan
+  kind: skill
+  triggers:
+    grep_evidence: "(?m)^\\s*(from|import)\\s+(airflow|dagster|prefect)\\b"
+    OR_codebase_section: "the project defines Airflow DAGs, Dagster assets or Prefect flows (signal-gated)"
+  extracts_from: _extracted-codebase.md § Modules (orchestration definitions) + § Cross-cutting concerns (schedules, retries)
+  fallback: skills/orchestration-scan/SKILL.md   # source-as-fallback
+
+- name: data-test-scan
+  kind: skill
+  triggers:
+    grep_evidence: "(?im)(^\\s*(data_tests|tests)\\s*:|\\bexpect_[a-z_]+|checks\\s+for\\s+\\w+|\\bdbt\\s+(build|test|run)\\b|^\\s*AUDIT\\s*\\()"
+    OR_codebase_section: "the project declares data tests (dbt, Great Expectations, Soda, SQLMesh audits) or runs dbt in CI (signal-gated)"
+  extracts_from: _extracted-codebase.md § Tests (data-test framework + placement) + § Data layer (models, sources, freshness)
+  fallback: skills/data-test-scan/SKILL.md   # source-as-fallback
+
+- name: derived-data-scan
+  kind: skill
+  triggers:
+    grep_evidence: "(?i)(materialized\\s+view|insert\\s+into\\s+\\S+[^;]{0,400}select[^;]{0,1200}group\\s+by|\\w+_(daily|hourly|summary|rollups?|totals|facts|stats)\\b|at\\s+time\\s+zone|convert_tz\\s*\\()"
+    OR_codebase_section: "the project keeps derived data inside the app: rollup or summary tables, trigger-maintained tables, materialized views, closed-period snapshots, or time-bucket SQL (signal-gated)"
+  extracts_from: _extracted-codebase.md § Data layer (rollup, summary and snapshot tables; triggers; views) + § Modules (scheduled writers)
+  fallback: skills/derived-data-scan/SKILL.md   # source-as-fallback
+
+- name: extract-scan
+  kind: skill
+  triggers:
+    grep_evidence: "(?i)(exceljs|csv-stringify|fast-csv|papaparse|csv\\.writer|to_csv\\(|openpyxl|PhpSpreadsheet|pg_dump|mysqldump|chunk\\(|export\\w*runner)"
+    OR_codebase_section: "the project produces exports, sheet pushes, partner files or database dumps (signal-gated)"
+  extracts_from: _extracted-codebase.md § Modules (export runners, sheet pushes, dump jobs) + § Data layer (the tables they read)
+  fallback: skills/extract-scan/SKILL.md   # source-as-fallback
+
+- name: pii-copy-scan
+  kind: skill
+  triggers:
+    grep_evidence: "(?i)(policy_tags|contains_pii|masking\\s+policy|\\{%-?\\s*snapshot\\b|anonymi[sz]e|erasure|pg_dump[^\\n]*\\|\\s*psql|createHash\\([^)]*\\)\\.update\\([^)]*email)"
+    OR_codebase_section: "personal data is copied into analytical models, snapshots, rollups, exports or lower environments (signal-gated)"
+  extracts_from: _extracted-codebase.md § Data layer (analytical copies, snapshots, erasure handlers) + § Cross-cutting concerns (exports, environments)
+  fallback: skills/pii-copy-scan/SKILL.md   # source-as-fallback
+
+- name: data-fix
+  kind: command
+  triggers: { signal_confirmed_any: [data-pipeline, analytics, reporting] }
+  extracts_from: _extracted-codebase.md § Data layer + § Tests (data-test framework) — the closer reads the audit report it is given
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/data-fix.md   # source-as-fallback. The closer IS its per-finding loop and STOP lines; a heading stub would ship a fix command with no failing-first rule.
 ```

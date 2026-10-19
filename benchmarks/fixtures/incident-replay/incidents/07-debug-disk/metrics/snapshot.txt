@@ -1,0 +1,5 @@
+# series                                         12:20   12:50   13:10   13:30   13:50
+search_http_5xx_ratio                              0.0001  0.0001  0.018   0.034   0.021
+container_fs_usage_bytes{pod=~"search.*"} (max)    0.21e9  1.12e9  1.98e9  1.31e9  1.97e9
+container_memory_working_set_bytes (max)           0.61e9  0.66e9  0.67e9  0.66e9  0.67e9
+search_log_lines_per_second (per pod)              40      2900    2850    2910    2880

@@ -113,7 +113,7 @@ When `--plan` is NOT set: skip this phase entirely; proceed to Phase 4.
 - Architecture layer: <layer> (from ai/architecture.md)
 - Conventions: see ai/_convention-cheatsheet.md
 - Cross-cutting rules: <list of relevant .claude/rules/*.md>
-- Failure-catalog warnings: <relevant ai/failures/<NNNN> entries, if any>
+- Failure-catalog warnings: <relevant `ai/failures/_index.md` entries, if any>
 
 ## Approach (optional — the design + why this shape; omit only when the Steps are self-evident)
 - **Chosen design**: <the pattern / structure being used, in 1-3 lines>.

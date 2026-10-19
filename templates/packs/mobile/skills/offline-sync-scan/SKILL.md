@@ -268,7 +268,7 @@ Roots: 6 · Device: emulator-5554 (API 35); no iOS simulator → iOS rows Unconf
 
 Findings: 2 · Unconfirmed: 1
 
-1. rn-app/src/offline/outbox.ts:7                                             [report-with-fix]   high
+1. rn-app/src/sync/outbox.ts:7                                                [report-with-fix]   high
    §1 ram-only-queue — `pendingMutations` is a module array; enqueue() shows "Saved" (outbox.ts:11) and the only drain is
    the orders screen. Proof: offline kill — submit, Home, am kill, relaunch, network on: server count 0 (fails).
    Fix: write-through to the app's AsyncStorage/SQLite outbox before the toast; drain on NetInfo reconnect and app start.

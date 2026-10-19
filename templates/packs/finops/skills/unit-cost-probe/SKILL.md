@@ -1,6 +1,8 @@
 ---
 name: unit-cost-probe
-description: Compute the measured cost of one named business unit — per request, tenant, order, job, GB, or 1k tokens — by joining attributed spend to the unit's denominator over the same whole billing period, and label every branch measured / allocated / not derivable. Run when a unit cost is claimed, before a pricing decision, to verify a cost model's branch, and to check whether a predicted change appeared. Produces the NUMBER for one unit — `commitment-coverage` explains the rate half of a change, `egress-trace` explains the transfer branch, and `spend-anomaly-triage` explains a spike.
+description: "Cost of one business unit from a billing export; each branch measured, allocated or not derivable."
+kind: skill
+pack: finops
 allowed-tools: [Read, Grep, Glob, Bash]
 ---
 
@@ -12,7 +14,26 @@ A cost per unit is a division, and both sides of it lie easily. The numerator li
 
 Every output states: the numerator's source and filters, the denominator's source and query, the period, and the label on each branch.
 
+## The bill lane — `scripts/bill-lane.py`
+
+The numerator is read with `scripts/bill-lane.py` (stdlib, shipped beside this file; `python3 -I scripts/bill-lane.py --self-test` first): `columns <export>` names the cost column it will read (`EffectiveCost` by default; an absent column exits 2, never a fall-back), `summary <export> --by service|sku|resource|tag:<key> --period YYYY-MM` gives the branch sums and the period's completeness, and `--json` feeds `/cost-model`. The same script serves `commitment-coverage` (`commitments`), `spend-anomaly-triage` (`split`), `/audit-cost-attribution` (`attribution`) and `candidate-pricing` § 2. With no export the lane prints `NOT-RUN (no billing export)` — a ledger line, never a figure from memory.
+
+### The ledger line (UE-2)
+
+Every run, including one that halts, ends with one line an audit ledger can print unchanged (`/cost-review` folds it into its coverage ledger; `@finops-analyst` into its own):
+
+```
+UE-2 unit-cost-probe · checked (<unit>, <periods>, error bar <%>, cost column <EffectiveCost|…>)
+UE-2 unit-cost-probe · NOT-RUN (no billing export | denominator undefined | export not row-level)
+UE-2 unit-cost-probe · blocked (period mismatch <numerator period> vs <denominator window> | shared-cost basis undeclared)
+UE-2 unit-cost-probe · contention (flat-rate: share of <pool>, no marginal cost)
+```
+
+A halt below is one of these lines, never silence and never `checked`. The unit cost itself is a measurement, not a finding: it becomes one only against a declared expectation (`ai/finops/unit-economics.md`), and that comparison is `/cost-review`'s, verified through [`refute-before-report.md`](../../../../snippets/refute-before-report.md) with [`precedents/finops.md`](../../../../snippets/precedents/finops.md) § 4, § 7 and the V589 reconciliation in [`proof-oracles.md`](../../../../snippets/proof-oracles.md) § FinOps.
+
 ## Halt conditions
+
+Each halt prints its ledger line (above) and stops.
 
 - **Denominator undefined.** "Per user" is not a denominator; "monthly active users, as counted by `<named metric>`, over the same billing period" is. Refuse until it is named.
 - **Period mismatch** between numerator and denominator. A cost from a calendar month divided by a count from a trailing-30-day window is not a unit cost.

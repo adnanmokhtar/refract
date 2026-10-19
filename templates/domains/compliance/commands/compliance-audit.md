@@ -143,6 +143,6 @@ REQUEST_CHANGES findings get a 60d window. WARNINGS get a 90d sweep.
 
 - `ai/patterns/gdpr-export-delete.md` — how to wire export + delete correctly.
 - `.claude/rules/data-retention.md` — retention policy per data class.
-- `.claude/agents/compliance-reviewer.md` — code review gate for compliance-touching PRs.
+- `.claude/lenses/compliance-review.md` — code review gate for compliance-touching PRs.
 - `ai/compliance/pii-inventory.md` — source of truth for fields + retention + lawful basis.
 - `ai/compliance/sub-processors.md` — vendor inventory.

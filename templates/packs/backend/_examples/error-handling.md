@@ -68,7 +68,7 @@ Every domain error has:
 ## Implementation
 
 ```ts
-// libs/errors/domain-error.ts
+// libs/errors/errors.ts
 export interface ErrorOpts {
   context?: Record<string, unknown>;  // structured, PII-free, log-safe
   cause?: unknown;                    // the original throwable

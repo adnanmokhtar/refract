@@ -1,0 +1,5 @@
+# Deploy
+
+1. Build the API image.
+2. Run the migrations.
+3. Roll the deployment.

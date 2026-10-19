@@ -343,7 +343,7 @@ Trusting `actor_id` / `occurred_at` from the request body. The actor is the auth
 
 - `<rules-path>/audit-log-discipline.md` — the hard-rule list (append-only, required fields, tamper-evidence, atomic capture, redaction, restricted+audited reads, retention).
 - `<commands-path>/audit-trail-verify.md` — recomputes the chain (computed-vs-stored) and proves coverage of sensitive actions cite-or-FAIL.
-- `<agents-path>/audit-log-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/audit-log-review.md` — review gate enforcing this pattern.
 - `<rules-path>/payment-idempotency.md` — operator "manual mark as paid" overrides MUST emit an audit entry; this pattern defines its shape.
 - `<patterns-path>/webhook-flow.md` — webhook-triggered side effects (exports, account changes) feed the same trail; the actor is the verified provider/installation, never an unverified payload field.
 - `<adr-path>/<NNN>-audit-retention-and-tamper-evidence.md` — ADR pinning store, retention per regulation, hashing/anchoring scheme, and access policy.

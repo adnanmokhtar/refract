@@ -1,0 +1,14 @@
+{
+  "name": "orders-source",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "${file:/secrets/shop.properties:host}",
+    "database.dbname": "shop",
+    "table.include.list": "public.orders,public.order_lines",
+    "column.include.list": "public.orders.order_id,public.orders.status,public.orders.total_cents,public.orders.legacy_status,public.orders.updated_at",
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.delete.handling.mode": "drop",
+    "transforms.unwrap.drop.tombstones": "true"
+  }
+}

@@ -82,7 +82,7 @@ The audit log is the one record you reach for after a breach, a dispute, or a co
 ## Enforcement
 
 - `<commands-path>/audit-trail-verify.md` (slash: `/audit-trail-verify`) — recomputes the hash chain / sequence end-to-end (actual computed-vs-stored result, not an assumed pass) AND checks coverage of a checklist of sensitive actions, citing each emit site at `<path:line>` or FAILing.
-- `<agents-path>/audit-log-reviewer.md` — review gate hard-failing on mutable audit rows, missing actor/target/correlation, secrets/PII in the trail, unaudited critical actions, split-transaction or fire-and-forget capture, missing integrity chain, unrestricted read, and audit/debug-log coupling.
+- `.claude/lenses/audit-log-review.md` — review gate hard-failing on mutable audit rows, missing actor/target/correlation, secrets/PII in the trail, unaudited critical actions, split-transaction or fire-and-forget capture, missing integrity chain, unrestricted read, and audit/debug-log coupling.
 - CI grant check MUST assert the application DB role has NO `UPDATE` / `DELETE` privilege on the audit table(s).
 - CI lint MUST reject `UPDATE`/`DELETE` statements (raw SQL or ORM `.update()`/`.delete()`/`.destroy()`) targeting the audit model.
 - CI lint MUST reject any audit-event field name or payload assignment matching `password` / `secret` / `token` / `pan` / `cvv` / `card_number` before redaction.
@@ -95,5 +95,5 @@ The audit log is the one record you reach for after a breach, a dispute, or a co
 - `<rules-path>/payment-idempotency.md` — payment operator overrides ("manual mark as paid") MUST produce an audit entry tied to a user id; this rule defines what that entry must contain.
 - `<rules-path>/webhook-signature-verification.md` — inbound side-effects (account changes, exports triggered by webhook) feed the same audit trail; the actor is the verified provider/installation, not an unverified payload field.
 - `<commands-path>/audit-trail-verify.md` — integrity + coverage verification tool.
-- `<agents-path>/audit-log-reviewer.md` — review gate.
+- `.claude/lenses/audit-log-review.md` — review gate.
 - `<adr-path>/<NNN>-audit-retention-and-tamper-evidence.md` — ADR pinning the store, retention windows per regulation, hashing/anchoring scheme, and access-control policy.

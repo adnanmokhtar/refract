@@ -63,7 +63,7 @@ the output header. Tool facts are from the code-quality research catalog (2026-1
 
 | Lane | Inline forms | Unsuppressed re-run (the proof) | Unused / reason checks | Config that silences (§3) |
 |---|---|---|---|---|
-| **TS / JS** — ESLint 10.12, typescript-eslint 8.71 | `// eslint-disable-next-line <rules> -- reason`, `/* eslint-disable */`, `@ts-ignore`, `@ts-expect-error` | `npx eslint --no-inline-config -f json <files>` against a normal run (the difference is the hidden set); `@ts-ignore` deleted in a scratch copy, then `npx tsc --noEmit` | `--report-unused-disable-directives-severity error` (flat config `linterOptions.reportUnusedDisableDirectives` defaults to `warn`); `@eslint-community/eslint-comments` `no-unlimited-disable`, `require-description`; `@typescript-eslint/ban-ts-comment` | a rule at `off` / `warn`, `ignores`, a `files` glob, bulk suppressions in `eslint-suppressions.json` (`--prune-suppressions`) |
+| **TS / JS** — ESLint 10.12, typescript-eslint 8.71 | `// eslint-disable-next-line <rules> -- reason`, `/* eslint-disable */`, `@ts-ignore`, `@ts-expect-error` | `npx --no eslint --no-inline-config -f json <files>` against a normal run (the difference is the hidden set); `@ts-ignore` deleted in a scratch copy, then `npx --no tsc --noEmit` | `--report-unused-disable-directives-severity error` (flat config `linterOptions.reportUnusedDisableDirectives` defaults to `warn`); `@eslint-community/eslint-comments` `no-unlimited-disable`, `require-description`; `@typescript-eslint/ban-ts-comment` | a rule at `off` / `warn`, `ignores`, a `files` glob, bulk suppressions in `eslint-suppressions.json` (`--prune-suppressions`) |
 | **Python** — Ruff 0.16.10, mypy 2.4.0, pyright 1.1.414 | `# noqa: X`, `# type: ignore[code]`, `# pyright: ignore[rule]`, `# pylint: disable=` | `ruff check --ignore-noqa <files>`; a `type: ignore` deleted in a scratch copy, then `mypy` | Ruff `RUF100` (unused), `PGH004` (blanket noqa), `PGH003` (blanket type: ignore); mypy `warn_unused_ignores`, error code `ignore-without-code`; pyright `reportUnnecessaryTypeIgnoreComment` | `ignore`, `extend-ignore`, `per-file-ignores`, `exclude`; mypy `disable_error_code`, `ignore_errors` |
 | **Go** — golangci-lint v2.14 | `//nolint:<linters> // reason` | the directive deleted in a scratch copy, then `golangci-lint run` | `nolintlint` with `require-explanation: true`, `require-specific: true`, `allow-unused: false` | `linters.disable`, `exclusions.rules`, `exclusions.presets` — `std-error-handling` hides unchecked `Close` / `os.Remove` (`precedents/code-quality.md § 77`) |
 | **JVM** — Error Prone 2.50, SpotBugs 4.10.4, detekt 1.23 | `@SuppressWarnings("…")`, Kotlin `@Suppress("…")`, `// NOSONAR` | the annotation deleted in a scratch copy; Error Prone `-Xep:<Name>:ERROR` | none built in (Java, detekt) | Error Prone check levels, SpotBugs `excludeFilter`, a detekt baseline or `active: false` |
@@ -123,7 +123,7 @@ rg -n --pcre2 '\b(?:jest|vi)\.spyOn\(\s*console\s*,\s*["\x27](?:error|warn)["\x2
 #    zero-warning gate (none → warnings never fail CI); 3c baselines and ignore lists; 3d rule blocks whose `files` glob is
 #    anchored at a workspace path (read against the directory each CI lint command runs from); 3d′ such a glob that names a
 #    layer folder and misses folders of that layer; 3e an `ignores` glob that drops shipped source (an `ignores` in a block
-#    that also has `files` or `rules` is local to that block — read it; probe: `npx eslint --no-ignore <file>`).
+#    that also has `files` or `rules` is local to that block — read it; probe: `npx --no eslint --no-ignore <file>`).
 rg -n --pcre2 '["\x27]?(?:@typescript-eslint/|react-hooks/)?(?:no-floating-promises|no-misused-promises|await-thenable|exhaustive-deps|rules-of-hooks|switch-exhaustiveness-check|no-unsafe-\w+|no-non-null-assertion|no-explicit-any|ban-ts-comment|eqeqeq|use-isnan|no-fallthrough|no-cond-assign|no-constant-condition|no-unreachable|no-empty|preserve-caught-error|no-unsafe-finally|require-array-sort-compare|no-debugger)["\x27]?\s*:\s*\[?\s*(?:["\x27](?:off|warn)["\x27]|[01]\b)|reportUnusedDisableDirectives\s*:\s*(?:["\x27](?:off|warn)["\x27]|false|0)|default-signifies-exhaustive\s*:\s*true|\bstd-error-handling\b|^\s*(?:ignore|extend-ignore)\s*=\s*\[[^\]\n]*\b(?:B\d{3}|BLE001|E722|S110|S112|RUF006|ASYNC\d{3}|DTZ\d{3}|F\d{3})\b|\bdisable_error_code\s*=|<NoWarn>[^<]*(?:CS\d{4}|CA\d{4})|\breportUnmatchedIgnoredErrors\s*:\s*false' -g '{eslint.config.*,.eslintrc*,pyproject.toml,setup.cfg,ruff.toml,.ruff.toml,mypy.ini,.golangci.*,*.csproj,Directory.Build.props,.editorconfig,.rubocop.yml,phpstan.neon*,detekt.yml,clippy.toml}' -g '!**/node_modules/**' .
 rg -c --pcre2 '["\x27]warn["\x27]|:\s*1\s*[,}\]]' -g '{eslint.config.*,.eslintrc*}' -g '!**/node_modules/**' .
 rg -n --pcre2 -e '--max-warnings(?:=|\s+)0\b' -g '{package.json,Makefile,.pre-commit-config.yaml,lefthook.yml}' -g '!**/node_modules/**' --hidden -g '.github/workflows/*' .
@@ -180,7 +180,7 @@ measured repo has that code.
 1. **Group by rule id** (grep 2a), then by reason text: one decision covers every disable of one rule that gives the same checkable reason. A rule with hundreds of disables is a finding about the rule or the code shape, not hundreds of findings.
 2. **Path class.** Tests, stories and scripts close as Advisory with one read showing no shipped code imports them (§ 29), unless the rule is a test-correctness rule.
 3. **Rank** correctness and project-local rules above style; production above tests; money, write and auth paths first.
-4. **Prefer the re-run as the bulk oracle.** One `npx eslint --no-inline-config -f json <roots>` (or `ruff check --ignore-noqa`, or the scratch copy with directives deleted) against a normal run lists every hidden diagnostic at once; the unused-directive check (`--report-unused-disable-directives-severity error`, `RUF100`, `nolintlint`) lists every stale one.
+4. **Prefer the re-run as the bulk oracle.** One `npx --no eslint --no-inline-config -f json <roots>` (or `ruff check --ignore-noqa`, or the scratch copy with directives deleted) against a normal run lists every hidden diagnostic at once; the unused-directive check (`--report-unused-disable-directives-severity error`, `RUF100`, `nolintlint`) lists every stale one.
 5. **Read the top 30 groups** fully, reasons included.
 6. **Ledger the rest** as `Live, unreviewed (k groups / n hits)` with the command that continues them. Never `checked`.
 
@@ -247,7 +247,7 @@ GOOD:  the rule at error, or at warn with `--max-warnings 0` in the CI command; 
 0a)? Is the rule off on purpose with a checkable reason in the config (then Hardening with its
 count, § 18)? Does the rule's `files` glob match the paths the linter sees from that directory?
 **Finding when** a correctness rule cannot fail CI on the code it was written for. **Proof:** the
-effective-config probe — from the CI command's working directory, `npx eslint --print-config <a
+effective-config probe — from the CI command's working directory, `npx --no eslint --print-config <a
 file the block targets>` shows the rule's severity (`0`, `1`, or absent); then the strict re-run
 with the rule at error in a scratch config prints the diagnostics the setting hides, and their count
 is the finding's size. Each diagnostic at a reachable line is a candidate of its owning detector.
@@ -273,14 +273,14 @@ Findings: 1 · Unconfirmed: 1
 
 1. web/src/payouts/use-payout-settle.ts:41                           [report-with-fix]   high
    §2 suppressed no-floating-promises — `eslint-disable-next-line @typescript-eslint/no-floating-promises`
-   (no reason) over `api.settle(id)`. Re-run: `npx eslint --no-inline-config` prints no-floating-promises
+   (no reason) over `api.settle(id)`. Re-run: `npx --no eslint --no-inline-config` prints no-floating-promises
    at :42. Impact (error-handling-scan § 4): a rejected settle leaves the button "done"; the unhandled-
    failure hook test fails. Fix: await it and surface the error state; delete the directive.
 
 2. eslint.config.mjs:88                                               [report-flagged]    medium
    §3 scoped away — the domain-layer block's `files: ['services/api/src/**/domain/**/*.ts']`; CI lints from
    inside services/api. Unproven link: the config base directory under that command. Settling probe: from
-   services/api, `npx eslint --print-config src/orders/domain/order.ts` shows the block's rules (2) or not.
+   services/api, `npx --no eslint --print-config src/orders/domain/order.ts` shows the block's rules (2) or not.
 
 Verification: 9 candidates → 1 finding · 1 unconfirmed · 6 hardening · 0 pre-existing · 1 refuted
 

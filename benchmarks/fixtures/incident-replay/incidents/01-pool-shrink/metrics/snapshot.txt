@@ -1,0 +1,8 @@
+# series                                             08:50   09:05   09:15   09:25   09:45
+checkout_http_5xx_ratio                                0.0004  0.0004  0.088   0.091   0.0005
+checkout_http_p99_seconds                              0.38    0.37    2.10    2.08    0.36
+pg_stat_activity_count{datname="checkout"}             82      84      58      57      83
+pg_cpu_utilisation                                     0.19    0.18    0.17    0.18    0.19
+puma_busy_threads_per_pod                              9       9       32      32      9
+payments_provider_p99_seconds                          0.42    0.41    0.43    0.42    0.41
+orders_slow_query_total_per_hour                       2       2       2       2       2

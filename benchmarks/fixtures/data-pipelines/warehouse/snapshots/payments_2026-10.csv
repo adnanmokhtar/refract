@@ -1,0 +1,3 @@
+payment_id,method,amount_cents
+p3,card,4800
+p4,bnpl,2500

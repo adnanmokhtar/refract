@@ -174,10 +174,13 @@ so the order IS the ownership. Three delivery-specific rules ride on that order:
   and mobile packs ship is a thin preset of the orchestrator (decision O6). It installs as
   `add-feature.<track>.md` even when the bare name happens to be free — a stack preset must never sit
   at `/add-feature`, which is how the bare name used to go to whichever stack was applied first.
-- **Agents are first-claim-wins too.** `delivery` ships `requirements-reviewer` and `test-engineer`,
-  merged supersets of the product and testing packs' agents of the same name (kept in those packs
-  until the Phase-6 parity check). A later track's same-name agent is skipped and logged, never
-  copied over the installed one: two agent files with one `name:` is an undefined registration.
+- **Agents and lenses: first claim wins, a collision HALTS.** `delivery` ships `requirements-reviewer`
+  (its single owner since product 2.0.0 deleted its copy) and `test-engineer` (the testing pack's copy
+  was retired in Phase 6; its craft lives in `testing/lenses/test-craft.md`). `install-claim.sh` records
+  every copy of this run in `.claude/_install-claims.tsv`: a later track shipping the same name with
+  DIFFERENT bytes is `COLLISION … exit 4` and nothing of that track's kind is copied; a file already in
+  the project before this run (an owner edit) is kept and logged. Two agent files with one `name:` is an
+  undefined registration, so install order may never decide it (`scripts/_agent-merge-map.json`).
 - **Lane skills follow the stack tracks.** `delivery/skills/lane-<stack>/` installs only when
   `<stack>` (backend, frontend or mobile) is a selected track; the orchestrator reports a lane whose
   skill is absent instead of improvising it.
@@ -188,18 +191,17 @@ so the order IS the ownership. Three delivery-specific rules ride on that order:
 
 For each selected track, in that order, run these EXACT commands (substitute `<track>` for the track name):
 
+Once per run, BEFORE the first track: `bash ~/.claude/scripts/install-claim.sh "$PWD" --reset` (starts
+this run's claims manifest; 4.4's domain copy appends to the same one).
+
 ```bash
-# Copy agents — FIRST CLAIM WINS (see "Track order" above). A same-name agent from a later track is
-# skipped and logged, never copied over the installed one; identical bytes are a silent no-op.
-mkdir -p .claude/agents
-for a in ~/.claude/templates/packs/<track>/agents/*.md; do
-  [ -f "$a" ] || continue
-  n=$(basename "$a")
-  if [ ! -e ".claude/agents/$n" ]; then cp "$a" ".claude/agents/$n"; continue; fi
-  cmp -s "$a" ".claude/agents/$n" && continue
-  echo "  agent-skip: '$n' already installed by an earlier track — <track>'s copy NOT installed"
-  printf '%s\n' "- agent \`$n\` — <track>'s copy skipped; the installed one belongs to the track applied first (delivery owns its merged roles)." \
-    >> .claude/_command-variants.md
+# Copy agents and lenses — FIRST CLAIM WINS, COLLISION HALTS (see "Track order" above). Same name +
+# different bytes from an earlier track of THIS run → exit 4, nothing of <track>'s kind copied; a file
+# the project already had → kept + logged; identical bytes → no-op. A lens is the knowledge a roster
+# agent reads by path (`.claude/lenses/<x>.md`, named in that agent's `## Lenses` block).
+for kind in agents lenses; do
+  bash ~/.claude/scripts/install-claim.sh "$PWD" "$kind" <track> ~/.claude/templates/packs/<track>/$kind \
+    || { echo "HALT: <track>/$kind collides with an earlier track (exit 4) — fix the templates, do not reorder"; exit 4; }
 done
 
 # Copy commands — COLLISION-AWARE (M41). NOT a bare `cp -R commands/*.md`: several command
@@ -474,14 +476,14 @@ else
     done
   fi
 
-  # Copy only the listed files
-  mkdir -p .claude/agents
-  for name in $ESSENTIAL_AGENTS; do
-    [ -z "$name" ] && continue
-    # First claim wins, as in standard mode: delivery (applied first) owns its merged roles.
-    [ -e ".claude/agents/$name.md" ] && { echo "  agent-skip: '$name' already installed"; continue; }
-    cp ~/.claude/templates/packs/<track>/agents/$name.md .claude/agents/ 2>/dev/null || true
-  done
+  # Copy only the listed files. Agents go through the same claim rule as standard mode (stage the
+  # listed ones, then install-claim.sh: a same-name different-content agent HALTS, exit 4). Lenses
+  # are not reduced — they are what the listed agents read by path.
+  ESS_STAGE=$(mktemp -d); for name in $ESSENTIAL_AGENTS; do
+    [ -n "$name" ] && cp ~/.claude/templates/packs/<track>/agents/$name.md "$ESS_STAGE/" 2>/dev/null; done
+  bash ~/.claude/scripts/install-claim.sh "$PWD" agents <track> "$ESS_STAGE" || { echo "HALT: <track> agent collision (exit 4)"; exit 4; }
+  bash ~/.claude/scripts/install-claim.sh "$PWD" lenses <track> ~/.claude/templates/packs/<track>/lenses || { echo "HALT: <track> lens collision (exit 4)"; exit 4; }
+  rm -rf "$ESS_STAGE"
 
   mkdir -p .claude/commands
   for name in $ESSENTIAL_COMMANDS; do
@@ -689,14 +691,21 @@ for sig in $SIGNALS; do
     echo "- ❌ $sig — no \`technical_signal_confidence:\` row in §11 (bare key array → HALT; see phase-2-profile.md §11)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
     continue
   fi
-  for kind in agents commands rules ai-patterns; do
-    [ -d "$src/$kind" ] || continue
+  # Per file, never `cp -Rn` — that silently dropped a domain file whose name a pack had claimed
+  # (domains/auth's auth-reviewer vanished on every install with the security pack). Lenses, rules and
+  # ai-patterns go through the claim rule (same name + different bytes in this run → exit 4); a domain
+  # command name already in the project is kept and logged.
+  for kind in lenses rules ai-patterns; do
     dest="$TARGET_REPO/.claude/$kind"; [ "$kind" = ai-patterns ] && dest="$TARGET_REPO/ai/patterns"
-    mkdir -p "$dest"
-    # each file still passes through the merge matrix (skip-if-user-edited); shell copies the rest verbatim
-    cp -Rn "$src/$kind/." "$dest/"
+    bash ~/.claude/scripts/install-claim.sh "$TARGET_REPO" "$kind" "domain:$sig" "$src/$kind" "$dest" \
+      || { echo "HALT: domain $sig/$kind collides with an installed pack file (exit 4)"; exit 4; }
   done
-  echo "- ✅ $sig — applied (agents/commands/rules/ai-patterns)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
+  if [ -d "$src/commands" ]; then mkdir -p "$TARGET_REPO/.claude/commands"
+    for c in "$src"/commands/*.md; do [ -f "$c" ] || continue; n=$(basename "$c")
+      if [ ! -e "$TARGET_REPO/.claude/commands/$n" ]; then cp "$c" "$TARGET_REPO/.claude/commands/$n"
+      elif ! cmp -s "$c" "$TARGET_REPO/.claude/commands/$n"; then echo "  cmd-skip: '$n' already in the project — domain $sig's copy NOT installed"; fi
+    done; fi
+  echo "- ✅ $sig — applied (lenses/commands/rules/ai-patterns; reviewer + lens: templates/domains/$sig/_version.json)" >> "$TARGET_REPO/.claude/_domain-coverage-report.md"
 done
 # Domain files link the shared snippets too — same deploy rewrite as the pack copy above.
 bash ~/.claude/scripts/apply-study-decisions.sh "$TARGET_REPO" --rewrite-links

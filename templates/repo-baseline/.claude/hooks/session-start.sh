@@ -65,13 +65,40 @@ if [ -f "ai/dynamic/.review-queue" ] && [ -s "ai/dynamic/.review-queue" ]; then
   echo "→ drain with: /audit-knowledge  (or /learn-from-task for the current task)"
 fi
 
+# Sink reader shared by the drift and pattern blocks: entries are `### ` headings outside code fences
+# (the template's own `## Format per entry` example is fenced); a field is read in the plain
+# (`Severity: high`), list (`- Severity: high`) or bold (`- **Severity:** high`) shape. A sink whose
+# entries carry NONE of the field prints `format not recognised` instead of a silent 0: a project
+# that redefined the sink format (KN-27) must hear that this hook cannot read it.
+sink_scan() {  # $1=file $2=field $3=value regex → prints "<entries>\t<with field>\t<heading>..." lines
+  awk -v F="$2" -v V="$3" '
+    /^[[:space:]]*(```|~~~)/ { fence = !fence; next }
+    fence { next }
+    /^### / { n++; h = $0; next }
+    {
+      line = $0; sub(/^[[:space:]]*[-*][[:space:]]+/, "", line); gsub(/\*\*/, "", line)
+      if (tolower(substr(line, 1, length(F) + 1)) == tolower(F) ":") {
+        if (!(n in seen)) { seen[n] = 1; with++ }
+        val = substr(line, length(F) + 2); sub(/^[[:space:]]+/, "", val)
+        if (tolower(val) ~ V && h != "") { hits[++k] = h }
+      }
+    }
+    END { printf "%d\t%d\n", n, with; for (i = 1; i <= k; i++) print hits[i] }
+  ' "$1" 2>/dev/null
+}
+
 # Surface OPEN drift findings (HIGH severity only — keep noise low)
 if [ -f "ai/dynamic/drift-log.md" ]; then
-  HIGH_DRIFT=$( { grep -c "^Severity: high" ai/dynamic/drift-log.md 2>/dev/null || echo 0; } | tail -1 )
-  if [ "$HIGH_DRIFT" -gt "0" ]; then
+  DRIFT_OUT=$(sink_scan ai/dynamic/drift-log.md Severity '^high')
+  DRIFT_N=$(printf '%s\n' "$DRIFT_OUT" | head -1 | cut -f1); DRIFT_W=$(printf '%s\n' "$DRIFT_OUT" | head -1 | cut -f2)
+  HIGH_DRIFT=$(printf '%s\n' "$DRIFT_OUT" | sed -n '2,$p' | grep -c . || true)
+  if [ "${DRIFT_N:-0}" -gt 0 ] && [ "${DRIFT_W:-0}" -eq 0 ]; then
+    echo ""
+    echo "--- ⚠️  drift-log: format not recognised (0/$DRIFT_N entries carry a Severity: field this hook reads) — see its ## Format per entry ---"
+  elif [ "${HIGH_DRIFT:-0}" -gt 0 ]; then
     echo ""
     echo "--- ⚠️  Drift findings (HIGH severity, OPEN) ---"
-    awk '/^### / {h=$0; next} /^Severity: high/ {print h}' ai/dynamic/drift-log.md | head -5
+    printf '%s\n' "$DRIFT_OUT" | sed -n '2,6p'
   fi
 fi
 
@@ -87,8 +114,13 @@ fi
 
 # Surface READY-status learned patterns awaiting promotion
 if [ -f "ai/dynamic/learned-patterns.md" ]; then
-  READY=$(awk '/^### / {h=$0} /^Status: READY/ {print h}' ai/dynamic/learned-patterns.md 2>/dev/null | head -3)
-  if [ -n "$READY" ]; then
+  PAT_OUT=$(sink_scan ai/dynamic/learned-patterns.md Status '^ready')
+  PAT_N=$(printf '%s\n' "$PAT_OUT" | head -1 | cut -f1); PAT_W=$(printf '%s\n' "$PAT_OUT" | head -1 | cut -f2)
+  READY=$(printf '%s\n' "$PAT_OUT" | sed -n '2,4p')
+  if [ "${PAT_N:-0}" -gt 0 ] && [ "${PAT_W:-0}" -eq 0 ]; then
+    echo ""
+    echo "--- ✅ learned-patterns: format not recognised (0/$PAT_N entries carry a Status: field this hook reads) ---"
+  elif [ -n "$READY" ]; then
     echo ""
     echo "--- ✅ Patterns READY for /promote-pattern ---"
     echo "$READY"

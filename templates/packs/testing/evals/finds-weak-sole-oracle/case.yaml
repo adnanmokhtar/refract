@@ -1,0 +1,6 @@
+# fixture: benchmarks/fixtures/brittle-suite · defect BS-AS-03 (api/src/billing/invoice-total.spec.ts:9) · decoy BS-DECOY-19 (line 22)
+# resources/: byte copies of api/src/billing/invoice-total.spec.ts api/src/billing/invoice-total.ts (scripts/lint-pack-evals.py checks they match)
+schema_version: "1.1"
+name: finds-weak-sole-oracle
+context:
+  add_dirs: [resources]

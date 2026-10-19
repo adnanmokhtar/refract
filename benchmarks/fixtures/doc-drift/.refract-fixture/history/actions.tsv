@@ -1,0 +1,42 @@
+0	old	apps/api/src/orders/orders.controller.ts	
+0	old	apps/api/openapi.json	
+0	old	apps/api/src/cli/args.ts	
+0	old	apps/api/src/main.ts	
+0	from-final	apps/api/src/config/app.config.ts	apps/api/src/config/config.loader.ts
+0	from-final	docs/deploy.md	docs/operations.md
+0	from-final	docs/guide/getting-started.md	docs/guide/setup.md
+0	from-final	docs/guide/ar/getting-started.md	docs/guide/ar/setup.md
+0	old	docs/guide/index.md	
+0	old	docs/guide/ar/index.md	
+0	old	mkdocs.yml	
+0	only	packages/sdk/src/retry-policy.ts	
+0	from-final	apps/api/src/ledger/ledger.service.ts	apps/api/src/accounting/accounting.service.ts
+0	from-final	apps/api/src/ledger/ledger.module.ts	apps/api/src/accounting/accounting.module.ts
+0	only	apps/api/src/notifier/notifier.service.ts	
+0	only	examples/verify-signature.ts	
+0	old	docs/guide/billing.md	
+0	old	docs/guide/sdk.md	
+0	old	docs/guide/faq.md	
+0	from-final	docs/runbooks/api-down.md	docs/runbooks/api-unavailable.md
+0	old	CHANGELOG.md	
+1	final	apps/api/src/orders/orders.controller.ts	
+1	final	apps/api/openapi.json	
+2	final	CHANGELOG.md	
+3	mv	apps/api/src/config/app.config.ts	apps/api/src/config/config.loader.ts
+3	final	apps/api/src/main.ts	
+4	mv	docs/deploy.md	docs/operations.md
+5	rm	packages/sdk/src/retry-policy.ts	
+6	mv	apps/api/src/ledger/ledger.service.ts	apps/api/src/accounting/accounting.service.ts
+6	mv	apps/api/src/ledger/ledger.module.ts	apps/api/src/accounting/accounting.module.ts
+6	rm	apps/api/src/notifier/notifier.service.ts	
+7	rm	examples/verify-signature.ts	
+8	mv	docs/guide/getting-started.md	docs/guide/setup.md
+8	mv	docs/guide/ar/getting-started.md	docs/guide/ar/setup.md
+8	final	docs/guide/index.md	
+8	final	mkdocs.yml	
+9	final	docs/guide/ar/index.md	
+10	final	apps/api/src/cli/args.ts	
+11	final	docs/guide/billing.md	
+11	final	docs/guide/sdk.md	
+11	final	docs/guide/faq.md	
+12	mv	docs/runbooks/api-down.md	docs/runbooks/api-unavailable.md

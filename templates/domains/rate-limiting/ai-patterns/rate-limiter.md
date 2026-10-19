@@ -344,5 +344,5 @@ A tight per-IP limit on a carrier/corporate NAT throttles thousands of real user
 - `<rules-path>/payment-idempotency.md` — idempotent backoff-retry after a 429 on money paths (reuse the original key).
 - `<patterns-path>/webhook-flow.md` — relate inbound provider retry/backoff to your throttle responses + return-200 policy.
 - `<commands-path>/probe-limits.md` — local/staging probe that proves the limit triggers + verifies the headers.
-- `<agents-path>/rate-limit-reviewer.md` — review gate enforcing this pattern.
+- `.claude/lenses/rate-limiting-review.md` — review gate enforcing this pattern.
 - `<adr-path>/<NNN>-rate-limit-policy.md` — ADR pinning algorithm, identity dimensions, tier limits, and per-endpoint fail-open/closed choices.

@@ -1,0 +1,5 @@
+{"description": "assistant: order status in transit", "vars": {"workspace": "Northwind Bikes", "question": "Where is order QD-1042?"}, "assert": [{"type": "icontains", "value": "in transit"}]}
+{"description": "assistant: refund under the limit", "vars": {"workspace": "Northwind Bikes", "question": "Can I get my 19.90 back for the broken bell?"}, "assert": [{"type": "icontains", "value": "refund"}]}
+{"description": "assistant: refund above the limit goes to an agent", "vars": {"workspace": "Northwind Bikes", "question": "Refund the 240.00 frame please"}, "assert": [{"type": "icontains", "value": "agent"}]}
+{"description": "assistant: shipping times", "vars": {"workspace": "Harbour Cafe Supplies", "question": "How long does delivery to Ireland take?"}, "assert": [{"type": "icontains", "value": "days"}]}
+{"description": "assistant: reply language", "vars": {"workspace": "Harbour Cafe Supplies", "question": "Wo ist meine Bestellung QD-2210?"}, "assert": [{"type": "icontains", "value": "Bestellung"}]}

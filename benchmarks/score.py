@@ -130,11 +130,12 @@ PATH_RE = re.compile(
 )
 
 # Build/config files PATH_RE cannot see: no extension (Dockerfile, Jenkinsfile, Caddyfile,
-# Makefile, Justfile), a whole word after the dot (.env.production, Caddyfile.preview), or an
+# Makefile, Justfile, CODEOWNERS, Procfile, Gemfile, Rakefile, Brewfile, Vagrantfile, Tiltfile), a whole word after the dot (.env.production, Caddyfile.preview), or an
 # extension of 7-10 characters (terraform.tfstate). See find_path() for when one is preferred.
 BARE_PATH_RE = re.compile(
     r"(?<![\w./-])"
-    r"((?:[\w.@-]+/)*(?:(?i:dockerfile|containerfile|jenkinsfile|caddyfile|makefile|justfile)(?:\.[\w-]+)?"
+    r"((?:[\w.@-]+/)*(?:(?i:dockerfile|containerfile|jenkinsfile|caddyfile|makefile|justfile|codeowners|procfile"
+    r"|gemfile|rakefile|brewfile|vagrantfile|tiltfile)(?:\.[\w-]+)?"
     r"|\.env(?:\.[\w-]+)?|[\w@-][\w.@-]*\.[A-Za-z][A-Za-z0-9]{6,9}))"
     r"(?::(\d+))?"
     r"(?![\w/])"

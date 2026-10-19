@@ -1,6 +1,8 @@
 ---
 name: extract-project-context
 description: GREENFIELD / Path-B project-context bootstrap — derives mission, domain, personas, KPIs, anti-goals from a user PROMPT when there's no codebase to read yet, and writes ai/project-goals.md + ai/users-and-personas.md + ai/business-domain.md. For EXISTING codebases the canonical pipeline (extract-codebase-overview → extract-business-context → Phase 4.7b) owns these targets; this skill is the greenfield path only.
+kind: skill
+pack: learning
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -145,7 +147,7 @@ Gaps requiring user input (placeholder _TBD_ written):
 Next step:
   - Review the generated files.
   - Fill in _TBD_ placeholders.
-  - Run /audit-knowledge to regenerate the compact derived files (_session-digest, _decision-index, _convention-cheatsheet).
+  - Run /refresh-knowledge (or @knowledge-curator mode regenerate) to regenerate the compact derived files (_session-digest, _decision-index, _convention-cheatsheet); /audit-knowledge then checks them read-only.
 ```
 
 ## Failure modes

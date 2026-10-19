@@ -82,4 +82,4 @@ Top recommendation:
 - `<rules-path>/feature-flags` — the kill-switch + rollout infra (boundary: flags = rollout, experiments = measured comparison).
 - `<rules-path>/analytics` — exposure + metric events flow through the tracking contract (dedup, server-stamped identity, consent).
 - `reporting` — the readout is a trust-critical number (tenant-scoped, reproducible, as-of-labeled).
-- `<agents-path>/ab-testing-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/ab-testing-review.md` — review gate that consumes these findings.

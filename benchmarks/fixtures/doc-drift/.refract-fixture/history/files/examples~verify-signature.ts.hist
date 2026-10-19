@@ -1,0 +1,5 @@
+import { verifyWebhookSignature } from '@tallyhook/sdk';
+
+export function handle(rawBody: string, header: string): number {
+  return verifyWebhookSignature(rawBody, header, process.env.TALLYHOOK_WEBHOOK_SECRET ?? '') ? 204 : 401;
+}

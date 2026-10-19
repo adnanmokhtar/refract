@@ -9,6 +9,15 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-19
+
+**The documentation pack became a detector pack (Track A batch 7).** Before this release 3 of its 38 owned classes were runnable and all 3 were noisy or broken (a fallback that reported every reference missing; a drift scan with 3,446 misses on a real repo).
+
+- **One engine, two oracles.** `doc-drift-scan/scripts/doc-claims.py` (stdlib, never writes the scanned tree, `--self-test` 53 checks incl. the git-history lanes) resolves every claim a doc makes against code, config and history: links and anchors, paths, symbols, scripts, flags, versions, tools, env, endpoints, spec examples, embedded snippets, breaking changes, changelog structure, k8s resources, links into the docs, ADRs, translations, placeholders, nav, docs gates. Same-day fixes from the fixture run: DI-2 says `history-blind` instead of a clean count, DH-1 needs one line naming the change with a breaking signal, DE-2 and DI-3 rows carry their real `file:line`, API/SDK/config reference docs are primary.
+- **Detectors.** `doc-drift-scan` rewritten (§1–§14, docs against code), `doc-structure-scan` (§1–§14, docs against docs) and `doc-sample-scan` (§1–§5, fences and spec examples) are new; `quickstart-verify` runs in a safe container lane (internal network, no host `.env`, telemetry off); `docstring-coverage`, `diagram-sync`, `changelog-generate` repaired.
+- **`/doc-refresh`** has three modes: the writer (default), `--audit` (read-only class ledger and verdict) and `--from-audit` (failing-first, docs only; a doc that is the contract is never edited to bless code). `/add-adr` and `/add-runbook` detect the repo's homes. `@doc-writer` is scoped to the files the ownership guard grants (now incl. `CONTRIBUTING*` and doc-site nav files) with the contract-doc halt. Global `/audit` gains the documentation lens.
+- **Fixture `doc-drift`** (76 seeds, two per owned class, 22 decoys); `run.sh`'s new `Stage with: --history` replays its 14-commit release history, and `tests/doc-claims/run.sh` (run by `scripts/test-validators.sh`) pins the engine's 61 candidate rows. Precedents `precedents/documentation.md` § 1–34; proof oracles V430–V449.
+
 ## 1.6.0 — 2026-08-23
 
 FIXED

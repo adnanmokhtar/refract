@@ -1,0 +1,11 @@
+name: dbt-nightly
+on:
+  schedule:
+    - cron: '0 1 * * *'
+jobs:
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - run: dbt build --full-refresh --select fct_order_status_history+ --project-dir analytics --target prod

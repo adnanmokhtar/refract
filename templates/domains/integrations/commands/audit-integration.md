@@ -94,4 +94,4 @@ Top recommendation:
 - `ai/patterns/third-party-integration.md` — the encrypted store + atomic refresh + retry/backoff client + breaker + idempotent upsert + reconciliation + inbound validation code shapes.
 - `<rules-path>/webhook` — inbound vendor event signature verification + replay guard this command checks for.
 - `<rules-path>/background-jobs` — the async sync path a synchronous vendor call should move to.
-- `<agents-path>/integrations-reviewer.md` — the review gate that consumes these findings.
+- `.claude/lenses/integrations-review.md` — the review gate that consumes these findings.

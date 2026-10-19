@@ -93,7 +93,7 @@ A pipeline bug is invisible until the warehouse is already wrong: duplicated rev
 ## Enforcement
 
 - `<commands-path>/audit-pipeline.md` (slash: `/audit-pipeline`) — diagnoses a specific pipeline end-to-end from REAL source: the sink's idempotency, the checkpoint/resume path, incremental-vs-full, the schema contract + DLQ, the watermark + late-data stance, backfill isolation, streaming-vs-load-all, and PII in lower envs — cite-or-halt, never an assumed shape.
-- `<agents-path>/data-pipeline-reviewer.md` — review gate hard-failing on non-idempotent loads, missing checkpoint/resume, missing schema contract, propagated bad rows, in-place backfills, full-table reprocess, dropped/double-counted late data, load-all-in-memory, missing data-quality assertions, and unmasked PII in lower envs.
+- `.claude/lenses/data-pipeline-review.md` — review gate hard-failing on non-idempotent loads, missing checkpoint/resume, missing schema contract, propagated bad rows, in-place backfills, full-table reprocess, dropped/double-counted late data, load-all-in-memory, missing data-quality assertions, and unmasked PII in lower envs.
 - CI lint MUST flag a bare `INSERT` / `append` into a known fact/warehouse table in a pipeline path with no `ON CONFLICT` / `MERGE` / partition-replace (heuristic; flag for review).
 - CI lint MUST flag `catch { continue }` / silent filtering in a transform loop with no DLQ write (AST heuristic; flag for review).
 - CI lint MUST flag a `fetchAll()` / `.all()` collector feeding `.map()`/`.forEach()` in a pipeline module — pipelines stream.

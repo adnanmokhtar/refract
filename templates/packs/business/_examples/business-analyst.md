@@ -130,5 +130,5 @@ This agent runs **before the build**, on an idea; all three siblings run **after
 - `@business-auditor` — audits the shipped EXPERIENCE against this spec. A gap the spec never claimed is scope creep, not a defect — which is why `Out of scope` is load-bearing here.
 - `@workflow-integrity` — audits the STATE GRAPH; it can only grade states this spec named.
 - `@domain-model-auditor` — audits whether each INVARIANT is enforced somewhere; it can only grade invariants this spec stated.
-- `pricing-tax-audit` — owns money-math correctness; the spec supplies currency, rounding step, jurisdiction.
+- `pricing-rule-scan` — owns money-math correctness; the spec supplies currency, rounding step, jurisdiction.
 - **Spec shape lives in one place**: this is the business half (4a). `/analyze-task` Phase 4b owns the technical half (traceability, DB, API, rollout, test plan) — do not restate it here.

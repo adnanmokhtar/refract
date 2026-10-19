@@ -30,12 +30,12 @@ Read the bundler and framework with versions from the lockfile and print the lan
 
 | Lane | Build | Bytes per route (brotli) | Treemap (to find the anchoring module) |
 |---|---|---|---|
-| **Vite 5–8** (React, Vue, Svelte, Solid, SvelteKit) | `npx vite build --manifest` (add `--sourcemap` only for a local analysis build, never the deploy) | the manifest walk in `proof-oracles.md` § "Bytes per route" | `rollup-plugin-visualizer` 7.1.1 (`brotliSize: true`, `template: 'treemap'` or `'raw-data'`; Rollup and Rolldown peers) |
-| **Next.js 16** (Turbopack build) | `next build` | `npx next experimental-analyze --output` (16.1+, writes `.next/diagnostics/analyze`) | the same analyzer; webpack builds (`next build --webpack`): `ANALYZE=true` with `@next/bundle-analyzer` 16.3.8 |
-| **webpack 5 / Rspack** | `npx webpack --json > stats.json` | `size-limit` (below) | `webpack-bundle-analyzer` 5.4.0 `stats.json dist --default-sizes brotli --compression-algorithm brotli`; Rsbuild/Rspack: `@rsdoctor/cli` 1.6.4 |
-| **Nuxt 4** | `npx nuxi analyze` | `size-limit` | built in; read the compressed column, not the raw default |
-| **Angular 20–22** | `npx ng build --stats-json` | `size-limit` | the stats file the builder writes, in an esbuild-metafile viewer |
-| **Any bundler** | the project's build | `size-limit` 14.1.0, brotli by default: one entry per route chunk glob, `npx size-limit --json` | — |
+| **Vite 5–8** (React, Vue, Svelte, Solid, SvelteKit) | `npx --no vite build --manifest` (add `--sourcemap` only for a local analysis build, never the deploy) | the manifest walk in `proof-oracles.md` § "Bytes per route" | `rollup-plugin-visualizer` 7.1.1 (`brotliSize: true`, `template: 'treemap'` or `'raw-data'`; Rollup and Rolldown peers) |
+| **Next.js 16** (Turbopack build) | `next build` | `npx --no next experimental-analyze --output` (16.1+, writes `.next/diagnostics/analyze`) | the same analyzer; webpack builds (`next build --webpack`): `ANALYZE=true` with `@next/bundle-analyzer` 16.3.8 |
+| **webpack 5 / Rspack** | `npx --no webpack --json > stats.json` | `size-limit` (below) | `webpack-bundle-analyzer` 5.4.0 `stats.json dist --default-sizes brotli --compression-algorithm brotli`; Rsbuild/Rspack: `@rsdoctor/cli` 1.6.4 |
+| **Nuxt 4** | `npx --no nuxi analyze` | `size-limit` | built in; read the compressed column, not the raw default |
+| **Angular 20–22** | `npx --no ng build --stats-json` | `size-limit` | the stats file the builder writes, in an esbuild-metafile viewer |
+| **Any bundler** | the project's build | `size-limit` 14.1.0, brotli by default: one entry per route chunk glob, `npx --no size-limit --json` | — |
 
 Label every number `measured (brotli, <tool@version>, <sha>)` (npm registry versions read 2026-10-05). `vite-bundle-visualizer` (1.2.1, last published 2024-05) and `source-map-explorer` (2.5.3, last published 2022-09) are unmaintained: do not recommend either.
 
@@ -118,11 +118,11 @@ PKG=recharts; rg -n --no-heading --pcre2 "from\s+[\"']${PKG}(?:/[^\"']*)?[\"']|i
 
 ### 4. Duplicates
 
-A package resolved at more than one version, or in two module formats, can ship twice. Candidates from grep 4a, then the package manager's dry run: `pnpm dedupe --check`, `npm dedupe --dry-run`, Yarn 1 `npx yarn-deduplicate --list --fail` (it has no `--check`), Yarn 2+ `yarn dedupe --check`. **Read the code:** Do both copies reach the **client** build, or is one only in server code or tooling (`precedents/performance.md` § 88)? Does a version constraint force the split (name both consumers and their ranges)? **Finding when** the client build output holds both copies. Severity: high for two copies of the UI framework (two Reacts break hooks; a correctness defect, not only bytes); medium when the duplicate is 10 KB br or more; low otherwise.
+A package resolved at more than one version, or in two module formats, can ship twice. Candidates from grep 4a, then the package manager's dry run: `pnpm dedupe --check`, `npm dedupe --dry-run`, Yarn 1 `npx --no yarn-deduplicate --list --fail` (it has no `--check`), Yarn 2+ `yarn dedupe --check`. **Read the code:** Do both copies reach the **client** build, or is one only in server code or tooling (`precedents/performance.md` § 88)? Does a version constraint force the split (name both consumers and their ranges)? **Finding when** the client build output holds both copies. Severity: high for two copies of the UI framework (two Reacts break hooks; a correctness defect, not only bytes); medium when the duplicate is 10 KB br or more; low otherwise.
 
 ### 5. Unused files, exports and dependencies
 
-`npx knip --reporter compact` (knip 6.39.0; `--production` limits it to shipped code). **Read the code:** `knip` flags a re-export as unused when no consumer imports through that barrel; verify by hand. An unused dependency costs install time, not client bytes, unless something imports it. **Finding when** an unused file or export is in the client build output, or a dependency is imported only by dead code. Severity: low.
+`npx --no knip --reporter compact` (knip 6.39.0; `--production` limits it to shipped code). **Read the code:** `knip` flags a re-export as unused when no consumer imports through that barrel; verify by hand. An unused dependency costs install time, not client bytes, unless something imports it. **Finding when** an unused file or export is in the client build output, or a dependency is imported only by dead code. Severity: low.
 
 ### 6. Legacy targets and polyfills shipped to modern browsers
 

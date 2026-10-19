@@ -14,7 +14,7 @@ Backfills are the most dangerous routine operation in a warehouse. They rewrite 
 - USE: a bug in a model was fixed and history must be restated; a source system corrected past data; a new column must be populated for existing rows; a late-arriving batch fell outside the incremental lookback window; a model's grain or key changed.
 - NOT: the normal incremental run catching up a day or two — that is the schedule, not a backfill.
 - NOT: a one-off analytical query over history — that is a query, and it writes nothing.
-- NOT: reprocessing to fix an ingestion/movement defect — fix the pipeline first via the data-pipeline signal's `/audit-pipeline`; a backfill through a broken loader reproduces the corruption at scale.
+- NOT: reprocessing to fix an ingestion/movement defect — fix the loader first (`/audit-data-quality` finds it through `incremental-load-scan`, `/data-fix` closes it; the data-pipeline overlay's `/audit-pipeline` corroborates when installed); a backfill through a broken loader reproduces the corruption at scale.
 
 ## Phases applied
 
@@ -29,7 +29,10 @@ Backfills are the most dangerous routine operation in a warehouse. They rewrite 
 **The old numbers are evidence.** Snapshot the live table's aggregate totals per period BEFORE the backfill. Without the before-picture there is no way to explain what changed, and "the numbers moved" becomes an unanswerable question from finance.
 
 **Halt conditions (refuse to produce an executable plan):**
-- The model's loader is not proven idempotent for the target range — `@data-pipeline-reviewer` must clear it first.
+- **The loader gate is not cleared** for the target range. The gate, in order of preference:
+  1. **`incremental-load-scan` (this pack) — always when installed.** Run it on the model's load path; its §2 (merge key, nullable key), §7 (overwrite scope) and §8 (backfill shape) rows for this target must each be `Refuted` or `Fixed`, with the oracle result attached — V540 (the same chunk twice → identical count and checksum), V546 (one partition overwritten → the others' checksums unchanged), V550 (the range backfilled twice → identical aggregates). A `[report-flagged]` row on §2/§7/§8 keeps the gate closed until its oracle runs on the shadow target.
+  2. **Without the pack's detectors** (an older install): the data-pipeline domain overlay's `@schema-reviewer` with `lens: .claude/lenses/data-pipeline-review.md` / `/audit-pipeline`, when that overlay is installed, clears the loader; its verdict is cited by file and date.
+  3. **Neither installed:** the plan is `BLOCKED — loader gate`, and the plan's Validate section carries the replay-twice recipe (V540 on one chunk into the shadow target) for the operator to run before the first real chunk. The gate is never waived by reading the loader.
 - The restatement policy is undeclared: may a closed period's published numbers change? If they may not, the backfill needs a business decision, not an engineering plan.
 - No rollback target exists (the prior version is not retained anywhere).
 - The consumers are unenumerated — `lineage-trace` has not been run.
@@ -65,7 +68,8 @@ Additionally:
 - `.claude/rules/data-engineering-principles.md`.
 - The model's incremental configuration: unique key, predicate, lookback window, full-refresh trigger.
 - `warehouse-scan-audit` output (dispatched in Phase 2) — the platform's query-history statistics for this model's normal daily run. The per-chunk estimate is derived from measured daily cost multiplied by chunk size, never guessed, and stays `UNKNOWN` where the history could not be read.
-- `lineage-trace` output: every downstream model, dashboard, export, and reverse-ETL sync that reads this table.
+- `lineage-trace` output (its `NODE=` trace): every downstream model, dashboard, export, and reverse-ETL sync that reads this table; a `PARTIAL` trace is carried into the plan as a named gap.
+- `incremental-load-scan` output for the model's load path (§2, §7, §8 — the loader gate above), with the effective `unique_key`, `incremental_strategy`, `on_schema_change` and `full_refresh` and where each came from (`scripts/model-graph.py`).
 
 ## Phase 4 — Generate (the plan)
 
@@ -88,7 +92,7 @@ Before cutover, all of these run against the shadow target and their output goes
 - **Referential completeness** — no fact rows orphaned by the rebuild.
 - **Assertion suite** — the model's full assertion set runs against the shadow target and passes.
 - **Spot reconciliation** — at least one period reconciled against the source system.
-- **Idempotency proof** — reprocess one chunk twice into the shadow target; totals must not move.
+- **Idempotency proof** — reprocess one chunk twice into the shadow target; count and checksum must not move (V540; the range-twice variant is V550). This is the loader gate's oracle run for real on the shadow target.
 
 ### Backfill ledger — REQUIRED OUTPUT ARTIFACT (the plan is not approved until this table exists)
 
@@ -155,5 +159,6 @@ This command never sets `COMPLETE` on its own. Cutover is an operator action; th
 - `@analytics-engineer` — the incremental configuration and lookback window that determine whether a backfill was needed at all.
 - `@warehouse-modeler` — the partitions and grain the rebuild must preserve.
 - `grain-probe`, `lineage-trace`, `warehouse-scan-audit` — the executors.
-- `/audit-pipeline` (data-pipeline signal) — clears the loader as idempotent before this plan is executable.
+- `incremental-load-scan` §2/§7/§8 — the loader gate (above); `/audit-pipeline` / `@schema-reviewer` with `lens: .claude/lenses/data-pipeline-review.md` (data-pipeline overlay) only when the pack's detectors are absent.
+- `/data-fix` — closes a loader finding before the plan is re-run.
 - `.claude/rules/data-engineering-principles.md`.

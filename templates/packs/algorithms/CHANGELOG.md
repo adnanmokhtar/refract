@@ -9,6 +9,16 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.0 — 2026-10-19
+
+**The algorithms pack became a detector pack (Track A batch 8).** Code-quality owns a wrong expression; this pack owns a wrong algorithm — the bound, depth, order, distribution, surface or precision a procedure's contract assumes.
+
+- **Detectors.** `complexity-scan` (CX §1–§6 super-linear work, RC §7–§10 recursion and termination) with `scripts/algo-sites.py` (loop heads paired with collections and caps, `--recursion`; 54 self-tests, run by `test-validators.sh`), `algorithm-contract-scan` (OC §1–§4, RD §5–§7, GE §8–§10), `numeric-stability-scan` (NS §1–§5, SL §6–§7; gated on numeric libraries and anchored calls, not the old word gate that matched ~30 % of a CRUD repo; fixture-measured only).
+- **Commands.** `/analyze-complexity` rewritten as the read-only whole-repo audit; `/design-algorithm --from-audit` is the fixer; `@algorithm-designer` judges in refute mode (writes nothing).
+- **Ownership.** The pack owns super-linear work (`asymptotic-complexity`): performance `request-path-scan` §11 prints → `complexity-scan` and does not grade when this pack is installed, and grades without it; `memory-growth-scan` §8, `correctness-smell-scan`, `/optimize`, `refactorer`, `perf-audit` and `/audit`'s scale lens route here. Six `ownership.json` rows.
+- **Setup.** Still opt-in: `detect-signals.sh` `numeric_or_geo_lib_detected` (manifest numeric / geo / sketch libraries, PostGIS, sketch commands) makes the preflight print a `--include=algorithms` suggestion; nothing auto-installs.
+- **Fixture `algo-defects`** (54 seeds, 12 decoys, 8 routed). Precedents `precedents/algorithms.md` §1–40; proof oracles V590–V609.
+
 ## 1.3.0 — 2026-08-23
 
 **The pack was reviewed for deletion and kept, on evidence.** Two measurements decided it.

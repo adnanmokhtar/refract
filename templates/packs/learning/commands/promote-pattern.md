@@ -1,6 +1,8 @@
 ---
-description: Graduates an emerging pattern from ai/dynamic/learned-patterns.md to a formal ai/patterns/<name>.md with full structure.
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+description: "Graduate a READY entry in learned-patterns.md into a formal ai/patterns/<name>.md (curator draft, one approval)."
+kind: command
+pack: learning
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /promote-pattern <name>
@@ -33,7 +35,7 @@ ONE approval gate, and it is AFTER the draft. Draft the pattern inline first, th
 Plan the steps:
 1. Locate the source entry in `learned-patterns.md`.
 2. Verify promotion criteria (status + occurrences + lifespan).
-3. Dispatch `knowledge-curator` agent to draft the formal file inline (no pre-draft confirmation).
+3. Dispatch `knowledge-curator` (mode `promote`, the `Task` tool) to draft the formal file inline (no pre-draft confirmation).
 4. Surface the completed draft for one-shot user edit.
 5. Write the file + update the source entry + log.
 
@@ -88,7 +90,8 @@ PATTERN-SPECIFIC:
 
 - Update entry in `ai/dynamic/learned-patterns.md` to `PROMOTED → ai/patterns/<name>.md`.
 - Append to `ai/dynamic/changelog.md`: "Pattern promoted: <name>".
-- Regenerate the Tier-1 derived files via `knowledge-curator § 8` — `ai/_session-digest.md` § "Patterns currently emerging" is sourced from `learned-patterns.md` status `WATCHING`, so until it regenerates the digest every session auto-loads still advertises this pattern as un-formalized.
+- Append the audit line to `ai/dynamic/promotions.md` ([`learning-sink.md` § Confirm-list and the promotion audit line](../../../snippets/learning-sink.md)): `pattern ai/patterns/<name>.md ← ai/dynamic/learned-patterns.md:<line>`, the occurrence files as evidence, the user's approval words as `confirmed:`.
+- Regenerate the Tier-1 derived files via `knowledge-curator` mode `regenerate` (§ 8) — `ai/_session-digest.md` § "Patterns currently emerging" is sourced from `learned-patterns.md` status `WATCHING`, so until it regenerates the digest every session auto-loads still advertises this pattern as un-formalized.
 - If the pattern affects an existing rule, propose updating the rule (separate flow — ask user).
 - If a new ADR is warranted (deliberate trade-off chosen with alternatives), queue to `ai/dynamic/decisions-pending.md`.
 
@@ -105,6 +108,7 @@ in two places and they will drift.
   resolve exactly once and that line MUST read `PROMOTED → ai/patterns/<name>.md`. A `WATCHING`
   entry surviving beside the formal file is the orphaned original; halt.
 - **changelog.md entry appended** — grep confirms the "Pattern promoted: `<name>`" line, exactly once.
+- **Audit line appended** — `grep -c 'pattern ai/patterns/<name>.md' ai/dynamic/promotions.md` returns 1.
 - **Digest regenerated** — `ai/_session-digest.md` § "Patterns currently emerging" no longer lists
   `<name>` (it is formal now). A digest still advertising it as emerging is `knowledge-curator § 8`
   not having run; re-run it rather than editing the derived file by hand.
@@ -168,6 +172,3 @@ Status: COMPLETE
 - `/detect-drift` — sibling command in learning pack
 - `/learn-from-task` — sibling command in learning pack
 - `/refresh-knowledge` — sibling command in learning pack
-
-### Patterns
-- `ai/patterns/setup-quality-scoring.md`

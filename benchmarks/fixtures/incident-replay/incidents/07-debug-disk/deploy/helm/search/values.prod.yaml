@@ -1,0 +1,10 @@
+replicaCount: 10
+image:
+  repository: ghcr.io/acme/search
+resources:
+  requests: { cpu: 500m, memory: 768Mi, ephemeral-storage: 1Gi }
+  limits: { memory: 1Gi, ephemeral-storage: 2Gi }
+env:
+  LOG_LEVEL: debug
+  LOG_FILE: /var/log/search/app.log
+  LOG_ROTATE: "false"

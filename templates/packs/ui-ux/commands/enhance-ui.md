@@ -179,10 +179,10 @@ End-of-run summary:
 
 Scope tier:                wrapper-variant
 Duplicate surfaces:      3 (<path:line> × 3)
-Iterate target:          src/shared/components/AppSidebar.vue
+Iterate target:          src/shared/components/SideNav.vue
 Surfaces updated by 1 change: 3 routes (DRY — single wrapper edit)
 
-Resolved:                  src/shared/components/AppSidebar.vue
+Resolved:                  src/shared/components/SideNav.vue
 
 Step 1 — Cleanup:          5 findings fixed
   wrapper-variant fold:        1 (sidebar padding duplicated on Dashboard + Settings — moved into the wrapper by this tier)
@@ -198,7 +198,7 @@ Step 2 — Iterate:          3 variants generated (screenshots: Dashboard, Setti
 
 User picked:               C (minimal)
 
-Step 3 — Apply:            variant C applied to AppSidebar.vue (wrapper scoped styles + confirmed props)
+Step 3 — Apply:            variant C applied to SideNav.vue (wrapper scoped styles + confirmed props)
 
 Step 4 — Re-enforce:       0 new findings (clean)
 

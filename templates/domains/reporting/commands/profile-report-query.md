@@ -79,4 +79,4 @@ Top recommendation:
 
 - `.claude/rules/reporting-export-discipline.md` — the hard-rule list this command enforces (replica, tenant scope, keyset, streaming, bounded range).
 - `ai/patterns/report-generation.md` — the keyset loop + replica routing + tenant-scoped query shape.
-- `<agents-path>/reporting-reviewer.md` — review gate that consumes these findings.
+- `.claude/lenses/reporting-review.md` — review gate that consumes these findings.

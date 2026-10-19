@@ -8,7 +8,7 @@ A **technical signal** is a cross-cutting tech concern detected from code (multi
 
 Each signal folder under `~/.claude/templates/domains/<name>/` ships:
 
-- `agents/<name>.md` — domain-specific agent personas
+- `lenses/<name>-review.md` — the domain's review checklist, read by a roster reviewer (table below; since Phase 6 — it used to be a separate agent that nothing dispatched)
 - `commands/<name>.md` — workflows that operate on this concern
 - `rules/<name>.md` — must / must-not for the concern
 - `ai-patterns/<name>.md` — code patterns the agents read
@@ -85,9 +85,56 @@ Identity / commerce extensions (some overlap implemented packs — generate only
 
 > Note: purely product-vertical concepts (cart/checkout, catalog) live in `templates/business-domains/`, not here — this registry is for **cross-cutting technical signals** only.
 
+## Reviewer and lens per domain (Phase 6)
+
+The machine-readable copy is each domain's `_version.json` (`reviewer`, `reviewer_pack`, `fallback`, `lens`);
+`scripts/gen-boundaries.py` writes it into the reviewer's generated `## Lenses` block and
+`scripts/lint-dispatch-graph.sh` (D5) fails when a lens has no reader or a reviewer does not exist. The
+fallback reviewer reads the lens when the primary reviewer's pack is not installed; it is always an
+always-on agent, so no domain lens is ever orphaned. `/review-changes` and `/audit` brief the reviewer with
+`lens: .claude/lenses/<d>-review.md`.
+
+| Domain | Lens | Reviewer | Fallback |
+|---|---|---|---|
+| `ab-testing` | `lenses/ab-testing-review.md` | `code-reviewer` (code-quality pack) | — |
+| `admin` | `lenses/admin-review.md` | `security-auditor` (security pack) | — |
+| `ai` | `lenses/ai-review.md` | `security-auditor` (security pack) | — |
+| `analytics` | `lenses/analytics-review.md` | `code-reviewer` (code-quality pack) | — |
+| `audit-log` | `lenses/audit-log-review.md` | `security-auditor` (security pack) | — |
+| `auth` | `lenses/auth-review.md` | `security-auditor` (security pack) | — |
+| `background-jobs` | `lenses/background-jobs-review.md` | `operability-reviewer` (delivery pack) | — |
+| `caching` | `lenses/caching-review.md` | `performance-reviewer` (delivery pack) | — |
+| `compliance` | `lenses/compliance-review.md` | `security-auditor` (security pack) | — |
+| `data-pipeline` | `lenses/data-pipeline-review.md` | `schema-reviewer` (database pack) | `code-reviewer` |
+| `document-generation` | `lenses/document-generation-review.md` | `security-auditor` (security pack) | — |
+| `event-sourced` | `lenses/event-sourced-review.md` | `operability-reviewer` (delivery pack) | — |
+| `feature-flags` | `lenses/feature-flags-review.md` | `code-reviewer` (code-quality pack) | — |
+| `file-upload` | `lenses/file-upload-review.md` | `security-auditor` (security pack) | — |
+| `forms` | `lenses/forms-review.md` | `code-reviewer` (code-quality pack) | — |
+| `i18n` | `lenses/i18n-review.md` | `ux-reviewer` (ui-ux pack) | `code-reviewer` |
+| `import` | `lenses/import-review.md` | `schema-reviewer` (database pack) | `code-reviewer` |
+| `integrations` | `lenses/integrations-review.md` | `operability-reviewer` (delivery pack) | — |
+| `ledger` | `lenses/ledger-review.md` | `code-reviewer` (code-quality pack) | — |
+| `media-processing` | `lenses/media-processing-review.md` | `security-auditor` (security pack) | — |
+| `moderation` | `lenses/moderation-review.md` | `security-auditor` (security pack) | — |
+| `multi-tenant` | `lenses/multi-tenant-review.md` | `security-auditor` (security pack) | — |
+| `notifications` | `lenses/notifications-review.md` | `operability-reviewer` (delivery pack) | — |
+| `payment` | `lenses/payment-review.md` | `code-reviewer` (code-quality pack) | — |
+| `public-api` | `lenses/public-api-review.md` | `security-auditor` (security pack) | — |
+| `rate-limiting` | `lenses/rate-limiting-review.md` | `security-auditor` (security pack) | — |
+| `real-time` | `lenses/real-time-review.md` | `operability-reviewer` (delivery pack) | — |
+| `reporting` | `lenses/reporting-review.md` | `schema-reviewer` (database pack) | `code-reviewer` |
+| `scheduling` | `lenses/scheduling-review.md` | `operability-reviewer` (delivery pack) | — |
+| `search` | `lenses/search-review.md` | `performance-reviewer` (delivery pack) | — |
+| `settings` | `lenses/settings-review.md` | `code-reviewer` (code-quality pack) | — |
+| `streaming-delivery` | `lenses/streaming-delivery-review.md` | `operability-reviewer` (delivery pack) | — |
+| `subscriptions` | `lenses/subscriptions-review.md` | `code-reviewer` (code-quality pack) | — |
+| `webhook` | `lenses/webhook-review.md` | `security-auditor` (security pack) | — |
+| `workflow` | `lenses/workflow-review.md` | `code-reviewer` (code-quality pack) | — |
+
 ## Maintenance
 
-- **Adding a signal**: create `~/.claude/templates/domains/<key>/` with the 4 artifact subfolders + `_version.json`, then add a row above. Phase 4.0 preflight enforces presence.
+- **Adding a signal**: create `~/.claude/templates/domains/<key>/` with the 4 artifact subfolders (`lenses/ commands/ rules/ ai-patterns/`) + `_version.json` (with `reviewer` and `lens`), then add a row above. Phase 4.0 preflight enforces presence.
 - **Renaming**: never rename in place. Add the new key + leave the old one with `deprecated: true` (`replaced_by: <new-key>`) so Phase 0.2 extract can still read older installs.
 - **Promoting a cataloged key to implemented**: move the row from the second table to the first.
 

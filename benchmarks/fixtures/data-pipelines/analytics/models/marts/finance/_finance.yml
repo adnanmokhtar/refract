@@ -1,0 +1,88 @@
+version: 2
+
+models:
+  - name: fct_orders
+    description: One row per order, merged on order_id.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: coupon_id
+        description: Optional — most orders carry no coupon.
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_promotions'), field: promotion_id}
+      - name: total_cents
+        data_tests:
+          - dbt_expectations.expect_column_mean_to_be_between:
+              arguments: {min_value: 500, max_value: 50000}
+              config: {severity: warn}
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+
+  - name: fct_payments
+    description: One row per payment.
+    access: public
+    columns:
+      - name: payment_id
+        data_tests: [unique, not_null]
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+
+  - name: payments_daily
+    description: One row per day per method group.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [paid_day, method_group]
+
+  - name: orders_daily
+    description: One row per order day.
+    columns:
+      - name: order_day
+        data_tests: [unique, not_null]
+
+  - name: fct_refund_events
+    description: One row per refund event.
+    columns:
+      - name: refund_event_id
+        data_tests: [unique, not_null]
+    data_tests:
+      - dbt_expectations.expect_table_row_count_to_be_between:
+          arguments: {min_value: 1}
+
+  - name: rpt_payment_methods
+    description: One row per payment method group.
+    columns:
+      - name: method_group
+        data_tests: [unique, not_null]
+
+  - name: revenue_by_order
+    description: One row per order, in the reporting currency.
+    access: public
+    config:
+      contract: {enforced: true}
+    latest_version: 2
+    columns:
+      - name: order_id
+        data_type: int64
+        data_tests: [unique, not_null]
+      - name: amount
+        data_type: numeric
+      - name: currency
+        data_type: string
+    versions:
+      - v: 1
+      - v: 2
+        columns:
+          - include: all
+          - name: amount
+            data_type: int64
+
+  - name: fct_order_status_history
+    description: One row per order per status change.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, changed_at]

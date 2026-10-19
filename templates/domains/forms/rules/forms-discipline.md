@@ -87,7 +87,7 @@ A form bug is a duplicated charge, an escalated privilege, a stored XSS that run
 ## Enforcement
 
 - `<commands-path>/audit-form-handling.md` (slash: `/audit-form-handling`) — locates a specific submit handler at `<path:line>` and checks server-side validation, CSRF, idempotency, mass-assignment, error-to-field mapping, rate-limit/captcha, file fields, and PII-in-logs — cite-or-halt, never an assumed handler.
-- `<agents-path>/forms-reviewer.md` — review gate hard-failing on client-only validation, missing CSRF, non-idempotent submit, mass-assignment, stored-XSS sinks, ungated public forms, unbounded payloads, inline file validation, opaque errors, and PII in logs.
+- `.claude/lenses/forms-review.md` — review gate hard-failing on client-only validation, missing CSRF, non-idempotent submit, mass-assignment, stored-XSS sinks, ungated public forms, unbounded payloads, inline file validation, opaque errors, and PII in logs.
 - CI lint MUST reject whole-body bind sinks in handlers (`Object.assign(model, req.body)`, `{ ...req.body }` into a create/update, `Model(**request.data)`) — AST heuristic; flag for review.
 - CI lint MUST reject raw HTML sinks (`innerHTML`/`v-html`/`dangerouslySetInnerHTML`) fed by request/DB-sourced strings.
 - CI MUST assert each state-changing route is covered by CSRF middleware (or an explicit, justified exemption).
@@ -101,5 +101,5 @@ A form bug is a duplicated charge, an escalated privilege, a stored XSS that run
 - `<rules-path>/auth` — session/CSRF token issuance + verification + the auth context privileged fields are set from.
 - `<patterns-path>/report-generation.md § edge formatting/escaping` — money integer-minor-unit + locale/timezone edge parsing + output-escaping discipline reused for form values.
 - `<commands-path>/audit-form-handling.md` — per-handler diagnostic.
-- `<agents-path>/forms-reviewer.md` — review gate.
+- `.claude/lenses/forms-review.md` — review gate.
 - `<adr-path>/<NNN>-form-validation-strategy.md` — ADR pinning the shared-schema library, the CSRF strategy, and the idempotency-token mechanism.

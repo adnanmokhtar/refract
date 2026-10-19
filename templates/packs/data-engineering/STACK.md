@@ -8,7 +8,9 @@ This pack's agents, commands, skills, and patterns assume:
 - **Query history / job statistics** exposed by the platform, so cost and scan findings come from measurement rather than estimation.
 - **A consumption layer** (BI tool, reverse-ETL, scheduled exports) whose model definitions can be read or at least enumerated.
 
-Where any of these is absent, the affected artifact says so explicitly rather than degrading silently: `warehouse-scan-audit` halts without query history, `lineage-trace` reports `PARTIAL` without a readable consumption layer, and `contract-diff` reports `NO CONTRACT` rather than diffing against the last successful load.
+Where any of these is absent, the affected artifact says so explicitly rather than degrading silently: `warehouse-scan-audit` always runs its static lane offline and reports bytes only from a recorded history file or a dry run the user allows (its history lane alone needs query history); `lineage-trace` reports `PARTIAL` without a readable consumption layer; `contract-diff` prints §2 `NOT-RUN` without a base to diff and §5 `N/A (data lane only)` without two snapshots, rather than diffing against the last successful load; `grain-probe` builds offline into duckdb before it ever touches a warehouse.
+
+**The in-app lane.** Most repositories this pack is installed into have no warehouse at all, and still carry derived data: rollup tables, trigger-maintained tables, materialized views, closed-period snapshots, exports and dumps inside an ordinary web application. `derived-data-scan`, `extract-scan` and `pii-copy-scan` read that lane (any ORM over Postgres or MySQL); every warehouse lane prints `N/A (<reason>)` on such a repo, never `checked`.
 
 ## Inline examples in this pack
 
