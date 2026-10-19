@@ -90,7 +90,10 @@ for p in $packs; do
     fi
     continue
   fi
-  set -- "$dir" --trust-plugin --json "$OUT/$p.json" --model "$MODEL" --runs "$RUNS" --threshold 0 \
+  # --scaffold: every case's stage-resources.sh copies its resources/ into the empty workspace —
+  # context.add_dirs alone grants read access but places nothing where the prompt says the code is
+  # (measured 2026-10-19 on 2.1.292: without it the agent reported "directory does not exist").
+  set -- "$dir" --trust-plugin --scaffold --json "$OUT/$p.json" --model "$MODEL" --runs "$RUNS" --threshold 0 \
          --max-cost-usd "$COST" --no-publish --output-dir "$OUT/$p"
   [ -n "$JUDGE" ] && set -- "$@" --judge-model "$JUDGE"
   [ -n "$CASE" ] && set -- "$@" --case "$CASE"
