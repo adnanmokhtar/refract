@@ -1,14 +1,9 @@
 # Results
 
 <!-- history:banner:begin -->
-> ## NO RUN HAS BEEN RECORDED YET.
->
-> The table below is empty. Every cell in it is empty. Nothing in this repository — no
-> README, no marketing line, no issue comment — may cite a detection rate, a percentage,
-> or a comparison against any other tool, because none has been measured.
->
-> This file exists so that when a number does appear here, it arrives with the model, the
-> version, the date and the raw findings attached. A number without those is not a result.
+> Every row below is GENERATED from `benchmarks/results/history.jsonl` by
+> `python3 benchmarks/history.py render`, and carries the model, its version, the date and the
+> Refract commit it measured. Cite a number only with its row; a row without those is not a result.
 <!-- history:banner:end -->
 
 The harness was built and self-tested; the commands were not run. Running them requires an
@@ -107,7 +102,7 @@ the with-pack score minus the no-pack score; a pack ships only with Δ > 0 (spec
 <!-- history:eval:begin -->
 | date | pack | model | judge | sha | cases passed | score | Δ vs no-plugin | cost | notes |
 |------|------|-------|-------|-----|--------------|-------|-----------------|------|-------|
-| — | — | — | — | — | — | — | — | — | *no eval run recorded* |
+| 2026-10-19 | security | claude-sonnet-5-5 | claude-haiku-5-5 | 1daf19e9c60f | 2/2 | 1.00 | +0.00 | $0.50 | — |
 <!-- history:eval:end -->
 
 ### Rules for this table
