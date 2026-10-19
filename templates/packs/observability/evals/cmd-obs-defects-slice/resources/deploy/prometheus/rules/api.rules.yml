@@ -1,0 +1,135 @@
+groups:
+  - name: api
+    rules:
+      - alert: ApiHigh5xxRatio
+        expr: sum(rate(http_requests_total{job="api",code=~"5.."}[5m])) / sum(rate(http_requests_total{job="api"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: More than 5 % of API requests fail with a 5xx
+          runbook_url: https://runbooks.harbor.internal/api/high-5xx
+
+      - alert: ApiErrorBurst
+        expr: sum(rate(http_requests_total{job="api",code=~"5.."}[30s])) > 5
+        for: 2m
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: API 5xx burst above 5/s
+          runbook_url: https://runbooks.harbor.internal/api/high-5xx
+
+      - alert: ApiErrorsByJob
+        expr: sum by (job) (rate(http_requests_total{job="api",code=~"5.."}[5m])) > 10
+        for: 10m
+        labels:
+          severity: ticket
+          team: checkout
+        annotations:
+          summary: "5xx rate above 10/s on {{ $labels.instance }}"
+
+      - alert: OrdersFailing
+        expr: increase(orders_failed_total[5m]) > 20
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: More than 20 orders failed to place in 5 minutes
+          runbook_url: https://runbooks.harbor.internal/orders/failing
+
+      - alert: OrdersFailedTotalHigh
+        expr: orders_failed_total > 100
+        for: 5m
+        labels:
+          severity: ticket
+          team: checkout
+        annotations:
+          summary: Failed orders above 100
+
+      - alert: PaymentErrorsSustained
+        expr: sum(rate(payment_attempts_total{outcome="error"}[5m])) > 0.5
+        for: 1h
+        labels:
+          severity: page
+          team: payments
+        annotations:
+          summary: Payment captures keep failing
+          runbook_url: https://runbooks.harbor.internal/payments/capture-errors
+
+      - alert: RefundErrors
+        expr: sum(rate(http_requests_total{job="api",route="/orders/:id/refund",code=~"5.."}[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: page
+          team: payments
+        annotations:
+          summary: Refund requests are failing
+
+      - alert: ApiThroughputLow
+        expr: rate(sum(http_requests_total{job="api"})[10m:1m]) < 2
+        for: 15m
+        labels:
+          severity: ticket
+          team: checkout
+        annotations:
+          summary: API throughput below 2 requests per second
+
+      - alert: ApiLatencyP99High
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="api"}[5m])) by (job)) > 2
+        for: 10m
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: API p99 latency above 2 s
+          runbook_url: https://runbooks.harbor.internal/api/latency
+
+      - alert: CheckoutLatencyP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_second_bucket{job="api",route="/checkout"}[5m]))) > 1.5
+        for: 10m
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: Checkout p95 latency above 1.5 s
+          runbook_url: https://runbooks.harbor.internal/api/latency
+
+      - alert: OrdersFailedSpike
+        expr: increase(orders_failed_total[10m]) > 50
+        for: 5m
+        labels:
+          severity: ticket
+          team: checkout
+          failed_orders: "{{ $value }}"
+        annotations:
+          summary: Order failures spiking
+
+      - alert: ApiFastRequestsDropped
+        expr: sum(rate(http_request_duration_seconds_bucket{job="api",le="1"}[5m])) < 1 and sum(rate(http_requests_total{job="api"}[5m])) > 5
+        for: 15m
+        labels:
+          severity: ticket
+          team: checkout
+        annotations:
+          summary: Almost no API request finishes under one second
+
+      - alert: ApiTargetMissing
+        expr: absent(up{job=~"api.*"})
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: No API target is being scraped
+          runbook_url: https://runbooks.harbor.internal/api/target-missing
+
+      - alert: HostCpuHigh
+        expr: (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) * 100 > 80
+        for: 15m
+        labels:
+          severity: page
+          team: platform
+        annotations:
+          summary: app-1 CPU above 80 %
+          runbook_url: https://runbooks.harbor.internal/platform/cpu

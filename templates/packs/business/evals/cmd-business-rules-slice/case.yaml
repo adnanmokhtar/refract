@@ -1,0 +1,27 @@
+# fixture: benchmarks/fixtures/business-rules · hard outcome slice: 24 files, 6 seeds, 7 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py business
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: BR-LC5-a apps/api/src/payments/stripe-webhook.handler.ts:14 BIZ-LC-5 -> graders/seed-br-lc5-a.md
+# seed: BR-LC3-a ai/business-flows.md:9 BIZ-LC-3 -> graders/seed-br-lc3-a.md
+# seed: BR-LC1-a apps/api/src/orders/order-status.ts:10 BIZ-LC-1 -> graders/seed-br-lc1-a.md
+# seed: BR-MP1-a apps/api/src/payouts/commission.calculator.ts:5 BIZ-MP-1 -> graders/seed-br-mp1-a.md
+# seed: BR-LG3-a apps/api/src/accounting/payment-postings.ts:15 BIZ-LG-3 -> graders/seed-br-lg3-a.md
+# seed: BR-CY1-a apps/api/src/team/invites.controller.ts:13 BIZ-CY-1 -> graders/seed-br-cy1-a.md
+# decoy: BR-DECOY-21 apps/api/src/payouts/payout-webhook.handler.ts:9 decoy/LC-5 (§ 22) -> graders/decoy-br-decoy-21.md
+# decoy: BR-DECOY-02 apps/api/src/money/money-policy.ts:6 decoy/MP-1 (§ 2) -> graders/decoy-br-decoy-02.md
+# decoy: BR-DECOY-25 apps/api/src/payouts/payouts.controller.ts:17 decoy/CY-1 (§ 23) -> graders/decoy-br-decoy-25.md
+# decoy: BR-DECOY-08 apps/api/migrations/0002_ledger.sql:38 decoy/LG-1 (§ 10) -> graders/decoy-br-decoy-08.md
+# decoy: BR-DECOY-10 apps/api/src/accounting/bank-reconciliation.ts:11 decoy/LG-2 (§ 11) -> graders/decoy-br-decoy-10.md
+# decoy: BR-DECOY-12 apps/api/src/wallets/wallet-posting.service.ts:21 decoy/LG-4 (§ 13) -> graders/decoy-br-decoy-12.md
+# decoy: BR-DECOY-13 apps/api/src/accounting/clearing-accounts.ts:8 decoy/DM-1 (§ 14) -> graders/decoy-br-decoy-13.md
+# also seeded in these files, not graded: BR-LC2-a BR-LC4-a BR-LG6-a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-business-rules-slice run through /refract-business:audit-business --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-business-rules-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-business-rules-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

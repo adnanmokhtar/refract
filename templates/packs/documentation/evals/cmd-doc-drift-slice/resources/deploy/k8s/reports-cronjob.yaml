@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: reports-daily
+  namespace: tallyhook
+spec:
+  schedule: "15 2 * * *"
+  timeZone: UTC
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: reports
+              image: registry.example.com/tallyhook/api:1.5.0
+              command: ["node", "dist/jobs/reports-daily.js"]
+              envFrom:
+                - configMapRef:
+                    name: tallyhook-config
+                - secretRef:
+                    name: tallyhook-api

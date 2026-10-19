@@ -1,0 +1,10 @@
+---
+type: regex
+pattern: '(?:^|\n)(?![ \t\f\v\r>*+#|`\[(\d.-]*(?<![\w./-])(?!(?<![\w./-])(?:[\w.@-]+/)*[\w.@-]+\.[A-Za-z][A-Za-z0-9]{0,5}(?::\d+)?(?![\w/]))(?:[\w.@-]+/)+(?:(?:dockerfile|containerfile|jenkinsfile|caddyfile|makefile|justfile|codeowners|procfile|gemfile|rakefile|brewfile|vagrantfile|tiltfile)(?:\.[\w-]+)?|\.env(?:\.[\w-]+)?|[\w@-][\w.@-]*\.[A-Za-z][A-Za-z0-9]{6,9})(?::\d+)?(?![\w/]))(?=(?:(?!(?<![\w./-])(?:[\w.@-]+/)*[\w.@-]+\.[A-Za-z][A-Za-z0-9]{0,5}(?::\d+)?(?![\w/])|(?<![\w./-])(?:[\w.@-]+/)*(?:(?:dockerfile|containerfile|jenkinsfile|caddyfile|makefile|justfile|codeowners|procfile|gemfile|rakefile|brewfile|vagrantfile|tiltfile)(?:\.[\w-]+)?|\.env(?:\.[\w-]+)?|[\w@-][\w.@-]*\.[A-Za-z][A-Za-z0-9]{6,9}):\d+(?![\w/]))[^\n])*(?<![\w./-])(?:(?:\./)*(?:(?:(?:services/)?billing-py/)?billing/)?subscriptions\.py|(?:[\w.@-]+/)+services\/billing-py\/billing\/subscriptions\.py):(?:17|18|19|20|21|22|23|24|25|26|27|28|29)(?![\w/]))(?=(?:[^\n]|\n(?!(?:[^\n]*(?<![\w./-])(?:[\w.@-]+/)*[\w.@-]+\.[A-Za-z][A-Za-z0-9]{0,5}(?::\d+)?(?![\w/])|[^\n]*(?<![\w./-])(?:[\w.@-]+/)*(?:(?:dockerfile|containerfile|jenkinsfile|caddyfile|makefile|justfile|codeowners|procfile|gemfile|rakefile|brewfile|vagrantfile|tiltfile)(?:\.[\w-]+)?|\.env(?:\.[\w-]+)?|[\w@-][\w.@-]*\.[A-Za-z][A-Za-z0-9]{6,9}):\d+(?![\w/])|[ \t\f\v\r>*+#|`\[(\d.-]*(?<![\w./-])(?!(?<![\w./-])(?:[\w.@-]+/)*[\w.@-]+\.[A-Za-z][A-Za-z0-9]{0,5}(?::\d+)?(?![\w/]))(?:[\w.@-]+/)+(?:(?:dockerfile|containerfile|jenkinsfile|caddyfile|makefile|justfile|codeowners|procfile|gemfile|rakefile|brewfile|vagrantfile|tiltfile)(?:\.[\w-]+)?|\.env(?:\.[\w-]+)?|[\w@-][\w.@-]*\.[A-Za-z][A-Za-z0-9]{6,9})(?::\d+)?(?![\w/])))){0,4000}?(?:ignore_invalid_triggers|illegal|409))'
+match: not_contains
+flags: i
+target: last_message
+weight: 1
+---
+
+Decoy BD-DECOY-50 (services/billing-py/billing/subscriptions.py:23, known-safe): the reply must not pin it — a finding citing subscriptions.py:23±6 whose text hits every `match:` pattern of BD-DECOY-50 and that no seed could claim at EXACT strength nor a closer decoy takes — the rule benchmarks/score.py counts as DECOYS FLAGGED.

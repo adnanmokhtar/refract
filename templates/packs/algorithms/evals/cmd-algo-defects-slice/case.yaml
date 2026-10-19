@@ -1,0 +1,26 @@
+# fixture: benchmarks/fixtures/algo-defects · hard outcome slice: 21 files, 7 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py algorithms
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: AL-GE1-b api/src/stores/nearby-stores.repository.ts:20 ALG-GE-1 -> graders/seed-al-ge1-b.md
+# seed: AL-GE2-a api/src/stores/store-location.repository.ts:18 ALG-GE-2 -> graders/seed-al-ge2-a.md
+# seed: AL-GE3-a api/src/delivery/service-area.ts:16 ALG-GE-3 -> graders/seed-al-ge3-a.md
+# seed: AL-RC4-a api/src/sync/order-sync.job.ts:24 ALG-RC-4 -> graders/seed-al-rc4-a.md
+# seed: AL-RC2-b api/src/catalog/category-paths.repository.ts:11 ALG-RC-2 -> graders/seed-al-rc2-b.md
+# seed: AL-OC1-a api/src/pricing/weight-band.ts:19 ALG-OC-1 -> graders/seed-al-oc1-a.md
+# seed: AL-OC4-a api/src/pricing/tier-lookup.ts:15 ALG-OC-4 -> graders/seed-al-oc4-a.md
+# decoy: AL-DECOY-06 api/src/maintenance/project-every.ts:10 decoy/RC-4 (§ 15) -> graders/decoy-al-decoy-06.md
+# decoy: AL-DECOY-04 api/src/logging/redact.ts:8 decoy/RC-1 (§ 13) -> graders/decoy-al-decoy-04.md
+# decoy: AL-DECOY-02 api/src/common/bulkhead.ts:38 decoy/CX-3 (§ 8) -> graders/decoy-al-decoy-02.md
+# decoy: AL-DECOY-01 api/src/couriers/poll-statuses.job.ts:21 decoy/CX-1 (precedents/algorithms.md § 1) -> graders/decoy-al-decoy-01.md
+# decoy: AL-DECOY-08 api/src/customers/customer-index.ts:14 decoy/OC-3 (§ 20) -> graders/decoy-al-decoy-08.md
+# also seeded in these files, not graded: AL-RC2-a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-algo-defects-slice run through /refract-algorithms:analyze-complexity resources — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-algo-defects-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-algo-defects-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

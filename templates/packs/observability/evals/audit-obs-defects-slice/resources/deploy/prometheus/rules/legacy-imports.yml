@@ -1,0 +1,12 @@
+groups:
+  - name: legacy-imports
+    rules:
+      - alert: CatalogFeedStale
+        expr: time() - max(catalog_feed_last_import_timestamp_seconds) > 2 * 86400
+        for: 15m
+        labels:
+          severity: page
+          team: catalog
+        annotations:
+          summary: The supplier catalog feed has not imported for two days
+          runbook_url: https://runbooks.harbor.internal/catalog/feed-stale

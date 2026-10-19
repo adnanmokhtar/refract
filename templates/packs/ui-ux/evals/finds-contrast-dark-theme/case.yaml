@@ -1,7 +1,0 @@
-# fixture: benchmarks/fixtures/a11y-states · defect AS-A11Y-09a (apps/shop/app/[locale]/globals.css:26) · decoy AS-DECOY-19 (line 10) · decoy AS-DECOY-23 (line 46)
-# resources/: byte copies of apps/shop/app/[locale]/globals.css (scripts/lint-pack-evals.py checks they match)
-schema_version: "1.1"
-name: finds-contrast-dark-theme
-context:
-  scaffold_script: stage-resources.sh
-  add_dirs: [resources]

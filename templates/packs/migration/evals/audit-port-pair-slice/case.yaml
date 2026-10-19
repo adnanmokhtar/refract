@@ -1,0 +1,22 @@
+# fixture: benchmarks/fixtures/port-pair · hard outcome slice: 19 files, 6 seeds, 4 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py migration
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: PX-RT1a v2/apps/api/src/orders/orders.controller.ts:45 surface/route-dropped -> graders/seed-px-rt1a.md
+# seed: PX-ER1a v2/apps/api/src/orders/orders.service.ts:34 surface/error-contract-drift -> graders/seed-px-er1a.md
+# seed: PX-DM10a v2/apps/api/src/orders/order.entity.ts:43 effects/db-logic-not-reproduced -> graders/seed-px-dm10a.md
+# seed: PX-SE1a v2/apps/api/src/orders/order.subscriber.ts:15 effects/side-effect-dropped -> graders/seed-px-se1a.md
+# seed: PX-NULL1b v2/apps/api/src/orders/order.mapper.ts:13 semantics/null-empty-missing -> graders/seed-px-null1b.md
+# seed: PX-MN1b v2/apps/api/src/orders/pricing.ts:11 semantics/rounding-mode -> graders/seed-px-mn1b.md
+# decoy: PX-DECOY-31 v2/apps/api/src/common/money.ts:6 decoy/PX-MN1a -> graders/decoy-px-decoy-31.md
+# decoy: PX-DECOY-30 v2/packages/contracts/src/orders.ts:43 decoy/PX-VA1b -> graders/decoy-px-decoy-30.md
+# decoy: PX-DECOY-20 ai/migration/contracts/orders.md:22 decoy/PX-PP3a -> graders/decoy-px-decoy-20.md
+# decoy: PX-DECOY-23 v2/apps/api/src/common/not-found.filter.ts:7 decoy/PX-RT1a -> graders/decoy-px-decoy-23.md
+# also seeded in these files, not graded: PX-AZ2a PX-DM7a PX-ORD1a PX-SD1b PX-SE2a PX-VA1b
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+schema_version: "1.1"
+name: audit-port-pair-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

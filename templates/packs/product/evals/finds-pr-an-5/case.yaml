@@ -1,7 +1,0 @@
-# fixture: benchmarks/fixtures/launch-gaps · defect LG-AN5-a (apps/web/src/features/billing/UpgradePage.tsx:21) · decoy LG-DECOY-14 (line 41)
-# resources/: byte copies of apps/web/src/features/billing/UpgradePage.tsx (scripts/lint-pack-evals.py checks they match)
-schema_version: "1.1"
-name: finds-pr-an-5
-context:
-  scaffold_script: stage-resources.sh
-  add_dirs: [resources]

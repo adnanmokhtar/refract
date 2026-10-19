@@ -1,0 +1,23 @@
+# fixture: benchmarks/fixtures/obs-defects · hard outcome slice: 11 files, 5 seeds, 4 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py observability
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: OD-AL-04b deploy/prometheus/rules/legacy-imports.yml:4 alerts/rule-never-loaded -> graders/seed-od-al-04b.md
+# seed: OD-AL-04a deploy/prometheus/rules/api.rules.yml:90 alerts/selector-not-in-inventory -> graders/seed-od-al-04a.md
+# seed: OD-SLO-05a deploy/prometheus/rules/slo-latency.rules.yml:6 slo/latency-threshold-not-a-bucket-edge -> graders/seed-od-slo-05a.md
+# seed: OD-SLO-02a deploy/prometheus/rules/payments-slo.rules.yml:18 slo/burn-budget-for-another-objective -> graders/seed-od-slo-02a.md
+# seed: OD-SY-02a deploy/prometheus/prometheus.yml:44 synthetic/health-probe-claimed-as-journey -> graders/seed-od-sy-02a.md
+# decoy: OD-DECOY-11 deploy/prometheus/rules/platform.rules.yml:5 decoy/OD-AL-01a -> graders/decoy-od-decoy-11.md
+# decoy: OD-DECOY-22 deploy/prometheus/rules/platform.rules.yml:12 decoy/OD-AL-06a -> graders/decoy-od-decoy-22.md
+# decoy: OD-DECOY-13 deploy/prometheus/rules/platform.rules.yml:32 decoy/OD-AL-05a -> graders/decoy-od-decoy-13.md
+# decoy: OD-DECOY-06 api/src/metrics/slow-request.hook.ts:9 decoy/OD-MT-01b -> graders/decoy-od-decoy-06.md
+# also seeded in these files, not graded: OD-AA-05a OD-AA-05b OD-AL-01a OD-AL-01b OD-AL-02a OD-AL-02b OD-AL-02c OD-AL-03a OD-AL-03b OD-AL-03c OD-AL-05a OD-AL-05b OD-AL-06a OD-AL-06b OD-AL-07a OD-AL-07b OD-MT-01a OD-MT-01b OD-MT-04a OD-MT-06a OD-MT-08b OD-SLO-05b OD-SLO-06b
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-obs-defects-slice run through /refract-observability:obs-audit --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-obs-defects-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-obs-defects-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

@@ -1,0 +1,24 @@
+# fixture: benchmarks/fixtures/slow-marketplace · hard outcome slice: 23 files, 5 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py performance
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: SM-CM-01 api/src/catalog/product-snapshot.cache.ts:19 memory/unbounded-map -> graders/seed-sm-cm-01.md
+# seed: SM-CM-05 api/src/catalog/product-cache.service.ts:45 cache/key-missing-tenant (security-routed) -> graders/seed-sm-cm-05.md
+# seed: SM-SC-01 api/src/auth/login-rate-limiter.ts:10 scale/per-replica-rate-limiter -> graders/seed-sm-sc-01.md
+# seed: SM-CM-02 api/src/worker/search-indexer.worker.ts:19 memory/orm-identity-map-growth -> graders/seed-sm-cm-02.md
+# seed: SM-SC-02 api/src/payouts/payout-reminder.cron.ts:18 scale/cron-on-every-replica -> graders/seed-sm-sc-02.md
+# decoy: SM-DECOY-19 api/src/shipping/carrier.client.ts:41 decoy/client-with-timeout -> graders/decoy-sm-decoy-19.md
+# decoy: SM-DECOY-20 api/src/app.module.ts:40 decoy/shared-rate-limit-store -> graders/decoy-sm-decoy-20.md
+# decoy: SM-DECOY-21 api/src/payouts/payout-reminder.cron.ts:34 decoy/claimed-cron -> graders/decoy-sm-decoy-21.md
+# decoy: SM-DECOY-22 api/src/catalog/product-cache.service.ts:20 decoy/bounded-tenant-keyed-lru -> graders/decoy-sm-decoy-22.md
+# decoy: SM-DECOY-23 api/src/storefront/home-feed.service.ts:51 decoy/single-flight -> graders/decoy-sm-decoy-23.md
+# also seeded in these files, not graded: SM-CM-03 SM-CM-04 SM-CONN-01 SM-RS-01 SM-RT-01 SM-RT-02 SM-RT-03 SM-RT-04 SM-RT-05 SM-RT-06 SM-SCH-04
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-slow-marketplace-slice run through /refract-performance:perf-audit resources — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-slow-marketplace-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-slow-marketplace-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

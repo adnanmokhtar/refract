@@ -1,0 +1,10 @@
+{
+  "url": "https://api.fernhollow.example/api/webhooks/stripe",
+  "api_version": "2025-08-27.basil",
+  "enabled_events": [
+    "payment_intent.succeeded",
+    "payment_intent.payment_failed",
+    "payment_intent.canceled",
+    "charge.refunded"
+  ]
+}

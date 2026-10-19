@@ -1,0 +1,31 @@
+/* Acme design tokens: the single source for colour, spacing, radius and type. Built from
+   tokens.json (DTCG) by the token build; every app imports this file once (`@acme/ui/tokens.css`). */
+:root {
+  --color-primary: #1a73e8;
+  --color-danger: #d92d20;
+  --color-success: #12b76a;
+  --color-text: #101828;
+  --color-text-muted: #667085;
+  --color-surface: #ffffff;
+  --color-border: #e4e7ec;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  --font-size-sm: 13px;
+  --font-size-md: 15px;
+  --font-size-lg: 18px;
+}
+
+[data-theme='dark'] {
+  --color-text: #f2f4f7;
+  --color-text-muted: #98a2b3;
+  --color-surface: #101828;
+  --color-border: #344054;
+}

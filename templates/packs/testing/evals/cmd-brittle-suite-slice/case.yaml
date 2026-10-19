@@ -1,0 +1,26 @@
+# fixture: benchmarks/fixtures/brittle-suite · hard outcome slice: 21 files, 7 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py testing
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: BS-SE-12 api/jest.config.ts:13 execution/coverage-hiding -> graders/seed-bs-se-12.md
+# seed: BS-SE-16 api/package.json:11 execution/suite-not-in-ci -> graders/seed-bs-se-16.md
+# seed: BS-SE-04 api/src/refunds/refund-policy.test.ts:11 execution/never-collected -> graders/seed-bs-se-04.md
+# seed: BS-SE-03 api/test/e2e/refund-ledger.e2e-spec.ts:6 execution/gate-never-satisfied -> graders/seed-bs-se-03.md
+# seed: BS-CG-03 api/src/refunds/refund.service.ts:36 coverage/error-never-asserted -> graders/seed-bs-cg-03.md
+# seed: BS-TD-01 api/src/refunds/refund.service.spec.ts:3 double/sut-mocked -> graders/seed-bs-td-01.md
+# seed: BS-AS-08 api/src/refunds/refund-approval.service.spec.ts:37 assertion/unawaited -> graders/seed-bs-as-08.md
+# decoy: BS-DECOY-21 api/src/refunds/refund-window.spec.ts:30 decoy/acceptance-paired-with-rejection -> graders/decoy-bs-decoy-21.md
+# decoy: BS-DECOY-04 api/test/e2e/refunds.e2e-spec.ts:42 decoy/owned-skip -> graders/decoy-bs-decoy-04.md
+# decoy: BS-DECOY-08 api/test/e2e/boot-app.e2e.ts:13 decoy/helper-not-a-test -> graders/decoy-bs-decoy-08.md
+# decoy: BS-DECOY-16 api/src/fx/currency-table.gen.ts:1 decoy/reasoned-coverage-exclusion -> graders/decoy-bs-decoy-16.md
+# decoy: BS-DECOY-18 api/test/integration/ledger-sql.int-spec.ts:6 decoy/pglite-single-connection -> graders/decoy-bs-decoy-18.md
+# also seeded in these files, not graded: BS-AS-06 BS-AS-10 BS-FL-03 BS-FL-09 BS-SE-09 BS-SE-10 BS-SE-11
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-brittle-suite-slice run through /refract-testing:test-audit --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-brittle-suite-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-brittle-suite-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

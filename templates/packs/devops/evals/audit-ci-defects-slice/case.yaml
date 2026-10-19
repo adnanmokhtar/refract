@@ -1,0 +1,25 @@
+# fixture: benchmarks/fixtures/ci-defects · hard outcome slice: 23 files, 6 seeds, 7 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py devops
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: CD-CP-04a scripts/deploy-host.sh:8 compose/override-loaded-in-prod -> graders/seed-cd-cp-04a.md
+# seed: CD-DS-06a apps/api/src/payments/stripe-webhook.controller.ts:12 parity/config-undeclared -> graders/seed-cd-ds-06a.md
+# seed: CD-DS-06c apps/worker/Dockerfile:2 parity/runtime-drift -> graders/seed-cd-ds-06c.md
+# seed: CD-CB-06b apps/worker/Dockerfile:20 container/healthcheck-wrong-port -> graders/seed-cd-cb-06b.md
+# seed: CD-DS-01b apps/worker/entrypoint.sh:4 deploy/migrate-on-boot-multi-replica -> graders/seed-cd-ds-01b.md
+# seed: CD-CP-02b compose.yaml:17 compose/healthy-gate-no-healthcheck -> graders/seed-cd-cp-02b.md
+# decoy: CD-DECOY-22 apps/api/src/config/config.schema.ts:7 decoy/CD-DS-06a -> graders/decoy-cd-decoy-22.md
+# decoy: CD-DECOY-11 apps/admin/docker-entrypoint.sh:4 decoy/CD-DS-01b -> graders/decoy-cd-decoy-11.md
+# decoy: CD-DECOY-21 apps/admin/src/main.ts:11 decoy/CD-DS-06a -> graders/decoy-cd-decoy-21.md
+# decoy: CD-DECOY-25 compose.prod.yaml:26 decoy/CD-CP-01a -> graders/decoy-cd-decoy-25.md
+# decoy: CD-DECOY-26 compose.prod.yaml:28 decoy/CD-CP-07a -> graders/decoy-cd-decoy-26.md
+# decoy: CD-DECOY-16 apps/admin/Containerfile:32 decoy/CD-CB-02a -> graders/decoy-cd-decoy-16.md
+# decoy: CD-DECOY-12 apps/admin/Containerfile:15 decoy/CD-CB-04c -> graders/decoy-cd-decoy-12.md
+# also seeded in these files, not graded: CD-CB-01b CD-CB-02a CD-CB-02b CD-CB-02c CD-CB-03a CD-CB-03b CD-CB-04a CD-CB-04b CD-CB-04c CD-CB-05a CD-CB-06a CD-CB-07c CD-CB-08a CD-CB-08b CD-CB-09b CD-CB-10b CD-CP-01a CD-CP-01b CD-CP-02a CD-CP-03a CD-CP-03b CD-CP-04b CD-CP-05a CD-CP-05b CD-CP-06a CD-CP-06b CD-CP-07a CD-CP-07b CD-DS-01a CD-DS-05a CD-DS-05b CD-HO-SEC-o CD-HO-SEC-p CD-HO-SEC-q CD-HO-TST-b CD-RI-02a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+schema_version: "1.1"
+name: audit-ci-defects-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

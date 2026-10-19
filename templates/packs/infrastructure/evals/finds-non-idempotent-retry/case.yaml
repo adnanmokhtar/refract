@@ -1,7 +1,0 @@
-# fixture: benchmarks/fixtures/infra-ops · defect IO-ED-03b (edge/caddy/api.caddy:20) · decoy IO-DECOY-02 (line 6)
-# resources/: byte copies of edge/caddy/api.caddy (scripts/lint-pack-evals.py checks they match)
-schema_version: "1.1"
-name: finds-non-idempotent-retry
-context:
-  scaffold_script: stage-resources.sh
-  add_dirs: [resources]

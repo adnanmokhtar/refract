@@ -1,0 +1,23 @@
+# fixture: benchmarks/fixtures/stale-knowledge · hard outcome slice: 20 files, 4 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py learning
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: SK-KN11-a AGENTS.md:7 KN-11 -> graders/seed-sk-kn11-a.md
+# seed: SK-KN07-b .claude/rules/entities.md:4 KN-07 -> graders/seed-sk-kn07-b.md
+# seed: SK-KN07-a .claude/skills/migration-safety/SKILL.md:21 KN-07 -> graders/seed-sk-kn07-a.md
+# seed: SK-KN27-a .claude/hooks/session-start.sh:7 KN-27 -> graders/seed-sk-kn27-a.md
+# decoy: SK-DECOY-20 .claude/agents/test-engineer.md:39 KN-07 -> graders/decoy-sk-decoy-20.md
+# decoy: SK-DECOY-06 ai/_session-digest.md:21 KN-07 -> graders/decoy-sk-decoy-06.md
+# decoy: SK-DECOY-21 opencode.json:4 KN-07 -> graders/decoy-sk-decoy-21.md
+# decoy: SK-DECOY-26 ai/runbooks/local-dev.md:21 KN-11 -> graders/decoy-sk-decoy-26.md
+# decoy: SK-DECOY-16 ai/runbooks/local-dev.md:29 KN-01 -> graders/decoy-sk-decoy-16.md
+# also seeded in these files, not graded: SK-KN05-b SK-KN11-b SK-KN13-c SK-KN15-a SK-KN18-a SK-KN20-a SK-KN24-a SK-KN27-b SK-KN30-a SK-KN32-a SK-KN34-a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-stale-knowledge-slice run through /refract-learning:audit-knowledge --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-stale-knowledge-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-stale-knowledge-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

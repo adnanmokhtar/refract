@@ -99,10 +99,42 @@ case, pinned models (`.github/workflows/refract-evals.yml`; `bash scripts/run-pa
 the with-pack score minus the no-pack score; a pack ships only with Δ > 0 (spec § 8.8). Partial runs
 (cost ceiling hit, paid graders skipped) are refused by `history.py append-eval`.
 
+Rows recorded from the three lanes `run-pack-evals.sh` runs per pack also carry: **ask with / without**
+and **ask Δ** — the hard case (`audit-<fixture>-slice`; delivery `spec-…`) asked in plain words, with the
+pack loaded and without it; **cmd score** — the same slice and graders behind the pack's own audit command
+(`cmd-<fixture>-slice`, one arm); **cmd Δ** = cmd score − ask without, the command against the bare model on
+the same ask, the figure a pack must keep above 0; **skill fired** — the share of the plain-ask runs with the
+pack in which one of its skills or commands ran. Seed and decoy graders follow `benchmarks/score.py
+--strict-line`'s credit rule.
+
 <!-- history:eval:begin -->
-| date | pack | model | judge | sha | cases passed | score | Δ vs no-plugin | cost | notes |
-|------|------|-------|-------|-----|--------------|-------|-----------------|------|-------|
-| 2026-10-19 | security | claude-sonnet-5-5 | claude-haiku-5-5 | 1daf19e9c60f | 2/2 | 1.00 | +0.00 | $0.50 | — |
+| date | pack | model | judge | sha | cases passed | score | Δ vs no-plugin | ask with / without | ask Δ | cmd score | cmd Δ | skill fired | cost | notes |
+|------|------|-------|-------|-----|--------------|-------|-----------------|--------------------|-------|-----------|-------|-------------|------|-------|
+| 2026-10-19 | ai-engineering | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.79 | -0.02 | 0.58 / 0.62 | -0.04 | 0.75 | +0.12 | 100% | $1.81 | — |
+| 2026-10-19 | algorithms | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 2/2 | 1.00 | +0.02 | 1.00 / 0.96 | +0.04 | 0.75 | -0.21 | 0% | $0.98 | — |
+| 2026-10-19 | align | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.91 | +0.07 | 0.82 / 0.68 | +0.14 | 0.73 | +0.05 | 0% | $1.33 | — |
+| 2026-10-19 | backend | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.83 | -0.03 | 0.67 / 0.72 | -0.06 | 0.83 | +0.11 | 0% | $2.60 | — |
+| 2026-10-19 | business | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.88 | +0.08 | 0.77 / 0.62 | +0.15 | 0.73 | +0.12 | 50% | $1.75 | — |
+| 2026-10-19 | code-quality | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.87 | -0.02 | 0.73 / 0.77 | -0.03 | 0.80 | +0.03 | 0% | $1.26 | — |
+| 2026-10-19 | data-engineering | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.89 | +0.07 | 0.79 / 0.64 | +0.14 | 0.75 | +0.11 | 0% | $1.17 | — |
+| 2026-10-19 | database | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.80 | -0.03 | 0.60 / 0.65 | -0.05 | 0.50 | -0.15 | 0% | $3.02 | — |
+| 2026-10-19 | security | claude-sonnet-5-5 | claude-haiku-5-5 | 1daf19e9c60f | 2/2 | 1.00 | +0.00 | — | — | — | — | — | $0.50 | — |
+| 2026-10-20 | delivery | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.89 | +0.00 | 0.79 / 0.79 | +0.00 | 0.86 | +0.07 | 0% | $0.96 | — |
+| 2026-10-20 | devops | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.90 | -0.04 | 0.81 / 0.88 | -0.08 | 0.88 | +0.00 | 0% | $2.17 | — |
+| 2026-10-20 | distributed-systems | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.93 | -0.00 | 0.85 / 0.85 | -0.00 | 0.75 | -0.10 | 0% | $1.37 | — |
+| 2026-10-20 | documentation | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.98 | +0.00 | 0.96 / 0.96 | +0.00 | 0.92 | -0.04 | 0% | $1.08 | — |
+| 2026-10-20 | finops | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.82 | +0.02 | 0.64 / 0.59 | +0.05 | 0.59 | +0.00 | 100% | $2.54 | — |
+| 2026-10-20 | frontend | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.78 | +0.03 | 0.56 / 0.50 | +0.06 | 0.50 | +0.00 | 0% | $1.50 | — |
+| 2026-10-20 | infrastructure | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.94 | +0.02 | 0.88 / 0.83 | +0.04 | 0.75 | -0.08 | 0% | $1.18 | — |
+| 2026-10-20 | learning | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.92 | +0.08 | 0.83 / 0.67 | +0.17 | 0.72 | +0.06 | 0% | $1.18 | — |
+| 2026-10-20 | migration | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.95 | +0.07 | 0.90 / 0.75 | +0.15 | 0.90 | +0.15 | 0% | $1.47 | — |
+| 2026-10-20 | mobile | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.90 | +0.02 | 0.81 / 0.77 | +0.04 | 0.92 | +0.15 | 0% | $1.74 | — |
+| 2026-10-20 | observability | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.97 | +0.06 | 0.94 / 0.83 | +0.11 | 0.67 | -0.17 | 0% | $1.33 | — |
+| 2026-10-20 | performance | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.90 | +0.00 | 0.80 / 0.80 | +0.00 | 0.75 | -0.05 | 0% | $1.60 | — |
+| 2026-10-20 | product | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.81 | -0.04 | 0.62 / 0.71 | -0.08 | 0.67 | -0.04 | 100% | $1.27 | — |
+| 2026-10-20 | security | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.88 | +0.05 | 0.75 / 0.65 | +0.10 | 0.65 | +0.00 | 0% | $2.56 | — |
+| 2026-10-20 | testing | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.85 | +0.04 | 0.71 / 0.62 | +0.08 | 0.75 | +0.12 | 50% | $1.36 | — |
+| 2026-10-20 | ui-ux | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.68 | -0.09 | 0.36 / 0.55 | -0.18 | 0.55 | +0.00 | 0% | $1.12 | — |
 <!-- history:eval:end -->
 
 ### Rules for this table

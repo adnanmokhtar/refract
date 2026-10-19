@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+# per-machine session notes (see ai/runbooks/local-dev.md)
+ai/dynamic/session-log.md
+.claude/_memory-index.json

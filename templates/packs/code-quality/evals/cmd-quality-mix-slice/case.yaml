@@ -1,0 +1,29 @@
+# fixture: benchmarks/fixtures/quality-mix · hard outcome slice: 25 files, 10 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py code-quality
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: QM-AR-03 api/src/domain/pricing.ts:1 architecture/layer-violation -> graders/seed-qm-ar-03.md
+# seed: QM-DC-01 api/src/billing/legacy-invoice-number.ts:2 dead/unused-file -> graders/seed-qm-dc-01.md
+# seed: QM-DC-02 api/src/subscriptions/plan-change.service.ts:9 dead/flag -> graders/seed-qm-dc-02.md
+# seed: QM-DC-03 api/src/usage/quota.ts:20 dead/unreachable-check -> graders/seed-qm-dc-03.md
+# seed: QM-SUP-03 api/src/reports/revenue-report.service.ts:1 suppression/blanket -> graders/seed-qm-sup-03.md
+# seed: QM-CS-20 api/src/invoices/invoice-number.ts:5 time/week-year-token -> graders/seed-qm-cs-20.md
+# seed: QM-CS-19 api/src/billing/billing-anchor.ts:4 time/date-only-parse -> graders/seed-qm-cs-19.md
+# seed: QM-CS-07 api/src/coupons/coupon-code.ts:11 logic/regex-precedence -> graders/seed-qm-cs-07.md
+# seed: QM-CS-14 api/src/invoices/invoice-list.service.ts:16 logic/off-by-one-page -> graders/seed-qm-cs-14.md
+# seed: QM-CS-02 api/src/billing/invoice-lines.ts:9 logic/discarded-result -> graders/seed-qm-cs-02.md
+# decoy: QM-DECOY-06 api/src/jobs/dunning-reminder.job.ts:6 decoy/glob-loaded -> graders/decoy-qm-decoy-06.md
+# decoy: QM-DECOY-05 api/src/lib/sdk-shim.ts:9 decoy/justified-suppression -> graders/decoy-qm-decoy-05.md
+# decoy: QM-DECOY-18 api/src/invoices/invoice-status.ts:1 decoy/type-only-cycle -> graders/decoy-qm-decoy-18.md
+# decoy: QM-DECOY-23 api/src/usage/usage.controller.ts:29 decoy/radix-parse-with-range -> graders/decoy-qm-decoy-23.md
+# decoy: QM-DECOY-24 api/src/usage/retention.ts:5 decoy/elapsed-duration -> graders/decoy-qm-decoy-24.md
+# also seeded in these files, not graded: QM-CS-01 QM-CS-13 QM-TY-05
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-quality-mix-slice run through /refract-code-quality:quality-audit --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-quality-mix-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-quality-mix-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

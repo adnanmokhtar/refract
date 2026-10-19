@@ -2,8 +2,5 @@
 # May only shrink. Regenerate after genericizing a file (never to admit a new one):
 #   python3 scripts/lint-fixture-leakage.py --record
 templates/business-domains/restaurant-pos/glossary.md	1
-templates/packs/backend/_examples/api-reviewer.md	2
-templates/packs/backend/agents/api-reviewer.md	2
 templates/packs/mobile/skills/app-size-scan/SKILL.md	2
-templates/packs/security/agents/llm-security-reviewer.md	1
 templates/repo-baseline/.claude/scripts/ci-graph.py	3

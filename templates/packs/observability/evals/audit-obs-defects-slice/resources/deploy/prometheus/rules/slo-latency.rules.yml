@@ -1,0 +1,58 @@
+# Latency SLOs written by hand (registry: ai/runtime/slos.md). SLI error = share of requests slower than the threshold.
+groups:
+  - name: slo-latency-recordings
+    rules:
+      - record: checkout:latency_sli_error:ratio_rate5m
+        expr: 1 - (sum(rate(checkout_duration_seconds_bucket{le="0.25"}[5m])) / sum(rate(checkout_duration_seconds_count[5m])))
+      - record: checkout:latency_sli_error:ratio_rate30m
+        expr: 1 - (sum(rate(checkout_duration_seconds_bucket{le="0.25"}[30m])) / sum(rate(checkout_duration_seconds_count[30m])))
+      - record: checkout:latency_sli_error:ratio_rate1h
+        expr: 1 - (sum(rate(checkout_duration_seconds_bucket{le="0.25"}[1h])) / sum(rate(checkout_duration_seconds_count[1h])))
+      - record: checkout:latency_sli_error:ratio_rate6h
+        expr: 1 - (sum(rate(checkout_duration_seconds_bucket{le="0.25"}[6h])) / sum(rate(checkout_duration_seconds_count[6h])))
+
+  - name: slo-latency-alerts
+    rules:
+      - alert: CheckoutLatencyFastBurn
+        expr: checkout:latency_sli_error:ratio_rate1h > (14.4 * (1 - 0.99)) and checkout:latency_sli_error:ratio_rate5m > (14.4 * (1 - 0.99))
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: Checkout latency SLO is burning its 30-day budget 14.4x too fast
+          runbook_url: https://runbooks.harbor.internal/slo/checkout-latency
+
+      - alert: CheckoutLatencySlowBurn
+        expr: checkout:latency_sli_error:ratio_rate6h > (6 * (1 - 0.99)) and checkout:latency_sli_error:ratio_rate30m > (6 * (1 - 0.99))
+        labels:
+          severity: page
+          team: checkout
+        annotations:
+          summary: Checkout latency SLO is burning its 30-day budget 6x too fast
+          runbook_url: https://runbooks.harbor.internal/slo/checkout-latency
+
+  # Inventory reservation latency is ticket-only by design (ADR 0011): no one is paged for it.
+  - name: slo-inventory-latency
+    rules:
+      - record: inventory:reserve_latency_sli_error:ratio_rate2h
+        expr: 1 - (sum(rate(inventory_reserve_duration_seconds_bucket{le="0.2"}[2h])) / sum(rate(inventory_reserve_duration_seconds_count[2h])))
+      - record: inventory:reserve_latency_sli_error:ratio_rate1d
+        expr: 1 - (sum(rate(inventory_reserve_duration_seconds_bucket{le="0.2"}[1d])) / sum(rate(inventory_reserve_duration_seconds_count[1d])))
+      - record: inventory:reserve_latency_sli_error:ratio_rate6h
+        expr: 1 - (sum(rate(inventory_reserve_duration_seconds_bucket{le="0.2"}[6h])) / sum(rate(inventory_reserve_duration_seconds_count[6h])))
+      - record: inventory:reserve_latency_sli_error:ratio_rate3d
+        expr: 1 - (sum(rate(inventory_reserve_duration_seconds_bucket{le="0.2"}[3d])) / sum(rate(inventory_reserve_duration_seconds_count[3d])))
+      - alert: InventoryReserveLatencyBurn
+        expr: inventory:reserve_latency_sli_error:ratio_rate1d > (3 * (1 - 0.99)) and inventory:reserve_latency_sli_error:ratio_rate2h > (3 * (1 - 0.99))
+        labels:
+          severity: ticket
+          team: inventory
+        annotations:
+          summary: Reservation latency SLO budget burning 3x too fast
+      - alert: InventoryReserveLatencySlowBurn
+        expr: inventory:reserve_latency_sli_error:ratio_rate3d > (1 * (1 - 0.99)) and inventory:reserve_latency_sli_error:ratio_rate6h > (1 * (1 - 0.99))
+        labels:
+          severity: ticket
+          team: inventory
+        annotations:
+          summary: Reservation latency SLO will miss this period at the current burn

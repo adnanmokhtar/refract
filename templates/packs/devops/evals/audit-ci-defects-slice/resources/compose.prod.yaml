@@ -1,0 +1,29 @@
+# Production overlay for the reports host: compose.yaml + this file (scripts/deploy-host.sh reports).
+services:
+  db:
+    image: postgres:latest
+    ports: !reset []
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis
+    command: ["redis-server", "--appendonly", "yes"]
+  migrate:
+    image: ghcr.io/acme/shop-api:2.3.1
+    restart: "no"
+
+  # The reports service waits for a healthy database and for the migration to finish.
+  # A failed migration stops the stack here instead of starting reports on an old schema.
+  # pg_isready above answers only when Postgres accepts connections, not when the port opens.
+  # Postgres and Redis keep their data in the named volumes declared in compose.yaml.
+  reports:
+    image: ghcr.io/acme/shop-reports:2.3.1
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped

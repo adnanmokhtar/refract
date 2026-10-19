@@ -1,0 +1,24 @@
+# fixture: benchmarks/fixtures/doc-drift · hard outcome slice: 18 files, 7 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py documentation
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: DOC-DK3-a deploy/alerts/rules.yml:11 DK-3 -> graders/seed-doc-dk3-a.md
+# seed: DOC-DK2-b docs/runbooks/api-latency.md:3 DK-2 -> graders/seed-doc-dk2-b.md
+# seed: DOC-DK2-a docs/runbooks/reports.md:8 DK-2 -> graders/seed-doc-dk2-a.md
+# seed: DOC-DK1-b docs/runbooks/api-unavailable.md:17 DK-1 -> graders/seed-doc-dk1-b.md
+# seed: DOC-DL2-b docs/runbooks/restore-db.md:20 DL-2 -> graders/seed-doc-dl2-b.md
+# seed: DOC-DE2-a apps/api/src/config/env.schema.ts:8 DE-2 -> graders/seed-doc-de2-a.md
+# seed: DOC-DE3-a docs/config.md:14 DE-3 -> graders/seed-doc-de3-a.md
+# decoy: DOC-DECOY-17 docs/runbooks/api-latency.md:23 DK-1 -> graders/decoy-doc-decoy-17.md
+# decoy: DOC-DECOY-19 docs/runbooks/restore-db.md:34 DK-2 -> graders/decoy-doc-decoy-19.md
+# decoy: DOC-DECOY-04 docs/operations.md:38 DL-2 -> graders/decoy-doc-decoy-04.md
+# decoy: DOC-DECOY-07 docs/config.md:34 DE-1 -> graders/decoy-doc-decoy-07.md
+# decoy: DOC-DECOY-08 docs/config.md:37 DE-1 -> graders/decoy-doc-decoy-08.md
+# also seeded in these files, not graded: DOC-DE1-a DOC-DE2-b DOC-DE3-b DOC-DF1-b DOC-DK1-a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+schema_version: "1.1"
+name: audit-doc-drift-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

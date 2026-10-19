@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  CANCELLED
+  REFUNDED
+}
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  mfaSecret    String?   @map("mfa_secret")
+  role         Role      @default(BUYER)
+  displayName  String    @map("display_name")
+  bio          String?
+  website      String?
+  avatarUrl    String?   @map("avatar_url")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  products     Product[]
+  sessions     Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  @@map("sessions")
+}
+
+model Category {
+  id       String    @id @default(uuid()) @db.Uuid
+  slug     String    @unique
+  name     String
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id              String        @id @default(uuid()) @db.Uuid
+  sellerId        String        @map("seller_id") @db.Uuid
+  seller          User          @relation(fields: [sellerId], references: [id])
+  categoryId      String        @map("category_id") @db.Uuid
+  category        Category      @relation(fields: [categoryId], references: [id])
+  sku             String?
+  title           String
+  descriptionHtml String        @map("description_html")
+  priceCents      Int           @map("price_cents")
+  currency        String        @default("USD")
+  thumbnailUrl    String?       @map("thumbnail_url")
+  status          ProductStatus @default(DRAFT)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  reviews         Review[]
+
+  @@unique([sellerId, sku])
+  @@index([sellerId, status])
+  @@map("products")
+}
+
+model Review {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  authorId  String   @map("author_id") @db.Uuid
+  rating    Int
+  bodyHtml  String   @map("body_html")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("reviews")
+}
+
+model Order {
+  id              String      @id @default(uuid()) @db.Uuid
+  number          Int         @default(autoincrement())
+  buyerId         String      @map("buyer_id") @db.Uuid
+  sellerId        String      @map("seller_id") @db.Uuid
+  status          OrderStatus @default(PENDING)
+  subtotalCents   Int         @map("subtotal_cents")
+  totalCents      Int         @map("total_cents")
+  couponId        String?     @map("coupon_id") @db.Uuid
+  discountPercent Int         @default(0) @map("discount_percent")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  items           OrderItem[]
+  invoices        Invoice[]
+
+  @@index([sellerId, createdAt])
+  @@index([buyerId, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String @id @default(uuid()) @db.Uuid
+  orderId        String @map("order_id") @db.Uuid
+  order          Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String @map("product_id") @db.Uuid
+  quantity       Int
+  unitPriceCents Int    @map("unit_price_cents")
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Coupon {
+  id             String   @id @default(uuid()) @db.Uuid
+  code           String   @unique
+  percentOff     Int      @map("percent_off")
+  maxRedemptions Int      @map("max_redemptions")
+  redemptions    Int      @default(0)
+  expiresAt      DateTime @map("expires_at")
+
+  @@map("coupons")
+}
+
+model Invoice {
+  id         String   @id @default(uuid()) @db.Uuid
+  number     String   @unique
+  orderId    String   @map("order_id") @db.Uuid
+  order      Order    @relation(fields: [orderId], references: [id])
+  buyerId    String   @map("buyer_id") @db.Uuid
+  sellerId   String   @map("seller_id") @db.Uuid
+  totalCents Int      @map("total_cents")
+  taxCents   Int      @map("tax_cents")
+  billingTo  Json     @map("billing_to")
+  pdfPath    String   @map("pdf_path")
+  issuedAt   DateTime @default(now()) @map("issued_at")
+
+  @@map("invoices")
+}
+
+model StoreSettings {
+  sellerId String @id @map("seller_id") @db.Uuid
+  data     Json
+
+  @@map("store_settings")
+}
+
+model Theme {
+  id        String   @id @default(uuid()) @db.Uuid
+  sellerId  String   @map("seller_id") @db.Uuid
+  name      String
+  path      String
+  source    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("themes")
+}
+
+model EmailTemplate {
+  id       String @id @default(uuid()) @db.Uuid
+  sellerId String @map("seller_id") @db.Uuid
+  kind     String
+  subject  String
+  body     String
+
+  @@unique([sellerId, kind])
+  @@map("email_templates")
+}
+
+model DiscountRule {
+  id         String  @id @default(uuid()) @db.Uuid
+  sellerId   String  @map("seller_id") @db.Uuid
+  label      String
+  condition  String
+  percentOff Int     @map("percent_off")
+  active     Boolean @default(true)
+
+  @@map("discount_rules")
+}
+
+model PayoutAccount {
+  sellerId  String   @id @map("seller_id") @db.Uuid
+  iban      String
+  holder    String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("payout_accounts")
+}
+
+model StoreDomain {
+  sellerId       String    @id @map("seller_id") @db.Uuid
+  hostname       String    @unique
+  challenge      String
+  verifiedAt     DateTime? @map("verified_at")
+  lastCheckError String?   @map("last_check_error")
+
+  @@map("store_domains")
+}
+
+model StockTransfer {
+  id              String              @id @default(uuid()) @db.Uuid
+  sellerId        String              @map("seller_id") @db.Uuid
+  fromWarehouseId String              @map("from_warehouse_id") @db.Uuid
+  toWarehouseId   String              @map("to_warehouse_id") @db.Uuid
+  receivedAt      DateTime?           @map("received_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  lines           StockTransferLine[]
+
+  @@index([sellerId, createdAt])
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id         String        @id @default(uuid()) @db.Uuid
+  transferId String        @map("transfer_id") @db.Uuid
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productId  String        @map("product_id") @db.Uuid
+  quantity   Int
+
+  @@index([transferId])
+  @@map("stock_transfer_lines")
+}
+
+model StockReturn {
+  id          String            @id @default(uuid()) @db.Uuid
+  sellerId    String            @map("seller_id") @db.Uuid
+  orderId     String            @map("order_id") @db.Uuid
+  warehouseId String            @map("warehouse_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  lines       StockReturnLine[]
+
+  @@map("stock_returns")
+}
+
+model StockReturnLine {
+  id          String      @id @default(uuid()) @db.Uuid
+  returnId    String      @map("return_id") @db.Uuid
+  stockReturn StockReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  productId   String      @map("product_id") @db.Uuid
+  quantity    Int
+
+  @@map("stock_return_lines")
+}
+
+model StockLedgerEntry {
+  id             String   @id @default(uuid()) @db.Uuid
+  idempotencyKey String   @unique @map("idempotency_key")
+  warehouseId    String   @map("warehouse_id") @db.Uuid
+  productId      String   @map("product_id") @db.Uuid
+  delta          Int
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([warehouseId, productId])
+  @@map("stock_ledger_entries")
+}

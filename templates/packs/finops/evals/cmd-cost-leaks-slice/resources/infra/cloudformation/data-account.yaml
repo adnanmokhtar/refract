@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Data account (444444444444): the FOCUS export bucket finance reads, the account budget and
+  anomaly alerts. Deployed by the data team with `aws cloudformation deploy`.
+
+Parameters:
+  MonthlyLimitUsd:
+    Type: Number
+    Default: 1800
+
+Resources:
+  FocusExportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: qw-focus-exports
+      Tags:
+        - Key: team
+          Value: data
+        - Key: env
+          Value: prod
+
+  DataAccountBudget:
+    Type: AWS::Budgets::Budget
+    Properties:
+      Budget:
+        BudgetName: qw-data-monthly
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit:
+          Amount: !Ref MonthlyLimitUsd
+          Unit: USD
+      NotificationsWithSubscribers:
+        - Notification:
+            NotificationType: ACTUAL
+            ComparisonOperator: GREATER_THAN
+            Threshold: 100
+            ThresholdType: PERCENTAGE
+          Subscribers:
+            - SubscriptionType: EMAIL
+              Address: no-reply@quaywise.example
+
+  DataAnomalyMonitor:
+    Type: AWS::CE::AnomalyMonitor
+    Properties:
+      MonitorName: qw-data-services
+      MonitorType: DIMENSIONAL
+      MonitorDimension: SERVICE
+
+  DataAnomalySubscription:
+    Type: AWS::CE::AnomalySubscription
+    Properties:
+      SubscriptionName: qw-data-anomalies
+      Frequency: WEEKLY
+      MonitorArnList:
+        - !Ref DataAnomalyMonitor
+      Subscribers:
+        - Type: EMAIL
+          Address: data-team@quaywise.example
+      ThresholdExpression: '{"Dimensions":{"Key":"ANOMALY_TOTAL_IMPACT_ABSOLUTE","MatchOptions":["GREATER_THAN_OR_EQUAL"],"Values":["10000"]}}'

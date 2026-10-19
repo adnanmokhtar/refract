@@ -1,0 +1,71 @@
+version: "3.8"
+name: shop
+
+# The full stack on one host (scripts/deploy-host.sh shop). Postgres and Redis run beside the apps.
+
+services:
+  api:
+    image: ghcr.io/acme/shop-api:${TAG}
+    ports:
+      - "${API_PORT}:3000"
+    environment:
+      DATABASE_URL: postgres://shop@db:5432/shop
+      REDIS_URL: redis://redis:6379
+      STRIPE_API_KEY: ${STRIPE_API_KEY:?set on the host}
+    depends_on:
+      reports:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    image: ghcr.io/acme/shop-worker:2.3.1
+    container_name: shop-worker
+    deploy:
+      replicas: 2
+    environment:
+      REDIS_URL: redis://redis:6379
+      WORKER_CONCURRENCY: "4"
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  reports:
+    image: ghcr.io/acme/shop-reports:2.3.1
+    depends_on: [db]
+    environment:
+      REPORTS_DATABASE_URL: postgresql://reports@db:5432/reports
+    stop_grace_period: 2s
+    restart: unless-stopped
+
+  migrate:
+    image: ghcr.io/acme/shop-api:2.3.1
+    command: ["node", "dist/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://shop@db:5432/shop
+    restart: always
+
+  db:
+    image: postgres:16.4-bookworm
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: canary-placeholder
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5432"]
+      interval: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4-alpine
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:

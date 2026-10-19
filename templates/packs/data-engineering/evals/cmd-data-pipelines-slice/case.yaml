@@ -1,0 +1,28 @@
+# fixture: benchmarks/fixtures/data-pipelines · hard outcome slice: 14 files, 7 seeds, 7 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py data-engineering
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: DE-OR8-a dags/sessions_daily.py:9 DE-OR-8 -> graders/seed-de-or8-a.md
+# seed: DE-OR8-b dags/refunds_daily.py:9 DE-OR-8 -> graders/seed-de-or8-b.md
+# seed: DE-OR7-b dags/legacy_exports.py:19 DE-OR-7 -> graders/seed-de-or7-b.md
+# seed: DE-OR4-a dags/orders_daily.py:36 DE-OR-4 -> graders/seed-de-or4-a.md
+# seed: DE-DQ3-b .github/workflows/dbt-ci.yml:11 DE-DQ-3 -> graders/seed-de-dq3-b.md
+# seed: DE-DQ4-a analytics/models/staging/_sources.yml:14 DE-DQ-4 -> graders/seed-de-dq4-a.md
+# seed: DE-IN10-a cdc/orders-connector.json:11 DE-IN-10 -> graders/seed-de-in10-a.md
+# decoy: DE-DECOY-09 dags/stock_levels.py:30 decoy/OR-4 (cleanup task) -> graders/decoy-de-decoy-09.md
+# decoy: DE-DECOY-10 dags/stock_levels.py:20 decoy/OR-5 (idempotent write) -> graders/decoy-de-decoy-10.md
+# decoy: DE-DECOY-11 dags/stock_levels.py:12 decoy/OR-8 (explicit interval timetable) -> graders/decoy-de-decoy-11.md
+# decoy: DE-DECOY-12 dags/catalog_refresh.py:10 decoy/OR-3 (precedents/data-engineering.md § 14) -> graders/decoy-de-decoy-12.md
+# decoy: DE-DECOY-13 dags/catalog_refresh.py:17 decoy/OR-1 (precedents/data-engineering.md § 13) -> graders/decoy-de-decoy-13.md
+# decoy: DE-DECOY-15 analytics/models/staging/_sources.yml:80 decoy/DQ-4 (static reference data) -> graders/decoy-de-decoy-15.md
+# decoy: DE-DECOY-08 cdc/outbox-connector.json:8 decoy/IN-10 (precedents/data-engineering.md § 18) -> graders/decoy-de-decoy-08.md
+# also seeded in these files, not graded: DE-DQ3-a DE-DQ4-b DE-DQ7-a DE-IN10-b DE-LN4-b DE-OR1-a DE-OR1-b DE-OR2-a DE-OR3-a DE-OR4-b DE-OR5-a DE-OR7-a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-data-pipelines-slice run through /refract-data-engineering:audit-data-quality --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-data-pipelines-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-data-pipelines-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

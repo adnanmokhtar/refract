@@ -1,0 +1,25 @@
+# fixture: benchmarks/fixtures/a11y-states · hard outcome slice: 18 files, 5 seeds, 6 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py ui-ux
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: AS-A11Y-22a apps/shop/.storybook/preview.ts:11 a11y/gate-neutered -> graders/seed-as-a11y-22a.md
+# seed: AS-ST-06a apps/shop/components/account/GiftCardsPanel.tsx:14 states/permission-as-error -> graders/seed-as-st-06a.md
+# seed: AS-A11Y-05a apps/shop/components/account/AddressDialog.tsx:22 a11y/dialog-focus -> graders/seed-as-a11y-05a.md
+# seed: AS-SM-01 ai/design/state-matrix/checkout.md:9 matrix/state-missing -> graders/seed-as-sm-01.md
+# seed: AS-ST-08a apps/shop/components/checkout/PlaceOrderButton.tsx:21 states/pending-submit -> graders/seed-as-st-08a.md
+# decoy: AS-DECOY-18 apps/shop/tests/unit/a11y.test.tsx:10 decoy/jsdom-contrast-off -> graders/decoy-as-decoy-18.md
+# decoy: AS-DECOY-02 apps/shop/components/account/ConfirmDeleteDialog.tsx:24 decoy/native-dialog -> graders/decoy-as-decoy-02.md
+# decoy: AS-DECOY-17 apps/shop/components/account/StoreCreditPanel.tsx:17 decoy/403-handled -> graders/decoy-as-decoy-17.md
+# decoy: AS-DECOY-11 apps/shop/components/account/OrdersPanel.tsx:9 decoy/hook-in-parent-branches-in-child -> graders/decoy-as-decoy-11.md
+# decoy: AS-DECOY-09 apps/shop/components/account/OrdersTable.tsx:32 decoy/table-2d-scroll -> graders/decoy-as-decoy-09.md
+# decoy: AS-DECOY-08 apps/shop/components/checkout/CouponField.tsx:18 decoy/sonner-toast -> graders/decoy-as-decoy-08.md
+# also seeded in these files, not graded: AS-A11Y-08a AS-A11Y-09a AS-A11Y-12a AS-SM-02 AS-SM-03 AS-SM-04 AS-SM-05 AS-SM-06 AS-SM-07 AS-SM-08 AS-ST-04a AS-ST-05a AS-TK-08b
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-a11y-states-slice run through /refract-ui-ux:design-review resources — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-a11y-states-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-a11y-states-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

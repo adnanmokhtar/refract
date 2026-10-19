@@ -1,0 +1,39 @@
+# Payments capture availability (registry: ai/runtime/slos.md, payments-capture-availability).
+# Burn tiers copied from the storefront SLO template.
+groups:
+  - name: payments-slo
+    rules:
+      - record: payments:error_ratio:rate5m
+        expr: sum(rate(payment_attempts_total{outcome="error"}[5m])) / sum(rate(payment_attempts_total[5m]))
+      - record: payments:error_ratio:rate30m
+        expr: sum(rate(payment_attempts_total{outcome="error"}[30m])) / sum(rate(payment_attempts_total[30m]))
+      - record: payments:error_ratio:rate1h
+        expr: sum(rate(payment_attempts_total{outcome="error"}[1h])) / sum(rate(payment_attempts_total[1h]))
+      - record: payments:error_ratio:rate6h
+        expr: sum(rate(payment_attempts_total{outcome="error"}[6h])) / sum(rate(payment_attempts_total[6h]))
+      - record: payments:error_ratio:rate3d
+        expr: sum(rate(payment_attempts_total{outcome="error"}[3d])) / sum(rate(payment_attempts_total[3d]))
+
+      - alert: PaymentsAvailabilityFastBurn
+        expr: payments:error_ratio:rate1h > 14.4 * (1 - 0.99) and payments:error_ratio:rate5m > 14.4 * (1 - 0.99)
+        labels:
+          severity: page
+          team: payments
+        annotations:
+          summary: Payments capture SLO burning 14.4x
+          runbook_url: https://runbooks.harbor.internal/slo/payments-capture
+      - alert: PaymentsAvailabilitySlowBurn
+        expr: payments:error_ratio:rate6h > 6 * (1 - 0.99) and payments:error_ratio:rate30m > 6 * (1 - 0.99)
+        labels:
+          severity: page
+          team: payments
+        annotations:
+          summary: Payments capture SLO burning 6x
+          runbook_url: https://runbooks.harbor.internal/slo/payments-capture
+      - alert: PaymentsAvailabilityTicket
+        expr: payments:error_ratio:rate3d > 1 * (1 - 0.99) and payments:error_ratio:rate6h > 1 * (1 - 0.99)
+        labels:
+          severity: ticket
+          team: payments
+        annotations:
+          summary: Payments capture SLO will miss this period at the current burn

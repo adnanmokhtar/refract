@@ -1,0 +1,22 @@
+# fixture: benchmarks/fixtures/frontend-correctness · hard outcome slice: 25 files, 5 seeds, 3 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py frontend
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: FC-BND-03 apps/shop/components/Providers.tsx:4 perf/dev-code-in-build -> graders/seed-fc-bnd-03.md
+# seed: FC-RT-07a apps/shop/components/search/SearchResults.tsx:11 routing/use-search-params-no-suspense -> graders/seed-fc-rt-07a.md
+# seed: FC-RT-07b apps/shop/components/catalog/SortSelect.tsx:12 routing/use-search-params-no-suspense -> graders/seed-fc-rt-07b.md
+# seed: FC-SSR-03b apps/shop/lib/pricing.ts:6 ssr/missing-server-only -> graders/seed-fc-ssr-03b.md
+# seed: FC-I18N-02a apps/shop/messages/ar.json:49 i18n/missing-key -> graders/seed-fc-i18n-02a.md
+# decoy: FC-DECOY-01 apps/shop/components/layout/Footer.tsx:17 decoy/index-key-static-list -> graders/decoy-fc-decoy-01.md
+# decoy: FC-DECOY-02 apps/shop/components/layout/Footer.tsx:25 decoy/suppress-hydration-timestamp -> graders/decoy-fc-decoy-02.md
+# decoy: FC-DECOY-05 apps/shop/lib/server/catalog.ts:1 decoy/server-only-guard -> graders/decoy-fc-decoy-05.md
+# also seeded in these files, not graded: FC-CP-01a FC-CP-02a FC-CP-03a FC-I18N-07a FC-RT-03a FC-RT-04a FC-SSR-01a FC-SSR-02a FC-SSR-03a FC-SSR-04a FC-SSR-04b
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-frontend-correctness-slice run through /refract-frontend:frontend-audit --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-frontend-correctness-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-frontend-correctness-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

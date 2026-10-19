@@ -1,0 +1,24 @@
+# fixture: benchmarks/fixtures/slow-marketplace · hard outcome slice: 25 files, 5 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py database
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: SM-CONN-03 deploy/pgbouncer/pgbouncer.ini:22 conn/no-idle-in-transaction-timeout -> graders/seed-sm-conn-03.md
+# seed: SM-SCH-01 api/src/stores/store.entity.ts:22 schema/missing-unique -> graders/seed-sm-sch-01.md
+# seed: SM-SCH-03 api/src/shipping/shipment.entity.ts:14 schema/missing-fk -> graders/seed-sm-sch-03.md
+# seed: SM-SCH-06 api/src/migrations/Migration20240115093000.ts:144 schema/timestamp-without-tz -> graders/seed-sm-sch-06.md
+# seed: SM-TX-02 api/src/payouts/payout-ledger.service.ts:33 tx/wrong-handle -> graders/seed-sm-tx-02.md
+# decoy: SM-DECOY-06 api/src/migrations/Migration20250402090000.ts:13 decoy/concurrent-index-outside-tx -> graders/decoy-sm-decoy-06.md
+# decoy: SM-DECOY-10 api/src/stores/store-hours.entity.ts:20 decoy/wall-clock-with-zone -> graders/decoy-sm-decoy-10.md
+# decoy: SM-DECOY-12 api/src/payouts/payout-ledger.service.ts:17 decoy/db-table-enqueue -> graders/decoy-sm-decoy-12.md
+# decoy: SM-DECOY-13 api/src/webhooks/webhook-retry.poller.ts:54 decoy/single-consumer-claim -> graders/decoy-sm-decoy-13.md
+# decoy: SM-DECOY-15 api/src/stores/store-onboarding.service.ts:50 decoy/primary-read-after-write -> graders/decoy-sm-decoy-15.md
+# also seeded in these files, not graded: SM-CONN-01 SM-CONN-02 SM-CONN-04 SM-IDX-01 SM-IDX-02 SM-MIG-01 SM-MIG-02 SM-MIG-03 SM-SCH-02 SM-TX-01 SM-TX-03 SM-TX-04 SM-TX-05 SM-TX-06 SM-TX-08
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-slow-marketplace-slice run through /refract-database:db-audit — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-slow-marketplace-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-slow-marketplace-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

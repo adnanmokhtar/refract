@@ -1,0 +1,104 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api-unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test --workspace api -- --ci
+
+  api-e2e:
+    runs-on: ubuntu-24.04
+    needs: api-unit
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: returnsdesk_test
+          POSTGRES_PASSWORD: ${{ secrets.CI_PG_PASSWORD }}
+        ports: ["5432:5432"]
+    env:
+      DATABASE_HOST: localhost
+      DATABASE_NAME: returnsdesk_test
+      DATABASE_PASSWORD: ${{ secrets.CI_PG_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:e2e --workspace api
+
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:ci --workspace web
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e --workspace web
+
+  svc:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: svc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[test]"
+      - run: python -m pytest -q --junitxml=pytest.xml || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: svc-junit
+          path: svc/pytest.xml
+
+  ledger:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ledger
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+      - run: go vet ./...
+      - run: go test -race ./... | tee go-test.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ledger-test-log
+          path: ledger/go-test.log
+
+  jvm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - run: mvn -B -f jvm/pom.xml verify

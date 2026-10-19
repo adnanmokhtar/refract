@@ -1,0 +1,23 @@
+# fixture: benchmarks/fixtures/ds-defects · hard outcome slice: 21 files, 5 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py distributed-systems
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: DS-RT-04a apps/worker/src/clients/geo.client.ts:19 retries/multiplied-layers -> graders/seed-ds-rt-04a.md
+# seed: DS-MQ-02a apps/worker/src/jobs/labels.processor.ts:28 messaging/unstable-reserve-id -> graders/seed-ds-mq-02a.md
+# seed: DS-DW-04a apps/worker/src/consumers/fulfilment-tasks.consumer.ts:29 dualwrite/inbox-two-stores -> graders/seed-ds-dw-04a.md
+# seed: DS-DW-04b apps/worker/src/consumers/invoice-mirror.consumer.ts:25 dualwrite/inbox-read-then-write -> graders/seed-ds-dw-04b.md
+# seed: DS-CO-09a apps/worker/src/consumers/customer-profile.consumer.ts:37 clocks/last-write-wins -> graders/seed-ds-co-09a.md
+# decoy: DS-DECOY-02 apps/worker/src/consumers/shipments.consumer.ts:37 decoy/DS-MQ-02a -> graders/decoy-ds-decoy-02.md
+# decoy: DS-DECOY-03 apps/worker/src/consumers/delivery-attempts.consumer.ts:31 decoy/DS-MQ-02a -> graders/decoy-ds-decoy-03.md
+# decoy: DS-DECOY-15 apps/worker/src/consumers/courier-ratings.consumer.ts:26 decoy/DS-DW-04a -> graders/decoy-ds-decoy-15.md
+# decoy: DS-DECOY-21 apps/worker/src/clients/eta.client.ts:13 decoy/DS-RT-04a -> graders/decoy-ds-decoy-21.md
+# decoy: DS-DECOY-05 apps/worker/src/jobs/base.processor.ts:33 decoy/DS-MQ-03c -> graders/decoy-ds-decoy-05.md
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-ds-defects-slice run through /refract-distributed-systems:ds-audit --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-ds-defects-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-ds-defects-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

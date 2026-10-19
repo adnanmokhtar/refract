@@ -19,7 +19,21 @@ Refract's own rules on top:
   * each suite has >= 1 case tagged `outcome` and >= 1 tagged `negative`;
   * a `tool_used: Skill` input_match names only skills / commands that exist in the pack;
   * a case.yaml carrying `# fixture: benchmarks/fixtures/<name>` has resources/ files byte-identical
-    to that fixture's files at the same paths, so a fixture edit cannot leave a stale suite behind.
+    to that fixture's files at the same paths (one file or a multi-file slice), so a fixture edit cannot
+    leave a stale suite behind; resources/ never holds the answer key (DEFECTS.md);
+  * `# seed: <id> [<file>:<line>] [-> graders/<g>.md]` and `# decoy: …` comment lines name ids the
+    fixture's DEFECTS.md defines, of the right kind (```defect / ```decoy), at its current file:line, and
+    any grader they name exists with the right shape (seed: regex · decoy: regex match: not_contains);
+  * a HARD case (`audit-<fixture>-slice`, or tagged `hard`) — the one that must separate the pack from
+    the bare model (Δ > 0) — has 8–25 resources files, >= 4 seed graders and >= 3 decoy graders, each tied
+    to a DEFECTS.md id that a case.yaml comment names (the grader's file name, body or the comment line
+    naming it carries the id), and a with-only `tool_used: Skill` grader as the pack-fired indicator;
+  * a COMMAND-LANE case (`cmd-<fixture>-slice`) is its sibling hard case (`audit-<fixture>-slice`, or
+    `spec-<fixture>-slice` for a build key) run through the pack's own command: the prompt opens with
+    `/refract-<pack>:<command>` naming a command the pack ships, with no write / fix mode flag; resources/ and
+    every grader are byte-identical to the sibling's, except that the sibling's with-only `tool_used: Skill`
+    indicator is dropped (the command IS the pack, and the lane runs with --ablation none). It gets the
+    sibling's slice checks, without the pack-fired requirement.
 
   python3 scripts/lint-pack-evals.py [--pack=<name>] [--self-test]
 Exit 0 clean · 1 a FAIL row. Packs still being built are WARN-only until they ship (PENDING below).
@@ -31,7 +45,11 @@ import sys
 import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PENDING = {"finops", "algorithms"}          # batch 8 packs still being built; the integrator removes them on ship
+PENDING = set()     # packs still being built: WARN-only until they ship (finops and algorithms shipped 2026-10-19)
+FIXTURES = os.path.join(ROOT, "benchmarks", "fixtures")   # the self-test points it at a scratch fixture
+HARD_FILES = (8, 25)          # a hard slice: enough files that the seeds are cross-file, few enough to read
+HARD_SEEDS, HARD_DECOYS = 4, 3
+WRITE_MODES = ("--from-audit", "--fix", "--apply", "--write", "--yes", "--tier", "--build")   # never in a cmd-* prompt
 PROMPT_KEYS = {"schema_version", "name", "description", "tags", "plugins", "runs", "expected_outcome", "model",
                "max_turns", "timeout_seconds", "allowed_tools", "append_system_prompt", "env"}
 CASE_KEYS = {"schema_version", "name", "description", "tags", "plugins", "runs", "expected_outcome", "execution",
@@ -162,8 +180,164 @@ def check_grader(fm, where, pack_dir, errs):
                 errs.append("%s: %s must be an integer" % (where, k))
 
 
+def fixture_key(src_root):
+    """{id: {kind, file, line}} from the fixture's DEFECTS.md ```defect / ```decoy blocks ({} when absent)."""
+    path = os.path.join(src_root, "DEFECTS.md")
+    out = {}
+    if not os.path.isfile(path):
+        return out
+    for kind, body in re.findall(r"```(defect|decoy)\n(.*?)```", open(path, encoding="utf-8").read(), re.S):
+        f = dict(re.findall(r"^(id|file|line):[ \t]*(\S+)", body, re.M))
+        if f.get("id"):
+            out[f["id"]] = {"kind": kind, "file": f.get("file", ""), "line": f.get("line", "")}
+    return out
+
+
+def _norm(s):
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def check_seeds(cdir, rel, text, src_root, res, hard, errs, cmd=False):
+    """Seed / decoy comment lines and graders against the fixture's answer key; the HARD-case shape."""
+    key = fixture_key(src_root)
+    comments = [l for l in text.splitlines() if l.lstrip().startswith("#")]
+    named = {}                                   # id -> kind word of the comment line (seed / decoy / other)
+    by_grader = {}                               # grader stem -> ids on the comment line naming it
+    declared = set()                             # graders a non-seed, non-decoy line declares (`# key: … -> graders/g.md`)
+    for l in comments:
+        ids = [i for i in key if re.search(r"(?<![\w-])%s(?![\w-])" % re.escape(i), l)]
+        m = re.match(r"^\s*#\s*(seed|decoy)\s*:\s*(\S+)", l, re.I)
+        word = m.group(1).lower() if m else "other"
+        for i in ids:
+            named.setdefault(i, word)
+        for g in re.findall(r"graders/([\w.-]+)\.md\b", l):
+            by_grader.setdefault(g, []).extend(ids)
+            if not m:
+                declared.add(g)
+        if not m:
+            continue
+        cid = m.group(2)
+        if cid not in key:
+            errs.append("%s/case.yaml: `# %s: %s` — benchmarks/fixtures/%s/DEFECTS.md defines no such id"
+                        % (rel, word, cid, os.path.basename(src_root)))
+            continue
+        want = "defect" if word == "seed" else "decoy"
+        if key[cid]["kind"] != want:
+            errs.append("%s/case.yaml: %s is a ```%s block, not a %s" % (rel, cid, key[cid]["kind"], word))
+        fl = re.search(r"(\S+?):(\d+)\b", l[m.end():].split("->")[0])
+        if fl and (fl.group(1).lstrip("(["), fl.group(2)) != (key[cid]["file"], key[cid]["line"]):
+            errs.append("%s/case.yaml: %s is at %s:%s in DEFECTS.md, the comment says %s:%s — re-check the slice"
+                        % (rel, cid, key[cid]["file"], key[cid]["line"], fl.group(1), fl.group(2)))
+        if key[cid]["file"] and not os.path.isfile(os.path.join(res, key[cid]["file"])):
+            errs.append("%s/case.yaml: %s sits in %s, which resources/ does not hold" % (rel, cid, key[cid]["file"]))
+        for g in re.findall(r"graders/([\w.-]+)\.md\b", l[m.end():]):
+            gp = os.path.join(cdir, "graders", g + ".md")
+            if not os.path.isfile(gp):
+                errs.append("%s/case.yaml: %s names graders/%s.md, which does not exist" % (rel, cid, g))
+                continue
+            fm, _, _ = frontmatter(gp)
+            fm = fm or {}
+            neg = fm.get("match") == "not_contains"
+            if fm.get("type") != "regex" or neg != (word == "decoy"):
+                errs.append("%s/graders/%s.md: a %s grader is a regex%s" % (rel, g, word, " with match: not_contains" if word == "decoy" else " that must match"))
+    if not hard:
+        return
+    nres = sum(len(fs) for _, _, fs in os.walk(res))
+    if not HARD_FILES[0] <= nres <= HARD_FILES[1]:
+        errs.append("%s: a hard slice holds %d–%d resources files, this one %d" % (rel, HARD_FILES[0], HARD_FILES[1], nres))
+    seeds = decoys = fired = 0
+    gd = os.path.join(cdir, "graders")
+    for g in sorted(os.listdir(gd)) if os.path.isdir(gd) else []:
+        if not g.endswith(".md"):
+            continue
+        fm, body, err = frontmatter(os.path.join(gd, g))
+        if err or not fm:
+            continue
+        stem = g[:-3]
+        if fm.get("type") == "tool_used" and fm.get("tool") == "Skill" and fm.get("arm") != "both" \
+                and (fm.get("min") is None or (isinstance(fm.get("min"), int) and fm["min"] >= 1)):
+            fired += 1
+            continue
+        if fm.get("type") != "regex":
+            continue
+        decoy = fm.get("match") == "not_contains"
+        want = "decoy" if decoy else "defect"
+        tied = set(by_grader.get(stem, []))
+        tied |= {i for i in key if _norm(i) in _norm(stem)}
+        tied |= {i for i in key if re.search(r"(?<![\w-])%s(?![\w-])" % re.escape(i), body or "")}
+        ok = [i for i in tied if i in named and key[i]["kind"] == want]
+        if not ok and stem in declared:
+            continue                             # a declared extra check (an outcome key's gate), not a seed or a decoy
+        if not ok:
+            errs.append("%s/graders/%s: a %s grader must be tied to a ```%s id of DEFECTS.md that a case.yaml comment "
+                        "names (# %s: <id> … -> graders/%s)" % (rel, g, "decoy" if decoy else "seed", want,
+                                                                 "decoy" if decoy else "seed", g))
+            continue
+        if decoy:
+            decoys += 1
+        else:
+            seeds += 1
+    if seeds < HARD_SEEDS:
+        errs.append("%s: a hard slice grades >= %d seeds (one regex grader per DEFECTS.md defect), this one %d" % (rel, HARD_SEEDS, seeds))
+    if decoys < HARD_DECOYS and sum(1 for v in key.values() if v["kind"] == "decoy") >= HARD_DECOYS:
+        errs.append("%s: a hard slice spares >= %d decoys (one regex not_contains grader per DEFECTS.md decoy), this one %d"
+                    % (rel, HARD_DECOYS, decoys))
+    if not fired and not cmd:
+        errs.append("%s: a hard slice carries a with-only `tool_used: Skill` grader (min >= 1) — the pack-fired indicator" % rel)
+
+
+def _tree(root):
+    out = {}
+    for dp, _, fs in os.walk(root):
+        for f in fs:
+            p = os.path.join(dp, f)
+            out[os.path.relpath(p, root)] = open(p, "rb").read()
+    return out
+
+
+def _is_indicator(path):
+    fm, _, err = frontmatter(path)
+    return not err and bool(fm) and fm.get("type") == "tool_used" and fm.get("tool") == "Skill" and fm.get("arm") == "with-only"
+
+
+def check_cmd(cdir, pack_dir, rel, body, errs):
+    """A cmd-<fixture>-slice case: its sibling hard case run through the pack's command (see the docstring)."""
+    stem = os.path.basename(cdir)[len("cmd-"):]
+    sib = next((os.path.join(os.path.dirname(cdir), k + stem) for k in ("audit-", "spec-")
+                if os.path.isdir(os.path.join(os.path.dirname(cdir), k + stem))), None)
+    pack = os.path.basename(pack_dir)
+    m = re.match(r"\s*/refract-([a-z0-9-]+):([a-z0-9-]+)[ \t]+(.*)", body or "")
+    if not m:
+        errs.append("%s/prompt.md: a command-lane prompt opens with `/refract-%s:<command> ` and then the ask" % (rel, pack))
+    else:
+        if m.group(1) != pack:
+            errs.append("%s/prompt.md: names /refract-%s, but the case lives in the %s pack" % (rel, m.group(1), pack))
+        if not os.path.isfile(os.path.join(pack_dir, "commands", m.group(2) + ".md")):
+            errs.append("%s/prompt.md: /refract-%s:%s — the pack ships no commands/%s.md" % (rel, pack, m.group(2), m.group(2)))
+        bad = [w for w in m.group(3).split() if w.startswith("--") and w.split("=", 1)[0] in WRITE_MODES]
+        if bad:
+            errs.append("%s/prompt.md: %s is a write / fix mode — the command lane stays read-only" % (rel, " ".join(bad)))
+    if not sib:
+        errs.append("%s: a command-lane case has a sibling hard case (audit-%s or spec-%s) — none found" % (rel, stem, stem))
+        return None
+    if _tree(os.path.join(cdir, "resources")) != _tree(os.path.join(sib, "resources")):
+        errs.append("%s/resources: differs from %s/resources — the command lane runs the same slice"
+                    % (rel, os.path.basename(sib)))
+    gd, sd = os.path.join(cdir, "graders"), os.path.join(sib, "graders")
+    mine = _tree(gd) if os.path.isdir(gd) else {}
+    theirs = {k: v for k, v in (_tree(sd) if os.path.isdir(sd) else {}).items() if not _is_indicator(os.path.join(sd, k))}
+    for k in sorted(set(mine) | set(theirs)):
+        if mine.get(k) != theirs.get(k):
+            what = "missing" if k not in mine else "extra" if k not in theirs else "differs"
+            errs.append("%s/graders/%s: %s against %s (the command lane keeps the sibling's graders, minus pack-fired)"
+                        % (rel, k, what, os.path.basename(sib)))
+    return sib
+
+
 def check_case(cdir, pack_dir, rel, errs):
     tags = []
+    body = ""
+    cmd = bool(re.fullmatch(r"cmd-[a-z0-9-]+-slice", os.path.basename(cdir)))
     pm, cy = os.path.join(cdir, "prompt.md"), os.path.join(cdir, "case.yaml")
     has_prompt = False
     graders = 0
@@ -178,6 +352,7 @@ def check_case(cdir, pack_dir, rel, errs):
         if not body.strip():
             errs.append("%s/prompt.md: the body (the prompt) is empty" % rel)
         has_prompt = bool(body.strip())
+        body = body or ""
         for k, lo, hi in (("runs", 1, 50), ("max_turns", 1, 200), ("timeout_seconds", 1, 3600)):
             if k in fm and not (isinstance(fm[k], int) and lo <= fm[k] <= hi):
                 errs.append("%s/prompt.md: %s must be an integer in %d..%d" % (rel, k, lo, hi))
@@ -215,7 +390,7 @@ def check_case(cdir, pack_dir, rel, errs):
         tags = tags or y.get("tags") or []
         fx = re.search(r"^# fixture: benchmarks/fixtures/([A-Za-z0-9_.-]+)", text, re.M)
         if fx:
-            src_root = os.path.join(ROOT, "benchmarks", "fixtures", fx.group(1))
+            src_root = os.path.join(FIXTURES, fx.group(1))
             res = os.path.join(cdir, "resources")
             if not os.path.isdir(src_root):
                 errs.append("%s/case.yaml: fixture %s does not exist" % (rel, fx.group(1)))
@@ -224,11 +399,20 @@ def check_case(cdir, pack_dir, rel, errs):
                     p = os.path.join(dp, f)
                     r = os.path.relpath(p, res)
                     s = os.path.join(src_root, r)
-                    if not os.path.isfile(s) or open(s, "rb").read() != open(p, "rb").read():
+                    if f == "DEFECTS.md":
+                        errs.append("%s/resources/%s: the fixture's answer key is in the agent's workspace — every run "
+                                    "would read it and score 1.0" % (rel, r))
+                    elif not os.path.isfile(s) or open(s, "rb").read() != open(p, "rb").read():
                         errs.append("%s/resources/%s: differs from benchmarks/fixtures/%s/%s — re-copy it and re-check "
                                     "the graders' lines" % (rel, r, fx.group(1), r))
+            hard = bool(re.fullmatch(r"audit-[a-z0-9-]+-slice", os.path.basename(cdir))) or "hard" in (tags or y.get("tags") or [])
+            check_seeds(cdir, rel, text, src_root, res, hard, errs, cmd)
+        elif re.fullmatch(r"(?:audit|cmd)-[a-z0-9-]+-slice", os.path.basename(cdir)):
+            errs.append("%s/case.yaml: a hard slice case names its fixture (`# fixture: benchmarks/fixtures/<name>`)" % rel)
     if not has_prompt:
         errs.append("%s: no prompt (prompt.md body or case.yaml execution.prompt)" % rel)
+    if cmd:
+        check_cmd(cdir, pack_dir, rel, body, errs)
     gd = os.path.join(cdir, "graders")
     for g in sorted(os.listdir(gd)) if os.path.isdir(gd) else []:
         if not g.endswith(".md"):
@@ -281,6 +465,120 @@ def run(packs_root, only=None):
         n_packs += 1
         n_cases += lint_pack(d, errs, warns)
     return errs, warns, n_packs, n_cases
+
+
+def self_test_hard(tmp, pk, skill):
+    """The hard-slice rules, on a scratch fixture with a 4-defect / 3-decoy answer key."""
+    global FIXTURES
+    fails, saved = [], FIXTURES
+    FIXTURES = os.path.join(tmp, "fixtures")
+    try:
+        fx = os.path.join(FIXTURES, "demo-fx")
+        os.makedirs(os.path.join(fx, "src"))
+        for n in range(1, 10):
+            open(os.path.join(fx, "src", "f%d.ts" % n), "w").write("line\n" * 20)
+        key = ["# key\n"]
+        for n in range(1, 5):
+            key.append("```defect\nid:       DX-%02d\nfile:     src/f%d.ts\nline:     %d\nmatch:    bad\n```\n" % (n, n, n + 2))
+        for n in range(1, 4):
+            key.append("```decoy\nid:       DX-DECOY-%02d\nfile:     src/f%d.ts\nline:     15\nmatch:    fine\n```\n" % (n, n))
+        open(os.path.join(fx, "DEFECTS.md"), "w").write("".join(key))
+        evals = os.path.join(pk, "evals")
+        if os.path.isdir(evals):
+            shutil.rmtree(evals)
+
+        def build(mutate=None):
+            c = os.path.join(evals, "audit-demo-fx-slice")
+            if os.path.isdir(evals):
+                shutil.rmtree(evals)
+            os.makedirs(os.path.join(c, "graders"))
+            shutil.copytree(os.path.join(fx, "src"), os.path.join(c, "resources", "src"))
+            cy = ["# fixture: benchmarks/fixtures/demo-fx"]
+            g = {"pack-fired": skill + "\nmin: 1\narm: with-only"}
+            for n in range(1, 5):
+                cy.append("# seed: DX-%02d (src/f%d.ts:%d) -> graders/seed-dx-%02d.md" % (n, n, n + 2, n))
+                g["seed-dx-%02d" % n] = "type: regex\npattern: 'f%d\\.ts'\nflags: i" % n
+            for n in range(1, 4):
+                cy.append("# decoy: DX-DECOY-%02d src/f%d.ts:15 -> graders/decoy-dx-decoy-%02d.md" % (n, n, n))
+                g["decoy-dx-decoy-%02d" % n] = "type: regex\npattern: 'f%d\\.ts:15'\nmatch: not_contains" % n
+            state = {"cy": cy, "g": g, "prompt": "tags: [outcome]\nallowed_tools: [Read, Skill]", "res": c + "/resources"}
+            if mutate:
+                mutate(state)
+            open(os.path.join(c, "case.yaml"), "w").write("\n".join(state["cy"]) + '\nschema_version: "1.1"\nname: audit-demo-fx-slice\n'
+                                                        "context:\n  add_dirs: [resources]\n")
+            open(os.path.join(c, "prompt.md"), "w").write("---\n%s\n---\n\nAudit it.\n" % state["prompt"])
+            for name, fm in state["g"].items():
+                open(os.path.join(c, "graders", name + ".md"), "w").write("---\n%s\n---\n" % fm)
+            n = os.path.join(evals, "silent")
+            os.makedirs(os.path.join(n, "graders"))
+            open(os.path.join(n, "prompt.md"), "w").write("---\ntags: [negative]\n---\n\nUnrelated.\n")
+            open(os.path.join(n, "graders", "s.md"), "w").write("---\n%s\nmin: 0\nmax: 0\narm: both\n---\n" % skill)
+            return run(os.path.join(tmp, "packs"))[0]
+
+        e = build()
+        if e:
+            fails.append("good-hard-slice-is-clean: %s" % e)
+
+        def swap(old, new):
+            return lambda st: st.update(cy=[l.replace(old, new) for l in st["cy"]])
+        cases = [
+            ("unknown-seed-id", swap("seed: DX-04", "seed: DX-99"), "defines no such id"),
+            ("seed-names-a-decoy", swap("seed: DX-04 (src/f4.ts:6)", "seed: DX-DECOY-03 (src/f3.ts:15)"), "not a seed"),
+            ("drifted-seed-line", swap("src/f2.ts:4", "src/f2.ts:9"), "re-check the slice"),
+            ("seed-grader-untied", lambda st: st["cy"].remove(st["cy"][1]), "must be tied"),
+            ("too-few-seeds", lambda st: (st["cy"].pop(4), st["g"].pop("seed-dx-04")), "grades >= 4 seeds"),
+            ("decoy-grader-missing", lambda st: st["g"].pop("decoy-dx-decoy-02"), "does not exist"),
+            ("decoy-grader-not-negative", lambda st: st["g"].update({"decoy-dx-decoy-01": "type: regex\npattern: x"}), "not_contains"),
+            ("no-pack-fired", lambda st: st["g"].pop("pack-fired"), "pack-fired indicator"),
+            ("answer-key-in-resources", lambda st: shutil.copy(os.path.join(fx, "DEFECTS.md"), st["res"]), "answer key"),
+            ("slice-too-small", lambda st: [os.remove(os.path.join(st["res"], "src", "f%d.ts" % k)) for k in (5, 6, 7, 8, 9)],
+             "hard slice holds"),
+        ]
+        for name, mutate, want in cases:
+            e = build(mutate)
+            if not any(want in x for x in e):
+                fails.append("%s-is-refused (got: %s)" % (name, e[:2]))
+
+        # the command lane: cmd-<fixture>-slice = the sibling hard case behind /refract-<pack>:<command>
+        os.makedirs(os.path.join(pk, "commands"), exist_ok=True)
+        open(os.path.join(pk, "commands", "demo-audit.md"), "w").write("---\ndescription: d\n---\n")
+
+        def build_cmd(mutate=None, body="/refract-demo:demo-audit --whole-repo Audit it."):
+            build()
+            src, c = os.path.join(evals, "audit-demo-fx-slice"), os.path.join(evals, "cmd-demo-fx-slice")
+            shutil.copytree(src, c)
+            os.remove(os.path.join(c, "graders", "pack-fired.md"))
+            cy = open(os.path.join(c, "case.yaml")).read().replace("name: audit-demo-fx-slice", "name: cmd-demo-fx-slice")
+            open(os.path.join(c, "case.yaml"), "w").write(cy)
+            open(os.path.join(c, "prompt.md"), "w").write("---\ntags: [outcome, hard, command]\nallowed_tools: [Read, Skill]\n"
+                                                         "---\n\n%s\n" % body)
+            if mutate:
+                mutate(c)
+            return [x for x in run(os.path.join(tmp, "packs"))[0] if "cmd-demo-fx-slice" in x]
+        e = build_cmd()
+        if e:
+            fails.append("good-command-lane-is-clean: %s" % e)
+        cmd_cases = [
+            ("cmd-unknown-command", None, "/refract-demo:no-such-audit Audit it.", "ships no commands/no-such-audit.md"),
+            ("cmd-other-pack", None, "/refract-other:demo-audit Audit it.", "lives in the demo pack"),
+            ("cmd-write-mode", None, "/refract-demo:demo-audit --from-audit=r.md Audit it.", "write / fix mode"),
+            ("cmd-bare-ask", None, "Audit it.", "opens with `/refract-demo:<command> `"),
+            ("cmd-grader-drift", lambda c: open(os.path.join(c, "graders", "seed-dx-01.md"), "a").write("x\n"),
+             None, "differs against audit-demo-fx-slice"),
+            ("cmd-grader-missing", lambda c: os.remove(os.path.join(c, "graders", "decoy-dx-decoy-01.md")), None, "missing against"),
+            ("cmd-resources-drift", lambda c: os.remove(os.path.join(c, "resources", "src", "f9.ts")), None,
+             "the command lane runs the same slice"),
+            ("cmd-no-sibling", lambda c: shutil.rmtree(os.path.join(evals, "audit-demo-fx-slice")), None, "sibling hard case"),
+        ]
+        for name, mutate, body, want in cmd_cases:
+            e = build_cmd(mutate, body) if body else build_cmd(mutate)
+            if not any(want in x for x in e):
+                fails.append("%s-is-refused (got: %s)" % (name, e[:2]))
+        shutil.rmtree(os.path.join(pk, "commands"))
+        shutil.rmtree(evals)
+    finally:
+        FIXTURES = saved
+    return fails
 
 
 def self_test():
@@ -344,6 +642,7 @@ def self_test():
         e, w, _, _ = run(os.path.join(tmp, "packs"))
         if not any("no evals/ suite" in x for x in e):
             fails.append("pack-without-suite-fails")
+        fails.extend(self_test_hard(tmp, pk, skill))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     for f in fails:

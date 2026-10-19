@@ -1,0 +1,48 @@
+groups:
+  - name: platform
+    rules:
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: Always firing; proves Prometheus → Alertmanager → heartbeat end to end
+
+      - alert: OrdersApi5xxRatio
+        expr: sum(rate(orders_api_requests_total{job="orders-api",status=~"5.."}[5m])) / sum(rate(orders_api_requests_total{job="orders-api"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: page
+          team: orders
+        annotations:
+          summary: More than 5 % of orders-api requests fail
+          runbook_url: https://runbooks.harbor.internal/orders-api/high-5xx
+
+      - alert: OrdersApiNoTraffic
+        expr: sum(rate(orders_api_requests_total{job="orders-api"}[5m])) == 0
+        for: 10m
+        labels:
+          severity: page
+          team: orders
+        annotations:
+          summary: orders-api receives no traffic
+          runbook_url: https://runbooks.harbor.internal/orders-api/no-traffic
+
+      - alert: InventoryReserveErrors
+        expr: sum(rate(inventory_requests_total{job="inventory",path="/v1/reservations",code=~"5.."}[1m])) > 1
+        for: 5m
+        labels:
+          severity: page
+          team: inventory
+        annotations:
+          summary: Stock reservations are failing
+          runbook_url: https://runbooks.harbor.internal/inventory/reserve-errors
+
+      - alert: RefundsFailing
+        expr: sum(rate(refunds_processed_total{job="refunds",outcome="failed"}[5m])) > 0.1
+        for: 15m
+        labels:
+          severity: ticket
+          team: payments
+        annotations:
+          summary: Refunds are failing at the PSP

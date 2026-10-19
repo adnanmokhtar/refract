@@ -1,0 +1,25 @@
+# fixture: benchmarks/fixtures/convention-drift · hard outcome slice: 22 files, 6 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py align
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: CD-AL11-a apps/web/src/features/orders/api.ts:1 AL-11 -> graders/seed-cd-al11-a.md
+# seed: CD-AL11-b apps/web/src/features/orders/components/CancelOrderDialog.tsx:1 AL-11 -> graders/seed-cd-al11-b.md
+# seed: CD-AL11-d apps/web/src/features/orders/components/OrderTimeline.tsx:12 AL-11 -> graders/seed-cd-al11-d.md
+# seed: CD-AL14-a apps/web/src/features/orders/components/OrderDrawer.tsx:2 AL-14 -> graders/seed-cd-al14-a.md
+# seed: CD-AL15-b apps/web/src/features/orders/components/OrderActions.tsx:29 AL-15 -> graders/seed-cd-al15-b.md
+# seed: CD-AL32-a apps/web/src/features/orders/components/OrderBadge.tsx:6 AL-32 -> graders/seed-cd-al32-a.md
+# decoy: CD-DECOY-03 apps/web/src/features/orders/order-errors.ts:1 decoy/AL-11 (P-12) -> graders/decoy-cd-decoy-03.md
+# decoy: CD-DECOY-12 apps/web/src/features/orders/components/OrderCard.module.css:20 decoy/AL-05 (P-05) -> graders/decoy-cd-decoy-12.md
+# decoy: CD-DECOY-20 apps/web/src/features/orders/components/OrderCard.module.css:34 decoy/AL-05 (P-05) -> graders/decoy-cd-decoy-20.md
+# decoy: CD-DECOY-24 apps/web/src/features/orders/components/CancelOrderDialog.tsx:25 decoy/AL-15 (correct sibling) -> graders/decoy-cd-decoy-24.md
+# decoy: CD-DECOY-18 apps/web/src/features/customers/api.ts:6 decoy/AL-11 (correct sibling) -> graders/decoy-cd-decoy-18.md
+# also seeded in these files, not graded: CD-AL02-b CD-AL04-a CD-AL04-b CD-HO-FE-b CD-HO-UI-c
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-convention-drift-slice run through /refract-align:align-scan — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-convention-drift-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-convention-drift-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

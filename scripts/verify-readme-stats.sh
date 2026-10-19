@@ -67,7 +67,8 @@ fail() { red "✗ $*"; ERRORS=$((ERRORS+1)); }
 pass() { green "✓ $*"; }
 warn() { yellow "! $*"; WARNS=$((WARNS+1)); }
 
-cnt() { printf '%s' "$(find "$@" 2>/dev/null | wc -l | tr -d ' ')"; }
+# evals/ holds byte copies of benchmark fixtures (some carry .claude/agents/*.md) — never pack artifacts.
+cnt() { printf '%s' "$(find "$@" -not -path '*/evals/*' 2>/dev/null | wc -l | tr -d ' ')"; }
 
 # ---- derive every figure from disk -------------------------------------------------
 PACKS=0

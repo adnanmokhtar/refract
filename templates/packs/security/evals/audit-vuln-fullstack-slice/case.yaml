@@ -1,0 +1,22 @@
+# fixture: benchmarks/fixtures/vuln-fullstack · hard outcome slice: 25 files, 5 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py security
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: VFS-AUTH-01 api/src/auth/jwt-auth.guard.ts:19 auth/jwt-alg-not-pinned -> graders/seed-vfs-auth-01.md
+# seed: VFS-XSS-04 deploy/nginx/nginx.conf:31 client/csp-clickjacking -> graders/seed-vfs-xss-04.md
+# seed: VFS-IAC-06 deploy/nginx/nginx.conf:12 infra/version-disclosure -> graders/seed-vfs-iac-06.md
+# seed: VFS-DATA-09 api/src/webhooks/webhook-subscriptions.ts:14 exposure/query-credential-unredacted -> graders/seed-vfs-data-09.md
+# seed: VFS-DATA-02 api/src/main.ts:32 exposure/docs-endpoint -> graders/seed-vfs-data-02.md
+# decoy: VFS-DECOY-04 api/src/webhooks/webhooks.controller.ts:59 decoy/constant-time-compare -> graders/decoy-vfs-decoy-04.md
+# decoy: VFS-DECOY-07 api/src/settings/custom-domain.service.ts:57 decoy/fixed-host-interpolated-path -> graders/decoy-vfs-decoy-07.md
+# decoy: VFS-DECOY-08 api/src/settings/custom-domain.service.ts:66 decoy/fixed-reason-code -> graders/decoy-vfs-decoy-08.md
+# decoy: VFS-DECOY-09 api/src/inventory/stock-transfers.service.ts:80 decoy/lines-summed-before-key -> graders/decoy-vfs-decoy-09.md
+# decoy: VFS-DECOY-10 api/src/webhooks/webhook-subscriptions.ts:27 decoy/redacted-query-credential -> graders/decoy-vfs-decoy-10.md
+# also seeded in these files, not graded: VFS-AUTH-02 VFS-DATA-05 VFS-DATA-06 VFS-DATA-07 VFS-DATA-08 VFS-IAC-01 VFS-IAC-05 VFS-IAC-07 VFS-INJ-03 VFS-INJ-05 VFS-INJ-10 VFS-LOGIC-05 VFS-SEC-02 VFS-SSRF-02 VFS-SSRF-03 VFS-XSS-05 VFS-XSS-06
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+schema_version: "1.1"
+name: audit-vuln-fullstack-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

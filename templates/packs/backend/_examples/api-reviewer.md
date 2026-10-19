@@ -125,8 +125,8 @@ Read this before writing a single finding. Column 3 is all this agent may put in
 ## Example finding
 
 ```
-src/products/dto/update-product.dto.ts:18            (the diff)
-src/products/application/update-product.use-case.ts:37  (the guard it reaches)
+src/listings/dto/edit-listing.dto.ts:18              (the diff)
+src/listings/application/edit-listing.use-case.ts:37   (the guard it reaches)
 
   @IsOptional() name?: string;            ← wiring: APP_PIPE src/app.module.ts:250 { transform: true, whitelist: true }
   if (data.name !== undefined) product.rename(data.name);

@@ -1,0 +1,63 @@
+{
+  "name": "@stallwise/api",
+  "version": "4.12.0",
+  "private": true,
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:worker": "node dist/worker/main.js",
+    "migration:up": "mikro-orm migration:up",
+    "test": "jest",
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand"
+  },
+  "mikro-orm": {
+    "configPaths": ["./src/config/mikro-orm.config.ts", "./dist/config/mikro-orm.config.js"]
+  },
+  "dependencies": {
+    "@mikro-orm/core": "6.4.5",
+    "@mikro-orm/migrations": "6.4.5",
+    "@mikro-orm/nestjs": "6.0.2",
+    "@mikro-orm/postgresql": "6.4.5",
+    "@nest-lab/throttler-storage-redis": "^1.0.0",
+    "@nestjs/common": "^11.0.5",
+    "@nestjs/core": "^11.0.5",
+    "@nestjs/graphql": "^13.0.2",
+    "@nestjs/mercurius": "^13.0.2",
+    "@nestjs/platform-fastify": "^11.0.5",
+    "@nestjs/platform-ws": "^11.0.5",
+    "@nestjs/schedule": "^5.0.1",
+    "@nestjs/throttler": "^6.4.0",
+    "@nestjs/websockets": "^11.0.5",
+    "axios": "^1.7.9",
+    "bullmq": "^5.34.10",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "csv-parse": "^5.6.0",
+    "dataloader": "^2.2.3",
+    "fastify": "^5.2.1",
+    "graphql": "^16.10.0",
+    "ioredis": "^5.4.2",
+    "lru-cache": "^11.0.2",
+    "mercurius": "^16.0.1",
+    "p-limit": "^6.2.0",
+    "pg": "^8.13.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "sax": "^1.4.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@mikro-orm/cli": "6.4.5",
+    "@nestjs/cli": "^11.0.2",
+    "@nestjs/testing": "^11.0.5",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.7",
+    "@types/pg": "^8.11.10",
+    "@types/sax": "^1.2.7",
+    "@types/ws": "^8.5.13",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.3"
+  }
+}

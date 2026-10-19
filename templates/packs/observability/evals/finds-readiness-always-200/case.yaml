@@ -1,7 +1,0 @@
-# fixture: benchmarks/fixtures/obs-defects · defect OD-MT-07b (py-svc/app/health.py:10) · decoy OD-DECOY-14 (line 23)
-# resources/: byte copies of py-svc/app/health.py (scripts/lint-pack-evals.py checks they match)
-schema_version: "1.1"
-name: finds-readiness-always-200
-context:
-  scaffold_script: stage-resources.sh
-  add_dirs: [resources]

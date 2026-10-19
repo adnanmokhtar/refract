@@ -71,7 +71,7 @@ command -v python3 >/dev/null 2>&1 || die "python3 is required (the generators a
 
 # ---- the figures, computed from disk with the documented formulas ----
 count_all() {
-  N_SKILLS=$(find templates/packs -name SKILL.md | wc -l | tr -d ' ')
+  N_SKILLS=$(find templates/packs -name SKILL.md -not -path '*/evals/*' | wc -l | tr -d ' ')  # evals/ = fixture copies
   N_PACKCMD=$(ls templates/packs/*/commands/*.md 2>/dev/null | grep -v '/_' | wc -l | tr -d ' ')
   N_GLOBAL=$(ls commands/*.md 2>/dev/null | wc -l | tr -d ' ')
   N_AGENTS=$(ls templates/packs/*/agents/*.md 2>/dev/null | wc -l | tr -d ' ')

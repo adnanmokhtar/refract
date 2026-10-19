@@ -40,6 +40,7 @@ should_skip() {
   [[ "$p" == templates/business-domains/* ]] && return 0
   [[ "$p" == scripts/validate-migration-artifacts.sh ]] && return 0
   [[ "$p" == templates/packs/migration/_examples/* ]] && return 0
+  [[ "$p" == templates/packs/*/evals/* ]] && return 0   # byte copies of benchmark fixtures (stack-specific by design)
   [[ "$p" == templates/tool-adapters/*/adapter.md ]] && return 0
   return 1
 }

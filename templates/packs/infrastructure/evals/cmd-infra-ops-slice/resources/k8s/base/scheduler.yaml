@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: courier-scheduler
+  annotations:
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: courier-scheduler
+  template:
+    metadata:
+      labels:
+        app: courier-scheduler
+    spec:
+      serviceAccountName: courier-scheduler
+      containers:
+        - name: scheduler
+          image: registry.larder.example/larder/scheduler@sha256:699d9317411a50c150776408be3a7dda8004bd8423ab1f0d6661e3fbdef09627
+          args: ["--leader-elect", "--lease-name=courier-scheduler"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 128Mi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: courier-scheduler
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: courier-scheduler-leases
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "create", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: courier-scheduler-leases
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: courier-scheduler-leases
+subjects:
+  - kind: ServiceAccount
+    name: courier-scheduler

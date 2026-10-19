@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketly-api
+  namespace: marketly
+  labels:
+    app: marketly-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: marketly-api
+  template:
+    metadata:
+      labels:
+        app: marketly-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/marketly/api:1.8.0
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - secretRef:
+                name: marketly-api-env
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PUBLIC_URL
+              value: https://marketly.example
+          # ImageMagick's policy.xml and the git binary misbehaved under the default
+          # profile during the 1.6 rollout; this got thumbnails working again.
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: jwt-keys
+              mountPath: /etc/marketly
+              readOnly: true
+            - name: data
+              mountPath: /app/public/uploads
+              subPath: uploads
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+          readinessProbe:
+            httpGet:
+              path: /api/products?page=1
+              port: 3000
+            periodSeconds: 10
+      volumes:
+        - name: jwt-keys
+          secret:
+            secretName: marketly-jwt
+        - name: data
+          persistentVolumeClaim:
+            claimName: marketly-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: marketly-api
+  namespace: marketly
+spec:
+  selector:
+    app: marketly-api
+  ports:
+    - port: 3000
+      targetPort: 3000

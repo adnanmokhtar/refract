@@ -1,0 +1,25 @@
+# fixture: benchmarks/fixtures/cost-leaks · hard outcome slice: 25 files, 5 seeds, 6 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py finops
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: CL-BG1-b infra/terraform/envs/do/main.tf:21 FIN-BG-1 -> graders/seed-cl-bg1-b.md
+# seed: CL-BG5-a .github/workflows/terraform.yml:36 FIN-BG-5 -> graders/seed-cl-bg5-a.md
+# seed: CL-BG5-b .github/workflows/terraform.yml:56 FIN-BG-5 -> graders/seed-cl-bg5-b.md
+# seed: CL-BG6-b k8s/overlays/dev/hpa.yaml:10 FIN-BG-6 -> graders/seed-cl-bg6-b.md
+# seed: CL-TG2-b k8s/overlays/prod/kustomization.yaml:13 FIN-TG-2 -> graders/seed-cl-tg2-b.md
+# decoy: CL-DECOY-01 infra/terraform/envs/analytics/main.tf:22 decoy/BG-1 (precedents/finops.md § 9) -> graders/decoy-cl-decoy-01.md
+# decoy: CL-DECOY-04 infra/terraform/envs/prod/main.tf:91 decoy/EG-3 · waste (§ 2, § 24) -> graders/decoy-cl-decoy-04.md
+# decoy: CL-DECOY-05 infra/terraform/envs/prod/main.tf:65 decoy/BG-6 (§ 5) -> graders/decoy-cl-decoy-05.md
+# decoy: CL-DECOY-14 k8s/overlays/prod/hpa.yaml:11 decoy/BG-6 (§ 5) -> graders/decoy-cl-decoy-14.md
+# decoy: CL-DECOY-16 k8s/monitoring/alertmanager.yaml:22 decoy/BG-7 (§ 11) -> graders/decoy-cl-decoy-16.md
+# decoy: CL-DECOY-18 infra/terraform/envs/prod/dns.tf:11 decoy/BG-6 6d grep trap (DNS ttl) -> graders/decoy-cl-decoy-18.md
+# also seeded in these files, not graded: CL-BG1-a CL-BG2-a CL-BG2-b CL-BG3-a CL-BG3-b CL-BG4-a CL-BG4-b CL-BG6-a CL-BG7-a CL-BG7-b CL-PX1-a CL-TG1-a CL-TG1-b CL-TG2-a CL-TG3-a CL-TG3-b CL-TG4-a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-cost-leaks-slice run through /refract-finops:cost-review --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-cost-leaks-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-cost-leaks-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

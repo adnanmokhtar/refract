@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: quaywise
+resources:
+  - ../../base
+  - namespace.yaml
+  - config.yaml
+  - hpa.yaml
+  - keda-worker.yaml
+  - ingress.yaml
+labels:
+  - pairs:
+      env: production
+    includeSelectors: false
+    includeTemplates: true
+images:
+  - name: registry.quaywise.example/quaywise-api
+    newTag: 1.42.0
+  - name: registry.quaywise.example/quaywise-worker
+    newTag: 0.31.2

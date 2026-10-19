@@ -1,0 +1,21 @@
+# fixture: benchmarks/fixtures/backend-defects · hard outcome slice: 25 files, 5 seeds, 4 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py backend
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: BD-EE-6a services/billing-py/billing_service/settings.py:34 edge/drf-no-exception-handler -> graders/seed-bd-ee-6a.md
+# seed: BD-HC-1e services/billing-py/billing/views.py:39 http/201-no-location -> graders/seed-bd-hc-1e.md
+# seed: BD-HC-7c services/billing-py/billing/views.py:26 http/drf-unordered-pagination -> graders/seed-bd-hc-7c.md
+# seed: BD-JL-2b services/billing-py/billing/tasks.py:10 jobs/deleted-record-fails -> graders/seed-bd-jl-2b.md
+# seed: BD-JL-5a services/billing-py/billing/scheduler.py:12 jobs/misfire-default-skips -> graders/seed-bd-jl-5a.md
+# decoy: BD-DECOY-19 services/billing-py/billing/views_refunds.py:12 decoy/BD-EE-6a -> graders/decoy-bd-decoy-19.md
+# decoy: BD-DECOY-44 services/billing-py/billing/tax.py:25 decoy/BD-WF-4b -> graders/decoy-bd-decoy-44.md
+# decoy: BD-DECOY-46 services/billing-py/billing/fx_scheduler.py:8 decoy/BD-JL-4b -> graders/decoy-bd-decoy-46.md
+# decoy: BD-DECOY-50 services/billing-py/billing/subscriptions.py:23 decoy/BD-ST-1a -> graders/decoy-bd-decoy-50.md
+# also seeded in these files, not graded: BD-HC-12c BD-HC-2b BD-HC-5c BD-HC-8b BD-HO-DB-b BD-HO-PERF-a BD-JL-1b BD-JL-3b BD-JL-7b BD-ST-1a BD-ST-2a BD-VB-4c BD-WF-1a BD-WF-4a BD-WF-4b BD-WF-5b BD-WF-7a BD-WF-7b
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+schema_version: "1.1"
+name: audit-backend-defects-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

@@ -1,7 +1,0 @@
-# fixture: benchmarks/fixtures/convention-drift · defect CD-AL13-b (apps/admin/src/utils/format-date.ts:1)
-# resources/: byte copies of apps/admin/src/utils/format-date.ts packages/format/src/index.ts packages/format/package.json (scripts/lint-pack-evals.py checks they match)
-schema_version: "1.1"
-name: finds-al-13
-context:
-  scaffold_script: stage-resources.sh
-  add_dirs: [resources]

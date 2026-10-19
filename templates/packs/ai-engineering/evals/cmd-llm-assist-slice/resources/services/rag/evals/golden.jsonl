@@ -1,0 +1,14 @@
+{"id": "kb-answers-001", "feature": "answers", "notes": "customer could not apply coupon SPRING10 at checkout; coupon is limited to full-price items; cart had a sale item", "must_include": ["full-price", "separate order"]}
+{"id": "kb-answers-002", "feature": "answers", "notes": "password reset mail went to spam; asked customer to whitelist no-reply sender; resent from admin panel", "must_include": ["spam", "resend"]}
+{"id": "kb-answers-003", "feature": "answers", "notes": "parcel stuck at depot 6 days; carrier claim opened; customer offered reship or refund", "must_include": ["claim", "reship"]}
+{"id": "kb-answers-004", "feature": "answers", "notes": "invoice needed company VAT number; added in account settings, invoice regenerated", "must_include": ["VAT", "account settings"]}
+{"id": "triage-001", "feature": "triage", "subject": "Charged twice for order 1182", "body": "My card shows two charges of 49.00", "expected": {"category": "billing", "priority": "urgent"}}
+{"id": "triage-002", "feature": "triage", "subject": "Where is my parcel?", "body": "Ordered last Monday, no tracking yet", "expected": {"category": "shipping", "priority": "normal"}}
+{"id": "inbox-email-reply-001", "feature": "email_reply", "email": "Hi, the blue jacket (size M) is too small. Can I swap it for an L?", "must_include": ["exchange", "size L"]}
+{"id": "faq-001", "feature": "faq_writer", "question": "Can I change my delivery address after ordering?", "must_include": ["before dispatch"]}
+{"id": "summary-001", "feature": "summary_repair", "ticket": "Customer tried two browsers and cleared cache; checkout still fails at the 3-D Secure step.", "must_include": ["3-D Secure"]}
+{"id": "extract-001", "feature": "extract", "email": "Please send future invoices to accounts@harbourcafe.example", "expected": {"email": "accounts@harbourcafe.example"}}
+{"id": "style-rewrite-001", "feature": "style_rewrite", "draft": "To reset your password click the link we sent.", "tone": "warm, second person", "must_include": ["reset"]}
+{"id": "article-writer-001", "feature": "article_writer and article titles", "cluster": "Three tickets about coupons failing on sale items", "must_include": ["sale items"]}
+{"id": "copilot-stream-001", "feature": "chat stream", "question": "What is the next action on this ticket?", "must_include": ["next"]}
+{"id": "nl-query-001", "feature": "nl_query", "question": "urgent tickets opened this week", "expected_filter_mentions": ["priority", "created_at"]}

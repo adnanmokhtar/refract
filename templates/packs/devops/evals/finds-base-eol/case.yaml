@@ -1,7 +1,0 @@
-# fixture: benchmarks/fixtures/ci-defects · defect CD-CB-07a (apps/web/Dockerfile.web:2) · decoy CD-DECOY-17 (line 15)
-# resources/: byte copies of apps/web/Dockerfile.web (scripts/lint-pack-evals.py checks they match)
-schema_version: "1.1"
-name: finds-base-eol
-context:
-  scaffold_script: stage-resources.sh
-  add_dirs: [resources]

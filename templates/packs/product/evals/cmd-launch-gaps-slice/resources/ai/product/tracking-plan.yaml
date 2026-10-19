@@ -1,0 +1,62 @@
+# Shelfwise tracking plan. Owner: Priya Natarajan (growth analytics). Every event the web app or
+# the API sends to PostHog (and, through the tracking wrapper, to Meta) is listed here with its
+# properties. Change this file in the same PR as the code that fires the event.
+version: 7
+events:
+  Signup Completed:
+    description: The account exists and the verification e-mail has been sent.
+    properties:
+      method: { type: string, required: true }
+  Store Connected:
+    description: A store finished connecting (Shopify, WooCommerce or a manual counter store).
+    properties:
+      store_type: { type: string, required: true }
+      count: { type: integer }
+  Store Disconnected:
+    description: A merchant removed a store.
+    properties:
+      store_type: { type: string, required: true }
+  Checkout Started:
+    description: The merchant picked a plan and is about to be sent to Stripe.
+    properties:
+      plan: { type: string, required: true }
+  Plan Purchased:
+    description: Stripe confirmed the payment for a plan change. Sent to Meta as a conversion with its value.
+    properties:
+      plan: { type: string, required: true }
+      value: { type: number, required: true }
+      currency: { type: string, required: true }
+  Order Placed:
+    description: A manual counter order was stored.
+    properties:
+      order_id: { type: string, required: true }
+      value: { type: number }
+  Pricing Table Viewed:
+    description: The plan comparison table was opened. Once per opening.
+    properties:
+      source: { type: string, required: true }
+  Upgrade Dialog Shown:
+    description: The upsell dialog was opened. Once per opening.
+    properties:
+      source: { type: string, required: true }
+  Invite Sent:
+    properties:
+      role: { type: string, required: true }
+      invitee_email: { type: string }
+  Invite Accepted:
+    properties:
+      role: { type: string, required: true }
+  Referral Sent:
+    description: A referral invite e-mail was queued.
+    properties:
+      channel: { type: string }
+  Report Exported:
+    properties:
+      report: { type: string, required: true }
+      format: { type: string, required: true }
+  Trial Extended:
+    properties:
+      days: { type: integer, required: true }
+  Theme Toggled:
+    properties:
+      theme: { type: string, required: true }

@@ -1,0 +1,27 @@
+# fixture: benchmarks/fixtures/mobile-defects · hard outcome slice: 22 files, 7 seeds, 6 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py mobile
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: MD-NB-02b driver/lib/native/scanner_channel.dart:12 bridge/contract-gap -> graders/seed-md-nb-02b.md
+# seed: MD-NB-03b driver/ios/Runner/ScannerPlugin.swift:18 bridge/unhandled-method-no-result -> graders/seed-md-nb-03b.md
+# seed: MD-ST-02a driver/ios/Runner/Info.plist:23 store/purpose-string-placeholder -> graders/seed-md-st-02a.md
+# seed: MD-OS-01b driver/lib/offline/proof_outbox.dart:40 offline/ack-before-persist -> graders/seed-md-os-01b.md
+# seed: MD-OS-03b driver/lib/offline/photo_uploads.dart:31 offline/parallel-drain -> graders/seed-md-os-03b.md
+# seed: MD-ML-02b driver/lib/background/jobs.dart:8 lifecycle/background-entry-not-annotated -> graders/seed-md-ml-02b.md
+# seed: MD-ML-06b driver/lib/push/push_setup.dart:20 lifecycle/push-background-handler-anonymous -> graders/seed-md-ml-06b.md
+# decoy: MD-DECOY-16 driver/lib/router.dart:40 decoy/tryparse-link-param -> graders/decoy-md-decoy-16.md
+# decoy: MD-DECOY-14 driver/lib/screens/eta_card.dart:21 decoy/mounted-check-after-await -> graders/decoy-md-decoy-14.md
+# decoy: MD-DECOY-13 driver/lib/screens/notes_screen.dart:43 decoy/popscope-with-handler -> graders/decoy-md-decoy-13.md
+# decoy: MD-DECOY-20 driver/android/app/src/main/AndroidManifest.xml:29 decoy/verified-app-link -> graders/decoy-md-decoy-20.md
+# decoy: MD-DECOY-06 driver/android/app/src/main/AndroidManifest.xml:14 decoy/exported-launcher -> graders/decoy-md-decoy-06.md
+# decoy: MD-DECOY-17 driver/scripts/release.sh:26 decoy/split-debug-info -> graders/decoy-md-decoy-17.md
+# also seeded in these files, not graded: MD-AZ-05b MD-ML-01b MD-ML-04b MD-ML-05a MD-MS-02a MD-PC-12b MD-ST-06b
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-mobile-defects-slice run through /refract-mobile:mobile-audit --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-mobile-defects-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-mobile-defects-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

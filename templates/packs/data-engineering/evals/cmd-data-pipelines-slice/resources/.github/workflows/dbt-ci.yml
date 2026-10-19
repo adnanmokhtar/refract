@@ -1,0 +1,12 @@
+name: dbt-ci
+on: [pull_request]
+jobs:
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - run: dbt deps --project-dir analytics
+      - run: dbt run --select marts+ --project-dir analytics --target dev
+      - run: dbt source freshness --project-dir analytics --target dev || true
+      - run: great_expectations checkpoint run payments_checkpoint

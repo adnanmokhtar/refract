@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stallwise-worker
+  namespace: stallwise
+  labels:
+    app: stallwise-worker
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: stallwise-worker
+  template:
+    metadata:
+      labels:
+        app: stallwise-worker
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/stallwise/api:4.12.0
+          command: ["node", "dist/worker/main.js"]
+          envFrom:
+            - secretRef:
+                name: stallwise-api-env
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: DATABASE_HOST
+              value: postgres-primary.stallwise.svc
+            - name: DATABASE_USER
+              value: stallwise_api
+            - name: DB_POOL_MAX
+              value: "10"
+            - name: WORKER_CONCURRENCY
+              value: "8"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 3Gi

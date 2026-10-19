@@ -1,0 +1,19 @@
+# fixture: benchmarks/fixtures/feature-refund · hard slice (23 files: the product tree)
+# resources/: byte copies (scripts/lint-pack-evals.py checks they match); never DEFECTS.md, holdout/, solution/, wrong/
+# Kind: outcome (a build key with no decoy blocks), so not an audit-*-slice: the ask is requirements +
+# acceptance criteria before code, graded against the key rows below. Select it with --case='spec-*'.
+# Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py delivery
+# key: Proving gate: predicted T3 before code -> graders/tier-t3.md
+# seed: FR-TRAP-01 / refund-amount.holdout.test.js -> graders/ac-fr-trap-01-integer-money.md
+# seed: FR-TRAP-02 / refund-idempotency.holdout.test.js -> graders/ac-fr-trap-02-idempotency.md
+# seed: FR-TRAP-03 / refund-tenant.holdout.test.js (+ the negative criterion) -> graders/ac-fr-trap-03-other-tenant-403.md
+# seed: FR-TRAP-04 / refund-page.holdout.test.js -> graders/ac-fr-trap-04-empty-state.md
+# key: control: refund-refused-unpaid.holdout.test.js -> graders/edge-unpaid-refused.md
+# key: control: refund-refused-cancelled.holdout.test.js -> graders/edge-cancelled-refused.md
+# command lane: spec-feature-refund-slice run through /refract-delivery:add-feature --plan — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − spec-feature-refund-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-feature-refund-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

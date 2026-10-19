@@ -1,0 +1,26 @@
+# fixture: benchmarks/fixtures/infra-ops · hard outcome slice: 12 files, 7 seeds, 5 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py infrastructure
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: IO-K8-SPa k8s/base/courier-tracker.yaml:63 k8s/service-target-port -> graders/seed-io-k8-spa.md
+# seed: IO-K8-RBa k8s/base/courier-tracker.yaml:17 k8s/rbac-sa-missing -> graders/seed-io-k8-rba.md
+# seed: IO-K8-RBb k8s/base/rbac.yaml:8 k8s/rbac-dangling-roleref -> graders/seed-io-k8-rbb.md
+# seed: IO-K8-PDBa k8s/base/dispatch.yaml:64 k8s/pdb-blocks-drain -> graders/seed-io-k8-pdba.md
+# seed: IO-K8-SGb k8s/base/dispatch.yaml:17 k8s/shutdown-grace-code-constant -> graders/seed-io-k8-sgb.md
+# seed: IO-K8-NRa k8s/base/web.yaml:75 k8s/hpa-no-cpu-request -> graders/seed-io-k8-nra.md
+# seed: IO-K8-NPa k8s/base/netpol.yaml:19 k8s/netpol-dns -> graders/seed-io-k8-npa.md
+# decoy: IO-DECOY-01 k8s/base/worker.yaml:60 decoy/IO-K8-PDBb -> graders/decoy-io-decoy-01.md
+# decoy: IO-DECOY-09b k8s/base/worker.yaml:33 decoy/CPU limit -> graders/decoy-io-decoy-09b.md
+# decoy: IO-DECOY-04 k8s/base/api.yaml:17 decoy/IO-K8-SGa -> graders/decoy-io-decoy-04.md
+# decoy: IO-DECOY-11 k8s/base/web.yaml:8 decoy/IO-K8-HRa -> graders/decoy-io-decoy-11.md
+# decoy: IO-DECOY-26 k8s/base/kustomization.yaml:21 decoy/IO-K8-CRb -> graders/decoy-io-decoy-26.md
+# also seeded in these files, not graded: IO-K8-NRb IO-K8-PSa IO-SEC-NPa IO-SEC-NPb IO-SEC-RBa
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-infra-ops-slice run through /refract-infrastructure:infra-audit --whole-repo — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-infra-ops-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-infra-ops-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]

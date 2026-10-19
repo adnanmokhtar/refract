@@ -1,0 +1,37 @@
+groups:
+  - name: tallyhook-api
+    rules:
+      - alert: ApiUnavailable
+        expr: sum(up{job="tallyhook-api"}) == 0
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: Every API replica fails its health check
+          runbook_url: docs/runbooks/api-down.md
+      - alert: ApiLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{job="tallyhook-api"}[5m]))) > 0.8
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: p95 latency above 800 ms for 10 minutes
+          runbook_url: docs/runbooks/api-latency.md
+  - name: tallyhook-jobs
+    rules:
+      - alert: ReportsJobFailed
+        expr: kube_job_status_failed{namespace="tallyhook", job_name=~"reports-daily-.*"} > 0
+        for: 5m
+        labels:
+          severity: ticket
+        annotations:
+          summary: The nightly reports job failed
+          runbook_url: docs/runbooks/reports.md
+      - alert: DatabaseBackupStale
+        expr: time() - tallyhook_db_backup_last_success_timestamp_seconds > 93600
+        for: 30m
+        labels:
+          severity: page
+        annotations:
+          summary: No successful database backup in 26 hours
+          runbook_url: docs/runbooks/restore-db.md#verify-the-restore

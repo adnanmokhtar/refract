@@ -1,0 +1,7 @@
+api:
+  replicas: 6
+  env:
+    FEATURE_NEW_PRORATION: "true"
+    LOG_LEVEL: info
+worker:
+  schedule: "15 2 * * *"

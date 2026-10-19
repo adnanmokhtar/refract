@@ -1,0 +1,105 @@
+{
+  "nav": {
+    "account": "حسابي",
+    "basket": "السلة",
+    "theme": "الوضع الداكن"
+  },
+  "categories": {
+    "label": "الأقسام",
+    "fruit": "فواكه",
+    "vegetables": "خضروات",
+    "bakery": "مخبوزات",
+    "dairy": "ألبان وبيض",
+    "pantry": "مؤن",
+    "drinks": "مشروبات"
+  },
+  "search": {
+    "placeholder": "ابحث عن البقالة",
+    "title": "بحث",
+    "searching": "جارٍ البحث…",
+    "error": "البحث غير متاح حاليًا.",
+    "noResults": "لا نتائج مطابقة.",
+    "recent": "عمليات البحث الأخيرة"
+  },
+  "product": {
+    "saleEnds": "ينتهي العرض خلال {minutes, plural, zero {# دقيقة} one {دقيقة واحدة} two {دقيقتين} few {# دقائق} many {# دقيقة} other {# دقيقة}}",
+    "eta": "التوصيل التالي: {when}",
+    "notifyMe": "أبلغني عند توفره",
+    "notifyDone": "سنرسل لك بريدًا",
+    "summaryFallback": "طازج من متاجر الميناء.",
+    "nutrition": "القيمة الغذائية لكل 100 غ"
+  },
+  "cart": {
+    "subtotal": "المجموع الفرعي",
+    "remove": "إزالة",
+    "less": "أقل بواحد",
+    "more": "واحد إضافي",
+    "count": "{count, plural, zero {فارغة} one {منتج واحد} two {منتجان} few {# منتجات} many {# منتجًا} other {# منتج}}",
+    "substitutions": "إذا نفد منتج، سيختار لك الموظف أقرب بديل.",
+    "error": "تعذر تحميل سلتك.",
+    "retry": "حاول مرة أخرى",
+    "empty": "سلتك فارغة."
+  },
+  "checkout": {
+    "title": "الدفع",
+    "coupon": "قسيمة",
+    "apply": "تطبيق",
+    "slot": "موعد التوصيل",
+    "loadingSlots": "جارٍ البحث عن مواعيد…",
+    "slotsError": "المواعيد غير متاحة حاليًا.",
+    "held": "الموعد محجوز لمدة {minutes}:{seconds, number, ::00}"
+  },
+  "account": {
+    "nav": "الحساب",
+    "overview": "نظرة عامة",
+    "orders": "الطلبات",
+    "addresses": "العناوين",
+    "addAddress": "أضف عنوانًا",
+    "line1": "العنوان",
+    "city": "المدينة",
+    "phone": "الهاتف",
+    "postcode": "الرمز البريدي",
+    "save": "حفظ",
+    "recent": "أحدث الطلبات",
+    "hello": "مرحبًا، {name}",
+    "loading": "جارٍ تحميل الطلبات…",
+    "error": "تعذر تحميل طلباتك.",
+    "retry": "حاول مرة أخرى",
+    "noOrders": "لا طلبات بعد.",
+    "reorder": "اطلب مرة أخرى",
+    "colOrder": "الطلب",
+    "colStatus": "الحالة",
+    "colTotal": "الإجمالي",
+    "deliveringTo": "التوصيل إلى {address}",
+    "profileHint": "حدّث بياناتك من التطبيق.",
+    "status": {
+      "placed": "تم الطلب",
+      "picking": "قيد التجهيز",
+      "out-for-delivery": "في الطريق",
+      "delivered": "تم التوصيل"
+    }
+  },
+  "catalog": {
+    "sort": "ترتيب حسب",
+    "pages": "الصفحات",
+    "previous": "السابق",
+    "next": "التالي",
+    "pageOf": "الصفحة {page} من {pages}",
+    "sorts": {
+      "relevance": "الأكثر صلة",
+      "price-asc": "السعر: من الأقل",
+      "price-desc": "السعر: من الأعلى",
+      "newest": "الأحدث"
+    }
+  },
+  "recipes": {
+    "title": "وصفات",
+    "item": "مكوّن",
+    "items": "مكوّنات"
+  },
+  "footer": {
+    "about": "من نحن",
+    "help": "المساعدة",
+    "privacy": "الخصوصية"
+  }
+}

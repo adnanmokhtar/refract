@@ -1,0 +1,26 @@
+# fixture: benchmarks/fixtures/llm-assist · hard outcome slice: 22 files, 9 seeds, 3 decoys (BRIEF-hard-evals.md)
+# resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
+# never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py ai-engineering
+# graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
+# seed: LA-RG8-a services/rag/app/llm/embeddings.py:5 AE-RG-8 -> graders/seed-la-rg8-a.md
+# seed: LA-EV4-b services/rag/evals/judge.py:6 AE-EV-4 -> graders/seed-la-ev4-b.md
+# seed: LA-EV5-b services/rag/app/answers/prompts.py:6 AE-EV-5 -> graders/seed-la-ev5-b.md
+# seed: LA-EV2-b .github/workflows/rag-eval.yml:5 AE-EV-2 -> graders/seed-la-ev2-b.md
+# seed: LA-CO4-b services/rag/app/billing/usage.py:23 AE-CO-4 -> graders/seed-la-co4-b.md
+# seed: LA-RG6-a services/rag/app/retrieval/retriever.py:20 AE-RG-6 -> graders/seed-la-rg6-a.md
+# seed: LA-RG10-a services/rag/app/answers/rag_answer.py:21 AE-RG-10 -> graders/seed-la-rg10-a.md
+# seed: LA-EV3-b services/rag/tests/test_answers.py:13 AE-EV-3 -> graders/seed-la-ev3-b.md
+# seed: LA-CO2-b services/rag/app/answers/service.py:16 AE-CO-2 -> graders/seed-la-co2-b.md
+# decoy: LA-DECOY-20 services/rag/app/kb/article_titles.py:10 decoy/PM-3, MV-4 (precedents/ai-engineering.md § 27) -> graders/decoy-la-decoy-20.md
+# decoy: LA-DECOY-23 services/rag/app/retrieval/embed_batch.py:7 decoy/CO-7 (precedents/ai-engineering.md § 23) -> graders/decoy-la-decoy-23.md
+# decoy: LA-DECOY-21 CHANGELOG.md:9 decoy/MV-1 (precedents/ai-engineering.md § 28) -> graders/decoy-la-decoy-21.md
+# also seeded in these files, not graded: LA-CO11-b LA-CO3-b LA-EV6-b LA-HO-LG1 LA-IX2-a LA-MV2-b LA-MV3-b LA-PI3-b LA-PM1-b LA-PM2-b LA-RG9-a LA-SO3-b LA-TF1-b LA-TF3-b LA-TF5-a
+# tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
+# pack's scripts are not on the staged plugin's path inside the run workspace.
+# command lane: audit-llm-assist-slice run through /refract-ai-engineering:ai-audit — same resources/ and graders, no pack-fired grader
+# (the command is the pack). Run with --ablation none; cmd Δ = this score − audit-llm-assist-slice WITHOUT the pack.
+schema_version: "1.1"
+name: cmd-llm-assist-slice
+context:
+  scaffold_script: stage-resources.sh
+  add_dirs: [resources]
