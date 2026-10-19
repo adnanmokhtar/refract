@@ -9,6 +9,11 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.5 — 2026-10-19
+
+- **`/k8s-generate` and `/provision-tier` dispatch `@platform-engineer`** *(devops pack)* for Phase 4 when the devops pack is installed. Inside a run it is the one writer of manifests and IaC. Without devops: `HANDOFF UNROUTED (devops not installed)`, and the main session writes, as before.
+- `infra-reviewer`'s example finding no longer quotes a benchmark fixture's seeded path.
+
 ## 2.0.4 — 2026-10-18
 
 - References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).

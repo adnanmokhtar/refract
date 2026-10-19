@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-19
+
+- `/add-ai-feature`'s H1 writes the `--from-audit` report as `<report: ai/audits/DATE-ai.md>`: the nested `<…<date>…>` cut the flag short in the generated `docs/CHEATSHEET.md`.
+
 ## 2.0.0 — 2026-10-19
 
 **The ai-engineering pack became a detector pack (Track A batch 8).** Every detector reads one call-site inventory instead of a provider-name grep that missed raw-HTTP gateways and matched `cohere` inside "coherence".

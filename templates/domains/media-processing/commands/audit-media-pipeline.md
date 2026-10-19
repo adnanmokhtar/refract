@@ -53,7 +53,7 @@ locate codec call (<path:line>)
 Codec call (<path:line>):
   sharp(buf).resize(160,160).toFormat('webp')        [or: ffmpeg -i in -protocol_whitelist file,crop ...]
 
-Execution:     async worker @ transcode.worker.ts:34   [or: SYNC in controller @ media.controller.ts:18 — BLOCKER]
+Execution:     async worker @ transcode.worker.ts:34   [or: SYNC in controller @ uploads-media.controller.ts:18 — BLOCKER]
 Sandbox:       --network none, user=nobody, RO FS, mem=512M, timeout=120s @ worker.yaml:12  [or: NONE — finding]
 Validation:    magic-byte sniff (file-type) + allowlist @ sniff.ts:14   [or: req.file.mimetype — BLOCKER]
 Bomb guard:    limitInputPixels=50M + header pixel/dim/frame/duration caps @ worker.ts:61  [or: MISSING — BLOCKER(DoS)]

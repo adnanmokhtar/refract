@@ -709,6 +709,21 @@ if [[ -d "$PACKS_DIR" ]] && [[ -d "$TARGET/.claude" || -d "$TARGET/ai/patterns" 
   fi
 fi
 
+# ---------- Post-condition: frontend ⇒ ui-ux (Phase 6 OD-7) ----------
+# The ux-reviewer role and its a11y lens ship in ui-ux; accessibility-auditor (frontend) has no
+# other a11y reviewer to fall back to. So whatever branch selected frontend — a dependency, a
+# directory, a disk seed — ui-ux comes with it. The ui-ux block above already covers today's
+# branches; this line keeps a future branch from selecting frontend alone.
+_has_fe=0; _has_ux=0
+for t in "${TRACKS[@]}"; do
+  [[ "$t" == "frontend" ]] && _has_fe=1
+  [[ "$t" == "ui-ux" ]] && _has_ux=1
+done
+if [[ $_has_fe -eq 1 && $_has_ux -eq 0 ]]; then
+  trace "frontend selected → ui-ux (the a11y and design-system lenses live there; OD-7)"
+  add ui-ux
+fi
+
 # ---------- De-duplicate + sort ----------
 unique_sorted=$(printf '%s\n' "${TRACKS[@]}" | sort -u)
 

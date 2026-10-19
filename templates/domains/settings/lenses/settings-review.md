@@ -135,7 +135,7 @@ Fix: typed registry + validate against the schema before storage.
 
 ### BLOCKER — secret-valued setting stored plaintext
 ```
-src/modules/settings/integrations.controller.ts:22
+src/modules/settings/connectors.controller.ts:22
 
 @Patch('/integrations/smtp')
 async setSmtp(@Body() body, @Ctx() ctx) {

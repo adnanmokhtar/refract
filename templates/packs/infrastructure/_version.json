@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "infrastructure",
-  "version": "2.0.4",
-  "released": "2026-10-18",
+  "version": "2.0.5",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Reference sweep: renamed skills (secret-scan-method, threat-model-method, log-tail-method, endpoint-test-method).",
+  "summary": "Phase 6: /k8s-generate and /provision-tier hand Phase 4 to @platform-engineer when the devops pack is installed; infra-reviewer example genericized.",
   "changelog": "CHANGELOG.md"
 }

@@ -94,7 +94,7 @@ Or `/compliance-audit` slash. Output is a posture report:
   Hits in code:                          3
     - src/modules/auth/auth.service.ts:34   logger.info({ email })    — BLOCKER
     - src/modules/orders/order.service.ts:88 logger.warn({ phone })   — BLOCKER
-    - src/modules/admin/admin.controller.ts:24 logger.info({ name })  — BLOCKER
+    - src/modules/staff/staff.controller.ts:24 logger.info({ name })  — BLOCKER
 
 ═══ Sub-processors ═══
   Vendors declared:                     12

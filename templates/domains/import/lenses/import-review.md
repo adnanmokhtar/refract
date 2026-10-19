@@ -121,7 +121,7 @@ Fix: tenant_id in the row AND the conflict target, from the auth context.
 
 ### BLOCKER — load-whole-file into memory
 ```
-src/modules/import/import.service.ts:21
+src/modules/import/csv-intake.service.ts:21
 
 const buf = await fs.readFile(file.path);          // entire upload into memory
 const rows = parse(buf, { columns: true });        // 2M rows materialized as one array

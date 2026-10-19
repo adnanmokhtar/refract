@@ -52,7 +52,7 @@ src/realtime/
 └── infrastructure/
     ├── ws.gateway.ts                     # the @WebSocketGateway
     ├── redis-fanout.adapter.ts           # publishes to Redis; gateways subscribe
-    └── session-store.ts                  # tracks (sessionId → lastSeq, channels)
+    └── socket-sessions.ts                  # tracks (sessionId → lastSeq, channels)
 ```
 
 ## Gateway (auth + subscribe + emit)

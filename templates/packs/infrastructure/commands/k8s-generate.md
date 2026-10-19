@@ -68,6 +68,19 @@ CONTEXT:
 - Existing manifests under `k8s/<service>/` if present — mirror conventions.
 - Cluster's cert-manager / ingress class / external-secrets configuration.
 
+## Writer — platform-engineer (one writer of CI / IaC)
+
+Phase 4 is written by **`@platform-engineer`** (`.claude/agents/platform-engineer.md`, devops pack), when the devops pack is installed, dispatched once with a
+[delegation brief](../../../snippets/delegation-brief.md): `task` = the manifests (or chart) Phase 2 planned and
+why, the Phase 3 facts (stack, sibling conventions, the paths it may touch), and the Phase 4 rules
+below by heading — it reads this file, you do not paraphrase it. It returns `DONE <paths> + the
+plan/diff/dry-run output`; you run Phase 5–6 on what it wrote, and a Phase 6 finding goes back to it
+as a new task — you never patch the emitted file beside it. Inside a run (`/add-feature` P6 infra
+task) it is the only writer of those paths: `ownership-guard.py` denies them to any other agent
+while the run is open. **Without it** (devops pack not installed, or minimal mode with no
+`.claude/agents/platform-engineer.md`): print `HANDOFF UNROUTED (devops not installed) —
+@platform-engineer; Phase 4 written by the main session` and run Phase 4 yourself, as before.
+
 ## Phase 4 — Generate
 
 Dispatch `infra-architect` to confirm probes + base image hardening.
@@ -187,6 +200,7 @@ VERDICT: PRODUCTION-GRADE
 ## Related
 
 ### Agents
+- `@platform-engineer` *(devops pack)* — writes Phase 4 when the devops pack is installed; without it, `HANDOFF UNROUTED (devops not installed)` and the main session writes.
 - `@k8s-reviewer` — renders the Phase 6 PRODUCTION-GRADE verdict this command gates on, over the four detectors' rows.
 - `@infra-architect` — confirms probe shape + base-image hardening in Phase 4.
 - `@kubernetes-architect` — owns the cluster operating model these manifests sit inside (edge API, tenancy, upgrade cadence). Consult it when halt #11 or #12 exposes a cluster-level question (an unsupported minor, no ingress controller, no Gateway API CRDs) rather than a manifest-level one.

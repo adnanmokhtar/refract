@@ -1,11 +1,25 @@
 {
   "kind": "domain",
   "name": "feature-flags",
-  "version": "1.0.0",
-  "released": "2026-04-26",
+  "version": "1.1.0",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline.",
+  "summary": "Phase 6: the domain's reviewer agent became lenses/feature-flags-review.md, read by @code-reviewer (code-quality pack). The agent file is retired; /setup-project --refresh retires an unedited installed copy behind a one-release stub (scripts/retire-merged-agents.sh).",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-10-19",
+      "changes": [
+        "Phase 6: the domain's reviewer agent became lenses/feature-flags-review.md, read by @code-reviewer (code-quality pack). The agent file is retired; /setup-project --refresh retires an unedited installed copy behind a one-release stub (scripts/retire-merged-agents.sh)."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-04-26",
+      "changes": [
+        "Initial baseline."
+      ]
+    }
+  },
   "reviewer": "code-reviewer",
   "reviewer_pack": "code-quality",
   "role": "growth-reviewer",

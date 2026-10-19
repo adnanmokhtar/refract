@@ -5,7 +5,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 
 > **STACK ASSUMPTION**: see this pack's `STACK.md`. This pack is provider-agnostic — examples name a provider illustratively; substitute the project's from `_extracted-codebase.md § AI/LLM integration`. Access the model through the project's gateway seam / SDK, structured output through its tool/JSON-schema mode, retrieval through its embedding model + vector store.
 
-# /add-ai-feature [<feature>] | --from-audit=<ai/audits/<date>-ai.md> [finding-id ... | --all]
+# /add-ai-feature [<feature>] | --from-audit=<report: ai/audits/DATE-ai.md> [finding-id ... | --all]
 
 Two modes. **Build** (no flag): the eight phases below. **Fix** (`--from-audit`): the § From-audit lane replaces Phases 2–5 and closes the engineering findings an `/ai-audit` report lists, one at a time, each proved failing-first.
 

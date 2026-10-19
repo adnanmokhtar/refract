@@ -70,9 +70,13 @@ H1_RE = re.compile(r"^#\s+(/[A-Za-z0-9][A-Za-z0-9-]*)\s*(.*)$")
 # as `--surface-blockers`.)
 CSS_VAR_RE = re.compile(
     r"^--(color|spacing|radius|font|shadow|ring|tracking|leading|z)(-|$)", re.I)
-# A line that invokes the command's own backing project script — its flags ARE the
-# command's flags (domain commands wrap a `.claude/skills/*.sh` or `pnpm/npm run`).
-PROJECT_SCRIPT_RE = re.compile(r"\.claude/skills/\S+\.sh|pnpm run |npm run |yarn run ")
+# A domain command's own BACKING script sits at the skills root (`.claude/skills/<name>.sh`);
+# its Overrides ARE the command's flags. Any other script the command runs — a skill's helper
+# under `.claude/skills/<skill>/…`, a project `pnpm/npm/yarn run <other>` — owns its flags
+# (`--self-test`, `--out`, `--spec`, `--registry`, `--format`, …): never credited to the command.
+# (`pnpm run <own-name>` is the command's own backing script — see harvest_flags.)
+OWN_SCRIPT_RE = re.compile(r"\.claude/skills/[^/\s`'\"]+\.sh(?![\w/])")
+HELPER_SCRIPT_RE = re.compile(r"\.claude/skills/[^/\s`'\"]+/")
 # Valid arg-signature tails start with one of these; anything else after the H1
 # name (e.g. an em-dash tagline `# /foo — does things`) is NOT a signature.
 SIG_START = ("<", "[", "(", "--", '"', "'")
@@ -210,14 +214,14 @@ def harvest_flags(body, own, signature):
       2. a flag-definition line (outside fences) — a bullet / table row that STARTS with
          a flag after its markers; only the FIRST flag is the one being defined (later
          flags in the prose are references, e.g. "(capped by ...)");
-      3. an own-invocation — flags reached after this command's own slash name or its
-         backing project script on a line (an Overrides fence, a domain skills script,
-         or even an inline example like "...or /migrate --from-plan <file>").
+      3. an own-invocation — flags reached after this command's own slash name or its own
+         backing script (`.claude/skills/<name>.sh`, a domain command's Overrides fence), or
+         an inline example like "...or /migrate --from-plan <file>".
 
     The owner-walk starts with NO owner and only attributes flags once it has passed this
-    command's own slash name (or own `.claude/skills/*.sh` / `pnpm run` script); a sibling
-    command or an external tool (npm, jest, flutter, flake8, prisma, aws, ...) flips the
-    owner away. So "Dispatch refactoring-sweep with --target", "No --force-overwrite", and
+    command's own slash name or own backing script; a sibling command, a skill's helper
+    script (`.claude/skills/<skill>/…`), a `pnpm run` script or an external tool (npm, jest,
+    flutter, flake8, prisma, aws, ...) flips the owner away. So "Dispatch refactoring-sweep with --target", "No --force-overwrite", and
     "flake8 --max-complexity" never attach to the command. A "... not supported:" heading
     suppresses the flag bullets beneath it. CSS custom properties and `--glob-*` stubs are
     excluded."""
@@ -249,21 +253,26 @@ def harvest_flags(body, own, signature):
                 _add_flag(flags, dm.group(1), dm.group(2) or "")
 
         # (b) own-invocation walk: owner starts unset; only flags reached after the own
-        # slash name / own project script are collected
-        script_line = bool(PROJECT_SCRIPT_RE.search(raw))
-        owner = "own" if script_line else None
+        # slash name are collected — a helper script's flags are the script's
+        owner = None
+        prev = ""
         for word in raw.split():
             tok = _norm(word)
-            if SLASHCMD_RE.match(tok):
+            if prev == "run" and tok == own.lstrip("/"):
+                owner = "own"           # `pnpm run <own-name>` — the command's own backing script
+            elif SLASHCMD_RE.match(tok):
                 owner = "own" if tok == own else "_other"
-            elif ".claude/skills/" in tok or PROJECT_SCRIPT_RE.search(word):
+            elif HELPER_SCRIPT_RE.search(word):
+                owner = "_other"
+            elif OWN_SCRIPT_RE.search(word):
                 owner = "own"
-            elif _is_external(tok) and not script_line:
+            elif _is_external(tok):
                 owner = "_other"
             elif tok.startswith("--") and owner == "own":
                 fm = FLAG_RE.match(tok)
                 if fm:
                     _add_flag(flags, fm.group(1), fm.group(2) or "")
+            prev = tok
     return list(flags.values())
 
 

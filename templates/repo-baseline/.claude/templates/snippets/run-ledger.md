@@ -47,6 +47,12 @@ keeps the locked contract and every hook-written record out of reach. A file who
 installed is written by nobody: the phase is skipped with `covered_by: UNREVIEWED(<role>) — <agent>
 not installed (<pack> pack)` and the run cannot close COMPLETE.
 
+**Source has one writer, infrastructure has one writer.** In P6, source is written by `@implementer`;
+CI files, Dockerfiles / compose, IaC roots and manifests (`ownership-guard.py roles` → platform-engineer,
+minus `ai/`) are written only by `@platform-engineer` *(devops pack)* while the run is open — the
+orchestrator dispatches an infra task to it, never to the implementer. Without the devops pack the
+ledger records `HANDOFF UNROUTED (devops not installed)` and the implementer writes those paths.
+
 ### Formats the scripts parse
 
 `requirements.md` — one story per heading, criteria as list items:

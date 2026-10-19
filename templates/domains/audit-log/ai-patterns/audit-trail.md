@@ -174,7 +174,7 @@ Persisting `hash_version` alongside each row lets the verifier reproduce histori
 > The TypeScript example below uses NestJS-style DI + a `runInTransaction` helper for illustration. Substitute your project's actual idiom from `.claude/_extracted-codebase.md`: the transaction wrapper your ORM exposes (`prisma.$transaction`, `db.transaction`, `@Transactional`, a UoW), the DI mechanism, the repository names. The SHAPE — business write and audit write in ONE transaction, hash chained off the previous row, resolves only on commit — is what's universal, not the helper names.
 
 ```ts
-// src/modules/audit/core/services/audit-log.service.ts
+// src/modules/audit/core/services/audit-writer.service.ts
 
 @Injectable()
 export class AuditLogService implements AuditLog {

@@ -4,20 +4,25 @@
   "groupings": [
     {
       "title": "Code Quality",
-      "description": "Refactoring verbs, architectural diagnosis, debt tracking, and the pre/post gates that keep a behaviour-preserving sweep honest.",
+      "description": "Refactoring verbs, architectural diagnosis, debt tracking, the pre/post gates that keep a behaviour-preserving sweep honest, and detectors for correctness smells, drifted duplicates, hidden errors, suppressions and type lies.",
       "skills": [
         "architectural-diagnosis",
         "change-brief",
+        "correctness-smell-scan",
         "dead-code-scan",
         "debt-ledger",
+        "duplication-scan",
+        "error-handling-scan",
         "refactoring-sweep",
         "smoke-verify",
-        "test-shield"
+        "suppression-scan",
+        "test-shield",
+        "type-safety-scan"
       ]
     },
     {
       "title": "Security",
-      "description": "OWASP-aligned detectors — injection, XSS, SSRF, file access, logic races, data exposure, SAST, IaC and CI pipelines as attack surface, secrets in history, dependency advisories, the on-device mobile lane — plus STRIDE threat modelling.",
+      "description": "OWASP-aligned detectors — injection, XSS, SSRF, file access, logic races, data exposure, SAST, IaC and CI pipelines as attack surface, secrets in history, dependency advisories, the on-device mobile lane, LLM trust boundaries and MCP servers — plus STRIDE threat modelling.",
       "skills": [
         "ci-security-scan",
         "data-exposure-scan",
@@ -25,7 +30,9 @@
         "file-access-scan",
         "iac-scan",
         "injection-scan",
+        "llm-trust-scan",
         "logic-race-scan",
+        "mcp-server-scan",
         "mobile-security-scan",
         "sast-scan",
         "secret-scan-method",
@@ -36,32 +43,41 @@
     },
     {
       "title": "Testing",
-      "description": "Coverage gaps, mutation strength, property-based invariants, consumer-driven contracts, and test-data factories.",
+      "description": "Coverage gaps, mutation strength, property-based invariants, consumer-driven contracts, test-data factories, golden-master characterization, and detectors for tests that cannot fail, flake sources, lying doubles and suites that never run.",
       "skills": [
+        "assertion-strength-scan",
+        "characterize",
         "contract-test",
         "coverage-gap",
+        "flake-source-scan",
         "mutation-probe",
         "property-invariants",
+        "suite-execution-scan",
+        "test-double-scan",
         "test-factories"
       ]
     },
     {
       "title": "Documentation",
-      "description": "Catch docs that lie — dead-symbol references, stale diagrams, unrunnable quickstarts, undocumented public API.",
+      "description": "Catch docs that lie — dead-symbol references, stale diagrams, unrunnable quickstarts and samples, broken links and doc structure, undocumented public API.",
       "skills": [
         "changelog-generate",
         "diagram-sync",
         "doc-drift-scan",
+        "doc-sample-scan",
+        "doc-structure-scan",
         "docstring-coverage",
         "quickstart-verify"
       ]
     },
     {
       "title": "Codebase Learning",
-      "description": "The deep-extraction loop /setup-project runs to learn a codebase — architecture, domain entities, flows, emergent conventions, failure history.",
+      "description": "The deep-extraction loop /setup-project runs to learn a codebase — architecture, domain entities, flows, emergent conventions, failure history — plus detectors for the AI knowledge layer: dead references, stale facts, context load, decision records and memory hygiene.",
       "skills": [
         "apply-pack-adaptation",
         "compute-anchor-density",
+        "context-load-scan",
+        "decision-record-scan",
         "extract-architecture-deeply",
         "extract-base-class-idiom",
         "extract-business-context",
@@ -71,43 +87,63 @@
         "extract-failures-from-history",
         "extract-flows-deeply",
         "extract-hotpaths",
-        "extract-project-context"
+        "extract-project-context",
+        "knowledge-fact-scan",
+        "knowledge-ref-scan",
+        "memory-hygiene-scan"
       ]
     },
     {
       "title": "AI Engineering",
-      "description": "Offline LLM eval harness detection and regression gating for RAG, prompt, and agent changes.",
+      "description": "Offline LLM eval harness detection and regression gating for RAG, prompt, and agent changes, plus read-only audits of LLM call sites, prompts, retrieval recall and vector indexes.",
       "skills": [
-        "eval-run"
+        "eval-run",
+        "llm-gateway-audit",
+        "prompt-audit",
+        "retrieval-eval",
+        "vector-index-audit"
       ]
     },
     {
       "title": "Algorithms",
-      "description": "Mechanically derive time and space complexity — loop nesting, recurrences, amortized analysis — with a defensible big-O.",
+      "description": "Mechanically derive time and space complexity — loop nesting, recurrences, amortized analysis — with a defensible big-O, plus detectors for super-linear work, broken algorithm contracts and numeric instability.",
       "skills": [
-        "complexity-derivation"
+        "algorithm-contract-scan",
+        "complexity-derivation",
+        "complexity-scan",
+        "numeric-stability-scan"
       ]
     },
     {
       "title": "Codebase Alignment",
-      "description": "Stack-conditional drift detection against a gold-standard inventory, and the per-finding DETECT-DECIDE-FIX-VERIFY loop that closes it.",
+      "description": "Stack-conditional drift detection against a gold-standard inventory, the per-finding DETECT-DECIDE-FIX-VERIFY loop that closes it, and detectors for the convention oracle, naming and layout, wrapper adoption and convention ratchets.",
       "skills": [
         "align-detect",
-        "find-and-align"
+        "convention-oracle",
+        "convention-ratchet-scan",
+        "find-and-align",
+        "naming-layout-scan",
+        "wrapper-adoption-scan"
       ]
     },
     {
       "title": "Backend",
-      "description": "API contract snapshots, endpoint verification, tenant-isolation debugging, and module scaffolding.",
+      "description": "API contract snapshots, endpoint verification, tenant-isolation debugging, module scaffolding, and read-only detectors for HTTP contracts, validation boundaries, edge errors, wire formats, state machines and job lifecycles.",
       "skills": [
         "api-consistency-audit",
         "api-snapshot",
         "debug-tenant",
+        "edge-error-scan",
         "endpoint-test-method",
         "env-diff",
+        "http-contract-scan",
+        "job-lifecycle-scan",
         "log-tail-method",
         "module-scaffold",
-        "parallelize-independent-ops"
+        "parallelize-independent-ops",
+        "state-transition-scan",
+        "validation-boundary-scan",
+        "wire-format-scan"
       ]
     },
     {
@@ -120,6 +156,22 @@
         "pricing-rule-scan",
         "report-scan",
         "tax-invoice-scan"
+      ]
+    },
+    {
+      "title": "Data Engineering",
+      "description": "Detectors for derived data — incremental loads, orchestration DAGs, data tests, table contracts, lineage, extracts, rollups, personal-data copies and warehouse scan cost — plus a grain probe. /audit-data-quality runs them; /data-fix closes what they find.",
+      "skills": [
+        "contract-diff",
+        "data-test-scan",
+        "derived-data-scan",
+        "extract-scan",
+        "grain-probe",
+        "incremental-load-scan",
+        "lineage-trace",
+        "orchestration-scan",
+        "pii-copy-scan",
+        "warehouse-scan-audit"
       ]
     },
     {
@@ -136,6 +188,15 @@
         "schema-diff",
         "schema-integrity-scan",
         "transaction-scan"
+      ]
+    },
+    {
+      "title": "Delivery",
+      "description": "The backend, frontend and mobile build lanes an /add-feature delivery run reads.",
+      "skills": [
+        "lane-backend",
+        "lane-frontend",
+        "lane-mobile"
       ]
     },
     {
@@ -156,10 +217,31 @@
     },
     {
       "title": "Distributed Systems",
-      "description": "Chaos injection against a running service, and safe dead-letter-queue replay.",
+      "description": "Read-only detectors for messaging, dual writes, event contracts, retries and deadlines, coordination and durable workflows, plus chaos injection against a running service and safe dead-letter-queue replay.",
       "skills": [
         "chaos-test",
-        "dlq-replay"
+        "coordination-scan",
+        "dlq-replay",
+        "dual-write-scan",
+        "event-contract-scan",
+        "messaging-scan",
+        "retry-deadline-scan",
+        "workflow-scan"
+      ]
+    },
+    {
+      "title": "FinOps",
+      "description": "Spend detectors over code and config — paid-API paths, storage growth, egress, allocation tags, budget guardrails — plus candidate pricing, commitment coverage, unit cost and spend-anomaly triage from a billing export.",
+      "skills": [
+        "allocation-scan",
+        "candidate-pricing",
+        "commitment-coverage",
+        "egress-trace",
+        "guardrail-scan",
+        "spend-anomaly-triage",
+        "spend-path-scan",
+        "storage-growth-scan",
+        "unit-cost-probe"
       ]
     },
     {
@@ -211,19 +293,26 @@
     },
     {
       "title": "Migration (V1 to V2)",
-      "description": "Per-feature V1 to V2 porting with parity guarantees — contract extraction, parity suites, data cutover, migration-time perf uplift.",
+      "description": "Per-feature V1 to V2 porting with parity guarantees — contract extraction, parity suites, data cutover, migration-time perf uplift — and paired-inventory detectors for surface, semantics, side-effect, parity-proof and cutover-routing gaps.",
       "skills": [
+        "cutover-routing-scan",
         "data-cutover-orchestrate",
         "extract-v1-contract",
+        "paired-inventory",
+        "parity-proof-scan",
         "parity-test-generate",
-        "perf-uplift-survey"
+        "perf-uplift-survey",
+        "semantics-parity-scan",
+        "side-effect-parity-scan",
+        "surface-parity-scan"
       ]
     },
     {
       "title": "Mobile",
-      "description": "Native accessibility, lifecycle (process death, permissions, push, OTA), render and startup cost, offline sync, the dated store gates, app size, bridge auditing and platform conventions. /mobile-audit runs them; /mobile-fix closes what they find.",
+      "description": "Native accessibility, lifecycle (process death, permissions, push, OTA), render and startup cost, offline sync, the dated store gates, app size, bridge auditing, platform conventions and a device harness for simulator and emulator evidence. /mobile-audit runs them; /mobile-fix closes what they find.",
       "skills": [
         "app-size-scan",
+        "device-harness",
         "mobile-a11y-scan",
         "mobile-lifecycle-scan",
         "mobile-perf-scan",
@@ -251,21 +340,39 @@
     },
     {
       "title": "Performance",
-      "description": "Endpoint profiling, load campaigns, memory-leak hunting, and field Core Web Vitals with attribution.",
+      "description": "Endpoint profiling, load campaigns, memory-leak hunting, field Core Web Vitals with attribution, and detectors for request-path, caching and memory-growth defects.",
       "skills": [
+        "caching-scan",
         "load-test",
+        "memory-growth-scan",
         "memory-leak-hunt",
         "profile-endpoint",
+        "request-path-scan",
         "web-vitals-field"
       ]
     },
     {
+      "title": "Product",
+      "description": "Half-built features, tracking-plan drift, plan-entitlement consistency, acceptance criteria, requirement evidence, ranked assumptions and the launch-readiness scorecard.",
+      "skills": [
+        "acceptance-criteria-check",
+        "assumption-ledger",
+        "entitlement-consistency-scan",
+        "evidence-trace",
+        "feature-surface-scan",
+        "launch-readiness",
+        "tracking-plan-scan"
+      ]
+    },
+    {
       "title": "UI/UX",
-      "description": "UI-state coverage and the state matrix behind gate G12, design-token drift, motion and reduced-motion, chart encoding, a fast a11y pass, and the 19-verb closure vocabulary.",
+      "description": "UI-state coverage and the state matrix behind gate G12, design-token drift, motion and reduced-motion, chart encoding, a fast a11y pass, the 19-verb closure vocabulary, screenshot design scoring and a pre-code design canvas.",
       "skills": [
         "a11y-quick-check",
         "chart-encoding-audit",
+        "design-canvas",
         "design-iterate",
+        "design-score",
         "design-token-audit",
         "motion-audit",
         "state-matrix",

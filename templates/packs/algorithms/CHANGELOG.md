@@ -9,6 +9,11 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-19
+
+- `algorithm-designer`'s example findings name illustrative files, not the `algo-defects` fixture's seeded ones (`lint-fixture-leakage.py`).
+- `/design-algorithm`'s H1 writes the `--from-audit` report as `<report: ai/audits/DATE-algorithms.md>`: the nested `<…<date>…>` cut the flag short in the generated `docs/CHEATSHEET.md`.
+
 ## 2.0.0 — 2026-10-19
 
 **The algorithms pack became a detector pack (Track A batch 8).** Code-quality owns a wrong expression; this pack owns a wrong algorithm — the bound, depth, order, distribution, surface or precision a procedure's contract assumes.

@@ -1,12 +1,18 @@
 {
   "kind": "domain",
   "name": "ai",
-  "version": "1.1.0",
-  "released": "2026-06-10",
+  "version": "1.2.0",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Adds ai-patterns/prompt-builder.md — the 4-layer prompt structure (system + context + strategy + user) that the ai review lens, ai-cost-discipline, backend add-feature/fix-bug, and repo-baseline patterns README already referenced but which never existed. Closes the dangling reference.",
+  "summary": "Phase 6: the domain's reviewer agent became lenses/ai-review.md, read by @security-auditor (security pack). The agent file is retired; /setup-project --refresh retires an unedited installed copy behind a one-release stub (scripts/retire-merged-agents.sh).",
   "changelog": {
+    "1.2.0": {
+      "released": "2026-10-19",
+      "changes": [
+        "Phase 6: the domain's reviewer agent became lenses/ai-review.md, read by @security-auditor (security pack). The agent file is retired; /setup-project --refresh retires an unedited installed copy behind a one-release stub (scripts/retire-merged-agents.sh)."
+      ]
+    },
     "1.1.0": {
       "released": "2026-06-10",
       "changes": [

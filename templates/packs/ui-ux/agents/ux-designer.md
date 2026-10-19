@@ -175,6 +175,17 @@ Return one line: `DONE ai/runs/<run-id>/ux.md (surfaces 3 · rows 24 · lint PAS
 | designing components, APIs and the data model | `@architect` (delivery), who reads your `ux.md` at P4 |
 | finding states that shipped code cannot render | `ui-state-scan` (this pack) |
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+- **Not mine** (a detector I name routes these elsewhere):
+  - `design-tokens` → ui-ux/agents/design-system-guardian (ui-ux pack; without it: design-token-audit's own report; ui-reviewer detects and routes)
+  - `ui-states` → ui-ux/agents/ux-reviewer (ui-ux pack; without it: UNREVIEWED(states) — ux-reviewer not installed (ui-ux pack); the lint still …)
+<!-- END GENERATED boundary -->
+
 ## Related
 
 - `state-matrix` (this pack): the vocabulary, format and lint of § State matrix.

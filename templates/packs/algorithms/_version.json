@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "algorithms",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Three detectors + algo-sites.py; /analyze-complexity audits, /design-algorithm --from-audit fixes (Track A batch 8).",
+  "summary": "algorithm-designer's example findings no longer quote a benchmark fixture's seeded files.",
   "changelog": "CHANGELOG.md"
 }

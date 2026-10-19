@@ -100,7 +100,7 @@ Event sourcing has a small surface but every mistake is permanent. Once an event
 
 ### BLOCKER — event mutated in projector
 ```
-src/modules/orders/projections/order-summary.projector.ts:34
+src/modules/orders/projections/order-overview.projector.ts:34
 
 case 'OrderPlaced':
   event.totalCents = event.totalCents * 1.1;   // applying tax
@@ -147,7 +147,7 @@ Verify: replay full fixture → identical projection.
 
 ### BLOCKER — projection read non-deterministic
 ```
-src/modules/orders/projections/order-summary.projector.ts:62
+src/modules/orders/projections/order-overview.projector.ts:62
 
 case 'OrderShipped':
   const carrier = await this.carrierApi.lookup(event.carrierCode);   // external IO

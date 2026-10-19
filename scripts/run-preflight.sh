@@ -425,6 +425,18 @@ if [[ -x "$SCRIPTS/detect-mcp.sh" ]]; then
   echo ""
 fi
 
+# STEP 0.6 (Phase 6, PLAN.md §6): migrate installed copies of agents that were MERGED into a role +
+# lens. Runs on every mode that has a prior setup, AFTER the Phase-0 backup above and BEFORE
+# study-existing.sh, so the study and the copy loops see the post-migration tree: an unedited copy
+# (blob listed in scripts/_agent-merge-map.json) moves to .claude/backups/retired-agents/ and a
+# one-release stub redirects its name; an owner-edited copy is kept and reported EDITED. Writes
+# nothing when nothing matches.
+if [[ "$MODE" != "create" && -f "$SCRIPTS/retire-merged-agents.sh" ]]; then
+  echo "[0.6/5] retire-merged-agents.sh --apply"
+  bash "$SCRIPTS/retire-merged-agents.sh" "$TARGET" --apply 2>&1 | sed 's/^/  /' | tail -40
+  echo ""
+fi
+
 # Helper: invoke a script with target + optional pack list. Avoids the
 # `"${PACKS[@]:-}"` trap (expands to "" when empty, which downstream scripts
 # read as a real pack-name argument and skip their auto-detect path).

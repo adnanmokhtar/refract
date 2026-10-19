@@ -172,7 +172,7 @@ Fix: aggregate via ExportOrchestrator (see ai/patterns/gdpr-export-delete.md):
 
 ### BLOCKER — vendor not in sub-processors
 ```
-src/modules/notifications/sms.service.ts:8
+src/modules/notifications/text-sender.service.ts:8
 
 import twilio from 'twilio';
 

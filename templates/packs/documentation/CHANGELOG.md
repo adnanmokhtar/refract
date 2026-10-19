@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.1 — 2026-10-19
+
+- `doc-writer` carries a generated `## Boundary` block (`scripts/gen-boundaries.py`, from `templates/governance/ownership.json`).
+
 ## 2.0.0 — 2026-10-19
 
 **The documentation pack became a detector pack (Track A batch 7).** Before this release 3 of its 38 owned classes were runnable and all 3 were noisy or broken (a fallback that reported every reference missing; a drift scan with 3,446 misses on a real repo).

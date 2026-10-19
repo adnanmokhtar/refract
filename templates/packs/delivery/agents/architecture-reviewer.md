@@ -101,6 +101,15 @@ no-sibling-no-adr,qa-unmeasured,interface-drift,boundary-violation}`; each `clai
 - Conformance drift without a `Deviation:` note and a re-approval is IMPORTANT.
 - Never edit; never read the ledger or the implementer's account.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+- **Phase-6 target (owned elsewhere until the merge is earned):** `business-ledger`, `business-money-rules`, `business-reporting`, `business-tax-documents`, `financial-records`
+<!-- END GENERATED boundary -->
+
 ## Related
 
 - `@architect` writes the design this agent reviews; the author never reviews itself.

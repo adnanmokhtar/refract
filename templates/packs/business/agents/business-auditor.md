@@ -78,7 +78,7 @@ Also judged per feature, each row cited or `NOT WALKED`: error recovery (card de
 ## Example finding
 
 ```
-🔴 BLOCKER — subscribe → cancel — billing/subscriptions.controller.ts:41
+🔴 BLOCKER — subscribe → cancel — billing/plans.controller.ts:41
    Claim: the spec (specs/billing.md § AC-4) promises self-serve cancellation; POST /subscriptions has no cancel route,
    no DELETE and no customer-portal link (searched: routes under /subscriptions, Settings → Billing, the account page).
    Proof: V478 route-pair diff for /subscriptions; walk (--live, member role): Settings → Billing shows the plan, no cancel

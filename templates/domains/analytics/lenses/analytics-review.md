@@ -164,7 +164,7 @@ Fix: stamp a stable dedup key derived from the order; dispatch non-blocking.
 
 ### BLOCKER — analytics used as the audit log
 ```
-src/modules/admin/accounts.service.ts:140
+src/modules/admin/workspace-admin.service.ts:140
 
 async deleteUser(id: string, ctx: ServerContext) {
   await this.users.delete(id);

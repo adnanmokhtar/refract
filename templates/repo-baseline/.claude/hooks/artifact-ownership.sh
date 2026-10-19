@@ -9,7 +9,8 @@
 #   * a known role (product-analyst, architect, test-engineer, ux-designer, doc-writer,
 #     platform-engineer) writes only its own paths; a judge (verifier, *-reviewer, *-auditor,
 #     plan-critic) writes nothing;
-#   * any other agent may not write a run's role- or orchestrator-owned files, nor holdouts;
+#   * any other agent may not write a run's role- or orchestrator-owned files, nor holdouts, nor —
+#     while a run is open and platform-engineer is installed — CI / IaC paths (one infra writer);
 #   * the main session, while an OPEN T2/T3 run exists, does not write role-owned run artifacts
 #     (it dispatches the owner), and in P6 does not edit source (it dispatches @implementer).
 # Fast path: no agent_type in the payload and no open run → exit 0 without starting python.

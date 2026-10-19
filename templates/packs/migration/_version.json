@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "migration",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Supabase V1 lane (SQL replay, RLS, RPC, edge functions per branch, pg_cron) and a real-run fold-back: route-join over explicit pair-map rows, V2 permissions/RLS/side effects/jobs/errors/enums resolved, money lane keyed on money operands.",
+  "summary": "parity-auditor's example no longer quotes the port-pair fixture's seeded files.",
   "changelog": "CHANGELOG.md"
 }

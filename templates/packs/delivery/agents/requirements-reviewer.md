@@ -148,6 +148,15 @@ Proposed replacements (separate, marked as proposals)
 - Never rewrite in place; you hold no Write tool and propose separately.
 - Never approve a spec whose success metric has no counter-metric.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+- **Phase-6 target (owned elsewhere until the merge is earned):** `business-cycles`, `entitlement-consistency`, `feature-surface`, `launch-readiness`
+<!-- END GENERATED boundary -->
+
 ## Related
 
 - `@product-analyst` writes `requirements.md`; this agent reviews it — the author never reviews itself.

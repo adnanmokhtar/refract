@@ -99,6 +99,14 @@ records it in `run.json.approvals[]` with `by: plan-critic`.
   authorization rule.
 - Never edit; never read the ledger.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+<!-- END GENERATED boundary -->
+
 ## Related
 
 - `@requirements-reviewer` judges requirement prose; this agent judges the contract as a whole.

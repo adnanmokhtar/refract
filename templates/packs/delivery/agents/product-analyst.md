@@ -155,6 +155,14 @@ No narrative: the orchestrator and the reviewer read the file.
 - A change to an existing surface lists its current behaviour under `## Unchanged behaviour`, cited.
 - A design-changing open question is `NEEDS_INPUT`, never an assumption baked into a criterion.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+<!-- END GENERATED boundary -->
+
 ## Related
 
 - `@requirements-reviewer` reviews what this agent wrote — the author never reviews itself.

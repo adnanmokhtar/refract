@@ -92,7 +92,7 @@ This is the EXTERNAL contract gate — third-party-facing endpoints, API keys, d
 
 ### BLOCKER — DB model serialized directly (overexposure)
 ```
-src/modules/public-api/v1/customers.controller.ts:22
+src/modules/public-api/v1/clients.controller.ts:22
 
 @Get('/v1/customers/:id')
 async get(@Param('id') id: string) {
@@ -170,7 +170,7 @@ Fix: cursor pagination with a hard cap.
 
 ### BLOCKER — inconsistent error envelope / status codes
 ```
-src/modules/public-api/v1/users.controller.ts:30      -> throw new BadRequestException('bad')  => { statusCode, message }
+src/modules/public-api/v1/members.controller.ts:30      -> throw new BadRequestException('bad')  => { statusCode, message }
 src/modules/public-api/v1/orders.controller.ts:45     -> res.status(200).json({ ok: false, msg })  // 200 on error!
 src/modules/public-api/v1/billing.controller.ts:51    -> res.status(400).json({ error: { code } })
 

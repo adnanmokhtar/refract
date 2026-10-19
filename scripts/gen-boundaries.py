@@ -165,16 +165,21 @@ def boundary_block(name, text):
     lead = lambda s: (re.match(r"[a-z0-9-]+", (s or "").strip()) or re.match(r"", "")).group(0)
     names_me = re.compile(r"(?<![\w-])(?:[a-z-]+/agents/)?%s(?![\w-])" % re.escape(name))
     mine, target, notmine = [], [], []
+    clip = lambda t, n: t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + " …"
     for cls, c in sorted(own.items()):
-        det = (c.get("detector") or "").split("/")[-1]
-        if names_me.search(c.get("owner") or ""):
+        dtext = c.get("detector") or ""
+        det = (re.sub(r"\s*\(.*$", "", dtext) or dtext).split("/")[-1]
+        # the PRIMARY owner only: "x/agents/cost-reviewer (judge …; @verifier mode refute …)" is
+        # cost-reviewer's class — the verifier named in the parenthesis refutes it, it does not own it
+        primary = re.split(r"\s*[(;]", c.get("owner") or "", maxsplit=1)[0]
+        if names_me.search(primary):
             mine.append("`%s` (%s)" % (cls, det or "no detector"))
         elif lead(c.get("target")) == name:
             target.append("`%s`" % cls)
         elif det and re.search(r"(?<![\w-])%s(?![\w-])" % re.escape(det), text) and len(notmine) < 8:
             o = re.sub(r"\s*\(.*$", "", (c.get("owner") or "?").split(" · ")[0]).strip()
             notmine.append("`%s` → %s (%s pack; without it: %s)" % (cls, o, c.get("pack", "?"),
-                           (c.get("fallback") or "reported UNROUTED")[:80]))
+                           clip(c.get("fallback") or "reported UNROUTED", 80)))
     out = [BB, "Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.", ""]
     out.append("- **Mine:** " + (", ".join(mine) if mine else "no class yet."))
     if target:

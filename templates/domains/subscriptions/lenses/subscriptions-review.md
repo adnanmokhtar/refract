@@ -199,7 +199,7 @@ Fix:
 
 ### BLOCKER — local status write bypassing the provider
 ```
-src/modules/billing/admin.controller.ts:31
+src/modules/billing/billing-admin.controller.ts:31
 
 @Post('/admin/subscriptions/:id/comp')
 async comp(@Param('id') id: string) {

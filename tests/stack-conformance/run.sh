@@ -77,6 +77,15 @@ t_nuxt=$(tracks_of "$FIX/nuxt-storefront")
 assert_contains "nuxt: frontend"          "frontend" "$t_nuxt"
 assert_contains "nuxt: ui-ux"             "ui-ux"    "$t_nuxt"
 
+# OD-7 (Phase 6): frontend is never selected without ui-ux — the ux-reviewer role and the a11y /
+# design-system lenses ship there, and accessibility-auditor has no other fallback. Every fixture.
+od7_bad=""
+for fx in "$FIX"/*/; do
+  t=$(tracks_of "$fx")
+  case " $t " in *" frontend "*) case " $t " in *" ui-ux "*) ;; *) od7_bad="$od7_bad $(basename "$fx")" ;; esac ;; esac
+done
+if [ -z "$od7_bad" ]; then ok "every fixture: frontend ⇒ ui-ux (OD-7)"; else bad "every fixture: frontend ⇒ ui-ux (OD-7)" "ui-ux beside frontend" "missing in:$od7_bad"; fi
+
 # There was no ai-engineering rule at all: a product calling an LLM never got the pack. The raw-HTTP
 # gateway shape (no provider SDK anywhere) is the one a dependency-only rule misses; the SMS fixture
 # holds the decoys the old substring greps fired on (/v1/messages, Twilio messages.create, "coherence").

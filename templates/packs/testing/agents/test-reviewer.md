@@ -306,6 +306,14 @@ Patterns consulted: test-strategy, test-doubles
 - Multi-tenant changes without cross-tenant test = BLOCKER.
 - Webhook changes without idempotency test = BLOCKER.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** `test-oracle-strength` (mutation-probe)
+<!-- END GENERATED boundary -->
+
 ## Related
 
 ### Sibling agents in testing pack

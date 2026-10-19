@@ -120,13 +120,13 @@ Trace mode:
 
 1. useProducts composable          src/composables/useProducts.ts:12
 2. productsStore.fetchAll          src/stores/products.store.ts:34
-3. catalogApi.list                 src/services/catalog-api.ts:8   — key built here
+3. productsClient.list             src/services/products-client.ts:8   — key built here
 4. GET /api/products?tenant=X
 
 Cache layers:  SSR payload scoped by URL ✓ · query cache key = URL + query ✗ TENANT NOT IN KEY · store tenant-scoped ✓
 
 BLOCKER — class 1 (client-data-scan §6):
-  src/services/catalog-api.ts:8 — the key derives from the relative URL; after a tenant switch it is unchanged.
+  src/services/products-client.ts:8 — the key derives from the relative URL; after a tenant switch it is unchanged.
   Proof: Identity switch — tenant A → B with B's response held; A's rows paint.
   Fix (client): tenantId in the key. Server lane: @tenant-isolation-reviewer (security pack) — the client fix is a mitigation.
 ```

@@ -32,20 +32,20 @@ Oracle: ai/conventions.md:92 (inside <!-- refine-enriched --> markers) "Hooks li
 
 ```text
 # ✅ EQ — exact
-AL-05 apps/web/src/features/orders/components/OrderStatusBadge.tsx:13  color: '#d92d20'
+AL-05 apps/web/src/features/invoices/components/InvoiceStatusBadge.tsx:13  color: '#d92d20'
 token-map.py --lookup=#d92d20 --prop=color --site=<file>  →  EXACT --color-danger eq=yes (light + dark)
 → replace-with-shared → var(--color-danger). Proof: zero computed-style diff per theme (V394), or (static EQ) with the probe.
 
 # ❌ "Close enough" committed as EQ
-AL-06 OrderTotals.tsx:8  padding: '13px'
+AL-06 InvoiceTotals.tsx:8  padding: '13px'
 token-map.py  →  NEAREST --space-3=12px (1px), xfam=--font-size-sm
 → Snapping changes pixels. VC: a visual diff at maxDiffPixels 0 and approval: <name>@<iso> by a human, or /polish.
 → The agent never writes approval:, and never re-records a snapshot to make the swap "pass" (halt #7).
 
 # ✅ FN — a declared idiom added
-AL-15 OrderActions.tsx:29  <Button variant="danger" onClick={deleteOrder}> outside <Can action="orders.delete">
+AL-15 InvoiceActions.tsx:29  <Button variant="danger" onClick={deleteInvoice}> outside <Can action="invoices.delete">
 Oracle: ai/conventions.md:27 "Destructive actions render inside <Can>."  (T2)
-→ add-gate with the declared <Can>. Proof: a render test as a role without orders.delete, failing first (V401). Tier heavy.
+→ add-gate with the declared <Can>. Proof: a render test as a role without invoices.delete, failing first (V401). Tier heavy.
 ```
 
 ### Scope discipline
@@ -67,7 +67,7 @@ Phase 4: names and layout (AL-16, AL-17, AL-19; 9 rows, all rename).
 
 ```text
 # ❌ The Two-Way Swap
-A021  RefundForm.tsx:38       '#d92d20' → var(--color-danger)
+A021  CreditNoteForm.tsx:38       '#d92d20' → var(--color-danger)
 A024  admin/ErrorBanner.vue:7 '#d92d20' → var(--color-error)
 → Each hunk is right alone. align-sweep-gate.py consistency: one before-key, two afters → FAIL (AL-33).
 → Pick the token the oracle's role column names; revert the other row and re-run it.
@@ -77,8 +77,8 @@ A024  admin/ErrorBanner.vue:7 '#d92d20' → var(--color-error)
 
 ```text
 # ❌ Reinvented Wrapper (an alignment fix that itself reinvents)
-AL-13: apps/web/src/features/checkout/utils.ts:2 defines formatMoney(amount)
-Closure: extract to apps/web/src/lib/format-money.ts, import it in checkout
+AL-13: apps/web/src/features/cart/helpers.ts:2 defines formatMoney(amount)
+Closure: extract to apps/web/src/lib/money.ts, import it in cart
 
 → packages/format already exports formatMoney, and the oracle names it. The "extract" is a new symbol (halt #9).
 

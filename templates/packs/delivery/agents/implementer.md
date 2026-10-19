@@ -71,6 +71,14 @@ is `NEEDS_INPUT` (a deviation the human re-approves), never a silent edit.
 - `SPEC_CONFLICT` instead of bending code or test around a contradictory criterion.
 - No new dependency without the lane skill's new-dependency gate; no new primitive without the design's ADR.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+<!-- END GENERATED boundary -->
+
 ## Related
 
 - Lane skills: `lane-backend`, `lane-frontend`, `lane-mobile` (delivery pack).

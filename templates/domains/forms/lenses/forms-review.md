@@ -94,7 +94,7 @@ src/modules/account/profile.controller.ts:18
 async update(@Body() body) {
   return this.repo.updateProfile(body.userId, body);   // no server validation, whole body
 }
-// validation lives ONLY in ProfileForm.tsx (client)
+// validation lives ONLY in AccountSettingsForm.tsx (client)
 
 Impact: curl / devtools / a patched bundle posts any shape — invalid email, 5MB bio, extra fields.
 The client schema is UX; the server did no re-validation, so there is no trust boundary.
@@ -148,7 +148,7 @@ Fix: consume a single-use idempotency key atomically with the write.
 
 ### BLOCKER — mass-assignment / overposting
 ```
-src/modules/accounts/accounts.service.ts:40
+src/modules/members/members.service.ts:40
 
 async update(userId: string, body: any) {
   const user = await this.repo.find(userId);

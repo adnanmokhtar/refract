@@ -6,6 +6,15 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.3.0 — 2026-10-19
+
+**Phase 6 steps 0–2: the roster grows two judges and one infra writer route.**
+
+- **New roster judges** `performance-reviewer` and `operability-reviewer` (step 0 shells: Contract, role judge, `writes: none`, description ≤300 chars). They dispatch nothing until their cluster merges are earned (`scripts/_agent-merge-map.json`). Their generated `## Lenses` blocks already list the domain lenses mapped to them: caching and search for performance; background-jobs, event-sourced, integrations, notifications, real-time, scheduling and streaming-delivery for operability.
+- **`test-engineer` has one owner.** The testing pack's copy was retired into `testing/lenses/test-craft.md`, which this agent's generated Lenses block names. Two files with one `name:` no longer depend on install order.
+- **`/add-feature` P6 routes infra tasks to `@platform-engineer`** *(devops pack)*. That agent is the only writer of CI / container / IaC paths while the run is open, and `ownership-guard.py` denies those paths to every other agent. A task mixing source and infra is split. Without the devops pack the ledger records `HANDOFF UNROUTED (devops not installed)` and the implementer writes the paths.
+- **Generated `## Boundary` blocks** (`scripts/gen-boundaries.py`) on product-analyst, requirements-reviewer, architect, architecture-reviewer, implementer, test-engineer and plan-critic.
+
 ## 1.2.1 — 2026-10-18
 
 - References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).

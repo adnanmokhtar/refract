@@ -14,6 +14,11 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.2.1 — 2026-10-19
+
+- **a11y fallback (Phase 6 OD-7).** `detect-tracks.sh` now selects ui-ux whenever frontend is selected (a post-condition with a test over every stack-conformance fixture). `_essentials.md` records where the a11y review lives before and after the `accessibility-auditor` → `ux-reviewer` merge, and the code-reviewer fallback when ui-ux is deselected.
+- `api-contract-sentry` and `data-flow-auditor` example traces no longer quote a benchmark fixture's seeded file and line.
+
 ## 2.2.0 — 2026-10-18
 
 - **`catalog-parity.py --v1=<laravel-root>`**: reads `lang/` and `resources/lang/` (`<locale>/**/*.php` arrays, `<locale>.json`); findings `v1-plural-forms` (a V1 pipe plural whose V2 key lacks a CLDR category — Arabic needs all six), `v1-plural-lost`, `v1-placeholder` (`:name` vs `{{name}}`); candidates `v1-plural-range`, `v1-pipe-text`, `v1-unmapped`.

@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.0.2 — 2026-10-19
+
+- `parity-auditor`'s worked example names illustrative bootstrap files, not the `port-pair` fixture's seeded ones (`lint-fixture-leakage.py`).
+
 ## 2.0.1 — 2026-10-19
 
 **Supabase V1 lane and real-run fold-back.** A read-only `/compare-v1` of a real Supabase → Nest port (1,662 SQL migrations, 182 edge functions on the V1 side) drove these changes; every one was re-measured on that pair and on `port-pair` (calibration still 0 on all 11 lanes, the same 34 seeded candidates).

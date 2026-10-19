@@ -14,6 +14,10 @@ each release inside the `_version.json` `summary` string, and every release appe
 one JSON line. Each telling is preserved below under the version it describes, verbatim and
 unabridged.
 
+## 2.0.1 — 2026-10-19
+
+- `references/align-discipline-catalogue.md` examples name illustrative files, not the `convention-drift` / `business-rules` fixtures' seeded ones (`lint-fixture-leakage.py`).
+
 ## 2.0.0 — 2026-10-18
 
 **The align pack became a detector pack (Track A batch 6).** Before this release it was a guarded fix process with no detector of its own (0 `rg` calls, 0 coverage blocks), it ran security/perf/SQLi greps it did not own, and it auto-accepted token visual diffs.

@@ -1,11 +1,25 @@
 {
   "kind": "domain",
   "name": "streaming-delivery",
-  "version": "1.0.0",
-  "released": "2026-06-16",
+  "version": "1.1.0",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Initial baseline — adaptive streaming delivery (HLS/DASH manifests, byte-range/206, ABR, live vs VOD) + encrypted-segment delivery & decryption (AES-128 / SAMPLE-AES / CENC-DRM / clear-key) with entitlement-gated key/license delivery, server-side-decrypt cleartext containment, and key-management discipline.",
+  "summary": "Phase 6: the domain's reviewer agent became lenses/streaming-delivery-review.md, read by @operability-reviewer (delivery pack). The agent file is retired; /setup-project --refresh retires an unedited installed copy behind a one-release stub (scripts/retire-merged-agents.sh).",
+  "changelog": {
+    "1.1.0": {
+      "released": "2026-10-19",
+      "changes": [
+        "Phase 6: the domain's reviewer agent became lenses/streaming-delivery-review.md, read by @operability-reviewer (delivery pack). The agent file is retired; /setup-project --refresh retires an unedited installed copy behind a one-release stub (scripts/retire-merged-agents.sh)."
+      ]
+    },
+    "1.0.0": {
+      "released": "2026-06-16",
+      "changes": [
+        "Initial baseline — adaptive streaming delivery (HLS/DASH manifests, byte-range/206, ABR, live vs VOD) + encrypted-segment delivery & decryption (AES-128 / SAMPLE-AES / CENC-DRM / clear-key) with entitlement-gated key/license delivery, server-side-decrypt cleartext containment, and key-management discipline."
+      ]
+    }
+  },
   "reviewer": "operability-reviewer",
   "reviewer_pack": "delivery",
   "lens": "lenses/streaming-delivery-review.md"

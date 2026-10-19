@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.33.0",
-  "released": "2026-10-18",
+  "version": "1.33.1",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "design-token-audit ships token-map.py (EXACT/NEAREST/NONE/EXEMPT per theme, package-scoped, DTCG lineage) and an AL-08 primitive-tier lane; ui-crawl-fix routes token-value contrast to /polish.",
+  "summary": "Phase 6: always installed with frontend (detect-tracks post-condition); ux-designer carries a generated Boundary block.",
   "changelog": "CHANGELOG.md"
 }

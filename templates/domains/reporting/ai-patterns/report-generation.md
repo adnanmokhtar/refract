@@ -204,7 +204,7 @@ Memory stays flat regardless of result size. The tenant predicate is on every pa
 ## Bounded date range, computed in the org timezone
 
 ```ts
-// src/modules/reporting/core/date-range.ts
+// src/modules/reporting/core/report-window.ts
 
 export function boundDateRange(
   fromInput: string | undefined,

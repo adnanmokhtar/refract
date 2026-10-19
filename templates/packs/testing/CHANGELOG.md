@@ -9,6 +9,14 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.4.0 — 2026-10-19
+
+**Phase 6: `test-engineer` became a lens.**
+
+- `agents/test-engineer.md` is retired. Its craft (test pyramid, what to test and what not, AAA shape, doubles, determinism, fixtures, E2E, coverage) lives in `lenses/test-craft.md`, installed as `.claude/lenses/test-craft.md` and read by delivery's `@test-engineer`, the single owner of that name. Before this, delivery claimed the name first on every install and this pack's copy was dropped in silence.
+- Existing installs: `/setup-project --refresh` (`scripts/retire-merged-agents.sh`) moves an unedited copy of the old agent to `.claude/backups/retired-agents/` so delivery's agent installs in its place. An owner-edited copy is kept and reported.
+- `test-reviewer` carries a generated `## Boundary` block.
+
 ## 2.3.0 — 2026-10-18
 
 - **`suite-execution-scan` 2c-TSV** writes `gated-suites.tsv` (`GATES_TSV`): kind (v1, env, capability), file:line, helper, condition, env vars read, `ci_sets` per CI job (`yes|partial|no|unknown` plus `file#job=vars`, GitHub/CircleCI/GitLab) and the specs that use it. It follows the whole constant chain (`HAS_V1 = Boolean(process.env.V1_REPO_PATH)`, imports included). The migration pack's `parity-proof-scan` reads it.

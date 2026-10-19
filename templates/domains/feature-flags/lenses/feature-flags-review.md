@@ -84,7 +84,7 @@ Feature flags are forks in the codebase. Every flag is technical debt with inter
 
 ### BLOCKER — flag as auth boundary
 ```
-src/modules/admin/admin.controller.ts:18
+src/modules/backoffice/backoffice.controller.ts:18
 
 @Get('/users')
 async list() {

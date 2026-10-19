@@ -5,7 +5,7 @@ pack: algorithms
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
-# /design-algorithm <problem-or-scope> | --from-audit=<ai/audits/<date>-algorithms.md> [finding-id ... | --all]
+# /design-algorithm <problem-or-scope> | --from-audit=<report: ai/audits/DATE-algorithms.md> [finding-id ... | --all]
 
 > **`--plan`**: honours the universal handoff flag — see [`templates/snippets/plan-flag.md`](../../../snippets/plan-flag.md). `/design-algorithm <problem> --plan` produces the **Algorithm Brief** (model → budget → candidates → choice → correctness → plan) and stops *before* implementing; execute it later with `/execute-plan <file>`. With `--from-audit`, `--plan` writes the closure plan (one row per finding: oracle, primitive, STOP lines) and stops before the first test.
 

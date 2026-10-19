@@ -163,7 +163,7 @@ Two dispatch surfaces — **agents** (sub-agents the dispatcher spawns) and **sk
 | backend-code | `api-reviewer` | — |
 | db-entity / db-repo | `schema-reviewer`, `query-optimizer` | — |
 | db-migration | `schema-reviewer` + invoke `/migration-review` | — |
-| ui | `ui-reviewer`, `design-system-guardian`, `accessibility-auditor` | `a11y-scan` (on changed routes if significant) |
+| ui | `ui-reviewer`, `design-system-guardian`, `accessibility-auditor`; `ux-reviewer` when the ui-ux pack is installed — `accessibility-auditor` then defers WCAG to it, and without this dispatch the axis ends `UNREVIEWED(a11y)` | `a11y-scan` (on changed routes if significant) |
 | i18n | `i18n-auditor` | — |
 | auth | `security-auditor`, `auth-reviewer` | — |
 | docker | — | `container-build-scan` (devops pack, when installed) |

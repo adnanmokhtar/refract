@@ -9,6 +9,14 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.0 — 2026-10-19
+
+**Phase 6: `platform-engineer`, the roster's infrastructure writer.**
+
+- **New agent `platform-engineer`** (writer, one task at a time). It writes CI files, Dockerfile / compose, IaC roots, `release.md`, `ai/runtime/slos.md` and `ai/runbooks/**`, always plan or diff before any apply. It absorbs no specialist yet: devops-architect, deployment-engineer, infra-architect, kubernetes-architect, cost-architect and sre-engineer stay the owners of their decisions.
+- **`/add-ci` and `/dockerize` dispatch it for Phase 4**, and a Phase 6 finding goes back to it as a new task. Inside a run it is the only writer of those paths; repo-baseline's `ownership-guard.py` enforces this while a run is open. Without it (minimal mode) the command prints `HANDOFF UNROUTED (devops not installed)` and the main session writes, as before. It is also the P6 infra writer for delivery's `/add-feature`, and Phase 4 writer for infrastructure's `/k8s-generate` and `/provision-tier`.
+- `ci-reviewer` and `deployment-engineer` example findings no longer quote a benchmark fixture's seeded file and line (`lint-fixture-leakage.py`).
+
 ## 2.0.4 — 2026-10-18
 
 - References follow the skill renames that un-hid `/secret-scan`, `/threat-model`, `/log-tail` and `/endpoint-test` (a same-named skill shadows a command).

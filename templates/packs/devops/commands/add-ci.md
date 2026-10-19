@@ -51,6 +51,19 @@ Detect stack commands:
 
 EXISTING — read sibling workflow files (other repos in same org) if user references them, to mirror conventions.
 
+## Writer — platform-engineer (one writer of CI / IaC)
+
+Phase 4 is written by **`@platform-engineer`** (`.claude/agents/platform-engineer.md`, devops pack), dispatched once with a
+[delegation brief](../../../snippets/delegation-brief.md): `task` = the workflow file(s) Phase 2 planned and
+why, the Phase 3 facts (stack, sibling conventions, the paths it may touch), and the Phase 4 rules
+below by heading — it reads this file, you do not paraphrase it. It returns `DONE <paths> + the
+plan/diff/dry-run output`; you run Phase 5–6 on what it wrote, and a Phase 6 finding goes back to it
+as a new task — you never patch the emitted file beside it. Inside a run (`/add-feature` P6 infra
+task) it is the only writer of those paths: `ownership-guard.py` denies them to any other agent
+while the run is open. **Without it** (devops pack not installed, or minimal mode with no
+`.claude/agents/platform-engineer.md`): print `HANDOFF UNROUTED (devops not installed) —
+@platform-engineer; Phase 4 written by the main session` and run Phase 4 yourself, as before.
+
 ## Phase 4 — Generate
 
 Workflow file:
@@ -180,6 +193,7 @@ Branch protection — set required checks to:
 - `/dockerize` — sibling command in devops pack
 
 ### Agents
+- `@platform-engineer` — writes Phase 4 (one writer of CI / IaC); without it, `HANDOFF UNROUTED (devops not installed)` and the main session writes.
 - `@ci-reviewer` — dispatched in Phase 6 on the generated workflow. This command writes the pipeline;
   that agent reads it hostilely. A blocker from it halts Phase 7.
 

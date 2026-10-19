@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "delivery",
-  "version": "1.2.1",
-  "released": "2026-10-18",
+  "version": "1.3.0",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Reference sweep: renamed skills (secret-scan-method, threat-model-method, log-tail-method, endpoint-test-method).",
+  "summary": "Phase 6 steps 0–2: roster judges performance-reviewer and operability-reviewer, single test-engineer, /add-feature P6 infra tasks to platform-engineer (devops pack), generated Boundary blocks.",
   "changelog": "CHANGELOG.md"
 }

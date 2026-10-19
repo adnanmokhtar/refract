@@ -116,6 +116,16 @@ otherwise).
 - Never edit a locked test or contract unless the lock is reopened for `test-engineer`.
 - No `sleep`, no `.only`, no `.skip` without a tracked reason, no real external calls.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+- **Not mine** (a detector I name routes these elsewhere):
+  - `test-oracle-strength` → testing/agents/test-reviewer (testing pack; without it: gate G2 (gate-check.py))
+<!-- END GENERATED boundary -->
+
 ## Lenses
 
 <!-- BEGIN GENERATED lenses (scripts/gen-boundaries.py; do not edit by hand) -->

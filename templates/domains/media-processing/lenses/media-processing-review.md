@@ -87,7 +87,7 @@ A media pipeline is the rare place where an attacker hands you a file and you th
 
 ### BLOCKER — synchronous transcode on the request thread
 ```
-src/modules/media/media.controller.ts:18
+src/modules/media/media-upload.controller.ts:18
 
 @Post('/avatar')
 async avatar(@UploadedFile() file) {

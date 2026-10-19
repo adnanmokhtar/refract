@@ -14,6 +14,10 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.0.1 — 2026-10-19
+
+- `business-auditor`'s example finding names an illustrative controller, not the `backend-defects` fixture's seeded one (`lint-fixture-leakage.py`).
+
 ## 2.0.0 — 2026-10-19
 
 **The business pack became a detector pack (Track A batch 7).** Other packs detect the shapes — a float, a missing CHECK, a race, a swallowed FSM event. None could decide which rule the code must obey. This pack now owns the rule and ships it as registers (money policy, tax policy, metric definitions, the reconstructed lifecycle graph, the invariant register) that the shape owners read as their oracle.

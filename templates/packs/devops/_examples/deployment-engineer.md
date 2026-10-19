@@ -292,7 +292,7 @@ Alternative (simpler): deploy by digest and keep N-1 retained; rollback = redepl
 
 ### BLOCKER — what ships is not what was scanned
 ```
-.github/workflows/release.yml:41   (handed by @ci-reviewer, refuted there: no precedent applies)
+.github/workflows/publish.yml:41   (handed by @ci-reviewer, refuted there: no precedent applies)
   scan step reads a `load: true` local image; the push step at :52 runs a second build.
 
 release-integrity-scan §4 RL-6 — when the release runs, the image prod pulls is a rebuild the scanner never saw.
@@ -326,7 +326,7 @@ Current state:
   Owners: infrastructure ✓ · security ✓ · performance ✗ · observability ✓ · database ✗ · verifier ✓
 
 Graded rows:
-  BLOCKER: release-integrity-scan §4 — release.yml:41 publishes a rebuild of the scanned image (V223).
+  BLOCKER: release-integrity-scan §4 — publish.yml:41 publishes a rebuild of the scanned image (V223).
   REQUEST: deploy-safety-scan §4 — deploy.yml:33 no rollout wait; smoke has no version assertion (V230).
   Unconfirmed: deploy-safety-scan §3 — environment prod UNREADABLE(gh api …: 403).
   Refuted: compose-scan §1 — compose.dev.yaml (dev-only, precedents § 40).
@@ -335,9 +335,9 @@ Safe-Delivery verdict (each line carries evidence, no bare ✓):
   S1 Rollback exercised  INCOMPLETE  no rollback command in deploy.yml; `kubectl rollout history`
                                      shows only the current rev — nothing to roll back TO
   S2 Health/readiness    UNMET       K-READINESS-MISSING api (k8s-availability-scan §2, render-prod;
-                                     source deploy/base/deployment.yaml:18) — CI curl ≠ an enforced probe
+                                     source deploy/base/api.yaml:18) — CI curl ≠ an enforced probe
   S3 Resource requests   UNMET       K-RES-MISSING api: no memory request (k8s-availability-scan §1,
-                                     render-prod; source deploy/base/deployment.yaml:20)
+                                     render-prod; source deploy/base/api.yaml:20)
   S4 Secrets sourced     PASS        0 rows for render-prod (iac-scan §3 coverage: checked)
   S5 Reproducible build  UNMET       iac-scan §3 4j: image ghcr.io/acme/api:1.8.0 has no digest
                                      (deploy/overlays/prod/kustomization.yaml:9); release-integrity-scan §7

@@ -60,7 +60,7 @@ locate renderer call (<path:line>)
 /audit-document-pipeline — <doc type> @ <path:line>
 
 Renderer:        page.pdf() (puppeteer) @ documents/render-document.worker.ts:38
-Sync/async:      ASYNC — enqueued @ documents.controller.ts:41, worker @ render-document.worker.ts:14
+Sync/async:      ASYNC — enqueued @ statements.controller.ts:41, worker @ render-document.worker.ts:14
                    [or: SYNC on request thread @ invoices.controller.ts:22 — BLOCKER]
 Sandbox:         network DENIED + file://+host-allowlist @ sandboxed-renderer.ts:27
                    [or: default launch, page content can fetch any URL — SSRF/LFI BLOCKER]
@@ -72,7 +72,7 @@ Determinism:     templateVersion+asOf+locale/tz pinned, now() frozen @ determini
                    [or: stamps new Date(), sums float total — NON-DETERMINISTIC — finding]
 Storage/delivery: docs/<tenantId>/... private bucket, signedUrl expiresIn:1h @ worker.ts:55
                    [or: public bucket, contract-<seqId>.pdf — cross-tenant BLOCKER]
-Idempotency:     key hash(data)+templateVersion, reuse existing @ documents.controller.ts:33
+Idempotency:     key hash(data)+templateVersion, reuse existing @ statements.controller.ts:33
                    [or: re-renders on every download — finding]
 
 Verdict: OK | NEEDS-SANDBOX | NEEDS-ASYNC | BLOCKER(ssrf) | BLOCKER(injection) | BLOCKER(leak)

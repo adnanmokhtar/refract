@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "align",
-  "version": "2.0.0",
-  "released": "2026-10-18",
+  "version": "2.0.1",
+  "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Six detectors over a convention oracle (enforced/written/generated/contested), an EQ/VC/FN proof ladder in align-sweep-gate.py, /align-scan as the read-only audit; detect-drift renamed align-detect.",
+  "summary": "align-discipline-catalogue examples no longer quote a benchmark fixture's seeded files.",
   "changelog": "CHANGELOG.md"
 }

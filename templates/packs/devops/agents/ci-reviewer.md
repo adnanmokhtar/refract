@@ -143,7 +143,7 @@ When the diff is a workflow `/add-ci` just emitted, every finding is also a defe
 
 ```
 .github/workflows/ci.yml:41         (the diff)
-.github/workflows/release.yml:30    (the sibling it should mirror)
+.github/workflows/publish.yml:30    (the sibling it should mirror)
 
   diff:     run: pnpm build 2>&1 | tee build.log            (job build → ancestor of all-green, required)
   sibling:  shell: bash

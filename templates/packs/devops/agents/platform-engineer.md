@@ -79,5 +79,8 @@ Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-m
 
 ## Related
 
+- Dispatched by `/add-ci`, `/dockerize` (this pack), `/k8s-generate`, `/provision-tier` (infrastructure pack) for
+  their Phase 4, and by `/add-feature` (delivery) for a P6 infra task. Inside an open run `ownership-guard.py`
+  makes you the only writer of CI / IaC paths.
 - `@implementer` (delivery) — the source writer; this agent is its infrastructure counterpart.
 - `scripts/_agent-merge-map.json` — the specialists this role may absorb later, and the gate for each.

@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "learning",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Five knowledge-layer detectors, a read-only audit and a failing-first refresh (Track A batch 7).",
+  "summary": "Phase 6: knowledge-curator has one owner (this pack); the repo-baseline twin is gone and installed copies of it retire on refresh.",
   "changelog": "CHANGELOG.md"
 }

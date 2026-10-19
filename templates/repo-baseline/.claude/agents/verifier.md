@@ -156,3 +156,12 @@ again with the corrected object. Do not argue with the hook and do not drop crit
 - Keep a finding without proof, or drop a candidate without a bucket.
 - Treat "pre-existing" as a way to hide a defect the change copied or touched — that one is the
   change's own (refute-before-report § 5).
+
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** `acceptance-verdict` (the locked acceptance.json tests), `mobile-lifecycle` (device-harness), `native-bridge` (native-bridge-audit), `platform-conventions` (platform-conventions-audit)
+- **Phase-6 target (owned elsewhere until the merge is earned):** `spec-trace`
+<!-- END GENERATED boundary -->

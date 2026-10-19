@@ -24,7 +24,10 @@ THE RULES (role → writable globs; a `!glob` entry excludes):
                      (Their records are written by persist-*.sh hooks, not by a tool.)
   any other agent    (implementer, general-purpose, pack agents) may write anything EXCEPT the
                      role-owned and orchestrator-owned files of a run (ai/runs/*/requirements.md …
-                     run.json, ledger.md, plan.md, handoff.json) and .claude/holdouts/**.
+                     run.json, ledger.md, plan.md, handoff.json) and .claude/holdouts/** — and, while
+                     a run is open and .claude/agents/platform-engineer.md is installed, the CI / IaC
+                     paths (platform-engineer's globs outside ai/): one writer of infrastructure per run.
+                     Without the devops pack the implementer writes them (HANDOFF UNROUTED).
   main session       unrestricted at T1 or with no open run. While an OPEN run (ai/runs/*/run.json
                      status "open") is T2 or T3: (a) no role-owned run artifact and no holdout — those
                      are dispatched to their owner; (b) while that run is in P6, no source either —
@@ -73,9 +76,12 @@ DEFAULT_ROLES = {
     "ux-designer": ["ai/runs/*/ux.md", "ai/design/**"],
     "doc-writer": ["docs/**", "CHANGELOG*", "README*", "CONTRIBUTING*", "mkdocs.yml", "mkdocs.yaml",
                    "docusaurus.config.*", "sidebars.*", "SUMMARY.md", "ai/**", "!ai/runs/**"],
-    "platform-engineer": [".github/**", ".gitlab-ci.yml", "infra/**", "terraform/**", "k8s/**", "helm/**",
-                          "Dockerfile*", "docker-compose*", "ai/runtime/**", "ai/runs/*/release.md"],
+    "platform-engineer": [".github/**", ".gitlab-ci.yml", ".circleci/**", "bitbucket-pipelines.yml",
+                          "azure-pipelines.yml", "Jenkinsfile", "infra/**", "terraform/**", "*.tf", "k8s/**",
+                          "helm/**", "charts/**", "Dockerfile*", "docker-compose*", "compose.yaml", "compose.yml",
+                          "ai/runtime/**", "ai/runbooks/**", "ai/runs/*/release.md"],
 }
+INFRA_ROLE = "platform-engineer"      # the one writer of CI / IaC paths in a run (one-writer rule)
 DEFAULT_JUDGES = ["verifier", "requirements-reviewer", "architecture-reviewer", "plan-critic", "test-reviewer"]
 # run artifact → its owner (the name a deny message tells the orchestrator to dispatch)
 ROLE_OWNED = {"requirements.md": "product-analyst", "quality-attributes.md": "product-analyst (draft) / architect",
@@ -150,6 +156,20 @@ def open_runs(repo):
     return out
 
 
+def infra_globs(roles):
+    """platform-engineer's globs minus its ai/ artifacts: the CI / container / IaC paths it alone writes in a run."""
+    return [g for g in roles.get(INFRA_ROLE, []) if not g.lstrip("!").startswith("ai/")]
+
+
+def infra_owner_installed(repo):
+    return os.path.isfile(os.path.join(repo, ".claude", "agents", INFRA_ROLE + ".md"))
+
+
+def is_infra(repo, roles, rel):
+    g = infra_globs(roles)
+    return bool(g) and matches(g, rel) and infra_owner_installed(repo)
+
+
 def deny(msg):
     print("Blocked by artifact-ownership: " + msg, file=sys.stderr)
     return 2
@@ -177,6 +197,11 @@ def decide(repo, rel, agent_type):
         if glob_match(".claude/holdouts/**", rel):
             return deny("%s is a holdout acceptance test — only @test-engineer writes holdouts, and the builder "
                         "never sees them." % rel)
+        runs = open_runs(repo)
+        if runs and is_infra(repo, roles, rel):
+            return deny("%s is CI / IaC — while run %s is open only @platform-engineer writes it (one writer of "
+                        "infrastructure per run). Return NEEDS_INPUT naming the change; the orchestrator will "
+                        "dispatch @platform-engineer." % (rel, runs[0]["run_id"]))
         return 0
     # the main session
     hot = [r for r in open_runs(repo) if r.get("tier") in ("T2", "T3")]
@@ -192,6 +217,9 @@ def decide(repo, rel, agent_type):
     if p6:
         if matches(MAIN_P6_ALLOWED, rel) or ("/" not in rel and rel.endswith(".md")):
             return 0
+        if is_infra(repo, roles, rel):
+            return deny("T2+ P6: the orchestrator never edits CI / IaC; dispatch @platform-engineer (one task from "
+                        "plan.md). Run %s (%s) is in P6; %s is infrastructure." % (p6[0]["run_id"], p6[0]["tier"], rel))
         return deny("T2+ P6: the orchestrator never edits source; dispatch @implementer (one task from plan.md). "
                     "Run %s (%s) is in P6; %s is source." % (p6[0]["run_id"], p6[0]["tier"], rel))
     return 0

@@ -14,6 +14,11 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.33.1 — 2026-10-19
+
+- Installed with every frontend: `detect-tracks.sh` adds ui-ux whenever frontend is selected (Phase 6 OD-7). The ux-reviewer role and the a11y and design-system lenses live here.
+- `ux-designer` carries a generated `## Boundary` block (`scripts/gen-boundaries.py`).
+
 ## 1.33.0 — 2026-10-18
 
 - **`design-token-audit` + `scripts/token-map.py`** (new, `--self-test` 42/42): token tables per theme from CSS custom properties, Tailwind 4 `@theme`, style-dictionary/DTCG and TS token objects, scoped per package; a literal is EXACT only with the same value AND the same property family (a `13px` padding equal to a font-size token is a cross-family match, `xfam=`). §8b flags a primitive-tier token used where a semantic token aliases it (AL-08).

@@ -195,12 +195,12 @@ Without the owner pack, the class is reported here, tagged `<class> (owner pack 
 ## Example finding
 
 ```
-v2/apps/api/src/configure-app.ts:5                     (the V2 bootstrap)
+v2/apps/api/src/app-bootstrap.ts:5                     (the V2 bootstrap)
 v1/bootstrap/app.php:20                                (laravel/framework v11.31.0, composer.lock)
 
   V1: ->withMiddleware(...)  — TrimStrings + ConvertEmptyStringsToNull on by default (Laravel ≥ 11), not removed
       (the same read on a Rails, Django, Spring or Express V1 is its middleware list: config.middleware, MIDDLEWARE, filters, app.use)
-  V2: registerInputNormalization() (common/http-setup.ts:13) defines the global pipe; nothing calls it.
+  V2: registerInputNormalization() (common/pipes-setup.ts:13) defines the global pipe; nothing calls it.
       TicketsController opts in with @UsePipes (the control); every other module receives raw strings.
 
 surface-parity-scan §7 MG-VA-1 — on every write route outside tickets, V1 at pin 61cb5c9 trims and nulls every string field,

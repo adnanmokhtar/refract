@@ -698,6 +698,9 @@ These ship with their respective packs when the track is selected/detected.
 | Command | Purpose |
 |---|---|
 | `/alert-design` | Design alerts for a service (RED + USE + SLO-based); avoids alert fatigue. |
+| `/add-slo <service> "<journey>"` | Define one SLO as code: a registry row in `ai/runtime/slos.md`, an OpenSLO / Sloth / Pyrra spec in the repo's generator, generated recording and multiwindow burn-rate rules, and a promtool test that the page tier fires on a fast burn. Never invents the target (`PROPOSED(…)` with an owner instead). `--sli=availability\|latency\|freshness\|correctness`, `--period=<window>` (default: the sibling SLOs', else 30d). |
+| `/investigate-incident "<alert or symptom>"` | Read-only incident RCA: at least three competing hypotheses, each tested by an investigator trying to refute it, merged into `ai/runs/<run-id>/reviews/hypotheses.json`; names a root cause only when one survives, else `INCONCLUSIVE` with the settling probes. Never touches production. `--since=<ISO> --until=<ISO>`, `--bundle=<dir>` (an exported incident), `--run=<run-id>`, `--telemetry=<url>` (read-only query endpoint the user names), `--hypotheses=N` (default 3, at most 5). |
+| `/postmortem` | Blameless postmortem: timeline, contributing factors, and action items each with a named owner, a future due date and a proof red today — a failing-first regression test or a new seeded `incident-replay` defect. `--run=<run-id>` (an incident run), `--revert=<sha>` (an escaped defect), `--incident=<id> --notes=<path>` (no run). |
 
 **Distributed-systems track**
 
@@ -726,6 +729,8 @@ These ship with their respective packs when the track is selected/detected.
 | `/expand-task` | Turn a one-line task into a full implementer-ready prompt with context. |
 | `/suggest-metrics` | Recommend the decision-driving KPIs a domain's dashboard should show: detect the domain, inventory the metrics already displayed, diff against the domain's decision-metric set (acquisition/conversion/revenue/retention/ops/product), and recommend the missing high-value ones — each with the decision it drives, the formula, and the data source. Answers "I want to add stats but don't know which." Recommends; does not build the tiles. |
 | `/suggest-features` | Analyze the whole product against its domain's feature checklist and **write a file** (`ai/business/feature-recommendations.md`) of the missing high-value capabilities — each one *analyze-task-ready* (what · why · touches · have · warrant · a copy-paste `/analyze-task` line). Also flags what to *defer* (over-builds). The pipeline: `/suggest-features` → pick one → `/analyze-task` (spec) → `/add-feature specs/<id>` (build). The breadth counterpart to `/audit-business` and the feature arm of `/suggest-metrics`. Recommends what to build; does not build it. |
+| `/audit-business [<feature>]` | Read-only business audit. Whole repo (no feature, or `--whole-repo`): all six business detectors on the server roots. `<feature>`: the experience, state-graph and invariant axes plus every detector row in the feature's files. Every candidate refuted, a class ledger, a NO-GO / GO-UNVERIFIED / GO verdict; writes only `ai/audits/`. `--classes=<MP,PR,BL,TX,IV,LG,FR,DM,RP,BT,LC,CY>` narrows the families; `--live=<url>` enables the `@business-auditor` walk against a non-production URL. Ends with `/business-fix`. |
+| `/business-fix` | Close the findings an `/audit-business` report lists (`<report> \| <finding-id>… \| --all`): re-verify, a failing-first oracle across the class, a root-cause fix in the project's own money / tax / ledger primitive, the owning detector re-run, a sibling sweep. Stops and asks on rounding, tax, business-zone, retention and restatement decisions. |
 
 **Infrastructure track**
 
@@ -739,27 +744,29 @@ These ship with their respective packs when the track is selected/detected.
 |---|---|
 | `/add-data-model` | Author a warehouse model (staging / intermediate / fact / dimension) in the project's own layering and naming idiom — declared grain, assertions, and lineage registered *before* the model is exposed to a dashboard. |
 | `/audit-data-model` | Audit the analytical model — declared grain, fact/dimension separation, key and SCD correctness, conformed dimensions, join cardinality, layering violations. Read-only; every uniqueness claim carries a `grain-probe` result rather than an assertion. |
-| `/audit-data-quality` | Measure and close data-trust gaps across four assertion floors — structural, temporal, distributional, reconciliation — plus severity, ownership, and routing per failure. `--write-tests` writes the missing assertions instead of listing them. |
+| `/audit-data-quality [base-branch]` | Read-only data audit: the ten data-engineering detectors (whole repo with no diff or `--whole-repo`, by signal on a diff), every candidate refuted, a class ledger, the four-floor test table and a NO-GO / GO-UNVERIFIED / GO verdict. `--classes=IN,OR,…` narrows the families. Prints the report; writes nothing into the repo. Ends with `/data-fix`. |
 | `/backfill-plan` | Plan a safe backfill or reprocess — bounded scope, shadow target, cost and runtime estimate, validation against the live table, reversible cutover, rollback window. Produces a plan and a ledger; never performs an in-place overwrite. |
+| `/data-fix` | Close the findings an `/audit-data-quality` run printed (`<report> \| <finding-id>… \| --all`): each reproduced failing on a scratch target first, fixed at the root, the owning detector re-run across the class. `--write-tests` writes the missing data tests from the four-floor table, each shown red on a planted row first. Stops before a restatement, a published shape change, an OLTP migration, a policy or a deletion. |
 
 **FinOps track**
 
 | Command | Purpose |
 |---|---|
 | `/cost-model` | Build or refresh the unit-economics driver tree — business unit down to billed dimensions, measured cost per unit, and the declared expectation every guardrail is later measured against. |
-| `/cost-review` | Cost lens on a diff, before it merges — always-on resources, per-row paid calls, retry and fan-out bounds, cross-zone movement, retention and log-volume defaults, scan cost, allocation tags. |
+| `/cost-review [base-branch]` | Read-only cost audit: the finops detectors on a diff (by signal) or the whole repo (`--whole-repo`, or no diff), every row refuted, priced only from a bill line or a dated pricing page (`candidate-pricing`), a coverage and class ledger, and an APPROVE / REQUEST_CHANGES / BLOCK / UNPRICED verdict. `--classes=<BG,TG,PS,FQ,ST,EG,PX,UE>` narrows the families; the bill lane runs only on `--export=<path>` (FOCUS or CUR) and `--flow-logs=<path>`. Ends with `/cost-guardrails --from-audit`. |
 | `/audit-cost-attribution` | Audit whether spend can be attributed to an owner — tag coverage by resource *and by dollar*, shared-cost allocation rules, showback map, and the unallocated bucket that bounds every per-unit number derived from it. |
-| `/cost-guardrails` | Install the preventive layer — budgets with owners, anomaly detection against a declared baseline, per-environment quotas, pre-merge infrastructure cost estimate, retention and lifecycle defaults. |
+| `/cost-guardrails` | Two lanes. **Install** (no report): the preventive layer for a `--scope <account\|project\|service\|env>` — pre-merge estimate, creation bounds, lifecycle defaults, anomaly detection, budgets with owners, expiry notifications — each counted only when an offline proof shows it can fire. **Fix** (`--from-audit <report>`, finding ids, or `--all`): closes a `/cost-review` report's findings one at a time, failing first, the owning detector re-run. Asks before any production hard bound, limit value, retention change, deletion or retag. |
 
 **Product track**
 
 | Command | Purpose |
 |---|---|
 | `/frame-problem` | Produce the problem brief before anyone designs a solution — who has it, the labelled evidence, what they do today instead, the do-nothing baseline, the success/counter-metric pair, kill criteria. Writes a brief, never a spec. |
-| `/audit-requirements` | Audit a spec or acceptance criteria for the defects that survive into code — unfalsifiable criteria, two-reading ambiguity, solution smuggled into the problem, missing edge/error/empty/reversal states, absent non-functional bounds. |
+| `/audit-requirements` | Two lanes. `--spec <spec \| ticket \| path>` audits requirement prose for the defects that survive into code — unfalsifiable criteria, two-reading ambiguity, solution smuggled into the problem, missing edge/error/empty/reversal states, absent non-functional bounds. `--repo` audits what shipped — half-built features, tracking-plan drift, plan-entitlement mismatches, the launch-readiness scorecard — with a class ledger and verdict (`--classes=fs,an,en,lr,tr`, `--feature=<slug>`, `--live=<url>`). |
 | `/synthesize-research` | Turn raw research material into findings at the strength the material supports — sources, counts with denominators, evidence class, disconfirming material, explicit limits. Never invents a quote, a participant, or a number. |
 | `/define-success` | Define success *and* damage before a change ships — success metric with baseline and target, counter-metric with a rollback threshold, the instrumentation each requires, kill criteria with a named owner and review date. |
 | `/to-questionnaire` | Package the decisions you cannot make alone into a questionnaire for the one person who can — each question carrying the decision it unblocks, what changes each way, the answer shape, a deadline, and the default that fires if it goes unanswered. Writes a document to send, never a decision. |
+| `/product-fix` | Close the findings an `/audit-requirements --repo` report lists (`<report> \| <finding-id>… \| --all`): a test that fails first per class, a root-cause fix, the owning detector (or `readiness-score.py --rule=<id>`) re-run, a sibling sweep. Never invents a product fact; asks before changing what a plan grants or costs, a tracking-plan edit, or a shipped placeholder's fate. |
 
 **Learning track (Phase 6 maintenance)**
 
@@ -768,9 +775,9 @@ These ship with their respective packs when the track is selected/detected.
 | `/detect-drift` | Compare current code against documented conventions in `ai/conventions.md`. |
 | `/promote-pattern` | Graduate an emerging pattern from `ai/dynamic/learned-patterns.md` to a convention. |
 | `/promote-decision` | Graduate a resolved entry from `ai/dynamic/decisions-pending.md` to a numbered ADR. |
-| `/audit-knowledge` | Curator health audit — stale `dynamic/` entries, drifted conventions, dead ADRs, derived-file staleness. |
+| `/audit-knowledge [base-branch]` | Read-only audit of the AI knowledge layer (`CLAUDE.md`, `AGENTS.md`, `ai/**`, the profile, rules, anchors): five detectors — dead references, stale facts, context load, decision records, memory hygiene — every HIGH refuted, a class ledger and a KNOWLEDGE-STALE / UNVERIFIED / TRUE verdict. `--whole-repo`, `--classes=<family,…>` (`refs`, `facts`, `memory`, `decisions`, `load`, `routed`), `--memory-dir=<dir>` to read host memory. Edits nothing (there is no `--fix`); closed by `/refresh-knowledge --from-audit`. |
 | `/recall <query>` | Search the `ai/` memory this loop already wrote — dynamic sinks, the don't-retry failure catalog, ADRs, patterns, runbooks, conventions, archives — and return ranked `path:line` POINTERS. Read-only; adds no sink. `--kind` / `--owner` / `--since` / `--limit` / `--format`. |
-| `/refresh-knowledge` | Re-invoke the extraction engine (`extract-codebase-overview` → `_extracted-codebase.md`, chaining `extract-business-context`; plus `extract-base-class-idiom`), diff the new oracle against the old, and update `.claude/codebase-profile.md` + `ai/` on confirmation. Preserves the oracle's approval stamp so the hash mismatch fires. Knowledge layer only — pack re-apply is `/setup-project --refresh`. `--dry-run`. |
+| `/refresh-knowledge` | Re-invoke the extraction engine (`extract-codebase-overview` → `_extracted-codebase.md`, chaining `extract-business-context`; plus `extract-base-class-idiom`), diff the new oracle against the old, and update `.claude/codebase-profile.md` + `ai/` on confirmation. Preserves the oracle's approval stamp so the hash mismatch fires. Knowledge layer only — pack re-apply is `/setup-project --refresh`. `--dry-run`. `--from-audit=<report>` (or finding ids, or `--all`) instead closes an `/audit-knowledge` report's findings, each failing first with the engine re-run. |
 
 **DevOps track**
 
@@ -794,12 +801,6 @@ These ship with their respective packs when the track is selected/detected.
 | `/infra-fix` | Close /infra-audit findings, failing-first at each oracle tier, with a full re-scan. |
 | `/ds-audit` | Read-only distributed-systems audit: queues, outbox, retries, locks, workflows, contracts; verdict. |
 | `/ds-fix` | Close /ds-audit findings failing-first on a throwaway broker, across the class. |
-| `/product-fix` | Close /audit-requirements --repo findings: failing test first per class, root-cause fix, owning detector re-run; asks before changing what a plan grants. |
-| `/business-fix` | Close /audit-business findings failing-first; stops on rounding, tax, business-zone and retention decisions. |
-| `/data-fix` | Close data audit findings failing-first; re-scan the class. |
-| `/add-slo` | Define one SLO as code: registry row, OpenSLO/Sloth spec, recording rules, multiwindow burn alerts, promtool test. |
-| `/investigate-incident` | Read-only incident RCA: three or more competing hypotheses, evidence for and against each, reviews/hypotheses.json. |
-| `/postmortem` | Blameless postmortem: timeline, contributing factors, owned action items each proved by a red test or a seeded defect. |
 
 ### Migration track (when `--include=migration` or auto-detected)
 
@@ -1293,7 +1294,7 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 | `/add-ci`              | Add CI workflow. |
 | `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. |
 | `/devops-fix` | Close /devops-audit findings failing-first, diff-guarded. |
-| `/release` | Production progressive release (canary, blue-green, flag ramp) of a READY run, plan by default, H3 per step. |
+| `/release` | Production progressive release (canary, blue-green, flag ramp, rolling) of a READY run. Refuses with `NOT READY` unless the run's verdict is PASS at HEAD, the baseline diff is explained and staging holds a `GREEN — PRODUCTION-GRADE` row for the artifact digest. Plans by default (writes the run's `release.md`, contacts nothing); `--execute` performs one H3-approved step at a time, `--resume` continues from the last PROMOTED step. `--run=<run-id>`, `--strategy=canary\|blue-green\|flag-ramp\|rolling`, `--steps=<pcts>`, `--hold=<duration>`. |
 
 ### Documentation track
 
@@ -1301,13 +1302,13 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 |------------------------|----------------------------------------------------------------------------------|
 | `/add-runbook`         | Author an ops runbook (incident response / deploy / rollback / cutover). Standard sections: trigger, prerequisites, verify-after-each-step, rollback, common failures. |
 | `/add-adr`             | Author an Architecture Decision Record. |
-| `/doc-refresh`         | Refresh stale documentation. |
+| `/doc-refresh [base]`  | Three modes over one engine (`doc-claims.py`) and six detectors. **Default:** the post-change refresh — re-derives the knowledge files the diff touched and runs the gates on the diff scope (PRODUCTION-GRADE / INCOMPLETE). **`--audit`:** read-only docs audit, every candidate refuted, a class ledger and a GO / GO-UNVERIFIED / NO-GO verdict in `ai/audits/<date>-docs.md`. **`--from-audit=<report>`:** closes that report's findings one at a time, failing first; never edits a doc that is the contract to match the code. `--whole-repo`, `--classes=<family,…>`, `--network` (external links), `--no-exec` (skip the quickstart container lane). |
 
 ### Other tracks
 
-Security (`/security-audit`), observability (`/log-tail`, `/add-tracing`, `/add-metrics`, `/add-telemetry`), database (`/add-migration`, `/optimize-query`, `/db-audit`), performance (`/perf-audit`, `/profile-perf`, `/bundle-perf`), algorithms (`/design-algorithm`, `/analyze-complexity`), infrastructure (`/k8s-generate`, `/audit-iam`, `/cost-audit`), business (`/audit-business`), distributed-systems (`/audit-distributed-tx`). ai-engineering (`/add-ai-feature` — build an LLM feature end-to-end with a mandatory eval gate + a `@llm-security-reviewer` handoff; `/ai-audit` — read-only six-axis sweep of an existing AI surface (eval coverage, prompt, retrieval, ANN index, agent budgets, gateway/cost), dispatching the pack's detector skills and routing the trust boundary to `@llm-security-reviewer`; `/add-eval-set` — retrofit a regression-gating eval harness onto an LLM feature that has none, closing `eval-run`'s no-harness HALT. Secured by the security pack).
+Security (`/security-audit`), observability (`/log-tail`, `/add-tracing`, `/add-metrics`, `/add-telemetry`), database (`/add-migration`, `/optimize-query`, `/db-audit`), performance (`/perf-audit`, `/profile-perf`, `/bundle-perf`), algorithms (`/design-algorithm`, `/analyze-complexity`), infrastructure (`/k8s-generate`, `/audit-iam`, `/cost-audit`), distributed-systems (`/audit-distributed-tx`). ai-engineering (`/add-ai-feature` — build an LLM feature end-to-end with a mandatory eval gate + a `@llm-security-reviewer` handoff; `--from-audit=<report>` (finding ids, or `--all`) instead closes an `/ai-audit` report's engineering findings, each failing first; `/ai-audit` — read-only six-axis sweep of an existing AI surface (eval coverage, prompt, retrieval, ANN index, agent budgets, gateway/cost), dispatching the pack's detector skills and routing the trust boundary to `@llm-security-reviewer`; `/add-eval-set` — retrofit a regression-gating eval harness onto an LLM feature that has none, closing `eval-run`'s no-harness HALT. Secured by the security pack).
 
-> **Algorithms track** (stack-agnostic) — the *reasoning* layer above profiling. `/design-algorithm <problem>` models a problem, derives the complexity budget from the input scale, weighs candidate approaches, proves the chosen one correct, and implements it with property + adversarial tests (`--plan` stops at the brief). `/analyze-complexity <scope>` derives cited time/space big-O per hot path and ranks the asymptotic wins (accidental-quadratic, wrong-container, repeated-recompute); `--fix` applies the unambiguous swaps. Both drive the `algorithm-designer` agent — the *reasoning* complement of `performance-optimizer` (which *measures* runtime): wrong-algorithm/data-structure is found here by deriving complexity, slow-query/N+1/I/O is found there by measuring, and each hands off to the other.
+> **Algorithms track** (stack-agnostic) — the *reasoning* layer above profiling. `/design-algorithm <problem>` models a problem, derives the complexity budget from the input scale, weighs candidate approaches, proves the chosen one correct, and implements it with property + adversarial tests (`--plan` stops at the brief; `--scale=<spec>`, `--budget=<class>`, `--candidates=<n>`, `--no-tests`). `/analyze-complexity [<path>]` is the read-only algorithms audit: three detectors (`complexity-scan`, `algorithm-contract-scan`, `numeric-stability-scan`) on the whole repo by default, every candidate refuted, each class proved by cap arithmetic and an operation count, a class ledger and a FINDINGS / CLEAN-UNVERIFIED / CLEAN verdict; `--diff[=<base>]` scopes it to the last commit (or a base), `--classes=<list>` narrows the dispatch, `--include-cli` adds CLIs and scripts to the roots, `--plan-only` stops before grading. It edits nothing — there is no `--fix`; `/design-algorithm --from-audit=<report>` (finding ids, or `--all`) closes its findings, each with a V-oracle that fails first. Both drive the `algorithm-designer` agent — the *reasoning* complement of `performance-optimizer` (which *measures* runtime): wrong-algorithm/data-structure is found here by deriving complexity, slow-query/N+1/I/O is found there by measuring, and each hands off to the other.
 
 ### `--plan` works on every generated command
 

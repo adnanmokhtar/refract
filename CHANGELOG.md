@@ -6,6 +6,67 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Track B Phase 6 (steps 0–2): one agent per name, domain reviewers become lenses (2026-10-19)
+
+Phase 6 folds 126 agents toward a 20-role roster (`sdlc-architecture-proposal` §3.3). Its rule is
+that a specialist merges into a role only when the merge is **earned**: recall and decoy precision
+must hold at pass^3 against the pre-merge agents on a seeded fixture. Steps 0–2 do the plumbing and
+the merges that need no recall gate. The measured clusters (security, code-review, performance,
+schema, ux, `/audit`) are steps 3–5 and are recorded with their own pass^3 numbers, not here.
+
+- **Lenses are an install kind.** `templates/packs/<p>/lenses/` and `templates/domains/<d>/lenses/`
+  install to `.claude/lenses/`. A lens is the knowledge a roster agent reads by path, named in that
+  agent's generated `## Lenses` block (`scripts/gen-boundaries.py`). A brief that names a lens the
+  reviewer cannot open returns `BLOCKED(lens missing)`, never a silent pass.
+- **35 domain reviewer agents became lenses** (`templates/domains/<d>/lenses/<d>-review.md`). Each
+  is read by the roster reviewer in the domain's `_version.json` (`reviewer`, `fallback`), and each
+  domain is bumped one minor. 33 of the 35 agents were dispatched by nothing before the change.
+- **One agent per name.** `scripts/install-claim.sh` makes a same-name, different-content agent or
+  lens from two packs in one install run a hard fail (exit 4, nothing of the second pack copied).
+  Before this, install order picked the winner without a word. The four twins it found are resolved:
+  - domains/auth `auth-reviewer` → a lens; the security pack's agent keeps the name;
+  - domains/multi-tenant `tenant-isolation-reviewer` → a lens; same;
+  - testing `test-engineer` → `testing/lenses/test-craft.md`, read by delivery's `@test-engineer`;
+  - repo-baseline `knowledge-curator` removed; the learning pack's agent is the only one.
+- **`scripts/_agent-merge-map.json`**: every retired-or-planned agent file with its role, lens,
+  gate, status (`planned | merged | kept`) and the git blob ids of every version Refract shipped.
+- **Existing installs migrate on refresh.** `scripts/retire-merged-agents.sh` runs from
+  `run-preflight.sh` (every mode except CREATE, after the Phase-0 backup, before the study).
+  - An installed copy of a `merged` agent whose blob id is listed is moved to
+    `.claude/backups/retired-agents/`. While the name ships nowhere else, a short stub under the
+    old name says what replaced it (`renamed: @payment-reviewer → @code-reviewer (lens
+    .claude/lenses/payment-review.md)`); the stubs are kept for one release.
+  - An owner-edited copy is kept and reported `EDITED … merge your edits there by hand`.
+  - A run with nothing to do writes nothing. Tested by `scripts/test-retire-merged-agents.sh`
+    (25 assertions, failing first on a staged install).
+- **New roster agents.** delivery `performance-reviewer` and `operability-reviewer` are judge shells
+  that dispatch nothing yet. devops `platform-engineer` is the infrastructure writer, dispatched by:
+  - `/add-ci` and `/dockerize`, for Phase 4;
+  - `/k8s-generate` and `/provision-tier`, for Phase 4, when the devops pack is installed;
+  - `/add-feature` P6, for infra tasks.
+
+  Inside an open run it is the only writer of CI / container / IaC paths: `ownership-guard.py`
+  denies them to every other agent once the agent is installed. Without the devops pack every
+  caller prints `HANDOFF UNROUTED (devops not installed)` and falls back as before.
+- **OD-7.** `detect-tracks.sh` adds ui-ux whenever frontend is selected, as a post-condition with a
+  stack-conformance test over every fixture. The a11y review therefore always has a home.
+- **Agent descriptions ≤300 chars, trigger first.** The fullstack agent listing fell 34% (~7,002 →
+  ~4,639 tok), and fullstack base context fell from ~21,968 to ~18,809 tok (part of that from other sessions' rule trims).
+- **New gates, ratcheted.**
+  - `lint-dispatch-graph.sh` (D1 dangling, D2 retired, D3 unguarded cross-pack, D4 untyped,
+    D5 lens wiring).
+  - `gen-boundaries.py --check`: generated `## Lenses` / `## Boundary` blocks. Every roster agent
+    on disk carries a Boundary block except the six whose clusters are under benchmark; debt 97 → 86.
+  - `lint-fixture-leakage.py`: agents, domains and references no longer quote a benchmark
+    fixture's seeded file and line; 73 → 11 legacy hits, the rest on files under benchmark or
+    outside agent text.
+- **Step 1 (align)** was measured at POST pass^3 and reverted. Recall held at 9/14, but one decoy
+  was flagged (1/7 vs 0/7). The PRE text was leakier than POST, so the result is recorded as
+  inconclusive: `align-evidence-auditor` stays and its lens is staged unread (`status: kept`).
+- **Docs.** `skills.sh.json` lists every shipped skill. `docs/COMMANDS.md` gives the right flags
+  for `/analyze-complexity` and `/audit-knowledge` (read-only, no `--fix`) and has entries for the
+  batch 7–8 and Phase 7 commands.
+
 ### Track A batch 8: ai-engineering, data-engineering, finops and algorithms become detector packs (2026-10-19)
 
 Before this batch the four packs reviewed by reading: an LLM feature's budgets, a warehouse load's

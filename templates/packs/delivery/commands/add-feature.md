@@ -58,7 +58,7 @@ next:       the human (H4 merge) · /ship
 | P3 | `@ux-designer` *(ui-ux)* writes `ux.md`; `@ux-reviewer` *(ui-ux)* reviews it at P4 | the architect's UI slice in `design.md`; skip with `covered_by: design.md UI slice (P4)` |
 | P4–P5 | `@architect`, `@architecture-reviewer` (delivery) | `UNREVIEWED(architecture)` → INCOMPLETE |
 | P5 | `@test-engineer` (delivery), `@plan-critic` (delivery) | `UNREVIEWED(contract)` → INCOMPLETE |
-| P6 | `@implementer` (delivery) · doc-writer *(documentation)* | T2+: never yourself — BLOCKED |
+| P6 | `@implementer` (delivery) · `@platform-engineer` *(devops)* for infra tasks · doc-writer *(documentation)* | T2+: never yourself — BLOCKED; infra task without devops → `HANDOFF UNROUTED (devops not installed)`, `@implementer` writes it |
 | P7–P11 | `@test-reviewer` *(testing)*, `@code-reviewer` *(code-quality)*, `@security-auditor` + lenses *(security)*, `@performance-optimizer` *(performance)*, `@schema-reviewer` *(database)*, `@observability-reviewer` *(observability)*, `@ux-reviewer` *(ui-ux)*, `@architecture-reviewer` (conformance) + each lane's § Review tables | `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)`; the run ends INCOMPLETE naming `/setup-project --include=<pack>` |
 | P12 | `@verifier` (repo-baseline) | `UNREVIEWED(acceptance)` → INCOMPLETE |
 
@@ -210,6 +210,16 @@ per new primitive or dependency. Then:
   `lane`; it reads its slice, the interfaces, the lane skill. One task at a time; mark each task done
   in `plan.md § Status`. At T3, tasks with disjoint paths in `§ Work split` may run as parallel
   implementers with `isolation: worktree`; you integrate, and two writers never share a file.
+- **Infra tasks — one writer of CI / IaC.** A task whose paths are CI files, a Dockerfile or compose
+  file, an IaC root or manifests (`python3 .claude/scripts/ownership-guard.py who <path>
+  --agent=platform-engineer` says `allowed`) goes to `@platform-engineer` *(devops pack)*, not to the
+  implementer: `run_id`, `task: T-###`, the paths, and the `design.md` slice it serves. It returns
+  `DONE <paths> + plan/diff/dry-run output`; no apply, deploy or tag push happens in P6
+  (`guard-irreversible.sh`). It is the only writer of those paths while the run is open —
+  `ownership-guard.py` denies them to every other agent — so a task mixing source and infra is split
+  into two tasks in `plan.md`. **When the devops pack is not installed**, record
+  `HANDOFF UNROUTED (devops not installed) — T-### infra paths written by @implementer` in `ledger.md`
+  and dispatch the implementer as usual.
 - **T1:** you may build directly, following the lane skill's Phase 3–4.
 - Returns: `DONE` → next task; `SPEC_CONFLICT` → stop, end the run **BLOCKED**, show the human the
   criterion, the requirement and the evidence (only a human reopens the lock);

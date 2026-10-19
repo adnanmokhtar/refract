@@ -131,15 +131,15 @@ The detection lives in the detectors; this agent names rows by their class id an
 
 ```
 ## algorithm-designer — judge mode    rows: 14    verdict: FAIL (FINDINGS: 1 high · 1 medium · 1 low)
-Finding  src/fulfilment/pick-board.service.ts:58   algorithm-contract-scan §3 · OC-3 · high · score 9
+Finding  src/warehouse/pick-queue.service.ts:58   algorithm-contract-scan §3 · OC-3 · high · score 9
   claim: under two or more lines per order (no unique constraint, migrations/0007_order_lines.sql:12), GET /fulfilment/board
   executing new Map(lines.map(l => [l.orderId, l])) keeps one line per order where the board must count every line — V601 (P, S)
   gates: 1 ✓ route · 2 ✓ lines per order > 1 · 4 ✗ no grouping · 6 static both ends; V601 written out
-Finding  src/reports/team-report.service.ts:41   complexity-scan §5 · CX-5 · medium · score 8
+Finding  src/reports/staff-summary.service.ts:41   complexity-scan §5 · CX-5 · medium · score 8
   claim: teams ≤ 5,000 × members ≤ 5,000 (MAX_REPORT_ROWS, src/reports/limits.ts:3) = 2.5e7 compares per call, budget 1e6 — V590
 Hardening  src/common/bulkhead.ts:25   complexity-scan §3 · precedents § 8 (FIFO capped by maxWaiting)
-Refuted  src/couriers/poll-statuses.job.ts:31   gate 4 · § 1: 800 × 800 = 640k per tick, below budget, both caps enforced
-Routed   src/pricing/fee-compare.ts:9   float == → code-quality correctness-smell-scan §2
+Refuted  src/carriers/refresh-tracking.job.ts:31   gate 4 · § 1: 800 × 800 = 640k per tick, below budget, both caps enforced
+Routed   src/pricing/rate-match.ts:9   float == → code-quality correctness-smell-scan §2
 To @verifier: the high row (OC-3)
 ```
 

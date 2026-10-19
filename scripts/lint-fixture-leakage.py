@@ -50,7 +50,7 @@ ALLOW = {
     "Jenkinsfile.groovy", "dependabot.yml", "mkdocs.yml", "cucumber.js", "opencode.json",
     "pyproject.toml", "setup.cfg", "settings.gradle", "build.gradle.kts", "settings.py",
     "api-client.ts", "apiClient.ts", "http-client.ts", "httpClient.ts",
-    "AndroidManifest.xml", "PrivacyInfo.xcprivacy", "GoogleService-Info.plist", "Info.plist",
+    "AndroidManifest.xml", "MainActivity.kt", "PrivacyInfo.xcprivacy", "GoogleService-Info.plist", "Info.plist",  # MainActivity.kt: Android Studio's template name
     "dbt_project.yml", "nest-cli.json", "values-prod.yaml", "values.yaml", "copilot-instructions.md",
     "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "README.md", "SECURITY.md", ".dependency-cruiser.cjs",
     "useEffect", "useState", "useCallback", "useMemo", "useQuery", "useMutation",

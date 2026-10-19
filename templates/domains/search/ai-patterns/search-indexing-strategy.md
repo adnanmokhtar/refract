@@ -114,7 +114,7 @@ Note: NO customer PII, NO internal cost, NO supplier name — only what users ac
 ## Indexing trigger (outbox)
 
 ```ts
-// application/place-order.use-case.ts (example — same pattern for upsert)
+// application/create-listing.use-case.ts (example — same pattern for upsert)
 async upsertProduct(dto: UpsertProductDto): Promise<Product> {
   return this.dataSource.transaction(async (em) => {
     const product = await em.save(Product, dto);

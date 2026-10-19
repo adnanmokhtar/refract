@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ai-engineering",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "released": "2026-10-19",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Five detectors on one call-site inventory (llm-sites.py); /ai-audit is the audit, /add-ai-feature --from-audit the fix (Track A batch 8).",
+  "summary": "/add-ai-feature's signature names the --from-audit report without nested angle brackets, so docs/CHEATSHEET.md shows the whole flag.",
   "changelog": "CHANGELOG.md"
 }

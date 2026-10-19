@@ -93,7 +93,7 @@ The admin surface is the most dangerous code in the product: low-traffic, thinly
 
 ### BLOCKER — blanket `is_admin` gate (no granular capability)
 ```
-src/modules/admin/users/users.controller.ts:11
+src/modules/admin/members/members.controller.ts:11
 
 @Get('/admin/users')
 async list(@Req() req) {

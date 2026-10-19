@@ -18,6 +18,13 @@ Headings carry the `released` date recorded for that version. A few early versio
 described in the `summary` narrative and never had a dated `changelog` block — those headings have
 no date, which is the honest state of the record rather than an omission.
 
+## 2.0.1 — 2026-10-19
+
+**Phase 6: one `knowledge-curator`.**
+
+- The repo-baseline twin of `knowledge-curator` is removed. This pack's agent is the only file with that name, so which one a project gets no longer depends on install order.
+- Existing installs: `/setup-project --refresh` (`scripts/retire-merged-agents.sh`) moves an unedited copy of the baseline twin to `.claude/backups/retired-agents/` so this pack's agent installs. An owner-edited copy is kept and reported.
+
 ## 2.0.0 — 2026-10-19
 
 **The learning pack became a detector pack (Track A batch 7).** It wrote the AI knowledge layer and graded it by model judgement; nothing could tell an agent that `CLAUDE.md` names a path that no longer exists, a fact the lockfile contradicts, a stale derived file, a memory sink its consumer cannot read, or an ADR index out of step with the files.

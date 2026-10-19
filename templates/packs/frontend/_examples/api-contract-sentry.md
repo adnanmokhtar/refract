@@ -243,8 +243,8 @@ Backend OpenAPI diff summary:
 Affected files: 14
 
 Services (2):
-  src/services/catalog-api.ts:24 — mapper references `.price`
-  src/services/catalog-api.ts:38 — export type field
+  src/services/products-client.ts:24 — mapper references `.price`
+  src/services/products-client.ts:38 — export type field
 
 Stores (1):
   src/stores/products.store.ts:42 — filter `p.price > min`

@@ -68,8 +68,8 @@ Key store (api_keys @ <path:line>):
   [or: PLAINTEXT token column — BLOCKER]
 
 Findings (ranked):
-  BLOCKER  /v1/customers serializes the User entity      @ customers.controller.ts:22  -> leaks passwordHash, ssn, internalCostMinor
-  BLOCKER  /v1/customers returns the whole table         @ customers.controller.ts:22  -> add cursor + MAX_PAGE
+  BLOCKER  /v1/customers serializes the User entity      @ clients.controller.ts:22  -> leaks passwordHash, ssn, internalCostMinor
+  BLOCKER  /v1/customers returns the whole table         @ clients.controller.ts:22  -> add cursor + MAX_PAGE
   BLOCKER  /v1/charges has no Idempotency-Key handling   @ charges.controller.ts:31    -> retry double-creates
   BLOCKER  /v1/customers not in openapi.yaml             -> contract undefined
   REQUEST  POST /v1/orders body not schema-validated     @ orders.controller.ts:40

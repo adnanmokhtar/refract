@@ -137,6 +137,15 @@ Return one line: `DONE ai/runs/<run_id>/design.md, quality-attributes.md[, threa
 - Never write source, tests or `requirements.md`.
 - Never design past an open question that changes the design — `NEEDS_INPUT`.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+- **Phase-6 target (owned elsewhere until the merge is earned):** `cache-invalidation`
+<!-- END GENERATED boundary -->
+
 ## Related
 
 - `@architecture-reviewer` reviews this design at P4 and the code's conformance to it at P10.

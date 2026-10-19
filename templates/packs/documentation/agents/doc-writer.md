@@ -175,6 +175,15 @@ Deprecation header + 6-month sunset.
 - ADRs without alternatives.
 - Patterns without "When NOT" + "Forbidden" sections.
 
+## Boundary
+
+<!-- BEGIN GENERATED boundary (scripts/gen-boundaries.py; do not edit by hand) -->
+Generated from `templates/governance/ownership.json` and `scripts/_agent-merge-map.json`.
+
+- **Mine:** no class yet.
+- **Phase-6 target (owned elsewhere until the merge is earned):** `doc-adr`, `doc-api-prose`, `doc-api-reference`, `doc-env`, `doc-hygiene`, `doc-i18n`, `doc-links`, `doc-references`, `doc-release-notes`, `doc-runbooks`, `doc-samples`, `doc-setup`
+<!-- END GENERATED boundary -->
+
 ## Related
 
 ### Sibling agents in documentation pack — boundary

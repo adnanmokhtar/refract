@@ -10,6 +10,6 @@
 # FORMAT  <check> <ceiling>
 D1 0
 D2 0
-D3 102
+D3 101
 D4 192
 D5 0

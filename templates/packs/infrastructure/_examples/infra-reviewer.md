@@ -156,7 +156,7 @@ Two detectors meet on one `<file:line>`; one owns it, the other corroborates:
 ## Example finding
 
 ```
-infra/modules/db/main.tf:41 (module default)  ←  infra/envs/prod/main.tf:12 (prod calls it without override)
+infra/modules/database/main.tf:41 (module default)  ←  infra/envs/prod/main.tf:12 (prod calls it without override)
 deploy path: .github/workflows/infra-apply.yml:58 (terraform apply, env prod) · TF and aws provider versions read from the lock file
 
 iac-lifecycle-scan §7 DEL-01/02 — when an apply plans a replacement or someone runs destroy from an old

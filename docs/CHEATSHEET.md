@@ -53,7 +53,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/roadmap` | Map what is INTENDED but not yet built, then phase the build order. | `--goal`, `--build`, `--status`, `--refresh`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--no-table-stakes` | `/roadmap the payments domain` |
 | `/scaffold-project` | Generate a working codebase from nothing, up to a booting dev server. | `--name=<repo-name>`, `--into=<path>`, `--stack=<key>`, `--no-claude-orchestration`, `--no-prompt`, `--dry-run` | `/scaffold-project "<idea-or-refined-spec-path>"` |
 | `/setup-project` | Install or refresh the Claude orchestration layer for a repo. | `--refine`, `--refresh`, `--include`, `--no-adapters`, `--upgrade`, `--health`, `--validate-schemas`, `--diff`, `--max-subagents=<N>` | `/setup-project --upgrade` |
-| `/setup-project-adapters` | Re-sync tool adapters so every enabled CLI offers the same surface as Claude Code here. | `--legacy-opencode` | `/setup-project-adapters` |
+| `/setup-project-adapters` | Re-sync tool adapters so every enabled CLI offers the same surface as Claude Code here. | — | `/setup-project-adapters` |
 | `/setup-project-health` | Read-only report on whether this repo's /setup-project artifacts have drifted or gone stale. | — | `/setup-project-health` |
 | `/task` | Execute ONE tracker item end to end and write its status back to the source. | `--drain`, `--max`, `--prompt-only`, `--to=<command>`, `--no-writeback`, `--review-only` | `/task https://trello.com/c/aB12cD34` |
 | `/unify-surfaces` | Consolidate every instance of ONE surface type behind ONE canonical shared implementation, app-wide. | `--surfaces=<list>`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--exclude-consumer=<glob>`, `--surface-blockers`, `--no-iterate`, `--canonical=<category>`, `--keep-ad-hoc=<glob>`, `--validation-library=<name>` | `/unify-surfaces --surfaces=tables,filters` |
@@ -63,7 +63,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-ai-feature` | Build an LLM feature end-to-end — prompt/gateway wiring + structured output + retrieval (if RAG) +… | `--from-audit=<ai/audits/<date>`, `--all` | `/add-ai-feature [<feature>] \| --from-audit=<ai/audits/<date>-ai.md> [finding-id ... \| --all]` |
+| `/add-ai-feature` | Build an LLM feature end-to-end — prompt/gateway wiring + structured output + retrieval (if RAG) +… | `--from-audit=<report: ai/audits/DATE-ai.md>`, `--all` | `/add-ai-feature [<feature>] \| --from-audit=<report: ai/audits/DATE-ai.md> [finding-id ... \| --all]` |
 | `/add-eval-set` | Retrofit a regression-gating eval harness onto an existing LLM feature that has none — pick the… | `--plan` | `/add-eval-set <feature> [--plan]` |
 | `/ai-audit` | Read-only AI/LLM audit: call-site inventory, every ai detector, trust rows routed to security… | `--plan-only` | `/ai-audit [base-branch] [--plan-only]` |
 
@@ -72,7 +72,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/analyze-complexity` | Read-only algorithms audit: three detectors on the whole repo (--diff: last commit), refuted rows… | `--diff`, `--classes=<list>`, `--include-cli`, `--plan-only` | `/analyze-complexity [<path>] [--diff[=<base>]] [--classes=<list>] [--include-cli] [--plan-only]` |
-| `/design-algorithm` | Design an algorithm to the scale's budget, prove it, ship it with property tests. | `--from-audit=<ai/audits/<date>`, `--all`, `--plan`, `--scale=<spec>`, `--budget=<class>`, `--candidates=<n>`, `--no-tests` | `/design-algorithm "dedup 5M event ids preserving first-seen order"` |
+| `/design-algorithm` | Design an algorithm to the scale's budget, prove it, ship it with property tests. | `--from-audit=<report: ai/audits/DATE-algorithms.md>`, `--all`, `--plan`, `--scale=<spec>`, `--budget=<class>`, `--candidates=<n>`, `--no-tests` | `/design-algorithm "dedup 5M event ids preserving first-seen order"` |
 
 ## Pack — align
 
@@ -156,18 +156,18 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-feature` | Build a feature as a run — risk tier chosen before code, then requirements, design, a locked… | `--lane=<lane>`, `--tier`, `--reason`, `--yes`, `--plan`, `--request-file=<spec>`, `--run`, `--phase` | `/add-feature <description \| specs/<file> \| Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan]` |
+| `/add-feature` | Build a feature as a run — risk tier chosen before code, then requirements, design, a locked… | `--lane=<lane>`, `--tier`, `--reason`, `--yes`, `--plan`, `--request-file=<spec>` | `/add-feature <description \| specs/<file> \| Spec-ID> [--lane=<lane>[,<lane>]] [--tier=T<n> --reason="…"] [--yes] [--plan]` |
 
 ## Pack — devops
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-ci` | Generate or update a CI workflow for the detected platform and stack. | — | `/add-ci [platform]` |
-| `/deploy-stage` | Deploy current branch to staging environment. | `--branch=<name>`, `--commit=<sha>`, `--no-monitor`, `--watch=<duration>`, `--allow-dirty`, `--skip-ci-check`, `--out` | `/deploy-stage --branch=feature/refund-button` |
+| `/deploy-stage` | Deploy current branch to staging environment. | `--branch=<name>`, `--commit=<sha>`, `--no-monitor`, `--watch=<duration>`, `--allow-dirty`, `--skip-ci-check` | `/deploy-stage --branch=feature/refund-button` |
 | `/devops-audit` | Read-only CI/CD audit: gates, caches, releases, deploys, images, compose; verdict. | `--whole-repo`, `--classes=<family,…>`, `--contexts=<a,b>`, `--settings`, `--settings-dir=<dir>`, `--sandbox=<owner/repo>` | `/devops-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--contexts=<a,b>] [--settings \| --settings-dir=<dir>] [--sandbox=<owner/repo>]` |
 | `/devops-fix` | Close /devops-audit findings failing-first, diff-guarded. | `--all`, `--sandbox=<owner/repo>` | `/devops-fix [audit-report-path \| finding-id ... \| --all] [--sandbox=<owner/repo>]` |
 | `/dockerize` | Generate a production-ready Dockerfile, .dockerignore, and optional compose for local dev. | — | `/dockerize` |
-| `/release` | Production progressive release (canary, blue-green, flag ramp) of a READY run, plan by default, H3… | `--run=<run-id>`, `--strategy`, `--steps`, `--hold`, `--execute`, `--resume`, `--out` | `/release --strategy=canary\|blue-green\|flag-ramp\|rolling` |
+| `/release` | Production progressive release (canary, blue-green, flag ramp) of a READY run, plan by default, H3… | `--run=<run-id>`, `--strategy`, `--steps`, `--hold`, `--execute`, `--resume` | `/release --strategy=canary\|blue-green\|flag-ramp\|rolling` |
 | `/rollback-deploy` | Roll back the current environment to a previous known-good deploy. | `--to=<version>`, `--env`, `--dry-run`, `--force` | `/rollback-deploy --env=staging` |
 
 ## Pack — distributed-systems
@@ -185,18 +185,18 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/add-adr` | Write a new ADR where the project keeps them (docs/adr, docs/decisions, ai/decisions…): sibling… | `--lanes`, `--class` | `/add-adr [title]` |
-| `/add-runbook` | Author an operational runbook (incident, deploy, rollback, on-call) beside the project's runbooks… | `--type=<incident\|deploy\|rollback\|migration\|cutover\|on-call>`, `--related-adr=<NNN>`, `--related-feature=<id>`, `--docs=<RUNBOOK_DIR>`, `--lanes` | `/add-runbook <name> [<description>]` |
+| `/add-adr` | Write a new ADR where the project keeps them (docs/adr, docs/decisions, ai/decisions…): sibling… | — | `/add-adr [title]` |
+| `/add-runbook` | Author an operational runbook (incident, deploy, rollback, on-call) beside the project's runbooks… | `--type=<incident\|deploy\|rollback\|migration\|cutover\|on-call>`, `--related-adr=<NNN>`, `--related-feature=<id>` | `/add-runbook <name> [<description>]` |
 | `/doc-refresh` | Docs refresh after a change (default), a read-only docs audit with a class ledger and verdict… | `--audit`, `--whole-repo`, `--from-audit=<report>`, `--classes=<family,…>`, `--network`, `--no-exec` | `/doc-refresh [base] [--audit] [--whole-repo] [--from-audit=<report>] [--classes=<family,…>] [--network] [--no-exec]` |
 
 ## Pack — finops
 
 | Command | Summary | Flags | Example |
 |---|---|---|---|
-| `/audit-cost-attribution` | Who owns the spend: allocation keys in code and coverage by dollar from an export. | `--period`, `--export=<FOCUS or CUR path>`, `--required-keys`, `--allowed`, `--untaggable`, `--profile` | `/audit-cost-attribution [--period <billing-period>] [--export=<FOCUS or CUR path>]` |
+| `/audit-cost-attribution` | Who owns the spend: allocation keys in code and coverage by dollar from an export. | `--period`, `--export=<FOCUS or CUR path>` | `/audit-cost-attribution [--period <billing-period>] [--export=<FOCUS or CUR path>]` |
 | `/cost-guardrails` | Fix cost findings failing-first (--from-audit) or install guardrails proven offline. | `--from-audit`, `--all`, `--scope` | `/cost-guardrails [--from-audit <report> \| finding-id ... \| --all] [--scope <account\|project\|service\|env>]` |
-| `/cost-model` | Unit economics from a billing export: driver tree, cost per unit, declared expectation. | `--refresh`, `--export=<FOCUS or CUR path>`, `--self-test`, `--by`, `--period`, `--required-keys`, `--base`, `--cur`, `--profile` | `/cost-model [<unit>] [--refresh] [--export=<FOCUS or CUR path>]` |
-| `/cost-review` | Read-only cost audit: finops detectors, pricing step, coverage ledger, verdict. | `--whole-repo`, `--classes=<BG,TG,PS,FQ,ST,EG,PX,UE>`, `--export=<path>`, `--flow-logs=<path>`, `--self-test` | `/cost-review [base-branch] [--whole-repo] [--classes=<BG,TG,PS,FQ,ST,EG,PX,UE>] [--export=<path>] [--flow-logs=<path>]` |
+| `/cost-model` | Unit economics from a billing export: driver tree, cost per unit, declared expectation. | `--refresh`, `--export=<FOCUS or CUR path>` | `/cost-model [<unit>] [--refresh] [--export=<FOCUS or CUR path>]` |
+| `/cost-review` | Read-only cost audit: finops detectors, pricing step, coverage ledger, verdict. | `--whole-repo`, `--classes=<BG,TG,PS,FQ,ST,EG,PX,UE>`, `--export=<path>`, `--flow-logs=<path>` | `/cost-review [base-branch] [--whole-repo] [--classes=<BG,TG,PS,FQ,ST,EG,PX,UE>] [--export=<path>] [--flow-logs=<path>]` |
 
 ## Pack — frontend
 
@@ -207,7 +207,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/add-crud-page` | Scaffold list + create + edit + delete pages for one entity end-to-end. | — | `/add-crud-page <entity>` |
 | `/add-feature` | Frontend lane preset of the delivery /add-feature — runs the cross-stack orchestrator with… | `--lane` | `/add-feature --lane=frontend <the ask, verbatim, with every flag the user passed>` |
 | `/add-page` | Scaffold a page/route with view, store slice, service, types, i18n keys, and tests. | — | `/add-page <route>` |
-| `/frontend-audit` | Read-only frontend audit: a11y, states, render, data, routing, i18n, perf; class ledger and verdict. | `--whole-repo`, `--classes=<family,…>`, `--routes=<glob>`, `--touched=<paths>`, `--repo` | `/frontend-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--routes=<glob>]` |
+| `/frontend-audit` | Read-only frontend audit: a11y, states, render, data, routing, i18n, perf; class ledger and verdict. | `--whole-repo`, `--classes=<family,…>`, `--routes=<glob>` | `/frontend-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--routes=<glob>]` |
 | `/frontend-fix` | Close /frontend-audit findings, failing-first, fixed at the component. | `--all` | `/frontend-fix [audit-report-path \| finding-id ... \| --all]` |
 | `/i18n-audit` | i18n audit: preset of /frontend-audit --classes=i18n. | `--whole-repo`, `--routes=<glob>` | `/i18n-audit [base-branch] [--whole-repo] [--routes=<glob>]` |
 | `/refactor` | Frontend-targeted refactor — preserves render output, props contracts, and hydration safety. | — | `/refactor [<scope>]` |
@@ -221,7 +221,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/cost-audit` | Cloud cost audit. | — | `/cost-audit` |
 | `/infra-audit` | Read-only infrastructure audit: IaC, DR, serverless, k8s, edge, DNS/TLS, network; class ledger and… | `--whole-repo`, `--classes=<family,…>`, `--env=<overlay\|values\|workspace>`, `--plan`, `--kind`, `--live=<context\|profile>` | `/infra-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--env=<overlay\|values\|workspace>] [--plan] [--kind] [--live=<context\|profile>]` |
 | `/infra-fix` | Close /infra-audit findings, failing-first at each oracle tier, with a full re-scan. | `--all`, `--kind`, `--live=<context\|profile>` | `/infra-fix [audit-report-path \| finding-id ... \| --all] [--kind] [--live=<context\|profile>]` |
-| `/k8s-generate` | Generate production-ready k8s manifests (Deployment, Service, Ingress, HPA, PDB, NetworkPolicy). | `--out`, `--kube-version`, `--target`, `--repo` | `/k8s-generate <service>` |
+| `/k8s-generate` | Generate production-ready k8s manifests (Deployment, Service, Ingress, HPA, PDB, NetworkPolicy). | — | `/k8s-generate <service>` |
 | `/provision-tier` | Provision a new environment tier (dev / staging / prod / DR). | — | `/provision-tier` |
 
 ## Pack — learning
@@ -244,8 +244,8 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/compare-v1` | Read-only V1↔V2 parity audit: paired lanes plus six detectors, refuted by @parity-auditor; 48-class… | `--whole-repo`, `--v1=<path>`, `--v2=<path>`, `--v1-inventory=<dir>`, `--mig=<dir>`, `--pin=<sha>`, `--live-v1`, `--classes=<family,…>`, `--runs=<dir>`, `--out=<file>` | `/compare-v1 [<feature> \| --whole-repo] [--v1=<path>] [--v2=<path>] [--v1-inventory=<dir>] [--mig=<dir>] [--pin=<sha>] [--live-v1] [--classes=<family,…>] [--runs=<dir>] [--out=<file>]` |
 | `/cross-repo-task` | Track and drive cross-repo blockers in V1↔V2 migration. | `--upstream=<repo>`, `--owner=<name>`, `--contract=<spec>`, `--status=<open\|in-flight\|landed\|abandoned>`, `--stale`, `--evidence=<url>`, `--reason=<text>`, `--severity=<low\|medium\|high\|critical>`, `--upstream-pr=<url>` | `/cross-repo-task drain` |
 | `/draft-phase-adrs` | Reads phase-N.md summary + per-feature audits, drafts one ADR per P0 finding + cross-cutting… | `--include-cross-cutting`, `--exclude-features` | `/draft-phase-adrs <N> complete:` |
-| `/find-and-fix` | Default V1→V2 port loop for one ledger row: detect, decide, fix, re-detect, verify, record. | `--from-audit=<report>`, `--plan`, `--from-plan`, `--pair-inventory=<run dir>`, `--v1=<v1_root>`, `--v2=<v2_root>`, `--pair-map`, `--ledger`, `--out` | `/find-and-fix <feature>:` |
-| `/migrate` | One command V1→V2 port. | `--v1=<v1_root>`, `--v2=<v2_root>`, `--pair-map`, `--ledger`, `--out`, `--plan`, `--from-plan`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`, `--re-detect-fields`, `--status`, `--refresh`, `--resume`, `--reset`, `--ignore-ledger`, `--re-audit`, `--include-superseded`, `--restart` | `/migrate the orders module` |
+| `/find-and-fix` | Default V1→V2 port loop for one ledger row: detect, decide, fix, re-detect, verify, record. | `--from-audit=<report>`, `--plan`, `--from-plan`, `--pair-inventory=<run dir>` | `/find-and-fix <feature>:` |
+| `/migrate` | One command V1→V2 port. | `--plan`, `--from-plan`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--exclude=<scope>`, `--include-dead`, `--surface-blockers`, `--re-detect-fields`, `--status`, `--refresh`, `--resume`, `--reset`, `--ignore-ledger`, `--re-audit`, `--include-superseded`, `--restart` | `/migrate the orders module` |
 | `/migration-deprecate` | Mark a V1 feature as deprecated — it will NOT be ported to V2. | `--adr=<NNNN>`, `--reason=<text>`, `--tenant-impact=<low\|medium\|high>`, `--symbol=<name>` | `/migration-deprecate <feature-id>` |
 | `/migration-fast` | One-shot deep-migration phase runner. | `--feature=<id>`, `--max-features=<N>`, `--max-parallel=<N>`, `--serial`, `--no-gate`, `--strict-clean`, `--re-audit` | `/migration-fast <N> complete:` |
 | `/migration-final` | Final sweep — confirms every feature in the ledger is done + parity-passing across ALL phases. | `--re-audit`, `--no-retirement` | `/migration-final` |
@@ -279,10 +279,10 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-metrics` | Add metrics (counters / gauges / histograms) to a service. | — | `/add-metrics` |
-| `/add-slo` | Define one SLO as code: registry row, OpenSLO/Sloth spec, recording rules, multiwindow burn alerts… | `--sli`, `--period`, `--spec=<spec>`, `--registry`, `--format` | `/add-slo <service> "<journey>"` |
+| `/add-slo` | Define one SLO as code: registry row, OpenSLO/Sloth spec, recording rules, multiwindow burn alerts… | `--sli`, `--period` | `/add-slo <service> "<journey>"` |
 | `/add-telemetry` | Wire structured logs, metrics, and traces into a feature; create alert + runbook stubs. | — | `/add-telemetry <feature>` |
 | `/add-tracing` | Add distributed tracing to a service / endpoint / job. | — | `/add-tracing` |
-| `/alert-design` | Design alerts for a service. | `--registry`, `--slo` | `/alert-design` |
+| `/alert-design` | Design alerts for a service. | — | `/alert-design` |
 | `/investigate-incident` | Read-only incident RCA: three or more competing hypotheses, evidence for and against each… | `--since=<ISO>`, `--until=<ISO>`, `--bundle=<dir>`, `--run=<run-id>`, `--telemetry=<url>`, `--hypotheses` | `/investigate-incident --hypotheses=N` |
 | `/obs-audit` | Read-only observability audit: logs, traces, metrics, errors, alerts, SLOs, pipeline; class ledger… | `--whole-repo`, `--classes=<family,…>`, `--live=<source=url,…>` | `/obs-audit [base-branch] [--whole-repo] [--classes=<family,…>] [--live=<source=url,…>]` |
 | `/obs-fix` | Close /obs-audit findings, failing-first at each oracle tier, across the class. | `--all`, `--live=<source=url,…>` | `/obs-fix [audit-report-path \| finding-id ... \| --all] [--live=<source=url,…>]` |

@@ -1260,6 +1260,18 @@ PYEOF
   mkrun "$p" "$R" T2 P6 open "P0,P1,P2,P4,P5"; touch "$p/.claude/.no-artifact-ownership"
   p4_ok "$(own "$(ed src/x.ts)")" 0 "own-opt-out-honoured"
   rm -f "$p/.claude/.no-artifact-ownership"
+  # one writer for CI / IaC paths: while a run is open and @platform-engineer is installed, only it writes them
+  p4_ok "$(own "$(ed .github/workflows/ci.yml implementer)")" 0 "own-implementer-writing-ci-without-platform-engineer-allowed"
+  mkdir -p "$p/.claude/agents"; printf -- '---\nname: platform-engineer\n---\n' > "$p/.claude/agents/platform-engineer.md"
+  p4_ok "$(own "$(ed .github/workflows/ci.yml implementer)")/$(grep -c 'dispatch @platform-engineer' "$work/own.err")" "2/1" "own-implementer-writing-ci-in-run-denied"
+  p4_ok "$(own "$(ed infra/main.tf implementer)")" 2 "own-implementer-writing-iac-in-run-denied"
+  p4_ok "$(own "$(ed .github/workflows/ci.yml platform-engineer)")" 0 "own-platform-engineer-writing-ci-allowed"
+  p4_ok "$(own "$(ed src/x.ts platform-engineer)")" 2 "own-platform-engineer-writing-source-denied"
+  p4_ok "$(own "$(ed src/x.ts implementer)")" 0 "own-implementer-writing-source-in-run-allowed"
+  p4_ok "$(own "$(ed Dockerfile)")/$(grep -c 'dispatch @platform-engineer' "$work/own.err")" "2/1" "own-main-editing-dockerfile-at-T2-P6-names-platform-engineer"
+  mkrun "$p" "$R" T2 P6 closed "P0,P1,P2,P4,P5"
+  p4_ok "$(own "$(ed .github/workflows/ci.yml implementer)")" 0 "own-implementer-writing-ci-no-open-run-allowed"
+  rm -f "$p/.claude/agents/platform-engineer.md"; mkrun "$p" "$R" T2 P6 open "P0,P1,P2,P4,P5"
 
   # precompact-handoff + session-start
   printf '# Ledger\n## Plan\n- dispatch implementer for T-002\n## Diary\n### Open\n- owner to confirm the 2000-char limit\n' > "$p/ai/runs/$R/ledger.md"
@@ -1480,6 +1492,11 @@ run_dismissals
 # agents/x.md with different bytes in one run must exit 4 and copy nothing of the second.
 if bash "$REPO_ROOT/scripts/test-install-claim.sh" >/dev/null 2>&1; then pass=$((pass+1))
 else fail=$((fail+1)); echo "FAIL  install-claim — bash scripts/test-install-claim.sh"; fi
+
+# Migration of existing installs (Phase 6 PLAN §6): unedited copies of merged agents are retired with a
+# one-release stub, owner-edited copies are kept and reported, live and planned agents are untouched.
+if bash "$REPO_ROOT/scripts/test-retire-merged-agents.sh" >/dev/null 2>&1; then pass=$((pass+1))
+else fail=$((fail+1)); echo "FAIL  retire-merged-agents — bash scripts/test-retire-merged-agents.sh"; fi
 
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"
