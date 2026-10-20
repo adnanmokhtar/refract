@@ -8,8 +8,8 @@ Stdlib only. No network.
   python3 benchmarks/history.py append --fixture=vuln-fullstack --command=/security-audit \\
       --detected=12 --seeded=14 [--decoys=6 --decoys-flagged=1] --model=<exact id> \\
       [--model-version=…] [--date=YYYY-MM-DD] [--runs=1] [--findings=<file>] [--notes=…]
-  python3 benchmarks/history.py append-eval --from-eval-json=<aggregate-result.json | lanes doc> --pack=<pack> --model=<id> [--judge-model=<id>]
-  python3 benchmarks/history.py combine-lanes --pack=<pack> --ask=<json> [--stays=<json>] [--cmd=<json>] --out=<lanes doc>
+  python3 benchmarks/history.py append-eval --from-eval-json=<aggregate-result.json | lanes doc> --pack=<pack> --model=<id> [--judge-model=<id>] [--variant=bash]
+  python3 benchmarks/history.py combine-lanes --pack=<pack> --ask=<json> [--stays=<json>] [--cmd=<json>] --out=<lanes doc> [--variant=bash]
   python3 benchmarks/history.py limit-check --eval-json=<json> [--log=<file>]   # exit 3: a run hit a usage/rate limit
   python3 benchmarks/history.py render [--check]      # rewrite RESULTS.md's generated blocks (--check: exit 1 if stale)
   python3 benchmarks/history.py --self-test
@@ -45,6 +45,21 @@ ROW SCHEMA (refract/bench-run/v1) — one JSON object per line, append-only, nev
                   runs          runs per case (the --runs the lanes used)
                   errored_runs  runs that ended on an error (a usage / rate-limit error refuses the row)
   In a lanes row, cases · cases_passed · score · mean_delta cover the two-arm cases (hard + stays-out).
+  variant       absent (or null): the cases' own read-only tools (Read, Glob, Grep, Skill — no shell).
+                "bash": scripts/run-pack-evals.sh --bash — Bash granted to BOTH arms of every lane, under the
+                run's OS sandbox, so the pack's pre-flight rg and skills/<x>/scripts/ can run. A bash row is
+                compared with the latest no-Bash row of the same pack and model, never averaged with it;
+                RESULTS.md renders the two side by side in their own table.
+  shell         lanes rows only, read from each run's kept trace (null when no trace was readable):
+                  pack_runs       runs with the pack loaded and asked about the slice (ask WITH + cmd)
+                  script_runs     of those, runs where a Bash call executed a bundled
+                                  skills/<x>/scripts/<file>.{py,sh,awk,jq,ts,js} through an interpreter
+                                  (reading the script or its data files does not count, nor does a call
+                                  whose result is a missing-file / sandbox-denied error)
+                  preflight_runs  of those, runs where the pack's skill or command was loaded and an `rg`
+                                  ran through Bash (the skills' pre-flight greps)
+                  bash_runs_with · bash_runs_without   runs per arm (ask lane; cmd counts as with)
+                                  that executed any Bash command
 
 Nothing here estimates. A field that was not measured is null, never a guess. RESULTS.md's tables
 are GENERATED between `<!-- history:… -->` markers; edit history.jsonl through this script, never
@@ -130,6 +145,8 @@ def validate(row):
                 errs.append("plugin-eval row needs %s" % k)
     else:
         errs.append("kind must be detection or plugin-eval")
+    if row.get("variant") not in (None, "bash"):
+        errs.append("variant must be absent or \"bash\"")
     return errs
 
 
@@ -169,7 +186,7 @@ def detection_row(o, today):
             "unmatched": o.get("unmatched"), "findings_file": o.get("findings_file"), "notes": o.get("notes") or ""}
 
 
-def eval_row(doc, pack, model, judge, today, sha):
+def eval_row(doc, pack, model, judge, today, sha, variant=None):
     if doc.get("partial"):
         die("partial eval result (%s) refused — keep it out of the trend" % doc.get("partialReason"))
     for c in doc.get("cases", []):
@@ -181,7 +198,7 @@ def eval_row(doc, pack, model, judge, today, sha):
             "model_version": "unrecorded", "judge_model": judge, "git_sha": sha,
             "runs": None, "cases": ag.get("casesTotal"), "cases_passed": ag.get("casesPassed"),
             "score": ag.get("overallScore"), "mean_delta": ag.get("meanDelta"), "cost_usd": doc.get("costUsd"),
-            "claude_version": doc.get("claudeVersion"), "notes": ""}
+            "claude_version": doc.get("claudeVersion"), "notes": "", **({"variant": variant} if variant else {})}
 
 
 LANES = "refract/pack-lanes/v1"
@@ -229,7 +246,97 @@ def limit_state(doc, log_text=""):
     return hits, util
 
 
-def lanes_summary(lanes):
+SCRIPT_RE = re.compile(r"skills/[\w.-]+/scripts/[\w.-]+\.(?:py|sh|awk|jq|ts|js|mjs)\b")   # a bundled script, not its data
+RUNS_RE = re.compile(r"(^|[\s;&|(`])(python3?|bash|sh|node|tsx|deno)\s|\b(awk|jq)\s[^;|&]*-f\s")    # …and something ran it
+RG_RE = re.compile(r"(^|[\s;&|(`$])rg\s")
+NOT_RUN_RE = re.compile(r"No such file or directory|can't open file|Operation not permitted|Permission denied|"
+                        r"command not found|No such tool available", re.I)
+
+
+def _text(c):
+    if isinstance(c, list):
+        return "\n".join(_text(b.get("text") if isinstance(b, dict) and "text" in b else
+                               (b.get("content") if isinstance(b, dict) else b)) for b in c)
+    return "" if c is None else str(c)
+
+
+def pack_names(pack):
+    """The skill and command names templates/packs/<pack>/ ships (what a Skill call may name, bare or prefixed)."""
+    base = os.path.join(os.path.dirname(HERE), "templates", "packs", pack)
+    names = set()
+    if os.path.isdir(os.path.join(base, "skills")):
+        names |= set(os.listdir(os.path.join(base, "skills")))
+    if os.path.isdir(os.path.join(base, "commands")):
+        names |= {f[:-3] for f in os.listdir(os.path.join(base, "commands")) if f.endswith(".md")}
+    return names
+
+
+def trace_shell(path, pack, loaded=False, names=None):
+    """One run's trace -> {"bash", "script", "preflight", "loaded"} (booleans), or None when unreadable.
+    loaded: the pack's skill or command ran — a Skill call naming refract-<pack>:<x> or one of the pack's
+    skill / command names (the pack-fired graders accept both), or the command lane."""
+    if not path or not os.path.isfile(path):
+        return None
+    tag, uses, results = "refract-%s:" % pack, {}, {}
+    names = pack_names(pack) if names is None else names
+    try:
+        for line in open(path, encoding="utf-8", errors="replace"):
+            try:
+                o = json.loads(line)
+            except ValueError:
+                continue
+            content = (o.get("message") or {}).get("content")
+            if not isinstance(content, list):
+                continue
+            for b in content:
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "tool_use":
+                    uses[b.get("id")] = (b.get("name"), b.get("input") or {})
+                    sk = str((b.get("input") or {}).get("skill", ""))
+                    if b.get("name") == "Skill" and (sk.startswith(tag) or sk.split(":")[-1] in names):
+                        loaded = True
+                elif b.get("type") == "tool_result":
+                    results[b.get("tool_use_id")] = _text(b.get("content"))
+    except OSError:
+        return None
+    out = {"bash": False, "script": False, "preflight": False, "loaded": loaded}
+    for i, (name, inp) in uses.items():
+        if name != "Bash" or i not in results:
+            continue
+        cmd, res = str(inp.get("command", "")), results[i]
+        if "No such tool available" in res:
+            continue
+        out["bash"] = True
+        ran = not NOT_RUN_RE.search(res[:400])
+        if SCRIPT_RE.search(cmd) and RUNS_RE.search(cmd) and ran:
+            out["script"] = True
+        if RG_RE.search(cmd) and "command not found" not in res:
+            out["preflight"] = out["preflight"] or loaded
+    return out
+
+
+def shell_summary(lanes, pack):
+    """The `shell` block of a lanes summary (see the docstring); None when no run's trace was readable."""
+    s = {"pack_runs": 0, "script_runs": 0, "preflight_runs": 0, "bash_runs_with": 0, "bash_runs_without": 0}
+    seen, names = False, pack_names(pack)
+    for ln in ("ask", "cmd"):
+        for c, a, r in _runs(lanes.get(ln)):
+            if not re.match(r"(audit|spec|cmd)-", c.get("name", "")):
+                continue
+            t = trace_shell(r.get("tracePath"), pack, loaded=(ln == "cmd"), names=names)
+            if t is None:
+                continue
+            seen = True
+            s["bash_runs_%s" % ("without" if a == "without" else "with")] += t["bash"]
+            if a == "with":
+                s["pack_runs"] += 1
+                s["script_runs"] += t["script"]
+                s["preflight_runs"] += t["preflight"]
+    return s if seen else None
+
+
+def lanes_summary(lanes, pack=None):
     """The ask / command-lane figures of a lanes doc (see the docstring)."""
     ask, stays, cmd = lanes.get("ask"), lanes.get("stays"), lanes.get("cmd")
     s = {"ask_case": None, "ask_with": None, "ask_without": None, "ask_delta": None, "cmd_case": None,
@@ -249,13 +356,14 @@ def lanes_summary(lanes):
             s.update(cmd_case=c["name"], cmd_score=(c.get("aggregates") or {}).get("score"))
     if s["cmd_score"] is not None and s["ask_without"] is not None:
         s["cmd_delta"] = round(s["cmd_score"] - s["ask_without"], 4)
+    s["shell"] = shell_summary(lanes, pack) if pack else None
     return s
 
 
-def combine(pack, docs):
+def combine(pack, docs, variant=None):
     """{lane: aggregate-result doc} -> a lanes doc (refract/pack-lanes/v1) with its summary."""
     lanes = {k: v for k, v in docs.items() if v is not None}
-    out = {"schema": LANES, "pack": pack, "lanes": lanes, "summary": lanes_summary(lanes),
+    out = {"schema": LANES, "pack": pack, "variant": variant, "lanes": lanes, "summary": lanes_summary(lanes, pack),
            "costUsd": round(sum(d.get("costUsd") or 0 for d in lanes.values()), 6),
            "claudeVersion": next((d.get("claudeVersion") for d in lanes.values() if d.get("claudeVersion")), None),
            "partial": any(d.get("partial") for d in lanes.values()),
@@ -263,7 +371,7 @@ def combine(pack, docs):
     return out
 
 
-def lanes_row(doc, pack, model, judge, today, sha):
+def lanes_row(doc, pack, model, judge, today, sha, variant=None):
     if doc.get("partial"):
         die("partial lane result (%s) refused — keep it out of the trend" % doc.get("partialReason"))
     lanes = doc.get("lanes") or {}
@@ -279,7 +387,9 @@ def lanes_row(doc, pack, model, judge, today, sha):
                 die("lane %s case %s skipped paid graders — its score is not comparable; refused" % (k, c.get("name")))
             errored += 1 if r.get("error") else 0
     two = [c for k in ("ask", "stays") for c in (lanes.get(k) or {}).get("cases", [])]
-    s = lanes_summary(lanes)
+    s = lanes_summary(lanes, pack)
+    if s["shell"] is None:               # the traces are gone: keep what combine-lanes read while they existed
+        s["shell"] = (doc.get("summary") or {}).get("shell")
     row = {"schema": SCHEMA, "kind": "plugin-eval", "date": today, "pack": pack, "model": model,
            "model_version": "unrecorded", "judge_model": judge, "git_sha": sha,
            "cases": len(two), "cases_passed": sum(1 for c in two if (c.get("aggregates") or {}).get("passRate") == 1),
@@ -288,6 +398,9 @@ def lanes_row(doc, pack, model, judge, today, sha):
            "cost_usd": doc.get("costUsd"), "claude_version": doc.get("claudeVersion"), "errored_runs": errored,
            "notes": ""}
     row.update(s)
+    variant = variant or doc.get("variant")
+    if variant:
+        row["variant"] = variant
     return row
 
 
@@ -297,7 +410,8 @@ def pct(x):
 
 def tables(rows):
     det = [r for r in rows if r.get("kind") == "detection"]
-    ev = [r for r in rows if r.get("kind") == "plugin-eval"]
+    ev = [r for r in rows if r.get("kind") == "plugin-eval" and not r.get("variant")]
+    bash = [r for r in rows if r.get("kind") == "plugin-eval" and r.get("variant") == "bash"]
     T = ["| date | fixture | command | model | model version | sha | runs | detected | recall | severity-wtd | decoy precision | unmatched | notes |",
          "|------|---------|---------|-------|---------------|-----|------|----------|--------|--------------|-----------------|-----------|-------|"]
     for r in sorted(det, key=lambda r: (r["date"], r["fixture"])):
@@ -325,7 +439,30 @@ def tables(rows):
             "—" if r.get("cost_usd") is None else "$%.2f" % r["cost_usd"], r.get("notes") or "—"))
     if not ev:
         E.append("| — | — | — | — | — | — | — | — | — | — | — | — | — | — | *no eval run recorded* |")
-    return "\n".join(T), "\n".join(E)
+    B = ["| date | pack | model | judge | sha | ask with / without | ask Δ | cmd score | cmd Δ | no-Bash cmd Δ "
+         "| skill fired | pack scripts ran | pre-flight rg | Bash used with / without | cost |",
+         "|------|------|-------|-------|-----|--------------------|-------|-----------|-------|---------------"
+         "|-------------|------------------|---------------|--------------------------|------|"]
+
+    def no_bash(r):                      # the latest no-Bash lanes row of the same pack and model
+        prev = [x for x in ev if x["pack"] == r["pack"] and x["model"] == r["model"] and x.get("cmd_delta") is not None
+                and x["date"] <= r["date"]]
+        return max(prev, key=lambda x: x["date"])["cmd_delta"] if prev else None
+
+    def frac(sh, k, of):
+        return "—" if not sh else "%s/%s" % (sh.get(k), sh.get(of))
+    for r in sorted(bash, key=lambda r: (r["date"], r["pack"])):
+        sh = r.get("shell") or {}
+        B.append("| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |" % (
+            r["date"], r["pack"], r["model"], r.get("judge_model") or "—", (r.get("git_sha") or "—")[:12],
+            "—" if r.get("ask_with") is None else "%s / %s" % (f2(r["ask_with"]), f2(r.get("ask_without"))),
+            f2(r.get("ask_delta"), True), f2(r.get("cmd_score")), f2(r.get("cmd_delta"), True), f2(no_bash(r), True),
+            pct(r.get("skill_fired")), frac(sh, "script_runs", "pack_runs"), frac(sh, "preflight_runs", "pack_runs"),
+            "—" if not sh else "%s / %s" % (sh.get("bash_runs_with"), sh.get("bash_runs_without")),
+            "—" if r.get("cost_usd") is None else "$%.2f" % r["cost_usd"]))
+    if not bash:
+        B.append("| — | — | — | — | — | — | — | — | — | — | — | — | — | — | *no Bash run recorded* |")
+    return "\n".join(T), "\n".join(E), "\n".join(B)
 
 
 def replace_block(text, name, body):
@@ -341,11 +478,12 @@ def render(results=RESULTS, history=HISTORY, check=False):
         errs = validate(r)
         if errs:
             die("%s row %d invalid: %s" % (history, i, "; ".join(errs)))
-    det, ev = tables(rows)
+    det, ev, bash = tables(rows)
     old = open(results, encoding="utf-8").read()
     new = replace_block(old, "banner", EMPTY_BANNER if not rows else ROWS_BANNER)
     new = replace_block(new, "detection", det)
     new = replace_block(new, "eval", ev)
+    new = replace_block(new, "eval-bash", bash)
     if check:
         if new != old:
             print("history: RESULTS.md is stale against history.jsonl — run python3 benchmarks/history.py render",
@@ -381,7 +519,8 @@ def self_test():
         with open(res, "w") as fh:
             fh.write("# R\n<!-- history:banner:begin -->\nx\n<!-- history:banner:end -->\n\n"
                      "<!-- history:detection:begin -->\nx\n<!-- history:detection:end -->\n"
-                     "<!-- history:eval:begin -->\nx\n<!-- history:eval:end -->\n")
+                     "<!-- history:eval:begin -->\nx\n<!-- history:eval:end -->\n"
+                     "<!-- history:eval-bash:begin -->\nx\n<!-- history:eval-bash:end -->\n")
         out = io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
             render(res, hist)
@@ -429,6 +568,47 @@ def self_test():
             if got != want:
                 fails.append("lanes-row-fields (got %s)" % got)
             append(lr, hist)
+
+            def trace(name, *calls):   # calls: (tool, input, result text)
+                tp = os.path.join(tmp, name + ".jsonl")
+                with open(tp, "w") as fh:
+                    for n, (tool, inp, res) in enumerate(calls):
+                        fh.write(json.dumps({"type": "assistant", "message": {"content": [
+                            {"type": "tool_use", "id": "t%d" % n, "name": tool, "input": inp}]}}) + "\n")
+                        fh.write(json.dumps({"type": "user", "message": {"content": [
+                            {"type": "tool_result", "tool_use_id": "t%d" % n, "content": res}]}}) + "\n")
+                return tp
+            ran = trace("ran", ("Skill", {"skill": "refract-finops:cost-scan"}, "loaded"),
+                        ("Bash", {"command": "python3 /tmp/s/skills/cost-scan/scripts/cost-sites.py ."}, "12 rows"),
+                        ("Bash", {"command": "rg -n 'x' ."}, "a.ts:1:x"))
+            denied = trace("denied", ("Bash", {"command": "python3 /h/skills/cost-scan/scripts/cost-sites.py ."},
+                                      "python3: can't open file '/h/skills/cost-scan/scripts/cost-sites.py'"))
+            bare = trace("bare", ("Bash", {"command": "rg -n 'x' ."}, "a.ts:1:x"),
+                         ("Bash", {"command": "head -5 /s/skills/cost-scan/scripts/rates.tsv; cat /s/skills/cost-scan/scripts/c.py"}, "x"))
+            if trace_shell(bare, "finops")["script"]:
+                fails.append("trace-shell-does-not-count-reading-a-script-or-its-data")
+            if trace_shell(ran, "finops") != {"bash": True, "script": True, "preflight": True, "loaded": True}:
+                fails.append("trace-shell-sees-a-script-and-a-preflight-rg (got %s)" % trace_shell(ran, "finops"))
+            bare_name = trace("bare-name", ("Skill", {"skill": "cost-scan"}, "loaded"), ("Bash", {"command": "rg -n x ."}, "a:1"))
+            if not trace_shell(bare_name, "finops", names={"cost-scan"})["preflight"]:
+                fails.append("trace-shell-reads-an-unprefixed-pack-skill-as-loaded")
+            if trace_shell(denied, "finops")["script"] or trace_shell(bare, "finops")["preflight"]:
+                fails.append("trace-shell-skips-a-denied-script-and-an-rg-without-the-pack")
+            bask = dict(ask, cases=[dict(ask["cases"][0], arms={
+                "with": [dict(r0, tracePath=ran) for r0 in ask["cases"][0]["arms"]["with"]][:1] +
+                        [dict(ask["cases"][0]["arms"]["with"][1], tracePath=denied)],
+                "without": [dict(ask["cases"][0]["arms"]["without"][0], tracePath=bare)]})])
+            bl = combine("finops", {"ask": bask, "stays": stays, "cmd": cmdd}, "bash")
+            br = lanes_row(bl, "finops", "m", "j", "2026-10-20", "s")
+            if br.get("variant") != "bash" or br.get("shell") != {"pack_runs": 2, "script_runs": 1, "preflight_runs": 1,
+                                                                   "bash_runs_with": 2, "bash_runs_without": 1}:
+                fails.append("bash-lanes-row-variant-and-shell (got %s %s)" % (br.get("variant"), br.get("shell")))
+            append(br, hist)
+            try:
+                append(dict(br, variant="zsh"), hist)
+                fails.append("unknown-variant-refused")
+            except SystemExit:
+                pass
             try:
                 lanes_row(combine("finops", {"ask": dict(ask, partial=True, partialReason="cost_ceiling")}),
                           "finops", "m", "j", "2026-10-19", "s")
@@ -453,6 +633,11 @@ def self_test():
                 fails.append("detection-row-rendered")
             if "| security | m | j | s | 2/3 | 0.90 | +0.40 | — | — | — | — | — | $1.50 |" not in body:
                 fails.append("eval-row-rendered")
+            if "| 2026-10-20 | finops | m | j | s | 0.60 / 0.50 | +0.10 | 0.80 | +0.30 | +0.30 | 50% | 1/2 | 1/2 | 2 / 1 | $1.60 |" \
+                    not in body:
+                fails.append("bash-row-rendered-beside-the-no-bash-cmd-delta")
+            if body.count("| finops | m | j | s |") != 2:   # the no-Bash table holds the no-Bash row only
+                fails.append("bash-row-kept-out-of-the-no-bash-table")
             if "NO RUN HAS BEEN RECORDED YET" in body:
                 fails.append("banner-flips-once-rows-exist")
             m = os.stat(res).st_mtime_ns
@@ -506,8 +691,11 @@ def main(argv):
         if not opts.get("from-eval-json") or not opts.get("pack"):
             die("append-eval needs --from-eval-json=<aggregate-result.json> and --pack=<pack>")
         doc = json.load(open(opts["from-eval-json"], encoding="utf-8"))
+        if opts.get("variant") not in (None, "", "bash"):
+            die("--variant must be bash (or omitted)")
         build = lanes_row if doc.get("schema") == LANES else eval_row
-        append(build(doc, opts["pack"], opts.get("model"), opts.get("judge-model"), today, opts.get("sha") or git_sha()))
+        append(build(doc, opts["pack"], opts.get("model"), opts.get("judge-model"), today, opts.get("sha") or git_sha(),
+                     opts.get("variant") or None))
         return render()
     if cmd == "combine-lanes":
         if not opts.get("pack") or not opts.get("ask") or not opts.get("out"):
@@ -518,7 +706,7 @@ def main(argv):
             docs[k] = json.load(open(f, encoding="utf-8")) if f and os.path.isfile(f) and os.path.getsize(f) else None
         if docs["ask"] is None:
             die("combine-lanes: no ask result at %s" % opts["ask"])
-        out = combine(opts["pack"], docs)
+        out = combine(opts["pack"], docs, opts.get("variant") or None)
         with open(opts["out"], "w", encoding="utf-8") as fh:
             json.dump(out, fh, indent=1)
         print(json.dumps(dict(out["summary"], cost_usd=out["costUsd"], partial=out["partial"],

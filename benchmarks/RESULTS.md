@@ -137,6 +137,41 @@ pack in which one of its skills or commands ran. Seed and decoy graders follow `
 | 2026-10-20 | ui-ux | claude-sonnet-5-5 | claude-haiku-5-5 | 538ed41e97d9 | 1/2 | 0.68 | -0.09 | 0.36 / 0.55 | -0.18 | 0.55 | +0.00 | 0% | $1.12 | — |
 <!-- history:eval:end -->
 
+### With Bash granted (`run-pack-evals.sh --bash`)
+
+The same three lanes with Bash granted to **both** arms (`allowed_tools` + `--allow-tools Bash` on the staged
+copy only), so a pack's runnable detectors — the skills' pre-flight `rg` and the stdlib scripts under
+`skills/<x>/scripts/` — can run under the run's OS sandbox. Rows carry `variant: "bash"` and never mix with the
+table above. **no-Bash cmd Δ** is the latest row above for the same pack and model. **pack scripts ran** —
+pack-loaded runs (ask with + cmd) in which a bundled `skills/<x>/scripts/<file>` executed, over all of them;
+**pre-flight rg** — of the same runs, those that loaded the pack's skill or command and ran `rg` through Bash;
+**Bash used** — runs that executed any Bash command, with the pack / without it (read from each run's trace).
+
+<!-- history:eval-bash:begin -->
+| date | pack | model | judge | sha | ask with / without | ask Δ | cmd score | cmd Δ | no-Bash cmd Δ | skill fired | pack scripts ran | pre-flight rg | Bash used with / without | cost |
+|------|------|-------|-------|-----|--------------------|-------|-----------|-------|---------------|-------------|------------------|---------------|--------------------------|------|
+| 2026-10-20 | ai-engineering | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.62 / 0.54 | +0.08 | 0.67 | +0.12 | +0.12 | 50% | 2/4 | 0/4 | 4 / 2 | $2.80 |
+| 2026-10-20 | algorithms | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.96 / 0.96 | +0.00 | 0.83 | -0.12 | -0.21 | 0% | 0/4 | 0/4 | 4 / 2 | $1.24 |
+| 2026-10-20 | align | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.82 / 0.82 | +0.00 | 0.77 | -0.05 | +0.05 | 0% | 0/4 | 1/4 | 4 / 2 | $1.37 |
+| 2026-10-20 | backend | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.89 / 0.72 | +0.17 | 0.72 | +0.00 | +0.11 | 0% | 0/4 | 0/4 | 4 / 2 | $2.31 |
+| 2026-10-20 | business | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.62 / 0.50 | +0.12 | 0.81 | +0.31 | +0.12 | 0% | 0/4 | 1/4 | 3 / 2 | $1.93 |
+| 2026-10-20 | code-quality | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.67 / 0.60 | +0.07 | 0.63 | +0.03 | +0.03 | 0% | 0/4 | 0/4 | 4 / 2 | $1.38 |
+| 2026-10-20 | data-engineering | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.75 / 0.79 | -0.04 | 0.79 | +0.00 | +0.11 | 0% | 0/4 | 0/4 | 4 / 2 | $2.17 |
+| 2026-10-20 | delivery | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.79 / 0.79 | +0.00 | 0.93 | +0.14 | +0.07 | 0% | 0/4 | 0/4 | 4 / 2 | $1.10 |
+| 2026-10-20 | devops | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.88 / 0.92 | -0.04 | 0.88 | -0.04 | +0.00 | 0% | 0/4 | 0/4 | 4 / 2 | $1.86 |
+| 2026-10-20 | distributed-systems | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.80 / 0.85 | -0.05 | 0.65 | -0.20 | -0.10 | 0% | 0/4 | 0/4 | 4 / 2 | $1.78 |
+| 2026-10-20 | documentation | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 1.00 / 0.96 | +0.04 | 0.79 | -0.17 | -0.04 | 0% | 1/4 | 0/4 | 4 / 2 | $1.40 |
+| 2026-10-20 | finops | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.64 / 0.55 | +0.09 | 0.55 | +0.00 | +0.00 | 100% | 0/4 | 0/4 | 4 / 2 | $1.04 |
+| 2026-10-20 | frontend | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.44 / 0.44 | +0.00 | 0.50 | +0.06 | +0.00 | 0% | 0/4 | 0/4 | 4 / 2 | $1.38 |
+| 2026-10-20 | infrastructure | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.88 / 0.96 | -0.08 | 0.83 | -0.12 | -0.08 | 0% | 0/4 | 0/4 | 4 / 2 | $1.41 |
+| 2026-10-20 | learning | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.89 / 0.67 | +0.22 | 0.72 | +0.06 | +0.06 | 0% | 0/4 | 0/4 | 4 / 2 | $1.35 |
+| 2026-10-20 | migration | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.90 / 0.85 | +0.05 | 0.80 | -0.05 | +0.15 | 0% | 0/4 | 0/4 | 4 / 2 | $1.85 |
+| 2026-10-20 | mobile | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.88 / 0.88 | +0.00 | 0.96 | +0.08 | +0.15 | 0% | 0/4 | 0/4 | 4 / 2 | $1.77 |
+| 2026-10-20 | observability | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.67 / 0.44 | +0.22 | 0.72 | +0.28 | -0.17 | 0% | 0/4 | 0/4 | 4 / 2 | $1.33 |
+| 2026-10-20 | performance | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.85 / 0.85 | +0.00 | 0.75 | -0.10 | -0.05 | 50% | 0/4 | 0/4 | 4 / 2 | $2.08 |
+| 2026-10-20 | product | claude-sonnet-5-5 | claude-haiku-5-5 | 58bbb8437cdd | 0.67 / 0.62 | +0.04 | 0.67 | +0.04 | -0.04 | 50% | 1/4 | 0/4 | 4 / 2 | $1.43 |
+<!-- history:eval-bash:end -->
+
 ### Rules for this table
 
 - **Never write an estimate.** No projected, expected, or illustrative rows. If it was not
