@@ -61,14 +61,14 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 
 - **Scope.** `git diff --name-only "origin/${BASE:-main}"...HEAD`. No diff means a whole-repo run: say so first, it reads every call site.
 - **The run folder.** `RUN="$(mktemp -d "${TMPDIR:-/tmp}/ai-audit.XXXXXX")"`, outside the repo. Every detector is handed the same `RUN`, so the inventory is built once.
-- **The security pack.** Installed when `.claude/skills/llm-trust-scan/SKILL.md` exists. A same-day `ai/audits/<date>-security.md` that carries the two LLM class rows is consumed instead of re-running them.
+- **The security pack.** Installed when the Skill tool lists `llm-trust-scan` (bare or `<plugin>:llm-trust-scan`) or `.claude/skills/llm-trust-scan/SKILL.md` exists ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md) rule 1). A same-day `ai/audits/<date>-security.md` that carries the two LLM class rows is consumed instead of re-running them.
 
 ## Phase 2 — Organize
 
 ### The inventory (always first)
 
 ```bash
-RUN="${RUN:-$(mktemp -d "${TMPDIR:-/tmp}/ai-audit.XXXXXX")}"; LS=.claude/skills/llm-gateway-audit/scripts/llm-sites.py
+RUN="${RUN:-$(mktemp -d "${TMPDIR:-/tmp}/ai-audit.XXXXXX")}"; LS="${LS:-.claude/skills/llm-gateway-audit/scripts/llm-sites.py}"   # plugin install: <llm-gateway-audit base directory>/scripts/llm-sites.py
 python3 -I -B "$LS" . --out="$RUN/inv" --models --evals > "$RUN/inv.txt"; echo "llm-sites exit $? (2 = blocked: every class blocked, stop)"; grep '^#' "$RUN/inv.txt"
 awk -F'\t' 'NR>1 {k[$3]++} END {for (x in k) printf "%s=%d ", x, k[x]; print ""}' "$RUN/inv/sites.tsv"   # call / client / prompt / import / config
 cut -f1 "$RUN/inv/versions.tsv" | sort -u | tr '\n' ' '; echo   # the SDK and framework versions every detector grades against
@@ -91,6 +91,8 @@ cut -f1 "$RUN/inv/versions.tsv" | sort -u | tr '\n' ' '; echo   # the SDK and fr
 | `@rag-architect` | a corpus with no retrieval design (an ingestion path, no stated target, no labelled set) | `retrieval-eval` §1 printed a finding |
 
 **Run each skill once, in parallel**, as sub-agents (`Task`) that write their raw output and `report.txt` under `$RUN/<skill>/` and hand back a short summary; the lead reads the file. **Dedupe by `<file:line>`:** one finding per site, credited to the owner in the class ledger, with the other detector listed as corroboration. A triggered detector that did not run is a `not run` ledger row.
+
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
 
 ### Trust lane — routed to security (when the security pack is installed)
 
@@ -126,7 +128,7 @@ From the inventory, write a one-page map the detectors share: every **call site*
 
 Follow [`refute-before-report.md`](../../../snippets/refute-before-report.md) with [`precedents/ai-engineering.md`](../../../snippets/precedents/ai-engineering.md) (its seven gates read for AI: reachability, trigger, version, existing control, impact, proof, environment) and the oracle from [`proof-oracles.md`](../../../snippets/proof-oracles.md) § AI engineering (V510–V539).
 - **The judge is `@ai-feature-reviewer` in refute mode**: it gets the candidate, its anchors and those files, not the detector's reasoning, restates the claim in the precedents' shape (the call site, the condition, the missing control, the cost, the V-number and the dated fact), runs the gates and scores 1–10. **Each kept BLOCKER or HIGH also goes once to `@verifier` in refute mode.** A detector row marked `self-verified` is verified again here. MEDIUM and LOW candidates may share one batch.
-- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: which V-oracle on which stub, which lockfile line, which provider page) · **Hardening** (matches a precedent, or no money, outage, wrong-answer or unmeasured-change impact) · **Pre-existing** (diff runs only) · **Refuted** (one line, the gate and the reason). Nothing is dropped. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: which V-oracle on which stub, which lockfile line, which provider page) · **Hardening** (matches a precedent, or no money, outage, wrong-answer or unmeasured-change impact) · **Pre-existing** (diff runs only) · **Refuted** (one line, the gate and the reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
 - **Siblings** (`refute-before-report.md § 6`): one root cause at N sites is one finding with N `<file:line>` (one client on SDK-default budgets, one meter that debits before the call, one parser that ignores the stop reason).
 - **A product decision is not a finding to fix.** Whether a failed or refused turn is charged, which fallback model is acceptable, the eval threshold: the row names the decision and stays `[report-flagged]`.
 - **Every Finding carries:** `<file:line>` (from `sites.tsv` where it is a call), the owning detector and §, the class id, severity, the restated claim, the proof (a failing scripted-model test, a tool exit, or a two-ended static fact, labelled), the dated fact it rests on, the fix and its **closure verb**, and its V-number. `/add-ai-feature --from-audit` turns that V-number into the failing-first test.
@@ -215,6 +217,7 @@ Verbs whose class security grades (`split-system-user`, `add-tool-gate`, `add-hu
 - The same bar `UNVERIFIED` twice is itself the top finding of the second audit.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 
 ```
 ## /ai-audit — verdict GO-UNVERIFIED (3)     scope=whole repo   llm-sites exit 0

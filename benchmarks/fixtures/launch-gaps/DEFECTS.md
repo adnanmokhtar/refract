@@ -408,7 +408,7 @@ bucket:   report-with-fix
 detector: tracking-plan-scan §1
 anchor:   trackEvent('Coupon Applied'
 match:    Coupon Applied
-match:    unplanned|not in the (tracking )?plan|missing from the plan|absent from the plan|plan (lacks|does not list)|does not list|not listed|undeclared|not planned|no such event
+match:    unplanned|(?:not|n.t) in the (tracking )?plan|missing from the plan|absent from the plan|plan (lacks|does(?: not|n.t) list)|does(?: not|n.t) list|(?:not|n.t) listed|undeclared|(?:not|n.t) planned|no such event
 ```
 
 `ai/product/tracking-plan.yaml` (14 events) has no coupon event, so the plan's owner cannot see or chart it.
@@ -427,7 +427,7 @@ bucket:   report-with-fix
 detector: tracking-plan-scan §1
 anchor:   event: 'Inventory Synced'
 match:    Inventory Synced
-match:    unplanned|not in the (tracking )?plan|missing from the plan|absent from the plan|plan (lacks|does not list)|does not list|not listed|undeclared|not planned|no such event
+match:    unplanned|(?:not|n.t) in the (tracking )?plan|missing from the plan|absent from the plan|plan (lacks|does(?: not|n.t) list)|does(?: not|n.t) list|(?:not|n.t) listed|undeclared|(?:not|n.t) planned|no such event
 ```
 
 posthog-node object form in the API; the plan lists no such event. (The script also prints it as AN7 `bypasses-wrapper`; a server leg cannot use the React wrapper, so that row is read and dropped.)
@@ -465,7 +465,7 @@ bucket:   report-with-fix
 detector: tracking-plan-scan §2
 anchor:   Report Exported:
 match:    Report Exported
-match:    never fired|no call site|not (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|without the event
+match:    never fired|no call site|(?:not|n.t) (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|without the event
 ```
 
 No call site in web or API (the export endpoint is a 501 stub, LG-FS4-b).

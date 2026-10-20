@@ -31,7 +31,7 @@ population. Every unit lands in exactly one column:
 that is the report's honesty check: `reviewed 78 · N/A 31 (each with a reason) · live-unreviewed 23
 · blocked 0 = 132`.
 
-## Four rules, each written after a specific failure
+## Five rules, each written after a specific failure
 
 1. **A unit may never be silently absent.** Absent means the resolution step has a bug, and the run
    says so rather than shrinking its own denominator.
@@ -42,6 +42,13 @@ that is the report's honesty check: `reviewed 78 · N/A 31 (each with a reason) 
    into the first is how a coverage gap disguises itself as a scoping decision.
 4. **`Blocked` is its own column.** A unit that could not be examined is neither clean nor out of
    scope — it is unexamined, and averaging it into either is the failure above.
+5. **A ledger row names a class and a reason, never an example site.** A `N/A`, `Live,
+   unreviewed` or `Blocked` row says which class and why; an example `path:line` belongs to a
+   finding, and in a ledger it reads as one. When the request asks for real problems only ("leave
+   out code that only looks risky"), the chat carries the arithmetic line and those reasons, and
+   clean `Reviewed` units and verified controls as counts only, with no `path:line`
+   ([`refute-before-report.md`](refute-before-report.md) § 5, request-aware buckets). The full
+   ledger goes to the report file when one is written.
 
 ## What this is not
 

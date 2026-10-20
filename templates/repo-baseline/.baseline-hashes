@@ -276,8 +276,10 @@
 .claude/templates/snippets/ci-platform-semantics.md  9ac68c13a0edf3fdc323803b4cfc50db10e721f6f27aa4db4620b489f060fe7d
 .claude/templates/snippets/closure-verbs.md  2baf51a794db5001f8f3243b81b1bd394cd8b6171319bc4c21bb7ef74f43066e
 .claude/templates/snippets/contract-block.md  f1fb9a6e908d5b2083c0d6bbc04f7c7cc470286eba96a2fd8db1a5f3054e3224
+.claude/templates/snippets/coverage-ledger.md  a50cd09fc82ff2dd9ccbe89be52758a4d7c69d09087fdafe2779a5beccf089dd
 .claude/templates/snippets/coverage-ledger.md  b62d2987efc66be94cff5e87782875bbec829817ffd8c453fede5b4116885238
 .claude/templates/snippets/delegation-brief.md  168cd3804186619651b44bc136886ddcce85497da14a97f58b18fc41703503d4
+.claude/templates/snippets/detector-dispatch.md  0fd6e6a0186db8569bd521126effe88f202f359dcdf9debd26a4a496e7da93c2
 .claude/templates/snippets/exploit-payloads.md  0c8c9e230614f10e89862518bbabe1a476e3c7f6f021b118cff28cc454a7fab6
 .claude/templates/snippets/exploit-payloads.md  54b12c05984a67dac4315a57c12bfa09dc510781512d5a14d86fdcd556c24ed2
 .claude/templates/snippets/exploit-payloads.md  632ddf2b034dccaec70f01fce985fa7d535f790aaa898620ad16de1da98c9cb7
@@ -372,7 +374,9 @@
 .claude/templates/snippets/refute-before-report.md  ab76267c28ccaa14ec23f264a67936301570828c7967581514544e6ace16f3ec
 .claude/templates/snippets/refute-before-report.md  c211cd767611bdcd6628b8fd5b6e24711e292276df3c1c7deae0e0a144251bee
 .claude/templates/snippets/refute-before-report.md  c6c1ac48d9d71f9a92d3288a4cb246c3a65002246ed4e19a17cec24587bff770
+.claude/templates/snippets/refute-before-report.md  cc7683ae5d27663c2ce7ec6d50675e402f08cb6edc15b43a087a507b9f9bd859
 .claude/templates/snippets/refute-before-report.md  d0ca8e52da959e074c707b68b0e95253eba23227f7a8734069f21a802c63139f
+.claude/templates/snippets/review-action-plan.md  6fa843d4d60b5851b6b964b8a572e9b98fff1a04ea6684a889238620b1b3b9cc
 .claude/templates/snippets/review-action-plan.md  891031ba64b6ebd6489db51c104f66e8698d9910c045d592d2001904f9fdf67b
 .claude/templates/snippets/run-ledger.md  090d28c25ab2e205515ac6d5c38b7f538fd14daf0a1044bd251b4b1628880061
 .claude/templates/snippets/run-ledger.md  25386ae3ca52163ae58d780fa47d920fcc28a9b3cba26d71d02eff2b797e1946

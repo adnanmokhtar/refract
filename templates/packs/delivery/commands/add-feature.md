@@ -79,7 +79,9 @@ input paths, the mode or lens, the return shape — never your narrative, never 
 2. **Lanes.** `--lane=` when given (a stack pack's `/add-feature.<stack>` passes it); otherwise from
    the ask's nouns and `.claude/codebase-profile.md` (UI noun → frontend; screen on a device →
    mobile; endpoint, job, table → backend; both sides of a button that calls an API → both). Read
-   `.claude/skills/lane-<lane>/SKILL.md` for each lane; a lane whose skill is absent is reported, not improvised.
+   `.claude/skills/lane-<lane>/SKILL.md` for each lane, or load `lane-<lane>` with the Skill tool in a plugin install; a
+   lane is absent only when neither finds it ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md) rule 1) —
+   reported, not improvised. Every detector or script a lane names runs from its skill's base directory (rule 3).
 3. **Tier — before any code.**
    `python3 .claude/scripts/risk-tier.py --request="<the ask verbatim>" --json` (a spec:
    `--request-file=<spec>`). Record the tier and every reason. `--tier=T<n>` higher than computed is
@@ -235,7 +237,7 @@ per new primitive or dependency. Then:
 --only=G0,G1,G2`; `python3 .claude/scripts/trace-matrix.py <run-id> --phase=build`. At T2/T3
 `@test-engineer` adds the E2E and property tests `test-plan.md` names (outside the lock), and
 `@test-reviewer` *(testing pack)* reviews test strength (lens `test`). Mutation per `THR-MUTATION`
-(T2 core paths, T3 all changed code) when the testing pack's `mutation-probe` is installed;
+(T2 core paths, T3 all changed code) when the testing pack's `mutation-probe` is installed (rule 1 above);
 otherwise `mutation: not measured`.
 
 ## P8–P11 — Reviews: ONE parallel fan-out of read-only lenses

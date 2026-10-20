@@ -40,6 +40,34 @@ Then:
 5. **No new advice.** The action plan is a re-ordering of findings that already passed the command's `cite-or-drop` / cite-or-halt discipline — never a place to add un-cited suggestions.
 6. **When a finding is better handed to another command** (e.g. a deferred refactor batch), the step IS a paste-ready slash command per [`actionable-next-steps.md`](actionable-next-steps.md) — the two contracts compose (fix-list for the by-hand work, follow-up commands for the rest).
 
+## Chat findings shape
+
+When the findings are printed in chat (no report file could be written, or the user asked for them
+in chat), each finding is **one line** that opens with its own `path:line`:
+
+```markdown
+1. src/billing/invoice.service.ts:42 — <class> · <mechanism: the symbol or value at fault, what goes wrong, and when>.
+   Fix: <concrete fix>.
+   Verify: <the test or command that proves it>.
+```
+
+1. **The line opens with the finding's own site.** A list marker, bold or a severity word may come
+   first; nothing else does. The site is the line that is wrong (the handler, the faulty branch, the
+   rule line), not the file that loads, calls or configures it, and not the function's first line.
+2. **Class and mechanism go on that same line.** Say what goes wrong and when. Never print a headline
+   on one line and the mechanism on a *What goes wrong* bullet under it.
+3. **Evidence from other files never opens a line.** Put it on the finding's line or after it,
+   mid-sentence: "the schema declares it at `config/schema.ts:7`", not "`config/schema.ts:7` declares
+   it". A line that opens with a path is a new finding to its reader. The same goes for a bare member
+   expression such as `order.total`: start the line with words.
+4. **One finding per root cause per site.** Merge sibling sites into one finding with N locations
+   (`refute-before-report.md` § 6) only when the root cause **and** the fix are the same. Two health
+   checks that fail for different reasons (a missing binary, a wrong port) are two findings, each
+   opening with its own `path:line`.
+5. **`Fix:` and `Verify:` are indented continuation lines,** as in the required shape above.
+
+The report file keeps the shape its command's Output format defines; this section governs chat.
+
 ## Why this is separate from `actionable-next-steps.md`
 
 - `actionable-next-steps.md` → for commands that **fix most things and defer the rest**; its section lists **follow-up slash commands** for the leftovers (`/refactor src/... --focus=...`).

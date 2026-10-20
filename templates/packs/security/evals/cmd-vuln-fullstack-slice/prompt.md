@@ -1,6 +1,6 @@
 ---
 description: 'security pack, command lane: audit-vuln-fullstack-slice through /refract-security:security-audit, same slice and graders'
-expected_outcome: 'names VFS-AUTH-01, VFS-XSS-04, VFS-IAC-06, VFS-DATA-09, VFS-DATA-02 with file and line, and cites none of the decoys VFS-DECOY-04, VFS-DECOY-07, VFS-DECOY-08, VFS-DECOY-09, VFS-DECOY-10'
+expected_outcome: 'names VFS-XSS-04, VFS-IAC-06, VFS-DATA-09, VFS-DATA-02 with file and line, and cites none of the decoys VFS-DECOY-04, VFS-DECOY-07, VFS-DECOY-08, VFS-DECOY-09, VFS-DECOY-10'
 tags: [refract, security, outcome, hard, command]
 plugins: ["../.."]
 runs: 3

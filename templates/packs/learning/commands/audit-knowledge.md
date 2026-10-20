@@ -79,7 +79,9 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 ## Phase 2 — Organize
 
 ### Detectors — all five on a whole repo, by signal on a diff
-Run them once, each through its own pre-flight (the `Skill` tool), with the `KS` and `RUN` the K-lines printed, so every scratch file lands in one directory. Each writes its own coverage block; this command never re-greps a class a detector owns. A detector not on disk (an install made before it shipped) prints `not run (detector absent)` when its surface exists.
+Run them once, each through its own pre-flight (the `Skill` tool), with the `KS` and `RUN` the K-lines printed, so every scratch file lands in one directory. Each writes its own coverage block; this command never re-greps a class a detector owns. A detector that is not installed (an install made before it shipped) prints `not run (detector absent)` when its surface exists.
+
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`. In a plugin install `KS` is the parent of the detector's base directory.
 
 | Detector | Owns (§ = its own numbering) | Diff signal |
 |---|---|---|
@@ -155,7 +157,7 @@ HEAD_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo no-git); echo "K6 HEAD
 for o in .claude/_extracted-codebase.md .claude/_extracted-idioms.md .claude/codebase-profile.md; do
   [ -f "$o" ] && echo "K6 $o census: $(rg -o -m1 -i --pcre2 '(?:census|coverage)[^\n]*?\b[0-9a-f]{7,40}\b' "$o" || echo none) · $(rg -q '^approved_hash:' "$o" && echo stamped || echo 'no stamp')" || echo "K6 $o absent"
 done
-echo '# K7 detectors, judges and owners installed (each "when installed" row)'
+echo '# K7 detectors, judges and owners copied (absent here is not "not installed": a Skill-tool listing counts, detector-dispatch.md rule 1)'
 for p in "$KS"/{knowledge-ref-scan,knowledge-fact-scan,memory-hygiene-scan,decision-record-scan,context-load-scan}/SKILL.md \
   .claude/skills/{convention-oracle,doc-drift-scan,secret-scan,sast-scan}/SKILL.md .claude/agents/{knowledge-curator,verifier}.md .claude/commands/setup-project-health.md; do
   [ -e "$p" ] && echo "installed: $p" || echo "absent: $p"; done | awk '{ print } /^absent/ { a++ } END { print "K7 absent: " a + 0 " of " NR }'
@@ -189,7 +191,7 @@ Follow `refute-before-report.md` with `precedents/learning.md`. The claim is res
 
 **The judge.** `@knowledge-curator` in mode `judge` receives every detector row with the K-lines, the engine ledgers and the coverage blocks. It refutes and **grades** them with each detector's severity table, and under this command it writes nothing. **Every HIGH it keeps goes to `@verifier` mode `refute` exactly once**, dispatched with a [delegation brief](../../../snippets/delegation-brief.md) under `ai/runs/<YYYYMMDD>-knowledge-audit-<4hex>/` and recorded in `verdict-refute.json`; else a `Task` refuter. The refuter gets the candidate, both ends and the precedents, never the detector's or the judge's reasoning. MEDIUM and LOW may share one batch refuter. Judge-only pairs (§2, §3, §6 of `memory-hygiene-scan`) go to a second reader with both quotes. Without the curator installed, `@verifier` grades every row and lists it `graded (judge not installed)`.
 
-- **Buckets** (`refute-before-report.md § 5`): **Finding** · **Unconfirmed** (the gate and the settling probe) · **Hardening** (a precedent) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted · <r> routed`.
+- **Buckets** (`refute-before-report.md § 5`): **Finding** · **Unconfirmed** (the gate and the settling probe) · **Hardening** (a precedent) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted · <r> routed`.
 - **Siblings** (`refute-before-report.md § 6`): state the root cause at the generator or the source ("the anchors were never regenerated after the profile changed: 177 sites"; "`/promote-decision` hard-codes `ai/decisions/`"), never per copy.
 - **Every Finding carries:**
   - the knowledge `<file:line>` and whether it loads every session;
@@ -290,6 +292,7 @@ On a re-audit after `/refresh-knowledge --from-audit`, re-run the owning engine 
   - `knowledge-refs.py` and `knowledge-facts.py` in CI with `--classes` on the loaded files.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /audit-knowledge — verdict KNOWLEDGE-STALE (2 high)   scope=whole repo   lockfile pnpm-lock.yaml · ADR home docs/decisions · history git
 Corpus: 478 knowledge files (124 live, 354 anchor-only; 164 history, 11 sinks) · 40 ADRs · 8 sinks (8 declared) · oracle absent

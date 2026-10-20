@@ -1,4 +1,4 @@
-# fixture: benchmarks/fixtures/launch-gaps · hard outcome slice: 15 files, 7 seeds, 5 decoys (BRIEF-hard-evals.md)
+# fixture: benchmarks/fixtures/launch-gaps · hard outcome slice: 15 files, 6 seeds, 5 decoys (BRIEF-hard-evals.md)
 # resources/: byte copies of the fixture files at the same paths (scripts/lint-pack-evals.py checks them);
 # never DEFECTS.md. Regenerate: ~/.claude/refract-program/build-notes/hard-evals-gen.py product
 # graders: benchmarks/score.py --strict-line credit rule (hard-evals-gen.py § THE RULE); --agree proves it
@@ -8,13 +8,12 @@
 # seed: LG-AN3-b apps/web/src/features/onboarding/ConnectStoreStep.tsx:18 PR-AN-3 -> graders/seed-lg-an3-b.md
 # seed: LG-AN4-b apps/web/src/features/billing/TrialBanner.tsx:14 PR-AN-4 -> graders/seed-lg-an4-b.md
 # seed: LG-AN6-b apps/web/src/features/team/AcceptInvitePage.tsx:15 PR-AN-6 -> graders/seed-lg-an6-b.md
-# seed: LG-AN7-b apps/web/src/features/settings/ThemeToggle.tsx:11 PR-AN-7 -> graders/seed-lg-an7-b.md
 # decoy: LG-DECOY-02 apps/web/src/shared/tracking/TrackingProvider.tsx:22 decoy/PR-AN-2 (§ 11, PP-AN-2) -> graders/decoy-lg-decoy-02.md
 # decoy: LG-DECOY-03 apps/web/src/shared/tracking/TrackingProvider.tsx:27 decoy/PR-AN-8 (§ 13, PP-AN-4) -> graders/decoy-lg-decoy-03.md
 # decoy: LG-DECOY-10 apps/web/src/features/billing/UpgradeDialog.tsx:10 decoy/PR-AN-6 (§ 15, PP-AN-6) -> graders/decoy-lg-decoy-10.md
 # decoy: LG-DECOY-14 apps/web/src/features/billing/UpgradePage.tsx:41 decoy/PR-AN-5 (§ 14, PP-AN-5) -> graders/decoy-lg-decoy-14.md
 # decoy: LG-DECOY-15 apps/web/src/features/orders/use-place-order.ts:17 decoy/PR-AN-5 (§ 14) -> graders/decoy-lg-decoy-15.md
-# also seeded in these files, not graded: LG-AN2-c LG-AN3-a LG-AN4-a LG-AN5-a LG-AN5-b LG-AN6-a LG-AN7-a LG-FS1-b
+# also seeded in these files, not graded: LG-AN2-c LG-AN3-a LG-AN4-a LG-AN5-a LG-AN5-b LG-AN6-a LG-AN7-a LG-AN7-b LG-FS1-b
 # tools: Read, Glob, Grep, Skill only — no Bash: the slice is small enough to read whole, and the
 # pack's scripts are not on the staged plugin's path inside the run workspace.
 schema_version: "1.1"

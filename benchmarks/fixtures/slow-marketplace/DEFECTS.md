@@ -664,7 +664,7 @@ severity: high
 command:  /db-audit
 class:    tx/wrong-handle
 anchor:   await em.getConnection().execute(
-match:    getTransactionContext|transaction context|another (pooled )?connection|other connection|separate connection|different connection|outside (the|its|of the) transaction|not (in|part of|inside) the transaction|escape|wrong handle|atomic|partial|rolled? back|rollback
+match:    getTransactionContext|transaction context|another (pooled )?connection|other connection|separate connection|different connection|outside (the|its|of the) transaction|(?:not|n.t) (in|part of|inside) the transaction|its own connection|(?:does(?: not|n.t)|never) uses? the transaction|escape|wrong handle|atomic|partial|rolled? back|rollback
 ```
 
 `markPaid` opens `em.transactional` and then writes the payout status through
@@ -1183,7 +1183,7 @@ severity: critical
 command:  /perf-audit
 class:    cache/key-missing-tenant (security-routed)
 anchor:   const key = `product:${slug}`;
-match:    tenant|store.?id|per.?store|cross.?(store|tenant)|other store|another store|wrong store|different store|collid|collision|isolation|scop|leak
+match:    tenant|store.?id|per.?store|cross.?(store|tenant)|other store|another store|wrong store|different store|two stores|without the store|each other.s|collid|collision|isolation|scop|leak
 ```
 
 The product page cache keys entries by `product:${slug}`, but product slugs are unique only per

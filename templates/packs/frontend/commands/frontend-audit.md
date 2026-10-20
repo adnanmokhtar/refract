@@ -64,6 +64,8 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 ### Detectors — every one on a whole repo, by signal on a diff
 Run every static detector once, in parallel. Then build and serve **one** production build per UI root and run the rendered lanes against it, so every rendered oracle shares the cells. Each detector writes its own coverage block; this command never re-greps a class a detector owns.
 
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
+
 | Detector | Pack | Owns (§ = its own numbering) | Diff signal |
 |---|---|---|---|
 | `a11y-code-scan` | frontend | static WCAG 2.2 AA: §1 non-semantic control … §14 context change and timing | a component, template, stylesheet, form, dialog, menu, route or design-system wrapper |
@@ -127,7 +129,7 @@ rg -l --pcre2 'prefers-color-scheme|\bdarkMode\s*:|\bdata-theme\b|\bnext-themes\
 #    --hidden: `.storybook/` and `.auth/` are dot-directories, which rg skips by default.
 rg --files --hidden -g '**/playwright*.config.*' -g '**/.storybook/{main,preview}.*' -g '**/{handlers,mocks}/**/*.{ts,js}' -g '**/.auth/*.json' -g '!**/node_modules/**' -g '!**/.git/**' "${ROOTS[@]}"
 rg -l --hidden --pcre2 '\bAxeBuilder\b|\bcheckA11y\b|\btoHaveNoViolations\b|\bvitest-axe\b|\ba11y\s*:\s*\{' -g '!**/node_modules/**' -g '!**/.git/**' "${ROOTS[@]}"
-# F7 installed owners and tool lanes (the "when installed" rows of Phase 2)
+# F7 copied owners and tool lanes (a missing path is not "not installed": a Skill-tool listing counts, detector-dispatch.md rule 1)
 ls -d .claude/skills/{a11y-code-scan,a11y-scan,render-correctness-scan,ssr-audit,client-data-scan,routing-scan,i18n-scan,critical-path-scan,bundle-analyze,seo-audit,ui-state-scan,state-matrix,design-token-audit,motion-audit,chart-encoding-audit,xss-scan} .claude/commands/bundle-perf.md .claude/agents/{ux-reviewer,accessibility-auditor,verifier}.md .claude/scripts/{test-integrity,oracle-check}.py 2>/dev/null
 ```
 
@@ -141,7 +143,7 @@ From these lines write a one-page map: the **routes**, each with its rendering m
 Follow `refute-before-report.md` with `precedents/ui.md`: the claim restated in its accessibility, UI-state or rendering/data shape (§ The claim, restated), the seven gates as § Reading the seven gates for UI reads them, the posting rules (§ 1–10) as hard rules, and the settling oracle from `proof-oracles.md` § Accessibility and UI states (V87–V112).
 - **Each BLOCKER or HIGH candidate goes to its own refuter that did not produce it.** Accessibility and UI-state rows → `@ux-reviewer` (ui-ux, when installed; refute mode, the accessibility column of § 10), else `@accessibility-auditor` for accessibility. Every other class → `@verifier` mode `refute` (repo-baseline), dispatched with a [delegation brief](../../../snippets/delegation-brief.md) under `ai/runs/<YYYYMMDD>-frontend-audit-<4hex>/`, its record in `verdict-refute.json`; else a `Task` refuter. The refuter gets the candidate, its anchors, the route-state and the precedents — never the detector's reasoning. A `self-verified` detector row is verified again here. MEDIUM and LOW candidates may share one batch refuter.
 - **Proof by execution beats proof by reading** (gate 6): the axe rule id at the cell, a recorded keyboard path, a role or label query, a focus or geometry probe, the state-matrix test, the console-hydration run, the request log. Without a harness the candidate is **Unconfirmed** with that test written out.
-- **Buckets** (`refute-before-report.md § 5`): **Finding** · **Unconfirmed** (the gate and the settling oracle) · **Hardening** (a precedent; AAA or a house rule, `precedents/ui.md` § 4) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Buckets** (`refute-before-report.md § 5`): **Finding** · **Unconfirmed** (the gate and the settling oracle) · **Hardening** (a precedent; AAA or a house rule, `precedents/ui.md` § 4) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
 - **Siblings** (`refute-before-report.md § 6`): state the root cause at the component ("the shared `IconButton` renders no name when only `icon` is passed", not "the orders page has unnamed buttons"). A defect in a wrapper is **one finding with N call sites**, fixed at the wrapper (`precedents/ui.md` § 9).
 - **Every Finding carries:** the source `<file:line>`; the route-state; the owning detector, § and class; for accessibility, the WCAG 2.2 SC and level; severity; the restated claim; the proof (oracle, V-number, measured or estimated); and the fix in the project's own components. `/frontend-fix` turns that oracle into its failing-first test.
 
@@ -172,7 +174,7 @@ One row per class family, sourced from each owner's coverage block. **The list i
 | Chart encoding (`charts`) | mark vs question · value axis not at zero · size as radius · two value axes · missing data drawn as data · data colour (colour-only series) · units, labels and legend · order and aspect | `chart-encoding-audit` §1–§8 (ui-ux, when installed) · `@ux-reviewer` |
 | Client security (`security`) | markup and URL sinks · token storage · bundle secrets · source maps · client-only authorization | security `xss-scan` (when installed) |
 
-Each row prints `checked (k hits → m findings)` / `N/A (<reason>)` / `blocked (<reason>)` / `not run (<reason>)` / `Live, unreviewed (k groups / n hits — <continuing command>)`. A row whose owner's block lacks one of its classes prints `not run (<class>: no line in <owner>'s block)`. A detector that is not on disk prints `not run (detector absent)` when its surface exists (`i18n-scan` with locale catalogs present) and `N/A (<reason>)` otherwise. **On a whole-repo run, a `not run` row, or a `blocked` row other than A11y manual pass, SEO, Design tokens and Chart encoding, forces `GO-UNVERIFIED`;** a rendered row `blocked (no harness)` does too. A missing owner pack prints `N/A (owner pack <x> not installed)`.
+Each row prints `checked (k hits → m findings)` / `N/A (<reason>)` / `blocked (<reason>)` / `not run (<reason>)` / `Live, unreviewed (k groups / n hits — <continuing command>)`. A row whose owner's block lacks one of its classes prints `not run (<class>: no line in <owner>'s block)`. A detector that is not installed (`detector-dispatch.md` rule 1) prints `not run (detector absent)` when its surface exists (`i18n-scan` with locale catalogs present) and `N/A (<reason>)` otherwise. **On a whole-repo run, a `not run` row, or a `blocked` row other than A11y manual pass, SEO, Design tokens and Chart encoding, forces `GO-UNVERIFIED`;** a rendered row `blocked (no harness)` does too. A missing owner pack prints `N/A (owner pack <x> not installed)`.
 
 ### Production bar and control verification (GO-critical)
 - **A11Y GATE:** an a11y check runs in CI on a production build, with `wcag22aa` in its tags, and fails the job on a new serious or critical violation. Neutered, absent or jsdom-only is an `A11Y GATE:` gap (`a11y-scan` §7).
@@ -208,6 +210,7 @@ On a re-audit after `/frontend-fix`, re-run the owning detector on each first-pa
 - A class seen in two audits is systemic. Queue an ADR and the mechanical gate that refuses it: the a11y lint lane at error in CI, an axe baseline diff on touched routes (G9), `state-matrix-lint.py` in the gate set (G12), the React Compiler lint rules, a build-output grep for dev-only code, a pseudo-locale CI run.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /frontend-audit — verdict NO-GO (1 blocker, 2 high)   scope=whole repo   react 19.2 + react-router 7.9 (CSR) · tanstack-query 5.104 · tailwind 4.1
 Context: 41 routes · 3 themes × 2 locales · headless @radix-ui · harness: vite preview + playwright 1.63, auth gate passed · judge @ux-reviewer

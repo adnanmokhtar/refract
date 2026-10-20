@@ -34,6 +34,13 @@ something else does not match — landing near a defect is not detecting it. Con
 line number is never required, because agents legitimately cite a function head or a
 range rather than the exact line.
 
+A finding that CLEARS its site is never credited to a seeded defect: its own line says so
+("refuted", "is fine", "harmless", "not a bug", "false positive", "is safe" — unless the
+line keeps part of the claim alive with "but", "still", "only", "unless", "unconfirmed"
+…), or it sits under a heading that clears its section ("Refuted", "Looked risky but is
+fine", "Checked and left out", "Not reported", "Reviewed and not a problem"). Such a line
+still counts for DECOYS below: a decoy listed even as cleared is flagged.
+
 A match is then labelled by how close it landed:
 
   EXACT   F carries a line number within `--tolerance` of D's line
@@ -92,10 +99,14 @@ FINDINGS INPUT — two accepted shapes, auto-detected
          (file / path / location) plus optional line and any of
          text / title / summary / description / message / detail.
 
-  TEXT   anything else, including the markdown an agent prints. Every line holding a
-         `path` or `path:line` token starts a finding; the line is its text. Lines with
-         no path token are appended to the finding above them, so wrapped prose and
-         indented detail bullets stay attached to their finding.
+  TEXT   anything else, including the markdown an agent prints. A line whose first
+         CITED path token (one carrying a directory or a :line — `p.lng`, `Object.values`
+         and a passing `nginx.conf` are prose) OPENS the line starts a finding: before the
+         path only list markers, numbering, quote/heading/table markers, emphasis and
+         backticks, plus at most one severity label, location label or bracketed tag
+         (`1. **High** — `, `**Site:** `, `[violation] `). The line is its text. Every
+         other line is appended to the finding above it, so wrapped prose, detail bullets
+         and evidence that cites another file mid-line stay attached to their finding.
 
          HTML comment blocks (<!-- ... -->) are stripped first. That is how the findings
          template run.sh writes keeps its own instructions — which contain an example
@@ -142,27 +153,69 @@ BARE_PATH_RE = re.compile(
 )
 
 
-# List bullets, numbering, quote/heading/table markers and markdown emphasis that may sit
-# in front of the path a finding line opens with.
-LINE_LEAD_RE = re.compile(r"^[\s>*+#|`\[(\d.-]*")
+# What may sit in front of the path a finding line OPENS with: list bullets, numbering,
+# quote/heading/table markers, markdown emphasis and backticks, and at most one severity
+# label, location label or bracketed tag (`1. **High** — `, `| P1 | `, `**Site:** `,
+# `[violation] `). Anything else — a word, a member expression, another clause — means the
+# path does not open the line.
+FINDING_LABEL = r"(?:critical|high|medium|low|info|blocker|major|minor|nit|p[0-4]|site|sites|location|file|where|\[[^\]\n]{1,40}\])"
+OPEN_LEAD_RE = re.compile(r"[\s>*+#|`\[(\d.-]*(?:" + FINDING_LABEL + r"[\s>*_|`:.,()\[\]—–·-]*)?", re.I)
 
 
-def find_path(text):
-    """The path token a finding line cites: (path, line-or-None), or None.
+def opens_line(text, start):
+    """Is everything before `start` lead (OPEN_LEAD_RE), so the token there opens the line?"""
+    return OPEN_LEAD_RE.fullmatch(text[:start]) is not None
 
-    PATH_RE's first match, exactly as before — unless a BARE_PATH_RE token comes before
-    it (or there is none) AND that token is CITED: it carries a :line, or it carries a
-    directory and opens the line. A bare ".env" in prose stays prose, so a continuation
-    line that mentions one is still appended to the finding above it."""
-    std = PATH_RE.search(text)
+
+def _path_token(text):
+    """The first CITED path token on a line: (start, path, line-or-None), or None.
+
+    A PATH_RE token is cited when it carries a directory or a :line; a dotted word with
+    neither (`p.lng`, `Object.values`, a passing `nginx.conf`) is prose and is skipped.
+    A BARE_PATH_RE token wins when it comes before that token (or there is none) AND it is
+    cited: it carries a :line, or it carries a directory and opens the line. A bare ".env"
+    in prose stays prose."""
+    std = next((m for m in PATH_RE.finditer(text) if m.group(2) or "/" in m.group(1)), None)
     bare = BARE_PATH_RE.search(text)
     if bare and (std is None or bare.start() < std.start()):
-        opens_line = bare.start() <= LINE_LEAD_RE.match(text).end()
-        if bare.group(2) or ("/" in bare.group(1) and opens_line):
+        if bare.group(2) or ("/" in bare.group(1) and opens_line(text, bare.start())):
             std = bare
     if not std:
         return None
-    return std.group(1), (int(std.group(2)) if std.group(2) else None)
+    return std.start(), std.group(1), (int(std.group(2)) if std.group(2) else None)
+
+
+def find_path(text):
+    """The path a text cites: (path, line-or-None), or None — see _path_token()."""
+    hit = _path_token(text)
+    return (hit[1], hit[2]) if hit else None
+
+
+# A section heading: a markdown heading, or a line that is all bold (`**Refuted:**`,
+# `- **Hardening**`). The heading a finding sits under decides whether its section clears.
+HEADING_RE = re.compile(r"[ \t]*(?:#{1,6}[ \t]|(?:[-*+][ \t]+)?\*\*[^\n]*\*\*:?[ \t]*(?![^\n]))")
+
+# A heading that clears every site listed under it ("Refuted", "Looked risky but is fine",
+# "Checked and left out", "Not reported", "Reviewed and not a problem").
+CLEARED_HEADING = (r"(?:\brefuted\b|\blook(?:s|ed)? risky\b|\brisky but\b|\b(?:is|are|and|but)(?: all)? fine\b"
+                   r"|\bnot (?:an? )?(?:problem|bug|issue)s?\b|\bnot reported\b|\bleft out\b|\bcleared\b"
+                   r"|\bharmless\b|\bfalse positives?\b|\bnot affected\b|(?<!not )(?<![\w-])safe\b)")
+
+# A finding line that clears its own site ("refuted", "is fine", "harmless", "not a bug",
+# "false positive", "is safe") — unless the line also keeps part of the claim alive
+# ("the fork path is refuted, but same-repo branches remain", "is safe only if").
+CLEARED_LINE = (r"(?:\brefuted\b|(?<!not )(?<!never )\bharmless\b|\bfalse positive\b"
+                r"|\bnot an? (?:real )?(?:bug|defect|problem|issue|leak|vulnerability|finding)\b"
+                r"|\b(?:is|are|looks|seems|it['’]s|that['’]s|stays|remains)(?: (?:still|also|already))? (?:fine|safe)\b)")
+CLEARED_LINE_KEPT = r"\b(?:but|however|still|remains?|unconfirmed|except|only|unless|until|if)\b"
+CLEARED_HEADING_RE = re.compile(CLEARED_HEADING, re.I)
+CLEARED_LINE_RE = re.compile(CLEARED_LINE, re.I)
+CLEARED_LINE_KEPT_RE = re.compile(CLEARED_LINE_KEPT, re.I)
+
+
+def clears_site(line):
+    """Does this finding line clear its own site (CLEARED_LINE, with nothing kept alive)?"""
+    return bool(CLEARED_LINE_RE.search(line)) and not CLEARED_LINE_KEPT_RE.search(line)
 
 
 # --------------------------------------------------------------------------- defects
@@ -308,13 +361,16 @@ def parse_decoys(path):
 
 
 class Finding:
-    __slots__ = ("file", "line", "text", "source")
+    __slots__ = ("file", "line", "text", "source", "cleared")
 
-    def __init__(self, file, line, text, source=""):
+    def __init__(self, file, line, text, source="", cleared=False):
         self.file = file or ""
         self.line = line
         self.text = text or ""
         self.source = source or text
+        # The finding clears its site (its own line says so, or it sits under a heading
+        # that does): it can pin a decoy, but no seeded defect is credited to it.
+        self.cleared = cleared
 
     @property
     def basename(self):
@@ -397,14 +453,19 @@ def _findings_from_text(raw):
     # they contain an example path:line. Drop them before anything else looks at the text.
     raw = HTML_COMMENT_RE.sub("", raw)
     out = []
+    section_cleared = False
     for line in raw.splitlines():
         if not line.strip():
             continue
-        hit = find_path(line)
-        if hit:
-            out.append(Finding(hit[0], hit[1], line.strip(), line.strip()))
+        if HEADING_RE.match(line):
+            section_cleared = bool(CLEARED_HEADING_RE.search(line))
+        hit = _path_token(line)
+        if hit and opens_line(line, hit[0]):
+            cleared = section_cleared or clears_site(line)
+            out.append(Finding(hit[1], hit[2], line.strip(), line.strip(), cleared))
         elif out:
-            # continuation of the finding above
+            # continuation of the finding above: prose, and evidence that cites another
+            # file mid-line, stay attached to the finding whose line opened with its path
             out[-1].text += " " + line.strip()
     return out
 
@@ -429,9 +490,13 @@ EXACT, TEXT = 2, 1
 NO_LINE = 10_000  # sorts every line-less match behind every line-bearing one
 
 
-def pair_strength(defect, finding, tolerance, strict_line=False):
-    """(EXACT|TEXT, line_distance) or None when the pair cannot match."""
+def pair_strength(defect, finding, tolerance, strict_line=False, credit=True):
+    """(EXACT|TEXT, line_distance) or None when the pair cannot match. `credit` (assignment)
+    refuses a finding that clears its site; pin_decoys' benefit-of-the-doubt guard asks
+    with credit=False, so a cleared line near a seed is still never pinned to a decoy."""
     if not finding.basename:
+        return None
+    if credit and finding.cleared:
         return None
     if not same_file(finding.file, defect.file):
         return v1_pair_strength(defect, finding, tolerance)
@@ -505,7 +570,7 @@ def pin_decoys(decoys, defects, findings, tolerance):
         if best is None:
             continue
         claimable = any(
-            (pair_strength(defect, finding, tolerance) or (0,))[0] == EXACT for defect in defects
+            (pair_strength(defect, finding, tolerance, credit=False) or (0,))[0] == EXACT for defect in defects
         )
         if not claimable:
             pinned[fi] = best[0]

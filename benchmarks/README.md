@@ -639,6 +639,22 @@ Text is always required — landing on the right line while describing something
 detection, and the scorer rejects it. A line number is never required, because agents
 legitimately cite a function head or a range.
 
+**What counts as a finding in a text reply.** A finding starts on a line that *opens* with a cited
+path: one carrying a directory or a `:line` (`p.lng`, `Object.values` and a passing `nginx.conf`
+are prose, not paths). Before the path only list markers, numbering, emphasis, backticks and at
+most one severity label, location label or bracketed tag may stand (`1. **High** — `,
+`**Site:** `, `[violation] `). Every other line, including evidence that cites another file
+mid-line, belongs to the finding above it. This is the shape
+[`review-action-plan.md`](../templates/snippets/review-action-plan.md) § Chat findings shape asks
+commands to print; a headline whose path comes after a sentence is read as part of the finding
+before it.
+
+**A cleared line is not a detection.** A finding whose own line clears its site ("refuted", "is
+fine", "harmless", "not a bug", "false positive", "is safe", with nothing such as "but", "still"
+or "unconfirmed" keeping the claim alive), or that sits under a heading that clears its section
+("Refuted", "Looked risky but is fine", "Checked and left out", "Not reported"), is never credited
+to a seeded defect: the run concluded the opposite. It still counts against a decoy.
+
 Matches are then labelled by how close they landed: `EXACT` (within `--tolerance`, default
 6 lines) or `TEXT` (no line, or outside the window). Both count; the split is reported so
 you can see how many detections were line-accurate. `--strict-line` makes the window a

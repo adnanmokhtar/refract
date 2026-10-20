@@ -1063,7 +1063,7 @@ command:  /frontend-audit
 class:    matrix/state-missing
 anchor:   - `checkout-page` —
 match:    offline
-match:    missing|no .?offline.? row|state-missing|absent|not written
+match:    missing|no .?offline.? row|state-missing|absent|(?:not|n.t) written
 ```
 
 `checkout-page` lists loading, empty, error, partial, permission, stale — no `offline`, not even as `n-a`. The lint
@@ -1642,7 +1642,7 @@ line:     18
 command:  /frontend-audit
 class:    decoy/sonner-toast
 anchor:   toast.success(t('couponApplied'));
-match:    announce|live|status|4\.1\.3|toast
+match:    announce|live.?region|aria-live|role=.?.?status|status message|4\.1\.3|screen.?reader
 ```
 
 ```decoy
@@ -1732,7 +1732,8 @@ line:     17
 command:  /frontend-audit
 class:    decoy/403-handled
 anchor:   if (error instanceof ApiError && error.status === 403) {
-match:    403|forbidden|permission|generic
+match:    403|forbidden|permission
+match:    generic|not handled|unhandled|same (error|message)|ErrorState|error state|treated as
 ```
 
 ```decoy

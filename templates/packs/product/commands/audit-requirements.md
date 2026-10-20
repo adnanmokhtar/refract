@@ -86,6 +86,8 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 | `acceptance-criteria-check` (trace lane) | TR §1 untested criterion · §2 stale trace · §3 Gherkin glue · §4 unverifiable criterion | a spec, a test title or tag, a `.feature` file or step definition |
 | `launch-readiness` (`rules.json`, `readiness-score.py`) | LR and the scorecard: 21 rules, cumulative bronze / silver / gold | a success file, an assumptions ledger, CODEOWNERS; always last, after the owners' ledgers exist |
 
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
+
 **Run the four detectors once, in parallel; then `launch-readiness` once, last.** It reads today's ledgers, so it runs after them. **Dedupe by `<file:line>`**: one finding per site, credited to the owner in the Phase 4 class ledger, with the other detector listed as corroboration.
 
 ### Cross-pack owners (consumed, never re-detected)
@@ -139,7 +141,7 @@ From these lines write the map: the **stacks and versions** (lockfile-read, or `
 
 Follow [`refute-before-report.md`](../../../snippets/refute-before-report.md): § 1 restated in the product shapes of [`precedents/product.md`](../../../snippets/precedents/product.md) (FS, AN, EN, LR/SC, TR — both ends named), the seven gates as that file reads them, and [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Product (V409–V429) for the settling probe. Spec-lane candidates take § 10's correctness lens: "when [a reader builds it], [the sentence at path:line] produces [two implementations] instead of [one]".
 - **Each BLOCKER or HIGH candidate goes once to `@verifier` mode `refute`** (`Task`). The verifier did not produce the candidate and gets only the candidate, its anchors and those files, not the detector's reasoning. A row marked `self-verified` is verified again here. MEDIUM and LOW candidates may share one batch verifier.
-- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: which parity test, which fake-sink test, which query, which dry run) · **Hardening** (matches a precedent, or no user, dashboard or decision impact, `precedents/product.md` § 36) · **Pre-existing** (diff runs only; never blocks a diff review) · **Refuted** (one line with the gate and the reason). Nothing is dropped silently. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: which parity test, which fake-sink test, which query, which dry run) · **Hardening** (matches a precedent, or no user, dashboard or decision impact, `precedents/product.md` § 36) · **Pre-existing** (diff runs only; never blocks a diff review) · **Refuted** (one line with the gate and the reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
 - **Siblings** (`refute-before-report.md § 6`): state the root cause (a wrapper's base URL missing the global prefix; a tracking wrapper typed `name: string`; a plan map that omits a tier), grep it with the owning detector's line; one root cause at N sites is one finding with N sites (`precedents/product.md` § 38).
 - **Every Finding carries:** both ends (`<file:line>` of the reference and of the counterpart, or "none after the written search"), the owning detector and its class, severity, the restated claim, the proof (labelled S / T / U / L), the fix in the project's own primitive, and its V-number. `/product-fix` turns that V into the failing-first test.
 
@@ -199,6 +201,7 @@ Re-run the owning detector on each first-pass finding's `<file:line>`. A finding
 - A class seen in two audits (compare earlier `ai/audits/<date>-product.md`) is systemic. Queue an ADR and a mechanical gate: a two-sided route-parity test in CI, typed routes, a codegen tracking plan or a typed event union, a catalog-typed gate key with a plan × feature matrix test, the scorecard run in CI at the release's target level.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 
 ```
 ## /audit-requirements --repo — verdict NO-GO (1 blocker, 2 high)     scope=whole repo   live=not run

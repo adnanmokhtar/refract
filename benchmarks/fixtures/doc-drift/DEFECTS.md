@@ -271,7 +271,7 @@ bucket:   report-with-fix
 detector: doc-structure-scan §2
 anchor:   [backup section](../operations.md#restoring-a-backup)
 match:    restoring-a-backup
-match:    anchor|fragment|heading|slug|missing|broken|does not exist|no such|restore-from-a-backup
+match:    anchor|fragment|heading|slug|missing|broken|does(?: not|n.t) exist|no such|restore-from-a-backup
 ```
 
 `docs/operations.md` is GitHub-rendered; its heading `## Restore from a backup` slugs to `restore-from-a-backup`. The runbook's `#restoring-a-backup` lands at the top of the page during an incident. Fix: the real slug.
@@ -366,7 +366,7 @@ bucket:   report-with-fix
 detector: doc-structure-scan §5
 anchor:   runbook_url: docs/runbooks/api-down.md
 match:    api-down
-match:    missing|does not exist|doesn.t exist|no such|not found|dead|deleted|removed|renamed|moved|broken|404|resolves to (no|nothing)|no file|api-unavailable
+match:    missing|does(?: not|n.t) exist|doesn.t exist|no such|(?:not|n.t) found|dead|deleted|removed|renamed|moved|broken|404|resolves to (no|nothing)|no file|api-unavailable
 ```
 
 `docs/runbooks/api-down.md` became `api-unavailable.md` (history step 12); the page the on-call engineer opens from the alert is a 404. HIGH: an alert's runbook. Fix: repoint `runbook_url` in the same change as the rename.
@@ -1052,7 +1052,7 @@ bucket:   report-with-fix
 detector: doc-drift-scan §9
 anchor:   PAYMENTS_WEBHOOK_SECRET: z.string().min(32),
 match:    PAYMENTS_WEBHOOK_SECRET
-match:    undocumented|not documented|no doc|in no doc|missing from|\.env\.example|nowhere|not (listed|mentioned)|required
+match:    undocumented|(?:not|n.t) documented|no doc|in no doc|missing from|\.env\.example|nowhere|(?:not|n.t) (listed|mentioned)|required
 ```
 
 No `.default()`, no `.optional()`: the API refuses to boot without it, and neither `docs/config.md`, the setup pages nor `apps/api/.env.example` mention it (§ 24 searched). Fix: a row in the reference and a commented line in the example.
@@ -1224,7 +1224,7 @@ bucket:   report-with-fix
 detector: doc-drift-scan §13
 anchor:   node scripts/failover.mjs --region standby
 match:    region
-match:    flag|option|not (declared|defined|accepted|recogni[sz]ed)|unknown|no such|removed|dead|--to
+match:    flag|option|(?:not|n.t) (declared|defined|accepted|recogni[sz]ed)|unknown|no such|removed|dead|--to
 ```
 
 `scripts/failover.mjs` declares `--to <primary|standby>` and `--dry-run`. Fix: `--to standby`.
@@ -1243,7 +1243,7 @@ bucket:   report-with-fix
 detector: doc-drift-scan §14
 anchor:   kubectl -n tallyhook get cronjob reports-nightly
 match:    reports-nightly
-match:    cronjob|reports-daily|no (such )?(cronjob|resource)|not (found|declared)|renamed|missing|does not exist
+match:    cronjob|reports-daily|no (such )?(cronjob|resource)|(?:not|n.t) (found|declared)|renamed|missing|does(?: not|n.t) exist
 ```
 
 `deploy/k8s/reports-cronjob.yaml` declares `CronJob/reports-daily` in namespace `tallyhook`; the next step of the same runbook already uses the right name. Not BLOCKER: the old name belongs to nothing else. Fix: `reports-daily`.
@@ -1262,7 +1262,7 @@ bucket:   report-with-fix
 detector: doc-drift-scan §14
 anchor:   the `ApiHighLatency` alert
 match:    ApiHighLatency
-match:    alert|rule|ApiLatencyHigh|renamed|not (declared|defined)|missing|no such
+match:    alert|rule|ApiLatencyHigh|renamed|(?:not|n.t) (declared|defined)|missing|no such
 ```
 
 `deploy/alerts/rules.yml` declares `ApiLatencyHigh` (and links this runbook); a search for `ApiHighLatency` finds nothing. Fix: the declared name.

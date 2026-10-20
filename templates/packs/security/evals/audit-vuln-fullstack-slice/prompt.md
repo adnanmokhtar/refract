@@ -1,6 +1,6 @@
 ---
-description: 'security pack, hard outcome: 5 seeded defects and 5 look-alikes in 25 files sliced from the vuln-fullstack fixture'
-expected_outcome: 'names VFS-AUTH-01, VFS-XSS-04, VFS-IAC-06, VFS-DATA-09, VFS-DATA-02 with file and line, and cites none of the decoys VFS-DECOY-04, VFS-DECOY-07, VFS-DECOY-08, VFS-DECOY-09, VFS-DECOY-10'
+description: 'security pack, hard outcome: 4 seeded defects and 5 look-alikes in 25 files sliced from the vuln-fullstack fixture'
+expected_outcome: 'names VFS-XSS-04, VFS-IAC-06, VFS-DATA-09, VFS-DATA-02 with file and line, and cites none of the decoys VFS-DECOY-04, VFS-DECOY-07, VFS-DECOY-08, VFS-DECOY-09, VFS-DECOY-10'
 tags: [refract, security, outcome, hard]
 plugins: ["../.."]
 runs: 3

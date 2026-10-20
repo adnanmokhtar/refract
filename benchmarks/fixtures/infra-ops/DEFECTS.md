@@ -1892,7 +1892,7 @@ command:  /infra-audit
 class:    k8s/rbac-sa-missing
 detector: k8s-wiring-scan §6
 anchor:         serviceAccountName: courier-sync
-match:    ServiceAccount|courier-sync|not found|missing
+match:    ServiceAccount|courier-sync|(?:not|n.t) found|missing
 ```
 
 Pods are rejected. Fix: render it. Proof: V278.

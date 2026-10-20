@@ -485,7 +485,7 @@ bucket:   report-with-fix
 detector: allocation-scan §2
 anchor:   env: production
 match:    env|production|labels|kustomization|overlay
-match:    production|allowed|not in|value|prod\b|policy|mis-?tag
+match:    production|allowed|(?:not|n.t) in|value|prod\b|policy|mis-?tag
 ```
 
 The labels transformer writes `env: production` onto every prod resource and pod template; the policy's set is `prod | preview | dev`, so every prod pod's cost lands outside the allowed value. Proof V575/V576 with the allowed-value set over the prod render. Fix: `env: prod`.

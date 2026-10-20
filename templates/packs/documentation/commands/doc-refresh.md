@@ -19,7 +19,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 | **`--audit`** | Read-only. Maps the doc set, dispatches every detector, refutes every candidate through a verifier, prints the class ledger and a GO / GO-UNVERIFIED / NO-GO verdict | the report `ai/audits/<date>-docs.md` and the refute run folder only |
 | **`--from-audit=<report>`** | Closes the report's findings one at a time: the recheck fails first, the doc is edited, the recheck and the whole class re-run pass. A doc that **is** the contract is never edited to bless the code: STOP and route | doc files inside the doc-writer paths, the fix ledger `ai/audits/<date>-docs-fix.md` |
 
-The engine is `doc-drift-scan`'s `scripts/doc-claims.py` (installed at `.claude/skills/doc-drift-scan/scripts/doc-claims.py`; stdlib Python, never writes into the repo, exit `0` clean · `1` candidates · `2` blocked). The detectors:
+The engine is `doc-drift-scan`'s `scripts/doc-claims.py` (under the skill's base directory, which the Skill tool prints when `doc-drift-scan` loads: `.claude/skills/doc-drift-scan/` in a copied install, the plugin's own skill directory in a plugin install; stdlib Python, never writes into the repo, exit `0` clean · `1` candidates · `2` blocked). The detectors:
 
 | Detector (this pack) | Owns | Engine lanes |
 |---|---|---|
@@ -59,13 +59,13 @@ The engine is `doc-drift-scan`'s `scripts/doc-claims.py` (installed at `.claude/
 ### F0 — the scope map (every mode; one script, bash 3.2-safe)
 
 ```bash
-DC="${DC:-.claude/skills/doc-drift-scan/scripts/doc-claims.py}"
+DC="${DC:-.claude/skills/doc-drift-scan/scripts/doc-claims.py}"   # plugin install: DC=<doc-drift-scan base directory>/scripts/doc-claims.py
 OUT="$(mktemp -d "${TMPDIR:-/tmp}/doc-refresh.XXXXXX")"; : > "$OUT/stamp"
 export GIT_OPTIONAL_LOCKS=0 CI=true DO_NOT_TRACK=1 KUBECONFIG="$OUT/empty-kubeconfig"; : > "$KUBECONFIG"
 ck() { [ "$2" -lt 2 ] || echo "$1 BLOCKED (rg exit $2) — the row is blocked, never 0 hits"; }
 # F0.1 corpus, renderer, package roots, git: the engine ledger (no rows needed yet).
 if [ -f "$DC" ]; then python3 -I "$DC" . --lanes=links --out="$OUT/f0" > /dev/null 2> "$OUT/f0.txt"; echo "engine exit $? (2 = BLOCKED)"; head -4 "$OUT/f0.txt"
-else echo "F0 engine absent (doc-drift-scan not installed): every engine class prints UNVERIFIED (skill absent)"; fi
+else echo "F0 engine not found at $DC: set DC from doc-drift-scan's base directory when the Skill tool lists it; only when it is listed nowhere do engine classes print UNVERIFIED (skill absent)"; fi
 X=(-g '!**/node_modules/**' -g '!**/{dist,build,vendor,.venv,target,site,_build}/**' -g '!.claude/**' -g '!**/{test,tests,fixtures,testdata}/**')
 # F0.2 ADR directory and index, runbook locations (never assume ai/decisions or ai/runbooks).
 rg --files -g '**/{adr,adrs,decisions,architecture-decisions,decision-records}/**/[0-9][0-9][0-9]*-*.{md,mdx,rst}' "${X[@]}" . | sed 's|/[^/]*$||' | sort | uniq -c; ck F0.2a $?
@@ -102,7 +102,7 @@ Run each detector with its own pre-flight. On a diff that changed an oracle (a p
 3. **Runnable gate** — `quickstart-verify` when the diff touched a setup section, a pin, a manifest script or the env schema; `doc-sample-scan` when it touched a fenced sample, an export a sample imports, a doctest value or an embedded source region. `NOT-RUN` and `blocked (no container runtime)` are recorded as such, never as PASS.
 4. **Non-prose gate** — `diagram-sync` when architecture changed (`UNVERIFIED (no _dep-graph.json)` for the graph half when the code-quality pack is not installed; its existence half still runs); `docstring-coverage` when exported symbols changed (coverage and the PR delta against the recorded ratchet).
 
-A detector that is not installed records its gate `UNVERIFIED (skill absent)`. There is no inline fallback: a hand-rolled grep is how this command used to report every reference as missing.
+A detector that is not installed ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md) rule 1) records its gate `UNVERIFIED (skill absent)`. One that is installed but whose engine cannot run (no shell) records `UNVERIFIED (engine not reachable)` and, in `--audit`, is applied by hand from its *Read the code* questions as `checked (manual)`. There is no hand-rolled grep standing in for the engine: that is how this command used to report every reference as missing.
 
 ### Terminal verdict and the artifact of record
 - `Status: PRODUCTION-GRADE` only when BROKEN = 0, the structure gate has no primary-surface row, every runnable gate is PASS / N/A, and the non-prose gate has no drift.
@@ -132,6 +132,8 @@ A whole-repo run (`--whole-repo`, or no diff) dispatches **every** row below wha
 | `docstring-coverage` | an exported symbol | read-only lanes; stubs printed, never written |
 | `diagram-sync` | a module added, removed or renamed; a committed diagram | **check only**: the regenerated diagram is printed, never embedded |
 
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
+
 Run the detectors once each, in parallel where the session allows. **Dedupe by `doc:line`**: one finding per site, credited to the owning detector, the other listed as corroboration. One root cause across N docs (a renamed script, a renamed heading) is **one finding with N sites** (`--claim=<value>` lists them).
 
 ### A2 — Cross-pack owners (routed, never graded here)
@@ -154,7 +156,7 @@ When an owner's same-day report exists under `ai/audits/`, consume its rows inst
 Follow [`refute-before-report.md`](../../../snippets/refute-before-report.md) with [`precedents/documentation.md`](../../../snippets/precedents/documentation.md) and [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Documentation (V430–V449).
 - **Every BLOCKER or HIGH candidate goes to `@verifier` mode `refute` exactly once**, with a [delegation brief](../../../snippets/delegation-brief.md) under `ai/runs/<YYYYMMDD>-doc-audit-<4hex>/` and its record in `verdict-refute.json`; when the repo-baseline verifier is absent, a `Task` refuter. The refuter gets the candidate, both ends (the doc line and the oracle line or the written search), the engine row id and the precedents, never the detector's reasoning. MEDIUM and LOW may share one batch refuter. A `self-verified` detector row is verified again here.
 - **The proof rule** (precedents, the claim): a static two-ended class passes with both ends cited and `python3 -I "$DC" . --recheck=<id>` still failing; an execution class (DS-1, DC-1, DC-2) only when the project's own toolchain ran in a scratch copy or container and failed; a gate class (DL-4, DC-4) only with a mutation proof.
-- **Buckets:** Finding · Unconfirmed (names the probe that settles it: `NETWORK=1`, the container lane, a scratch install, `--recheck` after a fetch of history) · Hardening (a precedent matched, or no reader impact) · Pre-existing (diff runs only; never blocks a diff review) · Refuted (the gate and the reason). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Buckets:** Finding · Unconfirmed (names the probe that settles it: `NETWORK=1`, the container lane, a scratch install, `--recheck` after a fetch of history) · Hardening (a precedent matched, or no reader impact) · Pre-existing (diff runs only; never blocks a diff review) · Refuted (the gate and the reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
 
 **Severity is reader impact × surface.** Primary surface: README, quickstart and setup docs, CONTRIBUTING, published API or SDK docs, incident runbooks. Secondary: internal guides, how-tos, `ai/runbooks` narrative. A finding keeps its detector's severity; one step lower on a secondary surface. **BLOCKER** is reserved for a runbook step that acts on the wrong resource (a renamed workload whose old name now belongs to something else) and a setup step that destroys data. Style alone is NIT (precedents § 22).
 
@@ -229,6 +231,7 @@ A row with no failing-first recheck, or a class re-run above 0, is **not** close
 - A class seen in two audits is systemic: propose a mechanical gate — `doc-claims.py --check` in CI (exit 1 on MISS or WRONG), lychee `--offline --include-fragments`, `mkdocs build --strict`, a doctest job — each proven by its mutation proof before it is called a gate.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 
 Default:
 ```

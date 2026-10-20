@@ -278,6 +278,8 @@ Wave B (global axes — 8 concurrent subagents, plus one per installed pack row 
 
 Each emits findings as `<id>` + `<axis>` + `<file:line>` + `<closure-verb>` + `<estimated-impact>` + `<estimated-cost>`. NOT shown to user.
 
+**Detector dispatch** ([`detector-dispatch.md`](../templates/snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`. A pack's detectors count as installed by the same rule.
+
 ### Phase 1.3 — Load the dependency graph (blast-radius stops being a guess)
 
 `scripts/build-graph.py` writes `.claude/_graph.json` — the project's real import edges, measured (on a reference app: **4,640 nodes, 17,006 edges over 6,357 files**). This command ranks every finding by `impact × blast-radius × fix-cost` and **nothing here read it**: blast radius was estimated from module names and folder shape.
@@ -336,7 +338,7 @@ verifier that did not raise it: dispatch `@verifier` in `refute` mode with a
 [delegation brief](../templates/snippets/delegation-brief.md) — the candidate files and anchors, never
 the detector's reasoning. P2–P4 candidates may share one batch verifier. Buckets carry through:
 Confirmed → ranked; Unconfirmed → listed with its settling probe, never P0; Hardening and Refuted →
-one line each in the cell ledger, never ranked. A whole-repo audit has no Pre-existing bucket
+one line each in the cell ledger, never ranked; in chat, when the request asks for real problems only, they are counts with no `file:line` (refute-before-report § 5). A whole-repo audit has no Pre-existing bucket
 (refute-before-report § 5). What is posted follows [`posting-bar.md`](../templates/snippets/posting-bar.md):
 a ranked finding is IMPORTANT, the rest is not posted as a finding.
 
@@ -552,6 +554,8 @@ Day 3:  /audit --status              # check overall progress
 ```
 
 ## What you see (output)
+
+Chat findings follow [`review-action-plan.md`](../templates/snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 
 Backend example (a multi-tenant SaaS API):
 

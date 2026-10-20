@@ -67,6 +67,8 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 
 **Run each detector once, in parallel (`Task`), with the same `OUT` run folder.** **Dedupe by `<file:line>`:** one finding per site, credited to its owner in the class ledger, the other detector listed as corroboration. A dispatched detector that did not return is a `not run` ledger row.
 
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
+
 ### The judges (refute mode)
 | Judge | Rows | Feature-mode axis |
 |---|---|---|
@@ -116,7 +118,7 @@ Then write a one-page **context map**: the money, tax and ledger surfaces and th
 Follow [`refute-before-report.md`](../../../snippets/refute-before-report.md) with [`precedents/business.md`](../../../snippets/precedents/business.md) and the oracles in [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Business.
 - **The judges first.** Each judge receives its rows with their anchors and the registers — not the detector's reasoning — restates each in the business claim shape (policy row first), runs the seven gates as `precedents/business.md` reads them, and buckets it.
 - **Then `@verifier` mode `refute`** on every kept BLOCKER and HIGH, one `Task` per row; MEDIUM and LOW may share one batch. A row marked `self-verified` by a detector is verified again here.
-- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact oracle: the golden input, the replay, the direct-SQL probe, the authority's validator) · **Hardening** (a precedent matched, or no stated impact) · **Enabler** (an `UNDECLARED` policy row that is not itself a defect) · **Pre-existing** (feature runs only; never blocks) · **Refuted** (gate and reason). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <E> enablers · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact oracle: the golden input, the replay, the direct-SQL probe, the authority's validator) · **Hardening** (a precedent matched, or no stated impact) · **Enabler** (an `UNDECLARED` policy row that is not itself a defect) · **Pre-existing** (feature runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <E> enablers · <H> hardening · <P> pre-existing · <R> refuted`.
 - **Siblings** (`refute-before-report.md § 6`): state the root cause, grep it with the owning detector's line; one root cause at N sites is one finding with N `<file:line>`.
 - **Every Finding carries:** `<file:line>`, the owning detector § and its `BIZ-` id, the policy row and its source, the seeded input and what came out, severity, the proof (oracle V-number and tier), the fix in the project's own primitive, and whether the fix is a **business decision** (rounding mode or point, tax rate or tax point, business zone, metric definition, retention period) that `/business-fix` must ask about.
 
@@ -173,6 +175,7 @@ rules        <families with rows on the feature's files: MP 2 · TX 1 · LC 3 �
 - The same gap class across three features (no cancel UI, no history on status changes) goes to `ai/dynamic/learned-patterns.md` as a domain principle.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /audit-business — verdict NO-GO (1 blocker, 2 high)    scope=whole repo   roots=apps/api/src   live=not given
 Registers: money policy (line: half away from zero, money/rounding.ts:7; FX: UNDECLARED) · tax policy (EG e-receipts) ·

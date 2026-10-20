@@ -1559,7 +1559,7 @@ command:  /obs-audit
 class:    alerts/rule-never-loaded
 detector: alert-rule-lint §4
 anchor:   - alert: CatalogFeedStale
-match:    rule_files|glob|never loaded|not loaded|legacy-imports
+match:    rule_files|glob|never loaded|(?:not|n.t) loaded|legacy-imports
 ```
 
 `prometheus.yml` loads `rules/*.rules.yml`; this file is `legacy-imports.yml`, so the feed-staleness page is never evaluated. Fix: rename to `catalog.rules.yml`. Proof: the glob and the file name, both cited.
@@ -1799,7 +1799,7 @@ command:  /obs-audit
 class:    slo/burn-budget-for-another-objective
 detector: slo-rule-scan §2
 anchor:   expr: payments:error_ratio:rate1h > 14.4 * (1 - 0.99)
-match:    0\.99|99\.9|objective|budget|0\.01|0\.001|10 ?x|10×
+match:    0\.99|99\.9|objective|budget|0\.01|0\.001|10 ?x|10×|ten ?times|tenfold|10 times
 ```
 
 `14.4 * (1 - 0.99)` — copied from another SLO — fires at 10× the intended burn on the registry's 99.9 % / 30d objective, i.e. never in practice; all three tiers share it. `burn-check.py --slo='PaymentsAvailability.*=99.9/30d'` prints SLO-03 H. (The eval's `14*(1-0.999)` shape is only a § 12 note: 1.94 % vs 2 %.) Fix: `(1 - 0.999)`. Proof: V207 arithmetic + promtool pair.

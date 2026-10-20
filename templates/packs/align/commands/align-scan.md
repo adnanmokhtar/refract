@@ -82,6 +82,8 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 
 **Parallelism.** The four align detectors and the installed owner detectors run in parallel up to `--max-subagents` (default 5), each with the shared `$RUN/oracle`. Dedupe by `<file:line>`: one row per site, credited to the class owner, the other detector listed as corroboration.
 
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
+
 ## Phase 3 — Retrieve
 
 ALWAYS (universal pre-flight): see [`templates/snippets/phase-3-always-reads.md`](../../../snippets/phase-3-always-reads.md).
@@ -94,7 +96,7 @@ One script, from the audited repo's root. It writes only under `$RUN`; every git
 ```bash
 [ -n "${BASH_VERSION:-}" ] || { echo "pre-flight: run it with bash (save it, then bash <file>): PIPESTATUS and arrays are bash-only, and under zsh every exit prints blank"; exit 2; }
 RUN=${RUN:-$(mktemp -d "${TMPDIR:-/tmp}/align-scan.XXXXXX")}; mkdir -p "$RUN"; export GIT_OPTIONAL_LOCKS=0 DO_NOT_TRACK=1 CI=true; echo "RUN=$RUN"
-P=${PACKS:-.claude/skills}                                 # installed skills; a pack checkout passes its templates/packs/*/skills
+P=${PACKS:-.claude/skills}                                 # installed skills; a pack checkout passes its templates/packs/*/skills; a plugin install passes the parent of the skill's base directory
 OM=$(find "$P" -path '*/convention-oracle/scripts/oracle-map.py' 2>/dev/null | head -1)
 # C1 the oracle map and its tier line (`oracle: T1 n · T1-warn n · T1-noci n · T2 n · T2g n (unratified) · contested n …`)
 if [ -n "$OM" ]; then python3 -I "$OM" . --out="$RUN/oracle" --age-buckets 2>&1 | tee "$RUN/oracle.log" | grep -E '^(oracle|gate|vacuous|ages|structural)'; echo "oracle-map exit ${PIPESTATUS[0]} (2 = not built: every align class blocked)"
@@ -128,7 +130,7 @@ Every candidate from every detector carries `oracle: <path>:<line> "<quote>"` or
 ### Verify every remaining candidate before it becomes a finding
 Follow [`refute-before-report.md`](../../../snippets/refute-before-report.md) § 10, the maintainability / conventions column. Gate 6 reads **the oracle line quoted + the site**. The verifier reads [`precedents/align.md`](../../../snippets/precedents/align.md) first: reasoned exceptions (§ 3), token definitions (§ 4), framework-mandated names (§ 13), wire names (§ 15), frozen code (§ 16) and context splits (§ 17) settle most candidates before any argument.
 - **Each HIGH candidate goes to its own verifier subagent (`Task`, the repo's `verifier` agent).** The verifier did not raise the candidate. It gets only the candidate, its oracle quote, its anchors and those files, never the detector's reasoning. MEDIUM and LOW candidates may share one batch verifier.
-- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: which rule at error over which scope, which render test, which ratification line) · **Hardening** (a precedent matched, or no stated impact) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (one line with the gate and the reason). Nothing is dropped silently. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: which rule at error over which scope, which render test, which ratification line) · **Hardening** (a precedent matched, or no stated impact) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (one line with the gate and the reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
 - **T2g rows** are Unconfirmed, collapsed to one line per rule: `ratify ai/conventions.md:<n> "<quote>" — unlocks k sites` (§ 28).
 - **Siblings** (`refute-before-report.md` § 6): one rule broken at N sites is one finding with N `<file:line>`; the V393 group key (rule, normalised before-value) is the unit `/align` closes.
 - **Every Finding carries:** the sites, the AL class, the owning detector, `oracle:` + `oracle_tier:`, severity, the restated claim, the proof class `/align` will need (EQ, VC or FN, `find-and-align` Step 3), the closer, and the V-number from [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Align.
@@ -190,6 +192,7 @@ Each `detected`, `planned` or `halted` row from an earlier run is re-checked wit
 - Oracle drift since the last audit (a changed hash of an oracle file in `_session-digest.md`) lists the rows whose `oracle:` points into the changed file; they are re-verified, never auto-flipped.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /align-scan — verdict ALIGNED-UNVERIFIED (4)     scope=whole repo   PROJECT_KIND=frontend-react
 Context: oracle: T1 3 · T1-warn 1 · T1-noci 1 · T2 14 · T2g 4 (unratified) · contested 1 · inventory .claude/codebase-profile.md

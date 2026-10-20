@@ -822,6 +822,15 @@ pins `jsonwebtoken@^8`. An attacker signs an HS256 token using the *public* key 
 public) as the HMAC secret and the guard accepts it — any `sub`, any `role`. Pass
 `{ algorithms: ['RS256'], issuer: 'marketly-api' }`. OWASP A07:2025 · CWE-347.
 
+**Checked 2026-10-20 against the library source:** `jsonwebtoken@8.5.1` `verify.js` (unpkg.com,
+fetched 2026-10-20) sets the default `algorithms` to RS/ES only when the key string contains
+`BEGIN PUBLIC KEY`, `BEGIN RSA PUBLIC KEY` or `BEGIN CERTIFICATE`, and rejects any other header
+`alg` with `invalid algorithm`. This guard passes a PEM read from `jwt.pub`, so the HS256 confusion
+above does not run on `^8.5.1`; CVE-2022-23541 (GHSA-hjrf-2m68-5959, published 2022-12-21) needs a
+key-retrieval function that mixes key types. Pinning `algorithms` stays the right fix, but a run
+that refutes the HS256 claim on these grounds is correct, which is why the pack evals do not grade
+this row (`hard-evals-gen.py`, security slice). The row is kept here so the key's counts hold.
+
 ## VFS-AUTH-02 — Admin guard decodes the token instead of verifying it
 
 ```defect

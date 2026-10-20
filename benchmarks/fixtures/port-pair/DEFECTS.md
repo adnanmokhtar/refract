@@ -257,7 +257,7 @@ v1_line:   27
 v1_anchor: Route::post('/{order}/duplicate', 'duplicate')->middleware('can:orders.create');
 clean:     @Post(':id/duplicate')\n  @Permissions('orders:create', 'orders:view')\n  @HttpCode(201)\n  duplicate(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: AuthUser) {\n    return this.orders.duplicate(id, user);\n  }\n\n  @Post(':id/cancel')
 match:     duplicat
-match:     route|endpoint|handler|404|missing|dropped|not (?:ported|exposed|registered)|absent
+match:     route|endpoint|handler|404|missing|dropped|(?:not|n.t) (?:ported|exposed|registered)|absent
 ```
 
 V1 registers `POST /api/orders/{order}/duplicate` ("order again" in the portal and the mobile app). V2's `OrdersService.duplicate()` exists, but `OrdersController` exposes create, update and cancel only. The façade still sends order writes to V1, so the gap is invisible until the 2.4.0 write flip (`deploy/cutover/plan.yaml`) — after which every call 404s. Fix: the `@Post(':id/duplicate')` handler with `orders:create` and `orders:view` (V1's middleware plus its `authorize('view')`). Proof: V358 — replay the V1 route list against V2: not 404, same status class (`runtime/v358-route-replay.txt`).
@@ -1251,7 +1251,7 @@ v1_line:   43
 v1_anchor: FOR EACH ROW UPDATE orders SET line_count = line_count + 1 WHERE id = NEW.order_id
 clean:     @Property({ fieldName: 'line_count', formula: (alias) => `(select count(*) from order_lines ol where ol.order_id = ${alias}.id)` })
 match:     line_count|lineCount|trigger
-match:     trigger|maintain|stale|zero|0|not reproduced|DB.side
+match:     trigger|maintain|stale|zero|0|(?:not|n.t) reproduced|DB.side
 ```
 
 V1's `order_lines_after_insert` trigger increments `orders.line_count`; no PHP code touches it. V2 created the column with default 0 and no trigger, formula or code path, so every V2-placed order reports `line_count: 0` (backfilled ones keep V1's count). Fix: a formula (or the trigger) in V2. Proof: V371 row-delta journal on insert.

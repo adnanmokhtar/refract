@@ -34,7 +34,7 @@ allowed-tools: [Read, Write, Grep, Glob, Bash, Task, WebFetch]
 
 **The agent asks the user only when:**
 - the run would use an export or flow logs it was not handed (it never fetches them);
-- which environments are cloud-billed and always-on is not readable from the files (gate 7 for BG-6);
+- which environments are cloud-billed and always-on is not readable from the files (gate 7 for BG-6). An ADR or runbook that states where an environment runs counts as readable. When no user can be asked (a non-interactive run), BG-6 still runs on the files' reading and a row the answer would settle is Unconfirmed with the question as its probe — never skipped;
 - the whole-repo run will be long: say so before starting.
 
 ## When to use / NOT to use
@@ -81,6 +81,8 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 | `candidate-pricing` | the pricing step (§0–§3) · PX-1 undated money in docs (§4) | always, after the detectors; PX on a changed Markdown file |
 
 **Run each detector once, in parallel (`Task`), with one `OUT` run folder** (`OUT="${TMPDIR:-/tmp}/cost-review-$(date +%Y%m%d-%H%M%S)"`) and the same `ROOTS`; a detector's `plan.json` or render is reused by the others. **Dedupe by `<file:line>`:** one finding per site, credited to its owner in the class ledger, the other detector listed as corroboration. A dispatched detector that did not return is a `not run` ledger row.
+
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
 
 ### The bill lanes (runtime; only with `--export`)
 | Row | Runs | Without the input |
@@ -151,10 +153,11 @@ Then write a one-page **context map**: the providers and billing scopes; which e
 
 ### Verify every candidate before it becomes a finding
 Follow [`refute-before-report.md`](../../../snippets/refute-before-report.md) with [`precedents/finops.md`](../../../snippets/precedents/finops.md) and the oracles in [`proof-oracles.md`](../../../snippets/proof-oracles.md) § FinOps (V570–V589).
-- **`@cost-reviewer` in refute mode first.** It receives the rows with their anchors, the context map and the plan/render paths — not the detector's reasoning — restates each in the finops claim shape (`precedents/finops.md` § The claim), runs the seven gates as that file reads them (gate 2 = the billing model and the volume driver; gate 3 = provider defaults with dated sources; gate 7 = which env is cloud-billed and always-on) and buckets it.
+- **`@cost-reviewer` in refute mode first**, dispatched in the foreground and awaited in the same turn — never background the refuter: a run that ends its turn while the refuter works prints a placeholder instead of the answer. It receives the rows with their anchors, the context map and the plan/render paths — not the detector's reasoning — restates each in the finops claim shape (`precedents/finops.md` § The claim), runs the seven gates as that file reads them (gate 2 = the billing model and the volume driver; gate 3 = provider defaults with dated sources; gate 7 = which env is cloud-billed and always-on) and buckets it.
 - **Then `@verifier` mode `refute`** on every kept BLOCKER and HIGH, one `Task` per row; MEDIUM and LOW may share one batch. A row marked `self-verified` by a detector is verified again here.
-- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: the plan assertion, the stub, the emulator read-back, the console page for a console-only control) · **Hardening** (a precedent matched — a cited org budget, a prod floor bought for availability, an operator rule with its read-back, a single-product cluster — or no stated impact) · **Pre-existing** (diff runs only; never blocks a diff) · **Refuted** (gate and reason). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
-- **Console-only controls** (DigitalOcean Spend Alerts, a provider-side API spend cap) are **Unconfirmed** at most from files, with the console probe named, or Hardening "console-only" when a runbook records the control and its read-back (`precedents/finops.md` § 10, § 15). Never a Finding from files alone.
+- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact probe: the plan assertion, the stub, the emulator read-back, the console page for a console-only control) · **Hardening** (a precedent matched — a cited org budget, a prod floor bought for availability, an operator rule with its read-back, a single-product cluster — or no stated impact) · **Pre-existing** (diff runs only; never blocks a diff) · **Refuted** (gate and reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Console-only controls** (DigitalOcean Spend Alerts, a provider-side API spend cap) are **Unconfirmed** at most from files, with the console probe named, or Hardening "console-only" when a runbook records the control and its read-back (`precedents/finops.md` § 10, § 15). Never a Finding from files alone. The row's own `file:line` is the IaC or config line that creates the account or provider (the `provider "<x>" {}` block, the env's create line), where a reader acts; the runbook or ADR that should record the alert is its second end.
+- **BG-5 is reported per job:** on the plan or apply step of each IaC workflow job, prod and non-prod separately, never folded into a BG-6 or apply-on-PR finding — they have different fixes.
 - **Siblings** (`refute-before-report.md § 6`): state the root cause, grep it with the owning detector's line; one root cause at N sites is one finding with N `<file:line>` (forty roots from one module without a budget: one finding, fixed in the module).
 - **Every Finding carries:** `<file:line>` (or plan address, render object, runbook line), the owning detector § and class, the env, the quantity × unit and price key, severity, the proof (V-number and family, labelled `measured` or `static`), the fix in the project's own primitive, and what the spend buys (or "nothing").
 
@@ -219,6 +222,7 @@ Write a **guardrail verification table**: one row per control the context map re
 - A class seen in two audits (compare earlier `ai/audits/<date>-cost*.md`) is systemic: queue an ADR and a mechanical gate — the plan assertion as a `terraform test`, the label walk as a Conftest policy in CI, the runbook create lint and the provenance lint as CI steps, the fake-timer call budget in the scheduler's test suite.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /cost-review — verdict REQUEST_CHANGES (2 high) · priced 4 of 11 fired    scope=whole repo   export=none   plans=1   renders=prod,dev
 Context: 3 billing scopes (aws prod, aws preview, digitalocean) · 4 paid deps (gateway by base URL, Twilio, SQS, Graph) ·
@@ -229,7 +233,7 @@ HIGH (2):
     every 30 s × 3 replicas × 1 call = 8,640 calls/day (derived) to the carrier tracking API (price key: per call)
     proof: V581 fake timers, 1 simulated hour → 360 calls vs budget 60 (static)   fix: webhook + a 15 min reconcile, leader only
   infra/envs/prod/budget.tf:3   guardrail-scan §3 · BG-3 · prod   budget with no notification: nobody is told (V570, plan)
-UNCONFIRMED (4): ai/runbooks/do-account.md BG-1 — DigitalOcean Spend Alert console-only; probe: Billing → Spend Alerts · …
+UNCONFIRMED (4): infra/envs/dev/providers.tf:1 BG-1 — DigitalOcean Spend Alert console-only (record it in ai/runbooks/do-account.md); probe: Billing → Spend Alerts · …
 Priced ledger: 4 priced (2 derived multipliers, 2 contention) · 7 unpriced (needs bill line) · 0 from list price
 Class ledger:  BG checked (14 → 2) · TG checked (41 → 1) · PS checked (4 deps → 1, 1 unconfirmed) · FQ checked (31 → 1) ·
                ST checked (9 → 1) · EG checked (12 → 0) · PX checked (6 → 1) · Pricing checked (11 rows) · UE NOT-RUN (no billing export)

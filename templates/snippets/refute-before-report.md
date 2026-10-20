@@ -196,6 +196,14 @@ run, so it is a Finding or Unconfirmed on its merits.
 Print one line under the findings:
 `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
 
+**Request-aware buckets.** When the request asks for real problems only ("only real problems",
+"leave out code that only looks risky", "do not list what is fine"), the chat answer prints Finding
+and Unconfirmed rows, each with its `path:line`. Hardening rows, Refuted rows and verified controls
+(a mitigation-verification table, a "checked and fine" list) appear **as counts only**, in the
+`Verification:` line: no `path:line`, no per-row reason, no "looked risky but is fine" section. The
+full ledger, every bucket row with its gate and reason, still goes to the report file when one is
+written; the chat says where. With no such ask, the rows print as the table above says.
+
 ## 6. Then look for siblings
 
 A confirmed finding is the start of a search, not the end. State the root cause in one line, not

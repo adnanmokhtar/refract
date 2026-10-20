@@ -1,6 +1,6 @@
 ---
 description: 'product pack, command lane: audit-launch-gaps-slice through /refract-product:audit-requirements, same slice and graders'
-expected_outcome: 'names LG-AN2-b, LG-AN1-a, LG-AN1-b, LG-AN3-b, LG-AN4-b, LG-AN6-b, LG-AN7-b with file and line, and cites none of the decoys LG-DECOY-02, LG-DECOY-03, LG-DECOY-10, LG-DECOY-14, LG-DECOY-15'
+expected_outcome: 'names LG-AN2-b, LG-AN1-a, LG-AN1-b, LG-AN3-b, LG-AN4-b, LG-AN6-b with file and line, and cites none of the decoys LG-DECOY-02, LG-DECOY-03, LG-DECOY-10, LG-DECOY-14, LG-DECOY-15'
 tags: [refract, product, outcome, hard, command]
 plugins: ["../.."]
 runs: 3

@@ -66,7 +66,9 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate. Phase 4 builds the verified findings,
 ## Phase 2 — Organize
 
 ### Detectors — every one on a whole repo, by signal on a diff
-Run the Phase 3 script first: it runs `ds-inventory.py` **once** and leaves the TSV in its scratch directory. Pass that directory to every detector as `SCAN` and the TSV path as its inventory: `messaging-scan` and `retry-deadline-scan` read their F2 from it, and a detector that re-runs F2 must print the same `# resolved` line (a different one means the tree moved; re-run). Then run the six detectors once, in parallel; each writes its own coverage block, and this command never re-greps a class a detector owns. A detector not on disk, or one whose file has no coverage block yet, prints `not run (detector absent)` when its surface exists.
+Run the Phase 3 script first: it runs `ds-inventory.py` **once** and leaves the TSV in its scratch directory. Pass that directory to every detector as `SCAN` and the TSV path as its inventory: `messaging-scan` and `retry-deadline-scan` read their F2 from it, and a detector that re-runs F2 must print the same `# resolved` line (a different one means the tree moved; re-run). Then run the six detectors once, in parallel; each writes its own coverage block, and this command never re-greps a class a detector owns. A detector that is not installed, or one whose file has no coverage block yet, prints `not run (detector absent)` when its surface exists.
+
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
 
 | Detector | Owns (§ = its own numbering) | Diff signal | Judge |
 |---|---|---|---|
@@ -139,7 +141,7 @@ rg -n --no-heading --pcre2 "${CODE[@]}" -g '**/{package.json,requirements*.txt,p
 rg -l --pcre2 -g '**/*compose*.{yml,yaml}' -g '!**/node_modules/**' '\bimage:\s*["\x27]?(?:[\w.-]+/)*(?:redis|valkey|rabbitmq|nats|cp-kafka|kafka|redpanda|localstack|postgres|toxiproxy)\b' . | sed 's/^/compose with a broker or store: /'
 echo "mocked-broker files (Queue::fake, eager Celery, in-memory harness, ioredis-mock): $(rg -l --pcre2 -g '*.{ts,js,py,php,cs,java,rb}' -g '!**/node_modules/**' '\bQueue::fake\(|\b(?:CELERY_)?(?:task_)?always_eager\b|\bCELERY_TASK_ALWAYS_EAGER\b|\bInMemoryTestHarness\b|\bAddMassTransitTestHarness\b|["\x27]ioredis-mock["\x27]|\bjest\.mock\(\s*["\x27](?:bullmq|kafkajs|amqplib|ioredis)["\x27]' . | wc -l | tr -d ' ')"
 D=$(command -v docker >/dev/null 2>&1 && docker version --format '{{.Server.Version}}' 2>/dev/null); [ -n "$D" ] && echo "docker daemon: $D (C-tier oracles can run in throwaway containers)" || echo 'docker: no daemon (C-tier oracles blocked: rows stay Unconfirmed with the test written out)'
-echo '# F7 installed detectors, owners, judges and scripts; tool lanes on PATH (presence only, nothing is run)'
+echo '# F7 copied detectors, owners, judges and scripts; tool lanes on PATH (presence only; absent is not "not installed": a Skill-tool listing counts, detector-dispatch.md rule 1)'
 for p in .claude/skills/{messaging-scan,dual-write-scan,retry-deadline-scan,coordination-scan,workflow-scan,event-contract-scan,dlq-replay,transaction-scan,connection-config-scan,logic-race-scan,request-path-scan,caching-scan,serverless-reliability-scan,edge-reliability-scan,trace-propagation-scan,job-lifecycle-scan,offline-sync-scan} .claude/agents/{resilience-reviewer,workflow-orchestrator,event-sourcing-architect,system-architect,verifier}.md .claude/scripts/{test-integrity,oracle-check}.py; do [ -e "$p" ] && echo "installed: $p" || echo "absent: $p"; done | awk '{ print } /^absent/ { a++ } END { print "absent: " a + 0 " of " NR }'
 for t in workflowcheck buf asyncapi json-schema-diff dotnet errcheck ruff temporal toxiproxy-cli; do command -v "$t" >/dev/null 2>&1 && echo "lane on PATH: $t"; done
 echo "scratch: $T"
@@ -165,7 +167,7 @@ Follow `refute-before-report.md` with `precedents/distributed.md`: the claim res
 5. **A judge not installed:** its rows go straight to `@verifier`, which grades them and lists them `graded (judge not installed)`.
 
 - **Proof by execution beats proof by reading** (gate 6): the container oracle with the repo's broker version, the tool exit, the replay of recorded histories. Below the class's tier the candidate is **Unconfirmed** with that oracle written out — the V-number, the variant, and the container it needs.
-- **Buckets** (`refute-before-report.md § 5`): **Finding** · **Unconfirmed** (the gate and the settling oracle) · **Hardening** (a precedent) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted · <r> routed`.
+- **Buckets** (`refute-before-report.md § 5`): **Finding** · **Unconfirmed** (the gate and the settling oracle) · **Hardening** (a precedent) · **Pre-existing** (diff runs only; never blocks) · **Refuted** (gate and reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted · <r> routed`.
 - **Siblings** (`refute-before-report.md § 6`): state the root cause at the shared unit ("the base processor returns before the effect's promise settles", not "the receipts job acks early").
 - **Every Finding carries:** the `<file:line>`; part A and part B; the delivery event it breaks under; the default row and the version line it rests on; reach (process type, replicas); the owning detector, § and class; severity; the restated claim; the proof (V-number, tier, measured or not run); and the fix in the project's own primitive. `/ds-fix` turns that oracle into its failing-first test.
 
@@ -236,6 +238,7 @@ On a re-audit after `/ds-fix`, re-run the owning detector on each first-pass fin
 - A class seen in two audits is systemic. Queue an ADR and the mechanical gate that refuses it: a duplicate-delivery container test (V292) per base processor in CI, a kill-between test for the outbox port (V300), `no-floating-promises` at error, a retry-budget constant with one retrying layer, the project's atomic lock helper as the only acquire/release path, a replay test over recorded histories, the schema compatibility tool as a required check.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /ds-audit — verdict GO-UNVERIFIED (5)   scope=whole repo   Valkey (managed) maxmemory-policy UNREAD · C tier not run (no docker daemon)
 Stack: api nestjs 11.2.6 + fastify 5.12.3 · @nestjs/bullmq 11.0.5 · bullmq 6.3.4 · ioredis 5.11.1 · @nestjs/schedule 6.1.3 (locked: pnpm-lock.yaml)

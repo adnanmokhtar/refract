@@ -303,7 +303,7 @@ severity: high
 command:  /test-audit
 class:    assertion/unawaited
 anchor:   expect(service.refundApproved('ret_9')).rejects
-match:    await|floating|un.?awaited|not (awaited|returned)|promise
+match:    await|floating|un.?awaited|(?:not|n.t) (awaited|returned)|promise
 ```
 
 `expect(service.refundApproved('ret_9')).rejects.toThrow(...)` is neither awaited nor returned. On
@@ -549,7 +549,7 @@ severity: high
 command:  /test-audit
 class:    execution/never-collected
 anchor:   describe('isRefundable'
-match:    collect|testRegex|\.spec\.ts|never (runs|run|picked)|not (run|picked|matched)|pattern|unclaimed
+match:    collect|testRegex|\.spec\.ts|never (runs|run|picked)|(?:not|n.t) (run|picked|matched)|pattern|unclaimed
 ```
 
 `api/jest.config.ts` collects `.*\.spec\.ts$`; this file is `.test.ts`, so its four cases —

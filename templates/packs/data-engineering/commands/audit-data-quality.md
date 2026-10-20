@@ -57,6 +57,8 @@ AUDIT type: Phases 1, 2, 3 and 6 dominate; Phase 4 builds the verified findings,
 ### The detectors (always, in parallel)
 **A whole-repo run dispatches every row below, whatever the signals say.** A detector whose lane is absent prints its classes `N/A (<reason>)` in its own coverage block; it is never skipped. A diff run dispatches a row when its signal fires on a changed file. Run each once through `Task` (detectors are read-only); collect each coverage block verbatim.
 
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
+
 | Detector (data-engineering pack) | Classes | Diff signal |
 |---|---|---|
 | `incremental-load-scan` (+ `scripts/model-graph.py`) | IN-1…IN-10 | a dbt model config or `is_incremental()` block, `dbt_project.yml`, a snapshot, a loader, a Spark write, a CDC connector, a backfill script |
@@ -113,7 +115,7 @@ Write the map in the report: the **lanes** present (and absent, each with the re
 Follow [`refute-before-report.md`](../../../snippets/refute-before-report.md) with [`precedents/data-engineering.md`](../../../snippets/precedents/data-engineering.md) and the oracle from [`proof-oracles.md`](../../../snippets/proof-oracles.md) § Data engineering.
 - **Judges, in refute mode, by class family** (each receives only the candidate rows, their anchors and the files — never a detector's reasoning): `@data-quality-auditor` — DQ, MV, TB, EX, PC; `@dag-reviewer` — OR; `@warehouse-modeler` — SC, CO, GR, IN, LN. A judge refutes, grades the survivors with the detector's severity, and returns buckets; it writes nothing.
 - **Then every BLOCKER or HIGH a judge keeps goes to `@verifier` mode `refute`** (its own `Task`), which restates the claim, runs the seven gates and scores 1–10. A row marked `self-verified` by a detector is verified again here.
-- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact oracle: which V-number, on which scratch target, with which seeded row) · **Hardening** (matches a precedent, or no consumed copy affected — precedent § 41) · **Pre-existing** (diff runs only; never blocks a diff) · **Refuted** (one line with the gate and the reason). Nothing is dropped silently. Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
+- **Buckets:** **Finding** · **Unconfirmed** (names the gate and the exact oracle: which V-number, on which scratch target, with which seeded row) · **Hardening** (matches a precedent, or no consumed copy affected — precedent § 41) · **Pre-existing** (diff runs only; never blocks a diff) · **Refuted** (one line with the gate and the reason). Nothing is dropped silently: the `Verification:` line counts every bucket, and when the request asks for real problems only, Hardening and Refuted rows print as counts only, with no `file:line` (`refute-before-report.md § 5`). Print `Verification: <n> candidates → <F> findings · <U> unconfirmed · <H> hardening · <P> pre-existing · <R> refuted`.
 - **Siblings** (`refute-before-report.md § 6`): state the root cause once (one `+on_schema_change` missing in `dbt_project.yml`, one export base class paging by OFFSET, one bucket helper) — one finding with N sites (precedent § 43).
 - **Every Finding carries:** `<file:line>`, the owning detector § and its class id (`DE-<class>`), severity, the restated claim, the effective config with its source (precedent § 42), the proof (oracle red on a scratch target, or the two-ended fact, labelled), the fix in the project's own primitive, and its V-number. `/data-fix` turns that V-number into the failing-first test.
 
@@ -175,6 +177,7 @@ Re-run the owning detector on each first-pass Finding's `<file:line>` before pri
 - A class seen in two audits is systemic: propose a mechanical gate for `/data-fix` to add — `dbt build` (not `dbt run`) in CI, `+on_schema_change: fail` by path, `require_partition_filter` on event facts, a reconciliation test per rollup, `ruff --select AIR` in CI, an erasure scan over snapshots.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /audit-data-quality — verdict NO-GO (2 high)     scope=whole repo   lanes: dbt 1.9.4 (duckdb proofs) · airflow 3.0.2 · nest+postgres 17
 Context: 14 models (4 published) · 3 DAGs · 2 rollups · 1 MV · 5 exports · 2 snapshots · proof targets: duckdb, postgres container (removed)

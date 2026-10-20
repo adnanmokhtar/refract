@@ -1505,7 +1505,7 @@ command:  /mobile-audit
 class:    bridge/contract-gap
 detector: native-bridge-audit §2
 anchor:   static Future<void> flashOn()
-match:    flashOn|not handled|iOS|MissingPlugin|channel|contract|hang
+match:    flashOn|(?:not|n.t) handled|iOS|MissingPlugin|channel|contract|hang
 ```
 
 The Android handler answers `start`, `stop`, `flashOn`; `ScannerPlugin.swift` answers only `start` and `stop`. On iPhone the torch button never completes (see MD-NB-03b). High. Fix: handle `flashOn` on iOS, or guard the call by platform. Proof: I — integration test invoking every method on an iOS simulator.

@@ -1993,7 +1993,7 @@ bucket:   report-flagged
 detector: lifecycle-scan §3
 anchor:   - delivered -> return_requested -> refunded
 match:    return_requested|return|business-flows
-match:    declared|not built|missing|no (state|edge)|lifecycle
+match:    declared|(?:not|n.t) built|missing|no (state|edge)|lifecycle
 ```
 
 The code has no `return_requested` state; a delivered order goes straight to `refunded` through the reversal table, so no return is ever recorded before money goes back. Proof V474 (the graph diff against the declared edges). Flagged: build the step or update the declared lifecycle — a product decision.

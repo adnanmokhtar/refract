@@ -100,6 +100,8 @@ Resolved from the route inventory + `_extracted-business.md`, written into `_ext
 
 The scan is `route × axis`, dispatched in parallel waves. It composes rather than re-implements:
 
+**Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`.
+
 **Wave A — browser truth** (dispatch `/ui-crawl` over the resolved route set)
 
 **Navigate the way the product is used.** In an SPA with an in-memory session, a full page load per route is a fresh boot that re-authenticates; 65 of them hit an ordinary refresh throttle and the sweep reports itself blocked from about route ten. MEASURED on a real admin app: `goto` per route gave `scanned 9 + blocked 56`, in-app history navigation gave `scanned 65 + blocked 0` — same session, same detectors. **When a run reports most routes blocked, suspect the harness before the application**: that app was briefly reported for an auth defect it does not have. See [`measured-from-the-render.md` § C](../skills/ui-design-sweep/references/measured-from-the-render.md).
@@ -383,6 +385,8 @@ Both are `NOT RUN`, stated, when fewer than two views of a comparable type were 
 A scorecard failing any of these is **not** silently re-scored into the report: the surface is re-scored from the render, and if it fails twice the run says so and marks the view `Live, unreviewed` rather than publishing a verdict it cannot stand behind. A report that lists findings but no scores is not a short report; it is a run that never set a bar, and it says so at the top instead of reading as a clean sweep. Browse-able; the thing you hand a stakeholder who did not read the diffs.
 
 `ai/ui-audit/progress.md` is the resume ledger — tier, per-route status, and which commits closed which findings.
+
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 
 ## Optional flags
 

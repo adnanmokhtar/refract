@@ -62,6 +62,7 @@ Any finding that fails the grep is **dropped**, not softened. The audit's value 
 
 ## Phase 2 — Organize
 - Decide reviewers: dispatch `ux-reviewer` + `design-system-guardian` in parallel — **both ship in this pack**. `ux-reviewer` is the a11y lane: it is the single WCAG 2.2 AA owner and dispatches the detectors itself (its § Dispatch). On a one-screen diff it runs `a11y-quick-check` as its Lane A fast path; with the `frontend` pack installed it runs `a11y-code-scan` and `a11y-scan` on the touched routes; it always runs `ui-state-scan` on touched data views. Without the frontend pack its rendered SC rows read `blocked (frontend pack not installed)` and the review is `INCOMPLETE`, never clean. The `frontend` pack's `accessibility-auditor` is not dispatched for the same scope: it is the WCAG judge only where ui-ux is not installed.
+- **Detector dispatch** ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)): a detector is installed when the Skill tool lists it (`<name>` or `<plugin>:<name>`) or `.claude/skills/<name>/SKILL.md` exists. Load each in-scope one with the Skill tool, run its scripts from the skill's base directory, and with no shell apply it by hand as `checked (manual)` — never `not installed`. The frontend pack counts as installed by the same rule.
 - If repo lacks design tokens, flag and proceed without compliance checks (don't fabricate criteria).
 
 ## Phase 3 — Retrieve
@@ -78,7 +79,7 @@ Design-specific:
   - `ux-reviewer` — WCAG 2.2 AA (its SC-coverage block, one line per A/AA criterion), task flow, affordance, UI states (from `ui-state-scan`), microcopy, **composite-surface completeness** (a data-table / dashboard graded against the built-in table-stakes catalog — `ui-design-sweep.md § normalize-surface`; a bare table with no toolbar/bulk/export/sticky-header or a plain-number dashboard is a `[violation]`, scale-gated).
   - `design-system-guardian` — token usage (colors, spacing, typography), reuse vs duplication, naming.
   - The a11y lane is inside `ux-reviewer`'s return, not a third reviewer. Contrast is **computed** per token pair, never asserted; target size counts only from an axe run whose tags include `wcag22aa`. **`a11y-quick-check` has two lanes and an unattended run closes only one:** Lane A is machine-resolvable and comes back complete or with a named blocker; **Lane B is human-only** (screen reader, keyboard walk, OS reduced-motion, zoom/reflow) and prints `NOT RUN (human lane)`. Carry `ux-reviewer`'s SC rows and that state through verbatim — reporting "a11y ✓" on Lane A alone is exactly the false clearance the cite-or-halt premise exists to prevent.
-- Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`.
+- Merge findings. Tag opinions as `[opinion]`, factual violations as `[violation]`. **Cite the line where the fault is** — the handler (`onClick`, `onSubmit`), the state branch (`isError`, `isPending`) or the missing prop — never the component's first line or a range opening at the function head.
 - **Refute before posting a `[violation]`.** Each one survives [`refute-before-report.md`](../../../snippets/refute-before-report.md) § 10 (accessibility and UX columns): the surface renders on a real route, a real user meets it, the design-system primitive does not already provide it, and the proof is computed or run (axe id, the numeric contrast ratio, the token the rule names) — in `@verifier`, mode `refute`, when it is installed ([delegation brief](../../../snippets/delegation-brief.md): the candidate list and the files, never this command's narrative). Without a verifier the run says `UNREVIEWED(verification)` and every `[violation]` is posted as unconfirmed.
 - **Posting bar** ([`posting-bar.md`](../../../snippets/posting-bar.md)): a verified `[violation]` is IMPORTANT; `[opinion]` items are NITs, at most 5; no comment on what the formatter or a lint rule already owns; a defect in a screen the change did not touch is PRE-EXISTING and never blocks.
 - Print grouped by severity:
@@ -110,6 +111,7 @@ Design-specific:
 - If new design pattern emerged organically → queue to `ai/patterns/component-library.md`.
 
 ## Output format
+Chat findings follow [`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape: one line per finding that opens with its own `file:line`, then the class and the mechanism.
 ```
 ## /design-review — <N> violations + <M> opinions
 
