@@ -1498,6 +1498,24 @@ else fail=$((fail+1)); echo "FAIL  install-claim — bash scripts/test-install-c
 if bash "$REPO_ROOT/scripts/test-retire-merged-agents.sh" >/dev/null 2>&1; then pass=$((pass+1))
 else fail=$((fail+1)); echo "FAIL  retire-merged-agents — bash scripts/test-retire-merged-agents.sh"; fi
 
+# ---- update-session-log.sh: a clean tree writes nothing; an untracked file writes one entry.
+# Regression: under pipefail `grep -c … || echo 0` produced "0\n0" on a clean tree, so the
+# no-op skip never matched and every Stop appended an empty entry.
+run_session_log() {
+  local H="$REPO_ROOT/templates/repo-baseline/.claude/hooks/update-session-log.sh" w L="ai/dynamic/session-log.md"
+  w=$(mktemp -d)
+  sl_ok() { if [ "$1" = "$2" ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "FAIL  session-log/$3 — expected $2, got $1"; fi; }
+  ( cd "$w" && git init -q && mkdir -p ai/dynamic && printf 'ai/dynamic/\n' > .gitignore && git add -A \
+      && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base )
+  ( cd "$w" && bash "$H" </dev/null >/dev/null 2>&1 )
+  sl_ok "$([ -s "$w/$L" ] && echo written || echo none)" none "clean-tree-writes-nothing"
+  : > "$w/new-file.txt"
+  ( cd "$w" && bash "$H" </dev/null >/dev/null 2>&1 )
+  sl_ok "$(grep -c 'Untracked: 1 file' "$w/$L" 2>/dev/null || true)" 1 "untracked-file-is-logged-once"
+  rm -rf "$w"
+}
+run_session_log
+
 echo "----"
 echo "hooks fixtures: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

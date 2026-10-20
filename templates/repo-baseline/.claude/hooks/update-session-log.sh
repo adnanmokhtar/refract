@@ -34,7 +34,9 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
   CHANGED_COUNT=$(git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')
   # `head -3 | wc -l` caps the COUNT at 3 — it truncates before counting, so 40 new files logged
   # as "3". Count first; the display cap belongs where the list is printed, not in the number.
-  UNTRACKED=$(git status -s 2>/dev/null | grep -c '^??' | tail -1 || echo 0)
+  # `grep -c` prints 0 AND exits 1 when nothing matches, so under pipefail `|| echo 0` appended a
+  # second 0 — "0\n0" never equals "0", and the no-op skip below wrote an entry on a clean tree.
+  UNTRACKED=$(git status -s 2>/dev/null | grep -c '^??' || true)
 else
   BRANCH="(no git)"
   CHANGED_FILES=""
