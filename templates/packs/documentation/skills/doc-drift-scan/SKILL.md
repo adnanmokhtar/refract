@@ -209,7 +209,7 @@ GOOD:  the row removed, or the variable wired again
 BAD:   env.schema.ts   PAYMENTS_WEBHOOK_SECRET: z.string(),        (no default; in no doc and no .env example)
 GOOD:  documented in the setup section and in .env.example with a comment
 ```
-**Read the docs and the code:** Is it really required at boot (no `.optional()`, `.default()`, `devDefault`)? Is it mentioned anywhere: the manual, `.env` example comments, error messages, schema descriptions (§ 24)? **Finding when** no doc surface names it. **Proof:** V438. Corroborate with `env-diff` when the backend pack is installed.
+**Read the docs and the code:** Is it really required at boot (no `.optional()`, `.default()`, `devDefault`)? Is it mentioned anywhere: the manual, `.env` example comments, error messages, schema descriptions (§ 24)? **Finding when** no doc surface names it. The finding opens on the schema line that declares the key — no doc line is wrong when no doc names it — and says which docs lack it. **Proof:** V438. Corroborate with `env-diff` when the backend pack is installed.
 
 ### 10. Env default or values wrong (DE-3)
 

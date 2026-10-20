@@ -2,10 +2,12 @@
 description: Review UI changes for UX, design system compliance, and accessibility in parallel.
 kind: command
 pack: ui-ux
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task, Skill]
 ---
 
 # /design-review [path|screenshot]
+
+> **Run contract — read before the first tool call.** (1) **Load the detectors first.** Your first tool calls are Skill calls, one per detector in this command's dispatch table whose surface the tree has, sent as one parallel batch; a plugin install lists them as `<plugin>:<name>`. A missing shell does not skip this step: apply each loaded detector by hand — its *Read the code* questions, BAD/GOOD blocks, finding condition and severity rule — and mark it `checked (manual)` ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)). (2) **One line per finding, opening with its own `path:line`:** the line that is wrong, not its caller, the file that configures it or the function's first line. Only a list marker, bold or one severity word come before it; a bucket word such as *unconfirmed* goes after it. A finding about something missing opens on the line that declares the missing thing (a required env key no doc names, a planned event nothing fires, a credential name no redaction list masks) and says where it is missing. Sites with different fixes are separate lines ([`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape). (3) **When the ask wants real problems only** ("leave out code that only looks risky"), the chat prints Finding and Unconfirmed rows only. Code that was checked and cleared — sound, refuted, hardening, verified controls, "reviewed and not reported", "left out" — gets no row, no section and no `path:line`: it is a count in the `Verification:` line. Hardening is not low severity: a detector's LOW finding is a Finding ([`refute-before-report.md`](../../../snippets/refute-before-report.md) § 5).
 
 > **Not this command? (ANTI-triggers)** — you want the findings FIXED, not listed → **`/enhance-ui`** (one surface) · **`/align-recheck`** (mechanical drift) · **`/redesign`** (the layout) · **`/art-direct`** (the language). Every route, from a real browser, with axe and console probes → **`/ui-crawl`**. Measured project-wide quality with an HTML report and baselines → **`/ui-sweep`**. Nothing has changed yet and you want a design invented → **`/art-direct`**. **This command writes no code and grades no surface it cannot cite.** Full map: [`ui-sweep.md § The ui-ux command map`](ui-sweep.md).
 

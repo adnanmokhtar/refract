@@ -2,10 +2,12 @@
 description: "Docs refresh after a change (default), a read-only docs audit with a class ledger and verdict (--audit), or a failing-first docs fix (--from-audit)."
 kind: command
 pack: documentation
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task, Skill]
 ---
 
 # /doc-refresh [base] [--audit] [--whole-repo] [--from-audit=<report>] [--classes=<family,…>] [--network] [--no-exec]
+
+> **Run contract — read before the first tool call.** (1) **Load the detectors first.** Your first tool calls are Skill calls, one per detector in this command's dispatch table whose surface the tree has, sent as one parallel batch; a plugin install lists them as `<plugin>:<name>`. A missing shell does not skip this step: apply each loaded detector by hand — its *Read the code* questions, BAD/GOOD blocks, finding condition and severity rule — and mark it `checked (manual)` ([`detector-dispatch.md`](../../../snippets/detector-dispatch.md)). (2) **One line per finding, opening with its own `path:line`:** the line that is wrong, not its caller, the file that configures it or the function's first line. Only a list marker, bold or one severity word come before it; a bucket word such as *unconfirmed* goes after it. A finding about something missing opens on the line that declares the missing thing (a required env key no doc names, a planned event nothing fires, a credential name no redaction list masks) and says where it is missing. Sites with different fixes are separate lines ([`review-action-plan.md`](../../../snippets/review-action-plan.md) § Chat findings shape). (3) **When the ask wants real problems only** ("leave out code that only looks risky"), the chat prints Finding and Unconfirmed rows only. Code that was checked and cleared — sound, refuted, hardening, verified controls, "reviewed and not reported", "left out" — gets no row, no section and no `path:line`: it is a count in the `Verification:` line. Hardening is not low severity: a detector's LOW finding is a Finding ([`refute-before-report.md`](../../../snippets/refute-before-report.md) § 5).
 
 > **Coverage ledger (mandatory)** — before printing any verdict, emit the ledger over the population this run resolved: see [`templates/snippets/coverage-ledger.md`](../../../snippets/coverage-ledger.md). Every doc lands in **Reviewed / N/A (with a reason) / Live, unreviewed / Blocked**, and the counts sum to the corpus the engine printed. The **class ledger** (§ Audit, step A4) is the second half: "no findings" and "did not look" never print the same way.
 

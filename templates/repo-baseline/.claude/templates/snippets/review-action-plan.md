@@ -52,8 +52,9 @@ in chat), each finding is **one line** that opens with its own `path:line`:
 ```
 
 1. **The line opens with the finding's own site.** A list marker, bold or a severity word may come
-   first; nothing else does. The site is the line that is wrong (the handler, the faulty branch, the
-   rule line), not the file that loads, calls or configures it, and not the function's first line.
+   first; nothing else does — a bucket word such as *unconfirmed* goes after the site. The site is the
+   line that is wrong (the handler, the faulty branch, the rule line), not the file that loads, calls
+   or configures it, and not the function's first line.
 2. **Class and mechanism go on that same line.** Say what goes wrong and when. Never print a headline
    on one line and the mechanism on a *What goes wrong* bullet under it.
 3. **Evidence from other files never opens a line.** Put it on the finding's line or after it,
@@ -65,6 +66,10 @@ in chat), each finding is **one line** that opens with its own `path:line`:
    checks that fail for different reasons (a missing binary, a wrong port) are two findings, each
    opening with its own `path:line`.
 5. **`Fix:` and `Verify:` are indented continuation lines,** as in the required shape above.
+6. **A finding about something missing opens on the line that declares it.** A required env key no
+   doc names, a planned event nothing fires, a credential name no redaction list masks: the site is
+   the declaration (the schema key, the plan entry, the parameter), and the line says where it is
+   missing. The place it is missing from is evidence, cited mid-line.
 
 The report file keeps the shape its command's Output format defines; this section governs chat.
 

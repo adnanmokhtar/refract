@@ -201,7 +201,7 @@ GOOD:  the event fires at the outcome, or the success file names the event that 
 - Is it fired outside the repo: a server job, a reverse-ETL, a tag-manager trigger configured in the vendor UI? Ask, and cite the answer.
 - Is it fired under a different spelling? Then it is §3.
 
-**Finding when** neither the repo nor a cited outside source fires it. `metric=yes` rows feed `launch-readiness` PRR-AN-2.
+**Finding when** neither the repo nor a cited outside source fires it. The finding opens on the plan line that declares the event (`<plan file>:<line>`) — there is no call site to cite. `metric=yes` rows feed `launch-readiness` PRR-AN-2.
 
 **Proof:** the plan diff exits 2 for it (V413). At runtime, the query returns NO-DATA (V423, `launch-readiness`).
 

@@ -446,7 +446,7 @@ bucket:   report-with-fix
 detector: tracking-plan-scan §2
 anchor:   - `Referral Sent`
 match:    Referral Sent
-match:    never fired|no call site|not (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|without the event
+match:    never fired|no call site|(?:not|n.t) (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|no code (?:fires|sends|emits|tracks)|without the event
 ```
 
 `metric_event: Referral Sent` in the success file and in the plan; `ReferralsService.send` queues the e-mail and fires nothing, and no web call site exists. The beta cannot be judged: the metric will read zero. Feeds PRR-AN-2.
@@ -465,7 +465,7 @@ bucket:   report-with-fix
 detector: tracking-plan-scan §2
 anchor:   Report Exported:
 match:    Report Exported
-match:    never fired|no call site|(?:not|n.t) (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|without the event
+match:    never fired|no call site|(?:not|n.t) (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|no code (?:fires|sends|emits|tracks)|without the event
 ```
 
 No call site in web or API (the export endpoint is a 501 stub, LG-FS4-b).
@@ -484,7 +484,7 @@ bucket:   report-with-fix
 detector: tracking-plan-scan §2
 anchor:   Store Disconnected:
 match:    Store Disconnected
-match:    never fired|no call site|not (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|without the event
+match:    never fired|no call site|(?:not|n.t) (fired|tracked|instrumented|sent)|missing|no data|nothing fires|fires nothing|no code (?:fires|sends|emits|tracks)|without the event
 ```
 
 `DeleteStoreDialog` and `StoresService.remove` delete the store without the event, so churned stores are invisible.
