@@ -1733,7 +1733,7 @@ command:  /frontend-audit
 class:    decoy/403-handled
 anchor:   if (error instanceof ApiError && error.status === 403) {
 match:    403|forbidden|permission
-match:    generic|not handled|unhandled|same (error|message)|ErrorState|error state|treated as
+match:    generic|not handled|unhandled(?! (?:promise|rejection|exception))|same (error|message)|ErrorState|error state|treated as
 ```
 
 ```decoy

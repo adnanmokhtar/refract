@@ -73,7 +73,7 @@ On a whole-repo run, build one map first. Every later decision reads it:
 
 1. **Process model.** Which processes run the code (API, workers, consumers, cron), how long each lives, how many run per container (cluster mode, gunicorn workers, Puma workers, Octane workers), and whether a request-per-process model (PHP-FPM, serverless) makes §1–§4 `N/A` there.
 2. **Memory budget per process** (grep 9): container limit ÷ processes per container, minus the runtime's own overhead, against the heap cap actually set. This is the headroom time-to-OOM divides into.
-3. **What grows with traffic.** Users, tenants, sessions, connections, uploaded files, outbound hosts, distinct URLs. A container keyed by one of these is a §1 candidate; one keyed by an enum is not.
+3. **What grows with traffic.** Users, tenants, sessions, connections, uploaded files, outbound hosts, distinct URLs, and row ids (products, orders, listings: the set any request can touch is the whole table). A container keyed by one of these is a §1 candidate; one keyed by an enum is not.
 4. **Evidence already collected.** OOM kills and restart counts, heap and RSS metrics (`process_resident_memory_bytes`, `nodejs_heap_size_used_bytes`, `go_memstats_heap_inuse_bytes`), a sawtooth that trends up, and recycling settings (`max_requests`, `max_memory_restart`, `worker_max_memory_per_child`), which mask a leak rather than bound it.
 
 ## Pre-flight greps
@@ -329,7 +329,7 @@ Class coverage:
 
 The verifier reads [`precedents/performance.md`](../../../../snippets/precedents/performance.md) § "Memory" (precedents 30–33), § "Measurement validity" (52: compare allocations, not time) and the version-aware entries (54: Go timers; 56: Python cycles with `__del__`), plus [`refute-before-report.md`](../../../../snippets/refute-before-report.md) § 4. The ones this skill meets most:
 
-- **A map keyed by a domain-bounded set is a lookup table.** Status names, currencies, compiled templates per file, one entry per configured integration: Hardening. It flips back when the key comes from requests.
+- **A map keyed by a domain-bounded set is a lookup table.** Status names, currencies, compiled templates per file, one entry per configured integration: Hardening. It flips back when the key comes from requests or is a row id: "bounded by the number of products" is bounded by a table that grows, not by the code, so a map keyed by product, order or user id with no `max` and no eviction is a §1 Finding.
 - **A bounded cache is bounded.** `max` (and a TTL where staleness matters), a `WeakMap` keyed by objects the request owns, a single-flight map whose entry is deleted when the load settles.
 - **Heap that plateaus after warm-up is not a leak.** JIT code, connection pools and caches filling to their bound grow first and then stop; one snapshot or one RSS reading proves nothing (§ 31).
 - **Per-request objects die with the request.** A listener on `req`, `res`, a socket or a stream; an interval cleared on `close`; a request-scoped unit of work.

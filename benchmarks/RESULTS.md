@@ -152,6 +152,7 @@ pack in which one of its skills or commands ran. Seed and decoy graders follow `
 | 2026-10-21 | business | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.87 | +0.02 | 0.73 / 0.69 | +0.04 | 0.81 | +0.12 | 0% | $3.15 | — |
 | 2026-10-21 | code-quality | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.87 | -0.02 | 0.73 / 0.77 | -0.03 | 0.80 | +0.03 | 0% | $2.41 | — |
 | 2026-10-21 | data-engineering | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.95 | +0.09 | 0.89 / 0.71 | +0.18 | 0.89 | +0.18 | 0% | $2.59 | — |
+| 2026-10-21 | database | claude-sonnet-5-5 | claude-haiku-5-5 | 7ee421c01fbf | 1/2 | 0.72 | -0.03 | 0.45 / 0.50 | -0.05 | 0.75 | +0.25 | 0% | $5.80 | — |
 | 2026-10-21 | delivery | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.93 | +0.07 | 0.86 / 0.71 | +0.14 | 0.86 | +0.14 | 0% | $0.93 | — |
 | 2026-10-21 | devops | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.92 | -0.04 | 0.85 / 0.92 | -0.08 | 0.92 | +0.00 | 0% | $2.60 | — |
 | 2026-10-21 | distributed-systems | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.93 | +0.00 | 0.85 / 0.85 | +0.00 | 1.00 | +0.15 | 0% | $2.71 | — |
@@ -164,10 +165,12 @@ pack in which one of its skills or commands ran. Seed and decoy graders follow `
 | 2026-10-21 | mobile | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 0/1 | 0.85 | +0.08 | 0.85 / 0.77 | +0.08 | 0.88 | +0.12 | 0% | $3.53 | — |
 | 2026-10-21 | observability | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.97 | +0.03 | 0.94 / 0.89 | +0.06 | 0.89 | +0.00 | 0% | $1.92 | — |
 | 2026-10-21 | performance | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.90 | -0.07 | 0.80 / 0.95 | -0.15 | 0.85 | -0.10 | 0% | $3.04 | — |
+| 2026-10-21 | performance | claude-sonnet-5-5 | claude-haiku-5-5 | 7ee421c01fbf | 1/2 | 0.90 | -0.03 | 0.80 / 0.85 | -0.05 | 1.00 | +0.15 | 0% | $2.33 | — |
 | 2026-10-21 | product | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.93 | +0.02 | 0.86 / 0.82 | +0.05 | 1.00 | +0.18 | 0% | $1.16 | — |
 | 2026-10-21 | security | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 0/1 | 0.72 | +0.11 | 0.72 / 0.61 | +0.11 | 0.89 | +0.28 | 0% | $3.98 | — |
 | 2026-10-21 | testing | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.81 | -0.06 | 0.62 / 0.75 | -0.12 | 0.88 | +0.12 | 0% | $2.41 | — |
 | 2026-10-21 | ui-ux | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.93 | -0.02 | 0.86 / 0.91 | -0.05 | 0.73 | -0.18 | 0% | $1.38 | — |
+| 2026-10-21 | ui-ux | claude-sonnet-5-5 | claude-haiku-5-5 | 7ee421c01fbf | 1/2 | 0.86 | -0.05 | 0.73 / 0.82 | -0.09 | 0.95 | +0.14 | 0% | $1.42 | — |
 <!-- history:eval:end -->
 
 ### With Bash granted (`run-pack-evals.sh --bash`)
