@@ -14,6 +14,24 @@ each release inside the `_version.json` `summary` string, and every release appe
 v1.24.0 it had reached 22,498 characters nested nine `[prior <version>: …]` levels deep, all on one
 JSON line. Each telling is preserved below under the version it describes, verbatim and unabridged.
 
+## 1.34.0 — 2026-10-21
+
+**A studio lane for asks to impress.** Measured on a real job, the homepage of a bilingual AR/EN premium B2B firm. The default flow (`/design-review` → `/design-first` → `/art-direct --reimagine`) produced three directions. All were clean: axe 0, CLS ≤ 0.055, 24–25 of 26 on `design-score`. The owner rejected all three as "different, not the best a heavyweight creative would do". A studio process then took an independent critic from 7/7/6/7 to 8/8/7/7.5 (Design / Creativity / Usability / Content) in three rounds, with "impress a C-level client: yes · top studio: yes, just".
+
+- **`/art-direct --studio`** (new lane, § Studio lane). It takes ONE concept deep instead of three directions, in six steps. Each step writes an artefact under `.claude/artifacts/art-direct/<iso>/studio/` and HALTs if it is missing:
+  1. strategy brief, written from assumptions when the owner cannot answer;
+  2. reference study, ≥ 12 dated sites → a 10-rule craft bar;
+  3. concept + moodboard: signature moment, typography with character (Arabic first-class), one-shoot photo grade, motion with its reduced-motion form;
+  4. guardrails as guardrails;
+  5. an independent critic loop;
+  6. owner notes.
+
+  The critic is a fresh `Task` sub-agent that sees only the brief and the screenshots. It exits when all four scores are ≥ 8 and both answers are yes, after at most 3 rounds, and it protects the critic's strongest frames between rounds. The Frame step takes this lane itself when the ask names impression. On an `independent` surface with no frontend repo it builds a standalone page (the one Stack-scope exception). `allowed-tools` gains `Task`.
+- **`references/studio-process.md`** (new). The procedure, the critic prompt, the capture pack (page frames, fixed-progress scroll sequences, 1:1 crops) and **20 craft pitfalls** learned on the run: transforms not `top`, RTL motion direction, retouch patches, frosted headers, "60+" not "+60", wrapping data, labels lost in a dot field, the critic misreading downscaled type, empty pinned frames, a last third with no idea, placeholder noise, foreign registrations in stock, and invented proof.
+- **`design-score`**: new § What the score measures. A lens sum is reported as `hygiene NN/26`, and every scorecard carries `impression: not-measured`. The question "is it impressive?" routes to the studio critic loop. The description now says hygiene.
+- **`/design-first`**: an impression row ("premium", "award-level", "make it beautiful", «فخم») routes to `/art-direct --studio` whatever the language-or-composition verdict says. `ui-sweep.md`'s command map gains the row, and `/design-review` names the route.
+- **`creative-director`**: the fewer-than-three-directions halt names its one exception, `--studio`.
+
 ## 1.33.1 — 2026-10-19
 
 - Installed with every frontend: `detect-tracks.sh` adds ui-ux whenever frontend is selected (Phase 6 OD-7). The ux-reviewer role and the a11y and design-system lenses live here.

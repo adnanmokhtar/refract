@@ -144,8 +144,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-business.md (differentiating promise + goals) + ai/users-and-personas.md (personas) + _extracted-idioms.md § Tokens / Wrappers / Surfaces / Voice / Breakpoints (existing visual world) + _extracted-codebase.md § Stack (design-token source + i18n/RTL setup)
-  sections: [premise, comparison_table, modes, when_to_use, when_not_to_use, prerequisites, args, agent_job, phases, approval_gate, yes_flag, diagnose_redline, diverge_directions, encodability_table, build_chain, output, hard_rules, failure_modes, cross_references, stack_scope]
+  sections: [premise, comparison_table, modes, when_to_use, when_not_to_use, prerequisites, args, agent_job, phases, studio_lane, approval_gate, yes_flag, diagnose_redline, diverge_directions, encodability_table, build_chain, output, hard_rules, failure_modes, cross_references, stack_scope]
   fallback: commands/art-direct.md
+  # --studio (asks to impress: premium / award-level / beautiful / wow / like a top studio / أبهرني / فخم)
+  # is routed by the description and /design-first's impression row; triggers: here are detection
+  # evidence, not phrases. Its procedure is references/studio-process.md (references carry no topic).
   cite_evidence: strict
 
 - name: add-theme-variant
@@ -251,7 +254,7 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: skill
   triggers: { primary_frontend_framework_detected: true }
   extracts_from: _extracted-idioms.md § Tokens / Wrappers + commands/redesign.md § Design principles (the rubric — single source, never restated)
-  sections: [why_a_skill, inputs, procedure, anti_cheat, outputs, when_to_use]
+  sections: [why_a_skill, what_it_measures, inputs, procedure, anti_cheat, outputs, when_to_use]
   fallback: skills/design-score/SKILL.md
   cite_evidence: strict
 

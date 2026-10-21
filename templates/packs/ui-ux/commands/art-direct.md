@@ -1,8 +1,8 @@
 ---
-description: "One command to DESIGN and BUILD a product / surface / flow's visual direction. Invents three genuinely distinct directions (concept, original visual language, signature moments) from the product's goals — NOT enforced from the existing system — renders + scores them, then after ONE approval (or immediately with `--yes`) automatically BUILDS the chosen direction to finished, committed screens by running design-system-architect (codify) → /redesign (rebuild pages) → /polish (finish), bounded by <scope>. Two modes: evolve (default — push the existing language further) / reimagine (greenfield from goals). `--plan` stops at the design. The creative high-ground above /redesign (builds within a language) and design-system-architect (codifies one). Frontend / mobile only."
+description: "One command to DESIGN and BUILD a product / surface / flow's visual direction. Invents three genuinely distinct directions (concept, original visual language, signature moments) from the product's goals — NOT enforced from the existing system — renders + scores them, then after ONE approval (or immediately with `--yes`) automatically BUILDS the chosen direction to finished, committed screens by running design-system-architect (codify) → /redesign (rebuild pages) → /polish (finish), bounded by <scope>. Two modes: evolve (default — push the existing language further) / reimagine (greenfield from goals). `--studio` (asks to impress / premium / award-level): ONE deep concept judged by an independent screenshot-only critic loop. `--plan` stops at the design. The creative high-ground above /redesign (builds within a language) and design-system-architect (codifies one). Frontend / mobile only."
 kind: command
 pack: ui-ux
-allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
+allowed-tools: [Read, Write, Edit, Grep, Glob, Bash, Task]
 ---
 
 # /art-direct <scope> [<more>...]
@@ -41,6 +41,7 @@ The four hard anchors: **a concept you cannot state in one sentence is decoratio
 - A new product (post-`/scaffold-project`) needs a real visual identity, designed from its goals and shipped onto its pages.
 - A redesign effort keeps producing restyles because no one decided the *direction* to redesign toward.
 - Leadership asks "what should this feel like?" — and then wants it real, not a deck.
+- **The ask is to IMPRESS** — "make it beautiful", "premium", "award-level", "wow", "like a top studio", «أبهرني», «فخم», «بمستوى استوديو عالمي» → **`--studio`** (§ Studio lane). Clean-and-accessible is the floor there, not the result.
 
 ## When NOT to use
 - Enforce a hardcoded value → an existing token, or fix a11y drift from an existing rule → `/align`.
@@ -55,7 +56,7 @@ The four hard anchors: **a concept you cannot state in one sentence is decoratio
 ## Pre-requisites
 - `PROJECT_KIND` is `frontend-*` / `mobile-*` (gated on `primary_frontend_framework_detected`). Backend/data-only → HALT.
 - **Working tree clean** at HEAD — the build lands as reviewable commits (one per surface) and `git` is the rollback. (Under `--plan` this is relaxed: design-only writes no production code.)
-- **Goals + personas oracles** readable: `ai/project-goals.md` (the differentiating promise) and `ai/users-and-personas.md` (who + their job). In `--reimagine` these are mandatory — missing → HALT → `/setup-project --refine`. In `--evolve` the existing design carries most of the weight, but they still sharpen the concept.
+- **Goals + personas oracles** readable: `ai/project-goals.md` (the differentiating promise) and `ai/users-and-personas.md` (who + their job). In `--reimagine` these are mandatory — missing → HALT → `/setup-project --refine` (under `--studio`, the Step-1 strategy brief is the named substitute instead). In `--evolve` the existing design carries most of the weight, but they still sharpen the concept.
 - `_extracted-idioms.md` populated — the existing token source, primitive catalog, surfaces, breakpoints, voice. In `evolve` it is the canon to amplify; in `reimagine` it is read as input (what to surpass + which jobs to preserve).
 - Playwright MCP (or the project screenshot harness) wired — `/redesign` renders each rebuilt surface to earn its RTL/a11y/responsive checkmarks; without it those claims are marked `SKIPPED (no harness)`, never faked.
 - **An authenticated render path when the scope is behind auth** (dashboards, settings, anything with `requiresAuth` / a route guard). The render harness must reach the ACTUAL surface — a headless/isolated browser with no session is redirected to `/login`, so the whole quality loop (per-component audit, before→after, coverage) grades a login page and the build ships blind. Provide a reusable `storageState` (from a one-time login with dev/test creds via env, never hardcoded) or a login step; see `visual-check`'s "Authenticated rendering" contract (frontend pack, when installed; without it, the Playwright MCP under the same authenticated / blocked-render contract, else `SKIPPED (no harness)`). **This is a hard build precondition:** if the render can only reach a login wall / redirect, the build **HALTS** (`RENDER BLOCKED`) — it does NOT downgrade to `SKIPPED` and build blind. Saving a `login-blocked.png` is a stop signal, not a pass.
@@ -69,6 +70,7 @@ The four hard anchors: **a concept you cannot state in one sentence is decoratio
 - `--surfaces=<n>` — cap how many surfaces the build rebuilds in this run (default: the key surfaces named in the brief). For a broad scope, the rest are listed as remaining and you re-run to continue.
 - `--render` / `--no-render` — force or skip the `design-iterate` candidate-screen render in the design pass. Default: render if Playwright MCP is wired, else mark `SKIPPED`.
 - `--canvas` — **draw the three directions instead of describing them.** Dispatches `design-canvas` at `$FIDELITY=wireframe` so the gate is answered by looking at three artboards, not by reading three paragraphs. Deliberately low-fi: decision fidelity is not deliverable fidelity, and a hi-fi render of three directions invites picking on paint — which is exactly the axis the divergence check rules out ([`direction-vocabulary.md`](../ai-patterns/direction-vocabulary.md): type, colour and motion are registers, not divergence axes). Structure is what is being chosen; structure is what gets drawn. Option identity is stable — an artboard that is "Option B" stays "Option B" across re-draws.
+- `--studio` — **the studio lane** for asks to impress: ONE concept taken deep instead of three directions, then an independent critic loop that only sees screenshots. Implies `--reimagine` on an `independent` surface; on a `system` surface the concept lands inside the existing language (evolve). Procedure: [`studio-process.md`](../references/studio-process.md). See § Studio lane.
 - `--plan` — **design-only.** Universal handoff flag (see blockquote): the brief IS the plan artifact; the run stops at the design before any build.
 
 ```bash
@@ -76,6 +78,7 @@ The four hard anchors: **a concept you cannot state in one sentence is decoratio
 /art-direct the dashboard --yes                  # design → build, no stop
 /art-direct marketing/landing --reimagine        # greenfield identity, then build it
 /art-direct the whole product --plan             # just the direction; build nothing
+/art-direct marketing/home --studio              # one deep concept, critic loop to 8/8/8/8 + both yes
 ```
 
 ## What happens internally
@@ -108,6 +111,28 @@ Two regions the build MUST NOT skip (they are the ones it silently skips today):
 - **Shared components (tables, cards, chart wrappers, badges).** `/redesign` composes shared components rather than re-implementing them (`redesign.md § Phase 3 — shared component library`) — correct for DRY, but it means a shared table/chart used on other pages is reused **in its old style** and the page looks half-done. Resolution: a shared component still carrying the old language is a coverage failure whose fix is to **restyle it at the design-system level** (via `design-system-architect`, so the new language propagates to it — and every page that uses it) — the run states the blast radius ("restyling `DataTable` updates it on N pages"). Never silently compose an old-style shared component and call the page redesigned; either restyle it system-wide (the `reimagine` default) or report the region INCOMPLETE with why.
 
 The full **Direction rubric**, the **diagnosis vocabulary**, and the **invention vocabulary** are owned by the [`creative-director`](../agents/creative-director.md) agent — this command cites them rather than restating them.
+
+## Studio lane (`--studio`)
+
+**For asks to impress, not to tidy.** Measured on a real website job in 2026-10: the default lane's three directions each scored 24–25 of 26 on `design-score`. All were clean, accessible and fast, and the owner rejected all of them as "different, not the best a heavyweight creative would do". The studio process that replaced them took an independent critic from 7 / 7 / 6 / 7 to 8 / 8 / 7 / 7.5 (Design / Creativity / Usability / Content) in three rounds. A clean surface and an impressive one are different targets, and `design-score` only measures the first ([`design-score/SKILL.md § What the score measures`](../skills/design-score/SKILL.md)).
+
+**Trigger.** Run this lane when `--studio` is passed, or when the ask itself names impression: "impress", "premium", "award-level", "make it beautiful", "wow", "like a top studio", «أبهرني», «فخم», «بمستوى استوديو عالمي». On such an ask without the flag, the Frame step takes the studio lane itself. It prints `lane: studio (the ask names impression)` as its first line, so a user who wanted three directions can stop and say so. It never discovers this at the Phase-4 gate, after three directions have already been spent.
+
+**What it replaces, and what it keeps.** The procedure lives in one place: [`studio-process.md`](../references/studio-process.md). Follow its six steps in order. Each step writes its artefact under `.claude/artifacts/art-direct/<iso>/studio/` and HALTs on its STOP check.
+
+| Default lane | Studio lane |
+|---|---|
+| Goals + personas oracles, HALT if absent in `reimagine` | Step 1 **strategy brief**. When the owner cannot answer, it is written from assumptions about the business type and marked as such. It is the named concept oracle `creative-director` accepts (`concept oracle: 01-strategy-brief.md`). |
+| Redlines seed the directions | Step 2 **reference study**: ≥ 12 dated sites, distilled into a 10-rule craft bar. Redlines still run when a current surface exists. |
+| Diverge: exactly THREE directions | Step 3 **ONE concept, deep**: signature moment, typography with character (Arabic first-class when bilingual), one-shoot photo grade, motion choreography with its reduced-motion form. The gate approves the **moodboard render**. |
+| Scorecard on the rubric, graded by the run | Step 5 **independent critic loop**: a fresh `Task` sub-agent each round sees only the brief and screenshots. Exit at Design / Creativity / Usability / Content all ≥ 8 **and** "impress the target executive? yes" **and** "top studio? yes". Maximum 3 rounds. |
+| Honesty footer | Step 6 **owner notes**: scores per round, the guardrail numbers, the remaining gap, and the real assets that would lift it. |
+
+**Kept unchanged:** the usability floor, the i18n-completeness gate, the feature-parity gate, the coverage gate, before→after superiority when a current surface exists, `--plan` (stops after Step 3) and `--yes` (auto-approves the board). Step 4 turns the floor into measured budgets (LCP, CLS, weight, axe 0, AA, no horizontal scroll from 360 to 1920 px, CMS-ready content, no-JS copy). It treats them as **guardrails, not the goal**.
+
+**Build target.** In a repo the build runs the normal chain (`design-system-architect` → `/redesign` → `/polish`). It re-measures the guardrails and re-enters the critic loop after it. On an `independent` surface with **no frontend repo**, such as a marketing site delivered as files, this lane is the one exception to § Stack scope. It authors a standalone page into `<out-dir>/`, with the same guardrails and the same critic loop.
+
+**Reporting.** The result line prints the last round's scores and both answers: `studio: r3 8/8/7/7.5 · impress yes · top studio yes · BELOW BAR (usability, content)`. Below the bar after round 3 is reported as below the bar, with the critic's open weaknesses listed. It is never reported as passing. A `design-score` total is never quoted as evidence of impression.
 
 ## The approval gate (the one approval)
 
@@ -172,6 +197,7 @@ If the screenshot harness was unavailable, the `rendered:` line reads `SKIPPED (
 - Goals come from `ai/project-goals.md`; personas from `ai/users-and-personas.md` — never cross the oracles.
 - The three directions pass the divergence check (color-ramp-swap + ≥2 structural axes) or one is regenerated; no averaging into a safe blend.
 - **One approval checkpoint** — the direction (Phase 4). `--yes` skips it; `--plan` stops at it. The build then runs without per-page approval prompts (`/redesign`'s page gate is relaxed; per-surface commits are the review surface); the only interaction it keeps is the **keep / move / drop** parity call, which never drops a feature silently (`--yes` defaults it to keep). The build is bounded by `<scope>` + `--surfaces`.
+- **Impression is judged by someone who did not build it.** Under `--studio` the builder never scores impression. Only the fresh critic sub-agent does, from screenshots and the brief alone ([`studio-process.md § Step 5`](../references/studio-process.md)). A hygiene total (`design-score`, the lens sum) is never offered as evidence that a surface is beautiful or impressive.
 - Project-agnostic: anonymous SaaS/storefront/marketplace examples, principle-level references, never a brand or downstream-project name.
 - **Build, don't fabricate**: `/art-direct` produces real commits via `design-system-architect` → `/redesign` → `/polish`; `git` is the rollback. Every run ends with the house honesty footer (`Not validated: / Risks: / Revert:`); chat output stays brief; the full brief lives in `.claude/artifacts/art-direct/<iso>/`.
 
@@ -187,6 +213,7 @@ If the screenshot harness was unavailable, the `rendered:` line reads `SKIPPED (
 - **A signature move can't be encoded** — re-express it until codifiable, or flag a rendered, owned `art-directed exception`; never build it un-encodable AND unrendered.
 - **The `reimagine` migration cost is unbounded** (whole catalog rewritten, no phased path) — propose `evolve` instead and say why, or stage the migration (legacy aliases kept ≥1 release) before building.
 - **A surface can't be rebuilt cleanly** (e.g., `/redesign` can't preserve a feature even after a keep / move / drop call) — **discard that surface** (`git reset`; never commit a half-rebuilt page, `redesign.md § Hard rules — Rollback is git (never commit a half-rebuilt page)`), keep the surfaces that already committed cleanly, and STOP with done-vs-pending + the decision needed. Per-surface commit granularity is what lets one bad surface roll back without touching the good ones.
+- **`--studio` critic loop ends below the bar after round 3** — stop. Report the last scores, both answers and the critic's open weaknesses in the owner notes. Never run a fourth round, and never re-label the result as passing. A round whose critic saw the builder's reasoning is void and re-run.
 - **Build is broad and long** (`the whole product`) — rebuild the key surfaces (or `--surfaces=<n>`), list the remaining surfaces, and report; the user re-runs to continue rather than the run going unbounded.
 
 ## The build chain (what the command runs after approval)
@@ -211,9 +238,10 @@ Sequence is enforced (codify → build → finish); each stage carries the appro
 - `/align` — enforce existing tokens/rules; no creative work.
 - [`/grab-site`](grab-site.md) · [`/clone-design`](clone-design.md) — the family's **external-reference** commands: reach for these instead when the user wants to reproduce an existing site/screenshot (grab = the real site; clone-design = a brand-neutral system), rather than invent a language from goals.
 - skill `design-iterate` — renders the candidate surfaces (Phase 4).
+- reference [`studio-process.md`](../references/studio-process.md) — the `--studio` procedure: strategy brief → reference study + craft bar → one concept + moodboard → guardrails → independent critic loop → owner notes, plus the craft-pitfalls list.
 - rule `ui-principles` — the 16-axis usability catalog (the floor; not extended here).
 - pattern `design-systems`, `motion`, `rtl`, `theming`, `dark-mode` — the system context the codified direction lands in.
 - `/scaffold-project` — for a NEW project: scaffold first (it ships a starter design system + the goals/personas oracles), then `/art-direct --reimagine` designs + builds the real identity. See `docs/FEATURE-LIFECYCLE.md` § Scenario A.
 
 ## Stack scope
-Frontend / mobile only. Gated on `primary_frontend_framework_detected`. On a backend/data-only repo the command halts with a redirect to the frontend repo.
+Frontend / mobile only. Gated on `primary_frontend_framework_detected`. On a backend/data-only repo the command halts with a redirect to the frontend repo. One exception: `--studio` on an `independent` surface with no frontend repo authors a standalone page into a folder (§ Studio lane).

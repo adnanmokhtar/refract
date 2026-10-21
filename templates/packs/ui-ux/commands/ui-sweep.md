@@ -17,7 +17,7 @@ allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 
 All **twelve** commands are below — including `/add-theme-variant`, which earlier versions of this table excluded and thereby made unfindable, and `/design-first`, the front door for anyone who does not already hold this map. They differ by **the question you can actually answer before you start**; that is the column to read first, because "which command" is usually a question about your own intent, not about the commands.
 
-**One row is the exception to that column**, and it is the one to read first if the answer to "what can you say before you start?" is *nothing, and I don't want to be asked*: `/ui-audit` is the only entry that resolves every question in this table itself. Every other row hands a decision back to you — which is why eleven of them are listed by the question you can answer.
+**One row is the exception to that column**, and it is the one to read first if the answer to "what can you say before you start?" is *nothing, and I don't want to be asked*: `/ui-audit` is the only entry that resolves every question in this table itself. Every other row hands a decision back to you — which is why the other twelve rows are listed by the question you can answer (`/art-direct` has two: its default lane and `--studio`).
 
 | If you can say… | Command | Writes? | Scope |
 |---|---|---|---|
@@ -30,6 +30,7 @@ All **twelve** commands are below — including `/add-theme-variant`, which earl
 | "This ONE surface should look more finished. Same layout, same look, better executed." | **`/enhance-ui`** | YES | one surface (+ its consumers, via scope tier) |
 | "This ONE surface's LAYOUT / IA / ranking is wrong. Rebuild it — in the look we already have." | **`/redesign`** | YES | one surface / flow |
 | "Our LOOK itself is the problem. Decide what this product should feel like, then build it." | **`/art-direct`** | YES | scope arg — designs, then runs `/redesign` per surface |
+| "Clean isn't enough. Make it impress — premium, award-level, like a top studio." | **`/art-direct --studio`** | YES | one deep concept, judged by an independent screenshot-only critic loop ([`studio-process.md`](../references/studio-process.md)) |
 | "Add an N+1 theme slot to a multi-theme app, touching nothing that already exists." | **`/add-theme-variant`** | YES | a new `themes/<name>/` slot only (multi-theme apps only) |
 | "Give me *that* site — its real HTML, CSS, images, fonts — as a folder that opens offline." | **`/grab-site`** | YES | a new folder from an external URL |
 | "Give me *that* site's design SYSTEM, brand-neutral, so I can restyle and own it." | **`/clone-design`** | YES | a new folder from an external URL / screenshot |

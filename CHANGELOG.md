@@ -6,6 +6,14 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### ui-ux 1.34.0: a studio lane for asks to impress (2026-10-21)
+
+A real website job showed that the ui-ux flow measures hygiene and calls it quality. Three `/art-direct --reimagine` directions scored 24–25 of 26 on `design-score` and were all rejected by the owner. A studio process (one concept taken deep, judged by an independent critic that only sees screenshots) reached 8/8/7/7.5 in three rounds.
+
+- `/art-direct --studio` and `templates/packs/ui-ux/references/studio-process.md`: strategy brief → reference study + 10-rule craft bar → one concept + moodboard → guardrails → critic loop (exit at all ≥ 8 plus "impress the executive" and "top studio" both yes, at most 3 rounds) → owner notes. Includes 20 craft pitfalls.
+- `design-score` reports `hygiene NN/26` and `impression: not-measured`, and routes "is it impressive?" to the critic loop.
+- `/design-first` routes an ask to impress ("premium", "award-level", "make it beautiful", «فخم») to `--studio` whatever the test verdict. `ui-sweep.md`'s map, `/design-review`, `creative-director`, `docs/COMMANDS.md` and `docs/REFERENCE.md` are updated to match.
+
 ### Track B Phase 6 (steps 0–2): one agent per name, domain reviewers become lenses (2026-10-19)
 
 Phase 6 folds 126 agents toward a 20-role roster (`sdlc-architecture-proposal` §3.3). Its rule is

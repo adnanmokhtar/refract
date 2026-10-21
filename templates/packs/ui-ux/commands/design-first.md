@@ -54,6 +54,9 @@ Resolve `$SOURCE` first, then route. **Every row ends on a canvas.**
 | `independent` | a reference was given (URL / screenshot) | **`/clone-design <ref>`** — fidelity to that reference is the metric |
 | `independent` | "show me what's out there" | [`design-system-catalog.md`](../references/design-system-catalog.md) → shortlist 3–4 → `design-canvas` draws **the same screen** in each, side by side → the chosen one via `/clone-design`. Never route off the table alone: nobody can pick a design system from adjectives. |
 | `independent` | no reference, invent it | **`/art-direct <scope> --reimagine --canvas`** |
+| either | the ask is to **impress** — "premium", "award-level", "make it beautiful", "wow", "like a top studio", «أبهرني», «فخم», «بمستوى استوديو عالمي» | **`/art-direct <scope> --studio`** (+ `--reimagine` when `independent`). Its canvas is the concept moodboard. |
+
+**The impression row overrides the test's verdict.** Still ask `$SOURCE`; it decides evolve or reimagine. Still run the test and print it. But an ask to impress does not route to `/redesign` on a `composition` verdict, and it does not route to the three-direction lane either. Both of those produce a clean page, and a clean page is not what was asked for. Measured in 2026-10: that route produced three directions scoring 24–25 of 26 on `design-score`, all rejected as "different, not the best". The studio lane's independent critic loop is what lifted the page ([`studio-process.md`](../references/studio-process.md)).
 
 **When the scope spans several surfaces**, route once per feature, not once per screen, and say so: one canvas per feature is the readable unit ([`design-canvas` § 4](../skills/design-canvas/SKILL.md)).
 
@@ -83,6 +86,7 @@ Resolve `$SOURCE` first, then route. **Every row ends on a canvas.**
 
 - **Asked the diagnosis instead of running it.** The single failure that makes this command worse than the map it fronts — it hands the user a question they cannot answer and dresses the guess as consultation.
 - **Inferred `independent` from the word "new".** A new *screen* in an existing app is almost always `system`; "new" describes the surface, not the permission. Ask.
+- **Routed an ask to impress by the test alone.** "Make it premium" with a `composition` verdict went to `/redesign`, or with `language` went to three directions. Each produces hygiene that scores well and impresses no one. The impression row wins.
 - **Routed `independent` + a reference to `/art-direct`.** `/art-direct` takes no external reference and will ignore a URL; the reference path is `/clone-design`.
 - **Reached for the catalog to fill `/art-direct`'s three directions.** That is the borrowed-skin misuse [`design-system-catalog.md § The boundary`](../references/design-system-catalog.md) exists to forbid.
 - **Did the work itself** because the ask "looked like a one-liner". This command has no build phase; a run that edits a file has left its contract.
@@ -92,7 +96,7 @@ Resolve `$SOURCE` first, then route. **Every row ends on a canvas.**
 
 - [`ui-sweep.md § The ui-ux command map`](ui-sweep.md) — **canonical.** This command is a front door onto that map, never a second source of truth for it.
 - [`/redesign`](redesign.md) — composition fault inside the existing language; owns the rebuild and `--canvas` / `--from-canvas`.
-- [`/art-direct`](art-direct.md) — the language itself; owns `--reimagine` and `--canvas`.
+- [`/art-direct`](art-direct.md) — the language itself; owns `--reimagine`, `--canvas` and `--studio` (asks to impress).
 - [`/clone-design`](clone-design.md) — an external reference is the source of truth; the `independent`-with-a-reference path.
 - [`design-canvas`](../skills/design-canvas/SKILL.md) — what every route ends on, and the direct route for a surface with no code yet.
 - [`design-system-catalog.md`](../references/design-system-catalog.md) — adoption starting points for the `independent` + "show me options" path.

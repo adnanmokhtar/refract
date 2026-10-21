@@ -2,7 +2,7 @@
 name: design-score
 kind: skill
 pack: ui-ux
-description: Scores ONE rendered surface against the shared rubric, from the screenshot. Behind /ui-audit Phase 1.5 and /redesign's scorecard; rejects any score derivable from metrics alone.
+description: Scores ONE rendered surface's hygiene against the shared rubric, from the screenshot; rejects metric-only scores. Impression is /art-direct --studio.
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -15,6 +15,17 @@ Turn one rendered surface into one scorecard: per-lens verdicts, per-component v
 The rubric lived in `redesign.md` prose with three consumers reading it — `/redesign`, `/ui-audit` Phase 1.5, and `design-canvas`. A load-bearing step with no artifact behind it gets re-interpreted by each caller, and the cheapest interpretation wins: **derive the score from the metrics already computed and never open the image.** That produces a run that measures ten things, finds each within tolerance, and reports a mediocre page as clean — observed on a real app, where the run finished fast, claimed every page scanned, and wrote no screenshot at all.
 
 This skill exists to make that specific outcome impossible to reach by accident.
+
+## What the score measures — hygiene, not impression
+
+**`at-bar` means the surface clears the craft-and-usability bar. It never means beautiful, impressive or award-level.** Every lens in the rubric asks whether something is done right: hierarchy, rhythm, states, contrast, motion present, modern register. None asks whether a demanding client would be impressed, and a still frame graded by a rubric cannot answer that.
+
+**MEASURED, 2026-10.** Three homepage directions for a bilingual premium B2B site summed 25, 25 and 24 of 26 on this rubric (✓ = 2, Δ = 1, ✗ = 0 over 13 lenses). The owner rejected all three as "different, not the best a heavyweight creative would do". The page that later impressed went through a separate process: an independent critic, a jury-style score on four axes, and a yes / no on "impress the target executive" and "top studio".
+
+So:
+
+- A summed lens total is reported as **`hygiene NN/26`**, never as a quality, beauty or "best" score. It is never used to rank directions on appeal.
+- Every scorecard carries `impression: not-measured`. When the caller's question is "is it impressive / premium / beautiful?", route it to the critic loop in [`studio-process.md § Step 5`](../../references/studio-process.md), run by `/art-direct --studio`. Do not raise lens verdicts to answer it.
 
 ## Inputs (precise contract)
 
@@ -84,6 +95,7 @@ components:
     verdict: at-bar | below-bar
     note: <as rendered>
 delta_vs_baseline: <per-lens movement, when $BASELINE was supplied>
+impression: not-measured   # hygiene score only; "is it impressive?" → /art-direct --studio critic loop
 render: <path to the screenshot this was graded from>
 ```
 
@@ -93,6 +105,7 @@ render: <path to the screenshot this was graded from>
 - **NOT** to decide *what to change* — that is `ui-designer`, which this skill hands its `below-bar` surfaces to.
 - **NOT** to grade usability or WCAG conformance. `ux-reviewer` owns the floor. This skill records what it observes and never trades the floor for craft.
 - **NOT** on an unrendered surface, ever. The halt is the point of the skill.
+- **NOT** to answer "is it beautiful / impressive / award-level?". That is the independent critic loop under `/art-direct --studio` ([`studio-process.md`](../../references/studio-process.md)). A 25/26 here is a clean page, not an impressive one.
 
 ## Cross-references
 

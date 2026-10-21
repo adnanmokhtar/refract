@@ -56,6 +56,7 @@ Any finding that fails the grep is **dropped**, not softened. The audit's value 
 - USE: after visual changes that span ≥ 2 components.
 - NOT: when there is no design system — propose adopting one and stop (review against undefined criteria = noise).
 - NOT: as a substitute for a real design partner on net-new flows; this is a check, not the design itself.
+- NOT: to answer "is it impressive / premium / award-level?". A clean review is hygiene. Impression is judged by the independent critic loop in `/art-direct --studio` ([`studio-process.md`](../references/studio-process.md)).
 
 ## Phase 1 — Understand
 - Resolve scope: `git diff --name-only` for UI extensions, plus any provided screenshot path.

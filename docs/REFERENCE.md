@@ -1038,7 +1038,7 @@ The map in `ui-sweep.md` is correct and complete, and says plainly that choosing
 
 The question — *does this surface stay inside our design system, or leave it?* — is **always asked**; inferring it for an in-repo surface HALTs. The test — *is the fault this page's composition or the app's visual language?* — is **always run and never asked**, per `redesign.md § Phase 1`. A run that asks it has failed at its one job.
 
-**Six routing rows, every one ending on a canvas:**
+**Seven routing rows, every one ending on a canvas:**
 
 | `$SOURCE` | State of the surface | Route |
 |---|---|---|
@@ -1048,6 +1048,7 @@ The question — *does this surface stay inside our design system, or leave it?*
 | `independent` | a reference was given | `/clone-design <ref>` |
 | `independent` | "show me what's out there" | `references/design-system-catalog.md` → `/clone-design` |
 | `independent` | invent it | `/art-direct <scope> --reimagine --canvas` |
+| either | the ask is to **impress** ("premium", "award-level", "make it beautiful") | `/art-direct <scope> --studio` — overrides the test's verdict (v1.34+) |
 
 Flags: `--source=system|independent` · `--no-canvas` · `--plan`.
 

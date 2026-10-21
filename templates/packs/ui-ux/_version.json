@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "ui-ux",
-  "version": "1.33.1",
-  "released": "2026-10-19",
+  "version": "1.34.0",
+  "released": "2026-10-21",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Phase 6: always installed with frontend (detect-tracks post-condition); ux-designer carries a generated Boundary block.",
+  "summary": "/art-direct --studio: one deep concept + an independent screenshot-only critic loop for asks to impress; design-score says it measures hygiene.",
   "changelog": "CHANGELOG.md"
 }

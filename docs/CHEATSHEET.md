@@ -335,7 +335,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | Command | Summary | Flags | Example |
 |---|---|---|---|
 | `/add-theme-variant` | One command to ADD a new theme variant to a multi-theme app — creates a NEW theme slot only (never… | `--plan`, `--name`, `--reimagine`, `--skin` | `/add-theme-variant dark` |
-| `/art-direct` | One command to DESIGN and BUILD a product / surface / flow's visual direction. | `--plan`, `--evolve`, `--reimagine`, `--yes`, `--direction`, `--surfaces=<n>`, `--render`, `--canvas` | `/art-direct the dashboard` |
+| `/art-direct` | One command to DESIGN and BUILD a product / surface / flow's visual direction. | `--plan`, `--evolve`, `--reimagine`, `--yes`, `--direction`, `--surfaces=<n>`, `--render`, `--canvas`, `--studio` | `/art-direct the dashboard` |
 | `/clone-design` | One command to CLONE an external design reference (a live URL or a screenshot) into a… | `--plan`, `--pages=<a,b,c>`, `--sections-only`, `--fidelity=<0-100>`, `--max-refine=<n>`, `--adopt=<tokens \| pages \| project>`, `--all-routes` | `/clone-design https://shop.example.com/` |
 | `/design-first` | The design-first front door. | `--source`, `--no-canvas`, `--plan` | `/design-first orders/list` |
 | `/design-review` | Review UI changes for UX, design system compliance, and accessibility in parallel. | — | `/design-review [path\|screenshot]` |
