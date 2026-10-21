@@ -171,6 +171,7 @@ pack in which one of its skills or commands ran. Seed and decoy graders follow `
 | 2026-10-21 | testing | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.81 | -0.06 | 0.62 / 0.75 | -0.12 | 0.88 | +0.12 | 0% | $2.41 | — |
 | 2026-10-21 | ui-ux | claude-sonnet-5-5 | claude-haiku-5-5 | 181884964817 | 1/2 | 0.93 | -0.02 | 0.86 / 0.91 | -0.05 | 0.73 | -0.18 | 0% | $1.38 | — |
 | 2026-10-21 | ui-ux | claude-sonnet-5-5 | claude-haiku-5-5 | 7ee421c01fbf | 1/2 | 0.86 | -0.05 | 0.73 / 0.82 | -0.09 | 0.95 | +0.14 | 0% | $1.42 | — |
+| 2026-10-21 | ui-ux | claude-sonnet-5-5 | claude-haiku-5-5 | 684e73572fd3 | 1/2 | 0.89 | -0.02 | 0.77 / 0.82 | -0.05 | 0.91 | +0.09 | 0% | $1.53 | — |
 <!-- history:eval:end -->
 
 ### With Bash granted (`run-pack-evals.sh --bash`)
