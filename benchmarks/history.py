@@ -285,7 +285,8 @@ def trace_shell(path, pack, loaded=False, names=None):
                 o = json.loads(line)
             except ValueError:
                 continue
-            content = (o.get("message") or {}).get("content")
+            m = o.get("message") if isinstance(o, dict) else None
+            content = m.get("content") if isinstance(m, dict) else None  # a trace line's "message" can be a plain string
             if not isinstance(content, list):
                 continue
             for b in content:
