@@ -165,6 +165,7 @@
 .claude/rules/read-codebase-deeply.md  fdcdee13b30440d050e8623403e968fc7a9e38889b3f41aa027779ae974b6b45
 .claude/rules/think-simplify-surgical.md  027ac85615219d0d6ec5aa9425231a29be0908fefda56788dbe74120a619f400
 .claude/rules/think-simplify-surgical.md  03758c1b92894229783ae19a7c87d9af6247e2b20589615bace0724510b93d5e
+.claude/rules/think-simplify-surgical.md  4efe645ac6cb01c07f9c8fa36ee5105b92dad3bf9765275d1e86c52d271953c2
 .claude/rules/think-simplify-surgical.md  639f1e8fb91cee3280890ed2e8f26fa067ae4cd85eb7d5e7855b6f5807d4d907
 .claude/rules/think-simplify-surgical.md  6e3e17ae271106adee7b39b05a07da33ddb84a6e52db730c5336e3a22a7d16f7
 .claude/rules/think-simplify-surgical.md  94f43539c181a60bd1b2469efff289195a511ecdbb0af91d54e7de219eb9ed0c
@@ -313,6 +314,7 @@
 .claude/templates/snippets/precedents/backend.md  5f2d24fa52956b5184afb19b0e7888981a2182c2a09d4ccc7c7e6785069b34d1
 .claude/templates/snippets/precedents/backend.md  866606e3344f8e742c61320dc48e74bf1b9a16e338905c041cd9e37898f1439f
 .claude/templates/snippets/precedents/business.md  f3ff916067a8bef0aff525bab058ab9ba60ebfdaa1519b39d95f2891d746bbfe
+.claude/templates/snippets/precedents/code-quality.md  155d0b8d200c872e21bee2564d883308f4570484ab3ac273a346085c9072e757
 .claude/templates/snippets/precedents/code-quality.md  1a1e076fa62553c835c2ced7b716fe73ae5b7f7b68c950e61d3b39657e2568c4
 .claude/templates/snippets/precedents/code-quality.md  7b71e94b663f88a5ebf7c432dc1d82485b7c246d95d011ecbc1aba33165f5861
 .claude/templates/snippets/precedents/code-quality.md  e531ddf1c91b91fdf6413ab6cba1ebacab3c4544880870af3e6d20773b69617b

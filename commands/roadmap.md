@@ -104,7 +104,7 @@ The agent does ALL of this silently — you don't see phases, ledger states, or 
 4. **Build the dependency graph** — topologically order rows. A cycle is a real finding: it surfaces (halt) rather than being silently broken.
 5. **Phase** — group into phases by dependency + domain. Foundations / blockers (shared, auth, data layer that others need) first; domain phases next; cosmetic / polish last. Each phase contains only rows whose dependencies land in the same or an earlier phase, so every phase is independently shippable.
 6. **Write the plan** — `ai/roadmap/plan.md` (see below). Read-only path ends here.
-7. **If `--build`** — take the next pending phase (or `<N>`), dispatch one agent per row in dependency-ordered parallel waves, route by size (trivial / standard → tight detect→build→verify loop; heavy → deep per-feature loop with its own audit), one commit per row, verify (lint / typecheck / scoped tests), flip rows to `done`, write `ai/roadmap/final-report.md`, and **stop at the phase boundary**.
+7. **If `--build`** — take the next pending phase (or `<N>`), dispatch one agent per row in dependency-ordered parallel waves, route by size (trivial / standard → tight detect→build→verify loop; heavy → deep per-feature loop with its own audit), one commit per row, verify (lint / typecheck / scoped tests), run the per-row spec check (§ --build mode), flip rows to `done`, write `ai/roadmap/final-report.md`, and **stop at the phase boundary**.
 
 ## The completion plan (the artifact)
 
@@ -147,7 +147,10 @@ Project: <PROJECT_KIND>
 - Picks the next `pending` phase (or `--build <N>`).
 - Executes that phase's rows in **dependency-ordered parallel waves** — independent rows in parallel, dependents after their `deps` land.
 - One commit per row. Routes by size: trivial / standard rows run a tight build→verify loop; heavy rows run the deep per-feature loop (own mini-audit, parity-sensitive verify).
-- **Phase gate**: every row in the phase must reach `done` with scoped tests green before the phase counts as complete. Rows that can't (cross-repo, genuine blocker) are marked `blocked` with a one-line reason and excluded from the gate.
+- **Spec check per row** — green tests prove the code works, not that it is the row. Before a row flips to `done`, a fresh read-only `Task` sub-agent (Read / Grep / Glob, read-only `git`) gets the row (title · kind · evidence · the intent clause it came from) and that row's commit diff — never the builder's summary, because a reviewer handed the builder's account agrees with it (the `verifier` agent's rule: the judge is not the builder). It answers two questions, each with a citation:
+  - **Missing** — what the row asks for that the diff does not deliver. The row goes back to its builder once with that list; still missing → `blocked` (`spec check: <what is missing>`), never `done`.
+  - **Extra** — changed hunks no part of the row asks for. Removed from the row's commit, unless it is a caller, test, fixture or migration the row's own change required (kept, and named in the report).
+- **Phase gate**: every row in the phase must reach `done` with scoped tests green and its spec check passed before the phase counts as complete. Rows that can't (cross-repo, genuine blocker) are marked `blocked` with a one-line reason and excluded from the gate.
 - **Halts at the boundary** — does not roll into the next phase. Review, then `/roadmap --build` again.
 
 ```
@@ -216,6 +219,7 @@ Rows done:           5 / 5
 Commits:             5 (one per row)
 Diff:                +612 / -38
 Tests:               88/88 passing (4 new)
+Spec check:          5/5 complete · 1 sent back once · 2 extra hunks removed
 Wall-clock:          9m 41s
 
 Not validated:       e2e suite (no staging env) — run before merge
@@ -248,7 +252,7 @@ Applied silently:
 - **The dependency graph is acyclic.** A cycle surfaces as a finding (halt), not a silent reorder.
 - **Foundations first.** Shared / auth / data-layer rows that others depend on land before dependents.
 - **One phase per `--build`.** Never advances past the phase boundary in a single run.
-- **Gap-count parity under `--build`.** Rows the phase set out to close == rows marked `done`. Nothing flips to `done` without scoped tests green.
+- **Gap-count parity under `--build`.** Rows the phase set out to close == rows marked `done`. Nothing flips to `done` without scoped tests green and a passed spec check.
 - **One commit per row.**
 - **Honesty clause in the `--build` summary.** `Not validated:` / `Risks:` / `Revert:` appear before `Next:`, same contract as the other simple-surface sweeps. `Tests: N/N` alone is insufficient.
 

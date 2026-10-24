@@ -6,6 +6,13 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Two ideas borrowed from Ponytail and Superpowers (2026-10-25)
+
+Popular Claude Code plugins were compared against Refract (superpowers, ponytail, claude-mem, obsidian-skills, frontend-design, canvas-design, code-review, ui-ux-pro-max). Most of what they do Refract already does. Two ideas were missing:
+
+- **The `shortcut:` comment** (from Ponytail, MIT). `rules/think-simplify-surgical.md` § 2 now asks for a one-line `shortcut: <the limit>, <when to upgrade>` comment beside a shortcut with a known limit, and adds the reuse order (codebase helper → standard library → installed dependency → new code). `precedents/code-quality.md` § 93 tells the verifier such a shortcut is a decision, not a finding, unless the repo's stated load already crosses the limit or the shortcut drops trust-boundary validation, data-loss error handling, security or accessibility.
+- **A spec check per row in `/roadmap --build`** (from Superpowers' two-stage review, MIT). Green tests prove the code works, not that it is the row. A fresh read-only sub-agent now reads each row and its diff, without the builder's summary, and reports what is missing and what is extra. Missing work goes back to the builder once, then the row is `blocked`. The phase gate and the run summary carry the result.
+
 ### ui-ux 1.34.0: a studio lane for asks to impress (2026-10-21)
 
 A real website job showed that the ui-ux flow measures hygiene and calls it quality. Three `/art-direct --reimagine` directions scored 24–25 of 26 on `design-score` and were all rejected by the owner. A studio process (one concept taken deep, judged by an independent critic that only sees screenshots) reached 8/8/7/7.5 in three rounds.

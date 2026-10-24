@@ -43,6 +43,8 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 - Write the **minimum code that solves the stated problem.** Lines beyond that need a stated reason.
 - **Match what the codebase already does** for the concern at hand (see `read-before-write.md` "Match classes, folders, suffixes..."). Adding a parallel approach because it's "cleaner" is rejected unless the user explicitly asked for refactoring.
 - **Apply the senior-engineer test:** would a senior engineer on this codebase say this is overcomplicated? If yes, simplify before submitting.
+- **Reuse before you write**, in this order: this codebase's own helper → the standard library or platform → a dependency already installed → new code. Never add a dependency for a few lines.
+- **Mark a shortcut with a known limit** where it lives, one line: `shortcut: <the limit>, <when to upgrade>`. Reviewers read it as a decision, not a finding (`.claude/templates/snippets/precedents/code-quality.md` § 93). Never a shortcut: validation at a trust boundary, error handling that prevents data loss, security, accessibility.
 
 ### Must not
 
@@ -119,6 +121,7 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 - [ ] Tradeoffs named where multiple reasonable approaches exist.
 - [ ] Implementation is the minimum that solves the stated problem.
 - [ ] No speculative abstractions, configurability, or error handling for impossible scenarios.
+- [ ] Every shortcut with a known limit carries its `shortcut: <the limit>, <when to upgrade>` comment.
 - [ ] Every changed line traces to the request (no drive-by edits).
 - [ ] Drift noticed but out-of-scope was logged to `ai/dynamic/drift-log.md`, not silently fixed.
 - [ ] A verifiable success criterion was defined and met (test passing, benchmark moving, lint green, command output matching expected).

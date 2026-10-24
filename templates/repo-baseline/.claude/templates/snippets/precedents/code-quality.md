@@ -168,6 +168,10 @@ is one finding with N locations.
 91. **A short history is not a calm repo** — a re-rooted, squashed or shallow history (the root commit weeks old, `git rev-parse --is-shallow-repository` true) makes churn, fix share and one-sided fixes unmeasurable, not zero. *Must be true:* the claim is "no hotspot / no divergent copy" and the history covers less than 90 days. *Then:* `architectural-diagnosis` § 9 prints `blocked (history <date>)`, `duplication-scan` 1b prints `history-blind k/n` and § 1 is `partial`; the copies are read side by side instead (`architectural-diagnosis` § 9, `duplication-scan` § 1).
 92. **A form string parsed with `parseFloat` and handed straight to a string-exact converter** — `toMinorUnits(parseFloat(v))` where `toMinorUnits` scales the decimal the number prints as (`String(x)` digits with integer arithmetic), or `Decimal(str(x))`, `BigDecimal.valueOf(double)`. A typed decimal with ≤ 15 significant digits survives the double and its shortest print exactly, so `"1.005"` still becomes 101 minor units. *Must be true:* nothing touches the float between the parse and the converter, and the input is a typed decimal of ≤ 15 significant digits. *Flips back:* arithmetic on the float first (`parseFloat(a) * qty`, a running sum), a converter that multiplies (`Math.round(x * 100)`), or a value that is itself the output of float arithmetic (`correctness-smell-scan` § 4b).
 
+## Not a finding — declared shortcuts (added 2026-10-25)
+
+93. **A shortcut the code declares** — a deliberately simple implementation (an in-process map instead of a shared cache, a linear scan, a single-instance lock, no pagination) with a one-line `shortcut: <the limit>, <when to upgrade>` comment beside it. It is a recorded decision (`rules/think-simplify-surgical.md` § 2), not an oversight, so it is not re-argued. *Must be true:* the comment names a concrete limit, and the expected load the repo states (README, deploy config, `ai/` scale notes) sits inside it. *Flips back:* the stated load already crosses the limit, the comment names no limit (`shortcut: quick fix`), or the shortcut drops something that is never one — validation at a trust boundary, error handling that prevents data loss, a security control, accessibility.
+
 ## Rationalizations to reject (code quality)
 
 **Wrongly accepting:** "this is a known anti-pattern" · "a linter flagged it" · "it could be null"
@@ -195,5 +199,6 @@ causes; McCabe (1976) and Alves et al. (ICSM 2010) on thresholds; Metz, "The Wro
 (2016); the Go 1.22 release notes; Ruff's rule index (`B904`, `TRY200` removal); the ESLint 10
 rule docs (`preserve-caught-error`); typescript-eslint 8.71 shared configs; golangci-lint v2
 configuration docs; the TC39 Temporal status page; the eslint-plugin-sonarjs 4.2.2 tarball
-licence. `concerns/error-handling.md` (this repo) is the source of § 14. Paraphrased; no text
-reproduced beyond short quoted phrases.
+licence. `concerns/error-handling.md` (this repo) is the source of § 14. § 93 adapts the
+`shortcut:` comment convention of Ponytail (<https://github.com/DietrichGebert/ponytail>, MIT,
+accessed 2026-10-25). Paraphrased; no text reproduced beyond short quoted phrases.
