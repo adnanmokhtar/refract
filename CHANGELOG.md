@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/scaffold-project`: an identity instead of a default skin (2026-10-25)
+
+A real run (`/do` → `/scaffold-project` for a bilingual Egyptian fashion-store homepage, Arabic first) produced a page the owner called "simple": Inter, one orange hue, grey boxes where the photos go. The command was built to do exactly that, and its preamble called it "beautiful by default".
+
+- **Identity shapes** (`static-content`, `commerce-fullstack`, `mobile-app`, any public front page) now get a visual identity from the brief at the Phase 2b gate: an idea, faces with a reason per script, colour roles, shape, imagery. It reuses `studio-process.md` Step 1 and Step 3 rather than restating them. The first page is the front page in that identity, never grey photo placeholders. App shells keep the neutral kit.
+- **Scripts**: Inter has no Arabic, Hebrew, Devanagari, Thai or CJK glyphs. Every locale now gets a face that covers its script, plus `lang` and `dir`.
+- **Versions**: the stack preset table carried majors that had gone stale (Astro 5; the registry ships 7). Majors are gone from it; Phase 3 pins the newest version every wrapping tool supports, after TypeScript 7 broke both `astro check` and `typescript-eslint`.
+- Validation checks the front page per locale for H1, `lang`, `dir`, no horizontal scroll and no grey placeholder. When the brief asks to impress, the Next line points at `/art-direct --studio`.
+- **Astro under an agent**: Astro 7 backgrounds `astro dev` / `astro preview` when it detects an AI agent, which makes a Playwright `webServer` exit early. The Astro stack note now prescribes `astro preview --ignore-lock`.
+
 ### Two ideas borrowed from Ponytail and Superpowers (2026-10-25)
 
 Popular Claude Code plugins were compared against Refract (superpowers, ponytail, claude-mem, obsidian-skills, frontend-design, canvas-design, code-review, ui-ux-pro-max). Most of what they do Refract already does. Two ideas were missing:

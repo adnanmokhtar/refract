@@ -13,7 +13,7 @@ Idea → working repo. Single command, multiple confirmation gates, opinionated 
 The output is a project that:
 - **Boots locally** out of the box (`pnpm dev` works; smoke test passes).
 - **Is ready for Claude Code orchestration** — the run ends by printing `/setup-project --create` for you to type (a level-D command: no command may start it for you).
-- **Looks beautiful by default** (Tailwind 4 + Radix — React **shadcn/ui**, Vue **reka-ui**, Svelte **bits-ui** — + lucide icons + 8pt grid + Inter Variable + light/dark theme).
+- **Has an identity, not a default skin.** A product people judge by its look (a store, a marketing site, a consumer app) gets a visual identity drawn from its brief — an idea, faces with a reason for every script it ships, colour roles, real imagery (§ 2.3). An app shell gets the neutral kit (Tailwind 4 + Radix — React **shadcn/ui**, Vue **reka-ui**, Svelte **bits-ui** — + lucide icons + 8pt grid + Inter Variable + light/dark theme).
 - **Has clean architecture** (layered or modular per stack) with a working auth flow + dashboard scaffold.
 - **Documents every choice** as ADRs in `ai/decisions/` so future maintainers know why.
 
@@ -105,15 +105,17 @@ Pick the **default + 2 alternatives** for the project shape. Each option include
 
 | Shape | #1 default | #2 alternative | #3 alternative |
 |---|---|---|---|
-| static-content | Astro 5 + MDX + Tailwind 4 | Next 15 (App Router, SSG) | SvelteKit + Tailwind |
-| saas-fullstack | Next 15 + Drizzle + Postgres + Better Auth + Stripe | Next 15 + Prisma + Postgres + Clerk + Stripe | SvelteKit + Drizzle + Postgres + Lucia + Stripe |
-| commerce-fullstack | Next 15 + Drizzle + Postgres + Stripe + Better Auth | Medusa 2 (commerce-purpose-built) + Next storefront | Shopify Hydrogen (if hosted on Shopify) |
-| realtime-fullstack | Next 15 + Convex (BaaS, realtime built-in) | Next 15 + Supabase Realtime + Postgres | SvelteKit + PartyKit + Cloudflare |
-| data-fullstack | Next 15 + tRPC + Drizzle + Postgres + Tanstack Table/Charts | Vue 3 + Vite + Pinia + tRPC client | SvelteKit + Tanstack Query + Postgres |
-| mobile-app | Expo SDK 53 + React Native + Convex (or Supabase) | Flutter (if iOS+Android first-class is non-negotiable) | Tauri Mobile (if existing web codebase + Rust appetite) |
-| internal-tool | SvelteKit + Drizzle + Postgres + Lucia | Next 15 + Drizzle + Postgres + Better Auth | Refine.dev (if mostly admin-CRUD) |
+| static-content | Astro + MDX + Tailwind | Next.js (App Router, SSG) | SvelteKit + Tailwind |
+| saas-fullstack | Next.js + Drizzle + Postgres + Better Auth + Stripe | Next.js + Prisma + Postgres + Clerk + Stripe | SvelteKit + Drizzle + Postgres + Lucia + Stripe |
+| commerce-fullstack | Next.js + Drizzle + Postgres + Stripe + Better Auth | Medusa (commerce-purpose-built) + Next storefront | Shopify Hydrogen (if hosted on Shopify) |
+| realtime-fullstack | Next.js + Convex (BaaS, realtime built-in) | Next.js + Supabase Realtime + Postgres | SvelteKit + PartyKit + Cloudflare |
+| data-fullstack | Next.js + tRPC + Drizzle + Postgres + Tanstack Table/Charts | Vue + Vite + Pinia + tRPC client | SvelteKit + Tanstack Query + Postgres |
+| mobile-app | Expo + React Native + Convex (or Supabase) | Flutter (if iOS+Android first-class is non-negotiable) | Tauri Mobile (if existing web codebase + Rust appetite) |
+| internal-tool | SvelteKit + Drizzle + Postgres + Lucia | Next.js + Drizzle + Postgres + Better Auth | Refine.dev (if mostly admin-CRUD) |
 | api-only | Hono + Drizzle + Postgres + Cloudflare Workers | Fastify + Drizzle + Postgres + Node | NestJS + Postgres (if structured / multi-team) |
 | library | tsdown + Vitest + Changesets | tsup + Vitest + Changesets | unbuild + Vitest + Changesets |
+
+**No major versions in this table, on purpose.** It went stale once already: it said Astro 5 while the registry shipped Astro 7 (2026-10-25). Phase 3 pins what the registry ships on the day.
 
 Print the 3 options with rationale + day-1 wins + watch-outs. **STOP. Wait for the user to pick #1 / #2 / #3 / "describe a different stack".** Do not proceed without explicit pick OR `--no-prompt` (which forces #1).
 
@@ -127,7 +129,22 @@ Once stack is locked:
 - **Service-oriented** (default for `api-only`): handlers → services → repositories
 - **Atomic Design** (default for marketing / static-content): atoms → molecules → organisms → templates → pages
 
-**Design system proposal**:
+**Design proposal** — which one depends on the shape:
+
+- **Identity** — `static-content`, `commerce-fullstack`, `mobile-app`, and the public front page of any other shape. A neutral kit on a product people judge by its look reads as "simple": a fashion-store homepage scaffolded on 2026-10-25 shipped Inter, one orange hue and grey boxes where the photos go, and the owner's verdict was exactly that. Write the identity from the brief, using [`studio-process.md`](../templates/packs/ui-ux/references/studio-process.md) Step 1 items 2 and 5 (the one feeling; ONE idea mined from the brand's name, place, material or history) and Step 3's typography, colour and photo-grade rules. The gate shows:
+  ```
+  Idea:     <one line — it must fail the logo-swap test>
+  Type:     display <face — its reason> · text <face> · per script: <e.g. Arabic display + text>
+  Colour:   base <hex> · ink <hex> · action <hex — buttons only> · accent <hex — never a button>
+  Shape:    <radius, rules and grid in one line>
+  Imagery:  <licensed stock set + one grade | a composition that needs no photo> · the shoot it needs later
+  ```
+  The identity is the token layer, not a new library: Tailwind 4 stays underneath, plus the stack's component kit where it has islands. A brief that asks to impress ("premium", "award-level", «فخم», «تبهر») still gets this identity now; the Next line then points at `/art-direct --studio` after setup, for the critic-judged lane.
+- **Neutral kit** — `saas-fullstack`, `realtime-fullstack`, `data-fullstack` and `internal-tool` app shells. The defaults below.
+
+**Scripts — every shape.** Inter covers Latin, Greek and Cyrillic only. For each locale in a script it lacks (Arabic, Hebrew, Devanagari, Thai, CJK…), add a text face that covers it. Arabic gets its own display and text faces, never the Latin face's fallback (studio-process Step 3: Arabic body ≥ 17 px, never letter-spaced). Each locale sets `lang` and `dir` on `<html>`.
+
+**Neutral kit defaults**:
 - **Library**: Tailwind 4 + Radix Primitives + lucide-react (or lucide-vue / lucide-svelte) + shadcn/ui (React) / reka-ui (Vue) / bits-ui (Svelte).
 - **Tokens**:
   - 8pt grid spacing (`--spacing-1: 4px; --spacing-2: 8px; ... --spacing-12: 48px`)
@@ -144,7 +161,8 @@ Print the architecture + design proposal. **STOP. Wait for confirmation OR expli
 Once Phase 2 is locked:
 
 - Look up **current latest stable versions** for every dependency in the chosen stack — by reading `package.json` from a freshly scaffolded reference project (`pnpm create <thing>` against a temp dir, or by querying the registry). Pin to versions that exist as of run-time.
-- Read official scaffolder docs for the chosen primary tool — stay current with their conventions (e.g., Next 15 App Router shape, Vite 7, Astro 5).
+- **Pin the newest version every tool in the chain supports, not the newest that exists.** Before pinning a language or framework, read the peer ranges of the tools that wrap it — type checker, linter, framework plugins (`npm view <tool> peerDependencies`). Measured 2026-10-25: TypeScript 7 was the latest release, and both `astro check` and `typescript-eslint` refused it; 6.0.3 was the version that works.
+- Read official scaffolder docs for the chosen primary tool — stay current with their conventions (the current App Router shape, the current Vite and Astro majors).
 - Read design-system docs for the chosen library — install commands and current component APIs.
 
 ### Phase 3a — Final plan gate
@@ -156,8 +174,9 @@ Project name:        <slug>
 Destination:         <path>
 Stack:               <#1 picked> with versions <list>
 Architecture:        <layered / modular / service-oriented / atomic>
-Design system:       Tailwind 4 + Radix + React shadcn-ui / Vue reka-ui / Svelte bits-ui + lucide + Inter; brand hue = <h>°
-First feature:       Auth (sign-up / sign-in / forgot password) + Dashboard
+Design system:       <identity: idea · faces per script · colour roles · imagery> | <neutral kit: Tailwind 4 + Radix + React shadcn-ui / Vue reka-ui / Svelte bits-ui + lucide + Inter; brand hue = <h>°>
+First feature:       <the front page, in the identity (identity shapes)> | <Auth (sign-up / sign-in / forgot password) + Dashboard (app shells)>
+Locales:             <list, with lang + dir and the face that covers each script>
 Database:            <Postgres / SQLite / Convex / MongoDB / etc.>
 Migrations:          <Drizzle Kit / Prisma / etc.>
 Hosting target:      <Vercel / Cloudflare / Fly / Railway / etc.>
@@ -223,7 +242,7 @@ pnpm add nativewind tailwindcss react-native-reanimated   # NativeWind (Tailwind
 - **Flutter** — no JS step: use Material 3 (`useMaterial3: true` in `ThemeData`) or Cupertino; define `ColorScheme.fromSeed` + a typography scale + spacing constants as the token layer.
 - The mobile token layer lives in the framework theme object (NativeWind `tailwind.config.js` / Tamagui `tokens` / Flutter `ThemeData`), NOT a CSS file — light + dark variants still required.
 
-Write the tokens (CSS custom properties for spacing, colors, radii, fonts) into `src/app.css` or equivalent for **web**, or the framework theme object for **mobile**, with light + dark themes.
+Write the tokens (CSS custom properties for spacing, colors, radii, fonts) into `src/app.css` or equivalent for **web**, or the framework theme object for **mobile**, with light + dark themes. Under an identity, the tokens ARE the identity — its faces, colour roles and shape — and the faces are self-hosted (`@fontsource*` packages or font files), subset where a face sets only display lines.
 
 ### 4.4 — Write the architecture skeleton
 
@@ -258,9 +277,11 @@ src/
 
 For **layered** architectures the layout is shallower; for **service-oriented** it's `routes/ → services/ → repositories/`.
 
-### 4.5 — Build the auth + dashboard scaffold
+### 4.5 — Build the first page
 
-The first running feature, regardless of project shape:
+**Identity shapes: the front page first** (home, storefront, landing), built in the identity: the sections the brief names, real copy in every locale (no lorem), and imagery as the identity says — licensed stock with its credit and one grade, or a composition that needs no photo. **Grey boxes standing in for photos are not a first page.** A block that genuinely waits for a shoot says so once and still carries the composition. Where the shape has accounts (commerce), the auth scaffold below follows; the dashboard does not apply.
+
+**App shells: auth + dashboard**, as follows:
 
 - **Auth** (sign-up + sign-in + forgot-password):
   - For Next + Better Auth: install Better Auth, configure with email/password + OAuth Google, scaffold `app/auth/sign-in/page.tsx`, `app/auth/sign-up/page.tsx`, `app/auth/forgot-password/page.tsx`. Wire middleware for protected routes.
@@ -274,7 +295,7 @@ The first running feature, regardless of project shape:
   - One stub data card ("0 items" — placeholder for the user's first feature).
   - Empty state design that's beautiful (illustration + helpful CTA).
 
-This is the floor — every project boots with login working, you can land on a dashboard.
+For app shells this is the floor — every project boots with login working, you can land on a dashboard.
 
 ### 4.6 — Database + ORM
 
@@ -336,7 +357,7 @@ Runs **after** Phase 6 confirms the scaffold boots. ADRs document choices that s
 - **ADRs** — write one per major choice in `ai/decisions/` (now that Phase 6 confirmed the scaffold boots):
   - `0001-stack.md` — "Why <framework> over the alternatives we considered."
   - `0002-architecture.md` — "Why <layered/modular/service> for this domain."
-  - `0003-design-system.md` — "Why Tailwind + Radix + React/Vue/Svelte component kits (shadcn/reka/bits) + lucide; brand hue."
+  - `0003-design-system.md` — the identity (idea, faces per script, colour roles, imagery and its licence) or, for an app shell, "Why Tailwind + Radix + React/Vue/Svelte component kits (shadcn/reka/bits) + lucide; brand hue."
   - `0004-database.md` — "Why <Postgres/SQLite/Convex>" + ORM choice.
   - `0005-auth.md` — "Why <Better Auth/Clerk/Lucia>."
   - `0006-deployment.md` — "Why <Vercel/Cloudflare/Fly>."
@@ -350,8 +371,8 @@ In order — refuse to declare success on any failure:
 2. **Type-check**: `pnpm type-check` (or `tsc --noEmit`) exits 0.
 3. **Unit tests**: `pnpm test` exits 0 (the scaffold has 1-2 trivial tests; they pass).
 4. **Dev server boots**: `dev-server-start` skill confirms server returns 200 within 60s.
-5. **Auth flow renders**: Playwright MCP navigates to `/auth/sign-in`, asserts heading visible, screenshots.
-6. **Dashboard renders** (after a test login): Playwright navigates to `/dashboard`, asserts the welcome card visible.
+5. **First page renders**: identity shapes — Playwright opens the front page in every locale, asserts the H1, `lang` and `dir`, no horizontal scroll at 390 px, and no grey placeholder standing in for a photo; screenshots each. App shells — Playwright navigates to `/auth/sign-in`, asserts heading visible, screenshots.
+6. **Dashboard renders** (app shells, after a test login): Playwright navigates to `/dashboard`, asserts the welcome card visible.
 7. **No console errors** on either page.
 8. **Anchoring audit** — `PENDING`, not failed, in this run: it grades what `/setup-project --create` installs (its Phase 4.6 writes the project-specific blocks), and the user runs that after this command hands it off. Report the line as `Anchoring: PENDING (runs inside /setup-project --create)`.
 9. **Initial commit**: `git add . && git commit -m "chore: scaffold via /scaffold-project"` — the new repo has a clean root commit.
@@ -387,7 +408,7 @@ Generate `ai/dynamic/next-features.md` — a prioritized roadmap drawn from the 
 
 Suggest the natural next command:
 ```
-Next: `/setup-project --create` (you type it — level D), then `/add-feature "<feature 1 name>"` to ship the first feature.
+Next: `/setup-project --create` (you type it — level D), then `/add-feature "<feature 1 name>"` to ship the first feature — or, when the brief asks to impress, `/art-direct --studio` on the front page first.
 ```
 
 ## Output format
@@ -399,13 +420,13 @@ Phase 1 (Understand): <domain> for <audience>; constraints = <list>
 Phase 2 (Organize):
    Stack:        <#1 picked from 3 ranked options>
    Architecture: <picked>
-   Design:       Tailwind + Radix + React shadcn / Vue reka / Svelte bits + lucide; brand hue = <h>°
+   Design:       <identity: idea · faces per script · colour roles · imagery> | <neutral kit: Tailwind + Radix + React shadcn / Vue reka / Svelte bits + lucide; brand hue = <h>°>
 Phase 3 (Retrieved): N package versions pinned; M docs read
 Phase 4 (Generated):
    Repo:           <files written count>
    Architecture:   src/{core,shared,modules}/...
    Design system:  installed + tokens written
-   Auth + dashboard: scaffolded
+   First page:     <front page in the identity | auth + dashboard> scaffolded
    Database:       <db> + initial schema + migration applied
    CI:             GitHub Actions config written
    Claude orchestration: <PENDING — /setup-project --create handed to the user | skipped (--no-claude-orchestration)>
@@ -416,8 +437,8 @@ Phase 6 (Validated):
    Type-check:  ✓
    Tests:       ✓ <count> passing
    Dev server:  ✓ booted on port <p>
-   Auth route:  ✓ renders
-   Dashboard:   ✓ renders
+   First page:  ✓ renders <per locale | /auth/sign-in>
+   Dashboard:   ✓ renders | n/a (identity shape)
    Console:     ✓ no errors
    Anchoring:   ✓ <coverage>%
 Phase 7 (Improved): ai/dynamic/next-features.md written; <count> features queued
@@ -425,7 +446,7 @@ Phase 7 (Improved): ai/dynamic/next-features.md written; <count> features queued
 Status: SCAFFOLDED — ready to build features
 Repo:   <path>
 Boot:   `cd <path> && pnpm dev`  (port: <p>)
-Next:   `/add-feature "<first feature>"`
+Next:   `/setup-project --create`, then `/art-direct --studio` (brief asks to impress) | `/add-feature "<first feature>"`
 ```
 
 ## Failure modes
@@ -442,7 +463,7 @@ Next:   `/add-feature "<first feature>"`
 ## Hard rules
 
 - **Three confirmation gates between Phase 2a / 2b / 3a.** Skipping any of them produces a project the user didn't actually want. `--no-prompt` is logged in the first commit.
-- **Default to opinionated, not maximally configurable.** Tailwind 4 + Radix + React/Vue/Svelte kits (shadcn/reka/bits) + lucide + Inter is the floor — chosen because it ships beautiful UIs in days, not weeks. Override per-idea but don't water down the default.
+- **Opinionated, and the opinion fits the shape.** App shells get the neutral kit — Tailwind 4 + Radix + React/Vue/Svelte kits (shadcn/reka/bits) + lucide + Inter — because it ships usable UIs in days. A product people judge by its look gets an identity from its brief; on it, the neutral kit is a placeholder, not a default. Every shape covers every script it ships.
 - **Run real scaffolders.** `pnpm create <thing>` is more current and better-maintained than any custom template. We layer Claude orchestration on top; we don't replace the ecosystem.
 - **Pin versions at scaffold time.** Read what `pnpm create` wrote and freeze. Future `pnpm update` is the user's choice.
 - **One ADR per major decision.** "Why React over Vue" / "Why Postgres over Mongo" — answered in writing or it's not a real decision.
@@ -457,7 +478,7 @@ Next:   `/add-feature "<first feature>"`
 This command assumes generic web/mobile/api shapes. Specific tweaks:
 
 - **Mobile (Expo)**: `pnpm dev` is `pnpm start` in Expo's vocabulary; Phase 6 dev-server-start skill detects + adapts.
-- **Astro**: no auth scaffold by default (mostly static); a "newsletter signup" component substitutes if backend is involved.
+- **Astro**: no auth scaffold by default (mostly static); a "newsletter signup" component substitutes if backend is involved. Astro 7 detects an AI agent and moves `astro dev` / `astro preview` to the background by itself, so a Playwright `webServer` running plain `astro preview` "exits early" and the server lingers on its port. Use `astro preview --ignore-lock` (a foreground one-off) as the `webServer` command; stop a lingering one with `astro preview stop` / `astro dev stop`. Measured 2026-10-25, Astro 7.4.2.
 - **API-only**: no design-system layer; Phase 4.3 is skipped. A request/response example client + OpenAPI spec replace the "dashboard renders" check.
 - **Library**: scaffolder writes nothing UI; Phase 4.5/4.6 are skipped. Phase 6 validates `pnpm build` produces a valid dist + `pnpm test` passes.
 
