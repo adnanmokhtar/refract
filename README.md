@@ -10,8 +10,8 @@ native format of every AI coding tool on your machine.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tools](https://img.shields.io/badge/tools-12-blue.svg)](#supported-tools)
-[![Packs](https://img.shields.io/badge/packs-23-blueviolet.svg)](#whats-inside)
-[![Commands](https://img.shields.io/badge/commands-153-orange.svg)](#the-commands)
+[![Packs](https://img.shields.io/badge/packs-24-blueviolet.svg)](#whats-inside)
+[![Commands](https://img.shields.io/badge/commands-184-orange.svg)](#the-commands)
 [![quality-gates](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml)
 
 </div>
@@ -285,7 +285,7 @@ file — the agents adapt with no changes.
 Meet a framework it has never seen? `/setup-project` writes the reference on the fly and every
 future project reuses it.
 
-### Finding things in 228k lines
+### Finding things in 427k lines
 
 The knowledge base is far larger than any context window, so Refract ships a lexical search layer —
 `scripts/pack-search.py`, pure standard-library Python, no network:

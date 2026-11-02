@@ -1,5 +1,7 @@
 # Fixture repo
 
+[![Tools](https://img.shields.io/badge/tools-2-blue.svg)](#) [![Packs](https://img.shields.io/badge/packs-2-blueviolet.svg)](#) [![Commands](https://img.shields.io/badge/commands-8-orange.svg)](#)
+
 ![The two role-based packs and what each ships — agents, skills, commands and rules per pack](assets/pack-matrix.svg)
 
 ## What's inside

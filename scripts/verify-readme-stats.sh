@@ -12,7 +12,8 @@
 #   domains · adapters · scripts · regulatory overlays (count AND the names listed) ·
 #   the "Another <N> commands ship inside the packs" sentence · the "<N> global commands"
 #   tree comment · the pack-matrix alt text's spelled-out pack count · and, in
-#   docs/setup-project-cheatsheet.md, the pack-catalog bullet's "<N> commands, <N> agents".
+#   docs/setup-project-cheatsheet.md, the pack-catalog bullet's "<N> commands, <N> agents" ·
+#   the tools / packs / commands shields.io badges at the top of README, when present.
 #
 # That last file is here because the opening premise above was only ever half true. README is
 # not the ONLY prose asserting corpus-wide counts: the "See also" bullet in
@@ -228,6 +229,25 @@ elif [ "$CLAIM" -gt $((KB_K + 2)) ] || [ "$CLAIM" -lt $((KB_K - 2)) ]; then
 else
   pass "knowledge base: ${CLAIM}k ≈ ${KB_K}k ($KB_LINES lines)"
 fi
+
+# ---- 8. the shields.io badges at the top of the README --------------------------------
+# The badges are the first figures a visitor reads, and no section above parsed them.
+# MEASURED 2026-11-02: packs-23 and commands-153 sat above a table saying 24 and 184, with
+# this gate green. An absent badge is skipped (the fixtures need not carry one); a present
+# one must match disk.
+check_badge() { # <expected> <label>
+  local want="$1" label="$2" got
+  got=$(grep -oE "img\.shields\.io/badge/$label-[0-9]+-" "$README" | head -1 | grep -oE '[0-9]+')
+  [ -n "$got" ] || return 0
+  if [ "$got" != "$want" ]; then
+    fail "README.md: $label badge says $got — actual count is $want"
+  else
+    pass "$label badge: $want"
+  fi
+}
+check_badge "$ADAPTERS" tools
+check_badge "$PACKS"    packs
+check_badge "$TOTALCMD" commands
 
 # ---- 7. the pack-catalog figures in docs/setup-project-cheatsheet.md --------------------
 # Rationale in the header. Absent file is a WARN, not a silent skip: the fixture mini-repos
