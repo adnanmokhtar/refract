@@ -6,6 +6,27 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-11-02
+
+First tagged release since the public launch as Refract. Everything below this heading down to
+[2.16.0] ships in it.
+
+### CI green again, and the figures a visitor reads first (2026-11-02)
+
+- **`quality-gates` was red from 21130f06 (2026-10-18) to b35e231e.** `ubuntu-latest` ships no
+  ripgrep: `migration-reachability.sh --lint` exits 4 without it, so the `good/deadfeat` fixture
+  failed on every run, and GitHub skipped the 56 steps after it. The workflow now installs rg.
+- **`lint-rg-parses.sh` had never run in CI** — it skips with exit 0 when rg is absent. Its first
+  real run, on Ubuntu's rg 14.1.0, found three prescribed commands that error before searching
+  (an exit 2 the agent reads as zero hits): a nested brace glob in backend `wire-format-scan`, and
+  `--type vue` (built in from rg 15 only) in frontend `api-contract-sentry`. backend 2.1.1,
+  frontend 2.2.2.
+- **README badges said 23 packs and 153 commands** above a table saying 24 and 184.
+  `verify-readme-stats.sh` now checks the tools / packs / commands badges; `bad/stale-badge`
+  pins it.
+- `.claude-plugin/plugin.json` and `marketplace.json` move from 1.0.0 to 3.0.0 so the plugin,
+  the tag and this file name the same version.
+
 ### `/scaffold-project`: an identity instead of a default skin (2026-10-25)
 
 A real run (`/do` → `/scaffold-project` for a bilingual Egyptian fashion-store homepage, Arabic first) produced a page the owner called "simple": Inter, one orange hue, grey boxes where the photos go. The command was built to do exactly that, and its preamble called it "beautiful by default".

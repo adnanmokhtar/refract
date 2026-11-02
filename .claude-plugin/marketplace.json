@@ -2,7 +2,7 @@
   "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
   "name": "refract",
   "description": "Refract — a portable engineering brain for AI coding agents. Write your setup once; run it in every tool.",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "owner": {
     "name": "Adnan Mokhtar",
     "email": "iconxweb@gmail.com",
@@ -14,7 +14,7 @@
       "source": "./",
       "displayName": "Refract",
       "description": "Fifteen stack-agnostic orchestration commands — /do, /setup-project, /audit, /optimize, /align, /refactor, /polish, /delegate and more — plus the full framework source: 23 role-based packs, 12 tool adapters and the cross-tool sync script.",
-      "version": "1.0.0",
+      "version": "3.0.0",
       "author": {
         "name": "Adnan Mokhtar",
         "email": "iconxweb@gmail.com",
