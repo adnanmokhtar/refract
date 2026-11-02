@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "2.1.0",
-  "released": "2026-10-18",
+  "version": "2.1.1",
+  "released": "2026-11-02",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "dto-types.py --routes/--enums: mounted paths (versioning, RouterModule, global prefix with exclude), class-level decorators, enum member=value; log-tail/endpoint-test skills renamed so the commands are visible.",
+  "summary": "wire-format-scan § 0: the config-file glob no longer nests braces — ripgrep 14 (Ubuntu 24.04's apt package) rejects `{application*.{yml,…}}`, so the probe errored and read as zero hits.",
   "changelog": "CHANGELOG.md"
 }

@@ -114,7 +114,7 @@ rg "productsService\.|useProducts\(" "${ROOTS[@]}"
 ### 4. Components rendering the data
 ```bash
 # Grep for field accesses
-rg "product\.(price|name|description)" "${ROOTS[@]}" --type vue --type ts
+rg "product\.(price|name|description)" "${ROOTS[@]}" --type-add 'vue:*.vue' --type vue --type ts
 ```
 
 ### 5. Routes / pages

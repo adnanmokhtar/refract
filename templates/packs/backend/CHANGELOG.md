@@ -9,6 +9,10 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.1.1 — 2026-11-02
+
+- **`wire-format-scan` § 0 runs on ripgrep 14.** The settings probe's `-g` glob nested one brace group inside another (`application*.{yml,yaml,properties}` inside the outer list). ripgrep 15 accepts that; ripgrep 14.1.0 — what `apt install ripgrep` gives on Ubuntu 24.04 — refuses with `error parsing glob`, exits 2, and the step reads as "no serializer settings found". The inner groups are now spelled out flat. Found when CI first installed rg and `lint-rg-parses.sh` stopped skipping.
+
 ## 2.1.0 — 2026-10-18
 
 - **`dto-types.py --routes` / `--enums`** (self-test 95/95): HANDLER rows carry the mounted path (URI version → RouterModule path → controller/method path → `setGlobalPrefix` unless `exclude` matches), the version and class-level decorators; ENUM rows carry `member=value`. Rules follow Nest's `RoutePathFactory`. The migration pack's I-ROUTES/I-AUTHZ/I-ENUM lanes call it.

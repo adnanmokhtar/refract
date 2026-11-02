@@ -14,6 +14,10 @@ second, independent telling of the release that had grown well past a one-line s
 preserved below verbatim and unabridged; `summary` now carries a single line for the current
 version.
 
+## 2.2.2 — 2026-11-02
+
+- **`api-contract-sentry` (agent + example) runs on ripgrep 14.** `--type vue` is built in from ripgrep 15 only; ripgrep 14.1.0 — what `apt install ripgrep` gives on Ubuntu 24.04 — exits 2 with `unrecognized file type: vue`, and the field-usage grep reads as "no callers". It now declares the type first: `--type-add 'vue:*.vue' --type vue --type ts`, which is a no-op on 15. Found when CI first installed rg and `lint-rg-parses.sh` stopped skipping.
+
 ## 2.2.1 — 2026-10-19
 
 - **a11y fallback (Phase 6 OD-7).** `detect-tracks.sh` now selects ui-ux whenever frontend is selected (a post-condition with a test over every stack-conformance fixture). `_essentials.md` records where the a11y review lives before and after the `accessibility-auditor` → `ux-reviewer` merge, and the code-reviewer fallback when ui-ux is deselected.

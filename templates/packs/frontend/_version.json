@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "frontend",
-  "version": "2.2.1",
-  "released": "2026-10-19",
+  "version": "2.2.2",
+  "released": "2026-11-02",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Phase 6 OD-7: ui-ux is always selected with frontend; _essentials documents the a11y lens fallback; two agents' examples genericized.",
+  "summary": "api-contract-sentry: `--type vue` is declared with `--type-add` first — ripgrep 14 has no built-in vue type, so the grep errored and read as zero hits.",
   "changelog": "CHANGELOG.md"
 }
