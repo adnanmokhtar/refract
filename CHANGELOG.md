@@ -14,6 +14,9 @@ match or reached the 20s limit: green on 27566f87, red on a5fe081b, same file. S
 parameters are now bound to `.` as well. `tests/validators/lint-rg-parses.sh/` pins it, with a
 `good/` case whose regex cannot match its own source and a `bad/` case for a rejected `--type`.
 
+The gate also stops skipping in CI: with `CI` set, a missing `rg` is now a failure, not a `SKIPPED` and
+exit 0, which is how it spent four weeks in the workflow checking nothing.
+
 ### README: a demo GIF, and three claims that no longer held (2026-11-07)
 
 - **`assets/demo.gif`** sits under the badges: a real `sync-to-global.sh --apply` against a scratch

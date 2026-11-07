@@ -36,7 +36,16 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-command -v rg >/dev/null 2>&1 || { echo "rg-parses: SKIPPED — ripgrep not installed"; exit 0; }
+# Locally a missing rg is a skip. In CI it is a failure: this gate sat in the workflow from 5dfc974f
+# to d42d24bb printing SKIPPED and exiting 0, so it had never checked anything there.
+if ! command -v rg >/dev/null 2>&1; then
+  if [ -n "${CI:-}" ]; then
+    echo "::error::rg-parses: ripgrep is not installed on this runner, so nothing was checked"
+    exit 1
+  fi
+  echo "rg-parses: SKIPPED — ripgrep not installed"
+  exit 0
+fi
 cd "$REPO_ROOT" || exit 2
 EMPTY="$(mktemp -d "${TMPDIR:-/tmp}/rg-parses.XXXXXX")"
 trap 'rm -rf "$EMPTY"' EXIT
