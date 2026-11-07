@@ -14,6 +14,8 @@ native format of every AI coding tool on your machine.
 [![Commands](https://img.shields.io/badge/commands-184-orange.svg)](#the-commands)
 [![quality-gates](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml)
 
+<img src="assets/demo.gif" width="800" alt="Terminal recording: sync-to-global.sh installs one repo into six AI coding tools, then the same /audit command is shown in the native format of Claude Code, Gemini CLI, Kimi and OpenCode">
+
 </div>
 
 ---
@@ -125,8 +127,8 @@ Refract owns.
 
 Be aware of what that route is and isn't. Commands arrive namespaced (`/refract:audit`, not
 `/audit`), it reaches Claude Code only, and it does **not** install the `templates/` tree that
-fourteen of the fifteen commands read by path — so `/refract:refine-prompt` works standalone and the
-phase-driven ones like `/refract:setup-project` will not find their phase files. Treat the plugin as
+all sixteen commands cite by path — so the phase-driven ones like `/refract:setup-project` will not
+find their phase files. Treat the plugin as
 a way to browse and try the light commands; treat the sync above as the install.
 
 [docs/INSTALL.md](docs/INSTALL.md) compares all three routes, with the measured limits of each, and
@@ -144,10 +146,10 @@ line at the bottom.
 
 ## The commands
 
-Fifteen global commands. Each takes an optional scope — omit it for the whole project, or pass a
+Sixteen global commands. Each takes an optional scope — omit it for the whole project, or pass a
 path or a plain-English description of the area you mean.
 
-![The fifteen global commands grouped by intent — /do routes to the rest; create, plan, improve, integrate and maintain groups; plus the universal --plan handoff to /execute-plan and /verify-plan](assets/command-map.svg)
+![The sixteen global commands grouped by intent — /do routes to the rest; create, plan, improve, integrate and maintain groups; plus the --plan handoff to /execute-plan and /verify-plan](assets/command-map.svg)
 
 | Command | What it does |
 |---|---|
@@ -166,14 +168,15 @@ path or a plain-English description of the area you mean.
 | `/delegate` | Dispatch one bounded task to a **different** AI CLI (Codex, Cursor, Aider, OpenCode…), then review its diff and commit it yourself. The relay never commits — that stays your call. |
 | `/setup-project-adapters` | Re-sync tool adapters for the current repository. |
 | `/setup-project-health` | Read-only health report — drift, staleness, budget breaches, missing ADRs. |
+| `/upgrade-dep` | Upgrade one dependency, framework or runtime to a named version, with the official guide and codemod, and parity proved against a named oracle. |
 
 Another 168 commands ship inside the packs and install per-project when their pack is selected.
 
-**Every command supports `--plan`**, which is where this gets economical: plan on a strong model,
-execute on a cheap one.
+**Six global commands and 29 pack commands support `--plan`**, which is where this gets economical:
+plan on a strong model, execute on a cheap one.
 
 ```
-/audit --plan                  # writes .claude/plans/<file>.md, then stops before editing
+/optimize --plan               # writes .claude/plans/<file>.md, then stops before editing
 /execute-plan <plan-file>      # implements it (executor sub-agents default to Sonnet)
 /verify-plan <plan-file>       # independently audits the result against the plan
 ```

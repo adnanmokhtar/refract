@@ -6,8 +6,8 @@ specific to one repository.
 
 | Route | One line | Gives you | Does **not** give you |
 |---|---|---|---|
-| 1 · Plugin | `/plugin install refract@refract` | 15 commands inside Claude Code, namespaced `/refract:…` | Any other tool; the framework file tree at the paths the commands read |
-| 2 · Sync | `./scripts/sync-to-global.sh --apply` | The same 15 commands un-namespaced, in Claude Code **and** Gemini CLI, OpenCode, Kimi, Qwen, Codex — plus `templates/` and `scripts/` under `~/.claude/` | Anything inside a specific repository |
+| 1 · Plugin | `/plugin install refract@refract` | 16 commands inside Claude Code, namespaced `/refract:…` | Any other tool; the framework file tree at the paths the commands read |
+| 2 · Sync | `./scripts/sync-to-global.sh --apply` | The same 16 commands un-namespaced, in Claude Code **and** Gemini CLI, OpenCode, Kimi, Qwen, Codex — plus `templates/` and `scripts/` under `~/.claude/` | Anything inside a specific repository |
 | 3 · Project | `/setup-project` | Packs, agents, rules, hooks and per-project adapters written into one repository | A global surface — it assumes route 2 already ran |
 
 ---
@@ -57,10 +57,10 @@ Two different things were checked, and they are not the same strength of evidenc
   the project.
 - **The names stay namespaced.** You type `/refract:audit`, not `/audit`. That is Claude Code's
   plugin contract, not a choice made here.
-- **It does not install the framework tree where the commands look for it.** Fourteen of the
-  fifteen commands cite `templates/…`, `~/.claude/templates/…` or `~/.claude/scripts/…` by path;
-  `/refine-prompt` is the only one that cites none. `/setup-project` names a `templates/` path 42
-  times, `/refactor` 25, `/setup-project-adapters` 16.
+- **It does not install the framework tree where the commands look for it.** All sixteen commands
+  cite `templates/…`, `~/.claude/templates/…` or `~/.claude/scripts/…` by path. `/setup-project`
+  names a `templates/` path 48 times, `/refactor` 25, `/setup-project-adapters` 16, `/refine-prompt`
+  2.
   A plugin install creates none of those paths. The copy in the plugin cache does contain the full
   tree, but the commands do not address it that way today.
 

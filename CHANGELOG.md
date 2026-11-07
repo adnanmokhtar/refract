@@ -6,6 +6,18 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### README: a demo GIF, and three claims that no longer held (2026-11-07)
+
+- **`assets/demo.gif`** sits under the badges: a real `sync-to-global.sh --apply` against a scratch
+  `HOME`, then the same `/audit` in each tool's native format. Long lists are elided and paths
+  shortened, and the frame says so.
+- **"Fifteen global commands" → sixteen.** `/upgrade-dep` had shipped without reaching the README
+  table, `assets/command-map.svg` or the `docs/INSTALL.md` route table.
+- **"Every command supports `--plan`" was false.** Six global commands and 29 pack commands do. The
+  example moved from `/audit --plan` to `/optimize --plan`, since `/audit` spells it `--plan-only`.
+- **`/refine-prompt` is not path-free any more:** it cites `templates/snippets/interview-loop.md`, so
+  the "only one that cites none" claim and the README's "works standalone" are gone.
+
 ## [3.0.0] — 2026-11-02
 
 First tagged release since the public launch as Refract. Everything below this heading down to
