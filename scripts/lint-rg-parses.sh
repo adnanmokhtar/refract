@@ -9,8 +9,12 @@
 # find could never fire. None of the existing gates executed a pattern; they only read prose.
 #
 # HOW. Each `rg` line inside a fenced block (first pipeline segment only) runs in an EMPTY temp
-# directory with stdin closed and every array variable bound to `.`. Pattern and type errors are
-# raised before any file is read, so an empty tree is enough and nothing in the repo is searched.
+# directory with stdin closed and every variable, array or scalar, bound to `.`. Pattern and type
+# errors are raised before any file is read, so an empty tree is enough and nothing is searched.
+#
+# Scalars need the binding too. Unset, `"$B/$f"` expands to `/`, so the probe walked the whole
+# filesystem until it hit a match or the 20s limit, and the gate passed or failed on walk order
+# (event-contract-scan:188, 2026-11-07: same file, green on 27566f87, red on a5fe081b).
 # Lines carrying a command substitution or a backtick are skipped — running them would run other
 # programs — and counted, so the skip is visible.
 #
@@ -76,10 +80,14 @@ for path in sys.stdin.read().split("\0"):
         if "$(" in seg or "`" in seg or "<(" in seg:
             skipped += 1
             continue
-        # every array expansion becomes `.`; any other $VAR becomes empty (bash default)
+        # every array expansion becomes `.`, and every scalar and positional is bound to `.`:
+        # empty, "$B/$f" would be `/`. PATH stays, or bash cannot find rg. A name inside a
+        # single-quoted regex is bound too, which is harmless: it is never expanded.
         seg = re.sub(r"\"?\$\{[A-Za-z_][A-Za-z0-9_]*\[@\]\}\"?", ".", seg)
+        names = set(re.findall(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)", seg)) - {"PATH"}
         try:
-            p = subprocess.run(["bash", "-c", seg], cwd=empty, stdin=subprocess.DEVNULL,
+            p = subprocess.run(["bash", "-c", seg, "_"] + ["."] * 9, cwd=empty, stdin=subprocess.DEVNULL,
+                               env={**os.environ, **{v: "." for v in names}},
                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True, timeout=20)
         except subprocess.TimeoutExpired:
             bad += 1

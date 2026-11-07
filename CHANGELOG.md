@@ -6,6 +6,14 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `lint-rg-parses.sh`: a gate that passed or failed on filesystem walk order (2026-11-07)
+
+Every array variable was bound to `.` before a prescribed `rg` ran, and every scalar was left empty.
+Empty, `"$B/$f"` is `/`, so `event-contract-scan:188` walked the whole filesystem until it found a
+match or reached the 20s limit: green on 27566f87, red on a5fe081b, same file. Scalars and positional
+parameters are now bound to `.` as well. `tests/validators/lint-rg-parses.sh/` pins it, with a
+`good/` case whose regex cannot match its own source and a `bad/` case for a rejected `--type`.
+
 ### README: a demo GIF, and three claims that no longer held (2026-11-07)
 
 - **`assets/demo.gif`** sits under the badges: a real `sync-to-global.sh --apply` against a scratch
@@ -27,7 +35,7 @@ First tagged release since the public launch as Refract. Everything below this h
 
 - **`quality-gates` was red from 21130f06 (2026-10-18) to b35e231e.** `ubuntu-latest` ships no
   ripgrep: `migration-reachability.sh --lint` exits 4 without it, so the `good/deadfeat` fixture
-  failed on every run, and GitHub skipped the 56 steps after it. The workflow now installs rg.
+  failed on every run, and GitHub skipped the 70-odd steps after it. The workflow now installs rg.
 - **`lint-rg-parses.sh` had never run in CI** — it skips with exit 0 when rg is absent. Its first
   real run, on Ubuntu's rg 14.1.0, found three prescribed commands that error before searching
   (an exit 2 the agent reads as zero hits): a nested brace glob in backend `wire-format-scan`, and
