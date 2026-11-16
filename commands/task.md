@@ -3,7 +3,7 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.1.0
+version: 1.2.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -43,15 +43,28 @@ reads the same flow:
     { "label": "Feature",     "to": "add-feature" },
     { "label": "UI/UX",       "to": "enhance-ui" }
   ],
+  "priorityLabels": ["Urgent", "High"],
   "start":    "In Progress",
   "review":   "Testing",
-  "done":     null
+  "done":     null,
+  "git": {
+    "branchFrom":     "origin/main",
+    "branch":         "<type>/<slug>",
+    "worktree":       "../worktrees/<slug>",
+    "prTo":           ["staging", "main"],
+    "conflictBranch": "merge/<branch>-into-<target>"
+  }
 }
 ```
 
 - **`pickFrom`** — the lists/states `next` takes from, **in priority order**: the first list with
   a card wins, top card of that list first. A card in any other list is never picked by `next`
   (Backlog-style lists hold work nobody approved yet). An explicit URL/key still runs any card.
+- **`priorityLabels`** — labels that jump the queue, highest first, matched case-insensitively.
+  `next` reads every pick list and takes a card carrying the first label before any card carrying
+  the second, and those before an unlabelled one — whichever pick list it sits in. Within one
+  rank the `pickFrom` order and then the card's position decide. Absent or empty → list order and
+  position only.
 - **`fixLists`** — pick lists QA sends cards back to. A card taken from one is executed as a
   fix: the tester's latest comment is the bug repro, and it dispatches to `/fix-bug` whatever its
   labels say.
@@ -65,6 +78,29 @@ reads the same flow:
   null`** means the run never moves past `review`: release lists and Done belong to the humans who
   ship. A name that matches no list on the board → halt before the start-move and name the lists
   that exist.
+- **`git`** — where each card's work lives. Absent → commit where the session stands, under the
+  project's own git rules. Present:
+  - **`branchFrom`** — every card gets a fresh branch cut from this ref, fetched first. In a
+    drain, card 2 never stacks on card 1.
+  - **`branch`** — its name. `<type>` is the Conventional Commits type of the change (`fix` from
+    `/fix-bug`, `feat` from `/add-feature`, `refactor`, `perf`, …); `<slug>` is a short
+    lowercase ASCII slug of the card title.
+  - **`worktree`** — cut it in its own worktree at this path (`git worktree add -b <branch> <dir>
+    <branchFrom>`), so the shared checkout stays on its branch for other sessions. All of Phase
+    4–6 runs there. Once the branch is pushed, the worktree is removed; the branch keeps every
+    commit. Absent → `git switch -c` in place.
+  - **`prTo`** — after Phase 6, push the branch and open one PR into each target, in order.
+    `/task` opens PRs and never merges one: merging belongs to whoever releases.
+  - **`conflictBranch`** — a branch that does not merge cleanly into a target is never fixed on
+    the branch itself, because the target's history would then ride into its other PRs. Cut this
+    branch from the target, merge the card branch into it, resolve there, push it, and open the
+    target's PR from it instead.
+
+  A push or PR that is refused (hook, auth, network) is handled like a failed write-back: print
+  the exact `git push` / `gh pr create` lines, carry on to the finish comment with the branch name
+  as the Ref, and add `pr=FAILED(<reason>)` to the audit line. Rules the project's `CLAUDE.md`
+  states on top of this block (an env file to copy into the worktree, who may push `main`) still
+  apply; where the two disagree, name it in the echo and follow `CLAUDE.md`.
 - **File absent** → the adapter defaults in the provider reference (Trello `next` = leftmost
   list; start/review/done resolved by name).
 
@@ -110,9 +146,10 @@ audited — before the next is fetched.** Stops when:
 2. INGEST    — download attachments, read specs/screenshots
 3. PLAN      — AC + subtasks → ordered worklist; classify intent (feature/fix/refactor/audit)
 4. MARK      — write-back: move source to "In Progress" (unless --no-writeback)
-5. EXECUTE   — route the synthesized description to /do
-6. VERIFY    — check each AC / subtask against the change; run .claude/scripts/gate-check.py --local when the project has one
-7. CLOSE     — comment summary + commit/PR on the source; move to Review (Done only on gate-check PASS)
+5. BRANCH    — with task-flow.json `git`: cut the card's branch (and worktree) from branchFrom
+6. EXECUTE   — route the synthesized description to /do
+7. VERIFY    — check each AC / subtask against the change; run .claude/scripts/gate-check.py --local when the project has one
+8. CLOSE     — push + one PR per `git.prTo` target; comment summary + commit/PR on the source; move to Review (Done only on gate-check PASS)
 ```
 All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP if healthy, else REST over `.env` creds).
 
@@ -146,6 +183,7 @@ All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP
 - **`--to=<command>`** (pin the target) → skip `/do` routing; dispatch the synthesized description **directly** to `/<command>` (must exist in this repo). Without `--to`, the target is picked in this order: a `fixLists` card → `/fix-bug`; the first `labelRoutes` match → its command, dispatched exactly as `--to` would; otherwise **dispatch to `/do`** so it routes to the right specialist (`/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …). `/task` does NO code work itself.
 - **`--to=` naming a level-D command** (its frontmatter carries `disable-model-invocation: true` — deploy, rollback, provisioning, the mutating migration commands, `/delegate`, `/setup-project*`) is NOT dispatched: the Skill tool refuses it, and a human types those (H3). Run Phase 1–3 as normal, then print the exact `/<command> <synthesized description>` for the user to type and end the run without write-back — the same hand-back `/do` performs.
 - If the task obviously spans multiple specialists (e.g. "add endpoint AND its UI"), run them in dependency order; record each in the worklist.
+- **With a `git` block** (§ *Board flow*), the card's branch — and its worktree — is cut before the dispatch, and the routed command runs inside it. A card that re-enters from `fixLists` and already has its branch reuses that branch, recreating the worktree from it, instead of cutting a second one.
 
 ### If the run halts after the card was marked
 
@@ -182,14 +220,14 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
   2. The per-AC ✓/✗ checklist from Phase 6.
   3. **«How to test»** — numbered steps in the product's own UI: where to go, what to do, what should happen. Include the edge case the fix is about (the input that used to break) and any data the tester needs.
   4. Checks — **only what a tester can act on**. A passing suite is not mentioned: test counts, file counts and "failed before / passes after" belong in the commit message and `ai/_history.md`. A failing or skipped check gets one line saying what failed. gate-check's `verdict:` line appears only when the project has `gate-check.py`; **no gate script → no verdict line**, since «verdict: UNVERIFIED» on a shared board reads to a tester as "not verified" (the missing gate goes in the local audit line).
-  5. Last, one small reference line: the commit SHA(s) or PR link (`Ref: e88913e4d`, in the card's language). It is for the developer who checks whether the deployed build carries the fix when a tester reports it still broken. Tick completed checklist items / close sub-issues.
+  5. Last, one small reference line: the commit SHA(s) or PR link (`Ref: e88913e4d`, in the card's language) — with a `git` block, the branch name and each PR link. It is for the developer who checks whether the deployed build carries the fix when a tester reports it still broken. Tick completed checklist items / close sub-issues.
 - **Move** to `statusFlow.review` by default (a human verifies). Move to `statusFlow.done` only when ALL hold: `task-flow.json` does not set `done: null`; `--review-only` is NOT set; Phase 6 validated every AC ✓; and `python3 .claude/scripts/gate-check.py --local` ended `verdict: PASS` for the committed change (evidence in `.claude/evidence/<sha>/`). A `FAIL` or `UNVERIFIED` verdict moves to Review with that line in the comment; a project with no `gate-check.py` moves to Review with no verdict line — never to Done either way. **Never delete** a card/issue.
 - **Write-back is post-execution — the work is already done and committed.** A failed status move / comment post (MCP error, REST 4xx/5xx, network) must NOT lose the work or leave the user without a record. When write-back fails AFTER execution:
   1. Do NOT halt silently and do NOT retry-loop forever (one retry max).
   2. **Print the exact comment body** that failed to post (the 1-line summary + commit SHA(s)/PR link + per-AC ✓/✗ list) so nothing is lost.
   3. **Print the exact command the user can run to post it manually** — the same channel that was being used: the MCP tool call args, OR a ready-to-paste `curl`/REST command using `.env` creds (e.g. Trello `curl -X POST "https://api.trello.com/1/cards/<id>/actions/comments?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&text=<body>"`; Jira/Linear comment endpoints similarly). Include the status-move command too.
   4. **STILL append the local audit line** (below) with a `writeback=FAILED(<reason>)` marker so the history reflects reality — the execution happened even though the source wasn't updated.
-- Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`; with no `gate-check.py` in the project, append ` gate=none`).
+- Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`; with no `gate-check.py` in the project, append ` gate=none`; with a `git` block, append ` branch=<branch>`, plus ` pr=FAILED(<reason>)` when a push or PR was refused).
 
 ## Phase 6 — Validate (verify against the card)
 Runs BEFORE Phase 5's finish write-back: the on-start move happens before the work, the on-finish move waits for this phase.
@@ -205,7 +243,8 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 
 ## Hard rules
 - **One task at a time.** `<ref>` resolves to exactly one card/issue; `--drain` runs cards sequentially, each closed before the next is fetched — never several cards in one change.
-- **`next` takes only from the pick lists.** With a `task-flow.json`, a card outside `pickFrom` is never picked, and `done: null` is never overridden by a passing gate.
+- **`next` takes only from the pick lists.** With a `task-flow.json`, a card outside `pickFrom` is never picked, and `done: null` is never overridden by a passing gate. `priorityLabels` reorder the pick lists; they never add a list to them.
+- **Never merges.** With a `git` block, `/task` cuts the branch, pushes it and opens its PRs; merging any of them is a human's release call.
 - **Read adapters, don't hard-code.** Provider field maps + status verbs come from `templates/integrations/task-providers.md`; tool names are discovered at runtime.
 - **Never delete; never silently downgrade.** Write-back moves forward (start→review→done) or comments; destructive ops are out of scope.
 - **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not. The tracker comment is written for the tester: how to test it, and only the checks they can act on — no gate script, no verdict line.

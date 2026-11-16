@@ -128,16 +128,29 @@ Tell `/task` which lists hold approved work and where cards go. Tracked, so the 
     { "label": "Bug",     "to": "fix-bug" },
     { "label": "Feature", "to": "add-feature" }
   ],
+  "priorityLabels": ["Urgent", "High"],
   "start":    "In Progress",
   "review":   "Testing",
-  "done":     null
+  "done":     null,
+  "git": {
+    "branchFrom":     "origin/main",
+    "branch":         "<type>/<slug>",
+    "worktree":       "../worktrees/<slug>",
+    "prTo":           ["staging", "main"],
+    "conflictBranch": "merge/<branch>-into-<target>"
+  }
 }
 ```
 `next` takes only from `pickFrom`, first non-empty list first, so Backlog cards are never picked.
 Cards from `fixLists` run as fixes (`/fix-bug`), with the tester's comment as the repro.
 `labelRoutes` maps work-type labels to commands, first match wins; area labels (API, Database, …)
 are passed along as context, and a card with no matching label is routed by `/do` from its text. `done: null` means the
-run stops at `review`; release lists and Done stay with people. Google Drive images on a card are
+run stops at `review`; release lists and Done stay with people. `priorityLabels` lets a label jump the
+queue: a card carrying the first label goes before one carrying the second, and both before
+unlabelled cards, from any pick list. `git` gives every card its own branch cut from `branchFrom`
+(in its own worktree when `worktree` is set), opens one PR into each `prTo` target and never merges
+them; a conflict with a target is resolved on a `conflictBranch` cut from that target, never on the
+card's branch. Without `git`, the run commits wherever the session stands. Google Drive images on a card are
 readable only when shared as "Anyone with the link"; private ones are named in the card comment.
 
 ### Status-flow mapping

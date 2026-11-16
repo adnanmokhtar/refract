@@ -6,6 +6,20 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/task`: priority labels, and a branch and PRs per card (2026-11-16)
+
+- **`priorityLabels`** in `.claude/task-flow.json` lets a label jump the queue. `next` takes a card
+  carrying the first label before one carrying the second, and both before unlabelled cards, from
+  any pick list; within one rank the `pickFrom` order and the card's position still decide. Before
+  this, the only way to say "this first" was dragging the card to the top, which the next card
+  added above it undid.
+- **`git`** gives every card its own branch cut fresh from `branchFrom` (in its own worktree when
+  `worktree` is set), pushes it after Phase 6 and opens one PR into each `prTo` target. `/task`
+  never merges them. A conflict with a target is resolved on a `conflictBranch` cut from that
+  target, never on the card's branch, so the target's history does not ride into its other PRs.
+  A refused push or PR prints the exact lines and is recorded as `pr=FAILED(<reason>)`. Without
+  `git`, a run commits wherever the session stands, as before.
+
 ### `lint-rg-parses.sh`: a gate that passed or failed on filesystem walk order (2026-11-07)
 
 Every array variable was bound to `.` before a prescribed `rg` ran, and every scalar was left empty.
