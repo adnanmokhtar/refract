@@ -28,6 +28,7 @@ severity: must
 
 ## Should
 
+- Keep local-only tools, notes and state in `ops-local/` at the repo root, gitignored (`git check-ignore -q ops-local/ || echo 'ops-local/' >> .gitignore` the first time) — never `~/Downloads`, `/tmp` or a session scratchpad, which get wiped or deleted by mistake. A script used a second time moves into the repo proper. A secret the person hands over goes through an empty file there they paste into; check it by prefix and length, never print it.
 - Default to **no comments** unless WHY is non-obvious. Exception: the exported/public surface carries a one-line contract docstring where the project's docs rule asks for one (precedence A4).
 
 ## Review checklist

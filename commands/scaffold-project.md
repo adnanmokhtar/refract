@@ -196,7 +196,7 @@ In order, with checkpoints:
 ```bash
 mkdir -p "$DEST" && cd "$DEST"
 git init
-echo "node_modules\n.env*\ndist\n.next\n.nuxt\n.svelte-kit\nbuild\n.cache\ncoverage\n.DS_Store\n.claude/dev-server.{pid,log}\n.claude/playwright/\n.claude/backups/" > .gitignore
+echo "node_modules\n.env*\ndist\n.next\n.nuxt\n.svelte-kit\nbuild\n.cache\ncoverage\n.DS_Store\n.claude/dev-server.{pid,log}\n.claude/playwright/\n.claude/backups/\nops-local/" > .gitignore
 ```
 
 ### 4.2 — Run the official scaffolder for the chosen stack

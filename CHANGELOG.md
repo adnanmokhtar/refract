@@ -6,6 +6,13 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `ops-local/` — one gitignored home for what is local only (2026-11-20)
+
+`code-quality.md` sends local-only tools, notes and state to `ops-local/` at the repo root,
+gitignored on first use, instead of `~/Downloads` or a scratchpad that gets wiped; a script used
+twice moves into the repo; a secret is handed over through an empty file there and checked by
+prefix and length, never printed. `/scaffold-project` writes the line into a new `.gitignore`.
+
 ### `/task` reads and writes ClickUp (2026-11-20)
 
 - **`clickup` adapter** in `templates/integrations/task-providers.md`: refs `app.clickup.com/t/…` and
