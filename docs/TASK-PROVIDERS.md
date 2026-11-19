@@ -150,7 +150,16 @@ queue: a card carrying the first label goes before one carrying the second, and 
 unlabelled cards, from any pick list. `git` gives every card its own branch cut from `branchFrom`
 (in its own worktree when `worktree` is set), opens one PR into each `prTo` target and never merges
 them; a conflict with a target is resolved on a `conflictBranch` cut from that target, never on the
-card's branch. Without `git`, the run commits wherever the session stands. Google Drive images on a card are
+card's branch. Without `git`, the run commits wherever the session stands.
+
+### Test level and comments — words after the ref
+One word at the end of the call sets how much each card is tested on this machine: nothing said
+runs the tests the change reaches (stage 2); «جاهز» / `ready` adds lint, format, typecheck and build
+(stage 1) and marks the tested commit so CI can skip; «من غير تيست» / `no-test` runs nothing here (tests are
+still written); «تيست كامل» / `full` is the full run, never reached unless named. «من غير كومنت» /
+`--no-comment` posts no card or PR comment. The commands come from `.claude/testing.json` — see
+[`templates/snippets/test-level.md`](../templates/snippets/test-level.md). Local test results go in
+the run's report, never on the card or the PR. Google Drive images on a card are
 readable only when shared as "Anyone with the link"; private ones are named in the card comment.
 
 ### Status-flow mapping

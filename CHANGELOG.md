@@ -6,6 +6,33 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Test level: one word decides how much a build run tests on this machine (2026-11-20)
+
+- **`test-level.py`** (`templates/repo-baseline/.claude/scripts/`, global copy in `scripts/`) reads
+  one word from the end of a request: nothing said runs the tests the change reaches (`stage2`);
+  «جاهز» / `ready` adds stage 1 (lint, format, typecheck, build), and `test-level.py mark` then puts
+  a GitHub commit status on the tested commit — refused unless the last run was a green `ready` on
+  exactly HEAD's tree, clean and pushed. Not a PR label: a label stays through the next push and
+  lets the untested commits after it ride it. The mark is posted before CI can start: an open PR
+  becomes a draft, the branch is pushed, the commit marked, and only then is the PR opened or made
+  ready — a mark that lands after the push's run began saves nothing; «من غير تيست» / `no-test` runs nothing here; «تيست كامل» / `full` is
+  the full run and is never reached unless named. The project supplies the commands in
+  `.claude/testing.json`; without it nothing changes. A bare "full" ending a build command's prose
+  is not a level — it ends too many sentences.
+- **`templates/snippets/test-level.md`** is the contract every build command follows, cited from the
+  standards gate: writing tests is independent of the level, a red stage stops the task, the level
+  is never raised on its own, a test row the level did not run closes `SKIPPED — unverified`, and
+  local results go to the person, never to a PR or a tracker. `/fix-bug`'s regression test still
+  runs red then green at every level — without the red record the fix is a claim.
+- **`gate-check.py` G1** runs the level's stages in a project with `testing.json`, instead of the
+  whole suite at every Stop; `no-test` records UNVERIFIED, never PASS.
+- **`/task`** takes the level for a whole drain, passes it as `--test=`, marks the tested commit under `ready`,
+  and «من غير كومنت» / `--no-comment` stops its card and PR comments. `/do` forwards the level.
+- **Tests go where their subject is already tested.** `testing-principles.md` and `@test-engineer`:
+  search the test tree first, add a case to its subject's file, a new file only for a new subject,
+  never an assertion twice, never delete an auth / tenant / money / migration test to tidy.
+- `tests/test-level/run.sh` pins all of it — 49 checks, the mark's five refusals and a control included — and is in `quality-gates.yml`.
+
 ### `/task`: priority labels, and a branch and PRs per card (2026-11-16)
 
 - **`priorityLabels`** in `.claude/task-flow.json` lets a label jump the queue. `next` takes a card

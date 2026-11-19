@@ -21,7 +21,9 @@ SCOPE.  --local (default; what verify-gate.sh runs at Stop): the files this chan
 GATES (v2). Verdicts: PASS · FAIL · UNVERIFIED (could not be checked — never PASS) · N-A (reason).
   G0  acceptance-lock every run contract in this change (ai/runs/<run>/acceptance.json) is locked, and
                       it and every test it names still hash to .claude/locks/<run>.json
-  G1  tests           the project's own suite; runner detected per stack (detect_runner)
+  G1  tests           the project's own suite; runner detected per stack (detect_runner). In --local,
+                      a project with .claude/testing.json runs the stages its test level names instead
+                      (test-level.py beside this file) — the full suite only when the level is `full`
   G1  acceptance      INFERENTIAL — the verifier's verdict.json for each run contract: present, valid,
                       signed by a judge (stamped by persist-verdict.sh), fresh, and PASS
   G2  test-integrity  test-integrity.py beside this file
@@ -238,7 +240,53 @@ def detect_runner(repo):
                   "Flutter/Dart, SwiftPM, Cargo, Go, RSpec, PHPUnit/Pest, Mix and pytest")
 
 
+def level_plan(ctx):
+    """-> test-level.py's plan when this is a --local run in a project with .claude/testing.json, else None."""
+    here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test-level.py")
+    if ctx.scope != "local" or not os.path.isfile(os.path.join(ctx.repo, ".claude", "testing.json")) or not os.path.isfile(here):
+        return None
+    rc, out, err = run([sys.executable, here, "plan", "--repo=" + ctx.repo], ctx.repo)
+    if rc != 0:
+        return {"error": (err or out).strip()}
+    return json.loads(out)
+
+
+def run_g1_levels(ctx, plan):
+    """G1 by the test level: the stages it names, in order, through the lane; the first red one fails G1."""
+    if plan.get("error"):
+        return rec("G1", "tests", "UNVERIFIED", plan["error"], execution="SKIPPED")
+    if not plan["steps"]:
+        return rec("G1", "tests", "UNVERIFIED", "not run on this machine: test level `no-test`", execution="SKIPPED")
+    lane = os.path.join(ctx.repo, ".claude", "hooks", "test-lane.sh")
+    use_lane = os.path.isfile(lane) and not os.path.exists(os.path.join(ctx.repo, ".claude", ".no-test-lane"))
+    done, missing = [], []
+    for s in plan["steps"]:
+        cmd = s["cmd"]
+        if not cmd:
+            missing.append(s["stage"]); continue
+        if use_lane and run(["bash", lane, "verified", cmd], ctx.repo)[0] == 0:
+            done.append(s["stage"]); continue
+        rc, out, err = (run(["bash", lane, "run", cmd], ctx.repo, timeout=TIMEOUT,
+                            env={"CLAUDE_TEST_LANE_WAIT": os.environ.get("CLAUDE_VERIFY_GATE_WAIT", "240")})
+                        if use_lane else run(cmd, ctx.repo, timeout=TIMEOUT))
+        if rc is None or rc == 75:
+            return rec("G1", "tests", "UNVERIFIED", "%s did not run: %s" % (s["stage"], (err or "lane busy")[:200]),
+                       execution="SKIPPED", command=cmd)
+        if rc != 0:
+            return rec("G1", "tests", "FAIL", "test level `%s`: %s `%s` exited %d" % (plan["level"], s["stage"], cmd, rc),
+                       tool="test-level.py", command=cmd, rc=rc, out=out + err, findings=cite(out + err))
+        done.append(s["stage"])
+    if missing:
+        return rec("G1", "tests", "UNVERIFIED", "test level `%s`: .claude/testing.json names no command for %s"
+                   % (plan["level"], ", ".join(missing)), execution="SKIPPED")
+    return rec("G1", "tests", "PASS", "test level `%s`: %s green" % (plan["level"], " + ".join(done)),
+               tool="test-level.py", command=" && ".join(s["cmd"] for s in plan["steps"]), rc=0)
+
+
 def run_g1(ctx):
+    plan = level_plan(ctx)
+    if plan is not None:
+        return run_g1_levels(ctx, plan)
     cmd, why = detect_runner(ctx.repo)
     if not cmd:
         return rec("G1", "tests", "UNVERIFIED", why, execution="SKIPPED")

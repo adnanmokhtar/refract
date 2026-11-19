@@ -233,8 +233,9 @@ per new primitive or dependency. Then:
 
 ## P7 — Testing
 
-`bash .claude/hooks/test-lane.sh run '<full suite>'`; `python3 .claude/scripts/gate-check.py --local
---only=G0,G1,G2`; `python3 .claude/scripts/trace-matrix.py <run-id> --phase=build`. At T2/T3
+`bash .claude/hooks/test-lane.sh run '<full suite>'` — or, when the project has `.claude/testing.json`,
+`python3 .claude/scripts/test-level.py run` at the run's test level ([`test-level.md`](../../../snippets/test-level.md));
+`python3 .claude/scripts/gate-check.py --local --only=G0,G1,G2`; `python3 .claude/scripts/trace-matrix.py <run-id> --phase=build`. At T2/T3
 `@test-engineer` adds the E2E and property tests `test-plan.md` names (outside the lock), and
 `@test-reviewer` *(testing pack)* reviews test strength (lens `test`). Mutation per `THR-MUTATION`
 (T2 core paths, T3 all changed code) when the testing pack's `mutation-probe` is installed (rule 1 above);

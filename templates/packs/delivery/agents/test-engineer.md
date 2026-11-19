@@ -60,7 +60,8 @@ network, random, `sleep`) in test code.
    negative cases, and the baseline kinds the change should capture. T3: one property test per
    SHALL on a money or state invariant; mutation on all changed code (`THR-MUTATION`).
 2. **Acceptance tests** — write each named test at its level, mirroring a sibling test's structure,
-   runner and helpers. Every authorization rule is a negative test; every failure clause is its own
+   runner and helpers. **Search first:** a case whose subject already has a test file joins that file;
+   a new file only for a new subject, and an assertion an existing test already makes is not written twice. Every authorization rule is a negative test; every failure clause is its own
    test; money assertions compare exact minor units.
 3. **`acceptance.json`** — shape `.claude/schemas/acceptance.schema.json`, `tier` = the run's tier,
    `source` = the requirement, one criterion per AC with `req`, `ears` (the sentence from
@@ -94,6 +95,10 @@ is always installed; if the lens cannot be opened, say `lens missing: test-craft
   for every bug.
 - **Not** framework internals, trivial accessors, private methods directly, or one behaviour at
   three layers.
+- **Where it goes** — search the test tree for the subject first. A new case joins its subject's
+  existing file; a new file is only for a new subject and says why in its header; a changed
+  behaviour changes its test rather than gaining a near-copy. Never delete an auth, tenant, money or
+  migration test to tidy — merge it, assertions kept.
 - **Doubles** — fakes for stateful dependencies (an in-memory repository), mocks only at a port
   boundary to an external system, spies for logger and metrics, seeded fakes for clock / random /
   UUID; never mock the system under test.

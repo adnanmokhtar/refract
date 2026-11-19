@@ -92,6 +92,10 @@ jobs:
       # 20% slowdown FAILs G4, ten identical interleaved runs block nothing.
       - name: Baseline hook fixtures (guard-destructive / pre-edit-guard / secret-scan / inject-path-rules / gate-check)
         run: bash tests/hooks/run.sh
+      # The test level: which stages each word runs, the full run never reached unless named, and
+      # gate-check G1 running the level's stages instead of the whole suite.
+      - name: Test level (test-level.py + gate-check G1)
+        run: bash tests/test-level/run.sh
 
       # Benchmark fixtures stay true to their answer keys: every anchor resolves; feature-refund's
       # holdouts are red on the fixture, green on its reference solution, and each seeded-wrong

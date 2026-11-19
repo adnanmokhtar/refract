@@ -3,11 +3,11 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.2.0
+version: 1.3.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /task <ref> [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only]
+# /task <ref> [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only] [test word] [«من غير كومنت»]
 
 Pull ONE task from your project-management tool and do it. `<ref>` is a card/issue
 **URL**, a **key** (`PROJ-123`, `#42`, `trello:<id>`), or **`next`** (the top card of the
@@ -104,6 +104,34 @@ reads the same flow:
 - **File absent** → the adapter defaults in the provider reference (Trello `next` = leftmost
   list; start/review/done resolved by name).
 
+## Words after the ref — test level and comments
+
+One word at the end of the call covers every card in it, a drain included. They are read by
+`python3 .claude/scripts/test-level.py words <the arguments>` (the global
+`~/.claude/scripts/test-level.py` where the project has no copy), which returns the level, the
+comment switch and the arguments without them:
+
+- **Test level** — nothing said = `stage2`; «جاهز» / `ready`; «من غير تيست» / `no-test`; «تيست
+  كامل» / `full`. What each runs, and where the commands come from (`.claude/testing.json`), is
+  [`templates/snippets/test-level.md`](../templates/snippets/test-level.md). `/task` echoes it with
+  the resolved spec, passes it to the routed command as `--test=<level>`, sets it in the card's
+  worktree before the dispatch and clears it after. Every level still writes the tests the routed
+  command requires.
+- **«من غير كومنت» / `--no-comment`** — no finish comment on the card and no comment on the PR; the
+  PR body is the card link alone. Status moves still happen. Default: comments on, as below.
+- **Nothing about local testing reaches the card or the PR**, at any level: what ran on this
+  machine goes in the run's report to the person — one line per card, `<key> — tests: stage 2 —
+  PASS` — and in the audit line.
+- A red stage stops that card (§ *If the run halts after the card was marked*); its PR is never
+  opened. Under `ready`, the ready mark goes on the tested commit (a GitHub commit status, never a
+  PR label: a label would stay on the PR through later, untested pushes), in this order — a push to
+  a PR that is ready for review starts CI before any mark can land: an already-open PR of this card
+  (a `fixLists` card returning) becomes a draft (`gh pr ready <n> --undo`) → push → `test-level.py
+  mark` → open the PRs, or `gh pr ready <n>`. A failed push or a refused mark still ends with the PR
+  ready; CI then runs stage 1 itself.
+- No `testing.json` → the level is echoed as not configured and changes nothing; the comment word
+  still applies.
+
 ## Drain mode (`next --drain`)
 
 Runs the full Phase 1–7 lifecycle once per card, sequentially, re-reading the pick lists before
@@ -146,10 +174,10 @@ audited — before the next is fetched.** Stops when:
 2. INGEST    — download attachments, read specs/screenshots
 3. PLAN      — AC + subtasks → ordered worklist; classify intent (feature/fix/refactor/audit)
 4. MARK      — write-back: move source to "In Progress" (unless --no-writeback)
-5. BRANCH    — with task-flow.json `git`: cut the card's branch (and worktree) from branchFrom
-6. EXECUTE   — route the synthesized description to /do
-7. VERIFY    — check each AC / subtask against the change; run .claude/scripts/gate-check.py --local when the project has one
-8. CLOSE     — push + one PR per `git.prTo` target; comment summary + commit/PR on the source; move to Review (Done only on gate-check PASS)
+5. BRANCH    — with task-flow.json `git`: cut the card's branch (and worktree) from branchFrom; `test-level.py set <level>` there
+6. EXECUTE   — route the synthesized description to /do, with --test=<level>
+7. VERIFY    — check each AC / subtask against the change; `test-level.py run` at the level; run .claude/scripts/gate-check.py --local when the project has one
+8. CLOSE     — under `ready`: open PR → draft, push, `test-level.py mark`, then PRs opened / made ready — else push + one PR per `git.prTo` target; comment summary + commit/PR on the source unless «من غير كومنت»; move to Review (Done only on gate-check PASS)
 ```
 All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP if healthy, else REST over `.env` creds).
 
@@ -198,7 +226,7 @@ working tree but can see the card.
 
 1. **Do not leave the board lying.** Post ONE comment on the card via the same channel Phase 1
    resolved (MCP if healthy, else REST): what was attempted, what stopped it, and any commit
-   SHA(s) already made. A card silently stuck In Progress is worse than a failed one — it reads
+   SHA(s) already made. Under «من غير كومنت» skip the comment and put the same three facts in the report. A card silently stuck In Progress is worse than a failed one — it reads
    as work in flight and blocks whoever would pick it up.
 2. **Move it back to `statusFlow.start`'s predecessor** (the list/state it came from, captured in
    Phase 1) **unless code was already committed** — in which case leave it In Progress, because
@@ -215,11 +243,12 @@ the run ends before Phase 4 dispatches, so it never reaches the start-move eithe
 ## Phase 5 — Update (write back to the source)
 Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless `--no-writeback`:
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
+- **Under «من غير كومنت»** the finish comment below is not posted, and no halt comment either; the moves still happen, and the report to the person carries what the comment would have said.
 - **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post ONE comment via the adapter's comment verb. **Its reader is the tester, not a developer** — write it in the card's language:
   1. What changed in one plain line (for a bug, the cause in one plain sentence). No commit SHA and no "will reach the server with the next deploy" here — the review list already says it is not deployed.
   2. The per-AC ✓/✗ checklist from Phase 6.
   3. **«How to test»** — numbered steps in the product's own UI: where to go, what to do, what should happen. Include the edge case the fix is about (the input that used to break) and any data the tester needs.
-  4. Checks — **only what a tester can act on**. A passing suite is not mentioned: test counts, file counts and "failed before / passes after" belong in the commit message and `ai/_history.md`. A failing or skipped check gets one line saying what failed. gate-check's `verdict:` line appears only when the project has `gate-check.py`; **no gate script → no verdict line**, since «verdict: UNVERIFIED» on a shared board reads to a tester as "not verified" (the missing gate goes in the local audit line).
+  4. Checks — **only what a tester can act on**, and never what ran on this machine (§ *Words after the ref*). A passing suite is not mentioned: test counts, file counts and "failed before / passes after" belong in the commit message and `ai/_history.md`. A failing or skipped check gets one line saying what failed. gate-check's `verdict:` line appears only when the project has `gate-check.py`; **no gate script → no verdict line**, since «verdict: UNVERIFIED» on a shared board reads to a tester as "not verified" (the missing gate goes in the local audit line).
   5. Last, one small reference line: the commit SHA(s) or PR link (`Ref: e88913e4d`, in the card's language) — with a `git` block, the branch name and each PR link. It is for the developer who checks whether the deployed build carries the fix when a tester reports it still broken. Tick completed checklist items / close sub-issues.
 - **Move** to `statusFlow.review` by default (a human verifies). Move to `statusFlow.done` only when ALL hold: `task-flow.json` does not set `done: null`; `--review-only` is NOT set; Phase 6 validated every AC ✓; and `python3 .claude/scripts/gate-check.py --local` ended `verdict: PASS` for the committed change (evidence in `.claude/evidence/<sha>/`). A `FAIL` or `UNVERIFIED` verdict moves to Review with that line in the comment; a project with no `gate-check.py` moves to Review with no verdict line — never to Done either way. **Never delete** a card/issue.
 - **Write-back is post-execution — the work is already done and committed.** A failed status move / comment post (MCP error, REST 4xx/5xx, network) must NOT lose the work or leave the user without a record. When write-back fails AFTER execution:
@@ -227,12 +256,12 @@ Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless
   2. **Print the exact comment body** that failed to post (the 1-line summary + commit SHA(s)/PR link + per-AC ✓/✗ list) so nothing is lost.
   3. **Print the exact command the user can run to post it manually** — the same channel that was being used: the MCP tool call args, OR a ready-to-paste `curl`/REST command using `.env` creds (e.g. Trello `curl -X POST "https://api.trello.com/1/cards/<id>/actions/comments?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&text=<body>"`; Jira/Linear comment endpoints similarly). Include the status-move command too.
   4. **STILL append the local audit line** (below) with a `writeback=FAILED(<reason>)` marker so the history reflects reality — the execution happened even though the source wasn't updated.
-- Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`; with no `gate-check.py` in the project, append ` gate=none`; with a `git` block, append ` branch=<branch>`, plus ` pr=FAILED(<reason>)` when a push or PR was refused).
+- Append a local audit line to `ai/_history.md` (**create the file with a `# Task history` header if absent** — never assume it exists): `<iso> /task <provider>:<key> → /<routed-command> → <review|done>` (on write-back failure, append ` writeback=FAILED(<reason>)`; with no `gate-check.py` in the project, append ` gate=none`; with a `git` block, append ` branch=<branch>`, plus ` pr=FAILED(<reason>)` when a push or PR was refused; with a `testing.json`, append ` tests=<level>:<PASS|FAIL|none>`).
 
 ## Phase 6 — Validate (verify against the card)
 Runs BEFORE Phase 5's finish write-back: the on-start move happens before the work, the on-finish move waits for this phase.
 - Each `acceptanceCriteria` item → checked against the actual change (test, run, or inspection). Empty AC → verify the title's intent is satisfied.
-- Tests run green (or explicitly report which fail). Attachment-derived specs honored (e.g. screenshot layout matched).
+- Tests run green (or explicitly report which fail) — with a `testing.json`, exactly the stages the test level names, via `test-level.py run`, and no more. Attachment-derived specs honored (e.g. screenshot layout matched).
 - When the project has `.claude/scripts/gate-check.py`, run `python3 .claude/scripts/gate-check.py --local` once the change is committed and keep its last line (`verdict: PASS | FAIL | UNVERIFIED`) — it is the only verdict that can move the card to Done. No gate script → nothing to run and nothing to report on the card; the card stops at Review. The routed command's own "COMPLETE" is a claim; the gate's verdict is evidence.
 - The write-back comment's ✓/✗ list must reflect reality — never report an unmet AC as met.
 
@@ -245,6 +274,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - **One task at a time.** `<ref>` resolves to exactly one card/issue; `--drain` runs cards sequentially, each closed before the next is fetched — never several cards in one change.
 - **`next` takes only from the pick lists.** With a `task-flow.json`, a card outside `pickFrom` is never picked, and `done: null` is never overridden by a passing gate. `priorityLabels` reorder the pick lists; they never add a list to them.
 - **Never merges.** With a `git` block, `/task` cuts the branch, pushes it and opens its PRs; merging any of them is a human's release call.
+- **The full run only when named.** No level, no red stage and no missing command ever turns into `full`; and local test results never go on the card or the PR.
 - **Read adapters, don't hard-code.** Provider field maps + status verbs come from `templates/integrations/task-providers.md`; tool names are discovered at runtime.
 - **Never delete; never silently downgrade.** Write-back moves forward (start→review→done) or comments; destructive ops are out of scope.
 - **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not. The tracker comment is written for the tester: how to test it, and only the checks they can act on — no gate script, no verdict line.
@@ -279,6 +309,14 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
   → Approved: "Export attendance as CSV" [Feature, API] → labelRoutes → /add-feature … → Testing
   → pick lists empty → 2 cards done, 2 in Testing
 
+/task next --drain جاهز
+→ Test level: ready (from «جاهز»)
+  → each card: stage 1 + stage 2 green in its worktree → pushed → commit marked `tested-locally` → PRs opened
+  → report: trello:#231 — tests: stage 1 + stage 2 — PASS · trello:#232 — tests: stage 1 + stage 2 — FAIL at stage 2 (halted, card moved back)
+
+/task https://trello.com/c/aB12cD34 من غير تيست من غير كومنت
+→ Test level: no-test · comments off → tests written, none run here → no card comment → Review
+
 /task next
 → linear:ENG-44 "Tighten dashboard spacing" (top of my queue) → /enhance-ui … → In Review
 
@@ -304,6 +342,8 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 | `--to=<command>` | Dispatch directly to `/<command>` instead of routing through `/do` (command must exist in this repo). |
 | `--no-writeback` | Execute, but don't touch the source (no status move, no comment). |
 | `--review-only` | On finish, stop at the Review state — never auto-advance to Done. |
+| `--test=<level>` · «جاهز» · «من غير تيست» · «تيست كامل» | Test level for every card in the call: `stage2` (default), `ready`, `no-test`, `full`. See `templates/snippets/test-level.md`. |
+| `--no-comment` · «من غير كومنت» | Post no comment on the card or the PR; moves still happen. |
 
 ## Related
 - **Routes to**: `/do` (which dispatches to `/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …).

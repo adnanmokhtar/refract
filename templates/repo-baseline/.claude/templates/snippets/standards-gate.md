@@ -44,6 +44,9 @@ One ledger row per fired ID:
 - **Evidence** is a `file:line`, a named test that **ran green** — in this run, or in the CI run
   for this commit — or a command's output. A claim, a plan line or "follows the sibling" is not
   evidence.
+- **Which tests run here is the test level's call** — [`test-level.md`](test-level.md): resolved
+  from the request's last word before Generate, the project's `.claude/testing.json` supplying the
+  commands. A test row the level did not run closes `SKIPPED — unverified`, never `MET`.
 - **One line per piece of evidence.** Rows closed by the same evidence share a ledger line —
   `RES-2 · RES-3 · RES-4 | n-a | no outbound call`; the hooks and CI rows (QG-7, QG-8, QG-12) close
   together on `hooks + CI green`.

@@ -159,6 +159,8 @@ python3 .claude/scripts/risk-tier.py --request="<the ask, verbatim>" --json   # 
 
 Print it in the preamble — `→ Routed to: /add-feature (predicted tier T3 — money-movement: 'refund')` — and forward the description verbatim; the tier is information, not a flag the user typed. The orchestrator re-runs the same classification at P0 and only ever promotes from there (`.claude/templates/governance/tiers.json`). A T3 prediction is never silent: say which trigger fired, because T3 means human gates H1–H4 are coming. No script on disk (an older install) → print `predicted tier: unknown (risk-tier.py not installed)` and dispatch anyway.
 
+A test level rides along untouched: `--test=<level>`, or a level word ending the request («جاهز», «من غير تيست», «تيست كامل»), goes to the dispatched command as `--test=<level>` and is never read as part of the intent — [`templates/snippets/test-level.md`](../templates/snippets/test-level.md).
+
 ### `--route-only` — the routing decision, nothing else
 
 `/do --route-only <description>` routes exactly as above and prints ONE line, then stops — no dispatch, no question, no `ai/_history.md` entry:

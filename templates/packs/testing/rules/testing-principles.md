@@ -30,6 +30,7 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 - Arrange / Act / Assert structure visible — blank lines between phases or comments. One concept per test.
 - Freeze time with the project's fake-clock helper (`STACK.md`); never assert against the real clock. Seed RNG with a fixed value.
 - Reset state between tests: clean DB, clear caches, restore mocks via the project's mock-restore primitive.
+- **Search before you add a test.** Find where its subject is already tested — grep the subject's name across the test tree. A new case joins that file as a new group (`describe`, class, module); a new test file is only for a new subject, or for one that needs the app or fixtures set up differently, and its header says which. When the behaviour a test pins changed, change that test — do not add a near-copy beside it.
 
 ## Must not
 
@@ -41,6 +42,8 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 - Tests that pass regardless of code change. Verify with a mutation: corrupt the production logic — the test must fail.
 - Snapshot tests on entire DOM trees / large objects — they catch nothing and update reflexively. Snapshot small, intentional shapes.
 - Asserting on the same behavior at multiple pyramid levels. Pick the lowest level that proves it.
+- A test that repeats an assertion an existing test already makes. Search first; extend the existing one.
+- Deleting an auth, authorization, tenant-isolation, money or migration test to tidy the suite. Merge it into its subject's file with every assertion kept.
 
 ## Should
 
@@ -48,6 +51,7 @@ Prevents flaky suites, false-confidence coverage, and tests that pass when the c
 - Mock at port boundaries (HTTP client, DB driver, message bus) only — never at every internal class.
 - Build test data through a factory/builder — only the field under test differs from the default. No copy-pasted literals, and no shared mutable fixture (state tests write to passes in suite order, fails in isolation). See `../skills/test-factories/SKILL.md`.
 - Pure/total functions get property tests over their input space, not a handful of hand-picked examples — the bug is in the input you didn't type. See `../skills/property-invariants/SKILL.md`.
+- Pin the suite's shape once it has been cleaned up: a test that fails when the count of test files passes a recorded ceiling, raised only by editing that test with the reason. Without it, every new feature quietly adds its own file and the cleanup is undone one branch at a time.
 - Use Testcontainers / docker-compose for integration tests that need a real DB / Redis — faster + more honest than mocking SQL.
 - Treat coverage as a signal of **presence**, never a goal: it proves the branch RAN, and a high number carrying weak assertions is worse than a lower one carrying sharp ones, because it buys confidence the suite has not earned. What proves *strength* is a killed mutant — mutation-test the changed scope (`../skills/mutation-probe/SKILL.md`). **No fixed score is the bar** (`THR-COVERAGE`, `THR-MUTATION`): baseline what your harness reports on a module already agreed well-tested, then ratchet; the changed scope may not land under it.
 
