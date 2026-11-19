@@ -48,6 +48,14 @@
 #   CLAUDE_TEST_LANE_SLOTS  concurrent heavy runs allowed (default 1; raise on a big machine)
 #   CLAUDE_TEST_LANE_WAIT   seconds `run` waits for a slot before giving up with exit 75
 #                           (default 0 = wait as long as it takes)
+#   CLAUDE_TEST_LANE_MIN_FREE  free-memory floor, in percent, below which `run` stops its command's
+#                           whole process group and exits 76 (default 10; 0 turns the watchdog off)
+#
+# THE MEMORY WATCHDOG. Taking turns keeps parallel agents apart; it does not stop ONE run from
+# eating the machine — a sharded e2e run took a 24 GB laptop down on its own. While `run`'s command
+# is alive, the free-memory percentage is read every 2s (/proc/meminfo's MemAvailable on Linux,
+# `memory_pressure -Q` on macOS) and the run is stopped below the floor, with a message naming what
+# to lower. A machine where neither reading works runs unwatched, as before.
 # Opt out per project: create .claude/.no-test-lane
 
 set -uo pipefail
@@ -58,6 +66,10 @@ WAIT="${CLAUDE_TEST_LANE_WAIT:-0}"
 case "$SLOTS" in ''|*[!0-9]*|0) SLOTS=1 ;; esac
 case "$WAIT"  in ''|*[!0-9]*) WAIT=0 ;; esac
 EX_BUSY=75
+EX_MEMORY=76
+MIN_FREE="${CLAUDE_TEST_LANE_MIN_FREE:-10}"
+case "$MIN_FREE" in ''|*[!0-9]*) MIN_FREE=10 ;; esac
+CHILD=""
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 
 # ── classify: prints `e2e`, `suite`, or nothing (light / not a test run) ──────────────────────
@@ -355,17 +367,55 @@ release() {
   SLOT=""
 }
 
+# Free memory as a whole percentage, or nothing when this machine gives no reading.
+free_pct() {
+  if [ -r /proc/meminfo ]; then
+    awk '/^MemTotal:/{t=$2} /^MemAvailable:/{a=$2} END{if (t > 0 && a != "") printf "%d", a * 100 / t}' /proc/meminfo
+  elif command -v memory_pressure >/dev/null 2>&1; then
+    memory_pressure -Q 2>/dev/null | sed -n 's/.*free percentage: *\([0-9][0-9]*\)%.*/\1/p'
+  fi
+}
+
+stop_child() { [ -n "$CHILD" ] && { kill -TERM -"$CHILD" 2>/dev/null || kill -TERM "$CHILD" 2>/dev/null; }; }
+
+# Runs the command; under the watchdog, in its own process group so a stop takes every worker it spawned.
+run_watched() {
+  local pct
+  if [ "$MIN_FREE" = 0 ] || [ -z "$(free_pct)" ]; then
+    if [ $# -eq 1 ]; then bash -c "$1"; else "$@"; fi
+    return $?
+  fi
+  set -m
+  if [ $# -eq 1 ]; then bash -c "$1" & else "$@" & fi
+  CHILD=$!
+  set +m
+  while kill -0 "$CHILD" 2>/dev/null; do
+    pct=$(free_pct)
+    if [ -n "$pct" ] && [ "$pct" -lt "$MIN_FREE" ]; then
+      echo "test-lane: free memory fell to ${pct}% (floor ${MIN_FREE}%) — stopped the run before the machine froze." >&2
+      echo "test-lane: lower the runner's workers (jest --maxWorkers=2, vitest --pool-options), or set CLAUDE_TEST_LANE_MIN_FREE=0 to turn the watchdog off." >&2
+      stop_child; sleep 3; kill -KILL -"$CHILD" 2>/dev/null
+      wait "$CHILD" 2>/dev/null; CHILD=""
+      return "$EX_MEMORY"
+    fi
+    sleep 2
+  done
+  wait "$CHILD"; local rc=$?
+  CHILD=""
+  return "$rc"
+}
+
 run_lane() {
   [ $# -gt 0 ] || { echo "usage: test-lane.sh run '<command>'" >&2; exit 2; }
   local cmd="$*" rc fp_before="" fp_after="" fp_run="" sf
   trap release EXIT
-  trap 'exit 130' INT
-  trap 'exit 143' TERM HUP
+  trap 'stop_child; exit 130' INT
+  trap 'stop_child; exit 143' TERM HUP
   acquire "$cmd"; rc=$?
   [ "$rc" = "$EX_BUSY" ] && exit "$EX_BUSY"
   [ "$(classify "$cmd")" = suite ] && fp_before=$(fingerprint 2>/dev/null)
   fp_run=${fp_before:-$(fingerprint 2>/dev/null)}
-  if [ $# -eq 1 ]; then bash -c "$1"; else "$@"; fi
+  run_watched "$@"
   rc=$?
   release
   record_run "$cmd" "$rc" "" "$fp_run"

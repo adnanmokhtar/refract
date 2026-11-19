@@ -736,6 +736,18 @@ run_lane() {
   rc=0; bash "$lane" run 'exit 7' >/dev/null 2>&1 || rc=$?
   lane_ok "$rc" 7 "exit-status-passes-through"
 
+  # The memory watchdog: a floor above any reading stops the run at once, its whole process group
+  # with it — the child's later write never lands. Skipped where the machine gives no reading.
+  if [ -n "$( (memory_pressure -Q 2>/dev/null | grep -o 'free percentage: [0-9]*') || awk '/MemAvailable/{print}' /proc/meminfo 2>/dev/null)" ]; then
+    rc=0; CLAUDE_TEST_LANE_MIN_FREE=101 bash "$lane" run "sleep 4 & wait; echo late >> '$work/mem'" >/dev/null 2>&1 || rc=$?
+    lane_ok "$rc" 76 "watchdog-stops-a-run-below-the-memory-floor"
+    lane_ok "$([ -f "$work/mem" ] && echo written || echo none)" none "watchdog-stops-the-whole-process-group"
+    rc=0; CLAUDE_TEST_LANE_MIN_FREE=0 bash "$lane" run 'exit 3' >/dev/null 2>&1 || rc=$?
+    lane_ok "$rc" 3 "watchdog-off-at-zero"
+  else
+    echo "SKIP  test-lane/watchdog (no free-memory reading on this machine)"
+  fi
+
   ( bash "$lane" run "echo H-in >> '$work/order'; sleep 2; echo H-out >> '$work/order'" >/dev/null 2>&1 ) &
   wait_owner "$work/lane/slot-1/owner" || { fail=$((fail+1)); echo "FAIL  test-lane/background-run-never-took-the-slot"; }
   CLAUDE_TEST_LANE_WAIT=60 bash "$lane" run "echo C >> '$work/order'" >/dev/null 2>&1; wait

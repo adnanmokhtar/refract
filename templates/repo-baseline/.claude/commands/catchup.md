@@ -45,6 +45,7 @@ Files:     <the 2-5 files in play>
    - `git branch --show-current`; the fork point: `git merge-base HEAD <default-branch>`.
    - Commits since fork: `git log --oneline <default>..HEAD`.
    - Uncommitted work: `git status --porcelain` + `git diff --stat` (and read the actual `git diff` for the in-flight files).
+   - Other worktrees: `git worktree list`, then `git -C <path> status --porcelain` for each. One with uncommitted work is a session or agent that stopped mid-change (a usage-limit death leaves exactly this) — name it in the briefing with its file count; never remove it unread ([`agent-fanout.md`](../templates/snippets/agent-fanout.md) § Recovering).
 3. **Project status** — `ai/status.md` "Recent Changes" (cross-reference; the session-start hook already surfaces a slice of this).
 4. **Reconcile + synthesize** — where the note and git disagree, git wins for *what changed*, the note wins for *why / what's next*. Produce the briefing.
 

@@ -414,7 +414,7 @@ All internal. Just results.
 - `--dry-run` — show what would be polished, no edits.
 - **`validate-polish-artifacts.sh` (hooks / CI)** — run after the stack-conditional audit; exits non-zero on failure. Set env `QUIET=1` for quieter output (script-supported). **Deliberate design: the validator is env-var-only — `QUIET`, `POLISH_DIR`, `PROJECT_KIND` — and has NO CLI flags.** There is no `--strict` because every failure is already blocking (no soft/advisory tier to gate); quieting is the only knob, exposed as `QUIET=1` so the same invocation works identically in a hook, in CI, and from a shell.
 - `--allow-dirty` — proceed with uncommitted changes.
-- `--max-parallel=<N>` — cap concurrent dispatch (default: 4).
+- `--max-parallel=<N>` — cap concurrent dispatch (default: 4). Every parallel wave follows [`templates/snippets/agent-fanout.md`](../templates/snippets/agent-fanout.md): findings appended per agent as found, shared state (git, shared DB, generated files) left to the orchestrator, the cap dropped to 3 near the usage limit, a dead agent's files and worktree read before re-dispatch.
 - `--focus=<list>` — narrow to specific concerns (e.g., `--focus=missing-empty-state` for frontend; `--focus=idempotency-key-missing,log-field-drift` for backend).
 - `--exclude=<scope>` — exclude surfaces.
 - `--no-iterate` — skip variant generation entirely (frontend only).

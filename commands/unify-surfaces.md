@@ -299,7 +299,7 @@ All internal. Just results.
 - `--surfaces=<list>` — subset; default all 7.
 - `--dry-run` — show what would be unified, no edits. Reports per-category inventory + canonical-shape proposal + migration count.
 - `--allow-dirty` — proceed with uncommitted changes.
-- `--max-parallel=<N>` — cap concurrent category dispatch (default: 3 — categories have dependency edges; not all parallelisable).
+- `--max-parallel=<N>` — cap concurrent category dispatch (default: 3 — categories have dependency edges; not all parallelisable). Every parallel wave follows [`templates/snippets/agent-fanout.md`](../templates/snippets/agent-fanout.md): findings appended per agent as found, shared state (git, shared DB, generated files) left to the orchestrator, the cap dropped to 3 near the usage limit, a dead agent's files and worktree read before re-dispatch.
 - `--exclude=<scope>` — exclude paths from inventory.
 - `--exclude-consumer=<glob>` — exclude specific consumers from migration (e.g., legacy pages slated for deletion).
 - `--surface-blockers` — show halted categories explicitly.

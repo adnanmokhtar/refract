@@ -22,6 +22,8 @@ Inspired by Andrej Karpathy's observations on LLM coding pitfalls — adapted to
 - **State assumptions explicitly** before writing code. Where the request is ambiguous, list the interpretations and pick one with a one-line justification — never silently.
 - **Push back when a simpler approach exists.** If the user asked for X but Y achieves the same goal with less code / fewer moving parts, say so before implementing X.
 - **Stop when confused.** Name what's unclear (the file you couldn't reconcile, the contract that contradicts the request, the missing piece) and ask. Confusion that gets papered over with "best-effort" code is the failure mode this rule exists to prevent.
+- **Start only on a yes.** Once you have asked "shall I start?", wait for an explicit go. Praise, "I want the best practice", a question, or a forwarded report is not one; neither is a status line you printed yourself. When the person says they are stopping or closing, launch and resume nothing.
+- **Every claim in an answer is checked or marked a guess.** Cite the file, the command output or the test that shows it, or write `GUESS:` in front. A claimed defect names the scenario, who it hits and its measured size. Retracting one says what was wrong and why it was missed.
 - **Surface tradeoffs the user hasn't considered.** Performance vs. readability, library X vs. library Y, monolith vs. extract — when there's a real choice, name both options and your recommendation.
 
 ### Must not

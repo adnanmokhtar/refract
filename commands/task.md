@@ -165,7 +165,7 @@ audited — before the next is fetched.** Stops when:
    - **`/task`'s own earlier comments** (they end with the reference line, or open with a commit SHA in the older format) are history — what was tried and where it stopped — never new requirements. They post under the token owner's name, so the author alone does not tell them apart.
    - Questions in comments that nobody answered → carry them into the echo; a question that blocks the work is the one scoping question.
    - Links and Drive files in comments are attachments (Phase 3).
-6. **Echo the resolved spec** (title, key, AC count, subtask count, attachment count, comment count — and any requirement a comment changed) in 4–5 lines and state the plan. Proceed without a pause unless the AC are empty AND the title is vague (then ask one scoping question).
+6. **Echo the resolved spec** (title, key, AC count, subtask count, attachment count, comment count — and any requirement a comment changed) in 4–5 lines and state the plan. Proceed without a pause unless the AC are empty AND the title is vague (then ask one scoping question), or Phase 3 finds the card contradicting a test or decision already in the repo (one question per conflict).
 
 ## Phase 2 — Organize (decompose)
 ```
@@ -189,6 +189,7 @@ All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP
   - code/diff/`.json`/`.csv` → **reference data / fixtures**.
 - **Google Drive links** (attachment URLs or links in the description: `drive.google.com/file/d/<id>`, `open?id=<id>`) → fetch `https://drive.google.com/uc?export=download&id=<id>` into the same folder. A response that is an HTML sign-in page, not the file, means the link is not shared as "Anyone with the link": record it as unreadable, carry on, and say so in the write-back comment so the card owner can re-share it. Never ask for Google credentials.
 - **Description and comment links** to other cards/issues → fetch titles for context (do NOT recurse into doing them). Images and Drive links posted in comments are attachments, same rules as above.
+- **Does the card overturn an earlier decision?** State the card's rule in one sentence ("a marketer's order counts once the carrier confirms it"). Search the tests and `ai/decisions/` for its key nouns, and read what they assume. A test or ADR that asserts the opposite is a conflict: ask ONE question per conflict before the start-move, naming the test or ADR and the line — "the card says X; `orders.e2e-spec.ts:212` pins Y; which holds?" A conflict found at the release gate costs a re-gate; found here it costs one question. None found → say `Prior decisions: none contradicted` in the echo and go on.
 
 ## Phase 4 — Generate (execute the work)
 - Synthesize a single, faithful description from `title` + `description` + the requirement-bearing `comments` + `acceptanceCriteria` + `subtasks` + attachment findings — verbatim intent, not paraphrased away; where a comment overrode the description, the comment's version is the one dispatched. Name the card's labels in it (`Labels: Bug, Database`) — the area labels are the only place that context survives.

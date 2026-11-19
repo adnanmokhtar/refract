@@ -24,6 +24,7 @@ severity: must
 - Add a `TODO` without an owner and a delete-by date — `TODO(@owner YYYY-MM-DD): why`; a ticket may be added, never instead (`THR-TODO`, precedence A2).
 - Use `--no-verify` or skip hooks unless explicitly authorized.
 - Mix unrelated changes in one commit.
+- Stage with `git add -A`, `-u`, `.` or a directory, or run a formatter / fixer in write mode beyond your own files — another session may share this checkout, and a sweep takes or reverts its work. Name the paths; check `git diff --cached --name-only` against your list before committing.
 
 ## Should
 

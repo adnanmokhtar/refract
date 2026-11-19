@@ -78,7 +78,16 @@ git for-each-ref --format '%(refname:short) %(upstream:track)' refs/heads \
   | awk '$2=="[gone]"{print $1}'
 ```
 
-List candidates, CONFIRM, then delete each (`git branch -D` is fine here — these are merged/deleted-upstream branches; still confirm the list first).
+List candidates, CONFIRM, then for each:
+
+1. **Its worktree first** — a branch checked out in a worktree cannot be deleted. From `git worktree
+   list --porcelain`, a candidate's worktree with a clean `git -C <path> status --porcelain` is
+   removed (`git worktree remove <path>`); a dirty one is kept and named in the output — its
+   uncommitted work is not yours to drop. `git worktree prune` once at the end.
+2. **`git branch -d <branch>`** — never `-D`. `-d` refuses a branch whose commits are not merged,
+   which is the check you want. A branch merged by squash or rebase looks unmerged to git, so `-d`
+   refuses it too: list those as `Needs -D (yours to run): <branch> …` for the person. The
+   destructive-command hook blocks `git branch -D` from the agent, and it should.
 
 ## Output format
 
@@ -89,7 +98,7 @@ Staged:      <N files> (<M> excluded by never-stage: <reason>)
 Commit:      <type(scope): subject>  (<sha>)
 Push:        <branch> → origin (<new upstream | fast-forward>)
 PR:          <url>  (or: "skipped (--no-pr)" / "gh unavailable — body printed above")
-Cleanup:     <N branches pruned | not run>
+Cleanup:     <N branches deleted (-d), M worktrees removed | not run> · Needs -D (yours to run): <branches | none> · Kept (uncommitted work): <worktrees | none>
 
 Halts hit:   <none | never-stage: <files> | diverged remote | protected branch>
 ```

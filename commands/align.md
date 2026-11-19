@@ -239,7 +239,7 @@ All internal. Just results.
 - `--strict` — forwarded to **`validate-align-artifacts.sh`**: treat warnings as failures where applicable.
 - `--quiet` — forwarded to **`validate-align-artifacts.sh`** (`--quiet`) when invoking the validator from hooks / CI.
 - `--allow-dirty` — proceed with uncommitted changes.
-- `--max-parallel=<N>` — cap concurrent dispatch (default: 5).
+- `--max-parallel=<N>` — cap concurrent dispatch (default: 5). Every parallel wave follows [`templates/snippets/agent-fanout.md`](../templates/snippets/agent-fanout.md): findings appended per agent as found, shared state (git, shared DB, generated files) left to the orchestrator, the cap dropped to 3 near the usage limit, a dead agent's files and worktree read before re-dispatch.
 - `--focus=<list>` — narrow to AL classes (e.g., `--focus=AL-05,AL-11`); legacy names are mapped (`align-detect` § The legacy class map).
 - `--exclude=<scope>` — exclude areas.
 - `--surface-blockers` — show halted findings explicitly.

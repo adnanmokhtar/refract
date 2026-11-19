@@ -346,7 +346,7 @@ All internal. Just results.
 - `--strict` — forwarded to **`validate-optimize-artifacts.sh`**: Phase 0 must reference `_extracted-idioms.md`; **`ai/optimize/ledger.md`** required unconditionally (even for a no-fix audit). **Note: the ledger is already MANDATORY without `--strict` for any run that fixed findings** — it is the only re-detect proof surface, so the validator fails when `findings/*.md` exist but no ledger does. `--strict` only extends that requirement to runs that fixed nothing.
 - `--quiet` — forwarded to **`validate-optimize-artifacts.sh`** (`-q`) when invoking the validator from hooks / CI.
 - `--allow-dirty` — proceed with uncommitted changes.
-- `--max-parallel=<N>` — cap concurrent dispatch (default: 5).
+- `--max-parallel=<N>` — cap concurrent dispatch (default: 5). Every parallel wave follows [`templates/snippets/agent-fanout.md`](../templates/snippets/agent-fanout.md): findings appended per agent as found, shared state (git, shared DB, generated files) left to the orchestrator, the cap dropped to 3 near the usage limit, a dead agent's files and worktree read before re-dispatch.
 - `--focus=<list>` — narrow the **tactical** classes (e.g., `--focus=performance,dead-code`). Default: all classes. **`--focus` narrows the tactical sweep only — Phase 0 architectural diagnosis ALWAYS runs in full and stays gated by the validator regardless of `--focus`.** You cannot use `--focus` to skip the bigger-picture scan; it only trims which tactical fix classes the parallel wave touches.
 - `--exclude=<scope>` — exclude areas (e.g., `--exclude=tests,migrations,_examples`).
 - `--surface-blockers` — show all halted findings, not just the summary.

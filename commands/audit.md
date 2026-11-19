@@ -465,7 +465,7 @@ than the table, but the same three columns and the same no-bare-N/A rule apply.
 - For OWASP Top 10 issues: assertion file linked from `ai/security/regression-suite.md`.
 
 ### Phase 6 — Execute P2 (high-leverage scale fixes, parallel waves)
-- Up to `--max-parallel` (default 5) concurrent subagents.
+- Up to `--max-parallel` (default 5) concurrent subagents. Every parallel wave follows [`templates/snippets/agent-fanout.md`](../templates/snippets/agent-fanout.md): findings appended per agent as found, shared state (git, shared DB, generated files) left to the orchestrator, the cap dropped to 3 near the usage limit, a dead agent's files and worktree read before re-dispatch.
 - Each finding: baseline measurement → apply fix → post-fix measurement → verify parity tests + scoped tests → commit.
 - Closure verbs: `parallelize`, `batch`, `cache-with-explicit-ttl`, `add-index`, `project-columns`, `push-down-filter`, `add-read-replica-routing`, `move-to-background-job`, `add-pagination`, `precompute`.
 - After this phase, **re-runs Phase 1 axis detectors on changed files** — many P3/P4 findings dissolve.

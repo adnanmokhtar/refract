@@ -127,6 +127,24 @@ has 'git[[:space:]]+reset[[:space:]]+--hard'  && block "git reset --hard discard
 has 'git[[:space:]]+clean[[:space:]]+-[a-zA-Z]*f' && block "git clean -f permanently deletes untracked files"
 has 'git[[:space:]]+branch[[:space:]]+-D'     && block "force branch delete — run manually if intended"
 
+# ── Killing by pattern ────────────────────────────────────────────────────
+# `pkill -f <path>` matches every process whose command line contains the path — another session's
+# test run in the same worktree included — and `killall node` takes down every Node process on the
+# machine. Stop a process by the PID you saved when you started it.
+has '(^|[;&|[:space:]])pkill[[:space:]]+([^;&|]*[[:space:]])?(-[a-zA-Z]*f|--full)' \
+  && block "pkill -f kills every process whose command line matches — stop the one you started by its PID (kill <pid>)"
+has '(^|[;&|[:space:]])killall([[:space:]]|$)' \
+  && block "killall stops every process of that name on the machine — kill the one you started by its PID"
+
+# ── A path list that may be empty ─────────────────────────────────────────
+# `git stash push -- $(cat list)` and `git diff -- $LIST | git apply -R` act on the WHOLE tree when the
+# list comes out empty: the stash takes everyone's work, the reverse apply undoes every change. Expand
+# the list first, check it is not empty, then pass the paths literally.
+has 'git[[:space:]]+stash([[:space:]]+push)?[^;&|]*[[:space:]]--[[:space:]][^;&|]*\$' \
+  && block "git stash with a path list from a variable or \$(…) stashes everything when the list is empty — check the list, then pass literal paths"
+has 'git[[:space:]]+diff[^;&|]*[[:space:]]--[[:space:]][^;&|]*\$[^;&]*\|[[:space:]]*git[[:space:]]+apply[^;&|]*(-R|--reverse)' \
+  && block "git diff -- \$(…) | git apply -R reverts the whole tree when the list is empty — check the list, then pass literal paths"
+
 # ── Fork bomb ───────────────────────────────────────────────────────────
 printf '%s' "$cmd" | grep -qF ':(){ :|:& };:' && block "fork bomb"
 

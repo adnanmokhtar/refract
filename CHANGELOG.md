@@ -6,6 +6,37 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Lessons from a real product repo: cleanup that runs, a memory floor, a wave that survives (2026-11-20)
+
+Each item below is a rule a product team wrote after it hurt, compared against what Refract shipped.
+
+- **`/ship --cleanup` could never run.** It told the agent to `git branch -D`, which
+  `guard-destructive.sh` blocks and `settings.json` denies. It now removes a clean worktree first,
+  deletes with `git branch -d` (which refuses unmerged work), keeps a dirty worktree, and lists the
+  squash-merged branches that need `-D` for the person to run.
+- **`test-lane.sh run` has a memory watchdog.** Below `CLAUDE_TEST_LANE_MIN_FREE` percent free
+  (default 10; 0 turns it off), it stops the run's whole process group and exits 76 with what to
+  lower. Taking turns kept agents apart; it never stopped one sharded e2e run from freezing a
+  24 GB laptop.
+- **`guard-destructive.sh`** blocks `pkill -f` and `killall` (they hit another session's test run;
+  stop a process by its PID), and a `git stash -- $(…)` or `git diff -- $LIST | git apply -R`
+  whose list may be empty (the whole tree is stashed or reverted). 7 new fixtures.
+- **`think-simplify-surgical.md`**: start only on an explicit yes — praise, a question or a forwarded
+  report is not one, and "I'm closing" means launch nothing; and every claim in an answer cites its
+  evidence or says `GUESS:`.
+- **`code-quality.md`**: no `git add -A` / `-u` / `.` and no write-mode formatter beyond your own
+  files — another session may share the checkout.
+- **`feedback-learned.md`**: `Lasts: standing | session-only`; one explicit "always" makes a rule
+  candidate at once; a newer statement supersedes an older one; and a one-session permission
+  ("merge it tonight") is never written down where a later session could read it as standing.
+- **`templates/snippets/agent-fanout.md`**, cited by `/audit`, `/optimize`, `/align`, `/polish` and
+  `/unify-surfaces`: findings appended per agent as found, shared state (git, shared DB, generated
+  files) kept with the orchestrator, the cap dropped to 3 near the usage limit, a dead agent's files
+  and worktree read before re-dispatch. `/catchup` names other worktrees holding uncommitted work.
+- **`/task`** checks whether the card overturns a test or an ADR already in the repo and asks one
+  question per conflict before starting — found at the release gate, the same conflict cost two
+  re-gates.
+
 ### Test level: one word decides how much a build run tests on this machine (2026-11-20)
 
 - **`test-level.py`** (`templates/repo-baseline/.claude/scripts/`, global copy in `scripts/`) reads
