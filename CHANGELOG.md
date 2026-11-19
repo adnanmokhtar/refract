@@ -6,6 +6,17 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/task` reads and writes ClickUp (2026-11-20)
+
+- **`clickup` adapter** in `templates/integrations/task-providers.md`: refs `app.clickup.com/t/…` and
+  `clickup:<id>`, `next` over a list's statuses, comments paged back past the newest 25, status
+  moves by the list's own status names, checklist items ticked. **REST first**, over a personal
+  token (`CLICKUP_API_TOKEN`): ClickUp's official MCP signs in by OAuth only and is capped per day by
+  plan (100 calls/day on Free), which one drain can spend.
+- `priorityLabels` matches ClickUp's native priority (urgent / high / normal / low), so
+  `["urgent", "high"]` ranks the queue with no tags. Written from the API reference; the first real
+  run checks the field names.
+
 ### Lessons from a real product repo: cleanup that runs, a memory floor, a wave that survives (2026-11-20)
 
 Each item below is a rule a product team wrote after it hurt, compared against what Refract shipped.

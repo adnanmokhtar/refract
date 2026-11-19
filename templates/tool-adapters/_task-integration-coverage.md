@@ -4,7 +4,7 @@ Cross-cuts the tool-adapter registry. Documents how each tool surfaces the **pro
 
 `/task` is the first **MCP-backed integration command** (see `_registry.md` § Top-level orchestration commands → *Integration commands*). Unlike the simple-surface multi-agent commands, it does **not** need parallel sub-agent dispatch — it is a single-task lifecycle: **resolve provider → fetch card/issue → normalize to canonical TaskSpec → ingest attachments → dispatch the work → write status back**. That makes it portable to every adapter that can (a) reach a task-provider MCP and (b) dispatch a specialist.
 
-> **Canonical sources**: `commands/task.md` (lifecycle) + `templates/integrations/task-providers.md` (TaskSpec + per-provider adapters) + `scripts/detect-mcp.sh` (per-repo MCP provisioning: `trello` / `jira` / `linear` / universal `github`, each gated on the repo's own `.env` creds).
+> **Canonical sources**: `commands/task.md` (lifecycle) + `templates/integrations/task-providers.md` (TaskSpec + per-provider adapters) + `scripts/detect-mcp.sh` (per-repo MCP provisioning: `trello` / `jira` / `linear` / universal `github`, each gated on the repo's own `.env` creds; `clickup` needs no MCP — `/task` reaches it over REST with `CLICKUP_API_TOKEN`).
 
 ## The one substitution every adapter makes
 
@@ -73,7 +73,7 @@ Translators MUST carry all four — they are part of the command surface, not Cl
 
 ## Degradation when no provider creds exist at all
 
-`/task` halts **only** when there is no provider MCP **and** no provider creds in `.env` (so neither MCP nor REST can authenticate): *"Provider not configured — add `TRELLO_*` / `JIRA_*` / `LINEAR_*` creds to `.env` and re-run setup (or `detect-mcp.sh --apply`)."* No silent no-op. A 401 from a wired MCP is NOT this case — that takes the REST fallback above.
+`/task` halts **only** when there is no provider MCP **and** no provider creds in `.env` (so neither MCP nor REST can authenticate): *"Provider not configured — add `TRELLO_*` / `JIRA_*` / `LINEAR_*` / `CLICKUP_*` creds to `.env` and re-run setup (or `detect-mcp.sh --apply`)."* No silent no-op. A 401 from a wired MCP is NOT this case — that takes the REST fallback above.
 
 ## Honesty clause (inherited from `_orchestration-sync.md`)
 

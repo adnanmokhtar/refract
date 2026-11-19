@@ -34,6 +34,7 @@ use Trello while the next uses Jira. The MCP is wired by `detect-mcp.sh`, gated 
 | Trello | `@delorenj/mcp-server-trello` | `TRELLO_API_KEY`, `TRELLO_TOKEN`, `TRELLO_BOARD_ID` |
 | Jira | `@aashari/mcp-server-atlassian-jira` | `ATLASSIAN_SITE_NAME`, `ATLASSIAN_USER_EMAIL`, `ATLASSIAN_API_TOKEN` |
 | Linear | `@tacticlaunch/mcp-linear` | `LINEAR_API_KEY` |
+| ClickUp | REST API v2 (official MCP `https://mcp.clickup.com/mcp` optional — OAuth only, capped per day) | `CLICKUP_API_TOKEN`, `CLICKUP_LIST_ID`, `CLICKUP_TEAM_ID` (custom ids only) |
 | GitHub Issues | `ghcr.io/github/github-mcp-server` (universal, container) | `GITHUB_TOKEN` |
 
 > ⚠️ Verify each non-Trello server's exact env-var names against its README — they vary.
@@ -53,6 +54,12 @@ use Trello while the next uses Jira. The MCP is wired by `detect-mcp.sh`, gated 
 
 **Jira** — create an API token at <https://id.atlassian.com/manage-profile/security/api-tokens>; note your site (`yourco.atlassian.net`) and account email.
 **Linear** — Settings → API → personal API key.
+**ClickUp** — avatar → Settings → **Apps** → API Token → Generate (`pk_…`). The list id is the
+number in the list's URL (`…/l/li/<list_id>`); the team (workspace) id is the first number in any
+`app.clickup.com/<team_id>/…` URL. `/task` talks to ClickUp over its REST API with this token —
+its official MCP signs in by OAuth only and allows as few as 100 calls a day, which one drain can
+use up. In `task-flow.json`, `pickFrom` / `start` / `review` name **statuses** (ClickUp's board
+columns), and `"priorityLabels": ["urgent", "high"]` ranks by ClickUp's own priority field.
 **GitHub** — a PAT with `repo` scope.
 
 ### 2. Put them in the repo's `.env` (gitignored)
@@ -188,7 +195,7 @@ names, `/task` matches case-insensitively; rename or tell it which list maps to 
 
 ---
 
-## Adding a new provider (Asana / ClickUp / Notion / …)
+## Adding a new provider (Asana / Notion / …)
 1. Add an adapter block in [`templates/integrations/task-providers.md`](../templates/integrations/task-providers.md) (field map + status verbs + ref detection).
 2. Add a detection + config entry in [`scripts/detect-mcp.sh`](../scripts/detect-mcp.sh) (gate on the repo's own `.env` creds).
 3. Add a row in [`_task-integration-coverage.md`](../templates/tool-adapters/_task-integration-coverage.md).

@@ -60,7 +60,7 @@ reads the same flow:
 - **`pickFrom`** — the lists/states `next` takes from, **in priority order**: the first list with
   a card wins, top card of that list first. A card in any other list is never picked by `next`
   (Backlog-style lists hold work nobody approved yet). An explicit URL/key still runs any card.
-- **`priorityLabels`** — labels that jump the queue, highest first, matched case-insensitively.
+- **`priorityLabels`** — labels that jump the queue, highest first, matched case-insensitively. On a provider with a native priority field (ClickUp, Jira, Linear) its value counts as a label: `["urgent", "high"]`.
   `next` reads every pick list and takes a card carrying the first label before any card carrying
   the second, and those before an unlabelled one — whichever pick list it sits in. Within one
   rank the `pickFrom` order and then the card's position decide. Absent or empty → list order and
@@ -144,17 +144,17 @@ audited — before the next is fetched.** Stops when:
 
 ## Phase 1 — Understand (resolve the task)
 1. **Resolve provider** from `<ref>`:
-   - URL → match host (`trello.com`→trello, `*.atlassian.net`/`/browse/`→jira, `linear.app`→linear, `github.com/.../issues/`→github).
-   - Prefix → `jira:` / `linear:` / `trello:` / `gh:`.
+   - URL → match host (`trello.com`→trello, `*.atlassian.net`/`/browse/`→jira, `linear.app`→linear, `app.clickup.com/t/`→clickup, `github.com/.../issues/`→github).
+   - Prefix → `jira:` / `linear:` / `trello:` / `clickup:` / `gh:`.
    - Bare key shape → `PROJ-123`→jira, `ABC-123`→linear, `#42`→github (current repo).
-   - `next` or bare → the provider of `.claude/task-flow.json` if it names one (`"provider"`), else the **single task-provider MCP present in `.mcp.json`** — or the single provider with creds in `.env` (trello/jira/linear/github). If more than one is configured and the ref is ambiguous → ask which provider (one question).
+   - `next` or bare → the provider of `.claude/task-flow.json` if it names one (`"provider"`), else the **single task-provider MCP present in `.mcp.json`** — or the single provider with creds in `.env` (trello/jira/linear/clickup/github). If more than one is configured and the ref is ambiguous → ask which provider (one question).
 2. **Load credentials from `.env`** (the MCP server is spawned at editor startup and may have been launched without the provider vars in its environment → it will 401 with empty creds). Before any provider call, make the creds available to this session's shell:
    ```bash
-   [ -f .env ] && set -a && . ./.env && set +a    # exports TRELLO_*/JIRA_*/LINEAR_* for direct API calls
+   [ -f .env ] && set -a && . ./.env && set +a    # exports TRELLO_*/JIRA_*/LINEAR_*/CLICKUP_* for direct API calls
    ```
    This does NOT retroactively fix an already-spawned MCP's environment — that's what the fallback in step 3 is for.
 3. **Establish a WORKING provider connection** (MCP-first, REST-fallback — never halt while valid `.env` creds exist):
-   - Probe the provider MCP (ToolSearch for its tools, then a cheap auth check — e.g. Trello `get_health` / a whoami call).
+   - Probe the provider MCP (ToolSearch for its tools, then a cheap auth check — e.g. Trello `get_health` / a whoami call). **Exception:** an adapter that names REST as its primary channel (ClickUp — its MCP is OAuth-only and capped per day) uses REST whenever its token is set, and the MCP only without one.
    - **MCP healthy** → use it for fetch + write-back.
    - **MCP missing, OR returns 401 / auth failure / 0% health** → do NOT halt. Fall back to the provider's **direct REST API via Bash** using the `.env` creds loaded in step 2 (Trello: `curl "https://api.trello.com/1/cards/<id>?key=$TRELLO_API_KEY&token=$TRELLO_TOKEN&..."`; Jira/Linear: their REST/GraphQL endpoints). Fetch AND write-back both work over REST. Note in the run summary that REST fallback was used (so the user knows to fix the MCP env via `set -a; source .env; set +a` before relaunching).
    - **Only halt** if there is no provider MCP AND `.env` has no creds for the resolved provider → "Provider `<x>` not configured: add its creds to `.env` and run `/setup-project` (or `detect-mcp.sh --apply`)."

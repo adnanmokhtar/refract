@@ -82,9 +82,19 @@ at runtime via ToolSearch; the names below are the expected shape.
 - **field map**: `title`→title · `body`→description · markdown task-list `- [ ]`→subtasks · image/file links in body→attachments · `labels[].name`→labels · milestone/`priority:*` label→priority · `assignee.login`→assignee · `state`→status.
 - **status verbs**: `add_labels` (`in-progress`, then `needs-review`) — GitHub has no In-Progress state, so labels stand in; `add_issue_comment` for the write-back; `update_issue { state: closed }` on `done`.
 
+### clickup — REST API v2 first · official MCP `https://mcp.clickup.com/mcp` optional
+- **channel**: REST over `CLICKUP_API_TOKEN` (a personal token, `pk_…`, sent as `Authorization: <token>`), base `https://api.clickup.com/api/v2`. **REST is the primary channel here, not the fallback**: the official MCP signs in by OAuth only (an interactive `/mcp` step, no token) and is capped per day by plan — 100 calls/day on Free, 300 on Unlimited — which one drain can spend. Use the MCP only when no token is set. REST allows 100 requests/min per token on the lower plans.
+- **ref**: `app.clickup.com/t/<task_id>` URL · `app.clickup.com/t/<team_id>/<CUSTOM-ID>` URL · `clickup:<task_id>` · `clickup:<CUSTOM-ID>` (a custom id needs `?custom_task_ids=true&team_id=$CLICKUP_TEAM_ID` on every task call). A bare `ABC-123` stays Jira/Linear's shape: a custom id needs the `clickup:` prefix unless `task-flow.json` names `"provider": "clickup"`. `next` → the tasks of `CLICKUP_LIST_ID` whose **status** is in `pickFrom` — ClickUp's board columns are statuses, not lists: `GET /list/{list_id}/task?statuses[]=<s>&subtasks=true`, 100 a page, `page` from 0 until `last_page`. The API cannot sort by priority, so rank on the client.
+- **priority**: ClickUp has a native priority field — 1 urgent, 2 high, 3 normal, 4 low, null none — and it cannot be renamed. `priorityLabels` matches the priority's name as well as tags, so `"priorityLabels": ["urgent", "high"]` ranks by the native field with no tags at all; an unset priority ranks last.
+- **fetch**: `GET /task/{id}?include_markdown_description=true&include_subtasks=true` (checklists, attachments, tags, priority, status, custom fields in one call); comments `GET /task/{id}/comment` — the newest 25 only: page back with `start` + `start_id` (the oldest comment's `date` and `id`) until a page comes back empty, then reverse to oldest first. Attachment `url`s download with the same token header.
+- **field map**: `name`→title · `markdown_description` (else `description`)→description · `checklists[].items[]` (`name`, `resolved`) and child tasks→subtasks · `attachments[]` (`title`, `url`)→attachments · `tags[].name`→labels (what `labelRoutes` match) · `priority.priority`→priority · `assignees[0].username`→assignee · `status.status`→status · comments (`user.username`, `date` in epoch ms, `comment_text`)→comments.
+- **status verbs**: `PUT /task/{id}` `{"status": "<name>"}` — status names are the list's own (`GET /list/{list_id}` → `statuses[]`), matched case-insensitively; `POST /task/{id}/comment` `{"comment_text": "…", "notify_all": false}` for the write-back; tick a checklist item with `PUT /checklist/{checklist_id}/checklist_item/{item_id}` `{"resolved": true}`.
+- **env**: `CLICKUP_API_TOKEN` (required) · `CLICKUP_LIST_ID` (for `next`) · `CLICKUP_TEAM_ID` (custom ids only).
+- Written from ClickUp's API reference (2026-11); not yet run against a real workspace — the first real run checks each field name above and corrects this block.
+
 ---
 
-## Adding a new provider (Asana, ClickUp, Notion, Azure Boards, …)
+## Adding a new provider (Asana, Notion, Azure Boards, …)
 1. Add a `### <id> — <package>` adapter block above with the four sections.
 2. Add a detection + config block to `scripts/detect-mcp.sh` (gate on the repo's own `.env` creds; mirror the trello/jira/linear blocks).
 3. Document the env-var names and verify them against the server's README.
