@@ -473,7 +473,7 @@ ai/references/tool-parity.md
         "Bash(git push --force:*)", "Bash(git push -f:*)",
         "Bash(git reset --hard:*)", "Bash(git clean -fd:*)",
         "Bash(git branch -D:*)", "Bash(git commit --amend:*)",
-        "Bash(*uninstall*)", "Bash(*:--no-verify:*)"
+        "Bash(*uninstall*)", "Bash(*--no-verify*)"
       ]
     }
   }

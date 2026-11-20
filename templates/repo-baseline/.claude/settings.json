@@ -198,7 +198,7 @@
       "Bash(git branch -D:*)",
       "Bash(git commit --amend:*)",
       "Bash(*uninstall*)",
-      "Bash(*:--no-verify:*)"
+      "Bash(*--no-verify*)"
     ]
   },
   "sandbox": {
