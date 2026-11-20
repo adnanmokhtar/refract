@@ -884,7 +884,7 @@ run_gate_check() {
   rc=0; out=$(gc_run "$p" --local --hook-json) || rc=$?
   gc_ok "$rc/$(verdict "$p" G1-tests)" "0/UNVERIFIED" "no-runner-is-unverified-not-pass"
   gc_ok "$(printf '%s' "$out" | grep -c '"systemMessage".*G1 tests UNVERIFIED')" 1 "no-runner-tells-the-user"
-  rc=0; out=$( cd "$p" && PATH="$bin:$PATH" bash .claude/hooks/verify-gate.sh 2>/dev/null ) || rc=$?
+  rc=0; out=$( cd "$p" && PATH="$bin:$PATH" bash .claude/hooks/verify-gate.sh </dev/null 2>/dev/null ) || rc=$?
   gc_ok "$rc/$(printf '%s' "$out" | grep -c UNVERIFIED)" "0/1" "verify-gate-no-runner-says-unverified"
 
   p="$work/gradle-red"; gc_project "$p" none
@@ -892,8 +892,19 @@ run_gate_check() {
   printf '#!/bin/sh\necho "AppTest > adds FAILED"\nexit 1\n' > "$p/gradlew"; chmod +x "$p/gradlew"
   ( cd "$p" && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm gradle )
   printf 'class App { int add(int a, int b) { return a - b; } }\n' > "$p/src/main/java/App.java"
-  rc=0; ( cd "$p" && PATH="$bin:$PATH" bash .claude/hooks/verify-gate.sh >/dev/null 2>&1 ) || rc=$?
+  rc=0; err=$( cd "$p" && PATH="$bin:$PATH" bash .claude/hooks/verify-gate.sh </dev/null 2>&1 >/dev/null ) || rc=$?
   gc_ok "$rc/$(verdict "$p" G1-tests)" "2/FAIL" "gradle-red-blocks-through-verify-gate"
+  gc_ok "$(printf '%s' "$err" | grep -c '| AppTest > adds FAILED')" 1 "fail-with-no-file-line-shows-the-output-tail"
+  # Blocks once per tree: the stop after a block (stop_hook_active) on an unchanged tree passes and
+  # tells the person; a changed tree, or a new turn's stop, runs the gates again.
+  active='{"session_id":"s","hook_event_name":"Stop","stop_hook_active": true}'
+  rc=0; out=$( cd "$p" && PATH="$bin:$PATH" bash .claude/hooks/verify-gate.sh <<<"$active" 2>/dev/null ) || rc=$?
+  gc_ok "$rc/$(printf '%s' "$out" | grep -c 'unchanged tree.*G1 tests FAIL.*AppTest > adds FAILED')" "0/1" "repeat-stop-on-same-tree-passes-and-says-why"
+  rc=0; ( cd "$p" && PATH="$bin:$PATH" bash .claude/hooks/verify-gate.sh <<<'{"stop_hook_active":false}' >/dev/null 2>&1 ) || rc=$?
+  gc_ok "$rc" 2 "new-turn-stop-on-same-tree-blocks-again"
+  printf 'class App { int add(int a, int b) { return a + b - 0; } }\n' > "$p/src/main/java/App.java"
+  rc=0; ( cd "$p" && PATH="$bin:$PATH" bash .claude/hooks/verify-gate.sh <<<"$active" >/dev/null 2>&1 ) || rc=$?
+  gc_ok "$rc" 2 "repeat-stop-on-changed-tree-runs-the-gates"
 
   # The agent's own green lane run on exactly this tree is accepted, not repeated.
   p="$work/lane"; gc_project "$p"; add_feature "$p"

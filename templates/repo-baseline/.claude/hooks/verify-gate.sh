@@ -12,8 +12,10 @@
 #   exit 0  allowed; a non-PASS verdict (UNVERIFIED, a warn-mode FAIL) still reaches the user as
 #           a `systemMessage` — a project with no test runner is reported UNVERIFIED, never
 #           passed in silence, which is what this hook did before gate-check.py existed.
-# Claude Code overrides a Stop block after 8 consecutive blocks, so this can't trap a session —
-# and for the same reason it is advisory-strong, not a hard gate: CI (refract-gates) is that.
+# It blocks once per tree: on the stop that follows a block (Claude Code's `stop_hook_active`) with
+# nothing changed since, gate-check.py lets the stop through and the verdict reaches the person as a
+# message — an agent waiting on the person's yes cannot fix it, and blocking again only re-runs the
+# same tests. It is advisory-strong, not a hard gate: CI (refract-gates) is that.
 #
 # Opt out per project: create .claude/.no-verify-gate
 
@@ -21,6 +23,10 @@ set -uo pipefail
 
 [ -f ".claude/.no-verify-gate" ] && exit 0
 git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+payload=""; [ -t 0 ] || payload=$(cat)
+if printf '%s' "$payload" | grep -Eq '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+  export REFRACT_STOP_HOOK_ACTIVE=1
+fi
 
 # Only gate when this session actually touched source, or the files that decide whether tests run
 # (CI config, coverage floors) — never run the suite for doc/no-op turns. `-uall` lists untracked

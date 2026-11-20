@@ -6,6 +6,21 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The Stop gate blocks once per tree (2026-11-20)
+
+Measured on a real repo after `/setup-project --refresh`: the project's stage-2 command refuses an
+uncommitted tree, the agent was waiting for the person's yes to commit, and `verify-gate.sh`
+blocked the stop 9 times on the same tree, re-running the tests each time, until Claude Code
+overrode it.
+
+- On the stop that follows a block (Claude Code's `stop_hook_active`) with nothing changed since,
+  `gate-check.py` lets the stop through and tells the person why. A changed tree, or a new turn's
+  stop, runs the gates again. The last block's tree is kept in the git dir
+  (`refract-stop-block`), so each worktree has its own.
+- A FAIL that cites no `file:line` now prints its output's last lines. Before, the report said only
+  `exited 1`, and the cause (`tracked files are modified — commit first`) was only in the evidence
+  file.
+
 ### `ops-local/` — one gitignored home for what is local only (2026-11-20)
 
 `code-quality.md` sends local-only tools, notes and state to `ops-local/` at the repo root,

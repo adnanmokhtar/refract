@@ -171,6 +171,12 @@ def rec(gate, check, verdict, reason=None, execution="RAN", tool=None, command=N
             "findings": findings or []}
 
 
+def last_lines(tail, n=3):
+    """The last n non-empty lines of a tool's output, colour codes stripped: the reason when it cites no file:line."""
+    lines = [l.strip() for l in re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", tail or "").splitlines() if l.strip()]
+    return [l[:160] for l in lines[-n:]]
+
+
 def cite(out, limit=30):
     seen, res = set(), []
     for m in CITE.finditer(out):
@@ -830,6 +836,20 @@ def main(argv):
         return 1
     scope = "ci" if "--ci" in flags else "local"
     ctx = Ctx(repo, scope, opts.get("base"))
+    # A Stop hook blocks once per tree. Claude Code sets stop_hook_active (verify-gate.sh passes it
+    # as REFRACT_STOP_HOOK_ACTIVE=1) on the stop that follows a block; on the same tree nothing was
+    # changed, so the same gates would fail the same way, and blocking again only loops — measured:
+    # 9 blocks, each a test run, while the agent waited for the person's yes to commit.
+    stop_state = None
+    if "--hook-json" in flags and scope == "local":
+        sp = git(repo, "rev-parse", "--git-path", "refract-stop-block")
+        stop_state = os.path.join(repo, sp) if sp else None
+        if stop_state and os.environ.get("REFRACT_STOP_HOOK_ACTIVE") == "1" and os.path.isfile(stop_state):
+            held = open(stop_state, encoding="utf-8").read().split("\n", 1)
+            if held[0] == ctx.tree:
+                print(json.dumps({"systemMessage": "gate-check still FAILs on an unchanged tree, so the stop is not "
+                                  "blocked again — %s" % (held[1].strip() if len(held) > 1 else "")}))
+                return 0
     modes, src = load_modes(repo, opts.get("mode"))
     only = set(opts["only"].split(",")) if opts.get("only") else None
     records = []
@@ -872,6 +892,8 @@ def main(argv):
             for f in r["findings"][:8]:
                 at = "%s:%s" % (f.get("file"), f.get("line")) if f.get("file") else f.get("commit", "")[:12]
                 log("       %s — %s" % (at, (f.get("message") or "")[:160]))
+            for line in [] if r["findings"] else last_lines(r.get("output_tail")):
+                log("       | %s" % line)
     excluded = len(records) - len(scoped)
     log("verdict: %s%s%s · evidence %s/" % (verdict, " — blocking: " + ", ".join("%s %s" % (r["gate"], r["check"]) for r in blocking) if blocking else "",
                                            " (%d shadow check(s) not counted)" % excluded if excluded else
@@ -883,6 +905,13 @@ def main(argv):
         notes = ["%s %s %s%s" % (r["gate"], r["check"], r["verdict"], ": " + r["reason"][:90] if r["reason"] else "")
                  for r in scoped if r["verdict"] in ("FAIL", "UNVERIFIED")]
         print(json.dumps({"systemMessage": "gate-check %s — %s (evidence: %s/)" % (verdict, "; ".join(notes), edir)}))
+    if stop_state and blocking:
+        with open(stop_state, "w", encoding="utf-8") as fh:
+            fh.write(ctx.tree + "\n" + "; ".join("%s %s FAIL: %s%s" % (r["gate"], r["check"], (r["reason"] or "")[:150],
+                     " — " + last_lines(r.get("output_tail"), 1)[0] if last_lines(r.get("output_tail"), 1) else "")
+                     for r in blocking) + "\n")
+    elif stop_state and os.path.isfile(stop_state):
+        os.remove(stop_state)
     return 2 if blocking else 0
 
 
