@@ -35,6 +35,7 @@
 .claude/agents/verifier.md  8581415c2b7213c40d5e0bab7afe669bd0cb048189dddf216eb24b36333cc229
 .claude/agents/verifier.md  d9a9dbf4fc6b979f71cc4c99cdcf3be05c3dc74c2fe1969fce8b59683b972a55
 .claude/commands/catchup.md  5069e04e75ec6bf9cead4882527356fc84d754b601ac7144c60c3e3e17e69ec8
+.claude/commands/catchup.md  b65014047f022a55847db1a453fc334e485326475fdf406f352e78ee3e2df154
 .claude/commands/execute-plan.md  12914871a39067079387b4c35476f8b26383ba166bfdcddacb4d9b10875146c9
 .claude/commands/execute-plan.md  4f2e176d087aa43dcfcea5016d9648c354ea88d23d8735d7793ea46acdcdf530
 .claude/commands/execute-plan.md  57361a00e8e665f28de2f7b84f80490df250f2a5c3440f025c29e6b8c51146b3
@@ -52,6 +53,7 @@
 .claude/commands/fix-bug.md  dcf20deddb0b3c3562a41e44293fda28beeeb9efe896cf8dfeb719d1c5698852
 .claude/commands/fix-bug.md  eb9fc0fb5d1de9a7043cc868c83767ae279623f42557ee3fcaee9a5328271329
 .claude/commands/fix-bug.md  f060a9a81eab78e6497463bd8f7d2c8d62929fe280a88cc600fa311332f66e4a
+.claude/commands/ship.md  6b7b19e1ac3bfbfb99effd3c4516b38c508a3ac0940018a14fa8cdf18e1174d6
 .claude/commands/ship.md  c04babddec6920775348b685a72a95c45fbc9d42039e6d42cc81beb3beaa567f
 .claude/commands/verify-plan.md  33299f83b0548fc710a79c10c36fce24cf7042ff0d319d13f41ea2bd26e352a9
 .claude/commands/verify-plan.md  38d9def4d32bcb97c780e6347e3c52304368b7991fa17f25a8591bbc151932f1
@@ -73,6 +75,7 @@
 .claude/hooks/format-on-save.sh  80b959134fcf412e62cf71df8594b1c4f7aa26efff17139c07cc37976a15a7db
 .claude/hooks/guard-destructive.sh  0b783c6a91942381818349578ef24977c09cb5aa4fd6adc7b80b2624adc5c449
 .claude/hooks/guard-destructive.sh  3f0b0f2dc1724e5a8b48e5521c1be1bb05be43d6fef048bc931d4ecefcf48926
+.claude/hooks/guard-destructive.sh  7c98bc3b3e630f54d605f5ae977ca959ac1f34c2b578ff6332b5be6cc6fb7c44
 .claude/hooks/guard-destructive.sh  c48c9938552748f6efa02be3addd33f08f3e73b5509b5cd3724eb3d4470692b9
 .claude/hooks/guard-irreversible.sh  4857c0b7087a7de21b2b03ffc44a69f7773cb2c658d94fc0e4a121579c453783
 .claude/hooks/inject-blast-radius.sh  03a4c0ae9bb0fc79039e7807c0d2bc10afffda0565d444637607cb8e41bb9151
@@ -118,6 +121,7 @@
 .claude/hooks/session-start.sh  bf268bdc86ab619a3f9130c49f4054f6b48258b08653a19813f5ced68e0c6260
 .claude/hooks/session-start.sh  fb7afa3dfb675805492fb53ce689d7cd91ca3f22eb921560404f10215898d2b7
 .claude/hooks/session-start.sh  fc47a05f9674bf4260245fc1e4db401d04b6afe62dea535c19aad0ed37792266
+.claude/hooks/test-lane.sh  7d0c651aafd5696bacbdb45c77528efff77f65f05071aaf34ee14198b52553ed
 .claude/hooks/test-lane.sh  9df3bbe9ac9d2829580d7242fae68187c082fe133603ba32dcc5172677a939e8
 .claude/hooks/test-lane.sh  d37e7ecbc9cfad02fef78bbbf71a06c41dd503830845807a4f378176aebe816c
 .claude/hooks/test-lock.sh  6a2d5f053b0a6f2ed0a17aae68502a754bb5f1691065e2722f81984819683531
@@ -145,6 +149,8 @@
 .claude/rules/code-quality.md  560018ae053c757f990bcc27ae5608471ea2cbb5226fb0fd3d7334d91840e09c
 .claude/rules/code-quality.md  5acc17de8f84f7f9d33542821f2ebc9417bbde8d4a534af7160dda145cd31b42
 .claude/rules/code-quality.md  5dbffb4b8c0cf4831f9dab812e56b8b32875c01bf9ee5f72d9c0ddf1d8214cd5
+.claude/rules/code-quality.md  862a7371168847e82d9449792beca387931b2a57142122e6f4534391db90e4ce
+.claude/rules/code-quality.md  a44af8937c398d6261507a0a7a3e9e8a39e199deb7c2ee3790344a9cceafbf47
 .claude/rules/code-quality.md  c1b7ec0c83250b24da184a71620114ca95843597ed321bfa48638c2542d100f4
 .claude/rules/code-quality.md  e2612f8507c90a54964ab7de9c2aa9a760e3d71fb40fd5073602cd0322bdb1ab
 .claude/rules/code-quality.md  f54dc448c021492655aa73d5310b99b42f720f2dcaf859b10b4b0e7a35bdfb2f
@@ -169,6 +175,7 @@
 .claude/rules/think-simplify-surgical.md  639f1e8fb91cee3280890ed2e8f26fa067ae4cd85eb7d5e7855b6f5807d4d907
 .claude/rules/think-simplify-surgical.md  6e3e17ae271106adee7b39b05a07da33ddb84a6e52db730c5336e3a22a7d16f7
 .claude/rules/think-simplify-surgical.md  94f43539c181a60bd1b2469efff289195a511ecdbb0af91d54e7de219eb9ed0c
+.claude/rules/think-simplify-surgical.md  b396368029f7f9127be3234b084dccbd52567464c4b9e151dd736fc0be29d950
 .claude/rules/think-simplify-surgical.md  d4b27ac6638f79d3bb1e69239c0f2c8109fd55e1995ba8479d22c11c7e12b281
 .claude/rules/think-simplify-surgical.md  ed8c5b4dd2fa88dea923cbea1f31d7cd4e11d24ef4f03ac0f120a255981fb080
 .claude/schemas/acceptance.schema.json  182cad91fa30d9ff5b4707a47f4e293becbdde7e62578da7b2b5e0ef28757ee6
@@ -188,6 +195,7 @@
 .claude/scripts/ci-graph.py  fbb2f430495454a0794dc7568c5368b0328799353d86cebdfcfd19a623770e97
 .claude/scripts/ears-lint.py  968fa1f402caa8b8eabb8bba9e0ee77dd7ba6df7ccdd94bc4680d19236122280
 .claude/scripts/gate-check.py  2f2ce62fa4f92058ba4f3a26c4f4b5759a0b3556d12c9fdccc3e2891af11eda6
+.claude/scripts/gate-check.py  7b41391097d6b10ef157694bd9f20015434e5e249c251026863492e67c450f20
 .claude/scripts/gate-check.py  88323e0ab25eae7d17bc36e81725897e4e347f3e99666e761ea3735d31bf85e5
 .claude/scripts/gate-check.py  8f2b02e1f8e194dbaeaf30197e8157f5ae7849c458685d1843243673719176fd
 .claude/scripts/judge-guard.py  b4816c5e154faba5ed5aa165a74130f34b48cd5919433d6b275cf0aade298e9e
@@ -209,6 +217,7 @@
 .claude/scripts/standards-check.py  9afc33e152e70cc7263e68bc9168a48c533acc303f873f93ba571409a708c194
 .claude/scripts/test-integrity.py  3ea2ac6f180e8b80553ab555a67ca58afd90ce8cca0a64b1d89c0ebcf0708d23
 .claude/scripts/test-integrity.py  cacb10625dcf4950cc226c567bfc74dc7f94ddf36c9720287630084d96420b58
+.claude/scripts/test-level.py  f79bbb61cf99a6d260dd3dee3fb15e62e5ab23847325c85798212e3fd1b9c111
 .claude/scripts/trace-matrix.py  e05be51f55bdd940dfd150461f155ec83a552bd8d0a0da5bf22925c2a56cbb62
 .claude/settings.json  1553339c27c9a32713ab6f7b14e9a7b550be13b136a371cef620722cf0db41a5
 .claude/settings.json  379278ef1da6557cf24f47dd889ea015f70a32079835ca5e39c9007a77336ca4
@@ -221,6 +230,7 @@
 .claude/settings.json  93d851d8f50be497d74da9dc22e19fac1922254e5cfdf6c8d70f3228b1660c42
 .claude/settings.json  a8560809e9e832525e27f5e22742811b67e30dce4e94daa79a106386c582e461
 .claude/settings.json  b6e9fff7f4b2d678c1d93949176eed4a48d64ed8f79a0763efb77377916b3ca5
+.claude/settings.json  c1ef8fee07d1c7f1d1c77b1b3fad4e60dc732f8498407c2f4d282e7533121783
 .claude/settings.json  db077e693a616491c18254696ed890215c98690f87851d8e7b923f407eb88f3c
 .claude/settings.json  f4c2d3c9d5b6cee171f056d1cdf645e6c4876d36cd861fe9f07eb1de8819d45a
 .claude/skills/.gitkeep  e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -270,6 +280,7 @@
 .claude/templates/snippets/acceptance-contract.md  c4acf61377e495edf9d9a19777eadaf4a94a7b4bca1383f89a742982f2aac601
 .claude/templates/snippets/acceptance-contract.md  f89ab63f415a556502cc8daca924774afc28cdfe1991c688ad8c7ff9065dbee7
 .claude/templates/snippets/actionable-next-steps.md  a0167c0232d41e8d641f6aa61cb3e2f80d9179d752bdfab951e18e789897e73e
+.claude/templates/snippets/agent-fanout.md  5f897dde8288fde2525f85448ce9dd57ba236e8bc4a93b17d5b13916540be280
 .claude/templates/snippets/broker-semantics.md  5a48dac3100b0fbdb74efba75b932ab8e72434f544f49612f8bc8634da416258
 .claude/templates/snippets/broker-semantics.md  772fc8975847d5fac795572d8c0bcb4f292bac39822537ac3747f5e42b9957ab
 .claude/templates/snippets/broker-semantics.md  8ddfb53f5313561cbbf74e14804087e379265890769276bf9b4abe944561d59b
@@ -291,6 +302,7 @@
 .claude/templates/snippets/finding-verification.md  67b72d6de2537e63acaeb3018ca342eae1a57d0805c32d0bc94469c8b0815e71
 .claude/templates/snippets/finding-verification.md  6bb58ac514ffa45c1424bf17a54e6649389f995e9530ae12f2090f47e43f3f95
 .claude/templates/snippets/finding-verification.md  73174329af1f10a2f9d402bf56515e15604170efbdf96aaed1ce92ff956e0449
+.claude/templates/snippets/fix-bug-core.md  566bb6b4cfe5223d6745657a495895761b94fd53167b70b0b3ebecebef20ace5
 .claude/templates/snippets/fix-bug-core.md  7fbfa07d33e39f1532dbd5bdc1538e7e4c753e6127df4bb1897d4be9db0250a9
 .claude/templates/snippets/fix-bug-core.md  f982d88b5e5e4d2e18b65f96da0a61a9c3cbe8969a3efe1d1bddfadd645e1ecd
 .claude/templates/snippets/hand-wave-grep.md  6e58bf1f21fb5e624b2a28000c1b61455e244af88033b1391a3c0258ce6b3e97
@@ -387,8 +399,10 @@
 .claude/templates/snippets/run-ledger.md  f9bcad33d61788cb2477877174fd0ee13a09aa3926833e629dba55f6d734a783
 .claude/templates/snippets/sibling-shape-halt.md  0b8fa62100218ef53ebb11b494422e3aa1b1b8461041eb8da6fa3da0fd135213
 .claude/templates/snippets/sibling-shape-halt.md  ea754d365e101487d4d0172dff6a0983058253147a3fda3e43555c8333091ca1
+.claude/templates/snippets/standards-gate.md  22bcbb632dd99e47614d83923f5ed239f94cd4e089c101e586da813100ca874f
 .claude/templates/snippets/standards-gate.md  762d47d0be31c7998872e141bbc743f6ba7c1a3be5b63d394a8e783309fa3123
 .claude/templates/snippets/standards-gate.md  f0d764162fce02a289003df530702775369f0bbb9e2b83cd6bb190d0eda37603
+.claude/templates/snippets/test-level.md  aabb8f7758cebbcc61d720a2ad9d4c51a7fe7e103329e76025babf3de7c737c1
 CLAUDE.md  3c3cc4d9004f0ac52cd70fb9c1e0913a09146dabcbd9e079315d8fb5188cecc6
 CLAUDE.md  b6a8924662f22f08fa7ae77cc4914b9fcce9f288455003830a8158410de6f0a3
 ai/README.md  3ee1f7d82071625a8a91db834545f543ab693662f312573c53f78c1648833d34
@@ -433,6 +447,7 @@ ai/dynamic/README.md  e9abeabc3118a3748c4757bca5a689a3f57c95cdd710772f10e898df80
 ai/dynamic/changelog.md  a1a05565bc296b21f6447a6143763e5b2d7019deabd6bda9992776730971844d
 ai/dynamic/decisions-pending.md  58a6a878c883a9132bfe011601ecc4839aa70cdcc8b596b0d2a68f2d3ebd4e36
 ai/dynamic/drift-log.md  8e8121435fb615768e34e759eca53366745e6ffba70a7690ac74a21af034af67
+ai/dynamic/feedback-learned.md  1781982f500147ad9cb06dca5e132f781c843d5f27964eeffe6d0b8749199da9
 ai/dynamic/feedback-learned.md  ecdbbce04d717751a000750f53c3f65ff5ae182ecbdcd19abe590f6a083ffbd5
 ai/dynamic/interaction-log.md  792ca9f523a57c97697933f5009cb91fc06c6835d09663f02a80ef88c565dbc9
 ai/dynamic/learned-patterns.md  4fa74a0dc7aef3c5ac7e8ca22a86daee54c7572067b00a973aa3fe8fbab316de
