@@ -95,6 +95,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "add Cursor / Windsurf / Cline support to this repo" / "re-sync the adapters" / "push my rule changes out to the other tools" / "make this repo work without .claude/" | `/setup-project-adapters` — **level D: print it for the user, never dispatch** (§ Level D) |
 | "is my setup stale" / "check setup health" / "are my conventions still in sync with the code" / "why does setup say there is no work to do" + **read-only report, no fixes** | `/setup-project-health` |
 | a task-tracker **URL / key / `next`** (`trello.com/c/…`, `*.atlassian.net/browse/PROJ-123`, `linear.app/…/issue/ABC-123`, `github.com/…/issues/N`, bare `PROJ-123` / `#42`, `trello:`/`jira:`/`linear:`/`gh:` prefix, or "the next ticket / next card") | `/task <ref>` |
+| "turn this report / plan / sheet into cards" / "put these findings on Trello" / "open tickets for these" + **a file or pasted list of work** | `/task add <source>` — files new cards in `addTo`, no code work |
 
 For ambiguous descriptions, the agent asks one clarifying question.
 

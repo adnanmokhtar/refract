@@ -1,13 +1,13 @@
 ---
-description: Execute ONE tracker item end to end and write its status back to the source. Trigger only when the input IS a task reference — a Trello, Jira, Linear, or GitHub Issue URL, an issue key such as PROJ-123, or 'next' — as in 'do this card' or 'grab the next ticket and start'. 'next --drain' works the pick lists card by card until empty. Not when the code change is already known and the ticket is noise — call /add-feature or /fix-bug directly.
+description: Execute ONE tracker item end to end and write its status back to the source. Trigger only when the input IS a task reference — a Trello, Jira, Linear, or GitHub Issue URL, an issue key such as PROJ-123, or 'next' — as in 'do this card' or 'grab the next ticket and start'. 'next --drain' works the pick lists card by card until empty; 'add <file>' files new cards. Not when the code change is already known and the ticket is noise — call /add-feature or /fix-bug directly.
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.5.0
+version: 1.6.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
-# /task <ref> [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only] [test word] [«من غير كومنت»]
+# /task <ref> | add <source> [--drain [--max=N]] [--prompt-only] [--to=<command>] [--no-writeback] [--review-only] [test word] [«من غير كومنت»]
 
 Pull ONE task from your project-management tool and do it. `<ref>` is a card/issue
 **URL**, a **key** (`PROJ-123`, `#42`, `trello:<id>`), or **`next`** (the top card of the
@@ -19,6 +19,7 @@ fetch → normalize → ingest attachments → execute → write status back.
 ## When to use / NOT to use
 - USE: "do this card" with a link/key; "grab the next ticket and start"; turning an issue's description + attached spec/screenshot into a working change with the card updated.
 - USE: working the queue — `/task next --drain` takes every card in the pick lists, one at a time, each closed before the next starts.
+- USE: filling the board — `/task add <source>` turns a plan, a spec, an audit report or a scenario sheet into new cards (§ *Add mode*). It does no code work.
 - NOT: bulk-porting a whole board in one shot (all cards in one change, or cards outside the pick lists). NOT: when you already know the exact code change and the ticket is just noise — call the specialist command (`/add-feature`, `/fix-bug`) directly.
 
 > **Specialist, not a wrapper.** Its value is provider-neutral task→spec translation
@@ -47,6 +48,7 @@ reads the same flow:
   "start":    "In Progress",
   "review":   "Testing",
   "done":     null,
+  "addTo":    "Backlog",
   "git": {
     "branchFrom":     "origin/main",
     "branch":         "<type>/<slug>",
@@ -74,6 +76,8 @@ reads the same flow:
   pick the command; they ride along in the description as context. No matching label → `/do`
   routes from the text as before. A target command that does not exist in this repo → fall back to
   `/do` and say so in the echo.
+- **`addTo`** — the list `add` creates cards in (§ *Add mode*). Absent → the board's first list
+  outside `pickFrom`. Never a pick list unless the person names one in the call.
 - **`start` / `review` / `done`** — the `statusFlow` names, matched case-insensitively. **`done:
   null`** means the run never moves past `review`: release lists and Done belong to the humans who
   ship. A name that matches no list on the board → halt before the start-move and name the lists
@@ -156,6 +160,46 @@ sequential. Each card still gets its own branch and PR. Every agent's brief name
 cards in flight and the files and flows they touch. Two cards on the same flow (a call to an
 outside service, stock moves, permissions) are told about each other, and each PR body names the
 seam between them.
+
+## Add mode (`add <source>`) — turn a plan or a report into cards
+
+Every audit, `/roadmap` plan and `/walk-scenarios` sheet ends in a list of work, and nothing put
+that list on the board. `add` does. It creates cards and does no code work, so the lifecycle below
+(Phase 1–7) does not run.
+
+1. **Source.** A file is read whole: a spec, `ai/roadmap/plan.md`, an audit report, or
+   `ai/scenarios/<flow>.md`. Pasted text works too.
+2. **Split** into one card per item that ships on its own:
+   - one roadmap step or one user story;
+   - one audit finding — sibling sites that share one fix are one card;
+   - one BREAKS case of a scenario sheet. An `untested` case on money, stock, status or
+     permissions is a test card.
+
+   Leave out what the source marks done, refuted, `n-a` or a point to check.
+3. **Each card** is written in the board's language (read three of its cards first):
+   - **title** — what to do, imperative;
+   - **description** — why, citing the source line and the evidence `file:line`, then what to
+     change;
+   - a **`## Acceptance Criteria`** section, one testable line per criterion. It is the section
+     `/task` reads back as AC ([`task-providers.md`](../templates/integrations/task-providers.md)
+     § AC parsing);
+   - a **work-type label** from `labelRoutes` (Bug, Feature, UI/UX) plus the area labels the board
+     already has. Never invent a label;
+   - a **priority label** from `priorityLabels`, only when the source carries a severity;
+   - **dependencies** as `After: <card title>`;
+   - a closing **source line**: `Source: <path>:<line>`.
+4. **Duplicates.** Search the board's open cards in every list for the same item: the same
+   evidence `file:line`, or a near-identical title. A match is skipped and listed as
+   `already on the board: <card url>`.
+5. **Confirm once.** Show the cards (title, labels, target list) and the skipped duplicates, then
+   ask once. `--yes` skips the question. Cards are visible to the whole team.
+6. **Create** in `task-flow.json`'s `addTo` list. Without it, use the board's first list that is not
+   in `pickFrom`. New cards never land in a pick list on their own: a pick list is approved work,
+   and a drain would start them unreviewed. The provider's **create** verb is in
+   `task-providers.md`.
+7. **Record.** In a source file this run may edit (under `ai/`), append ` → <card url>` to each item
+   that became a card, so running it again skips them. Then append one line to `ai/_history.md`:
+   `<iso> /task add <source> → <n> cards (<list>), <k> skipped as duplicates`.
 
 ## Phase 1 — Understand (resolve the task)
 1. **Resolve provider** from `<ref>`:
@@ -357,12 +401,17 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 
 /task PROJ-128 --to=add-feature --prompt-only
 → print an /add-feature-shaped prompt for PROJ-128; you run it elsewhere
+
+/task add ai/scenarios/return-request.md
+→ 2 BREAKS + 1 untested refund case → 3 cards [Bug ×2, Test ×1] for Backlog · 0 already on the board
+  → confirmed → created → each sheet row gets " → <card url>" · ai/_history.md: 3 cards (Backlog)
 ```
 
 ## Flags
 | Flag | Effect |
 |---|---|
 | `--drain` | With `next`: work the pick lists card by card until empty, a card halts, or `--max`. |
+| `add <source>` | Turn a plan, spec, audit report or scenario sheet into new cards in `addTo` (§ *Add mode*); no code work. `--yes` skips the one confirmation. |
 | `--max=N` | Cap a drain at N cards (default 5). |
 | `--prompt-only` | Fetch + normalize, then **print a paste-ready prompt and stop** — no `/do`, no execution, no write-back. Hand-off mode. |
 | `--to=<command>` | Dispatch directly to `/<command>` instead of routing through `/do` (command must exist in this repo). |

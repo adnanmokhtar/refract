@@ -324,6 +324,8 @@ Use when you don't remember the exact command. If you want a prompt artifact to 
 
 **Flags**: `--prompt-only` (fetch + normalize, then print a paste-ready prompt and stop — no execution, no write-back; hand-off mode), `--to=<command>` (dispatch directly to `/<command>` instead of routing via `/do`), `--no-writeback` (don't touch the source), `--review-only` (stop at Review, never auto-Done).
 
+**Add mode:** `/task add <source>` turns a plan, spec, audit report or `/walk-scenarios` sheet into new cards — one per item, each with a `## Acceptance Criteria` section, the board's own labels and a source line, duplicates skipped — in `task-flow.json`'s `addTo` list, never a pick list. One confirmation; `--yes` skips it.
+
 See [`commands/task.md`](../commands/task.md).
 
 ---

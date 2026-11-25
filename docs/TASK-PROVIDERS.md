@@ -139,6 +139,7 @@ Tell `/task` which lists hold approved work and where cards go. Tracked, so the 
   "start":    "In Progress",
   "review":   "Testing",
   "done":     null,
+  "addTo":    "Backlog",
   "git": {
     "branchFrom":     "origin/main",
     "branch":         "<type>/<slug>",
@@ -149,6 +150,8 @@ Tell `/task` which lists hold approved work and where cards go. Tracked, so the 
 }
 ```
 `next` takes only from `pickFrom`, first non-empty list first, so Backlog cards are never picked.
+`/task add <source>` files new cards into `addTo` (Backlog here), so nothing it writes is picked
+until a person moves it.
 Cards from `fixLists` run as fixes (`/fix-bug`), with the tester's comment as the repro.
 `labelRoutes` maps work-type labels to commands, first match wins; area labels (API, Database, …)
 are passed along as context, and a card with no matching label is routed by `/do` from its text. `done: null` means the

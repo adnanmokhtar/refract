@@ -6,6 +6,16 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/task` 1.6.0 — `add` turns a plan or report into cards (2026-11-26)
+
+Every audit, `/roadmap` plan and `/walk-scenarios` sheet ends in a list of work, and nothing put it
+on the board: `/task` only consumed cards. `/task add <source>` writes one card per item that ships
+on its own. Each card has a `## Acceptance Criteria` section (the shape `/task` reads back), the
+board's own labels and a source line. Duplicates already on the board are skipped. The cards go to
+`task-flow.json`'s new `addTo` list, never a pick list, because a drain would start them unreviewed.
+The run confirms once before creating anything; `--yes` skips the question. Each adapter in
+`task-providers.md` gains a **create** verb.
+
 ### `/walk-scenarios` — a tester's walk through one flow (2026-11-26)
 
 A new command in the testing pack, installed per project. It writes a flow's cases, the normal one

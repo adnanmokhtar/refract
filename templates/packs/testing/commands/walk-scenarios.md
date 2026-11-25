@@ -151,6 +151,7 @@ Before printing, check that:
 - Each `expected: unstated` → a question for the owner, through `/task`'s questions comment or
   `/to-questionnaire` (product pack).
 - A BREAKS whose guard is missing in sibling flows too → name the siblings.
+- To put the BREAKS and the untested risky cases on the board: `/task add ai/scenarios/<flow>.md`.
 
 ## What you see
 ```
