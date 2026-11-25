@@ -87,6 +87,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "execute this plan" / a `.claude/plans/*.md` path | `/execute-plan <file>` (baseline) |
 | "did the build match the plan" / "verify the plan" + a plan path | `/verify-plan <file>` (baseline) |
 | "test" / "run tests" / "coverage" | `/run-tests` |
+| "walk the <flow> like a tester" / "what can go wrong in <flow>" / "what if the customer cancels after …" / "the edge cases of <flow>" + **one named flow, no code change asked** | `/walk-scenarios <flow>` (testing pack) — writes the cases and walks each through the code; a pattern sweep across the repo is `/audit-business`, one call path is `/trace-flow` |
 | "scan" / "inventory" + V1↔V2 | `/migration-scan` |
 | "scan" / "inventory" + alignment / drift | `/align-scan` |
 | the user **names another AI coding CLI as the implementer** ("have Codex take a crack at it", "delegate this to Cursor", "run it through Aider", "get a second opinion from another CLI", "burn the cheap CLI's quota on this", "cross-tool diff") | `/delegate "<task>" --to=<cli>` — **level D: print it for the user, never dispatch** (§ Level D) |

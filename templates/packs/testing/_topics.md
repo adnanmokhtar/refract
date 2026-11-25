@@ -144,4 +144,11 @@ Schema: see `~/.claude/templates/packs/backend/_topics.md`.
   kind: command
   triggers: { test_framework_detected: true }
   fallback: commands/test-fix.md   # the source IS the fallback, as for db-fix; a skeleton would drop the read-only-tests rule and the Step-5 self-check
+
+- name: walk-scenarios
+  kind: command
+  triggers: { test_framework_detected: true }
+  extracts_from: ai/business-flows.md + _extracted-codebase.md § Modules (entry points, status columns, side effects)
+  sections: [understand, organize, retrieve, generate, update, validate, improve]
+  fallback: commands/walk-scenarios.md   # the source IS the fallback: the nine case families and the PASSES / BREAKS / UNCLEAR evidence rule are the contract
 ```

@@ -9,6 +9,20 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.5.0 — 2026-11-26
+
+**`/walk-scenarios` — the tester's walk through one flow.** On a real board, 5 of 6 defects found
+when cards were merged together had no test that could fail, and one had no line of handling at
+all. No command asked what a tester asks first: "and if the customer cancels after it shipped?".
+
+`/walk-scenarios <flow>` writes the flow's cases in nine families: wrong state, order and time, two
+at once, roles, boundaries, outside failure, undo and redo, another feature in between, and a
+related record gone. It walks each case through the code to PASSES (the guard line), BREAKS (the
+line, the outcome, who, how big; refuted before it counts) or UNCLEAR (what decides it, and the
+probe). It marks each case tested or untested and writes the sheet to `ai/scenarios/<flow>.md`, for
+a person to test from. It writes no test and no code. `--diff` walks the flows a diff touches;
+`/merge-to` runs it that way. `--live <local-url>` runs the risky cases on a dev server.
+
 ## 2.4.0 — 2026-10-19
 
 **Phase 6: `test-engineer` became a lens.**

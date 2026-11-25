@@ -4,7 +4,7 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**231 commands** — core 17 · 24 packs (168) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**232 commands** — core 17 · 24 packs (169) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
@@ -33,7 +33,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 - [Pack — performance](#pack--performance) — 4
 - [Pack — product](#pack--product) — 6
 - [Pack — security](#pack--security) — 6
-- [Pack — testing](#pack--testing) — 6
+- [Pack — testing](#pack--testing) — 7
 - [Pack — ui-ux](#pack--ui-ux) — 12
 - [Domain commands — materialized when the domain is detected](#domain-commands--materialized-when-the-domain-is-detected) — 36
 - [Baseline — universal infra (repo + workspace)](#baseline--universal-infra-repo--workspace) — 10
@@ -330,6 +330,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/tdd` | Drive a feature test-first via the tdd-orchestrator — strict RED→GREEN→REFACTOR, one behavior per… | — | `/tdd [feature]` |
 | `/test-audit` | Read-only test-suite audit: every testing detector on a whole repo, by signal on a diff; each… | `--whole-repo` | `/test-audit [base-branch] [--whole-repo]` |
 | `/test-fix` | Close the findings a /test-audit report lists: prove each failing-first with its testing oracle… | `--all` | `/test-fix [audit-report-path \| finding-id ... \| --all]` |
+| `/walk-scenarios` | A tester's walk through ONE flow: write its cases — the normal one and the what-ifs (wrong state, a… | `--diff`, `--live`, `--max` | `/walk-scenarios <flow> [--diff [<base>]] [--live <local-url>] [--max=N]` |
 
 ## Pack — ui-ux
 

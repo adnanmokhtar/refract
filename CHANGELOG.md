@@ -6,6 +6,15 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/walk-scenarios` — a tester's walk through one flow (2026-11-26)
+
+A new command in the testing pack, installed per project. It writes a flow's cases, the normal one
+and the what-ifs, in nine families: wrong state, order and time, two at once, roles, boundaries,
+outside failure, undo and redo, another feature in between, and a related record gone. It walks
+each case through the code and says PASSES, BREAKS or UNCLEAR, with the line. It marks which cases
+no test covers and writes a sheet a person can test from, `ai/scenarios/<flow>.md`. It writes no
+test and no code. `/merge-to` 1.1.0 runs it with `--diff` on the flows the incoming PRs touch.
+
 ### Business reviewers run on every card (2026-11-26)
 
 A role-by-role review of Refract found that the business pack's three judges never ran while a

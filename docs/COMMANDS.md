@@ -1314,6 +1314,7 @@ For high-confidence intent, `/do` dispatches silently. For ambiguous, asks one q
 | `/tdd [<feature>]`     | Red→green→refactor TDD loop — dispatches the `tdd-orchestrator` agent (failing test first, minimal pass, refactor under green). |
 | `/test-audit` | Read-only test-suite audit: every testing detector on a whole repo, by signal on a diff; each candidate refuted before it counts; a fixed class ledger and a GO / GO-UNVERIFIED / NO-GO verdict. /test-fix closes the findings. |
 | `/test-fix` | Close the findings a /test-audit report lists: prove each failing-first with its testing oracle, fix the test not the code, check the fix's own diff for tampering, re-detect, sweep siblings, run the whole suite shuffled. Stops on a spec-test conflict. |
+| `/walk-scenarios <flow>` | A tester's walk through one flow: writes its cases (the normal one and the what-ifs: wrong state, late or repeated event, two at once, a refused role, a service down, an undo, another feature in between), traces each through the code, and says which pass, which break and which no test covers. Writes the sheet `ai/scenarios/<flow>.md`, no test and no code. `--diff` walks the flows a diff touches; `--live <local-url>` runs the risky cases on a dev server. |
 
 ### DevOps track
 

@@ -1,9 +1,9 @@
 ---
 description: Merge open PRs into the branch a person names, after checking what they break together — migration order, conflicts, the tests the incoming diff reaches, an overlap review. Typed by a person only.
-compatibility: Requires git and an authenticated `gh` for the repo, and PRs open against the target. Reads .claude/task-flow.json (git.branchFrom, git.prTo, git.conflictBranch) and .claude/testing.json (stage1, stage2) when present; runs the testing pack's coverage-gap skill when it is installed.
+compatibility: Requires git and an authenticated `gh` for the repo, and PRs open against the target. Reads .claude/task-flow.json (git.branchFrom, git.prTo, git.conflictBranch) and .claude/testing.json (stage1, stage2) when present; runs the testing pack's coverage-gap skill and /walk-scenarios when they are installed.
 kind: command
 pack: orchestration
-version: 1.0.0
+version: 1.1.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 disable-model-invocation: true
 ---
@@ -123,6 +123,12 @@ What it cannot see: a scenario nobody coded. Missing handling has no line to be 
 review below is for that. On the board this command came from, 5 of 6 defects found in the
 combination had no test that could fail, and one had no line of handling at all.
 
+### Scenario walk
+When the project has the testing pack's `/walk-scenarios`, run it with `--diff origin/<target>` on
+the combined tree. It writes the cases of each flow the incoming diff touches and walks each through
+the code. Its BREAKS join the review's findings, and its untested cases join the changed and untested
+points. Not installed → the report says `scenario walk: not installed (testing pack)`.
+
 ### Overlap review (read-only)
 For each file and function an incoming PR touches, find the earlier PRs on the target that touched
 it: `git log --first-parent origin/<target> -- <file>` from the PR's merge base, each merge commit
@@ -199,6 +205,7 @@ Order:     #41 (migration 20261120…), #44 (migration 20261122…), #38, #47
 Conflicts: #47 → #52 (merge/fix-sender-into-staging) — locales/en.json resolved per key; openapi.json regenerated
 Combined:  stage 2 over the incoming diff — PASS (212 tests)
 Untested:  3 changed and untested points — <file:line> · <file:line> · <file:line>
+Scenarios: 2 flows · 24 cases · 1 breaks — ai/scenarios/<flow>.md
 Review:    1 finding — #44 × #38: <inputs> → <wrong outcome>; hits <who>; fix PR #53 (open)
            2 points to check — <one line each>
 Not merged: #45 (draft)

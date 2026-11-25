@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "testing",
-  "version": "2.4.0",
-  "released": "2026-10-19",
+  "version": "2.5.0",
+  "released": "2026-11-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Phase 6: the test-engineer agent became lenses/test-craft.md, read by delivery's @test-engineer; test-reviewer carries a generated Boundary block.",
+  "summary": "/walk-scenarios: a tester's walk through one flow — nine case families, each case walked through the code to PASSES / BREAKS / UNCLEAR with its line, tested or not; writes ai/scenarios/<flow>.md, no test and no code.",
   "changelog": "CHANGELOG.md"
 }
