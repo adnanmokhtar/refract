@@ -9,6 +9,13 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.0 — 2026-11-26
+
+- **`/fix-bug` reviews the business axis.** The "based on area touched" table gains three rows: a
+  status transition → `workflow-integrity`, money, stock or a balance → `domain-model-auditor`, a
+  forward action or its inverse (cancel, refund, resend) → `business-auditor` (all business pack).
+  A bug in a status or a money path was reviewed for code and tests only.
+
 ## 2.1.1 — 2026-11-02
 
 - **`wire-format-scan` § 0 runs on ripgrep 14.** The settings probe's `-g` glob nested one brace group inside another (`application*.{yml,yaml,properties}` inside the outer list). ripgrep 15 accepts that; ripgrep 14.1.0 — what `apt install ripgrep` gives on Ubuntu 24.04 — refuses with `error parsing glob`, exits 2, and the step reads as "no serializer settings found". The inner groups are now spelled out flat. Found when CI first installed rg and `lint-rg-parses.sh` stopped skipping.

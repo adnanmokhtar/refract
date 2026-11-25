@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "backend",
-  "version": "2.1.1",
-  "released": "2026-11-02",
+  "version": "2.2.0",
+  "released": "2026-11-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "wire-format-scan § 0: the config-file glob no longer nests braces — ripgrep 14 (Ubuntu 24.04's apt package) rejects `{application*.{yml,…}}`, so the probe errored and read as zero hits.",
+  "summary": "/fix-bug's area table dispatches the business judges: workflow-integrity for a status transition, domain-model-auditor for money, stock or a balance, business-auditor for a forward action or its inverse.",
   "changelog": "CHANGELOG.md"
 }

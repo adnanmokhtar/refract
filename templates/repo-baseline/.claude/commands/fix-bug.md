@@ -248,6 +248,7 @@ Then the review lenses (their candidates go through refute-before-report before 
 - `@code-reviewer` — fix quality + convention adherence.
 - `@test-reviewer` — does the regression test genuinely catch the bug class, not just the one input?
 - `@security-auditor` if the bug class touches auth / tenant / data integrity.
+- Business pack, when installed: `@workflow-integrity` if the bug is in a status transition, `@domain-model-auditor` if it moves money, stock or a balance, `@business-auditor` if it is in a forward action or its inverse (cancel, refund, resend). Each reads `ai/business-flows.md`; a bug there is usually one case of a class the same flow has elsewhere.
 
 ## Phase 5 — Update
 

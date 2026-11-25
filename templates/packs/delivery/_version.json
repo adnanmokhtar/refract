@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "delivery",
-  "version": "1.3.0",
-  "released": "2026-10-19",
+  "version": "1.4.0",
+  "released": "2026-11-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "Phase 6 steps 0–2: roster judges performance-reviewer and operability-reviewer, single test-engineer, /add-feature P6 infra tasks to platform-engineer (devops pack), generated Boundary blocks.",
+  "summary": "/add-feature's review fan-out runs the business judges (workflow-integrity, domain-model-auditor, business-auditor) when the diff writes a status, moves money or stock, or touches a forward action with an inverse.",
   "changelog": "CHANGELOG.md"
 }

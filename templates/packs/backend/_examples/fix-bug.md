@@ -317,6 +317,9 @@ metric and tracing primitives (`references/<framework>.md`) and record the instr
 | Auth / crypto | `security-auditor`, `auth-reviewer` |
 | Performance-sensitive | `performance-optimizer` |
 | Cross-service | `resilience-reviewer` |
+| A status transition (a state machine, an order or parcel status) | `workflow-integrity` *(business pack)* |
+| Money, stock or a balance | `domain-model-auditor` *(business pack)* |
+| A forward action or its inverse (cancel, refund, resend) | `business-auditor` *(business pack)* |
 | Telemetry changes | `observability-reviewer` |
 
 **Based on project signals**:

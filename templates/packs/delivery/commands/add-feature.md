@@ -59,7 +59,7 @@ next:       the human (H4 merge) · /ship
 | P4–P5 | `@architect`, `@architecture-reviewer` (delivery) | `UNREVIEWED(architecture)` → INCOMPLETE |
 | P5 | `@test-engineer` (delivery), `@plan-critic` (delivery) | `UNREVIEWED(contract)` → INCOMPLETE |
 | P6 | `@implementer` (delivery) · `@platform-engineer` *(devops)* for infra tasks · doc-writer *(documentation)* | T2+: never yourself — BLOCKED; infra task without devops → `HANDOFF UNROUTED (devops not installed)`, `@implementer` writes it |
-| P7–P11 | `@test-reviewer` *(testing)*, `@code-reviewer` *(code-quality)*, `@security-auditor` + lenses *(security)*, `@performance-optimizer` *(performance)*, `@schema-reviewer` *(database)*, `@observability-reviewer` *(observability)*, `@ux-reviewer` *(ui-ux)*, `@architecture-reviewer` (conformance) + each lane's § Review tables | `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)`; the run ends INCOMPLETE naming `/setup-project --include=<pack>` |
+| P7–P11 | `@test-reviewer` *(testing)*, `@code-reviewer` *(code-quality)*, `@security-auditor` + lenses *(security)*, `@workflow-integrity` · `@domain-model-auditor` · `@business-auditor` *(business)*, `@performance-optimizer` *(performance)*, `@schema-reviewer` *(database)*, `@observability-reviewer` *(observability)*, `@ux-reviewer` *(ui-ux)*, `@architecture-reviewer` (conformance) + each lane's § Review tables | `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)`; the run ends INCOMPLETE naming `/setup-project --include=<pack>` |
 | P12 | `@verifier` (repo-baseline) | `UNREVIEWED(acceptance)` → INCOMPLETE |
 
 **The builder never grades its own work.** A missing reviewer is an `UNREVIEWED(<axis>)` line,
@@ -244,7 +244,7 @@ otherwise `mutation: not measured`.
 ## P8–P11 — Reviews: ONE parallel fan-out of read-only lenses
 
 Send every lens in a single message (reading tasks parallelise safely; the verdict keeps the order
-security → performance → code → observability). Each gets a brief with `run_id`, `lens`, the diff
+security → business → performance → code → observability). Each gets a brief with `run_id`, `lens`, the diff
 (`<base>..HEAD` or the working tree) and the touched paths, and returns `refract/findings/v1`;
 `persist-review.sh` writes `reviews/<agent>-<lens>.json`.
 
@@ -253,6 +253,7 @@ security → performance → code → observability). Each gets a brief with `ru
 | `@code-reviewer` — correctness, conventions, contracts | ✓ | ✓ | ✓ |
 | `@architecture-reviewer` mode `conformance` | – | ✓ | ✓ |
 | security: `@security-auditor` (+ `auth-reviewer`, `tenant-isolation-reviewer`, `data-privacy-reviewer`, `api-security-reviewer` when their trigger fired) | floor only | ✓ | ✓ + `/security-audit` scoped to the diff |
+| business, each when its signal fired: `@workflow-integrity` — the diff writes a status (an edge nobody guards, a state nobody leaves, two aggregates that can disagree); `@domain-model-auditor` — it moves money, stock or a balance (the invariant and where it is enforced); `@business-auditor` — it adds or changes a forward action that has an inverse (cancel, refund, resend). Each reads `ai/business-flows.md` and its own § Dispatch for the diff signal | – | ✓ | ✓ |
 | `@performance-optimizer` — N+1, unbounded queries, budgets in `ai/runtime/perf-budgets.md` | – | ✓ when a hot path or bundle is touched | ✓ |
 | `@schema-reviewer` — migrations, constraints | – | ✓ on a schema change | ✓ |
 | `@observability-reviewer` — instrumentation parity, `release.md` | – | ✓ | ✓ |

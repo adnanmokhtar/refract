@@ -6,6 +6,20 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### Business reviewers run on every card (2026-11-26)
+
+A role-by-role review of Refract found that the business pack's three judges never ran while a
+card was being built: `/add-feature` dispatched code, security, performance, schema,
+observability and UX reviewers, and `/fix-bug` dispatched code, tests and security. A status edge
+nobody guards, money or stock that does not balance, and a forward action with no inverse were
+only caught by a manual `/audit-business`.
+
+- **`/add-feature` (delivery 1.4.0)**, at T2 and T3, each when its signal fired:
+  `@workflow-integrity` when the diff writes a status, `@domain-model-auditor` when it moves money,
+  stock or a balance, and `@business-auditor` when it touches a forward action that has an inverse.
+- **`/fix-bug`**, both the baseline and backend 2.2.0, dispatches the same three by the area the
+  bug is in.
+
 ### `/merge-to` — merge on the person's word, the combination checked first (2026-11-26)
 
 On a real board, 7 cards were built in parallel, each on its own branch with its own green tests.

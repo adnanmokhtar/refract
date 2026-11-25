@@ -6,6 +6,18 @@ Hard rule **A27** requires every pack source to ship `_version.json` + `CHANGELO
 `_version.json` holds the machine-readable stamp (`version`, `released`, `min_setup_command`,
 `deprecated`) plus a one-line `summary` of the current release; this file holds the prose record.
 
+## 1.4.0 — 2026-11-26
+
+**The review fan-out reads the business axis.** On a real board, cards built through `/add-feature`
+were reviewed for code, security, performance, schema, observability and UX, and never for the
+business rules: a status edge nobody guards, a state nobody leaves, money or stock that does not
+balance, a forward action without its inverse. The business pack's three judges existed but only
+ran under a manual `/audit-business`. The P8–P11 lens table now dispatches, at T2 and T3, each when
+its signal fired: `@workflow-integrity` (the diff writes a status), `@domain-model-auditor` (it
+moves money, stock or a balance) and `@business-auditor` (a forward action that has an inverse —
+cancel, refund, resend). The verdict order is security → business → performance → code →
+observability.
+
 ## 1.3.0 — 2026-10-19
 
 **Phase 6 steps 0–2: the roster grows two judges and one infra writer route.**
