@@ -812,6 +812,23 @@ Setup once per repo: creds in `.env` → `scripts/detect-mcp.sh <repo> --apply` 
 `set -a; source .env; set +a` (the editor expands `${VAR}` from the shell, not `.env`). Drain a
 queue by looping `/task next`.
 
+### `/merge-to <target> [<PRs>]` — merge when you decide, check the combination first
+
+Level D: only a person types it. It merges the PRs you name, in numbers or in words («اللي
+فتحتها» / "the PRs you opened"), into an integration or release branch, after checking what they
+break together and with what the target already holds:
+```
+/merge-to staging the PRs you opened
+  → resolve the PRs → show the list, confirm once (numbers skip the question)
+  → order by migration name; rename an incoming one that sorts before the target's
+  → combined tree: origin/staging + every incoming PR, in a worktree, never pushed
+  → conflicts → merge/<branch>-into-staging, cherry-picked, resolved file by file
+  → stage 2 over the incoming diff · coverage-gap --diff · overlap review (read-only)
+  → merge in order → report: merged, conflicts, combined test, findings, "ready for your word"
+```
+Never deploys and never runs the full suite. `--dry-run` stops before anything is pushed or
+merged. Full contract: [`commands/merge-to.md`](../commands/merge-to.md).
+
 ### Intent gates (on specialized commands)
 
 Major commands now have a Phase 1 "Intent gate" that detects when the user's description doesn't match the command's scope, halts, and suggests the right alternative:

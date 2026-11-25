@@ -6,6 +6,50 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/merge-to` — merge on the person's word, the combination checked first (2026-11-26)
+
+On a real board, 7 cards were built in parallel, each on its own branch with its own green tests.
+Merged together on the integration branch, they held 6 defects that existed only in the
+combination: a conflict resolved with one text rule across files, a card built without a rule
+that only the integration branch had, two cards each right alone and wrong together, and status
+events from different days combining into wrong outcomes. The full test caught 1 of them. 5 had
+no test that could fail.
+
+`/merge-to <target> [<PRs>]` is a new global command, level D (typed by a person only). It merges
+the PRs you name, in numbers or in words («اللي فتحتها» / "the PRs you opened"), and before any
+merge it:
+
+- orders them by migration name, and renames an incoming migration that would sort before one the
+  target holds (never one the target holds);
+- resolves conflicts on a `merge/<branch>-into-<target>` branch: the card's own commits are
+  cherry-picked, files are resolved one by one, generated files are regenerated, and counts are
+  recounted;
+- runs the tests the incoming diff reaches on the combined tree, and the testing pack's
+  `coverage-gap` over the incoming diff;
+- reviews every earlier PR on the target that touched the same code, read-only, and reports a
+  finding only with a concrete scenario.
+
+It never deploys and never runs the full suite. The target branch is the memory, so merges days
+apart see each other. `/task`'s `conflictBranch` now cherry-picks the card's commits too.
+
+The global description budget goes from 10700 to 10900 for its 196 characters. Claude Code lists a
+level-D command at 0 characters, but the generated adapters for other tools list it in full.
+
+### `/task` 1.5.0 — target-branch changes, parallel cards, conflict checks (2026-11-25)
+
+Three gaps found while draining a real board, where cards branch from `origin/main` and PR into
+both `staging` and `main`:
+
+- **Phase 3 reads what a PR target already changed.** It runs `git log <branchFrom>..origin/<target>`
+  over the files the plan touches, reads the target's version of each changed file, and names in
+  the plan every target-only rule the card must respect. The branch is still cut from `branchFrom`.
+- **Cards in parallel** (only when the person asks) each get a brief that names the other cards in
+  flight and the files and flows they touch. Two cards on one flow know about each other, and
+  each PR body names the seam.
+- **A conflict is resolved file by file**, never with one generic text rule. Afterwards, the
+  specs of every resolved file run, along with the rules a merge breaks without a conflict
+  marker: locale key parity and migration order. Static checks alone do not count as proof.
+
 ### `/task` 1.4.0 — questions get their own comment on the card (2026-11-25)
 
 On a real board, a question asked inside the finish comment sat under the test steps, and the

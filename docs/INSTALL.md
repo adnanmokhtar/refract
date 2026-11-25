@@ -30,7 +30,7 @@ Both names are `refract` — the first is the marketplace, the second the plugin
 why the install argument reads `refract@refract` (`plugin@marketplace`).
 
 **What it does.** Registers the marketplace, copies this repository into Claude Code's plugin cache
-and exposes `commands/` as namespaced skills — one per file, **16 today**. The cache is your working
+and exposes `commands/` as namespaced skills — one per file, **17 today**. The cache is your working
 tree minus `.git`, so its size follows whatever untracked scratch the clone happens to hold — `du`
 reported 20 MB in the run below, about 3 MB of that a local build cache.
 
@@ -38,17 +38,17 @@ Two different things were checked, and they are not the same strength of evidenc
 
 - **The cache contents are verified.** Running the add/install pair against an isolated
   `CLAUDE_CONFIG_DIR` on Claude Code 2.1.224 produces a cache whose top-level `commands/` holds all
-  fifteen files as of that run, `delegate.md` included, and no `.git`. `upgrade-dep.md` shipped
-  after it and has not been through the same check; the cache is a whole-directory copy, so it is
-  expected to carry it.
+  fifteen files as of that run, `delegate.md` included, and no `.git`. `upgrade-dep.md` and
+  `merge-to.md` shipped after it and have not been through the same check; the cache is a
+  whole-directory copy, so it is expected to carry them.
 - **The picker was checked when there were fourteen.** All fourteen loaded as `/refract:do`,
   `/refract:setup-project`, `/refract:audit`, `/refract:optimize`, `/refract:align`,
   `/refract:refactor`, `/refract:polish`, `/refract:unify-surfaces`, `/refract:roadmap`,
   `/refract:scaffold-project`, `/refract:refine-prompt`, `/refract:task`,
-  `/refract:setup-project-adapters`, `/refract:setup-project-health`. `/delegate` and `/upgrade-dep` shipped after
-  that session and **have not been observed in the picker** — they are in the cache, which is a
-  strong expectation that `/refract:delegate` and `/refract:upgrade-dep` resolve, not an
-  observation that they do. Confirm them interactively before relying on them.
+  `/refract:setup-project-adapters`, `/refract:setup-project-health`. `/delegate`, `/upgrade-dep` and `/merge-to`
+  shipped after that session and **have not been observed in the picker** — they are in the cache,
+  which is a strong expectation that `/refract:delegate`, `/refract:upgrade-dep` and
+  `/refract:merge-to` resolve, not an observation that they do. Confirm them interactively before relying on them.
 
 **What it does not do.**
 
@@ -57,7 +57,7 @@ Two different things were checked, and they are not the same strength of evidenc
   the project.
 - **The names stay namespaced.** You type `/refract:audit`, not `/audit`. That is Claude Code's
   plugin contract, not a choice made here.
-- **It does not install the framework tree where the commands look for it.** All sixteen commands
+- **It does not install the framework tree where the commands look for it.** All seventeen commands
   cite `templates/…`, `~/.claude/templates/…` or `~/.claude/scripts/…` by path. `/setup-project`
   names a `templates/` path 48 times, `/refactor` 25, `/setup-project-adapters` 16, `/refine-prompt`
   2.
@@ -101,7 +101,7 @@ cd ~/Workspace/Projects/refract
 
 Needs `bash` and `git`; the validators and the cheatsheet generator also use `python3`.
 
-**What it does.** Detects every installed AI coding tool and writes the 16 global commands into each
+**What it does.** Detects every installed AI coding tool and writes the 17 global commands into each
 one's native global surface — symlinks for Claude Code (`~/.claude/commands`, `~/.claude/templates`,
 `~/.claude/scripts`), generated copies for Gemini CLI (`.toml`), OpenCode, Kimi (`SKILL.md`), Qwen
 and Codex. Because Claude Code is symlinked, editing a file in the clone takes effect immediately

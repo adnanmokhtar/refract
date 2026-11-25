@@ -3,7 +3,7 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.4.0
+version: 1.5.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -90,11 +90,20 @@ reads the same flow:
     4–6 runs there. Once the branch is pushed, the worktree is removed; the branch keeps every
     commit. Absent → `git switch -c` in place.
   - **`prTo`** — after Phase 6, push the branch and open one PR into each target, in order.
-    `/task` opens PRs and never merges one: merging belongs to whoever releases.
+    `/task` opens PRs and never merges one: merging belongs to whoever releases, who types
+    `/merge-to` to check the PRs together before they land.
   - **`conflictBranch`** — a branch that does not merge cleanly into a target is never fixed on
     the branch itself, because the target's history would then ride into its other PRs. Cut this
-    branch from the target, merge the card branch into it, resolve there, push it, and open the
-    target's PR from it instead.
+    branch from the target, cherry-pick the card's own commits onto it (`git cherry-pick
+    $(git merge-base <branch> <branchFrom>)..<branch>`, so its PR shows only the card's change and
+    the resolutions, not every commit of `branchFrom` the target lacks), resolve
+    there, push it, and open the target's PR from it instead.
+    Resolve file by file, reading both sides of each hunk. Never resolve with one generic text rule
+    across files (take ours, take theirs, one search-and-replace). After resolving, run the specs
+    of every resolved file and the rules a merge breaks without a conflict marker: every locale
+    file still has the same keys, and the migrations still run in order. Use the project's own
+    checks for these where it has them, and check by hand where it has none. Static checks alone
+    (lint, types) do not prove a resolution.
 
   A push or PR that is refused (hook, auth, network) is handled like a failed write-back: print
   the exact `git push` / `gh pr create` lines, carry on to the finish comment with the branch name
@@ -141,6 +150,12 @@ audited — before the next is fetched.** Stops when:
 - **any card halts** (§ *If the run halts after the card was marked*) → stop the whole drain; a
   halted card moved back to its list would be picked again and loop forever;
 - `--max=N` cards were done (default **5**) — a long unattended run compounds one bad routing.
+
+**Cards in parallel** happen only when the person asks for them; a drain on its own is
+sequential. Each card still gets its own branch and PR. Every agent's brief names the other
+cards in flight and the files and flows they touch. Two cards on the same flow (a call to an
+outside service, stock moves, permissions) are told about each other, and each PR body names the
+seam between them.
 
 ## Phase 1 — Understand (resolve the task)
 1. **Resolve provider** from `<ref>`:
@@ -190,6 +205,12 @@ All provider reads AND write-backs use the same channel resolved in Phase 1 (MCP
 - **Google Drive links** (attachment URLs or links in the description: `drive.google.com/file/d/<id>`, `open?id=<id>`) → fetch `https://drive.google.com/uc?export=download&id=<id>` into the same folder. A response that is an HTML sign-in page, not the file, means the link is not shared as "Anyone with the link": record it as unreadable, carry on, and say so in the write-back comment so the card owner can re-share it. Never ask for Google credentials.
 - **Description and comment links** to other cards/issues → fetch titles for context (do NOT recurse into doing them). Images and Drive links posted in comments are attachments, same rules as above.
 - **Does the card overturn an earlier decision?** State the card's rule in one sentence ("a marketer's order counts once the carrier confirms it"). Search the tests and `ai/decisions/` for its key nouns, and read what they assume. A test or ADR that asserts the opposite is a conflict: ask ONE question per conflict before the start-move, naming the test or ADR and the line — "the card says X; `<spec file>:<line>` pins Y; which holds?" A conflict found at the release gate costs a re-gate; found here it costs one question. None found → say `Prior decisions: none contradicted` in the echo and go on.
+- **Has a PR target already changed these files?** With a `git` block whose `prTo` names a branch
+  other than `branchFrom` (cut from `origin/main`, PR into `staging` too), list the files the plan
+  will touch and run `git log <branchFrom>..origin/<target> -- <files>`. For each file the target
+  changed, read the target's version (`git show origin/<target>:<file>`). Name in the plan every
+  rule that exists only on the target and that the card must respect. The branch is still cut
+  from `branchFrom`. None → say `Target-only changes: none` in the echo.
 
 ## Phase 4 — Generate (execute the work)
 - Synthesize a single, faithful description from `title` + `description` + the requirement-bearing `comments` + `acceptanceCriteria` + `subtasks` + attachment findings — verbatim intent, not paraphrased away; where a comment overrode the description, the comment's version is the one dispatched. Name the card's labels in it (`Labels: Bug, Database`) — the area labels are the only place that context survives.
@@ -276,7 +297,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - New provider needed? Point to the extension steps in the task-providers reference.
 
 ## Hard rules
-- **One task at a time.** `<ref>` resolves to exactly one card/issue; `--drain` runs cards sequentially, each closed before the next is fetched — never several cards in one change.
+- **One task at a time.** `<ref>` resolves to exactly one card/issue; `--drain` runs cards sequentially, each closed before the next is fetched, unless the person asked for them in parallel (§ *Drain mode*) — never several cards in one change.
 - **`next` takes only from the pick lists.** With a `task-flow.json`, a card outside `pickFrom` is never picked, and `done: null` is never overridden by a passing gate. `priorityLabels` reorder the pick lists; they never add a list to them.
 - **Never merges.** With a `git` block, `/task` cuts the branch, pushes it and opens its PRs; merging any of them is a human's release call.
 - **The full run only when named.** No level, no red stage and no missing command ever turns into `full`; and local test results never go on the card or the PR.
@@ -354,4 +375,5 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - **Routes to**: `/do` (which dispatches to `/add-feature`, `/fix-bug`, `/enhance-ui`, `/optimize`, …).
 - **Backed by**: provider MCPs wired in `scripts/detect-mcp.sh` (trello / jira / linear / github), gated on each repo's own `.env` creds.
 - **Reference**: [`templates/integrations/task-providers.md`](../templates/integrations/task-providers.md) — canonical TaskSpec + adapters + extension steps.
+- **Next**: `/merge-to <target>` — typed by whoever releases; merges the PRs this command opened after checking them together.
 - **Sibling**: `/do` is intent→command routing; `/task` is source→spec→execute→write-back. `/task` uses `/do` under the hood.

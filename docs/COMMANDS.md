@@ -26,6 +26,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 - Meta
   - [`/do`](#do)
   - [`/task`](#task)
+  - [`/merge-to`](#merge-to)
   - [`/delegate`](#delegate)
   - [`/learn-from-task`](#learn-from-task)
   - [`/eval`](#eval)
@@ -57,6 +58,7 @@ User-facing reference for every top-level command in `commands/`. Source of trut
 | `/unify-surfaces [<scope>]`   | One-command surface-type unification (frontend-*). Tables / forms / headers / tabs / filters / buttons / validation. For each: inventory every consumer, decide canonical wrapper, extract or extend, migrate every consumer in one cascade-rewrite commit. Validation extracts a 3-part pipeline (composable + `<ErrorList>` + API-error mapper). Sibling to `/polish` (axis-typed); this is surface-type-typed. | No (writes) |
 | `/do <description>`           | Universal meta-router → dispatches to the right specialized command.   | Routes only |
 | `/task <ref>`                 | Provider-agnostic task executor — Trello / Jira / Linear / GitHub Issue (URL, key, or `next`) → fetch title + description + attachments + checklist → execute via `/do` → write status back (in-progress → comment → done). Per-repo provider via `.env` + MCP from `detect-mcp.sh`. | No (writes + updates the card/issue) |
+| `/merge-to <target> [<PRs>]`  | Merge the PRs you name (numbers or words) into an integration or release branch, after checking the combination — migration order, conflicts on a merge branch, the tests the incoming diff reaches, changed code no test runs, a read-only overlap review. Level D: you type it. | No (merges) |
 | `/delegate <task>`            | Dispatch ONE bounded task to a **different** AI coding CLI (`claude` / `codex` / `cursor-agent` / `opencode` / `aider` / `cline` / `gemini` / `kimi` / `qwen` / `copilot`), then review its diff and commit it yourself. The relay never commits. Read-only is a tri-state tripwire, never a guarantee. Backed by `scripts/delegate-relay.sh`. | No (the other CLI writes; nothing is committed) |
 | `/learn-from-task`            | Promote learnings into `ai/` (Phase 6 manual entry).                   | Managed blocks |
 | `/eval`                       | Grade the knowledge base — replay saved eval cases (scenario + answer key + `guards:`) against the current `ai/` + `.claude/rules/`, score each, append a run to `ai/evals/_scorecard.md`, feed FAIL/REGRESS to `ai/dynamic/learnings.md`. The measurement half of the loop `/learn-from-task` opens. `--case` / `--coverage` / `--seed`. | No (writes scorecard + learnings) |
@@ -323,6 +325,34 @@ Use when you don't remember the exact command. If you want a prompt artifact to 
 **Flags**: `--prompt-only` (fetch + normalize, then print a paste-ready prompt and stop — no execution, no write-back; hand-off mode), `--to=<command>` (dispatch directly to `/<command>` instead of routing via `/do`), `--no-writeback` (don't touch the source), `--review-only` (stop at Review, never auto-Done).
 
 See [`commands/task.md`](../commands/task.md).
+
+---
+
+## `/merge-to`
+
+`/merge-to <target> [<PRs>]` merges open PRs into an integration branch (`staging`) or the release
+branch (`main`) when **you** decide to, and checks what they break **together** first. Each PR
+passed its own tests; a defect that exists only in the combination has no test that could fail.
+
+```
+/merge-to staging #41 44              # by number, no question
+/merge-to staging the PRs you opened  # in words: the list is shown and confirmed once
+/merge-to main                        # staging → main as one merge
+/merge-to staging all --dry-run       # everything it would do, nothing pushed or merged
+```
+
+**What it does:** orders the PRs by migration name (renaming an incoming migration that would
+sort before one the target holds); resolves conflicts on a `merge/<branch>-into-<target>` branch,
+file by file, regenerating generated files; runs the tests the incoming diff reaches on the
+combined tree; runs the testing pack's `coverage-gap` over the incoming diff; reviews every
+earlier PR on the target that touched the same code, reporting only findings with a concrete
+scenario; merges in order; reports. The target branch is the memory, so merges days apart see
+each other.
+
+**Level D** (`disable-model-invocation: true`): `/do` and `/task` print it, never run it. It never
+deploys and never runs the full suite — those stay your word.
+
+See [`commands/merge-to.md`](../commands/merge-to.md).
 
 ---
 

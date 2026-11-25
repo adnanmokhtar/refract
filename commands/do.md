@@ -76,6 +76,7 @@ The agent uses semantic understanding (not keyword matching) but here's the rout
 | "playground" / "test in isolation" + component | invoke `component-playground` skill |
 | "deploy" / "ship to staging" + a **staging / preview** environment noun | `/deploy-stage` — **level D: print it for the user, never dispatch** (§ Level D) |
 | "release to production" / "roll out to prod" / "canary it" / "ramp the flag" + a **production** noun | `/release` (devops pack) — **level D: print it for the user, never dispatch** (§ Level D) |
+| "merge the PRs into staging" / "staging is ready, merge it to main" / "merge #41 and #44" + an **integration or release branch** | `/merge-to <target> [<PRs>]` — **level D: print it for the user, never dispatch** (§ Level D). Opening a PR is `/ship`; one PR's own code is `/review-changes` |
 | "rollback" / "revert deployment" | `/rollback-deploy` — **level D: print it for the user, never dispatch** (§ Level D) |
 | "provision a new environment / tier" / "stand up staging / prod / DR infra" | `/provision-tier <tier>` (infrastructure pack) — **level D: print it for the user, never dispatch** (§ Level D) |
 | "scan the live site / running API / deployed URL" (black-box, hosts you own) | `/security-live-scan` (security pack) — **level D: print it for the user, never dispatch** (§ Level D) |
@@ -143,7 +144,7 @@ The file absent means no name has a variant — dispatch the bare name.
 
 These commands carry `disable-model-invocation: true`. `/do` routes to them exactly as to any other row — then **prints the command and stops**. It never dispatches one, never runs its scripts on the user's behalf, and never "starts the safe part" of it (H3 — deploy, rollback, provisioning, migration state changes, cross-CLI dispatch and the setup layer are typed by a human):
 
-`/deploy-stage` · `/release` · `/rollback-deploy` · `/provision-tier` · `/security-live-scan` · `/migrate` · `/migration-fast` · `/migration-phase` · `/migration-sync` · `/migration-rollback` · `/migration-park` · `/migration-unpark` · `/migration-deprecate` · `/migration-promote-tier` · `/delegate` · `/setup-project` · `/setup-project-adapters`
+`/deploy-stage` · `/release` · `/rollback-deploy` · `/provision-tier` · `/security-live-scan` · `/migrate` · `/migration-fast` · `/migration-phase` · `/migration-sync` · `/migration-rollback` · `/migration-park` · `/migration-unpark` · `/migration-deprecate` · `/migration-promote-tier` · `/delegate` · `/merge-to` · `/setup-project` · `/setup-project-adapters`
 
 For *"deploy this branch to staging"* the whole output is: `Routed to: /deploy-stage (level D — irreversible; you type it, /do does not run it). Type: /deploy-stage` — then stop.
 
@@ -405,7 +406,7 @@ If one half matches no command, run the half that does and report the other as u
 - `/analyze-task`, `/expand-task`, `/refine-prompt` — spec layer (business pack: idea → requirements / user stories → implementer-ready brief)
 - `/security-audit`, `/perf-audit`, `/i18n-audit`, `/a11y-audit`, `/design-review`
 - `/run-tests`; `/review-changes` (a front door); `/ship`, `/catchup`, `/execute-plan`, `/verify-plan` (baseline)
-- Level D — routed to, printed, never dispatched: `/deploy-stage`, `/rollback-deploy`, `/provision-tier`, `/security-live-scan`, the mutating `/migration-*` commands, `/migrate`, `/delegate`, `/setup-project`, `/setup-project-adapters`
+- Level D — routed to, printed, never dispatched: `/deploy-stage`, `/rollback-deploy`, `/provision-tier`, `/security-live-scan`, the mutating `/migration-*` commands, `/migrate`, `/delegate`, `/merge-to`, `/setup-project`, `/setup-project-adapters`
 - `/migration-scan`, `/migration-sync`, `/align-scan`
 - `/task` — provider-agnostic task executor (Trello / Jira / Linear / GitHub Issue → execute → write status back)
 - `/delegate` — hand ONE bounded task to a DIFFERENT AI coding CLI, then review its diff (routes here only when the human names the other tool)

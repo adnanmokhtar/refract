@@ -10,7 +10,7 @@
 # a project installs some packs, not all 23. So the budget is set where the cost is actually
 # incurred, at three separate scopes:
 #
-#   GLOBAL   the 16 orchestration commands, installed machine-wide by sync-to-global.sh.
+#   GLOBAL   the 17 orchestration commands, installed machine-wide by sync-to-global.sh.
 #            This is the only text every session pays, in every project, forever.
 #   PACK     one pack's commands + agents + skills. What a project pays for saying yes to it.
 #   SINGLE   any one artifact, so no individual description can dominate its scope.
@@ -82,7 +82,9 @@ if [ -n "$TARGET" ] && [ ! -d "$TARGET" ]; then echo "ERR: target not found: $TA
 # not why — the "why" (halt 10, the 21-verb set, the 3-part pipeline) was already duplicated in
 # each command's own body, which is read only when the command actually fires. Global fell
 # 11153 -> 10387, ~190 tokens off every session.
-: "${DESC_BUDGET_GLOBAL:=10700}"   # measured 10387
+# Raised 10700 -> 10900 for /merge-to (196 chars, total 10868). It is level D: Claude Code lists it
+# at 0 chars, but the generated Gemini / OpenCode / Kimi / Qwen / Codex surfaces list it in full.
+: "${DESC_BUDGET_GLOBAL:=10900}"   # measured 10868
 : "${DESC_BUDGET_PACK:=11700}"     # measured 11457 (frontend, the heaviest)
 : "${DESC_BUDGET_SINGLE:=1700}"    # measured 1659  (device-performance-auditor)
 

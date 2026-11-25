@@ -11,7 +11,7 @@ native format of every AI coding tool on your machine.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Tools](https://img.shields.io/badge/tools-12-blue.svg)](#supported-tools)
 [![Packs](https://img.shields.io/badge/packs-24-blueviolet.svg)](#whats-inside)
-[![Commands](https://img.shields.io/badge/commands-184-orange.svg)](#the-commands)
+[![Commands](https://img.shields.io/badge/commands-185-orange.svg)](#the-commands)
 [![quality-gates](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml/badge.svg)](https://github.com/adnanmokhtar/refract/actions/workflows/quality-gates.yml)
 
 <img src="assets/demo.gif" width="800" alt="Terminal recording: sync-to-global.sh installs one repo into six AI coding tools, then the same /audit command is shown in the native format of Claude Code, Gemini CLI, Kimi and OpenCode">
@@ -127,7 +127,7 @@ Refract owns.
 
 Be aware of what that route is and isn't. Commands arrive namespaced (`/refract:audit`, not
 `/audit`), it reaches Claude Code only, and it does **not** install the `templates/` tree that
-all sixteen commands cite by path — so the phase-driven ones like `/refract:setup-project` will not
+all seventeen commands cite by path — so the phase-driven ones like `/refract:setup-project` will not
 find their phase files. Treat the plugin as
 a way to browse and try the light commands; treat the sync above as the install.
 
@@ -149,7 +149,7 @@ line at the bottom.
 Sixteen global commands. Each takes an optional scope — omit it for the whole project, or pass a
 path or a plain-English description of the area you mean.
 
-![The sixteen global commands grouped by intent — /do routes to the rest; create, plan, improve, integrate and maintain groups; plus the --plan handoff to /execute-plan and /verify-plan](assets/command-map.svg)
+![The seventeen global commands grouped by intent — /do routes to the rest; create, plan, improve, integrate and maintain groups; plus the --plan handoff to /execute-plan and /verify-plan](assets/command-map.svg)
 
 | Command | What it does |
 |---|---|
@@ -217,7 +217,7 @@ re-verify rather than silently shipping a broken translation.
 | **24 packs** | Role-based knowledge tracks, not framework tracks |
 | **99 agents** | Specialised reviewers and architects |
 | **234 skills** | Reusable procedures, as `<name>/SKILL.md` |
-| **184 commands** | 16 global + 168 pack-level |
+| **185 commands** | 17 global + 168 pack-level |
 | **35 domains** | auth, payment, multi-tenant, real-time, search, ledger, … |
 | **12 adapters** | One per supported tool |
 | **151 scripts** | Validators, linters, sync, search and audit tooling |
@@ -260,7 +260,7 @@ are printed for you to paste.
 
 ```
 refract/
-├── commands/                # the 16 global commands
+├── commands/                # the 17 global commands
 ├── templates/
 │   ├── repo-baseline/       # copied into every new repository
 │   ├── workspace-baseline/  # multi-repo workspaces (dispatcher, cross-repo commands)

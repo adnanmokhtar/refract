@@ -318,6 +318,7 @@
 .claude/templates/snippets/phase-3-always-reads.md  329eb1f3d27d58fb32d9e1d6f0d65863e440abff537f1b5adac600b554b7dfb2
 .claude/templates/snippets/plan-flag.md  1465561082849d5974b504a46b7f5fab0fd4167a1567572590c39cbd28d7753c
 .claude/templates/snippets/plan-flag.md  86ddc9f0e7d7d2f2ea68c90f7cf23ecfc280a3a703d1c2c5d1484d0c8990e261
+.claude/templates/snippets/plan-flag.md  b3a0e6e0e3ce81ebcfe71c1ead2802bf4de0e894b859e5468593b49463fccfed
 .claude/templates/snippets/postcondition-check.md  cf5d9f2898658013abeb70decd1593a08db9ecc9c94d4d689f712947a1241178
 .claude/templates/snippets/posting-bar.md  11eb6253de5a0e3e8d602d33b4ac035c6c2add3e5dad9c50c92d4a06b33732fb
 .claude/templates/snippets/posting-bar.md  d33c3ffd4f08d3ed580988bddb0c579ca032df3d13d583e24f3196bd757c5ef8

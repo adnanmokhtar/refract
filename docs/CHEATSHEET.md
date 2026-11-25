@@ -4,13 +4,13 @@
 > The CI gate `gen-cheatsheet.py --check` turns drift red, so this stays in lock-step with the command files —
 > add or change a command and re-run the generator. Full prose lives in [`COMMANDS.md`](COMMANDS.md) + [`REFERENCE.md`](REFERENCE.md).
 
-**230 commands** — core 16 · 24 packs (168) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
+**231 commands** — core 17 · 24 packs (168) · domains 36 · baseline 10. Every field is derived from the command file (H1 + frontmatter); flags exclude not-supported / script / runner tokens.
 
 Columns: **Command** (with its arg signature shown in the example) · **Summary** (first sentence of the command's description) · **Flags** (`—` = none documented) · **Example**.
 
 ## Sections
 
-- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 16
+- [Core commands — global, run anywhere](#core-commands--global-run-anywhere) — 17
 - [Pack — ai-engineering](#pack--ai-engineering) — 3
 - [Pack — algorithms](#pack--algorithms) — 2
 - [Pack — align](#pack--align) — 13
@@ -46,6 +46,7 @@ Columns: **Command** (with its arg signature shown in the example) · **Summary*
 | `/audit` | Rank what is WRONG with code that already exists, across eight engineering axes at once. | `--target-rps=<N>`, `--target-p95=<ms>`, `--plan-only`, `--assess`, `--target-vitals=<spec>`, `--target-cold-start=<ms>`, `--target-startup=<ms>`, `--target-bundle=<bytes>`, `--focus`, `--status`, `--resume`, `--reset`, `--refresh`, `--re-audit`, `--restart`, `--ignore-ledger`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--surface=<list>`, `--concern=<list>`, `--exclude=<scope>`, `--surface-blockers`, `--skip-p4` | `/audit --target-rps=50000 --target-p95=120` |
 | `/delegate` | Dispatch ONE bounded coding task to a different AI coding CLI, then review its diff and land it. | `--to=<cli>`, `--read-only`, `--gate=<cmd>`, `--model=<id>`, `--session=<id>`, `--max-rounds=<N>`, `--plan`, `--files=<globs>`, `--allow-dirty`, `--timeout=<dur>`, `--dry-run`, `--repo` | `/delegate "extract the retry/backoff duplication in src/clients/ into one helper" --to=codex --gate="npm test"` |
 | `/do` | Route one natural-language request to the right specialized command, then run it. | `--route-only` | `/do enhance the sidebar with cleaner padding` |
+| `/merge-to` | Merge open PRs into the branch a person names, after checking what they break together — migration… | `--dry-run` | `/merge-to staging — 4 merged · 1 open fix · ready for your word` |
 | `/optimize` | Diagnose architecture first, then sweep code quality and measured performance. | `--plan`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--strict`, `--quiet`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--surface-blockers` | `/optimize the orders module` |
 | `/polish` | Introduce finish the project does not have yet, on the axis its PROJECT_KIND dictates. | `--plan`, `--direction`, `--status`, `--resume`, `--reset`, `--refresh`, `--ignore-ledger`, `--re-audit`, `--restart`, `--dry-run`, `--allow-dirty`, `--max-parallel=<N>`, `--focus=<list>`, `--exclude=<scope>`, `--no-iterate`, `--surface-blockers`, `--stack=<override>` | `/polish the orders module` |
 | `/refactor` | Apply the closed Fowler verb set to ONE named file, module, or symbol. | `--plan`, `--dry-run`, `--allow-dirty`, `--status`, `--resume`, `--strict`, `--quiet`, `--phase-base=<git-ref>`, `--ledger=<path>` | `/refactor [<scope>]` |
