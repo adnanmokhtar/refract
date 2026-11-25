@@ -9,6 +9,19 @@ was previously the `changelog` object inside `_version.json` — history buried 
 literals, neither diffable nor greppable. Every entry below is reproduced verbatim; nothing was
 condensed.
 
+## 2.2.0 — 2026-11-26
+
+**`/check-health` keeps the audits fresh.** The weekly pulse read the quality and test audit
+reports and nothing else, and nothing ran it weekly. It now reads three more reports:
+- `/audit-business` (business pack), the only row for status edges, money and stock balance, and
+  inverses;
+- `/security-audit` (security pack);
+- `/perf-audit` (performance pack).
+
+A missing report, or one older than 30 days, is AMBER and names the audit to run. A new
+§ *Run it every week* gives the two ways to schedule it (`/schedule` or `/loop 7d`). It also
+points to `/task add` to file the report's items as cards.
+
 ## 2.1.1 — 2026-10-18
 
 - `/quality-audit` gains a ledger row: naming (M17) → align `naming-layout-scan` §1–§2 (N/A without align); convention-rule suppressions go to align `convention-ratchet-scan` §1. `error-handling-scan` no longer expects align to dispatch it.

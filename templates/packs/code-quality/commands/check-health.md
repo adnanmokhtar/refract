@@ -94,6 +94,8 @@ If any step fails: STOP, do not run agents. Fix mechanical first.
 - `ui-reviewer` — frontend track present.
 - `schema-reviewer` — DB migrations present.
 - **Tests (suite quality)** — read the latest `ai/audits/<YYYY-MM-DD>-tests.md` that `/test-audit` wrote (testing pack, when installed); do not re-run the audit here. Its verdict is the row: `NO-GO` → RED, `GO-UNVERIFIED` → AMBER with its open items named, `GO` → GREEN. No report, or one older than 30 days → AMBER `not audited — run /test-audit`. Without the testing pack → `UNREVIEWED(tests) — testing pack not installed`. The mechanical Tests row says the suite passed; this row says whether passing means anything.
+- **Business rules** — read the latest `ai/audits/<YYYY-MM-DD>-business.md` that `/audit-business` wrote (business pack, when installed); do not re-run the audit here. Its verdict is the row, mapped as for Tests. No report, or one older than 30 days → AMBER `not audited — run /audit-business`. Status edges nobody guards, money or stock that does not balance and a forward action with no inverse live here; no other row on this grid reads them.
+- **Security and performance audits** — the latest `ai/audits/<YYYYMMDD>-security.md` (`/security-audit`, security pack) and `ai/audits/<YYYY-MM-DD>-perf.md` (`/perf-audit`, performance pack), each mapped as for Tests, beside the agent rows above. No report, or one older than 30 days → AMBER `not audited — run /<command>`.
 
 **Missing-agent contract (applies to every agent above):** if a named agent is not installed in this project, that axis is **not reviewed** — do not grade it yourself. Report it in the verdict as `UNREVIEWED(<axis>) — <agent> not installed (<pack> pack)`; the health check is **INCOMPLETE**, never GREEN on that axis, and names the install that closes it (`/setup-project --include=<pack>`). A skipped axis scores GREEN by absence, which is the worst failure mode for a health check: it reads as "clean" when it was never checked. (Same discipline as `review-changes.md` § Phase 6 missing-agent contract.)
 
@@ -154,6 +156,18 @@ Then:
 ## What to do next — required closing section
 
 Every run MUST end its report with a `## What to do next` block: the health findings re-expressed as ONE ordered, numbered to-do — **MUST FIX** (RED items — blockers that hold the overall verdict at RED) → **SHOULD FIX** (AMBER items — fix now unless you have a reason not to) → **OPTIONAL** (GREEN-with-nits — safe to defer) — each step carrying `<file:line>` + **Fix** (concrete — the named fix / command / pattern, never "consider X") + **Verify** (required on every MUST-FIX step; the mechanical check or test that flips it green), then the closing steps (re-run `/check-health` to confirm the verdict comes back GREEN, `/learn-from-task`, then declare the milestone / proceed). A clean run collapses to a single line ("All GREEN — no blockers"). This is the block shown inside the ```Output``` fence above — it *replaces* the bare `Top 3` list rather than following it: the reader must never reassemble next steps from the RAG grid themselves. Canonical contract: [`templates/snippets/review-action-plan.md`](../../../snippets/review-action-plan.md).
+
+## Run it every week
+
+A weekly pulse only works when something runs it. Pick one:
+- **A scheduled routine:** `/schedule` → "every Monday 08:00, run `/check-health` on this repo".
+  It runs in the cloud against the pushed default branch.
+- **A session that stays open:** `/loop 7d /check-health`.
+
+Every audit row older than 30 days becomes a SHOULD FIX item that names the audit to run, so the
+weekly pulse is what keeps the audits themselves fresh. To put the MUST FIX and SHOULD FIX items on
+the board: `/task add ai/audits/<YYYY-MM-DD>-health-check.md` (the cards land in `addTo`, never a
+pick list).
 
 ## Failure modes
 

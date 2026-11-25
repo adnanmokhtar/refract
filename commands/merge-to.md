@@ -3,7 +3,7 @@ description: Merge open PRs into the branch a person names, after checking what 
 compatibility: Requires git and an authenticated `gh` for the repo, and PRs open against the target. Reads .claude/task-flow.json (git.branchFrom, git.prTo, git.conflictBranch) and .claude/testing.json (stage1, stage2) when present; runs the testing pack's coverage-gap skill and /walk-scenarios when they are installed.
 kind: command
 pack: orchestration
-version: 1.1.0
+version: 1.2.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 disable-model-invocation: true
 ---
@@ -146,6 +146,25 @@ Report a **finding** only with a concrete scenario: the inputs or state, the wro
 hits, how big. Anything without one is **a point to check**. When the session can start agents,
 give each overlapping pair to its own agent with both diffs and both intents, not this run's guess.
 
+### Tester list
+A person tests the integration branch before the release. Give them one list of what arrives in
+this merge:
+- **Integration target:** the PRs this run merges.
+- **Release target:** every PR the integration branch brings that the release branch does not hold
+  yet, found from the merge commits in `git log origin/<target>..origin/<integration>`.
+
+For each PR, take:
+- its card, from the card link in the PR body, or from the `/task` line in `ai/_history.md` whose
+  `branch=` names the PR's head;
+- the card's latest `/task` tester comment, which holds the how-to-test steps. Without a card, use
+  the PR body's test section.
+
+Add every open BREAKS and UNCLEAR case from the scenario walk.
+
+Write the list to `ops-local/merge-to/<YYYY-MM-DD>-<target>-tests.md`. `ops-local/` is gitignored;
+add it to `.gitignore` the first time. The report prints the path and the count.
+`/merge-to main --dry-run` is the way to get the list before you decide.
+
 ### Where a fix goes
 - **A defect of ONE PR** (wrong even alone) → fixed on that PR's own branch, so its other PRs carry
   the fix too. Then the combined tree is rebuilt and Phase 3 runs again for it.
@@ -159,7 +178,7 @@ Fixes go through `/fix-bug` where the project has it. A point to check is report
 
 ## Phase 3.5 — `--dry-run`
 Stop here: print the order, the conflicts and how they would be resolved, the combined test, the
-changed and untested points and the review. Under `--dry-run`, Phase 2's renames and merge
+changed and untested points, the review and the tester list. Under `--dry-run`, Phase 2's renames and merge
 branches stay in local worktrees: nothing is pushed or merged, no PR is opened, and the worktrees
 are removed here.
 
@@ -206,6 +225,7 @@ Conflicts: #47 → #52 (merge/fix-sender-into-staging) — locales/en.json resol
 Combined:  stage 2 over the incoming diff — PASS (212 tests)
 Untested:  3 changed and untested points — <file:line> · <file:line> · <file:line>
 Scenarios: 2 flows · 24 cases · 1 breaks — ai/scenarios/<flow>.md
+Test list: 6 cards — ops-local/merge-to/<date>-staging-tests.md
 Review:    1 finding — #44 × #38: <inputs> → <wrong outcome>; hits <who>; fix PR #53 (open)
            2 points to check — <one line each>
 Not merged: #45 (draft)

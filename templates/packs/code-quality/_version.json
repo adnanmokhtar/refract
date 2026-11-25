@@ -1,10 +1,10 @@
 {
   "kind": "pack",
   "name": "code-quality",
-  "version": "2.1.1",
-  "released": "2026-10-18",
+  "version": "2.2.0",
+  "released": "2026-11-26",
   "min_setup_command": "3.0.0",
   "deprecated": false,
-  "summary": "quality-audit routes naming (M17) to align naming-layout-scan; suppression-scan and error-handling-scan name their align owners.",
+  "summary": "/check-health reads the business, security and performance audit reports beside tests and quality, flags any older than 30 days, and says how to run it weekly (/schedule or /loop) and file its items (/task add).",
   "changelog": "CHANGELOG.md"
 }

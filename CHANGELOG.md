@@ -6,6 +6,18 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### The weekly pulse keeps the audits fresh; `/merge-to` writes the tester list (2026-11-26)
+
+- **`/check-health` (code-quality 2.2.0)** reads three more audit reports beside quality and tests:
+  `/audit-business`, `/security-audit` and `/perf-audit`. A missing report, or one older than 30
+  days, is AMBER and names the audit to run. A new section says how to run it every week
+  (`/schedule` or `/loop 7d`) and how to file its items with `/task add`.
+- **`/merge-to` 1.2.0** writes one tester list per merge to
+  `ops-local/merge-to/<date>-<target>-tests.md`. It holds each arriving card's how-to-test steps,
+  taken from its `/task` tester comment, plus the scenario walk's open cases. Into the release
+  branch, the list covers everything the integration branch brings, and `--dry-run` produces it
+  before the decision.
+
 ### `/task` 1.6.0 — `add` turns a plan or report into cards (2026-11-26)
 
 Every audit, `/roadmap` plan and `/walk-scenarios` sheet ends in a list of work, and nothing put it
