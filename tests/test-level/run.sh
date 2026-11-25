@@ -31,6 +31,10 @@ for f in "$TL" "$GC" "$ROOT/scripts/test-level.py"; do
   [ -f "$f" ] || { echo "test-level test: missing $f"; exit 2; }
 done
 command -v git >/dev/null 2>&1 || { echo "test-level test: git is not on PATH"; exit 2; }
+# A CI runner has no git identity, and its hostname has no domain to guess one from, so every
+# commit here failed there while passing on a machine with ~/.gitconfig. Name one for this test.
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid
+export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/test-level-test.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
