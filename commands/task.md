@@ -3,7 +3,7 @@ description: Execute ONE tracker item end to end and write its status back to th
 compatibility: Requires a task-provider MCP in .mcp.json OR that provider's credentials in .env. A healthy MCP is used first; on 401 or a missing MCP it falls back to the provider's REST API over the .env creds, and it halts only when neither exists. Several providers configured plus an ambiguous ref costs one question. Write-back only moves a card forward or comments — it never deletes or downgrades.
 kind: command
 pack: orchestration
-version: 1.3.0
+version: 1.4.0
 allowed-tools: [Read, Write, Edit, Grep, Glob, Bash]
 ---
 
@@ -161,7 +161,7 @@ audited — before the next is fetched.** Stops when:
 4. **Fetch + normalize** to the canonical **TaskSpec** over whichever channel works (MCP or REST), using that provider's adapter (field map in the reference doc). Read title, description, checklist/sub-issues, attachments metadata, labels, **every comment**, current status, and the status-flow target names. Trello does not return comments with the card — fetch them separately (`/cards/<id>/actions?filter=commentCard`), oldest first.
 5. **Read the comments as part of the requirements**, on every card in every list — people clarify, narrow and add scope in comments far more often than they edit the description:
    - A human comment that clarifies, adds or changes what is wanted is requirement text — it joins the description and can add AC.
-   - **Conflict → the newest human statement wins** over the description and older comments; name the conflict and which one was followed in the echo and in the finish comment.
+   - **Conflict → the newest human statement wins** over the description and older comments; name the conflict and which one was followed in the echo and in the questions comment (Phase 5).
    - **`/task`'s own earlier comments** (they end with the reference line, or open with a commit SHA in the older format) are history — what was tried and where it stopped — never new requirements. They post under the token owner's name, so the author alone does not tell them apart.
    - Questions in comments that nobody answered → carry them into the echo; a question that blocks the work is the one scoping question.
    - Links and Drive files in comments are attachments (Phase 3).
@@ -244,13 +244,17 @@ the run ends before Phase 4 dispatches, so it never reaches the start-move eithe
 ## Phase 5 — Update (write back to the source)
 Skipped entirely under `--prompt-only` (nothing was executed). Otherwise, unless `--no-writeback`:
 - **On start** — move the source to its `statusFlow.start` (Trello list / Jira transition / Linear state / GitHub `in-progress` label).
-- **Under «من غير كومنت»** the finish comment below is not posted, and no halt comment either; the moves still happen, and the report to the person carries what the comment would have said.
-- **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post ONE comment via the adapter's comment verb. **Its reader is the tester, not a developer** — write it in the card's language:
+- **Under «من غير كومنت»** neither finish comment below is posted, and no halt comment either; the moves still happen, and the report to the person carries what the comments would have said, questions included.
+- **On finish — only after Phase 6 has run.** The finish write-back reports what Phase 6 validated; it never precedes it, and a card is never moved on the strength of "the routed command said done". Post the **tester comment**, then — only when something needs an answer — a separate **questions comment**, both via the adapter's comment verb and in the card's language. Never put a question inside the tester comment: under the test steps it gets lost.
+
+  **The tester comment.** Its reader is the tester, not a developer, and it is short — read in a minute, no paragraph of background:
   1. What changed in one plain line (for a bug, the cause in one plain sentence). No commit SHA and no "will reach the server with the next deploy" here — the review list already says it is not deployed.
   2. The per-AC ✓/✗ checklist from Phase 6.
   3. **«How to test»** — numbered steps in the product's own UI: where to go, what to do, what should happen. Include the edge case the fix is about (the input that used to break) and any data the tester needs.
   4. Checks — **only what a tester can act on**, and never what ran on this machine (§ *Words after the ref*). A passing suite is not mentioned: test counts, file counts and "failed before / passes after" belong in the commit message and `ai/_history.md`. A failing or skipped check gets one line saying what failed. gate-check's `verdict:` line appears only when the project has `gate-check.py`; **no gate script → no verdict line**, since «verdict: UNVERIFIED» on a shared board reads to a tester as "not verified" (the missing gate goes in the local audit line).
   5. Last, one small reference line: the commit SHA(s) or PR link (`Ref: e88913e4d`, in the card's language) — with a `git` block, the branch name and each PR link. It is for the developer who checks whether the deployed build carries the fix when a tester reports it still broken. Tick completed checklist items / close sub-issues.
+
+  **The questions comment** — posted after the tester comment, and only when there is something to ask: a question on the card nobody answered, a conflict the newest statement settled (Phase 1), an assumption made where the card was silent, a card too thin to verify (Phase 7). It opens with one line, «أسئلة» / «Questions» in the card's language, then one numbered question per line, each answerable with a word or a choice, followed by what was done meanwhile («افترضت X — لو غلط قول»). Nothing to ask → no second comment.
 - **Move** to `statusFlow.review` by default (a human verifies). Move to `statusFlow.done` only when ALL hold: `task-flow.json` does not set `done: null`; `--review-only` is NOT set; Phase 6 validated every AC ✓; and `python3 .claude/scripts/gate-check.py --local` ended `verdict: PASS` for the committed change (evidence in `.claude/evidence/<sha>/`). A `FAIL` or `UNVERIFIED` verdict moves to Review with that line in the comment; a project with no `gate-check.py` moves to Review with no verdict line — never to Done either way. **Never delete** a card/issue.
 - **Write-back is post-execution — the work is already done and committed.** A failed status move / comment post (MCP error, REST 4xx/5xx, network) must NOT lose the work or leave the user without a record. When write-back fails AFTER execution:
   1. Do NOT halt silently and do NOT retry-loop forever (one retry max).
@@ -268,7 +272,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 
 ## Phase 7 — Improve (feed the loop)
 - If the same provider+pattern recurs, suggest `/task next` looping or a scheduled drain.
-- If a card was under-specified (empty AC, vague title) and needed a question, note it — the fix is in the ticket-writing, surface that back in the comment.
+- If a card was under-specified (empty AC, vague title) and needed a question, note it — the fix is in the ticket-writing, surface that back in the questions comment.
 - New provider needed? Point to the extension steps in the task-providers reference.
 
 ## Hard rules
@@ -278,7 +282,7 @@ Runs BEFORE Phase 5's finish write-back: the on-start move happens before the wo
 - **The full run only when named.** No level, no red stage and no missing command ever turns into `full`; and local test results never go on the card or the PR.
 - **Read adapters, don't hard-code.** Provider field maps + status verbs come from `templates/integrations/task-providers.md`; tool names are discovered at runtime.
 - **Never delete; never silently downgrade.** Write-back moves forward (start→review→done) or comments; destructive ops are out of scope.
-- **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not. The tracker comment is written for the tester: how to test it, and only the checks they can act on — no gate script, no verdict line.
+- **Validate before write-back; Done needs a passing gate.** The finish move follows Phase 6, defaults to Review, and reaches Done only on gate-check `verdict: PASS` with every AC ✓. A card in Done that no gate passed tells the board the work was verified when it was not. The tracker comment is written for the tester: how to test it, and only the checks they can act on — no gate script, no verdict line. Questions go in their own comment after it, never inside it.
 - **Faithful execution.** The routed description preserves the card's intent verbatim — no scope drift, no silent omission of AC, and no human comment left unread.
 - **Secrets stay in `.env`.** `/task` reads creds only via the provider MCP's env; it never prints or echoes tokens.
 

@@ -6,6 +6,21 @@ The format is loosely inspired by Keep a Changelog. Versions follow Semantic Ver
 
 ## [Unreleased]
 
+### `/task` 1.4.0 — questions get their own comment on the card (2026-11-25)
+
+On a real board, a question asked inside the finish comment sat under the test steps, and the
+card owner missed it. `/task` now posts two comments:
+
+- **The tester comment** holds what changed, the AC list, how to test it and a reference line. It
+  is kept short.
+- **The questions comment** follows it, and only when something needs an answer: an unanswered
+  question on the card, a conflict the newest statement settled, an assumption made where the
+  card was silent, or a card too thin to verify. It has one numbered question per line, and each
+  says what was done meanwhile.
+
+With nothing to ask, there is no second comment. «من غير كومنت» posts neither, and the report
+to the person carries both.
+
 ### The Stop gate blocks once per tree (2026-11-20)
 
 Measured on a real repo after `/setup-project --refresh`: the project's stage-2 command refuses an
